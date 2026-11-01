@@ -53,7 +53,7 @@ func SetClock(server *Server, set clock.Clock) {
 // masquerades traffic between the machine's own addresses, so a pair through one of them showed the
 // server another address than the client's, and the test depended on the machine's containers.
 func AnswerOnLoopback(server *Server) {
-	engine := settings()
+	engine := settings(server.pacer)
 	engine.SetIncludeLoopbackCandidate(true)
 	engine.SetIPFilter(func(ip net.IP) bool { return ip.IsLoopback() })
 	server.api = webrtc.NewAPI(webrtc.WithSettingEngine(engine))
@@ -76,3 +76,11 @@ var IsFromOutside = isFromOutside
 
 // ChecksRelayed is checksRelayed.
 func (server *Server) ChecksRelayed(ip net.IP) bool { return server.checksRelayed(ip) }
+
+// SetPacerClock has server's pacer time its waits by set: a fake clock's time then moves on by
+// every wait the pacer makes.
+func SetPacerClock(server *Server, set clock.Clock) {
+	server.pacer.mutex.Lock()
+	defer server.pacer.mutex.Unlock()
+	server.pacer.clock = set
+}

@@ -33,6 +33,15 @@
 //     and SCTP's bytes sent and received, congestion window, smoothed round trip, receiver window and
 //     packet size at the end. pion keeps its retransmission and T3 timeout counts unexported, so the
 //     line has none (D397). TestEnded_AConnectionLogsItsSCTPFiguresAsItEnds.
+//   - What a connected connection sends goes through the pacer, every socket ICE opens and the LAN
+//     port's under its mux: to the client's end at most twice its window a smoothed round trip, never
+//     above 300 Mb/s, in bursts of at most 16 KiB, so Chrome's 64 KiB socket buffer is not overrun.
+//     A relayed connection's sends to its TURN server, STUN and ICE's checks are not paced. The
+//     kernel paces UDP only under fq, so this is not internal/platform/pacing's job (D397).
+//     TestPacer_PacesWhatAConnectionSends, TestPacer_HoldsAFollowedAddressToItsRateAndBurst,
+//     TestPaceRate_IsTwiceTheWindowARoundTripUnderTheCeiling, TestPacer_LetsAnUnfollowedAddressGoAtOnce.
+//   - A response's channel waits only past 8 MiB buffered, down to 4 MiB, so the client's whole
+//     credit can be in flight (D397). TestBuffered_LetsTheClientsWholeCreditBeInFlight.
 //   - Requests on their own channels are answered at once, none waiting for another.
 //     TestChannel_RequestsOnTheirOwnChannelsAreAnsweredAtOnce.
 //   - A head that is not one, a body over MaxRequestBodyBytes, or a path naming another host is
@@ -108,5 +117,5 @@
 //     proven_home.go: a connection proven at home (D356);
 //     channel.go: reading a request;
 //     writer.go: sending a response; message.go: a request that became a WebSocket; ended.go: the
-//     line a connection logs as it ends.
+//     line a connection logs as it ends; pacer.go: the pacing of what connections send.
 package rtcapi

@@ -2110,6 +2110,22 @@ An item is ticked only by the person who did it, and only with what they saw.
   `discovery-sign sign-release` on the Mac shows the same release and signs it. Without
   `PUBLISHER_PLACE` the two steps are skipped and the image publishes as before.
   (`.github/workflows/release-image.yml`)
+- [ ] **VQ232** — Chrome on the Mac reads over WebRTC near Firefox's rate (D397). Deploy the core and
+  the web client together. On the Mac, run the Throughput probe over WebRTC in Chrome, then in
+  Firefox, from the same network, three times each. Passes when Chrome's figure is at least 70% of
+  Firefox's (before: Chrome a fraction of it), and the core's log has one `rtc connection ended` line
+  per connection the probe used, with its path, `durationMs`, `bytesSent`, `cwndBytes`, `srttMs`,
+  `rwndBytes` and `mtu`. Note the figures, Chrome's and Firefox's, and the end lines' `cwndBytes` and
+  `srttMs`, in D397. In Chrome's `chrome://webrtc-internals` the connection shows a video
+  transceiver that receives nothing. (`internal/core/rtcapi/pacer.go`,
+  `internal/core/rtcapi/video.go`, `internal/core/rtcapi/ended.go`,
+  `web/packages/sdk/src/rtc-connect.ts`)
+- [ ] **VQ233** — a Fire TV reads over WebRTC faster than before (D397). Deploy the core and the web
+  client together. On the Fire TV, run the Throughput probe over WebRTC three times. Passes when its
+  figure is above the one noted before this change (record both in D397), playback of a film over
+  WebRTC starts and plays as before, and the core's log has its `rtc connection ended` lines, as in
+  VQ232. (`internal/core/rtcapi/pacer.go`, `internal/core/rtcapi/video.go`,
+  `web/packages/sdk/src/rtc-connect.ts`)
 - [ ] **VQ210** — staging's core enrols with staging's discovery by its issuer and identity (D391 §3,
   D393 §4). Owed first: staging connect publishes its root chain and a signed address document at
   its issuer's `/.well-known/` paths (connect's change, after VQ211's ceremony for staging's keys). On

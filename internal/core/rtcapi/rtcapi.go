@@ -104,6 +104,8 @@ type Server struct {
 	clock clock.Clock
 	// bounds are the bounds on each connection: the constants above, shorter in the tests.
 	bounds bounds
+	// pacer paces what the connections send (pacer.go).
+	pacer *pacer
 
 	// iceServers are the STUN and TURN servers a connection gathers its candidates through: its
 	// discovery's (D274); none gathers only the core's own addresses.
@@ -194,9 +196,11 @@ func (server *Server) AcceptsAnyRelayedAddress() bool {
 
 // New returns a server whose channels' requests handler serves, until ctx ends.
 func New(ctx context.Context, handler http.Handler, logger *slog.Logger) *Server {
+	paced := newPacer(ctx, clock.System{})
+	go paced.run()
 	server := &Server{
-		ctx: ctx, handler: handler, logger: logger, clock: clock.System{},
-		api: webrtc.NewAPI(webrtc.WithSettingEngine(settings())),
+		ctx: ctx, handler: handler, logger: logger, clock: clock.System{}, pacer: paced,
+		api: webrtc.NewAPI(webrtc.WithSettingEngine(settings(paced))),
 		bounds: bounds{
 			connections:   DefaultMaxConnections,
 			connectWithin: connectWithin, perSource: perSourceLimit, channels: channelLimit,
@@ -220,7 +224,7 @@ func (server *Server) ListenLAN(port int, lanIPs []netip.Addr) error {
 	if err != nil {
 		return fmt.Errorf("listen for WebRTC on UDP port %d: %w", port, err)
 	}
-	mux := webrtc.NewICEUDPMux(nil, conn)
+	mux := webrtc.NewICEUDPMux(nil, pacedPacketConn{PacketConn: conn, pacer: server.pacer})
 	external := make([]string, 0, len(lanIPs))
 	for _, address := range lanIPs {
 		external = append(external, address.Unmap().String())
@@ -233,7 +237,7 @@ func (server *Server) ListenLAN(port int, lanIPs []netip.Addr) error {
 		})
 		return engine, ruleErr
 	}
-	own, err := onLAN(settings())
+	own, err := onLAN(settings(server.pacer))
 	if err != nil {
 		return errors.Join(fmt.Errorf("offer the house's addresses: %w", err), mux.Close())
 	}
@@ -252,7 +256,7 @@ func (server *Server) ListenLAN(port int, lanIPs []netip.Addr) error {
 // relayedSettings are a relayed connection's: every connection's, checking only the remote
 // addresses checksRelayed takes.
 func (server *Server) relayedSettings() webrtc.SettingEngine {
-	relayed := settings()
+	relayed := settings(server.pacer)
 	relayed.SetRemoteIPFilter(server.checksRelayed)
 	return relayed
 }
@@ -260,10 +264,13 @@ func (server *Server) relayedSettings() webrtc.SettingEngine {
 // settings are every connection's: the congestion window's growth, and what a client may send. A
 // browser closing its connection sends DTLS close_notify, on which pion closes the connection itself,
 // dropping SCTP's association before its end could be logged (logEnded): the core closes it instead
-// as its SCTP ends.
-func settings() webrtc.SettingEngine {
+// as its SCTP ends. Every socket ICE opens sends through paced (pacer.go).
+func settings(paced *pacer) webrtc.SettingEngine {
 	engine := webrtc.SettingEngine{}
 	engine.DisableCloseByDTLS(true)
+	if network, err := newPacedNet(paced); err == nil {
+		engine.SetNet(network)
+	}
 	engine.SetSCTPCwndCAStep(cwndStepBytes)
 	engine.SetSCTPMaxReceiveBufferSize(sctpReceiveBytes)
 	engine.SetSCTPMaxMessageSize(MaxMessageBytes)
@@ -365,7 +372,7 @@ func (server *Server) open(api *webrtc.API, onProvenAtHome func(ProvenAtHome)) (
 			unconnected.Stop()
 			own.keep(connection.GetStats())
 			pair := selectedPair(connection)
-			held.end.connected(server.recordSelectedPath(pair, server.clock.Now().Sub(openedAt)), server.clock.Now())
+			server.noteConnected(connection, pair, held, server.clock.Now().Sub(openedAt))
 			server.tellIfProvenAtHome(pair, own.held(), onProvenAtHome)
 			server.holdWithinItsSourcesShare(connection, verdict)
 		}
@@ -518,6 +525,11 @@ func (server *Server) forget(connection *webrtc.PeerConnection) {
 	delete(server.connections, connection)
 	delete(server.sources, connection)
 	delete(server.held, connection)
+	if wasHeld {
+		if to := record.pacedTo.Load(); to != nil {
+			server.pacer.forget(*to)
+		}
+	}
 	if wasHeld && hadConnected {
 		server.logger.Info("rtcapi: a connection ended", "connection", record.name(),
 			"livedMs", server.clock.Now().Sub(record.openedAt).Milliseconds(),
