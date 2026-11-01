@@ -372,7 +372,10 @@ test("a guest signed in here joins Watch Together by its link on the discovery's
   }
 });
 
-/** How many of the page's WebRTC transport's connections are connected: those carrying data alone. */
+/**
+ * How many of the page's WebRTC transport's connections are connected: those with no audio, which a
+ * voice call's has; each transport connection has a video m-line that only receives (D397).
+ */
 async function transportConnected(page: Page): Promise<number> {
   return await page
     .evaluate(() => {
@@ -381,7 +384,7 @@ async function transportConnected(page: Page): Promise<number> {
         (each: unknown) =>
           each instanceof RTCPeerConnection &&
           each.connectionState === "connected" &&
-          each.getTransceivers().length === 0,
+          !each.getTransceivers().some((one) => one.receiver.track.kind === "audio"),
       ).length;
     })
     .catch(() => 0);
@@ -399,7 +402,7 @@ async function cutTransport(page: Page): Promise<void> {
       (each: unknown): each is RTCPeerConnection =>
         each instanceof RTCPeerConnection &&
         each.connectionState === "connected" &&
-        each.getTransceivers().length === 0,
+        !each.getTransceivers().some((one) => one.receiver.track.kind === "audio"),
     );
     for (const each of connected) {
       each.close();
