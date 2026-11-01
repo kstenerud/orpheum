@@ -7,8 +7,17 @@ import { afterEach, expect, it } from "vitest";
 
 import { People } from "./people.tsx";
 import { PersonPage } from "./person.tsx";
+import { RolePage } from "./role-page.tsx";
 import { Settings } from "./settings.tsx";
-import { buttonWithText, click, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import {
+  buttonContaining,
+  buttonWithText,
+  click,
+  mount,
+  servedBy,
+  type Heard,
+  type Mounted,
+} from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 /*
@@ -95,30 +104,34 @@ async function pressAndConfirm(
   expect(heard.map((each) => each.methodAndPath)).toContain(press.methodAndPath);
 }
 
-it("deletes a role, and withdraws an invitation, only when asked again", async () => {
+it("deletes a role from its page, and withdraws an invitation from its dialog, only when asked again", async () => {
   const heard: Heard[] = [];
-  const invitation = { id: 7, role: "friends", adminNote: "my cousin", issuedAt: 1, expiresAt: 2 };
-  mounted = await mount(
-    withServices(
-      <People />,
-      servedBy(
-        {
-          "GET /users": [200, { accounts: [] }],
-          "GET /roles": [200, roles],
-          "GET /libraries": [200, libraries],
-          "GET /invitations": [200, { invitations: [invitation] }],
-          "DELETE /roles/3": [204, null],
-          "DELETE /invitations/7": [204, null],
-        },
-        heard,
-      ),
-    ),
-  );
+  const invitation = {
+    id: 7,
+    role: "friends",
+    adminNote: "my cousin",
+    issuedAt: 1,
+    expiresAt: 2,
+    liveLinks: 1,
+    links: [{ secret: "s", expiresAt: 2 }],
+  };
+  const answers = {
+    "GET /users": [200, { accounts: [] }],
+    "GET /roles": [200, roles],
+    "GET /libraries": [200, libraries],
+    "GET /invitations": [200, { invitations: [invitation] }],
+    "DELETE /roles/3": [204, null],
+    "DELETE /invitations/7": [204, null],
+  } as const;
+  mounted = await mount(withServices(<RolePage roleId={3} />, servedBy(answers, heard)));
   await pressAndConfirm(heard, {
     label: "Delete the role",
     confirmLabel: "Delete it",
     methodAndPath: "DELETE /roles/3",
   });
+  mounted.unmount();
+  mounted = await mount(withServices(<People />, servedBy(answers, heard)));
+  await click(buttonContaining(mounted.container, "my cousin"));
   await pressAndConfirm(heard, {
     label: "Withdraw",
     confirmLabel: "Withdraw it",

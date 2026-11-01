@@ -47,6 +47,7 @@ import {
 } from "./polling.ts";
 import { ApiProblem, dataOrThrow, throwIfRefused } from "./problem.ts";
 import { PersonPage } from "./person.tsx";
+import { RolePage } from "./role-page.tsx";
 import { CastingLeft, TogetherLeft } from "./old-addresses.tsx";
 import { Register } from "./register.tsx";
 import type { Route } from "./router.ts";
@@ -384,6 +385,9 @@ function adminScreen(route: Route): JSX.Element | undefined {
   }
   if (route.screen === "person") {
     return <PersonPage key={route.userId} userId={route.userId} />;
+  }
+  if (route.screen === "role") {
+    return <RolePage key={route.roleId} roleId={route.roleId} />;
   }
   return librariesScreen(route);
 }

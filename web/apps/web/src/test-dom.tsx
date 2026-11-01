@@ -310,6 +310,14 @@ export function buttonWithText(
   return [...container.querySelectorAll("button")].find((each) => each.textContent === text);
 }
 
+/** The first button whose text holds text, as a list's row holds several words. */
+export function buttonContaining(
+  container: HTMLElement,
+  text: string,
+): HTMLButtonElement | undefined {
+  return [...container.querySelectorAll("button")].find((each) => each.textContent.includes(text));
+}
+
 /**
  * How long settleUntil and settleAnswers wait for real time before failing: a passing test never
  * reaches this, so it is set to the scale of Go's `testutil.ReceiveLimit` (a minute), not to a

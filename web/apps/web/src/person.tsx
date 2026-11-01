@@ -21,12 +21,8 @@ import { dateText } from "./date-time-text.ts";
 import { ActivateDevice } from "./device-activation.tsx";
 import { FormRow } from "./form-row.tsx";
 import { tenthsText } from "./number-text.ts";
-import {
-  IssuedInvitationView,
-  personWords,
-  registrationText,
-  type IssuedInvitation,
-} from "./people.tsx";
+import { IssuedInvitationView, type IssuedInvitation } from "./people.tsx";
+import { personWords, registrationText } from "./person-words.ts";
 import { dataOrThrow, fieldProblemText } from "./problem.ts";
 import { listRoles, roleLabel, setPersonsRole } from "./roles.ts";
 import { NoLibraryNote } from "./roles-section.tsx";

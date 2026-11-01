@@ -166,7 +166,7 @@ describe("accounts", () => {
     ]);
   });
 
-  it("lists who has registered, and shows a link with when it stops working", () => {
+  it("lists everyone with their note and role, and shows a link with when it stops working", () => {
     const list = renderToStaticMarkup(
       withServices(
         <PeopleList
@@ -177,10 +177,11 @@ describe("accounts", () => {
         />,
       ),
     );
-    expect(list).toContain("Has a password");
+    // Each row is its person's page, with the name, the admin's note and the role (D399).
     expect(list).toContain('href="/people/2"');
-    expect(list).toContain("Has not used their link yet");
-    expect(list).toContain("(Anna)");
+    expect(list).toContain("Anna");
+    expect(list).toContain("Can watch");
+    expect(list).toContain("Administrator");
     const link = renderToStaticMarkup(
       withServices(
         <Share text="https://x/register#s" invitation={{ secret: "s", expiresAt: 0 }} />,

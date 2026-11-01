@@ -88,20 +88,6 @@ export async function listInvitations(api: Api): Promise<Invitation[]> {
   return dataOrThrow(await api.GET("/invitations")).invitations ?? [];
 }
 
-/** Another link for an invitation still waiting; its other links stay live until one is used (D318). */
-export async function anotherInvitationLink(
-  api: Api,
-  invitationId: number,
-  idempotencyKey: string,
-): Promise<components["schemas"]["IssuedSecretBody"]> {
-  return dataOrThrow(
-    await api.POST("/invitations/{id}/links", {
-      params: { path: { id: invitationId } },
-      ...idempotent(idempotencyKey),
-    }),
-  );
-}
-
 /** Withdraws an invitation still waiting: none of its links admits anyone. */
 export async function withdrawInvitation(api: Api, invitationId: number): Promise<void> {
   throwIfRefused(await api.DELETE("/invitations/{id}", { params: { path: { id: invitationId } } }));
