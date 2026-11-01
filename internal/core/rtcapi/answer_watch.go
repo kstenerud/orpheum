@@ -118,7 +118,7 @@ func (watch *answerWatch) closed() {
 func (watch *answerWatch) logged(now time.Time, isHandedOver bool) []any {
 	fields := []any{
 		"connection", watch.connectionName(), "stream", streamOf(watch.channel), "label", watch.channel.Label(),
-		"path", watch.path, "isHandedOverWhole", isHandedOver, "sentBytes", watch.sentBytes,
+		pathField, watch.path, "isHandedOverWhole", isHandedOver, "sentBytes", watch.sentBytes,
 		"bufferedAtClose", watch.channel.BufferedAmount(),
 	}
 	if isHandedOver {

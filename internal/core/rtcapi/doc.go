@@ -28,6 +28,11 @@
 //     TestChannel_AChannelHeldOpenLongAfterItsAnswerIsLoggedByItsStream,
 //     TestAnswerWatch_LogsAChannelOnlyOnceItLingeredPastTheCoresLastByte,
 //     TestHeld_SaysHowSoonAStreamWasUsedAgain.
+//   - Each connection that connected logs one line as it ends, "rtc connection ended", read before
+//     pion drops its SCTP association: its connection, path, how long it lived since it connected,
+//     and SCTP's bytes sent and received, congestion window, smoothed round trip, receiver window and
+//     packet size at the end. pion keeps its retransmission and T3 timeout counts unexported, so the
+//     line has none (D397). TestEnded_AConnectionLogsItsSCTPFiguresAsItEnds.
 //   - Requests on their own channels are answered at once, none waiting for another.
 //     TestChannel_RequestsOnTheirOwnChannelsAreAnsweredAtOnce.
 //   - A head that is not one, a body over MaxRequestBodyBytes, or a path naming another host is
@@ -102,5 +107,6 @@
 //     a discovery passed on; path.go: the paths connections take; local_path.go: the hairpin warning;
 //     proven_home.go: a connection proven at home (D356);
 //     channel.go: reading a request;
-//     writer.go: sending a response; message.go: a request that became a WebSocket.
+//     writer.go: sending a response; message.go: a request that became a WebSocket; ended.go: the
+//     line a connection logs as it ends.
 package rtcapi

@@ -25,6 +25,8 @@ type heldConnection struct {
 	// the stream to say how soon (answerWatch).
 	streamsMutex   sync.Mutex
 	streamClosedAt map[uint16]time.Time
+	// end is what its end line needs, and whether it was said (logEnded).
+	end connectionEnd
 }
 
 // newHeldConnection is the record of the connection numbered number, opened at at.

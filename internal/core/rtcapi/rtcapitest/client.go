@@ -160,6 +160,13 @@ func (client *Client) Verdict() rtcapi.Verdict {
 	return verdict
 }
 
+// Close closes the client's connection as Chrome closing its peer connection does: DTLS's
+// close_notify, with no SCTP ABORT before it (headless Chromium against the core, 2026-11-01, D397).
+func (client *Client) Close() {
+	_ = client.connection.SCTP().Transport().Stop() //nolint:errcheck // closed either way
+	_ = client.connection.Close()                   //nolint:errcheck // closed either way
+}
+
 // AnswerSDP is the core's answer, as the client took it.
 func (client *Client) AnswerSDP() string {
 	return client.answerSDP

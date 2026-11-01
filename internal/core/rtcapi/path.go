@@ -38,6 +38,9 @@ const (
 	PathFailed Path = "failed"
 )
 
+// pathField is the log's field naming a connection's path.
+const pathField = "path"
+
 // Paths are every path, in the order the System page lists them.
 func Paths() []Path {
 	return []Path{
@@ -97,7 +100,7 @@ func (server *Server) recordPath(path Path, pair *webrtc.ICECandidatePair, took 
 	}
 	server.mutex.Unlock()
 	attributes := []any{
-		"path", string(path), "remote", endOf(pair, false), "remoteType", typeOf(pair, false),
+		pathField, string(path), "remote", endOf(pair, false), "remoteType", typeOf(pair, false),
 		"local", endOf(pair, true), "localType", typeOf(pair, true), "connectMs", took.Milliseconds(),
 	}
 	if path == PathHairpinnedIPv4 {
