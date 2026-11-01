@@ -1098,3 +1098,9 @@ cores." Answered: the edge VPS (`11.22.44.139`, orpheum-ops `edge/`) is not the 
 (prod-api, `178.84…`); it is the owner's own forwarder for nas.example, whose DS-Lite line has no IPv4 way
 in. No customer's core gets a tunnel (D314: a connection that needs a relay fails, and is counted);
 item 5 is the counting. Whether nas.example uses the edge again is the owner's own choice, not product work.
+
+**The owner's idea (2026-11-01), to be designed later, not the 11-02 batch:** a household may run its
+own proxy on its own VPS, which the discovery then names as a way to its core: the service still
+carries no one's traffic (D314), but a household behind DS-Lite or CGNAT can give its core an IPv4
+way in. nas.example's edge VPS (orpheum-ops `edge/`) is the test bed when it is designed. nas.example's own
+use of the edge waits until then (the owner: "We'll hold off on nas.example's edge server for now").
