@@ -996,6 +996,17 @@ chain, and the guided `add`/`remove` offer only recovery keys (`rootChange.next`
 root key audit (research, a dated record) is left as it was; D395 §1 says how its §3.6 rows 1–3 change.
 Still to do: the ceremony still asks whether a Mac is an everyday key, and `test-key` and the `mac` kind
 remain (D395 §3 says the Mac is no key): removing them is the next small change, asked of the owner first.
+**The production address document (the ceremony, 2026-11-01):** issuer and location
+`https://orpheum.cc`, as `suggested.go` compiles them into every core (D391 §7); name `Orpheum`; the
+API unmoved at `https://api.orpheum-app.com/core/v1` and `/client/v1` (D390 §4); the loader still
+`https://app.orpheum-app.com`, accounts `https://account.orpheum-app.com` and cores
+`https://{core}.orpheum-client.com`, as production connect serves them today, a new document (an
+everyday key's) moving them when D390's move happens; homepage `https://orpheum.mov` (D390 §6). On
+2026-11-01 neither `orpheum.cc` nor `orpheum.mov` resolved, so **before the deploy the owner points
+`orpheum.cc` at production connect** (Cloudflare zone and tunnel hostname), which serves the published
+directory at `/.well-known/orpheum-discovery`; until then no core can enrol with the suggested issuer.
+The ceremony's address defaults (`addressDefaults`, each field the issuer plus a path) fit no real
+deployment; offering the paid service's addresses instead is a small follow-up.
 The owner asked (2026-11-01) that an everyday key can never suspend itself by a wrong pick in a list. Two
 guards hold it already and are kept through the change: the guided tool never offers the key being
 suspended as its signer (`chooseSigner`; `guidedchange_test.go`), and a core refuses a statement signed
