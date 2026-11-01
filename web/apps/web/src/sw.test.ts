@@ -325,6 +325,26 @@ describe("the service worker under a loader (D308 §6)", () => {
     expect(page.asked).toHaveLength(2);
   });
 
+  it("asks the page again, once, for a file its first fetch lost, so a first visit's dropped file still loads (the owner's Firefox, 2026-11-01)", async () => {
+    const send = vi
+      .fn<(request: Request) => Promise<Response>>()
+      .mockResolvedValueOnce(answer("the connection dropped it", 503))
+      .mockResolvedValue(answer(script));
+    const page = pageOf("p", "webrtc", send);
+    const worker = await startWorker(
+      stores,
+      [page],
+      vi.fn<(request: Request) => Promise<Response>>(),
+    );
+    expect(await nameFiles(worker, [{ path: "assets/client-main.js", sha256 }])).toBe("kept");
+    await tell(worker, { kind: "orpheum-path", path: "webrtc" }, { source: "p" });
+
+    const answered = await load(worker, "/assets/client-main.js", { by: "p" });
+    expect(answered?.status).toBe(200);
+    expect(new Uint8Array(await (answered ?? Response.error()).arrayBuffer())).toEqual(script);
+    expect(page.asked).toEqual(["/assets/client-main.js", "/assets/client-main.js"]);
+  });
+
   it("takes a booting page's file from the network, kept only when it is the signed one", async () => {
     const page = pageOf("p", "http", () => Promise.reject(new Error("no path yet")));
     const network = vi.fn(() => Promise.resolve(answer(script)));
