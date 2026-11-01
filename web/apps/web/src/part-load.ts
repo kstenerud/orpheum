@@ -15,6 +15,8 @@
  */
 
 import type { StringStorage } from "./browser-storage.ts";
+import { loaderConfigOf } from "./loader-config.ts";
+import { loaderOf } from "./loader-interface.ts";
 import { leaveReloadNote } from "./reload-note.ts";
 
 /** How long the part's code is waited for before it is asked again (screen-load.tsx screenRetryMs). */
@@ -71,4 +73,28 @@ export async function loadPart(
     parts.reload();
     await new Promise<never>(() => undefined);
   }
+}
+
+/** The page's two parts, each loaded by its own import. */
+export interface PageParts {
+  readonly loader: () => Promise<unknown>;
+  readonly client: () => Promise<unknown>;
+}
+
+/**
+ * Loads the page's own part by loadPart (D308): one build, two roles. Every core serves it as its own
+ * client, and the discovery serves it as the loader, which finds a core and runs that core's own
+ * client in its place. The page says which it is: a discovery's page names its loader's
+ * configuration, and a client a loader runs finds the loader on the window.
+ */
+export async function loadOwnPart(
+  page: { readonly window: object; readonly document: Pick<Document, "querySelector"> },
+  imports: PageParts,
+  parts: PartLoadParts,
+): Promise<void> {
+  const isLoader =
+    loaderOf(page.window) === undefined && loaderConfigOf(page.document) !== undefined;
+  await (isLoader
+    ? loadPart("loader", imports.loader, parts)
+    : loadPart("client", imports.client, parts));
 }
