@@ -1007,6 +1007,14 @@ everyday key's) moving them when D390's move happens; homepage `https://orpheum.
 directory at `/.well-known/orpheum-discovery`; until then no core can enrol with the suggested issuer.
 The ceremony's address defaults (`addressDefaults`, each field the issuer plus a path) fit no real
 deployment; offering the paid service's addresses instead is a small follow-up.
+**Next batch, today (the owner, 2026-11-01: "I actually want to move to the new URLs now. It can be
+next batch, but I want this move to the new URLs done today"):** D390's move, in its §8 order: the
+relying-party setting and mail hygiene, staging onto `orpheum.dev`, then production's app at
+`orpheum.cc` and accounts at `account.orpheum.cc` (the API stays `api.orpheum-app.com`), mail from
+`noreply@orpheum.cc`, the old loader's retirement and the redirects, the website at `orpheum.mov`. Owed
+by the owner: the Cloudflare zones and tunnel hostnames, mail DNS. The production address document is
+therefore signed with the new addresses (loader `https://orpheum.cc`, accounts
+`https://account.orpheum.cc`), so it needs no re-signing after the move, and the deploy follows the move.
 The owner asked (2026-11-01) that an everyday key can never suspend itself by a wrong pick in a list. Two
 guards hold it already and are kept through the change: the guided tool never offers the key being
 suspended as its signer (`chooseSigner`; `guidedchange_test.go`), and a core refuses a statement signed
