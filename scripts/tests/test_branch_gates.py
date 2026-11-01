@@ -156,7 +156,7 @@ class CheckPrWiring(unittest.TestCase):
         self.assertFalse(revert_red_waits_for_the_tiers(beside))
 
     def test_every_branch_gate_resolves_its_base_the_one_way(self):
-        self.assertRegex(self.MAKEFILE, r"(?m)^check-pr:.*\n\t.*quiet_gate\.py .*check-pr-verbose")
+        self.assertRegex(self.MAKEFILE, r"(?m)^check-pr-locked:.*\n\t.*quiet_gate\.py .*check-pr-verbose")
         for target in ("check-pr-verbose", "check-pr-failed", "check-revert-red", "check-revert-red-failed",
                        "check-test-weakening", "check-decision-status", "lint-commits"):
             recipe = re.search(rf"^{target}:.*\n\t(.*)", self.MAKEFILE, re.M)

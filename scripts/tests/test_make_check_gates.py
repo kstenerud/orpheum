@@ -38,6 +38,13 @@ class PlaywrightPin(unittest.TestCase):
         # CI installs them in the development image, which holds their system libraries (D235 §2).
         self.assertIn("run: ./dev make browsers", (REPO / ".github/workflows/ci.yml").read_text())
 
+    def test_check_pr_installs_the_web_packages_holding_the_gate_lock(self):
+        # Installed before the lock, check-pr's npm ci raced the Stop hook's make check (2026-11-01).
+        makefile = (REPO / "Makefile").read_text()
+        self.assertRegex(makefile, r"(?m)^check-pr: hooks ##")
+        self.assertRegex(makefile, r"(?m)^\t@if .*then \$\(GATE_LOCK\) \$\(MAKE\) --no-print-directory check-pr-locked\b")
+        self.assertRegex(makefile, r"(?m)^check-pr-locked: browsers$")
+
     def test_eslint_may_send_the_reader_only_to_an_installed_package(self):
         config = ('  ["swr", "@tanstack/react-query"],\n'
                   '  ["axios", "the generated SDK client in @orpheum/sdk (openapi-fetch)"],\n')
