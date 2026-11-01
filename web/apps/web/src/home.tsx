@@ -2,15 +2,18 @@
 
 import "./home.css";
 
-import type { JSX } from "react";
+import { use, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { EntryPoster, type BrowseKind, type Entry } from "./browse.tsx";
 import { ContinueWatching } from "./continue-watching.tsx";
+import { useLibrariesReached } from "./libraries-reached.ts";
+import { Link } from "./link.tsx";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useResource } from "./use-resource.ts";
+import { IsAdminContext } from "./warning-sign.tsx";
 import { useWarmsPlay } from "./warm-play.ts";
 
 /**
@@ -22,8 +25,9 @@ export const newestShown = 18;
 /**
  * Home (the owner, 2026-10-25: "an actual home page", which "should list half-finished stuff and also
  * newly added things. We'll also add more things later"): Continue Watching, then the newest films
- * and the newest series, each a row of posters. A row with nothing in it is not shown. Once it has
- * settled it warms the Play page's code under a loader (warm-play.ts).
+ * and the newest series, each a row of posters. A row with nothing in it is not shown; with no library
+ * at all, it says so (NoLibrariesYet). Once it has settled it warms the Play page's code under a loader
+ * (warm-play.ts).
  */
 export function Home(): JSX.Element {
   const { t } = useTranslation();
@@ -33,10 +37,33 @@ export function Home(): JSX.Element {
       <h1 id="home-heading" className="home__heading">
         {t("home.heading")}
       </h1>
+      <NoLibrariesYet />
       <ContinueWatching />
       <NewestRow kind="movie" />
       <NewestRow kind="series" />
     </section>
+  );
+}
+
+/**
+ * Where the person reaches no library, what to do: an admin, who sees every library, is led to make
+ * one; anyone else is told to ask (staging's Home before its libraries were made was blank, 2026-11-01).
+ */
+function NoLibrariesYet(): JSX.Element | null {
+  const { t } = useTranslation();
+  const isAdmin = use(IsAdminContext);
+  const libraries = useLibrariesReached();
+  if (libraries.state !== "loaded" || libraries.value.length > 0) {
+    return null;
+  }
+  if (!isAdmin) {
+    return <p className="home__empty">{t("browse.noLibrariesAtAll")}</p>;
+  }
+  return (
+    <p className="home__empty">
+      {t("home.noLibrariesAdmin")}{" "}
+      <Link to={{ screen: "new-library" }}>{t("home.makeLibrary")}</Link>
+    </p>
   );
 }
 

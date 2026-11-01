@@ -304,6 +304,8 @@ export const en = {
     heading: "Home",
     newestFilms: "New films",
     newestSeries: "New series",
+    noLibrariesAdmin: "Home fills once this server has a library of your films or series.",
+    makeLibrary: "Make a library",
   },
   browse: {
     films: "All Films",
