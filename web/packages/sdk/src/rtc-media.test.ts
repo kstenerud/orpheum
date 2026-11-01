@@ -288,6 +288,13 @@ describe("media over the WebRTC path", () => {
     const heard = (reason: unknown): void => {
       unhandled.push(reason);
     };
+    // The test runner's Node, whose types this browser package does not take.
+    const { process } = globalThis as unknown as {
+      readonly process: {
+        on(event: "unhandledRejection", listener: (reason: unknown) => void): void;
+        off(event: "unhandledRejection", listener: (reason: unknown) => void): void;
+      };
+    };
     process.on("unhandledRejection", heard);
     const { port1, port2 } = new MessageChannel();
     void answerLoad(aLoad, port2, {
