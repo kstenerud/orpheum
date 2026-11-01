@@ -46,8 +46,41 @@ export function toggleFullScreen(stage: Element | null | undefined, page: Docume
     stage?.classList.remove(fillsWindowClass);
     return;
   }
-  if (stage instanceof HTMLElement) {
-    fillTheScreen(stage, page);
+  if (!(stage instanceof HTMLElement)) {
+    return;
+  }
+  // An iPhone has no element full screen (WebKit bug 206854): its film goes into iOS's own player,
+  // which the press allows, rather than filling the window under Safari's bars (the owner, 2026-11-01).
+  const video = stage.querySelector("video");
+  if (typeof stage.requestFullscreen !== "function" && video !== null && hasOwnFullScreen(video)) {
+    video.webkitEnterFullscreen();
+    return;
+  }
+  fillTheScreen(stage, page);
+}
+
+/** A video that has its own full screen, as an iPhone's alone does where requestFullscreen is missing. */
+interface WebKitVideo {
+  readonly webkitEnterFullscreen: () => void;
+}
+
+/** Whether the video has the iPhone's own full screen. */
+function hasOwnFullScreen(video: HTMLVideoElement): video is HTMLVideoElement & WebKitVideo {
+  return typeof (video as Partial<WebKitVideo>).webkitEnterFullscreen === "function";
+}
+
+/**
+ * Shows a video full screen from a press: by the standard way where the browser has it, else in the
+ * iPhone's own player (WebKit bug 206854). Watch Together's viewer, whose film has no player bar.
+ */
+export function enterVideoFullScreen(video: HTMLVideoElement | null): void {
+  if (video === null) {
+    return;
+  }
+  if (typeof video.requestFullscreen === "function") {
+    void video.requestFullscreen().catch(() => undefined);
+  } else if (hasOwnFullScreen(video)) {
+    video.webkitEnterFullscreen();
   }
 }
 

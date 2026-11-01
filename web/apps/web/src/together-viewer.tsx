@@ -32,6 +32,7 @@ import logo from "./assets/orpheum-logo.svg";
 import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { pageThatPausesWhenHidden } from "./handheld.ts";
 import { JoinForm, NoLink } from "./together-join.tsx";
+import { enterVideoFullScreen } from "./film-fullscreen.ts";
 import { EmptyStage, FilmPlayer, type FilmParts, type MovedDown } from "./film-player.tsx";
 import type { PlaybackDecision } from "./watching.ts";
 import type { LadderOffer } from "./moving-down.ts";
@@ -745,7 +746,7 @@ function FilmButtons(
           type="button"
           className="together-viewer__fullscreen"
           onClick={() => {
-            enterFullscreen(props.videoRef.current);
+            enterVideoFullScreen(props.videoRef.current);
           }}
         >
           {t("together.fullscreen")}
@@ -753,21 +754,4 @@ function FilmButtons(
       )}
     </>
   );
-}
-
-/** A video that has its own fullscreen, as an iPhone's alone does: requestFullscreen it has not. */
-interface WebKitVideo {
-  readonly webkitEnterFullscreen?: () => void;
-}
-
-/** Shows video full screen: by the standard way where the browser has it, else the iPhone's. */
-function enterFullscreen(video: (HTMLVideoElement & WebKitVideo) | null): void {
-  if (video === null) {
-    return;
-  }
-  if (typeof video.requestFullscreen === "function") {
-    void video.requestFullscreen().catch(() => undefined);
-  } else {
-    video.webkitEnterFullscreen?.();
-  }
 }
