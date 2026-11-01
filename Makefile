@@ -307,8 +307,15 @@ PR_SERIAL_STEP := test-acceptance-home
 CHECK_PR_BUDGET_S := 300
 
 .PHONY: check-pr
-check-pr: hooks browsers ## Branch gates against BASE, quietly (VERBOSE=1 prints all; the log is in .git/gate-logs)
-	@if ! $(PYTHON) scripts/run_gate.py --hops check-pr; then $(PYTHON) scripts/quiet_gate.py "make check-pr" check-pr-verbose $(if $(BASE),BASE=$(BASE)); else exec $(PYTHON) scripts/in_dev_image.py check-pr $(if $(BASE),BASE=$(BASE)); fi
+check-pr: hooks ## Branch gates against BASE, quietly (VERBOSE=1 prints all; the log is in .git/gate-logs)
+	@if ! $(PYTHON) scripts/run_gate.py --hops check-pr; then $(GATE_LOCK) $(MAKE) --no-print-directory check-pr-locked $(if $(BASE),BASE=$(BASE)); else exec $(PYTHON) scripts/in_dev_image.py check-pr $(if $(BASE),BASE=$(BASE)); fi
+
+# check-pr once it holds the gate lock: the browsers, and with them web-deps' npm ci, install under it,
+# so a make check the Stop hook started cannot run its own npm ci beside them (the 11-01 batch: they
+# raced; the owner, 2026-11-01). Its tree's lock passes through (GATE_LOCK_HELD, scripts/gate_lock.py).
+.PHONY: check-pr-locked
+check-pr-locked: browsers
+	@$(PYTHON) scripts/quiet_gate.py "make check-pr" check-pr-verbose $(if $(BASE),BASE=$(BASE))
 
 # check-pr runs on HEAD in its own worktree, holding a lock the hooks read, so the working tree stays
 # free to edit and nothing tests beside it (scripts/check_pr_snapshot.py; the owner, 2026-10-20).
