@@ -7,14 +7,6 @@
   list-style: none;
 }
 
-.people__links {
-  display: grid;
-  gap: var(--space-3);
-  margin-block-start: var(--space-2);
-  padding: 0;
-  list-style: none;
-}
-
 .people__actions {
   display: flex;
   flex-wrap: wrap;
