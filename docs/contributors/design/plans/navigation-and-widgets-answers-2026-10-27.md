@@ -995,6 +995,10 @@ deploy. To do: the rule (a stash holds a first cut); the tests that rotate with 
 and `guidedchange_test.go`, `internal/core/discovery`'s `document_test.go`) re-signed by a recovery key, with
 new tests that an everyday key adding or removing one is refused; the guided `add`/`remove` offering only
 recovery keys; `docs/users/discovery-signing.md`'s table and the root key audit's scenarios.
+The owner asked (2026-11-01) that an everyday key can never suspend itself by a wrong pick in a list. Two
+guards hold it already and are kept through the change: the guided tool never offers the key being
+suspended as its signer (`chooseSigner`; `guidedchange_test.go`), and a core refuses a statement signed
+only by the key it suspends (`ErrNotHeldByNewSet`; `suspend_test.go`).
 
 **Left, small (from the agents' notes):** `TestServe_ThisMachinesPortAdministersWhereTheHousesPortDoesNot` can collide on a
 port when runs overlap; `test-key` leaves its temporary directory (it says where; removing it would need forbidigo's delete rule to allow it, principles §2); the first release in a record
