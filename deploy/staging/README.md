@@ -26,6 +26,27 @@ The templates are in the binary (`internal/deployment/templates/`): each `./stag
 compose file, the configs and the tunnel's config into `.staging/` from your values,
 `.staging/values.toml`. `tunnel.sh`, here, is the tunnel service's.
 
+## On another machine
+
+Since 2026-11-01, staging runs on the staging host rather than beside `./dev` (`orpheum-ops/machines.md`),
+so the gate has the development machine's processors to itself. Today it has no tunnel or VPS: it
+is reached at home on `http://192.168.1.16:8440`, and from outside through its discovery.
+`.staging/remote.toml` names the machine:
+
+```toml
+host = "orpheum@192.168.1.16"              # ssh's destination; the user is in the docker group
+identity = "~/.ssh/stagehost"                     # ssh's key
+directory = "/home/orpheum/orpheum-staging"  # staging's directory there, as .staging/ is here
+```
+
+With it, `./staging` and `./staging quick` build the image here, send it with
+`docker save | ssh … docker load`, and run write-deployment and compose there as the remote user,
+with the remote machine's GPU. `logs`, `status`, `down`, `setup-code` and `wipe` run there too.
+The values file is the remote one; the replaced run's logs are still kept here in `.staging/logs/`.
+Without the file, everything below holds as written, on this machine. The remote machine needs what
+the next section lists, with the media at the paths the values file names: the staging host has its tank at
+`/mnt/tank`, linked as `/tank`.
+
 ## What the machine needs
 
 - **Docker** with the compose plugin: `docker compose version` should answer. Your user in the
