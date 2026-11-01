@@ -58,6 +58,15 @@ The sign-in worked; the phone and the server found no way to each other. Common 
 Each such failure is counted on the server's **System → Discovery** page ("Times in the last week
 a client found no way to reach this server").
 
+## Signing in by realm says "The realm, name or password is wrong" just after the realm was given or changed
+
+Signing in by realm, name and password, away from home, works only after each person has signed in
+once **with their password on the server itself**: at home, or through their own link. That sign-in
+makes the key the realm sign-in is checked against, from the realm, the name and the password. The
+server keeps only a hash of each password, so it cannot make the key by itself (D297 §3). The same
+happens each time the server is given a realm or its realm is renamed. Once that sign-in is done,
+signing in by realm works.
+
 ## After the server was replaced, a device says "This link no longer finds its server"
 
 A device that used the old server opened the page it had kept from then. **Reload the page once**;
