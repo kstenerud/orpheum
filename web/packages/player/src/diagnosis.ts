@@ -48,8 +48,13 @@ interface Kept {
   mapping: string[];
   mediaSourceState: string;
   steps: string[];
-  /** The player's own last choices of quality, with why, kept apart so the steps never push them out. */
-  choices: string[];
+  /**
+   * The player's own last choices of quality, with why, kept apart so the steps never push them out,
+   * each with when it was made by choicesClock, where its noter was given one.
+   */
+  choices: { readonly text: string; readonly atMs: number | undefined }[];
+  /** The clock the choices were timed by, their noter's (stepNoter); undefined for none. */
+  choicesClock: (() => number) | undefined;
   /** The link's last samples in a line (samplesText), kept apart from the steps (D352 §5); "" before any. */
   samples: string;
   /** The codecs each buffer took, by its track ("video avc1.64001f"), the latest for each. */
@@ -85,9 +90,10 @@ const stepEvents = [
 /** What a step's event says, of what hls.js tells with it. */
 interface StepData {
   readonly level?: number;
-  /** A flush's buffer ("audio", "video", or none for every one) and where it starts, in seconds. */
+  /** A flush's buffer ("audio", "video", or none for every one) and where it starts and ends, in seconds. */
   readonly type?: string | null;
   readonly startOffset?: number;
+  readonly endOffset?: number;
   readonly frag?: {
     readonly level: number;
     readonly sn: number | "initSegment";
@@ -97,13 +103,17 @@ interface StepData {
 
 /**
  * A step in a line: "level 2", "playlist 2 loaded", "frag 2/31 aborted", "sound 0/31 loading",
- * "audio flushed from 0.00".
+ * "audio flushed 0.00-957.29", "all flushed 12.50-end". A flush says its end: hls.js's trim of what
+ * it keeps behind the playhead and its throwing away of everything both start at 0, and a seek's
+ * report saying "video flushed from 0.00; audio flushed from 0.00" was read as a quality switch
+ * that threw away what played, when it was the trim of film half an hour behind (the owner's
+ * Chrome, staging, 2026-11-01).
  */
 export function stepText(event: string, data: StepData): string {
   const { frag } = data;
   const flushing: string = Hls.Events.BUFFER_FLUSHING;
   if (event === flushing) {
-    return `${data.type ?? "all"} flushed from ${(data.startOffset ?? 0).toFixed(2)}`;
+    return flushText(data);
   }
   if (frag !== undefined) {
     const what = `${frag.type === "main" ? "frag" : "sound"} ${String(frag.level)}/${String(frag.sn)}`;
@@ -122,6 +132,13 @@ export function stepText(event: string, data: StepData): string {
     [Hls.Events.MEDIA_DETACHED]: "detached",
   };
   return texts[event] ?? event;
+}
+
+/** A flush as a step: its buffer, and where it starts and ends ("video flushed 0.00-957.29"). */
+function flushText(data: StepData): string {
+  const end = data.endOffset;
+  const endText = end === undefined || !Number.isFinite(end) ? "end" : end.toFixed(2);
+  return `${data.type ?? "all"} flushed ${(data.startOffset ?? 0).toFixed(2)}-${endText}`;
 }
 
 /** Keeps each of stepEvents hls.js tells as the diagnosis's latest step. */
@@ -301,6 +318,7 @@ function newKept(): Kept {
     mediaSourceState: "",
     steps: [],
     choices: [],
+    choicesClock: undefined,
     samples: "",
     codecs: new Map(),
   };
@@ -321,16 +339,33 @@ function keepCodecs(hls: DiagnosedHls, diagnosis: Kept): void {
 /**
  * What keeps one of the player's own choices of quality, with why, in video's diagnosis: its last
  * choicesKept, after its steps, which a dozen chunks' loads pushed out before a seek's report was sent
- * (the owner's Firefox on nas.example, 2026-10-20); nothing for a video not diagnosed.
+ * (the owner's Firefox on nas.example, 2026-10-20); nothing for a video not diagnosed. Timed by
+ * monotonicMs where given, each choice says how long before the report it was made ("chose 502 s
+ * ago ceiling 0 to 1: stepped up"): kept apart from the steps, a choice minutes old read as the
+ * seek's own, a step up made 501 s before a seek taken for its cause (the owner's Chrome, staging,
+ * 2026-11-01).
  */
-export function stepNoter(video: object): (step: string) => void {
+export function stepNoter(video: object, monotonicMs?: () => number): (step: string) => void {
   return (step) => {
     const diagnosis = diagnoses.get(video);
     if (diagnosis !== undefined) {
-      diagnosis.choices.push(step);
+      diagnosis.choicesClock = monotonicMs;
+      diagnosis.choices.push({ text: step, atMs: monotonicMs?.() });
       diagnosis.choices.splice(0, Math.max(0, diagnosis.choices.length - choicesKept));
     }
   };
+}
+
+/** A kept choice as a step: "chose <text>", with how long ago where it was timed. */
+function choiceText(
+  choice: { readonly text: string; readonly atMs: number | undefined },
+  nowMs: number | undefined,
+): string {
+  if (choice.atMs === undefined || nowMs === undefined) {
+    return `chose ${choice.text}`;
+  }
+  const agoS = Math.max(0, Math.round((nowMs - choice.atMs) / 1000));
+  return `chose ${String(agoS)} s ago ${choice.text}`;
 }
 
 /** The longest the link's samples may be, as the server takes them (StallBody, SeekBody). */
@@ -370,7 +405,10 @@ export function diagnosisOf(
     mapping: diagnosis.mapping.join("; ").slice(0, mappingTextMost),
     mediaSourceState: diagnosis.mediaSourceState,
     // The choices last, which the cut to stepsTextMost keeps: the steps before them are many.
-    steps: [...diagnosis.steps, ...diagnosis.choices.map((choice) => `chose ${choice}`)]
+    steps: [
+      ...diagnosis.steps,
+      ...diagnosis.choices.map((choice) => choiceText(choice, diagnosis.choicesClock?.())),
+    ]
       .join("; ")
       .slice(-stepsTextMost),
     ...(diagnosis.samples === ""
