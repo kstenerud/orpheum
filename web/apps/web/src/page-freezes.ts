@@ -41,7 +41,10 @@ export interface PageFreezeWatch {
    * page's own browser's.
    */
   readonly longTasks?: LongTasks | undefined;
-  /** Where each report goes: the core's log, through the page's failures. */
+  /**
+   * Where each report goes; omitted, the core's log through the page's failures, the console's line
+   * headed "Orpheum:" alone, as a freeze is no request's failure.
+   */
   readonly report?: (text: string) => void;
 }
 
@@ -52,7 +55,11 @@ export interface PageFreezeWatch {
  */
 export function reportPageFreezes(doing: PageDoing, watch: PageFreezeWatch = {}): () => void {
   const nowMs = watch.nowMs ?? (() => performance.now());
-  const report = watch.report ?? reportFailure;
+  const report =
+    watch.report ??
+    ((text: string) => {
+      reportFailure(text, "Orpheum:");
+    });
   let lastReportMs: number | undefined;
   let held: Freeze[] = [];
   let flush: ReturnType<typeof setTimeout> | undefined;

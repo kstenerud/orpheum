@@ -127,10 +127,13 @@ export function isProblemBody(value: unknown): value is UnknownProblemBody {
  * Writes a failure to the browser's console with its cause. A person is shown only words chosen
  * by an ApiProblem's code, and general words for anything else, so the console is where what
  * actually failed can be read: an empty answer, a reply that is not JSON, a request cut off.
+ * consoleLead heads the console's line; a report that is no request's failure, such as the page's
+ * freeze, gives its own, or the console read "a request failed the page froze 2.0 s" (the owner,
+ * 2026-11-01).
  */
-export function reportFailure(cause: unknown): void {
+export function reportFailure(cause: unknown, consoleLead = "Orpheum: a request failed"): void {
   // eslint-disable-next-line no-console -- this is the reporter the console is for (standards/typescript.md)
-  console.error("Orpheum: a request failed", cause);
+  console.error(consoleLead, cause);
   sendOn(failureText(cause), "failure");
 }
 

@@ -71,6 +71,31 @@ describe("a page's freezes, told to the core's log on every screen (the Fire TV'
     expect(reports).toHaveLength(2);
   });
 
+  it("writes a freeze to the console as a freeze, not as a request that failed (the owner, 2026-11-01)", () => {
+    const written = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    let told: ((startMs: number, durationMs: number) => void) | undefined;
+    const stop = reportPageFreezes(
+      { screen: () => "series-page", isFilmPlaying: () => false },
+      {
+        nowMs: () => Date.now(),
+        isHidden: () => false,
+        longTasks: (task) => {
+          told = task;
+          return () => {
+            told = undefined;
+          };
+        },
+      },
+    );
+    told?.(0, 2000);
+    stop();
+    expect(written).toHaveBeenCalledWith(
+      "Orpheum:",
+      "the page froze 2.0 s (long task) on screen=series-page filmPlaying=false hidden=false",
+    );
+    written.mockRestore();
+  });
+
   it("tells at most one report each pageFreezeReportEveryMs, those within it together at its end", () => {
     const { reports, task } = watched("home");
     task(0, 1200);
