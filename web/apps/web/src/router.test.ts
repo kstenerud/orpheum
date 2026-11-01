@@ -32,6 +32,8 @@ describe("parseRoute and routeHref", () => {
       { screen: "library", libraryId: 3 },
       { screen: "new-library" },
       { screen: "files", libraryId: 3 },
+      { screen: "person", userId: 5 },
+      { screen: "role", roleId: 3 },
       { screen: "about" },
       { screen: "this-device" },
       { screen: "settings" },

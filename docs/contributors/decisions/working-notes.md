@@ -16616,6 +16616,8 @@ one job per file, a video's text tracks all from one read of it.
 
 ## D218 — Accounts: the admin creates a person, who sets a password from a one-time link; a signed-in person adds a TV by a short safe32 code
 
+> **Revised by [D399](#d399--the-people-page-is-three-buttons-over-three-sections-dialogs-make-things-rows-lead-to-pages-and-a-roles-changes-save-at-once)** (2026-11-01): the People page is the owner's three buttons and three sections; an invitation's links show in its own dialog.
+
 > **Replaced in part by [D288](#d288--a-device-is-activated-by-the-code-it-shows-entered-on-a-device-already-signed-in-and-a-check-code-both-show)** (2026-10-12): §3–§4 no longer hold; a device not signed in asks for a code, a signed-in person enters it, and a check code both show confirms it.
 >
 > **Refined by [D320](#d320--a-device-signed-out-on-itself-leaves-the-persons-devices-one-signed-out-another-way-stays)** (2026-10-20): a device signed out on itself is removed, so §1 resumes only one signed out another way.
@@ -17850,6 +17852,8 @@ page. M4's scheduled backups make them too, when M4 builds them.
 
 ## D243 — M4's nine questions answered: a guest's cookie covers one film, invites are registration links under roles that choose libraries, the name's certificate comes by DNS-01 through Cloudflare, and a VPS carries every route in
 
+> **Revised by [D399](#d399--the-people-page-is-three-buttons-over-three-sections-dialogs-make-things-rows-lead-to-pages-and-a-roles-changes-save-at-once)** (2026-11-01): §4's roles each change on their own page, saved at once, with no Save button.
+
 > **Revised by [D263](#d263--the-acceptances-networks-are-realistic-links-emulated-without-artefacts-its-bounds-are-per-client-pair-and-the-server-sends-media-with-bbr)** (2026-10-07): §9's netem profiles are now home, mobile, congested and lossy as experts would build them, with bounds per client pair.
 
 > **Revised by [D261](#d261--the-m4-audits-questions-answered)** (2026-10-07): §9's voice bounds are best effort on the congested profile;
@@ -18971,6 +18975,8 @@ done (the User-Agent is logged only).
 **Status:** Decided 2026-10-07; §4 decided 2026-10-12.
 
 ## D267 — A Watch Together membership is kept by the browser that joined, or by the account of whoever is signed in, and one member may be on several devices
+
+> **Revised by [D399](#d399--the-people-page-is-three-buttons-over-three-sections-dialogs-make-things-rows-lead-to-pages-and-a-roles-changes-save-at-once)** (2026-11-01): §5 as applied to invitations: a waiting invitation's links show in its dialog, and "Send another link" is gone.
 
 **Decided** (2026-10-08), by the project owner, after testing with two guests on iPhones: *"(a)
 agreed"*; on several devices, *"whatever makes this easier in future"* for voice and controls on a
@@ -25314,6 +25320,33 @@ the owner's open choices are in §6.
    connect stores the reason (a column, so a migration) or only logs it; and the household-VPS proxy
    that would give a server without IPv4 an IPv4 way in, filed for later.
 
-## D399 — Reserved: The People page in three sections
+## D399 — The People page is three buttons over three sections: dialogs make things, rows lead to pages, and a role's changes save at once
 
-**Reserved** (2026-11-01) for the 11-02 batch's work; the branch replaces this entry with the decision.
+**Decided** (2026-11-01), by the project owner, before testing VQ201: *"The people page is just too
+messy"*; the layout is the owner's (the 11-02 batch, item 9). It revises D218 (the People page's
+forms and lists), D243 §4 (a role's Save button) and D267 §5 as the owner applied it to invitations on
+2026-10-28 (each waiting invitation's links shown in its list entry, with "Send another link"), and
+changes only the client's side of D318 (the server still lets an invitation have several links).
+
+1. **Three buttons above three sections, side by side:** *Create Role*, *Create Account* and *Invite
+   Someone* (the owner wrote "2 buttons" and named three; built as three). Each opens a modal dialog
+   (`ModalDialog`, D-pad reachable like every other) with its controls. A new invitation opens its own
+   dialog at once, with its QR code and link; a new account or a new role closes its dialog and opens
+   nothing.
+2. **Invites:** a row each, of the admin's note, the role and the date issued, a used invitation also
+   marked used and by whom. A waiting invitation's row opens a dialog with its details, its QR code
+   and link (with Copy) and, at the bottom, *Withdraw*, red and asked again. A used invitation's
+   dialog has the details and the person it made, and no QR code, link or Withdraw. **"Send another
+   link" is gone from the client.** `POST /invitations/{id}/links` stays on the server: nothing in
+   the repository but its own Go tests calls it.
+3. **Accounts:** a row each, of name, admin note and role, leading to that person's page (D218's
+   `PersonPage`), where they are viewed and changed. Whether a person has set a password shows on their
+   page alone.
+4. **Roles:** a row each, of the role's name and how many people have it (the roles answer's
+   `holderCount`; no new endpoint), leading to a new role page at `/roles/<id>`. There the role's
+   capabilities and libraries are each saved at the moment they are ticked or cleared, with no Save
+   button; a custom role's name is saved when its field is left or Enter is pressed. A built-in role
+   keeps its capabilities fixed, as before. *Delete* is offered only while no one has the role, and
+   never for a built-in one; pressed, it asks again (D278 §4). It was a disabled button on the page
+   of all roles.
+5. **Status:** Decided 2026-11-01. Device check: VQ201.

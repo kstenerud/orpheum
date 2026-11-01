@@ -7,12 +7,12 @@ import { afterEach, expect, it, vi } from "vitest";
 
 import { People } from "./people.tsx";
 import {
+  buttonContaining,
   buttonWithText,
   click,
   mount,
   servedBy,
   settleUntil,
-  type Heard,
   type Mounted,
 } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
@@ -59,7 +59,13 @@ const used = {
   made: { userId: 4, name: "Gran", at: 1_790_000_000_000 },
 };
 
-it("shows a waiting invitation's live links again, each with Copy (D267 §5)", async () => {
+const served = {
+  "GET /users": [200, { accounts: [] }],
+  "GET /roles": [200, roles],
+  "GET /libraries": [200, { libraries: [] }],
+} as const;
+
+it("opens a waiting invitation's dialog with its live links, each with Copy (D267 §5, D399)", async () => {
   const live = {
     ...waiting,
     liveLinks: 2,
@@ -82,69 +88,74 @@ it("shows a waiting invitation's live links again, each with Copy (D267 §5)", a
     mounted = await mount(
       withServices(
         <People />,
-        servedBy({
-          "GET /users": [200, { accounts: [] }],
-          "GET /roles": [200, roles],
-          "GET /libraries": [200, { libraries: [] }],
-          "GET /invitations": [200, { invitations: [live, used] }],
-        }),
+        servedBy({ ...served, "GET /invitations": [200, { invitations: [live, used] }] }),
       ),
     );
-    const waitingList = mounted.container.querySelector(
-      'section[aria-labelledby="people-invitations"]',
-    );
-    const shown = [...(waitingList?.querySelectorAll(".share__link") ?? [])].map(
+    // The page itself shows no link: a row opens its dialog.
+    expect(mounted.container.querySelector(".share__link")).toBeNull();
+    await click(buttonContaining(mounted.container, "my cousin"));
+    const dialog = mounted.container.querySelector("dialog");
+    const shown = [...(dialog?.querySelectorAll(".share__link") ?? [])].map(
       (link) => link.textContent,
     );
     expect(shown).toHaveLength(2);
     expect(shown[0]).toMatch(/\/register#first-secret$/u);
     expect(shown[1]).toBe("https://discovery.example/register#core.second-secret.print");
-    const copies = [...(waitingList?.querySelectorAll("button") ?? [])].filter(
+    expect(dialog?.querySelectorAll("img")).toHaveLength(2);
+    const copies = [...(dialog?.querySelectorAll("button") ?? [])].filter(
       (button) => button.textContent === "Copy",
     );
     expect(copies).toHaveLength(2);
     await click(copies[1] ?? null);
     await settleUntil(() => copied.length === 1);
     expect(copied).toEqual(["https://discovery.example/register#core.second-secret.print"]);
-    await settleUntil(() => waitingList?.textContent.includes("Copied.") === true);
-    // A used invitation's link is its person's own now, never shown here.
-    const usedList = mounted.container.querySelector(
-      'section[aria-labelledby="people-used-invitations"]',
-    );
-    expect(usedList?.querySelector(".share__link")).toBeNull();
+    await settleUntil(() => dialog?.textContent.includes("Copied.") === true);
+    expect(buttonWithText(dialog as HTMLElement, "Withdraw")).toBeDefined();
   } finally {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   }
 });
 
-it("sends a waiting invitation another link, and names the person a used one made (D318, D311 §4)", async () => {
-  const heard: Heard[] = [];
+it("lists invitations by note, role and date, used ones marked, with nothing to send again (D318, D311 §4, D399)", async () => {
   mounted = await mount(
     withServices(
       <People />,
-      servedBy(
-        {
-          "GET /users": [200, { accounts: [] }],
-          "GET /roles": [200, roles],
-          "GET /libraries": [200, { libraries: [] }],
-          "GET /invitations": [200, { invitations: [waiting, used] }],
-          "POST /invitations/7/links": [201, { secret: "another-secret", expiresAt: 2 }],
-        },
-        heard,
-      ),
+      servedBy({ ...served, "GET /invitations": [200, { invitations: [waiting, used] }] }),
     ),
   );
   const page = mounted.container;
-  expect(page.textContent).toContain("my cousin, as");
-  expect(page.textContent).toContain("its links have ended");
-  const usedList = page.querySelector('section[aria-labelledby="people-used-invitations"]');
-  expect(usedList?.textContent).toContain("Grandma");
-  expect(usedList?.querySelector("a")?.textContent).toBe("Gran");
-  // A used invitation has nothing to send again or withdraw.
-  expect(usedList?.querySelector("button")).toBeNull();
-  await click(buttonWithText(page, "Send another link"));
-  expect(heard.map((each) => each.methodAndPath)).toContain("POST /invitations/7/links");
-  expect(page.textContent).toContain("my cousin's link: send it to them");
-  expect(page.querySelector(".people__issued")?.textContent).toContain("another-secret");
+  const rows = [
+    ...(page.querySelector("#people-invitations")?.parentElement?.querySelectorAll("li") ?? []),
+  ];
+  expect(rows).toHaveLength(2);
+  expect(rows[0]?.textContent).toContain("my cousin");
+  expect(rows[0]?.textContent).toContain("Can watch");
+  expect(rows[0]?.textContent).toContain("Issued ");
+  expect(rows[0]?.textContent).not.toContain("Used by");
+  expect(rows[1]?.textContent).toContain("Grandma");
+  expect(rows[1]?.textContent).toContain("Used by Gran");
+  // Nothing sends another link any more, on the page or in a dialog.
+  expect(buttonWithText(page, "Send another link")).toBeUndefined();
+  await click(buttonContaining(page, "my cousin"));
+  expect(page.textContent).toContain("Its links have ended");
+  expect(buttonWithText(page, "Send another link")).toBeUndefined();
+  expect(buttonWithText(page, "Withdraw")).toBeDefined();
+});
+
+it("opens a used invitation's dialog without QR code, link or Withdraw (D318, D311 §4, D399)", async () => {
+  mounted = await mount(
+    withServices(
+      <People />,
+      servedBy({ ...served, "GET /invitations": [200, { invitations: [waiting, used] }] }),
+    ),
+  );
+  const page = mounted.container;
+  await click(buttonContaining(page, "Grandma"));
+  const dialog = page.querySelector("dialog");
+  expect(dialog?.textContent).toContain("Used on");
+  expect(dialog?.querySelector("a")?.textContent).toBe("Gran");
+  expect(dialog?.querySelector(".share__link")).toBeNull();
+  expect(dialog?.querySelector("img")).toBeNull();
+  expect(buttonWithText(page, "Withdraw")).toBeUndefined();
 });

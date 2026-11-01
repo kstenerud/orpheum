@@ -8,6 +8,7 @@ import { afterEach, expect, it } from "vitest";
 import { BrowseView } from "./browse.tsx";
 import { People } from "./people.tsx";
 import { PersonPage } from "./person.tsx";
+import { RolePage } from "./role-page.tsx";
 import {
   buttonWithText,
   choose,
@@ -105,29 +106,51 @@ async function mountPerson(
 }
 
 it("warns when the role chosen for someone new, or ticked for nobody, reaches no library", async () => {
-  mounted = await mount(
-    withServices(
-      <People />,
-      servedBy({
-        "GET /users": [200, { accounts: [] }],
-        "GET /roles": [200, roles],
-        "GET /libraries": [200, { libraries: [] }],
-        "GET /invitations": [200, { invitations: [] }],
-      }),
-    ),
-  );
+  const answers = {
+    "GET /users": [200, { accounts: [] }],
+    "GET /roles": [200, roles],
+    "GET /libraries": [200, { libraries: [] }],
+    "GET /invitations": [200, { invitations: [] }],
+  } as const;
+  mounted = await mount(withServices(<People />, servedBy(answers)));
+  await click(buttonWithText(mounted.container, "Invite Someone"));
   const invitation = buttonWithText(mounted.container, "Make their link")?.closest("form");
   expect(invitation?.textContent).toContain(noLibraryChosen);
   await choose(invitation?.querySelector("select"), "family");
   expect(invitation?.textContent).not.toContain(noLibraryChosen);
-  const userRole = [...mounted.container.querySelectorAll("form")].find(
-    (form) => form.querySelector("h3")?.textContent === "Can watch",
-  );
-  expect(userRole?.textContent).toContain(noLibraryTicked);
-  const adminRole = [...mounted.container.querySelectorAll("form")].find(
-    (form) => form.querySelector("h3")?.textContent === "Administrator",
-  );
-  expect(adminRole?.textContent).not.toContain(noLibraryTicked);
+  // The roles section marks a role that reaches no library, and its page says what to do.
+  const rows = [...mounted.container.querySelectorAll("li.people__item")];
+  const rowOf = (name: string): Element | undefined =>
+    rows.find((row) => row.querySelector("a")?.textContent.includes(name) === true);
+  expect(rowOf("Can watch")?.querySelector("button")).toBeInstanceOf(HTMLButtonElement);
+  expect(rowOf("Administrator")?.querySelector("button")).toBeNull();
+  mounted.unmount();
+  mounted = await mount(withServices(<RolePage roleId={2} />, servedBy(answers)));
+  expect(mounted.container.textContent).toContain(noLibraryTicked);
+  mounted.unmount();
+  mounted = await mount(withServices(<RolePage roleId={1} />, servedBy(answers)));
+  expect(mounted.container.textContent).not.toContain(noLibraryTicked);
+});
+
+it("says on a person's page whether they have used their link", async () => {
+  const served = (hasPassword: boolean): Services =>
+    servedBy({
+      "GET /me": me(1),
+      "GET /users/5": [
+        200,
+        {
+          account: { id: 5, name: "Dan", role: "user", hasPassword },
+          watchStats: { watchedMs: 0, titlesWatchedCount: 0 },
+        },
+      ],
+      "GET /users/5/devices": [200, { devices: [] }],
+      "GET /roles": [200, roles],
+    });
+  mounted = await mount(withServices(<PersonPage userId={5} />, served(true)));
+  expect(mounted.container.textContent).toContain("Has a password");
+  mounted.unmount();
+  mounted = await mount(withServices(<PersonPage userId={5} />, served(false)));
+  expect(mounted.container.textContent).toContain("Has not used their link yet");
 });
 
 it("removes a person once the admin confirms, and goes back to everyone (S40)", async () => {

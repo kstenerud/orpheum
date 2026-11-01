@@ -1990,13 +1990,24 @@ An item is ticked only by the person who did it, and only with what they saw.
   goes to the discovery's sign-in, with no core sign-in drawn on the way. (2) The same on the Fire TV,
   by remote: the question takes focus, Back cancels it, OK on Sign out signs out to the discovery's
   sign-in. (`web/apps/web/src/app-shell.tsx`, `loader-at-client-origin.tsx`, `app.tsx`)
-- [ ] **VQ201** — an invitation's link is shown again and copied, on staging. On the Mac's Chrome as
-  admin, People: invite someone, reload the page. Passes when the waiting invitation shows its link
-  with when it ends and Copy, Copy says "Copied." and pasting gives the link; Send another link adds a
-  second one below the first. Open one link in Firefox and register: the invitation moves to those
-  used and no link of it shows. Withdraw another invitation: it and its links are gone. Then on the
-  S23's Chrome, Copy on a waiting invitation copies its link too. (`web/apps/web/src/people.tsx`,
-  `share.tsx`; `internal/core/auth/invitations.go`)
+- [ ] **VQ201** — the People page's three buttons, dialogs and pages work, on staging (the owner,
+  2026-11-01: "The people page is just too messy"; D399). On the Mac's Chrome as admin, People.
+  (1) Create Role, Create Account and Invite Someone sit side by side above Invitations, Accounts and
+  Roles. (2) Invite Someone: write a note, choose a role, make the link: the invitation's dialog opens
+  at once with its details, a QR code, the link and Withdraw at the bottom; Copy says "Copied." and
+  pasting gives the link; close it, and the invitation is a row of note, role and date issued, which
+  opens the same dialog again; there is no "Send another link" anywhere. (3) Open the link in
+  Firefox and register: the row now says who used it, and its dialog shows the details and that
+  person with no QR code, link or Withdraw. (4) Withdraw another invitation (it asks again): its row
+  is gone. (5) Create Account makes a row of name, note and role and opens nothing; Create Role makes
+  a row with 0 people and opens nothing. (6) An account row opens that person's page, where they can
+  be changed. (7) A role row opens its role page: tick a library and a capability, reload the page,
+  both are kept, and there is no Save button; Delete shows only for a role no one has (give the role
+  to someone and it goes; never on Administrator or Can watch). Then on the Fire TV, by remote: the
+  three buttons and each dialog (OK opens, Back closes) and the rows can all be reached and used.
+  On the S23's Chrome, Copy on a waiting invitation's dialog copies its link.
+  (`web/apps/web/src/people.tsx`, `invitations-section.tsx`, `people-dialogs.tsx`,
+  `roles-section.tsx`, `role-page.tsx`; `internal/core/auth/invitations.go`)
 - [ ] **VQ204** — another audio track chosen mid-film switches without stopping the picture, on
   staging, on the Mac's Chrome and on the Fire TV. A film of two or more audio tracks on its ladder
   (the tracks note says "transcoded" or names the top's own sound), playing a minute in. Choose the
