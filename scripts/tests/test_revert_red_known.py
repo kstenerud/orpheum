@@ -3,6 +3,7 @@
 # ABOUTME: same trees of what its run read, and a probe takes it without running unless told to trust none;
 # ABOUTME: a green is kept for its part, and the tests an earlier red failed are tried first.
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -175,18 +176,43 @@ class CaughtBefore(unittest.TestCase):
         self.assertEqual(list(known.failed_tests(output, "github.com/kstenerud/orpheum",
                                                  known.commands.vitest("run"))), ["vitest"])
 
+    @staticmethod
+    def tree_with(scratch: str, *files: str) -> str:
+        for file in files:
+            (Path(scratch) / file).parent.mkdir(parents=True, exist_ok=True)
+            (Path(scratch) / file).write_text("")
+        return scratch
+
     def test_a_later_probe_of_the_file_runs_them_first(self):
         record: dict = {}
         with mock.patch.object(known.last_run, "update", side_effect=lambda gate, name, change: record.update(change(dict(record)))), \
-                mock.patch.object(known.last_run, "read", side_effect=lambda gate, name: record):
+                mock.patch.object(known.last_run, "read", side_effect=lambda gate, name: record), \
+                tempfile.TemporaryDirectory() as scratch:
+            tree = self.tree_with(scratch, "internal/core/api/x_test.go", "web/apps/web/src/play.test.tsx",
+                                  "web/apps/web/src/up-trail.browser.test.tsx")
             known.remember_failed("internal/core/api/x.go", GO_OUTPUT + VITEST_OUTPUT, "github.com/kstenerud/orpheum")
-            runs = known.caught_before("internal/core/api/x.go")
-            self.assertEqual(known.caught_before("internal/core/api/other.go"), [])
+            runs = known.caught_before("internal/core/api/x.go", tree)
+            self.assertEqual(known.caught_before("internal/core/api/other.go", tree), [])
         self.assertEqual(runs[0].command, ["go", "test", "-failfast", "-run", "^(TestPlayback_Stalls|TestPlayback_Starts)$",
                                            "./internal/core/api"])
         self.assertIn("apps/web/src/play.test.tsx", runs[1].command)
         self.assertIn("vitest.browser.config.ts", runs[2].command)
         self.assertTrue(all("caught its revert before" in run.label for run in runs))
+
+    def test_a_hint_naming_a_test_the_tree_no_longer_has_is_not_run(self):
+        # The stale main.tsx hint named a deleted test file, whose run failed with nothing reverted
+        # too, and the probe called its environment broken (the 11-01 deploy).
+        record: dict = {}
+        with mock.patch.object(known.last_run, "update", side_effect=lambda gate, name, change: record.update(change(dict(record)))), \
+                mock.patch.object(known.last_run, "read", side_effect=lambda gate, name: record), \
+                tempfile.TemporaryDirectory() as scratch:
+            tree = self.tree_with(scratch, "web/apps/web/src/play.test.tsx")
+            known.remember_failed("apps/web/src/main.tsx", GO_OUTPUT + VITEST_OUTPUT + "--- test_gone.py failed ---\n",
+                                  "github.com/kstenerud/orpheum")
+            runs = known.caught_before("apps/web/src/main.tsx", tree)
+        self.assertEqual(len(runs), 1)
+        self.assertIn("apps/web/src/play.test.tsx", runs[0].command)
+        self.assertNotIn("apps/web/src/up-trail.browser.test.tsx", runs[0].command)
 
 
 if __name__ == "__main__":

@@ -265,7 +265,24 @@ def remember_failed(path: str, output: str, module: str, command: list[str] | No
     last_run.update(GATE, NAME, change)
 
 
-def caught_before(path: str) -> list[Attempt]:
-    """The runs of the tests an earlier red of path's revert failed, to try first."""
+def caught_before(path: str, tree: str) -> list[Attempt]:
+    """The runs of the tests an earlier red of path's revert failed, to try first, of those still in
+    tree."""
     hint = ((last_run.read(GATE, NAME) or {}).get(HINTS) or {}).get(path)
+    hint = still_in(hint, tree) if hint else None
     return runs_of(hint, ", found by the test that caught its revert before") if hint else []
+
+
+def still_in(failed: dict[str, Any], tree: str) -> dict[str, Any]:
+    """failed (failed_tests' answer) without the packages and files tree no longer has. A hint naming
+    a deleted test file made vitest fail on the tree with nothing reverted too, and the probe took its
+    own stale hint for a broken environment (PROBE_BROKEN) until the hint was removed by hand
+    (the 11-01 deploy)."""
+    root = Path(tree)
+    kept = {
+        "go": {directory: tests for directory, tests in (failed.get("go") or {}).items()
+               if (root / directory).is_dir()},
+        "vitest": [file for file in failed.get("vitest") or [] if (root / "web" / file).is_file()],
+        "python": [name for name in failed.get("python") or [] if (root / PYTHON_TESTS / name).is_file()],
+    }
+    return {key: value for key, value in kept.items() if value}
