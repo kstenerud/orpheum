@@ -3,7 +3,7 @@
 /**
  * What a page that reloads itself leaves for the page that follows to tell the core's log: a page
  * about to go has no time to send it, and anything it held goes with it. One note per tab, the
- * latest; the page that follows takes it once (newer-client.ts reportReloadForNewerClient).
+ * latest; the page that follows takes it once (newer-client.ts reportReloadNote).
  */
 
 import type { StringStorage } from "./browser-storage.ts";
