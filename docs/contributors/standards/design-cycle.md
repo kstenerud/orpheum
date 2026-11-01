@@ -14,7 +14,7 @@ with the checks deferred until I'm happy with the look and feel", and after the 
 
 1. **Start: defer the gate.** `touch .claude/.cache/check-deferred`. While the mark is there the Stop
    hook runs no gate at a turn's end (`.claude/hooks/on_stop.py`, `DEFERRED`; its test
-   `StopDeferred` in `scripts/tests/test_hooks.py`). The mark is in the ignored `.claude/.cache/`, so
+   `StopDeferred` in `scripts/tests/test_stop_hook.py`). The mark is in the ignored `.claude/.cache/`, so
    nothing of it is ever committed.
 2. **Each look: edit, then `./staging quick`** (about 35 seconds), the type check alone run before it
    (`npm --prefix web run typecheck`), so a look never fails to build. No commit, no lint, no tests.
