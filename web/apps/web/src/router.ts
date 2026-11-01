@@ -83,8 +83,6 @@ export type Route =
   | { readonly screen: "needs-attention" }
   | { readonly screen: "people" }
   | { readonly screen: "person"; readonly userId: number }
-  /** One role, for an admin: its permissions and libraries, changed there (D399). */
-  | { readonly screen: "role"; readonly roleId: number }
   /** One's account; with scanned, a device's QR code was scanned, to activate it there (D321). */
   | { readonly screen: "account"; readonly scanned?: Scanned }
   | { readonly screen: "this-device" }
@@ -158,7 +156,6 @@ const shapes: readonly Shape[] = [
   { pattern: /^\/needs-attention\/?$/u, toRoute: () => ({ screen: "needs-attention" }) },
   { pattern: /^\/people\/?$/u, toRoute: () => ({ screen: "people" }) },
   { pattern: /^\/people\/([1-9]\d{0,15})$/u, toRoute: (userId) => ({ screen: "person", userId }) },
-  { pattern: /^\/roles\/([1-9]\d{0,15})$/u, toRoute: (roleId) => ({ screen: "role", roleId }) },
   { pattern: /^\/account\/?$/u, toRoute: (_, search) => accountRoute(search) },
   { pattern: /^\/this-device\/?$/u, toRoute: () => ({ screen: "this-device" }) },
   { pattern: /^\/register\/?$/u, toRoute: () => ({ screen: "register" }) },
@@ -340,9 +337,6 @@ export function routeHref(route: Route): string {
   }
   if (route.screen === "person") {
     return `/people/${String(route.userId)}`;
-  }
-  if (route.screen === "role") {
-    return `/roles/${String(route.roleId)}`;
   }
   const library = libraryRouteHref(route);
   if (library !== undefined) {

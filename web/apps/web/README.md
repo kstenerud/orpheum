@@ -645,8 +645,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   name), `now-playing.tsx` (who is playing what, and stopping it),
   `people.tsx` (the People page, D399: three buttons, three sections), `people-dialogs.tsx` (the
   dialogs that make an account or an invitation), `invitations-section.tsx` (the invitations and
-  their dialog), `roles-section.tsx` (the roles' rows and the dialog that makes one),
-  `role-page.tsx` (one role, each change saved at once), `system-reachability.tsx` and `system-work.tsx`
+  their dialog), `roles-section.tsx` (the roles' rows),
+  `role-dialog.tsx` (the one dialog that makes a role and shows one, each change saved at once, D403), `system-reachability.tsx` and `system-work.tsx`
   (the System page's reachability check and its queue's health), and `busy-group.tsx` (controls
   held while a request is answered).
 - A remote's, a keyboard's and a controller's input (controller-input-2026-10-25.md §6.1):

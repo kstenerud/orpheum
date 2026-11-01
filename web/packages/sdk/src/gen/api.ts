@@ -3375,15 +3375,13 @@ export interface components {
              * @description Unix milliseconds
              */
             issuedAt: number;
-            /** @description Its live links, oldest first, to pass on again; none once used */
+            /** @description Its live links, oldest first, to pass on again */
             links: components["schemas"]["IssuedSecretBody"][] | null;
             /**
              * Format: int64
              * @description Its links that still work
              */
             liveLinks: number;
-            /** @description The account its use made; absent while it waits */
-            made?: components["schemas"]["MadeAccountBody"];
             role: string;
         };
         InvitationsOutputBody: {
@@ -3794,16 +3792,6 @@ export interface components {
         };
         LocatorOutputBody: {
             locator: string;
-        };
-        MadeAccountBody: {
-            /**
-             * Format: int64
-             * @description Unix milliseconds
-             */
-            at: number;
-            name: string;
-            /** Format: int64 */
-            userId: number;
         };
         MadeBackupOutputBody: {
             includesKey: boolean;

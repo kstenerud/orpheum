@@ -404,10 +404,11 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D396](working-notes.md#d396--reserved-the-cores-lan-origin-at-home) Reserved: The core's LAN origin at home
 - [D397](working-notes.md#d397--webrtc-to-chromium-is-paced-by-the-core-its-channels-hold-the-clients-whole-credit-in-flight-and-every-offer-carries-a-video-m-line-that-only-receives) WebRTC to Chromium is paced by the core, its channels hold the client's whole credit in flight, and every offer carries a video m-line that only receives
 - [D398](working-notes.md#d398--a-page-that-cannot-reach-its-core-judges-whether-its-network-has-ipv6-says-so-in-words-when-that-is-why-and-tells-its-discovery-the-reason-with-no-address) A page that cannot reach its core judges whether its network has IPv6, says so in words when that is why, and tells its discovery the reason with no address
-- [D399](working-notes.md#d399--the-people-page-is-three-buttons-over-three-sections-dialogs-make-things-rows-lead-to-pages-and-a-roles-changes-save-at-once) The People page is three buttons over three sections: dialogs make things, rows lead to pages, and a role's changes save at once
+- [D399](working-notes.md#d399--the-people-page-is-three-buttons-over-three-sections-dialogs-make-things-rows-lead-to-pages-and-a-roles-changes-save-at-once) The People page is three buttons over three sections: dialogs make things, rows lead to pages, and a role's changes save at once — *revisited by D403*
 - [D400](working-notes.md#d400--a-chosen-audio-track-cuts-in-at-the-choice-accepting-a-brief-wait-there-the-boost-still-loads-at-the-playhead) A chosen audio track cuts in at the choice, accepting a brief wait there; the boost still loads at the playhead
 - [D401](working-notes.md#d401--a-confirmed-by-name-episode-placement-sticks-only-a-new-place-is-a-new-guess) A confirmed by-name episode placement sticks; only a new place is a new guess
 - [D402](working-notes.md#d402--a-title-sorts-without-its-leading-article-from-a-list-per-sort-locale-unless-its-nfo-names-how-it-sorts) A title sorts without its leading article, from a list per sort locale, unless its NFO names how it sorts
+- [D403](working-notes.md#d403--a-used-invitation-leaves-the-people-page-and-a-role-opens-in-the-one-dialog-that-makes-it) A used invitation leaves the People page, and a role opens in the one dialog that makes it
 
 ## Archived
 

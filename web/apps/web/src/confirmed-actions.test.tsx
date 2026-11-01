@@ -7,7 +7,6 @@ import { afterEach, expect, it } from "vitest";
 
 import { People } from "./people.tsx";
 import { PersonPage } from "./person.tsx";
-import { RolePage } from "./role-page.tsx";
 import { Settings } from "./settings.tsx";
 import {
   buttonContaining,
@@ -104,7 +103,7 @@ async function pressAndConfirm(
   expect(heard.map((each) => each.methodAndPath)).toContain(press.methodAndPath);
 }
 
-it("deletes a role from its page, and withdraws an invitation from its dialog, only when asked again", async () => {
+it("deletes a role from its dialog, and withdraws an invitation from its dialog, only when asked again", async () => {
   const heard: Heard[] = [];
   const invitation = {
     id: 7,
@@ -123,7 +122,11 @@ it("deletes a role from its page, and withdraws an invitation from its dialog, o
     "DELETE /roles/3": [204, null],
     "DELETE /invitations/7": [204, null],
   } as const;
-  mounted = await mount(withServices(<RolePage roleId={3} />, servedBy(answers, heard)));
+  mounted = await mount(withServices(<People />, servedBy(answers, heard)));
+  const roleRow = [...mounted.container.querySelectorAll("button.people__row")].find((each) =>
+    each.textContent.startsWith("friends"),
+  );
+  await click(roleRow ?? null);
   await pressAndConfirm(heard, {
     label: "Delete the role",
     confirmLabel: "Delete it",

@@ -7,7 +7,6 @@ import { afterEach, expect, it } from "vitest";
 
 import { People } from "./people.tsx";
 import { PersonPage } from "./person.tsx";
-import { RolePage } from "./role-page.tsx";
 import {
   buttonWithText,
   choose,
@@ -123,9 +122,22 @@ async function mountPeople(heard: Heard[]): Promise<Mounted> {
   return await mount(withServices(<People />, servedBy(answers, heard)));
 }
 
-/** A role's page, answered with the roles and libraries above. */
+/** The People page with a role's dialog opened from its row, answered with the roles above. */
 async function mountRole(roleId: number, heard: Heard[]): Promise<Mounted> {
-  return await mount(withServices(<RolePage roleId={roleId} />, servedBy(answers, heard)));
+  const page = await mountPeople(heard);
+  await openRole(page, roleId);
+  return page;
+}
+
+/** What each role's row says, by the role's id. */
+const rowNames: Record<number, string> = { 1: "Administrator", 2: "Can watch", 3: "friends" };
+
+/** Opens the dialog of the role with id roleId by clicking its row in Roles. */
+async function openRole(page: Mounted, roleId: number): Promise<void> {
+  const row = [
+    ...page.container.querySelectorAll("#roles-heading + p + ul button.people__row"),
+  ].find((each) => each.textContent.startsWith(rowNames[roleId] ?? ""));
+  await click(row ?? null);
 }
 
 /** The body of each change sent to a role. */
@@ -146,15 +158,56 @@ it("offers Create Role, Create Account and Invite Someone side by side above the
   expect(sections).toEqual(["Accounts", "Roles"]);
 });
 
-it("lists accounts by name, note and role, and roles by name and holders, each leading to its page (D399)", async () => {
+it("lists accounts by name, note and role leading to their pages, and roles by name and holders opening a dialog (D399, D403)", async () => {
   mounted = await mountPeople([]);
   const links = [...mounted.container.querySelectorAll("a")].map((each) => ({
     href: each.getAttribute("href"),
     text: each.textContent,
   }));
   expect(links).toContainEqual({ href: "/people/5", text: "cousinAnnaCan watch" });
-  expect(links).toContainEqual({ href: "/roles/1", text: "Administrator1 people" });
-  expect(links).toContainEqual({ href: "/roles/3", text: "friends0 people" });
+  expect(links.some((link) => link.href?.startsWith("/roles/") === true)).toBe(false);
+  const rows = [...mounted.container.querySelectorAll("button.people__row")].map(
+    (each) => each.textContent,
+  );
+  expect(rows).toContain("Administrator1 people");
+  expect(rows).toContain("friends0 people");
+});
+
+it("opens the same dialog to make a role and to look at one, which has no Add button (D403)", async () => {
+  mounted = await mountPeople([]);
+  await click(buttonWithText(mounted.container, "Create Role"));
+  const making = mounted.container.querySelector("dialog");
+  expect(making?.querySelector("h2")?.textContent).toBe("New role");
+  expect(buttonWithText(making as HTMLElement, "Add the role")).toBeDefined();
+  expect(making?.textContent).toContain("What its people may do");
+  expect(making?.textContent).toContain("The libraries its people see");
+  mounted.unmount();
+  mounted = await mountRole(3, []);
+  const showing = mounted.container.querySelector("dialog");
+  expect(showing?.querySelector("h2")?.textContent).toBe("friends");
+  expect(buttonWithText(showing as HTMLElement, "Add the role")).toBeUndefined();
+  expect(showing?.textContent).toContain("What its people may do");
+  expect(showing?.textContent).toContain("The libraries its people see");
+});
+
+it("makes a role with the capabilities and libraries ticked in the same dialog (D403)", async () => {
+  const heard: Heard[] = [];
+  mounted = await mountPeople(heard);
+  await click(buttonWithText(mounted.container, "Create Role"));
+  const dialog = mounted.container.querySelector("dialog");
+  const box = (text: string): Element | null | undefined =>
+    [...(dialog?.querySelectorAll("label") ?? [])]
+      .find((label) => label.textContent.includes(text))
+      ?.querySelector("input");
+  await enter(dialog?.querySelector("input:not([type=checkbox])"), "pals");
+  await click(box("Fix identification"));
+  await click(box("Private"));
+  expect(changesTo(heard, "POST /roles")).toEqual([]);
+  await submit(dialog?.querySelector("form"));
+  expect(changesTo(heard, "POST /roles")).toEqual([
+    { name: "pals", capabilities: ["edit_metadata"], libraries: [{ libraryId: 2 }] },
+  ]);
+  expect(mounted.container.querySelector("dialog")).toBeNull();
 });
 
 it("makes a role in a dialog that closes and opens nothing, as the admin asks (D243 §4, D399)", async () => {
@@ -234,11 +287,9 @@ it("offers Delete only while no one has the role, and never for a built-in one (
     roles: roles.roles.map((role) => (role.id === 3 ? { ...role, holderCount: 2 } : role)),
   };
   mounted = await mount(
-    withServices(
-      <RolePage roleId={3} />,
-      servedBy({ "GET /roles": [200, held], "GET /libraries": [200, libraries] }),
-    ),
+    withServices(<People />, servedBy({ ...answers, "GET /roles": [200, held] })),
   );
+  await openRole(mounted, 3);
   expect(buttonWithText(mounted.container, "Delete the role")).toBeUndefined();
 });
 
