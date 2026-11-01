@@ -19,7 +19,8 @@ the `AGENTS.md` convention read the same rules. Only Claude-specific mechanics b
   refuses to run until the file is gone (docs/contributors/standards/design-cycle.md) (or only
   `make check-documentation`, which runs no test of the code, after a documentation-only turn; the
   pre-commit hook and check-pr's tiers skip the code's tests for it too). On failure it **blocks the turn** and hands you the
-  output. Fix it; don't argue with it.
+  output. Fix it; don't argue with it. When the gate cannot run at all (no tools, or `./dev`'s image needs
+  building), it blocks once; the next stop ends the turn with a warning, so a declined `./dev true` cannot loop.
 - **After a commit**, `.githooks/post-commit` starts revert-red's code part over the batch so far in
   the background, niced, on two probe trees (`scripts/background_probe.py`), so check-pr finds most
   files already probed; a run of the gate's own stops it. `touch .git/revert-red/background-off`

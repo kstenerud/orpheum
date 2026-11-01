@@ -623,6 +623,50 @@ class StopWithoutMarks(unittest.TestCase):
         self.assertEqual(targets, ["check-documentation"])
 
 
+class StopCannotRun(unittest.TestCase):
+    """A gate that cannot run blocks the turn once, then lets it end (the owner, 2026-11-01: an agent told
+    not to build the image looped, the hook re-blocking each reply)."""
+
+    def verdict(self, exit_code: int, stop_hook_active: bool) -> dict:
+        import contextlib
+        import io
+        import tempfile
+        from unittest import mock
+
+        sys.path.insert(0, str(HOOKS))
+        import on_stop  # noqa: PLC0415
+
+        said = io.StringIO()
+        with mock.patch.object(on_stop, "PENDING", Path(tempfile.mkdtemp())), \
+                mock.patch.object(on_stop.hooklib, "read_event", lambda: {"stop_hook_active": stop_hook_active}), \
+                mock.patch.object(on_stop.hooklib, "check_pr_running", lambda: None), \
+                mock.patch.object(on_stop, "already_passed", lambda: False), \
+                mock.patch.object(on_stop, "changed_since_pass", lambda: ["internal/core/x.go"]), \
+                mock.patch.object(on_stop, "gate_held", lambda: False), \
+                mock.patch.object(on_stop.worktrees, "clean", lambda root: ([], [])), \
+                mock.patch.object(on_stop.run_gate, "gate_command",
+                                  lambda target, env: [sys.executable, "-c", f"raise SystemExit({exit_code})"]), \
+                contextlib.redirect_stdout(said):
+            on_stop.main()
+        return json.loads(said.getvalue() or "{}")
+
+    def test_an_image_needing_building_blocks_the_first_stop_and_warns_on_the_next(self):
+        needs_build = self._needs_build()
+        self.assertEqual(self.verdict(needs_build, stop_hook_active=False).get("decision"), "block")
+        again = self.verdict(needs_build, stop_hook_active=True)
+        self.assertNotIn("decision", again)
+        self.assertIn("could not run", again.get("systemMessage", ""))
+
+    def test_a_failing_gate_blocks_every_stop(self):
+        self.assertEqual(self.verdict(2, stop_hook_active=True).get("decision"), "block")
+
+    def _needs_build(self) -> int:
+        sys.path.insert(0, str(HOOKS))
+        import on_stop  # noqa: PLC0415
+
+        return on_stop.run_gate.load_launcher().NEEDS_BUILD
+
+
 class StopDeferred(unittest.TestCase):
     def test_the_stop_hook_runs_no_gate_while_checks_are_deferred_and_keeps_its_mark(self):
         # The owner, 2026-10-30: a design iterated on is checked once, when the owner is happy.
