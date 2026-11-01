@@ -477,6 +477,8 @@ func fullScansAllowed() map[string]string {
 			"every name, at start and after a pass (D47, D349)",
 		"ListLiveInvitationLinks": "a household has a handful of invitations; the admin's people page lists the " +
 			"waiting ones' links (D267 section 5)",
+		"ListInvitations": "a household has a handful of invitations; the admin's people page lists the waiting " +
+			"ones, a used one dropped (D403)",
 	}
 }
 
