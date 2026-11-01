@@ -96,3 +96,58 @@ func TestPass_InGermanADeSortsWithoutItsArticle(t *testing.T) {
 		t.Errorf("in German = %v; want Der letzte Mann under U and Der Golem under B", got)
 	}
 }
+
+// seriesByName is the series in the order of the list by name.
+func seriesByName(t *testing.T, lib *testLibrary) []string {
+	t.Helper()
+	browser := library.NewBrowser(lib.database, lib.settings)
+	listed, err := browser.List(t.Context(), library.ListQuery{
+		Reach: auth.EveryLibrary(), Kind: library.ListSeries, Sort: library.SortName, Limit: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var order []string
+	for _, entry := range listed.Entries {
+		order = append(order, entry.Name)
+	}
+	return order
+}
+
+// D402: a series' tvshow.nfo sort title wins over its name, as a film's NFO's does.
+func TestPass_ASeriesTvshowNFOSortTitleWins(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "shows", "nfo")
+	lib.scan(
+		nfoRecord("Alpha/tvshow.nfo", `<tvshow><title>Alpha</title><sorttitle>Zzz Last</sorttitle></tvshow>`),
+		videoRecord("Alpha/Season 01/Alpha - S01E01.mkv"),
+		nfoRecord("Beta/tvshow.nfo", `<tvshow><title>Beta</title></tvshow>`),
+		videoRecord("Beta/Season 01/Beta - S01E01.mkv"),
+	)
+	if got := seriesByName(t, lib); !slices.Equal(got, []string{"Beta", "Alpha"}) {
+		t.Errorf("series by name = %v; want Alpha last, by its sort title", got)
+	}
+}
+
+// D402: a sort title the NFO no longer gives is forgotten even when the key it made is the key the
+// name makes too, so a later rekey under another locale does not bring the old sort title back.
+func TestPass_ASortTitleDroppedFromTheNFOIsForgotten(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movies", "nfo")
+	withSortTitle := nfoRecord("The Gold Rush (1999).nfo",
+		"<movie><title>The Gold Rush</title><year>1999</year><sorttitle>Gold Rush</sorttitle></movie>")
+	lib.scan(videoRecord("The Gold Rush (1999).mkv"), videoRecord("Tango (2000).mkv"), videoRecord("Mabel (1981).mkv"),
+		withSortTitle)
+	without := nfoRecord("The Gold Rush (1999).nfo", "<movie><title>The Gold Rush</title><year>1999</year></movie>")
+	without.Sidecar.ModifiedAt = 2
+	lib.scan(videoRecord("The Gold Rush (1999).mkv"), videoRecord("Tango (2000).mkv"), videoRecord("Mabel (1981).mkv"),
+		without)
+	// In German "The" is no article, so the name alone keys The Gold Rush under T, after Tango.
+	settingstest.Set(t, lib.settings, settings.SortLocale, `"de"`)
+	if _, err := lib.pass.RefreshSortAndSearchKeys(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if got := filmsByName(t, lib); !slices.Equal(got, []string{"Mabel", "Tango", "The Gold Rush"}) {
+		t.Errorf("films by name in German = %v; want The Gold Rush under T, its old sort title forgotten", got)
+	}
+}
