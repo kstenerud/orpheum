@@ -1060,3 +1060,41 @@ refused.
   `scan_*_extensions`, `together_*`, …): remove the rows or the warning.
 - **orpheum-ops' README §6a names an old core ID**: nas.example's core on production is
   `f3k5n8g0ktf2f8bjrd6rs6v6qt` (`c2zd1gwvgx1wmp3hsx7b77y81b` is a stale core of 10-15).
+
+## The 11-02 batch (the owner agreed 2026-11-01): networking, and the beta made solid
+
+The owner's device checks run alongside, in the order of `/yoloai/files/testing-plan-2026-11-01.md`.
+
+1. **The iPhone's full-screen button** (the owner, 2026-11-01: "The full screen button doesn't work on
+   iphone (safari)"). An iPhone has no element full screen (`requestFullscreen` is iPad-only, WebKit
+   bug 206854), so `film-fullscreen.ts`'s `fillTheScreen` only fills the window under Safari's bars.
+   The button opens the video in iOS's own player (`webkitEnterFullscreen`), as
+   `together-viewer.tsx` already does, the two sharing one function; Apple's controls show there
+   (the owner: "OK to use iOS's own player").
+2. **The LAN origin, a decision first:** the lead writes the D-proposal (the plan's "Reaching the core
+   at home" item 1); built once the owner decides.
+3. **WebRTC for Chromium:** that section's items 3–5.
+4. **Recovery:** the core and its discovery find each other again in either restart order; a Play
+   page gives up its sockets on `pagehide` and reconnects on `pageshow`; Firefox's leftovers (a page
+   on a core's direct HTTPS name hears the network's return only from `online`; the direct mode's
+   signaller marks no failure `Unreached`).
+5. **A page that cannot reach its core says why**, to the discovery and in words (the plan's "Reaching
+   production from outside" item 2). The edge tunnel (item 1 there) is not this batch's: see the
+   owner's question of 2026-11-01 below.
+6. **Playback's start:** the remembered link kept across a deploy; the player choosing its first rung
+   before loading anything (the Fire TV's black blip).
+7. **The production deploy's small items** (the section above): HeadlessChrome's browser name, the
+   empty Home's hint to an admin, the setting rows nothing reads, the realm rename's note, connect's
+   `up.sh` checking `published/` as the connect user, the ops README's core ID.
+8. **Gate fixes, the owner's yes (2026-11-01):** check-pr takes its lock before web-deps; revert-red
+   tells a stale known-red hint from a broken environment. Not check-pr's 352 s (the owner).
+
+**Not this batch:** the cosmetic UI items (the UX rewrite), the decoder-limit codec drop, the
+average-bitrate rung, inventory features.
+
+**The owner's question (2026-11-01):** "I don't understand why this requires me to open a tunnel on
+the vps. The vps is the paid discovery server, and we can't be opening tunnels to every customer's
+cores." Answered: the edge VPS (`11.22.44.139`, orpheum-ops `edge/`) is not the discovery server
+(prod-api, `178.84…`); it is the owner's own forwarder for nas.example, whose DS-Lite line has no IPv4 way
+in. No customer's core gets a tunnel (D314: a connection that needs a relay fails, and is counted);
+item 5 is the counting. Whether nas.example uses the edge again is the owner's own choice, not product work.
