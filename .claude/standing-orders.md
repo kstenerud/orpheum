@@ -22,6 +22,9 @@
    notice, the freeze's console words, the Continue Watching poster, up.sh's check as `connect`, the
    renamed realm's sign-in. The owner holds the testing plan's sound steps until it lands. End: one
    check-pr, the owner's go, nas.example.
+   **The 11-04 batch (owner 2026-11-01, "finish this batch and start another one overnight"):** the
+   plan file's "The 11-04 batch": a redeemed invitation leaves People, a role in one dialog for
+   creating and editing, a series starts at season 1. No nas.example release soon. End: one check-pr.
    **Queued for the owner to order later:** the rest of the plan file and inventory-2026-10-27.md.
    **Superseded (owner 2026-10-30, D385):** a receiver taking control back ends the cast and goes home; the sender plays on.
 3. **Only then:** new work (Diagnostics, D341, D345, the queued items), and code-fixing batches from

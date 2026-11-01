@@ -1176,3 +1176,20 @@ recommendations"). The owner holds off on the testing plan's sound steps until t
 End: one check-pr, the owner's go, nas.example. Quick visible fixes go to staging for the owner as they
 land. **Not this batch:** connect's side of D398 (at its next pin), the gate items, the ops and logging
 items above.
+
+## The 11-04 batch (the owner, 2026-11-01): from VQ201 and the night's testing
+
+The owner, 2026-11-01, going to bed: "Maybe you should finish this batch and start another one
+overnight", with VQ201 passed and these comments. No nas.example release is wanted soon.
+
+1. **A redeemed invitation leaves the People page** (the owner: "When an invitation is redeemed, it
+   should be removed from the people page"). Its account is in Accounts already.
+2. **A role opens in a dialog, not a page, the same dialog creating and editing it** (the owner: "On
+   second thought, the role info should be a popup rather than a page. It should be the same dialog
+   for creating and editing a role"). Amends D399's role page.
+3. **A series nobody has started plays season 1 first; its specials are optional** (the owner: 12
+   Monkeys "shows 'Play S0E0'. It should always start at season 1, leaving the specials optional").
+   Built in "fix(library): a series nobody has started plays season 1 first, its specials optional": a special is Next Up only while its person is partway through it, and finishing
+   one does not move their place.
+
+End: one check-pr. Quick visible fixes go to staging for the owner as they land.
