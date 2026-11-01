@@ -14,7 +14,7 @@ import {
   assetNamedBy,
   newerClientOver,
   reloadsForNewerClient,
-  reportReloadForNewerClient,
+  reportReloadNote,
   watchForNewerClient,
   type NewerClient,
 } from "./newer-client.ts";
@@ -99,8 +99,8 @@ describe("a screen's code no longer served, as a newer client is", () => {
     expect(mounted.container.textContent).toContain("Loading…");
     expect(sent).toEqual([]);
     // The page loaded again tells the core's log why, once.
-    reportReloadForNewerClient(storage);
-    reportReloadForNewerClient(storage);
+    reportReloadNote(storage);
+    reportReloadNote(storage);
     expect(sent).toHaveLength(1);
     expect(sent[0]).toContain("the page reloaded for a newer client, once");
     expect(sent[0]).toContain("the code of the title screen did not load");
@@ -116,12 +116,12 @@ describe("a screen's code no longer served, as a newer client is", () => {
       await reloadsForNewerClient({ screen: "title", reason: goneChunk.message }, page, before),
     ).toBe(true);
     // The page after the reload: already signed in, as a browser kept signed in across one is.
-    // client-main.tsx wires sendFailuresToCore before it calls reportReloadForNewerClient; this
+    // client-main.tsx wires sendFailuresToCore before it calls reportReloadNote; this
     // is that same order, over the real sink and a stand-in of the core.
     const heard: Heard[] = [];
     const services = servedBy({ "POST /client-problems": [204, undefined] }, heard, "a-token");
     sendFailuresToCore(services.api, services.session, () => "/titles/5285");
-    reportReloadForNewerClient(storage);
+    reportReloadNote(storage);
     await new Promise((resolve) => {
       setTimeout(resolve, 0);
     });

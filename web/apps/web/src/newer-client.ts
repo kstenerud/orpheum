@@ -132,7 +132,7 @@ async function newerClientWhy(client: NewerClient, reason: string): Promise<stri
  * Tells the core's log, once, what the page before this one reloaded for, if it did: for a newer
  * client, or for its part's code that did not load (part-load.ts).
  */
-export function reportReloadForNewerClient(storage: StringStorage = tabStorage()): void {
+export function reportReloadNote(storage: StringStorage = tabStorage()): void {
   const note = takeReloadNote(storage);
   if (note !== undefined) {
     reportFailure(note);
