@@ -26,9 +26,12 @@ const clientKeys = new Set([
   // The tab's path choice (transport-choice.ts) and the script it last reloaded for (app-update.ts).
   "orpheum.transport",
   "orpheum.reloadedForClient",
-  // The build the tab reloaded from for a screen's code no longer served, and why (newer-client.ts).
+  // The build the tab reloaded from for a screen's code no longer served (newer-client.ts), and why
+  // the page before reloaded, for the page that follows to tell the core's log (reload-note.ts).
   "orpheum.screenCode.reloadedFrom",
   "orpheum.screenCode.reloadNote",
+  // That the tab reloaded once for its part's code that did not load (part-load.ts).
+  "orpheum.main.reloadedForPart",
   // A debugging aid that starts each film on its own picture, with no preload (watching.ts).
   "orpheum.debug.startOnFilmsPicture",
   // The tab's debug cap on its download rate (link-debug.ts, D380).
