@@ -69,7 +69,7 @@ func TestInvitation_MakesTheAccountItsPersonFillsInOnceAndSignsTheDeviceIn(t *te
 }
 
 // wantNoteKeptAndNoInvitationLeft fails unless name's account kept the invitation's note, and no
-// invitation is left waiting: the one used names the account it made (D311 §4).
+// invitation is listed: the one used is gone from the list, its account is among the accounts (D403).
 func wantNoteKeptAndNoInvitationLeft(t *testing.T, service *Service, name, note string) {
 	t.Helper()
 	accounts, err := service.Accounts(t.Context())
@@ -82,9 +82,8 @@ func wantNoteKeptAndNoInvitationLeft(t *testing.T, service *Service, name, note 
 		}
 	}
 	invitations, listErr := service.Invitations(t.Context())
-	if listErr != nil || len(invitations) != 1 || invitations[0].MadeName != name || invitations[0].LiveLinks != 0 {
-		t.Errorf("invitations after the one was used: %+v, %v; want only it, naming %s, none waiting",
-			invitations, listErr, name)
+	if listErr != nil || len(invitations) != 0 {
+		t.Errorf("invitations after the one was used: %+v, %v; want none listed", invitations, listErr)
 	}
 }
 
@@ -123,9 +122,9 @@ func TestInvitation_AWithdrawnOneAndOneOfADeletedRoleAdmitNoOne(t *testing.T) {
 	}
 }
 
-// An invitation's link makes the account once, and the invitation then names the account it made,
-// with no link to withdraw (D318 §2; D311 §4; D399).
-func TestInvitation_ItsLinkWorksOnceAndThenItNamesTheAccountItMade(t *testing.T) {
+// An invitation's link makes the account once, and the invitation is then no longer listed, with
+// no link to withdraw (D318 §2; D403).
+func TestInvitation_ItsLinkWorksOnceAndThenItIsNoLongerListed(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
 	ctx := t.Context()
@@ -134,8 +133,7 @@ func TestInvitation_ItsLinkWorksOnceAndThenItNamesTheAccountItMade(t *testing.T)
 		t.Fatal(err)
 	}
 	listed, err := fixture.service.Invitations(ctx)
-	if err != nil || len(listed) != 1 || listed[0].LiveLinks != 1 || !listed[0].ExpiresAt.Equal(link.ExpiresAt) ||
-		listed[0].MadeUserID != 0 {
+	if err != nil || len(listed) != 1 || listed[0].LiveLinks != 1 || !listed[0].ExpiresAt.Equal(link.ExpiresAt) {
 		t.Fatalf("the invitations = %+v, %v; want one waiting with its link", listed, err)
 	}
 	fixture.clock.Advance(time.Hour)
@@ -146,23 +144,32 @@ func TestInvitation_ItsLinkWorksOnceAndThenItNamesTheAccountItMade(t *testing.T)
 	if !errors.Is(err, ErrBadInvitation) {
 		t.Errorf("the link used a second time: %v, want ended", err)
 	}
-	wantUsedBy(t, fixture.service, fixture.clock.Now(), id, "Joe")
+	wantUsedBy(t, fixture.service, id, "Joe")
 }
 
-// wantUsedBy fails unless the invitation id names name's account, made now, with no live link, and
-// nothing more to withdraw, and name's own link is the one used, still live (D292 §4).
-func wantUsedBy(t *testing.T, service *Service, now time.Time, id int64, name string) {
+// wantUsedBy fails unless the invitation id is no longer listed, nothing is left to withdraw, and
+// name's own link is the one used, still live (D292 §4; D403).
+func wantUsedBy(t *testing.T, service *Service, id int64, name string) {
 	t.Helper()
 	ctx := t.Context()
 	listed, err := service.Invitations(ctx)
-	if err != nil || len(listed) != 1 || listed[0].MadeName != name || listed[0].MadeUserID == 0 ||
-		listed[0].LiveLinks != 0 || !listed[0].MadeAt.Equal(now) {
-		t.Fatalf("the used invitation = %+v, %v; want it naming %s, made now, with no live link", listed, err, name)
+	if err != nil || len(listed) != 0 {
+		t.Fatalf("the invitations after %s's was used = %+v, %v; want none", name, listed, err)
+	}
+	accounts, err := service.Accounts(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var madeID int64
+	for _, account := range accounts {
+		if account.Name == name {
+			madeID = account.ID
+		}
 	}
 	if err = service.WithdrawInvitation(ctx, id); !errors.Is(err, ErrInvitationUsed) {
 		t.Errorf("withdrawing a used invitation: %v, want ErrInvitationUsed", err)
 	}
-	if own, hasOwn, ownErr := service.OwnLink(ctx, listed[0].MadeUserID); ownErr != nil || !hasOwn ||
+	if own, hasOwn, ownErr := service.OwnLink(ctx, madeID); ownErr != nil || !hasOwn ||
 		own.ExpiresAt.IsZero() {
 		t.Errorf("%s's own link = %+v, %v, %v; want the link used, still live", name, own, hasOwn, ownErr)
 	}
@@ -316,8 +323,8 @@ func TestInvitation_ItsLiveLinkIsShownAgainUntilUsed(t *testing.T) {
 	if _, err = kit.service.Register(ctx, link.Secret, "Ned", "a good long password", laptop); err != nil {
 		t.Fatal(err)
 	}
-	if listed, err = kit.service.Invitations(ctx); err != nil || len(listed) != 1 || len(listed[0].Links) != 0 {
-		t.Errorf("the used invitation = %+v, %v; want no link shown", listed, err)
+	if listed, err = kit.service.Invitations(ctx); err != nil || len(listed) != 0 {
+		t.Errorf("the used invitation = %+v, %v; want it not listed, and no link shown", listed, err)
 	}
 	if kept := sealedLinksKept(t, kit); kept != "0" {
 		t.Errorf("%s links keep their secret after the invitation was used; want none", kept)

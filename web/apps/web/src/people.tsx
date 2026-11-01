@@ -19,7 +19,8 @@ import { Loaded } from "./loaded.tsx";
 import { CreateAccountDialog, InviteDialog, type RoleChoices } from "./people-dialogs.tsx";
 import { QrCode } from "./qr-code.tsx";
 import { listRoles, roleLabel } from "./roles.ts";
-import { CreateRoleDialog, RolesSection } from "./roles-section.tsx";
+import { RoleDialog } from "./role-dialog.tsx";
+import { RolesSection } from "./roles-section.tsx";
 import { useServices } from "./services.tsx";
 import { Share } from "./share.tsx";
 import { useResource } from "./use-resource.ts";
@@ -30,21 +31,45 @@ export interface IssuedInvitation {
   readonly invitation: components["schemas"]["IssuedSecretBody"];
 }
 
-/** The dialog the page has open, if any: one of the three that make something, or an invitation's. */
+/**
+ * The dialog the page has open, if any: one of the three that make something, a role's (a new one
+ * with no roleId, else that role) or an invitation's.
+ */
 type DialogState =
-  | { readonly kind: "role" | "account" | "inviting" }
+  | { readonly kind: "account" | "inviting" }
+  | { readonly kind: "role"; readonly roleId?: number }
   | {
       readonly kind: "invitation";
       readonly invitation: Invitation;
       readonly link: components["schemas"]["IssuedSecretBody"] | undefined;
     };
 
-/** The buttons above the sections, each opening the dialog that makes one thing. */
+/** The three things the buttons make. */
 const makers = [
   { kind: "role", label: "people.createRole" },
   { kind: "account", label: "people.createAccount" },
   { kind: "inviting", label: "people.inviteSomeone" },
 ] as const;
+
+/** The buttons above the sections, each opening the dialog that makes one thing. */
+function Makers(props: { readonly onOpen: (open: DialogState) => void }): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <div className="people__actions">
+      {makers.map((maker) => (
+        <button
+          key={maker.kind}
+          type="button"
+          onClick={() => {
+            props.onOpen({ kind: maker.kind });
+          }}
+        >
+          {t(maker.label)}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 /**
  * The household, for the admin (D399, revising D218 and D246 §2): three buttons, Create Role,
@@ -68,19 +93,7 @@ export function People(): JSX.Element {
   return (
     <section className="people" aria-labelledby="people-heading">
       <h1 id="people-heading">{t("people.heading")}</h1>
-      <div className="people__actions">
-        {makers.map((maker) => (
-          <button
-            key={maker.kind}
-            type="button"
-            onClick={() => {
-              setOpen({ kind: maker.kind });
-            }}
-          >
-            {t(maker.label)}
-          </button>
-        ))}
-      </div>
+      <Makers onOpen={setOpen} />
       <Loaded
         resource={invitations}
         render={(list) => (
@@ -96,7 +109,17 @@ export function People(): JSX.Element {
         <h2 id="people-accounts">{t("people.accounts")}</h2>
         <Loaded resource={accounts} render={(list) => <PeopleList accounts={list} />} />
       </section>
-      <Loaded resource={roles} render={(listed) => <RolesSection roles={listed.roles} />} />
+      <Loaded
+        resource={roles}
+        render={(listed) => (
+          <RolesSection
+            roles={listed.roles}
+            onOpen={(role) => {
+              setOpen({ kind: "role", roleId: role.id });
+            }}
+          />
+        )}
+      />
       <OpenDialog
         open={open}
         choices={choices}
@@ -123,9 +146,9 @@ function OpenDialog(props: {
   return (
     <>
       {props.open?.kind === "role" ? (
-        <CreateRoleDialog
-          onClose={props.onClose}
-          onCreated={() => {
+        <RoleDialog
+          roleId={props.open.roleId}
+          onClose={() => {
             props.onClose();
             props.onChanged.reloadRoles();
           }}

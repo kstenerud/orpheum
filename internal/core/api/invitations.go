@@ -25,15 +25,7 @@ type InvitationBody struct {
 	ExpiresAt int64  `doc:"When the last live link ends, Unix milliseconds; 0 with none" json:"expiresAt"`
 	// Links are its live links while it waits, to pass on again until used, withdrawn or ended (D267
 	// §5, as the owner chose for invitations, 2026-10-28).
-	Links []IssuedSecretBody `doc:"Its live links, oldest first, to pass on again; none once used" json:"links"`
-	Made  *MadeAccountBody   `doc:"The account its use made; absent while it waits" json:"made,omitempty"`
-}
-
-// MadeAccountBody is the account an invitation's use made, and when.
-type MadeAccountBody struct {
-	UserID int64  `json:"userId"`
-	Name   string `json:"name"`
-	At     int64  `doc:"Unix milliseconds" json:"at"`
+	Links []IssuedSecretBody `doc:"Its live links, oldest first, to pass on again" json:"links"`
 }
 
 // InviteInput is the admin inviting someone to make their own account (D246 §2): the role it will
@@ -55,7 +47,7 @@ type InviteOutput struct {
 	}
 }
 
-// InvitationsOutput is every invitation, newest first: waiting, and used with what each made.
+// InvitationsOutput is the invitations still waiting, newest first; a used one is not listed (D403).
 type InvitationsOutput struct {
 	Body struct {
 		Invitations []InvitationBody `json:"invitations"`
@@ -133,11 +125,6 @@ func invitationBody(invitation auth.Invitation, found *discovery.Service) Invita
 	}
 	if !invitation.ExpiresAt.IsZero() {
 		body.ExpiresAt = invitation.ExpiresAt.UnixMilli()
-	}
-	if invitation.MadeUserID != 0 {
-		body.Made = &MadeAccountBody{
-			UserID: invitation.MadeUserID, Name: invitation.MadeName, At: invitation.MadeAt.UnixMilli(),
-		}
 	}
 	return body
 }

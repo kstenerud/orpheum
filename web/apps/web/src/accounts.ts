@@ -83,7 +83,7 @@ export async function invite(
   );
 }
 
-/** Every invitation, newest first: those waiting, and those used with the account each made. */
+/** The invitations still waiting, newest first; a used one is not listed (D403). */
 export async function listInvitations(api: Api): Promise<Invitation[]> {
   return dataOrThrow(await api.GET("/invitations")).invitations ?? [];
 }

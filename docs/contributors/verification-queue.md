@@ -2202,3 +2202,18 @@ An item is ticked only by the person who did it, and only with what they saw.
   M` then `sound N heard (trackChosen)`. Note whether the boost's switch, which still plays the sound
   loaded on until the boosted mix arrives (D400 §2), has a gap at its seam too: that is the owner's
   next call. (`web/packages/player/src/hls.ts`)
+- [ ] **VQ238** — a used invitation leaves the People page and a role opens in the one dialog that makes
+  it, on staging, on the Mac's Chrome (the owner, 2026-11-01, after VQ201; D403). As admin, People.
+  (1) Invite Someone, make the link, close the dialog; open the link in Firefox and register: reload
+  People, the invitation's row is gone from Invitations (the section too, when it was the only one) and
+  the new person is in Accounts with the note you wrote. (2) A waiting invitation's row still opens its
+  dialog with QR code, link, Copy and Withdraw. (3) Create Role opens a dialog headed New role with the
+  name, the capabilities and the libraries; give it a name, tick a library and a capability, Add the
+  role: the dialog closes and the role is a row. (4) Click that role's row: the same dialog opens,
+  headed with the role's name, with what you ticked ticked and no Add the role; tick another library,
+  close and reopen it from the row: it is kept, and there was no Save button. Rename it by editing the
+  name and leaving the field. (5) Delete shows only for a role no one has; on Administrator and Can
+  watch it does not, and Administrator's capabilities cannot be changed. (6) Open `/roles/3` by
+  address: it is not a page any more. (`web/apps/web/src/role-dialog.tsx`, `people.tsx`,
+  `invitations-section.tsx`; `internal/store/queries/invitation.sql`)
+

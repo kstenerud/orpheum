@@ -9,7 +9,6 @@ import { BusyGroup } from "./busy-group.tsx";
 import { ConfirmButton } from "./confirm-button.tsx";
 import { dateTimeText } from "./date-time-text.ts";
 import { i18n } from "./i18n.ts";
-import { Link } from "./link.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { personWords } from "./person-words.ts";
 import { fieldProblemText } from "./problem.ts";
@@ -20,10 +19,10 @@ import { Share } from "./share.tsx";
 import { useRequest } from "./use-request.ts";
 
 /**
- * The invitations, waiting ones first and then those used (D399, revising D218 and D267 §5): a row
- * each, with the admin's note of who it is for, its role and when it was issued, and for a used one
- * who it made. A row opens its dialog; nothing else on the page sends or withdraws one. Nothing
- * when there are none.
+ * The invitations still waiting (D399, revising D218 and D267 §5): a row each, with the admin's note
+ * of who it is for, its role and when it was issued. A row opens its dialog; nothing else on the
+ * page sends or withdraws one. One used is not listed, its account is among the accounts (D403).
+ * Nothing when there are none.
  */
 export function InvitationsSection(props: {
   readonly invitations: readonly Invitation[];
@@ -33,13 +32,11 @@ export function InvitationsSection(props: {
   if (props.invitations.length === 0) {
     return null;
   }
-  const waiting = props.invitations.filter((invitation) => invitation.made === undefined);
-  const used = props.invitations.filter((invitation) => invitation.made !== undefined);
   return (
     <section aria-labelledby="people-invitations">
       <h2 id="people-invitations">{t("people.invitations")}</h2>
       <ul className="people__list">
-        {[...waiting, ...used].map((invitation) => (
+        {props.invitations.map((invitation) => (
           <li key={invitation.id}>
             <button
               type="button"
@@ -53,11 +50,6 @@ export function InvitationsSection(props: {
               <span>
                 {t("people.issuedOn", { at: dateTimeText(invitation.issuedAt, i18n.language) })}
               </span>
-              {invitation.made === undefined ? null : (
-                <span className="people__status">
-                  {t("people.usedBy", { name: invitation.made.name })}
-                </span>
-              )}
             </button>
           </li>
         ))}
@@ -67,9 +59,8 @@ export function InvitationsSection(props: {
 }
 
 /**
- * One invitation's dialog: who it is for, its role and when it was issued. A waiting one shows its
- * link as a QR code a phone's camera opens (D218 §1) and as text with Copy, and ends with Withdraw;
- * a used one says who it made, and shows no QR code, link or Withdraw. link is the one just made,
+ * One waiting invitation's dialog: who it is for, its role and when it was issued, its link as a QR
+ * code a phone's camera opens (D218 §1) and as text with Copy, and Withdraw. link is the one just made,
  * where the dialog opens at the invitation's creation; otherwise the live links it has, which an
  * invitation sent another link before D399 may have more than one of.
  */
@@ -98,26 +89,17 @@ export function InvitationDialog(props: {
         <dt>{t("people.issuedLabel")}</dt>
         <dd>{dateTimeText(invitation.issuedAt, i18n.language)}</dd>
       </dl>
-      {invitation.made === undefined ? (
-        <WaitingInvitation
-          invitation={invitation}
-          links={links}
-          isBusy={isBusy}
-          onWithdraw={() => {
-            runRequest(async () => {
-              await withdrawInvitation(api, invitation.id);
-              props.onWithdrawn();
-            });
-          }}
-        />
-      ) : (
-        <p>
-          {t("people.usedOn", { at: dateTimeText(invitation.made.at, i18n.language) })}{" "}
-          <Link to={{ screen: "person", userId: invitation.made.userId }}>
-            {invitation.made.name}
-          </Link>
-        </p>
-      )}
+      <WaitingInvitation
+        invitation={invitation}
+        links={links}
+        isBusy={isBusy}
+        onWithdraw={() => {
+          runRequest(async () => {
+            await withdrawInvitation(api, invitation.id);
+            props.onWithdrawn();
+          });
+        }}
+      />
       {problem === undefined ? null : <p role="alert">{problem}</p>}
     </ModalDialog>
   );

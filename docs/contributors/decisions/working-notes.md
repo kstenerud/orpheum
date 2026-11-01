@@ -25392,6 +25392,8 @@ changes only the client's side of D318 (the server still lets an invitation have
    of all roles.
 5. **Status:** Decided 2026-11-01. Device check: VQ201.
 
+> **Amended by [D403](#d403--a-used-invitation-leaves-the-people-page-and-a-role-opens-in-the-one-dialog-that-makes-it)** (2026-11-01): a used invitation is no longer listed (§2), and a role opens in a dialog, the one that makes a role, not a page (§4).
+
 ## D400 — A chosen audio track cuts in at the choice, accepting a brief wait there; the boost still loads at the playhead
 
 **Decided** (2026-11-01), by the project owner, testing VQ204 in Chrome on staging: after another
@@ -25452,3 +25454,31 @@ the full title on screen; so does this.
    `sortKeyOf`, the one place a pass and a rekey alike make an item's key. A file name's key (the sort
    by file name, D349 §4) and a folder's are of the text as written.
 6. **Status:** Decided 2026-11-01; built.
+
+## D403 — A used invitation leaves the People page, and a role opens in the one dialog that makes it
+
+**Decided** (2026-11-01), by the project owner, testing VQ201 on staging, in two comments: *"When an
+invitation is redeemed, it should be removed from the people page"* and *"On second thought, the role
+info should be a popup rather than a page. It should be the same dialog for creating and editing a
+role."* It amends [D399](#d399--the-people-page-is-three-buttons-over-three-sections-dialogs-make-things-rows-lead-to-pages-and-a-roles-changes-save-at-once)
+§2 (a used invitation marked used, with a dialog naming who it made) and §4 (a role's page at
+`/roles/<id>`); the rest of D399 stands.
+
+1. **A used invitation is not listed.** The account it made is among the accounts already, with the
+   admin's note the invitation carried, so the row said nothing more. `GET /invitations` lists the
+   invitations still waiting and no other (`ListInvitations` selects those with no account made);
+   nothing else read a used one, so its `made` field is gone from the answer, the SDK's types and the
+   client, with the "Used by" row and the used invitation's dialog. The invitation row itself stays in
+   the store, naming the account it made, as a used link must still answer once (D318 §2).
+2. **A role opens in a dialog.** A role's row in Roles opens the dialog Create Role opens: one
+   `RoleDialog` (`web/apps/web/src/role-dialog.tsx`), with the name, the capabilities and the
+   libraries. Made new it is empty and *Add the role* makes the role, with whatever was ticked, and
+   closes it. Opened from a row it keeps D399 §4's behaviour: each tick saved at once with no Save
+   button, a custom role's name saved when its field is left or Enter is pressed, a built-in role's
+   capabilities fixed, Administrator's libraries not offered, and *Delete* (red, asked again, D278 §4)
+   only while no one has the role and never for a built-in one, closing the dialog.
+3. **The role page is retired:** `role-page.tsx`, the `role` route and the `/roles/<id>` address are
+   gone; nothing linked to the address outside the People page.
+4. **Status:** Decided 2026-11-01; built. Tests: `TestInvitation_ItsLinkWorksOnceAndThenItIsNoLongerListed`,
+   `TestInvitations_AUsedOneIsNoLongerListed`, `people-invitations.test.tsx`, `roles-section.test.tsx`.
+   Device check: VQ238.

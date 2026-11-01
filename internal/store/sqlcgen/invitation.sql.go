@@ -105,7 +105,7 @@ type InsertInvitationParams struct {
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Invitations (D246 section 2): the role the account will have and the admin's note of who it is
 // for, with one or more links, each a single-use grant; using any one makes the account and ends
-// the others (D318), and the invitation then names the account it made (D311 section 4).
+// the others (D318); the invitation then keeps the account it made, and the list drops it (D403).
 func (q *Queries) InsertInvitation(ctx context.Context, arg InsertInvitationParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, insertInvitation, arg.RoleID, arg.AdminNote, arg.IssuedAt)
 	var id int64
@@ -130,7 +130,6 @@ func (q *Queries) InsertInvitationLink(ctx context.Context, arg InsertInvitation
 
 const listInvitations = `-- name: ListInvitations :many
 SELECT invitation.id, invitation.admin_note, role.name AS role_name, invitation.issued_at,
-  invitation.made_user_id, made.name AS made_name, invitation.made_at,
   CAST((SELECT count(*) FROM invitation_link
         CROSS JOIN "grant" ON "grant".secret_sha256 = invitation_link.secret_sha256
         WHERE invitation_link.invitation_id = invitation.id AND "grant".kind = 'issued_secret'
@@ -141,7 +140,7 @@ SELECT invitation.id, invitation.admin_note, role.name AS role_name, invitation.
           AND "grant".revoked_at IS NULL) AS INTEGER) AS last_expires_at
 FROM invitation
 JOIN role ON role.id = invitation.role_id
-LEFT JOIN user AS made ON made.id = invitation.made_user_id
+WHERE invitation.made_user_id IS NULL
 ORDER BY invitation.issued_at DESC, invitation.id DESC
 `
 
@@ -150,15 +149,13 @@ type ListInvitationsRow struct {
 	AdminNote     string
 	RoleName      string
 	IssuedAt      int64
-	MadeUserID    *int64
-	MadeName      *string
-	MadeAt        *int64
 	LiveLinks     int64
 	LastExpiresAt int64
 }
 
-// Every invitation, newest first, for the admin's list: its links still live and when the last of
-// them ends, or the account its use made. CROSS JOIN keeps SQLite's order: an invitation's links by
+// Every invitation still waiting, newest first, for the admin's list: its links still live and when
+// the last of them ends. One used is no longer listed: its account shows among the accounts (D403).
+// CROSS JOIN keeps SQLite's order: an invitation's links by
 // their index, then each one's grant by its key, never every grant for each invitation.
 func (q *Queries) ListInvitations(ctx context.Context, now *int64) ([]ListInvitationsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listInvitations, now)
@@ -174,9 +171,6 @@ func (q *Queries) ListInvitations(ctx context.Context, now *int64) ([]ListInvita
 			&i.AdminNote,
 			&i.RoleName,
 			&i.IssuedAt,
-			&i.MadeUserID,
-			&i.MadeName,
-			&i.MadeAt,
 			&i.LiveLinks,
 			&i.LastExpiresAt,
 		); err != nil {

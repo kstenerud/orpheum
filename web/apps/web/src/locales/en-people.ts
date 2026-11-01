@@ -42,8 +42,6 @@ export const enPeople = {
     accounts: "Accounts",
     issuedOn: "Issued {{at}}",
     issuedLabel: "Issued",
-    usedBy: "Used by {{name}}",
-    usedOn: "Used on {{at}} by",
     invitationFor: "Invitation for {{note}}",
     invitationEnded: "Its links have ended. Withdraw it, and invite them again.",
     withdraw: "Withdraw",
@@ -80,7 +78,8 @@ export const enPeople = {
     explain:
       "Each person has one role, their whole access: the libraries they see and play, and what else they may do. A library taken from a role is gone for its people at once.",
     name: "Name",
-    newName: "A new role's name",
+    newTitle: "New role",
+    dialogLabel: "Role",
     create: "Add the role",
     holders: "{{count}} people",
     notFound: "There is no such role.",

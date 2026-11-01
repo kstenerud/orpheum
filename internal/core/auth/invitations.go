@@ -32,8 +32,8 @@ type NewInvitation struct {
 	AdminNote string
 }
 
-// Invitation is an invitation as the admin's list shows it: waiting, with its links still live and
-// when the last of them ends, or used, with the account it made (D311 §3, §4).
+// Invitation is an invitation as the admin's list shows it: one still waiting, with its links still
+// live and when the last of them ends; one used is not listed, its account is (D403).
 type Invitation struct {
 	ID        int64
 	Role      Role
@@ -46,10 +46,6 @@ type Invitation struct {
 	// Links are its live links while it waits, oldest first, each to pass on again until it is
 	// used, withdrawn or ends (D267 §5, which the owner chose for invitations, 2026-10-28).
 	Links []IssuedSecret
-	// MadeUserID and MadeName are the account its use made, zero while it waits; MadeAt is when.
-	MadeUserID int64
-	MadeName   string
-	MadeAt     time.Time
 }
 
 // Invite issues an invitation with its first link: single use, lasting
@@ -127,8 +123,8 @@ func (service *Service) issueInvitationLink(
 	return IssuedSecret{Secret: secret, ExpiresAt: expires}, nil
 }
 
-// Invitations are every invitation, newest first: those waiting, with their links, and those used,
-// with the account each made.
+// Invitations are the invitations still waiting, newest first, with their links; one used is gone
+// from the list, the account it made is among the accounts (D403).
 func (service *Service) Invitations(ctx context.Context) ([]Invitation, error) {
 	now := new(service.clock.Now().UnixMilli())
 	rows, err := service.database.Read().ListInvitations(ctx, now)
@@ -147,10 +143,6 @@ func (service *Service) Invitations(ctx context.Context) ([]Invitation, error) {
 		}
 		if row.LiveLinks > 0 {
 			invitation.ExpiresAt = time.UnixMilli(row.LastExpiresAt)
-		}
-		if row.MadeUserID != nil && row.MadeAt != nil {
-			invitation.MadeUserID, invitation.MadeName = *row.MadeUserID, ptr.ValueOrZero(row.MadeName)
-			invitation.MadeAt = time.UnixMilli(*row.MadeAt)
 		}
 		invitations = append(invitations, invitation)
 	}

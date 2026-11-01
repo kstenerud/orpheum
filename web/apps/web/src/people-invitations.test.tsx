@@ -48,17 +48,6 @@ const waiting = {
   expiresAt: 0,
   links: [],
 };
-const used = {
-  id: 6,
-  role: "user",
-  adminNote: "Grandma",
-  issuedAt: 1,
-  liveLinks: 0,
-  expiresAt: 0,
-  links: [],
-  made: { userId: 4, name: "Gran", at: 1_790_000_000_000 },
-};
-
 const served = {
   "GET /users": [200, { accounts: [] }],
   "GET /roles": [200, roles],
@@ -88,7 +77,7 @@ it("opens a waiting invitation's dialog with its live links, each with Copy (D26
     mounted = await mount(
       withServices(
         <People />,
-        servedBy({ ...served, "GET /invitations": [200, { invitations: [live, used] }] }),
+        servedBy({ ...served, "GET /invitations": [200, { invitations: [live] }] }),
       ),
     );
     // The page itself shows no link: a row opens its dialog.
@@ -117,24 +106,21 @@ it("opens a waiting invitation's dialog with its live links, each with Copy (D26
   }
 });
 
-it("lists invitations by note, role and date, used ones marked, with nothing to send again (D318, D311 §4, D399)", async () => {
+it("lists the waiting invitations by note, role and date, with nothing to send again (D318, D403)", async () => {
   mounted = await mount(
     withServices(
       <People />,
-      servedBy({ ...served, "GET /invitations": [200, { invitations: [waiting, used] }] }),
+      servedBy({ ...served, "GET /invitations": [200, { invitations: [waiting] }] }),
     ),
   );
   const page = mounted.container;
   const rows = [
     ...(page.querySelector("#people-invitations")?.parentElement?.querySelectorAll("li") ?? []),
   ];
-  expect(rows).toHaveLength(2);
+  expect(rows).toHaveLength(1);
   expect(rows[0]?.textContent).toContain("my cousin");
   expect(rows[0]?.textContent).toContain("Can watch");
   expect(rows[0]?.textContent).toContain("Issued ");
-  expect(rows[0]?.textContent).not.toContain("Used by");
-  expect(rows[1]?.textContent).toContain("Grandma");
-  expect(rows[1]?.textContent).toContain("Used by Gran");
   // Nothing sends another link any more, on the page or in a dialog.
   expect(buttonWithText(page, "Send another link")).toBeUndefined();
   await click(buttonContaining(page, "my cousin"));
@@ -143,19 +129,25 @@ it("lists invitations by note, role and date, used ones marked, with nothing to 
   expect(buttonWithText(page, "Withdraw")).toBeDefined();
 });
 
-it("opens a used invitation's dialog without QR code, link or Withdraw (D318, D311 §4, D399)", async () => {
+it("shows no invitations section once the server lists none, a used one's account being among the accounts (D403)", async () => {
   mounted = await mount(
     withServices(
       <People />,
-      servedBy({ ...served, "GET /invitations": [200, { invitations: [waiting, used] }] }),
+      servedBy({
+        ...served,
+        "GET /users": [
+          200,
+          {
+            accounts: [
+              { id: 4, name: "Gran", role: "user", adminNote: "Grandma", hasPassword: true },
+            ],
+          },
+        ],
+        "GET /invitations": [200, { invitations: [] }],
+      }),
     ),
   );
   const page = mounted.container;
-  await click(buttonContaining(page, "Grandma"));
-  const dialog = page.querySelector("dialog");
-  expect(dialog?.textContent).toContain("Used on");
-  expect(dialog?.querySelector("a")?.textContent).toBe("Gran");
-  expect(dialog?.querySelector(".share__link")).toBeNull();
-  expect(dialog?.querySelector("img")).toBeNull();
-  expect(buttonWithText(page, "Withdraw")).toBeUndefined();
+  expect(page.querySelector("#people-invitations")).toBeNull();
+  expect(page.querySelector("#people-accounts")?.parentElement?.textContent).toContain("Gran");
 });

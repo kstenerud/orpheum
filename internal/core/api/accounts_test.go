@@ -341,9 +341,9 @@ func TestPairing_TooManyWrongCodesLimitThePersonEnteringThem(t *testing.T) {
 		"too many failed sign-ins; wait and try again")
 }
 
-// Using an invitation's link makes the account and ends the link, and the list then names the
-// account it made, with nothing to withdraw (D311 §4).
-func TestInvitations_TheListNamesTheAccountTheUsedOneMade(t *testing.T) {
+// Using an invitation's link makes the account and ends the link, and the list then no longer
+// shows the invitation, with nothing to withdraw (D403).
+func TestInvitations_AUsedOneIsNoLongerListed(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
@@ -361,10 +361,8 @@ func TestInvitations_TheListNamesTheAccountTheUsedOneMade(t *testing.T) {
 	}), http.StatusUnauthorized, api.CodeAuthRequired)
 	var after api.InvitationsOutput
 	answer := harness.do(t, http.MethodGet, "/invitations", admin, nil)
-	if err := json.Unmarshal([]byte(answer.body), &after.Body); err != nil || len(after.Body.Invitations) != 1 ||
-		after.Body.Invitations[0].Made == nil || after.Body.Invitations[0].Made.Name != "cousin" ||
-		after.Body.Invitations[0].LiveLinks != 0 {
-		t.Errorf("GET /invitations = %s; want the used invitation naming cousin, with no live link", answer.body)
+	if err := json.Unmarshal([]byte(answer.body), &after.Body); err != nil || len(after.Body.Invitations) != 0 {
+		t.Errorf("GET /invitations = %s; want the used invitation gone", answer.body)
 	}
 	withdraw := fmt.Sprintf("/invitations/%d", invitation.Invitation.ID)
 	wantError(t, harness.do(t, http.MethodDelete, withdraw, admin, nil), http.StatusConflict, api.CodeConflict)
@@ -380,8 +378,11 @@ func TestInvitations_TheListShowsEachLiveLinkAgainUntilOneIsUsed(t *testing.T) {
 	listedLinks := func() []api.IssuedSecretBody {
 		var listed api.InvitationsOutput
 		answer := harness.do(t, http.MethodGet, "/invitations", admin, nil)
-		if err := json.Unmarshal([]byte(answer.body), &listed.Body); err != nil || len(listed.Body.Invitations) != 1 {
+		if err := json.Unmarshal([]byte(answer.body), &listed.Body); err != nil || len(listed.Body.Invitations) > 1 {
 			t.Fatalf("GET /invitations = %d %s", answer.status, answer.body)
+		}
+		if len(listed.Body.Invitations) == 0 {
+			return nil
 		}
 		return listed.Body.Invitations[0].Links
 	}
@@ -394,7 +395,7 @@ func TestInvitations_TheListShowsEachLiveLinkAgainUntilOneIsUsed(t *testing.T) {
 	})
 	readSignIn(t, registered)
 	if links := listedLinks(); len(links) != 0 {
-		t.Errorf("the used invitation's links = %+v; want none", links)
+		t.Errorf("the used invitation's links = %+v; want it not listed", links)
 	}
 }
 

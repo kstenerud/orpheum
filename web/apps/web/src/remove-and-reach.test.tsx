@@ -8,7 +8,6 @@ import { afterEach, expect, it } from "vitest";
 import { BrowseView } from "./browse.tsx";
 import { People } from "./people.tsx";
 import { PersonPage } from "./person.tsx";
-import { RolePage } from "./role-page.tsx";
 import {
   buttonWithText,
   choose,
@@ -118,18 +117,28 @@ it("warns when the role chosen for someone new, or ticked for nobody, reaches no
   expect(invitation?.textContent).toContain(noLibraryChosen);
   await choose(invitation?.querySelector("select"), "family");
   expect(invitation?.textContent).not.toContain(noLibraryChosen);
-  // The roles section marks a role that reaches no library, and its page says what to do.
-  const rows = [...mounted.container.querySelectorAll("li.people__item")];
+});
+
+it("marks a role that reaches no library in Roles, and its dialog says what to do", async () => {
+  const answers = {
+    "GET /users": [200, { accounts: [] }],
+    "GET /roles": [200, roles],
+    "GET /libraries": [200, { libraries: [] }],
+    "GET /invitations": [200, { invitations: [] }],
+  } as const;
+  mounted = await mount(withServices(<People />, servedBy(answers)));
   const rowOf = (name: string): Element | undefined =>
-    rows.find((row) => row.querySelector("a")?.textContent.includes(name) === true);
-  expect(rowOf("Can watch")?.querySelector("button")).toBeInstanceOf(HTMLButtonElement);
-  expect(rowOf("Administrator")?.querySelector("button")).toBeNull();
+    [...(mounted?.container.querySelectorAll("li.people__item") ?? [])].find(
+      (row) => row.querySelector("button")?.textContent.includes(name) === true,
+    );
+  expect(rowOf("Can watch")?.querySelectorAll("button")).toHaveLength(2);
+  expect(rowOf("Administrator")?.querySelectorAll("button")).toHaveLength(1);
+  await click(rowOf("Can watch")?.querySelector("button") ?? null);
+  expect(mounted.container.querySelector("dialog")?.textContent).toContain(noLibraryTicked);
   mounted.unmount();
-  mounted = await mount(withServices(<RolePage roleId={2} />, servedBy(answers)));
-  expect(mounted.container.textContent).toContain(noLibraryTicked);
-  mounted.unmount();
-  mounted = await mount(withServices(<RolePage roleId={1} />, servedBy(answers)));
-  expect(mounted.container.textContent).not.toContain(noLibraryTicked);
+  mounted = await mount(withServices(<People />, servedBy(answers)));
+  await click(rowOf("Administrator")?.querySelector("button") ?? null);
+  expect(mounted.container.querySelector("dialog")?.textContent).not.toContain(noLibraryTicked);
 });
 
 it("says on a person's page whether they have used their link", async () => {

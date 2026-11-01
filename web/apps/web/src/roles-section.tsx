@@ -1,18 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { useState, type JSX } from "react";
+import type { JSX } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
-import { BusyGroup } from "./busy-group.tsx";
 import { ConfirmButton } from "./confirm-button.tsx";
-import { FormRow } from "./form-row.tsx";
-import { Link } from "./link.tsx";
-import { ModalDialog } from "./modal-dialog.tsx";
-import { fieldProblemText, type FormWords } from "./problem.ts";
-import { createRole, isWithoutLibrary, roleLabel, type Role } from "./roles.ts";
-import { useServices } from "./services.tsx";
-import { useRequest } from "./use-request.ts";
+import type { FormWords } from "./problem.ts";
+import { isWithoutLibrary, roleLabel, type Role } from "./roles.ts";
 import { WarningSign } from "./warning-sign.tsx";
 
 /** How a refusal of a role's name or libraries is told, on the People page and a role's own. */
@@ -25,10 +19,13 @@ export function roleWords(t: TFunction): FormWords {
 
 /**
  * The roles, for the admin (D243 §4, D399): each person has one, their whole access. A row each,
- * with the role's name and how many people have it, leading to the role's page, where its
- * permissions and libraries are changed.
+ * with the role's name and how many people have it, opening the role's dialog, where its
+ * permissions and libraries are changed (D403).
  */
-export function RolesSection(props: { readonly roles: readonly Role[] }): JSX.Element {
+export function RolesSection(props: {
+  readonly roles: readonly Role[];
+  readonly onOpen: (role: Role) => void;
+}): JSX.Element {
   const { t } = useTranslation();
   return (
     <section className="roles" aria-labelledby="roles-heading">
@@ -37,10 +34,16 @@ export function RolesSection(props: { readonly roles: readonly Role[] }): JSX.El
       <ul className="people__list">
         {props.roles.map((role) => (
           <li key={role.id} className="people__item">
-            <Link to={{ screen: "role", roleId: role.id }} className="people__row">
+            <button
+              type="button"
+              className="people__row"
+              onClick={() => {
+                props.onOpen(role);
+              }}
+            >
               <span className="people__name">{roleLabel(t, role.name)}</span>
               <span>{t("roles.holders", { count: role.holderCount })}</span>
-            </Link>
+            </button>
             {isWithoutLibrary(role) ? (
               <WarningSign
                 summary={t("warning.roleWithoutLibrary")}
@@ -51,50 +54,6 @@ export function RolesSection(props: { readonly roles: readonly Role[] }): JSX.El
         ))}
       </ul>
     </section>
-  );
-}
-
-/**
- * The dialog that makes a role, by name; its capabilities and libraries are chosen on its page
- * once it is listed. Once made, it closes and the page lists the role; nothing else opens (D399).
- */
-export function CreateRoleDialog(props: {
-  readonly onClose: () => void;
-  readonly onCreated: () => void;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const { api } = useServices();
-  const { isBusy, problem, runRequest } = useRequest((cause) =>
-    fieldProblemText(t, cause, roleWords(t)),
-  );
-  const [name, setName] = useState("");
-  return (
-    <ModalDialog label={t("roles.newName")} shouldFocusFirstField onClose={props.onClose}>
-      <BusyGroup isBusy={isBusy}>
-        <FormRow
-          onSubmit={() => {
-            runRequest(async (idempotencyKey) => {
-              await createRole(api, { name, capabilities: [], libraries: [] }, idempotencyKey);
-              props.onCreated();
-            });
-          }}
-        >
-          <label>
-            {t("roles.newName")}{" "}
-            <input
-              required
-              maxLength={100}
-              value={name}
-              onChange={(event) => {
-                setName(event.target.value);
-              }}
-            />
-          </label>
-          <button type="submit">{t("roles.create")}</button>
-        </FormRow>
-      </BusyGroup>
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
-    </ModalDialog>
   );
 }
 
