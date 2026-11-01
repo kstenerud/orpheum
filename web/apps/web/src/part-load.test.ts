@@ -1,9 +1,10 @@
+// @vitest-environment happy-dom
 // SPDX-License-Identifier: MPL-2.0
 
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, type Mock } from "vitest";
 
 import type { StringStorage } from "./browser-storage.ts";
-import { loadPart, partRetryMs, type PartLoadParts } from "./part-load.ts";
+import { loadOwnPart, loadPart, partRetryMs, type PartLoadParts } from "./part-load.ts";
 import { takeReloadNote } from "./reload-note.ts";
 
 function tabOf(kept: Map<string, string>): StringStorage {
@@ -15,13 +16,13 @@ function tabOf(kept: Map<string, string>): StringStorage {
 }
 
 function pageOf(tab: StringStorage): PartLoadParts & {
-  readonly reload: ReturnType<typeof vi.fn>;
+  readonly reload: Mock<() => void>;
   readonly waited: number[];
 } {
   const waited: number[] = [];
   return {
     tab,
-    reload: vi.fn(),
+    reload: vi.fn<() => void>(),
     waited,
     wait: async (ms) => {
       waited.push(ms);
@@ -100,5 +101,61 @@ describe("loadPart", () => {
     await settled();
 
     expect(later.reload).toHaveBeenCalledTimes(1);
+  });
+});
+
+/** A page whose head names a discovery's loader configuration, as a discovery's page does (D308). */
+function discoveryPage(): Document {
+  const page = document.implementation.createHTMLDocument("loader");
+  for (const [name, content] of Object.entries({
+    "orpheum-discovery-client-api": "https://api.example/client/v1",
+    "orpheum-client-origins": "https://{core}.client.example",
+    "orpheum-loader-origin": "https://app.example",
+  })) {
+    const meta = page.createElement("meta");
+    meta.name = name;
+    meta.content = content;
+    page.head.append(meta);
+  }
+  return page;
+}
+
+describe("loadOwnPart", () => {
+  it("loads the loader on a discovery's page, and the client on any other", async () => {
+    const loader = vi.fn(async () => await Promise.resolve({}));
+    const client = vi.fn(async () => await Promise.resolve({}));
+
+    await loadOwnPart(
+      { window: {}, document: discoveryPage() },
+      { loader, client },
+      pageOf(tabOf(new Map())),
+    );
+    expect(loader).toHaveBeenCalledTimes(1);
+    expect(client).not.toHaveBeenCalled();
+
+    const corePage = document.implementation.createHTMLDocument("client");
+    await loadOwnPart(
+      { window: {}, document: corePage },
+      { loader, client },
+      pageOf(tabOf(new Map())),
+    );
+    expect(client).toHaveBeenCalledTimes(1);
+  });
+
+  it("reloads a client's page whose code does not come, asked twice, never leaving it black", async () => {
+    const page = pageOf(tabOf(new Map()));
+    const corePage = document.implementation.createHTMLDocument("client");
+
+    void loadOwnPart(
+      { window: {}, document: corePage },
+      {
+        loader: async () => await Promise.resolve({}),
+        client: async () => await Promise.reject(preloadFailed),
+      },
+      page,
+    );
+    await settled();
+
+    expect(page.reload).toHaveBeenCalledTimes(1);
   });
 });
