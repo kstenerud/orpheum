@@ -257,9 +257,13 @@ func (server *Server) relayedSettings() webrtc.SettingEngine {
 	return relayed
 }
 
-// settings are every connection's: the congestion window's growth, and what a client may send.
+// settings are every connection's: the congestion window's growth, and what a client may send. A
+// browser closing its connection sends DTLS close_notify, on which pion closes the connection itself,
+// dropping SCTP's association before its end could be logged (logEnded): the core closes it instead
+// as its SCTP ends.
 func settings() webrtc.SettingEngine {
 	engine := webrtc.SettingEngine{}
+	engine.DisableCloseByDTLS(true)
 	engine.SetSCTPCwndCAStep(cwndStepBytes)
 	engine.SetSCTPMaxReceiveBufferSize(sctpReceiveBytes)
 	engine.SetSCTPMaxMessageSize(MaxMessageBytes)
@@ -361,7 +365,7 @@ func (server *Server) open(api *webrtc.API, onProvenAtHome func(ProvenAtHome)) (
 			unconnected.Stop()
 			own.keep(connection.GetStats())
 			pair := selectedPair(connection)
-			server.recordSelectedPath(pair, server.clock.Now().Sub(openedAt))
+			held.end.connected(server.recordSelectedPath(pair, server.clock.Now().Sub(openedAt)), server.clock.Now())
 			server.tellIfProvenAtHome(pair, own.held(), onProvenAtHome)
 			server.holdWithinItsSourcesShare(connection, verdict)
 		}
@@ -369,10 +373,12 @@ func (server *Server) open(api *webrtc.API, onProvenAtHome func(ProvenAtHome)) (
 			server.recordPath(PathFailed, nil, server.clock.Now().Sub(openedAt))
 		}
 		if state == webrtc.PeerConnectionStateFailed || state == webrtc.PeerConnectionStateClosed {
+			server.logEnded(connection, held)
 			server.forget(connection)
 			_ = connection.Close() //nolint:errcheck // a failed or closed connection, gone either way
 		}
 	})
+	server.endWithItsSCTP(connection, held)
 	inFlight := &atomic.Int32{}
 	connection.OnDataChannel(func(channel *webrtc.DataChannel) {
 		if channel.Label() == NegotiationLabel {
@@ -401,14 +407,15 @@ func (server *Server) open(api *webrtc.API, onProvenAtHome func(ProvenAtHome)) (
 	return connection, nil
 }
 
-// recordSelectedPath records the path a connection that just connected took, by its selected pair,
-// took after its offer.
-func (server *Server) recordSelectedPath(pair *webrtc.ICECandidatePair, took time.Duration) {
+// recordSelectedPath records, and returns, the path a connection that just connected took, by its
+// selected pair, took after its offer.
+func (server *Server) recordSelectedPath(pair *webrtc.ICECandidatePair, took time.Duration) Path {
 	path := PathFailed
 	if pair != nil {
 		path = pathOf(pair.Local, pair.Remote)
 	}
 	server.recordPath(path, pair, took)
+	return path
 }
 
 // answer sets the offer and returns the answer once the core's candidates are gathered.
@@ -522,14 +529,17 @@ func (server *Server) forget(connection *webrtc.PeerConnection) {
 func (server *Server) Close() error {
 	server.mutex.Lock()
 	held := make([]*webrtc.PeerConnection, 0, len(server.connections))
+	records := make([]*heldConnection, 0, len(server.connections))
 	for connection := range server.connections {
 		held = append(held, connection)
+		records = append(records, server.held[connection])
 	}
 	server.connections = map[*webrtc.PeerConnection]bool{}
 	server.sources = map[*webrtc.PeerConnection]netip.Prefix{}
 	server.mutex.Unlock()
 	var errs []error
-	for _, connection := range held {
+	for index, connection := range held {
+		server.logEnded(connection, records[index])
 		errs = append(errs, connection.Close())
 	}
 	return errors.Join(errs...)
