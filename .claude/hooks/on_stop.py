@@ -21,7 +21,9 @@ DEFERRED = "check-deferred"
 
 
 def main() -> None:
-    hooklib.read_event()
+    event = hooklib.read_event()
+    # Claude Code sets it when the turn is ending again after this hook blocked it.
+    blocked_before = event.get("stop_hook_active") is True
     # Every turn's end, whatever it changed: a stopped agent's worktree whose work main holds goes,
     # with its branch (worktrees.py); one holding anything else stays, for `make handoff` to list.
     # Never let the cleanup stand between the turn and its gate.
@@ -64,7 +66,7 @@ def main() -> None:
         # Here, or in the development image through ./dev, wherever the tools are.
         command = run_gate.gate_command(target, os.environ)
     except run_gate.NoWayToRun as missing:
-        block(target, str(missing))
+        cannot_run(target, str(missing), blocked_before)
         return
     # Never build the image here: a build takes minutes past the hook's limit (./dev says to run it).
     env = {**os.environ, "ORPHEUM_DEV_NO_BUILD": "1"}
@@ -74,7 +76,24 @@ def main() -> None:
         docs.unlink(missing_ok=True)
         return
     # make check prints only failures and the log's path (scripts/quiet_gate.py); cap it anyway.
-    block(target, (done.stdout + done.stderr)[-6000:])
+    output = (done.stdout + done.stderr)[-6000:]
+    if done.returncode == run_gate.load_launcher().NEEDS_BUILD:
+        cannot_run(target, output, blocked_before)
+        return
+    block(target, output)
+
+
+def cannot_run(target: str, output: str, blocked_before: bool) -> None:
+    """The gate could not run at all (no tools, or ./dev's image needs building, which the hook never
+    does). It blocks the turn once, so the agent sees it; blocking again looped an agent the owner had
+    told not to build the image, the hook re-blocking each of its replies (the owner's Mac, 2026-11-01:
+    "Block once"). The second time the turn ends with a warning, and the mark stays for the next turn.
+    A failure of the gate itself still blocks every time."""
+    if not blocked_before:
+        block(target, output)
+        return
+    json.dump({"systemMessage": f"`make {target}` could not run, so this turn ends ungated; its mark stays "
+               f"for the next turn's end:\n\n{output}"}, sys.stdout)
 
 
 def gate_held() -> bool:
