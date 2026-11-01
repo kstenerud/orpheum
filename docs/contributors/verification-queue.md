@@ -2137,3 +2137,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   `kind=reconnected` line within about 5 s), and on `?transport=webrtc` its tries' last failure names
   "the offer reached no server". (`web/apps/web/src/transport-choice.ts`,
   `web/packages/sdk/src/together-connection.ts`, `live-connection.ts`, `rtc-reopen.ts`)
+- [ ] **VQ235** — a page on a network without IPv6 says so when it cannot reach its core (D398 §3).
+  Deploy nas.example's core with this build, and its discovery with it (connect, once it logs the reason,
+  D398 §2). On a phone on mobile data with no IPv6 (or on a Wi-Fi whose router has IPv6 turned off),
+  open a nas.example invitation's link, and sign in by the realm. Passes when each dead end's page says "This network seems to have no IPv6, and your server
+  has no IPv4 way in yet, …" (the realm's opening "Your server was found, but"), the discovery's log
+  has "a client found no way to the core" with `ipv6=no cause=noIpv6`, the ways tried and
+  `seenOver=ipv4`, and no address; then the same link on a Wi-Fi with IPv6 reaches the core, or shows
+  today's words if it does not. (`web/apps/web/src/dead-end-reason.ts`,
+  `web/apps/web/src/discovery-gate.tsx`, `discovery/single/client.go`)

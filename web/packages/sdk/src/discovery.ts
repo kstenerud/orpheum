@@ -542,6 +542,20 @@ export async function refusedClientVersions(client: DiscoveryClient): Promise<re
   }
 }
 
+/** An address family, as a discovery sees a request's source or a core's name reaches it. */
+export type Family = "ipv6" | "ipv4";
+
+/**
+ * The core's public names by address family, of the discovery's paths, and the family the discovery
+ * saw the page's request from, by the network prefix it answered: what a dead end's cause is judged
+ * by (D398 §1). The prefix itself is kept nowhere.
+ */
+export interface Families {
+  readonly ipv6Urls: readonly string[];
+  readonly ipv4Urls: readonly string[];
+  readonly seenOver: Family | undefined;
+}
+
 /** Where the core is, as a discovery's locate or paths answers. */
 export interface Located {
   readonly coreId: string;
@@ -550,6 +564,8 @@ export interface Located {
   readonly directUrls: readonly string[];
   /** Those of directUrls that are the core's LAN names, reached only in its house (§3.2). */
   readonly lanUrls: readonly string[];
+  /** The core's public names by family, and the family the discovery saw this request from. */
+  readonly families: Families;
   /** Locate's alone: good for paths and offers for a few minutes, never renewed. */
   readonly bootstrapToken?: string;
 }
@@ -579,6 +595,10 @@ const directKinds = new Set(["lan", "ipv6", "ipv4"]);
 
 /** The kind of the core's names reached only in its house. */
 const lanKinds = new Set(["lan"]);
+
+/** The kinds of the core's public names by address family. */
+const ipv6Kinds = new Set(["ipv6"]);
+const ipv4Kinds = new Set(["ipv4"]);
 
 /**
  * Whether url is at one of coreId's own names, "https://<label>.<coreId>.<zone>": the only direct
@@ -639,8 +659,24 @@ export function locatedOf(answer: unknown): Located {
     iceServers: Array.isArray(iceServers) ? iceServers.flatMap(iceServerOf) : [],
     directUrls: directUrlsOf(field("paths"), coreId),
     lanUrls: directUrlsOf(field("paths"), coreId, lanKinds),
+    families: {
+      ipv6Urls: directUrlsOf(field("paths"), coreId, ipv6Kinds),
+      ipv4Urls: directUrlsOf(field("paths"), coreId, ipv4Kinds),
+      seenOver: familyOf(field("clientPrefix")),
+    },
     ...(typeof bootstrapToken === "string" ? { bootstrapToken } : {}),
   };
+}
+
+/** The family of a network prefix the discovery saw a request from ("2001:db8::/64"), if it names one. */
+function familyOf(clientPrefix: unknown): Family | undefined {
+  if (typeof clientPrefix !== "string") {
+    return undefined;
+  }
+  if (clientPrefix.includes(":")) {
+    return "ipv6";
+  }
+  return clientPrefix.includes(".") ? "ipv4" : undefined;
 }
 
 /** Where to ask, and how: a discovery's client API, and the fetch to post with (the browser's). */
@@ -661,10 +697,38 @@ export async function pathsOf(client: DiscoveryClient, held: Held): Promise<Loca
   return locatedOf(await postToDiscovery({ ...client, path: "/paths", body: held }));
 }
 
-/** Tells the discovery nothing reached the core, so its admin hears of it (D293 §7); best effort. */
-export async function reportDeadEnd(client: DiscoveryClient, held: Held): Promise<void> {
+/**
+ * Whether this device's network has IPv6, as the page judges at a dead end (D398 §1): yes, no, or
+ * unknown when nothing it saw says.
+ */
+export type HasIpv6 = "yes" | "no" | "unknown";
+
+/** The cause a dead end's page names to its person (D398 §3): no IPv6 here and no IPv4 way in, or unknown. */
+export type DeadEndCause = "noIpv6" | "unknown";
+
+/**
+ * Why nothing reached the core, as the page judged it, told the discovery with the dead end (D398 §2):
+ * whether this network has IPv6, each way tried by its kind and how it ended (a DirectEnding, or
+ * "failed" for WebRTC), and the cause its person was told. No address, name or URL: the discovery
+ * sees the request's own address, and nothing more of the device's network is sent.
+ */
+export interface DeadEndReason {
+  readonly ipv6: HasIpv6;
+  readonly tried: readonly { readonly kind: string; readonly ended: string }[];
+  readonly cause: DeadEndCause;
+}
+
+/**
+ * Tells the discovery nothing reached the core, so its admin hears of it (D293 §7), and why, as the
+ * page judged it (D398 §2); best effort.
+ */
+export async function reportDeadEnd(
+  client: DiscoveryClient,
+  held: Held,
+  reason?: DeadEndReason,
+): Promise<void> {
   try {
-    await postToDiscovery({ ...client, path: "/dead-end", body: held });
+    await postToDiscovery({ ...client, path: "/dead-end", body: { ...held, ...reason } });
   } catch {
     // A report that fails is no worse than none.
   }

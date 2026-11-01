@@ -161,7 +161,75 @@ describe("the gate a discovery's page opens on", () => {
     const page = mounted.container;
     await settleUntil(() => heard.at(-1)?.startsWith("/dead-end") === true);
     expect(page.textContent).toContain("Can't reach the server from this network");
-    expect(heard.at(-1)).toBe(`/dead-end {"bootstrapToken":"a-bootstrap-token"}`);
+    expect(heard.at(-1)).toBe(
+      `/dead-end {"bootstrapToken":"a-bootstrap-token","ipv6":"unknown","tried":[{"kind":"webrtc","ended":"failed"}],"cause":"unknown"}`,
+    );
+  });
+
+  /**
+   * A discovery whose core has the paths named and sees the page from clientPrefix, the core's names
+   * failing at once as on a network with no route for their family; every call heard.
+   */
+  function unreachedCore(
+    paths: readonly { readonly kind: string; readonly url: string }[],
+    clientPrefix: string,
+    heard: string[],
+  ): typeof fetch {
+    const located = {
+      coreId: "k7xq2",
+      bootstrapToken: "a-bootstrap-token",
+      iceServers: [],
+      clientPrefix,
+      paths,
+    };
+    const toDiscovery = discovery({ "/locate": [200, located], "/dead-end": [204, {}] }, heard);
+    return (url, init) =>
+      (url instanceof Request ? url.url : url.toString()).includes(".k7xq2.zone.example")
+        ? Promise.reject(new TypeError("Failed to fetch"))
+        : toDiscovery(url, init);
+  }
+
+  it("says this network has no IPv6 when the server has no IPv4 way in, and tells the discovery why (D398)", async () => {
+    const heard: string[] = [];
+    const v6Only = [{ kind: "ipv6", url: "https://v6.k7xq2.zone.example" }];
+    const fetched = unreachedCore(v6Only, "203.0.113.0/24", heard);
+    mounted = await mount(<DiscoveryGate start={linkStart} parts={partsOf(fetched)} />);
+    await click(buttonWithText(mounted.container, "Connect"));
+    await settleUntil(() => heard.at(-1)?.startsWith("/dead-end") === true);
+    expect(mounted.container.textContent).toContain(
+      "This network seems to have no IPv6, and your server has no IPv4 way in yet",
+    );
+    expect(heard.at(-1)).toBe(
+      `/dead-end {"bootstrapToken":"a-bootstrap-token","ipv6":"no","tried":[{"kind":"ipv6","ended":"unreachable"},{"kind":"webrtc","ended":"failed"}],"cause":"noIpv6"}`,
+    );
+  });
+
+  it("says today's words when the network has IPv6 or the server an IPv4 way in (D398)", async () => {
+    const v6Only = [{ kind: "ipv6", url: "https://v6.k7xq2.zone.example" }];
+    const both = [...v6Only, { kind: "ipv4", url: "https://v4.k7xq2.zone.example" }];
+    const cases: readonly [typeof v6Only, string][] = [
+      // The discovery saw the page over IPv6: this network has it, whatever the names did.
+      [v6Only, "2001:db8:1:2::/64"],
+      // The server has an IPv4 way in, and it failed too: the cause is something else.
+      [both, "203.0.113.0/24"],
+    ];
+    for (const [paths, clientPrefix] of cases) {
+      const heard: string[] = [];
+      const shown = await mount(
+        <DiscoveryGate
+          start={linkStart}
+          parts={partsOf(unreachedCore(paths, clientPrefix, heard))}
+        />,
+      );
+      await click(buttonWithText(shown.container, "Connect"));
+      await settleUntil(() => heard.at(-1)?.startsWith("/dead-end") === true);
+      expect(shown.container.textContent).toContain(
+        "Try your phone's mobile data, or another Wi-Fi",
+      );
+      expect(shown.container.textContent).not.toContain("no IPv6");
+      expect(heard.at(-1)).toContain(`"cause":"unknown"`);
+      shown.unmount();
+    }
   });
 
   it("reaches the core at its own published name before WebRTC (W2c)", async () => {

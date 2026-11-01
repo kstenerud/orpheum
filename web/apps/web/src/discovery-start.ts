@@ -22,6 +22,7 @@ import {
   sessionOfferKey,
   type DirectOutcome,
   type DiscoveryClient,
+  type Families,
   type Held,
   type LinkFragment,
   type Proving,
@@ -164,6 +165,16 @@ export interface Target {
   /** Those of directUrls that are the core's LAN names. */
   readonly lanUrls: readonly string[];
   /**
+   * The core's public names by family, and the family the discovery saw the page from, which a dead
+   * end's cause is judged by (D398 §1); absent, the cause is unknown.
+   */
+  readonly families?: Families | undefined;
+  /**
+   * Told what came of each of the target's names once the first race is decided, before WebRTC is
+   * tried: a dead end's cause is judged by it (D398 §1).
+   */
+  readonly tellRaced?: ((raced: readonly DirectOutcome[]) => void) | undefined;
+  /**
    * What the device holds by the time a later offer is made, when it holds more than the target
    * began with: the session or membership a link's person gained (DiscoverySignalling.latest).
    */
@@ -192,6 +203,7 @@ export async function targetOfLink(client: DiscoveryClient, link: LinkFragment):
     iceServers: located.iceServers,
     directUrls: located.directUrls,
     lanUrls: located.lanUrls,
+    families: located.families,
   };
 }
 
@@ -222,6 +234,7 @@ export async function targetOfRealm(
       iceServers: located.iceServers,
       directUrls: located.directUrls,
       lanUrls: located.lanUrls,
+      families: located.families,
     },
     claimedAt: found.claimedAt,
   };
@@ -248,6 +261,7 @@ export async function targetOfHandOff(
     iceServers: located.iceServers,
     directUrls: located.directUrls,
     lanUrls: located.lanUrls,
+    families: located.families,
   };
 }
 
@@ -306,6 +320,7 @@ export async function targetOfSession(client: DiscoveryClient, held: HeldSession
     iceServers: located.iceServers,
     directUrls: located.directUrls,
     lanUrls: located.lanUrls,
+    families: located.families,
   };
 }
 
@@ -425,7 +440,8 @@ export async function reachCore(
 
 /**
  * The first race of the target's names, as the browser's local-network permission, state, allows: the
- * name that answered, if one did, and how the choice of the path taken, first, was made and why.
+ * name that answered, if one did, and how the choice of the path taken, first, was made and why. The
+ * target's tellRaced hears what came of each name once the race is decided.
  */
 async function firstRace(
   client: DiscoveryClient,
@@ -436,6 +452,7 @@ async function firstRace(
   const origin = await firstDirectPath(raced(target, state, client.fetch), client.fetch, {
     tell: (told) => {
       outcomes = told;
+      target.tellRaced?.(told);
     },
   });
   const choice = (first: Reached): PathChoice =>

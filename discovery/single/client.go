@@ -233,16 +233,19 @@ const (
 	deadEndsKept  = 10000
 )
 
-// deadEnd counts a client's report that nothing reached the core, keeping only when.
+// deadEnd counts a client's report that nothing reached the core, keeping only when, and logs why as
+// the page judged it, with the family the report came over (D398 §2): never its address.
 func (discovery *Discovery) deadEnd(writer http.ResponseWriter, request *http.Request) {
 	var asked discoveryproto.DeadEndRequest
 	if !read(writer, request, &asked) {
 		return
 	}
-	if !discovery.holds(asked) {
+	if !discovery.holds(asked.PathsRequest) {
 		refuse(writer, http.StatusNotFound, discoveryproto.RefusalNotFound, "no server is found by this")
 		return
 	}
+	discovery.parts.Logger.InfoContext(request.Context(), "discovery: a client found no way to the core",
+		deadEndReasonAttrs(asked, request.RemoteAddr)...)
 	now := discovery.parts.Now()
 	discovery.mutex.Lock()
 	discovery.pruneDeadEnds(now)
@@ -251,6 +254,43 @@ func (discovery *Discovery) deadEnd(writer http.ResponseWriter, request *http.Re
 	}
 	discovery.mutex.Unlock()
 	writer.WriteHeader(http.StatusNoContent)
+}
+
+// deadEndWord is word when a dead end's report may carry it, "none" when absent, else "other": a
+// stranger's report puts nothing of its own in the core's log.
+func deadEndWord(word string) string {
+	switch word {
+	case "":
+		return "none"
+	case discoveryproto.HasIPv6Yes, discoveryproto.HasIPv6No, discoveryproto.HasIPv6Unknown,
+		discoveryproto.DeadEndCauseNoIPv6,
+		discoveryproto.PathKindLAN, discoveryproto.PathKindIPv6, discoveryproto.PathKindIPv4,
+		discoveryproto.PathKindWebRTC, "direct",
+		"answered", "refused", "noAnswer", "unreachable", "notWaited", "failed":
+		return word
+	default:
+		return "other"
+	}
+}
+
+// deadEndReasonAttrs are the log's attributes of a dead end's reason: whether the page's network has
+// IPv6, its cause, the ways tried as "kind:ended" (at most MaxDeadEndTries), and the family the report
+// came from by remoteAddress, never the address.
+func deadEndReasonAttrs(asked discoveryproto.DeadEndRequest, remoteAddress string) []any {
+	tried := make([]string, 0, min(len(asked.Tried), discoveryproto.MaxDeadEndTries))
+	for _, each := range asked.Tried[:min(len(asked.Tried), discoveryproto.MaxDeadEndTries)] {
+		tried = append(tried, deadEndWord(each.Kind)+":"+deadEndWord(each.Ended))
+	}
+	seenOver := "unknown"
+	if prefix := prefixOf(remoteAddress); strings.Contains(prefix, ":") {
+		seenOver = discoveryproto.PathKindIPv6
+	} else if prefix != "" {
+		seenOver = discoveryproto.PathKindIPv4
+	}
+	return []any{
+		"ipv6", deadEndWord(asked.IPv6), "cause", deadEndWord(asked.Cause),
+		"tried", strings.Join(tried, " "), "seenOver", seenOver,
+	}
 }
 
 // deadEndsLastWeek is how many dead ends were reported in the last week.

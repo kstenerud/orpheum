@@ -117,8 +117,44 @@ type PathsResponse struct {
 }
 
 // DeadEndRequest is a client telling the discovery that no path reached the core, by what the
-// device holds; the discovery counts it for the core's week and keeps nothing of the device.
-type DeadEndRequest = PathsRequest
+// device holds, and why as the page judged it (D398 §2); the discovery counts it for the core's week
+// and keeps nothing of the device. The reason's fields are all optional: a page before D398 sends
+// none, and a discovery before it ignores them. They carry no address, name or URL.
+type DeadEndRequest struct {
+	PathsRequest
+	// IPv6 is whether the client's network has IPv6, as the page judged it: one of the HasIPv6 values.
+	IPv6 string `json:"ipv6,omitempty"`
+	// Tried is each way the page tried, by kind, in the order tried; at most MaxDeadEndTries are read.
+	Tried []DeadEndTry `json:"tried,omitempty"`
+	// Cause is what the page told its person: one of the DeadEndCause values.
+	Cause string `json:"cause,omitempty"`
+}
+
+// DeadEndTry is one way a page tried at a dead end: its kind (PathKindLAN, PathKindIPv6, PathKindIPv4,
+// PathKindWebRTC) and how it ended, as the web client's DirectEnding names it ("noAnswer",
+// "unreachable", "refused", "notWaited", "answered"), or "failed" for WebRTC.
+type DeadEndTry struct {
+	Kind  string `json:"kind"`
+	Ended string `json:"ended"`
+}
+
+// The HasIPv6 values: the page knows its network has IPv6, knows it has none, or cannot tell (D398 §1).
+const (
+	HasIPv6Yes     = "yes"
+	HasIPv6No      = "no"
+	HasIPv6Unknown = "unknown"
+)
+
+// The DeadEndCause values: the page said this network has no IPv6 and the core no IPv4 way in, or
+// gave its general words (D398 §3).
+const (
+	DeadEndCauseNoIPv6  = "noIpv6"
+	DeadEndCauseUnknown = "unknown"
+)
+
+// MaxDeadEndTries is the most ways a dead end's report is read for: a page tries its core's few
+// names and WebRTC, so more is not a page's. A justified constant.
+const MaxDeadEndTries = 8
 
 // RefusalNotFound is a link's hash, a locator or a bootstrap token the discovery finds no core by:
 // never registered, used up, expired or dropped. Which, it does not say.

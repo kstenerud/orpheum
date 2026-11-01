@@ -13,10 +13,11 @@ import {
 /** What a person typed to sign in by realm, and whether this device keeps the realm (D297 §5). */
 /**
  * What a realm sign-in says went wrong: a part wrong, said as one as the discovery does; the server
- * found but not reached from this network; or a server this device reached before not reached now.
+ * found but not reached from this network, and when this network has no IPv6 for a server with no
+ * IPv4 way in, said so (D398 §3); or a server this device reached before not reached now.
  */
 export type RealmProblem =
-  "wrong" | "unreached" | "turnedAway" | "offline" | "again" | "keyRefused";
+  "wrong" | "unreached" | "unreachedNoIpv6" | "turnedAway" | "offline" | "again" | "keyRefused";
 
 export interface RealmCredentials {
   readonly realm: string;

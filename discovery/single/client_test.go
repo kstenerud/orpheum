@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -324,13 +325,16 @@ func TestDeadEnd_IsCountedForTheCoresWeekAndToldInTheHeartbeatsAnswer(t *testing
 	t.Parallel()
 	built := newClientStage(t)
 	var nothing struct{}
+	byLocator := func(locator string) discoveryproto.DeadEndRequest {
+		return discoveryproto.DeadEndRequest{PathsRequest: discoveryproto.PathsRequest{Locator: locator}}
+	}
 	for range 2 {
-		if status, code := built.ask(t, discoveryproto.PathDeadEnd, discoveryproto.DeadEndRequest{Locator: aLocator},
+		if status, code := built.ask(t, discoveryproto.PathDeadEnd, byLocator(aLocator),
 			&nothing); status != http.StatusNoContent {
 			t.Fatalf("a dead end answered %d %q", status, code)
 		}
 	}
-	if status, _ := built.ask(t, discoveryproto.PathDeadEnd, discoveryproto.DeadEndRequest{Locator: "another"},
+	if status, _ := built.ask(t, discoveryproto.PathDeadEnd, byLocator("another"),
 		&nothing); status != http.StatusNotFound {
 		t.Errorf("a dead end by a locator never registered answered %d; want not_found, uncounted", status)
 	}
@@ -350,6 +354,46 @@ func TestDeadEnd_IsCountedForTheCoresWeekAndToldInTheHeartbeatsAnswer(t *testing
 	built.advance(deadEndWindow)
 	if count := heartbeat(); count != 0 {
 		t.Errorf("a week on, the heartbeat's answer counts %d dead ends; want none", count)
+	}
+}
+
+// A dead end's report carries why, as the page judged it, which the core's log shows with the family
+// it came over and never the address; words a page never sends are logged as "other"; and a page's
+// body from before D398, the locator alone, is still counted (D398 §2).
+func TestDeadEnd_LogsWhyAsThePageJudgedItAndCountsAnOldBody(t *testing.T) {
+	t.Parallel()
+	built := newClientStage(t)
+	var nothing struct{}
+	why := discoveryproto.DeadEndRequest{
+		PathsRequest: discoveryproto.PathsRequest{Locator: aLocator},
+		IPv6:         discoveryproto.HasIPv6No, Cause: discoveryproto.DeadEndCauseNoIPv6,
+		Tried: []discoveryproto.DeadEndTry{
+			{Kind: discoveryproto.PathKindIPv6, Ended: "unreachable"},
+			{Kind: discoveryproto.PathKindWebRTC, Ended: "failed"},
+			{Kind: "a stranger's\nwords", Ended: "failed"},
+		},
+	}
+	if status, code := built.ask(t, discoveryproto.PathDeadEnd, why, &nothing); status != http.StatusNoContent {
+		t.Fatalf("a dead end with its reason answered %d %q", status, code)
+	}
+	line := built.logs.AwaitLine(t, "a client found no way to the core")
+	for _, want := range []string{
+		"ipv6=no", "cause=noIpv6", `tried="ipv6:unreachable webrtc:failed other:failed"`,
+		"seenOver=ipv4",
+	} {
+		if !strings.Contains(line, want) {
+			t.Errorf("the dead end's log line %q lacks %q", line, want)
+		}
+	}
+	if strings.Contains(line, "127.0.0.1") || strings.Contains(line, "stranger") {
+		t.Errorf("the dead end's log line %q names the client's address or its own words", line)
+	}
+	old := map[string]string{"locator": aLocator}
+	if status, code := built.ask(t, discoveryproto.PathDeadEnd, old, &nothing); status != http.StatusNoContent {
+		t.Errorf("a dead end's body from before D398 answered %d %q; want counted, 204", status, code)
+	}
+	if count := built.discovery.deadEndsLastWeek(); count != 2 {
+		t.Errorf("%d dead ends counted; want both, the old body's too", count)
 	}
 }
 

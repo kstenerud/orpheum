@@ -261,6 +261,41 @@ describe("a page at a discovery with realms leaves nothing kept in the way (the 
     expect(page.textContent).toContain("A VPN or a travel eSIM");
   });
 
+  it("says a realm's server is out of reach for this network's want of IPv6, when it is (D398)", async () => {
+    const key = await realmKey("karlnas", "karl", "a password");
+    const publicKey = "A6EHv_POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg";
+    const found = {
+      coreId: "k7xq2",
+      bootstrapToken: "a-bootstrap-token",
+      iceServers: [],
+      clientPrefix: "203.0.113.0/24",
+      paths: [{ kind: "ipv6", url: "https://v6.k7xq2.zone.example" }],
+      publicKey,
+      tag: await realmTag(key, "k7xq2", fromBase64(publicKey)),
+    };
+    const heard: string[] = [];
+    const toDiscovery = discovery({ "/realm": [200, found], "/dead-end": [204, undefined] }, heard);
+    const fetched: typeof fetch = (url, init) =>
+      (url instanceof Request ? url.url : url.toString()).startsWith(
+        "https://v6.k7xq2.zone.example/",
+      )
+        ? Promise.reject(new TypeError("Failed to fetch"))
+        : toDiscovery(url, init);
+    mounted = await mount(
+      <DiscoveryGate start={{ kind: "none" }} parts={{ ...partsOf(fetched), hasRealms: true }} />,
+    );
+    const page = mounted.container;
+    await enter(page.querySelector('input[name="realm"]'), "karlnas");
+    await enter(page.querySelector('input[name="name"]'), "karl");
+    await enter(page.querySelector('input[type="password"]'), "a password");
+    await click(buttonWithText(page, "Sign in"));
+    await settleUntil(() => page.textContent.includes("Copy what happened"));
+    expect(page.textContent).toContain(
+      "Your server was found, but this network seems to have no IPv6, and your server has no IPv4 way in yet",
+    );
+    expect(heard.find((each) => each.startsWith("/dead-end"))).toContain(`"cause":"noIpv6"`);
+  });
+
   it("starts again once signed out, and never for a page that was never signed in", () => {
     let token: string | undefined = "a-session";
     const listeners = new Set<() => void>();

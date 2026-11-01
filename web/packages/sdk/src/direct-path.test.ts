@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { directFetch, firstDirectPath } from "./direct-path.ts";
+import { directFetch, endingOf, firstDirectPath, type DirectOutcome } from "./direct-path.ts";
 
 /** A fetch whose hosts answer as named: a status, or never. */
 function hosts(answers: Record<string, number | "never">, asked: string[] = []): typeof fetch {
@@ -118,6 +118,26 @@ describe("a core's direct paths (W2c)", () => {
         },
       ],
     ]);
+  });
+
+  it("tells a name that failed at once from one that never answered or answered a failure", async () => {
+    const send = hosts({ "lan.core.example": "never", "v4.core.example": 502 });
+    let told: readonly DirectOutcome[] = [];
+    const urls = ["https://lan.core.example", "https://v4.core.example", "https://v6.core.example"];
+    await firstDirectPath(urls, send, {
+      answerMs: 20,
+      tell: (outcomes) => {
+        told = outcomes;
+      },
+    });
+    // No route for a name's family fails before any wait (D398 §2); a lost packet waits it out.
+    expect(told.map((each) => endingOf(each.outcome))).toEqual([
+      "noAnswer",
+      "refused",
+      "unreachable",
+    ]);
+    expect(endingOf("answered")).toBe("answered");
+    expect(endingOf("not waited for")).toBe("notWaited");
   });
 
   it("sends the page's request to the core's name, path and query kept, with no cookie", async () => {

@@ -4,6 +4,7 @@ package discoveryproto
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -48,5 +49,43 @@ func TestClientRealmResponse_SaysWhenItsCoreWasClaimedUnderTheKeyThePageReads(t 
 	undated, err := json.Marshal(ClientRealmResponse{})
 	if err != nil || strings.Contains(string(undated), "claimedAt") {
 		t.Errorf("an undated answer = %s, %v; want no claimedAt", undated, err)
+	}
+}
+
+// A dead end's reason round-trips whole (D398 §2).
+func TestDeadEndRequest_TheReasonRoundTrips(t *testing.T) {
+	t.Parallel()
+	sent := DeadEndRequest{
+		PathsRequest: PathsRequest{Locator: "a-locator"},
+		IPv6:         HasIPv6No, Cause: DeadEndCauseNoIPv6,
+		Tried: []DeadEndTry{{Kind: PathKindIPv6, Ended: "unreachable"}, {Kind: PathKindWebRTC, Ended: "failed"}},
+	}
+	encoded, err := json.Marshal(sent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const want = `{"locator":"a-locator","ipv6":"no",` +
+		`"tried":[{"kind":"ipv6","ended":"unreachable"},{"kind":"webrtc","ended":"failed"}],"cause":"noIpv6"}`
+	if string(encoded) != want {
+		t.Errorf("the reason encodes as %s; want %s", encoded, want)
+	}
+	var read DeadEndRequest
+	if err = json.Unmarshal(encoded, &read); err != nil || !reflect.DeepEqual(read, sent) {
+		t.Errorf("the reason reads back as %+v (%v); want %+v", read, err, sent)
+	}
+}
+
+// A body from before D398, the locator alone, reads as a dead end with no reason, and one with no
+// reason is sent as the locator alone, as before (D398 §2).
+func TestDeadEndRequest_TheReasonIsOptional(t *testing.T) {
+	t.Parallel()
+	var old DeadEndRequest
+	want := DeadEndRequest{PathsRequest: PathsRequest{Locator: "a-locator"}}
+	if err := json.Unmarshal([]byte(`{"locator":"a-locator"}`), &old); err != nil || !reflect.DeepEqual(old, want) {
+		t.Errorf("an old body reads as %+v (%v); want the locator and no reason", old, err)
+	}
+	bare, err := json.Marshal(want)
+	if err != nil || string(bare) != `{"locator":"a-locator"}` {
+		t.Errorf("a dead end with no reason encodes as %s (%v); want the locator alone", bare, err)
 	}
 }

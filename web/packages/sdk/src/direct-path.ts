@@ -95,10 +95,35 @@ export const notWaitedFor = "not waited for";
 /** The longest a failure's words are kept for its outcome. */
 const failureMost = 200;
 
+/** How the outcome of a name not answered within the wait begins. */
+const noAnswerWords = "failed: no answer within ";
+
+/**
+ * How one of a race's names ended, as a dead end's report and words read it (D398 §2): it answered;
+ * it answered with an HTTP failure, so the page's network reached it (refused); nothing answered
+ * within the wait (noAnswer); it failed before the wait ended with no answer at all, as a name of an
+ * address family the network has no route for does (unreachable); or the race was decided without it.
+ */
+export type DirectEnding = "answered" | "refused" | "noAnswer" | "unreachable" | "notWaited";
+
+/** How a name whose race outcome is outcome ended (firstDirectPath's tell). */
+export function endingOf(outcome: string): DirectEnding {
+  if (outcome === "answered") {
+    return "answered";
+  }
+  if (outcome === notWaitedFor) {
+    return "notWaited";
+  }
+  if (outcome.startsWith(noAnswerWords)) {
+    return "noAnswer";
+  }
+  return / answered \d{3}$/u.test(outcome) ? "refused" : "unreachable";
+}
+
 /** How a name failed, for its outcome: no answer within waitMs, or the failure's own words. */
 function failureOf(problem: unknown, waitMs: number): string {
   if (problem instanceof DOMException && problem.name === "TimeoutError") {
-    return `failed: no answer within ${String(waitMs)} ms`;
+    return `${noAnswerWords}${String(waitMs)} ms`;
   }
   const words = problem instanceof Error ? `${problem.name}: ${problem.message}` : String(problem);
   return `failed: ${words}`.slice(0, failureMost);
