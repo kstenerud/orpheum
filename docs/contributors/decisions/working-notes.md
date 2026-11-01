@@ -25313,3 +25313,7 @@ the owner's open choices are in §6.
    which would let a page tell "no IPv6" from "IPv6 answered nothing" on more networks; whether
    connect stores the reason (a column, so a migration) or only logs it; and the household-VPS proxy
    that would give a server without IPv4 an IPv4 way in, filed for later.
+
+## D399 — Reserved: The People page in three sections
+
+**Reserved** (2026-11-01) for the 11-02 batch's work; the branch replaces this entry with the decision.

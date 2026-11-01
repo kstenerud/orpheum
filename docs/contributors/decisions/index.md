@@ -404,6 +404,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D396](working-notes.md#d396--reserved-the-cores-lan-origin-at-home) Reserved: The core's LAN origin at home
 - [D397](working-notes.md#d397--reserved-webrtc-tuned-for-chromium) Reserved: WebRTC tuned for Chromium
 - [D398](working-notes.md#d398--a-page-that-cannot-reach-its-core-judges-whether-its-network-has-ipv6-says-so-in-words-when-that-is-why-and-tells-its-discovery-the-reason-with-no-address) A page that cannot reach its core judges whether its network has IPv6, says so in words when that is why, and tells its discovery the reason with no address
+- [D399](working-notes.md#d399--reserved-the-people-page-in-three-sections) Reserved: The People page in three sections
 
 ## Archived
 

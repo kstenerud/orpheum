@@ -1110,6 +1110,19 @@ The owner's device checks run alongside, in the order of `/yoloai/files/testing-
 8. **Gate fixes, the owner's yes (2026-11-01):** check-pr takes its lock before web-deps; revert-red
    tells a stale known-red hint from a broken environment. Not check-pr's 352 s (the owner).
 
+9. **The People page in three sections** (the owner, 2026-11-01, before testing VQ201: "The people page
+   is just too messy"), D399:
+   - Above the sections, side by side: *Create Role*, *Create Account* and *Invite Someone* (the owner wrote
+     "2 buttons" and named three; built as three), each opening a modal dialog with its controls. A new
+     invitation opens its detail dialog at once; a new account or role opens nothing.
+   - **Invites:** each row shows its admin note, role and date issued. A row opens a dialog with its
+     details, the QR code, the link and *Withdraw* at the bottom. "Send another link" is removed.
+   - **Accounts:** each row shows name, admin note and role; a row opens that account's page (the
+     existing person page), where it is viewed and changed.
+   - **Roles:** each row shows name and how many people have it; a row opens a new role page to change
+     its permissions and library access, each change taking effect at once with no Save button, and to
+     delete the role while no one has it.
+
 **Not this batch:** the cosmetic UI items (the UX rewrite), the decoder-limit codec drop, the
 average-bitrate rung, inventory features.
 
