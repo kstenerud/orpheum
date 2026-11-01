@@ -63,6 +63,22 @@ func TestCheckRelayedOffer_TakesOneSHA256FingerprintAndAFewCandidates(t *testing
 	}
 }
 
+// Chrome writes its one certificate's fingerprint in every m-line, so its offer with the video
+// m-line (D397) carries the same fingerprint twice, which the core takes; two different ones it
+// still refuses (the security audit's A9).
+func TestCheckRelayedOffer_TakesTheSameFingerprintInEveryMediaSection(t *testing.T) {
+	t.Parallel()
+	video := []string{"m=video 9 UDP/TLS/RTP/SAVPF 96", "c=IN IP4 0.0.0.0", "a=recvonly"}
+	chrome := offerOf(append(append([]string{sha256Fingerprint}, video...), sha256Fingerprint)...)
+	if _, err := rtcapi.CheckRelayedOffer(chrome); err != nil {
+		t.Errorf("an offer with the same fingerprint in each m-line was refused: %v", err)
+	}
+	split := offerOf(append(append([]string{sha256Fingerprint}, video...), "a=fingerprint:sha-256 EF:01")...)
+	if _, err := rtcapi.CheckRelayedOffer(split); err == nil {
+		t.Error("an offer with a different fingerprint in its second m-line was taken")
+	}
+}
+
 // A relayed offer's connection checks no remote address the core's own network or a private one
 // holds: an offer cannot make the core send ICE checks into its LAN (the security audit's A2).
 func TestIsFromOutside_RefusesEveryAddressOfTheCoresOwnNetworks(t *testing.T) {
