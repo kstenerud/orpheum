@@ -70,66 +70,86 @@ func holds(shown []string, key trusttest.Key) bool {
 
 func fingerprintOf(key trusttest.Key) string { return trust.Fingerprint(key.PublicKey()) }
 
-// Row 1: e1 lost or broken: statement n+1 removes e1 and adds e3, signed by e2, the new key signing too.
-func TestRotation_E1LostIsReplacedByE2(t *testing.T) {
+// Row 1: e1 lost or broken: e2 suspends it at n+1 at once, and later a recovery key's statement removes
+// it and adds e3, the new key signing too. The other everyday key alone cannot replace it: an everyday
+// key only suspends (D395).
+func TestRotation_E1LostIsSuspendedByE2AndReplacedByARecoveryKey(t *testing.T) {
 	t.Parallel()
 	set := newOwner(t)
 	core := set.chain.Follower(t)
-	e3 := trusttest.HardwareKey(t, "e3")
-	next, _ := set.chain.Next(t, 2, trusttest.Change{Remove: []trusttest.Key{set.e1}, AddEveryday: []trusttest.Key{e3}},
-		set.e2, e3)
-	follows(t, &core, []trust.Signed{next}, stands{
-		version: 2, want: []trusttest.Key{set.e2, e3}, gone: []trusttest.Key{set.e1},
+	replacement := trusttest.HardwareKey(t, "e3")
+	replacing := trusttest.Change{Remove: []trusttest.Key{set.e1}, AddEveryday: []trusttest.Key{replacement}}
+	byEveryday, _ := set.chain.Next(t, 2, replacing, set.e2, replacement)
+	follows(t, &core, []trust.Signed{byEveryday}, stands{version: 1})
+	suspension, suspensionRoot := set.chain.Next(t, 2, trusttest.Change{Suspend: []trusttest.Key{set.e1}}, set.e2)
+	follows(t, &core, []trust.Signed{suspension}, stands{
+		version: 2, want: []trusttest.Key{set.e2}, gone: []trusttest.Key{set.e1},
 	})
+	set.chain.Take(suspension, suspensionRoot)
 	// The lost key, found by another, signs nothing more.
-	set.chain.Take(next, mustRoot(t, next))
-	added := trusttest.Change{AddEveryday: []trusttest.Key{trusttest.HardwareKey(t, "x")}}
-	later, _ := set.chain.Next(t, 3, added, set.e1)
-	follows(t, &core, []trust.Signed{later}, stands{version: 2})
+	theirs, _ := set.chain.Next(t, 3, trusttest.Change{Suspend: []trusttest.Key{set.e2}}, set.e1)
+	follows(t, &core, []trust.Signed{theirs}, stands{version: 2})
+	next, _ := set.chain.Next(t, 3, replacing, set.r1, replacement)
+	follows(t, &core, []trust.Signed{next}, stands{
+		version: 3, want: []trusttest.Key{set.e2, replacement}, gone: []trusttest.Key{set.e1},
+	})
 }
 
-// Row 2: e1 stolen, its PIN safe: the same, at once; the thief cannot sign without the PIN.
-func TestRotation_E1StolenWithoutItsPINIsRemovedAtOnce(t *testing.T) {
+// Row 2: e1 stolen, its PIN safe: e2 suspends it at once, and a recovery key removes it later; the
+// thief cannot sign without the PIN.
+func TestRotation_E1StolenWithoutItsPINIsSuspendedAtOnce(t *testing.T) {
 	t.Parallel()
 	set := newOwner(t)
 	core := set.chain.Follower(t)
 	// The thief signs without the PIN: the flag is missing, and the core takes nothing.
-	theirs, _ := set.chain.Next(t, 2, trusttest.Change{AddEveryday: []trusttest.Key{trusttest.HardwareKey(t, "x")}},
-		set.e1.WithoutPIN())
+	theirs, _ := set.chain.Next(t, 2, trusttest.Change{Suspend: []trusttest.Key{set.e2}}, set.e1.WithoutPIN())
 	follows(t, &core, []trust.Signed{theirs}, stands{version: 1})
-	e3 := trusttest.HardwareKey(t, "e3")
-	ours, _ := set.chain.Next(t, 2, trusttest.Change{Remove: []trusttest.Key{set.e1}, AddEveryday: []trusttest.Key{e3}},
-		set.e2, e3)
+	ours, oursRoot := set.chain.Next(t, 2, trusttest.Change{Suspend: []trusttest.Key{set.e1}}, set.e2)
 	follows(t, &core, []trust.Signed{ours}, stands{
-		version: 2, want: []trusttest.Key{e3}, gone: []trusttest.Key{set.e1},
+		version: 2, want: []trusttest.Key{set.e2}, gone: []trusttest.Key{set.e1},
+	})
+	set.chain.Take(ours, oursRoot)
+	e3 := trusttest.HardwareKey(t, "e3")
+	replacing := trusttest.Change{Remove: []trusttest.Key{set.e1}, AddEveryday: []trusttest.Key{e3}}
+	removal, _ := set.chain.Next(t, 3, replacing, set.r2, e3)
+	follows(t, &core, []trust.Signed{removal}, stands{
+		version: 3, want: []trusttest.Key{set.e2, e3}, gone: []trusttest.Key{set.e1},
 	})
 }
 
-// Row 3: e1 stolen with its PIN: the thief signs n+1, adding a key of theirs; the owner's recovery key
-// signs a statement far ahead, removing e1 and the thief's key. A core that took the thief's, and one
-// that never saw it, both end at the owner's set, and the thief's keys sign nothing more.
+// Row 3: e1 stolen with its PIN: the thief cannot add a key of theirs, an everyday key's statement
+// changing the set by nothing but a suspension (the owner, 2026-11-01); the most it can sign is n+1
+// suspending e2. The owner's recovery key signs a statement far ahead, removing e1, resuming e2 and
+// adding e3. A core that took the thief's, and one that never saw it, both end at the owner's set,
+// and e1 signs nothing more.
 func TestRotation_E1StolenWithItsPINIsRecoveredBySkippingPastTheThief(t *testing.T) {
 	t.Parallel()
 	set := newOwner(t)
 	thiefKey := trusttest.HardwareKey(t, "x")
-	theirs, theirRoot := set.chain.Next(t, 2, trusttest.Change{AddEveryday: []trusttest.Key{thiefKey}}, set.e1)
+	added, _ := set.chain.Next(t, 2, trusttest.Change{AddEveryday: []trusttest.Key{thiefKey}}, set.e1, thiefKey)
+	if _, err := set.chain.Follower(t).Accept(added); !errors.Is(err, trust.ErrNotAllowed) {
+		t.Errorf("the thief adding a key of theirs: %v; want ErrNotAllowed", err)
+	}
+	theirs, theirRoot := set.chain.Next(t, 2, trusttest.Change{Suspend: []trusttest.Key{set.e2}}, set.e1)
 	misled := set.chain.Follower(t)
-	follows(t, &misled, []trust.Signed{theirs}, stands{version: 2, want: []trusttest.Key{thiefKey}})
+	follows(t, &misled, []trust.Signed{theirs}, stands{
+		version: 2, want: []trusttest.Key{set.e1}, gone: []trusttest.Key{set.e2},
+	})
 	set.chain.Take(theirs, theirRoot)
 	fresh := trusttest.HardwareKey(t, "e3")
-	recovered, _ := set.chain.Next(t, 1002,
-		trusttest.Change{Remove: []trusttest.Key{set.e1, thiefKey}, AddEveryday: []trusttest.Key{fresh}}, set.r1)
+	recovered, _ := set.chain.Next(t, 1002, trusttest.Change{
+		Remove: []trusttest.Key{set.e1}, Resume: []trusttest.Key{set.e2}, AddEveryday: []trusttest.Key{fresh},
+	}, set.r1)
 	follows(t, &misled, []trust.Signed{recovered}, stands{
-		version: 1002, want: []trusttest.Key{set.e2, fresh}, gone: []trusttest.Key{set.e1, thiefKey},
+		version: 1002, want: []trusttest.Key{set.e2, fresh}, gone: []trusttest.Key{set.e1},
 	})
 	unaware := set.chain.Follower(t)
 	follows(t, &unaware, []trust.Signed{theirs, recovered}, stands{
-		version: 1002, want: []trusttest.Key{fresh}, gone: []trusttest.Key{thiefKey},
+		version: 1002, want: []trusttest.Key{set.e2, fresh}, gone: []trusttest.Key{set.e1},
 	})
 	// The thief, again, at the next version: removed keys stay removed.
 	set.chain.Take(recovered, mustRoot(t, recovered))
-	added := trusttest.Change{AddEveryday: []trusttest.Key{trusttest.HardwareKey(t, "y")}}
-	again, _ := set.chain.Next(t, 1003, added, set.e1)
+	again, _ := set.chain.Next(t, 1003, trusttest.Change{Suspend: []trusttest.Key{set.e2}}, set.e1)
 	follows(t, &misled, []trust.Signed{again}, stands{version: 1002})
 }
 
@@ -197,44 +217,65 @@ func TestRotation_AllKeysLostIsANewIdentity(t *testing.T) {
 	follows(t, &core, fresh.chain.Statements, stands{version: 1})
 }
 
-// The rules beside the table (§3.4): an everyday key changes the everyday tier alone and never skips;
-// two everyday statements of one version are both refused, and a recovery key's wins over an everyday
-// key's; a key leaving the set has the new set sign too; and removed keys stay named removed.
+// The rules beside the table (§3.4), with the owner's of 2026-11-01: an everyday key changes the set
+// by nothing but suspending an everyday key, and never skips; two everyday statements of one version
+// are both refused, and a recovery key's wins over an everyday key's; a key leaving the set has the
+// new set sign too; and removed keys stay named removed.
 func TestFollow_TheTiersRulesHold(t *testing.T) {
 	t.Parallel()
 	set := newOwner(t)
 	third, fourth := trusttest.HardwareKey(t, "e3"), trusttest.HardwareKey(t, "e4")
 	refused := map[string]trust.Signed{}
-	refused["an everyday skip"], _ = set.chain.Next(t, 5, trusttest.Change{AddEveryday: []trusttest.Key{third}}, set.e1)
+	refused["an everyday skip"], _ = set.chain.Next(t, 5, trusttest.Change{Suspend: []trusttest.Key{set.e2}}, set.e1)
 	refused["an everyday threshold"], _ = set.chain.Next(t, 2, trusttest.Change{
 		Thresholds: map[trust.Role]int{trust.RoleEveryday: 1, trust.RoleRecovery: 2},
 	}, set.e1)
-	refused["e1 leaving with no new key signing"], _ = set.chain.Next(t, 2, trusttest.Change{
+	refused["an everyday key adding one"], _ = set.chain.Next(t, 2,
+		trusttest.Change{AddEveryday: []trusttest.Key{third}}, set.e1, third)
+	refused["an everyday key removing one"], _ = set.chain.Next(t, 2,
+		trusttest.Change{Remove: []trusttest.Key{set.e2}}, set.e1)
+	refused["an everyday key replacing itself"], _ = set.chain.Next(t, 2, trusttest.Change{
 		Remove: []trusttest.Key{set.e1}, AddEveryday: []trusttest.Key{third},
-	}, set.e1)
+	}, set.e2, third)
+	moved := set.chain.Last
+	moved.ID, moved.Version, moved.Locations = set.chain.ID(), 2, []string{"https://elsewhere.example/root"}
+	refused["an everyday key moving the chain"] = trusttest.SignRoot(t, trust.ChainDiscovery, moved, set.e1)
+	unmarked := set.chain.Last
+	unmarked.ID, unmarked.Version, unmarked.Keys = set.chain.ID(), 2, slices.Clone(unmarked.Keys)
+	for index, key := range unmarked.Keys {
+		if key.Label == "e2" {
+			unmarked.Keys[index].MustVerifyUV = !key.MustVerifyUV
+		}
+	}
+	refused["an everyday key re-marking one"] = trusttest.SignRoot(t, trust.ChainDiscovery, unmarked, set.e1)
+	refused["r1 leaving with no new key signing"], _ = set.chain.Next(t, 2, trusttest.Change{
+		Remove: []trusttest.Key{set.r1}, AddRecovery: []trusttest.Key{trusttest.HardwareKey(t, "r3")},
+	}, set.r1)
 	unnamed := set.chain.Last
 	unnamed.ID, unnamed.Version = set.chain.ID(), 2
 	unnamed.Keys = slices.DeleteFunc(slices.Clone(unnamed.Keys), func(key trust.RootKey) bool {
 		return key.Label == "e2"
 	})
-	refused["e2 dropped unnamed"] = trusttest.SignRoot(t, trust.ChainDiscovery, unnamed, set.e1)
+	refused["e2 dropped unnamed"] = trusttest.SignRoot(t, trust.ChainDiscovery, unnamed, set.r1)
 	for name, statement := range refused {
 		core := set.chain.Follower(t)
 		if after, _ := core.Follow([]trust.Signed{statement}); after.Version() != 1 {
 			t.Errorf("%s: taken", name)
 		}
 	}
-	one, _ := set.chain.Next(t, 2, trusttest.Change{AddEveryday: []trusttest.Key{third}}, set.e1)
-	other, _ := set.chain.Next(t, 2, trusttest.Change{AddEveryday: []trusttest.Key{fourth}}, set.e2)
+	one, _ := set.chain.Next(t, 2, trusttest.Change{Suspend: []trusttest.Key{set.e2}}, set.e1)
+	other, _ := set.chain.Next(t, 2, trusttest.Change{Suspend: []trusttest.Key{set.e1}}, set.e2)
 	core := set.chain.Follower(t)
 	follows(t, &core, []trust.Signed{one, other}, stands{version: 1, conflicts: []int64{2}})
 	recovery, _ := set.chain.Next(t, 2, trusttest.Change{AddEveryday: []trusttest.Key{fourth}}, set.r1)
 	follows(t, &core, []trust.Signed{one, other, recovery}, stands{
-		version: 2, want: []trusttest.Key{fourth}, gone: []trusttest.Key{third},
+		version: 2, want: []trusttest.Key{set.e1, set.e2, fourth},
 	})
 	// A core that took one of two everyday statements hears of the other, and says so.
 	early := set.chain.Follower(t)
-	follows(t, &early, []trust.Signed{one}, stands{version: 2, want: []trusttest.Key{third}})
+	follows(t, &early, []trust.Signed{one}, stands{
+		version: 2, want: []trusttest.Key{set.e1}, gone: []trusttest.Key{set.e2},
+	})
 	follows(t, &early, []trust.Signed{other}, stands{version: 2, conflicts: []int64{2}})
 }
 

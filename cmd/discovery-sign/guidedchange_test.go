@@ -104,13 +104,37 @@ func TestGuidedChange_ARemovedRecoveryKeyIsSignedOffByTheOtherRecoveryKey(t *tes
 	}
 }
 
-// A new everyday key is made for both chains and added to each, signed by a key already in the set.
+// Removing an everyday key needs a recovery key's signature (D395), so only the recovery keys are
+// offered, though e2 counts; the key is gone from both chains.
+func TestGuidedChange_ARemovedEverydayKeyIsSignedOffByARecoveryKey(t *testing.T) {
+	t.Parallel()
+	folder, fake := changeFolder(t)
+	status, said := guidedRun(t, fake, "\n\n\n\n\n", "add", "--folder", folder, "--key", "e2")
+	if status != exitSuccess {
+		t.Fatalf("add = %d: %s", status, said)
+	}
+	status, said = guidedRun(t, fake, "\n\n\n\n\n\n\n\n", "remove", "--folder", folder, "--key", "e1")
+	if status != exitSuccess {
+		t.Fatalf("remove = %d: %s", status, said)
+	}
+	if !strings.Contains(said, "It is signed by a recovery key. Which one? (r1, r2)") {
+		t.Errorf("the removal said %q; want only r1 or r2 offered", said)
+	}
+	if got := counting(t, folder, "e1"); slices.Contains(got, true) {
+		t.Errorf("e1 counts after its removal, by chain: %v", got)
+	}
+}
+
+// A new everyday key is made for both chains and added to each, signed by a recovery key (D395).
 func TestGuidedChange_AnAddedKeyIsMadeForBothChainsAndCounts(t *testing.T) {
 	t.Parallel()
 	folder, fake := changeFolder(t)
 	status, said := guidedRun(t, fake, "\n\n\n\n\n", "add", "--folder", folder, "--key", "e2")
 	if status != exitSuccess {
 		t.Fatalf("add = %d: %s", status, said)
+	}
+	if !strings.Contains(said, "It is signed by a recovery key. Which one? (r1, r2)") {
+		t.Errorf("the addition said %q; want only r1 or r2 offered, not e1", said)
 	}
 	if fake.makes != 8 {
 		t.Errorf("%d keys made; want the ceremony's 6 and one for each chain", fake.makes)

@@ -15,17 +15,19 @@ YubiKey holds one key of each. The rules behind this are in D391, D393 and D394,
 Your keys come in two kinds:
 
 - **Everyday keys** sign the routine things: the address document and each release. You carry
-  one (`e1`) and keep one at home (`e2`). A Mac can be an everyday key too (see below).
-- **Recovery keys** can sign anything, including replacing the everyday keys. They are locked away,
-  one at a bank (`r1`) and one at a second site (`r2`). A thief who steals an everyday key never
-  holds them, so the recovery keys can always cancel a stolen key.
+  one (`e1`) and may keep a second at home (`e2`). The one change to the keys an everyday key can
+  sign is suspending another everyday key, so a thief holding one can never add a key of their own
+  or remove yours (D395).
+- **Recovery keys** can sign anything: adding and removing keys of either kind, and replacing the
+  everyday keys. They are locked away, one at a bank (`r1`) and one at a second site (`r2`). A thief
+  who steals an everyday key never holds them, so the recovery keys can always cancel a stolen key.
 
 A stolen YubiKey is useless without its PIN: every signature needs both the key and its PIN.
 
 ## What you need
 
 - A Mac with the Orpheum source and Go (macOS's own OpenSSH is new enough).
-- Four YubiKeys with firmware 5.2.3 or later (`ykman info` shows it), and a sticker on each.
+- Three YubiKeys or more with firmware 5.2.3 or later (`ykman info` shows it), and a sticker on each.
 - A PIN of 8 or more characters on each YubiKey, different on each: `ykman fido access change-pin`.
 - A **records folder**, kept in a private git repository (`orpheum-security`). Nothing in it is
   secret: it holds what was signed, the keys' public halves, and the files to publish. What matters
@@ -36,10 +38,9 @@ plain questions and runs `ssh-keygen` itself; you type no signing commands. It c
 with the same code a core runs before it keeps anything, so a mistake is caught on the spot, not by a
 core later.
 
-**The Mac as an everyday key.** First run `go run ./cmd/discovery-sign test-key` on that Mac. It
-signs a test message and says whether the Mac's signatures carry the *user-verified* flag (Touch ID
-was asked for). Only if it says yes is the Mac as safe as a YubiKey (D394 §7). The ceremony then
-offers to add it.
+**A Mac is not a key.** Its signatures cannot show a core that Touch ID was asked for, so it
+protects less than a YubiKey and its PIN (D395 §3). When the ceremony asks whether to add a Mac,
+answer no.
 
 ## Day one: the ceremony
 
@@ -92,22 +93,24 @@ key by the name the ceremony gave it.
 | --- | --- | --- |
 | A key is missing but may turn up | `suspend --folder ~/orpheum-security --key e1` | any other key (a recovery key, when the missing one is a recovery key) |
 | The missing key turned up | `resume --folder ~/orpheum-security --key e1` | a recovery key |
-| A key is gone for good, or stolen | `remove --folder ~/orpheum-security --key e1` | any other key (a recovery key, when the gone one is a recovery key) |
-| A new key replaces it | `add --folder ~/orpheum-security --key e3` | any key already in the set (a recovery key, to add a recovery key) |
+| A key is gone for good, or stolen | `remove --folder ~/orpheum-security --key e1` | a recovery key |
+| A new key replaces it | `add --folder ~/orpheum-security --key e3` | a recovery key |
 | Every key is lost | a new ceremony, which is a new identity: every core enrols again, and installs a release by hand | nothing can |
 
 - **Suspending** stops the key's signatures counting until a recovery key resumes it. A key cannot
   sign its own suspension, and only a recovery key can resume one, so a thief holding an everyday key
   cannot undo it.
 - **Removing** is for good: a removed key can never be added back. If the key may turn up, suspend
-  it instead.
+  it instead. Removing and adding need a recovery key, so when an everyday key goes missing, suspend
+  it at once with your other everyday key, and remove or replace it at the bank when convenient.
 - **After a change,** if the address document was signed by the key that stopped counting, the
   tool signs it again with a key that still counts. If the newest release record was, it says so:
   make a new unsigned record (`release-record --root-version <n>`) and sign it with `sign-release`.
 - **Then** copy the files to publish to the server, check the watcher shows every place the same,
   commit the records folder, and look for cores whose heartbeat names an older root version.
 
-**A key stolen together with its PIN** is worse: the thief can sign. Remove it at once. If the
+**A key stolen together with its PIN** is worse: the thief can sign. Suspend it at once with another
+key, then remove it with a recovery key. If the
 watcher shows the thief already signed a statement, the next statement must jump past the thief's
 with a recovery key; that one is done by hand (below, `--skip`).
 

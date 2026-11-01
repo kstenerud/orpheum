@@ -178,7 +178,9 @@ func (change rootChange) next(chain trust.Chain, now time.Time) (trust.Root, boo
 	if err != nil {
 		return trust.Root{}, false, err
 	}
-	isRecovery = isRecovery || skip > 1 || len(change.addRecovery) > 0 || len(change.thresholds) > 0
+	// An everyday key's statement changes the set by nothing but a suspension (D395).
+	isRecovery = isRecovery || skip > 1 || len(change.addRecovery) > 0 || len(change.addEveryday) > 0 ||
+		len(change.thresholds) > 0 || len(change.locations) > 0
 	if changeErr := errors.Join(addKeys(&next, trust.RoleRecovery, change.addRecovery),
 		addKeys(&next, trust.RoleEveryday, change.addEveryday),
 		setThresholds(&next, change.thresholds)); changeErr != nil {
@@ -534,16 +536,14 @@ func removeKey(root *trust.Root, named string) (trust.Role, error) {
 }
 
 // changeStanding removes, suspends and resumes the keys named in root, and says whether only a
-// recovery key may sign the change: a recovery key removed or suspended, or any key resumed, so a
-// thief holding an everyday key cannot undo its suspension (D394 §4).
+// recovery key may sign the change: anything but suspending an everyday key, so a thief holding an
+// everyday key can neither undo its suspension (D394 §4) nor remove the owner's keys (D395).
 func changeStanding(root *trust.Root, removed, suspended, resumed []string) (bool, error) {
-	isRecovery := len(resumed) > 0
+	isRecovery := len(resumed) > 0 || len(removed) > 0
 	for _, each := range removed {
-		role, err := removeKey(root, each)
-		if err != nil {
+		if _, err := removeKey(root, each); err != nil {
 			return false, err
 		}
-		isRecovery = isRecovery || role == trust.RoleRecovery
 	}
 	for _, each := range suspended {
 		role, err := suspendKey(root, each, true)

@@ -987,14 +987,15 @@ recovery key (below).
 **This batch (the owner, 2026-11-01, "I don't want an everyday key to have that power"; "Suspend only"):**
 as built, an everyday key could sign a root statement adding, suspending or removing an everyday key. Now
 the only change to the set an everyday key may sign is suspending another everyday key; adding, removing,
-re-marking, thresholds and locations take a recovery key. It amends D393 §3/D394 §4 by a new decision. The
-rule lives in the code cores run (`discovery/trust`, `judgeAfter` and a `Root.onlySuspends`), not in the
-statements, so the ceremony need not wait; no deployed core holds D393's code, so it must land before the
-deploy. To do: the rule (a stash holds a first cut); the tests that rotate with an everyday key
-(`rotation_test.go`, `suspend_test.go`, `trust_test.go`'s genesis test, `cmd/discovery-sign`'s `main_test.go`
-and `guidedchange_test.go`, `internal/core/discovery`'s `document_test.go`) re-signed by a recovery key, with
-new tests that an everyday key adding or removing one is refused; the guided `add`/`remove` offering only
-recovery keys; `docs/users/discovery-signing.md`'s table and the root key audit's scenarios.
+re-marking, thresholds and locations take a recovery key. **Done: D395** (amending D393 §1, D394 §4
+and §7). The rule lives in the code cores run (`discovery/trust`, `judgeAfter` and `Root.onlySuspends`),
+not in the statements, so the ceremony need not wait; no deployed core holds D393's code, so it lands
+before the deploy. The rotation tests now suspend with the other everyday key and replace with a recovery
+key, `TestFollow_TheTiersRulesHold` refuses an everyday key adding, removing, re-marking or moving the
+chain, and the guided `add`/`remove` offer only recovery keys (`rootChange.next`, `changeStanding`). The
+root key audit (research, a dated record) is left as it was; D395 §1 says how its §3.6 rows 1–3 change.
+Still to do: the ceremony still asks whether a Mac is an everyday key, and `test-key` and the `mac` kind
+remain (D395 §3 says the Mac is no key): removing them is the next small change, asked of the owner first.
 The owner asked (2026-11-01) that an everyday key can never suspend itself by a wrong pick in a list. Two
 guards hold it already and are kept through the change: the guided tool never offers the key being
 suspended as its signer (`chooseSigner`; `guidedchange_test.go`), and a core refuses a statement signed

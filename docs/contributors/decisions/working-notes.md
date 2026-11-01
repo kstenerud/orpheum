@@ -25139,6 +25139,8 @@ Decided in the build, for the owner's review:
 
 ## D393 — The root key design corrected by its audit: two tiers of single keys, a separate publisher root, user-verified signatures, versioned formats
 
+> **Revised by [D395](#d395--an-everyday-key-may-only-suspend-adding-removing-and-every-other-change-to-the-key-set-take-a-recovery-key-no-key-whose-second-factor-a-core-cannot-check)** (2026-11-01): §1's everyday keys no longer change the everyday tier; their only change to the key set is suspending an everyday key, and adding or removing a key of either tier takes a recovery key.
+
 **Decided** (2026-10-31), by the project owner, amending D391 §2, §3, §4 and §6, on the audit
 [root-key-audit-2026-10-31.md](../design/research/root-key-audit-2026-10-31.md), whose §3 is the
 design built ("This is the one part that absolutely MUST be correct from the start"; "OK, agreed. I'll
@@ -25173,6 +25175,8 @@ have to order another yubikey. The system should allow adding and removing keys 
 9. **The online delegated key is not built** (F15); the format reserves its place.
 
 ## D394 — Keys fit the threat: the paid service's by ceremony, a self-hoster's and staging's by software; keys suspend and resume; a guided tool runs the ceremony
+
+> **Revised by [D395](#d395--an-everyday-key-may-only-suspend-adding-removing-and-every-other-change-to-the-key-set-take-a-recovery-key-no-key-whose-second-factor-a-core-cannot-check)** (2026-11-01): §4's everyday key suspends but adds and removes nothing; §7 is withdrawn, the Mac being no key, as no core can check its second factor.
 
 **Decided** (2026-10-31), by the project owner, amending D391 §8 and D393 §1 and §3, on the owner's
 reading of the signing guide ("the commands are complicated, and the steps assume knowledge I don't
@@ -25221,3 +25225,31 @@ agreed to your recommendations").
    it a security fix when the tag message has a `Security: <what it fixes>` line, and attaches the
    unsigned record to the run. The owner signs it on the Mac with the guided tool, which checks it and
    writes the files to publish. The step does nothing until a publisher root exists.
+
+## D395 — An everyday key may only suspend: adding, removing and every other change to the key set take a recovery key; no key whose second factor a core cannot check
+
+**Decided** (2026-11-01), by the project owner, amending D393 §1 and D394 §4 and §7, on the owner's
+question whether an everyday key can authorize a new key ("I don't want an everyday key to have that
+power"), answered with the choice "suspend only", and on the Mac test of the same day.
+
+1. **An everyday key changes the key set by nothing but suspending an everyday key** (amends D393 §1
+   and D394 §4). Its root statement may name everyday keys suspended and must leave every other line
+   as it was: the keys with their roles and marks, the removed keys, the thresholds and the locations.
+   Adding or removing a key of either tier, re-marking one, a threshold and where the chain is served
+   all take a recovery key. A thief holding an everyday key and its PIN can at most suspend the owner's
+   other everyday keys, which a recovery key resumes; they can no longer add a key of their own or
+   remove the owner's. The cost is a trip to a recovery key to replace or remove a lost everyday key:
+   the other everyday key suspends it at once, and the recovery key replaces it when convenient. The
+   rule is in every core's code (`trust.Root.onlySuspends`), not in the statements, so it changes no
+   format and binds chains signed before it. The audit's §3.6 rows 1–3 change accordingly: the
+   remaining everyday key suspends the lost or stolen one, and a recovery key removes and replaces it.
+   The guided tool's `add` and `remove` offer only recovery keys to sign.
+2. **The guards against a key signing its own suspension stay**: the tool never offers the key being
+   changed as its signer, and a core refuses a statement signed only by the key it suspends
+   (D394 §4).
+3. **No key whose second factor a core cannot check** (amends D394 §7). The Mac's Secure Enclave
+   cannot enrol a key through `ssh-keygen` (idiosyncrasies.md), and the route that works gives
+   signatures with user presence but not the user-verified flag; Apple attests no access-control
+   policy, so no core can tell whether Touch ID was asked for. The Mac is not a key. The production
+   ceremony uses three YubiKeys, `e1` everyday and `r1`, `r2` recovery; a second everyday key `e2` is
+   added later with `add`, signed by a recovery key.

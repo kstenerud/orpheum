@@ -106,7 +106,7 @@ func TestSign_TheOwnersDayOneAndARotationArePublishedAsACoreFollowsThem(t *testi
 	said = person.does("root", "--chain", "discovery", "--remove", person.pub(carried),
 		"--add-everyday", person.pub(replacement))
 	if !strings.Contains(said, "- key everyday uv") || !strings.Contains(said, "+ removed SHA256:") ||
-		!strings.Contains(said, "an everyday or a recovery key") {
+		!strings.Contains(said, "Sign it with a recovery key") {
 		t.Errorf("the rotation said %q; want what changed and who signs", said)
 	}
 	// carried signing its own removal is refused: it leaves, and no key of the new set signed.
@@ -114,8 +114,13 @@ func TestSign_TheOwnersDayOneAndARotationArePublishedAsACoreFollowsThem(t *testi
 		person.signs("discovery-root-2", trust.NamespaceDiscoveryRoot, carried)); status != exitFailure {
 		t.Errorf("e1's own removal, signed by it alone: %d %q; want refused", status, refused)
 	}
+	// An everyday key replacing another is refused: it may only suspend one (D395).
+	if status, refused := person.runs("check", "--kind", "root", "--payload",
+		person.signs("discovery-root-2", trust.NamespaceDiscoveryRoot, home, replacement)); status != exitFailure {
+		t.Errorf("e1 replaced by e2's signature: %d %q; want refused", status, refused)
+	}
 	person.does("check", "--kind", "root", "--payload",
-		person.signs("discovery-root-2", trust.NamespaceDiscoveryRoot, home, replacement))
+		person.signs("discovery-root-2", trust.NamespaceDiscoveryRoot, bank, replacement))
 
 	publishing, pr1 := trusttest.HardwareKey(t, "p1"), trusttest.HardwareKey(t, "pr1")
 	person.does("genesis", "--chain", "publisher", "--everyday", person.pub(publishing), "--recovery", person.pub(pr1))

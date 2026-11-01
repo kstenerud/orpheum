@@ -8,10 +8,10 @@
 //
 // The design, in short: an identity is the hash of its chain's first statement ("od1-…" a
 // discovery's, "op1-…" the publisher's). Each statement names two tiers of single keys: everyday keys
-// sign documents, records and changes of the everyday tier; recovery keys sign anything, alone change
-// the recovery tier, thresholds and roles, and may skip versions past a thief's statements. Keys of
-// both tiers are added and removed by a signed statement; a key removed stays named removed for good,
-// and a key leaving the set has the new set sign too. A statement may suspend a key it holds, one
+// sign documents and records, and change the set by nothing but suspending an everyday key (D395);
+// recovery keys sign anything, alone add, remove or re-mark keys of either tier and change thresholds,
+// roles and locations, and may skip versions past a thief's statements. A key removed stays named
+// removed for good, and a key leaving the set has the new set sign too. A statement may suspend a key it holds, one
 // "!suspended <fingerprint>" line a key, critical so a build that does not know it refuses: the key
 // stays listed but its signatures count for nothing, nor toward the statement suspending it, until a
 // later statement leaves the line out. An everyday key suspends an everyday key, a recovery key any
@@ -30,13 +30,15 @@
 //     TestParse_TheFormatIsStrictAndAnUnknownCriticalLineRefuses.
 //   - An identity is its genesis' hash, a genesis signed by one of its own keys, and a kept chain is
 //     checked again from it. TestGenesis_TheIdIsTheGenesisHashAndAStateIsCheckedAgainFromIt.
-//   - Each row of the audit's §3.6 rotation table: TestRotation_E1LostIsReplacedByE2,
-//     TestRotation_E1StolenWithoutItsPINIsRemovedAtOnce,
+//   - Each row of the audit's §3.6 rotation table, as D395 amends rows 1–3:
+//     TestRotation_E1LostIsSuspendedByE2AndReplacedByARecoveryKey,
+//     TestRotation_E1StolenWithoutItsPINIsSuspendedAtOnce,
 //     TestRotation_E1StolenWithItsPINIsRecoveredBySkippingPastTheThief,
 //     TestRotation_BothEverydayKeysLostAreReplacedByARecoveryKey,
 //     TestRotation_R1LostIsReplacedByR2AndNeverByAnEverydayKey,
 //     TestRotation_R1StolenWithItsPINIsResolvedByR2sSkip, TestRotation_AllKeysLostIsANewIdentity.
-//   - The tiers' rules: an everyday key never changes the recovery tier nor skips; two statements of
+//   - The tiers' rules: an everyday key changes the set by nothing but suspending an everyday key, nor
+//     skips; two statements of
 //     one version are refused unless one is a recovery key's; a leaving signer has the new set sign
 //     too; removed keys stay named. TestFollow_TheTiersRulesHold.
 //   - A suspended key stays listed and signs nothing: no address document, release record, drill nor
