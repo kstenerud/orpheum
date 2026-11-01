@@ -9,6 +9,7 @@ import {
   gathered,
   hasRelayServer,
   isTurnedAway,
+  offerWith,
   slowConnection,
   slowConnectMs,
   TurnedAway,
@@ -224,5 +225,26 @@ describe("slowConnection", () => {
       "a WebRTC connection took 12404 ms: gathering its candidates 10004 ms, the core's answer 2100 ms, " +
         "connecting 300 ms",
     );
+  });
+});
+
+describe("offerWith", () => {
+  it("offers the negotiation channel and a video m-line that only receives, for Chrome's socket buffer", () => {
+    const calls: unknown[][] = [];
+    const channel = offerWith({
+      createDataChannel: (label: string) => {
+        calls.push(["createDataChannel", label]);
+        return "the channel";
+      },
+      addTransceiver: (kind: "video", init: { direction: "recvonly" }) => {
+        calls.push(["addTransceiver", kind, init]);
+        return undefined;
+      },
+    });
+    expect(channel).toBe("the channel");
+    expect(calls).toEqual([
+      ["createDataChannel", "hello"],
+      ["addTransceiver", "video", { direction: "recvonly" }],
+    ]);
   });
 });

@@ -25264,9 +25264,50 @@ power"), answered with the choice "suspend only", and on the Mac test of the sam
 
 **Reserved** (2026-11-01) for the 11-02 batch's work; the branch replaces this entry with the decision.
 
-## D397 — Reserved: WebRTC tuned for Chromium
+## D397 — WebRTC to Chromium is paced by the core, its channels hold the client's whole credit in flight, and every offer carries a video m-line that only receives
 
-**Reserved** (2026-11-01) for the 11-02 batch's work; the branch replaces this entry with the decision.
+**Decided** (2026-11-01), by the project owner's order for the 11-02 batch's item 3 (WebRTC for
+Chromium), on the throughput review's fixes 2, 4 and 5
+([webrtc-throughput-review-2026-10-28.md](../design/research/webrtc-throughput-review-2026-10-28.md)
+§6). It amends no decision: D273 §8's transport and its 64 KiB congestion-avoidance step
+(`cwndStepBytes`) stand, and so does `ClientConnections`.
+
+1. **The core paces what each connection sends** (`internal/core/rtcapi/pacer.go`). Chrome reads a
+   WebRTC socket through a 64 KiB buffer, and pion sends its whole congestion window back to back;
+   the burst overflowed the buffer, pion took each drop for loss and halved its window
+   (idiosyncrasies.md). Every socket ICE opens, and the LAN port under its mux, sends through a
+   token bucket per client address: at **twice** the connection's congestion window per smoothed
+   round trip, never above **300 Mb/s**, in bursts of at most **16 KiB**. The rate is read from SCTP
+   every **10 ms** by the pacer's own goroutine, never in a send, since SCTP sends holding the lock
+   that reading its window takes. A relayed connection's sends to its TURN server, STUN and ICE's
+   checks are not paced. The kernel paces UDP only under the fq queueing discipline, which a NAS
+   need not have, so this is not `internal/platform/pacing`'s job.
+2. **A response's channel waits only past 8 MiB buffered, down to 4 MiB** (were 1 MiB and
+   256 KiB). pion counts bytes in flight in `BufferedAmount`, so the old bound, not the window,
+   held a paced connection at 50 ms to 42–59 Mb/s. The client's credit (4 MiB) still binds first,
+   so no film is held in memory.
+3. **Every offer the web client makes carries a video transceiver that only receives**
+   (`offerWith` in `web/packages/sdk/src/rtc-connect.ts`). Chrome grows a connection's socket
+   buffer from 64 KiB only for one with a video receive channel (`kVideoRtpRecvBufferSize`, 1 MiB).
+   The core answers the m-line with **VP8** alone, sendonly with no source, and never sends a track
+   (`internal/core/rtcapi/video.go`). It is documented behaviour used for its side effect, so it has
+   a test and an idiosyncrasies entry.
+4. **Each connection logs its SCTP figures as it ends** ("rtc connection ended": bytes, window,
+   smoothed round trip, receiver window, packet size), for the Throughput probe's diagnosis. pion
+   keeps its retransmission and timeout counts unexported, so the line has none. Chromium closes with
+   DTLS close_notify and no SCTP ABORT, on which pion closed the whole peer connection before the
+   figures could be read; the core sets `DisableCloseByDTLS` and closes a connection itself as its
+   SCTP ends (idiosyncrasies.md).
+5. **Not built: a congestion-avoidance step chosen by path** (the review's fix 3). pion fixes the
+   step per API, when the peer connection is made, before ICE knows which path the connection will
+   take. The owner decided (2026-11-01) to leave it.
+6. **Evidence** (the review's §4.1, §4.2 and §4.5): headless Chromium against the core over a veth
+   link with netem, three 32 MiB loads per round trip. Before: 45–84, 26–76 and 21–27 Mb/s at 5,
+   20 and 50 ms, with 3.4–4.6k drops at Chrome's socket. Paced with the 8 / 4 MiB thresholds:
+   54–75, 41–62 and 141–165 Mb/s, still 2.5–3.7k drops at 5 and 20 ms, where the rate reaches the
+   ceiling. With the video m-line too, at 5 ms: about 200 Mb/s and no drops. Not measured: the
+   video m-line at 20 and 50 ms (the machine was loaded), and any device. VQ232 (Chrome on the Mac
+   near Firefox's rate) and VQ233 (the Fire TV faster than before) record the devices' figures here.
 
 ## D398 — A page that cannot reach its core judges whether its network has IPv6, says so in words when that is why, and tells its discovery the reason with no address
 

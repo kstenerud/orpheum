@@ -200,7 +200,7 @@ func New(ctx context.Context, handler http.Handler, logger *slog.Logger) *Server
 	go paced.run()
 	server := &Server{
 		ctx: ctx, handler: handler, logger: logger, clock: clock.System{}, pacer: paced,
-		api: webrtc.NewAPI(webrtc.WithSettingEngine(settings(paced))),
+		api: newAPI(settings(paced)),
 		bounds: bounds{
 			connections:   DefaultMaxConnections,
 			connectWithin: connectWithin, perSource: perSourceLimit, channels: channelLimit,
@@ -210,7 +210,7 @@ func New(ctx context.Context, handler http.Handler, logger *slog.Logger) *Server
 		sources: map[*webrtc.PeerConnection]netip.Prefix{},
 		held:    map[*webrtc.PeerConnection]*heldConnection{},
 	}
-	server.relayedAPI = webrtc.NewAPI(webrtc.WithSettingEngine(server.relayedSettings()))
+	server.relayedAPI = newAPI(server.relayedSettings())
 	return server
 }
 
@@ -245,8 +245,8 @@ func (server *Server) ListenLAN(port int, lanIPs []netip.Addr) error {
 	if err != nil {
 		return errors.Join(fmt.Errorf("offer the house's addresses: %w", err), mux.Close())
 	}
-	server.api = webrtc.NewAPI(webrtc.WithSettingEngine(own))
-	server.relayedAPI = webrtc.NewAPI(webrtc.WithSettingEngine(relayed))
+	server.api = newAPI(own)
+	server.relayedAPI = newAPI(relayed)
 	server.mutex.Lock()
 	server.lanPort, server.lanIPs = port, slices.Clone(lanIPs)
 	server.mutex.Unlock()

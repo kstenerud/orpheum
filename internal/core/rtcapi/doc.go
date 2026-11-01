@@ -42,6 +42,9 @@
 //     TestPaceRate_IsTwiceTheWindowARoundTripUnderTheCeiling, TestPacer_LetsAnUnfollowedAddressGoAtOnce.
 //   - A response's channel waits only past 8 MiB buffered, down to 4 MiB, so the client's whole
 //     credit can be in flight (D397). TestBuffered_LetsTheClientsWholeCreditBeInFlight.
+//   - A client's video m-line, which it offers so Chrome grows its socket buffer from 64 KiB, is
+//     answered sendonly with VP8 alone, naming no source, and the core sends nothing on it (D397).
+//     TestVideo_AClientsVideoLineIsAnsweredAndNothingSentOnIt.
 //   - Requests on their own channels are answered at once, none waiting for another.
 //     TestChannel_RequestsOnTheirOwnChannelsAreAnsweredAtOnce.
 //   - A head that is not one, a body over MaxRequestBodyBytes, or a path naming another host is
@@ -108,6 +111,7 @@
 // # Read before changing
 //
 //   - D273 §7, §8: why WebRTC, and the measurement behind ClientConnections and cwndStepBytes.
+//   - D397: the pacer, the buffered thresholds, the video m-line and the end line, for Chromium.
 //   - docs/contributors/design/plans/webrtc-transport.md: the transport's shape and phases.
 //
 // # Where to change
@@ -117,5 +121,6 @@
 //     proven_home.go: a connection proven at home (D356);
 //     channel.go: reading a request;
 //     writer.go: sending a response; message.go: a request that became a WebSocket; ended.go: the
-//     line a connection logs as it ends; pacer.go: the pacing of what connections send.
+//     line a connection logs as it ends; pacer.go: the pacing of what connections send; video.go: the
+//     video m-line every connection answers.
 package rtcapi

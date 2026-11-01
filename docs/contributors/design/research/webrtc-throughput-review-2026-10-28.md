@@ -196,6 +196,24 @@ assumption (the A53-class guess is not verified), that thread alone saturates at
 It shares its time with everything else the device does, and with a 5 ms buffer it starts
 dropping long before it saturates.
 
+### 4.5 As built in `rtcapi` (2026-11-01)
+
+Added after the review, when its fixes 2, 4 and 5 were built (D397). The same veth and netem
+set-up, the bench core being `rtcapi` itself (a throwaway `cmd/rtcbench` around `rtcapi.New`),
+headless Chromium driven by Playwright, three 32 MiB loads per round trip, in Mb/s. "Drops" is the
+kernel's `UdpRcvbufErrors` over the three loads.
+
+| Round trip | Before (main at "feat(rtcapi): log each connection's SCTP figures as it ends") | Paced, thresholds 1 MiB / 256 KiB | Paced, thresholds 8 / 4 MiB | + video m-line |
+| --- | --- | --- | --- | --- |
+| 5 ms | 45–84 (drops 4.6k) | | 54–75 (drops ~3.7k) | ~200 (drops 0) |
+| 20 ms | 26–76 (drops 4.0k) | | 41–62 (drops ~2.5k) | |
+| 50 ms | 21–27 (drops 3.4k) | 42–59 | 141–165 | |
+
+Paced, at 5 and 20 ms the rate reaches the 300 Mb/s ceiling in bursts that a 64 KiB socket still
+overflows; the video m-line's larger socket ends the drops. The video m-line was measured at 5 ms
+alone. The load average was above 8 when this was written up, so the 20 and 50 ms columns with the
+m-line were not re-measured; they are left for VQ232's device check.
+
 ## 5. The first write-up, point by point
 
 | Its claim | Verdict |

@@ -6,8 +6,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/pion/webrtc/v4"
-
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
 
@@ -56,7 +54,7 @@ func AnswerOnLoopback(server *Server) {
 	engine := settings(server.pacer)
 	engine.SetIncludeLoopbackCandidate(true)
 	engine.SetIPFilter(func(ip net.IP) bool { return ip.IsLoopback() })
-	server.api = webrtc.NewAPI(webrtc.WithSettingEngine(engine))
+	server.api = newAPI(engine)
 }
 
 // ConnectionCount is how many connections server holds.

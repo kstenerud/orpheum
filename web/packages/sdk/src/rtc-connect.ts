@@ -185,6 +185,26 @@ export async function connectRtc(
   });
 }
 
+/** What offerWith asks of a peer connection: RTCPeerConnection's. */
+export interface OfferingPeer<Channel> {
+  createDataChannel(label: string): Channel;
+  addTransceiver(kind: "video", init: { direction: "recvonly" }): unknown;
+}
+
+/**
+ * Puts on peer what its offer negotiates, and returns its negotiation channel: a channel the client
+ * sends nothing on, which the core knows by its label, never serves, and tells its verdict on
+ * (internal/core/rtcapi.NegotiationLabel); and a video m-line that receives, which the core answers
+ * and never sends on. Chrome grows a connection's socket receive buffer from 64 KiB only when it
+ * has a video m-line (kVideoRtpRecvBufferSize), and without it drops the core's packets before its
+ * data channels read them (docs/contributors/idiosyncrasies.md, D397).
+ */
+export function offerWith<Channel>(peer: OfferingPeer<Channel>): Channel {
+  const channel = peer.createDataChannel("hello");
+  peer.addTransceiver("video", { direction: "recvonly" });
+  return channel;
+}
+
 /** One peer connection, connected through signaller; given up, its peer closed, once signal aborts. */
 async function connectOne(
   signaller: Signaller,
@@ -197,9 +217,7 @@ async function connectOne(
   };
   signal.addEventListener("abort", giveUp, { once: true });
   try {
-    // An offer needs something to negotiate: a channel the client sends nothing on, which the core
-    // knows by its label, never serves, and tells its verdict on (internal/core/rtcapi.NegotiationLabel).
-    const verdict = verdictOf(channelOf(peer.createDataChannel("hello")));
+    const verdict = verdictOf(channelOf(offerWith(peer)));
     verdict.catch(() => undefined);
     const startedAt = performance.now();
     await peer.setLocalDescription(await peer.createOffer());
