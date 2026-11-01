@@ -25253,3 +25253,15 @@ power"), answered with the choice "suspend only", and on the Mac test of the sam
    policy, so no core can tell whether Touch ID was asked for. The Mac is not a key. The production
    ceremony uses three YubiKeys, `e1` everyday and `r1`, `r2` recovery; a second everyday key `e2` is
    added later with `add`, signed by a recovery key.
+
+## D396 — Reserved: The core's LAN origin at home
+
+**Reserved** (2026-11-01) for the 11-02 batch's work; the branch replaces this entry with the decision.
+
+## D397 — Reserved: WebRTC tuned for Chromium
+
+**Reserved** (2026-11-01) for the 11-02 batch's work; the branch replaces this entry with the decision.
+
+## D398 — Reserved: A page that cannot reach its core says why
+
+**Reserved** (2026-11-01) for the 11-02 batch's work; the branch replaces this entry with the decision.
