@@ -159,7 +159,8 @@ any discovery (D292 §4; A2, A9); **K3b** is what makes the connection keep up.
 
 **Built 2026-10-13 (Phase 1's A2):** `rtcapi.Server.AnswerRelayed`, the only way an offer through
 `internal/core/discovery` reaches `rtcapi` (its `Answerer` names no other), checks the offer first:
-exactly one sha-256 fingerprint, at most `MaxRelayedCandidates` (10) candidates, mDNS candidates
+exactly one sha-256 fingerprint (repeated in each m-line, as Chrome writes it, only if the same; since
+2026-11-01), at most `MaxRelayedCandidates` (10) candidates, mDNS candidates
 dropped; its connections check no remote address that is loopback, link-local, private,
 carrier-grade NAT's or in the core's own interface prefixes. Every connection: SCTP's receive buffer
 1 MiB and messages at most `MaxMessageBytes`; 16 requests in flight; a request's head and body whole

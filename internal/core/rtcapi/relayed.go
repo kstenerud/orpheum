@@ -77,15 +77,21 @@ func OfferedIPv6Addresses(sdp string) []netip.Addr {
 func checkRelayedOffer(sdp string, isTaken func(net.IP) bool) (string, error) {
 	lines := strings.Split(strings.ReplaceAll(sdp, "\r\n", "\n"), "\n")
 	kept := make([]string, 0, len(lines))
-	fingerprints, candidates := 0, 0
+	fingerprint, candidates := "", 0
 	for _, line := range lines {
 		switch {
 		case strings.HasPrefix(line, "a=fingerprint:"):
-			fingerprints++
-			algorithm, _, _ := strings.Cut(strings.TrimPrefix(line, "a=fingerprint:"), " ")
+			value := strings.TrimSpace(strings.TrimPrefix(line, "a=fingerprint:"))
+			algorithm, _, _ := strings.Cut(value, " ")
 			if !strings.EqualFold(algorithm, "sha-256") {
 				return "", fmt.Errorf("a fingerprint by %q; only sha-256 is taken", algorithm)
 			}
+			// Chrome writes the one certificate's fingerprint in every m-line, so an offer with its
+			// video m-line (D397) carries it twice; a second, different one is what A9 refuses.
+			if fingerprint != "" && !strings.EqualFold(value, fingerprint) {
+				return "", errors.New("two different fingerprints; exactly one is taken")
+			}
+			fingerprint = value
 		case strings.HasPrefix(line, "a=candidate:"):
 			if fields := strings.Fields(line); len(fields) > 4 &&
 				(strings.HasSuffix(fields[4], ".local") || !isTaken(net.ParseIP(fields[4]))) {
@@ -96,10 +102,10 @@ func checkRelayedOffer(sdp string, isTaken func(net.IP) bool) (string, error) {
 		kept = append(kept, line)
 	}
 	switch {
-	case fingerprints != 1:
+	case fingerprint == "":
 		// pion checks the certificate against one fingerprint, a session-level line winning over a
-		// media-level one: a second would let a discovery end DTLS in the middle (A9).
-		return "", fmt.Errorf("%d fingerprints; exactly one is taken", fingerprints)
+		// media-level one: a second, different one would let a discovery end DTLS in the middle (A9).
+		return "", errors.New("no fingerprint; exactly one is taken")
 	case candidates > MaxRelayedCandidates:
 		return "", fmt.Errorf("%d candidates; at most %d are taken", candidates, MaxRelayedCandidates)
 	}

@@ -127,6 +127,7 @@ User-Agent (D263; the User-Agent is logged only).
 | Every offer refused: "gather the core's candidates: context deadline exceeded". | [pion waits 5 s for each STUN server while gathering, and a family with no way out never answers](#pion-waits-5-s-for-each-stun-server-while-gathering-and-a-family-with-no-way-out-never-answers) |
 | A sign-in through a discovery takes 25 s or more; each WebRTC offer goes 10 s after the last. | [A browser's ICE gathering completes some forty seconds after its useful candidates](#a-browsers-ice-gathering-completes-some-forty-seconds-after-its-useful-candidates) |
 | A WebRTC connection to Chrome carries 50–80 Mb/s on a fast link; Chrome's socket drops packets (`UdpRcvbufErrors`). | [Chrome reads a WebRTC connection through a 64 KiB socket buffer unless it has a video m-line](#chrome-reads-a-webrtc-connection-through-a-64-kib-socket-buffer-unless-it-has-a-video-m-line) |
+| Chrome cannot connect through a discovery; the core logs "the core refused the offer: 2 fingerprints". | [Chrome writes a=fingerprint in every m-line, Firefox once for the session](#chrome-writes-afingerprint-in-every-m-line-firefox-once-for-the-session) |
 | The core's "rtc connection ended" line reads zero for every SCTP figure after a Chromium page closes. | [Chromium ends a connection with DTLS close_notify and no SCTP ABORT, and pion then closes the whole peer connection](#chromium-ends-a-connection-with-dtls-close_notify-and-no-sctp-abort-and-pion-then-closes-the-whole-peer-connection) |
 | X265 makes every keyframe after the first a CRA (open GOP) | [x265 makes every keyframe after the first a CRA (open GOP)](#x265-makes-every-keyframe-after-the-first-a-cra-open-gop) |
 | The `segment` muxer misses a keyframe a hair before the cut time (10.009999 against 10.010) | [The `segment` muxer misses a keyframe a hair before the cut time (10.009999 against 10.010)](#the-segment-muxer-misses-a-keyframe-a-hair-before-the-cut-time-10009999-against-10010) |
@@ -2068,6 +2069,21 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   loss at very high or bursty receive rates": for media, not data channels. A search for anyone
   else using a video m-line to grow a data channel's buffer found nobody (2026-11-01); Fire OS's
   `rmem_max`, which bounds the gain on a TV, is unknown.
+
+### Chrome writes a=fingerprint in every m-line, Firefox once for the session
+
+- **Symptom:** with the video m-line (D397), every Chromium page in the browser tier failed to
+  connect through a discovery, waiting for "requests now go over WebRTC"; the core logged "discovery:
+  an offer was refused … 2 fingerprints; exactly one is taken". Firefox connected.
+- **Cause:** Chrome writes its DTLS certificate's `a=fingerprint` in each media section, so an offer
+  with a data channel and a video m-line carries the same line twice. Firefox writes it once, at the
+  session level. The core's check of an offer a discovery passed on counted the lines and took only
+  one, against a discovery adding a second (the security audit's A9).
+- **What we do:** the check takes the fingerprint repeated in any number of m-lines when every copy
+  is the same, and still refuses two different ones (`internal/core/rtcapi/relayed.go`,
+  `checkRelayedOffer`; `TestCheckRelayedOffer_TakesTheSameFingerprintInEveryMediaSection`).
+- **Evidence:** **[measured]** the browser tier, 2026-11-01: `through-discovery*.spec.ts` failed in
+  Chromium alone with the m-line, passed with it reverted, and passes with the check changed.
 
 ### Chromium ends a connection with DTLS close_notify and no SCTP ABORT, and pion then closes the whole peer connection
 
