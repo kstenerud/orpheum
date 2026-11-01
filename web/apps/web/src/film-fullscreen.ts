@@ -23,9 +23,10 @@ export function fillTheScreen(stage: HTMLElement, document: Document): void {
     return;
   }
   stage.requestFullscreen().catch(fillWindow);
-  // A browser that neither grants nor refuses in time is taken to have refused.
+  // A browser that neither grants nor refuses in time is taken to have refused. The answer is read
+  // without the page's globals, which a page torn down before the wait ends no longer has.
   setTimeout(() => {
-    if (!(document.fullscreenElement instanceof Element)) {
+    if ((document.fullscreenElement ?? null) === null) {
       fillWindow();
     }
   }, fullscreenAnswerWithinMs);
