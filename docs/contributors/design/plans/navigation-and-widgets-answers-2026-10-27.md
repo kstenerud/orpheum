@@ -1084,7 +1084,10 @@ The owner's device checks run alongside, in the order of `/yoloai/files/testing-
 4. **Recovery:** the core and its discovery find each other again in either restart order; a Play
    page gives up its sockets on `pagehide` and reconnects on `pageshow`; Firefox's leftovers (a page
    on a core's direct HTTPS name hears the network's return only from `online`; the direct mode's
-   signaller marks no failure `Unreached`).
+   signaller marks no failure `Unreached`). **Found done (2026-11-01):** the first two were built in
+   the 10-30 batch: a link left open by a restarted discovery is found dead within about 48 s and
+   dialled again, whatever the restart order ("fix(discovery): a link left open by a restarted discovery is found dead within a minute and dialled again"), and the session connection closes its socket
+   on `pagehide` and connects again on `pageshow` ("fix(together): a Play page navigated away gives up its session's socket at once", VQ170). Firefox's two leftovers remain.
 5. **A page that cannot reach its core says why**, to the discovery and in words (the plan's "Reaching
    production from outside" item 2). The edge tunnel (item 1 there) is not this batch's: see the
    owner's question of 2026-11-01 below.

@@ -401,6 +401,9 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D393](working-notes.md#d393--the-root-key-design-corrected-by-its-audit-two-tiers-of-single-keys-a-separate-publisher-root-user-verified-signatures-versioned-formats) The root key design corrected by its audit: two tiers of single keys, a separate publisher root, user-verified signatures, versioned formats — *revisited by D394, D395*
 - [D394](working-notes.md#d394--keys-fit-the-threat-the-paid-services-by-ceremony-a-self-hosters-and-stagings-by-software-keys-suspend-and-resume-a-guided-tool-runs-the-ceremony) Keys fit the threat: the paid service's by ceremony, a self-hoster's and staging's by software; keys suspend and resume; a guided tool runs the ceremony — *revisited by D395*
 - [D395](working-notes.md#d395--an-everyday-key-may-only-suspend-adding-removing-and-every-other-change-to-the-key-set-take-a-recovery-key-no-key-whose-second-factor-a-core-cannot-check) An everyday key may only suspend: adding, removing and every other change to the key set take a recovery key; no key whose second factor a core cannot check
+- [D396](working-notes.md#d396--reserved-the-cores-lan-origin-at-home) Reserved: The core's LAN origin at home
+- [D397](working-notes.md#d397--reserved-webrtc-tuned-for-chromium) Reserved: WebRTC tuned for Chromium
+- [D398](working-notes.md#d398--reserved-a-page-that-cannot-reach-its-core-says-why) Reserved: A page that cannot reach its core says why
 
 ## Archived
 
