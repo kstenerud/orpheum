@@ -1990,7 +1990,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   goes to the discovery's sign-in, with no core sign-in drawn on the way. (2) The same on the Fire TV,
   by remote: the question takes focus, Back cancels it, OK on Sign out signs out to the discovery's
   sign-in. (`web/apps/web/src/app-shell.tsx`, `loader-at-client-origin.tsx`, `app.tsx`)
-- [ ] **VQ201** — the People page's three buttons, dialogs and pages work, on staging (the owner,
+- [x] **VQ201** — the People page's three buttons, dialogs and pages work, on staging (the owner,
   2026-11-01: "The people page is just too messy"; D399). On the Mac's Chrome as admin, People.
   (1) Create Role, Create Account and Invite Someone sit side by side above Invitations, Accounts and
   Roles. (2) Invite Someone: write a note, choose a role, make the link: the invitation's dialog opens
@@ -2008,6 +2008,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   On the S23's Chrome, Copy on a waiting invitation's dialog copies its link.
   (`web/apps/web/src/people.tsx`, `invitations-section.tsx`, `people-dialogs.tsx`,
   `roles-section.tsx`, `role-page.tsx`; `internal/core/auth/invitations.go`)
+  **Passed 2026-11-01 (the owner, staging):** "Everything worked as planned." Follow-ups in the
+  plan file's 11-04 batch: a redeemed invitation leaves the list, and a role opens in a dialog.
 - [ ] **VQ204** — another audio track chosen mid-film switches without stopping the picture, on
   staging, on the Mac's Chrome and on the Fire TV. A film of two or more audio tracks on its ladder
   (the tracks note says "transcoded" or names the top's own sound), playing a minute in. Choose the
