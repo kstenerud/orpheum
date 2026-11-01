@@ -1153,10 +1153,17 @@ use of the edge waits until then (the owner: "We'll hold off on nas.example's ed
 The lead's proposal from the next-batch list above (the owner, 2026-11-01: "Go with your
 recommendations"). The owner holds off on the testing plan's sound steps until this batch changes them.
 
-1. **A seek's playback stops again 1 s after it starts** (Nosferatu at 29:04): a step up never flushes what
-   is playing.
-2. **A track switch's second gap, at the old track's seam**, and the boost's switch checked for the same
-   seam. The lead finds the cause and puts the choice (cut at once, or a clean seam) to the owner with it.
+1. **A seek's playback stops again 1 s after it starts** (Nosferatu at 29:04). Found 2026-11-01 to be in
+   the 11-02 batch already: "fix(player): a seek's report says where each flush ends and how old each choice is" showed the step up came 501 s before the seek and the flushes were
+   hls.js trimming the back buffer, so neither caused the wait. The cause is still unknown (the sound
+   running out, or hls.js's 2 s wait before nudging over a hole); VQ236's next report, with every
+   `audioBuffered` range, tells them apart. Nothing to build until then.
+2. **A track switch's second gap, at the old track's seam.** Found 2026-11-01 to be in the 11-02 batch
+   already: "fix(player): another audio track chosen cuts in at the choice, not a second later with a gap" (D400) cuts a chosen track in at the choice, waiting on VQ237. The boost still
+   switches late and likely has the same seam (hls.js writes the new sound over sound Chrome is
+   already decoding, `audio-stream-controller.ts`); cutting it at once froze the picture 2.2 s at the
+   top quality (2026-10-29), and a clean seam needs hls.js patched or an audio controller of our own,
+   a dependency decision. The owner's call after VQ237.
 3. **The uncaught AbortError** after a film page's warm-up is dropped.
 4. **Titles sort without their leading article**: a decision refining D47, as agreed above.
 5. **A confirmed episode placement sticks**: D401, amending D307 §2, as agreed above.
