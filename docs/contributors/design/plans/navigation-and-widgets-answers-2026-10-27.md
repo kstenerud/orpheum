@@ -334,7 +334,7 @@ had leaned on.
 - **The Mac's Firefox refused file 5667's own HEVC picture** (`bufferAppendNoProgress`, nothing held)
   where Firefox on Linux plays it; the fallback to 800p worked. Find why, and whether other HEVC films
   do the same there.
-- **The remembered link is lost at each deploy** (`rememberedLinkKbps=0` on the first start after one);
+- **The remembered link is lost at each deploy** (done: kept in the store since "feat(player,playback): the link a device remembers is a prior of its estimate, and the core keeps it across restarts"; see the 11-02 batch, item 6) (`rememberedLinkKbps=0` on the first start after one);
   and a start waited 10 s on a confident estimate of 753 kb/s (18:24:01) where the film before had
   measured 17 Mb/s.
 - **After a throttle is lifted, a desktop playback stayed at 360p for 50 s and once stood still at
@@ -1082,7 +1082,11 @@ The owner's device checks run alongside, in the order of `/yoloai/files/testing-
    production from outside" item 2). The edge tunnel (item 1 there) is not this batch's: see the
    owner's question of 2026-11-01 below.
 6. **Playback's start:** the remembered link kept across a deploy; the player choosing its first rung
-   before loading anything (the Fire TV's black blip).
+   before loading anything (the Fire TV's black blip). **Found done (2026-11-01):** both were built before this
+   batch was written: the core keeps each device's link in the store (`link_memory`, "feat(player,playback): the link a device remembers is a prior of its estimate, and the core keeps it across restarts"), and
+   nas.example's held device 2's link of 23.6 h before through the 11-01 restart; its three
+   `rememberedLinkKbps=0` starts since were devices 31, 33 and 34 at their first playback, new devices
+   after the realm change. The first rung by the remembered link is D381 (35822125), VQ176 ticked.
 7. **The production deploy's small items** (the section above): HeadlessChrome's browser name, the
    empty Home's hint to an admin, the setting rows nothing reads, the realm rename's note, connect's
    `up.sh` checking `published/` as the connect user, the ops README's core ID.
