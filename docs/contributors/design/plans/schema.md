@@ -503,6 +503,7 @@ CREATE TABLE item_text (                                   -- class O/F, resolve
   overview    TEXT,
   tagline     TEXT,
   search_alternates  TEXT,                      -- migration 0010: the name, folded for search (D48)
+  sort_title  TEXT,                              -- migration 0065: the NFO's sort title, which wins over the name's key (D402)
   UNIQUE (item_id, language)
 );
 CREATE UNIQUE INDEX item_text_original ON item_text(item_id) WHERE is_original = 1;

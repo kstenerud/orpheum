@@ -196,16 +196,17 @@ WHERE id = sqlc.arg(id)
 
 -- name: UpsertOriginalText :exec
 -- search_alternates is the name as the one normaliser folds it (D48), which both search indexes take.
-INSERT INTO item_text (item_id, language, is_original, name, overview, tagline, search_alternates)
+-- sort_title is the NFO's own sort name, which wins over the name's key (D402).
+INSERT INTO item_text (item_id, language, is_original, name, overview, tagline, search_alternates, sort_title)
 VALUES (sqlc.arg(item_id), sqlc.arg(language), 1, sqlc.arg(name), sqlc.arg(overview), sqlc.arg(tagline),
-  sqlc.arg(search_alternates))
+  sqlc.arg(search_alternates), sqlc.arg(sort_title))
 ON CONFLICT (item_id, language) DO UPDATE SET
   is_original = 1, name = excluded.name, overview = excluded.overview, tagline = excluded.tagline,
-  search_alternates = excluded.search_alternates
+  search_alternates = excluded.search_alternates, sort_title = excluded.sort_title
 -- A text already as derived is left alone (D303, DL9): nothing is written, and no index rewritten.
 WHERE item_text.is_original IS NOT 1 OR item_text.name IS NOT excluded.name
   OR item_text.overview IS NOT excluded.overview OR item_text.tagline IS NOT excluded.tagline
-  OR item_text.search_alternates IS NOT excluded.search_alternates;
+  OR item_text.search_alternates IS NOT excluded.search_alternates OR item_text.sort_title IS NOT excluded.sort_title;
 
 -- name: UpsertSortKey :exec
 -- An item's sort key in one locale, made whenever its name is written (D47), and left alone when
@@ -335,7 +336,7 @@ WHERE item_text.is_original = 1 AND item.removed_at IS NULL
 -- Every live named item: its name, its stored search fold, its kind as a title or a collection,
 -- and its stored sort keys in a locale, one row per key and one with none when it has none. What
 -- a refresh compares with what this build derives from the name (D47, D48).
-SELECT item_text.item_id, item_text.name, item_text.search_alternates, title.kind AS title_kind,
+SELECT item_text.item_id, item_text.name, item_text.search_alternates, item_text.sort_title, title.kind AS title_kind,
   collection.kind AS collection_kind, sort_key.listing AS keyed_listing, sort_key.collation_key
 FROM item_text
 JOIN item ON item.id = item_text.item_id
@@ -411,7 +412,7 @@ WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL;
 -- name: ListLibraryOriginalTexts :many
 -- The text a pass writes of the library's live items, with each one's sort key in a locale.
 SELECT item_text.item_id, item_text.language, item_text.name, item_text.overview, item_text.tagline,
-  item_text.search_alternates, sort_key.listing, sort_key.collation_key
+  item_text.search_alternates, item_text.sort_title, sort_key.listing, sort_key.collation_key
 FROM item
 CROSS JOIN item_text ON item_text.item_id = item.id AND item_text.is_original = 1
 LEFT JOIN sort_key ON sort_key.item_id = item.id AND sort_key.locale = sqlc.arg(locale)

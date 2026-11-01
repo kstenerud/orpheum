@@ -25,6 +25,7 @@ type titleSpec struct {
 	runtimeMs      int64
 	overview       string
 	tagline        string
+	sortTitle      string // its NFO's sort title, which names how it sorts (D402)
 	ids            map[string]string
 	lockedFields   []string
 	artwork        []ImageRef // the images its source names
@@ -41,6 +42,7 @@ func (spec *titleSpec) fromNFO(nfo NFO) {
 	if nfo.Title != "" {
 		spec.name = nfo.Title
 	}
+	spec.sortTitle = nfo.SortTitle
 	if nfo.Year > 0 {
 		spec.year = nfo.Year
 	}
@@ -252,6 +254,7 @@ func (filer *libraryFiler) resolve(ctx context.Context, titleID int64, spec titl
 	}
 	err = filer.writeText(ctx, titleID, itemText{
 		sortListing: spec.kind, name: values[fieldName], overview: values[fieldOverview], tagline: values[fieldTagline],
+		sortTitle: sortTitleFor(spec.sortTitle, spec.name, values[fieldName]),
 	})
 	if err != nil {
 		return titleResolution{}, fmt.Errorf("name title %d: %w", titleID, err)

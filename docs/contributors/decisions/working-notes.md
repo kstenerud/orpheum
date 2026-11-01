@@ -25426,3 +25426,29 @@ the next pass placed it by its name again and marked it a guess again.
    marks it a guess; the mark holds the old confirmation off until a person confirms that place too.
 3. **Status:** Decided 2026-11-01. Tests: `TestSeries_AConfirmedPlacementByNameStaysUnmarkedThroughLaterPasses`,
    `TestSeries_APlacementByNameAtAnotherPlaceAfterConfirmingIsANewGuess`.
+
+## D402 — A title sorts without its leading article, from a list per sort locale, unless its NFO names how it sorts
+
+**Decided** (2026-11-01), by the project owner ("Agreed on sorting", answering the proposal in
+navigation-and-widgets-answers-2026-10-27.md, "Titles beginning with \"The\""): "The Matrix" was filed
+under T, "feels weird". It refines [D47](#d47--sort-order-is-a-materialised-cldr-sort-key-per-item-per-locale)
+(the sort key is the CLDR key of the name) in what the key is made of; D47's materialised key, its
+locale and its numeric order stand. Plex, Jellyfin and Emby skip leading articles by default and keep
+the full title on screen; so does this.
+
+1. **The key is of the name without its leading article.** The lists are by the sort locale's
+   language: en the, a, an; de der, die, das, ein, eine; fr le, la, les, l', un, une; es el, la, los,
+   las, un, una. A locale with no list keeps every name whole. The same list serves the matcher
+   (`textindex.IsArticle`), which reads English alone.
+2. **The name shown is unchanged,** and so is the search fold; only the key and so the letter rail
+   (which follows the key) change: "The Matrix" is under M, "A Beautiful Mind" under B.
+3. **A name that is only an article stays whole** ("The" is under T), and so does one whose first word
+   is no word ("A. I.").
+4. **An NFO's `<sorttitle>` wins** when it is present, keyed as written. It is kept in
+   `item_text.sort_title` (migration 0065), because a rekey has only what is stored; a person's
+   override of the name, or a provider's name, drops it.
+5. **Existing libraries follow with no manual step.** `RefreshSortAndSearchKeys` makes every key again
+   from the stored name and sort title at every start (and at a locale change), through
+   `sortKeyOf`, the one place a pass and a rekey alike make an item's key. A file name's key (the sort
+   by file name, D349 §4) and a folder's are of the text as written.
+6. **Status:** Decided 2026-11-01; built.

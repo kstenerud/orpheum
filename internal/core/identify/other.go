@@ -235,7 +235,7 @@ func (filer *libraryFiler) resolveOtherVideo(
 ) error {
 	values := sqlcgen.UpsertOtherVideoParams{
 		TitleID: titleID, RecordedAt: facts.recordedAtMs, RecordedFrom: facts.recordedFrom,
-		FileName: facts.fileName, FileNameKey: filer.sorter.Key(facts.fileName),
+		FileName: facts.fileName, FileNameKey: filer.sorter.KeyExact(facts.fileName),
 	}
 	if at, err := strconv.ParseInt(corrected, 10, 64); err == nil && at > 0 {
 		values.RecordedAt, values.RecordedFrom = at, recordedFromPerson

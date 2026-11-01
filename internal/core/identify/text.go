@@ -18,20 +18,22 @@ type itemText struct {
 	name        string
 	overview    string
 	tagline     string
+	sortTitle   string // the NFO's own sort name, which wins over the name's key (D402)
 }
 
 // writeText writes an item's text, with its name folded by the one normaliser for search (D48)
-// and its sort key in the library's locale (D47): the only way the pass names anything. Its text
+// and its sort key in the library's locale (D47, D402): the only way the pass names anything. Its text
 // is already clean: paths, NFO files, providers and people are cleaned where they enter
 // (principles §22).
 func (filer *libraryFiler) writeText(ctx context.Context, itemID int64, text itemText) error {
 	original := sqlcgen.UpsertOriginalTextParams{
 		ItemID: itemID, Language: langtag.Undetermined, Name: text.name, Overview: ptr.NilIfZero(text.overview),
 		Tagline: ptr.NilIfZero(text.tagline), SearchAlternates: ptr.NilIfZero(textindex.Fold(text.name)),
+		SortTitle: ptr.NilIfZero(text.sortTitle),
 	}
 	sortKey := sqlcgen.UpsertSortKeyParams{
 		ItemID: itemID, Locale: filer.sorter.Locale(), Listing: text.sortListing,
-		CollationKey: filer.sorter.Key(text.name),
+		CollationKey: sortKeyOf(filer.sorter, text.name, text.sortTitle),
 	}
 	if filer.isTextHeld(itemID, original, sortKey) {
 		return nil

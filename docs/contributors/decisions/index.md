@@ -54,7 +54,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D44](working-notes.md#d44--prefer-the-platforms-supervisor-ship-the-units-and-never-exit-when-you-could-report) Prefer the platform's supervisor; ship the units; and never exit when you could report
 - [D45](working-notes.md#d45--metadata-is-multi-language-in-the-schema-chosen-per-request) Metadata is multi-language in the schema, chosen per request
 - [D46](working-notes.md#d46--no-translated-string-is-ever-stored-in-the-database) No translated string is ever stored in the database
-- [D47](working-notes.md#d47--sort-order-is-a-materialised-cldr-sort-key-per-item-per-locale) Sort order is a materialised CLDR sort key, per item per locale
+- [D47](working-notes.md#d47--sort-order-is-a-materialised-cldr-sort-key-per-item-per-locale) Sort order is a materialised CLDR sort key, per item per locale — *revisited by D402*
 - [D48](working-notes.md#d48--two-fts5-tokenisers-routed-by-script-and-length-and-exactly-one-normaliser) Two FTS5 tokenisers, routed by script and length, and exactly one normaliser — *revisited by D232*
 - [D49](working-notes.md#d49--unicode-discipline-at-the-boundaries-enforced-by-tests) Unicode discipline at the boundaries, enforced by tests — *revisited by D211*
 - [D50](working-notes.md#d50--build-libass-correctly-and-turn-off-vsfilter-bug-compatibility-for-non-authored-subtitles) Build libass correctly and turn off VSFilter bug-compatibility for non-authored subtitles — *revisited by D53*
@@ -407,6 +407,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D399](working-notes.md#d399--the-people-page-is-three-buttons-over-three-sections-dialogs-make-things-rows-lead-to-pages-and-a-roles-changes-save-at-once) The People page is three buttons over three sections: dialogs make things, rows lead to pages, and a role's changes save at once
 - [D400](working-notes.md#d400--a-chosen-audio-track-cuts-in-at-the-choice-accepting-a-brief-wait-there-the-boost-still-loads-at-the-playhead) A chosen audio track cuts in at the choice, accepting a brief wait there; the boost still loads at the playhead
 - [D401](working-notes.md#d401--a-confirmed-by-name-episode-placement-sticks-only-a-new-place-is-a-new-guess) A confirmed by-name episode placement sticks; only a new place is a new guess
+- [D402](working-notes.md#d402--a-title-sorts-without-its-leading-article-from-a-list-per-sort-locale-unless-its-nfo-names-how-it-sorts) A title sorts without its leading article, from a list per sort locale, unless its NFO names how it sorts
 
 ## Archived
 
