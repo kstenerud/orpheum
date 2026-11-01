@@ -1159,7 +1159,7 @@ recommendations"). The owner holds off on the testing plan's sound steps until t
    seam. The lead finds the cause and puts the choice (cut at once, or a clean seam) to the owner with it.
 3. **The uncaught AbortError** after a film page's warm-up is dropped.
 4. **Titles sort without their leading article**: a decision refining D47, as agreed above.
-5. **A confirmed episode placement sticks**: a decision amending D307 §2, as agreed above.
+5. **A confirmed episode placement sticks**: D401, amending D307 §2, as agreed above.
 6. **An empty Home tells an admin to add a library**: done already, in the 11-02 batch ("feat(web): an empty Home says how it fills").
 7. **A page's freeze has its own console words**, not "a request failed".
 8. **The Continue Watching poster** ("fix(library): an episode in Continue Watching shows its series' poster", verified on staging by the owner) ships with it.

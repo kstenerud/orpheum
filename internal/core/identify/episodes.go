@@ -64,13 +64,13 @@ func (filer *libraryFiler) fileEpisode(
 	}
 	spec.key = episodeKey(seriesID, season, number)
 	filer.unidentifiedUnlessNFO(&spec)
-	titleID, err := filer.episodeTitle(ctx, file, spec, seriesID,
+	titleID, wasThere, err := filer.episodeTitle(ctx, file, spec, seriesID,
 		episodeFiledAt{season: season, number: number, isByName: isPlacedByGuess})
 	if err != nil {
 		return err
 	}
 	if isPlacedByGuess {
-		if markErr := filer.markPlacedByGuess(ctx, titleID); markErr != nil {
+		if markErr := filer.markPlacedByGuess(ctx, titleID, wasThere); markErr != nil {
 			return markErr
 		}
 	}
@@ -82,13 +82,28 @@ func (filer *libraryFiler) fileEpisode(
 // the mark and the time of the first guess, so that a pass over an unchanged library writes nothing
 // (D303, DL9): even an upsert that would change nothing is a write a read alone refuses, and a
 // rescan reads its library that way until no write is left (filesSayOf).
-func (filer *libraryFiler) markPlacedByGuess(ctx context.Context, titleID int64) error {
+//
+// A confirmation sticks (D401, amending D307 §2): an episode a person confirmed, with no mark, that
+// the pass places where it already is, stays unmarked, as D172 keeps a confirmed film. Where the
+// confirmation is remembered is the title's state, 'confirmed', and its place: wasThere says the
+// pass found the title already at the place its name gives. Another place is a new guess, marked,
+// and the mark then holds the stale 'confirmed' state off until a person confirms that place too.
+func (filer *libraryFiler) markPlacedByGuess(ctx context.Context, titleID int64, wasThere bool) error {
 	isMarked, err := filer.queries.IsGuessedMatch(ctx, titleID)
 	if err != nil {
 		return fmt.Errorf("see whether episode %d is placed by a guess: %w", titleID, err)
 	}
 	if isMarked {
 		return nil
+	}
+	if wasThere {
+		state, stateErr := filer.queries.GetTitleIdentification(ctx, titleID)
+		if stateErr != nil {
+			return fmt.Errorf("read whether episode %d is confirmed: %w", titleID, stateErr)
+		}
+		if state == identificationConfirmed {
+			return nil
+		}
 	}
 	guess := sqlcgen.MarkGuessedMatchParams{ItemID: titleID, GuessedAt: filer.nowMs}
 	if err := filer.queries.MarkGuessedMatch(ctx, guess); err != nil {
@@ -104,33 +119,35 @@ type episodeFiledAt struct {
 	isByName       bool
 }
 
-// episodeTitle is the title an episode's file goes to: the one it is in, if it stays, at the place
-// it has, unless it was placed by its name; or the one at its place in its series, found or made and
-// placed there. Found or made at
-// the place its NFO now gives a file that stays, a title was left there with no file.
+// episodeTitle is the title an episode's file goes to, and whether it already held the place: the
+// one it is in, if it stays, at the place it has, unless it was placed by its name; or the one at
+// its place in its series, found or made and placed there. Found or made at the place its NFO now
+// gives a file that stays, a title was left there with no file.
 func (filer *libraryFiler) episodeTitle(
 	ctx context.Context, file sqlcgen.ListIdentifyFilesRow, spec titleSpec, seriesID int64, at episodeFiledAt,
-) (int64, error) {
+) (titleID int64, wasThere bool, err error) {
 	season, number := at.season, at.number
 	titleID, hasCurrentTitle, err := filer.currentTitle(ctx, file)
 	if err != nil || (hasCurrentTitle && !at.isByName) {
-		return titleID, err
+		return titleID, true, err
 	}
+	key := episodeKey(seriesID, season, number)
 	if hasCurrentTitle {
 		// One placed by its name, filed as a special before its season was fetched: its title moves
 		// to that place, or it joins the title already there.
-		key := episodeKey(seriesID, season, number)
-		if there, isTaken := filer.titleIDByKey[key]; isTaken && there != titleID {
-			return there, nil
+		there, isTaken := filer.titleIDByKey[key]
+		if isTaken && there != titleID {
+			return there, false, nil
 		}
 		filer.titleIDByKey[key] = titleID
-		return titleID, filer.positionEpisode(ctx, seriesID, titleID, season, number)
+		return titleID, isTaken, filer.positionEpisode(ctx, seriesID, titleID, season, number)
 	}
+	_, wasThere = filer.titleIDByKey[key]
 	titleID, err = filer.findOrAddTitle(ctx, spec)
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
-	return titleID, filer.positionEpisode(ctx, seriesID, titleID, season, number)
+	return titleID, wasThere, filer.positionEpisode(ctx, seriesID, titleID, season, number)
 }
 
 // numberByListings gives an unnumbered episode the place its series' listings give its name: the

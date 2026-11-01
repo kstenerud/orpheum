@@ -161,8 +161,12 @@
 //
 //   - An unnumbered episode in no specials or extras folder, and not named as bonus material, is
 //     placed by its name in the one episode of every season its series lists that is named so, or
-//     nearly, every season being fetched for it, and marked a guess (D307 §2).
-//     TestSeries_AnUnnumberedEpisodeIsPlacedByItsNameAcrossEverySeason.
+//     nearly, every season being fetched for it, and marked a guess (D307 §2). A person's
+//     confirmation of that place sticks: a pass placing it there leaves it unmarked, and only
+//     another place is a new guess (D401).
+//     TestSeries_AnUnnumberedEpisodeIsPlacedByItsNameAcrossEverySeason,
+//     TestSeries_AConfirmedPlacementByNameStaysUnmarkedThroughLaterPasses,
+//     TestSeries_APlacementByNameAtAnotherPlaceAfterConfirmingIsANewGuess.
 //     A film or series left ambiguous that its kept results now settle, or whose kept results
 //     cache.db lost, is owed its first match again, and a person's choice never is.
 //     TestMatch_AnAmbiguousFilmTheRulesNowSettleIsMatchedAgain.

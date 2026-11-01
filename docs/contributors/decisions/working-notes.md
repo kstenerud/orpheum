@@ -25410,3 +25410,19 @@ on) and audio-switch-and-retiming-2026-11-01.md §1.2 and §1.4 for another audi
    sound loaded plays on (`nextAudioTrack`): cut in at once, it froze the picture 2.2 s (staging,
    2026-10-29). Whether its seam has the same gap is open, for the owner.
 3. **Status:** Decided 2026-11-01. Device check: VQ237.
+
+## D401 — A confirmed by-name episode placement sticks; only a new place is a new guess
+
+**Decided** (2026-11-01), by the project owner ("Agreed on D307"), on the lead's proposal. It amends
+[D307](#d307--a-work-released-under-another-name-is-guessed-from-the-providers-search-a-series-with-unplaced-episodes-has-every-season-fetched)
+§2: an episode placed by its name was marked a guess, and an admin's confirmation cleared the mark, but
+the next pass placed it by its name again and marked it a guess again.
+
+1. **A confirmation sticks.** A pass that places a confirmed episode by its name at the place it
+   already holds leaves it unmarked and writes nothing, as D172 keeps a confirmed film: the
+   confirmation is the title's `confirmed` state and its place (`markPlacedByGuess`,
+   `internal/core/identify/episodes.go`); no new table or column.
+2. **Only a new place is a new guess.** A pass that places it at another place moves it there and
+   marks it a guess; the mark holds the old confirmation off until a person confirms that place too.
+3. **Status:** Decided 2026-11-01. Tests: `TestSeries_AConfirmedPlacementByNameStaysUnmarkedThroughLaterPasses`,
+   `TestSeries_APlacementByNameAtAnotherPlaceAfterConfirmingIsANewGuess`.
