@@ -160,7 +160,7 @@ The owner agreed every other answer and recommendation above (2026-10-27).
   and withdrawing, or using one link, forgets the others' sealed secrets in the same write
   (`RevokeInvitationLinks`). The used link stays sealed as its person's own link (K7), never shown on
   the invitation. The 7 days were already `registration_invitation_life_days`' default. Tests
-  `TestInvitation_ItsLiveLinksAreShownAgainUntilOneIsUsed`,
+  `TestInvitation_ItsLiveLinkIsShownAgainUntilUsed`,
   `TestInvitation_AWithdrawnOrEndedLinkIsNoLongerShown`,
   `TestInvitations_TheListShowsEachLiveLinkAgainUntilOneIsUsed`, `people-invitations.test.tsx`; VQ201.
 - **Later (the owner, 2026-10-28, "Some other issues to deal with later"):**
