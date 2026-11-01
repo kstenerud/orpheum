@@ -90,7 +90,7 @@ describe("a player's stage put full screen (the owner's Mac, Safari, 2026-10-25)
 
 describe("a film full screen on an iPhone, which has no element full screen (WebKit bug 206854)", () => {
   /** A stage as an iPhone's Safari has it: no requestFullscreen, its video with its own player. */
-  function iPhoneStage(): { stage: HTMLElement; entered: () => number } {
+  function stageWithoutElementFullScreen(): { stage: HTMLElement; entered: () => number } {
     const stage = document.createElement("div");
     Object.defineProperty(stage, "requestFullscreen", { configurable: true, value: undefined });
     const video = document.createElement("video");
@@ -107,14 +107,14 @@ describe("a film full screen on an iPhone, which has no element full screen (Web
   }
 
   it("puts the film in iOS's own player at the full-screen press, not under Safari's bars (the owner, 2026-11-01)", () => {
-    const { stage, entered } = iPhoneStage();
+    const { stage, entered } = stageWithoutElementFullScreen();
     toggleFullScreen(stage, document);
     expect(entered()).toBe(1);
     expect(stage.classList.contains(fillsWindowClass)).toBe(false);
   });
 
   it("puts Watch Together's film in iOS's own player too", () => {
-    const { stage, entered } = iPhoneStage();
+    const { stage, entered } = stageWithoutElementFullScreen();
     enterVideoFullScreen(stage.querySelector("video"));
     expect(entered()).toBe(1);
   });

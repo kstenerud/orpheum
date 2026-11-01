@@ -66,7 +66,7 @@ interface WebKitVideo {
 
 /** Whether the video has the iPhone's own full screen. */
 function hasOwnFullScreen(video: HTMLVideoElement): video is HTMLVideoElement & WebKitVideo {
-  return typeof (video as Partial<WebKitVideo>).webkitEnterFullscreen === "function";
+  return "webkitEnterFullscreen" in video && typeof video.webkitEnterFullscreen === "function";
 }
 
 /**
