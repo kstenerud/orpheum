@@ -21,7 +21,7 @@ function browserOf(userAgent: string): string | undefined {
     [/\bSilk\//, "Silk"],
     [/\b(Firefox|FxiOS)\//, "Firefox"],
     [/\bSamsungBrowser\//, "Samsung Internet"],
-    [/\b(Chrome|CriOS)\//, "Chrome"],
+    [/\b(HeadlessChrome|Chrome|CriOS)\//, "Chrome"],
     [/\bSafari\//, "Safari"],
   ];
   return browsers.find(([pattern]) => pattern.test(userAgent))?.[1];
