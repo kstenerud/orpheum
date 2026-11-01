@@ -50,10 +50,13 @@
 //
 //   - The pass reads only stored observations and reaches the same titles when run again (D182).
 //     TestPass_RunningAgainChangesNothing. Run again over a library nothing changed in, it writes
-//     no row (D303, DL9), nor gives a special no number places a new title.
+//     no row (D303, DL9), nor gives a special no number places a new title, nor marks again an
+//     episode its name placed as a guess; so a rescan's read of what its files say completes.
 //     TestPass_AgainOverAnUnchangedLibraryWritesNothing,
 //     TestPass_AgainOverAnUnchangedMatchedLibraryWritesNothing,
-//     TestPass_AgainOverAnUnchangedLibraryWithAnUnnumberedSpecialWritesNothing. So does a pass over
+//     TestPass_AgainOverAnUnchangedLibraryWithAnUnnumberedSpecialWritesNothing,
+//     TestPass_AgainOverAnUnchangedLibraryWithAnEpisodePlacedByItsNameWritesNothing,
+//     TestRescan_ALibraryWithAnEpisodePlacedByItsNameIsMatchedAgain. So does a pass over
 //     a random library, however its names parse, through renames, removals and NFO changes, and it
 //     makes a title for a file at a path at most once (D303, M10).
 //     TestPass_OverRandomLibrariesAgainWritesNothingAndMakesNoTitleEachPass.

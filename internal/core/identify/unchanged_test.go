@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/identify/identifytest"
@@ -94,6 +95,34 @@ func TestPass_AgainOverAnUnchangedLibraryWithAnUnnumberedSpecialWritesNothing(t 
 	}
 	if after != before {
 		t.Errorf("a pass over an unchanged library with a special changed %d rows; want none", after-before)
+	}
+}
+
+// A pass over a library holding an episode its name placed, as a guess, writes nothing either, an
+// hour on: the episode keeps its mark and the time of the first guess, rather than being marked
+// again each pass (D303, DL9; staging's rescan of its shows, 2026-11-01, which waited forever for
+// its library to stop changing).
+func TestPass_AgainOverAnUnchangedLibraryWithAnEpisodePlacedByItsNameWritesNothing(t *testing.T) {
+	t.Parallel()
+	lib := placedByNameLibrary(t)
+	lib.clock.Advance(time.Hour)
+	before, err := lib.database.RowsChanged(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = lib.pass.IdentifyLibrary(t.Context(), lib.libraryID); err != nil {
+		t.Fatal(err)
+	}
+	after, err := lib.database.RowsChanged(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after != before {
+		t.Errorf("a pass over an unchanged library with an episode placed by its name changed %d rows; want none",
+			after-before)
+	}
+	if placed := lib.titlesByPath()[placedByNameUnplaced]; !lib.isGuessed(placed.TitleID) {
+		t.Error("the episode placed by its name is no longer marked a guess")
 	}
 }
 

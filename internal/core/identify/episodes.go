@@ -70,13 +70,31 @@ func (filer *libraryFiler) fileEpisode(
 		return err
 	}
 	if isPlacedByGuess {
-		// Placed by its name alone, as a match guessed is marked until a person confirms it (D307 §2).
-		guess := sqlcgen.MarkGuessedMatchParams{ItemID: titleID, GuessedAt: filer.nowMs}
-		if markErr := filer.queries.MarkGuessedMatch(ctx, guess); markErr != nil {
-			return fmt.Errorf("mark episode %d placed by a guess: %w", titleID, markErr)
+		if markErr := filer.markPlacedByGuess(ctx, titleID); markErr != nil {
+			return markErr
 		}
 	}
 	return filer.place(ctx, file, titleID, spec)
+}
+
+// markPlacedByGuess marks an episode placed by its name alone, as a match guessed is marked until a
+// person confirms it (D307 §2). Every pass places it by its name again; one already marked keeps
+// the mark and the time of the first guess, so that a pass over an unchanged library writes nothing
+// (D303, DL9): even an upsert that would change nothing is a write a read alone refuses, and a
+// rescan reads its library that way until no write is left (filesSayOf).
+func (filer *libraryFiler) markPlacedByGuess(ctx context.Context, titleID int64) error {
+	isMarked, err := filer.queries.IsGuessedMatch(ctx, titleID)
+	if err != nil {
+		return fmt.Errorf("see whether episode %d is placed by a guess: %w", titleID, err)
+	}
+	if isMarked {
+		return nil
+	}
+	guess := sqlcgen.MarkGuessedMatchParams{ItemID: titleID, GuessedAt: filer.nowMs}
+	if err := filer.queries.MarkGuessedMatch(ctx, guess); err != nil {
+		return fmt.Errorf("mark episode %d placed by a guess: %w", titleID, err)
+	}
+	return nil
 }
 
 // episodeFiledAt is where an episode is filed: its season and number, and whether its name alone
