@@ -150,7 +150,10 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   making it, and the new one is heard from that chunk once it has loaded, each choice noted with its
   cause and again as it is heard; a boost turned on at the top of a film's ladder, the sound loaded
   thrown away, froze it 2.2 s (staging, 2026-10-29) (`keepAudioRendition`, `src/hls.ts`; D368's
-  revision of 2026-10-28; idiosyncrasies.md). Another audio track chosen goes the same way, and a
+  revision of 2026-10-28; idiosyncrasies.md). Another audio track chosen cuts in at the choice
+  instead, the sound loaded thrown away and the picture waiting there for the new one's chunk: the
+  old language played on 1 to 3 s and the new one cut in with a gap at the seam, which the owner
+  does not accept where a wait at the choice is fine (Chrome on staging, 2026-11-01; D400). A
   choice's `onHeard` is told only once its sound switched in, so a gain of its own is applied then,
   never to the old sound still playing; the element's own HLS says it cannot switch in place
   (`canSwitchSoundInPlace`), and the page asks again (audio-switch-and-retiming-2026-11-01.md §1.2).

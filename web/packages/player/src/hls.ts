@@ -38,9 +38,9 @@ export type ChooseAudio = (index: number, cause: SoundChoiceCause, onHeard?: () 
 /** A prepared rendition playing in a video element. */
 export interface HlsPlayback {
   /**
-   * Plays the audio rendition at index, in the master playlist's order, for cause: the sound loaded
-   * plays on until the new one's chunk at the playhead has loaded, then onHeard is told
-   * (keepAudioRendition). Where canSwitchSoundInPlace is false it does nothing.
+   * Plays the audio rendition at index, in the master playlist's order, for cause: for the boost the
+   * sound loaded plays on until the new one's chunk at the playhead has loaded, another track cuts in
+   * at once, and onHeard is told as the new one is heard (keepAudioRendition). Where canSwitchSoundInPlace is false it does nothing.
    */
   readonly setAudioRendition: ChooseAudio;
   /**
@@ -179,14 +179,17 @@ export interface AudioKeeping {
  * another audio track), which it keeps from then on: one way for every change of sound as the film
  * plays. The choice's onHeard is told as hls.js says the chosen sound switched in
  * (AUDIO_TRACK_SWITCHED), once its chunk is appended, or at once where it plays already; a choice
- * made over one still on its way leaves the first unheard. The sound loaded plays
+ * made over one still on its way leaves the first unheard. For the boost, the sound loaded plays
  * on while hls.js asks for the new one's chunk at the playhead, which starts the server making it,
  * and the new one is heard from that chunk once it has loaded, the sound loaded after it thrown away
  * (`nextAudioTrack`): switched with `audioTrack`, hls.js threw all of it away at once and the video
  * waited for the new one's chunk, a boost turned on at the top of a film's ladder froze it 2.2 s
- * (staging, 2026-10-29). A switch to the place while one chosen is on its way, as the quality moves
- * to another group, is made the same way. Each choice is noted, with its cause, and again as it is
- * heard (idiosyncrasies.md).
+ * (staging, 2026-10-29). Another audio track chosen cuts in at the choice instead (cutsAtOnce): the
+ * old language playing on and then cut mid-stream left a gap in the sound at the seam, a second after
+ * the choice, which the owner does not accept, while a wait at the choice itself is fine (the owner,
+ * Chrome on staging, 2026-11-01; D400). A switch to the place while one chosen is on its way, as the
+ * quality moves to another group, is made the way the choice was. Each choice is noted, with its
+ * cause, and again as it is heard (idiosyncrasies.md).
  */
 export function keepAudioRendition(
   hls: AudioKeeping,
@@ -225,8 +228,7 @@ export function keepAudioRendition(
       return;
     }
     if (chosen?.id === place) {
-      // eslint-disable-next-line no-param-reassign -- hls.js switches the mix when nextAudioTrack is set
-      hls.nextAudioTrack = place;
+      switchChosen(hls, place, chosen.cause);
       return;
     }
     switchInForm(hls, { place, sound: data.audioTracks[place] }, switchedTo?.form);
@@ -236,14 +238,38 @@ export function keepAudioRendition(
       onHeard?.();
       return;
     }
+    const playing = String(kept ?? hls.audioTrack);
     note(
-      `sound ${String(index)} chosen (${cause}), loading at the playhead as sound ${String(kept ?? hls.audioTrack)} plays`,
+      cutsAtOnce(cause)
+        ? `sound ${String(index)} chosen (${cause}), cut in at the playhead over sound ${playing}`
+        : `sound ${String(index)} chosen (${cause}), loading at the playhead as sound ${playing} plays`,
     );
     kept = index;
     chosen = { id: index, cause, onHeard };
-    // eslint-disable-next-line no-param-reassign -- hls.js switches the mix when nextAudioTrack is set
-    hls.nextAudioTrack = index;
+    switchChosen(hls, index, cause);
   };
+}
+
+/**
+ * Whether a choice of sound for cause cuts in at once, the sound loaded thrown away and the picture
+ * waiting for the new one's chunk at the playhead, rather than the sound loaded playing on until
+ * that chunk arrives: another audio track, whose seam a second after the choice left a gap the
+ * owner does not accept where a wait at the choice is fine (D400); not the boost, which froze the
+ * picture 2.2 s cut in at once (keepAudioRendition).
+ */
+function cutsAtOnce(cause: SoundChoiceCause): boolean {
+  return cause === "trackChosen";
+}
+
+/** Switches hls to the rendition at index, chosen for cause, in the way the cause asks for. */
+function switchChosen(hls: AudioKeeping, index: number, cause: SoundChoiceCause): void {
+  if (cutsAtOnce(cause)) {
+    // eslint-disable-next-line no-param-reassign -- hls.js switches the sound when audioTrack is set
+    hls.audioTrack = index;
+    return;
+  }
+  // eslint-disable-next-line no-param-reassign -- hls.js switches the mix when nextAudioTrack is set
+  hls.nextAudioTrack = index;
 }
 
 /**

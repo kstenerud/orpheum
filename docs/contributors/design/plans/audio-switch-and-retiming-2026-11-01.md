@@ -88,6 +88,12 @@ chunks made and comes in sooner. Whether the cut is clean between a copied 5.1 t
 stereo mix, or between AC-3 and AAC (one SourceBuffer, a `changeType` at the new init), is a VQ item
 on Chrome, Firefox and the Fire TV's Silk. VQ116 heard the same kind of change between qualities.
 
+**Amended (the owner, 2026-11-01; D400).** In Chrome on staging, the old language played on 1 to 3 s
+and then the new one cut in with a gap in the sound. The owner accepts a wait at the choice, not one
+later, so a track chosen now cuts in at once (`audioTrack`): the sound loaded is thrown away, the
+picture waits at the choice for the new track's chunk at the playhead, and nothing is heard of the old
+language after it. The boost still goes by `nextAudioTrack`.
+
 **Browsers.** Chrome, Edge, Firefox, the Fire TV's Silk, desktop Safari and iPhone from iOS 17.1
 play through hls.js over MSE or ManagedMediaSource, which already switches the boost this way in
 fMP4. Safari's Web Audio is silent under MSE (idiosyncrasies.md), so there the gain cannot be
@@ -103,7 +109,9 @@ corrected after the switch, as at a start.
 
 ### 1.4 What it gives up
 
-- The old language plays on for a second or two after the choice, instead of a stop.
+- The old language plays on for a second or two after the choice, instead of a stop. *Amended
+  (D400): the picture waits at the choice instead, for about as long, and the old language stops
+  there.*
 - The element's own HLS and a film played off the ladder still restart.
 - The switch cuts in without a crossfade.
 

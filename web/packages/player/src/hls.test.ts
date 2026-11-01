@@ -537,6 +537,36 @@ describe("keeping the sound loaded as the quality moves between audio groups (th
     hls.chunkArrives({ fromS: 12, toS: 16 });
     expect(hls.soundAt(14)).toBe(1);
   });
+
+  it("cuts another audio track in at the choice, never playing the old language on to a seam", () => {
+    // Chrome on staging (the owner, 2026-11-01): the old language played 1 to 3 s after the choice,
+    // then the new one cut in with a gap; a wait at the choice is fine, a gap later is not (D400).
+    const hls = fakeHls({ fromS: 10, toS: 47 });
+    const notes: string[] = [];
+    const choose = keepAudioRendition(hls, undefined, (note) => notes.push(note));
+    const french = { name: "Français", lang: "fr", channels: "2" };
+    hls.listGroup([...light(), french]);
+    hls.playheadS = 12;
+    choose(1, "trackChosen");
+    // Nothing of the old language is left to play on: the picture waits for the new one's chunk.
+    expect(hls.soundAt(12)).toBeUndefined();
+    expect(hls.soundAt(30)).toBeUndefined();
+    expect(hls.askedAtS()).toBeUndefined();
+    expect(hls.audioTrack).toBe(1);
+    expect(notes).toEqual(["sound 1 chosen (trackChosen), cut in at the playhead over sound 0"]);
+  });
+
+  it("keeps a track chosen cutting in as the quality moves to another group before it is heard", () => {
+    const hls = fakeHls({ fromS: 10, toS: 47 });
+    const choose = keepAudioRendition(hls, undefined);
+    const french = { name: "Français", lang: "fr", channels: "2" };
+    hls.listGroup([...own(), french]);
+    hls.playheadS = 12;
+    choose(1, "trackChosen");
+    hls.listGroup([...light(), french]); // a lower quality loading before the track is heard
+    expect(hls.audioTrack).toBe(1);
+    expect(hls.askedAtS()).toBeUndefined();
+  });
 });
 
 describe("the link's speed a player reports (D257 §1)", () => {
