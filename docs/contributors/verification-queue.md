@@ -1970,8 +1970,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   seconds after the first, saying `1 more since`. Then on the Fire TV, the next time its focus seems
   stuck, the log says whether its page froze and on which screen.
   **The Mac part passed (the owner, nas.example, Chrome 156, 2026-11-01):** the core logged the freeze at
-  13:39:30 and 13:39:37, then `1 more since, the longest 2.0 s` at 13:39:42, five seconds after; the
-  Fire TV part is still owed.
+  13:39:30 and 13:39:37, then `1 more since, the longest 2.0 s` at 13:39:42, five seconds after; and
+  again on staging (19:36:10, then `2 more since` at 19:36:14). The Fire TV part is still owed.
   (`web/apps/web/src/page-freezes.ts`, `client-main.tsx`; `web/packages/player/src/main-thread.ts`)
 - [ ] **VQ199** — OK on a sign-in's checkbox ticks it and signs nothing in, on a Fire TV, on staging
   (the owner, 2026-10-30, VQ160's run: "As soon as I select the checkbox, it acts as though I'd
