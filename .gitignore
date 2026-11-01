@@ -2,6 +2,11 @@
 /bin/
 # `go build ./cmd/orpheum` in the root writes the binary here
 /orpheum
+# `go build` in a command's folder writes its binary beside it (one was committed by mistake, 2026-11-01)
+/cmd/discovery-sign/discovery-sign
+/cmd/discovery-watch/discovery-watch
+/cmd/orpheum/orpheum
+/cmd/release-record/release-record
 /.tools/
 /.dev/
 /dist/
