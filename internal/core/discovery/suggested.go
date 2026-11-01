@@ -26,6 +26,7 @@ func Suggested() Suggestion {
 	return Suggestion{
 		Issuer: "https://orpheum.cc",
 		// The discovery chain's genesis statement and its signature file go here, verbatim.
+		//nolint:lll // a signed statement, verbatim: its key lines cannot be wrapped
 		Genesis: trust.Signed{
 			Payload: `orpheum-signed root 1
 chain discovery
@@ -76,6 +77,7 @@ type PublisherRoot struct {
 func Publisher() PublisherRoot {
 	return PublisherRoot{
 		// The publisher chain's genesis statement and its signature file go here, verbatim.
+		//nolint:lll // a signed statement, verbatim: its key lines cannot be wrapped
 		Genesis: trust.Signed{
 			Payload: `orpheum-signed root 1
 chain publisher
