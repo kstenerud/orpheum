@@ -416,11 +416,24 @@ func seededSettings(
 		logger.InfoContext(ctx, "this release changed the starting value of settings nobody had set; they follow it",
 			"keys", seedReport.Updated)
 	}
-	for _, unused := range seedReport.Unused {
-		logger.WarnContext(ctx, "a setting row this release does not read; left alone, and doctor lists it",
-			"key", unused.String())
-	}
+	logUnusedSettings(ctx, seedReport.Unused, logger)
 	return settingsService, nil
+}
+
+// logUnusedSettings logs each setting row this release does not read, left for a person to delete
+// (D202). A key a release retired, which says when and why, is expected and logged as information; a
+// key no release used, most likely a typo, is a warning (nas.example warned of seven retired keys at every
+// start, 2026-11-01).
+func logUnusedSettings(ctx context.Context, unused []settings.UnusedSetting, logger *slog.Logger) {
+	for _, setting := range unused {
+		if setting.Retired != nil {
+			logger.InfoContext(ctx, "a setting row a release retired; left alone, and doctor lists it",
+				"key", setting.String(), "retiredIn", setting.Retired.Release, "reason", setting.Retired.Reason)
+			continue
+		}
+		logger.WarnContext(ctx, "a setting row no release reads; left alone, and doctor lists it",
+			"key", setting.String())
+	}
 }
 
 // ensureSetupCode makes sure a server with no users has a setup code, which it logs.
