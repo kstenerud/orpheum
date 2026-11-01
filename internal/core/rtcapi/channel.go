@@ -24,10 +24,13 @@ import (
 const MaxRequestBodyBytes = 1 << 20
 
 // The buffered bytes a response may queue on its channel before it waits, and the level it waits
-// down to: enough in flight to fill a fast link's window, little enough to hold no film in memory.
+// down to: pion counts the bytes in flight as buffered, so these bound a channel's bytes in flight.
+// At 1 MiB and 256 KiB they held a paced channel to 42-59 Mb/s at 50 ms against headless Chromium;
+// at 8 and 4 MiB it reached 141-165 (webrtc-throughput-review-2026-10-28.md §4.1, D397). They hold
+// no film in memory: the client's credit (InitialCreditMessages, 4 MiB) binds first.
 const (
-	bufferedHighBytes = 1 << 20
-	bufferedLowBytes  = 256 << 10
+	bufferedHighBytes = 8 << 20
+	bufferedLowBytes  = 4 << 20
 )
 
 // RequestHead is a request's first message on its channel.

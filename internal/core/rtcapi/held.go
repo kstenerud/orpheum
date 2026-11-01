@@ -5,6 +5,7 @@ package rtcapi
 import (
 	"context"
 	"fmt"
+	"net/netip"
 	"slices"
 	"strings"
 	"sync"
@@ -27,6 +28,8 @@ type heldConnection struct {
 	streamClosedAt map[uint16]time.Time
 	// end is what its end line needs, and whether it was said (logEnded).
 	end connectionEnd
+	// pacedTo is the client's end the pacer follows for it, nil for none (paceTo).
+	pacedTo atomic.Pointer[netip.AddrPort]
 }
 
 // newHeldConnection is the record of the connection numbered number, opened at at.
