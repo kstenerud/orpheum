@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { Home } from "./home.tsx";
 import { mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
+import { IsAdminContext } from "./warning-sign.tsx";
 
 /** A film or series as a list sends it. */
 function entry(id: number, name: string): Record<string, unknown> {
@@ -39,6 +40,7 @@ describe("home (the owner, 2026-10-25)", () => {
             nextCursor: "",
           },
         ],
+        "GET /libraries": [200, { libraries: [{ id: 1, name: "Films", kind: "movie" }] }],
       },
       [],
       "token",
@@ -60,6 +62,7 @@ describe("home (the owner, 2026-10-25)", () => {
       {
         "GET /home": [200, { continueWatching: [] }],
         "GET /titles": [200, { titles: [entry(8, "Nosferatu")], nextCursor: "" }],
+        "GET /libraries": [200, { libraries: [{ id: 1, name: "Films", kind: "movie" }] }],
       },
       heard,
       "token",
@@ -77,6 +80,7 @@ describe("home (the owner, 2026-10-25)", () => {
       {
         "GET /home": [200, { continueWatching: [] }],
         "GET /titles": [200, { titles: [], nextCursor: "" }],
+        "GET /libraries": [200, { libraries: [{ id: 1, name: "Films", kind: "movie" }] }],
       },
       [],
       "token",
@@ -84,5 +88,54 @@ describe("home (the owner, 2026-10-25)", () => {
     mounted = await mount(withServices(<Home />, services));
     expect(mounted.container.querySelectorAll("h2")).toHaveLength(0);
     expect(mounted.container.querySelector("h1")?.textContent).toBe("Home");
+  });
+
+  it("leads an admin to make a library where there is none (staging, 2026-11-01)", async () => {
+    const services = servedBy(
+      {
+        "GET /home": [200, { continueWatching: [] }],
+        "GET /titles": [200, { titles: [], nextCursor: "" }],
+        "GET /libraries": [200, { libraries: [] }],
+      },
+      [],
+      "token",
+    );
+    mounted = await mount(
+      withServices(
+        <IsAdminContext value={true}>
+          <Home />
+        </IsAdminContext>,
+        services,
+      ),
+    );
+    const link = mounted.container.querySelector<HTMLAnchorElement>(".home__empty a");
+    expect(link?.getAttribute("href")).toBe("/libraries/new");
+  });
+
+  it("tells anyone else with no library to ask, and says nothing once there is one", async () => {
+    const empty = servedBy(
+      {
+        "GET /home": [200, { continueWatching: [] }],
+        "GET /titles": [200, { titles: [], nextCursor: "" }],
+        "GET /libraries": [200, { libraries: [] }],
+      },
+      [],
+      "token",
+    );
+    mounted = await mount(withServices(<Home />, empty));
+    expect(mounted.container.querySelector(".home__empty")?.textContent).toContain("Ask whoever");
+    expect(mounted.container.querySelector(".home__empty a")).toBeNull();
+    mounted.unmount();
+    const one = servedBy(
+      {
+        "GET /home": [200, { continueWatching: [] }],
+        "GET /titles": [200, { titles: [], nextCursor: "" }],
+        "GET /libraries": [200, { libraries: [{ id: 1, name: "Films", kind: "movie" }] }],
+      },
+      [],
+      "token",
+    );
+    mounted = await mount(withServices(<Home />, one));
+    expect(mounted.container.querySelector(".home__empty")).toBeNull();
   });
 });
