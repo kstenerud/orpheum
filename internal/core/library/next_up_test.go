@@ -68,6 +68,56 @@ func TestMembersAhead_StartAtThePersonsPlaceInTheOrdering(t *testing.T) {
 
 // The members a look at a series' season raises are that group's, from its person's place in it
 // alone, the same way; else, when its last is finished, from its first (the owner, 2026-10-24).
+// A series' specials are optional: one nobody has started begins at season 1, a finished special
+// does not move the person's place, and one they are partway through is still theirs to finish (the
+// owner, 2026-11-01: The Freshman said "Play S0E0").
+func TestMembersAhead_TheSpecialsAreOptional(t *testing.T) {
+	t.Parallel()
+	ids := func(members []Member) []int64 {
+		var titles []int64
+		for _, each := range members {
+			titles = append(titles, each.TitleID)
+		}
+		return titles
+	}
+	// Titles 1 and 2 are specials (season 0), 3 to 5 season 1, 6 a special after it.
+	series := func(changes map[int64]Member) []Member {
+		groups := map[int64]int64{1: 0, 2: 0, 3: 1, 4: 1, 5: 1, 6: 0}
+		var all []Member
+		for title := int64(1); title <= 6; title++ {
+			each := changes[title]
+			each.TitleID, each.Group = title, groups[title]
+			all = append(all, each)
+		}
+		return all
+	}
+	for _, each := range []struct {
+		name string
+		at   map[int64]Member
+		want []int64
+	}{
+		{"nothing watched: season 1's first", nil, []int64{3, 4, 5}},
+		{"a special finished: still season 1's first", map[int64]Member{
+			1: {IsFinished: true, FinishedAt: 10},
+		}, []int64{3, 4, 5}},
+		{"partway through a special: that special, then season 1", map[int64]Member{
+			2: {IsPartway: true, WatchedAt: 10},
+		}, []int64{2, 3, 4}},
+		{"season 1 finished and a special after it: none", map[int64]Member{
+			3: {IsFinished: true, FinishedAt: 10}, 4: {IsFinished: true, FinishedAt: 20},
+			5: {IsFinished: true, FinishedAt: 30},
+		}, nil},
+	} {
+		if got := ids(MembersAhead(series(each.at), 3)); !slices.Equal(got, each.want) {
+			t.Errorf("%s: MembersAhead = %v, want %v", each.name, got, each.want)
+		}
+	}
+	onlySpecials := []Member{{TitleID: 1}, {TitleID: 2}}
+	if got := ids(MembersAhead(onlySpecials, 2)); !slices.Equal(got, []int64{1, 2}) {
+		t.Errorf("an ordering of group 0 alone: MembersAhead = %v, want [1 2]", got)
+	}
+}
+
 func TestMembersAheadInGroup_StartAtThePersonsPlaceInTheGroup(t *testing.T) {
 	t.Parallel()
 	ids := func(members []Member) []int64 {
