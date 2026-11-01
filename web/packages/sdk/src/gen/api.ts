@@ -660,23 +660,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/invitations/{id}/links": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Another link for an invitation still waiting; its other links stay live until one is used (admin; D318) */
-        post: operations["createInvitationLink"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/items": {
         parameters: {
             query?: never;
@@ -3396,7 +3379,7 @@ export interface components {
             links: components["schemas"]["IssuedSecretBody"][] | null;
             /**
              * Format: int64
-             * @description Its links that still work; another link leaves them live
+             * @description Its links that still work
              */
             liveLinks: number;
             /** @description The account its use made; absent while it waits */
@@ -6996,40 +6979,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    createInvitationLink: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IssuedSecretBody"];
-                };
             };
             /** @description Error */
             default: {

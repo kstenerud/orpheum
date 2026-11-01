@@ -21,7 +21,7 @@ type InvitationBody struct {
 	Role      string `json:"role"`
 	AdminNote string `json:"adminNote"`
 	IssuedAt  int64  `doc:"Unix milliseconds" json:"issuedAt"`
-	LiveLinks int    `doc:"Its links that still work; another link leaves them live" json:"liveLinks"`
+	LiveLinks int    `doc:"Its links that still work" json:"liveLinks"`
 	ExpiresAt int64  `doc:"When the last live link ends, Unix milliseconds; 0 with none" json:"expiresAt"`
 	// Links are its live links while it waits, to pass on again until used, withdrawn or ended (D267
 	// §5, as the owner chose for invitations, 2026-10-28).
@@ -34,11 +34,6 @@ type MadeAccountBody struct {
 	UserID int64  `json:"userId"`
 	Name   string `json:"name"`
 	At     int64  `doc:"Unix milliseconds" json:"at"`
-}
-
-// InvitationLinkOutput is another link for an invitation, its secret going after # in the address.
-type InvitationLinkOutput struct {
-	Body IssuedSecretBody
 }
 
 // InviteInput is the admin inviting someone to make their own account (D246 §2): the role it will
@@ -111,13 +106,6 @@ func (server *Server) registerInvitations() {
 		Summary: "Every invitation: those waiting, and those used with the account each made (admin)", Tags: tags,
 	}, server.listInvitations)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "createInvitationLink", Method: http.MethodPost, Path: "/invitations/{id}/links",
-		DefaultStatus: http.StatusCreated,
-		Summary: "Another link for an invitation still waiting; its other links stay live " +
-			"until one is used (admin; D318)",
-		Tags: tags,
-	}, server.createInvitationLink)
-	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "withdrawInvitation", Method: http.MethodDelete, Path: "/invitations/{id}",
 		DefaultStatus: http.StatusNoContent,
 		Summary:       "Withdraw an invitation still waiting: none of its links admits anyone (admin)",
@@ -152,18 +140,6 @@ func invitationBody(invitation auth.Invitation, found *discovery.Service) Invita
 		}
 	}
 	return body
-}
-
-func (server *Server) createInvitationLink(ctx context.Context, input *InvitationInput) (*InvitationLinkOutput, error) {
-	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
-	if err != nil {
-		return nil, err
-	}
-	link, err := dependencies.Auth.AnotherInvitationLink(ctx, input.InvitationID)
-	if err != nil {
-		return nil, server.authError(ctx, "send an invitation again", err)
-	}
-	return &InvitationLinkOutput{Body: issuedSecretBody(link, dependencies.Discovery)}, nil
 }
 
 func (server *Server) createInvitation(ctx context.Context, input *InviteInput) (*InviteOutput, error) {

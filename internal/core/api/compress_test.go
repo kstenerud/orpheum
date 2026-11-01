@@ -111,7 +111,7 @@ func TestArch_NoCompressedOperationAnswersWithACredential(t *testing.T) {
 			}
 		}
 	}
-	for _, id := range []string{"signIn", "redeemSession", "takePairedSession", "getOwnLink", "createInvitationLink"} {
+	for _, id := range []string{"signIn", "redeemSession", "takePairedSession", "getOwnLink"} {
 		if len(credentialFieldsOf(document, operations[id])) == 0 {
 			t.Errorf("the walk finds no credential in %s's answer, which carries one", id)
 		}
