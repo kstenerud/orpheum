@@ -5,9 +5,11 @@ import {
   tellMediaCarriers,
   connectRtc,
   dataOrThrow,
+  reaching,
   rtcTogetherSocket,
   type Api,
   type OpenTogetherSocket,
+  type Signaller,
   type SwitchableFetch,
 } from "@orpheum/sdk";
 
@@ -39,6 +41,16 @@ export function wantsWebrtc(search: string, tabStorage: StringStorage | undefine
 }
 
 /**
+ * The signaller of the direct mode: posts each offer to the core's own offer endpoint. A post that
+ * reached no server fails as Unreached (reaching), so the transport tries again after unreachedRetryMs
+ * rather than after its growing wait, as the discovery's does.
+ */
+export function directSignaller(api: Api): Signaller {
+  return async (offer, signal) =>
+    dataOrThrow(await reaching(api.POST("/rtc/offer", { body: offer, signal: signal ?? null })));
+}
+
+/**
  * Once the session is signed in, connects to the core over WebRTC through its offer endpoint and
  * moves the API's requests onto the data channels, then the loads the browser makes by itself through
  * the service worker; a failure leaves them on HTTPS, and says why.
@@ -60,9 +72,7 @@ export function moveToWebrtcWhenSignedIn(
       return;
     }
     isStarted = true;
-    connectRtc(async (offer, signal) =>
-      dataOrThrow(await api.POST("/rtc/offer", { body: offer, signal: signal ?? null })),
-    )
+    connectRtc(directSignaller(api))
       .then(async (transport) => {
         routed.use(transport.fetch, pathName);
         app.switchTogetherSocket(rtcTogetherSocket(() => transport.openChannel()));
