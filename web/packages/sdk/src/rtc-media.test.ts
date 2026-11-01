@@ -279,6 +279,41 @@ describe("media over the WebRTC path", () => {
     port1.close();
   });
 
+  // A WebRTC request's body fails with its signal's reason as the worker's cancel aborts it, so the
+  // body's cancel that follows rejects with it: left unhandled, Chrome's console read "Uncaught (in
+  // promise) AbortError: signal is aborted without reason at MessagePort" after a film page's warm-up
+  // was dropped (the owner, nas.example, 2026-11-01).
+  it("leaves no rejection unhandled when the worker gives up a body its abort has failed", async () => {
+    const unhandled: unknown[] = [];
+    const heard = (reason: unknown): void => {
+      unhandled.push(reason);
+    };
+    process.on("unhandledRejection", heard);
+    const { port1, port2 } = new MessageChannel();
+    void answerLoad(aLoad, port2, {
+      send: (request) => {
+        const body = new ReadableStream<Uint8Array>({
+          start: (controller) => {
+            controller.enqueue(new Uint8Array(piece));
+            request.signal.addEventListener("abort", () => {
+              controller.error(request.signal.reason);
+            });
+          },
+        });
+        return Promise.resolve(new Response(body));
+      },
+      token: undefined,
+      viewer: undefined,
+    });
+    const reader = (await responseFromPort(port1)).body?.getReader();
+    await reader?.read();
+    await reader?.cancel();
+    await settle();
+    process.off("unhandledRejection", heard);
+    expect(unhandled).toEqual([]);
+    port1.close();
+  });
+
   it("fails the body when the page's load fails partway", async () => {
     const { port1, port2 } = new MessageChannel();
     let sent = 0;
