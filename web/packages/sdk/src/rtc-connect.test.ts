@@ -3,6 +3,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  connectRtc,
   connectTimeoutMs,
   gatherAfterReflexiveMs,
   gatherForRelayMs,
@@ -18,6 +19,7 @@ import {
   type GatheringPeer,
 } from "./rtc-connect.ts";
 import type { ChannelLike, ChannelListener } from "./rtc-request.ts";
+import { forgetSteps, stepsSoFar } from "./steps.ts";
 
 /** A negotiation channel the test plays the core on: it opens, says and closes as the test says. */
 class FakeChannel implements ChannelLike {
@@ -245,6 +247,56 @@ describe("offerWith", () => {
     expect(calls).toEqual([
       ["createDataChannel", "hello"],
       ["addTransceiver", "video", { direction: "recvonly" }],
+    ]);
+  });
+});
+
+/**
+ * A browser's peer connection that offers, gathers at once and takes no answer: the core's answer
+ * it refuses, as a browser refuses one it cannot use.
+ */
+class RefusingPeer {
+  readonly iceGatheringState = "complete";
+  readonly localDescription = { type: "offer", sdp: "v=0" };
+  isClosed = false;
+  createDataChannel(): EventTarget & { readyState: string } {
+    return Object.assign(new EventTarget(), { readyState: "connecting" });
+  }
+  addTransceiver(): void {
+    // The video m-line is offered; nothing comes of it here.
+  }
+  addEventListener(): void {
+    // Gathering is complete already.
+  }
+  createOffer(): Promise<{ type: string; sdp: string }> {
+    return Promise.resolve(this.localDescription);
+  }
+  setLocalDescription(): Promise<void> {
+    return Promise.resolve();
+  }
+  setRemoteDescription(): Promise<void> {
+    return Promise.reject(new Error("the answer does not fit the offer"));
+  }
+  close(): void {
+    this.isClosed = true;
+  }
+}
+
+describe("the steps of a WebRTC connection", () => {
+  afterEach(() => {
+    forgetSteps();
+    vi.unstubAllGlobals();
+  });
+
+  it("are told up to the one that failed, and why, for what happened", async () => {
+    vi.stubGlobal("RTCPeerConnection", RefusingPeer);
+    await expect(
+      connectRtc(() => Promise.resolve({ type: "answer", sdp: "v=0" }), {}, 1),
+    ).rejects.toThrow("the answer does not fit the offer");
+    expect(stepsSoFar().map((step) => step.replace(/^\d+ ms /, ""))).toEqual([
+      "WebRTC: offer sent",
+      "WebRTC: the core answered",
+      "WebRTC: failed: the answer does not fit the offer",
     ]);
   });
 });

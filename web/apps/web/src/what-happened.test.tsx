@@ -23,6 +23,7 @@ it("says what happened at a dead end: the server, the addresses tried, what fail
       problem: new Error("no WebRTC connection connected within 10 s"),
     },
     "Mozilla/5.0 Firefox/140",
+    [],
   );
   expect(text.split("\n")).toEqual([
     "Orpheum could not reach its server.",
@@ -34,6 +35,21 @@ it("says what happened at a dead end: the server, the addresses tried, what fail
   expect(
     whatHappened({ coreId: undefined, addressesTried: [], problem: "refused" }, "x"),
   ).toContain("Server: not found\nAddresses tried: none\nWhat failed: refused");
+});
+
+it("tells the steps the page took, last, each on its own line, so a connection's loss is placed", () => {
+  const text = whatHappened({ coreId: "k7xq2", addressesTried: [], problem: "closed" }, "Safari", [
+    "12 ms reached the core over webrtc",
+    "15 ms service worker: registering (the page is not controlled)",
+  ]);
+  expect(text.split("\n").slice(-3)).toEqual([
+    "Steps:",
+    "  12 ms reached the core over webrtc",
+    "  15 ms service worker: registering (the page is not controlled)",
+  ]);
+  expect(
+    whatHappened({ coreId: "k7xq2", addressesTried: [], problem: "closed" }, "x", []),
+  ).not.toContain("Steps:");
 });
 
 it("names each alternative and cause behind what failed, an AggregateError's empty message hiding none", () => {

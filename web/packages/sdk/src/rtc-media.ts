@@ -2,6 +2,7 @@
 
 import type { operations } from "./gen/api.ts";
 import { carriesMediaOver, mediaPathNow } from "./media-carrier.ts";
+import { noteStep } from "./steps.ts";
 import {
   controlledWithin,
   controlWaitMs,
@@ -703,6 +704,7 @@ export async function carryMediaOver(
 ): Promise<void> {
   carriesMediaOver(name);
   if (!("serviceWorker" in navigator)) {
+    noteStep("service worker: the browser has none");
     throw new NoServiceWorker();
   }
   const workers = navigator.serviceWorker;
@@ -722,16 +724,23 @@ export async function carryMediaOver(
     workers.controller?.postMessage({ kind: "orpheum-path", path: "webrtc" } satisfies PathMessage);
   };
   workers.addEventListener("controllerchange", announce);
+  noteStep(
+    `service worker: registering (the page is ${isControlled(workers) ? "" : "not "}controlled)`,
+  );
   await workers.register(serviceWorkerUrl).catch((refused: unknown) => {
+    noteStep("service worker: the browser refused it");
     throw new NoServiceWorker(refused);
   });
   const ready = await workers.ready;
+  noteStep("service worker: ready");
   if (!isControlled(workers)) {
     ready.active?.postMessage({ kind: "orpheum-claim" } satisfies ClaimMessage);
   }
   if (!(await controlledWithin(workers, controlWaitMs))) {
+    noteStep("service worker: it did not take the page over in time");
     throw new PageNotControlled();
   }
+  noteStep("service worker: it controls the page");
   announce();
   // eslint-disable-next-line no-console -- which path a tab's media takes is read in its console (D273 §7)
   console.info(`Orpheum: media now goes over ${name}`);

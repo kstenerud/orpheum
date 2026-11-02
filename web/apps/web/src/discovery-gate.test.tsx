@@ -12,6 +12,7 @@ import {
   realmPerson,
   realmTag,
   sessionOfferKey,
+  stepsSoFar,
 } from "@orpheum/sdk";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -266,6 +267,7 @@ describe("the gate a discovery's page opens on", () => {
     await settleUntil(() => reached.length > 0);
     expect(reached).toEqual(["https://v4.k7xq2.zone.example"]);
     expect(connected).toEqual([{ coreId: "k7xq2", fingerprint }]);
+    expect(stepsSoFar().at(-1)).toMatch(/reached the core over direct$/);
   });
 
   // Firefox with no service worker (staging, 2026-11-02): the core held the connection, the page
@@ -570,6 +572,7 @@ describe("a person with no link at a discovery that has realms (D297, D298)", ()
     await settleUntil(() => reached.length > 0);
     expect(reached).toEqual([{ kind: "direct", origin: "https://v4.k7xq2.zone.example" }]);
     expect(heard.filter((request) => request.startsWith(lan))).toEqual([]);
+    expect(stepsSoFar().at(-1)).toMatch(/reached the core over direct$/);
   });
 
   it("stops with a warning when the realm leads to another server than the one remembered (D312 §2)", async () => {

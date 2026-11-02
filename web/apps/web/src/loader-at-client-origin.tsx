@@ -8,6 +8,7 @@
 
 import {
   createApi,
+  noteStep,
   PageNotControlled,
   readLinkFragment,
   refusedClientVersions,
@@ -292,10 +293,12 @@ export function loaderOver(
  */
 export async function redeem(send: FetchRequest, session: Session, code: string): Promise<void> {
   const api = createApi({ getToken: () => undefined, fetch: send });
+  noteStep("redeeming the link's hand-off");
   const { data, response } = await api.POST("/session/redeem", {
     body: { code },
     ...idempotent(newIdempotencyKey()),
   });
+  noteStep(`the core answered the hand-off: ${String(response.status)}`);
   if (data === undefined) {
     throw new Error(`the server answered ${String(response.status)} for the hand-off's code`);
   }
@@ -335,6 +338,7 @@ export async function reloadOnceWhenUncontrolled(
     return false;
   }
   const isReloadedBefore = parts.tab.getItem(reloadedUncontrolledKey) !== null;
+  noteStep(isReloadedBefore ? "not controlled again: not reloading" : "reloading the page once");
   await parts
     .tell(
       `${cause.message}; ${isReloadedBefore ? "reloaded for it before in this tab, so not again" : "reloading the page once"}`,

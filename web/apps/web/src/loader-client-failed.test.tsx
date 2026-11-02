@@ -19,11 +19,13 @@ it("says the client did not load, with what happened to copy: the server, the fi
   const text = clientFailedText(
     { coreId: "k7xq2", address: "/assets/index-b.js?client", isControlled: true },
     "Mozilla/5.0 Chrome/156",
+    ["40 ms loading the core's client"],
   );
   expect(text).toContain("Server: k7xq2");
   expect(text).toContain("File not loaded: /assets/index-b.js?client");
   expect(text).toContain("Service worker controlling the page: yes");
   expect(text).toContain("Browser: Mozilla/5.0 Chrome/156");
+  expect(text).toContain("Steps:\n  40 ms loading the core's client");
 
   expect(text).toContain('untick "Bypass for network" under Application → Service workers');
 

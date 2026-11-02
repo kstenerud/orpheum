@@ -8,6 +8,7 @@
 import { candidatePairsOf } from "./rtc-pairs.ts";
 import { channelOf } from "./rtc-request.ts";
 import type { PeerLike } from "./rtc-transport.ts";
+import { noteStep } from "./steps.ts";
 
 /**
  * How long a connection may stay disconnected before it counts as gone and is replaced: a phone's
@@ -59,6 +60,7 @@ export function watchGone(peer: StatesPeer, listener: (why: string) => void): ()
     stop();
     if (!isGone) {
       isGone = true;
+      noteStep(`WebRTC: a connection is gone: ${why}`);
       listener(why);
     }
   };

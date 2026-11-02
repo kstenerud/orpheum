@@ -580,6 +580,8 @@ describe("the page's side of its path, to its service worker", () => {
     await vi.advanceTimersByTimeAsync(control.controlWaitMs);
     await failed;
     expect(told.get("active")).toEqual([{ kind: "orpheum-claim" }]);
+    const { stepsSoFar } = await import("./steps.ts");
+    expect(stepsSoFar().at(-1)).toMatch(/service worker: it did not take the page over in time$/);
   });
 
   // Firefox's private window has no navigator.serviceWorker; a browser may refuse the registration.
@@ -591,12 +593,15 @@ describe("the page's side of its path, to its service worker", () => {
     await expect(media.carryMediaOver(send, noCredentials, "WebRTC")).rejects.toBeInstanceOf(
       control.NoServiceWorker,
     );
+    const { stepsSoFar } = await import("./steps.ts");
+    expect(stepsSoFar().at(-1)).toMatch(/service worker: the browser has none$/);
     const { container } = fakeWorkers();
     container.register = () => Promise.reject(new DOMException("refused", "SecurityError"));
     vi.stubGlobal("navigator", { serviceWorker: container });
     await expect(media.carryMediaOver(send, noCredentials, "WebRTC")).rejects.toBeInstanceOf(
       control.NoServiceWorker,
     );
+    expect(stepsSoFar().at(-1)).toMatch(/service worker: the browser refused it$/);
   });
 
   it("carries its media once the worker it asked claims it", async () => {
@@ -615,6 +620,13 @@ describe("the page's side of its path, to its service worker", () => {
     container.dispatchEvent(new Event("controllerchange"));
     await carried;
     expect(told.get("active")).toContainEqual({ kind: "orpheum-path", path: "webrtc" });
+    // Each step it took is told in what happened, should a later one fail.
+    const { stepsSoFar } = await import("./steps.ts");
+    expect(stepsSoFar().map((step) => step.replace(/^\d+ ms /, ""))).toEqual([
+      "service worker: registering (the page is not controlled)",
+      "service worker: ready",
+      "service worker: it controls the page",
+    ]);
   });
 });
 
