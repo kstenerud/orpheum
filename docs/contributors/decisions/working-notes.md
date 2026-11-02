@@ -25312,8 +25312,12 @@ Chromium), on the throughput review's fixes 2, 4 and 5
    network, the direct IPv4 path, three runs each). The app's requests: Chrome 246, 247 and
    238 Mb/s, Firefox 245, 193 and 194. A film's pieces: Chrome 245, 242 and 247, Firefox 119, 110
    and 75. The end lines of the connections that carried the loads: Chrome `cwndBytes` 1191,
-   `srttMs` 2.4; Firefox `cwndBytes` 352551, `srttMs` 8.8. Chrome on the Mac (VQ232) and the Fire
-   TV (VQ233) are still to measure.
+   `srttMs` 2.4; Firefox `cwndBytes` 352551, `srttMs` 8.8. Chrome on the Mac (VQ232) is still to
+   measure. The Fire TV Stick 4K in Silk 138 (VQ233), over WebRTC on the house's Wi-Fi, three runs
+   as lead-tests: the app's requests 26.1, 36.1 and 33.6 Mb/s, a film's pieces 22.5, 33.3 and 28.6
+   (the first run cold); three earlier runs on the same stick, signed in as admin, gave 36.1–36.8 and
+   37.3–37.9. Before this change it loaded chunks at 15–18 Mb/s (VQ115). The end lines' `srttMs`:
+   138 to 260, `cwndBytes` 0.5 to 0.7 MB.
 
 ## D398 — A page that cannot reach its core judges whether its network has IPv6, says so in words when that is why, and tells its discovery the reason with no address
 

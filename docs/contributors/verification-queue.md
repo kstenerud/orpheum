@@ -935,7 +935,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   step down to the light stereo and back, and, through the discovery over WebRTC (device 30,
   13:55–13:56), the boost turned on and off five times with no freeze: each `sound n chosen (boostOn|
   boostOff)` then `heard`, no stall reported; levelling switched at once.
-- [ ] **VQ87** — On the Fire TV stick, signed in as the admin through the discovery's page (the core
+- [x] **VQ87** — On the Fire TV stick, signed in as the admin through the discovery's page (the core
   deployed, and orpheum-connect packaged, from this batch). Passes when: the banner's menu, opened by
   OK, scrolls within itself as the remote moves down it, in Silk's spatial mode too, every place in
   sight as it is reached, down to Sign out, whose OK signs the TV out; the TV then shows the
@@ -949,6 +949,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   goes to the core's sign-in page for a while and then switches to the discovery's sign-in page.
   That would be confusing for a user": Sign out shows only "Signed out. Taking you to sign in…" until
   the discovery's sign-in replaces it, never the server's sign-in between (`web/apps/web/src/app.tsx`).
+  **Passed 2026-11-02 (agent, staging, the Fire TV in Silk 138 by adb, as lead-tests, not the
+  admin):** the menu opened by OK at its top, and each Down moved the focus one place, the list
+  scrolling within itself with the focus ring whole, down to Sign out; OK there and on the question
+  signed out to the discovery's sign-in (`orpheum.dev/?signedout=…`), which stayed, once "fix(web): a sign-out with its question open leaves for the discovery's sign-in"
+  had fixed the leaving (VQ200). Signed in again and playing The Gold Rush, the TV removed under *Your
+  devices* from Chrome on the desktop as lead-tests left its film within about a second, by a link
+  straight to that sign-in, with nothing pressed (the page's own events: only the app's home, then
+  the sign-in's address).
 - [ ] **VQ88** — On nas.example in Chrome, play file 15102 (RealMedia, RealVideo 4 with cook sound) from
   its start, then seek to about the middle and near the end. Passes when it plays with sound from the
   start, in step with the picture, and after each seek; the node's log shows no "a run of chunks did
@@ -1996,7 +2004,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   13:39:30 and 13:39:37, then `1 more since, the longest 2.0 s` at 13:39:42, five seconds after; and
   again on staging (19:36:10, then `2 more since` at 19:36:14). The Fire TV part is still owed.
   (`web/apps/web/src/page-freezes.ts`, `client-main.tsx`; `web/packages/player/src/main-thread.ts`)
-- [ ] **VQ199** — OK on a sign-in's checkbox ticks it and signs nothing in, on a Fire TV, on staging
+- [x] **VQ199** — OK on a sign-in's checkbox ticks it and signs nothing in, on a Fire TV, on staging
   (the owner, 2026-10-30, VQ160's run: "As soon as I select the checkbox, it acts as though I'd
   pressed the log in button"). On the Fire TV (Silk), signed out, at the discovery's sign-in: fill in
   the realm, name and password by the remote, arrow to "This is my own device: remember my realm" and
@@ -2006,6 +2014,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   for each OK pressed in the core's own sign-in, if one was used (the discovery's sign-in, at the
   discovery's origin, can tell only its console). (`web/apps/web/src/form-ok.ts`, `loader-main.tsx`,
   `input-commands.ts`)
+  **Passed 2026-11-02 (agent, staging, the Fire TV in Silk 138 by adb):** at the discovery's sign-in
+  on orpheum.dev, the realm remembered and the box ticked: OK on the box unticked it and ticked it
+  again, the page staying; held OK ticked it once and submitted nothing; OK on Sign in signed in as
+  lead-tests. The core's own sign-in was not used, so no debug line was looked for.
 - [ ] **VQ200** — signing out lands on the discovery's sign-in however the household was reached, on
   staging (the owner, 2026-10-30: the Fire TV went to the discovery's sign-in, the S23 to the core's).
   (1) On the S23 (Chrome), the household reached by a link (your own link, or a fresh sign-in by a
@@ -2168,12 +2180,17 @@ An item is ticked only by the person who did it, and only with what they saw.
   *2026-11-02, from the sandbox's Linux Chrome 156 and Firefox 155, not the Mac:* Chrome 238–247
   Mb/s both ways, Firefox 193–245 for the app's requests and 75–119 for a film's pieces; one
   `rtc connection ended` line per connection with every field (D397 §7). The Mac's run is still owed.
-- [ ] **VQ233** — a Fire TV reads over WebRTC faster than before (D397). Deploy the core and the web
+- [x] **VQ233** — a Fire TV reads over WebRTC faster than before (D397). Deploy the core and the web
   client together. On the Fire TV, run the Throughput probe over WebRTC three times. Passes when its
   figure is above the one noted before this change (record both in D397), playback of a film over
   WebRTC starts and plays as before, and the core's log has its `rtc connection ended` lines, as in
   VQ232. (`internal/core/rtcapi/pacer.go`, `internal/core/rtcapi/video.go`,
   `web/packages/sdk/src/rtc-connect.ts`)
+  **Passed 2026-11-02 (agent, staging, the Fire TV in Silk 138 by adb, as lead-tests):** three runs
+  over WebRTC: the app's requests 26.1, 36.1 and 33.6 Mb/s, a film's pieces 22.5, 33.3 and 28.6,
+  above 15–18 before (figures in D397 §7); The Gold Rush then played over WebRTC, 2 frames dropped in
+  10 s; the core logged its `rtc connection ended` lines for user 4's device. Three earlier runs
+  were made while the stick was signed in as admin, by mistake (A50).
 - [ ] **VQ210** — staging's core enrols with staging's discovery by its issuer and identity (D391 §3,
   D393 §4). Owed first: staging connect publishes its root chain and a signed address document at
   its issuer's `/.well-known/` paths (connect's change, after VQ211's ceremony for staging's keys). On
