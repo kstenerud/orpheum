@@ -8,7 +8,9 @@ describe("parseRoute and routeHref", () => {
   it("read back every route they write", () => {
     const routes: Route[] = [
       { screen: "films" },
+      { screen: "films", sort: "released", order: "ascending", query: "glass runner & co" },
       { screen: "series" },
+      { screen: "series", sort: "added", query: "tide" },
       { screen: "title", itemId: 12 },
       { screen: "series-page", collectionId: 7 },
       { screen: "series-page", collectionId: 7, season: 2 },
