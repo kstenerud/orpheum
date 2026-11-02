@@ -14,6 +14,8 @@ type DVDCell struct {
 	// Flags are the cell's playback flags (C_PBI's first byte): its place in an angle block, and
 	// 0x04 for an interleaved cell.
 	Flags byte
+	// LastVOBU is the sector of Data its last VOBU starts at, as its C_PBI says.
+	LastVOBU int
 }
 
 // DVDTitle is a title of a DVD, in a title set of its own with one program chain.
@@ -176,6 +178,7 @@ func (dvd DVD) programChain(chain []byte, title DVDTitle, chapters, sectors []in
 		entry[0] = cell.Flags
 		copy(entry[4:], dvdTime(cell.DurationMs))
 		putBE32(entry[8:], sectors[index])
+		putBE32(entry[16:], sectors[index]+cell.LastVOBU)
 		putBE32(entry[20:], sectors[index]+len(cell.Data)/sector-1)
 	}
 }
@@ -195,4 +198,58 @@ func Sectors(text string, n int) []byte {
 		copy(data[index*sector:], fmt.Sprintf("%s:%d|", text, index))
 	}
 	return data
+}
+
+// VOBU is a DVD's VOBU of two packs: its navigation pack, saying it plays from startTicks to
+// endTicks (90 kHz), then a video pack whose SCR and DTS are startTicks and PTS startTicks+3003.
+func VOBU(startTicks, endTicks int) []byte {
+	data := make([]byte, 2*sector)
+	nav := data[:sector]
+	packHeader(nav, startTicks)
+	copy(nav[14:], []byte{0, 0, 1, 0xBB, 0, 18})
+	copy(nav[38:], []byte{0, 0, 1, 0xBF, 0x03, 0xD4, 0x00})
+	putBE32(nav[0x39:], startTicks)
+	putBE32(nav[0x3D:], endTicks)
+	copy(nav[1024:], []byte{0, 0, 1, 0xBF, 0x03, 0xFA, 0x01})
+	video := data[sector:]
+	packHeader(video, startTicks)
+	copy(video[14:], []byte{0, 0, 1, 0xE0})
+	putBE16(video[18:], sector-14-6)
+	video[20], video[21], video[22] = 0x81, 0xC0, 10
+	putTimestamp(video[23:], 3, startTicks+3003)
+	putTimestamp(video[28:], 1, startTicks)
+	return data
+}
+
+// packHeader writes an MPEG-2 pack header whose SCR is ticks, with no stuffing.
+func packHeader(pack []byte, ticks int) {
+	copy(pack, []byte{0, 0, 1, 0xBA})
+	pack[4] = octet(0x44 | ticks>>27&0x38 | ticks>>28&3)
+	pack[5] = octet(ticks >> 20 & 0xFF)
+	pack[6] = octet(ticks>>15&0x1F<<3 | 0x04 | ticks>>13&3)
+	pack[7] = octet(ticks >> 5 & 0xFF)
+	pack[8] = octet(ticks&0x1F<<3 | 0x04)
+	pack[9] = 0x01
+	pack[10], pack[11], pack[12], pack[13] = 0x01, 0x89, 0xC3, 0xF8
+}
+
+// putTimestamp writes a PES PTS or DTS of ticks after its four-bit prefix.
+func putTimestamp(field []byte, prefix, ticks int) {
+	field[0] = octet(prefix<<4 | ticks>>30&7<<1 | 1)
+	field[1] = octet(ticks >> 22 & 0xFF)
+	field[2] = octet(ticks>>15&0x7F<<1 | 1)
+	field[3] = octet(ticks >> 7 & 0xFF)
+	field[4] = octet(ticks&0x7F<<1 | 1)
+}
+
+// VOBUTicks reads back the SCR, PTS and DTS of a VOBU's video pack, the second sector of vobu.
+func VOBUTicks(vobu []byte) (scr, pts, dts int64) {
+	video := vobu[sector:]
+	scr = int64(video[4]>>3&7)<<30 | int64(video[4]&3)<<28 | int64(video[5])<<20 |
+		int64(video[6]>>3)<<15 | int64(video[6]&3)<<13 | int64(video[7])<<5 | int64(video[8]>>3)
+	timestamp := func(field []byte) int64 {
+		return int64(field[0]>>1&7)<<30 | int64(field[1])<<22 | int64(field[2]>>1)<<15 |
+			int64(field[3])<<7 | int64(field[4]>>1)
+	}
+	return scr, timestamp(video[23:]), timestamp(video[28:])
 }

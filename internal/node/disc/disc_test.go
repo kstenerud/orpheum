@@ -114,6 +114,60 @@ func TestMainTitle_ADVDsOtherAnglesAreLeftOutAndInterleavedCellsRefused(t *testi
 	}
 }
 
+// A DVD title whose cells' clock starts again partway, as a disc of two halves does, is served on
+// one clock: from the cell whose clock does not carry on from the one before (it starts before that
+// one ended, or more than a second after), every SCR, PTS and DTS is moved to carry on, so FFmpeg
+// seeking by time lands where the title plays it; a title on one clock is served as it is (D404).
+func TestMainTitle_ADVDsClockStartedAgainIsMovedToCarryOn(t *testing.T) {
+	t.Parallel()
+	const second = 90_000
+	first, carriedOn := disctest.VOBU(25_200, 25_200+600*second), disctest.VOBU(25_200+600*second, 25_200+1200*second)
+	again := disctest.VOBU(10_000, 10_000+300*second)
+	ahead := disctest.VOBU(25_200+1600*second, 25_200+1700*second)
+	dvd := disctest.DVD{Titles: []disctest.DVDTitle{{Cells: []disctest.DVDCell{
+		{Data: first, DurationMs: 600_000},
+		{Data: carriedOn, DurationMs: 600_000},
+		{Data: again, DurationMs: 300_000},
+		{Data: ahead, DurationMs: 100_000},
+	}}}}
+	image := disctest.Volume{Files: dvd.Files()}.Bytes()
+	title, err := disc.MainTitle(bytes.NewReader(image), int64(len(image)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cell := int64(len(first))
+	againTicks := int64(25_200+1200*second) - 10_000
+	aheadTicks := int64(10_000+300*second) + againTicks - (25_200 + 1600*second)
+	want := []disc.ClockShift{{FromByte: 2 * cell, Ticks: againTicks}, {FromByte: 3 * cell, Ticks: aheadTicks}}
+	if !slices.Equal(title.ClockShifts, want) {
+		t.Errorf("a title whose clock starts again, then jumps ahead, is shifted %+v; want %+v",
+			title.ClockShifts, want)
+	}
+	stream := []byte(served(t, image, title))
+	title.Restamp(stream, 0)
+	for index, check := range []struct {
+		vobu  []byte
+		ticks int64
+	}{{first, 0}, {carriedOn, 0}, {again, againTicks}, {ahead, aheadTicks}} {
+		scr, pts, dts := disctest.VOBUTicks(stream[int64(index)*cell:])
+		wantSCR, wantPTS, wantDTS := disctest.VOBUTicks(check.vobu)
+		if scr != wantSCR+check.ticks || pts != wantPTS+check.ticks || dts != wantDTS+check.ticks {
+			t.Errorf("cell %d is served at SCR %d, PTS %d, DTS %d; want %d, %d, %d", index+1, scr, pts, dts,
+				wantSCR+check.ticks, wantPTS+check.ticks, wantDTS+check.ticks)
+		}
+	}
+	part := []byte(served(t, image, title))[3*cell:]
+	title.Restamp(part, 3*cell)
+	if !bytes.Equal(part, stream[3*cell:]) {
+		t.Error("the title's last cell restamped on its own differs from the title restamped whole")
+	}
+	dvd.Titles[0].Cells = dvd.Titles[0].Cells[:2]
+	image = disctest.Volume{Files: dvd.Files()}.Bytes()
+	if title, err := disc.MainTitle(bytes.NewReader(image), int64(len(image))); err != nil || title.ClockShifts != nil {
+		t.Errorf("a title on one clock is shifted %+v (%v); want none", title.ClockShifts, err)
+	}
+}
+
 // filmBluRay is a Blu-ray with a menu loop, a trailer, a playlist that plays its clip twice (the
 // longest, as an obfuscated disc's decoys are), and the film: two clips, its chapters across them.
 func filmBluRay() disctest.BluRay {
@@ -279,10 +333,13 @@ func FuzzMainTitle(f *testing.F) {
 		if err != nil {
 			return
 		}
+		var stream []byte
 		for _, extent := range title.Extents {
 			if extent.Offset < 0 || extent.Length <= 0 || extent.Offset+extent.Length > int64(len(image)) {
 				t.Fatalf("a title of %+v, outside an image of %d bytes", title.Extents, len(image))
 			}
+			stream = append(stream, image[extent.Offset:extent.Offset+extent.Length]...)
 		}
+		title.Restamp(stream, 0)
 	})
 }

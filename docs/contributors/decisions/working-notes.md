@@ -25482,3 +25482,36 @@ role."* It amends [D399](#d399--the-people-page-is-three-buttons-over-three-sect
 4. **Status:** Decided 2026-11-01; built. Tests: `TestInvitation_ItsLinkWorksOnceAndThenItIsNoLongerListed`,
    `TestInvitations_AUsedOneIsNoLongerListed`, `people-invitations.test.tsx`, `roles-section.test.tsx`.
    Device check: VQ238.
+
+## D404 — A DVD title whose clock starts again partway is served restamped onto one clock
+
+**Decided** (2026-11-02), by the agent, fixing a bug the project owner had folded into the batch (*"a
+bug that seriously hurts using the app is folded into the current batch"*), for the owner to confirm.
+It amends [D350](#d350--a-disc-image-plays-its-main-title-read-by-the-node-from-the-images-own-structure-and-served-to-ffmpeg-through-fdproxy)
+§3, which served the title's runs joined as the image has them; the rest of D350 stands.
+
+1. **What was wrong.** VQ73's DVD (*Der Golem, 10th Anniversary Concert*) plays 2 h 28 min
+   from one title whose cells' clock starts again at 0 at 1 h 28 min 39 s. Joined as the image has them, its program stream had two clocks, and FFmpeg, which
+   seeks a program stream by searching its timestamps, landed in the wrong half for a time under
+   59 min, and at the stream's end for any later time: every seek past 59 min failed (the node's
+   runs from 4432 s made 0.27 s and stopped, and the player said the film cannot be converted).
+2. **The node reads where the clock starts again** from the DVD's navigation packs: of each cell
+   played, its first VOBU's start time and its last VOBU's end time (the PCI's `VOBU_S_PTM` and
+   `VOBU_E_PTM`, the last VOBU found by the cell's C_PBI). A cell whose clock starts before the one
+   before it ended, or more than a second after, is a **clock shift**: from its first byte, every
+   timestamp moves to carry on from the cell before. A cell whose navigation packs cannot be read
+   keeps the clock as it is. Two sectors read per cell, within the image's structure budget.
+3. **The title is served restamped.** Each read of a title with clock shifts is made of whole
+   2048-byte packs, each pack's SCR and its audio, video and private-stream packets' PTS and DTS
+   moved (modulo 2^33), and the part asked copied out; a title on one clock is served as before.
+   Bytes keep their places, so sizes, budgets and the read-through are unchanged.
+4. **Why not FFmpeg's own disc reader or byte seeking.** FFmpeg's `dvdvideo` demuxer, which
+   handles this, opens by path and is absent from the pinned build (D350 §3). Seeking by byte in the
+   node would still leave a run that plays through the shift with its timestamps going back, which
+   the node's chunk cuts refuse. One clock fixes both.
+5. **Not done:** a Blu-ray playlist of several clips is joined as its clips are, each M2TS on its own
+   clock (D350 §5); whether that needs the same is to be measured on a disc that has one.
+
+**Status:** Decided 2026-11-02. Tests: `TestMainTitle_ADVDsClockStartedAgainIsMovedToCarryOn`,
+`TestFilmOf_ADVDsFilmIsServedOnOneClock`. Device check: VQ73 (a seek past the clock shift).
+
