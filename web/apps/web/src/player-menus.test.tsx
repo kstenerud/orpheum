@@ -7,6 +7,7 @@ import { act, createRef } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { AudioTrack } from "./audio-tracks.tsx";
+import type { PlayerSound } from "./player-controls.tsx";
 import { PlayerMenus, PlayerMenusContext, type PlayerMenusWays } from "./player-menus.tsx";
 import type { OverlayControl } from "./player-overlay-state.ts";
 import { PlayerTracksContext, type PlayerTracks } from "./player-tracks.tsx";
@@ -161,6 +162,12 @@ describe("the overlay's menus (D407 §8)", () => {
     expect(told).toEqual([false, true, false]);
   });
 
+  it("names 🎧 by the first track where none is chosen, as the playback plays it", async () => {
+    const tracks = tracksNoting({ subtitles: [], audio: [] });
+    await drawn({ ...tracks, audio: { ...tracks.audio, chosenStreamId: undefined } });
+    expect(openerNamed("Sound")?.getAttribute("aria-label")).toBe("Sound: English");
+  });
+
   it("draws nothing without the film's tracks", async () => {
     mounted = await mount(
       withServices(
@@ -168,5 +175,76 @@ describe("the overlay's menus (D407 §8)", () => {
       ),
     );
     expect(mounted.container.querySelector("button")).toBeNull();
+  });
+});
+
+/** The film's sound as a test holds it: volume and mute, each setting noted in set. */
+function soundNoting(set: (number | boolean)[]): PlayerSound {
+  return {
+    volume: 0.4,
+    isMuted: false,
+    canSetVolume: true,
+    setVolume: (volume) => {
+      set.push(volume);
+    },
+    setMuted: (isMuted) => {
+      set.push(isMuted);
+    },
+  };
+}
+
+/** The menu opener whose name starts with name, if one is drawn. */
+function openerNamed(name: string): Element | undefined {
+  return [...(mounted?.container.querySelectorAll("button[aria-haspopup]") ?? [])].find(
+    (button) => button.getAttribute("aria-label")?.startsWith(name) === true,
+  );
+}
+
+describe("🔈 (D407 §10, Q11)", () => {
+  it("opens the volume upright and mute, first of the menus, without the film's tracks too", async () => {
+    const set: (number | boolean)[] = [];
+    const told: boolean[] = [];
+    const on = await mount(
+      withServices(
+        <PlayerMenus
+          videoRef={createRef()}
+          shown={["sound", ...everyMenu]}
+          sound={soundNoting(set)}
+          onOpenChange={(isOpen) => told.push(isOpen)}
+        />,
+      ),
+    );
+    mounted = on;
+    expect(on.container.querySelectorAll("button[aria-haspopup]")).toHaveLength(1);
+    await opened(on, "Volume");
+    const range = on.container.querySelector<HTMLInputElement>("dialog input[type=range]");
+    expect(range?.classList.contains("volume-range--upright")).toBe(true);
+    expect(range?.value).toBe("40");
+    expect(on.container.querySelector("dialog button[aria-label='Mute']")).not.toBeNull();
+    expect(told.at(-1)).toBe(true);
+  });
+
+  it("draws 🔈 before 💬 where the overlay shows the sound, and not where it does not", async () => {
+    const tracks = tracksNoting({ subtitles: [], audio: [] });
+    mounted = await mount(
+      withServices(
+        <PlayerTracksContext value={tracks}>
+          <PlayerMenus
+            videoRef={createRef()}
+            shown={["sound", ...everyMenu]}
+            sound={soundNoting([])}
+            onOpenChange={() => undefined}
+          />
+        </PlayerTracksContext>,
+      ),
+    );
+    const names = [...mounted.container.querySelectorAll("button[aria-haspopup]")].map((button) =>
+      button.getAttribute("aria-label"),
+    );
+    expect(names[0]).toBe("Volume");
+    expect(names[1]).toMatch(/^Subtitles/u);
+    mounted.unmount();
+    await drawn(tracks);
+    expect(openerNamed("Volume")).toBeUndefined();
   });
 });

@@ -20,7 +20,8 @@ import { DropDown, keepsListOpenAttribute } from "./drop-down.tsx";
 import { LevellingControl } from "./levelling.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { PlayOriginal } from "./play-original.tsx";
-import { AudioIcon, MoreIcon, SubtitlesIcon } from "./player-icons.tsx";
+import { SoundControls, type PlayerSound } from "./player-controls.tsx";
+import { AudioIcon, MoreIcon, MutedIcon, SoundIcon, SubtitlesIcon } from "./player-icons.tsx";
 import type { OverlayControl } from "./player-overlay-state.ts";
 import { PlayerTracksContext, type PlayerTracks } from "./player-tracks.tsx";
 import { ActionChooser, type ActionChoice } from "./route-chooser.tsx";
@@ -45,36 +46,36 @@ export interface PlayerMenusWays {
 /** The page's ways for the overlay's menus; undefined where the page gives none, a cast's receiver. */
 export const PlayerMenusContext = createContext<PlayerMenusWays | undefined>(undefined);
 
-/** The menu open now, if one is: 💬, 🎧, ⁝, or the Find subtitles dialog 💬 opened. */
-type OpenMenu = "subtitles" | "audio" | "more" | "find";
+/** The menu open now, if one is: 🔈, 💬, 🎧, ⁝, or the Find subtitles dialog 💬 opened. */
+type OpenMenu = "volume" | "subtitles" | "audio" | "more" | "find";
 
 /**
- * The full-screen overlay's menus, in row 2's trailing group before full screen (D407 §1, §8): 💬,
- * Off, the film's subtitle tracks and Find subtitles; 🎧, the audio tracks, where there are more
- * than one; ⁝, the rest of what lies under the film outside full screen. Each reads and writes the
- * film's choices in PlayerTracksContext, so a choice here is the one under the film. onOpenChange is
- * told whether one is open, for the overlay to hold its time and leave its presses to it (D407 §6).
- * Find subtitles is a dialog of its own, which a change of full screen closes, as it does a menu.
- * Nothing is drawn where the page gives no tracks.
+ * The full-screen overlay's menus, in row 2's trailing group before full screen (D407 §1, §8): 🔈,
+ * the volume upright and mute, where the overlay shows it (D407 §10); 💬, Off, the film's subtitle
+ * tracks and Find subtitles; 🎧, the audio tracks, where there are more than one; ⁝, the rest of
+ * what lies under the film outside full screen. Each reads and writes the film's choices in
+ * PlayerTracksContext, so a choice here is the one under the film. onOpenChange is told whether one
+ * is open, for the overlay to hold its time and leave its presses to it (D407 §6). Find subtitles is
+ * a dialog of its own, which a change of full screen closes, as it does a menu. No track's menu is
+ * drawn where the page gives no tracks.
  */
 export function PlayerMenus(props: {
   readonly videoRef: RefObject<HTMLVideoElement | null>;
   /** The overlay's controls on this device (controlsShown): which menus to draw. */
   readonly shown: readonly OverlayControl[];
+  /** The film's sound, which 🔈 sets. */
+  readonly sound?: PlayerSound | undefined;
   readonly onOpenChange: (isOpen: boolean) => void;
-}): JSX.Element | null {
+}): JSX.Element {
   const tracks = use(PlayerTracksContext);
   const ways = use(PlayerMenusContext);
   const [open, setOpen] = useState<OpenMenu | undefined>(undefined);
-  const { onOpenChange } = props;
+  const { onOpenChange, sound } = props;
   const isOpen = open !== undefined;
   useEffect(() => {
     onOpenChange(isOpen);
   }, [isOpen, onOpenChange]);
   const endFinding = useFindingEndedAtFullScreen(setOpen);
-  if (tracks === undefined) {
-    return null;
-  }
   const toldOf =
     (menu: OpenMenu) =>
     (isNowOpen: boolean): void => {
@@ -88,28 +89,85 @@ export function PlayerMenus(props: {
         };
   return (
     <>
-      {props.shown.includes("subtitles") ? (
-        <SubtitlesMenu
-          choice={tracks.subtitles}
-          onFind={findSubtitles}
-          onOpenChange={toldOf("subtitles")}
-        />
+      {props.shown.includes("sound") && sound !== undefined ? (
+        <VolumeMenu sound={sound} onOpenChange={toldOf("volume")} />
       ) : null}
-      {props.shown.includes("audio") ? (
-        <AudioMenuOverTheFilm choice={tracks.audio} onOpenChange={toldOf("audio")} />
-      ) : null}
-      {props.shown.includes("more") ? (
-        <MoreMenu
+      {tracks === undefined ? null : (
+        <TrackMenus
           tracks={tracks}
           ways={ways}
           videoRef={props.videoRef}
-          onOpenChange={toldOf("more")}
+          shown={props.shown}
+          toldOf={toldOf}
+          onFind={findSubtitles}
         />
-      ) : null}
+      )}
       {open === "find" && ways !== undefined ? (
         <FindSubtitlesDialog ways={ways} onClose={endFinding} />
       ) : null}
     </>
+  );
+}
+
+/** 💬, 🎧 and ⁝ among those shown, over the film's tracks (PlayerMenus). */
+function TrackMenus(props: {
+  readonly tracks: PlayerTracks;
+  readonly ways: PlayerMenusWays | undefined;
+  readonly videoRef: RefObject<HTMLVideoElement | null>;
+  readonly shown: readonly OverlayControl[];
+  readonly toldOf: (menu: OpenMenu) => (isNowOpen: boolean) => void;
+  readonly onFind: (() => void) | undefined;
+}): JSX.Element {
+  const { tracks, shown, toldOf } = props;
+  return (
+    <>
+      {shown.includes("subtitles") ? (
+        <SubtitlesMenu
+          choice={tracks.subtitles}
+          onFind={props.onFind}
+          onOpenChange={toldOf("subtitles")}
+        />
+      ) : null}
+      {shown.includes("audio") ? (
+        <AudioMenuOverTheFilm choice={tracks.audio} onOpenChange={toldOf("audio")} />
+      ) : null}
+      {shown.includes("more") ? (
+        <MoreMenu
+          tracks={tracks}
+          ways={props.ways}
+          videoRef={props.videoRef}
+          onOpenChange={toldOf("more")}
+        />
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * 🔈 (D407 §10, Q11): a pop-up with the volume upright and mute, both keeping it open
+ * (keepsListOpenAttribute), as + and − move the volume from anywhere (player-commands.ts).
+ */
+function VolumeMenu(props: {
+  readonly sound: PlayerSound;
+  readonly onOpenChange: (isOpen: boolean) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { sound } = props;
+  const isSilent = sound.isMuted || sound.volume === 0;
+  return (
+    <DropDown
+      label={t("playerControls.volume")}
+      opener={isSilent ? <MutedIcon /> : <SoundIcon />}
+      openerClassName="icon-button icon-button--over-video"
+      openerNaming={{ "aria-label": t("playerControls.volume") }}
+      listClassName="player-menus__volume"
+      isFromItsTop
+      onOpenChange={props.onOpenChange}
+    >
+      <KeptOpen>
+        <SoundControls sound={sound} isOverVideo={false} isUpright />
+      </KeptOpen>
+    </DropDown>
   );
 }
 
@@ -188,7 +246,7 @@ function SubtitlesMenu(props: {
   );
 }
 
-/** 🎧: the film's audio tracks (D407 §8). */
+/** 🎧: the film's audio tracks (D407 §8), named by the one playing: the chosen, else the first. */
 function AudioMenuOverTheFilm(props: {
   readonly choice: AudioChoice;
   readonly onOpenChange: (isOpen: boolean) => void;
@@ -200,10 +258,12 @@ function AudioMenuOverTheFilm(props: {
     commentary: t("play.audio.commentary"),
     described: t("play.audio.described"),
   };
+  // With no choice marked, the playback plays its first track, as the select under the film shows.
+  const playingId = chosenStreamId ?? tracks[0]?.streamId;
   const options = tracks.map((track): ActionChoice => ({
     key: String(track.streamId),
     label: audioTrackLabel(track, i18n.language, words),
-    isCurrent: track.streamId === chosenStreamId,
+    isCurrent: track.streamId === playingId,
     onChoose: () => {
       choose(track);
     },

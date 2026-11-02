@@ -6,3 +6,11 @@
   touch-action: none;
   vertical-align: middle;
 }
+
+/* Upright, full at its top (the overlay's 🔈 pop-up, D407 §10): a vertical writing mode turns a
+   range, and right-to-left puts its end at the top. */
+.volume-range--upright {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  height: 8rem;
+}

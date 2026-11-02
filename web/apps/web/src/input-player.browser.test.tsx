@@ -310,7 +310,13 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
       await press("{ArrowRight}");
       walked.push(document.activeElement?.getAttribute("aria-label"));
     }
-    expect(walked).toEqual(["Forward 10 s", "Subtitles: Off", "Sound: ", "More", "Full screen"]);
+    expect(walked).toEqual([
+      "Forward 10 s",
+      "Subtitles: Off",
+      "Sound: English",
+      "More",
+      "Full screen",
+    ]);
     expect(document.activeElement).toBe(fullScreen);
     expect(shown()).toBe("full");
     expect(positionAt()).toBe(30);

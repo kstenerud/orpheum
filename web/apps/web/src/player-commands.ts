@@ -6,8 +6,9 @@
  * pauses wherever focus is; the seeking buttons and the browser's media controls seek; Left and Right
  * seek while the video has focus or nothing does, as a TV's player does with its controls hidden, or
  * its timeline; OK
- * on the video plays and pauses it; Back leaves full screen first, and only then the page. A menu or
- * dialog open over it answers Back before the player hears it.
+ * on the video plays and pauses it; Back leaves full screen first, and only then the page; + and −
+ * move the volume a step (D407 §10). A menu or dialog open over it answers Back before the player
+ * hears it.
  */
 
 import { useEffect } from "react";
@@ -78,6 +79,28 @@ function leaveFullscreen(): boolean {
   return true;
 }
 
+/** How far a press of + or − moves the volume: 5 % (D407 §10, the owner's Q12). A justified constant. */
+export const volumeStep = 0.05;
+
+/**
+ * The volume a press of + (direction 1) or − (-1) leaves, from volume: a step along, to the nearest
+ * hundredth so that steps add up evenly, kept within 0 and 1.
+ */
+export function volumeAfter(volume: number, direction: -1 | 1): number {
+  const moved = Math.round((volume + direction * volumeStep) * 100) / 100;
+  return Math.min(1, Math.max(0, moved));
+}
+
+/**
+ * Moves video's volume a step towards direction (volumeAfter); a step up turns a muted film's sound
+ * on, as a player's volume key does. The element's own properties are what set its sound.
+ */
+function stepVolume(video: HTMLVideoElement, direction: -1 | 1): boolean {
+  const sound = { volume: volumeAfter(video.volume, direction) };
+  Object.assign(video, direction === 1 ? { ...sound, muted: false } : sound);
+  return true;
+}
+
 /**
  * Each command's answer for a video, by command, told where it came from (none: a click's): whether
  * it answered. Up and Down move focus.
@@ -119,6 +142,8 @@ const answers: Readonly<
     return isOnVideo;
   },
   back: () => leaveFullscreen(),
+  volumeUp: (video) => stepVolume(video, 1),
+  volumeDown: (video) => stepVolume(video, -1),
 };
 
 /**

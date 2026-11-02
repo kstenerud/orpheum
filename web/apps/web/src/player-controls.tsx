@@ -276,10 +276,14 @@ function MoveButton(props: {
   );
 }
 
-/** Mute, and the volume where the page can set it. */
-function SoundControls(props: {
+/**
+ * Mute, and the volume where the page can set it: beside it in the bar, or upright in the overlay's
+ * 🔈 pop-up (isUpright; player-menus.tsx, D407 §10, Q11).
+ */
+export function SoundControls(props: {
   readonly sound: PlayerSound;
   readonly isOverVideo: boolean | undefined;
+  readonly isUpright?: boolean | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
   const { sound, isOverVideo } = props;
@@ -303,6 +307,7 @@ function SoundControls(props: {
           label={t("playerControls.volume")}
           value={sound.isMuted ? 0 : sound.volume}
           most={1}
+          isUpright={props.isUpright}
           onChange={(volume) => {
             sound.setVolume(volume);
             if (volume > 0 && sound.isMuted) {

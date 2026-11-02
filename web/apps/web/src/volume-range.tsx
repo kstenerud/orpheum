@@ -32,6 +32,8 @@ export function VolumeRange(props: {
   readonly most: number;
   readonly onChange: (value: number) => void;
   readonly label?: string;
+  /** Whether it stands upright, full at its top, as the overlay's 🔈 pop-up holds it (D407 §10). */
+  readonly isUpright?: boolean | undefined;
 }): JSX.Element {
   const { most, onChange } = props;
   const inputRef = useRef<HTMLInputElement>(null);
@@ -40,7 +42,7 @@ export function VolumeRange(props: {
     <input
       ref={inputRef}
       type="range"
-      className="volume-range"
+      className={props.isUpright === true ? "volume-range volume-range--upright" : "volume-range"}
       aria-label={props.label}
       min={0}
       max={most * stepsPerUnit}

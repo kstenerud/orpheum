@@ -61,6 +61,8 @@ export interface OverlayAnswer {
   readonly focus?: "play" | "video";
   /** Whether the overlay presses the offer itself, focus being elsewhere (D407 §3). */
   readonly isOfferPressed?: boolean;
+  /** Whether the overlay shows the volume a press of + or − left (D407 §10), for volumeShownForMs. */
+  readonly isVolumeShown?: boolean;
 }
 
 /**
@@ -74,6 +76,15 @@ export const fullShownForMs = 3000;
  * read where the film went. A justified constant.
  */
 export const scrubShownForMs = 1500;
+
+/**
+ * How long the volume shows after + or −, in ms: as long as the scrub bar alone after a seek, the
+ * other change shown alone for a moment. A justified constant.
+ */
+export const volumeShownForMs = scrubShownForMs;
+
+/** The volume keys, + and −: the player's (player-commands.ts), the overlay only showing the volume. */
+const volumeKeys: ReadonlySet<Command> = new Set<Command>(["volumeUp", "volumeDown"]);
 
 /**
  * What of the overlay shows, hasOffer saying whether an offer is on: hidden, the convenience area
@@ -105,13 +116,17 @@ const playersKeys: ReadonlySet<Command> = new Set<Command>([
 
 /**
  * What a press does to the overlay (D407 §4–§5). Play, pause and the seeking keys stay the
- * player's in every state, a seek showing the scrub bar while the overlay is not all shown.
+ * player's in every state, a seek showing the scrub bar while the overlay is not all shown; + and −
+ * are the player's too, the overlay showing the volume they leave, whatever else shows (D407 §10).
  */
 export function overlayAnswer(
   state: OverlayState,
   command: Command,
   context: PressContext,
 ): OverlayAnswer {
+  if (volumeKeys.has(command)) {
+    return { state, isTaken: false, isVolumeShown: true };
+  }
   // An open menu's presses are its own (D407 §8).
   return context.isMenuOpen === true
     ? { state, isTaken: false }

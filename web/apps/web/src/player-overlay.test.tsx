@@ -442,6 +442,60 @@ describe("the player's full-screen overlay on a computer (D407 §6)", () => {
     mounted?.unmount();
     mounted = undefined;
     vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  /** Draws the overlay over video in a stage, as the player does. */
+  async function drawnOver(video: HTMLVideoElement): Promise<Mounted> {
+    const videoRef = createRef<HTMLVideoElement>();
+    Reflect.set(videoRef, "current", video);
+    mounted = await mount(
+      withServices(
+        <div className="film-player__stage">
+          <PlayerOverlay videoRef={videoRef} readLinkKbps={() => undefined} failure={undefined} />
+        </div>,
+      ),
+    );
+    mounted.container.querySelector(".film-player__stage")?.prepend(video);
+    return mounted;
+  }
+
+  // D407 §10, Q11: the sound is 🔈 first of the trailing group, no mute and slider in the row.
+  it("draws 🔈 before full screen, and no mute or slider of the bar's", async () => {
+    const on = await drawnOver(playingVideo());
+    const buttons = on.container.querySelectorAll(".player-overlay__buttons button");
+    const labels = [...buttons].map((button) => button.getAttribute("aria-label"));
+    expect(labels.slice(-2)).toEqual(["Volume", "Full screen"]);
+    expect(labels).not.toContain("Mute");
+    expect(on.container.querySelector(".player-overlay__buttons input[type=range]")).toBeNull();
+  });
+
+  it("shows the volume + or − leaves for 1.5 s after the last, leaving the press to the player", async () => {
+    const video = playingVideo();
+    const on = await drawnOver(video);
+    act(() => {
+      video.volume = 0.45; // as the player's answer to the press leaves it (player-commands.ts)
+      video.dispatchEvent(new Event("volumechange"));
+    });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const readout = (): HTMLOutputElement | null =>
+      on.container.querySelector<HTMLOutputElement>(".player-overlay-volume");
+    expect(readout()?.hidden).toBe(true);
+    expect(press("volumeUp")).toBe(false);
+    expect(readout()?.hidden).toBe(false);
+    expect(readout()?.textContent).toBe("Volume 45 %");
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    press("volumeDown");
+    act(() => {
+      vi.advanceTimersByTime(1499);
+    });
+    expect(readout()?.hidden).toBe(false);
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(readout()?.hidden).toBe(true);
   });
 
   // Q14: focus left on play held a pointer-shown overlay up for good while the film played. The

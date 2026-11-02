@@ -26,6 +26,7 @@ import {
   PlayerControls,
   useVideoSource,
   type PlayerControl,
+  type PlayerSound,
   type PlayerSource,
   type SequenceMoves,
 } from "./player-controls.tsx";
@@ -38,6 +39,7 @@ import {
   shownWith,
   type OverlayAnswer,
   type OverlayControl,
+  volumeShownForMs,
   type OverlayState,
   type PressContext,
 } from "./player-overlay-state.ts";
@@ -50,8 +52,8 @@ import { isTelevision } from "./tv-device.ts";
  * stage, so it stays in full screen, three rows a remote walks by Up and Down, each a focus
  * container that remembers its last focused control (focus-memory.ts): the way up and the
  * convenience area, where an offer (Up next, Still watching) shows, alone while the rest is hidden;
- * the scrub bar with where the film stands and its length; the buttons, ⏮ ⏪ ▶ ⏩ ⏭ at the start and full
- * screen and the sound at the end. Hidden, Left and Right seek and show the scrub bar alone, OK
+ * the scrub bar with where the film stands and its length; the buttons, ⏮ ⏪ ▶ ⏩ ⏭ at the start and
+ * 🔈 💬 🎧 ⁝ ⤢ at the end. + and − move the volume from anywhere and show it a moment. Hidden, Left and Right seek and show the scrub bar alone, OK
  * plays, or pauses and shows the pause sign, and Up and Down show it all with focus on play
  * (player-overlay-state.ts); a mouse's move, a click or a tap shows it all, leaving focus where it is,
  * as a desktop player's controls show, so a cast's receiver on a computer keeps its controls (D338
@@ -85,7 +87,8 @@ export function PlayerOverlay(
     videoRef: film.videoRef,
     convenienceRef,
   };
-  const { state, source, isTv } = useOverlay(refs, { hasOffer, isMenuOpen, shouldOpenFullScreen });
+  const told = { hasOffer, isMenuOpen, shouldOpenFullScreen };
+  const { state, source, isTv, isVolumeShown } = useOverlay(refs, told);
   const convenience = {
     film,
     offer,
@@ -99,6 +102,7 @@ export function PlayerOverlay(
       <span className="player-overlay-paused" hidden={state.shown !== "paused"} aria-hidden="true">
         <PauseIcon />
       </span>
+      <VolumeShown sound={source.sound} isShown={isVolumeShown} />
       <div
         ref={overlayRef}
         className="player-overlay"
@@ -131,7 +135,12 @@ function useOverlay(
     readonly isMenuOpen: boolean;
     readonly shouldOpenFullScreen: boolean | undefined;
   },
-): { readonly state: OverlayState; readonly source: PlayerSource; readonly isTv: boolean } {
+): {
+  readonly state: OverlayState;
+  readonly source: PlayerSource;
+  readonly isTv: boolean;
+  readonly isVolumeShown: boolean;
+} {
   const { hasOffer, isMenuOpen } = told;
   const isTv = isTelevision(navigator.userAgent);
   const [state, setState] = useState<OverlayState>(() => openedWith(isTv));
@@ -148,9 +157,56 @@ function useOverlay(
     setState({ shown: "full", shownBy: "pointer" });
     notePress();
   });
-  useOverlayPresses({ state, setState, notePress, isTv, hasOffer, isMenuOpen, ...refs });
+  const volume = useVolumeShown();
+  const presses = { state, setState, isTv, hasOffer, isMenuOpen, onVolumeShown: volume.show };
+  useOverlayPresses({ ...presses, notePress, ...refs });
   useFullscreenStage(refs.overlayRef, told.shouldOpenFullScreen === true);
-  return { state, source, isTv };
+  return { state, source, isTv, isVolumeShown: volume.isShown };
+}
+
+/**
+ * Whether the volume shows, and what shows it: from a press of + or − for volumeShownForMs after
+ * the last (D407 §10), as the scrub bar shows alone after a seek.
+ */
+function useVolumeShown(): { readonly isShown: boolean; readonly show: () => void } {
+  const [pressCount, setPressCount] = useState(0);
+  const [isShown, setIsShown] = useState(false);
+  useEffect(() => {
+    if (pressCount === 0) {
+      return undefined;
+    }
+    const timer = setTimeout(() => {
+      setIsShown(false);
+    }, volumeShownForMs);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [pressCount]);
+  return {
+    isShown,
+    show: () => {
+      setIsShown(true);
+      setPressCount((count) => count + 1);
+    },
+  };
+}
+
+/** The volume + or − left, in the middle of the film a moment (useVolumeShown); muted is none. */
+function VolumeShown(props: {
+  readonly sound: PlayerSound | undefined;
+  readonly isShown: boolean;
+}): JSX.Element | null {
+  const { t } = useTranslation();
+  const { sound } = props;
+  if (sound === undefined) {
+    return null;
+  }
+  const percent = sound.isMuted ? 0 : Math.round(sound.volume * 100);
+  return (
+    <output className="player-overlay-volume" hidden={!props.isShown}>
+      {props.isShown ? t("playerControls.volumeLevel", { percent }) : ""}
+    </output>
+  );
 }
 
 /** The overlay as the player opens: all of it, shown by a remote on a television. */
@@ -173,7 +229,7 @@ interface OverlayRefs {
 
 /**
  * The overlay's three rows (D407 §1): the way up and the convenience area (convenience-area.tsx);
- * the scrub bar; the buttons, those the device shows (controlsShown), the menus 💬 🎧 ⁝ before full
+ * the scrub bar; the buttons, those the device shows (controlsShown), the menus 🔈 💬 🎧 ⁝ before full
  * screen (player-menus.tsx), and previous and next where the sequence has them (moves).
  */
 function OverlayRows({
@@ -194,6 +250,7 @@ function OverlayRows({
   const { t } = useTranslation();
   const { playRef, scrubRef, buttonsRef, videoRef } = refs;
   const shown = useControlsShown(isTv, moves);
+  const menus = { videoRef, shown, sound: source.sound, onOpenChange: onMenuOpenChange };
   return (
     <>
       <div className="player-overlay__row player-overlay__top" data-focus-container="">
@@ -226,7 +283,7 @@ function OverlayRows({
           isOverlayRow
           playRef={playRef}
           moves={moves}
-          menus={<PlayerMenus videoRef={videoRef} shown={shown} onOpenChange={onMenuOpenChange} />}
+          menus={<PlayerMenus {...menus} />}
         />
       </div>
     </>
@@ -252,7 +309,10 @@ function useControlsShown(
   });
 }
 
-/** The bar's controls among those the overlay shows, which the bar draws today. */
+/**
+ * The bar's controls among those the overlay shows, which the bar draws today: the sound is 🔈 among
+ * the menus (player-menus.tsx), not the bar's mute and slider.
+ */
 function barControlsOf(shown: readonly OverlayControl[]): PlayerControl[] {
   const drawn: Partial<Record<OverlayControl, PlayerControl>> = {
     previous: "previous",
@@ -260,7 +320,6 @@ function barControlsOf(shown: readonly OverlayControl[]): PlayerControl[] {
     play: "play",
     next: "next",
     fullScreen: "fullScreen",
-    sound: "sound",
   };
   return [...new Set(shown.flatMap((control) => drawn[control] ?? []))];
 }
@@ -268,7 +327,8 @@ function barControlsOf(shown: readonly OverlayControl[]): PlayerControl[] {
 /**
  * Answers a press as the overlay's state says (overlayAnswer): showing or hiding, a seek, play or
  * pause, focus moved, the offer pressed; a press taken is no one else's. Focus on the offer in the
- * convenience area, Up next or Still watching, leaves it OK and Back while the rest is hidden.
+ * convenience area, Up next or Still watching, leaves it OK and Back while the rest is hidden. + and
+ * − are the player's, the overlay only showing the volume they leave (onVolumeShown).
  */
 function useOverlayPresses({
   state,
@@ -277,6 +337,7 @@ function useOverlayPresses({
   isTv,
   hasOffer,
   isMenuOpen,
+  onVolumeShown,
   playRef,
   scrubRef,
   buttonsRef,
@@ -289,6 +350,7 @@ function useOverlayPresses({
   readonly isTv: boolean;
   readonly hasOffer: boolean;
   readonly isMenuOpen: boolean;
+  readonly onVolumeShown: () => void;
 }): void {
   const askFocusToPlay = useFocusToPlayOnceDrawn(playRef, isTv);
   usePlayingLeavesPlay(playRef, videoRef, isTv);
@@ -300,11 +362,7 @@ function useOverlayPresses({
       if (video === null) {
         return;
       }
-      const parts = {
-        scrub: scrubRef.current,
-        buttons: buttonsRef.current,
-        convenience: hasOffer ? convenienceRef.current : null,
-      };
+      const parts = overlayParts({ scrubRef, buttonsRef, convenienceRef }, hasOffer);
       const context = { ...pressContext(parts, video, isTv), isMenuOpen };
       const answer = overlayAnswer(state, detail.command, context);
       setState(answer.state);
@@ -317,6 +375,9 @@ function useOverlayPresses({
       }
       if (answer.isPlayPause === true) {
         answerPlayerCommand(video, "playPause");
+      }
+      if (answer.isVolumeShown === true) {
+        onVolumeShown();
       }
       moveFocus(answer.focus, video, askFocusToPlay);
       if (answer.isTaken) {
@@ -405,6 +466,18 @@ interface OverlayParts {
   readonly scrub: HTMLElement | null;
   readonly buttons: HTMLElement | null;
   readonly convenience: HTMLElement | null;
+}
+
+/** The overlay's parts as a press finds them, the convenience area only while it holds an offer. */
+function overlayParts(
+  refs: Pick<OverlayRefs, "scrubRef" | "buttonsRef" | "convenienceRef">,
+  hasOffer: boolean,
+): OverlayParts {
+  return {
+    scrub: refs.scrubRef.current,
+    buttons: refs.buttonsRef.current,
+    convenience: hasOffer ? refs.convenienceRef.current : null,
+  };
 }
 
 /** What the overlay knows as a press comes: where focus is, and whether the film is paused. */
