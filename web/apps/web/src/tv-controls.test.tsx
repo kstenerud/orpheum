@@ -211,6 +211,63 @@ describe("the overlay as drawn", () => {
     vi.useRealTimers();
   });
 
+  // VQ69 on the Fire TV, 2026-11-02: Right on Still watching's Continue sought the hidden film
+  // instead of going to Stop, and OK then played the next episode.
+  it("leaves Left and Right to another control over the film, Still watching, not seeking the film", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const videoRef = createRef<HTMLVideoElement>();
+    const video = document.createElement("video");
+    Object.defineProperty(video, "paused", { get: () => false }); // playing, so the overlay hides
+    let atS = 1290;
+    Object.defineProperty(video, "currentTime", {
+      get: () => atS,
+      set: (to: number) => {
+        atS = to;
+      },
+    });
+    Object.defineProperty(video, "duration", { get: () => 1300 });
+    Reflect.set(videoRef, "current", video);
+    mounted = await mount(
+      withServices(
+        <div className="film-player__stage">
+          <TvControls videoRef={videoRef} readLinkKbps={() => undefined} failure={undefined} />
+          <button type="button" className="beside">
+            Continue
+          </button>
+        </div>,
+      ),
+    );
+    const beside = mounted.container.querySelector<HTMLButtonElement>(".beside");
+    const overlay = mounted.container.querySelector(".tv-controls");
+    act(() => {
+      video.dispatchEvent(new Event("play"));
+      beside?.focus();
+    });
+    vi.spyOn(performance, "now").mockReturnValue(1_000_000); // long after the last press
+    act(() => {
+      vi.advanceTimersByTime(10_000); // well past overlayShownForMs, which hides it
+    });
+    expect(overlay?.getAttribute("data-shown")).toBe("none");
+    const presses = (["right", "left"] as const).map(
+      (command) =>
+        new CustomEvent(commandEventName, {
+          detail: { command, source: "key" },
+          bubbles: true,
+          cancelable: true,
+        }),
+    );
+    for (const press of presses) {
+      act(() => {
+        beside?.dispatchEvent(press);
+      });
+    }
+    expect(presses.map((press) => press.defaultPrevented)).toEqual([false, false]);
+    expect(atS).toBe(1290);
+    expect(overlay?.getAttribute("data-shown")).toBe("none");
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
   it("reads where the film stands at each timeupdate only while it shows, at once as it opens, with one clock formatter (the efficiency audit, finding 7)", async () => {
     const formatted = vi.spyOn(Date.prototype, "toLocaleTimeString");
     const videoRef = createRef<HTMLVideoElement>();
