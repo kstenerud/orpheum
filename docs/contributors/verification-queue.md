@@ -115,6 +115,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   is one lower next time. **Earlier**/**Later** move it. Play the film again: it starts with that
   subtitle. Set a wrong password: the search says OpenSubtitles refused the login.
   (`internal/core/providers/opensubtitles/`, `web/apps/web/src/subtitle-search.tsx`, D224)
+  *Run by the lead on staging, 2026-11-02, Linux Chrome 156, The Gold Rush (file 241).* Passes but for
+  one part unseen. A refused login (staging was first given the account's email address, which
+  OpenSubtitles answers 400) now says OpenSubtitles refused it ("fix(opensubtitles): a login answered 400 is a refused login"). With the username: "20 of 20
+  downloads left today", the note that none is checked, 11 German results; the download played on with
+  it chosen as "German · … · downloaded, unverified", its 1,476 cues loaded; played again, it started with
+  it; Later and Earlier moved its cues 0.1 s each way; the next search said 19 of 20. Unseen: a copy
+  made for this very file first, as none of the results matched this file.
 - [x] **VQ12** — On the dev loop, on the Mac, in Chrome and then in Safari: play *file 42*
   (director's cut) from the real films (`/play/42`) and then *file 59* (`/play/59`),
   once both are measured (the job view lists `measure_loudness` jobs until then). Under the video,
