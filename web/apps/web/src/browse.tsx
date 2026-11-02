@@ -3,7 +3,7 @@
 import "./browse.css";
 
 import type { components } from "@orpheum/sdk";
-import { memo, useCallback, useMemo, useRef, useState, type JSX, type RefObject } from "react";
+import { memo, useCallback, useMemo, useRef, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -20,11 +20,12 @@ import { StatusTray } from "./status-cues.tsx";
 import { PosterCard, PosterDetail } from "./poster-card.tsx";
 import { Still } from "./poster.tsx";
 import { ActionChooser } from "./route-chooser.tsx";
-import { itemRoute, routeHref } from "./router.ts";
+import { itemRoute, routeHref, type ListState } from "./router.ts";
 import { EndOfList } from "./end-of-list.tsx";
 import { useServices } from "./services.tsx";
 import {
   defaultOrderOf,
+  orderOf,
   orderQuery,
   sortChoiceLabel,
   sortChoicesOf,
@@ -176,12 +177,22 @@ export function EntryDetails(props: { readonly entry: Entry }): JSX.Element {
  * click through: the next page loads as the end comes into view, or on the button that is always
  * there for it.
  */
-export function Browse(props: { readonly kind: BrowseKind }): JSX.Element {
+export function Browse(props: {
+  readonly kind: BrowseKind;
+  readonly state: ListState;
+}): JSX.Element {
   const { t } = useTranslation();
-  const [choice, setChoice] = useState<SortChoice>({ sort: "name", order: "ascending" });
+  const { navigation } = useServices();
+  const choice = browseChoiceOf(props.state);
   const [jump, onLetter, clearJump] = useLetterJumpState();
-  // The list's search, a criterion of the list itself, as its sort is (the owner, 2026-10-30).
-  const [search, setSearch] = useState("");
+  // The list's search, a criterion of the list itself, as its sort is (the owner, 2026-10-30); both
+  // in the address, so Back from a title opened from the list returns to it (the owner, 2026-11-02).
+  const search = props.state.query ?? "";
+  const replaceState = (next: ListState): void => {
+    clearJump();
+    const screen = props.kind === "movie" ? "films" : "series";
+    navigation.replace({ screen, ...next });
+  };
   const listRef = useRef<HTMLDivElement>(null);
   const isNamed = choice.sort === "name";
   return (
@@ -195,15 +206,13 @@ export function Browse(props: { readonly kind: BrowseKind }): JSX.Element {
             <SearchButton
               query={search}
               onSearch={(next) => {
-                clearJump();
-                setSearch(next);
+                replaceState(listStateOf(choice, next));
               }}
             />
             <SortChooser
               choice={choice}
               onChoose={(chosen) => {
-                clearJump();
-                setChoice(chosen);
+                replaceState(listStateOf(chosen, search));
               }}
             />
           </ListingTools>
@@ -248,6 +257,24 @@ function BrowseAlphabetRail(props: {
     search: props.search,
   });
   return <AlphabetRail onLetter={props.onLetter} letters={letters} isZToA={props.isZToA} />;
+}
+
+/**
+ * The sort an address names, run its way: by name unless it names one Films and Series offer, its
+ * own way unless it names the other.
+ */
+function browseChoiceOf(state: ListState): SortChoice {
+  const sort = browseSorts.find((offered) => offered === state.sort) ?? "name";
+  return { sort, order: orderOf(sort, state.order) };
+}
+
+/** What the address holds for a sort chosen and a search: each left out at the list's own. */
+function listStateOf(choice: SortChoice, query: string): ListState {
+  return {
+    ...(choice.sort === "name" ? {} : { sort: choice.sort }),
+    ...orderQuery(choice),
+    ...(query === "" ? {} : { query }),
+  };
 }
 
 /** A choice's key among the sort's: its sort, and the way it runs when not the sort's own. */

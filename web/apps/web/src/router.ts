@@ -28,11 +28,23 @@ export type SortOrder = "ascending" | "descending";
 
 const sortOrders: readonly SortOrder[] = ["ascending", "descending"];
 
+/** What Films' or Series' address holds of the list: its sort, its sort's way, its search. */
+export interface ListState {
+  readonly sort?: LibrarySort;
+  readonly order?: SortOrder;
+  readonly query?: string;
+}
+
 /** Every screen the client shows, and what it needs from the address to show it. */
 export type Route =
   | { readonly screen: "home" }
-  | { readonly screen: "films" }
-  | { readonly screen: "series" }
+  /**
+   * Films or Series (D366), with its sort, the way it runs and its search in the address, as the
+   * Libraries page's are, so Back from a title opened from it returns to the list as it was (the
+   * owner, 2026-11-02). Each is left out at the list's own: by name, its sort's own way, no search.
+   */
+  | ({ readonly screen: "films" } & ListState)
+  | ({ readonly screen: "series" } & ListState)
   | { readonly screen: "title"; readonly itemId: number }
   /** A series' page: its seasons, or one season's episodes (the owner, 2026-10-07: drill down). */
   | { readonly screen: "series-page"; readonly collectionId: number; readonly season?: number }
@@ -57,15 +69,12 @@ export type Route =
    * else), the folder shown in it, its sort and its search query, all in the address so Back and a
    * reload return to it. Its address is built by routeHref, never by hand (D227's reason).
    */
-  | {
+  | ({
       readonly screen: "browse";
       readonly library?: number | "all";
       readonly view?: "folders";
       readonly folder?: string;
-      readonly sort?: LibrarySort;
-      readonly order?: SortOrder;
-      readonly query?: string;
-    }
+    } & ListState)
   | { readonly screen: "identify" }
   /** The admin's list of libraries, each leading to its own page to manage it (D361). */
   | { readonly screen: "libraries" }
@@ -123,8 +132,11 @@ interface Shape {
 // An id is a positive whole number; anything else names no item.
 const shapes: readonly Shape[] = [
   { pattern: /^\/$/u, toRoute: () => ({ screen: "home" }) },
-  { pattern: /^\/films\/?$/u, toRoute: () => ({ screen: "films" }) },
-  { pattern: /^\/series\/?$/u, toRoute: () => ({ screen: "series" }) },
+  { pattern: /^\/films\/?$/u, toRoute: (_, search) => ({ screen: "films", ...listState(search) }) },
+  {
+    pattern: /^\/series\/?$/u,
+    toRoute: (_, search) => ({ screen: "series", ...listState(search) }),
+  },
   { pattern: /^\/titles\/([1-9]\d{0,15})$/u, toRoute: (itemId) => ({ screen: "title", itemId }) },
   {
     pattern: /^\/series\/([1-9]\d{0,15})$/u,
@@ -209,14 +221,21 @@ function browseRoute(search: URLSearchParams): Route {
   const library = browseLibraryOf(search.get("library"));
   const view = search.get("view") === "folders" ? "folders" : undefined;
   const folder = search.get("folder") ?? undefined;
-  const sort = librarySorts.find((candidate) => candidate === search.get("sort"));
-  const order = sortOrders.find((candidate) => candidate === search.get("order"));
-  const query = search.get("query") ?? "";
   return {
     screen: "browse",
     ...(library === undefined ? {} : { library }),
     ...(view === undefined ? {} : { view }),
     ...(folder === undefined ? {} : { folder }),
+    ...listState(search),
+  };
+}
+
+/** Films' or Series' list state, read from its address: each part only when the address names it. */
+function listState(search: URLSearchParams): ListState {
+  const sort = librarySorts.find((candidate) => candidate === search.get("sort"));
+  const order = sortOrders.find((candidate) => candidate === search.get("order"));
+  const query = search.get("query") ?? "";
+  return {
     ...(sort === undefined ? {} : { sort }),
     ...(order === undefined ? {} : { order }),
     ...(query === "" ? {} : { query }),
@@ -252,6 +271,10 @@ function queryRouteHref(route: Route): string | undefined {
   if (route.screen === "browse") {
     return browseRouteHref(route);
   }
+  if (route.screen === "films" || route.screen === "series") {
+    const query = listStateQuery(route).toString();
+    return `/${route.screen}${query === "" ? "" : `?${query}`}`;
+  }
   if (route.screen === "play") {
     const query = new URLSearchParams();
     if (route.atMs !== undefined) {
@@ -269,6 +292,20 @@ function queryRouteHref(route: Route): string | undefined {
   return undefined;
 }
 
+/** A list's sort, its way and its search as an address's query: the Libraries page's and Films'. */
+function listStateQuery(state: ListState, query = new URLSearchParams()): URLSearchParams {
+  if (state.sort !== undefined) {
+    query.set("sort", state.sort);
+  }
+  if (state.order !== undefined) {
+    query.set("order", state.order);
+  }
+  if (state.query !== undefined && state.query !== "") {
+    query.set("query", state.query);
+  }
+  return query;
+}
+
 /** The Libraries page's address, holding what it shows (D349 §9.1 point 2). */
 function browseRouteHref(route: Route & { readonly screen: "browse" }): string {
   const query = new URLSearchParams();
@@ -281,15 +318,7 @@ function browseRouteHref(route: Route & { readonly screen: "browse" }): string {
   if (route.folder !== undefined) {
     query.set("folder", route.folder);
   }
-  if (route.sort !== undefined) {
-    query.set("sort", route.sort);
-  }
-  if (route.order !== undefined) {
-    query.set("order", route.order);
-  }
-  if (route.query !== undefined && route.query !== "") {
-    query.set("query", route.query);
-  }
+  listStateQuery(route, query);
   const asString = query.toString();
   return asString === "" ? "/browse" : `/browse?${asString}`;
 }

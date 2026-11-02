@@ -1274,12 +1274,11 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
     opened from far down the Series list opened scrolled down, its name hidden ("fix(web): a series opens at its top, its row of seasons scrolled sideways alone"); and OK on
     the video opened the hidden player overlay with nothing focused, so OK never paused and no arrow
     reached its controls ("fix(web): OK on a television's hidden player overlay puts focus on play").
-12. **For the owner (found running VQ61):** Back from a film opened from Films' or Series' search
-    shows the whole list again: the search and the sort are held in the page (`browse.tsx`), not in
-    its address as the Libraries page's are (`library-browse.tsx`), so the history entry does not
-    keep them. On a TV, a search typed by the remote is lost after looking at one result. Proposed:
-    put them in `/films` and `/series` addresses as the Libraries page does; next batch unless the
-    owner wants it in this one.
+12. **Fixed in this batch (found running VQ61; the owner, 2026-11-02: "Yes put that in"):** Back
+    from a film opened from Films' or Series' search showed the whole list again: the search and the
+    sort were held in the page (`browse.tsx`), not in its address as the Libraries page's are, so the
+    history entry did not keep them, and on a TV a search typed by the remote was lost after looking
+    at one result. Now `/films` and `/series` carry `sort`, `order` and `query` as `/browse` does.
 13. **Next batch (found running VQ61):** the arrows' search prefers a control in line with the press
     over a nearer one beside it, so some are reached only the other way: Down from *‹ Series* goes to
     the season row past *Play S5E1* and *Mark all … as watched*; Down from the banner goes past Play

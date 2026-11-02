@@ -280,7 +280,8 @@ function viewerScreen(route: Route): JSX.Element | undefined {
     return <Home />;
   }
   if (route.screen === "films" || route.screen === "series") {
-    return <Browse key={route.screen} kind={route.screen === "films" ? "movie" : "series"} />;
+    const { screen, ...state } = route;
+    return <Browse key={screen} kind={screen === "films" ? "movie" : "series"} state={state} />;
   }
   if (route.screen === "title") {
     return <Title key={route.itemId} id={route.itemId} />;
