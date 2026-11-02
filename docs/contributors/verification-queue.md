@@ -2361,3 +2361,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   Wi-Fi off) joins by link and does not press talk or grant the microphone. Passes when the guest
   hears the host within a few seconds of joining, and the host's "What happened" shows the call
   connected at the first try, not a run of failures 5 s after "accepted". (`internal/core/turn/credentials.go`)
+
+- [ ] **VQ242** — the button test records what the overlay's keys send (D407 §10; plans/player-overlay.md
+  step 1). After the deploy, open Lab › Button test on staging and note its run name each time. On the
+  Fire TV in Silk: put the full-screen test's box full screen, then press Menu (or `adb shell input
+  keyevent 82`), Rewind (89), Fast forward (90) and Back, and the same with the page not full screen.
+  On a Mac: press the ⏪ and ⏩ media keys with the tone on. On a computer: press +, =, − and the
+  number pad's + and − on a Swiss German, a Turkish Q and a Japanese JIS layout. Passes when every
+  press is a line in the core's log under its run, each key with its modifiers (`shiftKey`,
+  `altGraph`, …), `location` and `isComposing` where set, and Menu either as a key or as a
+  `contextmenu` line, or absent; note for each what arrived, as the input for steps 2, 9 and 10.
+  (`web/apps/web/src/lab-key-table.tsx`)

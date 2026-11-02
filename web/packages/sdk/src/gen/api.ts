@@ -3536,6 +3536,10 @@ export interface components {
              * @enum {string}
              */
             action?: "play" | "pause" | "seekbackward" | "seekforward" | "previoustrack" | "nexttrack";
+            /** @description Whether AltGr was held with a key, as getModifierState says */
+            altGraph?: boolean;
+            /** @description Whether Alt (Option) was held with a key */
+            altKey?: boolean;
             /**
              * Format: int64
              * @description Milliseconds since the page loaded
@@ -3558,6 +3562,8 @@ export interface components {
             button?: "up" | "down" | "left" | "right" | "select" | "back" | "playPause" | "rewind" | "fastForward" | "volumeUp" | "volumeDown" | "mute" | "other";
             /** @description A key's code */
             code?: string;
+            /** @description Whether Control was held with a key */
+            ctrlKey?: boolean;
             /** @description The name of the error a refused request rejected with */
             errorName?: string;
             /**
@@ -3576,6 +3582,8 @@ export interface components {
             inFullscreen?: boolean;
             /** @description An input event's inputType */
             inputType?: string;
+            /** @description Whether a key came while an input method composed */
+            isComposing?: boolean;
             /** @description Whether a key is its own repeat */
             isRepeat?: boolean;
             /** @description A key's key; a character typed in the field is sent as Character */
@@ -3589,12 +3597,19 @@ export interface components {
              * @description What it is
              * @enum {string}
              */
-            kind: "key" | "back" | "gamepad" | "stick" | "axis" | "media" | "move" | "mode" | "fieldIn" | "fieldOut" | "fieldInput" | "compositionStart" | "compositionEnd" | "viewport" | "fullscreenEnter" | "fullscreenExit" | "fullscreenRefused" | "fullscreenExitAsked" | "pad" | "okChoice";
+            kind: "key" | "back" | "gamepad" | "stick" | "axis" | "media" | "move" | "mode" | "fieldIn" | "fieldOut" | "fieldInput" | "compositionStart" | "compositionEnd" | "viewport" | "fullscreenEnter" | "fullscreenExit" | "fullscreenRefused" | "fullscreenExitAsked" | "pad" | "okChoice" | "contextmenu";
             /**
              * Format: int64
              * @description A move's time from its key to the frame after focus moved
              */
             latencyMs?: number;
+            /**
+             * Format: int64
+             * @description Where a key sits: 0 standard, 1 left, 2 right, 3 the number pad
+             */
+            location?: number;
+            /** @description Whether Meta (Command, Windows) was held with a key */
+            metaKey?: boolean;
             /**
              * @description Who moved focus when it came
              * @enum {string}
@@ -3637,6 +3652,8 @@ export interface components {
              * @description Its place in the run, from 0
              */
             seq: number;
+            /** @description Whether Shift was held with a key */
+            shiftKey?: boolean;
             /**
              * Format: int64
              * @description How many characters the field holds, never what they are

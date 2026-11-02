@@ -19,7 +19,15 @@ import { caretOf } from "./focus-engine.ts";
 import { useBrowsersNavigation, useCommands } from "./input-layer.tsx";
 import type { PadButtonPress, PadState, StickPress } from "./input-pad-poll.ts";
 import { FullscreenTest, fullscreenElementOf, leaveFullscreenAt } from "./lab-fullscreen.tsx";
-import { heardKeyOf, keyEntryOf, withKey, type KeyEntry } from "./lab-keys.ts";
+import { KeyTable, useContextMenus } from "./lab-key-table.tsx";
+import {
+  flagFieldsOf,
+  heardKeyOf,
+  keyEntryOf,
+  withKey,
+  type KeyEntry,
+  type KeyFlags,
+} from "./lab-keys.ts";
 import { PadLine, padIdKept, usePadHandlers, usePads } from "./lab-pad-input.tsx";
 import { padButtonNameOf } from "./input-pads.ts";
 import { eventTimeMs, latencySummary, type LatencySummary } from "./lab-timing.ts";
@@ -62,6 +70,7 @@ type Press =
       readonly keyCode: number;
       readonly isRepeat: boolean;
       readonly isInField: boolean;
+      readonly flags: KeyFlags;
     }
   | { readonly kind: "historyStep" }
   | PadButtonPress
@@ -85,6 +94,7 @@ function keyFieldsOf(press: Extract<Press, { kind: "key" }>): PressFields {
     key: isTyped ? "Character" : press.key.slice(0, keyTextKept),
     ...(isTyped ? {} : { code: press.code.slice(0, keyTextKept), keyCode: press.keyCode }),
     isRepeat: press.isRepeat,
+    ...flagFieldsOf(press.flags),
     ...(press.isInField ? { inField: true } : {}),
   };
 }
@@ -512,40 +522,6 @@ function InputFacts(props: {
   );
 }
 
-/** The keys heard, newest first. */
-function KeyTable(props: { readonly keys: readonly KeyEntry[] }): JSX.Element {
-  const { t } = useTranslation();
-  return (
-    <div className="lab__scroll">
-      <table className="lab__table">
-        <thead>
-          <tr>
-            <th scope="col">{t("lab.input.keyType")}</th>
-            <th scope="col">{t("lab.input.key")}</th>
-            <th scope="col">{t("lab.input.code")}</th>
-            <th scope="col">{t("lab.input.keyCode")}</th>
-            <th scope="col">{t("lab.input.repeat")}</th>
-            <th scope="col">{t("lab.input.since")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {props.keys.map((key, index) => (
-            // eslint-disable-next-line @eslint-react/no-array-index-key -- the log's entries have no identity but their place, newest first
-            <tr key={index} className={key.isBack ? "lab__back-key" : undefined}>
-              <td>{key.type}</td>
-              <td>{key.key}</td>
-              <td>{key.code}</td>
-              <td>{key.keyCode}</td>
-              <td>{yesNo(t, key.isRepeat)}</td>
-              <td>{key.sincePreviousMs ?? ""}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 /**
  * What a report needs beyond the main view, closed until asked for; it may scroll when open. The
  * tone's switch is here, off: only a keyboard's media keys need it.
@@ -608,6 +584,7 @@ function useHearing(
           code: entry.code,
           keyCode: entry.keyCode,
           isRepeat: entry.isRepeat,
+          flags: entry.flags,
           isInField: focused !== null && caretOf(focused) !== undefined,
         },
         atMs,
@@ -657,8 +634,8 @@ function useBackKept(): void {
 /**
  * The test's hearing and measuring in mode, its events sent by noteEvent: every press, each move's
  * latency (a pad's arrow timed before the app's navigation moves by it), the visual viewport's
- * changes, Back or Escape leaving full screen, and the OK the person chose, kept as the This device
- * page keeps it.
+ * changes, a context menu asked for, Back or Escape leaving full screen, and the OK the person
+ * chose, kept as the This device page keeps it.
  */
 function useButtonTest(
   mode: FocusMode,
@@ -668,6 +645,7 @@ function useButtonTest(
   readonly chooseOk: (chosen: OkButton) => void;
 } {
   useViewportChanges(noteEvent);
+  useContextMenus(noteEvent);
   useBackKept();
   const onMove = useCallback(
     (movedBy: FocusMode, latencyMs: number) => {

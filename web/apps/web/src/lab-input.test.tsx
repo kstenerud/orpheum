@@ -146,6 +146,55 @@ describe("the button test", () => {
     expect(heard.some((request) => request.methodAndPath === "POST /lab-results")).toBe(false);
   });
 
+  it("sends a key's modifiers, place and composing with it, and a context menu asked for", async () => {
+    // D407 §10: the volume keys' rule is read off each layout's + and −, and Silk's Menu key off
+    // what the page hears of it.
+    const heard: Heard[] = [];
+    const services = servedBy({ "POST /lab-input-events": [204, null] }, heard, "token");
+    mounted = await mount(withServices(<LabInput />, services));
+    const shown = mounted.container;
+    const plus = new KeyboardEvent("keydown", {
+      key: "+",
+      code: "Equal",
+      keyCode: 187,
+      shiftKey: true,
+      location: 0,
+      bubbles: true,
+    });
+    const numpadMinus = new KeyboardEvent("keydown", {
+      key: "-",
+      code: "NumpadSubtract",
+      keyCode: 109,
+      ctrlKey: true,
+      location: 3,
+      isComposing: true,
+      bubbles: true,
+    });
+    act(() => {
+      document.body.dispatchEvent(plus);
+      document.body.dispatchEvent(numpadMinus);
+      document.body.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+    });
+    await settleUntil(() => shown.textContent.includes("· 3 sent"));
+    const events = heard
+      .filter((request) => request.methodAndPath === "POST /lab-input-events")
+      .flatMap((request) => bodyField(request, "events") as unknown[]);
+    expect(events).toEqual([
+      expect.objectContaining({ seq: 0, kind: "key", key: "+", shiftKey: true }),
+      expect.objectContaining({
+        seq: 1,
+        kind: "key",
+        key: "-",
+        ctrlKey: true,
+        location: 3,
+        isComposing: true,
+      }),
+      expect.objectContaining({ seq: 2, kind: "contextmenu" }),
+    ]);
+    expect(events[0]).not.toHaveProperty("location");
+    expect(events[1]).not.toHaveProperty("shiftKey");
+  });
+
   it("says when sending fails, and tries again at the next press", async () => {
     const heard: Heard[] = [];
     const services = servedBy(
