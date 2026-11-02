@@ -535,12 +535,16 @@ The web client: the browser and phone interface, served embedded by the core. MP
   the choice of OK, kept as the This device page keeps it, and sends a pad with no standard
   mapping's buttons as numbers and its axes as they cross half way (`src/lab-pad-input.tsx`, H8);
   the app's navigation moves by a standard pad there as on every page, and the test keeps Back
-  rather than going back by it. `src/lab.test.tsx`,
+  rather than going back by it. Each key goes with the modifiers held (AltGr by
+  `getModifierState`), its place on the keyboard and whether an input method composed it, shown in
+  its key table, and each context menu the page is asked for is sent with whether it was full
+  screen, for the volume keys' layouts and a TV's Menu key (`src/lab-keys.ts`,
+  `src/lab-key-table.tsx`; D407 §10). `src/lab.test.tsx`,
   `src/lab-input.test.tsx`, `src/lab-input-field.test.tsx`, `src/lab-pad-input.test.tsx`,
   `src/input-pads.test.ts`, `src/lab-events.test.ts`, `src/lab-input.browser.test.tsx`,
   `src/lab-buttons.test.ts`, `src/input-buttons.test.ts`, `src/router.test.ts`, `src/focus-engine.test.ts`,
   `src/lab-timing.test.ts`, `src/lab-keys.test.ts`,
-  `src/lab-extend-channel.test.ts`, `src/lab-tone.test.ts`; on devices, VQ55–VQ60.
+  `src/lab-extend-channel.test.ts`, `src/lab-tone.test.ts`; on devices, VQ55–VQ60 and VQ242.
 - **Every page is driven by a remote, a keyboard or a game controller**
   (controller-input-2026-10-25.md §6.1; the owner, 2026-10-25): one input layer
   (`src/input-commands.ts`, run around every screen by `src/input-layer.tsx`) turns a key (by its
@@ -661,7 +665,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   pressing) and `focus-memory.ts` (what each container and history entry remembers).
 - The device lab (plans/tv-device-tests.md): `lab.tsx` (its menu), `lab-frame.tsx` (a probe's
   page and its Send), `lab-device.tsx`, `lab-input.tsx` (the button test, with `lab-buttons.ts`, its
-  chips, `lab-keys.ts`, `lab-events.ts`, its events on their way to the log, `lab-field.tsx`, its text field, `lab-fullscreen.tsx`, its full-screen test, and `lab-pad-input.tsx`, its controllers), `lab-remote.tsx`, `lab-extend.tsx` and `lab-extend-player.tsx` (with
+  chips, `lab-keys.ts` and `lab-key-table.tsx`, its keys, `lab-events.ts`, its events on their way to the log, `lab-field.tsx`, its text field, `lab-fullscreen.tsx`, its full-screen test, and `lab-pad-input.tsx`, its controllers), `lab-remote.tsx`, `lab-extend.tsx` and `lab-extend-player.tsx` (with
   `lab-extend-channel.ts`), `lab-cast.tsx` (with `lab-cast-sdk.ts`, Google's sender SDK),
   `lab-send.ts`, `lab-timing.ts`, `lab-tone.ts`, `lab-offered.ts` (whether the server offers it); its words in `src/locales/en-lab.ts`.
 - The look of plain elements everywhere: `src/base.css`; the skin's tokens: `src/tokens.css`

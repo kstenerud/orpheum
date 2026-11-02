@@ -3294,6 +3294,14 @@
             ],
             "type": "string"
           },
+          "altGraph": {
+            "description": "Whether AltGr was held with a key, as getModifierState says",
+            "type": "boolean"
+          },
+          "altKey": {
+            "description": "Whether Alt (Option) was held with a key",
+            "type": "boolean"
+          },
           "atMs": {
             "description": "Milliseconds since the page loaded",
             "format": "int64",
@@ -3339,6 +3347,10 @@
             "maxLength": 40,
             "type": "string"
           },
+          "ctrlKey": {
+            "description": "Whether Control was held with a key",
+            "type": "boolean"
+          },
           "errorName": {
             "description": "The name of the error a refused request rejected with",
             "maxLength": 40,
@@ -3373,6 +3385,10 @@
             "maxLength": 40,
             "pattern": "^[A-Za-z]*$",
             "type": "string"
+          },
+          "isComposing": {
+            "description": "Whether a key came while an input method composed",
+            "type": "boolean"
           },
           "isRepeat": {
             "description": "Whether a key is its own repeat",
@@ -3412,7 +3428,8 @@
               "fullscreenRefused",
               "fullscreenExitAsked",
               "pad",
-              "okChoice"
+              "okChoice",
+              "contextmenu"
             ],
             "type": "string"
           },
@@ -3422,6 +3439,17 @@
             "maximum": 60000,
             "minimum": 0,
             "type": "integer"
+          },
+          "location": {
+            "description": "Where a key sits: 0 standard, 1 left, 2 right, 3 the number pad",
+            "format": "int64",
+            "maximum": 3,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "metaKey": {
+            "description": "Whether Meta (Command, Windows) was held with a key",
+            "type": "boolean"
           },
           "mode": {
             "description": "Who moved focus when it came",
@@ -3506,6 +3534,10 @@
             "maximum": 1000000000,
             "minimum": 0,
             "type": "integer"
+          },
+          "shiftKey": {
+            "description": "Whether Shift was held with a key",
+            "type": "boolean"
           },
           "valueLength": {
             "description": "How many characters the field holds, never what they are",

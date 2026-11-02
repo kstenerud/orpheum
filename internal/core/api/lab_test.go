@@ -288,3 +288,46 @@ func TestLab_TheButtonTestsFieldFullScreenAndControllerEventsAreLoggedFlat(t *te
 		}
 	}
 }
+
+// A key's modifiers, its place on the keyboard and whether it came while composing are logged with
+// it, and a context menu asked for under its own message (D407 §10): the volume keys' rule is read
+// off a layout's + and −, and Silk's Menu key off what the page hears of it. Each is bounded.
+func TestLab_TheButtonTestsKeyModifiersAndContextMenuAreLogged(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	settingstest.Set(t, harness.server.Dependencies().Load().Settings, settings.ShouldOfferDeviceTests, "true")
+	plus := map[string]any{
+		"seq": 0, "atMs": 100, "kind": "key", "button": "other", "key": "+", "code": "Digit1",
+		"keyCode": 49, "shiftKey": true, "ctrlKey": true, "altKey": true, "metaKey": true,
+		"altGraph": true, "location": 3, "isComposing": true,
+	}
+	sent := labInputEvents(plus,
+		map[string]any{"seq": 1, "atMs": 200, "kind": "contextmenu", "inFullscreen": true})
+	answer := harness.do(t, http.MethodPost, "/lab-input-events", user, sent)
+	if answer.status != http.StatusNoContent {
+		t.Fatalf("POST /lab-input-events = %d %s", answer.status, answer.body)
+	}
+	harness.logs.AwaitLine(t, `"msg":"a button test heard a press"`, `"seq":0`, `"key":"+"`,
+		`"location":3`, `"shiftKey":true,"ctrlKey":true,"altKey":true,"metaKey":true,"altGraph":true`,
+		`"isComposing":true`)
+	harness.logs.AwaitLine(t, `"msg":"a button test heard a context menu"`, `"seq":1`,
+		`"kind":"contextmenu"`, `"inFullscreen":true`)
+
+	key := func(field string, value any) map[string]any {
+		event := labKeyEvent(0)
+		event[field] = value
+		return labInputEvents(event)
+	}
+	for name, refused := range map[string]map[string]any{
+		"a location past the number pad": key("location", 4),
+		"a location below 0":             key("location", -1),
+		"Shift as text":                  key("shiftKey", "yes"),
+		"AltGr as a number":              key("altGraph", 1),
+	} {
+		answer := harness.do(t, http.MethodPost, "/lab-input-events", user, refused)
+		if answer.status != http.StatusUnprocessableEntity {
+			t.Errorf("%s was taken: %d %s", name, answer.status, answer.body)
+		}
+	}
+}
