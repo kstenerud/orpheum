@@ -1388,3 +1388,8 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
     gamepad's key left the film paused (a controller, not the remote). **Next:** the owner tries again
     with the remote, and if it happens, leaves the TV as it is and says so: the page's focus and full
     screen can then be read over adb as they are.
+    **Fixed by the overlay (D407, 2026-11-02; plans/player-overlay.md step 5, VQ243):** the bar's 5 s
+    hide is gone, and whether the overlay shows decides what Right does, so Right on a shown overlay
+    always walks to ⤢. Two caveats stay: Silk never delivers Rewind or Fast forward to the page
+    (research §5.1), so "FF did nothing" cannot be fixed in the page; and while playing, the
+    overlay's 3 s hide can still change what Right does between presses (paused, it stays).
