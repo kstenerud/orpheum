@@ -217,6 +217,7 @@ User-Agent (D263; the User-Agent is logged only).
 | A cast's receiver on a Mac played on seconds after its remote paused it | [A computer's browser hides a page whose window is covered, and plays its film on](#a-computers-browser-hides-a-page-whose-window-is-covered-and-plays-its-film-on) |
 | Safari sizes a `height: 100%` video in an `aspect-ratio` box wrongly, cutting off its controls | [Safari sizes a `height: 100%` video in an `aspect-ratio` box wrongly, cutting off its controls](#safari-sizes-a-height-100-video-in-an-aspect-ratio-box-wrongly-cutting-off-its-controls) |
 | Playwright grants "microphone" only on Chromium; | [Playwright grants "microphone" only on Chromium; Firefox needs prefs](#playwright-grants-microphone-only-on-chromium-firefox-needs-prefs) |
+| A browser-mode test's media key press changed nothing | [A media key pressed through Playwright reaches no page](#a-media-key-pressed-through-playwright-reaches-no-page) |
 | After the D227 renames the client compiled while still sending the old field names. | [TypeScript checks no excess properties on a body built with a computed key or held in a variable](#typescript-checks-no-excess-properties-on-a-body-built-with-a-computed-key-or-held-in-a-variable) |
 | Playwright's browsers are not installed by `npm ci` | [Playwright's browsers are not installed by `npm ci`](#playwrights-browsers-are-not-installed-by-npm-ci) |
 | Git hooks export GIT_DIR, so a test's `git init` set `core.bare` on the project repository | [Git hooks export GIT_DIR, so a test's `git init` set `core.bare` on the project repository](#git-hooks-export-git_dir-so-a-tests-git-init-set-corebare-on-the-project-repository) |
@@ -3707,6 +3708,15 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   between browsers" (read 2026-10-08). This confirms the cause. Users in #20563 grant it in Firefox with
   `firefoxUserPrefs` `permissions.default.microphone: 1`, browser-wide; our
   `media.navigator.permission.disabled` does the same job.
+
+### A media key pressed through Playwright reaches no page
+
+- **Symptom:** a browser-mode test's `userEvent.keyboard("{MediaTrackNext}")` changed nothing; a
+  capturing `keydown` listener on the document heard no event at all.
+- **What we do:** the test dispatches the `keydown` a keyboard's ⏭ gives the page itself
+  (`web/apps/web/src/input-player.browser.test.tsx`, "plays the next episode by MediaTrackNext").
+- **Evidence:** [measured] Vitest 5's browser mode, Playwright's Chromium and Firefox, 2026-11-02.
+  Cause unverified: the browser may take media keys for its own media controls before the page.
 
 
 ### TypeScript checks no excess properties on a body built with a computed key or held in a variable

@@ -2407,3 +2407,17 @@ An item is ticked only by the person who did it, and only with what they saw.
   continues, and Stop is reached by Up into its row. With nothing on offer and the whole overlay
   shown, the corner says when the film ends. (`web/apps/web/src/convenience-area.tsx`,
   `player-overlay.tsx`, `up-next.tsx`)
+
+- [ ] **VQ247** — a computer's media keys and the Mac's ⏪ ⏩ change the episode, and ⏮ ⏭ show only
+  within a sequence (D407 §2, §10; plans/player-overlay.md step 9). First read what VQ242 recorded for
+  the Mac's ⏪ and ⏩: they are expected to change the episode only if they arrived as
+  `MediaTrackPrevious` and `MediaTrackNext` (or as `previoustrack` and `nexttrack`). On staging, in
+  Chrome and Firefox on a computer with media keys, and on the Mac, play an episode with one before
+  and one after it, and press each key once it has played a moment. Passes when: next plays the
+  episode after it and previous the one before, as Up next plays, on each machine whose keys arrive
+  so; Chrome's media controls (its toolbar's media button, or the system's) offer previous and next
+  track for that episode, and only next for a series' first episode and only previous for its last,
+  once the episode has played; a film offers neither. In full screen the overlay shows ⏮ and ⏭ around
+  ⏪ ▶ ⏩ for the same episodes, and only the one there is at either end; on the Fire TV, a cast's
+  receiver shows ⏭ alone, which moves the cast on. Note what each machine's keys did.
+  (`web/apps/web/src/up-next.tsx`, `input-commands.ts`, `player-controls.tsx`)

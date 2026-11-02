@@ -3,6 +3,7 @@
 
 import "./i18n.ts";
 
+import type { CastToReceive } from "@orpheum/sdk";
 import { act, createRef, type JSX } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -17,8 +18,11 @@ import {
   upNextCountdownMs,
   upNextLeadMs,
   UpNextOffer,
+  useSequenceCommands,
   useUpNextOffered,
+  type Previous,
   type UpNext,
+  type UpNextOffered,
 } from "./up-next.tsx";
 
 /** S1E3, "Bag", which plays file 4. */
@@ -124,6 +128,87 @@ describe("what the Play page asks for what plays next", () => {
     page.unmount();
   });
 });
+
+/** S1E1, "Pilot", which plays file 2: the episode before the one playing. */
+const pilot: Previous = {
+  titleId: 21,
+  name: "Pilot",
+  groupNumber: 1,
+  numberInGroup: 1,
+  fileId: 2,
+  isPartway: false,
+};
+
+describe("previous and next in a sequence (D407 §2, §10)", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+  });
+
+  /** Mounts the Play page's hearing of previous and next for offered; returns what it says there is. */
+  async function hearing(
+    offered: Omit<UpNextOffered, "isAutoplayOn">,
+    services = testServices(),
+  ): Promise<() => string> {
+    function Hearing(): JSX.Element {
+      const tracks = useSequenceCommands({ ...offered, isAutoplayOn: false });
+      return <p>{JSON.stringify(tracks)}</p>;
+    }
+    mounted = await mount(withServices(<Hearing />, services));
+    return () => mounted?.container.textContent ?? "";
+  }
+
+  it("plays the episode before or after at the previous and next commands, the way Up next plays", async () => {
+    const services = testServices();
+    const replace = vi.spyOn(services.navigation, "replace");
+    const said = await hearing({ upNext: bag, previous: pilot }, services);
+    expect(JSON.parse(said())).toEqual({ hasPrevious: true, hasNext: true });
+    press("next");
+    press("previous");
+    expect(replace.mock.calls).toEqual([
+      [{ screen: "play", fileId: 4 }],
+      [{ screen: "play", fileId: 2 }],
+    ]);
+  });
+
+  it("leaves the commands alone, and says there is none, where the sequence has no such episode", async () => {
+    const services = testServices();
+    const replace = vi.spyOn(services.navigation, "replace");
+    const away = { reason: "node_away", nodeName: "devnas" } as const;
+    const unreadable: UpNext = { ...bag, episode: { ...bag.episode, unavailable: away } };
+    const said = await hearing({ upNext: unreadable, previous: undefined }, services);
+    expect(JSON.parse(said())).toEqual({ hasPrevious: false, hasNext: false });
+    press("next");
+    press("previous");
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("on a cast's receiver, moves the cast on at next, and has no previous", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy({ "POST /me/casts/5/next": [200, { castId: 5, fileId: 4 }] }, heard);
+    const replace = vi.spyOn(services.navigation, "replace");
+    const receiving = { cast: castHere, onLeave: () => undefined };
+    const said = await hearing({ upNext: bag, previous: pilot, receiving }, services);
+    expect(JSON.parse(said())).toEqual({ hasPrevious: false, hasNext: true });
+    press("previous");
+    press("next");
+    await settleUntil(() => heard.length > 0);
+    expect(heard.map((request) => request.methodAndPath)).toEqual(["POST /me/casts/5/next"]);
+    expect(replace).not.toHaveBeenCalled();
+  });
+});
+
+/** A cast this device receives: Metropolis, from the Pixel. */
+const castHere: CastToReceive = {
+  castId: 5,
+  membershipCredential: "receiver",
+  fileId: 3,
+  titleName: "Metropolis",
+  positionMs: 61_000,
+  fromDeviceId: 2,
+  fromDeviceName: "Pixel",
+};
 
 describe("the Up next offer over the film", () => {
   let mounted: Mounted | undefined;

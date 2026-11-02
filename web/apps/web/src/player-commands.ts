@@ -16,7 +16,7 @@ import { leaveFullScreenAsked } from "./film-fullscreen.ts";
 import { arrowsAreCommandsAttribute } from "./focus-engine.ts";
 import { useCommands, useMediaSeeks } from "./input-layer.tsx";
 import type { Command } from "./input-buttons.ts";
-import type { CommandSource } from "./input-commands.ts";
+import type { CommandSource, MediaTracks } from "./input-commands.ts";
 import { askedByOf, seekAheadOf } from "./seek-ahead.ts";
 
 /** Plays video where it is paused, else pauses it, making a seek being chosen first. */
@@ -214,11 +214,11 @@ function useSpacePlaysAndPauses(video: HTMLVideoElement | null): void {
 
 /**
  * Answers the commands for video while it is shown, the browser's media controls' seeking too, and
- * Space wherever focus is in the player.
+ * their previous and next track where tracks has them, and Space wherever focus is in the player.
  */
-export function usePlayerCommands(video: HTMLVideoElement | null): void {
+export function usePlayerCommands(video: HTMLVideoElement | null, tracks?: MediaTracks): void {
   useSpacePlaysAndPauses(video);
-  useMediaSeeks();
+  useMediaSeeks(tracks);
   useCommands("document", (detail, event) => {
     if (video !== null && answerPlayerCommand(video, detail.command, detail.source)) {
       event.preventDefault();

@@ -20,8 +20,10 @@ import type { OfferPlace } from "./convenience-area.tsx";
 import { placeCode } from "./episode-place.ts";
 import type { FilmParts, FilmPiece } from "./film-player.tsx";
 import { IconButton } from "./icon-button.tsx";
+import type { MediaTracks } from "./input-commands.ts";
 import { useCommands } from "./input-layer.tsx";
 import { PageControls } from "./page-controls.tsx";
+import type { SequenceMoves } from "./player-controls.tsx";
 import { CloseIcon } from "./player-icons.tsx";
 import { PlayerOverlay } from "./player-overlay.tsx";
 import { Still } from "./poster.tsx";
@@ -52,25 +54,42 @@ export const upNextCountdownMs = 10_000;
 /** What plays after a file, as the server offers it (GET /files/{id}/up-next). */
 export type UpNext = components["schemas"]["UpNextBody"];
 
+/** What plays before a file, its previous in the sequence (GET /files/{id}/up-next, D407 §2). */
+export type Previous = components["schemas"]["NextUpBody"];
+
+/** What plays after fileId and before it, each undefined where nothing does. */
+interface AroundFile {
+  readonly upNext: UpNext | undefined;
+  readonly previous: Previous | undefined;
+}
+
 /**
- * What plays after fileId, undefined while unknown and where nothing does; asked for once isAsked,
- * nothing before.
+ * What plays after fileId and before it, undefined while unknown; asked for once isAsked, nothing
+ * before.
  */
-export function useUpNext(fileId: number, isAsked = true): UpNext | undefined {
+function useAroundFile(fileId: number, isAsked: boolean): AroundFile | undefined {
   const { api } = useServices();
-  const [upNext] = useResource(
+  const [around] = useResource(
     `up-next/${String(fileId)}${isAsked ? "" : "/not-yet"}`,
-    async () => {
+    async (): Promise<AroundFile | undefined> => {
       if (!isAsked) {
         return undefined;
       }
       const answer = dataOrThrow(
         await api.GET("/files/{id}/up-next", { params: { path: { id: fileId } } }),
       );
-      return answer.upNext ?? undefined;
+      return { upNext: answer.upNext ?? undefined, previous: answer.previous ?? undefined };
     },
   );
-  return upNext.state === "loaded" ? upNext.value : undefined;
+  return around.state === "loaded" ? around.value : undefined;
+}
+
+/**
+ * What plays after fileId, undefined while unknown and where nothing does; asked for once isAsked,
+ * nothing before.
+ */
+export function useUpNext(fileId: number, isAsked = true): UpNext | undefined {
+  return useAroundFile(fileId, isAsked)?.upNext;
 }
 
 /**
@@ -99,11 +118,12 @@ function useHasPlayed(video: HTMLVideoElement | null, fileId: number): boolean {
 }
 
 /**
- * What the Play page gives its Up next offer: what plays next, the person's autoplay, and the cast
- * this device receives, while it does.
+ * What the Play page gives its Up next offer and its previous and next: what plays next and what
+ * before, the person's autoplay, and the cast this device receives, while it does.
  */
 export interface UpNextOffered {
   readonly upNext: UpNext | undefined;
+  readonly previous?: Previous | undefined;
   readonly isAutoplayOn: boolean;
   readonly receiving?: Receiving | undefined;
 }
@@ -120,11 +140,70 @@ export const UpNextContext = createContext<UpNextOffered | undefined>(undefined)
 export function useUpNextOffered(
   fileId: number,
   video: HTMLVideoElement | null,
-  playing: Omit<UpNextOffered, "upNext">,
+  playing: Omit<UpNextOffered, "upNext" | "previous">,
 ): UpNextOffered {
   const { isAutoplayOn, receiving } = playing;
-  const upNext = useUpNext(fileId, useHasPlayed(video, fileId));
-  return useMemo(() => ({ upNext, isAutoplayOn, receiving }), [upNext, isAutoplayOn, receiving]);
+  const around = useAroundFile(fileId, useHasPlayed(video, fileId));
+  const upNext = around?.upNext;
+  const previous = around?.previous;
+  return useMemo(
+    () => ({ upNext, previous, isAutoplayOn, receiving }),
+    [upNext, previous, isAutoplayOn, receiving],
+  );
+}
+
+/**
+ * What the player's previous and next play (D407 §2, §10): the episode before and after this one,
+ * each where there is one that can be read now, played the way Up next plays. On a cast's receiver
+ * next moves the cast on, as its Up next does, and there is no previous: the cast has no move back
+ * yet (plans/player-overlay.md §6).
+ */
+export function useSequenceMoves(offered: UpNextOffered | undefined): SequenceMoves {
+  const { api, navigation } = useServices();
+  const upNext = offered?.upNext?.episode;
+  const previous = offered?.previous;
+  const receiving = offered?.receiving;
+  return useMemo(() => {
+    const isPlayable = (episode: Previous | undefined): episode is Previous =>
+      episode !== undefined && episode.unavailable === undefined;
+    const playing = (episode: Previous | undefined): (() => void) | undefined => {
+      if (!isPlayable(episode)) {
+        return undefined;
+      }
+      return () => {
+        navigation.replace({ screen: "play", fileId: episode.fileId });
+      };
+    };
+    if (receiving === undefined) {
+      return { previous: playing(previous), next: playing(upNext) };
+    }
+    const movingOn = (): void => {
+      moveOnOrReady(api, receiving);
+    };
+    return { next: isPlayable(upNext) ? movingOn : undefined };
+  }, [api, navigation, upNext, previous, receiving]);
+}
+
+/**
+ * Answers the previous and next commands (a keyboard's media keys, the browser's media controls) by
+ * playing the episode before or after this one, where there is one (useSequenceMoves); returns which
+ * there are, so the browser's media controls offer only those (hearMediaSeeks).
+ */
+export function useSequenceCommands(offered: UpNextOffered): Required<MediaTracks> {
+  const moves = useSequenceMoves(offered);
+  useCommands("document", (detail, event) => {
+    if (detail.command !== "previous" && detail.command !== "next") {
+      return;
+    }
+    const move = moves[detail.command];
+    if (move !== undefined) {
+      event.preventDefault();
+      move();
+    }
+  });
+  const hasPrevious = moves.previous !== undefined;
+  const hasNext = moves.next !== undefined;
+  return useMemo(() => ({ hasPrevious, hasNext }), [hasPrevious, hasNext]);
 }
 
 /** Where the film stands for the offer: where it is, its length, and whether it has ended. */
@@ -171,12 +250,11 @@ export function offerState(
  */
 export function UpNextOver(props: FilmParts & OfferPlace): JSX.Element | null {
   const offered = use(UpNextContext);
-  const { api, navigation } = useServices();
+  const { next } = useSequenceMoves(offered);
   const upNext = offered?.upNext;
-  if (upNext === undefined || upNext.episode.unavailable !== undefined) {
+  if (upNext === undefined || next === undefined) {
     return null; // a next episode that cannot be read now is not offered (plans/up-next.md §7)
   }
-  const receiving = offered?.receiving;
   return (
     <UpNextOffer
       key={upNext.episode.fileId}
@@ -185,13 +263,7 @@ export function UpNextOver(props: FilmParts & OfferPlace): JSX.Element | null {
       videoRef={props.videoRef}
       isOverlayFull={props.isOverlayFull}
       onOffered={props.onOffered}
-      onPlay={() => {
-        if (receiving === undefined) {
-          navigation.replace({ screen: "play", fileId: upNext.episode.fileId });
-        } else {
-          moveOnOrReady(api, receiving);
-        }
-      }}
+      onPlay={next}
     />
   );
 }
@@ -206,14 +278,16 @@ export function overTheFilm(hasTelevisionControls: boolean): FilmPiece {
   return hasTelevisionControls ? OverlayAndUpNext : PageControlsAndUpNext;
 }
 
-/** The player's full-screen overlay (player-overlay.tsx), the Up next offer in it. */
+/** The player's full-screen overlay (player-overlay.tsx), the Up next offer and ⏮ ⏭ in it. */
 function OverlayAndUpNext(props: FilmParts): JSX.Element {
-  return <PlayerOverlay {...props} shouldOpenFullScreen offer={UpNextOver} />;
+  const moves = useSequenceMoves(use(UpNextContext));
+  return <PlayerOverlay {...props} shouldOpenFullScreen offer={UpNextOver} moves={moves} />;
 }
 
-/** A computer's and a phone's player controls (page-controls.tsx), and the Up next offer. */
+/** A computer's and a phone's player controls (page-controls.tsx), the Up next offer, ⏮ and ⏭. */
 function PageControlsAndUpNext(props: FilmParts): JSX.Element {
-  return <PageControls {...props} offer={UpNextOver} />;
+  const moves = useSequenceMoves(use(UpNextContext));
+  return <PageControls {...props} offer={UpNextOver} moves={moves} />;
 }
 
 /**

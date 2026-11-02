@@ -58,7 +58,7 @@ import {
   type DecideAgainCause,
   type FirstAsk,
 } from "./play-opened.ts";
-import { overTheFilm, UpNextContext, useUpNextOffered } from "./up-next.tsx";
+import { overTheFilm, UpNextContext, useSequenceCommands, useUpNextOffered } from "./up-next.tsx";
 import type { PlaybackDecision } from "./watching.ts";
 
 /** What PlayView is given: the file, its decision, and its ways to ask again. */
@@ -140,7 +140,10 @@ function PlayerView(
   const [video, setVideo] = useState<HTMLVideoElement | null>(null);
   // Whether its lowest quality cannot keep up, which a host's session tells everyone (D247 §8).
   const [cannotKeepUp, setCannotKeepUp] = useState<CannotKeepUp | undefined>(undefined);
-  usePlayerCommands(video);
+  const { fileId, decision, onDecideAgain, onPlaybackGone, onOwnPictureGivenUp, receiving } = props;
+  const offered = useUpNextOffered(fileId, video, { ...decision.preferences, receiving });
+  const tracks = useSequenceCommands(offered);
+  usePlayerCommands(video, tracks);
   useFullscreenAsTheBrowserIs(video);
   const { mediaToken } = props.decision;
   const onLowerQuality = useCallback(
@@ -149,7 +152,6 @@ function PlayerView(
     },
     [mediaToken],
   );
-  const { fileId, decision, onDecideAgain, onPlaybackGone, onOwnPictureGivenUp } = props;
   const ways = useMemo(
     () => ({
       fileId,
@@ -164,11 +166,9 @@ function PlayerView(
     [fileId, decision, onDecideAgain, onPlaybackGone, onOwnPictureGivenUp, onLowerQuality],
   );
   const { titleName, resumePositionMs } = props.decision;
-  const { receiving } = props;
   // A cast's receiver shows the film and nothing else (D337 §3).
   const isOwn = receiving === undefined;
   useNotesWhereItPlays(isOwn, { fileId, video, startPositionMs: resumePositionMs });
-  const offered = useUpNextOffered(fileId, video, { ...decision.preferences, receiving });
   return (
     <UpNextContext value={offered}>
       <PlayTop plays={decision.plays} titleName={titleName} isOwn={isOwn}>
@@ -190,7 +190,7 @@ function PlayerView(
         {...{ receiving, fileId, video, cannotKeepUp }}
         delivery={deliveryOf(decision, moved)}
         startPositionMs={resumePositionMs}
-        hasNext={offered.upNext !== undefined && offered.upNext.episode.unavailable === undefined}
+        hasNext={tracks.hasNext}
       />
     </UpNextContext>
   );

@@ -500,6 +500,68 @@ describe("Space on an ordinary Play page, in a computer's browser", () => {
   });
 });
 
+describe("the media keys' next and previous on a Play page, in a computer's browser (D407 §10)", () => {
+  let walking: Walking | undefined;
+  afterEach(() => {
+    walking?.unmount();
+    walking = undefined;
+    vi.restoreAllMocks();
+  });
+
+  // A keyboard's ⏭ plays the next episode, as Up next does, and the browser's media controls are
+  // given next track only once there is a next, previous track not at all where there is no previous:
+  // Chrome shows a button for each action registered. Their next track's press is the same command
+  // (input-commands.test.tsx).
+  it("plays the next episode by MediaTrackNext, the browser's media controls given next alone", async () => {
+    const registered = new Set<MediaSessionAction>();
+    const setActionHandler = navigator.mediaSession.setActionHandler.bind(navigator.mediaSession);
+    vi.spyOn(navigator.mediaSession, "setActionHandler").mockImplementation((action, handler) => {
+      if (handler === null) {
+        registered.delete(action);
+      } else {
+        registered.add(action);
+      }
+      setActionHandler(action, handler);
+    });
+    await page.viewport(1280, 800);
+    const services = walkServices(
+      {
+        ...filmToPlay,
+        "GET /files/1030/up-next": {
+          upNext: {
+            episode: {
+              titleId: 104,
+              fileId: 1040,
+              name: "Bag",
+              groupNumber: 1,
+              numberInGroup: 3,
+              isPartway: false,
+            },
+            ordering: "aired",
+          },
+        },
+      },
+      "/play/1030",
+    );
+    walking = await mountApp(services);
+    const video = await theFailedVideo();
+    expect(registered.has("nexttrack")).toBe(false);
+    // What plays next is asked for once the film has played (up-next.tsx).
+    Object.defineProperty(video, "paused", { configurable: true, get: () => false });
+    video.dispatchEvent(new Event("playing"));
+    await expect.poll(() => registered.has("nexttrack")).toBe(true);
+    expect(registered.has("previoustrack")).toBe(false);
+    // The browser keeps a media key the test's driver presses from the page (no keydown reaches it,
+    // in Chromium nor Firefox), so the key comes as the page hears it from a keyboard that sends one.
+    video.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "MediaTrackNext", bubbles: true, cancelable: true }),
+    );
+    await expect
+      .poll(() => routeHref(services.navigation.route()))
+      .toBe(routeHref({ screen: "play", fileId: 1040 }));
+  });
+});
+
 /** A Fire TV Stick's Silk, as the owner's says itself. */
 const fireTvSilk =
   "Mozilla/5.0 (Linux; Android 9; AFTSSS) AppleWebKit/537.36 (KHTML, like Gecko) Silk/138.19.9 like Chrome/138.0.7204.244 Safari/537.36";

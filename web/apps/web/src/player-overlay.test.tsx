@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { commandEventName } from "./input-commands.ts";
 import type { OfferPiece, OfferPlace } from "./convenience-area.tsx";
+import type { SequenceMoves } from "./player-controls.tsx";
 import { PlayerOverlay } from "./player-overlay.tsx";
 import { seekAskedEvent, seekRestMs, soughtByOf } from "./seek-ahead.ts";
 import { mount, type Mounted } from "./test-dom.tsx";
@@ -93,7 +94,11 @@ describe("the player's full-screen overlay on a television (D407)", () => {
   });
 
   /** Draws the overlay over video in a stage, with offer in its convenience area where given. */
-  async function drawn(video: HTMLVideoElement, offer?: OfferPiece): Promise<Mounted> {
+  async function drawn(
+    video: HTMLVideoElement,
+    offer?: OfferPiece,
+    moves?: SequenceMoves,
+  ): Promise<Mounted> {
     const videoRef = createRef<HTMLVideoElement>();
     Reflect.set(videoRef, "current", video);
     mounted = await mount(
@@ -104,6 +109,7 @@ describe("the player's full-screen overlay on a television (D407)", () => {
             readLinkKbps={() => undefined}
             failure={undefined}
             offer={offer}
+            moves={moves}
           />
         </div>,
       ),
@@ -150,6 +156,48 @@ describe("the player's full-screen overlay on a television (D407)", () => {
     for (const row of container?.querySelectorAll(".player-overlay__row") ?? []) {
       expect(row.hasAttribute("data-focus-container")).toBe(true);
     }
+  });
+
+  /** The labels of the overlay's buttons' row, in order. */
+  function buttonLabels(): (string | null)[] {
+    const buttons = mounted?.container.querySelectorAll(".player-overlay__buttons button") ?? [];
+    return [...buttons].map((button) => button.getAttribute("aria-label"));
+  }
+
+  // D407 §2: ⏮ and ⏭ only within a sequence, each only where there is one to go to.
+  it("draws ⏮ and ⏭ around the steps only where the sequence has them, and plays them pressed", async () => {
+    const moved: string[] = [];
+    await drawn(document.createElement("video"), undefined, {
+      previous: () => moved.push("previous"),
+      next: () => moved.push("next"),
+    });
+    expect(buttonLabels()).toEqual([
+      "Previous episode",
+      "Back 10 s",
+      "Play",
+      "Forward 10 s",
+      "Next episode",
+      "Full screen",
+    ]);
+    const buttonOf = (label: string): HTMLButtonElement | null | undefined =>
+      mounted?.container.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
+    act(() => {
+      buttonOf("Next episode")?.click();
+      buttonOf("Previous episode")?.click();
+    });
+    expect(moved).toEqual(["next", "previous"]);
+    mounted?.unmount();
+    await drawn(document.createElement("video"), undefined, { next: () => moved.push("next") });
+    expect(buttonLabels()).toEqual([
+      "Back 10 s",
+      "Play",
+      "Forward 10 s",
+      "Next episode",
+      "Full screen",
+    ]);
+    mounted?.unmount();
+    await drawn(document.createElement("video"), undefined, {});
+    expect(buttonLabels()).toEqual(["Back 10 s", "Play", "Forward 10 s", "Full screen"]);
   });
 
   it("says a seek it makes for Left or Right was asked by that key, not by the seeking command it answers with", async () => {
