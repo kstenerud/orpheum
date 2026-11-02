@@ -141,17 +141,19 @@
 //     TestSeries_OfSeveralByItsNameTheOldestIsGuessedAndAPersonCorrectsIt. A film's candidates are
 //     ranked otherwise (settle_film.go, D365): a year in its name admits a year either side; those
 //     whose runtime fits one of its files' lengths, within the larger of 3 minutes and 3% of it,
-//     come first, then those of unknown runtime, then those it contradicts; within each, the named
+//     come first, then those of unknown runtime, then those it contradicts, though with no year an
+//     unknown runtime ranks with those it contradicts (the owner, 2026-11-02); within each, the named
 //     year before a year off, then the most voted, or with no year the oldest; several all a year
 //     off, none fitting, stay a person's choice.
 //     TestMatch_AFilmsCandidateWhoseRuntimeFitsTheFileIsTaken,
 //     TestMatch_AFilmsCandidatesAreRankedFitsUnknownThenContradicts,
 //     TestMatch_AFilmsYearAdmitsAYearEitherSideItsOwnFirst,
-//     TestMatch_AFilmWithNoYearTakesTheOldestOfThoseThatFitBest. Each admitted candidate's runtime is
-//     read from its details where several are admitted and a file's length is known, kept with the
-//     candidates in cache.db and not fetched again while kept; the one taken is stored from the
-//     details read; and the log says each one's year, runtime, votes and fit, and the one taken
-//     (runtimes.go, D365 §4, §5). TestMatch_AFilmsCandidateWhoseRuntimeFitsTheFileIsTaken,
+//     TestMatch_AFilmWithNoYearTakesTheOldestOfThoseThatFitBest,
+//     TestMatch_AFilmWithNoYearIsNotTakenByAnUnknownRuntimeOverTheOldest. Each admitted
+//     candidate's runtime is read from its details where several are admitted and a file's length
+//     is known, kept with the candidates in cache.db and not fetched again while kept; the one
+//     taken is stored from the details read; and the log says each one's year, runtime, votes and
+//     fit, and the one taken (runtimes.go, D365 §4, §5). TestMatch_AFilmsCandidateWhoseRuntimeFitsTheFileIsTaken,
 //     TestRescan_AKeptCandidatesRuntimeIsNotFetchedAgain,
 //     TestMatch_AFilmsChoiceAmongItsCandidatesIsLogged. With none of the file's
 //     name, a work under another name is guessed: the one candidate of the file's year, or with no

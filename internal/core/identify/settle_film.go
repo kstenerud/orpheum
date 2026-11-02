@@ -140,14 +140,14 @@ func isAnyOfYear(found []Candidate, year int) bool {
 }
 
 // rankFilms is found, the likeliest first (D365 §1–§3): those whose runtime fits the film's files,
-// then those whose runtime is unknown, then those it contradicts; within each, with a year in the
-// query, those of that year before those a year off, then the most voted at the source; with no
-// year, the oldest, a candidate with no year last, then the most voted (D301 §1); and the provider's
-// order after.
+// then those whose runtime is unknown, then those it contradicts, except with no year (rankedFit);
+// within each, with a year in the query, those of that year before those a year off, then the most
+// voted at the source; with no year, the oldest, a candidate with no year last, then the most voted
+// (D301 §1); and the provider's order after.
 func rankFilms(query Query, found []Candidate, lengthsMs []int64) []Candidate {
 	ranked := slices.Clone(found)
 	slices.SortStableFunc(ranked, func(one, other Candidate) int {
-		if order := cmp.Compare(fitOf(one, lengthsMs), fitOf(other, lengthsMs)); order != 0 {
+		if order := cmp.Compare(rankedFit(query, one, lengthsMs), rankedFit(query, other, lengthsMs)); order != 0 {
 			return order
 		}
 		if query.Year != 0 {
@@ -157,6 +157,21 @@ func rankFilms(query Query, found []Candidate, lengthsMs []int64) []Candidate {
 		return cmp.Or(compareOldest(one.Year, other.Year), cmp.Compare(other.Votes, one.Votes))
 	})
 	return ranked
+}
+
+// rankedFit is the class of fit a candidate is ranked in: its fit (fitOf), but with no year in the
+// query an unknown runtime ranks with those the file contradicts, so only a fit lifts a candidate
+// over the oldest (the owner, 2026-11-02). With no year the name admits every work of it across the
+// decades, and the ones the source knows no runtime of are its sparsest entries: the owner's
+// Wings.mp4, a longer cut of Cameron's 137-minute Wings, went to a 2014 Wings of no runtime and
+// one vote, as a cut contradicted the film it is. With a year, which admits three years' works, an
+// unknown runtime still ranks between (D365 §1).
+func rankedFit(query Query, candidate Candidate, lengthsMs []int64) runtimeFit {
+	fit := fitOf(candidate, lengthsMs)
+	if query.Year == 0 && fit == runtimeUnknown {
+		return contradictsTheFile
+	}
+	return fit
 }
 
 // yearsOff is how many years year is off want.

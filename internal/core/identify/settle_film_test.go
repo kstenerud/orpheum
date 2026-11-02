@@ -239,6 +239,35 @@ func TestMatch_AFilmWithNoYearTakesTheOldestOfThoseThatFitBest(t *testing.T) {
 	}
 }
 
+// With no year in the name, a candidate whose runtime is unknown ranks with those the file
+// contradicts, so the oldest is taken where none fits: the owner's Wings.mp4, 148.8 minutes, a
+// longer cut than Cameron's 137, went to an Wings of 2014 TMDB knows no runtime of and one vote
+// (the owner, 2026-11-02; TMDB's answers as staging kept them).
+func TestMatch_AFilmWithNoYearIsNotTakenByAnUnknownRuntimeOverTheOldest(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movies", "tmdb")
+	add := func(id string, year int, runtimeMs int64, votes int) identify.Candidate {
+		candidate := lib.provider.Add(identify.Metadata{
+			ID: id, Name: "Wings", OriginalName: "Wings", Year: year, RuntimeMs: runtimeMs,
+		})
+		candidate.Votes = votes
+		return candidate
+	}
+	lib.provider.Searches[identifytest.SearchKey("Wings", 0)] = []identify.Candidate{
+		add("679", 1986, 137*minuteMs, 11339),
+		{ID: "3930", Name: "Monsters vs Wings", Year: 2009, Votes: 5185},
+		add("504935", 1993, 78*minuteMs, 5),
+		add("467396", 2017, 23*minuteMs, 3),
+		add("486595", 2014, 0, 1),
+	}
+	const rel = "Wings.mp4"
+	lib.scan(videoLasting(rel, 8_925_516))
+	lib.matchFileTitle(rel)
+	if id, _ := lib.followed(rel); id != "679" {
+		t.Errorf("%s follows %s; want 679, the oldest, none fitting and an unknown runtime no better", rel, id)
+	}
+}
+
 // D365 §5: the log says, for a film whose name admitted several candidates, each one's year,
 // runtime, votes and fit, and the one taken.
 func TestMatch_AFilmsChoiceAmongItsCandidatesIsLogged(t *testing.T) {
