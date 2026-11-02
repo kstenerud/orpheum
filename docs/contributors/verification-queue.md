@@ -2396,3 +2396,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   Escape leaves full screen and the bar is back over the film, the film where it was; a
   double click on the film goes full screen and back. Note anything that differs by browser.
   (`web/apps/web/src/page-controls.tsx`, `player-commands.ts`, `player-overlay.tsx`)
+
+- [ ] **VQ246** — Up next and Still watching show alone in the overlay's convenience area, and OK
+  takes them (D407 §3; plans/player-overlay.md step 8). On the Fire TV, in Silk, play an episode with
+  a next one and let the overlay hide; seek near the end. Passes when: Up next shows at the top right
+  with nothing else of the overlay and no scrim; OK takes it wherever focus is; Left and Right seek
+  with the scrub bar showing and Up next staying; Up opens the whole overlay, Up next still in its
+  corner, and Back then hides the overlay while Up next stays; Back with the overlay hidden dismisses
+  Up next. Then let three episodes autoplay with no press: Still watching shows alone the same way, OK
+  continues, and Stop is reached by Up into its row. With nothing on offer and the whole overlay
+  shown, the corner says when the film ends. (`web/apps/web/src/convenience-area.tsx`,
+  `player-overlay.tsx`, `up-next.tsx`)

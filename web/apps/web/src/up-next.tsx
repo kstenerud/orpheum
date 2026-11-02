@@ -16,6 +16,7 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { moveOnOrReady, type Receiving } from "./cast-receiver.tsx";
+import type { OfferPlace } from "./convenience-area.tsx";
 import { placeCode } from "./episode-place.ts";
 import type { FilmParts, FilmPiece } from "./film-player.tsx";
 import { IconButton } from "./icon-button.tsx";
@@ -165,9 +166,10 @@ export function offerState(
 /**
  * The Up next offer over the film, from the page's UpNextContext; nothing where nothing plays next.
  * On a cast's receiver it is shown and counts, but presses there are Take back control's: its film
- * is the cast's next episode, which the remote follows (D337's §9 answers, Q4).
+ * is the cast's next episode, which the remote follows (D337's §9 answers, Q4). In the overlay's
+ * convenience area it is told where it is (OfferPlace).
  */
-export function UpNextOver(props: FilmParts): JSX.Element | null {
+export function UpNextOver(props: FilmParts & OfferPlace): JSX.Element | null {
   const offered = use(UpNextContext);
   const { api, navigation } = useServices();
   const upNext = offered?.upNext;
@@ -181,6 +183,8 @@ export function UpNextOver(props: FilmParts): JSX.Element | null {
       upNext={upNext}
       isAutoplayOn={offered?.isAutoplayOn ?? false}
       videoRef={props.videoRef}
+      isOverlayFull={props.isOverlayFull}
+      onOffered={props.onOffered}
       onPlay={() => {
         if (receiving === undefined) {
           navigation.replace({ screen: "play", fileId: upNext.episode.fileId });
@@ -196,49 +200,41 @@ export function UpNextOver(props: FilmParts): JSX.Element | null {
  * What the Play page draws over its film: the player's own controls, every device's (D369 §2), a
  * full-screen overlay on a television or a cast's receiver (D338 §5, D407, player-overlay.tsx), its
  * stage put full screen as it opens, else a computer's and a phone's (page-controls.tsx); and the Up
- * next offer.
+ * next offer, in the overlay's convenience area (D407 §3).
  */
 export function overTheFilm(hasTelevisionControls: boolean): FilmPiece {
   return hasTelevisionControls ? OverlayAndUpNext : PageControlsAndUpNext;
 }
 
-/** The player's full-screen overlay (player-overlay.tsx), and the Up next offer over the film. */
+/** The player's full-screen overlay (player-overlay.tsx), the Up next offer in it. */
 function OverlayAndUpNext(props: FilmParts): JSX.Element {
-  return (
-    <>
-      <PlayerOverlay {...props} shouldOpenFullScreen />
-      <UpNextOver {...props} />
-    </>
-  );
+  return <PlayerOverlay {...props} shouldOpenFullScreen offer={UpNextOver} />;
 }
 
 /** A computer's and a phone's player controls (page-controls.tsx), and the Up next offer. */
 function PageControlsAndUpNext(props: FilmParts): JSX.Element {
-  return (
-    <>
-      <PageControls {...props} />
-      <UpNextOver {...props} />
-    </>
-  );
+  return <PageControls {...props} offer={UpNextOver} />;
 }
 
 /**
  * The offer itself: "Up next: S1E3 · ‹name›" with its still, a button that plays it, near the end and
  * on the end screen; with autoplay on, counting down from the end and then playing it. Any press
- * stops the count and leaves the offer; Back or Escape dismisses it, as does its ×; a click elsewhere
- * stops the count. It takes focus as the film ends, and as it shows where nothing else has it, so OK
- * presses it.
+ * stops the count and leaves the offer; Back or Escape dismisses it, as does its ×, but where all of
+ * the overlay shows, whose first Back hides it (D407 §5); a click elsewhere stops the count. It takes
+ * focus as the film ends, and as it shows where nothing else has it, so OK presses it.
  */
-export function UpNextOffer(props: {
-  readonly upNext: UpNext;
-  readonly isAutoplayOn: boolean;
-  /** Whether it is pressed here; not, it shows its words alone, with nothing to press. */
-  readonly isPressable?: boolean;
-  readonly videoRef: RefObject<HTMLVideoElement | null>;
-  readonly onPlay: () => void;
-}): JSX.Element | null {
+export function UpNextOffer(
+  props: OfferPlace & {
+    readonly upNext: UpNext;
+    readonly isAutoplayOn: boolean;
+    /** Whether it is pressed here; not, it shows its words alone, with nothing to press. */
+    readonly isPressable?: boolean;
+    readonly videoRef: RefObject<HTMLVideoElement | null>;
+    readonly onPlay: () => void;
+  },
+): JSX.Element | null {
   const ending = useEnding(props.videoRef);
-  const { isShown, isCounting, setChoice } = useOfferChoice(ending, props.isAutoplayOn);
+  const { isShown, isCounting, setChoice } = useOfferChoice(ending, props);
   const playRef = useRef<HTMLButtonElement>(null);
   const isPressable = props.isPressable !== false;
   const { isAsking, secondsLeft } = useAutoplay(isCounting, isPressable, props.onPlay);
@@ -246,6 +242,7 @@ export function UpNextOffer(props: {
   useChoiceOfPresses({
     isShown: isShown && isAnswered,
     isCounting: isCounting && isAnswered,
+    isBackLeft: props.isOverlayFull === true,
     playRef,
     onChoice: setChoice,
   });
@@ -289,12 +286,12 @@ export function UpNextOffer(props: {
 }
 
 /**
- * What the person did to the offer, and so whether it shows and counts; moved back from the end, the
- * offer comes again as it nears it.
+ * What the person did to the offer, and so whether it shows and counts, told to onOffered where
+ * given; moved back from the end, the offer comes again as it nears it.
  */
 function useOfferChoice(
   ending: Ending,
-  isAutoplayOn: boolean,
+  { isAutoplayOn, onOffered }: Pick<OfferPlace, "onOffered"> & { readonly isAutoplayOn: boolean },
 ): {
   readonly isShown: boolean;
   readonly isCounting: boolean;
@@ -310,6 +307,7 @@ function useOfferChoice(
       setChoice(noChoice);
     }
   }
+  useTellsOffered(isShown, onOffered);
   return { isShown, isCounting, setChoice };
 }
 
@@ -369,24 +367,42 @@ function DismissButton(props: { readonly onDismiss: () => void }): JSX.Element {
   );
 }
 
+/** Tells onOffered, where given, whether the offer shows, and that it does not once it goes. */
+function useTellsOffered(
+  isShown: boolean,
+  onOffered: ((isOffered: boolean) => void) | undefined,
+): void {
+  useEffect(() => {
+    if (!isShown || onOffered === undefined) {
+      return undefined;
+    }
+    onOffered(true);
+    return () => {
+      onOffered(false);
+    };
+  }, [isShown, onOffered]);
+}
+
 /**
- * The presses the offer hears while it shows: Back dismisses it, before anything else hears it; any
- * other, OK on its own button aside, stops its countdown; so does a click or tap anywhere but there.
+ * The presses the offer hears while it shows: Back dismisses it, before anything else hears it,
+ * unless isBackLeft, where all of the overlay shows and Back hides it (D407 §5); any other, OK on
+ * its own button aside, stops its countdown; so does a click or tap anywhere but there.
  */
 function useChoiceOfPresses(parts: {
   readonly isShown: boolean;
   readonly isCounting: boolean;
+  readonly isBackLeft: boolean;
   readonly playRef: RefObject<HTMLButtonElement | null>;
   readonly onChoice: (change: (choice: OfferChoice) => OfferChoice) => void;
 }): void {
-  const { isShown, isCounting, playRef, onChoice } = parts;
+  const { isShown, isCounting, isBackLeft, playRef, onChoice } = parts;
   useCommands(
     "document",
     (detail, event) => {
       if (!isShown) {
         return;
       }
-      if (detail.command === "back") {
+      if (detail.command === "back" && !isBackLeft) {
         event.preventDefault();
         onChoice(() => ({ isDismissed: true, isCancelled: true }));
         return;

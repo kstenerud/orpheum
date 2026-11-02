@@ -16,8 +16,7 @@
   color: var(--color-on-video);
 }
 
-.player-overlay[data-shown="hidden"],
-.player-overlay[data-shown="convenience"] {
+.player-overlay[data-shown="hidden"] {
   display: none;
 }
 
@@ -26,6 +25,34 @@
 .player-overlay[data-shown="paused"] .player-overlay__top,
 .player-overlay[data-shown="paused"] .player-overlay__buttons {
   visibility: hidden;
+}
+
+/* The convenience area alone (D407 §3): the offer, with nothing else of the overlay and no scrim
+   over the film's end. */
+.player-overlay[data-shown="convenience"] {
+  background: none;
+}
+
+.player-overlay[data-shown="convenience"] .player-overlay__up,
+.player-overlay[data-shown="convenience"] .player-overlay__scrub,
+.player-overlay[data-shown="convenience"] .player-overlay__buttons {
+  visibility: hidden;
+}
+
+/* An offer stays through a seek's scrub bar and the pause sign (Q3). */
+.player-overlay[data-offer] .convenience-area {
+  visibility: visible;
+}
+
+/* The convenience area at row 0's end: the offer, or when the film ends. */
+.convenience-area {
+  display: flex;
+  align-items: center;
+  margin-inline-start: auto;
+}
+
+.convenience-area .up-next {
+  position: static;
 }
 
 /* Row 0: the way up, "‹ S1E1 Pilot" (D367 §8, D407 §1). */

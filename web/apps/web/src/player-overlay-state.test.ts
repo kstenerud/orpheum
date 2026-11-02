@@ -6,6 +6,7 @@ import {
   controlsShown,
   hideAfter,
   overlayAnswer,
+  shownWith,
   type ControlsContext,
   type OverlayState,
   type PressContext,
@@ -22,6 +23,7 @@ const onTv: PressContext = {
   isTelevision: true,
   isOnScrub: false,
   isOnButtons: false,
+  hasOffer: false,
   isOnOffer: false,
 };
 
@@ -95,11 +97,33 @@ describe("the scrub bar alone", () => {
 });
 
 describe("an offer alone, focus on it (D407 §4, Q3)", () => {
-  const onOffer: PressContext = { ...onTv, isOnOffer: true };
+  const onOffer: PressContext = { ...onTv, hasOffer: true, isOnOffer: true };
 
   it("leaves OK and Back to the offer", () => {
     expect(overlayAnswer(hidden, "select", onOffer)).toEqual({ state: hidden, isTaken: false });
     expect(overlayAnswer(hidden, "back", onOffer)).toEqual({ state: hidden, isTaken: false });
+  });
+
+  it("shows the convenience area alone while hidden, and only then (D407 §3)", () => {
+    expect(shownWith("hidden", true)).toBe("convenience");
+    expect(shownWith("hidden", false)).toBe("hidden");
+    expect(shownWith("full", true)).toBe("full");
+    expect(shownWith("scrub", true)).toBe("scrub");
+  });
+
+  it("presses the offer by OK with no guard, focus elsewhere, the scrub bar showing or not (D407 §3)", () => {
+    const offerElsewhere: PressContext = { ...onTv, hasOffer: true };
+    for (const state of [hidden, scrub]) {
+      expect(overlayAnswer(state, "select", offerElsewhere)).toEqual({
+        state,
+        isTaken: true,
+        isOfferPressed: true,
+      });
+    }
+  });
+
+  it("leaves Back to the offer through the scrub bar, which dismisses it", () => {
+    expect(overlayAnswer(scrub, "back", onOffer)).toEqual({ state: hidden, isTaken: false });
   });
 
   it("still seeks by Left and Right, showing the scrub bar, the offer staying", () => {
