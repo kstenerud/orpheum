@@ -74,6 +74,7 @@ User-Agent (D263; the User-Agent is logged only).
 | Voice hung at "Asking for your microphone" because opening the microphone awaited the context's resume. | [Firefox keeps `AudioContext.resume()` pending until it lets the page play sound](#firefox-keeps-audiocontextresume-pending-until-it-lets-the-page-play-sound) |
 | A tab throttled to "Slow 4G" in DevTools still loaded a film at full speed, and its player never stepped down. | [Chrome DevTools' network throttling does not slow a service worker's requests](#chrome-devtools-network-throttling-does-not-slow-a-service-workers-requests) |
 | With voice on, the film was turned down and the volume buttons stopped changing its volume. | [Firefox on Android makes a "call" of gain control and noise suppression, even with echo cancelling off](#firefox-on-android-makes-a-call-of-gain-control-and-noise-suppression-even-with-echo-cancelling-off) |
+| On Linux Mint with MATE, the screen blanked during a full-screen film in Firefox while the film's sound played on. | [Firefox's inhibit through the desktop portal does not stop MATE's screensaver](#firefoxs-inhibit-through-the-desktop-portal-does-not-stop-mates-screensaver) |
 | A volume slider on an iPhone moves only when the touch lands on its thumb. | [iPhone Safari moves a range slider only by a touch that starts on its thumb](#iphone-safari-moves-a-range-slider-only-by-a-touch-that-starts-on-its-thumb) |
 | The position reads as not advancing, which looks like false drift and causes spurious nudges. | [Safari's `currentTime` stands still for up to about 250 ms after play, seek or a rate change](#safaris-currenttime-stands-still-for-up-to-about-250-ms-after-play-seek-or-a-rate-change) |
 | Each rate change may make the sound skip. | [Safari's rate nudges stutter or skip, especially with pitch-keeping on](#safaris-rate-nudges-stutter-or-skip-especially-with-pitch-keeping-on) |
@@ -238,6 +239,33 @@ User-Agent (D263; the User-Agent is logged only).
 ---
 
 ## Firefox
+
+
+### Firefox's inhibit through the desktop portal does not stop MATE's screensaver
+
+- **Symptom:** on Linux Mint with MATE, a film played full screen in Firefox went to the lock screen
+  (the owner, 2026-11-02, prod); on staging, with the screen timeout at 5 minutes, the screen blanked
+  at 5 minutes, not switched off, while the film's sound played on. At 1 minute, three minutes of
+  film did not blank it; why the two differ is not known.
+- **Cause:** Firefox turns its own `video-playing` and `audio-playing` locks and the page's `screen`
+  wake lock into a desktop inhibit. MATE offers neither `org.freedesktop.ScreenSaver` nor
+  `org.freedesktop.PowerManagement` (both `ServiceUnknown` in the owner's `MOZ_LOG="LinuxWakeLock:5"`
+  log), so Firefox goes through the desktop portal (`org.freedesktop.portal.Inhibit`), which
+  succeeded and stayed held while the screen blanked. A foreground lock asks the portal only for
+  its idle flag (Firefox's `widget/gtk/WakeLockListener.cpp`). `mate-screensaver` does not heed that
+  inhibit; `systemd-inhibit --list` shows only its own and `mate-power-manager`'s. Firefox has no
+  path to `org.mate.ScreenSaver`, the one MATE serves.
+- **What we do:** nothing in the page can: it holds its wake lock (`keepScreenAwake`,
+  `web/packages/player/src/wake.ts`, D287) and Firefox passes it on. The way around is the
+  desktop's: turn off "Activate screensaver when computer is idle" in MATE's Screensaver
+  preferences while watching.
+- **Evidence:** the owner's laptop, 2026-11-02: two `LinuxWakeLock:5` logs, every inhibit through
+  the portal succeeding and none released while the film played. **[web]**
+  [Mozilla bug 1168090](https://bugzilla.mozilla.org/show_bug.cgi?id=1168090): MATE provides only
+  `org.mate.ScreenSaver`, which Firefox does not use; a patch for it was proposed there, not found
+  landed. [Ubuntu MATE community](https://ubuntu-mate.community/t/screensaver-during-full-screen-applications/25005)
+  and a [Fedora MATE thread](https://discussion.fedoraproject.org/t/automatically-inhibit-screensaver-when-video-playing/118263)
+  report the screensaver starting during video. Mozilla bug 1935914 (Mint, Xfce) is a like case.
 
 
 ### Firefox runs no service worker in a private window
