@@ -9,8 +9,9 @@ import type { Command } from "./input-buttons.ts";
 import { seekStepMs } from "./seek-ahead.ts";
 
 /**
- * What of the overlay shows: nothing; an offer alone (Up next, Still watching) with focus on it; the
- * scrub bar alone after a seek; a pause sign and the scrub bar after OK paused; or all three rows.
+ * What of the overlay shows: nothing; the convenience area alone, an offer (Up next, Still watching)
+ * in it; the scrub bar alone after a seek; a pause sign and the scrub bar after OK paused; or all
+ * three rows.
  */
 export type OverlayShown = "hidden" | "convenience" | "scrub" | "paused" | "full";
 
@@ -34,7 +35,9 @@ export interface PressContext {
   readonly isOnScrub: boolean;
   /** Whether focus is in the overlay's bottom row, its buttons. */
   readonly isOnButtons: boolean;
-  /** Whether focus is on an offer drawn over the film beside the overlay, Up next or Still watching. */
+  /** Whether an offer shows in the overlay's convenience area, Up next or Still watching (D407 §3). */
+  readonly hasOffer: boolean;
+  /** Whether focus is on that offer. */
   readonly isOnOffer: boolean;
 }
 
@@ -51,6 +54,8 @@ export interface OverlayAnswer {
    * play that plays leaves it too, by a click, OK's, Space's or a mouse's (player-overlay.tsx).
    */
   readonly focus?: "play" | "video";
+  /** Whether the overlay presses the offer itself, focus being elsewhere (D407 §3). */
+  readonly isOfferPressed?: boolean;
 }
 
 /**
@@ -64,6 +69,14 @@ export const fullShownForMs = 3000;
  * read where the film went. A justified constant.
  */
 export const scrubShownForMs = 1500;
+
+/**
+ * What of the overlay shows, hasOffer saying whether an offer is on: hidden, the convenience area
+ * alone while one is (D407 §3).
+ */
+export function shownWith(shown: OverlayShown, hasOffer: boolean): OverlayShown {
+  return shown === "hidden" && hasOffer ? "convenience" : shown;
+}
 
 /** What showed the whole overlay, by a command: a remote's only on a television. */
 function byCommand(context: PressContext): ShownBy {
@@ -97,7 +110,9 @@ export function overlayAnswer(
   if (playersKeys.has(command)) {
     return answerOfPlayersKey(state, command, context);
   }
-  const shown = state.shown === "hidden" && context.isOnOffer ? "convenience" : state.shown;
+  // The offer stays through a seek's scrub bar (Q3), and OK is still its own.
+  const isOfferAlone = state.shown === "hidden" || state.shown === "scrub";
+  const shown = isOfferAlone && context.hasOffer ? "convenience" : state.shown;
   switch (shown) {
     case "full":
       return answerWhileFull(state, command, context);
@@ -159,8 +174,9 @@ function answerWhileHidden(
 }
 
 /**
- * An offer alone, focus on it (D407 §4): OK and Back are the offer's; Left and Right still seek and
- * show the scrub bar, the offer staying (Q3); Up and Down open all of the overlay.
+ * An offer alone (D407 §3, §4): OK presses it, with no guard, the focused offer's own press or else
+ * the overlay's; Back is the offer's; Left and Right still seek and show the scrub bar, the offer
+ * staying (Q3); Up and Down open all of the overlay.
  */
 function answerWithAnOffer(
   state: OverlayState,
@@ -173,6 +189,9 @@ function answerWithAnOffer(
   }
   if (command === "up" || command === "down") {
     return openedFull(context);
+  }
+  if (command === "select" && !context.isOnOffer) {
+    return { state, isTaken: true, isOfferPressed: true };
   }
   return { state: { ...state, shown: "hidden" }, isTaken: false };
 }

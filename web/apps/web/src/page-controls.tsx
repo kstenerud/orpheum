@@ -5,6 +5,7 @@ import "./page-controls.css";
 import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
 
 import { pressOf } from "./cast-asked.tsx";
+import type { OfferPiece } from "./convenience-area.tsx";
 import { toggleFullScreen } from "./film-fullscreen.ts";
 import type { FilmParts } from "./film-player.tsx";
 import { useIsFullScreen } from "./full-screen-button.tsx";
@@ -20,12 +21,25 @@ import { fullShownForMs } from "./player-overlay-state.ts";
  * a television's (D407 §1, §5); otherwise the bar (PageBar). The switch is made here, in the Play
  * page's own piece, not in the film player's stage, which Watch Together's guest shares (the plan's
  * §6 audit). A mouse's click on the film plays or pauses it, and a double click puts it full screen
- * or leaves (the two clicks' play and pause undoing each other), in either.
+ * or leaves (the two clicks' play and pause undoing each other), in either. The offer, Up next or
+ * Still watching, is the overlay's convenience area's in full screen (D407 §3), and beside the bar
+ * otherwise, until the controls move below the film (D407 §9, plans/player-overlay.md step 11).
  */
-export function PageControls(props: FilmParts): JSX.Element {
+export function PageControls(
+  props: FilmParts & { readonly offer?: OfferPiece | undefined },
+): JSX.Element {
+  const { offer: Offer, ...film } = props;
   const isFullScreen = useIsFullScreen();
-  usePressesOnTheFilm(props.videoRef);
-  return isFullScreen ? <PlayerOverlay {...props} /> : <PageBar {...props} />;
+  usePressesOnTheFilm(film.videoRef);
+  if (isFullScreen) {
+    return <PlayerOverlay {...film} offer={Offer} />;
+  }
+  return (
+    <>
+      <PageBar {...film} />
+      {Offer === undefined ? null : <Offer {...film} />}
+    </>
+  );
 }
 
 /**

@@ -3,10 +3,11 @@
 
 import "./i18n.ts";
 
-import { act, createRef } from "react";
+import { act, createRef, useEffect, type JSX } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { commandEventName } from "./input-commands.ts";
+import type { OfferPiece, OfferPlace } from "./convenience-area.tsx";
 import { PlayerOverlay } from "./player-overlay.tsx";
 import { seekAskedEvent, seekRestMs, soughtByOf } from "./seek-ahead.ts";
 import { mount, type Mounted } from "./test-dom.tsx";
@@ -28,6 +29,30 @@ function press(command: string, target: EventTarget = document.body): boolean {
     target.dispatchEvent(event);
   });
   return event.defaultPrevented;
+}
+
+/** An offer that shows at once, telling the overlay so, and notes each press of it in presses. */
+function offerPiece(presses: string[]): OfferPiece {
+  return function Offer(props: OfferPlace): JSX.Element {
+    const { onOffered } = props;
+    useEffect(() => {
+      onOffered?.(true);
+      return () => {
+        onOffered?.(false);
+      };
+    }, [onOffered]);
+    return (
+      <button
+        type="button"
+        className="offer"
+        onClick={() => {
+          presses.push("pressed");
+        }}
+      >
+        Up next
+      </button>
+    );
+  };
 }
 
 /** A video that says it plays, with play and pause that change what it says. */
@@ -67,24 +92,40 @@ describe("the player's full-screen overlay on a television (D407)", () => {
     vi.useRealTimers();
   });
 
-  /** Draws the overlay over video in a stage, beside what else the page draws over the film. */
-  async function drawn(video: HTMLVideoElement, beside?: string): Promise<Mounted> {
+  /** Draws the overlay over video in a stage, with offer in its convenience area where given. */
+  async function drawn(video: HTMLVideoElement, offer?: OfferPiece): Promise<Mounted> {
     const videoRef = createRef<HTMLVideoElement>();
     Reflect.set(videoRef, "current", video);
     mounted = await mount(
       withServices(
         <div className="film-player__stage">
-          <PlayerOverlay videoRef={videoRef} readLinkKbps={() => undefined} failure={undefined} />
-          {beside === undefined ? null : (
-            <button type="button" className="beside">
-              {beside}
-            </button>
-          )}
+          <PlayerOverlay
+            videoRef={videoRef}
+            readLinkKbps={() => undefined}
+            failure={undefined}
+            offer={offer}
+          />
         </div>,
       ),
     );
     mounted.container.querySelector(".film-player__stage")?.prepend(video); // where the player draws it
     return mounted;
+  }
+
+  /** The offer drawn, its button. */
+  function offered(): HTMLButtonElement | null | undefined {
+    return mounted?.container.querySelector<HTMLButtonElement>(".offer");
+  }
+
+  /** Lets the overlay's time pass while the film plays, which hides it. */
+  function hiddenByTime(video: HTMLVideoElement): void {
+    act(() => {
+      video.dispatchEvent(new Event("play"));
+    });
+    vi.spyOn(performance, "now").mockReturnValue(1_000_000); // long after the last press
+    act(() => {
+      vi.advanceTimersByTime(10_000); // well past its time, which hides it
+    });
   }
 
   /** What the overlay shows. */
@@ -224,43 +265,52 @@ describe("the player's full-screen overlay on a television (D407)", () => {
     expect(document.activeElement?.getAttribute("aria-label")).toBe("Play");
   });
 
-  it("leaves OK to another control over the film, Up next, and its hiding leaves focus there", async () => {
+  // D407 §3 reverses the offer drawn beside the overlay, whose OK the overlay left alone: the offer
+  // is the convenience area's, shown alone while the rest is hidden, and OK presses it from anywhere.
+  it("shows an offer alone while hidden, its hiding leaving focus on it, and OK presses it with no guard (D407 §3)", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     const video = playingVideo();
-    await drawn(video, "Up next");
-    const beside = mounted?.container.querySelector<HTMLButtonElement>(".beside");
+    const presses: string[] = [];
+    await drawn(video, offerPiece(presses));
+    hiddenByTime(video);
+    expect(shown()).toBe("convenience");
+    expect(document.activeElement).toBe(offered());
+    expect(press("select", offered() ?? undefined)).toBe(false); // the offer's own button takes it
     act(() => {
-      video.dispatchEvent(new Event("play"));
-      beside?.focus();
+      video.focus();
     });
-    vi.spyOn(performance, "now").mockReturnValue(1_000_000); // long after the last press
-    act(() => {
-      vi.advanceTimersByTime(10_000); // well past its time, which hides it
-    });
-    expect(shown()).toBe("hidden");
-    expect(document.activeElement).toBe(beside);
-    expect(press("select", beside ?? undefined)).toBe(false);
-    expect(shown()).toBe("hidden");
+    expect(press("select", video)).toBe(true);
+    expect(presses).toEqual(["pressed"]);
+    expect(shown()).toBe("convenience");
   });
 
   // D407 §4 and Q3 reverse VQ69's answer (Still watching's Continue kept Right): with an offer
   // alone, Left and Right seek and show the scrub bar, the offer keeping focus; OK is the offer's.
-  it("seeks by Left and Right with an offer alone focused, Still watching, the offer keeping focus", async () => {
+  it("seeks by Left and Right with an offer alone, the offer staying and keeping focus, and Up opens it all (Q3)", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     const video = playingVideo();
-    await drawn(video, "Continue");
-    const beside = mounted?.container.querySelector<HTMLButtonElement>(".beside");
-    act(() => {
-      beside?.focus();
-    });
-    vi.spyOn(performance, "now").mockReturnValue(1_000_000);
-    act(() => {
-      vi.advanceTimersByTime(10_000);
-    });
-    expect(shown()).toBe("hidden");
-    expect(press("right", beside ?? undefined)).toBe(true);
+    await drawn(video, offerPiece([]));
+    hiddenByTime(video);
+    expect(press("right", offered() ?? undefined)).toBe(true);
     expect(shown()).toBe("scrub");
-    expect(document.activeElement).toBe(beside);
+    expect(document.activeElement).toBe(offered());
+    expect(mounted?.container.querySelector(".player-overlay")?.hasAttribute("data-offer")).toBe(
+      true,
+    );
+    expect(press("up", offered() ?? undefined)).toBe(true);
+    expect(shown()).toBe("full");
+  });
+
+  it("says when the film ends only with all of it shown and nothing on offer", async () => {
+    const video = document.createElement("video");
+    Object.defineProperty(video, "currentTime", { get: () => 10 });
+    Object.defineProperty(video, "duration", { get: () => 3600 });
+    await drawn(video, offerPiece([]));
+    act(() => {
+      video.dispatchEvent(new Event("timeupdate"));
+    });
+    expect(shown()).toBe("full");
+    expect(mounted?.container.textContent).not.toContain("Ends at");
   });
 
   it("reads where the film stands at each timeupdate only while it shows, at once as it opens, with one clock formatter (the efficiency audit, finding 7)", async () => {

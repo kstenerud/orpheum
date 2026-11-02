@@ -6,6 +6,7 @@ import "./i18n.ts";
 import { act, createRef, type JSX } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { OfferPlace } from "./convenience-area.tsx";
 import type { Command } from "./input-buttons.ts";
 import { commandEventName } from "./input-commands.ts";
 import { mount, servedBy, settleUntil, type Heard, type Mounted } from "./test-dom.tsx";
@@ -145,7 +146,12 @@ describe("the Up next offer over the film", () => {
   async function offer(
     isAutoplayOn: boolean,
     isPressable = true,
-    services = testServices(),
+    {
+      services = testServices(),
+      ...place
+    }: OfferPlace & {
+      readonly services?: ReturnType<typeof testServices>;
+    } = {},
   ): Promise<HTMLElement> {
     const videoRef = createRef<HTMLVideoElement>();
     Reflect.set(videoRef, "current", video);
@@ -156,6 +162,8 @@ describe("the Up next offer over the film", () => {
           isAutoplayOn={isAutoplayOn}
           isPressable={isPressable}
           videoRef={videoRef}
+          isOverlayFull={place.isOverlayFull}
+          onOffered={place.onOffered}
           onPlay={() => {
             played += 1;
           }}
@@ -231,6 +239,26 @@ describe("the Up next offer over the film", () => {
     expect(page.textContent).toBe("");
   });
 
+  // D407 §3: in all of the overlay, its first Back hides it, the offer staying; the overlay is told
+  // whether the offer shows, so it shows it alone while hidden.
+  it("leaves Back to the overlay while all of it shows, and tells it whether the offer shows (D407 §3)", async () => {
+    const offered: boolean[] = [];
+    const page = await offer(true, true, {
+      isOverlayFull: true,
+      onOffered: (isOffered) => {
+        offered.push(isOffered);
+      },
+    });
+    expect(offered).toEqual([]);
+    video.stand(1200, true);
+    expect(offered).toEqual([true]);
+    press("back");
+    expect(page.textContent).toContain("Up next: S1E3 · Bag");
+    mounted?.unmount();
+    mounted = undefined;
+    expect(offered).toEqual([true, false]);
+  });
+
   it("stops counting at a click elsewhere, and plays at a click on it", async () => {
     const page = await offer(true);
     video.stand(1200, true);
@@ -293,7 +321,7 @@ describe("the Up next offer over the film", () => {
     await autoplayThrough(stillWatchingAfterAutoplays);
     const services = testServices();
     const back = vi.spyOn(services.navigation, "back");
-    const page = await offer(true, true, services);
+    const page = await offer(true, true, { services });
     video.stand(1200, true);
     act(() => {
       [...page.querySelectorAll("button")].find((button) => button.textContent === "Stop")?.click();
