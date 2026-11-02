@@ -49,6 +49,17 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A59 — Told the owner a TV is always full screen, from a research summary of today's build (2026-11-02)
+
+- **What happened:** reviewing the owner's overlay design, the lead said the 🔈 and ⤢ buttons were
+  dead weight on a TV because "the TV is always full screen". The owner: "The TV is NOT always
+  fullscreen. You need to be able to access controls like watch together." The false belief came
+  from the research file's finding that a TV opens the player full screen, read as a rule of the
+  device rather than as how the build starts.
+- **Caught by:** the owner, reading the review.
+- **Gate:** none; how the build behaves today is not what the design requires, and a claim about
+  what a device always does needs the decision that says so, cited.
+
 ### A58 — Named a likely cause of a guest's failure, and recorded it as found, from a reproduction of the symptom alone (2026-11-02)
 
 - **What happened:** a Watch Together guest in Berlin was told her network could not reach the
