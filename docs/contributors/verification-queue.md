@@ -2019,6 +2019,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   was stepped off after the page began to leave, which cancelled the leaving (idiosyncrasies.md).
   Fixed by the sign-out waiting for held entries to go (`signed-out-watch.ts`'s
   `signingOutWithNoneHeld`); (1) and (2) to run again on the fix.
+  **Run on the fix ("fix(web): a sign-out with its question open leaves for the discovery's sign-in"), 2026-11-02 (agent, staging):** (2) passes on the Fire TV by remote:
+  the question took focus on Sign out, and OK reached the discovery's sign-in
+  (`?signedout=<core>`) within 4 s. Chrome 156 on the desktop, through orpheum.dev as lead-tests,
+  reached it within 1.5 s. (1), on the S23 reached by a link, is the owner's still.
 - [x] **VQ201** — the People page's three buttons, dialogs and pages work, on staging (the owner,
   2026-11-01: "The people page is just too messy"; D399). On the Mac's Chrome as admin, People.
   (1) Create Role, Create Account and Invite Someone sit side by side above Invitations, Accounts and
