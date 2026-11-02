@@ -18,10 +18,11 @@
 //     them. TestMainTitle_ADVDsLongestTitleIsItsCellsInPlayOrder.
 //   - Of an angle block only the first angle is served; an interleaved title is refused
 //     (ErrInterleaved). TestMainTitle_ADVDsOtherAnglesAreLeftOutAndInterleavedCellsRefused.
-//   - A DVD title whose cells' clock starts again partway (a cell starting before the one before it
-//     ended, or more than a second after) carries its clock shifts, and Restamp moves every SCR, PTS
-//     and DTS from there to carry on, so FFmpeg seeking by time finds where the title plays it
-//     (D404). TestMainTitle_ADVDsClockStartedAgainIsMovedToCarryOn.
+//   - A DVD title whose clock starts again partway (a VOBU, at a cell's start or inside one, playing
+//     from more than a frame before or after the VOBU before it ended) carries its clock shifts, and
+//     Restamp moves every SCR, PTS and DTS from there to carry on, so FFmpeg seeking by time finds
+//     where the title plays it (D404, D405). TestMainTitle_ADVDsClockStartedAgainIsMovedToCarryOn,
+//     TestMainTitle_ADVDsClockIsCheckedAtEveryVOBU.
 //   - A Blu-ray's main title is its longest playlist that plays no clip twice, served as its clips
 //     whole in play order, with its chapters across them and its streams' languages by PID, read
 //     through the metadata partition. TestMainTitle_ABluRaysLongestPlaylistIsItsClipsInOrder.
@@ -43,7 +44,7 @@
 // # Read before changing
 //
 //   - D350: the main title, served through fdproxy; what is refused.
-//   - D404: a DVD title served on one clock.
+//   - D404: a DVD title served on one clock; D405: its clock checked at every VOBU.
 //   - D126: hostile bytes stop at the node.
 //   - docs/contributors/design/research/iso-support.md: the formats, and how others read them.
 //

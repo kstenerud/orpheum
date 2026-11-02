@@ -25521,3 +25521,28 @@ It amends [D350](#d350--a-disc-image-plays-its-main-title-read-by-the-node-from-
 **Status:** Decided 2026-11-02. Tests: `TestMainTitle_ADVDsClockStartedAgainIsMovedToCarryOn`,
 `TestFilmOf_ADVDsFilmIsServedOnOneClock`. Device check: VQ73 (a seek past the clock shift).
 
+## D405 — A DVD title's clock is checked at every VOBU, with a frame's slack
+
+**Decided** (2026-11-02), by the project owner (*"yes go ahead"*), on the lead's proposal from the
+DVD research ([`dvd-playback-2026-11-02.md`](../design/research/dvd-playback-2026-11-02.md) §2). It
+amends [D404](#d404--a-dvd-title-whose-clock-starts-again-partway-is-served-restamped-onto-one-clock)
+§2, which compared only where cells join, with a second's slack; D404's restamp stands.
+
+1. **What D404 missed.** A disc's cells in the stream need not match its IFO's, so a clock can start
+   again inside a cell; and a jump under a second passed as carrying on. FFmpeg's `dvdvideo` demuxer
+   checks every VOBU, with no slack. VQ73's disc showed it: besides the restart at 1 h 28 min 39 s,
+   its title ends on a half-second cell whose clock starts at 0.41 s, which D404 passed over.
+2. **Every VOBU of the title's cells is read**, from each cell's first, the next found by the
+   navigation pack's `VOBU_EA` (the DSI's). A VOBU playing from more than a frame (3003 ticks) before
+   or after the one before it ended is a clock shift, from its own first byte. Where a navigation
+   pack cannot be read, the cell's rest keeps its clock and the comparison starts afresh at the next
+   cell, as D404 had it per cell.
+3. **The cost.** One sector per VOBU, about two a second of the title, within the structure budget
+   (D126): VQ73's 2 h 28 min title read in 0.37 s on the sandbox, once per image, as the node keeps
+   each image's title.
+4. **Not done (next batch):** the sound at a join. FFmpeg drops an AC-3 frame that repeats or is cut
+   short there; the restamp keeps it, so a join may click.
+
+**Status:** Decided 2026-11-02. Test: `TestMainTitle_ADVDsClockIsCheckedAtEveryVOBU`. Device check:
+VQ73 (a seek past the clock shift, and the title's end).
+

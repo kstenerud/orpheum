@@ -409,7 +409,8 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D401](working-notes.md#d401--a-confirmed-by-name-episode-placement-sticks-only-a-new-place-is-a-new-guess) A confirmed by-name episode placement sticks; only a new place is a new guess
 - [D402](working-notes.md#d402--a-title-sorts-without-its-leading-article-from-a-list-per-sort-locale-unless-its-nfo-names-how-it-sorts) A title sorts without its leading article, from a list per sort locale, unless its NFO names how it sorts
 - [D403](working-notes.md#d403--a-used-invitation-leaves-the-people-page-and-a-role-opens-in-the-one-dialog-that-makes-it) A used invitation leaves the People page, and a role opens in the one dialog that makes it
-- [D404](working-notes.md#d404--a-dvd-title-whose-clock-starts-again-partway-is-served-restamped-onto-one-clock) A DVD title whose clock starts again partway is served restamped onto one clock
+- [D404](working-notes.md#d404--a-dvd-title-whose-clock-starts-again-partway-is-served-restamped-onto-one-clock) A DVD title whose clock starts again partway is served restamped onto one clock — *revisited by D405*
+- [D405](working-notes.md#d405--a-dvd-titles-clock-is-checked-at-every-vobu-with-a-frames-slack) A DVD title's clock is checked at every VOBU, with a frame's slack
 
 ## Archived
 

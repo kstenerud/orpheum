@@ -168,6 +168,35 @@ func TestMainTitle_ADVDsClockStartedAgainIsMovedToCarryOn(t *testing.T) {
 	}
 }
 
+// A DVD title's clock is checked at every VOBU, as FFmpeg's dvdvideo demuxer checks it, not only
+// where cells join: a clock started again inside a cell, or jumping by under a second, is moved to
+// carry on, while a gap of under a frame, as a seamless join's rounding leaves, is not (D405).
+func TestMainTitle_ADVDsClockIsCheckedAtEveryVOBU(t *testing.T) {
+	t.Parallel()
+	const second, frame = 90_000, 3003
+	before, again := disctest.VOBU(25_200, 25_200+600*second), disctest.VOBU(10_000, 10_000+300*second)
+	late := disctest.VOBU(10_000+300*second+second/2, 10_000+400*second)
+	rounded := disctest.VOBU(10_000+400*second+frame-1, 10_000+500*second)
+	dvd := disctest.DVD{Titles: []disctest.DVDTitle{{Cells: []disctest.DVDCell{
+		{Data: slices.Concat(before, again), DurationMs: 900_000},
+		{Data: late, DurationMs: 100_000},
+		{Data: rounded, DurationMs: 100_000},
+	}}}}
+	image := disctest.Volume{Files: dvd.Files()}.Bytes()
+	title, err := disc.MainTitle(bytes.NewReader(image), int64(len(image)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	vobu := int64(len(before))
+	againTicks := int64(25_200+600*second) - 10_000
+	lateTicks := againTicks - second/2
+	want := []disc.ClockShift{{FromByte: vobu, Ticks: againTicks}, {FromByte: 2 * vobu, Ticks: lateTicks}}
+	if !slices.Equal(title.ClockShifts, want) {
+		t.Errorf("a clock started again inside a cell, then half a second late, then a frame's rounding late, "+
+			"is shifted %+v; want %+v", title.ClockShifts, want)
+	}
+}
+
 // filmBluRay is a Blu-ray with a menu loop, a trailer, a playlist that plays its clip twice (the
 // longest, as an obfuscated disc's decoys are), and the film: two clips, its chapters across them.
 func filmBluRay() disctest.BluRay {

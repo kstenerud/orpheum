@@ -2,15 +2,19 @@
 
 package disc
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"sort"
+)
 
 // A DVD program stream's clock: 90 kHz ticks, 33 bits that wrap.
 const (
 	clockTicksPerSecond = 90_000
 	clockMask           = 1<<33 - 1
-	// Up to clockGapTicks after the cell before it ended, a cell's clock carries on from it: a
-	// second, far more than a seamless join leaves and far less than a clock started again.
-	clockGapTicks = clockTicksPerSecond
+	// Up to clockGapTicks either side of where the VOBU before it ended, a VOBU's clock carries on
+	// from it: an NTSC frame (3003 ticks), more than a seamless join's rounding leaves, as FFmpeg's
+	// dvdvideo demuxer (which allows none) treats any other gap as the clock started again.
+	clockGapTicks = 3003
 )
 
 // Where a DVD's navigation pack, the first pack of each VOBU, says when its VOBU plays (PCI's
@@ -19,6 +23,10 @@ const (
 const (
 	navStartTicksAt = 0x39
 	navEndTicksAt   = 0x3D
+	// The DSI packet's VOBU_EA, the sector of the VOBU's last pack counted from its navigation pack:
+	// after the PCI packet (to 0x400), the DSI packet's header and substream number (7), its pack's
+	// SCR (4) and its own sector (4).
+	navLastPackAt = 0x40F
 )
 
 // ClockShift is where a title's clock starts again: from FromByte of its stream, every timestamp
@@ -46,14 +54,13 @@ func (title Title) Restamp(stream []byte, offset int64) {
 
 // shiftAt is the ticks the title's clock is moved by at byte offset of its stream.
 func (title Title) shiftAt(offset int64) int64 {
-	var ticks int64
-	for _, shift := range title.ClockShifts {
-		if shift.FromByte > offset {
-			break
-		}
-		ticks = shift.Ticks
+	after := sort.Search(len(title.ClockShifts), func(index int) bool {
+		return title.ClockShifts[index].FromByte > offset
+	})
+	if after == 0 {
+		return 0
 	}
-	return ticks
+	return title.ClockShifts[after-1].Ticks
 }
 
 // restampPack moves one MPEG-2 pack's timestamps by ticks: its SCR, and the PTS and DTS of its
@@ -139,71 +146,68 @@ func writeWord(field []byte, word uint64) {
 	copy(field, bytes[8-len(field):])
 }
 
-// vobuClock is when a VOBU plays, by its navigation pack: from start to end, when known.
+// vobuClock is when a VOBU plays, by its navigation pack: from start to end, when known, and how
+// many sectors it spans.
 type vobuClock struct {
 	start, end int64
+	sectors    int64
 	known      bool
 }
 
 // navClock is when the VOBU a navigation pack starts plays, unknown for a sector that is no
 // navigation pack.
 func navClock(sector []byte) vobuClock {
-	if len(sector) < navEndTicksAt+4 || sector[3] != 0xBA || sector[17] != 0xBB ||
-		sector[41] != 0xBF || sector[44] != 0 {
+	if len(sector) < navLastPackAt+4 || sector[3] != 0xBA || sector[17] != 0xBB ||
+		sector[41] != 0xBF || sector[44] != 0 || sector[0x403] != 0xBF || sector[0x406] != 1 {
 		return vobuClock{}
 	}
 	return vobuClock{
-		start: int64(binary.BigEndian.Uint32(sector[navStartTicksAt:])),
-		end:   int64(binary.BigEndian.Uint32(sector[navEndTicksAt:])), known: true,
+		start:   int64(binary.BigEndian.Uint32(sector[navStartTicksAt:])),
+		end:     int64(binary.BigEndian.Uint32(sector[navEndTicksAt:])),
+		sectors: int64(binary.BigEndian.Uint32(sector[navLastPackAt:])) + 1, known: true,
 	}
 }
 
 // clockCell is a cell of a DVD title as its clock is read: where it starts in the title's stream,
-// and where in its set's title VOBs its first VOBU and its last VOBU start (-1 for a last VOBU its
-// IFO puts outside the cell).
+// and its first and last sectors of its set's title VOBs.
 type clockCell struct {
-	titleByte             int64
-	firstSector, lastVOBU int64
+	titleByte               int64
+	firstSector, lastSector int64
 }
 
 // newClockCell is cell of a program chain, starting at titleByte of its title's stream.
 func newClockCell(cell dvdCell, titleByte int64) clockCell {
-	lastVOBU := cell.lastVOBU
-	if lastVOBU < cell.firstSector || lastVOBU > cell.lastSector {
-		lastVOBU = -1
-	}
-	return clockCell{titleByte: titleByte, firstSector: cell.firstSector, lastVOBU: lastVOBU}
+	return clockCell{titleByte: titleByte, firstSector: cell.firstSector, lastSector: cell.lastSector}
 }
 
-// dvdClockShifts are where a title's cells' clock starts again: a cell whose first VOBU plays from
-// before its previous cell's last VOBU ended, or more than a second after, is moved to carry on
-// from it. A cell whose navigation packs cannot be read keeps the clock as it is.
+// dvdClockShifts are where a title's clock starts again: a VOBU, in a cell or at a cell's start,
+// that plays from more than a frame before or after the VOBU before it ended is moved to carry on
+// from it, as FFmpeg's dvdvideo demuxer offsets it. The VOBUs are found from each cell's first by
+// their navigation packs; where one cannot be read, the cell's rest keeps its clock as it is and
+// the next VOBU read starts the comparison afresh.
 func (disc *volume) dvdClockShifts(set *titleSet, cells []clockCell) ([]ClockShift, error) {
 	var shifts []ClockShift
 	var ticks, previousEnd int64
 	carriesOn := false
 	for _, cell := range cells {
-		if cell.lastVOBU < 0 {
-			carriesOn = false
-			continue
+		for sector := cell.firstSector; sector <= cell.lastSector; {
+			vobu, err := disc.vobuClock(set, sector)
+			if err != nil {
+				return nil, err
+			}
+			if !vobu.known {
+				carriesOn = false
+				break
+			}
+			if gap := vobu.start + ticks - previousEnd; carriesOn && (gap < -clockGapTicks || gap > clockGapTicks) {
+				ticks = previousEnd - vobu.start
+				shifts = append(shifts, ClockShift{
+					FromByte: cell.titleByte + (sector-cell.firstSector)*sectorBytes, Ticks: ticks,
+				})
+			}
+			previousEnd, carriesOn = vobu.end+ticks, true
+			sector += vobu.sectors
 		}
-		first, err := disc.vobuClock(set, cell.firstSector)
-		if err != nil {
-			return nil, err
-		}
-		last, err := disc.vobuClock(set, cell.lastVOBU)
-		if err != nil {
-			return nil, err
-		}
-		if !first.known || !last.known {
-			carriesOn = false
-			continue
-		}
-		if gap := first.start + ticks - previousEnd; carriesOn && (gap < 0 || gap > clockGapTicks) {
-			ticks = previousEnd - first.start
-			shifts = append(shifts, ClockShift{FromByte: cell.titleByte, Ticks: ticks})
-		}
-		previousEnd, carriesOn = last.end+ticks, true
 	}
 	return shifts, nil
 }
