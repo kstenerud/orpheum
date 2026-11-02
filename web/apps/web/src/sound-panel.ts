@@ -97,24 +97,30 @@ export const SoundPanelContext = createContext<(SoundPanel & SoundPanelControls)
 );
 
 /**
- * Has one control of the page's sound panel say how it stands, part, while it is drawn, and carry out
- * the remote's choice of it by onChosen, as its own press.
+ * Has one control of the page's sound panel say how it stands, part, while it is drawn or offered,
+ * and carry out the remote's choice of it by onChosen, as its own press. An undefined part is a
+ * control not offered, which the panel does not show.
  */
-export function useSoundPart(part: SoundPart, onChosen: (choice: SoundChoice) => void): void {
+export function useSoundPart(
+  part: SoundPart | undefined,
+  onChosen: (choice: SoundChoice) => void,
+): void {
   const panel = use(SoundPanelContext);
   const chosenRef = useRef(onChosen);
   useEffect(() => {
     chosenRef.current = onChosen;
   });
-  const { kind } = part;
-  const isOn = "isOn" in part ? part.isOn : undefined;
-  const streamId = part.kind === "audioTrack" ? part.streamId : undefined;
-  const tracks = part.kind === "audioTrack" ? part.tracks : undefined;
+  const kind = part?.kind;
+  const isOn = part !== undefined && "isOn" in part ? part.isOn : undefined;
+  const streamId = part?.kind === "audioTrack" ? part.streamId : undefined;
+  const tracks = part?.kind === "audioTrack" ? part.tracks : undefined;
   useEffect(() => {
-    panel?.show(partOf(kind, { isOn, streamId, tracks }));
+    if (kind !== undefined) {
+      panel?.show(partOf(kind, { isOn, streamId, tracks }));
+    }
   }, [panel, kind, isOn, streamId, tracks]);
   useEffect(() => {
-    if (panel === undefined) {
+    if (panel === undefined || kind === undefined) {
       return undefined;
     }
     const unhear = panel.hear(kind, (choice) => {

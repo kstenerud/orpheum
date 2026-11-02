@@ -99,6 +99,12 @@ export interface FilmParts {
 export type FilmPiece = ComponentType<FilmParts>;
 
 /**
+ * What a page holds around the stage and what it draws under it, given the film's parts and those
+ * pieces as children: what the pieces over and under the video read, as a context.
+ */
+export type FilmSurround = ComponentType<FilmParts & { readonly children: ReactNode }>;
+
+/**
  * How a page composes the player: whether the video shows its own controls and plays at once, which
  * file a failure is explained by asking the server of (undefined asks nothing, for a Watch Together
  * guest, who may not ask of the host's files), and what it draws over the video, inside its stage,
@@ -114,6 +120,8 @@ export interface FilmComposition {
   readonly onMediaBack?: ((at: ReopenAt) => void) | undefined;
   readonly over?: FilmPiece;
   readonly under?: FilmPiece;
+  /** What holds the stage and what is under it, for both pieces to read; nothing when undefined. */
+  readonly around?: FilmSurround;
   readonly keptVideo?: HTMLVideoElement | undefined;
   /** Whether what fails is kept from the viewer, as while the page opens a lost playback again. */
   readonly isFailureHidden?: boolean;
@@ -214,12 +222,23 @@ export function EmptyStage(props: { readonly children?: ReactNode }): JSX.Elemen
  */
 function Stage(
   props: FilmParts &
-    Pick<FilmComposition, "hasControls" | "isAutoPlay" | "over" | "under" | "keptVideo"> & {
+    Pick<
+      FilmComposition,
+      "hasControls" | "isAutoPlay" | "over" | "under" | "around" | "keptVideo"
+    > & {
       readonly src?: string;
       readonly onError?: (error: MediaError | null) => void;
     },
 ): JSX.Element {
-  const { over: Over, under: Under, videoRef, readLinkKbps, failure, ladder } = props;
+  const {
+    over: Over,
+    under: Under,
+    around: Around,
+    videoRef,
+    readLinkKbps,
+    failure,
+    ladder,
+  } = props;
   useEffect(() => {
     const video = videoRef.current;
     // Absent where the page is not served over HTTPS, or the browser has no Screen Wake Lock.
@@ -232,7 +251,8 @@ function Stage(
     return video === null ? undefined : pauseWhenHidden(video, document, isThisHandheld());
   }, [videoRef]);
   useStartsWithEnoughAhead(videoRef, props.isAutoPlay);
-  return (
+  const parts = { videoRef, readLinkKbps, failure, ladder };
+  const drawn = (
     <>
       <div className="film-player__stage">
         {props.keptVideo === undefined ? (
@@ -248,15 +268,12 @@ function Stage(
         ) : (
           <KeptVideo {...props} video={props.keptVideo} />
         )}
-        {Over === undefined ? null : (
-          <Over videoRef={videoRef} readLinkKbps={readLinkKbps} failure={failure} ladder={ladder} />
-        )}
+        {Over === undefined ? null : <Over {...parts} />}
       </div>
-      {Under === undefined ? null : (
-        <Under videoRef={videoRef} readLinkKbps={readLinkKbps} failure={failure} ladder={ladder} />
-      )}
+      {Under === undefined ? null : <Under {...parts} />}
     </>
   );
+  return Around === undefined ? drawn : <Around {...parts}>{drawn}</Around>;
 }
 
 /**
