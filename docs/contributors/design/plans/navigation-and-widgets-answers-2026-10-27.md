@@ -1216,3 +1216,33 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
    batch, but I do agree that videos without sound should be included in the list of problem
    films"):** a video with no sound track is listed among the problem films. The note on the film's
    page and its player, proposed beside it, was not taken up.
+3. **The letter rail never scrolls** (the owner: "When I scroll to the bottom of a list, the letter
+   rail starts to scroll as well. It should never scroll"). Built in "fix(web): the alphabet rail never scrolls, at the list's end too" and "fix(web): the shell's notes over a list keep clear of its fixed alphabet rail", quick
+   fixes on staging: the rail is fixed to the window rather than sticky in the layout, and the
+   shell's notes over the list stop short of its gutter.
+4. **Pale and Kind is found** (the owner: "Pale and Kind" does not match tt0567890). Built in
+   "fix(identify): a name's 'and' is also searched as '&', and its '&' as 'and'": TMDB's search finds "Blind & Ugly" and not "Pale and Kind", and no spelling tried after
+   a failed search swapped the two; one now does, both ways.
+5. **Wings.mp4 is Cameron's, not a Korean Wings of 2014** (the owner, 2026-11-02). The file, a
+   148.8-minute cut against TMDB's 137, contradicted Cameron's runtime, and TMDB knows no runtime of
+   the 2014 film, so the unknown ranked over the contradicted. An interim fix in "fix(identify): with no year, an unknown runtime does not lift a film's candidate over the oldest": with no
+   year, an unknown runtime ranks with the contradicted. **Next batch (the owner agreed,
+   2026-11-02), a decision amending D365:** a name with no year was enough for whoever named it, so
+   the well-known title is the likely one. With no year, in order:
+   1. A candidate whose original title matches the name wins a tie over one matched only by a
+      translated title; it never knocks a candidate out (Blind & Ugly is named in English, its
+      original German).
+   2. An unknown runtime counts as a contradicting one, with a year too.
+   3. TMDB's vote count (not its daily popularity score) decides, but only by a wide margin (10×).
+   4. Runtime fit, in tiers: a close fit (a few minutes) over an edition's fit (the file up to about
+      30% longer, more where the name says Extended, Director's Cut, Special Edition or Unrated)
+      over a contradiction. The close tier keeps remakes of near lengths apart (Sabrina's 1954 at
+      113 minutes would otherwise fit the 1995's 127-minute file as a longer cut).
+   5. The oldest.
+
+   A series: every season and episode number on disk must exist at the provider (missing ones do
+   not count against it); where the files carry episode names, names wildly unlike the provider's
+   count strongly against it. A match is not re-ranked when only the vote counts drift, and a close
+   call between the top two is flagged for checking. The test with no year, Alcazar (a stand-in for
+   The Thief of Bagdad: Disney's 1992 against the 2019 remake), gives the remake 15,000 votes and Disney's none;
+   its votes become near each other's, as the real films' are, so the oldest still wins.
