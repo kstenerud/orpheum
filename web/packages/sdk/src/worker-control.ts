@@ -30,9 +30,9 @@ export class PageNotControlled extends Error {
 /**
  * The browser runs no service worker for the page, so the media it loads by itself cannot go over its
  * path, and the page cannot play: a private window of Firefox, which has no navigator.serviceWorker by
- * design (Mozilla bug 1320796), or a browser that refuses the worker's registration. A guest in
- * Berlin, 2026-11-02, was told her network could not reach the server (idiosyncrasies.md, "Firefox
- * runs no service worker in a private window").
+ * design (Mozilla bug 1320796), or a browser that refuses the worker's registration. Such a page was
+ * told its network could not reach the server (idiosyncrasies.md, "Firefox runs no service worker in
+ * a private window").
  */
 export class NoServiceWorker extends Error {
   constructor(cause?: unknown) {

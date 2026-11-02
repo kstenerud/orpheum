@@ -268,8 +268,8 @@ describe("the gate a discovery's page opens on", () => {
     expect(connected).toEqual([{ coreId: "k7xq2", fingerprint }]);
   });
 
-  // A guest in Berlin, 2026-11-02, in a browser running no service worker: the core held her
-  // connection, the page closed it and said her network could not reach the server.
+  // Firefox with no service worker (staging, 2026-11-02): the core held the connection, the page
+  // closed it and said its network could not reach the server.
   it("says a browser that runs no service worker cannot play, and tells the discovery of no dead end", async () => {
     const heard: string[] = [];
     const located = {

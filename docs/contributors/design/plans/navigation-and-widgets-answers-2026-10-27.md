@@ -1299,14 +1299,11 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
     voice and playback fare on her very bad home connection). nas.example's core log, 14:24–14:26 UTC:
     - **This batch:** from her IPv6 network (`2a0f:5000:8119:5200::/56`, likely her Wi-Fi) the page
       connected twice by a punched IPv6 path (363 and 463 ms), the core held each, and each closed
-      about 100 ms later with no request and no sign-in. The path works; the page dropped it. **Found
-      and fixed ("fix(web): a browser with no service worker is told it cannot play, not that its network failed"):** her browser ran no service worker, as Firefox in a private window (or
-      Firefox for Android's private tab) does not, so carrying the media failed once the core was
-      reached, and the gate took that for a network dead end. Reproduced on staging in Firefox with
-      service workers off (the connection held, ended after 11 ms); the page now says this browser
-      window cannot play and to open the link in an ordinary one, and reports no dead end
-      (idiosyncrasies.md, "Firefox runs no service worker in a private window"). Which browser she
-      used is unconfirmed. Whether to play with no service worker at all is the owner's to decide.
+      about 100 ms later with no request and no sign-in. The path works; the page dropped it. **Not yet
+      found.** A first guess, a browser with no service worker (Firefox's private window), was
+      wrong: she used Safari in an ordinary tab (the owner, 2026-11-02). That case fails the same
+      way and is fixed ("fix(web): a browser with no service worker is told it cannot play, not that its network failed"). Playwright's WebKit joins on staging; next, the owner's iPhone in
+      Safari against prod, as a guest.
     - From her IPv4-only network (`194.213.108.4`, likely LTE, no IPv6 candidate) every pair failed
       with nothing sent or received: the house is DS-Lite with no IPv4 way in and the beta has no relay
       (as "Reaching production from outside" above).
