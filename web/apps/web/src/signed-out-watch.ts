@@ -29,6 +29,29 @@ export function watchForSignOut(session: Session, navigation: Navigation): Middl
   };
 }
 
+/**
+ * session, but signing out only once no entry is held over the page (Navigation.whenNoneHeld): a
+ * sign-out that leaves the document, as a client origin's to the discovery's sign-in, is then never
+ * cancelled by the step back off the entry its sign-out question held, which the question's closing
+ * took after the leaving had begun (the owner's Fire TV and Chrome, 2026-11-02).
+ */
+export function signingOutWithNoneHeld(
+  session: Session,
+  navigation: Pick<Navigation, "whenNoneHeld">,
+): Session {
+  return {
+    ...session,
+    signOut: () => {
+      navigation.whenNoneHeld(session.signOut);
+    },
+    signOutBecause: (reason) => {
+      navigation.whenNoneHeld(() => {
+        session.signOutBecause(reason);
+      });
+    },
+  };
+}
+
 /** How often a visible page asks whether its session still works. */
 export const sessionCheckEveryMs = 60_000;
 

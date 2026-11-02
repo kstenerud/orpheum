@@ -57,6 +57,7 @@ User-Agent (D263; the User-Agent is logged only).
 | A read-through over a share that dropped mid-film was answered as complete, its loudness that of part of the film. | [FFmpeg whose input read fails part way exits 0 with an answer made of what it read](#ffmpeg-whose-input-read-fails-part-way-exits-0-with-an-answer-made-of-what-it-read) |
 | At a discovery's page at home, every request failed with "NetworkError when attempting to fetch resource." after a realm sign-in. | [Firefox fails a public page's requests to a LAN name until its local-network prompt is answered, and again after a grant not remembered](#firefox-fails-a-public-pages-requests-to-a-lan-name-until-its-local-network-prompt-is-answered-and-again-after-a-grant-not-remembered) |
 | `dig CAA` shows CAs nobody wrote beside the zone's own `issue ";"`. | [Cloudflare adds its own CAA records to any zone with CAA while Universal SSL is on](#cloudflare-adds-its-own-caa-records-to-any-zone-with-caa-while-universal-ssl-is-on) |
+| Signing out on a Fire TV in Silk, and in Chrome on the desktop, stayed on "Signed out. Taking you to sign in…" for good. | [A step through the history cancels a link's navigation that has begun](#a-step-through-the-history-cancels-a-links-navigation-that-has-begun) |
 | *Flow* (10-bit HEVC by x265) froze at the first frame of any chunk but the film's first. | [Firefox on macOS freezes on HEVC chunks that start on a CRA keyframe](#firefox-on-macos-freezes-on-hevc-chunks-that-start-on-a-cra-keyframe) |
 | A re-timed H.264 run's last chunk held the next chunk's start too; a re-timed encode missed every cut. | [`dts2pts` guesses an H.264 IDR's time until it has read about 16 pictures past it, and times a run's first keyframe late](#dts2pts-guesses-an-h264-idrs-time-until-it-has-read-about-16-pictures-past-it-and-times-a-runs-first-keyframe-late) |
 | After a jump, the sound's first chunk is asked for only once the picture's has come. | [hls.js asks for a jump's sound only after its picture](#hlsjs-asks-for-a-jumps-sound-only-after-its-picture) |
@@ -831,6 +832,24 @@ User-Agent (D263; the User-Agent is logged only).
   logged. [repro] headless Chromium (Playwright), 2026-11-01: `page.evaluate` of a 1.5 s loop (the
   console's way, `Runtime.evaluate`) gave no entry; the same loop in a `setTimeout` gave one of
   1500 ms.
+
+### A step through the history cancels a link's navigation that has begun
+
+- **Symptom:** signing out at a client origin, whose page then leaves for the discovery's sign-in by
+  a link it clicks, stayed on "Signed out. Taking you to sign in…" for good, on the owner's Fire TV
+  in Silk 138 and in Chrome 156 on the desktop.
+- **Cause:** the sign-out question held a history entry over the page while it was open
+  (`navigation.ts`'s `holdBack`). The sign-out ended the session, whose listener clicked the link;
+  the question then closed, and its release stepped back off its entry by `history.go(-1)`. The
+  same-document step began after the link's navigation to another document and cancelled it, as
+  the HTML standard has a traversal end a navigation still under way. Nothing is logged.
+- **What we do:** the app's sign-out waits for every held entry to be stepped off before the session
+  ends (`signingOutWithNoneHeld`, `Navigation.whenNoneHeld`), so nothing steps the history after the
+  page starts to leave.
+- **Evidence:** [repro] 2026-11-02, Silk on the Fire TV over DevTools: the page's navigation to
+  `https://orpheum.dev/?signedout=…` started at 6.16 s and a `historySameDocument` traversal at
+  6.23 s replaced it; clicking the same link again from the console left at once. Chrome 156 under
+  Playwright stayed signed out on the client origin for more than 12 s.
 
 ### Fire TV keeps a game controller's D-pad and sticks from a page in Silk
 

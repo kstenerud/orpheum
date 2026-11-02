@@ -94,6 +94,13 @@ export interface Navigation {
    * it would be with nothing open, and no held entry is ever behind a page (`below`, D367 §7).
    */
   readonly holdBack: (onBack: () => void) => () => void;
+  /**
+   * Runs action once no held entry is in the history, letting every hold go and stepping back off
+   * their entries first, as go does: for what leaves the document, as a sign-out's link to the
+   * discovery, which a held entry's later step back would cancel (the owner's Fire TV and Chrome,
+   * 2026-11-02, stuck on "Signed out. Taking you to sign in…").
+   */
+  readonly whenNoneHeld: (action: () => void) => void;
 }
 
 /**
@@ -201,12 +208,15 @@ export function createNavigation(
     },
     back: (up) => held.stepsOffOne() || pages.back(up),
     holdBack: held.hold,
+    whenNoneHeld: (action) => {
+      held.whenNoneLaid(action);
+    },
     onPersonsStep: held.onPersonsStep,
   };
 }
 
 /** What navigates among the pages' own entries: Navigation but for what the held entries do. */
-type PageNavigation = Omit<Navigation, "holdBack" | "onPersonsStep">;
+type PageNavigation = Omit<Navigation, "holdBack" | "whenNoneHeld" | "onPersonsStep">;
 
 /** Navigation among the pages' own entries, over a place whose held entries are kept apart. */
 function createPageNavigation(place: Place, isOnTelevision: boolean): PageNavigation {
