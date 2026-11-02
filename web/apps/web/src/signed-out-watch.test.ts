@@ -125,8 +125,12 @@ describe("a sign-out with a question held over the page (the owner's Fire TV, 20
           steps += 1;
           later.place.history.go(delta);
         },
-        pushState: later.place.history.pushState,
-        replaceState: later.place.history.replaceState,
+        pushState: (data, unused, url) => {
+          later.place.history.pushState(data, unused, url);
+        },
+        replaceState: (data, unused, url) => {
+          later.place.history.replaceState(data, unused, url);
+        },
       },
     };
     const navigation = createNavigation(counted, false);
