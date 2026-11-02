@@ -12,17 +12,21 @@ import (
 )
 
 // spellingVariantsAtMost is how many other spellings of a name a match searches for when the
-// provider found no work of the name itself: a request each, made only for a name already failing.
-const spellingVariantsAtMost = 3
+// provider found no work of the name itself: a request each, made only for a name already failing,
+// and one for each way spellingVariants changes a name.
+const spellingVariantsAtMost = 4
 
 // spellingVariants are other ways a name may be written that the provider's search, which matches
 // words as they are spelled, would not find from it (the owner's staging, 2026-10-21, where TMDB has
 // Edric Pellow's series as "Harbour Lights" and a search for "Harbor Lights" never finds it): the
-// other side of the Atlantic's spelling, the name with its leading article or without one, and its
-// numbers as Roman or Arabic numerals. Each is the whole name changed one way; none is the name.
+// other side of the Atlantic's spelling, its "and" as "&" or its "&" as "and", the name with its
+// leading article or without one, and its numbers as Roman or Arabic numerals. Each is the whole
+// name changed one way; none is the name.
 func spellingVariants(name string) []string {
 	var variants []string
-	for _, variant := range []string{atlanticSpelling(name), otherArticle(name), otherNumerals(name)} {
+	for _, variant := range []string{
+		atlanticSpelling(name), otherConjunction(name), otherArticle(name), otherNumerals(name),
+	} {
 		if variant != "" && variant != name {
 			variants = append(variants, variant)
 		}
@@ -102,6 +106,28 @@ func otherSuffix(word string) string {
 		}
 	}
 	return ""
+}
+
+// otherConjunction is name with each "&" written "and", or, with none, each word "and" written
+// "&", or "" when it has neither. Names are compared with "&" as "and" (textindex.SameWork), but
+// TMDB's search matches the words as written: a release named Pale.and.Kind.2017 finds nothing
+// for "Pale and Kind", and TMDB's "Blind & Ugly" for "Blind & Ugly" (the owner, 2026-11-02).
+func otherConjunction(name string) string {
+	if strings.Contains(name, "&") {
+		return strings.Join(strings.Fields(strings.ReplaceAll(name, "&", " and ")), " ")
+	}
+	isChanged := false
+	changed := mapWords(name, func(word string) string {
+		if !strings.EqualFold(word, "and") {
+			return word
+		}
+		isChanged = true
+		return "&"
+	})
+	if !isChanged {
+		return ""
+	}
+	return changed
 }
 
 // otherArticle is name without its leading article, or with "The" before it when it has none.

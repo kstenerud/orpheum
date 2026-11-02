@@ -11,8 +11,9 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-// A name's other spellings are the other side of the Atlantic's, the name with or without its
-// leading article, and its numbers as Roman or Arabic numerals, each the whole name changed one way.
+// A name's other spellings are the other side of the Atlantic's, its "and" as "&" or "&" as "and",
+// the name with or without its leading article, and its numbers as Roman or Arabic numerals, each the
+// whole name changed one way.
 func TestSpellingVariants_AreTheOtherWaysANameIsWritten(t *testing.T) {
 	t.Parallel()
 	for _, each := range []struct {
@@ -28,6 +29,15 @@ func TestSpellingVariants_AreTheOtherWaysANameIsWritten(t *testing.T) {
 		// A short word keeps its ending, an -ise word is -ise both sides, and a lone I is a word.
 		{"I Prize the Size", []string{"The I Prize the Size"}},
 		{"Paradise", []string{"The Paradise"}},
+		// "and" and "&" are each other's spelling, a word "and" alone: "Band" keeps its "and".
+		{"Pale and Kind", []string{"Blind & Ugly", "The Pale and Kind"}},
+		{"Show & Tell", []string{"Show and Tell", "The Show & Tell"}},
+		{"Band of Brothers", []string{"The Band of Brothers"}},
+		// A name every way changes is searched every way.
+		{"The Colour and the Shape II", []string{
+			"The Color and the Shape II", "The Colour & the Shape II", "Colour and the Shape II",
+			"The Colour and the Shape 2",
+		}},
 	} {
 		if got := identify.SpellingVariants(each.name); !slices.Equal(got, each.want) {
 			t.Errorf("SpellingVariants(%q) = %q; want %q", each.name, got, each.want)
@@ -57,6 +67,26 @@ func TestMatch_ASeriesSpelledTheOtherWayIsFoundByItsOtherSpelling(t *testing.T) 
 	}
 	if matched := lib.onlySeries(); matched.FollowedSourceID == nil || *matched.FollowedSourceID != "9285" {
 		t.Errorf("the series follows %v; want TMDB's Harbour Lights, 9285", matched.FollowedSourceID)
+	}
+}
+
+// A release that writes its work's "&" as "and" finds it by the "&": TMDB's search for "Blind and
+// Ugly" finds nothing, and for "Blind & Ugly" the German film of 2017 the release is (the owner,
+// 2026-11-02, IMDb tt0567890).
+func TestMatch_AFilmWhoseNameSaysAndForItsAmpersandIsFoundByIt(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movies", "tmdb")
+	film := lib.provider.Add(identify.Metadata{
+		ID: "480500", Name: "Blind & Ugly", OriginalName: "Blind & Hässlich", Year: 2017,
+	})
+	lib.provider.Searches[identifytest.SearchKey("Blind & Ugly", 2017)] = []identify.Candidate{film}
+	const rel = "Pale.and.Kind.2017.GERMAN.1080p.WEBRip.x265-OSPREY/Pale.and.Kind.2017.GERMAN.1080p.WEBRip.x265-OSPREY.mp4"
+	lib.scan(videoRecord(rel))
+	if outcome := lib.matchFileTitle(rel); outcome != identify.OutcomeMatched {
+		t.Fatalf("outcome %s; want matched by the name's ampersand", outcome)
+	}
+	if id, _ := lib.followed(rel); id != "379138" {
+		t.Errorf("the file follows %q; want TMDB's Blind & Ugly, 379138", id)
 	}
 }
 
