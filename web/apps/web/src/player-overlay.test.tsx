@@ -8,8 +8,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { commandEventName } from "./input-commands.ts";
 import type { OfferPiece, OfferPlace } from "./convenience-area.tsx";
+import { PlayUpwardContext } from "./play-up.tsx";
 import type { SequenceMoves } from "./player-controls.tsx";
 import { PlayerOverlay } from "./player-overlay.tsx";
+import { PlayerTracksContext, type PlayerTracks } from "./player-tracks.tsx";
 import { seekAskedEvent, seekRestMs, soughtByOf } from "./seek-ahead.ts";
 import { mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
@@ -479,5 +481,92 @@ describe("the player's full-screen overlay on a computer (D407 §6)", () => {
     });
     expect(video.paused).toBe(true);
     expect(document.activeElement).toBe(pause);
+  });
+});
+
+describe("the overlay's menus on a television (D407 §6, §8)", () => {
+  let mounted: Mounted | undefined;
+  beforeEach(() => {
+    vi.spyOn(Navigator.prototype, "userAgent", "get").mockReturnValue(silk);
+  });
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+    vi.restoreAllMocks();
+  });
+
+  /** A film with no subtitles and one audio track, its switches off. */
+  const tracks: PlayerTracks = {
+    subtitles: {
+      tracks: [],
+      chosenTrackKey: undefined,
+      choose: () => undefined,
+      offsetMs: 0,
+      shiftOffset: () => undefined,
+      failure: undefined,
+    },
+    audio: { tracks: [], chosenStreamId: undefined, choose: () => undefined, problem: undefined },
+    levelling: { isOn: false, switchTo: () => undefined, problem: undefined },
+    level: { levelling: { isMeasured: true, gainDb: 0 }, carriedGainDb: 0 },
+    boost: undefined,
+  };
+
+  /** Draws the overlay over a playing video on a Play page, with ⁝ open. */
+  async function drawnWithMoreOpen(): Promise<Mounted> {
+    const video = playingVideo();
+    const videoRef = createRef<HTMLVideoElement>();
+    Reflect.set(videoRef, "current", video);
+    mounted = await mount(
+      withServices(
+        <PlayUpwardContext value={{ crumbs: [], here: "Film" }}>
+          <PlayerTracksContext value={tracks}>
+            <div className="film-player__stage">
+              <PlayerOverlay
+                videoRef={videoRef}
+                readLinkKbps={() => undefined}
+                failure={undefined}
+              />
+            </div>
+          </PlayerTracksContext>
+        </PlayUpwardContext>,
+      ),
+    );
+    mounted.container.querySelector(".film-player__stage")?.prepend(video);
+    const more = mounted.container.querySelector("button[aria-label='More']");
+    act(() => {
+      more?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    return mounted;
+  }
+
+  it("draws 💬 and ⁝ before full screen, no 🎧 for one audio track", async () => {
+    const on = await drawnWithMoreOpen();
+    const names = [
+      ...on.container.querySelectorAll(
+        ".player-controls__trailing > * button, .player-controls__trailing > button",
+      ),
+    ]
+      .filter((button) => button.closest("dialog") === null)
+      .map((button) => button.getAttribute("aria-label"));
+    expect(names).toEqual(["Subtitles: Off", "More", "Full screen"]);
+  });
+
+  it("leaves Back to the open menu, which closes, the overlay staying", async () => {
+    const on = await drawnWithMoreOpen();
+    expect(on.container.querySelector("dialog")).not.toBeNull();
+    const isTaken = press("back", document.activeElement ?? document.body);
+    expect(isTaken).toBe(true);
+    expect(on.container.querySelector("dialog")).toBeNull();
+    expect(on.container.querySelector(".player-overlay")?.getAttribute("data-shown")).toBe("full");
+  });
+
+  it("closes the menu as full screen changes, focus going on to play", async () => {
+    const on = await drawnWithMoreOpen();
+    expect(on.container.querySelector("dialog")).not.toBeNull();
+    act(() => {
+      document.dispatchEvent(new Event("fullscreenchange"));
+    });
+    expect(on.container.querySelector("dialog")).toBeNull();
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Pause");
   });
 });

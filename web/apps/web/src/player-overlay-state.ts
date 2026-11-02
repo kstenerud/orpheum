@@ -39,6 +39,11 @@ export interface PressContext {
   readonly hasOffer: boolean;
   /** Whether focus is on that offer. */
   readonly isOnOffer: boolean;
+  /**
+   * Whether one of the overlay's menus is open (💬, 🎧, ⁝; player-menus.tsx): its presses are the
+   * menu's, Back closing it before anything else (D407 §6, §8).
+   */
+  readonly isMenuOpen?: boolean;
 }
 
 /** What a press does to the overlay, and whether the overlay takes it from everything else. */
@@ -103,6 +108,18 @@ const playersKeys: ReadonlySet<Command> = new Set<Command>([
  * player's in every state, a seek showing the scrub bar while the overlay is not all shown.
  */
 export function overlayAnswer(
+  state: OverlayState,
+  command: Command,
+  context: PressContext,
+): OverlayAnswer {
+  // An open menu's presses are its own (D407 §8).
+  return context.isMenuOpen === true
+    ? { state, isTaken: false }
+    : answerWithNoMenu(state, command, context);
+}
+
+/** What a press does to the overlay while none of its menus is open (overlayAnswer). */
+function answerWithNoMenu(
   state: OverlayState,
   command: Command,
   context: PressContext,
@@ -319,9 +336,10 @@ export function controlsShown(context: ControlsContext): readonly OverlayControl
     seekForward: true,
     next: context.hasNext,
     sound: !context.isTelevision && !context.isTouch && context.isVolumeSettable,
-    subtitles: true,
-    audio: context.audioTrackCount > 1,
-    more: true,
+    // A cast's receiver draws no menus (D407 §12): the remote holds its choices.
+    subtitles: !context.isReceiver,
+    audio: context.audioTrackCount > 1 && !context.isReceiver,
+    more: !context.isReceiver,
     fullScreen: true,
   };
   return overlayControlsInOrder.filter((control) => shows[control]);

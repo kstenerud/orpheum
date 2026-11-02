@@ -53,3 +53,12 @@
     background: var(--color-surface-raised);
   }
 }
+
+/* One over a film, the player overlay's 💬 and 🎧 (D407 §8): on the film's control ground, round, as
+   every button over a film is (icon-button.css). */
+.route-chooser__button.icon-button--over-video,
+.route-chooser__button.icon-button--over-video:hover {
+  border-radius: var(--radius-pill);
+  background: var(--color-video-control);
+  color: var(--color-on-video);
+}

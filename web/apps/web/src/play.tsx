@@ -2,7 +2,6 @@
 
 import "./play.css";
 
-import { seekTo } from "@orpheum/player";
 import type { CannotKeepUp } from "@orpheum/sdk";
 import {
   createContext,
@@ -44,6 +43,8 @@ import { SubtitleControls } from "./subtitles.tsx";
 import { LevellingControl } from "./levelling.tsx";
 import { LadderTracks, OwnFileTracks, usePlayerTracks } from "./player-tracks.tsx";
 import { LinkDebugTools } from "./link-debug-tools.tsx";
+import { useIsFullScreen } from "./full-screen-button.tsx";
+import { PlayerMenusContext, StartOver, type PlayerMenusWays } from "./player-menus.tsx";
 import { newSoundPanel, SoundPanelContext } from "./sound-panel.ts";
 import { Loaded } from "./title.tsx";
 import { PlaysAlong, useReceiving, type Receiving } from "./cast-receiver.tsx";
@@ -104,6 +105,9 @@ export function PlayView(props: PlayViewProps): JSX.Element {
   const [isBare, setIsBare] = useState(false);
   // The sound controls under the film, as one panel a cast's remote shows and works.
   const [soundPanel] = useState(newSoundPanel);
+  const onBare = useCallback(() => {
+    setIsBare(true);
+  }, []);
   const { decision } = props;
   const isOwnFile = decision.delivery === "direct" && decision.onLadder === undefined;
   if (isBare && isOwnFile) {
@@ -118,9 +122,6 @@ export function PlayView(props: PlayViewProps): JSX.Element {
       />
     );
   }
-  const onBare = (): void => {
-    setIsBare(true);
-  };
   return (
     <SoundPanelContext value={soundPanel}>
       <PlayerView {...props} onBare={isOwnFile ? onBare : undefined} />
@@ -128,30 +129,40 @@ export function PlayView(props: PlayViewProps): JSX.Element {
   );
 }
 
-/** PlayView's player, and the bare player's button where onBare is given. */
-function PlayerView(
-  props: PlayViewProps & { readonly onBare: (() => void) | undefined },
-): JSX.Element {
-  // The lower quality a stalled player moved to, and where it was (D247 §2); per playback.
+/**
+ * The lower quality a stalled player moved to, and where it was (D247 §2), per playback; and the way
+ * to move, which keeps the first move.
+ */
+function useMoveToLowerQuality(
+  mediaToken: string,
+): [MovedDown | undefined, (offer: LadderOffer, positionMs: number) => void] {
   const [moved, setMoved] = useState<MovedDown | undefined>(undefined);
-  // The video playing now, which the host's Watch Together session follows: kept here, above the
-  // way of playing, so a move to a lower quality is no film stopped and put on again for everyone
-  // (the owner's test, 2026-10-05).
-  const [video, setVideo] = useState<HTMLVideoElement | null>(null);
-  // Whether its lowest quality cannot keep up, which a host's session tells everyone (D247 §8).
-  const [cannotKeepUp, setCannotKeepUp] = useState<CannotKeepUp | undefined>(undefined);
-  const { fileId, decision, onDecideAgain, onPlaybackGone, onOwnPictureGivenUp, receiving } = props;
-  const offered = useUpNextOffered(fileId, video, { ...decision.preferences, receiving });
-  const tracks = useSequenceCommands(offered);
-  usePlayerCommands(video, tracks);
-  useFullscreenAsTheBrowserIs(video);
-  const { mediaToken } = props.decision;
   const onLowerQuality = useCallback(
     (offer: LadderOffer, positionMs: number) => {
       setMoved((already) => already ?? { mediaToken, offer, positionMs });
     },
     [mediaToken],
   );
+  return [moved, onLowerQuality];
+}
+
+/** PlayView's player, and the bare player's button where onBare is given. */
+function PlayerView(
+  props: PlayViewProps & { readonly onBare: (() => void) | undefined },
+): JSX.Element {
+  const [moved, onLowerQuality] = useMoveToLowerQuality(props.decision.mediaToken);
+  // The video playing now, which the host's Watch Together session follows: kept here, above the
+  // way of playing, so a move to a lower quality is no film stopped and put on again for everyone
+  // (the owner's test, 2026-10-05).
+  const [video, setVideo] = useState<HTMLVideoElement | null>(null);
+  // Whether its lowest quality cannot keep up, which a host's session tells everyone (D247 §8).
+  const [cannotKeepUp, setCannotKeepUp] = useState<CannotKeepUp | undefined>(undefined);
+  const { fileId, decision, receiving, onBare } = props;
+  const { onDecideAgain, onPlaybackGone, onOwnPictureGivenUp } = props;
+  const offered = useUpNextOffered(fileId, video, { ...decision.preferences, receiving });
+  const tracks = useSequenceCommands(offered);
+  usePlayerCommands(video, tracks);
+  useFullscreenAsTheBrowserIs(video);
   const ways = useMemo(
     () => ({
       fileId,
@@ -162,8 +173,9 @@ function PlayerView(
       onLowerQuality,
       onVideo: setVideo,
       onCannotKeepUp: setCannotKeepUp,
+      onBare,
     }),
-    [fileId, decision, onDecideAgain, onPlaybackGone, onOwnPictureGivenUp, onLowerQuality],
+    [fileId, decision, onDecideAgain, onPlaybackGone, onOwnPictureGivenUp, onLowerQuality, onBare],
   );
   const { titleName, resumePositionMs } = props.decision;
   // A cast's receiver shows the film and nothing else (D337 §3).
@@ -203,10 +215,11 @@ function PlayerView(
  */
 function UnderThePlayer(props: { readonly onBare: (() => void) | undefined }): JSX.Element {
   const { t } = useTranslation();
+  const isFullScreen = useIsFullScreen();
   return (
     <>
       {props.onBare === undefined ? null : (
-        <button type="button" onClick={props.onBare}>
+        <button type="button" hidden={isFullScreen} onClick={props.onBare}>
           {t("play.bare.open")}
         </button>
       )}
@@ -266,6 +279,8 @@ type PlayProps = Parameters<typeof PlayView>[0] & {
   readonly onVideo: (video: HTMLVideoElement | null) => void;
   /** Told when even the lowest quality cannot keep up, and undefined when it can (D247 §8). */
   readonly onCannotKeepUp: (cannotKeepUp: CannotKeepUp | undefined) => void;
+  /** Plays the film's own file in the bare player, where it is offered. */
+  readonly onBare: (() => void) | undefined;
 };
 
 /**
@@ -389,32 +404,27 @@ function UnderTheVideo(
       {reportRefusal === undefined || stopMessage !== undefined ? null : (
         <p role="alert">{t("play.positionNotKept", { reason: problemText(t, reportRefusal) })}</p>
       )}
-      <StartOver videoRef={props.videoRef} />
-      <SubtitleControls choice={tracks.subtitles} />
-      <FindSubtitles fileId={props.fileId} onFetched={decideAgainFor(props, "subtitleFetched")} />
-      <AudioChoiceMenu choice={tracks.audio} />
-      <LevellingControl fileId={props.fileId} level={tracks.level} state={tracks.levelling} />
-      <SoundOffsetControl videoRef={props.videoRef} initialMs={props.decision.soundOffsetMs} />
+      <OverlayHeld>
+        <StartOver videoRef={props.videoRef} />
+        <SubtitleControls choice={tracks.subtitles} />
+        <FindSubtitles fileId={props.fileId} onFetched={decideAgainFor(props, "subtitleFetched")} />
+        <AudioChoiceMenu choice={tracks.audio} />
+        <LevellingControl fileId={props.fileId} level={tracks.level} state={tracks.levelling} />
+        <SoundOffsetControl videoRef={props.videoRef} initialMs={props.decision.soundOffsetMs} />
+      </OverlayHeld>
     </>
   );
 }
 
-/** The button that takes the film back to its start. */
-function StartOver(props: { readonly videoRef: RefObject<HTMLVideoElement | null> }): JSX.Element {
-  const { t } = useTranslation();
+/**
+ * What the full-screen overlay's menus hold (player-menus.tsx), under the film: hidden while full
+ * screen draws the overlay, which holds them then (D407 §8), kept mounted so their state stays.
+ */
+function OverlayHeld(props: { readonly children: ReactNode }): JSX.Element {
   return (
-    <button
-      type="button"
-      className="play__start-over"
-      onClick={() => {
-        const video = props.videoRef.current;
-        if (video !== null) {
-          seekTo(video, 0);
-        }
-      }}
-    >
-      {t("play.startOver")}
-    </button>
+    <div className="play__overlay-held" hidden={useIsFullScreen()}>
+      {props.children}
+    </div>
   );
 }
 
@@ -447,17 +457,50 @@ function PlayTracksOfPage(props: FilmParts & { readonly children: ReactNode }): 
     };
     return (
       <OwnFileTracks {...film} askAgain={askAgain}>
-        {children}
+        <MenusOfPage asked={asked} isOnLadder={false}>
+          {children}
+        </MenusOfPage>
       </OwnFileTracks>
     );
   }
   const decision = { ...ways.decision, resumePositionMs: Math.round(ladder.positionMs) };
-  const askAgain = decideAgainFor({ ...ways, videoRef, decision }, "audioChosen");
+  const asked = { ...ways, videoRef, decision };
   return (
-    <LadderTracks {...film} ladder={ladder} askAgain={askAgain}>
-      {children}
+    <LadderTracks {...film} ladder={ladder} askAgain={decideAgainFor(asked, "audioChosen")}>
+      <MenusOfPage asked={asked} isOnLadder>
+        {children}
+      </MenusOfPage>
     </LadderTracks>
   );
+}
+
+/** Gives the overlay's menus the page's ways (menusWaysOf), around children. */
+function MenusOfPage(props: {
+  readonly asked: PlayProps & { readonly videoRef: RefObject<HTMLVideoElement | null> };
+  readonly isOnLadder: boolean;
+  readonly children: ReactNode;
+}): JSX.Element {
+  const { asked, isOnLadder } = props;
+  const ways = useMemo(() => menusWaysOf(asked, isOnLadder), [asked, isOnLadder]);
+  return <PlayerMenusContext value={ways}>{props.children}</PlayerMenusContext>;
+}
+
+/**
+ * What the overlay's menus are given by the Play page (player-menus.tsx): the file, the device's
+ * sound timing, and what a subtitle fetched, the original chosen (on a ladder) and the bare player
+ * ask for, each as the page under the film asks for it.
+ */
+function menusWaysOf(
+  asked: PlayProps & { readonly videoRef: RefObject<HTMLVideoElement | null> },
+  isOnLadder: boolean,
+): PlayerMenusWays {
+  return {
+    fileId: asked.fileId,
+    soundOffsetMs: asked.decision.soundOffsetMs,
+    onSubtitleFetched: decideAgainFor(asked, "subtitleFetched"),
+    onOriginalChosen: isOnLadder ? decideAgainFor(asked, "originalChosen") : undefined,
+    onBare: asked.onBare,
+  };
 }
 
 /**
@@ -475,8 +518,12 @@ function PlayUnder(props: PlayProps & FilmParts): JSX.Element {
   return (
     <>
       <UnderTheVideo {...props} decision={decision} />
-      {boost === undefined ? null : <BoostBox state={boost} />}
-      {ladder === undefined ? null : <LadderUnder {...props} ladder={ladder} decision={decision} />}
+      <OverlayHeld>
+        {boost === undefined ? null : <BoostBox state={boost} />}
+        {ladder === undefined ? null : (
+          <LadderUnder {...props} ladder={ladder} decision={decision} />
+        )}
+      </OverlayHeld>
     </>
   );
 }

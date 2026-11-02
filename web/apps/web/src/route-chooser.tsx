@@ -50,6 +50,10 @@ interface ChooserTold {
    * 2026-10-30: "put the whole sort thing behind an icon"), its choice seen in the list it opens.
    */
   readonly openerIcon?: ReactNode;
+  /** Whether its icon is drawn over a film, as the player's overlay's 💬 and 🎧 are (D407 §8). */
+  readonly isOverVideo?: boolean;
+  /** Told each time its list opens or closes (DropDown's onOpenChange). */
+  readonly onOpenChange?: ((isOpen: boolean) => void) | undefined;
 }
 
 /**
@@ -78,8 +82,9 @@ function Chooser(props: ChooserTold & { readonly children: ReactNode }): JSX.Ele
             </>
           )
         }
-        openerClassName={isIcon ? "icon-button route-chooser__button" : "route-chooser__button"}
+        openerClassName={openerClassOf(isIcon, props.isOverVideo === true)}
         listClassName="route-chooser__panel"
+        onOpenChange={props.onOpenChange}
         openerNaming={
           props.isFieldLabelShown === false || isIcon
             ? { "aria-label": `${props.fieldLabel}: ${props.current}` }
@@ -152,6 +157,16 @@ export function ActionChooser(
       ))}
     </Chooser>
   );
+}
+
+/** A chooser's button's classes: an icon's, over a film or not, or the current choice's. */
+function openerClassOf(isIcon: boolean, isOverVideo: boolean): string {
+  if (!isIcon) {
+    return "route-chooser__button";
+  }
+  return isOverVideo
+    ? "icon-button icon-button--over-video route-chooser__button"
+    : "icon-button route-chooser__button";
 }
 
 /** A chooser's mark: a chevron pointing down, to the list it opens. */

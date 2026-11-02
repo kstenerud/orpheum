@@ -133,3 +133,12 @@ dialog[open] {
   max-height: none;
   object-fit: contain;
 }
+
+/* While the overlay's buttons show, the subtitles JASSUB draws move up above them, and back down as
+   they hide (D407 §8): the whole canvas, which lies over the video in the stage, rises by the rows'
+   height. Only JASSUB's layer: a browser's own captions show in the video's own full screen alone, an
+   iPhone's, where the overlay is not drawn (plans/player-overlay.md). A justified length: the three
+   rows and their padding, as the overlay lays them out at its default size. */
+.film-player__stage:has(.player-overlay[data-shown="full"]) .JASSUB {
+  translate: 0 calc(-1 * var(--player-overlay-lift, 11rem));
+}

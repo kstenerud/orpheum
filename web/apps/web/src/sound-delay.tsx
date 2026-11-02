@@ -8,7 +8,7 @@ import {
   soundOffset,
 } from "@orpheum/player";
 import { reportFailure } from "@orpheum/sdk";
-import { useEffect, useState, type JSX, type RefObject } from "react";
+import { useEffect, useState, useSyncExternalStore, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import { setMyDeviceSoundOffset } from "./accounts.ts";
@@ -34,9 +34,34 @@ export const soundOffsetKeptAfterMs = 500;
  */
 const setInThisTab: { ms: number | undefined } = { ms: undefined };
 
+/**
+ * What hears the offset this tab sets: every control drawn shows and applies the one value, the
+ * hidden one under the film and the player's ⁝ alike (D407 §8), so neither moves from a stale one.
+ */
+const tabListeners = new Set<() => void>();
+
+/** Sets the offset this tab last set, telling every control. */
+function setTabMs(ms: number | undefined): void {
+  setInThisTab.ms = ms;
+  for (const listener of tabListeners) {
+    listener();
+  }
+}
+
+function hearTab(listener: () => void): () => void {
+  tabListeners.add(listener);
+  return () => {
+    tabListeners.delete(listener);
+  };
+}
+
+function tabMs(): number | undefined {
+  return setInThisTab.ms;
+}
+
 /** Forgets the offset this tab set, for a test. */
 export function forgetSoundOffsetSetInThisTab(): void {
-  setInThisTab.ms = undefined;
+  setTabMs(undefined);
 }
 
 /**
@@ -45,8 +70,8 @@ export function forgetSoundOffsetSetInThisTab(): void {
  * Bro, plays its sound half a second late (2026-10-24). Later holds the sound back; earlier moves a
  * streamed film's sound chunks forward, which a film playing its own file cannot, and says so. It is
  * the device's own, kept by the core with the device and given with each playback (initialMs), or
- * as this tab last set it; it applies at once, and the player counts Web Audio's own latency. A
- * viewer with no device keeps none.
+ * as this tab last set it, every control drawn showing the one value; it applies at once, and the
+ * player counts Web Audio's own latency. A viewer with no device keeps none.
  */
 export function SoundOffsetControl(props: {
   readonly videoRef: RefObject<HTMLVideoElement | null>;
@@ -54,7 +79,7 @@ export function SoundOffsetControl(props: {
 }): JSX.Element | null {
   const { t } = useTranslation();
   const { session } = useServices();
-  const [offsetMs, setOffsetMs] = useState(setInThisTab.ms ?? props.initialMs);
+  const offsetMs = useSyncExternalStore(hearTab, tabMs, tabMs) ?? props.initialMs;
   const { keep, failure } = useKeptOnDevice();
   // Whether the sound is wanted earlier than this film can play it: it plays as its own file.
   const [isEarlierRefused, setIsEarlierRefused] = useState(false);
@@ -70,8 +95,7 @@ export function SoundOffsetControl(props: {
   }
   const move = (byMs: number): void => {
     const next = Math.min(Math.max(offsetMs + byMs, -longestSoundOffsetMs), longestSoundOffsetMs);
-    setOffsetMs(next);
-    setInThisTab.ms = next;
+    setTabMs(next);
     const video = props.videoRef.current;
     setIsEarlierRefused(next < 0 && video !== null && !canMoveSoundEarlier(video));
     keep({ deviceId, ms: next });
