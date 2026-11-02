@@ -501,6 +501,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   reports, a real disk's speed and a real software encode meet only here (D324; I6 of
   `docs/contributors/design/plans/interest-priority.md`). (`internal/core/interest`,
   `internal/core/waits`, `internal/core/nodes/playing.go`, `web/apps/web/src/file-waits.ts`)
+  *Run by the lead on staging, 2026-11-02, Linux Chrome 156 and Firefox 155.* The note part fails:
+  a 306 s film said "waiting to be measured, about 55 minutes", was measured within 15 s, said "being
+  measured, less than a minute" for about two minutes, then "not measured yet, so it plays as it is"
+  until the page was opened again, when it said "Lowered 1.2 dB" (the player asks for the level only
+  as it starts; the plan's item 8 of 2026-11-02, next batch). The series part cannot be checked as
+  written: the job view shows no priority since D329 put tiers in place of numbers, and staging has no
+  read-through left queued; it needs restating. The Firefox part needs a Firefox that cannot decode
+  HEVC (the Mac's or Windows'): Linux Firefox 155 plays The Gold Rush's HEVC as it is, unprepared.
 - [x] **VQ51** — On a machine with an NVIDIA GPU and its driver: run a node built from this change
   and let it say hello; the System page's hardware lists h264_nvenc's trial with no failure, and an
   encode confined as a prepare is (`orpheum __confined-exec` with `usesGpu`) gives frames identical
