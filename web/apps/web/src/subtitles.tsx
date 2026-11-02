@@ -216,7 +216,7 @@ function drawnTrackOf(track: SubtitleTrack, label: string): DrawnTrack {
 type DrawnTrack = CaptionSource & { readonly assUrl: string };
 
 /** A track's name in the menu, in the viewer's language. */
-function useTrackLabel(): (track: SubtitleTrack) => string {
+export function useTrackLabel(): (track: SubtitleTrack) => string {
   const { t, i18n } = useTranslation();
   const words = {
     unknownLanguage: t("play.subtitles.unknownLanguage"),
@@ -259,7 +259,7 @@ function TrackMenu(props: {
 }
 
 /** Moves the subtitles earlier or later by a tenth of a second, and shows where they are. */
-function OffsetControl(props: {
+export function OffsetControl(props: {
   readonly offsetMs: number;
   readonly onMove: (stepMs: number) => void;
 }): JSX.Element {

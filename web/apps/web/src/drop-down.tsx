@@ -230,7 +230,28 @@ function useStuckArrowTold(
 }
 
 /**
- * Closes the list when one of its places, a link or a button, is pressed: after what it does, as a
+ * The attribute that marks a place of a list whose buttons change something in it, a stepper's, as
+ * the player's ⁝ holds (player-menus.tsx): pressing one keeps the list open, for the next press.
+ */
+export const keepsListOpenAttribute = "data-keeps-list-open";
+
+/**
+ * Closes the list as the page enters or leaves full screen, a layout's change under it: on a Fire TV
+ * Silk's Back leaves full screen and is no key the page hears, so it is the one press that closes
+ * the list there (D407 §8; idiosyncrasies.md, a modal dialog removed while open).
+ */
+function useFullScreenChangeCloses(close: () => void): void {
+  useEffect(() => {
+    document.addEventListener("fullscreenchange", close);
+    return () => {
+      document.removeEventListener("fullscreenchange", close);
+    };
+  }, [close]);
+}
+
+/**
+ * Closes the list when one of its places, a link or a button, is pressed (not one marked
+ * keepsListOpenAttribute): after what it does, as a
  * choice's route followed (link.tsx), heard at the document, past the page's root. Heard on the list
  * itself, the close ran first, between the browser's listeners, and the list was gone before React
  * heard the press at its root, so a link's own handling never ran and the browser followed it (the
@@ -245,7 +266,8 @@ function useChoiceCloses(ref: RefObject<HTMLElement | null>, close: () => void):
         list !== null &&
         target instanceof Element &&
         list.contains(target) &&
-        target.closest("a, button") !== null
+        target.closest("a, button") !== null &&
+        target.closest(`[${keepsListOpenAttribute}]`) === null
       ) {
         close();
       }
@@ -291,14 +313,25 @@ export function DropDown(props: {
    * which has no current choice to lay over its button, though the page it is on is marked.
    */
   readonly isFromItsTop?: boolean;
+  /** Told each time the list opens or closes, as the player's overlay holds its time (D407 §6). */
+  readonly onOpenChange?: ((isOpen: boolean) => void) | undefined;
   /** Its places, each a list item. */
   readonly children: ReactNode;
 }): JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
   const openerRef = useRef<HTMLButtonElement>(null);
-  const close = useCallback(() => {
-    setIsOpen(false);
+  const { onOpenChange } = props;
+  const onOpenChangeRef = useRef(onOpenChange);
+  useEffect(() => {
+    onOpenChangeRef.current = onOpenChange;
+  });
+  const setOpen = useCallback((isNowOpen: boolean) => {
+    setIsOpen(isNowOpen);
+    onOpenChangeRef.current?.(isNowOpen);
   }, []);
+  const close = useCallback(() => {
+    setOpen(false);
+  }, [setOpen]);
   return (
     <>
       <button
@@ -309,7 +342,7 @@ export function DropDown(props: {
         aria-expanded={isOpen}
         {...props.openerNaming}
         onClick={() => {
-          setIsOpen((wasOpen) => !wasOpen);
+          setOpen(!isOpen);
         }}
       >
         {props.opener}
@@ -348,6 +381,7 @@ function DropDownList(props: {
     tellClosed();
   }, [tellClosed]);
   useChoiceCloses(ref, onClose);
+  useFullScreenChangeCloses(onClose);
   useFocusedPlaceShown(ref);
   useCurrentPlaceFocused(ref, props.isFromItsTop);
   useListPlacedAtOpener(ref, props.openerRef, props.isFromItsTop);

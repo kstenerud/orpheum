@@ -2397,6 +2397,18 @@ An item is ticked only by the person who did it, and only with what they saw.
   double click on the film goes full screen and back. Note anything that differs by browser.
   (`web/apps/web/src/page-controls.tsx`, `player-commands.ts`, `player-overlay.tsx`)
 
+- [ ] **VQ245** — the overlay's 💬, 🎧 and ⁝ choose a film's subtitles, audio and the rest in full
+  screen, and subtitles move up out of the overlay's way (D407 §1, §8; plans/player-overlay.md step 7).
+  On the Fire TV, in Silk, play a film with two subtitle tracks and two audio tracks, full screen.
+  Passes when: Right walks the buttons ▶ … 💬 🎧 ⁝ ⤢; OK on 💬 opens Off, the tracks and Find
+  subtitles, Up and Down walk them, OK chooses one and the subtitles show; 🎧 likewise switches the
+  sound; ⁝ holds Start over, the subtitle offset, the sound timing and levelling, and OK on a stepper
+  keeps it open; Back closes an open menu and leaves the overlay showing; while a menu is open the
+  overlay does not hide; with the overlay showing, the subtitles sit above its rows, and they move back
+  down as it hides; Find subtitles opens its dialog, and fetching one closes it with the subtitle on.
+  Repeat 💬 and ⁝ on a computer in full screen with a mouse. (`web/apps/web/src/player-menus.tsx`,
+  `player-overlay.tsx`, `player-overlay.css`)
+
 - [ ] **VQ246** — Up next and Still watching show alone in the overlay's convenience area, and OK
   takes them (D407 §3; plans/player-overlay.md step 8). On the Fire TV, in Silk, play an episode with
   a next one and let the overlay hide; seek near the end. Passes when: Up next shows at the top right

@@ -143,14 +143,19 @@ export const playerControlsAttribute = "data-player-controls";
  * Whether Space is the player's while focus is where it is: on the video (the browser's own controls,
  * in its shadow, are focus on it), on nothing, or on one of the player's own controls over it that
  * Space does not press, its timeline; never on a button, which Space presses (D407 §5), nor on
- * another control the page draws over the film, as Up next, nor on anything outside the player.
+ * another control the page draws over the film, as Up next, nor in a menu the overlay opened (⁝'s
+ * switches, D407 §8), nor on anything outside the player.
  */
 function isSpaceThePlayers(video: HTMLVideoElement): boolean {
   const focused = document.activeElement;
   if (focused === null || focused === document.body || focused === video) {
     return true;
   }
-  return !(focused instanceof HTMLButtonElement) && isInThePlayersControls(focused, video);
+  return (
+    !(focused instanceof HTMLButtonElement) &&
+    focused.closest("dialog") === null &&
+    isInThePlayersControls(focused, video)
+  );
 }
 
 /**

@@ -7,7 +7,7 @@ import { sendFailuresTo } from "@orpheum/sdk";
 import { act, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { DropDown } from "./drop-down.tsx";
+import { DropDown, keepsListOpenAttribute } from "./drop-down.tsx";
 import { fire, mount } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
@@ -82,6 +82,62 @@ describe("a drop-down", () => {
     await pressLeft();
     expect(mounted.container.querySelector("dialog")).toBeNull();
     expect(sent).toEqual([]);
+    mounted.unmount();
+  });
+
+  it("tells each opening and closing, and closes as full screen changes (D407 §8)", async () => {
+    const told: boolean[] = [];
+    const mounted = await mount(
+      withServices(
+        <DropDown
+          label="Which"
+          opener="Open"
+          openerClassName="opener"
+          openerNaming={{}}
+          onOpenChange={(isOpen) => told.push(isOpen)}
+        >
+          <li>
+            <button type="button">one</button>
+          </li>
+        </DropDown>,
+      ),
+    );
+    const opener = mounted.container.querySelector(".opener");
+    await fire(opener, new MouseEvent("click", { bubbles: true }));
+    expect(mounted.container.querySelector("dialog")).not.toBeNull();
+    act(() => {
+      document.dispatchEvent(new Event("fullscreenchange"));
+    });
+    expect(mounted.container.querySelector("dialog")).toBeNull();
+    expect(told).toEqual([true, false]);
+    mounted.unmount();
+  });
+
+  it("stays open at a press of a place marked to keep it open, a stepper's", async () => {
+    const mounted = await mount(
+      withServices(
+        <DropDown label="Which" opener="Open" openerClassName="opener" openerNaming={{}}>
+          <li {...{ [keepsListOpenAttribute]: "" }}>
+            <button type="button">later</button>
+          </li>
+          <li>
+            <button type="button">done</button>
+          </li>
+        </DropDown>,
+      ),
+    );
+    await fire(
+      mounted.container.querySelector(".opener"),
+      new MouseEvent("click", { bubbles: true }),
+    );
+    const buttonNamed = (name: string): Element | undefined =>
+      [...mounted.container.querySelectorAll("dialog button")].find(
+        (button) => button.textContent === name,
+      );
+    await fire(buttonNamed("later"), new MouseEvent("click", { bubbles: true }));
+    expect(mounted.container.querySelector("dialog")).not.toBeNull();
+    await fire(buttonNamed("done"), new MouseEvent("click", { bubbles: true }));
+    expect(mounted.container.querySelector("dialog")).toBeNull();
     mounted.unmount();
   });
 });

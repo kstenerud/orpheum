@@ -180,6 +180,13 @@ describe("all of the overlay (D407 §5)", () => {
     expect(overlayAnswer(full, "back", onTv)).toEqual({ state: hidden, isTaken: true });
   });
 
+  it("leaves every press to an open menu, Back closing it first (D407 §8)", () => {
+    const inMenu = { ...onTv, isOnButtons: true, isMenuOpen: true };
+    for (const command of ["back", "left", "up", "down", "select", "playPause"] as const) {
+      expect(overlayAnswer(full, command, inMenu)).toEqual({ state: full, isTaken: false });
+    }
+  });
+
   it("seeks by Left and Right on the scrub bar", () => {
     expect(overlayAnswer(full, "left", { ...onTv, isOnScrub: true })).toEqual({
       state: full,
@@ -311,5 +318,12 @@ describe("which controls show (D407 §2)", () => {
 
   it("shows no way up on a cast's receiver", () => {
     expect(controlsShown({ ...computer, isReceiver: true })).not.toContain("up");
+  });
+
+  it("shows no menus on a cast's receiver (D407 §12)", () => {
+    const shown = controlsShown({ ...computer, audioTrackCount: 2, isReceiver: true });
+    expect(shown).not.toContain("subtitles");
+    expect(shown).not.toContain("audio");
+    expect(shown).not.toContain("more");
   });
 });

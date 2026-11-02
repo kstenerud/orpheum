@@ -112,10 +112,12 @@ export function subtitleProblemText(
 export function FindSubtitles(props: {
   readonly fileId: number;
   readonly onFetched: () => void;
+  /** Whether it opens at once, on its language and search: the player's 💬 asked for it (D407 §8). */
+  readonly isOpenAtOnce?: boolean;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
   const { api } = useServices();
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(props.isOpenAtOnce === true);
   const [language, setLanguage] = useState(() => startingLanguage(i18n.language));
   const [offer, setOffer] = useState<SubtitleOffer | undefined>(undefined);
   // One request at a time, and why it failed when it did (D224 §4).

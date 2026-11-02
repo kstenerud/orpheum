@@ -183,6 +183,35 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
     );
   });
 
+  it("moves JASSUB's subtitles up while the overlay's buttons show, and back as it hides (D407 §8)", async () => {
+    const videoRef = createRef<HTMLVideoElement>();
+    Reflect.set(videoRef, "current", document.createElement("video"));
+    await drawn(
+      <div className="film-player__stage">
+        <canvas className="JASSUB" />
+        <PlayerOverlay videoRef={videoRef} readLinkKbps={() => undefined} failure={undefined} />
+      </div>,
+      (mounted) => {
+        const subtitles = found(mounted.container, ".JASSUB");
+        expect(found(mounted.container, ".player-overlay").getAttribute("data-shown")).toBe("full");
+        expect(getComputedStyle(subtitles).translate).not.toBe("none");
+        act(() => {
+          document.body.dispatchEvent(
+            new CustomEvent(commandEventName, {
+              detail: { command: "back", source: "key" },
+              bubbles: true,
+              cancelable: true,
+            }),
+          );
+        });
+        expect(found(mounted.container, ".player-overlay").getAttribute("data-shown")).toBe(
+          "hidden",
+        );
+        expect(getComputedStyle(subtitles).translate).toBe("none");
+      },
+    );
+  });
+
   it("draws nothing of the page under a stage filling the window, nor a pulse beside a film, and shows the page as it was after (the efficiency audit, finding 3)", async () => {
     await drawn(
       <>

@@ -30,6 +30,7 @@ import {
   type SequenceMoves,
 } from "./player-controls.tsx";
 import { PauseIcon } from "./player-icons.tsx";
+import { PlayerMenus } from "./player-menus.tsx";
 import {
   controlsShown,
   hideAfter,
@@ -74,6 +75,8 @@ export function PlayerOverlay(
   const buttonsRef = useRef<HTMLDivElement>(null);
   const convenienceRef = useRef<HTMLDivElement>(null);
   const [hasOffer, setHasOffer] = useState(false);
+  // Whether one of its menus is open, which holds it shown and takes its presses (D407 §6, §8).
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const refs = {
     overlayRef,
     playRef,
@@ -82,7 +85,7 @@ export function PlayerOverlay(
     videoRef: film.videoRef,
     convenienceRef,
   };
-  const { state, source, isTv } = useOverlay(refs, hasOffer, shouldOpenFullScreen === true);
+  const { state, source, isTv } = useOverlay(refs, { hasOffer, isMenuOpen, shouldOpenFullScreen });
   const convenience = {
     film,
     offer,
@@ -107,11 +110,10 @@ export function PlayerOverlay(
         <OverlayRows
           source={source}
           isTv={isTv}
-          playRef={playRef}
-          scrubRef={scrubRef}
-          buttonsRef={buttonsRef}
+          refs={refs}
           convenience={convenience}
           moves={moves}
+          onMenuOpenChange={setIsMenuOpen}
         />
       </div>
     </>
@@ -124,20 +126,30 @@ export function PlayerOverlay(
  */
 function useOverlay(
   refs: OverlayRefs,
-  hasOffer: boolean,
-  shouldOpenFullScreen: boolean,
+  told: {
+    readonly hasOffer: boolean;
+    readonly isMenuOpen: boolean;
+    readonly shouldOpenFullScreen: boolean | undefined;
+  },
 ): { readonly state: OverlayState; readonly source: PlayerSource; readonly isTv: boolean } {
+  const { hasOffer, isMenuOpen } = told;
   const isTv = isTelevision(navigator.userAgent);
   const [state, setState] = useState<OverlayState>(() => openedWith(isTv));
   const isCovered = state.shown === "hidden" || state.shown === "convenience";
   const source = useVideoSource(refs.videoRef, isCovered);
-  const notePress = useOverlayHiding({ state, setState, isPaused: source.isPaused, ...refs });
+  const notePress = useOverlayHiding({
+    state,
+    setState,
+    isPaused: source.isPaused,
+    isMenuOpen,
+    ...refs,
+  });
   useOpensAtThePointer(() => {
     setState({ shown: "full", shownBy: "pointer" });
     notePress();
   });
-  useOverlayPresses({ state, setState, notePress, isTv, hasOffer, ...refs });
-  useFullscreenStage(refs.overlayRef, shouldOpenFullScreen);
+  useOverlayPresses({ state, setState, notePress, isTv, hasOffer, isMenuOpen, ...refs });
+  useFullscreenStage(refs.overlayRef, told.shouldOpenFullScreen === true);
   return { state, source, isTv };
 }
 
@@ -161,27 +173,26 @@ interface OverlayRefs {
 
 /**
  * The overlay's three rows (D407 §1): the way up and the convenience area (convenience-area.tsx);
- * the scrub bar; the buttons, those the device shows (controlsShown). Subtitles, audio and more come
- * with their menus (plan step 7); previous and next where the sequence has them (moves).
+ * the scrub bar; the buttons, those the device shows (controlsShown), the menus 💬 🎧 ⁝ before full
+ * screen (player-menus.tsx), and previous and next where the sequence has them (moves).
  */
 function OverlayRows({
   source,
   isTv,
-  playRef,
-  scrubRef,
-  buttonsRef,
+  refs,
   convenience,
   moves,
+  onMenuOpenChange,
 }: {
   readonly source: PlayerSource;
   readonly isTv: boolean;
-  readonly playRef: RefObject<HTMLButtonElement | null>;
-  readonly scrubRef: RefObject<HTMLInputElement | null>;
-  readonly buttonsRef: RefObject<HTMLDivElement | null>;
+  readonly refs: Pick<OverlayRefs, "playRef" | "scrubRef" | "buttonsRef" | "videoRef">;
   readonly convenience: Omit<ComponentProps<typeof ConvenienceArea>, "leftMs">;
   readonly moves: SequenceMoves | undefined;
+  readonly onMenuOpenChange: (isOpen: boolean) => void;
 }): JSX.Element {
   const { t } = useTranslation();
+  const { playRef, scrubRef, buttonsRef, videoRef } = refs;
   const shown = useControlsShown(isTv, moves);
   return (
     <>
@@ -215,6 +226,7 @@ function OverlayRows({
           isOverlayRow
           playRef={playRef}
           moves={moves}
+          menus={<PlayerMenus videoRef={videoRef} shown={shown} onOpenChange={onMenuOpenChange} />}
         />
       </div>
     </>
@@ -264,6 +276,7 @@ function useOverlayPresses({
   notePress,
   isTv,
   hasOffer,
+  isMenuOpen,
   playRef,
   scrubRef,
   buttonsRef,
@@ -275,9 +288,11 @@ function useOverlayPresses({
   readonly notePress: () => void;
   readonly isTv: boolean;
   readonly hasOffer: boolean;
+  readonly isMenuOpen: boolean;
 }): void {
   const askFocusToPlay = useFocusToPlayOnceDrawn(playRef, isTv);
   usePlayingLeavesPlay(playRef, videoRef, isTv);
+  useMenuLeftAtFullScreenFocusesPlay(isMenuOpen, askFocusToPlay);
   useCommands(
     "document",
     (detail, event) => {
@@ -290,7 +305,8 @@ function useOverlayPresses({
         buttons: buttonsRef.current,
         convenience: hasOffer ? convenienceRef.current : null,
       };
-      const answer = overlayAnswer(state, detail.command, pressContext(parts, video, isTv));
+      const context = { ...pressContext(parts, video, isTv), isMenuOpen };
+      const answer = overlayAnswer(state, detail.command, context);
       setState(answer.state);
       notePress();
       if (answer.isOfferPressed === true) {
@@ -325,6 +341,29 @@ function moveFocus(
       focusTheVideo(video);
     });
   }
+}
+
+/**
+ * Moves focus to play as full screen changes with a menu open: the menu closes first, its focus
+ * going back to its button, then focus goes on to play (D407 §8): on a Fire TV, Silk's Back leaves
+ * full screen, no key the page hears (idiosyncrasies.md, a modal dialog removed while open).
+ */
+function useMenuLeftAtFullScreenFocusesPlay(isMenuOpen: boolean, askFocusToPlay: () => void): void {
+  const toldRef = useRef({ isMenuOpen, askFocusToPlay });
+  useEffect(() => {
+    toldRef.current = { isMenuOpen, askFocusToPlay };
+  });
+  useEffect(() => {
+    const changed = (): void => {
+      if (toldRef.current.isMenuOpen) {
+        toldRef.current.askFocusToPlay();
+      }
+    };
+    document.addEventListener("fullscreenchange", changed);
+    return () => {
+      document.removeEventListener("fullscreenchange", changed);
+    };
+  }, []);
 }
 
 /**
@@ -425,12 +464,14 @@ const hidingCheckMs = 250;
  * Hides the overlay its time after the last press (hideAfter), a seek landing counting as one, so the
  * scrub bar stays its time after the film shows the new place; as it hides, focus in the overlay
  * moves to the offer in its convenience area, or else the video, so no hidden control holds it
- * (useFocusLeavesWhatHides). Returns what notes a press, which renews the time.
+ * (useFocusLeavesWhatHides). A menu open holds it (D407 §6). Returns what notes a press, which
+ * renews the time.
  */
 function useOverlayHiding({
   state,
   setState,
   isPaused,
+  isMenuOpen,
   overlayRef,
   videoRef,
   convenienceRef,
@@ -438,10 +479,17 @@ function useOverlayHiding({
   readonly state: OverlayState;
   readonly setState: (state: OverlayState) => void;
   readonly isPaused: boolean;
+  readonly isMenuOpen: boolean;
 }): () => void {
   const lastPressAtRef = useRef(0);
   const isFocusIn = useIsFocusIn(overlayRef);
-  const afterMs = hideAfter(state, { isPaused, isMenuOpen: false, isFocusIn });
+  const afterMs = hideAfter(state, { isPaused, isMenuOpen, isFocusIn });
+  // A menu closing counts as a press: the overlay's time starts again from it.
+  useEffect(() => {
+    if (!isMenuOpen) {
+      lastPressAtRef.current = performance.now();
+    }
+  }, [isMenuOpen]);
   useEffect(() => {
     if (afterMs === undefined) {
       return undefined;

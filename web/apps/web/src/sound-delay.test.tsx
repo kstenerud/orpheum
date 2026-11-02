@@ -160,6 +160,33 @@ describe("this device's sound timing (the owner's TCL TV, 2026-10-24)", () => {
     expect(mounted.container.textContent).toContain("whose sound cannot be played earlier here");
   });
 
+  it("shows and applies the one value in every control drawn, the hidden one and the ⁝ menu's (D407 §8)", async () => {
+    const services = servedBy({ "PUT /me/devices/5": [204, undefined] });
+    services.session.signIn("token", { deviceId: 5 });
+    mounted = await mount(
+      withServices(
+        <>
+          <SoundOffsetControl videoRef={createRef()} initialMs={0} />
+          <SoundOffsetControl videoRef={createRef()} initialMs={0} />
+        </>,
+        services,
+      ),
+    );
+    holdTheClock();
+    const [first] = mounted.container.querySelectorAll("button");
+    act(() => {
+      first?.click();
+    });
+    const shown = [...mounted.container.querySelectorAll(".play__sound-delay span")].map(
+      (each) => each.textContent,
+    );
+    expect(shown).toEqual([
+      "Sound on this device: 50 ms earlier",
+      "Sound on this device: 50 ms earlier",
+    ]);
+    await letPass(soundOffsetKeptAfterMs);
+  });
+
   it("is not offered to a viewer with no device to keep it", async () => {
     mounted = await mount(
       withServices(<SoundOffsetControl videoRef={createRef()} initialMs={0} />, servedBy({})),

@@ -89,7 +89,7 @@ export interface SequenceMoves {
  * buttons, whatever aside the page adds, full screen, then the sound, its volume last in the row, as a
  * slider keeps Left and Right for itself and an arrow could not pass it to what came after; then the
  * timeline. The full-screen overlay's row (isOverlayRow, D407 §1) puts play between the steps, in a
- * leading group, and full screen and the sound in a trailing one, the aside between.
+ * leading group, and its menus, full screen and the sound in a trailing one, the aside between.
  */
 export function PlayerControls(props: {
   readonly source: PlayerSource;
@@ -108,9 +108,11 @@ export function PlayerControls(props: {
   readonly isOverlayRow?: boolean | undefined;
   /** What previous and next play, where the controls hold them. */
   readonly moves?: SequenceMoves | undefined;
+  /** The overlay row's menus' openers, 💬 🎧 ⁝ (player-menus.tsx), before full screen. */
+  readonly menus?: ReactNode | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { source, controls, isOverVideo, playRef, aside, isOverlayRow, moves } = props;
+  const { source, controls, isOverVideo, playRef, aside, isOverlayRow, moves, menus } = props;
   return (
     <div className="player-controls">
       <ControlButtons
@@ -121,6 +123,7 @@ export function PlayerControls(props: {
         aside={aside}
         isOverlayRow={isOverlayRow}
         moves={moves}
+        menus={menus}
       />
       {controls.includes("timeline") ? (
         <Timeline
@@ -146,6 +149,7 @@ interface ButtonsParts {
   readonly aside: ReactNode;
   readonly isOverlayRow: boolean | undefined;
   readonly moves: SequenceMoves | undefined;
+  readonly menus: ReactNode;
 }
 
 /**
@@ -154,7 +158,7 @@ interface ButtonsParts {
  * screen and the sound trailing.
  */
 function ControlButtons(props: ButtonsParts): JSX.Element {
-  const { source, controls, isOverVideo, playRef, aside, isOverlayRow, moves } = props;
+  const { source, controls, isOverVideo, playRef, aside, isOverlayRow, moves, menus } = props;
   const has = (control: PlayerControl): boolean => controls.includes(control);
   const move = (isForward: boolean): JSX.Element | null => {
     const go = isForward ? moves?.next : moves?.previous;
@@ -188,7 +192,10 @@ function ControlButtons(props: ButtonsParts): JSX.Element {
         {move(true)}
       </span>
       {asideSpan}
-      <span className="player-controls__trailing">{ending}</span>
+      <span className="player-controls__trailing">
+        {menus}
+        {ending}
+      </span>
     </div>
   ) : (
     <div className="player-controls__buttons">

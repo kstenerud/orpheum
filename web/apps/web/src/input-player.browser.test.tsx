@@ -299,12 +299,18 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
 
   // Plan item 17 (2026-11-02): the buttons hid between presses, and Right meant for Full screen
   // sought the film instead. Their row now stays while focus walks it, and Right never seeks there.
+  // The menus 💬, 🎧 and ⁝ stand between ⏩ and Full screen (D407 §1, §8).
   it("walks its buttons by Right to Full screen, the film not seeking", async () => {
     const video = await onAFireTv();
     const positionAt = standsAt(video, 30);
     const fullScreen = document.querySelector<HTMLElement>(".player-overlay .full-screen-button");
     await expect.poll(() => document.activeElement?.getAttribute("aria-label")).toBe("Play");
-    await press("{ArrowRight}{ArrowRight}");
+    const walked: (string | null | undefined)[] = [];
+    for (let step = 0; step < 5; step += 1) {
+      await press("{ArrowRight}");
+      walked.push(document.activeElement?.getAttribute("aria-label"));
+    }
+    expect(walked).toEqual(["Forward 10 s", "Subtitles: Off", "Sound: ", "More", "Full screen"]);
     expect(document.activeElement).toBe(fullScreen);
     expect(shown()).toBe("full");
     expect(positionAt()).toBe(30);
