@@ -95,7 +95,51 @@ export function PlayerControls(props: {
   readonly isOverlayRow?: boolean | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { source, controls, isOverVideo, playRef } = props;
+  const { source, controls, isOverVideo, playRef, aside, isOverlayRow } = props;
+  return (
+    <div className="player-controls">
+      <ControlButtons
+        source={source}
+        controls={controls}
+        isOverVideo={isOverVideo}
+        playRef={playRef}
+        aside={aside}
+        isOverlayRow={isOverlayRow}
+      />
+      {controls.includes("timeline") ? (
+        <Timeline
+          inputRef={props.timelineRef}
+          label={t("playerControls.where")}
+          atMs={source.atMs}
+          durationMs={source.durationMs}
+          isDisabled={!source.isReady}
+          hasArrowsAsCommands={props.hasArrowsAsCommands}
+          onSeek={source.seekTo}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The bar's buttons among the controls given (PlayerControls): in the bar's order, or as the
+ * overlay's row, play between the steps in a leading group and full screen and the sound trailing.
+ */
+function ControlButtons({
+  source,
+  controls,
+  isOverVideo,
+  playRef,
+  aside,
+  isOverlayRow,
+}: {
+  readonly source: PlayerSource;
+  readonly controls: readonly PlayerControl[];
+  readonly isOverVideo: boolean | undefined;
+  readonly playRef: RefObject<HTMLButtonElement | null> | undefined;
+  readonly aside: ReactNode;
+  readonly isOverlayRow: boolean | undefined;
+}): JSX.Element {
   const has = (control: PlayerControl): boolean => controls.includes(control);
   const play = has("play") ? (
     <PlayButton source={source} isOverVideo={isOverVideo} playRef={playRef} />
@@ -112,55 +156,43 @@ export function PlayerControls(props: {
       ) : null}
     </>
   );
-  const aside = <span className="player-controls__aside">{props.aside}</span>;
-  return (
-    <div className="player-controls">
-      {props.isOverlayRow === true ? (
-        <div className="player-controls__buttons">
-          <span className="player-controls__leading">
-            {step(false)}
-            {play}
-            {step(true)}
-          </span>
-          {aside}
-          <span className="player-controls__trailing">{ending}</span>
-        </div>
-      ) : (
-        <div className="player-controls__buttons">
-          {play}
-          {step(false)}
-          {step(true)}
-          {aside}
-          {ending}
-        </div>
-      )}
-      {has("timeline") ? (
-        <Timeline
-          inputRef={props.timelineRef}
-          label={t("playerControls.where")}
-          atMs={source.atMs}
-          durationMs={source.durationMs}
-          isDisabled={!source.isReady}
-          hasArrowsAsCommands={props.hasArrowsAsCommands}
-          onSeek={source.seekTo}
-        />
-      ) : null}
+  const asideSpan = <span className="player-controls__aside">{aside}</span>;
+  return isOverlayRow === true ? (
+    <div className="player-controls__buttons">
+      <span className="player-controls__leading">
+        {step(false)}
+        {play}
+        {step(true)}
+      </span>
+      {asideSpan}
+      <span className="player-controls__trailing">{ending}</span>
+    </div>
+  ) : (
+    <div className="player-controls__buttons">
+      {play}
+      {step(false)}
+      {step(true)}
+      {asideSpan}
+      {ending}
     </div>
   );
 }
 
 /** Play or pause, as the film stands. */
-function PlayButton(props: {
+function PlayButton({
+  source,
+  isOverVideo,
+  playRef,
+}: {
   readonly source: PlayerSource;
   readonly isOverVideo: boolean | undefined;
   readonly playRef: RefObject<HTMLButtonElement | null> | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { source } = props;
   return (
     <IconButton
-      ref={props.playRef}
-      isOverVideo={props.isOverVideo}
+      ref={playRef}
+      isOverVideo={isOverVideo}
       label={source.isPaused ? t("playerControls.play") : t("playerControls.pause")}
       icon={source.isPaused ? <PlayIcon /> : <PauseIcon />}
       isDisabled={!source.isReady}

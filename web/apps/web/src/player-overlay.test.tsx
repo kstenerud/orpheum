@@ -239,7 +239,7 @@ describe("the player's full-screen overlay on a television (D407)", () => {
     });
     expect(shown()).toBe("hidden");
     expect(document.activeElement).toBe(beside);
-    expect(press("select", beside)).toBe(false);
+    expect(press("select", beside ?? undefined)).toBe(false);
     expect(shown()).toBe("hidden");
   });
 
@@ -258,7 +258,7 @@ describe("the player's full-screen overlay on a television (D407)", () => {
       vi.advanceTimersByTime(10_000);
     });
     expect(shown()).toBe("hidden");
-    expect(press("right", beside)).toBe(true);
+    expect(press("right", beside ?? undefined)).toBe(true);
     expect(shown()).toBe("scrub");
     expect(document.activeElement).toBe(beside);
   });
