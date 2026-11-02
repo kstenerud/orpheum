@@ -50,7 +50,7 @@ it("shows every icon the app draws together, each drawn by Icon (the owner, 2026
     "settings__icon",
     "route-chooser__chevron",
     "poster__clapperboard",
-    ...Array.from({ length: 9 }, () => "player-icons__icon"),
+    ...Array.from({ length: 15 }, () => "player-icons__icon"),
   ]);
 });
 

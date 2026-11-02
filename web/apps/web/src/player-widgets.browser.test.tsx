@@ -20,7 +20,15 @@ import { page } from "vitest/browser";
 
 import { commandEventName } from "./input-commands.ts";
 import { IconButton } from "./icon-button.tsx";
-import { CloseIcon } from "./player-icons.tsx";
+import {
+  AudioIcon,
+  BackIcon,
+  CloseIcon,
+  MoreIcon,
+  NextIcon,
+  PreviousIcon,
+  SubtitlesIcon,
+} from "./player-icons.tsx";
 import { mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 import { TvControls } from "./tv-controls.tsx";
@@ -66,6 +74,41 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
       expect(sizes.length).toBeGreaterThan(5);
       expect(new Set(sizes)).toEqual(new Set(["44×44"]));
     });
+  });
+
+  it("draws the overlay's icons on a fingertip square, 2.75rem, their shapes inside it (D407)", async () => {
+    const icons = {
+      previous: <PreviousIcon />,
+      next: <NextIcon />,
+      subtitles: <SubtitlesIcon />,
+      audio: <AudioIcon />,
+      more: <MoreIcon />,
+      back: <BackIcon />,
+    };
+    await page.viewport(1280, 720);
+    await drawn(
+      <div className="ui-gallery__film">
+        {Object.entries(icons).map(([name, icon]) => (
+          <IconButton key={name} isOverVideo label={name} icon={icon} onClick={() => undefined} />
+        ))}
+      </div>,
+      (mounted) => {
+        const buttons = [...mounted.container.querySelectorAll(".icon-button")];
+        expect(buttons).toHaveLength(Object.keys(icons).length);
+        for (const button of buttons) {
+          const box = button.getBoundingClientRect();
+          expect(`${String(Math.round(box.width))}×${String(Math.round(box.height))}`).toBe(
+            "44×44",
+          );
+          const drawing = found(button, ".player-icons__icon").getBoundingClientRect();
+          expect(drawing.width).toBeGreaterThan(0);
+          expect(drawing.left).toBeGreaterThanOrEqual(box.left);
+          expect(drawing.right).toBeLessThanOrEqual(box.right);
+          // Drawn, never as text a television's font may lack.
+          expect(button.textContent).toBe("");
+        }
+      },
+    );
   });
 
   it("draws Up next's × on the card's ground, as its card", async () => {
