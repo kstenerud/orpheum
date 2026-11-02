@@ -1329,11 +1329,21 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
 16. **Next batch (the owner, 2026-11-02): the screen locked during a film.** "I was playing a movie on
     firefox in linux mint, fullscreen. It suddenly got very choppy, and when I got out of fullscreen I
     noticed that linux mint had gone to the lock screen while I was watching a movie." The player holds
-    no screen wake lock: the client asks `navigator.wakeLock` nothing (device-report only lists the
-    feature), so a desktop whose idle timer is not stopped by fullscreen video alone locks mid-film.
-    Proposed: hold a `screen` wake lock while a video plays, take it again on `visibilitychange` (the
-    browser releases it when the page hides), release it at pause and end. The choppiness is to be
-    checked once the lock no longer comes, as the locker's compositing may be its cause.
+    a screen wake lock already: `keepScreenAwake` (`packages/player/src/wake.ts`, D287, "fix(together): a phone's screen locking no longer pauses its group, and a playing film keeps the screen awake"), held
+    while the video plays on a shown page and asked again when the page is shown. The lead's first
+    reading here, that the client asked `navigator.wakeLock` nothing, was wrong: it searched the app
+    and not the player package. So the lock was asked for, or the page could not ask: the API exists
+    only in a secure context, so a page opened at a plain-http LAN address holds none. Firefox on
+    Linux turns both a page's lock and its own "video-playing" lock into one desktop inhibit, and
+    that is known to fail: Mozilla bug 1935914 (Linux Mint 21.3, Xfce, Firefox 128, the screen slept
+    during a full-screen video until Firefox was restarted), and the labwc and Ubuntu reports of the
+    inhibit going to an interface the desktop does not honour. Cinnamon is not named in any of them.
+    **To find which:** the address the film was opened at (https or not), and Firefox started from a
+    terminal as `MOZ_LOG="LinuxWakeLock:5" firefox`, a film played full screen past the lock's
+    timeout: the log says whether a lock was asked and by which interface it went. If Firefox's
+    inhibit fails, the page cannot fix it, and it goes into `idiosyncrasies.md` with the way around
+    (Cinnamon's own inhibit applet). The choppiness is to be checked once the lock no longer comes,
+    as the locker's compositing may be its cause.
 17. **Next batch (the owner, 2026-11-02): fast-forward and rewind do nothing in Silk's full screen.**
     "I reopend silk browser on fire tv, which was already on a play page with video player. I
     navigated to the play button, pressed select, then navigated to the fullscreen button and pressed
