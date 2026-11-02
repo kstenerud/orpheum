@@ -27,7 +27,7 @@ function playlistHls(edge: number, live = false): EndingHls & { readonly sent: u
 
 /** A video playing at currentTime, holding buffered. */
 function playing(currentTime: number, buffered: TimeRanges): EndingMedia {
-  return { currentTime, paused: false, seeking: false, ended: false, buffered };
+  return { currentTime, paused: false, ended: false, buffered };
 }
 
 describe("endAtTheLastFrame", () => {
@@ -46,6 +46,18 @@ describe("endAtTheLastFrame", () => {
       hls,
       playing(1299.967, ranges([1270.44, 1280.784], [1280.868, 1300.054])),
     );
+    vi.advanceTimersByTime(1000);
+    stop();
+    expect(hls.sent).toEqual([Hls.Events.BUFFER_EOS]);
+  });
+
+  // The same, run again with the fix: hls.js had nudged the stalled video, which then stood seeking.
+  it("ends the stream of one standing there seeking, hls.js's nudge never completing", () => {
+    const hls = playlistHls(1300.054);
+    const stop = endAtTheLastFrame(hls, {
+      ...playing(1299.93, ranges([1270.44, 1280.784], [1280.868, 1300.054])),
+      seeking: true,
+    } as EndingMedia);
     vi.advanceTimersByTime(1000);
     stop();
     expect(hls.sent).toEqual([Hls.Events.BUFFER_EOS]);
@@ -85,9 +97,9 @@ describe("endAtTheLastFrame", () => {
     const media = { ...playing(1299.967, ranges([1270.44, 1300.054])) };
     const stop = endAtTheLastFrame(hls, media);
     vi.advanceTimersByTime(1000);
-    Object.assign(media, { seeking: true, currentTime: 1280 });
+    media.currentTime = 1280;
     vi.advanceTimersByTime(500);
-    Object.assign(media, { seeking: false, currentTime: 1299.967 });
+    media.currentTime = 1299.967;
     vi.advanceTimersByTime(1000);
     stop();
     expect(hls.sent).toHaveLength(2);

@@ -1978,7 +1978,7 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   fault, filed separately); `fragmentTracker.isEndListAppended("main")` was true, the stream controller IDLE.
 - **What we do:** `endAtTheLastFrame` (`web/packages/player/src/end-of-stream.ts`), in both hls.js players,
   triggers hls.js's own `BUFFER_EOS` (no type: every track, then the source) when the video, asked to play,
-  has stood still for a 500 ms look within 0.5 s of the end of what is loaded, and that reaches within 0.5 s
+  seeking or not (hls.js's nudge of the stalled video is a seek that never completes), has stood still for a 500 ms look within 0.5 s of the end of what is loaded, and that reaches within 0.5 s
   of a non-live playlist's edge.
 - **Evidence:** [measured] 2026-11-02 on the stick over CDP: the state above, then
   `hls.trigger("hlsBufferEos", {})` by hand gave `ended` at once, the Up next count ran and 5675 played.

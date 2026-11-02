@@ -22,17 +22,14 @@ export interface EndingHls {
 }
 
 /** The part of a video element the end is watched by. */
-export type EndingMedia = Pick<
-  HTMLMediaElement,
-  "currentTime" | "paused" | "seeking" | "ended" | "buffered"
->;
+export type EndingMedia = Pick<HTMLMediaElement, "currentTime" | "paused" | "ended" | "buffered">;
 
 /**
  * Ends the media source when the video, asked to play, has stood still for a look at the end of a
  * whole film's playlist with all of it loaded, which hls.js does not do when a hole lies behind the
  * playhead: its own check measures the buffered range from its merged start with no hole allowed,
  * finds a "second range" past the hole and never calls endOfStream, so the video stands a frame or
- * two short of its end for good, never "ended", and no next episode comes (the Fire TV, 2026-11-02;
+ * two short of its end for good, never "ended" (and, once hls.js has nudged it, seeking), and no next episode comes (the Fire TV, 2026-11-02;
  * idiosyncrasies.md, "hls.js never ends a stream with a hole behind the playhead"). hls.js's own
  * BUFFER_EOS, of no one track, ends every track and then the source. Returns the stopping.
  */
@@ -40,15 +37,15 @@ export function endAtTheLastFrame(hls: EndingHls, media: EndingMedia): () => voi
   let stoodAtS: number | undefined;
   let isEnded = false;
   const timer = setInterval(() => {
-    if (media.seeking) {
-      isEnded = false; // a seek back reopens the source, and its end is ended again
-    }
     const position = media.currentTime;
-    if (media.paused || media.seeking || media.ended || stoodAtS !== position) {
-      stoodAtS = media.paused || media.seeking || media.ended ? undefined : position;
+    const isStill = position === stoodAtS;
+    stoodAtS = position;
+    if (!isAtLoadedEnd(hls, media, position)) {
+      isEnded = false; // a seek back reopens the source, and its end is ended again
       return;
     }
-    if (!isEnded && isAtLoadedEnd(hls, media, position)) {
+    // Seeking or not: hls.js's own nudge of the stalled video is a seek that never completes.
+    if (isStill && !isEnded && !media.paused && !media.ended) {
       isEnded = true;
       hls.trigger(Hls.Events.BUFFER_EOS, { type: null });
     }
