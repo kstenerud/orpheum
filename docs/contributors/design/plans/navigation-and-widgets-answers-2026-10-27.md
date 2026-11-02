@@ -1356,13 +1356,20 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
     Linux turns both a page's lock and its own "video-playing" lock into one desktop inhibit, and
     that is known to fail: Mozilla bug 1935914 (Linux Mint 21.3, Xfce, Firefox 128, the screen slept
     during a full-screen video until Firefox was restarted), and the labwc and Ubuntu reports of the
-    inhibit going to an interface the desktop does not honour. Cinnamon is not named in any of them.
+    inhibit going to an interface the desktop does not honour.
     **To find which:** the address the film was opened at (https or not), and Firefox started from a
     terminal as `MOZ_LOG="LinuxWakeLock:5" firefox`, a film played full screen past the lock's
     timeout: the log says whether a lock was asked and by which interface it went. If Firefox's
     inhibit fails, the page cannot fix it, and it goes into `idiosyncrasies.md` with the way around
     (Cinnamon's own inhibit applet). The choppiness is to be checked once the lock no longer comes,
     as the locker's compositing may be its cause.
+    **Found (the owner's test, 2026-11-02, staging, https):** the desktop is MATE, not Cinnamon
+    (`systemd-inhibit --list`: `mate-power-manager`, `mate-screensaver`). Firefox's log shows the
+    page's lock and its own taken through the desktop portal and held throughout, yet at a 5-minute
+    timeout the screen blanked while the sound played on: MATE's screensaver does not heed the
+    portal's inhibit. Not ours to fix; in `idiosyncrasies.md` with the way around (the screensaver's
+    idle activation off while watching). **Closed**, but for the choppiness, to be looked at if it
+    comes again with the screensaver off.
 17. **Next batch (the owner, 2026-11-02): fast-forward and rewind do nothing in Silk's full screen.**
     "I reopend silk browser on fire tv, which was already on a play page with video player. I
     navigated to the play button, pressed select, then navigated to the fullscreen button and pressed
