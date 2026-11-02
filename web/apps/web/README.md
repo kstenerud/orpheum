@@ -574,7 +574,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   video, on nothing or on the player's own timeline, while on one of the player's buttons Space
   presses it, as OK does (D407 §5), the cast receiver's Space still playing with nothing focused, a 10 s seek by the seeking buttons, the
   browser's media controls and Left and Right while the video, nothing or the player's timeline has
-  focus, and Back leaving full screen before the page; every control over and under the video is
+  focus, + and − moving the volume 5 % wherever focus is but a text field, + turning a muted film's
+  sound on (D407 §10), and Back leaving full screen before the page; every control over and under the video is
   reached by arrows. A seek is shown before it is made (`src/seek-ahead.ts`): a held or repeated
   arrow or seeking button moves the timeline's marker and time alone, by 10 s steps, 30 s from 2 s
   on and 60 s from 4 s, and the film seeks once, there, as the presses rest (half a second, a key's
@@ -584,7 +585,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   timeline, whose arrows are commands (`data-focus-arrows-are-commands`), and offers full screen as a
   button a remote presses. A computer's and a phone's (`src/page-controls.tsx`) is, in full screen or a
   stage filling the window, the television's overlay, where a press of play that plays or Down from
-  the buttons puts focus on the video so the overlay hides (D407 §6); otherwise the same bar over
+  the buttons puts focus on the video so the overlay hides (D407 §6), its sound 🔈 among the menus, a
+  pop-up with the volume upright, and + and − show the volume they leave a moment (D407 §10); otherwise the same bar over
   the film, with mute and the volume, shown by a mouse's move, a tap or a key in the player and hidden
   by five still seconds while the film plays; Down on the video goes into it, a mouse's click on the
   film plays or pauses it and a double click puts it full screen. `src/page-controls.test.tsx`,

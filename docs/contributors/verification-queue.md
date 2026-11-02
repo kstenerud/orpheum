@@ -2433,3 +2433,15 @@ An item is ticked only by the person who did it, and only with what they saw.
   ⏪ ▶ ⏩ for the same episodes, and only the one there is at either end; on the Fire TV, a cast's
   receiver shows ⏭ alone, which moves the cast on. Note what each machine's keys did.
   (`web/apps/web/src/up-next.tsx`, `input-commands.ts`, `player-controls.tsx`)
+
+- [ ] **VQ248** — + and − move the volume, and 🔈 opens it upright, in the overlay (D407 §10, Q11;
+  plans/player-overlay.md step 10). On staging, in Chrome and Firefox on a computer, play a film in
+  full screen and press + and − (with a US keyboard, = as well, unshifted), then Ctrl and Alt with
+  them. Passes when: each press moves the volume 5 % and shows "Volume n %" in the middle of the film
+  for 1.5 s after the last, whether the overlay is hidden or shown, and + turns a muted film's sound
+  on; Ctrl and Alt with them are left to the browser's zoom. Repeat on a Swiss and a Japanese (JIS)
+  layout, noting what the unshifted key and the numpad's + and − do. 🔈 shows first of the buttons' far group
+  (🔈 💬 🎧 ⁝ ⤢) and opens the volume standing up, full at its top, with mute under it, both keeping
+  it open. On the Fire TV and a phone there is no 🔈. 🎧 names the track playing, the film's first
+  where none was chosen. (`web/apps/web/src/player-commands.ts`, `player-menus.tsx`,
+  `player-overlay.tsx`)

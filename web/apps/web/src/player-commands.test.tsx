@@ -11,6 +11,8 @@ import {
   answerPlayerCommand,
   playerControlsAttribute,
   usePlayerCommands,
+  volumeAfter,
+  volumeStep,
 } from "./player-commands.ts";
 import { seekRestMs, seekStepMs } from "./seek-ahead.ts";
 import { mount } from "./test-dom.tsx";
@@ -93,6 +95,46 @@ describe("the player's answers to a remote's commands", () => {
       Reflect.deleteProperty(document, "fullscreenElement");
       Reflect.deleteProperty(document, "exitFullscreen");
     }
+  });
+
+  // D407 §10, Q12: + and − move the volume 5 % a press, never below nothing nor above full.
+  it("moves the volume 5 % by + and −, kept within nothing and full", () => {
+    const video = videoAt(30);
+    video.volume = 0.5;
+    expect(answerPlayerCommand(video, "volumeUp")).toBe(true);
+    expect(video.volume).toBeCloseTo(0.55, 5);
+    expect(answerPlayerCommand(video, "volumeDown")).toBe(true);
+    answerPlayerCommand(video, "volumeDown");
+    expect(video.volume).toBeCloseTo(0.45, 5);
+    video.volume = 0.98;
+    answerPlayerCommand(video, "volumeUp");
+    expect(video.volume).toBe(1);
+    video.volume = 0.03;
+    answerPlayerCommand(video, "volumeDown");
+    expect(video.volume).toBe(0);
+  });
+
+  it("turns a muted film's sound on by +, and leaves it muted by −", () => {
+    const video = videoAt(30);
+    video.volume = 0.5;
+    video.muted = true;
+    answerPlayerCommand(video, "volumeDown");
+    expect(video.muted).toBe(true);
+    answerPlayerCommand(video, "volumeUp");
+    expect(video.muted).toBe(false);
+  });
+});
+
+describe("the volume a press of + or − leaves (D407 §10)", () => {
+  it("steps by 5 % in even hundredths, from anywhere, and stops at nothing and full", () => {
+    expect(volumeStep).toBe(0.05);
+    expect(volumeAfter(0.1, 1)).toBe(0.15);
+    expect(volumeAfter(0.7, -1)).toBe(0.65);
+    expect(volumeAfter(0.333, 1)).toBe(0.38);
+    expect(volumeAfter(1, 1)).toBe(1);
+    expect(volumeAfter(0.96, 1)).toBe(1);
+    expect(volumeAfter(0, -1)).toBe(0);
+    expect(volumeAfter(0.02, -1)).toBe(0);
   });
 });
 

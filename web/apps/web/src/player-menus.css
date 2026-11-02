@@ -15,3 +15,14 @@
 .player-menus__more .play__sound-delay button {
   width: auto;
 }
+
+/* 🔈's pop-up (D407 §10, Q11): the volume upright, mute under it. */
+.player-menus__volume .player-controls__sound {
+  flex-direction: column-reverse;
+  padding: var(--space-2);
+}
+
+.player-menus__volume .volume-range {
+  width: var(--size-control);
+  accent-color: var(--color-accent);
+}

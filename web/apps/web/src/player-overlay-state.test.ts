@@ -238,6 +238,29 @@ describe("play, pause and the seeking keys, the player's in every state", () => 
     expect(overlayAnswer(full, "seekBack", onTv)).toEqual({ state: full, isTaken: false });
     expect(overlayAnswer(full, "playPause", onTv)).toEqual({ state: full, isTaken: false });
   });
+
+  // D407 §10: + and − are the player's; the overlay shows the volume they leave, nothing else moving.
+  it("leaves + and − to the player in every state, a menu open too, and shows the volume", () => {
+    for (const state of [hidden, scrub, paused, full]) {
+      for (const command of ["volumeUp", "volumeDown"] as const) {
+        expect(overlayAnswer(state, command, onComputer)).toEqual({
+          state,
+          isTaken: false,
+          isVolumeShown: true,
+        });
+      }
+    }
+    expect(overlayAnswer(full, "volumeUp", { ...onComputer, isMenuOpen: true })).toEqual({
+      state: full,
+      isTaken: false,
+      isVolumeShown: true,
+    });
+    expect(overlayAnswer(hidden, "volumeDown", { ...onComputer, hasOffer: true })).toEqual({
+      state: hidden,
+      isTaken: false,
+      isVolumeShown: true,
+    });
+  });
 });
 
 describe("when the overlay hides (D407 §6)", () => {

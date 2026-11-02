@@ -29,6 +29,7 @@ export const enPlay = {
     mute: "Mute",
     unmute: "Sound on",
     volume: "Volume",
+    volumeLevel: "Volume {{percent}} %",
     fullScreen: "Full screen",
     leaveFullScreen: "Leave full screen",
     more: "More",
