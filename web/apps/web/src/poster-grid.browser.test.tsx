@@ -138,6 +138,18 @@ describe("the films' grid at a Fire TV's page in Silk", () => {
     }
   });
 
+  it("keeps the rail where it sticks with the list scrolled to its very end (the owner, 2026-11-02)", async () => {
+    await page.viewport(960, 480);
+    walking?.unmount();
+    walking = await mountApp(
+      walkServices({ ...filmsOnly, "GET /titles": { titles: films(60), nextCursor: "" } }),
+    );
+    await expect.poll(() => document.querySelectorAll(".poster-grid > li").length).toBe(60);
+    window.scrollTo(0, document.documentElement.scrollHeight);
+    expect(window.scrollY).toBeGreaterThan(0);
+    expect(Math.abs(boxOf(".alphabet-rail").top - stickingTop())).toBeLessThanOrEqual(1);
+  });
+
   it("sizes the rail's letters by the window's height, larger on a desktop's than a Fire TV's", async () => {
     const letterSize = async (width: number, height: number): Promise<number> => {
       await page.viewport(width, height);

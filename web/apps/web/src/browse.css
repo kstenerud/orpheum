@@ -59,10 +59,13 @@
 /* The rail starts where it sticks, its gap under the banner, not the page's own top margin (space-4):
    else it moved up by the difference as the list scrolled, on a Fire TV's short page some 8 pixels
    (the owner, 2026-10-25), and ran that much past the window's bottom before it did. */
+/* Fixed to the window, not sticky: a sticky rail is held only while the list beside it is on
+   screen, and rose with the list's end past the window's bottom (the owner, 2026-11-02: "It
+   should never scroll"). Centred in the gutter, which ends at the window's right edge. */
 .browse__layout > .alphabet-rail {
-  justify-self: center;
+  position: fixed;
+  inset-inline-end: calc((var(--gutter) - var(--rail-width)) / 2);
   width: var(--rail-width);
-  margin-block-start: calc(var(--rail-gap) - var(--space-4));
 }
 
 @media (min-width: 600px) and (max-width: 1199px) {
