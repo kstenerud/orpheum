@@ -2126,6 +2126,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   transceiver that receives nothing. (`internal/core/rtcapi/pacer.go`,
   `internal/core/rtcapi/video.go`, `internal/core/rtcapi/ended.go`,
   `web/packages/sdk/src/rtc-connect.ts`)
+  *2026-11-02, from the sandbox's Linux Chrome 156 and Firefox 155, not the Mac:* Chrome 238–247
+  Mb/s both ways, Firefox 193–245 for the app's requests and 75–119 for a film's pieces; one
+  `rtc connection ended` line per connection with every field (D397 §7). The Mac's run is still owed.
 - [ ] **VQ233** — a Fire TV reads over WebRTC faster than before (D397). Deploy the core and the web
   client together. On the Fire TV, run the Throughput probe over WebRTC three times. Passes when its
   figure is above the one noted before this change (record both in D397), playback of a film over
