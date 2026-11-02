@@ -115,8 +115,8 @@ export function TvControls(props: FilmParts): JSX.Element {
   useCommands(
     "document",
     (detail, event) => {
-      if (detail.command === "select" && isOnAnotherControlOverTheFilm(overlayRef.current)) {
-        return; // OK on what else the page draws over the film, its Up next, presses it
+      if (isLeftToFocus(detail.command) && isOnAnotherControlOverTheFilm(overlayRef.current)) {
+        return; // what else the page draws over the film, its Up next or Still watching, takes it
       }
       const isOnScrub = document.activeElement === scrubRef.current;
       const answer = overlayAnswer(shown, detail.command, isOnScrub);
@@ -181,6 +181,16 @@ function EndsAt(props: { readonly leftMs: number | undefined }): JSX.Element {
   const { t } = useTranslation();
   const { leftMs } = props;
   return <>{leftMs === undefined ? "" : t("playerControls.endsAt", { time: endsAt(leftMs) })}</>;
+}
+
+/**
+ * Whether a press is left to a control the page draws over the film when it has focus: OK presses
+ * it, and Left and Right go between its answers, as Still watching's Continue and Stop, not seek
+ * the film (VQ69: Right on Continue sought, and OK then played on). Up and Down still open the
+ * overlay, the way to the player's own controls.
+ */
+function isLeftToFocus(command: Command): boolean {
+  return command === "select" || command === "left" || command === "right";
 }
 
 /**
