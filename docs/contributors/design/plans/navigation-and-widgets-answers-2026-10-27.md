@@ -1266,3 +1266,7 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
    minutes" for a read-through that began 15 s later, as the playing film's moved ahead of the 17 queued.
 9. **Next batch (found by the agent running VQ238, 2026-11-02):** a role one person holds says
    "1 people" on the People page (`roles.holders` has no singular form).
+10. **DVD clocks (the owner, 2026-11-02, "yes go ahead" to the research's proposals):** D405, a DVD
+    title's clock checked at every VOBU with a frame's slack, is **done** in this batch. **Next
+    batch:** the sound at a join (D405 §4): drop an AC-3 frame that repeats or is cut short where the
+    clock was restamped, as FFmpeg's `dvdvideo` demuxer does.

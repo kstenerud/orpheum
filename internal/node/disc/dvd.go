@@ -67,7 +67,6 @@ type dvdCell struct {
 	flags                   int
 	durationMs              int64
 	firstSector, lastSector int64
-	lastVOBU                int64 // the sector its last VOBU starts at
 }
 
 // dvdMainTitle is a DVD's longest title, by the playing time of its program chains.
@@ -224,7 +223,7 @@ func (set *titleSet) programChain(number int) (programChain, error) {
 		cell := cellTable + 24*index
 		chain.cells = append(chain.cells, dvdCell{
 			flags: ifo.u8(cell), durationMs: dvdTimeMs(ifo.bytes(cell+4, 4)),
-			firstSector: ifo.be32(cell + 8), lastVOBU: ifo.be32(cell + 16), lastSector: ifo.be32(cell + 20),
+			firstSector: ifo.be32(cell + 8), lastSector: ifo.be32(cell + 20),
 		})
 	}
 	return chain, ifo.err("a program chain")

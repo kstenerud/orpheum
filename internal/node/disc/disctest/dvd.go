@@ -211,6 +211,7 @@ func VOBU(startTicks, endTicks int) []byte {
 	putBE32(nav[0x39:], startTicks)
 	putBE32(nav[0x3D:], endTicks)
 	copy(nav[1024:], []byte{0, 0, 1, 0xBF, 0x03, 0xFA, 0x01})
+	putBE32(nav[0x40F:], 1) // VOBU_EA: its last pack, the video pack, is the sector after
 	video := data[sector:]
 	packHeader(video, startTicks)
 	copy(video[14:], []byte{0, 0, 1, 0xE0})
