@@ -1316,7 +1316,7 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
       no-service-worker page tells a page inside an app to open the link in Safari or Chrome, with
       the link to copy. **Next batch:** why the first voice call takes 90 s to connect; what ended
       her connections at 16:48:04.
-    - **Why the voice call took 90 s (found 2026-11-02, not yet fixed):** every failed try was the
+    - **Why the voice call took 90 s (found and fixed 2026-11-02, D406; device check VQ241):** every failed try was the
       owner's browser failing the connection 5.0 s after "accepted"; the try that connected came 5 s
       after her microphone first opened (16:49:10.020), and connected in 143 ms. Staging and prod
       run with no relay, so `GET /together/{id}/ice` gives no ICE servers, not even STUN. A page with
@@ -1324,9 +1324,10 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
       outside its network can resolve. In the sandbox, WebKit, Chromium and Firefox each did
       exactly that, and each added its public address once given `stun:stun.cloudflare.com:3478`.
       So a listener who has not pressed talk cannot be reached; the owner's home firewall drops her
-      checks, since nothing went out to her first. **Fix, the owner's choice of STUN server:** the
-      core's `/together/{id}/ice` adds STUN servers to its relay's (none) (D281 §1: everyone hears
-      from the start).
+      checks, since nothing went out to her first. **Fixed (D406, the owner: "yes, use your
+      recommendation for STUN"):** the core's `/together/{id}/ice` hands its own STUN servers and its
+      discovery's before the relay's, relay or not. The discovery's are Cloudflare's today
+      (`connectd -stun`), so Cloudflare sees members' public addresses until Connect runs its own.
     - **What ended her connections at 16:48:04 (found 2026-11-02):** her side went quiet, not the
       core. Her last message was at 16:47:24; the core ended both connections, with SCTP's window
       down to one packet, some 30–40 s later, about ICE's consent timeout. The owner's Firefox on

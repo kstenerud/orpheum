@@ -25550,3 +25550,31 @@ amends [D404](#d404--a-dvd-title-whose-clock-starts-again-partway-is-served-rest
 **Status:** Decided 2026-11-02. Test: `TestMainTitle_ADVDsClockIsCheckedAtEveryVOBU`. Device check:
 VQ73 (a seek past the clock shift, and the title's end).
 
+## D406 — Watch Together's browsers find their public addresses through the core's STUN servers and its discovery's
+
+**Decided** (2026-11-02), by the project owner (*"yes, use your recommendation for STUN"*), on the
+lead's finding in plan item 15 (the navigation-and-widgets plan). It adds to
+[D243](#d243--m4s-nine-questions-answered-a-guests-cookie-covers-one-film-invites-are-registration-links-under-roles-that-choose-libraries-the-names-certificate-comes-by-dns-01-through-cloudflare-and-a-vps-carries-every-route-in)
+§8, which handed members only the relay's servers.
+
+1. **What went wrong.** A server with no relay handed its members no ICE server, not even STUN. A
+   browser with no STUN server and no microphone permission offers only an mDNS `.local` name for
+   itself, which no one outside its network resolves; WebKit, Chromium and Firefox all did so in the
+   sandbox, and each added its public address once given a STUN server. A listener who had not
+   pressed talk (everyone hears from the start, D281 §1) was reached by no one behind a home
+   firewall: a guest's first call took 90 s, connecting 5 s after her microphone first opened.
+2. **`GET /together/{id}/ice` hands the STUN servers first**, with no credentials and an `expiresAt`
+   of 0, then the relay where there is one: the core's own (`webrtc.stun_servers`), then the STUN
+   servers its discovery names, each once.
+3. **The core's own candidates are unchanged.** The Plex-chain review's L3 keeps the discovery's STUN
+   servers from the core's own candidates, whose IPv6 answer would name the house's network as
+   home; a browser's candidates are the browser's, and the core never counts them as home.
+4. **Whose STUN server that is.** The discovery names the servers its operator configures
+   (`connectd -stun`); staging's and production's name Cloudflare's (`stun:stun.cloudflare.com:3478`),
+   which sees each member's public address when it asks. A discovery that runs its own STUN
+   server changes that without the core.
+
+**Status:** Decided 2026-11-02. Tests: `TestICEServersFor_HandTheSTUNServersWithOrWithoutARelay`,
+`TestSTUNServersFor_AreTheCoresOwnThenTheDiscoverys`,
+`TestNewICEIssuer_HandsMembersTheSTUNServersWithNoRelay`,
+`TestTogether_AMemberIsHandedTheSTUNServersBeforeTheRelay`. Device check: VQ241.

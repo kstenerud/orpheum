@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 
+	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/internal/core/turn"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
@@ -49,12 +50,19 @@ func relayAddressOf(config Config) string {
 	return net.JoinHostPort(config.TURN.PublicAddress, port)
 }
 
-// newRelayIssuer hands Watch Together's members their relay credentials, where browsers reach the
-// relay; nil for a server with no turn.public_address, whose browsers connect directly (D243 §8).
-func newRelayIssuer(config Config, opened openedServices, logger *slog.Logger) *turn.Issuer {
-	address := relayAddressOf(config)
-	if address == "" {
-		return nil
+// newICEIssuer hands out the ICE servers: to Watch Together's members, the STUN servers that find
+// each browser's public address, the core's own and its discovery's (D406), and the relay where there
+// is one; to the discovery, the relay alone. A listener who has not pressed talk offers no address but
+// an mDNS name without STUN. A server with no turn.public_address relays nothing (D243 §8).
+func newICEIssuer(config Config, opened openedServices, logger *slog.Logger) *turn.Issuer {
+	return &turn.Issuer{
+		Address: relayAddressOf(config), Secrets: opened.secrets, Settings: opened.settings, Logger: logger,
+		STUN: func() []string {
+			var named []discoveryproto.ICEServer
+			if opened.discovery != nil {
+				named = opened.discovery.Status().ICEServers
+			}
+			return stunServersFor(config.WebRTC.STUNServers, named)
+		},
 	}
-	return &turn.Issuer{Address: address, Secrets: opened.secrets, Settings: opened.settings, Logger: logger}
 }

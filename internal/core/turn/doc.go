@@ -42,12 +42,15 @@
 //   - D193 §4: browser WebRTC through embedded TURN; the ladder is deleted.
 //   - D194: the TURN shared secret is sealed; rotating it is free.
 //   - D243 §8: port 3478, relay ports 49160–49199, credentials per membership that end with it.
+//   - D406: members are handed the core's STUN servers and its discovery's, relay or not.
 //   - docs/contributors/design/plans/watch-together.md.
 //
 // # Where to change
 //
 //   - credentials.go: the secret, the credentials issued from it, and the Issuer that hands a
-//     member theirs as ICE servers (GET /together/{id}/ice; TestTogether_EachMemberIsHandedRelayCredentialsOfTheirOwn).
+//     member theirs as ICE servers (GET /together/{id}/ice; TestTogether_EachMemberIsHandedRelayCredentialsOfTheirOwn),
+//     after the STUN servers, which it hands even with no relay (D406;
+//     TestICEServersFor_HandTheSTUNServersWithOrWithoutARelay).
 //   - relay.go: the relay's listener and what it admits.
 //   - log.go: pion's logs, into the server's.
 package turn

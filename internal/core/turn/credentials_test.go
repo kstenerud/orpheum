@@ -41,6 +41,31 @@ func TestICEServersFor_LastAsLongAsTheSettingSays(t *testing.T) {
 	}
 }
 
+// A server with no relay still hands its members the STUN servers, without credentials, and one
+// with a relay hands them first: a listener who has not pressed talk offers no address but an mDNS
+// name without them, which no one outside the house reaches (D406; a guest's 90 s to her first
+// call, 2026-11-02).
+func TestICEServersFor_HandTheSTUNServersWithOrWithoutARelay(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 11, 2, 20, 0, 0, 0, time.UTC)
+	stun := func() []string { return []string{"stun:stun.example.org:3478"} }
+	membership := Membership{SessionID: 4, MemberID: 9}
+	unrelayed, err := (&Issuer{STUN: stun}).ICEServersFor(t.Context(), membership, now)
+	if err != nil || len(unrelayed) != 1 || strings.Join(unrelayed[0].URLs, " ") != "stun:stun.example.org:3478" ||
+		unrelayed[0].Credentials != (Credentials{}) {
+		t.Errorf("a server with no relay hands %+v (%v); want the STUN server alone, no credentials", unrelayed, err)
+	}
+	relaying := &Issuer{Address: "203.0.113.4:3478", Secrets: newMemorySecrets(), STUN: stun}
+	if ensureErr := EnsureSecret(t.Context(), relaying.Secrets, rand.Reader); ensureErr != nil {
+		t.Fatal(ensureErr)
+	}
+	relayed, err := relaying.ICEServersFor(t.Context(), membership, now)
+	if err != nil || len(relayed) != 2 || relayed[0].URLs[0] != "stun:stun.example.org:3478" ||
+		!strings.HasPrefix(relayed[1].URLs[0], "turn:") || relayed[1].Credentials.Username == "" {
+		t.Errorf("a server with a relay hands %+v (%v); want the STUN server, then the relay", relayed, err)
+	}
+}
+
 // Credentials name their membership and expiry and carry a password derived from the secret, never
 // the secret itself (D194).
 func TestIssue_GivesADerivedPasswordNeverTheSecret(t *testing.T) {

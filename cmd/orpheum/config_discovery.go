@@ -135,7 +135,8 @@ func (discovery DiscoveryConfig) lanIPs() []netip.Addr {
 // device in the house reaches the core directly over WebRTC (D300 §1). Zero gives each connection
 // ports of its own, which nothing at home reaches in a container. STUNServers are the servers its
 // connections find its public addresses through: its own, not its discovery's (the Plex-chain
-// review's L3). MaxConnections is the most connections it holds at once, of every network (D348).
+// review's L3); Watch Together's browsers are handed them too, beside the discovery's (D406).
+// MaxConnections is the most connections it holds at once, of every network (D348).
 type WebRTCConfig struct {
 	UDPPort        int      `toml:"udp_port"`
 	STUNServers    []string `toml:"stun_servers"`

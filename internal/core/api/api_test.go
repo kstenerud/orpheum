@@ -59,7 +59,9 @@ func TestMain(m *testing.M) {
 const canary = "CANARY-api-4e1f-0123456789WXYZ"
 
 type testHarness struct {
-	server       *api.Server
+	server *api.Server
+	// relay hands the members their ICE servers; a test names STUN servers by setting its STUN.
+	relay        *turn.Issuer
 	tmdbProvider *identifytest.Provider
 	cache        *store.Cache
 	nodes        *fakeNodes
@@ -228,7 +230,8 @@ func newHarness(t *testing.T) testHarness {
 	served := httptest.NewServer(server.Handler())
 	t.Cleanup(served.Close)
 	return testHarness{
-		server: server, httpServer: served, logs: logs, authService: dependencies.Auth, setupCodes: codes,
+		server: server, relay: dependencies.Relay, httpServer: served, logs: logs, authService: dependencies.Auth,
+		setupCodes:   codes,
 		databasePath: database.Path(),
 		database:     database, looks: dependencies.Interest,
 		tmdbProvider: provider, cache: cache, nodes: nodes, exchanges: exchanges, directories: directories, clock: now,

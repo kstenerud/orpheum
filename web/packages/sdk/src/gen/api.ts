@@ -3298,7 +3298,7 @@ export interface components {
             credential: string;
             /**
              * Format: int64
-             * @description Unix milliseconds; ask again before
+             * @description Unix milliseconds; ask again before; 0 for a STUN server
              */
             expiresAt: number;
             urls: string[] | null;
