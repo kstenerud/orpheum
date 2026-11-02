@@ -391,6 +391,13 @@
 //     episode that ordering leaves out, or the last (plans/up-next.md). Enforced by
 //     TestUpNext_IsTheNextEpisodeInThePersonsOrdering (internal/core/api).
 //
+//   - A file's sequence (D407 §2) is, for now, that same ordering, and its neighbours in it
+//     (NeighboursOf) are the members either side of its title: Previous before it, offered as Next
+//     Up's is, none for the first; Next the very UpNext. Its members are the ordering's episodes,
+//     specials in their place, and never an extra, which holds no place in an ordering and whose
+//     files are filed "extra". Enforced by TestNeighboursOf_AreTheMembersEitherSideInTheSequence,
+//     TestUpNext_PreviousIsTheEpisodeBeforeInThePersonsOrdering (internal/core/api).
+//
 //   - Which ordering a person sees a series in is answered in one place, ViewingOrdering: their
 //     choice, the preference episode_ordering at the series' work scope, when the series still has
 //     it; else aired, the files' order until an admin can name another (D159 §1, D210 §5;
@@ -454,8 +461,8 @@
 //     watched.go: whether a person watched titles, a mark's fresh start, and what they may mark by
 //     hand (D370);
 //     home.go: Continue Watching and the resume thresholds;
-//     next_up.go: a collection's members as a person stands in them, their Next Up, and what plays
-//     after a file (UpNext);
+//     next_up.go: a collection's members as a person stands in them, their Next Up, what plays
+//     after a file (UpNext), and the members either side of it (NeighboursOf);
 //     ordering.go: the ordering a person sees a series in, and an episode's place in it;
 //     subtitle_sidecar.go: a subtitle file's track; rootpath.go: which root a file is under, and a
 //     path's text; availability.go: the one writer of a place's availability (D328); places.go:
