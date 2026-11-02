@@ -159,7 +159,9 @@ function useHeardButtons(onButton: (press: Press, button: ButtonName, atMs: numb
   const [heard, setHeard] = useState<HeardButtons>({ buttons: [], last: undefined, pressCount: 0 });
   const note = useCallback(
     (press: Press, atMs = performance.now()) => {
-      const button = buttonOf(press);
+      const button = buttonOf(
+        press.kind === "key" ? { ...press, isShifted: press.flags.isShiftHeld } : press,
+      );
       onButton(press, button, atMs);
       setHeard((before) => ({
         buttons: before.buttons.includes(button) ? before.buttons : [...before.buttons, button],

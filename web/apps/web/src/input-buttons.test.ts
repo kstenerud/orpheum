@@ -110,3 +110,43 @@ describe("which button a press is", () => {
     expect(isDirection("select")).toBe(false);
   });
 });
+
+/** A key with its place on the keyboard and whether Shift was held, as the volume keys read it. */
+function typed(name: string, code: string, isShifted = false): HeardInput {
+  return { kind: "key", key: name, keyCode: 0, code, isShifted };
+}
+
+describe("the volume and track keys (D407 §10)", () => {
+  it.each<[string, HeardInput, ButtonName]>([
+    ["+ on a US keyboard, Shift with =", typed("+", "Equal", true), "plus"],
+    ["the number pad's +", typed("+", "NumpadAdd"), "plus"],
+    ["- on a US keyboard", typed("-", "Minus"), "minus"],
+    ["the number pad's -", typed("-", "NumpadSubtract"), "minus"],
+    ["the media keys' next track", key("MediaTrackNext", 176), "nextTrack"],
+    ["the media keys' previous track", key("MediaTrackPrevious", 177), "previousTrack"],
+    ["the system's volume up, still its own button", key("AudioVolumeUp", 175), "volumeUp"],
+  ])("names %s", (_, input, button) => {
+    expect(buttonOf(input)).toBe(button);
+  });
+
+  it.each<[string, HeardInput, Command | undefined]>([
+    ["+ on a US keyboard, Shift with =", typed("+", "Equal", true), "volumeUp"],
+    ["= without Shift, the same key on a US keyboard", typed("=", "Equal"), "volumeUp"],
+    ["- without Shift", typed("-", "Minus"), "volumeDown"],
+    ["the number pad's +", typed("+", "NumpadAdd"), "volumeUp"],
+    ["the number pad's -", typed("-", "NumpadSubtract"), "volumeDown"],
+    ["the number pad's + with Shift", typed("+", "NumpadAdd", true), "volumeUp"],
+    ["Swiss German's +, Shift with 1", typed("+", "Digit1", true), "volumeUp"],
+    ["German's +, a key of its own", typed("+", "BracketRight"), "volumeUp"],
+    ["JIS's +, Shift with ;", typed("+", "Semicolon", true), "volumeUp"],
+    ["German's =, Shift with 0, which is no volume key", typed("=", "Digit0", true), undefined],
+    ["_, Shift with -", typed("_", "Minus", true), undefined],
+    ["- with Shift, as a layout may send it", typed("-", "Digit6", true), undefined],
+    ["the system's volume up, which the system answers", key("AudioVolumeUp", 175), undefined],
+    ["the system's volume down", key("AudioVolumeDown", 174), undefined],
+    ["the media keys' next track", key("MediaTrackNext", 176), "next"],
+    ["the media keys' previous track", key("MediaTrackPrevious", 177), "previous"],
+  ])("asks %s as its command", (_, input, command) => {
+    expect(commandOf(input)).toBe(command);
+  });
+});

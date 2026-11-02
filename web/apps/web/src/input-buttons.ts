@@ -77,6 +77,10 @@ export type ButtonName =
   | "volumeUp"
   | "volumeDown"
   | "mute"
+  | "plus"
+  | "minus"
+  | "previousTrack"
+  | "nextTrack"
   | "other";
 
 /** One press the page heard, by where it came from. */
@@ -87,6 +91,10 @@ export type HeardInput =
       readonly keyCode: number;
       /** Whether a text field had focus: its Backspace deletes, and is no Back. */
       readonly isInField?: boolean;
+      /** The key's place on the keyboard (KeyboardEvent.code): the number pad's + and − by it. */
+      readonly code?: string;
+      /** Whether Shift was held: = with it is + on some layouts, and - with it is _. */
+      readonly isShifted?: boolean;
     }
   | { readonly kind: "historyStep" }
   | {
@@ -112,6 +120,8 @@ const buttonsByKey = new Map<string, ButtonName>([
   ["AudioVolumeUp", "volumeUp"],
   ["AudioVolumeDown", "volumeDown"],
   ["AudioVolumeMute", "mute"],
+  ["MediaTrackPrevious", "previousTrack"],
+  ["MediaTrackNext", "nextTrack"],
 ]);
 
 /**
@@ -178,26 +188,48 @@ function buttonOfPad(button: number, isStandard: boolean, okButton: OkButton): B
   return buttonsByPadButton.get(button) ?? "other";
 }
 
+/** A key as buttonOfKey reads it. */
+type HeardKey = Extract<HeardInput, { kind: "key" }>;
+
+/**
+ * The volume key a key is (D407 §10, player-controls-2026-11-02.md §10.4 option A): plus is + with or
+ * without Shift, = without it, or the number pad's +; minus is - without Shift, or the number pad's −.
+ * A layout whose + needs AltGr or Ctrl+Alt (Swiss, Hungarian, Turkish Q) is left alone by the input
+ * layer's modifier guard, not here; the system's AudioVolume keys are other buttons.
+ */
+function volumeButtonOf(heard: HeardKey): ButtonName | undefined {
+  const isShifted = heard.isShifted ?? false;
+  if (heard.code === "NumpadAdd" || heard.key === "+" || (heard.key === "=" && !isShifted)) {
+    return "plus";
+  }
+  if (heard.code === "NumpadSubtract" || (heard.key === "-" && !isShifted)) {
+    return "minus";
+  }
+  return undefined;
+}
+
 /**
  * The button a key is: by its name, then its keyCode; Other where neither names one. Backspace in a
  * text field deletes, so it is Other there.
  */
-function buttonOfKey(key: string, keyCode: number, isInField: boolean): ButtonName {
+function buttonOfKey(heard: HeardKey): ButtonName {
+  const { key, keyCode } = heard;
   const direction = directionOfKey(key, keyCode);
   if (direction !== undefined) {
     return direction;
   }
+  const isInField = heard.isInField ?? false;
   if (isBackKey(key, keyCode) && !(isInField && (key === "Backspace" || keyCode === 8))) {
     return "back";
   }
-  return buttonsByKey.get(key) ?? buttonsByKeyCode.get(keyCode) ?? "other";
+  return volumeButtonOf(heard) ?? buttonsByKey.get(key) ?? buttonsByKeyCode.get(keyCode) ?? "other";
 }
 
 /** The button a press the page heard is; Other where it names none the test shows. */
 export function buttonOf(input: HeardInput): ButtonName {
   switch (input.kind) {
     case "key":
-      return buttonOfKey(input.key, input.keyCode, input.isInField ?? false);
+      return buttonOfKey(input);
     case "historyStep":
       return "back";
     case "pad":
@@ -213,9 +245,23 @@ export function buttonOf(input: HeardInput): ButtonName {
  * What a press asks of the app (controller-input-2026-10-25.md §6.1 item 1): pages and the player
  * hear commands, never keys.
  */
-export type Command = Direction | "select" | "back" | "playPause" | "seekBack" | "seekForward";
+export type Command =
+  | Direction
+  | "select"
+  | "back"
+  | "playPause"
+  | "seekBack"
+  | "seekForward"
+  | "volumeUp"
+  | "volumeDown"
+  | "previous"
+  | "next";
 
-/** The commands by button: rewind and fast forward seek; the volume keys and the rest ask nothing. */
+/**
+ * The commands by button: rewind and fast forward seek; + and − change the volume, and the media keys'
+ * next and previous track change the video (D407 §10). The system's own volume keys ask nothing: the
+ * system answers them.
+ */
 const commandsByButton = new Map<ButtonName, Command>([
   ["up", "up"],
   ["down", "down"],
@@ -226,6 +272,10 @@ const commandsByButton = new Map<ButtonName, Command>([
   ["playPause", "playPause"],
   ["rewind", "seekBack"],
   ["fastForward", "seekForward"],
+  ["plus", "volumeUp"],
+  ["minus", "volumeDown"],
+  ["previousTrack", "previous"],
+  ["nextTrack", "next"],
 ]);
 
 /**

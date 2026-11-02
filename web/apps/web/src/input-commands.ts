@@ -108,17 +108,52 @@ function commandTarget(): Element {
   return focused?.isConnected === true ? focused : document.body;
 }
 
-/** Whether a key event is one the layer leaves alone: a shortcut with a modifier, or answered. */
+/**
+ * Whether a key event is one the layer leaves alone: answered, a shortcut with a modifier (AltGr
+ * apart from Ctrl and Alt, which Windows sends it as and a Mac's browser need not), or one an input
+ * method is composing, which an old Android browser marks only by keyCode 229 (D407 §10).
+ */
 function isLeftAlone(event: KeyboardEvent): boolean {
-  return event.defaultPrevented || event.ctrlKey || event.altKey || event.metaKey;
+  return (
+    event.defaultPrevented ||
+    event.ctrlKey ||
+    event.altKey ||
+    event.metaKey ||
+    event.getModifierState("AltGraph") ||
+    event.isComposing ||
+    keyCodeOf(event) === 229
+  );
+}
+
+/** Whether typing into element writes: a text field, a number field or editable content. */
+function isEditable(element: Element): boolean {
+  return (
+    caretOf(element) !== undefined ||
+    (element instanceof HTMLInputElement && element.type === "number") ||
+    (element instanceof HTMLElement && element.isContentEditable)
+  );
+}
+
+/**
+ * Whether command is one the focused element keeps: an arrow inside a text field's or a range's
+ * value, or + and - typed into a field (D407 §10).
+ */
+function isFocusedOwn(command: Command, focused: Element | null): boolean {
+  if (focused === null) {
+    return false;
+  }
+  if (isDirection(command)) {
+    return isArrowTheElements(focused, command, false);
+  }
+  return (command === "volumeUp" || command === "volumeDown") && isEditable(focused);
 }
 
 /**
  * The command a key asks for where the layer takes it: none for one a text field or a range keeps (an
- * arrow inside its value, every key while it composes) or one with a modifier.
+ * arrow inside its value, + and - typed, every key while it composes) or one with a modifier.
  */
 function keysCommand(event: KeyboardEvent): Command | undefined {
-  if (isLeftAlone(event) || event.isComposing) {
+  if (isLeftAlone(event)) {
     return undefined;
   }
   const focused = document.activeElement;
@@ -127,12 +162,11 @@ function keysCommand(event: KeyboardEvent): Command | undefined {
     key: event.key,
     keyCode: keyCodeOf(event),
     isInField: focused !== null && caretOf(focused) !== undefined,
+    code: event.code,
+    isShifted: event.shiftKey,
   };
   const command = commandOf(input);
-  if (command === undefined) {
-    return undefined;
-  }
-  if (isDirection(command) && focused !== null && isArrowTheElements(focused, command, false)) {
+  if (command === undefined || isFocusedOwn(command, focused)) {
     return undefined;
   }
   return command;
@@ -242,12 +276,32 @@ const seekActions: readonly (readonly [MediaSessionAction, Command])[] = [
 ];
 
 /**
+ * Which of the browser's previous and next track buttons to take: each only while there is a video
+ * to go to, since Chrome shows a button once its action is registered (D407 §10).
+ */
+export interface MediaTracks {
+  readonly hasPrevious?: boolean;
+  readonly hasNext?: boolean;
+}
+
+/** The Media Session actions hearMediaSeeks registers: the seeks, and the tracks asked for. */
+function mediaActionsOf(tracks: MediaTracks): (readonly [MediaSessionAction, Command])[] {
+  return [
+    ...seekActions,
+    ...(tracks.hasPrevious === true ? [["previoustrack", "previous"] as const] : []),
+    ...(tracks.hasNext === true ? [["nexttrack", "next"] as const] : []),
+  ];
+}
+
+/**
  * Offers the browser's media controls' seeking (a keyboard's media keys, a headset's, the desktop's
- * controls) as commands while a film plays; their play and pause are the player's own
- * (`watchMediaSession` in @orpheum/player), which reports a pause they made. Returns the stopping.
+ * controls) as commands while a film plays, and their previous and next track where tracks asks for
+ * them; their play and pause are the player's own (`watchMediaSession` in @orpheum/player), which
+ * reports a pause they made. Returns the stopping.
  */
 export function hearMediaSeeks(
   dispatch: (command: Command, source: CommandSource) => boolean,
+  tracks: MediaTracks = {},
 ): () => void {
   if (!("mediaSession" in navigator)) {
     return () => undefined;
@@ -260,13 +314,14 @@ export function hearMediaSeeks(
       // A browser that knows no such action keeps its own answer.
     }
   };
-  for (const [action, command] of seekActions) {
+  const actions = mediaActionsOf(tracks);
+  for (const [action, command] of actions) {
     handle(action, () => {
       dispatch(command, "media");
     });
   }
   return () => {
-    for (const [action] of seekActions) {
+    for (const [action] of actions) {
       handle(action, null);
     }
   };

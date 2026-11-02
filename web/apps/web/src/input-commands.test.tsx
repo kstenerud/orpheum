@@ -5,7 +5,14 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createContainerMemory } from "./focus-memory.ts";
 import { moveFocus } from "./focus-navigation.ts";
-import { onCommand, startInput, type CommandDetail, type Input } from "./input-commands.ts";
+import type { Command } from "./input-buttons.ts";
+import {
+  hearMediaSeeks,
+  onCommand,
+  startInput,
+  type CommandDetail,
+  type Input,
+} from "./input-commands.ts";
 
 /** A page of a banner with a link, and a main content of three buttons, and a field outside it. */
 function pageOfButtons(): { readonly main: HTMLElement; readonly field: HTMLInputElement } {
@@ -230,5 +237,153 @@ describe("the input layer", () => {
     running?.input.dispatch("select", "pad");
     expect(changes).toEqual(["dvd", "aired"]);
     expect(opened).toEqual(["picker"]);
+  });
+});
+
+/** A key pressed on whatever has focus, with init's code, modifiers and composing. */
+function pressWith(init: KeyboardEventInit): KeyboardEvent {
+  const event = new KeyboardEvent("keydown", { ...init, bubbles: true, cancelable: true });
+  (document.activeElement ?? document.body).dispatchEvent(event);
+  return event;
+}
+
+/** A key pressed with AltGr alone held, as a Mac's browser may send it: no Ctrl, no Alt. */
+function pressWithAltGraph(init: KeyboardEventInit): KeyboardEvent {
+  const event = new KeyboardEvent("keydown", { ...init, bubbles: true, cancelable: true });
+  Object.defineProperty(event, "getModifierState", {
+    value: (modifier: string) => modifier === "AltGraph",
+  });
+  (document.activeElement ?? document.body).dispatchEvent(event);
+  return event;
+}
+
+describe("the volume keys, as the input layer takes them (D407 §10)", () => {
+  let running: ReturnType<typeof started> | undefined;
+  let heard: Command[] = [];
+  let stopHearing: (() => void) | undefined;
+  beforeEach(() => {
+    running = started();
+    heard = [];
+    stopHearing = onCommand(document, (detail) => {
+      heard.push(detail.command);
+    });
+  });
+  afterEach(() => {
+    stopHearing?.();
+    running?.input.stop();
+    running = undefined;
+    document.body.replaceChildren();
+  });
+
+  it("offers +, = and the number pad's + as volume up, and - as volume down", () => {
+    pageOfButtons();
+    pressWith({ key: "+", code: "Equal", shiftKey: true });
+    pressWith({ key: "=", code: "Equal" });
+    pressWith({ key: "+", code: "NumpadAdd" });
+    pressWith({ key: "-", code: "Minus" });
+    pressWith({ key: "-", code: "NumpadSubtract" });
+    expect(heard).toEqual(["volumeUp", "volumeUp", "volumeUp", "volumeDown", "volumeDown"]);
+  });
+
+  it.each<[string, KeyboardEventInit]>([
+    ["with Ctrl, the browser's zoom", { key: "+", code: "Equal", ctrlKey: true }],
+    ["with Meta, a Mac's zoom", { key: "-", code: "Minus", metaKey: true }],
+    ["with Alt", { key: "-", code: "Minus", altKey: true }],
+    [
+      "with Ctrl and Alt, as Windows sends AltGr: Hungarian's +",
+      { key: "+", code: "Digit3", ctrlKey: true, altKey: true },
+    ],
+    ["while an input method composes", { key: "+", code: "Equal", isComposing: true }],
+    ["with keyCode 229, an old Android browser's composing", { key: "+", keyCode: 229 }],
+  ])("leaves + and - alone %s", (_, init) => {
+    pageOfButtons();
+    const event = pressWith(init);
+    expect(heard).toEqual([]);
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it("leaves + alone with AltGr held alone, Turkish Q's +", () => {
+    pageOfButtons();
+    const event = pressWithAltGraph({ key: "+", code: "Digit4" });
+    expect(heard).toEqual([]);
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it("leaves + and - to a text field, a number field and editable content, which type them", () => {
+    const { main, field } = pageOfButtons();
+    const amount = document.createElement("input");
+    amount.type = "number";
+    const note = document.createElement("div");
+    note.contentEditable = "true";
+    note.tabIndex = 0;
+    main.append(amount, note);
+    for (const target of [field, amount, note]) {
+      target.focus();
+      expect(pressWith({ key: "+", code: "Equal", shiftKey: true }).defaultPrevented).toBe(false);
+      expect(pressWith({ key: "-", code: "NumpadSubtract" }).defaultPrevented).toBe(false);
+    }
+    expect(heard).toEqual([]);
+  });
+
+  it("offers the media keys' next and previous track as next and previous", () => {
+    pageOfButtons();
+    pressWith({ key: "MediaTrackNext" });
+    pressWith({ key: "MediaTrackPrevious" });
+    expect(heard).toEqual(["next", "previous"]);
+  });
+});
+
+/** A Media Session that keeps the handlers set on it, by action. */
+function fakeMediaSession(): Map<MediaSessionAction, MediaSessionActionHandler | null> {
+  const handlers = new Map<MediaSessionAction, MediaSessionActionHandler | null>();
+  Object.defineProperty(navigator, "mediaSession", {
+    configurable: true,
+    value: {
+      setActionHandler: (action: MediaSessionAction, handler: MediaSessionActionHandler | null) => {
+        handlers.set(action, handler);
+      },
+    },
+  });
+  return handlers;
+}
+
+describe("the browser's media controls", () => {
+  afterEach(() => {
+    Reflect.deleteProperty(navigator, "mediaSession");
+  });
+
+  it("takes the seeks alone unless asked for the tracks, whose buttons Chrome would show", () => {
+    const handlers = fakeMediaSession();
+    const stop = hearMediaSeeks(() => true);
+    expect([...handlers.keys()]).toEqual(["seekbackward", "seekforward"]);
+    stop();
+    expect([...handlers.values()]).toEqual([null, null]);
+  });
+
+  it("offers previous and next track as commands where there is a video to go to", () => {
+    const handlers = fakeMediaSession();
+    const offered: Command[] = [];
+    const stop = hearMediaSeeks(
+      (command) => {
+        offered.push(command);
+        return true;
+      },
+      { hasPrevious: false, hasNext: true },
+    );
+    expect(handlers.has("previoustrack")).toBe(false);
+    handlers.get("nexttrack")?.({ action: "nexttrack" });
+    expect(offered).toEqual(["next"]);
+    stop();
+    expect(handlers.get("nexttrack")).toBeNull();
+    const both = hearMediaSeeks(
+      (command) => {
+        offered.push(command);
+        return true;
+      },
+      { hasPrevious: true, hasNext: true },
+    );
+    handlers.get("previoustrack")?.({ action: "previoustrack" });
+    expect(offered).toEqual(["next", "previous"]);
+    both();
   });
 });
