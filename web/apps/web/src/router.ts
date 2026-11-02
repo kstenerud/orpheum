@@ -276,20 +276,25 @@ function queryRouteHref(route: Route): string | undefined {
     return `/${route.screen}${query === "" ? "" : `?${query}`}`;
   }
   if (route.screen === "play") {
-    const query = new URLSearchParams();
-    if (route.atMs !== undefined) {
-      query.set("at", String(Math.round(route.atMs)));
-    }
-    if (route.shouldPlayHere === true) {
-      query.set("here", "1");
-    }
-    if (route.isPaused === true) {
-      query.set("paused", "1");
-    }
-    const asString = query.toString();
-    return `/play/${String(route.fileId)}${asString === "" ? "" : `?${asString}`}`;
+    return playRouteHref(route);
   }
   return undefined;
+}
+
+/** A film's player's address: where it starts, whether here, whether paused. */
+function playRouteHref(route: Extract<Route, { screen: "play" }>): string {
+  const query = new URLSearchParams();
+  if (route.atMs !== undefined) {
+    query.set("at", String(Math.round(route.atMs)));
+  }
+  if (route.shouldPlayHere === true) {
+    query.set("here", "1");
+  }
+  if (route.isPaused === true) {
+    query.set("paused", "1");
+  }
+  const asString = query.toString();
+  return `/play/${String(route.fileId)}${asString === "" ? "" : `?${asString}`}`;
 }
 
 /** A list's sort, its way and its search as an address's query: the Libraries page's and Films'. */

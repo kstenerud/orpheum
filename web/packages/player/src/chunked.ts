@@ -379,7 +379,8 @@ export function tellStalls(
  * What a chunked playback follows of its video once hls.js plays it: how far ahead it loads
  * (keepForwardBuffer, at most atMostS where given, its top its controller's, its notes for the play
  * report), its group (obeyGroup), its sound's shift, its stalls (tellStalls), and its page's main
- * thread's stalls (watchMainThread, for the same notes). Returns each stopping.
+ * thread's stalls (watchMainThread, for the same notes), and its stall at the end, which it ends
+ * (endAtTheLastFrame). Returns each stopping.
  */
 function followAheadGroupSoundAndStalls(
   hls: Hls,
@@ -402,6 +403,7 @@ function followAheadGroupSoundAndStalls(
     by.soundShift.attach(hls, video),
     tellStalls(video, by.abr.choosing),
     tellMainThreadStalls(hls, video, longTasksOf(globalThis)),
+    endAtTheLastFrame(hls, video),
   ];
 }
 
@@ -683,7 +685,6 @@ export function playChunked(
   const follow = { abr, soundShift, atMostS: options.loadsAheadAtMostS };
   const stops = [...followAheadGroupSoundAndStalls(hls, video, follow), seeks.stop, stopLoadingOn];
   stops.push(tellNextChunkLoad(hls, video, () => abr.choosing()?.nextChunkLink()));
-  stops.push(endAtTheLastFrame(hls, video));
   hls.loadSource(url);
   hls.attachMedia(video);
   return {

@@ -15,10 +15,10 @@ function ranges(...spans: readonly (readonly [number, number])[]): TimeRanges {
 }
 
 /** A playlist whose last chunk ends at edge, and every BUFFER_EOS it was sent. */
-function playlistHls(edge: number, live = false): EndingHls & { readonly sent: unknown[] } {
+function playlistHls(edge: number, isLive = false): EndingHls & { readonly sent: unknown[] } {
   const sent: unknown[] = [];
   return {
-    levels: [{ details: { live, edge } }],
+    levels: [{ details: { live: isLive, edge } }],
     currentLevel: 0,
     trigger: (event) => sent.push(event),
     sent,
