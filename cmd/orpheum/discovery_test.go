@@ -67,6 +67,23 @@ func TestICEServersFor_AreTheCoresOwnSTUNAndTheDiscoverysTURN(t *testing.T) {
 	}
 }
 
+// Watch Together's browsers find their public addresses through the core's own STUN servers and its
+// discovery's, each once, and through no TURN server's URL (D406).
+func TestSTUNServersFor_AreTheCoresOwnThenTheDiscoverys(t *testing.T) {
+	t.Parallel()
+	got := stunServersFor([]string{"stun:stun.example.org:3478"}, []discoveryproto.ICEServer{
+		{URLs: []string{"stun:discovery.example:3478", "stun:stun.example.org:3478"}},
+		{URLs: []string{"turn:discovery.example:3478", "stuns:discovery.example:5349"}, Username: "user"},
+	})
+	want := "stun:stun.example.org:3478 stun:discovery.example:3478 stuns:discovery.example:5349"
+	if strings.Join(got, " ") != want {
+		t.Errorf("stunServersFor = %v; want %s", got, want)
+	}
+	if none := stunServersFor(nil, nil); len(none) != 0 {
+		t.Errorf("stunServersFor with no servers = %v; want none", none)
+	}
+}
+
 // Each device a code activates is logged with who entered the code and for whom, so a device
 // someone talked a person into activating is on the record (the device code audit's M4).
 func TestLogActivation_NamesWhoActivatedWhatForWhom(t *testing.T) {

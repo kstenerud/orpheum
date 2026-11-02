@@ -537,6 +537,30 @@ func TestTogether_EachMemberIsHandedRelayCredentialsOfTheirOwn(t *testing.T) {
 	wantError(t, harness.do(t, http.MethodGet, path, "not-a-credential", nil), http.StatusNotFound, api.CodeNotFound)
 }
 
+// A member is handed the STUN servers before the relay, with no credentials and no expiry, so a
+// listener who has not pressed talk offers an address someone outside the house can reach (D406).
+func TestTogether_AMemberIsHandedTheSTUNServersBeforeTheRelay(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	harness.relay.STUN = func() []string { return []string{"stun:stun.example.org:3478"} }
+	admin := harness.createAdminAndSignIn(t)
+	opened := harness.openTogether(t, admin)
+	path := fmt.Sprintf("/together/%d/ice", opened.Body.SessionID)
+	answer := harness.do(t, http.MethodGet, path, opened.Body.MembershipCredential, nil)
+	var ice api.ICEOutput
+	if err := json.Unmarshal([]byte(answer.body), &ice.Body); err != nil || answer.status != http.StatusOK ||
+		len(ice.Body.ICEServers) != 2 {
+		t.Fatalf("GET %s = %d %s", path, answer.status, answer.body)
+	}
+	if stun := ice.Body.ICEServers[0]; strings.Join(stun.URLs, " ") != "stun:stun.example.org:3478" ||
+		stun.Username != "" || stun.Credential != "" || stun.ExpiresAt != 0 {
+		t.Errorf("the first ICE server = %+v; want the STUN server, with no credentials and no expiry", stun)
+	}
+	if relay := ice.Body.ICEServers[1]; relay.Credential == "" || relay.ExpiresAt == 0 {
+		t.Errorf("the second ICE server = %+v; want the relay with its credentials", relay)
+	}
+}
+
 // The host gives each link its rights, which the session's details show beside it; a link made
 // without saying starts with the last one's, the first with every right (D271 §4).
 func TestTogether_ALinkCarriesTheRightsTheHostGaveIt(t *testing.T) {

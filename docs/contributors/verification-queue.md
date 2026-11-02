@@ -2354,3 +2354,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   whole (fragment included) or, where the app refuses, shows it to select, and the copied link pasted
   into Safari joins the session. Note each app's user agent from "What happened". The same on Android
   in Telegram's own browser, headed "Open this link in Chrome". (`web/apps/web/src/open-in-browser.tsx`)
+
+- [ ] **VQ241** — a Watch Together guest outside the house hears the host from the start, before
+  pressing talk (D406; plan item 15, the Berlin guest's 90 s, 2026-11-02). After the deploy, on
+  staging (no relay), the host joins from home and a guest on another network (a phone on mobile data,
+  Wi-Fi off) joins by link and does not press talk or grant the microphone. Passes when the guest
+  hears the host within a few seconds of joining, and the host's "What happened" shows the call
+  connected at the first try, not a run of failures 5 s after "accepted". (`internal/core/turn/credentials.go`)

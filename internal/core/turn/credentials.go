@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -135,12 +136,16 @@ func parseUsername(username string) (holder, time.Time, error) {
 	return holder{membership: Membership{SessionID: sessionID, MemberID: memberID}}, time.Unix(expiresAt, 0), nil
 }
 
-// Issuer hands members their relay credentials, as the browsers' ICE servers: where the relay is
-// reached, over UDP and TCP, and the credentials Issue makes (D243 §8). A server with no relay has
-// none to hand out, and its browsers try only to reach each other directly.
+// Issuer hands members their ICE servers: the STUN servers their browsers find their public
+// addresses through (D406), and the relay, where it is reached over UDP and TCP with the credentials
+// Issue makes (D243 §8). A server with no relay hands out only the STUN servers, and its browsers
+// reach each other directly or not at all.
 type Issuer struct {
-	// Address is the relay's public host:port: turn.public_address and turn.listen's port.
+	// Address is the relay's public host:port: turn.public_address and turn.listen's port; empty
+	// for a server that relays nothing.
 	Address string
+	// STUN is the STUN servers' URLs now: the core's own and its discovery's (D406); nil names none.
+	STUN    func() []string
 	Secrets Secrets
 	// Settings are the server's settings, read for how long a member's credentials last:
 	// voice_relay_credential_hours, a day to start, longer than any evening's film, a membership that
@@ -155,14 +160,25 @@ type ICEServer struct {
 	Credentials Credentials
 }
 
-// ICEServersFor is membership's ICE servers now; none when the server relays nothing.
+// ICEServersFor is membership's ICE servers now: the STUN servers, which take no credentials, then
+// the relay with membership's.
 func (issuer *Issuer) ICEServersFor(ctx context.Context, membership Membership, now time.Time) ([]ICEServer, error) {
 	lifetime := settings.DurationOrStarting(
 		ctx, issuer.settingsReader(), settings.VoiceRelayCredentialHours, issuer.logger(),
 	)
-	return issuer.iceServers(ctx, func(secret secrets.Value) Credentials {
+	relayed, err := issuer.iceServers(ctx, func(secret secrets.Value) Credentials {
 		return Issue(secret, membership, now, lifetime)
 	})
+	if err != nil {
+		return nil, err
+	}
+	if issuer == nil || issuer.STUN == nil {
+		return relayed, nil
+	}
+	if stun := issuer.STUN(); len(stun) > 0 {
+		return append([]ICEServer{{URLs: slices.Clone(stun)}}, relayed...), nil
+	}
+	return relayed, nil
 }
 
 // settingsReader is the issuer's settings as a reader, nil when there are none.

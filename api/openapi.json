@@ -2595,7 +2595,7 @@
             "type": "string"
           },
           "expiresAt": {
-            "description": "Unix milliseconds; ask again before",
+            "description": "Unix milliseconds; ask again before; 0 for a STUN server",
             "format": "int64",
             "type": "integer"
           },

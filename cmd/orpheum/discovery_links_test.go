@@ -102,20 +102,39 @@ func TestRelayForFound_HandsTheDiscoveryTheCoresRelayWithFreshCredentials(t *tes
 
 // The relay a server runs hands members credentials that last as long as its setting says, and is
 // reached at the public address and the listen's port (the constants sweep, 2026-10-20).
-func TestNewRelayIssuer_ReadsTheServersSettingAndIsAtThePublicAddress(t *testing.T) {
+func TestNewICEIssuer_ReadsTheServersSettingAndIsAtThePublicAddress(t *testing.T) {
 	t.Parallel()
 	var config Config
 	config.TURN.PublicAddress, config.TURN.Listen = "11.22.44.146", ":3478"
 	var opened openedServices
 	opened.settings = settingstest.Seeded(t, storetest.OpenMigrated(t))
 	settingstest.Set(t, opened.settings, settings.VoiceRelayCredentialHours, "3")
-	issuer := newRelayIssuer(config, opened, slog.New(slog.DiscardHandler))
+	issuer := newICEIssuer(config, opened, slog.New(slog.DiscardHandler))
 	if issuer == nil || issuer.Address != "11.22.44.146:3478" || issuer.Settings == nil {
 		t.Fatalf("the relay's issuer is %+v; want one at 11.22.44.146:3478 with the server's settings", issuer)
 	}
 	if hours, err := issuer.Settings.Duration(t.Context(), settings.VoiceRelayCredentialHours); err != nil ||
 		hours != 3*time.Hour {
 		t.Errorf("the issuer reads %s, %v; want the 3 hours set", hours, err)
+	}
+}
+
+// A server with no relay still hands Watch Together's members its STUN servers, so a listener who has
+// not pressed talk offers an address someone outside the house can reach (D406).
+func TestNewICEIssuer_HandsMembersTheSTUNServersWithNoRelay(t *testing.T) {
+	t.Parallel()
+	var config Config
+	config.WebRTC.STUNServers = []string{"stun:stun.example.org:3478"}
+	var opened openedServices
+	opened.settings = settingstest.Seeded(t, storetest.OpenMigrated(t))
+	issuer := newICEIssuer(config, opened, slog.New(slog.DiscardHandler))
+	now := time.Date(2026, 11, 2, 20, 0, 0, 0, time.UTC)
+	servers, err := issuer.ICEServersFor(t.Context(), turn.Membership{SessionID: 1, MemberID: 2}, now)
+	if err != nil || len(servers) != 1 || strings.Join(servers[0].URLs, " ") != "stun:stun.example.org:3478" {
+		t.Errorf("a server with no relay hands its members %+v (%v); want its STUN server", servers, err)
+	}
+	if found := relayForFound(issuer, slog.New(slog.DiscardHandler))(t.Context()); len(found) != 0 {
+		t.Errorf("a server with no relay hands its discovery %+v; want nothing, STUN being the members'", found)
 	}
 }
 

@@ -68,7 +68,7 @@ func discoveryParts(
 		// A person's realm key is made for the realm the discovery finds the core by, and checks the
 		// realm sign-ins it passes on (D297 §3).
 		RealmSignIn: opened.auth.TakeRealmSignIn, OnRealm: opened.auth.SetRealm,
-		TURN: relayForFound(newRelayIssuer(config, opened, logger), logger), ProbeNonce: opened.reachability.ProbeNonce,
+		TURN: relayForFound(newICEIssuer(config, opened, logger), logger), ProbeNonce: opened.reachability.ProbeNonce,
 		HasCertificate:          opened.certificates.hasDiscoveryCertificate,
 		ConfiguredHouseNetworks: config.Discovery.houseNetworks(),
 	}
@@ -211,6 +211,22 @@ func iceServersFor(ownSTUN []string, named []discoveryproto.ICEServer) []webrtc.
 			servers = append(servers, webrtc.ICEServer{
 				URLs: turnURLs, Username: server.Username, Credential: server.Credential,
 			})
+		}
+	}
+	return servers
+}
+
+// stunServersFor are the STUN servers Watch Together's browsers find their public addresses through:
+// the core's own, then its discovery's, each once (D406). The Plex-chain review's L3 keeps the
+// discovery's from the core's own candidates (iceServersFor); a browser's are its own.
+func stunServersFor(ownSTUN []string, named []discoveryproto.ICEServer) []string {
+	servers := slices.Clone(ownSTUN)
+	for _, server := range named {
+		for _, url := range server.URLs {
+			isSTUN := strings.HasPrefix(url, "stun:") || strings.HasPrefix(url, "stuns:")
+			if isSTUN && !slices.Contains(servers, url) {
+				servers = append(servers, url)
+			}
 		}
 	}
 	return servers

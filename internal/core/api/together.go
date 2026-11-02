@@ -180,11 +180,11 @@ type ICEServerBody struct {
 	URLs       []string `json:"urls"`
 	Username   string   `json:"username"`
 	Credential string   `json:"credential"`
-	ExpiresAt  int64    `doc:"Unix milliseconds; ask again before" json:"expiresAt"`
+	ExpiresAt  int64    `doc:"Unix milliseconds; ask again before; 0 for a STUN server" json:"expiresAt"`
 }
 
-// ICEOutput is the member's ICE servers: none when the server relays nothing, and the browsers
-// connect directly.
+// ICEOutput is the member's ICE servers: the STUN servers, then the relay, when the server has one
+// (D406).
 type ICEOutput struct {
 	Body struct {
 		ICEServers []ICEServerBody `json:"iceServers"`
@@ -513,10 +513,13 @@ func (server *Server) getTogetherICE(ctx context.Context, input *ICEInput) (*ICE
 	output := &ICEOutput{}
 	output.Body.ICEServers = make([]ICEServerBody, 0, len(servers))
 	for _, each := range servers {
-		output.Body.ICEServers = append(output.Body.ICEServers, ICEServerBody{
+		body := ICEServerBody{
 			URLs: each.URLs, Username: each.Credentials.Username, Credential: each.Credentials.Password,
-			ExpiresAt: each.Credentials.ExpiresAt.UnixMilli(),
-		})
+		}
+		if !each.Credentials.ExpiresAt.IsZero() {
+			body.ExpiresAt = each.Credentials.ExpiresAt.UnixMilli()
+		}
+		output.Body.ICEServers = append(output.Body.ICEServers, body)
 	}
 	return output, nil
 }

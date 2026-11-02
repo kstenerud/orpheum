@@ -411,6 +411,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D403](working-notes.md#d403--a-used-invitation-leaves-the-people-page-and-a-role-opens-in-the-one-dialog-that-makes-it) A used invitation leaves the People page, and a role opens in the one dialog that makes it
 - [D404](working-notes.md#d404--a-dvd-title-whose-clock-starts-again-partway-is-served-restamped-onto-one-clock) A DVD title whose clock starts again partway is served restamped onto one clock — *revisited by D405*
 - [D405](working-notes.md#d405--a-dvd-titles-clock-is-checked-at-every-vobu-with-a-frames-slack) A DVD title's clock is checked at every VOBU, with a frame's slack
+- [D406](working-notes.md#d406--watch-togethers-browsers-find-their-public-addresses-through-the-cores-stun-servers-and-its-discoverys) Watch Together's browsers find their public addresses through the core's STUN servers and its discovery's
 
 ## Archived
 
