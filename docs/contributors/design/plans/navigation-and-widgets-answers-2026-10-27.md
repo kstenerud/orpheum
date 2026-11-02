@@ -1198,3 +1198,20 @@ overnight", with VQ201 passed and these comments. No nas.example release is want
    whether the source is off in other players.
 
 End: one check-pr. Quick visible fixes go to staging for the owner as they land.
+
+## The owner's comments of 2026-11-02
+
+1. **A letter jump puts the letter's first title at the top** (the owner: "When jumping to a letter
+   on a listing, it should aspire to jump such that the first entry of that letter is at the top of
+   the page"). Built in "fix(web): a letter jump shows the letter's first title at the top, loading what the page needs below it", a quick fix on staging: where the letter's first title was in the
+   last page loaded, the page ended too soon below it to scroll it up, and it stayed low (Mad Max 2
+   at 693 px of 1080); the jump now loads the next page and shows it at the top again. A title near
+   the list's very end still stops where the end allows.
+2. **Mister 517 has no sound** (the owner: "I think the file is damaged ... it would be great if
+   orpheum could compensate for that"). The file, `Mister 517 (1950) [720p].mp4`, holds no sound at
+   all: a fragmented MP4 whose one track is H.264 video, its 1022 fragments all video (579 MB at
+   about 860 kb/s), as a video-only DASH download whose sound part was never merged in. Nothing is
+   there to recover. It is the only file without sound in the sandbox's copy of the library.
+   **Proposed, next batch unless the owner folds it:** say so rather than play silence unexplained:
+   a "No sound track" note on the film's page and its player, and the file in the System page's
+   problems, so the owner finds such files before a viewer does. Awaiting the owner.
