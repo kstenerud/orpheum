@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import Hls, { type BufferEOSData } from "hls.js";
+import Hls, { type BufferEOSData, type LevelDetails } from "hls.js";
 
 /** How often the position is looked at. */
 const lookEveryMs = 500;
@@ -14,9 +14,7 @@ const atTheEndS = 0.5;
 
 /** What ending the stream at its last frame needs of hls.js: the playlist, and its events. */
 export interface EndingHls {
-  readonly levels: readonly {
-    readonly details?: { readonly live: boolean; readonly edge: number };
-  }[];
+  readonly levels: readonly { readonly details?: Pick<LevelDetails, "live" | "edge"> }[];
   readonly currentLevel: number;
   trigger: (event: typeof Hls.Events.BUFFER_EOS, data: BufferEOSData) => unknown;
 }
