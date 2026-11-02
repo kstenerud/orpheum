@@ -27,6 +27,7 @@ import {
   type CommandDetail,
   type CommandSource,
   type Input,
+  type MediaTracks,
 } from "./input-commands.ts";
 import type { Navigation } from "./navigation.ts";
 import { routeHref, type Route } from "./router.ts";
@@ -211,10 +212,23 @@ export function useBrowsersNavigation(isOn: boolean): void {
   );
 }
 
-/** Offers the browser's media controls' seeking as commands while mounted (input-commands.ts). */
-export function useMediaSeeks(): void {
+/**
+ * Offers the browser's media controls' seeking as commands while mounted, and their previous and
+ * next track while tracks has them (input-commands.ts).
+ */
+export function useMediaSeeks(tracks: MediaTracks = {}): void {
   const told = use(InputContext);
-  useEffect(() => (told === undefined ? undefined : hearMediaSeeks(told.dispatch)), [told]);
+  const { hasPrevious, hasNext } = tracks;
+  useEffect(
+    () =>
+      told === undefined
+        ? undefined
+        : hearMediaSeeks(told.dispatch, {
+            hasPrevious: hasPrevious === true,
+            hasNext: hasNext === true,
+          }),
+    [told, hasPrevious, hasNext],
+  );
 }
 
 /**

@@ -11,7 +11,7 @@ import type { FilmParts } from "./film-player.tsx";
 import { useIsFullScreen } from "./full-screen-button.tsx";
 import { useCommands } from "./input-layer.tsx";
 import { answerPlayerCommand } from "./player-commands.ts";
-import { PlayerControls, useVideoSource } from "./player-controls.tsx";
+import { PlayerControls, useVideoSource, type SequenceMoves } from "./player-controls.tsx";
 import { PlayerOverlay, useIsFocusIn, useOpensAtThePointer } from "./player-overlay.tsx";
 import { fullShownForMs } from "./player-overlay-state.ts";
 
@@ -26,13 +26,17 @@ import { fullShownForMs } from "./player-overlay-state.ts";
  * otherwise, until the controls move below the film (D407 §9, plans/player-overlay.md step 11).
  */
 export function PageControls(
-  props: FilmParts & { readonly offer?: OfferPiece | undefined },
+  props: FilmParts & {
+    readonly offer?: OfferPiece | undefined;
+    /** What the overlay's previous and next play (D407 §2). */
+    readonly moves?: SequenceMoves | undefined;
+  },
 ): JSX.Element {
-  const { offer: Offer, ...film } = props;
+  const { offer: Offer, moves, ...film } = props;
   const isFullScreen = useIsFullScreen();
   usePressesOnTheFilm(film.videoRef);
   if (isFullScreen) {
-    return <PlayerOverlay {...film} offer={Offer} />;
+    return <PlayerOverlay {...film} offer={Offer} moves={moves} />;
   }
   return (
     <>

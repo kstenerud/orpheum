@@ -27,6 +27,7 @@ import {
   useVideoSource,
   type PlayerControl,
   type PlayerSource,
+  type SequenceMoves,
 } from "./player-controls.tsx";
 import { PauseIcon } from "./player-icons.tsx";
 import {
@@ -48,7 +49,7 @@ import { isTelevision } from "./tv-device.ts";
  * stage, so it stays in full screen, three rows a remote walks by Up and Down, each a focus
  * container that remembers its last focused control (focus-memory.ts): the way up and the
  * convenience area, where an offer (Up next, Still watching) shows, alone while the rest is hidden;
- * the scrub bar with where the film stands and its length; the buttons, ⏪ ▶ ⏩ at the start and full
+ * the scrub bar with where the film stands and its length; the buttons, ⏮ ⏪ ▶ ⏩ ⏭ at the start and full
  * screen and the sound at the end. Hidden, Left and Right seek and show the scrub bar alone, OK
  * plays, or pauses and shows the pause sign, and Up and Down show it all with focus on play
  * (player-overlay-state.ts); a mouse's move, a click or a tap shows it all, leaving focus where it is,
@@ -62,9 +63,11 @@ export function PlayerOverlay(
     readonly shouldOpenFullScreen?: boolean | undefined;
     /** The offer its convenience area draws, Up next or Still watching (convenience-area.tsx). */
     readonly offer?: OfferPiece | undefined;
+    /** What its previous and next play, each shown only where given (D407 §2). */
+    readonly moves?: SequenceMoves | undefined;
   },
 ): JSX.Element {
-  const { shouldOpenFullScreen, offer, ...film } = props;
+  const { shouldOpenFullScreen, offer, moves, ...film } = props;
   const overlayRef = useRef<HTMLDivElement>(null);
   const playRef = useRef<HTMLButtonElement>(null);
   const scrubRef = useRef<HTMLInputElement>(null);
@@ -108,6 +111,7 @@ export function PlayerOverlay(
           scrubRef={scrubRef}
           buttonsRef={buttonsRef}
           convenience={convenience}
+          moves={moves}
         />
       </div>
     </>
@@ -158,7 +162,7 @@ interface OverlayRefs {
 /**
  * The overlay's three rows (D407 §1): the way up and the convenience area (convenience-area.tsx);
  * the scrub bar; the buttons, those the device shows (controlsShown). Subtitles, audio and more come
- * with their menus (plan step 7), previous and next with sequences (step 9).
+ * with their menus (plan step 7); previous and next where the sequence has them (moves).
  */
 function OverlayRows({
   source,
@@ -167,6 +171,7 @@ function OverlayRows({
   scrubRef,
   buttonsRef,
   convenience,
+  moves,
 }: {
   readonly source: PlayerSource;
   readonly isTv: boolean;
@@ -174,9 +179,10 @@ function OverlayRows({
   readonly scrubRef: RefObject<HTMLInputElement | null>;
   readonly buttonsRef: RefObject<HTMLDivElement | null>;
   readonly convenience: Omit<ComponentProps<typeof ConvenienceArea>, "leftMs">;
+  readonly moves: SequenceMoves | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
-  const shown = useControlsShown(isTv);
+  const shown = useControlsShown(isTv, moves);
   return (
     <>
       <div className="player-overlay__row player-overlay__top" data-focus-container="">
@@ -208,6 +214,7 @@ function OverlayRows({
           isOverVideo
           isOverlayRow
           playRef={playRef}
+          moves={moves}
         />
       </div>
     </>
@@ -215,7 +222,10 @@ function OverlayRows({
 }
 
 /** The controls the overlay shows on this device (controlsShown). */
-function useControlsShown(isTv: boolean): readonly OverlayControl[] {
+function useControlsShown(
+  isTv: boolean,
+  moves: SequenceMoves | undefined,
+): readonly OverlayControl[] {
   const isVolumeSettable = useIsVolumeSettable();
   const tracks = use(PlayerTracksContext);
   const upward = use(PlayUpwardContext);
@@ -224,8 +234,8 @@ function useControlsShown(isTv: boolean): readonly OverlayControl[] {
     isTouch: isThisHandheld(),
     isVolumeSettable,
     audioTrackCount: tracks?.audio.tracks.length ?? 0,
-    hasPrevious: false,
-    hasNext: false,
+    hasPrevious: moves?.previous !== undefined,
+    hasNext: moves?.next !== undefined,
     isReceiver: upward === undefined,
   });
 }
@@ -233,8 +243,10 @@ function useControlsShown(isTv: boolean): readonly OverlayControl[] {
 /** The bar's controls among those the overlay shows, which the bar draws today. */
 function barControlsOf(shown: readonly OverlayControl[]): PlayerControl[] {
   const drawn: Partial<Record<OverlayControl, PlayerControl>> = {
+    previous: "previous",
     seekBack: "steps",
     play: "play",
+    next: "next",
     fullScreen: "fullScreen",
     sound: "sound",
   };

@@ -22,6 +22,8 @@ export const enPlay = {
     pause: "Pause",
     back: "Back 10 s",
     forward: "Forward 10 s",
+    previous: "Previous episode",
+    next: "Next episode",
     where: "Where the film stands",
     endsAt: "Ends at {{time}}",
     mute: "Mute",

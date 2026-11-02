@@ -20,8 +20,10 @@ import { IconButton } from "./icon-button.tsx";
 import { answerPlayerCommand } from "./player-commands.ts";
 import {
   MutedIcon,
+  NextIcon,
   PauseIcon,
   PlayIcon,
+  PreviousIcon,
   SeekBackIcon,
   SeekForwardIcon,
   SoundIcon,
@@ -64,10 +66,21 @@ export interface PlayerSound {
 }
 
 /**
- * The controls a bar offers: play or pause; a step back and forward (seekStepMs); the timeline;
- * the sound (mute, and the volume where the page can set it); full screen.
+ * The controls a bar offers: play or pause; a step back and forward (seekStepMs); the previous and
+ * the next in the sequence, where the bar is given them (SequenceMoves); the timeline; the sound
+ * (mute, and the volume where the page can set it); full screen.
  */
-export type PlayerControl = "play" | "steps" | "timeline" | "sound" | "fullScreen";
+export type PlayerControl =
+  "play" | "steps" | "previous" | "next" | "timeline" | "sound" | "fullScreen";
+
+/**
+ * What the bar's previous and next play (D407 §1–§2): the video before and after this one in its
+ * sequence, each absent where there is none to go to, and its button with it.
+ */
+export interface SequenceMoves {
+  readonly previous?: (() => void) | undefined;
+  readonly next?: (() => void) | undefined;
+}
 
 /**
  * The player's bar (D369 §1), one for every device and every source: over a film on this page, a
@@ -93,9 +106,11 @@ export function PlayerControls(props: {
   readonly aside?: ReactNode | undefined;
   /** Whether the buttons are the full-screen overlay's row, play between the steps. */
   readonly isOverlayRow?: boolean | undefined;
+  /** What previous and next play, where the controls hold them. */
+  readonly moves?: SequenceMoves | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { source, controls, isOverVideo, playRef, aside, isOverlayRow } = props;
+  const { source, controls, isOverVideo, playRef, aside, isOverlayRow, moves } = props;
   return (
     <div className="player-controls">
       <ControlButtons
@@ -105,6 +120,7 @@ export function PlayerControls(props: {
         playRef={playRef}
         aside={aside}
         isOverlayRow={isOverlayRow}
+        moves={moves}
       />
       {controls.includes("timeline") ? (
         <Timeline
@@ -121,26 +137,31 @@ export function PlayerControls(props: {
   );
 }
 
-/**
- * The bar's buttons among the controls given (PlayerControls): in the bar's order, or as the
- * overlay's row, play between the steps in a leading group and full screen and the sound trailing.
- */
-function ControlButtons({
-  source,
-  controls,
-  isOverVideo,
-  playRef,
-  aside,
-  isOverlayRow,
-}: {
+/** What the bar's buttons are drawn from (ControlButtons): PlayerControls' props but the timeline's. */
+interface ButtonsParts {
   readonly source: PlayerSource;
   readonly controls: readonly PlayerControl[];
   readonly isOverVideo: boolean | undefined;
   readonly playRef: RefObject<HTMLButtonElement | null> | undefined;
   readonly aside: ReactNode;
   readonly isOverlayRow: boolean | undefined;
-}): JSX.Element {
+  readonly moves: SequenceMoves | undefined;
+}
+
+/**
+ * The bar's buttons among the controls given (PlayerControls): in the bar's order, or as the
+ * overlay's row, previous, the steps with play between them and next in a leading group, and full
+ * screen and the sound trailing.
+ */
+function ControlButtons(props: ButtonsParts): JSX.Element {
+  const { source, controls, isOverVideo, playRef, aside, isOverlayRow, moves } = props;
   const has = (control: PlayerControl): boolean => controls.includes(control);
+  const move = (isForward: boolean): JSX.Element | null => {
+    const go = isForward ? moves?.next : moves?.previous;
+    return has(isForward ? "next" : "previous") && go !== undefined ? (
+      <MoveButton isOverVideo={isOverVideo} isForward={isForward} onMove={go} />
+    ) : null;
+  };
   const play = has("play") ? (
     <PlayButton source={source} isOverVideo={isOverVideo} playRef={playRef} />
   ) : null;
@@ -160,18 +181,22 @@ function ControlButtons({
   return isOverlayRow === true ? (
     <div className="player-controls__buttons">
       <span className="player-controls__leading">
+        {move(false)}
         {step(false)}
         {play}
         {step(true)}
+        {move(true)}
       </span>
       {asideSpan}
       <span className="player-controls__trailing">{ending}</span>
     </div>
   ) : (
     <div className="player-controls__buttons">
+      {move(false)}
       {play}
       {step(false)}
       {step(true)}
+      {move(true)}
       {asideSpan}
       {ending}
     </div>
@@ -223,6 +248,23 @@ function StepButton(props: {
         const mostMs = source.durationMs > 0 ? source.durationMs : Number.POSITIVE_INFINITY;
         source.seekTo(Math.min(Math.max(0, source.atMs + byMs), mostMs));
       }}
+    />
+  );
+}
+
+/** Previous or next in the sequence, which plays that video (SequenceMoves). */
+function MoveButton(props: {
+  readonly isOverVideo: boolean | undefined;
+  readonly isForward: boolean;
+  readonly onMove: () => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <IconButton
+      isOverVideo={props.isOverVideo}
+      label={props.isForward ? t("playerControls.next") : t("playerControls.previous")}
+      icon={props.isForward ? <NextIcon /> : <PreviousIcon />}
+      onClick={props.onMove}
     />
   );
 }
