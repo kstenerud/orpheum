@@ -571,7 +571,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   on its history entry as the page was left and found once the page draws it (`src/focus-memory.ts`),
   Silk's Back too. The player answers with its own controls on every device, never the browser's
   (D369 §2; `src/player-commands.ts`): play/pause wherever focus is, OK on the video, Space on the
-  video, on the player's own controls over it or on nothing, a 10 s seek by the seeking buttons, the
+  video, on nothing or on the player's own timeline, while on one of the player's buttons Space
+  presses it, as OK does (D407 §5), the cast receiver's Space still playing with nothing focused, a 10 s seek by the seeking buttons, the
   browser's media controls and Left and Right while the video, nothing or the player's timeline has
   focus, and Back leaving full screen before the page; every control over and under the video is
   reached by arrows. A seek is shown before it is made (`src/seek-ahead.ts`): a held or repeated
@@ -581,7 +582,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   until the seek lands. A remote's drags and steps are one command once they rest the same way
   (the owner, Fire TV, 2026-10-29). A television's overlay (`src/player-overlay.tsx`) seeks by Left and Right on its
   timeline, whose arrows are commands (`data-focus-arrows-are-commands`), and offers full screen as a
-  button a remote presses. A computer's and a phone's (`src/page-controls.tsx`) is the same bar over
+  button a remote presses. A computer's and a phone's (`src/page-controls.tsx`) is, in full screen or a
+  stage filling the window, the television's overlay, where a press of play that plays or Down from
+  the buttons puts focus on the video so the overlay hides (D407 §6); otherwise the same bar over
   the film, with mute and the volume, shown by a mouse's move, a tap or a key in the player and hidden
   by five still seconds while the film plays; Down on the video goes into it, a mouse's click on the
   film plays or pauses it and a double click puts it full screen. `src/page-controls.test.tsx`,

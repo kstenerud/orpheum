@@ -2385,3 +2385,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   §7). Silk never delivers Rewind or Fast-forward, so those are not tried here. While playing, the
   overlay hides 3 s after the last press, so a slow walk can find it hidden and Right then seeks: that
   is the rule, not a failure. (`web/apps/web/src/player-overlay.tsx`, `player-overlay-state.ts`)
+
+- [ ] **VQ244** — a computer's full screen is the overlay, and Space presses the focused button (D407
+  §5–§7; plans/player-overlay.md step 6). On a computer, in Chrome, Firefox and Safari in turn, play a
+  film on staging. Passes when: Tab to ⤢ and Space puts the film full screen, without playing or
+  pausing it, and the controls are then the overlay (the scrub bar row and the ⏪ ▶ ⏩ … ⤢ row over the
+  film); a mouse's move shows the overlay and, the film playing and the mouse still, it hides 3 s
+  later; with focus on ▶ while paused, Space plays and focus goes to the video, so the overlay hides 3
+  s later; Down from the buttons does the same; with focus on the video, Space plays and pauses;
+  Escape leaves full screen and the bar is back over the film, the film where it was; a
+  double click on the film goes full screen and back. Note anything that differs by browser.
+  (`web/apps/web/src/page-controls.tsx`, `player-commands.ts`, `player-overlay.tsx`)

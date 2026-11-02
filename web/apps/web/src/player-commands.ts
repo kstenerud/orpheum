@@ -134,14 +134,15 @@ export function answerPlayerCommand(
 }
 
 /**
- * The attribute that marks the player's own controls over its video, as a television's overlay
- * (player-overlay.tsx): Space on any of them plays and pauses (useSpacePlaysAndPauses).
+ * The attribute that marks the player's own controls over its video, as the full-screen overlay
+ * (player-overlay.tsx): Space on any of them but a button plays and pauses (useSpacePlaysAndPauses).
  */
 export const playerControlsAttribute = "data-player-controls";
 
 /**
  * Whether Space is the player's while focus is where it is: on the video (the browser's own controls,
- * in its shadow, are focus on it), on the player's own controls over it, or on nothing; never on
+ * in its shadow, are focus on it), on nothing, or on one of the player's own controls over it that
+ * Space does not press, its timeline; never on a button, which Space presses (D407 §5), nor on
  * another control the page draws over the film, as Up next, nor on anything outside the player.
  */
 function isSpaceThePlayers(video: HTMLVideoElement): boolean {
@@ -149,14 +150,15 @@ function isSpaceThePlayers(video: HTMLVideoElement): boolean {
   if (focused === null || focused === document.body || focused === video) {
     return true;
   }
-  return isInThePlayersControls(focused, video);
+  return !(focused instanceof HTMLButtonElement) && isInThePlayersControls(focused, video);
 }
 
 /**
- * Plays and pauses video at Space wherever focus is in the player (isSpaceThePlayers), as YouTube
- * does, its keyup's own handling prevented with it: Chrome pressed the browser's full-screen button
- * that a click had left focus on, and a cast's receiver, whose video has no browser controls, did
- * nothing (the owner, 2026-10-27). Heard before what has focus, after the receiver's first press
+ * Plays and pauses video at Space where focus is the player's (isSpaceThePlayers), as YouTube does,
+ * its keyup's own handling prevented with it: Chrome pressed the browser's full-screen button that a
+ * click had left focus on, and a cast's receiver, whose video has no browser controls, did nothing
+ * (the owner, 2026-10-27), and with nothing focused still plays. On one of the player's buttons
+ * Space presses it, as OK does (D407 §5). Heard before what has focus, after the receiver's first press
  * that turns the sound on (cast-receiver.tsx), which takes it first.
  */
 function useSpacePlaysAndPauses(video: HTMLVideoElement | null): void {

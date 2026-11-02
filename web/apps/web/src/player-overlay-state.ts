@@ -34,8 +34,6 @@ export interface PressContext {
   readonly isOnScrub: boolean;
   /** Whether focus is in the overlay's bottom row, its buttons. */
   readonly isOnButtons: boolean;
-  /** Whether focus is on play's button. */
-  readonly isOnPlay: boolean;
   /** Whether focus is on an offer drawn over the film beside the overlay, Up next or Still watching. */
   readonly isOnOffer: boolean;
 }
@@ -48,7 +46,10 @@ export interface OverlayAnswer {
   readonly seekByMs?: number;
   /** Whether the overlay plays or pauses the film itself, the press taken from the video. */
   readonly isPlayPause?: boolean;
-  /** Where focus goes: to play, as the whole overlay opens; to the video, leaving it (Q14). */
+  /**
+   * Where focus goes: to play, as the whole overlay opens; to the video, leaving it (Q14). A press of
+   * play that plays leaves it too, by a click, OK's, Space's or a mouse's (player-overlay.tsx).
+   */
   readonly focus?: "play" | "video";
 }
 
@@ -201,8 +202,8 @@ function answerWhilePaused(
 /**
  * All of the overlay (D407 §5): Back hides it; Left and Right seek on the scrub bar and walk a row
  * everywhere else, never seeking (plan item 17); Up and Down are focus's, between the rows; OK is
- * the focused control's. On a computer Down from the buttons, and OK on play that plays, put focus
- * on the video, so the overlay may hide (Q14).
+ * the focused control's. On a computer Down from the buttons puts focus on the video, so the overlay
+ * may hide (Q14); play's press that plays does too, as its click (player-overlay.tsx).
  */
 function answerWhileFull(
   state: OverlayState,
@@ -222,8 +223,7 @@ function answerWhileFull(
   if (command === "down" && context.isOnButtons) {
     return { state, isTaken: true, focus: "video" };
   }
-  const isPlaying = command === "select" && context.isOnPlay && context.isPaused;
-  return isPlaying ? { state, isTaken: false, focus: "video" } : { state, isTaken: false };
+  return { state, isTaken: false };
 }
 
 /** What holds the whole overlay or lets it hide. */

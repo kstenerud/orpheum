@@ -225,6 +225,7 @@ function useOverlayPresses({
   readonly isTv: boolean;
 }): void {
   const askFocusToPlay = useFocusToPlayOnceDrawn(playRef, isTv);
+  usePlayingLeavesPlay(playRef, videoRef, isTv);
   useCommands(
     "document",
     (detail, event) => {
@@ -234,7 +235,6 @@ function useOverlayPresses({
       }
       const parts = {
         overlay: overlayRef.current,
-        play: playRef.current,
         scrub: scrubRef.current,
         buttons: buttonsRef.current,
       };
@@ -250,7 +250,7 @@ function useOverlayPresses({
       if (answer.focus === "play") {
         askFocusToPlay();
       } else if (answer.focus === "video") {
-        // After the press, which play's button answers first (Q14).
+        // Down from the buttons (Q14), once the press is through.
         queueMicrotask(() => {
           focusTheVideo(video);
         });
@@ -263,10 +263,40 @@ function useOverlayPresses({
   );
 }
 
-/** The overlay's parts as a press finds them: itself, play, the scrub bar and the buttons' row. */
+/**
+ * On a computer, a press of play that plays the film, OK's, Space's (player-commands.ts leaves Space
+ * on a button to the button) or a mouse's, moves focus to the video, so the overlay that focus in it
+ * held hides on its time (D407 §6, Q14). Heard as play's click comes to it, before its own answer
+ * plays the film, so whether the film was paused reads true; focus moves once the click is through.
+ */
+function usePlayingLeavesPlay(
+  playRef: RefObject<HTMLButtonElement | null>,
+  videoRef: RefObject<HTMLVideoElement | null>,
+  isTv: boolean,
+): void {
+  useEffect(() => {
+    const play = playRef.current;
+    if (isTv || play === null) {
+      return undefined;
+    }
+    const pressed = (): void => {
+      const video = videoRef.current;
+      if (video?.paused === true) {
+        queueMicrotask(() => {
+          focusTheVideo(video);
+        });
+      }
+    };
+    play.addEventListener("click", pressed, true);
+    return () => {
+      play.removeEventListener("click", pressed, true);
+    };
+  }, [playRef, videoRef, isTv]);
+}
+
+/** The overlay's parts as a press finds them: itself, the scrub bar and the buttons' row. */
 interface OverlayParts {
   readonly overlay: HTMLElement | null;
-  readonly play: HTMLElement | null;
   readonly scrub: HTMLElement | null;
   readonly buttons: HTMLElement | null;
 }
@@ -279,7 +309,6 @@ function pressContext(parts: OverlayParts, video: HTMLVideoElement, isTv: boolea
     isTelevision: isTv,
     isOnScrub: focused !== null && focused === parts.scrub,
     isOnButtons: parts.buttons?.contains(focused) === true,
-    isOnPlay: focused !== null && focused === parts.play,
     isOnOffer: isOnAnotherControlOverTheFilm(parts.overlay),
   };
 }

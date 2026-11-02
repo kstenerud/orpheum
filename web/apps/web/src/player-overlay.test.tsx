@@ -335,3 +335,51 @@ describe("the player's full-screen overlay on a television (D407)", () => {
     expect(shown()).toBe("full");
   });
 });
+
+describe("the player's full-screen overlay on a computer (D407 §6)", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+    vi.restoreAllMocks();
+  });
+
+  // Q14: focus left on play held a pointer-shown overlay up for good while the film played. The
+  // press is play's click whatever made it: OK's, Space's (which a button keeps, player-commands.ts)
+  // or a mouse's.
+  it("moves focus to the video at a press of play that plays the film, and leaves it on pause's", async () => {
+    const video = playingVideo();
+    video.pause();
+    const videoRef = createRef<HTMLVideoElement>();
+    Reflect.set(videoRef, "current", video);
+    mounted = await mount(
+      withServices(
+        <div className="film-player__stage">
+          <PlayerOverlay videoRef={videoRef} readLinkKbps={() => undefined} failure={undefined} />
+        </div>,
+      ),
+    );
+    mounted.container.querySelector(".film-player__stage")?.prepend(video);
+    const play = mounted.container.querySelector<HTMLButtonElement>(
+      '.player-overlay__buttons [aria-label="Play"]',
+    );
+    expect(play).not.toBeNull();
+    await act(async () => {
+      play?.focus();
+      play?.click();
+      await Promise.resolve();
+    });
+    expect(video.paused).toBe(false);
+    expect(document.activeElement).toBe(video);
+    const pause = mounted.container.querySelector<HTMLButtonElement>(
+      '.player-overlay__buttons [aria-label="Pause"]',
+    );
+    await act(async () => {
+      pause?.focus();
+      pause?.click();
+      await Promise.resolve();
+    });
+    expect(video.paused).toBe(true);
+    expect(document.activeElement).toBe(pause);
+  });
+});
