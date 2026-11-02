@@ -101,6 +101,24 @@ const withThreeSeasons: WalkAnswers = {
   },
 };
 
+/** A series of ten seasons, shown at its last, whose card lies past the row's right edge. */
+const withTenSeasons: WalkAnswers = {
+  "GET /me": viewer,
+  "GET /client-settings": {},
+  "GET /collections/22/seasons/10": { episodes: [1, 2].map(episode), nextCursor: "" },
+  "GET /collections/22": {
+    id: 22,
+    kind: "series",
+    name: "Long Haul",
+    libraryId: 1,
+    art: {},
+    seasons: Array.from({ length: 10 }, (_, index) => ({
+      seasonNumber: index + 1,
+      episodeCount: 2,
+    })),
+  },
+};
+
 /** The season in the series' row of seasons that has focus, by its name; "" for none. */
 function focusedSeason(): string {
   const card = document.activeElement?.closest(".series__seasons .poster-card");
@@ -217,6 +235,23 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
     expect(await pressUntil("{ArrowLeft}", () => focusedSeason() === "Season 1")).toBe(true);
     await userEvent.keyboard("{ArrowDown}");
     expect(focusedEpisode()).toBe("Episode 1");
+  });
+
+  // The Fire TV, 2026-11-02: a series opened from far down the Series list showed its seasons, its
+  // name scrolled away above them, as the row brought the season shown into view down the page too.
+  it("opens a series at its top, its row of seasons scrolled sideways alone to the season shown", async () => {
+    await page.viewport(width, height);
+    // From the top, as a page opened is (input-layer.tsx), not where the walk before left the window.
+    window.scrollTo({ top: 0, left: 0 });
+    walking = await mountApp(walkServices(withTenSeasons, "/series/22?season=10"));
+    await expect.poll(() => isDrawn(".series__episode")).toBe(true);
+    const row = document.querySelector(".series__seasons");
+    const shown = row?.querySelector('[aria-current="page"]');
+    await expect.poll(() => row?.scrollLeft ?? 0).toBeGreaterThan(0);
+    const [rowBox, shownBox] = [row?.getBoundingClientRect(), shown?.getBoundingClientRect()];
+    expect(shownBox?.right).toBeLessThanOrEqual((rowBox?.right ?? 0) + 0.5);
+    expect(shownBox?.left).toBeGreaterThanOrEqual((rowBox?.left ?? 0) - 0.5);
+    expect(window.scrollY).toBe(0);
   });
 
   it("draws the whole focus ring of a card in Continue Watching and of a place in the banner, rows that scroll sideways", async () => {

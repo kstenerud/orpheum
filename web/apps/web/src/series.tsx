@@ -427,11 +427,20 @@ function SeasonRow(props: { readonly series: SeriesDetail; readonly shown: Seaso
   const { t } = useTranslation();
   const { series, shown } = props;
   const rowRef = useRef<HTMLUListElement>(null);
-  // The season shown in view, where the row scrolls sideways past it.
+  // The season shown in view, where the row scrolls sideways past it: the row alone scrolls, as
+  // scrollIntoView would scroll the page down to the row too, past the series' name above it on a
+  // short screen (the Fire TV, 2026-11-02).
   useEffect(() => {
-    const current = rowRef.current?.querySelector('[aria-current="page"]');
-    if (current instanceof HTMLElement && typeof current.scrollIntoView === "function") {
-      current.scrollIntoView({ block: "nearest", inline: "nearest" });
+    const row = rowRef.current;
+    const current = row?.querySelector('[aria-current="page"]');
+    if (row === null || !(current instanceof HTMLElement)) {
+      return;
+    }
+    const [rowBox, box] = [row.getBoundingClientRect(), current.getBoundingClientRect()];
+    if (box.left < rowBox.left) {
+      row.scrollLeft -= rowBox.left - box.left;
+    } else if (box.right > rowBox.right) {
+      row.scrollLeft += box.right - rowBox.right;
     }
   }, [shown.seasonNumber]);
   return (
