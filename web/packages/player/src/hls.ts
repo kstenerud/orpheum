@@ -18,6 +18,7 @@ import { isRecovered } from "./abr-controller.ts";
 import type { ChoiceWhy } from "./abr-options.ts";
 import { recoverFromDecodingErrors } from "./decode-recovery.ts";
 import { failureText } from "./diagnosis.ts";
+import { endAtTheLastFrame } from "./end-of-stream.ts";
 import { hlsErrorFailure, unreachableStatus, type PlaybackFailed } from "./failure.ts";
 import type { ForwardBuffer } from "./forward-buffer.ts";
 import { linkNoter } from "./link-estimate.ts";
@@ -593,6 +594,7 @@ export function playHls(
   const chooseAudio = startAndKeepAudio(hls, options.startAudioRenditionIndex);
   tellOwnMoves(hls, video);
   tellLoading(hls, video);
+  const stopEnding = endAtTheLastFrame(hls, video);
   const estimateKbps = measuredKbps(hls);
   hls.loadSource(url);
   hls.attachMedia(video);
@@ -600,6 +602,7 @@ export function playHls(
     setAudioRendition: chooseAudio,
     canSwitchSoundInPlace: true,
     destroy: () => {
+      stopEnding();
       stopRecoveringDecoding();
       hls.destroy();
     },
