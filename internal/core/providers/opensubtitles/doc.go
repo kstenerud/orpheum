@@ -20,7 +20,10 @@
 //     TestDownload_ALinkToAnotherHostThanOpenSubtitlesIsNotFetched,
 //     TestIsOwnHost_IsOpenSubtitlesDomainOrTheBasesHost.
 //   - A refused login is not tried again until the admin changes it: logins are rationed
-//     (opensubtitles-api.md §3). TestCurrentSession_ARefusedLoginIsNotTriedAgainUntilItChanges.
+//     (opensubtitles-api.md §3). A login is refused whether OpenSubtitles answers 401 or, as it does
+//     for a wrong username or password, 400 (idiosyncrasies.md).
+//     TestCurrentSession_ARefusedLoginIsNotTriedAgainUntilItChanges,
+//     TestCurrentSession_ALoginAnswered400IsRefused.
 //   - A search asks by a film's ids or an episode's series and place, and the file's moviehash,
 //     as OpenSubtitles asks for them (D224 §3). TestSearch_AsksForAnEpisodeByItsSeriesAndPlace.
 //   - A download is spent once per file while its link works (three hours,

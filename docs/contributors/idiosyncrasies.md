@@ -40,6 +40,8 @@ User-Agent (D263; the User-Agent is logged only).
 
 | Symptom | Entry |
 |---|---|
+| A jump to a DVD's middle made runs of a fraction of a second, then "cannot be converted"; it played from the start. | [A DVD title's clock can start again at 0 partway, and FFmpeg's program-stream seek then lands wrong](#a-dvd-titles-clock-can-start-again-at-0-partway-and-ffmpegs-program-stream-seek-then-lands-wrong) |
+| A subtitle search said "Something went wrong on the server" with an OpenSubtitles login set. | [OpenSubtitles answers a wrong login with 400, not 401](#opensubtitles-answers-a-wrong-login-with-400-not-401) |
 | A film cast to Chrome or a Fire TV played muted, with no way to turn the sound on by remote, and out of full screen. | [A cast receiver is started by a message, so the browser gives it neither sound nor full screen](#a-cast-receiver-is-started-by-a-message-so-the-browser-gives-it-neither-sound-nor-full-screen) |
 | A page said "The server could not be reached" after 40 s with the core there; its report said only "TypeError: Failed to fetch". | [A Response made from a stream that fails reads as "Failed to fetch" or an AbortError, never the stream's own error](#a-response-made-from-a-stream-that-fails-reads-as-failed-to-fetch-or-an-aborterror-never-the-streams-own-error) |
 | A dialog closed on Escape left focus on the page's start, not on the button that opened it. | [A modal dialog removed from the page while open gives focus back to nothing](#a-modal-dialog-removed-from-the-page-while-open-gives-focus-back-to-nothing) |
@@ -2623,6 +2625,24 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 
 ---
 
+### A DVD title's clock can start again at 0 partway, and FFmpeg's program-stream seek then lands wrong
+
+- **Technology:** DVD-Video (MPEG-2 program stream) read by FFmpeg's `mpegps` demuxer (8.1.3).
+- **Symptom:** the Der Golem concert DVD (VQ73) played from its start, but a jump to its middle
+  made runs that held 0.27 s and stopped ("FFmpeg cut it elsewhere"), and after two the film "cannot
+  be converted". Its one 2 h 28 min title's SCR and PTS start again at 0 at 1:28:39 (a cell join), so
+  the stream has two clocks; FFmpeg seeks a program stream by searching its timestamps, and lands in
+  the wrong half below about 59 min and at the stream's end beyond.
+- **What we do:** the node reads each played cell's first and last VOBU times from its navigation
+  packs and, where a cell's clock does not carry on, rewrites every later pack's SCR, PTS and DTS to
+  carry on, keeping each byte's place (D404; `internal/node/disc/clock.go`). FFmpeg's own `dvdvideo`
+  demuxer, which we do not use (it needs libdvdnav), offsets packets the same way, from the same
+  navigation-pack times, at every VOBU.
+- **Evidence:** observed 2026-11-02 on the real disc; a restamped copy seeks within a frame.
+  **[web]** FFmpeg trac #1438, "Seeking in vob file with timestamp discontinuities fails"; ffmpeg-devel
+  2011-03, "DVD (MPEG2 Program Stream) with resetting DTS/PTS & SCR"; `libavformat/dvdvideodec.c`
+  (`ptm_discont`, `ptm_offset`).
+
 ## Linux networking: netem, tc, loopback, BBR, iproute2
 
 
@@ -3822,6 +3842,20 @@ miss was our own bug (Appendix B).*
 ---
 
 ---
+
+## Metadata and subtitle providers
+
+### OpenSubtitles answers a wrong login with 400, not 401
+
+- **Technology:** OpenSubtitles' REST API (`POST /api/v1/login`).
+- **Symptom:** with an email address as the username, a subtitle search said "Something went wrong on
+  the server"; the core's log had `opensubtitles: status 400: {"message":"Error, invalid
+  username/password - remember to use your username and not your email to authenticate"}`. The
+  client took only a 401 as a refused login, so it neither said so nor stopped trying it.
+- **What we do:** a 400 to a login is a refused login, as a 401 is: the person is told OpenSubtitles
+  refused it, and it is not tried again until an admin changes it
+  (`TestCurrentSession_ALoginAnswered400IsRefused`). A 400 to any other request stays an error.
+- **Evidence:** observed on staging, 2026-11-02 (VQ11). [doc] opensubtitles-api.md §3 speaks of a 401.
 
 ## Watch list: researched, not yet met here
 

@@ -44,6 +44,7 @@ func (keys fakeKeys) Open(_ context.Context, name secrets.Name) (secrets.Value, 
 type fakeProvider struct {
 	mutex         sync.Mutex
 	loginCount    int
+	refusedLogins int
 	isTokenIssued map[string]bool
 	searched      []url.Values
 	remaining     int
@@ -57,6 +58,8 @@ type fakeProvider struct {
 	// isDroppedTokenA500 answers a token it does not know as OpenSubtitles answers an expired one:
 	// 500 "invalid", not 401.
 	isDroppedTokenA500 bool
+	// refusedLoginStatus, when set, is how a wrong login is answered, in place of 401.
+	refusedLoginStatus int
 	// loginHost and linkAddress, when set, are the host a login names and the download link.
 	loginHost, linkAddress string
 	// releaseName and fileName, when set, are the first candidate's release and a download's file
@@ -125,7 +128,9 @@ func (fake *fakeProvider) serveLogin(writer http.ResponseWriter, request *http.R
 	var body map[string]string
 	_ = json.NewDecoder(request.Body).Decode(&body) //nolint:errcheck // a test's fake
 	if body["password"] != "right" {
-		http.Error(writer, `{"message":"Error, invalid username/password"}`, http.StatusUnauthorized)
+		fake.refusedLogins++
+		http.Error(writer, `{"message":"Error, invalid username/password"}`,
+			cmp.Or(fake.refusedLoginStatus, http.StatusUnauthorized))
 		return
 	}
 	fake.loginCount++
@@ -265,6 +270,20 @@ func TestCurrentSession_ARefusedLoginIsNotTriedAgainUntilItChanges(t *testing.T)
 	_, unset, _ := newProvider(t, fakeKeys{})
 	if _, err := unset.Search(t.Context(), Query{Language: "en"}); !errors.Is(err, ErrNoLogin) {
 		t.Errorf("with no login set: %v, want ErrNoLogin", err)
+	}
+}
+
+func TestCurrentSession_ALoginAnswered400IsRefused(t *testing.T) {
+	t.Parallel()
+	fake, client, _ := newProvider(t, fakeKeys{"owner@example.com", "wrong"})
+	fake.refusedLoginStatus = http.StatusBadRequest
+	for range 2 {
+		if _, err := client.Allowance(t.Context()); !errors.Is(err, ErrLoginRefused) {
+			t.Errorf("a login OpenSubtitles answers 400: %v, want ErrLoginRefused, as it answers a wrong one", err)
+		}
+	}
+	if fake.loginCount != 0 || fake.refusedLogins != 1 {
+		t.Errorf("%d logins refused, want one: a refused login is not tried again", fake.refusedLogins)
 	}
 }
 
