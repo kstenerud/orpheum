@@ -509,7 +509,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** What plays after a file as it ends: the next episode in the ordering its person watches its series in */
+        /** What plays after a file as it ends, and what before it: the next and previous episodes in the ordering its person watches its series in */
         get: operations["getUpNext"];
         put?: never;
         post?: never;
@@ -5240,6 +5240,8 @@ export interface components {
             stillSha256?: string;
         };
         UpNextOutputBody: {
+            /** @description The episode before it in the ordering its person watches its series in, which the player's previous plays; absent for a film, an episode the ordering leaves out, and the first */
+            previous?: components["schemas"]["NextUpBody"];
             /** @description What the player offers as the file ends; absent for a film, an episode its person's ordering leaves out, and the last */
             upNext?: components["schemas"]["UpNextBody"];
         };

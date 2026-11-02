@@ -8386,6 +8386,10 @@
       "UpNextOutputBody": {
         "additionalProperties": false,
         "properties": {
+          "previous": {
+            "$ref": "#/components/schemas/NextUpBody",
+            "description": "The episode before it in the ordering its person watches its series in, which the player's previous plays; absent for a film, an episode the ordering leaves out, and the first"
+          },
           "upNext": {
             "$ref": "#/components/schemas/UpNextBody",
             "description": "What the player offers as the file ends; absent for a film, an episode its person's ordering leaves out, and the last"
@@ -10931,7 +10935,7 @@
             "description": "Error"
           }
         },
-        "summary": "What plays after a file as it ends: the next episode in the ordering its person watches its series in",
+        "summary": "What plays after a file as it ends, and what before it: the next and previous episodes in the ordering its person watches its series in",
         "tags": [
           "Playback"
         ]

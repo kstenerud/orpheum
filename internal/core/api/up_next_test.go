@@ -175,3 +175,71 @@ func TestCast_MovesOnToTheNextEpisodeAndItsReceiverIsHandedIt(t *testing.T) {
 	}
 	wantError(t, harness.do(t, http.MethodPost, next, phoneToken, nil), http.StatusConflict, api.CodeConflict)
 }
+
+// previousSeen is GET /files/{id}/up-next's previous in short: "title:group:number file", or "none".
+func (harness testHarness) previousSeen(t *testing.T, token string, fileID int64) string {
+	t.Helper()
+	var answer struct {
+		Previous *struct {
+			TitleID       int64 `json:"titleId"`
+			GroupNumber   int64 `json:"groupNumber"`
+			NumberInGroup int64 `json:"numberInGroup"`
+			FileID        int64 `json:"fileId"`
+		} `json:"previous"`
+	}
+	harness.readJSON(t, fmt.Sprintf("/files/%d/up-next", fileID), token, &answer)
+	if answer.Previous == nil {
+		return "none"
+	}
+	previous := answer.Previous
+	return fmt.Sprintf("%d:%d:%d file %d", previous.TitleID, previous.GroupNumber, previous.NumberInGroup,
+		previous.FileID)
+}
+
+// The player's previous is the episode before the one playing in its sequence, the ordering its
+// person watches the series in (D407 §2), with its Play's file. The first, an episode the ordering
+// leaves out, a film and an extra, which holds no place in a sequence, have none.
+func TestUpNext_PreviousIsTheEpisodeBeforeInThePersonsOrdering(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveDVDOrder(t) // aired: 21 (file 2), 22 (3), 23 (4), then 24 (5); DVD: 23, 21, 24
+	// A featurette of episode 21, an extra with a file of its own.
+	librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: 31, Library: 1, Kind: "extra", AddedAt: 3})
+	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: 8, TitleID: 31, CreatedAt: 3})
+	librarytest.File(t, harness.database, librarytest.FileSpec{
+		ID: 8, LibraryID: 1, NodeID: 1, Path: "/m/BB/Featurette.mkv", SizeBytes: 10, PayloadHash: []byte{0x08},
+		Filing: "extra", VersionID: 8,
+	})
+	storetest.ExecRaw(t, harness.databasePath, `INSERT INTO extra_relation (owner_title, extra_title, extra_type,
+		asserted_by) VALUES (21, 31, 'featurette', 'scanner')`)
+	for fileID, want := range map[int64]string{
+		2: "none", // the first
+		3: "21:1:1 file 2",
+		5: "23:1:3 file 4", // across a season
+		1: "none",          // Metropolis, a film
+		8: "none",          // the extra
+	} {
+		if got := harness.previousSeen(t, user, fileID); got != want {
+			t.Errorf("aired, before file %d: %s; want %s", fileID, got, want)
+		}
+	}
+	if got, want := harness.upNextSeen(t, user, 2), "22:1:2 file 3 still none aired"; got != want {
+		t.Errorf("aired, after the first: %s; want %s, beside no previous", got, want)
+	}
+	storetest.ExecRaw(t, harness.databasePath, `INSERT INTO preference (user_id, scope, scope_id, axis, value_json,
+		set_at) VALUES (1, 'work', 20, 'episode_ordering', '"tmdb:dvd"', 1)`)
+	for fileID, want := range map[int64]string{
+		2: "23:1:1 file 4",
+		4: "none", // 23, the DVD order's first
+		5: "21:1:2 file 2",
+		3: "none", // 22, which the DVD order leaves out
+	} {
+		if got := harness.previousSeen(t, user, fileID); got != want {
+			t.Errorf("DVD order, before file %d: %s; want %s", fileID, got, want)
+		}
+	}
+	if got, want := harness.upNextSeen(t, user, 5), "none"; got != want {
+		t.Errorf("DVD order, after the last: %s; want %s, beside its previous", got, want)
+	}
+}

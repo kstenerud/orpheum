@@ -11,10 +11,12 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/library"
 )
 
-// UpNextOutput is what plays after a file as it ends, absent when nothing does.
+// UpNextOutput is what plays after a file as it ends, and the member before it in its sequence (D407
+// §2), each absent when there is none.
 type UpNextOutput struct {
 	Body struct {
-		UpNext *UpNextBody `doc:"What the player offers as the file ends; absent for a film, an episode its person's ordering leaves out, and the last" json:"upNext,omitempty"` //nolint:lll // one struct tag
+		UpNext   *UpNextBody `doc:"What the player offers as the file ends; absent for a film, an episode its person's ordering leaves out, and the last" json:"upNext,omitempty"`                                                             //nolint:lll // one struct tag
+		Previous *NextUpBody `doc:"The episode before it in the ordering its person watches its series in, which the player's previous plays; absent for a film, an episode the ordering leaves out, and the first" json:"previous,omitempty"` //nolint:lll // one struct tag
 	}
 }
 
@@ -31,8 +33,8 @@ type UpNextBody struct {
 func (server *Server) registerUpNext() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getUpNext", Method: http.MethodGet, Path: "/files/{id}/up-next",
-		Summary: "What plays after a file as it ends: the next episode in the ordering its person watches " +
-			"its series in",
+		Summary: "What plays after a file as it ends, and what before it: the next and previous episodes in " +
+			"the ordering its person watches its series in",
 		Tags: []string{tagPlayback},
 	}, server.getUpNext)
 }
@@ -42,16 +44,20 @@ func (server *Server) getUpNext(ctx context.Context, input *ItemInput) (*UpNextO
 	if err != nil {
 		return nil, err
 	}
-	next, hasNext, err := dependencies.Browser.UpNext(ctx, principal.Reach, principal.UserID, input.ID)
+	neighbours, err := dependencies.Browser.NeighboursOf(ctx, principal.Reach, principal.UserID, input.ID)
 	if err != nil {
-		return nil, server.libraryError(ctx, "read what plays after a file", err)
+		return nil, server.libraryError(ctx, "read what plays after a file and before it", err)
 	}
 	output := &UpNextOutput{}
-	if hasNext {
+	if next := neighbours.Next; next != nil {
 		output.Body.UpNext = &UpNextBody{
 			Episode: server.nextUpBody(ctx, dependencies, next.NextUp), Ordering: next.Ordering,
 			IsOnlyGroup: next.IsOnlyGroup, StillSha256: next.StillSha256,
 		}
+	}
+	if previous := neighbours.Previous; previous != nil {
+		body := server.nextUpBody(ctx, dependencies, *previous)
+		output.Body.Previous = &body
 	}
 	return output, nil
 }

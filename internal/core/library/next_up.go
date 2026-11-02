@@ -223,24 +223,90 @@ type UpNext struct {
 	StillSha256 string
 }
 
-// UpNext is what plays after fileID for userID, of what reach reaches; false for a file of no series,
-// one its person's ordering leaves out, and its last. ErrNoFile for a file there is not.
-func (browser *Browser) UpNext(ctx context.Context, reach auth.Reach, userID, fileID int64) (UpNext, bool, error) {
+// Neighbours are the members either side of a file's title in its sequence (D407 §2): for now the
+// ordering its person watches its series in, whose members are its episodes and specials and never
+// its extras, which hold no place in an ordering. Previous is the member before it, as Next Up offers
+// it, nil for the first; Next is what plays after it, nil for the last.
+type Neighbours struct {
+	Previous *NextUp
+	Next     *UpNext
+}
+
+// sequencePlace is a file's title's place in its sequence: the ordering, its members, and the
+// title's index among them.
+type sequencePlace struct {
+	place   *EpisodePlace
+	members []Member
+	at      int
+}
+
+// sequencePlaceOf is fileID's title's place in the sequence userID watches it in, of what reach
+// reaches; false for a file of no series and one its person's ordering leaves out.
+func (browser *Browser) sequencePlaceOf(ctx context.Context, reach auth.Reach, userID, fileID int64) (
+	sequencePlace, bool, error,
+) {
 	work, err := browser.WorkOfFile(ctx, reach, fileID)
 	if err != nil || work.TitleID == 0 {
-		return UpNext{}, false, err
+		return sequencePlace{}, false, err
 	}
 	place, err := browser.EpisodePlaceOf(ctx, userID, work.TitleID)
 	if err != nil || place == nil {
-		return UpNext{}, false, err
+		return sequencePlace{}, false, err
 	}
 	members, err := ReadMembers(ctx, browser.database.Read(), browser.settings, Viewer{UserID: userID, Reach: reach},
 		place.CollectionID, place.Ordering)
 	if err != nil {
-		return UpNext{}, false, err
+		return sequencePlace{}, false, err
 	}
 	at := slices.IndexFunc(members, func(each Member) bool { return each.TitleID == work.TitleID })
-	if at < 0 || at+1 >= len(members) {
+	return sequencePlace{place: place, members: members, at: at}, at >= 0, nil
+}
+
+// UpNext is what plays after fileID for userID, of what reach reaches; false for a file of no series,
+// one its person's ordering leaves out, and its last. ErrNoFile for a file there is not.
+func (browser *Browser) UpNext(ctx context.Context, reach auth.Reach, userID, fileID int64) (UpNext, bool, error) {
+	sequence, isInOne, err := browser.sequencePlaceOf(ctx, reach, userID, fileID)
+	if err != nil || !isInOne {
+		return UpNext{}, false, err
+	}
+	return browser.upNextIn(ctx, reach, sequence)
+}
+
+// NeighboursOf are the members either side of fileID's title in the sequence userID watches it in,
+// of what reach reaches: neither for a file of no series and one its person's ordering leaves out.
+// ErrNoFile for a file there is not.
+func (browser *Browser) NeighboursOf(ctx context.Context, reach auth.Reach, userID, fileID int64) (
+	Neighbours, error,
+) {
+	sequence, isInOne, err := browser.sequencePlaceOf(ctx, reach, userID, fileID)
+	if err != nil || !isInOne {
+		return Neighbours{}, err
+	}
+	var neighbours Neighbours
+	if sequence.at > 0 {
+		previous, previousErr := browser.nextUpOf(ctx, reach, sequence.place.CollectionID, sequence.place.Ordering,
+			sequence.members[sequence.at-1])
+		if previousErr != nil {
+			return Neighbours{}, previousErr
+		}
+		neighbours.Previous = &previous
+	}
+	next, hasNext, err := browser.upNextIn(ctx, reach, sequence)
+	if err != nil {
+		return Neighbours{}, err
+	}
+	if hasNext {
+		neighbours.Next = &next
+	}
+	return neighbours, nil
+}
+
+// upNextIn is the member after sequence's title, as UpNext offers it; false for its last.
+func (browser *Browser) upNextIn(ctx context.Context, reach auth.Reach, sequence sequencePlace) (
+	UpNext, bool, error,
+) {
+	place, members, at := sequence.place, sequence.members, sequence.at
+	if at+1 >= len(members) {
 		return UpNext{}, false, nil
 	}
 	next, err := browser.nextUpOf(ctx, reach, place.CollectionID, place.Ordering, members[at+1])
