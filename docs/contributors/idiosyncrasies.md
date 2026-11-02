@@ -55,6 +55,7 @@ User-Agent (D263; the User-Agent is logged only).
 | On a Fire TV in Silk, the remote's arrows moved a pointer and no arrow key reached the page; only play/pause did. | [Silk on Fire TV keeps the D-pad for its pointer unless its spatial navigation mode is on](#silk-on-fire-tv-keeps-the-d-pad-for-its-pointer-unless-its-spatial-navigation-mode-is-on) |
 | A TCL TV in TV Bro plays every film's sound about half a second after its picture, whatever the codec; YouTube there is in time. | [A TCL TV in TV Bro plays a page's sound about half a second late, and the browser cannot tell](#a-tcl-tv-in-tv-bro-plays-a-pages-sound-about-half-a-second-late-and-the-browser-cannot-tell) |
 | A read-through over a share that dropped mid-film was answered as complete, its loudness that of part of the film. | [FFmpeg whose input read fails part way exits 0 with an answer made of what it read](#ffmpeg-whose-input-read-fails-part-way-exits-0-with-an-answer-made-of-what-it-read) |
+| A guest who opened her link from Telegram on an iPhone was told "This browser can't play from the server"; the same link in Safari played. | [An app's built-in browser on iOS runs no service worker](#an-apps-built-in-browser-on-ios-runs-no-service-worker) |
 | A guest's link said "Can't reach the server from this network" while the core logged the connection held and ended at once, with no request. | [Firefox runs no service worker in a private window](#firefox-runs-no-service-worker-in-a-private-window) |
 | At a discovery's page at home, every request failed with "NetworkError when attempting to fetch resource." after a realm sign-in. | [Firefox fails a public page's requests to a LAN name until its local-network prompt is answered, and again after a grant not remembered](#firefox-fails-a-public-pages-requests-to-a-lan-name-until-its-local-network-prompt-is-answered-and-again-after-a-grant-not-remembered) |
 | `dig CAA` shows CAs nobody wrote beside the zone's own `issue ";"`. | [Cloudflare adds its own CAA records to any zone with CAA while Universal SSL is on](#cloudflare-adds-its-own-caa-records-to-any-zone-with-caa-while-universal-ssl-is-on) |
@@ -244,7 +245,8 @@ User-Agent (D263; the User-Agent is logged only).
 - **Symptom:** a Watch Together guest's link said "Can't reach the server from this network",
   while the core logged the connection held and ended 11 ms later with no request made (staging,
   2026-11-02, Playwright's Firefox with `dom.serviceWorkers.enabled` set to false, looking for the
-  cause of a Berlin guest's same symptom; hers was ordinary Safari, so not this).
+  cause of a Berlin guest's same symptom; her second visit's like failure was Telegram's built-in
+  browser, see [An app's built-in browser on iOS runs no service worker](#an-apps-built-in-browser-on-ios-runs-no-service-worker)).
 - **Cause:** Firefox has no `navigator.serviceWorker` in a private window, by design
   ([Mozilla bug 1320796](https://bugzil.la/1320796);
   [MDN](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/serviceWorker)); Firefox for
@@ -517,6 +519,24 @@ User-Agent (D263; the User-Agent is logged only).
 ---
 
 ## Safari / iOS / WebKit
+
+
+### An app's built-in browser on iOS runs no service worker
+
+- **Symptom:** a Watch Together guest in Berlin (2026-11-02, staging) opened her link from Telegram
+  on her iPhone and was told "This browser can't play from the server". The core logged the
+  connection held and ended 92 ms later with no request. The same link opened in Safari played.
+- **Cause:** an app's built-in browser on iOS is a `WKWebView`, which runs service workers only for
+  an app that declares App-Bound Domains ([WebKit: App-Bound
+  Domains](https://webkit.org/blog/10882/app-bound-domains/)); a messenger opening any link declares
+  none. Android's `WebView` (its user agent says `; wv)`) has none either unless the app wires it
+  up. A page carries its media over WebRTC through its service worker, so it cannot play there. A
+  web view on iOS has no `Safari/` token in its user agent, where Safari, Chrome (`CriOS`) and
+  Firefox (`FxiOS`) there all have one.
+- **What we do:** the gate's no-service-worker page (`web/apps/web/src/open-in-browser.tsx`) finds
+  a web view by its user agent, names the app where the user agent does, and says to open the link
+  in Safari (iOS) or Chrome (Android), with a "Copy link" button and the link shown to select where
+  the app refuses the copy.
 
 
 ### iPhone Safari moves a range slider only by a touch that starts on its thumb

@@ -1304,6 +1304,18 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
       wrong: she used Safari in an ordinary tab (the owner, 2026-11-02). That case fails the same
       way and is fixed ("fix(web): a browser with no service worker is told it cannot play, not that its network failed"). Playwright's WebKit joins on staging; next, the owner's iPhone in
       Safari against prod, as a guest.
+    - **Her second try, on staging (16:46–16:51 UTC):** she opened the link from Telegram, whose
+      built-in browser runs no service worker: the page said "This browser can't play from the
+      server", and the core logged the connection held and ended after 92 ms with no request, the
+      same signature as the first try's. A cause that fits the first try too, not confirmed. In
+      Safari she joined. The voice call failed 13 times over 90 s (each about 5 s after "accepted")
+      before it connected at 16:49:15, then held at about 35 ms with 1 packet lost; her core
+      connections all ended at 16:48:04 after 100 s, their send windows down to one packet, and the
+      page reconnected; her video stopped twice "hidden" (Safari in the background); she left by
+      Leave at 16:51:17, the call still healthy (her earphones' battery ran out). **This batch:** the
+      no-service-worker page tells a page inside an app to open the link in Safari or Chrome, with
+      the link to copy. **Next batch:** why the first voice call takes 90 s to connect; what ended
+      her connections at 16:48:04.
     - From her IPv4-only network (`194.213.108.4`, likely LTE, no IPv6 candidate) every pair failed
       with nothing sent or received: the house is DS-Lite with no IPv4 way in and the beta has no relay
       (as "Reaching production from outside" above).
@@ -1322,3 +1334,9 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
     Proposed: hold a `screen` wake lock while a video plays, take it again on `visibilitychange` (the
     browser releases it when the page hides), release it at pause and end. The choppiness is to be
     checked once the lock no longer comes, as the locker's compositing may be its cause.
+17. **Next batch (the owner, 2026-11-02): fast-forward and rewind do nothing in Silk's full screen.**
+    "I reopend silk browser on fire tv, which was already on a play page with video player. I
+    navigated to the play button, pressed select, then navigated to the fullscreen button and pressed
+    select to bring it to full screen. Now when I press fastforward or rewind, they do nothing. Maybe
+    because of where the focus is?" To check: which element holds focus once the full-screen button
+    is pressed, and whether the remote's media keys reach the page's key handler then.

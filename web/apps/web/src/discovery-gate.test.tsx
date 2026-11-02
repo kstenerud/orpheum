@@ -14,7 +14,7 @@ import {
   sessionOfferKey,
   stepsSoFar,
 } from "@orpheum/sdk";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DiscoveryGate, withLatest, type GateParts } from "./discovery-gate.tsx";
 import {
@@ -37,6 +37,7 @@ let mounted: Mounted | undefined;
 afterEach(() => {
   mounted?.unmount();
   mounted = undefined;
+  vi.restoreAllMocks();
 });
 
 const fingerprint = "Vkdap1RjR0wChd9dvyvKtz2mUTWIOem3dIGy6rEHcIw";
@@ -273,38 +274,27 @@ describe("the gate a discovery's page opens on", () => {
   // Firefox with no service worker (staging, 2026-11-02): the core held the connection, the page
   // closed it and said its network could not reach the server.
   it("says a browser that runs no service worker cannot play, and tells the discovery of no dead end", async () => {
-    const heard: string[] = [];
-    const located = {
-      coreId: "k7xq2",
-      bootstrapToken: "a-bootstrap-token",
-      iceServers: [],
-      paths: [{ kind: "ipv4", url: "https://v4.k7xq2.zone.example" }],
-    };
-    const toDiscovery = discovery({ "/locate": [200, located], "/dead-end": [204, {}] }, heard);
-    const fetched: typeof fetch = (url, init) =>
-      (url instanceof Request ? url.url : url.toString()).startsWith(
-        "https://v4.k7xq2.zone.example/",
-      )
-        ? Promise.resolve(new Response("{}", { status: 200 }))
-        : toDiscovery(url, init);
-    let isTried = false;
-    const parts: GateParts = {
-      ...partsOf(fetched),
-      onConnected: () => {
-        isTried = true;
-        throw new NoServiceWorker();
-      },
-    };
-    mounted = await mount(<DiscoveryGate start={linkStart} parts={parts} />);
-    await click(buttonWithText(mounted.container, "Connect"));
-    const shown = mounted.container;
+    const reached = await reachedWithNoWorker();
+    const shown = reached.container;
     await settleUntil(() => shown.textContent.includes("can't play"));
     const page = shown.textContent;
-    expect(isTried).toBe(true);
+    expect(reached.isTried()).toBe(true);
     expect(page).toContain("This browser can't play from the server");
     expect(page).toContain("Copy what happened");
     expect(page).not.toContain("Can't reach the server from this network");
-    expect(heard.filter((each) => each.startsWith("/dead-end"))).toEqual([]);
+    expect(reached.heard.filter((each) => each.startsWith("/dead-end"))).toEqual([]);
+  });
+
+  // A guest in Berlin, 2026-11-02, opened her link from Telegram, whose browser runs no service
+  // worker, and got in when she tried Safari herself.
+  it("tells a page inside another app on an iPhone to open the link in Safari", async () => {
+    const webView =
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148";
+    vi.spyOn(globalThis.navigator, "userAgent", "get").mockReturnValue(webView);
+    const shown = (await reachedWithNoWorker()).container;
+    await settleUntil(() => shown.textContent.includes("Open this link in Safari"));
+    expect(buttonWithText(shown, "Copy link")).toBeDefined();
+    expect(shown.textContent).toContain("Copy what happened");
   });
 
   it("reaches the server by what this browser holds when its link is spent", async () => {
@@ -634,3 +624,34 @@ describe("a person with no link at a discovery that has realms (D297, D298)", ()
     expect(storage.getItem("orpheum.discovery.realm")).toBeNull();
   });
 });
+
+/** A link's gate mounted and connected, its core reached by a browser running no service worker. */
+async function reachedWithNoWorker(): Promise<{
+  readonly container: HTMLElement;
+  readonly heard: readonly string[];
+  readonly isTried: () => boolean;
+}> {
+  const heard: string[] = [];
+  const located = {
+    coreId: "k7xq2",
+    bootstrapToken: "a-bootstrap-token",
+    iceServers: [],
+    paths: [{ kind: "ipv4", url: "https://v4.k7xq2.zone.example" }],
+  };
+  const toDiscovery = discovery({ "/locate": [200, located], "/dead-end": [204, {}] }, heard);
+  const fetched: typeof fetch = (url, init) =>
+    (url instanceof Request ? url.url : url.toString()).startsWith("https://v4.k7xq2.zone.example/")
+      ? Promise.resolve(new Response("{}", { status: 200 }))
+      : toDiscovery(url, init);
+  let isTried = false;
+  const parts: GateParts = {
+    ...partsOf(fetched),
+    onConnected: () => {
+      isTried = true;
+      throw new NoServiceWorker();
+    },
+  };
+  mounted = await mount(<DiscoveryGate start={linkStart} parts={parts} />);
+  await click(buttonWithText(mounted.container, "Connect"));
+  return { container: mounted.container, heard, isTried: () => isTried };
+}

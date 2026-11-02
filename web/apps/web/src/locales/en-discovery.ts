@@ -64,6 +64,20 @@ export const enDiscovery = {
     noWorker: {
       heading: "This browser can't play from the server",
       text: "The server was reached, but this browser window can't play from it: a private window, or the browser built into another app, often can't. Open the link in an ordinary window of your browser instead. If it keeps happening, copy what happened and send it to the person who sent you this link.",
+      browser: { safari: "Safari", chrome: "Chrome", other: "your browser" },
+      inApp: {
+        heading: "Open this link in {{browser}}",
+        namedApp:
+          "This link opened inside {{app}}, and the browser built into it can't play from the server.",
+        someApp:
+          "This link opened inside another app, and the browser built into it can't play from the server.",
+        how: "Copy the link, then open {{browser}} and paste it into the address bar.",
+        copy: "Copy link",
+        copied: "Copied. Now open {{browser}} and paste it.",
+        refused: "This app wouldn't copy it: select the link below and copy it instead.",
+        link: "The link",
+        menu: 'Or look in this app\'s "…" or share menu for "Open in Safari".',
+      },
     },
     realm: {
       heading: "Sign in",

@@ -28,6 +28,7 @@ import type { StringStorage } from "./browser-storage.ts";
 import { CredentialsForm } from "./credentials-form.tsx";
 import { copyToClipboard } from "./clipboard.ts";
 import { dateTimeText } from "./date-time-text.ts";
+import { OpenInBrowser } from "./open-in-browser.tsx";
 import {
   provingOf,
   reachCore,
@@ -773,6 +774,9 @@ function GateMessage(props: {
   }
   if (props.phase === "offline") {
     return <Offline onRetry={props.onRetry} />;
+  }
+  if (props.phase === "noWorker") {
+    return <OpenInBrowser />;
   }
   if (props.phase === "connecting" || props.phase === "waiting") {
     return (

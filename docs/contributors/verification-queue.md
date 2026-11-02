@@ -2346,3 +2346,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   the lips over the first minute, then seek to about 4:50 and play across 5:00, where the first run
   meets the second. Passes when the speech is on the lips at the start and stays so across 5:00 with
   no jump or repeat. Do the same for any other XviD AVI from the start. (`internal/node/chunks/arguments.go`)
+
+- [ ] **VQ240** — a link opened inside an app on an iPhone says to open it in Safari, with the link to
+  copy (plan item 15, the Berlin guest's Telegram, 2026-11-02). On staging, send a Watch Together link
+  by Telegram (and, if at hand, WhatsApp or Instagram) to an iPhone and open it there, in the app's
+  own browser. Passes when the page is headed "Open this link in Safari", "Copy link" copies the link
+  whole (fragment included) or, where the app refuses, shows it to select, and the copied link pasted
+  into Safari joins the session. Note each app's user agent from "What happened". The same on Android
+  in Telegram's own browser, headed "Open this link in Chrome". (`web/apps/web/src/open-in-browser.tsx`)
