@@ -8,7 +8,8 @@ import { Icon } from "./icon.tsx";
 
 /*
  * The player's icons (D369 §1), each drawn by Icon in the colour of where it is, for an IconButton:
- * in place of the text characters ▶, ❚❚, ⤢, ⤡ and ×, which a television's font may lack.
+ * in place of the text characters ▶, ❚❚, ⤢, ⤡, ×, ⏮, ⏭, 💬, 🎧, ⁝ and ‹, which a television's font
+ * may lack (D407).
  */
 
 /** Play: a triangle pointing on. */
@@ -115,6 +116,68 @@ export function MutedIcon(): JSX.Element {
         stroke="currentColor"
         strokeWidth="2"
         strokeLinecap="round"
+      />
+    </Icon>
+  );
+}
+
+/** The previous film: a bar and a triangle pointing back to it. */
+export function PreviousIcon(): JSX.Element {
+  return (
+    <Icon className="player-icons__icon">
+      <path d="M5 5h2.5v14H5zm3.5 7L19 4.5v15z" />
+    </Icon>
+  );
+}
+
+/** The next film: a triangle pointing on to a bar. */
+export function NextIcon(): JSX.Element {
+  return (
+    <Icon className="player-icons__icon">
+      <path d="M16.5 5H19v14h-2.5zM5 4.5 15.5 12 5 19.5z" />
+    </Icon>
+  );
+}
+
+/** Subtitles: a screen with two lines of words along its foot. */
+export function SubtitlesIcon(): JSX.Element {
+  return (
+    <Icon className="player-icons__icon">
+      <path fillRule="evenodd" d="M2 4.5h20v15H2zm2 2v11h16v-11z" />
+      <path d="M6 11.5h5v2H6zm7 0h5v2h-5zm-7 3h8v2H6zm10 0h2v2h-2z" />
+    </Icon>
+  );
+}
+
+/** Audio: a note of music. */
+export function AudioIcon(): JSX.Element {
+  return (
+    <Icon className="player-icons__icon">
+      <path d="M11 3h8v4h-6v10.5a3.5 3.5 0 1 1-2-3.16z" />
+    </Icon>
+  );
+}
+
+/** More: three dots, one above another. */
+export function MoreIcon(): JSX.Element {
+  return (
+    <Icon className="player-icons__icon">
+      <path d="M12 3a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm0 7a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm0 7a2 2 0 1 1 0 4 2 2 0 0 1 0-4z" />
+    </Icon>
+  );
+}
+
+/** Back: a chevron pointing back. */
+export function BackIcon(): JSX.Element {
+  return (
+    <Icon className="player-icons__icon">
+      <path
+        d="M15 4.5 7.5 12l7.5 7.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </Icon>
   );

@@ -10,15 +10,21 @@ import { ConfirmButton } from "./confirm-button.tsx";
 import { IconButton } from "./icon-button.tsx";
 import { PlayerControls, type PlayerSource } from "./player-controls.tsx";
 import {
+  AudioIcon,
+  BackIcon,
   CloseIcon,
   FullScreenIcon,
   LeaveFullScreenIcon,
+  MoreIcon,
   MutedIcon,
+  NextIcon,
   PauseIcon,
   PlayIcon,
+  PreviousIcon,
   SeekBackIcon,
   SeekForwardIcon,
   SoundIcon,
+  SubtitlesIcon,
 } from "./player-icons.tsx";
 import { Clapperboard } from "./poster.tsx";
 import { ChevronDownIcon, RouteChooser } from "./route-chooser.tsx";
@@ -238,6 +244,12 @@ function Icons(): JSX.Element {
         <FullScreenIcon />
         <LeaveFullScreenIcon />
         <CloseIcon />
+        <PreviousIcon />
+        <NextIcon />
+        <SubtitlesIcon />
+        <AudioIcon />
+        <MoreIcon />
+        <BackIcon />
       </p>
     </section>
   );

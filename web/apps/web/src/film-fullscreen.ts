@@ -3,6 +3,36 @@
 /** The class that has a player's stage fill the browser's window where full screen was refused. */
 export const fillsWindowClass = "film-player__stage--fills-window";
 
+/** Who follows whether a stage fills the window (followFillsWindow). */
+const fillListeners = new Set<() => void>();
+
+/**
+ * Has a player's stage fill the window, or no longer, and tells whoever follows it (useIsFullScreen):
+ * the one way the fills-window class is set, so what follows it never misses a change.
+ */
+export function setFillsWindow(stage: Element, isFilling: boolean): void {
+  if (stage.classList.contains(fillsWindowClass) === isFilling) {
+    return;
+  }
+  stage.classList.toggle(fillsWindowClass, isFilling);
+  for (const listener of fillListeners) {
+    listener();
+  }
+}
+
+/** Follows a stage's filling the window or no longer (setFillsWindow); returns the stopping. */
+export function followFillsWindow(listener: () => void): () => void {
+  fillListeners.add(listener);
+  return () => {
+    fillListeners.delete(listener);
+  };
+}
+
+/** Whether a player's stage on the page fills the window, where full screen was refused. */
+export function isAStageFillingTheWindow(page: Document): boolean {
+  return page.querySelector(`.${fillsWindowClass}`) !== null;
+}
+
 /**
  * Puts a player's stage full screen, as a film opens on a television or in a browser that is itself
  * full screen; where the browser refuses, the stage fills the window instead, which in a browser
@@ -16,7 +46,7 @@ export function fillTheScreen(stage: HTMLElement, document: Document): void {
     return;
   }
   const fillWindow = (): void => {
-    stage.classList.add(fillsWindowClass);
+    setFillsWindow(stage, true);
   };
   if (typeof stage.requestFullscreen !== "function") {
     fillWindow();
@@ -44,7 +74,9 @@ export function fillTheScreen(stage: HTMLElement, document: Document): void {
 export function toggleFullScreen(stage: Element | null | undefined, page: Document): void {
   if (page.fullscreenElement instanceof Element) {
     leaveFullScreenAsked(page);
-    stage?.classList.remove(fillsWindowClass);
+    if (stage instanceof Element) {
+      setFillsWindow(stage, false);
+    }
     return;
   }
   if (!(stage instanceof HTMLElement)) {

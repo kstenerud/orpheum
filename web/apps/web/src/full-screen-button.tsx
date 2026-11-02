@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { useEffect, useRef, useState, type JSX } from "react";
+import { useRef, useSyncExternalStore, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { toggleFullScreen } from "./film-fullscreen.ts";
+import {
+  followFillsWindow,
+  isAStageFillingTheWindow,
+  toggleFullScreen,
+} from "./film-fullscreen.ts";
 import { IconButton } from "./icon-button.tsx";
 import { FullScreenIcon, LeaveFullScreenIcon } from "./player-icons.tsx";
 
@@ -17,7 +21,7 @@ import { FullScreenIcon, LeaveFullScreenIcon } from "./player-icons.tsx";
 export function FullScreenButton(): JSX.Element {
   const { t } = useTranslation();
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const isFullScreen = useIsFullScreen();
+  const isFullScreen = useIsBrowserFullScreen();
   return (
     <IconButton
       ref={buttonRef}
@@ -32,20 +36,44 @@ export function FullScreenButton(): JSX.Element {
   );
 }
 
-/** Whether the page is full screen now, as the browser says at each change. */
-function useIsFullScreen(): boolean {
-  const [isFullScreen, setIsFullScreen] = useState(
-    // A page drawn with no document, as a test draws it to markup, is not full screen.
-    () => typeof document !== "undefined" && document.fullscreenElement instanceof Element,
-  );
-  useEffect(() => {
-    const changed = (): void => {
-      setIsFullScreen(document.fullscreenElement instanceof Element);
-    };
-    document.addEventListener("fullscreenchange", changed);
-    return () => {
-      document.removeEventListener("fullscreenchange", changed);
-    };
-  }, []);
-  return isFullScreen;
+/** Follows the browser's full screen and a stage's filling the window; returns the stopping. */
+function followFullScreen(changed: () => void): () => void {
+  document.addEventListener("fullscreenchange", changed);
+  const stopFollowingFill = followFillsWindow(changed);
+  return () => {
+    document.removeEventListener("fullscreenchange", changed);
+    stopFollowingFill();
+  };
+}
+
+/** Whether the browser has put something on the page full screen. */
+function isBrowserFullScreen(): boolean {
+  return document.fullscreenElement instanceof Element;
+}
+
+/** Whether the film shows full screen: the browser's, or a stage filling the window it refused. */
+function isShownFullScreen(): boolean {
+  return isBrowserFullScreen() || isAStageFillingTheWindow(document);
+}
+
+/** A page drawn with no document, as a test draws it to markup, is not full screen. */
+function isNotFullScreen(): boolean {
+  return false;
+}
+
+/**
+ * Whether the film shows full screen now: the browser's full screen, or a player's stage filling the
+ * window where the browser refused it (fillTheScreen), which looks the same (plans/player-overlay.md
+ * §2.1, D407).
+ */
+export function useIsFullScreen(): boolean {
+  return useSyncExternalStore(followFullScreen, isShownFullScreen, isNotFullScreen);
+}
+
+/**
+ * Whether the browser's full screen is on now, which the button's press leaves; a stage filling the
+ * window is not, as its press asks for full screen (toggleFullScreen).
+ */
+function useIsBrowserFullScreen(): boolean {
+  return useSyncExternalStore(followFullScreen, isBrowserFullScreen, isNotFullScreen);
 }

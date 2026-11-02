@@ -32,7 +32,7 @@ import { useTranslation } from "react-i18next";
 
 import { pressOf, type CastAnswer } from "./cast-asked.tsx";
 import { endCast, moveCastOn, playInCast } from "./cast.ts";
-import { fillsWindowClass, isFullScreenLeaveAsked } from "./film-fullscreen.ts";
+import { fillsWindowClass, isFullScreenLeaveAsked, setFillsWindow } from "./film-fullscreen.ts";
 import { commandOf, keyCodeOf } from "./input-buttons.ts";
 import { onCommand } from "./input-commands.ts";
 import { useServices, useToken } from "./services.tsx";
@@ -304,9 +304,9 @@ function useFillsTheWindow(video: HTMLVideoElement | null): void {
     if (!(stage instanceof HTMLElement) || stage.classList.contains(fillsWindowClass)) {
       return undefined;
     }
-    stage.classList.add(fillsWindowClass);
+    setFillsWindow(stage, true);
     return () => {
-      stage.classList.remove(fillsWindowClass);
+      setFillsWindow(stage, false);
     };
   }, [video]);
 }
