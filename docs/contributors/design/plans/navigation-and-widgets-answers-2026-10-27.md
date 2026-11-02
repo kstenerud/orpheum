@@ -1270,3 +1270,21 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
     title's clock checked at every VOBU with a frame's slack, is **done** in this batch. **Next
     batch:** the sound at a join (D405 §4): drop an AC-3 frame that repeats or is cut short where the
     clock was restamped, as FFmpeg's `dvdvideo` demuxer does.
+11. **Fixed in this batch (found by the agent running VQ61 on the Fire TV, 2026-11-02):** a series
+    opened from far down the Series list opened scrolled down, its name hidden ("fix(web): a series opens at its top, its row of seasons scrolled sideways alone"); and OK on
+    the video opened the hidden player overlay with nothing focused, so OK never paused and no arrow
+    reached its controls ("fix(web): OK on a television's hidden player overlay puts focus on play").
+12. **For the owner (found running VQ61):** Back from a film opened from Films' or Series' search
+    shows the whole list again: the search and the sort are held in the page (`browse.tsx`), not in
+    its address as the Libraries page's are (`library-browse.tsx`), so the history entry does not
+    keep them. On a TV, a search typed by the remote is lost after looking at one result. Proposed:
+    put them in `/films` and `/series` addresses as the Libraries page does; next batch unless the
+    owner wants it in this one.
+13. **Next batch (found running VQ61):** the arrows' search prefers a control in line with the press
+    over a nearer one beside it, so some are reached only the other way: Down from *‹ Series* goes to
+    the season row past *Play S5E1* and *Mark all … as watched*; Down from the banner goes past Play
+    to *Mark Season 5 as watched*; Down from This device's Rename goes past the game controller's
+    choices to the account link; Right at the end of the series page's buttons or of Continue Watching
+    jumps into the banner; Up from the banner's Menu moves sideways to *Cast to a device*. And with
+    the film paused, the player's first Back does nothing visible, as the whole overlay stays while
+    paused; the second leaves.

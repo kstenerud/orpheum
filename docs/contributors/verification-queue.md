@@ -577,6 +577,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   `probe=device`, the stick's codecs, its audio latency and the WebRTC call; note Fire OS or Vega OS
   (Settings, My Fire TV, About) beside it. (the device lab: `web/apps/web/src/lab-device.tsx`,
   `web/packages/sdk/src/device-report.ts`, `internal/core/api/lab.go`)
+  *Run 2026-11-02 (agent, staging, by adb; not ticked: one stick of those at home, and signed in
+  by password, not by a device code):* the Fire TV Stick 4K (AFTSSS), Fire OS 7.7.1.7, Silk 138.20.3
+  (Chrome 138), signed in as lead-tests, showed its report and *Sent as NGYYG5QS*: screen 960 × 540 at
+  2 device pixels per pixel, page 960 × 480; sound delay 43 ms base, 288 ms output, one output; the
+  WebRTC call with itself connected in 160 ms, round trips 21.8, 6.1 and 3.2 ms, its sound arriving;
+  H.264, HEVC, AV1, VP9 profile 0, AAC, HE-AAC, Opus and FLAC yes, VP9 10-bit, AC-3 and E-AC-3 no.
+  The core logged it at 11:48:23Z (`a lab page sent its results`, `labResultId=NGYYG5QS
+  probe=device userId=4 deviceId=110`) with the codecs, the audio latency and the call.
 - [ ] **VQ56** — On the iPhone, in a Safari tab and then as a home-screen app, and on an Android
   phone in Chrome, run `/lab/remote` with earphones for the runs of plans/tv-device-tests.md H4.
   Passes when each run's log reaches the core every 30 s (`probe=remote`) with its wake-lock,
@@ -615,6 +623,19 @@ An item is ticked only by the person who did it, and only with what they saw.
   focus never moves twice for one press (ours and Silk's), and on the video play/pause plays and
   pauses and Left and Right seek. (`web/apps/web/src/input-commands.ts`, `focus-navigation.ts`,
   `focus-memory.ts`, `player-commands.ts`)
+  *Run 2026-11-02 (agent, staging, the Fire TV in Silk 138 by adb, as lead-tests; not ticked):*
+  every place named was walked, and every control was reached by the arrows with its ring whole and
+  clear of the banner, one focus move a press; OK pressed each; Back returned to the page before
+  with focus where it was left (Nanook of the North in Films). Two faults, fixed and checked on the stick:
+  a series opened from far down the Series list opened scrolled 239 px down, its name hidden
+  ("fix(web): a series opens at its top, its row of seasons scrolled sideways alone"); and on the video OK opened the hidden overlay with nothing focused, so a second OK
+  paused nothing and no arrow reached its controls ("fix(web): OK on a television's hidden player overlay puts focus on play"). Since the fix OK opens it on Play,
+  each further OK plays or pauses, Left and Right seek while it is hidden, and Back hides it, then
+  leaves for the film. Still open: Back from a film opened from Films' search shows the whole list
+  again, the search and the sort being held in the page, not its address (for the owner); and some
+  arrows skip a nearer control for one in line with them, each reached the other way (Down from
+  *‹ Series* to the season row past Play, Down from Rename past the game controller's choices, Right
+  at a row's end into the banner), filed for the next batch.
 - [ ] **VQ62** — On a laptop's Chrome and Firefox with the 8BitDo SN30 Pro in X-input mode, its OK
   chosen as the right button on This device, walk the same pages by the controller alone (H9).
   Passes when the D-pad and the left stick move focus, repeating while held, with focus shown as a
