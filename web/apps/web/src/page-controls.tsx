@@ -7,24 +7,37 @@ import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
 import { pressOf } from "./cast-asked.tsx";
 import { toggleFullScreen } from "./film-fullscreen.ts";
 import type { FilmParts } from "./film-player.tsx";
+import { useIsFullScreen } from "./full-screen-button.tsx";
 import { useCommands } from "./input-layer.tsx";
 import { answerPlayerCommand } from "./player-commands.ts";
 import { PlayerControls, useVideoSource } from "./player-controls.tsx";
-import { useIsFocusIn, useOpensAtThePointer } from "./player-overlay.tsx";
+import { PlayerOverlay, useIsFocusIn, useOpensAtThePointer } from "./player-overlay.tsx";
 import { fullShownForMs } from "./player-overlay-state.ts";
 
 /**
- * A computer's and a phone's player controls (D369 §2), in place of the browser's own: the player's
- * bar along the film's bottom, inside its stage so it stays in full screen, with play or pause,
+ * A computer's and a phone's player controls (D369 §2), in place of the browser's own: in full
+ * screen, the browser's or the stage filling the window (useIsFullScreen), the player's overlay, as
+ * a television's (D407 §1, §5); otherwise the bar (PageBar). The switch is made here, in the Play
+ * page's own piece, not in the film player's stage, which Watch Together's guest shares (the plan's
+ * §6 audit). A mouse's click on the film plays or pauses it, and a double click puts it full screen
+ * or leaves (the two clicks' play and pause undoing each other), in either.
+ */
+export function PageControls(props: FilmParts): JSX.Element {
+  const isFullScreen = useIsFullScreen();
+  usePressesOnTheFilm(props.videoRef);
+  return isFullScreen ? <PlayerOverlay {...props} /> : <PageBar {...props} />;
+}
+
+/**
+ * The player's bar outside full screen, along the film's bottom, inside its stage so it stays in full screen, with play or pause,
  * sound, full screen and the timeline. A mouse's move, a tap or a key in the player shows it, and
  * stillness hides it after fullShownForMs while the film plays, as the receiver's does; a key's
  * focus in it keeps it in view. The video itself is a stop for the arrows and Tab, where Left and
  * Right seek and OK and Space play and pause (player-commands.ts), and Down goes into the bar, to
  * play, as a television's overlay opens (the bar lies over the video, where no arrow's search from
- * it looks). A mouse's click on the film plays or pauses it, and a double click puts it full screen
- * or leaves (the two clicks' play and pause undoing each other); a tap shows the bar.
+ * it looks); a tap shows the bar.
  */
-export function PageControls(props: FilmParts): JSX.Element {
+function PageBar(props: FilmParts): JSX.Element {
   const { videoRef } = props;
   const overlayRef = useRef<HTMLDivElement>(null);
   const playRef = useRef<HTMLButtonElement>(null);
@@ -43,7 +56,6 @@ export function PageControls(props: FilmParts): JSX.Element {
     },
     { isCapture: true },
   );
-  usePressesOnTheFilm(videoRef);
   return (
     <div
       ref={overlayRef}

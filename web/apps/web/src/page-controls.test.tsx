@@ -6,6 +6,7 @@ import "./i18n.ts";
 import { act, createRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { setFillsWindow } from "./film-fullscreen.ts";
 import { arrowsAreCommandsAttribute } from "./focus-engine.ts";
 import { commandEventName } from "./input-commands.ts";
 import { PageControls } from "./page-controls.tsx";
@@ -198,6 +199,45 @@ describe("a computer's and a phone's own player controls (D369 §2)", () => {
       vi.advanceTimersByTime(10_000);
     });
     expect(overlay?.getAttribute("data-shown")).toBe("none");
+  });
+
+  // D407 §1, §5: in full screen a computer's controls are the television's overlay, its rows and
+  // hiding, and leaving full screen brings the bar back. A stage filling the window counts.
+  it("is the full-screen overlay while the film shows full screen, hiding after its time, and the bar again after", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    let isPlaying = true;
+    const { video, videoRef } = stagedVideo(() => isPlaying);
+    const stage = await drawnOver(video, videoRef);
+    const drawnControls = (): string[] =>
+      [".page-controls", ".player-overlay"].filter(
+        (selector) => stage.querySelector(selector) !== null,
+      );
+    expect(drawnControls()).toEqual([".page-controls"]);
+    act(() => {
+      setFillsWindow(stage, true);
+    });
+    expect(drawnControls()).toEqual([".player-overlay"]);
+    const shown = (): string | null | undefined =>
+      stage.querySelector(".player-overlay")?.getAttribute("data-shown");
+    expect(shown()).toBe("full");
+    vi.spyOn(performance, "now").mockReturnValue(1_000_000); // long after the last press
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+    expect(shown()).toBe("hidden");
+    isPlaying = false;
+    act(() => {
+      video.dispatchEvent(new Event("pause"));
+      document.body.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+    });
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+    expect(shown()).toBe("full"); // paused: it stays
+    act(() => {
+      setFillsWindow(stage, false);
+    });
+    expect(drawnControls()).toEqual([".page-controls"]);
   });
 
   it("reads where the film stands at each timeupdate only while it shows or holds focus (the efficiency audit, finding 7)", async () => {

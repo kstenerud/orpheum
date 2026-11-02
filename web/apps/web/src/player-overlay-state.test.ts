@@ -22,7 +22,6 @@ const onTv: PressContext = {
   isTelevision: true,
   isOnScrub: false,
   isOnButtons: false,
-  isOnPlay: false,
   isOnOffer: false,
 };
 
@@ -177,7 +176,7 @@ describe("all of the overlay (D407 §5)", () => {
 
   it("leaves Up, Down and OK to focus and the focused control on a television", () => {
     for (const command of ["up", "down", "select"] as const) {
-      expect(overlayAnswer(full, command, { ...onTv, isOnButtons: true, isOnPlay: true })).toEqual({
+      expect(overlayAnswer(full, command, { ...onTv, isOnButtons: true })).toEqual({
         state: full,
         isTaken: false,
       });
@@ -191,16 +190,6 @@ describe("all of the overlay (D407 §5)", () => {
       focus: "video",
     });
     expect(overlayAnswer(full, "down", onComputer)).toEqual({ state: full, isTaken: false });
-  });
-
-  it("puts focus on the video after OK on play plays the film on a computer (Q14)", () => {
-    const onPlay: PressContext = { ...onComputer, isOnButtons: true, isOnPlay: true };
-    expect(overlayAnswer(full, "select", { ...onPlay, isPaused: true })).toEqual({
-      state: full,
-      isTaken: false,
-      focus: "video",
-    });
-    expect(overlayAnswer(full, "select", onPlay)).toEqual({ state: full, isTaken: false });
   });
 });
 

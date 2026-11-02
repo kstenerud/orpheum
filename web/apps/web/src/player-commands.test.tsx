@@ -215,6 +215,29 @@ describe("Space in the player, as YouTube's (the owner, 2026-10-27)", () => {
     mounted.unmount();
   });
 
+  // D407 §5: Space on a computer presses the focused button, as OK does, and plays and pauses only
+  // where nothing would be pressed.
+  it("leaves Space on one of the player's own buttons to the button, which it presses", async () => {
+    const stage = document.createElement("div");
+    const video = videoAt(30);
+    const controls = document.createElement("div");
+    controls.setAttribute(playerControlsAttribute, "");
+    const fullScreen = document.createElement("button");
+    controls.append(fullScreen);
+    stage.append(video, controls);
+    document.body.append(stage);
+    const play = vi.spyOn(video, "play").mockResolvedValue();
+    Object.defineProperty(video, "paused", { configurable: true, value: true });
+    const mounted = await mount(withServices(<PlayerOf video={video} />));
+    focusOn(fullScreen);
+    expect(pressSpace()).toEqual({ isDownTaken: false, isUpTaken: false });
+    expect(play).not.toHaveBeenCalled();
+    focusOn(video);
+    expect(pressSpace()).toEqual({ isDownTaken: true, isUpTaken: true });
+    expect(play).toHaveBeenCalledOnce();
+    mounted.unmount();
+  });
+
   // Chrome keeps focus on its own control a click pressed, inside the video, and presses it at
   // Space before the page hears the key: the full-screen button left full screen.
   it("takes focus back to the video after a press on it or its own controls", async () => {

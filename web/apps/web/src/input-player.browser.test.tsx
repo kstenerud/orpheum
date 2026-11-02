@@ -15,6 +15,7 @@ import "./i18n.ts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import { fillsWindowClass } from "./film-fullscreen.ts";
 import { focusTargetsIn } from "./focus-engine.ts";
 import { routeHref } from "./router.ts";
 import { seekStepMs } from "./seek-ahead.ts";
@@ -348,7 +349,8 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
   });
 
   // A cast's receiver, whose overlay this is, did nothing at Space (the owner, Chrome, 2026-10-27).
-  it("plays and pauses by Space on any of its controls", async () => {
+  // Space on a button presses it (D407 §5); on the scrub bar, which it cannot press, it plays.
+  it("plays and pauses by Space on its scrub bar, which Space does not press", async () => {
     const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
     await onAFireTv();
     const scrub = document.querySelector<HTMLInputElement>(".player-overlay .timeline__range");
@@ -466,10 +468,11 @@ describe("Space on an ordinary Play page, in a computer's browser", () => {
   });
 
   // After a click on the browser's own full-screen button, focus on it, Space pressed it again
-  // (the owner, Chrome, 2026-10-27): focus on the browser's controls is focus on their video. Since
-  // D369 the page has the player's own controls in place of the browser's, which Space plays and
-  // pauses on too, once, never pressing the one focused as well.
-  it("plays and pauses by Space with focus on the video and its own controls", async () => {
+  // (the owner, Chrome, 2026-10-27): focus on the browser's controls is focus on their video, where
+  // Space plays and pauses. D407 §5 reverses Space on the player's own buttons, which once played
+  // too: Space presses the focused button, as OK does, so on full screen it goes full screen, and
+  // the player's controls are then the overlay.
+  it("plays and pauses by Space with focus on the video, and presses the player's button focused", async () => {
     const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
     await page.viewport(1280, 800);
     walking = await mountApp(walkServices(filmToPlay, "/play/1030"));
@@ -481,10 +484,19 @@ describe("Space on an ordinary Play page, in a computer's browser", () => {
     expect(play.mock.calls.length).toBe(playsBefore + 1);
     expect(document.activeElement).toBe(video);
     const fullScreen = document.querySelector<HTMLElement>(".page-controls .full-screen-button");
+    expect(fullScreen).not.toBeNull();
     fullScreen?.focus();
     await press(" ");
-    expect(play.mock.calls.length).toBe(playsBefore + 2);
-    expect(document.fullscreenElement).toBeNull();
+    await expect.poll(() => isDrawn(".player-overlay")).toBe(true);
+    const stage = document.querySelector(".film-player__stage");
+    expect(
+      document.fullscreenElement === stage || stage?.classList.contains(fillsWindowClass),
+    ).toBe(true);
+    expect(document.querySelector(".page-controls")).toBeNull();
+    expect(play.mock.calls.length).toBe(playsBefore + 1);
+    if (document.fullscreenElement !== null) {
+      await document.exitFullscreen();
+    }
   });
 });
 
