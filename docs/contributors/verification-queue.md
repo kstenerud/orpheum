@@ -697,7 +697,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   next** plays it. Cast the season's last episode and let it end: the TV goes back to the page it
   showed before the cast (D338 §1) and the phone says the film ended. (`web/apps/web/src/up-next.tsx`, `cast-receiver.tsx`, `cast-remote.tsx`,
   `live.tsx`)
-- [ ] **VQ69** — On the Fire TV stick (Silk, spatial mode) and a laptop's Chrome, signed in with
+- [x] **VQ69** — On the Fire TV stick (Silk, spatial mode) and a laptop's Chrome, signed in with
   autoplay on, play an episode with at least four after it in its season, seeking each to a minute
   before its end and pressing nothing else, and let three play on by themselves (D339). Passes when
   the fourth's end shows *Still watching?* with Continue focused and no count; OK plays the next
@@ -709,6 +709,17 @@ An item is ticked only by the person who did it, and only with what they saw.
   - Run 2026-11-02, the Fire TV as lead-tests: 5667→5670 played on by themselves and 5670's end showed
     *Still watching?* with Continue focused and no count; OK played 5671. 5674 then stood at 1299.97 of
     1300.06 s, never ended (the hls.js fault above), until the end was sent by hand.
+  - Run again 2026-11-02 on the stick with "fix(player): an episode with a hole behind the playhead reaches its end", "fix(player): a video stalled at its end while seeking is ended too" and "fix(web): Right on a television's Still watching reaches Stop, not a seek" on staging: 5674 ended
+    and 5675 played. Opened from the series page, 5683→5686 played on by themselves and 5686's end
+    asked *Still watching?* with Continue focused; Right on Continue sought the film instead of going
+    to Stop, so OK played on (fixed, "fix(web): Right on a television's Still watching reaches Stop, not a seek"); after the fix Right reached Stop and OK went back to
+    the series page. With two autoplayed, Up pressed mid-episode: that end and the next counted
+    *Plays in 10 s* as usual. The stick's part passes.
+  - Run 2026-11-02 in a desktop Chrome 156 (1280×720, Linux) as lead-tests, opened from the series
+    page: 5683→5686 played on, each counting, and 5686's end asked *Still watching?* with Continue
+    focused; Enter played 5687. 5687→5690 played on, *Still watching?* again; Right reached Stop and
+    Enter went back to the series page. With two autoplayed, Shift pressed mid-episode: the next two
+    ends counted and played on. Passes on both; ticked.
 - [ ] **VQ70** — Host Watch Together on a laptop's Chrome with a guest on another browser (a phone's
   or Firefox), both with sound, and play an episode that is not its season's last; seek to a minute
   before its end (D339). Passes when the host's *Plays in 10 s* runs out and both screens go to the
