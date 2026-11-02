@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { BarePlayer } from "./bare-player.tsx";
 import {
   answerPlayerCommand,
+  markPlayersControls,
   playerControlsAttribute,
   usePlayerCommands,
   volumeAfter,
@@ -228,6 +229,7 @@ describe("Space in the player, as YouTube's (the owner, 2026-10-27)", () => {
     const video = videoAt(30);
     const controls = document.createElement("div");
     controls.setAttribute(playerControlsAttribute, "");
+    markPlayersControls(controls, { current: video });
     const scrub = document.createElement("input");
     scrub.type = "range";
     const upNext = document.createElement("button");
@@ -264,6 +266,7 @@ describe("Space in the player, as YouTube's (the owner, 2026-10-27)", () => {
     const video = videoAt(30);
     const controls = document.createElement("div");
     controls.setAttribute(playerControlsAttribute, "");
+    markPlayersControls(controls, { current: video });
     const fullScreen = document.createElement("button");
     controls.append(fullScreen);
     stage.append(video, controls);

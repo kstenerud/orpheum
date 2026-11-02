@@ -16,12 +16,11 @@ import { useTranslation } from "react-i18next";
 
 import { ConvenienceArea, type OfferPiece } from "./convenience-area.tsx";
 import { useIsVolumeSettable } from "./film-volume-slider.tsx";
-import { fillTheScreen } from "./film-fullscreen.ts";
 import type { FilmParts } from "./film-player.tsx";
 import { isThisHandheld } from "./handheld.ts";
 import { useCommands } from "./input-layer.tsx";
 import { OverlayUp, PlayUpwardContext } from "./play-up.tsx";
-import { answerPlayerCommand, seekBy } from "./player-commands.ts";
+import { answerPlayerCommand, seekBy, usePlayersControls } from "./player-commands.ts";
 import {
   PlayerControls,
   useVideoSource,
@@ -58,19 +57,18 @@ import { isTelevision } from "./tv-device.ts";
  * (player-overlay-state.ts); a mouse's move, a click or a tap shows it all, leaving focus where it is,
  * as a desktop player's controls show, so a cast's receiver on a computer keeps its controls (D338
  * §5). The browser's own controls are in a shadow no remote reaches (the owner, Fire TV,
- * 2026-10-25). shouldOpenFullScreen puts its stage full screen as the player opens, as a television's
- * player is, filling the window where the browser refuses.
+ * 2026-10-25). Drawn in full screen alone (page-controls.tsx), which a television's player opens
+ * with; outside it the controls are under the film (D407 §9).
  */
 export function PlayerOverlay(
   props: FilmParts & {
-    readonly shouldOpenFullScreen?: boolean | undefined;
     /** The offer its convenience area draws, Up next or Still watching (convenience-area.tsx). */
     readonly offer?: OfferPiece | undefined;
     /** What its previous and next play, each shown only where given (D407 §2). */
     readonly moves?: SequenceMoves | undefined;
   },
 ): JSX.Element {
-  const { shouldOpenFullScreen, offer, moves, ...film } = props;
+  const { offer, moves, ...film } = props;
   const overlayRef = useRef<HTMLDivElement>(null);
   const playRef = useRef<HTMLButtonElement>(null);
   const scrubRef = useRef<HTMLInputElement>(null);
@@ -87,7 +85,7 @@ export function PlayerOverlay(
     videoRef: film.videoRef,
     convenienceRef,
   };
-  const told = { hasOffer, isMenuOpen, shouldOpenFullScreen };
+  const told = { hasOffer, isMenuOpen };
   const { state, source, isTv, isVolumeShown } = useOverlay(refs, told);
   const convenience = {
     film,
@@ -126,14 +124,13 @@ export function PlayerOverlay(
 
 /**
  * What the overlay shows and how it answers: its state, what a mouse, a press and time do to it,
- * the film it reads, and the stage put full screen as it opens where asked.
+ * and the film it reads; it is the player's own controls for that film (usePlayersControls).
  */
 function useOverlay(
   refs: OverlayRefs,
   told: {
     readonly hasOffer: boolean;
     readonly isMenuOpen: boolean;
-    readonly shouldOpenFullScreen: boolean | undefined;
   },
 ): {
   readonly state: OverlayState;
@@ -160,7 +157,7 @@ function useOverlay(
   const volume = useVolumeShown();
   const presses = { state, setState, isTv, hasOffer, isMenuOpen, onVolumeShown: volume.show };
   useOverlayPresses({ ...presses, notePress, ...refs });
-  useFullscreenStage(refs.overlayRef, told.shouldOpenFullScreen === true);
+  usePlayersControls(refs.overlayRef, refs.videoRef);
   return { state, source, isTv, isVolumeShown: volume.isShown };
 }
 
@@ -284,14 +281,15 @@ function OverlayRows({
           playRef={playRef}
           moves={moves}
           menus={<PlayerMenus {...menus} />}
+          videoRef={videoRef}
         />
       </div>
     </>
   );
 }
 
-/** The controls the overlay shows on this device (controlsShown). */
-function useControlsShown(
+/** The controls the overlay shows on this device (controlsShown), and the bar under the film. */
+export function useControlsShown(
   isTv: boolean,
   moves: SequenceMoves | undefined,
 ): readonly OverlayControl[] {
@@ -313,7 +311,7 @@ function useControlsShown(
  * The bar's controls among those the overlay shows, which the bar draws today: the sound is 🔈 among
  * the menus (player-menus.tsx), not the bar's mute and slider.
  */
-function barControlsOf(shown: readonly OverlayControl[]): PlayerControl[] {
+export function barControlsOf(shown: readonly OverlayControl[]): PlayerControl[] {
   const drawn: Partial<Record<OverlayControl, PlayerControl>> = {
     previous: "previous",
     seekBack: "steps",
@@ -679,17 +677,4 @@ export function useOpensAtThePointer(open: () => void): void {
       document.removeEventListener("click", clicked);
     };
   }, []);
-}
-
-/**
- * Puts the stage the overlay is in full screen as the player opens, where it is asked to (a
- * television's player); where the browser refuses, it fills the window (fillTheScreen).
- */
-function useFullscreenStage(insideRef: RefObject<HTMLElement | null>, isAsked: boolean): void {
-  useEffect(() => {
-    const stage = insideRef.current?.closest(".film-player__stage");
-    if (isAsked && stage instanceof HTMLElement) {
-      fillTheScreen(stage, document);
-    }
-  }, [insideRef, isAsked]);
 }

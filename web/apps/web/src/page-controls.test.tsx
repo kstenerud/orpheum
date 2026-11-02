@@ -3,19 +3,36 @@
 
 import "./i18n.ts";
 
-import { act, createRef } from "react";
+import { act, createRef, useEffect, type JSX } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { OfferPiece, OfferPlace } from "./convenience-area.tsx";
 import { setFillsWindow } from "./film-fullscreen.ts";
 import { arrowsAreCommandsAttribute } from "./focus-engine.ts";
 import { commandEventName } from "./input-commands.ts";
-import { PageControls } from "./page-controls.tsx";
-import { answerPlayerCommand, playerControlsAttribute } from "./player-commands.ts";
+import { OverTheFilm, PageControls } from "./page-controls.tsx";
+import { PlayUpwardContext } from "./play-up.tsx";
+import {
+  answerPlayerCommand,
+  markPlayersControls,
+  playerControlsAttribute,
+} from "./player-commands.ts";
 import { seekRestMs, seekStepMs } from "./seek-ahead.ts";
 import { mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
+import type { Upward } from "./upward.ts";
 
-/** A video in a stage, playing or paused as isPlaying says, and its ref. */
+/** A Fire TV's Silk, which the player takes for a television's remote. */
+const silk =
+  "Mozilla/5.0 (Linux; Android 9; AFTSSS) AppleWebKit/537.36 (KHTML, like Gecko) Silk/138.19.9 like Chrome/138.0.7204.244 Safari/537.36";
+
+/** A Play page's place: under the home page, which its Up goes to. */
+const upward: Upward = {
+  crumbs: [{ label: "Home", to: { screen: "home" }, isIt: () => false }],
+  here: "Film",
+};
+
+/** A video, playing or paused as isPlaying says, and its ref. */
 function stagedVideo(isPlaying: () => boolean): {
   readonly video: HTMLVideoElement;
   readonly videoRef: React.RefObject<HTMLVideoElement | null>;
@@ -40,7 +57,27 @@ function offer(target: Element, command: string): boolean {
   return event.defaultPrevented;
 }
 
-describe("a computer's and a phone's own player controls (D369 §2)", () => {
+/** An offer that is on as soon as it is drawn, a button named "Up next", as up-next.tsx's is. */
+function OfferedAtOnce(props: OfferPlace): JSX.Element {
+  const { onOffered } = props;
+  useEffect(() => {
+    onOffered?.(true);
+  }, [onOffered]);
+  return (
+    <button type="button" className="up-next">
+      Up next
+    </button>
+  );
+}
+
+/** The names of the buttons in element, in order. */
+function buttonNames(element: Element | null | undefined): (string | null)[] {
+  return [...(element?.querySelectorAll("button") ?? [])].map(
+    (each) => each.getAttribute("aria-label") ?? each.textContent,
+  );
+}
+
+describe("the player's controls under the film outside full screen (D369 §2, D407 §9)", () => {
   let mounted: Mounted | undefined;
   afterEach(() => {
     mounted?.unmount();
@@ -49,16 +86,24 @@ describe("a computer's and a phone's own player controls (D369 §2)", () => {
     vi.useRealTimers();
   });
 
-  /** The controls over video in its stage, the stage holding the video as the player's does. */
-  async function drawnOver(
+  /**
+   * The Play page's pieces as the film player draws them: what is over the film in its stage, then
+   * the controls under it; the stage holding the video as the player's does.
+   */
+  async function drawn(
     video: HTMLVideoElement,
     videoRef: React.RefObject<HTMLVideoElement | null>,
+    offered?: OfferPiece,
   ): Promise<HTMLElement> {
+    const film = { videoRef, readLinkKbps: () => undefined, failure: undefined };
     mounted = await mount(
       withServices(
-        <div className="film-player__stage">
-          <PageControls videoRef={videoRef} readLinkKbps={() => undefined} failure={undefined} />
-        </div>,
+        <PlayUpwardContext value={upward}>
+          <div className="film-player__stage">
+            <OverTheFilm {...film} hasPressesOnTheFilm offer={offered} />
+          </div>
+          <PageControls {...film} offer={offered} />
+        </PlayUpwardContext>,
       ),
     );
     const stage = mounted.container.querySelector<HTMLElement>(".film-player__stage");
@@ -69,19 +114,39 @@ describe("a computer's and a phone's own player controls (D369 §2)", () => {
     return stage;
   }
 
-  it("is the player's bar over the film: play, full screen, sound and the timeline, a stop for the arrows", async () => {
+  /** The bar under the film. */
+  function bar(): HTMLElement | null | undefined {
+    return mounted?.container.querySelector<HTMLElement>(".page-controls");
+  }
+
+  it("is the player's bar under the film, nothing over it: the timeline, ⏪ ▶ ⏩, sound and full screen, a stop for the arrows", async () => {
     const { video, videoRef } = stagedVideo(() => false);
-    await drawnOver(video, videoRef);
-    const overlay = mounted?.container.querySelector(".page-controls");
-    expect(overlay?.hasAttribute(playerControlsAttribute)).toBe(true);
-    expect(
-      [...(overlay?.querySelectorAll("button") ?? [])].map((each) =>
-        each.getAttribute("aria-label"),
-      ),
-    ).toEqual(["Play", "Full screen", "Mute"]);
-    const timeline = overlay?.querySelector('input[aria-label="Where the film stands"]');
+    const stage = await drawn(video, videoRef);
+    expect([...stage.children]).toEqual([video]);
+    expect(stage.contains(bar() ?? null)).toBe(false);
+    expect(bar()?.hasAttribute(playerControlsAttribute)).toBe(true);
+    expect(buttonNames(bar())).toEqual([
+      "Back 10 s",
+      "Play",
+      "Forward 10 s",
+      "Volume",
+      "Full screen",
+    ]);
+    const timeline = bar()?.querySelector('input[aria-label="Where the film stands"]');
     expect(timeline?.hasAttribute(arrowsAreCommandsAttribute)).toBe(true);
     expect(video.tabIndex).toBe(0);
+    expect(bar()?.querySelector(".player-overlay__up")).toBeNull(); // a computer's trail is the page's
+  });
+
+  it("puts the video's stage full screen by its ⤢, though the bar lies outside the stage", async () => {
+    const { video, videoRef } = stagedVideo(() => false);
+    const stage = await drawn(video, videoRef);
+    const asked = vi.fn(() => Promise.resolve());
+    stage.requestFullscreen = asked;
+    act(() => {
+      bar()?.querySelector<HTMLButtonElement>('button[aria-label="Full screen"]')?.click();
+    });
+    expect(asked).toHaveBeenCalledOnce();
   });
 
   // A held Right seeked at each repeat, and the marker moved only as a seek landed, after a click
@@ -98,9 +163,9 @@ describe("a computer's and a phone's own player controls (D369 §2)", () => {
         seeks.push(toS); // a seek on its way: the film stays where it was until it lands
       },
     });
-    const stage = await drawnOver(video, videoRef);
-    const timeline = stage.querySelector<HTMLInputElement>(".timeline__range");
-    const shown = (): string | undefined => stage.querySelector(".timeline__times")?.textContent;
+    await drawn(video, videoRef);
+    const timeline = bar()?.querySelector<HTMLInputElement>(".timeline__range");
+    const shown = (): string | undefined => bar()?.querySelector(".timeline__times")?.textContent;
     expect(shown()).toBe("0:30 / 10:00");
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     act(() => {
@@ -126,7 +191,7 @@ describe("a computer's and a phone's own player controls (D369 §2)", () => {
     });
     expect(shown()).toBe("1:00 / 10:00");
     act(() => {
-      if (timeline !== null) {
+      if (timeline !== null && timeline !== undefined) {
         Reflect.set(HTMLInputElement.prototype, "value", "300000", timeline);
         timeline.dispatchEvent(new Event("input", { bubbles: true }));
       }
@@ -141,7 +206,7 @@ describe("a computer's and a phone's own player controls (D369 §2)", () => {
 
   it("plays or pauses at a mouse's click on the film, and puts it full screen at a double click", async () => {
     const { video, videoRef } = stagedVideo(() => false);
-    const stage = await drawnOver(video, videoRef);
+    const stage = await drawn(video, videoRef);
     const play = vi.spyOn(video, "play").mockResolvedValue();
     const asked = vi.fn(() => Promise.resolve());
     stage.requestFullscreen = asked;
@@ -157,139 +222,84 @@ describe("a computer's and a phone's own player controls (D369 §2)", () => {
       );
       video.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 0 })); // a key's
     });
-    expect(play).toHaveBeenCalledOnce(); // a tap shows the bar alone, and a key's click is the key's
+    expect(play).toHaveBeenCalledOnce(); // a tap is not a mouse's click, and a key's click is the key's
     act(() => {
       video.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, detail: 2 }));
     });
     expect(asked).toHaveBeenCalledOnce();
   });
 
-  it("hides after its time while the film plays, never while paused, and shows again at a mouse's move", async () => {
-    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
-    let isPlaying = false;
-    const { video, videoRef } = stagedVideo(() => isPlaying);
-    await drawnOver(video, videoRef);
-    const overlay = mounted?.container.querySelector(".page-controls");
-    let pageNowMs = 1_000_000;
-    vi.spyOn(performance, "now").mockImplementation(() => pageNowMs);
-    act(() => {
-      vi.advanceTimersByTime(10_000);
-    });
-    expect(overlay?.getAttribute("data-shown")).toBe("all"); // paused
-    isPlaying = true;
-    act(() => {
-      video.dispatchEvent(new Event("play"));
-    });
-    act(() => {
-      vi.advanceTimersByTime(10_000);
-    });
-    expect(overlay?.getAttribute("data-shown")).toBe("none");
-    const moveTo = (screenX: number): void => {
-      act(() => {
-        document.body.dispatchEvent(
-          new PointerEvent("pointermove", { bubbles: true, pointerType: "mouse", screenX }),
-        );
-      });
-    };
-    moveTo(10);
-    moveTo(20);
-    expect(overlay?.getAttribute("data-shown")).toBe("all");
-    pageNowMs += 1_000_000;
-    act(() => {
-      vi.advanceTimersByTime(10_000);
-    });
-    expect(overlay?.getAttribute("data-shown")).toBe("none");
-  });
-
-  // D407 §1, §5: in full screen a computer's controls are the television's overlay, its rows and
-  // hiding, and leaving full screen brings the bar back. A stage filling the window counts.
-  it("is the full-screen overlay while the film shows full screen, hiding after its time, and the bar again after", async () => {
-    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
-    let isPlaying = true;
-    const { video, videoRef } = stagedVideo(() => isPlaying);
-    const stage = await drawnOver(video, videoRef);
-    const drawnControls = (): string[] =>
-      [".page-controls", ".player-overlay"].filter(
-        (selector) => stage.querySelector(selector) !== null,
-      );
-    expect(drawnControls()).toEqual([".page-controls"]);
-    act(() => {
-      setFillsWindow(stage, true);
-    });
-    expect(drawnControls()).toEqual([".player-overlay"]);
-    const shown = (): string | null | undefined =>
-      stage.querySelector(".player-overlay")?.getAttribute("data-shown");
-    expect(shown()).toBe("full");
-    vi.spyOn(performance, "now").mockReturnValue(1_000_000); // long after the last press
-    act(() => {
-      vi.advanceTimersByTime(10_000);
-    });
-    expect(shown()).toBe("hidden");
-    isPlaying = false;
-    act(() => {
-      video.dispatchEvent(new Event("pause"));
-      document.body.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
-    });
-    act(() => {
-      vi.advanceTimersByTime(10_000);
-    });
-    expect(shown()).toBe("full"); // paused: it stays
-    act(() => {
-      setFillsWindow(stage, false);
-    });
-    expect(drawnControls()).toEqual([".page-controls"]);
-  });
-
-  it("reads where the film stands at each timeupdate only while it shows or holds focus (the efficiency audit, finding 7)", async () => {
+  // D407 §9 replaces the bar over the film that hid after its time (D369 §2): under the film it
+  // hides nothing, so it stays and reads where the film stands as it plays.
+  it("stays while the film plays, long after anyone was seen, its time following the film", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     const { video, videoRef } = stagedVideo(() => true);
     let atS = 10;
     Object.defineProperty(video, "currentTime", { get: () => atS });
     Object.defineProperty(video, "duration", { get: () => 3600 });
-    await drawnOver(video, videoRef);
-    const timeline = (): HTMLInputElement | null | undefined =>
-      mounted?.container.querySelector<HTMLInputElement>(".timeline__range");
-    const timeUpdate = (toS: number): void => {
-      atS = toS;
-      act(() => {
-        video.dispatchEvent(new Event("timeupdate"));
-      });
-    };
-    timeUpdate(20);
-    expect(timeline()?.getAttribute("aria-valuetext")).toBe("0:20");
+    await drawn(video, videoRef);
     vi.spyOn(performance, "now").mockReturnValue(1_000_000); // long after anyone was seen
     act(() => {
+      video.dispatchEvent(new Event("play"));
       vi.advanceTimersByTime(10_000);
     });
-    expect(mounted?.container.querySelector(".page-controls")?.getAttribute("data-shown")).toBe(
-      "none",
-    );
-    timeUpdate(50);
-    expect(timeline()?.getAttribute("aria-valuetext")).toBe("0:20");
-    atS = 70;
+    atS = 80;
     act(() => {
-      timeline()?.focus(); // a key's focus in the bar shows it
+      video.dispatchEvent(new Event("timeupdate"));
     });
-    expect(timeline()?.getAttribute("aria-valuetext")).toBe("1:10");
+    expect(bar()?.hasAttribute("data-shown")).toBe(false);
+    expect(
+      bar()?.querySelector<HTMLInputElement>(".timeline__range")?.getAttribute("aria-valuetext"),
+    ).toBe("1:20");
+  });
+
+  // D407 §1, §5, §9: in full screen the controls are the overlay over the film, and leaving full
+  // screen, unasked as a Fire TV's Back or a computer's Escape leaves it, brings the bar back under
+  // the film with focus on play. A stage filling the window counts.
+  it("is the full-screen overlay in the stage while full screen, and the bar under the film after, focus on play", async () => {
+    const { video, videoRef } = stagedVideo(() => true);
+    const stage = await drawn(video, videoRef);
     act(() => {
-      vi.advanceTimersByTime(10_000);
+      setFillsWindow(stage, true);
     });
-    timeUpdate(80); // hidden again by time, but focus in it keeps it in view
-    expect(timeline()?.getAttribute("aria-valuetext")).toBe("1:20");
+    expect(stage.querySelector(".player-overlay")).not.toBeNull();
+    expect(bar()).toBeNull();
+    act(() => {
+      setFillsWindow(stage, false);
+    });
+    expect([...stage.children]).toEqual([video]);
+    expect(document.activeElement).toBe(bar()?.querySelector('button[aria-label="Pause"]'));
   });
 
   it("takes Down on the film into the bar, to play, and leaves Down elsewhere to the page", async () => {
     const { video, videoRef } = stagedVideo(() => false);
-    await drawnOver(video, videoRef);
-    const playButton = mounted?.container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Play"]',
-    );
+    await drawn(video, videoRef);
+    const playButton = bar()?.querySelector<HTMLButtonElement>('button[aria-label="Play"]');
     act(() => {
       video.focus();
     });
     expect(offer(video, "down")).toBe(true);
     expect(document.activeElement).toBe(playButton);
     expect(offer(playButton ?? document.body, "down")).toBe(false);
+  });
+
+  it("draws an offer among its buttons, and when the film ends while nothing is on offer", async () => {
+    const { video, videoRef } = stagedVideo(() => true);
+    const stage = await drawn(video, videoRef, OfferedAtOnce);
+    expect([...stage.children]).toEqual([video]);
+    expect(buttonNames(bar()?.querySelector(".page-controls__offers"))).toEqual(["Up next"]);
+    expect(bar()?.querySelector(".convenience-area__ends")).toBeNull();
+    mounted?.unmount();
+    const other = stagedVideo(() => true);
+    await drawn(other.video, other.videoRef);
+    expect(bar()?.querySelector(".page-controls__offers .convenience-area__ends")).not.toBeNull();
+  });
+
+  it("carries a television's ‹, its one way up, among the offers", async () => {
+    vi.spyOn(Navigator.prototype, "userAgent", "get").mockReturnValue(silk);
+    const { video, videoRef } = stagedVideo(() => false);
+    await drawn(video, videoRef);
+    expect(bar()?.querySelector(".page-controls__offers .player-overlay__up")).not.toBeNull();
   });
 });
 
@@ -299,7 +309,13 @@ describe("Left and Right on the bar's timeline (D369 §2)", () => {
     vi.useRealTimers();
   });
 
-  it("seek the film a step, as on the film itself, and nowhere else does a range's arrow", () => {
+  /** A video and, beside its stage as the bar under the film is, controls with two ranges. */
+  function laidOut(): {
+    readonly video: HTMLVideoElement;
+    readonly controls: HTMLElement;
+    readonly timeline: HTMLInputElement;
+    readonly volume: HTMLInputElement;
+  } {
     const stage = document.createElement("div");
     const video = document.createElement("video");
     Object.defineProperty(video, "duration", { configurable: true, value: 600 });
@@ -312,8 +328,14 @@ describe("Left and Right on the bar's timeline (D369 §2)", () => {
     const volume = document.createElement("input");
     volume.type = "range";
     controls.append(timeline, volume);
-    stage.append(video, controls);
-    document.body.append(stage);
+    stage.append(video);
+    document.body.append(stage, controls);
+    return { video, controls, timeline, volume };
+  }
+
+  it("seek the film a step, as on the film itself, and nowhere else does a range's arrow", () => {
+    const { video, controls, timeline, volume } = laidOut();
+    markPlayersControls(controls, { current: video });
     timeline.focus();
     vi.useFakeTimers();
     expect(answerPlayerCommand(video, "right")).toBe(true);
@@ -323,5 +345,18 @@ describe("Left and Right on the bar's timeline (D369 §2)", () => {
     expect(answerPlayerCommand(video, "left")).toBe(false);
     vi.advanceTimersByTime(seekRestMs);
     expect(video.currentTime).toBe(30 + seekStepMs / 1000);
+  });
+
+  // plans/player-overlay.md §6: the bar under the film is outside the stage, so controls are the
+  // player's by the video they name, not by where they lie.
+  it("are the player's only on controls marked as its own for that video", () => {
+    const { video, controls, timeline } = laidOut();
+    timeline.focus();
+    expect(answerPlayerCommand(video, "right")).toBe(false);
+    const unmark = markPlayersControls(controls, { current: document.createElement("video") });
+    expect(answerPlayerCommand(video, "right")).toBe(false);
+    unmark();
+    markPlayersControls(controls, { current: video });
+    expect(answerPlayerCommand(video, "right")).toBe(true);
   });
 });

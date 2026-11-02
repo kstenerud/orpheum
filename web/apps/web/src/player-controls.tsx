@@ -110,6 +110,8 @@ export function PlayerControls(props: {
   readonly moves?: SequenceMoves | undefined;
   /** The overlay row's menus' openers, 💬 🎧 ⁝ (player-menus.tsx), before full screen. */
   readonly menus?: ReactNode | undefined;
+  /** The film's video, whose stage full screen puts full screen; none, the stage the bar is in. */
+  readonly videoRef?: RefObject<HTMLVideoElement | null> | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
   const { source, controls, isOverVideo, playRef, aside, isOverlayRow, moves, menus } = props;
@@ -124,6 +126,7 @@ export function PlayerControls(props: {
         isOverlayRow={isOverlayRow}
         moves={moves}
         menus={menus}
+        videoRef={props.videoRef}
       />
       {controls.includes("timeline") ? (
         <Timeline
@@ -150,6 +153,7 @@ interface ButtonsParts {
   readonly isOverlayRow: boolean | undefined;
   readonly moves: SequenceMoves | undefined;
   readonly menus: ReactNode;
+  readonly videoRef: RefObject<HTMLVideoElement | null> | undefined;
 }
 
 /**
@@ -175,7 +179,7 @@ function ControlButtons(props: ButtonsParts): JSX.Element {
     ) : null;
   const ending = (
     <>
-      {has("fullScreen") ? <FullScreenButton /> : null}
+      {has("fullScreen") ? <FullScreenButton videoRef={props.videoRef} /> : null}
       {has("sound") && source.sound !== undefined ? (
         <SoundControls sound={source.sound} isOverVideo={isOverVideo} />
       ) : null}
