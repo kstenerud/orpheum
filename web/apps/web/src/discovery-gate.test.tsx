@@ -6,6 +6,7 @@ import "./i18n.ts";
 import {
   fromBase64,
   locateHash,
+  NoServiceWorker,
   realmAsk,
   realmKey,
   realmPerson,
@@ -265,6 +266,43 @@ describe("the gate a discovery's page opens on", () => {
     await settleUntil(() => reached.length > 0);
     expect(reached).toEqual(["https://v4.k7xq2.zone.example"]);
     expect(connected).toEqual([{ coreId: "k7xq2", fingerprint }]);
+  });
+
+  // A guest in Berlin, 2026-11-02, in a browser running no service worker: the core held her
+  // connection, the page closed it and said her network could not reach the server.
+  it("says a browser that runs no service worker cannot play, and tells the discovery of no dead end", async () => {
+    const heard: string[] = [];
+    const located = {
+      coreId: "k7xq2",
+      bootstrapToken: "a-bootstrap-token",
+      iceServers: [],
+      paths: [{ kind: "ipv4", url: "https://v4.k7xq2.zone.example" }],
+    };
+    const toDiscovery = discovery({ "/locate": [200, located], "/dead-end": [204, {}] }, heard);
+    const fetched: typeof fetch = (url, init) =>
+      (url instanceof Request ? url.url : url.toString()).startsWith(
+        "https://v4.k7xq2.zone.example/",
+      )
+        ? Promise.resolve(new Response("{}", { status: 200 }))
+        : toDiscovery(url, init);
+    let isTried = false;
+    const parts: GateParts = {
+      ...partsOf(fetched),
+      onConnected: () => {
+        isTried = true;
+        throw new NoServiceWorker();
+      },
+    };
+    mounted = await mount(<DiscoveryGate start={linkStart} parts={parts} />);
+    await click(buttonWithText(mounted.container, "Connect"));
+    const shown = mounted.container;
+    await settleUntil(() => shown.textContent.includes("can't play"));
+    const page = shown.textContent;
+    expect(isTried).toBe(true);
+    expect(page).toContain("This browser can't play from the server");
+    expect(page).toContain("Copy what happened");
+    expect(page).not.toContain("Can't reach the server from this network");
+    expect(heard.filter((each) => each.startsWith("/dead-end"))).toEqual([]);
   });
 
   it("reaches the server by what this browser holds when its link is spent", async () => {

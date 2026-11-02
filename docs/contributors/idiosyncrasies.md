@@ -55,6 +55,7 @@ User-Agent (D263; the User-Agent is logged only).
 | On a Fire TV in Silk, the remote's arrows moved a pointer and no arrow key reached the page; only play/pause did. | [Silk on Fire TV keeps the D-pad for its pointer unless its spatial navigation mode is on](#silk-on-fire-tv-keeps-the-d-pad-for-its-pointer-unless-its-spatial-navigation-mode-is-on) |
 | A TCL TV in TV Bro plays every film's sound about half a second after its picture, whatever the codec; YouTube there is in time. | [A TCL TV in TV Bro plays a page's sound about half a second late, and the browser cannot tell](#a-tcl-tv-in-tv-bro-plays-a-pages-sound-about-half-a-second-late-and-the-browser-cannot-tell) |
 | A read-through over a share that dropped mid-film was answered as complete, its loudness that of part of the film. | [FFmpeg whose input read fails part way exits 0 with an answer made of what it read](#ffmpeg-whose-input-read-fails-part-way-exits-0-with-an-answer-made-of-what-it-read) |
+| A guest's link said "Can't reach the server from this network" while the core logged her connection held and ended 0.1 s later, with no request. | [Firefox runs no service worker in a private window](#firefox-runs-no-service-worker-in-a-private-window) |
 | At a discovery's page at home, every request failed with "NetworkError when attempting to fetch resource." after a realm sign-in. | [Firefox fails a public page's requests to a LAN name until its local-network prompt is answered, and again after a grant not remembered](#firefox-fails-a-public-pages-requests-to-a-lan-name-until-its-local-network-prompt-is-answered-and-again-after-a-grant-not-remembered) |
 | `dig CAA` shows CAs nobody wrote beside the zone's own `issue ";"`. | [Cloudflare adds its own CAA records to any zone with CAA while Universal SSL is on](#cloudflare-adds-its-own-caa-records-to-any-zone-with-caa-while-universal-ssl-is-on) |
 | Signing out on a Fire TV in Silk, and in Chrome on the desktop, stayed on "Signed out. Taking you to sign in…" for good. | [A step through the history cancels a link's navigation that has begun](#a-step-through-the-history-cancels-a-links-navigation-that-has-begun) |
@@ -237,6 +238,27 @@ User-Agent (D263; the User-Agent is logged only).
 
 ## Firefox
 
+
+### Firefox runs no service worker in a private window
+
+- **Symptom:** a guest in Berlin (2026-11-02) opened a Watch Together link and was told "Can't
+  reach the server from this network". Prod's core logged each of her WebRTC connections as held,
+  then ended about 100 ms later with no request made. Reproduced on staging with Playwright's
+  Firefox with `dom.serviceWorkers.enabled` set to false: the same message, the connection held
+  and ended after 11 ms.
+- **Cause:** Firefox has no `navigator.serviceWorker` in a private window, by design
+  ([Mozilla bug 1320796](https://bugzil.la/1320796);
+  [MDN](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/serviceWorker)); Firefox for
+  Android's private tabs are the same. A page carries its media over WebRTC through its service
+  worker, so once the core was reached, carrying the media failed, the page closed the connection,
+  and the gate took the failure for a network that could not reach the server. Unconfirmed which
+  browser the guest used: the core sees no user agent before a page's first request. Other browsers
+  that refuse the registration fail the same way.
+- **What we do:** `carryMediaOver` (`web/packages/sdk/src/rtc-media.ts`) fails with
+  `NoServiceWorker` where the browser has no service worker or refuses its registration, and the
+  gate (`web/apps/web/src/discovery-gate.tsx`) says this browser window cannot play from the server
+  and to open the link in an ordinary window, with what happened to copy, and tells the discovery
+  of no dead end. Playing with no service worker at all is the owner's to decide.
 
 ### Firefox fails a public page's requests to a LAN name until its local-network prompt is answered, and again after a grant not remembered
 

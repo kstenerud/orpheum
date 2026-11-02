@@ -69,3 +69,22 @@ export function deadEndReasonOf(
 
 /** The reason of a dead end the page knows nothing of: the discovery itself not reached. */
 export const unknownDeadEnd: DeadEndReason = { ipv6: "unknown", tried: [], cause: "unknown" };
+
+/**
+ * What came of the first race of a reach's names: the target's part that hears it (told), and what
+ * it heard, undefined until the race was decided.
+ */
+export function racedHeard(): {
+  readonly told: Pick<Target, "tellRaced">;
+  readonly heard: () => readonly DirectOutcome[] | undefined;
+} {
+  let raced: readonly DirectOutcome[] | undefined;
+  return {
+    told: {
+      tellRaced: (told) => {
+        raced = told;
+      },
+    },
+    heard: () => raced,
+  };
+}

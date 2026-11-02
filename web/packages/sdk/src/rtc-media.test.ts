@@ -582,6 +582,23 @@ describe("the page's side of its path, to its service worker", () => {
     expect(told.get("active")).toEqual([{ kind: "orpheum-claim" }]);
   });
 
+  // Firefox's private window has no navigator.serviceWorker; a browser may refuse the registration.
+  it("fails as a browser that runs no service worker where it has none or refuses it", async () => {
+    const media = await import("./rtc-media.ts");
+    const control = await import("./worker-control.ts");
+    const send = (): Promise<Response> => Promise.reject(new Error("unused"));
+    vi.stubGlobal("navigator", {});
+    await expect(media.carryMediaOver(send, noCredentials, "WebRTC")).rejects.toBeInstanceOf(
+      control.NoServiceWorker,
+    );
+    const { container } = fakeWorkers();
+    container.register = () => Promise.reject(new DOMException("refused", "SecurityError"));
+    vi.stubGlobal("navigator", { serviceWorker: container });
+    await expect(media.carryMediaOver(send, noCredentials, "WebRTC")).rejects.toBeInstanceOf(
+      control.NoServiceWorker,
+    );
+  });
+
   it("carries its media once the worker it asked claims it", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const media = await import("./rtc-media.ts");
