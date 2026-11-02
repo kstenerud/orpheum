@@ -293,6 +293,25 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
       .toBe(routeHref({ screen: "title", itemId: 103 }));
   });
 
+  // OK opened the overlay on the Fire TV with nothing focused, so a second OK paused nothing and no
+  // arrow reached its controls (2026-11-02): play was focused at the next frame, which the stick ran
+  // before React had drawn the overlay, its play then without a box. The frame runs at once here.
+  it("opens the hidden overlay by OK with focus on play, however soon the next frame comes", async () => {
+    await onAFireTv();
+    await press("{Escape}");
+    await expect
+      .poll(() => document.querySelector(".tv-controls")?.getAttribute("data-shown"))
+      .toBe("none");
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      callback(performance.now());
+      return 0;
+    });
+    await press("{Enter}");
+    const play = document.querySelector(".tv-controls .player-controls__buttons > button");
+    expect(play).not.toBeNull();
+    await expect.poll(() => document.activeElement).toBe(play);
+  });
+
   // A cast's receiver, whose overlay this is, did nothing at Space (the owner, Chrome, 2026-10-27).
   it("plays and pauses by Space on any of its controls", async () => {
     const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();

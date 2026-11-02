@@ -104,6 +104,7 @@ export function TvControls(props: FilmParts): JSX.Element {
   const scrubRef = useRef<HTMLInputElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const [shown, setShown] = useState<OverlayShown>("all");
+  const askFocusToPlay = useFocusToPlayOnceDrawn(playRef);
   const source = useVideoSource(videoRef, shown === "none");
   const notePress = useHiding({ isPaused: source.isPaused, shown, setShown, overlayRef, videoRef });
   useOpensAtThePointer(() => {
@@ -126,7 +127,7 @@ export function TvControls(props: FilmParts): JSX.Element {
         seekBy(video, answer.seekByMs < 0 ? -1 : 1, detail); // its seek names the arrow pressed
       }
       if (answer.isFocusToPlay === true) {
-        requestAnimationFrame(() => playRef.current?.focus());
+        askFocusToPlay();
       }
       if (answer.isTaken) {
         event.preventDefault();
@@ -156,6 +157,23 @@ export function TvControls(props: FilmParts): JSX.Element {
       />
     </div>
   );
+}
+
+/**
+ * Returns what asks focus onto play once the overlay it opens is drawn: after React's commit, not at
+ * the next frame, which a Fire TV ran before the commit, play then without a box to take focus
+ * (2026-11-02: OK opened the overlay with nothing focused).
+ */
+function useFocusToPlayOnceDrawn(playRef: RefObject<HTMLButtonElement | null>): () => void {
+  const [asked, setAsked] = useState(0);
+  useEffect(() => {
+    if (asked > 0) {
+      playRef.current?.focus();
+    }
+  }, [asked, playRef]);
+  return () => {
+    setAsked((count) => count + 1);
+  };
 }
 
 /** When the film ends if it plays on from now, leftMs from its end; nothing while its length is not known. */
