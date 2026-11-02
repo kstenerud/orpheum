@@ -157,7 +157,7 @@ func (client *Client) currentSession(ctx context.Context) (session, error) {
 	var answer loginAnswer
 	login := apiRequest{cost: providers.CostRequest, method: http.MethodPost, body: body}
 	err = client.call(ctx, login, client.base.String()+"/login", "", &answer)
-	if errors.Is(err, errUnauthorized) {
+	if errors.Is(err, errUnauthorized) || errors.Is(err, errBadRequest) {
 		client.refusedLoginFingerprint = fingerprint
 		return session{}, ErrLoginRefused
 	}
@@ -273,6 +273,10 @@ func (client *Client) callAuthorised(ctx context.Context, request apiRequest, in
 // errUnauthorized is a 401: a login refused, or a token no longer accepted.
 var errUnauthorized = errors.New("opensubtitles: unauthorized")
 
+// errBadRequest is a 400. To a login it is a refused one: OpenSubtitles answers a wrong username
+// or password, or an email given as the username, with 400 "invalid username/password", not 401.
+var errBadRequest = errors.New("opensubtitles: bad request")
+
 // errTokenInvalid is a 500 whose answer says "invalid" to a request with a token: how
 // OpenSubtitles answers a token that expired or that it dropped, which a new login cures
 // (opensubtitles-api.md §3). Once a new login has not cured it, OpenSubtitles is failing
@@ -334,7 +338,11 @@ func statusError(answer outbound.Answer) error {
 		_ = json.Unmarshal(answer.Body, &spent) //nolint:errcheck // a quota without a time is still spent
 		return &providers.QuotaSpentError{ResetAt: spent.resetAt()}
 	}
-	if err := outbound.StatusError(providerName, answer); err != nil {
+	err := outbound.StatusError(providerName, answer)
+	if err != nil && answer.StatusCode == http.StatusBadRequest {
+		return fmt.Errorf("%w: %w", errBadRequest, err)
+	}
+	if err != nil {
 		return fmt.Errorf("opensubtitles: %w", err)
 	}
 	return nil
