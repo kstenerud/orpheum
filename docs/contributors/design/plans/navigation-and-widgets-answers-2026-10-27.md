@@ -1295,3 +1295,19 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
     video from 1280.868 s, and later chunks sat 42–83 ms off the playlist: a chunk that starts a frame
     or two late. Find why in the node's chunking (the segment muxer's stop, dts2pts) and close the
     hole at the join.
+15. **A Watch Together guest in Berlin could not reach nas.example** (the owner, 2026-11-02; a test of how
+    voice and playback fare on her very bad home connection). nas.example's core log, 14:24–14:26 UTC:
+    - **This batch:** from her IPv6 network (`2a0f:5000:8119:5200::/56`, likely her Wi-Fi) the page
+      connected twice by a punched IPv6 path (363 and 463 ms), the core held each, and each closed
+      about 100 ms later with no request and no sign-in. The path works; the page dropped it. Reproduce
+      on staging as a guest who is not signed in and not at home, and find what closes it.
+    - From her IPv4-only network (`194.213.108.4`, likely LTE, no IPv6 candidate) every pair failed
+      with nothing sent or received: the house is DS-Lite with no IPv4 way in and the beta has no relay
+      (as "Reaching production from outside" above).
+    - **Next batch:** the core's port mapping asks Docker's bridge gateway (`pcp: the router at
+      172.18.0.1:5351 … connection refused`; `upnp: no UPnP router answered`), never the router, so in
+      the published compose setup it cannot map for any household. Find the gateway past the bridge,
+      or let the admin name the router.
+    - **To design and decide later (the owner: "This will be something to design and decide over
+      later"):** an IPv4 way in for houses like this one: (a) a relay on a VPS the user supplies;
+      (b) possibly a relay through the paid discovery, which has potential legal issues.
