@@ -23,6 +23,7 @@
  * sized to fill it, never past its background (the owner's Fire TV: Y and Z ran off it), with as
  * much room showing above the first and below the last as at their sides.
  */
+.app-shell__main,
 .browse__layout {
   /* The gap at each end, a share of the window's height, so it looks alike on a Fire TV's short page
      and a desktop's tall one (the owner, 2026-10-25: heavier on the Fire TV at a fixed 16 pixels). */
@@ -35,7 +36,15 @@
   --rail-end: calc(var(--rail-font) * 0.35);
   --rail-width: calc(var(--rail-font) * 2);
   --gutter: calc(var(--rail-width) + 2 * var(--space-3));
+}
 
+/* The shell's notes over a list with a rail (the plain-http note) keep clear of the rail's gutter:
+   the rail is fixed from the page's top, beside them too. */
+.app-shell__main:has(> .browse__layout > .alphabet-rail) > :not(.browse__layout) {
+  margin-inline-end: calc(var(--gutter) - var(--space-page));
+}
+
+.browse__layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) var(--gutter);
   align-items: start;
@@ -45,6 +54,7 @@
 /* On a phone, three posters a row (the owner, 2026-10-27): the rail's gutter narrower, and posters
    down to 88 pixels with an 8-pixel gap between columns, which fits three down to 360 pixels wide. */
 @media (max-width: 599px) {
+  .app-shell__main,
   .browse__layout {
     --gutter: calc(var(--rail-width) + 2 * var(--space-2));
   }

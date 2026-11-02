@@ -150,6 +150,20 @@ describe("the films' grid at a Fire TV's page in Silk", () => {
     expect(Math.abs(boxOf(".alphabet-rail").top - stickingTop())).toBeLessThanOrEqual(1);
   });
 
+  it("keeps a note of the shell's over the list clear of the rail, fixed beside it from the top", async () => {
+    await page.viewport(960, 480);
+    walking?.unmount();
+    walking = await mountApp(walkServices(filmsOnly));
+    await expect.poll(() => isDrawn(".alphabet-rail__letter")).toBe(true);
+    // A note as the shell draws one before the page, as the plain-http note is.
+    const note = document.createElement("div");
+    note.className = "app-shell__note";
+    note.textContent = "A note of the shell's";
+    document.querySelector(".app-shell__main")?.prepend(note);
+    expect(boxOf(".app-shell__note").right).toBeLessThanOrEqual(boxOf(".alphabet-rail").left);
+    note.remove();
+  });
+
   it("sizes the rail's letters by the window's height, larger on a desktop's than a Fire TV's", async () => {
     const letterSize = async (width: number, height: number): Promise<number> => {
       await page.viewport(width, height);
