@@ -49,6 +49,19 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A58 — Named a likely cause of a guest's failure, and recorded it as found, from a reproduction of the symptom alone (2026-11-02)
+
+- **What happened:** a Watch Together guest in Berlin was told her network could not reach the
+  server, while the core logged her connection held and closed 100 ms later. A staging run of
+  Firefox with service workers off reproduced the same log and message, and from that the plan, an
+  idiosyncrasy entry, code comments and a commit message said her browser ran no service worker
+  (Firefox in a private window), "found and fixed". The owner asked her: ordinary Safari, which runs
+  one. The false belief came from a matching symptom taken for a matching cause, with the one fact
+  that would tell them apart (her browser) unknown.
+- **Caught by:** the owner, by asking the guest.
+- **Gate:** none; a symptom reproduced is not a cause confirmed, and until the person's own device or
+  report confirms it, the record says "a cause that fits", never "found".
+
 ### A57 — Called revert-red's kept green stale after re-running it against the wrong base (2026-10-31)
 
 - **What happened:** check-pr said reverting `install.sh` turned no test red, from a green kept since

@@ -361,7 +361,7 @@ async function reach(
       return ended;
     }
     // The core was reached and this browser runs no service worker to carry its media: no dead end
-    // of the network, which a guest in a private window was told (Berlin, 2026-11-02).
+    // of the network, which such a browser was told before (Firefox with no worker, staging, 2026-11-02).
     if (problem instanceof NoServiceWorker) {
       parts.onDeadEnd?.(deadEndOf(core.coreId, target, problem), unknownDeadEnd.cause);
       return "noWorker";
