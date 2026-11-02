@@ -721,6 +721,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   and plays from the start; it is not identified, its file name (LES_MIS_NTSC_V2) naming no film.
   A seek to the middle failed: the title's clock starts again at 1:28:39 (D404). Re-run the seek,
   to before and after 1:28:39, once D404 is on staging.
+  *Re-run 2026-11-02 in Chrome, with D404 and D405 on staging ("fix(disc): a DVD title's clock is checked at every VOBU, with a frame's slack"):* seeks to 1:13:52, 1:50:48
+  and 2:27:02 (past the title's last clock restart, D405 §1) each play on, picture and sound in step
+  (within 12 ms), 2 to 5 frames dropped. Left: an encrypted image's message, and identifying a film
+  by a file name that names one.
 - [ ] **VQ74** — As VQ73 with a decrypted Blu-ray image whose film is one clip. Passes as VQ73 does,
   and the picture is copied, not re-encoded, on a browser that plays H.264 (the play's decision
   says remux). (`internal/node/disc/bluray.go`)
