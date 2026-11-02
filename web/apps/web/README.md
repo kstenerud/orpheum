@@ -581,15 +581,20 @@ The web client: the browser and phone interface, served embedded by the core. MP
   on and 60 s from 4 s, and the film seeks once, there, as the presses rest (half a second, a key's
   after its release); a press on the timeline shows its place at once; and the place shown stays
   until the seek lands. A remote's drags and steps are one command once they rest the same way
-  (the owner, Fire TV, 2026-10-29). A television's overlay (`src/player-overlay.tsx`) seeks by Left and Right on its
-  timeline, whose arrows are commands (`data-focus-arrows-are-commands`), and offers full screen as a
-  button a remote presses. A computer's and a phone's (`src/page-controls.tsx`) is, in full screen or a
-  stage filling the window, the television's overlay, where a press of play that plays or Down from
-  the buttons puts focus on the video so the overlay hides (D407 §6), its sound 🔈 among the menus, a
-  pop-up with the volume upright, and + and − show the volume they leave a moment (D407 §10); otherwise the same bar over
-  the film, with mute and the volume, shown by a mouse's move, a tap or a key in the player and hidden
-  by five still seconds while the film plays; Down on the video goes into it, a mouse's click on the
-  film plays or pauses it and a double click puts it full screen. `src/page-controls.test.tsx`,
+  (the owner, Fire TV, 2026-10-29). In full screen, the browser's or a stage filling the window, every
+  device's controls are the overlay (`src/player-overlay.tsx`, D407 §1, §5): its rows, Up and the
+  convenience area (Up next, Still watching, when the film ends), the timeline, whose arrows are
+  commands (`data-focus-arrows-are-commands`), and the buttons, ⏮ ⏪ ▶ ⏩ ⏭ and 🔈 💬 🎧 ⁝ ⤢, with
+  the subtitle, audio and more menus (`src/player-menus.tsx`, D407 §8); a press of play that plays or
+  Down from the buttons puts focus on the video so the overlay hides (D407 §6), and + and − show the
+  volume they leave a moment (D407 §10). A television's player opens full screen. Outside full
+  screen, on every device, nothing lies over the film (D407 §9, `src/page-controls.tsx`): the
+  controls are under it, never hidden, the timeline, the same buttons but the menus, which stay under
+  them on the page, and the offers as ordinary buttons after a television's ‹; Down on the video goes
+  to play, and as full screen ends unasked (a Fire TV's Back) focus goes to play, so the next Back
+  leaves the page. The player's own controls name the video they command
+  (`markPlayersControls`), as the bar under the film is outside its stage. A mouse's click on a
+  computer's film plays or pauses it and a double click puts it full screen. `src/page-controls.test.tsx`,
   `src/seek-ahead.test.ts`, `src/timeline.test.tsx`, `src/cast-remote.test.tsx`,
   `src/player-commands.test.tsx`, `src/player-overlay.test.tsx`, `src/input-player.browser.test.tsx`,
   `src/input-commands.test.tsx`, `src/input-layer.test.tsx`,
@@ -641,9 +646,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `sign-in.tsx`, `play.tsx` (the player, with `play-opened.ts`, how it opens its playback,
   `player-tracks.tsx`, the track and sound choices every piece over or under the film reads,
   `player-commands.ts`, its answers to a remote, and
-  `up-next.tsx`, what plays next; its controls are `player-controls.tsx`, the bar, over the film as
-  `player-overlay.tsx` over the film and `page-controls.tsx` elsewhere, with `timeline.tsx`,
-  `icon-button.tsx` and `player-icons.tsx`), `autoplay-setting.tsx` (the person's autoplay, on their account), `library-configure.tsx` (a library's Configure: the person's own Show in Films or Series, D349 §8, and Show on Home, D366 §5), `upward.ts` (where each page sits, D367), `up-trail.tsx` (the trail and Up), `episode-reached.ts` (the episode a series' page returns to), `route-chooser.tsx` (a drop-down of routes, or of choices a page keeps), `drop-down-place.ts` (where a drop-down's list opens), `phone-width.ts` (a phone's width, the stylesheets' breakpoint), `drop-down.tsx` (the one drop-down: a chooser's and the menu's), `sort-choices.ts` (each sort either way, D366 §2), `watched-mark.tsx` (the watched check, and marking by hand with its Undo, D370), `watching.ts` (the film a tab watches: its page's warm-up
+  `up-next.tsx`, what plays next; its controls are `player-controls.tsx`, the buttons, in
+  `player-overlay.tsx` over the film in full screen and `page-controls.tsx` under it otherwise, with
+  `player-menus.tsx` (the overlay's 🔈 and its subtitle, audio and more menus),
+  `convenience-area.tsx` (the offers and when the film ends), `play-up.tsx` (Up and the trail),
+  `timeline.tsx`, `icon-button.tsx` and `player-icons.tsx`), `autoplay-setting.tsx` (the person's autoplay, on their account), `library-configure.tsx` (a library's Configure: the person's own Show in Films or Series, D349 §8, and Show on Home, D366 §5), `upward.ts` (where each page sits, D367), `up-trail.tsx` (the trail and Up), `episode-reached.ts` (the episode a series' page returns to), `route-chooser.tsx` (a drop-down of routes, or of choices a page keeps), `drop-down-place.ts` (where a drop-down's list opens), `phone-width.ts` (a phone's width, the stylesheets' breakpoint), `drop-down.tsx` (the one drop-down: a chooser's and the menu's), `sort-choices.ts` (each sort either way, D366 §2), `watched-mark.tsx` (the watched check, and marking by hand with its Undo, D370), `watching.ts` (the film a tab watches: its page's warm-up
   and letting go of the last film's playbacks, D258), `sound.tsx` (the switches of the person's own choices: the boost, levelling),
   `audio-tracks.tsx` (the audio track menu, D230), `ladder-sound.ts` (each sound by its place and level, and a track or the boost switched in place), `watch-together.tsx` (the host's Watch Together
   controls, in the tray's dialog: links with notes, members, ending it), `together-viewer.tsx` (a viewer's page, joined by

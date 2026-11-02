@@ -247,3 +247,32 @@ An independent read of this plan against the code found the following. Each fix 
 ### Not verified, checked while building
 
 JASSUB's inline styles against a CSS offset; a modal `<dialog>` over a full-screen stage in Silk (VQ245); whether `input-walk`/`input-pages` browser tests walk the Play page's controls; whether the overlay's layer stops clicks reaching the video (Q10 needs them through); `pointerType` on clicks in older iOS Safari.
+
+## 7. Built (2026-11-02)
+
+Each step's commit, and where it departs from §3:
+
+1. `"feat(lab): record a key's modifiers, composing and context menus in the button test" feat(lab): record a key's modifiers, composing and context menus in the button test`.
+2. `"feat(input): volume keys, and next and previous as commands" feat(input): volume keys, and next and previous as commands`.
+3. `"refactor(player): hold the track choices around the stage, where the overlay can reach them" refactor(player): hold the track choices around the stage, where the overlay can reach them`.
+4. `"feat(player): icons and shared full-screen state for the overlay" feat(player): icons and shared full-screen state for the overlay`.
+5. `"feat(player): the overlay's states and rows (D407 §4-§7)" feat(player): the overlay's states and rows (D407 §4-§7)`, with
+   `"refactor(player): the overlay's code as the web lint asks" refactor(player): the overlay's code as the web lint asks` after it. Item 17's fix
+   and its two caveats are in that item.
+6. `"feat(player): Space presses the focused control, and the overlay serves a computer's full screen" feat(player): Space presses the focused control, and the overlay serves a computer's full screen`.
+7. `"feat(player): subtitles, audio and more in the overlay (D407 §1, §8)" feat(player): subtitles, audio and more in the overlay (D407 §1, §8)`. A cast's
+   receiver draws no menus.
+8. `"feat(player): the convenience area, Up next and Still watching alone (D407 §3)" feat(player): the convenience area, Up next and Still watching alone (D407 §3)`.
+9. `"feat(api): the episode before a file in its sequence, beside up next" feat(api): the episode before a file in its sequence, beside up next`, then
+   `"feat(player): previous and next in a sequence (D407 §2, §10)" feat(player): previous and next in a sequence (D407 §2, §10)`. On a cast's receiver
+   ⏭ moves the cast on and ⏮ is left out until a cast can move back.
+10. `"feat(player): volume button and keys (D407 §10, Q11)" feat(player): volume button and keys (D407 §10, Q11)`.
+11. `"feat(player): controls below the film outside full screen (D407 §9)" feat(player): controls below the film outside full screen (D407 §9)`. The switch is in the
+    Play page's pieces (`OverTheFilm` over, `PageControls` under, `page-controls.tsx`), not in
+    `film-player.tsx`'s `Stage`. Under the film the subtitle, audio and more menus stay where they
+    were before D407, under the bar on the page, rather than a second copy in the bar; the bar
+    carries 🔈 where the device shows it. The bar never hides, so the efficiency audit's finding 7
+    (read the time only while shown) no longer applies to it. The player's controls name the
+    video they command (`markPlayersControls`), which ⤢ and the arrows' and Space's answers read.
+12. `docs(web): the player's controls as D407 has them`. The README cites no `tv-controls.test.tsx`
+    and there is no `tv-controls.tsx`, so nothing was renamed there.
