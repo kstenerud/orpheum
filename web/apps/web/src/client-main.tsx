@@ -40,7 +40,11 @@ import { newerClientOver, reportReloadNote, watchForNewerClient } from "./newer-
 import { i18n } from "./i18n.ts";
 import { createPathMoves, ServicesContext } from "./services.tsx";
 import { createSession, type Session } from "./session.ts";
-import { checkSessionWhileShown, watchForSignOut } from "./signed-out-watch.ts";
+import {
+  checkSessionWhileShown,
+  signingOutWithNoneHeld,
+  watchForSignOut,
+} from "./signed-out-watch.ts";
 import { mediaCredentialsOf } from "./together-playback.ts";
 import { moveToWebrtcWhenSignedIn, wantsWebrtc } from "./transport-choice.ts";
 
@@ -77,7 +81,9 @@ const linkDebug = new LinkDebug(
 );
 
 /** Mounts the app over session on root, its requests sent as reaches says, shaped by linkDebug. */
-function mountApp(session: Session, given: Reaches, mountedOn: Root): Api {
+function mountApp(sessionGiven: Session, given: Reaches, mountedOn: Root): Api {
+  // A sign-out waits for what is held over the page to go, so its leaving is never cancelled.
+  const session = signingOutWithNoneHeld(sessionGiven, navigation);
   const reaches = linkDebug.shape(given);
   const api = createApi({ getToken: session.token, fetch: reaches.fetch });
   api.use(watchForSignOut(session, navigation));

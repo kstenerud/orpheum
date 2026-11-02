@@ -2,15 +2,16 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { Navigation } from "./navigation.ts";
+import { createNavigation, type Navigation, type Place } from "./navigation.ts";
 import type { Route } from "./router.ts";
 import {
   checkSessionWhileShown,
   sessionCheckEveryMs,
+  signingOutWithNoneHeld,
   watchForSignOut,
 } from "./signed-out-watch.ts";
 import { failOnUnexpectedRequests, servedBy, type Answer } from "./test-dom.tsx";
-import { testOrigin } from "./test-services.tsx";
+import { fakePlace, steppingLater, testOrigin } from "./test-services.tsx";
 
 // This file never mounts, so it owns the check unmount() would otherwise do for it (finding 2,
 // test-architecture-2026-10-26.md; test-dom.tsx's servedBy doc).
@@ -47,6 +48,9 @@ function recordingNavigation(went: Route[]): Navigation {
     onBase: () => () => undefined,
     onPersonsStep: () => () => undefined,
     holdBack: () => () => undefined,
+    whenNoneHeld: (action) => {
+      action();
+    },
   };
 }
 
@@ -100,6 +104,64 @@ describe("a session the server ended", () => {
     expect(services.session.deviceId()).toBe(42);
     services.session.signIn("next");
     expect(services.session.lastEndReason()).toBeUndefined();
+  });
+});
+
+describe("a sign-out with a question held over the page (the owner's Fire TV, 2026-11-02)", () => {
+  it("ends the session only once the held entry is stepped off, so no step follows to cancel its leaving", () => {
+    const later = steppingLater(fakePlace("/"));
+    let steps = 0;
+    const counted: Place = {
+      ...later.place,
+      history: {
+        get state() {
+          return later.place.history.state;
+        },
+        back: () => {
+          steps += 1;
+          later.place.history.back();
+        },
+        go: (delta) => {
+          steps += 1;
+          later.place.history.go(delta);
+        },
+        pushState: later.place.history.pushState,
+        replaceState: later.place.history.replaceState,
+      },
+    };
+    const navigation = createNavigation(counted, false);
+    navigation.go({ screen: "films" });
+    let closed = 0;
+    const release = navigation.holdBack(() => {
+      closed += 1;
+    });
+    const given = servedBy({}, [], "token").session;
+    let stepsAtSignOut: number | undefined;
+    given.subscribe(() => {
+      stepsAtSignOut ??= steps;
+    });
+    signingOutWithNoneHeld(given, navigation).signOut();
+    expect(given.token()).toBe("token");
+    later.settle();
+    expect(given.token()).toBeUndefined();
+    // The question closes as the signed-out page replaces it: its release steps nothing more.
+    release();
+    later.settle();
+    expect(steps).toBe(stepsAtSignOut);
+    expect(closed).toBe(0);
+    expect(navigation.route()).toEqual({ screen: "films" });
+  });
+
+  it("signs out because the server said so in the same way, with its reason", () => {
+    const later = steppingLater(fakePlace("/"));
+    const navigation = createNavigation(later.place, false);
+    navigation.holdBack(() => undefined);
+    const given = servedBy({}, [], "token").session;
+    signingOutWithNoneHeld(given, navigation).signOutBecause("session_ended");
+    expect(given.token()).toBe("token");
+    later.settle();
+    expect(given.token()).toBeUndefined();
+    expect(given.lastEndReason()).toBe("session_ended");
   });
 });
 

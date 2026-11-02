@@ -2013,6 +2013,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   goes to the discovery's sign-in, with no core sign-in drawn on the way. (2) The same on the Fire TV,
   by remote: the question takes focus, Back cancels it, OK on Sign out signs out to the discovery's
   sign-in. (`web/apps/web/src/app-shell.tsx`, `loader-at-client-origin.tsx`, `app.tsx`)
+  **Run 2026-11-02 (agent, staging, Fire TV in Silk by adb as lead-tests):** (2)'s question took
+  focus on Sign out and Back cancelled it, focus back on Menu; but OK on Sign out stayed on "Signed
+  out. Taking you to sign in…" for good, as did Chrome 156 on the desktop. The question's held entry
+  was stepped off after the page began to leave, which cancelled the leaving (idiosyncrasies.md).
+  Fixed by the sign-out waiting for held entries to go (`signed-out-watch.ts`'s
+  `signingOutWithNoneHeld`); (1) and (2) to run again on the fix.
 - [x] **VQ201** — the People page's three buttons, dialogs and pages work, on staging (the owner,
   2026-11-01: "The people page is just too messy"; D399). On the Mac's Chrome as admin, People.
   (1) Create Role, Create Account and Invite Someone sit side by side above Invitations, Accounts and
