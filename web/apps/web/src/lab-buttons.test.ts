@@ -13,4 +13,10 @@ describe("the button test's chips", () => {
     expect(shown.at(-1)).toBe("other");
     expect(shown.indexOf("volumeDown")).toBe(shown.length - 2);
   });
+
+  it("shows the keyboard's + and - and its track keys once heard, which a remote has not", () => {
+    expect(chipsShown([])).not.toContain("plus");
+    const shown = chipsShown(["plus", "minus", "nextTrack", "previousTrack"]);
+    expect(shown.slice(-5)).toEqual(["plus", "minus", "previousTrack", "nextTrack", "other"]);
+  });
 });

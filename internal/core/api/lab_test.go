@@ -331,3 +331,21 @@ func TestLab_TheButtonTestsKeyModifiersAndContextMenuAreLogged(t *testing.T) {
 		}
 	}
 }
+
+// The keyboard's volume and track keys are buttons the test names (D407 §10), so a press of each is
+// taken and logged by its name, as the remote's buttons are.
+func TestLab_TheButtonTestsVolumeAndTrackKeysAreTaken(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	settingstest.Set(t, harness.server.Dependencies().Load().Settings, settings.ShouldOfferDeviceTests, "true")
+	for seq, button := range []string{"plus", "minus", "previousTrack", "nextTrack"} {
+		event := labKeyEvent(seq)
+		event["button"] = button
+		answer := harness.do(t, http.MethodPost, "/lab-input-events", user, labInputEvents(event))
+		if answer.status != http.StatusNoContent {
+			t.Fatalf("POST /lab-input-events with %s = %d %s", button, answer.status, answer.body)
+		}
+		harness.logs.AwaitLine(t, `"msg":"a button test heard a press"`, `"button":"`+button+`"`)
+	}
+}

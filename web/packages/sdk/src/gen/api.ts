@@ -3559,7 +3559,7 @@ export interface components {
              * @description The button the test named it, where it is a press
              * @enum {string}
              */
-            button?: "up" | "down" | "left" | "right" | "select" | "back" | "playPause" | "rewind" | "fastForward" | "volumeUp" | "volumeDown" | "mute" | "other";
+            button?: "up" | "down" | "left" | "right" | "select" | "back" | "playPause" | "rewind" | "fastForward" | "volumeUp" | "volumeDown" | "mute" | "plus" | "minus" | "previousTrack" | "nextTrack" | "other";
             /** @description A key's code */
             code?: string;
             /** @description Whether Control was held with a key */

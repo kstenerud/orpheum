@@ -3338,6 +3338,10 @@
               "volumeUp",
               "volumeDown",
               "mute",
+              "plus",
+              "minus",
+              "previousTrack",
+              "nextTrack",
               "other"
             ],
             "type": "string"
