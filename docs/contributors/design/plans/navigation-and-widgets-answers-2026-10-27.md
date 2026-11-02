@@ -1253,3 +1253,14 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
    title's clock starts again from its navigation packs and serves the title restamped onto one clock
    (D404, amending D350 §3). Checked on the real disc: seeks to 3000, 4432, 5330 and 8000 s land
    within a frame, and a transcode across the restart runs clean. VQ73's seek is re-run on staging.
+   Re-run on staging in Chrome: seeks to 1:13:55 and 1:50:49 play. The owner asked for research on
+   what others do (`design/research/dvd-playback-2026-11-02.md`); its gaps, checking every VOBU join
+   and the sound at a join, are proposed to the owner, not started.
+7. **Fixed in this batch (found by the agent running VQ11, 2026-11-02):** a refused OpenSubtitles
+   login said "Something went wrong on the server", as OpenSubtitles answers it 400. VQ11 itself waits
+   for the account's username (the one given is an email address, which OpenSubtitles refuses).
+8. **Next batch (found by the agent running VQ50, 2026-11-02):** a film measured while it plays says
+   "Its loudness is not measured yet" once measuring ends, and levels nothing until it is played again:
+   the player learns the level only when it starts, and nothing asks for it again. VQ50 expects the
+   switch to say within minutes that the film was raised or lowered. And the wait said "about 55
+   minutes" for a read-through that began 15 s later, as the playing film's moved ahead of the 17 queued.
