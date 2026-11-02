@@ -1316,6 +1316,25 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
       no-service-worker page tells a page inside an app to open the link in Safari or Chrome, with
       the link to copy. **Next batch:** why the first voice call takes 90 s to connect; what ended
       her connections at 16:48:04.
+    - **Why the voice call took 90 s (found 2026-11-02, not yet fixed):** every failed try was the
+      owner's browser failing the connection 5.0 s after "accepted"; the try that connected came 5 s
+      after her microphone first opened (16:49:10.020), and connected in 143 ms. Staging and prod
+      run with no relay, so `GET /together/{id}/ice` gives no ICE servers, not even STUN. A page with
+      no STUN server and no microphone permission offers only an mDNS `.local` name, which no one
+      outside its network can resolve. In the sandbox, WebKit, Chromium and Firefox each did
+      exactly that, and each added its public address once given `stun:stun.cloudflare.com:3478`.
+      So a listener who has not pressed talk cannot be reached; the owner's home firewall drops her
+      checks, since nothing went out to her first. **Fix, the owner's choice of STUN server:** the
+      core's `/together/{id}/ice` adds STUN servers to its relay's (none) (D281 §1: everyone hears
+      from the start).
+    - **What ended her connections at 16:48:04 (found 2026-11-02):** her side went quiet, not the
+      core. Her last message was at 16:47:24; the core ended both connections, with SCTP's window
+      down to one packet, some 30–40 s later, about ICE's consent timeout. The owner's Firefox on
+      Android did the same at 16:48:02.8 (hidden), its connections ending at 16:48:33.1. She
+      reconnected at 16:48:22 and was hidden 1 s later, so the likeliest cause is Safari in the
+      background, frozen before its "hidden" note went out; a network gap of her bad connection
+      fits too. The core's "rtc connection ended" names no cause; one that did (ICE failed, the
+      browser closed it) would tell these apart.
     - From her IPv4-only network (`194.213.108.4`, likely LTE, no IPv6 candidate) every pair failed
       with nothing sent or received: the house is DS-Lite with no IPv4 way in and the beta has no relay
       (as "Reaching production from outside" above).
