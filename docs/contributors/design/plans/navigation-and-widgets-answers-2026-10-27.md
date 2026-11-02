@@ -1212,6 +1212,7 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
    all: a fragmented MP4 whose one track is H.264 video, its 1022 fragments all video (579 MB at
    about 860 kb/s), as a video-only DASH download whose sound part was never merged in. Nothing is
    there to recover. It is the only file without sound in the sandbox's copy of the library.
-   **Proposed, next batch unless the owner folds it:** say so rather than play silence unexplained:
-   a "No sound track" note on the film's page and its player, and the file in the System page's
-   problems, so the owner finds such files before a viewer does. Awaiting the owner.
+   **Next batch (the owner, 2026-11-02: "We don't need to fold the mister 517 sound thing into this
+   batch, but I do agree that videos without sound should be included in the list of problem
+   films"):** a video with no sound track is listed among the problem films. The note on the film's
+   page and its player, proposed beside it, was not taken up.
