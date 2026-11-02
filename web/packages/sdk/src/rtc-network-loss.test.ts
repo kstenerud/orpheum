@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { disconnectedGraceMs, peerLookEveryMs, watchGone, type StatesPeer } from "./rtc-peer.ts";
 import { openTryMostMs, RefusedForGood, Unreached, unreachedRetryMs } from "./rtc-reopen.ts";
 import type { ChannelLike } from "./rtc-request.ts";
+import { forgetSteps, stepsSoFar } from "./steps.ts";
 import {
   replaceFirstMs,
   replaceMostMs,
@@ -118,6 +119,9 @@ describe("a connection's states, watched for its going", () => {
     peer.signalingState = "closed";
     vi.advanceTimersByTime(peerLookEveryMs);
     expect(told).toEqual(["its signalling closed"]);
+    // Told in what happened too, where a page that lost its connection says why.
+    expect(stepsSoFar().at(-1)).toMatch(/WebRTC: a connection is gone: its signalling closed$/);
+    forgetSteps();
 
     const other = new SilentStates();
     const stop = watchGone(other, (why) => told.push(why));

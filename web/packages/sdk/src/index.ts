@@ -162,6 +162,7 @@ export {
   workerProbePath,
   workerProbeResponse,
 } from "./worker-control.ts";
+export { forgetSteps, noteStep, stepsSoFar } from "./steps.ts";
 export type {
   ClaimMessage,
   FetchMessage,

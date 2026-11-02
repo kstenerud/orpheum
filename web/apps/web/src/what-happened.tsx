@@ -2,6 +2,7 @@
 
 import "./what-happened.css";
 
+import { stepsSoFar } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -9,7 +10,7 @@ import { useTranslation } from "react-i18next";
  * What happened when a device could not reach its server, for a tester to send whoever runs it
  * (discovery-core.md K16, the protocol's §3.6): the server, the addresses tried, what failed and
  * the browser. It names no person and holds no secret: a server's id and its published names are
- * what any link of it carries.
+ * what any link of it carries. The steps the page took come last (stepsText).
  */
 export function whatHappened(
   reached: {
@@ -18,6 +19,7 @@ export function whatHappened(
     readonly problem: unknown;
   },
   userAgent: string,
+  steps: readonly string[] = stepsSoFar(),
 ): string {
   const failed = failedText(reached.problem);
   return [
@@ -26,7 +28,17 @@ export function whatHappened(
     `Addresses tried: ${reached.addressesTried.length === 0 ? "none" : reached.addressesTried.join(", ")}`,
     `What failed: ${failed}`,
     `Browser: ${userAgent}`,
+    ...stepsText(steps),
   ].join("\n");
+}
+
+/**
+ * The lines telling the steps a page took to reach its core (the SDK's noteStep), each indented
+ * under a heading, or none where it took none: which step it reached is what says where a
+ * connection the core held was lost (plan item 15, 2026-11-02).
+ */
+export function stepsText(steps: readonly string[]): readonly string[] {
+  return steps.length === 0 ? [] : ["Steps:", ...steps.map((step) => `  ${step}`)];
 }
 
 /**

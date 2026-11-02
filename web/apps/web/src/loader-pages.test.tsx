@@ -3,7 +3,7 @@
 
 import "./i18n.ts";
 
-import { PageNotControlled } from "@orpheum/sdk";
+import { forgetSteps, PageNotControlled, stepsSoFar } from "@orpheum/sdk";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { StringStorage } from "./browser-storage.ts";
@@ -316,8 +316,10 @@ describe("the loader at a core's client origin (D308)", () => {
       },
     };
     expect(await reloadOnceWhenUncontrolled(new PageNotControlled(), parts)).toBe(true);
+    expect(stepsSoFar().at(-1)).toMatch(/reloading the page once$/);
     // Uncontrolled again after the reload: no loop, the failure shows.
     expect(await reloadOnceWhenUncontrolled(new PageNotControlled(), parts)).toBe(false);
+    expect(stepsSoFar().at(-1)).toMatch(/not controlled again: not reloading$/);
     expect(reloads).toBe(1);
     expect(told).toEqual([
       `${new PageNotControlled().message}; reloading the page once`,
@@ -585,7 +587,12 @@ describe("taking a hand-off's session at the client origin", () => {
       }
     };
     const session = createSession(memoryStorage());
+    forgetSteps();
     await redeem(again, session, "a-code");
+    expect(stepsSoFar().map((step) => step.replace(/^\d+ ms /, ""))).toEqual([
+      "redeeming the link's hand-off",
+      "the core answered the hand-off: 200",
+    ]);
     expect(keys).toHaveLength(2);
     expect(keys[0]).not.toBeNull();
     expect(keys[1]).toBe(keys[0]);

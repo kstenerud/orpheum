@@ -1,7 +1,13 @@
 // @vitest-environment happy-dom
 // SPDX-License-Identifier: MPL-2.0
 
-import { base64url, clientManifestMessage, type FetchRequest } from "@orpheum/sdk";
+import {
+  base64url,
+  clientManifestMessage,
+  forgetSteps,
+  stepsSoFar,
+  type FetchRequest,
+} from "@orpheum/sdk";
 import { describe, expect, it } from "vitest";
 
 import type { ClientFilesMessage } from "./client-files.ts";
@@ -86,7 +92,13 @@ const loader = { major: 1 } as const satisfies Partial<OrpheumLoader>;
 describe("the core's client, as the loader runs it (D308 §6)", () => {
   it("runs only its own styles and scripts, once its manifest holds under the held key", async () => {
     const heard = { told: [] as ClientFilesMessage[], mounted: [] as (readonly ClientPart[])[] };
+    forgetSteps();
     const run = await checkedClient(partsOf(await coreServing(clientPage), heard));
+    // Told in what happened, should the page fail after.
+    expect(stepsSoFar().map((step) => step.replace(/^\d+ ms /, ""))).toEqual([
+      "loading the core's client",
+      "the core's client is checked and ready to run",
+    ]);
     expect(heard.told.map((message) => message.files.map((file) => file.path))).toEqual([
       ["index.html"],
     ]);

@@ -10,6 +10,7 @@ import { reportFailure } from "./problem.ts";
 import { channelOf, type ChannelLike } from "./rtc-request.ts";
 import { peerOf } from "./rtc-peer.ts";
 import { clientConnections, RtcTransport, type PeerLike } from "./rtc-transport.ts";
+import { noteStep } from "./steps.ts";
 
 /** How long a connection may take to gather its candidates and connect. */
 export const connectTimeoutMs = 10_000;
@@ -227,11 +228,15 @@ async function connectOne(
     if (local === null) {
       throw new Error("the connection made no offer");
     }
+    noteStep("WebRTC: offer sent");
     const answer = await signaller({ type: "offer", sdp: local.sdp }, signal);
     const answeredAt = performance.now();
+    noteStep("WebRTC: the core answered");
     await peer.setRemoteDescription(answer);
     await connected(peer);
+    noteStep("WebRTC: connected");
     await withinConnectTimeout(verdict);
+    noteStep("WebRTC: the core held the connection");
     const slow = slowConnection({
       gathering: gatheredAt - startedAt,
       answer: answeredAt - gatheredAt,
@@ -242,6 +247,7 @@ async function connectOne(
     }
     return peerOf(peer);
   } catch (error: unknown) {
+    noteStep(`WebRTC: failed: ${error instanceof Error ? error.message : String(error)}`);
     peer.close();
     throw error;
   } finally {

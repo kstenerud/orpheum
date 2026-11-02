@@ -7,6 +7,7 @@ import {
   KeyRefused,
   NoServiceWorker,
   NotFound,
+  noteStep,
   proofRefusal,
   reportDeadEnd,
   type DeadEndCause,
@@ -214,6 +215,7 @@ async function reachByRealm(
     return reaching;
   }
   try {
+    noteStep(`reached the core over ${reaching.first.kind}`);
     await parts.onConnected(found.core, reaching, {
       name: typed.name,
       password: typed.password,
@@ -353,7 +355,9 @@ async function reach(
       ...withLatest(parts, core, withoutLanIfSkipped(parts, await find())),
       ...raced.told,
     };
-    await parts.onConnected(core, await reachCore(parts.client, target));
+    const reaching = await reachCore(parts.client, target);
+    noteStep(`reached the core over ${reaching.first.kind}`);
+    await parts.onConnected(core, reaching);
     return undefined;
   } catch (problem: unknown) {
     const ended = endedShortOf(problem);

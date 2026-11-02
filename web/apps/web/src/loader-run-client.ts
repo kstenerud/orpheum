@@ -9,7 +9,13 @@
  * interface on the window for it to take.
  */
 
-import { createApi, fromBase64, verifyClientManifest, type FetchRequest } from "@orpheum/sdk";
+import {
+  createApi,
+  fromBase64,
+  noteStep,
+  verifyClientManifest,
+  type FetchRequest,
+} from "@orpheum/sdk";
 
 import {
   manifestOf,
@@ -164,6 +170,7 @@ export function mountClient(
  * of it, when any check fails, so the loader's page still says why.
  */
 export async function checkedClient(parts: RunParts): Promise<(loader: OrpheumLoader) => void> {
+  noteStep("loading the core's client");
   const manifest = await checkedManifest(parts.send, parts.fingerprint);
   if ((await parts.refusedVersions()).includes(manifest.version)) {
     throw new ClientRefused(
@@ -174,6 +181,7 @@ export async function checkedClient(parts: RunParts): Promise<(loader: OrpheumLo
   const clientPage = await checkedPage(parts.send, manifest);
   await parts.tellWorker({ kind: "orpheum-client-files", files: manifest.files });
   const clientParts = clientPartsOf(parts.inertPage, clientPage);
+  noteStep("the core's client is checked and ready to run");
   return (loader) => {
     parts.mount(loader, clientParts);
   };

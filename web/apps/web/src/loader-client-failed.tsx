@@ -8,11 +8,12 @@
  * 2026-10-29).
  */
 
+import { stepsSoFar } from "@orpheum/sdk";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { copyToClipboard } from "./clipboard.ts";
-import { CopyWhatHappened } from "./what-happened.tsx";
+import { CopyWhatHappened, stepsText } from "./what-happened.tsx";
 
 /**
  * What happened, for its person to copy and send (K16): the server, the file that did not load,
@@ -26,6 +27,7 @@ export function clientFailedText(
     readonly isControlled: boolean;
   },
   userAgent: string,
+  steps: readonly string[] = stepsSoFar(),
 ): string {
   return [
     "Orpheum reached its server, but its client did not load.",
@@ -34,6 +36,7 @@ export function clientFailedText(
     `Service worker controlling the page: ${failed.isControlled ? "yes" : "no"}`,
     'A service worker bypassed for the network gives this: with DevTools open, untick "Bypass for network" under Application → Service workers, then reload.',
     `Browser: ${userAgent}`,
+    ...stepsText(steps),
   ].join("\n");
 }
 
