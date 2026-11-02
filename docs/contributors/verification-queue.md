@@ -2077,6 +2077,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   made anew (the core's log shows its runs into a store not used before). Last, press "Full rescan"
   on the same library again: its totals say `"correctedCount":0` and nothing is thrown out.
   (`internal/core/library/derived.go`, `internal/core/chunks/streams.go`, `internal/core/identify/rescan.go`)
+  *Run by the lead on staging, 2026-11-02: does not pass, and the item's premise is in doubt.* The
+  full rescan of Shows (10:20, 10,568 files read again in 1,448 batches, 8 minutes) ended with
+  `comparedCount=4925 correctedCount=0 thrownOutCount=0`; no line for file 5667, and its stored picture
+  still lacks `needsRetiming`. File 5667 on staging, as in the old staging's database, is
+  `The.Pumbletons.S33E01.iNTERNAL.720p.x265-ARBOR.mkv`: a Matroska file, not the MP4 (`hev1`) the item
+  and the plan describe. The node's ffprobe gives its HEVC packets reordered display times (29 of the
+  first 40 with pts unlike dts; the first two without a dts), so the probe's rule rightly does not mark
+  it. The pts-equals-dts packets and the `hev1` tag were probably read from Orpheum's own MP4 copy, which
+  would put the fault in the remux, where a scan-time mark cannot catch it. In Linux Chrome 156 it plays
+  now at 24 fps with no frame dropped. Asked of the owner: does it still play choppily on the Mac?
 - [ ] **VQ225** — a cast seeked on the Fire TV goes where it was sent, never back, and plays on at its
   own speed with sound (staging; the plan's entry for file 5680, 2026-10-29). Deploy, then cast a film
   from the Mac to the Fire TV (Silk), Watch Together off. Press Right on the Fire TV's remote twice, a
