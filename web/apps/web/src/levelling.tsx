@@ -10,7 +10,7 @@ import { useTranslation } from "react-i18next";
 import { useFileWaits, waitText, type FileWait } from "./file-waits.ts";
 import { tenthsText } from "./number-text.ts";
 import { soundLatencyMemory } from "./sound-latency.ts";
-import { OwnChoiceSwitch } from "./sound.tsx";
+import { OwnChoiceBox, useOwnChoice, type OwnChoiceState } from "./sound.tsx";
 
 /** What brings a sound to the level, as the server measured it (D226). */
 type Levelling = components["schemas"]["LevellingBody"];
@@ -98,30 +98,50 @@ export function LevelSwitch(props: {
   readonly isInitiallyOn: boolean;
   readonly videoRef: RefObject<HTMLVideoElement | null>;
 }): JSX.Element {
-  const { t, i18n } = useTranslation();
-  const [isOn, setIsOn] = useState(props.isInitiallyOn);
-  // The note says what the player does: it applies no gain where the volume cannot be set.
-  const [canApplyGain] = useState(pageCanSetVolume);
-  const addedDb = addedGainDb(props.level, isOn);
+  const state = useOwnChoice("isLevellingOn", {
+    isInitiallyOn: props.isInitiallyOn,
+    onSwitched: () => undefined,
+  });
+  useLevelGain(props.level, state.isOn, props.videoRef);
+  return <LevellingControl fileId={props.fileId} level={props.level} state={state} />;
+}
+
+/**
+ * Applies levelling's gain after the volume, where the page may set the volume, as the switch, isOn,
+ * stands: whoever holds the switch, drawn or not (D226 §4).
+ */
+export function useLevelGain(
+  level: SoundLevel,
+  isOn: boolean,
+  videoRef: RefObject<HTMLVideoElement | null>,
+): void {
+  const addedDb = addedGainDb(level, isOn);
   useEffect(() => {
-    const video = props.videoRef.current;
+    const video = videoRef.current;
     if (video !== null) {
       gainAfterVolume(video, newAudioContext, soundLatencyMemory()).setDb(addedDb);
     }
-  }, [addedDb, props.videoRef]);
+  }, [addedDb, videoRef]);
+}
+
+/** Levelling's switch, held by whoever holds the choice, and the note saying what was done (D226 §5). */
+export function LevellingControl(props: {
+  /** The file playing, whose read-through measures its loudness. */
+  readonly fileId: number;
+  readonly level: SoundLevel;
+  readonly state: OwnChoiceState;
+}): JSX.Element {
+  const { t, i18n } = useTranslation();
+  // The note says what the player does: it applies no gain where the volume cannot be set.
+  const [canApplyGain] = useState(pageCanSetVolume);
   const isUnmeasured = canApplyGain && !props.level.levelling.isMeasured;
   const measuring = useFileWaits(props.fileId, isUnmeasured)?.readThrough;
-  const note = measuringNote(levelNote(props.level, isOn, canApplyGain), measuring);
+  const note = measuringNote(levelNote(props.level, props.state.isOn, canApplyGain), measuring);
   const dbText = tenthsText(note.db, i18n.language);
   const wait = note.seconds === undefined ? "" : waitText(t, note.seconds);
   return (
     <>
-      <OwnChoiceSwitch
-        choice="isLevellingOn"
-        label={t("play.level.switch")}
-        isInitiallyOn={isOn}
-        onSwitched={setIsOn}
-      />
+      <OwnChoiceBox label={t("play.level.switch")} state={props.state} />
       <p className="levelling__note">{t(`play.level.${note.key}`, { db: dbText, wait })}</p>
     </>
   );

@@ -10,7 +10,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type JSX,
   type ReactNode,
@@ -19,7 +18,7 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { PlayTop } from "./play-up.tsx";
-import { AudioMenu, type AudioTrack } from "./audio-tracks.tsx";
+import { AudioChoiceMenu } from "./audio-tracks.tsx";
 import {
   FilmPlayer,
   type FilmComposition,
@@ -28,17 +27,9 @@ import {
   type MovedDown,
 } from "./film-player.tsx";
 import { problemText } from "./problem.ts";
-import { reopenAtMostEveryMs, type ReopenAt } from "./reopen.ts";
+import type { ReopenAt } from "./reopen.ts";
 import type { LadderOffer } from "./moving-down.ts";
 import { usePlayState } from "./play-state.ts";
-import {
-  hasACentre,
-  ladderAudioRenditionIndex,
-  ladderSoundLevel,
-  playTrackChosen,
-  soundChoiceCause,
-  useOwnTrackChoice,
-} from "./ladder-sound.ts";
 import { usePlayerCommands } from "./player-commands.ts";
 import { fillTheScreen } from "./film-fullscreen.ts";
 import { isBrowserFullscreen, isTelevision, thisBrowserWindow } from "./tv-device.ts";
@@ -46,11 +37,12 @@ import { useServices } from "./services.tsx";
 import { BarePlayer } from "./bare-player.tsx";
 import { PlayOriginal } from "./play-original.tsx";
 import { FrameTimingNote } from "./frame-timing-note.tsx";
-import { BoostSwitch } from "./sound.tsx";
+import { BoostBox } from "./sound.tsx";
 import { SoundOffsetControl } from "./sound-delay.tsx";
 import { FindSubtitles } from "./subtitle-search.tsx";
-import { Subtitles } from "./subtitles.tsx";
-import { LevelSwitch, type SoundLevel } from "./levelling.tsx";
+import { SubtitleControls } from "./subtitles.tsx";
+import { LevellingControl } from "./levelling.tsx";
+import { LadderTracks, OwnFileTracks, usePlayerTracks } from "./player-tracks.tsx";
 import { LinkDebugTools } from "./link-debug-tools.tsx";
 import { newSoundPanel, SoundPanelContext } from "./sound-panel.ts";
 import { Loaded } from "./title.tsx";
@@ -58,22 +50,16 @@ import { PlaysAlong, useReceiving, type Receiving } from "./cast-receiver.tsx";
 import { PlayOrSendOn, type PlayedHereFrom } from "./cast-to.tsx";
 import { WhoseFilm } from "./together-guest-play.tsx";
 import { useNotesPlayingHere } from "./playing-here.ts";
-import { openPlayback, type Opened, type Reopening } from "./play-start-timing.ts";
-import { useResource, type Resource } from "./use-resource.ts";
+import type { Opened } from "./play-start-timing.ts";
+import {
+  shownOf,
+  useOpenedPlayback,
+  type DecideAgain,
+  type DecideAgainCause,
+  type FirstAsk,
+} from "./play-opened.ts";
 import { overTheFilm, UpNextContext, useUpNextOffered } from "./up-next.tsx";
-import { watchingOf, type PlaybackDecision, type StartCause } from "./watching.ts";
-
-/** Why a playing page asks how the file plays again. */
-type DecideAgainCause = Extract<
-  StartCause,
-  "subtitleFetched" | "audioChosen" | "originalChosen" | "boostChosen"
->;
-
-/**
- * Asks the server again how the file plays, saying why, and, given at, from where the video stood
- * then rather than where the server last heard it was.
- */
-type DecideAgain = (cause: DecideAgainCause, at?: ReopenAt) => void;
+import type { PlaybackDecision } from "./watching.ts";
 
 /** What PlayView is given: the file, its decision, and its ways to ask again. */
 interface PlayViewProps {
@@ -266,6 +252,7 @@ function pageComposition(props: Parameters<typeof PlayView>[0]): FilmComposition
     askAbout: props.fileId,
     onMediaBack: props.onMediaBack,
     under: PlayUnderOfPage,
+    around: PlayTracksOfPage,
   };
 }
 
@@ -371,17 +358,13 @@ function useReportedPlayState(
 }
 
 /**
- * What sits under a playing video: "Start over", the subtitle menu and offset for the decision's
- * tracks, finding subtitles, the audio track, levelling and the sound's offset. It keeps the
- * playback's play state on the server, starting where the person left the file. A chosen audio
- * track is kept for the person, and onAudioChosen() plays it.
+ * What sits under a playing video: "Start over", the subtitle menu and offset, finding subtitles,
+ * the audio track, levelling and the sound's offset, the choices held in PlayerTracksContext. It
+ * keeps the playback's play state on the server, starting where the person left the file.
  */
 function UnderTheVideo(
   props: PlayProps & {
     readonly videoRef: RefObject<HTMLVideoElement | null>;
-    readonly onAudioChosen: (track: AudioTrack) => void;
-    /** The sound playing now, which levelling levels. */
-    readonly level: SoundLevel;
     /** The link's speed as the playback measures it, undefined until it can say (D247 §1). */
     readonly readLinkKbps: () => number | undefined;
     /** What failed in the player, in the viewer's words; undefined while nothing has. */
@@ -389,6 +372,7 @@ function UnderTheVideo(
   },
 ): JSX.Element {
   const { t } = useTranslation();
+  const tracks = usePlayerTracks();
   const { refusal: reportRefusal, stopMessage } = useReportedPlayState(props);
   const { onVideo, videoRef } = props;
   useEffect(() => {
@@ -406,20 +390,10 @@ function UnderTheVideo(
         <p role="alert">{t("play.positionNotKept", { reason: problemText(t, reportRefusal) })}</p>
       )}
       <StartOver videoRef={props.videoRef} />
-      <Subtitles
-        fileId={props.fileId}
-        tracks={props.decision.subtitles ?? []}
-        preferences={props.decision.preferences}
-        videoRef={props.videoRef}
-      />
+      <SubtitleControls choice={tracks.subtitles} />
       <FindSubtitles fileId={props.fileId} onFetched={decideAgainFor(props, "subtitleFetched")} />
-      <AudioMenu fileId={props.fileId} decision={props.decision} onChosen={props.onAudioChosen} />
-      <LevelSwitch
-        fileId={props.fileId}
-        level={props.level}
-        isInitiallyOn={props.decision.preferences.isLevellingOn}
-        videoRef={props.videoRef}
-      />
+      <AudioChoiceMenu choice={tracks.audio} />
+      <LevellingControl fileId={props.fileId} level={tracks.level} state={tracks.levelling} />
       <SoundOffsetControl videoRef={props.videoRef} initialMs={props.decision.soundOffsetMs} />
     </>
   );
@@ -454,60 +428,62 @@ function PlayUnderOfPage(props: FilmParts): JSX.Element | null {
 }
 
 /**
- * What the Play page draws under the film, by the way it plays: what sits under every video, and
- * the original's reason, or a ladder's audio tracks, dialogue boost and word that it cannot keep up, which a host's session tells everyone (D247 §8).
+ * The film's tracks for what the Play page draws over and under it, chosen as its way of playing
+ * plays them (player-tracks.tsx), with the page's ways from PlayContext: another track or the boost
+ * that cannot play in place asks for the film again from where the video stands.
  */
-function PlayUnder(props: PlayProps & FilmParts): JSX.Element {
-  if (props.ladder !== undefined) {
-    return <LadderUnder {...props} ladder={props.ladder} />;
+function PlayTracksOfPage(props: FilmParts & { readonly children: ReactNode }): JSX.Element {
+  const ways = use(PlayContext);
+  const { ladder, videoRef, children } = props;
+  if (ways === undefined) {
+    return <>{children}</>;
   }
-  return <DirectUnder {...props} />;
+  const film = { fileId: ways.fileId, decision: ways.decision, videoRef };
+  if (ladder === undefined) {
+    const asked = { ...ways, videoRef };
+    const askAgain = {
+      audio: decideAgainFor(asked, "audioChosen"),
+      boost: decideAgainFor(asked, "boostChosen"),
+    };
+    return (
+      <OwnFileTracks {...film} askAgain={askAgain}>
+        {children}
+      </OwnFileTracks>
+    );
+  }
+  const decision = { ...ways.decision, resumePositionMs: Math.round(ladder.positionMs) };
+  const askAgain = decideAgainFor({ ...ways, videoRef, decision }, "audioChosen");
+  return (
+    <LadderTracks {...film} ladder={ladder} askAgain={askAgain}>
+      {children}
+    </LadderTracks>
+  );
 }
 
 /**
- * Under the original: what sits under every video; its tracks say it plays as it is. Its sound is the
- * film's own, which the device mixes down itself, so the dialogue boost, where the track has a
- * centre to raise, starts off here: turned on, it is kept, then the film is asked for again from
- * where the video stands, and the server answers with its ladder carrying the boosted mix (D336 §1,
- * §3). Another audio track chosen switches in place where the element lists its file's tracks, as
- * Safari's does, levelled by its own and said to the server, whose stall's offer starts it; else the
- * film is asked for again, onto its ladder, once (the owner's answers of 2026-10-31).
+ * What the Play page draws under the film, by the way it plays: what sits under every video, the
+ * dialogue boost's switch where the sound offers it, and on a ladder the original's offer, and word
+ * that it cannot keep up, which a host's session tells everyone (D247 §8).
  */
-function DirectUnder(props: PlayProps & FilmParts): JSX.Element {
-  const boostChosen = decideAgainFor(props, "boostChosen");
-  const { level, onAudioChosen } = useOwnTrackChoice(
-    props.decision,
-    props.videoRef,
-    decideAgainFor(props, "audioChosen"),
-  );
+function PlayUnder(props: PlayProps & FilmParts): JSX.Element {
+  const { boost } = usePlayerTracks();
+  const { ladder } = props;
+  const decision =
+    ladder === undefined
+      ? props.decision
+      : { ...props.decision, resumePositionMs: Math.round(ladder.positionMs) };
   return (
     <>
-      <UnderTheVideo {...props} level={level} onAudioChosen={onAudioChosen} />
-      {hasACentre(props.decision) ? (
-        <BoostSwitch
-          isInitiallyOn={false}
-          onSwitched={() => undefined}
-          onKept={(isOn) => {
-            if (isOn) {
-              boostChosen();
-            }
-          }}
-        />
-      ) : null}
+      <UnderTheVideo {...props} decision={decision} />
+      {boost === undefined ? null : <BoostBox state={boost} />}
+      {ladder === undefined ? null : <LadderUnder {...props} ladder={ladder} decision={decision} />}
     </>
   );
 }
 
 /**
- * Under the film on its ladder: what sits under every video, its play state kept from where it
- * started, not where the person last left the file; its sound levelled by its own track's levelling,
- * changed as a new sound is heard; and a switch for the dialogue boost where the track playing has a
- * boosted mix (D217 §3, D222). The boost turned on or off and another audio track chosen go one way:
- * the ladder's sound changes as soon as the other has loaded at the playhead, the picture playing on,
- * the old sound heard meanwhile (audio-switch-and-retiming-2026-11-01.md §1.2). A Watch Together
- * leader's choice is its own and reloads no one's player; a cast's receiver follows its remote's by
- * the same path (useTracksWorkedByARemote). Its lowest quality's word that it cannot keep up goes to a
- * host's session (D247 §8).
+ * Under the film on its ladder: the original's offer, and its lowest quality's word that it cannot
+ * keep up, which goes to a host's session (D247 §8).
  */
 function LadderUnder(
   props: PlayProps &
@@ -522,46 +498,7 @@ function LadderUnder(
       onCannotKeepUp(undefined);
     };
   }, [ladder.cannotKeepUp, onCannotKeepUp]);
-  const decision = { ...props.decision, resumePositionMs: Math.round(ladder.positionMs) };
-  const level =
-    ladder.heardLevel ?? ladderSoundLevel(props.decision, ladder.offer.soundCarriedGainDb);
-  const { sound, playSound } = ladder;
-  // The boost as the person left it, kept across a track with no centre to raise, whose switch hides.
-  const [isBoostOn, setIsBoostOn] = useState(props.decision.preferences.isDialogueBoostOn);
-  const tracks = props.decision.tracks;
-  const canBoost =
-    sound !== undefined &&
-    ladderAudioRenditionIndex(tracks, { ...sound, isBoosted: true }) !== undefined;
-  const askAgain = decideAgainFor({ ...props, decision }, "audioChosen");
-  return (
-    <>
-      <UnderTheVideo
-        {...props}
-        decision={decision}
-        level={level}
-        onAudioChosen={(track) => {
-          playTrackChosen(
-            { audioTrackIndex: track.audioTrackIndex, isBoostOn, tracks },
-            {
-              playSound,
-              askAgain,
-            },
-          );
-        }}
-      />
-      {canBoost ? (
-        <BoostSwitch
-          isInitiallyOn={isBoostOn}
-          onSwitched={(isOn) => {
-            setIsBoostOn(isOn);
-            const boosted = { audioTrackIndex: sound.audioTrackIndex, isBoosted: isOn };
-            playSound(boosted, soundChoiceCause(boosted));
-          }}
-        />
-      ) : null}
-      <PlayOriginal onChosen={decideAgainFor({ ...props, decision }, "originalChosen")} />
-    </>
-  );
+  return <PlayOriginal onChosen={decideAgainFor(props, "originalChosen")} />;
 }
 
 /**
@@ -646,139 +583,4 @@ function firstAskOf(receiving: Receiving | undefined, from: PlayedHereFrom): Fir
   }
   const { atMs, isPaused } = from;
   return atMs === undefined ? undefined : { cause: "castOver", atMs, isPaused: isPaused === true };
-}
-
-/** Where the Play page's first playback starts, and why it is asked for. */
-interface FirstAsk {
-  readonly cause: StartCause;
-  readonly atMs: number;
-  /** Whether it waits paused there (Opened's isStartPaused). */
-  readonly isPaused?: boolean;
-}
-
-/** What the Play page shows: its decision, or, while the next is asked for, the one held. */
-function shownOf(opened: Resource<Opened>, held: Opened | undefined): Opened | undefined {
-  if (opened.state === "loaded") {
-    return opened.value;
-  }
-  return opened.state === "loading" ? held : undefined;
-}
-
-/**
- * How the Play page opens its playback again: a lost one at most every reopenAtMostEveryMs, saying
- * whether it does, and one whose player gave the film's own picture up from where the video stood,
- * asked for again at the twin (D323 §2). What played before is held on screen meanwhile.
- */
-function useReopening(parts: {
-  readonly reopenRef: RefObject<Reopening | undefined>;
-  readonly reload: () => void;
-  readonly hold: () => void;
-}): {
-  readonly reopenPlayback: (whereNow: () => ReopenAt) => boolean;
-  readonly startAtTheTwin: (at: ReopenAt) => void;
-  readonly reopenWhenBack: (at: ReopenAt) => void;
-} {
-  const { reopenRef, reload, hold } = parts;
-  // When the last lost one was opened again, on the page's clock.
-  const lastReopenMsRef = useRef<number | undefined>(undefined);
-  const reopen = useCallback(
-    (asked: Reopening): void => {
-      reopenRef.current = asked;
-      hold();
-      reload();
-    },
-    [reopenRef, reload, hold],
-  );
-  const reopenPlayback = useCallback(
-    (whereNow: () => ReopenAt): boolean => {
-      const nowMs = performance.now();
-      const lastMs = lastReopenMsRef.current;
-      if (lastMs !== undefined && nowMs - lastMs < reopenAtMostEveryMs) {
-        return false;
-      }
-      lastReopenMsRef.current = nowMs;
-      reopen({ whereNow, cause: "playbackGone" });
-      return true;
-    },
-    [reopen],
-  );
-  const startAtTheTwin = useCallback(
-    (at: ReopenAt): void => {
-      reopen({ whereNow: () => at, cause: "ownPictureGivenUp" });
-    },
-    [reopen],
-  );
-  const reopenWhenBack = useCallback(
-    (at: ReopenAt): void => {
-      reopen({ whereNow: () => at, cause: "mediaBack" });
-    },
-    [reopen],
-  );
-  return { reopenPlayback, startAtTheTwin, reopenWhenBack };
-}
-
-/**
- * The Play page's decision for the file, asked for again when decideAgain says why, and opened again
- * where a playback the server lost is when its new one comes, once reopenPlayback is told so, which
- * says whether it is: not within reopenAtMostEveryMs of the last. held is what played before, shown
- * while the new one is asked for.
- */
-function useOpenedPlayback(
-  fileId: number,
-  first: FirstAsk | undefined,
-): {
-  readonly opened: Resource<Opened>;
-  readonly held: Opened | undefined;
-  readonly decideAgain: DecideAgain;
-  readonly reopenPlayback: (whereNow: () => ReopenAt) => boolean;
-  readonly startAtTheTwin: (at: ReopenAt) => void;
-  readonly reopenWhenBack: (at: ReopenAt) => void;
-} {
-  const { api, playableFormats } = useServices();
-  // Why the next decision is asked for: the page's opening, unless something asked it again; and
-  // where the video stood when it did, for the next to start from, when it said.
-  const nextCauseRef = useRef<StartCause>(first?.cause ?? "playPage");
-  const nextAtRef = useRef<ReopenAt | undefined>(
-    first === undefined ? undefined : { positionMs: first.atMs, isPaused: first.isPaused === true },
-  );
-  // Where a playback opened again is, read as its new one comes, for that to start from, and why it
-  // is: the server lost it, or its player gave the film's own picture up; and when the last lost one
-  // was opened again, on the page's clock.
-  const reopenRef = useRef<Reopening | undefined>(undefined);
-  const [held, setHeld] = useState<Opened | undefined>(undefined);
-  const [opened, reload] = useResource(`play/${String(fileId)}`, async (): Promise<Opened> => {
-    const cause = nextCauseRef.current;
-    const askedAt = nextAtRef.current;
-    nextCauseRef.current = "playPage";
-    nextAtRef.current = undefined;
-    const reopen = reopenRef.current;
-    reopenRef.current = undefined;
-    if (reopen === undefined) {
-      setHeld(undefined);
-    }
-    return await openPlayback({
-      watching: watchingOf(api),
-      fileId,
-      playableFormats: playableFormats(),
-      cause,
-      askedAt,
-      reopen,
-    });
-  });
-  const decideAgain = useCallback(
-    (cause: DecideAgainCause, at?: ReopenAt) => {
-      nextCauseRef.current = cause;
-      nextAtRef.current = at;
-      reload();
-    },
-    [reload],
-  );
-  const { reopenPlayback, startAtTheTwin, reopenWhenBack } = useReopening({
-    reopenRef,
-    reload,
-    hold: () => {
-      setHeld(opened.state === "loaded" ? opened.value : undefined);
-    },
-  });
-  return { opened, held, decideAgain, reopenPlayback, startAtTheTwin, reopenWhenBack };
 }

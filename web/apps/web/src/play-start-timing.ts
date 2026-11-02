@@ -2,7 +2,7 @@
 
 /**
  * Timing for the Play page's playback request and the steps before its player starts: the decision
- * asked of the server (watching.ts's decide, play.tsx's useOpenedPlayback) and each re-ask
+ * asked of the server (watching.ts's decide, play-opened.ts's useOpenedPlayback) and each re-ask
  * (reopen.ts's askUntilAnswered and askWhileUnanswered). The owner's Chrome, on staging, clicked a
  * Continue-watching tile at 21:14:00 UTC and saw "Loading…" for near a minute with nothing told
  * the core's log at all, until the playback started at 21:14:50 (VQ137, 2026-10-29): no report of a

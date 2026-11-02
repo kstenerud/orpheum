@@ -121,16 +121,39 @@ export function startingTrackKey(
   return tracks.some((track) => trackKey(track) === chosen) ? chosen : undefined;
 }
 
-/**
- * The subtitle menu and offset for a playing video: the chosen track is drawn over it by JASSUB.
- * It starts with the person's choices for this file, and keeps each change to them.
- */
-export function Subtitles(props: {
+/** What a playing video's subtitles are chosen from, and what they are drawn over. */
+interface SubtitleChoiceWays {
   readonly fileId: number;
   readonly tracks: readonly SubtitleTrack[];
   readonly preferences: FilePreferences;
   readonly videoRef: RefObject<HTMLVideoElement | null>;
-}): JSX.Element | null {
+}
+
+/** A playing video's subtitles: the tracks, the one chosen, the offset, and the ways to change them. */
+export interface SubtitleChoice {
+  readonly tracks: readonly SubtitleTrack[];
+  readonly chosenTrackKey: TrackKey | undefined;
+  readonly choose: (key: TrackKey | undefined) => void;
+  readonly offsetMs: number;
+  /** Moves the subtitles by stepMs, later for a positive step. */
+  readonly shiftOffset: (stepMs: number) => void;
+  /** What failed, in the viewer's words; undefined while nothing has. */
+  readonly failure: string | undefined;
+}
+
+/**
+ * The subtitle menu and offset for a playing video: the chosen track is drawn over it by JASSUB.
+ * It starts with the person's choices for this file, and keeps each change to them.
+ */
+export function Subtitles(props: SubtitleChoiceWays): JSX.Element | null {
+  return <SubtitleControls choice={useSubtitleChoice(props)} />;
+}
+
+/**
+ * The choice of a playing video's subtitles, the chosen track drawn over it by JASSUB whether or not
+ * a menu is drawn. It starts with the person's choices for this file, and keeps each change to them.
+ */
+export function useSubtitleChoice(props: SubtitleChoiceWays): SubtitleChoice {
   const { t } = useTranslation();
   const { api } = useServices();
   const [chosenTrackKey, setChosenTrackKey] = useState(() =>
@@ -147,9 +170,6 @@ export function Subtitles(props: {
     offsetRef,
     onFailed: setFailure,
   });
-  if (props.tracks.length === 0) {
-    return null;
-  }
   const shiftOffset = (stepMs: number): void => {
     const newOffsetMs = offsetMs + stepMs;
     setOffsetMs(newOffsetMs);
@@ -159,19 +179,26 @@ export function Subtitles(props: {
       setFailure(problemText(t, cause));
     });
   };
+  const choose = (key: TrackKey | undefined): void => {
+    setFailure(undefined);
+    setChosenTrackKey(key);
+    keepSubtitleChoice(api, props.fileId, key).catch((cause: unknown) => {
+      setFailure(problemText(t, cause));
+    });
+  };
+  return { tracks: props.tracks, chosenTrackKey, choose, offsetMs, shiftOffset, failure };
+}
+
+/** The subtitle menu and offset, held by whoever holds the choice, shown when there are tracks. */
+export function SubtitleControls(props: { readonly choice: SubtitleChoice }): JSX.Element | null {
+  const { t } = useTranslation();
+  const { tracks, chosenTrackKey, choose, offsetMs, shiftOffset, failure } = props.choice;
+  if (tracks.length === 0) {
+    return null;
+  }
   return (
     <div className="subtitles">
-      <TrackMenu
-        tracks={props.tracks}
-        chosen={chosenTrackKey}
-        onChoose={(key) => {
-          setFailure(undefined);
-          setChosenTrackKey(key);
-          keepSubtitleChoice(api, props.fileId, key).catch((cause: unknown) => {
-            setFailure(problemText(t, cause));
-          });
-        }}
-      />
+      <TrackMenu tracks={tracks} chosen={chosenTrackKey} onChoose={choose} />
       <OffsetControl offsetMs={offsetMs} onMove={shiftOffset} />
       {failure === undefined ? null : (
         <p role="alert">{t("play.subtitles.failed", { reason: failure })}</p>

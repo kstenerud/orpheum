@@ -205,7 +205,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   holding the group's controls its rights give (D371 §4). The remote shows how the receiver plays
   the film: the file as it is or converted, its quality and its link (D371 §4); and its sound, the
   dialogue boost where the film has a boosted mix, levelling and the audio track, each choice sent to
-  the receiver, whose own switch or menu carries it out as its press would, kept for the person, the
+  the receiver, whose own choice carries it out as its press would, drawn or not (`src/player-tracks.tsx`), kept for the person, the
   remote showing what the receiver says after (`src/sound-panel.ts`; a Fire TV's controls are hidden
   while controlled, so its sound could be changed only after taking control back, the owner, VQ116's
   run). It fills the window and
@@ -629,7 +629,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   (the Libraries page, D349, with `alphabet-rail.tsx`; `search.tsx` holds its search results, by
   `QueryResults`), `identify.tsx` (needs a match), `libraries.tsx` (the admin's list of libraries and "Rescan everything", D361 §1, D357), `library-manage.tsx` (one library's page: its folders, scans, its "Rescan", retiring a folder and deleting the library, each confirmed by `confirm-button.tsx`, D361 §2), `create-library.tsx` (the page creating one), `folder-picker.tsx` (the folder browser and its dialog, D359, D361 §3), `match-correction.tsx` (an admin's "Identified incorrectly" on a film's, an episode's or a series' page, and its dialog of Rescan, Enter manually and Report this, D301 §2, D357, D306 §3), `more-actions.tsx` (a page's "…" of rarely used actions), `files.tsx` (what
   the scanner saw), `settings.tsx` (keys, passwords and server settings), `jobs.tsx` (the job view), `system.tsx` (the System page: the server's facts, doctor's findings, and each machine's software, sandbox, hardware encoding, disks and recent prepares, D225), `node-confinement.tsx` (a machine's FFmpeg sandbox, on the System page), `about.tsx`,
-  `sign-in.tsx`, `play.tsx` (the player, with `player-commands.ts`, its answers to a remote, and
+  `sign-in.tsx`, `play.tsx` (the player, with `play-opened.ts`, how it opens its playback,
+  `player-tracks.tsx`, the track and sound choices every piece over or under the film reads,
+  `player-commands.ts`, its answers to a remote, and
   `up-next.tsx`, what plays next; its controls are `player-controls.tsx`, the bar, over the film as
   `tv-controls.tsx` on a television and `page-controls.tsx` elsewhere, with `timeline.tsx`,
   `icon-button.tsx` and `player-icons.tsx`), `autoplay-setting.tsx` (the person's autoplay, on their account), `library-configure.tsx` (a library's Configure: the person's own Show in Films or Series, D349 §8, and Show on Home, D366 §5), `upward.ts` (where each page sits, D367), `up-trail.tsx` (the trail and Up), `episode-reached.ts` (the episode a series' page returns to), `route-chooser.tsx` (a drop-down of routes, or of choices a page keeps), `drop-down-place.ts` (where a drop-down's list opens), `phone-width.ts` (a phone's width, the stylesheets' breakpoint), `drop-down.tsx` (the one drop-down: a chooser's and the menu's), `sort-choices.ts` (each sort either way, D366 §2), `watched-mark.tsx` (the watched check, and marking by hand with its Undo, D370), `watching.ts` (the film a tab watches: its page's warm-up

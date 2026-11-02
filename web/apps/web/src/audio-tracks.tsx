@@ -89,16 +89,29 @@ export function audioTrackLabel(
   return parts.join(" · ");
 }
 
-/**
- * The menu of a file's audio tracks, shown when it has more than one, starting with the track the
- * playback starts with. A choice is kept for the person, and then onChosen() plays it.
- */
-export function AudioMenu(props: {
+/** A file's audio tracks, the one chosen, the way to choose another, and what failed. */
+export interface AudioChoice {
+  readonly tracks: readonly AudioTrack[];
+  readonly chosenStreamId: number | undefined;
+  readonly choose: (track: AudioTrack) => void;
+  /** Why keeping the last choice failed, in the viewer's words; undefined while nothing has. */
+  readonly problem: string | undefined;
+}
+
+/** What the choice of a file's audio track is of, and what plays a track chosen. */
+interface AudioChoiceWays {
   readonly fileId: number;
   readonly decision: PlaybackDecision;
   readonly onChosen: (track: AudioTrack) => void;
-}): JSX.Element | null {
-  const { t, i18n } = useTranslation();
+}
+
+/**
+ * The choice of a file's audio track, starting with the track the playback starts with. A choice is
+ * kept for the person, and then onChosen() plays it. A cast's remote shows the tracks and chooses
+ * among them whether or not a menu is drawn (sound-panel.ts).
+ */
+export function useAudioChoice(props: AudioChoiceWays): AudioChoice {
+  const { t } = useTranslation();
   const { api } = useServices();
   const [chosenStreamId, setChosenStreamId] = useState(props.decision.startingAudioStreamId);
   const [problem, setProblem] = useState<string | undefined>(undefined);
@@ -116,6 +129,21 @@ export function AudioMenu(props: {
     );
   };
   useTracksWorkedByARemote(tracks, chosenStreamId, choose);
+  return { tracks, chosenStreamId, choose, problem };
+}
+
+/**
+ * The menu of a file's audio tracks, shown when it has more than one, starting with the track the
+ * playback starts with. A choice is kept for the person, and then onChosen() plays it.
+ */
+export function AudioMenu(props: AudioChoiceWays): JSX.Element | null {
+  return <AudioChoiceMenu choice={useAudioChoice(props)} />;
+}
+
+/** The menu of a file's audio tracks, held by whoever holds the choice, shown when it has two or more. */
+export function AudioChoiceMenu(props: { readonly choice: AudioChoice }): JSX.Element | null {
+  const { t, i18n } = useTranslation();
+  const { tracks, chosenStreamId, choose, problem } = props.choice;
   if (tracks.length < 2) {
     return null;
   }
