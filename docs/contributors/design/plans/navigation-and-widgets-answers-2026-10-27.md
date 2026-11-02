@@ -1350,3 +1350,14 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
     select to bring it to full screen. Now when I press fastforward or rewind, they do nothing. Maybe
     because of where the focus is?" To check: which element holds focus once the full-screen button
     is pressed, and whether the remote's media keys reach the page's key handler then.
+    **Not reproduced (the lead, 2026-11-02, on staging, Silk 138, The Gold Rush):** the owner's session
+    was on prod (file 309, 15:29), whose build has the same key handling, full screen and controls as
+    staging's. The lead repeated the owner's steps over adb: Silk reopened on the paused play page, the
+    D-pad to Play, Select, to Full screen, Select; then fast forward and rewind (keycodes 90 and 89),
+    sent as the remote's sources (keyboard and D-pad: the remote, WOBLE_INPUT_DEVICE, is both). Every
+    press moved the film, with focus on the video, on Pause or on "Leave full screen". Two things seen
+    on the way, for the next batch: once the film plays, the bar can hide between presses, and the
+    D-pad's Right then seeks the film rather than reaching Full screen; and a fast forward sent as a
+    gamepad's key left the film paused (a controller, not the remote). **Next:** the owner tries again
+    with the remote, and if it happens, leaves the TV as it is and says so: the page's focus and full
+    screen can then be read over adb as they are.
