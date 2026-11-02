@@ -25578,3 +25578,98 @@ lead's finding in plan item 15 (the navigation-and-widgets plan). It adds to
 `TestSTUNServersFor_AreTheCoresOwnThenTheDiscoverys`,
 `TestNewICEIssuer_HandsMembersTheSTUNServersWithNoRelay`,
 `TestTogether_AMemberIsHandedTheSTUNServersBeforeTheRelay`. Device check: VQ241.
+
+## D407 — The player's full-screen overlay is three rows reached by the arrows, shown by Up and Down, with a convenience button that OK presses; outside full screen the controls sit below the video and nothing covers it
+
+**Decided** (2026-11-02), by the project owner, designed with the lead over one conversation on the
+research ([player-controls-2026-11-02.md](../design/research/player-controls-2026-11-02.md), and three
+reports given in the conversation: Skip intro and Up next, keyboard and touch, keyboard layouts). The
+owner: *"let's design this iteratively"*; the layout below is the owner's. **Revises**
+[D369](#d369--every-device-plays-with-the-apps-own-player-controls-built-from-one-standard-set-of-player-widgets)
+§2 (the subtitle and audio track controls move into the overlay; Up and Down are no longer the
+volume) and the remote's contract in
+[D188](#d188--the-interface-is-designed-against-the-fields-recorded-failures-accessibility-shapes-the-design-but-does-not-gate-cut-a-her-television-plays-and-her-phone-talks)
+(tv-client.md): Left and Right seek while the overlay is hidden, and walk its buttons while it shows.
+The 5 s hide that decided whether Right moved focus or seeked (plan item 17) goes with it.
+
+1. **The full-screen layout** (icons are placeholders, to be drawn as SVG):
+
+   ```
+   ┌──────────────────────────────────────────────────────────────┐
+   │ [‹]                   Brass Arena · S1E2          [Convenience] │
+   │                                                              │
+   │ ━━━━━━━━━━━━━━━━━━━━━━━●────────────────────── 21:41 / 44:58 │
+   │ [⏮] [⏪] [▶] [⏩] [⏭]           [🔈] [💬] [🎧] [⁝] [⤢] │
+   └──────────────────────────────────────────────────────────────┘
+   ```
+
+   ‹ back to the info page; ⏮ ⏭ previous and next in the sequence (the set of videos being shown:
+   for now a series' episodes in their order, extras left out; later sets such as everything of Star
+   Wars); ⏪ ⏩ 10 s back and forward; ▶
+   play and pause; 🔈 volume; 💬 subtitles; 🎧 audio tracks; ⁝ a menu of the rest; ⤢ full screen.
+2. **A control is shown only where it does something:** ⏮ and ⏭ only within a sequence; 🔈 not on a
+   TV or a touch screen; 🎧 only with more than one audio track; 💬 always, since searching for
+   subtitles will always offer something. ⤢ shows on a TV too: a TV is not always full screen. Watch
+   Together, casting and the episode list are not in the overlay: they open dialogs or pages, reached
+   outside full screen (the episode list is one Back away).
+3. **The convenience area** shows Skip intro, Up next or Still watching while each is on offer, alone,
+   with nothing else of the overlay; while it shows, OK presses it rather than play and pause, with no
+   guard (Apple's and Jellyfin's TV players do the same; *"Let's do that and see how it feels"*).
+   Inside the full overlay, with nothing on offer, it shows when the film ends ("Ends 9:41"). Intro
+   and credits are not detected yet, so Skip intro waits for that.
+4. **With the overlay hidden:** Left and Right seek 10 s, the step growing while the key is held, and
+   show the scrub bar alone (the line, the position and the length; the position shows where the seek
+   goes) until 1.5 s after the seek lands. OK plays and pauses. Pausing shows a pause sign over the
+   video and the scrub bar, both gone 3 s after the last input. Up and Down show the whole overlay with
+   focus on ▶; a mouse's movement or a tap shows it and leaves focus where it is. Back goes to the info page. While the convenience area shows
+   alone, Left and Right still seek and show the scrub bar, and the offer stays: the arrows mean one
+   thing while the overlay is hidden, and an offer's second choice (Still watching's Stop) is reached
+   through the full overlay's top row.
+5. **With the overlay shown:** Up and Down move between its three rows (‹ and the convenience area;
+   the scrub bar; the buttons), and a row returned to has focus on the button left there. Left and
+   Right walk a row, and seek on the scrub bar. OK, and Space on a computer, press the focused
+   button, as a controller's select does. The first Back hides the overlay. Subtitles move up while
+   it shows, clear of the bar.
+6. **When the overlay hides on its own** follows the accessibility guidance (the shortcuts and
+   gestures research; the owner: *"Let's follow the accessibility guidelines. We can always offer a
+   config to change it per-account if people complain"*). It never hides while paused or while a menu
+   is open. Shown by a mouse or a tap, it hides 3 s after the last input while playing, unless focus
+   is in its controls. Shown by a TV's remote, it hides 3 s after the last press while playing: on a
+   TV focus is always on a control while it shows, so the focus rule would keep it up for good, and
+   the guidance is for switch and speech users at a computer (the owner chose this reading). This
+   replaces the 3 s hide while paused that YouTube's timeout gave (*"it feels good"*). On a computer,
+   pressing ▶ to play, or Down from the bottom row, moves focus to the video, so a keyboard user's
+   overlay hides without leaving full screen.
+7. **Full screen is the browser's real full screen**, even where that limits what the page can do
+   (the owner). A TV opens it when a film starts, as today; where a browser refuses it, the stage
+   fills the window and draws the same overlay (the owner chose keeping both). On Fire TV, Back, and Escape on a computer, leave full screen before the page sees the
+   key, so there the first Back cannot only hide the overlay: leaving full screen shows the controls
+   below the video with focus on ▶, ⤢ returns to full screen, and the next Back goes to the info
+   page.
+8. **The subtitle and audio track menus** list the tracks the film has; the subtitle menu also holds
+   Find subtitles. ⁝ holds the rest: Start over, Subtitle offset, Sound offset, Levelling, Dialogue
+   boost, Play original and the bare player; the debug tools stay under the film.
+9. **Outside full screen** the controls sit outside the video, below it, TV included, and nothing is
+   drawn over the video: no pause sign, no scrub bar, no convenience area (Skip intro, Up next and
+   Still watching show among the controls, and "Ends 9:41" does when nothing is on offer). Click and
+   double-click on the film keep playing and pausing and going full screen. Things go over the video
+   only if this feels wrong in use.
+10. **Keys on a computer** are the same as the remote's. Volume is `+` (Shift allowed) or `=` with no
+   modifier, and `−`, or the number pad's + and −; on Swiss, Hungarian, Turkish Q and Japanese JIS
+   layouts, whose + is Shift with a digit or `;`, the unshifted key does nothing (a page cannot find
+   it in Firefox or Safari; the owner: *"go with the simple rule"*). Each press moves the volume 5 %,
+   and the volume button opens a vertical slider. A press with Ctrl, ⌘, Alt or AltGr
+   is left to the browser, so its zoom stays its own. Media keys play and pause, and next and previous
+   change the episode, also where a Mac's keyboard labels them ⏪ and ⏩, if they arrive as next and
+   previous (to be seen on a page that records key events, built with this).
+11. **No letter shortcuts and no touch gestures for now** (the research's minimal option, the owner's
+   choice): K, J/L, F, M, C and digits are not bound, which keeps clear of WCAG 2.1.4 and of screen
+   readers' browse-mode keys; a tap only shows the overlay. Gestures (double tap to seek, long press,
+   swipes, pinch) wait until asked for; each would need a matching button, since VoiceOver and
+   TalkBack keep those gestures for themselves.
+12. **Where else the overlay goes:** the cast receiver uses it without ‹ and without menus, and the
+   cast remote stays as it is; Watch Together's host gets it, and a link guest keeps the browser's
+   controls until D369's waiting item. The on-screen Back kept for TV Bro goes; ‹ reaches the info
+   page.
+
+**Status:** Decided 2026-11-02, not built.

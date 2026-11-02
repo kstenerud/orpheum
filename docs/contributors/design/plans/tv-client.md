@@ -142,13 +142,15 @@ and no keyboard.
 [D188](../../decisions/working-notes.md). On a television the remote *is* the interface, and the field's
 player complaints are about it treating the remote as a pointer:
 
-- **Left and right always seek from the current position**, from any on-screen state,
-  whatever has focus. Samsung users report focus jumping to Pause after one press, and seeks
+- **Left and right seek from the current position while the overlay is hidden**, and walk its
+  buttons while it shows ([D407](../../decisions/working-notes.md), revising D188's "always seek",
+  whatever has focus). Samsung users report focus jumping to Pause after one press, and seeks
   that snap to fixed marks.
 - **10-second steps** (Apple moved from 15 to 10, *"easier to track how far you've jumped"*),
   **scrub thumbnails for anything over 15 minutes** (Roku's certification rule), and the
   controls hide quickly.
-- **Track menus are visible buttons on the control bar**, one level deep, each track named.
+- **Track menus are visible buttons on the control bar** (subtitles and audio tracks, D407), one
+  level deep, each track named.
   Apple removed its swipe-down panel in tvOS 15 because buttons *"improved the
   discoverability"*.
 - **Long-press on a Continue Watching item offers "hide"**, with undo
