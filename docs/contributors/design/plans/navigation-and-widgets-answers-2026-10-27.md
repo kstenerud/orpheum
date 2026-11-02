@@ -1264,3 +1264,5 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
    the player learns the level only when it starts, and nothing asks for it again. VQ50 expects the
    switch to say within minutes that the film was raised or lowered. And the wait said "about 55
    minutes" for a read-through that began 15 s later, as the playing film's moved ahead of the 17 queued.
+9. **Next batch (found by the agent running VQ238, 2026-11-02):** a role one person holds says
+   "1 people" on the People page (`roles.holders` has no singular form).

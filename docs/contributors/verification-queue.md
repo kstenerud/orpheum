@@ -2231,6 +2231,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   watch it does not, and Administrator's capabilities cannot be changed. (6) Open `/roles/3` by
   address: it is not a page any more. (`web/apps/web/src/role-dialog.tsx`, `people.tsx`,
   `invitations-section.tsx`; `internal/store/queries/invitation.sql`)
+  *Run by the lead on staging, 2026-11-02, as lead-admin in Linux Chrome 156 (registering in Firefox
+  155), scripted.* All six pass: a used invitation's row left Invitations and its account
+  (`vq238-…`, Can watch, left on staging) showed the note; the waiting invitation's dialog has two QR
+  images, the link, Copy and Withdraw; New role made a row; reopened from its row it was headed by
+  its name, kept a library ticked after closing, renamed on leaving the field, had no Add the role and
+  no Save; Delete only on a role no one has (not Administrator or Can watch, whose capabilities are
+  fixed); `/roles/3` is "There is nothing at this address". Not seen: the section going when its
+  only row goes (the owner's invitation "o" stayed). The Mac's Chrome is the owner's to tick it on.
 
 - [ ] **VQ239** — *Quillwick II*, "Money" plays in step from its very start, on staging (the owner,
   2026-11-01: its audio was out of sync; measured, the sound half a second early for its first five
