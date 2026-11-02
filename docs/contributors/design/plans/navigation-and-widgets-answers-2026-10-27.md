@@ -1287,3 +1287,11 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
     jumps into the banner; Up from the banner's Menu moves sideways to *Cast to a device*. And with
     the film paused, the player's first Back does nothing visible, as the whole overlay stays while
     paused; the second leaves.
+14. **This batch, fixed (found running VQ69):** an episode stood a frame short of its end for good,
+    never ended, and no next episode came: hls.js's end check misreads a hole behind the playhead
+    (idiosyncrasies.md, "hls.js never ends a stream with a hole behind the playhead"); the player now
+    ends the stream itself ("fix(player): an episode with a hole behind the playhead reaches its end", "fix(player): a video stalled at its end while seeking is ended too"). **Next batch:** the hole was ours. The Pumbletons'
+    S33E8 (file 5674) chunk 230, listed from 1280.785 s where 229 ends, loaded from 1280.826 s with
+    video from 1280.868 s, and later chunks sat 42–83 ms off the playlist: a chunk that starts a frame
+    or two late. Find why in the node's chunking (the segment muxer's stop, dts2pts) and close the
+    hole at the join.
