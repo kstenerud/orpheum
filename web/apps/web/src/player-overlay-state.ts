@@ -77,6 +77,13 @@ function seekOfArrow(command: Command): number | undefined {
   return command === "right" ? seekStepMs : undefined;
 }
 
+/** The commands that stay the player's whatever the overlay shows: play, pause and the seeking keys. */
+const playersKeys: ReadonlySet<Command> = new Set<Command>([
+  "playPause",
+  "seekBack",
+  "seekForward",
+]);
+
 /**
  * What a press does to the overlay (D407 §4–§5). Play, pause and the seeking keys stay the
  * player's in every state, a seek showing the scrub bar while the overlay is not all shown.
@@ -86,7 +93,7 @@ export function overlayAnswer(
   command: Command,
   context: PressContext,
 ): OverlayAnswer {
-  if (command === "playPause" || command === "seekBack" || command === "seekForward") {
+  if (playersKeys.has(command)) {
     return answerOfPlayersKey(state, command, context);
   }
   const shown = state.shown === "hidden" && context.isOnOffer ? "convenience" : state.shown;
@@ -97,7 +104,8 @@ export function overlayAnswer(
       return answerWhilePaused(state, command, context);
     case "convenience":
       return answerWithAnOffer(state, command, context);
-    default:
+    case "hidden":
+    case "scrub":
       return answerWhileHidden(state, command, context);
   }
 }
@@ -245,7 +253,8 @@ export function hideAfter(state: OverlayState, context: HidingContext): number |
         (state.shownBy === "pointer" && context.isFocusIn);
       return isHeld ? undefined : fullShownForMs;
     }
-    default:
+    case "hidden":
+    case "convenience":
       return undefined;
   }
 }
@@ -296,5 +305,20 @@ export function controlsShown(context: ControlsContext): readonly OverlayControl
     more: true,
     fullScreen: true,
   };
-  return (Object.keys(shows) as OverlayControl[]).filter((control) => shows[control]);
+  return overlayControlsInOrder.filter((control) => shows[control]);
 }
+
+/** Every control the overlay may draw, in the order it draws them (D407 §1). */
+const overlayControlsInOrder: readonly OverlayControl[] = [
+  "up",
+  "previous",
+  "seekBack",
+  "play",
+  "seekForward",
+  "next",
+  "sound",
+  "subtitles",
+  "audio",
+  "more",
+  "fullScreen",
+];

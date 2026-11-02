@@ -206,7 +206,7 @@ export function overTheFilm(hasTelevisionControls: boolean): FilmPiece {
 function OverlayAndUpNext(props: FilmParts): JSX.Element {
   return (
     <>
-      <PlayerOverlay {...props} opensFullScreen />
+      <PlayerOverlay {...props} shouldOpenFullScreen />
       <UpNextOver {...props} />
     </>
   );

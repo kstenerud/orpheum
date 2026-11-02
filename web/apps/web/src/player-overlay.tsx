@@ -41,57 +41,71 @@ import { isTelevision } from "./tv-device.ts";
  * (player-overlay-state.ts); a mouse's move, a click or a tap shows it all, leaving focus where it is,
  * as a desktop player's controls show, so a cast's receiver on a computer keeps its controls (D338
  * §5). The browser's own controls are in a shadow no remote reaches (the owner, Fire TV,
- * 2026-10-25). opensFullScreen puts its stage full screen as the player opens, as a television's
+ * 2026-10-25). shouldOpenFullScreen puts its stage full screen as the player opens, as a television's
  * player is, filling the window where the browser refuses.
  */
 export function PlayerOverlay(
-  props: FilmParts & { readonly opensFullScreen?: boolean | undefined },
+  props: FilmParts & { readonly shouldOpenFullScreen?: boolean | undefined },
 ): JSX.Element {
-  const { videoRef } = props;
-  const refs: OverlayRefs = {
-    overlayRef: useRef<HTMLDivElement>(null),
-    playRef: useRef<HTMLButtonElement>(null),
-    scrubRef: useRef<HTMLInputElement>(null),
-    buttonsRef: useRef<HTMLDivElement>(null),
-    videoRef,
-  };
+  const { videoRef, shouldOpenFullScreen } = props;
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const playRef = useRef<HTMLButtonElement>(null);
+  const scrubRef = useRef<HTMLInputElement>(null);
+  const buttonsRef = useRef<HTMLDivElement>(null);
   const isTv = isTelevision(navigator.userAgent);
-  const [state, setState] = useState<OverlayState>({
-    shown: "full",
-    shownBy: isTv ? "remote" : "pointer",
-  });
+  const [state, setState] = useState<OverlayState>(() => openedWith(isTv));
   const isCovered = state.shown === "hidden" || state.shown === "convenience";
   const source = useVideoSource(videoRef, isCovered);
-  const isFocusIn = useIsFocusIn(refs.overlayRef);
   const notePress = useOverlayHiding({
     state,
     setState,
     isPaused: source.isPaused,
-    isFocusIn,
-    refs,
+    overlayRef,
+    videoRef,
   });
   useOpensAtThePointer(() => {
     setState({ shown: "full", shownBy: "pointer" });
     notePress();
   });
-  useOverlayPresses({ state, setState, notePress, isTv, refs });
-  useFullscreenStage(refs.overlayRef, props.opensFullScreen === true);
+  useOverlayPresses({
+    state,
+    setState,
+    notePress,
+    isTv,
+    overlayRef,
+    playRef,
+    scrubRef,
+    buttonsRef,
+    videoRef,
+  });
+  useFullscreenStage(overlayRef, shouldOpenFullScreen === true);
   return (
     <>
       <span className="player-overlay-paused" hidden={state.shown !== "paused"} aria-hidden="true">
         <PauseIcon />
       </span>
       <div
-        ref={refs.overlayRef}
+        ref={overlayRef}
         className="player-overlay"
         data-shown={state.shown}
         data-focus-container=""
         data-player-controls=""
       >
-        <OverlayRows source={source} refs={refs} isTv={isTv} />
+        <OverlayRows
+          source={source}
+          isTv={isTv}
+          playRef={playRef}
+          scrubRef={scrubRef}
+          buttonsRef={buttonsRef}
+        />
       </div>
     </>
   );
+}
+
+/** The overlay as the player opens: all of it, shown by a remote on a television. */
+function openedWith(isTv: boolean): OverlayState {
+  return { shown: "full", shownBy: isTv ? "remote" : "pointer" };
 }
 
 /** What the overlay's parts hold: itself, play, the scrub bar, the buttons' row and the video. */
@@ -109,25 +123,21 @@ interface OverlayRefs {
  * bar; the buttons, those the device shows (controlsShown). Subtitles, audio and more come with
  * their menus (plan step 7), previous and next with sequences (step 9).
  */
-function OverlayRows(props: {
+function OverlayRows({
+  source,
+  isTv,
+  playRef,
+  scrubRef,
+  buttonsRef,
+}: {
   readonly source: PlayerSource;
-  readonly refs: OverlayRefs;
   readonly isTv: boolean;
+  readonly playRef: RefObject<HTMLButtonElement | null>;
+  readonly scrubRef: RefObject<HTMLInputElement | null>;
+  readonly buttonsRef: RefObject<HTMLDivElement | null>;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { source, refs } = props;
-  const isVolumeSettable = useIsVolumeSettable();
-  const tracks = use(PlayerTracksContext);
-  const upward = use(PlayUpwardContext);
-  const shown = controlsShown({
-    isTelevision: props.isTv,
-    isTouch: isThisHandheld(),
-    isVolumeSettable,
-    audioTrackCount: tracks?.audio.tracks.length ?? 0,
-    hasPrevious: false,
-    hasNext: false,
-    isReceiver: upward === undefined,
-  });
+  const shown = useControlsShown(isTv);
   return (
     <>
       <div className="player-overlay__row player-overlay__top" data-focus-container="">
@@ -135,7 +145,7 @@ function OverlayRows(props: {
       </div>
       <div className="player-overlay__row player-overlay__scrub" data-focus-container="">
         <Timeline
-          inputRef={refs.scrubRef}
+          inputRef={scrubRef}
           label={t("playerControls.where")}
           atMs={source.atMs}
           durationMs={source.durationMs}
@@ -145,7 +155,7 @@ function OverlayRows(props: {
         />
       </div>
       <div
-        ref={refs.buttonsRef}
+        ref={buttonsRef}
         className="player-overlay__row player-overlay__buttons"
         data-focus-container=""
       >
@@ -154,7 +164,7 @@ function OverlayRows(props: {
           controls={barControlsOf(shown)}
           isOverVideo
           isOverlayRow
-          playRef={refs.playRef}
+          playRef={playRef}
           aside={
             <EndsAt
               leftMs={source.durationMs === 0 ? undefined : source.durationMs - source.atMs}
@@ -164,6 +174,22 @@ function OverlayRows(props: {
       </div>
     </>
   );
+}
+
+/** The controls the overlay shows on this device (controlsShown). */
+function useControlsShown(isTv: boolean): readonly OverlayControl[] {
+  const isVolumeSettable = useIsVolumeSettable();
+  const tracks = use(PlayerTracksContext);
+  const upward = use(PlayUpwardContext);
+  return controlsShown({
+    isTelevision: isTv,
+    isTouch: isThisHandheld(),
+    isVolumeSettable,
+    audioTrackCount: tracks?.audio.tracks.length ?? 0,
+    hasPrevious: false,
+    hasNext: false,
+    isReceiver: upward === undefined,
+  });
 }
 
 /** The bar's controls among those the overlay shows, which the bar draws today. */
@@ -182,23 +208,37 @@ function barControlsOf(shown: readonly OverlayControl[]): PlayerControl[] {
  * pause, focus moved; a press taken is no one else's. Focus on an offer drawn over the film beside
  * the overlay, Up next or Still watching, leaves it OK and Back.
  */
-function useOverlayPresses(presses: {
+function useOverlayPresses({
+  state,
+  setState,
+  notePress,
+  isTv,
+  overlayRef,
+  playRef,
+  scrubRef,
+  buttonsRef,
+  videoRef,
+}: OverlayRefs & {
   readonly state: OverlayState;
   readonly setState: (state: OverlayState) => void;
   readonly notePress: () => void;
   readonly isTv: boolean;
-  readonly refs: OverlayRefs;
 }): void {
-  const { state, setState, notePress, isTv, refs } = presses;
-  const askFocusToPlay = useFocusToPlayOnceDrawn(refs.playRef, isTv);
+  const askFocusToPlay = useFocusToPlayOnceDrawn(playRef, isTv);
   useCommands(
     "document",
     (detail, event) => {
-      const video = refs.videoRef.current;
+      const video = videoRef.current;
       if (video === null) {
         return;
       }
-      const answer = overlayAnswer(state, detail.command, pressContext(refs, video, isTv));
+      const parts = {
+        overlay: overlayRef.current,
+        play: playRef.current,
+        scrub: scrubRef.current,
+        buttons: buttonsRef.current,
+      };
+      const answer = overlayAnswer(state, detail.command, pressContext(parts, video, isTv));
       setState(answer.state);
       notePress();
       if (answer.seekByMs !== undefined) {
@@ -223,23 +263,31 @@ function useOverlayPresses(presses: {
   );
 }
 
+/** The overlay's parts as a press finds them: itself, play, the scrub bar and the buttons' row. */
+interface OverlayParts {
+  readonly overlay: HTMLElement | null;
+  readonly play: HTMLElement | null;
+  readonly scrub: HTMLElement | null;
+  readonly buttons: HTMLElement | null;
+}
+
 /** What the overlay knows as a press comes: where focus is, and whether the film is paused. */
-function pressContext(refs: OverlayRefs, video: HTMLVideoElement, isTv: boolean): PressContext {
+function pressContext(parts: OverlayParts, video: HTMLVideoElement, isTv: boolean): PressContext {
   const focused = document.activeElement;
   return {
     isPaused: video.paused,
     isTelevision: isTv,
-    isOnScrub: focused !== null && focused === refs.scrubRef.current,
-    isOnButtons: refs.buttonsRef.current?.contains(focused) === true,
-    isOnPlay: focused !== null && focused === refs.playRef.current,
-    isOnOffer: isOnAnotherControlOverTheFilm(refs.overlayRef.current),
+    isOnScrub: focused !== null && focused === parts.scrub,
+    isOnButtons: parts.buttons?.contains(focused) === true,
+    isOnPlay: focused !== null && focused === parts.play,
+    isOnOffer: isOnAnotherControlOverTheFilm(parts.overlay),
   };
 }
 
 /** Moves focus to the video, which takes it from a script alone where it is no stop of its own. */
 function focusTheVideo(video: HTMLVideoElement): void {
   if (!video.hasAttribute("tabindex")) {
-    video.tabIndex = -1;
+    video.setAttribute("tabindex", "-1");
   }
   video.focus();
 }
@@ -311,21 +359,27 @@ const hidingCheckMs = 250;
  * moves to the video, so no hidden control holds it, and what else over the film has focus, Up next,
  * keeps it. Returns what notes a press, which renews the time.
  */
-function useOverlayHiding(hiding: {
+function useOverlayHiding({
+  state,
+  setState,
+  isPaused,
+  overlayRef,
+  videoRef,
+}: {
   readonly state: OverlayState;
   readonly setState: (state: OverlayState) => void;
   readonly isPaused: boolean;
-  readonly isFocusIn: boolean;
-  readonly refs: OverlayRefs;
+  readonly overlayRef: RefObject<HTMLElement | null>;
+  readonly videoRef: RefObject<HTMLVideoElement | null>;
 }): () => void {
-  const { state, setState, isPaused, isFocusIn, refs } = hiding;
   const lastPressAtRef = useRef(0);
+  const isFocusIn = useIsFocusIn(overlayRef);
   const afterMs = hideAfter(state, { isPaused, isMenuOpen: false, isFocusIn });
   useEffect(() => {
     if (afterMs === undefined) {
       return undefined;
     }
-    const video = refs.videoRef.current;
+    const video = videoRef.current;
     const landed = (): void => {
       lastPressAtRef.current = performance.now();
     };
@@ -339,8 +393,8 @@ function useOverlayHiding(hiding: {
       video?.removeEventListener("seeked", landed);
       clearInterval(timer);
     };
-  }, [afterMs, state, setState, refs.videoRef]);
-  useFocusLeavesWhatHides(state, refs);
+  }, [afterMs, state, setState, videoRef]);
+  useFocusLeavesWhatHides(state, overlayRef, videoRef);
   return () => {
     lastPressAtRef.current = performance.now();
   };
@@ -350,8 +404,11 @@ function useOverlayHiding(hiding: {
  * Moves focus out of the overlay to the video as all of it but the scrub bar hides, before the
  * browser drops it to the page's body with the hidden control (Firefox did, before an effect ran).
  */
-function useFocusLeavesWhatHides(state: OverlayState, refs: OverlayRefs): void {
-  const { overlayRef, videoRef } = refs;
+function useFocusLeavesWhatHides(
+  state: OverlayState,
+  overlayRef: RefObject<HTMLElement | null>,
+  videoRef: RefObject<HTMLVideoElement | null>,
+): void {
   useLayoutEffect(() => {
     const video = videoRef.current;
     if (state.shown !== "full" && video !== null) {
