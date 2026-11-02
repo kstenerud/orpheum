@@ -55,6 +55,7 @@ import {
 } from "./main-thread.ts";
 import { tellNextChunkLoad } from "./next-chunk.ts";
 import { watchStalls, type WatchedMedia } from "./stalls.ts";
+import { endAtTheLastFrame } from "./end-of-stream.ts";
 import { steadinessNoter } from "./steadiness.ts";
 import { linkNoter, linkSpreadNoter, type RememberedLink } from "./link-estimate.ts";
 import { stepUpHeadroom } from "./step-up.ts";
@@ -682,6 +683,7 @@ export function playChunked(
   const follow = { abr, soundShift, atMostS: options.loadsAheadAtMostS };
   const stops = [...followAheadGroupSoundAndStalls(hls, video, follow), seeks.stop, stopLoadingOn];
   stops.push(tellNextChunkLoad(hls, video, () => abr.choosing()?.nextChunkLink()));
+  stops.push(endAtTheLastFrame(hls, video));
   hls.loadSource(url);
   hls.attachMedia(video);
   return {

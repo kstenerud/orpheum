@@ -119,6 +119,7 @@ User-Agent (D263; the User-Agent is logged only).
 | A held request is counted as download time, so the estimate collapses | [A held request is counted as download time, so the estimate collapses](#a-held-request-is-counted-as-download-time-so-the-estimate-collapses) |
 | "a film whose prepare had made 46 s began at 40 s". | [An open (EVENT, no ENDLIST) playlist is treated as live and starts near its end](#an-open-event-no-endlist-playlist-is-treated-as-live-and-starts-near-its-end) |
 | A Watch Together host broadcast hls.js's own gap steps as user seeks ("each such step became a jump for everyone"). | [hls.js moves the playhead itself (gap jumps, stall nudges), and the browser reports each as a seek](#hlsjs-moves-the-playhead-itself-gap-jumps-stall-nudges-and-the-browser-reports-each-as-a-seek) |
+| An episode stood a frame short of its end for good, never "ended", and no next episode came (Fire TV, 2026-11-02). | [hls.js never ends a stream with a hole behind the playhead](#hlsjs-never-ends-a-stream-with-a-hole-behind-the-playhead) |
 | "Both players held at 0 with 0.04 s to 60 s loaded … held the group up for good." | [A paused player is never stepped over a gap at the start, so it never becomes ready](#a-paused-player-is-never-stepped-over-a-gap-at-the-start-so-it-never-becomes-ready) |
 | After an audio-track switch, the audio already decoded in the old mix plays on for 2-4 s | [After an audio-track switch, the audio already decoded in the old mix plays on for 2-4 s](#after-an-audio-track-switch-the-audio-already-decoded-in-the-old-mix-plays-on-for-2-4-s) |
 | A phone reported its link as 500, then 5000 kb/s (hls.js's starting values), and the core remembered that. | [Before any measurement, `bandwidthEstimate` returns its configured default, with no "unknown"](#before-any-measurement-bandwidthestimate-returns-its-configured-default-with-no-unknown) |
@@ -1961,6 +1962,29 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   whose loads all failed for 70 s: the controller's own reading, 33.896 s, logged at each look while the
   video stood at 67.96 s, and the quality given up 6 s after it stood. **[web]** not searched: the session's
   search budget was spent.
+
+
+### hls.js never ends a stream with a hole behind the playhead
+
+- **Symptom:** The Pumbletons' S33E8 (file 5674) stood at 1299.967 of 1300.056 s, playing, `ended` false, with
+  all of it loaded; the media source stayed `open`, Up next showed no count and no next episode came (the
+  Fire TV, VQ69, 2026-11-02).
+- **Cause:** `base-stream-controller.ts` `_streamEnded` (1.7.3, and master at 1.7.4): with `maxBufferHole` set
+  and more than one buffered range, it re-measures the buffer from the merged range's *start*
+  (`BufferHelper.bufferedInfo(ranges, bufferInfo.start, 0)`), not from the playhead, and with no hole allowed.
+  A hole anywhere in the back buffer then reads as "a second buffered range" short of the edge, so it never
+  sends `BUFFER_EOS`, and the browser holds back the last frame or two until `endOfStream()`. Here the hole
+  was 84 ms of video at 1280.784–1280.868, where chunk 230 began a frame or two after 229 ended (the node's
+  fault, filed separately); `fragmentTracker.isEndListAppended("main")` was true, the stream controller IDLE.
+- **What we do:** `endAtTheLastFrame` (`web/packages/player/src/end-of-stream.ts`), in both hls.js players,
+  triggers hls.js's own `BUFFER_EOS` (no type: every track, then the source) when the video, asked to play,
+  has stood still for a 500 ms look within 0.5 s of the end of what is loaded, and that reaches within 0.5 s
+  of a non-live playlist's edge.
+- **Evidence:** [measured] 2026-11-02 on the stick over CDP: the state above, then
+  `hls.trigger("hlsBufferEos", {})` by hand gave `ended` at once, the Up next count ran and 5675 played.
+  **[web]** no report of this exact check found; near ones: [hls.js#5631](https://github.com/video-dev/hls.js/issues/5631)
+  (Chrome stalls after a ~0.07 s gap), [#4975](https://github.com/video-dev/hls.js/issues/4975),
+  [#6331](https://github.com/video-dev/hls.js/issues/6331) (checked 2026-11-02).
 
 ---
 

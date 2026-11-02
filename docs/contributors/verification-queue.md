@@ -703,7 +703,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   the fourth's end shows *Still watching?* with Continue focused and no count; OK plays the next
   episode; done again, Stop (Right, then OK) leaves the film for the page before. Then, with two
   autoplayed, press any key or tap mid-episode: the next end counts *Plays in 10 s* as usual.
-  (`web/apps/web/src/still-watching.tsx`, `up-next.tsx`)
+  Each episode must reach `ended`: one whose chunks join with a hole once stood a frame short of its
+  end for good (idiosyncrasies.md, "hls.js never ends a stream with a hole behind the playhead";
+  `web/packages/player/src/end-of-stream.ts`). (`web/apps/web/src/still-watching.tsx`, `up-next.tsx`)
+  - Run 2026-11-02, the Fire TV as lead-tests: 5667→5670 played on by themselves and 5670's end showed
+    *Still watching?* with Continue focused and no count; OK played 5671. 5674 then stood at 1299.97 of
+    1300.06 s, never ended (the hls.js fault above), until the end was sent by hand.
 - [ ] **VQ70** — Host Watch Together on a laptop's Chrome with a guest on another browser (a phone's
   or Firefox), both with sound, and play an episode that is not its season's last; seek to a minute
   before its end (D339). Passes when the host's *Plays in 10 s* runs out and both screens go to the
