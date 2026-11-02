@@ -737,7 +737,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   to it from its home page, reload the TV's page while it receives, then stop again: it goes back to
   its home page. (`web/apps/web/src/live.tsx`, `cast-to.tsx`, `cast-return.ts`,
   `internal/core/live/registry.go`)
-- [ ] **VQ72** — On a Fire TV stick in Silk's spatial mode (D349, library-browsing.md §5.5), open the
+- [x] **VQ72** — On a Fire TV stick in Silk's spatial mode (D349, library-browsing.md §5.5), open the
   Libraries page from the top bar with two or more libraries, one of them an `other` library. Passes
   when Up from the grid's top row reaches the bar, Left and Right move among the library chooser, the
   view chooser (the `other` library only) and the sort chooser; OK on any of them opens its list of
@@ -747,6 +747,20 @@ An item is ticked only by the person who did it, and only with what they saw.
   and Right from the grid's last column reaches it; opening the `other` library's Folders shows its
   subfolders and videos, Up leaves a folder, and one click reaches each from the bar.
   (`web/apps/web/src/library-browse.tsx`, `modal-dialog.tsx`, `focus-navigation.ts`)
+  - Run 2026-11-02 on the stick as lead-tests, with Movies, Shows, Musicals and an `other` library
+    "Musicals folders" (library 4, made over the musicals root for this, D363). The library chooser
+    is now the bar's Libraries menu: OK on it opened its list with the first library focused, and
+    one press of OK on a library opened it. Up from the grid's top row reached the bar (from the
+    right-hand tiles by way of the page's buttons). Left and Right moved among View (the `other`
+    library only), Configure, Search and Sort. OK on View and on Sort opened each list as an
+    overlay with focus in it; arrows moved within it, OK on a choice followed it and closed it, and
+    Back closed it with focus back on its button. The rail showed under Name and File name sorts in
+    the All view and not under Recorded or Released ones, nor in Folders (by design,
+    `library-browse.tsx`), and Right from the last tile reached it. Folders listed the six
+    subfolders; OK on one listed its video, its "‹ Musicals folders" link above it, and OK on that
+    went back up with focus on the folder left. On entering a folder nothing has focus; the
+    first arrow goes to the page's first control, View (`startIn`, as on every page). Passes;
+    ticked.
 - [ ] **VQ73** — On staging, put a decrypted DVD image (`.iso`, a film of your own, made by MakeMKV's
   backup or a DVD ripper that decrypts) in a film library and scan it (D350). Passes when the film
   is identified by its file name, its page shows the main feature's length (not a trailer's) and
