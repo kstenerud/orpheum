@@ -19,6 +19,15 @@
   font-size: var(--font-size-small);
 }
 
+/* The full-screen overlay's row (D407 §1): play between the steps at its start, full screen and the
+   sound at its end, the aside between pushing them apart. */
+.player-controls__leading,
+.player-controls__trailing {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
 /* Mute and the volume beside it, kept together as the row wraps. */
 .player-controls__sound {
   display: inline-flex;

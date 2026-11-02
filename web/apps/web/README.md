@@ -241,7 +241,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   is a remote. `src/cast-to.test.tsx`,
   `src/cast-asked.test.tsx`, `src/cast-receiver.test.tsx`, `src/cast-receiver-sound.test.tsx`,
   `src/cast-ready.test.tsx`,
-  `src/cast-receiving-mark.test.ts`, `src/cast-remote.test.tsx`, `src/tv-controls.test.tsx`,
+  `src/cast-receiving-mark.test.ts`, `src/cast-remote.test.tsx`, `src/player-overlay.test.tsx`,
   `src/watching.test.ts`, `src/together-viewer-cast.test.tsx`; on devices, VQ64–VQ66, VQ68, VQ71, VQ76,
   VQ77, VQ90, VQ99, VQ101 and VQ103.
 - **Voice starts only from Talk**, the press the microphone needs, on the viewer's page and with
@@ -421,7 +421,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   down from the end and plays it; any press stops the count, Back, Escape or its × dismisses it; it
   takes focus as the film ends, and a television's overlay leaves OK on it to it. A film, the last
   episode and one that cannot be read now offer nothing. `src/up-next.test.tsx`,
-  `src/autoplay-setting.test.tsx`, `src/tv-controls.test.tsx`; on devices, VQ67.
+  `src/autoplay-setting.test.tsx`, `src/player-overlay.test.tsx`; on devices, VQ67.
 - **A run of autoplays asks before it goes on, and a host's moves their group** (D339): after
   `stillWatchingAfterAutoplays` (3) episodes autoplayed in a row with no press on the page, the next
   film's end shows *Still watching?*, Continue (focused) or Stop (leaves the film), and counts
@@ -579,14 +579,14 @@ The web client: the browser and phone interface, served embedded by the core. MP
   on and 60 s from 4 s, and the film seeks once, there, as the presses rest (half a second, a key's
   after its release); a press on the timeline shows its place at once; and the place shown stays
   until the seek lands. A remote's drags and steps are one command once they rest the same way
-  (the owner, Fire TV, 2026-10-29). A television's overlay (`src/tv-controls.tsx`) seeks by Left and Right on its
+  (the owner, Fire TV, 2026-10-29). A television's overlay (`src/player-overlay.tsx`) seeks by Left and Right on its
   timeline, whose arrows are commands (`data-focus-arrows-are-commands`), and offers full screen as a
   button a remote presses. A computer's and a phone's (`src/page-controls.tsx`) is the same bar over
   the film, with mute and the volume, shown by a mouse's move, a tap or a key in the player and hidden
   by five still seconds while the film plays; Down on the video goes into it, a mouse's click on the
   film plays or pauses it and a double click puts it full screen. `src/page-controls.test.tsx`,
   `src/seek-ahead.test.ts`, `src/timeline.test.tsx`, `src/cast-remote.test.tsx`,
-  `src/player-commands.test.tsx`, `src/tv-controls.test.tsx`, `src/input-player.browser.test.tsx`,
+  `src/player-commands.test.tsx`, `src/player-overlay.test.tsx`, `src/input-player.browser.test.tsx`,
   `src/input-commands.test.tsx`, `src/input-layer.test.tsx`,
   `src/focus-memory.test.ts`, `src/focus-engine.test.ts`, `src/input-buttons.test.ts`,
   `src/input-pads.test.ts`, `src/navigation.test.ts`, `src/app-shell.test.tsx`,
@@ -637,7 +637,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `player-tracks.tsx`, the track and sound choices every piece over or under the film reads,
   `player-commands.ts`, its answers to a remote, and
   `up-next.tsx`, what plays next; its controls are `player-controls.tsx`, the bar, over the film as
-  `tv-controls.tsx` on a television and `page-controls.tsx` elsewhere, with `timeline.tsx`,
+  `player-overlay.tsx` over the film and `page-controls.tsx` elsewhere, with `timeline.tsx`,
   `icon-button.tsx` and `player-icons.tsx`), `autoplay-setting.tsx` (the person's autoplay, on their account), `library-configure.tsx` (a library's Configure: the person's own Show in Films or Series, D349 §8, and Show on Home, D366 §5), `upward.ts` (where each page sits, D367), `up-trail.tsx` (the trail and Up), `episode-reached.ts` (the episode a series' page returns to), `route-chooser.tsx` (a drop-down of routes, or of choices a page keeps), `drop-down-place.ts` (where a drop-down's list opens), `phone-width.ts` (a phone's width, the stylesheets' breakpoint), `drop-down.tsx` (the one drop-down: a chooser's and the menu's), `sort-choices.ts` (each sort either way, D366 §2), `watched-mark.tsx` (the watched check, and marking by hand with its Undo, D370), `watching.ts` (the film a tab watches: its page's warm-up
   and letting go of the last film's playbacks, D258), `sound.tsx` (the switches of the person's own choices: the boost, levelling),
   `audio-tracks.tsx` (the audio track menu, D230), `ladder-sound.ts` (each sound by its place and level, and a track or the boost switched in place), `watch-together.tsx` (the host's Watch Together

@@ -280,7 +280,7 @@ export function caretOf(element: Element): Caret | undefined {
 
 /**
  * The attribute that marks a range whose Left and Right are commands, not its own steps: a player's
- * scrub bar, whose arrows the player answers by seeking (tv-controls.tsx), as a TV's player does.
+ * scrub bar, whose arrows the player answers by seeking (player-overlay.tsx), as a TV's player does.
  */
 export const arrowsAreCommandsAttribute = "data-focus-arrows-are-commands";
 

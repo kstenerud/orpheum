@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { createContext, use, useEffect, useMemo, type JSX, type ReactNode } from "react";
-import { useTranslation } from "react-i18next";
 
-import { BackButton } from "./back-button.tsx";
 import { noteEpisodeReached } from "./episode-reached.ts";
 import { i18n } from "./i18n.ts";
 import { useBackTarget } from "./input-layer.tsx";
+import { BackIcon } from "./player-icons.tsx";
 import { routeHref, routeOfHref, type Route } from "./router.ts";
 import { useServices } from "./services.tsx";
 import { isTelevision } from "./tv-device.ts";
@@ -98,14 +97,14 @@ export function playUp(plays: Plays, context: LibraryContext = { t: i18n.t, behi
 }
 
 /**
- * A Play page's upward, for the television's player overlay, which shows its Up and its Back
- * (tv-controls.tsx); undefined where the page plays no film of its own, a cast's receiver.
+ * A Play page's upward, for the player's full-screen overlay, which shows its Up and what plays
+ * (player-overlay.tsx); undefined where the page plays no film of its own, a cast's receiver.
  */
 export const PlayUpwardContext = createContext<Upward | undefined>(undefined);
 
 /**
  * The Play page's way up, at its top (D367 §8): on a computer or a phone its trail; on a television
- * none here, its player's overlay holding its Up and Back (OverlayUpAndBack), and a remote's Back
+ * none here, its player's overlay holding its Up (OverlayUp), and a remote's Back
  * with nothing of the app behind going up as the Up does. Notes an episode played, whose series'
  * page shows its season when returned to (§9).
  */
@@ -119,8 +118,8 @@ export function PlayTrail(props: { readonly upward: Upward; readonly plays: Play
 }
 
 /**
- * The Play page's top, its trail and the film's name, over children, the player, whose television
- * overlay finds its Up and Back by PlayUpwardContext; a cast's receiver shows neither (D337 §3).
+ * The Play page's top, its trail and the film's name, over children, the player, whose full-screen
+ * overlay finds its Up by PlayUpwardContext; a cast's receiver shows neither (D337 §3).
  * Notes on the page's history entry its title's page, which Back or Forward shows in its place.
  */
 export function PlayTop(props: {
@@ -176,23 +175,20 @@ function UpByTheRemote(props: { readonly up: Route }): null {
 }
 
 /**
- * A television's player overlay's way out (D367 §6, §8): Up, "‹ S1E1 Pilot", and an on-screen Back,
- * since TV Bro's remote Back never reaches the page and the app cannot tell it from Silk; nothing on
- * a cast's receiver.
+ * The full-screen overlay's way out and what plays (D367 §6, §8; D407 §1): Up, "‹ S1E1 Pilot", the
+ * page above a Play page being what plays; the on-screen Back goes, a remote's Back hiding the
+ * overlay first (D407 §5, Q5). Nothing on a cast's receiver.
  */
-export function OverlayUpAndBack(): JSX.Element | null {
-  const { t } = useTranslation();
+export function OverlayUp(): JSX.Element | null {
   const upward = use(PlayUpwardContext);
   const parent = upward === undefined ? undefined : parentOf(upward);
   if (parent === undefined) {
     return null;
   }
   return (
-    <div className="tv-controls__leave">
-      <UpLink crumb={parent} className="tv-controls__up">
-        {t("trail.up", { name: parent.label })}
-      </UpLink>
-      <BackButton up={parent.to} />
-    </div>
+    <UpLink crumb={parent} className="player-overlay__up">
+      <BackIcon />
+      <span className="player-overlay__title">{parent.label}</span>
+    </UpLink>
   );
 }

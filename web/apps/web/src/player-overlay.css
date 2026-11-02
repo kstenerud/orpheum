@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
-/* A television's player overlay (tv-controls.tsx): along the film's bottom, over it, in full
-   screen too, as Jellyfin's (the owner, 2026-10-25). Hidden, it is out of the page altogether, with
-   no fade, so nothing lies over the film while it plays: a weak stick then composites every frame
-   (the owner's Fire TV, 2026-10-25: playback choppy with it hidden over the film). After a seek
-   only the scrub row shows. */
-.tv-controls {
+/* The player's full-screen overlay (player-overlay.tsx, D407): three rows along the film's bottom,
+   over it, in full screen too, as Jellyfin's (the owner, 2026-10-25). Hidden, it is out of the page
+   altogether, with no fade, so nothing lies over the film while it plays: a weak stick then
+   composites every frame (the owner's Fire TV, 2026-10-25: playback choppy with it hidden over the
+   film). After a seek, or OK pausing, only the scrub row shows. */
+.player-overlay {
   position: absolute;
   inset-inline: 0;
   inset-block-end: 0;
@@ -16,24 +16,49 @@
   color: var(--color-on-video);
 }
 
-.tv-controls[data-shown="none"] {
+.player-overlay[data-shown="hidden"],
+.player-overlay[data-shown="convenience"] {
   display: none;
 }
 
-.tv-controls[data-shown="scrub"] .player-controls__buttons,
-.tv-controls[data-shown="scrub"] .tv-controls__leave {
+.player-overlay[data-shown="scrub"] .player-overlay__top,
+.player-overlay[data-shown="scrub"] .player-overlay__buttons,
+.player-overlay[data-shown="paused"] .player-overlay__top,
+.player-overlay[data-shown="paused"] .player-overlay__buttons {
   visibility: hidden;
 }
 
-/* The way out of the player (D367 §6, §8): Up, "‹ Show", and Back, above the bar. */
-.tv-controls__leave {
+/* Row 0: the way up, "‹ S1E1 Pilot" (D367 §8, D407 §1). */
+.player-overlay__top {
   display: flex;
   gap: var(--space-3);
   align-items: center;
 }
 
-.tv-controls__up {
+.player-overlay__up {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
   color: inherit;
+}
+
+/* The pause sign, over the film's middle, while OK has paused it with the overlay hidden (D407 §4). */
+.player-overlay-paused {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--color-on-video);
+  pointer-events: none;
+}
+
+.player-overlay-paused[hidden] {
+  display: none;
+}
+
+.player-overlay-paused .player-icons__icon {
+  width: 4rem;
+  height: 4rem;
 }
 
 /* The stage full screen, as a television's player opens, or filling the window where the browser

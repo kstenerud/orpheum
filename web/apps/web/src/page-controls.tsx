@@ -10,13 +10,14 @@ import type { FilmParts } from "./film-player.tsx";
 import { useCommands } from "./input-layer.tsx";
 import { answerPlayerCommand } from "./player-commands.ts";
 import { PlayerControls, useVideoSource } from "./player-controls.tsx";
-import { overlayShownForMs, useOpensAtThePointer } from "./tv-controls.tsx";
+import { useIsFocusIn, useOpensAtThePointer } from "./player-overlay.tsx";
+import { fullShownForMs } from "./player-overlay-state.ts";
 
 /**
  * A computer's and a phone's player controls (D369 §2), in place of the browser's own: the player's
  * bar along the film's bottom, inside its stage so it stays in full screen, with play or pause,
  * sound, full screen and the timeline. A mouse's move, a tap or a key in the player shows it, and
- * stillness hides it after overlayShownForMs while the film plays, as the receiver's does; a key's
+ * stillness hides it after fullShownForMs while the film plays, as the receiver's does; a key's
  * focus in it keeps it in view. The video itself is a stop for the arrows and Tab, where Left and
  * Right seek and OK and Space play and pause (player-commands.ts), and Down goes into the bar, to
  * play, as a television's overlay opens (the bar lies over the video, where no arrow's search from
@@ -64,7 +65,7 @@ export function PageControls(props: FilmParts): JSX.Element {
 
 /**
  * Whether the bar shows, and what shows it: shown as the player opens and while the film is paused,
- * it hides overlayShownForMs after the last sign of someone there, a mouse's move, a click or a tap
+ * it hides fullShownForMs after the last sign of someone there, a mouse's move, a click or a tap
  * anywhere (useOpensAtThePointer), a command while focus is in the player, or focus coming into the
  * bar. Hiding leaves focus where it is.
  */
@@ -109,7 +110,7 @@ function useShownWhileActive(
       return undefined;
     }
     const timer = setInterval(() => {
-      if (performance.now() - lastSeenAtRef.current >= overlayShownForMs) {
+      if (performance.now() - lastSeenAtRef.current >= fullShownForMs) {
         setIsShown(false);
       }
     }, 500);
@@ -117,30 +118,6 @@ function useShownWhileActive(
       clearInterval(timer);
     };
   }, [isShown, isPaused, setIsShown]);
-}
-
-/** Whether focus is in the element overlayRef holds, as its focusin and focusout say. */
-function useIsFocusIn(overlayRef: RefObject<HTMLElement | null>): boolean {
-  const [isFocusIn, setIsFocusIn] = useState(false);
-  useEffect(() => {
-    const overlay = overlayRef.current;
-    if (overlay === null) {
-      return undefined;
-    }
-    const focusedIn = (): void => {
-      setIsFocusIn(true);
-    };
-    const focusedOut = (event: FocusEvent): void => {
-      setIsFocusIn(event.relatedTarget instanceof Node && overlay.contains(event.relatedTarget));
-    };
-    overlay.addEventListener("focusin", focusedIn);
-    overlay.addEventListener("focusout", focusedOut);
-    return () => {
-      overlay.removeEventListener("focusin", focusedIn);
-      overlay.removeEventListener("focusout", focusedOut);
-    };
-  }, [overlayRef]);
-  return isFocusIn;
 }
 
 /**

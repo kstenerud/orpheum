@@ -135,7 +135,7 @@ export function answerPlayerCommand(
 
 /**
  * The attribute that marks the player's own controls over its video, as a television's overlay
- * (tv-controls.tsx): Space on any of them plays and pauses (useSpacePlaysAndPauses).
+ * (player-overlay.tsx): Space on any of them plays and pauses (useSpacePlaysAndPauses).
  */
 export const playerControlsAttribute = "data-player-controls";
 
