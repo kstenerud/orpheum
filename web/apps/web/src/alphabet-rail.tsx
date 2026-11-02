@@ -122,9 +122,9 @@ export function showAtTop(poster: HTMLElement): boolean {
   }
   // Focused as a key would, a remote's press being one; scrolled on, gently, clear of the banner.
   focusAndShow(poster, true);
-  const scrolledToTheEnd =
+  const isScrolledToTheEnd =
     window.scrollY >= document.documentElement.scrollHeight - window.innerHeight - 1;
-  return scrolledToTheEnd && poster.getBoundingClientRect().top > clearOfTheBannerPx() + 1;
+  return isScrolledToTheEnd && poster.getBoundingClientRect().top > clearOfTheBannerPx() + 1;
 }
 
 /**
@@ -141,6 +141,75 @@ interface JumpedTo {
  * keeping what is on screen in place as the list grows) is none of these.
  */
 const goingOnEvents = ["wheel", "touchstart", "keydown", "pointerdown"] as const;
+
+/**
+ * Shows the poster jumpedTo names in list at the top, if it is drawn; what is left to do: jumpedTo
+ * itself while it is not drawn yet, the poster shown while the page's end stopped it short and the
+ * list has more (which the caller loads), undefined once done or once focus went on from it.
+ */
+function showJumpedTo(
+  jumpedTo: JumpedTo,
+  list: HTMLElement | null,
+  hasMore: boolean,
+): JumpedTo | undefined {
+  const { place, shown } = jumpedTo;
+  if (shown !== undefined && document.activeElement !== shown) {
+    // Focus went on from the poster before the page after it came.
+    return undefined;
+  }
+  const posters = list?.querySelectorAll<HTMLElement>(".poster-grid > li > a");
+  const poster = place < 0 ? posters?.[posters.length - 1] : posters?.[place];
+  if (poster === undefined) {
+    return jumpedTo;
+  }
+  return showAtTop(poster) && hasMore ? { place, shown: poster } : undefined;
+}
+
+/**
+ * Shows the poster a jump found once it is drawn, at each drawing of the list, loading the page
+ * after it while the page's end stops it short of the top and the person has not gone on from it;
+ * a way to say which poster, by its place in the list's items, the last's for -1.
+ */
+function useJumpedToShown<T>(
+  pages: Pages<T>,
+  listRef: RefObject<HTMLElement | null>,
+): (place: number) => void {
+  const { loadMore, loadedSoFar } = pages;
+  // The poster to focus once it is drawn, undefined for none.
+  const toFocusRef = useRef<JumpedTo | undefined>(undefined);
+  const [found, setFound] = useState(0);
+  useEffect(() => {
+    const goOn = (): void => {
+      if (toFocusRef.current?.shown !== undefined) {
+        toFocusRef.current = undefined;
+      }
+    };
+    for (const event of goingOnEvents) {
+      window.addEventListener(event, goOn, { capture: true, passive: true });
+    }
+    return () => {
+      for (const event of goingOnEvents) {
+        window.removeEventListener(event, goOn, { capture: true });
+      }
+    };
+  }, []);
+  useEffect(() => {
+    const jumpedTo = toFocusRef.current;
+    if (jumpedTo === undefined) {
+      return;
+    }
+    const hasMore = loadedSoFar.state === "loaded" && loadedSoFar.value.nextCursor !== "";
+    const left = showJumpedTo(jumpedTo, listRef.current, hasMore);
+    toFocusRef.current = left;
+    if (left?.shown !== undefined) {
+      loadMore();
+    }
+  }, [found, loadedSoFar, listRef, loadMore]);
+  return useCallback((place: number) => {
+    toFocusRef.current = { place };
+    setFound((count) => count + 1);
+  }, []);
+}
 
 /**
  * Moves a list by name or file name to the first title at or after the letter jump names, as the
@@ -167,26 +236,8 @@ export function useLetterJump<T extends { readonly id: number }>(props: {
   const { kind, sort, library, jump, listRef } = props;
   const search = props.search ?? "";
   const isZToA = props.isZToA === true;
-  const { loadUntil, loadMore, loadedSoFar } = props.pages;
-  // The poster to focus once it is drawn, undefined for none; the jump found it, the drawing of the
-  // pages after it focuses it, and shows it at the top again as more are drawn below it.
-  const toFocusRef = useRef<JumpedTo | undefined>(undefined);
-  const [found, setFound] = useState(0);
-  useEffect(() => {
-    const goOn = (): void => {
-      if (toFocusRef.current?.shown !== undefined) {
-        toFocusRef.current = undefined;
-      }
-    };
-    for (const event of goingOnEvents) {
-      window.addEventListener(event, goOn, { capture: true, passive: true });
-    }
-    return () => {
-      for (const event of goingOnEvents) {
-        window.removeEventListener(event, goOn, { capture: true });
-      }
-    };
-  }, []);
+  const { loadUntil } = props.pages;
+  const showWhenDrawn = useJumpedToShown(props.pages, listRef);
   useEffect(() => {
     if (jump === undefined) {
       return undefined;
@@ -207,40 +258,14 @@ export function useLetterJump<T extends { readonly id: number }>(props: {
         const first = dataOrThrow(answer).titles?.[0];
         const place = await loadUntil((item) => item.id === first?.id);
         if (isCurrent) {
-          toFocusRef.current = { place: place ?? -1 };
-          setFound((count) => count + 1);
+          showWhenDrawn(place ?? -1);
         }
       })
       .catch(reportFailure);
     return () => {
       isCurrent = false;
     };
-  }, [api, kind, sort, isZToA, library, search, jump, loadUntil]);
-  useEffect(() => {
-    const jumpedTo = toFocusRef.current;
-    if (jumpedTo === undefined) {
-      return;
-    }
-    const { place, shown } = jumpedTo;
-    if (shown !== undefined && document.activeElement !== shown) {
-      // Focus went on from the poster before the page after it came.
-      toFocusRef.current = undefined;
-      return;
-    }
-    const posters = listRef.current?.querySelectorAll<HTMLElement>(".poster-grid > li > a");
-    const poster = place < 0 ? posters?.[posters.length - 1] : posters?.[place];
-    if (poster === undefined) {
-      return;
-    }
-    const isStoppedShort = showAtTop(poster);
-    const hasMore = loadedSoFar.state === "loaded" && loadedSoFar.value.nextCursor !== "";
-    if (isStoppedShort && hasMore) {
-      toFocusRef.current = { place, shown: poster };
-      loadMore();
-    } else {
-      toFocusRef.current = undefined;
-    }
-  }, [found, loadedSoFar, listRef, loadMore]);
+  }, [api, kind, sort, isZToA, library, search, jump, loadUntil, showWhenDrawn]);
 }
 
 /**
