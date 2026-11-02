@@ -59,7 +59,13 @@ import {
   type DecideAgainCause,
   type FirstAsk,
 } from "./play-opened.ts";
-import { overTheFilm, UpNextContext, useSequenceCommands, useUpNextOffered } from "./up-next.tsx";
+import {
+  ControlsUnderTheFilm,
+  overTheFilm,
+  UpNextContext,
+  useSequenceCommands,
+  useUpNextOffered,
+} from "./up-next.tsx";
 import type { PlaybackDecision } from "./watching.ts";
 
 /** What PlayView is given: the file, its decision, and its ways to ask again. */
@@ -431,10 +437,18 @@ function OverlayHeld(props: { readonly children: ReactNode }): JSX.Element {
 /** What the Play page gives what it draws under the film: PlayView's props and its ways. */
 const PlayContext = createContext<PlayProps | undefined>(undefined);
 
-/** PlayUnder, with the page's props from PlayContext: the player's Under piece. */
-function PlayUnderOfPage(props: FilmParts): JSX.Element | null {
+/**
+ * The player's Under piece: its controls under the film outside full screen (D407 §9), then
+ * PlayUnder with the page's props from PlayContext.
+ */
+function PlayUnderOfPage(props: FilmParts): JSX.Element {
   const ways = use(PlayContext);
-  return ways === undefined ? null : <PlayUnder {...ways} {...props} />;
+  return (
+    <>
+      <ControlsUnderTheFilm {...props} />
+      {ways === undefined ? null : <PlayUnder {...ways} {...props} />}
+    </>
+  );
 }
 
 /**

@@ -11,7 +11,7 @@
  * hears it.
  */
 
-import { useEffect } from "react";
+import { useEffect, type RefObject } from "react";
 
 import { leaveFullScreenAsked } from "./film-fullscreen.ts";
 import { arrowsAreCommandsAttribute } from "./focus-engine.ts";
@@ -64,10 +64,39 @@ function isVideosToSeek(video: HTMLVideoElement): boolean {
   return focused.hasAttribute(arrowsAreCommandsAttribute) && isInThePlayersControls(focused, video);
 }
 
-/** Whether element is in the player's own controls over video (playerControlsAttribute). */
+/** Whether element is in the player's own controls for video (markPlayersControls). */
 function isInThePlayersControls(element: Element, video: HTMLVideoElement): boolean {
   const controls = element.closest(`[${playerControlsAttribute}]`);
-  return controls !== null && controls.parentElement?.contains(video) === true;
+  return controls !== null && videosOfControls.get(controls)?.current === video;
+}
+
+/**
+ * The player's own controls (playerControlsAttribute), each with the video it commands, as the
+ * controls name it: the bar under the film is not in the video's stage (D407 §9), so where an element
+ * lies says nothing of the video it is for (plans/player-overlay.md §6).
+ */
+const videosOfControls = new WeakMap<Element, RefObject<HTMLVideoElement | null>>();
+
+/** Marks controls as the player's own for the video in videoRef; returns the unmarking. */
+export function markPlayersControls(
+  controls: Element,
+  videoRef: RefObject<HTMLVideoElement | null>,
+): () => void {
+  videosOfControls.set(controls, videoRef);
+  return () => {
+    videosOfControls.delete(controls);
+  };
+}
+
+/** Marks the controls in controlsRef as the player's own for the video in videoRef while drawn. */
+export function usePlayersControls(
+  controlsRef: RefObject<HTMLElement | null>,
+  videoRef: RefObject<HTMLVideoElement | null>,
+): void {
+  useEffect(() => {
+    const controls = controlsRef.current;
+    return controls === null ? undefined : markPlayersControls(controls, videoRef);
+  }, [controlsRef, videoRef]);
 }
 
 /** Leaves full screen where the page is in it; whether it was. */
@@ -159,8 +188,9 @@ export function answerPlayerCommand(
 }
 
 /**
- * The attribute that marks the player's own controls over its video, as the full-screen overlay
- * (player-overlay.tsx): Space on any of them but a button plays and pauses (useSpacePlaysAndPauses).
+ * The attribute that marks the player's own controls for its video, the full-screen overlay
+ * (player-overlay.tsx) and the bar under the film (page-controls.tsx), each marked for its video by
+ * markPlayersControls: Space on any of them but a button plays and pauses (useSpacePlaysAndPauses).
  */
 export const playerControlsAttribute = "data-player-controls";
 
@@ -224,9 +254,15 @@ function useSpacePlaysAndPauses(video: HTMLVideoElement | null): void {
         video.focus({ preventScroll: true });
       }, 0);
     };
+    // Leaving full screen, the bar under the film may move focus to its play first (D407 §7):
+    // the video takes it back only where nothing else has.
     const onFullscreenChange = (): void => {
       if (document.activeElement === video) {
-        takeFocusBack();
+        setTimeout(() => {
+          if (document.activeElement === video || document.activeElement === document.body) {
+            video.focus({ preventScroll: true });
+          }
+        }, 0);
       }
     };
     document.addEventListener("keydown", down, true);

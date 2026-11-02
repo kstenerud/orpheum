@@ -149,6 +149,23 @@ describe.each(screens)("the player by a remote's keys, on $name", ({ width, heig
     expect(play.mock.calls.length).toBe(playsBefore + 1);
   });
 
+  // D407 §9: outside full screen nothing lies over the film; the controls are under it.
+  it("draws nothing over the film outside full screen, its controls under it", async () => {
+    vi.spyOn(Element.prototype, "requestFullscreen").mockRejectedValue(new Error("refused"));
+    await page.viewport(width, height);
+    walking = await mountApp(walkServices(filmToPlay, "/play/1030"));
+    const video = await theFailedVideo();
+    const stage = video.closest(".film-player__stage");
+    // The video, and the subtitles' layer over it where a subtitle shows (JASSUB's canvas).
+    const over = [...(stage?.children ?? [])].filter(
+      (child) => child !== video && child.tagName !== "CANVAS",
+    );
+    expect(over.map((child) => child.outerHTML.slice(0, 80))).toEqual([]);
+    const controls = document.querySelector(".page-controls");
+    expect(controls?.querySelector('button[aria-label="Play"]')).not.toBeNull();
+    expect(stage?.contains(controls ?? null)).toBe(false);
+  });
+
   it("goes back to the film's page by Back, to its Play", async () => {
     await page.viewport(width, height);
     walking = await mountApp(walkServices(filmToPlay, "/titles/103"));
@@ -371,6 +388,36 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
     await press(" ");
     expect(play.mock.calls.length).toBe(playsBefore + 1);
     expect(document.activeElement).toBe(scrub);
+  });
+
+  // D407 §7, §9: a Fire TV's Back leaves the browser's full screen itself, the page never hearing
+  // it; the controls are then under the film, focus on play, and the next Back goes to the film's
+  // page.
+  it("shows the controls under the film as full screen is left, focus on play, and goes to the film's page by the next Back", async () => {
+    vi.spyOn(Navigator.prototype, "userAgent", "get").mockReturnValue(fireTvSilk);
+    let fullScreen: Element | null = null;
+    vi.spyOn(Document.prototype, "fullscreenElement", "get").mockImplementation(() => fullScreen);
+    vi.spyOn(Element.prototype, "requestFullscreen").mockImplementation(() => {
+      fullScreen = document.querySelector(".film-player__stage");
+      document.dispatchEvent(new Event("fullscreenchange"));
+      return Promise.resolve();
+    });
+    await page.viewport(960, 480);
+    const services = walkServices(filmToPlay, "/play/1030");
+    walking = await mountApp(services);
+    await theFailedVideo();
+    await expect.poll(() => isDrawn(".player-overlay")).toBe(true);
+    fullScreen = null;
+    document.dispatchEvent(new Event("fullscreenchange"));
+    await expect.poll(() => isDrawn(".player-overlay")).toBe(false);
+    const play = document.querySelector(".page-controls button[aria-label='Play']");
+    expect(play).not.toBeNull();
+    await expect.poll(() => document.activeElement).toBe(play);
+    expect(document.querySelector(".page-controls .player-overlay__up")).not.toBeNull();
+    await press("{Escape}");
+    await expect
+      .poll(() => routeHref(services.navigation.route()))
+      .toBe(routeHref({ screen: "title", itemId: 103 }));
   });
 });
 

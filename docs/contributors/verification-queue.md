@@ -2445,3 +2445,15 @@ An item is ticked only by the person who did it, and only with what they saw.
   it open. On the Fire TV and a phone there is no 🔈. 🎧 names the track playing, the film's first
   where none was chosen. (`web/apps/web/src/player-commands.ts`, `player-menus.tsx`,
   `player-overlay.tsx`)
+
+- [ ] **VQ249** — outside full screen the controls lie under the film, nothing over it (D407 §9;
+  plans/player-overlay.md step 11). On staging, on a phone held upright and then on its side, open
+  a film's Play page without full screen. Passes when: nothing covers the picture but subtitles;
+  under it are the timeline, then ⏪ ▶ ⏩ (⏮ ⏭ around them in a series) and ⤢, then "Ends 9:41" or
+  Up next and Still watching as ordinary buttons; a tap on the film neither pauses it nor shows
+  anything over it; ⤢ puts it full screen with the overlay. On the Fire TV, play a film (it opens
+  full screen with the overlay), then press Back until Silk leaves full screen. Passes when: the
+  film then shows with the controls under it, focus on ▶, a ‹ to the film's page among them; Left
+  and Right on the film seek, OK plays and pauses, Down reaches ▶; ⤢ returns to full screen; and,
+  out of full screen, the next Back goes to the film's page. Note what each Back did.
+  (`web/apps/web/src/page-controls.tsx`, `up-next.tsx`, `play.tsx`)

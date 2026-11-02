@@ -3,67 +3,162 @@
 import "./page-controls.css";
 
 import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
+import { useTranslation } from "react-i18next";
 
 import { pressOf } from "./cast-asked.tsx";
-import type { OfferPiece } from "./convenience-area.tsx";
-import { toggleFullScreen } from "./film-fullscreen.ts";
+import { ConvenienceArea, type OfferPiece } from "./convenience-area.tsx";
+import { fillTheScreen, toggleFullScreen } from "./film-fullscreen.ts";
 import type { FilmParts } from "./film-player.tsx";
 import { useIsFullScreen } from "./full-screen-button.tsx";
 import { useCommands } from "./input-layer.tsx";
-import { answerPlayerCommand } from "./player-commands.ts";
+import { OverlayUp } from "./play-up.tsx";
+import { answerPlayerCommand, usePlayersControls } from "./player-commands.ts";
 import { PlayerControls, useVideoSource, type SequenceMoves } from "./player-controls.tsx";
-import { PlayerOverlay, useIsFocusIn, useOpensAtThePointer } from "./player-overlay.tsx";
-import { fullShownForMs } from "./player-overlay-state.ts";
+import { PlayerMenus } from "./player-menus.tsx";
+import { barControlsOf, PlayerOverlay, useControlsShown } from "./player-overlay.tsx";
+import { Timeline } from "./timeline.tsx";
+import { isTelevision } from "./tv-device.ts";
 
-/**
- * A computer's and a phone's player controls (D369 §2), in place of the browser's own: in full
- * screen, the browser's or the stage filling the window (useIsFullScreen), the player's overlay, as
- * a television's (D407 §1, §5); otherwise the bar (PageBar). The switch is made here, in the Play
- * page's own piece, not in the film player's stage, which Watch Together's guest shares (the plan's
- * §6 audit). A mouse's click on the film plays or pauses it, and a double click puts it full screen
- * or leaves (the two clicks' play and pause undoing each other), in either. The offer, Up next or
- * Still watching, is the overlay's convenience area's in full screen (D407 §3), and beside the bar
- * otherwise, until the controls move below the film (D407 §9, plans/player-overlay.md step 11).
- */
-export function PageControls(
-  props: FilmParts & {
-    readonly offer?: OfferPiece | undefined;
-    /** What the overlay's previous and next play (D407 §2). */
-    readonly moves?: SequenceMoves | undefined;
-  },
-): JSX.Element {
-  const { offer: Offer, moves, ...film } = props;
-  const isFullScreen = useIsFullScreen();
-  usePressesOnTheFilm(film.videoRef);
-  if (isFullScreen) {
-    return <PlayerOverlay {...film} offer={Offer} moves={moves} />;
-  }
-  return (
-    <>
-      <PageBar {...film} />
-      {Offer === undefined ? null : <Offer {...film} />}
-    </>
-  );
+/** What the player's controls draw beside the film's own parts: the offer, previous and next. */
+interface ControlsGiven {
+  /** The offer, Up next or Still watching (convenience-area.tsx). */
+  readonly offer?: OfferPiece | undefined;
+  /** What previous and next play, each shown only where given (D407 §2). */
+  readonly moves?: SequenceMoves | undefined;
 }
 
 /**
- * The player's bar outside full screen, along the film's bottom, inside its stage so it stays in full screen, with play or pause,
- * sound, full screen and the timeline. A mouse's move, a tap or a key in the player shows it, and
- * stillness hides it after fullShownForMs while the film plays, as the receiver's does; a key's
- * focus in it keeps it in view. The video itself is a stop for the arrows and Tab, where Left and
- * Right seek and OK and Space play and pause (player-commands.ts), and Down goes into the bar, to
- * play, as a television's overlay opens (the bar lies over the video, where no arrow's search from
- * it looks); a tap shows the bar.
+ * The player's own controls over the film, every device's (D369 §2): the full-screen overlay while
+ * the film shows full screen, the browser's or the stage filling the window (useIsFullScreen; D407
+ * §1, §5), and nothing otherwise, the controls then lying under the film (PageControls, D407 §9).
+ * shouldOpenFullScreen puts the stage full screen as the player opens, as a television's player is,
+ * filling the window where the browser refuses; hasPressesOnTheFilm has a mouse's click on the film
+ * play or pause it and a double click put it full screen or leave (the two clicks' play and pause
+ * undoing each other). The switch is made in the Play page's pieces, not in the film player's
+ * stage, which Watch Together's guest shares (the plan's §6 audit).
  */
-function PageBar(props: FilmParts): JSX.Element {
-  const { videoRef } = props;
-  const overlayRef = useRef<HTMLDivElement>(null);
+export function OverTheFilm(
+  props: FilmParts &
+    ControlsGiven & {
+      readonly shouldOpenFullScreen?: boolean | undefined;
+      readonly hasPressesOnTheFilm?: boolean | undefined;
+    },
+): JSX.Element | null {
+  const { shouldOpenFullScreen, hasPressesOnTheFilm, offer, moves, ...film } = props;
+  const isFullScreen = useIsFullScreen();
+  useFullscreenStage(film.videoRef, shouldOpenFullScreen === true);
+  usePressesOnTheFilm(film.videoRef, hasPressesOnTheFilm === true);
+  return isFullScreen ? <PlayerOverlay {...film} offer={offer} moves={moves} /> : null;
+}
+
+/**
+ * The player's controls under the film, outside full screen on every device, a television's too
+ * (D407 §9): nothing is drawn over the video then. As full screen ends unasked (a Fire TV's Back, a
+ * computer's Escape, which the page never hears), focus goes to play, from where ⤢ returns and the
+ * next Back goes to the film's page (D407 §7). In full screen, nothing: the overlay is the controls.
+ */
+export function PageControls(props: FilmParts & ControlsGiven): JSX.Element | null {
+  const { offer, moves, ...film } = props;
+  const isFullScreen = useIsFullScreen();
   const playRef = useRef<HTMLButtonElement>(null);
-  const [isShown, setIsShown] = useState(true);
-  // A key's focus in the bar keeps it in view though hidden (page-controls.css), so it reads on.
-  const isFocusIn = useIsFocusIn(overlayRef);
-  const source = useVideoSource(videoRef, !isShown && !isFocusIn);
-  useShownWhileActive({ isShown, setIsShown }, source.isPaused, overlayRef);
+  usePlayFocusedAsFullScreenEnds(isFullScreen, playRef);
+  return isFullScreen ? null : (
+    <ControlsBar film={film} offer={offer} moves={moves} playRef={playRef} />
+  );
+}
+
+/** Focuses play in playRef as full screen ends, once the controls under the film are drawn. */
+function usePlayFocusedAsFullScreenEnds(
+  isFullScreen: boolean,
+  playRef: RefObject<HTMLButtonElement | null>,
+): void {
+  const wasFullScreenRef = useRef(isFullScreen);
+  useEffect(() => {
+    if (wasFullScreenRef.current && !isFullScreen) {
+      playRef.current?.focus();
+    }
+    wasFullScreenRef.current = isFullScreen;
+  }, [isFullScreen, playRef]);
+}
+
+/** A menu of the bar's opening or closing holds nothing: the bar under the film never hides. */
+const noMenuHeld = (): void => undefined;
+
+/**
+ * The bar under the film (D407 §9): the timeline; the buttons, those the device shows
+ * (controlsShown), ⏮ ⏪ ▶ ⏩ ⏭ leading and 🔈 ⤢ trailing; then the offers as ordinary buttons, Up next
+ * or Still watching, or when the film ends while nothing is on offer (convenience-area.tsx), after
+ * a television's ‹, its one way up (PlayTrail draws none there). Always shown. The subtitle and
+ * audio menus and the rest stay under it on the page, as before D407 (play.tsx). The video is a
+ * stop for the arrows and Tab, where Left and Right seek and OK and Space play and pause
+ * (player-commands.ts), and Down goes into the bar, to play.
+ */
+function ControlsBar(props: {
+  readonly film: FilmParts;
+  readonly offer: OfferPiece | undefined;
+  readonly moves: SequenceMoves | undefined;
+  readonly playRef: RefObject<HTMLButtonElement | null>;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { film, offer, moves, playRef } = props;
+  const { videoRef } = film;
+  const barRef = useRef<HTMLDivElement>(null);
+  const areaRef = useRef<HTMLDivElement>(null);
+  const [hasOffer, setHasOffer] = useState(false);
+  const source = useVideoSource(videoRef);
+  const isTv = isTelevision(navigator.userAgent);
+  const shown = useControlsShown(isTv, moves);
+  usePlayersControls(barRef, videoRef);
+  useDownFromTheFilm(videoRef, playRef);
+  return (
+    <div ref={barRef} className="page-controls" data-focus-container="" data-player-controls="">
+      <Timeline
+        label={t("playerControls.where")}
+        atMs={source.atMs}
+        durationMs={source.durationMs}
+        isDisabled={!source.isReady}
+        hasArrowsAsCommands
+        onSeek={source.seekTo}
+      />
+      <PlayerControls
+        source={source}
+        controls={barControlsOf(shown)}
+        isOverVideo
+        isOverlayRow
+        playRef={playRef}
+        moves={moves}
+        videoRef={videoRef}
+        menus={
+          <PlayerMenus
+            videoRef={videoRef}
+            shown={shown.filter((control) => control === "sound")}
+            sound={source.sound}
+            onOpenChange={noMenuHeld}
+          />
+        }
+      />
+      <div className="page-controls__offers">
+        {isTv ? <OverlayUp /> : null}
+        {/* Back is left to the page, which it leaves for the film's (D407 §7). */}
+        <ConvenienceArea
+          film={film}
+          offer={offer}
+          hasOffer={hasOffer}
+          isOverlayFull
+          onOffered={setHasOffer}
+          leftMs={source.durationMs === 0 ? undefined : source.durationMs - source.atMs}
+          areaRef={areaRef}
+        />
+      </div>
+    </div>
+  );
+}
+
+/** Takes Down on the video into the bar, to play, as a television's overlay opens on play. */
+function useDownFromTheFilm(
+  videoRef: RefObject<HTMLVideoElement | null>,
+  playRef: RefObject<HTMLButtonElement | null>,
+): void {
   useCommands(
     "document",
     (detail, event) => {
@@ -74,90 +169,16 @@ function PageBar(props: FilmParts): JSX.Element {
     },
     { isCapture: true },
   );
-  return (
-    <div
-      ref={overlayRef}
-      className="page-controls"
-      data-shown={isShown ? "all" : "none"}
-      data-focus-container=""
-      data-player-controls=""
-    >
-      <PlayerControls
-        source={source}
-        controls={["play", "sound", "fullScreen", "timeline"]}
-        isOverVideo
-        playRef={playRef}
-        hasArrowsAsCommands
-      />
-    </div>
-  );
-}
-
-/**
- * Whether the bar shows, and what shows it: shown as the player opens and while the film is paused,
- * it hides fullShownForMs after the last sign of someone there, a mouse's move, a click or a tap
- * anywhere (useOpensAtThePointer), a command while focus is in the player, or focus coming into the
- * bar. Hiding leaves focus where it is.
- */
-function useShownWhileActive(
-  shown: { readonly isShown: boolean; readonly setIsShown: (isShown: boolean) => void },
-  isPaused: boolean,
-  overlayRef: RefObject<HTMLElement | null>,
-): void {
-  const { isShown, setIsShown } = shown;
-  const lastSeenAtRef = useRef(0);
-  const show = (): void => {
-    lastSeenAtRef.current = performance.now();
-    setIsShown(true);
-  };
-  useOpensAtThePointer(show);
-  const showRef = useRef(show);
-  useEffect(() => {
-    showRef.current = show;
-  });
-  useEffect(() => {
-    const overlay = overlayRef.current;
-    const focused = (): void => {
-      showRef.current();
-    };
-    overlay?.addEventListener("focusin", focused);
-    return () => {
-      overlay?.removeEventListener("focusin", focused);
-    };
-  }, [overlayRef]);
-  useCommands(
-    "document",
-    () => {
-      const stage = overlayRef.current?.parentElement;
-      if (stage?.contains(document.activeElement) === true) {
-        show();
-      }
-    },
-    { isCapture: true },
-  );
-  useEffect(() => {
-    if (!isShown || isPaused) {
-      return undefined;
-    }
-    const timer = setInterval(() => {
-      if (performance.now() - lastSeenAtRef.current >= fullShownForMs) {
-        setIsShown(false);
-      }
-    }, 500);
-    return () => {
-      clearInterval(timer);
-    };
-  }, [isShown, isPaused, setIsShown]);
 }
 
 /**
  * Makes the video a stop for the arrows and Tab, as the browser's own controls made it, and answers
- * a mouse's click on it by playing or pausing, a double click by full screen.
+ * a mouse's click on it by playing or pausing, a double click by full screen, where isOn.
  */
-function usePressesOnTheFilm(videoRef: RefObject<HTMLVideoElement | null>): void {
+function usePressesOnTheFilm(videoRef: RefObject<HTMLVideoElement | null>, isOn: boolean): void {
   useEffect(() => {
     const video = videoRef.current;
-    if (video === null) {
+    if (video === null || !isOn) {
       return undefined;
     }
     video.tabIndex = 0;
@@ -175,5 +196,18 @@ function usePressesOnTheFilm(videoRef: RefObject<HTMLVideoElement | null>): void
       video.removeEventListener("click", clicked);
       video.removeEventListener("dblclick", doubleClicked);
     };
-  }, [videoRef]);
+  }, [videoRef, isOn]);
+}
+
+/**
+ * Puts the stage the film's video is in full screen as the player opens, where it is asked to (a
+ * television's player); where the browser refuses, it fills the window (fillTheScreen).
+ */
+function useFullscreenStage(videoRef: RefObject<HTMLVideoElement | null>, isAsked: boolean): void {
+  useEffect(() => {
+    const stage = videoRef.current?.closest(".film-player__stage");
+    if (isAsked && stage instanceof HTMLElement) {
+      fillTheScreen(stage, document);
+    }
+  }, [videoRef, isAsked]);
 }

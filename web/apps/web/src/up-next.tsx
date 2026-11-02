@@ -22,10 +22,9 @@ import type { FilmParts, FilmPiece } from "./film-player.tsx";
 import { IconButton } from "./icon-button.tsx";
 import type { MediaTracks } from "./input-commands.ts";
 import { useCommands } from "./input-layer.tsx";
-import { PageControls } from "./page-controls.tsx";
+import { OverTheFilm, PageControls } from "./page-controls.tsx";
 import type { SequenceMoves } from "./player-controls.tsx";
 import { CloseIcon } from "./player-icons.tsx";
-import { PlayerOverlay } from "./player-overlay.tsx";
 import { Still } from "./poster.tsx";
 import {
   noteAutoplayed,
@@ -269,23 +268,32 @@ export function UpNextOver(props: FilmParts & OfferPlace): JSX.Element | null {
 }
 
 /**
- * What the Play page draws over its film: the player's own controls, every device's (D369 §2), a
- * full-screen overlay on a television or a cast's receiver (D338 §5, D407, player-overlay.tsx), its
- * stage put full screen as it opens, else a computer's and a phone's (page-controls.tsx); and the Up
- * next offer, in the overlay's convenience area (D407 §3).
+ * What the Play page draws over its film: the player's full-screen overlay while full screen, the
+ * Up next offer in its convenience area and ⏮ ⏭ in its row (D407 §3, page-controls.tsx), nothing
+ * over the video otherwise (D407 §9). A television's or a cast's receiver's stage is put full
+ * screen as it opens (D338 §5); a computer's film answers a mouse's click and double click.
  */
 export function overTheFilm(hasTelevisionControls: boolean): FilmPiece {
-  return hasTelevisionControls ? OverlayAndUpNext : PageControlsAndUpNext;
+  return hasTelevisionControls ? OverlayOpeningFullScreen : OverlayOnAComputer;
 }
 
-/** The player's full-screen overlay (player-overlay.tsx), the Up next offer and ⏮ ⏭ in it. */
-function OverlayAndUpNext(props: FilmParts): JSX.Element {
+/** A television's overlay, the Up next offer and ⏮ ⏭ in it, its stage full screen as it opens. */
+function OverlayOpeningFullScreen(props: FilmParts): JSX.Element {
   const moves = useSequenceMoves(use(UpNextContext));
-  return <PlayerOverlay {...props} shouldOpenFullScreen offer={UpNextOver} moves={moves} />;
+  return <OverTheFilm {...props} shouldOpenFullScreen offer={UpNextOver} moves={moves} />;
 }
 
-/** A computer's and a phone's player controls (page-controls.tsx), the Up next offer, ⏮ and ⏭. */
-function PageControlsAndUpNext(props: FilmParts): JSX.Element {
+/** A computer's and a phone's overlay, the Up next offer and ⏮ ⏭ in it, and the film's clicks. */
+function OverlayOnAComputer(props: FilmParts): JSX.Element {
+  const moves = useSequenceMoves(use(UpNextContext));
+  return <OverTheFilm {...props} hasPressesOnTheFilm offer={UpNextOver} moves={moves} />;
+}
+
+/**
+ * The player's controls under the film outside full screen, every device's (D407 §9,
+ * page-controls.tsx), the Up next offer and Still watching among them as ordinary buttons.
+ */
+export function ControlsUnderTheFilm(props: FilmParts): JSX.Element | null {
   const moves = useSequenceMoves(use(UpNextContext));
   return <PageControls {...props} offer={UpNextOver} moves={moves} />;
 }
