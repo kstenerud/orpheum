@@ -29,9 +29,9 @@ import {
   PreviousIcon,
   SubtitlesIcon,
 } from "./player-icons.tsx";
+import { PlayerOverlay } from "./player-overlay.tsx";
 import { mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
-import { TvControls } from "./tv-controls.tsx";
 import { UiGallery } from "./ui-gallery.tsx";
 
 /** Runs check over what tree draws, then unmounts it. */
@@ -146,12 +146,12 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
     );
   });
 
-  it("hides a television's buttons after a seek, the timeline alone showing", async () => {
+  it("hides the overlay's way up and buttons after a seek, the timeline alone showing", async () => {
     const videoRef = createRef<HTMLVideoElement>();
     Reflect.set(videoRef, "current", document.createElement("video"));
     await drawn(
       <div className="film-player__stage">
-        <TvControls videoRef={videoRef} readLinkKbps={() => undefined} failure={undefined} />
+        <PlayerOverlay videoRef={videoRef} readLinkKbps={() => undefined} failure={undefined} />
       </div>,
       (mounted) => {
         act(() => {
@@ -172,11 +172,12 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
             }),
           );
         });
-        const overlay = found(mounted.container, ".tv-controls");
+        const overlay = found(mounted.container, ".player-overlay");
         expect(overlay.getAttribute("data-shown")).toBe("scrub");
         expect(getComputedStyle(found(overlay, ".player-controls__buttons")).visibility).toBe(
           "hidden",
         );
+        expect(getComputedStyle(found(overlay, ".player-overlay__top")).visibility).toBe("hidden");
         expect(getComputedStyle(found(overlay, ".timeline")).visibility).toBe("visible");
       },
     );

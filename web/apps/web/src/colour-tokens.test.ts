@@ -26,7 +26,7 @@ describe("every colour is a token (D138 §4, D369)", () => {
     const sheets = readdirSync(here)
       .filter((name) => name.endsWith(".css") && !writesColours.has(name))
       .map((name) => [name, readFileSync(new URL(name, here), "utf8")] as const);
-    expect(sheets.map(([name]) => name)).toContain("tv-controls.css");
+    expect(sheets.map(([name]) => name)).toContain("player-overlay.css");
     expect(rawColours(sheets)).toEqual([]);
   });
 

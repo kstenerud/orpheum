@@ -22,6 +22,7 @@ import { IconButton } from "./icon-button.tsx";
 import { useCommands } from "./input-layer.tsx";
 import { PageControls } from "./page-controls.tsx";
 import { CloseIcon } from "./player-icons.tsx";
+import { PlayerOverlay } from "./player-overlay.tsx";
 import { Still } from "./poster.tsx";
 import {
   noteAutoplayed,
@@ -31,7 +32,6 @@ import {
 } from "./still-watching.tsx";
 import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
-import { TvControls } from "./tv-controls.tsx";
 import { useResource } from "./use-resource.ts";
 
 /**
@@ -194,18 +194,19 @@ export function UpNextOver(props: FilmParts): JSX.Element | null {
 
 /**
  * What the Play page draws over its film: the player's own controls, every device's (D369 §2), a
- * television's overlay on a television or a cast's receiver (D338 §5, tv-controls.tsx), else a
- * computer's and a phone's (page-controls.tsx); and the Up next offer.
+ * full-screen overlay on a television or a cast's receiver (D338 §5, D407, player-overlay.tsx), its
+ * stage put full screen as it opens, else a computer's and a phone's (page-controls.tsx); and the Up
+ * next offer.
  */
 export function overTheFilm(hasTelevisionControls: boolean): FilmPiece {
-  return hasTelevisionControls ? TvControlsAndUpNext : PageControlsAndUpNext;
+  return hasTelevisionControls ? OverlayAndUpNext : PageControlsAndUpNext;
 }
 
-/** A television's player overlay (tv-controls.tsx), and the Up next offer over the film. */
-export function TvControlsAndUpNext(props: FilmParts): JSX.Element {
+/** The player's full-screen overlay (player-overlay.tsx), and the Up next offer over the film. */
+function OverlayAndUpNext(props: FilmParts): JSX.Element {
   return (
     <>
-      <TvControls {...props} />
+      <PlayerOverlay {...props} opensFullScreen />
       <UpNextOver {...props} />
     </>
   );

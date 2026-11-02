@@ -2372,3 +2372,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   `altGraph`, …), `location` and `isComposing` where set, and Menu either as a key or as a
   `contextmenu` line, or absent; note for each what arrived, as the input for steps 2, 9 and 10.
   (`web/apps/web/src/lab-key-table.tsx`)
+
+- [ ] **VQ243** — the player's overlay on a Fire TV walks its rows, seeks only where it should, and
+  hides by Back (D407 §4–§7; plan item 17, Right seeking instead of reaching Full screen, 2026-11-02).
+  On the Fire TV, in Silk, play a film. Passes when: it opens with the overlay showing, focus on ▶;
+  Up and Down walk the rows (‹ and the title; the scrub bar; the buttons), a row returned to keeps the
+  button left there; Right walks the buttons to ⤢ without seeking while the overlay shows; with the
+  overlay hidden, Right held seeks ahead with the scrub bar alone showing, gone 1.5 s after; OK while
+  hidden pauses with a pause sign, which hides 3 s later while the film stays paused, and OK plays
+  again with nothing shown; Back with the overlay showing hides it, and the next goes to the film's
+  page; the same Back walk with the stage in full screen (Silk then leaves full screen first, D407
+  §7). Silk never delivers Rewind or Fast-forward, so those are not tried here. While playing, the
+  overlay hides 3 s after the last press, so a slow walk can find it hidden and Right then seeks: that
+  is the rule, not a failure. (`web/apps/web/src/player-overlay.tsx`, `player-overlay-state.ts`)

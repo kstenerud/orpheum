@@ -190,13 +190,13 @@ describe("a Play page opened with no page of this app behind it", () => {
       const services = walkServices(filmToPlay, "/play/1030");
       walking = await mountApp(services);
       await theVideo();
-      // A television's player opens with its overlay showing, which its first Back hides
-      // (tv-controls.tsx); the next leaves the page.
-      const overlay = document.querySelector(".tv-controls");
+      // A television's player opens with all of its overlay showing, which its first Back hides
+      // (D407 §5); the next leaves the page.
+      const overlay = document.querySelector(".player-overlay");
       expect(overlay !== null).toBe(isTelevision);
       if (overlay !== null) {
         await press("{Escape}");
-        await expect.poll(() => overlay.getAttribute("data-shown")).toBe("none");
+        await expect.poll(() => overlay.getAttribute("data-shown")).toBe("hidden");
       }
       await press("{Escape}");
       await expect
@@ -229,7 +229,7 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
   it("seeks by Left and Right on the scrub bar, focus staying there", async () => {
     const video = await onAFireTv();
     const positionAt = standsAt(video, 30);
-    const scrub = document.querySelector<HTMLInputElement>(".tv-controls .timeline__range");
+    const scrub = document.querySelector<HTMLInputElement>(".player-overlay .timeline__range");
     scrub?.focus();
     expect(document.activeElement).toBe(scrub);
     await press("{ArrowRight}");
@@ -252,7 +252,7 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
         seeks.push(toS);
       },
     });
-    const scrub = document.querySelector<HTMLInputElement>(".tv-controls .timeline__range");
+    const scrub = document.querySelector<HTMLInputElement>(".player-overlay .timeline__range");
     scrub?.focus();
     await press("{ArrowRight>4/}"); // held: three repeats, then released
     expect(scrub?.getAttribute("aria-valuetext")).toBe("1:10");
@@ -262,61 +262,96 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
     expect(document.activeElement).toBe(scrub);
   });
 
-  // D367 §6, §8: Up, "‹ Film 3", and an on-screen Back, since TV Bro's remote Back never reaches the
-  // page and the app cannot tell it from Silk; each reached by the arrows from the overlay's controls.
-  it("offers Up to the film's page and its own Back, each reached by the arrows", async () => {
-    await onAFireTv();
-    const upLink = document.querySelector<HTMLElement>(".tv-controls .tv-controls__up");
-    const back = document.querySelector<HTMLElement>(".tv-controls .back-button");
-    expect(upLink?.textContent).toBe("‹ Film 3");
-    const timeline = document.querySelector<HTMLElement>(".tv-controls .timeline__range");
-    if (timeline === null || upLink === null || back === null) {
-      throw new Error("the overlay draws no timeline, Up or Back");
-    }
-    const reached = await reachedFrom(timeline, press);
-    expect(reached.has(upLink)).toBe(true);
-    expect(reached.has(back)).toBe(true);
-    upLink.focus();
-    await press("{Enter}");
-    await expect
-      .poll(() => routeHref(walking?.services.navigation.route() ?? { screen: "home" }))
-      .toBe(routeHref({ screen: "title", itemId: 103 }));
-  });
+  /** The overlay's state, as it draws it. */
+  function shown(): string | null | undefined {
+    return document.querySelector(".player-overlay")?.getAttribute("data-shown");
+  }
 
-  it("goes back by its own Back, up to the film's page with nothing of the app behind", async () => {
-    await onAFireTv();
-    const back = document.querySelector<HTMLElement>(".tv-controls .back-button");
-    back?.focus();
-    await press("{Enter}");
-    await expect
-      .poll(() => routeHref(walking?.services.navigation.route() ?? { screen: "home" }))
-      .toBe(routeHref({ screen: "title", itemId: 103 }));
-  });
-
-  // OK opened the overlay on the Fire TV with nothing focused, so a second OK paused nothing and no
-  // arrow reached its controls (2026-11-02): play was focused at the next frame, which the stick ran
-  // before React had drawn the overlay, its play then without a box. The frame runs at once here.
-  it("opens the hidden overlay by OK with focus on play, however soon the next frame comes", async () => {
-    await onAFireTv();
+  /** Hides the overlay the player opens with, by Back (D407 §5), focus left on the video. */
+  async function hideTheOverlay(video: HTMLVideoElement): Promise<void> {
+    await expect.poll(() => document.activeElement?.closest(".player-overlay")).toBeTruthy();
     await press("{Escape}");
+    await expect.poll(shown).toBe("hidden");
+    expect(document.activeElement).toBe(video);
+  }
+
+  // D407 §3: Up and Down walk the rows, Up from the scrub bar to "‹ Film 3", which goes up.
+  it("walks its rows by Up and Down, from the buttons to the scrub bar and up to the film's page", async () => {
+    await onAFireTv();
+    const play = document.querySelector<HTMLElement>('.player-overlay [aria-label="Play"]');
+    const scrub = document.querySelector<HTMLElement>(".player-overlay .timeline__range");
+    const upLink = document.querySelector<HTMLElement>(".player-overlay .player-overlay__up");
+    expect(document.querySelector(".player-overlay .back-button")).toBeNull();
+    expect(upLink?.textContent).toBe("Film 3");
+    await expect.poll(() => document.activeElement).toBe(play);
+    await press("{ArrowUp}");
+    expect(document.activeElement).toBe(scrub);
+    await press("{ArrowUp}");
+    expect(document.activeElement).toBe(upLink);
+    await press("{ArrowDown}{ArrowDown}");
+    expect(document.activeElement).toBe(play);
+    await press("{ArrowUp}{ArrowUp}{Enter}");
     await expect
-      .poll(() => document.querySelector(".tv-controls")?.getAttribute("data-shown"))
-      .toBe("none");
+      .poll(() => routeHref(walking?.services.navigation.route() ?? { screen: "home" }))
+      .toBe(routeHref({ screen: "title", itemId: 103 }));
+  });
+
+  // Plan item 17 (2026-11-02): the buttons hid between presses, and Right meant for Full screen
+  // sought the film instead. Their row now stays while focus walks it, and Right never seeks there.
+  it("walks its buttons by Right to Full screen, the film not seeking", async () => {
+    const video = await onAFireTv();
+    const positionAt = standsAt(video, 30);
+    const fullScreen = document.querySelector<HTMLElement>(".player-overlay .full-screen-button");
+    await expect.poll(() => document.activeElement?.getAttribute("aria-label")).toBe("Play");
+    await press("{ArrowRight}{ArrowRight}");
+    expect(document.activeElement).toBe(fullScreen);
+    expect(shown()).toBe("full");
+    expect(positionAt()).toBe(30);
+  });
+
+  it("seeks by Left and Right while hidden, the scrub bar alone showing", async () => {
+    const video = await onAFireTv();
+    const positionAt = standsAt(video, 30);
+    await hideTheOverlay(video);
+    await press("{ArrowRight}");
+    await expect.poll(positionAt).toBeCloseTo(30 + seekStepMs / 1000, 1);
+    expect(shown()).toBe("scrub");
+    expect(document.activeElement).toBe(video);
+  });
+
+  it("pauses by OK while hidden, showing the pause sign and nothing else", async () => {
+    const video = await onAFireTv();
+    Object.defineProperty(video, "paused", { configurable: true, get: () => false });
+    const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+    await hideTheOverlay(video);
+    await press("{Enter}");
+    expect(pause).toHaveBeenCalledTimes(1);
+    await expect.poll(shown).toBe("paused");
+    expect(document.activeElement).toBe(video);
+  });
+
+  // Up opened the overlay on the Fire TV with nothing focused, so OK paused nothing and no arrow
+  // reached its controls (2026-11-02): play was focused at the next frame, which the stick ran
+  // before React had drawn the overlay, its play then without a box. The frame runs at once here.
+  it("opens all of the hidden overlay by Up with focus on play, however soon the next frame comes", async () => {
+    const video = await onAFireTv();
+    await hideTheOverlay(video);
     vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
       callback(performance.now());
       return 0;
     });
-    await press("{Enter}");
-    const play = document.querySelector(".tv-controls .player-controls__buttons > button");
+    await press("{ArrowUp}");
+    const play = document.querySelector('.player-overlay [aria-label="Play"]');
     expect(play).not.toBeNull();
     await expect.poll(() => document.activeElement).toBe(play);
+    expect(shown()).toBe("full");
   });
 
   // A cast's receiver, whose overlay this is, did nothing at Space (the owner, Chrome, 2026-10-27).
   it("plays and pauses by Space on any of its controls", async () => {
     const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
     await onAFireTv();
-    const scrub = document.querySelector<HTMLInputElement>(".tv-controls .timeline__range");
+    const scrub = document.querySelector<HTMLInputElement>(".player-overlay .timeline__range");
     scrub?.focus();
     const playsBefore = play.mock.calls.length;
     await press(" ");

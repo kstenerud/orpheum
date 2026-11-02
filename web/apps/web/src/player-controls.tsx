@@ -75,7 +75,8 @@ export type PlayerControl = "play" | "steps" | "timeline" | "sound" | "fullScree
  * commands a film elsewhere (a cast's remote). It draws the controls it is given, in one order: the
  * buttons, whatever aside the page adds, full screen, then the sound, its volume last in the row, as a
  * slider keeps Left and Right for itself and an arrow could not pass it to what came after; then the
- * timeline.
+ * timeline. The full-screen overlay's row (isOverlayRow, D407 §1) puts play between the steps, in a
+ * leading group, and full screen and the sound in a trailing one, the aside between.
  */
 export function PlayerControls(props: {
   readonly source: PlayerSource;
@@ -90,30 +91,49 @@ export function PlayerControls(props: {
   readonly hasArrowsAsCommands?: boolean | undefined;
   /** What the page adds at the buttons' end: a television's "Ends at". */
   readonly aside?: ReactNode | undefined;
+  /** Whether the buttons are the full-screen overlay's row, play between the steps. */
+  readonly isOverlayRow?: boolean | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
   const { source, controls, isOverVideo, playRef } = props;
   const has = (control: PlayerControl): boolean => controls.includes(control);
+  const play = has("play") ? (
+    <PlayButton source={source} isOverVideo={isOverVideo} playRef={playRef} />
+  ) : null;
+  const step = (isForward: boolean): JSX.Element | null =>
+    has("steps") ? (
+      <StepButton source={source} isOverVideo={isOverVideo} isForward={isForward} />
+    ) : null;
+  const ending = (
+    <>
+      {has("fullScreen") ? <FullScreenButton /> : null}
+      {has("sound") && source.sound !== undefined ? (
+        <SoundControls sound={source.sound} isOverVideo={isOverVideo} />
+      ) : null}
+    </>
+  );
+  const aside = <span className="player-controls__aside">{props.aside}</span>;
   return (
     <div className="player-controls">
-      <div className="player-controls__buttons">
-        {has("play") ? (
-          <IconButton
-            ref={playRef}
-            isOverVideo={isOverVideo}
-            label={source.isPaused ? t("playerControls.play") : t("playerControls.pause")}
-            icon={source.isPaused ? <PlayIcon /> : <PauseIcon />}
-            isDisabled={!source.isReady}
-            onClick={source.playOrPause}
-          />
-        ) : null}
-        {has("steps") ? <Steps source={source} isOverVideo={isOverVideo} /> : null}
-        <span className="player-controls__aside">{props.aside}</span>
-        {has("fullScreen") ? <FullScreenButton /> : null}
-        {has("sound") && source.sound !== undefined ? (
-          <SoundControls sound={source.sound} isOverVideo={isOverVideo} />
-        ) : null}
-      </div>
+      {props.isOverlayRow === true ? (
+        <div className="player-controls__buttons">
+          <span className="player-controls__leading">
+            {step(false)}
+            {play}
+            {step(true)}
+          </span>
+          {aside}
+          <span className="player-controls__trailing">{ending}</span>
+        </div>
+      ) : (
+        <div className="player-controls__buttons">
+          {play}
+          {step(false)}
+          {step(true)}
+          {aside}
+          {ending}
+        </div>
+      )}
       {has("timeline") ? (
         <Timeline
           inputRef={props.timelineRef}
@@ -129,41 +149,49 @@ export function PlayerControls(props: {
   );
 }
 
-/**
- * A step back and a step forward, seekStepMs each from where the film shows, never before the start
- * nor past the end: presses in a row add up, as the source shows each one's place at once.
- */
-function Steps(props: {
+/** Play or pause, as the film stands. */
+function PlayButton(props: {
   readonly source: PlayerSource;
   readonly isOverVideo: boolean | undefined;
+  readonly playRef: RefObject<HTMLButtonElement | null> | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { source, isOverVideo } = props;
-  const stepBy = (byMs: number): void => {
-    const mostMs = source.durationMs > 0 ? source.durationMs : Number.POSITIVE_INFINITY;
-    source.seekTo(Math.min(Math.max(0, source.atMs + byMs), mostMs));
-  };
+  const { source } = props;
   return (
-    <>
-      <IconButton
-        isOverVideo={isOverVideo}
-        label={t("playerControls.back")}
-        icon={<SeekBackIcon />}
-        isDisabled={!source.isReady}
-        onClick={() => {
-          stepBy(-seekStepMs);
-        }}
-      />
-      <IconButton
-        isOverVideo={isOverVideo}
-        label={t("playerControls.forward")}
-        icon={<SeekForwardIcon />}
-        isDisabled={!source.isReady}
-        onClick={() => {
-          stepBy(seekStepMs);
-        }}
-      />
-    </>
+    <IconButton
+      ref={props.playRef}
+      isOverVideo={props.isOverVideo}
+      label={source.isPaused ? t("playerControls.play") : t("playerControls.pause")}
+      icon={source.isPaused ? <PlayIcon /> : <PauseIcon />}
+      isDisabled={!source.isReady}
+      onClick={source.playOrPause}
+    />
+  );
+}
+
+/**
+ * A step back or forward, seekStepMs from where the film shows, never before the start nor past the
+ * end: presses in a row add up, as the source shows each one's place at once.
+ */
+function StepButton(props: {
+  readonly source: PlayerSource;
+  readonly isOverVideo: boolean | undefined;
+  readonly isForward: boolean;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { source, isForward } = props;
+  const byMs = isForward ? seekStepMs : -seekStepMs;
+  return (
+    <IconButton
+      isOverVideo={props.isOverVideo}
+      label={isForward ? t("playerControls.forward") : t("playerControls.back")}
+      icon={isForward ? <SeekForwardIcon /> : <SeekBackIcon />}
+      isDisabled={!source.isReady}
+      onClick={() => {
+        const mostMs = source.durationMs > 0 ? source.durationMs : Number.POSITIVE_INFINITY;
+        source.seekTo(Math.min(Math.max(0, source.atMs + byMs), mostMs));
+      }}
+    />
   );
 }
 
