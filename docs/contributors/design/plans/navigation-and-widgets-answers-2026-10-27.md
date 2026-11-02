@@ -1314,3 +1314,11 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
     - **To design and decide later (the owner: "This will be something to design and decide over
       later"):** an IPv4 way in for houses like this one: (a) a relay on a VPS the user supplies;
       (b) possibly a relay through the paid discovery, which has potential legal issues.
+16. **Next batch (the owner, 2026-11-02): the screen locked during a film.** "I was playing a movie on
+    firefox in linux mint, fullscreen. It suddenly got very choppy, and when I got out of fullscreen I
+    noticed that linux mint had gone to the lock screen while I was watching a movie." The player holds
+    no screen wake lock: the client asks `navigator.wakeLock` nothing (device-report only lists the
+    feature), so a desktop whose idle timer is not stopped by fullscreen video alone locks mid-film.
+    Proposed: hold a `screen` wake lock while a video plays, take it again on `visibilitychange` (the
+    browser releases it when the page hides), release it at pause and end. The choppiness is to be
+    checked once the lock no longer comes, as the locker's compositing may be its cause.
