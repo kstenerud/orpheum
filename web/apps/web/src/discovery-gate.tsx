@@ -5,11 +5,11 @@ import {
   isKeyRefused,
   isTurnedAway,
   KeyRefused,
+  NoServiceWorker,
   NotFound,
   proofRefusal,
   reportDeadEnd,
   type DeadEndCause,
-  type DirectOutcome,
   type DiscoveryClient,
   type Held,
   type LinkFragment,
@@ -19,7 +19,7 @@ import { useEffect, useMemo, useRef, useState, type JSX, type RefObject } from "
 import { useTranslation } from "react-i18next";
 
 import { CopyWhatHappened, whatHappened } from "./what-happened.tsx";
-import { deadEndReasonOf, unknownDeadEnd } from "./dead-end-reason.ts";
+import { deadEndReasonOf, racedHeard, unknownDeadEnd } from "./dead-end-reason.ts";
 
 import { RealmSignIn, type RealmCredentials, type RealmProblem } from "./realm-sign-in.tsx";
 
@@ -128,6 +128,7 @@ type Phase =
   | "connecting"
   | "notFound"
   | "deadEnd"
+  | "noWorker"
   | "turnedAway"
   | "offline"
   | "keyRefused"
@@ -163,6 +164,7 @@ function realmProblemOf(phase: Phase, cause: DeadEndCause): RealmProblem | undef
  */
 const phasesTellingWhatHappened: ReadonlySet<Phase> = new Set<Phase>([
   "deadEnd",
+  "noWorker",
   "keyRefused",
   "realmUnreached",
   "realmKeyRefused",
@@ -336,7 +338,7 @@ function withoutLanIfSkipped(parts: GateParts, target: Target): Target {
 }
 
 /** How a reach that did not connect ended. */
-type Ended = "notFound" | "deadEnd" | "turnedAway" | "offline" | "keyRefused";
+type Ended = "notFound" | "deadEnd" | "noWorker" | "turnedAway" | "offline" | "keyRefused";
 
 /** Reaches a core: finds it, connects, and says how it went. */
 async function reach(
@@ -354,17 +356,15 @@ async function reach(
     await parts.onConnected(core, await reachCore(parts.client, target));
     return undefined;
   } catch (problem: unknown) {
-    if (problem instanceof NotFound) {
-      return "notFound";
+    const ended = endedShortOf(problem);
+    if (ended !== undefined) {
+      return ended;
     }
-    // The core reached the page and turned it away for its network's share: no dead end, and the
-    // core is still the one to reach once pages on the network close.
-    if (isTurnedAway(problem)) {
-      return "turnedAway";
-    }
-    // The discovery cannot reach the core now, as while it restarts: no dead end either.
-    if (isCoreOffline(problem)) {
-      return "offline";
+    // The core was reached and this browser runs no service worker to carry its media: no dead end
+    // of the network, which a guest in a private window was told (Berlin, 2026-11-02).
+    if (problem instanceof NoServiceWorker) {
+      parts.onDeadEnd?.(deadEndOf(core.coreId, target, problem), unknownDeadEnd.cause);
+      return "noWorker";
     }
     const reason = target === undefined ? unknownDeadEnd : deadEndReasonOf(target, raced.heard());
     parts.onDeadEnd?.(deadEndOf(core.coreId, target, problem), reason.cause);
@@ -380,22 +380,18 @@ async function reach(
 }
 
 /**
- * What came of the first race of a reach's names: the target's part that hears it (told), and what
- * it heard, undefined until the race was decided.
+ * How a reach ended that no dead end is told of: the core not found; the core turning the page away
+ * for its network's share, still the one to reach once pages on the network close; or the discovery
+ * unable to reach the core now, as while it restarts.
  */
-function racedHeard(): {
-  readonly told: Pick<Target, "tellRaced">;
-  readonly heard: () => readonly DirectOutcome[] | undefined;
-} {
-  let raced: readonly DirectOutcome[] | undefined;
-  return {
-    told: {
-      tellRaced: (told) => {
-        raced = told;
-      },
-    },
-    heard: () => raced,
-  };
+function endedShortOf(problem: unknown): Ended | undefined {
+  if (problem instanceof NotFound) {
+    return "notFound";
+  }
+  if (isTurnedAway(problem)) {
+    return "turnedAway";
+  }
+  return isCoreOffline(problem) ? "offline" : undefined;
 }
 
 /** What happened at a dead end, for its person to copy and send (K16). */
@@ -420,7 +416,7 @@ function afterRemembered(parts: GateParts, core: KeptCore, ended: Ended): Phase 
   if (ended === "keyRefused") {
     parts.onKeyRefused?.(core);
   }
-  if (!parts.hasRealms || ended === "turnedAway" || ended === "offline") {
+  if (!parts.hasRealms || ended === "turnedAway" || ended === "offline" || ended === "noWorker") {
     return ended;
   }
   parts.forgetCore();

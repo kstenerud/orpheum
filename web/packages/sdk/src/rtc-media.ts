@@ -6,6 +6,7 @@ import {
   controlledWithin,
   controlWaitMs,
   isControlled,
+  NoServiceWorker,
   PageNotControlled,
 } from "./worker-control.ts";
 
@@ -692,7 +693,7 @@ export const serviceWorkerUrl = "/sw.js";
  * own name on another origin): registers the service worker, answers each load it asks for, signed
  * in with the session's token at the time, and tells it this page carries its media; resolves once
  * it controls the page, and says in the console that media now goes over name; rejects with
- * PageNotControlled when no live worker controls it within controlWaitMs of asking. It says so again
+ * NoServiceWorker when the browser runs none or refuses it, and with PageNotControlled when no live worker controls it within controlWaitMs of asking. It says so again
  * to each worker that takes the page over.
  */
 export async function carryMediaOver(
@@ -702,7 +703,7 @@ export async function carryMediaOver(
 ): Promise<void> {
   carriesMediaOver(name);
   if (!("serviceWorker" in navigator)) {
-    throw new Error("this browser runs no service worker, so media stays on HTTP");
+    throw new NoServiceWorker();
   }
   const workers = navigator.serviceWorker;
   workers.addEventListener("message", (event: MessageEvent<unknown>) => {
@@ -721,7 +722,9 @@ export async function carryMediaOver(
     workers.controller?.postMessage({ kind: "orpheum-path", path: "webrtc" } satisfies PathMessage);
   };
   workers.addEventListener("controllerchange", announce);
-  await workers.register(serviceWorkerUrl);
+  await workers.register(serviceWorkerUrl).catch((refused: unknown) => {
+    throw new NoServiceWorker(refused);
+  });
   const ready = await workers.ready;
   if (!isControlled(workers)) {
     ready.active?.postMessage({ kind: "orpheum-claim" } satisfies ClaimMessage);

@@ -61,6 +61,10 @@ export const enDiscovery = {
       noIpv6:
         "This network seems to have no IPv6, and your server has no IPv4 way in yet, so it can't be reached from here. Many mobile networks, travel eSIMs and VPNs have no IPv6. Try a Wi-Fi, or turn the VPN off. If it keeps happening, copy what happened and send it to the person who sent you this link.",
     },
+    noWorker: {
+      heading: "This browser can't play from the server",
+      text: "The server was reached, but this browser window can't play from it: a private window, or the browser built into another app, often can't. Open the link in an ordinary window of your browser instead. If it keeps happening, copy what happened and send it to the person who sent you this link.",
+    },
     realm: {
       heading: "Sign in",
       realm: "Realm",

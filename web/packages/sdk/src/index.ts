@@ -156,6 +156,7 @@ export {
   isPageWorkerBypassed,
   isWorkerBypassed,
   isWorkerProbe,
+  NoServiceWorker,
   PageNotControlled,
   workerProbeAnswer,
   workerProbePath,
