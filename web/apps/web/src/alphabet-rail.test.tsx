@@ -3,7 +3,7 @@
 
 import "./i18n.ts";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { fromForLetter, railLetters } from "./alphabet-rail.tsx";
 import { Browse, type Entry } from "./browse.tsx";
@@ -88,6 +88,55 @@ describe("the alphabet rail (the owner, 2026-10-25)", () => {
     expect(queries[1]?.get("limit")).toBe("1");
     expect(queries.slice(2).map((query) => query.get("cursor"))).toEqual(["c1", "c2"]);
     expect(mounted.container.querySelectorAll(".poster-grid > li")).toHaveLength(6);
+  });
+
+  it("loads the page after a title jumped to when the page's end stops it short of the top, and shows it there (the owner, 2026-11-02)", async () => {
+    const heard: Heard[] = [];
+    // Keepsake Hollow ends the second page; the page ends below it, too soon to scroll it to the top,
+    // until the page after it is drawn.
+    const posterTop = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockImplementation(function (this: HTMLElement) {
+        const isShort = document.querySelectorAll(".poster-grid > li").length <= 4;
+        const top = isShort && this.textContent.includes("Keepsake Hollow") ? 500 : 0;
+        return DOMRect.fromRect({ x: 0, y: top, width: 100, height: 100 });
+      });
+    // The browser keeps what is on screen in place as the list grows below it, so the page's
+    // scroll moves by itself between one showing and the next; no person moved it.
+    let scrolled = 0;
+    const scrollY = vi.spyOn(window, "scrollY", "get").mockImplementation(() => (scrolled += 24));
+    // How many posters were drawn each time Keepsake Hollow's was scrolled to.
+    const shownAt: number[] = [];
+    const scrolledTo = vi
+      .spyOn(HTMLElement.prototype, "scrollIntoView")
+      .mockImplementation(function (this: HTMLElement) {
+        if (this.textContent.includes("Keepsake Hollow")) {
+          shownAt.push(document.querySelectorAll(".poster-grid > li").length);
+        }
+      });
+    onTestFinished(() => {
+      posterTop.mockRestore();
+      scrollY.mockRestore();
+      scrolledTo.mockRestore();
+    });
+    mounted = await mountFilms(
+      [
+        firstPage,
+        page([film(4, "Keepsake Hollow")], ""),
+        page([film(3, "Greed"), film(4, "Keepsake Hollow")], "c2"),
+        page([film(5, "Zelkaro"), film(6, "Destiny")], ""),
+      ],
+      heard,
+    );
+    await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
+    await click(buttonWithText(mounted.container, "M"));
+    await settleUntil(() => mounted?.container.querySelectorAll(".poster-grid > li").length === 6);
+    await settleUntil(() => shownAt.includes(6));
+    expect(focusedName()).toBe("Keepsake Hollow");
+    const cursors = titlesHeard(heard)
+      .slice(2)
+      .map((each) => new URLSearchParams(each.query).get("cursor"));
+    expect(cursors).toEqual(["c1", "c2"]);
   });
 
   it("moves to the first title of all for #, those beginning with a digit, loading nothing more", async () => {

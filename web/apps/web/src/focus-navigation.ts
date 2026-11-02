@@ -62,6 +62,17 @@ export function startIn(region: HTMLElement): HTMLElement | undefined {
 const roomAboveFocusPx = 12;
 
 /**
+ * How far down the view a focused element's top must be to show clear of the banner over the page's
+ * top, cover, the banner itself where the caller has it: the room kept below it; below nothing where
+ * no banner covers the page.
+ */
+export function clearOfTheBannerPx(
+  cover: Element | null = document.querySelector(`[${coversTopAttribute}]`),
+): number {
+  return (cover?.getBoundingClientRect().bottom ?? 0) + roomAboveFocusPx;
+}
+
+/**
  * Scrolls element into view no further than it must be, across as in a row of tiles and down as on a
  * page, and clear of a banner over the page's top where it is on the page: an open dialog's control,
  * over the banner, moves no page under it (a drop-down's Close, the owner on a Fire TV, 2026-10-28).
@@ -76,7 +87,7 @@ export function scrollIntoViewGently(element: HTMLElement): void {
   if (cover === null || cover.contains(element) || element.closest("dialog[open]") !== null) {
     return;
   }
-  const hiddenBy = cover.getBoundingClientRect().bottom + roomAboveFocusPx;
+  const hiddenBy = clearOfTheBannerPx(cover);
   const top = element.getBoundingClientRect().top;
   if (top < hiddenBy) {
     window.scrollBy({ top: top - hiddenBy });

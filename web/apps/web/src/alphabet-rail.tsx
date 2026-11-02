@@ -4,7 +4,7 @@ import { reportFailure } from "@orpheum/sdk";
 import { useCallback, useEffect, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
-import { focusAndShow } from "./focus-navigation.ts";
+import { clearOfTheBannerPx, focusAndShow } from "./focus-navigation.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
@@ -110,23 +110,47 @@ export function useAlphabetRailLetters(list: {
   return letters.state === "loaded" ? letters.value : undefined;
 }
 
-/** Focuses a poster jumped to, its row scrolled to the view's top, clear of the banner. */
-export function showAtTop(poster: HTMLElement): void {
+/**
+ * Focuses a poster jumped to, its row scrolled to the view's top, clear of the banner; whether the
+ * page's end stopped it short, below the top, as it does where too little of the list is drawn
+ * after the poster to scroll that far.
+ */
+export function showAtTop(poster: HTMLElement): boolean {
   // A test's DOM may have no scrolling at all.
   if (typeof poster.scrollIntoView === "function") {
     poster.scrollIntoView({ block: "start" });
   }
   // Focused as a key would, a remote's press being one; scrolled on, gently, clear of the banner.
   focusAndShow(poster, true);
+  const scrolledToTheEnd =
+    window.scrollY >= document.documentElement.scrollHeight - window.innerHeight - 1;
+  return scrolledToTheEnd && poster.getBoundingClientRect().top > clearOfTheBannerPx() + 1;
 }
+
+/**
+ * The poster a jump shows, by its place in the list's items, the last's for -1, and once shown, the
+ * poster itself.
+ */
+interface JumpedTo {
+  readonly place: number;
+  readonly shown?: HTMLElement;
+}
+
+/**
+ * What a person does to go on from a poster: a page scrolled by its layout alone (the browser
+ * keeping what is on screen in place as the list grows) is none of these.
+ */
+const goingOnEvents = ["wheel", "touchstart", "keydown", "pointerdown"] as const;
 
 /**
  * Moves a list by name or file name to the first title at or after the letter jump names, as the
  * server sorts them (`from`), # to the first of all; Z to A, to the first of the letter's titles in
  * that order (fromForLetter): it loads the list's pages up to it, as
  * scrolling would, and focuses its poster at the top of the view, so a remote goes on from there;
- * where no title comes at or after the letter, the last. The newest jump wins over one still
- * loading.
+ * where no title comes at or after the letter, the last. Where the poster is in the last page
+ * loaded and the page ends too soon below it to scroll it to the top, it loads the next page and
+ * shows it there again, until it is at the top or the list ends (the owner, 2026-11-02), unless the
+ * person went on from it in between. The newest jump wins over one still loading.
  */
 export function useLetterJump<T extends { readonly id: number }>(props: {
   readonly kind: "movie" | "series" | "other" | "any";
@@ -143,11 +167,26 @@ export function useLetterJump<T extends { readonly id: number }>(props: {
   const { kind, sort, library, jump, listRef } = props;
   const search = props.search ?? "";
   const isZToA = props.isZToA === true;
-  const { loadUntil, loadedSoFar } = props.pages;
-  // The place of the poster to focus once it is drawn, the last's for -1, undefined for none; the
-  // jump found it, the drawing of the pages after it focuses it.
-  const toFocusRef = useRef<number | undefined>(undefined);
+  const { loadUntil, loadMore, loadedSoFar } = props.pages;
+  // The poster to focus once it is drawn, undefined for none; the jump found it, the drawing of the
+  // pages after it focuses it, and shows it at the top again as more are drawn below it.
+  const toFocusRef = useRef<JumpedTo | undefined>(undefined);
   const [found, setFound] = useState(0);
+  useEffect(() => {
+    const goOn = (): void => {
+      if (toFocusRef.current?.shown !== undefined) {
+        toFocusRef.current = undefined;
+      }
+    };
+    for (const event of goingOnEvents) {
+      window.addEventListener(event, goOn, { capture: true, passive: true });
+    }
+    return () => {
+      for (const event of goingOnEvents) {
+        window.removeEventListener(event, goOn, { capture: true });
+      }
+    };
+  }, []);
   useEffect(() => {
     if (jump === undefined) {
       return undefined;
@@ -168,7 +207,7 @@ export function useLetterJump<T extends { readonly id: number }>(props: {
         const first = dataOrThrow(answer).titles?.[0];
         const place = await loadUntil((item) => item.id === first?.id);
         if (isCurrent) {
-          toFocusRef.current = place ?? -1;
+          toFocusRef.current = { place: place ?? -1 };
           setFound((count) => count + 1);
         }
       })
@@ -178,17 +217,30 @@ export function useLetterJump<T extends { readonly id: number }>(props: {
     };
   }, [api, kind, sort, isZToA, library, search, jump, loadUntil]);
   useEffect(() => {
-    const place = toFocusRef.current;
-    if (place === undefined) {
+    const jumpedTo = toFocusRef.current;
+    if (jumpedTo === undefined) {
+      return;
+    }
+    const { place, shown } = jumpedTo;
+    if (shown !== undefined && document.activeElement !== shown) {
+      // Focus went on from the poster before the page after it came.
+      toFocusRef.current = undefined;
       return;
     }
     const posters = listRef.current?.querySelectorAll<HTMLElement>(".poster-grid > li > a");
     const poster = place < 0 ? posters?.[posters.length - 1] : posters?.[place];
-    if (poster !== undefined) {
-      toFocusRef.current = undefined;
-      showAtTop(poster);
+    if (poster === undefined) {
+      return;
     }
-  }, [found, loadedSoFar, listRef]);
+    const isStoppedShort = showAtTop(poster);
+    const hasMore = loadedSoFar.state === "loaded" && loadedSoFar.value.nextCursor !== "";
+    if (isStoppedShort && hasMore) {
+      toFocusRef.current = { place, shown: poster };
+      loadMore();
+    } else {
+      toFocusRef.current = undefined;
+    }
+  }, [found, loadedSoFar, listRef, loadMore]);
 }
 
 /**
