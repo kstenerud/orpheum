@@ -78,7 +78,8 @@ func (reader sourceReader) ReadAt(buffer []byte, offset int64) (int, error) {
 }
 
 // titleSource serves a disc's main title from its image: each read of the title is the reads of the
-// image's runs that hold it (D350 §3).
+// image's runs that hold it (D350 §3), its timestamps moved where the title's clock starts again
+// (D404).
 type titleSource struct {
 	image fdproxy.Source
 	title disc.Title
@@ -87,8 +88,29 @@ type titleSource struct {
 // Size is the title's length.
 func (source titleSource) Size() int64 { return source.title.SizeBytes() }
 
-// ReadAt reads buffer whole from offset of the title, from the image's runs that hold it.
+// ReadAt reads buffer whole from offset of the title, from the image's runs that hold it. A title
+// whose clock starts again is read in whole sectors, each restamped, and buffer's part copied out.
 func (source titleSource) ReadAt(ctx context.Context, buffer []byte, offset int64) error {
+	if len(source.title.ClockShifts) == 0 {
+		return source.readRuns(ctx, buffer, offset)
+	}
+	start := offset / disc.SectorBytes * disc.SectorBytes
+	end := min((offset+int64(len(buffer))+disc.SectorBytes-1)/disc.SectorBytes*disc.SectorBytes, source.Size())
+	if end < offset+int64(len(buffer)) {
+		return source.readRuns(ctx, buffer, offset) // past the title's end: Locate refuses it
+	}
+	sectors := make([]byte, end-start)
+	if err := source.readRuns(ctx, sectors, start); err != nil {
+		return err
+	}
+	source.title.Restamp(sectors, start)
+	copy(buffer, sectors[offset-start:])
+	return nil
+}
+
+// readRuns reads buffer whole from offset of the title, from the image's runs that hold it, as
+// the image has it.
+func (source titleSource) readRuns(ctx context.Context, buffer []byte, offset int64) error {
 	pieces, err := source.title.Locate(offset, int64(len(buffer)))
 	if err != nil {
 		return fmt.Errorf("read the disc's title: %w", err)

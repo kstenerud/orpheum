@@ -1246,3 +1246,10 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
    call between the top two is flagged for checking. The test with no year, Alcazar (a stand-in for
    The Thief of Bagdad: Disney's 1992 against the 2019 remake), gives the remake 15,000 votes and Disney's none;
    its votes become near each other's, as the real films' are, so the oldest still wins.
+6. **A DVD image fails to seek past 59 minutes** (found by the agent running VQ73, 2026-11-02;
+   folded into this batch as a bug that seriously hurts using the app). The Der Golem concert
+   DVD's title starts its clock again at 0 at 1:28:39, and FFmpeg, seeking a program stream by its
+   timestamps, landed in the wrong half or at the stream's end. Built: the node finds where a DVD
+   title's clock starts again from its navigation packs and serves the title restamped onto one clock
+   (D404, amending D350 §3). Checked on the real disc: seeks to 3000, 4432, 5330 and 8000 s land
+   within a frame, and a transcode across the restart runs clean. VQ73's seek is re-run on staging.

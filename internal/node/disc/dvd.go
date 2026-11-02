@@ -67,6 +67,7 @@ type dvdCell struct {
 	flags                   int
 	durationMs              int64
 	firstSector, lastSector int64
+	lastVOBU                int64 // the sector its last VOBU starts at
 }
 
 // dvdMainTitle is a DVD's longest title, by the playing time of its program chains.
@@ -103,7 +104,14 @@ func dvdMainTitle(disc *volume) (Title, error) {
 	if bestMs < 0 {
 		return Title{}, fmt.Errorf("%w: VIDEO_TS.IFO lists no title", ErrNoTitle)
 	}
-	return sets[best.titleSet].assemble(best.number, bestChains, bestParts)
+	set := sets[best.titleSet]
+	title, cells, assembleErr := set.assemble(best.number, bestChains, bestParts)
+	if assembleErr != nil {
+		return Title{}, assembleErr
+	}
+	shifts, shiftsErr := disc.dvdClockShifts(set, cells)
+	title.ClockShifts = shifts
+	return title, shiftsErr
 }
 
 // titleChains is the program chains and parts of a title of the manager's table, from its set.
@@ -216,7 +224,7 @@ func (set *titleSet) programChain(number int) (programChain, error) {
 		cell := cellTable + 24*index
 		chain.cells = append(chain.cells, dvdCell{
 			flags: ifo.u8(cell), durationMs: dvdTimeMs(ifo.bytes(cell+4, 4)),
-			firstSector: ifo.be32(cell + 8), lastSector: ifo.be32(cell + 20),
+			firstSector: ifo.be32(cell + 8), lastVOBU: ifo.be32(cell + 16), lastSector: ifo.be32(cell + 20),
 		})
 	}
 	return chain, ifo.err("a program chain")
@@ -246,16 +254,19 @@ func dvdTimeMs(time []byte) int64 {
 }
 
 // assemble makes title number of the set from its program chains and parts: its cells' sectors as
-// runs of the image, angle 1 of each angle block, and its chapters at its parts' first cells.
-func (set *titleSet) assemble(number int, chains []programChain, parts []part) (Title, error) {
+// runs of the image, angle 1 of each angle block, and its chapters at its parts' first cells; and
+// the cells it plays, for its clock.
+func (set *titleSet) assemble(number int, chains []programChain, parts []part) (Title, []clockCell, error) {
 	title := Title{Kind: DVD, Number: number}
-	cells := 0
+	count := 0
 	for _, chain := range chains {
-		cells += len(chain.cells)
+		count += len(chain.cells)
 	}
-	if cells > maxTitleCells {
-		return Title{}, fmt.Errorf("%w: a title of %d cells", ErrMalformed, cells)
+	if count > maxTitleCells {
+		return Title{}, nil, fmt.Errorf("%w: a title of %d cells", ErrMalformed, count)
 	}
+	var cells []clockCell
+	var titleBytes int64
 	cellStartMs := make([][]int64, len(chains))
 	for chainIndex, chain := range chains {
 		for _, cell := range chain.cells {
@@ -264,17 +275,19 @@ func (set *titleSet) assemble(number int, chains []programChain, parts []part) (
 				continue // another angle of the block
 			}
 			if cell.flags&cellInterleaved != 0 {
-				return Title{}, fmt.Errorf("%w: title %d", ErrInterleaved, number)
+				return Title{}, nil, fmt.Errorf("%w: title %d", ErrInterleaved, number)
 			}
 			if cell.lastSector < cell.firstSector {
-				return Title{}, fmt.Errorf("%w: a cell that ends before it starts", ErrMalformed)
+				return Title{}, nil, fmt.Errorf("%w: a cell that ends before it starts", ErrMalformed)
 			}
 			firstByte, lengthBytes := cell.firstSector*sectorBytes, (cell.lastSector-cell.firstSector+1)*sectorBytes
 			pieces, err := slice(set.vobs, firstByte, lengthBytes)
 			if err != nil {
-				return Title{}, err
+				return Title{}, nil, err
 			}
+			cells = append(cells, newClockCell(cell, titleBytes))
 			title.Extents = appendJoined(title.Extents, pieces...)
+			titleBytes += lengthBytes
 			title.DurationMs += cell.durationMs
 		}
 	}
@@ -282,7 +295,7 @@ func (set *titleSet) assemble(number int, chains []programChain, parts []part) (
 	if len(chains) > 0 {
 		title.Tracks = set.tracks(chains[0])
 	}
-	return title, nil
+	return title, cells, nil
 }
 
 // dvdChapters are where a title's parts start, from the start of each part's program's entry cell.

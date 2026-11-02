@@ -3,6 +3,7 @@
 package execx
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"path/filepath"
@@ -116,6 +117,47 @@ func TestFilmOf_ADiscImageIsServedAsItsMainTitleAndOnlyStreamed(t *testing.T) {
 	notDisc.IsDiscImage = true
 	if _, err := runner.FilmOf(t.Context(), path, notDisc, ReadsIndex); !errors.Is(err, disc.ErrNotADisc) {
 		t.Errorf("a file named a disc image that is none made a film with %v; want disc.ErrNotADisc", err)
+	}
+}
+
+// A DVD's film whose clock starts again partway is served restamped onto one clock, however a read
+// falls across its sectors: what any read gives is what the title restamped whole gives there
+// (D404).
+func TestFilmOf_ADVDsFilmIsServedOnOneClock(t *testing.T) {
+	t.Parallel()
+	const second = 90_000
+	dvd := disctest.DVD{Titles: []disctest.DVDTitle{{Cells: []disctest.DVDCell{
+		{Data: disctest.VOBU(25_200, 25_200+600*second), DurationMs: 600_000},
+		{Data: disctest.VOBU(10_000, 10_000+300*second), DurationMs: 300_000},
+	}}}}
+	image := disctest.Volume{Files: dvd.Files()}.Bytes()
+	path, opened := openedTestImage(t, image)
+	runner, err := NewRunner(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	runner.StreamFilms()
+	film := filmOf(t, runner, path, opened, ReadsIndex)
+	if film.Disc == nil || len(film.Disc.ClockShifts) != 1 {
+		t.Fatalf("the DVD's film is %+v; want its title, its clock shifted once", film.Disc)
+	}
+	whole := make([]byte, film.Size)
+	if err := film.Stream.Source.ReadAt(t.Context(), whole, 0); err != nil {
+		t.Fatal(err)
+	}
+	if scr, _, _ := disctest.VOBUTicks(whole[2*disc.SectorBytes:]); scr != 25_200+600*second {
+		t.Errorf("the second cell is served at SCR %d; want %d, carrying on from the first", scr, 25_200+600*second)
+	}
+	reads := [][2]int64{{3*disc.SectorBytes + 20, 1000}, {1000, 2*disc.SectorBytes + 100}, {film.Size - 7, 7}}
+	for _, read := range reads {
+		part := make([]byte, read[1])
+		if err := film.Stream.Source.ReadAt(t.Context(), part, read[0]); err != nil ||
+			!bytes.Equal(part, whole[read[0]:read[0]+read[1]]) {
+			t.Errorf("%d bytes read at %d are not the title's there, restamped whole (%v)", read[1], read[0], err)
+		}
+	}
+	if err := film.Stream.Source.ReadAt(t.Context(), make([]byte, 10), film.Size-5); err == nil {
+		t.Error("a read past the title's end was served; want it refused")
 	}
 }
 

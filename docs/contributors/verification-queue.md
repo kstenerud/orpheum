@@ -701,7 +701,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   its audio tracks with their languages, it plays from the start, and a seek to the middle plays from
   there with picture and sound in step. An encrypted image is instead listed as a file that could
   not be read, its message saying it is encrypted. (`internal/node/disc`,
-  `internal/node/execx/disc.go`)
+  `internal/node/execx/disc.go`) *2026-11-02, by the agent in Chrome, with the musicals library's
+  Der Golem concert DVD:* it reads with the main feature's 2:27:45 and its English AC-3 track,
+  and plays from the start; it is not identified, its file name (LES_MIS_NTSC_V2) naming no film.
+  A seek to the middle failed: the title's clock starts again at 1:28:39 (D404). Re-run the seek,
+  to before and after 1:28:39, once D404 is on staging.
 - [ ] **VQ74** — As VQ73 with a decrypted Blu-ray image whose film is one clip. Passes as VQ73 does,
   and the picture is copied, not re-encoded, on a browser that plays H.264 (the play's decision
   says remux). (`internal/node/disc/bluray.go`)

@@ -12,6 +12,10 @@ import (
 // sectorBytes is a disc's sector, and a UDF logical block on every video disc.
 const sectorBytes = 2048
 
+// SectorBytes is a disc's sector: a DVD's program stream pack, the whole a read of its title is
+// restamped in (Title.Restamp).
+const SectorBytes = sectorBytes
+
 // Bounds on what one image may make the node read or keep: far past any real disc's, so a hostile
 // or broken image is refused rather than walked without end.
 const (

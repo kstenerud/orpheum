@@ -93,6 +93,9 @@
 //     hold it, sized and budgeted as the title and carrying it for the probe, its structure read once
 //     through the disk's gate; a runner that cannot stream a film refuses one (ErrDiscNeedsStreaming,
 //     D350). TestFilmOf_ADiscImageIsServedAsItsMainTitleAndOnlyStreamed.
+//   - A DVD's title whose clock starts again partway is served on one clock, every read, however it
+//     falls across sectors, restamped as the whole title is (D404).
+//     TestFilmOf_ADVDsFilmIsServedOnOneClock.
 //   - That a streamed film's pipe kept its default size, the user's pipe memory spent, is logged once
 //     (LoggingTo). TestRunner_SaysOnceThatAStreamedFilmsPipeKeptItsDefaultSize.
 //

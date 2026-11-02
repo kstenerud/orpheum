@@ -18,6 +18,10 @@
 //     them. TestMainTitle_ADVDsLongestTitleIsItsCellsInPlayOrder.
 //   - Of an angle block only the first angle is served; an interleaved title is refused
 //     (ErrInterleaved). TestMainTitle_ADVDsOtherAnglesAreLeftOutAndInterleavedCellsRefused.
+//   - A DVD title whose cells' clock starts again partway (a cell starting before the one before it
+//     ended, or more than a second after) carries its clock shifts, and Restamp moves every SCR, PTS
+//     and DTS from there to carry on, so FFmpeg seeking by time finds where the title plays it
+//     (D404). TestMainTitle_ADVDsClockStartedAgainIsMovedToCarryOn.
 //   - A Blu-ray's main title is its longest playlist that plays no clip twice, served as its clips
 //     whole in play order, with its chapters across them and its streams' languages by PID, read
 //     through the metadata partition. TestMainTitle_ABluRaysLongestPlaylistIsItsClipsInOrder.
@@ -39,6 +43,7 @@
 // # Read before changing
 //
 //   - D350: the main title, served through fdproxy; what is refused.
+//   - D404: a DVD title served on one clock.
 //   - D126: hostile bytes stop at the node.
 //   - docs/contributors/design/research/iso-support.md: the formats, and how others read them.
 //
@@ -46,6 +51,7 @@
 //
 //   - read.go: bounds, errors and bounded reads. udf.go and fileentry.go: the UDF volume, its
 //     directories and files. dvd.go: a DVD's titles. bluray.go: a Blu-ray's playlists.
-//     encrypted.go: telling an encrypted title. title.go: the Title, and choosing which disc.
+//     encrypted.go: telling an encrypted title. clock.go: a DVD title's clock, and restamping it.
+//     title.go: the Title, and choosing which disc.
 //     disctest: images for tests.
 package disc

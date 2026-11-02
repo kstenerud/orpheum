@@ -45,6 +45,10 @@ type Title struct {
 	// ChaptersMs are where its chapters start, ascending, the first at 0.
 	ChaptersMs []int64
 	Tracks     []Track
+	// ClockShifts are where a DVD title's clock starts again partway (a cell whose clock does not
+	// carry on from the one before), ascending: what Restamp moves for its stream to play on one
+	// clock, as FFmpeg seeks by it.
+	ClockShifts []ClockShift
 }
 
 // SizeBytes is the length of the title's stream.
