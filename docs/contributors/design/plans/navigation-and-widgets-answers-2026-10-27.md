@@ -1393,3 +1393,17 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
     always walks to ⤢. Two caveats stay: Silk never delivers Rewind or Fast forward to the page
     (research §5.1), so "FF did nothing" cannot be fixed in the page; and while playing, the
     overlay's 3 s hide can still change what Right does between presses (paused, it stays).
+
+## Staging's Connect: an account of the lead's own (the owner, 2026-11-03), next batch
+
+The lead cannot test staging's Connect without using the owner's account, and a passkey lives on the
+device that made it, so neither can use the other's. As on the core (`admin` is the owner's,
+`lead-tests` the lead's, agent-failures A50), the lead gets an account of its own, made by an
+operator's invitation, its passkey a virtual authenticator's kept in the sandbox's cache. What stops
+it today is mail: making an account and resetting a password send a link, staging sends real mail
+(Scaleway, `orpheum-connect/deploy/staging/compose.yaml`), and the lead has no mailbox. **The fix the
+owner agreed ("the email fix sounds good"):** staging's connectd writes mail for one reserved test
+domain to a file the lead reads, instead of sending it; every other address is mailed as now, and
+production never turns it on. A change in orpheum-connect's mailer (`internal/mail/mail.go`), S.
+The owner's account and password stay as they are; starting staging's Connect afresh is done together
+with the owner.
