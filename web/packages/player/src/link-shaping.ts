@@ -53,7 +53,8 @@ export function msAtCap(bytes: number, capKbps: number): number {
   return (bytes * 8) / capKbps;
 }
 
-type LoaderClass = new (config: HlsConfig) => Loader<LoaderContext>;
+/** A class of hls.js loader, as its config names one. */
+export type LoaderClass = new (config: HlsConfig) => Loader<LoaderContext>;
 
 /**
  * A loader that lets what loaderClass loads through as the tab's shaping says: as it is with no cap;
