@@ -31,6 +31,20 @@ End: one `make check-pr`, staging, the owner tries it.
    menus under the film first, `audio-tracks.tsx`, `subtitles.tsx`) become the chooser.
 7. **Docs**: the web README's invariants, the `/ui-gallery` specimens, D408's status.
 
+## The owner's comments on steps 1–4 (2026-11-03), folded into the batch
+
+8. **A pop-up's width.** The banner's menu came out too narrow, wrapping its entries. The rule (the
+   lead's wording of the owner's): a pop-up is as wide as its widest entry, but never wider than half
+   the screen; an entry longer than that wraps. Half a phone's screen is too narrow for a word, so the
+   cap is never under 16rem, and the margin (9) always wins.
+9. **A margin pop-ups keep clear of**: a small one (0.5rem, plus the device's safe-area insets) at
+   every edge of the screen, which no pop-up covers.
+10. **Cast and Watch Together open at once.** Their first press shows "Loading…" in place of the
+    icon until the code arrives; it is loaded ahead, once the app is idle after its first page.
+11. **🔈 grows upward out of its button.** The pop-up is placed so that its speaker sits where the
+    button was, the slider above it: pressing 🔈 looks like the button growing into the control, and
+    it shrinks back once something is chosen.
+
 **Separately:** a one-day Preact spike measured on the Fire TV stick (D408 §5). Trying Preact adds a
 dependency, which the hooks refuse in a feature session; it needs a session started with
 `ORPHEUM_ALLOW_DEPS=1` (the owner starts one after steps 1–4). The Fire TV stick and the Pixel 3a are
