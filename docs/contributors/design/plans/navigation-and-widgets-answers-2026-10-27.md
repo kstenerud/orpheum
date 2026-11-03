@@ -1426,3 +1426,9 @@ no-cache` and its scripts are named by their hash, so the browser's own cache is
 its face; to look at: the service worker's answers to a navigation and the loader's cache
 (`sw.ts`, `loaderCache`), and when `watchForNewerClient` (client-main.tsx) notices a newer client.
 Not yet reproduced; it makes every deploy's test unreliable until it is understood.
+
+**Tried (the lead, 2026-11-03):** Chrome 156 on Linux, through orpheum.dev's loader with its
+service worker, a Play page held open across `./staging quick`: the first plain reload ran the new
+client (`index-Tn3tmHJe.js` to `index-CylJ3mgd.js`), as did two more and a navigation. Not seen
+there. Still to try: Firefox and Safari on the Mac, and a reload while the deploy is under way (the
+core restarting), which the owner's may have been.
