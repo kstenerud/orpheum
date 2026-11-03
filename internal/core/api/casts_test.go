@@ -437,13 +437,16 @@ func (harness testHarness) sessionWithNothingOn(t *testing.T) (api.CastBody, [2]
 }
 
 // Casting is a session with a device (D364): started with nothing playing, the sender's page told it
-// sends it; the receiver alone says Use, which the sender is told (§1, §2, §6).
+// sends it; the receiver alone says Use, which the sender is told (§1, §2, §6). A refusal is logged.
 func TestCast_IsASessionOnlyItsReceiverAccepts(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	session, tokens, sockets := harness.sessionWithNothingOn(t)
 	acceptPath := fmt.Sprintf("/me/casts/%d/accept", session.CastID)
 	wantError(t, harness.do(t, http.MethodPost, acceptPath, tokens[0], nil), http.StatusNotFound, api.CodeNotFound)
+	// A refusal is logged, so a request refused can be told from one never sent (principles §28).
+	harness.logs.AwaitLine(t, `"msg":"cast: a request refused"`, `"request":"accept"`,
+		fmt.Sprintf(`"castId":%d`, session.CastID), `"why":"no such cast"`)
 	if accepted := harness.do(t, http.MethodPost, acceptPath, tokens[1], nil); accepted.status != http.StatusOK {
 		t.Fatalf("the TV's Use = %d %s", accepted.status, accepted.body)
 	}
