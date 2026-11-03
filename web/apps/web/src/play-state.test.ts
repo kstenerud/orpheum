@@ -474,7 +474,7 @@ describe("a quality the player cannot play here (D266)", () => {
   });
 
   it("tells the page where the video stood when the film's own picture is given up, and only then (D323 §2)", () => {
-    const video = new EventTarget();
+    const video = document.createElement("video");
     const told: unknown[] = [];
     const stop = whenOwnPictureGivenUp(video, (at) => told.push(at));
     const at = (detail: object): void => {
@@ -485,6 +485,40 @@ describe("a quality the player cannot play here (D266)", () => {
     stop();
     at({ qualityKbps: 3096, positionMs: 500_000, isFilmsOwnPicture: true });
     expect(told).toEqual([{ positionMs: 420_500, isPaused: false }]);
+  });
+
+  it("opens the twin playing when the own picture is given up before its first frame, which reads as paused (the owner's test, 2026-11-03)", () => {
+    const video = document.createElement("video");
+    const told: unknown[] = [];
+    const stop = whenOwnPictureGivenUp(video, (at) => told.push(at));
+    video.dispatchEvent(
+      new CustomEvent(playerFoundUnplayableEvent, {
+        detail: {
+          qualityKbps: 9412,
+          positionMs: 0,
+          readyState: 1,
+          isPaused: true,
+          isFilmsOwnPicture: true,
+        },
+      }),
+    );
+    stop();
+    expect(told).toEqual([{ positionMs: 0, isPaused: false }]);
+  });
+
+  it("opens the twin paused when the person paused the own picture before it was given up", () => {
+    const video = document.createElement("video");
+    Object.defineProperty(video, "readyState", { value: 4 });
+    const told: unknown[] = [];
+    const stop = whenOwnPictureGivenUp(video, (at) => told.push(at));
+    video.dispatchEvent(new Event("pause"));
+    video.dispatchEvent(
+      new CustomEvent(playerFoundUnplayableEvent, {
+        detail: { qualityKbps: 9412, positionMs: 61_000, isPaused: true, isFilmsOwnPicture: true },
+      }),
+    );
+    stop();
+    expect(told).toEqual([{ positionMs: 61_000, isPaused: true }]);
   });
 
   it("keeps the decision times of the newest playbacks alone, as warm-ups never played go (the M4 closing audit)", () => {

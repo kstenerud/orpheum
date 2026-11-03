@@ -126,20 +126,24 @@ interface Reporting {
 /**
  * Tells onGivenUp where the video stood when its player gave the film's own picture up as one its
  * device cannot play (D266), for the page to ask for the playback again from there, at the twin
- * (D323 §2). Returns the stopping.
+ * (D323 §2), paused only where the person paused it: a video yet to show its first frame reads as
+ * paused, and opened again paused it never started (the owner's test, 2026-11-03: Play on
+ * The Gold Rush's page opened the player and did not play). Returns the stopping.
  */
 export function whenOwnPictureGivenUp(
-  video: EventTarget,
+  video: HTMLVideoElement,
   onGivenUp: (at: ReopenAt) => void,
 ): () => void {
+  const pause = watchPersonsPause(video);
   const listener = (event: Event): void => {
     const unplayable = unplayableOf(event);
     if (unplayable?.isFilmsOwnPicture === true) {
-      onGivenUp({ positionMs: unplayable.positionMs, isPaused: unplayable.isPaused ?? false });
+      onGivenUp({ positionMs: unplayable.positionMs, isPaused: pause.isPaused() });
     }
   };
   video.addEventListener(playerFoundUnplayableEvent, listener);
   return () => {
+    pause.stop();
     video.removeEventListener(playerFoundUnplayableEvent, listener);
   };
 }
@@ -302,6 +306,23 @@ function watchForLoss(
   listener: Pick<ReportListener, "onGone">,
   lastPositionMs: () => number,
 ): { readonly isReopened: (cause: unknown) => boolean; readonly stop: () => void } {
+  const pause = watchPersonsPause(video);
+  return {
+    isReopened: (cause) =>
+      isPlaybackGone(cause) &&
+      listener.onGone(() => ({ positionMs: lastPositionMs(), isPaused: pause.isPaused() })),
+    stop: pause.stop,
+  };
+}
+
+/**
+ * Whether the person paused video, as against its never having played or having failed, emptied or
+ * ended, none of which a person asks for: a pause of one holding media, until it plays again.
+ */
+function watchPersonsPause(video: HTMLVideoElement): {
+  readonly isPaused: () => boolean;
+  readonly stop: () => void;
+} {
   let isPaused = false;
   const played = (): void => {
     isPaused = false;
@@ -312,8 +333,7 @@ function watchForLoss(
   video.addEventListener("play", played);
   video.addEventListener("pause", paused);
   return {
-    isReopened: (cause) =>
-      isPlaybackGone(cause) && listener.onGone(() => ({ positionMs: lastPositionMs(), isPaused })),
+    isPaused: () => isPaused,
     stop: () => {
       video.removeEventListener("play", played);
       video.removeEventListener("pause", paused);
