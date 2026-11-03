@@ -1449,6 +1449,20 @@ carry its media loads to the core, and they went to the client origin. After the
 tab and opened it again, it played and showed its posters. A tab opened across a change of the
 loader's worker is the case to reproduce (a WebKit page held open across a staging Connect deploy).
 
+**Corrected (the lead, 2026-11-03, after reproducing):** no worker changed: `sw.js` is
+byte-identical in "refactor(web): reportReloadForNewerClient is reportReloadNote"'s build and "docs(orders): the 11-05 batch, a beta that holds up for other households"'s, so the deploy swapped only the loader. And no tab
+was held across it: the core logged a session begun at 16:55:37 and the playback with
+`pageStarts=1`, a freshly opened page. The worker answers the loader's own page and files as kept
+and fetches them again behind, so the first page opened after a Connect deploy runs the old loader
+with the core's new client, and the next the new loader: a fit for "closing and reopening fixed
+it", though the loader's code changed between the two builds only in its `noteStep` words. Not
+reproduced: a WebKit page in the sandbox held open across a staging Connect deploy from "refactor(web): reportReloadForNewerClient is reportReloadNote"'s
+client to "docs(orders): the 11-05 batch, a beta that holds up for other households"'s, its worker updated, then reloaded, carried every poster over WebRTC. The
+sandbox cannot take the iPhone's path: the core offers its LAN name only to a device proven at home
+(`directOffered=0 lanOffered=0`), and only that path failed (the owner's Firefox, over WebRTC, opened
+a page at 16:53 and played). So a device at home reproduces it: staging's Connect switched between
+the two clients while the iPhone opens a page after each.
+
 ## The 11-05 batch (the owner agreed 2026-11-03, "yes, as proposed"): a beta that holds up for other households
 
 After the prod deploy of the 11-03 work. First, the older "next batch" sections above (10-28 to
