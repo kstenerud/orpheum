@@ -132,12 +132,14 @@ describe("a chooser's open list", () => {
     expect(navigation.route()).toEqual({ screen: "browse", library: 1 });
   });
 
-  it("closes, choosing nothing, at a press outside it, by its Close, and on Left or Right", async () => {
+  it("closes, choosing nothing, at a press outside it and on Left or Right, drawing no Close", async () => {
     const { navigation, button } = await libraryChooser();
     await fire(openList(), new MouseEvent("click", { bubbles: true, clientX: 500, clientY: 500 }));
     expect(openList()).toBeNull();
     await click(button);
-    await click(buttonNamed(shown?.container ?? document.body, "Close"));
+    // A pop-up, not a dialog: no Close (D408 §2).
+    expect(buttonNamed(shown?.container ?? document.body, "Close")).toBeUndefined();
+    await click(button);
     expect(openList()).toBeNull();
     // The owner, 2026-10-28: "moving left/right while in a chooser or menu closes it".
     for (const key of ["ArrowLeft", "ArrowRight"]) {

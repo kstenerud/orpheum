@@ -293,7 +293,13 @@ export function SoundControls(props: {
   const { sound, isOverVideo } = props;
   const isSilent = sound.isMuted || sound.volume === 0;
   return (
-    <span className="player-controls__sound">
+    <span
+      className={
+        props.isUpright === true
+          ? "player-controls__sound player-controls__sound--upright"
+          : "player-controls__sound"
+      }
+    >
       <IconButton
         isOverVideo={isOverVideo}
         label={isSilent ? t("playerControls.unmute") : t("playerControls.mute")}

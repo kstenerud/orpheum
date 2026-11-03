@@ -118,9 +118,9 @@ describe.each(screens)("a drop-down's list on $name", ({ width, height, isPhone 
     expect(window.scrollY).toBe(scrolled);
   });
 
-  // The owner's Fire TV, 2026-10-29: "The X button on the list partially obscures the first item ...
-  // You can see it partially covering the outline around the first item in the list."
-  it("keeps its first place, focus ring and all, clear of its Close", async () => {
+  // The owner, 2026-11-02: "I don't think any of the overlay popups need a close button" (D408 §2);
+  // its first place, focus ring and all, in view under the list's top.
+  it("draws no Close, its first place opening in view with its whole focus ring", async () => {
     await page.viewport(width, height);
     mounted = await mount(
       withServices(
@@ -138,13 +138,48 @@ describe.each(screens)("a drop-down's list on $name", ({ width, height, isPhone 
     await expect.poll(() => document.querySelector("dialog ul button")).not.toBeNull();
     const first = document.querySelector<HTMLElement>("dialog ul button");
     await expect.poll(() => document.activeElement).toBe(first);
-    const close = boxOf(document.querySelector("dialog .drop-down__close"));
-    expect(isOverlapping(close, ringedBoxOf(first))).toBe(false);
+    expect(document.querySelector('dialog button[aria-label="Close"]')).toBeNull();
+    const [ringed, list] = [ringedBoxOf(first), boxOf(document.querySelector("dialog"))];
+    expect(ringed.top).toBeGreaterThanOrEqual(list.top - roundingPx);
+    expect(ringed.bottom).toBeLessThanOrEqual(list.bottom + roundingPx);
+  });
+
+  // The owner, 2026-11-02: "The subtitles list popup should be showing the current value under the
+  // highlight, and at least 1 entry below and 1 entry above" (D408 §3), its button at the screen's
+  // bottom, where a list laid with its choice over the button would show none below it.
+  it("opens on its choice with a place either side of it in view, from a button at the screen's bottom", async () => {
+    await page.viewport(width, height);
+    mounted = await mount(
+      withServices(
+        <div style={{ position: "fixed", left: "40%", bottom: "4px" }}>
+          <ActionChooser
+            fieldLabel="Order"
+            isFieldLabelShown={false}
+            current="Choice 7"
+            options={sorts}
+          />
+        </div>,
+      ),
+    );
+    await userEvent.click(
+      mounted.container.querySelector<HTMLElement>(".route-chooser__button") ?? document.body,
+    );
+    await expect.poll(() => document.activeElement?.textContent).toBe("Choice 7");
+    const places = boxOf(document.querySelector("dialog .list-box"));
+    const buttons = [...document.querySelectorAll<HTMLElement>("dialog ul button")];
+    for (const neighbour of [buttons[5], buttons[7]]) {
+      const box = boxOf(neighbour);
+      expect(box.top, neighbour?.textContent ?? "").toBeGreaterThanOrEqual(places.top - roundingPx);
+      expect(box.bottom, neighbour?.textContent ?? "").toBeLessThanOrEqual(
+        places.bottom + roundingPx,
+      );
+    }
   });
 
   // The owner's Fire TV, 2026-10-29: "As I scroll down the menu, I notice the highlight around the
-  // current item is slightly cut off at the bottom of the menu canvas."
-  it("shows each place moved to, down to its last and up again, with its whole focus ring", async () => {
+  // current item is slightly cut off at the bottom of the menu canvas"; and the place after it in the
+  // way it moves, as context (the owner, 2026-11-02; D408 §3).
+  it("shows each place moved to, down to its last and up again, with its whole focus ring and the next", async () => {
     // Low enough that the list scrolls within itself.
     await page.viewport(width, Math.min(height, 360));
     mounted = await mount(
@@ -161,40 +196,38 @@ describe.each(screens)("a drop-down's list on $name", ({ width, height, isPhone 
       mounted.container.querySelector<HTMLElement>(".route-chooser__button") ?? document.body,
     );
     await expect.poll(() => document.querySelector("dialog ul button")).not.toBeNull();
-    const places = document.querySelector<HTMLElement>("dialog .drop-down__places");
+    const places = document.querySelector<HTMLElement>("dialog .list-box");
     const buttons = [...document.querySelectorAll<HTMLElement>("dialog ul button")];
     expect((places?.scrollHeight ?? 0) > (places?.clientHeight ?? 0)).toBe(true);
-    const close = boxOf(document.querySelector("dialog .drop-down__close"));
-    const isShownWhole = (): boolean => {
-      const ringed = ringedBoxOf(document.activeElement);
-      const shown = boxOf(places);
-      return (
-        ringed.top >= shown.top - roundingPx &&
-        ringed.bottom <= shown.bottom + roundingPx &&
-        !isOverlapping(close, ringed)
-      );
-    };
-    for (const button of buttons.slice(1)) {
-      await userEvent.keyboard("{ArrowDown}");
-      await expect.poll(() => document.activeElement).toBe(button);
-      expect(isShownWhole(), button.textContent).toBe(true);
+    for (let at = 1; at < buttons.length; at += 1) {
+      await movedTo(at, { arrow: "{ArrowDown}", next: at + 1 }, { buttons, places });
     }
-    for (const button of buttons.slice(0, -1).reverse()) {
-      await userEvent.keyboard("{ArrowUp}");
-      await expect.poll(() => document.activeElement).toBe(button);
-      expect(isShownWhole(), button.textContent).toBe(true);
+    for (let at = buttons.length - 2; at >= 0; at -= 1) {
+      await movedTo(at, { arrow: "{ArrowUp}", next: at - 1 }, { buttons, places });
     }
   });
 });
 
-/** Whether two boxes overlap, more than layout's rounding. */
-function isOverlapping(one: DOMRect, other: DOMRect): boolean {
-  return (
-    one.left < other.right - roundingPx &&
-    other.left < one.right - roundingPx &&
-    one.top < other.bottom - roundingPx &&
-    other.top < one.bottom - roundingPx
-  );
+/**
+ * Presses arrow and checks focus moved to the place at, shown whole with its focus ring within
+ * places, and the place at next, where there is one, shown whole too: the context beyond it.
+ */
+async function movedTo(
+  at: number,
+  way: { readonly arrow: string; readonly next: number },
+  list: { readonly buttons: readonly HTMLElement[]; readonly places: HTMLElement | null },
+): Promise<void> {
+  const { buttons, places } = list;
+  const isShownWhole = (box: DOMRect): boolean => {
+    const shown = boxOf(places);
+    return box.top >= shown.top - roundingPx && box.bottom <= shown.bottom + roundingPx;
+  };
+  const button = buttons[at] ?? null;
+  await userEvent.keyboard(way.arrow);
+  await expect.poll(() => document.activeElement).toBe(button);
+  expect(isShownWhole(ringedBoxOf(button)), button?.textContent).toBe(true);
+  const next = buttons[way.next];
+  expect(next === undefined || isShownWhole(boxOf(next)), button?.textContent).toBe(true);
 }
 
 /** An element's box with the focus ring drawn around it (tokens.css's --focus-ring-room). */
@@ -291,10 +324,11 @@ describe("a short list near a short window's bottom (1920×600)", () => {
   it("is cut at the edge and scrolls, its choice over the button, keeping over half", async () => {
     const opener = await mountChooser(2);
     const at = await measured(opener);
-    standCrossingBottomBy(opener, at.list / 3, at);
+    // Little enough that the place after its choice stays in view (D408 §3).
+    standCrossingBottomBy(opener, at.list / 8, at);
     await userEvent.click(opener);
     const list = document.querySelector("dialog");
-    const places = list?.querySelector<HTMLElement>(".drop-down__places");
+    const places = list?.querySelector<HTMLElement>(".list-box");
     const listBox = boxOf(list);
     expect(document.activeElement?.textContent).toBe("Choice 3");
     expect(
@@ -314,7 +348,7 @@ describe("a short list near a short window's bottom (1920×600)", () => {
     standCrossingBottomBy(opener, (at.list * 2) / 3, at);
     await userEvent.click(opener);
     const list = document.querySelector("dialog");
-    const places = list?.querySelector<HTMLElement>(".drop-down__places");
+    const places = list?.querySelector<HTMLElement>(".list-box");
     const listBox = boxOf(list);
     expect(document.activeElement?.textContent).toBe("Choice 1");
     expect(Math.abs(listBox.height - at.list)).toBeLessThanOrEqual(roundingPx);

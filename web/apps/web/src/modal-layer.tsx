@@ -2,7 +2,7 @@
 
 import "./modal-layer.css";
 
-import { use, useEffect, type RefObject } from "react";
+import { use, useEffect, useLayoutEffect, type RefObject } from "react";
 
 import { scrollIntoViewGently } from "./focus-navigation.ts";
 import { useCommands } from "./input-layer.tsx";
@@ -51,7 +51,8 @@ function focusReturnsFrom(focusedBefore: Element | null): readonly Element[] {
 
 /**
  * Gives focus back to the first of returns still on the page, outside any dialog closed, as the
- * dialog closes, where focus is nowhere else: in the dialog going, or lost to the page with it. The
+ * dialog closes, where focus was nowhere else as it began to (isLost): in the dialog going, or lost
+ * to the page with it. The
  * browser gives it back itself only to a dialog closed while on the page, and the page closes one by
  * removing it, so focus fell to the page's start, and a keyboard or a remote began again from there
  * (D361 §3). Focus something else took meanwhile, as a page moved to, stays where it is. Given back
@@ -59,9 +60,11 @@ function focusReturnsFrom(focusedBefore: Element | null): readonly Element[] {
  * focus scrolled the page to a chooser's button the opening had moved off the screen (the owner on a
  * Fire TV, 2026-10-28), and centres what it brings in.
  */
-function giveFocusBack(dialog: HTMLDialogElement, returns: readonly Element[]): void {
-  const now = document.activeElement;
-  const isLost = now === null || now === document.body || dialog.contains(now);
+function giveFocusBack(
+  dialog: HTMLDialogElement,
+  returns: readonly Element[],
+  isLost: boolean,
+): void {
   const to = returns.find(
     (each) =>
       each.isConnected && !dialog.contains(each) && each.closest("dialog:not([open])") === null,
@@ -132,7 +135,9 @@ export function useModalLayer(
   ref: RefObject<HTMLDialogElement | null>,
   toldRef: RefObject<ModalLayerTold>,
 ): void {
-  useEffect(() => {
+  // Opened as it is laid out, before the effects of what it holds: a list focusing its current
+  // choice (list-box.tsx) then keeps focus from the browser's own opening, which focuses the first.
+  useLayoutEffect(() => {
     const dialog = ref.current;
     if (dialog === null) {
       return undefined;
@@ -166,8 +171,12 @@ export function useModalLayer(
       dialog.removeEventListener("cancel", cancel);
       dialog.removeEventListener("keydown", keepEscape);
       dialog.removeEventListener("click", pressOutside);
+      // Read before it closes: closed while still drawn, the browser itself gives focus back, with
+      // no scroll to bring it into view.
+      const now = document.activeElement;
+      const isLost = now === null || now === document.body || dialog.contains(now);
       dialog.close();
-      giveFocusBack(dialog, returns);
+      giveFocusBack(dialog, returns, isLost);
     };
   }, [ref, toldRef]);
   useBackCloses(ref, toldRef);

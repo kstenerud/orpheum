@@ -23,11 +23,6 @@
   background: var(--color-backdrop);
 }
 
-/* A drop-down's backdrop is dimmed less: the screen it came from stays in view behind it. */
-.modal-dialog--drop-down::backdrop {
-  background: var(--color-backdrop-light);
-}
-
 /* Every dialog's Close, the standard one (modal-dialog.tsx): a cross at its top-right, room kept for
    it beside the dialog's first line (the owner, 2026-10-30). A modal dialog is fixed to the screen,
    so the cross is placed against it. */

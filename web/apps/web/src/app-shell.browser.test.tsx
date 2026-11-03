@@ -388,21 +388,14 @@ describe("the shell, laid out by a real browser", () => {
       await new Promise((resolve) => requestAnimationFrame(resolve));
       const places = [...menu.querySelectorAll<HTMLElement>("ul a, ul button")];
       expect(places.at(-1)?.textContent).toBe("Sign out");
-      // Its Close, a cross at the top-right that stays put while the places scroll under it (the
-      // owner, 2026-10-28).
-      const close = menu.querySelector<HTMLElement>(".drop-down__close");
-      expect(close?.getAttribute("aria-label")).toBe("Close");
-      const [closeBefore, list] = [boxOf(close), boxOf(menu)];
-      expect(closeBefore.top - list.top).toBeLessThan(4);
-      expect(list.right - closeBefore.right).toBeLessThan(4);
+      // A pop-up, no Close of its own (the owner, 2026-11-02; D408 §2).
+      expect(menu.querySelector('button[aria-label="Close"]')).toBeNull();
       for (const place of places) {
         place.focus();
         const box = boxOf(place);
         expect(box.top, place.textContent).toBeGreaterThanOrEqual(0);
         expect(box.bottom, place.textContent).toBeLessThanOrEqual(window.innerHeight);
       }
-      // Sign out focused, the places scrolled: the Close where it was.
-      expect(boxOf(close).top).toBeCloseTo(closeBefore.top, 0);
     });
   });
 
@@ -434,7 +427,7 @@ describe("the shell, laid out by a real browser", () => {
           await userEvent.click(page.getByRole("button", { name: "Menu" }));
           const menu = container.querySelector("dialog");
           await new Promise((resolve) => requestAnimationFrame(resolve));
-          const places = menu?.querySelector<HTMLElement>(".drop-down__places");
+          const places = menu?.querySelector<HTMLElement>(".list-box");
           const first = menu?.querySelector<HTMLElement>("ul a, ul button");
           expect(places?.scrollTop).toBe(0);
           expect(document.activeElement).toBe(first);

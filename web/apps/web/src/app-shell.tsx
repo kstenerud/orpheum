@@ -15,6 +15,7 @@ import { useTranslation } from "react-i18next";
 
 import logo from "./assets/orpheum-logo.svg";
 import { DropDown } from "./drop-down.tsx";
+import { ListEntry, ListOption } from "./list-box.tsx";
 import { Icon } from "./icon.tsx";
 import { StatusTray } from "./status-tray.tsx";
 import { Link } from "./link.tsx";
@@ -240,6 +241,7 @@ export function AppShell(props: {
         key={`${destination.group}-${destination.labelKey}`}
         destination={destination}
         isCurrent={destination.route.screen === props.currentScreen}
+        isInMenu={group !== "watching"}
       />
     ));
   const isIn = (group: Destination["group"]): boolean =>
@@ -417,11 +419,29 @@ export function MenuIcon(): JSX.Element {
 function Place(props: {
   readonly destination: Destination;
   readonly isCurrent: boolean;
+  /** Whether it is one of the menu's places, a choice of its list, not the banner's. */
+  readonly isInMenu: boolean;
 }): JSX.Element {
+  if (props.isInMenu) {
+    return <MenuPlace destination={props.destination} isCurrent={props.isCurrent} />;
+  }
   return props.destination.isLibrariesMenu === true ? (
     <LibrariesMenu destination={props.destination} isCurrent={props.isCurrent} />
   ) : (
     <PlaceLink destination={props.destination} isCurrent={props.isCurrent} />
+  );
+}
+
+/** One of the menu's places: a choice of its list (list-box.tsx), by its name. */
+function MenuPlace(props: {
+  readonly destination: Destination;
+  readonly isCurrent: boolean;
+}): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <ListOption to={props.destination.route} isCurrent={props.isCurrent}>
+      {t(`nav.${props.destination.labelKey}`)}
+    </ListOption>
   );
 }
 
@@ -486,21 +506,20 @@ function LibrariesMenu(props: {
         opener={<LibrariesIcon className="app-shell__place-glyph" />}
         openerClassName="app-shell__place-icon"
         openerNaming={{ "aria-label": name, title: name }}
-        listClassName="app-shell__libraries-list"
         isFromItsTop
       >
         {sorted.map((library) => (
-          <li key={library.id}>
-            <Link to={{ screen: "browse", library: library.id }} isCurrent={shown === library.id}>
-              {library.name}
-            </Link>
-          </li>
+          <ListOption
+            key={library.id}
+            to={{ screen: "browse", library: library.id }}
+            isCurrent={shown === library.id}
+          >
+            {library.name}
+          </ListOption>
         ))}
-        <li>
-          <Link to={{ screen: "browse", library: "all" }} isCurrent={shown === "all"}>
-            {t("browse.allLibraries")}
-          </Link>
-        </li>
+        <ListOption to={{ screen: "browse", library: "all" }} isCurrent={shown === "all"}>
+          {t("browse.allLibraries")}
+        </ListOption>
       </DropDown>
     </li>
   );
@@ -534,7 +553,6 @@ function MainMenu(props: {
         opener={<MenuIcon />}
         openerClassName="app-shell__menu-button"
         openerNaming={{ "aria-label": label, title: label }}
-        listClassName="app-shell__menu-list"
         isFromItsTop
       >
         <MenuPlaces
@@ -594,28 +612,20 @@ function MenuPlaces(props: Omit<Parameters<typeof MainMenu>[0], "isCurrent">): J
   return (
     <>
       {signedInAs === undefined ? null : (
-        <li className="app-shell__who">
+        <ListEntry className="app-shell__who">
           {signedInAs.deviceName === undefined
             ? t("nav.signedInAs", { name: signedInAs.name })
             : t("nav.signedInAsOn", { name: signedInAs.name, device: signedInAs.deviceName })}
           {realm === undefined ? null : (
             <span className="app-shell__who-realm">{t("nav.realmTitle", { realm })}</span>
           )}
-        </li>
+        </ListEntry>
       )}
       {props.children}
       {props.onSwitchHousehold === undefined ? null : (
-        <li>
-          <button type="button" onClick={props.onSwitchHousehold}>
-            {t("nav.switchHousehold")}
-          </button>
-        </li>
+        <ListOption onChoose={props.onSwitchHousehold}>{t("nav.switchHousehold")}</ListOption>
       )}
-      <li>
-        <button type="button" onClick={props.onSignOut}>
-          {t("nav.signOut")}
-        </button>
-      </li>
+      <ListOption onChoose={props.onSignOut}>{t("nav.signOut")}</ListOption>
     </>
   );
 }

@@ -1,0 +1,43 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* A pop-up (popover.tsx, D408 §2): laid at the button that opened it by the script, which sets its
+   left and top, the browser's centring margins and insets let go; as big as what it holds within
+   the screen, keeping drop-down-place.ts's room at each edge, with no minimum width and no Close.
+   What it holds that scrolls (a list, list-box.css) shrinks to the height the script gives it, cut
+   at the screen's edge. It keeps the browser's own position for a modal dialog, fixed to the screen:
+   one relative was laid out at the top of the page, and the page scrolled up to it as it opened (the
+   owner on a Fire TV, 2026-10-28). */
+.popover {
+  display: flex;
+  flex-direction: column;
+  inset: auto;
+  width: fit-content;
+  height: fit-content;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* Its own display takes the browser's hiding of a closed dialog away: before it opens it is not
+   drawn. */
+.popover:not([open]) {
+  display: none;
+}
+
+/* The screen it came from stays in view behind it, dimmed less than behind a dialog. */
+.popover::backdrop {
+  background: var(--color-backdrop-light);
+}
+
+/* What it holds, one element for the arrows it hears (popover.tsx), with no box of its own. */
+.popover__content {
+  display: contents;
+}
