@@ -55,6 +55,19 @@ async function asADiscoverysPage(page: Page): Promise<string[]> {
 }
 
 /**
+ * Ends the test's routing of page, its last step: a load the page still makes as the test ends (a
+ * script of the client it goes on loading), its handler still waiting on the core, otherwise calls
+ * route.fulfill after the context closed, which has dropped what route.fetch read: "route.fulfill:
+ * Fetch response has been disposed", or "route.fetch: Test ended", failing a test that had passed, or
+ * the next one its worker runs. Unrouted with "ignoreErrors" in the test's own body, a handler in
+ * flight fails nothing (idiosyncrasies.md, "Playwright fails a test whose route handler is still
+ * running as it ends").
+ */
+async function stopRouting(page: Page): Promise<void> {
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+}
+
+/**
  * The core's own answer to a load of origin, as the discovery serves it there: its page naming the
  * loader's configuration, under a policy that lets it call the discovery's API.
  */
@@ -97,6 +110,7 @@ test("a discovery's page with no link and no server reached before says how to g
   await expect(page.getByText("Open the link you were sent")).toBeVisible();
   await expect(page.getByLabel("Password")).toBeHidden();
   expect(asked).toEqual([]);
+  await stopRouting(page);
 });
 
 test("a discovery's page spends a link only on its click, and says when it finds nothing", async ({
@@ -112,4 +126,5 @@ test("a discovery's page spends a link only on its click, and says when it finds
     page.getByRole("heading", { name: "This link no longer finds its server" }),
   ).toBeVisible();
   expect(asked).toEqual(["/client/v1/locate"]);
+  await stopRouting(page);
 });
