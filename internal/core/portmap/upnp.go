@@ -19,8 +19,12 @@ import (
 	"time"
 )
 
-// SSDPAddress is where UPnP devices listen for a search (UPnP Device Architecture 2.0 §1.3.2).
-const SSDPAddress = "239.255.255.250:1900"
+// SSDPAddress is where UPnP devices listen for a search (UPnP Device Architecture 2.0 §1.3.2), and
+// SSDPPort its port, on which a router also answers a search sent to it alone.
+const (
+	SSDPAddress = "239.255.255.250:1900"
+	SSDPPort    = 1900
+)
 
 // searchWait is how long a search waits for the router to answer; the search asks it to answer
 // within searchMX seconds.

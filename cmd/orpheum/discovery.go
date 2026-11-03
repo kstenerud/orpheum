@@ -258,10 +258,17 @@ func portMappingParts(
 			}
 			return isOn
 		},
-		Gateway: defaultGateway, IPv6Addresses: portmap.GlobalIPv6Addresses,
-		GatewayPort: portmap.GatewayPort, SearchAddress: portmap.SSDPAddress,
+		Gateway: config.Discovery.portMappingGateway(), ForwardTo: config.Discovery.forwardTo(),
+		IPv6Addresses: portmap.GlobalIPv6Addresses,
+		GatewayPort:   portmap.GatewayPort, SearchAddress: config.Discovery.searchAddress(),
 	}
 }
+
+// errRouterUnnamed is a core in a container whose deployment names no router: its default route's
+// gateway is its own network's bridge, which maps nothing for the house.
+var errRouterUnnamed = errors.New("the core runs in a container, whose default route is its own network's " +
+	"bridge, not the house's router: name the router as lan.router in the deployment's values file and " +
+	"write the deployment again")
 
 // routesFile is Linux's IPv4 routing table.
 const routesFile = "/proc/net/route"

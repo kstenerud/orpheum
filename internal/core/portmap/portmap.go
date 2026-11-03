@@ -55,8 +55,13 @@ type Parts struct {
 	// IsWanted is whether the mappings should exist now: should_map_ports on, and a discovery
 	// publishing the core (D273 §7).
 	IsWanted func(ctx context.Context) bool
-	// Gateway is the router of the default route: GatewayOf Linux's routing table.
+	// Gateway is the router asked: the one the deployment names, or the default route's (GatewayOf
+	// Linux's routing table).
 	Gateway func() (netip.Addr, error)
+	// ForwardTo, when valid, is where the router forwards to instead of this machine's own address on
+	// Port: in a container on a bridge network, the machine's address at home and the port HTTPS is
+	// published on there, which the container's own address and port are not.
+	ForwardTo netip.AddrPort
 	// IPv6Addresses are the machine's addresses the router's firewall is asked to open: GlobalIPv6Addresses.
 	IPv6Addresses func() []netip.Addr
 	// GatewayPort and SearchAddress are GatewayPort and SSDPAddress; a test's fake router's otherwise.
@@ -178,6 +183,9 @@ func (service *Service) step(ctx context.Context) {
 	retryAfter := service.wait(ctx, settings.PortMappingRetrySeconds)
 	routerAddress, gatewayErr := service.parts.Gateway()
 	local, localErr := service.localAddress(ctx, routerAddress, gatewayErr)
+	if service.parts.ForwardTo.IsValid() {
+		local, localErr = service.parts.ForwardTo.Addr(), nil
+	}
 	ipv6 := service.parts.IPv6Addresses()
 	shape := fmt.Sprint(routerAddress, local, ipv6)
 	now := service.parts.Clock.Now()
@@ -268,7 +276,11 @@ func (service *Service) refresh(
 func (service *Service) mapIPv4(
 	ctx context.Context, routerAddress, local netip.Addr, findUPnP func() (router, error), report *Report,
 ) (held, bool) {
-	internal := netip.AddrPortFrom(local, uint16(service.parts.Port)) //nolint:gosec // a port
+	port := uint16(service.parts.Port) //nolint:gosec // a port
+	if service.parts.ForwardTo.IsValid() {
+		port = service.parts.ForwardTo.Port()
+	}
+	internal := netip.AddrPortFrom(local, port)
 	lifetime := service.wait(ctx, settings.PortMappingLeaseSeconds)
 	asked := service.gatewayAt(routerAddress)
 	external, granted, err := asked.mapPCP(ctx, service.nonce, internal, internal.Port(), lifetime)

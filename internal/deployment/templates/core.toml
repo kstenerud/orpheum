@@ -54,6 +54,10 @@ send_interface_addresses = false
 # which teaches the core them by itself: the discovery recognises the house's devices by them. Stale
 # when the provider moves the prefix.
 house_ipv6_networks = []
+# The house's router, which port mapping asks to forward this machine's published HTTPS port: the
+# machine's default gateway, which the core's container cannot see, as its default route is its own
+# network's bridge. Empty maps nothing, and the System page says to name it.
+router = {{toml .Values.LAN.Router}}
 
 [webrtc]
 # The UDP port WebRTC is taken on, published at this machine's address at home on the same port, which
