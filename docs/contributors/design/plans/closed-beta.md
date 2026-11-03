@@ -152,7 +152,11 @@ resuming at home continues from the remote position.
   update check; a second media node; several cores per account; billing; plugins; other languages;
   accessibility as a release gate; the dependency audit; and an optimisation sweep once most
   features are in (the owner, 2026-10-18: first loads after a deploy pay one-off costs, and the
-  regular timings are acceptable).
+  regular timings are acceptable); and, at the same point, a sweep of other media servers' and
+  players' test suites for tests we have not thought of and should have (the owner, 2026-11-03:
+  "Mine other similar codebases for tests we haven't thought of but should be doing. We'll do this
+  after we have the majority of the features in"), its findings joining
+  [testing-strategy.md](testing-strategy.md) as the 2026-09-21 source sweep's did.
 - **Maybe:** OIDC or LDAP; recommendations; trailers; Trakt; Watch Together's text chat; each
   viewer's own subtitles and audio; our own relay.
 - **Not wanted:** the API's compatibility gate for now (the owner: *"First we build out the
