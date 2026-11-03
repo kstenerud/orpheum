@@ -1438,6 +1438,17 @@ service worker, as always unless they say otherwise (2026-11-03), the path both 
 open until it is seen again; the owner reports it if it is, and `about:serviceworkers` as it
 happens would narrow it.
 
+**Seen again, on prod (the owner, 2026-11-03), across a Connect deploy:** the owner's iPhone
+(Safari, iOS 18.5) opened orpheum.cc about three minutes after prod's Connect went from
+connect-production-9cbe6f0-d35c68e1 to the "docs(orders): the 11-05 batch, a beta that holds up for other households" build (16:52 UTC). The home page came up and
+the page chose the core's LAN name (`over=http`), but none of its media reached the core: the
+playlist of the film it played answered 404 three times, as orpheum.cc itself answers that path,
+and nas.example's core logged no request for it; each poster of the Movies library said "No poster",
+as orpheum.cc answers an image path with its page. So the service worker the page ran did not
+carry its media loads to the core, and they went to the client origin. After the owner closed the
+tab and opened it again, it played and showed its posters. A tab opened across a change of the
+loader's worker is the case to reproduce (a WebKit page held open across a staging Connect deploy).
+
 ## The 11-05 batch (the owner agreed 2026-11-03, "yes, as proposed"): a beta that holds up for other households
 
 After the prod deploy of the 11-03 work. First, the older "next batch" sections above (10-28 to
