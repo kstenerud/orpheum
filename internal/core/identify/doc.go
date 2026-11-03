@@ -139,17 +139,22 @@
 //     season listings, so its episodes are the chosen series' (D301).
 //     TestMatch_SeveralOfOneNameAreSettledByAGuessMarkedAsOne,
 //     TestSeries_OfSeveralByItsNameTheOldestIsGuessedAndAPersonCorrectsIt. A film's candidates are
-//     ranked otherwise (settle_film.go, D365): a year in its name admits a year either side; those
-//     whose runtime fits one of its files' lengths, within the larger of 3 minutes and 3% of it,
-//     come first, then those of unknown runtime, then those it contradicts, though with no year an
-//     unknown runtime ranks with those it contradicts (the owner, 2026-11-02); within each, the named
-//     year before a year off, then the most voted, or with no year the oldest; several all a year
-//     off, none fitting, stay a person's choice.
+//     ranked otherwise (settle_film.go, D365, D412). A year in its name admits a year either side;
+//     those whose runtime fits one of its files' lengths, within the larger of 3 minutes and 3% of
+//     it, come first, then the rest, an unknown runtime ranking with a contradicted one (D412 §2);
+//     within each, the named year before a year off, then the most voted; several all a year off,
+//     none fitting, stay a person's choice. With no year, the well-known first (D412): the most
+//     voted by ten times or more, then a close fit over a longer cut's (a file up to 30% longer, 50%
+//     where its name says Extended, Director's Cut, Special Edition or Unrated) over the rest, then
+//     one whose original name is the file's over one so named only in translation, then the oldest.
 //     TestMatch_AFilmsCandidateWhoseRuntimeFitsTheFileIsTaken,
-//     TestMatch_AFilmsCandidatesAreRankedFitsUnknownThenContradicts,
+//     TestMatch_AFilmsCandidatesAreRankedFitsThenTheRest,
 //     TestMatch_AFilmsYearAdmitsAYearEitherSideItsOwnFirst,
 //     TestMatch_AFilmWithNoYearTakesTheOldestOfThoseThatFitBest,
-//     TestMatch_AFilmWithNoYearIsNotTakenByAnUnknownRuntimeOverTheOldest. Each admitted
+//     TestMatch_AFilmWithNoYearIsNotTakenByAnUnknownRuntimeOverTheOldest,
+//     TestMatch_AFilmWithNoYearTakesTheMostVotedOnlyByAWideMargin,
+//     TestMatch_AFilmWithNoYearFitsALongerCut,
+//     TestMatch_AFilmWithNoYearPrefersItsOriginalNameButKeepsATranslatedOne. Each admitted
 //     candidate's runtime is read from its details where several are admitted and a file's length
 //     is known, kept with the candidates in cache.db and not fetched again while kept; the one
 //     taken is stored from the details read; and the log says each one's year, runtime, votes and
@@ -368,6 +373,7 @@
 //   - D183: an override is an override wherever its value came from.
 //   - D209: for shows, the series is what is identified.
 //   - D365: a film's candidates ranked by how their runtimes fit its files, then year, then votes.
+//   - D412: with no year, a film's well-known candidate is the likely one.
 //   - D213: a dead image checked once, the rolling refresh, and nothing deleted upstream.
 //   - D335: what should have been fetched and was not is filled in by the sweeps; a refetch that
 //     replaces is a person's act.

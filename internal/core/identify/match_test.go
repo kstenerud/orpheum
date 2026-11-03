@@ -223,12 +223,13 @@ func TestMatch_AnUnsettledSearchIsNeverGuessed(t *testing.T) {
 }
 
 // Several candidates of the file's name are settled by a guess, marked as one until a person
-// chooses: with no year the oldest, with one the most voted, and a film with no year and one
-// candidate is a guess too (D301; the owner's NAS, 2026-10-15).
+// chooses: with no year the oldest of those near in votes (D412 §3), with one the most voted, and
+// a film with no year and one candidate is a guess too (D301; the owner's NAS, 2026-10-15).
 func TestMatch_SeveralOfOneNameAreSettledByAGuessMarkedAsOne(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movies", "tmdb")
 	oldest := lib.provider.Add(identify.Metadata{ID: "11", Name: "The Marten King", Year: 1994})
+	oldest.Votes = 2000 // within ten times the remake's, as the real films' are (D412 §3)
 	lib.provider.Searches[identifytest.SearchKey("The Marten King", 0)] = []identify.Candidate{
 		{ID: "12", Name: "The Marten King", Year: 2019, Votes: 9000},
 		oldest,

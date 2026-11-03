@@ -99,7 +99,7 @@ func (matcher *Matcher) settledFromFiles(
 	if err != nil {
 		return settlement{}, err
 	}
-	chosen, how, rule := settleMatchSaying(query, candidates, kind == KindMovie, fit.lengthsMs)
+	chosen, how, rule := settleMatchSaying(query, candidates, kind == KindMovie, fit.lengths)
 	matcher.logFilmSettled(ctx, itemID, query, candidates, fit, settlement{chosen: chosen, how: how})
 	return settlement{
 		chosen: chosen, how: how, rule: rule, candidates: candidates, chosenBody: fit.fetched[chosen.ID],

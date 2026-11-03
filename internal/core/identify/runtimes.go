@@ -14,24 +14,25 @@ import (
 
 // filmFit is what a film's candidates are fitted against, and what reading their runtimes fetched.
 type filmFit struct {
-	// lengthsMs are the lengths of the film's live files that are known, 0 before a file is probed
+	// lengths are the lengths of the film's live files that are known, 0 before a file is probed
 	// being none.
-	lengthsMs []int64
+	lengths []fileLength
 	// fetched are the details fetched for a runtime, by the candidate's id: the one taken is stored
 	// from them rather than fetched again.
 	fetched map[string][]byte
 }
 
-// fileLengths are the known lengths of a title's live files.
-func (matcher *Matcher) fileLengths(ctx context.Context, titleID int64) ([]int64, error) {
+// fileLengths are the known lengths of a title's live files, each saying whether its name says it
+// is a longer cut (D412 §4).
+func (matcher *Matcher) fileLengths(ctx context.Context, titleID int64) ([]fileLength, error) {
 	files, err := matcher.database.Read().ListLiveFilesOfTitle(ctx, titleID)
 	if err != nil {
 		return nil, fmt.Errorf("list title %d's files: %w", titleID, err)
 	}
-	var lengths []int64
+	var lengths []fileLength
 	for _, file := range files {
 		if file.DurationMs > 0 {
-			lengths = append(lengths, file.DurationMs)
+			lengths = append(lengths, fileLength{ms: file.DurationMs, isLongerCut: namesALongerCut(file.Path)})
 		}
 	}
 	return lengths, nil
@@ -53,7 +54,7 @@ func (matcher *Matcher) fitFilm(
 	if err != nil {
 		return nil, filmFit{}, err
 	}
-	fit := filmFit{lengthsMs: lengths, fetched: map[string][]byte{}}
+	fit := filmFit{lengths: lengths, fetched: map[string][]byte{}}
 	admitted, _ := filmsToRank(query, candidates)
 	if len(admitted) < 2 || len(lengths) == 0 {
 		return candidates, fit, nil
@@ -127,11 +128,11 @@ func (matcher *Matcher) logFilmSettled(
 	if query.Kind != KindMovie || len(admitted) < 2 {
 		return
 	}
-	for _, candidate := range rankFilms(query, admitted, fit.lengthsMs) {
+	for _, candidate := range rankFilms(query, admitted, fit.lengths) {
 		matcher.logger.InfoContext(ctx, "a film's candidate", "itemId", titleID, "candidate", candidate.ID,
 			"year", candidate.Year, "runtimeMs", candidate.RuntimeMs, "votes", candidate.Votes,
-			"fit", fitOf(candidate, fit.lengthsMs).String())
+			"fit", fitOf(candidate, fit.lengths).String())
 	}
 	matcher.logger.InfoContext(ctx, "a film's candidates settled", "itemId", titleID, "year", query.Year,
-		"fileLengthsMs", fit.lengthsMs, "taken", settled.chosen.ID, "isGuess", settled.how == byGuess)
+		"fileLengthsMs", lengthsInMs(fit.lengths), "taken", settled.chosen.ID, "isGuess", settled.how == byGuess)
 }
