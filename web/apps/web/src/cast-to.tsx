@@ -43,7 +43,8 @@ import { watchingOf } from "./watching.ts";
 export function CastTargets(props: { readonly film: () => CastFilm | undefined }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const { connectedDeviceIds, inFrontDeviceIds, receivingDeviceIds, sending } = useLive();
+  const { isConnected, connectedDeviceIds, inFrontDeviceIds, receivingDeviceIds, sending } =
+    useLive();
   const [devices] = useResource(`cast-to/${connectedDeviceIds.join(",")}`, async () =>
     otherDevicesOpen(await listMyDevices(api), connectedDeviceIds),
   );
@@ -84,8 +85,10 @@ export function CastTargets(props: { readonly film: () => CastFilm | undefined }
     <section className="cast-to" aria-labelledby="cast-to-heading">
       <h2 id="cast-to-heading">{t("cast.heading")}</h2>
       <BusyGroup isBusy={isBusy}>
+        {isConnected ? null : <output>{t("together.reconnecting")}</output>}
         <Targets
           devices={devices}
+          isStale={!isConnected}
           states={{ inFrontDeviceIds, receivingDeviceIds }}
           onCast={castTo}
         />
@@ -301,6 +304,8 @@ interface TargetStates {
 function Targets(props: {
   readonly devices: Resource<Device[]>;
   readonly states: TargetStates;
+  /** The live connection is down, so the devices are as last told: none is offered. */
+  readonly isStale: boolean;
   readonly onCast: (device: Device) => void;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -314,7 +319,12 @@ function Targets(props: {
   return devices.value.length === 0 ? (
     <p>{t("cast.none")}</p>
   ) : (
-    <TargetList devices={devices.value} states={props.states} onCast={props.onCast} />
+    <TargetList
+      devices={devices.value}
+      states={props.states}
+      isStale={props.isStale}
+      onCast={props.onCast}
+    />
   );
 }
 
@@ -326,6 +336,7 @@ function Targets(props: {
 function TargetList(props: {
   readonly devices: readonly Device[];
   readonly states: TargetStates;
+  readonly isStale: boolean;
   readonly onCast: (device: Device) => void;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
@@ -344,7 +355,7 @@ function TargetList(props: {
         <li key={device.id}>
           <button
             type="button"
-            disabled={receivingDeviceIds.includes(device.id)}
+            disabled={props.isStale || receivingDeviceIds.includes(device.id)}
             onClick={() => {
               props.onCast(device);
             }}
