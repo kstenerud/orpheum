@@ -18,6 +18,7 @@ import {
   buttonWithText,
   click,
   mount,
+  refusal,
   servedBy,
   settleUntil,
   type Heard,
@@ -232,6 +233,35 @@ it("closes Watch Together's dialog as the session is ended from it, nothing open
   expect(document.querySelector("dialog[open]")).toBeNull();
   expect(window.sessionStorage.getItem("orpheum.together.host")).toBeNull();
   expect(sign("Watch Together")).toEqual({ isOn: false, href: null });
+  expect(services.navigation.route()).toEqual({ screen: "home" });
+  expect(currentNotice()).toBeUndefined();
+});
+
+// Principles §28: the answer to an end that ended it lost, the second try is answered 404; it showed
+// a problem and said the session ended elsewhere.
+it("takes a session the server no longer has as ended, as its end is tried again, going home with no word", async () => {
+  window.sessionStorage.setItem(
+    "orpheum.together.host",
+    JSON.stringify({ sessionId: 7, credential: "host-credential" }),
+  );
+  const heard: Heard[] = [];
+  const services = servedBy(
+    { "GET /together/7": [200, hostedSession], "DELETE /together/7": refusal(404, "not_found") },
+    heard,
+    "token",
+  );
+  services.navigation.go({ screen: "play", fileId: 9 });
+  mounted = await mount(
+    withServices(<StatusTray isAdmin={false} canHostWatchTogether />, services),
+  );
+  const dialog = await openDialogOf("Watch Together is on: its controls");
+  await click(buttonWithText(dialog, "End the session"));
+  await click(buttonWithText(dialog, "End it"));
+  await settleUntil(() => heard.some((each) => each.methodAndPath === "DELETE /together/7"));
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  expect(document.querySelector("dialog[open]")).toBeNull();
   expect(services.navigation.route()).toEqual({ screen: "home" });
   expect(currentNotice()).toBeUndefined();
 });
