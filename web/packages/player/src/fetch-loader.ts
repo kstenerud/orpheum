@@ -150,7 +150,9 @@ class FetchLoader implements Loader<LoaderContext> {
     stopping: AbortController,
     maxLoadTimeMs: number,
   ): Promise<void> {
-    const headers = new Headers(this.#setup.headersOf().map(([name, value]) => [name, value]));
+    const headers = new Headers(
+      this.#setup.headersOf().map(([name, value]): [string, string] => [name, value]),
+    );
     if (context.rangeEnd !== undefined && context.rangeEnd > 0) {
       headers.set(
         "Range",
