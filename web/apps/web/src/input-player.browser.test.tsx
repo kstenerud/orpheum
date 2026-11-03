@@ -301,21 +301,24 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
     expect(document.activeElement).toBe(video);
   }
 
-  // D407 §3: Up and Down walk the rows, Up from the scrub bar to "‹ Film 3", which goes up.
+  // D407 §3: Up and Down walk the rows, Up from the scrub bar to "‹ Film 3", which goes up. Focus
+  // starts on the scrub bar (D410).
   it("walks its rows by Up and Down, from the buttons to the scrub bar and up to the film's page", async () => {
     await onAFireTv();
-    const play = document.querySelector<HTMLElement>('.player-overlay [aria-label="Play"]');
+    const backTen = document.querySelector<HTMLElement>('.player-overlay [aria-label="Back 10 s"]');
     const scrub = document.querySelector<HTMLElement>(".player-overlay .timeline__range");
     const upLink = document.querySelector<HTMLElement>(".player-overlay .player-overlay__up");
     expect(document.querySelector(".player-overlay .back-button")).toBeNull();
     expect(upLink?.textContent).toBe("Film 3");
-    await expect.poll(() => document.activeElement).toBe(play);
+    await expect.poll(() => document.activeElement).toBe(scrub);
+    await press("{ArrowDown}");
+    expect(document.activeElement).toBe(backTen);
     await press("{ArrowUp}");
     expect(document.activeElement).toBe(scrub);
     await press("{ArrowUp}");
     expect(document.activeElement).toBe(upLink);
     await press("{ArrowDown}{ArrowDown}");
-    expect(document.activeElement).toBe(play);
+    expect(document.activeElement).toBe(backTen);
     await press("{ArrowUp}{ArrowUp}{Enter}");
     await expect
       .poll(() => routeHref(walking?.services.navigation.route() ?? { screen: "home" }))
@@ -329,13 +332,18 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
     const video = await onAFireTv();
     const positionAt = standsAt(video, 30);
     const fullScreen = document.querySelector<HTMLElement>(`.player-overlay ${FULL_SCREEN}`);
-    await expect.poll(() => document.activeElement?.getAttribute("aria-label")).toBe("Play");
+    await expect
+      .poll(() => document.activeElement?.getAttribute("aria-label"))
+      .toBe("Where the film stands");
+    await press("{ArrowDown}");
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Back 10 s");
     const walked: (string | null | undefined)[] = [];
-    for (let step = 0; step < 5; step += 1) {
+    for (let step = 0; step < 6; step += 1) {
       await press("{ArrowRight}");
       walked.push(document.activeElement?.getAttribute("aria-label"));
     }
     expect(walked).toEqual([
+      "Play",
       "Forward 10 s",
       "Subtitles: Off",
       "Sound: English",
@@ -371,7 +379,8 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
   // Up opened the overlay on the Fire TV with nothing focused, so OK paused nothing and no arrow
   // reached its controls (2026-11-02): play was focused at the next frame, which the stick ran
   // before React had drawn the overlay, its play then without a box. The frame runs at once here.
-  it("opens all of the hidden overlay by Up with focus on play, however soon the next frame comes", async () => {
+  // Focus now goes to the scrub bar (D410).
+  it("opens all of the hidden overlay by Up with focus on the scrub bar, however soon the next frame comes", async () => {
     const video = await onAFireTv();
     await hideTheOverlay(video);
     vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
@@ -379,9 +388,9 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
       return 0;
     });
     await press("{ArrowUp}");
-    const play = document.querySelector('.player-overlay [aria-label="Play"]');
-    expect(play).not.toBeNull();
-    await expect.poll(() => document.activeElement).toBe(play);
+    const scrub = document.querySelector(".player-overlay .timeline__range");
+    expect(scrub).not.toBeNull();
+    await expect.poll(() => document.activeElement).toBe(scrub);
     expect(shown()).toBe("full");
   });
 
