@@ -101,7 +101,10 @@ interface Asking {
  * The sender waiting for its receiver's answer (D364 §2, D358 §1–§4): its Use is said by the live
  * connection (sending, accepted), after which the casting page shows the session's remote; Not now,
  * or no answer, ends the cast, said in a line (onNotTaken). A receiver that never answers, its page
- * gone, is given up on after castAnswerWithinMs and castAnswerGraceMs.
+ * gone, is given up on after castAnswerWithinMs and castAnswerGraceMs. Stop casting ends it while it
+ * is asked, and a cast the live connection said this device sends, then no longer, is over at once:
+ * the server lost it (a restart), and no answer will come (the owner, 2026-11-03: the phone stayed
+ * asking).
  */
 function AwaitingAnswer(props: {
   readonly asking: Asking;
@@ -117,24 +120,20 @@ function AwaitingAnswer(props: {
     sessionToken: token,
     role: "panel",
   });
-  const isTaken = props.sending?.castId === cast.castId && props.sending.isAccepted;
+  const isSent = props.sending?.castId === cast.castId;
+  const isTaken = isSent && props.sending.isAccepted;
   const endReason = snapshot?.status === "ended" ? snapshot.endReason : undefined;
-  const toldRef = useRef(props.onNotTaken);
-  const isSettledRef = useRef(false);
+  const settle = useSettlesOnce(props.onNotTaken);
+  const isLost = useIsLost(isSent);
   useEffect(() => {
-    toldRef.current = props.onNotTaken;
-  });
-  useEffect(() => {
-    if (isSettledRef.current) {
-      return;
-    }
     if (isTaken) {
-      isSettledRef.current = true; // the casting page shows the session from now on
+      settle(undefined); // the casting page shows the session from now on
     } else if (endReason !== undefined) {
-      isSettledRef.current = true;
-      toldRef.current(notTakenText(t, endReason, name));
+      settle(notTakenText(t, endReason, name));
+    } else if (isLost) {
+      settle(t("cast.over.lost"));
     }
-  }, [isTaken, endReason, name, t]);
+  }, [isTaken, endReason, isLost, name, t, settle]);
   const unansweredText = t("cast.answered.unanswered", { name });
   const unansweredRef = useRef(unansweredText);
   useEffect(() => {
@@ -142,18 +141,58 @@ function AwaitingAnswer(props: {
   });
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (isSettledRef.current) {
-        return;
+      if (settle(unansweredRef.current)) {
+        endCast(api, cast.castId, "unanswered").catch(() => undefined);
       }
-      isSettledRef.current = true;
-      endCast(api, cast.castId, "unanswered").catch(() => undefined);
-      toldRef.current(unansweredRef.current);
     }, castAnswerWithinMs + castAnswerGraceMs);
     return () => {
       clearTimeout(timer);
     };
-  }, [api, cast.castId]);
-  return <output>{t("cast.asking", { name })}</output>;
+  }, [api, cast.castId, settle]);
+  const stop = (): void => {
+    if (settle(t("cast.answered.stopped", { name }))) {
+      endCast(api, cast.castId, "stopped").catch(() => undefined); // gone already: nothing to end
+    }
+  };
+  return (
+    <div className="cast-to">
+      <output>{t("cast.asking", { name })}</output>{" "}
+      <button type="button" onClick={stop}>
+        {t("cast.stop")}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * Settles a cast's asking once: what it is given then says why it was not taken (onNotTaken), or
+ * undefined for taken, which says nothing; true the first time, false after.
+ */
+function useSettlesOnce(onNotTaken: (said: string) => void): (said: string | undefined) => boolean {
+  const toldRef = useRef(onNotTaken);
+  const isSettledRef = useRef(false);
+  useEffect(() => {
+    toldRef.current = onNotTaken;
+  });
+  return useCallback((said: string | undefined) => {
+    if (isSettledRef.current) {
+      return false;
+    }
+    isSettledRef.current = true;
+    if (said !== undefined) {
+      toldRef.current(said);
+    }
+    return true;
+  }, []);
+}
+
+/** Whether a cast the live connection said this device sends (isSent) no longer is. */
+function useIsLost(isSent: boolean): boolean {
+  const [wasSent, setWasSent] = useState(false);
+  if (isSent && !wasSent) {
+    setWasSent(true);
+  }
+  return wasSent && !isSent;
 }
 
 /** What a sender says of a cast that ended before its receiver said Use. */
