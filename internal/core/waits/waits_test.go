@@ -55,6 +55,8 @@ type bench struct {
 	clock     *clocktest.Fake
 	running   runningSince
 	reads     *timedReads
+	// playing are the files played now.
+	playing *[]int64
 }
 
 func newBench(t *testing.T) *bench {
@@ -71,16 +73,17 @@ func newBench(t *testing.T) *bench {
 	}
 	t.Cleanup(func() { _ = cache.Close() }) //nolint:errcheck // the test is over
 	now := clocktest.NewFake(time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC))
-	running, reads := runningSince{}, &timedReads{}
+	running, reads, playing := runningSince{}, &timedReads{}, &[]int64{}
 	estimator, err := NewEstimator(Parts{
-		Database: database, Cache: cache, Attempts: running, Nodes: fakeNodes{}, ReadThroughs: reads, Clock: now,
+		Database: database, Cache: cache, Attempts: running, Nodes: fakeNodes{}, ReadThroughs: reads,
+		Playing: func() []int64 { return *playing }, Clock: now,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	return &bench{
 		estimator: estimator, database: database, cachePath: cachePath, clock: now, running: running,
-		reads: reads,
+		reads: reads, playing: playing,
 	}
 }
 
@@ -171,6 +174,26 @@ func TestEstimator_AReadThroughsNodeSpeedIsWhatItsLastReadsMeasured(t *testing.T
 	if left, _ := bench.left(t); left != 15*time.Second {
 		t.Errorf("after five reads, one held an hour, file 100's read-through takes %v; want 15s at their median",
 			left)
+	}
+}
+
+// A film played now, its read-through not yet raised to a play's priority, as the interest raiser does
+// at its next tick, waits as if it were: ahead of the queue, with the background's running work
+// bumped. It said "about 55 minutes" of a read that began 15 s later (VQ50, 2026-11-02).
+func TestEstimator_AFilmPlayedWaitsAsTheRaiseWillRankIt(t *testing.T) {
+	t.Parallel()
+	bench := newBench(t)
+	for _, file := range []struct{ id, mib int64 }{{100, 200}, {101, 100}, {102, 300}, {103, 400}} {
+		bench.file(t, file.id, 1, file.mib)
+	}
+	bench.readThrough(t, 1, 103, jobs.PriorityPlayNow, "queued", "{}") // another film played, before it
+	bench.readThrough(t, 2, 101, jobs.PriorityBackground, "assigned", "{}")
+	bench.readThrough(t, 3, 102, jobs.PriorityShownInterest, "queued", "{}")
+	bench.readThrough(t, 4, 100, jobs.PriorityBackground, "queued", "{}")
+	*bench.playing = []int64{100}
+	// 400 MiB of 103, then its own 200, at 10 MiB a second: 101 bumped, 102 below it.
+	if left, _ := bench.left(t); left != time.Minute {
+		t.Errorf("played, its job still in the background, file 100's read-through takes %v; want 1m0s", left)
 	}
 }
 

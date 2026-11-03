@@ -367,7 +367,7 @@ func (services *Services) wireJobsInto(parts Parts) error {
 	// How long the work a viewer waits on will take, timing the read-throughs as they end (D324 §6).
 	dependencies.Waits, err = waits.NewEstimator(waits.Parts{
 		Database: parts.Database, Cache: parts.Cache, Attempts: services.Exchanges, Nodes: services.nodes,
-		ReadThroughs: services.ReadThrough, Clock: parts.Clock,
+		ReadThroughs: services.ReadThrough, Playing: playingFiles(dependencies.Playback), Clock: parts.Clock,
 	})
 	if err != nil {
 		return fmt.Errorf("say how long work will take: %w", err)
