@@ -529,7 +529,11 @@ what a household nothing reaches can do (§3.6). Built (2026-10-13): the fields 
 built, `single` publishes nothing and probes nothing (W4b.4).
 
 The answer also carries the count of the core's clients that reached a dead end in the last week
-(§3.6, D293 §7), for the System page. Not built.
+(`deadEndsLastWeek`; §3.6, D293 §7), and, from a discovery that keeps each report's reason, the same
+dead ends by the cause their pages reported (`deadEndCausesLastWeek`, a word to a count: `noIpv6`,
+`unknown`, `none` for a report that gave none, `other` for any other word; D398 §6), for the System
+page, which shows the causes beside the count and the count alone when there are none. Built
+(2026-11-03): both; Connect sends the causes, `single` the count alone.
 
 ### 2.7 Names and certificates (D273 §7, research B1, §9.2; D290 §7; D292 §1) — the core's side built
 

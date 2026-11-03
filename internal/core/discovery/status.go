@@ -33,8 +33,11 @@ type Status struct {
 	// DeadEndsLastWeek is how many times a client found no path in the last week, as the discovery
 	// counted (D293 §7).
 	DeadEndsLastWeek int
-	Published        []string
-	Probe            []discoveryproto.ProbeResult
+	// DeadEndCausesLastWeek is those dead ends by the cause each page reported, in the discovery's
+	// words; nil from a discovery that keeps no causes (D398 §6).
+	DeadEndCausesLastWeek map[string]int
+	Published             []string
+	Probe                 []discoveryproto.ProbeResult
 	// LastHeartbeatAt is when the discovery last took the core's addresses.
 	LastHeartbeatAt time.Time
 	// Problem is why the last call failed, empty when it did not.

@@ -90,6 +90,22 @@ func TestDiscoveryStatusBody_CarriesTheHouseNetworks(t *testing.T) {
 	}
 }
 
+// The System page is told the last week's dead ends by cause, as the discovery counted them, the
+// commonest first; a discovery that keeps no causes gives an empty list, never null (D398 §6).
+func TestDiscoveryStatusBody_CarriesTheDeadEndsCausesCommonestFirst(t *testing.T) {
+	t.Parallel()
+	body := discoveryStatusBody(discovery.Status{DeadEndsLastWeek: 6, DeadEndCausesLastWeek: map[string]int{
+		"none": 1, discoveryproto.DeadEndCauseNoIPv6: 3, discoveryproto.DeadEndCauseUnknown: 1, "other": 0,
+	}})
+	want := []DeadEndCauseBody{{Cause: "noIpv6", Count: 3}, {Cause: "none", Count: 1}, {Cause: "unknown", Count: 1}}
+	if !slices.Equal(body.DeadEndCauses, want) {
+		t.Errorf("the body's dead-end causes = %+v; want %+v", body.DeadEndCauses, want)
+	}
+	if none := discoveryStatusBody(discovery.Status{}); none.DeadEndCauses == nil || len(none.DeadEndCauses) != 0 {
+		t.Errorf("with none, the body's dead-end causes = %#v; want an empty list, never null", none.DeadEndCauses)
+	}
+}
+
 // A house network grants nothing but the LAN name's place among a discovery's paths: a request from
 // an address in one is from home only when that address is in a home network itself (D356 §7, D297 §6).
 func TestMarkingHome_AHouseNetworkGrantsNoAdmin(t *testing.T) {

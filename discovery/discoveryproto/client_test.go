@@ -89,3 +89,19 @@ func TestDeadEndRequest_TheReasonIsOptional(t *testing.T) {
 		t.Errorf("a dead end with no reason encodes as %s (%v); want the locator alone", bare, err)
 	}
 }
+
+// The heartbeat's answer counts its dead ends by cause under "deadEndCausesLastWeek", the key Connect
+// sends, and a discovery that keeps no causes sends none, which the System page reads as the count
+// alone (D398 §6).
+func TestAddressesResponse_CountsDeadEndsByCauseUnderTheKeyConnectSends(t *testing.T) {
+	t.Parallel()
+	var read AddressesResponse
+	err := json.Unmarshal([]byte(`{"deadEndsLastWeek":3,"deadEndCausesLastWeek":{"noIpv6":2,"none":1}}`), &read)
+	if err != nil || !reflect.DeepEqual(read.DeadEndCausesLastWeek, map[string]int{"noIpv6": 2, "none": 1}) {
+		t.Errorf("the causes read as %v (%v); want noIpv6 2 and none 1", read.DeadEndCausesLastWeek, err)
+	}
+	bare, err := json.Marshal(AddressesResponse{DeadEndsLastWeek: 3})
+	if err != nil || strings.Contains(string(bare), "deadEndCausesLastWeek") {
+		t.Errorf("an answer with no causes = %s (%v); want no causes", bare, err)
+	}
+}
