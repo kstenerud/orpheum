@@ -89,3 +89,16 @@ it("shows the player's widgets, drawn by the components themselves (D369 §1)", 
     expect(player).toContain(`aria-label="${name}"`);
   }
 });
+
+it("shows the parts the widgets are built from, a pop-up at its button and the layout primitives (D408; plans/toolkit.md step 7)", () => {
+  const markup = renderToStaticMarkup(withServices(<UiGallery />));
+  const parts = markup.slice(
+    markup.indexOf('id="gallery-pop-ups"'),
+    markup.indexOf('id="gallery-player"'),
+  );
+  expect(parts).toMatch(/<button[^>]*aria-haspopup="dialog"[^>]*>Open a pop-up<\/button>/u);
+  expect(parts).toContain('<div class="stack layout-space-2"><button type="button">First choice');
+  expect(parts).toContain(
+    '<div class="cluster cluster--align-center layout-space-3"><button type="button">First choice',
+  );
+});
