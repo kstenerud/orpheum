@@ -17,6 +17,17 @@ import (
 // §10). No two keyframes of the grid are this close.
 const cutEarlyMs = 50
 
+// retimedCutEarlyMs is how much before a chunk's start the muxer is told to cut a re-timed copy
+// (isRetimed). The muxer times its cuts from its first packet's display time, and dts2pts shows each
+// keyframe after its decode time by as many pictures as are reordered before it, which differs from
+// keyframe to keyframe: an HEVC keyframe of The Gold Rush is shown 83 to 250 ms after it is decoded, so
+// a run whose first keyframe is shown 250 ms late takes a later one shown 125 ms late for 125 ms
+// early, and a cut 50 ms early missed it: chunk 349 could never be made (staging, 2026-11-03;
+// toolkit.md item 12). Cut this early, a keyframe is missed only if its film's delays differ by about
+// ten pictures at 24 fps, and the keyframe before it is cut at instead only if the two are less than
+// about two thirds of a second apart, closer than encoders place them.
+const retimedCutEarlyMs = 400
+
 // rawListName is the segment muxer's list of the raw files it has finished, one line each, in the
 // run's raw directory.
 const rawListName = "list.csv"
@@ -121,15 +132,18 @@ func seconds(ms int64) string { return strconv.FormatFloat(float64(ms)/1000, 'f'
 // time, but for a sound copied, whose first packet is put a tick before the film's start
 // (copiedSoundTimes), so it is cut at the film's own times, a tick early alike in every run. A
 // picture is cut a little early, so its keyframe is not missed;
-// a sound is cut at the first frame at or after the time.
+// a re-timed copy more so (retimedCutEarlyMs); a sound is cut at the first frame at or after the time.
 func cutTimes(command nodeproto.MakeChunks) string {
 	origin := runStartMs(command)
 	if command.Stream.Kind == nodeproto.StreamSoundCopied {
 		origin = 0
 	}
 	early := int64(cutEarlyMs)
-	if command.Stream.Kind.IsSound() {
+	switch {
+	case command.Stream.Kind.IsSound():
 		early = 0
+	case isRetimed(command) && command.Stream.Kind == nodeproto.StreamPicture:
+		early = retimedCutEarlyMs
 	}
 	var cuts []string
 	for _, bound := range command.BoundsMs {

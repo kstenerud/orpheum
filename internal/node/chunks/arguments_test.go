@@ -141,12 +141,19 @@ func TestArguments_ReTimeAPictureWhoseBFramesCarryNoDisplayTimes(t *testing.T) {
 	t.Parallel()
 	// A copy's filter is on its one output stream; an encode's on the picture's input stream, by its
 	// index, moved back by setts so its first keyframe is shown at its bound.
+	// A copy is cut 400 ms early, as dts2pts shows its keyframes each its own while after its decode
+	// time (retimedCutEarlyMs); an encode, whose keyframes are forced at its bounds, 50 ms.
 	for _, test := range []struct {
 		kind nodeproto.ChunkStreamKind
 		want [2]string
+		cuts string
 	}{
-		{nodeproto.StreamPicture, [2]string{"-bsf:v", "dts2pts"}},
-		{nodeproto.StreamQuality, [2]string{"-bsf:2", "dts2pts,setts=pts=PTS-STARTPTS+STARTDTS"}},
+		{nodeproto.StreamPicture, [2]string{"-bsf:v", "dts2pts"}, "9.610,13.364,23.332"},
+		{
+			nodeproto.StreamQuality,
+			[2]string{"-bsf:2", "dts2pts,setts=pts=PTS-STARTPTS+STARTDTS"},
+			"9.960,13.714,23.682",
+		},
 	} {
 		kind, want := test.kind, test.want
 		marked := run(nodeproto.ChunkStream{Kind: kind, BitRateKbps: 1200, Height: 480})
@@ -163,8 +170,9 @@ func TestArguments_ReTimeAPictureWhoseBFramesCarryNoDisplayTimes(t *testing.T) {
 		if end := valueOf(arguments, "-to"); end != "123.581" {
 			t.Errorf("a marked %s run reads to %s, want 123.581, a second past its end", kind, end)
 		}
-		if cuts := valueOf(arguments, "-segment_times"); !strings.HasSuffix(cuts, ",23.682") {
-			t.Errorf("a marked %s run is cut at %s; want it still cut at its end, 23.682", kind, cuts)
+		if cuts := valueOf(arguments, "-segment_times"); cuts != test.cuts {
+			t.Errorf("a marked %s run is cut at %s; want %s, at each chunk after the first and at its end",
+				kind, cuts, test.cuts)
 		}
 
 		ordinary := run(nodeproto.ChunkStream{Kind: kind, BitRateKbps: 1200, Height: 480})
