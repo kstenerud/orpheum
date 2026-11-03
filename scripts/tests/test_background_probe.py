@@ -14,7 +14,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import background_probe as bp  # noqa: E402
 from gitrepo import Repo  # noqa: E402
 
-# A background run as another process holds it: the lock, until the stop file appears.
+# A background run as another process holds it: the lock, until the stop file appears; one never asked
+# gives up after ten seconds and ends 1, so a stop that never asks fails its test rather than hangs it.
 HOLDS_THE_LOCK_UNTIL_STOPPED = """
 import fcntl, sys, time
 from pathlib import Path
@@ -22,7 +23,10 @@ here = Path(sys.argv[1])
 with open(here / "background.lock", "a") as lock:
     fcntl.flock(lock, fcntl.LOCK_EX)
     print("holding", flush=True)
+    given_up_at = time.monotonic() + 10
     while not (here / "stop").exists():
+        if time.monotonic() > given_up_at:
+            sys.exit(1)
         time.sleep(0.05)
 """
 
