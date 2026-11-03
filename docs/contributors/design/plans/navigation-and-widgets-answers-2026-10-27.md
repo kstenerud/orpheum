@@ -1505,6 +1505,14 @@ Connect deploy; then fixed, with a test failing on revert.
 8. **Small:** a video with no sound is listed among the problem films (item 2); "1 people" (item 9).
 9. **The lead's own account on staging's Connect** ("Staging's Connect", above): mail for a reserved
    test domain written to a file; orpheum-connect's mailer.
+10. **A Chromecast's first test away from home** (the owner, 2026-11-03: "let's slip initial
+    chromecast support into this batch", choosing the test receiver first): the owner tests a
+    Chromecast 3rd gen and a TV's own Cast in Berlin. The lab's receiver is served publicly by
+    Connect (staging first), built for the 3rd gen's older engine, and reaches the core the way the
+    web client does, so the test settles whether a Cast receiver away from home can play
+    ([casting-2026-10-25.md](../research/casting-2026-10-25.md) §5.2 step 2, §6 Q4–Q5; VQ58). The
+    Cast button and the remote follow, on what it finds. The owner registers the app and the
+    device in Google's Cast console.
 
 **Step 0's outcome (the owner, 2026-11-03).** The stale client: the owner's iPhone on staging, a
 fresh page over the LAN name on the old client and again 19 s after the switch to the new one,
