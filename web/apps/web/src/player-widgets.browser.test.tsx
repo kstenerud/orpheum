@@ -16,7 +16,7 @@ import "./i18n.ts";
 
 import { act, createRef } from "react";
 import { describe, expect, it } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 
 import { commandEventName } from "./input-commands.ts";
 import { IconButton } from "./icon-button.tsx";
@@ -212,6 +212,35 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
         );
         expect(getComputedStyle(found(overlay, ".player-overlay__top")).visibility).toBe("hidden");
         expect(getComputedStyle(found(overlay, ".timeline")).visibility).toBe("visible");
+      },
+    );
+  });
+
+  // The owner, 2026-11-03, on Umi no Tobira in full screen: "The overlay isn't disappearing when I leave
+  // it idle", focus given back to 🎧's button after a choice the mouse made (D409).
+  it("hides a playing film's overlay its time after a mouse's click on a control, and holds it for a key's focus", async () => {
+    const video = document.createElement("video");
+    Object.defineProperty(video, "paused", { get: () => false });
+    const videoRef = createRef<HTMLVideoElement>();
+    Reflect.set(videoRef, "current", video);
+    await drawn(
+      <div className="film-player__stage">
+        <PlayerOverlay videoRef={videoRef} readLinkKbps={() => undefined} failure={undefined} />
+      </div>,
+      async (mounted) => {
+        const overlay = found(mounted.container, ".player-overlay");
+        const next = found(overlay, '[aria-label="Forward 10 s"]');
+        await userEvent.keyboard("{Tab}");
+        await expect.poll(() => overlay.contains(document.activeElement)).toBe(true);
+        expect(document.activeElement?.matches(":focus-visible")).toBe(true);
+        await new Promise((resolve) => setTimeout(resolve, 4000));
+        expect(overlay.getAttribute("data-shown")).toBe("full");
+        (document.activeElement as HTMLElement | null)?.blur();
+        await userEvent.click(next);
+        expect(document.activeElement).toBe(next);
+        await expect
+          .poll(() => overlay.getAttribute("data-shown"), { timeout: 5000 })
+          .toBe("hidden");
       },
     );
   });

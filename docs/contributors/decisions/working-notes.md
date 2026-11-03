@@ -25714,3 +25714,19 @@ now covers dialogs alone.
 `src/player-menus.browser.test.tsx`), `Stack` and `Cluster` (`src/layout.browser.test.tsx`), each at
 `/ui-gallery` (`src/ui-gallery.test.tsx`). Device checks: VQ250–VQ254. The Preact spike (§5):
 [preact-spike-2026-11-03.md](../design/research/preact-spike-2026-11-03.md); the owner stays on React.
+
+## D409 — A mouse-shown overlay is held only by focus a key put in it
+
+**Decided** (2026-11-03), by the project owner, after Umi no Tobira on staging: "The overlay isn't
+disappearing when I leave it idle." **Amends** D407 §6's "unless focus is in its controls".
+
+1. **The hold is the keyboard's.** An overlay shown by a mouse or a tap is held, while the film plays,
+   only by focus a key put in its controls: the browser's `:focus-visible`. Focus a click or a tap
+   left on a control, or that a pop-up gave back to its button after a choice the pointer made, holds
+   nothing, and the overlay hides 3 s after the last input. D407 §6's reading for switch and keyboard
+   users stands; a click is not theirs.
+2. **Why.** A choice in 🎧, the subtitles or ⁝ gives focus back to its button (D408), so every choice
+   the mouse made held the overlay up for good. Of the lead's three options (this one; moving focus to
+   the video after a choice, as ▶ does; dropping the hold), the owner chose this one.
+
+**Status:** Decided 2026-11-03.

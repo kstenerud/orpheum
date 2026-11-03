@@ -82,7 +82,7 @@ The rows are: row 0, ‹ (`UpLink`) and the convenience area; row 1, the timelin
 - Full never hides while paused or while `menuOpen` (D407 §6).
 - How full was shown is kept (`shownBy: "remote" | "pointer"`, from `isTelevision` and the input's source):
   - shown by a remote, it hides 3 s after the last press while playing, focus or not;
-  - shown by a mouse or a tap, it also holds while focus is in the overlay (`focusin`/`focusout`).
+  - shown by a mouse or a tap, it also holds while focus a key put there (`:focus-visible`) is in the overlay (`focusin`/`focusout`; D409).
 - A computer's keyboard in full screen: pressing ▶ to play, or Down from the bottom row, moves focus to the video, so the timer runs (Q14).
 - On hiding, focus in the overlay moves to the video, as today (:247–251).
 
