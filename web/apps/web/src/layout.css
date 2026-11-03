@@ -1,0 +1,64 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* The layout primitives (layout.tsx; the 2026-10-05 architecture research's R2): each lays out its
+   direct children alone, its gap a step of the space scale, and shrinks below its content where it
+   is a flex or grid item (min-width: 0), so a screen never needs the overflow fix. They answer to
+   their container, never to the viewport: no media query here. */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--layout-space);
+  min-width: 0;
+}
+
+.cluster {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--layout-space);
+  min-width: 0;
+}
+
+.cluster--align-start {
+  align-items: flex-start;
+}
+
+.cluster--align-center {
+  align-items: center;
+}
+
+.cluster--align-end {
+  align-items: flex-end;
+}
+
+.cluster--align-baseline {
+  align-items: baseline;
+}
+
+/* The space scale's steps (tokens.css), by name. */
+.layout-space-1 {
+  --layout-space: var(--space-1);
+}
+
+.layout-space-2 {
+  --layout-space: var(--space-2);
+}
+
+.layout-space-3 {
+  --layout-space: var(--space-3);
+}
+
+.layout-space-4 {
+  --layout-space: var(--space-4);
+}
+
+.layout-space-5 {
+  --layout-space: var(--space-5);
+}
+
+.layout-space-6 {
+  --layout-space: var(--space-6);
+}
+
+.layout-space-7 {
+  --layout-space: var(--space-7);
+}
