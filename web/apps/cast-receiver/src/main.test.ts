@@ -3,22 +3,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-/** Whether Array.prototype.toSorted was there when the lab's module was loaded, set by its mock. */
-const seen = vi.hoisted(() => ({ toSortedAtLabLoad: undefined as boolean | undefined }));
-
-vi.mock("./lab.ts", () => {
-  seen.toSortedAtLabLoad = "toSorted" in Array.prototype;
-  return {
-    memoryEveryMs: 60_000,
-    LabReceiver: class {
-      note(): void {}
-      sampleMemory(): void {}
-      report(): Promise<void> {
-        return Promise.resolve();
-      }
-    },
-  };
-});
+import mainSource from "./main.ts?raw";
 
 const ownToSorted = Reflect.getOwnPropertyDescriptor(Array.prototype, "toSorted");
 
@@ -29,13 +14,22 @@ afterEach(() => {
   }
 });
 
+/** The modules a source imports as it loads, in order: its static imports, never `import type`. */
+function staticImportsOf(source: string): string[] {
+  const imports = source.matchAll(/^import\s+(?!type\s)(?:[^;]*?\sfrom\s+)?"([^"]+)";/gmsu);
+  return [...imports].map((each) => each[1] ?? "");
+}
+
 describe("the receiver's entry point", () => {
   it("fills what Chromium 90 lacks before anything it imports is loaded", async () => {
+    // ES modules are evaluated in the order they are imported, so the fill runs before the rest only
+    // as main.ts's first import; the lab's own modules may not be mocked to watch it (web lint).
+    expect(staticImportsOf(mainSource)[0]).toBe("./old-engine.ts");
     vi.useFakeTimers();
     // As on the 3rd-generation Chromecast's Chromium 90, which has no toSorted (Chrome 110).
     Reflect.deleteProperty(Array.prototype, "toSorted");
     await import("./main.ts");
-    expect(seen.toSortedAtLabLoad).toBe(true);
+    expect("toSorted" in Array.prototype).toBe(true);
     expect([3, 1, 2].toSorted()).toEqual([1, 2, 3]);
   });
 });
