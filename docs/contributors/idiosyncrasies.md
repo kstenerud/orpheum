@@ -1597,6 +1597,34 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   level change is pending (`levelChange`), so it bites only a paused player with no switch under way.
 
 
+### A chunk refused (4xx) in every quality is never a fatal error, only asked for again
+
+- **Symptom:** a film with a quality ladder whose chunk the core answers 422 in every quality stood
+  still at that chunk for good, hls.js asking for it every 1 to 2 s, with no error the page could act
+  on (Sparrows on staging, VQ255, 2026-11-03; item 12's The Gold Rush symptom).
+- **Cause:** a 4xx is not retried (`shouldRetry`), so `getLevelSwitchAction` sends hls.js to another
+  quality; with `errorPenaltyExpireMs: 0` (the default) a refused quality's penalty has expired at
+  once, so a candidate is always found and the error is never made fatal. Only a film with a single
+  quality gets the fatal error.
+- **What we do:** a 422 for a chunk in a quality already refused at that place means none can make
+  it; the player stops loading and steps over it (`web/packages/player/src/skip-unmade.ts`).
+- **Evidence:** [staging] 2026-11-03, the requests `picture`, `q1200k480p`, `q700k432p`,
+  `q400k360p` for chunk 8, then `q400k360p` again every 2 s. **[web]** no report found of this case
+  (searched 2026-11-03); [hls.js#5153](https://github.com/video-dev/hls.js/issues/5153) and
+  [#6323](https://github.com/video-dev/hls.js/issues/6323) are about retries, not this.
+
+### `startLoad(position)` loads from where the video is, and goes back to fill a hole before it
+
+- **Symptom:** moving past a chunk not made with `startLoad(end)` then a seek, hls.js asked for the
+  chunk again; with the seek first, to the chunk's very end, it loaded the next chunk and then went
+  back for the one before (staging, 2026-11-03).
+- **Cause:** with media attached, the stream controller takes its load position from the video's
+  `currentTime`; and where the next chunk's picture starts a little after its listed time, the video
+  stands in a hole that the chunk before would fill, so hls.js backtracks to it.
+- **What we do:** seek first, half a second into the next chunk, then `startLoad` there
+  (`skip-unmade.ts`, `Skipping.moveIfArrived`).
+- **Evidence:** [staging] 2026-11-03, VQ255's request log before and after each change.
+
 ### It never aborts a slow chunk when stepping down to level 0
 
 - **Cause:** `abortAndSwitch` aborts only if `nextLoadLevel > 0` (`abr-controller.ts:429-433`). The intent is

@@ -2508,3 +2508,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   screen too, and the last ends the playback saying so under the film. Then the owner looks at the
   sign's and the pop-up's words and places. (`web/packages/player/src/skip-unmade.ts`,
   `web/apps/web/src/skipped-parts.tsx`, `page-controls.tsx`)
+  **The lead's run (2026-11-03, Sparrows, Chrome against staging as lead-tests):** passed after two
+  fixes it found (a ladder's 422 is never fatal; a stretch's chunks each stood the film 2 s). One
+  chunk: 56.4 s to 67.0 s, still at most 0.25 s. Eight (56.96 to 130.8 s): one move, still 0.86 s,
+  the pop-up "0:56–2:10", in full screen too. Every chunk on: moved to 174.3 s, then "The film cannot
+  go on" and the words under the film. The sign named each stretch. Owed: the owner's look.

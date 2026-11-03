@@ -17,6 +17,7 @@ import {
   type AheadHls,
   type DeviceFacts,
 } from "./forward-buffer.ts";
+import { HlsEvents } from "./test-hls.ts";
 
 /** A quality at averageMbps, its peak half again. */
 function levelAt(averageMbps: number): { bitrate: number; averageBitrate: number } {
@@ -126,28 +127,10 @@ describe("the bytes cap: a third of the browser's memory for a page's picture (f
 });
 
 /** A stand-in for hls.js as the forward buffer reads it, its listeners called as hls.js would. */
-class FakeHls implements AheadHls {
+class FakeHls extends HlsEvents implements AheadHls {
   readonly config = { maxBufferLength: 30, maxMaxBufferLength: 30 };
   readonly levels = [levelAt(0.5), levelAt(1.3), levelAt(9)];
   media: AheadHls["media"] = null;
-  readonly #listeners = new Map<string, ((event: unknown, data: unknown) => void)[]>();
-
-  on(event: string, listener: (event: unknown, data: unknown) => void): void {
-    this.#listeners.set(event, [...(this.#listeners.get(event) ?? []), listener]);
-  }
-
-  off(event: string, listener: (event: unknown, data: unknown) => void): void {
-    this.#listeners.set(
-      event,
-      (this.#listeners.get(event) ?? []).filter((each) => each !== listener),
-    );
-  }
-
-  trigger(event: string, data: unknown): void {
-    for (const listener of this.#listeners.get(event) ?? []) {
-      listener(event, data);
-    }
-  }
 }
 
 /** A playback's forward buffer on a FakeHls whose top is level 2, on device, and its notes. */

@@ -11,32 +11,10 @@ import {
   type LongTasks,
   type WatchedHls,
 } from "./main-thread.ts";
+import { HlsEvents } from "./test-hls.ts";
 
 /** A stand-in for hls.js as the watch hears it. */
-class FakeHls {
-  readonly #listeners = new Map<string, ((event: unknown, data: unknown) => void)[]>();
-
-  on(event: string, listener: (event: unknown, data: unknown) => void): void {
-    this.#listeners.set(event, [...(this.#listeners.get(event) ?? []), listener]);
-  }
-
-  off(event: string, listener: (event: unknown, data: unknown) => void): void {
-    this.#listeners.set(
-      event,
-      (this.#listeners.get(event) ?? []).filter((each) => each !== listener),
-    );
-  }
-
-  trigger(event: string, data: unknown): void {
-    for (const listener of this.#listeners.get(event) ?? []) {
-      listener(event, data);
-    }
-  }
-
-  listening(): number {
-    return [...this.#listeners.values()].reduce((sum, each) => sum + each.length, 0);
-  }
-}
+class FakeHls extends HlsEvents {}
 
 /** A stand-in for the film's video: where it plays, whether it does, and its events. */
 class FakeVideo extends EventTarget {
