@@ -110,6 +110,8 @@ function mountApp(sessionGiven: Session, given: Reaches, mountedOn: Root): Api {
     voiceDevices: browserVoiceDevices,
     fetchMedia: browserFetch,
     realm: reaches.realm,
+    // Under a discovery's loader, what the lab's cast page hands its receiver to reach the core from
+    // away; only a Chromecast away from home shows it whole (VQ256).
     throughDiscovery: reaches.throughDiscovery,
     willLeaveWhenSignedOut: reaches.willLeaveWhenSignedOut,
     pathMoves: reaches.pathMoves,
