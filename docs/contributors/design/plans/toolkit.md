@@ -106,9 +106,18 @@ dedicated to testing (the owner, 2026-11-03), so the spike uses them without ask
 - **A chunk the server cannot make** (item 12's unbuilt half), the owner's design: "Can it just skip
   automatically, and maybe put up an exclamation mark item in the non-fullscreen video page about
   the problem? If it's able to skip forward, and will skip more than 15 seconds (or simply can't
-  play any further), show a pop-up dialog as well." Details asked (below the reply of 2026-11-03).
+  play any further), show a pop-up dialog as well." The lead's details, which the owner agreed
+  ("Agreed", 2026-11-03): the sign stays for the viewing; the pop-up shows in full screen too; the
+  player steps over two minutes at most, past which the film cannot go on. **Built:** the player
+  plays up to a chunk the core answers 422 and on from its end, chunks in a row one stretch
+  (`skip-unmade.ts`); the bar under the film shows D278's warning sign naming each stretch, and a
+  stretch over 15 s, or one the film cannot go on past, puts up a pop-up over the film
+  (`skipped-parts.tsx`). VQ255.
 - **Play from The Gold Rush's page opened the player without playing**: "I had to manually start it."
-  To diagnose; asked which device and browser.
+  Firefox on a Mac, the film's first play. Its own picture was given up three seconds in, before the
+  first frame (`bufferAppendNoProgress`), and the twin opened paused, the video having read as
+  paused while waiting to start. **Fixed** ("fix(web): a film given up on its own picture before its first frame opens again playing"): the twin opens paused only where the person
+  paused it. Why Firefox on a Mac cannot append The Gold Rush's own picture is still open.
 - **Idea: the scrub bar's time under the pointer**: "When moving the mouse over the scrub bar, show
   a tooltip with the offset there. Eventually we'll be showing the preview thumbnail as well (much
   like how Youtube does it)."

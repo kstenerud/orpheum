@@ -2,6 +2,7 @@
 
 import "./page-controls.css";
 
+import type { SkippedStretch } from "@orpheum/player";
 import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -16,6 +17,7 @@ import { answerPlayerCommand, usePlayersControls } from "./player-commands.ts";
 import { PlayerControls, useVideoSource, type SequenceMoves } from "./player-controls.tsx";
 import { PlayerMenus } from "./player-menus.tsx";
 import { barControlsOf, PlayerOverlay, useControlsShown } from "./player-overlay.tsx";
+import { SkippedPopUp, SkippedSign, useSkippedStretches } from "./skipped-parts.tsx";
 import { Timeline } from "./timeline.tsx";
 import { isTelevision } from "./tv-device.ts";
 
@@ -34,8 +36,9 @@ interface ControlsGiven {
  * shouldOpenFullScreen puts the stage full screen as the player opens, as a television's player is,
  * filling the window where the browser refuses; hasPressesOnTheFilm has a mouse's click on the film
  * play or pause it and a double click put it full screen or leave (the two clicks' play and pause
- * undoing each other). The switch is made in the Play page's pieces, not in the film player's
- * stage, which Watch Together's guest shares (the plan's §6 audit).
+ * undoing each other). Over the film too, in and out of full screen, the pop-up that tells a long
+ * stretch skipped (SkippedPopUp). The switch is made in the Play page's pieces, not in the film
+ * player's stage, which Watch Together's guest shares (the plan's §6 audit).
  */
 export function OverTheFilm(
   props: FilmParts &
@@ -48,7 +51,12 @@ export function OverTheFilm(
   const isFullScreen = useIsFullScreen();
   useFullscreenStage(film.videoRef, shouldOpenFullScreen === true);
   usePressesOnTheFilm(film.videoRef, hasPressesOnTheFilm === true);
-  return isFullScreen ? <PlayerOverlay {...film} offer={offer} moves={moves} /> : null;
+  return (
+    <>
+      {isFullScreen ? <PlayerOverlay {...film} offer={offer} moves={moves} /> : null}
+      <SkippedPopUp videoRef={film.videoRef} />
+    </>
+  );
 }
 
 /**
@@ -56,14 +64,16 @@ export function OverTheFilm(
  * (D407 §9): nothing is drawn over the video then. As full screen ends unasked (a Fire TV's Back, a
  * computer's Escape, which the page never hears), focus goes to play, from where ⤢ returns and the
  * next Back goes to the film's page (D407 §7). In full screen, nothing: the overlay is the controls.
+ * The stretches the player skipped are heard here, drawn or not, so the bar's sign names each.
  */
 export function PageControls(props: FilmParts & ControlsGiven): JSX.Element | null {
   const { offer, moves, ...film } = props;
   const isFullScreen = useIsFullScreen();
   const playRef = useRef<HTMLButtonElement>(null);
   usePlayFocusedAsFullScreenEnds(isFullScreen, playRef);
+  const skipped = useSkippedStretches(film.videoRef);
   return isFullScreen ? null : (
-    <ControlsBar film={film} offer={offer} moves={moves} playRef={playRef} />
+    <ControlsBar film={film} offer={offer} moves={moves} playRef={playRef} skipped={skipped} />
   );
 }
 
@@ -98,9 +108,11 @@ function ControlsBar(props: {
   readonly offer: OfferPiece | undefined;
   readonly moves: SequenceMoves | undefined;
   readonly playRef: RefObject<HTMLButtonElement | null>;
+  /** The stretches the player stepped over in this viewing, told by a sign in the bar. */
+  readonly skipped: readonly SkippedStretch[];
 }): JSX.Element {
   const { t } = useTranslation();
-  const { film, offer, moves, playRef } = props;
+  const { film, offer, moves, playRef, skipped } = props;
   const { videoRef } = film;
   const barRef = useRef<HTMLDivElement>(null);
   const areaRef = useRef<HTMLDivElement>(null);
@@ -138,6 +150,7 @@ function ControlsBar(props: {
         }
       />
       <div className="page-controls__offers">
+        <SkippedSign stretches={skipped} />
         {isTv ? <OverlayUp /> : null}
         {/* Back is left to the page, which it leaves for the film's (D407 §7). */}
         <ConvenienceArea

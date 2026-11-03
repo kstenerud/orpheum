@@ -54,6 +54,7 @@ import {
   type WatchedHls,
 } from "./main-thread.ts";
 import { tellNextChunkLoad } from "./next-chunk.ts";
+import { skipChunksNotMade } from "./skip-unmade.ts";
 import { watchStalls, type WatchedMedia } from "./stalls.ts";
 import { endAtTheLastFrame } from "./end-of-stream.ts";
 import { steadinessNoter } from "./steadiness.ts";
@@ -573,8 +574,9 @@ export function choosingOptionsOf(
 
 /**
  * Tells onFailed when the playback cannot go on (failOnFatal), what failed with it, and asks a load
- * that failed again instead (loadOnAfterFailures) or recovers once from a fatal decoding error
- * (recoverFromDecodingErrors), each heard first, so failOnFatal passes it by. Returns the stopping.
+ * that failed again instead (loadOnAfterFailures), recovers once from a fatal decoding error
+ * (recoverFromDecodingErrors) or steps over a chunk the core cannot make (skipChunksNotMade), each
+ * heard first, so failOnFatal passes it by. Returns the stopping.
  */
 function failOrLoadOn(
   hls: Hls,
@@ -592,10 +594,12 @@ function failOrLoadOn(
     note: linkNoter(video),
     carrierOf: mediaCarrierOf,
   });
+  const stopSkipping = skipChunksNotMade(hls, video, linkNoter(video));
   failOnFatal(hls, onFailed, mediaCarrierOf);
   return () => {
     stopLoadingOn();
     stopRecoveringDecoding();
+    stopSkipping();
   };
 }
 
