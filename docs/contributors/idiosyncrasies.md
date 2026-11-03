@@ -220,6 +220,7 @@ User-Agent (D263; the User-Agent is logged only).
 | A browser-mode test's media key press changed nothing | [A media key pressed through Playwright reaches no page](#a-media-key-pressed-through-playwright-reaches-no-page) |
 | After the D227 renames the client compiled while still sending the old field names. | [TypeScript checks no excess properties on a body built with a computed key or held in a variable](#typescript-checks-no-excess-properties-on-a-body-built-with-a-computed-key-or-held-in-a-variable) |
 | Playwright's browsers are not installed by `npm ci` | [Playwright's browsers are not installed by `npm ci`](#playwrights-browsers-are-not-installed-by-npm-ci) |
+| A passed e2e test, or the next one, failed with "route.fulfill: Fetch response has been disposed" or "route.fetch: Test ended" | [Playwright fails a test whose route handler is still running as it ends](#playwright-fails-a-test-whose-route-handler-is-still-running-as-it-ends) |
 | Git hooks export GIT_DIR, so a test's `git init` set `core.bare` on the project repository | [Git hooks export GIT_DIR, so a test's `git init` set `core.bare` on the project repository](#git-hooks-export-git_dir-so-a-tests-git-init-set-corebare-on-the-project-repository) |
 | `npm ci` through a symlinked `node_modules` empties the link's target | [`npm ci` through a symlinked `node_modules` empties the link's target](#npm-ci-through-a-symlinked-node_modules-empties-the-links-target) |
 | Two npm installs at once race | [Two npm installs at once race](#two-npm-installs-at-once-race) |
@@ -3834,6 +3835,34 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   (searched Bugzilla and the ServiceWorker spec's issues, 2026-10-28); Firefox's
   [1426979](https://bugzilla.mozilla.org/show_bug.cgi?id=1426979) is an older iframe-control bug,
   fixed.
+
+### Playwright fails a test whose route handler is still running as it ends
+
+- **Technology:** Playwright 1.63's test runner, `page.route` with `route.fetch` then `route.fulfill`,
+  Chromium and Firefox.
+- **Symptom:** an e2e test whose every step had passed failed with "route.fulfill: Fetch response
+  has been disposed" (`e2e/discovery.spec.ts:92`, once, 2026-10-27), or with "route.fetch: Test
+  ended ... while running route callback"; sometimes the error lands on the next test the same
+  worker runs.
+- **Cause:** the page goes on loading (a script of the client) after the test's last assertion. The
+  handler for that load is still waiting on `route.fetch`, or holds its response, when the fixture
+  closes the context. Closing disposes the context's fetched responses
+  (`BrowserContextAPIRequestContext._disposeImpl` clears `fetchResponses`), so the handler's next
+  call throws, and the runner reports the throw as a failure.
+- **What we do:** a test whose handlers fetch ends its body with
+  `page.unrouteAll({ behavior: "ignoreErrors" })`, which marks the running handlers to swallow their
+  errors (`stopRouting`, `web/e2e/discovery.spec.ts`). `e2e/through-discovery.spec.ts` catches the
+  same messages in its handler instead (`isAbandoned`).
+- **Evidence:** **[measured]** 2026-11-03, a throwaway spec whose handler fetched and then held each
+  subresource 1.5 s before fulfilling, `--repeat-each=15`, both browsers: without the unroute, 2
+  of 30 failed with "Fetch response has been disposed" and others logged "Test ended"; with it, 30
+  of 30 passed. **[source]** `playwright-core/lib/coreBundle.js`: `RouteHandler.stop("ignoreErrors")`
+  sets `_ignoreException`, which `_handleImpl` checks before rethrowing; the "Test ended." close
+  reason is the runner's own. **[web]**
+  [microsoft/playwright#23781](https://github.com/microsoft/playwright/issues/23781) (route handler
+  still running after the page closed), which led to `unrouteAll`'s `behavior` option;
+  [#23929](https://github.com/microsoft/playwright/pull/23929), silencing such errors by default,
+  closed unmerged.
 
 ---
 
