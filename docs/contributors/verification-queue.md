@@ -2530,5 +2530,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   WebRTC*), the film plays on the TV, and its report reaches the core's log (`probe=receiver`); the
   way it took, its stalls and its memory are the test's findings. A failure says which step, from
   the receiver's log. (`web/apps/cast-receiver/src/reach.ts`, `old-engine.ts`,
-  `web/apps/web/src/lab-cast.tsx`, `web/packages/player/src/fetch-loader.ts`; orpheum-connect's
+  `web/apps/web/src/lab-cast.tsx`, the page's `throughDiscovery` handed to its services in
+  `client-main.tsx`, `web/packages/player/src/fetch-loader.ts`; orpheum-connect's
   `internal/webclient`)
+- [ ] **VQ257** — the core records what it and each node use of their machines, once a minute
+  (toolkit.md, "Core and node record their own CPU and memory use"; "feat(core): the core and each node record what they use of their machines"). The recorder and the
+  node's reading are tested; only a server left running past its first minute shows the loop that
+  records them is started (a minute's ticker, too long for the suite). On staging, after a deploy,
+  wait two minutes and open System as admin. Passes when **Resource use** shows a summary and an
+  hour for *The server* and for *Media node* with CPU and memory figures, not "Nothing is measured
+  yet". (`cmd/orpheum/metadata.go`'s `startUpkeep`)
