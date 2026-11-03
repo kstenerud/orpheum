@@ -1430,5 +1430,9 @@ Not yet reproduced; it makes every deploy's test unreliable until it is understo
 **Tried (the lead, 2026-11-03):** Chrome 156 on Linux, through orpheum.dev's loader with its
 service worker, a Play page held open across `./staging quick`: the first plain reload ran the new
 client (`index-Tn3tmHJe.js` to `index-CylJ3mgd.js`), as did two more and a navigation. Not seen
-there. Still to try: Firefox and Safari on the Mac, and a reload while the deploy is under way (the
-core restarting), which the owner's may have been.
+there. The owner's was Firefox (2026-11-03). Playwright's Firefox (build 1543) on Linux, the same way, reloading every
+6 s through `./staging quick` and after it: each reload ran the old client until the core restarted
+and the new one (`index-Dsb0GqG2.js`) from the first reload after, as did a navigation. Not seen
+there either. Still to try: Firefox on the owner's Mac; the address the tab was on (orpheum.dev's
+client origin, or the core's own at `192.168.1.16:8440`), and `about:serviceworkers` as it
+happens, would narrow it.
