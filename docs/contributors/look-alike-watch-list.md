@@ -40,3 +40,8 @@ Still copies, not yet twins:
 - `internal/store`'s migration runner, with the migration window (D272 §5), and
   `orpheum-connect`'s numbered steps without one: they become twins when `orpheum-connect` heads for
   production, whose database must not be lost (the owner, 2026-10-14).
+
+- `discovery/discoveryproto/client.go`'s words for a dead end's reason (D398: `HasIPv6…`,
+  `DeadEndCause…`, `PathKind…`, and the ways a path ended, which `discovery/single` sends): the list
+  `orpheum-connect`'s `deadEndWord` (`internal/clients/offers.go`) keeps, logging any other word as
+  "other". A word added here is added there too, or Connect counts it as "other".
