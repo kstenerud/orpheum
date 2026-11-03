@@ -235,8 +235,8 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
         expect(document.activeElement?.matches(":focus-visible")).toBe(true);
         await new Promise((resolve) => setTimeout(resolve, 4000));
         expect(overlay.getAttribute("data-shown")).toBe("full");
-        (document.activeElement as HTMLElement | null)?.blur();
-        await userEvent.click(next);
+        await userEvent.click(next); // a click's focus is not :focus-visible
+
         expect(document.activeElement).toBe(next);
         await expect
           .poll(() => overlay.getAttribute("data-shown"), { timeout: 5000 })
