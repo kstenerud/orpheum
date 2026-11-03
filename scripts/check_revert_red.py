@@ -63,6 +63,7 @@ work one interrupted run away from being lost.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import functools
 import json
 import os
@@ -437,7 +438,8 @@ def is_stylesheet(change: Change) -> bool:
 
 def stylesheets_together(tree: str, base: str, head: str, changes: list[Change], timeout: int,
                          command: list[str] | None = None,
-                         browser_mode: list[str] | None = None) -> dict[str, Outcome]:
+                         browser_mode: list[str] | None = None,
+                         spare: queue.Queue[str] | None = None) -> dict[str, Outcome]:
     """The stylesheets' verdicts, settled by halves (revert_red_stylesheets): every one reverted at
     once, run once, and each half of a failing group again, down to the sheets a test noticed.
 
@@ -462,7 +464,9 @@ def stylesheets_together(tree: str, base: str, head: str, changes: list[Change],
     # rest go into the halving, over the browser tier alone. The halving's every level ran every
     # browser-mode test of its group, sixteen runs one after another, about 1500 s of one check-pr
     # (the test-regime audit of 2026-10-31, R2).
-    noticed_alone = own_browser_mode_reds(tree, base, head, [change.path for change in sheets], related, timeout)
+    # They run side by side, in whichever probe trees come free (spare).
+    noticed_alone = own_browser_mode_reds(tree, base, head, [change.path for change in sheets], related, timeout,
+                                          spare)
 
     def run_reverted(group: list[str]) -> subprocess.CompletedProcess[str] | None:
         label = EVERY_STYLESHEET if len(group) == len(sheets) else f"({len(group)} stylesheets at once)"
@@ -513,22 +517,49 @@ def stylesheets_together(tree: str, base: str, head: str, changes: list[Change],
 
 
 def own_browser_mode_reds(tree: str, base: str, head: str, sheets: list[str], related: list[str] | None,
-                          timeout: int) -> dict[str, str]:
+                          timeout: int, spare: queue.Queue[str] | None = None) -> dict[str, str]:
     """The sheets whose own browser-mode tests turn red with it reverted alone, with what the run
-    printed; each run timed, each sheet put back. A run past its timeout settles nothing."""
+    printed; each run timed, each sheet put back. A run past its timeout settles nothing.
+
+    The runs go side by side, each in tree or in a probe tree it borrows from spare as one comes
+    free: one after another in one tree, about two minutes each, they were 1000 s of a check-pr while
+    the other three trees sat idle (2026-11-03)."""
+    if not related:
+        return {}
     noticed: dict[str, str] = {}
-    for path in sheets if related else []:
+    mine: queue.Queue[str] = queue.Queue()
+    mine.put(tree)
+
+    def borrowed() -> tuple[str, queue.Queue[str]]:
+        while True:
+            for pool in (mine, spare):
+                if pool is None:
+                    continue
+                with contextlib.suppress(queue.Empty):
+                    return pool.get(timeout=0.2), pool
+
+    def one(path: str) -> None:
+        here, pool = borrowed()
+        started = time.monotonic()
         try:
-            if _git("checkout", base, "--", path, cwd=tree).returncode != 0:
-                continue
+            if _git("checkout", base, "--", path, cwd=here).returncode != 0:
+                return
             done = timed(TIMINGS, path, "vitest related (browser mode)", None,
-                         functools.partial(run_whole_group, [*related, path.removeprefix("web/")], tree, timeout))
+                         functools.partial(run_whole_group, [*related, path.removeprefix("web/")], here, timeout))
             if done.returncode != 0:
                 noticed[path] = done.stdout + done.stderr
         except subprocess.TimeoutExpired:
             pass
         finally:
-            restore(tree, head, path)
+            restore(here, head, path)
+            if pool is spare:
+                TIMINGS.note_tree(here, time.monotonic() - started)
+            pool.put(here)
+
+    # With no spare trees, one tree: one run at a time, in the sheets' order.
+    with ThreadPoolExecutor(max_workers=1 if spare is None else max(1, len(sheets))) as runs:
+        for done in [runs.submit(one, path) for path in sheets]:
+            done.result()
     return noticed
 
 
@@ -711,7 +742,7 @@ def probe_all(base: str, head: str, owed: list[Change], exempt: int, jobs: int, 
         tree = free.get()
         started = time.monotonic()
         try:
-            return stylesheets_together(tree, base, head, owed, timeout)
+            return stylesheets_together(tree, base, head, owed, timeout, spare=free)
         finally:
             TIMINGS.note_tree(tree, time.monotonic() - started)
             free.put(tree)

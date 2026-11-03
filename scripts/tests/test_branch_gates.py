@@ -4,10 +4,12 @@
 # ABOUTME: kinds, units, UNCHECKED list and Refactor-Only; each is shown failing on a case built to
 # ABOUTME: fail (D190).
 import json
+import queue
 import re
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -588,6 +590,29 @@ class RevertRedStylesheetsTogether(unittest.TestCase):
                          ["apps/web/src/a.css", "apps/web/src/b.css", "apps/web/src/c.css"],
                          "each sheet reverted alone, as vitest related's path, web/ left off")
         self.assertEqual(repo.git("status", "--porcelain"), "")
+
+    def test_the_sheets_own_browser_mode_runs_go_side_by_side_in_the_trees_that_come_free(self):
+        # One after another in one tree, two minutes each, they were 1000 s of a check-pr while three
+        # probe trees sat idle (2026-11-03).
+        repo, base = self.repo()
+        spare_tree = Path(tempfile.mkdtemp()) / "wt-1"
+        repo.git("worktree", "add", "--detach", str(spare_tree), "HEAD")
+        spare: queue.Queue[str] = queue.Queue()
+        spare.put(str(spare_tree))
+        where = Path(tempfile.mkdtemp()) / "where"
+        # Each run says which tree it ran in and takes a second; red only for the unclaimed sheet.
+        importing = ["sh", "-c", f'pwd >> {where}; sleep 1; ! grep -q old {self.UNCLAIMED}', "browser-mode"]
+        started = time.monotonic()
+        with repo.cwd():
+            settled = rr.stylesheets_together(str(repo.root), base, "HEAD", self.changes(), 60, ["true"],
+                                              importing, spare=spare)
+        self.assertLess(time.monotonic() - started, 2.9, "three one-second runs in two trees, not in one")
+        self.assertEqual(set(where.read_text().split()), {str(repo.root.resolve()), str(spare_tree.resolve())})
+        self.assertEqual(settled[self.UNCLAIMED].verdict, "RED_TEST")
+        self.assertEqual(spare.get_nowait(), str(spare_tree), "the borrowed tree is given back")
+        self.assertEqual(repo.git("status", "--porcelain"), "")
+        self.assertEqual(subprocess.run(["git", "status", "--porcelain"], cwd=spare_tree, capture_output=True,
+                                        text=True, check=True).stdout, "", "and put back as it was")
 
     def test_a_run_that_times_out_leaves_its_sheets_to_their_own_runs(self):
         repo, base = self.repo()
