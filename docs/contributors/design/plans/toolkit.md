@@ -33,4 +33,5 @@ End: one `make check-pr`, staging, the owner tries it.
 
 **Separately:** a one-day Preact spike measured on the Fire TV stick (D408 §5). Trying Preact adds a
 dependency, which the hooks refuse in a feature session; it needs a session started with
-`ORPHEUM_ALLOW_DEPS=1`, and the Fire TV woken with the owner's leave.
+`ORPHEUM_ALLOW_DEPS=1` (the owner starts one after steps 1–4). The Fire TV stick and the Pixel 3a are
+dedicated to testing (the owner, 2026-11-03), so the spike uses them without asking.
