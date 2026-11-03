@@ -1454,6 +1454,12 @@ loader's worker is the case to reproduce (a WebKit page held open across a stagi
 After the prod deploy of the 11-03 work. First, the older "next batch" sections above (10-28 to
 11-01) are read for what is still open, and anything that belongs here is brought to the owner.
 
+**Then the stale client after a deploy** ("A reload keeps the older client after a deploy",
+above; folded in by the owner, 2026-11-03, "yes agreed"): a beta household's open tab would stop
+loading media at every Connect deploy, with no word, until it is closed. Staging's Connect is first
+brought to prod's build, and the case reproduced in WebKit with a page held open across a staging
+Connect deploy; then fixed, with a test failing on revert.
+
 1. **The core's port mapping asks the router, not Docker's bridge** (item 15 of the owner's comments
    of 2026-11-02): find the gateway past the bridge, or let the admin name the router.
 2. **The §28 review's S2, L1, L2 and D1**
