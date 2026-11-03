@@ -1606,8 +1606,12 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   quality; with `errorPenaltyExpireMs: 0` (the default) a refused quality's penalty has expired at
   once, so a candidate is always found and the error is never made fatal. Only a film with a single
   quality gets the fatal error.
-- **What we do:** a 422 for a chunk in a quality already refused at that place means none can make
-  it; the player stops loading and steps over it (`web/packages/player/src/skip-unmade.ts`).
+- **What we do:** our ABR controller, which hears the error after the error controller has chosen
+  its action and before `onErrorOut` carries it out, makes the action for a 422 `DoNothing`: the
+  quality stays, a fault of the file being no reason to step down (the owner, 2026-11-03), and the
+  player steps over the chunk at its first refusal (`web/packages/player/src/abr-controller.ts`,
+  `keepTheQualityAtNotMade`; `skip-unmade.ts`). `NetworkErrorAction` is a const enum, which an
+  isolated module cannot read, so the code writes its value, 0.
 - **Evidence:** [staging] 2026-11-03, the requests `picture`, `q1200k480p`, `q700k432p`,
   `q400k360p` for chunk 8, then `q400k360p` again every 2 s. **[web]** no report found of this case
   (searched 2026-11-03); [hls.js#5153](https://github.com/video-dev/hls.js/issues/5153) and

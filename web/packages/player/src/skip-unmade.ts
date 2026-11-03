@@ -7,10 +7,9 @@
  * a pop-up dialog as well"; toolkit.md item 12).
  */
 
-import Hls, { PlaylistLevelType, type ErrorData, type Fragment } from "hls.js";
+import Hls, { type ErrorData, type Fragment } from "hls.js";
 
-import { recoverFrom } from "./abr-controller.ts";
-import { cannotMakeStatus } from "./failure.ts";
+import { isNotMade, recoverFrom } from "./abr-controller.ts";
 import { seekTo } from "./report.ts";
 
 /** The event a video is sent each time its player steps over chunks the core cannot make. */
@@ -69,18 +68,15 @@ export function skippedStretchOf(event: Event): SkippedStretch | undefined {
 }
 
 /**
- * Steps over each picture chunk the core answers with 422, cannot_convert (cannotMakeStatus), in
- * every quality: hls.js gives up on it at once where the film has one quality (a fatal error), and
- * where it has more, tries the next quality at each 422 for ever (its errorPenaltyExpireMs is 0), so
- * a 422 in a quality already refused there means none can be made (VQ255, staging 2026-11-03); a
- * chunk right after a stretch stepped over is taken as not made at its first 422, as its trying
- * every quality again stood the film still 2 s at each chunk of a stretch (staging, 2026-11-03). Its
- * loading is stopped and the error marked recovered, so failOnFatal, told after, passes it by; the
- * film plays what it has up to the chunk; there it is moved to the chunk's end and loaded on from
- * there, and the video is sent a playerSkippedEvent. A chunk after it that fails too lengthens the
- * same stretch. A stretch that would pass skipsAtMostMs, or the film's end, fails (cannot_make), the
- * video sent a playerSkippedEvent that says so (isWhereItStops). A seek of the person's before the
- * move is theirs: loading goes on from where they went. Returns the stopping.
+ * Steps over each picture chunk the core answers with 422, cannot_convert (cannotMakeStatus), at
+ * once: the core cannot make it in any quality, and hls.js is kept from trying another
+ * (abr-controller.ts's keepTheQualityAtNotMade), a fault of the file being no reason to step down (the owner,
+ * 2026-11-03). Its loading is stopped and the error marked recovered, so failOnFatal, told after,
+ * passes it by; the film plays what it has up to the chunk; there it is moved into the next chunk and
+ * loaded on from there, and the video is sent a playerSkippedEvent. A chunk after it that fails too
+ * lengthens the same stretch. A stretch that would pass skipsAtMostMs, or the film's end, fails
+ * (cannot_make), the video sent a playerSkippedEvent that says so (isWhereItStops). A seek of the
+ * person's before the move is theirs: loading goes on from where they went. Returns the stopping.
  */
 export function skipChunksNotMade(
   hls: Pick<Hls, "on" | "off" | "startLoad" | "stopLoad">,
@@ -90,11 +86,7 @@ export function skipChunksNotMade(
   const skipping = new Skipping(hls, video, note);
   const onError = (_event: unknown, data: ErrorData): void => {
     const { frag } = data;
-    if (
-      data.response?.code === cannotMakeStatus &&
-      frag?.type === PlaylistLevelType.MAIN &&
-      (data.fatal || skipping.continuesTheStretch(frag) || skipping.isRefusedAgain(frag))
-    ) {
+    if (frag !== undefined && isNotMade(data)) {
       skipping.cannotMake(data, frag);
     }
   };
@@ -117,7 +109,7 @@ export function skipChunksNotMade(
 }
 
 /** A chunk as hls.js gives it with its error: where in the film it starts, and how long it is. */
-type ChunkSpan = Pick<Fragment, "start" | "duration" | "level">;
+type ChunkSpan = Pick<Fragment, "start" | "duration">;
 
 /** The stretch a playback is stepping over, and the move it waits to make (skipChunksNotMade). */
 class Skipping {
@@ -125,8 +117,6 @@ class Skipping {
   #toS: number | undefined;
   #waiting: { readonly atS: number; readonly toS: number } | undefined;
   #isOwnMove = false;
-  /** The qualities the core refused each chunk in, by where the chunk starts, in tenths of a second. */
-  readonly #refused = new Map<number, Set<number>>();
   readonly #hls: Pick<Hls, "startLoad" | "stopLoad">;
   readonly #video: SkippingVideo;
   readonly #note: (note: string) => void;
@@ -142,29 +132,16 @@ class Skipping {
   }
 
   /** Whether chunk starts where the stretch being stepped over ends. */
-  continuesTheStretch(chunk: ChunkSpan): boolean {
+  #continuesTheStretch(chunk: ChunkSpan): boolean {
     return this.#toS !== undefined && Math.abs(chunk.start - this.#toS) < arrivedWithinS;
-  }
-
-  /**
-   * Whether the core refused chunk in its quality before: hls.js, having tried the other qualities
-   * there, has come back to it, so the chunk can be made in none.
-   */
-  isRefusedAgain(chunk: ChunkSpan): boolean {
-    const at = Math.round(chunk.start * 10);
-    const qualities = this.#refused.get(at) ?? new Set<number>();
-    this.#refused.set(at, qualities);
-    const isAgain = qualities.has(chunk.level);
-    qualities.add(chunk.level);
-    return isAgain;
   }
 
   /** The core cannot make chunk: it is stepped over once the film reaches it, or the film stops. */
   cannotMake(data: Pick<ErrorData, "fatal">, chunk: ChunkSpan): void {
-    this.#hls.stopLoad(); // where hls.js would ask again in another quality
+    this.#hls.stopLoad(); // where hls.js would ask for it again
 
     const fromS =
-      this.continuesTheStretch(chunk) && this.#fromS !== undefined ? this.#fromS : chunk.start;
+      this.#continuesTheStretch(chunk) && this.#fromS !== undefined ? this.#fromS : chunk.start;
     const toS = chunk.start + chunk.duration;
     const { duration } = this.#video;
     const isPastTheEnd = Number.isFinite(duration) && toS >= duration - arrivedWithinS;
