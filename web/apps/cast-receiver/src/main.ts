@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
+// First, before anything that calls what it fills.
+import "./old-engine.ts";
+
 import { startReceiver } from "./caf.ts";
 import { LabReceiver, memoryEveryMs } from "./lab.ts";
 

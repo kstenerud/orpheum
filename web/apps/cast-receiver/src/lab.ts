@@ -7,8 +7,11 @@ import {
   failureText,
   testLoopback,
   toneTrack,
+  type FetchRequest,
   type LoopbackResult,
 } from "@orpheum/sdk";
+
+import { reachCore, reachOf, type Reach, type Reached } from "./reach.ts";
 
 /**
  * The lab receiver's spike (plans/tv-device-tests.md; casting-2026-10-25.md §5.2 step 2, review §4):
@@ -71,6 +74,8 @@ export type LabRequest =
       readonly path: string;
       readonly startAtBps: number;
       readonly authorization: string | undefined;
+      /** How to reach the sender's core from away, where it sends one; this page's own core else. */
+      readonly reach: Reach | undefined;
     };
 
 /** A sender's message as a request, or undefined for anything else. */
@@ -93,6 +98,7 @@ export function labRequestOf(message: unknown): LabRequest | undefined {
     path,
     startAtBps: typeof startAtBps === "number" ? startAtBps : 0,
     authorization: typeof authorization === "string" ? authorization : undefined,
+    reach: reachOf(Reflect.get(message, "reach")),
   };
 }
 
@@ -104,6 +110,9 @@ export class LabReceiver {
   private stallCount = 0;
   private playback: ChunkedPlayback | undefined;
   private stopWatching: (() => void) | undefined;
+  private reached: Reached | undefined;
+  /** Each play asked, counted, so a play whose core is reached after a later one was asked yields. */
+  private plays = 0;
 
   constructor(
     private readonly screen: HTMLElement,
@@ -127,7 +136,8 @@ export class LabReceiver {
     if (this.lines.length > linesKept) {
       this.lines.shift();
     }
-    this.screen.textContent = this.lines.toReversed().join("\n");
+    // Newest first; not toReversed, which the 3rd-generation Chromecast's Chromium 90 lacks.
+    this.screen.textContent = [...this.lines].reverse().join("\n");
   }
 
   /** Answers a sender's request. */
@@ -193,10 +203,44 @@ export class LabReceiver {
 
   private play(request: Extract<LabRequest, { readonly type: "play" }>): void {
     this.stopWatching?.();
+    this.stopWatching = undefined;
     this.playback?.destroy();
+    this.playback = undefined;
+    this.reached?.close();
+    this.reached = undefined;
+    this.plays += 1;
+    const play = this.plays;
+    if (request.reach === undefined) {
+      this.playOn(request, undefined);
+      return;
+    }
+    void reachCore(request.reach, (line) => {
+      this.note(line);
+    }).then(
+      (reached) => {
+        if (play !== this.plays) {
+          reached.close();
+          return;
+        }
+        this.reached = reached;
+        this.playOn(request, reached.fetch);
+      },
+      (cause: unknown) => {
+        this.note(`could not reach the core: ${failureText(cause)}`);
+      },
+    );
+  }
+
+  /** Plays request's film by fetch, or this page's own requests without one. */
+  private playOn(
+    request: Extract<LabRequest, { readonly type: "play" }>,
+    fetch: FetchRequest | undefined,
+  ): void {
     const url = new URL(request.path, globalThis.location.origin).href;
+    const authorization =
+      request.reach === undefined ? request.authorization : `Bearer ${request.reach.token}`;
     this.note(
-      `playing ${request.path}${request.authorization === undefined ? ", signed in by nothing" : ""}`,
+      `playing ${request.path}${authorization === undefined ? ", signed in by nothing" : ""}`,
     );
     this.playback = playChunked(this.video, url, {
       onFailed: (failure) => {
@@ -205,7 +249,8 @@ export class LabReceiver {
       startAtBps: request.startAtBps,
       startPositionS: 0,
       monotonicMs: () => performance.now(),
-      authorization: request.authorization,
+      authorization,
+      fetch,
     });
     this.stopWatching = watchStalls(this.video, (stall) => {
       this.stallCount = stall.count;
