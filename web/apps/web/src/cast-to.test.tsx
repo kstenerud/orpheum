@@ -226,6 +226,30 @@ describe("setting a cast up (D364 §1, §2; D337 §2)", () => {
     expect(buttonWithText(mounted!.container, "Fire TV")).toBeDefined(); // to cast again
   });
 
+  // The owner, 2026-11-03: the phone stayed asking, with no way out, for a cast the server had lost.
+  it("stops casting while its receiver is asked, offering the devices again", async () => {
+    const heard: Heard[] = [];
+    await castToTheTv(heard);
+    await click(buttonWithText(mounted!.container, "Stop casting"));
+    expect(heard.find((each) => each.methodAndPath === "POST /me/casts/9/end")?.body).toEqual({
+      reason: "stopped",
+    });
+    expect(mounted?.container.textContent).toContain("You stopped the cast to Fire TV.");
+    expect(mounted?.container.textContent).not.toContain("Asking Fire TV…");
+    expect(buttonWithText(mounted!.container, "Fire TV")).toBeDefined(); // to cast again
+  });
+
+  it("says the cast is over once the server no longer says this device sends it, lost as it restarted", async () => {
+    const sockets = await castToTheTv([]);
+    await sockets.live.say({ type: "sending", sending: sendingToTheTv });
+    expect(mounted?.container.textContent).toContain("Asking Fire TV…");
+    await sockets.live.say({ type: "sending" });
+    expect(mounted?.container.textContent).toContain(
+      "The cast ended: the server no longer knows it.",
+    );
+    expect(buttonWithText(mounted!.container, "Fire TV")).toBeDefined(); // to cast again
+  });
+
   it("says nothing more once its receiver said Use, the casting page showing the session (D364 §2)", async () => {
     const sockets = await castToTheTv([]);
     await sockets.live.say({ type: "sending", sending: { ...sendingToTheTv, isAccepted: true } });
