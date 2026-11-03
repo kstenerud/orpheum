@@ -44,12 +44,6 @@
   font-size: var(--font-size-small);
 }
 
-/* Its ×, on the card's ground, as the card is. */
-.up-next .up-next__dismiss,
-.up-next .up-next__dismiss:hover:not(:disabled) {
-  background: var(--color-video-card);
-}
-
 /* "Still watching?" in the offer's place (still-watching.tsx, D339): the question and its two
    answers on one card. */
 .still-watching__card {

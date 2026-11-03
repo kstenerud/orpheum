@@ -111,7 +111,7 @@ export function SearchButton(props: {
         label={t("browse.searchOpen")}
         icon={<SearchIcon />}
         isExpanded={isOpen}
-        className={props.query === "" ? undefined : "listing-tools__on"}
+        mark={props.query === "" ? undefined : "applied"}
         onClick={() => {
           setIsOpen(true);
         }}

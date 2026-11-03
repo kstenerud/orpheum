@@ -646,7 +646,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `isInAList`), or the user's own element inside it (the banner's who is signed in, inside its
   `ListNote`); no stylesheet reaches into another component's classes from outside it.
   `src/list-box.test.tsx`, `src/player-menus.browser.test.tsx`, `src/popover.browser.test.tsx`.
-  `ModalDialog` and `IconButton` still take a `className`; they lose it as the work reaches them.
+  `IconButton` takes none: its looks are `isOverVideo`, `isOnCard` and `mark` (`"running"`, `"applied"`), and
+  `ModalDialog` still takes a `className`; it loses it as the work reaches it.
 - **The player is drawn from one set of widgets** (D369 §1): a button that is an icon alone is an
   `IconButton` (`src/icon-button.tsx`), one size, 2.75rem, the status tray's too; a film's timeline
   is a `Timeline` (`src/timeline.tsx`), in milliseconds, touched anywhere; and the controls over a

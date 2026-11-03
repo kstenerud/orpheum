@@ -24,18 +24,30 @@ describe("an icon button (D369 §1)", () => {
     );
   });
 
-  it("says whether what it opens is open, and takes the class of where it is", () => {
+  it("says whether what it opens is open", () => {
     const markup = renderToStaticMarkup(
       <IconButton
         label="Watch Together"
         icon={<PlayIcon />}
         onClick={() => undefined}
         isExpanded={false}
-        className="status-tray__button"
       />,
     );
-    expect(markup).toContain('class="icon-button status-tray__button"');
+    expect(markup).toContain('class="icon-button"');
     expect(markup).toContain('aria-expanded="false"');
+  });
+
+  it("is marked running or applied, or on a card over a film, by a named option, and takes no class", () => {
+    const draw = (extra: Partial<Parameters<typeof IconButton>[0]>): string =>
+      renderToStaticMarkup(
+        <IconButton label="Play" icon={<PlayIcon />} onClick={() => undefined} {...extra} />,
+      );
+    expect(draw({ mark: "running" })).toContain('class="icon-button icon-button--running"');
+    expect(draw({ mark: "applied" })).toContain('class="icon-button icon-button--applied"');
+    expect(draw({ isOverVideo: true, isOnCard: true })).toContain(
+      'class="icon-button icon-button--over-video icon-button--on-card"',
+    );
+    expect(draw({})).toContain('class="icon-button"');
   });
 });
 

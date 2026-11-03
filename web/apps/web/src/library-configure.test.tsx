@@ -146,7 +146,7 @@ describe("a library's Configure (the owner, 2026-10-27; D349 §8, D366 §5)", ()
     expect(page.querySelector("dialog")).toBeNull();
     await click(page.querySelector<HTMLButtonElement>('button[aria-label="Configure"]'));
     await settleUntil(() => page.querySelector("dialog") !== null);
-    await click(page.querySelector<HTMLButtonElement>("dialog .modal-dialog__close"));
+    await click(page.querySelector<HTMLButtonElement>("dialog .modal-dialog__close button"));
     expect(page.querySelector("dialog")).toBeNull();
   });
 });

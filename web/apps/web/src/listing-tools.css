@@ -19,11 +19,6 @@
   vertical-align: -0.2em;
 }
 
-/* A search the page is showing: its glass in the accent. */
-.listing-tools__on {
-  color: var(--color-accent);
-}
-
 /* The search's dialog, in the middle of the screen: a wide field and its button beside it. */
 .modal-dialog.listing-search {
   width: min(36rem, 92vw);

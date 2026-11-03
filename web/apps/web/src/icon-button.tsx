@@ -23,16 +23,28 @@ export function IconButton(props: {
   /** Whether what it opens is open, for a button that opens a panel. */
   readonly isExpanded?: boolean | undefined;
   readonly isDisabled?: boolean | undefined;
-  /** The class of where it is drawn, which may colour it; never its size. */
-  readonly className?: string | undefined;
+  /**
+   * Whether it is drawn on a card over a film (the up-next offer's), not on the film's control
+   * ground: --color-video-card, hover included. Only with isOverVideo.
+   */
+  readonly isOnCard?: boolean | undefined;
+  /**
+   * What its colour says, where it says anything: "running", what it stands for is on, the status
+   * blue, its icon breathing slowly (not while a film plays, nor for a person who asked for less
+   * motion); "applied", a filter it opens is applied, the accent. Unmarked, the region's colour.
+   */
+  readonly mark?: "running" | "applied" | undefined;
 }): JSX.Element {
-  const { ref, label, icon, onClick, isOverVideo, isExpanded, isDisabled, className } = props;
+  const { ref, label, icon, onClick, isOverVideo, isExpanded, isDisabled, isOnCard, mark } = props;
   const classes = ["icon-button"];
   if (isOverVideo === true) {
     classes.push("icon-button--over-video");
   }
-  if (className !== undefined) {
-    classes.push(className);
+  if (isOnCard === true) {
+    classes.push("icon-button--on-card");
+  }
+  if (mark !== undefined) {
+    classes.push(`icon-button--${mark}`);
   }
   return (
     <button

@@ -36,6 +36,51 @@
   color: var(--color-on-video);
 }
 
+/* On a card over a film (the up-next offer's ×): the card's ground, not the film's control ground. */
+.icon-button--over-video.icon-button--on-card,
+.icon-button--over-video.icon-button--on-card:hover:not(:disabled) {
+  background: var(--color-video-card);
+}
+
+/* A filter it opens is applied (a listing's search): its icon in the accent. */
+.icon-button--applied {
+  color: var(--color-accent);
+}
+
+/* What it stands for is on (the status tray's signs, D364 §12): the status blue, its icon breathing
+   slowly, enough to catch the eye from across a room without pulling at it. */
+.icon-button--running {
+  color: var(--color-status);
+}
+
+.icon-button--running > .icon {
+  animation: icon-button-running-pulses 3s ease-in-out infinite;
+}
+
+@keyframes icon-button-running-pulses {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* No pulse while a film's player is on the page: the blue alone says it is on. An endless animation
+   has the compositor make a frame at the display's rate, 60 a second, beside a 24 fps film, on a
+   weak stick too (the efficiency audit's finding 3). */
+body:has(.film-player__stage) .icon-button--running > .icon {
+  animation: none;
+}
+
+/* No pulse for a person who asked for less motion: the blue alone says it is on. */
+@media (prefers-reduced-motion: reduce) {
+  .icon-button--running > .icon {
+    animation: none;
+  }
+}
+
 /* A row of icon buttons, the banner's tray and a listing page's tools alike (the owner, 2026-10-30:
    "Icon trays should ideally share the same code"): side by side, each button's own room the only
    gap between them. */

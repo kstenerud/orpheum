@@ -111,12 +111,45 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
     );
   });
 
+  it("draws a running icon button in the status blue, pulsing, and an applied one in the accent, still", async () => {
+    const colourOf = (container: ParentNode, token: string): string => {
+      const probe = document.createElement("span");
+      probe.style.color = `var(${token})`;
+      container.appendChild(probe);
+      const colour = getComputedStyle(probe).color;
+      probe.remove();
+      return colour;
+    };
+    await drawn(
+      <>
+        <IconButton label="Plain" icon={<CloseIcon />} onClick={() => undefined} />
+        <IconButton label="Running" mark="running" icon={<CloseIcon />} onClick={() => undefined} />
+        <IconButton label="Applied" mark="applied" icon={<CloseIcon />} onClick={() => undefined} />
+      </>,
+      ({ container }) => {
+        const button = (label: string): HTMLElement => found(container, `[aria-label="${label}"]`);
+        const pulse = (label: string): string =>
+          getComputedStyle(found(button(label), ".icon")).animationName;
+        expect(getComputedStyle(button("Running")).color).toBe(
+          colourOf(container, "--color-status"),
+        );
+        expect(getComputedStyle(button("Applied")).color).toBe(
+          colourOf(container, "--color-accent"),
+        );
+        expect(getComputedStyle(button("Plain")).color).toBe(colourOf(container, "--color-text"));
+        expect(pulse("Running")).not.toBe("none");
+        expect(pulse("Applied")).toBe("none");
+        expect(pulse("Plain")).toBe("none");
+      },
+    );
+  });
+
   it("draws Up next's × on the card's ground, as its card", async () => {
     await drawn(
       <div className="up-next">
         <IconButton
           isOverVideo
-          className="up-next__dismiss"
+          isOnCard
           label="Dismiss"
           icon={<CloseIcon />}
           onClick={() => undefined}
@@ -124,7 +157,7 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
       </div>,
       (mounted) => {
         expect(
-          getComputedStyle(found(mounted.container, ".up-next__dismiss")).backgroundColor,
+          getComputedStyle(found(mounted.container, ".up-next .icon-button")).backgroundColor,
         ).toBe(videoCard);
       },
     );
@@ -216,8 +249,8 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
     await drawn(
       <>
         <header className="app-shell__banner">
-          <button type="button" className="status-tray__button status-tray__button--on">
-            <svg className="status-tray__icon" aria-label="Watch Together" />
+          <button type="button" className="icon-button icon-button--running">
+            <svg className="icon" aria-label="Watch Together" />
           </button>
         </header>
         <main>
@@ -233,9 +266,9 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
       (mounted) => {
         const visibilityOf = (selector: string): string =>
           getComputedStyle(found(mounted.container, selector)).visibility;
-        expect(getComputedStyle(found(mounted.container, ".status-tray__icon")).animationName).toBe(
-          "none",
-        );
+        expect(
+          getComputedStyle(found(mounted.container, ".icon-button--running > .icon")).animationName,
+        ).toBe("none");
         expect(visibilityOf(".app-shell__banner")).toBe("visible");
         const stage = found(mounted.container, ".film-player__stage");
         stage.classList.add("film-player__stage--fills-window");

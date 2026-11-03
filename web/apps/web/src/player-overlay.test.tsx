@@ -17,6 +17,9 @@ import { mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 import { clockText } from "./timeline.tsx";
 
+/** The full-screen button, found by its name as a viewer finds it (it takes no class of its own). */
+const FULL_SCREEN = 'button:is([aria-label="Full screen"], [aria-label="Leave full screen"])';
+
 /** A Fire TV's Silk, which the overlay takes for a television's remote. */
 const silk =
   "Mozilla/5.0 (Linux; Android 9; AFTSSS) AppleWebKit/537.36 (KHTML, like Gecko) Silk/138.19.9 like Chrome/138.0.7204.244 Safari/537.36";
@@ -244,7 +247,7 @@ describe("the player's full-screen overlay on a television (D407)", () => {
     if (stage !== null && stage !== undefined) {
       stage.requestFullscreen = asked;
     }
-    const button = mounted?.container.querySelector<HTMLButtonElement>(".full-screen-button");
+    const button = mounted?.container.querySelector<HTMLButtonElement>(FULL_SCREEN);
     act(() => {
       button?.click();
     });
@@ -299,7 +302,7 @@ describe("the player's full-screen overlay on a television (D407)", () => {
     const video = document.createElement("video");
     await drawn(video);
     act(() => {
-      mounted?.container.querySelector<HTMLButtonElement>(".full-screen-button")?.focus();
+      mounted?.container.querySelector<HTMLButtonElement>(FULL_SCREEN)?.focus();
     });
     expect(press("back")).toBe(true);
     expect(shown()).toBe("hidden");
