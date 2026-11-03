@@ -222,8 +222,12 @@ function EndSession(props: {
             try {
               throwIfRefused(await api.DELETE("/together/{id}", { params: { path: { id } } }));
             } catch (cause) {
-              noteEndingHere(id, false);
-              throw cause;
+              // A session the server no longer has is ended, as when the answer to an end that
+              // ended it was lost and this is its second try (principles §28): as Leave takes it.
+              if (!(cause instanceof ApiProblem && cause.code === "not_found")) {
+                noteEndingHere(id, false);
+                throw cause;
+              }
             }
             props.onEnded();
           });
