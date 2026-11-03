@@ -108,6 +108,24 @@
   --size-poster-min: 6.75rem;
   --size-reading: 42rem;
 
+  /*
+   * The room at each edge of the screen that no pop-up covers (the owner, 2026-11-03: "a (very
+   * small) margin at the edge of the screen that popups aren't allowed to cover"): a little, and the
+   * device's own safe area beside it, a notch's or a rounded corner's. Placement (popover.tsx) and a
+   * pop-up's largest size (popover.css) both keep it.
+   */
+  --screen-edge-room: 0.5rem;
+  --screen-edge-room-top: calc(var(--screen-edge-room) + env(safe-area-inset-top, 0px));
+  --screen-edge-room-right: calc(var(--screen-edge-room) + env(safe-area-inset-right, 0px));
+  --screen-edge-room-bottom: calc(var(--screen-edge-room) + env(safe-area-inset-bottom, 0px));
+  --screen-edge-room-left: calc(var(--screen-edge-room) + env(safe-area-inset-left, 0px));
+  /*
+   * A pop-up's widest (the owner, 2026-11-03: "definitely shouldn't occupy more than half the
+   * screen"), never under 16rem, where half a phone's screen is too narrow for a word; the room
+   * above wins over both.
+   */
+  --popover-widest: max(50vw, 16rem);
+
   --duration-quick: 120ms;
 
   --focus-ring-outer-color: #ffffff;
