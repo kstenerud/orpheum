@@ -11,9 +11,10 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
-// seriesWithAnExtra makes a series whose aired ordering is S1E1, S1E2, S2E1 and a special last, as
+// seriesWithAnExtra makes a series whose aired ordering is S1E1, S1E2, S2E1 and two specials last, as
 // aired places them, each with a live file, and an extra of S1E1 with a file of its own; it returns
-// the files, by the names "S1E1", "S1E2", "S2E1", "special" and "extra", and the titles by the same.
+// the files, by the names "S1E1", "S1E2", "S2E1", "special", "special 2" and "extra", and the titles
+// by the same.
 func seriesWithAnExtra(t *testing.T, world *shelf) (files, titles map[string]int64) {
 	t.Helper()
 	seriesID := librarytest.Item(t, world.database, librarytest.ItemSpec{Kind: "collection", LibraryID: 1})
@@ -32,6 +33,7 @@ func seriesWithAnExtra(t *testing.T, world *shelf) (files, titles map[string]int
 		{"S1E2", "episode", "listed", 1, 2, 102},
 		{"S2E1", "episode", "listed", 2, 1, 201},
 		{"special", "episode", "listed", 0, 1, 900001},
+		{"special 2", "episode", "listed", 0, 2, 900002},
 		{"extra", "extra", "extra", 0, 0, 0},
 	} {
 		title := librarytest.Title(t, world.database, librarytest.TitleSpec{Library: 1, Kind: each.kind})
@@ -55,7 +57,8 @@ func seriesWithAnExtra(t *testing.T, world *shelf) (files, titles map[string]int
 
 // A file's neighbours in its sequence are the members either side of its title in the ordering its
 // person watches its series in (D407 §2): none before the first and none after the last, the specials
-// in their place as Up next has them, and an extra, which holds no place, neither in it nor with any.
+// a sequence of their own apart from the episodes (the owner, 2026-11-03), and an extra, which holds
+// no place, neither in it nor with any.
 func TestNeighboursOf_AreTheMembersEitherSideInTheSequence(t *testing.T) {
 	t.Parallel()
 	world := newShelf(t)
@@ -76,11 +79,12 @@ func TestNeighboursOf_AreTheMembersEitherSideInTheSequence(t *testing.T) {
 	}
 	at := func(each string) string { return fmt.Sprintf("%s file %d", each, files[each]) }
 	for around, want := range map[string]string{
-		"S1E1":    "none < > " + at("S1E2"),
-		"S1E2":    at("S1E1") + " < > " + at("S2E1"),
-		"S2E1":    at("S1E2") + " < > " + at("special"),
-		"special": at("S2E1") + " < > none",
-		"extra":   "none < > none",
+		"S1E1":      "none < > " + at("S1E2"),
+		"S1E2":      at("S1E1") + " < > " + at("S2E1"),
+		"S2E1":      at("S1E2") + " < > none",
+		"special":   "none < > " + at("special 2"),
+		"special 2": at("special") + " < > none",
+		"extra":     "none < > none",
 	} {
 		neighbours, err := world.browser.NeighboursOf(t.Context(), auth.EveryLibrary(), 1, files[around])
 		if err != nil {

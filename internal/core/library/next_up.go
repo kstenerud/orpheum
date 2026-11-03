@@ -225,19 +225,30 @@ type UpNext struct {
 
 // Neighbours are the members either side of a file's title in its sequence (D407 §2): for now the
 // ordering its person watches its series in, whose members are its episodes and specials and never
-// its extras, which hold no place in an ordering. Previous is the member before it, as Next Up offers
-// it, nil for the first; Next is what plays after it, nil for the last.
+// its extras, which hold no place in an ordering. The specials are a sequence of their own, apart
+// from the episodes (the owner, 2026-11-03), where the ordering has groups besides them. Previous
+// is the member before it, as Next Up offers it, nil for the first; Next is what plays after it, nil
+// for the last.
 type Neighbours struct {
 	Previous *NextUp
 	Next     *UpNext
 }
 
-// sequencePlace is a file's title's place in its sequence: the ordering, its members, and the
-// title's index among them.
+// sequencePlace is a file's title's place in its sequence: the ordering, the sequence's members, the
+// title's index among them, and whether the ordering is one group, whose label names no group.
 type sequencePlace struct {
-	place   *EpisodePlace
-	members []Member
-	at      int
+	place       *EpisodePlace
+	members     []Member
+	at          int
+	isOnlyGroup bool
+}
+
+// sequenceAround are the members of the sequence the member at index at is in: the specials alone
+// for a special and the rest for any other, where the ordering has groups besides the specials
+// (the owner, 2026-11-03: "Specials should be their own set of videos, separate from the episodes").
+func sequenceAround(members []Member, at int) []Member {
+	isSpecial := members[at].Group == 0
+	return slices.DeleteFunc(slices.Clone(members), func(each Member) bool { return (each.Group == 0) != isSpecial })
 }
 
 // sequencePlaceOf is fileID's title's place in the sequence userID watches it in, of what reach
@@ -258,8 +269,19 @@ func (browser *Browser) sequencePlaceOf(ctx context.Context, reach auth.Reach, u
 	if err != nil {
 		return sequencePlace{}, false, err
 	}
-	at := slices.IndexFunc(members, func(each Member) bool { return each.TitleID == work.TitleID })
-	return sequencePlace{place: place, members: members, at: at}, at >= 0, nil
+	inOrdering := slices.IndexFunc(members, func(each Member) bool { return each.TitleID == work.TitleID })
+	if inOrdering < 0 {
+		return sequencePlace{}, false, nil
+	}
+	groups := map[int64]bool{}
+	for _, each := range members {
+		groups[each.Group] = true
+	}
+	sequence := sequenceAround(members, inOrdering)
+	return sequencePlace{
+		place: place, members: sequence, isOnlyGroup: len(groups) == 1,
+		at: slices.IndexFunc(sequence, func(each Member) bool { return each.TitleID == work.TitleID }),
+	}, true, nil
 }
 
 // UpNext is what plays after fileID for userID, of what reach reaches; false for a file of no series,
@@ -317,11 +339,7 @@ func (browser *Browser) upNextIn(ctx context.Context, reach auth.Reach, sequence
 	if err != nil {
 		return UpNext{}, false, err
 	}
-	groups := map[int64]bool{}
-	for _, each := range members {
-		groups[each.Group] = true
-	}
 	return UpNext{
-		NextUp: next, Ordering: place.Ordering, IsOnlyGroup: len(groups) == 1, StillSha256: stills[next.TitleID],
+		NextUp: next, Ordering: place.Ordering, IsOnlyGroup: sequence.isOnlyGroup, StillSha256: stills[next.TitleID],
 	}, true, nil
 }
