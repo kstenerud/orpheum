@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import Hls, { type HlsConfig, type LoaderResponse, type LoadPolicy } from "hls.js";
+import type { FetchRequest } from "@orpheum/sdk";
 
 import { shiftingFragmentLoader, SoundShift } from "./audio-shift.ts";
 
@@ -25,7 +26,8 @@ import { orpheumAbr, type OrpheumAbr } from "./abr-controller.ts";
 import type { ChoiceWhy, ChoosingOptions } from "./abr-options.ts";
 import { diagnose, diagnosisOf, samplesNoter, stepNoter } from "./diagnosis.ts";
 import { loadOnAfterFailures } from "./load-again.ts";
-import { shapedLoader } from "./link-shaping.ts";
+import { shapedLoader, type LoaderClass } from "./link-shaping.ts";
+import { fetchLoader, type RequestSetup } from "./fetch-loader.ts";
 import {
   failOnFatal,
   hlsMethod,
@@ -275,6 +277,44 @@ export interface ChunkedPlayback extends HlsPlayback {
 }
 
 /**
+ * What each of a chunked playback's requests carries: the pace it asks of the server, whether a
+ * seek took it there, and the Authorization of a page with no media cookie; its first piece
+ * followed, and the server's ceiling heard from each answer that came.
+ */
+function requestSetupOf(options: {
+  readonly paceKbps?: () => number | undefined;
+  readonly isSought?: () => boolean;
+  readonly onCeiling?: (kbps: number | undefined) => void;
+  readonly authorization?: string | undefined;
+  readonly firstPieces?: FirstPieces;
+}): RequestSetup {
+  return {
+    headersOf: () => {
+      const headers: [string, string][] = [];
+      const kbps = options.paceKbps?.();
+      if (kbps !== undefined) {
+        headers.push([paceHeader, String(kbps)]);
+      }
+      if (options.isSought?.() === true) {
+        headers.push([soughtHeader, "true"]);
+      }
+      if (options.authorization !== undefined) {
+        headers.push(["Authorization", options.authorization]);
+      }
+      return headers;
+    },
+    answered: (status, header) => {
+      if (status === httpOk) {
+        options.onCeiling?.(ceilingOf(header(ceilingHeader)));
+      }
+    },
+    follow: (request, url) => {
+      options.firstPieces?.follow(request, url);
+    },
+  };
+}
+
+/**
  * hls.js's settings for a chunked playback from startPositionS, loading ahead no further than
  * loadsAheadBelowTopS, or loadsAheadAtMostS where given, until its ForwardBuffer sets the target for
  * the quality it loads (forward-buffer-2026-10-29.md P1); hls.js's bytes never stretch it, as its
@@ -297,30 +337,33 @@ export function chunkedHlsConfig(options: {
   readonly authorization?: string | undefined;
   /** Each load's first piece, followed on its request for the bitrate controller (D382 §2). */
   readonly firstPieces?: FirstPieces;
+  /**
+   * The fetch every load is made by, for a page that reaches its core over a transport of its own:
+   * the lab's cast receiver over WebRTC (fetchLoader); the browser's XMLHttpRequest when absent.
+   */
+  readonly fetch?: FetchRequest | undefined;
 }): Partial<HlsConfig> {
   const aheadAtStartS = Math.min(
     loadsAheadBelowTopS,
     options.loadsAheadAtMostS ?? Number.POSITIVE_INFINITY,
   );
-  return {
-    xhrSetup: (xhr, url) => {
-      options.firstPieces?.follow(xhr, url);
-      xhr.addEventListener("load", () => {
-        if (xhr.status === httpOk) {
-          options.onCeiling?.(ceilingOf(xhr.getResponseHeader(ceilingHeader)));
+  const setup = requestSetupOf(options);
+  const carried: Partial<HlsConfig> =
+    options.fetch === undefined
+      ? {
+          xhrSetup: (xhr, url) => {
+            setup.follow(xhr, url);
+            xhr.addEventListener("load", () => {
+              setup.answered(xhr.status, (name) => xhr.getResponseHeader(name));
+            });
+            for (const [name, value] of setup.headersOf()) {
+              xhr.setRequestHeader(name, value);
+            }
+          },
         }
-      });
-      const kbps = options.paceKbps?.();
-      if (kbps !== undefined) {
-        xhr.setRequestHeader(paceHeader, String(kbps));
-      }
-      if (options.isSought?.() === true) {
-        xhr.setRequestHeader(soughtHeader, "true");
-      }
-      if (options.authorization !== undefined) {
-        xhr.setRequestHeader("Authorization", options.authorization);
-      }
-    },
+      : { loader: fetchLoader(options.fetch, setup) };
+  return {
+    ...carried,
     testBandwidth: false,
     capLevelToPlayerSize: false,
     startPosition: options.startPositionS,
@@ -604,11 +647,14 @@ function failOrLoadOn(
 }
 
 /**
- * The loader of a playback's chunks: hls.js's own, shaped by the tab's debug cap and drop, in the
+ * The loader of a playback's chunks: carrier, hls.js's own unless the page gives a fetch, shaped by the tab's debug cap and drop, in the
  * chunk fetch so every carrier is shaped alike (D380 §2), its sound moved earlier by soundShift.
  */
-function chunkLoader(soundShift: SoundShift): ReturnType<typeof shiftingFragmentLoader> {
-  return shiftingFragmentLoader(shapedLoader(Hls.DefaultConfig.loader), () => soundShift.earlierMs);
+function chunkLoader(
+  soundShift: SoundShift,
+  carrier: LoaderClass = Hls.DefaultConfig.loader,
+): ReturnType<typeof shiftingFragmentLoader> {
+  return shiftingFragmentLoader(shapedLoader(carrier), () => soundShift.earlierMs);
 }
 
 /**
@@ -623,6 +669,20 @@ function switchingSoundInPlace(
   return {
     setAudioRendition: startAndKeepAudio(hls, startIndex, linkNoter(video)),
     canSwitchSoundInPlace: true,
+  };
+}
+
+/** What each request of a playback asks and hears for its bitrate controller abr and seeks. */
+function requestsFollowing(
+  abr: OrpheumAbr,
+  seeks: { readonly isSought: () => boolean },
+): Pick<Parameters<typeof chunkedHlsConfig>[0], "paceKbps" | "isSought" | "onCeiling"> {
+  return {
+    paceKbps: () => abr.choosing()?.paceKbps(),
+    isSought: seeks.isSought,
+    onCeiling: (kbps) => {
+      abr.choosing()?.obeyServer(kbps);
+    },
   };
 }
 
@@ -658,6 +718,8 @@ export function playChunked(
     readonly loadsAheadAtMostS?: number;
     /** The Authorization each request carries, where the page has no media cookie (chunkedHlsConfig). */
     readonly authorization?: string | undefined;
+    /** The fetch every load is made by, where the page gives one (chunkedHlsConfig). */
+    readonly fetch?: FetchRequest | undefined;
   } & RememberedOffer,
 ): ChunkedPlayback {
   const withoutHlsJs = playWithoutHlsJs(video, url, options.onFailed);
@@ -668,17 +730,10 @@ export function playChunked(
   const abr = orpheumAbr({ ...choosingOptionsOf(video, options), firstPieceOf: firstPieces.of });
   const seeks = markSeeks(video);
   const soundShift = new SoundShift();
+  const config = chunkedHlsConfig({ ...options, ...requestsFollowing(abr, seeks), firstPieces });
   const hls = new Hls({
-    fLoader: chunkLoader(soundShift),
-    ...chunkedHlsConfig({
-      ...options,
-      firstPieces,
-      paceKbps: () => abr.choosing()?.paceKbps(),
-      isSought: seeks.isSought,
-      onCeiling: (kbps) => {
-        abr.choosing()?.obeyServer(kbps);
-      },
-    }),
+    ...config,
+    fLoader: chunkLoader(soundShift, config.loader),
     abrController: abr.controller,
   });
   const stopLoadingOn = failOrLoadOn(hls, video, { abr, onFailed: options.onFailed });

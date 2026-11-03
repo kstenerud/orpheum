@@ -2,7 +2,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import Hls, { type LoaderContext } from "hls.js";
+import Hls, { type LoaderConfiguration, type LoaderContext } from "hls.js";
 
 import {
   catchUpSeekEvent,
@@ -172,6 +172,41 @@ describe("a page with no media cookie (plans/tv-device-tests.md)", () => {
     void signedIn.xhrSetup?.(xhr, "/c/q1200k480p/00001.m4s", loaderContext);
     void chunkedHlsConfig({ startPositionS: 0 }).xhrSetup?.(xhr, "/c/x.m4s", loaderContext);
     expect(headers).toEqual([["Authorization", "Bearer lab-token"]]);
+  });
+
+  it("makes every load by the fetch it is given, signed in alike, and none by XMLHttpRequest", async () => {
+    const asked: Request[] = [];
+    const config = chunkedHlsConfig({
+      startPositionS: 0,
+      authorization: "Bearer lab-token",
+      fetch: (request) => {
+        asked.push(request);
+        return Promise.resolve(new Response("#EXTM3U\n", { status: 200 }));
+      },
+    });
+    expect(config.xhrSetup).toBeUndefined();
+    const Carrier = config.loader;
+    expect(Carrier).toBeDefined();
+    if (Carrier === undefined) {
+      return;
+    }
+    const loaded = new Promise<unknown>((resolve) => {
+      new Carrier(Hls.DefaultConfig).load(
+        { url: "https://core.example/c/master.m3u8", responseType: "text" } as LoaderContext,
+        {
+          loadPolicy: Hls.DefaultConfig.playlistLoadPolicy.default,
+        } as unknown as LoaderConfiguration,
+        {
+          onSuccess: (response) => {
+            resolve(response.data);
+          },
+          onError: resolve,
+          onTimeout: resolve,
+        },
+      );
+    });
+    expect(await loaded).toBe("#EXTM3U\n");
+    expect(asked[0]?.headers.get("Authorization")).toBe("Bearer lab-token");
   });
 });
 
