@@ -30,7 +30,8 @@
    open (done: the stale client left until seen again; step 0's folded items, discovery-sign's
    `test-key`/`mac`, D398's dead ends stored and shown, the Stop hook's run record, the owner 2026-11-03), then port mapping to the router, §28's S2/L1/L2/D1, CPU and memory recorded, the chunk
    join's hole, loudness taken up while playing, a DVD's sound at a join, matching a name with no
-   year and a series' year, the small ones, the lead's staging Connect account. End: one check-pr,
+   year and a series' year, the small ones, the lead's staging Connect account, and (the owner, 2026-11-03) a Chromecast's first test away from
+   home: the lab's receiver served by Connect, for the owner's test in Berlin. End: one check-pr,
    the owner's go, nas.example.
    **Queued for the owner to order later:** the rest of the plan file and inventory-2026-10-27.md.
    **Superseded (owner 2026-10-30, D385):** a receiver taking control back ends the cast and goes home; the sender plays on.
