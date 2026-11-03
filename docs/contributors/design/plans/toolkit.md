@@ -107,3 +107,17 @@ dedicated to testing (the owner, 2026-11-03), so the spike uses them without ask
   callers (Cast, the folder browser, match correction twice, the notice note, the sign-out question,
   Watch Together, the listing search) mostly set their width or lay out their contents; as named
   options some may look different, so the owner reviews the dialogs together.
+- **A re-timed copy is cut at exact times, without item 12's margin** (the owner, 2026-11-03: keep
+  the margin for now; the information comes from the one full scan of a file, with the other tasks
+  that run on it). A film whose B-frames carry no display times has its keyframes listed at their
+  decode times, but its copy, re-timed by dts2pts, shows each keyframe 83 to 250 ms later than that
+  (The Gold Rush), differently at each, and the segment muxer times its cuts by display time from the
+  run's first keyframe; item 12 cuts 400 ms early to cover the difference. The read-through already
+  copies the picture's packets, undecoded, into its timeline (`internal/node/readthrough`, D247 §10);
+  with dts2pts on that copy for a film marked `NeedsPictureRetiming`, it can record each keyframe's
+  display delay beside its time, at a little CPU and no further read. A run then gives the muxer each
+  cut as (bound + its delay) − (first keyframe + its delay), and the margin goes, with its two limits:
+  a delay difference past 400 ms, and a keyframe that is not a bound within 400 ms before one that
+  is, which would take the cut. To check first, as a cheaper way: whether the muxer's
+  `-segment_frames` (cuts by picture count) can be fed from the container's own index (MP4's sync
+  samples list keyframes by number; Matroska's cues do not, it seems).
