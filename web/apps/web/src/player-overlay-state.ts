@@ -41,7 +41,7 @@ export interface PressContext {
   readonly isOnOffer: boolean;
   /**
    * Whether focus is outside the overlay, on the video or the page, as a pointer or full screen's
-   * start leaves it: Up and Down then bring it in (the owner, 2026-11-03).
+   * start leaves it: Up and Down then move on from the scrub bar, as if focus were there (D411).
    */
   readonly isFocusOutside?: boolean;
   /**
@@ -60,10 +60,12 @@ export interface OverlayAnswer {
   /** Whether the overlay plays or pauses the film itself, the press taken from the video. */
   readonly isPlayPause?: boolean;
   /**
-   * Where focus goes: to the scrub bar, as the whole overlay opens (D410); to the video, leaving it (Q14). A press of
-   * play that plays leaves it too, by a click, OK's, Space's or a mouse's (player-overlay.tsx).
+   * Where focus goes: to the scrub bar, as the whole overlay opens (D410); to it at once from outside
+   * the overlay shown, the press going on to move it as if it had been there (fromScrub, D411); to
+   * the video, leaving it (Q14). A press of play that plays leaves it too, by a click, OK's, Space's
+   * or a mouse's (player-overlay.tsx).
    */
-  readonly focus?: "scrub" | "video";
+  readonly focus?: "scrub" | "fromScrub" | "video";
   /** Whether the overlay presses the offer itself, focus being elsewhere (D407 §3). */
   readonly isOfferPressed?: boolean;
   /** Whether the overlay shows the volume a press of + or − left (D407 §10), for volumeShownForMs. */
@@ -295,7 +297,8 @@ function answerWhileFull(
     return onScrub;
   }
   if ((command === "up" || command === "down") && context.isFocusOutside === true) {
-    return { state, isTaken: true, focus: "scrub" };
+    // The first key after a pointer showed it is not swallowed by taking focus in (D411).
+    return { state, isTaken: false, focus: "fromScrub" };
   }
   if (context.isTelevision) {
     return { state, isTaken: false };
@@ -311,14 +314,13 @@ export interface HidingContext {
   readonly isPaused: boolean;
   /** Whether one of the overlay's menus is open. */
   readonly isMenuOpen: boolean;
-  /** Whether focus a key put there (:focus-visible) is in the overlay (D409). */
-  readonly isFocusVisibleIn: boolean;
 }
 
 /**
  * How long after the last press the overlay hides, in ms, or undefined where it stays (D407 §6;
  * plans/player-overlay.md §2.4): the whole overlay never while the film is paused or a menu is open,
- * nor while focus a key put there is in it where a pointer showed it (D409); the scrub bar alone after scrubShownForMs.
+ * however it was shown and wherever focus is (D411, amending D407 §6 and D409); the scrub bar alone
+ * after scrubShownForMs.
  */
 export function hideAfter(state: OverlayState, context: HidingContext): number | undefined {
   switch (state.shown) {
@@ -327,10 +329,7 @@ export function hideAfter(state: OverlayState, context: HidingContext): number |
     case "paused":
       return fullShownForMs;
     case "full": {
-      const isHeld =
-        context.isPaused ||
-        context.isMenuOpen ||
-        (state.shownBy === "pointer" && context.isFocusVisibleIn);
+      const isHeld = context.isPaused || context.isMenuOpen;
       return isHeld ? undefined : fullShownForMs;
     }
     case "hidden":

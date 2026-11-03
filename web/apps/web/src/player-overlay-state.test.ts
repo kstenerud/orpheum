@@ -243,14 +243,14 @@ describe("all of the overlay (D407 §5)", () => {
 
   // The owner, 2026-11-03, in Firefox: full screen by a double-click or ⤢, the mouse having shown
   // the overlay, Down left focus where no row could be reached by Up or Down.
-  it("brings focus outside it, on the video or the page, to the scrub bar by Up or Down", () => {
+  it("moves on from the scrub bar by Up or Down, focus outside it on the video or the page, as if it were there (D411)", () => {
     const byPointer: OverlayState = { shown: "full", shownBy: "pointer" };
     for (const command of ["up", "down"] as const) {
       for (const context of [onComputer, onTv]) {
         expect(overlayAnswer(byPointer, command, { ...context, isFocusOutside: true })).toEqual({
           state: byPointer,
-          isTaken: true,
-          focus: "scrub",
+          isTaken: false,
+          focus: "fromScrub",
         });
       }
     }
@@ -297,21 +297,21 @@ describe("play, pause and the seeking keys, the player's in every state", () => 
 });
 
 describe("when the overlay hides (D407 §6)", () => {
-  const playing = { isPaused: false, isMenuOpen: false, isFocusVisibleIn: false };
+  const playing = { isPaused: false, isMenuOpen: false };
+  const byPointer: OverlayState = { shown: "full", shownBy: "pointer" };
 
-  it("hides all of it shown by a remote 3 s after the last press while playing, focus in it or not", () => {
+  it("hides all of it 3 s after the last press while playing, however it was shown (D411)", () => {
     expect(hideAfter(full, playing)).toBe(3000);
-    expect(hideAfter(full, { ...playing, isFocusVisibleIn: true })).toBe(3000);
+    expect(hideAfter(byPointer, playing)).toBe(3000);
   });
 
   it("never hides all of it while the film is paused", () => {
     expect(hideAfter(full, { ...playing, isPaused: true })).toBeUndefined();
   });
 
-  it("holds all of it shown by a pointer while focus a key put there is in it", () => {
-    const byPointer: OverlayState = { shown: "full", shownBy: "pointer" };
-    expect(hideAfter(byPointer, { ...playing, isFocusVisibleIn: true })).toBeUndefined();
-    expect(hideAfter(byPointer, playing)).toBe(3000);
+  it("holds all of it shown by a pointer only while paused or a menu is open, as one shown by a remote (D411)", () => {
+    expect(hideAfter(byPointer, { ...playing, isPaused: true })).toBeUndefined();
+    expect(hideAfter(byPointer, { ...playing, isMenuOpen: true })).toBeUndefined();
   });
 
   it("holds all of it while a menu is open", () => {

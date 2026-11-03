@@ -387,14 +387,19 @@ function useOverlayPresses({
   );
 }
 
-/** Moves focus where a press's answer asks: to the scrub bar once drawn, or to the video. */
+/**
+ * Moves focus where a press's answer asks: to the scrub bar once drawn; to it at once, the press then
+ * moving it on as if it had been there (D411); or to the video.
+ */
 function moveFocus(
   focus: OverlayAnswer["focus"],
   video: HTMLVideoElement,
-  askFocusToScrub: () => void,
+  askFocusToScrub: (isAtOnce?: boolean) => void,
 ): void {
   if (focus === "scrub") {
     askFocusToScrub();
+  } else if (focus === "fromScrub") {
+    askFocusToScrub(true);
   } else if (focus === "video") {
     // Down from the buttons (Q14), once the press is through.
     queueMicrotask(() => {
@@ -516,20 +521,25 @@ function focusTheVideo(video: HTMLVideoElement): void {
  * commit, not at the next frame, which a Fire TV ran before the commit, the control then without a
  * box to take focus (2026-11-02: OK opened the overlay with nothing focused). isAskedAtOnce asks it as
  * the overlay opens with the film: on a television focus is on a control while the overlay shows
- * (D407 §6).
+ * (D407 §6). Asked with isAtOnce, it moves focus there now, the overlay shown already: the press
+ * asking goes on to move it as if it had been there (D411).
  */
 function useFocusOnceDrawn(
   scrubRef: RefObject<HTMLInputElement | null>,
   isAskedAtOnce: boolean,
-): () => void {
+): (isAtOnce?: boolean) => void {
   const [asked, setAsked] = useState(isAskedAtOnce ? 1 : 0);
   useEffect(() => {
     if (asked > 0) {
       scrubRef.current?.focus();
     }
   }, [asked, scrubRef]);
-  return () => {
-    setAsked((count) => count + 1);
+  return (isAtOnce = false) => {
+    if (isAtOnce) {
+      scrubRef.current?.focus(); // drawn already, the press then moving it on (D411)
+    } else {
+      setAsked((count) => count + 1);
+    }
   };
 }
 
@@ -561,8 +571,7 @@ function useOverlayHiding({
   readonly isMenuOpen: boolean;
 }): () => void {
   const lastPressAtRef = useRef(0);
-  const isFocusVisibleIn = useIsFocusVisibleIn(overlayRef);
-  const afterMs = hideAfter(state, { isPaused, isMenuOpen, isFocusVisibleIn });
+  const afterMs = hideAfter(state, { isPaused, isMenuOpen });
   // A menu closing counts as a press: the overlay's time starts again from it.
   useEffect(() => {
     if (!isMenuOpen) {
@@ -621,38 +630,6 @@ function useFocusLeavesWhatHides(
       }
     }
   }, [state.shown, overlayRef, videoRef, convenienceRef]);
-}
-
-/**
- * Whether focus a key put there, the browser's :focus-visible, is in the element overlayRef holds, as
- * its focusin and focusout say: focus a mouse's click or a tap left, or that a pop-up gave back to
- * its button after a choice the pointer made, is not (D409).
- */
-export function useIsFocusVisibleIn(overlayRef: RefObject<HTMLElement | null>): boolean {
-  const [isFocusVisibleIn, setIsFocusVisibleIn] = useState(false);
-  useEffect(() => {
-    const overlay = overlayRef.current;
-    if (overlay === null) {
-      return undefined;
-    }
-    const focusedIn = (event: FocusEvent): void => {
-      setIsFocusVisibleIn(
-        event.target instanceof Element && event.target.matches(":focus-visible"),
-      );
-    };
-    const focusedOut = (event: FocusEvent): void => {
-      if (!(event.relatedTarget instanceof Node && overlay.contains(event.relatedTarget))) {
-        setIsFocusVisibleIn(false);
-      }
-    };
-    overlay.addEventListener("focusin", focusedIn);
-    overlay.addEventListener("focusout", focusedOut);
-    return () => {
-      overlay.removeEventListener("focusin", focusedIn);
-      overlay.removeEventListener("focusout", focusedOut);
-    };
-  }, [overlayRef]);
-  return isFocusVisibleIn;
 }
 
 /**
