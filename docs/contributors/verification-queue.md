@@ -2470,12 +2470,13 @@ An item is ticked only by the person who did it, and only with what they saw.
 - [ ] **VQ251** — a pop-up is as wide as its widest entry and keeps clear of the screen's edges
   (plans/toolkit.md items 8 and 9; the owner, 2026-11-03). On the Fire TV in Silk and on the phone,
   open the banner's menu (from the screen's top right), a library's sort and a title's ⁝. Passes
-  when: no entry of the menu or the sort wraps where the screen is wide enough to hold it; none of
-  them covers the outermost half rem of the screen at any edge (a sliver of the page shows beyond
-  it), the phone's status bar and rounded corners included; and on the phone, an entry wider than
-  half the screen (the menu's "Signed in as …" on a long device name) widens its pop-up to 16rem,
-  about two thirds of the screen, before it wraps. Note any pop-up that wrapped an entry or met the
-  screen's edge.
+  when: no choice of the menu or the sort wraps where the screen is wide enough to hold it; the
+  menu's "Signed in as …" line never widens the menu, wrapping to the width its choices set (the
+  owner, 2026-11-03: it "is fine to wrap, since it's just informative content"); none of them covers
+  the outermost half rem of the screen at any edge (a sliver of the page shows beyond it), the
+  phone's status bar and rounded corners included; and on the phone, a choice wider than half the
+  screen widens its pop-up to 16rem, about two thirds of the screen, before it wraps. Note any
+  pop-up that wrapped a choice or met the screen's edge.
   (`web/apps/web/src/popover.tsx`, `popover.css`, `drop-down-place.ts`, `tokens.css`)
 - [ ] **VQ252** — 🔈's pop-up grows out of its button (plans/toolkit.md item 11; the owner,
   2026-11-03). On a computer, play a film full screen and press 🔈. Passes when: the pop-up's mute
