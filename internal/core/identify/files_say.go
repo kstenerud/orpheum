@@ -67,9 +67,11 @@ func (pass *Pass) filesSayOf(ctx context.Context, libraryID int64) (map[int64]fi
 	if err != nil {
 		return nil, err
 	}
+	var refused error // the write the last read would have made, refused: what keeps the library changing
 	for range filesSayReads {
 		said := map[int64]filesQuery{}
 		wouldWrite, err := pass.database.WouldWrite(ctx, func(queries *sqlcgen.Queries) error {
+			refused = nil
 			clear(said)
 			filer := pass.newFiler(queries, sorter, &Report{})
 			filer.filesSay = said
@@ -80,8 +82,8 @@ func (pass *Pass) filesSayOf(ctx context.Context, libraryID int64) (map[int64]fi
 			if unitsErr != nil {
 				return unitsErr
 			}
-			_, identifyErr := filer.identifyUnits(ctx, units, -1, 0)
-			return identifyErr
+			_, refused = filer.identifyUnits(ctx, units, -1, 0)
+			return refused
 		})
 		if err != nil {
 			return nil, fmt.Errorf("read what library %d's files say: %w", libraryID, err)
@@ -93,5 +95,8 @@ func (pass *Pass) filesSayOf(ctx context.Context, libraryID int64) (map[int64]fi
 			return nil, err
 		}
 	}
-	return nil, fmt.Errorf("library %d: %w", libraryID, errLibraryKeptChanging)
+	// The refused write names the statement and the item (a stuck rescan logged only that it waited,
+	// for hours: one MarkGuessedMatch a pass, "fix(identify): an episode its name placed is marked a guess once, not every pass").
+	return nil, fmt.Errorf("library %d: %w; the write its last read would make: %w", libraryID,
+		errLibraryKeptChanging, refused)
 }

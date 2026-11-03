@@ -235,7 +235,7 @@ func (rescans *Rescans) Advance(ctx context.Context) (int, error) {
 			said, err = rescans.matcher.pass.filesSayOf(ctx, rescan.LibraryID)
 			if errors.Is(err, errLibraryKeptChanging) {
 				rescans.matcher.logger.InfoContext(ctx, "a rescan waits for its library to stop changing",
-					"libraryId", rescan.LibraryID)
+					"libraryId", rescan.LibraryID, "cause", err)
 				continue
 			}
 			if err != nil {
