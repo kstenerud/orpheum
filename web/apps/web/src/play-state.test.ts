@@ -96,11 +96,11 @@ describe("play state", () => {
       return Promise.resolve(new Response(null, { status: 204 }));
     });
     const to = { mediaToken: "abc" };
-    await sendReport(api, to, report, { isLeaving: true });
-    await sendReport(api, to, report, { isLeaving: false });
+    await sendReport(api, { ...to, isLeaving: true }, report);
+    await sendReport(api, { ...to, isLeaving: false }, report);
     await sendReport(api, to, report);
     const huge = { ...report, linkNotes: ["x".repeat(60_000)] };
-    await sendReport(api, to, huge, { isLeaving: true });
+    await sendReport(api, { ...to, isLeaving: true }, huge);
     expect(kept).toEqual([true, false, false, false]);
   });
 
