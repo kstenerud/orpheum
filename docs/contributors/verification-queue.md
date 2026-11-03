@@ -2477,3 +2477,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   about two thirds of the screen, before it wraps. Note any pop-up that wrapped an entry or met the
   screen's edge.
   (`web/apps/web/src/popover.tsx`, `popover.css`, `drop-down-place.ts`, `tokens.css`)
+- [ ] **VQ252** — 🔈's pop-up grows out of its button (plans/toolkit.md item 11; the owner,
+  2026-11-03). On a computer, play a film full screen and press 🔈. Passes when: the pop-up's mute
+  speaker sits where 🔈 was, the button's size, the slider standing above it, so the button looks to
+  have grown upward, focus on that speaker; it shrinks back to 🔈 at a press outside or Escape. Note
+  anything that drew a gap, a pointer or a jump between the button and the pop-up. (The Fire TV and
+  the phone show no 🔈.) (`web/apps/web/src/popover.tsx`, `drop-down-place.ts`, `player-menus.tsx`)

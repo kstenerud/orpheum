@@ -5,7 +5,8 @@
  * its widest entry, never wider than half the screen nor capped under 16rem, a longer entry wrapping
  * (the owner, 2026-11-03: the banner's menu "is too narrow, and causes word wrap"); clear of a
  * little room at every edge of the screen ("a (very small) margin at the edge of the screen that
- * popups aren't allowed to cover").
+ * popups aren't allowed to cover"); and 🔈's grown out of its button, its speaker where the button
+ * was and the slider above it.
  */
 
 import "./tokens.css";
@@ -208,4 +209,64 @@ describe.each(screens)("a pop-up on $name screen", ({ width, height }) => {
       expectClearOfTheEdges(boxOf(popUp()), width, height);
     },
   );
+});
+
+/** 🔈 at a spot on the screen, opened. */
+async function volumeOpenedAt(spot: Readonly<Record<string, string>>): Promise<{
+  readonly opener: DOMRect;
+  readonly speaker: DOMRect;
+  readonly slider: DOMRect;
+}> {
+  mounted = await mount(
+    withServices(
+      <div style={{ position: "fixed", ...spot }}>
+        <PlayerMenus
+          videoRef={createRef()}
+          shown={["sound"]}
+          sound={sound}
+          onOpenChange={() => undefined}
+        />
+      </div>,
+    ),
+  );
+  await userEvent.click(page.getByRole("button", { name: "Volume" }));
+  return {
+    // Measured open: the page's scrollbar's room, kept while a pop-up is open (modal-layer.css),
+    // may move it.
+    opener: boxOf(document.querySelector('button[aria-label="Volume"]')),
+    speaker: boxOf(popUp().querySelector('button[aria-label="Mute"]')),
+    slider: boxOf(popUp().querySelector(".volume-range")),
+  };
+}
+
+/** A box's centre. */
+function centreOf(box: DOMRect): { x: number; y: number } {
+  return { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+}
+
+describe("🔈's pop-up, laid out by a real browser", () => {
+  // The owner, 2026-11-03: "the speaker icon inside the slider ends up physically at a similar
+  // location to the button it spawned from ... clicking it expanded the control such that the
+  // slider is above the button".
+  it("grows out of its button: its speaker over the button, the button's size, the slider above", async () => {
+    await page.viewport(1280, 800);
+    const { opener, speaker, slider } = await volumeOpenedAt({ right: "64px", bottom: "32px" });
+    expect(Math.abs(centreOf(speaker).x - centreOf(opener).x)).toBeLessThanOrEqual(roundingPx);
+    expect(Math.abs(centreOf(speaker).y - centreOf(opener).y)).toBeLessThanOrEqual(roundingPx);
+    expect(speaker.width).toBeCloseTo(opener.width, 0);
+    expect(speaker.height).toBeCloseTo(opener.height, 0);
+    expect(slider.bottom).toBeLessThanOrEqual(speaker.top + roundingPx);
+    // Focus opens on the speaker, where the button was.
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Mute");
+    expectClearOfTheEdges(boxOf(popUp()), 1280, 800);
+  });
+
+  it("opens below its button's top as any pop-up, where there is no room above it", async () => {
+    await page.viewport(1280, 800);
+    const { opener } = await volumeOpenedAt({ right: "64px", top: "16px" });
+    const box = boxOf(popUp());
+    expect(Math.abs(box.top - opener.top)).toBeLessThanOrEqual(roundingPx);
+    expect(box.bottom).toBeGreaterThan(opener.bottom);
+    expectClearOfTheEdges(box, 1280, 800);
+  });
 });

@@ -10,7 +10,8 @@
  * Where that room's edge would cut a big screen's list, it is cut there and scrolls within itself, as
  * a select's does, so its chosen place stays over the button, while the cut list keeps at least half
  * its own height; past that, and on a phone's, it is moved up or across instead (the owner,
- * 2026-10-29).
+ * 2026-10-29). A pop-up with a part of its own to lay over the button (overOpenerPlace) goes there
+ * where it fits.
  */
 
 /** A box on the screen, in CSS pixels from its top-left corner, as getBoundingClientRect gives it. */
@@ -79,4 +80,40 @@ export function listPlace(placing: ListPlacing): {
   return shownHeight >= list.height * leastShownPartOfList
     ? { left, top: shownTop, height: shownHeight }
     : moved(top);
+}
+
+/** What laying a pop-up's part over its button goes by. */
+export interface OverOpenerPlacing {
+  /** The button that opened it. */
+  readonly opener: ScreenBox;
+  /** The pop-up's own size. */
+  readonly popUp: { readonly width: number; readonly height: number };
+  /** Where its part laid over the button is, from the pop-up's top-left corner. */
+  readonly part: ScreenBox;
+  /** The part of the screen it may cover (ListPlacing's room). */
+  readonly room: ScreenBox;
+}
+
+/**
+ * Where a pop-up goes whose part is laid over its button, centre on centre, as 🔈's speaker is
+ * (player-menus.tsx; the owner, 2026-11-03: "the speaker icon inside the slider ends up physically
+ * at a similar location to the button it spawned from"), so that it looks like the button grown:
+ * its top-left corner, kept inside the room across and above its bottom, the room winning over the
+ * part's place by the little a button near the screen's edge has under it; undefined where it would
+ * cross the room's top, there being no room above the button, for the pop-up to be laid as any
+ * other (listPlace).
+ */
+export function overOpenerPlace(
+  placing: OverOpenerPlacing,
+): { readonly left: number; readonly top: number } | undefined {
+  const { opener, popUp, part, room } = placing;
+  const top = Math.min(
+    opener.top + opener.height / 2 - (part.top + part.height / 2),
+    room.top + room.height - popUp.height,
+  );
+  if (top < room.top) {
+    return undefined;
+  }
+  const left = opener.left + opener.width / 2 - (part.left + part.width / 2);
+  return { left: within(left, popUp.width, [room.left, room.width]), top };
 }

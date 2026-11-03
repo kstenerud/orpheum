@@ -281,6 +281,12 @@ function MoveButton(props: {
 }
 
 /**
+ * The class of SoundControls' mute, the speaker that 🔈's pop-up lays over its button
+ * (player-menus.tsx): a name to find it by, which styles nothing.
+ */
+export const muteClass = "player-controls__mute";
+
+/**
  * Mute, and the volume where the page can set it: beside it in the bar, or upright in the overlay's
  * 🔈 pop-up (isUpright; player-menus.tsx, D407 §10, Q11).
  */
@@ -301,6 +307,7 @@ export function SoundControls(props: {
       }
     >
       <IconButton
+        className={muteClass}
         isOverVideo={isOverVideo}
         label={isSilent ? t("playerControls.unmute") : t("playerControls.mute")}
         icon={isSilent ? <MutedIcon /> : <SoundIcon />}

@@ -22,7 +22,7 @@ import { LevellingControl } from "./levelling.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { PlayOriginal } from "./play-original.tsx";
 import { keepsOpenAttribute, PopoverButton } from "./popover.tsx";
-import { SoundControls, type PlayerSound } from "./player-controls.tsx";
+import { muteClass, SoundControls, type PlayerSound } from "./player-controls.tsx";
 import { AudioIcon, MoreIcon, MutedIcon, SoundIcon, SubtitlesIcon } from "./player-icons.tsx";
 import type { OverlayControl } from "./player-overlay-state.ts";
 import { PlayerTracksContext, type PlayerTracks } from "./player-tracks.tsx";
@@ -149,7 +149,10 @@ function TrackMenus(props: {
  * 🔈 (D407 §10, Q11): a pop-up with the volume upright and mute, both keeping it open
  * (keepsOpenAttribute), as + and − move the volume from anywhere (player-commands.ts). A pop-up of
  * its own, not a list: as wide as its slider (the owner, 2026-11-02: "The volume control popup is
- * far too wide"; D408 §2).
+ * far too wide"; D408 §2). It grows out of its button: its mute, a speaker as 🔈 is, laid over 🔈,
+ * the slider above it, where there is room above (the owner, 2026-11-03: "the speaker icon inside
+ * the slider ends up physically at a similar location to the button it spawned from"; Popover's
+ * partOverOpener). Focus opens on that mute, where 🔈 was, as the browser's modal gives it.
  */
 function VolumeMenu(props: {
   readonly sound: PlayerSound;
@@ -165,6 +168,7 @@ function VolumeMenu(props: {
       openerClassName="icon-button icon-button--over-video"
       openerNaming={{ "aria-label": t("playerControls.volume") }}
       isFromItsTop
+      partOverOpener={`.${muteClass}`}
       onOpenChange={props.onOpenChange}
     >
       <div {...{ [keepsOpenAttribute]: "" }}>
