@@ -34,7 +34,7 @@ type Status struct {
 	// counted (D293 §7).
 	DeadEndsLastWeek int
 	// DeadEndCausesLastWeek is those dead ends by the cause each page reported, in the discovery's
-	// words; nil from a discovery that keeps no causes (D398 §6).
+	// words; nil from a discovery that keeps no causes (D398 §7).
 	DeadEndCausesLastWeek map[string]int
 	Published             []string
 	Probe                 []discoveryproto.ProbeResult

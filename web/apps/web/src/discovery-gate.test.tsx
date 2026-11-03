@@ -170,27 +170,71 @@ describe("the gate a discovery's page opens on", () => {
   });
 
   /**
-   * A discovery whose core has the paths named and sees the page from clientPrefix, the core's names
-   * failing at once as on a network with no route for their family; every call heard.
+   * A discovery whose core has the paths named and sees the page from seen's client prefix, the core's
+   * names failing at once as on a network with no route for their family; every call heard. With seen's
+   * probe, the discovery names an IPv6 probe, which answers or fails at once as named (D398 §7).
    */
   function unreachedCore(
     paths: readonly { readonly kind: string; readonly url: string }[],
-    clientPrefix: string,
+    seen:
+      | string
+      | {
+          readonly clientPrefix?: string;
+          readonly probe: { readonly url: string; readonly isAnswering: boolean };
+        },
     heard: string[],
   ): typeof fetch {
+    const clientPrefix = typeof seen === "string" ? seen : seen.clientPrefix;
+    const probe = typeof seen === "string" ? undefined : seen.probe;
     const located = {
       coreId: "k7xq2",
       bootstrapToken: "a-bootstrap-token",
       iceServers: [],
       clientPrefix,
       paths,
+      ...(probe === undefined ? {} : { ipv6Probe: probe.url }),
     };
     const toDiscovery = discovery({ "/locate": [200, located], "/dead-end": [204, {}] }, heard);
-    return (url, init) =>
-      (url instanceof Request ? url.url : url.toString()).includes(".k7xq2.zone.example")
+    return (url, init) => {
+      const address = url instanceof Request ? url.url : url.toString();
+      if (address === probe?.url) {
+        return probe.isAnswering
+          ? Promise.resolve(new Response(null, { status: 200 }))
+          : Promise.reject(new TypeError("Failed to fetch"));
+      }
+      return address.includes(".k7xq2.zone.example")
         ? Promise.reject(new TypeError("Failed to fetch"))
         : toDiscovery(url, init);
+    };
   }
+
+  it("judges whether this network has IPv6 by the discovery's IPv6 probe when it names one (D398 §7)", async () => {
+    const v6Only = [{ kind: "ipv6", url: "https://v6.k7xq2.zone.example" }];
+    const probe = "https://v6probe.zone.example/";
+    // The probe failed at once: no IPv6 here, though the discovery's answer named no prefix.
+    const heard: string[] = [];
+    const failed = unreachedCore(v6Only, { probe: { url: probe, isAnswering: false } }, heard);
+    const shown = await mount(<DiscoveryGate start={linkStart} parts={partsOf(failed)} />);
+    await click(buttonWithText(shown.container, "Connect"));
+    await settleUntil(() => heard.at(-1)?.startsWith("/dead-end") === true);
+    expect(shown.container.textContent).toContain("This network seems to have no IPv6");
+    expect(heard.at(-1)).toContain(`"ipv6":"no"`);
+    expect(heard.at(-1)).toContain(`"cause":"noIpv6"`);
+    shown.unmount();
+    // The probe answered: IPv6 here, which got no answer from the server, so today's words.
+    const heardAnswered: string[] = [];
+    const answered = unreachedCore(
+      v6Only,
+      { clientPrefix: "203.0.113.0/24", probe: { url: probe, isAnswering: true } },
+      heardAnswered,
+    );
+    mounted = await mount(<DiscoveryGate start={linkStart} parts={partsOf(answered)} />);
+    await click(buttonWithText(mounted.container, "Connect"));
+    await settleUntil(() => heardAnswered.at(-1)?.startsWith("/dead-end") === true);
+    expect(mounted.container.textContent).not.toContain("no IPv6");
+    expect(heardAnswered.at(-1)).toContain(`"ipv6":"yes"`);
+    expect(heardAnswered.at(-1)).toContain(`"cause":"unknown"`);
+  });
 
   it("says this network has no IPv6 when the server has no IPv4 way in, and tells the discovery why (D398)", async () => {
     const heard: string[] = [];

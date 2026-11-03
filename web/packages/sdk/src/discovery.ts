@@ -568,6 +568,24 @@ export interface Located {
   readonly families: Families;
   /** Locate's alone: good for paths and offers for a few minutes, never renewed. */
   readonly bootstrapToken?: string;
+  /**
+   * The discovery's IPv6 probe name, an HTTPS URL of a name with an IPv6 address alone, which the
+   * first race fetches to judge whether this network has IPv6 (probeIpv6; D398 §7); absent from a
+   * discovery that has none.
+   */
+  readonly ipv6Probe?: string;
+}
+
+/** The discovery's IPv6 probe name, when it names an HTTPS URL. */
+function ipv6ProbeOf(named: unknown): string | undefined {
+  if (typeof named !== "string" || !named.startsWith("https://")) {
+    return undefined;
+  }
+  try {
+    return new URL(named).href;
+  } catch {
+    return undefined;
+  }
 }
 
 /** An ICE server as the discovery names it, or none when it is not one. */
@@ -651,6 +669,7 @@ export function locatedOf(answer: unknown): Located {
   const coreId = field("coreId");
   const iceServers = field("iceServers");
   const bootstrapToken = field("bootstrapToken");
+  const ipv6Probe = ipv6ProbeOf(field("ipv6Probe"));
   if (typeof coreId !== "string") {
     throw new Error("the discovery's answer names no server");
   }
@@ -665,6 +684,7 @@ export function locatedOf(answer: unknown): Located {
       seenOver: familyOf(field("clientPrefix")),
     },
     ...(typeof bootstrapToken === "string" ? { bootstrapToken } : {}),
+    ...(ipv6Probe === undefined ? {} : { ipv6Probe }),
   };
 }
 

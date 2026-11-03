@@ -264,7 +264,7 @@ async function reachFound(
     if (heldBack !== undefined) {
       return heldBack;
     }
-    const reason = deadEndReasonOf(target, raced.heard());
+    const reason = deadEndReasonOf(target, raced.heard(), raced.probed());
     parts.onDeadEnd?.(deadEndOf(core.coreId, target, problem), reason.cause);
     await reportDeadEnd(parts.client, target.held, reason);
     return "realmUnreached";
@@ -371,7 +371,10 @@ async function reach(
       parts.onDeadEnd?.(deadEndOf(core.coreId, target, problem), unknownDeadEnd.cause);
       return "noWorker";
     }
-    const reason = target === undefined ? unknownDeadEnd : deadEndReasonOf(target, raced.heard());
+    const reason =
+      target === undefined
+        ? unknownDeadEnd
+        : deadEndReasonOf(target, raced.heard(), raced.probed());
     parts.onDeadEnd?.(deadEndOf(core.coreId, target, problem), reason.cause);
     // The core was reached and refused what this device holds: no dead end, its network not to blame.
     if (isKeyRefused(problem)) {

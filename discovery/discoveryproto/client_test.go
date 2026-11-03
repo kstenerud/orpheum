@@ -92,7 +92,7 @@ func TestDeadEndRequest_TheReasonIsOptional(t *testing.T) {
 
 // The heartbeat's answer counts its dead ends by cause under "deadEndCausesLastWeek", the key Connect
 // sends, and a discovery that keeps no causes sends none, which the System page reads as the count
-// alone (D398 §6).
+// alone (D398 §7).
 func TestAddressesResponse_CountsDeadEndsByCauseUnderTheKeyConnectSends(t *testing.T) {
 	t.Parallel()
 	var read AddressesResponse
@@ -103,5 +103,19 @@ func TestAddressesResponse_CountsDeadEndsByCauseUnderTheKeyConnectSends(t *testi
 	bare, err := json.Marshal(AddressesResponse{DeadEndsLastWeek: 3})
 	if err != nil || strings.Contains(string(bare), "deadEndCausesLastWeek") {
 		t.Errorf("an answer with no causes = %s (%v); want no causes", bare, err)
+	}
+}
+
+// TestPathsResponse_NamesTheIPv6ProbeUnderTheKeyThePageReads: the page reads the probe's URL as
+// ipv6Probe, and a discovery with none sends no key, which the page reads as no probe (D398 §7).
+func TestPathsResponse_NamesTheIPv6ProbeUnderTheKeyThePageReads(t *testing.T) {
+	t.Parallel()
+	named, err := json.Marshal(PathsResponse{IPv6Probe: "https://v6probe.zone.example/"})
+	if err != nil || !strings.Contains(string(named), `"ipv6Probe":"https://v6probe.zone.example/"`) {
+		t.Errorf("an answer with a probe = %s (%v); want it under ipv6Probe", named, err)
+	}
+	bare, err := json.Marshal(PathsResponse{})
+	if err != nil || strings.Contains(string(bare), "ipv6Probe") {
+		t.Errorf("an answer with no probe = %s (%v); want no ipv6Probe", bare, err)
 	}
 }

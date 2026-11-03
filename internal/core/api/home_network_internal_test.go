@@ -91,7 +91,7 @@ func TestDiscoveryStatusBody_CarriesTheHouseNetworks(t *testing.T) {
 }
 
 // The System page is told the last week's dead ends by cause, as the discovery counted them, the
-// commonest first; a discovery that keeps no causes gives an empty list, never null (D398 §6).
+// commonest first; a discovery that keeps no causes gives an empty list, never null (D398 §7).
 func TestDiscoveryStatusBody_CarriesTheDeadEndsCausesCommonestFirst(t *testing.T) {
 	t.Parallel()
 	body := discoveryStatusBody(discovery.Status{DeadEndsLastWeek: 6, DeadEndCausesLastWeek: map[string]int{

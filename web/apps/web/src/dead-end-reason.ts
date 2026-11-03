@@ -31,34 +31,39 @@ function kindOf(target: Target, url: string): string {
 }
 
 /**
- * Whether this network has IPv6 (D398 §1): yes when the discovery saw the page over IPv6, or one of
- * the core's IPv6 names was reached at all; no when the discovery saw it over IPv4 and every IPv6
- * name tried failed at once, as a name of a family the network has no route for does; else unknown,
- * as when an IPv6 name only went unanswered, which a router dropping it gives too.
+ * Whether this network has IPv6 (D398 §1): yes when the discovery saw the page over IPv6, one of
+ * the core's IPv6 names was reached at all, or the discovery's IPv6 probe name answered; no when the
+ * probe failed at once, or the discovery saw the page over IPv4 and every IPv6 name tried failed at
+ * once, as a name of a family the network has no route for does; else unknown, as when an IPv6 name
+ * only went unanswered, which a router dropping it gives too. With no probe, or one not yet ended, the
+ * page judges from the rest alone, as before the probe (D398 §7).
  */
-function hasIpv6Of(target: Target, tried: readonly Tried[]): HasIpv6 {
+function hasIpv6Of(target: Target, tried: readonly Tried[], probed: HasIpv6 | undefined): HasIpv6 {
   const seenOver = target.families?.seenOver;
   const ipv6 = tried.filter((each) => each.kind === "ipv6");
   if (
     seenOver === "ipv6" ||
+    probed === "yes" ||
     ipv6.some((each) => each.ended === "answered" || each.ended === "refused")
   ) {
     return "yes";
   }
-  return seenOver === "ipv4" &&
-    ipv6.length > 0 &&
-    ipv6.every((each) => each.ended === "unreachable")
+  return probed === "no" ||
+    (seenOver === "ipv4" && ipv6.length > 0 && ipv6.every((each) => each.ended === "unreachable"))
     ? "no"
     : "unknown";
 }
 
 /**
  * Why nothing reached target, from what came of each name raced (reachCore's tellRaced): undefined
- * when the race was never decided. WebRTC is counted tried, and failed, once no name answered.
+ * when the race was never decided. WebRTC is counted tried, and failed, once no name answered. probed
+ * is what the discovery's IPv6 probe judged (tellIpv6Probe), undefined when it named none or the probe
+ * has not ended.
  */
 export function deadEndReasonOf(
   target: Target,
   raced: readonly DirectOutcome[] | undefined,
+  probed?: HasIpv6,
 ): DeadEndReason {
   const named = (raced ?? []).map((each): Tried => ({
     kind: kindOf(target, each.url),
@@ -66,7 +71,7 @@ export function deadEndReasonOf(
   }));
   const isWebrtcTried = raced !== undefined && named.every((each) => each.ended !== "answered");
   const tried = isWebrtcTried ? [...named, { kind: "webrtc", ended: "failed" }] : named;
-  const ipv6 = hasIpv6Of(target, tried);
+  const ipv6 = hasIpv6Of(target, tried, probed);
   const hasIpv4Way = (target.families?.ipv4Urls.length ?? 0) > 0;
   return { ipv6, tried, cause: ipv6 === "no" && !hasIpv4Way ? "noIpv6" : "unknown" };
 }
@@ -75,20 +80,27 @@ export function deadEndReasonOf(
 export const unknownDeadEnd: DeadEndReason = { ipv6: "unknown", tried: [], cause: "unknown" };
 
 /**
- * What came of the first race of a reach's names: the target's part that hears it (told), and what
- * it heard, undefined until the race was decided.
+ * What came of the first race of a reach's names: the target's part that hears it (told), what it
+ * heard, undefined until the race was decided, and what the discovery's IPv6 probe judged beside it,
+ * undefined until the probe ended or when there was none.
  */
 export function racedHeard(): {
-  readonly told: Pick<Target, "tellRaced">;
+  readonly told: Pick<Target, "tellRaced" | "tellIpv6Probe">;
   readonly heard: () => readonly DirectOutcome[] | undefined;
+  readonly probed: () => HasIpv6 | undefined;
 } {
   let raced: readonly DirectOutcome[] | undefined;
+  let probed: HasIpv6 | undefined;
   return {
     told: {
       tellRaced: (told) => {
         raced = told;
       },
+      tellIpv6Probe: (judged) => {
+        probed = judged;
+      },
     },
     heard: () => raced,
+    probed: () => probed,
   };
 }

@@ -88,6 +88,28 @@ describe("why a page reached its core by no way (D398)", () => {
     });
   });
 
+  it("takes the discovery's IPv6 probe's judgement, else judges as without one (D398 §7)", () => {
+    const unanswered = [{ url: v6, outcome: neverAnswered }];
+    // The probe failed at once: no IPv6 here, though the core's IPv6 name only went unanswered and
+    // the discovery's answer named no prefix.
+    expect(deadEndReasonOf(targetOf([v6], [], undefined), unanswered, "no")).toMatchObject({
+      ipv6: "no",
+      cause: "noIpv6",
+    });
+    // The probe answered: IPv6 here, which got no answer from the core, though its name failed at once.
+    const failed = [{ url: v6, outcome: failedAtOnce }];
+    expect(deadEndReasonOf(targetOf([v6], [], "ipv4"), failed, "yes")).toMatchObject({
+      ipv6: "yes",
+      cause: "unknown",
+    });
+    // Seen over IPv6 outweighs a probe that failed.
+    expect(deadEndReasonOf(targetOf([v6], [], "ipv6"), unanswered, "no").ipv6).toBe("yes");
+    // A probe that could not tell, or none, leaves the judgement as it was.
+    expect(deadEndReasonOf(targetOf([v6], [], "ipv4"), failed, "unknown").ipv6).toBe("no");
+    expect(deadEndReasonOf(targetOf([v6], [], "ipv4"), unanswered, "unknown").ipv6).toBe("unknown");
+    expect(deadEndReasonOf(targetOf([v6], [], "ipv4"), unanswered, undefined).ipv6).toBe("unknown");
+  });
+
   it("counts no WebRTC try when a name answered, or the race was never decided", () => {
     const answered = [{ url: v6, outcome: "answered" }];
     expect(deadEndReasonOf(targetOf([v6], [], "ipv6"), answered).tried).toEqual([
