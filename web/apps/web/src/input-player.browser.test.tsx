@@ -209,9 +209,12 @@ describe("a Play page opened with no page of this app behind it", () => {
       walking = await mountApp(services);
       await theVideo();
       // A television's player opens with all of its overlay showing, which its first Back hides
-      // (D407 §5); the next leaves the page.
+      // (D407 §5); the next leaves the page. The overlay comes once the refused full screen has
+      // fallen back to filling the window, a promise's settling later, so it is waited for.
+      await expect
+        .poll(() => document.querySelector(".player-overlay") !== null)
+        .toBe(isTelevision);
       const overlay = document.querySelector(".player-overlay");
-      expect(overlay !== null).toBe(isTelevision);
       if (overlay !== null) {
         await press("{Escape}");
         await expect.poll(() => overlay.getAttribute("data-shown")).toBe("hidden");
