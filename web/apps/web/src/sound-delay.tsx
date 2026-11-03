@@ -8,11 +8,19 @@ import {
   soundOffset,
 } from "@orpheum/player";
 import { reportFailure } from "@orpheum/sdk";
-import { useEffect, useState, useSyncExternalStore, type JSX, type RefObject } from "react";
+import {
+  useEffect,
+  useState,
+  useSyncExternalStore,
+  type JSX,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { useTranslation } from "react-i18next";
 
 import { setMyDeviceSoundOffset } from "./accounts.ts";
 import { latestWrite } from "./latest-write.ts";
+import { Cluster } from "./layout.tsx";
 import { problemText } from "./problem.ts";
 import { soundLatencyMemory } from "./sound-latency.ts";
 import { useServices } from "./services.tsx";
@@ -71,11 +79,13 @@ export function forgetSoundOffsetSetInThisTab(): void {
  * streamed film's sound chunks forward, which a film playing its own file cannot, and says so. It is
  * the device's own, kept by the core with the device and given with each playback (initialMs), or
  * as this tab last set it, every control drawn showing the one value; it applies at once, and the
- * player counts Web Audio's own latency. A viewer with no device keeps none.
+ * player counts Web Audio's own latency. A viewer with no device keeps none. As an entry of ⁝'s list
+ * (isInAList, player-menus.tsx), its parts are in a row that wraps to the pop-up's width.
  */
 export function SoundOffsetControl(props: {
   readonly videoRef: RefObject<HTMLVideoElement | null>;
   readonly initialMs: number;
+  readonly isInAList?: boolean;
 }): JSX.Element | null {
   const { t } = useTranslation();
   const { session } = useServices();
@@ -100,8 +110,8 @@ export function SoundOffsetControl(props: {
     setIsEarlierRefused(next < 0 && video !== null && !canMoveSoundEarlier(video));
     keep({ deviceId, ms: next });
   };
-  return (
-    <div className="play__sound-delay">
+  const parts = (
+    <>
       <span>{timingText(t, offsetMs)}</span>{" "}
       <button
         type="button"
@@ -127,7 +137,20 @@ export function SoundOffsetControl(props: {
           {t("thisDevice.soundOffsetNotKept", { problem: problemText(t, failure.cause) })}
         </p>
       )}
-    </div>
+    </>
+  );
+  return <TimingRow isInAList={props.isInAList === true}>{parts}</TimingRow>;
+}
+
+/** The timing's parts under the video, or in a row that wraps as an entry of ⁝'s list. */
+function TimingRow(props: {
+  readonly isInAList: boolean;
+  readonly children: ReactNode;
+}): JSX.Element {
+  return props.isInAList ? (
+    <Cluster space="2">{props.children}</Cluster>
+  ) : (
+    <div className="play__sound-delay">{props.children}</div>
   );
 }
 

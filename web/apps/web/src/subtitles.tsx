@@ -8,6 +8,7 @@ import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import { languageName } from "./language-name.ts";
+import { Cluster } from "./layout.tsx";
 import { signedTenthsText } from "./number-text.ts";
 import { problemText, throwIfRefused } from "./problem.ts";
 import { ActionChooser, currentLabelOf, type ActionChoice } from "./route-chooser.tsx";
@@ -276,14 +277,19 @@ function TrackMenu(props: { readonly choice: SubtitleChoice }): JSX.Element {
   );
 }
 
-/** Moves the subtitles earlier or later by a tenth of a second, and shows where they are. */
+/**
+ * Moves the subtitles earlier or later by a tenth of a second, and shows where they are: in a row
+ * under the film, or, isInAList, as an entry of ⁝'s list (player-menus.tsx), in a row that wraps to
+ * the pop-up's width.
+ */
 export function OffsetControl(props: {
   readonly offsetMs: number;
   readonly onMove: (stepMs: number) => void;
+  readonly isInAList?: boolean;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
-  return (
-    <span className="subtitles__offset">
+  const parts = (
+    <>
       <button
         type="button"
         onClick={() => {
@@ -305,7 +311,12 @@ export function OffsetControl(props: {
       >
         {t("play.subtitles.later")}
       </button>
-    </span>
+    </>
+  );
+  return props.isInAList === true ? (
+    <Cluster space="2">{parts}</Cluster>
+  ) : (
+    <span className="subtitles__offset">{parts}</span>
   );
 }
 

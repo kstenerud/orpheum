@@ -128,14 +128,18 @@ export function ListOption(
 /**
  * An entry of a list (ListBox) that holds a control of its own, drawn as that control draws itself:
  * a stepper, a switch, a line of text. Where isKeptOpen, pressing its buttons keeps the pop-up open,
- * for the next press, as a stepper's do (popover.tsx's keepsOpenAttribute).
+ * for the next press, as a stepper's do (popover.tsx's keepsOpenAttribute). Where isInsetAsChoices,
+ * what it holds is set in from the list's sides as a choice's text is, so a stepper's text lines up
+ * with the choices' (⁝'s, player-menus.tsx). It takes no class from its user: a look a list needs
+ * is a variant of its own (the 2026-10-05 architecture research's R5).
  */
 export function ListEntry(props: {
   readonly isKeptOpen?: boolean;
-  readonly className?: string;
+  readonly isInsetAsChoices?: boolean;
   readonly children: ReactNode;
 }): JSX.Element {
-  const classes = ["list-box__entry", props.className].filter(Boolean).join(" ");
+  const classes =
+    props.isInsetAsChoices === true ? "list-box__entry list-box__entry--inset" : "list-box__entry";
   return (
     <li className={classes} {...(props.isKeptOpen === true ? { [keepsOpenAttribute]: "" } : {})}>
       {props.children}
@@ -147,11 +151,8 @@ export function ListEntry(props: {
  * A line of a list (ListBox) that only informs, as who is signed in where heads the banner's menu.
  * It wraps to the width the list's choices and controls set and never widens the list for itself:
  * what informs may wrap, what acts wraps only where nothing else will do (the owner, 2026-11-03).
+ * Its look beyond that is its user's, on an element of its own inside it (app-shell.tsx's who).
  */
-export function ListNote(props: {
-  readonly className?: string;
-  readonly children: ReactNode;
-}): JSX.Element {
-  const classes = ["list-box__note", props.className].filter(Boolean).join(" ");
-  return <li className={classes}>{props.children}</li>;
+export function ListNote(props: { readonly children: ReactNode }): JSX.Element {
+  return <li className="list-box__note">{props.children}</li>;
 }

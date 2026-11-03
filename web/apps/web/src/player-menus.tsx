@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import "./player-menus.css";
-
 import { seekTo } from "@orpheum/player";
 import {
   createContext,
@@ -283,12 +281,12 @@ function MoreMenu(props: {
       </ListOption>
       {subtitles.tracks.length === 0 ? null : (
         <KeptOpen>
-          <OffsetControl offsetMs={subtitles.offsetMs} onMove={subtitles.shiftOffset} />
+          <OffsetControl offsetMs={subtitles.offsetMs} onMove={subtitles.shiftOffset} isInAList />
         </KeptOpen>
       )}
       {ways === undefined ? null : (
         <KeptOpen>
-          <SoundOffsetControl videoRef={videoRef} initialMs={ways.soundOffsetMs} />
+          <SoundOffsetControl videoRef={videoRef} initialMs={ways.soundOffsetMs} isInAList />
         </KeptOpen>
       )}
       {ways === undefined ? null : (
@@ -325,10 +323,14 @@ function MoreOfThePage(props: { readonly ways: PlayerMenusWays | undefined }): J
   );
 }
 
-/** A place of ⁝ whose buttons step a value, which keep the list open for the next press. */
+/**
+ * A place of ⁝ whose buttons step a value, which keep the list open for the next press: Earlier and
+ * Later beside what they move, in one row that wraps (the stepper's isInAList), not each a whole
+ * place as a menu's choice is (D407 §8), set in as the choices' text is.
+ */
 function KeptOpen(props: { readonly children: ReactNode }): JSX.Element {
   return (
-    <ListEntry isKeptOpen className="player-menus__stepper">
+    <ListEntry isKeptOpen isInsetAsChoices>
       {props.children}
     </ListEntry>
   );

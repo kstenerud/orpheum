@@ -220,7 +220,7 @@ describe("AppShell", () => {
     );
     expect(markup).not.toContain("route-chooser__chevron");
     expect(await drawnWithMenuOpen(shell)).toMatch(
-      /<ul class="list-box"><li class="list-box__note app-shell__who">karl<\/li><li class="app-shell__section">Manage<\/li>.*href="\/jobs".*class="app-shell__divider".*href="\/this-device".*href="\/account".*href="\/about".*Sign out/u,
+      /<ul class="list-box"><li class="list-box__note"><div class="app-shell__who">karl<\/div><\/li><li class="app-shell__section">Manage<\/li>.*href="\/jobs".*class="app-shell__divider".*href="\/this-device".*href="\/account".*href="\/about".*Sign out/u,
     );
   });
 

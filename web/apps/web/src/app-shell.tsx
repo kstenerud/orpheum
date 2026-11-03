@@ -612,13 +612,15 @@ function MenuPlaces(props: Omit<Parameters<typeof MainMenu>[0], "isCurrent">): J
   return (
     <>
       {signedInAs === undefined ? null : (
-        <ListNote className="app-shell__who">
-          {signedInAs.deviceName === undefined
-            ? t("nav.signedInAs", { name: signedInAs.name })
-            : t("nav.signedInAsOn", { name: signedInAs.name, device: signedInAs.deviceName })}
-          {realm === undefined ? null : (
-            <span className="app-shell__who-realm">{t("nav.realmTitle", { realm })}</span>
-          )}
+        <ListNote>
+          <div className="app-shell__who">
+            {signedInAs.deviceName === undefined
+              ? t("nav.signedInAs", { name: signedInAs.name })
+              : t("nav.signedInAsOn", { name: signedInAs.name, device: signedInAs.deviceName })}
+            {realm === undefined ? null : (
+              <span className="app-shell__who-realm">{t("nav.realmTitle", { realm })}</span>
+            )}
+          </div>
         </ListNote>
       )}
       {props.children}
