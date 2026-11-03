@@ -9,7 +9,7 @@
  * inside the room a pop-up may cover, the screen less a little at each edge (the owner, 2026-11-03).
  * Where that room's edge would cut a big screen's list, it is cut there and scrolls within itself, as
  * a select's does, so its chosen place stays over the button, while the cut list keeps at least half
- * its own height; past that, and on a phone's, it is moved up or across instead (the owner,
+ * its own height and the places either side of the chosen one (focusedAndBeside); past that, and on a phone's, it is moved up or across instead (the owner,
  * 2026-10-29). A pop-up with a part of its own to lay over the button (overOpenerPlace) goes there
  * where it fits.
  */
@@ -33,6 +33,13 @@ export interface ListPlacing {
    * screen lays over the button's middle. Undefined where nothing in it is focused.
    */
   readonly focusedMiddle: number | undefined;
+  /**
+   * The part of the list a cut must keep, its top and bottom below the list's top: the focused place
+   * and one place either side of it, where there is one (the owner, 2026-11-03: "It should open big
+   * enough that it shows the selected item plus one item above and below (when present)").
+   * Undefined where nothing in it is focused.
+   */
+  readonly focusedAndBeside?: { readonly top: number; readonly bottom: number } | undefined;
   /**
    * The part of the screen a list may cover: the screen less the room kept at its edges, a little
    * and the device's safe area (tokens.css's --screen-edge-room-*; the owner, 2026-11-03: "a (very
@@ -77,7 +84,10 @@ export function listPlace(placing: ListPlacing): {
   const shownTop = Math.max(top, room.top);
   const shownBottom = Math.min(top + list.height, room.top + room.height);
   const shownHeight = shownBottom - shownTop;
-  return shownHeight >= list.height * leastShownPartOfList
+  const beside = placing.focusedAndBeside;
+  const isBesideShown =
+    beside === undefined || (shownTop <= top + beside.top && shownBottom >= top + beside.bottom);
+  return shownHeight >= list.height * leastShownPartOfList && isBesideShown
     ? { left, top: shownTop, height: shownHeight }
     : moved(top);
 }

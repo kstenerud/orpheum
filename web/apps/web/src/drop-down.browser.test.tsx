@@ -278,8 +278,11 @@ describe("a short list near a short window's bottom (1920×600)", () => {
     mounted = undefined;
   });
 
-  /** Mounts a chooser of five choices, at current, standing at the screen's middle. */
-  async function mountChooser(current: number): Promise<HTMLElement> {
+  /** Mounts a chooser of choices, five unless given, at current, standing at the screen's middle. */
+  async function mountChooser(
+    current: number,
+    choices = fiveChoices(current),
+  ): Promise<HTMLElement> {
     await page.viewport(width, height);
     mounted = await mount(
       withServices(
@@ -288,7 +291,7 @@ describe("a short list near a short window's bottom (1920×600)", () => {
             fieldLabel="Season"
             isFieldLabelShown={false}
             current={`Choice ${String(current + 1)}`}
-            options={fiveChoices(current)}
+            options={choices}
           />
         </div>,
       ),
@@ -345,6 +348,25 @@ describe("a short list near a short window's bottom (1920×600)", () => {
     expect(places?.scrollHeight ?? 0).toBeGreaterThan((places?.clientHeight ?? 0) + roundingPx);
     await userEvent.keyboard("{Escape}");
     expect(document.querySelector("dialog")).toBeNull();
+  });
+
+  // The owner, 2026-11-03, on Umi no Tobira's two audio tracks over the film in full screen, the list
+  // cut to two thirds, its second place half hidden: "It should open big enough that it shows the
+  // selected item plus one item above and below (when present)."
+  it("moves up where the cut, keeping over half, would hide the place after its choice", async () => {
+    const opener = await mountChooser(0, fiveChoices(0).slice(0, 2));
+    const at = await measured(opener);
+    standCrossingBottomBy(opener, at.list / 3, at);
+    await userEvent.click(opener);
+    expect(document.activeElement?.textContent).toBe("Choice 1");
+    const listBox = boxOf(document.querySelector("dialog .list-box"));
+    for (const place of document.querySelectorAll<HTMLElement>("dialog ul button")) {
+      const box = boxOf(place);
+      expect(box.top, place.textContent).toBeGreaterThanOrEqual(listBox.top - roundingPx);
+      expect(box.bottom, place.textContent).toBeLessThanOrEqual(listBox.bottom + roundingPx);
+    }
+    expect(listBox.bottom).toBeLessThanOrEqual(height - screenEdgeRoomPx + roundingPx);
+    await userEvent.keyboard("{Escape}");
   });
 
   it("moves up whole where the cut would keep less than half", async () => {
