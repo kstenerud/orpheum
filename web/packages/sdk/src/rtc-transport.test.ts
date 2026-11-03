@@ -21,12 +21,20 @@ import {
   type PeerLike,
 } from "./rtc-transport.ts";
 
+/** Every channel a test opened, so that the requests it left open are ended after it. */
+const channelsOpened: FakeChannel[] = [];
+
 /** A data channel the test plays the core on: it keeps what the client sends and answers by hand. */
 class FakeChannel implements ChannelLike {
   readyState: RTCDataChannelState = "connecting";
   readonly sent: (string | ArrayBuffer)[] = [];
   isClosed = false;
+  isHeadAnswered = false;
   private listener: ChannelListener | undefined;
+
+  constructor() {
+    channelsOpened.push(this);
+  }
 
   send(data: string | ArrayBuffer): void {
     this.sent.push(data);
@@ -46,7 +54,19 @@ class FakeChannel implements ChannelLike {
   }
 
   answer(data: string | ArrayBuffer): void {
+    this.isHeadAnswered ||= typeof data === "string";
     this.listener?.message(data);
+  }
+
+  /** Ends a request the test left open, as the core would, with no body if no head came yet. */
+  endIfOpen(): void {
+    if (this.isClosed || this.listener === undefined) {
+      return;
+    }
+    if (!this.isHeadAnswered) {
+      this.answer(JSON.stringify({ status: 204 }));
+    }
+    this.answer(new ArrayBuffer(0));
   }
 
   closeFromTheCore(): void {
@@ -59,6 +79,15 @@ class FakeChannel implements ChannelLike {
     return typeof head === "string" ? JSON.parse(head) : undefined;
   }
 }
+
+// A request a test leaves open keeps its real silence watch, which fails it silentAtMostMs later, as
+// another file runs in the same worker: an unhandled rejection that fails the run (CI, 2026-11-02:
+// 41 of them, every test passing). Each is ended once its test is.
+afterEach(() => {
+  for (const channel of channelsOpened.splice(0)) {
+    channel.endIfOpen();
+  }
+});
 
 /** Lets the client's pending work run. */
 const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
