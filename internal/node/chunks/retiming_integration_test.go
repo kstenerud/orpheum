@@ -209,3 +209,39 @@ func checkEncodeIsEveryPicture(t *testing.T, codec string, times, pictures []flo
 		}
 	}
 }
+
+// A re-timed copy is cut at a keyframe shown sooner after its decode time than the run's first
+// keyframe is: an open-GOP HEVC film, as The Gold Rush's x265 is, shows each keyframe after the pictures
+// decoded after it that it leads, and dts2pts times it so, here 292 ms late at 2.042 s, 208 ms at
+// 4.375 s and 125 ms at 6.042 s. The muxer, timing its cuts from the run's first keyframe as shown,
+// took the one at 4.375 s for 84 ms early, and a cut 50 ms early missed it: the run held chunks 1 and
+// 2 in one raw file, as The Gold Rush's held 349 and 350, which could never be made (staging,
+// 2026-11-03; toolkit.md item 12).
+func TestMake_ARetimedCopyIsCutAtAKeyframeShownSoonerThanItsFirst(t *testing.T) {
+	t.Parallel()
+	runner, err := execx.NewRunner(testutil.FFmpegDirectory(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	original := filepath.Join(t.TempDir(), "an open gop film (2020).mp4")
+	// Seven B-frames in a fixed pattern, so each keyframe forced off it leads its own number of them.
+	testutil.GenerateMedia(t, original, "-f", "lavfi", "-i", "testsrc2=size=160x120:rate=24:duration=12",
+		"-c:v", "libx265", "-tag:v", "hev1", "-force_key_frames", "0,2.25,4.5,6.083,8.5,10.083",
+		"-x265-params", "bframes=7:b-adapt=0:keyint=600:min-keyint=1:scenecut=0:open-gop=1:log-level=error")
+	source := flattened(t, original)
+	grid := keyframeGrid(t, runner, source)
+	directory := t.TempDir()
+	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
+		clocktest.NewFake(time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
+	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264)
+	command := nodeproto.MakeChunks{
+		VideoStreamIndex: 0, VideoCodec: "hevc", Stream: nodeproto.ChunkStream{Kind: nodeproto.StreamPicture},
+		StoreDir: "1/chunks-picture/0123456789abcdef", FirstChunk: 1, BoundsMs: grid[1:5],
+		PictureSeekMs: (grid[1] + grid[2]) / 2, NeedsPictureRetiming: true,
+	}
+	last, err := maker.Make(t.Context(), execx.Film{Path: source}, command, nil)
+	if err != nil || last != 3 {
+		t.Errorf("a re-timed copy of chunks 1–3, on keyframes at %v ms, made through %d, %v; want 3", grid[1:5],
+			last, err)
+	}
+}

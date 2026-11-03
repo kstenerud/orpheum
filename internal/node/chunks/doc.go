@@ -22,9 +22,11 @@
 //     the prepared directory's keeper's (prepared.Shelf). Enforced by the forbidigo rule tagged
 //     [delete].
 //   - A run reads its chunks and cuts at each bound after its first and at its end, a picture a
-//     little early so its keyframe is not missed; an encode keyframes at its chunks' starts and
-//     nowhere else; a sound past the film's first chunk starts a chunk early. Enforced by
+//     little early so its keyframe is not missed, a re-timed copy early enough for dts2pts showing
+//     its keyframes each its own while after their decode times; an encode keyframes at its chunks'
+//     starts and nowhere else; a sound past the film's first chunk starts a chunk early. Enforced by
 //     TestArguments_ReadTheRunsChunksAndCutAtEachAndAtTheEnd,
+//     TestMake_ARetimedCopyIsCutAtAKeyframeShownSoonerThanItsFirst,
 //     TestArguments_EncodeAQualityWithKeyframesAtItsChunksStarts and
 //     TestArguments_StartASoundAChunkEarlyAndCutItAtTheBounds.
 //   - A raw file holds its run's one stream, never a timecode track the MP4 muxer would add for a
