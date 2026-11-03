@@ -123,12 +123,18 @@
 }
 
 /* The stage full screen, as a television's player opens, or filling the window where the browser
-   refused full screen (film-fullscreen.ts): the film fills it, black around it. */
-.film-player__stage--fills-window {
+   refused full screen (film-fullscreen.ts): the film fills it, black around it. Both classes, so it
+   outranks film-player.css's `position: relative` for the stage, which loads after this sheet: with
+   one, the stage stayed in the page, and a 4:3 film as wide as the window ran off its top and bottom
+   (the owner, 2026-11-03: The Navigator, The Pumbletons). Its one row and column
+   are its own size, in full screen too: a row left to its content grew to the film's own height in
+   one browser, a 4:3 film as tall as the screen's width made it. */
+.film-player__stage.film-player__stage--fills-window {
   position: fixed;
   z-index: 50;
   inset: 0;
   display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
   place-items: center;
   background: var(--color-video-background);
 }
@@ -148,7 +154,7 @@ dialog[open] {
   visibility: visible;
 }
 
-.film-player__stage--fills-window .film-player__video {
+.film-player__stage.film-player__stage--fills-window .film-player__video {
   width: 100%;
   height: 100%;
   max-height: none;
@@ -157,6 +163,7 @@ dialog[open] {
 
 .film-player__stage:fullscreen {
   display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
   place-items: center;
   background: var(--color-video-background);
 }
