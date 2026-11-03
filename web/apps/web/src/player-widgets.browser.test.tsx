@@ -239,9 +239,10 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
         const overlay = found(mounted.container, ".player-overlay");
         mounted.container.append(video);
         video.tabIndex = -1;
-        const next = found(overlay, '[aria-label="Forward 10 s"]');
-        await userEvent.click(next);
-        await userEvent.keyboard("{Tab}");
+        video.focus();
+        // A key's focus in it, whether the overlay is still up from its start or hid already, as
+        // Firefox under the gate's load can be slower than its 3 s.
+        await userEvent.keyboard("{ArrowDown}");
         await expect.poll(() => overlay.contains(document.activeElement)).toBe(true);
         expect(document.activeElement?.matches(":focus-visible")).toBe(true);
         expect(overlay.getAttribute("data-shown")).toBe("full");
