@@ -147,6 +147,21 @@ function scrollFocusedToOpener(
 }
 
 /**
+ * The focused element's place in its list (its `li`, else itself) and the places either side of it,
+ * where there are, as their top and bottom below the list's top, box: what a cut list must keep
+ * (drop-down-place.ts's focusedAndBeside).
+ */
+function besideOf(focused: HTMLElement, box: DOMRect): { top: number; bottom: number } {
+  const place = focused.closest("li") ?? focused;
+  const above = place.previousElementSibling ?? place;
+  const below = place.nextElementSibling ?? place;
+  return {
+    top: above.getBoundingClientRect().top - box.top,
+    bottom: below.getBoundingClientRect().bottom - box.top,
+  };
+}
+
+/**
  * Lays dialog, an open pop-up, at opener (drop-down-place.ts), inside the room at the screen's edges
  * (roomOf): its part over the button where it names one and that fits (layPartOverOpener), else as
  * a list is; on a big screen, where the room's edge cuts it, cuts it to the height shown, its content
@@ -178,6 +193,7 @@ function layAtOpener(
     list: box,
     focusedMiddle:
       focusedBox === undefined ? undefined : focusedBox.top + focusedBox.height / 2 - box.top,
+    focusedAndBeside: focused === undefined ? undefined : besideOf(focused, box),
     room,
     isPhone,
   });
