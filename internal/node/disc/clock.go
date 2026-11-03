@@ -184,32 +184,43 @@ func newClockCell(cell dvdCell, titleByte int64) clockCell {
 // that plays from more than a frame before or after the VOBU before it ended is moved to carry on
 // from it, as FFmpeg's dvdvideo demuxer offsets it. The VOBUs are found from each cell's first by
 // their navigation packs; where one cannot be read, the cell's rest keeps its clock as it is and
-// the next VOBU read starts the comparison afresh.
-func (disc *volume) dvdClockShifts(set *titleSet, cells []clockCell) ([]ClockShift, error) {
+// the next VOBU read starts the comparison afresh. At the first maxSoundJoins shifts it reads the
+// sound either side, and gives where it does not carry on (D405 §4).
+func (disc *volume) dvdClockShifts(set *titleSet, cells []clockCell) ([]ClockShift, []SoundBreak, error) {
 	var shifts []ClockShift
-	var ticks, previousEnd int64
-	carriesOn := false
+	var breaks []SoundBreak
+	var ticks, previousEnd, titleStart int64
+	var previous vobuSpan
+	carriesOn, started := false, false
 	for _, cell := range cells {
 		for sector := cell.firstSector; sector <= cell.lastSector; {
 			vobu, err := disc.vobuClock(set, sector)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			if !vobu.known {
 				carriesOn = false
 				break
 			}
-			if gap := vobu.start + ticks - previousEnd; carriesOn && (gap < -clockGapTicks || gap > clockGapTicks) {
-				ticks = previousEnd - vobu.start
-				shifts = append(shifts, ClockShift{
-					FromByte: cell.titleByte + (sector-cell.firstSector)*sectorBytes, Ticks: ticks,
-				})
+			if !started {
+				titleStart, started = vobu.start, true
 			}
-			previousEnd, carriesOn = vobu.end+ticks, true
+			if gap := vobu.start + ticks - previousEnd; carriesOn && (gap < -clockGapTicks || gap > clockGapTicks) {
+				shift := ClockShift{
+					FromByte: cell.titleByte + (sector-cell.firstSector)*sectorBytes, Ticks: previousEnd - vobu.start,
+				}
+				breaks = disc.appendSoundBreak(breaks, set, soundJoin{
+					index: len(shifts), before: previous, after: vobuSpan{sector, vobu.sectors}, ticksBefore: ticks,
+					shift: shift, atMs: (previousEnd - titleStart) * 1000 / clockTicksPerSecond,
+				})
+				ticks = shift.Ticks
+				shifts = append(shifts, shift)
+			}
+			previousEnd, carriesOn, previous = vobu.end+ticks, true, vobuSpan{sector, vobu.sectors}
 			sector += vobu.sectors
 		}
 	}
-	return shifts, nil
+	return shifts, breaks, nil
 }
 
 // vobuClock reads the navigation pack at sector of the set's title VOBs for when its VOBU plays.

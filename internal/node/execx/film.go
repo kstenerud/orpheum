@@ -153,7 +153,7 @@ func (runner *Runner) FilmOf(ctx context.Context, path string, opened OpenedFilm
 		opened.File, opened.Facts, opened.Disks, opened.Root, path, opened.Window,
 	)
 	if opened.IsDiscImage {
-		title, err := runner.discTitles.titleOf(ctx, path, opened.Facts, source)
+		title, err := runner.discTitles.titleOf(ctx, path, opened.Facts, source, runner.logger)
 		if err != nil {
 			return Film{}, err
 		}

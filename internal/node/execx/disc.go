@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -38,9 +39,10 @@ type discKey struct {
 }
 
 // titleOf is the main title of the image at path, opened with facts and read through image:
-// remembered, or read from its structure.
+// remembered, or read from its structure, when each place its sound does not carry on across a
+// clock shift is logged to logger, if not nil, so a disc that has one is found (D405 §4).
 func (titles *discTitles) titleOf(
-	ctx context.Context, path string, facts fs.FileInfo, image fdproxy.Source,
+	ctx context.Context, path string, facts fs.FileInfo, image fdproxy.Source, logger *slog.Logger,
 ) (disc.Title, error) {
 	key := discKey{path: path, sizeBytes: facts.Size(), modifiedAt: facts.ModTime()}
 	titles.mutex.Lock()
@@ -52,6 +54,14 @@ func (titles *discTitles) titleOf(
 	title, err := disc.MainTitle(sourceReader{ctx: ctx, source: image}, image.Size())
 	if err != nil {
 		return disc.Title{}, fmt.Errorf("read the disc image %s: %w", path, err)
+	}
+	for _, found := range title.SoundBreaks {
+		if logger == nil {
+			break
+		}
+		logger.WarnContext(ctx, "a DVD's sound does not carry on where its clock starts again, so it may "+
+			"click there (D405 §4)", "path", path, "at", time.Duration(found.AtMs)*time.Millisecond,
+			"cutShort", found.IsCutShort, "gapMs", float64(found.GapTicks)/90) //nolint:mnd // 90 kHz ticks
 	}
 	titles.mutex.Lock()
 	defer titles.mutex.Unlock()

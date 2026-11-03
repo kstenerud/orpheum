@@ -96,6 +96,9 @@
 //   - A DVD's title whose clock starts again partway is served on one clock, every read, however it
 //     falls across sectors, restamped as the whole title is (D404).
 //     TestFilmOf_ADVDsFilmIsServedOnOneClock.
+//   - Where a DVD title's sound does not carry on across a clock shift, it is logged, once, when the
+//     title is first read, so a disc that may click there is found (D405 §4).
+//     TestFilmOf_ADVDsSoundThatDoesNotCarryOnIsLogged.
 //   - That a streamed film's pipe kept its default size, the user's pipe memory spent, is logged once
 //     (LoggingTo). TestRunner_SaysOnceThatAStreamedFilmsPipeKeptItsDefaultSize.
 //
