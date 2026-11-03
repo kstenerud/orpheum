@@ -1433,6 +1433,7 @@ client (`index-Tn3tmHJe.js` to `index-CylJ3mgd.js`), as did two more and a navig
 there. The owner's was Firefox (2026-11-03). Playwright's Firefox (build 1543) on Linux, the same way, reloading every
 6 s through `./staging quick` and after it: each reload ran the old client until the core restarted
 and the new one (`index-Dsb0GqG2.js`) from the first reload after, as did a navigation. Not seen
-there either. Still to try: Firefox on the owner's Mac; the address the tab was on (orpheum.dev's
-client origin, or the core's own at `192.168.1.16:8440`), and `about:serviceworkers` as it
-happens, would narrow it.
+there either. The owner's tab was on orpheum.dev's client origin, under the loader and its
+service worker, as always unless they say otherwise (2026-11-03), the path both tries took. Left
+open until it is seen again; the owner reports it if it is, and `about:serviceworkers` as it
+happens would narrow it.
