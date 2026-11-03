@@ -66,7 +66,7 @@ describe("the frames a video showed and dropped, in its reports (the owner, 2026
     ]);
   });
 
-  it("counts a report that failed to send in the next, and a count started again from zero", async () => {
+  it("counts a report that failed to send once, in its retry, and a count started again from zero", async () => {
     const { reporter, sent, show, failNext } = framesReporter();
     show({ total: 240, dropped: 2 });
     failNext();
@@ -79,7 +79,8 @@ describe("the frames a video showed and dropped, in its reports (the owner, 2026
     reporter.flush(30_000);
     await settled();
     expect(sent.map(({ totalFrames, droppedFrames }) => ({ totalFrames, droppedFrames }))).toEqual([
-      { totalFrames: 480, droppedFrames: 4 },
+      { totalFrames: 240, droppedFrames: 2 }, // the failed report, sent again as it was
+      { totalFrames: 240, droppedFrames: 2 }, // what was shown since
       { totalFrames: 100, droppedFrames: 0 },
     ]);
   });
