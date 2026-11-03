@@ -112,7 +112,9 @@ dedicated to testing (the owner, 2026-11-03), so the spike uses them without ask
   plays up to a chunk the core answers 422 and on from its end, chunks in a row one stretch
   (`skip-unmade.ts`); the bar under the film shows D278's warning sign naming each stretch, and a
   stretch over 15 s, or one the film cannot go on past, puts up a pop-up over the film
-  (`skipped-parts.tsx`). VQ255.
+  (`skipped-parts.tsx`). VQ255, which the lead ran in Chrome against staging: a film with several
+  qualities never gets hls.js's fatal error, so a chunk refused in every quality is taken as not
+  made, and a chunk right after a stretch at its first refusal.
 - **Play from The Gold Rush's page opened the player without playing**: "I had to manually start it."
   Firefox on a Mac, the film's first play. Its own picture was given up three seconds in, before the
   first frame (`bufferAppendNoProgress`), and the twin opened paused, the video having read as
@@ -120,9 +122,13 @@ dedicated to testing (the owner, 2026-11-03), so the spike uses them without ask
   paused it. Why Firefox on a Mac cannot append The Gold Rush's own picture is still open.
 - **Idea: the scrub bar's time under the pointer**: "When moving the mouse over the scrub bar, show
   a tooltip with the offset there. Eventually we'll be showing the preview thumbnail as well (much
-  like how Youtube does it)."
+  like how Youtube does it)." Moved to the next batch (the owner, 2026-11-03: "item 6: next
+  batch").
 
 ## Next batch (filed during this one)
+
+- **The scrub bar's time under the pointer** (the owner, 2026-11-03, above): a tooltip with the
+  time where the pointer is over the scrub bar; the preview thumbnail later.
 
 - **Core and node record their own CPU and memory use** (the owner, 2026-11-03: "how much cpu and
   memory the core uses and the media node uses, so that we can gauge what kinds of specs will be
@@ -138,6 +144,10 @@ dedicated to testing (the owner, 2026-11-03), so the spike uses them without ask
   363 MiB peak; node 2% of one core, 11 MiB held, 2.5 GiB of page cache from reading media, which
   the kernel reclaims.
 
+- **After a skip the picture climbs back slowly**: hls.js steps down a quality at each refusal, so
+  the film plays on from the lowest one, 846×360, and climbed to the next after 35 s, still there
+  100 s on, where before the fault it played its own picture (VQ255's run, 2026-11-03). To look at:
+  whether the move past the chunk should take the player back to the quality it had.
 - **`ModalDialog` takes no `className`** (the owner, 2026-11-03, moved here from step 5): its seven
   callers (Cast, the folder browser, match correction twice, the notice note, the sign-out question,
   Watch Together, the listing search) mostly set their width or lay out their contents; as named
