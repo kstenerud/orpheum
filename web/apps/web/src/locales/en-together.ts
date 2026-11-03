@@ -11,6 +11,8 @@ export const enTogether = {
       "You were invited to watch together. Choose the name the others will see you by, then join.",
     noLink: "This address has no invitation in it. Open the link you were given.",
     checkingLink: "Checking your invitation…",
+    // Asking the server for the person's sessions failed: asked again by its button.
+    askAgain: "Try again",
     cannotFollow:
       "This browser cannot keep in step with the others. On an iPhone or iPad, update to iOS 17.1 or later, then open the link again.",
     name: "Your name",

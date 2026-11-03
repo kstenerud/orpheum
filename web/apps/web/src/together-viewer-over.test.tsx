@@ -106,6 +106,30 @@ describe("a Watch Together guest's page as their session ends", () => {
     mounted.unmount();
   });
 
+  // Principles §28: a failed ask took the guest home saying the session was no longer there.
+  it("says a failed ask for a signed-in guest's sessions, keeping them here, and asks again by its button", async () => {
+    const server = fakeTogetherServer();
+    const services = {
+      ...servedBy(
+        {
+          "GET /together/mine": [refusal(503, "unavailable"), [200, { sessions: [] }]],
+        },
+        [],
+        "signed-in-token",
+      ),
+      navigation: createNavigation(fakePlace("/together")),
+      openTogetherSocket: server.openSocket,
+    };
+    const mounted = await mount(withServices(<TogetherViewer />, services));
+    await settleUntil(() => mounted.container.querySelector("[role=alert]") !== null);
+    expect(services.navigation.route().screen).toBe("together");
+    expect(currentNotice()).toBeUndefined();
+    await click(buttonWithText(mounted.container, "Try again"));
+    await settleUntil(() => services.navigation.route().screen === "home");
+    expect(currentNotice()?.text).toBe("The Watch Together session is no longer there.");
+    mounted.unmount();
+  });
+
   it("takes a signed-in guest home whose Leave the server answers with no such session", async () => {
     window.localStorage.setItem(
       "orpheum.together.viewer",

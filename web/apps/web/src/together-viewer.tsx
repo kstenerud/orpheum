@@ -38,10 +38,11 @@ import type { PlaybackDecision } from "./watching.ts";
 import type { LadderOffer } from "./moving-down.ts";
 import { useStallReports } from "./play-state.ts";
 import { productName } from "./product-name.ts";
+import { problemText } from "./problem.ts";
 import { useDiagnosisNotes } from "./together-diagnosis.ts";
 import { useShowsAFilm } from "./film-showing.ts";
 import { useMembership } from "./together-membership.ts";
-import { useGoneFromUnder, useSessionEnd } from "./together-session-end.ts";
+import { useGoneFromUnder, useSessionEnd, type SessionsAsked } from "./together-session-end.ts";
 import { useServices, useToken } from "./services.tsx";
 import { useLive } from "./live.tsx";
 import { SessionRemote } from "./session-remote.tsx";
@@ -96,7 +97,8 @@ export function TogetherViewer(): JSX.Element {
   const keptVideo = useKeptVideo();
   const [hasJoinedHere, setHasJoinedHere] = useState(false);
   const devices = useViewerVoiceDevices();
-  useGoneFromUnder({ isSignedIn, secret, hasMembership: membership !== undefined, over });
+  const hasMembership = membership !== undefined;
+  const sessionsAsked = useGoneFromUnder({ isSignedIn, secret, hasMembership, over });
   useEffect(() => {
     if (membership !== undefined && secret !== undefined) {
       // Come back by the link already joined by: it leaves the address, as at the join.
@@ -109,7 +111,7 @@ export function TogetherViewer(): JSX.Element {
   }
   if (membership === undefined) {
     if (secret === undefined) {
-      return <NoSessionHere isSignedIn={isSignedIn} />;
+      return <NoSessionHere isSignedIn={isSignedIn} asked={sessionsAsked} />;
     }
     return (
       <JoinForm
@@ -213,9 +215,26 @@ function ToTheGroupsFilm(props: { readonly membership: Membership }): JSX.Elemen
  * No link in the address and no session here: signed in, the server is asked for their session
  * first, and without one they are taken home (useGoneFromUnder); else there is nothing to join.
  */
-function NoSessionHere(props: { readonly isSignedIn: boolean }): JSX.Element {
+function NoSessionHere(props: {
+  readonly isSignedIn: boolean;
+  readonly asked: SessionsAsked | undefined;
+}): JSX.Element {
   const { t } = useTranslation();
-  return props.isSignedIn ? <p>{t("common.loading")}</p> : <NoLink />;
+  const { asked } = props;
+  if (!props.isSignedIn) {
+    return <NoLink />;
+  }
+  if (asked === undefined) {
+    return <p>{t("common.loading")}</p>;
+  }
+  return (
+    <>
+      <p role="alert">{problemText(t, asked.failure)}</p>
+      <button type="button" onClick={asked.askAgain}>
+        {t("together.askAgain")}
+      </button>
+    </>
+  );
 }
 
 /**

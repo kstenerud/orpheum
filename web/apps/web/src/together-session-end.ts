@@ -117,37 +117,52 @@ function hostsOverNotice(reason: TogetherEndReason): string {
   return reason === "idle" ? "together.overNotice.idle" : "together.overNotice.gone";
 }
 
+/** What asking the server for the person's sessions came to, where it failed: why, and asking again. */
+export interface SessionsAsked {
+  readonly failure: unknown;
+  readonly askAgain: () => void;
+}
+
 /**
  * Has back, signed in with no link in the address, a session joined on another device (D267 §2);
  * then, with no session here, the one they were in is gone, lost with a restart of the server or
  * ended while their page was away, and ends as one that ended does. It said "This address has no
- * invitation in it" (the owner's Mac, staging, 2026-10-29).
+ * invitation in it" (the owner's Mac, staging, 2026-10-29). Only an answer says the session is gone:
+ * a failed ask is said, with a way to ask again, as it took the guest home saying the session was no
+ * longer there while it went on (principles §28). What the ask came to, where it failed.
  */
 export function useGoneFromUnder(page: {
   readonly isSignedIn: boolean;
   readonly secret: string | undefined;
   readonly hasMembership: boolean;
   readonly over: SessionEndWays;
-}): void {
+}): SessionsAsked | undefined {
   const { api, navigation } = useServices();
   const shouldAsk = page.isSignedIn && page.secret === undefined;
   const [hasAsked, setHasAsked] = useState(false);
+  const [failure, setFailure] = useState<{ readonly cause: unknown } | undefined>(undefined);
+  const [asking, setAsking] = useState(0);
   useEffect(() => {
     if (!shouldAsk) {
       return undefined;
     }
     let isCurrent = true;
-    void haveBackMySessions(api)
-      .catch(() => undefined)
-      .finally(() => {
+    haveBackMySessions(api).then(
+      () => {
         if (isCurrent) {
           setHasAsked(true);
         }
-      });
+      },
+      (cause: unknown) => {
+        if (isCurrent) {
+          setFailure({ cause });
+        }
+      },
+    );
     return () => {
       isCurrent = false;
     };
-  }, [api, shouldAsk]);
+  }, [api, shouldAsk, asking]);
   const isGone = shouldAsk && hasAsked && !page.hasMembership;
   const { over } = page;
   useEffect(() => {
@@ -156,4 +171,13 @@ export function useGoneFromUnder(page: {
       over.goneFromUnder();
     }
   }, [isGone, navigation, over]);
+  return failure === undefined || hasAsked
+    ? undefined
+    : {
+        failure: failure.cause,
+        askAgain: () => {
+          setFailure(undefined);
+          setAsking((count) => count + 1);
+        },
+      };
 }

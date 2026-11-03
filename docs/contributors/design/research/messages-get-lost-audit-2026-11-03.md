@@ -22,6 +22,10 @@ connecting again; 1008 stays for a first message that is no hello and a refused 
 
 ## Lost or said wrongly; not stuck. Proposals for the owner
 
+The owner (2026-11-03): "Agree with your recommendations. We can do L3 and L4 now and the rest in
+another batch." L3 and L4 are fixed; S2, L1, L2 and D1 are filed in
+[toolkit.md](../plans/toolkit.md)'s next batch.
+
 **S2. A host's command pressed while the page reconnects is dropped without a word.**
 `TogetherConnection.command` sends only while connected and says nothing otherwise: Stop the film
 (`together-plays.tsx`), the remote's buttons (`session-remote.tsx`), a change of film
@@ -47,12 +51,12 @@ safe (it moves only forward). *Proposal:* send it again under its own `reportSeq
 **L3. A failed lookup of one's sessions is told as "the session is gone".**
 `together-session-end.ts` marks the lookup done even when it failed, and no membership kept then
 reads as gone: a signed-in guest is sent home, told the session is not there, while it may still
-run. *Proposal:* mark it done only on an answer; on a failure, say so with a way to try again.
+run. *Proposal:* mark it done only on an answer; on a failure, say so with a way to try again. **Fixed.**
 
 **L4. Ending a session has no idempotency key** (`watch-together.tsx`). With its answer lost, the
 next try is answered 404 and the page shows a problem, and forgets that this tab ended it; the
 host's panel still hears the end and goes home, but says it ended elsewhere. *Proposal:* take
-`not_found` as ended, as Leave does (`together-leave.tsx`).
+`not_found` as ended, as Leave does (`together-leave.tsx`). **Fixed** ("fix(web): ending a Watch Together session the server no longer has is taken as ended").
 
 **D1. The device list is not marked stale while the live connection is down.** The lists and
 `sending` are kept while disconnected, and `live.tsx` does not pass `isConnected` on, so Cast can

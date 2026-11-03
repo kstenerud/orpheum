@@ -130,6 +130,12 @@ dedicated to testing (the owner, 2026-11-03), so the spike uses them without ask
 
 ## Next batch (filed during this one)
 
+- **The §28 review's proposals S2, L1, L2 and D1** (the owner, 2026-11-03: "the rest in another
+  batch"; [messages-get-lost-audit-2026-11-03.md](../research/messages-get-lost-audit-2026-11-03.md)):
+  a group's buttons saying they wait while Watch Together reconnects; the last position sent as a
+  page closes (`keepalive`, a flush after one in flight); a playback report sent again under its own
+  `reportSeq`; Cast's device list shown as reconnecting while the live connection is down.
+
 - **A pop-up per widget type in the gallery, and the gallery's player bar drawing the real rows**
   (the owner, 2026-11-03, above).
 
