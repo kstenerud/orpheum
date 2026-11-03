@@ -191,16 +191,24 @@ func (server *Server) togetherTuning(ctx context.Context, dependencies *Dependen
 }
 
 // sessionHello reads a device's first message: a session's hello, which it returns; else, having
-// served the live connection a live hello opens, or closed the socket for want of a hello, false.
+// served the live connection a live hello opens, or closed the socket, false: refused (1008) for a
+// first message that is no hello, to try again (1013) for none in time.
 func (server *Server) sessionHello(
 	ctx context.Context, connection togetherSocket, dependencies *Dependencies, request *http.Request,
 ) (together.Inbound, bool) {
 	first, err := readFirst(ctx, connection)
-	if err == nil && isLiveHello(first) {
+	if err != nil {
+		// No hello within helloWait, or the connection failed: no refusal, which ends a device's page
+		// for good, but a close the device answers by connecting again (principles §28: a slow phone's
+		// late hello must not end its live connection or its session until a reload).
+		_ = connection.closeWith(websocket.StatusTryAgainLater, "no hello in time") //nolint:errcheck // closing
+		return together.Inbound{}, false
+	}
+	if isLiveHello(first) {
 		server.serveLiveSocket(ctx, connection, dependencies, first, request)
 		return together.Inbound{}, false
 	}
-	hello, err := togetherHelloOf(first, err)
+	hello, err := togetherHelloOf(first)
 	if err != nil {
 		_ = connection.closeWith(websocket.StatusPolicyViolation, "say hello first") //nolint:errcheck // closing
 		return hello, false
@@ -219,13 +227,9 @@ func readFirst(ctx context.Context, connection togetherSocket) (json.RawMessage,
 	return first, nil
 }
 
-// togetherHelloOf is a device's first message, read with err, as a session's hello, which must
-// carry a credential.
-func togetherHelloOf(first json.RawMessage, err error) (together.Inbound, error) {
+// togetherHelloOf is a device's first message as a session's hello, which must carry a credential.
+func togetherHelloOf(first json.RawMessage) (together.Inbound, error) {
 	var hello together.Inbound
-	if err != nil {
-		return hello, err
-	}
 	if err := json.Unmarshal(first, &hello); err != nil {
 		return hello, fmt.Errorf("the first message is not JSON: %w", err)
 	}
