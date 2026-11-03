@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from pathlib import Path
@@ -13,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import check_revert_red as rr  # noqa: E402
 import revert_red_attempts as attempts  # noqa: E402
 import revert_red_commands  # noqa: E402
+import revert_red_run as rr_run  # noqa: E402
 from revert_red_commands import shared  # noqa: E402
 from revert_red_run import run_whole_group  # noqa: E402
 
@@ -68,6 +70,27 @@ class WholeGroup(unittest.TestCase):
         done, left = self.started("sleep 30", timeout=1)
         self.assertIsNone(done)
         self.assertTrue(gone_soon(left), "the process the timed-out run started outlived it")
+
+
+class StoppedFromOutside(unittest.TestCase):
+    """A stop (the background probe's, 2026-11-03) ends the runs going, and none counts as red."""
+
+    def setUp(self):
+        self.addCleanup(rr_run.STOPPING.clear)
+
+    def test_a_run_going_when_the_stop_comes_ends_and_is_not_a_result(self):
+        threading.Timer(0.5, rr_run.stop_every_run).start()
+        started = time.monotonic()
+        with tempfile.TemporaryDirectory() as tree, self.assertRaises(rr_run.Stopped):
+            run_whole_group(["sh", "-c", "sleep 30; exit 1"], tree, 60)
+        self.assertLess(time.monotonic() - started, 10, "the stop ended the run, not its own end")
+
+    def test_a_run_asked_for_after_the_stop_never_starts(self):
+        rr_run.stop_every_run()
+        with tempfile.TemporaryDirectory() as tree:
+            with self.assertRaises(rr_run.Stopped):
+                run_whole_group(["sh", "-c", f"touch {tree}/ran"], tree, 60)
+            self.assertFalse((Path(tree) / "ran").exists())
 
 
 class BrowserProbe(unittest.TestCase):

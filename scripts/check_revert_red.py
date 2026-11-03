@@ -67,6 +67,7 @@ import functools
 import json
 import os
 import queue
+import signal
 import subprocess
 import sys
 import threading
@@ -88,7 +89,7 @@ from revert_red_attempts import (BROWSER_MODE_RELATED, FIRST_RED_GO, FIRST_RED_V
                                  compiled_only_elsewhere, other_platforms)
 import revert_red_commands
 from revert_red_commands import go_test, vitest, web_suite
-from revert_red_run import RUNNER_MISSING, is_build_failure, run_whole_group  # noqa: F401 (tests reach RUNNER_MISSING here)
+from revert_red_run import RUNNER_MISSING, Stopped, is_build_failure, run_whole_group, stop_every_run  # noqa: F401 (tests reach RUNNER_MISSING here)
 from revert_red_claims import VQ_FILE, refactor_only, unticked_items, verification_queue_problem, verified_out_of_suite  # noqa: F401 (tests reach VQ_FILE here)
 from emitted_js import emits_the_same_between
 from revert_red_cosmetic import GO_SOURCE, PY_SOURCE, is_cosmetic, is_package_clause_only
@@ -642,13 +643,34 @@ def main() -> int:
     jobs = args.jobs or max(1, (os.cpu_count() or 2) // 2)
     # Each probe's runs within its share of the CPUs, so the probes at once fit the machine.
     revert_red_commands.CPU_SHARE = max(1, (os.cpu_count() or 2) // min(jobs, max(1, len(owed))))
+    # Stopped from outside (a SIGTERM: the background probe's stop, quiet_gate's fail-fast), every
+    # test run going ends with it, and nothing it was running is recorded (revert_red_run).
+    previous = signal.signal(signal.SIGTERM, lambda _signal, _frame: stop_every_run())
+    try:
+        return probe_owed(args, base, head, owed, exempt, jobs, wanted, unknown)
+    finally:
+        signal.signal(signal.SIGTERM, previous)
+
+
+def probe_owed(args: argparse.Namespace, base: str, head: str, owed: list[Change], exempt: int, jobs: int,
+               wanted: list[str] | None, unknown: bool) -> int:
+    """The probes of main, once it knows what is owed: the background probe stopped, the trees held."""
     # A background probe of the batch (background_probe.py) gives the trees up to a run of the gate's
-    # own; what it probed is kept, and this run takes it.
+    # own; what it probed is kept, and this run takes it. The time each wait took is reported.
+    before: dict[str, float] = {}
+    asked = time.monotonic()
     background_probe.stop()
-    with hold_probe_trees():
-        reruns.begin(base)
-        status = probe_all(base, head, owed, exempt, min(jobs, len(owed)), args.timeout, wanted,
-                           args.part != "all", browser_mode(args.part))
+    before["waiting for the background probe to end"] = time.monotonic() - asked
+    try:
+        asked = time.monotonic()
+        with hold_probe_trees():
+            before["waiting for another run's probe trees"] = time.monotonic() - asked
+            reruns.begin(base)
+            status = probe_all(base, head, owed, exempt, min(jobs, len(owed)), args.timeout, wanted,
+                               args.part != "all", browser_mode(args.part), before)
+    except Stopped:
+        print("revert-red: stopped, as asked; nothing it was running is recorded.", flush=True)
+        return 143
     if wanted is not None:
         print("\nA targeted run: the full `make check-revert-red` (or `make check-pr`) is still "
               "required before the branch is done.")
@@ -663,7 +685,9 @@ def unprobed(base: str, head: str, owed: list[Change]) -> list[Outcome]:
 
 
 def probe_all(base: str, head: str, owed: list[Change], exempt: int, jobs: int, timeout: int,
-              wanted: list[str] | None, is_one_part: bool = False, browser: str = BROWSER_INLINE) -> int:
+              wanted: list[str] | None, is_one_part: bool = False, browser: str = BROWSER_INLINE,
+              before: dict[str, float] | None = None) -> int:
+    asked = time.monotonic()
     try:
         trees = probe_trees(head, jobs)
     except RuntimeError as problem:
@@ -680,16 +704,22 @@ def probe_all(base: str, head: str, owed: list[Change], exempt: int, jobs: int, 
             return probe(tree, base, head, change, timeout, browser)
         finally:
             TIMINGS.note_probe(change.path, time.monotonic() - started)
+            TIMINGS.note_tree(tree, time.monotonic() - started)
             free.put(tree)
 
     def stylesheets_in_a_free_tree() -> dict[str, Outcome]:
         tree = free.get()
+        started = time.monotonic()
         try:
             return stylesheets_together(tree, base, head, owed, timeout)
         finally:
+            TIMINGS.note_tree(tree, time.monotonic() - started)
             free.put(tree)
 
     TIMINGS.clear()
+    for what, seconds in (before or {}).items():
+        TIMINGS.note_before(what, seconds)
+    TIMINGS.note_before("preparing the worktrees", time.monotonic() - asked)
     started = time.monotonic()
     with ThreadPoolExecutor(max_workers=len(trees)) as pool:
         together = pool.submit(stylesheets_in_a_free_tree)

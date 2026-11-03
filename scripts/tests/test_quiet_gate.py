@@ -40,6 +40,14 @@ class Summary(unittest.TestCase):
         self.assertNotIn("Test Files", shown)
         self.assertIn("/log", shown)
 
+    def test_a_steps_clock_lines_are_noise_but_its_failure_is_shown(self):
+        out = ("check-pr step fast: started at 10:50:45 UTC\ncheck-pr step fast: passed at 10:50:46 UTC, after 1 s\n"
+               "check-pr step slow: failed at 11:15:28 UTC, after 1483 s\n")
+        shown = qg.summary(out, Path("/log"))
+        self.assertNotIn("started at", shown)
+        self.assertNotIn("fast: passed", shown)
+        self.assertIn("check-pr step slow: failed at 11:15:28 UTC", shown)
+
     def test_a_long_failure_is_capped_and_says_how_much_is_left(self):
         shown = qg.summary("\n".join(f"error {n}" for n in range(qg.MAX_LINES + 7)), Path("/log"))
         self.assertIn(f"error {qg.MAX_LINES - 1}", shown)

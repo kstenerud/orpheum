@@ -8,6 +8,11 @@ which starts npm, Playwright, the browsers and a core and node of their own: kil
 the rest ran on, holding ports and CPU, and the next probe's browser run shared the machine with a
 server nothing would stop (check-pr, 2026-10-17). The run here is a session of its own, and its
 whole group is killed once it is over, however it ended.
+
+**Stopped from outside** (`stop_every_run`, on SIGTERM): every group still running is killed and
+its run raises `Stopped` instead of returning, so a run ended by the stop is never read as a
+test's red and recorded as one (a kept red is trusted by the next run). The background probe is
+stopped this way when the gate's own run wants the trees (background_probe.py).
 """
 
 from __future__ import annotations
@@ -22,6 +27,25 @@ from typing import IO
 import revert_red_commands as commands
 
 
+class Stopped(Exception):
+    """The run was stopped from outside: what it ran says nothing about the probe."""
+
+
+# The groups running now, by leader, and whether the run is being stopped.
+_RUNNING: set[int] = set()
+_RUNNING_LOCK = threading.Lock()
+STOPPING = threading.Event()
+
+
+def stop_every_run() -> None:
+    """Ends every run going, and every run asked for after, each raising Stopped."""
+    STOPPING.set()
+    with _RUNNING_LOCK:
+        leaders = list(_RUNNING)
+    for leader in leaders:
+        end_group(leader)
+
+
 def run_whole_group(command: list[str], cwd: str, timeout: int,
                     env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     """Runs command as subprocess.run with capture_output and text would, in a process group of its
@@ -31,16 +55,26 @@ def run_whole_group(command: list[str], cwd: str, timeout: int,
     run keeps within the probe's share of the CPUs (revert_red_commands); the result names the command
     as given."""
     given = command
+    if STOPPING.is_set():
+        raise Stopped
     command, env = commands.shared(command, env, commands.CPU_SHARE)
     with subprocess.Popen(command, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                           text=True, start_new_session=True) as running:
+        with _RUNNING_LOCK:
+            _RUNNING.add(running.pid)
+        if STOPPING.is_set():  # a stop between the check above and the run's start missed it
+            end_group(running.pid)
         stdout, stderr = _read_aside(running.stdout), _read_aside(running.stderr)
         try:
             running.wait(timeout=timeout)
         finally:
+            with _RUNNING_LOCK:
+                _RUNNING.discard(running.pid)
             end_group(running.pid)
             stdout.thread.join()
             stderr.thread.join()
+    if STOPPING.is_set():
+        raise Stopped
     return subprocess.CompletedProcess(given, running.returncode, stdout.text(), stderr.text())
 
 

@@ -10,6 +10,12 @@ them again?"). Each probe now notes every run it makes: what kind of run, how lo
 it waited for the one browser tier at a time, and whether it passed. The run keeps them at
 `<git-common-dir>/revert-red/last-timings` and its report ends with the time by kind of run and the
 slowest files.
+
+What a run spends before its first probe (stopping the background probe, waiting for another run's
+probe trees, preparing them) and how long each probe tree was busy are reported too: a check-pr's
+revert-red waited eight minutes for a background probe it had failed to stop, and spent 1000 s in
+one tree while three sat idle, and the report showed neither (the owner, 2026-11-03: "make the
+testing process more observable"). The busiest tree is the run's critical path.
 """
 
 from __future__ import annotations
@@ -19,6 +25,7 @@ import subprocess
 import threading
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable
 
 import last_run
@@ -52,6 +59,9 @@ class Timings:
 
     runs: dict[str, list[Run]] = field(default_factory=dict)
     probe_seconds: dict[str, float] = field(default_factory=dict)
+    # Each probe tree's busy seconds, by its path, and what the run did before it probed, in order.
+    tree_seconds: dict[str, float] = field(default_factory=dict)
+    before: dict[str, float] = field(default_factory=dict)
     lock: threading.Lock = field(default_factory=threading.Lock)
 
     def clear(self) -> None:
@@ -59,6 +69,26 @@ class Timings:
         with self.lock:
             self.runs.clear()
             self.probe_seconds.clear()
+            self.tree_seconds.clear()
+            self.before.clear()
+
+    def note_tree(self, tree: str, seconds: float) -> None:
+        """A stretch of work in one probe tree: a probe, or the stylesheets settled together."""
+        with self.lock:
+            self.tree_seconds[tree] = self.tree_seconds.get(tree, 0.0) + seconds
+
+    def note_before(self, what: str, seconds: float) -> None:
+        """Time the run spent before its first probe, and on what."""
+        with self.lock:
+            self.before[what] = self.before.get(what, 0.0) + seconds
+
+    def file_seconds(self) -> dict[str, float]:
+        """Each file's time: its probe's, or for a stylesheet settled with others, which has no probe
+        of its own, the runs made for it alone (its own browser-mode tests)."""
+        with self.lock:
+            paths = set(self.probe_seconds) | set(self.runs)
+            return {path: max(self.probe_seconds.get(path, 0.0), sum(run.seconds for run in self.runs.get(path, [])))
+                    for path in paths}
 
     def note_run(self, path: str, run: Run) -> None:
         with self.lock:
@@ -128,12 +158,21 @@ def summary(timings: Timings, wall_seconds: float, jobs: int) -> str:
         for run in runs:
             by_kind.setdefault(run.kind, []).append(run.seconds)
             waited += run.waited
-    lines = [f"\nHow long it took: {wall_seconds:.0f} s on {jobs} worktree(s), "
-             f"{sum(timings.probe_seconds.values()):.0f} s of probing in all, "
-             f"{waited:.0f} s of it waiting for the browser tier:"]
+    files = timings.file_seconds()
+    lines = []
+    if timings.before:
+        lines.append(f"\nBefore probing, {sum(timings.before.values()):.0f} s: "
+                     + ", ".join(f"{seconds:.0f} s {what}" for what, seconds in timings.before.items()))
+    lines.append(f"\nHow long it took: {wall_seconds:.0f} s on {jobs} worktree(s), "
+                 f"{sum(files.values()):.0f} s of probing in all, "
+                 f"{waited:.0f} s of it waiting for the browser tier:")
     for kind, seconds in sorted(by_kind.items(), key=lambda item: -sum(item[1])):
         lines.append(f"  {sum(seconds):>6.0f} s  {len(seconds):>3} run(s)  {kind}")
-    slowest = sorted(timings.probe_seconds.items(), key=lambda item: -item[1])[:SLOWEST_SHOWN]
+    if timings.tree_seconds:
+        lines.append("Each probe tree's busy time, the busiest first (the busiest is the run's critical path):")
+        for tree, seconds in sorted(timings.tree_seconds.items(), key=lambda item: -item[1]):
+            lines.append(f"  {seconds:>6.0f} s  {Path(tree).name}  ({seconds / max(wall_seconds, 1):.0%} of the run)")
+    slowest = sorted(files.items(), key=lambda item: -item[1])[:SLOWEST_SHOWN]
     if slowest:
         lines.append(f"The {len(slowest)} slowest files:")
     for path, seconds in slowest:
@@ -147,14 +186,16 @@ def summary(timings: Timings, wall_seconds: float, jobs: int) -> str:
 def keep(timings: Timings, base: str, head: str, wall_seconds: float, jobs: int) -> None:
     """Keeps the run's timings, replacing the last run's, for reading after it."""
     def record(_old: dict[str, Any] | None) -> dict[str, Any]:
-        paths = sorted(set(timings.probe_seconds) | set(timings.runs))
+        files = timings.file_seconds()
         return {
             "base": base, "head": head, "wallSeconds": round(wall_seconds, 1), "jobs": jobs,
+            "before": {what: round(seconds, 1) for what, seconds in timings.before.items()},
+            "trees": {Path(tree).name: round(seconds, 1) for tree, seconds in timings.tree_seconds.items()},
             "files": [
-                {"path": path, "seconds": round(timings.probe_seconds.get(path, 0.0), 1),
+                {"path": path, "seconds": round(files[path], 1),
                  "runs": [{"kind": run.kind, "seconds": round(run.seconds, 1), "waited": round(run.waited, 1),
                            "passed": run.passed} for run in timings.runs.get(path, [])]}
-                for path in paths
+                for path in sorted(files)
             ],
         }
     last_run.update(GATE, NAME, record)
