@@ -116,7 +116,7 @@ describe("a pop-up's width, laid out by a real browser", () => {
   // The owner, 2026-11-03: "The top-right menu is too narrow, and causes word wrap on the
   // selectable items." Sized to fit the room left of its place at the screen's right edge, it
   // shrank below its entries.
-  it("opens the banner's menu at the screen's top right as wide as its widest entry, none wrapping", async () => {
+  it("opens the banner's menu at the screen's top right as wide as its widest choice, none wrapping", async () => {
     await page.viewport(1280, 800);
     mounted = await mount(
       withServices(
@@ -135,7 +135,7 @@ describe("a pop-up's width, laid out by a real browser", () => {
       ),
     );
     await userEvent.click(page.getByRole("button", { name: "Menu" }));
-    const entries = [...popUp().querySelectorAll<HTMLElement>(".list-box__entry")];
+    const entries = [...popUp().querySelectorAll<HTMLElement>(".list-box__option")];
     expect(entries.length).toBeGreaterThan(2);
     const widest = Math.max(...entries.map((entry) => unwrappedSizeOf(entry).width));
     for (const entry of entries) {
@@ -144,6 +144,39 @@ describe("a pop-up's width, laid out by a real browser", () => {
       expect(laid.height, entry.textContent).toBeCloseTo(unwrappedSizeOf(entry).height, 0);
     }
     expectClearOfTheEdges(boxOf(popUp()), window.innerWidth, window.innerHeight);
+  });
+
+  // The owner, 2026-11-03: "the part that says 'admin on Firefox on Mac' is fine to wrap, since it's
+  // just informative content. It's the stuff underneath that I don't want wrapping."
+  it("wraps who is signed in where to the width its choices set, never widening the menu for it", async () => {
+    await page.viewport(1280, 800);
+    mounted = await mount(
+      withServices(
+        <AppShell
+          isAdmin={false}
+          canHostWatchTogether={false}
+          currentScreen="films"
+          onSignOut={() => undefined}
+          signedInAs={{
+            name: "owner",
+            deviceName: "Firefox on the Mac in the study at the top of the stairs",
+          }}
+          showsDeviceTests={false}
+        >
+          <p>screen</p>
+        </AppShell>,
+      ),
+    );
+    await userEvent.click(page.getByRole("button", { name: "Menu" }));
+    const choices = [...popUp().querySelectorAll<HTMLElement>(".list-box__option")];
+    const widest = Math.max(...choices.map((choice) => unwrappedSizeOf(choice).width));
+    for (const choice of choices) {
+      expect(boxOf(choice).width, choice.textContent).toBeCloseTo(widest, 0);
+    }
+    const who = popUp().querySelector<HTMLElement>(".app-shell__who");
+    const oneLine = boxOf(choices[0]).height;
+    expect(boxOf(who).width).toBeCloseTo(widest, 0);
+    expect(boxOf(who).height).toBeGreaterThan(oneLine * 1.5);
   });
 
   // The owner, 2026-11-03: it "definitely shouldn't occupy more than half the screen, but it also
