@@ -491,7 +491,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   its choice still over the button, while it keeps half its height, else moved (the owner,
   2026-10-29). A pop-up is as wide as its widest entry unwrapped, wherever its button is, but no
   wider than half the screen nor capped under 16rem (`--popover-widest`), a longer entry wrapping
-  (the owner, 2026-11-03); focused on its current
+  (the owner, 2026-11-03); 🔈's grows out of its button, its speaker laid over it and the slider
+  above, where there is room above (Popover's `partOverOpener`); focused on its current
   place, a place either side of it in view where it has them, and a place of context kept beyond
   the one focused as it moves (D408 §3); and its opening and closing never move the page. The Films and Series
   pages' sort and a library's files' Show are choosers too (`ActionChooser`). **Every modal dialog closes on the browser's own Back** (D367
@@ -502,7 +503,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/series-page.test.tsx`, `src/input-pages.browser.test.tsx`,
   `src/app-shell.browser.test.tsx`, `src/drop-down.browser.test.tsx`, `src/drop-down.test.tsx`,
   `src/modal-dialog.browser.test.tsx`, `src/player-menus.browser.test.tsx`,
-  `src/popover.browser.test.tsx`; on devices, VQ97, VQ250, VQ251.
+  `src/popover.browser.test.tsx`; on devices, VQ97, VQ250, VQ251, VQ252.
 - **A page's rarely used actions are under its vertical "…", and a dialog a drop-down's place opens
   takes the list's place** (`src/more-actions.tsx`, the owner, 2026-10-29): the one drop-down with
   no chevron, after a page's Play and Mark as watched, none where the person has nothing there: a

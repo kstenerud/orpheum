@@ -13,7 +13,7 @@ import {
 } from "react";
 import { reportFailure } from "@orpheum/sdk";
 
-import { listPlace, type ScreenBox } from "./drop-down-place.ts";
+import { listPlace, overOpenerPlace, type ScreenBox } from "./drop-down-place.ts";
 import { directionOfKey, keyCodeOf } from "./input-buttons.ts";
 import { useCommands } from "./input-layer.tsx";
 import { useModalLayer, type ModalLayerTold } from "./modal-layer.tsx";
@@ -59,6 +59,55 @@ interface Placing {
    * the button: a menu's, which has no current choice, and a pop-up that holds no list.
    */
   readonly isFromItsTop: boolean;
+  /**
+   * A selector of its part laid over the button, centre on centre, so that it looks like the button
+   * grown, where it fits (layPartOverOpener): 🔈's speaker, the slider above it (player-menus.tsx;
+   * the owner, 2026-11-03). Undefined for none.
+   */
+  readonly partOverOpener?: string | undefined;
+}
+
+/**
+ * Lays dialog, an open pop-up, with its part that partSelector finds, if it names one, over the
+ * button that opened it, centre on centre (overOpenerPlace), so that it looks like the button grown,
+ * where it fits there inside the room at the screen's edges; says whether it did. Its `data-placed`
+ * says `grown`.
+ */
+function layPartOverOpener(
+  dialog: HTMLDialogElement,
+  at: {
+    readonly partSelector: string | undefined;
+    readonly opener: DOMRect;
+    readonly box: DOMRect;
+    readonly room: ScreenBox;
+  },
+): boolean {
+  const part =
+    at.partSelector === undefined
+      ? undefined
+      : dialog.querySelector(at.partSelector)?.getBoundingClientRect();
+  if (part === undefined) {
+    return false;
+  }
+  const { box } = at;
+  const place = overOpenerPlace({
+    opener: at.opener,
+    popUp: box,
+    part: {
+      left: part.left - box.left,
+      top: part.top - box.top,
+      width: part.width,
+      height: part.height,
+    },
+    room: at.room,
+  });
+  if (place === undefined) {
+    return false;
+  }
+  dialog.setAttribute("data-placed", "grown");
+  dialog.style.setProperty("left", `${String(place.left)}px`);
+  dialog.style.setProperty("top", `${String(place.top)}px`);
+  return true;
 }
 
 /**
@@ -99,7 +148,8 @@ function scrollFocusedToOpener(
 
 /**
  * Lays dialog, an open pop-up, at opener (drop-down-place.ts), inside the room at the screen's edges
- * (roomOf), as a list is; on a big screen, where the room's edge cuts it, cuts it to the height shown, its content
+ * (roomOf): its part over the button where it names one and that fits (layPartOverOpener), else as
+ * a list is; on a big screen, where the room's edge cuts it, cuts it to the height shown, its content
  * scrolling within it (a list, list-box.css), and brings what has focus in it, its current choice,
  * to the button (scrollFocusedToOpener). A pop-up shown from its top (isFromItsTop) has no choice to
  * lay over the button: its top is the button's, as a phone's is, and its content is not scrolled to
@@ -115,6 +165,11 @@ function layAtOpener(
   dialog.style.removeProperty("max-height");
   const box = dialog.getBoundingClientRect();
   const room = roomOf(dialog);
+  if (
+    layPartOverOpener(dialog, { partSelector: at.partOverOpener, opener: openerBox, box, room })
+  ) {
+    return;
+  }
   dialog.setAttribute("data-placed", isPhone ? "over" : "at");
   const focused = at.isFromItsTop ? undefined : focusedIn(dialog);
   const focusedBox = focused?.getBoundingClientRect();
@@ -139,14 +194,14 @@ function layAtOpener(
 /**
  * Lays the open pop-up at the button that opened it (layAtOpener), as it opens, after what it holds
  * has focused its current choice, and again as the screen changes size. The dialog's `data-placed`
- * says how: `at` a big screen's button, or `over` a phone's.
+ * says how: `at` a big screen's button, `over` a phone's, or `grown` out of it (layPartOverOpener).
  */
 function usePlacedAtOpener(
   ref: RefObject<HTMLDialogElement | null>,
   openerRef: RefObject<HTMLElement | null>,
   placing: Placing,
 ): void {
-  const { isFromItsTop } = placing;
+  const { isFromItsTop, partOverOpener } = placing;
   useEffect(() => {
     const dialog = ref.current;
     if (dialog === null) {
@@ -154,7 +209,7 @@ function usePlacedAtOpener(
     }
     const lay = (): void => {
       if (openerRef.current !== null) {
-        layAtOpener(dialog, { opener: openerRef.current, isFromItsTop });
+        layAtOpener(dialog, { opener: openerRef.current, isFromItsTop, partOverOpener });
       }
     };
     lay();
@@ -162,7 +217,7 @@ function usePlacedAtOpener(
     return () => {
       window.removeEventListener("resize", lay);
     };
-  }, [ref, openerRef, isFromItsTop]);
+  }, [ref, openerRef, isFromItsTop, partOverOpener]);
 }
 
 /** What has focus, in a few words for the core's log: its tag and classes, and whether in it. */
@@ -302,6 +357,7 @@ export function Popover(props: PopoverProps): JSX.Element {
   useFullScreenChangeCloses(onClose);
   usePlacedAtOpener(ref, props.openerRef, {
     isFromItsTop: props.isFromItsTop,
+    partOverOpener: props.partOverOpener,
   });
   useStuckArrowTold(contentRef, isClosingRef);
   useCommands(contentRef, (detail, event) => {
@@ -335,6 +391,8 @@ export function PopoverButton(props: {
   readonly openerNaming: OpenerNaming;
   /** Whether the pop-up opens from its top (Popover's isFromItsTop). */
   readonly isFromItsTop: boolean;
+  /** A selector of its part laid over the button (Popover's partOverOpener). */
+  readonly partOverOpener?: string | undefined;
   readonly onOpenChange?: ((isOpen: boolean) => void) | undefined;
   readonly children: ReactNode;
 }): JSX.Element {
@@ -372,6 +430,7 @@ export function PopoverButton(props: {
           label={props.label}
           openerRef={openerRef}
           isFromItsTop={props.isFromItsTop}
+          partOverOpener={props.partOverOpener}
           onClose={close}
         >
           {props.children}
