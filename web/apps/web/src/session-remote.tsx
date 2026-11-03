@@ -37,13 +37,18 @@ export function SessionRemote(props: {
   const { t } = useTranslation();
   const positionMs = usePositionNow(props.snapshot);
   const { connection, durationMs } = props;
+  const status = props.snapshot?.status;
   const ahead = useSeekAhead((atMs) => {
     const most = durationMs > 0 ? durationMs : Number.POSITIVE_INFINITY;
     connection?.command({ command: "seek", positionMs: Math.min(Math.max(0, atMs), most) });
   });
   return (
     <>
-      <output>{stateText(t, props.snapshot?.group?.state)}</output>
+      <output>
+        {status === "connecting" || status === "reconnecting"
+          ? t(`together.${status}`) // its buttons wait: a press now would be dropped unsaid
+          : stateText(t, props.snapshot?.group?.state)}
+      </output>
       <PlayerControls
         source={remoteSource({ ...props, positionMs, ahead })}
         controls={["play", "steps", "timeline"]}

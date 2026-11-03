@@ -250,6 +250,7 @@ export function fakeConnection(
       },
       command: (command) => {
         given.commands.push(command);
+        return true;
       },
       note: (note) => {
         given.notes.push(note);

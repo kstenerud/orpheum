@@ -180,6 +180,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/together-viewer.test.tsx`, `src/together-guest-play.test.tsx`, `src/together-viewer-shell.test.tsx`,
   `src/together-viewer-over.test.tsx`,
   `src/notice-note.test.tsx`.
+- **A host's command is never held for a reconnect, and never dropped unsaid:**
+  `TogetherConnection.command` says whether it went, and Stop the film (`src/together-plays.tsx`)
+  and the remote's buttons (`src/session-remote.tsx`) wait, saying the connection reconnects, while
+  it is not up; a press held until the welcome could play long after it was made.
+  `src/watch-together.test.tsx`.
 - **Casting is a session with a device: whatever the person plays goes there while it lasts, and
   the receiver keeps a television's controls** (D364, revising D337, D338 and D358;
   plans/cast-to-device.md): every signed-in page holds a live connection (`src/live.tsx`) that says
