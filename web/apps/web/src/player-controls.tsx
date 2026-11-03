@@ -294,6 +294,8 @@ export function SoundControls(props: {
   readonly sound: PlayerSound;
   readonly isOverVideo: boolean | undefined;
   readonly isUpright?: boolean | undefined;
+  /** Whether focus can come to the slider (VolumeRange's isFocusable). */
+  readonly isRangeFocusable?: boolean | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
   const { sound, isOverVideo } = props;
@@ -326,6 +328,7 @@ export function SoundControls(props: {
           value={sound.isMuted ? 0 : sound.volume}
           most={1}
           isUpright={props.isUpright}
+          isFocusable={props.isRangeFocusable}
           onChange={(volume) => {
             sound.setVolume(volume);
             if (volume > 0 && sound.isMuted) {

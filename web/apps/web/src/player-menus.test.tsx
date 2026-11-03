@@ -7,6 +7,7 @@ import { act, createRef } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { AudioTrack } from "./audio-tracks.tsx";
+import { commandEventName } from "./input-commands.ts";
 import type { PlayerSound } from "./player-controls.tsx";
 import { PlayerMenus, PlayerMenusContext, type PlayerMenusWays } from "./player-menus.tsx";
 import type { OverlayControl } from "./player-overlay-state.ts";
@@ -193,6 +194,19 @@ function soundNoting(set: (number | boolean)[]): PlayerSound {
   };
 }
 
+/** A command offered at target, as the input layer offers one; whether something took it. */
+function offered(target: Element | null, command: string): boolean {
+  const event = new CustomEvent(commandEventName, {
+    detail: { command, source: "key" },
+    bubbles: true,
+    cancelable: true,
+  });
+  act(() => {
+    target?.dispatchEvent(event);
+  });
+  return event.defaultPrevented;
+}
+
 /** The menu opener whose name starts with name, if one is drawn. */
 function openerNamed(name: string): Element | undefined {
   return [...(mounted?.container.querySelectorAll("button[aria-haspopup]") ?? [])].find(
@@ -222,6 +236,34 @@ describe("🔈 (D407 §10, Q11)", () => {
     expect(range?.value).toBe("40");
     expect(on.container.querySelector("dialog button[aria-label='Mute']")).not.toBeNull();
     expect(told.at(-1)).toBe(true);
+  });
+
+  it("is one control: Up and Down step the volume, OK closes it, the slider out of focus's way", async () => {
+    const set: (number | boolean)[] = [];
+    const told: boolean[] = [];
+    const on = await mount(
+      withServices(
+        <PlayerMenus
+          videoRef={createRef()}
+          shown={["sound"]}
+          sound={soundNoting(set)}
+          onOpenChange={(isOpen) => told.push(isOpen)}
+        />,
+      ),
+    );
+    mounted = on;
+    await opened(on, "Volume");
+    const mute = on.container.querySelector("dialog button[aria-label='Mute']");
+    expect(mute).not.toBeNull();
+    expect(on.container.querySelector<HTMLInputElement>("dialog input[type=range]")?.tabIndex).toBe(
+      -1,
+    );
+    for (const command of ["up", "down", "select"]) {
+      expect(offered(mute, command)).toBe(true);
+    }
+    expect(set).toEqual([0.45, 0.35]); // a step each way from 0.4, as + and − move it
+    expect(told.slice(-2)).toEqual([true, false]);
+    expect(on.container.querySelector("dialog")).toBeNull();
   });
 
   it("draws 🔈 before 💬 where the overlay shows the sound, and not where it does not", async () => {

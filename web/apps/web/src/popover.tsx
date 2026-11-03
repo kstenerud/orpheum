@@ -317,6 +317,17 @@ function useChoiceCloses(ref: RefObject<HTMLElement | null>, close: () => void):
   }, [ref, close]);
 }
 
+/**
+ * A pop-up that is one control, as 🔈's volume is: Up and Down step it, wherever focus is in it, and
+ * OK closes it, nothing in it moved to or pressed by a key (the owner, 2026-11-03: "When I select it
+ * via keyboard and it opens, I should be able to press up and down to adjust it. Pressing select
+ * should close it").
+ */
+export interface OneControl {
+  readonly up: () => void;
+  readonly down: () => void;
+}
+
 /** What a pop-up is told. */
 interface PopoverProps extends Placing {
   /** Its name for a screen reader. */
@@ -324,7 +335,33 @@ interface PopoverProps extends Placing {
   /** The button that opened it, which it is laid at. */
   readonly openerRef: RefObject<HTMLElement | null>;
   readonly onClose: () => void;
+  /** Where it is one control, how Up and Down step it (OneControl); undefined for a column. */
+  readonly oneControl?: OneControl | undefined;
   readonly children: ReactNode;
+}
+
+/**
+ * What a command does in a pop-up, closed by onClose: Left and Right close it; in one that is one
+ * control, Up and Down step it and OK closes it. Whether it took the command.
+ */
+function isTakenInPopUp(
+  command: string,
+  oneControl: OneControl | undefined,
+  onClose: () => void,
+): boolean {
+  if (
+    command === "left" ||
+    command === "right" ||
+    (oneControl !== undefined && command === "select")
+  ) {
+    onClose();
+    return true;
+  }
+  if (oneControl !== undefined && (command === "up" || command === "down")) {
+    oneControl[command]();
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -336,7 +373,7 @@ interface PopoverProps extends Placing {
  * widget"). It closes too when a link or a button in it is pressed (useChoiceCloses), at Left or
  * Right, what it holds being one column whose Up and Down move within it (the owner, 2026-10-28:
  * "moving left/right while in a chooser or menu closes it"), the press closing it alone, and as full
- * screen changes. Neither its opening nor its closing moves the page under it (the owner, 2026-10-28,
+ * screen changes. One that is one control (OneControl) takes Up, Down and OK itself. Neither its opening nor its closing moves the page under it (the owner, 2026-10-28,
  * on a Fire TV: the season picker "shifted the page up before displaying it").
  */
 export function Popover(props: PopoverProps): JSX.Element {
@@ -361,9 +398,8 @@ export function Popover(props: PopoverProps): JSX.Element {
   });
   useStuckArrowTold(contentRef, isClosingRef);
   useCommands(contentRef, (detail, event) => {
-    if (detail.command === "left" || detail.command === "right") {
+    if (isTakenInPopUp(detail.command, props.oneControl, onClose)) {
       event.preventDefault();
-      onClose();
     }
   });
   return (
@@ -393,6 +429,8 @@ export function PopoverButton(props: {
   readonly isFromItsTop: boolean;
   /** A selector of its part laid over the button (Popover's partOverOpener). */
   readonly partOverOpener?: string | undefined;
+  /** Where the pop-up is one control, how Up and Down step it (Popover's oneControl). */
+  readonly oneControl?: OneControl | undefined;
   readonly onOpenChange?: ((isOpen: boolean) => void) | undefined;
   readonly children: ReactNode;
 }): JSX.Element {
@@ -431,6 +469,7 @@ export function PopoverButton(props: {
           openerRef={openerRef}
           isFromItsTop={props.isFromItsTop}
           partOverOpener={props.partOverOpener}
+          oneControl={props.oneControl}
           onClose={close}
         >
           {props.children}

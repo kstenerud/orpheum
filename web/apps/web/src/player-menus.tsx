@@ -19,7 +19,8 @@ import { ListEntry, ListOption } from "./list-box.tsx";
 import { LevellingControl } from "./levelling.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { PlayOriginal } from "./play-original.tsx";
-import { keepsOpenAttribute, PopoverButton } from "./popover.tsx";
+import { keepsOpenAttribute, PopoverButton, type OneControl } from "./popover.tsx";
+import { volumeAfter } from "./player-commands.ts";
 import { muteClass, SoundControls, type PlayerSound } from "./player-controls.tsx";
 import { AudioIcon, MoreIcon, MutedIcon, SoundIcon, SubtitlesIcon } from "./player-icons.tsx";
 import type { OverlayControl } from "./player-overlay-state.ts";
@@ -150,7 +151,10 @@ function TrackMenus(props: {
  * far too wide"; D408 §2). It grows out of its button: its mute, a speaker as 🔈 is, laid over 🔈,
  * the slider above it, where there is room above (the owner, 2026-11-03: "the speaker icon inside
  * the slider ends up physically at a similar location to the button it spawned from"; Popover's
- * partOverOpener). Focus opens on that mute, where 🔈 was, as the browser's modal gives it.
+ * partOverOpener). Focus opens on that mute, where 🔈 was, as the browser's modal gives it, and stays
+ * there: the pop-up is one control (OneControl), Up and Down stepping the volume as + and − do, OK
+ * closing it (the owner, 2026-11-03: "it should behave as a single component"); the slider takes a
+ * pointer alone, and the mute a press.
  */
 function VolumeMenu(props: {
   readonly sound: PlayerSound;
@@ -167,13 +171,32 @@ function VolumeMenu(props: {
       openerNaming={{ "aria-label": t("playerControls.volume") }}
       isFromItsTop
       partOverOpener={`.${muteClass}`}
+      oneControl={volumeStepping(sound)}
       onOpenChange={props.onOpenChange}
     >
       <div {...{ [keepsOpenAttribute]: "" }}>
-        <SoundControls sound={sound} isOverVideo={false} isUpright />
+        <SoundControls sound={sound} isOverVideo={false} isUpright isRangeFocusable={false} />
       </div>
     </PopoverButton>
   );
+}
+
+/**
+ * Up and Down in 🔈's pop-up: a step of the volume each (volumeAfter), Up turning a muted film's
+ * sound on, as + and − do (player-commands.ts).
+ */
+function volumeStepping(sound: PlayerSound): OneControl {
+  return {
+    up: () => {
+      sound.setVolume(volumeAfter(sound.volume, 1));
+      if (sound.isMuted) {
+        sound.setMuted(false);
+      }
+    },
+    down: () => {
+      sound.setVolume(volumeAfter(sound.volume, -1));
+    },
+  };
 }
 
 /** The menu open after menu tells it opened or closed, now open before. */

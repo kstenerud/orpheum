@@ -34,6 +34,11 @@ export function VolumeRange(props: {
   readonly label?: string;
   /** Whether it stands upright, full at its top, as the overlay's 🔈 pop-up holds it (D407 §10). */
   readonly isUpright?: boolean | undefined;
+  /**
+   * Whether focus can come to it, by Tab or an arrow: not in 🔈's pop-up, one control whose Up and
+   * Down step it wherever focus is (player-menus.tsx); a pointer moves it all the same.
+   */
+  readonly isFocusable?: boolean | undefined;
 }): JSX.Element {
   const { most, onChange } = props;
   const inputRef = useRef<HTMLInputElement>(null);
@@ -44,6 +49,7 @@ export function VolumeRange(props: {
       type="range"
       className={props.isUpright === true ? "volume-range volume-range--upright" : "volume-range"}
       aria-label={props.label}
+      {...(props.isFocusable === false ? { tabIndex: -1 } : {})}
       min={0}
       max={most * stepsPerUnit}
       value={Math.round(props.value * stepsPerUnit)}
