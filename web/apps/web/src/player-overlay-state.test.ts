@@ -264,20 +264,20 @@ describe("play, pause and the seeking keys, the player's in every state", () => 
 });
 
 describe("when the overlay hides (D407 §6)", () => {
-  const playing = { isPaused: false, isMenuOpen: false, isFocusIn: false };
+  const playing = { isPaused: false, isMenuOpen: false, isFocusVisibleIn: false };
 
   it("hides all of it shown by a remote 3 s after the last press while playing, focus in it or not", () => {
     expect(hideAfter(full, playing)).toBe(3000);
-    expect(hideAfter(full, { ...playing, isFocusIn: true })).toBe(3000);
+    expect(hideAfter(full, { ...playing, isFocusVisibleIn: true })).toBe(3000);
   });
 
   it("never hides all of it while the film is paused", () => {
     expect(hideAfter(full, { ...playing, isPaused: true })).toBeUndefined();
   });
 
-  it("holds all of it shown by a pointer while focus is in it", () => {
+  it("holds all of it shown by a pointer while focus a key put there is in it", () => {
     const byPointer: OverlayState = { shown: "full", shownBy: "pointer" };
-    expect(hideAfter(byPointer, { ...playing, isFocusIn: true })).toBeUndefined();
+    expect(hideAfter(byPointer, { ...playing, isFocusVisibleIn: true })).toBeUndefined();
     expect(hideAfter(byPointer, playing)).toBe(3000);
   });
 

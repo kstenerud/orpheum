@@ -282,14 +282,14 @@ export interface HidingContext {
   readonly isPaused: boolean;
   /** Whether one of the overlay's menus is open. */
   readonly isMenuOpen: boolean;
-  /** Whether focus is in the overlay. */
-  readonly isFocusIn: boolean;
+  /** Whether focus a key put there (:focus-visible) is in the overlay (D409). */
+  readonly isFocusVisibleIn: boolean;
 }
 
 /**
  * How long after the last press the overlay hides, in ms, or undefined where it stays (D407 §6;
  * plans/player-overlay.md §2.4): the whole overlay never while the film is paused or a menu is open,
- * nor while focus is in it where a pointer showed it; the scrub bar alone after scrubShownForMs.
+ * nor while focus a key put there is in it where a pointer showed it (D409); the scrub bar alone after scrubShownForMs.
  */
 export function hideAfter(state: OverlayState, context: HidingContext): number | undefined {
   switch (state.shown) {
@@ -301,7 +301,7 @@ export function hideAfter(state: OverlayState, context: HidingContext): number |
       const isHeld =
         context.isPaused ||
         context.isMenuOpen ||
-        (state.shownBy === "pointer" && context.isFocusIn);
+        (state.shownBy === "pointer" && context.isFocusVisibleIn);
       return isHeld ? undefined : fullShownForMs;
     }
     case "hidden":

@@ -553,8 +553,8 @@ function useOverlayHiding({
   readonly isMenuOpen: boolean;
 }): () => void {
   const lastPressAtRef = useRef(0);
-  const isFocusIn = useIsFocusIn(overlayRef);
-  const afterMs = hideAfter(state, { isPaused, isMenuOpen, isFocusIn });
+  const isFocusVisibleIn = useIsFocusVisibleIn(overlayRef);
+  const afterMs = hideAfter(state, { isPaused, isMenuOpen, isFocusVisibleIn });
   // A menu closing counts as a press: the overlay's time starts again from it.
   useEffect(() => {
     if (!isMenuOpen) {
@@ -615,19 +615,27 @@ function useFocusLeavesWhatHides(
   }, [state.shown, overlayRef, videoRef, convenienceRef]);
 }
 
-/** Whether focus is in the element overlayRef holds, as its focusin and focusout say. */
-export function useIsFocusIn(overlayRef: RefObject<HTMLElement | null>): boolean {
-  const [isFocusIn, setIsFocusIn] = useState(false);
+/**
+ * Whether focus a key put there, the browser's :focus-visible, is in the element overlayRef holds, as
+ * its focusin and focusout say: focus a mouse's click or a tap left, or that a pop-up gave back to
+ * its button after a choice the pointer made, is not (D409).
+ */
+export function useIsFocusVisibleIn(overlayRef: RefObject<HTMLElement | null>): boolean {
+  const [isFocusVisibleIn, setIsFocusVisibleIn] = useState(false);
   useEffect(() => {
     const overlay = overlayRef.current;
     if (overlay === null) {
       return undefined;
     }
-    const focusedIn = (): void => {
-      setIsFocusIn(true);
+    const focusedIn = (event: FocusEvent): void => {
+      setIsFocusVisibleIn(
+        event.target instanceof Element && event.target.matches(":focus-visible"),
+      );
     };
     const focusedOut = (event: FocusEvent): void => {
-      setIsFocusIn(event.relatedTarget instanceof Node && overlay.contains(event.relatedTarget));
+      if (!(event.relatedTarget instanceof Node && overlay.contains(event.relatedTarget))) {
+        setIsFocusVisibleIn(false);
+      }
     };
     overlay.addEventListener("focusin", focusedIn);
     overlay.addEventListener("focusout", focusedOut);
@@ -636,7 +644,7 @@ export function useIsFocusIn(overlayRef: RefObject<HTMLElement | null>): boolean
       overlay.removeEventListener("focusout", focusedOut);
     };
   }, [overlayRef]);
-  return isFocusIn;
+  return isFocusVisibleIn;
 }
 
 /**
