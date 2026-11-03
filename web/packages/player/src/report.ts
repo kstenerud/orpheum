@@ -87,6 +87,11 @@ export const bufferedTextMost = 400;
 const pathNameMost = 200;
 const pathMovesMost = 20;
 
+/** How a report goes: isLeaving when the page is going, so the browser must finish it unattended (keepalive). */
+export interface SendOptions {
+  readonly isLeaving: boolean;
+}
+
 export class PlayReporter {
   private hasStarted = false;
   private events: PlayEvent[] = [];
@@ -109,6 +114,8 @@ export class PlayReporter {
   private openSpan: { fromPositionMs: number; startedMonoMs: number } | undefined;
   private isSending = false;
   private isRefused = false;
+  /** A flush asked while a report was in flight, made when it settles (L1). */
+  private flushAsked: { positionMs: number; isLeaving: boolean } | undefined;
 
   /**
    * nextReportSeq numbers the reports. Every reporter of one playback must share it: the server
@@ -116,7 +123,7 @@ export class PlayReporter {
    * from 1 would be ignored.
    */
   constructor(
-    private readonly send: (report: PlayReport) => Promise<void>,
+    private readonly send: (report: PlayReport, options: SendOptions) => Promise<void>,
     private readonly nextReportSeq: () => number,
     private readonly readMonotonicMs: () => number = () => Math.round(performance.now()),
   ) {}
@@ -280,9 +287,20 @@ export class PlayReporter {
     this.seeks.push(seek);
   }
 
-  /** Reports where the playback is, with any changes not yet sent. */
-  flush(positionMs: number): void {
-    if (this.isSending || this.isRefused) {
+  /**
+   * Reports where the playback is, with any changes not yet sent. isLeaving says the page is going
+   * (hidden, or pagehide), so the report is sent to survive it. Asked while a report is in flight,
+   * it is made when that one settles.
+   */
+  flush(positionMs: number, isLeaving = false): void {
+    if (this.isRefused) {
+      return;
+    }
+    if (this.isSending) {
+      this.flushAsked = {
+        positionMs,
+        isLeaving: isLeaving || (this.flushAsked?.isLeaving ?? false),
+      };
       return;
     }
     const now = this.readMonotonicMs();
@@ -315,12 +333,18 @@ export class PlayReporter {
     this.standstills = [];
     this.pathMoves = [];
     this.isSending = true;
-    this.send(report).then(
+    this.send(report, { isLeaving }).then(
       () => {
         this.isSending = false;
+        const asked = this.flushAsked;
+        this.flushAsked = undefined;
+        if (asked !== undefined) {
+          this.flush(asked.positionMs, asked.isLeaving);
+        }
       },
       (cause: unknown) => {
         this.isSending = false;
+        this.flushAsked = undefined;
         if (cause instanceof ReportRefused) {
           this.isRefused = true;
           return;

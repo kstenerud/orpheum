@@ -17,6 +17,7 @@ import {
   noteDecisionTimes,
 } from "./play-state-video-events.ts";
 import { ApiProblem } from "./problem.ts";
+import { testServices } from "./test-services.tsx";
 import { reopenWaitsMs } from "./reopen.ts";
 import {
   mount,
@@ -86,6 +87,21 @@ describe("play state", () => {
     const { api } = servedBy({ "POST /playback/abc/report": [204, undefined] }, heard);
     await sendReport(api, { mediaToken: "abc" }, report);
     expect(heard).toEqual([{ methodAndPath: "POST /playback/abc/report", body: report }]);
+  });
+
+  it("sends the report of a leaving page with keepalive, and a body too big for it without (L1)", async () => {
+    const kept: boolean[] = [];
+    const { api } = testServices(undefined, "/films", (request) => {
+      kept.push(request.keepalive);
+      return Promise.resolve(new Response(null, { status: 204 }));
+    });
+    const to = { mediaToken: "abc" };
+    await sendReport(api, to, report, { isLeaving: true });
+    await sendReport(api, to, report, { isLeaving: false });
+    await sendReport(api, to, report);
+    const huge = { ...report, linkNotes: ["x".repeat(60_000)] };
+    await sendReport(api, to, huge, { isLeaving: true });
+    expect(kept).toEqual([true, false, false, false]);
   });
 
   it("hands back the admin's stop, which the server says in a report's answer (D243 §9)", async () => {

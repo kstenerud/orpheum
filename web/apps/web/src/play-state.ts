@@ -13,6 +13,7 @@ import {
   watchStalls,
   watchStandingStill,
   type PlayReport,
+  type SendOptions,
 } from "@orpheum/player";
 import type { Api, components } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type RefObject } from "react";
@@ -39,6 +40,9 @@ export interface ReportAnswer {
   readonly lowerQuality?: LadderOffer;
 }
 
+/** Under keepalive's 64 KiB body limit, in characters (the body is text; a margin is kept). */
+const keepaliveBodyMost = 48_000;
+
 /**
  * Sends one play report for the playback the media token names, and answers what the server says:
  * that the playback was stopped (D243 §9), or a lower quality to move to (D247 §2). A refusal that
@@ -50,11 +54,14 @@ export async function sendReport(
   api: Api,
   to: ReportTo,
   report: PlayReport,
+  options: SendOptions = { isLeaving: false },
 ): Promise<ReportAnswer> {
   const { stalls, standstills, pathMoves, ...rest } = report;
   const answer = await api.POST("/playback/{token}/report", {
     params: { path: { token: to.mediaToken } },
     ...(to.headers === undefined ? {} : { headers: to.headers }),
+    // keepalive lets the browser finish a report as the page goes, within its 64 KiB of body.
+    keepalive: options.isLeaving && JSON.stringify(report).length <= keepaliveBodyMost,
     body: {
       ...rest,
       events: [...report.events],
@@ -184,13 +191,18 @@ function reportWhilePlaying(
   }, reportEveryMs);
   const flushWhenHidden = (): void => {
     if (document.visibilityState === "hidden") {
-      reporter.flush(lastPositionMs());
+      reporter.flush(lastPositionMs(), true);
     }
   };
+  const flushOnPageHide = (): void => {
+    reporter.flush(lastPositionMs(), true);
+  };
   document.addEventListener("visibilitychange", flushWhenHidden);
+  window.addEventListener("pagehide", flushOnPageHide);
   return () => {
     clearInterval(ticker);
     document.removeEventListener("visibilitychange", flushWhenHidden);
+    window.removeEventListener("pagehide", flushOnPageHide);
   };
 }
 
@@ -245,12 +257,12 @@ function startReporting(
     },
     onMove: listener.onLowerQuality,
   });
-  const reporter = new PlayReporter(async (report) => {
+  const reporter = new PlayReporter(async (report, options) => {
     if (isStopped) {
       return;
     }
     try {
-      const answer = await sendReport(api, { mediaToken }, report);
+      const answer = await sendReport(api, { mediaToken }, report, options);
       if (answer.stop !== undefined) {
         isStopped = true;
         video.pause();
@@ -465,8 +477,8 @@ export function useStallReports(
       },
       onMove: setLowerQuality,
     });
-    const reporter = new PlayReporter(async (report) => {
-      const answer = await sendReport(api, to, report);
+    const reporter = new PlayReporter(async (report, options) => {
+      const answer = await sendReport(api, to, report, options);
       movingDown.answered(answer.lowerQuality);
     }, reportSeqCounter(mediaToken));
     reporter.measureLinkWith(() => linkReader.current());

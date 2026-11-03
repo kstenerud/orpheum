@@ -115,6 +115,35 @@ describe("reporting play state", () => {
     expect(sent[1]?.spans).toHaveLength(1);
   });
 
+  it("flushes again when a report in flight settles with a flush asked meanwhile (L1)", async () => {
+    const { reporter, sent, setNow } = fakeReporter();
+    setNow(1000);
+    reporter.recordStarted(0);
+    reporter.flush(5000);
+    reporter.flush(7000);
+    await settled();
+    expect(sent.map((report) => report.reportSeq)).toEqual([1, 2]);
+    expect(sent[1]?.positionMs).toBe(7000);
+  });
+
+  it("sends the report a leaving page asks as one to survive it, even one asked while another is in flight (L1)", async () => {
+    const kept: boolean[] = [];
+    const reporter = new PlayReporter(
+      (_report, options) => {
+        kept.push(options.isLeaving);
+        return Promise.resolve();
+      },
+      counter(),
+      () => 0,
+    );
+    reporter.flush(1000);
+    reporter.flush(2000, true);
+    await settled();
+    reporter.flush(3000, true);
+    await settled();
+    expect(kept).toEqual([false, true, true]);
+  });
+
   it("sends a pause's and a seek's context with them, and each path move with the next report, again after one that failed", async () => {
     const { reporter, sent, setNow, failNext } = fakeReporter();
     setNow(1000);
