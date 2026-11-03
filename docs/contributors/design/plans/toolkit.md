@@ -94,15 +94,17 @@ dedicated to testing (the owner, 2026-11-03), so the spike uses them without ask
   on staging.
 - **A pop-up per widget type showing it in its states**: "For each UI widget type, we should have a
   popup dialog that shows that widget in its various states. For example the chooser with only one
-  item, 2 items, 3 items, many items." To build.
+  item, 2 items, 3 items, many items." Moved to the next batch (the owner, 2026-11-03).
 - **The gallery's "player's bar over a film" is the old layout**: it draws `PlayerControls` as it was
   before D407, not the full-screen overlay's three rows nor the bar under the film (D407 §9). To
-  build: the gallery draws the real rows from a source it gives, so it cannot drift again.
+  build: the gallery draws the real rows from a source it gives, so it cannot drift again. Moved to
+  the next batch (the owner, 2026-11-03).
 - **The tray's signs never seem to pulse**: "I've never actually seen the watch together or cast
   icon pulse. I still don't see it on /ui-gallery". In Chromium and Firefox (vitest's browser mode)
   the running sign's icon breathes, opacity 1 to 0.55 over 3 s, in the gallery as in the banner; it
-  is off by design where the system asks for less motion (tokens.css, icon-button.css). Asked the
-  owner which device, and whether to make it stronger.
+  is off by design where the system asks for less motion (tokens.css, icon-button.css). **Resolved**
+  (the owner, 2026-11-03): "tray icons pulse and look good. The only thing that was inhibiting them
+  before was the reduce motion setting on macos."
 - **A chunk the server cannot make** (item 12's unbuilt half), the owner's design: "Can it just skip
   automatically, and maybe put up an exclamation mark item in the non-fullscreen video page about
   the problem? If it's able to skip forward, and will skip more than 15 seconds (or simply can't
@@ -127,6 +129,9 @@ dedicated to testing (the owner, 2026-11-03), so the spike uses them without ask
   batch").
 
 ## Next batch (filed during this one)
+
+- **A pop-up per widget type in the gallery, and the gallery's player bar drawing the real rows**
+  (the owner, 2026-11-03, above).
 
 - **The scrub bar's time under the pointer** (the owner, 2026-11-03, above): a tooltip with the
   time where the pointer is over the scrub bar; the preview thumbnail later.
