@@ -20,6 +20,7 @@ import {
   click,
   mount,
   playbackCauses,
+  refusal,
   servedBy,
   settleUntil,
   type Heard,
@@ -382,6 +383,27 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
       reason: "stopped",
     });
     expect(onPlayHere).toHaveBeenCalledWith(75_000, false);
+  });
+
+  // The owner, 2026-11-03: Stop casting's request failed on a connection that had just dropped, and
+  // the phone played the film itself while the laptop went on with the cast.
+  it("tries Stop once more where its first try fails, so the cast ends there before the film plays here", async () => {
+    const heard: Heard[] = [];
+    const { onPlayHere } = await casting(
+      {
+        "POST /me/casts/9/end": [
+          refusal(503, "unavailable"),
+          [200, { positionMs: 75_000, isPlaying: false }],
+        ],
+      },
+      heard,
+    );
+    await click(buttonWithText(mounted!.container, "Stop casting"));
+    await vi.waitFor(() => {
+      expect(onPlayHere).toHaveBeenCalledWith(75_000, false);
+    });
+    const ends = heard.filter((each) => each.methodAndPath === "POST /me/casts/9/end");
+    expect(ends.map((each) => each.body)).toEqual([{ reason: "stopped" }, { reason: "stopped" }]);
   });
 
   it("plays the film here again as the cast is stopped elsewhere, as from Cast's dialog (D384 §2)", async () => {
