@@ -11,7 +11,7 @@ import { builtScriptOf } from "./app-update.ts";
 import { discoveryClientApiOf } from "./discovery-start.ts";
 import { loaderConfigOf } from "./loader-config.ts";
 import type { OrpheumLoader } from "./loader-interface.ts";
-import { pathMovesHeardFrom, type PathMoves } from "./services.tsx";
+import { pathMovesHeardFrom, type PathMoves, type ThroughDiscovery } from "./services.tsx";
 
 /** How the app reaches its core: what its requests are sent by, and the session socket's opener. */
 export interface Reaches {
@@ -31,18 +31,6 @@ export interface Reaches {
     ((listener: (isAsking: boolean) => void) => () => void) | undefined;
   /** Tells listener each time the way to the core may work again (Services.onPathBack). */
   readonly onPathBack: (listener: () => void) => () => void;
-}
-
-/**
- * The page's core as its discovery finds it, which a device the page hands its session to reaches it
- * by from away: the lab's cast receiver (the 11-05 batch's item 10).
- */
-export interface ThroughDiscovery {
-  /** The discovery's client API, as the page names it. */
-  readonly clientApi: string;
-  readonly coreId: string;
-  /** The core's identity key's fingerprint, which its answers are checked by. */
-  readonly fingerprint: string;
 }
 
 /** Tells listener each time the browser comes back online; returns its removal. */

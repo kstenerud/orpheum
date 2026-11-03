@@ -16,8 +16,7 @@ import {
 } from "./lab-cast-sdk.ts";
 import { sendLabResult, useLabSending, type Sending } from "./lab-send.ts";
 import { dataOrThrow } from "./problem.ts";
-import { useServices } from "./services.tsx";
-import type { ThroughDiscovery } from "./client-reaches.ts";
+import { useServices, type ThroughDiscovery } from "./services.tsx";
 import { firstPlayableFile } from "./first-playable.ts";
 import { requestPlayback } from "./watching.ts";
 
