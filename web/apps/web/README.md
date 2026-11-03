@@ -45,7 +45,10 @@ The web client: the browser and phone interface, served embedded by the core. MP
   Stop casting; it closes once a cast started from it is taken. There is no Watch Together page nor
   casting page: an old `/watch-together` address goes to the Play page of the group's film, else
   home with the dialog open (a guest's `/together` never opens it), and `/casting` to the Play page of the cast's film, else home
-  (`src/old-addresses.tsx`). `src/status-tray.test.tsx`, `src/app-shell.test.tsx`, `src/app.test.tsx`,
+  (`src/old-addresses.tsx`). Each dialog's code is a chunk of its own, loaded ahead once the first
+  page has shown and the browser is idle (`src/tray-dialog-code.tsx`, through `screen-load.tsx`'s
+  `preloadableScreen`), so a first press opens it at once, never "Loading…" in the sign's place
+  (the owner, 2026-11-03; VQ254). `src/status-tray.test.tsx`, `src/app-shell.test.tsx`, `src/app.test.tsx`,
   `src/ui-gallery.test.tsx`, `src/player-widgets.browser.test.tsx`.
 - **Every page's freezes of a second or more are told to the core's log** (`src/page-freezes.ts`,
   started once in `client-main.tsx`), found the one way the player finds a playback's (the SDK's

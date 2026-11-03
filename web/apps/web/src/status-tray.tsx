@@ -16,7 +16,7 @@ import { routeHref } from "./router.ts";
 import { useServices } from "./services.tsx";
 import { closeTrayDialog, openTrayDialog, useTrayDialog } from "./tray-dialog.ts";
 import { useMembership } from "./together-membership.ts";
-import { CastDialog, TogetherDialog } from "./tray-dialog-code.tsx";
+import { CastDialog, TogetherDialog, useLoadsTrayDialogsAhead } from "./tray-dialog-code.tsx";
 import { LaterScreen } from "./screen-load.tsx";
 import { useResource } from "./use-resource.ts";
 import { WarningIcon } from "./warning-sign.tsx";
@@ -39,6 +39,7 @@ export function StatusTray(props: {
   const isViewing = useMembership(browserStorage, "viewer") !== undefined;
   const { sending } = useLive();
   useClosesTheDialogAsThePageMoves();
+  useLoadsTrayDialogsAhead();
   return (
     <section className="status-tray icon-tray" aria-label={t("status.tray")}>
       {props.isAdmin ? <NeedsAttentionSign /> : null}

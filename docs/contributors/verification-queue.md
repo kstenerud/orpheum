@@ -2484,3 +2484,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   have grown upward, focus on that speaker; it shrinks back to 🔈 at a press outside or Escape. Note
   anything that drew a gap, a pointer or a jump between the button and the pop-up. (The Fire TV and
   the phone show no 🔈.) (`web/apps/web/src/popover.tsx`, `drop-down-place.ts`, `player-menus.tsx`)
+- [ ] **VQ254** — Cast and Watch Together open at once (plans/toolkit.md item 10). On staging, in a
+  fresh tab of a phone and then of the Fire TV in Silk (after a deploy, so nothing is cached), open
+  the home page, wait a few seconds, then press the tray's Cast sign; close it and press Watch
+  Together's. Passes when: neither sign is ever replaced by "Loading…" and each dialog opens on the
+  press. Note how long after the page showed the press came. (`web/apps/web/src/tray-dialog-code.tsx`,
+  `screen-load.tsx`'s `preloadableScreen`)
