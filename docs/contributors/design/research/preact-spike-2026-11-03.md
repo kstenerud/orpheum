@@ -261,3 +261,6 @@ clear one.
 - **The same 0.2 to 0.4 s is more safely won** by D408's payload work: the first page's chunks, the
   warm-up's timing, and how much of `client-main` and `router` Home needs. Revisit Preact if that
   work is done and the first poster on the stick is still the complaint.
+
+**The owner's decision (2026-11-03):** stay on React, "since the gains are so small". A React
+Native app is planned eventually, which React keeps closer at hand than Preact would.

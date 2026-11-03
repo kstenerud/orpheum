@@ -53,6 +53,22 @@ dependency, which the hooks refuse in a feature session; it needs a session star
 `ORPHEUM_ALLOW_DEPS=1` (the owner starts one after steps 1–4). The Fire TV stick and the Pixel 3a are
 dedicated to testing (the owner, 2026-11-03), so the spike uses them without asking.
 
+## Folded in (the owner, 2026-11-03: "put it in this batch")
+
+12. **A chunk FFmpeg cannot cut stops the film for good, and the viewer is not told** (found
+    2026-11-03 by the Preact spike's runs on the Fire TV).
+    The Gold Rush (file 241, the picture ladder an earlier commit…`) stops at 42:13 on staging, every time.
+    Chunk 349's run fails: the node's check finds FFmpeg's raw `00349.mp4` holding 12.4 s (31531 to
+    43960 ms of the run) where the chunk should be 2.3 s (31281 to 33575 ms), "FFmpeg cut it
+    elsewhere or was stopped in it"; a run started at the chunk itself fails the same way (0 to
+    12679 ms for 0 to 2294 ms). The core then answers each request for the chunk with "FFmpeg failed
+    on the film at this chunk each time it was made", and the player asks again every 2 s,
+    indefinitely: paused, a black picture, the controls up, no message. Two faults: the cut (a
+    keyframe the ladder's cuts expect is not where FFmpeg cuts, so chunk 349 needs a cut the encoder
+    did not make), and the player, which should tell the person and offer to skip past the chunk
+    rather than wait forever. Evidence: staging's node log, job 25680 and 25682, 2026-11-03 09:25
+    UTC.
+
 ## Next batch (filed during this one)
 
 - **Core and node record their own CPU and memory use** (the owner, 2026-11-03: "how much cpu and
@@ -68,16 +84,3 @@ dedicated to testing (the owner, 2026-11-03), so the spike uses them without ask
   (2026-11-03, staging idle, 56 minutes after a start): core 9% of one core on average, 82 MiB held,
   363 MiB peak; node 2% of one core, 11 MiB held, 2.5 GiB of page cache from reading media, which
   the kernel reclaims.
-
-- **A chunk FFmpeg cannot cut stops the film for good, and the viewer is not told (a bug, found
-  2026-11-03 by the Preact spike's runs on the Fire TV).** The Gold Rush (file 241, the picture ladder
-  An earlier commit…`) stops at 42:13 on staging, every time. Chunk 349's run fails: the node's check finds
-  FFmpeg's raw `00349.mp4` holding 12.4 s (31531 to 43960 ms of the run) where the chunk should be
-  2.3 s (31281 to 33575 ms), "FFmpeg cut it elsewhere or was stopped in it"; a run started at the
-  chunk itself fails the same way (0 to 12679 ms for 0 to 2294 ms). The core then answers each
-  request for the chunk with "FFmpeg failed on the film at this chunk each time it was made", and
-  the player asks again every 2 s, indefinitely: paused, a black picture, the controls up, no
-  message. Two faults: the cut (a keyframe the ladder's cuts expect is not where FFmpeg cuts, so
-  chunk 349 needs a cut the encoder did not make), and the player, which should tell the person and
-  offer to skip past the chunk rather than wait forever. Evidence: staging's node log, job 25680 and
-  25682, 2026-11-03 09:25 UTC.
