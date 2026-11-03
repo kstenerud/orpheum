@@ -633,6 +633,20 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - **Every colour is a token** (D138 §4), what is drawn over a film too (`--color-on-video`,
   `--color-video-scrim`, `--color-video-card`, `--color-video-control`, D369 §1): a stylesheet writes
   none out but `src/tokens.css` and the gallery's made-up posters. `src/colour-tokens.test.ts`.
+- **A layout primitive's gap is a step of the space scale, by name** (the 2026-10-05 architecture
+  research's R2; plans/toolkit.md step 5): `Stack`, its children in a column, and `Cluster`, in a
+  row that wraps, lined up across it (`src/layout.tsx`), take `space` as `"1"` to `"7"`, tokens.css's
+  `--space-1` to `--space-7`, never a length, which `tsc` refuses. Each lays out its direct
+  children alone, shrinks below its content where it is a flex item (`min-width: 0`), so a screen
+  never needs the overflow fix, and answers to its container, never the viewport.
+  `src/layout.browser.test.tsx`. ⁝'s steppers lay out their parts with `Cluster`; the screens'
+  hand-written gapped rows and columns move to the primitives as they are touched.
+- **A list's entries take no class from their user** (R5): a look one list needs is a named variant
+  of the component, which any list may use (`ListEntry`'s `isInsetAsChoices`, the steppers'
+  `isInAList`), or the user's own element inside it (the banner's who is signed in, inside its
+  `ListNote`); no stylesheet reaches into another component's classes from outside it.
+  `src/list-box.test.tsx`, `src/player-menus.browser.test.tsx`, `src/popover.browser.test.tsx`.
+  `ModalDialog` and `IconButton` still take a `className`; they lose it as the work reaches them.
 - **The player is drawn from one set of widgets** (D369 §1): a button that is an icon alone is an
   `IconButton` (`src/icon-button.tsx`), one size, 2.75rem, the status tray's too; a film's timeline
   is a `Timeline` (`src/timeline.tsx`), in milliseconds, touched anywhere; and the controls over a
@@ -665,7 +679,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `player-overlay.tsx` over the film in full screen and `page-controls.tsx` under it otherwise, with
   `player-menus.tsx` (the overlay's 🔈 and its subtitle, audio and more menus),
   `convenience-area.tsx` (the offers and when the film ends), `play-up.tsx` (Up and the trail),
-  `timeline.tsx`, `icon-button.tsx` and `player-icons.tsx`), `autoplay-setting.tsx` (the person's autoplay, on their account), `library-configure.tsx` (a library's Configure: the person's own Show in Films or Series, D349 §8, and Show on Home, D366 §5), `upward.ts` (where each page sits, D367), `up-trail.tsx` (the trail and Up), `episode-reached.ts` (the episode a series' page returns to), `route-chooser.tsx` (a drop-down of routes, or of choices a page keeps), `drop-down-place.ts` (where a drop-down's list opens), `phone-width.ts` (a phone's width, the stylesheets' breakpoint), `drop-down.tsx` (the one drop-down: a chooser's and the menu's, a pop-up holding a list), `popover.tsx` (a pop-up at its button, as wide as what it holds, with no Close, D408 §2), `list-box.tsx` (a pop-up's list and its options, a place of context either side of the one focused, D408 §3), `modal-layer.tsx` (what a dialog and a pop-up share: the browser's modal, its closes, focus given back), `sort-choices.ts` (each sort either way, D366 §2), `watched-mark.tsx` (the watched check, and marking by hand with its Undo, D370), `watching.ts` (the film a tab watches: its page's warm-up
+  `timeline.tsx`, `icon-button.tsx` and `player-icons.tsx`), `autoplay-setting.tsx` (the person's autoplay, on their account), `library-configure.tsx` (a library's Configure: the person's own Show in Films or Series, D349 §8, and Show on Home, D366 §5), `upward.ts` (where each page sits, D367), `up-trail.tsx` (the trail and Up), `episode-reached.ts` (the episode a series' page returns to), `route-chooser.tsx` (a drop-down of routes, or of choices a page keeps), `drop-down-place.ts` (where a drop-down's list opens), `phone-width.ts` (a phone's width, the stylesheets' breakpoint), `drop-down.tsx` (the one drop-down: a chooser's and the menu's, a pop-up holding a list), `popover.tsx` (a pop-up at its button, as wide as what it holds, with no Close, D408 §2), `list-box.tsx` (a pop-up's list and its options, a place of context either side of the one focused, D408 §3), `layout.tsx` (the layout primitives, `Stack` and `Cluster`, their gaps from the space scale), `modal-layer.tsx` (what a dialog and a pop-up share: the browser's modal, its closes, focus given back), `sort-choices.ts` (each sort either way, D366 §2), `watched-mark.tsx` (the watched check, and marking by hand with its Undo, D370), `watching.ts` (the film a tab watches: its page's warm-up
   and letting go of the last film's playbacks, D258), `sound.tsx` (the switches of the person's own choices: the boost, levelling),
   `audio-tracks.tsx` (the audio track menu, D230), `ladder-sound.ts` (each sound by its place and level, and a track or the boost switched in place), `watch-together.tsx` (the host's Watch Together
   controls, in the tray's dialog: links with notes, members, ending it), `together-viewer.tsx` (a viewer's page, joined by

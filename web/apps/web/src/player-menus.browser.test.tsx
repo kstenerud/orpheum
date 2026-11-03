@@ -11,7 +11,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import type { PlayerSound } from "./player-controls.tsx";
-import { PlayerMenus } from "./player-menus.tsx";
+import { PlayerMenus, PlayerMenusContext, type PlayerMenusWays } from "./player-menus.tsx";
+import { PlayerTracksContext, type PlayerTracks } from "./player-tracks.tsx";
+import type { SubtitleTrack } from "./subtitles.tsx";
 import { mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
@@ -75,7 +77,76 @@ describe("the overlay's pop-ups, laid out by a real browser", () => {
     expect(boxOf(slider).width).toBeLessThan(boxOf(slider).height);
     expect(boxOf(slider).width).toBeLessThanOrEqual(boxOf(mute).width + roundingPx);
   });
+
+  // D407 §8: Earlier and Later beside what they move, not each a whole place as a choice is.
+  it("sets ⁝'s subtitle offset in one row, its text in line with the choices' text", async () => {
+    await page.viewport(1280, 800);
+    mounted = await mount(
+      withServices(
+        <PlayerTracksContext value={subtitledTracks}>
+          <PlayerMenusContext value={ways}>
+            <PlayerMenus videoRef={createRef()} shown={["more"]} onOpenChange={() => undefined} />
+          </PlayerMenusContext>
+        </PlayerTracksContext>,
+      ),
+    );
+    await userEvent.click(page.getByRole("button", { name: "More" }));
+    const startOver = drawnIn("dialog .list-box__option");
+    const offset = drawnIn("dialog output");
+    const [earlier, later] = [offset.previousElementSibling, offset.nextElementSibling];
+    expect(startOver.textContent).toBe("Start over");
+    const choiceTextLeft = boxOf(startOver).left + sidesOf(startOver, "padding") / 2;
+    expect(boxOf(earlier).left).toBeCloseTo(choiceTextLeft, 0);
+    const middle = (box: DOMRect): number => box.top + box.height / 2;
+    for (const part of [offset, later]) {
+      expect(middle(boxOf(part))).toBeCloseTo(middle(boxOf(earlier)), 0);
+    }
+    // A step of the space scale between them, --space-2.
+    expect(boxOf(offset).left - boxOf(earlier).right).toBeCloseTo(8, 0);
+    expect(boxOf(later).left - boxOf(offset).right).toBeCloseTo(8, 0);
+  });
 });
+
+/** The first element the selector finds, or a failure where none is drawn. */
+function drawnIn(selector: string): Element {
+  const element = document.querySelector(selector);
+  if (element === null) {
+    throw new Error(`nothing drawn matches ${selector}`);
+  }
+  return element;
+}
+
+/** A film's tracks with two subtitle tracks, so ⁝ holds their offset; it chooses nothing. */
+const subtitledTracks: PlayerTracks = {
+  subtitles: {
+    tracks: [subtitleTrack(5), subtitleTrack(7)],
+    chosenTrackKey: undefined,
+    choose: () => undefined,
+    offsetMs: 0,
+    shiftOffset: () => undefined,
+    failure: undefined,
+  },
+  audio: { tracks: [], chosenStreamId: undefined, choose: () => undefined, problem: undefined },
+  levelling: { isOn: false, switchTo: () => undefined, problem: undefined },
+  level: { levelling: { isMeasured: true, gainDb: -2 }, carriedGainDb: 0 },
+  boost: undefined,
+};
+
+/** The page's ways for ⁝: a file, no sound timing kept. */
+const ways: PlayerMenusWays = { fileId: 3, soundOffsetMs: 0, onSubtitleFetched: () => undefined };
+
+/** An English subtitle track, its stream streamId. */
+function subtitleTrack(streamId: number): SubtitleTrack {
+  return {
+    streamId,
+    language: "en",
+    isDefault: false,
+    isForced: false,
+    isHearingImpaired: false,
+    assUrl: `/api/v1/bytes/media/sub/t/${String(streamId)}.ass`,
+    vttUrl: `/api/v1/bytes/media/sub/t/${String(streamId)}.vtt`,
+  };
+}
 
 /** An element's box, or a failure where it is not drawn. */
 function boxOf(element: Element | null | undefined): DOMRect {
