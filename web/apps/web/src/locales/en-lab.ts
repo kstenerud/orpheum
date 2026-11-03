@@ -25,6 +25,8 @@ export const enLab = {
       castWhat: "Cast to a Chromecast: Google's receiver or ours (opens on its own)",
       throughput: "Throughput",
       throughputWhat: "How fast this device loads from the server, each way it can",
+      uiGallery: "UI gallery",
+      uiGalleryWhat: "Every widget of the interface, to see how each looks and works here",
     },
     send: "Send to server",
     sending: "Sending…",

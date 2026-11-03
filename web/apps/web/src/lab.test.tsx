@@ -91,6 +91,8 @@ describe("the device lab", () => {
     for (const probe of ["device", "input", "remote", "extend", "throughput", "cast"]) {
       expect(markup).toContain(`href="/lab/${probe}"`);
     }
+    // The UI gallery too, which is a pain to type on a TV (the owner, 2026-11-03).
+    expect(markup).toContain('href="/ui-gallery"');
     // No key shows untranslated.
     expect(markup).not.toMatch(/>lab\./u);
   });
