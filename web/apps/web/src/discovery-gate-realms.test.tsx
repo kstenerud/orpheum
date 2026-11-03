@@ -3,11 +3,19 @@
 
 import "./i18n.ts";
 
-import { fromBase64, CoreOffline, TurnedAway, realmKey, realmTag } from "@orpheum/sdk";
+import {
+  fromBase64,
+  CoreOffline,
+  TurnedAway,
+  realmKey,
+  realmTag,
+  type HeldSession,
+  type KeptCore,
+} from "@orpheum/sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DiscoveryGate, offlineRetryAfterMs, type GateParts } from "./discovery-gate.tsx";
-import { whenSignedOut, type HeldSession, type KeptCore } from "./discovery-start.ts";
+import { whenSignedOut } from "./discovery-start.ts";
 import { buttonWithText, click, enter, mount, settleUntil, type Mounted } from "./test-dom.tsx";
 
 let mounted: Mounted | undefined;

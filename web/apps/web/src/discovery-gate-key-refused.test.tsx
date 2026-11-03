@@ -3,11 +3,10 @@
 
 import "./i18n.ts";
 
-import { KeyRefused } from "@orpheum/sdk";
+import { KeyRefused, type HeldSession, type KeptCore } from "@orpheum/sdk";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { DiscoveryGate, type GateParts } from "./discovery-gate.tsx";
-import type { HeldSession, KeptCore } from "./discovery-start.ts";
 import { mount, settleUntil, type Mounted } from "./test-dom.tsx";
 
 let mounted: Mounted | undefined;

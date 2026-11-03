@@ -15,6 +15,11 @@ import {
   type Held,
   type LinkFragment,
   type Proving,
+  provingOf,
+  targetOfSession,
+  type HeldSession,
+  type KeptCore,
+  type Target,
 } from "@orpheum/sdk";
 import { useEffect, useMemo, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
@@ -30,19 +35,14 @@ import { copyToClipboard } from "./clipboard.ts";
 import { dateTimeText } from "./date-time-text.ts";
 import { OpenInBrowser } from "./open-in-browser.tsx";
 import {
-  provingOf,
   reachCore,
   rememberedRealm,
   rememberRealm,
   targetOfHandOff,
   targetOfLink,
   targetOfRealm,
-  targetOfSession,
-  type HeldSession,
-  type KeptCore,
   type Reaching,
   type Start,
-  type Target,
 } from "./discovery-start.ts";
 import { i18n } from "./i18n.ts";
 

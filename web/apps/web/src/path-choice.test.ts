@@ -3,7 +3,8 @@
 
 import { describe, expect, it } from "vitest";
 
-import { reachCore, type Target } from "./discovery-start.ts";
+import type { Target } from "@orpheum/sdk";
+import { reachCore } from "./discovery-start.ts";
 import {
   browserFamily,
   pairsSettleMs,

@@ -8,9 +8,13 @@
  * in (navigation-and-widgets-answers-2026-10-27.md, "Reaching production from outside" item 2).
  */
 
-import { endingOf, type DeadEndReason, type DirectOutcome, type HasIpv6 } from "@orpheum/sdk";
-
-import type { Target } from "./discovery-start.ts";
+import {
+  endingOf,
+  type DeadEndReason,
+  type DirectOutcome,
+  type HasIpv6,
+  type Target,
+} from "@orpheum/sdk";
 
 /** One way tried at a dead end: its kind, and how it ended. */
 type Tried = DeadEndReason["tried"][number];

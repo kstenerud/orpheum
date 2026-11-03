@@ -10,8 +10,7 @@
 import { browserLocalNetwork, type LocalNetwork, type LocalNetworkState } from "./local-network.ts";
 import { pathChoiceOf, type PathChoice } from "./path-choice.ts";
 import {
-  connectRtc,
-  discoverySignaller,
+  connectThrough,
   firstDirectPath,
   handOffOfferKey,
   locate,
@@ -19,16 +18,14 @@ import {
   pathsOf,
   realmName,
   realmSignIn,
-  sessionOfferKey,
   type DirectOutcome,
+  type HeldSession,
+  type KeptCore,
+  type Target,
   type DiscoveryClient,
-  type Families,
-  type Held,
   type LinkFragment,
-  type Proving,
   type RealmTyped,
   type RtcTransport,
-  type Signaller,
 } from "@orpheum/sdk";
 
 import { storageThatNeverThrows, type StringStorage } from "./browser-storage.ts";
@@ -51,16 +48,6 @@ const realmsMetaName = "orpheum-discovery-realms";
 /** Whether the discovery whose page this is has realms, so a person signs in by one there. */
 export function discoveryHasRealms(page: Pick<Document, "querySelector">): boolean {
   return page.querySelector(`meta[name="${realmsMetaName}"]`)?.getAttribute("content") === "true";
-}
-
-/**
- * The core this device last reached at this discovery: its id, its identity key's fingerprint, and
- * the realm its person signed in to it by, when they did, which the page shows (D297 §5).
- */
-export interface KeptCore {
-  readonly coreId: string;
-  readonly fingerprint: string;
-  readonly realm?: string | undefined;
 }
 
 /**
@@ -153,39 +140,6 @@ export function rememberRealm(
   }
 }
 
-/** A way into the core: its id, the fingerprint held for it, what the device holds, and its key. */
-export interface Target {
-  readonly coreId: string;
-  readonly fingerprint: string;
-  readonly held: Held;
-  readonly key: Uint8Array<ArrayBuffer>;
-  readonly iceServers: RTCIceServer[];
-  /** The core's published names, tried before WebRTC (W2c). */
-  readonly directUrls: readonly string[];
-  /** Those of directUrls that are the core's LAN names. */
-  readonly lanUrls: readonly string[];
-  /**
-   * The core's public names by family, and the family the discovery saw the page from, which a dead
-   * end's cause is judged by (D398 §1); absent, the cause is unknown.
-   */
-  readonly families?: Families | undefined;
-  /**
-   * Told what came of each of the target's names once the first race is decided, before WebRTC is
-   * tried: a dead end's cause is judged by it (D398 §1).
-   */
-  readonly tellRaced?: ((raced: readonly DirectOutcome[]) => void) | undefined;
-  /**
-   * What the device holds by the time a later offer is made, when it holds more than the target
-   * began with: the session or membership a link's person gained (DiscoverySignalling.latest).
-   */
-  readonly latest?: (() => Promise<Proving | undefined>) | undefined;
-  /**
-   * What the device holds now, asked once the core refuses a later offer's proof, which is then sent
-   * once more under it (DiscoverySignalling.fallback).
-   */
-  readonly fallback?: (() => Promise<Proving | undefined>) | undefined;
-}
-
 /**
  * Finds the core by a link, spending a use of it: the click that asked, never the page's loading
  * (the protocol's §3.1). The target's offers are proven under the link's key.
@@ -265,17 +219,6 @@ export async function targetOfHandOff(
   };
 }
 
-/**
- * What a device holds with a core it reached before: a signed-in session's token, or a Watch Together
- * guest's membership credential, which the core proves offers under alike, with the locator the
- * discovery finds the core by for it.
- */
-export interface HeldSession {
-  readonly core: KeptCore;
-  readonly token: string;
-  readonly locator: string;
-}
-
 /** What a device keeps that a holding is made of: its session's token and locator, for one core. */
 export interface KeptSession {
   readonly token: () => string | undefined;
@@ -300,28 +243,6 @@ export function heldWith(
   return membership?.locator === undefined
     ? undefined
     : { core, token: membership.credential, locator: membership.locator };
-}
-
-/** What an offer made with held is sent and proven with: its locator, under its token's key. */
-export async function provingOf(held: HeldSession): Promise<Proving> {
-  return { held: { locator: held.locator }, key: await sessionOfferKey(held.token) };
-}
-
-/** Finds the remembered core by this device's locator; its offers are proven under its session. */
-export async function targetOfSession(client: DiscoveryClient, held: HeldSession): Promise<Target> {
-  const located = await pathsOf(client, { locator: held.locator });
-  if (located.coreId !== held.core.coreId) {
-    throw new Error("the discovery answered for another server than this device reached");
-  }
-  return {
-    coreId: held.core.coreId,
-    fingerprint: held.core.fingerprint,
-    ...(await provingOf(held)),
-    iceServers: located.iceServers,
-    directUrls: located.directUrls,
-    lanUrls: located.lanUrls,
-    families: located.families,
-  };
 }
 
 /** How the core was reached: at one of its own names, or over WebRTC through the discovery. */
@@ -497,27 +418,4 @@ function askingWhereTried(
 ): Reaching["onLocalNetworkAsking"] {
   return (listener) =>
     isDenied || target.lanUrls.length === 0 ? () => undefined : localNetwork.onAsking(listener);
-}
-
-/**
- * The signaller of the target's offers through the discovery: each proven by what the device holds
- * by then (latest), sent once more under what it holds now when the core refuses it (fallback), and
- * its answer checked.
- */
-export function signallerOf(client: DiscoveryClient, target: Target): Signaller {
-  return discoverySignaller({
-    clientApi: client.clientApi,
-    coreId: target.coreId,
-    fingerprint: target.fingerprint,
-    held: target.held,
-    key: target.key,
-    latest: target.latest,
-    fallback: target.fallback,
-    fetch: client.fetch,
-  });
-}
-
-/** Connects to the target through the discovery, its offers proven and its answers checked. */
-export function connectThrough(client: DiscoveryClient, target: Target): Promise<RtcTransport> {
-  return connectRtc(signallerOf(client, target), { iceServers: target.iceServers });
 }

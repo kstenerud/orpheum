@@ -13,6 +13,9 @@ import {
   realmTag,
   sessionOfferKey,
   stepsSoFar,
+  type HeldSession,
+  type KeptCore,
+  type Target,
 } from "@orpheum/sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -23,10 +26,7 @@ import {
   handOffFragment,
   heldWith,
   readHandOffFragment,
-  type HeldSession,
-  type KeptCore,
   type Start,
-  type Target,
 } from "./discovery-start.ts";
 import { startAtClient } from "./loader-at-client-origin.tsx";
 import type { StringStorage } from "./browser-storage.ts";
