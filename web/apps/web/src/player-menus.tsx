@@ -15,7 +15,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
-import { audioTrackLabel, type AudioChoice } from "./audio-tracks.tsx";
+import { useAudioChoices, type AudioChoice } from "./audio-tracks.tsx";
 import { DropDown } from "./drop-down.tsx";
 import { ListEntry, ListOption } from "./list-box.tsx";
 import { LevellingControl } from "./levelling.tsx";
@@ -26,11 +26,11 @@ import { muteClass, SoundControls, type PlayerSound } from "./player-controls.ts
 import { AudioIcon, MoreIcon, MutedIcon, SoundIcon, SubtitlesIcon } from "./player-icons.tsx";
 import type { OverlayControl } from "./player-overlay-state.ts";
 import { PlayerTracksContext, type PlayerTracks } from "./player-tracks.tsx";
-import { ActionChooser, type ActionChoice } from "./route-chooser.tsx";
+import { ActionChooser, currentLabelOf, type ActionChoice } from "./route-chooser.tsx";
 import { BoostBox } from "./sound.tsx";
 import { SoundOffsetControl } from "./sound-delay.tsx";
 import { FindSubtitles } from "./subtitle-search.tsx";
-import { OffsetControl, trackKey, useTrackLabel, type SubtitleChoice } from "./subtitles.tsx";
+import { OffsetControl, useSubtitleChoices, type SubtitleChoice } from "./subtitles.tsx";
 
 /**
  * What the page playing gives the overlay's menus beside the film's tracks (PlayerTracksContext):
@@ -213,38 +213,17 @@ function SubtitlesMenu(props: {
   readonly onOpenChange: (isOpen: boolean) => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const labelOf = useTrackLabel();
-  const { tracks, chosenTrackKey, choose } = props.choice;
-  const off: ActionChoice = {
-    key: "off",
-    label: t("play.subtitles.off"),
-    isCurrent: chosenTrackKey === undefined,
-    onChoose: () => {
-      choose(undefined);
-    },
-  };
-  const trackChoices = tracks.map((track): ActionChoice => {
-    const key = trackKey(track);
-    const label = labelOf(track);
-    return {
-      key: key ?? label,
-      label,
-      isCurrent: key !== undefined && key === chosenTrackKey,
-      onChoose: () => {
-        choose(key);
-      },
-    };
-  });
+  const trackChoices = useSubtitleChoices(props.choice);
   const { onFind } = props;
   const find: ActionChoice[] =
     onFind === undefined
       ? []
       : [{ key: "find", label: t("play.findSubtitles.open"), isCurrent: false, onChoose: onFind }];
-  const options = [off, ...trackChoices, ...find];
+  const options = [...trackChoices, ...find];
   return (
     <ActionChooser
       fieldLabel={t("play.subtitles.label")}
-      current={options.find((option) => option.isCurrent)?.label ?? off.label}
+      current={currentLabelOf(trackChoices)}
       openerIcon={<SubtitlesIcon />}
       isOverVideo
       onOpenChange={props.onOpenChange}
@@ -258,27 +237,12 @@ function AudioMenuOverTheFilm(props: {
   readonly choice: AudioChoice;
   readonly onOpenChange: (isOpen: boolean) => void;
 }): JSX.Element {
-  const { t, i18n } = useTranslation();
-  const { tracks, chosenStreamId, choose } = props.choice;
-  const words = {
-    unknownLanguage: t("play.audio.unknownLanguage"),
-    commentary: t("play.audio.commentary"),
-    described: t("play.audio.described"),
-  };
-  // With no choice marked, the playback plays its first track, as the select under the film shows.
-  const playingId = chosenStreamId ?? tracks[0]?.streamId;
-  const options = tracks.map((track): ActionChoice => ({
-    key: String(track.streamId),
-    label: audioTrackLabel(track, i18n.language, words),
-    isCurrent: track.streamId === playingId,
-    onChoose: () => {
-      choose(track);
-    },
-  }));
+  const { t } = useTranslation();
+  const options = useAudioChoices(props.choice);
   return (
     <ActionChooser
       fieldLabel={t("play.audio.label")}
-      current={options.find((option) => option.isCurrent)?.label ?? ""}
+      current={currentLabelOf(options)}
       openerIcon={<AudioIcon />}
       isOverVideo
       onOpenChange={props.onOpenChange}

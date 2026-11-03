@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 
 import { languageName } from "./language-name.ts";
 import { problemText, throwIfRefused } from "./problem.ts";
+import { ActionChooser, currentLabelOf, type ActionChoice } from "./route-chooser.tsx";
 import { useServices } from "./services.tsx";
 import { useSoundPart } from "./sound-panel.ts";
 
@@ -140,40 +141,49 @@ export function AudioMenu(props: AudioChoiceWays): JSX.Element | null {
   return <AudioChoiceMenu choice={useAudioChoice(props)} />;
 }
 
-/** The menu of a file's audio tracks, held by whoever holds the choice, shown when it has two or more. */
-export function AudioChoiceMenu(props: { readonly choice: AudioChoice }): JSX.Element | null {
+/**
+ * The choices of a file's audio tracks, the one playing current: the chosen, else the first, which
+ * the playback plays with no choice marked. Under the film (AudioChoiceMenu) and over it, 🎧
+ * (player-menus.tsx), alike.
+ */
+export function useAudioChoices(choice: AudioChoice): readonly ActionChoice[] {
   const { t, i18n } = useTranslation();
-  const { tracks, chosenStreamId, choose, problem } = props.choice;
-  if (tracks.length < 2) {
-    return null;
-  }
+  const { tracks, chosenStreamId, choose } = choice;
   const words = {
     unknownLanguage: t("play.audio.unknownLanguage"),
     commentary: t("play.audio.commentary"),
     described: t("play.audio.described"),
   };
+  const playingId = chosenStreamId ?? tracks[0]?.streamId;
+  return tracks.map((track): ActionChoice => ({
+    key: String(track.streamId),
+    label: audioTrackLabel(track, i18n.language, words),
+    isCurrent: track.streamId === playingId,
+    onChoose: () => {
+      choose(track);
+    },
+  }));
+}
+
+/**
+ * The menu of a file's audio tracks under the film, held by whoever holds the choice, shown when it
+ * has two or more: the app's chooser (route-chooser.tsx), which a remote works, where a native select
+ * was, which a television's browser does not (the 2026-10-27 widget audit; plans/toolkit.md step 6).
+ */
+export function AudioChoiceMenu(props: { readonly choice: AudioChoice }): JSX.Element | null {
+  const { t } = useTranslation();
+  const { tracks, problem } = props.choice;
+  const options = useAudioChoices(props.choice);
+  if (tracks.length < 2) {
+    return null;
+  }
   return (
     <>
-      <label className="audio-tracks">
-        {t("play.audio.label")}{" "}
-        <select
-          value={chosenStreamId ?? ""}
-          onChange={(event) => {
-            const track = tracks.find(
-              (candidate) => String(candidate.streamId) === event.currentTarget.value,
-            );
-            if (track !== undefined) {
-              choose(track);
-            }
-          }}
-        >
-          {tracks.map((track) => (
-            <option key={track.streamId} value={track.streamId}>
-              {audioTrackLabel(track, i18n.language, words)}
-            </option>
-          ))}
-        </select>
-      </label>
+      <ActionChooser
+        fieldLabel={t("play.audio.label")}
+        current={currentLabelOf(options)}
+        options={options}
+      />
       {problem === undefined ? null : <p role="alert">{problem}</p>}
     </>
   );

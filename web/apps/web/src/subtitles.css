@@ -7,9 +7,9 @@
   align-items: center;
 }
 
-/* A subtitle's name can be a whole release name; the menu shrinks to the screen and cuts it. */
-.subtitles label,
-.subtitles select {
+/* A subtitle's name can be a whole release name; the chooser shrinks to the screen and wraps it. */
+.subtitles .route-chooser,
+.subtitles .route-chooser__button {
   min-width: 0;
   max-width: 100%;
 }

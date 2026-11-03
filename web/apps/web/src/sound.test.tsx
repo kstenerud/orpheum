@@ -10,7 +10,7 @@ import { Play, PlayView } from "./play.tsx";
 import { BoostSwitch } from "./sound.tsx";
 import {
   bodyField,
-  choose,
+  chooseIn,
   click,
   mount,
   playbackCauses,
@@ -404,7 +404,7 @@ describe("another audio track, chosen mid-film (D230 §5)", () => {
     );
     // Wraithcatchers, its track changed 2:46 in, started again at 0:00 (staging, 2026-10-26).
     standVideoAt(166.502);
-    await choose(mounted.container.querySelector("select"), "81");
+    await chooseIn(mounted.container, "Sound", "French");
     expect(asked).toEqual([{ cause: "audioChosen", at: { positionMs: 166_502, isPaused: false } }]);
   });
 
@@ -426,7 +426,7 @@ describe("another audio track, chosen mid-film (D230 §5)", () => {
     services.session.signIn("token", { deviceId: 5 });
     mounted = await mount(withServices(<Play fileId={2} />, services));
     standVideoAt(166.502);
-    await choose(mounted.container.querySelector("select"), "81");
+    await chooseIn(mounted.container, "Sound", "French");
     const asks = heard.filter((each) => each.methodAndPath === "POST /playback");
     expect(playbackCauses(heard)).toEqual(["playPage", "audioChosen"]);
     expect(asks.map((each) => bodyField(each, "startsAtMs"))).toEqual([undefined, 166_502]);
