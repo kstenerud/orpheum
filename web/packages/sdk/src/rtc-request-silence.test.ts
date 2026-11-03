@@ -11,7 +11,7 @@ import {
 
 /** A data channel that is open, keeps what is sent, and says when it has all left the browser. */
 class SendingChannel implements ChannelLike {
-  readonly readyState: RTCDataChannelState = "open";
+  readyState: RTCDataChannelState = "open";
   isClosed = false;
   private listener: ChannelListener | undefined;
   private readonly sentWaiters: (() => void)[] = [];
@@ -42,6 +42,19 @@ class SendingChannel implements ChannelLike {
   answer(data: string | ArrayBuffer): void {
     this.listener?.message(data);
   }
+
+  /** Opens a channel made not yet open. */
+  open(): void {
+    this.readyState = "open";
+    this.listener?.open();
+  }
+}
+
+/** A channel the browser has not opened yet, as on a connection that has stopped. */
+function unopenedChannel(): SendingChannel {
+  const channel = new SendingChannel();
+  channel.readyState = "connecting";
+  return channel;
 }
 
 /** A POST with a body, as the Play page asks for its playback. */
@@ -91,5 +104,37 @@ describe("a request with a body over WebRTC", () => {
     channel.answer(JSON.stringify({ status: 204 }));
     channel.answer(new ArrayBuffer(0));
     expect((await answered).status).toBe(204);
+  });
+
+  // The owner's phone, cast to the laptop, tapped Stop casting, a POST, and nothing happened at all:
+  // its channel, on a connection that had stopped, never opened, so its body never left and its
+  // wait was never bounded; the core never heard of it (prod, 2026-11-03).
+  it("fails as a silence where its channel does not open within the bound, and is sent as ever where it opens", async () => {
+    vi.useFakeTimers();
+    const late = unopenedChannel();
+    const answered = sendOnChannel(late, playbackRequest());
+    await vi.advanceTimersByTimeAsync(silentAtMostMs - 1);
+    late.open();
+    late.drain();
+    late.answer(JSON.stringify({ status: 204 }));
+    late.answer(new ArrayBuffer(0));
+    expect((await answered).status).toBe(204);
+    await vi.advanceTimersByTimeAsync(silentAtMostMs);
+    expect(late.isClosed).toBe(true); // closed by its end, not failed by the watch
+
+    const never = unopenedChannel();
+    let isToldSilent = false;
+    const outcome = sendOnChannel(never, playbackRequest(), () => {
+      isToldSilent = true;
+    }).then(
+      () => "answered",
+      (problem: unknown) => (problem instanceof Error ? problem.name : "failed"),
+    );
+    await vi.advanceTimersByTimeAsync(silentAtMostMs - 1);
+    expect(never.isClosed).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await outcome).toBe("SilentRequestError");
+    expect(never.isClosed).toBe(true);
+    expect(isToldSilent).toBe(true); // its transport takes its connection for gone
   });
 });
