@@ -159,8 +159,13 @@ export function testServices(
       subtitleFormats: ["ass", "webvtt"],
       containers: ["mp4"],
     }),
-    // A socket that never opens: a test of Watch Together passes its own stand-in server.
-    openTogetherSocket: () => ({ send: () => undefined, close: () => undefined }),
+    // A socket that never opens, its server having said only that the device casts nothing, so a Play
+    // page plays at once rather than after sendingKnownWithinMs, 3 s a test: a test of Watch Together
+    // or of casting passes its own stand-in server.
+    openTogetherSocket: (listeners) => {
+      listeners.onMessage(JSON.stringify({ v: 2, type: "sending" }));
+      return { send: () => undefined, close: () => undefined };
+    },
     canFollowAGroup: () => true,
     // No microphone: a test of voice passes its own stand-in devices.
     voiceDevices: () => ({

@@ -734,6 +734,18 @@ describe("a film played on a device that casts (D364 §3, §4; D384 §2)", () =>
     expect(mounted?.container.textContent).toContain("playing here from 61000");
   });
 
+  it("plays here at once with the test services' own stand-in socket, which says the device casts nothing", async () => {
+    mounted = await mount(
+      withServices(
+        <LiveProvider>
+          <PlayOrSendOn fileId={8} shouldPlayHere={false} playHere={() => <p>playing here</p>} />
+        </LiveProvider>,
+        servedBy({}, [], "token"),
+      ),
+    );
+    expect(mounted.container.textContent).toContain("playing here");
+  });
+
   it("plays here once the server has not said what the device sends within a few seconds", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
     try {
