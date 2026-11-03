@@ -109,6 +109,20 @@ describe("how the app reaches its core under a discovery's loader (D308)", () =>
     expect(told).toBe(2);
   });
 
+  it("names the core as its discovery finds it, for a cast receiver to reach from away, and none without a discovery (the 11-05 batch's item 10)", () => {
+    const page = document.implementation.createHTMLDocument("client");
+    expect(reachesUnderLoader(loaderWith(), page).throughDiscovery).toBeUndefined();
+    const meta = page.createElement("meta");
+    meta.setAttribute("name", "orpheum-discovery-client-api");
+    meta.setAttribute("content", "https://api.example/client/v1");
+    page.head.append(meta);
+    expect(reachesUnderLoader(loaderWith(), page).throughDiscovery).toEqual({
+      clientApi: "https://api.example/client/v1",
+      coreId: "k7xq2",
+      fingerprint: "a-fingerprint",
+    });
+  });
+
   it("sends the app's requests the loader's way, and names the realm it reached", async () => {
     const loader = loaderWith();
     const reaches = reachesUnderLoader(loader, document);
