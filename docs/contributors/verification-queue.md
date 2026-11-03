@@ -2493,7 +2493,7 @@ An item is ticked only by the person who did it, and only with what they saw.
 - [ ] **VQ253** — the menus that were native selects work by remote (plans/toolkit.md step 6). On
   the Fire TV in Silk, play a film with two audio tracks and several subtitle tracks out of full
   screen, and reach the Sound and Subtitles choosers under the film with the arrows; then open Find
-  subtitles and its Language; then a series with two orderings and its Ordering. Passes when: OK
+  subtitles and its Language; then a series with two orderings and its Order. Passes when: OK
   opens each as a list on its current choice, an entry either side in view, the arrows move in it,
   OK on another chooses it (the sound or subtitles change, the search asks in that language, the
   series shows in that order), and Back closes it without choosing, focus back on its button.
