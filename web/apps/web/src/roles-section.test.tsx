@@ -190,6 +190,18 @@ it("opens the same dialog to make a role and to look at one, which has no Add bu
   expect(showing?.textContent).toContain("The libraries its people see");
 });
 
+it("says in a role's dialog how many hold it, one as a person", async () => {
+  mounted = await mountRole(2, []);
+  const holders = (): string[] =>
+    [...(mounted?.container.querySelectorAll("dialog h2 ~ p") ?? [])].map(
+      (each) => each.textContent,
+    );
+  expect(holders()).toContain("1 person");
+  mounted.unmount();
+  mounted = await mountRole(3, []);
+  expect(holders()).toContain("0 people");
+});
+
 it("makes a role with the capabilities and libraries ticked in the same dialog (D403)", async () => {
   const heard: Heard[] = [];
   mounted = await mountPeople(heard);
