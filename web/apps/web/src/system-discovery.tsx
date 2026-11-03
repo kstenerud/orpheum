@@ -501,7 +501,7 @@ function deadEndCauseText(t: TFunction, word: DeadEndCauseWord, count: number): 
 }
 
 /**
- * The last week's dead ends by the cause each device reported, beside their count (D398 §6, the
+ * The last week's dead ends by the cause each device reported, beside their count (D398 §7, the
  * owner's agreement of 2026-11-03): the commonest first, a word the page does not know counted as
  * another reason, so a discovery's word is never shown as it came. Nothing from a discovery that
  * keeps no causes, which leaves the count as it was.

@@ -276,7 +276,7 @@ type AddressesResponse struct {
 	// DeadEndCausesLastWeek is those dead ends by the cause each page reported (DeadEndRequest.Cause),
 	// counted under the discovery's word for it: a DeadEndCause value, "none" for a report that gave
 	// none and "other" for a word outside the protocol's. Absent from a discovery that keeps no causes,
-	// whose System page shows the count alone (D398 §6, as the owner agreed on 2026-11-03).
+	// whose System page shows the count alone (D398 §7, as the owner agreed on 2026-11-03).
 	DeadEndCausesLastWeek map[string]int `json:"deadEndCausesLastWeek,omitempty"`
 }
 

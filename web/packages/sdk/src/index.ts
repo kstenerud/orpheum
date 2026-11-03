@@ -62,6 +62,7 @@ export {
   type DirectEnding,
   type DirectOutcome,
 } from "./direct-path.ts";
+export { ipv6ProbeFastMs, probeIpv6 } from "./ipv6-probe.ts";
 export { isNetworkFailure, namingFailures, PathKeeper } from "./path-keeper.ts";
 export type { PathWays } from "./path-keeper.ts";
 export {

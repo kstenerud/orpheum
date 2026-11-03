@@ -114,6 +114,13 @@ type PathsResponse struct {
 	ClientPrefix string      `json:"clientPrefix"`
 	Paths        []Path      `json:"paths"`
 	ICEServers   []ICEServer `json:"iceServers"`
+	// IPv6Probe is an https URL of a name with only an AAAA record, which the page fetches during its
+	// first race to tell a network with no IPv6 from IPv6 that got no answer (D398 §7, the owner's
+	// agreement of 2026-11-03): an answer of any status means IPv6, a failure within about a second
+	// none, and a later one or none an unknown. It must lie under the zone the page's content policy
+	// lets it connect to, or the policy's refusal would read as no IPv6. Empty when the discovery has
+	// none, and the page then judges as before.
+	IPv6Probe string `json:"ipv6Probe,omitempty"`
 }
 
 // DeadEndRequest is a client telling the discovery that no path reached the core, by what the

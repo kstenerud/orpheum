@@ -284,7 +284,7 @@ it("says nothing of the house's networks while there are none", async () => {
   expect(mounted.container.textContent).not.toContain("IPv6 networks");
 });
 
-it("tells the week's dead ends by the cause each device judged, beside their count, a word it doesn't know as another reason (D398 §6)", async () => {
+it("tells the week's dead ends by the cause each device judged, beside their count, a word it doesn't know as another reason (D398 §7)", async () => {
   const services = servedBy({
     "GET /system/discovery": [
       200,

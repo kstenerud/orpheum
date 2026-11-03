@@ -16,6 +16,7 @@ import {
   locate,
   offerKey,
   pathsOf,
+  probeIpv6,
   realmName,
   realmSignIn,
   type DirectOutcome,
@@ -158,6 +159,7 @@ export async function targetOfLink(client: DiscoveryClient, link: LinkFragment):
     directUrls: located.directUrls,
     lanUrls: located.lanUrls,
     families: located.families,
+    ipv6Probe: located.ipv6Probe,
   };
 }
 
@@ -189,6 +191,7 @@ export async function targetOfRealm(
       directUrls: located.directUrls,
       lanUrls: located.lanUrls,
       families: located.families,
+      ipv6Probe: located.ipv6Probe,
     },
     claimedAt: found.claimedAt,
   };
@@ -216,6 +219,7 @@ export async function targetOfHandOff(
     directUrls: located.directUrls,
     lanUrls: located.lanUrls,
     families: located.families,
+    ipv6Probe: located.ipv6Probe,
   };
 }
 
@@ -362,7 +366,8 @@ export async function reachCore(
 /**
  * The first race of the target's names, as the browser's local-network permission, state, allows: the
  * name that answered, if one did, and how the choice of the path taken, first, was made and why. The
- * target's tellRaced hears what came of each name once the race is decided.
+ * target's tellRaced hears what came of each name once the race is decided, and its tellIpv6Probe,
+ * when the discovery named an IPv6 probe, what fetching it beside the race judged.
  */
 async function firstRace(
   client: DiscoveryClient,
@@ -370,6 +375,12 @@ async function firstRace(
   state: LocalNetworkState,
 ): Promise<{ readonly first?: Reached; readonly choice: (first: Reached) => PathChoice }> {
   let outcomes: readonly DirectOutcome[] = [];
+  if (target.ipv6Probe !== undefined) {
+    // Beside the race, never waited on: what it judges is heard whenever it ends (D398 §7).
+    void probeIpv6(target.ipv6Probe, client.fetch).then((judged) => {
+      target.tellIpv6Probe?.(judged);
+    });
+  }
   const origin = await firstDirectPath(raced(target, state, client.fetch), client.fetch, {
     tell: (told) => {
       outcomes = told;

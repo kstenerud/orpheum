@@ -234,7 +234,7 @@ func TestStep_EachStateWaitsAsItsOwnSettingSays(t *testing.T) {
 }
 
 // The heartbeat's answer counts the week's dead ends by cause, which the status keeps for the System
-// page as the discovery counted them (D398 §6).
+// page as the discovery counted them (D398 §7).
 func TestStep_KeepsTheDeadEndsCausesTheHeartbeatsAnswerCounts(t *testing.T) {
 	t.Parallel()
 	built := newWorld(t)

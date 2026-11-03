@@ -58,7 +58,7 @@ type DiscoveryStatusBody struct {
 	Published        []string `doc:"The addresses the discovery publishes" json:"published"`
 	DeadEndsLastWeek int      `doc:"How many times a client found no path to the server in the last week" json:"deadEndsLastWeek"` //nolint:lll // one struct tag
 	// DeadEndCauses are those dead ends by the cause each page reported, the commonest first; none
-	// from a discovery that keeps no causes, whose count is shown alone (D398 §6).
+	// from a discovery that keeps no causes, whose count is shown alone (D398 §7).
 	DeadEndCauses      []DeadEndCauseBody   `json:"deadEndCauses"`
 	Probe              []DiscoveryProbeBody `json:"probe"`
 	LastHeartbeatAt    int64                `doc:"Unix milliseconds; 0 before the first" json:"lastHeartbeatAt"`

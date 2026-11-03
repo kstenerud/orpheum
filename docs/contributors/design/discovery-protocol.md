@@ -531,7 +531,7 @@ built, `single` publishes nothing and probes nothing (W4b.4).
 The answer also carries the count of the core's clients that reached a dead end in the last week
 (`deadEndsLastWeek`; §3.6, D293 §7), and, from a discovery that keeps each report's reason, the same
 dead ends by the cause their pages reported (`deadEndCausesLastWeek`, a word to a count: `noIpv6`,
-`unknown`, `none` for a report that gave none, `other` for any other word; D398 §6), for the System
+`unknown`, `none` for a report that gave none, `other` for any other word; D398 §7), for the System
 page, which shows the causes beside the count and the count alone when there are none. Built
 (2026-11-03): both; Connect sends the causes, `single` the count alone.
 
@@ -828,6 +828,15 @@ owner's TURN (§2.4); there is no `owner` field (D290 §13).
   request's source as an IPv6 /64, or an IPv4 address as a /32 [I: the lengths], taken behind
   Cloudflare from `CF-Connecting-IP` (§2.4). It is the key under which the client remembers which
   paths worked (§3.3 item 7). It names the client's own address back to it, nothing of the core's.
+- **`ipv6Probe`**, optional, is an `https` URL of a name with only an AAAA record (D398 §7). The page
+  fetches it once beside its first race (no-cors, no-store, no credentials), bounded by the race's
+  wait (3 s), and never waits on it: an answer of any status means this network has IPv6, a failure
+  within about a second means it has none, and a later failure or no answer means it cannot tell.
+  The page's dead-end reason (§3.6) takes it with its other facts; seen over IPv6, or an IPv6 name
+  answering, still means IPv6 whatever the probe did. The name must lie under the zone the page's
+  content policy lets it connect to (`https://*.<zone>`), or the policy's refusal, which is
+  immediate, would read as no IPv6. Absent, the page judges as before. Built (2026-11-03): the page's
+  side; `single` names none.
 
 **The `lan` path is returned only when the device seems to be at home** (D290 §2, U1, S11): the
 request's source shares the core's IPv6 /64, or is in one of the heartbeat's `houseNetworks` (§2.4;
@@ -1066,7 +1075,7 @@ the core must act on (enrol again, another instance running) carries a code of i
 | Method, path | Purpose |
 | --- | --- |
 | `POST /locate` | link-secret hash → paths + a bootstrap token; by the hash's use policy |
-| `POST /paths` | locator or bootstrap token → current paths, ICE servers, the core's API major, its `state`, the client's `clientPrefix` |
+| `POST /paths` | locator or bootstrap token → current paths, ICE servers, the core's API major, its `state`, the client's `clientPrefix`, and an optional `ipv6Probe` (§3.2) |
 | `POST /cores/{id}/offer` | locator + SDP offers (up to four), each with its proof → the core's answers, signed |
 | device codes (§3.1) | own: the core's `/pairings`, passed through (D288); paid: `POST /device-codes`, `POST /device-codes/state`, issued by the service, the outcome sealed to the device (D293 §2) |
 | dead-end report (§3.6) | a locator or bootstrap token → counted for its core's week, with no device identifier (D293 §7) |

@@ -25370,6 +25370,13 @@ the owner's open choices are in §6.
    which would let a page tell "no IPv6" from "IPv6 answered nothing" on more networks; whether
    connect stores the reason (a column, so a migration) or only logs it; and the household-VPS proxy
    that would give a server without IPv4 an IPv4 way in, filed for later.
+7. **The owner's answers to §6** (2026-11-03, navigation-and-widgets-answers-2026-10-27.md, "Step 0's
+   outcome"): connect stores the reason; the System page's count shows the week's causes in words
+   beside it (`deadEndCausesLastWeek`, discovery-protocol.md §2.4), and the count alone from a
+   discovery that sends none; and a discovery may name an IPv6-only probe (`ipv6Probe`, §3.2), which
+   the page fetches beside its first race and never waits on: an answer means IPv6, a failure within
+   about a second none, anything else unknown. The probe adds to §1's facts and never overrides the
+   discovery seeing the page over IPv6 or an IPv6 name answering. The VPS proxy stays filed.
 
 ## D399 — The People page is three buttons over three sections: dialogs make things, rows lead to pages, and a role's changes save at once
 

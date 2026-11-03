@@ -14,6 +14,7 @@ import {
   sessionOfferKey,
   type DiscoveryClient,
   type Families,
+  type HasIpv6,
   type Held,
   type Proving,
 } from "./discovery.ts";
@@ -52,6 +53,12 @@ export interface Target {
    * tried: a dead end's cause is judged by it (D398 §1).
    */
   readonly tellRaced?: ((raced: readonly DirectOutcome[]) => void) | undefined;
+  /**
+   * The discovery's IPv6 probe name, which the first race fetches beside the target's names, never
+   * waiting on it, when the discovery gave one (D398 §7); tellIpv6Probe hears what it judged.
+   */
+  readonly ipv6Probe?: string | undefined;
+  readonly tellIpv6Probe?: ((judged: HasIpv6) => void) | undefined;
   /**
    * What the device holds by the time a later offer is made, when it holds more than the target
    * began with: the session or membership a link's person gained (DiscoverySignalling.latest).
@@ -94,6 +101,7 @@ export async function targetOfSession(client: DiscoveryClient, held: HeldSession
     directUrls: located.directUrls,
     lanUrls: located.lanUrls,
     families: located.families,
+    ipv6Probe: located.ipv6Probe,
   };
 }
 

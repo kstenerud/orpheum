@@ -181,3 +181,69 @@ describe("the paths a core is reached by after the first (webrtc-transport.md W2
     expect(await reaching.better(overWebrtc)).toEqual({ kind: "direct", origin: lan });
   });
 });
+
+describe("the discovery's IPv6 probe in the first race (D398 §7)", () => {
+  const ipv6 = "https://2a00-1.k7xq2.zone.example";
+  const probe = "https://v6probe.zone.example/";
+  const client = (isProbeAnswering: boolean, asked: string[]) => ({
+    clientApi: "https://discovery.example/client/v1",
+    fetch: ((url, init) => {
+      const address = url instanceof Request ? url.url : url.toString();
+      asked.push(`${address} ${init?.mode ?? ""} ${init?.cache ?? ""}`);
+      if (address === probe) {
+        return isProbeAnswering
+          ? Promise.resolve(new Response(null, { status: 200 }))
+          : new Promise<Response>(() => undefined);
+      }
+      return Promise.resolve(new Response("{}", { status: 200 }));
+    }) satisfies typeof fetch,
+  });
+  const targetOf = (named: Partial<Target>): Target => ({
+    coreId: "k7xq2",
+    fingerprint,
+    held: { bootstrapToken: "a-bootstrap-token" },
+    key: new Uint8Array(32),
+    iceServers: [],
+    directUrls: [ipv6],
+    lanUrls: [],
+    ...named,
+  });
+  const granted = {
+    state: () => Promise.resolve("granted" as const),
+    onGranted: () => () => undefined,
+    onAsking: () => () => undefined,
+  };
+
+  it("fetches the probe beside the race, uncached and without CORS, and tells what it judged", async () => {
+    const asked: string[] = [];
+    const tellIpv6Probe = vi.fn();
+    const reaching = await reachCore(
+      client(true, asked),
+      targetOf({ ipv6Probe: probe, tellIpv6Probe }),
+      granted,
+    );
+    expect(reaching.first).toEqual({ kind: "direct", origin: ipv6 });
+    expect(asked).toContain(`${probe} no-cors no-store`);
+    await vi.waitFor(() => {
+      expect(tellIpv6Probe).toHaveBeenCalledWith("yes");
+    });
+  });
+
+  it("never waits on a probe that does not end", async () => {
+    const tellIpv6Probe = vi.fn();
+    const reaching = await reachCore(
+      client(false, []),
+      targetOf({ ipv6Probe: probe, tellIpv6Probe }),
+      granted,
+    );
+    expect(reaching.first).toEqual({ kind: "direct", origin: ipv6 });
+    expect(tellIpv6Probe).not.toHaveBeenCalled();
+  });
+
+  it("fetches nothing more when the discovery named no probe", async () => {
+    const asked: string[] = [];
+    await reachCore(client(true, asked), targetOf({}), granted);
+    expect(asked.length).toBeGreaterThan(0);
+    expect(asked.every((each) => each.startsWith(`${ipv6}/`))).toBe(true);
+  });
+});

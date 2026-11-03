@@ -44,4 +44,7 @@ Still copies, not yet twins:
 - `discovery/discoveryproto/client.go`'s words for a dead end's reason (D398: `HasIPv6…`,
   `DeadEndCause…`, `PathKind…`, and the ways a path ended, which `discovery/single` sends): the list
   `orpheum-connect`'s `deadEndWord` (`internal/clients/offers.go`) keeps, logging any other word as
-  "other". A word added here is added there too, or Connect counts it as "other".
+  "other". A word added here is added there too, or Connect counts it as "other". The System page
+  (`web/apps/web/src/system-discovery.tsx`'s `deadEndCauseWords`) has a third copy of the causes, to
+  name them in words, and also shows any word it does not know as "other". A cause added here gets
+  its words there too, or the page names it only as "another reason".

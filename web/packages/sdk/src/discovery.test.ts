@@ -360,4 +360,14 @@ describe("the paths a discovery's answer names", () => {
     ]);
     expect(located.lanUrls).toEqual(["https://192-168-1-2.k7xq2.zone.example:8443"]);
   });
+
+  it("name the discovery's IPv6 probe when it is an HTTPS URL, and none otherwise (D398 §7)", () => {
+    const probing = locatedOf({ coreId: "k7xq2", ipv6Probe: "https://v6probe.zone.example/" });
+    expect(probing.ipv6Probe).toBe("https://v6probe.zone.example/");
+    expect(locatedOf({ coreId: "k7xq2" }).ipv6Probe).toBeUndefined();
+    expect(
+      locatedOf({ coreId: "k7xq2", ipv6Probe: "http://v6probe.zone.example/" }).ipv6Probe,
+    ).toBeUndefined();
+    expect(locatedOf({ coreId: "k7xq2", ipv6Probe: 6 }).ipv6Probe).toBeUndefined();
+  });
 });
