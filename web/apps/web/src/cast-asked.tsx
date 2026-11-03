@@ -3,12 +3,13 @@
 import "./cast.css";
 
 import type { CastToReceive, Press } from "@orpheum/sdk";
-import { useEffect, useRef, type JSX, type RefObject } from "react";
+import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import { acceptCast, castAnswerWithinMs, endCast } from "./cast.ts";
 import { askPageFullScreen, leaveFullScreenAsked } from "./film-fullscreen.ts";
 import { ModalDialog } from "./modal-dialog.tsx";
+import { problemText } from "./problem.ts";
 import { useServices, useToken } from "./services.tsx";
 import { useTogether } from "./use-together.ts";
 
@@ -97,13 +98,47 @@ function useUnansweredCastCloses(
 }
 
 /**
+ * Use's press: asks for the page full screen in the press itself, and tells the server, answering
+ * once the server takes it; a refusal, the cast gone, leaves that full screen and says why (refused).
+ */
+function useAccepts(
+  cast: CastToReceive,
+  onAnswered: (answer: CastAnswer | undefined) => void,
+): { readonly refused: string | undefined; readonly accept: (by: Press) => void } {
+  const { t } = useTranslation();
+  const { api } = useServices();
+  const [refused, setRefused] = useState<string | undefined>(undefined);
+  const accept = (by: Press): void => {
+    const fullScreen = enterFullScreen(document);
+    acceptCast(api, cast.castId).then(
+      () => {
+        onAnswered({ castId: cast.castId, by, fullScreen });
+      },
+      (cause: unknown) => {
+        void fullScreen?.then(() => {
+          leaveFullScreen(document); // the one Use asked for, once the browser has answered it
+        });
+        setRefused(
+          problemText(t, cause, {
+            notFound: t("cast.asked.stopped", { device: cast.fromDeviceName }),
+          }),
+        );
+      },
+    );
+  };
+  return { refused, accept };
+}
+
+/**
  * A cast arrived, asked about once for its whole session (D364 §2, D358 §1–§4): "‹Device› wants to use
  * this device for playback", with Use focused, so a remote's OK answers it, and Not now. Use's press
  * is the one that lets every video of the session play with sound (sticky activation) and puts the
  * page full screen (transient activation, so asked in the press itself), and the server is told, so
  * the sender's Plays come here; Not now, Back or Escape decline it, and no answer within
  * castAnswerWithinMs leaves it unanswered, the sender told either way. A cast that ends while asked,
- * its sender gone, closes it.
+ * its sender gone, closes it. A Use the server refuses, the cast gone before it (its sender stopped,
+ * or the server restarted and lost it), receives nothing: the full screen is left and the question
+ * says why in its place, until OK closes it.
  */
 export function CastAsked(props: {
   readonly cast: CastToReceive;
@@ -113,12 +148,23 @@ export function CastAsked(props: {
   const { api } = useServices();
   const { cast, onAnswered } = props;
   const playRef = useRef<HTMLButtonElement>(null);
+  const { refused, accept } = useAccepts(cast, onAnswered);
   useUnansweredCastCloses(cast, onAnswered, playRef);
   const decline = (): void => {
     endCast(api, cast.castId, "declined").catch(() => undefined);
     onAnswered(undefined);
   };
   const question = t("cast.asked.question", { device: cast.fromDeviceName });
+  if (refused !== undefined) {
+    return (
+      <CastGone
+        said={refused}
+        onClose={() => {
+          onAnswered(undefined);
+        }}
+      />
+    );
+  }
   return (
     <ModalDialog
       label={question}
@@ -133,15 +179,40 @@ export function CastAsked(props: {
           ref={playRef}
           type="button"
           onClick={(event) => {
-            const fullScreen = enterFullScreen(document);
-            acceptCast(api, cast.castId).catch(() => undefined); // its sender waits on it, and says so
-            onAnswered({ castId: cast.castId, by: pressOf(event.nativeEvent), fullScreen });
+            accept(pressOf(event.nativeEvent));
           }}
         >
           {t("cast.asked.use")}
         </button>
         <button type="button" onClick={decline}>
           {t("cast.asked.notNow")}
+        </button>
+      </div>
+    </ModalDialog>
+  );
+}
+
+/**
+ * A cast's question after its Use was refused: why, and OK, which closes it, focused as it opens, so
+ * a remote's OK closes it as it answered the question.
+ */
+function CastGone(props: { readonly said: string; readonly onClose: () => void }): JSX.Element {
+  const { t } = useTranslation();
+  const okRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    okRef.current?.focus();
+  }, []);
+  return (
+    <ModalDialog
+      label={props.said}
+      onClose={props.onClose}
+      role="alertdialog"
+      className="cast-asked"
+    >
+      <p className="cast-asked__question">{props.said}</p>
+      <div className="cast-asked__buttons">
+        <button ref={okRef} type="button" onClick={props.onClose}>
+          {t("cast.asked.ok")}
         </button>
       </div>
     </ModalDialog>
