@@ -129,6 +129,7 @@ const subtitledTracks: PlayerTracks = {
   audio: { tracks: [], chosenStreamId: undefined, choose: () => undefined, problem: undefined },
   levelling: { isOn: false, switchTo: () => undefined, problem: undefined },
   level: { levelling: { isMeasured: true, gainDb: -2 }, carriedGainDb: 0 },
+  measuring: undefined,
   boost: undefined,
 };
 

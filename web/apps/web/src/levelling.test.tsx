@@ -10,6 +10,7 @@ import {
   addedGainDb,
   LevelSwitch,
   levelNote,
+  measuredLevel,
   measuringNote,
   soundLevelOf,
   type SoundLevel,
@@ -89,6 +90,46 @@ describe("levelling a film's loudness (D226)", () => {
     );
     const said =
       "Its loudness is waiting to be measured, about 12 minutes; until then it plays as it is.";
+    await settleUntil(() => mounted?.container.textContent.includes(said) === true);
+    expect(mounted.container.textContent).toContain(said);
+  });
+
+  it("takes up a level measured as the film plays, for the track playing, and only for a sound not levelled", () => {
+    const unmeasured = { levelling: { isMeasured: false, gainDb: 0 }, carriedGainDb: 0 };
+    const levellings = [
+      { isMeasured: true, gainDb: -4.2 },
+      { isMeasured: true, gainDb: 3.1 },
+    ];
+    expect(measuredLevel(unmeasured, levellings, 1)).toEqual({
+      levelling: { isMeasured: true, gainDb: 3.1 },
+      carriedGainDb: 0,
+    });
+    expect(measuredLevel(unmeasured, undefined, 1)).toEqual(unmeasured);
+    expect(measuredLevel(unmeasured, [{ isMeasured: false, gainDb: 0 }], 0)).toEqual(unmeasured);
+    expect(measuredLevel(unmeasured, levellings, undefined)).toEqual(unmeasured);
+    expect(measuredLevel(arkon, levellings, 0)).toEqual(arkon);
+    const carried = { levelling: { isMeasured: true, gainDb: 2 }, carriedGainDb: 2 };
+    expect(measuredLevel(carried, levellings, 0)).toEqual(carried);
+  });
+
+  it("levels a film measured while it plays without its playing again (VQ50)", async () => {
+    const unmeasured = { levelling: { isMeasured: false, gainDb: 0 }, carriedGainDb: 0 };
+    const services = servedBy({
+      "GET /files/1/waits": [200, { levellings: [{ isMeasured: true, gainDb: -4.2 }] }],
+    });
+    mounted = await mount(
+      withServices(
+        <LevelSwitch
+          fileId={1}
+          level={unmeasured}
+          audioTrackIndex={0}
+          isInitiallyOn
+          videoRef={createRef()}
+        />,
+        services,
+      ),
+    );
+    const said = "Lowered 4.2 dB, to the level of other films.";
     await settleUntil(() => mounted?.container.textContent.includes(said) === true);
     expect(mounted.container.textContent).toContain(said);
   });

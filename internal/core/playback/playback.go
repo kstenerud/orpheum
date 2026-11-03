@@ -753,3 +753,31 @@ func (service *Service) ReadWhenViewed(ctx context.Context, titleID int64) error
 	}
 	return nil
 }
+
+// TrackLevellings are the levelling of each of a file's audio tracks, by its place among them, played
+// as it is: what a playback started now would level each by, which a player whose film was measured
+// as it played takes up without starting again (D226 §6). A file not read yet, or never probed, has
+// none.
+func (service *Service) TrackLevellings(ctx context.Context, fileID int64) ([]decide.Levelling, error) {
+	file, err := library.PlayableFile(ctx, service.database.Read(), fileID)
+	if errors.Is(err, library.ErrNoFile) || errors.As(err, new(*library.UnreadableError)) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	probe, err := library.ProbeOf(file.ProbeJSON)
+	if err != nil {
+		return nil, fmt.Errorf("read file %d's probe: %w", fileID, err)
+	}
+	levels, err := service.loudness.Levels(ctx, file.PayloadHash)
+	if err != nil {
+		return nil, err
+	}
+	tracks := decide.AudioStreams(probe)
+	levellings := make([]decide.Levelling, 0, len(tracks))
+	for index := range tracks {
+		levellings = append(levellings, decide.AsItIsLevelling(levels, probe, index))
+	}
+	return levellings, nil
+}

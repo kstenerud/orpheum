@@ -21,7 +21,8 @@ import {
   soundChoiceCause,
   useOwnTrackChoice,
 } from "./ladder-sound.ts";
-import { useLevelGain, type SoundLevel } from "./levelling.tsx";
+import type { FileWait } from "./file-waits.ts";
+import { useLevelGain, useMeasuredLevel, type SoundLevel } from "./levelling.tsx";
 import { useOwnChoice, type OwnChoiceState, type OwnChoiceWays } from "./sound.tsx";
 import { useSubtitleChoice, type SubtitleChoice } from "./subtitles.tsx";
 import type { PlaybackDecision } from "./watching.ts";
@@ -31,8 +32,10 @@ export interface PlayerTracks {
   readonly subtitles: SubtitleChoice;
   readonly audio: AudioChoice;
   readonly levelling: OwnChoiceState;
-  /** The sound playing now, which levelling levels. */
+  /** The sound playing now, which levelling levels, taken up once it is measured as it plays. */
   readonly level: SoundLevel;
+  /** How long measuring the sound playing will take, while it is not measured. */
+  readonly measuring: FileWait | undefined;
   /** The dialogue boost, undefined where the sound playing has no boost to offer. */
   readonly boost: OwnChoiceState | undefined;
 }
@@ -69,7 +72,7 @@ export interface FilmTracks {
  * audio track, levelling and the boost, while offered, shown to and worked by a cast's remote.
  */
 export function PlayerTracksProvider(props: FilmTracks): JSX.Element {
-  const { fileId, decision, videoRef, level } = props;
+  const { fileId, decision, videoRef } = props;
   const subtitles = useSubtitleChoice({
     fileId,
     tracks: decision.subtitles ?? [],
@@ -88,11 +91,13 @@ export function PlayerTracksProvider(props: FilmTracks): JSX.Element {
     isInitiallyOn: decision.preferences.isLevellingOn,
     onSwitched: () => undefined,
   });
+  const playing = audio.tracks.find((track) => track.streamId === audio.chosenStreamId);
+  const { level, measuring } = useMeasuredLevel(fileId, props.level, playing?.audioTrackIndex);
   useLevelGain(level, levelling.isOn, videoRef);
   const { isOffered } = props.boost;
   const tracks = useMemo(
-    () => ({ subtitles, audio, levelling, level, boost: isOffered ? boost : undefined }),
-    [subtitles, audio, levelling, level, boost, isOffered],
+    () => ({ subtitles, audio, levelling, level, measuring, boost: isOffered ? boost : undefined }),
+    [subtitles, audio, levelling, level, measuring, boost, isOffered],
   );
   return <PlayerTracksContext value={tracks}>{props.children}</PlayerTracksContext>;
 }

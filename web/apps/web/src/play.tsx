@@ -415,7 +415,11 @@ function UnderTheVideo(
         <SubtitleControls choice={tracks.subtitles} />
         <FindSubtitles fileId={props.fileId} onFetched={decideAgainFor(props, "subtitleFetched")} />
         <AudioChoiceMenu choice={tracks.audio} />
-        <LevellingControl fileId={props.fileId} level={tracks.level} state={tracks.levelling} />
+        <LevellingControl
+          level={tracks.level}
+          measuring={tracks.measuring}
+          state={tracks.levelling}
+        />
         <SoundOffsetControl videoRef={props.videoRef} initialMs={props.decision.soundOffsetMs} />
       </OverlayHeld>
     </>
