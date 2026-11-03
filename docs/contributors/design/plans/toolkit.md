@@ -87,6 +87,32 @@ dedicated to testing (the owner, 2026-11-03), so the spike uses them without ask
     it by goes on a wrapper the parent owns. `Stack` gets no reversed option: 🔈's upright pop-up,
     the only case, keeps its own `column-reverse`, until a second case appears.
 
+## The owner's look at the batch on staging (2026-11-03)
+
+- **The Gold Rush plays through 42:13** "without any visual or audible problems": item 12's cut holds.
+- **The UI gallery from the device lab** ("it's a pain to type in on that device"): built, "feat(web): the device lab's menu leads to the UI gallery, a few presses away on a TV",
+  on staging.
+- **A pop-up per widget type showing it in its states**: "For each UI widget type, we should have a
+  popup dialog that shows that widget in its various states. For example the chooser with only one
+  item, 2 items, 3 items, many items." To build.
+- **The gallery's "player's bar over a film" is the old layout**: it draws `PlayerControls` as it was
+  before D407, not the full-screen overlay's three rows nor the bar under the film (D407 §9). To
+  build: the gallery draws the real rows from a source it gives, so it cannot drift again.
+- **The tray's signs never seem to pulse**: "I've never actually seen the watch together or cast
+  icon pulse. I still don't see it on /ui-gallery". In Chromium and Firefox (vitest's browser mode)
+  the running sign's icon breathes, opacity 1 to 0.55 over 3 s, in the gallery as in the banner; it
+  is off by design where the system asks for less motion (tokens.css, icon-button.css). Asked the
+  owner which device, and whether to make it stronger.
+- **A chunk the server cannot make** (item 12's unbuilt half), the owner's design: "Can it just skip
+  automatically, and maybe put up an exclamation mark item in the non-fullscreen video page about
+  the problem? If it's able to skip forward, and will skip more than 15 seconds (or simply can't
+  play any further), show a pop-up dialog as well." Details asked (below the reply of 2026-11-03).
+- **Play from The Gold Rush's page opened the player without playing**: "I had to manually start it."
+  To diagnose; asked which device and browser.
+- **Idea: the scrub bar's time under the pointer**: "When moving the mouse over the scrub bar, show
+  a tooltip with the offset there. Eventually we'll be showing the preview thumbnail as well (much
+  like how Youtube does it)."
+
 ## Next batch (filed during this one)
 
 - **Core and node record their own CPU and memory use** (the owner, 2026-11-03: "how much cpu and
