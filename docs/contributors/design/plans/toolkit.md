@@ -69,6 +69,17 @@ dedicated to testing (the owner, 2026-11-03), so the spike uses them without ask
     rather than wait forever. Evidence: staging's node log, job 25680 and 25682, 2026-11-03 09:25
     UTC.
 
+    **Built ("fix(node): a re-timed copy is cut early enough for its keyframes' own delays", "fix(player): a chunk the core cannot make ends the playback, saying why").** The cut was the copy's, not an encode's: the film's x265 is
+    open-GOP with its B-frames flattened, so its copy is re-timed by dts2pts, which shows each
+    keyframe 83 to 250 ms after its decode time, differently at each; the segment muxer times its
+    cuts from its first packet as shown (FFmpeg's `segment.c`, `reference_stream_first_pts`), so a
+    keyframe shown less late than the run's first came early by the difference, and a cut 50 ms early
+    missed it. A re-timed copy is now cut 400 ms early; an open-GOP HEVC test film fails the old
+    margin as staging did. On staging after the fix, chunk 349 was made at once (job 25802), 55
+    pictures, 2.29 s. The player now ends the playback at the core's 422 and says the server failed
+    on this part of the film each time it tried. **Not built:** offering to skip past such a chunk,
+    which needs the owner's look (where the offer sits, its words, what it skips to).
+
 13. **`IconButton` takes no `className`** (the owner, 2026-11-03, agreeing to the lead's proposal):
     what its callers style becomes named options, each look unchanged; what a parent places or finds
     it by goes on a wrapper the parent owns. `Stack` gets no reversed option: 🔈's upright pop-up,
