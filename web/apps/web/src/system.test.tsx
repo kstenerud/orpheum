@@ -11,6 +11,7 @@ import { withServices } from "./test-services.tsx";
 
 /** The backups section's answer when there are none (D242 §5). */
 const noBackups = [200, { directory: "/srv/orpheum/backups", backups: [] }] as const;
+const noResourceUse = [200, { summaries: [], hours: [] }] as const;
 const noDiscovery = [
   200,
   {
@@ -108,6 +109,7 @@ async function shown(node: SystemNode): Promise<string> {
       servedBy({
         "GET /system": [200, report(node)],
         "GET /backups": noBackups,
+        "GET /system/resource-use": noResourceUse,
         "GET /config/unused": [200, { unusedSettings: [] }],
         "GET /filing-reports": [200, { reports: [] }],
         "GET /system/discovery": noDiscovery,
@@ -263,6 +265,7 @@ it("the System page says what is not answering, and each outside service's limit
       <System />,
       servedBy({
         "GET /backups": noBackups,
+        "GET /system/resource-use": noResourceUse,
         "GET /config/unused": [200, { unusedSettings: [] }],
         "GET /filing-reports": [200, { reports: [] }],
         "GET /system/discovery": noDiscovery,
@@ -322,6 +325,7 @@ it("the System page says when the public name's certificate expires, or that the
         servedBy({
           "GET /system": [200, shownReport],
           "GET /backups": noBackups,
+          "GET /system/resource-use": noResourceUse,
           "GET /config/unused": [200, { unusedSettings: [] }],
           "GET /filing-reports": [200, { reports: [] }],
           "GET /system/discovery": noDiscovery,

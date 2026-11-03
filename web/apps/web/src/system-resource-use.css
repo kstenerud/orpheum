@@ -1,0 +1,12 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* The hours table scrolls on its own on a narrow screen, never the page. */
+.resource-use__scroll {
+  overflow-x: auto;
+}
+
+.resource-use__scroll th,
+.resource-use__scroll td {
+  padding: 0.2em 0.6em;
+  text-align: start;
+}

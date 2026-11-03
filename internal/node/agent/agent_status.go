@@ -52,11 +52,13 @@ func (agent *Agent) postStatus(ctx context.Context, nodeID int64) error {
 // status is what the node is doing and holds, and its disks, now.
 func (agent *Agent) status(ctx context.Context) nodeproto.Status {
 	disks := agent.disks(ctx)
+	selfUse := agent.selfUse(ctx)
 	agent.mutex.Lock()
 	defer agent.mutex.Unlock()
 	takenCommandSeq, held := takenThenHeld(&agent.takenCommandSeq, agent.held)
 	status := nodeproto.Status{
 		SentAt: agent.clock.Now().UnixMilli(), Disks: disks, Held: held, TakenCommandSeq: takenCommandSeq,
+		SelfUse: selfUse,
 	}
 	if agent.workers.Stuck != nil {
 		status.Stuck = agent.workers.Stuck()
@@ -133,4 +135,23 @@ func (agent *Agent) exchange(ctx context.Context, method, path string, nodeID in
 		return fmt.Errorf("%s %s: the answer is not JSON: %w", method, path, err)
 	}
 	return nil
+}
+
+// selfUse is what the node uses of its machine now, for its status; nil when it cannot say.
+func (agent *Agent) selfUse(ctx context.Context) *nodeproto.SelfUse {
+	if agent.workers.ReadSelfUse == nil {
+		return nil
+	}
+	sample, err := agent.workers.ReadSelfUse()
+	if err != nil {
+		agent.selfUseFailing.Do(func() {
+			agent.logger.WarnContext(ctx, "cannot read what the node uses of its machine; its status says "+
+				"nothing of it", "err", err)
+		})
+		return nil
+	}
+	return &nodeproto.SelfUse{
+		Scope: string(sample.Scope), CPUMicros: sample.CPUMicros, HeldBytes: sample.HeldBytes,
+		CacheBytes: sample.CacheBytes, PeakBytes: sample.PeakBytes,
+	}
 }

@@ -317,6 +317,7 @@ func (server *Server) registerSystem() {
 		Tags: []string{tagRunningIt}, DefaultStatus: http.StatusNoContent,
 		Summary: "Set how many may read one of a node's devices at once, or give it back to its kind's (admin; D240)",
 	}, server.putDeviceReaderLimit)
+	server.registerResourceUse()
 }
 
 // DeviceReaderLimitInput sets one of a node's devices' reader limit.

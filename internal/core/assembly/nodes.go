@@ -17,6 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/core/readthrough"
+	"github.com/kstenerud/orpheum/internal/core/resourceuse"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
 	"github.com/kstenerud/orpheum/internal/core/waits"
 )
@@ -44,6 +45,7 @@ type nodeFacts interface {
 	waits.Nodes
 	library.Nodes
 	api.NodeReports
+	resourceuse.Nodes
 }
 
 // nodeWiring are the setters that wire the services to the node channel.

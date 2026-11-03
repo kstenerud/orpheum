@@ -1970,6 +1970,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system/resource-use": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What the core and each node used of their machines, each minute, beside the plays and the work running (admin) */
+        get: operations["getResourceUse"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/update": {
         parameters: {
             query?: never;
@@ -4495,6 +4512,81 @@ export interface components {
         };
         RescanStartedOutputBody: {
             isStarted: boolean;
+        };
+        ResourceUseHourBody: {
+            /**
+             * Format: double
+             * @description Its busiest minute's, in percent of one core
+             */
+            busiestCpuPercent?: number;
+            /** Format: int64 */
+            cacheBytes: number;
+            /**
+             * Format: double
+             * @description Its CPU time over the hour, in percent of one core
+             */
+            cpuPercent?: number;
+            /** Format: int64 */
+            heldBytes: number;
+            isNode: boolean;
+            /** @description The node's name; empty for the core */
+            nodeName: string;
+            /** Format: int64 */
+            peakBytes: number;
+            /**
+             * Format: int64
+             * @description The core's: the most playbacks playing at once
+             */
+            plays: number;
+            /** @description A node's: the most of each kind of job running at once */
+            running: {
+                [key: string]: number;
+            };
+            /**
+             * Format: int64
+             * @description Unix milliseconds of the hour's start
+             */
+            start: number;
+        };
+        ResourceUseOutputBody: {
+            /** @description The last day's hours, the core's first, newest first */
+            hours: components["schemas"]["ResourceUseHourBody"][] | null;
+            summaries: components["schemas"]["ResourceUseSummaryBody"][] | null;
+        };
+        ResourceUseSummaryBody: {
+            /**
+             * Format: double
+             * @description Its busiest minute's, in percent of one core
+             */
+            busiestCpuPercent?: number;
+            /**
+             * Format: int64
+             * @description The most file cache charged to it
+             */
+            cacheBytes: number;
+            /**
+             * Format: double
+             * @description Its CPU time over its time, in percent of one core
+             */
+            cpuPercent?: number;
+            /**
+             * Format: int64
+             * @description The most memory it held of its own
+             */
+            heldBytes: number;
+            isNode: boolean;
+            /** @description The node's name; empty for the core */
+            nodeName: string;
+            /**
+             * Format: int64
+             * @description The most the kernel saw it hold; 0 when it never said
+             */
+            peakBytes: number;
+            /**
+             * Format: int64
+             * @description Unix milliseconds of its first minute kept
+             */
+            since: number;
         };
         RestoreWatchedInputBody: {
             states: components["schemas"]["WatchedStateBody"][] | null;
@@ -10109,6 +10201,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReachabilityOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getResourceUse: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceUseOutputBody"];
                 };
             };
             /** @description Error */

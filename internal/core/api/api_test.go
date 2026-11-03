@@ -37,6 +37,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/portmap"
 	"github.com/kstenerud/orpheum/internal/core/reachability"
 	"github.com/kstenerud/orpheum/internal/core/readthrough"
+	"github.com/kstenerud/orpheum/internal/core/resourceuse"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
@@ -79,6 +80,8 @@ type testHarness struct {
 	looks       *interest.Register
 	directories *instancedir.Directories
 	clock       *clocktest.Fake
+	// resourceUse records what the core and nodes use, at a test's call.
+	resourceUse *resourceuse.Recorder
 	nodeBytes   *fakeNodeBytes
 	queue       *jobs.Queue
 	// subtitler is OpenSubtitles, faked (D224).
@@ -163,7 +166,7 @@ func newHarness(t *testing.T) testHarness {
 		SetupCodes: codes, Clock: now, Random: rand.Reader, Jitter: jobqueuetest.Unjittered(), Logger: logger,
 		Build: build.Provenance{Version: "test"},
 		Nodes: nodes, NodeBytes: nodeBytes, ScanRequests: nodes, FileReads: reads, Subtitler: subtitler,
-		Metadata: identify.Providers{"tmdb": provider},
+		Metadata: identify.Providers{"tmdb": provider}, ReadOwnUse: readOwnUse(),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -236,7 +239,8 @@ func newHarness(t *testing.T) testHarness {
 		database:     database, looks: dependencies.Interest,
 		tmdbProvider: provider, cache: cache, nodes: nodes, exchanges: exchanges, directories: directories, clock: now,
 		nodeBytes: nodeBytes, queue: queue, resolver: resolver, backups: dependencies.Backups,
-		subtitler: subtitler, readThrough: core.ReadThrough, subtitles: dependencies.Subtitles,
+		resourceUse: dependencies.ResourceUse,
+		subtitler:   subtitler, readThrough: core.ReadThrough, subtitles: dependencies.Subtitles,
 		chunks: dependencies.Chunks, reads: reads, settings: seeded,
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/artwork"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
+	"github.com/kstenerud/orpheum/internal/core/resourceuse"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
@@ -129,6 +130,11 @@ func startUpkeep(ctx context.Context, opened openedServices, loops *sync.WaitGro
 		ticker := time.NewTicker(castsGoneEvery)
 		defer ticker.Stop()
 		endGoneCasts(ctx, dependencies.Live, dependencies.Together, ticker.C, logger)
+	})
+	loops.Go(func() {
+		ticker := time.NewTicker(resourceuse.Every)
+		defer ticker.Stop()
+		dependencies.ResourceUse.Run(ctx, ticker.C)
 	})
 }
 

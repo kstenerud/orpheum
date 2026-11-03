@@ -128,6 +128,9 @@ var wireShapeByVersion = map[int]string{
 	// ExamineFile.ChecksChunksOf, and say what it dropped in a chunks_checked record (D392 §4): a node of
 	// 55 would check nothing.
 	56: "c1a5e0605233776b201e412e2bc62b187d35f4b7083fc3d960dc6172fdea52a8",
+	// 57 has a node's status say what it has used of its machine, Status.SelfUse: a core of 56 would
+	// keep none of it.
+	57: "3d27efe5e86a7261dd10ce314810794bab79e1bb73c6746c88f228e223e1304a",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

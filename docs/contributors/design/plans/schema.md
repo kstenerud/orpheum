@@ -1400,6 +1400,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `progress_hide` | persistent.db | `internal/core/playback` | |
 | `provider_response` | persistent.db | `internal/core/identify` | |
 | `refresh_request` | persistent.db | `internal/core/identify` | |
+| `resource_use` | persistent.db | `internal/core/resourceuse` | what the core and each node used of their machines each minute, beside what they did; kept a month (toolkit.md) |
 | `role` | persistent.db | `internal/core/auth` | the baseline seeds the built-in roles; the admin makes the rest (D243 §4) |
 | `invitation` | persistent.db | `internal/core/auth` | |
 | `invitation_link` | persistent.db | `internal/core/auth` | |

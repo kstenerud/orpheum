@@ -31,6 +31,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/reachability"
+	"github.com/kstenerud/orpheum/internal/core/resourceuse"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
@@ -108,6 +109,8 @@ type Dependencies struct {
 	Relay *turn.Issuer
 	// Backups makes and lists the backups of the server's persistent directory (D242 §5).
 	Backups *backup.Service
+	// ResourceUse is what the core and each node used of their machines, recorded each minute.
+	ResourceUse *resourceuse.Recorder
 	// Preferences keeps a person's own choices, which hold in every file (D230).
 	Preferences *preferences.Service
 	// NodeBytes reads a file's bytes from its node.

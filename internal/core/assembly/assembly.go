@@ -27,6 +27,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/core/providers/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/core/readthrough"
+	"github.com/kstenerud/orpheum/internal/core/resourceuse"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
@@ -35,6 +36,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/build"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
+	"github.com/kstenerud/orpheum/internal/platform/selfuse"
 	"github.com/kstenerud/orpheum/internal/store"
 )
 
@@ -82,6 +84,9 @@ type Parts struct {
 	Subtitler subtitles.Subtitler
 	// Metadata are a test's fake metadata providers; nil is TMDB at TMDBBaseURL.
 	Metadata identify.Providers
+	// ReadOwnUse is a test's fake of what the core reads of its own use of its machine; nil is
+	// selfuse.Read.
+	ReadOwnUse func() (selfuse.Sample, error)
 }
 
 // Services are the core's services, assembled: the API's dependencies, and what the composition root
@@ -367,6 +372,15 @@ func (services *Services) wireJobsInto(parts Parts) error {
 	if err != nil {
 		return fmt.Errorf("say how long work will take: %w", err)
 	}
+	// What the core and each node use of their machines, beside the plays and the work running.
+	readOwnUse := parts.ReadOwnUse
+	if readOwnUse == nil {
+		readOwnUse = selfuse.Read
+	}
+	dependencies.ResourceUse = resourceuse.NewRecorder(parts.Database, parts.Clock, parts.Logger, resourceuse.Sources{
+		ReadOwn: readOwnUse, Nodes: services.nodes, Work: services.Exchanges,
+		Plays: func() int { return len(dependencies.Playback.NowPlaying()) },
+	})
 	return nil
 }
 

@@ -26,6 +26,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/prepared"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/platform/selfuse"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
@@ -711,5 +712,31 @@ func TestTakenThenHeld_NeverSaysACommandTakenThatTheHeldWorkMisses(t *testing.T)
 	})
 	if seq != 24 || len(held) != 1 {
 		t.Errorf("the status says command %d taken, holding %v; want 24, whose work it lists", seq, held)
+	}
+}
+
+func TestStatus_SaysWhatTheNodeUsesOfItsMachine(t *testing.T) {
+	t.Parallel()
+	read := func() (selfuse.Sample, error) {
+		return selfuse.Sample{
+			Scope: selfuse.ScopeGroup, CPUMicros: 7, HeldBytes: 8, CacheBytes: 9, PeakBytes: 10,
+		}, nil
+	}
+	node := New("/nowhere", nodeproto.Hello{Name: "local"}, nil, Workers{ReadSelfUse: read},
+		clocktest.NewFake(time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
+	got := node.status(t.Context()).SelfUse
+	want := nodeproto.SelfUse{Scope: "cgroup", CPUMicros: 7, HeldBytes: 8, CacheBytes: 9, PeakBytes: 10}
+	if got == nil || *got != want {
+		t.Errorf("the status's use of the machine = %+v, want %+v", got, want)
+	}
+}
+
+func TestStatus_SaysNothingOfWhatTheNodeUsesWhenItCannotRead(t *testing.T) {
+	t.Parallel()
+	read := func() (selfuse.Sample, error) { return selfuse.Sample{}, errors.New("no /proc") }
+	node := New("/nowhere", nodeproto.Hello{Name: "local"}, nil, Workers{ReadSelfUse: read},
+		clocktest.NewFake(time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
+	if got := node.status(t.Context()).SelfUse; got != nil {
+		t.Errorf("the status's use of the machine = %+v, want none", got)
 	}
 }

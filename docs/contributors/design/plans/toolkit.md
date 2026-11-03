@@ -155,6 +155,13 @@ dedicated to testing (the owner, 2026-11-03), so the spike uses them without ask
   (2026-11-03, staging idle, 56 minutes after a start): core 9% of one core on average, 82 MiB held,
   363 MiB peak; node 2% of one core, 11 MiB held, 2.5 GiB of page cache from reading media, which
   the kernel reclaims.
+  **Built 2026-11-03** (internal/platform/selfuse, internal/core/resourceuse, the `resource_use`
+  table): the node sends its reading in each status (protocol 57), the core records a row a
+  process a minute and keeps a month, and the System page's "Resource use" shows each one's figures
+  over the month and its hours of the last day; there is no Diagnostics page yet, so it is a
+  section of the System page. Beside the figures: the plays on the core's rows, and on a node's the
+  jobs it ran by kind. Not yet beside them: the core's own in-process work (metadata fetches,
+  backups) and a node's scans, which are not jobs given to it.
 
 - **`ModalDialog` takes no `className`** (the owner, 2026-11-03, moved here from step 5): its seven
   callers (Cast, the folder browser, match correction twice, the notice note, the sign-out question,

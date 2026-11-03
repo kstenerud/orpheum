@@ -145,3 +145,7 @@ INSERT INTO subtitle_text (source_hash, stream_index, ass, vtt, failure, made_at
   VALUES (X'0102', 3, CAST('[Script Info]' AS BLOB), CAST('WEBVTT' AS BLOB), NULL, 1790000600000),
          (X'0103', 0, NULL, NULL, 'Invalid data found when processing input', 1790000600000);
 INSERT INTO device_reader_limit (node_id, device_key, reader_limit, set_at) VALUES (1, 'disk:sdc', 4, 1790000700000);
+INSERT INTO resource_use (at, process, node_name, scope, cpu_micros, elapsed_ms, held_bytes, cache_bytes, peak_bytes,
+    plays, running_json)
+  VALUES (1790000800000, 'core', '', 'cgroup', NULL, NULL, 1000, 2000, 3000, 1, '{}'),
+         (1790000860000, 'node', 'local', 'process', 600000, 60000, 4000, 5000, NULL, 0, '{"make_chunks":2}');
