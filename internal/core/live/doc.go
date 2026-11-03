@@ -39,6 +39,9 @@
 //     TestRegistry_ACastIsASessionTheSenderIsToldOf.
 //   - A cast ends once its receiver has had no connection for ReceiverGoneAfter, and never sooner;
 //     the sender is told (D364 §6). Enforced by TestRegistry_ACastEndsOnceItsReceiverIsGoneForTwoMinutes.
+//   - A cast its receiver has not said Use to within UnansweredAfter of being asked ends, its sender
+//     told; an accepted one never does by this (D358 §4, principles §28: no wait without a bound).
+//     Enforced by TestRegistry_ACastNeverAnsweredEndsAndOneAcceptedGoesOn.
 //   - A receiver whose person is in a Watch Together session is handed a credential for it with each
 //     cast, to take their part: their host's, to play it as their player (D364 §11), or their guest's,
 //     to follow it as just another follower (D371 §4). Enforced by

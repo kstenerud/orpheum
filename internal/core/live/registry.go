@@ -43,6 +43,13 @@ type TogetherPart func(userID int64, held string) (credential string, isHost boo
 // reconnecting, which comes back in seconds. The owner's two minutes.
 const ReceiverGoneAfter = 2 * time.Minute
 
+// UnansweredAfter is how long a cast's receiver may leave its question unanswered before the core
+// ends the cast itself (D358 §4; principles §28): the receiver ends it at its own minute and the
+// sender a few seconds after, but a receiver never handed the question, or a sender whose page went
+// away, ends nothing, and its sender stayed asking (the owner, 2026-11-03). Past both pages' own
+// bounds, so a page there says why first. A justified constant.
+const UnansweredAfter = 90 * time.Second
+
 // Cast is one device of a person casting to another of theirs: a session with that device, in which
 // whatever the person plays on the sender plays on the receiver, until it ends (D337, D364).
 type Cast struct {
@@ -115,6 +122,8 @@ type heldCast struct {
 	heldBy int64
 	// goneSince is when the receiver's last connection closed, zero while it has one (EndGone).
 	goneSince time.Time
+	// askedAt is when the receiver was asked whether to be used (EndUnanswered).
+	askedAt time.Time
 	// partIn is the Watch Together session the receiver was last handed its person's part in, 0 for
 	// none: its end ends the cast (EndPartIn, D389 §1).
 	partIn int64
@@ -285,7 +294,7 @@ func (registry *Registry) Cast(cast Cast, receiverCredential string) (started Ca
 			delete(owner.casts, receiverID)
 		}
 	}
-	held := &heldCast{Cast: cast, heldBy: front.id}
+	held := &heldCast{Cast: cast, heldBy: front.id, askedAt: registry.clock.Now()}
 	owner.casts[cast.ReceiverDeviceID] = held
 	front.send(Outbound{Type: MessageReceive, Receive: registry.receiveOf(held, receiverCredential)})
 	owner.tellSending(cast.SenderDeviceID)
@@ -416,6 +425,17 @@ func (registry *Registry) EndGone() []Cast {
 	now := registry.clock.Now()
 	return registry.endEvery(func(held *heldCast) bool {
 		return !held.goneSince.IsZero() && now.Sub(held.goneSince) >= ReceiverGoneAfter
+	})
+}
+
+// EndUnanswered ends every cast whose receiver has not said Use within UnansweredAfter of being
+// asked (D358 §4), its sender's pages told, and returns them for their sessions to be ended.
+func (registry *Registry) EndUnanswered() []Cast {
+	registry.mutex.Lock()
+	defer registry.mutex.Unlock()
+	now := registry.clock.Now()
+	return registry.endEvery(func(held *heldCast) bool {
+		return !held.IsAccepted && now.Sub(held.askedAt) >= UnansweredAfter
 	})
 }
 
