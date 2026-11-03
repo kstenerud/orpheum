@@ -161,7 +161,7 @@ export class SilentRequestError extends Error {
  * reason, and the core, its channel closed, ends the request's work (rtcapi's
  * TestChannel_AChannelTheClientClosesEndsItsRequest). One that hears nothing for silentAtMostMs while
  * it waits on the core fails, or its body does, with a SilentRequestError, its channel closed, and
- * tells silent first.
+ * tells silent first; so does one whose channel is not open within silentAtMostMs.
  */
 export async function sendOnChannel(
   channel: ChannelLike,
@@ -170,14 +170,23 @@ export async function sendOnChannel(
 ): Promise<Response> {
   const messages = await requestMessages(request);
   const { signal } = request;
+  const path = new URL(request.url).pathname;
   const headWait = new HeadWait();
   const isHeadBounded = request.body === null;
+  const opening =
+    channel.readyState === "open"
+      ? undefined
+      : untilOpened(signal, () => {
+          silent?.();
+          return new SilentRequestError(path);
+        });
   const answered = receiveResponse(channel, {
-    path: new URL(request.url).pathname,
-    signal,
+    path,
+    signal: opening?.signal ?? signal,
     headWait,
     silent,
   });
+  answered.catch(() => opening?.opened());
   if (isHeadBounded) {
     headWait.bound();
   }
@@ -200,12 +209,45 @@ export async function sendOnChannel(
       }
     }
   };
-  if (channel.readyState === "open") {
+  if (opening === undefined) {
     sendAll();
   } else {
-    onceOpen.set(channel, sendAll);
+    onceOpen.set(channel, () => {
+      opening.opened();
+      sendAll();
+    });
   }
   return await answered;
+}
+
+/**
+ * A signal for a request whose channel is not open yet: it aborts as signal does, or with what
+ * unopened makes once silentAtMostMs pass before opened is called. A channel on a connection that
+ * had stopped never opened, and a request with a body, its head's wait bound only once the body has
+ * left, waited for good: the owner's Stop casting did nothing at all (prod, 2026-11-03).
+ */
+function untilOpened(
+  signal: AbortSignal,
+  unopened: () => Error,
+): { readonly signal: AbortSignal; readonly opened: () => void } {
+  const either = new AbortController();
+  const relay = (): void => {
+    either.abort(signal.reason);
+  };
+  if (signal.aborted) {
+    relay();
+  } else {
+    signal.addEventListener("abort", relay, { once: true });
+  }
+  const timer = setTimeout(() => {
+    either.abort(unopened());
+  }, silentAtMostMs);
+  return {
+    signal: either.signal,
+    opened: () => {
+      clearTimeout(timer);
+    },
+  };
 }
 
 /** What to send once each channel not yet open opens. */
