@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
+	"github.com/kstenerud/orpheum/internal/core/portmap"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 )
 
@@ -37,6 +38,11 @@ type DiscoveryConfig struct {
 	// devices cannot make the direct WebRTC pair the core learns them from; they go stale when the
 	// provider moves the prefix (D356 §6).
 	HouseIPv6Networks []string `toml:"house_ipv6_networks"`
+	// Router is the house's router, which port mapping asks to forward the core's HTTPS port: in a
+	// container, whose default route is its own network's bridge, the machine's default gateway, which
+	// the deployment names; empty asks the default route's (item 15 of the owner's comments of
+	// 2026-11-02).
+	Router string `toml:"router"`
 }
 
 // discoveryConfigKeys are the core's [discovery] keys, in the order the file is written.
@@ -63,6 +69,11 @@ func discoveryConfigKeys() []configKey {
 			"the house's public IPv6 /64s, \"2a0f:1000:1:2::/64\", for a house whose devices cannot reach the " +
 				"core directly over WebRTC to teach them; the discovery recognises devices at home by them. " +
 				"Stale when the provider moves the prefix (D356 §6)",
+		},
+		{
+			tableDiscovery, "router", `""`,
+			"the house's router, which port mapping asks to forward the core's HTTPS port: in a container, " +
+				"this machine's default gateway, which the container cannot see; empty asks the default route's",
 		},
 	}
 }
@@ -117,6 +128,53 @@ func (discovery DiscoveryConfig) configuredCandidates() []discoveryproto.Candida
 		}
 	}
 	return candidates
+}
+
+// checkRouter refuses a router that is not an IPv4 address on the house's network.
+func (discovery DiscoveryConfig) checkRouter() error {
+	if router, err := netip.ParseAddr(discovery.Router); discovery.Router != "" &&
+		(err != nil || !router.Is4() || !router.IsPrivate()) {
+		return fmt.Errorf("discovery.router %q: want the router's address on the house's network, "+
+			`"192.168.1.1"`, discovery.Router)
+	}
+	return nil
+}
+
+// portMappingGateway is the router port mapping asks: the one the config names, else the default
+// route's, except in a container, where that is its own network's bridge (item 15 of the owner's
+// comments of 2026-11-02).
+func (discovery DiscoveryConfig) portMappingGateway() func() (netip.Addr, error) {
+	if router, err := netip.ParseAddr(discovery.Router); err == nil {
+		return func() (netip.Addr, error) { return router, nil }
+	}
+	if !discovery.SendInterfaceAddresses {
+		return func() (netip.Addr, error) { return netip.Addr{}, errRouterUnnamed }
+	}
+	return defaultGateway
+}
+
+// searchAddress is where UPnP's search for the router goes: to the router the config names, since a
+// search sent to SSDP's group from a container's network never leaves the machine; else to the group.
+func (discovery DiscoveryConfig) searchAddress() string {
+	if router, err := netip.ParseAddr(discovery.Router); err == nil {
+		return netip.AddrPortFrom(router, portmap.SSDPPort).String()
+	}
+	return portmap.SSDPAddress
+}
+
+// forwardTo is where port mapping asks the router to forward, in a container: the first IPv4 LAN
+// address, the machine's address at home and its published HTTPS port; none outside a container,
+// where the router forwards to the machine's own address.
+func (discovery DiscoveryConfig) forwardTo() netip.AddrPort {
+	if discovery.SendInterfaceAddresses {
+		return netip.AddrPort{}
+	}
+	for _, named := range discovery.LANAddresses {
+		if endpoint, err := netip.ParseAddrPort(named); err == nil && endpoint.Addr().Unmap().Is4() {
+			return netip.AddrPortFrom(endpoint.Addr().Unmap(), endpoint.Port())
+		}
+	}
+	return netip.AddrPort{}
 }
 
 // lanIPs are the house's addresses the LAN addresses name, which the core's WebRTC offers too.
@@ -185,6 +243,9 @@ func (discovery DiscoveryConfig) check() error {
 			return fmt.Errorf("discovery.house_ipv6_networks %q: want a public IPv6 /64 of the house's, "+
 				`"2a0f:1000:1:2::/64"`, named)
 		}
+	}
+	if err := discovery.checkRouter(); err != nil {
+		return err
 	}
 	if len(discovery.HouseIPv6Networks) > discoveryproto.MaxHouseNetworks {
 		return fmt.Errorf("discovery.house_ipv6_networks names %d networks; a discovery counts at most %d",

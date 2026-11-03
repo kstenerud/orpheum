@@ -100,6 +100,10 @@ type Values struct {
 		HTTPSPort int    `toml:"https_port"`
 		// WebRTCPort is the UDP port WebRTC is published on at the address, the same inside (D300 §1).
 		WebRTCPort int `toml:"webrtc_port"`
+		// Router is the machine's router at home, which the core's port mapping asks: its container's
+		// default route is its own network's bridge (item 15 of the owner's comments of 2026-11-02).
+		// Empty maps nothing.
+		Router string `toml:"router"`
 	} `toml:"lan"`
 }
 
@@ -355,6 +359,11 @@ func (values Values) lanProblems() []string {
 	}
 	if port := values.LAN.WebRTCPort; port < 1 || port > 65535 {
 		problems = append(problems, fmt.Sprintf("lan.webrtc_port %d: want a UDP port", port))
+	}
+	if router, err := netip.ParseAddr(values.LAN.Router); values.LAN.Router != "" &&
+		(err != nil || !router.Is4() || !router.IsPrivate()) {
+		problems = append(problems, fmt.Sprintf("lan.router %q: want this machine's router on the house's "+
+			`network, "192.168.1.1", or nothing`, values.LAN.Router))
 	}
 	return problems
 }

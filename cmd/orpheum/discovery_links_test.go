@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"net/netip"
 	"slices"
 	"strings"
 	"testing"
@@ -227,6 +228,34 @@ func TestPortMappingParts_TheLeaseIsTheServersSetting(t *testing.T) {
 	lease, err := parts.Settings.Duration(ctx, settings.PortMappingLeaseSeconds)
 	if err != nil || lease != 15*time.Minute {
 		t.Errorf("the port mapping reads a lease of %s, %v; want the 900 s set", lease, err)
+	}
+}
+
+// In a container, port mapping asks the router the deployment names, searching for it there, to forward
+// to the machine's address at home and its published port (item 15 of the owner's comments of
+// 2026-11-02); naming none, it says so rather than asking Docker's bridge.
+func TestPortMappingParts_InAContainerAskTheNamedRouterForTheMachinesAddress(t *testing.T) {
+	t.Parallel()
+	var config Config
+	config.Discovery.LANAddresses = []string{"192.168.1.20:8443"}
+	config.Discovery.Router = "192.168.1.1"
+	parts := portMappingParts(config, openedServices{}, func() discovery.Status { return discovery.Status{} },
+		slog.New(slog.DiscardHandler))
+	router, err := parts.Gateway()
+	if err != nil || router != netip.MustParseAddr("192.168.1.1") {
+		t.Errorf("the router asked is %s, %v; want the one named, 192.168.1.1", router, err)
+	}
+	if want := netip.MustParseAddrPort("192.168.1.20:8443"); parts.ForwardTo != want {
+		t.Errorf("the router is asked to forward to %s; want the machine's address at home, %s", parts.ForwardTo, want)
+	}
+	if parts.SearchAddress != "192.168.1.1:1900" {
+		t.Errorf("UPnP's search goes to %s; want the router itself, 192.168.1.1:1900", parts.SearchAddress)
+	}
+	config.Discovery.Router = ""
+	parts = portMappingParts(config, openedServices{}, func() discovery.Status { return discovery.Status{} },
+		slog.New(slog.DiscardHandler))
+	if _, err := parts.Gateway(); err == nil || !strings.Contains(err.Error(), "lan.router") {
+		t.Errorf("with no router named, the gateway is %v; want an error naming lan.router", err)
 	}
 }
 

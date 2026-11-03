@@ -568,6 +568,26 @@ func TestWrite_TheCoreAdministersOnlyFromTheHousesNetwork(t *testing.T) {
 	}
 }
 
+// The machine's router at home, which the core's container cannot see, goes to the core for its port
+// mapping to ask, not Docker's bridge (item 15 of the owner's comments of 2026-11-02); one that is not
+// a router at home is a problem the values name.
+func TestWrite_TheCoreAsksTheRouterTheValuesName(t *testing.T) {
+	t.Parallel()
+	dir := begun(t, Staging)
+	values := filledValues(t, Staging)
+	values.LAN.Router = "192.168.1.1"
+	if err := Write(dir, values, runtime); err != nil {
+		t.Fatal(err)
+	}
+	if got := decodeTOML(t, filepath.Join(dir, coreConfig))["discovery"]["router"]; got != "192.168.1.1" {
+		t.Errorf("the core's discovery.router is %v; want the values file's 192.168.1.1", got)
+	}
+	values.LAN.Router = "8.8.8.8"
+	if err := Write(dir, values, runtime); err == nil || !strings.Contains(err.Error(), "lan.router") {
+		t.Errorf("writing with a public router = %v; want it refused, naming lan.router", err)
+	}
+}
+
 // The machine's address at home, which the core's container cannot see, goes to the core with the
 // port HTTPS is published on there, for its discovery to name for devices at home; none is sent when
 // the values file names none, and an address that is not the house's is a problem the values name

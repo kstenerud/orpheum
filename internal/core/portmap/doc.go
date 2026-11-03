@@ -20,15 +20,21 @@
 //   - Every UPnP request goes to the gateway's own address over plain HTTP: the search's location, the
 //     description's URL base and its control URLs on any other host are left out (the Plex-chain
 //     review's O2). TestRouterOf_TakesOnlyURLsOnTheGateway.
-//   - The gateway is the default route's, from Linux's routing table.
-//     TestGatewayOf_ReadsTheDefaultRoutesGateway.
+//   - The gateway is the router the deployment names, else the default route's, from Linux's routing
+//     table. TestGatewayOf_ReadsTheDefaultRoutesGateway; cmd/orpheum's
+//     TestPortMappingParts_InAContainerAskTheNamedRouterForTheMachinesAddress.
+//   - Asked to forward elsewhere (ForwardTo), the router is asked for that address and port, not the
+//     machine's own: in a container on a bridge network, the machine's address at home and its
+//     published HTTPS port. TestStep_AskedToForwardElsewhereMapsTheMachinesAddressAndPublishedPort.
 //
 // # Limits
 //
 //   - Only the router of the default route is asked: behind two routers (an ISP's and the
 //     owner's), the outer one is not, and its own forwarding is the owner's to set.
-//   - A core in a container on a bridge network maps the container's address; host networking
-//     maps the machine's.
+//   - A core in a container on a bridge network cannot see the house's router, nor send SSDP's
+//     group search past the machine: it asks the router the deployment names (lan.router, which the
+//     install script fills in), searching it alone, and with none named it says so and maps nothing.
+//     Its IPv6 addresses are its own network's, so no IPv6 is opened from there.
 //
 // # Read before changing
 //

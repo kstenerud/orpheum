@@ -13,6 +13,7 @@ import (
 	"net/http/httptest"
 	"net/netip"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -47,6 +48,8 @@ type fakeRouter struct {
 	// Guarded by mutex:
 	lifetimes []uint32
 	nonces    [][]byte
+	// internals are each PCP mapping's client address and internal port, as the request names them.
+	internals []netip.AddrPort
 	actions   []string
 	arguments []map[string]string
 }
@@ -121,6 +124,9 @@ func (router *fakeRouter) answer(request []byte) []byte {
 	case request[0] == pcpVersion:
 		router.lifetimes = append(router.lifetimes, binary.BigEndian.Uint32(request[4:]))
 		router.nonces = append(router.nonces, append([]byte(nil), request[24:36]...))
+		client := netip.AddrFrom16([16]byte(request[8:24])).Unmap()
+		router.internals = append(router.internals,
+			netip.AddrPortFrom(client, binary.BigEndian.Uint16(request[pcpHeaderSize+16:])))
 		answer := make([]byte, pcpHeaderSize+pcpMapSize)
 		answer[0], answer[1] = pcpVersion, pcpResponseBit|pcpOpMap
 		copy(answer[4:8], request[4:8])
@@ -300,6 +306,32 @@ func TestStep_AsksForTheSettingsLease(t *testing.T) {
 	service.step(t.Context())
 	if asked := router.lifetimesAsked(); len(asked) != 1 || asked[0] != 600 {
 		t.Errorf("lifetimes asked = %v; want the setting's 600", asked)
+	}
+}
+
+// A core in a container on a bridge network asks the router to forward to the machine's address at
+// home and the port its HTTPS is published on there, not the container's own (item 15 of the owner's
+// comments of 2026-11-02): the router reaches nothing at the container's.
+func TestStep_AskedToForwardElsewhereMapsTheMachinesAddressAndPublishedPort(t *testing.T) {
+	t.Parallel()
+	router := startRouter(t, speaksPCP)
+	clock := clocktest.NewFake(time.Date(2026, 11, 3, 18, 0, 0, 0, time.UTC))
+	isWanted := true
+	parts := router.parts(clock, &isWanted)
+	parts.ForwardTo = netip.MustParseAddrPort("192.168.1.20:8443")
+	service, err := New(parts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service.step(t.Context())
+	router.mutex.Lock()
+	internals := slices.Clone(router.internals)
+	router.mutex.Unlock()
+	if len(internals) != 1 || internals[0] != parts.ForwardTo {
+		t.Errorf("PCP was asked to forward to %v; want only %s", internals, parts.ForwardTo)
+	}
+	if report := service.Report(); len(report.Mappings) != 1 || report.Mappings[0].Internal != parts.ForwardTo {
+		t.Errorf("report = %+v; want one mapping to %s", report, parts.ForwardTo)
 	}
 }
 

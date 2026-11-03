@@ -67,3 +67,7 @@ https_port = 8443
 # The UDP port WebRTC is published on at that address, so a device at home reaches the server in the
 # house over WebRTC too (D300).
 webrtc_port = 8443
+# This machine's router on the house's network, "192.168.1.1", which the server asks to forward its
+# HTTPS port so devices away from home reach it (port mapping, which the System page reports). The
+# install script fills it in from this machine when it can tell it; empty maps nothing.
+router = ""
