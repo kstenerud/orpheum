@@ -69,6 +69,11 @@ dedicated to testing (the owner, 2026-11-03), so the spike uses them without ask
     rather than wait forever. Evidence: staging's node log, job 25680 and 25682, 2026-11-03 09:25
     UTC.
 
+13. **`IconButton` takes no `className`** (the owner, 2026-11-03, agreeing to the lead's proposal):
+    what its callers style becomes named options, each look unchanged; what a parent places or finds
+    it by goes on a wrapper the parent owns. `Stack` gets no reversed option: 🔈's upright pop-up,
+    the only case, keeps its own `column-reverse`, until a second case appears.
+
 ## Next batch (filed during this one)
 
 - **Core and node record their own CPU and memory use** (the owner, 2026-11-03: "how much cpu and
@@ -84,3 +89,8 @@ dedicated to testing (the owner, 2026-11-03), so the spike uses them without ask
   (2026-11-03, staging idle, 56 minutes after a start): core 9% of one core on average, 82 MiB held,
   363 MiB peak; node 2% of one core, 11 MiB held, 2.5 GiB of page cache from reading media, which
   the kernel reclaims.
+
+- **`ModalDialog` takes no `className`** (the owner, 2026-11-03, moved here from step 5): its seven
+  callers (Cast, the folder browser, match correction twice, the notice note, the sign-out question,
+  Watch Together, the listing search) mostly set their width or lay out their contents; as named
+  options some may look different, so the owner reviews the dialogs together.
