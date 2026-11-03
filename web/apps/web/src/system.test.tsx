@@ -120,6 +120,15 @@ async function shown(node: SystemNode): Promise<string> {
   return mounted.container.textContent;
 }
 
+it("the System page has a section of what the server and each node used of their machines", async () => {
+  const text = await shown(connected);
+  const headings = [...(mounted?.container.querySelectorAll("h2") ?? [])].map(
+    (each) => each.textContent,
+  );
+  expect(headings).toContain("Resource use");
+  expect(text).toContain("Nothing is measured yet");
+});
+
 it("the System page says whether each machine runs FFmpeg in its sandbox (D112)", async () => {
   const text = await shown(connected);
   expect(text).toContain("local: FFmpeg runs without part of its sandbox");
