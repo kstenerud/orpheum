@@ -1338,7 +1338,7 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
       reconnected at 16:48:22 and was hidden 1 s later, so the likeliest cause is Safari in the
       background, frozen before its "hidden" note went out; a network gap of her bad connection
       fits too. The core's "rtc connection ended" names no cause; one that did (ICE failed, the
-      browser closed it) would tell these apart.
+      browser closed it) would tell these apart. *Built (11-05 batch):* the line's `cause`.
     - From her IPv4-only network (`194.213.108.4`, likely LTE, no IPv6 candidate) every pair failed
       with nothing sent or received: the house is DS-Lite with no IPv4 way in and the beta has no relay
       (as "Reaching production from outside" above).

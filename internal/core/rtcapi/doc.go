@@ -29,10 +29,13 @@
 //     TestAnswerWatch_LogsAChannelOnlyOnceItLingeredPastTheCoresLastByte,
 //     TestHeld_SaysHowSoonAStreamWasUsedAgain.
 //   - Each connection that connected logs one line as it ends, "rtc connection ended", read before
-//     pion drops its SCTP association: its connection, path, how long it lived since it connected,
+//     pion drops its SCTP association: its connection, path, why it ended (the browser closed it,
+//     ICE failed as the browser stopped answering, or the core closed it, stopped or turned it away),
+//     how long it lived since it connected,
 //     and SCTP's bytes sent and received, congestion window, smoothed round trip, receiver window and
 //     packet size at the end. pion keeps its retransmission and T3 timeout counts unexported, so the
-//     line has none (D397). TestEnded_AConnectionLogsItsSCTPFiguresAsItEnds.
+//     line has none (D397). TestEnded_AConnectionLogsItsSCTPFiguresAsItEnds,
+//     TestEnded_AConnectionTheCoreClosesAsItStopsSaysSo.
 //   - What a connected connection sends goes through the pacer, every socket ICE opens and the LAN
 //     port's under its mux: to the client's end at most twice its window a smoothed round trip, never
 //     above 300 Mb/s, in bursts of at most 16 KiB, so Chrome's 64 KiB socket buffer is not overrun.
