@@ -79,7 +79,7 @@ export function SkippedSign(props: {
  * was told and closed is told again as the film cannot go on past it.
  */
 function popUpOf(stretch: SkippedStretch): string {
-  return `${String(stretch.fromMs)}${stretch.cannotGoOn === true ? " cannot go on" : ""}`;
+  return `${String(stretch.fromMs)}${stretch.isWhereItStops === true ? " cannot go on" : ""}`;
 }
 
 /**
@@ -95,15 +95,15 @@ export function SkippedPopUp(props: {
   const [closed, setClosed] = useState<readonly string[]>([]);
   const shown = stretches.find(
     (stretch) =>
-      (stretch.cannotGoOn === true || stretch.toMs - stretch.fromMs > toldInAPopUpPastMs) &&
+      (stretch.isWhereItStops === true || stretch.toMs - stretch.fromMs > toldInAPopUpPastMs) &&
       !closed.includes(popUpOf(stretch)),
   );
   if (shown === undefined) {
     return null;
   }
-  const summary = shown.cannotGoOn === true ? t("skipped.cannotGoOn") : t("skipped.summary");
+  const summary = shown.isWhereItStops === true ? t("skipped.cannotGoOn") : t("skipped.summary");
   const told =
-    shown.cannotGoOn === true
+    shown.isWhereItStops === true
       ? t("skipped.cannotGoOnTold", { from: clockText(shown.fromMs) })
       : t("skipped.told", { stretches: stretchText(shown) });
   return (

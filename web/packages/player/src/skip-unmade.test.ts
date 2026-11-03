@@ -132,7 +132,7 @@ describe("a chunk the core cannot make (toolkit.md item 12)", () => {
     expect(failures).toEqual(["cannot_make"]);
     expect(skipped.slice(-2)).toEqual([
       { fromMs: 2_530_000, toMs: 2_649_600 },
-      { fromMs: 2_530_000, toMs: 2_651_900, cannotGoOn: true },
+      { fromMs: 2_530_000, toMs: 2_651_900, isWhereItStops: true },
     ]);
     hls.destroy();
   });
@@ -142,7 +142,7 @@ describe("a chunk the core cannot make (toolkit.md item 12)", () => {
     const { hls, failures, skipped } = skipping(video);
     cannotMake(hls, 1100);
     expect(failures).toEqual(["cannot_make"]);
-    expect(skipped).toEqual([{ fromMs: 2_530_000, toMs: 2_532_300, cannotGoOn: true }]);
+    expect(skipped).toEqual([{ fromMs: 2_530_000, toMs: 2_532_300, isWhereItStops: true }]);
     hls.destroy();
   });
 

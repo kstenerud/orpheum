@@ -115,8 +115,6 @@ function ControlsBar(props: {
   const { film, offer, moves, playRef, skipped } = props;
   const { videoRef } = film;
   const barRef = useRef<HTMLDivElement>(null);
-  const areaRef = useRef<HTMLDivElement>(null);
-  const [hasOffer, setHasOffer] = useState(false);
   const source = useVideoSource(videoRef);
   const isTv = isTelevision(navigator.userAgent);
   const shown = useControlsShown(isTv, moves);
@@ -149,20 +147,45 @@ function ControlsBar(props: {
           />
         }
       />
-      <div className="page-controls__offers">
-        <SkippedSign stretches={skipped} />
-        {isTv ? <OverlayUp /> : null}
-        {/* Back is left to the page, which it leaves for the film's (D407 §7). */}
-        <ConvenienceArea
-          film={film}
-          offer={offer}
-          hasOffer={hasOffer}
-          isOverlayFull
-          onOffered={setHasOffer}
-          leftMs={source.durationMs === 0 ? undefined : source.durationMs - source.atMs}
-          areaRef={areaRef}
-        />
-      </div>
+      <BarOffers
+        film={film}
+        offer={offer}
+        skipped={skipped}
+        isTv={isTv}
+        leftMs={source.durationMs === 0 ? undefined : source.durationMs - source.atMs}
+      />
+    </div>
+  );
+}
+
+/**
+ * The bar's end: the warning sign of what was skipped (SkippedSign), a television's ‹, and the
+ * offers as ordinary buttons (ConvenienceArea).
+ */
+function BarOffers(props: {
+  readonly film: FilmParts;
+  readonly offer: OfferPiece | undefined;
+  readonly skipped: readonly SkippedStretch[];
+  readonly isTv: boolean;
+  /** How long the film has left to play, undefined while its length is not known. */
+  readonly leftMs: number | undefined;
+}): JSX.Element {
+  const areaRef = useRef<HTMLDivElement>(null);
+  const [hasOffer, setHasOffer] = useState(false);
+  return (
+    <div className="page-controls__offers">
+      <SkippedSign stretches={props.skipped} />
+      {props.isTv ? <OverlayUp /> : null}
+      {/* Back is left to the page, which it leaves for the film's (D407 §7). */}
+      <ConvenienceArea
+        film={props.film}
+        offer={props.offer}
+        hasOffer={hasOffer}
+        isOverlayFull
+        onOffered={setHasOffer}
+        leftMs={props.leftMs}
+        areaRef={areaRef}
+      />
     </div>
   );
 }

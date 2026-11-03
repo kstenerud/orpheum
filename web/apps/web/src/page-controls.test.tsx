@@ -316,7 +316,7 @@ describe("the player's controls under the film outside full screen (D369 §2, D4
     act(() => {
       video.dispatchEvent(
         new CustomEvent(playerSkippedEvent, {
-          detail: { fromMs: 2_530_000, toMs: 2_651_900, cannotGoOn: true },
+          detail: { fromMs: 2_530_000, toMs: 2_651_900, isWhereItStops: true },
         }),
       );
     });
@@ -329,7 +329,7 @@ describe("the player's controls under the film outside full screen (D369 §2, D4
     act(() => {
       video.dispatchEvent(
         new CustomEvent(playerSkippedEvent, {
-          detail: { fromMs: 2_530_000, toMs: 2_532_300, cannotGoOn: true },
+          detail: { fromMs: 2_530_000, toMs: 2_532_300, isWhereItStops: true },
         }),
       );
     });

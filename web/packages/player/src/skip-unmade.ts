@@ -7,10 +7,11 @@
  * a pop-up dialog as well"; toolkit.md item 12).
  */
 
-import Hls, { type ErrorData } from "hls.js";
+import Hls, { type ErrorData, type Fragment } from "hls.js";
 
 import { recoverFrom } from "./abr-controller.ts";
 import { cannotMakeStatus } from "./failure.ts";
+import { seekTo } from "./report.ts";
 
 /** The event a video is sent each time its player steps over chunks the core cannot make. */
 export const playerSkippedEvent = "orpheumplayerskipped";
@@ -27,7 +28,7 @@ export interface SkippedStretch {
    * Whether the film cannot go on past it: stepping over would pass skipsAtMostMs or the film's
    * end, and the playback ends (cannot_make).
    */
-  readonly cannotGoOn?: boolean;
+  readonly isWhereItStops?: boolean;
 }
 
 /**
@@ -57,11 +58,14 @@ export function skippedStretchOf(event: Event): SkippedStretch | undefined {
   if (typeof detail !== "object" || detail === null) {
     return undefined;
   }
-  const { fromMs, toMs, cannotGoOn } = Object.fromEntries(Object.entries(detail));
+  const fields = Object.fromEntries(Object.entries(detail));
+  const { fromMs, toMs } = fields;
   if (typeof fromMs !== "number" || typeof toMs !== "number") {
     return undefined;
   }
-  return cannotGoOn === true ? { fromMs, toMs, cannotGoOn } : { fromMs, toMs };
+  return fields["isWhereItStops"] === true
+    ? { fromMs, toMs, isWhereItStops: true }
+    : { fromMs, toMs };
 }
 
 /**
@@ -70,7 +74,7 @@ export function skippedStretchOf(event: Event): SkippedStretch | undefined {
  * chunk; there it is moved to the chunk's end and loaded on from there, and the video is sent a
  * playerSkippedEvent. A chunk after it that fails too lengthens the same stretch. A stretch that
  * would pass skipsAtMostMs, or the film's end, is left to fail (cannot_make), the video sent a
- * playerSkippedEvent that says so (cannotGoOn). A seek of the person's before the move is theirs:
+ * playerSkippedEvent that says so (isWhereItStops). A seek of the person's before the move is theirs:
  * loading goes on from where they went. Returns the stopping.
  */
 export function skipChunksNotMade(
@@ -78,62 +82,18 @@ export function skipChunksNotMade(
   video: SkippingVideo,
   note: (note: string) => void,
 ): () => void {
-  let stretchFromS: number | undefined;
-  let stretchToS: number | undefined;
-  let waiting: { readonly atS: number; readonly toS: number } | undefined;
-  let isOwnMove = false;
-  const tell = (fromS: number, toS: number, cannotGoOn: boolean): void => {
-    const what = cannotGoOn ? "cannot step over" : "stepped over";
-    note(`${what} chunks the core cannot make, ${fromS.toFixed(1)} s to ${toS.toFixed(1)} s`);
-    const stretch: SkippedStretch = {
-      fromMs: Math.round(fromS * 1000),
-      toMs: Math.round(toS * 1000),
-      ...(cannotGoOn ? { cannotGoOn } : {}),
-    };
-    video.dispatchEvent(new CustomEvent(playerSkippedEvent, { detail: stretch }));
-  };
-  const moveIfArrived = (): void => {
-    if (waiting === undefined || video.currentTime < waiting.atS - arrivedWithinS) {
-      return;
-    }
-    const { toS } = waiting;
-    waiting = undefined;
-    stretchToS = toS;
-    isOwnMove = true;
-    hls.startLoad(toS);
-    video.currentTime = toS;
-    tell(stretchFromS ?? toS, toS, false);
-  };
+  const skipping = new Skipping(hls, video, note);
   const onError = (_event: unknown, data: ErrorData): void => {
     const { frag } = data;
-    if (!data.fatal || data.response?.code !== cannotMakeStatus || frag === undefined) {
-      return;
+    if (data.fatal && data.response?.code === cannotMakeStatus && frag !== undefined) {
+      skipping.cannotMake(data, frag);
     }
-    const isSameStretch =
-      stretchToS !== undefined && Math.abs(frag.start - stretchToS) < arrivedWithinS;
-    const fromS = isSameStretch && stretchFromS !== undefined ? stretchFromS : frag.start;
-    const toS = frag.start + frag.duration;
-    const isPastTheEnd = Number.isFinite(video.duration) && toS >= video.duration - arrivedWithinS;
-    if (isPastTheEnd || (toS - fromS) * 1000 > skipsAtMostMs) {
-      tell(fromS, toS, true); // failOnFatal ends the playback, saying why
-      return;
-    }
-    recoverFrom(data);
-    stretchFromS = fromS;
-    waiting = { atS: frag.start, toS };
-    moveIfArrived();
+  };
+  const moveIfArrived = (): void => {
+    skipping.moveIfArrived();
   };
   const onSeeking = (): void => {
-    if (isOwnMove) {
-      isOwnMove = false;
-      return;
-    }
-    stretchFromS = undefined;
-    stretchToS = undefined;
-    if (waiting !== undefined) {
-      waiting = undefined;
-      hls.startLoad(video.currentTime); // loading stopped at the chunk: the person went elsewhere
-    }
+    skipping.seeking();
   };
   hls.on(Hls.Events.ERROR, onError);
   video.addEventListener("timeupdate", moveIfArrived);
@@ -145,4 +105,87 @@ export function skipChunksNotMade(
     video.removeEventListener("waiting", moveIfArrived);
     video.removeEventListener("seeking", onSeeking);
   };
+}
+
+/** A chunk as hls.js gives it with its error: where in the film it starts, and how long it is. */
+type ChunkSpan = Pick<Fragment, "start" | "duration">;
+
+/** The stretch a playback is stepping over, and the move it waits to make (skipChunksNotMade). */
+class Skipping {
+  #fromS: number | undefined;
+  #toS: number | undefined;
+  #waiting: { readonly atS: number; readonly toS: number } | undefined;
+  #isOwnMove = false;
+  readonly #hls: Pick<Hls, "startLoad">;
+  readonly #video: SkippingVideo;
+  readonly #note: (note: string) => void;
+
+  constructor(hls: Pick<Hls, "startLoad">, video: SkippingVideo, note: (note: string) => void) {
+    this.#hls = hls;
+    this.#video = video;
+    this.#note = note;
+  }
+
+  /** The core cannot make chunk: it is stepped over once the film reaches it, or the film stops. */
+  cannotMake(data: object, chunk: ChunkSpan): void {
+    const isSameStretch =
+      this.#toS !== undefined && Math.abs(chunk.start - this.#toS) < arrivedWithinS;
+    const fromS = isSameStretch && this.#fromS !== undefined ? this.#fromS : chunk.start;
+    const toS = chunk.start + chunk.duration;
+    const { duration } = this.#video;
+    const isPastTheEnd = Number.isFinite(duration) && toS >= duration - arrivedWithinS;
+    if (isPastTheEnd || (toS - fromS) * 1000 > skipsAtMostMs) {
+      this.#tell({ fromS, toS, isWhereItStops: true }); // failOnFatal ends the playback, saying why
+      return;
+    }
+    recoverFrom(data);
+    this.#fromS = fromS;
+    this.#waiting = { atS: chunk.start, toS };
+    this.moveIfArrived();
+  }
+
+  /** Moves the film past the chunk not made, once it has played up to it. */
+  moveIfArrived(): void {
+    const waiting = this.#waiting;
+    if (waiting === undefined || this.#video.currentTime < waiting.atS - arrivedWithinS) {
+      return;
+    }
+    const { toS } = waiting;
+    this.#waiting = undefined;
+    this.#toS = toS;
+    this.#isOwnMove = true;
+    this.#hls.startLoad(toS);
+    seekTo(this.#video, toS * 1000);
+    this.#tell({ fromS: this.#fromS ?? toS, toS, isWhereItStops: false });
+  }
+
+  /** A seek of the person's ends the stretch, and loading goes on from where they went. */
+  seeking(): void {
+    if (this.#isOwnMove) {
+      this.#isOwnMove = false;
+      return;
+    }
+    this.#fromS = undefined;
+    this.#toS = undefined;
+    if (this.#waiting !== undefined) {
+      this.#waiting = undefined;
+      this.#hls.startLoad(this.#video.currentTime); // loading stopped at the chunk
+    }
+  }
+
+  #tell(stretchS: {
+    readonly fromS: number;
+    readonly toS: number;
+    readonly isWhereItStops: boolean;
+  }): void {
+    const { fromS, toS, isWhereItStops } = stretchS;
+    const what = isWhereItStops ? "cannot step over" : "stepped over";
+    this.#note(`${what} chunks the core cannot make, ${fromS.toFixed(1)} s to ${toS.toFixed(1)} s`);
+    const stretch: SkippedStretch = {
+      fromMs: Math.round(fromS * 1000),
+      toMs: Math.round(toS * 1000),
+      ...(isWhereItStops ? { isWhereItStops } : {}),
+    };
+    this.#video.dispatchEvent(new CustomEvent(playerSkippedEvent, { detail: stretch }));
+  }
 }
