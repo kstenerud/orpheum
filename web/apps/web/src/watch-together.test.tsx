@@ -513,6 +513,18 @@ describe("what plays, in the host's Watch Together dialog (D364 §13, §15; D384
     mounted.unmount();
   });
 
+  it("holds Stop off, saying it reconnects, while the session's connection is down", async () => {
+    const { mounted, sockets } = await sessionPage([], 35);
+    await sockets.session.drop();
+    const stop = buttonWithText(mounted.container, "Stop the film for everyone");
+    expect(stop?.disabled).toBe(true);
+    expect(mounted.container.textContent).toContain("Reconnecting…");
+    const heardBefore = sockets.session.heard.length;
+    await click(stop);
+    expect(sockets.session.heard).toHaveLength(heardBefore);
+    mounted.unmount();
+  });
+
   it("marks the device leading and this one under the people, for a host who shows debug tools", async () => {
     const leading = {
       type: "roster",

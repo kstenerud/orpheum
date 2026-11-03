@@ -108,8 +108,11 @@ export interface TogetherConnection {
   readonly setPlayer: (read: (() => PlayerState) | undefined) => void;
   /** Tells the group where the player is now: on every change of it. */
   readonly reportState: () => void;
-  /** Sends the host's command, based on the group as last told. */
-  readonly command: (command: GroupCommand) => void;
+  /**
+   * Sends the host's command, based on the group as last told; false, and nothing sent, while not
+   * connected (it is not held for the reconnect, which could play it long after the press).
+   */
+  readonly command: (command: GroupCommand) => boolean;
   /** Tells the server one thing its player did, for its log; dropped while not connected. */
   readonly note: (note: PlayerNote) => void;
   /** Connects, from the start: after creating it, or again after closing it. */
@@ -278,10 +281,10 @@ class SessionConnection
     }
   };
 
-  readonly command = (command: GroupCommand): void => {
+  readonly command = (command: GroupCommand): boolean => {
     const position =
       "positionMs" in command ? { positionMs: Math.max(0, Math.round(command.positionMs)) } : {};
-    this.#send({ type: "command", ...command, ...position, basedOnSeq: this.#seq });
+    return this.#send({ type: "command", ...command, ...position, basedOnSeq: this.#seq });
   };
 
   readonly note = (note: PlayerNote): void => {
@@ -358,10 +361,13 @@ class SessionConnection
     }
   }
 
-  #send(message: Readonly<Record<string, unknown>>): void {
-    if (this.#snapshot.status === "connected") {
-      this.#socket?.send(JSON.stringify({ v: togetherProtocolVersion, ...message }));
+  /** Sends message while connected; whether it went. */
+  #send(message: Readonly<Record<string, unknown>>): boolean {
+    if (this.#snapshot.status !== "connected") {
+      return false;
     }
+    this.#socket?.send(JSON.stringify({ v: togetherProtocolVersion, ...message }));
+    return true;
   }
 
   readonly #ping = (): void => {

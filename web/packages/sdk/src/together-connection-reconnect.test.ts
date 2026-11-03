@@ -123,7 +123,9 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
         group: { ...welcome.group, state: "Playing" },
       }),
     );
-    connection.command({ command: "changeItem", fileId: 5, positionMs: 61_000.7 });
+    expect(connection.command({ command: "changeItem", fileId: 5, positionMs: 61_000.7 })).toBe(
+      true,
+    );
     expect(sockets.sent.at(-1)).toEqual({
       v: 2,
       type: "command",
@@ -132,6 +134,22 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
       positionMs: 61_001,
       basedOnSeq: 6,
     });
+  });
+
+  it("says a command did not go while the connection is down, and sends nothing", () => {
+    const sockets = fakeSockets();
+    const connection = createTogetherConnection({
+      credential: "c",
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    sockets.opened[0]!.onOpen();
+    sockets.opened[0]!.onMessage(JSON.stringify({ ...welcome, isHost: true }));
+    sockets.opened[0]!.onClose(1006);
+    const sentBefore = sockets.sent.length;
+    expect(connection.command({ command: "stop" })).toBe(false);
+    expect(sockets.sent).toHaveLength(sentBefore);
   });
 
   it("connects again after a drop, waiting longer each time, and says hello again", () => {

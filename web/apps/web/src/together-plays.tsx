@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import type { TogetherSnapshot } from "@orpheum/sdk";
 import { useEffect, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -37,7 +38,12 @@ export function TogetherPlays(props: {
       {fileId === 0 ? (
         <h2 id="together-plays-heading">{t("watchTogether.nothingPlays")}</h2>
       ) : (
-        <FilmPlaying fileId={fileId} details={details} connection={session.connection} />
+        <FilmPlaying
+          fileId={fileId}
+          details={details}
+          connection={session.connection}
+          status={session.snapshot?.status}
+        />
       )}
       <StopCasting />
     </section>
@@ -49,9 +55,12 @@ function FilmPlaying(props: {
   readonly fileId: number;
   readonly details: SessionDetails;
   readonly connection: ReturnType<typeof useTogether>["connection"];
+  /** The connection's status as last read; Stop waits while it is not "connected". */
+  readonly status: TogetherSnapshot["status"] | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { connection, details } = props;
+  const { connection, details, status } = props;
+  const isUp = status === "connected";
   return (
     <>
       <h2 id="together-plays-heading">{details.titleName ?? t("cast.aFilm")}</h2>
@@ -61,14 +70,19 @@ function FilmPlaying(props: {
         <Link to={{ screen: "play", fileId: props.fileId }} className="title__play">
           {t("watchTogether.backToTheFilm")}
         </Link>
+        {/* A Stop pressed while the connection is down would be dropped unsaid, so it waits. */}
         <button
           type="button"
+          disabled={!isUp}
           onClick={() => {
             connection?.command({ command: "stop" });
           }}
         >
           {t("watchTogether.stopTheFilm")}
         </button>
+        {status === "connecting" || status === "reconnecting" ? (
+          <output>{t(`together.${status}`)}</output>
+        ) : null}
       </div>
     </>
   );
