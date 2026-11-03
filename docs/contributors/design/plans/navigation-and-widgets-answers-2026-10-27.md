@@ -1533,7 +1533,9 @@ release's security note, `ledger/pending/*.parts`). The owner's decisions, each 
   causes; an IPv6-only probe name lets a page tell "no IPv6" from "IPv6 got no answer": this batch.
 - **The Stop hook's `make check` records each run** (start, length, load) and says at a run's start
   when an FFmpeg job is running, so the gate will be slower: this batch, a gate change on the
-  owner's word.
+  owner's word. *Built (the record):* `.claude/.cache/gate-runs.jsonl`, a line a run with
+  the FFmpeg jobs running as it started. *Open:* a Stop hook speaks only when it ends, so "at a run's
+  start" needs the owner's choice of how (asked at the batch's end).
 - **A film's first seconds before its second keyframe play** (17 files on staging): the first chunk
   starts at the discarded keyframe and is cut to the film's start; a playback batch, not this one.
 - **The boost's seam** is decided by ear after VQ237: no change unless a gap is heard.

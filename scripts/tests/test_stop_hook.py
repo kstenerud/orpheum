@@ -106,6 +106,35 @@ class StopCannotRun(unittest.TestCase):
     def test_a_failing_gate_blocks_every_stop(self):
         self.assertEqual(self.verdict(2, stop_hook_active=True).get("decision"), "block")
 
+    def test_each_run_of_the_gate_is_recorded_with_its_length_load_and_ffmpeg_jobs(self):
+        # The owner, 2026-11-01: a 30-minute turn could not be explained after it.
+        import tempfile
+        from unittest import mock
+
+        sys.path.insert(0, str(HOOKS))
+        import on_stop  # noqa: PLC0415
+
+        pending = Path(tempfile.mkdtemp())
+        with mock.patch.object(on_stop, "PENDING", pending), \
+                mock.patch.object(on_stop.hooklib, "read_event", lambda: {}), \
+                mock.patch.object(on_stop.hooklib, "check_pr_running", lambda: None), \
+                mock.patch.object(on_stop, "already_passed", lambda: False), \
+                mock.patch.object(on_stop, "changed_since_pass", lambda: ["internal/core/x.go"]), \
+                mock.patch.object(on_stop, "gate_held", lambda: False), \
+                mock.patch.object(on_stop, "ffmpeg_jobs", lambda: 2), \
+                mock.patch.object(on_stop, "RUNS_KEPT", 2), \
+                mock.patch.object(on_stop.worktrees, "clean", lambda root: ([], [])), \
+                mock.patch.object(on_stop.run_gate, "gate_command", lambda target, env: ["true"]):
+            for _ in range(3):
+                on_stop.main()
+        runs = [json.loads(line) for line in (pending / on_stop.RUNS).read_text().splitlines()]
+        self.assertEqual(len(runs), 2, "only the newest RUNS_KEPT runs are kept")
+        self.assertEqual(runs[-1]["target"], "check")
+        self.assertEqual(runs[-1]["exit"], 0)
+        self.assertEqual(runs[-1]["ffmpegJobs"], 2)
+        for field in ("start", "seconds", "loadBefore", "loadAfter"):
+            self.assertIn(field, runs[-1])
+
     def _needs_build(self) -> int:
         sys.path.insert(0, str(HOOKS))
         import on_stop  # noqa: PLC0415
