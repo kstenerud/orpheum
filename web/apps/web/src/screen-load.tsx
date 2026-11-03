@@ -12,8 +12,10 @@
 import { reportFailure } from "@orpheum/sdk";
 import {
   Component,
+  createElement,
   lazy,
   Suspense,
+  useState,
   type ComponentType,
   type JSX,
   type LazyExoticComponent,
@@ -252,6 +254,58 @@ export function lazyScreen<P extends object>(
   retryAfterMs?: number,
 ): LazyExoticComponent<ComponentType<P>> {
   return lazy(async () => await loadScreenCode(screen, load, retryAfterMs));
+}
+
+/** A lazily loaded screen (lazyScreen) whose code can be loaded ahead of its first showing. */
+export interface PreloadableScreen<P extends object> {
+  /** The screen: once its code has loaded, shown at once, never Loading… in its place. */
+  readonly component: ComponentType<P>;
+  /**
+   * Loads its code ahead, once; a failure is let go, the screen asking again as it is shown (by
+   * loadScreenCode, which says so or reloads into a newer client: never from a load nobody asked
+   * to see).
+   */
+  readonly preload: () => Promise<void>;
+  /** Whether its code has loaded, ahead or as it was shown. */
+  readonly isLoaded: () => boolean;
+}
+
+/**
+ * A screen whose code loads as it is first shown, as lazyScreen's does, or ahead by preload. A lazy
+ * component asked for the first time suspends even when its module is already in, so its LaterScreen
+ * shows Loading… for a moment; once the code is in, this shows the screen itself, not through lazy.
+ */
+export function preloadableScreen<P extends object>(
+  screen: string,
+  load: () => Promise<{ default: ComponentType<P> }>,
+  retryAfterMs?: number,
+): PreloadableScreen<P> {
+  let loaded: ComponentType<P> | undefined = undefined;
+  let preloading: Promise<void> | undefined = undefined;
+  const keep = (module: { default: ComponentType<P> }): { default: ComponentType<P> } => {
+    loaded ??= module.default;
+    return module;
+  };
+  const Lazy = lazy(async () => keep(await loadScreenCode(screen, load, retryAfterMs)));
+  function Screen(props: P): JSX.Element {
+    // Chosen once per showing: a screen shown through lazy stays so as its code comes, never
+    // swapped for the loaded component, which React would mount afresh, its state lost.
+    const [Shown] = useState<ComponentType<P>>(() => loaded ?? Lazy);
+    return createElement(Shown, props);
+  }
+  return {
+    component: Screen,
+    preload: async () => {
+      preloading ??= load().then(
+        (module) => {
+          keep(module);
+        },
+        () => undefined,
+      );
+      await preloading;
+    },
+    isLoaded: () => loaded !== undefined,
+  };
 }
 
 /**

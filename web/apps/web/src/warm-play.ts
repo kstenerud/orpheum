@@ -15,6 +15,7 @@
 import { useEffect, useRef } from "react";
 
 import { pageWorkerOf } from "./screen-load.tsx";
+import { whenIdle } from "./when-idle.ts";
 
 /**
  * The Play screen's code: the module its screen imports (later-screens.tsx), which then answers at
@@ -54,20 +55,6 @@ export function forgetPlayWarmed(): void {
   warming = undefined;
 }
 
-/** The browser's idle wait, where it has one, else a timer's next turn. */
-function whenIdle(then: () => void): () => void {
-  if (typeof requestIdleCallback === "function") {
-    const handle = requestIdleCallback(then, { timeout: warmPlayIdleWithinMs });
-    return () => {
-      cancelIdleCallback(handle);
-    };
-  }
-  const timer = setTimeout(then, 0);
-  return () => {
-    clearTimeout(timer);
-  };
-}
-
 /**
  * Warms the Play page's code (warmPlayOnce) once the page using it has shown for warmPlayAfterMs
  * and the browser is idle, under the discovery's loader only; a page left before then warms nothing.
@@ -83,7 +70,7 @@ export function useWarmsPlay(ways: WarmWays = {}): void {
     const timer = setTimeout(() => {
       stopIdle = whenIdle(() => {
         void warmPlayOnce(load);
-      });
+      }, warmPlayIdleWithinMs);
     }, warmPlayAfterMs);
     return () => {
       clearTimeout(timer);

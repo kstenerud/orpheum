@@ -11,6 +11,8 @@ import { LiveProvider } from "./live.tsx";
 import { NeedsAttention } from "./needs-attention.tsx";
 import { currentNotice } from "./notice.ts";
 import { StatusTray } from "./status-tray.tsx";
+import { areTrayDialogsLoaded } from "./tray-dialog-code.tsx";
+import { closeTrayDialog } from "./tray-dialog.ts";
 import {
   buttonNamed,
   buttonWithText,
@@ -122,6 +124,51 @@ it("has Cast's sign open its dialog over the page, which stays where it is, offe
   });
   expect(document.querySelector("dialog[open]")).toBeNull();
   expect(services.navigation.route()).toEqual({ screen: "play", fileId: 9 });
+});
+
+/** The page's text but any dialog's: what shows in place of a sign while its dialog's code loads. */
+function textOutsideDialogs(): string {
+  const page = document.body.cloneNode(true);
+  if (!(page instanceof HTMLElement)) {
+    return "";
+  }
+  for (const dialog of page.querySelectorAll("dialog")) {
+    dialog.remove();
+  }
+  return page.textContent;
+}
+
+// The owner, 2026-11-03 (plans/toolkit.md item 10): a first press of Cast or Watch Together showed
+// "Loading…" in place of the sign, and the dialog some time later.
+it("loads Cast's and Watch Together's dialogs' code ahead once the page has shown, so a first press opens each at once, never Loading… in the sign's place", async () => {
+  const server = fakeTogetherServer();
+  const services = {
+    ...servedBy({ "GET /me/devices": [200, { devices: [] }] }, [], "token"),
+    openTogetherSocket: server.openSocket,
+  };
+  mounted = await mount(
+    withServices(
+      <LiveProvider>
+        <StatusTray isAdmin={false} canHostWatchTogether />
+      </LiveProvider>,
+      services,
+    ),
+  );
+  expect(areTrayDialogsLoaded()).toBe(false); // not part of what the first page loads
+  await server.accept();
+  await settleUntil(areTrayDialogsLoaded); // no press: loaded once the page has shown
+  for (const label of ["Cast to a device", "Watch Together"]) {
+    act(() => {
+      mounted?.container
+        .querySelector<HTMLButtonElement>(`.status-tray button[aria-label="${label}"]`)
+        ?.click();
+    });
+    expect(document.querySelector("dialog[open]")).not.toBeNull();
+    expect(textOutsideDialogs()).not.toContain("Loading…");
+    act(() => {
+      closeTrayDialog();
+    });
+  }
 });
 
 it("turns Watch Together's sign blue for the host and for a signed-in guest, a button that opens its dialog over the page (D364 §13, §14; D384 §2)", async () => {
