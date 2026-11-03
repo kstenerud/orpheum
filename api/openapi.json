@@ -2309,6 +2309,23 @@
         ],
         "type": "object"
       },
+      "FilmWithoutSoundBody": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "titleId": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "titleId",
+          "name"
+        ],
+        "type": "object"
+      },
       "FindingBody": {
         "additionalProperties": false,
         "properties": {
@@ -4201,6 +4218,15 @@
             "format": "int64",
             "type": "integer"
           },
+          "filmsWithoutSound": {
+            "items": {
+              "$ref": "#/components/schemas/FilmWithoutSoundBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "matchCount": {
             "format": "int64",
             "type": "integer"
@@ -4233,7 +4259,8 @@
           "waitingRootCount",
           "unreadCount",
           "matchCount",
-          "seriesReadWrongly"
+          "seriesReadWrongly",
+          "filmsWithoutSound"
         ],
         "type": "object"
       },

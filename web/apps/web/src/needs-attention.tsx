@@ -36,7 +36,8 @@ export function NeedsAttention(): JSX.Element {
             { count: value.matchCount, key: "needsAttention.waitingMatches" },
           ].filter((line) => line.count > 0);
           const readWrongly = value.seriesReadWrongly ?? [];
-          return lines.length + readWrongly.length === 0 ? (
+          const withoutSound = value.filmsWithoutSound ?? [];
+          return lines.length + readWrongly.length + withoutSound.length === 0 ? (
             <p>{t("needsAttention.nothing")}</p>
           ) : (
             <ul>
@@ -52,6 +53,13 @@ export function NeedsAttention(): JSX.Element {
                     {series.name}
                   </Link>
                   {t("needsAttention.seriesReadWrongly", { count: series.unplacedCount })}
+                </li>
+              ))}
+              {withoutSound.map((film) => (
+                <li key={`film-${String(film.titleId)}`}>
+                  <WarningIcon />{" "}
+                  <Link to={{ screen: "title", itemId: film.titleId }}>{film.name}</Link>
+                  {t("needsAttention.filmWithoutSound")}
                 </li>
               ))}
             </ul>

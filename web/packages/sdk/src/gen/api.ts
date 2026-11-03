@@ -3239,6 +3239,11 @@ export interface components {
             id: number;
             name: string;
         };
+        FilmWithoutSoundBody: {
+            name: string;
+            /** Format: int64 */
+            titleId: number;
+        };
         FindingBody: {
             action?: string;
             check: string;
@@ -3889,6 +3894,7 @@ export interface components {
         NeedsAttentionOutputBody: {
             /** Format: int64 */
             diskCount: number;
+            filmsWithoutSound: components["schemas"]["FilmWithoutSoundBody"][] | null;
             /** Format: int64 */
             matchCount: number;
             /** Format: int64 */

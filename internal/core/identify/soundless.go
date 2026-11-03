@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+package identify
+
+import (
+	"context"
+	"fmt"
+)
+
+// FilmWithoutSound is a film whose video file was read and holds a picture but no sound: a video-only
+// download whose sound was never merged in, as Mister 517's was (the owner, 2026-11-02).
+type FilmWithoutSound struct {
+	TitleID int64
+	Name    string
+}
+
+// filmsWithoutSoundRead bounds how many films a look lists.
+const filmsWithoutSoundRead = 500
+
+// FilmsWithoutSound are the live films with no audio track, in the order of their ids, one for each
+// film however many of its files lack sound.
+func (chooser *Chooser) FilmsWithoutSound(ctx context.Context) ([]FilmWithoutSound, error) {
+	rows, err := chooser.matcher.database.Read().ListFilmsWithoutSound(ctx, filmsWithoutSoundRead)
+	if err != nil {
+		return nil, fmt.Errorf("list the films with no sound: %w", err)
+	}
+	films := make([]FilmWithoutSound, 0, len(rows))
+	for _, row := range rows {
+		if last := len(films) - 1; last >= 0 && films[last].TitleID == row.TitleID {
+			continue
+		}
+		films = append(films, FilmWithoutSound{TitleID: row.TitleID, Name: row.TitleName})
+	}
+	return films, nil
+}
