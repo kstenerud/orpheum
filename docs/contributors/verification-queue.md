@@ -2457,3 +2457,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   and Right on the film seek, OK plays and pauses, Down reaches ▶; ⤢ returns to full screen; and,
   out of full screen, the next Back goes to the film's page. Note what each Back did.
   (`web/apps/web/src/page-controls.tsx`, `up-next.tsx`, `play.tsx`)
+- [ ] **VQ250** — a pop-up is not a dialog: no ✕, sized to what it holds, its list showing context
+  (D408 §2–§3). On the Fire TV in Silk, play a film with several subtitle tracks and open the
+  overlay's 💬, 🎧, ⁝ and 🔈 in turn, then the banner's menu, a library's sort and a title's ⁝.
+  Passes when: none of them draws a ✕, and every dialog (Find subtitles, Identified incorrectly)
+  still does; focus opens on the current choice with a choice above and below it in view where the
+  list has them, and moving down or up keeps the next one in view; Back, Left or Right closes each
+  without choosing, focus back on its button; 🔈's pop-up is no wider than its upright slider, and
+  Up and Down move the volume while OK on mute mutes. Note any pop-up that opened on its first
+  entry, not its current one.
+  (`web/apps/web/src/popover.tsx`, `list-box.tsx`, `player-menus.tsx`)

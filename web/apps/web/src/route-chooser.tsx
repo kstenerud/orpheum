@@ -6,7 +6,7 @@ import { useId, type JSX, type ReactNode } from "react";
 
 import { DropDown } from "./drop-down.tsx";
 import { Icon } from "./icon.tsx";
-import { Link } from "./link.tsx";
+import { ListOption } from "./list-box.tsx";
 import type { Route } from "./router.ts";
 
 /** One choice among several, each a route: a view, a sort. */
@@ -83,7 +83,6 @@ function Chooser(props: ChooserTold & { readonly children: ReactNode }): JSX.Ele
           )
         }
         openerClassName={openerClassOf(isIcon, props.isOverVideo === true)}
-        listClassName="route-chooser__panel"
         onOpenChange={props.onOpenChange}
         openerNaming={
           props.isFieldLabelShown === false || isIcon
@@ -116,17 +115,16 @@ export function RouteChooser(
   return (
     <Chooser {...props}>
       {props.options.map((option) => (
-        <li key={option.key}>
-          <Link
-            to={option.to}
-            isCurrent={option.isCurrent}
-            isReplacing={props.isAView === true}
-            {...(option.spoken === undefined ? {} : { label: option.spoken })}
-          >
-            {option.mark}
-            {option.label}
-          </Link>
-        </li>
+        <ListOption
+          key={option.key}
+          to={option.to}
+          isCurrent={option.isCurrent}
+          isReplacing={props.isAView === true}
+          spoken={option.spoken}
+        >
+          {option.mark}
+          {option.label}
+        </ListOption>
       ))}
     </Chooser>
   );
@@ -143,17 +141,15 @@ export function ActionChooser(
   return (
     <Chooser {...props}>
       {props.options.map((option) => (
-        <li key={option.key}>
-          <button
-            type="button"
-            aria-current={option.isCurrent ? "true" : undefined}
-            aria-label={option.spoken}
-            onClick={option.onChoose}
-          >
-            {option.mark}
-            {option.label}
-          </button>
-        </li>
+        <ListOption
+          key={option.key}
+          isCurrent={option.isCurrent}
+          spoken={option.spoken}
+          onChoose={option.onChoose}
+        >
+          {option.mark}
+          {option.label}
+        </ListOption>
       ))}
     </Chooser>
   );

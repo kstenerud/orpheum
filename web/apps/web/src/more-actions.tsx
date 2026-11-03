@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 
 import { DropDown } from "./drop-down.tsx";
 import { Icon } from "./icon.tsx";
+import { ListOption } from "./list-box.tsx";
 
 /**
  * One of a page's rarely used actions: its name in the menu, and the dialog it opens, given how to
@@ -57,16 +58,14 @@ export function MoreActions(props: {
         isFromItsTop
       >
         {props.actions.map((action) => (
-          <li key={action.key}>
-            <button
-              type="button"
-              onClick={() => {
-                setOpenKey(action.key);
-              }}
-            >
-              {action.label}
-            </button>
-          </li>
+          <ListOption
+            key={action.key}
+            onChoose={() => {
+              setOpenKey(action.key);
+            }}
+          >
+            {action.label}
+          </ListOption>
         ))}
       </DropDown>
       {opened === undefined

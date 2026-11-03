@@ -106,14 +106,14 @@ async function opened(on: Mounted, name: string): Promise<void> {
 
 /** The places of the open list, by their text. */
 function places(on: Mounted): string[] {
-  return [...on.container.querySelectorAll("dialog .drop-down__places li")].map(
+  return [...on.container.querySelectorAll("dialog .list-box li")].map(
     (place) => place.textContent,
   );
 }
 
 /** Presses the open list's place whose text is text. */
 async function choosing(on: Mounted, text: string): Promise<void> {
-  const place = [...on.container.querySelectorAll("dialog .drop-down__places button")].find(
+  const place = [...on.container.querySelectorAll("dialog .list-box button")].find(
     (button) => button.textContent === text,
   );
   await fire(place, new MouseEvent("click", { bubbles: true }));

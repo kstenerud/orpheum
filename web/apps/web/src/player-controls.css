@@ -39,3 +39,14 @@
   width: 6rem;
   accent-color: var(--color-accent);
 }
+
+/* Upright in 🔈's pop-up (D407 §10, Q11), mute under it, as wide as the slider stands (the owner,
+   2026-11-02: "The volume control popup is far too wide"; D408 §2). */
+.player-controls__sound--upright {
+  flex-direction: column-reverse;
+  padding: var(--space-2);
+}
+
+.player-controls__sound--upright .volume-range {
+  width: var(--size-control);
+}

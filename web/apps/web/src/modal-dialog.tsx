@@ -29,12 +29,6 @@ interface ModalDialogProps {
    * point is typing, as an invitation's who-it-is-for (the owner, 2026-10-12).
    */
   readonly shouldFocusFirstField?: boolean;
-  /**
-   * Whether it draws its own Close, as a drop-down's list does, its places scrolling under it; every
-   * other dialog has the standard one, a cross at its top-right (the owner, 2026-10-30: "This should
-   * be a standard widget so they all behave the same").
-   */
-  readonly hasOwnClose?: boolean;
   readonly className?: string;
   readonly children: ReactNode;
 }
@@ -60,12 +54,15 @@ export function ModalDialog(props: ModalDialogProps): JSX.Element {
     <dialog ref={ref} className={classes} role={props.role} aria-label={props.label}>
       {props.children}
       {/* After what it holds, so opening focuses that first; drawn at the top-right. */}
-      {props.hasOwnClose === true ? null : <StandardClose toldRef={toldRef} />}
+      <StandardClose toldRef={toldRef} />
     </dialog>
   );
 }
 
-/** Every dialog's Close but a drop-down's: a cross at its top-right, which closes it. */
+/**
+ * Every dialog's Close, a cross at its top-right, which closes it (the owner, 2026-10-30: "This
+ * should be a standard widget so they all behave the same"); a pop-up has none (D408 §2).
+ */
 function StandardClose(props: {
   readonly toldRef: RefObject<{ readonly onClose: () => void }>;
 }): JSX.Element {

@@ -163,9 +163,10 @@ async function unreachedIn(selector: string): Promise<string[]> {
     .map((control) => control.outerHTML.slice(0, 80));
 }
 
-/** Whether what has focus is an open drop-down's Close. */
-function isOnClose(): boolean {
-  return document.activeElement?.classList.contains("drop-down__close") === true;
+/** Whether what has focus is the first place of an open drop-down's list. */
+function isOnFirstPlace(): boolean {
+  const first = document.querySelector("dialog .list-box a, dialog .list-box button");
+  return first !== null && document.activeElement === first;
 }
 
 /** Whether what has focus is a link to href. */
@@ -287,7 +288,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     const more = document.querySelector<HTMLElement>(".more-actions__button");
     more?.focus();
     await press("{Enter}");
-    await drawn("dialog .drop-down__places button");
+    await drawn("dialog .list-box button");
     expect(focusedName()).toBe("Identified incorrectly");
     await press("{Enter}");
     await drawn("dialog.match-correction");
@@ -337,7 +338,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     await expect.poll(() => document.querySelector("main h2")?.textContent).toBe("Season 2");
   });
 
-  it("closes a chooser's list by the browser's own Back, a history step, choosing nothing, and by its Close", async () => {
+  it("closes a chooser's list by the browser's own Back, a history step, choosing nothing, and draws no Close", async () => {
     await page.viewport(width, height);
     const place = fakePlace("/");
     const navigation = createNavigation(place, false);
@@ -356,16 +357,11 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     expect(document.activeElement).toBe(picker);
     expect(navigation.route()).toEqual({ screen: "browse", library: 1 });
     expect(navigation.behind()).toEqual([{ screen: "home" }]);
-    // Its Close, the cross at its top-right, reached by the arrows.
+    // A pop-up, not a dialog: no Close among its places (the owner, 2026-11-02; D408 §2).
     await press("{Enter}");
     await drawn("dialog a");
-    expect(
-      await pressUntil(
-        "{ArrowUp}",
-        () => document.activeElement?.classList.contains("drop-down__close") === true,
-      ),
-    ).toBe(true);
-    await press("{Enter}");
+    expect(document.querySelector('dialog button[aria-label="Close"]')).toBeNull();
+    await press("{Escape}");
     await expect.poll(() => document.querySelector("dialog")).toBeNull();
     expect(document.activeElement).toBe(picker);
     expect(navigation.route()).toEqual({ screen: "browse", library: 1 });
@@ -373,7 +369,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
 
   // The owner on a Fire TV, 2026-10-28: the season picker, a chooser like this, "shifted the page up
   // before displaying it", and opened on its Close, not a season.
-  it("opens a chooser mid-page on its choice, the page moving neither as it opens, its Close reached, nor as it closes", async () => {
+  it("opens a chooser mid-page on its choice, the page moving neither as it opens, its first place reached, nor as it closes", async () => {
     await page.viewport(width, height);
     const above = document.createElement("div");
     above.style.height = `${String(height * 2)}px`;
@@ -394,7 +390,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
       expect(isFocusIn("dialog ul")).toBe(true);
       expect(document.activeElement?.getAttribute("aria-current")).toBe("page");
       expect(window.scrollY).toBe(scrolled);
-      expect(await pressUntil("{ArrowUp}", isOnClose)).toBe(true);
+      expect(await pressUntil("{ArrowUp}", isOnFirstPlace)).toBe(true);
       expect(window.scrollY).toBe(scrolled);
       await press("{Escape}");
       await expect.poll(() => document.querySelector("dialog")).toBeNull();
@@ -407,7 +403,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
 
   // The owner on a Fire TV, 2026-10-28: "Left/right didn't close it", focus on the Close. The banner's
   // Libraries menu closes as any chooser does, and scrolls within its height (the owner, 2026-10-28).
-  it("closes the banner's Libraries menu by Left and by Right from its Close, focus on its icon, its places scrolling within its height", async () => {
+  it("closes the banner's Libraries menu by Left and by Right from its first place, focus on its icon, its places scrolling within its height", async () => {
     await page.viewport(width, height);
     walking = await mountApp(walkServices(manyLibraries, "/"));
     await drawn('.app-shell__watching button[aria-label="Libraries"]');
@@ -418,16 +414,16 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     for (const arrow of ["{ArrowLeft}", "{ArrowRight}"]) {
       await press("{Enter}");
       await drawn("dialog a");
-      expect(await pressUntil("{ArrowUp}", isOnClose), arrow).toBe(true);
+      expect(await pressUntil("{ArrowUp}", isOnFirstPlace), arrow).toBe(true);
       await press(arrow);
       await expect.poll(() => document.querySelector("dialog"), { message: arrow }).toBeNull();
       await expect.poll(() => document.activeElement, { message: arrow }).toBe(icon);
     }
-    // Its places, more than the screen holds, scroll under its Close; Down reaches the last, All
+    // Its places, more than the screen holds, scroll within it; Down reaches the last, All
     // libraries, shown whole within the list.
     await press("{Enter}");
     await drawn("dialog a");
-    const places = document.querySelector<HTMLElement>("dialog .drop-down__places");
+    const places = document.querySelector<HTMLElement>("dialog .list-box");
     expect(isScrollingWithin(places)).toBe(true);
     expect(await pressUntil("{ArrowDown}", () => isFocusOnLinkTo("/browse?library=all"), 24)).toBe(
       true,

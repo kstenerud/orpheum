@@ -1,0 +1,57 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* A list of entries in one column (list-box.tsx): in a pop-up, as wide as its widest entry and as
+   its button at least, as a select's list; scrolling within itself where the pop-up is cut at the
+   screen's edge (popover.css), so on a Fire TV's 480 pixels an admin's Sign out stays in sight (the
+   owner, 2026-10-27). */
+.list-box {
+  /* One entry and the gap after it: the context kept either side of the entry focused (D408 §3). */
+  --list-box-row: calc(
+    var(--line-height-body) * 1em + 2 * var(--space-2) + var(--space-1) + var(--focus-ring-room)
+  );
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: var(--popover-opener-width, auto);
+  min-height: 0;
+  margin: 0;
+  padding: var(--space-2);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+  scroll-padding-block: var(--list-box-row);
+}
+
+.list-box__entry {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+
+/* A choice (ListOption), the list's width, its whole row pressable. */
+.list-box__option {
+  display: block;
+  width: 100%;
+  min-height: auto;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  font-weight: normal;
+  text-align: start;
+  text-decoration: none;
+}
+
+.list-box__option:hover:not(:disabled),
+.list-box__option[aria-current="page"],
+.list-box__option[aria-current="true"] {
+  background: var(--color-surface);
+}
+
+/* The current place, a menu's (app-shell.tsx), in the accent as well. */
+.list-box__option[aria-current="page"] {
+  color: var(--color-accent);
+}

@@ -220,7 +220,7 @@ describe("AppShell", () => {
     );
     expect(markup).not.toContain("route-chooser__chevron");
     expect(await drawnWithMenuOpen(shell)).toMatch(
-      /<ul><li class="app-shell__who">karl<\/li><li class="app-shell__section">Manage<\/li>.*href="\/jobs".*class="app-shell__divider".*href="\/this-device".*href="\/account".*href="\/about".*Sign out/u,
+      /<ul class="list-box"><li class="list-box__entry app-shell__who">karl<\/li><li class="app-shell__section">Manage<\/li>.*href="\/jobs".*class="app-shell__divider".*href="\/this-device".*href="\/account".*href="\/about".*Sign out/u,
     );
   });
 
@@ -239,7 +239,7 @@ describe("AppShell", () => {
         </AppShell>,
       );
     expect(await markupWith(true)).toMatch(
-      /<li class="app-shell__section">Development<\/li><li><a href="\/ui-gallery"[^>]*>UI gallery<\/a><\/li><li class="app-shell__divider".*href="\/this-device"/u,
+      /<li class="app-shell__section">Development<\/li><li class="list-box__entry"><a href="\/ui-gallery"[^>]*>UI gallery<\/a><\/li><li class="app-shell__divider".*href="\/this-device"/u,
     );
     expect(await markupWith(false)).not.toContain("Development");
     expect(await markupWith(false)).not.toContain('href="/ui-gallery"');
@@ -351,7 +351,7 @@ describe("AppShell", () => {
     expect(markup).toContain(">Sign out</button>");
   });
 
-  it("closes a menu when one of its places is chosen, on a press outside it, by its Close, and on Escape", async () => {
+  it("closes a menu when one of its places is chosen, on a press outside it, and on Escape, drawing no Close", async () => {
     const services = testServices("token", "/films");
     const mounted = await mount(
       withServices(
@@ -380,9 +380,8 @@ describe("AppShell", () => {
     expect(list()).toBeNull();
     expect(services.navigation.route()).toEqual({ screen: "jobs" });
     await click(button);
-    await click(buttonNamed(mounted.container, "Close"));
-    expect(list()).toBeNull();
-    await click(button);
+    // A pop-up, not a dialog: no Close (D408 §2).
+    expect(buttonNamed(mounted.container, "Close")).toBeUndefined();
     // Escape, which the browser tells a modal dialog as its cancel.
     await fire(list(), new Event("cancel", { cancelable: true }));
     expect(list()).toBeNull();

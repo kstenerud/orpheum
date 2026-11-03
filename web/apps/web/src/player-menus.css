@@ -2,27 +2,11 @@
 
 /* ⁝'s steppers (player-menus.tsx, D407 §8): Earlier and Later beside what they move, in one row,
    not each a whole place as a menu's choice is. */
-.player-menus__more .subtitles__offset,
-.player-menus__more .play__sound-delay {
+.player-menus__stepper .subtitles__offset,
+.player-menus__stepper .play__sound-delay {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
   padding-inline: var(--space-3);
-}
-
-.player-menus__more .subtitles__offset button,
-.player-menus__more .play__sound-delay button {
-  width: auto;
-}
-
-/* 🔈's pop-up (D407 §10, Q11): the volume upright, mute under it. */
-.player-menus__volume .player-controls__sound {
-  flex-direction: column-reverse;
-  padding: var(--space-2);
-}
-
-.player-menus__volume .volume-range {
-  width: var(--size-control);
-  accent-color: var(--color-accent);
 }

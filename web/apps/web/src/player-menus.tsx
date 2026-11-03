@@ -16,10 +16,12 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { audioTrackLabel, type AudioChoice } from "./audio-tracks.tsx";
-import { DropDown, keepsListOpenAttribute } from "./drop-down.tsx";
+import { DropDown } from "./drop-down.tsx";
+import { ListEntry, ListOption } from "./list-box.tsx";
 import { LevellingControl } from "./levelling.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { PlayOriginal } from "./play-original.tsx";
+import { keepsOpenAttribute, PopoverButton } from "./popover.tsx";
 import { SoundControls, type PlayerSound } from "./player-controls.tsx";
 import { AudioIcon, MoreIcon, MutedIcon, SoundIcon, SubtitlesIcon } from "./player-icons.tsx";
 import type { OverlayControl } from "./player-overlay-state.ts";
@@ -145,7 +147,9 @@ function TrackMenus(props: {
 
 /**
  * 🔈 (D407 §10, Q11): a pop-up with the volume upright and mute, both keeping it open
- * (keepsListOpenAttribute), as + and − move the volume from anywhere (player-commands.ts).
+ * (keepsOpenAttribute), as + and − move the volume from anywhere (player-commands.ts). A pop-up of
+ * its own, not a list: as wide as its slider (the owner, 2026-11-02: "The volume control popup is
+ * far too wide"; D408 §2).
  */
 function VolumeMenu(props: {
   readonly sound: PlayerSound;
@@ -155,19 +159,18 @@ function VolumeMenu(props: {
   const { sound } = props;
   const isSilent = sound.isMuted || sound.volume === 0;
   return (
-    <DropDown
+    <PopoverButton
       label={t("playerControls.volume")}
       opener={isSilent ? <MutedIcon /> : <SoundIcon />}
       openerClassName="icon-button icon-button--over-video"
       openerNaming={{ "aria-label": t("playerControls.volume") }}
-      listClassName="player-menus__volume"
       isFromItsTop
       onOpenChange={props.onOpenChange}
     >
-      <KeptOpen>
+      <div {...{ [keepsOpenAttribute]: "" }}>
         <SoundControls sound={sound} isOverVideo={false} isUpright />
-      </KeptOpen>
-    </DropDown>
+      </div>
+    </PopoverButton>
   );
 }
 
@@ -283,7 +286,7 @@ function AudioMenuOverTheFilm(props: {
 /**
  * ⁝ (D407 §8, Q8): Start over, the subtitles' offset, the device's sound timing, levelling, the
  * dialogue boost, the original and the bare player where they are offered. Its steppers' presses
- * keep it open (keepsListOpenAttribute); its other buttons close it, as a choice does.
+ * keep it open (ListEntry's isKeptOpen); its other buttons close it, as a choice does.
  */
 function MoreMenu(props: {
   readonly tracks: PlayerTracks;
@@ -300,13 +303,16 @@ function MoreMenu(props: {
       opener={<MoreIcon />}
       openerClassName="icon-button icon-button--over-video"
       openerNaming={{ "aria-label": t("playerControls.more") }}
-      listClassName="player-menus__more"
       isFromItsTop
       onOpenChange={props.onOpenChange}
     >
-      <li>
-        <StartOver videoRef={videoRef} />
-      </li>
+      <ListOption
+        onChoose={() => {
+          startOver(videoRef);
+        }}
+      >
+        {t("play.startOver")}
+      </ListOption>
       {subtitles.tracks.length === 0 ? null : (
         <KeptOpen>
           <OffsetControl offsetMs={subtitles.offsetMs} onMove={subtitles.shiftOffset} />
@@ -318,14 +324,14 @@ function MoreMenu(props: {
         </KeptOpen>
       )}
       {ways === undefined ? null : (
-        <li>
+        <ListEntry>
           <LevellingControl fileId={ways.fileId} level={tracks.level} state={tracks.levelling} />
-        </li>
+        </ListEntry>
       )}
       {boost === undefined ? null : (
-        <li>
+        <ListEntry>
           <BoostBox state={boost} />
-        </li>
+        </ListEntry>
       )}
       <MoreOfThePage ways={ways} />
     </DropDown>
@@ -340,16 +346,12 @@ function MoreOfThePage(props: { readonly ways: PlayerMenusWays | undefined }): J
   return (
     <>
       {onOriginalChosen === undefined ? null : (
-        <li>
+        <ListEntry>
           <PlayOriginal onChosen={onOriginalChosen} />
-        </li>
+        </ListEntry>
       )}
       {onBare === undefined ? null : (
-        <li>
-          <button type="button" onClick={onBare}>
-            {t("play.bare.open")}
-          </button>
-        </li>
+        <ListOption onChoose={onBare}>{t("play.bare.open")}</ListOption>
       )}
     </>
   );
@@ -357,7 +359,11 @@ function MoreOfThePage(props: { readonly ways: PlayerMenusWays | undefined }): J
 
 /** A place of ⁝ whose buttons step a value, which keep the list open for the next press. */
 function KeptOpen(props: { readonly children: ReactNode }): JSX.Element {
-  return <li {...{ [keepsListOpenAttribute]: "" }}>{props.children}</li>;
+  return (
+    <ListEntry isKeptOpen className="player-menus__stepper">
+      {props.children}
+    </ListEntry>
+  );
 }
 
 /** Find subtitles, opened from 💬 in a dialog of its own, closing once one is fetched (D407 §8). */
@@ -391,13 +397,18 @@ export function StartOver(props: {
       type="button"
       className="play__start-over"
       onClick={() => {
-        const video = props.videoRef.current;
-        if (video !== null) {
-          seekTo(video, 0);
-        }
+        startOver(props.videoRef);
       }}
     >
       {t("play.startOver")}
     </button>
   );
+}
+
+/** Plays the film from its start. */
+function startOver(videoRef: RefObject<HTMLVideoElement | null>): void {
+  const video = videoRef.current;
+  if (video !== null) {
+    seekTo(video, 0);
+  }
 }

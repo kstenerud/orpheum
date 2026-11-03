@@ -34,8 +34,9 @@ describe("a modal dialog (the owner, 2026-10-11)", () => {
     showModal.mockRestore();
   });
 
-  // The owner, 2026-10-30: "This should be a standard widget so they all behave the same".
-  it("has the standard Close, a cross after what it holds, unless it draws its own", async () => {
+  // The owner, 2026-10-30: "This should be a standard widget so they all behave the same"; every
+  // dialog has it, a pop-up none (D408 §2, popover.test.tsx).
+  it("has the standard Close, a cross after what it holds", async () => {
     const onClose = vi.fn();
     const mounted = await mount(
       withServices(
@@ -53,15 +54,6 @@ describe("a modal dialog (the owner, 2026-10-11)", () => {
     await fire(buttons[1], new MouseEvent("click", { bubbles: true }));
     expect(onClose).toHaveBeenCalledOnce();
     mounted.unmount();
-    const own = await mount(
-      withServices(
-        <ModalDialog label="List" onClose={onClose} hasOwnClose>
-          <p>places</p>
-        </ModalDialog>,
-      ),
-    );
-    expect(own.container.querySelector(".modal-dialog__close")).toBeNull();
-    own.unmount();
   });
 
   it("stays open as its page renders again with a new onClose, its focus kept", async () => {

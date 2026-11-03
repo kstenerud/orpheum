@@ -7,7 +7,8 @@ import { sendFailuresTo } from "@orpheum/sdk";
 import { act, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { DropDown, keepsListOpenAttribute } from "./drop-down.tsx";
+import { DropDown } from "./drop-down.tsx";
+import { ListEntry } from "./list-box.tsx";
 import { fire, mount } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
@@ -42,7 +43,7 @@ describe("a drop-down", () => {
     vi.restoreAllMocks();
   });
 
-  it("opens on its current place, not its Close", async () => {
+  it("opens on its current place", async () => {
     const mounted = await mount(twoPlaces((tree) => withServices(tree)));
     await fire(
       mounted.container.querySelector(".opener"),
@@ -117,9 +118,9 @@ describe("a drop-down", () => {
     const mounted = await mount(
       withServices(
         <DropDown label="Which" opener="Open" openerClassName="opener" openerNaming={{}}>
-          <li {...{ [keepsListOpenAttribute]: "" }}>
+          <ListEntry isKeptOpen>
             <button type="button">later</button>
-          </li>
+          </ListEntry>
           <li>
             <button type="button">done</button>
           </li>
