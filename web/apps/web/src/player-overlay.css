@@ -39,6 +39,22 @@
   visibility: hidden;
 }
 
+/* The scrub bar focused looks as it always does, no ring; a key's focus on another of the overlay's
+   controls fades it a little, enough to say focus left it (the owner, 2026-11-03; D410). A mouse's
+   focus is not :focus-visible, so a pointer never fades it. */
+.player-overlay .timeline__range {
+  transition: opacity 150ms ease-out;
+}
+
+.player-overlay .timeline__range:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.player-overlay:has(:focus-visible) .timeline__range:not(:focus-visible) {
+  opacity: 0.6;
+}
+
 /* An offer stays through a seek's scrub bar and the pause sign (Q3). */
 .player-overlay[data-offer] .convenience-area {
   visibility: visible;

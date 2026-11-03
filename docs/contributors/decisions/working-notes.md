@@ -25730,3 +25730,27 @@ disappearing when I leave it idle." **Amends** D407 §6's "unless focus is in it
    the video after a choice, as ▶ does; dropping the hold), the owner chose this one.
 
 **Status:** Decided 2026-11-03.
+
+## D410 — The scrub bar is focus's first stop in the overlay
+
+**Decided** (2026-11-03), by the project owner, after Firefox in full screen on staging: "I think
+the best way to deal with this page UX-wise would be to have the scrub bar as the first index when
+entering fullscreen mode. Also, the scrub bar's highlighted mode should be the normal scrub bar as we
+see it now because it looks nice. When navigating via keys or controller, moving off the scrub bar
+should only make it fade a little bit." **Amends** D407 §4–§5's focus on ▶ as the overlay opens.
+
+1. **First stop.** Wherever all of the overlay opens by a key, a computer's or a remote's (Up or Down
+   while hidden, paused or showing the scrub bar alone; a television's player at its start; a menu
+   closed by full screen's change), focus goes to the scrub bar, not ▶. Up or Down while all of it
+   shows, focus outside it (on the video or the page, as a mouse or full screen's start leaves it),
+   brings focus to the scrub bar too.
+2. **OK on the scrub bar** plays or pauses, as OK does while the overlay is hidden: playing hides it,
+   pausing shows the pause sign and the scrub bar (the owner chose this of the lead's two options;
+   the other left OK there doing nothing).
+3. **Its look.** Focused, the scrub bar draws as it always does, with no focus ring. While a key's
+   focus (`:focus-visible`) is on another of the overlay's controls it fades a little (opacity 0.6);
+   a mouse's focus never fades it.
+4. **Everywhere.** One rule for computers and televisions (the owner chose this over a computer
+   alone).
+
+**Status:** Decided 2026-11-03.

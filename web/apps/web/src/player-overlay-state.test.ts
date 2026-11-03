@@ -59,12 +59,12 @@ describe("the overlay hidden (D407 §4)", () => {
     });
   });
 
-  it("shows all of it by Up or Down, focus to play, shown by a remote on a television alone", () => {
+  it("shows all of it by Up or Down, focus to the scrub bar, shown by a remote on a television alone", () => {
     for (const command of ["up", "down"] as const) {
       expect(overlayAnswer(hidden, command, onTv)).toEqual({
         state: full,
         isTaken: true,
-        focus: "play",
+        focus: "scrub",
       });
       expect(overlayAnswer(hidden, command, onComputer).state).toEqual({
         shown: "full",
@@ -91,8 +91,12 @@ describe("the scrub bar alone", () => {
     expect(overlayAnswer(scrub, "back", onTv)).toEqual({ state: hidden, isTaken: true });
   });
 
-  it("shows all of it by Up, focus to play", () => {
-    expect(overlayAnswer(scrub, "up", onTv)).toEqual({ state: full, isTaken: true, focus: "play" });
+  it("shows all of it by Up, focus to the scrub bar", () => {
+    expect(overlayAnswer(scrub, "up", onTv)).toEqual({
+      state: full,
+      isTaken: true,
+      focus: "scrub",
+    });
   });
 });
 
@@ -138,7 +142,7 @@ describe("an offer alone, focus on it (D407 §4, Q3)", () => {
     expect(overlayAnswer(hidden, "down", onOffer)).toEqual({
       state: full,
       isTaken: true,
-      focus: "play",
+      focus: "scrub",
     });
   });
 });
@@ -166,7 +170,7 @@ describe("the pause sign and the scrub bar, after OK paused", () => {
     expect(overlayAnswer(paused, "up", isPaused)).toEqual({
       state: full,
       isTaken: true,
-      focus: "play",
+      focus: "scrub",
     });
   });
 
@@ -223,16 +227,30 @@ describe("all of the overlay (D407 §5)", () => {
     expect(overlayAnswer(full, "down", onComputer)).toEqual({ state: full, isTaken: false });
   });
 
+  it("plays by OK on the scrub bar, hiding, or pauses with the pause sign (D410)", () => {
+    const onScrub = { ...onComputer, isOnScrub: true };
+    expect(overlayAnswer(full, "select", onScrub)).toEqual({
+      state: paused,
+      isTaken: true,
+      isPlayPause: true,
+    });
+    expect(overlayAnswer(full, "select", { ...onScrub, isPaused: true })).toEqual({
+      state: hidden,
+      isTaken: true,
+      isPlayPause: true,
+    });
+  });
+
   // The owner, 2026-11-03, in Firefox: full screen by a double-click or ⤢, the mouse having shown
   // the overlay, Down left focus where no row could be reached by Up or Down.
-  it("brings focus outside it, on the video or the page, to play by Up or Down", () => {
+  it("brings focus outside it, on the video or the page, to the scrub bar by Up or Down", () => {
     const byPointer: OverlayState = { shown: "full", shownBy: "pointer" };
     for (const command of ["up", "down"] as const) {
       for (const context of [onComputer, onTv]) {
         expect(overlayAnswer(byPointer, command, { ...context, isFocusOutside: true })).toEqual({
           state: byPointer,
           isTaken: true,
-          focus: "play",
+          focus: "scrub",
         });
       }
     }

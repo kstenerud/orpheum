@@ -212,7 +212,7 @@ Step 1 adds what D407 §10 needs:
 - **Hiding** follows the accessibility guidance, with the remote exempt from the focus rule (D407 §6, §2.4).
 - **Keyboard and touch:** the minimal option. No letter shortcuts, and a tap only shows the overlay (D407 §11).
 
-14. **A computer's keyboard in full screen.** Up or Down puts focus on ▶, and focus in the overlay holds it (D407 §6), so a keyboard user's overlay would stay until Escape leaves full screen. Pressing ▶ to play, or Down from the bottom row, moves focus to the video, which lets the 3 s timer run. Agreed.
+14. **A computer's keyboard in full screen.** Up or Down puts focus on the scrub bar (D410; ▶ before it), and focus in the overlay holds it (D407 §6), so a keyboard user's overlay would stay until Escape leaves full screen. Pressing ▶ to play, or Down from the bottom row, moves focus to the video, which lets the 3 s timer run. Agreed.
 
 ## 6. The audit before building (2026-11-02)
 

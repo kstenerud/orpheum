@@ -310,12 +310,12 @@ describe("the player's full-screen overlay on a television (D407)", () => {
     expect(press("back")).toBe(false);
   });
 
-  it("shows all of it by Up while hidden, focus on play", async () => {
+  it("shows all of it by Up while hidden, focus on the scrub bar (D410)", async () => {
     await drawn(document.createElement("video"));
     press("back");
     expect(press("up")).toBe(true);
     expect(shown()).toBe("full");
-    expect(document.activeElement?.getAttribute("aria-label")).toBe("Play");
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Where the film stands");
   });
 
   // D407 §3 reverses the offer drawn beside the overlay, whose OK the overlay left alone: the offer
@@ -617,13 +617,13 @@ describe("the overlay's menus on a television (D407 §6, §8)", () => {
     expect(on.container.querySelector(".player-overlay")?.getAttribute("data-shown")).toBe("full");
   });
 
-  it("closes the menu as full screen changes, focus going on to play", async () => {
+  it("closes the menu as full screen changes, focus going on to the scrub bar", async () => {
     const on = await drawnWithMoreOpen();
     expect(on.container.querySelector("dialog")).not.toBeNull();
     act(() => {
       document.dispatchEvent(new Event("fullscreenchange"));
     });
     expect(on.container.querySelector("dialog")).toBeNull();
-    expect(document.activeElement?.getAttribute("aria-label")).toBe("Pause");
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Where the film stands");
   });
 });

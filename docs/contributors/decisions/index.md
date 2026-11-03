@@ -412,9 +412,10 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D404](working-notes.md#d404--a-dvd-title-whose-clock-starts-again-partway-is-served-restamped-onto-one-clock) A DVD title whose clock starts again partway is served restamped onto one clock — *revisited by D405*
 - [D405](working-notes.md#d405--a-dvd-titles-clock-is-checked-at-every-vobu-with-a-frames-slack) A DVD title's clock is checked at every VOBU, with a frame's slack
 - [D406](working-notes.md#d406--watch-togethers-browsers-find-their-public-addresses-through-the-cores-stun-servers-and-its-discoverys) Watch Together's browsers find their public addresses through the core's STUN servers and its discovery's
-- [D407](working-notes.md#d407--the-players-full-screen-overlay-is-three-rows-reached-by-the-arrows-shown-by-up-and-down-with-a-convenience-button-that-ok-presses-outside-full-screen-the-controls-sit-below-the-video-and-nothing-covers-it) The player's full-screen overlay is three rows reached by the arrows, shown by Up and Down, with a convenience button that OK presses; outside full screen the controls sit below the video and nothing covers it — *revisited by D409*
+- [D407](working-notes.md#d407--the-players-full-screen-overlay-is-three-rows-reached-by-the-arrows-shown-by-up-and-down-with-a-convenience-button-that-ok-presses-outside-full-screen-the-controls-sit-below-the-video-and-nothing-covers-it) The player's full-screen overlay is three rows reached by the arrows, shown by Up and Down, with a convenience button that OK presses; outside full screen the controls sit below the video and nothing covers it — *revisited by D409, D410*
 - [D408](working-notes.md#d408--the-app-builds-its-own-widget-layer-from-small-composed-parts-a-pop-up-is-not-a-dialog-and-carries-no-close-button-and-a-list-opens-on-its-current-choice-with-a-neighbour-either-side) The app builds its own widget layer from small composed parts: a pop-up is not a dialog and carries no close button, and a list opens on its current choice with a neighbour either side
 - [D409](working-notes.md#d409--a-mouse-shown-overlay-is-held-only-by-focus-a-key-put-in-it) A mouse-shown overlay is held only by focus a key put in it
+- [D410](working-notes.md#d410--the-scrub-bar-is-focuss-first-stop-in-the-overlay) The scrub bar is focus's first stop in the overlay
 
 ## Archived
 
