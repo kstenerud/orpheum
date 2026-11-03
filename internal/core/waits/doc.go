@@ -15,6 +15,9 @@
 //     TestEstimator_AReadThroughsNodeSpeedIsWhatItsLastReadsMeasured. One running that says how far
 //     into its film it is goes at its own pace instead.
 //     TestEstimator_ARunningReadThatSaysHowFarItIsGoesAtItsOwnPace.
+//   - A film played now is ranked at a play's priority, as the interest raiser will raise it within
+//     seconds, not where its job stands until then. Enforced by
+//     TestEstimator_AFilmPlayedWaitsAsTheRaiseWillRankIt.
 //   - Imports nothing from internal/node, never os/exec. Enforced by the depguard rule
 //     core-boundary, and transitively by TestArch_CoreNeverImportsNode and TestArch_CoreNeverExecs.
 //

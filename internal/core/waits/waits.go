@@ -59,7 +59,10 @@ type Parts struct {
 	Attempts     Attempts
 	Nodes        Nodes
 	ReadThroughs ReadThroughs
-	Clock        clock.Clock
+	// Playing are the files played now: the playback service's NowPlaying, which the interest raiser
+	// raises to a play's priority at its next tick (internal/core/interest).
+	Playing func() []int64
+	Clock   clock.Clock
 }
 
 // ErrMissingPart is an estimator built without one of its parts.
@@ -90,6 +93,7 @@ func NewEstimator(parts Parts) (*Estimator, error) {
 		{"Attempts", parts.Attempts == nil},
 		{"Nodes", parts.Nodes == nil},
 		{"ReadThroughs", parts.ReadThroughs == nil},
+		{"Playing", parts.Playing == nil},
 		{"Clock", parts.Clock == nil},
 	} {
 		if part.isMissing {
@@ -182,6 +186,11 @@ func (estimator *Estimator) readThroughOf(ctx context.Context, fileID int64) (*W
 	fullReads, own, isOpen := fullReadsAndOwn(open, fileID)
 	if !isOpen {
 		return nil, nil //nolint:nilnil // no read-through is open: nothing to wait for
+	}
+	if slices.Contains(estimator.parts.Playing(), fileID) {
+		// Raised at the interest raiser's next tick, seconds away: ranked as it, not as the background
+		// behind the whole queue, which said "about 55 minutes" of a read that began 15 s later (VQ50).
+		own.Priority = max(own.Priority, jobs.PriorityPlayNow)
 	}
 	fileIDs := make([]int64, 0, len(fullReads))
 	for _, row := range fullReads {
