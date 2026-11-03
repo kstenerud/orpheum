@@ -5,7 +5,6 @@ import { createContext, use, useSyncExternalStore } from "react";
 
 import type { LinkDebug } from "./link-debug.ts";
 import type { OrpheumLoader } from "./loader-interface.ts";
-import type { ThroughDiscovery } from "./client-reaches.ts";
 import type { Navigation } from "./navigation.ts";
 import type { Route } from "./router.ts";
 import type { Session } from "./session.ts";
@@ -14,6 +13,18 @@ import type { Session } from "./session.ts";
  * What every screen reaches the world through: the API, the session, navigation, what this browser
  * plays, the Watch Together socket, and voice's microphone and calls.
  */
+/**
+ * The page's core as its discovery finds it, which a device the page hands its session to reaches it
+ * by from away: the lab's cast receiver (the 11-05 batch's item 10).
+ */
+export interface ThroughDiscovery {
+  /** The discovery's client API, as the page names it. */
+  readonly clientApi: string;
+  readonly coreId: string;
+  /** The core's identity key's fingerprint, which its answers are checked by. */
+  readonly fingerprint: string;
+}
+
 export interface Services {
   readonly api: Api;
   readonly session: Session;
