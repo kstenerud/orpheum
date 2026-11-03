@@ -88,7 +88,8 @@ async function castFromOneToTheOther(
   // No Cast in the top bar: the tray's sign is the entry point (D364 §12), opening its dialog over
   // the Play page, which stays where it is (D384 §2).
   const playAddress = sender.url();
-  await expect(castSign(sender)).toHaveClass(/status-tray__button--off/u);
+  await expect(castSign(sender)).toBeVisible();
+  await expect(castSign(sender)).not.toHaveClass(/icon-button--running/u);
   await castSign(sender).click();
   await sender.locator(".cast-dialog .cast-to__devices button").first().click();
   // The receiver asks once (D364 §2): the sender says it is asking until it answers.
@@ -100,7 +101,7 @@ async function castFromOneToTheOther(
   await expect(sender.locator(".cast-dialog")).toHaveCount(0); // closed once its receiver said Use
   expect(sender.url()).toBe(playAddress);
   await expect(sender.locator("video")).toHaveCount(0);
-  await expect(castSign(sender)).toHaveClass(/status-tray__button--on/u);
+  await expect(castSign(sender)).toHaveClass(/icon-button--running/u);
   await expect(receiver.getByText(/^Controlled from /u)).toBeVisible({ timeout: 10_000 });
   await expect.poll(async () => await isPlaying(receiver), { timeout: 30_000 }).toBe(true);
   return { sender, receiver };
@@ -158,7 +159,7 @@ test(
       await receiver.keyboard.press("Escape");
       await expect.poll(() => new URL(receiver.url()).pathname, { timeout: 10_000 }).toBe("/");
       await expect(receiver.locator("video")).toHaveCount(0);
-      await expect(castSign(sender)).toHaveClass(/status-tray__button--off/u, { timeout: 10_000 });
+      await expect(castSign(sender)).not.toHaveClass(/icon-button--running/u, { timeout: 10_000 });
       await expect.poll(async () => await isPlaying(sender), { timeout: 30_000 }).toBe(true);
       await expect(sender.getByRole("button", { name: /^Play here from / })).toHaveCount(0);
       await expect(sender.getByText(/took control back/u)).toHaveCount(0);
@@ -192,7 +193,7 @@ test(
         ).toHaveCount(0);
         const playAddress = sender.url();
         await remote.getByRole("button", { name: "Stop casting" }).click();
-        await expect(castSign(sender)).toHaveClass(/status-tray__button--off/u, {
+        await expect(castSign(sender)).not.toHaveClass(/icon-button--running/u, {
           timeout: 10_000,
         });
         await expect.poll(() => new URL(receiver.url()).pathname, { timeout: 10_000 }).toBe("/");

@@ -69,7 +69,12 @@ test("on a phone's screen, the play page is no wider than the screen, whatever i
   await signIn(page);
   await openFilm(page, timingFilm(browserName));
   await page.getByRole("link", { name: "Play" }).click();
-  await expect(page.getByRole("combobox", { name: "Subtitles" })).toContainText(longTrackName);
+  // The subtitles' chooser, a pop-up since the native select went (plans/toolkit.md step 6), open
+  // on its list, the long name in it.
+  await page.locator(".route-chooser", { hasText: "Subtitles" }).getByRole("button").click();
+  await expect(
+    page.getByRole("dialog", { name: "Subtitles" }).getByRole("button", { name: longTrackName }),
+  ).toBeVisible();
   const widths = await page.evaluate(() => ({
     page: document.documentElement.scrollWidth,
     screen: document.documentElement.clientWidth,

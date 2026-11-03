@@ -11,6 +11,12 @@ import type { JSX, MouseEvent, ReactNode, Ref } from "react";
  * character, which a television's font may lack; its name, which a screen reader says and a test
  * finds it by, given as label. Over a film it is round, on the film's control ground.
  */
+/** Each mark's class, written out whole, so a search for a stylesheet's class finds it. */
+const markClass = {
+  running: "icon-button--running",
+  applied: "icon-button--applied",
+} as const;
+
 export function IconButton(props: {
   /** What the button does, in the viewer's words: its accessible name. */
   readonly label: string;
@@ -44,7 +50,7 @@ export function IconButton(props: {
     classes.push("icon-button--on-card");
   }
   if (mark !== undefined) {
-    classes.push(`icon-button--${mark}`);
+    classes.push(markClass[mark]);
   }
   return (
     <button
