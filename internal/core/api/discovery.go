@@ -3,10 +3,13 @@
 package api
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
+	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -47,13 +50,16 @@ type DiscoveryStatusBody struct {
 	Zone            string   `json:"zone,omitempty"`
 	Realm           string   `doc:"What a person signs in to the server by at the discovery's page, beside their name and password: the realm the host's account there gave it; empty at a discovery with none (D297)" json:"realm,omitempty"` //nolint:lll // one struct tag
 	// ClaimCode is what the owner types at the discovery to claim the core, while it is pending.
-	ClaimCode          string               `json:"claimCode,omitempty"`
-	ClaimExpiresAt     int64                `doc:"Unix milliseconds; 0 when there is no code" json:"claimExpiresAt"`
-	Account            string               `doc:"The address of the account the server is enrolled with, at a discovery with accounts (D310 §5)" json:"account,omitempty"`                 //nolint:lll // one struct tag
-	RemovedAt          int64                `doc:"Unix milliseconds the server was removed from its account, another enrolled in its place (D312 §15); 0 when it was not" json:"removedAt"` //nolint:lll // one struct tag
-	ReachableFrom      string               `doc:"As the probe found; absent before it ran" enum:"public_ipv4,public_ipv4_other_port,ipv6,nowhere" json:"reachableFrom,omitempty"`          //nolint:lll // one struct tag
-	Published          []string             `doc:"The addresses the discovery publishes" json:"published"`
-	DeadEndsLastWeek   int                  `doc:"How many times a client found no path to the server in the last week" json:"deadEndsLastWeek"` //nolint:lll // one struct tag
+	ClaimCode        string   `json:"claimCode,omitempty"`
+	ClaimExpiresAt   int64    `doc:"Unix milliseconds; 0 when there is no code" json:"claimExpiresAt"`
+	Account          string   `doc:"The address of the account the server is enrolled with, at a discovery with accounts (D310 §5)" json:"account,omitempty"`                 //nolint:lll // one struct tag
+	RemovedAt        int64    `doc:"Unix milliseconds the server was removed from its account, another enrolled in its place (D312 §15); 0 when it was not" json:"removedAt"` //nolint:lll // one struct tag
+	ReachableFrom    string   `doc:"As the probe found; absent before it ran" enum:"public_ipv4,public_ipv4_other_port,ipv6,nowhere" json:"reachableFrom,omitempty"`          //nolint:lll // one struct tag
+	Published        []string `doc:"The addresses the discovery publishes" json:"published"`
+	DeadEndsLastWeek int      `doc:"How many times a client found no path to the server in the last week" json:"deadEndsLastWeek"` //nolint:lll // one struct tag
+	// DeadEndCauses are those dead ends by the cause each page reported, the commonest first; none
+	// from a discovery that keeps no causes, whose count is shown alone (D398 §6).
+	DeadEndCauses      []DeadEndCauseBody   `json:"deadEndCauses"`
 	Probe              []DiscoveryProbeBody `json:"probe"`
 	LastHeartbeatAt    int64                `doc:"Unix milliseconds; 0 before the first" json:"lastHeartbeatAt"`
 	Problem            string               `doc:"Why the last call to the discovery failed; empty when it did not" json:"problem,omitempty"`                                                                                         //nolint:lll // one struct tag
@@ -100,6 +106,15 @@ type PortMappingItemBody struct {
 // WebRTCPathBody is how many connections took one path.
 type WebRTCPathBody struct {
 	Path  string `enum:"direct_ipv6,direct_ipv4,punched_ipv6,punched_ipv4,hairpinned_ipv4,relayed,failed" json:"path"`
+	Count int    `json:"count"`
+}
+
+// DeadEndCauseBody is how many of the last week's dead ends had one cause, in the discovery's word
+// for it: noIpv6 (the page said its network seemed to have no IPv6 and the server no IPv4 way in),
+// unknown (it could not tell), none (a page from before causes were reported) or any other word the
+// discovery sends, which the page shows as another cause.
+type DeadEndCauseBody struct {
+	Cause string `json:"cause"`
 	Count int    `json:"count"`
 }
 
@@ -361,6 +376,22 @@ func discoveryStatusBody(status discovery.Status) DiscoveryStatusBody {
 		})
 	}
 	body.HouseNetworks = houseNetworksBody(status.HouseNetworks)
+	body.DeadEndCauses = deadEndCausesBody(status.DeadEndCausesLastWeek)
+	return body
+}
+
+// deadEndCausesBody are the dead ends' causes as the API sends them: the commonest first, a tie by
+// the cause's word, and a count of none left out.
+func deadEndCausesBody(causes map[string]int) []DeadEndCauseBody {
+	body := make([]DeadEndCauseBody, 0, len(causes))
+	for cause, count := range causes {
+		if count > 0 {
+			body = append(body, DeadEndCauseBody{Cause: cause, Count: count})
+		}
+	}
+	slices.SortFunc(body, func(left, right DeadEndCauseBody) int {
+		return cmp.Or(cmp.Compare(right.Count, left.Count), strings.Compare(left.Cause, right.Cause))
+	})
 	return body
 }
 

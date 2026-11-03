@@ -469,9 +469,62 @@ function Reach(props: { readonly standing: Standing }): JSX.Element {
       {deadEndsLastWeek === 0 ? null : (
         <p role="alert">{t("system.discovery.deadEnds", { count: deadEndsLastWeek })}</p>
       )}
+      <DeadEndCauses causes={props.standing.deadEndCauses ?? []} />
       <HomeAddressOf standing={props.standing} />
     </>
   );
+}
+
+/** The words of the dead-end causes a discovery reports (D398 §3), any other word counted as other. */
+type DeadEndCauseWord = "noIpv6" | "unknown" | "none" | "other";
+
+/** The order the causes are told in when as common: the one the admin can act on first. */
+const deadEndCauseWords: readonly DeadEndCauseWord[] = ["noIpv6", "unknown", "none", "other"];
+
+/** The word cause is shown by: its own when the page knows it, else other. */
+function deadEndCauseWordOf(cause: string): DeadEndCauseWord {
+  return deadEndCauseWords.find((word) => word === cause) ?? "other";
+}
+
+/** How many dead ends had one cause, in words. */
+function deadEndCauseText(t: TFunction, word: DeadEndCauseWord, count: number): string {
+  switch (word) {
+    case "noIpv6":
+      return t("system.discovery.deadEndCause.noIpv6", { count });
+    case "unknown":
+      return t("system.discovery.deadEndCause.unknown", { count });
+    case "none":
+      return t("system.discovery.deadEndCause.none", { count });
+    case "other":
+      return t("system.discovery.deadEndCause.other", { count });
+  }
+}
+
+/**
+ * The last week's dead ends by the cause each device reported, beside their count (D398 §6, the
+ * owner's agreement of 2026-11-03): the commonest first, a word the page does not know counted as
+ * another reason, so a discovery's word is never shown as it came. Nothing from a discovery that
+ * keeps no causes, which leaves the count as it was.
+ */
+function DeadEndCauses(props: {
+  readonly causes: readonly { readonly cause: string; readonly count: number }[];
+}): JSX.Element | null {
+  const { t } = useTranslation();
+  const counts = new Map<DeadEndCauseWord, number>();
+  for (const { cause, count } of props.causes) {
+    if (count > 0) {
+      const word = deadEndCauseWordOf(cause);
+      counts.set(word, (counts.get(word) ?? 0) + count);
+    }
+  }
+  if (counts.size === 0) {
+    return null;
+  }
+  const told = deadEndCauseWords
+    .filter((word) => counts.has(word))
+    .sort((left, right) => (counts.get(right) ?? 0) - (counts.get(left) ?? 0))
+    .map((word) => deadEndCauseText(t, word, counts.get(word) ?? 0));
+  return <p>{t("system.discovery.deadEndCauses", { causes: told.join("; ") })}</p>;
 }
 
 /**

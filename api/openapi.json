@@ -1173,6 +1173,23 @@
         ],
         "type": "object"
       },
+      "DeadEndCauseBody": {
+        "additionalProperties": false,
+        "properties": {
+          "cause": {
+            "type": "string"
+          },
+          "count": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cause",
+          "count"
+        ],
+        "type": "object"
+      },
       "DestinationBody": {
         "additionalProperties": false,
         "properties": {
@@ -1359,6 +1376,15 @@
           "coreId": {
             "type": "string"
           },
+          "deadEndCauses": {
+            "items": {
+              "$ref": "#/components/schemas/DeadEndCauseBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "deadEndsLastWeek": {
             "description": "How many times a client found no path to the server in the last week",
             "format": "int64",
@@ -1537,6 +1563,7 @@
           "removedAt",
           "published",
           "deadEndsLastWeek",
+          "deadEndCauses",
           "probe",
           "lastHeartbeatAt",
           "homeAddresses",

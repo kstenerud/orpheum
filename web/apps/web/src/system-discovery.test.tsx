@@ -284,6 +284,46 @@ it("says nothing of the house's networks while there are none", async () => {
   expect(mounted.container.textContent).not.toContain("IPv6 networks");
 });
 
+it("tells the week's dead ends by the cause each device judged, beside their count, a word it doesn't know as another reason (D398 §6)", async () => {
+  const services = servedBy({
+    "GET /system/discovery": [
+      200,
+      {
+        ...none,
+        issuer: "https://discovery.example.com",
+        state: "claimed",
+        deadEndsLastWeek: 5,
+        deadEndCauses: [
+          { cause: "noIpv6", count: 2 },
+          { cause: "none", count: 1 },
+          { cause: "<b>made up</b>", count: 1 },
+          { cause: "other", count: 1 },
+        ],
+      },
+    ],
+  });
+  mounted = await mount(withServices(<SystemDiscovery />, services));
+  const text = mounted.container.textContent;
+  expect(text).toContain("Times in the last week a device found no way to reach this server: 5.");
+  expect(text).toContain(
+    "Why, as each device judged it: 2 on a network that seemed to have no IPv6, while this server had no IPv4 way in; 2 for another reason; 1 from a device too old to say why.",
+  );
+  expect(text).not.toContain("made up");
+});
+
+it("tells the dead ends' count alone when the discovery keeps no causes", async () => {
+  const services = servedBy({
+    "GET /system/discovery": [
+      200,
+      { ...none, issuer: "https://discovery.example.com", state: "claimed", deadEndsLastWeek: 3 },
+    ],
+  });
+  mounted = await mount(withServices(<SystemDiscovery />, services));
+  const text = mounted.container.textContent;
+  expect(text).toContain("Times in the last week a device found no way to reach this server: 3.");
+  expect(text).not.toContain("as each device judged it");
+});
+
 const pendingAtTheService = {
   ...none,
   issuer: suggestedIssuer,

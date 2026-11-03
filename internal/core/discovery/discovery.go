@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"net/http"
 	"net/netip"
 	"net/url"
@@ -299,6 +300,7 @@ func (service *Service) Status() Status {
 	status.Published = slices.Clone(status.Published)
 	status.Probe = slices.Clone(status.Probe)
 	status.ICEServers = slices.Clone(status.ICEServers)
+	status.DeadEndCausesLastWeek = maps.Clone(status.DeadEndCausesLastWeek)
 	if status.IsPublished() {
 		status.HomeAddresses = homeAddresses(service.lastSent, status.CoreID, status.Zone)
 		status.IsHomeAddressReady = service.parts.HasCertificate != nil && service.parts.HasCertificate()
@@ -656,6 +658,7 @@ func (service *Service) heartbeat(ctx context.Context, status Status) time.Durat
 	service.status.Published, service.status.Probe = answered.Published, answered.Probe
 	service.status.ReachableFrom, service.status.Problem = answered.ReachableFrom, ""
 	service.status.DeadEndsLastWeek = answered.DeadEndsLastWeek
+	service.status.DeadEndCausesLastWeek = answered.DeadEndCausesLastWeek
 	service.mutex.Unlock()
 	return service.wait(ctx, settings.DiscoveryAddressCheckEverySeconds)
 }

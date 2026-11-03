@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net/http"
 	"slices"
 	"strings"
@@ -229,6 +230,25 @@ func TestStep_EachStateWaitsAsItsOwnSettingSays(t *testing.T) {
 	copied.fake.refuse(discoveryproto.RefusalAnotherInstance)
 	if wait := copied.service.step(ctx); wait != 13*time.Second {
 		t.Errorf("a core refused as a copy waited %s; want the copy setting's 13 s", wait)
+	}
+}
+
+// The heartbeat's answer counts the week's dead ends by cause, which the status keeps for the System
+// page as the discovery counted them (D398 §6).
+func TestStep_KeepsTheDeadEndsCausesTheHeartbeatsAnswerCounts(t *testing.T) {
+	t.Parallel()
+	built := newWorld(t)
+	ctx := t.Context()
+	if _, err := built.service.Connect(ctx, built.issuer, built.fake.chain.ID()); err != nil {
+		t.Fatal(err)
+	}
+	built.service.step(ctx)
+	built.fake.claim()
+	built.service.step(ctx) // learns it is claimed
+	built.service.step(ctx) // sends its addresses
+	want := map[string]int{discoveryproto.DeadEndCauseNoIPv6: 3, "none": 1}
+	if causes := built.service.Status().DeadEndCausesLastWeek; !maps.Equal(causes, want) {
+		t.Errorf("once claimed the dead ends' causes are %v; want %v", causes, want)
 	}
 }
 

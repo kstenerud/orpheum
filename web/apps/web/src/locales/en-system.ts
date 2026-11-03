@@ -200,6 +200,14 @@ export const enSystem = {
       published: "Published as {{names}}.",
       deadEnds:
         "Times in the last week a device found no way to reach this server: {{count}}. Most often the device was on a VPN or a travel eSIM, which can't reach a home server. Giving this machine a public IPv6 address helps the most: devices with IPv6 then reach it directly. Turning on UPnP, NAT-PMP or PCP on the home router helps devices without.",
+      deadEndCauses: "Why, as each device judged it: {{causes}}.",
+      deadEndCause: {
+        noIpv6:
+          "{{count}} on a network that seemed to have no IPv6, while this server had no IPv4 way in",
+        unknown: "{{count}} where the device couldn't tell why",
+        none: "{{count}} from a device too old to say why",
+        other: "{{count}} for another reason",
+      },
       heartbeat: "Last told the discovery its addresses at {{at}}.",
       problem: "The last call to the discovery failed: {{problem}}",
       clientOrigin: "Links to this server open at {{origin}}.",

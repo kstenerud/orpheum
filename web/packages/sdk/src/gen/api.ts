@@ -2810,6 +2810,11 @@ export interface components {
             /** Format: int64 */
             sizeBytes: number;
         };
+        DeadEndCauseBody: {
+            cause: string;
+            /** Format: int64 */
+            count: number;
+        };
         DestinationBody: {
             destination: string;
             /** Format: int64 */
@@ -2881,6 +2886,7 @@ export interface components {
             /** @description The core API the discovery's address document names, which the server calls */
             coreApi?: string;
             coreId?: string;
+            deadEndCauses: components["schemas"]["DeadEndCauseBody"][] | null;
             /**
              * Format: int64
              * @description How many times a client found no path to the server in the last week

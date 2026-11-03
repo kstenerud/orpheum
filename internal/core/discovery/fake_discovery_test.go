@@ -336,6 +336,7 @@ func (fake *fakeDiscovery) serveSigned(writer http.ResponseWriter, request *http
 				Kind: discoveryproto.ProbeHTTPS, Result: discoveryproto.ProbeReached,
 			}},
 			ReachableFrom: discoveryproto.ReachableIPv6, DeadEndsLastWeek: 4,
+			DeadEndCausesLastWeek: map[string]int{discoveryproto.DeadEndCauseNoIPv6: 3, "none": 1},
 		})
 	case "DELETE /core":
 		fake.isLeft = true
