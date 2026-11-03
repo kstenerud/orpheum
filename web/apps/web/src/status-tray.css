@@ -11,18 +11,7 @@
   color: var(--color-status);
 }
 
-/* Off: the banner's own white, an entry point like any other of its places. */
-.status-tray__button--off {
-  color: var(--color-text);
-}
-
-/* On: the status blue, its icon breathing slowly, enough to catch the eye from across a room
-   without pulling at it while a film plays (the owner's "perhaps pulsing", D364 §12). */
-.status-tray__button--on {
-  color: var(--color-status);
-}
-
-.status-tray__button--on .status-tray__icon {
+.status-tray__icon {
   animation: status-tray-on-pulses 3s ease-in-out infinite;
 }
 

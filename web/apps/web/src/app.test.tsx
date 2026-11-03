@@ -420,18 +420,18 @@ describe("App", () => {
     expect(
       mounted.container.querySelector(".app-shell__watching a[href='/watch-together']"),
     ).toBeNull();
-    expect(sign()?.className).toContain("status-tray__button--off");
+    expect(sign()?.className).not.toContain("icon-button--running");
     await act(async () => {
       keepMembership(tabStorage(), "host", { sessionId: 3, credential: "host-credential" });
       await Promise.resolve();
     });
-    expect(sign()?.className).toContain("status-tray__button--on");
+    expect(sign()?.className).toContain("icon-button--running");
     expect(sign()?.getAttribute("aria-label")).toBe("Watch Together is on: its controls");
     await act(async () => {
       forgetMembership(tabStorage(), "host");
       await Promise.resolve();
     });
-    expect(sign()?.className).toContain("status-tray__button--off");
+    expect(sign()?.className).not.toContain("icon-button--running");
     mounted.unmount();
   });
 });

@@ -68,13 +68,14 @@ function StandardClose(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   return (
-    <IconButton
-      label={t("dropDown.close")}
-      icon={<CloseIcon />}
-      onClick={() => {
-        props.toldRef.current.onClose();
-      }}
-      className="modal-dialog__close"
-    />
+    <span className="modal-dialog__close">
+      <IconButton
+        label={t("dropDown.close")}
+        icon={<CloseIcon />}
+        onClick={() => {
+          props.toldRef.current.onClose();
+        }}
+      />
+    </span>
   );
 }

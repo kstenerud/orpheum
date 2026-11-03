@@ -32,6 +32,9 @@ import {
 } from "./test-walk.tsx";
 
 /** The screens the walks are made at: a Fire TV's page in Silk, and a desktop's window. */
+/** The full-screen button, found by its name as a viewer finds it (it takes no class of its own). */
+const FULL_SCREEN = 'button:is([aria-label="Full screen"], [aria-label="Leave full screen"])';
+
 const screens = [
   { name: "a Fire TV's page in Silk", width: 960, height: 480 },
   { name: "a desktop's window", width: 1280, height: 800 },
@@ -325,7 +328,7 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
   it("walks its buttons by Right to Full screen, the film not seeking", async () => {
     const video = await onAFireTv();
     const positionAt = standsAt(video, 30);
-    const fullScreen = document.querySelector<HTMLElement>(".player-overlay .full-screen-button");
+    const fullScreen = document.querySelector<HTMLElement>(`.player-overlay ${FULL_SCREEN}`);
     await expect.poll(() => document.activeElement?.getAttribute("aria-label")).toBe("Play");
     const walked: (string | null | undefined)[] = [];
     for (let step = 0; step < 5; step += 1) {
@@ -547,7 +550,7 @@ describe("Space on an ordinary Play page, in a computer's browser", () => {
     await press(" ");
     expect(play.mock.calls.length).toBe(playsBefore + 1);
     expect(document.activeElement).toBe(video);
-    const fullScreen = document.querySelector<HTMLElement>(".page-controls .full-screen-button");
+    const fullScreen = document.querySelector<HTMLElement>(`.page-controls ${FULL_SCREEN}`);
     expect(fullScreen).not.toBeNull();
     fullScreen?.focus();
     await press(" ");

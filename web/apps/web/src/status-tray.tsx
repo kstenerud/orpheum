@@ -70,11 +70,9 @@ function useClosesTheDialogAsThePageMoves(): void {
   }, [navigation]);
 }
 
-/** A sign's class: the tray's button, white while its function is off, blue while it is on. */
-function signClass(isOn: boolean): string {
-  return isOn
-    ? "status-tray__button status-tray__button--on"
-    : "status-tray__button status-tray__button--off";
+/** A sign's mark: blue and pulsing while its function is on, the banner's white while it is off. */
+function signMark(isOn: boolean): "running" | undefined {
+  return isOn ? "running" : undefined;
 }
 
 /**
@@ -95,7 +93,7 @@ function TogetherSign(props: {
       <IconButton
         label={t(isOn ? "status.togetherOn" : "status.together")}
         icon={<TogetherIcon />}
-        className={signClass(isOn)}
+        mark={signMark(isOn)}
         onClick={() => {
           openTrayDialog("together");
         }}
@@ -128,7 +126,7 @@ function CastSign(props: { readonly sending: CastSending | undefined }): JSX.Ele
       <IconButton
         label={label}
         icon={<CastIcon />}
-        className={signClass(sending !== undefined)}
+        mark={signMark(sending !== undefined)}
         onClick={() => {
           openTrayDialog("cast");
         }}

@@ -281,8 +281,8 @@ function MoveButton(props: {
 }
 
 /**
- * The class of SoundControls' mute, the speaker that 🔈's pop-up lays over its button
- * (player-menus.tsx): a name to find it by, which styles nothing.
+ * The class of the box round SoundControls' mute, the speaker that 🔈's pop-up lays over its button
+ * (player-menus.tsx): a name to find it by; the box is the button's own (player-controls.css).
  */
 export const muteClass = "player-controls__mute";
 
@@ -306,19 +306,20 @@ export function SoundControls(props: {
           : "player-controls__sound"
       }
     >
-      <IconButton
-        className={muteClass}
-        isOverVideo={isOverVideo}
-        label={isSilent ? t("playerControls.unmute") : t("playerControls.mute")}
-        icon={isSilent ? <MutedIcon /> : <SoundIcon />}
-        onClick={() => {
-          if (sound.isMuted || sound.volume > 0) {
-            sound.setMuted(!sound.isMuted);
-          } else {
-            sound.setVolume(1); // turned all the way down: sound on is the volume back up
-          }
-        }}
-      />
+      <span className={muteClass}>
+        <IconButton
+          isOverVideo={isOverVideo}
+          label={isSilent ? t("playerControls.unmute") : t("playerControls.mute")}
+          icon={isSilent ? <MutedIcon /> : <SoundIcon />}
+          onClick={() => {
+            if (sound.isMuted || sound.volume > 0) {
+              sound.setMuted(!sound.isMuted);
+            } else {
+              sound.setVolume(1); // turned all the way down: sound on is the volume back up
+            }
+          }}
+        />
+      </span>
       {sound.canSetVolume ? (
         <VolumeRange
           label={t("playerControls.volume")}

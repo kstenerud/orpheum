@@ -441,7 +441,7 @@ function DismissButton(props: { readonly onDismiss: () => void }): JSX.Element {
   return (
     <IconButton
       isOverVideo
-      className="up-next__dismiss"
+      isOnCard
       label={t("upNext.dismiss")}
       icon={<CloseIcon />}
       onClick={props.onDismiss}

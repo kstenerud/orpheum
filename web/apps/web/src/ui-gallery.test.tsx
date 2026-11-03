@@ -62,7 +62,9 @@ it("shows the banner's status tray with each sign it can show, Watch Together's 
   expect(trays).toHaveLength(5);
   const signs = trays.map((tray) => [
     tray.includes("status-tray__button--warning"),
-    [...tray.matchAll(/status-tray__button--(on|off)/gu)].map((match) => match[1]).join(" "),
+    [...tray.matchAll(/class="icon-button( icon-button--running)?"/gu)]
+      .map((match) => (match[1] === undefined ? "off" : "on"))
+      .join(" "),
     tray.includes("app-shell__menu-icon"),
   ]);
   expect(signs).toEqual([

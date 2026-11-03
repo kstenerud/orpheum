@@ -58,7 +58,9 @@ async function drawn(
  * vertically aligned").
  */
 function expectPlacesLikeTheTray(container: Element): void {
-  const sign = container.querySelector(".app-shell__end .status-tray__button--off");
+  const sign = container.querySelector(
+    ".app-shell__end .status-tray button.icon-button:not(.icon-button--running)",
+  );
   const centreOf = (element: Element | null | undefined): number =>
     boxOf(element).top + boxOf(element).height / 2;
   for (const place of container.querySelectorAll(".app-shell__watching a")) {
@@ -124,7 +126,9 @@ describe("the shell, laid out by a real browser", () => {
       expect(raised).not.toBe("rgba(0, 0, 0, 0)");
       const icons = [
         ...container.querySelectorAll(".app-shell__watching a.app-shell__place-icon"),
-        container.querySelector(".app-shell__end .status-tray__button--off"),
+        container.querySelector(
+          ".app-shell__end .status-tray button.icon-button:not(.icon-button--running)",
+        ),
         container.querySelector(".app-shell__end .app-shell__menu-button"),
       ];
       expect(icons.length).toBeGreaterThan(1);
@@ -189,7 +193,7 @@ describe("the shell, laid out by a real browser", () => {
           // The tray's signs and the menu's icon a quarter closer than a fingertip square apart.
           const signs = [
             ...container.querySelectorAll(
-              ".app-shell__end .status-tray__button, .app-shell__end .app-shell__menu-button",
+              ".app-shell__end .status-tray .icon-button, .app-shell__end .app-shell__menu-button",
             ),
           ];
           expect(signs.length).toBeGreaterThanOrEqual(3);

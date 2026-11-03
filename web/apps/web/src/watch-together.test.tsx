@@ -405,7 +405,7 @@ describe("the host's Watch Together dialog (D246 §3, §5; D384 §2)", () => {
     );
     expect(dialog?.textContent).toContain("Gran's voice");
     await click(
-      (dialog ?? mounted.container).querySelector<HTMLButtonElement>(".modal-dialog__close"),
+      (dialog ?? mounted.container).querySelector<HTMLButtonElement>(".modal-dialog__close button"),
     );
     expect(mounted.container.querySelector(".watch-together__dialog")).toBeNull();
     setFilmVolume(1);

@@ -54,10 +54,10 @@ describe("AppShell", () => {
     expect(markup).not.toContain('<a href="/watch-together">Watch Together</a>');
     // Each an icon button in an icon tray, as a listing's tools are (the owner, 2026-10-30).
     expect(markup).toContain(
-      '<button type="button" class="icon-button status-tray__button status-tray__button--off" aria-label="Watch Together"',
+      '<button type="button" class="icon-button" aria-label="Watch Together"',
     );
     expect(markup).toContain(
-      '<button type="button" class="icon-button status-tray__button status-tray__button--off" aria-label="Cast to a device"',
+      '<button type="button" class="icon-button" aria-label="Cast to a device"',
     );
     expect(open).not.toContain("/libraries");
     expect(open).not.toContain("/jobs");

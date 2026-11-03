@@ -61,7 +61,7 @@ function sign(label: string): { readonly isOn: boolean; readonly href: string | 
   return found === null || found === undefined
     ? undefined
     : {
-        isOn: found.classList.contains("status-tray__button--on"),
+        isOn: found.classList.contains("icon-button--running"),
         href: found.getAttribute("href"),
       };
 }

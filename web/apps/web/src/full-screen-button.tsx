@@ -29,7 +29,6 @@ export function FullScreenButton(props: {
     <IconButton
       ref={buttonRef}
       isOverVideo
-      className="full-screen-button"
       label={isFullScreen ? t("playerControls.leaveFullScreen") : t("playerControls.fullScreen")}
       icon={isFullScreen ? <LeaveFullScreenIcon /> : <FullScreenIcon />}
       onClick={() => {

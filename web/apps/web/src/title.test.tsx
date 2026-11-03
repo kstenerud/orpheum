@@ -477,9 +477,9 @@ describe("a film whose match is a guess (D301)", () => {
     );
     // Its Close is the cross every dialog has (the owner, 2026-10-30).
     expect(offered).toEqual(["Rescan", "Full rescan", "Enter manually", "Report this", ""]);
-    expect(page.querySelector("dialog .modal-dialog__close")?.getAttribute("aria-label")).toBe(
-      "Close",
-    );
+    expect(
+      page.querySelector("dialog .modal-dialog__close button")?.getAttribute("aria-label"),
+    ).toBe("Close");
     await click(buttonWithText(page, "Enter manually"));
     await settleUntil(() => page.textContent.includes("1986"));
     const picks = [...page.querySelectorAll("li button")];
