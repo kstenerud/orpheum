@@ -169,7 +169,7 @@ it("lists accounts by name, note and role leading to their pages, and roles by n
   const rows = [...mounted.container.querySelectorAll("button.people__row")].map(
     (each) => each.textContent,
   );
-  expect(rows).toContain("Administrator1 people");
+  expect(rows).toContain("Administrator1 person");
   expect(rows).toContain("friends0 people");
 });
 

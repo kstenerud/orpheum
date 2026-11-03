@@ -9,6 +9,11 @@ import type { FormWords } from "./problem.ts";
 import { isWithoutLibrary, roleLabel, type Role } from "./roles.ts";
 import { WarningSign } from "./warning-sign.tsx";
 
+/** How many people hold a role, "1 person" for one (the catalogue has no plural forms: en.ts). */
+export function holdersText(t: TFunction, count: number): string {
+  return count === 1 ? t("roles.holdersOne") : t("roles.holders", { count });
+}
+
 /** How a refusal of a role's name or libraries is told, on the People page and a role's own. */
 export function roleWords(t: TFunction): FormWords {
   return {
@@ -42,7 +47,7 @@ export function RolesSection(props: {
               }}
             >
               <span className="people__name">{roleLabel(t, role.name)}</span>
-              <span>{t("roles.holders", { count: role.holderCount })}</span>
+              <span>{holdersText(t, role.holderCount)}</span>
             </button>
             {isWithoutLibrary(role) ? (
               <WarningSign

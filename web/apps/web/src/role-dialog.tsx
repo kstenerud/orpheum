@@ -20,7 +20,7 @@ import {
   type Role,
   type RoleChange,
 } from "./roles.ts";
-import { Checklist, DeleteRole, NameField, roleWords } from "./roles-section.tsx";
+import { Checklist, DeleteRole, NameField, holdersText, roleWords } from "./roles-section.tsx";
 import { useServices } from "./services.tsx";
 import { useRequest, type RequestState } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
@@ -280,7 +280,7 @@ function RoleHeading(props: { readonly role: Role | undefined }): JSX.Element {
       {isWithoutLibrary(role) ? (
         <WarningSign summary={t("warning.roleWithoutLibrary")} forAdmin={t("roles.noLibrary")} />
       ) : null}
-      <p>{t("roles.holders", { count: role.holderCount })}</p>
+      <p>{holdersText(t, role.holderCount)}</p>
     </>
   );
 }
