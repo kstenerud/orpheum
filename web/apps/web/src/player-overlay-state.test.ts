@@ -222,6 +222,21 @@ describe("all of the overlay (D407 §5)", () => {
     });
     expect(overlayAnswer(full, "down", onComputer)).toEqual({ state: full, isTaken: false });
   });
+
+  // The owner, 2026-11-03, in Firefox: full screen by a double-click or ⤢, the mouse having shown
+  // the overlay, Down left focus where no row could be reached by Up or Down.
+  it("brings focus outside it, on the video or the page, to play by Up or Down", () => {
+    const byPointer: OverlayState = { shown: "full", shownBy: "pointer" };
+    for (const command of ["up", "down"] as const) {
+      for (const context of [onComputer, onTv]) {
+        expect(overlayAnswer(byPointer, command, { ...context, isFocusOutside: true })).toEqual({
+          state: byPointer,
+          isTaken: true,
+          focus: "play",
+        });
+      }
+    }
+  });
 });
 
 describe("play, pause and the seeking keys, the player's in every state", () => {

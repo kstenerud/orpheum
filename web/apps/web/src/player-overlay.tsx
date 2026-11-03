@@ -336,6 +336,7 @@ function useOverlayPresses({
   hasOffer,
   isMenuOpen,
   onVolumeShown,
+  overlayRef,
   playRef,
   scrubRef,
   buttonsRef,
@@ -360,7 +361,7 @@ function useOverlayPresses({
       if (video === null) {
         return;
       }
-      const parts = overlayParts({ scrubRef, buttonsRef, convenienceRef }, hasOffer);
+      const parts = overlayParts({ overlayRef, scrubRef, buttonsRef, convenienceRef }, hasOffer);
       const context = { ...pressContext(parts, video, isTv), isMenuOpen };
       const answer = overlayAnswer(state, detail.command, context);
       setState(answer.state);
@@ -457,10 +458,11 @@ function usePlayingLeavesPlay(
 }
 
 /**
- * The overlay's parts as a press finds them: the scrub bar, the buttons' row, and the convenience
- * area while an offer is in it.
+ * The overlay's parts as a press finds them: itself, the scrub bar, the buttons' row, and the
+ * convenience area while an offer is in it.
  */
 interface OverlayParts {
+  readonly overlay: HTMLElement | null;
   readonly scrub: HTMLElement | null;
   readonly buttons: HTMLElement | null;
   readonly convenience: HTMLElement | null;
@@ -468,10 +470,11 @@ interface OverlayParts {
 
 /** The overlay's parts as a press finds them, the convenience area only while it holds an offer. */
 function overlayParts(
-  refs: Pick<OverlayRefs, "scrubRef" | "buttonsRef" | "convenienceRef">,
+  refs: Pick<OverlayRefs, "overlayRef" | "scrubRef" | "buttonsRef" | "convenienceRef">,
   hasOffer: boolean,
 ): OverlayParts {
   return {
+    overlay: refs.overlayRef.current,
     scrub: refs.scrubRef.current,
     buttons: refs.buttonsRef.current,
     convenience: hasOffer ? refs.convenienceRef.current : null,
@@ -488,6 +491,7 @@ function pressContext(parts: OverlayParts, video: HTMLVideoElement, isTv: boolea
     isOnButtons: parts.buttons?.contains(focused) === true,
     hasOffer: parts.convenience !== null,
     isOnOffer: parts.convenience?.contains(focused) === true,
+    isFocusOutside: parts.overlay?.contains(focused) === false,
   };
 }
 
