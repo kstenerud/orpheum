@@ -5,10 +5,12 @@ package api
 import (
 	"context"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/waits"
 )
 
@@ -70,6 +72,8 @@ type WaitBody struct {
 type FileWaitsOutput struct {
 	Body struct {
 		ReadThrough *WaitBody `doc:"Its read-through, for its loudness" json:"readThrough,omitempty"`
+		//nolint:lll // one struct tag
+		Levellings []LevellingBody `doc:"What brings each of its audio tracks to the level, by its place among them, played as it is (D226): a player whose film was measured as it played takes it up from here; absent until one is measured" json:"levellings,omitempty"`
 	}
 }
 
@@ -86,6 +90,15 @@ func (server *Server) getFileWaits(ctx context.Context, input *ItemInput) (*File
 	}
 	output := &FileWaitsOutput{}
 	output.Body.ReadThrough = waitBody(found.ReadThrough)
+	levellings, err := dependencies.Playback.TrackLevellings(ctx, input.ID)
+	if err != nil {
+		return nil, server.playbackError(ctx, "say how a file's sound is levelled", err)
+	}
+	if slices.ContainsFunc(levellings, func(levelling decide.Levelling) bool { return levelling.IsMeasured }) {
+		for _, levelling := range levellings {
+			output.Body.Levellings = append(output.Body.Levellings, levellingBody(levelling))
+		}
+	}
 	return output, nil
 }
 

@@ -474,3 +474,31 @@ func TestFileWaits_SayHowLongAFilesReadThroughWillTake(t *testing.T) {
 		t.Errorf("file 1's waits = %d %s; want nothing to wait for", none.status, none.body)
 	}
 }
+
+// A file measured as it plays says each audio track's levelling with its waits, which its player takes
+// up without starting again; before any is measured it says none (D226 §6; the plan's item 8 of
+// 2026-11-02, VQ50).
+func TestFileWaits_SayTheLevellingOnceTheFileIsMeasured(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	if before := harness.do(t, http.MethodGet, "/files/1/waits", user, nil); before.status != http.StatusOK ||
+		strings.TrimSpace(before.body) != `{}` {
+		t.Errorf("film 1's waits, unmeasured = %d %s; want no levelling", before.status, before.body)
+	}
+	lufs, peak := -30.0, -12.0
+	if err := harness.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+		return queries.UpsertLoudness(t.Context(), sqlcgen.UpsertLoudnessParams{
+			PayloadHash: []byte{0x0a, 0x0b}, StreamIndex: 0, MeasuredMix: "stereo", IntegratedLUFS: &lufs,
+			TruePeakDBTP: &peak, MeasuredAt: 1,
+		})
+	}); err != nil {
+		t.Fatal(err)
+	}
+	after := harness.do(t, http.MethodGet, "/files/1/waits", user, nil)
+	const raised = `{"levellings":[{"isMeasured":true,"gainDb":7}]}`
+	if after.status != http.StatusOK || strings.TrimSpace(after.body) != raised {
+		t.Errorf("film 1's waits, measured = %d %s; want its track raised 7 dB, to -23 LUFS", after.status, after.body)
+	}
+}

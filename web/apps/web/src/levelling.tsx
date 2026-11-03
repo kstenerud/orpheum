@@ -94,6 +94,8 @@ export function LevelSwitch(props: {
   /** The file playing, whose read-through measures its loudness. */
   readonly fileId: number;
   readonly level: SoundLevel;
+  /** The audio track playing, by its place among the file's; undefined where none is known. */
+  readonly audioTrackIndex?: number;
   /** Whether levelling starts on; the switch keeps its own state after that. */
   readonly isInitiallyOn: boolean;
   readonly videoRef: RefObject<HTMLVideoElement | null>;
@@ -102,8 +104,57 @@ export function LevelSwitch(props: {
     isInitiallyOn: props.isInitiallyOn,
     onSwitched: () => undefined,
   });
-  useLevelGain(props.level, state.isOn, props.videoRef);
-  return <LevellingControl fileId={props.fileId} level={props.level} state={state} />;
+  const heard = useMeasuredLevel(props.fileId, props.level, props.audioTrackIndex);
+  useLevelGain(heard.level, state.isOn, props.videoRef);
+  return <LevellingControl level={heard.level} measuring={heard.measuring} state={state} />;
+}
+
+/**
+ * The level of a sound not measured when its playback started, taken from its file's levellings once
+ * the server has measured its track: a film measured as it plays is levelled at once, not when it is
+ * played again (D226 §6; the plan's item 8 of 2026-11-02, VQ50). A sound measured already, or
+ * carrying a gain of its own, stands as it is.
+ */
+export function measuredLevel(
+  level: SoundLevel,
+  levellings: readonly Levelling[] | undefined,
+  audioTrackIndex: number | undefined,
+): SoundLevel {
+  if (level.levelling.isMeasured || level.carriedGainDb !== 0 || audioTrackIndex === undefined) {
+    return level;
+  }
+  const taken = levellings?.[audioTrackIndex];
+  return taken?.isMeasured === true ? { levelling: taken, carriedGainDb: 0 } : level;
+}
+
+/** The sound playing as it is levelled, and, while it is not measured, its measuring's wait. */
+export interface HeardLevel {
+  readonly level: SoundLevel;
+  readonly measuring: FileWait | undefined;
+}
+
+/**
+ * The sound playing, level, as its file's waits say it once measured (measuredLevel), and how long
+ * its measuring will take until then: the waits are asked for while the sound is not measured and
+ * the page may set the volume, and no longer once it is.
+ */
+export function useMeasuredLevel(
+  fileId: number,
+  level: SoundLevel,
+  audioTrackIndex: number | undefined,
+): HeardLevel {
+  const [canApplyGain] = useState(pageCanSetVolume);
+  const [levellings, setLevellings] = useState<readonly Levelling[] | undefined>(undefined);
+  const taken = measuredLevel(level, levellings, audioTrackIndex);
+  const isWanted = canApplyGain && !taken.levelling.isMeasured;
+  const waits = useFileWaits(fileId, isWanted);
+  const said = waits?.levellings ?? undefined;
+  useEffect(() => {
+    if (said !== undefined) {
+      setLevellings(said);
+    }
+  }, [said]);
+  return { level: taken, measuring: isWanted ? waits?.readThrough : undefined };
 }
 
 /**
@@ -126,17 +177,18 @@ export function useLevelGain(
 
 /** Levelling's switch, held by whoever holds the choice, and the note saying what was done (D226 §5). */
 export function LevellingControl(props: {
-  /** The file playing, whose read-through measures its loudness. */
-  readonly fileId: number;
   readonly level: SoundLevel;
+  /** How long measuring the sound will take, while it is not measured (useMeasuredLevel). */
+  readonly measuring: FileWait | undefined;
   readonly state: OwnChoiceState;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
   // The note says what the player does: it applies no gain where the volume cannot be set.
   const [canApplyGain] = useState(pageCanSetVolume);
-  const isUnmeasured = canApplyGain && !props.level.levelling.isMeasured;
-  const measuring = useFileWaits(props.fileId, isUnmeasured)?.readThrough;
-  const note = measuringNote(levelNote(props.level, props.state.isOn, canApplyGain), measuring);
+  const note = measuringNote(
+    levelNote(props.level, props.state.isOn, canApplyGain),
+    props.measuring,
+  );
   const dbText = tenthsText(note.db, i18n.language);
   const wait = note.seconds === undefined ? "" : waitText(t, note.seconds);
   return (

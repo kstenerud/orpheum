@@ -71,6 +71,7 @@ function tracksNoting(chosen: Chosen): PlayerTracks {
     },
     levelling: off,
     level: { levelling: { isMeasured: true, gainDb: -2 }, carriedGainDb: 0 },
+    measuring: undefined,
     boost: undefined,
   };
 }

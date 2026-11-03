@@ -565,6 +565,7 @@ describe("the overlay's menus on a television (D407 §6, §8)", () => {
     audio: { tracks: [], chosenStreamId: undefined, choose: () => undefined, problem: undefined },
     levelling: { isOn: false, switchTo: () => undefined, problem: undefined },
     level: { levelling: { isMeasured: true, gainDb: 0 }, carriedGainDb: 0 },
+    measuring: undefined,
     boost: undefined,
   };
 

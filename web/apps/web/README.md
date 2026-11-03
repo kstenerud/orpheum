@@ -134,6 +134,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   choice reloads no one's player, and a cast's receiver follows its remote's by the same path
   (audio-switch-and-retiming-2026-11-01.md §1.2; the owner's answers of 2026-10-31).
   `src/audio-switch.test.tsx`.
+- **A film measured while it plays is levelled at once** (`useMeasuredLevel`, `src/levelling.tsx`):
+  while the sound playing is not measured and carries no gain, the player asks its file's waits, as
+  it does for the measuring's wait, and takes up the track's levelling as soon as the waits say it,
+  then stops asking. It said "not measured yet" until the film was played again (VQ50, 2026-11-02).
+  `src/levelling.test.tsx`.
 - **A Play page's playback the core answered nothing for is asked for again** (`askWhileUnanswered`),
   each silence told to the core's log: the page draws its player, and with it a host's Watch
   Together player and its session connection, only once its playback is answered, and one answer lost

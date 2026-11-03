@@ -166,6 +166,10 @@
 //     TestTracks_OffTheLadderEachTrackIsLevelledByItsOwn and
 //     TestOffered_EachSoundIsLevelledByItsOwnTrack (internal/core/chunks).
 //
+//   - Each audio track's levelling as it is, which a player whose film was measured as it played takes
+//     up from its file's waits, is what a playback started then would level it by (TrackLevellings).
+//     Enforced by TestFileWaits_SayTheLevellingOnceTheFileIsMeasured (internal/core/api).
+//
 //   - The sound a playback plays is the one its player last asked for or said, which a stall's offer
 //     starts in place of its starting track's; a player playing its file as it is that says the sound
 //     it switched to wants none of the film's chunks for it. Enforced by

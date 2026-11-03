@@ -314,7 +314,11 @@ function MoreMenu(props: {
       )}
       {ways === undefined ? null : (
         <ListEntry>
-          <LevellingControl fileId={ways.fileId} level={tracks.level} state={tracks.levelling} />
+          <LevellingControl
+            level={tracks.level}
+            measuring={tracks.measuring}
+            state={tracks.levelling}
+          />
         </ListEntry>
       )}
       {boost === undefined ? null : (

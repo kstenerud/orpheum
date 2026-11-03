@@ -3210,6 +3210,8 @@ export interface components {
             nextCursor?: string;
         };
         FileWaitsOutputBody: {
+            /** @description What brings each of its audio tracks to the level, by its place among them, played as it is (D226): a player whose film was measured as it played takes it up from here; absent until one is measured */
+            levellings?: components["schemas"]["LevellingBody"][] | null;
             /** @description Its read-through, for its loudness */
             readThrough?: components["schemas"]["WaitBody"];
         };

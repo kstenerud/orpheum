@@ -39,7 +39,12 @@ describe("the film's track choices, held around the stage (player-tracks.tsx)", 
   it("shows and works a cast's remote's sound with no menu or switch drawn", async () => {
     const heard: Heard[] = [];
     const services = servedBy(
-      { "PUT /me/preferences": [204, undefined], "PUT /files/4/preferences": [204, undefined] },
+      {
+        "PUT /me/preferences": [204, undefined],
+        "PUT /files/4/preferences": [204, undefined],
+        // The sound is not measured, so the provider asks how long measuring it will take.
+        "GET /files/4/waits": [200, {}],
+      },
       heard,
     );
     const panel = newSoundPanel();
@@ -120,7 +125,7 @@ describe("the film's track choices, held around the stage (player-tracks.tsx)", 
             {null}
           </PlayerTracksProvider>
         </SoundPanelContext>,
-        servedBy({}),
+        servedBy({ "GET /files/4/waits": [200, {}] }),
       ),
     );
     expect(panel.read()?.isBoostOn).toBeUndefined();
