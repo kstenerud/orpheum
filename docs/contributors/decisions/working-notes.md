@@ -25604,8 +25604,9 @@ The 5 s hide that decided whether Right moved focus or seeked (plan item 17) goe
    ```
 
    ‹ back to the info page; ⏮ ⏭ previous and next in the sequence (the set of videos being shown:
-   for now a series' episodes in their order, extras left out; later sets such as everything of Star
-   Wars); ⏪ ⏩ 10 s back and forward; ▶
+   for now a series' episodes in their order, extras left out, and its specials a set of their own
+   (the owner, 2026-11-03: "Specials should be their own set of videos, separate from the
+   episodes"); later sets such as everything of Metropolis); ⏪ ⏩ 10 s back and forward; ▶
    play and pause; 🔈 volume; 💬 subtitles; 🎧 audio tracks; ⁝ a menu of the rest; ⤢ full screen.
 2. **A control is shown only where it does something:** ⏮ and ⏭ only within a sequence; 🔈 not on a
    TV or a touch screen; 🎧 only with more than one audio track; 💬 always, since searching for
