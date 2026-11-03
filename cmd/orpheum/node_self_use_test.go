@@ -52,7 +52,11 @@ func statusesToFakeCore(t *testing.T, socket string) <-chan nodeproto.Status {
 		_ = json.NewEncoder(writer).Encode(nodeproto.HelloReply{NodeID: 1}) //nolint:errcheck // the node says if not
 	})
 	mux.HandleFunc("GET "+nodeproto.PathCommands, func(_ http.ResponseWriter, request *http.Request) {
-		<-request.Context().Done()
+		// Held open, as the core holds a poll with no command, until the node or the test ends.
+		select {
+		case <-request.Context().Done():
+		case <-t.Context().Done():
+		}
 	})
 	mux.HandleFunc("POST "+nodeproto.PathStatus, func(writer http.ResponseWriter, request *http.Request) {
 		var status nodeproto.Status
@@ -71,7 +75,7 @@ func statusesToFakeCore(t *testing.T, socket string) <-chan nodeproto.Status {
 	go func() { served <- server.Serve(listener) }()
 	t.Cleanup(func() {
 		_ = server.Close() //nolint:errcheck // a test's server, closed at its end
-		if err := <-served; !errors.Is(err, http.ErrServerClosed) {
+		if err := testutil.Receive(t, served, "the fake core to stop"); !errors.Is(err, http.ErrServerClosed) {
 			t.Errorf("the fake core stopped with %v", err)
 		}
 	})
