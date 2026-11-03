@@ -8,7 +8,10 @@ import { useTranslation } from "react-i18next";
 import { MenuIcon } from "./app-shell.tsx";
 import { ConfirmButton } from "./confirm-button.tsx";
 import { IconButton } from "./icon-button.tsx";
+import { Cluster, Stack } from "./layout.tsx";
+import { ListBox, ListNote, ListOption } from "./list-box.tsx";
 import { PlayerControls, type PlayerSource } from "./player-controls.tsx";
+import { PopoverButton } from "./popover.tsx";
 import {
   AudioIcon,
   BackIcon,
@@ -77,7 +80,8 @@ const states: readonly { readonly key: string; readonly subject: CueSubject }[] 
  * The client's own parts, drawn with made-up data, to see how they look before a library has them
  * (the owner, 2026-10-17: "a demo page … that shows the UI elements"): the banner's status tray
  * with each sign it can show, each status cue over posters pale, mid, dark and busy, the notes a
- * page says them with, the icons alone, the buttons and the player's widgets (D369 §1). It reads nothing from the server; the menu
+ * page says them with, the icons alone, the buttons, the pop-ups and layouts the widgets are built
+ * from (D408) and the player's widgets (D369 §1). It reads nothing from the server; the menu
  * leads to it while the admin has the pages for development on, and its address is /ui-gallery.
  */
 export function UiGallery(): JSX.Element {
@@ -100,6 +104,7 @@ export function UiGallery(): JSX.Element {
         ))}
       </section>
       <IconsAndButtons />
+      <PopUpsAndLayouts />
       <PlayerWidgets />
     </article>
   );
@@ -284,6 +289,53 @@ function Buttons(): JSX.Element {
         ]}
         isAView
       />
+    </section>
+  );
+}
+
+/**
+ * The parts the widgets are built from (D408): a pop-up at its button holding a list that opens on
+ * its current choice, with a line that only informs and wraps (§7), and the layout primitives,
+ * `Stack` and `Cluster`, each laying out three buttons.
+ */
+function PopUpsAndLayouts(): JSX.Element {
+  const { t } = useTranslation();
+  const choices = ["gallery.choiceOne", "gallery.choiceTwo", "gallery.choiceThree"];
+  return (
+    <section aria-labelledby="gallery-pop-ups">
+      <h2 id="gallery-pop-ups">{t("gallery.popUps")}</h2>
+      <PopoverButton
+        label={t("gallery.popUp")}
+        opener={t("gallery.popUp")}
+        openerClassName="ui-gallery__opener"
+        openerNaming={{}}
+        isFromItsTop={false}
+      >
+        <ListBox isFromItsTop={false}>
+          <ListNote>{t("gallery.popUpNote")}</ListNote>
+          {choices.map((choice, index) => (
+            <ListOption key={choice} isCurrent={index === 1} onChoose={() => undefined}>
+              {t(choice)}
+            </ListOption>
+          ))}
+        </ListBox>
+      </PopoverButton>
+      <h3>{t("gallery.stack")}</h3>
+      <Stack space="2">
+        {choices.map((choice) => (
+          <button key={choice} type="button">
+            {t(choice)}
+          </button>
+        ))}
+      </Stack>
+      <h3>{t("gallery.cluster")}</h3>
+      <Cluster space="3">
+        {choices.map((choice) => (
+          <button key={choice} type="button">
+            {t(choice)}
+          </button>
+        ))}
+      </Cluster>
     </section>
   );
 }

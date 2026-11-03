@@ -639,7 +639,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `--space-1` to `--space-7`, never a length, which `tsc` refuses. Each lays out its direct
   children alone, shrinks below its content where it is a flex item (`min-width: 0`), so a screen
   never needs the overflow fix, and answers to its container, never the viewport.
-  `src/layout.browser.test.tsx`. ⁝'s steppers lay out their parts with `Cluster`; the screens'
+  `src/layout.browser.test.tsx`; each, and a pop-up holding a list, at `/ui-gallery`,
+  `src/ui-gallery.test.tsx`. ⁝'s steppers lay out their parts with `Cluster`; the screens'
   hand-written gapped rows and columns move to the primitives as they are touched.
 - **A list's entries take no class from their user** (R5): a look one list needs is a named variant
   of the component, which any list may use (`ListEntry`'s `isInsetAsChoices`, the steppers'

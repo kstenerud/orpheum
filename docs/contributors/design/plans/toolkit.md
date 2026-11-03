@@ -29,7 +29,9 @@ End: one `make check-pr`, staging, the owner tries it.
    where this batch touches them (R5).
 6. **The native `<select>`s** a TV cannot work (the 2026-10-27 widget audit: the audio and subtitle
    menus under the film first, `audio-tracks.tsx`, `subtitles.tsx`) become the chooser.
-7. **Docs**: the web README's invariants, the `/ui-gallery` specimens, D408's status.
+7. **Docs**: the web README's invariants, the `/ui-gallery` specimens, D408's status. **Done**: the
+   README's invariants were kept with each step; the gallery shows a pop-up holding a list and the
+   layout primitives; D408 is Built.
 
 ## The owner's comments on steps 1–4 (2026-11-03), folded into the batch
 

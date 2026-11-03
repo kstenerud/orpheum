@@ -25709,4 +25709,8 @@ now covers dialogs alone.
    owner, on the banner's menu: "Informative content can wrap, while action content (menu items
    and such) should not wrap unless absolutely necessary."
 
-**Status:** Decided 2026-11-03, not built.
+**Status:** Decided 2026-11-03. Built 2026-11-03 (plans/toolkit.md steps 1–7, items 8–13): `Popover`,
+`ListBox` and `modal-layer.tsx` (§1–3, §7; `src/popover.browser.test.tsx`, `src/list-box.test.tsx`,
+`src/player-menus.browser.test.tsx`), `Stack` and `Cluster` (`src/layout.browser.test.tsx`), each at
+`/ui-gallery` (`src/ui-gallery.test.tsx`). Device checks: VQ250–VQ254. The Preact spike (§5):
+[preact-spike-2026-11-03.md](../design/research/preact-spike-2026-11-03.md); the owner stays on React.
