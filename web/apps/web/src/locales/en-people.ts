@@ -82,6 +82,7 @@ export const enPeople = {
     dialogLabel: "Role",
     create: "Add the role",
     holders: "{{count}} people",
+    holdersOne: "1 person",
     notFound: "There is no such role.",
     capabilities: "What its people may do",
     libraries: "The libraries its people see",
