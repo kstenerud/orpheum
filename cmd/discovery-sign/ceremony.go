@@ -36,7 +36,6 @@ type guided struct {
 func (guide *guided) commands() map[string]func(arguments []string) error {
 	commands := map[string]func([]string) error{
 		"ceremony":     guide.ceremony,
-		"test-key":     guide.testKey,
 		"sign-release": guide.signRelease,
 	}
 	maps.Copy(commands, guide.changeCommands())
@@ -275,16 +274,6 @@ func (guide *guided) planDevices(place *folder) error {
 		}
 		place.state.Devices = append(place.state.Devices, device{Name: name, Role: role, Kind: kindYubiKey})
 	}
-	say.sayf("A Mac's Secure Enclave (unlocked by Touch ID) can be one more everyday key, so you carry nothing\n" +
-		"extra. Only do this if `discovery-sign test-key` on that Mac said its signatures carry the\n" +
-		"user-verified flag (D394 §7); otherwise the Mac would not be as safe as a YubiKey.")
-	useMac, err := say.yes("Add this Mac as an everyday key?", false)
-	if err != nil {
-		return err
-	}
-	if useMac {
-		place.state.Devices = append(place.state.Devices, device{Name: "mac", Role: roleEveryday, Kind: kindMac})
-	}
 	return guide.checkPlan(place)
 }
 
@@ -425,8 +414,6 @@ func touchHint(kind string) string {
 	switch kind {
 	case kindYubiKey:
 		return "It will ask for the key's PIN, then the key blinks: touch it."
-	case kindMac:
-		return "It will ask for Touch ID."
 	default:
 		return "It will ask for a passphrase: choose a long one, or press Enter for none."
 	}

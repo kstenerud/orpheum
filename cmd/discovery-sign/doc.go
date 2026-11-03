@@ -4,8 +4,7 @@
 // guided commands ask plain questions and run ssh-keygen themselves, so the owner types no flag:
 // `ceremony` is day one for both chains (keys made on their devices or, with --software, as plain files; each chain's
 // genesis and the address document, each signature checked by the code a core uses before the next step),
-// `sign-release` shows an unsigned release record and signs it once the owner types the digest's start, `test-key` says
-// whether a key's signatures carry the user-verified flag (whether the Mac may be an everyday key, D394 §7), and
+// `sign-release` shows an unsigned release record and signs it once the owner types the digest's start, and
 // `suspend`, `resume`, `add` and `remove` change a key's standing in both chains (D394 §4), offering only the keys
 // allowed to sign each change. Beneath them the flag commands build a root statement, an address document or a drill
 // from a typed edit (keys added, removed, suspended or resumed, versions skipped, thresholds and locations changed) and
@@ -13,7 +12,8 @@
 // expected file the watcher's (cmd/discovery-watch), and writes the files every place serves. keygen.go alone starts a
 // process (ssh-keygen, on the owner's terminal and environment, since a hardware key asks for its touch and PIN there;
 // the lint names that one file), and a test puts a fake in its place. No root key is ever put in an agent (the audit's
-// F16). `bootstrap` writes the install's bootstrap script from the publisher's chain. No household runs it.
+// F16). A Mac is no key and the tool has no kind for one (D395 §3). `bootstrap` writes the install's bootstrap
+// script from the publisher's chain. No household runs it.
 //
 // docs/users/discovery-signing.md is the owner's guide: the day-one ceremony and each rotation.
 //
@@ -40,8 +40,6 @@
 //     TestCeremony_ASignatureWithoutThePINIsRefused.
 //   - sign-release signs only once the owner types the start of the record's digest; a mistyped or
 //     empty answer signs nothing. TestSignRelease_NeedsTheOwnersConfirmationOfTheDigest.
-//   - test-key says plainly whether a key's signatures carry the user-verified flag, by the check a
-//     core makes. TestTestKey_ReportsWhetherTheSignatureCarriesTheUserVerifiedFlag.
 //   - The install's bootstrap checks the record's signature by the publisher's keys before it pulls
 //     or runs anything, then pulls the latest's image by its digest (the audit's §3.9).
 //     TestBootstrap_VerifiesTheRecordBeforeItRunsAnything.
@@ -58,7 +56,7 @@
 //
 //   - ceremony.go: the guided commands and their shared steps (the place for the rotation, suspend,
 //     resume, add and remove flows: a method of guided in commands(), using signWith and accept);
-//     keygen.go: ssh-keygen, behind the keygen interface; prompt.go: the questions; testkey.go.
+//     keygen.go: ssh-keygen, behind the keygen interface; prompt.go: the questions.
 //   - commands.go: each flag command; ledger.go: the ledger and the published files; bootstrap.sh: the
 //     install's bootstrap.
 package main

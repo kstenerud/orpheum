@@ -111,9 +111,7 @@ func (guide *guided) makeDevice(place *folder, name string) error {
 	}
 	kind := kindSoftware
 	if place.state.Software == "" {
-		if kind, err = guide.say.choose("What is it?", []string{kindYubiKey, kindMac}, kindYubiKey); err != nil {
-			return err
-		}
+		kind = kindYubiKey
 		plug := fmt.Sprintf("Plug in the key named %q (only that one, and no other security key).", name)
 		if stepErr := guide.say.press(plug); stepErr != nil {
 			return stepErr

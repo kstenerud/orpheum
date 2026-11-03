@@ -17,22 +17,12 @@ import (
 // The kinds of key the ceremony makes.
 const (
 	kindYubiKey  = "yubikey"
-	kindMac      = "mac"
 	kindSoftware = "software"
 )
 
-// macProvider is the library that lets OpenSSH use the Mac's Secure Enclave as a security key.
-//
-// Not confirmed on a Mac (the tool was written in a sandbox with no Mac): that Apple ships this path
-// on the owner's macOS (it is documented for macOS 13 and later), that its ssh-keygen accepts -w for
-// "ecdsa-sk" and "-O application", that it accepts neither "resident" nor "verify-required" (so this
-// tool asks for neither), and that its signatures carry the user-verified flag. The last is what
-// `discovery-sign test-key` finds out (D394 §7).
-const macProvider = "/usr/lib/ssh-keychain.dylib"
-
 // keySpec is a key to make.
 type keySpec struct {
-	// Kind is kindYubiKey, kindMac or kindSoftware.
+	// Kind is kindYubiKey or kindSoftware.
 	Kind string
 	// File is where the private key (for a hardware key, its stub) is written; File + ".pub" beside it.
 	File string
@@ -51,8 +41,6 @@ type signSpec struct {
 	// at Payload + ".sig".
 	KeyFile string
 	Payload string
-	// Kind says whether the Mac's provider is needed to sign.
-	Kind string
 }
 
 // keygen makes keys and signs with them.
@@ -83,11 +71,6 @@ func makeArguments(spec keySpec) []string {
 			arguments = append(arguments, "-O", "write-attestation="+spec.Attestation)
 		}
 		return append(arguments, "-N", "", "-C", spec.Label, "-f", spec.File)
-	case kindMac:
-		return []string{
-			"-t", "ecdsa-sk", "-w", macProvider, "-O", "application=" + spec.Application,
-			"-N", "", "-C", spec.Label, "-f", spec.File,
-		}
 	default:
 		// ssh-keygen asks for a passphrase itself.
 		return []string{"-t", "ed25519", "-a", "100", "-C", spec.Label, "-f", spec.File}
@@ -101,25 +84,19 @@ func signArguments(spec signSpec) []string {
 
 // Make runs ssh-keygen to make spec's key.
 func (sshKeygen) Make(spec keySpec) error {
-	return runKeygen(nil, makeArguments(spec))
+	return runKeygen(makeArguments(spec))
 }
 
-// Sign runs ssh-keygen to sign spec's payload; the Mac's provider is named in the environment, which
-// is how ssh-keygen -Y sign is told which library holds a security key.
+// Sign runs ssh-keygen to sign spec's payload.
 func (sshKeygen) Sign(spec signSpec) error {
-	var environment []string
-	if spec.Kind == kindMac {
-		environment = []string{"SSH_SK_PROVIDER=" + macProvider}
-	}
-	return runKeygen(environment, signArguments(spec))
+	return runKeygen(signArguments(spec))
 }
 
-// runKeygen runs ssh-keygen with the owner's terminal and environment, extra added.
-func runKeygen(extra, arguments []string) error {
+// runKeygen runs ssh-keygen with the owner's terminal and environment.
+func runKeygen(arguments []string) error {
 	//nolint:gosec // a fixed program with the owner's own arguments
 	command := exec.CommandContext(context.Background(), "ssh-keygen", arguments...)
 	command.Stdin, command.Stdout, command.Stderr = os.Stdin, os.Stdout, os.Stderr
-	command.Env = append(os.Environ(), extra...)
 	if err := command.Run(); err != nil {
 		return fmt.Errorf("ssh-keygen did not finish: %w", err)
 	}
