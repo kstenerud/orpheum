@@ -303,10 +303,7 @@ export class PlayReporter {
       return;
     }
     if (this.isSending) {
-      this.flushAsked = {
-        positionMs,
-        isLeaving: isLeaving || (this.flushAsked?.isLeaving ?? false),
-      };
+      this.askAfterSending(positionMs, isLeaving);
       return;
     }
     if (this.unsent !== undefined) {
@@ -314,6 +311,11 @@ export class PlayReporter {
       this.transmit(this.unsent, isLeaving);
       return;
     }
+    this.transmit(this.takeReport(positionMs), isLeaving);
+  }
+
+  /** A report of everything recorded since the last, which it then holds no more. */
+  private takeReport(positionMs: number): PlayReport {
     const now = this.readMonotonicMs();
     const linkNotes = [...this.linkNotesUnsent, ...this.takeLinkNotes()].slice(-linkNotesKept);
     this.linkNotesUnsent = [];
@@ -342,7 +344,12 @@ export class PlayReporter {
     this.seeks = [];
     this.standstills = [];
     this.pathMoves = [];
-    this.transmit(report, isLeaving);
+    return report;
+  }
+
+  /** A flush asked while a report is in flight, made when it settles; a page leaving stays so. */
+  private askAfterSending(positionMs: number, isLeaving: boolean): void {
+    this.flushAsked = { positionMs, isLeaving: isLeaving || (this.flushAsked?.isLeaving ?? false) };
   }
 
   private transmit(report: PlayReport, isLeaving: boolean): void {

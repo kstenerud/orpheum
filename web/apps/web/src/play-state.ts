@@ -13,7 +13,6 @@ import {
   watchStalls,
   watchStandingStill,
   type PlayReport,
-  type SendOptions,
 } from "@orpheum/player";
 import type { Api, components } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type RefObject } from "react";
@@ -32,6 +31,8 @@ import { hasMedia, positionMs, reportVideoEvents, watchPage } from "./play-state
 export interface ReportTo {
   readonly mediaToken: string;
   readonly headers?: Readonly<Record<string, string>>;
+  /** The page is going (hidden, or pagehide): the report is sent to survive it. */
+  readonly isLeaving?: boolean;
 }
 
 /** What a report is answered with: the admin's stop, a lower quality to move to, or neither. */
@@ -54,24 +55,13 @@ export async function sendReport(
   api: Api,
   to: ReportTo,
   report: PlayReport,
-  options: SendOptions = { isLeaving: false },
 ): Promise<ReportAnswer> {
-  const { stalls, standstills, pathMoves, ...rest } = report;
   const answer = await api.POST("/playback/{token}/report", {
     params: { path: { token: to.mediaToken } },
     ...(to.headers === undefined ? {} : { headers: to.headers }),
     // keepalive lets the browser finish a report as the page goes, within its 64 KiB of body.
-    keepalive: options.isLeaving && JSON.stringify(report).length <= keepaliveBodyMost,
-    body: {
-      ...rest,
-      events: [...report.events],
-      spans: [...report.spans],
-      ...(stalls === undefined ? {} : { stalls: [...stalls] }),
-      ...(standstills === undefined || standstills === null
-        ? {}
-        : { standstills: [...standstills] }),
-      ...(pathMoves === undefined ? {} : { pathMoves: [...pathMoves] }),
-    },
+    keepalive: to.isLeaving === true && JSON.stringify(report).length <= keepaliveBodyMost,
+    body: bodyOf(report),
   });
   try {
     throwIfRefused(answer);
@@ -82,6 +72,19 @@ export async function sendReport(
     }
     throw cause;
   }
+}
+
+/** A report as the server takes it: its lists copied, and the ones it may lack left out. */
+function bodyOf(report: PlayReport): components["schemas"]["ReportInputBody"] {
+  const { stalls, standstills, pathMoves, ...rest } = report;
+  return {
+    ...rest,
+    events: [...report.events],
+    spans: [...report.spans],
+    ...(stalls === undefined ? {} : { stalls: [...stalls] }),
+    ...(standstills === undefined || standstills === null ? {} : { standstills: [...standstills] }),
+    ...(pathMoves === undefined ? {} : { pathMoves: [...pathMoves] }),
+  };
 }
 
 /** A report's answer as the page reads it: what the server said, and nothing it did not. */
@@ -262,7 +265,7 @@ function startReporting(
       return;
     }
     try {
-      const answer = await sendReport(api, { mediaToken }, report, options);
+      const answer = await sendReport(api, { mediaToken, ...options }, report);
       if (answer.stop !== undefined) {
         isStopped = true;
         video.pause();
@@ -478,7 +481,7 @@ export function useStallReports(
       onMove: setLowerQuality,
     });
     const reporter = new PlayReporter(async (report, options) => {
-      const answer = await sendReport(api, to, report, options);
+      const answer = await sendReport(api, { ...to, ...options }, report);
       movingDown.answered(answer.lowerQuality);
     }, reportSeqCounter(mediaToken));
     reporter.measureLinkWith(() => linkReader.current());
