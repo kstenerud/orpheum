@@ -2515,3 +2515,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   go on" and the words under the film. The sign named each stretch. Then, at the owner's word
   that a fault of the file is no reason to step down, the quality is kept: the film played its own
   picture before, through and after the skip. Owed: the owner's look.
+- [ ] **VQ256** — a Chromecast away from home plays from the owner's core (the 11-05 batch's item
+  10, the owner's test in Berlin, 2026-11-04). With a 3rd-generation Chromecast on a network that is
+  not the core's, its serial registered for development in Google's Cast console and our receiver
+  registered there at `https://orpheum.dev/cast/` (staging's loader, which serves it with CAF's
+  policy), open `/lab/cast` in desktop Chrome at the staging client signed in as lead-tests on the
+  same network as the Chromecast, **Cast to our receiver**, **Ask for its report**, and **Play the
+  film on it** with the sign-in ticked. Passes when the TV shows *CAF started* and no *blocked by the
+  page's policy* line, the receiver's log names the way it took (a direct name, or *connected over
+  WebRTC*), the film plays on the TV, and its report reaches the core's log (`probe=receiver`); the
+  way it took, its stalls and its memory are the test's findings. A failure says which step, from
+  the receiver's log. (`web/apps/cast-receiver/src/reach.ts`, `old-engine.ts`,
+  `web/apps/web/src/lab-cast.tsx`, `web/packages/player/src/fetch-loader.ts`; orpheum-connect's
+  `internal/webclient`)
