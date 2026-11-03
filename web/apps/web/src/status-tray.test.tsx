@@ -390,3 +390,25 @@ it("tells an admin of a series whose episodes were likely read wrongly, leading 
   expect(mounted.container.querySelector('a[href="/series/606"]')?.textContent).toBe("Greywolf");
   expect(mounted.container.textContent).toContain(": 24 of its episodes have no number");
 });
+
+it("tells an admin of a film whose video has no sound, leading to it (the owner, 2026-11-02)", async () => {
+  const silent = {
+    ...nothingWrong,
+    filmsWithoutSound: [{ titleId: 880, name: "Mister 517" }],
+  };
+  mounted = await mount(
+    withServices(
+      <StatusTray isAdmin canHostWatchTogether={false} />,
+      servedBy({ "GET /needs-attention": [200, silent] }),
+    ),
+  );
+  expect(
+    mounted.container.querySelector('[aria-label="Something needs your attention"]'),
+  ).not.toBeNull();
+  mounted.unmount();
+  mounted = await mount(
+    withServices(<NeedsAttention />, servedBy({ "GET /needs-attention": [200, silent] })),
+  );
+  expect(mounted.container.querySelector('a[href="/titles/880"]')?.textContent).toBe("Mister 517");
+  expect(mounted.container.textContent).toContain(": its video has no sound track");
+});

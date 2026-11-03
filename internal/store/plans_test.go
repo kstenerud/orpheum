@@ -258,6 +258,8 @@ func wholeReadsAllowed() map[string]string {
 			"work's filing, which is rare (D306 section 3)",
 		"ListUnnumberedEpisodeFiles": "the series' orderings, which are few (one or two a series), each searched " +
 			"for its positions; Needs attention looks for episodes read wrongly (D306 section 6)",
+		"ListFilmsWithoutSound": "every film's files are checked for a sound track, by index each; Needs " +
+			"attention reads it once a look, and the list stops at its bound",
 		"ListUnreadablePaths":   few + "nodes, which the errored files are joined to",
 		"ListLibraryRootStates": few + "roots and nodes",
 		"ListLiveRealmKeys":     few + "people, whose realm keys a discovery lists",

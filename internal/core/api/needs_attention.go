@@ -29,6 +29,9 @@ type NeedsAttentionOutput struct {
 		// SeriesReadWrongly are the series some of whose episodes have no number though no specials
 		// or extras folder holds them: their files' names were likely read wrongly (D306 §6).
 		SeriesReadWrongly []SeriesReadWronglyBody `json:"seriesReadWrongly"`
+		// FilmsWithoutSound are the films whose video file holds no sound track, a video-only download
+		// (the owner, 2026-11-02: "videos without sound should be included in the list of problem films").
+		FilmsWithoutSound []FilmWithoutSoundBody `json:"filmsWithoutSound"`
 	}
 }
 
@@ -37,6 +40,12 @@ type SeriesReadWronglyBody struct {
 	SeriesID      int64  `json:"seriesId"`
 	Name          string `json:"name"`
 	UnplacedCount int    `doc:"How many of its episodes have no number outside a specials or extras folder" json:"unplacedCount"` //nolint:lll // one struct tag
+}
+
+// FilmWithoutSoundBody is a film whose video file has no sound track.
+type FilmWithoutSoundBody struct {
+	TitleID int64  `json:"titleId"`
+	Name    string `json:"name"`
 }
 
 func (server *Server) registerNeedsAttention() {
@@ -88,6 +97,15 @@ func (server *Server) getNeedsAttention(
 		output.Body.SeriesReadWrongly = append(output.Body.SeriesReadWrongly, SeriesReadWronglyBody{
 			SeriesID: series.SeriesID, Name: series.SeriesName, UnplacedCount: series.FileCount,
 		})
+	}
+	silent, err := dependencies.Chooser.FilmsWithoutSound(ctx)
+	if err != nil {
+		return nil, server.libraryError(ctx, "find the films with no sound", err)
+	}
+	output.Body.FilmsWithoutSound = make([]FilmWithoutSoundBody, 0, len(silent))
+	for _, film := range silent {
+		output.Body.FilmsWithoutSound = append(output.Body.FilmsWithoutSound,
+			FilmWithoutSoundBody{TitleID: film.TitleID, Name: film.Name})
 	}
 	return output, nil
 }

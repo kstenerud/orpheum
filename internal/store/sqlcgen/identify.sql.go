@@ -536,6 +536,54 @@ func (q *Queries) ListFilesOfWork(ctx context.Context, arg ListFilesOfWorkParams
 	return items, nil
 }
 
+const listFilmsWithoutSound = `-- name: ListFilmsWithoutSound :many
+SELECT title.id AS title_id, CAST(coalesce(title_text.name, '') AS TEXT) AS title_name, file.path
+FROM title
+JOIN item ON item.id = title.id AND item.removed_at IS NULL
+LEFT JOIN item_text AS title_text ON title_text.item_id = title.id AND title_text.is_original = 1
+JOIN version ON version.title_id = title.id AND version.removed_at IS NULL
+JOIN file_filing ON file_filing.version_id = version.id
+JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
+WHERE title.kind = 'movie' AND title.media_kind = 'video'
+  AND EXISTS (SELECT 1 FROM stream WHERE stream.video_file = file.id AND stream.kind = 'video'
+    AND (stream.disposition_flags & 1024) = 0)
+  AND NOT EXISTS (SELECT 1 FROM stream WHERE stream.video_file = file.id AND stream.kind = 'audio')
+ORDER BY title.id, file.path
+LIMIT ?1
+`
+
+type ListFilmsWithoutSoundRow struct {
+	TitleID   int64
+	TitleName string
+	Path      string
+}
+
+// The live films whose video file was read and holds a picture but no audio track, with the film's
+// name, at most max_rows: a video-only download whose sound was never merged in, which Needs
+// attention lists among the problem films (the owner, 2026-11-02).
+func (q *Queries) ListFilmsWithoutSound(ctx context.Context, maxRows int64) ([]ListFilmsWithoutSoundRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFilmsWithoutSound, maxRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListFilmsWithoutSoundRow{}
+	for rows.Next() {
+		var i ListFilmsWithoutSoundRow
+		if err := rows.Scan(&i.TitleID, &i.TitleName, &i.Path); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listIdentifyFiles = `-- name: ListIdentifyFiles :many
 SELECT library_place.file_id AS id, library_place.node_id, library_place.path, library_place.reported_path_raw,
   CAST(CASE WHEN file.filing = 'video' THEN coalesce(file_filing.filing, 'unidentified') ELSE file.filing END AS TEXT)

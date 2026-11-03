@@ -101,3 +101,28 @@ func TestNeedsAttention_TellsTheSeriesWhoseEpisodesWereLikelyReadWrongly(t *test
 		t.Errorf("GET /needs-attention = %d %s; want Brass Arena's five unplaced episodes told", got.status, got.body)
 	}
 }
+
+// The owner, 2026-11-02: "videos without sound should be included in the list of problem films".
+// A film whose read file holds a picture and no sound track is listed by name; one with sound is
+// not.
+func TestNeedsAttention_ListsTheFilmsWhoseFileHasNoSound(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelve(t)
+	librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: 11, Library: 1, Year: 1950, AddedAt: 3})
+	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: 3, TitleID: 11, CreatedAt: 3})
+	librarytest.File(t, harness.database, librarytest.FileSpec{
+		ID: 3, LibraryID: 1, NodeID: 1, Path: "/m/Mister 517 (1950).mp4", SizeBytes: 1000, PayloadHash: []byte{0x03},
+		Filing: "listed", VersionID: 3,
+	})
+	librarytest.Stream(t, harness.database,
+		librarytest.StreamSpec{BytesFile: 3, StreamIndex: 0, Kind: "video", Codec: "h264"})
+	storetest.ExecRaw(t, harness.databasePath,
+		`INSERT INTO item_text (item_id, language, is_original, name, overview, search_alternates)
+		 VALUES (11, 'und', 1, 'Mister 517', NULL, 'mister 517')`)
+	got := harness.do(t, http.MethodGet, "/needs-attention", admin, nil)
+	if !strings.Contains(got.body, `"filmsWithoutSound":[{"titleId":11,"name":"Mister 517"}]`) {
+		t.Errorf("GET /needs-attention = %d %s; want only Mister 517 listed as without sound", got.status, got.body)
+	}
+}

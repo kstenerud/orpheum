@@ -28,6 +28,8 @@ export const enStatus = {
     waitingMatches: "{{count}} films and series need you to choose their match.",
     seriesReadWrongly:
       ": {{count}} of its episodes have no number, though no specials or extras folder holds them. Their file names may have been read wrongly; renaming them as S01E04 places them.",
+    filmWithoutSound:
+      ": its video has no sound track, so it plays in silence. The file may be a video-only download whose sound was never merged in.",
     toSystem: "The System page",
     toLibraries: "The Libraries",
     toIdentify: "Needs a match",
