@@ -64,7 +64,7 @@ case "$1 $2" in
         exit 1
     fi
     if [ ! -f "$dir/values.toml" ]; then
-        printf '[media]\\nroots = []\\n[lan]\\naddress = ""\\n' > "$dir/values.toml"
+        printf '[media]\\nroots = []\\n[lan]\\naddress = ""\\nrouter = ""\\n' > "$dir/values.toml"
         echo "began a release deployment. Before it can start: fill in values.toml" >&2
         exit 1
     fi
@@ -149,6 +149,7 @@ class Install(unittest.TestCase):
         values = (self.dir / "values.toml").read_text()
         self.assertIn(f"roots = [{quoted}]", values)
         self.assertIn('address = "192.168.1.20"', values)
+        self.assertIn('router = "192.168.1.1"', values)
         self.assertIn("pull --quiet ghcr.io/example/orpheum:v1.2.3", self.logged())
         self.assertIn("compose up -d", self.logged())
         self.assertIn("abcd-efgh", done.stderr)

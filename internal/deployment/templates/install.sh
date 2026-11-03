@@ -128,12 +128,28 @@ homeAddress() {
 	esac
 }
 
-# Fills this machine's address at home into a values file just begun (D300).
+# The router this machine reaches the internet through, which the server's port mapping asks, as its
+# container cannot see it (item 15 of the owner's comments of 2026-11-02); none when it is not on the
+# house's network.
+homeRouter() {
+	if command -v ip >/dev/null 2>&1; then
+		router=$(ip -4 route get 1.1.1.1 2>/dev/null | sed -n 's/.* via \([0-9.]*\).*/\1/p')
+	else
+		router=$(route -n get default 2>/dev/null | sed -n 's/.*gateway: *//p')
+	fi
+	case $router in
+	10.* | 192.168.* | 172.1[6-9].* | 172.2[0-9].* | 172.3[01].*) echo "$router" ;;
+	esac
+}
+
+# Fills this machine's address at home and its router into a values file just begun (D300).
 fillAddress() {
 	address=$(homeAddress)
-	awk -v address="$address" '
+	router=$(homeRouter)
+	awk -v address="$address" -v router="$router" '
 		/^\[/ { section = $0 }
 		section == "[lan]" && $0 == "address = \"\"" && address != "" { print "address = \"" address "\""; next }
+		section == "[lan]" && $0 == "router = \"\"" && router != "" { print "router = \"" router "\""; next }
 		{ print }
 	' "$values" >"$values.new" && mv "$values.new" "$values"
 }
