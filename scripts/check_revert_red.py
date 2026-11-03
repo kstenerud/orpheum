@@ -457,6 +457,21 @@ def stylesheets_together(tree: str, base: str, head: str, changes: list[Change],
     sheets = [change for change in changes if is_stylesheet(change)]
     if len(sheets) < 2:
         return {}
+    # What an earlier run settled, over the same code, is taken (revert_red_known).
+    reads = known_red.stylesheet_runs_read(tree, head)
+    # Keyed by which entries there are too: one added since is read, and in no tree kept.
+    keys = {change.path: f"{known_red.revert_key(tree, base, head, [change.path])}|{','.join(reads)}"
+            for change in sheets}
+    taken: dict[str, Outcome] = {}
+    for change in sheets:
+        seen = known_red.known(tree, head, keys[change.path], known_red.STYLESHEETS_TOGETHER) if TRUST_RECORD else None
+        if seen is not None:
+            taken[change.path] = settled_outcome(tree, base, head, change.path, seen["verdict"], seen["detail"],
+                                                 f", as the stylesheets' runs at {seen['head'][:12]} found; "
+                                                 "nothing they read has changed since")
+    sheets = [change for change in sheets if change.path not in taken]
+    if len(sheets) < 2:
+        return taken
 
     unreached: set[str] = set()
     related = browser_mode if command is not None else (browser_mode or BROWSER_MODE_RELATED)
@@ -496,24 +511,36 @@ def stylesheets_together(tree: str, base: str, head: str, changes: list[Change],
     halving.noticed.update(noticed_alone)
     for failure in halving.failures:
         print(f"A browser run failed {failure}\n")
-    settled: dict[str, Outcome] = {}
+    settled: dict[str, Outcome] = dict(taken)
+    ran = [[*(command or browser_tier_command())], *([related] if related else [])]
     for path in halving.passed:
-        if is_cosmetic(tree, base, head, path):
-            settled[path] = Outcome(path, "COSMETIC", "comment or formatting only; no behaviour to cover")
-            continue
-        if path in unreached:
+        if path in unreached and not is_cosmetic(tree, base, head, path):
             claim = claimed(tree, base, head, path) or Outcome(path, "GREEN", browser_map.NO_TEST_REACHES)
             settled[path] = Outcome(path, claim.verdict, claim.detail if claim.verdict == "GREEN" else
                                     f"{claim.detail} ({browser_map.NO_TEST_REACHES})")
             continue
-        claim = claimed(tree, base, head, path) or Outcome(path, "GREEN", GREEN_DETAIL)
-        settled[path] = Outcome(path, claim.verdict, claim.detail + " (a browser run with it and others "
-                                "reverted turned nothing red)")
+        known_red.remember(tree, head, keys[path], ran, "GREEN", GREEN_DETAIL, known_red.STYLESHEETS_TOGETHER,
+                           reads=reads)
+        settled[path] = settled_outcome(tree, base, head, path, "GREEN", GREEN_DETAIL, "")
     for path, output in halving.noticed.items():
         verdict = "RED_BUILD" if is_build_failure(output) else "RED_TEST"
-        settled[path] = Outcome(path, verdict, "a test fails when it is reverted, found by the browser tier"
-                                if verdict == "RED_TEST" else "reverting it breaks the build, found by the browser tier")
+        detail = ("a test fails when it is reverted, found by the browser tier" if verdict == "RED_TEST"
+                  else "reverting it breaks the build, found by the browser tier")
+        known_red.remember(tree, head, keys[path], ran, verdict, detail, known_red.STYLESHEETS_TOGETHER, reads=reads)
+        settled[path] = Outcome(path, verdict, detail)
     return settled
+
+
+def settled_outcome(tree: str, base: str, head: str, path: str, verdict: str, detail: str, source: str) -> Outcome:
+    """A stylesheet's row from its runs' verdict: a red as it is; a pass cosmetic, claimed or green as
+    the batch says now, a claim being checked after the runs as ever (D279)."""
+    if verdict != "GREEN":
+        return Outcome(path, verdict, detail + source)
+    if is_cosmetic(tree, base, head, path):
+        return Outcome(path, "COSMETIC", "comment or formatting only; no behaviour to cover")
+    claim = claimed(tree, base, head, path) or Outcome(path, "GREEN", GREEN_DETAIL)
+    return Outcome(path, claim.verdict, claim.detail + " (a browser run with it and others reverted turned "
+                   "nothing red" + (source or "") + ")")
 
 
 def own_browser_mode_reds(tree: str, base: str, head: str, sheets: list[str], related: list[str] | None,

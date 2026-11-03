@@ -33,6 +33,12 @@ revert the record cannot answer, runs those first (finding 2: 88 of a check-pr's
 earlier red for the same file). It decides nothing: a red there is a red as any run's, a green goes
 on to the usual runs.
 
+**A stylesheet settled with others** (check_revert_red.stylesheets_together) is kept too, under a
+part of its own: its runs, the browser tier among them, read the server and the web client alike,
+so its key is every top-level entry of the tree but the documentation (`STYLESHEET_RUNS_READ`). A
+background probe that settled the stylesheets left check-pr to settle them again, about 1000 s of
+its revert-red (2026-11-03).
+
 `make check-everything`, the nightly run, reads no record (`--trust-no-record`).
 """
 
@@ -135,15 +141,16 @@ def web_modules_read(root: str, command: list[str], output: str) -> list[str] | 
 
 
 def remember(root: str, head: str, key: str, ran: list[str] | list[list[str]], verdict: str, detail: str,
-             part: str = "", output: str = "") -> None:
+             part: str = "", output: str = "", reads: list[str] | None = None) -> None:
     """Records a revert's verdict, with the trees at head of what its runs read: a red's one run, or a
     green's every run (ran, a list of commands), the part it was probed in. A red vitest run whose
     output names the tests it failed is kept by those tests' modules alone (output), so a later web
-    commit elsewhere keeps it. Nothing is kept when a run read something unknown."""
+    commit elsewhere keeps it. Nothing is kept when a run read something unknown. A caller that knows
+    what its runs read better than their commands say gives it as reads, which replaces them."""
     runs = ran if ran and isinstance(ran[0], list) else [ran]
-    files = web_modules_read(root, runs[0], output) if len(runs) == 1 and verdict != "GREEN" else None
-    dirs: list[str] = []
-    for command in ([] if files else runs):
+    files = web_modules_read(root, runs[0], output) if len(runs) == 1 and verdict != "GREEN" and reads is None else None
+    dirs: list[str] = list(reads or [])
+    for command in ([] if files or reads else runs):
         read = dirs_read(command, root)
         if not read:
             return
@@ -161,6 +168,21 @@ def remember(root: str, head: str, key: str, ran: list[str] | list[list[str]], v
         reverts[stored] = entry
         return {**(old or {}), "reverts": dict(list(reverts.items())[-KEPT:])}
     last_run.update(GATE, NAME, change)
+
+
+# The part a stylesheet's verdict from the stylesheets settled together is kept under: a green there
+# was a run with others reverted too, which says nothing of its own probe's runs.
+STYLESHEETS_TOGETHER = "stylesheets-together"
+# What no run of the browser tier reads: the documentation, which no test loads.
+NOT_READ_BY_A_RUN = frozenset({"docs"})
+
+
+def stylesheet_runs_read(root: str, head: str) -> list[str]:
+    """What a stylesheet's runs read (the browser tier runs the server and the client): every
+    top-level entry of the tree at head but the documentation and the Markdown beside it."""
+    listed = subprocess.run(["git", "ls-tree", "--name-only", head], cwd=root, capture_output=True,
+                            text=True, check=False).stdout.split()
+    return [name for name in listed if name not in NOT_READ_BY_A_RUN and not name.endswith(".md")]
 
 
 def verdict_key(key: str, verdict: str, part: str) -> str:
