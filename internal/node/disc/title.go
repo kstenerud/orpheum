@@ -49,6 +49,9 @@ type Title struct {
 	// carry on from the one before), ascending: what Restamp moves for its stream to play on one
 	// clock, as FFmpeg seeks by it.
 	ClockShifts []ClockShift
+	// SoundBreaks are where a DVD title's sound does not carry on across a clock shift, ascending,
+	// read at its first shifts (D405 §4).
+	SoundBreaks []SoundBreak
 }
 
 // SizeBytes is the length of the title's stream.

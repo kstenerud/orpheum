@@ -5,6 +5,7 @@ package execx
 import (
 	"bytes"
 	"errors"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -158,6 +159,43 @@ func TestFilmOf_ADVDsFilmIsServedOnOneClock(t *testing.T) {
 	}
 	if err := film.Stream.Source.ReadAt(t.Context(), make([]byte, 10), film.Size-5); err == nil {
 		t.Error("a read past the title's end was served; want it refused")
+	}
+}
+
+// A DVD whose sound does not carry on where its clock starts again is logged when its title is
+// first read, where and how, so a disc that may click there is found (D405 §4); a title read again
+// from memory is not logged again.
+func TestFilmOf_ADVDsSoundThatDoesNotCarryOnIsLogged(t *testing.T) {
+	t.Parallel()
+	const second, soundTicks = 90_000, 25_200 + 3003
+	sound := disctest.AC3Frames(3)
+	cutShort := sound[:2*disctest.AC3FrameBytes+400]
+	dvd := disctest.DVD{Titles: []disctest.DVDTitle{{Cells: []disctest.DVDCell{
+		{
+			Data:       disctest.SoundVOBU(25_200, 25_200+600*second, cutShort, 0, soundTicks),
+			DurationMs: 600_000,
+		},
+		{Data: disctest.SoundVOBU(10_000, 10_000+300*second, sound, 0, 10_000), DurationMs: 300_000},
+	}}}}
+	path, opened := openedTestImage(t, disctest.Volume{Files: dvd.Files()}.Bytes())
+	runner, err := NewRunner(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var logged bytes.Buffer
+	runner.LoggingTo(slog.New(slog.NewTextHandler(&logged, nil))).StreamFilms()
+	filmOf(t, runner, path, opened, ReadsIndex)
+	line := logged.String()
+	for _, want := range []string{"level=WARN", "D405 §4", "path=" + path, "at=10m0s", "cutShort=true"} {
+		if !strings.Contains(line, want) {
+			t.Errorf("reading a DVD whose sound is cut short at its clock shift logged %q; want it to say %q",
+				line, want)
+		}
+	}
+	logged.Reset()
+	filmOf(t, runner, path, opened, ReadsIndex)
+	if logged.Len() != 0 {
+		t.Errorf("the title read again from memory logged %q; want nothing", logged.String())
 	}
 }
 

@@ -25549,7 +25549,9 @@ amends [D404](#d404--a-dvd-title-whose-clock-starts-again-partway-is-served-rest
    in the library (VQ73's Der Golem, title 1):* at both its clock shifts, the cell before ends on
    a whole AC-3 frame and the cell after starts one frame (2880 ticks) after it, restamped; FFmpeg's
    `mpeg` demuxer and AC-3 decoder read both joins without an error. No repeated or partial frame to
-   drop on this disc.
+   drop on this disc. *Then (the owner, 2026-11-03, "yes go ahead with that check"):* the drop waits
+   for a disc that needs it; the node reads the sound either side of a title's first 16 clock shifts
+   and logs where it does not carry on (`disc.SoundBreak`), so a user's disc that has one is found.
 
 **Status:** Decided 2026-11-02. Test: `TestMainTitle_ADVDsClockIsCheckedAtEveryVOBU`. Device check:
 VQ73 (a seek past the clock shift, and the title's end).

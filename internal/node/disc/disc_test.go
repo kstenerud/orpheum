@@ -197,6 +197,59 @@ func TestMainTitle_ADVDsClockIsCheckedAtEveryVOBU(t *testing.T) {
 	}
 }
 
+// Where a DVD title's clock starts again, the node reads its sound either side, restamped, and
+// gives where it does not carry on: its last AC-3 frame before cut short, or the first after
+// starting before or after the last before ended. A whole frame split across the join, or frames
+// carrying on to the tick, is no break (D405 §4).
+func TestMainTitle_ADVDsSoundThatDoesNotCarryOnAcrossAClockShiftIsFound(t *testing.T) {
+	t.Parallel()
+	const second, frame, size = 90_000, disctest.AC3FrameTicks, disctest.AC3FrameBytes
+	const start, end, again, soundTicks = 25_200, 25_200 + 600*second, 10_000, 25_200 + 3003
+	carriesOn := soundTicks + 3*frame - (end - again) // the frame after the last before, once restamped
+	whole, split := disctest.AC3Frames(3), disctest.AC3Frames(3)[:2*size+400]
+	for _, check := range []struct {
+		name              string
+		before, after     []byte
+		afterFrame, ticks int
+		want              []disc.SoundBreak
+	}{
+		{"frames carrying on", whole, disctest.AC3Frames(2), 0, carriesOn, nil},
+		{"a whole frame split across the join", split, disctest.AC3Frames(3)[400:], size - 400, carriesOn, nil},
+		{"the last frame cut short", split, disctest.AC3Frames(2), 0, carriesOn - frame, []disc.SoundBreak{
+			{FromByte: 0, AtMs: 600_000, IsCutShort: true},
+		}},
+		{
+			"the first frame after repeating the last", whole, disctest.AC3Frames(2), 0, carriesOn - frame,
+			[]disc.SoundBreak{{AtMs: 600_000, GapTicks: -frame}},
+		},
+		{
+			"a gap of a frame", whole, disctest.AC3Frames(2), 0, carriesOn + frame,
+			[]disc.SoundBreak{{AtMs: 600_000, GapTicks: frame}},
+		},
+	} {
+		first := disctest.SoundVOBU(start, end, check.before, 0, soundTicks)
+		dvd := disctest.DVD{Titles: []disctest.DVDTitle{{Cells: []disctest.DVDCell{
+			{Data: first, DurationMs: 600_000},
+			{
+				Data:       disctest.SoundVOBU(again, again+300*second, check.after, check.afterFrame, check.ticks),
+				DurationMs: 300_000,
+			},
+		}}}}
+		image := disctest.Volume{Files: dvd.Files()}.Bytes()
+		title, err := disc.MainTitle(bytes.NewReader(image), int64(len(image)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for index := range check.want {
+			check.want[index].FromByte = int64(len(first))
+		}
+		if len(title.ClockShifts) != 1 || !slices.Equal(title.SoundBreaks, check.want) {
+			t.Errorf("%s: the title's sound breaks are %+v at %d shifts; want %+v at 1",
+				check.name, title.SoundBreaks, len(title.ClockShifts), check.want)
+		}
+	}
+}
+
 // filmBluRay is a Blu-ray with a menu loop, a trailer, a playlist that plays its clip twice (the
 // longest, as an obfuscated disc's decoys are), and the film: two clips, its chapters across them.
 func filmBluRay() disctest.BluRay {

@@ -254,3 +254,60 @@ func VOBUTicks(vobu []byte) (scr, pts, dts int64) {
 	}
 	return scr, timestamp(video[23:]), timestamp(video[28:])
 }
+
+// AC3FrameBytes is the size of AC3Frames' frames, and AC3FrameTicks how long each plays: 192 kb/s
+// at 48 kHz, 1536 samples.
+const (
+	AC3FrameBytes = 768
+	AC3FrameTicks = 2880
+)
+
+// AC3Frames is n AC-3 frames, each its sync word and a header saying 48 kHz at 192 kb/s, the rest
+// zeros.
+func AC3Frames(n int) []byte {
+	frames := make([]byte, n*AC3FrameBytes)
+	for start := 0; start < len(frames); start += AC3FrameBytes {
+		frames[start], frames[start+1], frames[start+4] = 0x0B, 0x77, 0x14 // 48 kHz, frmsizecod 20: 192 kb/s
+	}
+	return frames
+}
+
+// SoundVOBU is VOBU(startTicks, endTicks) with sound after its picture: the bytes of AC-3
+// substream 0x80 in private stream 1 packs, the first stamped soundTicks for the frame starting at
+// firstFrame of sound, or for none when firstFrame is negative.
+func SoundVOBU(startTicks, endTicks int, sound []byte, firstFrame, soundTicks int) []byte {
+	const room = sector - 14 - 18 // a pack's header, then the packet's header, PTS and AC-3 header
+	data := VOBU(startTicks, endTicks)
+	for first := true; first || len(sound) > 0; first = false {
+		size := min(len(sound), room)
+		if gap := room - size; gap > 0 && gap < 6 {
+			size = room - 6 // too little room for a padding packet: the rest goes in the next pack
+		}
+		pack := make([]byte, sector)
+		packHeader(pack, startTicks)
+		copy(pack[14:], []byte{0, 0, 1, 0xBD})
+		putBE16(pack[18:], 12+size)
+		pack[20], pack[22] = 0x81, 5
+		for at := 23; at < 28; at++ {
+			pack[at] = 0xFF // stuffing, where a PTS is not
+		}
+		pack[28] = 0x80
+		if first {
+			pack[21] = 0x80
+			putTimestamp(pack[23:], 2, soundTicks)
+			if firstFrame >= 0 {
+				pack[29] = 1
+				putBE16(pack[30:], firstFrame+1)
+			}
+		}
+		copy(pack[32:], sound[:size])
+		sound = sound[size:]
+		if end := 32 + size; end < sector {
+			copy(pack[end:], []byte{0, 0, 1, 0xBE})
+			putBE16(pack[end+4:], sector-end-6)
+		}
+		data = append(data, pack...)
+	}
+	putBE32(data[0x40F:], len(data)/sector-1) // VOBU_EA: its last pack
+	return data
+}

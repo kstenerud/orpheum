@@ -23,6 +23,11 @@
 //     Restamp moves every SCR, PTS and DTS from there to carry on, so FFmpeg seeking by time finds
 //     where the title plays it (D404, D405). TestMainTitle_ADVDsClockStartedAgainIsMovedToCarryOn,
 //     TestMainTitle_ADVDsClockIsCheckedAtEveryVOBU.
+//   - At its first clock shifts, a DVD title's first AC-3 track is read either side, restamped, and
+//     where its last frame before is cut short, or its first after starts a millisecond or more off
+//     the last before's end, is a SoundBreak; a whole frame split across the join is none; sound
+//     it cannot read is taken as carrying on (D405 §4).
+//     TestMainTitle_ADVDsSoundThatDoesNotCarryOnAcrossAClockShiftIsFound.
 //   - A Blu-ray's main title is its longest playlist that plays no clip twice, served as its clips
 //     whole in play order, with its chapters across them and its streams' languages by PID, read
 //     through the metadata partition. TestMainTitle_ABluRaysLongestPlaylistIsItsClipsInOrder.
@@ -53,6 +58,6 @@
 //   - read.go: bounds, errors and bounded reads. udf.go and fileentry.go: the UDF volume, its
 //     directories and files. dvd.go: a DVD's titles. bluray.go: a Blu-ray's playlists.
 //     encrypted.go: telling an encrypted title. clock.go: a DVD title's clock, and restamping it.
-//     title.go: the Title, and choosing which disc.
+//     sound.go: its sound at a clock shift. title.go: the Title, and choosing which disc.
 //     disctest: images for tests.
 package disc

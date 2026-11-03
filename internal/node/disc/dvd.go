@@ -108,8 +108,8 @@ func dvdMainTitle(disc *volume) (Title, error) {
 	if assembleErr != nil {
 		return Title{}, assembleErr
 	}
-	shifts, shiftsErr := disc.dvdClockShifts(set, cells)
-	title.ClockShifts = shifts
+	shifts, breaks, shiftsErr := disc.dvdClockShifts(set, cells)
+	title.ClockShifts, title.SoundBreaks = shifts, breaks
 	return title, shiftsErr
 }
 
