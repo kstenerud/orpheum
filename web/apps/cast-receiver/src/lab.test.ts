@@ -20,13 +20,38 @@ describe("the lab receiver's requests", () => {
       path: "/api/v1/bytes/media/chunks/t/master.m3u8",
       startAtBps: 2_400_000,
       authorization: "Bearer x",
+      reach: undefined,
     });
     expect(labRequestOf({ type: "play", path: "/a/master.m3u8" })).toEqual({
       type: "play",
       path: "/a/master.m3u8",
       startAtBps: 0,
       authorization: undefined,
+      reach: undefined,
     });
+  });
+
+  it("carry the way to the sender's core from away, its discovery on https alone (the 11-05 batch's item 10)", () => {
+    const reach = {
+      clientApi: "https://api.discovery.example",
+      coreId: "k7xq2",
+      fingerprint: "SHA256:abc",
+      token: "session-token",
+      locator: "loc-1",
+    };
+    expect(labRequestOf({ type: "play", path: "/a/master.m3u8", reach })).toMatchObject({
+      reach,
+    });
+    expect(
+      labRequestOf({
+        type: "play",
+        path: "/a/master.m3u8",
+        reach: { ...reach, clientApi: "http://api.discovery.example" },
+      }),
+    ).toMatchObject({ reach: undefined });
+    expect(
+      labRequestOf({ type: "play", path: "/a/master.m3u8", reach: { ...reach, locator: "" } }),
+    ).toMatchObject({ reach: undefined });
   });
 
   it("never play an address on another host, nor anything unknown", () => {

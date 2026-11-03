@@ -17,8 +17,13 @@ what the Cast device can do and plays our ladder; the receiver of M6 (D245) grow
 - **Never closed for being idle, with CAF's players not loaded**: our player replaces CAF's, which
   would otherwise see a receiver playing nothing (casting-review-2026-10-25.md §4). `src/caf.ts`;
   only a device shows it: VQ58.
-- **Plays only a path on its own core**, signed in by what its sender hands it, and answers only the
-  lab's requests on `urn:x-cast:org.orpheum.lab`. `src/lab.test.ts`.
+- **Plays only a path on its own core, or on its sender's core reached through the sender's
+  discovery** (its own names, else WebRTC, as the web client reaches it: `src/reach.ts`, the 11-05
+  batch's item 10), signed in by what its sender hands it, and answers only the lab's requests on
+  `urn:x-cast:org.orpheum.lab`. `src/lab.test.ts`.
+- **Runs on Chromium 90**, the 3rd-generation Chromecast's: the build lowers syntax to it
+  (`vite.config.ts`'s target) and `src/old-engine.ts`, imported first, fills the methods the bundle
+  calls that it lacks. `src/old-engine.test.ts`; only a device shows the whole: VQ58.
 - **Server calls go through `@orpheum/sdk`.** `no-restricted-globals`.
 
 ## Read before changing
