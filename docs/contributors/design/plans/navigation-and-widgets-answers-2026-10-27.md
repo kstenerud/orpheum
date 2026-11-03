@@ -1416,3 +1416,13 @@ with the owner.
 look at: when a number like a year is part of the title (with the name before and after it, or with
 no match for the shortened name, or a year far from the files' own dates), the whole name is
 searched too. Not yet seen on staging; the folder's exact name is to be found first.
+
+## A reload keeps the older client after a deploy (the owner, 2026-11-03), next batch
+
+After a staging deploy ("feat(web): the overlay hides when idle while playing, however it was shown (D411)", D411), the owner's tab still ran the client from before it: a
+plain reload of the Play page did not bring the new one; navigating away and back did. "Simply
+reloading the page didn't reset its state sufficiently." Staging's page is `Cache-Control:
+no-cache` and its scripts are named by their hash, so the browser's own cache is not the cause on
+its face; to look at: the service worker's answers to a navigation and the loader's cache
+(`sw.ts`, `loaderCache`), and when `watchForNewerClient` (client-main.tsx) notices a newer client.
+Not yet reproduced; it makes every deploy's test unreliable until it is understood.
