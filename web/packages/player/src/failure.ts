@@ -22,6 +22,11 @@ export type PlaybackFailure =
    * other films its machine makes (D250 §6), which the core says with its own status, 429.
    */
   | "too_busy"
+  /**
+   * The server failed on a part of the film the same way each time it tried to make it, which the
+   * core says with its own status, 422 (cannot_convert); asking again fails the same way.
+   */
+  | "cannot_make"
   /** It failed and said nothing more we know. */
   | "unknown";
 
@@ -39,6 +44,7 @@ export const playbackFailures: readonly PlaybackFailure[] = [
   "decode",
   "unsupported",
   "too_busy",
+  "cannot_make",
   "unknown",
 ];
 
@@ -59,6 +65,14 @@ export function mediaErrorFailure(error: Pick<MediaError, "code"> | null): Playb
 export const noRoomToMakeStatus = 429;
 
 /**
+ * HTTP's 422: on a chunk's path, the core's word that FFmpeg failed on the film at this chunk each
+ * time it was made (cannot_convert), which asking again does not change. Taken for a load that only
+ * stopped, it was asked for every two seconds, the film standing black with no word (The Gold Rush,
+ * staging, 2026-11-03; toolkit.md item 12).
+ */
+export const cannotMakeStatus = 422;
+
+/**
  * HTTP's 503: on a chunk's path, the core's word that its film cannot be read now, its machine away
  * or its disk not answering (media_unreachable, D241 §7), which asking again does not change: the
  * page asks the server why, says so, and opens the film again once it can be read.
@@ -72,7 +86,7 @@ export const tooEarlyStatus = 425;
  * Whether a fatal hls.js error only stopped its loading, which asking it to load on may mend: any but
  * the media's own (MEDIA_ERROR, MUX_ERROR), which alone end a playback, a load failing or timing out,
  * its playlist's or its chunk's, or an exception hls.js caught in its own handling; never the core's
- * 429 or 503, which asking again does not change and the page answers in its own way (D250 §6,
+ * 422, 429 or 503, which asking again does not change and the page answers in its own way (D250 §6,
  * D241 §7). A load that failed while the owner's Chrome was offline ended its playback for good,
  * though the link came back (staging, 2026-10-29; VQ125).
  */
@@ -83,6 +97,7 @@ export function isLoadStopped(data: Pick<ErrorData, "type" | "fatal" | "response
     data.type !== Hls.ErrorTypes.MEDIA_ERROR &&
     data.type !== Hls.ErrorTypes.MUX_ERROR &&
     code !== noRoomToMakeStatus &&
+    code !== cannotMakeStatus &&
     code !== unreachableStatus
   );
 }
@@ -91,7 +106,14 @@ export function isLoadStopped(data: Pick<ErrorData, "type" | "fatal" | "response
 export function hlsErrorFailure(data: Pick<ErrorData, "type" | "response">): PlaybackFailure {
   switch (data.type) {
     case Hls.ErrorTypes.NETWORK_ERROR:
-      return data.response?.code === noRoomToMakeStatus ? "too_busy" : "network";
+      switch (data.response?.code) {
+        case noRoomToMakeStatus:
+          return "too_busy";
+        case cannotMakeStatus:
+          return "cannot_make";
+        default:
+          return "network";
+      }
     case Hls.ErrorTypes.MEDIA_ERROR:
     case Hls.ErrorTypes.MUX_ERROR:
       return "decode";

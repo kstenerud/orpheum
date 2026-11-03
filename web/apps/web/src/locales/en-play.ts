@@ -72,6 +72,8 @@ export const enPlay = {
       unsupported: "this browser does not play its format",
       tooBusy:
         "the server cannot make this quality as fast as it plays while it makes others for other viewers; try again in a while",
+      cannotMake:
+        "the server failed on this part of the film each time it tried to make it, and would fail the same way again",
       unknown: "the browser gave no reason",
     },
     boost: "Dialogue boost",
