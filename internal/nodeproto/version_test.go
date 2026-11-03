@@ -131,6 +131,9 @@ var wireShapeByVersion = map[int]string{
 	// 57 has a node's status say what it has used of its machine, Status.SelfUse: a core of 56 would
 	// keep none of it.
 	57: "3d27efe5e86a7261dd10ce314810794bab79e1bb73c6746c88f228e223e1304a",
+	// 58 renames a sound's lead-in MakeChunks.LeadInMs and gives a copied picture's run one too: a node
+	// of 57 would read neither, starting a sound with no lead-in and a picture at its first keyframe.
+	58: "dd453ea27a54757ab75591462b3cac99f25a045aafa6ac87140584c703d4e945",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

@@ -121,7 +121,7 @@ func TestHandleMakeChunks_ASoundRunStartsAChunkEarlyWithItsTracksGainAndMix(t *t
 	sent := testutil.Receive(t, fixture.node.sent, "the run's command").MakeChunks
 	want := nodeproto.SoundTrack{AudioTrackIndex: 0, Language: "en", ChannelCount: 6, CarriedGainDB: -3.5}
 	if sent == nil || sent.Stream.Sound == nil || *sent.Stream.Sound != want || !sent.Stream.IsBoosted ||
-		sent.Stream.SoundKbps != 96 || sent.SoundLeadInMs != 10_000 ||
+		sent.Stream.SoundKbps != 96 || sent.LeadInMs != 10_000 ||
 		!slices.Equal(sent.BoundsMs, []int64{20_000, 30_000}) {
 		t.Fatalf("the node was sent %+v; want the English 5.1 track boosted at 96 kb/s, levelled as a prepare "+
 			"levels it, led in from chunk 1's start", sent)
@@ -234,7 +234,7 @@ func checkQualityRun(t *testing.T, sent nodeproto.MakeChunks, storeKey string) {
 	t.Helper()
 	wantVideo := nodeproto.BytesFile{RootPath: "/m", Path: []byte("f1.mkv"), PayloadHash: "01"}
 	if sent.Video.Target() != wantVideo.Target() || sent.VideoStreamIndex != 0 || sent.VideoCodec != "h264" ||
-		sent.StoreDir != "1/chunks-q1200k480p/"+storeKey || sent.FirstChunk != 3 || sent.SoundLeadInMs != 0 ||
+		sent.StoreDir != "1/chunks-q1200k480p/"+storeKey || sent.FirstChunk != 3 || sent.LeadInMs != 0 ||
 		!slices.Equal(sent.BoundsMs, []int64{30_000, 40_000, 50_000, 60_000}) ||
 		sent.Stream != (nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 1200, Height: 480}) {
 		t.Fatalf("the node was sent %+v; want chunks 3 to 5 of film 1's picture at 1200k, 480p, by its "+
@@ -242,21 +242,29 @@ func checkQualityRun(t *testing.T, sent nodeproto.MakeChunks, storeKey string) {
 	}
 }
 
-// A copied picture's run seeks midway between its first keyframe and the next, so FFmpeg lands on
-// its first keyframe and not the one before it (idiosyncrasies.md).
-func TestHandleMakeChunks_APictureRunSeeksPastItsFirstKeyframe(t *testing.T) {
+// A copied picture's run is led in from the chunk before, and seeks midway between that chunk's
+// keyframe and the next, so FFmpeg lands on it and not the one before it, and times an open GOP's
+// pictures shown before the run's first keyframe as the film does (idiosyncrasies.md); the film's
+// first chunk is read from itself.
+func TestHandleMakeChunks_APictureRunSeeksPastTheKeyframeOfTheChunkBeforeIt(t *testing.T) {
 	t.Parallel()
 	fixture := runsOnAFakeNode(t)
 	gridID := mustGrid(t, fixture.service).ID()
 	fixture.start(t, 10, testRun{"picture", gridID, runArgs{FirstChunk: 2, LastChunk: 3}})
 	sent := testutil.Receive(t, fixture.node.sent, "the run's command").MakeChunks
-	if sent == nil || sent.PictureSeekMs != 25_000 || !slices.Equal(sent.BoundsMs, []int64{20_000, 30_000, 40_000}) {
-		t.Fatalf("the node was sent %+v; want chunks 2 and 3 read from a seek to 25 s, midway to the next "+
-			"keyframe", sent)
+	if sent == nil || sent.LeadInMs != 10_000 || sent.PictureSeekMs != 15_000 ||
+		!slices.Equal(sent.BoundsMs, []int64{20_000, 30_000, 40_000}) {
+		t.Fatalf("the node was sent %+v; want chunks 2 and 3 led in from 10 s, read from a seek to 15 s, "+
+			"midway to the next keyframe", sent)
+	}
+	fixture.start(t, 11, testRun{"picture", gridID, runArgs{FirstChunk: 0, LastChunk: 1}})
+	sent = testutil.Receive(t, fixture.node.sent, "the first chunk's command").MakeChunks
+	if sent == nil || sent.LeadInMs != 0 || sent.PictureSeekMs != 5_000 {
+		t.Fatalf("the node was sent %+v; want chunks 0 and 1 read from a seek to 5 s, with no lead-in", sent)
 	}
 }
 
-// An MPEG-TS film's copied picture seeks before its run's first keyframe, midway back to the one
+// An MPEG-TS film's copied picture seeks before its run's lead-in's keyframe, midway back to the one
 // before, and says so: FFmpeg seeks MPEG-TS to a frame, not a keyframe, and a copy from past the
 // keyframe starts at the next one, or, past the film's last, has none (idiosyncrasies.md).
 func TestHandleMakeChunks_AnMPEGTSPictureRunSeeksBeforeItsFirstKeyframe(t *testing.T) {
@@ -271,9 +279,9 @@ func TestHandleMakeChunks_AnMPEGTSPictureRunSeeksBeforeItsFirstKeyframe(t *testi
 	gridID := mustGrid(t, fixture.service).ID()
 	fixture.start(t, 10, testRun{"picture", gridID, runArgs{FirstChunk: 2, LastChunk: 3}})
 	sent := testutil.Receive(t, fixture.node.sent, "the run's command").MakeChunks
-	if sent == nil || sent.PictureSeekMs != 15_000 || !sent.IsPictureSeekBeforeKeyframe {
-		t.Fatalf("the node was sent %+v; want chunks 2 and 3 read from a seek to 15 s, midway back to the "+
-			"keyframe before, said to be before the run's keyframe", sent)
+	if sent == nil || sent.LeadInMs != 10_000 || sent.PictureSeekMs != 5_000 || !sent.IsPictureSeekBeforeKeyframe {
+		t.Fatalf("the node was sent %+v; want chunks 2 and 3 led in from 10 s, read from a seek to 5 s, "+
+			"midway back to the keyframe before, said to be before the run's keyframe", sent)
 	}
 }
 

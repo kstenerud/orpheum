@@ -57,7 +57,7 @@ func parseListed(line string) (listed, error) {
 }
 
 // chunkSpan is the span raw file number of the run should hold, in milliseconds from the run's
-// start: its chunk's, or, for a sound's lead-in, from the run's start to its first chunk's. A sound
+// start: its chunk's, or, for a lead-in, from the run's start to its first chunk's. A sound
 // copied is listed at its times in the film, its first packet at the film's start
 // (copiedSoundTimes): its chunks' spans are their own, and its lead-in's from the film's start.
 func chunkSpan(command nodeproto.MakeChunks, number int) (fromMs, toMs int64) {

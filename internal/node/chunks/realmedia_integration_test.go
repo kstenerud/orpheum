@@ -50,7 +50,7 @@ func TestMake_AnInterleavedRealMediaSoundIsWholeAndAtItsTimesInEveryRun(t *testi
 	for first, leadInMs := range map[int]int64{0: 0, 3: 10_000} {
 		command := nodeproto.MakeChunks{
 			VideoStreamIndex: 0, VideoCodec: "rv20", Stream: stream, StoreDir: storeDir,
-			FirstChunk: first, BoundsMs: grid[first : first+4], SoundLeadInMs: leadInMs, IsSoundInterleaved: true,
+			FirstChunk: first, BoundsMs: grid[first : first+4], LeadInMs: leadInMs, IsSoundInterleaved: true,
 		}
 		if last, err := maker.Make(t.Context(), execx.Film{Path: source}, command, nil); err != nil || last != first+2 {
 			t.Fatalf("the run from %d made through %d, %v", first, last, err)

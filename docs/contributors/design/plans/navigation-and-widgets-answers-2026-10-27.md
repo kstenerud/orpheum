@@ -1294,7 +1294,10 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
     S33E8 (file 5674) chunk 230, listed from 1280.785 s where 229 ends, loaded from 1280.826 s with
     video from 1280.868 s, and later chunks sat 42–83 ms off the playlist: a chunk that starts a frame
     or two late. Find why in the node's chunking (the segment muxer's stop, dts2pts) and close the
-    hole at the join.
+    hole at the join. **11-05 batch, fixed:** not a late start: S33E8 is HEVC with open GOPs, and
+    FFmpeg's copy begun at a keyframe crushed the times of the pictures shown before it
+    (idiosyncrasies.md, "A copy begun at an open GOP's keyframe…"); a copied picture's run is now
+    led in from the chunk before, as a sound's is (`MakeChunks.LeadInMs`, protocol 58).
 15. **A Watch Together guest in Berlin could not reach nas.example** (the owner, 2026-11-02; a test of how
     voice and playback fare on her very bad home connection). nas.example's core log, 14:24–14:26 UTC:
     - **This batch:** from her IPv6 network (`2a0f:5000:8119:5200::/56`, likely her Wi-Fi) the page

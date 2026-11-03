@@ -53,6 +53,14 @@
 //     TestMake_RefusesARunNotOfARunsShape and, with the pinned FFmpeg,
 //     TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes and
 //     TestMake_AnMPEGTSWhoseOnlyKeyframeIsItsFirstIsOneChunkMadeWhole.
+//   - A copied picture's run past the film's first chunk is led in from the chunk before, as the
+//     core says: it seeks past that chunk's keyframe, cuts at the run's first chunk too and drops
+//     the lead-in's raw file uncounted, so FFmpeg times an open GOP's pictures shown before the run's
+//     first keyframe and decoded after it as the film does; begun at that keyframe, it crushes their
+//     times together and leaves a hole at the join (idiosyncrasies.md; The Pumbletons S33E8). Enforced
+//     by TestArguments_ACopiedPictureIsLedInFromTheChunkBefore, TestMake_DropsACopiedPicturesLeadIn,
+//     TestMake_RefusesARunNotOfARunsShape and, with the pinned FFmpeg and an open GOP's HEVC,
+//     TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes.
 //   - A sound copied is the film's own track, every channel, packet for packet: run from a lead-in,
 //     at the film's own times, its first packet put a tick before the film so the muxer, which counts
 //     its cuts from a run's first packet, cuts every run at the same packets; each chunk is placed by

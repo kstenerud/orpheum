@@ -107,9 +107,9 @@ func check(command nodeproto.MakeChunks) error {
 	if err := checkSeek(command); err != nil {
 		return err
 	}
-	isLeadInWrong := !isSound || command.FirstChunk == 0 || command.SoundLeadInMs >= command.BoundsMs[0]
-	if command.SoundLeadInMs != 0 && isLeadInWrong {
-		return fmt.Errorf("%w: a lead-in at %d ms", ErrBadRun, command.SoundLeadInMs)
+	isLeadInWrong := !isLedIn(command.Stream.Kind) || command.FirstChunk == 0 || command.LeadInMs >= command.BoundsMs[0]
+	if command.LeadInMs != 0 && isLeadInWrong {
+		return fmt.Errorf("%w: a lead-in at %d ms", ErrBadRun, command.LeadInMs)
 	}
 	stream := command.Stream
 	if stream.Kind == nodeproto.StreamQuality && (stream.BitRateKbps <= 0 || stream.Height <= 0) {
@@ -118,15 +118,26 @@ func check(command nodeproto.MakeChunks) error {
 	return nil
 }
 
-// checkSeek refuses a copied picture whose seek is not past its first keyframe and before its
-// second chunk, or, when it seeks before the keyframe (MPEG-TS), not at or before it; and any other
-// stream with a picture's seek.
+// isLedIn is whether a run of kind past the film's first chunk may be led in from the chunk before
+// (nodeproto.MakeChunks.LeadInMs): a sound's or a copied picture's; never a quality's, which decodes
+// from its start.
+func isLedIn(kind nodeproto.ChunkStreamKind) bool {
+	return kind.IsSound() || kind == nodeproto.StreamPicture
+}
+
+// checkSeek refuses a copied picture whose seek is not past the keyframe it reads from, its first
+// chunk's or its lead-in's, and before the chunk after it, or, when it seeks before the keyframe
+// (MPEG-TS), not at or before it; and any other stream with a picture's seek.
 func checkSeek(command nodeproto.MakeChunks) error {
 	isPicture := command.Stream.Kind == nodeproto.StreamPicture
 	seekMs := command.PictureSeekMs
-	isSeekRight := seekMs > command.BoundsMs[0] && seekMs < command.BoundsMs[1]
+	fromMs, nextMs := command.BoundsMs[0], command.BoundsMs[1]
+	if command.LeadInMs > 0 {
+		fromMs, nextMs = command.LeadInMs, command.BoundsMs[0]
+	}
+	isSeekRight := seekMs > fromMs && seekMs < nextMs
 	if command.IsPictureSeekBeforeKeyframe {
-		isSeekRight = seekMs >= 0 && seekMs <= command.BoundsMs[0]
+		isSeekRight = seekMs >= 0 && seekMs <= fromMs
 	}
 	if isPicture != isSeekRight || !isPicture && command.IsPictureSeekBeforeKeyframe {
 		return fmt.Errorf("%w: a %s seeking to %d ms", ErrBadRun, command.Stream.Kind, seekMs)
@@ -249,7 +260,7 @@ func (taker *rawTaker) takeFinished() error {
 // FFmpeg's end did is not known yet.
 var errNotYet = errors.New("the run's last chunk waits for FFmpeg to end")
 
-// take makes one listed raw file into its chunk, or drops it: a sound's lead-in, or what FFmpeg
+// take makes one listed raw file into its chunk, or drops it: a run's lead-in, or what FFmpeg
 // wrote past the run's last chunk. A file whose span is not its chunk's fails the run, and is never
 // made a chunk: FFmpeg cut it elsewhere, or was stopped in it and listed it (idiosyncrasies.md).
 func (taker *rawTaker) take(line string) error {
@@ -278,10 +289,13 @@ func (taker *rawTaker) take(line string) error {
 }
 
 // makeChunk makes a listed raw file into its chunk, at its time in the film, putting the store's
-// init first if the run has not; a sound's lead-in is counted and dropped.
+// init first if the run has not; a run's lead-in is dropped, a sound's counted first.
 func (taker *rawTaker) makeChunk(entry listed) error {
 	name, number := entry.name, entry.number
 	command := taker.command
+	if number < command.FirstChunk && !command.Stream.Kind.IsSound() {
+		return nil // a copied picture's lead-in, dropped uncounted
+	}
 	raw, err := os.ReadFile(filepath.Join(taker.rawPath, name)) //nolint:gosec // a raw file's name, checked above
 	if err != nil {
 		return fmt.Errorf("read raw %s: %w", name, err)
@@ -299,7 +313,7 @@ func (taker *rawTaker) makeChunk(entry listed) error {
 		return fmt.Errorf("raw %s: %w", name, err)
 	}
 	if number < command.FirstChunk {
-		return nil // the sound's lead-in, counted and dropped
+		return nil // a sound's lead-in, counted and dropped
 	}
 	if !taker.hasInit {
 		if putErr := taker.keeper.PutFile(command.StoreDir, InitName, init); putErr != nil {

@@ -165,12 +165,46 @@ func TestMake_AnMPEGTSPicturesRunSeeksAtOrBeforeItsFirstKeyframe(t *testing.T) {
 	}
 }
 
+// A copied picture's lead-in, the chunk before the run's first, is dropped, and each chunk is put at
+// its time in the film as one not led in is (nodeproto.MakeChunks.LeadInMs).
+func TestMake_DropsACopiedPicturesLeadIn(t *testing.T) {
+	t.Parallel()
+	command := run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture})
+	command.LeadInMs, command.PictureSeekMs = 88_839, 93_844
+	fake := &fakeFFmpeg{
+		raw: map[int][]byte{
+			9:  rawOf(24000, fragmentOf(0, 240, 4004)),
+			10: rawOf(24000, fragmentOf(0, 240, 2002)),
+			11: rawOf(24000, fragmentOf(0, 90, 2002)),
+			12: rawOf(24000, fragmentOf(0, 239, 2002)),
+		},
+		numbers: []int{9, 10, 11, 12},
+	}
+	maker, shelf, directory := makerOver(t, fake)
+	var told []int
+	last, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.mkv"}, command,
+		func(n int) { told = append(told, n) })
+	if err != nil || last != 12 || !slices.Equal(told, []int{10, 11, 12}) {
+		t.Fatalf("the run made through %d, telling %v, %v; want 10, 11, 12", last, told, err)
+	}
+	if shelf.HasFile(command.StoreDir, ChunkName(9)) {
+		t.Error("the lead-in was made a chunk")
+	}
+	for index, n := range []int{10, 11, 12} {
+		ticks := (command.BoundsMs[index]+TimelineOffsetMs)*24000/1000 - 2002
+		want := uint64(ticks) //nolint:gosec // a test's positive time
+		if got := storedDecodeTime(t, directory, command.StoreDir, n); got != want {
+			t.Errorf("chunk %d is decoded from %d, want %d: shown at its bound", n, got, want)
+		}
+	}
+}
+
 // A sound's lead-in is dropped, and each chunk starts after the run's samples before it, from the
 // run's start less the encoder's priming (slow-links.md §10).
 func TestMake_TimesASoundBySamplesAfterItsLeadIn(t *testing.T) {
 	t.Parallel()
 	command := run(nodeproto.ChunkStream{Kind: nodeproto.StreamSound, Sound: &nodeproto.SoundTrack{ChannelCount: 2}})
-	command.SoundLeadInMs = 88_839
+	command.LeadInMs = 88_839
 	fake := &fakeFFmpeg{
 		raw: map[int][]byte{
 			9:  rawOf(48000, fragmentOf(0, 470, 0)),
@@ -204,7 +238,7 @@ func TestMake_TimesACopiedSoundByItsListedEndInTheFilm(t *testing.T) {
 	command := run(nodeproto.ChunkStream{
 		Kind: nodeproto.StreamSoundCopied, Sound: &nodeproto.SoundTrack{ChannelCount: 6},
 	})
-	command.SoundLeadInMs = 88_839
+	command.LeadInMs = 88_839
 	fake := &fakeFFmpeg{
 		raw: map[int][]byte{
 			9:  rawOf(48000, fragmentOf(0, 470, 0)),
@@ -381,8 +415,12 @@ func TestMake_RefusesARunNotOfARunsShape(t *testing.T) {
 	falling := run(picture)
 	falling.BoundsMs = []int64{5000, 4000}
 	soundless := run(nodeproto.ChunkStream{Kind: nodeproto.StreamSound})
-	leadInOnAPicture := run(picture)
-	leadInOnAPicture.SoundLeadInMs = 1000
+	leadInOnAQuality := run(nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 300, Height: 96})
+	leadInOnAQuality.LeadInMs = 88_839
+	leadInAtThePicturesStart := run(picture)
+	leadInAtThePicturesStart.LeadInMs = leadInAtThePicturesStart.BoundsMs[0]
+	seekPastTheLeadInsChunk := run(picture)
+	seekPastTheLeadInsChunk.LeadInMs = 88_839 // seeking at 103.854 s, past chunk 9, the lead-in
 	seekAtTheKeyframe := run(picture)
 	seekAtTheKeyframe.PictureSeekMs = seekAtTheKeyframe.BoundsMs[0]
 	seekPastTheNextChunk := run(picture)
@@ -395,7 +433,9 @@ func TestMake_RefusesARunNotOfARunsShape(t *testing.T) {
 	qualityBefore.IsPictureSeekBeforeKeyframe = true
 	for name, command := range map[string]nodeproto.MakeChunks{
 		"a store outside the shape": climbing, "bounds not rising": falling,
-		"a sound with no track": soundless, "a lead-in on a picture": leadInOnAPicture,
+		"a sound with no track": soundless, "a lead-in on a quality": leadInOnAQuality,
+		"a picture's lead-in at its first chunk":             leadInAtThePicturesStart,
+		"a picture led in, seeking past its lead-in's chunk": seekPastTheLeadInsChunk,
 		"a picture seeking at its keyframe":                  seekAtTheKeyframe,
 		"a picture seeking past its first chunk":             seekPastTheNextChunk,
 		"a quality with a picture's seek":                    seekingQuality,

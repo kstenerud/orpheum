@@ -32,12 +32,13 @@ const retimedCutEarlyMs = 400
 // run's raw directory.
 const rawListName = "list.csv"
 
-// runStartMs is where a run starts reading: its first chunk's start, or, for sound past the
-// film's first chunk, the chunk before it, whose chunk is dropped; or, for a sound copied whose
-// film's first chunk starts well after the film does (isLedInFromFilmStart), the film's start.
+// runStartMs is where a run starts reading: its first chunk's start, or, for a sound or a copied
+// picture past the film's first chunk, the chunk before it, whose chunk is dropped (its LeadInMs);
+// or, for a sound copied whose film's first chunk starts well after the film does
+// (isLedInFromFilmStart), the film's start.
 func runStartMs(command nodeproto.MakeChunks) int64 {
-	if command.Stream.Kind.IsSound() && command.SoundLeadInMs > 0 {
-		return command.SoundLeadInMs
+	if command.LeadInMs > 0 {
+		return command.LeadInMs
 	}
 	if isLedInFromFilmStart(command) {
 		return 0
@@ -110,7 +111,7 @@ func soundTrimMs(command nodeproto.MakeChunks) int64 {
 }
 
 // firstRawNumber is the chunk the run's first raw file is: its first chunk, or the one before it
-// for a sound's lead-in, -1 for one led in from the film's start (isLedInFromFilmStart).
+// for a lead-in, -1 for one led in from the film's start (isLedInFromFilmStart).
 func firstRawNumber(command nodeproto.MakeChunks) int {
 	if runStartMs(command) != command.BoundsMs[0] {
 		return command.FirstChunk - 1
