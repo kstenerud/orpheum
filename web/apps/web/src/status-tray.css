@@ -5,39 +5,11 @@
    warning, yellow. */
 
 /* Each sign an icon button (icon-button.css), in an icon tray, as a listing's tools are (the owner,
-   2026-10-30: "Icon trays should ideally share the same code"); here only its colour: the status
-   blue, but where it says otherwise below. */
+   2026-10-30: "Icon trays should ideally share the same code"). Off, it takes the banner's own
+   white, an entry point like any other of its places; on, the button's running look
+   (icon-button.css), the status blue, breathing (D364 §12). Here only the warning's button. */
 .status-tray__button {
   color: var(--color-status);
-}
-
-.status-tray__icon {
-  animation: status-tray-on-pulses 3s ease-in-out infinite;
-}
-
-@keyframes status-tray-on-pulses {
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.55;
-  }
-}
-
-/* No pulse while a film's player is on the page: the blue alone says it is on. An endless animation
-   has the compositor make a frame at the display's rate, 60 a second, beside a 24 fps film, on a
-   weak stick too (the efficiency audit's finding 3). */
-body:has(.film-player__stage) .status-tray__button--on .status-tray__icon {
-  animation: none;
-}
-
-/* No pulse for a person who asked for less motion: the blue alone says it is on. */
-@media (prefers-reduced-motion: reduce) {
-  .status-tray__button--on .status-tray__icon {
-    animation: none;
-  }
 }
 
 .status-tray__icon {

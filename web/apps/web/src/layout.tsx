@@ -14,6 +14,25 @@ export type SpaceStep = "1" | "2" | "3" | "4" | "5" | "6" | "7";
 /** How a Cluster's children line up across its row. */
 export type ClusterAlign = "start" | "center" | "end" | "baseline";
 
+/** Each step's class, written out whole, so a search for a stylesheet's class finds it. */
+const spaceClass: Readonly<Record<SpaceStep, string>> = {
+  "1": "layout-space-1",
+  "2": "layout-space-2",
+  "3": "layout-space-3",
+  "4": "layout-space-4",
+  "5": "layout-space-5",
+  "6": "layout-space-6",
+  "7": "layout-space-7",
+};
+
+/** Each alignment's class, written out whole. */
+const alignClass: Readonly<Record<ClusterAlign, string>> = {
+  start: "cluster--align-start",
+  center: "cluster--align-center",
+  end: "cluster--align-end",
+  baseline: "cluster--align-baseline",
+};
+
 /**
  * Its children in a column, the gap between them a step of the space scale. It lays out its direct
  * children alone, sets nothing inside them, and shrinks below its content where it is a flex or grid
@@ -24,7 +43,7 @@ export function Stack(props: {
   readonly space: SpaceStep;
   readonly children: ReactNode;
 }): JSX.Element {
-  return <div className={`stack layout-space-${props.space}`}>{props.children}</div>;
+  return <div className={`stack ${spaceClass[props.space]}`}>{props.children}</div>;
 }
 
 /**
@@ -39,7 +58,7 @@ export function Cluster(props: {
 }): JSX.Element {
   const align = props.align ?? "center";
   return (
-    <div className={`cluster cluster--align-${align} layout-space-${props.space}`}>
+    <div className={`cluster ${alignClass[align]} ${spaceClass[props.space]}`}>
       {props.children}
     </div>
   );

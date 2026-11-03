@@ -212,7 +212,7 @@ test(
       // over the page, never a page of its own (D384 §2).
       await host.goto(new URL("/", host.url()).href);
       const sign = host.locator(".status-tray button[aria-label^='Watch Together']");
-      await expect(sign).toHaveClass(/status-tray__button--on/u);
+      await expect(sign).toHaveClass(/icon-button--running/u);
       await sign.click();
       await expect(host.locator("video")).toHaveCount(0);
       expect(new URL(host.url()).pathname).toBe("/");

@@ -95,6 +95,31 @@ describe("the shell, laid out by a real browser", () => {
     });
   });
 
+  // D364 §12: a sign whose function is off is white and still; only one that is on breathes. The
+  // IconButton batch left every sign's icon pulsing, the off ones too (check-pr, 2026-11-03).
+  it("keeps a status sign whose function is off still, its icon unanimated", async () => {
+    const shell = (
+      <AppShell
+        isAdmin={false}
+        canHostWatchTogether={true}
+        currentScreen="home"
+        onSignOut={() => undefined}
+        signedInAs={{ name: "owner", deviceName: undefined }}
+      >
+        <p>screen</p>
+      </AppShell>
+    );
+    await drawn(shell, ({ container }) => {
+      const offs = container.querySelectorAll(
+        ".app-shell__end .status-tray button.icon-button:not(.icon-button--running) svg",
+      );
+      expect(offs.length).toBeGreaterThan(0);
+      for (const icon of offs) {
+        expect(getComputedStyle(icon).animationName).toBe("none");
+      }
+    });
+  });
+
   // The owner, 2026-10-28: "The icons on the right highlight on mouse-over while the ones on the
   // left do not."
   it("raises the ground behind every banner icon a pointer is over, the places' and the menu's as the tray's", async () => {

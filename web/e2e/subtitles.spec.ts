@@ -24,12 +24,16 @@ test("a chosen subtitle track is also the browser's own captions, shown only in 
   await signIn(page);
   await openFilm(page, timingFilm(browserName));
   await page.getByRole("link", { name: "Play" }).click();
-  const subtitles = page.getByRole("combobox", { name: "Subtitles" });
+  // The subtitles' chooser, a pop-up since the native select went (plans/toolkit.md step 6).
+  const subtitles = page.locator(".route-chooser", { hasText: "Subtitles" }).getByRole("button");
   await expect(subtitles).toBeVisible();
   await expect.poll(() => isPlaying(page), { timeout: 30_000 }).toBe(true);
   // The film's one track, after "Off".
-  await expect(subtitles).toContainText(longTrackName);
-  await subtitles.selectOption({ index: 1 });
+  await subtitles.click();
+  await page
+    .getByRole("dialog", { name: "Subtitles" })
+    .getByRole("button", { name: longTrackName })
+    .click();
   // Loaded, and hidden: on the page the drawn layer shows the track as its author styled it.
   await expect
     .poll(() => subtitleTracks(page), { timeout: 30_000 })

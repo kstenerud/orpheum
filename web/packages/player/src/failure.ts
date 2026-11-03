@@ -102,18 +102,19 @@ export function isLoadStopped(data: Pick<ErrorData, "type" | "fatal" | "response
   );
 }
 
+/** A load's failure by the core's answer: its own 429 and 422 say why; any other, the network. */
+function networkFailure(code: number | undefined): PlaybackFailure {
+  if (code === noRoomToMakeStatus) {
+    return "too_busy";
+  }
+  return code === cannotMakeStatus ? "cannot_make" : "network";
+}
+
 /** A fatal hls.js error as a failure, by its type, and a load's by the core's answer. */
 export function hlsErrorFailure(data: Pick<ErrorData, "type" | "response">): PlaybackFailure {
   switch (data.type) {
     case Hls.ErrorTypes.NETWORK_ERROR:
-      switch (data.response?.code) {
-        case noRoomToMakeStatus:
-          return "too_busy";
-        case cannotMakeStatus:
-          return "cannot_make";
-        default:
-          return "network";
-      }
+      return networkFailure(data.response?.code);
     case Hls.ErrorTypes.MEDIA_ERROR:
     case Hls.ErrorTypes.MUX_ERROR:
       return "decode";
