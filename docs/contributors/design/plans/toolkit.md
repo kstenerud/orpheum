@@ -37,8 +37,9 @@ End: one `make check-pr`, staging, the owner tries it.
    lead's wording of the owner's): a pop-up is as wide as its widest entry, but never wider than half
    the screen; an entry longer than that wraps. Half a phone's screen is too narrow for a word, so the
    cap is never under 16rem, and the margin (9) always wins. The width is its choices' alone: the
-   menu's "Signed in as …" line only informs, and wraps rather than widening it (the owner,
-   2026-11-03).
+   menu's "Signed in as …" line only informs, and wraps rather than widening it. The owner
+   generalised it (2026-11-03): informative content may wrap, action content only where nothing
+   else will do (D408 §7, `ListNote`).
 9. **A margin pop-ups keep clear of**: a small one (0.5rem, plus the device's safe-area insets) at
    every edge of the screen, which no pop-up covers.
 10. **Cast and Watch Together open at once.** Their first press shows "Loading…" in place of the

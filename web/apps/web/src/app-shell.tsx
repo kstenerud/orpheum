@@ -15,7 +15,7 @@ import { useTranslation } from "react-i18next";
 
 import logo from "./assets/orpheum-logo.svg";
 import { DropDown } from "./drop-down.tsx";
-import { ListEntry, ListOption } from "./list-box.tsx";
+import { ListNote, ListOption } from "./list-box.tsx";
 import { Icon } from "./icon.tsx";
 import { StatusTray } from "./status-tray.tsx";
 import { Link } from "./link.tsx";
@@ -612,14 +612,14 @@ function MenuPlaces(props: Omit<Parameters<typeof MainMenu>[0], "isCurrent">): J
   return (
     <>
       {signedInAs === undefined ? null : (
-        <ListEntry className="app-shell__who">
+        <ListNote className="app-shell__who">
           {signedInAs.deviceName === undefined
             ? t("nav.signedInAs", { name: signedInAs.name })
             : t("nav.signedInAsOn", { name: signedInAs.name, device: signedInAs.deviceName })}
           {realm === undefined ? null : (
             <span className="app-shell__who-realm">{t("nav.realmTitle", { realm })}</span>
           )}
-        </ListEntry>
+        </ListNote>
       )}
       {props.children}
       {props.onSwitchHousehold === undefined ? null : (

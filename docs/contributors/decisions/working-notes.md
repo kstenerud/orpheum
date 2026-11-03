@@ -25703,5 +25703,10 @@ now covers dialogs alone.
    measured on the Fire TV stick is agreed.
 6. **A TV has no film volume control**, as D407 §2 already has it: "They already get that from their
    TV remote."
+7. **What informs may wrap; what acts wraps only where nothing else will do.** A pop-up's width is
+   its choices' and controls', its widest one unwrapped up to §2's cap; a line that only informs
+   (who is signed in where, a note) wraps to that width and never widens it (`ListNote`). The
+   owner, on the banner's menu: "Informative content can wrap, while action content (menu items
+   and such) should not wrap unless absolutely necessary."
 
 **Status:** Decided 2026-11-03, not built.
