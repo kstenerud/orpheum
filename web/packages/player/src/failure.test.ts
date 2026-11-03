@@ -28,6 +28,12 @@ describe("a playback failure", () => {
         response: { url: "1.m4s", code: 429 },
       }),
     ).toBe("too_busy"); // the core has no room to make it (D250 §6)
+    expect(
+      hlsErrorFailure({
+        type: Hls.ErrorTypes.NETWORK_ERROR,
+        response: { url: "349.m4s", code: 422 },
+      }),
+    ).toBe("cannot_make"); // FFmpeg failed on the film at this chunk each time (toolkit.md item 12)
     expect(hlsErrorFailure({ type: Hls.ErrorTypes.MEDIA_ERROR })).toBe("decode");
     expect(hlsErrorFailure({ type: Hls.ErrorTypes.OTHER_ERROR })).toBe("unknown");
     for (const failure of [

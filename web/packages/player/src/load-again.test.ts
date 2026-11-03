@@ -271,4 +271,22 @@ describe("a playback that cannot go on", () => {
     expect(loadsOnFromS).toEqual([]);
     hls.destroy();
   });
+
+  it("ends at the core's word that it failed on the film at this chunk each time, saying so, where it asked again every 2 s (toolkit.md item 12)", () => {
+    const { hls, loadsOnFromS, failures } = playbackLoadingOn(new EventTarget());
+    hls.trigger(Events.ERROR, {
+      type: ErrorTypes.NETWORK_ERROR,
+      details: ErrorDetails.FRAG_LOAD_ERROR,
+      fatal: true,
+      frag: pictureChunk(1, 349),
+      response: { url: "", code: 422, text: "" },
+      error: new Error("HTTP Error 422"),
+    });
+    expect(failures.map(([failure, whatFailed]) => [failure, whatFailed?.split(";")[1]])).toEqual([
+      ["cannot_make", " status 422"],
+    ]);
+    waitMs(asksAgainAfterAtMostMs);
+    expect(loadsOnFromS).toEqual([]);
+    hls.destroy();
+  });
 });
