@@ -25,6 +25,12 @@
    **The 11-04 batch (owner 2026-11-01, "finish this batch and start another one overnight"):** the
    plan file's "The 11-04 batch": a redeemed invitation leaves People, a role in one dialog for
    creating and editing, a series starts at season 1. No nas.example release soon. End: one check-pr.
+   **The 11-05 batch (owner 2026-11-03, "yes, as proposed"):** after the prod deploy of the 11-03
+   work, the plan file's "The 11-05 batch": first the older next-batch sections read for what is
+   open; then port mapping to the router, §28's S2/L1/L2/D1, CPU and memory recorded, the chunk
+   join's hole, loudness taken up while playing, a DVD's sound at a join, matching a name with no
+   year and a series' year, the small ones, the lead's staging Connect account. End: one check-pr,
+   the owner's go, nas.example.
    **Queued for the owner to order later:** the rest of the plan file and inventory-2026-10-27.md.
    **Superseded (owner 2026-10-30, D385):** a receiver taking control back ends the cast and goes home; the sender plays on.
 3. **Only then:** new work (Diagnostics, D341, D345, the queued items), and code-fixing batches from

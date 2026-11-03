@@ -1437,3 +1437,32 @@ there either. The owner's tab was on orpheum.dev's client origin, under the load
 service worker, as always unless they say otherwise (2026-11-03), the path both tries took. Left
 open until it is seen again; the owner reports it if it is, and `about:serviceworkers` as it
 happens would narrow it.
+
+## The 11-05 batch (the owner agreed 2026-11-03, "yes, as proposed"): a beta that holds up for other households
+
+After the prod deploy of the 11-03 work. First, the older "next batch" sections above (10-28 to
+11-01) are read for what is still open, and anything that belongs here is brought to the owner.
+
+1. **The core's port mapping asks the router, not Docker's bridge** (item 15 of the owner's comments
+   of 2026-11-02): find the gateway past the bridge, or let the admin name the router.
+2. **The §28 review's S2, L1, L2 and D1**
+   ([messages-get-lost-audit-2026-11-03.md](../research/messages-get-lost-audit-2026-11-03.md);
+   toolkit.md's next batch): "Reconnecting…" on a group's buttons, the last position sent as a page
+   closes, a playback report sent again under its own `reportSeq`, Cast's device list shown as
+   reconnecting.
+3. **Core and node record their own CPU and memory use** (toolkit.md's next batch), shown on the
+   Diagnostics page beside what was running.
+4. **The hole at a chunk's join** (item 14): a chunk starting a frame or two late, The Pumbletons'
+   S33E8; found in the node's chunking and closed.
+5. **A loudness measured while the film plays is taken up** without playing it again, and the wait
+   says the right time (item 8).
+6. **A DVD's sound at a join** (D405 §4, item 10): the repeated or cut-short AC-3 frame dropped.
+7. **A name with no year matches the well-known title** (the D365 amendment of item 5), and **the
+   scanner reads no year out of a series' name** ("Iron Ledger 1992", above).
+8. **Small:** a video with no sound is listed among the problem films (item 2); "1 people" (item 9).
+9. **The lead's own account on staging's Connect** ("Staging's Connect", above): mail for a reserved
+   test domain written to a file; orpheum-connect's mailer.
+
+**Not this batch:** the arrows' search on the TV (item 13); the gallery's pop-ups and player bar,
+the scrub bar's time, `ModalDialog`'s `className` (one review with the owner); exact cut times for
+a re-timed copy (the margin stays for now). End: one check-pr, the owner's go, nas.example.
