@@ -17,6 +17,7 @@ import {
 import { sendLabResult, useLabSending, type Sending } from "./lab-send.ts";
 import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
+import type { ThroughDiscovery } from "./client-reaches.ts";
 import { firstPlayableFile } from "./first-playable.ts";
 import { requestPlayback } from "./watching.ts";
 
@@ -392,6 +393,29 @@ function useCast(
   };
 }
 
+/**
+ * What a play sent to the receiver signs in by, only where the person ticked it, and only to our
+ * receiver (D154: no grant yet): the page's session, and under a discovery's loader how the receiver
+ * reaches the page's core from away, the core as the discovery finds it and the session's locator
+ * (the 11-05 batch's item 10); on the core's own origin the receiver plays from the core that served
+ * it. Nothing without a session.
+ */
+export function signInOf(
+  shouldSendSignIn: boolean,
+  session: { readonly token: () => string | undefined; readonly locator: () => string | undefined },
+  throughDiscovery: ThroughDiscovery | undefined,
+): Readonly<Record<string, unknown>> {
+  const token = session.token();
+  if (!shouldSendSignIn || token === undefined) {
+    return {};
+  }
+  const locator = session.locator();
+  const authorization = `Bearer ${token}`;
+  return throughDiscovery === undefined || locator === undefined
+    ? { authorization }
+    : { authorization, reach: { ...throughDiscovery, token, locator } };
+}
+
 /** What the probe's buttons do, and what they found. */
 interface CastSteps {
   readonly sdk: SdkState;
@@ -412,7 +436,7 @@ interface CastSteps {
 
 /** What the probe's buttons do: each step's failure logged, never thrown. */
 function useCastSteps(url: string, startAtBps: number): CastSteps {
-  const { api, session } = useServices();
+  const { api, session, throughDiscovery } = useServices();
   const [lines, log] = useLog();
   const sdk = useCastSdk(log);
   const { cast, open, close } = useCast(api, log);
@@ -427,11 +451,8 @@ function useCastSteps(url: string, startAtBps: number): CastSteps {
     log(code === undefined ? "loaded" : `load failed: ${code}`);
   };
   const playOnOurs = (shouldSendSignIn: boolean): void => {
-    const token = session.token();
     const played = new URL(url, globalThis.location.href);
-    // The sign-in goes only where the person ticked it, and only to our receiver (D154: no grant yet).
-    const signIn =
-      shouldSendSignIn && token !== undefined ? { authorization: `Bearer ${token}` } : {};
+    const signIn = signInOf(shouldSendSignIn, session, throughDiscovery);
     run(async () => {
       await cast?.send({
         type: "play",

@@ -5,6 +5,7 @@ import { createContext, use, useSyncExternalStore } from "react";
 
 import type { LinkDebug } from "./link-debug.ts";
 import type { OrpheumLoader } from "./loader-interface.ts";
+import type { ThroughDiscovery } from "./client-reaches.ts";
 import type { Navigation } from "./navigation.ts";
 import type { Route } from "./router.ts";
 import type { Session } from "./session.ts";
@@ -33,6 +34,12 @@ export interface Services {
    * banner so they know which server they are on (D297 §5); undefined anywhere else.
    */
   readonly realm?: string | undefined;
+  /**
+   * The page's core as its discovery finds it, under a discovery's loader: what the lab's cast
+   * receiver reaches it by from away, handed the page's session (the 11-05 batch's item 10);
+   * undefined on the core's own origin.
+   */
+  readonly throughDiscovery?: ThroughDiscovery | undefined;
   /**
    * Whether the page, once signed out, is taken by its discovery's loader to the discovery's
    * sign-in, so it draws none of the server's own meanwhile (D308; the owner, 2026-10-30): undefined
