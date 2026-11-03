@@ -7,13 +7,13 @@
  * sent to are listed, straight to the one when there is one. It keeps no core's session (§3).
  */
 
-import { createApi, readLinkFragment, type FetchRequest } from "@orpheum/sdk";
+import { createApi, readLinkFragment, type FetchRequest, type KeptCore } from "@orpheum/sdk";
 import { useMemo, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { DiscoveryGate, type GateParts, type SignInWith } from "./discovery-gate.tsx";
 import { directFetch } from "@orpheum/sdk";
-import { handOffFragment, type KeptCore, type Reached } from "./discovery-start.ts";
+import { handOffFragment, type Reached } from "./discovery-start.ts";
 import { thisDevice } from "./device.ts";
 import type { LoaderConfig } from "./loader-config.ts";
 import { clientOriginOf } from "./loader-config.ts";

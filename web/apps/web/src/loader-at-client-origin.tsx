@@ -14,6 +14,7 @@ import {
   refusedClientVersions,
   reportFailure,
   type FetchRequest,
+  type KeptCore,
 } from "@orpheum/sdk";
 import type { JSX } from "react";
 
@@ -22,7 +23,6 @@ import {
   heldWith,
   readHandOffFragment,
   whenSignedOut,
-  type KeptCore,
   type Reaching,
   type Start,
 } from "./discovery-start.ts";

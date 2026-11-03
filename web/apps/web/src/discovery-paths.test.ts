@@ -2,7 +2,8 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { reachCore, type Reached, type Reaching, type Target } from "./discovery-start.ts";
+import type { Target } from "@orpheum/sdk";
+import { reachCore, type Reached, type Reaching } from "./discovery-start.ts";
 
 const fingerprint = "Vkdap1RjR0wChd9dvyvKtz2mUTWIOem3dIGy6rEHcIw";
 

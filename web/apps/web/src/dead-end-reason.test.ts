@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import { deadEndReasonOf } from "./dead-end-reason.ts";
-import type { Target } from "./discovery-start.ts";
+import type { Target } from "@orpheum/sdk";
 
 const lan = "https://lan.k7xq2.zone.example";
 const v6 = "https://v6.k7xq2.zone.example";

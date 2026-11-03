@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { sessionOfferKey, type DiscoveryClient } from "@orpheum/sdk";
+import {
+  sessionOfferKey,
+  type DiscoveryClient,
+  signallerOf,
+  type HeldSession,
+  type Target,
+} from "@orpheum/sdk";
 import { describe, expect, it } from "vitest";
 
 import type { StringStorage } from "./browser-storage.ts";
 import { withLatest, type GateParts } from "./discovery-gate.tsx";
-import { signallerOf, type HeldSession, type Target } from "./discovery-start.ts";
 import { holdingAt } from "./loader-at-client-origin.tsx";
 import { createSession, type Session } from "./session.ts";
 import { keepMembership, membershipText } from "./together-storage.ts";
