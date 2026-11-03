@@ -110,9 +110,28 @@ describe("reporting play state", () => {
     await settled();
     reporter.flush(10_000);
     await settled();
-    expect(sent.map((report) => report.reportSeq)).toEqual([1, 3]);
+    // The failed report goes again under its own number (L2), then the position as asked.
+    expect(sent.map((report) => report.reportSeq)).toEqual([1, 2, 3]);
     expect(sent[1]?.events.map((event) => event.kind)).toEqual(["paused"]);
     expect(sent[1]?.spans).toHaveLength(1);
+    expect(sent[2]?.events).toEqual([]);
+  });
+
+  it("sends a report whose answer was lost again under its own number, and what came since in a later one (L2)", async () => {
+    const { reporter, sent, setNow, failNext } = fakeReporter();
+    setNow(1000);
+    reporter.recordStarted(0);
+    await settled();
+    failNext();
+    setNow(11_000);
+    reporter.recordPaused(10_000);
+    await settled();
+    setNow(12_000);
+    reporter.recordStarted(10_000);
+    await settled();
+    expect(sent.map((report) => report.reportSeq)).toEqual([1, 2, 3]);
+    expect(sent[1]?.events.map((event) => event.kind)).toEqual(["paused"]);
+    expect(sent[2]?.events.map((event) => event.kind)).toEqual(["started"]);
   });
 
   it("flushes again when a report in flight settles with a flush asked meanwhile (L1)", async () => {
@@ -293,8 +312,9 @@ describe("reporting play state", () => {
     note("gave up a chunk of 3, stuck: 5000 B in 6000 ms, none for 5500 ms; carried http");
     reporter.flush(20_000);
     await settled();
-    expect(sent.at(-1)?.linkNotes).toEqual([
-      "sample 3 812345B 1203ms fb340ms exp900 lo1500",
+    // The failed report goes again as it was; the later note is in the report after it.
+    expect(sent[1]?.linkNotes).toEqual(["sample 3 812345B 1203ms fb340ms exp900 lo1500"]);
+    expect(sent[2]?.linkNotes).toEqual([
       "gave up a chunk of 3, stuck: 5000 B in 6000 ms, none for 5500 ms; carried http",
     ]);
     // At most linkNotesKept, the newest, each at most linkNoteMost long.
@@ -330,13 +350,11 @@ describe("reporting play state", () => {
     await settled();
     reporter.flush(421_000);
     await settled();
-    expect(sent[0]?.unplayables).toEqual([
-      { qualityKbps: 36_208, positionMs: 420_500 },
-      { qualityKbps: 20_104, positionMs: 421_000 },
-    ]);
+    expect(sent[0]?.unplayables).toEqual([{ qualityKbps: 36_208, positionMs: 420_500 }]);
+    expect(sent[1]?.unplayables).toEqual([{ qualityKbps: 20_104, positionMs: 421_000 }]);
     reporter.flush(421_500);
     await settled();
-    expect(sent[1]).not.toHaveProperty("unplayables");
+    expect(sent[2]).not.toHaveProperty("unplayables");
   });
 
   it("tells where it stood still at once, once, and again after a report that failed", async () => {

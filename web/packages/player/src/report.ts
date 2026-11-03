@@ -74,7 +74,7 @@ export class ReportRefused extends Error {
  * Keeps one playback's play state and reports it: the changes, the spans of watching they close,
  * and where it is. Times are the device's monotonic clock, which the server anchors on arrival, so
  * a report that arrives late never rewinds the position (D217 §7). A report that fails to send is
- * sent again, with its changes, in the next one, unless send rejected with ReportRefused: then
+ * sent again as it was, under its own reportSeq, unless send rejected with ReportRefused: then
  * nothing more is sent, since nothing would be taken.
  */
 /**
@@ -114,6 +114,12 @@ export class PlayReporter {
   private openSpan: { fromPositionMs: number; startedMonoMs: number } | undefined;
   private isSending = false;
   private isRefused = false;
+  /**
+   * The report whose sending failed, sent again as it was, under its own reportSeq: if its answer
+   * was only lost, the server drops it as seen twice (L2). What was gathered since waits for the
+   * report after it.
+   */
+  private unsent: PlayReport | undefined;
   /** A flush asked while a report was in flight, made when it settles (L1). */
   private flushAsked: { positionMs: number; isLeaving: boolean } | undefined;
 
@@ -290,7 +296,7 @@ export class PlayReporter {
   /**
    * Reports where the playback is, with any changes not yet sent. isLeaving says the page is going
    * (hidden, or pagehide), so the report is sent to survive it. Asked while a report is in flight,
-   * it is made when that one settles.
+   * it is made when that one settles; after a report that failed, the first goes again as it was.
    */
   flush(positionMs: number, isLeaving = false): void {
     if (this.isRefused) {
@@ -303,8 +309,12 @@ export class PlayReporter {
       };
       return;
     }
+    if (this.unsent !== undefined) {
+      this.flushAsked = { positionMs, isLeaving };
+      this.transmit(this.unsent, isLeaving);
+      return;
+    }
     const now = this.readMonotonicMs();
-    const framesBefore = this.framesSent;
     const linkNotes = [...this.linkNotesUnsent, ...this.takeLinkNotes()].slice(-linkNotesKept);
     this.linkNotesUnsent = [];
     const report: PlayReport = {
@@ -332,10 +342,15 @@ export class PlayReporter {
     this.seeks = [];
     this.standstills = [];
     this.pathMoves = [];
+    this.transmit(report, isLeaving);
+  }
+
+  private transmit(report: PlayReport, isLeaving: boolean): void {
     this.isSending = true;
     this.send(report, { isLeaving }).then(
       () => {
         this.isSending = false;
+        this.unsent = undefined;
         const asked = this.flushAsked;
         this.flushAsked = undefined;
         if (asked !== undefined) {
@@ -344,22 +359,13 @@ export class PlayReporter {
       },
       (cause: unknown) => {
         this.isSending = false;
-        this.flushAsked = undefined;
         if (cause instanceof ReportRefused) {
           this.isRefused = true;
           return;
         }
-        // Kept for the next report, which is numbered afresh: the server took none of this one.
-        this.framesSent = framesBefore;
-        this.events = [...report.events, ...this.events];
-        this.spans = [...report.spans, ...this.spans];
-        this.stalls = [...(report.stalls ?? []), ...this.stalls];
-        this.startup ??= report.startup ?? undefined;
-        this.unplayables = [...(report.unplayables ?? []), ...this.unplayables];
-        this.seeks = [...(report.seeks ?? []), ...this.seeks];
-        this.standstills = [...(report.standstills ?? []), ...this.standstills];
-        this.pathMoves = [...(report.pathMoves ?? []), ...this.pathMoves];
-        this.linkNotesUnsent = [...(report.linkNotes ?? []), ...this.linkNotesUnsent];
+        // Kept to go again as it was, under its own number: the server may have taken it.
+        this.unsent = report;
+        this.flushAsked = undefined;
       },
     );
   }
