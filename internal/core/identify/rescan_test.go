@@ -441,6 +441,34 @@ func TestRescan_ALibraryWithAnEpisodePlacedByItsNameIsMatchedAgain(t *testing.T)
 	}
 }
 
+// A rescan whose library changes each time its files are read waits for it, and its log names the
+// write that keeps it changing: a stuck rescan said only that it waited, for hours ("fix(identify): an episode its name placed is marked a guess once, not every pass"). Here
+// the film's sort key is taken away after each pass, so each read would write it again.
+func TestRescan_ALibraryThatKeepsChangingIsLoggedWithTheWriteThatChangesIt(t *testing.T) {
+	t.Parallel()
+	lib := crowdAsBeforeTheFix(t)
+	titleID := lib.titlesByPath()[crowdFile].TitleID
+	takeAway := `DELETE FROM sort_key WHERE item_id = ` + strconv.FormatInt(titleID, 10)
+	storetest.ExecRaw(t, lib.database.Path(), takeAway)
+	lib.pass.AfterPass(func(context.Context, identify.Report) {
+		storetest.ExecRaw(t, lib.database.Path(), takeAway) //nolint:contextcheck // it writes with the test's context
+	})
+	var logged bytes.Buffer
+	rescan := lib.rescanningLogged(slog.New(slog.NewTextHandler(&logged, nil)))
+	rescan.library()
+	if _, err := rescan.rescans.Advance(t.Context()); err != nil {
+		t.Fatalf("Advance: %v", err)
+	}
+	for _, want := range []string{
+		`msg="a rescan waits for its library to stop changing" libraryId=` + strconv.FormatInt(lib.libraryID, 10),
+		`the write its last read would make: name title ` + strconv.FormatInt(titleID, 10),
+	} {
+		if !strings.Contains(logged.String(), want) {
+			t.Errorf("the log lacks %s:\n%s", want, logged.String())
+		}
+	}
+}
+
 // D357 §2: a film whose search now settles on none is left as a first match leaves one, its old
 // match forgotten: unidentified, not found, named from its file again.
 func TestRescan_AFilmItsSearchNoLongerSettlesIsNamedFromItsFileAgain(t *testing.T) {
