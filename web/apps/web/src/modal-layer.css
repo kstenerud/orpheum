@@ -1,0 +1,13 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/*
+ * While a dialog or a pop-up is open (modal-layer.tsx), the page behind it does not scroll (the
+ * owner, 2026-10-21: "the parent page should be inaccessible to user manipulation until the modal is
+ * dismissed"): a wheel or a swipe it cannot use, as over one too short to scroll or over the
+ * backdrop, would otherwise move the page. The scrollbar's room stays, so the page does not shift
+ * sideways as it goes.
+ */
+:root:has(dialog:modal) {
+  overflow: hidden;
+  scrollbar-gutter: stable;
+}
