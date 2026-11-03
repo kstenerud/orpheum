@@ -64,6 +64,7 @@ export type {
   PlayReport,
   PlaySpan,
   PlayStandstill,
+  SendOptions,
   PlayUnplayable,
 } from "./report.ts";
 export { stallAfterMs, watchStalls } from "./stalls.ts";
