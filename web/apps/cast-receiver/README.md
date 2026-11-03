@@ -23,7 +23,7 @@ what the Cast device can do and plays our ladder; the receiver of M6 (D245) grow
   `urn:x-cast:org.orpheum.lab`. `src/lab.test.ts`.
 - **Runs on Chromium 90**, the 3rd-generation Chromecast's: the build lowers syntax to it
   (`vite.config.ts`'s target) and `src/old-engine.ts`, imported first, fills the methods the bundle
-  calls that it lacks. `src/old-engine.test.ts`; only a device shows the whole: VQ58.
+  calls that it lacks. `src/old-engine.test.ts`, `src/main.test.ts`; only a device shows the whole: VQ58.
 - **Server calls go through `@orpheum/sdk`.** `no-restricted-globals`.
 
 ## Read before changing
