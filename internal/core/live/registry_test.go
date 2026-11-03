@@ -611,6 +611,44 @@ func TestRegistry_ACastEndsOnceItsReceiverIsGoneForTwoMinutes(t *testing.T) {
 	}
 }
 
+// A cast its receiver has not said Use to within UnansweredAfter ends, its sender told it sends none,
+// and not before; one accepted goes on however long (D358 §4, principles §28): a receiver never
+// handed the question, its sender's page gone, left the sender asking (the owner, 2026-11-03).
+func TestRegistry_ACastNeverAnsweredEndsAndOneAcceptedGoesOn(t *testing.T) {
+	t.Parallel()
+	fake := newClock()
+	registry := NewRegistry(minted(), fake)
+	sender := &inbox{}
+	registry.Connect(owner, phone, inFront, sender.send)
+	registry.Connect(owner, television, inFront, (&inbox{}).send)
+	registry.Connect(partner, phone, inFront, (&inbox{}).send)
+	registry.Connect(partner, television, inFront, (&inbox{}).send)
+	unanswered := Cast{ID: 5, UserID: owner, SenderDeviceID: phone, ReceiverDeviceID: television}
+	accepted := Cast{ID: 6, UserID: partner, SenderDeviceID: phone, ReceiverDeviceID: television}
+	for _, cast := range []Cast{unanswered, accepted} {
+		if _, _, err := registry.Cast(cast, "a"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := registry.Accept(partner, television, 6); err != nil {
+		t.Fatal(err)
+	}
+	fake.Advance(UnansweredAfter - time.Second)
+	if ended := registry.EndUnanswered(); len(ended) != 0 {
+		t.Fatalf("a cast asked %s ago was ended: %+v", UnansweredAfter-time.Second, ended)
+	}
+	fake.Advance(time.Second)
+	if ended := registry.EndUnanswered(); len(ended) != 1 || ended[0].ID != 5 {
+		t.Fatalf("after %s the core ended %+v; want cast 5 alone, 6 accepted", UnansweredAfter, ended)
+	}
+	if told, _ := sender.last(MessageSending); told.Sending != nil {
+		t.Errorf("the sender was told it sends %+v; want none", told.Sending)
+	}
+	if casts := registry.CastsOf(partner, phone); len(casts) != 1 || casts[0].ID != 6 {
+		t.Errorf("the accepted cast's sender has %+v; want cast 6 still", casts)
+	}
+}
+
 // A Watch Together session's end ends every cast whose receiver was handed its person's part in it,
 // and no other: a cast in another session goes on (D389 §1). The sender is told it sends none, and
 // the person's devices that it receives no more.

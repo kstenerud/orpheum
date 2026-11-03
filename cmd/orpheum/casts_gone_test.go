@@ -14,14 +14,22 @@ import (
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
-// goneOnce is a registry with one cast whose receiver is gone, which its first look ends.
+// goneOnce is a registry with casts whose receiver is gone, and casts never answered, which its first
+// look ends.
 type goneOnce struct {
-	casts []live.Cast
+	casts      []live.Cast
+	unanswered []live.Cast
 }
 
 func (gone *goneOnce) EndGone() []live.Cast {
 	ended := gone.casts
 	gone.casts = nil
+	return ended
+}
+
+func (gone *goneOnce) EndUnanswered() []live.Cast {
+	ended := gone.unanswered
+	gone.unanswered = nil
 	return ended
 }
 
@@ -54,4 +62,20 @@ func TestEndGoneCasts_EndsEachGoneReceiversSessionAtATick(t *testing.T) {
 	}
 	cancel()
 	testutil.Receive(t, stopped, "the loop's stop as its context ends")
+}
+
+// Each tick ends the casts never answered too, their sessions told unanswered, so a sender asking a
+// receiver that was never handed the question is told (D358 §4, principles §28).
+func TestEndGoneCasts_EndsEachUnansweredCastsSessionAtATick(t *testing.T) {
+	t.Parallel()
+	registry := &goneOnce{unanswered: []live.Cast{{ID: 8, UserID: 1, ReceiverDeviceID: 11}}}
+	ender := endings{ended: make(chan string, 1)}
+	tick := make(chan time.Time)
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	go endGoneCasts(ctx, registry, ender, tick, slog.New(slog.DiscardHandler))
+	tick <- time.Time{}
+	if ended := testutil.Receive(t, ender.ended, "the unanswered cast's end"); ended != together.CastUnanswered+" 8" {
+		t.Errorf("the session was ended as %q; want cast 8 as %s", ended, together.CastUnanswered)
+	}
 }
