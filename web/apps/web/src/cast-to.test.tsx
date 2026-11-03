@@ -227,14 +227,16 @@ describe("setting a cast up (D364 §1, §2; D337 §2)", () => {
   });
 
   // The owner, 2026-11-03: the phone stayed asking, with no way out, for a cast the server had lost.
-  it("stops casting while its receiver is asked, offering the devices again", async () => {
+  it("cancels the casting request while its receiver is asked, offering the devices again", async () => {
     const heard: Heard[] = [];
     await castToTheTv(heard);
-    await click(buttonWithText(mounted!.container, "Stop casting"));
+    await click(buttonWithText(mounted!.container, "Cancel casting request"));
     expect(heard.find((each) => each.methodAndPath === "POST /me/casts/9/end")?.body).toEqual({
       reason: "stopped",
     });
-    expect(mounted?.container.textContent).toContain("You stopped the cast to Fire TV.");
+    expect(mounted?.container.textContent).toContain(
+      "You cancelled the casting request to Fire TV.",
+    );
     expect(mounted?.container.textContent).not.toContain("Asking Fire TV…");
     expect(buttonWithText(mounted!.container, "Fire TV")).toBeDefined(); // to cast again
   });

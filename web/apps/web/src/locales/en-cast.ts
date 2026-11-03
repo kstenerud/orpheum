@@ -26,11 +26,12 @@ export const enCast = {
       ok: "OK",
     },
     asking: "Asking {{name}}…",
+    cancelRequest: "Cancel casting request",
     answered: {
       declined: "{{name}} declined.",
       unanswered: "{{name}} did not answer.",
       ended: "The cast to {{name}} ended before it started.",
-      stopped: "You stopped the cast to {{name}}.",
+      stopped: "You cancelled the casting request to {{name}}.",
     },
     soundOn: {
       television: "Press OK to turn the sound on",
