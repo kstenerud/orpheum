@@ -52,3 +52,19 @@ End: one `make check-pr`, staging, the owner tries it.
 dependency, which the hooks refuse in a feature session; it needs a session started with
 `ORPHEUM_ALLOW_DEPS=1` (the owner starts one after steps 1–4). The Fire TV stick and the Pixel 3a are
 dedicated to testing (the owner, 2026-11-03), so the spike uses them without asking.
+
+## Next batch (filed during this one)
+
+- **Core and node record their own CPU and memory use** (the owner, 2026-11-03: "how much cpu and
+  memory the core uses and the media node uses, so that we can gauge what kinds of specs will be
+  necessary for running it when we open up beta … have the process record automatically"). The
+  lead's proposal: each of core and node reads its own cgroup's counters (`cpu.stat`'s `usage_usec`,
+  `memory.stat`'s `anon` and `file`, `memory.peak`) once a minute and keeps the minute's figures in
+  the store, the node's including its FFmpeg runs, since they share its cgroup; outside a cgroup, the
+  process's own `/proc/self` figures. The Diagnostics page (D341) shows them beside what was
+  happening (plays, transcodes, scans), so a figure can be tied to its load. Until it is built, the
+  lead samples staging's two containers on stagehost from the sandbox the same way
+  (`/yoloai/files/resource-usage/staging.csv`; the script is in the lead's cache). The first figures
+  (2026-11-03, staging idle, 56 minutes after a start): core 9% of one core on average, 82 MiB held,
+  363 MiB peak; node 2% of one core, 11 MiB held, 2.5 GiB of page cache from reading media, which
+  the kernel reclaims.
