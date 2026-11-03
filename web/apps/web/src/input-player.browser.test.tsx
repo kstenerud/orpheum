@@ -112,8 +112,10 @@ describe.each(screens)("the player by a remote's keys, on $name", ({ width, heig
     expect(controls.map((control) => control.textContent)).toEqual(
       expect.arrayContaining(["Start over", "Find subtitles…", "Play in a bare player"]),
     );
+    // The subtitle and audio menus are choosers (the toolkit batch's step 6), no longer selects.
+    expect(controls.some((control) => control.tagName === "SELECT")).toBe(false);
     expect(
-      controls.filter((control) => control.tagName === "SELECT").length,
+      controls.filter((control) => control.classList.contains("route-chooser__button")).length,
     ).toBeGreaterThanOrEqual(2);
     expect(controls[0]).toBe(video);
     const unreached = controls.filter((control) => !reached.has(control));
