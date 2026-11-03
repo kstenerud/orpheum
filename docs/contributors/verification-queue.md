@@ -516,6 +516,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   written: the job view shows no priority since D329 put tiers in place of numbers, and staging has no
   read-through left queued; it needs restating. The Firefox part needs a Firefox that cannot decode
   HEVC (the Mac's or Windows'): Linux Firefox 155 plays The Gold Rush's HEVC as it is, unprepared.
+  *Fixed 2026-11-03, to run again:* the 55 minutes was asked before the interest raiser's tick
+  raised the playing film's read-through ("fix(waits): a film played now waits as the raise will rank its read-through"), and the player now takes up a level measured as
+  the film plays from its waits, so the switch should say "Raised" or "Lowered" within 15 s of the
+  measuring ending, with no replay ("fix(play): a film measured while it plays is levelled without playing it again").
 - [x] **VQ51** — On a machine with an NVIDIA GPU and its driver: run a node built from this change
   and let it say hello; the System page's hardware lists h264_nvenc's trial with no failure, and an
   encode confined as a prepare is (`orpheum __confined-exec` with `usesGpu`) gives frames identical
