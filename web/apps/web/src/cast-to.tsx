@@ -21,7 +21,7 @@ import {
 } from "./cast.ts";
 import { dateTimeText } from "./date-time-text.ts";
 import { useLive } from "./live.tsx";
-import { problemText } from "./problem.ts";
+import { ApiProblem, problemText } from "./problem.ts";
 import { useServices, useToken } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource, type Resource } from "./use-resource.ts";
@@ -34,9 +34,11 @@ import { watchingOf } from "./watching.ts";
  * film, the video this device played as the person came here, if any (film), from where it stood.
  * The device is asked once whether to be used (D364 §2), and this page says it is asking until it
  * answers: its Use makes the session the server's and the live connection says so (useLive's
- * sending), and its Not now or no answer is said in a line. A device with no Orpheum tab in front
- * says so, and a cast to it is refused with what to do (D338 §2). A device receiving a cast is
- * shown unavailable, and a cast to it, raced, is refused with its name (D386 §1).
+ * sending), and its Not now or no answer is said in a line. A cast this device sends unanswered that
+ * this page is not waiting on, the dialog closed while it asked, shows asking too, to be cancelled
+ * (AskingWithCancel). A device with no Orpheum tab in front says so, and a cast to it is refused
+ * with what to do (D338 §2). A device receiving a cast is shown unavailable, and a cast to it,
+ * raced, is refused with its name (D386 §1).
  */
 export function CastTargets(props: { readonly film: () => CastFilm | undefined }): JSX.Element {
   const { t } = useTranslation();
@@ -48,6 +50,12 @@ export function CastTargets(props: { readonly film: () => CastFilm | undefined }
   const chosenNameRef = useRef("");
   const [asking, setAsking] = useState<Asking | undefined>(undefined);
   const [answered, setAnswered] = useState<string | undefined>(undefined);
+  const [settledCastId, setSettledCastId] = useState<number | undefined>(undefined);
+  const settled = (castId: number, said: string): void => {
+    setSettledCastId(castId);
+    setAsking(undefined);
+    setAnswered(said);
+  };
   const { isBusy, problem, runRequest } = useRequest((cause) =>
     problemText(t, cause, {
       conflict: t("cast.notInFront", { name: chosenNameRef.current }),
@@ -62,16 +70,13 @@ export function CastTargets(props: { readonly film: () => CastFilm | undefined }
       setAsking({ cast, name: device.name });
     });
   };
-  if (asking !== undefined) {
+  if (asking !== undefined || unansweredOf(sending, settledCastId) !== undefined) {
     return (
-      <AwaitingAnswer
-        key={asking.cast.castId}
+      <AskingNow
         asking={asking}
         sending={sending}
-        onNotTaken={(said) => {
-          setAsking(undefined);
-          setAnswered(said);
-        }}
+        settledCastId={settledCastId}
+        onSettled={settled}
       />
     );
   }
@@ -91,6 +96,43 @@ export function CastTargets(props: { readonly film: () => CastFilm | undefined }
   );
 }
 
+/**
+ * The cast this device is asking a receiver about: the one this page started (asking), or else one the
+ * live connection says it sends unanswered and this page has not settled (settledCastId); onSettled
+ * says which ended, and how it is said.
+ */
+function AskingNow(props: {
+  readonly asking: Asking | undefined;
+  readonly sending: CastSending | undefined;
+  readonly settledCastId: number | undefined;
+  readonly onSettled: (castId: number, said: string) => void;
+}): JSX.Element | null {
+  const { asking, onSettled } = props;
+  if (asking !== undefined) {
+    return (
+      <AwaitingAnswer
+        key={asking.cast.castId}
+        asking={asking}
+        sending={props.sending}
+        onNotTaken={(said) => {
+          onSettled(asking.cast.castId, said);
+        }}
+      />
+    );
+  }
+  const unanswered = unansweredOf(props.sending, props.settledCastId);
+  return unanswered === undefined ? null : (
+    <AskingWithCancel
+      key={unanswered.castId}
+      castId={unanswered.castId}
+      name={unanswered.receiverName}
+      onCancelled={(said) => {
+        onSettled(unanswered.castId, said);
+      }}
+    />
+  );
+}
+
 /** A cast started, its receiver asked whether to be used (D364 §2), and the name it is asked on. */
 interface Asking {
   readonly cast: Cast;
@@ -101,10 +143,10 @@ interface Asking {
  * The sender waiting for its receiver's answer (D364 §2, D358 §1–§4): its Use is said by the live
  * connection (sending, accepted), after which the casting page shows the session's remote; Not now,
  * or no answer, ends the cast, said in a line (onNotTaken). A receiver that never answers, its page
- * gone, is given up on after castAnswerWithinMs and castAnswerGraceMs. Stop casting ends it while it
- * is asked, and a cast the live connection said this device sends, then no longer, is over at once:
- * the server lost it (a restart), and no answer will come (the owner, 2026-11-03: the phone stayed
- * asking).
+ * gone, is given up on after castAnswerWithinMs and castAnswerGraceMs. Cancel casting request ends
+ * it while it is asked, and a cast the live connection said this device sends, then no longer, is
+ * over at once: the server lost it (a restart), and no answer will come (the owner, 2026-11-03: the
+ * phone stayed asking).
  */
 function AwaitingAnswer(props: {
   readonly asking: Asking;
@@ -149,19 +191,71 @@ function AwaitingAnswer(props: {
       clearTimeout(timer);
     };
   }, [api, cast.castId, settle]);
-  const stop = (): void => {
-    if (settle(t("cast.answered.stopped", { name }))) {
-      endCast(api, cast.castId, "stopped").catch(() => undefined); // gone already: nothing to end
-    }
+  return (
+    <AskingWithCancel
+      castId={cast.castId}
+      name={name}
+      onCancelled={(said) => {
+        settle(said);
+      }}
+    />
+  );
+}
+
+/**
+ * The cast this device sends whose receiver has not said Use, unless this page has settled it
+ * (settledCastId): the live connection keeps saying it until the server ends it.
+ */
+function unansweredOf(
+  sending: CastSending | undefined,
+  settledCastId: number | undefined,
+): CastSending | undefined {
+  return sending !== undefined && !sending.isAccepted && sending.castId !== settledCastId
+    ? sending
+    : undefined;
+}
+
+/**
+ * "Asking ‹name›…" and Cancel casting request, which ends the cast, tried once more where the first
+ * try fails (principles §28), and says a failure of both; a cast already gone is cancelled as well.
+ * Shown for the cast this page started (AwaitingAnswer) and for one it did not start or no longer
+ * waits on, which the live connection says this device sends unanswered: Cast's dialog closed while
+ * it asked and opened again, or the page loaded again (the owner, 2026-11-03: the phone stayed
+ * asking, its dialog closed, with no way to cancel).
+ */
+function AskingWithCancel(props: {
+  readonly castId: number;
+  readonly name: string;
+  readonly onCancelled: (said: string) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { api } = useServices();
+  const { castId, name, onCancelled } = props;
+  const { isBusy, problem, runRequest } = useRequest((cause) => problemText(t, cause));
+  const cancel = (): void => {
+    runRequest(async () => {
+      const ending = (): Promise<unknown> => endCast(api, castId, "stopped").catch(unlessGone);
+      await ending().catch(ending);
+      onCancelled(t("cast.answered.stopped", { name }));
+    });
   };
   return (
     <div className="cast-to">
       <output>{t("cast.asking", { name })}</output>{" "}
-      <button type="button" onClick={stop}>
-        {t("cast.stop")}
+      <button type="button" disabled={isBusy} onClick={cancel}>
+        {t("cast.cancelRequest")}
       </button>
+      {problem === undefined ? null : <p role="alert">{problem}</p>}
     </div>
   );
+}
+
+/** Takes a refusal that the cast is gone as its end, there being nothing left to end; rethrows others. */
+function unlessGone(cause: unknown): undefined {
+  if (cause instanceof ApiProblem && cause.code === "not_found") {
+    return undefined;
+  }
+  throw cause;
 }
 
 /**
