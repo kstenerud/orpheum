@@ -157,6 +157,10 @@ resuming at home continues from the remote position.
   "Mine other similar codebases for tests we haven't thought of but should be doing. We'll do this
   after we have the majority of the features in"), its findings joining
   [testing-strategy.md](testing-strategy.md) as the 2026-09-21 source sweep's did.
+- **Future, unscheduled** (the owner, 2026-11-03): a theater mode, a mode icon beside Watch
+  Together's and cast's that keeps the browser in full screen on every page, so the device behaves
+  as near a native app as it can; the open question the owner named is a playing film leaving its
+  own full screen for the page's view without taking the browser out of full screen.
 - **Maybe:** OIDC or LDAP; recommendations; trailers; Trakt; Watch Together's text chat; each
   viewer's own subtitles and audio; our own relay.
 - **Not wanted:** the API's compatibility gate for now (the owner: *"First we build out the
