@@ -36,6 +36,11 @@ export interface ActionChoice {
   readonly onChoose: () => void;
 }
 
+/** What a chooser's button shows: its current choice's label, else its first's, else nothing. */
+export function currentLabelOf(options: readonly { label: string; isCurrent: boolean }[]): string {
+  return (options.find((option) => option.isCurrent) ?? options[0])?.label ?? "";
+}
+
 /** What a chooser of either kind is told beside its places. */
 interface ChooserTold {
   readonly fieldLabel: string;

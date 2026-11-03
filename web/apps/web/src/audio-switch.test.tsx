@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { chooseSoundInPlace, ladderSoundLevelOf, playTrackChosen } from "./ladder-sound.ts";
 import { PlayView } from "./play.tsx";
-import { choose, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import { chooseIn, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
 import { directDecision, unmeasuredSound } from "./test-fixtures.ts";
 import { withServices } from "./test-services.tsx";
 import type { PlayingSound } from "./tracks-note.tsx";
@@ -199,7 +199,7 @@ describe("another audio track chosen in a file played as it is (the owner's answ
     const video = mounted.container.querySelector("video");
     const tracks = { length: 2, 0: { enabled: true }, 1: { enabled: false } };
     Object.defineProperty(video, "audioTracks", { value: tracks, configurable: true });
-    await choose(mounted.container.querySelector("select"), "81");
+    await chooseIn(mounted.container, "Sound", "French");
     expect(asked).toEqual([]);
     expect([tracks[0].enabled, tracks[1].enabled]).toEqual([false, true]);
     expect(heard).toContainEqual({
@@ -220,7 +220,7 @@ describe("another audio track chosen in a file played as it is (the owner's answ
         servedBy(routes),
       ),
     );
-    await choose(mounted.container.querySelector("select"), "81");
+    await chooseIn(mounted.container, "Sound", "French");
     expect(asked).toEqual(["audioChosen"]);
   });
 });

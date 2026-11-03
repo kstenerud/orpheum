@@ -233,7 +233,9 @@ describe("playing a file", () => {
       ),
     );
     expect(markup).toContain("Sound");
-    expect(markup).toContain('<option value="81" selected="">French · commentary</option>');
+    // Its chooser, showing the track it starts with, not a native select (plans/toolkit.md step 6).
+    expect(markup).not.toContain("<select");
+    expect(markup).toMatch(/class="route-chooser__button"[^>]*>French · commentary</u);
   });
 
   it("words every playback failure by the player's code, never the browser's text", () => {

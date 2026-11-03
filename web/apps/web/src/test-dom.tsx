@@ -277,6 +277,29 @@ export async function choose(select: Element | null | undefined, value: string):
 }
 
 /**
+ * Chooses the choice whose text is text in the chooser (route-chooser.tsx) whose field is named field
+ * in container, as a person does: opens its list and presses the choice; lets the requests it made
+ * answer.
+ */
+export async function chooseIn(container: Element, field: string, text: string): Promise<void> {
+  const chooser = [...container.querySelectorAll(".route-chooser")].find(
+    (each) => each.querySelector(".route-chooser__field")?.textContent === field,
+  );
+  const opener = chooser?.querySelector<HTMLButtonElement>("button[aria-haspopup]");
+  if (opener === null || opener === undefined) {
+    throw new Error(`no chooser of ${field}`);
+  }
+  await click(opener);
+  const choice = [...(chooser?.querySelectorAll("dialog .list-box button") ?? [])].find(
+    (button) => button.textContent === text,
+  );
+  if (choice === undefined) {
+    throw new Error(`no choice ${text} in the chooser of ${field}`);
+  }
+  await click(choice);
+}
+
+/**
  * Types text into an input, as a person does, and lets the requests it made answer. React reads an
  * input's value through the element's own setter, so the value is set through it.
  */

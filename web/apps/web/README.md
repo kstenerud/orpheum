@@ -499,7 +499,10 @@ The web client: the browser and phone interface, served embedded by the core. MP
   above, where there is room above (Popover's `partOverOpener`); focused on its current
   place, a place either side of it in view where it has them, and a place of context kept beyond
   the one focused as it moves (D408 §3); and its opening and closing never move the page. The Films and Series
-  pages' sort and a library's files' Show are choosers too (`ActionChooser`). **Every modal dialog closes on the browser's own Back** (D367
+  pages' sort and a library's files' Show are choosers too (`ActionChooser`), and so, where a
+  native `<select>` was, which a television's browser cannot work (the 2026-10-27 widget audit;
+  plans/toolkit.md step 6), are the audio and subtitle menus under the film (`src/audio-tracks.tsx`,
+  `src/subtitles.tsx`; `src/subtitles.test.tsx`, `src/play.test.tsx`, `src/sound.test.tsx`; VQ253). **Every modal dialog closes on the browser's own Back** (D367
   §10), a Fire TV's remote Back in Silk being a step of the history: an entry held over the page's
   while it is open (`navigation.ts`'s `holdBack`), which a close another way takes away and a choice
   that moves the page takes away first, so the history is as it would be with nothing open.

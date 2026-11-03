@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next";
 import { languageName } from "./language-name.ts";
 import { signedTenthsText } from "./number-text.ts";
 import { problemText, throwIfRefused } from "./problem.ts";
+import { ActionChooser, currentLabelOf, type ActionChoice } from "./route-chooser.tsx";
 import { useServices } from "./services.tsx";
 
 /** One text subtitle track a playback offers (D217 §6). */
@@ -192,13 +193,13 @@ export function useSubtitleChoice(props: SubtitleChoiceWays): SubtitleChoice {
 /** The subtitle menu and offset, held by whoever holds the choice, shown when there are tracks. */
 export function SubtitleControls(props: { readonly choice: SubtitleChoice }): JSX.Element | null {
   const { t } = useTranslation();
-  const { tracks, chosenTrackKey, choose, offsetMs, shiftOffset, failure } = props.choice;
+  const { tracks, offsetMs, shiftOffset, failure } = props.choice;
   if (tracks.length === 0) {
     return null;
   }
   return (
     <div className="subtitles">
-      <TrackMenu tracks={tracks} chosen={chosenTrackKey} onChoose={choose} />
+      <TrackMenu choice={props.choice} />
       <OffsetControl offsetMs={offsetMs} onMove={shiftOffset} />
       {failure === undefined ? null : (
         <p role="alert">{t("play.subtitles.failed", { reason: failure })}</p>
@@ -227,34 +228,51 @@ export function useTrackLabel(): (track: SubtitleTrack) => string {
   return (track) => trackLabel(track, i18n.language, words);
 }
 
-/** The menu of tracks, with "Off" first. */
-function TrackMenu(props: {
-  readonly tracks: readonly SubtitleTrack[];
-  readonly chosen: TrackKey | undefined;
-  readonly onChoose: (key: TrackKey | undefined) => void;
-}): JSX.Element {
+/**
+ * The choices of the subtitles: Off first, then each track by its name, the chosen one current. Under
+ * the film (TrackMenu) and over it, 💬 (player-menus.tsx), alike.
+ */
+export function useSubtitleChoices(choice: SubtitleChoice): readonly ActionChoice[] {
   const { t } = useTranslation();
   const labelOf = useTrackLabel();
+  const { tracks, chosenTrackKey, choose } = choice;
+  const off: ActionChoice = {
+    key: "off",
+    label: t("play.subtitles.off"),
+    isCurrent: chosenTrackKey === undefined,
+    onChoose: () => {
+      choose(undefined);
+    },
+  };
+  const trackChoices = tracks.map((track): ActionChoice => {
+    const key = trackKey(track);
+    const label = labelOf(track);
+    return {
+      key: key ?? label,
+      label,
+      isCurrent: key !== undefined && key === chosenTrackKey,
+      onChoose: () => {
+        choose(key);
+      },
+    };
+  });
+  return [off, ...trackChoices];
+}
+
+/**
+ * The menu of tracks under the film, with "Off" first: the app's chooser (route-chooser.tsx), which a
+ * remote works, where a native select was, which a television's browser does not (the 2026-10-27
+ * widget audit; plans/toolkit.md step 6).
+ */
+function TrackMenu(props: { readonly choice: SubtitleChoice }): JSX.Element {
+  const { t } = useTranslation();
+  const options = useSubtitleChoices(props.choice);
   return (
-    <label>
-      {t("play.subtitles.label")}{" "}
-      <select
-        value={props.chosen ?? ""}
-        onChange={(event) => {
-          const chosenTrack = props.tracks.find(
-            (track) => trackKey(track) === event.currentTarget.value,
-          );
-          props.onChoose(chosenTrack === undefined ? undefined : trackKey(chosenTrack));
-        }}
-      >
-        <option value="">{t("play.subtitles.off")}</option>
-        {props.tracks.map((track) => (
-          <option key={trackKey(track)} value={trackKey(track)}>
-            {labelOf(track)}
-          </option>
-        ))}
-      </select>
-    </label>
+    <ActionChooser
+      fieldLabel={t("play.subtitles.label")}
+      current={currentLabelOf(options)}
+      options={options}
+    />
   );
 }
 

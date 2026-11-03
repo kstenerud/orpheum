@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 // SPDX-License-Identifier: MPL-2.0
 
 import "./i18n.ts";
@@ -15,10 +16,10 @@ import {
   trackLabel,
   type SubtitleTrack,
 } from "./subtitles.tsx";
-import { failOnUnexpectedRequests, servedBy, type Heard } from "./test-dom.tsx";
+import { click, failOnUnexpectedRequests, mount, servedBy, type Heard } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
-// This file never mounts, so it owns the check unmount() would otherwise do for it (finding 2,
+// Most of this file never mounts, so it owns the check unmount() would otherwise do for it (finding 2,
 // test-architecture-2026-10-26.md; test-dom.tsx's servedBy doc).
 afterEach(failOnUnexpectedRequests);
 
@@ -70,8 +71,11 @@ describe("subtitles", () => {
     expect(formatOffsetSeconds(1500, "de")).toBe("+1,5");
   });
 
-  it("offers Off and each track, and starts at the offset the person kept", () => {
-    const markup = renderToStaticMarkup(
+  // The chooser, not a native select, which a television's browser cannot work (the 2026-10-27
+  // widget audit; plans/toolkit.md step 6).
+  it("offers Off and each track, and starts at the offset the person kept", async () => {
+    const heard: Heard[] = [];
+    const mounted = await mount(
       withServices(
         <Subtitles
           fileId={2}
@@ -85,12 +89,25 @@ describe("subtitles", () => {
           }}
           videoRef={createRef()}
         />,
+        servedBy({ "PUT /files/2/preferences": [204, undefined] }, heard),
       ),
     );
-    expect(markup).toContain('<option value="">Off</option>');
-    expect(markup).toContain('<option value="s5">English</option>');
-    expect(markup).toContain('<option value="s7" selected="">French</option>');
-    expect(markup).toContain("Subtitle offset: -1.5 s");
+    try {
+      expect(mounted.container.querySelector("select")).toBeNull();
+      await click(mounted.container.querySelector(".subtitles button[aria-haspopup]"));
+      const choices = [...mounted.container.querySelectorAll("dialog .list-box button")];
+      expect(choices.map((choice) => choice.textContent)).toEqual(["Off", "English", "French"]);
+      expect(choices[2]?.getAttribute("aria-current")).toBe("true");
+      expect(document.activeElement).toBe(choices[2]);
+      expect(mounted.container.textContent).toContain("Subtitle offset: -1.5 s");
+      await click(choices[1]);
+      expect(heard.map((request) => request.body)).toEqual([{ subtitleChoice: { streamId: 5 } }]);
+      expect(mounted.container.querySelector(".route-chooser__button")?.textContent).toBe(
+        "English",
+      );
+    } finally {
+      mounted.unmount();
+    }
   });
 
   it("shows nothing for a file without subtitles", () => {
