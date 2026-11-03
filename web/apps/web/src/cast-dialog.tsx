@@ -7,11 +7,13 @@ import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { CastTargets } from "./cast-to.tsx";
-import { endCast } from "./cast.ts";
+import { endCastRetrying } from "./cast.ts";
 import { useLive } from "./live.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { isTheGroupsFilmShown, positionPlayedHere } from "./playing-here.ts";
+import { problemText } from "./problem.ts";
 import { useRoute, useServices } from "./services.tsx";
+import { useRequest } from "./use-request.ts";
 
 /**
  * Cast's dialog, which the tray's Cast opens over whatever page is shown and which never moves it
@@ -64,7 +66,9 @@ function useClosesOnceTaken(takenCastId: number | undefined, onClose: () => void
 /**
  * The cast this device sends, in Cast's dialog: what plays on which device, the way to its film's
  * page where that is not the page shown, and Stop casting, which brings the film back to that page
- * where it is shown (play.tsx's PlayOrSendOn).
+ * where it is shown (play.tsx's PlayOrSendOn). Stop is tried once more where its first try fails, and
+ * closes the dialog once the cast is over; failing twice, it says why and the dialog stays, to try
+ * again (principles §28: it hid the failure, the cast going on as the person took it for stopped).
  */
 function CastOn(props: {
   readonly sent: CastSending;
@@ -75,6 +79,7 @@ function CastOn(props: {
   const { api, navigation } = useServices();
   const { sent, onClose } = props;
   const name = sent.receiverName;
+  const { isBusy, problem, runRequest } = useRequest((cause) => problemText(t, cause));
   return (
     <section className="cast-on" aria-labelledby="cast-on-heading">
       <h2 id="cast-on-heading">
@@ -100,14 +105,18 @@ function CastOn(props: {
         )}
         <button
           type="button"
+          disabled={isBusy}
           onClick={() => {
-            endCast(api, sent.castId, "stopped").catch(() => undefined); // the tray says it ended
-            onClose();
+            runRequest(async () => {
+              await endCastRetrying(api, sent.castId, "stopped");
+              onClose();
+            });
           }}
         >
           {t("cast.stop")}
         </button>
       </div>
+      {problem === undefined ? null : <p role="alert">{problem}</p>}
     </section>
   );
 }

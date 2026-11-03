@@ -10,7 +10,7 @@ import type { Api, components } from "@orpheum/sdk";
 
 import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
-import { dataOrThrow } from "./problem.ts";
+import { ApiProblem, dataOrThrow } from "./problem.ts";
 import { readMembership } from "./together-storage.ts";
 
 /** A cast as one of its devices sees it, with this device's credential for its session of one. */
@@ -126,6 +126,30 @@ export async function endCast(api: Api, castId: number, reason: CastEnd): Promis
       ...idempotent(newIdempotencyKey()),
     }),
   );
+}
+
+/**
+ * Ends the cast castId as endCast does, tried once more where the first try fails: a request lost on
+ * a connection that has just dropped, the next going on its replacement (principles §28; the owner,
+ * 2026-11-03). A cast the server no longer has is ended, answering undefined: nothing is left to
+ * end. Fails where both tries do, for the person to be told.
+ */
+export async function endCastRetrying(
+  api: Api,
+  castId: number,
+  reason: CastEnd,
+): Promise<CastEnded | undefined> {
+  const ending = (): Promise<CastEnded | undefined> =>
+    endCast(api, castId, reason).catch(undefinedIfGone);
+  return await ending().catch(ending);
+}
+
+/** Takes a refusal that the cast is gone as its end, answering undefined; rethrows any other. */
+function undefinedIfGone(cause: unknown): undefined {
+  if (cause instanceof ApiProblem && cause.code === "not_found") {
+    return undefined;
+  }
+  throw cause;
 }
 
 /**

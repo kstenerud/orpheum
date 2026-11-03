@@ -13,7 +13,7 @@ import { CastRemote, type PlaysHereFrom } from "./cast-remote.tsx";
 import {
   castAnswerGraceMs,
   castAnswerWithinMs,
-  endCast,
+  endCastRetrying,
   playInCast,
   startCast,
   type Cast,
@@ -21,7 +21,7 @@ import {
 } from "./cast.ts";
 import { dateTimeText } from "./date-time-text.ts";
 import { useLive } from "./live.tsx";
-import { ApiProblem, problemText } from "./problem.ts";
+import { problemText } from "./problem.ts";
 import { useServices, useToken } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource, type Resource } from "./use-resource.ts";
@@ -184,7 +184,8 @@ function AwaitingAnswer(props: {
   useEffect(() => {
     const timer = setTimeout(() => {
       if (settle(unansweredRef.current)) {
-        endCast(api, cast.castId, "unanswered").catch(() => undefined);
+        // Failing twice, the core ends it itself once it is unanswered past live.UnansweredAfter.
+        endCastRetrying(api, cast.castId, "unanswered").catch(() => undefined);
       }
     }, castAnswerWithinMs + castAnswerGraceMs);
     return () => {
@@ -234,8 +235,7 @@ function AskingWithCancel(props: {
   const { isBusy, problem, runRequest } = useRequest((cause) => problemText(t, cause));
   const cancel = (): void => {
     runRequest(async () => {
-      const ending = (): Promise<unknown> => endCast(api, castId, "stopped").catch(unlessGone);
-      await ending().catch(ending);
+      await endCastRetrying(api, castId, "stopped");
       onCancelled(t("cast.answered.stopped", { name }));
     });
   };
@@ -248,14 +248,6 @@ function AskingWithCancel(props: {
       {problem === undefined ? null : <p role="alert">{problem}</p>}
     </div>
   );
-}
-
-/** Takes a refusal that the cast is gone as its end, there being nothing left to end; rethrows others. */
-function unlessGone(cause: unknown): undefined {
-  if (cause instanceof ApiProblem && cause.code === "not_found") {
-    return undefined;
-  }
-  throw cause;
 }
 
 /**

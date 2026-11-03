@@ -15,7 +15,7 @@ import { useTranslation } from "react-i18next";
 
 import { audioTrackLabel } from "./audio-tracks.tsx";
 import { tabStorage } from "./browser-storage.ts";
-import { endCast, listMyCasts, moveCastOn, type CastEnded } from "./cast.ts";
+import { endCastRetrying, listMyCasts, moveCastOn } from "./cast.ts";
 import { placeCode } from "./episode-place.ts";
 import { useLive } from "./live.tsx";
 import { homeTold } from "./notice.ts";
@@ -267,17 +267,14 @@ function useCastSession(castId: number): {
   // laptop went on with the cast).
   const stop = (): void => {
     const atMs = positionMs ?? 0;
-    const ending = (): Promise<CastEnded> => endCast(api, castId, "stopped");
-    ending()
-      .catch(ending)
-      .then(
-        (ended) => {
-          setStoppedAtMs(ended.positionMs);
-        },
-        () => {
-          setStoppedAtMs(atMs);
-        },
-      );
+    endCastRetrying(api, castId, "stopped").then(
+      (ended) => {
+        setStoppedAtMs(ended?.positionMs ?? atMs);
+      },
+      () => {
+        setStoppedAtMs(atMs);
+      },
+    );
   };
   return {
     connection,
