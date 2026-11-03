@@ -112,7 +112,7 @@ test(
   { tag: [oneBrowserTag, timingTag] },
   async ({ browser }) => {
     await castBetweenTwo(browser, async ({ sender, receiver }) => {
-      await expect(receiver.locator(".tv-controls")).toHaveCount(1);
+      await expect(receiver.locator(".player-overlay")).toHaveCount(1);
 
       // A computer's hidden page plays on, so its receiver follows its remote hidden or not.
       await setHidden(receiver, true);
