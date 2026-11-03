@@ -16,6 +16,7 @@ import {
 import { playedMutedEvent } from "@orpheum/sdk";
 
 import { leaveFullScreen, type CastAnswer } from "./cast-asked.tsx";
+import { fillsWindowClass, followFillsWindow } from "./film-fullscreen.ts";
 import { onCommand } from "./input-commands.ts";
 import { currentNotice, dismissNotice } from "./notice.ts";
 import { mount, refusal, servedBy, unanswered, type Heard, type Mounted } from "./test-dom.tsx";
@@ -541,6 +542,20 @@ describe("a receiver's sound and full screen as its cast starts (D358 §2, §5)"
         (note) => typeof note === "object" && note !== null && Reflect.get(note, "kind") === kind,
       );
   }
+
+  it("tells those following its stage that the stage fills the window, for the overlay to draw over the film (D407 §12)", async () => {
+    const told = vi.fn();
+    const stop = followFillsWindow(told);
+    const { stage } = await started();
+    expect(stage.classList.contains(fillsWindowClass)).toBe(true);
+    expect(told).toHaveBeenCalled();
+    told.mockClear();
+    mounted?.unmount();
+    mounted = undefined;
+    stop();
+    expect(stage.classList.contains(fillsWindowClass)).toBe(false);
+    expect(told).toHaveBeenCalled();
+  });
 
   it("says over the film that a press turns the sound on, and turns it on at a key, which does nothing else", async () => {
     vi.useFakeTimers({ toFake: ["performance"] });
