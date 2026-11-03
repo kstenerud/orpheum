@@ -1463,6 +1463,18 @@ sandbox cannot take the iPhone's path: the core offers its LAN name only to a de
 a page at 16:53 and played). So a device at home reproduces it: staging's Connect switched between
 the two clients while the iPhone opens a page after each.
 
+## A leaving page's report always arrives (the owner, 2026-11-03), next batch
+
+A report sent as the page goes travels with `keepalive`, which the browser caps at 64 KiB of body;
+one larger (a long diagnosis) is sent without it and may be cancelled as the tab closes ("fix(player): the last position survives a page closing",
+`keepaliveBodyMost` in `web/apps/web/src/play-state.ts`). The owner: "Maybe as a future enhancement,
+we always make sure we have a smaller report that's guaranteed to make it, and then also
+optimistically put the larger report just in case? Also gzipping might help? There are also likely
+more efficient ways to send the data (or data that we don't actually have to send)." To weigh: a
+small report (position, the leaving event) always under the cap, then the full one optimistically;
+compressing the body (`CompressionStream`, and the core taking `Content-Encoding: gzip`); and what a
+report carries that the core does not use or could have more compactly.
+
 ## The 11-05 batch (the owner agreed 2026-11-03, "yes, as proposed"): a beta that holds up for other households
 
 After the prod deploy of the 11-03 work. First, the older "next batch" sections above (10-28 to
