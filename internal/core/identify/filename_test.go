@@ -244,3 +244,35 @@ func TestParseEpisodePath_InASeriesLibraryEverythingIsAnEpisodeOrASpecial(t *tes
 		}
 	}
 }
+
+// The owner's library, 2026-11-03: "Iron Ledger 1992" is a series' whole name, not Iron Ledger of 1992, and a name
+// beneath its folder says so by carrying on past the number ("Iron Ledger 1992 - The Iron Ledger Story
+// (2020)"). Where nothing beneath carries on, or the folder's year is in brackets, it stays the year.
+func TestParsePath_AYearEndingASeriesFolderIsPartOfItsNameWhereANameBeneathCarriesOn(t *testing.T) {
+	t.Parallel()
+	const (
+		show = "Iron Ledger 1992/"
+		pack = "Iron Ledger 1992 - The Iron Ledger Story (2020) S01 Hindi (1080p WEBRip x265 10bit) - [Musafirboy]/"
+		file = "Iron.Ledger.1992.The.Iron.Ledger.Story.S01E01.WEBRip.1080p.HEVC.10bit-[Musafirboy].mkv"
+	)
+	episode := func(name string, year int) ParsedPath {
+		return ParsedPath{Kind: "episode", Name: name, Year: year, Season: 1, Episode: 1}
+	}
+	cases := []parsedCase{
+		// The real paths: the pack's folder gives the whole name and its own year.
+		{show + pack + file, episode("Iron Ledger 1992 - The Iron Ledger Story", 2020)},
+		// The file's own name carries on, with no year of its own.
+		{show + file, episode("Iron Ledger 1992 The Iron Ledger Story", 0)},
+		// Nothing beneath carries on: the number stays the year.
+		{show + "Season 1/Iron Ledger 1992 S01E01.mkv", episode("Iron Ledger", 1992)},
+		{"Moss and Bramble 2020/Season 1/Moss.and.Bramble.S01E01.mkv", episode("Moss and Bramble", 2020)},
+		// A year in brackets is the series' own, whatever follows beneath.
+		{"Iron Ledger (1992)/" + file, episode("Iron Ledger", 1992)},
+	}
+	checkParsed(t, "ParsePath", ParsePath, cases)
+	checkParsed(t, "ParseEpisodePath", ParseEpisodePath, cases)
+	extra := ParseEpisodePath(show + pack + "Featurettes/Making Of.mkv")
+	if extra.Name != "Iron Ledger 1992 - The Iron Ledger Story" || extra.Year != 2020 {
+		t.Errorf("an extra in the pack is of %q (%d); want the whole name, 2020", extra.Name, extra.Year)
+	}
+}

@@ -6,6 +6,7 @@ import (
 	"path"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -149,7 +150,7 @@ func ParsePath(relative string) ParsedPath {
 		parsed.Season, parsed.Episode, parsed.EpisodeEnd = marker.season, marker.episode, marker.lastEpisode
 		// The folders name a series more reliably than the words before "S02E05", which may be
 		// the episode's own name or "Folge" ("episode"); the file name is the fallback.
-		parsed.Name, parsed.Year = seriesFromFolders(folder)
+		parsed.Name, parsed.Year = seriesFromFolders(folder, stem[:marker.startIndex])
 		if parsed.Name == "" {
 			parsed.Name, parsed.Year = cleanTitle(stem[:marker.startIndex])
 		}
@@ -234,8 +235,12 @@ func lastOfRun(rest string, season, episode int, runs ...*regexp.Regexp) int {
 // a bunch of subfolders that look like seasons, it must be the parent folder of a series"; staging's
 // series 2405 was named "" and matched nothing). And a name never comes out empty while a specials
 // folder above it has one.
-func seriesFromFolders(folder string) (name string, year int) {
+//
+// The names under the series' folder, a season pack's and the file's own up to its marker
+// (beneath), may say a year ending the folder's name is part of it (seriesName).
+func seriesFromFolders(folder string, beneath ...string) (name string, year int) {
 	packPrefix, outermostBonus := "", ""
+	var packPrefixes []string
 	isAboveSeason := false
 	for _, part := range slices.Backward(strings.Split(strings.Trim(folder, "/"), "/")) {
 		part = strings.TrimSpace(sitePrefixPattern.ReplaceAllString(part, ""))
@@ -254,9 +259,10 @@ func seriesFromFolders(folder string) (name string, year int) {
 			if packPrefix == "" {
 				packPrefix = part[:start]
 			}
+			packPrefixes = append(packPrefixes, part[:start])
 			continue
 		}
-		return cleanTitle(part)
+		return seriesName(part, append(packPrefixes, beneath...)...)
 	}
 	if name, year = cleanTitle(packPrefix); name == "" && outermostBonus != "" {
 		return cleanTitle(outermostBonus)
@@ -423,7 +429,60 @@ func outermostSeriesFolder(folder string) (name string, year int) {
 		seasonPackPattern.MatchString(top) {
 		return seriesFromFolders(folder)
 	}
-	return cleanTitle(top)
+	var beneath []string
+	for _, part := range parts[1:] {
+		if start, isPack := markerStart(part); isPack {
+			part = part[:start]
+		}
+		beneath = append(beneath, part)
+	}
+	return seriesName(top, beneath...)
+}
+
+// seriesName is the name and year of a series' folder, read with the names beneath it, a season
+// pack's folder's and an episode's file's up to its marker: where the folder's name ends in a year
+// not in brackets and a name beneath carries on past it with more of the name, the year is part of
+// the name, and that name beneath is the series', with its own later year if it gives one, else none
+// ("Iron Ledger 1992/Iron Ledger 1992 - The Iron Ledger Story (2020) S01/…" is Iron Ledger 1992 - The Iron Ledger
+// Story, 2020, not Iron Ledger, 1992: the owner's library, 2026-11-03). One that gives a year is taken
+// before one that gives none.
+func seriesName(folder string, beneath ...string) (string, int) {
+	name, year := cleanTitle(folder)
+	if year == 0 || !isBareYearAtEnd(folder, year) {
+		return name, year
+	}
+	named := append(wordsOf(strings.ToLower(name)), strconv.Itoa(year))
+	carriedOn, carriedOnYear, found := "", 0, false
+	for _, text := range beneath {
+		longer, longerYear := cleanTitleWithYearInName(text, year)
+		words := wordsOf(strings.ToLower(longer))
+		if len(words) <= len(named) || !slices.Equal(words[:len(named)], named) {
+			continue
+		}
+		if !found || (carriedOnYear == 0 && longerYear != 0) {
+			carriedOn, carriedOnYear, found = longer, longerYear, true
+		}
+	}
+	if !found {
+		return name, year
+	}
+	return carriedOn, carriedOnYear
+}
+
+// isBareYearAtEnd is whether a folder's name ends in year, not in brackets, release tags aside: the
+// one place a year a title carries ("Iron Ledger 1992") cannot be told from the series' own.
+func isBareYearAtEnd(folder string, year int) bool {
+	matches := everyMatch(yearPattern, folder)
+	if len(matches) == 0 {
+		return false
+	}
+	last := matches[len(matches)-1]
+	if parseNonNegativeInt(folder[last[2]:last[3]]) != year {
+		return false
+	}
+	before := strings.TrimRight(folder[:last[2]], " ._-")
+	return !strings.HasSuffix(before, "(") && !strings.HasSuffix(before, "[") &&
+		!strings.HasSuffix(before, "（") && !strings.HasSuffix(before, "［")
 }
 
 // seasonFromFolders is the season the nearest season folder above a file names, -1 for none, and
@@ -536,13 +595,22 @@ func namesALongerCut(filePath string) bool {
 // provider-id markers and bracketed groups go, and everything from the year or the first release
 // tag on is cut.
 func cleanTitle(stem string) (name string, year int) {
+	return cleanTitleWithYearInName(stem, 0)
+}
+
+// cleanTitleWithYearInName is cleanTitle, the number partOfName, where it looks like a year, read as
+// part of the name rather than as its year (seriesName); 0 reads every one as cleanTitle does.
+func cleanTitleWithYearInName(stem string, partOfName int) (name string, year int) {
 	// An id goes without a trace, so "Show.2016.[tt7654321].1080p" stays a dotted name.
 	text := bareIMDbPattern.ReplaceAllString(providerIDPattern.ReplaceAllString(stem, ""), "")
 	text = leadingGroupPattern.ReplaceAllString(text, "")
 	if !strings.ContainsFunc(text, unicode.IsSpace) {
 		text = strings.NewReplacer(".", " ", "_", " ").Replace(text)
 	}
-	if matches := everyMatch(yearPattern, text); len(matches) > 0 {
+	matches := slices.DeleteFunc(everyMatch(yearPattern, text), func(match []int) bool {
+		return partOfName != 0 && parseNonNegativeInt(text[match[2]:match[3]]) == partOfName
+	})
+	if len(matches) > 0 {
 		// The last year-looking number is the year; an earlier one is part of the name, as in
 		// "7th Heaven (1968)" or "Station 2061 (2022)".
 		last := matches[len(matches)-1]

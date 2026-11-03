@@ -1424,6 +1424,14 @@ look at: when a number like a year is part of the title (with the name before an
 no match for the shortened name, or a year far from the files' own dates), the whole name is
 searched too. Not yet seen on staging; the folder's exact name is to be found first.
 
+**Built (2026-11-03), the parse only:** the owner's paths are `Iron Ledger 1992/Iron Ledger 1992 - The Harshad
+Ledger Story (2020) S01 Hindi (1080p WEBRip x265 10bit) - [Musafirboy]/Iron.Ledger.1992.The.Iron.Ledger.
+Story.S01E01….mkv`. A year ending a series' folder's name, not in brackets, is now part of the name
+where a season pack's folder or an episode's file beneath it carries on past it with more of the
+name; that name is the series', with its own later year (2020) if it gives one
+(`seriesName`, `filename.go`). The fallbacks for a name nothing beneath carries on (no match for the
+shortened name, a year far from the files' dates) are not built.
+
 ## A reload keeps the older client after a deploy (the owner, 2026-11-03), next batch
 
 After a staging deploy ("feat(web): the overlay hides when idle while playing, however it was shown (D411)", D411), the owner's tab still ran the client from before it: a
