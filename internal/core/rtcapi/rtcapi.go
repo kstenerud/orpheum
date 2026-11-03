@@ -380,7 +380,7 @@ func (server *Server) open(api *webrtc.API, onProvenAtHome func(ProvenAtHome)) (
 			server.recordPath(PathFailed, nil, server.clock.Now().Sub(openedAt))
 		}
 		if state == webrtc.PeerConnectionStateFailed || state == webrtc.PeerConnectionStateClosed {
-			server.logEnded(connection, held)
+			server.logEnded(connection, held, endOfState(state))
 			server.forget(connection)
 			_ = connection.Close() //nolint:errcheck // a failed or closed connection, gone either way
 		}
@@ -493,6 +493,7 @@ func (server *Server) holdWithinItsSourcesShare(connection *webrtc.PeerConnectio
 		verdict.decide(Verdict{Refused: RefusedNetworkFull})
 		server.forget(connection)
 		time.AfterFunc(turnedAwayClosesWithin, func() {
+			server.logEnded(connection, own, endCoreTurnedAway)
 			_ = connection.Close() //nolint:errcheck // refused, closed by its client first or now
 		})
 		return
@@ -551,7 +552,7 @@ func (server *Server) Close() error {
 	server.mutex.Unlock()
 	var errs []error
 	for index, connection := range held {
-		server.logEnded(connection, records[index])
+		server.logEnded(connection, records[index], endCoreStopped)
 		errs = append(errs, connection.Close())
 	}
 	return errors.Join(errs...)
