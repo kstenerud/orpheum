@@ -1494,6 +1494,30 @@ Connect deploy; then fixed, with a test failing on revert.
 9. **The lead's own account on staging's Connect** ("Staging's Connect", above): mail for a reserved
    test domain written to a file; orpheum-connect's mailer.
 
+**Step 0's outcome (the owner, 2026-11-03).** The stale client: the owner's iPhone on staging, a
+fresh page over the LAN name on the old client and again 19 s after the switch to the new one,
+played and showed its posters both times, so the loader's skew does not cause it; the iPhone had not
+opened orpheum.cc for days, so its kept worker may have been far older. The owner: "We can leave it
+and revisit if it happens again." Folded in ("yes"), from the older sections: a rescan stuck on a
+changing library says why; the core's "rtc connection ended" names its cause; the flaky
+`e2e/discovery.spec.ts`; `sw.browser.test.ts` hanging under load (its cause, not a wider wait);
+D393/D394's small leftovers (the test's port collision, `test-key`'s temp directory, the first
+release's security note, `ledger/pending/*.parts`). The owner's decisions, each "Agreed":
+- **`test-key` and the `mac` kind leave discovery-sign** (D395 §3), and the ceremony stops asking
+  whether a Mac is an everyday key: this batch.
+- **D398's dead ends in Connect** ("do all of that, with a sensible maximum entries"): Connect stores
+  each reason (a migration), keeping a bounded number of entries; the System page's count shows the
+  causes; an IPv6-only probe name lets a page tell "no IPv6" from "IPv6 got no answer": this batch.
+- **The Stop hook's `make check` records each run** (start, length, load) and says at a run's start
+  when an FFmpeg job is running, so the gate will be slower: this batch, a gate change on the
+  owner's word.
+- **A film's first seconds before its second keyframe play** (17 files on staging): the first chunk
+  starts at the discarded keyframe and is cut to the film's start; a playback batch, not this one.
+- **The boost's seam** is decided by ear after VQ237: no change unless a gap is heard.
+Still filed: the SWAG research's starts, stalls and remote, and the upload and ladder (their own
+batch); the Mac's Firefox and file 5667's HEVC; a run's last chunk past its boundary; signed tags;
+noexec step 2; the ceremony's address defaults; a security-fix branch process for the beta.
+
 **Not this batch:** the arrows' search on the TV (item 13); the gallery's pop-ups and player bar,
 the scrub bar's time, `ModalDialog`'s `className` (one review with the owner); exact cut times for
 a re-timed copy (the margin stays for now). End: one check-pr, the owner's go, nas.example.

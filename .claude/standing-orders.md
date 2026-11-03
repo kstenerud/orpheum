@@ -27,7 +27,8 @@
    creating and editing, a series starts at season 1. No nas.example release soon. End: one check-pr.
    **The 11-05 batch (owner 2026-11-03, "yes, as proposed"):** after the prod deploy of the 11-03
    work, the plan file's "The 11-05 batch": first the older next-batch sections read for what is
-   open; then the stale client after a deploy (the owner, 2026-11-03, "yes agreed"), port mapping to the router, §28's S2/L1/L2/D1, CPU and memory recorded, the chunk
+   open (done: the stale client left until seen again; step 0's folded items, discovery-sign's
+   `test-key`/`mac`, D398's dead ends stored and shown, the Stop hook's run record, the owner 2026-11-03), then port mapping to the router, §28's S2/L1/L2/D1, CPU and memory recorded, the chunk
    join's hole, loudness taken up while playing, a DVD's sound at a join, matching a name with no
    year and a series' year, the small ones, the lead's staging Connect account. End: one check-pr,
    the owner's go, nas.example.
