@@ -249,7 +249,7 @@ func TestCeremony_ASignatureWithoutThePINIsRefused(t *testing.T) {
 	fake := newFakeKeys(t)
 	fake.noPIN = true
 	folder := filepath.Join(t.TempDir(), "records")
-	status, said := guidedRun(t, fake, strings.Repeat("\n", 17)+"no\n", "ceremony", "--folder", folder)
+	status, said := guidedRun(t, fake, strings.Repeat("\n", 17), "ceremony", "--folder", folder)
 	if status != exitFailure || !strings.Contains(said, "without the key's PIN") {
 		t.Errorf("a signature without the PIN: %d %s; want refused", status, said)
 	}
@@ -317,27 +317,5 @@ func TestSignRelease_NeedsTheOwnersConfirmationOfTheDigest(t *testing.T) {
 	if opened, openErr := release.Open(readPublished(t, out, release.RecordPath), publisher); openErr != nil ||
 		opened.Latest != "v1.0.0" {
 		t.Errorf("the published record: %+v, %v", opened, openErr)
-	}
-}
-
-// test-key reports plainly whether a key's signatures carry the user-verified flag.
-func TestTestKey_ReportsWhetherTheSignatureCarriesTheUserVerifiedFlag(t *testing.T) {
-	t.Parallel()
-	for name, want := range map[string]struct {
-		noPIN bool
-		said  string
-	}{
-		"with":    {false, "DO carry the user-verified flag"},
-		"without": {true, "do NOT carry the user-verified flag"},
-	} {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			fake := newFakeKeys(t)
-			fake.noPIN = want.noPIN
-			status, said := guidedRun(t, fake, "\n", "test-key", "--dir", t.TempDir())
-			if status != exitSuccess || !strings.Contains(said, want.said) {
-				t.Errorf("test-key = %d: %s; want %q", status, said, want.said)
-			}
-		})
 	}
 }

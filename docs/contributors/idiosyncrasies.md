@@ -228,7 +228,7 @@ User-Agent (D263; the User-Agent is logged only).
 | A wait loop waited half an hour on its own command line, and a kill killed the calling shell. | [`pgrep -f` and `pkill -f` match the shell that runs them](#pgrep--f-and-pkill--f-match-the-shell-that-runs-them) |
 | A trailing-slash `.gitignore` pattern (`node_modules/`) does not match a symlink | [A trailing-slash `.gitignore` pattern (`node_modules/`) does not match a symlink](#a-trailing-slash-gitignore-pattern-node_modules-does-not-match-a-symlink) |
 | "Patch is empty". | [`yoloai apply` replays with `git am`, which stops on an empty patch](#yoloai-apply-replays-with-git-am-which-stops-on-an-empty-patch) |
-| `discovery-sign test-key` on a Mac: "Key enrollment failed: requested feature not supported". | [macOS's ssh-keychain.dylib cannot enrol a key: `ssh-keygen -t ecdsa-sk -w` fails "requested feature not supported"](#macoss-ssh-keychaindylib-cannot-enrol-a-key-ssh-keygen--t-ecdsa-sk--w-fails-requested-feature-not-supported) |
+| `ssh-keygen -t ecdsa-sk -w` on a Mac (the removed `discovery-sign test-key`): "Key enrollment failed: requested feature not supported". | [macOS's ssh-keychain.dylib cannot enrol a key: `ssh-keygen -t ecdsa-sk -w` fails "requested feature not supported"](#macoss-ssh-keychaindylib-cannot-enrol-a-key-ssh-keygen--t-ecdsa-sk--w-fails-requested-feature-not-supported) |
 | A Cloudflare-proxied record ends TLS, carries no UDP/TURN, and the terms restrict video | [A Cloudflare-proxied record ends TLS, carries no UDP/TURN, and the terms restrict video](#a-cloudflare-proxied-record-ends-tls-carries-no-udpturn-and-the-terms-restrict-video) |
 | There is no publicly trusted certificate for a bare IP, and private-IP DNS answers trip rebinding protection | [There is no publicly trusted certificate for a bare IP, and private-IP DNS answers trip rebinding protection](#there-is-no-publicly-trusted-certificate-for-a-bare-ip-and-private-ip-dns-answers-trip-rebinding-protection) |
 | A machine has a public IPv6 address but no IPv6 default route, and IPv6 fails with "network is unreachable". | [A host that forwards IPv6 ignores the router's announcements, and its default route, unless `accept_ra` is 2](#a-host-that-forwards-ipv6-ignores-the-routers-announcements-and-its-default-route-unless-accept_ra-is-2) |
@@ -3938,7 +3938,7 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 
 ### macOS's ssh-keychain.dylib cannot enrol a key: `ssh-keygen -t ecdsa-sk -w` fails "requested feature not supported"
 
-- **Symptom:** `discovery-sign test-key` on the owner's Mac (2026-11-01) printed "Key enrollment failed:
+- **Symptom:** `discovery-sign test-key` (removed with the `mac` kind, D395 §3) on the owner's Mac (2026-11-01) printed "Key enrollment failed:
   requested feature not supported" from `ssh-keygen -t ecdsa-sk -w /usr/lib/ssh-keychain.dylib -O
   application=…`, exit 255.
 - **What we do:** the ceremony goes ahead with the YubiKeys alone. The Mac cannot be a key the chains

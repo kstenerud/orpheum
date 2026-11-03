@@ -39,8 +39,8 @@ with the same code a core runs before it keeps anything, so a mistake is caught 
 core later.
 
 **A Mac is not a key.** Its signatures cannot show a core that Touch ID was asked for, so it
-protects less than a YubiKey and its PIN (D395 §3). When the ceremony asks whether to add a Mac,
-answer no.
+protects less than a YubiKey and its PIN (D395 §3). The tool makes no Mac key and asks no question
+about one.
 
 ## Day one: the ceremony
 

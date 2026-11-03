@@ -23,20 +23,28 @@ import (
 func TestServe_ThisMachinesPortAdministersWhereTheHousesPortDoesNot(t *testing.T) {
 	t.Parallel()
 	config, path := testConfig(t)
-	free, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	thisMachine := free.Addr().String()
-	if err = free.Close(); err != nil {
-		t.Fatal(err)
-	}
 	config.Server.HomeNetworks = []string{"192.0.2.0/24"}
-	config.Server.ThisMachineListen = thisMachine
 	captured := newCapturedLog("ready")
-	listener, err := listenForClients(t.Context(), config.Server, captured.logger)
-	if err != nil {
-		t.Fatal(err)
+	// A free port is found by listening on it and closing it, and another run's test may take it before
+	// this one listens again: that is tried again on a new port, not failed.
+	var thisMachine string
+	var listener net.Listener
+	for attempt := 1; listener == nil; attempt++ {
+		free, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		thisMachine = free.Addr().String()
+		if err = free.Close(); err != nil {
+			t.Fatal(err)
+		}
+		config.Server.ThisMachineListen = thisMachine
+		if listener, err = listenForClients(t.Context(), config.Server, captured.logger); err != nil {
+			if attempt == 5 {
+				t.Fatalf("no free port for this machine's listener after %d tries: %v", attempt, err)
+			}
+			listener = nil
+		}
 	}
 	server := startServingOn(t, listener, config, captured, "ready", nil)
 	setUpOwner(t, server, path, "owner")

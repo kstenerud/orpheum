@@ -88,7 +88,7 @@ func (guide *guided) signAttempt(task signTask, key keyEntry, expected trust.Roo
 	if err := os.WriteFile(copied, task.payload, 0o600); err != nil {
 		return "", err
 	}
-	spec := signSpec{Namespace: task.namespace, KeyFile: key.File, Payload: copied, Kind: key.Kind}
+	spec := signSpec{Namespace: task.namespace, KeyFile: key.File, Payload: copied}
 	if err := guide.keys.Sign(spec); err != nil {
 		return "", err
 	}
