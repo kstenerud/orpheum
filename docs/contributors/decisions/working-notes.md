@@ -25674,3 +25674,34 @@ The 5 s hide that decided whether Right moved focus or seeked (plan item 17) goe
    page.
 
 **Status:** Decided 2026-11-02, not built.
+
+## D408 — The app builds its own widget layer from small composed parts: a pop-up is not a dialog and carries no close button, and a list opens on its current choice with a neighbour either side
+
+**Decided** (2026-11-03), by the project owner, on the research
+[ui-toolkit-2026-11-03.md](../design/research/ui-toolkit-2026-11-03.md), after trying D407's overlay on
+staging: "the UI components we have are showing their clunkiness". **Revises** the close-button rule of
+2026-10-30 ("This should be a standard widget so they all behave the same", `modal-dialog.tsx`), which
+now covers dialogs alone.
+
+1. **Our own widget layer, no UI library.** Small single-purpose parts (placement at an anchor,
+   dismissal, focus scope, scrolling with context) are composed into the widgets; no shared base
+   decides a widget's width or its chrome. The owner: "yes build our own widget layer".
+2. **A pop-up is not a dialog.** A dialog is modal and keeps its ✕. A pop-up (a quick control: the
+   overlay's 💬 🎧 ⁝ 🔈, the banner menu, ⁝ on pages, every chooser) sits at its opener, is as big as
+   its content within the space there is, closes on a choice, a press outside, Escape and Back, gives
+   focus back to its opener, and has no ✕. The owner: "The close button was to deal with dialogs that
+   get so big they cover the screen and make it difficult or impossible to close them. For quick
+   control popups this doesn't make sense, especially since selecting within them closes the widget."
+3. **A list opens on its current choice with at least one entry above it and one below** in view,
+   and keeps a neighbour either side of the highlighted entry while it moves (the owner, on the
+   subtitles list).
+4. **The toolkit batch comes now**, before the deferred UX rewrite, which builds on it later: the
+   pop-up apart from the dialog, the list, layout primitives, and the overlay's pop-ups moved onto
+   them; screens stay as they are.
+5. **No download-size gate yet.** The owner: "once the chips fall we can look at ways to control the
+   size. With a proper re-usable widget set we should avoid the worst of it." A one-day Preact spike
+   measured on the Fire TV stick is agreed.
+6. **A TV has no film volume control**, as D407 §2 already has it: "They already get that from their
+   TV remote."
+
+**Status:** Decided 2026-11-03, not built.
