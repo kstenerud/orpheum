@@ -137,7 +137,7 @@ func (server *Server) moveCastOn(ctx context.Context, input *MoveCastOnInput) (*
 	casts := dependencies.Live.CastsOf(principal.UserID, principal.DeviceID)
 	index := slices.IndexFunc(casts, func(each live.Cast) bool { return each.ID == input.CastID })
 	if index < 0 {
-		return nil, castError(live.ErrNoCast)
+		return nil, server.castRefused(ctx, principal, "moveOn", live.ErrNoCast, "castId", input.CastID)
 	}
 	cast := casts[index]
 	next, hasNext, err := dependencies.Browser.UpNext(ctx, principal.Reach, principal.UserID, cast.FileID)
@@ -158,11 +158,12 @@ func (server *Server) moveCastOn(ctx context.Context, input *MoveCastOnInput) (*
 		FileID: next.FileID, TitleID: work.TitleID, TitleName: work.Name, DurationMs: work.DurationMs,
 	}, nil)
 	if err != nil {
-		return nil, castError(err)
+		return nil, server.castRefused(ctx, principal, "moveOn", err, "castId", input.CastID)
 	}
 	credential, err := dependencies.Together.CastCredential(moved.ID, principal.UserID)
 	if err != nil {
-		return nil, castError(live.ErrNoCast) // ended as it moved on
+		// ended as it moved on
+		return nil, server.castRefused(ctx, principal, "moveOn", live.ErrNoCast, "castId", input.CastID)
 	}
 	server.logger.InfoContext(ctx, "cast: a cast moved on to the next episode", "castId", moved.ID,
 		logKeyUserID, moved.UserID, "by", principal.DeviceID, "fileId", moved.FileID)
@@ -205,7 +206,7 @@ func (server *Server) startCast(ctx context.Context, input *StartCastInput) (*St
 	if err != nil {
 		//nolint:errcheck // just opened, it ends
 		_ = dependencies.Together.EndCast(opened.SessionID, principal.UserID, together.CastStopped)
-		return nil, castError(err)
+		return nil, server.castRefused(ctx, principal, "start", err, "to", input.Body.ToDeviceID)
 	}
 	for _, each := range left { // the sender went on to another receiver
 		//nolint:errcheck // gone is ended
@@ -257,17 +258,18 @@ func (server *Server) playInCast(ctx context.Context, input *PlayInCastInput) (*
 	if film.FileID == 0 {
 		err = dependencies.Together.CastReady(input.CastID, principal.UserID)
 		if err != nil {
-			return nil, castError(live.ErrNoCast)
+			return nil, server.castRefused(ctx, principal, "play", live.ErrNoCast, "castId", input.CastID)
 		}
 	}
 	played, err := dependencies.Live.Play(principal.UserID, principal.DeviceID, input.CastID, film,
 		input.Body.PositionMs)
 	if err != nil {
-		return nil, castError(err)
+		return nil, server.castRefused(ctx, principal, "play", err, "castId", input.CastID)
 	}
 	credential, err := dependencies.Together.CastCredential(played.ID, principal.UserID)
 	if err != nil {
-		return nil, castError(live.ErrNoCast) // ended as it played
+		// ended as it played
+		return nil, server.castRefused(ctx, principal, "play", live.ErrNoCast, "castId", input.CastID)
 	}
 	server.logger.InfoContext(ctx, "cast: a cast plays another film", "castId", played.ID,
 		logKeyUserID, played.UserID, "by", principal.DeviceID, "fileId", played.FileID)
@@ -289,11 +291,11 @@ func (server *Server) acceptCast(ctx context.Context, input *AcceptCastInput) (*
 	}
 	accepted, err := dependencies.Live.Accept(principal.UserID, principal.DeviceID, input.CastID)
 	if err != nil {
-		return nil, castError(err)
+		return nil, server.castRefused(ctx, principal, "accept", err, "castId", input.CastID)
 	}
 	credential, err := dependencies.Together.CastCredential(accepted.ID, principal.UserID)
 	if err != nil {
-		return nil, castError(live.ErrNoCast)
+		return nil, server.castRefused(ctx, principal, "accept", live.ErrNoCast, "castId", input.CastID)
 	}
 	server.logger.InfoContext(ctx, "cast: a receiver said Use", "castId", accepted.ID, logKeyUserID,
 		accepted.UserID, "by", principal.DeviceID)
@@ -306,7 +308,7 @@ func (server *Server) castNames(
 	ctx context.Context, dependencies *Dependencies, principal auth.Principal, toDeviceID int64,
 ) (senderName, receiverName string, err error) {
 	if toDeviceID == principal.DeviceID {
-		return "", "", castError(live.ErrToItself)
+		return "", "", server.castRefused(ctx, principal, "start", live.ErrToItself, "to", toDeviceID)
 	}
 	devices, err := dependencies.Auth.Devices(ctx, principal.UserID)
 	if err != nil {
@@ -322,7 +324,7 @@ func (server *Server) castNames(
 		}
 	}
 	if !isOwn {
-		return "", "", castError(live.ErrNotConnected)
+		return "", "", server.castRefused(ctx, principal, "start", live.ErrNotConnected, "to", toDeviceID)
 	}
 	return senderName, receiverName, nil
 }
@@ -358,7 +360,7 @@ func (server *Server) endCast(ctx context.Context, input *EndCastInput) (*EndCas
 	}
 	cast, err := dependencies.Live.End(principal.UserID, principal.DeviceID, input.CastID)
 	if err != nil {
-		return nil, castError(err)
+		return nil, server.castRefused(ctx, principal, "end", err, "castId", input.CastID)
 	}
 	output := &EndCastOutput{}
 	positionMs, isPlaying, err := dependencies.Together.CastPosition(cast.ID, principal.UserID)
@@ -383,6 +385,21 @@ func castBodyOf(cast live.Cast, thisDeviceID int64, credential string) CastBody 
 		SenderDeviceID: cast.SenderDeviceID, SenderName: cast.SenderName,
 		ReceiverDeviceID: cast.ReceiverDeviceID, ReceiverName: cast.ReceiverName, MembershipCredential: credential,
 	}
+}
+
+// castRefused logs a cast request the registry refused, what was asked, by whom and why, at Info: a
+// refusal is an answer, not a fault of the core's, but without it a Stop that did nothing cannot be
+// told from one never sent (principles §28; the prod cast of 2026-11-03). It returns the answer,
+// castError's.
+func (server *Server) castRefused(
+	ctx context.Context, principal auth.Principal, request string, err error, about ...any,
+) error {
+	attributes := []any{
+		"request", request, logKeyUserID, principal.UserID, "by", principal.DeviceID, "why", err.Error(),
+	}
+	attributes = append(attributes, about...)
+	server.logger.InfoContext(ctx, "cast: a request refused", attributes...)
+	return castError(err)
 }
 
 // castError is the answer to a cast the registry refused.
