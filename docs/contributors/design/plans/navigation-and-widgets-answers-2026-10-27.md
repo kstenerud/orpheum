@@ -1407,3 +1407,12 @@ domain to a file the lead reads, instead of sending it; every other address is m
 production never turns it on. A change in orpheum-connect's mailer (`internal/mail/mail.go`), S.
 The owner's account and password stay as they are; starting staging's Connect afresh is done together
 with the owner.
+
+## The scanner reads a year out of a series' name (the owner, 2026-11-03), next batch
+
+"Iron Ledger 1992: The Iron Ledger Story" (IMDb tt09012345) is taken for a series named "Iron Ledger" from
+1992: the scanner reads the number in its name as the year. The owner: "the scanner likely reads
+1992 as the year of a series 'Iron Ledger', but it's actually 'Iron Ledger 1992: The Iron Ledger Story'". To
+look at: when a number like a year is part of the title (with the name before and after it, or with
+no match for the shortened name, or a year far from the files' own dates), the whole name is
+searched too. Not yet seen on staging; the folder's exact name is to be found first.

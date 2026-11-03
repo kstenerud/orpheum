@@ -25754,3 +25754,25 @@ should only make it fade a little bit." **Amends** D407 §4–§5's focus on ▶
    alone).
 
 **Status:** Decided 2026-11-03.
+
+## D411 — The overlay hides when idle while playing, however it was shown
+
+**Decided** (2026-11-03), by the project owner, after Firefox in full screen on staging: "A user
+will expect that leaving it idle will cause it to fade out soon." **Amends** D407 §6's hold for
+focus in the overlay, D409, and D410 §1's Up or Down with focus outside the overlay.
+
+1. **Idle hides it.** While the film plays, all of the overlay hides 3 s after the last input,
+   whether a key, a remote, a mouse or a tap showed it, and wherever focus is. Only a pause or an
+   open menu holds it. As it hides, focus goes to the video, as before (D407 §6's focus rule).
+2. **Why.** D409's hold for focus a key put in the overlay left a keyboard user's overlay up until
+   they moved focus out, which the owner found too confusing to explain. The lead proposed this; the
+   owner agreed.
+3. **A key brings it back.** Up or Down while it is hidden opens all of it with focus on the scrub
+   bar (D410 §1), and the next Up or Down moves between its rows.
+4. **The first key is not swallowed.** Up or Down while all of it shows with focus outside it (on
+   the video or the page, as a mouse or full screen's start leaves it) moves focus as if it had been
+   on the scrub bar: Down to the buttons' row, Up to the way up. Before, that press only put focus
+   on the scrub bar, which shows no sign of it (D410 §3), so it felt lost (the owner's words: "the
+   first keyboard input feels like it got swallowed").
+
+**Status:** Decided 2026-11-03.

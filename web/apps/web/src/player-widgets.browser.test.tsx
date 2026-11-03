@@ -29,10 +29,12 @@ import {
   PreviousIcon,
   SubtitlesIcon,
 } from "./player-icons.tsx";
+import { PlayUpwardContext } from "./play-up.tsx";
 import { PlayerOverlay } from "./player-overlay.tsx";
 import { mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 import { UiGallery } from "./ui-gallery.tsx";
+import type { Upward } from "./upward.ts";
 
 /** Runs check over what tree draws, then unmounts it. */
 async function drawn(
@@ -58,6 +60,12 @@ function found(container: ParentNode, selector: string): HTMLElement {
 
 /** The colour --color-video-card names, as the browser computes a background of it. */
 const videoCard = "rgba(0, 0, 0, 0.8)";
+
+/** An episode's place, for the overlay's way up: its series, a page of its own. */
+const episodeUpward: Upward = {
+  crumbs: [{ label: "Gus Doyle", to: { screen: "home" }, isIt: () => false }],
+  here: "S2E3",
+};
 
 describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
   it("draws every icon button, the status tray's signs too, a fingertip square: 2.75rem", async () => {
@@ -216,38 +224,9 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
     );
   });
 
-  // The owner, 2026-11-03, on Umi no Tobira in full screen: "The overlay isn't disappearing when I leave
-  // it idle", focus given back to 🎧's button after a choice the mouse made (D409).
-  it("hides a playing film's overlay its time after a mouse's click on a control, and holds it for a key's focus", async () => {
-    const video = document.createElement("video");
-    Object.defineProperty(video, "paused", { get: () => false });
-    const videoRef = createRef<HTMLVideoElement>();
-    Reflect.set(videoRef, "current", video);
-    await drawn(
-      <div className="film-player__stage">
-        <PlayerOverlay videoRef={videoRef} readLinkKbps={() => undefined} failure={undefined} />
-      </div>,
-      async (mounted) => {
-        const overlay = found(mounted.container, ".player-overlay");
-        const next = found(overlay, '[aria-label="Forward 10 s"]');
-        await userEvent.keyboard("{Tab}");
-        await expect.poll(() => overlay.contains(document.activeElement)).toBe(true);
-        expect(document.activeElement?.matches(":focus-visible")).toBe(true);
-        await new Promise((resolve) => setTimeout(resolve, 4000));
-        expect(overlay.getAttribute("data-shown")).toBe("full");
-        await userEvent.click(next); // a click's focus is not :focus-visible
-
-        expect(document.activeElement).toBe(next);
-        await expect
-          .poll(() => overlay.getAttribute("data-shown"), { timeout: 5000 })
-          .toBe("hidden");
-      },
-    );
-  });
-
-  // The owner, 2026-11-03, in Firefox: full screen by a double-click or ⤢, the mouse having shown the
-  // overlay, focus on the video; Down left focus where Up and Down reached no other row.
-  it("brings focus on the video to the scrub bar by Down while a pointer shows all of the overlay", async () => {
+  // The owner, 2026-11-03: "A user will expect that leaving it idle will cause it to fade out soon",
+  // a key's focus in it holding it no longer (D411, amending D409).
+  it("hides a playing film's overlay its time after the last press, a key's focus in it or not (D411)", async () => {
     const video = document.createElement("video");
     Object.defineProperty(video, "paused", { get: () => false });
     const videoRef = createRef<HTMLVideoElement>();
@@ -260,21 +239,51 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
         const overlay = found(mounted.container, ".player-overlay");
         mounted.container.append(video);
         video.tabIndex = -1;
+        const next = found(overlay, '[aria-label="Forward 10 s"]');
+        await userEvent.click(next);
+        await userEvent.keyboard("{Tab}");
+        await expect.poll(() => overlay.contains(document.activeElement)).toBe(true);
+        expect(document.activeElement?.matches(":focus-visible")).toBe(true);
+        expect(overlay.getAttribute("data-shown")).toBe("full");
+        await expect
+          .poll(() => overlay.getAttribute("data-shown"), { timeout: 5000 })
+          .toBe("hidden");
+        expect(overlay.contains(document.activeElement)).toBe(false);
+      },
+    );
+  });
+
+  // The owner, 2026-11-03: the overlay up by a mouse, "the next up/down key from the keyboard should
+  // navigate away from the scrub bar, as if focus had already been there", the first key not
+  // swallowed by taking focus in (D411).
+  it("moves focus on the video by Down to the buttons, and by Up to the way up, as if it were on the scrub bar, while a pointer shows all of the overlay (D411)", async () => {
+    const video = document.createElement("video");
+    Object.defineProperty(video, "paused", { get: () => false });
+    const videoRef = createRef<HTMLVideoElement>();
+    Reflect.set(videoRef, "current", video);
+    await drawn(
+      <PlayUpwardContext value={episodeUpward}>
+        <div className="film-player__stage">
+          <PlayerOverlay videoRef={videoRef} readLinkKbps={() => undefined} failure={undefined} />
+        </div>
+      </PlayUpwardContext>,
+      async (mounted) => {
+        const overlay = found(mounted.container, ".player-overlay");
+        mounted.container.append(video);
+        video.tabIndex = -1;
         video.focus();
         expect(overlay.getAttribute("data-shown")).toBe("full");
-        act(() => {
-          document.body.dispatchEvent(
-            new CustomEvent(commandEventName, {
-              detail: { command: "down", source: "key" },
-              bubbles: true,
-              cancelable: true,
-            }),
-          );
-        });
+        await userEvent.keyboard("{ArrowDown}");
         await expect
           .poll(() => document.activeElement?.getAttribute("aria-label"))
-          .toBe("Where the film stands");
+          .toBe("Back 10 s");
+        video.focus();
+        await userEvent.keyboard("{ArrowUp}");
+        await expect
+          .poll(() => document.activeElement?.classList.contains("player-overlay__up"))
+          .toBe(true);
         expect(overlay.contains(document.activeElement)).toBe(true);
+        expect(overlay.getAttribute("data-shown")).toBe("full");
       },
     );
   });

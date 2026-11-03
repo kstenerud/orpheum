@@ -80,9 +80,7 @@ The rows are: row 0, ‹ (`UpLink`) and the convenience area; row 1, the timelin
 
 - The delay is 3000 ms for full (`overlayShownForMs = 3000`), 1500 ms for scrub and 3000 ms for paused.
 - Full never hides while paused or while `menuOpen` (D407 §6).
-- How full was shown is kept (`shownBy: "remote" | "pointer"`, from `isTelevision` and the input's source):
-  - shown by a remote, it hides 3 s after the last press while playing, focus or not;
-  - shown by a mouse or a tap, it also holds while focus a key put there (`:focus-visible`) is in the overlay (`focusin`/`focusout`; D409).
+- Otherwise, while playing, full hides 3 s after the last input however it was shown and wherever focus is (D411, which replaced D409's hold for a key's focus).
 - A computer's keyboard in full screen: pressing ▶ to play, or Down from the bottom row, moves focus to the video, so the timer runs (Q14).
 - On hiding, focus in the overlay moves to the video, as today (:247–251).
 
@@ -209,10 +207,10 @@ Step 1 adds what D407 §10 needs:
 11. **The volume pop-up** is vertical. Agreed.
 12. **The +/− step** is 5 %. Agreed.
 13. **"Ends 9:41" outside full screen** shows among the controls when nothing is on offer. Agreed.
-- **Hiding** follows the accessibility guidance, with the remote exempt from the focus rule (D407 §6, §2.4).
+- **Hiding** after 3 s idle while playing, whatever showed it (D411, §2.4).
 - **Keyboard and touch:** the minimal option. No letter shortcuts, and a tap only shows the overlay (D407 §11).
 
-14. **A computer's keyboard in full screen.** Up or Down puts focus on the scrub bar (D410; ▶ before it), and focus in the overlay holds it (D407 §6), so a keyboard user's overlay would stay until Escape leaves full screen. Pressing ▶ to play, or Down from the bottom row, moves focus to the video, which lets the 3 s timer run. Agreed.
+14. **A computer's keyboard in full screen.** Up or Down from hidden opens the overlay with focus on the scrub bar (D410; ▶ before it); with the overlay already shown and focus outside it, Up or Down moves on as if focus were on the scrub bar (D411). Idle while playing, it hides after 3 s wherever focus is (D411). Agreed.
 
 ## 6. The audit before building (2026-11-02)
 
