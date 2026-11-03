@@ -53,8 +53,8 @@ import { isTelevision } from "./tv-device.ts";
  * convenience area, where an offer (Up next, Still watching) shows, alone while the rest is hidden;
  * the scrub bar with where the film stands and its length; the buttons, ⏮ ⏪ ▶ ⏩ ⏭ at the start and
  * 🔈 💬 🎧 ⁝ ⤢ at the end. + and − move the volume from anywhere and show it a moment. Hidden, Left and Right seek and show the scrub bar alone, OK
- * plays, or pauses and shows the pause sign, and Up and Down show it all with focus on play
- * (player-overlay-state.ts); a mouse's move, a click or a tap shows it all, leaving focus where it is,
+ * plays, or pauses and shows the pause sign, and Up and Down show it all with focus on the scrub
+ * bar (player-overlay-state.ts, D410); a mouse's move, a click or a tap shows it all, leaving focus where it is,
  * as a desktop player's controls show, so a cast's receiver on a computer keeps its controls (D338
  * §5). The browser's own controls are in a shadow no remote reaches (the owner, Fire TV,
  * 2026-10-25). Drawn in full screen alone (page-controls.tsx), which a television's player opens
@@ -351,9 +351,9 @@ function useOverlayPresses({
   readonly isMenuOpen: boolean;
   readonly onVolumeShown: () => void;
 }): void {
-  const askFocusToPlay = useFocusToPlayOnceDrawn(playRef, isTv);
+  const askFocusToScrub = useFocusOnceDrawn(scrubRef, isTv);
   usePlayingLeavesPlay(playRef, videoRef, isTv);
-  useMenuLeftAtFullScreenFocusesPlay(isMenuOpen, askFocusToPlay);
+  useMenuLeftAtFullScreenFocusesScrub(isMenuOpen, askFocusToScrub);
   useCommands(
     "document",
     (detail, event) => {
@@ -378,7 +378,7 @@ function useOverlayPresses({
       if (answer.isVolumeShown === true) {
         onVolumeShown();
       }
-      moveFocus(answer.focus, video, askFocusToPlay);
+      moveFocus(answer.focus, video, askFocusToScrub);
       if (answer.isTaken) {
         event.preventDefault();
       }
@@ -387,14 +387,14 @@ function useOverlayPresses({
   );
 }
 
-/** Moves focus where a press's answer asks: to play once drawn, or to the video. */
+/** Moves focus where a press's answer asks: to the scrub bar once drawn, or to the video. */
 function moveFocus(
   focus: OverlayAnswer["focus"],
   video: HTMLVideoElement,
-  askFocusToPlay: () => void,
+  askFocusToScrub: () => void,
 ): void {
-  if (focus === "play") {
-    askFocusToPlay();
+  if (focus === "scrub") {
+    askFocusToScrub();
   } else if (focus === "video") {
     // Down from the buttons (Q14), once the press is through.
     queueMicrotask(() => {
@@ -404,19 +404,22 @@ function moveFocus(
 }
 
 /**
- * Moves focus to play as full screen changes with a menu open: the menu closes first, its focus
- * going back to its button, then focus goes on to play (D407 §8): on a Fire TV, Silk's Back leaves
+ * Moves focus to the scrub bar as full screen changes with a menu open: the menu closes first, its
+ * focus going back to its button, then focus goes on to the scrub bar (D407 §8, D410): on a Fire TV, Silk's Back leaves
  * full screen, no key the page hears (idiosyncrasies.md, a modal dialog removed while open).
  */
-function useMenuLeftAtFullScreenFocusesPlay(isMenuOpen: boolean, askFocusToPlay: () => void): void {
-  const toldRef = useRef({ isMenuOpen, askFocusToPlay });
+function useMenuLeftAtFullScreenFocusesScrub(
+  isMenuOpen: boolean,
+  askFocusToScrub: () => void,
+): void {
+  const toldRef = useRef({ isMenuOpen, askFocusToScrub });
   useEffect(() => {
-    toldRef.current = { isMenuOpen, askFocusToPlay };
+    toldRef.current = { isMenuOpen, askFocusToScrub };
   });
   useEffect(() => {
     const changed = (): void => {
       if (toldRef.current.isMenuOpen) {
-        toldRef.current.askFocusToPlay();
+        toldRef.current.askFocusToScrub();
       }
     };
     document.addEventListener("fullscreenchange", changed);
@@ -509,21 +512,22 @@ function focusTheVideo(video: HTMLVideoElement): void {
 }
 
 /**
- * Returns what asks focus onto play once the overlay it opens is drawn: after React's commit, not at
- * the next frame, which a Fire TV ran before the commit, play then without a box to take focus
- * (2026-11-02: OK opened the overlay with nothing focused). isAskedAtOnce asks it as the overlay
- * opens with the film: on a television focus is on a control while the overlay shows (D407 §6).
+ * Returns what asks focus onto the scrub bar (D410) once the overlay it opens is drawn: after React's
+ * commit, not at the next frame, which a Fire TV ran before the commit, the control then without a
+ * box to take focus (2026-11-02: OK opened the overlay with nothing focused). isAskedAtOnce asks it as
+ * the overlay opens with the film: on a television focus is on a control while the overlay shows
+ * (D407 §6).
  */
-function useFocusToPlayOnceDrawn(
-  playRef: RefObject<HTMLButtonElement | null>,
+function useFocusOnceDrawn(
+  scrubRef: RefObject<HTMLInputElement | null>,
   isAskedAtOnce: boolean,
 ): () => void {
   const [asked, setAsked] = useState(isAskedAtOnce ? 1 : 0);
   useEffect(() => {
     if (asked > 0) {
-      playRef.current?.focus();
+      scrubRef.current?.focus();
     }
-  }, [asked, playRef]);
+  }, [asked, scrubRef]);
   return () => {
     setAsked((count) => count + 1);
   };

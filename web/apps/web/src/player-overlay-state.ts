@@ -60,10 +60,10 @@ export interface OverlayAnswer {
   /** Whether the overlay plays or pauses the film itself, the press taken from the video. */
   readonly isPlayPause?: boolean;
   /**
-   * Where focus goes: to play, as the whole overlay opens; to the video, leaving it (Q14). A press of
+   * Where focus goes: to the scrub bar, as the whole overlay opens (D410); to the video, leaving it (Q14). A press of
    * play that plays leaves it too, by a click, OK's, Space's or a mouse's (player-overlay.tsx).
    */
-  readonly focus?: "play" | "video";
+  readonly focus?: "scrub" | "video";
   /** Whether the overlay presses the offer itself, focus being elsewhere (D407 §3). */
   readonly isOfferPressed?: boolean;
   /** Whether the overlay shows the volume a press of + or − left (D407 §10), for volumeShownForMs. */
@@ -178,9 +178,9 @@ function answerOfPlayersKey(
   return { state: { ...state, shown: "scrub" }, isTaken: false };
 }
 
-/** The whole overlay, from a press: focus to play. */
+/** The whole overlay, from a press: focus to the scrub bar (D410). */
 function openedFull(context: PressContext): OverlayAnswer {
-  return { state: { shown: "full", shownBy: byCommand(context) }, isTaken: true, focus: "play" };
+  return { state: { shown: "full", shownBy: byCommand(context) }, isTaken: true, focus: "scrub" };
 }
 
 /**
@@ -256,10 +256,30 @@ function answerWhilePaused(
 }
 
 /**
+ * The scrub bar's own presses while all of the overlay shows: Left and Right seek; OK plays, hiding
+ * it, or pauses with the pause sign, as OK while it is hidden (D410). Undefined for any other.
+ */
+function answerOnScrub(
+  state: OverlayState,
+  command: Command,
+  context: PressContext,
+): OverlayAnswer | undefined {
+  const seek = seekOfArrow(command);
+  if (seek !== undefined) {
+    return { state, isTaken: true, seekByMs: seek };
+  }
+  if (command === "select") {
+    const shown = context.isPaused ? "hidden" : "paused";
+    return { state: { ...state, shown }, isTaken: true, isPlayPause: true };
+  }
+  return undefined;
+}
+
+/**
  * All of the overlay (D407 §5): Back hides it; Left and Right seek on the scrub bar and walk a row
  * everywhere else, never seeking (plan item 17); Up and Down are focus's, between the rows, and bring
- * focus that is outside the overlay to play, as a pointer or full screen's start leaves it; OK is
- * the focused control's. On a computer Down from the buttons puts focus on the video, so the overlay
+ * focus that is outside the overlay to the scrub bar, as a pointer or full screen's start leaves it
+ * (D410); OK on the scrub bar plays or pauses (D410), and elsewhere is the focused control's. On a computer Down from the buttons puts focus on the video, so the overlay
  * may hide (Q14); play's press that plays does too, as its click (player-overlay.tsx).
  */
 function answerWhileFull(
@@ -270,12 +290,12 @@ function answerWhileFull(
   if (command === "back") {
     return { state: { ...state, shown: "hidden" }, isTaken: true };
   }
-  const seek = seekOfArrow(command);
-  if (seek !== undefined && context.isOnScrub) {
-    return { state, isTaken: true, seekByMs: seek };
+  const onScrub = context.isOnScrub ? answerOnScrub(state, command, context) : undefined;
+  if (onScrub !== undefined) {
+    return onScrub;
   }
   if ((command === "up" || command === "down") && context.isFocusOutside === true) {
-    return { state, isTaken: true, focus: "play" };
+    return { state, isTaken: true, focus: "scrub" };
   }
   if (context.isTelevision) {
     return { state, isTaken: false };
