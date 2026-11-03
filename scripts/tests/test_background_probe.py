@@ -14,7 +14,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import background_probe as bp  # noqa: E402
 from gitrepo import Repo  # noqa: E402
 
-REAL_RUN = subprocess.run
+# A background run as another process holds it: the lock, until the stop file appears.
+HOLDS_THE_LOCK_UNTIL_STOPPED = """
+import fcntl, sys, time
+from pathlib import Path
+here = Path(sys.argv[1])
+with open(here / "background.lock", "a") as lock:
+    fcntl.flock(lock, fcntl.LOCK_EX)
+    print("holding", flush=True)
+    while not (here / "stop").exists():
+        time.sleep(0.05)
+"""
 
 
 class BackgroundProbe(unittest.TestCase):
@@ -31,16 +41,14 @@ class BackgroundProbe(unittest.TestCase):
         """The revert-red runs a run() makes; the first again_during of them see a commit made meanwhile."""
         made: list[list[str]] = []
 
-        def fake(command, **_):
-            if "check_revert_red.py" in " ".join(command):
-                made.append(command)
-                if len(made) <= again_during:
-                    (self.here / bp.AGAIN).touch()
-                return subprocess.CompletedProcess(command, 0, "", "")
-            return REAL_RUN(command, capture_output=True, text=True, check=False)
+        def fake(_here, command):
+            made.append(command)
+            if len(made) <= again_during:
+                (self.here / bp.AGAIN).touch()
+            return 0
 
         with self.repo.cwd(), mock.patch.object(bp, "base", return_value="abc"), \
-                mock.patch.object(bp.subprocess, "run", side_effect=fake):
+                mock.patch.object(bp, "probe_until_stopped", side_effect=fake):
             bp.run()
         return made
 
@@ -52,7 +60,6 @@ class BackgroundProbe(unittest.TestCase):
         for part in (["--part", "code"], ["--jobs", "2"], ["--base", "abc"]):
             self.assertIn(" ".join(part), " ".join(command))
         self.assertIn("--unrecorded", command)
-        self.assertFalse((self.here / bp.PID).exists(), "its pid is gone as it ends")
 
     def test_a_commit_made_meanwhile_makes_it_go_again_once(self):
         self.assertEqual(len(self.probes(again_during=1)), 2)
@@ -71,14 +78,51 @@ class BackgroundProbe(unittest.TestCase):
             bp.launch()
         popen.assert_not_called()
 
-    def test_the_gates_own_run_stops_it_but_a_run_of_its_own_does_not(self):
-        (self.here / bp.PID).write_text("4242\n")
-        with mock.patch.object(bp.os, "killpg") as kill, mock.patch.dict(os.environ, {bp.IN_BACKGROUND: ""}):
-            bp.stop(self.repo.root)
-        kill.assert_called_once_with(4242, bp.signal.SIGTERM)
-        with mock.patch.object(bp.os, "killpg") as kill, mock.patch.dict(os.environ, {bp.IN_BACKGROUND: "1"}):
-            bp.stop(self.repo.root)
-        kill.assert_not_called()
+    def test_the_gates_own_run_stops_it_by_the_stop_file_and_says_how_long_it_waited(self):
+        # 2026-11-03: check-pr, in the gate's container, signalled a process group numbered on the
+        # host, reached nothing, and waited eight minutes in silence for the run to end on its own.
+        going = subprocess.Popen([sys.executable, "-c", HOLDS_THE_LOCK_UNTIL_STOPPED, str(self.here)],
+                                 stdout=subprocess.PIPE, text=True)
+        self.addCleanup(going.kill)
+        self.assertEqual(going.stdout.readline().strip(), "holding")
+        with self.repo.cwd() as out, mock.patch.dict(os.environ, {bp.IN_BACKGROUND: ""}):
+            waited = bp.stop(self.repo.root)
+        self.assertEqual(going.wait(timeout=10), 0, "the run saw the stop file and ended")
+        self.assertGreaterEqual(waited, 0.0)
+        self.assertIn("background probe: asked the run going to stop at", out.getvalue())
+        self.assertRegex(out.getvalue(), r"background probe: it ended \d+ s after it was asked")
+        self.assertFalse((self.here / bp.STOP).exists(), "the stop file goes once the run has ended")
+
+    def test_with_none_going_it_waits_for_nothing_and_leaves_no_stop_file(self):
+        with self.repo.cwd() as out, mock.patch.dict(os.environ, {bp.IN_BACKGROUND: ""}):
+            self.assertEqual(bp.stop(self.repo.root), 0.0)
+        self.assertEqual(out.getvalue(), "")
+        self.assertFalse((self.here / bp.STOP).exists())
+
+    def test_a_run_of_its_own_does_not_stop_itself(self):
+        with open(self.here / bp.LOCK, "a", encoding="utf-8") as held, \
+                mock.patch.dict(os.environ, {bp.IN_BACKGROUND: "1"}):
+            fcntl.flock(held, fcntl.LOCK_EX)
+            self.assertEqual(bp.stop(self.repo.root), 0.0)
+        self.assertFalse((self.here / bp.STOP).exists())
+
+    def test_a_probe_going_ends_when_the_stop_file_appears(self):
+        (self.here / bp.STOP).touch()
+        with self.repo.cwd() as out, mock.patch.object(bp, "STOP_POLL_SECONDS", 0.05):
+            status = bp.probe_until_stopped(self.here, [sys.executable, "-c", "import time; time.sleep(60)"])
+        self.assertEqual(status, -bp.signal.SIGTERM)
+        self.assertIn("background probe: stopped at", out.getvalue())
+
+    def test_a_run_starts_no_probe_while_a_stop_is_asked(self):
+        (self.here / bp.STOP).touch()
+        self.assertEqual(self.probes(), [])
+
+    def test_its_log_says_when_each_run_started_and_ended(self):
+        with self.repo.cwd() as out, mock.patch.object(bp, "base", return_value="abc"), \
+                mock.patch.object(bp, "probe_until_stopped", return_value=0):
+            bp.run()
+        self.assertRegex(out.getvalue(), r"background probe: abc\.\.\w+, started at \d\d:\d\d:\d\d UTC")
+        self.assertRegex(out.getvalue(), r"background probe: ended at \d\d:\d\d:\d\d UTC, after \d+ s \(exit 0\)")
 
 
 class Environment(unittest.TestCase):

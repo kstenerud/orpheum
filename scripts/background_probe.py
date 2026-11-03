@@ -16,6 +16,13 @@ runs `background_probe.py launch`; it starts this, detached, and returns at once
 - **Out of the way.** It runs the code part alone (no browser), on two probe trees, at nice 19,
   holding the probe trees' lock as any revert-red run does. A run of the gate's own (check-pr, a
   targeted revert-red) stops it first (`stop`), taking the trees; what it had probed is kept.
+- **Stopped by a file, not a signal.** The post-commit hook starts it on the host, and check-pr runs
+  in the gate's container, whose processes are numbered apart: its signal to the recorded process
+  group reached nothing, said nothing, and check-pr waited eight minutes for the run to end on its
+  own (2026-11-03). `stop` writes `stop` in the shared git directory, which both see; the run,
+  watching for it, ends its revert-red (SIGTERM, which ends every test run going and records none
+  of them: revert_red_run), and `stop` says how long it waited.
+- **Its log says when.** Each run's start and end, and a stop, are in the log with the clock time.
 - **Never while check-pr runs**, and never in check-pr's own tree.
 - **Off** while `<git-common-dir>/revert-red/background-off` exists: `touch` it while the owner
   tests on staging, which shares this machine (memory: no gates during live tests).
@@ -25,19 +32,22 @@ It records no failures (`--unrecorded`): the batch's record of what failed is ch
 
 from __future__ import annotations
 
-import contextlib
+import datetime
 import fcntl
 import os
 import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
 OFF = "background-off"
 AGAIN = "again"
 LOCK = "background.lock"
-PID = "background.pid"
+STOP = "stop"
+# How often a run looks for the stop file, in seconds.
+STOP_POLL_SECONDS = 1.0
 LOG = "background-probe.log"
 # Two probe trees and the lowest priority: the dev loop and the owner's staging come first.
 JOBS = 2
@@ -82,15 +92,48 @@ def run_environment(hook: dict[str, str] | os._Environ[str]) -> dict[str, str]:
     return {**{name: value for name, value in hook.items() if not name.startswith("GIT_")}, IN_BACKGROUND: "1"}
 
 
-def stop(root: Path | None = None) -> None:
-    """Stops a background run, if one is going, and waits until it has let the probe trees go."""
+def stop(root: Path | None = None) -> float:
+    """Stops a background run, if one is going, and waits until it has let the probe trees go;
+    returns the seconds it waited. It asks by the stop file, which a run in another process
+    namespace (the host's, from check-pr's container) sees as well as one beside it."""
     here = folder(root)
     if here is None or os.environ.get(IN_BACKGROUND) == "1":
-        return
-    with contextlib.suppress(OSError, ValueError):
-        os.killpg(int((here / PID).read_text().strip()), signal.SIGTERM)
-    with contextlib.suppress(OSError), open(here / LOCK, "a", encoding="utf-8") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)  # held until the run has ended
+        return 0.0
+    here.mkdir(parents=True, exist_ok=True)
+    with open(here / LOCK, "a", encoding="utf-8") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return 0.0  # none was going
+        except BlockingIOError:
+            pass
+        (here / STOP).touch()
+        asked = time.monotonic()
+        print(f"background probe: asked the run going to stop at {clock_text()} UTC; waiting for it to end",
+              flush=True)
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX)  # held until the run has ended
+        finally:
+            (here / STOP).unlink(missing_ok=True)
+        waited = time.monotonic() - asked
+        print(f"background probe: it ended {waited:.0f} s after it was asked", flush=True)
+        return waited
+
+
+def clock_text() -> str:
+    """The clock time now, HH:MM:SS in UTC, as the log prints it."""
+    return datetime.datetime.now(datetime.timezone.utc).strftime("%H:%M:%S")
+
+
+def probe_until_stopped(here: Path, command: list[str]) -> int:
+    """Runs revert-red, ending it with SIGTERM once the stop file appears; its exit status."""
+    with subprocess.Popen(command) as running:  # noqa: S603
+        while running.poll() is None:
+            if (here / STOP).exists():
+                print(f"background probe: stopped at {clock_text()} UTC, for a run of the gate's own", flush=True)
+                running.send_signal(signal.SIGTERM)
+                return running.wait()
+            time.sleep(STOP_POLL_SECONDS)
+        return running.returncode
 
 
 def base() -> str | None:
@@ -111,23 +154,22 @@ def run() -> int:
         except BlockingIOError:
             (here / AGAIN).touch()
             return 0
-        (here / PID).write_text(f"{os.getpgid(0)}\n", encoding="utf-8")
-        try:
-            while is_wanted(here):
-                (here / AGAIN).unlink(missing_ok=True)
-                start = base()
-                if start is None:
-                    break
-                head = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True,
-                                      check=False).stdout.strip()
-                print(f"background probe: {start[:12]}..{head[:12]}", flush=True)
-                subprocess.run(["nice", "-n", str(NICENESS), sys.executable, str(SCRIPTS / "check_revert_red.py"),  # noqa: S603
-                                "--base", start, "--head", head, "--part", "code", "--unrecorded",
-                                "--jobs", str(JOBS)], check=False)
-                if not (here / AGAIN).exists():
-                    break
-        finally:
-            (here / PID).unlink(missing_ok=True)
+        while is_wanted(here) and not (here / STOP).exists():
+            (here / AGAIN).unlink(missing_ok=True)
+            start = base()
+            if start is None:
+                break
+            head = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True,
+                                  check=False).stdout.strip()
+            print(f"background probe: {start[:12]}..{head[:12]}, started at {clock_text()} UTC", flush=True)
+            began = time.monotonic()
+            status = probe_until_stopped(here, [
+                "nice", "-n", str(NICENESS), sys.executable, str(SCRIPTS / "check_revert_red.py"),
+                "--base", start, "--head", head, "--part", "code", "--unrecorded", "--jobs", str(JOBS)])
+            print(f"background probe: ended at {clock_text()} UTC, after {time.monotonic() - began:.0f} s "
+                  f"(exit {status})", flush=True)
+            if not (here / AGAIN).exists():
+                break
     return 0
 
 

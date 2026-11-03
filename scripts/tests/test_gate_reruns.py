@@ -8,6 +8,7 @@ import subprocess
 import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -184,12 +185,30 @@ class CheckPrFailed(unittest.TestCase):
         self.check_pr()
         with self.repo.cwd():
             listed = steps.durations(["fast", "slow", "check-revert-red"])
-        self.assertRegex(listed, r"(?m)^\s+\d+ s  fast$")
-        self.assertRegex(listed, r"(?m)^\s+\d+ s  slow  \(failed\)$")
+        clock = r"\(\d\d:\d\d:\d\d–\d\d:\d\d:\d\d UTC\)"
+        self.assertRegex(listed, rf"(?m)^\s+\d+ s  fast  {clock}$")
+        self.assertRegex(listed, rf"(?m)^\s+\d+ s  slow  {clock}  \(failed\)$")
         self.assertIn("did not run: check-revert-red", listed)
         with self.repo.cwd():
             record_ = last_run.read(steps.GATE, steps.NAME)
         self.assertIsInstance(record_["results"]["fast"]["seconds"], int)
+        self.assertLessEqual(record_["results"]["fast"]["started"], record_["results"]["fast"]["ended"])
+
+    def test_a_step_says_by_the_clock_when_it_started_and_ended(self):
+        # The owner, 2026-11-03: "make the testing process more observable"; an overrun's timeline
+        # had been pieced together from the record files' modification times.
+        times = iter([1762167045.0, 1762168528.0])  # 10:50:45 and 11:15:28 UTC
+        with self.repo.cwd() as out, mock.patch.object(steps, "clock", side_effect=lambda: next(times)):
+            steps.start(self.base)
+            status = steps.record("fast", ["false"])
+            record_ = last_run.read(steps.GATE, steps.NAME)
+        self.assertEqual(status, 1)
+        self.assertIn("check-pr step fast: started at 10:50:45 UTC", out.getvalue())
+        self.assertRegex(out.getvalue(), r"check-pr step fast: failed at 11:15:28 UTC, after \d+ s")
+        self.assertEqual((record_["results"]["fast"]["started"], record_["results"]["fast"]["ended"]),
+                         (1762167045, 1762168528))
+        self.assertIn("(10:50:45–11:15:28 UTC)", steps.span(record_["results"]["fast"]))
+        self.assertEqual(steps.span({"seconds": 3}), "", "a record from before the clock times shows none")
 
     def test_a_rerun_against_another_base_or_with_no_record_is_refused(self):
         with self.repo.cwd() as out:

@@ -57,6 +57,7 @@ NOISE = [re.compile(pattern) for pattern in (
     r"^ORPHEUM_TEST_UNCONTROLLED=",
     r"^make\[\d+\]: \*\*\* Waiting for unfinished jobs",
     r"^make check: already passed on this exact tree",
+    r"^check-pr step \S+: (started|passed) at ",          # check_pr_steps.py's clock; a failure stays shown
 )]
 MAX_LINES = 200
 

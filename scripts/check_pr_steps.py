@@ -10,8 +10,10 @@
 * `start --base B` begins an empty record for a run against B.
 * `record STEP -- COMMAND...` runs one step's command, records whether it passed with the commit
   HEAD was at, and exits with the command's status.
-* `durations STEP...` prints how long each step of the run took, the longest first, so a run over
-  check-pr's budget names the step that grew (D279).
+* `durations STEP...` prints how long each step of the run took, the longest first, with the clock
+  times it started and ended, so a run over check-pr's budget names the step that grew (D279) and
+  the log can be read against the clock (the owner, 2026-11-03: "make the testing process more
+  observable"; an overrun's timeline was found from files' modification times).
 * `rerun --base B --last LAST STEP...` is `make check-pr-failed`. The Makefile names the steps
   (PR_STEPS, and PR_LAST_STEP, which runs alone after them). It re-runs, the same way, each step
   that failed or has no result (it never ran: the last step runs only after the others pass), and
@@ -36,6 +38,7 @@ targets directly, never through `record`, so it trusts no kept pass.
 from __future__ import annotations
 
 import argparse
+import datetime
 import hashlib
 import subprocess
 import sys
@@ -112,8 +115,20 @@ def start(base: str) -> None:
     last_run.update(GATE, NAME, lambda _old: {"base": base, "results": {}})
 
 
+def clock() -> float:
+    """The wall clock, as seconds since the epoch: what a step's start and end are recorded in."""
+    return time.time()
+
+
+def utc(seconds: float) -> str:
+    """A clock time as the log prints it, HH:MM:SS in UTC."""
+    return datetime.datetime.fromtimestamp(seconds, datetime.timezone.utc).strftime("%H:%M:%S")
+
+
 def record(step: str, command: list[str]) -> int:
     started = time.monotonic()
+    began = clock()
+    print(f"check-pr step {step}: started at {utc(began)} UTC", flush=True)
     key = inputs_key(step, str((last_run.read(GATE, NAME) or {}).get("base") or ""))
     if kept_pass(step, key):
         print(f"{step}: passed before on the same files, base and toolchain; not run again", flush=True)
@@ -123,11 +138,15 @@ def record(step: str, command: list[str]) -> int:
         if status == 0:
             keep_pass(step, key)
     seconds = round(time.monotonic() - started)
+    ended = clock()
+    print(f"check-pr step {step}: {'passed' if status == 0 else 'failed'} at {utc(ended)} UTC, "
+          f"after {seconds} s", flush=True)
     head = last_run.commit_of("HEAD") or ""
 
     def change(old: dict[str, Any] | None) -> dict[str, Any]:
         new = old or {"base": "", "results": {}}
-        new["results"][step] = {"passed": status == 0, "commit": head, "seconds": seconds}
+        new["results"][step] = {"passed": status == 0, "commit": head, "seconds": seconds,
+                                "started": round(began), "ended": round(ended)}
         return new
     last_run.update(GATE, NAME, change)
     return status
@@ -139,11 +158,19 @@ def durations(steps: list[str]) -> str:
     results = record_.get("results", {})
     timed = sorted(((results[s]["seconds"], s) for s in steps if "seconds" in results.get(s, {})), reverse=True)
     lines = ["check-pr's steps, the longest first (the first group runs in parallel):"]
-    lines += [f"  {seconds:>5} s  {step}{'' if results[step]['passed'] else '  (failed)'}" for seconds, step in timed]
+    lines += [f"  {seconds:>5} s  {step}{span(results[step])}{'' if results[step]['passed'] else '  (failed)'}"
+              for seconds, step in timed]
     missing = [s for s in steps if "seconds" not in results.get(s, {})]
     if missing:
         lines.append("  did not run: " + " ".join(missing))
     return "\n".join(lines)
+
+
+def span(result: dict[str, Any]) -> str:
+    """When a recorded step ran, by the clock, or nothing for a record older than its clock times."""
+    if "started" not in result or "ended" not in result:
+        return ""
+    return f"  ({utc(result['started'])}–{utc(result['ended'])} UTC)"
 
 
 def plan(results: dict[str, Any], steps: list[str], head: str) -> tuple[list[str], list[str]]:

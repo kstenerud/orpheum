@@ -56,6 +56,32 @@ class Kinds(unittest.TestCase):
         self.assertLess(text.index("  a.ts"), text.index("  b.go"), "the slowest file first")
 
 
+    def test_the_summary_says_what_came_before_probing_and_each_trees_busy_time(self):
+        # check-pr, 2026-11-03: 480 s waiting for a background probe and 1000 s in one tree of four,
+        # neither in the report (the owner: "make the testing process more observable").
+        kept = timings.Timings()
+        kept.note_before("waiting for the background probe to end", 482)
+        kept.note_before("preparing the worktrees", 3)
+        kept.note_tree("/repo/.git/revert-red/wt-0", 1000)
+        kept.note_tree("/repo/.git/revert-red/wt-1", 219)
+        text = timings.summary(kept, wall_seconds=1001, jobs=4)
+        self.assertIn("Before probing, 485 s: 482 s waiting for the background probe to end, "
+                      "3 s preparing the worktrees", text)
+        self.assertRegex(text, r"(?m)^\s+1000 s  wt-0  \(100% of the run\)$")
+        self.assertLess(text.index("wt-0"), text.index("wt-1"), "the busiest tree first")
+
+    def test_a_stylesheet_settled_with_others_is_ranked_by_its_own_runs(self):
+        # Its own browser-mode runs, two minutes each, were listed at 0 s: it has no probe of its own.
+        kept = timings.Timings()
+        kept.note_run("app-shell.css", timings.Run("vitest related (browser mode)", 127, 0, False))
+        kept.note_run("a.go", timings.Run("go test, package", 4, 0, True))
+        kept.note_probe("a.go", 5)
+        text = timings.summary(kept, wall_seconds=200, jobs=2)
+        self.assertIn("132 s of probing in all", text)
+        self.assertRegex(text, r"(?m)^\s+127 s  app-shell\.css  — vitest related \(browser mode\) 127 s \(red\)$")
+        self.assertLess(text.index("app-shell.css  —"), text.index("a.go  —"))
+
+
 class Recorded(unittest.TestCase):
     def test_a_run_keeps_each_files_runs_and_reports_the_time(self):
         repo = Repo({COVERED: "def f():\n    return 1\n", TEST: TEST_HEAD})
@@ -77,6 +103,11 @@ class Recorded(unittest.TestCase):
         self.assertTrue(files[COVERED]["runs"][1]["passed"], "and passed with nothing reverted")
         self.assertGreater(files[COVERED]["seconds"], 0)
         self.assertEqual(record["jobs"], 1)
+        self.assertEqual(set(record["before"]), {"waiting for the background probe to end",
+                                                 "waiting for another run's probe trees", "preparing the worktrees"})
+        self.assertEqual(list(record["trees"]), ["wt-0"])
+        self.assertIn("Before probing, ", out.getvalue())
+        self.assertIn("Each probe tree's busy time", out.getvalue())
 
 
 if __name__ == "__main__":
