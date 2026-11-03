@@ -9,7 +9,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CastAsked, pressOf, type CastAnswer } from "./cast-asked.tsx";
 import { castAnswerWithinMs } from "./cast.ts";
-import { buttonWithText, click, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import {
+  buttonWithText,
+  click,
+  mount,
+  refusal,
+  servedBy,
+  type Answers,
+  type Heard,
+  type Mounted,
+} from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 import { fakeTogetherServer, type FakeTogetherServer } from "./test-together.ts";
 
@@ -44,7 +53,10 @@ describe("a cast asked about once, before it plays (D364 §2, D358)", () => {
   });
 
   /** CastAsked for cast, served by answers, and what it was answered. */
-  async function asked(heard: Heard[] = []): Promise<{
+  async function asked(
+    heard: Heard[] = [],
+    accept: Answers[string] = [200, { castId: 5 }],
+  ): Promise<{
     readonly answers: (CastAnswer | undefined)[];
     readonly server: FakeTogetherServer;
   }> {
@@ -53,7 +65,7 @@ describe("a cast asked about once, before it plays (D364 §2, D358)", () => {
     const services = servedBy(
       {
         "POST /me/casts/5/end": [200, { positionMs: 0, isPlaying: false }],
-        "POST /me/casts/5/accept": [200, { castId: 5 }],
+        "POST /me/casts/5/accept": accept,
       },
       heard,
       "token",
@@ -97,6 +109,37 @@ describe("a cast asked about once, before it plays (D364 §2, D358)", () => {
     const { answers } = await asked();
     await click(buttonWithText(document.body, "Use"));
     await expect(answers[0]?.fullScreen).resolves.toBe("refused");
+  });
+
+  // The owner, 2026-11-03: a cast whose sender stopped, or which the server lost as it restarted,
+  // before Use was pressed; Use took the device into receiving a cast no one sent, full screen.
+  it("receives nothing where the server refuses Use, the cast gone: leaves full screen and says its sender stopped", async () => {
+    const fullScreen = pageFullScreen("grant");
+    let left = 0;
+    document.exitFullscreen = (): Promise<void> => {
+      left += 1;
+      return Promise.resolve();
+    };
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      get: () => (fullScreen.asked() > left ? document.documentElement : null),
+    });
+    try {
+      const { answers } = await asked([], refusal(404, "not_found"));
+      await click(buttonWithText(document.body, "Use"));
+      await vi.waitFor(() => {
+        expect(left).toBe(1);
+      });
+      expect(answers).toEqual([]);
+      expect(document.body.textContent).toContain("Pixel stopped casting.");
+      const ok = buttonWithText(document.body, "OK");
+      expect(document.activeElement).toBe(ok);
+      await click(ok);
+      expect(answers).toEqual([undefined]);
+    } finally {
+      Reflect.deleteProperty(document, "fullscreenElement");
+      Reflect.deleteProperty(document, "exitFullscreen");
+    }
   });
 
   it("declines at Not now, its sender told (§3)", async () => {

@@ -22,12 +22,15 @@ export const enCast = {
       question: "{{device}} wants to use this device for playback",
       use: "Use",
       notNow: "Not now",
+      stopped: "{{device}} stopped casting.",
+      ok: "OK",
     },
     asking: "Asking {{name}}…",
     answered: {
       declined: "{{name}} declined.",
       unanswered: "{{name}} did not answer.",
       ended: "The cast to {{name}} ended before it started.",
+      stopped: "You stopped the cast to {{name}}.",
     },
     soundOn: {
       television: "Press OK to turn the sound on",
