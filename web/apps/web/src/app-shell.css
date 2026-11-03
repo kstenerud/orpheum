@@ -246,10 +246,7 @@
   }
 }
 
-/* Who is signed in where only informs: it wraps to the menu's width and never widens it, which its
-   choices set (the owner, 2026-11-03). */
 .app-shell__menu .app-shell__who {
-  contain: inline-size;
   padding: var(--space-1) var(--space-3) var(--space-2);
   border-block-end: 1px solid var(--color-border);
   margin-block-end: var(--space-1);

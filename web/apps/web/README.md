@@ -489,9 +489,10 @@ The web client: the browser and phone interface, served embedded by the core. MP
   each edge and the device's safe area that no pop-up covers (`tokens.css`'s `--screen-edge-room-*`;
   the owner, 2026-11-03), a big screen's list cut at that room's edge and scrolling within itself,
   its choice still over the button, while it keeps half its height, else moved (the owner,
-  2026-10-29). A pop-up is as wide as its widest entry unwrapped, wherever its button is, but no
-  wider than half the screen nor capped under 16rem (`--popover-widest`), a longer entry wrapping
-  (the owner, 2026-11-03); 🔈's grows out of its button, its speaker laid over it and the slider
+  2026-10-29). A pop-up is as wide as its widest choice or control unwrapped, wherever its button
+  is, but no wider than half the screen nor capped under 16rem (`--popover-widest`), a longer one
+  wrapping (the owner, 2026-11-03); a line that only informs (`ListNote`) wraps to that width and
+  never widens it (D408 §7); 🔈's grows out of its button, its speaker laid over it and the slider
   above, where there is room above (Popover's `partOverOpener`); focused on its current
   place, a place either side of it in view where it has them, and a place of context kept beyond
   the one focused as it moves (D408 §3); and its opening and closing never move the page. The Films and Series

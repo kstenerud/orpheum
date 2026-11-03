@@ -29,6 +29,13 @@
   margin: 0;
 }
 
+/* A line that only informs (ListNote): it takes no width of its own, so it wraps to the width the
+   choices and controls set and never widens the list (the owner, 2026-11-03). */
+.list-box__note {
+  contain: inline-size;
+  margin: 0;
+}
+
 /* A choice (ListOption), the list's width, its whole row pressable. */
 .list-box__option {
   display: block;

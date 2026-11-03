@@ -62,8 +62,8 @@ function useCurrentEntryFocused(ref: RefObject<HTMLElement | null>, isFromItsTop
  * them, and keeps an entry either side of the one focused as the arrows move (D408 §3: the owner,
  * 2026-11-03, "showing the current value under the highlight, and at least 1 entry below and 1 entry
  * above"), scrolling within itself where it is taller than the room it is given. Its entries are
- * ListOption, a choice drawn as one, and ListEntry, which holds a control of its own; it styles
- * nothing else inside them.
+ * ListOption, a choice drawn as one; ListEntry, which holds a control of its own; and ListNote, a
+ * line that only informs. It styles nothing else inside them.
  */
 export function ListBox(props: {
   /** Whether it opens on its first entry, a menu's, which has no current choice. */
@@ -141,4 +141,17 @@ export function ListEntry(props: {
       {props.children}
     </li>
   );
+}
+
+/**
+ * A line of a list (ListBox) that only informs, as who is signed in where heads the banner's menu.
+ * It wraps to the width the list's choices and controls set and never widens the list for itself:
+ * what informs may wrap, what acts wraps only where nothing else will do (the owner, 2026-11-03).
+ */
+export function ListNote(props: {
+  readonly className?: string;
+  readonly children: ReactNode;
+}): JSX.Element {
+  const classes = ["list-box__note", props.className].filter(Boolean).join(" ");
+  return <li className={classes}>{props.children}</li>;
 }
