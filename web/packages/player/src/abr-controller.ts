@@ -23,7 +23,7 @@ import type Hls from "hls.js";
 import { Choosing } from "./abr.ts";
 import { arrivalMs } from "./abr-choice.ts";
 import type { ChoosingOptions } from "./abr-options.ts";
-import { tooEarlyStatus } from "./failure.ts";
+import { cannotMakeStatus, tooEarlyStatus } from "./failure.ts";
 import { rebuilt, rebuildingFrom, resumePositionOf } from "./resume-position.ts";
 
 /** Fatal errors the player recovers from by itself, which are no failure (failOnFatal). */
@@ -47,12 +47,41 @@ export function isBeingMade(data: Pick<ErrorData, "details" | "response">): bool
   return data.details === ErrorDetails.FRAG_LOAD_ERROR && data.response?.code === tooEarlyStatus;
 }
 
-/** Whether hls.js's error is a chunk's load failing or timing out, the core's 425 aside. */
-export function isLoadFailure(data: Pick<ErrorData, "details" | "response">): boolean {
+/**
+ * Whether hls.js's error is the core's 422 for a chunk of the film's picture: one it cannot make, in
+ * any quality, a fault of the file, stepped over (skip-unmade.ts).
+ */
+export function isNotMade(data: Pick<ErrorData, "details" | "response" | "frag">): boolean {
+  return (
+    data.details === ErrorDetails.FRAG_LOAD_ERROR &&
+    data.response?.code === cannotMakeStatus &&
+    data.frag?.type === PlaylistLevelType.MAIN
+  );
+}
+
+/**
+ * Keeps hls.js from changing quality at a chunk not made (isNotMade), and nothing else: its error controller has
+ * chosen to try another quality, which it does after every controller has heard the error, this one
+ * among the first; the action is made nothing, so the quality stays and the chunk is stepped over in
+ * it. A fault of the file is no reason to step down; only the link or the device is (the owner,
+ * 2026-11-03: "It should only step down when playback problems are due to bandwidth or processor
+ * issues that warrant it"). hls.js's actions are const enums, which a module cannot read: 0 is
+ * NetworkErrorAction.DoNothing and ErrorActionFlags.None.
+ */
+function keepTheQualityAtNotMade(data: ErrorData): void {
+  const { errorAction } = data;
+  if (errorAction !== undefined && isNotMade(data)) {
+    Object.assign(errorAction, { action: 0, flags: 0, nextAutoLevel: undefined, resolved: true });
+  }
+}
+
+/** Whether hls.js's error is a chunk's load failing or timing out, the core's 425 and 422 aside. */
+export function isLoadFailure(data: Pick<ErrorData, "details" | "response" | "frag">): boolean {
   return (
     (data.details === ErrorDetails.FRAG_LOAD_ERROR ||
       data.details === ErrorDetails.FRAG_LOAD_TIMEOUT) &&
-    !isBeingMade(data)
+    !isBeingMade(data) &&
+    !isNotMade(data)
   );
 }
 
@@ -151,6 +180,7 @@ class OrpheumAbrController extends AbrController {
         this.choosing.switched();
       },
       error: (event, data) => {
+        keepTheQualityAtNotMade(data);
         this.onError(event, data);
         this.passAHole(data);
         const { frag } = data;

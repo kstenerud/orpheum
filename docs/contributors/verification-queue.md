@@ -2512,4 +2512,6 @@ An item is ticked only by the person who did it, and only with what they saw.
   fixes it found (a ladder's 422 is never fatal; a stretch's chunks each stood the film 2 s). One
   chunk: 56.4 s to 67.0 s, still at most 0.25 s. Eight (56.96 to 130.8 s): one move, still 0.86 s,
   the pop-up "0:56–2:10", in full screen too. Every chunk on: moved to 174.3 s, then "The film cannot
-  go on" and the words under the film. The sign named each stretch. Owed: the owner's look.
+  go on" and the words under the film. The sign named each stretch. Then, at the owner's word
+  that a fault of the file is no reason to step down, the quality is kept: the film played its own
+  picture before, through and after the skip. Owed: the owner's look.

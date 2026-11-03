@@ -113,8 +113,9 @@ dedicated to testing (the owner, 2026-11-03), so the spike uses them without ask
   (`skip-unmade.ts`); the bar under the film shows D278's warning sign naming each stretch, and a
   stretch over 15 s, or one the film cannot go on past, puts up a pop-up over the film
   (`skipped-parts.tsx`). VQ255, which the lead ran in Chrome against staging: a film with several
-  qualities never gets hls.js's fatal error, so a chunk refused in every quality is taken as not
-  made, and a chunk right after a stretch at its first refusal.
+  qualities never got hls.js's fatal error, only a step down at each refusal; the quality is now kept
+  and the chunk stepped over at its first refusal (the owner, 2026-11-03: "It should only step down
+  when playback problems are due to bandwidth or processor issues that warrant it").
 - **Play from The Gold Rush's page opened the player without playing**: "I had to manually start it."
   Firefox on a Mac, the film's first play. Its own picture was given up three seconds in, before the
   first frame (`bufferAppendNoProgress`), and the twin opened paused, the video having read as
@@ -144,10 +145,6 @@ dedicated to testing (the owner, 2026-11-03), so the spike uses them without ask
   363 MiB peak; node 2% of one core, 11 MiB held, 2.5 GiB of page cache from reading media, which
   the kernel reclaims.
 
-- **After a skip the picture climbs back slowly**: hls.js steps down a quality at each refusal, so
-  the film plays on from the lowest one, 846×360, and climbed to the next after 35 s, still there
-  100 s on, where before the fault it played its own picture (VQ255's run, 2026-11-03). To look at:
-  whether the move past the chunk should take the player back to the quality it had.
 - **`ModalDialog` takes no `className`** (the owner, 2026-11-03, moved here from step 5): its seven
   callers (Cast, the folder browser, match correction twice, the notice note, the sign-out question,
   Watch Together, the listing search) mostly set their width or lay out their contents; as named
