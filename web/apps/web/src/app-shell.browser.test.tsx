@@ -12,7 +12,7 @@ import "./tokens.css";
 import "./base.css";
 import "./i18n.ts";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { AppShell } from "./app-shell.tsx";
@@ -545,7 +545,9 @@ describe("the shell, laid out by a real browser", () => {
         await expect.poll(asked).not.toBeNull();
         expect(document.activeElement?.textContent).toBe("Sign out");
         await userEvent.keyboard("{Enter}");
-        expect(signedOut).toBe(1);
+        await vi.waitFor(() => {
+          expect(signedOut).toBe(1); // Firefox answers the key after a turn
+        });
       },
     );
   });
