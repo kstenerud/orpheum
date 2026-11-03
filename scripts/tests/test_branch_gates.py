@@ -235,6 +235,20 @@ class TrailersTiedToCommits(unittest.TestCase):
         self.assertEqual(status, 0, out)
         self.assertIn("test 'TestB' is now 'TestB_NewKey' (Test-Renamed), its checks kept", out)
 
+    def test_a_test_renamed_twice_is_followed_to_its_last_name(self):
+        """A test renamed in one commit and again in a later one (2026-11-03, D411)."""
+        for claims in [['"TestB" -> "TestB_Two"', '"TestB_Two" -> "TestB_Three"'],
+                       ['"TestB" -> "TestB_Two"', '"TestB" -> "TestB_Three"']]:
+            repo = Repo({self.TEST: self.TWO})
+            base = repo.commit("chore: base")
+            for name, claim in zip(["TestB_Two", "TestB_Three"], claims, strict=True):
+                body = self.TWO.replace('TestB(t *testing.T) { t.Error("b") }',
+                                        f'{name}(t *testing.T) {{ t.Error("{name}") }}')
+                repo.commit(f"test(a): rename\n\nTest-Renamed: {self.TEST}: {claim}", {self.TEST: body})
+            status, out = self.run_gate(repo, base)
+            self.assertEqual(status, 0, out)
+            self.assertIn("test 'TestB' is now 'TestB_Three' (Test-Renamed), its checks kept", out)
+
     def test_a_rename_claim_that_does_not_hold_is_listed(self):
         repo = Repo({self.TEST: self.TWO})
         base = repo.commit("chore: base")
