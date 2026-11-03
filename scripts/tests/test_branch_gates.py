@@ -614,6 +614,25 @@ class RevertRedStylesheetsTogether(unittest.TestCase):
         self.assertEqual(subprocess.run(["git", "status", "--porcelain"], cwd=spare_tree, capture_output=True,
                                         text=True, check=True).stdout, "", "and put back as it was")
 
+    def test_what_the_stylesheets_runs_settled_is_taken_by_a_later_run_over_the_same_code(self):
+        # A background probe settled them; check-pr settled them again, about 1000 s (2026-11-03).
+        repo, base = self.repo()
+        ran = Path(tempfile.mkdtemp()) / "ran"
+        noticing = ["sh", "-c", f"echo x >> {ran}; ! grep -q old {self.UNCLAIMED}"]
+        with repo.cwd():
+            first = rr.stylesheets_together(str(repo.root), base, "HEAD", self.changes(), 60, noticing)
+            runs = len(ran.read_text().splitlines())
+            again = rr.stylesheets_together(str(repo.root), base, "HEAD", self.changes(), 60, noticing)
+            self.assertEqual(len(ran.read_text().splitlines()), runs, "nothing run again")
+            self.assertEqual({p: o.verdict for p, o in again.items()}, {p: o.verdict for p, o in first.items()})
+            self.assertIn("nothing they read has changed since", again[self.UNCLAIMED].detail)
+            repo.commit("docs: a note", {"docs/note.md": "documentation no run reads\n"})
+            rr.stylesheets_together(str(repo.root), base, "HEAD", self.changes(), 60, noticing)
+            self.assertEqual(len(ran.read_text().splitlines()), runs, "a documentation commit keeps them")
+            repo.commit("fix(web): the server\n\nIt was wrong.", {"internal/x.go": "package x\n"})
+            rr.stylesheets_together(str(repo.root), base, "HEAD", self.changes(), 60, noticing)
+            self.assertGreater(len(ran.read_text().splitlines()), runs, "a change the browser tier runs re-runs them")
+
     def test_a_run_that_times_out_leaves_its_sheets_to_their_own_runs(self):
         repo, base = self.repo()
         with repo.cwd():
