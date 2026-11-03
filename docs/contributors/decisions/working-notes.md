@@ -25545,7 +25545,11 @@ amends [D404](#d404--a-dvd-title-whose-clock-starts-again-partway-is-served-rest
    (D126): VQ73's 2 h 28 min title read in 0.37 s on the sandbox, once per image, as the node keeps
    each image's title.
 4. **Not done (next batch):** the sound at a join. FFmpeg drops an AC-3 frame that repeats or is cut
-   short there; the restamp keeps it, so a join may click.
+   short there; the restamp keeps it, so a join may click. *Measured 2026-11-03 on the one DVD image
+   in the library (VQ73's Der Golem, title 1):* at both its clock shifts, the cell before ends on
+   a whole AC-3 frame and the cell after starts one frame (2880 ticks) after it, restamped; FFmpeg's
+   `mpeg` demuxer and AC-3 decoder read both joins without an error. No repeated or partial frame to
+   drop on this disc.
 
 **Status:** Decided 2026-11-02. Test: `TestMainTitle_ADVDsClockIsCheckedAtEveryVOBU`. Device check:
 VQ73 (a seek past the clock shift, and the title's end).
