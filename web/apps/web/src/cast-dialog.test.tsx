@@ -9,7 +9,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { CastDialog } from "./cast-dialog.tsx";
 import { LiveProvider, useLive } from "./live.tsx";
 import { CastingLeft } from "./old-addresses.tsx";
-import { mount, servedBy, type Mounted } from "./test-dom.tsx";
+import {
+  buttonWithText,
+  click,
+  mount,
+  refusal,
+  servedBy,
+  type Answers,
+  type Heard,
+  type Mounted,
+} from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 import { fakeTogetherServer } from "./test-together.ts";
 
@@ -81,6 +90,55 @@ describe("Cast's dialog (D384 §2)", () => {
     await live.say({ type: "sending", sending: { ...sending, fileId: 5 } });
     expect(onClose).not.toHaveBeenCalled();
     expect(document.querySelector("dialog")?.textContent).toContain("Playing Metropolis on Fire TV");
+  });
+
+  /** The dialog opened over a cast on, the end request answered as given; what it was told of closing. */
+  async function openedWhileCasting(
+    end: Answers[string],
+    heard: Heard[],
+  ): Promise<ReturnType<typeof vi.fn>> {
+    const live = fakeTogetherServer();
+    const onClose = vi.fn();
+    /** The dialog, opened once the live connection says a cast is on. */
+    function OpenedWhileCasting(): JSX.Element | null {
+      return useLive().sending === undefined ? null : <CastDialog onClose={onClose} />;
+    }
+    mounted = await mount(
+      withServices(
+        <LiveProvider>
+          <OpenedWhileCasting />
+        </LiveProvider>,
+        {
+          ...servedBy({ "POST /me/casts/9/end": end }, heard, "token"),
+          openTogetherSocket: live.openSocket,
+        },
+      ),
+    );
+    await live.accept();
+    await live.say({ type: "sending", sending });
+    return onClose;
+  }
+
+  // Principles §28: its Stop hid a failure, the cast going on while the person took it for stopped.
+  it("stops casting, tried once more where the first try fails, and closes", async () => {
+    const heard: Heard[] = [];
+    const onClose = await openedWhileCasting(
+      [refusal(503, "unavailable"), [200, { positionMs: 0, isPlaying: false }]],
+      heard,
+    );
+    await click(buttonWithText(document.body, "Stop casting"));
+    expect(heard.filter((each) => each.methodAndPath === "POST /me/casts/9/end")).toHaveLength(2);
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("says why Stop casting failed where both tries do, and stays open to try again", async () => {
+    const onClose = await openedWhileCasting(
+      [refusal(503, "unavailable"), refusal(503, "unavailable")],
+      [],
+    );
+    await click(buttonWithText(document.body, "Stop casting"));
+    expect(onClose).not.toHaveBeenCalled();
+    expect(document.querySelector("dialog [role=alert]")).not.toBeNull();
   });
 });
 
