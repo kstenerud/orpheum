@@ -370,7 +370,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D362](working-notes.md#d362--a-video-that-nothing-gives-a-picture-gets-a-still-of-its-own-frames-the-last-resort-once-every-other-source-was-tried-and-the-tiles-in-view-raise-its-making) A video that nothing gives a picture gets a still of its own frames, the last resort once every other source was tried, and the tiles in view raise its making
 - [D363](working-notes.md#d363--libraries-may-overlap-a-file-is-found-once-at-every-place-it-is-and-each-list-shows-an-item-once-however-a-person-reaches-it) Libraries may overlap: a file is found once, at every place it is, and each list shows an item once however a person reaches it
 - [D364](working-notes.md#d364--casting-is-a-session-with-a-device-while-it-lasts-whatever-the-person-plays-plays-there-and-the-sending-device-shows-it-in-the-tray) Casting is a session with a device: while it lasts, whatever the person plays plays there, and the sending device shows it in the tray — *revisited by D371, D384, D386, D388, D389*
-- [D365](working-notes.md#d365--among-a-films-candidates-the-one-whose-runtime-fits-the-file-is-preferred-a-year-either-side-of-the-names-then-the-most-voted) Among a film's candidates, the one whose runtime fits the file is preferred, a year either side of the name's, then the most voted
+- [D365](working-notes.md#d365--among-a-films-candidates-the-one-whose-runtime-fits-the-file-is-preferred-a-year-either-side-of-the-names-then-the-most-voted) Among a film's candidates, the one whose runtime fits the file is preferred, a year either side of the name's, then the most voted — *revisited by D412*
 - [D366](working-notes.md#d366--every-sort-runs-either-way-films-and-series-also-sort-by-release-date-and-each-person-chooses-which-libraries-fill-their-home) Every sort runs either way, films and series also sort by release date, and each person chooses which libraries fill their Home
 - [D367](working-notes.md#d367--up-goes-a-level-up-from-any-page-to-its-parent-back-goes-back-the-way-the-person-came) Up goes a level up from any page to its parent, Back goes back the way the person came — *revisited by D370, D379*
 - [D368](working-notes.md#d368--on-a-films-ladder-the-top-quality-plays-the-films-own-sound-copied-the-lower-qualities-keep-the-light-stereo-track) On a film's ladder, the top quality plays the film's own sound, copied; the lower qualities keep the light stereo track — *revisited by D400*
@@ -417,6 +417,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D409](working-notes.md#d409--a-mouse-shown-overlay-is-held-only-by-focus-a-key-put-in-it) A mouse-shown overlay is held only by focus a key put in it
 - [D410](working-notes.md#d410--the-scrub-bar-is-focuss-first-stop-in-the-overlay) The scrub bar is focus's first stop in the overlay
 - [D411](working-notes.md#d411--the-overlay-hides-when-idle-while-playing-however-it-was-shown) The overlay hides when idle while playing, however it was shown
+- [D412](working-notes.md#d412--with-no-year-a-films-well-known-candidate-is-the-likely-one-votes-by-a-wide-margin-a-close-fit-over-a-longer-cuts-its-original-name-then-the-oldest) With no year, a film's well-known candidate is the likely one: votes by a wide margin, a close fit over a longer cut's, its original name, then the oldest
 
 ## Archived
 

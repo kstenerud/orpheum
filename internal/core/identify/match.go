@@ -107,7 +107,7 @@ func (matcher *Matcher) matchTitle(ctx context.Context, titleID int64) (Outcome,
 	if err != nil {
 		return "", err
 	}
-	chosen, how := settleMatch(query, candidates, true, fit.lengthsMs)
+	chosen, how := settleMatch(query, candidates, true, fit.lengths)
 	matcher.logFilmSettled(ctx, title.ID, query, candidates, fit, settlement{chosen: chosen, how: how})
 	settled := answer{id: chosen.ID, identification: identificationIdentified, body: fit.fetched[chosen.ID]}
 	switch how {
@@ -254,7 +254,7 @@ func (matcher *Matcher) isSettledByKept(ctx context.Context, itemID int64, query
 	if len(candidates) == 0 {
 		return true, nil
 	}
-	var lengths []int64
+	var lengths []fileLength
 	if query.Kind == KindMovie {
 		if lengths, err = matcher.fileLengths(ctx, itemID); err != nil {
 			return false, err

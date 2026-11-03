@@ -112,9 +112,10 @@ func TestRescan_AKeptCandidatesRuntimeIsNotFetchedAgain(t *testing.T) {
 	}
 }
 
-// D365 §1: a runtime fits within the larger of 3 minutes and 3% of it; a candidate whose runtime is
-// unknown comes after one that fits and before one that contradicts, whatever their votes.
-func TestMatch_AFilmsCandidatesAreRankedFitsUnknownThenContradicts(t *testing.T) {
+// D365 §1: a runtime fits within the larger of 3 minutes and 3% of it; a candidate that fits comes
+// before the rest whatever their votes, and one whose runtime is unknown ranks with one the file
+// contradicts (D412 §2), as does one the file is a longer cut of, with a year in the name.
+func TestMatch_AFilmsCandidatesAreRankedFitsThenTheRest(t *testing.T) {
 	t.Parallel()
 	for _, each := range []struct {
 		name     string
@@ -138,10 +139,16 @@ func TestMatch_AFilmsCandidatesAreRankedFitsUnknownThenContradicts(t *testing.T)
 			want:   "2",
 		},
 		{
-			name: "unknown before contradicts", lengthMs: 100 * minuteMs,
+			name: "unknown with contradicts", lengthMs: 100 * minuteMs,
 			first:  identify.Metadata{ID: "1", Name: "Faust", Year: 2021, RuntimeMs: 130 * minuteMs},
 			second: identify.Metadata{ID: "2", Name: "Faust", Year: 2021},
-			want:   "2",
+			want:   "1",
+		},
+		{
+			name: "a longer cut with contradicts, with a year", lengthMs: 100 * minuteMs,
+			first:  identify.Metadata{ID: "1", Name: "Faust", Year: 2021, RuntimeMs: 130 * minuteMs},
+			second: identify.Metadata{ID: "2", Name: "Faust", Year: 2021, RuntimeMs: 90 * minuteMs},
+			want:   "1",
 		},
 		{
 			name: "fits before unknown", lengthMs: 100 * minuteMs,
@@ -204,14 +211,15 @@ func TestMatch_AFilmsYearAdmitsAYearEitherSideItsOwnFirst(t *testing.T) {
 	}
 }
 
-// D365 §3 with D301 §1: with no year in the name, the oldest is taken where the runtimes do not
+// D365 §3 with D301 §1 and D412 §3, §4: with no year in the name and votes near each other's, as
+// the real films' are, the oldest is taken where the runtimes do not
 // separate them (Disney's Alcazar over a later one), and the fit comes first where they do.
 func TestMatch_AFilmWithNoYearTakesTheOldestOfThoseThatFitBest(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movies", "tmdb")
 	disneys := lib.provider.Add(identify.Metadata{ID: "4812", Name: "Alcazar", Year: 1992, RuntimeMs: 90 * minuteMs})
 	remake := lib.provider.Add(identify.Metadata{ID: "480817", Name: "Alcazar", Year: 2019, RuntimeMs: 128 * minuteMs})
-	remake.Votes = 15000
+	disneys.Votes, remake.Votes = 9000, 15000
 	lib.provider.Searches[identifytest.SearchKey("Alcazar", 0)] = []identify.Candidate{remake, disneys}
 	older := lib.provider.Add(identify.Metadata{ID: "30", Name: "Clarabel", Year: 1954, RuntimeMs: 113 * minuteMs})
 	newer := lib.provider.Add(identify.Metadata{ID: "31", Name: "Clarabel", Year: 1995, RuntimeMs: 127 * minuteMs})
@@ -219,7 +227,7 @@ func TestMatch_AFilmWithNoYearTakesTheOldestOfThoseThatFitBest(t *testing.T) {
 	const sabrina, unprobed = "Clarabel.mkv", "Alcazar.mkv"
 	lib.scan(videoLasting(sabrina, 127*minuteMs), videoLasting(unprobed, 0))
 	for _, each := range []struct{ rel, want, why string }{
-		{sabrina, "31", "the newer, whose runtime fits the file's, the older's contradicting it"},
+		{sabrina, "31", "the newer, whose runtime fits the file's, the older's only as a longer cut"},
 		{unprobed, "812", "the oldest, no length to fit to"},
 	} {
 		lib.matchFileTitle(each.rel)
@@ -230,7 +238,7 @@ func TestMatch_AFilmWithNoYearTakesTheOldestOfThoseThatFitBest(t *testing.T) {
 	both := newTestLibrary(t, "movies", "tmdb")
 	disneys = both.provider.Add(identify.Metadata{ID: "4812", Name: "Alcazar", Year: 1992})
 	remake = both.provider.Add(identify.Metadata{ID: "480817", Name: "Alcazar", Year: 2019})
-	remake.Votes = 15000
+	disneys.Votes, remake.Votes = 9000, 15000
 	both.provider.Searches[identifytest.SearchKey("Alcazar", 0)] = []identify.Candidate{remake, disneys}
 	both.scan(videoLasting(unprobed, 100*minuteMs))
 	both.matchFileTitle(unprobed)
@@ -239,10 +247,10 @@ func TestMatch_AFilmWithNoYearTakesTheOldestOfThoseThatFitBest(t *testing.T) {
 	}
 }
 
-// With no year in the name, a candidate whose runtime is unknown ranks with those the file
-// contradicts, so the oldest is taken where none fits: the owner's Wings.mp4, 148.8 minutes, a
-// longer cut than Cameron's 137, went to an Wings of 2014 TMDB knows no runtime of and one vote
-// (the owner, 2026-11-02; TMDB's answers as staging kept them).
+// D412 §2: a candidate whose runtime is unknown ranks with those the file contradicts: the owner's
+// Wings.mp4, 148.8 minutes, a longer cut than Cameron's 137, went to an Wings of 2014 TMDB knows
+// no runtime of and one vote (the owner, 2026-11-02; TMDB's answers as staging kept them). Cameron's
+// is taken, the most voted by far, the oldest and a longer cut's fit (D412 §3, §4).
 func TestMatch_AFilmWithNoYearIsNotTakenByAnUnknownRuntimeOverTheOldest(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movies", "tmdb")
@@ -268,6 +276,101 @@ func TestMatch_AFilmWithNoYearIsNotTakenByAnUnknownRuntimeOverTheOldest(t *testi
 	}
 }
 
+// D412 §3: with no year in the name, the well-known is the likely one: the most voted is taken, but
+// only by ten times the votes or more; nearer, the oldest still is, and a handful of votes over none
+// decides nothing.
+func TestMatch_AFilmWithNoYearTakesTheMostVotedOnlyByAWideMargin(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movies", "tmdb")
+	search := func(name string, older, newer int) {
+		one := lib.provider.Add(identify.Metadata{ID: name + "-1950", Name: name, Year: 1950})
+		other := lib.provider.Add(identify.Metadata{ID: name + "-2001", Name: name, Year: 2001})
+		one.Votes, other.Votes = older, newer
+		lib.provider.Searches[identifytest.SearchKey(name, 0)] = []identify.Candidate{one, other}
+	}
+	search("Marrow", 40, 6000)
+	search("Thistle", 700, 6000)
+	search("Fennel", 0, 9)
+	for _, each := range []struct{ rel, want, why string }{
+		{"Marrow.mkv", "Marrow-2001", "the newer, ten times as voted and more"},
+		{"Thistle.mkv", "Thistle-1950", "the older, the newer not ten times as voted"},
+		{"Fennel.mkv", "Fennel-1950", "the older, nine votes too few to count"},
+	} {
+		lib.scan(videoLasting(each.rel, 100*minuteMs))
+		lib.matchFileTitle(each.rel)
+		if id, _ := lib.followed(each.rel); id != each.want {
+			t.Errorf("%s follows %s; want %s, %s", each.rel, id, each.want, each.why)
+		}
+	}
+}
+
+// D412 §4: with no year in the name, a file up to 30% longer than a candidate's runtime fits it as a
+// longer cut, 50% where its name says it is one, over the oldest the file contradicts: the owner's
+// Wings.mp4, 148.8 minutes, is Cameron's 137-minute Wings (here a stand-in with an older namesake
+// near it in votes); but a close fit comes before a longer cut's (Clarabel,
+// TestMatch_AFilmWithNoYearTakesTheOldestOfThoseThatFitBest).
+func TestMatch_AFilmWithNoYearFitsALongerCut(t *testing.T) {
+	t.Parallel()
+	for _, each := range []struct {
+		rel      string
+		lengthMs int64
+		want     string
+		why      string
+	}{
+		{"Harrow.mp4", 8_925_516, "1986", "148.8 minutes, a longer cut of its 137"},
+		{"Harrow.Extended.mkv", 190 * minuteMs, "1986", "190 minutes, a longer cut of its 137 by its name"},
+		{"Harrow.mkv", 190 * minuteMs, "1979", "the oldest, 190 minutes too long for a cut not named one"},
+	} {
+		// A library each, as two files of one name would be versions of one title.
+		lib := newTestLibrary(t, "movies", "tmdb")
+		older := lib.provider.Add(identify.Metadata{ID: "1979", Name: "Harrow", Year: 1979, RuntimeMs: 95 * minuteMs})
+		camerons := lib.provider.Add(identify.Metadata{
+			ID: "1986", Name: "Harrow", Year: 1986, RuntimeMs: 137 * minuteMs,
+		})
+		older.Votes, camerons.Votes = 5000, 9000
+		lib.provider.Searches[identifytest.SearchKey("Harrow", 0)] = []identify.Candidate{camerons, older}
+		lib.scan(videoLasting(each.rel, each.lengthMs))
+		lib.matchFileTitle(each.rel)
+		if id, _ := lib.followed(each.rel); id != each.want {
+			t.Errorf("%s follows %s; want %s, %s", each.rel, id, each.want, each.why)
+		}
+	}
+}
+
+// D412 §1: with no year in the name, a candidate whose original name is the file's comes before one
+// named so only in translation, where nothing else separates them; but it never knocks one out:
+// the owner's Blind & Ugly is named in English, the film German, Blind & Hässlich.
+func TestMatch_AFilmWithNoYearPrefersItsOriginalNameButKeepsATranslatedOne(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movies", "tmdb")
+	translated := lib.provider.Add(identify.Metadata{
+		ID: "60", Name: "Harbour Lights", OriginalName: "Hafenlichter", Year: 1960,
+	})
+	original := lib.provider.Add(identify.Metadata{
+		ID: "90", Name: "Harbour Lights", OriginalName: "Harbour Lights", Year: 1990,
+	})
+	translated.Votes, original.Votes = 300, 200
+	lib.provider.Searches[identifytest.SearchKey("Harbour Lights", 0)] = []identify.Candidate{translated, original}
+	german := lib.provider.Add(identify.Metadata{
+		ID: "480500", Name: "Blind & Ugly", OriginalName: "Blind & Hässlich", Year: 2017,
+	})
+	short := lib.provider.Add(identify.Metadata{
+		ID: "900001", Name: "Blind & Ugly", OriginalName: "Blind & Ugly", Year: 2020,
+	})
+	german.Votes, short.Votes = 400, 2
+	lib.provider.Searches[identifytest.SearchKey("Blind & Ugly", 0)] = []identify.Candidate{short, german}
+	for _, each := range []struct{ rel, want, why string }{
+		{"Harbour Lights.mkv", "90", "the one so named originally, the older named so only in translation"},
+		{"Pale.and.Kind.mkv", "379138", "the German film, named in English, far the more voted"},
+	} {
+		lib.scan(videoLasting(each.rel, 100*minuteMs))
+		lib.matchFileTitle(each.rel)
+		if id, _ := lib.followed(each.rel); id != each.want {
+			t.Errorf("%s follows %s; want %s, %s", each.rel, id, each.want, each.why)
+		}
+	}
+}
+
 // D365 §5: the log says, for a film whose name admitted several candidates, each one's year,
 // runtime, votes and fit, and the one taken.
 func TestMatch_AFilmsChoiceAmongItsCandidatesIsLogged(t *testing.T) {
@@ -284,7 +387,7 @@ func TestMatch_AFilmsChoiceAmongItsCandidatesIsLogged(t *testing.T) {
 		`msg="a film's candidate" itemId=` + itemID +
 			` candidate=1020910 year=2023 runtimeMs=5520000 votes=20 fit=fits`,
 		`msg="a film's candidate" itemId=` + itemID +
-			` candidate=1120937 year=2022 runtimeMs=5280000 votes=30 fit=contradicts`,
+			` candidate=1120937 year=2022 runtimeMs=5280000 votes=30 fit=edition`,
 		`msg="a film's candidates settled" itemId=` + itemID + ` year=2022 fileLengthsMs=[5527264] taken=1020910` +
 			` isGuess=true`,
 	} {

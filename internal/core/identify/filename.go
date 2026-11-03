@@ -509,6 +509,29 @@ func isCutName(word, next string) bool {
 	return false
 }
 
+// namesALongerCut is whether a film file's name, or its folder's, says it is a longer cut of the
+// film than its theatrical one: Extended, Director's Cut, Special Edition or Unrated (D412 §4).
+func namesALongerCut(filePath string) bool {
+	folder, name := path.Split(filePath)
+	for _, part := range []string{name, path.Base(folder)} {
+		words := wordsOf(strings.ToLower(part))
+		for index, word := range words {
+			next := func(at int) string {
+				if index+at < len(words) {
+					return words[index+at]
+				}
+				return ""
+			}
+			switch {
+			case word == "extended", word == "unrated", word == "special" && next(1) == "edition",
+				word == "directors" && next(1) == "cut", word == "director" && next(1) == "s" && next(2) == "cut":
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // cleanTitle turns a release-style stem into a title and its year: separators become spaces,
 // provider-id markers and bracketed groups go, and everything from the year or the first release
 // tag on is cut.

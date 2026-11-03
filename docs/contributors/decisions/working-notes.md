@@ -23512,7 +23512,7 @@ not tell 88 from 92 minutes, as credits, cuts and PAL speed-up move a film's len
    one taken, so a wrong guess explains itself.
 
 **Proven by:**
-- 1: TestMatch_AFilmsCandidateWhoseRuntimeFitsTheFileIsTaken, TestMatch_AFilmsCandidatesAreRankedFitsUnknownThenContradicts
+- 1: TestMatch_AFilmsCandidateWhoseRuntimeFitsTheFileIsTaken, TestMatch_AFilmsCandidatesAreRankedFitsThenTheRest
 - 2: TestMatch_AFilmsYearAdmitsAYearEitherSideItsOwnFirst, TestMatch_AFilmsCandidateWhoseRuntimeFitsTheFileIsTaken, TestMatch_TheYearIsAStrongerCueThanTheExactName
 - 3: TestMatch_AFilmWithNoYearTakesTheOldestOfThoseThatFitBest, TestMatch_SeveralOfOneNameAreSettledByAGuessMarkedAsOne
 - 4: TestMatch_AFilmsCandidateWhoseRuntimeFitsTheFileIsTaken, TestRescan_AKeptCandidatesRuntimeIsNotFetchedAgain
@@ -25782,3 +25782,69 @@ focus in the overlay, D409, and D410 §1's Up or Down with focus outside the ove
    first keyboard input feels like it got swallowed").
 
 **Status:** Decided 2026-11-03.
+
+## D412 — With no year, a film's well-known candidate is the likely one: votes by a wide margin, a close fit over a longer cut's, its original name, then the oldest
+
+**Decided** (2026-11-02), by the project owner, agreeing to the lead's proposal after the owner's
+`movies/Wings.mp4` (no year, no NFO, 148.8 minutes) followed TMDB 3955, a Korean *Wings* of
+2014 with no runtime and one vote, over Cameron's of 1986 (TMDB 3927, 137 minutes, 11,339 votes)
+(navigation-and-widgets plan, the owner's comments of 2026-11-02, item 5). Built by an agent while
+the owner slept, the choices the proposal left open taken conservatively and listed in §6 for the
+owner to confirm. **Amends**
+[D365](#d365--among-a-films-candidates-the-one-whose-runtime-fits-the-file-is-preferred-a-year-either-side-of-the-names-then-the-most-voted)
+§1 and §3, and
+[D301](#d301--an-unsettled-match-takes-the-oldest-candidate-the-most-voted-within-a-year-and-an-admin-corrects-it-from-the-titles-page)
+§1's oldest for a film with no year. It replaces the interim fix of "fix(identify): with no year, an unknown runtime does not lift a film's candidate over the oldest", which ranked an
+unknown runtime with a contradicted one only with no year.
+
+1. **Why.** A name with no year was enough for whoever named the file, so the well-known title is
+   the likely one. D365 ranked an unknown runtime over a contradicted one, so a longer cut of a
+   famous film lost to the sparsest entry of its name; and D301's oldest, and D365's fit, never
+   looked at how well known each candidate is.
+2. **An unknown runtime counts as a contradicting one**, with a year in the name too: only a fit
+   lifts a candidate. With a year, the rest of D365 stands: fits first, then the named year before a
+   year off, then the most voted.
+3. **With no year, TMDB's vote count decides first, but only by a wide margin**: a candidate with ten
+   times another's votes or more ranks before it. The count is votes, not TMDB's daily popularity
+   score, which follows what is in the news. As a margin between two is no order among several (100
+   is ten times 5, but neither is ten times 20), each candidate is given a tier: the first those
+   within ten times of the most voted, the next those within ten times of the most voted of the
+   rest, and so on.
+4. **Then the runtime fit, in tiers**: a close fit (D365 §1, the larger of 3 minutes and 3%) over a
+   longer cut's fit (the file longer than the runtime by up to 30% of it, or 50% where the file's
+   name or its folder's says Extended, Director's Cut, Special Edition or Unrated) over the rest. The
+   close tier keeps remakes of near lengths apart: Sabrina's 1954 at 113 minutes would otherwise fit
+   the 1995's 127-minute file as a longer cut. With a year, a longer cut's fit ranks with the rest,
+   as D365 had it.
+5. **Then one whose original name is the file's** before one named so only in translation (its
+   original name known and another); it never knocks a candidate out, as the owner's *Blind & Ugly*
+   is named in English, the film German (*Blind & Hässlich*). **Then the oldest** (D301 §1), then the
+   most voted.
+6. **Where the proposal was silent, the agent chose** (for the owner to confirm):
+   - *The original name's place.* The proposal listed it first, as winning a tie. Ranked before the
+     votes, it would take Arirang (1982, original English, about a hundred votes) over Park Sun-wol's
+     (2019, original Korean, tens of thousands) for `Arirang.mkv`; ranked before the fit, Oldboy
+     (2013, original English, 104 minutes) over Park Chan-wook's (2003, Korean, 120) for a 120-minute
+     file. So it settles only what the votes and the fit leave tied.
+   - *A count too small to decide.* Below 10 votes a count is counted as 10, so a handful of votes over
+     none decides nothing; a film needs 100 to decide over one nobody rated.
+   - *How much longer a named cut may be:* 50%, against 30% unnamed: the extended LOTR films run
+     about 31% longer, Kingdom of Heaven's director's cut 35%.
+   - *Only longer.* A file shorter than a candidate's runtime by more than a close fit contradicts it,
+     as the proposal named only longer cuts.
+   - *A series* is not changed here: the proposal's series rules (every season and episode on disk
+     at the provider, episode names, no re-rank on drifting votes, a close call flagged) are left for
+     their own change.
+7. **The tests' stand-ins.** Fixtures that gave the older of two same-named films no votes, standing
+   for Disney's The Thief of Bagdad and The Kid against their remakes, now give each votes near the
+   other's, as the real films' are, so the oldest still wins (the owner's words with the proposal).
+
+**Proven by:**
+- 2: TestMatch_AFilmsCandidatesAreRankedFitsThenTheRest, TestMatch_AFilmWithNoYearIsNotTakenByAnUnknownRuntimeOverTheOldest
+- 3: TestMatch_AFilmWithNoYearTakesTheMostVotedOnlyByAWideMargin
+- 4: TestMatch_AFilmWithNoYearFitsALongerCut, TestMatch_AFilmWithNoYearTakesTheOldestOfThoseThatFitBest
+- 5: TestMatch_AFilmWithNoYearPrefersItsOriginalNameButKeepsATranslatedOne
+
+**Status:** Decided 2026-11-02. In `internal/core/identify/settle_film.go` (`rankFilms`, `voteTiers`,
+`fitOf`), a file's name read for a longer cut by `namesALongerCut` (`filename.go`); the log names a
+longer cut's fit `edition`.

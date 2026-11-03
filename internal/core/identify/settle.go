@@ -36,9 +36,11 @@ const (
 // (underAnotherName, D307 §1).
 //
 // A film's candidates are settled otherwise (settleFilm, D365): by how their runtimes fit its files'
-// lengths, lengthsMs, which a series' search passes none of.
-func settleMatch(query Query, candidates []Candidate, isYearExpected bool, lengthsMs []int64) (Candidate, settledBy) {
-	chosen, how, _ := settleMatchSaying(query, candidates, isYearExpected, lengthsMs)
+// lengths, which a series' search passes none of.
+func settleMatch(
+	query Query, candidates []Candidate, isYearExpected bool, lengths []fileLength,
+) (Candidate, settledBy) {
+	chosen, how, _ := settleMatchSaying(query, candidates, isYearExpected, lengths)
 	return chosen, how
 }
 
@@ -61,10 +63,10 @@ func tierRules() []string {
 
 // settleMatchSaying is settleMatch, and which of its rules settled the match.
 func settleMatchSaying(
-	query Query, candidates []Candidate, isYearExpected bool, lengthsMs []int64,
+	query Query, candidates []Candidate, isYearExpected bool, lengths []fileLength,
 ) (Candidate, settledBy, string) {
 	if query.Kind == KindMovie {
-		return settleFilm(query, candidates, isYearExpected, lengthsMs)
+		return settleFilm(query, candidates, isYearExpected, lengths)
 	}
 	for index, tier := range matchTiers(query) {
 		var found []Candidate

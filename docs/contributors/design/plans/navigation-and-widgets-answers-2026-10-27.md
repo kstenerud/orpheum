@@ -1248,6 +1248,8 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
    call between the top two is flagged for checking. The test with no year, Alcazar (a stand-in for
    The Thief of Bagdad: Disney's 1992 against the 2019 remake), gives the remake 15,000 votes and Disney's none;
    its votes become near each other's, as the real films' are, so the oldest still wins.
+   **Built (D412), the films' rules:** the original name settles only what the votes and the fit
+   leave tied (D412 §6 says why), and the series' rules wait for their own change.
 6. **A DVD image fails to seek past 59 minutes** (found by the agent running VQ73, 2026-11-02;
    folded into this batch as a bug that seriously hurts using the app). The Der Golem concert
    DVD's title starts its clock again at 0 at 1:28:39, and FFmpeg, seeking a program stream by its
