@@ -9,6 +9,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 
 import hooklib
 import run_gate
@@ -18,6 +19,11 @@ PENDING = hooklib.ROOT / ".claude" / ".cache"
 # Its presence in PENDING defers the turn-end gate while the owner iterates on a design, which make
 # check refuses to run beside (scripts/check_stamp.py DEFERRED_MARK; standards/design-cycle.md).
 DEFERRED = "check-deferred"
+# One line a run of the turn-end gate: when it started, how long it ran, the load either side and the
+# FFmpeg jobs running as it started, so a slow turn can be explained after it (the owner, 2026-11-01:
+# "why is make check taking so long?"; agreed for the 11-05 batch). The newest RUNS_KEPT lines stay.
+RUNS = "gate-runs.jsonl"
+RUNS_KEPT = 1000
 
 
 def main() -> None:
@@ -70,7 +76,13 @@ def main() -> None:
         return
     # Never build the image here: a build takes minutes past the hook's limit (./dev says to run it).
     env = {**os.environ, "ORPHEUM_DEV_NO_BUILD": "1"}
+    started, load, transcodes = time.time(), os.getloadavg()[0], ffmpeg_jobs()
     done = subprocess.run(command, cwd=hooklib.ROOT, capture_output=True, text=True, check=False, env=env)
+    with contextlib.suppress(OSError):
+        record_run({"start": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(started)), "target": target,
+                    "seconds": round(time.time() - started), "exit": done.returncode,
+                    "loadBefore": round(load, 1), "loadAfter": round(os.getloadavg()[0], 1),
+                    "ffmpegJobs": transcodes})
     if done.returncode == 0:
         code.unlink(missing_ok=True)
         docs.unlink(missing_ok=True)
@@ -81,6 +93,25 @@ def main() -> None:
         cannot_run(target, output, blocked_before)
         return
     block(target, output)
+
+
+def ffmpeg_jobs() -> int:
+    """How many FFmpeg processes run here: staging's node transcodes in this machine's Docker, and a
+    transcode slows the gate (the owner, 2026-11-01). 0 when it cannot be told."""
+    try:
+        found = subprocess.run(["pgrep", "-c", "-x", "ffmpeg"], capture_output=True, text=True, check=False)
+    except OSError:
+        return 0
+    return int(found.stdout.strip() or 0) if found.stdout.strip().isdigit() else 0
+
+
+def record_run(run: dict) -> None:
+    """Appends a run of the gate to PENDING's record, keeping the newest RUNS_KEPT."""
+    record = PENDING / RUNS
+    lines = record.read_text().splitlines() if record.exists() else []
+    lines = [*lines, json.dumps(run)][-RUNS_KEPT:]
+    PENDING.mkdir(parents=True, exist_ok=True)
+    record.write_text("\n".join(lines) + "\n")
 
 
 def cannot_run(target: str, output: str, blocked_before: bool) -> None:
