@@ -15,7 +15,7 @@ import { useTranslation } from "react-i18next";
 
 import { audioTrackLabel } from "./audio-tracks.tsx";
 import { tabStorage } from "./browser-storage.ts";
-import { endCast, listMyCasts, moveCastOn } from "./cast.ts";
+import { endCast, listMyCasts, moveCastOn, type CastEnded } from "./cast.ts";
 import { placeCode } from "./episode-place.ts";
 import { useLive } from "./live.tsx";
 import { homeTold } from "./notice.ts";
@@ -262,16 +262,22 @@ function useCastSession(castId: number): {
   const [stoppedAtMs, setStoppedAtMs] = useState<number | undefined>(undefined);
   const endReason = snapshot?.status === "ended" ? snapshot.endReason : undefined;
   const isGone = casts.state === "loaded" && own === undefined;
+  // Tried once more where the first try fails: a connection that has just dropped fails it, and the
+  // next goes on its replacement (the owner, 2026-11-03: the phone played the film itself while the
+  // laptop went on with the cast).
   const stop = (): void => {
     const atMs = positionMs ?? 0;
-    endCast(api, castId, "stopped").then(
-      (ended) => {
-        setStoppedAtMs(ended.positionMs);
-      },
-      () => {
-        setStoppedAtMs(atMs);
-      },
-    );
+    const ending = (): Promise<CastEnded> => endCast(api, castId, "stopped");
+    ending()
+      .catch(ending)
+      .then(
+        (ended) => {
+          setStoppedAtMs(ended.positionMs);
+        },
+        () => {
+          setStoppedAtMs(atMs);
+        },
+      );
   };
   return {
     connection,
