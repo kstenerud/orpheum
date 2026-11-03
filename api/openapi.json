@@ -6054,6 +6054,149 @@
         ],
         "type": "object"
       },
+      "ResourceUseHourBody": {
+        "additionalProperties": false,
+        "properties": {
+          "busiestCpuPercent": {
+            "description": "Its busiest minute's, in percent of one core",
+            "format": "double",
+            "type": "number"
+          },
+          "cacheBytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "cpuPercent": {
+            "description": "Its CPU time over the hour, in percent of one core",
+            "format": "double",
+            "type": "number"
+          },
+          "heldBytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "isNode": {
+            "type": "boolean"
+          },
+          "nodeName": {
+            "description": "The node's name; empty for the core",
+            "type": "string"
+          },
+          "peakBytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "plays": {
+            "description": "The core's: the most playbacks playing at once",
+            "format": "int64",
+            "type": "integer"
+          },
+          "running": {
+            "additionalProperties": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "description": "A node's: the most of each kind of job running at once",
+            "type": "object"
+          },
+          "start": {
+            "description": "Unix milliseconds of the hour's start",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "start",
+          "heldBytes",
+          "cacheBytes",
+          "peakBytes",
+          "plays",
+          "running",
+          "isNode",
+          "nodeName"
+        ],
+        "type": "object"
+      },
+      "ResourceUseOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "hours": {
+            "description": "The last day's hours, the core's first, newest first",
+            "items": {
+              "$ref": "#/components/schemas/ResourceUseHourBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "summaries": {
+            "items": {
+              "$ref": "#/components/schemas/ResourceUseSummaryBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "summaries",
+          "hours"
+        ],
+        "type": "object"
+      },
+      "ResourceUseSummaryBody": {
+        "additionalProperties": false,
+        "properties": {
+          "busiestCpuPercent": {
+            "description": "Its busiest minute's, in percent of one core",
+            "format": "double",
+            "type": "number"
+          },
+          "cacheBytes": {
+            "description": "The most file cache charged to it",
+            "format": "int64",
+            "type": "integer"
+          },
+          "cpuPercent": {
+            "description": "Its CPU time over its time, in percent of one core",
+            "format": "double",
+            "type": "number"
+          },
+          "heldBytes": {
+            "description": "The most memory it held of its own",
+            "format": "int64",
+            "type": "integer"
+          },
+          "isNode": {
+            "type": "boolean"
+          },
+          "nodeName": {
+            "description": "The node's name; empty for the core",
+            "type": "string"
+          },
+          "peakBytes": {
+            "description": "The most the kernel saw it hold; 0 when it never said",
+            "format": "int64",
+            "type": "integer"
+          },
+          "since": {
+            "description": "Unix milliseconds of its first minute kept",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "since",
+          "heldBytes",
+          "cacheBytes",
+          "peakBytes",
+          "isNode",
+          "nodeName"
+        ],
+        "type": "object"
+      },
       "RestoreWatchedInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -15954,6 +16097,48 @@
           }
         },
         "summary": "Check the public name and voice relay from outside in, naming a failing hop (admin; D243 §7)",
+        "tags": [
+          "Running it"
+        ]
+      }
+    },
+    "/system/resource-use": {
+      "get": {
+        "operationId": "getResourceUse",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceUseOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "What the core and each node used of their machines, each minute, beside the plays and the work running (admin)",
         "tags": [
           "Running it"
         ]

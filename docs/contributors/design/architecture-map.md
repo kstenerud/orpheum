@@ -77,6 +77,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/core/chunks/qualities` | R7 (the setting `chunk_qualities`, read and checked by one function) | — (its own package so the settings registry checks the value with it, D247 §6) |
 | `internal/core/playback` | R6b (play state) | — (the preferences store moved out on 2026-09-30; loudness, subtitles and renditions on 2026-10-03, F2) |
 | `internal/core/subtitles` | R8 (the subtitle extraction and conversion jobs), R3 (the texts, by source hash) | ⚑ R1: subtitle search and fetch through the provider client (fetch.go). Split out of playback on 2026-10-03, F2 |
+| `internal/core/resourceuse` | OPS (what the core and each node use of their machines, a minute's row each, kept a month; toolkit.md) | — |
 | `internal/core/preferences` | R6b (a person's choices) | — (since 2026-09-30: F2's preferences part, F6) |
 | `internal/core/providers/opensubtitles` | R1 | — (moved from `playback/opensubtitles` on 2026-09-30, the jobs rebuild's Phase 2) |
 | `internal/core/rtcapi` | R9 (the API over WebRTC data channels, D273 §8) | — |
@@ -132,6 +133,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/platform/pacing` | R4 support (a film's download giving way to live voice, D262 §2) | — (the core's api paces media requests by the player's header; built 2026-10-07) |
 | `internal/platform/build`, `internal/platform/host`, `internal/platform/diskspace` | OPS | — |
 | `internal/platform/clock`, `internal/platform/localtime`, `internal/platform/slogx`, `internal/platform/errs`, `internal/platform/ptr`, `internal/platform/pathtree`, `internal/platform/randbytes`, `internal/platform/readonly`, `internal/platform/backoff`, `internal/platform/atomics`, `internal/platform/httpgzip` | PRIM | — |
+| `internal/platform/selfuse` | PRIM (what this process, or its cgroup, uses of its machine) | — |
 | `internal/store`, `internal/store/sqlcgen`, `internal/store/cachegen` | PERSIST | — (the `job` table's one writer since the jobs rebuild's Phase 1, as the queue's storage: D231 §2) |
 | `internal/archtest`, `internal/testutil`, `internal/store/storetest`, `internal/store/storesources`, `internal/core/auth/authtest`, `internal/core/identify/identifytest`, `internal/core/jobs/jobstest`, `internal/core/certificate/certificatetest`, `internal/core/providers/cloudflare/cloudflaretest`, `internal/core/nodes/nodestest`, `internal/core/library/librarytest`, `internal/core/settings/settingstest`, `internal/node/nodetest`, `internal/node/container/containertest`, `internal/node/disc/disctest`, `internal/node/fdproxy/fdproxytest`, `internal/platform/clock/clocktest`, `internal/platform/jobqueue/jobqueuetest`, `internal/core/providers/providerstest` | TEST | — |
 | `internal/schedtest` | TEST | — (D329's scheduling bench, work-scheduling.md §16 phase 0: a discrete-event simulation of disks, playbacks and the policy between them, with today's node work list as the baseline; outside core and node so it can drive the deciders of both) |
@@ -200,6 +202,7 @@ package writes each table is schema.md's [owners table](plans/schema.md#who-writ
 | unavailable_place | persistent.db | TO | yes | availability kept per place, one writer (D328) |
 | node | persistent.db | T1 (enrolment) | yes | — (its status is kept in memory alone since D303's step 0049) |
 | device_reader_limit | persistent.db | T1 (the admin's, D240 §5) | yes | — |
+| resource_use | persistent.db | TO (measured each minute, kept a month) | yes | — |
 | refresh_request, fetch_failure | persistent.db | T1 (a person's ask) / TO (a fetch's own failure, D231 §4) | yes | facts that were job rows (F1, step 0029) |
 | guessed_match | persistent.db | TO (the matcher's guess, cleared by a person's choice, D301) | yes | — |
 | provider_response (body_gzip) | persistent.db | T2 | yes | correct (moved from cache.db by the second audit) |

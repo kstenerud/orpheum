@@ -26,6 +26,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/diskspace"
+	"github.com/kstenerud/orpheum/internal/platform/selfuse"
 	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
 )
 
@@ -107,6 +108,9 @@ type Workers struct {
 	// SetStatusEvery sets how often the tick Run is given comes, when the core says (a time.Ticker's
 	// Reset); nil keeps the tick as it is.
 	SetStatusEvery func(every time.Duration)
+	// ReadSelfUse reads what the node, with the FFmpeg runs it started, uses of its machine, for its
+	// status: selfuse.Read. Nil says nothing of it.
+	ReadSelfUse func() (selfuse.Sample, error)
 }
 
 // defaultOpenStallWindow is how long the node waits for a file it is to read to open: a disk asleep
@@ -185,6 +189,8 @@ type Agent struct {
 	// progressEverySeconds is how often, at most, a running read-through tells the core how far it is, as
 	// the core last said (nodeproto.Tuning); starts at nodeproto.StartingProgressEverySeconds.
 	progressEverySeconds atomic.Int64
+	// selfUseFailing says once that the node cannot read what it uses, which does not change.
+	selfUseFailing sync.Once
 
 	mutex sync.Mutex
 	// devices are what the roots are on, as the last hello found them. Guarded by mutex.

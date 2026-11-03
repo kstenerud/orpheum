@@ -41,6 +41,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/host"
 	"github.com/kstenerud/orpheum/internal/platform/randbytes"
 	"github.com/kstenerud/orpheum/internal/platform/readonly"
+	"github.com/kstenerud/orpheum/internal/platform/selfuse"
 	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
 )
 
@@ -190,7 +191,7 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 		Subtitler:     subtitle.NewExtractor(runner, hello.Capacity.SlowestReadBytesPerSecond),
 		ThroughReader: readthrough.NewReader(runner, hello.Capacity.SlowestReadBytesPerSecond),
 		HeldResults:   heldResults, Hashes: hashes, Stuck: stuckOf(runner), SetStatusEvery: setStatusEvery,
-		Disks: disks, Films: runner,
+		Disks: disks, Films: runner, ReadSelfUse: selfuse.Read,
 	}
 	workers.EndedWorkKept, workers.ReadStallWindow = workPacing(config)
 	workers.ReadStallWindow = cmp.Or(seams.readStallWindow, workers.ReadStallWindow)

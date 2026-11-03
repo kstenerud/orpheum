@@ -40,6 +40,20 @@ type RefreshRequest struct {
 	ShouldFetchImages int64
 }
 
+type ResourceUse struct {
+	At          int64
+	Process     string
+	NodeName    string
+	Scope       string
+	CpuMicros   *int64
+	ElapsedMs   *int64
+	HeldBytes   int64
+	CacheBytes  int64
+	PeakBytes   *int64
+	Plays       int64
+	RunningJSON string
+}
+
 type RoleLibrary struct {
 	RoleID         int64
 	LibraryID      int64

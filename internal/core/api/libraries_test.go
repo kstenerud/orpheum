@@ -50,6 +50,8 @@ type fakeNodes struct {
 	prepared *nodeproto.PreparedUsage
 	// disks are what its last status said of its disks.
 	disks []nodeproto.Disk
+	// selfUses are what the connected nodes' statuses said they use of their machines.
+	selfUses []corenodes.NodeSelfUse
 	// stuck is the work local's status says waits on a disk.
 	stuck []nodeproto.Stuck
 	// held is the work local's status says it holds, and statusSentAt when it sent that status.
@@ -257,6 +259,9 @@ func (nodes *fakeNodes) ConnectedNodeID(ctx context.Context) (int64, bool) {
 
 // EncodesOnAGPU is false: the fake node encodes on its processor.
 func (*fakeNodes) EncodesOnAGPU(int64) bool { return false }
+
+// SelfUses are what the connected nodes said they use, as the test set them.
+func (nodes *fakeNodes) SelfUses(context.Context) []corenodes.NodeSelfUse { return nodes.selfUses }
 
 // SetResultSink takes nothing: the node's answers go where takeResult says.
 func (*fakeNodes) SetResultSink(corenodes.ResultSink) {}

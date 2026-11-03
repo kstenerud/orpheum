@@ -80,6 +80,23 @@ type Status struct {
 	// Watches say, for each library folder it was given to watch (HelloReply.WatchFolders), whether the node
 	// watches it for changes (D27, D272 §9).
 	Watches []RootWatch `json:"watches,omitempty"`
+	// SelfUse is what the node, with the FFmpeg runs it started, has used of its machine, read as it
+	// made the status; absent when it could not read it. The core keeps it once a minute.
+	SelfUse *SelfUse `json:"selfUse,omitempty"`
+}
+
+// SelfUse is what a process has used of its machine, read at one moment (selfuse.Sample).
+type SelfUse struct {
+	// Scope is what was measured: "cgroup", the node's group with what it started, or "process",
+	// the node alone.
+	Scope string `json:"scope"`
+	// CPUMicros is the CPU time used since the scope began, in microseconds.
+	CPUMicros int64 `json:"cpuMicros"`
+	// HeldBytes is the memory held, CacheBytes the files' pages kept for it, PeakBytes the most held
+	// at once since the scope began, zero when unknown.
+	HeldBytes  int64 `json:"heldBytes"`
+	CacheBytes int64 `json:"cacheBytes"`
+	PeakBytes  int64 `json:"peakBytes"`
 }
 
 // Stuck is work the node answered as stalled that has not ended: a tool's process that outlived
