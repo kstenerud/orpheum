@@ -11,7 +11,7 @@ import { OrderingChoice, SeriesView, type SeriesDetail } from "./series.tsx";
 import {
   buttonNamed,
   buttonWithText,
-  choose,
+  chooseIn,
   click,
   mount,
   servedBy,
@@ -79,12 +79,20 @@ describe("a series in the ordering its person chose (episode-orderings.md §4)",
   });
 
   it("offers its orderings, aired first, each with its kind and how many it holds; none when it has one", async () => {
-    const markup = renderToStaticMarkup(withServices(<OrderingChoice series={inDVDOrder} />));
-    expect(markup).toContain('<option value="aired">Aired</option>');
-    expect(markup).toContain(
-      '<option value="tmdb:dvd" selected="">DVD Order (DVD) · episodes here: 3</option>',
+    // The chooser, not a native select, which a television's browser cannot work (the 2026-10-27
+    // widget audit; plans/toolkit.md step 6).
+    const offered = await mount(withServices(<OrderingChoice series={inDVDOrder} />));
+    expect(offered.container.querySelector(".route-chooser__button")?.textContent).toBe(
+      "DVD Order (DVD) · episodes here: 3",
     );
-    expect(markup.indexOf('value="aired"')).toBeLessThan(markup.indexOf('value="tmdb:dvd"'));
+    await click(offered.container.querySelector(".series__ordering button[aria-haspopup]"));
+    const choices = [...offered.container.querySelectorAll("dialog .list-box button")];
+    expect(choices.map((choice) => choice.textContent)).toEqual([
+      "Aired",
+      "DVD Order (DVD) · episodes here: 3",
+    ]);
+    expect(choices.map((choice) => choice.getAttribute("aria-current"))).toEqual([null, "true"]);
+    offered.unmount();
     const listedOnly = renderToStaticMarkup(
       withServices(
         <OrderingChoice
@@ -118,7 +126,9 @@ describe("a series in the ordering its person chose (episode-orderings.md §4)",
     await click(buttonNamed(atSeason.container, "More actions"));
     await click(buttonWithText(atSeason.container, "Order"));
     expect(atSeason.container.querySelectorAll("dialog")).toHaveLength(1);
-    expect(atSeason.container.querySelector("dialog select")).not.toBeNull();
+    expect(
+      atSeason.container.querySelector("dialog .series__ordering .route-chooser"),
+    ).not.toBeNull();
     atSeason.unmount();
   });
 
@@ -148,7 +158,7 @@ describe("a series in the ordering its person chose (episode-orderings.md §4)",
     );
     await click(buttonNamed(page.container, "More actions"));
     await click(buttonWithText(page.container, "Order"));
-    await choose(page.container.querySelector("select"), "aired");
+    await chooseIn(page.container, "Order", "Aired");
     // Chosen, its dialog closes.
     expect(page.container.querySelector("dialog")).toBeNull();
     page.unmount();

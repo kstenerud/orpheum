@@ -9,6 +9,7 @@ import { timeText } from "./date-time-text.ts";
 import { ApiProblem, dataOrThrow, providerProblemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { RequestWait } from "./request-wait.tsx";
+import { ActionChooser, currentLabelOf, type ActionChoice } from "./route-chooser.tsx";
 import { useRequest } from "./use-request.ts";
 import { languageName } from "./language-name.ts";
 
@@ -170,28 +171,31 @@ export function FindSubtitles(props: {
   );
 }
 
-/** The language a search asks for, named in the viewer's language. */
+/**
+ * The language a search asks for, named in the viewer's language: the app's chooser
+ * (route-chooser.tsx), which a remote works, where a native select was, which a television's
+ * browser does not (the 2026-10-27 widget audit; plans/toolkit.md step 6).
+ */
 function LanguagePicker(props: {
   readonly language: string;
   readonly onPicked: (language: string) => void;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
+  const { onPicked } = props;
+  const options = searchLanguages.map((tag): ActionChoice => ({
+    key: tag,
+    label: languageName(tag, i18n.language),
+    isCurrent: tag === props.language,
+    onChoose: () => {
+      onPicked(tag);
+    },
+  }));
   return (
-    <label>
-      {t("play.findSubtitles.language")}{" "}
-      <select
-        value={props.language}
-        onChange={(event) => {
-          props.onPicked(event.currentTarget.value);
-        }}
-      >
-        {searchLanguages.map((tag) => (
-          <option key={tag} value={tag}>
-            {languageName(tag, i18n.language)}
-          </option>
-        ))}
-      </select>
-    </label>
+    <ActionChooser
+      fieldLabel={t("play.findSubtitles.language")}
+      current={currentLabelOf(options)}
+      options={options}
+    />
   );
 }
 

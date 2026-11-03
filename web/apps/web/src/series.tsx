@@ -3,7 +3,7 @@
 import "./series.css";
 
 import type { components } from "@orpheum/sdk";
-import { use, useCallback, useEffect, useId, useRef, useState, type JSX } from "react";
+import { use, useCallback, useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 
@@ -23,6 +23,7 @@ import { StatusNotes, StatusTray } from "./status-cues.tsx";
 import { PosterCard, PosterDetail } from "./poster-card.tsx";
 import { Poster, Still } from "./poster.tsx";
 import { Link } from "./link.tsx";
+import { ActionChooser, currentLabelOf, type ActionChoice } from "./route-chooser.tsx";
 import { usePageInterest } from "./page-interest.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
@@ -347,44 +348,47 @@ export function OrderingChoice(props: {
   const { t } = useTranslation();
   const { api, navigation } = useServices();
   const { isBusy, problem, runRequest } = useRequest((cause) => problemText(t, cause));
-  const id = useId();
   const { series } = props;
   const orderings = series.orderings ?? [];
   if (orderings.length < 2) {
     return null;
   }
+  const choose = (chosen: string): void => {
+    if (isBusy) {
+      return;
+    }
+    runRequest(async () => {
+      throwIfRefused(
+        await api.PUT("/collections/{id}/preferences", {
+          params: { path: { id: series.id } },
+          body: { episodeOrdering: chosen },
+        }),
+      );
+      // Another ordering is a view of the same series: no step in the history (D367 §9).
+      navigation.replace({ screen: "series-page", collectionId: series.id });
+      props.onChosen?.();
+    });
+  };
+  const shown = series.ordering ?? orderingAired;
+  const options = orderings.map((ordering): ActionChoice => ({
+    key: ordering.name,
+    label: orderingName(t, ordering),
+    isCurrent: ordering.name === shown,
+    onChoose: () => {
+      choose(ordering.name);
+    },
+  }));
   return (
-    <p className="series__ordering">
-      <label htmlFor={id}>{t("ordering.label")}</label>{" "}
-      <select
-        id={id}
-        value={series.ordering ?? orderingAired}
-        disabled={isBusy}
-        onChange={(event) => {
-          const chosen = event.target.value;
-          runRequest(async () => {
-            throwIfRefused(
-              await api.PUT("/collections/{id}/preferences", {
-                params: { path: { id: series.id } },
-                body: { episodeOrdering: chosen },
-              }),
-            );
-            // Another ordering is a view of the same series: no step in the history (D367 §9).
-            navigation.replace({ screen: "series-page", collectionId: series.id });
-            props.onChosen?.();
-          });
-        }}
-      >
-        {orderings.map((ordering) => (
-          <option key={ordering.name} value={ordering.name}>
-            {orderingName(t, ordering)}
-          </option>
-        ))}
-      </select>
+    <div className="series__ordering">
+      <ActionChooser
+        fieldLabel={t("ordering.label")}
+        current={currentLabelOf(options)}
+        options={options}
+      />
       {problem === undefined ? null : (
         <span className="series__absent">{t("ordering.failed", { why: problem })}</span>
       )}
-    </p>
+    </div>
   );
 }
 

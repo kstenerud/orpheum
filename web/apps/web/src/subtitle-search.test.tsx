@@ -8,6 +8,7 @@ import { afterEach, expect, it } from "vitest";
 import { startingLanguage, FindSubtitles } from "./subtitle-search.tsx";
 import {
   buttonWithText,
+  chooseIn,
   click,
   mount,
   servedBy,
@@ -94,6 +95,32 @@ it("lists what OpenSubtitles has, unverified and made-for-this-file first, and f
     body: { providerFileId: 7, language: "en" },
   });
   expect(fetched).toBe(1);
+});
+
+// The chooser, not a native select, which a television's browser cannot work (the 2026-10-27
+// widget audit; plans/toolkit.md step 6).
+it("asks in the language chosen from its chooser, and fetches in it", async () => {
+  const heard: Heard[] = [];
+  const services = servedBy(
+    {
+      "GET /files/2/subtitle-candidates": offer,
+      "POST /files/2/subtitles": [200, { fetchedSubtitleId: 3, remainingDownloads: 18 }],
+    },
+    heard,
+  );
+  mounted = await mount(
+    withServices(<FindSubtitles fileId={2} onFetched={() => undefined} />, services),
+  );
+  await click(buttonWithText(mounted.container, "Find subtitles…"));
+  expect(mounted.container.querySelector("select")).toBeNull();
+  await chooseIn(mounted.container, "Language", "German");
+  await click(buttonWithText(mounted.container, "Search OpenSubtitles"));
+  expect(heard.at(-1)).toMatchObject({
+    methodAndPath: "GET /files/2/subtitle-candidates",
+    query: "?language=de",
+  });
+  await click(mounted.container.querySelectorAll(".subtitle-search li button")[0]);
+  expect(heard.at(-1)?.body).toEqual({ providerFileId: 7, language: "de" });
 });
 
 it("says an empty search of a file not identified yet asked only for subtitles made for that file", async () => {
