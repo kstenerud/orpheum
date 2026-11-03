@@ -17,7 +17,8 @@ import { routeHref, type LabPage } from "./router.ts";
 
 /**
  * The device lab (plans/tv-device-tests.md): a menu of probes, each run on a device to settle how
- * casting, extending, a phone's remote and a TV's controller input are built. Reached at /lab, a
+ * casting, extending, a phone's remote and a TV's controller input are built, and a way to the UI
+ * gallery, to see the toolkit's widgets on the device. Reached at /lab, a
  * few presses on a TV's remote, or by Device tests in the menu. Only while the server offers the
  * tests (should_offer_device_tests): off, every page says so in place of its probe, and nothing
  * while the client settings are still read.
@@ -85,6 +86,14 @@ function LabMenu(): JSX.Element {
             <span className="lab__menu-name">{t("lab.menu.cast")}</span>
             <span className="lab__menu-what">{t("lab.menu.castWhat")}</span>
           </a>
+        </li>
+        <li>
+          {/* The toolkit's gallery, a few presses away on a TV, where its address is a pain to type
+              (the owner, 2026-11-03). */}
+          <Link to={{ screen: "ui-gallery" }} className="lab__menu-link">
+            <span className="lab__menu-name">{t("lab.menu.uiGallery")}</span>
+            <span className="lab__menu-what">{t("lab.menu.uiGalleryWhat")}</span>
+          </Link>
         </li>
       </ul>
     </section>
