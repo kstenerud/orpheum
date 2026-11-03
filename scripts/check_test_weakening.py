@@ -345,10 +345,20 @@ def rename_problem(old_body: str, after_tests: dict[str, str], new_name: str, pa
 
 
 def renamed_tests(base: str, head: str, path: str) -> dict[str, tuple[str, str]]:
-    """The range's Test-Renamed claims for a file, old name to (the file it is now in, new name)."""
-    log = git("log", "--format=%B", f"{base}..{head}")
-    return {old: (new_path or path, new)
-            for claimed, old, new_path, new in RENAMED_TRAILER.findall(log) if claimed == path}
+    """The range's Test-Renamed claims for a file, old name to (the file it is now in, new name).
+    Claims are read oldest first, so a test renamed again is followed to its last name (a claim
+    whose old name is an earlier claim's new name, in that file) and a later claim for the same
+    old name replaces an earlier one."""
+    log = git("log", "--reverse", "--format=%B", f"{base}..{head}")
+    renamed: dict[str, tuple[str, str]] = {}
+    for claimed, old, new_path, new in RENAMED_TRAILER.findall(log):
+        now = (new_path or claimed, new)
+        earlier = [first for first, was in renamed.items() if was == (claimed, old)]
+        for first in earlier:
+            renamed[first] = now
+        if claimed == path and not earlier:
+            renamed[old] = now
+    return renamed
 
 
 def golden_weakening(status: str, path: str, are_migrations_live: bool = True) -> Weakening | None:
