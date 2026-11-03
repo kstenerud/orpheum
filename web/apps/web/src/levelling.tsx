@@ -149,11 +149,11 @@ export function useMeasuredLevel(
   const isWanted = canApplyGain && !taken.levelling.isMeasured;
   const waits = useFileWaits(fileId, isWanted);
   const said = waits?.levellings ?? undefined;
-  useEffect(() => {
-    if (said !== undefined) {
-      setLevellings(said);
-    }
-  }, [said]);
+  if (said !== undefined && said !== levellings) {
+    // Taken up as it is drawn, React's way of keeping what a render learned (react.dev, "Adjusting
+    // some state when a prop changes"); the waits keep that answer once no longer asked for.
+    setLevellings(said);
+  }
   return { level: taken, measuring: isWanted ? waits?.readThrough : undefined };
 }
 
