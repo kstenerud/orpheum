@@ -12,9 +12,19 @@ last lines are kept for the report, so a run that failed for its own reasons say
 
 from __future__ import annotations
 
+import contextlib
+import functools
+import queue
 import subprocess
+import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Callable
+
+from revert_red_dependents import git_run
+from revert_red_run import run_whole_group
+from revert_red_timings import Timings, timed
+from revert_red_units import restore
 
 # A failing group this small is run sheet by sheet, which costs no more than halving it.
 ONE_BY_ONE_AT_MOST = 3
@@ -58,3 +68,50 @@ def settle(sheets: list[str], run_reverted: Callable[[list[str]], subprocess.Com
     for part in parts:
         settle(part, run_reverted, halving)
     return halving
+
+
+def own_browser_mode_reds(tree: str, base: str, head: str, sheets: list[str], related: list[str] | None,
+                          timeout: int, timings: Timings, spare: queue.Queue[str] | None = None) -> dict[str, str]:
+    """The sheets whose own browser-mode tests turn red with it reverted alone, with what the run
+    printed; each run timed in timings, each sheet put back. A run past its timeout settles nothing.
+
+    The runs go side by side, each in tree or in a probe tree it borrows from spare as one comes
+    free: one after another in one tree, about two minutes each, they were 1000 s of a check-pr while
+    the other three trees sat idle (2026-11-03)."""
+    if not related:
+        return {}
+    noticed: dict[str, str] = {}
+    mine: queue.Queue[str] = queue.Queue()
+    mine.put(tree)
+
+    def borrowed() -> tuple[str, queue.Queue[str]]:
+        while True:
+            for pool in (mine, spare):
+                if pool is None:
+                    continue
+                with contextlib.suppress(queue.Empty):
+                    return pool.get(timeout=0.2), pool
+
+    def one(path: str) -> None:
+        here, pool = borrowed()
+        started = time.monotonic()
+        try:
+            if git_run("checkout", base, "--", path, cwd=here).returncode != 0:
+                return
+            done = timed(timings, path, "vitest related (browser mode)", None,
+                         functools.partial(run_whole_group, [*related, path.removeprefix("web/")], here, timeout))
+            if done.returncode != 0:
+                noticed[path] = done.stdout + done.stderr
+        except subprocess.TimeoutExpired:
+            pass
+        finally:
+            restore(here, head, path)
+            if pool is spare:
+                timings.note_tree(here, time.monotonic() - started)
+            pool.put(here)
+
+    # With no spare trees, one tree: one run at a time, in the sheets' order.
+    with ThreadPoolExecutor(max_workers=1 if spare is None else max(1, len(sheets))) as runs:
+        for done in [runs.submit(one, path) for path in sheets]:
+            done.result()
+    return noticed

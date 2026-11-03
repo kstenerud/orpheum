@@ -63,7 +63,6 @@ work one interrupted run away from being lost.
 from __future__ import annotations
 
 import argparse
-import contextlib
 import functools
 import json
 import os
@@ -103,7 +102,7 @@ from revert_red_dependents import (GO_SHIPPED_SOURCE_READERS, git_run as _git, g
 from revert_red_locales import LOCALE_SOURCE, locale_runs
 from revert_red_naming import naming_runs
 from revert_red_tags import TYPECHECK, other_builds  # noqa: F401 (tests reach other_builds here)
-from revert_red_stylesheets import settle as settle_stylesheets
+from revert_red_stylesheets import own_browser_mode_reds, settle as settle_stylesheets
 from revert_red_trees import hold_probe_trees, link_installed_packages, probe_trees, seed_type_builds  # noqa: F401 (tests reach them here)
 from revert_red_units import MIGRATION_STEP, companions, query_source, restore, revert_companion
 from revert_red_clean import clean_failure, failed_pass_clean, probe_kind, runs_clean
@@ -481,7 +480,7 @@ def stylesheets_together(tree: str, base: str, head: str, changes: list[Change],
     # (the test-regime audit of 2026-10-31, R2).
     # They run side by side, in whichever probe trees come free (spare).
     noticed_alone = own_browser_mode_reds(tree, base, head, [change.path for change in sheets], related, timeout,
-                                          spare)
+                                          TIMINGS, spare)
 
     def run_reverted(group: list[str]) -> subprocess.CompletedProcess[str] | None:
         label = EVERY_STYLESHEET if len(group) == len(sheets) else f"({len(group)} stylesheets at once)"
@@ -541,53 +540,6 @@ def settled_outcome(tree: str, base: str, head: str, path: str, verdict: str, de
     claim = claimed(tree, base, head, path) or Outcome(path, "GREEN", GREEN_DETAIL)
     return Outcome(path, claim.verdict, claim.detail + " (a browser run with it and others reverted turned "
                    "nothing red" + (source or "") + ")")
-
-
-def own_browser_mode_reds(tree: str, base: str, head: str, sheets: list[str], related: list[str] | None,
-                          timeout: int, spare: queue.Queue[str] | None = None) -> dict[str, str]:
-    """The sheets whose own browser-mode tests turn red with it reverted alone, with what the run
-    printed; each run timed, each sheet put back. A run past its timeout settles nothing.
-
-    The runs go side by side, each in tree or in a probe tree it borrows from spare as one comes
-    free: one after another in one tree, about two minutes each, they were 1000 s of a check-pr while
-    the other three trees sat idle (2026-11-03)."""
-    if not related:
-        return {}
-    noticed: dict[str, str] = {}
-    mine: queue.Queue[str] = queue.Queue()
-    mine.put(tree)
-
-    def borrowed() -> tuple[str, queue.Queue[str]]:
-        while True:
-            for pool in (mine, spare):
-                if pool is None:
-                    continue
-                with contextlib.suppress(queue.Empty):
-                    return pool.get(timeout=0.2), pool
-
-    def one(path: str) -> None:
-        here, pool = borrowed()
-        started = time.monotonic()
-        try:
-            if _git("checkout", base, "--", path, cwd=here).returncode != 0:
-                return
-            done = timed(TIMINGS, path, "vitest related (browser mode)", None,
-                         functools.partial(run_whole_group, [*related, path.removeprefix("web/")], here, timeout))
-            if done.returncode != 0:
-                noticed[path] = done.stdout + done.stderr
-        except subprocess.TimeoutExpired:
-            pass
-        finally:
-            restore(here, head, path)
-            if pool is spare:
-                TIMINGS.note_tree(here, time.monotonic() - started)
-            pool.put(here)
-
-    # With no spare trees, one tree: one run at a time, in the sheets' order.
-    with ThreadPoolExecutor(max_workers=1 if spare is None else max(1, len(sheets))) as runs:
-        for done in [runs.submit(one, path) for path in sheets]:
-            done.result()
-    return noticed
 
 
 BROWSER_TIER_LOCK = threading.Lock()
