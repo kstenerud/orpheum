@@ -399,7 +399,7 @@ export class PlayReporter {
 }
 
 /** Moves a video to positionMs: where the person left it, or the start. */
-export function seekTo(video: HTMLVideoElement, positionMs: number): void {
+export function seekTo(video: Pick<HTMLVideoElement, "currentTime">, positionMs: number): void {
   // eslint-disable-next-line no-param-reassign -- a media element seeks when currentTime is set
   video.currentTime = positionMs / 1000;
 }
