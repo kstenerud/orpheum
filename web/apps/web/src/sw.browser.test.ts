@@ -26,7 +26,13 @@ const piece = 64 * 1024;
 /** Pieces enough to outrun any window the relay keeps ahead of its reader. */
 const pieceCount = 64;
 
-/** How long a relayed load may take before the test takes it for hung. */
+/**
+ * How long a relayed load may go with nothing of it come, its head or a piece of its body, before the
+ * test takes it for hung. Measured from its last progress, not its start: the release before's pull
+ * takes a round trip between page and worker for each of the 64 pieces, and in Firefox with the whole
+ * browser-mode run beside it on a loaded machine each took about 63 ms, so the whole body took 5.3 s
+ * (2026-11-03) while no piece waited past 1.2 s. A hung relay sends nothing at all.
+ */
 const hungAfterMs = 5000;
 
 /** The pages and workers a test set up, taken down after it. */
@@ -129,18 +135,50 @@ function piecesFromTheCore(): Promise<Response> {
   );
 }
 
-/** The page's load of a chunk under the API, failing the test when it hangs. */
+/**
+ * The page's load of a chunk under the API, failing the test when it hangs: when nothing of it, its
+ * head or a piece of its body, comes for hungAfterMs.
+ */
 async function loadedBy(page: Window): Promise<{ response: Response; body: Uint8Array }> {
-  const load = (async () => {
-    const response = await page.fetch("/api/v1/chunks/relayed");
-    return { response, body: new Uint8Array(await response.arrayBuffer()) };
-  })();
+  let stall: ReturnType<typeof setTimeout> | undefined;
+  let hang: (error: Error) => void = () => undefined;
   const hung = new Promise<never>((_, reject) => {
-    setTimeout(() => {
-      reject(new Error(`the relayed load hung: no whole body in ${String(hungAfterMs)} ms`));
-    }, hungAfterMs);
+    hang = reject;
   });
-  return await Promise.race([load, hung]);
+  const moved = (what: string): void => {
+    clearTimeout(stall);
+    stall = setTimeout(() => {
+      hang(
+        new Error(`the relayed load hung: nothing came in ${String(hungAfterMs)} ms after ${what}`),
+      );
+    }, hungAfterMs);
+  };
+  const load = (async () => {
+    moved("its start");
+    const response = await page.fetch("/api/v1/chunks/relayed");
+    const reader = response.body?.getReader();
+    if (reader === undefined) {
+      throw new Error("the relayed load has no body");
+    }
+    const pieces: Uint8Array[] = [];
+    moved("its head");
+    for (let read = await reader.read(); !read.done; read = await reader.read()) {
+      pieces.push(read.value);
+      moved(`${String(pieces.length)} reads of its body`);
+    }
+    const body = new Uint8Array(pieces.reduce((length, read) => length + read.byteLength, 0));
+    let at = 0;
+    for (const read of pieces) {
+      body.set(read, at);
+      at += read.byteLength;
+    }
+    return { response, body };
+  })();
+  try {
+    return await Promise.race([load, hung]);
+  } finally {
+    clearTimeout(stall);
+  }
 }
 
 /** Expects the whole body, every piece in its place. */
