@@ -3,6 +3,7 @@
 
 import "./i18n.ts";
 
+import { playerSkippedEvent } from "@orpheum/player";
 import { act, createRef, useEffect, type JSX } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -269,6 +270,72 @@ describe("the player's controls under the film outside full screen (D369 §2, D4
     });
     expect([...stage.children]).toEqual([video]);
     expect(document.activeElement).toBe(bar()?.querySelector('button[aria-label="Pause"]'));
+  });
+
+  /** The player's word that it stepped over the film from fromMs to toMs (skip-unmade.ts). */
+  function skipped(video: HTMLVideoElement, fromMs: number, toMs: number): void {
+    act(() => {
+      video.dispatchEvent(new CustomEvent(playerSkippedEvent, { detail: { fromMs, toMs } }));
+    });
+  }
+
+  it("put the warning sign in the bar once a stretch the server could not make is skipped, and keep it (toolkit.md item 12)", async () => {
+    const { video, videoRef } = stagedVideo(() => true);
+    await drawn(video, videoRef);
+    const sign = (): Element | null | undefined =>
+      bar()?.querySelector('button[aria-label="What is wrong: Part of the film was skipped"]');
+    expect(sign()).toBeNull();
+    skipped(video, 2_530_000, 2_532_300);
+    expect(sign()).not.toBeNull();
+    expect(document.querySelector("dialog")).toBeNull();
+    act(() => {
+      video.dispatchEvent(new Event("timeupdate"));
+    });
+    expect(sign()).not.toBeNull();
+  });
+
+  it("tell a stretch longer than 15 s in a pop-up too, in full screen as well, once", async () => {
+    const showModal = vi.spyOn(HTMLDialogElement.prototype, "showModal");
+    const { video, videoRef } = stagedVideo(() => true);
+    const stage = await drawn(video, videoRef);
+    act(() => {
+      setFillsWindow(stage, true);
+    });
+    skipped(video, 2_530_000, 2_544_000);
+    expect(stage.querySelector("dialog")).toBeNull();
+    skipped(video, 2_530_000, 2_548_600);
+    const dialog = stage.querySelector("dialog");
+    expect(dialog?.getAttribute("role")).toBe("alertdialog");
+    expect(dialog?.textContent).toContain("42:10–42:28");
+    expect(showModal).toHaveBeenCalled();
+    act(() => {
+      dialog?.querySelector<HTMLButtonElement>('button[aria-label="Close"]')?.click();
+    });
+    skipped(video, 2_530_000, 2_550_900);
+    expect(stage.querySelector("dialog")).toBeNull();
+    act(() => {
+      video.dispatchEvent(
+        new CustomEvent(playerSkippedEvent, {
+          detail: { fromMs: 2_530_000, toMs: 2_651_900, cannotGoOn: true },
+        }),
+      );
+    });
+    expect(stage.querySelector("dialog")?.getAttribute("aria-label")).toBe("The film cannot go on");
+  });
+
+  it("tell in a pop-up that the film cannot go on, where the player could not step over what the server could not make", async () => {
+    const { video, videoRef } = stagedVideo(() => true);
+    const stage = await drawn(video, videoRef);
+    act(() => {
+      video.dispatchEvent(
+        new CustomEvent(playerSkippedEvent, {
+          detail: { fromMs: 2_530_000, toMs: 2_532_300, cannotGoOn: true },
+        }),
+      );
+    });
+    const dialog = stage.querySelector("dialog");
+    expect(dialog?.getAttribute("aria-label")).toBe("The film cannot go on");
+    expect(dialog?.textContent).toContain("from 42:10 on");
   });
 
   it("takes Down on the film into the bar, to play, and leaves Down elsewhere to the page", async () => {

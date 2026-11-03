@@ -5,6 +5,14 @@
  * menus (play), kept apart so the catalogue fits in one read (en.ts).
  */
 export const enPlay = {
+  skipped: {
+    summary: "Part of the film was skipped",
+    told: "The server could not make {{stretches}} of the film, so the player skipped over it.",
+    forAdmin: "FFmpeg failed on it each time the server tried; the server's log says why.",
+    cannotGoOn: "The film cannot go on",
+    cannotGoOnTold:
+      "The server could not make the film from {{from}} on, and found nothing it could make within the next two minutes or before the end, so the film stops here.",
+  },
   upNext: {
     offer: "Up next: {{place}} · {{name}}",
     countdown: "Plays in {{seconds}} s",

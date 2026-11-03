@@ -2498,3 +2498,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   OK on another chooses it (the sound or subtitles change, the search asks in that language, the
   series shows in that order), and Back closes it without choosing, focus back on its button.
   (`web/apps/web/src/audio-tracks.tsx`, `subtitles.tsx`, `subtitle-search.tsx`, `series.tsx`)
+- [ ] **VQ255** — a chunk the server cannot make is skipped (plans/toolkit.md, the owner's look at
+  the batch, 2026-11-03). In Chromium driven against staging as lead-tests, play a film with its
+  chunk requests for one stretch answered 422 by the browser: first one chunk, then eight in a row
+  (over 15 s), then every chunk from a point (past two minutes). Then once full screen. Passes
+  when: the film plays up to each stretch and on from its end, without a stall of more than a
+  second; the bar under the film shows the warning sign from the first skip on, naming each
+  stretch; the eight-chunk stretch, and the stretch it cannot go on past, put up a pop-up, in full
+  screen too, and the last ends the playback saying so under the film. Then the owner looks at the
+  sign's and the pop-up's words and places. (`web/packages/player/src/skip-unmade.ts`,
+  `web/apps/web/src/skipped-parts.tsx`, `page-controls.tsx`)
