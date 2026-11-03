@@ -27,7 +27,7 @@ const (
 )
 
 // IsSound is whether the kind is a sound, made or copied: a run of either names its track (Sound) and
-// starts a chunk early, which it drops (MakeChunks.SoundLeadInMs).
+// starts a chunk early, which it drops (MakeChunks.LeadInMs).
 func (kind ChunkStreamKind) IsSound() bool { return kind == StreamSound || kind == StreamSoundCopied }
 
 // ChunkStream is one stream's recipe. A quality's fields are set for StreamQuality, a sound's for
@@ -62,13 +62,17 @@ type MakeChunks struct {
 	FirstChunk int    `json:"firstChunk"`
 	// BoundsMs are the run's chunks' starts in the film's time, then the end of its last chunk.
 	BoundsMs []int64 `json:"boundsMs"`
-	// SoundLeadInMs is, for a sound run past the film's first chunk, the start of the chunk before
-	// FirstChunk: the run starts its sound there and drops that chunk, which carries the encoder's
-	// priming (slow-links.md §10), or, for a sound copied, what FFmpeg copies from before its seek, so
-	// its first chunk starts where the run before it ended (D368 §1). Zero otherwise.
-	SoundLeadInMs int64 `json:"soundLeadInMs,omitempty"`
+	// LeadInMs is, for a sound or a copied picture's run past the film's first chunk, the start of the
+	// chunk before FirstChunk: the run starts there and drops that chunk. A sound's carries the
+	// encoder's priming (slow-links.md §10), or, for a sound copied, what FFmpeg copies from before
+	// its seek, so its first chunk starts where the run before it ended (D368 §1). A copied picture's
+	// is read so FFmpeg times the pictures shown before the run's first keyframe and decoded after it,
+	// as an open GOP has, as the film does: a run starting at that keyframe gave them wrong times and
+	// left a hole at its join (docs/contributors/idiosyncrasies.md). Zero otherwise.
+	LeadInMs int64 `json:"leadInMs,omitempty"`
 	// PictureSeekMs is, for a copied picture, where FFmpeg is told to seek: past the run's first
-	// keyframe, before the next, or, with IsPictureSeekBeforeKeyframe, at or before it. FFmpeg lands
+	// keyframe (its lead-in's, when it has one), before the next, or, with
+	// IsPictureSeekBeforeKeyframe, at or before it. FFmpeg lands
 	// on the keyframe at or before a seek, and moves a seek into a Matroska file 130 ms earlier, so a
 	// seek at the keyframe itself lands on the one before it and every chunk of the run is the one
 	// before it (docs/contributors/idiosyncrasies.md).

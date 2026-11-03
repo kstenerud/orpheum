@@ -194,7 +194,7 @@ func TestHandleMakeChunks_ACopiedSoundIsSentAsItsTrackAndAMixAtItsLevelCarriesTh
 	sent := testutil.Receive(t, fixture.node.sent, "the copy's command").MakeChunks
 	want := nodeproto.SoundTrack{AudioTrackIndex: 0, Language: "en", ChannelCount: 6}
 	if sent == nil || sent.Stream.Kind != nodeproto.StreamSoundCopied || sent.Stream.Sound == nil ||
-		*sent.Stream.Sound != want || sent.Stream.SoundKbps != 0 || sent.SoundLeadInMs != 10_000 ||
+		*sent.Stream.Sound != want || sent.Stream.SoundKbps != 0 || sent.LeadInMs != 10_000 ||
 		!slices.Equal(sent.BoundsMs, []int64{20_000, 30_000}) {
 		t.Fatalf("the node was sent %+v; want the English 5.1 track copied, led in from chunk 1's start", sent)
 	}

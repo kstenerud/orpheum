@@ -138,29 +138,53 @@ func packetTimes(t *testing.T, runner *execx.Runner, storePath string, chunkCoun
 	return sourceTimes(t, runner, joined(t, storePath, chunkCount), "0", false)
 }
 
-// makeInTwoRuns makes stream's chunks 0–2 in one run and 3–5 in another, the second with its
-// sound's lead-in, as two players asking far apart would.
+// openGOPFilm is film's picture in HEVC with open GOPs, in Matroska: each keyframe after the first
+// has pictures decoded after it and shown before it, whose times FFmpeg gets wrong in a copy begun
+// at that keyframe (idiosyncrasies.md).
+func openGOPFilm(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "an open film (2020).mkv")
+	testutil.GenerateMedia(t, path,
+		"-f", "lavfi", "-i", "testsrc2=size=160x120:rate=24:duration=12",
+		"-c:v", "libx265", "-preset", "fast",
+		"-x265-params", "keyint=48:min-keyint=48:scenecut=0:open-gop=1:bframes=4:b-adapt=0:log-level=error")
+	return path
+}
+
+// pictureSeek is where a copied picture's run from chunk first seeks, as the core sends it: midway
+// from its lead-in's keyframe, or the film's first, to the next; an MPEG-TS's midway back to the
+// keyframe before, or the film's start, said to be before it.
+func pictureSeek(source string, grid []int64, first int) (seekMs int64, isBeforeKeyframe bool) {
+	from := max(first-1, 0)
+	if !strings.HasSuffix(source, ".ts") {
+		return (grid[from] + grid[from+1]) / 2, false
+	}
+	if from == 0 {
+		return 0, true
+	}
+	return (grid[from-1] + grid[from]) / 2, true
+}
+
+// makeInTwoRuns makes stream's chunks 0–2 in one run and 3–5 in another, the second led in from the
+// chunk before, as the core sends them for two players asking far apart.
 func makeInTwoRuns(
 	t *testing.T, maker *chunks.Maker, source, storeDir string, grid []int64, stream nodeproto.ChunkStream,
 ) {
 	t.Helper()
+	codec := "h264"
+	if strings.Contains(source, "open film") {
+		codec = "hevc"
+	}
 	for _, first := range []int{0, 3} {
 		command := nodeproto.MakeChunks{
-			VideoStreamIndex: 0, VideoCodec: "h264", Stream: stream, StoreDir: storeDir,
+			VideoStreamIndex: 0, VideoCodec: codec, Stream: stream, StoreDir: storeDir,
 			FirstChunk: first, BoundsMs: grid[first : first+4],
 		}
-		if stream.Kind == nodeproto.StreamPicture {
-			command.PictureSeekMs = (grid[first] + grid[first+1]) / 2 // midway to the next keyframe
-			// MPEG-TS: midway back to the keyframe before, or the film's start.
-			if strings.HasSuffix(source, ".ts") {
-				command.IsPictureSeekBeforeKeyframe, command.PictureSeekMs = true, 0
-				if first > 0 {
-					command.PictureSeekMs = (grid[first-1] + grid[first]) / 2
-				}
-			}
+		if (stream.Kind.IsSound() || stream.Kind == nodeproto.StreamPicture) && first > 0 {
+			command.LeadInMs = grid[first-1]
 		}
-		if stream.Kind.IsSound() && first > 0 {
-			command.SoundLeadInMs = grid[first-1]
+		if stream.Kind == nodeproto.StreamPicture {
+			command.PictureSeekMs, command.IsPictureSeekBeforeKeyframe = pictureSeek(source, grid, first)
 		}
 		if last, err := maker.Make(t.Context(), execx.Film{Path: source}, command, nil); err != nil || last != first+2 {
 			t.Fatalf("the run from %d made through %d, %v", first, last, err)
@@ -170,8 +194,9 @@ func makeInTwoRuns(
 
 // Chunks made by two runs far apart join into one stream: every picture once, at its time in the
 // film, the second run's first chunk shown at its bound, the copied picture and the encoded quality
-// alike, from MP4 and from Matroska, which FFmpeg seeks differently (idiosyncrasies.md); and the
-// sound continuous, its join under a frame (D247 §10; slow-links.md §10).
+// alike, from MP4 and from Matroska, which FFmpeg seeks differently, and from an open GOP's HEVC,
+// whose pictures shown before a keyframe FFmpeg times right only when led in (idiosyncrasies.md); and
+// the sound continuous, its join under a frame (D247 §10; slow-links.md §10).
 func TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes(t *testing.T) {
 	t.Parallel()
 	runner, err := execx.NewRunner(testutil.FFmpegDirectory(t))
@@ -187,6 +212,7 @@ func TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes(t *testing.T) {
 		clocktest.NewFake(time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
 	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264)
 	matroska := inMatroska(t, source)
+	openGOP := openGOPFilm(t)
 	transport := remuxed(t, source, "a film (2020).ts")
 	picture := nodeproto.ChunkStream{Kind: nodeproto.StreamPicture}
 	quality := nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 300, Height: 96}
@@ -200,6 +226,7 @@ func TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes(t *testing.T) {
 		"1/chunks-picture/0123456789abcdef":  {source, source, picture},
 		"2/chunks-picture/0123456789abcdef":  {matroska, matroska, picture},
 		"3/chunks-picture/0123456789abcdef":  {transport, transportCopied, picture},
+		"4/chunks-picture/0123456789abcdef":  {openGOP, openGOP, picture},
 		"1/chunks-q300k96p/0123456789abcdef": {source, source, quality},
 		"2/chunks-q300k96p/0123456789abcdef": {matroska, matroska, quality},
 	} {
@@ -447,7 +474,7 @@ func TestMake_ACopiedSoundOfAFilmWhoseGridStartsPastItsStartIsCutAtItsFirstChunk
 	stream := nodeproto.ChunkStream{Kind: nodeproto.StreamSoundCopied, Sound: &nodeproto.SoundTrack{ChannelCount: 6}}
 	for _, command := range []nodeproto.MakeChunks{
 		{Stream: stream, StoreDir: storeDir, FirstChunk: 0, BoundsMs: grid[0:3]},
-		{Stream: stream, StoreDir: storeDir, FirstChunk: 2, BoundsMs: grid[2:], SoundLeadInMs: grid[1]},
+		{Stream: stream, StoreDir: storeDir, FirstChunk: 2, BoundsMs: grid[2:], LeadInMs: grid[1]},
 	} {
 		wantLast := command.FirstChunk + len(command.BoundsMs) - 2
 		last, err := maker.Make(t.Context(), execx.Film{Path: source}, command, nil)

@@ -2408,6 +2408,28 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   `-ss 0` itself found (2026-11-01); [trac #10602](https://trac.ffmpeg.org/ticket/10602) is an AVI
   whose input seek skips the first packet, its palette, and blacks its picture.
 
+### A copy begun at an open GOP's keyframe gets the times of the pictures shown before it wrong
+
+- **Symptom:** a two-frame hole at a picture chunk's join, the picture stopping for 84 ms every
+  ten seconds where a run began (*The Pumbletons* S33E8, HEVC in Matroska, staging, 2026-11-03).
+- **Cause:** HEVC's open GOP: a CRA keyframe is followed, in decode order, by leading (RASL)
+  pictures shown before it. A copy whose input seek lands on that keyframe has no decode-time
+  history; FFmpeg's CLI guesses the keyframe's decode time too late, logs "Non-monotonic DTS …
+  changing to", and lifts each leading picture's display time to its new decode time, crushing
+  them together just after the keyframe's. The same keyframe reached from the one before it, in
+  the middle of a run, keeps the film's times.
+- **What we do:** a copied picture's run past the film's first chunk is led in from the chunk before,
+  its raw file dropped (`nodeproto.MakeChunks.LeadInMs`; `internal/core/chunks/job.go`,
+  `internal/node/chunks/maker.go`). An encoded quality decodes and is not affected.
+- **Evidence:** **[measured]** S33E8's chunks 229 and 230, the first two of a run, showed leading
+  pictures at 1280.274 and 1280.274063 s where the film has 1280.743 and 1280.701; chunks 226–228,
+  mid-run, were right. A 12 s libx265 `open-gop=1` film reproduces it with FFmpeg 8.1.3, and
+  `TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes` fails on it without the lead-in.
+  **[web]** no report of this exact case found; the RASL pictures' dependence on the GOP before
+  is known ([Avidemux forum](https://avidemux.org/smif/index.php?msg=92303)), and FFmpeg's
+  rewriting of non-monotonic DTS breaking times is [ticket 3553](https://trac.ffmpeg.org/ticket/3553)
+  (searched 2026-11-03).
+
 ### The segment muxer lists the file it was writing as finished when FFmpeg is stopped
 
 - **Symptom:** a chunk held 23 frames of its 10 s, and the stream had a gap after it (*Flow*'s
