@@ -40,6 +40,11 @@ export interface PressContext {
   /** Whether focus is on that offer. */
   readonly isOnOffer: boolean;
   /**
+   * Whether focus is outside the overlay, on the video or the page, as a pointer or full screen's
+   * start leaves it: Up and Down then bring it in (the owner, 2026-11-03).
+   */
+  readonly isFocusOutside?: boolean;
+  /**
    * Whether one of the overlay's menus is open (💬, 🎧, ⁝; player-menus.tsx): its presses are the
    * menu's, Back closing it before anything else (D407 §6, §8).
    */
@@ -252,7 +257,8 @@ function answerWhilePaused(
 
 /**
  * All of the overlay (D407 §5): Back hides it; Left and Right seek on the scrub bar and walk a row
- * everywhere else, never seeking (plan item 17); Up and Down are focus's, between the rows; OK is
+ * everywhere else, never seeking (plan item 17); Up and Down are focus's, between the rows, and bring
+ * focus that is outside the overlay to play, as a pointer or full screen's start leaves it; OK is
  * the focused control's. On a computer Down from the buttons puts focus on the video, so the overlay
  * may hide (Q14); play's press that plays does too, as its click (player-overlay.tsx).
  */
@@ -267,6 +273,9 @@ function answerWhileFull(
   const seek = seekOfArrow(command);
   if (seek !== undefined && context.isOnScrub) {
     return { state, isTaken: true, seekByMs: seek };
+  }
+  if ((command === "up" || command === "down") && context.isFocusOutside === true) {
+    return { state, isTaken: true, focus: "play" };
   }
   if (context.isTelevision) {
     return { state, isTaken: false };

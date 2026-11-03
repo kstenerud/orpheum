@@ -245,6 +245,38 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
     );
   });
 
+  // The owner, 2026-11-03, in Firefox: full screen by a double-click or ⤢, the mouse having shown the
+  // overlay, focus on the video; Down left focus where Up and Down reached no other row.
+  it("brings focus on the video to play by Down while a pointer shows all of the overlay", async () => {
+    const video = document.createElement("video");
+    Object.defineProperty(video, "paused", { get: () => false });
+    const videoRef = createRef<HTMLVideoElement>();
+    Reflect.set(videoRef, "current", video);
+    await drawn(
+      <div className="film-player__stage">
+        <PlayerOverlay videoRef={videoRef} readLinkKbps={() => undefined} failure={undefined} />
+      </div>,
+      async (mounted) => {
+        const overlay = found(mounted.container, ".player-overlay");
+        mounted.container.append(video);
+        video.tabIndex = -1;
+        video.focus();
+        expect(overlay.getAttribute("data-shown")).toBe("full");
+        act(() => {
+          document.body.dispatchEvent(
+            new CustomEvent(commandEventName, {
+              detail: { command: "down", source: "key" },
+              bubbles: true,
+              cancelable: true,
+            }),
+          );
+        });
+        await expect.poll(() => document.activeElement?.getAttribute("aria-label")).toBe("Pause");
+        expect(overlay.contains(document.activeElement)).toBe(true);
+      },
+    );
+  });
+
   it("moves JASSUB's subtitles up while the overlay's buttons show, and back as it hides (D407 §8)", async () => {
     const videoRef = createRef<HTMLVideoElement>();
     Reflect.set(videoRef, "current", document.createElement("video"));
