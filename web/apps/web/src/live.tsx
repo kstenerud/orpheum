@@ -33,6 +33,11 @@ import { monotonicMs } from "./use-together.ts";
 
 /** What every signed-in screen knows of the page's live connection (D337 §2). */
 export interface Live {
+  /**
+   * Whether the live connection is up. While it is not, the lists below are as last told and may be
+   * stale (a device gone, a cast over); true with no live connection, which lists nothing.
+   */
+  readonly isConnected: boolean;
   /** The person's devices connected now, this one among them, by id; empty until told. */
   readonly connectedDeviceIds: readonly number[];
   /** Those of connectedDeviceIds with an Orpheum tab in front, which a cast goes to (D338 §2). */
@@ -65,6 +70,7 @@ export interface Live {
 }
 
 const nothingLive: Live = {
+  isConnected: true,
   connectedDeviceIds: [],
   inFrontDeviceIds: [],
   receivingDeviceIds: [],
@@ -160,8 +166,10 @@ function useLiveOf(
   isReceivingInDoubt: boolean,
 ): Live {
   const { receiving, answer, leaveReceiving } = received;
+  const isConnected = snapshot?.isConnected ?? true;
   return useMemo(
     (): Live => ({
+      isConnected,
       connectedDeviceIds: snapshot?.deviceIds ?? noDevices,
       inFrontDeviceIds: snapshot?.inFrontDeviceIds ?? noDevices,
       receivingDeviceIds: snapshot?.receivingDeviceIds ?? noDevices,
@@ -173,6 +181,7 @@ function useLiveOf(
       isReceivingInDoubt,
     }),
     [
+      isConnected,
       snapshot?.deviceIds,
       snapshot?.inFrontDeviceIds,
       snapshot?.receivingDeviceIds,
