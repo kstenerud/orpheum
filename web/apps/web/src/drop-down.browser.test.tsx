@@ -14,7 +14,6 @@ import "./i18n.ts";
 import { afterEach, describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { screenEdgeRoomPx } from "./drop-down-place.ts";
 import { ActionChooser } from "./route-chooser.tsx";
 import { mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
@@ -40,6 +39,12 @@ const sorts = Array.from({ length: 12 }, (_, at) => ({
   isCurrent: at === 6,
   onChoose: () => undefined,
 }));
+
+/**
+ * The room a pop-up keeps from the screen's edge (tokens.css's --screen-edge-room, 0.5rem), where a
+ * headless browser has no safe area beside it.
+ */
+const screenEdgeRoomPx = 8;
 
 /** How far layout's rounding may put a box. */
 const roundingPx = 1;

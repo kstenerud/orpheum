@@ -2467,3 +2467,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   Up and Down move the volume while OK on mute mutes. Note any pop-up that opened on its first
   entry, not its current one.
   (`web/apps/web/src/popover.tsx`, `list-box.tsx`, `player-menus.tsx`)
+- [ ] **VQ251** — a pop-up is as wide as its widest entry and keeps clear of the screen's edges
+  (plans/toolkit.md items 8 and 9; the owner, 2026-11-03). On the Fire TV in Silk and on the phone,
+  open the banner's menu (from the screen's top right), a library's sort and a title's ⁝. Passes
+  when: no entry of the menu or the sort wraps where the screen is wide enough to hold it; none of
+  them covers the outermost half rem of the screen at any edge (a sliver of the page shows beyond
+  it), the phone's status bar and rounded corners included; and on the phone, an entry wider than
+  half the screen (the menu's "Signed in as …" on a long device name) widens its pop-up to 16rem,
+  about two thirds of the screen, before it wraps. Note any pop-up that wrapped an entry or met the
+  screen's edge.
+  (`web/apps/web/src/popover.tsx`, `popover.css`, `drop-down-place.ts`, `tokens.css`)

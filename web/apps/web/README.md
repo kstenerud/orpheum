@@ -485,9 +485,13 @@ The web client: the browser and phone interface, served embedded by the core. MP
   presses nothing under it; it closes on a place pressed, Escape, Back of either kind, Left or
   Right, wherever focus is in it, focus back on its button. It opens at its button
   (`drop-down-place.ts`): on a big screen its current choice over the button, as a select's list;
-  on a phone's width a pop-up over the button; inside the screen either way, a big screen's list cut
-  at the screen's edge and scrolling within itself, its choice still over the button, while it keeps
-  half its height, else moved (the owner, 2026-10-29); focused on its current
+  on a phone's width a pop-up over the button; inside the screen either way, less a little room at
+  each edge and the device's safe area that no pop-up covers (`tokens.css`'s `--screen-edge-room-*`;
+  the owner, 2026-11-03), a big screen's list cut at that room's edge and scrolling within itself,
+  its choice still over the button, while it keeps half its height, else moved (the owner,
+  2026-10-29). A pop-up is as wide as its widest entry unwrapped, wherever its button is, but no
+  wider than half the screen nor capped under 16rem (`--popover-widest`), a longer entry wrapping
+  (the owner, 2026-11-03); focused on its current
   place, a place either side of it in view where it has them, and a place of context kept beyond
   the one focused as it moves (D408 §3); and its opening and closing never move the page. The Films and Series
   pages' sort and a library's files' Show are choosers too (`ActionChooser`). **Every modal dialog closes on the browser's own Back** (D367
@@ -497,8 +501,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/navigation.test.ts`, `src/route-chooser.test.tsx`, `src/app-shell.test.tsx`,
   `src/series-page.test.tsx`, `src/input-pages.browser.test.tsx`,
   `src/app-shell.browser.test.tsx`, `src/drop-down.browser.test.tsx`, `src/drop-down.test.tsx`,
-  `src/modal-dialog.browser.test.tsx`, `src/player-menus.browser.test.tsx`; on devices, VQ97,
-  VQ250.
+  `src/modal-dialog.browser.test.tsx`, `src/player-menus.browser.test.tsx`,
+  `src/popover.browser.test.tsx`; on devices, VQ97, VQ250, VQ251.
 - **A page's rarely used actions are under its vertical "…", and a dialog a drop-down's place opens
   takes the list's place** (`src/more-actions.tsx`, the owner, 2026-10-29): the one drop-down with
   no chevron, after a page's Play and Mark as watched, none where the person has nothing there: a

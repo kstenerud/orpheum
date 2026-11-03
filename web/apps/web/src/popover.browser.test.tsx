@@ -1,0 +1,211 @@
+// SPDX-License-Identifier: MPL-2.0
+
+/**
+ * A pop-up's size and place as a real browser lays them out (popover.tsx, popover.css): as wide as
+ * its widest entry, never wider than half the screen nor capped under 16rem, a longer entry wrapping
+ * (the owner, 2026-11-03: the banner's menu "is too narrow, and causes word wrap"); clear of a
+ * little room at every edge of the screen ("a (very small) margin at the edge of the screen that
+ * popups aren't allowed to cover").
+ */
+
+import "./tokens.css";
+import "./base.css";
+import "./i18n.ts";
+
+import { createRef, type ReactNode } from "react";
+import { afterEach, describe, expect, it } from "vitest";
+import { page, userEvent } from "vitest/browser";
+
+import { AppShell } from "./app-shell.tsx";
+import { DropDown } from "./drop-down.tsx";
+import { ListOption } from "./list-box.tsx";
+import type { PlayerSound } from "./player-controls.tsx";
+import { PlayerMenus } from "./player-menus.tsx";
+import { mount, type Mounted } from "./test-dom.tsx";
+import { withServices } from "./test-services.tsx";
+
+/**
+ * The room a pop-up keeps from the screen's edge (tokens.css's --screen-edge-room, 0.5rem), where a
+ * headless browser has no safe area beside it.
+ */
+const screenEdgeRoomPx = 8;
+
+/** A pop-up's narrowest cap, 16rem, where half the screen is less. */
+const leastCapPx = 256;
+
+/** How far layout's rounding may put a box. */
+const roundingPx = 1;
+
+/** An entry far longer than half a computer's screen. */
+const longEntry =
+  "An entry so very long that no pop-up should widen to hold it on one line, however wide the screen it opens on may happen to be";
+
+/** A film's sound at half, which the test never sets. */
+const sound: PlayerSound = {
+  volume: 0.5,
+  isMuted: false,
+  canSetVolume: true,
+  setVolume: () => undefined,
+  setMuted: () => undefined,
+};
+
+let mounted: Mounted | undefined;
+
+afterEach(() => {
+  mounted?.unmount();
+  mounted = undefined;
+});
+
+/** An element's box, or a failure where it is not drawn. */
+function boxOf(element: Element | null | undefined): DOMRect {
+  if (element === null || element === undefined) {
+    throw new Error("an element the test measures is not drawn");
+  }
+  return element.getBoundingClientRect();
+}
+
+/** The open pop-up. */
+function popUp(): HTMLDialogElement {
+  const dialog = document.querySelector<HTMLDialogElement>("dialog[open]");
+  if (dialog === null) {
+    throw new Error("no pop-up is open");
+  }
+  return dialog;
+}
+
+/** An entry's own size laid out unwrapped, its width max-content for the measure alone. */
+function unwrappedSizeOf(entry: HTMLElement): { width: number; height: number } {
+  const { style } = entry;
+  style.setProperty("width", "max-content");
+  const { width, height } = entry.getBoundingClientRect();
+  style.removeProperty("width");
+  return { width, height };
+}
+
+/** A drop-down menu at a spot on the screen, its entries those given. */
+function menuAt(spot: Readonly<Record<string, string>>, entries: readonly string[]): ReactNode {
+  return withServices(
+    <div style={{ position: "fixed", ...spot }}>
+      <DropDown
+        label="Menu"
+        opener={<span>Menu</span>}
+        openerClassName="test-opener"
+        openerNaming={{ "aria-label": "Menu" }}
+        isFromItsTop
+      >
+        {entries.map((entry) => (
+          <ListOption key={entry} onChoose={() => undefined}>
+            {entry}
+          </ListOption>
+        ))}
+      </DropDown>
+    </div>,
+  );
+}
+
+/** Expects box inside the screen less the room at each of its edges. */
+function expectClearOfTheEdges(box: DOMRect, width: number, height: number): void {
+  expect(box.left).toBeGreaterThanOrEqual(screenEdgeRoomPx - roundingPx);
+  expect(box.top).toBeGreaterThanOrEqual(screenEdgeRoomPx - roundingPx);
+  expect(box.right).toBeLessThanOrEqual(width - screenEdgeRoomPx + roundingPx);
+  expect(box.bottom).toBeLessThanOrEqual(height - screenEdgeRoomPx + roundingPx);
+}
+
+describe("a pop-up's width, laid out by a real browser", () => {
+  // The owner, 2026-11-03: "The top-right menu is too narrow, and causes word wrap on the
+  // selectable items." Sized to fit the room left of its place at the screen's right edge, it
+  // shrank below its entries.
+  it("opens the banner's menu at the screen's top right as wide as its widest entry, none wrapping", async () => {
+    await page.viewport(1280, 800);
+    mounted = await mount(
+      withServices(
+        <AppShell
+          isAdmin={true}
+          canHostWatchTogether={true}
+          currentScreen="films"
+          onSignOut={() => undefined}
+          onSwitchHousehold={() => undefined}
+          signedInAs={{ name: "owner", deviceName: "the living room's television" }}
+          realm="staging"
+          showsDeviceTests={true}
+        >
+          <p>screen</p>
+        </AppShell>,
+      ),
+    );
+    await userEvent.click(page.getByRole("button", { name: "Menu" }));
+    const entries = [...popUp().querySelectorAll<HTMLElement>(".list-box__entry")];
+    expect(entries.length).toBeGreaterThan(2);
+    const widest = Math.max(...entries.map((entry) => unwrappedSizeOf(entry).width));
+    for (const entry of entries) {
+      const laid = boxOf(entry);
+      expect(laid.width, entry.textContent).toBeCloseTo(widest, 0);
+      expect(laid.height, entry.textContent).toBeCloseTo(unwrappedSizeOf(entry).height, 0);
+    }
+    expectClearOfTheEdges(boxOf(popUp()), window.innerWidth, window.innerHeight);
+  });
+
+  // The owner, 2026-11-03: it "definitely shouldn't occupy more than half the screen, but it also
+  // shouldn't widen unnecessarily for an extremely long item (that could word-wrap to look nicer)".
+  it("caps a menu with a very long entry at half the screen, the entry wrapping", async () => {
+    await page.viewport(1280, 800);
+    mounted = await mount(menuAt({ left: "40%", top: "30%" }, ["Home", longEntry]));
+    await userEvent.click(page.getByRole("button", { name: "Menu" }));
+    expect(Math.abs(boxOf(popUp()).width - 640)).toBeLessThanOrEqual(roundingPx);
+    const [short, long] = [...popUp().querySelectorAll(".list-box__option")];
+    expect(boxOf(long).height).toBeGreaterThan(boxOf(short).height * 1.5);
+  });
+
+  // Half a phone's screen is too narrow for a word: the cap is never under 16rem, and the room at
+  // the screen's edges still wins.
+  it("caps it at 16rem on a phone's screen, inside the room at its edges", async () => {
+    await page.viewport(400, 740);
+    mounted = await mount(menuAt({ right: "0px", top: "0px" }, ["Home", longEntry]));
+    await userEvent.click(page.getByRole("button", { name: "Menu" }));
+    const box = boxOf(popUp());
+    expect(Math.abs(box.width - leastCapPx)).toBeLessThanOrEqual(roundingPx);
+    expectClearOfTheEdges(box, 400, 740);
+  });
+});
+
+/** The screen's corners, a button pressed against each. */
+const corners = [
+  { name: "top left", spot: { left: "0px", top: "0px" } },
+  { name: "top right", spot: { right: "0px", top: "0px" } },
+  { name: "bottom left", spot: { left: "0px", bottom: "0px" } },
+  { name: "bottom right", spot: { right: "0px", bottom: "0px" } },
+] as const;
+
+/** A computer's screen and a phone's. */
+const screens = [
+  { name: "a computer's", width: 1280, height: 800 },
+  { name: "a phone's", width: 400, height: 740 },
+] as const;
+
+describe.each(screens)("a pop-up on $name screen", ({ width, height }) => {
+  it.each(corners)(
+    "keeps clear of the room at every edge, its button at the $name",
+    async ({ spot }) => {
+      await page.viewport(width, height);
+      mounted = await mount(menuAt(spot, ["Home", "Settings", longEntry, "Sign out"]));
+      await userEvent.click(page.getByRole("button", { name: "Menu" }));
+      expectClearOfTheEdges(boxOf(popUp()), width, height);
+      await userEvent.keyboard("{Escape}");
+      mounted.unmount();
+      mounted = await mount(
+        withServices(
+          <div style={{ position: "fixed", ...spot }}>
+            <PlayerMenus
+              videoRef={createRef()}
+              shown={["sound"]}
+              sound={sound}
+              onOpenChange={() => undefined}
+            />
+          </div>,
+        ),
+      );
+      await userEvent.click(page.getByRole("button", { name: "Volume" }));
+      expectClearOfTheEdges(boxOf(popUp()), width, height);
+    },
+  );
+});

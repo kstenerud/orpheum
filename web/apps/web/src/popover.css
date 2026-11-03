@@ -1,20 +1,26 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
 /* A pop-up (popover.tsx, D408 §2): laid at the button that opened it by the script, which sets its
-   left and top, the browser's centring margins and insets let go; as big as what it holds within
-   the screen, keeping drop-down-place.ts's room at each edge, with no minimum width and no Close.
-   What it holds that scrolls (a list, list-box.css) shrinks to the height the script gives it, cut
-   at the screen's edge. It keeps the browser's own position for a modal dialog, fixed to the screen:
-   one relative was laid out at the top of the page, and the page scrolled up to it as it opened (the
-   owner on a Fire TV, 2026-10-28). */
+   left and top, the browser's centring margins and insets let go. As wide as what it holds is
+   unwrapped (max-content), never wider than --popover-widest, past which its longest entry wraps
+   (the owner, 2026-11-03): sized by fit-content it shrank to the room between its left and the
+   screen's right edge, so the banner's menu, opened at the screen's top right, wrapped its entries.
+   No wider or taller than the screen less the room at its edges (tokens.css), with no minimum width
+   and no Close. What it holds that scrolls (a list, list-box.css) shrinks to the height the script
+   gives it, cut at the screen's edge. It keeps the browser's own position for a modal dialog, fixed
+   to the screen: one relative was laid out at the top of the page, and the page scrolled up to it
+   as it opened (the owner on a Fire TV, 2026-10-28). */
 .popover {
   display: flex;
   flex-direction: column;
   inset: auto;
-  width: fit-content;
+  width: max-content;
   height: fit-content;
-  max-width: calc(100vw - 16px);
-  max-height: calc(100vh - 16px);
+  max-width: min(
+    var(--popover-widest),
+    100vw - var(--screen-edge-room-left) - var(--screen-edge-room-right)
+  );
+  max-height: calc(100vh - var(--screen-edge-room-top) - var(--screen-edge-room-bottom));
   margin: 0;
   padding: 0;
   overflow: hidden;
@@ -40,4 +46,14 @@
 /* What it holds, one element for the arrows it hears (popover.tsx), with no box of its own. */
 .popover__content {
   display: contents;
+}
+
+/* The part of the screen a pop-up may cover, the screen less the room at its edges (tokens.css):
+   drawn nowhere, measured by the script that places the pop-up (popover.tsx). */
+.popover__room {
+  position: fixed;
+  inset: var(--screen-edge-room-top) var(--screen-edge-room-right) var(--screen-edge-room-bottom)
+    var(--screen-edge-room-left);
+  visibility: hidden;
+  pointer-events: none;
 }

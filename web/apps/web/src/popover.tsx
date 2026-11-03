@@ -13,7 +13,7 @@ import {
 } from "react";
 import { reportFailure } from "@orpheum/sdk";
 
-import { listPlace } from "./drop-down-place.ts";
+import { listPlace, type ScreenBox } from "./drop-down-place.ts";
 import { directionOfKey, keyCodeOf } from "./input-buttons.ts";
 import { useCommands } from "./input-layer.tsx";
 import { useModalLayer, type ModalLayerTold } from "./modal-layer.tsx";
@@ -52,26 +52,70 @@ function scrollerOf(element: HTMLElement, dialog: HTMLDialogElement): HTMLElemen
   return undefined;
 }
 
+/** How a pop-up is laid at its button, besides the room at the screen's edges. */
+interface Placing {
+  /**
+   * Whether it opens from its top, its top at the button's, rather than its current choice laid over
+   * the button: a menu's, which has no current choice, and a pop-up that holds no list.
+   */
+  readonly isFromItsTop: boolean;
+}
+
 /**
- * Lays dialog, an open pop-up, at opener (drop-down-place.ts); on a big screen, where the screen's
- * edge cuts it, cuts it to the height shown, its content scrolling within it (a list, list-box.css);
- * where what has focus in it, its current choice, is off the button's middle, scrolls that content
- * to bring it there as far as it can, as a select's list opens; and then brings what has focus into
- * view with the context its scroller keeps around it (its scroll-padding, list-box.css): a
- * neighbour either side, though that moves the choice off the button's middle (D408 §3). A pop-up
- * shown from its top (isFromItsTop) has no choice to lay over the button: its top is the button's, as
- * a phone's is, and its content is not scrolled to the button.
+ * The part of the screen dialog, an open pop-up, may cover: the screen less the room at its edges
+ * (.popover__room, tokens.css), as the browser lays that room out.
+ */
+function roomOf(dialog: HTMLDialogElement): ScreenBox {
+  return (
+    dialog.querySelector(".popover__room")?.getBoundingClientRect() ?? {
+      left: 0,
+      top: 0,
+      width: window.innerWidth,
+      height: window.innerHeight,
+    }
+  );
+}
+
+/**
+ * Scrolls the content of dialog, an open pop-up laid at its button, so that focused, its current
+ * choice, comes to the button's middle as far as it can, as a select's list opens, on a big screen;
+ * and then brings it into view with the context its scroller keeps around it (its scroll-padding,
+ * list-box.css): a neighbour either side, though that moves the choice off the button's middle
+ * (D408 §3).
+ */
+function scrollFocusedToOpener(
+  dialog: HTMLDialogElement,
+  focused: HTMLElement,
+  at: { readonly opener: DOMRect; readonly isPhone: boolean },
+): void {
+  const laid = focused.getBoundingClientRect();
+  if (!at.isPhone) {
+    scrollerOf(focused, dialog)?.scrollBy({
+      top: laid.top + laid.height / 2 - (at.opener.top + at.opener.height / 2),
+    });
+  }
+  focused.scrollIntoView({ block: "nearest", inline: "nearest" });
+}
+
+/**
+ * Lays dialog, an open pop-up, at opener (drop-down-place.ts), inside the room at the screen's edges
+ * (roomOf), as a list is; on a big screen, where the room's edge cuts it, cuts it to the height shown, its content
+ * scrolling within it (a list, list-box.css), and brings what has focus in it, its current choice,
+ * to the button (scrollFocusedToOpener). A pop-up shown from its top (isFromItsTop) has no choice to
+ * lay over the button: its top is the button's, as a phone's is, and its content is not scrolled to
+ * the button.
  */
 function layAtOpener(
   dialog: HTMLDialogElement,
-  at: { readonly opener: HTMLElement; readonly isFromItsTop: boolean },
+  at: { readonly opener: HTMLElement } & Placing,
 ): void {
   const openerBox = at.opener.getBoundingClientRect();
   const isPhone = isPhoneWidth();
-  dialog.setAttribute("data-placed", isPhone ? "over" : "at");
   dialog.style.setProperty("--popover-opener-width", `${String(openerBox.width)}px`);
   dialog.style.removeProperty("max-height");
   const box = dialog.getBoundingClientRect();
+  const room = roomOf(dialog);
+  dialog.setAttribute("data-placed", isPhone ? "over" : "at");
   const focused = at.isFromItsTop ? undefined : focusedIn(dialog);
   const focusedBox = focused?.getBoundingClientRect();
   const { left, top, height } = listPlace({
@@ -79,7 +123,7 @@ function layAtOpener(
     list: box,
     focusedMiddle:
       focusedBox === undefined ? undefined : focusedBox.top + focusedBox.height / 2 - box.top,
-    screen: { width: window.innerWidth, height: window.innerHeight },
+    room,
     isPhone,
   });
   dialog.style.setProperty("left", `${String(left)}px`);
@@ -87,16 +131,9 @@ function layAtOpener(
   if (height < box.height) {
     dialog.style.setProperty("max-height", `${String(height)}px`);
   }
-  if (focused === undefined) {
-    return;
+  if (focused !== undefined) {
+    scrollFocusedToOpener(dialog, focused, { opener: openerBox, isPhone });
   }
-  const laid = focused.getBoundingClientRect();
-  if (!isPhone) {
-    scrollerOf(focused, dialog)?.scrollBy({
-      top: laid.top + laid.height / 2 - (openerBox.top + openerBox.height / 2),
-    });
-  }
-  focused.scrollIntoView({ block: "nearest", inline: "nearest" });
 }
 
 /**
@@ -107,8 +144,9 @@ function layAtOpener(
 function usePlacedAtOpener(
   ref: RefObject<HTMLDialogElement | null>,
   openerRef: RefObject<HTMLElement | null>,
-  isFromItsTop: boolean,
+  placing: Placing,
 ): void {
+  const { isFromItsTop } = placing;
   useEffect(() => {
     const dialog = ref.current;
     if (dialog === null) {
@@ -225,16 +263,11 @@ function useChoiceCloses(ref: RefObject<HTMLElement | null>, close: () => void):
 }
 
 /** What a pop-up is told. */
-interface PopoverProps {
+interface PopoverProps extends Placing {
   /** Its name for a screen reader. */
   readonly label: string;
   /** The button that opened it, which it is laid at. */
   readonly openerRef: RefObject<HTMLElement | null>;
-  /**
-   * Whether it opens from its top, its top at the button's, rather than its current choice laid over
-   * the button: a menu's, which has no current choice, and a pop-up that holds no list.
-   */
-  readonly isFromItsTop: boolean;
   readonly onClose: () => void;
   readonly children: ReactNode;
 }
@@ -267,7 +300,9 @@ export function Popover(props: PopoverProps): JSX.Element {
   useModalLayer(ref, toldRef);
   useChoiceCloses(ref, onClose);
   useFullScreenChangeCloses(onClose);
-  usePlacedAtOpener(ref, props.openerRef, props.isFromItsTop);
+  usePlacedAtOpener(ref, props.openerRef, {
+    isFromItsTop: props.isFromItsTop,
+  });
   useStuckArrowTold(contentRef, isClosingRef);
   useCommands(contentRef, (detail, event) => {
     if (detail.command === "left" || detail.command === "right") {
@@ -280,6 +315,7 @@ export function Popover(props: PopoverProps): JSX.Element {
       <div ref={contentRef} className="popover__content">
         {props.children}
       </div>
+      <div className="popover__room" aria-hidden="true" />
     </dialog>
   );
 }

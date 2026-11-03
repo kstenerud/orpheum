@@ -6,10 +6,11 @@
  * location feels weird ... try to make them overlap the chooser somehow, so that it's obvious what
  * they belong to"). On a big screen, a television's or a computer's, as a select's list opens: its
  * chosen place laid over the button. On a phone's, a pop-up whose top is the button's. Either way
- * inside the screen. Where the screen's edge would cut a big screen's list, it is cut there and
- * scrolls within itself, as a select's does, so its chosen place stays over the button, while the cut
- * list keeps at least half its own height; past that, and on a phone's, it is moved up or across
- * instead (the owner, 2026-10-29).
+ * inside the room a pop-up may cover, the screen less a little at each edge (the owner, 2026-11-03).
+ * Where that room's edge would cut a big screen's list, it is cut there and scrolls within itself, as
+ * a select's does, so its chosen place stays over the button, while the cut list keeps at least half
+ * its own height; past that, and on a phone's, it is moved up or across instead (the owner,
+ * 2026-10-29).
  */
 
 /** A box on the screen, in CSS pixels from its top-left corner, as getBoundingClientRect gives it. */
@@ -31,52 +32,49 @@ export interface ListPlacing {
    * screen lays over the button's middle. Undefined where nothing in it is focused.
    */
   readonly focusedMiddle: number | undefined;
-  /** The screen's size. */
-  readonly screen: { readonly width: number; readonly height: number };
+  /**
+   * The part of the screen a list may cover: the screen less the room kept at its edges, a little
+   * and the device's safe area (tokens.css's --screen-edge-room-*; the owner, 2026-11-03: "a (very
+   * small) margin at the edge of the screen that popups aren't allowed to cover").
+   */
+  readonly room: ScreenBox;
   /** Whether the screen is a phone's (phone-width.ts): the list's top at the button's. */
   readonly isPhone: boolean;
 }
 
-/**
- * The room kept between a list and the screen's edge, in CSS pixels: enough that its border and
- * shadow show. A justified constant, the list's own geometry.
- */
-export const screenEdgeRoomPx = 8;
-
-/** start, kept from beyond end, where the list's size fits between the room at each edge. */
-function withinScreen(start: number, size: number, screenSize: number): number {
-  const most = screenSize - size - screenEdgeRoomPx;
-  return Math.max(screenEdgeRoomPx, Math.min(start, most));
+/** start, moved where it must so that size fits inside span, given as its start and its length. */
+function within(start: number, size: number, span: readonly [number, number]): number {
+  return Math.max(span[0], Math.min(start, span[0] + span[1] - size));
 }
 
 /**
- * The least part of its own height a big screen's list keeps where the screen's edge cuts it; one cut
+ * The least part of its own height a big screen's list keeps where the room's edge cuts it; one cut
  * shorter is moved instead (the owner, 2026-10-29). A justified constant, the owner's rule.
  */
 export const leastShownPartOfList = 0.5;
 
 /**
  * Where the list goes: its top-left corner, in CSS pixels from the screen's, and the height it is
- * shown at, its own unless the screen's edge cuts it, where it scrolls within itself for the rest.
+ * shown at, its own unless the room's edge cuts it, where it scrolls within itself for the rest.
  */
 export function listPlace(placing: ListPlacing): {
   readonly left: number;
   readonly top: number;
   readonly height: number;
 } {
-  const { opener, list, screen } = placing;
-  const left = withinScreen(opener.left, list.width, screen.width);
+  const { opener, list, room } = placing;
+  const left = within(opener.left, list.width, [room.left, room.width]);
   const moved = (top: number): { left: number; top: number; height: number } => ({
     left,
-    top: withinScreen(top, list.height, screen.height),
+    top: within(top, list.height, [room.top, room.height]),
     height: list.height,
   });
   if (placing.isPhone || placing.focusedMiddle === undefined) {
     return moved(opener.top);
   }
   const top = opener.top + opener.height / 2 - placing.focusedMiddle;
-  const shownTop = Math.max(top, screenEdgeRoomPx);
-  const shownBottom = Math.min(top + list.height, screen.height - screenEdgeRoomPx);
+  const shownTop = Math.max(top, room.top);
+  const shownBottom = Math.min(top + list.height, room.top + room.height);
   const shownHeight = shownBottom - shownTop;
   return shownHeight >= list.height * leastShownPartOfList
     ? { left, top: shownTop, height: shownHeight }
