@@ -55,6 +55,8 @@ work they bear on, and one that bears on two kinds of work is listed under both.
   otherwise, ask
 - [§27](27-decisions-are-revisable.md) — A decision is the best answer on what was known; a better
   way found later is raised at once
+- [§28](28-messages-get-lost.md) — Every message may be lost and every copy of state may drift;
+  each exchange recovers
 
 ## The product and its documents
 
