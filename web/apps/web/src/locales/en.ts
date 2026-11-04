@@ -18,6 +18,7 @@ import { enOrderings } from "./en-orderings.ts";
 import { enNavigation } from "./en-navigation.ts";
 import { enUpdate } from "./en-update.ts";
 import { enCredits } from "./en-credits.ts";
+import { enFind } from "./en-find.ts";
 
 /**
  * The English catalogue, bundled as the offline floor (D51). Other languages are served by the
@@ -41,6 +42,7 @@ export const en = {
   ...enSystem,
   ...enUpdate,
   ...enCredits,
+  ...enFind,
   waits: {
     underAMinute: "less than a minute",
     aMinute: "about a minute",
