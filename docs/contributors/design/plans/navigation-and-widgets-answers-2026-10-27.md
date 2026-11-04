@@ -1572,7 +1572,12 @@ research run in this batch … The actual UI revamp will be done next batch."*
 
 1. **A film's first seconds before its second keyframe play** (17 files on staging; the 11-05
    batch's step 0, "a playback batch"): the first chunk starts at the discarded keyframe and is cut
-   to the film's start.
+   to the film's start. *Built 2026-11-04 ("fix(node): a film's keyframe before its start counts at its start, so its first seconds play", VQ259):* the 14 MP4s' keyframe flagged
+   discarded, about 83 ms before the start, counts at the start, and chunk 0's picture runs those
+   few frames late; the owner, 2026-11-04: *"That's an acceptable compromise. The very beginning of
+   a video is rarely interesting anyway."* The 3 Hearthstead MKVs are another shape (no picture
+   before 2 s; their sound is led in already) and stay as they are. Their stored keyframe lists are
+   read again only once forgotten (a migration step, the owner's call).
 2. **A run's last chunk past its boundary** (11-05's "still filed").
 3. **Why Firefox on a Mac cannot append The Gold Rush's own picture** (toolkit.md; the symptom fixed
    by "fix(web): a film given up on its own picture before its first frame opens again playing", the cause open), and **file 5667's HEVC** with the Mac's Firefox.
