@@ -423,7 +423,7 @@ export const en = {
     episodeInOrdering: "{{seriesName}} · {{place}} · {{episodeName}}",
     watched: "{{percent}}% watched",
     hide: "Hide",
-    hideLabel: "Hide {{name}} from Continue watching",
+    more: "More for {{name}}",
     hidden: "{{name}} is hidden until you watch it again.",
     undo: "Undo",
   },

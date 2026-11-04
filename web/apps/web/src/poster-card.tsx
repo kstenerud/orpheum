@@ -14,7 +14,7 @@ import type { Route } from "./router.ts";
  * the icon tray and the play status if mid-play. Then they all react the same way, fill in the same
  * way"): the poster, its name and the lines under it, a link to where it leads, the status cues'
  * tray over its top-right corner, and how far in it is watched as a bar along its bottom; and what a
- * list may add under it, Continue Watching's Hide. Its size is the list's: a grid's column, a row's
+ * list may add, Continue Watching's "…" holding its Hide. Its size is the list's: a grid's column, a row's
  * --size-poster-min.
  */
 export function PosterCard(props: {
@@ -38,7 +38,7 @@ export function PosterCard(props: {
   readonly isDimmed?: boolean;
   /** The status cues' tray, over the poster's top-right corner (StatusTray). */
   readonly cues?: ReactNode;
-  /** What may be done with it beside opening it, under the card: Continue Watching's Hide. */
+  /** What may be done with it beside opening it: Continue Watching's "…", holding its Hide. */
   readonly actions?: ReactNode;
   /** Watches the item, for a list that loads more as its end comes into view. */
   readonly watch?: ((element: Element | null) => void) | undefined;

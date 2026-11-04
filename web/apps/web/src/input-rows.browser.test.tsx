@@ -200,8 +200,8 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
     walking = await mountApp(walkServices(withContinueWatching, "/"));
     await expect.poll(() => isDrawn(`${newestFilms} .poster-card__link`)).toBe(true);
     await expect.poll(() => isDrawn(".continue-watching .poster-card__link")).toBe(true);
-    await userEvent.keyboard("{ArrowDown}");
-    expect(focusedCard()).toBe("Metropolis");
+    // The page's arrival (R3): Down from it would leave the row now that Hide is in the card's "…".
+    await expect.poll(focusedCard).toBe("Metropolis");
     await userEvent.keyboard("{ArrowRight}");
     expect(focusedCard()).toBe("Nosferatu");
     expect(await pressUntil("{ArrowDown}", () => focusedNewest() !== "")).toBe(true);
@@ -214,6 +214,43 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
     // Down from over Film 3, into the newest films at Film 1, where it was.
     expect(await pressUntil("{ArrowDown}", () => focusedNewest() !== "")).toBe(true);
     expect(focusedNewest()).toBe("Film 1");
+  });
+
+  it("leaves Continue Watching by one Down, and hides a film from the card's own …, reached by Up", async () => {
+    await page.viewport(width, height);
+    const heard: string[] = [];
+    walking = await mountApp(
+      walkServices({ ...withContinueWatching, "POST /items/202/hide": null }, "/", heard),
+    );
+    await expect.poll(() => isDrawn(`${newestFilms} .poster-card__link`)).toBe(true);
+    await expect.poll(focusedCard).toBe("Metropolis");
+    await userEvent.keyboard("{ArrowRight}");
+    expect(focusedCard()).toBe("Nosferatu");
+    // Out of the row in one press: to the newest films, or their See all above them.
+    await userEvent.keyboard("{ArrowDown}");
+    expect(isFocusIn(newestFilms)).toBe(true);
+    // Up again into the row at Nosferatu, where it was, and once more to its card's "…".
+    expect(await pressUntil("{ArrowUp}", () => focusedCard() === "Nosferatu")).toBe(true);
+    expect(document.activeElement?.classList.contains("poster-card__link")).toBe(true);
+    await userEvent.keyboard("{ArrowUp}");
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("More for Nosferatu");
+    await userEvent.keyboard("{Enter}");
+    await expect.poll(() => isDrawn("dialog .list-box button")).toBe(true);
+    expect(document.activeElement?.textContent).toBe("Hide");
+    await userEvent.keyboard("{Enter}");
+    await expect.poll(() => heard).toContain("POST /items/202/hide");
+  });
+
+  it("sets each newest row's See all beside its heading, not across the screen", async () => {
+    await page.viewport(width, height);
+    walking = await mountApp(walkServices(withContinueWatching, "/"));
+    await expect.poll(() => isDrawn(`${newestFilms} .home__row-heading a`)).toBe(true);
+    const heading = document.querySelector(`${newestFilms} h2`)?.getBoundingClientRect();
+    const seeAll = document
+      .querySelector(`${newestFilms} .home__row-heading a`)
+      ?.getBoundingClientRect();
+    // One gap of the space scale's third step, 12px, between them.
+    expect((seeAll?.left ?? 0) - (heading?.right ?? 0)).toBeLessThanOrEqual(13);
   });
 
   it("opens an episode from its season's list and goes back to it there", async () => {
@@ -290,8 +327,8 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
     await page.viewport(width, height);
     walking = await mountApp(walkServices(withContinueWatching, "/"));
     await expect.poll(() => isDrawn(".continue-watching .poster-card__link")).toBe(true);
-    await userEvent.keyboard("{ArrowDown}");
-    expect(focusedCard()).toBe("Metropolis");
+    // The page's arrival (R3): Down from it would leave the row now that Hide is in the card's "…".
+    await expect.poll(focusedCard).toBe("Metropolis");
     expect(ringOutside(".continue-watching .poster-row")).toEqual([]);
     document.querySelector<HTMLElement>('.app-shell__watching a[href="/series"]')?.focus();
     await userEvent.keyboard("{ArrowLeft}");

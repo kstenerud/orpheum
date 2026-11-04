@@ -35,7 +35,17 @@ import {
 const anAdmin: WalkAnswers = {
   "GET /me": { ...viewer, role: "admin", isAdmin: true },
   "GET /client-settings": {},
-  "GET /home": { continueWatching: [] },
+  // Two films partway, so Home's walk reaches each card and its "…".
+  "GET /home": {
+    continueWatching: [101, 102].map((id) => ({
+      id,
+      name: `Film ${String(id - 100)}`,
+      libraryId: 1,
+      fileId: id * 10,
+      positionMs: 500_000,
+      durationMs: 1_000_000,
+    })),
+  },
   "GET /titles": { titles: films(6), nextCursor: "" },
   "GET /titles/letters": { letters: [] },
   "GET /libraries": {
@@ -76,19 +86,18 @@ const anAdmin: WalkAnswers = {
     })),
     nextCursor: "",
   },
+  // Seven, more than Your account shows before All devices; the first this one.
   "GET /me/devices": {
-    devices: [
-      {
-        id: 5,
-        name: "Karl's laptop",
-        platform: "web",
-        addedAt: 0,
-        lastUsedAt: 0,
-        isSignedIn: true,
-        isByCode: false,
-        isThisDevice: true,
-      },
-    ],
+    devices: Array.from({ length: 7 }, (_, at) => ({
+      id: 5 + at,
+      name: at === 0 ? "Karl's laptop" : `Device ${String(at + 1)}`,
+      platform: "web",
+      addedAt: 0,
+      lastUsedAt: 0,
+      isSignedIn: true,
+      isByCode: false,
+      isThisDevice: at === 0,
+    })),
   },
 };
 

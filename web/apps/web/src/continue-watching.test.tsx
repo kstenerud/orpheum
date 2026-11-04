@@ -62,7 +62,7 @@ describe("Continue Watching", () => {
     expect(markup).toContain('href="/play/3"');
     expect(markup).toContain("Metropolis (1995) - 720p.mkv");
     expect(markup).toContain('value="50"');
-    expect(markup).toContain('aria-label="Hide Metropolis from Continue watching"');
+    expect(markup).toContain('aria-label="More for Metropolis"');
   });
 
   it("offers to undo a hide, and shows nothing when there is nothing", () => {
