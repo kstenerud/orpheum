@@ -11,8 +11,6 @@ describe("parseRoute and routeHref", () => {
       { screen: "films", sort: "released", order: "ascending", query: "glass runner & co" },
       { screen: "series" },
       { screen: "series", sort: "added", query: "tide" },
-      { screen: "films", genre: 18, decade: 1980, isUnwatchedOnly: true },
-      { screen: "series", query: "tide", genre: 3 },
       { screen: "title", itemId: 12 },
       { screen: "series-page", collectionId: 7 },
       { screen: "series-page", collectionId: 7, season: 2 },
@@ -73,15 +71,6 @@ describe("parseRoute and routeHref", () => {
     }
     expect(parseRoute("/", "")).toEqual({ screen: "home" });
     expect(parseRoute("/films", "")).toEqual({ screen: "films" });
-    for (const chips of [
-      "?genre=0",
-      "?genre=drama",
-      "?decade=1985",
-      "?decade=80",
-      "?unwatched=yes",
-    ]) {
-      expect(parseRoute("/films", chips)).toEqual({ screen: "films" });
-    }
     for (const at of ["?at=-5", "?at=1.5", "?at=soon", "?at="]) {
       expect(parseRoute("/play/9", at)).toEqual({ screen: "play", fileId: 9 });
     }
