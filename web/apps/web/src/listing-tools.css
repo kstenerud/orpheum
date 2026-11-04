@@ -19,84 +19,64 @@
   vertical-align: -0.2em;
 }
 
-/* The search's dialog, in the middle of the screen: a wide field and its button beside it. */
-.modal-dialog.listing-search {
-  width: min(36rem, 92vw);
-}
-
-.listing-search__form {
-  display: flex;
-  gap: var(--space-2);
+/* A list's Sort and filter (D417): its icon, its name and, after them, what the list is narrowed to
+   and sorted by, on one line, the summary cut short where the bar has no room for it. */
+.list-criteria__button {
+  display: inline-flex;
   align-items: center;
+  gap: var(--space-2);
+  max-width: min(28rem, 60vw);
+  min-height: var(--size-control);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-raised);
+  color: inherit;
+  font: inherit;
+  white-space: nowrap;
 }
 
-.listing-search__form input {
-  flex: 1 1 auto;
+.list-criteria__open {
+  flex: none;
+}
+
+.list-criteria__summary {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-muted);
+  text-overflow: ellipsis;
+}
+
+/* What it opens, one control a line, the field first: as wide as a phone's screen allows (360 px
+   less the room at its edges and the pop-up's border), no wider than a column on a wider one. */
+.list-criteria {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-3);
+  width: min(22rem, 100vw - var(--screen-edge-room-left) - var(--screen-edge-room-right) - 2px);
+  padding: var(--space-3);
+}
+
+.list-criteria__name {
   min-width: 0;
   min-height: var(--size-control);
   font-size: 1.125rem;
 }
 
-.listing-search__form button {
-  flex: none;
-}
-
-.listing-search__heading {
-  margin-block: 0 var(--space-3);
-}
-
-/* The dialog's last line: Show all, at its end. */
-.listing-search__actions {
+/* A chooser in it: its field's name at the left and its button at the right. */
+.list-criteria .route-chooser {
   display: flex;
-  justify-content: flex-end;
-  margin-block-start: var(--space-3);
+  justify-content: space-between;
 }
 
-/* Under the field, what the search finds, in groups, or the recent searches: scrolled within the
-   dialog when longer than the screen. */
-.search-found {
-  max-height: min(60vh, 32rem);
-  margin-block-start: var(--space-3);
-  overflow-y: auto;
+.list-criteria__clear {
+  align-self: flex-end;
 }
 
-.search-found__group h3 {
-  margin-block: var(--space-3) var(--space-1);
-  color: var(--color-muted);
-  font-size: var(--font-size-small);
-}
-
-.search-found__list,
-.search-found__recent {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-/* A hit, one a line: a person's face's place, the name, and its year or its count. */
-.search-found__hit {
-  display: flex;
-  gap: var(--space-2);
-  align-items: center;
-  min-height: var(--size-control);
-  padding-inline: var(--space-2);
-  border-radius: var(--radius-control);
-  color: inherit;
-  text-decoration: none;
-}
-
-.search-found__detail {
-  color: var(--color-muted);
-  font-size: var(--font-size-small);
-}
-
-.search-found__more {
-  margin-block-start: var(--space-1);
-}
-
-/* The recent searches: a wrapping row of them. */
-.search-found__recent {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
+/* On a phone the button is its icon and its summary alone: the summary says what it sets. */
+@media (max-width: 599px) {
+  .list-criteria__open {
+    display: none;
+  }
 }

@@ -308,3 +308,18 @@ export function useLetterJumpState(): [
   }, []);
   return [jump, onLetter, clear];
 }
+
+/**
+ * Clears a letter jump when key changes: a list remounted under another library, sort, text or chip
+ * starts with none, not the last letter pressed in another one; shared by Films, Series and the
+ * Libraries page alike.
+ */
+export function useResetJumpOnChange(key: string, clear: () => void): void {
+  const lastKeyRef = useRef(key);
+  useEffect(() => {
+    if (lastKeyRef.current !== key) {
+      lastKeyRef.current = key;
+      clear();
+    }
+  }, [key, clear]);
+}

@@ -305,23 +305,27 @@ function useFullScreenChangeCloses(close: () => void): void {
 }
 
 /**
- * Closes the pop-up when a link or a button in it is pressed (not one marked keepsOpenAttribute):
- * after what it does, as a choice's route followed (link.tsx), heard at the document, past the page's
- * root. Heard on the pop-up itself, the close ran first, between the browser's listeners, and it was
- * gone before React heard the press at its root, so a link's own handling never ran and the browser
- * followed it (the browser test, 2026-10-28).
+ * Closes the pop-up when a link or a button in it is pressed (not one marked keepsOpenAttribute
+ * inside it): after what it does, as a choice's route followed (link.tsx), heard at the document,
+ * past the page's root. A press in a pop-up opened from it, a chooser's list in a list's Sort and
+ * filter (listing-tools.tsx), is that one's alone: it closes, and this one, its whole content marked
+ * to stay open, does not (D417). Heard on the pop-up itself, the close ran first, between the
+ * browser's listeners, and it was gone before React heard the press at its root, so a link's own
+ * handling never ran and the browser followed it (the browser test, 2026-10-28).
  */
 function useChoiceCloses(ref: RefObject<HTMLElement | null>, close: () => void): void {
   useEffect(() => {
     const chosen = (event: MouseEvent): void => {
       const popover = ref.current;
       const { target } = event;
+      if (popover === null || !(target instanceof Element)) {
+        return;
+      }
+      const keeper = target.closest(`[${keepsOpenAttribute}]`);
       if (
-        popover !== null &&
-        target instanceof Element &&
-        popover.contains(target) &&
+        target.closest("dialog") === popover &&
         target.closest("a, button") !== null &&
-        target.closest(`[${keepsOpenAttribute}]`) === null
+        (keeper === null || !popover.contains(keeper))
       ) {
         close();
       }

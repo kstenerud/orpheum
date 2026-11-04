@@ -161,18 +161,6 @@
   --poster-card-inset: var(--focus-ring-room);
 }
 
-/*
- * Films' and Series' chips (list-chips.tsx, search-by-more §4.3): on the bar's line after its name,
- * taking the room up to its tools, in a row that wraps.
- */
-.list-chips {
-  display: flex;
-  flex: 1 1 auto;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-3);
-}
-
 /* Unwatched, a toggle drawn as the choosers beside it are, its edge and words strong while on. */
 .list-chips__toggle {
   padding: var(--space-2) var(--space-3);

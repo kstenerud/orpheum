@@ -346,10 +346,6 @@ export const en = {
     viewAll: "All",
     viewFolders: "Folders",
     folderEmpty: "This folder holds no videos.",
-    searchLabel: "Search the library chosen, or every one",
-    searchSubmit: "Search",
-    searchOpen: "Search",
-    showAll: "Show all",
   },
   filingReport: {
     write: "Report this",

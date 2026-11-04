@@ -11,24 +11,55 @@ import type { ListFilters } from "./router.ts";
 import { useServices } from "./services.tsx";
 
 /** A genre the chip offers, as GET /genres names it. */
-type Genre = components["schemas"]["GenreBody"];
+export type Genre = components["schemas"]["GenreBody"];
+
+/** The kinds of list that have genres to choose among: films and series. */
+export type ChipsKind = "movie" | "series";
 
 /**
- * Films' or Series' chips (search-by-more §4.3): a genre from those the list's titles have, a decade,
- * and whether to keep only what the person has not watched. Each is a button, so a remote reaches
- * them with no typing; each choice is told whole, the page keeping it in the address.
+ * The genres GET /genres names for a list's kind, asked for once wanted (isWanted): the list's pop-up
+ * opened, or a genre named by the address, whose name its button shows; not each time the list shows,
+ * as most visits never open it. None while unread, and for a list with no chips (kind undefined).
+ */
+export function useGenres(kind: ChipsKind | undefined, isWanted: boolean): readonly Genre[] {
+  const { api } = useServices();
+  const [genres, setGenres] = useState<readonly Genre[]>([]);
+  useEffect(() => {
+    if (!isWanted || kind === undefined) {
+      return undefined;
+    }
+    let isCurrent = true;
+    api
+      .GET("/genres", { params: { query: { kind } } })
+      .then((answer) => {
+        if (isCurrent) {
+          setGenres(dataOrThrow(answer).genres ?? []);
+        }
+      })
+      .catch(reportFailure);
+    return () => {
+      isCurrent = false;
+    };
+  }, [api, kind, isWanted]);
+  return genres;
+}
+
+/**
+ * A list's chips (search-by-more §4.3), in its pop-up (D417): a genre from those the list's titles
+ * have, a decade, and whether to keep only what the person has not watched. Each is a button, so a
+ * remote reaches them with no typing; each choice is told whole, the page keeping it.
  */
 export function ListChips(props: {
-  readonly kind: "movie" | "series";
+  readonly genres: readonly Genre[];
   readonly filters: ListFilters;
   readonly onChange: (next: ListFilters) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { filters, onChange } = props;
   return (
-    <div className="list-chips" data-focus-container="">
+    <>
       <GenreChip
-        kind={props.kind}
+        genres={props.genres}
         genre={filters.genre}
         onChoose={(genre) => {
           onChange(chipsOf({ ...filters, genre }));
@@ -60,49 +91,21 @@ export function ListChips(props: {
       >
         {t("chips.unwatched")}
       </button>
-    </div>
+    </>
   );
 }
 
-/** The genre chip: the genres GET /genres names for the list's kind, and Any genre first. */
+/** The genre chip: the list's kind's genres (useGenres), and Any genre first. */
 function GenreChip(props: {
-  readonly kind: "movie" | "series";
+  readonly genres: readonly Genre[];
   readonly genre: number | undefined;
   readonly onChoose: (genre: number | undefined) => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { api } = useServices();
-  // Asked for when first wanted, its list opened or a genre named by the address, not each time the
-  // list shows: most visits never open it.
-  const [isWanted, setIsWanted] = useState(props.genre !== undefined);
-  const [genres, setGenres] = useState<readonly Genre[]>([]);
-  const { kind } = props;
-  useEffect(() => {
-    if (!isWanted) {
-      return undefined;
-    }
-    let isCurrent = true;
-    api
-      .GET("/genres", { params: { query: { kind } } })
-      .then((answer) => {
-        if (isCurrent) {
-          setGenres(dataOrThrow(answer).genres ?? []);
-        }
-      })
-      .catch(reportFailure);
-    return () => {
-      isCurrent = false;
-    };
-  }, [api, kind, isWanted]);
-  const current = genres.find((genre) => genre.id === props.genre);
+  const current = props.genres.find((genre) => genre.id === props.genre);
   return (
     <ActionChooser
       fieldLabel={t("chips.genre")}
-      onOpenChange={(isOpen) => {
-        if (isOpen) {
-          setIsWanted(true);
-        }
-      }}
       current={current?.name ?? t("chips.anyGenre")}
       options={[
         {
@@ -113,7 +116,7 @@ function GenreChip(props: {
             props.onChoose(undefined);
           },
         },
-        ...genres.map((genre) => ({
+        ...props.genres.map((genre) => ({
           key: String(genre.id),
           label: genre.name,
           isCurrent: genre.id === props.genre,
