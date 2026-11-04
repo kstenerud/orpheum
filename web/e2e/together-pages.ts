@@ -26,7 +26,7 @@ export async function openTogether(host: Page): Promise<void> {
 /** Opens Watch Together's dialog over the host's page as it is, by the tray's sign. */
 async function openTogetherHere(host: Page): Promise<void> {
   await host.locator(".status-tray button[aria-label^='Watch Together']").click();
-  await expect(host.locator("dialog.together-dialog")).toBeVisible();
+  await expect(host.getByRole("dialog", { name: "Watch Together" })).toBeVisible();
 }
 
 /**
@@ -36,7 +36,7 @@ async function openTogetherHere(host: Page): Promise<void> {
 async function endFromTheDialog(host: Page): Promise<void> {
   await host.getByRole("button", { name: "End the session" }).click();
   await host.getByRole("button", { name: "End it" }).click();
-  await expect(host.locator("dialog.together-dialog")).toHaveCount(0);
+  await expect(host.getByRole("dialog", { name: "Watch Together" })).toHaveCount(0);
   await expect(host.locator(".status-tray button[aria-label='Watch Together']")).toBeVisible();
 }
 

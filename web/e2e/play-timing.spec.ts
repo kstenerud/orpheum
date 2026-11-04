@@ -4,7 +4,14 @@ import { expect } from "@playwright/test";
 
 import { test } from "./browser-map.ts";
 import { oneBrowserTag, timingTag } from "./only-these-tests.ts";
-import { isPlaying, openFilm, openFilmOnItsLadder, serverUrl, signIn } from "./pages.ts";
+import {
+  isPlaying,
+  openFilm,
+  openFilmOnItsLadder,
+  serverUrl,
+  shownOverTheFilm,
+  signIn,
+} from "./pages.ts";
 import { longTrackName, timingFilm, warmUpFilm } from "./server.ts";
 
 /** How long pressing play may take to start the picture moving (cut-a §8, M3's acceptance). */
@@ -69,9 +76,9 @@ test("on a phone's screen, the play page is no wider than the screen, whatever i
   await signIn(page);
   await openFilm(page, timingFilm(browserName));
   await page.getByRole("link", { name: "Play" }).click();
-  // The subtitles' chooser, a pop-up since the native select went (plans/toolkit.md step 6), open
-  // on its list, the long name in it.
-  await page.locator(".route-chooser", { hasText: "Subtitles" }).getByRole("button").click();
+  // The subtitles' chooser, the overlay's Subtitles menu (D418 §1), open on its list, the long name
+  // in it.
+  await (await shownOverTheFilm(page, /^Subtitles: /u)).click();
   await expect(
     page.getByRole("dialog", { name: "Subtitles" }).getByRole("button", { name: longTrackName }),
   ).toBeVisible();
