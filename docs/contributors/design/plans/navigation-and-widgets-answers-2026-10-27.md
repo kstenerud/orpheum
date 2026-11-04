@@ -1521,7 +1521,9 @@ Connect deploy; then fixed, with a test failing on revert.
 9. **The lead's own account on staging's Connect** ("Staging's Connect", above): mail for a reserved
    test domain written to a file; orpheum-connect's mailer. **Built 2026-11-04** (orpheum-connect, an earlier commit; staging
    redeployed): `-test-mail-domain=lead.test` writes that domain's mail to `.staging/connect-data/lead-mail/`;
-   the lead's invitation is made (staging invitation 2); redeeming it with a virtual passkey is next.
+   the lead's invitation (staging invitation 2) is redeemed (2026-11-04): `lead@lead.test`, realm `leadtest`,
+   its mail verified from that folder and a virtual authenticator's passkey added, which signs in alone from
+   a fresh browser. Its password and passkey stay in the sandbox's cache. **Done.**
 10. **A Chromecast's first test away from home** (the owner, 2026-11-03: "let's slip initial
     chromecast support into this batch", choosing the test receiver first): the owner tests a
     Chromecast 3rd gen and a TV's own Cast in Berlin. The lab's receiver is served publicly by
