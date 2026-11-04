@@ -75,6 +75,40 @@ describe("home (the owner, 2026-10-25)", () => {
     ]);
   });
 
+  it("leads each newest row's See all to its list, newest added first (the owner, 2026-11-04)", async () => {
+    const services = servedBy(
+      {
+        "GET /home": [
+          200,
+          {
+            continueWatching: [
+              { id: 7, name: "Metropolis", libraryId: 1, fileId: 70, positionMs: 250, durationMs: 1000 },
+            ],
+          },
+        ],
+        "GET /titles": [200, { titles: [entry(8, "Nosferatu")], nextCursor: "" }],
+        "GET /libraries": [200, { libraries: [{ id: 1, name: "Films", kind: "movie" }] }],
+      },
+      [],
+      "token",
+    );
+    mounted = await mount(withServices(<Home />, services));
+    const seeAll = [...mounted.container.querySelectorAll("a")].filter(
+      (link) => link.textContent === "See all",
+    );
+    expect(
+      seeAll.map((link) => [link.getAttribute("aria-label"), link.getAttribute("href")]),
+    ).toEqual([
+      ["See all films, newest first", "/films?sort=added"],
+      ["See all series, newest first", "/series?sort=added"],
+    ]);
+    // Each in its own row's heading, none in Continue Watching's.
+    expect(seeAll.map((link) => link.closest("section")?.getAttribute("aria-labelledby"))).toEqual([
+      "home-newest-movie",
+      "home-newest-series",
+    ]);
+  });
+
   it("leaves out a row with nothing in it", async () => {
     const services = servedBy(
       {

@@ -1,0 +1,66 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/*
+ * A row of posters that scrolls sideways (poster-row.tsx), sized as the grid is. A row that scrolls
+ * clips what leaves its box, so it keeps room for the focus ring around its posters, and stands
+ * where it would without it.
+ */
+.poster-row {
+  display: flex;
+  gap: var(--space-3);
+  margin: calc(-1 * var(--focus-ring-room)) calc(-1 * var(--focus-ring-room)) 0;
+  padding: var(--focus-ring-room) var(--focus-ring-room) var(--space-2);
+  overflow-x: auto;
+  scroll-padding-inline: var(--focus-ring-room);
+  list-style: none;
+  scroll-snap-type: x proximity;
+}
+
+.poster-row > .poster-card {
+  width: var(--size-poster-min);
+  flex: none;
+  scroll-snap-align: start;
+}
+
+/* A poster row's frame: the row, and its arrows over its ends. */
+.poster-row__frame {
+  position: relative;
+}
+
+/*
+ * An arrow, where the row has more its way: shown only on a device whose pointer hovers and is fine
+ * (a mouse), while the pointer is over the row or focus is in it; never on a phone or a television,
+ * which scroll the row by touch or by moving focus along it.
+ */
+.poster-row__arrow {
+  display: none;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.poster-row__arrow--back {
+  left: var(--space-1);
+}
+
+.poster-row__arrow--on {
+  right: var(--space-1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .poster-row__frame:hover > .poster-row__arrow,
+  .poster-row__frame:focus-within > .poster-row__arrow {
+    display: block;
+  }
+}
+
+/* Over a poster's art: a raised round button, as plain as the app's others. */
+.poster-row__arrow > .icon-button {
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-raised);
+}
+
+.poster-row__arrow > .icon-button:hover:not(:disabled) {
+  background: var(--color-border);
+}

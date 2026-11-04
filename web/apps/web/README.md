@@ -405,6 +405,14 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/series-page.test.tsx`, `src/input-layer.test.tsx`, `src/input-walk.browser.test.tsx`, `src/series.test.tsx`, `src/library-browse.test.tsx`,
   `src/input-rows.browser.test.tsx`,
   `src/input-player.browser.test.tsx`.
+- **A row of posters that scrolls sideways is a `PosterRow`** (`src/poster-row.tsx`; the owner,
+  2026-11-04): Home's rows and a series' seasons. For a mouse with no sideways wheel, an arrow at
+  each end where there is more that way, shown only on a device whose pointer hovers and is fine,
+  while the pointer is over the row or focus is in it; a press moves the row about its width less
+  one poster, onto a poster's edge, at once under reduced motion. The arrows are out of Tab's order
+  and a remote's (`IconButton`'s `isPointerOnly`), so a phone and a television are as they were.
+  Home's newest rows each lead by *See all* to Films or Series sorted by date added.
+  `src/poster-row.browser.test.tsx`, `src/home.test.tsx`; on devices, VQ258.
 - **A series' own page offers its person's next episode at once** (the owner, 2026-10-25): the
   server's `nextUp`, played by *Continue S1E3* where they are partway through it, which resumes, else
   *Play S1E4*; where it cannot be played now, why, and no Play, as a title's page does; at every

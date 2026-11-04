@@ -10,7 +10,9 @@ import { ContinueWatching } from "./continue-watching.tsx";
 import { useLibrariesReached } from "./libraries-reached.ts";
 import { Link } from "./link.tsx";
 import { useBackgroundChangesPoller } from "./polling.ts";
+import { PosterRow } from "./poster-row.tsx";
 import { dataOrThrow } from "./problem.ts";
+import type { Route } from "./router.ts";
 import { useServices } from "./services.tsx";
 import { useResource } from "./use-resource.ts";
 import { IsAdminContext } from "./warning-sign.tsx";
@@ -87,12 +89,28 @@ export function NewestRow(props: { readonly kind: BrowseKind }): JSX.Element | n
   const headingId = `home-newest-${kind}`;
   return (
     <section className="home__row" aria-labelledby={headingId}>
-      <h2 id={headingId}>{t(kind === "movie" ? "home.newestFilms" : "home.newestSeries")}</h2>
-      <ul className="poster-row" data-focus-container="">
+      <div className="home__row-heading">
+        <h2 id={headingId}>{t(kind === "movie" ? "home.newestFilms" : "home.newestSeries")}</h2>
+        <Link
+          to={newestListRoute(kind)}
+          label={t(kind === "movie" ? "home.seeAllFilms" : "home.seeAllSeries")}
+        >
+          {t("home.seeAll")}
+        </Link>
+      </div>
+      <PosterRow>
         {entries.value.map((entry: Entry) => (
           <EntryPoster key={entry.id} kind={kind} entry={entry} />
         ))}
-      </ul>
+      </PosterRow>
     </section>
   );
+}
+
+/**
+ * Where a newest row's See all leads (the owner, 2026-11-04): Films or Series sorted by date added,
+ * which runs newest first, the row's own order, past the row's newestShown.
+ */
+export function newestListRoute(kind: BrowseKind): Route {
+  return { screen: kind === "movie" ? "films" : "series", sort: "added" };
 }

@@ -13,6 +13,7 @@ import { StatusTray } from "./status-cues.tsx";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, throwIfRefused } from "./problem.ts";
 import { PosterCard, PosterDetail } from "./poster-card.tsx";
+import { PosterRow } from "./poster-row.tsx";
 import { useServices } from "./services.tsx";
 import { useResource } from "./use-resource.ts";
 import { placeCode, type OrderingPlace } from "./episode-place.ts";
@@ -121,7 +122,7 @@ export function ContinueWatchingView(props: {
           </button>
         </output>
       )}
-      <ul className="poster-row" data-focus-container="">
+      <PosterRow>
         {props.rows.map((row) => (
           <ContinueWatchingRowView
             key={row.id}
@@ -130,7 +131,7 @@ export function ContinueWatchingView(props: {
             onHide={props.onHide}
           />
         ))}
-      </ul>
+      </PosterRow>
     </section>
   );
 }
