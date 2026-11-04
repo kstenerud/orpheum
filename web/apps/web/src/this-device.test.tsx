@@ -10,6 +10,7 @@ import {
   buttonWithText,
   click,
   enter,
+  fire,
   mount,
   servedBy,
   submit,
@@ -52,6 +53,54 @@ describe("the This device page", () => {
     expect(
       heard.filter((each) => each.methodAndPath === "PUT /me/devices/5").map((each) => each.body),
     ).toEqual([{ name: "Desk" }]);
+  });
+
+  it("saves a new name as it is left, with no Save, and says Saved (Q5)", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "GET /me/devices": [200, { devices: [laptop] }],
+        "PUT /me/devices/5": [204, undefined],
+      },
+      heard,
+    );
+    services.session.signIn("token", { deviceId: 5 });
+    mounted = await mount(withServices(<ThisDevice />, services));
+    await click(buttonWithText(mounted.container, "Rename"));
+    const field = mounted.container.querySelector("input");
+    expect(document.activeElement).toBe(field);
+    expect(buttonWithText(mounted.container, "Save")).toBeUndefined();
+    expect(mounted.container.textContent).not.toContain("Saved");
+    await enter(field, "Desk");
+    await fire(field, new FocusEvent("focusout", { bubbles: true }));
+    expect(
+      heard.filter((each) => each.methodAndPath === "PUT /me/devices/5").map((each) => each.body),
+    ).toEqual([{ name: "Desk" }]);
+    expect(mounted.container.querySelector("output")?.textContent).toBe("Saved");
+  });
+
+  it("saves once on Enter and gives focus back to Rename; an unchanged name saves nothing", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "GET /me/devices": [200, { devices: [laptop] }],
+        "PUT /me/devices/5": [204, undefined],
+      },
+      heard,
+    );
+    services.session.signIn("token", { deviceId: 5 });
+    mounted = await mount(withServices(<ThisDevice />, services));
+    await click(buttonWithText(mounted.container, "Rename"));
+    await submit(mounted.container.querySelector("form"));
+    expect(heard.filter((each) => each.methodAndPath === "PUT /me/devices/5")).toEqual([]);
+    expect(document.activeElement).toBe(buttonWithText(mounted.container, "Rename"));
+    await click(buttonWithText(mounted.container, "Rename"));
+    const field = mounted.container.querySelector("input");
+    await enter(field, "Desk");
+    await submit(mounted.container.querySelector("form"));
+    await fire(field, new FocusEvent("focusout", { bubbles: true }));
+    expect(heard.filter((each) => each.methodAndPath === "PUT /me/devices/5")).toHaveLength(1);
+    expect(document.activeElement).toBe(buttonWithText(mounted.container, "Rename"));
   });
 
   it("says so when this browser is not one of the person's devices", async () => {

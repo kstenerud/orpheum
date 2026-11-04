@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { JSX } from "react";
+import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { listMyDevices, renameMyDevice } from "./accounts.ts";
@@ -48,15 +48,19 @@ function ControllerChoice(): JSX.Element {
 }
 
 /**
- * The settings of the device the person is using, in one place: its name, and which button of a
- * game controller is OK. How it makes sound is asked of no one (D336 §4); its sound offset is set
- * under the video. The person's other devices are on their account page.
+ * The settings of the device the person is using, in one place, each kept at once with no Save
+ * (ui-audit-2026-11-04.md Q5): its name, kept on Enter or on leaving its field and then said Saved,
+ * and which button of a game controller is OK, kept as it is chosen. How it makes sound is asked of
+ * no one (D336 §4); its sound offset is set under the video. The person's other devices are on their account page.
  */
 export function ThisDevice(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [devices, reload] = useResource("my-devices", () => listMyDevices(api));
+  const [devices] = useResource("my-devices", () => listMyDevices(api));
   const { problem, runRequest } = useRequest((cause) => problemText(t, cause));
+  // The name last kept, shown in the one read's place: reading the list again would draw it anew,
+  // taking focus from Rename. Said Saved, as the page has no Save (ui-audit-2026-11-04.md Q5).
+  const [savedName, setSavedName] = useState<string | undefined>(undefined);
   return (
     <section className="this-device" aria-labelledby="this-device-heading">
       <h1 id="this-device-heading">{t("thisDevice.heading")}</h1>
@@ -73,14 +77,16 @@ export function ThisDevice(): JSX.Element {
               <h2>{t("thisDevice.name")}</h2>
               <div {...arrivalMark}>
                 <DeviceName
-                  device={device}
+                  device={savedName === undefined ? device : { ...device, name: savedName }}
                   onRename={(_, name) => {
+                    setSavedName(undefined);
                     runRequest(async () => {
                       await renameMyDevice(api, device.id, name);
-                      reload();
+                      setSavedName(name);
                     });
                   }}
                 />
+                {savedName === undefined ? null : <output>{t("thisDevice.nameSaved")}</output>}
               </div>
               {problem === undefined ? null : <p role="alert">{problem}</p>}
             </>

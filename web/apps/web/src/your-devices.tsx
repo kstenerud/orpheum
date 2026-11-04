@@ -2,14 +2,13 @@
 
 import "./your-devices.css";
 
-import { useState, type JSX } from "react";
+import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { removeMyDevice, renameMyDevice, signOutElsewhere, type Device } from "./accounts.ts";
 import { BusyGroup } from "./busy-group.tsx";
 import { ConfirmButton } from "./confirm-button.tsx";
 import { dateTimeText } from "./date-time-text.ts";
-import { submitWith } from "./form-row.tsx";
 import { fieldProblemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./loaded.tsx";
@@ -82,7 +81,6 @@ export function YourDevices(props: {
   );
 }
 
-/** Which of the three a device is: the one asking, another signed in, or signed out. */
 /** Signs out every device but this one, asked again first. */
 function SignOutElsewhere(props: { readonly onConfirm: () => void }): JSX.Element {
   const { t } = useTranslation();
@@ -96,6 +94,7 @@ function SignOutElsewhere(props: { readonly onConfirm: () => void }): JSX.Elemen
   );
 }
 
+/** Which of the three a device is: the one asking, another signed in, or signed out. */
 export function deviceState(device: Device): "thisDevice" | "signedIn" | "signedOut" {
   if (device.isThisDevice) {
     return "thisDevice";
@@ -149,37 +148,89 @@ export function DeviceList(props: {
   );
 }
 
-/** A device's name, which can be changed in place. */
+/**
+ * A device's name, which can be changed in place: Rename opens its field, focused, and the name
+ * typed is saved on Enter or on leaving the field, with no Save (ui-audit-2026-11-04.md Q5:
+ * every setting saves at once). Enter gives focus back to Rename; leaving it for another control
+ * leaves focus there. An empty or unchanged name saves nothing.
+ */
 export function DeviceName(props: {
   readonly device: Device;
   readonly onRename: (device: Device, name: string) => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const [draft, setDraft] = useState<string | undefined>(undefined);
-  if (draft === undefined) {
+  const [isOpen, setIsOpen] = useState(false);
+  const renameRef = useRef<HTMLButtonElement>(null);
+  // Whether focus goes back to Rename as the field closes: after Enter, not after leaving it.
+  const isRefocusingRef = useRef(false);
+  useEffect(() => {
+    if (!isOpen && isRefocusingRef.current) {
+      isRefocusingRef.current = false;
+      renameRef.current?.focus();
+    }
+  }, [isOpen]);
+  if (isOpen) {
     return (
-      <span className="your-devices__name">
-        {props.device.name}{" "}
-        <button
-          type="button"
-          onClick={() => {
-            setDraft(props.device.name);
-          }}
-        >
-          {t("devices.rename")}
-        </button>
-      </span>
+      <NameField
+        name={props.device.name}
+        onClose={(name, isByEnter) => {
+          isRefocusingRef.current = isByEnter;
+          if (name !== "" && name !== props.device.name) {
+            props.onRename(props.device, name);
+          }
+          setIsOpen(false);
+        }}
+      />
     );
   }
   return (
+    <span className="your-devices__name">
+      {props.device.name}{" "}
+      <button
+        ref={renameRef}
+        type="button"
+        onClick={() => {
+          setIsOpen(true);
+        }}
+      >
+        {t("devices.rename")}
+      </button>
+    </span>
+  );
+}
+
+/**
+ * A device's name being typed, focused as it opens, closed by Enter or by leaving it: onClose has
+ * what was typed and which closed it, once, though Enter's closing may blur it after.
+ */
+function NameField(props: {
+  readonly name: string;
+  readonly onClose: (name: string, isByEnter: boolean) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const [draft, setDraft] = useState(props.name);
+  const fieldRef = useRef<HTMLInputElement>(null);
+  const isClosedRef = useRef(false);
+  useEffect(() => {
+    fieldRef.current?.focus();
+  }, []);
+  const close = (isByEnter: boolean): void => {
+    if (!isClosedRef.current) {
+      isClosedRef.current = true;
+      props.onClose(draft, isByEnter);
+    }
+  };
+  return (
     <form
       className="your-devices__name"
-      onSubmit={submitWith(() => {
-        props.onRename(props.device, draft);
-        setDraft(undefined);
-      })}
+      onSubmit={(event) => {
+        // Not submitWith: its action, made in render, may not touch isClosedRef (react-hooks/refs).
+        event.preventDefault();
+        close(true);
+      }}
     >
       <input
+        ref={fieldRef}
         required
         maxLength={100}
         aria-label={t("account.deviceName")}
@@ -187,8 +238,10 @@ export function DeviceName(props: {
         onChange={(event) => {
           setDraft(event.target.value);
         }}
+        onBlur={() => {
+          close(false);
+        }}
       />
-      <button type="submit">{t("devices.save")}</button>
     </form>
   );
 }
