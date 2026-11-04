@@ -1,45 +1,19 @@
 # Standing orders (the owner's; kept current by the lead, read at every prompt)
 
 1. **Done 2026-10-27:** the process review (all of sets 1–3, F12, F1; F11a dropped).
-2. **Done:** the 10-27, 10-30, 10-31 and 11-01 batches. The 11-01 batch (fixes from the owner's
-   testing) is built, passed check-pr at "refactor(web): reportReloadForNewerClient is reportReloadNote" and is deployed (2026-11-01): nas.example runs an earlier commit
-   ("refactor(web): reportReloadForNewerClient is reportReloadNote"'s tree), production runs connect-production-9cbe6f0-d35c68e1 at D390's names (orpheum.cc,
-   account.orpheum.cc; the API on orpheum-app.com), realm `karls`. Owed by the owner: VQ85, 87, 88, 90, 91,
-   93, 96, 97, 102(2), 115, 118, 120, 194, and the 11-01 batch's (VQ195–201, 204–207,
-   215, 220, 221, 225, 226, 230, 231); VQ81's disk case; D368's loudness on stepping down; the open items in the plan
-   file's "From the production deploy" section. Deploy: `ssh prod-nas`, `make deploy DIR=/srv/orpheum`.
-   **The 11-02 batch (owner 2026-11-01, agreed to the lead's proposal):** networking and the beta made
-   solid, as the plan file's "The 11-02 batch" lists: the iPhone's full screen (iOS's own player),
-   the LAN origin (decision first), WebRTC for Chromium, recovery, a page that cannot reach its core
-   says why, playback's start, the deploy's small items, two gate fixes (not check-pr's time). The
-   owner checks devices alongside (`/yoloai/files/testing-plan-2026-11-01.md`). End: one check-pr, the
-   owner's go, nas.example. **Not this batch:** inventory features; the decoder-limit codec drop; the
-   average-bitrate rung; the cosmetic UI items.
-   **The 11-03 batch (owner 2026-11-01, "Go with your recommendations"):** after the 11-02 batch
-   (passed check-pr at "fix(web): an empty Home's notice takes the paragraph's own spacing", deployed to nas.example 2026-11-01): the plan file's "The 11-03 batch":
-   the seek's stop after starting, the track switch's seam, the uncaught AbortError, article-less
-   sorting (refining D47), a confirmed placement sticks (amending D307 §2), the empty Home's admin
-   notice, the freeze's console words, the Continue Watching poster, up.sh's check as `connect`, the
-   renamed realm's sign-in. The owner holds the testing plan's sound steps until it lands. End: one
-   check-pr, the owner's go, nas.example.
-   **The 11-04 batch (owner 2026-11-01, "finish this batch and start another one overnight"):** the
-   plan file's "The 11-04 batch": a redeemed invitation leaves People, a role in one dialog for
-   creating and editing, a series starts at season 1. No nas.example release soon. End: one check-pr.
-   **The 11-05 batch (owner 2026-11-03, "yes, as proposed"):** after the prod deploy of the 11-03
-   work, the plan file's "The 11-05 batch": first the older next-batch sections read for what is
-   open (done: the stale client left until seen again; step 0's folded items, discovery-sign's
-   `test-key`/`mac`, D398's dead ends stored and shown, the Stop hook's run record, the owner 2026-11-03), then port mapping to the router, §28's S2/L1/L2/D1, CPU and memory recorded, the chunk
-   join's hole, loudness taken up while playing, a DVD's sound at a join, matching a name with no
-   year and a series' year, the small ones, the lead's staging Connect account, and (the owner, 2026-11-03) a Chromecast's first test away from
-   home: the lab's receiver served by Connect, for the owner's test in Berlin. End: one check-pr,
-   the owner's go, nas.example.
-   **The 11-06 batch (owner 2026-11-04, "yes that sounds good"):** after the 11-05 batch (deployed
-   to nas.example 2026-11-04), the plan file's "The 11-06 batch": playback holds up (a film's first
+2. **Done:** the 10-27 to 11-05 batches, each in the plan file
+   (navigation-and-widgets-answers-2026-10-27.md) under its own heading; the 11-05 batch is deployed
+   to nas.example (2026-11-04). Production runs connect-production-9cbe6f0-d35c68e1 at D390's names, realm
+   `karls`. Owed by the owner: VQ85, 87, 88, 90, 91, 93, 96, 97, 102(2), 115, 118, 120, 194, the 11-01
+   batch's (VQ195–201, 204–207, 215, 220, 221, 225, 226, 230, 231); VQ81's disk case; D368's loudness on
+   stepping down; the plan file's "From the production deploy" open items. Deploy: `ssh prod-nas`,
+   `make deploy DIR=/srv/orpheum`.
+   **The 11-06 batch (owner 2026-11-04, "yes that sounds good"):** the plan file's "The 11-06 batch": playback holds up (a film's first
    seconds, a run's last chunk, Firefox on a Mac, file 5667, SWAG starts and stalls) and (the owner,
    2026-11-04) the UI audit's research only: clicks to each piece of information, where focus lands,
    the controls' layout, from experts, studies and competitors. The UI revamp is the next batch.
    AirPlay is recorded in airplay.md; the owner schedules its spike. End: one check-pr, the owner's
-   go, nas.example.
+   go, nas.example. Exact cut times for a re-timed copy: not this batch (the owner, 2026-11-04).
    **Queued for the owner to order later:** the rest of the plan file and inventory-2026-10-27.md.
    **Superseded (owner 2026-10-30, D385):** a receiver taking control back ends the cast and goes home; the sender plays on.
 3. **Only then:** new work (Diagnostics, D341, D345, the queued items), and code-fixing batches from
