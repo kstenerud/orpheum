@@ -591,7 +591,12 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
       .poll(() => walking?.services.navigation.route())
       .toMatchObject({ screen: "browse", library: 1, query: "heat" });
     await drawn('main a[href="/titles/102"]');
-    expect(await pressUntil("{ArrowDown}", () => isFocusOnLinkTo("/titles/102"))).toBe(true);
+    // Down from the button lands on the poster nearest below it, which its summary's width decides
+    // ("Name · “heat”" once the address has the text): either result, then Right along the row.
+    const isOnResult = (): boolean =>
+      (document.activeElement?.closest(".poster-grid .poster-card__link") ?? null) !== null;
+    expect(await pressUntil("{ArrowDown}", isOnResult)).toBe(true);
+    expect(await pressUntil("{ArrowRight}", () => isFocusOnLinkTo("/titles/102"))).toBe(true);
     await press("{Enter}");
     await drawn(".title__play");
     await press("{Escape}");
