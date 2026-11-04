@@ -2,9 +2,11 @@
 
 import {
   afterFirstPiece,
+  joinsSmallChunks,
   measuresTheLink,
   paceAboveQuality,
   reportsLinkFromSamples,
+  SmallChunkRun,
 } from "./abr-choice.ts";
 import type {
   ChoiceWhy,
@@ -13,7 +15,7 @@ import type {
   ChoosingOptions,
   FollowedChunk,
 } from "./abr-options.ts";
-import { LinkEstimate, priorNoteText } from "./link-estimate.ts";
+import { LinkEstimate, priorNoteText, type LinkSample } from "./link-estimate.ts";
 import { ChunkOnItsWay, type AskingAgain } from "./abr-on-its-way.ts";
 import type { NextChunkLink } from "./next-chunk.ts";
 import { PlayedTime, StandingStill } from "./abr-video.ts";
@@ -60,6 +62,8 @@ export class Choosing<Chunk extends FollowedChunk> {
   };
   /** The pace each paced chunk was asked to arrive at, bits a second. */
   readonly #paces = new WeakMap<Chunk, number>();
+  /** Small chunks loaded back to back, which measure the link together (D414 §3). */
+  readonly #smallChunks = new SmallChunkRun();
   /**
    * The link as its last chunks measured it, which every choice reads (D352 §2): hls.js's estimate,
    * weighted by each chunk's seconds, held one slow first sample of 1008 kb/s for minutes on a
@@ -205,7 +209,11 @@ export class Choosing<Chunk extends FollowedChunk> {
     }
   }
 
-  /** Whether a loaded chunk of picture measures the link, to be counted in the estimate (D265 §7). */
+  /**
+   * Whether a loaded chunk of picture measures the link alone, to be counted in the estimate and in
+   * hls.js's (D265 §7). One too small to, loaded back to back with others of its quality, measures
+   * it with them, in the estimate alone (SmallChunkRun, D414 §3).
+   */
   measures(chunk: Chunk): boolean {
     const { loading, loaded } = chunk.stats;
     // Its bytes after its first piece, over the time after it (D382 §2).
@@ -213,24 +221,48 @@ export class Choosing<Chunk extends FollowedChunk> {
       { bytes: loaded, fromMs: loading.first, toMs: loading.end },
       this.#options.firstPieceOf?.(chunk.url),
     );
-    const isCounted =
-      measuresTheLink({
-        loadMs: loading.end - loading.start,
-        arrivingMs: measured.ms,
-        bytes: measured.bytes,
-        paceBps: this.#paces.get(chunk),
-        isFromCache: this.#options.fromCache(chunk.url),
-      }) && !this.#isExcusedBusy(chunk);
-    if (isCounted) {
-      this.#ceiling.sample({
+    const firstByteMs = Math.max(0, loading.first - loading.start);
+    const loadedChunk = {
+      loadMs: loading.end - loading.start,
+      arrivingMs: measured.ms,
+      bytes: measured.bytes,
+      paceBps: this.#paces.get(chunk),
+      isFromCache: this.#options.fromCache(chunk.url),
+    };
+    const isAlone = measuresTheLink(loadedChunk);
+    if ((!isAlone && !joinsSmallChunks(loadedChunk)) || this.#isExcusedBusy(chunk)) {
+      this.#smallChunks.clear();
+      return false;
+    }
+    if (isAlone) {
+      this.#smallChunks.clear();
+      this.#sample({
         level: chunk.level,
         bytes: measured.bytes,
-        firstByteMs: Math.max(0, loading.first - loading.start),
+        firstByteMs,
         arrivedMs: measured.ms,
       });
-      this.#ceiling.endStartingWhenDone(this.#played.playedMs());
+      return true;
     }
-    return isCounted;
+    const small = {
+      level: chunk.level,
+      askedMs: loading.start,
+      measuredFromMs: loading.end - measured.ms,
+      endMs: loading.end,
+      bytes: loaded,
+      measuredBytes: measured.bytes,
+    };
+    const together = this.#smallChunks.add(small, firstByteMs);
+    if (together !== undefined) {
+      this.#sample(together);
+    }
+    return false;
+  }
+
+  /** Counts a sample of the link in the estimate, and ends the start once enough have played. */
+  #sample(sample: LinkSample): void {
+    this.#ceiling.sample(sample);
+    this.#ceiling.endStartingWhenDone(this.#played.playedMs());
   }
 
   /**

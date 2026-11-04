@@ -85,7 +85,10 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   chunk that does by its bytes after its first arriving piece, its load's first progress
   (`src/first-piece.ts`), from that piece to its last byte, never the wait for its first (D247 §9):
   a transport that delivers in pieces brings the first with the first byte, and a Fire TV's chunk
-  given up with only its first 128 KiB measured a 20 Mb/s link at 680 kb/s (D382 §2). It
+  given up with only its first 128 KiB measured a 20 Mb/s link at 680 kb/s (D382 §2); and counts
+  a chunk under `measuresFromBytesAtLeast` only with others of its quality each asked for within
+  `backToBackWithinMs` of the last one's end, as one sample once their bytes reach it, in its own
+  estimate and not hls.js's (`SmallChunkRun`, D414 §3; `abr-choice.test.ts`, `abr-measure.test.ts`). It
   reports its estimate as the link's speed, never a bound of it and never from a lone first sample
   (D352 §1), with its spread, and its steadiness level, with every play report (D352 Q2, P2); and notes each choice with what it rests
   on, and its last five samples in every stall's and seek's report, in their own `linkSamples`

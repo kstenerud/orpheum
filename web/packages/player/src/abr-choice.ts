@@ -427,6 +427,81 @@ export function measuresTheLink(chunk: LoadedChunk): boolean {
   return arrivedBps <= pacedCountsAtMostShare * chunk.paceBps;
 }
 
+/**
+ * How soon after a small chunk's last byte the next of its quality must be asked for to join it in
+ * one sample (SmallChunkRun), in ms: the link then had no rest between them that the sample would
+ * count as its own slowness, and what rest there is counts against the link, never for it.
+ */
+export const backToBackWithinMs = 50;
+
+/**
+ * A loaded chunk too small to measure the link alone (measuresFromBytesAtLeast), on the page's
+ * monotonic clock in ms: when it was asked for, when its bytes after its first piece began (D382
+ * §2) and when its last came, its bytes, and those after its first piece.
+ */
+export interface SmallChunk {
+  readonly level: number;
+  readonly askedMs: number;
+  readonly measuredFromMs: number;
+  readonly endMs: number;
+  readonly bytes: number;
+  readonly measuredBytes: number;
+}
+
+/**
+ * Whether a loaded chunk too small to measure the link alone may join others in one sample
+ * (SmallChunkRun): small, not from the browser's cache and not paced, whose time would be the pace's.
+ */
+export function joinsSmallChunks(chunk: LoadedChunk): boolean {
+  return (
+    chunk.bytes < measuresFromBytesAtLeast &&
+    !(chunk.isFromCache ?? chunk.loadMs < cacheHitUnderMs) &&
+    chunk.paceBps === undefined
+  );
+}
+
+/**
+ * Small chunks of one quality loaded back to back, measuring the link together once their bytes
+ * reach measuresFromBytesAtLeast (D414 §3; starts-chunks-remote-2026-10-29.md §2.2): from the first
+ * one's bytes after its first piece to the last one's last byte, as one transfer. Alone, at 400
+ * kb/s, a third of chunks were under the floor and never measured the link, where a slow link sits
+ * and most needs samples to climb; the floor itself stays, against a lone first chunk of 44.8 KB
+ * that measured a LAN at 676 kb/s (2026-10-18). Shaka's 128 kB, where the floor came from, is a
+ * total before its estimate is trusted, its floor for a sample 16 kB.
+ */
+export class SmallChunkRun {
+  #run: (SmallChunk & { readonly firstByteMs: number }) | undefined;
+
+  /**
+   * Adds a small chunk, with the wait for its first byte, in ms: the sample of its run once the run
+   * reaches measuresFromBytesAtLeast, else undefined. A chunk of another quality, or asked for
+   * later than backToBackWithinMs after the run's last byte, starts a run of its own.
+   */
+  add(chunk: SmallChunk, firstByteMs: number): LinkSample | undefined {
+    const run = this.#run;
+    const next =
+      run?.level === chunk.level && chunk.askedMs - run.endMs <= backToBackWithinMs
+        ? { ...run, endMs: chunk.endMs, measuredBytes: run.measuredBytes + chunk.bytes }
+        : { ...chunk, firstByteMs };
+    if (next.measuredBytes < measuresFromBytesAtLeast) {
+      this.#run = next;
+      return undefined;
+    }
+    this.#run = undefined;
+    return {
+      level: next.level,
+      bytes: next.measuredBytes,
+      arrivedMs: Math.max(1, next.endMs - next.measuredFromMs),
+      firstByteMs: next.firstByteMs,
+    };
+  }
+
+  /** Ends the run: a chunk came between that does not join it. */
+  clear(): void {
+    this.#run = undefined;
+  }
+}
+
 /** How long a playing video may stand still, its chunks arriving, before its quality is given up as unplayable (D266). */
 export const standsStillAtMostMs = 6000;
 
