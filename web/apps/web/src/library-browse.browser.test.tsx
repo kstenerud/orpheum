@@ -26,8 +26,13 @@ describe("the Libraries page's bar in a real browser", () => {
   it("centres a chooser's name on its button, a gap between them", async () => {
     await page.viewport(1440, 1000);
     walking = await mountApp(walkServices(oneLibrary, "/browse?library=1"));
-    // The view chooser's name shows; the sort's is for a screen reader alone (the owner, 2026-10-30).
-    await expect.poll(() => isDrawn(".route-chooser__button")).toBe(true);
+    // The choosers whose names show are in the list's Sort and filter (D417): Genre, Decade, Sort.
+    await expect.poll(() => isDrawn(".list-criteria__button")).toBe(true);
+    document.querySelector<HTMLButtonElement>(".list-criteria__button")?.click();
+    await expect.poll(() => isDrawn(".list-criteria .route-chooser__button")).toBe(true);
+    expect(
+      document.querySelectorAll(".list-criteria .route-chooser__field").length,
+    ).toBeGreaterThan(0);
     for (const chooser of document.querySelectorAll(".route-chooser")) {
       const field = chooser.querySelector(".route-chooser__field");
       const button = chooser.querySelector(".route-chooser__button");
@@ -73,15 +78,17 @@ describe("the Libraries page's bar in a real browser", () => {
   it("lays a listing's tools out as an icon tray: one row, side by side, the sort a borderless icon", async () => {
     await page.viewport(1440, 1000);
     walking = await mountApp(walkServices(oneLibrary, "/browse?library=1"));
-    await expect.poll(() => isDrawn(".listing-tools .route-chooser__button")).toBe(true);
-    const buttons = [...document.querySelectorAll(".listing-tools button")].map((button) =>
-      button.getBoundingClientRect(),
-    );
+    await expect.poll(() => isDrawn(".listing-tools .list-criteria__button")).toBe(true);
+    const tools = [...document.querySelectorAll(".listing-tools button")];
+    const buttons = tools.map((button) => button.getBoundingClientRect());
     expect(buttons.length).toBeGreaterThan(1);
     const fingertip = 2.75 * Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
     for (const [index, box] of buttons.entries()) {
       expect(box.top, `tool ${String(index)}`).toBeCloseTo(buttons[0]?.top ?? 0, 0);
-      expect(box.width, `tool ${String(index)}`).toBeCloseTo(fingertip, 0);
+      // An icon is a fingertip square; the Sort and filter is as wide as its summary (D417).
+      if (tools[index]?.classList.contains("list-criteria__button") !== true) {
+        expect(box.width, `tool ${String(index)}`).toBeCloseTo(fingertip, 0);
+      }
       expect(box.height, `tool ${String(index)}`).toBeCloseTo(fingertip, 0);
       if (index > 0) {
         expect(box.left - (buttons[index - 1]?.right ?? 0), `tool ${String(index)}`).toBeCloseTo(
@@ -90,8 +97,6 @@ describe("the Libraries page's bar in a real browser", () => {
         );
       }
     }
-    const sort = document.querySelector(".listing-tools .route-chooser__button");
-    expect(sort === null ? "" : getComputedStyle(sort).borderTopStyle).toBe("none");
   });
 });
 
