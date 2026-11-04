@@ -34,8 +34,9 @@ export type CommandSource = "key" | "pad" | "media";
  * "continue" at each repeat while it stays down. Each device's driver tells it alike, whatever the
  * device sends (the owner, 2026-11-04: the UI knows nothing of a controller's quirks): a key's repeat
  * whether the browser marks it or not (Silk on a Fire TV sends a held key's repeats unmarked, VQ122),
- * a controller's stick and D-pad as their arrows repeat while held; a controller's buttons start a
- * hold but never repeat. Each hold ends in a release (onCommandRelease).
+ * a controller's stick and D-pad as their arrows repeat while held, and its seek buttons (rewind and
+ * fast forward) at the same delay and interval; its other buttons start a hold but never repeat, so
+ * a held OK acts once. Each hold ends in a release (onCommandRelease).
  */
 export type CommandHold = "start" | "continue";
 
@@ -350,7 +351,7 @@ function listenToKeys(offer: Offer): () => void {
 
 /**
  * The controllers' driver: offers each button's command and each arrow of a stick or D-pad, a
- * button's hold started at its press and an arrow's continued at its repeats, and tells each release
+ * button's hold started at its press and continued at its repeats (the seeking buttons', as an arrow's), and tells each release
  * as the poll sees it (input-pad-poll.ts). Returns the stopping.
  */
 function listenToPadHolds(offer: Offer): () => void {
@@ -359,6 +360,12 @@ function listenToPadHolds(offer: Offer): () => void {
       const command = padsCommand(press);
       if (command !== undefined) {
         offer({ command, source: "pad", hold: "start" });
+      }
+    },
+    onButtonRepeat: (press) => {
+      const command = padsCommand(press);
+      if (command !== undefined) {
+        offer({ command, source: "pad", hold: "continue" });
       }
     },
     onButtonUp: (press) => {

@@ -159,6 +159,16 @@ const buttonsByPadButton = new Map<number, ButtonName>([
   [15, "right"],
 ]);
 
+/**
+ * Whether a standard pad's button seeks (rewind or fast forward), the buttons that repeat while held
+ * as a stick does: a held remote's arrow seeks by the time held, and so must these. No other button
+ * repeats, since a held OK or Start must not act twice.
+ */
+export function isSeekPadButton(button: number): boolean {
+  const name = buttonsByPadButton.get(button);
+  return name === "rewind" || name === "fastForward";
+}
+
 /** The buttons by Media Session action. */
 const buttonsByMediaAction = new Map<string, ButtonName>([
   ["play", "playPause"],
