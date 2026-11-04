@@ -63,8 +63,8 @@ export function ModalDialog(props: ModalDialogProps): JSX.Element {
   if (props.isWide === true) {
     classes.push("modal-dialog--wide");
   }
-  if (props.mark !== undefined) {
-    classes.push(`modal-dialog--${props.mark}`);
+  if (props.mark === "warning") {
+    classes.push("modal-dialog--warning");
   }
   return (
     // tabIndex -1: a dialog taller than the window scrolls, and a box that scrolls is a Tab stop of its
