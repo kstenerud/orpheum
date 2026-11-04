@@ -8,6 +8,7 @@
 export const enSystem = {
   system: {
     heading: "System",
+    contents: "On this page",
     server: "This server",
     build: "Orpheum build",
     commit: "from commit {{commit}}",
@@ -107,12 +108,14 @@ export const enSystem = {
       where:
         "Backups are kept in {{directory}} on the server's machine. A backup on the same disk does not survive that disk: copy them elsewhere.",
       none: "There is no backup yet.",
+      list: "The backups kept ({{count}})",
       backup: "{{name}}, {{size}}, made {{at}}",
     },
     resourceUse: {
       heading: "Resource use",
       what: "What the server and each media node used of their machines, measured each minute and kept for a month, beside what they were doing. A node's use counts the FFmpeg it starts. CPU is a share of one core, so a node using four cores shows 400%.",
       none: "Nothing is measured yet: the first figures come a minute after the server starts.",
+      hours: "Its hours of the last day ({{count}})",
       core: "The server",
       node: "Media node {{name}}",
       summary: "Since {{since}}: CPU {{cpu}}; memory {{memory}}.",

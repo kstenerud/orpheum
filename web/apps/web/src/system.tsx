@@ -16,6 +16,7 @@ import { NodeConfinementView } from "./node-confinement.tsx";
 import { NodeStuckView } from "./node-stuck.tsx";
 import { NowPlaying } from "./now-playing.tsx";
 import { SystemBackups } from "./system-backups.tsx";
+import { SystemContents, type ContentsEntry } from "./system-contents.tsx";
 import { SystemResourceUse } from "./system-resource-use.tsx";
 import { SystemUnusedSettings } from "./system-unused-settings.tsx";
 import { SystemFilingReports } from "./filing-report.tsx";
@@ -98,9 +99,11 @@ export function SystemView(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const { server } = props.report;
+  const nodes = props.report.nodes ?? [];
   return (
     <div className="system">
       <h1>{t("system.heading")}</h1>
+      <SystemContents entries={contentsEntries(t, nodes)} />
       <section aria-labelledby="system-server">
         <h2 id="system-server">{t("system.server")}</h2>
         <dl>
@@ -125,7 +128,7 @@ export function SystemView(props: {
       <OutsideServices providers={props.report.providers ?? []} />
       <OfflineStorage offline={props.report.offline ?? []} />
       <WhatWaits report={props.report} onChanged={props.onChanged} />
-      {(props.report.nodes ?? []).map((node) => (
+      {nodes.map((node) => (
         <NodeFacts
           key={node.name}
           node={node}
@@ -138,7 +141,32 @@ export function SystemView(props: {
   );
 }
 
-/** A connected machine's build, system, FFmpeg and user, and whether its build is the server's. */
+/**
+ * The sections the page always has, and each machine's, in the page's order: those shown only when
+ * there is something to say (work waiting, offline storage, unused settings…) are left out.
+ */
+function contentsEntries(t: TFunction, nodes: readonly SystemNode[]): readonly ContentsEntry[] {
+  return [
+    { headingId: "system-server", name: t("system.server") },
+    { headingId: "system-findings", name: t("system.findings") },
+    { headingId: "system-outside", name: t("system.outside") },
+    ...nodes.map((node) => ({
+      headingId: nodeHeadingId(node.name),
+      name: t("system.node", { node: node.name }),
+    })),
+    { headingId: "now-playing", name: t("nowPlaying.heading") },
+    { headingId: "system-resource-use", name: t("system.resourceUse.heading") },
+    { headingId: "system-backups", name: t("system.backups.heading") },
+    { headingId: "system-reachability", name: t("system.reachability.heading") },
+    { headingId: "system-discovery", name: t("system.discovery.heading") },
+  ];
+}
+
+/** The id of a machine's section heading, which the contents row leads to. */
+function nodeHeadingId(nodeName: string): string {
+  return `system-node-${nodeName}`;
+}
+
 /** Why a node that is not connected is not, in the viewer's words. */
 function notConnectedText(t: TFunction, node: SystemNode, language: string): string {
   if (node.connection === "needs_update") {
@@ -150,6 +178,7 @@ function notConnectedText(t: TFunction, node: SystemNode, language: string): str
   return t("system.awaitingHello");
 }
 
+/** A connected machine's build, system, FFmpeg and user, and whether its build is the server's. */
 function NodeSoftware(props: { readonly node: SystemNode }): JSX.Element {
   const { t } = useTranslation();
   const { node } = props;
@@ -344,7 +373,7 @@ function NodeFacts(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const { node } = props;
-  const headingId = `system-node-${node.name}`;
+  const headingId = nodeHeadingId(node.name);
   return (
     <section aria-labelledby={headingId}>
       <h2 id={headingId}>{t("system.node", { node: node.name })}</h2>
