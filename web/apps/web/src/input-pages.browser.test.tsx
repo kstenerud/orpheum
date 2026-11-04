@@ -16,7 +16,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { chooseOk, okChoice } from "./controller-choice.ts";
-import { focusTargetsIn } from "./focus-engine.ts";
+import { caretOf, focusTargetsIn } from "./focus-engine.ts";
 import { closeTrayDialog } from "./tray-dialog.ts";
 import { createNavigation } from "./navigation.ts";
 import { createSession } from "./session.ts";
@@ -302,7 +302,10 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     expect(
       inDialog.filter((control) => !reached.has(control)).map((each) => each.outerHTML),
     ).toEqual([]);
-    // Back closes it, and focus is on the "…" again (D361 §3).
+    // Back closes it, and focus is on the "…" again (D361 §3). Pressed from the dialog's first
+    // control: the walk may end in its search field, where Backspace deletes and is no Back.
+    first?.focus();
+    expect(caretOf(document.activeElement ?? document.body)).toBeUndefined();
     await press("{Backspace}");
     await expect.poll(() => document.querySelector("dialog")).toBeNull();
     // Given back as the dialog's effects end, which may be a moment after it leaves the page.

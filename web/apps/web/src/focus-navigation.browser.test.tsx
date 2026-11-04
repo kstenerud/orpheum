@@ -9,6 +9,7 @@
 import "./tokens.css";
 import "./base.css";
 
+import type { CSSProperties } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
@@ -52,5 +53,56 @@ describe("an arrow over a page of text", () => {
     }
     expect(document.activeElement?.textContent).toBe("above");
     expect(window.scrollY).toBe(0);
+  });
+});
+
+/** Where a control sits on the test's page, in pixels. */
+function placedAt(left: number, top: number, width = 120): CSSProperties {
+  return { position: "absolute", left, top, width, height: 40 };
+}
+
+/**
+ * A field alone at the right of its line, a field and a button under it at the left, as Your
+ * account's Activate a device lays them; and a grid of three over a short last row of one, with a
+ * control up and to the right of that row, outside the grid.
+ */
+const offTheLinePage = (
+  <main style={{ position: "relative", height: "460px" }}>
+    <input aria-label="code" style={placedAt(600, 0, 200)} />
+    <input aria-label="name" style={placedAt(0, 60, 200)} />
+    <button type="button" style={placedAt(220, 60)}>
+      activate
+    </button>
+    <ul data-focus-container="">
+      {["one", "two", "three", "four"].map((name, index) => (
+        <li key={name} style={placedAt((index % 3) * 140, 200 + Math.floor(index / 3) * 60)}>
+          <a href={`#${name}`}>{name}</a>
+        </li>
+      ))}
+    </ul>
+    <button type="button" style={placedAt(600, 180)}>
+      beside
+    </button>
+  </main>
+);
+
+describe("an arrow with nothing in line that way", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+  });
+
+  it("goes to the nearest control off the line from a loose control, and stays at a grid's short last row", async () => {
+    await page.viewport(960, 480);
+    mounted = await mount(withServices(offTheLinePage));
+    document.querySelector<HTMLElement>('[aria-label="code"]')?.focus();
+    await userEvent.keyboard("{ArrowLeft}");
+    expect(document.activeElement?.textContent).toBe("activate");
+    await userEvent.keyboard("{ArrowLeft}");
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("name");
+    document.querySelector<HTMLElement>('a[href="#four"]')?.focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(document.activeElement?.textContent).toBe("four");
   });
 });
