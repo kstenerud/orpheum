@@ -59,7 +59,10 @@ func nfoFilms(t *testing.T, size int) *testLibrary {
 			videoRecord(folder+"/"+folder+"-trailer.mkv"),
 			nfoRecord(folder+"/"+folder+".nfo", fmt.Sprintf(
 				`<movie><title>Film %d</title><year>%d</year><plot>A plot.</plot><uniqueid type="tmdb">%d</uniqueid>`+
-					`<lockdata>true</lockdata></movie>`, number, 1990+number, 100+number)))
+					`<genre>Drama / Crime</genre>`+
+					`<actor><name>Ann Actor</name><role>Lead</role><order>0</order></actor>`+
+					`<actor><name>Actor %d</name></actor><director>Dee Rector</director>`+
+					`<lockdata>true</lockdata></movie>`, number, 1990+number, 100+number, number)))
 	}
 	lib.scan(records...)
 	return lib
@@ -73,7 +76,10 @@ func matchedFilms(t *testing.T, size int) *testLibrary {
 	for number := range size {
 		name, year := fmt.Sprintf("Film %d", number), 1990+number
 		lib.provider.Searches[identifytest.SearchKey(name, year)] = []identify.Candidate{
-			lib.provider.Add(identify.Metadata{ID: fmt.Sprint(100 + number), Name: name, Year: year}),
+			lib.provider.Add(identify.Metadata{
+				ID: fmt.Sprint(100 + number), Name: name, Year: year, Genres: []string{"Drama", "Crime"},
+				Credits: castAndCrew(number),
+			}),
 		}
 		folder := fmt.Sprintf("%s (%d)", name, year)
 		records = append(records, videoRecord(folder+"/"+folder+".mkv"))
@@ -101,7 +107,8 @@ func nfoSeries(t *testing.T, size int) *testLibrary {
 	for number := range size {
 		show := fmt.Sprintf("Show %d", number)
 		records = append(records,
-			nfoRecord(show+"/tvshow.nfo", fmt.Sprintf(`<tvshow><title>%s</title><year>2001</year></tvshow>`, show)),
+			nfoRecord(show+"/tvshow.nfo", fmt.Sprintf(`<tvshow><title>%s</title><year>2001</year><genre>Comedy</genre>`+
+				`<actor><name>Ann Actor</name></actor><actor><name>%s Star</name></actor></tvshow>`, show, show)),
 			videoRecord(show+"/Season 01/"+show+" - S01E01.mkv"),
 			videoRecord(show+"/Season 01/"+show+" - S01E02.mkv"))
 	}
@@ -117,7 +124,9 @@ func matchedSeries(t *testing.T, size int) *testLibrary {
 	for number := range size {
 		show, id := fmt.Sprintf("Show %d", number), fmt.Sprint(500+number)
 		lib.provider.Searches[identifytest.SearchKey(show, 0)] = []identify.Candidate{
-			lib.provider.Add(identify.Metadata{ID: id, Name: show, Year: 2001}),
+			lib.provider.Add(identify.Metadata{
+				ID: id, Name: show, Year: 2001, Genres: []string{"Comedy"}, Credits: castAndCrew(number),
+			}),
 		}
 		lib.provider.Seasons[id+"/1"] = []identify.Episode{
 			{ID: id + "1", Season: 1, Number: 1, Name: "One"}, {ID: id + "2", Season: 1, Number: 2, Name: "Two"},
@@ -137,4 +146,13 @@ func matchedSeries(t *testing.T, size int) *testLibrary {
 	lib.runOwedPasses()
 	lib.scanAll(rels...)
 	return lib
+}
+
+// castAndCrew are a work's people at TMDB: one actor in every work, one its own, and a director.
+func castAndCrew(number int) []identify.Credit {
+	return []identify.Credit{
+		{Role: identify.RoleCast, Name: "Ann Actor", PersonID: "1", Character: "Lead", PictureRef: "/ann.jpg"},
+		{Role: identify.RoleCast, Name: fmt.Sprintf("Actor %d", number), PersonID: fmt.Sprint(1000 + number)},
+		{Role: identify.RoleDirector, Name: "Dee Rector", PersonID: "2"},
+	}
 }

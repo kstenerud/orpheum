@@ -142,6 +142,31 @@ type Metadata struct {
 	// SeasonNumbers are a series' seasons the provider lists, the specials' 0 among them, each a
 	// listing FetchSeason fetches (D307 §2).
 	SeasonNumbers []int
+	// Genres are the work's genres by name, in the provider's order.
+	Genres []string
+	// Credits are the work's cast, in billing order, and its directors and writers.
+	Credits []Credit
+}
+
+// The roles a credit names, as credit.role stores them (step 0067).
+const (
+	RoleCast     = "cast"
+	RoleDirector = "director"
+	RoleWriter   = "writer"
+)
+
+// Credit is one person's part in a work, as its source says it: a provider's response or an NFO.
+type Credit struct {
+	Role string // RoleCast, RoleDirector or RoleWriter
+	Name string
+	// PersonID is the person's id at the provider whose response named them; "" for one an NFO
+	// names, who is found again by their name.
+	PersonID string
+	// Character is a cast member's part; "" for crew, or a part not named.
+	Character string
+	// PictureRef is the person's picture as the source names it, a provider's path or an NFO's
+	// thumb; not fetched.
+	PictureRef string
 }
 
 // ImageRef is one image a provider's record names: its kind and the provider's reference to it.

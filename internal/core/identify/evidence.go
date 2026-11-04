@@ -97,6 +97,7 @@ func (spec *titleSpec) fromMetadata(provider string, metadata Metadata) {
 	spec.ids = merged
 	spec.source, spec.identification, spec.reason = provider, identificationIdentified, ""
 	spec.artwork = metadata.Artwork
+	spec.genres, spec.credits = metadata.Genres, metadata.Credits
 }
 
 // noMatchReason is why a film its provider found nothing for is unidentified.

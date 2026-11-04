@@ -27,6 +27,8 @@ type seriesSpec struct {
 	lockedFields []string
 	hasNFO       bool
 	sortTitle    string // its tvshow.nfo's sort title, which names how it sorts (D402)
+	genres       []string
+	credits      []Credit
 }
 
 // fromNFO takes a tvshow.nfo as the series' own source (D183).
@@ -40,6 +42,7 @@ func (spec *seriesSpec) fromNFO(nfo NFO) {
 	}
 	spec.overview, spec.lockedFields, spec.hasNFO = nfo.Plot, nfo.LockedFields, true
 	spec.releaseDate = nfo.ReleaseDate
+	spec.genres, spec.credits = nfo.Genres, nfo.Credits
 	if spec.ids == nil {
 		spec.ids = map[string]string{}
 	}
@@ -323,6 +326,9 @@ func (filer *libraryFiler) resolveSeries(ctx context.Context, seriesID int64, sp
 	if err != nil {
 		return err
 	}
+	if err := filer.writePeople(ctx, seriesID, own.genres, own.credits); err != nil {
+		return err
+	}
 	filer.reportImages(seriesID, source, own.artwork)
 	if known && isSeriesMatched(seriesMatchRow) {
 		seasons, err := seasonsToFetch(ctx, filer, provider, seriesID)
@@ -344,6 +350,8 @@ type seriesSourceValues struct {
 	releaseDate string
 	source      string
 	artwork     []ImageRef
+	genres      []string
+	credits     []Credit
 }
 
 // seriesValues are a series' own values and their source: a person's chosen match over all;
@@ -365,7 +373,9 @@ func (filer *libraryFiler) seriesValues(
 		if source == "" && seriesMatchRow.FollowedSource != nil && *seriesMatchRow.FollowedSource == sourceNone {
 			source = sourceNone // its provider found nothing
 		}
-		return seriesSourceValues{values: values, releaseDate: spec.releaseDate, source: source}, nil
+		return seriesSourceValues{
+			values: values, releaseDate: spec.releaseDate, source: source, genres: spec.genres, credits: spec.credits,
+		}, nil
 	}
 	bodyGzip, err := filer.ownResponse(ctx, seriesID, provider.Name())
 	if err != nil {
@@ -383,6 +393,7 @@ func (filer *libraryFiler) seriesValues(
 		metadata.Overview
 	return seriesSourceValues{
 		values: values, releaseDate: metadata.ReleaseDate, source: provider.Name(), artwork: metadata.Artwork,
+		genres: metadata.Genres, credits: metadata.Credits,
 	}, nil
 }
 

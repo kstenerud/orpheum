@@ -4,10 +4,12 @@ package identify
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -39,6 +41,11 @@ type NFO struct {
 	// LockedFields are the fields a person locked, in our field names ("name", "overview", ...);
 	// lockdata locks every field the file sets.
 	LockedFields []string
+	// Genres are its genres, in the file's order; Kodi's "Action / Crime" in one element is two.
+	Genres []string
+	// Credits are its actors in their order, then its directors and writers, each named once in a
+	// role. An NFO names people by name alone.
+	Credits []Credit
 }
 
 // ErrNotNFO is a body that is not an NFO document.
@@ -67,6 +74,19 @@ type nfoDocument struct {
 	ID            string        `xml:"id"`
 	LockData      string        `xml:"lockdata"`
 	LockedFields  string        `xml:"lockedfields"`
+	Genres        []string      `xml:"genre"`
+	Actors        []nfoActor    `xml:"actor"`
+	Directors     []string      `xml:"director"`
+	// Kodi names a writer in <credits>, Emby and Jellyfin in <writer>.
+	Credits []string `xml:"credits"`
+	Writers []string `xml:"writer"`
+}
+
+type nfoActor struct {
+	Name  string `xml:"name"`
+	Role  string `xml:"role"`
+	Order string `xml:"order"`
+	Thumb string `xml:"thumb"`
 }
 
 type nfoUniqueID struct {
@@ -102,7 +122,7 @@ func ParseNFO(body []byte) (NFO, error) {
 		Tagline:   cleanNFOText(document.Tagline), Year: yearOf(document), RuntimeMs: runtimeMsOf(document.Runtime),
 		ReleaseDate: cleanNFOText(firstNonBlank(document.Premiered, document.Aired)),
 		Season:      parseNonNegativeInt(document.Season), Episode: parseNonNegativeInt(document.Episode),
-		ProviderIDs: providerIDsOf(document),
+		ProviderIDs: providerIDsOf(document), Genres: genresOf(document.Genres), Credits: creditsOf(document),
 	}
 	nfo.LockedFields = lockedOf(document, nfo)
 	return nfo, nil
@@ -152,6 +172,61 @@ func providerIDsOf(document nfoDocument) map[string]string {
 		ids[sourceIMDb] = id
 	}
 	return ids
+}
+
+// genresOf are an NFO's genres, each once, in its order: Kodi writes several in one element,
+// separated by " / ".
+func genresOf(elements []string) []string {
+	genres := []string{}
+	seen := map[string]bool{}
+	for _, element := range elements {
+		for part := range strings.SplitSeq(element, " / ") {
+			genre := cleanNFOText(part)
+			key := textindex.Fold(genre)
+			if genre != "" && !seen[key] {
+				seen[key] = true
+				genres = append(genres, genre)
+			}
+		}
+	}
+	return genres
+}
+
+// creditsOf are an NFO's actors in their order, an actor with no order after those with one, then
+// its directors and writers, each person once in each role.
+func creditsOf(document nfoDocument) []Credit {
+	actors := slices.Clone(document.Actors)
+	orderOf := func(actor nfoActor) int {
+		if order, err := strconv.Atoi(strings.TrimSpace(actor.Order)); err == nil && order >= 0 {
+			return order
+		}
+		return math.MaxInt
+	}
+	slices.SortStableFunc(actors, func(first, second nfoActor) int {
+		return cmp.Compare(orderOf(first), orderOf(second))
+	})
+	credits := []Credit{}
+	seen := map[string]bool{}
+	add := func(credit Credit) {
+		key := credit.Role + "|" + textindex.Fold(credit.Name)
+		if credit.Name != "" && !seen[key] {
+			seen[key] = true
+			credits = append(credits, credit)
+		}
+	}
+	for _, actor := range actors {
+		add(Credit{
+			Role: RoleCast, Name: cleanNFOText(actor.Name), Character: cleanNFOText(actor.Role),
+			PictureRef: cleanNFOText(actor.Thumb),
+		})
+	}
+	for _, director := range document.Directors {
+		add(Credit{Role: RoleDirector, Name: cleanNFOText(director)})
+	}
+	for _, writer := range slices.Concat(document.Credits, document.Writers) {
+		add(Credit{Role: RoleWriter, Name: cleanNFOText(writer)})
+	}
+	return credits
 }
 
 // lockedOf lists the fields a person locked: every field the file sets when lockdata is true,

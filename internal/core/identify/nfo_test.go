@@ -40,6 +40,39 @@ https://www.themoviedb.org/movie/9019`
 	}
 }
 
+// An NFO's genres and people: Kodi's "A / B" genre is two, actors come in their order, writers are
+// read from Kodi's <credits> and Jellyfin's <writer>, and a name given twice in a role is kept once.
+func TestParseNFO_GenresActorsDirectorsAndWriters(t *testing.T) {
+	t.Parallel()
+	body := `<movie><title>Metropolis</title>
+  <genre>Action / Crime</genre><genre>crime</genre><genre>Drama</genre>
+  <actor><name>Ansel Vardo</name><role>Mira Holloway-Pent</role><order>1</order><thumb>http://x/al.jpg</thumb></actor>
+  <actor><name>Jon Voight</name><role>Nate</role></actor>
+  <actor><name>Ada Wexcombe</name><role>Tamsin Vell</role><order>0</order></actor>
+  <actor><name>  </name><role>Nobody</role></actor>
+  <director>Oren Talisk</director>
+  <credits>Oren Talisk</credits><writer>oren talisk</writer><writer>Someone Else</writer>
+</movie>`
+	nfo, err := ParseNFO([]byte(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"Action", "Crime", "Drama"}; !slices.Equal(nfo.Genres, want) {
+		t.Errorf("genres %v, want %v", nfo.Genres, want)
+	}
+	want := []Credit{
+		{Role: RoleCast, Name: "Ada Wexcombe", Character: "Tamsin Vell"},
+		{Role: RoleCast, Name: "Ansel Vardo", Character: "Mira Holloway-Pent", PictureRef: "http://x/al.jpg"},
+		{Role: RoleCast, Name: "Jon Voight", Character: "Nate"},
+		{Role: RoleDirector, Name: "Oren Talisk"},
+		{Role: RoleWriter, Name: "Oren Talisk"},
+		{Role: RoleWriter, Name: "Someone Else"},
+	}
+	if !slices.Equal(nfo.Credits, want) {
+		t.Errorf("credits %+v,\nwant %+v", nfo.Credits, want)
+	}
+}
+
 func TestParseNFO_LockdataLocksEveryFieldItSets(t *testing.T) {
 	t.Parallel()
 	nfo, err := ParseNFO([]byte(`<movie><title>Arkons</title><year>1986</year><lockdata>true</lockdata></movie>`))

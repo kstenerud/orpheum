@@ -423,8 +423,61 @@ CREATE TABLE item_provider_id (                            -- class I; several p
 CREATE INDEX item_provider_lookup ON item_provider_id(provider, provider_id);
 ```
 
-`person` is reserved in the vocabulary and has no table in Cut A — people, credits and artists
-arrive together as additive tables.
+### Genres and people (step 0067)
+
+A film's and a series' genres and people are what its source says: the stored provider response or
+its NFO, whichever it follows (D183). A person is an item of kind `person`, named by its item's
+text, so the full-text indexes find a person as they find a title (D48), with a credit table keyed
+on `item`, so a film's cast and an album's artist are one table (D186). The identification pass
+writes all four from what it already reads, with no new request, compares before it writes (D303),
+and so filled the titles identified before step 0067 on its first sweep after it.
+
+```sql
+CREATE TABLE person (                                       -- class F, an item of kind 'person'
+  id          INTEGER PRIMARY KEY REFERENCES item(id) ON DELETE RESTRICT,
+  -- A person is an item of kind 'person' (D303, M5): the pair names the item and its kind.
+  item_kind   TEXT NOT NULL DEFAULT 'person' CHECK (item_kind = 'person'),
+  -- Their id at TMDB, whose person ids are numbered apart from its films', so kept here and not in
+  -- item_provider_id; NULL for one only an NFO names.
+  tmdb_id     TEXT,
+  -- Their name as the one normaliser folds it, which finds the person an NFO names again; the
+  -- name itself is the item's text, which the full-text indexes read (D48).
+  name_key    TEXT NOT NULL,
+  -- Their picture as their source names it, a TMDB profile path or an NFO's thumb; not fetched.
+  picture_ref TEXT,
+  FOREIGN KEY (id, item_kind) REFERENCES item(id, kind) ON DELETE RESTRICT
+) STRICT;
+CREATE UNIQUE INDEX person_tmdb ON person(tmdb_id) WHERE tmdb_id IS NOT NULL;
+CREATE INDEX person_name_key ON person(name_key);
+
+CREATE TABLE genre (                                        -- class F
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  name        TEXT NOT NULL,                 -- as its first source spelled it
+  name_key    TEXT NOT NULL UNIQUE           -- folded (D48): "Sci-Fi" from two sources is one
+) STRICT;
+
+CREATE TABLE item_genre (                                   -- class C, derived by the pass
+  item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
+  genre_id    INTEGER NOT NULL REFERENCES genre(id) ON DELETE RESTRICT,
+  ordinal     INTEGER NOT NULL CHECK (ordinal >= 0),  -- its place in its source's list
+  PRIMARY KEY (item_id, genre_id)
+) WITHOUT ROWID, STRICT;
+CREATE INDEX item_genre_genre ON item_genre(genre_id, item_id);
+
+CREATE TABLE credit (                                       -- class C, derived by the pass
+  item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
+  role        TEXT NOT NULL CHECK (role IN ('cast', 'director', 'writer')),
+  ordinal     INTEGER NOT NULL CHECK (ordinal >= 0),  -- billing order within the role
+  person_id   INTEGER NOT NULL REFERENCES person(id) ON DELETE RESTRICT,
+  character   TEXT,                          -- a cast member's part; NULL for crew
+  PRIMARY KEY (item_id, role, ordinal)
+) WITHOUT ROWID, STRICT;
+CREATE INDEX credit_person ON credit(person_id, item_id);
+```
+
+A credit with a TMDB id is that TMDB person's; an NFO's credit, which names a person by name alone,
+is the first person of that folded name from any source, and a TMDB credit is never filed under a
+person an NFO alone named. Artists arrive with music as more roles.
 
 ## The work: Title → Edition → Version → File
 
@@ -1361,6 +1414,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `artwork` | persistent.db | `internal/core/artwork` | identify reports the images it found; the server's wiring hands them to `artwork.Service.Take` |
 | `collection` | persistent.db | `internal/core/identify` | |
 | `collection_member` | persistent.db | `internal/core/identify` | |
+| `credit` | persistent.db | `internal/core/identify` | the pass, from each title's and series' source (step 0067) |
 | `device` | persistent.db | `internal/core/auth` | |
 | `device_reader_limit` | persistent.db | `internal/core/nodes` | an admin's limit on one of a node's devices (D240 §5) |
 | `edition` | persistent.db | none yet | |
@@ -1374,12 +1428,14 @@ second writer, or on a writer this table does not name. A table no package write
 | `file_filing` | persistent.db | `internal/core/library` | how each kind of library files a video; identification writes it through `library.FileAs` and `library.PutInVersion` (D363 §6) |
 | `file_probe` | persistent.db | `internal/core/library` | a scan's probe of each video, beside its row (D303) |
 | `file_nfo` | persistent.db | `internal/core/library` | an NFO's bytes, beside its row (D303) |
+| `genre` | persistent.db | `internal/core/identify` | the pass, as a source first names each (step 0067) |
 | `grant` | persistent.db | `internal/core/auth` | |
 | `locator` | persistent.db | `internal/core/auth` | |
 | `realm_key` | persistent.db | `internal/core/auth` | |
 | `guessed_match` | persistent.db | `internal/core/identify` | |
 | `group_text` | persistent.db | `internal/core/identify` | a provider's episode group's parts' names (episode-orderings.md) |
 | `item` | persistent.db | `internal/core/identify` | |
+| `item_genre` | persistent.db | `internal/core/identify` | the pass, from each title's and series' source (step 0067) |
 | `item_fts`, `item_fts_tri` | persistent.db | `internal/core/identify` | kept by `item_text`'s triggers |
 | `item_provider_id` | persistent.db | `internal/core/identify` | |
 | `item_tag` | persistent.db | none yet | |
@@ -1391,6 +1447,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `node` | persistent.db | `internal/core/nodes` | |
 | `ordering` | persistent.db | `internal/core/identify` | |
 | `other_video` | persistent.db | `internal/core/identify` | |
+| `person` | persistent.db | `internal/core/identify` | the pass, as a credit first names each, and renames them as TMDB does (step 0067) |
 | `play_event` | persistent.db | `internal/core/playback` | |
 | `play_position` | persistent.db | `internal/core/playback` | |
 | `play_span` | persistent.db | `internal/core/playback` | |
@@ -1444,7 +1501,7 @@ rows. Each class that would grow with no bound but time is kept to a limit a set
 
 | Grows with | Tables | Bounded by, today |
 | --- | --- | --- |
-| The library | `file`, `file_probe`, `file_nfo`, `stream`, `item`, `title`, `version`, `collection`, `collection_member`, `ordering`, `position`, `extra_relation`, `item_text`, `sort_key`, `other_video`, `item_provider_id`, `field_override`, `artwork`, `provider_response`, `loudness`, `video_timeline`, `subtitle_text`, `fetched_subtitle` | the files and works the libraries hold, **and every one they ever held**: a removed file is a tombstone, kept so that a file copied back returns with what was read of it (D208 §4, D231 §7), and deleted `removed_files_kept_days` (90) after, with its streams, probe, NFO, subtitles fetched for it and the choices made in it (D306 §8); a removed item, title or version stays, and nothing purges those yet |
+| The library | `file`, `file_probe`, `file_nfo`, `stream`, `item`, `title`, `version`, `collection`, `collection_member`, `ordering`, `position`, `extra_relation`, `item_text`, `sort_key`, `other_video`, `item_provider_id`, `field_override`, `artwork`, `provider_response`, `loudness`, `video_timeline`, `subtitle_text`, `fetched_subtitle`, `person`, `genre`, `item_genre`, `credit` | the files and works the libraries hold, **and every one they ever held**: a removed file is a tombstone, kept so that a file copied back returns with what was read of it (D208 §4, D231 §7), and deleted `removed_files_kept_days` (90) after, with its streams, probe, NFO, subtitles fetched for it and the choices made in it (D306 §8); a removed item, title or version stays, and nothing purges those yet |
 | The library's open questions | `fetch_failure`, `refresh_request`, `guessed_match` | one row an item at most; each is deleted when its question is answered |
 | People and their devices | `user`, `device`, `"grant"`, `locator` | the people and devices there are, and a removed person's nameless row (D305 §1); a credential that ended, revoked or expired, is deleted `ended_credentials_kept_days` (90) after, with its locator (D304 §6); a removed device stays as a row while a play names it |
 | Watching | `play_event`, `play_span`, `play_position`, `progress_hide`, `purged_watching`, `title_watched` | every play of the files there are; a deleted file's plays fold into one `purged_watching` row a person a version (D306 §8); one `title_watched` row a person a title they watched or marked (D370); all deleted with the person who watched (`ForgetWatchingOf`) |
@@ -1459,9 +1516,9 @@ budgets.
 ## Not in Cut A, and additive
 
 Each arrives with its feature as a new table or column, precluding nothing
-([D180](../../decisions/working-notes.md)): people and credits (Cut A reads cast from
-`provider_response`) — **as `person` items with a credit table keyed on `item`**, so a film's
-cast, an album's artist and a track's featured artist are one table ([D186](../../decisions/working-notes.md)); certifications and the descriptor vector, external scores, media segments,
+([D180](../../decisions/working-notes.md)): artists and a track's featured artist, as more roles of
+the `credit` table step 0067 added for a film's cast and crew, keyed on `item`
+([D186](../../decisions/working-notes.md)); certifications and the descriptor vector, external scores, media segments,
 loudness columns on `stream`, the speech map and subtitle verification columns, trickplay, home
 rows, the rules field registry, retention marks, download registrations, the change journal
 ([D166](../../decisions/working-notes.md)), and Watch Together's persisted state if it ever needs

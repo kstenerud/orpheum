@@ -67,7 +67,35 @@ func (provider cleaningProvider) Parse(kind string, body []byte) (Metadata, erro
 		Overview: textindex.Prose(metadata.Overview), Tagline: textindex.Line(metadata.Tagline),
 		Year: metadata.Year, ReleaseDate: textindex.Line(metadata.ReleaseDate), RuntimeMs: metadata.RuntimeMs,
 		IDs: ids, SeasonNumbers: metadata.SeasonNumbers,
+		Genres: cleanLines(metadata.Genres), Credits: cleanCredits(metadata.Credits),
 	}, err //nolint:wrapcheck // the provider's own error, passed through as it is
+}
+
+// cleanLines cleans each line, dropping one left empty.
+func cleanLines(lines []string) []string {
+	cleaned := make([]string, 0, len(lines))
+	for _, line := range lines {
+		if line = textindex.Line(line); line != "" {
+			cleaned = append(cleaned, line)
+		}
+	}
+	return cleaned
+}
+
+// cleanCredits cleans each credit's text, dropping one left with no name.
+func cleanCredits(credits []Credit) []Credit {
+	cleaned := make([]Credit, 0, len(credits))
+	for _, credit := range credits {
+		credit = Credit{
+			Role: textindex.Line(credit.Role), Name: textindex.Line(credit.Name),
+			PersonID: textindex.Line(credit.PersonID), Character: textindex.Line(credit.Character),
+			PictureRef: textindex.Line(credit.PictureRef),
+		}
+		if credit.Name != "" {
+			cleaned = append(cleaned, credit)
+		}
+	}
+	return cleaned
 }
 
 // ParseSeason cleans every episode's text.

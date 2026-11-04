@@ -21,7 +21,8 @@ INSERT INTO device (id, user_id, name, platform, audio_output, added_at, last_si
 INSERT INTO item (id, kind, filing_library_id, added_at) VALUES
   (1, 'title', 1, 1790000000000),
   (2, 'title', 1, 1790000000000),
-  (3, 'collection', 1, 1790000000000);
+  (3, 'collection', 1, 1790000000000),
+  (4, 'person', NULL, 1790000000000);
 INSERT INTO item_provider_id (item_id, provider, provider_id) VALUES (1, 'tmdb', '10001');
 INSERT INTO title (id, kind, media_kind, year, runtime_ms, original_language, followed_source, followed_source_id, identification_state)
   VALUES (1, 'movie', 'video', 2020, 5400000, 'en', 'tmdb', '10001', 'identified'),
@@ -76,6 +77,13 @@ INSERT INTO video_timeline (payload_hash, video_stream_index, keyframes_ms_json,
 
 INSERT INTO item_text (item_id, language, is_original, name, overview, tagline)
   VALUES (1, 'en', 1, 'Direct Play Film', 'A synthetic film.', 'It plays.');
+INSERT INTO item_text (item_id, language, is_original, name, overview, tagline)
+  VALUES (4, 'en', 1, 'Ada Player', NULL, NULL);
+INSERT INTO person (id, tmdb_id, name_key, picture_ref) VALUES (4, '501', 'ada player', '/ada.jpg');
+INSERT INTO genre (id, name, name_key) VALUES (1, 'Drama', 'drama');
+INSERT INTO item_genre (item_id, genre_id, ordinal) VALUES (1, 1, 0);
+INSERT INTO credit (item_id, role, ordinal, person_id, character) VALUES (1, 'cast', 0, 4, 'The Lead'),
+  (1, 'director', 0, 4, NULL);
 INSERT INTO edition_text (edition_id, language, name) VALUES (1, 'en', 'Director''s Cut');
 INSERT INTO sort_key (item_id, locale, listing, collation_key) VALUES (1, 'en', 'movie', X'4450');
 INSERT INTO other_video (title_id, recorded_at, recorded_from, file_name, file_name_key)
