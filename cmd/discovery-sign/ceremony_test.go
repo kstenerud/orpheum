@@ -156,6 +156,10 @@ func TestCeremony_ASoftwareCeremonyPublishesWhatACoreFollows(t *testing.T) {
 	if !strings.Contains(said, "What is left for you to do by hand") {
 		t.Errorf("the ceremony did not say what is left: %s", said)
 	}
+	leftovers, err := filepath.Glob(filepath.Join(folder, ledgerDirectory, "*", "*"+partsEnd))
+	if err != nil || len(leftovers) != 0 {
+		t.Errorf("the signing attempts' copies are left in the ledger: %v %v", leftovers, err)
+	}
 }
 
 // A keys directory inside the records folder is refused: private keys would be committed with it.

@@ -1033,7 +1033,7 @@ connect, connect, then nas.example).
 port when runs overlap; `test-key` leaves its temporary directory (it says where; removing it would need forbidigo's delete rule to allow it, principles §2); the first release in a record
 keeps no security note; each signing attempt's copy stays under `ledger/pending/<name>.parts/`. **Done (2026-11-03):** `test-key` and the `mac` kind are gone (D395 §3), which ends its temporary
 directory; the test retries on a taken port. Still open: the first release's security note (no design says what it holds) and
-`ledger/pending/*.parts` (removing needs the delete rule's allowance, a gate change). VQ210, VQ211
+`ledger/pending/*.parts` (**done 2026-11-04:** removed once its signatures are written; the delete rule allows `cmd/discovery-sign/parts.go`, the owner's go). VQ210, VQ211
 (rewritten for D393), VQ220 (the bootstrap), VQ221 (the watcher).
 
 ## From the production deploy (2026-11-01), next batch (the owner agreed 2026-11-01)
