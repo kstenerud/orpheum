@@ -50,6 +50,9 @@ type Config struct {
 	slowWrites func(store.SlowWrite)
 	// slowWriteClock times the writes slowWrites hears of: the system's unless a test names another.
 	slowWriteClock clock.Clock
+	// serviceClock is the clock the serving core's services read: the system's unless a test names
+	// another (see servicesClock).
+	serviceClock clock.Clock
 	// readerWrites, when set, is told each write a request that only reads made (store.OpenOptions).
 	readerWrites func(file, caller string)
 	// path is the file's absolute path.
@@ -656,6 +659,14 @@ func (config *Config) openOptions() store.OpenOptions {
 		}
 	}
 	return options
+}
+
+// servicesClock is the clock the core's services read: the system's unless a test named another.
+func (config *Config) servicesClock() clock.Clock {
+	if config.serviceClock == nil {
+		return clock.System{}
+	}
+	return config.serviceClock
 }
 
 // loggingSlowWrites logs each database write that waited for the writer, or held it, past

@@ -272,7 +272,7 @@ func wireCore(
 	core, err := assembly.Build(ctx, assembly.Parts{
 		Database: opened.database, Cache: opened.cache, Directories: opened.directories, Settings: opened.settings,
 		SecretKey: secretKey, SetupCodes: runSetupCodes{directories: opened.directories},
-		Clock: clock.System{}, Random: rand.Reader, Logger: logger, Build: thisBuild(),
+		Clock: config.servicesClock(), Random: rand.Reader, Logger: logger, Build: thisBuild(),
 		TMDBBaseURL: outside.tmdbBaseURL, TMDBImagesBaseURL: outside.tmdbImagesBaseURL,
 		OpenSubtitlesBaseURL: outside.openSubtitlesBaseURL,
 	})

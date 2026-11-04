@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 	"github.com/kstenerud/orpheum/internal/testutil"
@@ -72,9 +73,11 @@ func TestWriteSessionUses_FlushesOnItsIntervalAndAtStop(t *testing.T) {
 func TestServe_WritesASessionsUseByTheTimeItStops(t *testing.T) {
 	t.Parallel()
 	config, configPath := testConfig(t)
+	fakeClock := clocktest.NewFake(time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC))
+	config.serviceClock = fakeClock
 	server := startServing(t, config, newCapturedLog("ready"), "ready", nil)
 	token := signedInOwner(t, server, configPath)
-	time.Sleep(5 * time.Millisecond) // the use must come after the sign-in's own stamp
+	fakeClock.Advance(time.Second) // the use must come after the sign-in's own stamp
 	if me := requestAPI(t, http.MethodGet, server.baseURL+"/me", token, nil); me.status != http.StatusOK {
 		t.Fatalf("GET /me = %d %s", me.status, me.body)
 	}
