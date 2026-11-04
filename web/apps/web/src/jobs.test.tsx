@@ -9,7 +9,7 @@ import { camelKey } from "./catalogue-key.ts";
 import { i18n } from "./i18n.ts";
 import { Jobs, targetId, type Job } from "./jobs.tsx";
 import { parseRoute, routeHref } from "./router.ts";
-import { click, mount, refusal, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import { choose, click, mount, refusal, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 /**
@@ -163,6 +163,53 @@ describe("the job view", () => {
       "Waiting for a free slot on the media machine",
       "Paused while someone watches",
     ]);
+  });
+
+  // ui-audit-2026-11-04.md §3, Jobs; the filter runs on the newest jobs sent (the owner, Option A).
+  it("lists running then waiting jobs first, folds the ended ones by day, and filters by state and kind", async () => {
+    const at = (day: number, hour: number): number => new Date(2026, 10, day, hour).getTime();
+    const waiting: Job = { ...making, id: 1, state: "queued" };
+    const doneToday: Job = { ...lookedUp, id: 2, state: "done", finishedAt: at(4, 10) };
+    const failedYesterday: Job = { ...lookedUp, id: 3, finishedAt: at(3, 22) };
+    const scannedYesterday: Job = {
+      id: 6,
+      kind: "scan",
+      scanId: 2,
+      state: "done",
+      reason: "a folder changed",
+      attemptCount: 1,
+      createdAt: 1,
+      finishedAt: at(3, 9),
+    };
+    const jobs = [doneToday, waiting, failedYesterday, making, scannedYesterday];
+    mounted = await mount(withServices(<Jobs />, servedBy({ "GET /jobs": [200, { jobs }] })));
+    const page = mounted.container;
+    const named = (within: Element | null | undefined): string[] =>
+      [...(within?.querySelectorAll("strong") ?? [])].map((name) => name.textContent);
+    expect(named(page.querySelector("h2 + ul.jobs"))).toEqual([
+      "Making a film's chunks #3",
+      "Making a film's chunks #3",
+    ]);
+    expect(page.querySelector("h2 + ul.jobs")?.textContent).toMatch(/Running.*Waiting/u);
+    const days = [...page.querySelectorAll("details.jobs__day")];
+    expect(days.map((day) => day.hasAttribute("open"))).toEqual([false, false]);
+    expect(
+      days.map((day) => /\((\d+)\)$/u.exec(day.querySelector("summary")?.textContent ?? "")?.[1]),
+    ).toEqual(["1", "2"]);
+    expect(named(days[0])).toEqual(["Looking up #9"]);
+    expect(named(days[1])).toEqual(["Looking up #9", "Listing a folder #2"]);
+    const select = (label: string): Element | null | undefined =>
+      [...page.querySelectorAll("label")]
+        .find((each) => each.textContent.startsWith(label))
+        ?.querySelector("select");
+    await choose(select("State"), "failed");
+    expect(named(page)).toEqual(["Looking up #9"]);
+    expect(page.querySelector("h2 + ul.jobs")).toBeNull();
+    await choose(select("State"), "");
+    await choose(select("Kind"), "scan");
+    expect(named(page)).toEqual(["Listing a folder #2"]);
+    await choose(select("State"), "running");
+    expect(page.textContent).toContain("No job is of that state and kind.");
   });
 
   it("says so when the job had already ended", async () => {

@@ -30,3 +30,8 @@
 .jobs__job .jobs__failure {
   color: var(--color-warning);
 }
+
+/* An ended day of jobs, folded under its date and count until opened. */
+.jobs__day > summary {
+  padding-block: var(--space-2);
+}

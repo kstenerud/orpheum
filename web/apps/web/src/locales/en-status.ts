@@ -71,5 +71,12 @@ export const enStatus = {
     cancel: "Cancel",
     cancelLabel: "Cancel {{job}}",
     alreadyEnded: "That job has already ended.",
+    active: "Running and waiting",
+    finished: "Ended",
+    day: "{{day}} ({{count}})",
+    filterState: "State",
+    filterKind: "Kind",
+    every: "Every one",
+    noneShown: "No job is of that state and kind.",
   },
 };
