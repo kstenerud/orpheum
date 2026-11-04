@@ -89,6 +89,7 @@ export async function shownOverTheFilm(
   page: Page,
   name: string | RegExp,
 ): Promise<ReturnType<Page["locator"]>> {
+  await page.locator("video").waitFor(); // the film's box, once the player has drawn it
   const film = await page.locator("video").boundingBox();
   if (film !== null) {
     await page.mouse.move(film.x + film.width / 2, film.y + film.height / 2);
