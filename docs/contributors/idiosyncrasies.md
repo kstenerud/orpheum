@@ -371,7 +371,7 @@ User-Agent (D263; the User-Agent is logged only).
 
 ### Firefox on macOS freezes on HEVC chunks that start on a CRA keyframe
 
-- **Technology:** Firefox 154 and later on macOS (156 seen), MSE with HEVC, and x265's open-GOP keyframes.
+- **Technology:** Firefox 154 and later on macOS (156 and 157 seen), MSE with HEVC, and x265's open-GOP keyframes.
 - **Symptom:** *Flow* (10-bit HEVC by x265) froze at any start but the film's beginning: the player spun,
   paused at readyState 1, while its chunks kept arriving on a fast link. Safari played it everywhere, and so
   did Firefox from 0:00. Nothing says so in advance: `isTypeSupported` says HEVC is playable, and it is,
@@ -390,15 +390,29 @@ User-Agent (D263; the User-Agent is logged only).
   split init segments, SourceBuffer modes, and relabelling the CRA as IDR_N_LP or BLA_N_LP all failed. Their
   shipped workaround re-encodes to H.264 in the browser. Re-check this entry when Firefox updates; once the fix
   ships, the original picture plays mid-film again and D266 stops firing for it on its own.
-- **What we do:** D266. A quality is given up for the playback, with every quality above it, and the video's
+- **It fails from the start too** (the owner's profile, Firefox 157.0.1 on a Mac, 2026-11-04, The Pumbletons
+  S33E01, one IDR then CRAs): Gecko's `MP4Demuxer::GetNextSample` under `MOZ_APPLEMEDIA` marks an HEVC
+  sample a keyframe only when it is an IDR (`H265::IsKeyFrame`), and MSE's `TrackBuffersManager` demuxes
+  through it. The film's picture then has one random access point, its first; hls.js's removal of the
+  played 0–4.96 s runs, as MSE's coded frame removal does, to the next random access point, there is none,
+  and the whole picture buffer (0.08–96.77 s) went. Each chunk appended after starts at a CRA and was
+  skipped whole ("skipping sample"): `bufferAppendNoProgress`, a hiccup a few seconds in.
+- **What we do:** D413. Firefox on a Mac up to the last release seen to fail (`lastFirefoxStartingHevcOnlyAtIdr`,
+  157) lists no HEVC among the formats it plays, so an HEVC film starts at its twin or a quality made from
+  it. **Re-check:** a later release is offered HEVC again on its own. Where the core logs a given-up own picture
+  (`logUnplayables`, by device) from a device whose playback started in Firefox on a Mac past the number
+  (the start's log names the user agent), raise it to that release and add the
+  run here; where a new release plays 5667 from the start and after a seek, the fix has shipped: remove
+  the branch. `web/packages/sdk/src/playable-formats.ts` (`startsHevcOnlyAtIdr`).
+  Before D413, D266 alone: a quality is given up for the playback, with every quality above it, and the video's
   decoding is built anew (`recoverMediaError`). This happens at once when two of its chunks are held nothing
   of, or after 6 s standing still while two chunks arrive. The core logs the quality, with the video as it
-  was. There is no User-Agent branching. The 6 s count only while what the video plays is loaded where it
+  was. The 6 s count only while what the video plays is loaded where it
   stands, a seek's sound coming late being no sign; the held-nothing count needs nothing loaded, since this
   picture is never loaded anywhere. Requiring it loaded for both left a Mac in a group waiting on Flow for
   good (the owner's test, 2026-10-12).
   `web/packages/player/src/abr-choice.ts` (`isUnplayable`, `chunksNotHeld`); `web/packages/player/src/abr.ts`
-  (`#lookAtPlaying`, `notHeld`); `internal/core/api/report.go` (`logUnplayable`).
+  (`#lookAtPlaying`, `notHeld`); `internal/core/api/report.go` (`logUnplayables`).
 - **Evidence:** D266; [owner] 2026-10-07 (Safari plays it, Firefox from the start only) and 2026-10-08 (the
   empty picture buffer and `bufferAppendNoProgress` above, 05:16 UTC on staging); [web] Mozilla bugs 2065822
   and 2049615, read 2026-10-08.
