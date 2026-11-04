@@ -24,7 +24,7 @@ describe("a double-tap seek's indicator (D415 \u00a76)", () => {
   const left = 100;
   const right = 900;
 
-  /** Draws the overlay over a paused film at 100 s of 600 s, then takes the clock. */
+  /** Draws the overlay over a paused film at 100 s of 600 s and shows it, then takes the clock. */
   async function drawn(): Promise<void> {
     const video = document.createElement("video");
     Object.defineProperty(video, "paused", { get: () => true });
@@ -46,6 +46,19 @@ describe("a double-tap seek's indicator (D415 \u00a76)", () => {
       ),
     );
     mounted.container.querySelector(".film-player__stage")?.prepend(video);
+    // Hidden as the player opens (D418 §1), the overlay is shown as a mouse moved over it shows it.
+    for (const screenX of [5, 50]) {
+      act(() => {
+        document.body.dispatchEvent(
+          new PointerEvent("pointermove", {
+            bubbles: true,
+            pointerType: "mouse",
+            screenX,
+            screenY: 5,
+          }),
+        );
+      });
+    }
     // The clock of an event's timeStamp is faked too, so a slow machine cannot break a run of taps.
     vi.useFakeTimers({
       toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "performance", "Date"],

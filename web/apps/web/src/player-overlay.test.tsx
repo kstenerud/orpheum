@@ -38,6 +38,25 @@ function press(command: string, target: EventTarget = document.body): boolean {
   return event.defaultPrevented;
 }
 
+/**
+ * Shows the overlay, hidden as the player opens (D418 §1), as a mouse moved over the page does
+ * (player-taps.ts): the pointer's first move is where it was, the second a move.
+ */
+function shownByAMouse(): void {
+  for (const screenX of [5, 50]) {
+    act(() => {
+      document.body.dispatchEvent(
+        new PointerEvent("pointermove", {
+          bubbles: true,
+          pointerType: "mouse",
+          screenX,
+          screenY: 5,
+        }),
+      );
+    });
+  }
+}
+
 /** An offer that shows at once, telling the overlay so, and notes each press of it in presses. */
 function offerPiece(presses: string[]): OfferPiece {
   return function Offer(props: OfferPlace): JSX.Element {
@@ -302,6 +321,7 @@ describe("the player's full-screen overlay on a television (D407)", () => {
   it("hides by the first Back while it all shows, focus leaving it for the video, and leaves the next Back to the page", async () => {
     const video = document.createElement("video");
     await drawn(video);
+    press("up"); // the remote shows it, hidden as the player opens (D418 §1)
     act(() => {
       mounted?.container.querySelector<HTMLButtonElement>(FULL_SCREEN)?.focus();
     });
@@ -360,6 +380,7 @@ describe("the player's full-screen overlay on a television (D407)", () => {
     Object.defineProperty(video, "currentTime", { get: () => 10 });
     Object.defineProperty(video, "duration", { get: () => 3600 });
     await drawn(video, offerPiece([]));
+    press("up"); // the remote shows all of it (D418 §1)
     act(() => {
       video.dispatchEvent(new Event("timeupdate"));
     });
@@ -374,6 +395,7 @@ describe("the player's full-screen overlay on a television (D407)", () => {
     Object.defineProperty(video, "currentTime", { get: () => atS });
     Object.defineProperty(video, "duration", { get: () => 3600 });
     await drawn(video);
+    press("up"); // the remote shows it, hidden as the player opens (D418 §1)
     const scrub = (): string | null | undefined =>
       mounted?.container.querySelector('input[type="range"]')?.getAttribute("aria-valuetext");
     const timeUpdate = (toS: number): void => {
@@ -591,6 +613,7 @@ describe("the overlay's menus on a television (D407 §6, §8)", () => {
       ),
     );
     mounted.container.querySelector(".film-player__stage")?.prepend(video);
+    press("up"); // the remote shows it, hidden as the player opens (D418 §1)
     const more = mounted.container.querySelector("button[aria-label='More']");
     act(() => {
       more?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -641,7 +664,7 @@ describe("a finger's taps on the full-screen overlay's picture (D415)", () => {
     vi.useRealTimers();
   });
 
-  /** Draws the overlay over video, then takes the clock, which mounting needs running. */
+  /** Draws the overlay over video and shows it, then takes the clock, which mounting needs running. */
   async function drawnOver(video: HTMLVideoElement): Promise<void> {
     const videoRef = createRef<HTMLVideoElement>();
     Reflect.set(videoRef, "current", video);
@@ -653,6 +676,7 @@ describe("a finger's taps on the full-screen overlay's picture (D415)", () => {
       ),
     );
     mounted.container.querySelector(".film-player__stage")?.prepend(video);
+    shownByAMouse(); // hidden as the player opens (D418 §1)
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
   }
 

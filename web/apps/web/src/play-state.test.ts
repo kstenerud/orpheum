@@ -226,6 +226,8 @@ describe("play state", () => {
   });
 
   it("holds the lost video on screen while the server comes back, and opens the new one where it has got to", async () => {
+    // The page's reopening line, not the overlay's volume, drawn over the film too (D418 §1).
+    const reopening = "output:not(.player-overlay-volume)";
     const heard: Heard[] = [];
     mounted = await mount(
       withServices(
@@ -257,7 +259,7 @@ describe("play state", () => {
       await settle();
     });
     expect(videoOf(mounted)).toBe(lost);
-    expect(mounted.container.querySelector("output")?.textContent).toContain(
+    expect(mounted.container.querySelector(reopening)?.textContent).toContain(
       "Opening the film again where you were",
     );
     lost.currentTime = 612; // it plays on from what it holds
@@ -269,7 +271,7 @@ describe("play state", () => {
     const again = videoOf(mounted);
     expect(again).not.toBe(lost);
     expect(isPlayedAtOnce(again)).toBe(true);
-    expect(mounted.container.querySelector("output")).toBe(null);
+    expect(mounted.container.querySelector(reopening)).toBe(null);
     Object.defineProperty(again, "readyState", { value: 4 });
     await act(async () => {
       again.dispatchEvent(new Event("loadedmetadata"));

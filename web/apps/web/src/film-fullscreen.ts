@@ -14,10 +14,33 @@ export function setFillsWindow(stage: Element, isFilling: boolean): void {
   if (stage.classList.contains(fillsWindowClass) === isFilling) {
     return;
   }
+  // A stage the page keeps filling the window (keepFillingTheWindow) fills it until the page lets go.
+  if (!isFilling && stage.hasAttribute(keptFillingAttribute)) {
+    return;
+  }
   stage.classList.toggle(fillsWindowClass, isFilling);
   for (const listener of fillListeners) {
     listener();
   }
+}
+
+/** The attribute of a stage its page keeps filling the window (keepFillingTheWindow). */
+const keptFillingAttribute = "data-fills-window-kept";
+
+/**
+ * Has a player's stage fill the window for as long as its page wants it, whatever full screen does:
+ * the Play page's player is the whole window on every device (ui-audit-2026-11-04.md §3, the
+ * player), its controls over the picture, so leaving the browser's full screen (⤢, Escape, a Fire
+ * TV's Back) leaves the film filling the window, never the page under it. Returns the letting go,
+ * which the stage's page calls as it goes.
+ */
+export function keepFillingTheWindow(stage: Element): () => void {
+  stage.setAttribute(keptFillingAttribute, "");
+  setFillsWindow(stage, true);
+  return () => {
+    stage.removeAttribute(keptFillingAttribute);
+    setFillsWindow(stage, false);
+  };
 }
 
 /** Follows a stage's filling the window or no longer (setFillsWindow); returns the stopping. */

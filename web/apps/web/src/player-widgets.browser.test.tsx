@@ -91,6 +91,25 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+/**
+ * Shows the overlay, hidden as the player opens (ui-audit-2026-11-04.md §3, the player), as a mouse
+ * moved over the page does (player-taps.ts).
+ */
+function shownByAMouse(): void {
+  for (const screenX of [5, 50]) {
+    act(() => {
+      document.body.dispatchEvent(
+        new PointerEvent("pointermove", {
+          bubbles: true,
+          pointerType: "mouse",
+          screenX,
+          screenY: 5,
+        }),
+      );
+    });
+  }
+}
+
 describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
   it("draws every icon button, the status tray's signs too, a fingertip square: 2.75rem", async () => {
     // From a tablet up: on a phone the banner's signs stand a quarter closer, by the owner's word
@@ -298,6 +317,7 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
         mounted.container.append(video);
         video.tabIndex = -1;
         video.focus();
+        shownByAMouse();
         expect(overlay.getAttribute("data-shown")).toBe("full");
         await userEvent.keyboard("{ArrowDown}");
         await expect
@@ -327,6 +347,7 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
         const overlay = found(mounted.container, ".player-overlay");
         const scrub = found(overlay, '[aria-label="Where the film stands"]');
         const forward = found(overlay, '[aria-label="Forward 10 s"]');
+        shownByAMouse();
         await userEvent.click(forward);
         expect(getComputedStyle(scrub).opacity).toBe("1");
         while (document.activeElement !== scrub) {
@@ -367,6 +388,7 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
       </div>,
       (mounted) => {
         const subtitles = found(mounted.container, ".JASSUB");
+        shownByAMouse();
         expect(found(mounted.container, ".player-overlay").getAttribute("data-shown")).toBe("full");
         expect(getComputedStyle(subtitles).translate).not.toBe("none");
         act(() => {
@@ -504,6 +526,7 @@ describe("A finger's taps on the full-screen picture, as a real browser lays it 
             video.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
           });
         };
+        shownByAMouse();
         expect(overlay.getAttribute("data-shown")).toBe("full");
         tapAt(0.5);
         expect(overlay.getAttribute("data-shown")).toBe("hidden");
