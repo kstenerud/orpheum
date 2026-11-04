@@ -2,9 +2,10 @@
 
 /** A finger's taps and a mouse's clicks on the player's picture (D415, D407 §6), for the overlay. */
 
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 
 import {
+  doubleTapSeekMs,
   doubleTapSeekTo,
   doubleTapWaitMs,
   tapAnswer,
@@ -191,6 +192,48 @@ class PointerReader {
   };
 }
 
+/** How long a double-tap seek's indicator stays after the last tap, in ms, before it fades (D415 §5). */
+export const seekFeedbackShownMs = 700;
+
+/** What a double-tap seek's indicator says: the side tapped, the run's running total, and whether it shows. */
+export interface SeekFeedback {
+  readonly direction: -1 | 1;
+  /** The seconds the run has seeked so far, always positive: 10, 20, 30. */
+  readonly seconds: number;
+  /** False in the fade, which keeps the last text so it can go out. */
+  readonly isShown: boolean;
+}
+
+/** The indicator's state, and what a seek calls (direction, the run's total in s) to show it and start its fade. */
+function useSeekFeedback(): [
+  SeekFeedback | undefined,
+  (direction: -1 | 1, seconds: number) => void,
+] {
+  const [feedback, setFeedback] = useState<SeekFeedback | undefined>(undefined);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(
+    () => () => {
+      clearTimeout(timerRef.current);
+    },
+    [],
+  );
+  return [
+    feedback,
+    (direction, seconds) => {
+      setFeedback({ direction, seconds, isShown: true });
+      clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        setFeedback((last) => (last === undefined ? undefined : { ...last, isShown: false }));
+      }, seekFeedbackShownMs);
+    },
+  ];
+}
+
+/** The seconds a run of taps has seeked: its first tap seeks nothing, each later one a step. */
+function seekedBy(run: TapRun | undefined): number {
+  return ((run?.count ?? 2) - 1) * (doubleTapSeekMs / 1000);
+}
+
 /** Seeks a film by a double tap's side, kept inside it (D415 §3). */
 function seekByTap(video: HTMLVideoElement, direction: -1 | 1): void {
   Reflect.set(video, "currentTime", doubleTapSeekTo(video.currentTime, video.duration, direction));
@@ -205,7 +248,11 @@ function seekByTap(video: HTMLVideoElement, direction: -1 | 1): void {
 export function useAnswersPictureTaps(
   videoRef: RefObject<HTMLVideoElement | null>,
   toggle: () => void,
-): (tap: PictureTap) => void {
+): {
+  readonly onPictureTap: (tap: PictureTap) => void;
+  readonly feedback: SeekFeedback | undefined;
+} {
+  const [feedback, noteSeek] = useSeekFeedback();
   const toggleRef = useRef(toggle);
   useEffect(() => {
     toggleRef.current = toggle;
@@ -218,7 +265,7 @@ export function useAnswersPictureTaps(
     },
     [],
   );
-  return (tap) => {
+  const onPictureTap = (tap: PictureTap): void => {
     const video = videoRef.current;
     const width = video?.getBoundingClientRect().width ?? 0;
     const zone = tapZoneOf(tap.x, width > 0 ? width : window.innerWidth);
@@ -233,6 +280,7 @@ export function useAnswersPictureTaps(
     if (answer.action === "seek") {
       if (video !== null && answer.direction !== undefined) {
         seekByTap(video, answer.direction);
+        noteSeek(answer.direction, seekedBy(answer.run));
       }
     } else if (answer.action === "toggle") {
       toggleRef.current();
@@ -243,4 +291,5 @@ export function useAnswersPictureTaps(
       }, doubleTapWaitMs);
     }
   };
+  return { onPictureTap, feedback };
 }

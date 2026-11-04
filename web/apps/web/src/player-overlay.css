@@ -117,6 +117,42 @@
   display: none;
 }
 
+/* A double-tap seek's "+10" / "−10" (D415 §5), at the middle of the third tapped; it fades out
+   after the last tap, and with reduced motion it only goes. It takes no tap and no focus. */
+.player-overlay-seeked {
+  position: absolute;
+  top: 50%;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-control);
+  background: var(--color-video-card);
+  color: var(--color-on-video);
+  font-size: var(--font-size-h2);
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  transition: opacity 200ms ease-out;
+}
+
+.player-overlay-seeked[data-side="left"] {
+  left: calc(100% / 6);
+}
+
+.player-overlay-seeked[data-side="right"] {
+  left: calc(100% * 5 / 6);
+}
+
+.player-overlay-seeked[data-shown] {
+  opacity: 1;
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-overlay-seeked {
+    transition: none;
+  }
+}
+
 .player-overlay-paused .player-icons__icon {
   width: 4rem;
   height: 4rem;
