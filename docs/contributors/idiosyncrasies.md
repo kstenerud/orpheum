@@ -3979,7 +3979,7 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   the window in its full-screen state a while longer, even after the size is back.
 - **What we do:** a browser test that presses into full screen has the browser refuse it (as some
   browsers do), so the stage fills the window instead, which the app already handles, and no real
-  full-screen window is made (`input-walk`'s Space walk). Waiting for the size back was enough for
+  full-screen window is made (the Space walk in `input-player.browser.test.tsx`). Waiting for the size back was enough for
   Firefox, not Chromium.
 - **Evidence:** "test(web): the Space walk leaves full screen before the next file; the trail check holds in Firefox" (the wait, Firefox), "test(web): the Space walk's browser refuses full screen, so no full-screen window outlasts it" (the refusal, Chromium).
 
