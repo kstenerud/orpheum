@@ -1710,6 +1710,16 @@ a session the owner starts with `ORPHEUM_ALLOW_GATE_EDIT=1`; then this wave resu
 items 6–10 and the full-screen scrub-bar test's overlay hide under load (`useOverlayHiding`'s 3 s wall
 clock outrunning slow key presses).
 
+**The lock, done ("build(gate): every test run holds the repository's one lock, and the background probe gives way", the owner's ORPHEUM_ALLOW_GATE_EDIT session, 2026-11-04):** make spot, a
+test command typed in a session (pre_bash.py runs it through `scripts/gate_lock.py`) and each
+background probe pass hold the repository's one test lock beside the gates; the holder names itself,
+the probe gives way to any other run, and the Stop hook waits behind a spot check or a test run. The
+background probe is on again. Before the wave resumes, the queued flakes (the owner, "If there were
+other test changes queued that would help make the tests run better, I want them as well"): the
+scrub-bar overlay hide, `lab-pad-input`'s stick test, `sw.browser.test.ts` under load,
+`together-leader`'s leftover group, `listeners_test.go`'s closed port and `session_uses_test.go`'s
+sleep.
+
 ## The API batch (the owner, 2026-11-04, D416)
 
 The batch after the first wave, alone: "Do everything in one batch, nothing else in the batch, then
