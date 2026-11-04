@@ -338,7 +338,21 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
         await expect.poll(() => getComputedStyle(scrub).opacity).toBe("1");
         await userEvent.keyboard("{Tab}");
         expect(overlay.contains(document.activeElement)).toBe(true);
-        await expect.poll(() => getComputedStyle(scrub).opacity).toBe("0.6");
+        // Under make check's load Firefox once left it at 1 (2026-11-04), passing alone; the message says
+        // where focus was and whether it counted as a key's, so a failure names its cause.
+        const focusSaid = (): string => {
+          const focused = document.activeElement;
+          return `focus on ${focused?.outerHTML.slice(0, 120) ?? "nothing"}, :focus-visible ${String(
+            focused?.matches(":focus-visible"),
+          )}, the overlay ${overlay.getAttribute("data-shown") ?? "?"}, the scrub bar in the page ${String(
+            scrub.isConnected,
+          )}`;
+        };
+        try {
+          await expect.poll(() => getComputedStyle(scrub).opacity).toBe("0.6");
+        } catch (error) {
+          throw new Error(`${String(error)}; ${focusSaid()}`);
+        }
       },
     );
   });
