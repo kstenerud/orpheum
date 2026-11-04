@@ -105,6 +105,7 @@ export const enSystem = {
       includeKeyWarning:
         "Whoever has a backup with the keys can read the passwords kept on the server and pass for the server itself. Keep it somewhere safe.",
       make: "Back up now",
+      create: "Create backup",
       where:
         "Backups are kept in {{directory}} on the server's machine. A backup on the same disk does not survive that disk: copy them elsewhere.",
       none: "There is no backup yet.",

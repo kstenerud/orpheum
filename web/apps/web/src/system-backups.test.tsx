@@ -47,9 +47,12 @@ it("asks for a backup now, the key only when asked, and lists the backup once ma
   expect(container.textContent).toContain("There is no backup yet.");
   expect(container.textContent).toContain("/srv/orpheum/backups");
   await click(buttonWithText(container, "Back up now"));
+  expect(heard.filter((each) => each.methodAndPath === "POST /backups")).toEqual([]);
+  await click(buttonWithText(container, "Create backup"));
   expect(heard.filter((each) => each.methodAndPath === "POST /backups")).toEqual([
     { methodAndPath: "POST /backups", body: { includesKey: false } },
   ]);
+  expect(container.querySelector("dialog")).toBeNull();
   expect(container.textContent).toContain("A backup is on its way");
   expect(container.textContent).toContain("backup-20261003T120000Z.tar.gz, 2.5 MB");
 });
@@ -63,6 +66,13 @@ it("puts Back up now in the heading's row and folds the list of backups, closed 
   const row = container.querySelector("#system-backups")?.parentElement;
   expect(row?.contains(buttonWithText(container, "Back up now") ?? null)).toBe(true);
   expect(row?.querySelector("p, label")).toBeNull();
+  // The key's checkbox is not on the page: it is in the dialog the button opens (2026-11-04).
+  expect(container.querySelector('input[type="checkbox"]')).toBeNull();
+  expect(container.querySelector("dialog")).toBeNull();
+  await click(buttonWithText(container, "Back up now"));
+  const dialog = container.querySelector("dialog");
+  expect(dialog?.querySelector('input[type="checkbox"]')).not.toBeNull();
+  expect(buttonWithText(dialog as HTMLElement, "Create backup")).toBeDefined();
   const fold = container.querySelector("details");
   expect(fold?.open).toBe(false);
   expect(fold?.querySelector("summary")?.textContent).toBe("The backups kept (1)");
@@ -80,11 +90,12 @@ it("warns what a backup with the key holds, and says why one was refused", async
   );
   mounted = await mount(withServices(<SystemBackups />, services));
   const container = mounted.container;
-  await click(container.querySelector('input[type="checkbox"]'));
-  expect(container.textContent).toContain("Whoever has a backup with the key");
   await click(buttonWithText(container, "Back up now"));
+  await click(container.querySelector('dialog input[type="checkbox"]'));
+  expect(container.textContent).toContain("Whoever has a backup with the key");
+  await click(buttonWithText(container, "Create backup"));
   expect(heard.filter((each) => each.methodAndPath === "POST /backups")).toEqual([
     { methodAndPath: "POST /backups", body: { includesKey: true } },
   ]);
-  expect(container.querySelector('[role="alert"]')?.textContent ?? "").not.toBe("");
+  expect(container.querySelector('dialog [role="alert"]')?.textContent ?? "").not.toBe("");
 });
