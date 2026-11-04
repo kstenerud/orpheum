@@ -236,4 +236,28 @@ describe("a modal dialog closed", () => {
     await closed();
     mounted.unmount();
   });
+
+  // The Cast and Watch Together dialogs, taller than the window, stopped Tab on their body: a box
+  // that scrolls is a Tab stop of its own in Chromium and Firefox (idiosyncrasies.md).
+  it("stops Tab only on its controls, never on its own body, however long it is", async () => {
+    const mounted = await mount(
+      withServices(
+        <ModalDialog label="Long" onClose={() => undefined}>
+          <button type="button">first</button>
+          <div style={{ height: "3000px" }} />
+          <button type="button">last</button>
+        </ModalDialog>,
+      ),
+    );
+    const dialog = document.querySelector("dialog[open]");
+    expect(dialog?.scrollHeight).toBeGreaterThan(dialog?.clientHeight ?? 0);
+    const stops: string[] = [];
+    for (let press = 0; press < 4; press += 1) {
+      await userEvent.keyboard("{Tab}");
+      const at = document.activeElement;
+      stops.push(at === null ? "none" : at.tagName.toLowerCase() + ":" + at.textContent);
+    }
+    expect(stops.filter((stop) => stop.startsWith("dialog"))).toEqual([]);
+    mounted.unmount();
+  });
 });

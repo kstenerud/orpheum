@@ -111,6 +111,10 @@ export const enPlay = {
       cannotEarlier:
         "This film plays as its own file, whose sound cannot be played earlier here; a streamed copy's can.",
     },
+    forTesters: {
+      open: "For testers",
+      heading: "For testers",
+    },
     bare: {
       open: "Play in a bare player",
       back: "Back to the player",

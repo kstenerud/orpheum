@@ -51,7 +51,9 @@ export function ModalDialog(props: ModalDialogProps): JSX.Element {
   useModalLayer(ref, toldRef);
   const classes = ["modal-dialog", props.className].filter(Boolean).join(" ");
   return (
-    <dialog ref={ref} className={classes} role={props.role} aria-label={props.label}>
+    // tabIndex -1: a dialog taller than the window scrolls, and a box that scrolls is a Tab stop of its
+    // own in Chromium and Firefox, reached as nothing (the Cast and Watch Together dialogs, 2026-11-04).
+    <dialog ref={ref} className={classes} role={props.role} aria-label={props.label} tabIndex={-1}>
       {props.children}
       {/* After what it holds, so opening focuses that first; drawn at the top-right. */}
       <StandardClose toldRef={toldRef} />

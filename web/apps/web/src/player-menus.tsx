@@ -15,6 +15,7 @@ import { useTranslation } from "react-i18next";
 
 import { useAudioChoices, type AudioChoice } from "./audio-tracks.tsx";
 import { DropDown } from "./drop-down.tsx";
+import { ForTestersContext, ForTestersShown } from "./for-testers.tsx";
 import { ListEntry, ListOption } from "./list-box.tsx";
 import { LevellingControl } from "./levelling.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
@@ -48,7 +49,7 @@ export interface PlayerMenusWays {
 export const PlayerMenusContext = createContext<PlayerMenusWays | undefined>(undefined);
 
 /** The menu open now, if one is: 🔈, 💬, 🎧, ⁝, or the Find subtitles dialog 💬 opened. */
-type OpenMenu = "volume" | "subtitles" | "audio" | "more" | "find";
+type OpenMenu = "volume" | "subtitles" | "audio" | "more" | "find" | "testers";
 
 /**
  * The full-screen overlay's menus, in row 2's trailing group before full screen (D407 §1, §8): 🔈,
@@ -76,7 +77,8 @@ export function PlayerMenus(props: {
   useEffect(() => {
     onOpenChange(isOpen);
   }, [isOpen, onOpenChange]);
-  const endFinding = useFindingEndedAtFullScreen(setOpen);
+  const endFinding = useDialogEndedAtFullScreen(setOpen);
+  const hasTesters = use(ForTestersContext) !== undefined;
   const toldOf =
     (menu: OpenMenu) =>
     (isNowOpen: boolean): void => {
@@ -101,11 +103,19 @@ export function PlayerMenus(props: {
           shown={props.shown}
           toldOf={toldOf}
           onFind={findSubtitles}
+          onTesters={
+            hasTesters
+              ? () => {
+                  setOpen("testers");
+                }
+              : undefined
+          }
         />
       )}
       {open === "find" && ways !== undefined ? (
         <FindSubtitlesDialog ways={ways} onClose={endFinding} />
       ) : null}
+      {open === "testers" ? <ForTestersDialog onClose={endFinding} /> : null}
     </>
   );
 }
@@ -118,6 +128,8 @@ function TrackMenus(props: {
   readonly shown: readonly OverlayControl[];
   readonly toldOf: (menu: OpenMenu) => (isNowOpen: boolean) => void;
   readonly onFind: (() => void) | undefined;
+  /** Opens ⁝'s For testers, where the player gives the panel (ForTestersContext). */
+  readonly onTesters: (() => void) | undefined;
 }): JSX.Element {
   const { tracks, shown, toldOf } = props;
   return (
@@ -137,6 +149,7 @@ function TrackMenus(props: {
           tracks={tracks}
           ways={props.ways}
           videoRef={props.videoRef}
+          onTesters={props.onTesters}
           onOpenChange={toldOf("more")}
         />
       ) : null}
@@ -211,12 +224,15 @@ function openAfter(
   return now === menu ? undefined : now;
 }
 
-/** Ends Find subtitles' dialog, as a change of full screen does; returns the way to end it. */
-function useFindingEndedAtFullScreen(
+/**
+ * Ends the dialog open from a menu (Find subtitles, For testers), as a change of full screen does;
+ * returns the way to end it.
+ */
+function useDialogEndedAtFullScreen(
   setOpen: (open: (now: OpenMenu | undefined) => OpenMenu | undefined) => void,
 ): () => void {
   const endFinding = useCallback(() => {
-    setOpen((now) => (now === "find" ? undefined : now));
+    setOpen((now) => (now === "find" || now === "testers" ? undefined : now));
   }, [setOpen]);
   useEffect(() => {
     document.addEventListener("fullscreenchange", endFinding);
@@ -274,13 +290,16 @@ function AudioMenuOverTheFilm(props: {
 
 /**
  * ⁝ (D407 §8, Q8): Start over, the subtitles' offset, the device's sound timing, levelling, the
- * dialogue boost, the original and the bare player where they are offered. Its steppers' presses
- * keep it open (ListEntry's isKeptOpen); its other buttons close it, as a choice does.
+ * dialogue boost, the original (its quality entry, D418 §4) and the bare player where they are
+ * offered, and For testers where the player gives it (item 9 of ui-audit-2026-11-04.md). Its
+ * steppers' presses keep it open (ListEntry's isKeptOpen); its other buttons close it, as a choice
+ * does.
  */
 function MoreMenu(props: {
   readonly tracks: PlayerTracks;
   readonly ways: PlayerMenusWays | undefined;
   readonly videoRef: RefObject<HTMLVideoElement | null>;
+  readonly onTesters: (() => void) | undefined;
   readonly onOpenChange: (isOpen: boolean) => void;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -327,6 +346,9 @@ function MoreMenu(props: {
         </ListEntry>
       )}
       <MoreOfThePage ways={ways} />
+      {props.onTesters === undefined ? null : (
+        <ListOption onChoose={props.onTesters}>{t("play.forTesters.open")}</ListOption>
+      )}
     </DropDown>
   );
 }
@@ -380,6 +402,19 @@ function FindSubtitlesDialog(props: {
           ways.onSubtitleFetched();
         }}
       />
+    </ModalDialog>
+  );
+}
+
+/**
+ * ⁝'s For testers: the player's notes and tools for testing (for-testers.tsx), in a dialog of its
+ * own, as Find subtitles is, so ⁝ stays short and they read at full width.
+ */
+function ForTestersDialog(props: { readonly onClose: () => void }): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <ModalDialog label={t("play.forTesters.heading")} onClose={props.onClose}>
+      <ForTestersShown />
     </ModalDialog>
   );
 }

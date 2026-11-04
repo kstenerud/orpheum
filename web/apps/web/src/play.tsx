@@ -36,6 +36,12 @@ import { useFullScreenLeftAsBack } from "./input-layer.tsx";
 import { useServices } from "./services.tsx";
 import { BarePlayer } from "./bare-player.tsx";
 import { PlayOriginal } from "./play-original.tsx";
+import {
+  ForTesters,
+  ForTestersContext,
+  ForTestersHome,
+  useForTestersPanel,
+} from "./for-testers.tsx";
 import { FrameTimingNote } from "./frame-timing-note.tsx";
 import { BoostBox } from "./sound.tsx";
 import { SoundOffsetControl } from "./sound-delay.tsx";
@@ -195,17 +201,18 @@ function PlayerView(
     <UpNextContext value={offered}>
       <PlayTop plays={decision.plays} titleName={titleName} isOwn={isOwn}>
         <PlayContext value={ways}>
-          {/* A remote's first arrow starts on the video, not the trail above it (focus-navigation.ts). */}
-          <div className="play" data-focus-container="" data-focus-start="">
+          <PlayArea isOwn={isOwn}>
             <FilmPlayer
               decision={props.decision}
               moved={moved}
               ladderStartMs={resumePositionMs}
               composition={pageComposition(props)}
             />
-            <FrameTimingNote video={video} />
-            {isOwn ? <UnderThePlayer onBare={props.onBare} /> : null}
-          </div>
+            <ForTesters>
+              <FrameTimingNote video={video} />
+              {isOwn ? <UnderThePlayer onBare={props.onBare} /> : null}
+            </ForTesters>
+          </PlayArea>
         </PlayContext>
       </PlayTop>
       <PlaysAlong
@@ -215,6 +222,24 @@ function PlayerView(
         hasNext={tracks.hasNext}
       />
     </UpNextContext>
+  );
+}
+
+/**
+ * The player and its notes, with the player's For testers (for-testers.tsx): the notes and tools for
+ * testing, which the film filling the window hides (D418 §1), kept in ⁝'s For testers. A cast's
+ * receiver has none, its notes in place.
+ */
+function PlayArea(props: { readonly isOwn: boolean; readonly children: ReactNode }): JSX.Element {
+  const panel = useForTestersPanel();
+  return (
+    // A remote's first arrow starts on the video, not the trail above it (focus-navigation.ts).
+    <div className="play" data-focus-container="" data-focus-start="">
+      <ForTestersContext value={props.isOwn ? panel : undefined}>
+        {props.children}
+        <ForTestersHome />
+      </ForTestersContext>
+    </div>
   );
 }
 
