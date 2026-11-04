@@ -36,17 +36,18 @@ export const acknowledgements: readonly Acknowledgement[] = [
 
 /**
  * About: TMDB's attribution — its logo, smaller than ours, and its notice, as its terms (§3) and
- * FAQ ask, in an About section (D213 §7) — and the projects we are built on.
+ * FAQ ask, in an About section (D213 §7) — and the projects we are built on. Its heading is the
+ * page's h1, as every page's is (ui-audit-2026-11-04.md §3, About).
  */
 export function About(): JSX.Element {
   const { t } = useTranslation();
   return (
     <section className="about" aria-labelledby="about-heading">
-      <h2 id="about-heading">{t("about.heading")}</h2>
-      <h3>{t("about.tmdbHeading")}</h3>
+      <h1 id="about-heading">{t("about.heading")}</h1>
+      <h2>{t("about.tmdbHeading")}</h2>
       <img className="about__tmdb-logo" src={tmdbLogo} alt={t("about.tmdbLogo")} />
       <p>{t("about.tmdbNotice")}</p>
-      <h3>{t("about.thanksHeading")}</h3>
+      <h2>{t("about.thanksHeading")}</h2>
       <p>{t("about.thanksIntro", { product: productName })}</p>
       <ul className="about__thanks">
         {acknowledgements.map((project) => (

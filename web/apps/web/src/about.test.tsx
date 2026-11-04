@@ -20,4 +20,11 @@ describe("About", () => {
       expect(markup).toContain(`>${project}</a>`);
     }
   });
+
+  it("is headed by the page's one h1, its sections by h2s (ui-audit-2026-11-04.md §3)", () => {
+    const markup = renderToStaticMarkup(<About />);
+    expect(markup.match(/<h1[ >]/g)).toHaveLength(1);
+    expect(markup).toContain('<h1 id="about-heading">About</h1>');
+    expect(markup).not.toContain("<h3");
+  });
 });
