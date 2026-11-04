@@ -25855,3 +25855,34 @@ unknown runtime with a contradicted one only with no year.
 **Status:** Decided 2026-11-02. In `internal/core/identify/settle_film.go` (`rankFilms`, `voteTiers`,
 `fitOf`), a file's name read for a longer cut by `namesALongerCut` (`filename.go`); the log names a
 longer cut's fit `edition`.
+
+## D413 — Firefox on a Mac is offered no HEVC, up to the last release seen to start it only at an IDR
+
+**Decided** (2026-11-04), by the project owner: *"OK, we take your recommendation, and also we should
+check from time to time to see if this issue has been fixed in firefox"*, on The Pumbletons S33E01 (an
+x265 HEVC whose keyframes after its first are CRA) losing its picture a few seconds in on Firefox 157
+on a Mac (navigation-and-widgets plan, the 11-06 batch, item 3). **Amends**
+[D266](#d266--a-quality-whose-video-stands-still-while-its-chunks-arrive-is-one-the-device-cannot-play-and-is-given-up)'s
+"branching on the browser's name is not done".
+
+D266 gives a picture up once it has failed. That was taken to be enough, a film failing only at a
+start or seek past its first chunk; the owner's profile of 2026-11-04 showed that it also fails from
+the start: Gecko's demuxer on macOS counts only an IDR a keyframe, so such a film's picture has one
+random access point, its first, and hls.js's removal of the played seconds removes the whole picture
+buffer, every chunk appended after it being skipped (idiosyncrasies.md, "Firefox on macOS freezes on
+HEVC chunks that start on a CRA keyframe"). Every such film then hiccups once on every device, and
+nothing the browser says tells it in advance.
+
+1. **Firefox on a Mac lists no HEVC among the formats it plays**, so the core starts an HEVC film at
+   its twin or a quality made from it, as D266 does after a failure. The browser is named by its user
+   agent, `Macintosh` and `Firefox/<major>`, since no feature says it.
+2. **Only up to the last release seen to fail**, 157 (`lastFirefoxStartingHevcOnlyAtIdr`). A later
+   release is offered HEVC again, so the check that Firefox has fixed it happens on its own at each
+   release: where it still fails, D266 gives the picture up on that device and the core logs the give-up
+   with the device, whose playback's start the core logs with its user agent, and the number is raised to that release; where it plays, the fix has
+   shipped and this can go.
+3. **Firefox elsewhere and other browsers on a Mac** are offered HEVC as before: Firefox on Linux plays
+   these chunks, and the demotion is under `MOZ_APPLEMEDIA`.
+
+**Status:** Decided 2026-11-04. In `web/packages/sdk/src/playable-formats.ts` (`startsHevcOnlyAtIdr`,
+`lastFirefoxStartingHevcOnlyAtIdr`); tested by `playable-formats.test.ts`; on a device, VQ260.

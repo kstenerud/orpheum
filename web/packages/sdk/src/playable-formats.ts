@@ -13,6 +13,31 @@ type ContainerName = NonNullable<PlayableFormats["containers"]>[number];
 export interface MediaProbe {
   readonly canPlayType: (type: string) => string;
   readonly isTypeSupported: (type: string) => boolean;
+  /** The browser's user agent, for what no feature tells (startsHevcOnlyAtIdr). */
+  readonly userAgent?: string | undefined;
+}
+
+/**
+ * The last Firefox release seen on a Mac to start an HEVC picture only at an IDR, never at a CRA,
+ * so that an open-GOP film's picture is lost at the first removal or seek (idiosyncrasies.md, "Firefox
+ * on macOS starts HEVC only at an IDR"). A later release is offered HEVC again: where it still fails,
+ * the player gives the film's own picture up as unplayable (D266) and the core logs it with the
+ * browser's version, and this is raised to it; where it plays, the fix has shipped.
+ */
+export const lastFirefoxStartingHevcOnlyAtIdr = 157;
+
+/**
+ * Whether a browser of userAgent starts an HEVC picture only at an IDR: Firefox on a Mac up to
+ * lastFirefoxStartingHevcOnlyAtIdr, whose demuxer counts no CRA a keyframe, so its MSE has no
+ * random access point past an x265 film's first picture. No feature tells it, so the browser is named.
+ */
+export function startsHevcOnlyAtIdr(userAgent: string): boolean {
+  const version = /\bFirefox\/(\d+)/u.exec(userAgent)?.[1];
+  return (
+    /\bMacintosh\b/u.test(userAgent) &&
+    version !== undefined &&
+    Number(version) <= lastFirefoxStartingHevcOnlyAtIdr
+  );
 }
 
 // One representative codec string per menu entry: the entry is a named bundle (D21), so asking
@@ -36,7 +61,8 @@ const containerProbes: readonly (readonly [ContainerName, readonly string[]])[] 
 ];
 
 /**
- * The formats a page can play, from what its media element and MSE say. The baselines, h264-sdr
+ * The formats a page can play, from what its media element and MSE say, less HEVC where the browser
+ * starts it only at an IDR (startsHevcOnlyAtIdr): such a film starts at its twin. The baselines, h264-sdr
  * and aac-stereo, are always listed: every client plays them (D21), and they come last among
  * the video entries, after what is more efficient. AAC with more than two channels is decoded
  * and downmixed by every browser, so aac-multi follows aac-stereo.
@@ -44,9 +70,12 @@ const containerProbes: readonly (readonly [ContainerName, readonly string[]])[] 
 export function playableFormatsFrom(probe: MediaProbe): PlayableFormats {
   const isPlayable = (type: string): boolean =>
     probe.isTypeSupported(type) || probe.canPlayType(type) !== "";
+  const isHevcOffered = !startsHevcOnlyAtIdr(probe.userAgent ?? "");
   return {
     videoCodecs: [
-      ...videoCodecProbes.filter(([, type]) => isPlayable(type)).map(([name]) => name),
+      ...videoCodecProbes
+        .filter(([name, type]) => (isHevcOffered || !name.startsWith("hevc-")) && isPlayable(type))
+        .map(([name]) => name),
       "h264-sdr",
     ],
     audioCodecs: [
@@ -69,5 +98,6 @@ export function browserPlayableFormats(): PlayableFormats {
   return playableFormatsFrom({
     canPlayType: (type) => element.canPlayType(type),
     isTypeSupported: (type) => hasMediaSource && MediaSource.isTypeSupported(type),
+    userAgent: navigator.userAgent,
   });
 }

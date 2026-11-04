@@ -1602,8 +1602,10 @@ research run in this batch … The actual UI revamp will be done next batch."*
    (0.08–96.77 s: the MSE removal runs to the next random access point, and there is none), and
    every chunk appended after, each starting at a CRA, was skipped whole ("skipping sample",
    waiting for a random access point): `bufferAppendNoProgress`. A start or seek past chunk 0 fails
-   at its first chunk the same way (the resume at 2:09). **Owner to decide** the workaround (the
-   lead's proposal: Firefox on a Mac does not take an HEVC film's own picture, starting at its twin).
+   at its first chunk the same way (the resume at 2:09). The owner took the lead's proposal (2026-11-04,
+   "and also we should check from time to time to see if this issue has been fixed in firefox"):
+   D413, Firefox on a Mac up to 157 offered no HEVC, a later release offered it again so the check
+   happens at each release. **Built 2026-11-04**; VQ260 for the Mac.
 4. **The SWAG research's starts and stalls** (11-05's "still filed"; the upload and ladder stay
    their own batch).
 5. *(Moved to the revamp, 2026-11-04:)* the SWAG research's remote (the held seek, the seek rest,
