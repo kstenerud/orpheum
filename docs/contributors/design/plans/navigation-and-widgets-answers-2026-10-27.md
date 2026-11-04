@@ -1664,7 +1664,8 @@ asks for a quick fix, is folded in (the owner, 2026-11-04).
    genres, people and each title's credits (role, character, order); identification fills them, and
    a one-time pass fills them from the responses already stored, with no new request. People and
    genres join the text index.
-2. **One search, grouped.** Results at each keystroke from the first letter: Titles, People, Genres.
+2. **One search, grouped** (built, "feat(web): the search's dialog shows grouped results and recent searches"; taken out of the web app by D417 §2, the server's
+   endpoint kept). Results at each keystroke from the first letter: Titles, People, Genres.
    A person or genre opens the list filtered by it. Recent searches. No result cap.
 3. **Filters on the list:** Genre, Decade and Unwatched chips on Films and Series.
 4. **A title's people:** its cast and director on its page, each one press from their titles.
@@ -1680,7 +1681,7 @@ asks for a quick fix, is folded in (the owner, 2026-11-04).
    tools before the bar (the owner, 2026-11-04, "Agreed: (a)"). The list's chips, search and sort
    move into one pop-up (the owner, 2026-11-04: "What if we put all of those things inside the sort
    popup? It's all criteria that filters what gets shown, and all of that including the search are
-   additive to that filter"). `/ui-gallery` is left out of the arrow walk (the owner, 2026-11-04).
+   additive to that filter"; built as D417's Sort and filter). `/ui-gallery` is left out of the arrow walk (the owner, 2026-11-04).
 6. **The pages (§3 of the audit):** Sign in, Home, the lists, a film's page (R8, the actions row with
    Play first), an episode's and a series' pages, the player (full window, controls over the
    picture, Back never a third state, item 8), the Watch Together and Cast dialogs, Your account,

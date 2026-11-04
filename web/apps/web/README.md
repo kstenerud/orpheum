@@ -483,6 +483,18 @@ The web client: the browser and phone interface, served embedded by the core. MP
   staying on the Libraries page regardless. Escape or a remote's Back closes it.
   `src/library-configure.tsx`; `src/library-configure.test.tsx`, `src/library-browse.test.tsx`,
   `src/home.test.tsx`.
+- **A list's sort and filters are one Sort and filter pop-up** (D417): Films, Series and the
+  Libraries page each have one button, a summary of what is set beside it, opening a name field,
+  Genre, Decade and Unwatched (films and series), the sort, and Clear, which drops the filters and
+  keeps the sort. Each narrows the posters of that list alone and they add up; each applies at once,
+  typed text once typing rests (`typingRestMs`), and the address takes them as the pop-up closes, so
+  Back returns to them. Its field keeps Left and Right for its caret and Escape for its pop-up (a
+  `type="search"` field spends Escape clearing itself, idiosyncrasies.md); a chooser opened in it
+  closes alone on a choice (`popover.tsx`). It fits a phone within the owner's half-screen pop-up
+  width. A search across titles, people and genres waits for its own plan (D417 §2).
+  `src/listing-tools.tsx`, `src/list-filters.ts`, `src/list-chips.tsx`; `src/list-filters.test.ts`,
+  `src/list-chips.test.tsx`, `src/library-browse.test.tsx`, `src/list-criteria.browser.test.tsx`,
+  `src/input-pages.browser.test.tsx`.
 - **Libraries replaces Search in the top bar** (D349): one page for every library the person
   reaches, the first chosen by name on a fresh visit and the chosen library, the view, the folder,
   the sort and a search query all held in its address (`/browse`), so Back and a reload return to
@@ -719,8 +731,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - The frame every screen renders in: `src/app-shell.tsx`; which screen an address names:
   `src/router.ts` and `src/app.tsx`.
 - The screens: `browse.tsx` (films and series), `title.tsx`, `series.tsx`, `library-browse.tsx`
-  (the Libraries page, D349, with `alphabet-rail.tsx`; `search.tsx` holds its search results, by
-  `QueryResults`), `identify.tsx` (needs a match), `libraries.tsx` (the admin's list of libraries and "Rescan everything", D361 §1, D357), `library-manage.tsx` (one library's page: its folders, scans, its "Rescan", retiring a folder and deleting the library, each confirmed by `confirm-button.tsx`, D361 §2), `create-library.tsx` (the page creating one), `folder-picker.tsx` (the folder browser and its dialog, D359, D361 §3), `match-correction.tsx` (an admin's "Identified incorrectly" on a film's, an episode's or a series' page, and its dialog of Rescan, Enter manually and Report this, D301 §2, D357, D306 §3), `more-actions.tsx` (a page's "…" of rarely used actions), `files.tsx` (what
+  (the Libraries page, D349, with `alphabet-rail.tsx`; a list's Sort and filter is
+  `listing-tools.tsx`, D417), `identify.tsx` (needs a match), `libraries.tsx` (the admin's list of libraries and "Rescan everything", D361 §1, D357), `library-manage.tsx` (one library's page: its folders, scans, its "Rescan", retiring a folder and deleting the library, each confirmed by `confirm-button.tsx`, D361 §2), `create-library.tsx` (the page creating one), `folder-picker.tsx` (the folder browser and its dialog, D359, D361 §3), `match-correction.tsx` (an admin's "Identified incorrectly" on a film's, an episode's or a series' page, and its dialog of Rescan, Enter manually and Report this, D301 §2, D357, D306 §3), `more-actions.tsx` (a page's "…" of rarely used actions), `files.tsx` (what
   the scanner saw), `settings.tsx` (keys, passwords and server settings), `jobs.tsx` (the job view), `system.tsx` (the System page: the server's facts, doctor's findings, and each machine's software, sandbox, hardware encoding, disks and recent prepares, D225), `node-confinement.tsx` (a machine's FFmpeg sandbox, on the System page), `about.tsx`,
   `sign-in.tsx`, `play.tsx` (the player, with `play-opened.ts`, how it opens its playback,
   `player-tracks.tsx`, the track and sound choices every piece over or under the film reads,

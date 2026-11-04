@@ -26061,4 +26061,8 @@ and all of that including the search are additive to that filter."
 **Amends:** the plan file's first-wave items "grouped search" and the chips' placement
 (navigation-and-widgets-answers-2026-10-27.md).
 
-**Status:** Decided 2026-11-04; the UI revamp's first wave makes it.
+**Proven by:**
+- 1: web/apps/web/src/list-filters.test.ts, web/apps/web/src/list-chips.test.tsx, web/apps/web/src/library-browse.test.tsx, web/apps/web/src/list-criteria.browser.test.tsx, web/apps/web/src/input-pages.browser.test.tsx
+- 2: web/apps/web/src/alphabet-rail.test.tsx
+
+**Status:** Decided 2026-11-04. Built in the UI revamp's first wave.
