@@ -61,7 +61,9 @@ async function asADiscoverysPage(page: Page): Promise<string[]> {
  * Fetch response has been disposed", or "route.fetch: Test ended", failing a test that had passed, or
  * the next one its worker runs. Unrouted with "ignoreErrors" in the test's own body, a handler in
  * flight fails nothing (idiosyncrasies.md, "Playwright fails a test whose route handler is still
- * running as it ends").
+ * running as it ends"). It ends routing at the test's end only: a request the page gives up on mid-test,
+ * as a player does a chunk, fails its handler at any time, which through-discovery.spec.ts's isAbandoned
+ * answers inside the handler instead.
  */
 async function stopRouting(page: Page): Promise<void> {
   await page.unrouteAll({ behavior: "ignoreErrors" });

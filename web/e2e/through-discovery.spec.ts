@@ -251,7 +251,11 @@ async function nameTheCoreDirectly(
   });
 }
 
-/** Whether a routed request's handling failed because the page gave the request up, or closed. */
+/**
+ * Whether a routed request's handling failed because the page gave the request up, or closed: mid-test,
+ * as a player abandons a chunk, which discovery.spec.ts's stopRouting, unrouting at the test's end, does
+ * not reach, nor a route on the context.
+ */
 function isAbandoned(error: unknown): boolean {
   return (
     error instanceof Error &&
