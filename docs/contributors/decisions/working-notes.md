@@ -26182,12 +26182,36 @@ D364 §12) could not be reached while a film played. Amends D384 §2 and D418 §
    is: white, or blue naming the receiver and what plays while a cast is on.
 2. **Its dialog opens over the film, which plays on;** while it is open the controls stay shown,
    as the menus hold them. The tray's sign stays the way to Cast from every other page.
-3. **Watch Together stays in the tray alone;** it is not added over the film.
+3. **Watch Together stays in the tray alone;** it is not added over the film. (Amended by D423.)
 
 **Proven by:**
 - 1: "draws Cast's sign last in its top row, over the film" in
   web/apps/web/src/player-overlay.test.tsx
 - 2: "has Cast's sign over the film open its dialog in the player…" in
   web/apps/web/src/status-tray.test.tsx; web/e2e/cast.spec.ts casts from it
+
+**Status:** Decided 2026-11-04.
+
+## D423 — Watch Together's sign shows over the playing film, and opens its session's panel there
+
+**Decided** (2026-11-04), by the project owner, choosing "WT sign in overlay (Recommended)" when
+check-pr's browser tests found the host's Watch Together panel, Talk and volume hidden under the
+film. D418 §1 has the film fill the window over the page, and the host's and guest's session
+panels are drawn on that page. Amends D422 §3, D418 §1 and D384 §2.
+
+1. **Watch Together's sign is in the player's top row, just before Cast's,** blue, shown while a
+   session's panel is drawn in this tab: the host's or the guest's.
+2. **It opens the session's panel (who is here, the news, Talk, the volumes; Leave for a guest) in
+   a dialog over the film, which plays on.** The panel is moved there, not drawn again, so its
+   voice and state go on; closed, it goes back to its page. While it is open the controls stay
+   shown, as the menus hold them.
+3. **The host's tap for sound shows over the film,** inside its stage, as the receiver's does.
+
+**Proven by:**
+- 1: "draws Watch Together's sign just before Cast's while a session's panel is drawn (D423)" in
+  web/apps/web/src/player-overlay.test.tsx; "shows Watch Together's sign over the film only while a
+  session's panel is drawn, blue" in web/apps/web/src/together-over-the-film.test.tsx
+- 2: "moves the session's panel, its state kept, into the dialog the sign opens over the film…" in
+  web/apps/web/src/together-over-the-film.test.tsx; web/e2e/together.spec.ts talks from it
 
 **Status:** Decided 2026-11-04.

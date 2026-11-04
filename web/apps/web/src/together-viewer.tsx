@@ -62,6 +62,7 @@ import {
   ViewerPage,
   type KeptVideo,
 } from "./together-viewer-tap.tsx";
+import { ComingAndGoing, TogetherPanel } from "./together-over-the-film.tsx";
 import { useVoice, VoiceControls } from "./together-voice.tsx";
 import {
   forgetEndedHere,
@@ -338,12 +339,15 @@ function ViewerSession(props: {
         snapshot={snapshot}
         volume={volume}
       />
-      <TogetherNews snapshot={snapshot} />
-      <TogetherDebug snapshot={snapshot} />
-      {/* The voices' tap is asked for over the stage, with the film's (ViewingArea). */}
-      <VoiceControls {...voice} tap={{ ...voice.tap, isWaiting: false }} />
-      <VolumeSlider volume={volume} onChange={setVolume} />
-      <LeaveButton membership={props.membership} onLeft={onOver} />
+      <ComingAndGoing snapshot={snapshot} video={kept.video} />
+      <TogetherPanel>
+        <TogetherNews snapshot={snapshot} />
+        <TogetherDebug snapshot={snapshot} />
+        {/* The voices' tap is asked for over the stage, with the film's (ViewingArea). */}
+        <VoiceControls {...voice} tap={{ ...voice.tap, isWaiting: false }} />
+        <VolumeSlider volume={volume} onChange={setVolume} />
+        <LeaveButton membership={props.membership} onLeft={onOver} />
+      </TogetherPanel>
     </ViewerPage>
   );
 }

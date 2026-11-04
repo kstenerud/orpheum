@@ -69,6 +69,10 @@ describe("the host's player in a session (D246 §5)", () => {
       basedOnSeq: 1,
     });
     expect(mounted.container.textContent).toContain("Watch Together is on");
+    // Drawn as the session's panel, which the sign over the film moves over it (D423).
+    expect(mounted.container.querySelector(".together-panel")?.textContent).toContain(
+      "Watch Together is on",
+    );
     // The film's volume beside each person's voice, on the host's player too (the owner, 2026-10-12).
     expect(mounted.container.querySelector(".film-volume input")).not.toBeNull();
     mounted.unmount();

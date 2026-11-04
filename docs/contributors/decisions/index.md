@@ -427,7 +427,8 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D419](working-notes.md#d419--homes-hide-sits-in-a-strip-above-its-card-your-account-places-its-leftover-sections-focus-after-hide-goes-to-the-next-card) Home's Hide sits in a strip above its card; Your account places its leftover sections; focus after Hide goes to the next card
 - [D420](working-notes.md#d420--a-title-page-with-nothing-to-play-and-no--arrives-on-the-words-saying-why) A title page with nothing to play and no "…" arrives on the words saying why
 - [D421](working-notes.md#d421--a-dialogs-safe-choice-comes-first-and-is-where-focus-arrives-where-every-choice-is-dangerous-none-is) A dialog's safe choice comes first and is where focus arrives; where every choice is dangerous, none is
-- [D422](working-notes.md#d422--casts-sign-shows-over-the-playing-film-too-watch-together-stays-in-the-tray) Cast's sign shows over the playing film too; Watch Together stays in the tray
+- [D422](working-notes.md#d422--casts-sign-shows-over-the-playing-film-too-watch-together-stays-in-the-tray) Cast's sign shows over the playing film too; Watch Together stays in the tray — *revisited by D423*
+- [D423](working-notes.md#d423--watch-togethers-sign-shows-over-the-playing-film-and-opens-its-sessions-panel-there) Watch Together's sign shows over the playing film, and opens its session's panel there
 
 ## Archived
 

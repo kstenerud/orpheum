@@ -8,7 +8,7 @@
 import { expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
 
 import { test } from "./browser-map.ts";
-import { openFilm, serverUrl } from "./pages.ts";
+import { openFilm, serverUrl, shownOverTheFilm } from "./pages.ts";
 
 /** D243 §9: voice one-way under 300 ms, and audible loss under 2%. */
 const voiceOneWayAtMostMs = 300;
@@ -80,7 +80,28 @@ export async function join(guest: Page, link: string): Promise<void> {
 export async function hostPlays(host: Page, film: string): Promise<void> {
   await openFilm(host, film);
   await host.getByRole("link", { name: "Play" }).click();
-  await expect(host.getByText("Watch Together is on")).toBeVisible({ timeout: 30_000 });
+  await expect(host.locator("video")).toHaveCount(1, { timeout: 30_000 });
+  await expect(await shownOverTheFilm(host, togetherOverTheFilm)).toBeVisible({ timeout: 30_000 });
+}
+
+/** The label of Watch Together's sign over the film, shown while a session is on (D423). */
+const togetherOverTheFilm = "Watch Together is on: its controls";
+
+/**
+ * Opens the session's panel over the film by Watch Together's sign there, the film filling the
+ * window over the page that holds it (D418 §1, D423); a page whose film does not fill it shows the
+ * panel where it stands.
+ */
+export async function openPanelOverTheFilm(page: Page): Promise<void> {
+  const dialog = page.getByRole("dialog", { name: "Watch Together" });
+  if (
+    (await dialog.count()) > 0 ||
+    (await page.locator(".film-player__stage--fills-window").count()) === 0
+  ) {
+    return;
+  }
+  await (await shownOverTheFilm(page, togetherOverTheFilm)).click();
+  await expect(dialog).toBeVisible();
 }
 
 /** What one browser's voice call measures, from its own WebRTC statistics. */
@@ -293,6 +314,7 @@ export function expectVoiceMeasureWithinBounds(
  * two acceptance runs on 2026-10-07.
  */
 async function turnVoiceOn(page: Page): Promise<void> {
+  await openPanelOverTheFilm(page);
   await expect(async () => {
     const talk = page.getByRole("button", { name: "Talk" });
     if (await talk.isVisible()) {
@@ -325,6 +347,8 @@ export async function expectHearing(
   guest: Page,
   connectsWithinMs = 30_000,
 ): Promise<void> {
+  await openPanelOverTheFilm(host);
+  await openPanelOverTheFilm(guest);
   await expect(host.getByText("Voice: hearing Anna")).toBeVisible({ timeout: connectsWithinMs });
   await expect(guest.getByText(/Voice: hearing /)).toBeVisible({ timeout: connectsWithinMs });
 }
