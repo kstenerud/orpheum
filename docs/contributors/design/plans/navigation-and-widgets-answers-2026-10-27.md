@@ -1737,6 +1737,25 @@ sleep.
   title id; the agent's tests use distinct ids (104, 22, 23) to avoid it. Likely a cache the browser
   tests' setup does not reset between tests; find which and reset it.
 
+## The owner's answers to the System and player agents' questions (the owner, 2026-11-04)
+
+1. **A held arrow:** "I'm not strongly opinionated on this. I just wanted the problem solved. … I'd
+   prefer a solution that doesn't require us to keep chasing devices and depending on user reports for
+   devices we don't have." The research (starts-chunks-remote-2026-10-29.md §3.1) found that steps per
+   key repeat move at the device's repeat rate, which differs 8× between devices; moving by the time
+   held does not. So the held seek moves by time (5.1, built "feat(web): a held arrow moves the seek by the time held, not by its key's repeats (5.1)"), amending answer 8 under "The
+   player's controls" ("growing steps (Kodi's), not by rates").
+2. **Audio and subtitles are two menus, not one panel**: each opens on its current value, with at
+   least one choice above it and one below it in view where there are any.
+3. **"Audio" or "Sound":** the owner asked what each part that says either is for; answered, not
+   yet decided.
+4. **A controller's held stick:** handled a layer down: drivers we provide turn each controller's
+   events into one uniform API ("this button was pressed", "this button is held"), and the UI knows
+   nothing of any controller's quirks.
+5. **Back up now** opens a dialog holding the "Put the server's keys in it" checkbox and a "Create
+   backup" button. The contents row's margin and no links for the sections that come and go: agreed.
+6. **The Manage and dialogs agents' other questions:** their suggestions, as given.
+
 ## The API batch (the owner, 2026-11-04, D416)
 
 The batch after the first wave, alone: "Do everything in one batch, nothing else in the batch, then
