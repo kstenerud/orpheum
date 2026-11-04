@@ -33,7 +33,6 @@ export function ConfirmButton(props: {
   readonly confirmLabel: string;
   readonly onConfirm: () => void;
 }): JSX.Element {
-  const { t } = useTranslation();
   const [isAsking, setIsAsking] = useState(false);
   if (!isAsking) {
     return (
@@ -52,28 +51,46 @@ export function ConfirmButton(props: {
   }
   return (
     <span>
-      <span className="irreversible-words">{props.consequence}</span>{" "}
-      <button
-        type="button"
-        ref={focusAsDrawn}
-        onClick={() => {
+      <ConfirmQuestion
+        consequence={props.consequence}
+        confirmLabel={props.confirmLabel}
+        onKeep={() => {
           setIsAsking(false);
         }}
-      >
-        {t("common.keepIt")}
-      </button>{" "}
-      <button
-        type="button"
-        className="irreversible"
-        {...dangerousMark}
-        onClick={() => {
+        onConfirm={() => {
           setIsAsking(false);
           props.onConfirm();
         }}
-      >
+      />
+    </span>
+  );
+}
+
+/**
+ * The words and buttons of an inline ask-again, drawn where its caller puts them: what will happen,
+ * in the irreversible red, then Keep it, first and focused as drawn (D421), then the action, filled
+ * red and marked a dangerous action. `ConfirmButton` draws it in its own place; a row whose button
+ * stays drawn, disabled, draws it below.
+ */
+export function ConfirmQuestion(props: {
+  /** What will happen, said before the admin confirms. */
+  readonly consequence: string;
+  /** What the confirming button says. */
+  readonly confirmLabel: string;
+  readonly onKeep: () => void;
+  readonly onConfirm: () => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <>
+      <span className="irreversible-words">{props.consequence}</span>{" "}
+      <button type="button" ref={focusAsDrawn} onClick={props.onKeep}>
+        {t("common.keepIt")}
+      </button>{" "}
+      <button type="button" className="irreversible" {...dangerousMark} onClick={props.onConfirm}>
         {props.confirmLabel}
       </button>
-    </span>
+    </>
   );
 }
 
