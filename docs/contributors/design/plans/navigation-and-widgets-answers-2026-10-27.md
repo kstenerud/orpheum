@@ -1562,3 +1562,31 @@ noexec step 2; the ceremony's address defaults; a security-fix branch process fo
 **Not this batch:** the arrows' search on the TV (item 13); the gallery's pop-ups and player bar,
 the scrub bar's time, `ModalDialog`'s `className` (one review with the owner); exact cut times for
 a re-timed copy (the margin stays for now). End: one check-pr, the owner's go, nas.example.
+
+## The 11-06 batch (the owner agreed 2026-11-04, "yes that sounds good"): playback holds up, and the remote reaches every control
+
+After the 11-05 batch (deployed to nas.example 2026-11-04). Bugs a beta household would feel; none
+needs design from the owner but item 7's rule, which is proposed before it is built.
+
+1. **A film's first seconds before its second keyframe play** (17 files on staging; the 11-05
+   batch's step 0, "a playback batch"): the first chunk starts at the discarded keyframe and is cut
+   to the film's start.
+2. **A run's last chunk past its boundary** (11-05's "still filed").
+3. **Why Firefox on a Mac cannot append The Gold Rush's own picture** (toolkit.md; the symptom fixed
+   by "fix(web): a film given up on its own picture before its first frame opens again playing", the cause open), and **file 5667's HEVC** with the Mac's Firefox.
+4. **The SWAG research's starts and stalls** (11-05's "still filed"; the upload and ladder stay
+   their own batch).
+5. **The SWAG research's remote**, where it is not covered by item 7.
+6. *(Optional, the owner's call at the batch's start:)* a re-timed copy cut at exact times
+   (toolkit.md's next batch); the owner said in 11-05 to keep the margin for now.
+7. **The arrows' search reaches every control** (item 13 of the owner's comments of 2026-11-02):
+   it prefers a control in line with the press over a nearer one beside it, so Down from
+   *‹ Series* passes *Play S5E1*, Right at the end of Continue Watching jumps into the banner, and
+   others listed there. The rule is proposed to the owner first; then each case gets a test.
+8. **The paused player's first Back** does something visible (item 13): the whole overlay stays
+   while paused, so the first Back now seems to do nothing.
+
+**Not this batch:** the UI review with the owner (the scrub bar's time, the gallery's pop-ups per
+widget and its real player rows, `ModalDialog`'s `className`); the Diagnostics page (D341), the batch
+after; AirPlay (asked about 2026-11-04, see below once answered). End: one check-pr, the owner's go,
+nas.example.
