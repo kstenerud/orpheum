@@ -3,7 +3,7 @@
 import "./status-tray.css";
 
 import type { CastSending } from "@orpheum/sdk";
-import { useEffect, type JSX } from "react";
+import { useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { browserStorage, tabStorage } from "./browser-storage.ts";
@@ -112,6 +112,62 @@ function TogetherSign(props: {
  * and never moves the page; blue while a cast is on, named by its receiver and what plays.
  */
 function CastSign(props: { readonly sending: CastSending | undefined }): JSX.Element {
+  return (
+    <>
+      <CastSignButton
+        sending={props.sending}
+        isOverVideo={false}
+        onOpen={() => {
+          openTrayDialog("cast");
+        }}
+      />
+      {useTrayDialog() === "cast" ? <CastDialogLoaded onClose={closeTrayDialog} /> : null}
+    </>
+  );
+}
+
+/**
+ * Cast's sign over the playing film, at the end of the player's top row (D422): the
+ * film fills the window and hides the page, the tray with it (D418 §1), so a cast is started from
+ * here. Its dialog is drawn inside the player, where the hidden page's would not show; while it is
+ * open, onOpenChange holds the overlay shown and gives the dialog its presses, as the menus do.
+ */
+export function CastSignOverTheFilm(props: {
+  readonly onOpenChange: (isOpen: boolean) => void;
+}): JSX.Element {
+  const { sending } = useLive();
+  const [isOpen, setIsOpen] = useState(false);
+  const { onOpenChange } = props;
+  const openOrClose = (isNowOpen: boolean): void => {
+    setIsOpen(isNowOpen);
+    onOpenChange(isNowOpen);
+  };
+  return (
+    <span className="player-overlay__cast">
+      <CastSignButton
+        sending={sending}
+        isOverVideo
+        onOpen={() => {
+          openOrClose(true);
+        }}
+      />
+      {isOpen ? (
+        <CastDialogLoaded
+          onClose={() => {
+            openOrClose(false);
+          }}
+        />
+      ) : null}
+    </span>
+  );
+}
+
+/** Cast's sign itself: Cast to a device, or, blue, what plays on which device while a cast is on. */
+function CastSignButton(props: {
+  readonly sending: CastSending | undefined;
+  readonly isOverVideo: boolean;
+  readonly onOpen: () => void;
+}): JSX.Element {
   const { t } = useTranslation();
   const { sending } = props;
   const label =
@@ -122,21 +178,22 @@ function CastSign(props: { readonly sending: CastSending | undefined }): JSX.Ele
           film: sending.titleName,
         });
   return (
-    <>
-      <IconButton
-        label={label}
-        icon={<CastIcon />}
-        mark={signMark(sending !== undefined)}
-        onClick={() => {
-          openTrayDialog("cast");
-        }}
-      />
-      {useTrayDialog() === "cast" ? (
-        <LaterScreen resetKey="cast-dialog">
-          <CastDialog onClose={closeTrayDialog} />
-        </LaterScreen>
-      ) : null}
-    </>
+    <IconButton
+      label={label}
+      icon={<CastIcon />}
+      mark={signMark(sending !== undefined)}
+      isOverVideo={props.isOverVideo}
+      onClick={props.onOpen}
+    />
+  );
+}
+
+/** Cast's dialog, its code loaded apart (tray-dialog-code.tsx). */
+function CastDialogLoaded(props: { readonly onClose: () => void }): JSX.Element {
+  return (
+    <LaterScreen resetKey="cast-dialog">
+      <CastDialog onClose={props.onClose} />
+    </LaterScreen>
   );
 }
 

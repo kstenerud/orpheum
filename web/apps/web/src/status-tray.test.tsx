@@ -10,7 +10,7 @@ import { knownDetailsOf } from "./hosted-details.ts";
 import { LiveProvider } from "./live.tsx";
 import { NeedsAttention } from "./needs-attention.tsx";
 import { currentNotice } from "./notice.ts";
-import { StatusTray } from "./status-tray.tsx";
+import { CastSignOverTheFilm, StatusTray } from "./status-tray.tsx";
 import { areTrayDialogsLoaded } from "./tray-dialog-code.tsx";
 import { closeTrayDialog } from "./tray-dialog.ts";
 import {
@@ -126,6 +126,52 @@ it("has Cast's sign open its dialog over the page, which stays where it is, offe
     await Promise.resolve();
   });
   expect(document.querySelector("dialog[open]")).toBeNull();
+  expect(services.navigation.route()).toEqual({ screen: "play", fileId: 9 });
+});
+
+// The owner, 2026-11-04: the film fills the window over the tray (D418 §1), so Cast's sign shows over
+// the film too, its dialog drawn there, the overlay held shown while it is open.
+it("has Cast's sign over the film open its dialog in the player, telling the overlay it is open until it closes, the page staying where it is", async () => {
+  const server = fakeTogetherServer();
+  const services = {
+    ...servedBy({ "GET /me/devices": [200, { devices: [] }] }, [], "token"),
+    openTogetherSocket: server.openSocket,
+  };
+  services.navigation.go({ screen: "play", fileId: 9 });
+  const opens: boolean[] = [];
+  mounted = await mount(
+    withServices(
+      <LiveProvider>
+        <div className="player-overlay">
+          <CastSignOverTheFilm onOpenChange={(isOpen) => opens.push(isOpen)} />
+        </div>
+      </LiveProvider>,
+      services,
+    ),
+  );
+  await server.accept();
+  await server.say({ type: "sending" });
+  const button = mounted.container.querySelector<HTMLButtonElement>(
+    '.player-overlay button[aria-label="Cast to a device"]',
+  );
+  expect(button?.classList.contains("icon-button--over-video")).toBe(true);
+  await act(async () => {
+    button?.click();
+    await Promise.resolve();
+  });
+  await settleUntil(() => document.querySelector(".player-overlay dialog[open]") !== null);
+  const dialog = document.querySelector<HTMLDialogElement>(".player-overlay dialog[open]");
+  if (dialog === null) {
+    throw new Error("no dialog opened over the film");
+  }
+  await settleUntil(() => dialog.textContent.includes("None of your other devices"));
+  expect(opens).toEqual([true]);
+  await act(async () => {
+    buttonNamed(dialog, "Close")?.click();
+    await Promise.resolve();
+  });
+  expect(document.querySelector("dialog[open]")).toBeNull();
+  expect(opens).toEqual([true, false]);
   expect(services.navigation.route()).toEqual({ screen: "play", fileId: 9 });
 });
 

@@ -26170,3 +26170,24 @@ alone.
   every one is marked, the first where none is, never the Close
 
 **Status:** Built 2026-11-04 (the UI revamp's first wave).
+
+## D422 — Cast's sign shows over the playing film too; Watch Together stays in the tray
+
+**Decided** (2026-11-04), by the project owner, choosing "Cast sign in overlay (Recommended)" when
+check-pr's browser tests found the tray's Cast sign hidden on the Play page. D418 §1 has the film
+fill the window on every device, over the page and its status tray, so the tray's Cast (D384 §2,
+D364 §12) could not be reached while a film played. Amends D384 §2 and D418 §1.
+
+1. **Cast's sign is the last control of the player's top row,** over the film, drawn as the tray's
+   is: white, or blue naming the receiver and what plays while a cast is on.
+2. **Its dialog opens over the film, which plays on;** while it is open the controls stay shown,
+   as the menus hold them. The tray's sign stays the way to Cast from every other page.
+3. **Watch Together stays in the tray alone;** it is not added over the film.
+
+**Proven by:**
+- 1: "draws Cast's sign last in its top row, over the film" in
+  web/apps/web/src/player-overlay.test.tsx
+- 2: "has Cast's sign over the film open its dialog in the player…" in
+  web/apps/web/src/status-tray.test.tsx; web/e2e/cast.spec.ts casts from it
+
+**Status:** Decided 2026-11-04.

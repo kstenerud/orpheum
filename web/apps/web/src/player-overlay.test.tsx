@@ -174,6 +174,16 @@ describe("the player's full-screen overlay on a television (D407)", () => {
     }
   });
 
+  // D422: the film fills the window over the status tray (D418 §1), so a cast is
+  // started from over the film.
+  it("draws Cast's sign last in its top row, over the film", async () => {
+    await drawn(document.createElement("video"));
+    const top = mounted?.container.querySelector(".player-overlay__top");
+    const last = top?.lastElementChild?.querySelector("button");
+    expect(last?.getAttribute("aria-label")).toBe("Cast to a device");
+    expect(last?.classList.contains("icon-button--over-video")).toBe(true);
+  });
+
   /** The labels of the overlay's buttons' row, in order. */
   function buttonLabels(): (string | null)[] {
     const buttons = mounted?.container.querySelectorAll(".player-overlay__buttons button") ?? [];

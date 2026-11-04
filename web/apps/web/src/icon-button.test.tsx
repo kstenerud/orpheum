@@ -58,7 +58,7 @@ describe("the player's buttons, icons in place of characters a television's font
     mounted = undefined;
   });
 
-  it("draws the TV overlay's steps, play and full screen as icon buttons, with no text", async () => {
+  it("draws the TV overlay's steps, play, full screen and Cast (D422) as icon buttons, with no text", async () => {
     vi.spyOn(Navigator.prototype, "userAgent", "get").mockReturnValue(
       "Mozilla/5.0 (Linux; Android 9; AFTSSS) AppleWebKit/537.36 (KHTML, like Gecko) Silk/138.19.9 like Chrome/138.0.7204.244 Safari/537.36",
     );
@@ -71,7 +71,13 @@ describe("the player's buttons, icons in place of characters a television's font
     );
     const buttons = [...mounted.container.querySelectorAll("button")];
     vi.restoreAllMocks();
-    expect(buttons.length).toBe(4);
+    expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual([
+      "Cast to a device",
+      "Back 10 s",
+      "Play",
+      "Forward 10 s",
+      "Full screen",
+    ]);
     for (const button of buttons) {
       expect(button.classList.contains("icon-button")).toBe(true);
       expect(button.querySelector("svg.icon")).not.toBeNull();
