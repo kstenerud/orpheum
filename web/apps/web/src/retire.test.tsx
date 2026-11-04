@@ -7,7 +7,15 @@ import { afterEach, expect, it } from "vitest";
 
 import { LibraryPage } from "./library-manage.tsx";
 import { System, type SystemReport } from "./system.tsx";
-import { buttonWithText, click, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import {
+  buttonNamed,
+  buttonWithText,
+  click,
+  mount,
+  servedBy,
+  type Heard,
+  type Mounted,
+} from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 /** The backups section's answer when there are none (D242 §5). */
@@ -105,9 +113,20 @@ it("retires a root only once the admin confirms, and keeping it sends nothing (D
   );
   mounted = await mount(withServices(<LibraryPage libraryId={3} />, services));
   const container = mounted.container;
+  // Under the folder's own "…" (ui-audit-2026-11-04.md §3), its dialog's Keep it where focus arrives.
+  const repairs = (): HTMLButtonElement | undefined =>
+    buttonNamed(container, "More for local: /media/films");
+  await click(repairs());
   await click(buttonWithText(container, "This folder is gone for good…"));
-  expect(container.textContent).toContain("it is never scanned again; what was watched is kept.");
+  expect(container.querySelector("dialog")?.textContent).toContain(
+    "it is never scanned again; what was watched is kept.",
+  );
+  expect(container.querySelector('dialog [data-focus-start="arrival"]')?.textContent).toBe(
+    "Keep it",
+  );
   await click(buttonWithText(container, "Keep it"));
+  expect(container.querySelector("dialog")).toBeNull();
+  await click(repairs());
   await click(buttonWithText(container, "This folder is gone for good…"));
   await click(buttonWithText(container, "Retire the folder"));
   expect(heard.filter((each) => each.methodAndPath.startsWith("POST"))).toEqual([
@@ -117,6 +136,22 @@ it("retires a root only once the admin confirms, and keeping it sends nothing (D
     },
   ]);
   expect(container.textContent).not.toContain("local: /media/films");
+});
+
+// ui-audit-2026-11-04.md §3, A library: what is done most is first, and the folders' repairs wait
+// under their "…".
+it("puts Scan now first on a library's page, focus arriving on it, its folders' repairs under a \"…\"", async () => {
+  const services = servedBy({
+    "GET /libraries": [200, { libraries: [films] }],
+    "GET /nodes": [200, { nodes: [] }],
+  });
+  mounted = await mount(withServices(<LibraryPage libraryId={3} />, services));
+  const page = mounted.container.querySelector("article.library");
+  const firstControl = page?.querySelector("button, a, select, input");
+  expect(firstControl?.textContent).toBe("Scan now");
+  expect(firstControl?.getAttribute("data-focus-start")).toBe("arrival");
+  expect(page?.textContent).not.toContain("This folder is gone for good…");
+  expect(buttonNamed(mounted.container, "More for local: /media/films")).toBeDefined();
 });
 
 it("deletes a library only once the admin confirms (D231 §7)", async () => {

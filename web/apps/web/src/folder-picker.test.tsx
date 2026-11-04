@@ -19,7 +19,7 @@ import {
   folderInside,
   type Place,
 } from "./folder-picker.tsx";
-import { RepointRoot } from "./repoint-root.tsx";
+import { RepointDialog } from "./repoint-root.tsx";
 import {
   buttonWithText,
   choose,
@@ -249,15 +249,15 @@ describe("choosing a library folder (D359)", () => {
     });
     mounted = await mount(
       withServices(
-        <RepointRoot
+        <RepointDialog
           from={{ nodeName: "nas", path: "/tank/movies" }}
           places={starts}
           onRepoint={(to) => moves.push(to)}
+          onClose={() => undefined}
         />,
         services,
       ),
     );
-    await click(buttonWithText(mounted.container, "This folder moved…"));
     await click(buttonWithText(mounted.container, "Choose a folder inside one…"));
     await click(buttonWithText(mounted.container, "Browse nas: /tank/media"));
     await settleAnswers();

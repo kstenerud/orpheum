@@ -3,6 +3,9 @@
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { arrivalMark } from "./focus-navigation.ts";
+import { ModalDialog } from "./modal-dialog.tsx";
+
 /**
  * A button for what cannot be undone: pressed, it says what will happen and asks again, and only
  * the second press acts; "Keep it" puts things back as they were. Both it and what it says are in
@@ -60,5 +63,45 @@ export function ConfirmButton(props: {
         {t("common.keepIt")}
       </button>
     </span>
+  );
+}
+
+/**
+ * A dialog asking before what cannot be undone, for an action under a "…" (more-actions.tsx): its
+ * heading, what will happen, in the irreversible red, the action, filled red, and "Keep it", the
+ * least harmful choice, focused as it opens (ui-audit-2026-11-04.md §3, A library), so a remote's
+ * OK pressed once too often keeps things as they are. Keep it, Escape or Back close it, sending
+ * nothing.
+ */
+export function ConfirmDialog(props: {
+  readonly heading: string;
+  /** What will happen, said before the admin confirms. */
+  readonly consequence: string;
+  /** What the confirming button says. */
+  readonly confirmLabel: string;
+  readonly onConfirm: () => void;
+  readonly onClose: () => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <ModalDialog label={props.heading} onClose={props.onClose}>
+      <h2>{props.heading}</h2>
+      <p className="irreversible-words">{props.consequence}</p>
+      <p>
+        <button
+          type="button"
+          className="irreversible"
+          onClick={() => {
+            props.onClose();
+            props.onConfirm();
+          }}
+        >
+          {props.confirmLabel}
+        </button>{" "}
+        <button type="button" {...arrivalMark} onClick={props.onClose}>
+          {t("common.keepIt")}
+        </button>
+      </p>
+    </ModalDialog>
   );
 }

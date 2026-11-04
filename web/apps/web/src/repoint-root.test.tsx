@@ -5,7 +5,7 @@ import "./i18n.ts";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { RepointRoot, type Place } from "./repoint-root.tsx";
+import { RepointDialog, type Place } from "./repoint-root.tsx";
 import { buttonWithText, choose, click, mount, type Mounted } from "./test-dom.tsx";
 
 let mounted: Mounted | undefined;
@@ -24,13 +24,13 @@ describe("saying a folder moved (D241 §6)", () => {
       { nodeName: "attic", path: "/films" },
     ];
     mounted = await mount(
-      <RepointRoot
+      <RepointDialog
         from={{ nodeName: "devnas", path: "/media/films" }}
         places={places}
         onRepoint={(to) => moves.push(to)}
+        onClose={() => undefined}
       />,
     );
-    await click(buttonWithText(mounted.container, "This folder moved…"));
     const options = [...mounted.container.querySelectorAll("option")].map(
       (option) => option.textContent,
     );
