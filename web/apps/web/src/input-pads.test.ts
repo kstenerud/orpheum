@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   axisLean,
+  buttonRepeatStep,
   dpadDirectionOf,
   okButtonOf,
   padButtonNameOf,
@@ -168,6 +169,26 @@ describe("a controller's stick", () => {
     ]);
     expect(stickStep(hold, undefined, 710)).toEqual({ hold: stickAtRest, shouldMove: false });
     expect(stickStep(hold, "left", 710).shouldMove).toBe(true);
+  });
+});
+
+describe("a held button's repeating", () => {
+  it("does not repeat as it goes down, then repeats as the stick's does: after the first wait, then each interval", () => {
+    const repeats: number[] = [];
+    let nextAtMs: number | undefined;
+    for (let nowMs = 0; nowMs <= 700; nowMs += 10) {
+      const step = buttonRepeatStep(nextAtMs, nowMs);
+      nextAtMs = step.nextAtMs;
+      if (step.shouldRepeat) {
+        repeats.push(nowMs);
+      }
+    }
+    expect(repeats).toEqual([
+      stickRepeatFirstMs,
+      stickRepeatFirstMs + stickRepeatEachMs,
+      stickRepeatFirstMs + 2 * stickRepeatEachMs,
+      stickRepeatFirstMs + 3 * stickRepeatEachMs,
+    ]);
   });
 });
 

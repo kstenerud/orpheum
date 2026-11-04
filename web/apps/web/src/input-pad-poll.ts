@@ -13,9 +13,10 @@
  */
 
 import { chosenOkButton } from "./controller-choice.ts";
-import type { Direction, OkButton } from "./input-buttons.ts";
+import { isSeekPadButton, type Direction, type OkButton } from "./input-buttons.ts";
 import {
   axisLean,
+  buttonRepeatStep,
   dpadDirectionOf,
   okButtonOf,
   padLayoutOf,
@@ -74,7 +75,12 @@ export interface PadHandlers {
   /** A pad seen for the first time, or again with another name in its place. */
   readonly onSeen: (pad: PadState) => void;
   readonly onPress: (press: PadButtonPress | StickPress) => void;
-  /** A button going up, told as its press was. */
+  /**
+   * A seek button held on, told as its press was at each repeat (input-pads.ts): the buttons that
+   * seek repeat as a stick does, so a held one seeks by the time held, and no other does.
+   */
+  readonly onButtonRepeat: (press: PadButtonPress) => void;
+  /** A button going up, told as its press was; also a held seek button's pad gone. */
   readonly onButtonUp: (press: PadButtonPress) => void;
   readonly onAxis: (crossing: AxisCrossing) => void;
   /**
@@ -129,6 +135,10 @@ interface PadMemory {
   readonly pressed: readonly number[];
   readonly leans: readonly number[];
   readonly hold: StickHold;
+  /** The seek buttons held, each with when it next repeats. */
+  readonly repeats: ReadonlyMap<number, number>;
+  /** The pad as last read, to tell a held button's release with if it is gone. */
+  readonly pad: PadState;
 }
 
 /** A pad read this frame, beside what the poll kept of it from the last. */
@@ -185,6 +195,28 @@ function tellAxes({ pad, before }: PadFrame, handlers: PadHandlers): number[] {
 }
 
 /**
+ * A standard pad's seek buttons held after this frame, each with when it next repeats: told to
+ * handlers at each repeat. A button not held, or a pad not standard, is kept no more.
+ */
+function nextRepeats(
+  { pad, before, nowMs }: PadFrame,
+  handlers: PadHandlers,
+): ReadonlyMap<number, number> {
+  const repeats = new Map<number, number>();
+  if (!pad.isStandard) {
+    return repeats;
+  }
+  for (const button of pad.pressed.filter((each) => isSeekPadButton(each))) {
+    const step = buttonRepeatStep(before?.repeats.get(button), nowMs);
+    repeats.set(button, step.nextAtMs);
+    if (step.shouldRepeat) {
+      handlers.onButtonRepeat(buttonPressOf(pad, button));
+    }
+  }
+  return repeats;
+}
+
+/**
  * A standard pad's arrow's hold after this frame, its left stick's or else its D-pad's: told to
  * handlers as it is let go, and as it moves, a repeat where it was held that way already.
  */
@@ -225,18 +257,26 @@ function tellChanges(frame: PadFrame, handlers: PadHandlers): PadMemory {
   tellButtons(frame, handlers);
   const leans = tellAxes(frame, handlers);
   const hold = nextHold(frame, handlers);
-  return { id: frame.pad.id, pressed: frame.pad.pressed, leans, hold };
+  const repeats = nextRepeats(frame, handlers);
+  return { id: frame.pad.id, pressed: frame.pad.pressed, leans, hold, repeats, pad: frame.pad };
 }
 
 /**
- * Lets go the arrow of each pad gone since the last frame where it was held, telling its release: a
- * controller unplugged or asleep with its stick held leaves no hold on.
+ * Lets go the arrow and the seek buttons of each pad gone since the last frame where they were held,
+ * telling their release: a controller unplugged or asleep with its stick or trigger held leaves no
+ * hold on.
  */
 function letGoneGo(read: readonly PadState[], handlers: PadHandlers): void {
   for (const [index, memory] of memories) {
-    if (memory.hold.direction !== undefined && !read.some((pad) => pad.index === index)) {
-      memories.set(index, { ...memory, hold: stickAtRest });
+    if (read.some((pad) => pad.index === index)) {
+      continue;
+    }
+    memories.set(index, { ...memory, hold: stickAtRest, repeats: new Map() });
+    if (memory.hold.direction !== undefined) {
       handlers.onArrowUp(memory.hold.direction);
+    }
+    for (const button of memory.repeats.keys()) {
+      handlers.onButtonUp(buttonPressOf(memory.pad, button));
     }
   }
 }
@@ -268,6 +308,11 @@ const everyListener: PadHandlers = {
   onAxis: (crossing) => {
     for (const listener of [...listeners]) {
       listener.onAxis?.(crossing);
+    }
+  },
+  onButtonRepeat: (press) => {
+    for (const listener of [...listeners]) {
+      listener.onButtonRepeat?.(press);
     }
   },
   onButtonUp: (press) => {

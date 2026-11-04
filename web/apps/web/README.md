@@ -608,7 +608,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   at its press, continued at each repeat, marked or not (Silk's are not, VQ122), a stick's and a
   D-pad's too, and released as its key or button goes up, its stick centres or turns, its pad goes or
   the page loses the keys (`onCommandRelease`), a key down again over a second after its last starts
-  a new hold, its keyup lost (`keyRepeatsWithinMs`); a controller's buttons never repeat; pages read the
+  a new hold, its keyup lost (`keyRepeatsWithinMs`); a controller's seek buttons repeat as its stick does, its other buttons never (VQ264); pages read the
   hold, never a key's `repeat` (`src/input-holds.test.tsx`). A
   command is offered first at what has focus, so an open menu or dialog answers Back before
   anything else; one no one answers moves real DOM focus by the geometric engine

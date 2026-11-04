@@ -2619,3 +2619,15 @@ An item is ticked only by the person who did it, and only with what they saw.
   without hiding the picture. Note whether the wait before a lone tap on a side shows or hides feels
   slow. (`web/apps/web/src/player-taps.ts`'s `useAnswersPictureTaps`;
   `doubleTapWaitMs`)
+- [ ] **VQ264** — a game controller's held stick and held fast-forward trigger seek like a held remote
+  arrow (the owner, 2026-11-04; starts-chunks-remote-2026-10-29.md §3.1). A controller's seek buttons
+  (the triggers, 6 and 7 in the standard mapping) repeat while held at the stick's delay and interval,
+  and the player seeks by the time held, once, after the release; the unit tests prove it with a
+  faked pad, and only a real pad on the Fire TV's browser shows whether its triggers report as
+  buttons that stay pressed. On the Fire TV, with a paired game controller, on staging, play a film
+  of an hour or more. Passes when: (1) holding the stick right seeks like a held remote's right arrow:
+  the place shown speeds up the longer it is held, and one seek is made after the release; (2) holding
+  the fast-forward trigger does the same, and the rewind trigger the same backwards; (3) a quick tap
+  on a trigger still seeks 10 s; (4) holding OK on the controller acts once, as before. Note whether
+  a trigger the pad reports as an axis alone (no button) does nothing. (`web/apps/web/src/input-pad-poll.ts`'s
+  `nextRepeats`; `input-holds.test.tsx`)

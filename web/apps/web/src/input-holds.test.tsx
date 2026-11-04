@@ -170,14 +170,45 @@ describe("holds, told alike by every device's driver", () => {
     ]);
   });
 
-  it("starts a controller's button's hold as it goes down and releases it as it goes up, never repeating", () => {
+  it("continues a controller's seek button's hold at the stick's delay and interval, and releases it as it goes up", () => {
     const pad = padAtRest();
     connect(pad);
     pad.buttons[7] = { pressed: true }; // the right trigger: fast forward
-    frames(1000);
+    frames(600);
     pad.buttons[7] = { pressed: false };
     frames(frameMs);
-    expect(holds?.heard).toEqual(["seekForward start", "seekForward released (pad)"]);
+    expect(holds?.heard).toEqual([
+      "seekForward start",
+      "seekForward continue", // its first repeat, 400 ms on
+      "seekForward continue", // and each 100 ms after
+      "seekForward released (pad)",
+    ]);
+  });
+
+  it("never repeats a controller's OK, Back or Start held, which must not act twice", () => {
+    const pad = padAtRest();
+    connect(pad);
+    pad.buttons[0] = { pressed: true }; // the bottom face button: OK on an Xbox pad
+    pad.buttons[1] = { pressed: true }; // the right one: Back
+    pad.buttons[9] = { pressed: true }; // Start: play and pause
+    frames(1000);
+    pad.buttons[0] = { pressed: false };
+    pad.buttons[1] = { pressed: false };
+    pad.buttons[9] = { pressed: false };
+    frames(frameMs);
+    expect(holds?.heard.filter((each) => each.endsWith("continue"))).toEqual([]);
+    expect(holds?.heard).toHaveLength(6);
+  });
+
+  it("releases a seek button held when its pad is gone", () => {
+    const pad = padAtRest();
+    connect(pad);
+    pad.buttons[6] = { pressed: true }; // the left trigger: rewind
+    frames(frameMs);
+    pads = [];
+    globalThis.dispatchEvent(new Event("gamepaddisconnected"));
+    frames(frameMs);
+    expect(holds?.heard).toEqual(["seekBack start", "seekBack released (pad)"]);
   });
 
   // The research's §3.1 (starts-chunks-remote-2026-10-29.md): a held stick's arrows came as presses,
@@ -209,6 +240,38 @@ describe("holds, told alike by every device's driver", () => {
     // A 2-hour film held 6 s: 2 s at 72 s a second (1%), 2 s at 216 s (3%), 2 s at 576 s (8%), less
     // the time after its last repeat, under 150 ms at 16 ms frames; by its 50-odd repeats, 10 s each,
     // it would be about 500 s.
+    const heldS = (seekStepMs + 2 * 72_000 + 2 * 216_000 + 2 * 576_000) / 1000;
+    expect(seeksS).toHaveLength(1);
+    expect(seeksS[0]).toBeGreaterThan(heldS - 0.15 * 576);
+    expect(seeksS[0]).toBeLessThanOrEqual(heldS);
+    stopPlayer();
+  });
+
+  it("seeks by a controller's held fast-forward trigger as by a held stick: by the time held, once, after its release", () => {
+    const video = document.createElement("video");
+    const seeksS: number[] = [];
+    Object.defineProperty(video, "duration", { value: 7200 });
+    Object.defineProperty(video, "currentTime", {
+      get: () => 0,
+      set: (toS: number) => {
+        seeksS.push(toS);
+      },
+    });
+    document.body.append(video);
+    const stopPlayer = onCommand(document, (detail, event) => {
+      if (answerPlayerCommand(video, detail.command, detail)) {
+        event.preventDefault();
+      }
+    });
+    const pad = padAtRest();
+    connect(pad);
+    pad.buttons[7] = { pressed: true };
+    frames(6000);
+    pad.buttons[7] = { pressed: false };
+    frames(seekRestMs - frameMs);
+    expect(seeksS).toEqual([]);
+    frames(2 * frameMs);
+    // As the stick's, the same film held the same 6 s (see there for the sum).
     const heldS = (seekStepMs + 2 * 72_000 + 2 * 216_000 + 2 * 576_000) / 1000;
     expect(seeksS).toHaveLength(1);
     expect(seeksS[0]).toBeGreaterThan(heldS - 0.15 * 576);

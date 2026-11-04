@@ -212,6 +212,24 @@ export function stickStep(
   return { hold, shouldMove: false };
 }
 
+/**
+ * A held button's repeating, by the stick's delay and interval: nextAtMs is when it next repeats,
+ * undefined for a button not yet held. A button just gone down is held from nowMs, its first repeat
+ * stickRepeatFirstMs on, then each stickRepeatEachMs; the press itself is not a repeat.
+ */
+export function buttonRepeatStep(
+  nextAtMs: number | undefined,
+  nowMs: number,
+): { readonly nextAtMs: number; readonly shouldRepeat: boolean } {
+  if (nextAtMs === undefined) {
+    return { nextAtMs: nowMs + stickRepeatFirstMs, shouldRepeat: false };
+  }
+  if (nowMs >= nextAtMs) {
+    return { nextAtMs: nowMs + stickRepeatEachMs, shouldRepeat: true };
+  }
+  return { nextAtMs, shouldRepeat: false };
+}
+
 /** The D-pad's buttons in the standard mapping, by the direction each points. */
 const dpadButtons: readonly (readonly [number, Direction])[] = [
   [12, "up"],
