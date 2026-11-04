@@ -25945,3 +25945,38 @@ give-up's log line (`logUnplayables`, `internal/core/api/report.go`) already car
 `qualityKbps`, the index read's time is logged by `timeRead` (`internal/core/readthrough`), and the help
 text is in `registry.go` and `en-settings.ts`, with the comments of `preloadAheadS`, `keptBehindS` and
 `loadsAheadBelowTopS` no longer speaking of a ten-second grid.
+
+## D415 — In full screen a finger's tap on the picture shows or hides the overlay, and a double tap on a side seeks 10 s
+
+**Decided** (2026-11-04), by the project owner, on the lead's proposal after the owner, playing Nosferatu
+on staging, found that a tap on Pause left the overlay up over the paused frame: "For the tap thing:
+agreed". The owner added one requirement: if playback is paused and the viewer taps the overlay away
+and then taps it back, it must again stay up as paused playback always does. **Amends** D407 §4 and §6
+for a finger on the picture; D407 §6's hold (never hides by itself while paused or while a menu is
+open) stands. Research:
+[player-tap-2026-11-04.md](../design/research/player-tap-2026-11-04.md) §4.
+
+1. **A tap on the picture hides the overlay where it is up**, paused or playing: a tap not on the
+   overlay, a button, a link or a field. It is how a viewer clears the overlay off a paused frame.
+2. **A tap on the picture shows it where it is hidden, and does not pause.** What shows is all of
+   it, as a mouse's move shows it. A hide by tap leaves no state: shown again while the film is
+   paused, the overlay stays up (D407 §6), because that hold reads whether the film is paused when
+   the overlay's time is up, never how it was hidden (`hideAfter` in `player-overlay-state.ts`).
+3. **A double tap on the left or right third of the picture seeks 10 s back or forward**, the seek
+   step of the remote (`seekStepMs`); each further tap within 250 ms (`doubleTapWaitMs`) of the one
+   before, on the same side, seeks 10 s more, as YouTube's and Netflix's do. A tap on a side waits
+   `doubleTapWaitMs` for a second before it shows or hides, so the taps of a double tap show and
+   hide nothing. The middle third has no double tap and does not wait. A seek leaves the overlay as
+   it was.
+4. **Touch only** (pointer type `touch`). A mouse's click and move are as D407 §6 had them: a click
+   on the picture shows the overlay and never hides it, and a desktop click does not pause or seek
+   either. The remote and the keyboard are untouched. A tap on a control answers as it did (it
+   renews the overlay's time), and the tap that closes an open menu closes only the menu.
+5. **What a tap is:** a touch lifted within 10 px of where it came down and 500 ms after, with no
+   second finger. The click such a tap makes is its own and is not heard twice.
+
+**Proven by:**
+- 1–3: web/apps/web/src/player-overlay-state.test.ts, web/apps/web/src/player-overlay.test.tsx, web/apps/web/src/player-widgets.browser.test.tsx
+- 4: web/apps/web/src/player-overlay.test.tsx; on a phone, VQ263
+
+**Status:** Decided 2026-11-04.

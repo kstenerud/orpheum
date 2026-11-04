@@ -3,10 +3,15 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  afterPictureTap,
   controlsShown,
+  doubleTapSeekTo,
+  doubleTapWaitMs,
   hideAfter,
   overlayAnswer,
   shownWith,
+  tapAnswer,
+  tapZoneOf,
   type ControlsContext,
   type OverlayState,
   type PressContext,
@@ -381,5 +386,70 @@ describe("which controls show (D407 §2)", () => {
     expect(shown).not.toContain("subtitles");
     expect(shown).not.toContain("audio");
     expect(shown).not.toContain("more");
+  });
+});
+
+// The owner, 2026-11-04: "For the tap thing: agreed" (D415).
+describe("a tap on the picture (D415)", () => {
+  it("hides the overlay where it is up, paused or playing, and shows it where hidden", () => {
+    expect(afterPictureTap(full).shown).toBe("hidden");
+    expect(afterPictureTap(scrub).shown).toBe("hidden");
+    expect(afterPictureTap(paused).shown).toBe("hidden");
+    expect(afterPictureTap(hidden)).toEqual({ shown: "full", shownBy: "pointer" });
+    expect(afterPictureTap({ shown: "convenience", shownBy: "remote" }).shown).toBe("full");
+  });
+
+  it("leaves a hide that a later show does not read as playing: a paused film's shown overlay stays", () => {
+    const hiddenByTap = afterPictureTap(full);
+    const shownAgain = afterPictureTap(hiddenByTap);
+    expect(hideAfter(shownAgain, { isPaused: true, isMenuOpen: false })).toBeUndefined();
+    expect(hideAfter(shownAgain, { isPaused: false, isMenuOpen: false })).toBeDefined();
+  });
+
+  it("tells the thirds of the picture", () => {
+    expect(tapZoneOf(0, 300)).toBe("left");
+    expect(tapZoneOf(99, 300)).toBe("left");
+    expect(tapZoneOf(100, 300)).toBe("middle");
+    expect(tapZoneOf(199, 300)).toBe("middle");
+    expect(tapZoneOf(200, 300)).toBe("right");
+  });
+
+  it("waits on a side for a second tap, and toggles at once in the middle", () => {
+    expect(tapAnswer(undefined, { zone: "left", atMs: 0 }).action).toBe("wait");
+    expect(tapAnswer(undefined, { zone: "right", atMs: 0 }).action).toBe("wait");
+    expect(tapAnswer(undefined, { zone: "middle", atMs: 0 })).toEqual({
+      action: "toggle",
+      run: undefined,
+    });
+  });
+
+  it("seeks on a second tap on the same side within the wait, and stacks further taps", () => {
+    const first = tapAnswer(undefined, { zone: "right", atMs: 1000 });
+    const second = tapAnswer(first.run, { zone: "right", atMs: 1000 + doubleTapWaitMs });
+    expect(second).toMatchObject({ action: "seek", direction: 1 });
+    const third = tapAnswer(second.run, { zone: "right", atMs: 1000 + 2 * doubleTapWaitMs });
+    expect(third).toMatchObject({ action: "seek", direction: 1 });
+    expect(third.run?.count).toBe(3);
+    const back = tapAnswer(tapAnswer(undefined, { zone: "left", atMs: 0 }).run, {
+      zone: "left",
+      atMs: 50,
+    });
+    expect(back).toMatchObject({ action: "seek", direction: -1 });
+  });
+
+  it("starts a new run after the wait, or on the other side, and has no double tap in the middle", () => {
+    const first = tapAnswer(undefined, { zone: "right", atMs: 0 });
+    expect(tapAnswer(first.run, { zone: "right", atMs: doubleTapWaitMs + 1 }).action).toBe("wait");
+    expect(tapAnswer(first.run, { zone: "left", atMs: 10 }).action).toBe("wait");
+    const middle = tapAnswer(undefined, { zone: "middle", atMs: 0 });
+    expect(tapAnswer(middle.run, { zone: "middle", atMs: 10 }).action).toBe("toggle");
+  });
+
+  it("seeks 10 s and stays inside the film", () => {
+    expect(doubleTapSeekTo(100, 600, 1)).toBe(110);
+    expect(doubleTapSeekTo(100, 600, -1)).toBe(90);
+    expect(doubleTapSeekTo(5, 600, -1)).toBe(0);
+    expect(doubleTapSeekTo(595, 600, 1)).toBe(600);
+    expect(doubleTapSeekTo(5, Number.NaN, 1)).toBe(15);
   });
 });

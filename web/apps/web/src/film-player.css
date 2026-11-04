@@ -9,6 +9,9 @@
 /* JASSUB places its canvas over the video, in the nearest positioned box; so do a page's overlays. */
 .film-player__stage {
   position: relative;
+
+  /* A double tap seeks (D415), not zooms the page. */
+  touch-action: manipulation;
 }
 
 /* Black, the stage's size, before any film plays (D246 §5). */

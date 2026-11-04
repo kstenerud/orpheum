@@ -32,6 +32,7 @@ import {
 import { PauseIcon } from "./player-icons.tsx";
 import { PlayerMenus } from "./player-menus.tsx";
 import {
+  afterPictureTap,
   controlsShown,
   hideAfter,
   overlayAnswer,
@@ -42,6 +43,7 @@ import {
   type OverlayState,
   type PressContext,
 } from "./player-overlay-state.ts";
+import { useAnswersPictureTaps, useOpensAtThePointer } from "./player-taps.ts";
 import { PlayerTracksContext } from "./player-tracks.tsx";
 import { Timeline } from "./timeline.tsx";
 import { isTelevision } from "./tv-device.ts";
@@ -150,10 +152,23 @@ function useOverlay(
     isMenuOpen,
     ...refs,
   });
-  useOpensAtThePointer(() => {
-    setState({ shown: "full", shownBy: "pointer" });
+  const stateRef = useRef(state);
+  const isMenuOpenRef = useRef(isMenuOpen);
+  useEffect(() => {
+    stateRef.current = state;
+    isMenuOpenRef.current = isMenuOpen;
+  });
+  const onPictureTap = useAnswersPictureTaps(refs.videoRef, () => {
+    setState(afterPictureTap(stateRef.current));
     notePress();
   });
+  useOpensAtThePointer(
+    () => {
+      setState({ shown: "full", shownBy: "pointer" });
+      notePress();
+    },
+    { isHeld: () => isMenuOpenRef.current, onPictureTap },
+  );
   const volume = useVolumeShown();
   const presses = { state, setState, isTv, hasOffer, isMenuOpen, onVolumeShown: volume.show };
   useOverlayPresses({ ...presses, notePress, ...refs });
@@ -630,44 +645,4 @@ function useFocusLeavesWhatHides(
       }
     }
   }, [state.shown, overlayRef, videoRef, convenienceRef]);
-}
-
-/**
- * Opens a player's controls (open) at a mouse's move, or a click or a tap anywhere on the page, as a
- * desktop player shows its controls, the overlay hiding them again after its time: a cast's receiver
- * on a computer showed no controls to its mouse (the owner, 2026-10-27). A move that did not change
- * the pointer's place is none (a browser may move it by itself as what lies under it changes), and a
- * click a key made (no count) is the key's, which the overlay answers as a press already. Focus
- * stays where it is. The latest open is called each time.
- */
-export function useOpensAtThePointer(open: () => void): void {
-  const openRef = useRef(open);
-  useEffect(() => {
-    openRef.current = open;
-  });
-  useEffect(() => {
-    let lastPlace: string | undefined;
-    const moved = (event: PointerEvent): void => {
-      if (event.pointerType !== "mouse") {
-        return;
-      }
-      const place = `${String(event.screenX)},${String(event.screenY)}`;
-      const isMoved = lastPlace !== undefined && place !== lastPlace;
-      lastPlace = place;
-      if (isMoved) {
-        openRef.current();
-      }
-    };
-    const clicked = (event: MouseEvent): void => {
-      if (event.detail > 0) {
-        openRef.current();
-      }
-    };
-    document.addEventListener("pointermove", moved);
-    document.addEventListener("click", clicked);
-    return () => {
-      document.removeEventListener("pointermove", moved);
-      document.removeEventListener("click", clicked);
-    };
-  }, []);
 }

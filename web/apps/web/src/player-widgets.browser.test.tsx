@@ -31,6 +31,7 @@ import {
 } from "./player-icons.tsx";
 import { PlayUpwardContext } from "./play-up.tsx";
 import { PlayerOverlay } from "./player-overlay.tsx";
+import { doubleTapWaitMs } from "./player-overlay-state.ts";
 import { mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 import { UiGallery } from "./ui-gallery.tsx";
@@ -419,6 +420,65 @@ describe("Play, a button like every other (D369 §3)", () => {
         ] as const) {
           expect(`${property}: ${play[property]}`).toBe(`${property}: ${submit[property]}`);
         }
+      },
+    );
+  });
+});
+
+// The owner, 2026-11-04: "For the tap thing: agreed" (D415): the thirds are of the picture as the
+// browser lays it out, and a finger's tap is a real pointer sequence.
+describe("A finger's taps on the full-screen picture, as a real browser lays it out (D415)", () => {
+  it("hides and shows a paused film's overlay by a tap in the middle, and seeks by a double tap on a side", async () => {
+    const video = document.createElement("video");
+    Object.defineProperty(video, "paused", { get: () => true });
+    Object.defineProperty(video, "duration", { get: () => 600 });
+    let atS = 100;
+    Object.defineProperty(video, "currentTime", {
+      get: () => atS,
+      set: (to: number) => {
+        atS = to;
+      },
+    });
+    video.style.display = "block";
+    video.style.width = "600px";
+    video.style.height = "300px";
+    const videoRef = createRef<HTMLVideoElement>();
+    Reflect.set(videoRef, "current", video);
+    await drawn(
+      <div className="film-player__stage">
+        <PlayerOverlay videoRef={videoRef} readLinkKbps={() => undefined} failure={undefined} />
+      </div>,
+      async (mounted) => {
+        found(mounted.container, ".film-player__stage").prepend(video);
+        const overlay = found(mounted.container, ".player-overlay");
+        const box = video.getBoundingClientRect();
+        const tapAt = (fraction: number): void => {
+          const init = {
+            bubbles: true,
+            pointerType: "touch",
+            pointerId: 3,
+            clientX: box.left + box.width * fraction,
+            clientY: box.top + 20,
+          };
+          act(() => {
+            video.dispatchEvent(new PointerEvent("pointerdown", init));
+            video.dispatchEvent(new PointerEvent("pointerup", init));
+            video.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+          });
+        };
+        expect(overlay.getAttribute("data-shown")).toBe("full");
+        tapAt(0.5);
+        expect(overlay.getAttribute("data-shown")).toBe("hidden");
+        tapAt(0.5);
+        expect(overlay.getAttribute("data-shown")).toBe("full");
+        tapAt(0.9);
+        tapAt(0.9);
+        expect(atS).toBe(110);
+        tapAt(0.1);
+        tapAt(0.1);
+        expect(atS).toBe(100);
+        await new Promise((done) => setTimeout(done, doubleTapWaitMs * 2));
+        expect(overlay.getAttribute("data-shown")).toBe("full");
       },
     );
   });

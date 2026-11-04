@@ -402,3 +402,78 @@ const overlayControlsInOrder: readonly OverlayControl[] = [
   "more",
   "fullScreen",
 ];
+
+/**
+ * How long a tap on the left or right third of the picture waits for a second tap, in ms, before it
+ * shows or hides the overlay (D415 §3): a double tap's taps then show and hide nothing. Taps in the
+ * middle third have no double tap and do not wait. YouTube's and Android's own double-tap window is
+ * about 300 ms; this is a little under it, so a lone tap's delay is the least a viewer can tell from
+ * a double's.
+ */
+export const doubleTapWaitMs = 250;
+
+/** How far a double tap seeks, in ms (D415 §3): the remote's step, back or forward by side. */
+export const doubleTapSeekMs = seekStepMs;
+
+/** Where on the picture a tap fell, by thirds of its width. */
+export type TapZone = "left" | "middle" | "right";
+
+/** The third of the picture's width, from its left edge, that x falls in. */
+export function tapZoneOf(x: number, width: number): TapZone {
+  if (x < width / 3) {
+    return "left";
+  }
+  return x < (2 * width) / 3 ? "middle" : "right";
+}
+
+/** The quick taps so far on one side of the picture: how many, and when the last fell. */
+export interface TapRun {
+  readonly zone: "left" | "right";
+  readonly count: number;
+  readonly atMs: number;
+}
+
+/**
+ * What a tap on the picture does (D415): `seek` where it is the second or a later tap of a run on one
+ * side, each within doubleTapWaitMs of the one before, so a run stacks; `toggle` at once in the
+ * middle third; `wait` on a side, its toggle made after doubleTapWaitMs unless a second tap comes.
+ * run is the run the tap leaves, to give the next tap.
+ */
+export interface TapAnswer {
+  readonly action: "toggle" | "wait" | "seek";
+  readonly run: TapRun | undefined;
+  /** The side a `seek` goes to: -1 back, 1 forward. */
+  readonly direction?: -1 | 1;
+}
+
+/** Answers a tap at atMs in zone, after the run before it (undefined where there is none). */
+export function tapAnswer(
+  run: TapRun | undefined,
+  tap: { readonly zone: TapZone; readonly atMs: number },
+): TapAnswer {
+  const { zone, atMs } = tap;
+  if (zone === "middle") {
+    return { action: "toggle", run: undefined };
+  }
+  const direction = zone === "left" ? -1 : 1;
+  if (run?.zone === zone && atMs - run.atMs <= doubleTapWaitMs) {
+    return { action: "seek", run: { zone, count: run.count + 1, atMs }, direction };
+  }
+  return { action: "wait", run: { zone, count: 1, atMs } };
+}
+
+/**
+ * The overlay after a tap on the picture, not on a control (D415 §1–§2): up, it hides, paused or
+ * playing; hidden, or the offer alone, it shows all. It keeps nothing of the hide: shown again while
+ * paused it stays, as hideAfter has it for a paused film whatever hid it before.
+ */
+export function afterPictureTap(state: OverlayState): OverlayState {
+  const isUp = state.shown === "full" || state.shown === "scrub" || state.shown === "paused";
+  return isUp ? { ...state, shown: "hidden" } : { shown: "full", shownBy: "pointer" };
+}
+
+/** Where a double tap seeks to, in seconds, kept inside the film (the duration unknown, from 0). */
+export function doubleTapSeekTo(atS: number, durationS: number, direction: -1 | 1): number {
+  const to = atS + (direction * doubleTapSeekMs) / 1000;
+  return Math.max(0, Number.isFinite(durationS) ? Math.min(to, durationS) : to);
+}
