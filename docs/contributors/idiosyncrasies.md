@@ -186,6 +186,7 @@ User-Agent (D263; the User-Agent is logged only).
 | `permission denied` from PostUp. | [Ubuntu's AppArmor profile for `wg-quick` refuses PostUp's sysctl and nftables, even as root](#ubuntus-apparmor-profile-for-wg-quick-refuses-postups-sysctl-and-nftables-even-as-root) |
 | Ufw silently drops forwarded packets | [ufw silently drops forwarded packets](#ufw-silently-drops-forwarded-packets) |
 | The disk reached 97-99% several times; | [Docker's storage is invisible to `du` and grows without bound](#dockers-storage-is-invisible-to-du-and-grows-without-bound) |
+| Firefox's WebRTC test: ICE "connected", DTLS never, on a machine running Docker. | [Docker's MASQUERADE rule rewrites what the host sends from its own bridge address to itself](#dockers-masquerade-rule-rewrites-what-the-host-sends-from-its-own-bridge-address-to-itself) |
 | "Large pages or videos stall from outside, small ones load." | [DS-Lite needs a smaller WireGuard MTU](#ds-lite-needs-a-smaller-wireguard-mtu) |
 | DS-Lite: no public IPv4 and a changing IPv6 prefix | [DS-Lite: no public IPv4 and a changing IPv6 prefix](#ds-lite-no-public-ipv4-and-a-changing-ipv6-prefix) |
 | `edited query syntax is invalid: extraneous input ')'` when a comment holds `§`. | [sqlc miscounts a multibyte character in a query file and reports an unrelated syntax error](#sqlc-miscounts-a-multibyte-character-in-a-query-file-and-reports-an-unrelated-syntax-error) |
@@ -3298,6 +3299,32 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   [build cache garbage collection](https://docs.docker.com/build/cache/garbage-collection/) is on by default
   with size limits (checked 2026-10-08); images, volumes and stopped containers are not collected.
 
+
+### Docker's MASQUERADE rule rewrites what the host sends from its own bridge address to itself
+
+- **Symptom:** on a machine running Docker, the browser test `webrtc.spec.ts` "once on the WebRTC
+  path…" failed in Firefox on every run (Chromium passed): Firefox's ICE "connected", the core's
+  DTLS ClientHello went out four times, no answer, and the page said "the WebRTC connection did not
+  connect in time". It had passed for weeks, then failed on every run from 2026-11-04 04:52 on.
+- **Cause:** a core and a browser on one machine. The core offers a host candidate on each interface,
+  Docker's bridge `docker0` (172.18.0.1) among them. Docker's rule
+  `-t nat POSTROUTING -s 172.18.0.0/16 ! -o docker0 -j MASQUERADE` also takes a packet the host
+  sends from 172.18.0.1 to its own eth0 address (out `lo`), and gives it the source 172.17.0.2. When
+  the core's check from its bridge socket makes the conntrack entry first, Firefox's own check to
+  172.18.0.1 has its port remapped (a peer-reflexive candidate of Firefox's), Firefox selects that
+  pair, and the core's DTLS reaches Firefox from 172.17.0.2, not the address of the pair Firefox chose,
+  which drops it. Seen in `/proc/net/nf_conntrack` and Firefox's `getStats()`. Who makes the entry
+  first is a race, which is why it passed for weeks and then failed every time.
+- **What we do:** the sandbox exempts loopback from NAT: `sudo iptables -t nat -I POSTROUTING 1 -o lo
+  -j RETURN` (lost when the sandbox restarts). With it the test passed 3 of 3. A device on the house's
+  network never reaches a bridge address, so only a browser on the core's own machine meets this.
+  Whether the core should offer no candidates on container bridges at all is the owner's call.
+- **Evidence:** the sandbox, 2026-11-04. **[web]** Others met the same: a 2023 discuss-webrtc thread,
+  "[Should ICE filter out bridge interfaces?](https://groups.google.com/g/discuss-webrtc/c/fmkWlKr1kdQ)",
+  says a socket on Docker's bridge has its source address rewritten; libnice selected docker0's
+  address as its candidate until a fix
+  ([libnice, 2017](https://lists.freedesktop.org/archives/nice/2017-August/001386.html)) (checked
+  2026-11-04).
 
 ### DS-Lite needs a smaller WireGuard MTU
 
