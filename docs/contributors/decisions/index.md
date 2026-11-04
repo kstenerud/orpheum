@@ -421,6 +421,8 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D413](working-notes.md#d413--firefox-on-a-mac-is-offered-no-hevc-up-to-the-last-release-seen-to-start-it-only-at-an-idr) Firefox on a Mac is offered no HEVC, up to the last release seen to start it only at an IDR
 - [D414](working-notes.md#d414--the-swag-researchs-starts-and-stalls-a-slow-load-counts-at-8-s-a-refill-after-a-stall-buys-a-minutes-play-small-chunks-measure-the-link-together-and-webrtc-starts-250-ms-in) The SWAG research's starts and stalls: a slow load counts at 8 s, a refill after a stall buys a minute's play, small chunks measure the link together, and WebRTC starts 250 ms in
 - [D415](working-notes.md#d415--in-full-screen-a-fingers-tap-on-the-picture-shows-or-hides-the-overlay-and-a-double-tap-on-a-side-seeks-10-s) In full screen a finger's tap on the picture shows or hides the overlay, and a double tap on a side seeks 10 s
+- [D416](working-notes.md#d416--the-api-is-renamed-once-before-anyone-else-depends-on-it-users-items-groups-people-one-list-shape-capabilities-declared-per-operation) The API is renamed once, before anyone else depends on it: users, items, groups, people; one list shape; capabilities declared per operation
+- [D417](working-notes.md#d417--a-lists-filters-are-one-pop-up-that-narrows-the-posters-shown-a-search-across-everything-waits-for-its-own-plan) A list's filters are one pop-up that narrows the posters shown; a search across everything waits for its own plan
 
 ## Archived
 

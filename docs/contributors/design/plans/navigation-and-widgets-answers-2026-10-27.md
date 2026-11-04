@@ -1696,3 +1696,15 @@ asks for a quick fix, is folded in (the owner, 2026-11-04).
     player rows, `ModalDialog`'s `className`).
 
 End: one check-pr, the owner's go, nas.example.
+
+**Changed after the wave began (the owner, 2026-11-04, D417):** the list's search, chips and sort
+become one pop-up of filters that narrows the posters of that list only; the grouped search across
+titles, people and genres comes out of the web app until it has its own plan.
+
+## The API batch (the owner, 2026-11-04, D416)
+
+The batch after the first wave, alone: "Do everything in one batch, nothing else in the batch, then
+deploy." The whole API renamed in place per D416 and the route table of
+[api-greenfield-2026-11-04.md](../research/api-greenfield-2026-11-04.md), the loader's endpoints
+and pairing included where a better shape exists, Connect changed with it; then staging and
+production. The API's compatibility check starts once it lands.
