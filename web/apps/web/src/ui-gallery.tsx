@@ -18,7 +18,7 @@ import {
   CloseIcon,
   FullScreenIcon,
   LeaveFullScreenIcon,
-  MoreIcon,
+  SettingsIcon,
   MutedIcon,
   NextIcon,
   PauseIcon,
@@ -251,7 +251,7 @@ function Icons(): JSX.Element {
         <NextIcon />
         <SubtitlesIcon />
         <AudioIcon />
-        <MoreIcon />
+        <SettingsIcon />
         <BackIcon />
       </p>
     </section>

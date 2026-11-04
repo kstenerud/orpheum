@@ -90,7 +90,7 @@ describe("the overlay's pop-ups, laid out by a real browser", () => {
         </PlayerTracksContext>,
       ),
     );
-    await userEvent.click(page.getByRole("button", { name: "More" }));
+    await userEvent.click(page.getByRole("button", { name: "Settings" }));
     const startOver = drawnIn("dialog .list-box__option");
     const offset = drawnIn("dialog output");
     const [earlier, later] = [offset.previousElementSibling, offset.nextElementSibling];

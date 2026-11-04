@@ -605,7 +605,7 @@ describe("the overlay's menus on a television (D407 §6, §8)", () => {
     );
     mounted.container.querySelector(".film-player__stage")?.prepend(video);
     press("up"); // the remote shows it, hidden as the player opens (D418 §1)
-    const more = mounted.container.querySelector("button[aria-label='More']");
+    const more = mounted.container.querySelector("button[aria-label='Settings']");
     act(() => {
       more?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
@@ -621,7 +621,7 @@ describe("the overlay's menus on a television (D407 §6, §8)", () => {
     ]
       .filter((button) => button.closest("dialog") === null)
       .map((button) => button.getAttribute("aria-label"));
-    expect(names).toEqual(["Subtitles: Off", "More", "Full screen"]);
+    expect(names).toEqual(["Subtitles: Off", "Settings", "Full screen"]);
   });
 
   it("leaves Back to the open menu, which closes, the overlay staying", async () => {

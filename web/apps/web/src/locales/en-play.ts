@@ -42,7 +42,7 @@ export const enPlay = {
     volumeLevel: "Volume {{percent}} %",
     fullScreen: "Full screen",
     leaveFullScreen: "Leave full screen",
-    more: "More",
+    settings: "Settings",
   },
   play: {
     updateAfterFilm: "A new version of this app is ready: it loads as you leave the film.",

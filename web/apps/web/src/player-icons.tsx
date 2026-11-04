@@ -158,11 +158,14 @@ export function AudioIcon(): JSX.Element {
   );
 }
 
-/** More: three dots, one above another. */
-export function MoreIcon(): JSX.Element {
+/** Settings: a gear of eight teeth around a hole (D418 §4). */
+export function SettingsIcon(): JSX.Element {
   return (
     <Icon className="player-icons__icon">
-      <path d="M12 3a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm0 7a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm0 7a2 2 0 1 1 0 4 2 2 0 0 1 0-4z" />
+      <path
+        fillRule="evenodd"
+        d="M9.4 5.1 9.8 2.2 14.2 2.2 14.6 5.1 15.1 5.3 17.4 3.6 20.4 6.6 18.7 8.9 18.9 9.4 21.8 9.8 21.8 14.2 18.9 14.6 18.7 15.1 20.4 17.4 17.4 20.4 15.1 18.7 14.6 18.9 14.2 21.8 9.8 21.8 9.4 18.9 8.9 18.7 6.6 20.4 3.6 17.4 5.3 15.1 5.1 14.6 2.2 14.2 2.2 9.8 5.1 9.4 5.3 8.9 3.6 6.6 6.6 3.6 8.9 5.3z M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 1 0 0-7z"
+      />
     </Icon>
   );
 }

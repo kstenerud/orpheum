@@ -112,7 +112,7 @@ describe("the original file, chosen over the ladder (web-client.md: playback is 
 
 /** The player's ⁝ (player-menus.tsx). */
 function moreButton(on: Mounted): Element | null {
-  return on.container.querySelector('button[aria-label="More"]');
+  return on.container.querySelector('button[aria-label="Settings"]');
 }
 
 /** The menu or dialog open over the film. */
