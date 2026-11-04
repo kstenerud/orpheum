@@ -441,6 +441,22 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     expect(walking.services.navigation.route()).toEqual({ screen: "home" });
   });
 
+  it("goes Up from a list shorter than a row to its tools, and Up again to the banner (the owner, 2026-11-04)", async () => {
+    await page.viewport(width, height);
+    walking = await mountApp(
+      walkServices(
+        { ...aLibrary, "GET /titles": { titles: films(2), nextCursor: "" } },
+        "/browse?library=1",
+      ),
+    );
+    await drawn('main button[aria-label="Search"]');
+    await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
+    await press("{ArrowUp}");
+    expect(isFocusIn("main .browse__bar")).toBe(true);
+    await press("{ArrowUp}");
+    expect(isFocusIn("header")).toBe(true);
+  });
+
   it("types a search on the Libraries page, arrows into its results, opens one and goes back", async () => {
     await page.viewport(width, height);
     walking = await mountApp(
@@ -461,13 +477,10 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
             ],
           },
           "GET /titles/letters": { letters: [] },
-          // A search is the list's own query (the owner, 2026-10-30): its matches are the list. A
-          // row of them, so the page's tools above its end are reached from the first film, where
-          // the page opens (R3): over a list shorter than a row only the banner is above, and Down
-          // from it goes back to the film (focus-memory.ts), the tools reached by no arrow.
+          // A search is the list's own query (the owner, 2026-10-30): its matches are the list,
+          // shorter than a row, whose tools Up still reaches before the banner (the owner, 2026-11-04).
           "GET /titles": {
             titles: [
-              ...films(6).map((film) => ({ ...film, id: Number(film["id"]) + 100 })),
               {
                 id: 101,
                 kind: "movie",

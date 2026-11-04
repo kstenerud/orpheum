@@ -80,17 +80,24 @@ describe.each(screens)("the app by a remote's keys, on $name", ({ width, height 
     expect(isFocusInView()).toBe(true);
   });
 
-  it("reaches the banner by Up from the page's top, and comes back down to where it left", async () => {
+  it("reaches the banner by Up from the page's top, past the list's tools, and comes back down to where it left", async () => {
     await page.viewport(width, height);
     walking = await mountApp(walkServices(filmsAndOne));
     await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
     await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
     await userEvent.keyboard("{ArrowRight}");
     await expect.poll(focusedTile).toBe("Film 2");
+    // Up stays in the page before the banner: the list's tools, though not straight above the film
+    // (the owner, 2026-11-04).
+    await userEvent.keyboard("{ArrowUp}");
+    expect(isFocusIn("main .browse__bar")).toBe(true);
     await userEvent.keyboard("{ArrowUp}");
     expect(isFocusIn(".app-shell__banner")).toBe(true);
     expect(isFocusInView()).toBe(true);
-    // Back into the page at the film it left, not the nearest control below the banner.
+    // Back into the page at the tool it left, not the nearest control below the banner, and on
+    // down to the film.
+    await userEvent.keyboard("{ArrowDown}");
+    expect(isFocusIn("main .browse__bar")).toBe(true);
     await userEvent.keyboard("{ArrowDown}");
     await expect.poll(focusedTile).toBe("Film 2");
   });

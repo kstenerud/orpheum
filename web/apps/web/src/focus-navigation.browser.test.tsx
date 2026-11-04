@@ -106,3 +106,50 @@ describe("an arrow with nothing in line that way", () => {
     expect(document.activeElement?.textContent).toBe("four");
   });
 });
+
+/**
+ * A shell's banner across the top, its place straight above a page's list of two posters, with the
+ * list's tools at the right of the line above the list, as Films, Series and Libraries lay them over
+ * a list shorter than a row.
+ */
+const shortListPage = (
+  <div style={{ position: "relative", height: "460px" }}>
+    <header data-focus-container="">
+      <a href="#home" style={placedAt(0, 0)}>
+        home
+      </a>
+    </header>
+    <main>
+      <div data-focus-container="">
+        <button type="button" style={placedAt(600, 80)}>
+          search
+        </button>
+      </div>
+      <ul data-focus-container="">
+        {["one", "two"].map((name, index) => (
+          <li key={name} style={placedAt(index * 140, 160)}>
+            <a href={`#${name}`}>{name}</a>
+          </li>
+        ))}
+      </ul>
+    </main>
+  </div>
+);
+
+describe("Up from a page's content with nothing in it straight above", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+  });
+
+  it("goes to what is above in the page before the banner straight above, then the banner", async () => {
+    await page.viewport(960, 480);
+    mounted = await mount(withServices(shortListPage));
+    document.querySelector<HTMLElement>('a[href="#one"]')?.focus();
+    await userEvent.keyboard("{ArrowUp}");
+    expect(document.activeElement?.textContent).toBe("search");
+    await userEvent.keyboard("{ArrowUp}");
+    expect(document.activeElement?.textContent).toBe("home");
+  });
+});

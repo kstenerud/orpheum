@@ -1672,7 +1672,10 @@ asks for a quick fix, is folded in (the owner, 2026-11-04).
    and touch (Q6); a screen reader hears the page's heading; Back restores the last focus and a
    closed dialog returns focus to its opener; the arrow search falls back to the nearest control off
    the line, and a test walks every page's controls by arrows and fails on one it cannot reach. A
-   grid's short last row keeps "stay" (Q3).
+   grid's short last row keeps "stay" (Q3). Up stays within the page's content before it leaves for
+   the shell: where nothing in the page is straight above a poster, as over a Films, Series or
+   Libraries list shorter than a row, Up goes to the list's tools first, then, Up again, the bar (the
+   owner, 2026-11-04, "Agreed on the too few posters fix"; `focus-engine.ts`'s `containerAround`).
 6. **The pages (§3 of the audit):** Sign in, Home, the lists, a film's page (R8, the actions row with
    Play first), an episode's and a series' pages, the player (full window, controls over the
    picture, Back never a third state, item 8), the Watch Together and Cast dialogs, Your account,
