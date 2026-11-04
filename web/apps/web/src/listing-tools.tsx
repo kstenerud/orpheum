@@ -2,44 +2,39 @@
 
 import "./listing-tools.css";
 
-import { useState, type JSX, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "./icon.tsx";
-import { IconButton } from "./icon-button.tsx";
-import { ModalDialog } from "./modal-dialog.tsx";
-import { keepRecentSearch } from "./recent-searches.ts";
-import { SearchFound, type GenreList } from "./search-found.tsx";
+import { ListChips, useGenres, type ChipsKind, type Genre } from "./list-chips.tsx";
+import {
+  clearedCriteria,
+  criteriaKey,
+  criteriaSummary,
+  isNarrowed,
+  type ListCriteria,
+} from "./list-filters.ts";
+import { keepsOpenAttribute, PopoverButton } from "./popover.tsx";
+import { ActionChooser } from "./route-chooser.tsx";
+import type { LibrarySort } from "./router.ts";
+import {
+  defaultOrderOf,
+  sortChoiceLabel,
+  sortChoicesOf,
+  sortFieldLabel,
+  type SortChoice,
+} from "./sort-choices.ts";
 
 /**
- * A listing page's tools, at the right of its top line beside its name (the owner, 2026-10-30): read
- * right to left, its sort, its search and, on one library's page, its configure, each an icon, as
- * close together as the banner's tray's; the page gives them in that order left to right.
+ * A listing page's tools, at the right of its top line beside its name (the owner, 2026-10-30): its
+ * Sort and filter and, on one library's page, its view and its configure; the page gives them in
+ * that order left to right.
  */
 export function ListingTools(props: { readonly children: ReactNode }): JSX.Element {
   return <div className="listing-tools icon-tray">{props.children}</div>;
 }
 
 // The listing tools' icons, as their designer drew them (the owner's upload, 2026-10-30).
-
-/** A magnifying glass: search. */
-export function SearchIcon(): JSX.Element {
-  return (
-    <Icon className="listing-tools__icon">
-      <path
-        fillRule="evenodd"
-        d="M10 2.5a7.5 7.5 0 1 0 0 15a7.5 7.5 0 1 0 0-15z M10 5a5 5 0 1 0 0 10a5 5 0 1 0 0-10z"
-      />
-      <path
-        d="M15.6 15.6 20.6 20.6"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="3.4"
-        strokeLinecap="round"
-      />
-    </Icon>
-  );
-}
 
 /** A gear: configure. */
 export function GearIcon(): JSX.Element {
@@ -56,7 +51,7 @@ export function GearIcon(): JSX.Element {
   );
 }
 
-/** Two arrows, one up and one down: sort. */
+/** Two arrows, one up and one down: sort, before what the list's pop-up is set to. */
 export function SortIcon(): JSX.Element {
   return (
     <Icon className="listing-tools__icon">
@@ -92,115 +87,195 @@ export function SortArrowIcon(props: { readonly isAscending: boolean }): JSX.Ele
   );
 }
 
-/**
- * The magnifying glass, which asks for a search in a dialog of its own, in the middle of the screen
- * (the owner, 2026-10-30: back to a modal dialog, "a larger text box and a button beside it"; later
- * any other search criteria). Searching for nothing clears the search.
- */
-export function SearchButton(props: {
-  /** The search the page shows now, "" for none. */
-  readonly query: string;
-  readonly onSearch: (query: string) => void;
-  /** The list a genre the search finds opens: Films, or Series from Series' own page. */
-  readonly genreList: GenreList;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const [isOpen, setIsOpen] = useState(false);
-  const close = (): void => {
-    setIsOpen(false);
-  };
-  return (
-    <>
-      <IconButton
-        label={t("browse.searchOpen")}
-        icon={<SearchIcon />}
-        isExpanded={isOpen}
-        mark={props.query === "" ? undefined : "applied"}
-        onClick={() => {
-          setIsOpen(true);
-        }}
-      />
-      {isOpen ? (
-        <ModalDialog
-          label={t("browse.searchOpen")}
-          onClose={close}
-          shouldFocusFirstField
-          className="listing-search"
-        >
-          <SearchForm
-            query={props.query}
-            genreList={props.genreList}
-            onSearch={(query) => {
-              close();
-              props.onSearch(query);
-            }}
-            onOpen={close}
-          />
-        </ModalDialog>
-      ) : null}
-    </>
-  );
+/** A list's criteria as its page shows them while its pop-up is open, and how they change. */
+export interface ShownCriteria {
+  /** The criteria the list shows: those the pop-up has changed while open, else the address's. */
+  readonly shown: ListCriteria;
+  readonly change: (next: ListCriteria) => void;
+  /** Told as the pop-up opens and closes (PopoverButton's onOpenChange). */
+  readonly onOpenChange: (isOpen: boolean) => void;
+  /** The kind whose genres the chips offer; undefined for a list with no chips. */
+  readonly chipsKind: ChipsKind | undefined;
+  /** The chips' genres (useGenres): read once the pop-up opens or the address names a genre. */
+  readonly genres: readonly Genre[];
 }
 
 /**
- * The search's dialog: its heading on the line its Close is on, as every dialog's (Configure's), and
- * under it the field, Search beside it, and Show all, which drops every search criterion and lists
- * everything again (the owner, 2026-10-30). Search filters the page's list by what is typed; under
- * the field, at each letter, is what the whole server's search finds, in groups, and while it is
- * empty the device's recent searches (search-by-more §4.2, §4.5). A search submitted, or one a
- * result is opened from, is kept as the newest recent one.
+ * A list's criteria (ListCriteria), each change shown at once (D417; the UI audit's Q5: a setting
+ * applies at once, no Apply), and kept in the address, written by write, so Back from a title opened
+ * from the list returns to it as it was (the owner, 2026-11-02). Written as the pop-up closes, not at
+ * each change: a step of the history while it is open lets go the entry it holds over the page, so a
+ * television's Back, which is the browser's (D367 §10), would leave the page in place of closing it
+ * (navigation.ts's whenNoneLaid). What it changed is shown until the address has it.
  */
-function SearchForm(props: {
-  readonly query: string;
-  readonly genreList: GenreList;
-  readonly onSearch: (query: string) => void;
-  /** Told as a result is opened, the page changing under the dialog. */
-  readonly onOpen: () => void;
+export function useListCriteria(
+  fromAddress: ListCriteria,
+  chipsKind: ChipsKind | undefined,
+  write: (criteria: ListCriteria) => void,
+): ShownCriteria {
+  const [held, setHeld] = useState<ListCriteria | undefined>(undefined);
+  const [isOpened, setIsOpened] = useState(false);
+  const heldRef = useRef<ListCriteria | undefined>(undefined);
+  const isOpenRef = useRef(false);
+  const addressKey = criteriaKey(fromAddress);
+  const addressKeyRef = useRef(addressKey);
+  const writeRef = useRef(write);
+  useEffect(() => {
+    addressKeyRef.current = addressKey;
+    writeRef.current = write;
+  });
+  // The address has what was held, or something else moved it: it is what the list shows again.
+  useEffect(() => {
+    if (!isOpenRef.current) {
+      heldRef.current = undefined;
+      setHeld(undefined);
+    }
+  }, [addressKey]);
+  const change = useCallback((next: ListCriteria) => {
+    heldRef.current = next;
+    setHeld(next);
+    if (!isOpenRef.current) {
+      writeRef.current(next);
+    }
+  }, []);
+  const onOpenChange = useCallback((isOpen: boolean) => {
+    isOpenRef.current = isOpen;
+    if (isOpen) {
+      setIsOpened(true);
+      return;
+    }
+    const now = heldRef.current;
+    if (now === undefined) {
+      return;
+    }
+    if (criteriaKey(now) === addressKeyRef.current) {
+      heldRef.current = undefined;
+      setHeld(undefined);
+      return;
+    }
+    writeRef.current(now);
+  }, []);
+  const shown = held ?? fromAddress;
+  const genres = useGenres(chipsKind, isOpened || shown.filters.genre !== undefined);
+  return { shown, change, onOpenChange, chipsKind, genres };
+}
+
+/** A list's criteria's few words (criteriaSummary), the chosen genre named once its name is read. */
+function useSummary(criteria: ShownCriteria): string {
+  const { t } = useTranslation();
+  const { genre } = criteria.shown.filters;
+  const genreName = criteria.genres.find((each) => each.id === genre)?.name;
+  return criteriaSummary(t, criteria.shown, genreName);
+}
+
+/**
+ * A list's one button for what narrows and orders it (D417 §1; the owner, 2026-11-04: "It's all
+ * criteria that filters what gets shown, and all of that including the search are additive to that
+ * filter"): "Sort and filter" and, after it on its one line, what is set (criteriaSummary), opening a
+ * pop-up (popover.tsx, from its top) of a field that narrows the list's posters by name, its chips
+ * (list-chips.tsx) where it has them, its sort, and Clear, which clears every filter but the sort,
+ * there while one is set. Each applies at once, the list changing under the pop-up (useListCriteria);
+ * a choice or a press in it leaves it open (keepsOpenAttribute), for the next.
+ */
+export function ListCriteriaButton(props: {
+  readonly criteria: ShownCriteria;
+  /** The sorts the list offers, its own first (D366 §1). */
+  readonly sorts: readonly LibrarySort[];
 }): JSX.Element {
   const { t } = useTranslation();
-  const [typed, setTyped] = useState(props.query);
+  const summary = useSummary(props.criteria);
+  const { shown, change, chipsKind, genres } = props.criteria;
+  const fieldRef = useRef<HTMLInputElement>(null);
   return (
-    <>
-      <h2 className="listing-search__heading">{t("browse.searchOpen")}</h2>
-      <form
-        role="search"
-        className="listing-search__form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          keepRecentSearch(typed);
-          props.onSearch(typed.trim());
-        }}
-      >
+    <PopoverButton
+      label={t("criteria.open")}
+      opener={
+        <>
+          <SortIcon />
+          <span className="list-criteria__open">{t("criteria.open")}</span>
+          <span className="list-criteria__summary">{summary}</span>
+        </>
+      }
+      openerClassName="list-criteria__button"
+      openerNaming={{ "aria-label": `${t("criteria.open")}: ${summary}`, title: summary }}
+      isFromItsTop
+      onOpenChange={props.criteria.onOpenChange}
+    >
+      <div className="list-criteria" data-focus-container="" {...{ [keepsOpenAttribute]: "" }}>
         <input
+          ref={fieldRef}
           type="search"
-          aria-label={t("browse.searchLabel")}
-          placeholder={t("browse.searchSubmit")}
-          value={typed}
+          className="list-criteria__name"
+          aria-label={t("criteria.name")}
+          placeholder={t("criteria.name")}
+          value={shown.query}
           onChange={(event) => {
-            setTyped(event.target.value);
+            change({ ...shown, query: event.target.value });
           }}
         />
-        <button type="submit">{t("browse.searchSubmit")}</button>
-      </form>
-      <SearchFound
-        typed={typed}
-        genreList={props.genreList}
-        onRecent={setTyped}
-        onOpen={() => {
-          keepRecentSearch(typed);
-          props.onOpen();
-        }}
-      />
-      <div className="listing-search__actions">
-        <button
-          type="button"
-          onClick={() => {
-            props.onSearch("");
+        {chipsKind === undefined ? null : (
+          <ListChips
+            genres={genres}
+            filters={shown.filters}
+            onChange={(filters) => {
+              change({ ...shown, filters });
+            }}
+          />
+        )}
+        <SortChooser
+          sorts={props.sorts}
+          choice={shown.choice}
+          onChoose={(choice) => {
+            change({ ...shown, choice });
           }}
-        >
-          {t("browse.showAll")}
-        </button>
+        />
+        {isNarrowed(shown) ? (
+          <button
+            type="button"
+            className="list-criteria__clear"
+            onClick={() => {
+              change(clearedCriteria(shown));
+              // Clear goes as it clears: focus to the field, the pop-up's first control.
+              fieldRef.current?.focus();
+            }}
+          >
+            {t("criteria.clear")}
+          </button>
+        ) : null}
       </div>
-    </>
+    </PopoverButton>
+  );
+}
+
+/** A choice's key among the sort's: its sort, and the way it runs when not the sort's own. */
+function choiceValue(choice: SortChoice): string {
+  return choice.order === defaultOrderOf(choice.sort)
+    ? choice.sort
+    : `${choice.sort}:${choice.order}`;
+}
+
+/** The order to list in: each sort the list offers, either way (D366 §2), the page keeping it. */
+function SortChooser(props: {
+  readonly sorts: readonly LibrarySort[];
+  readonly choice: SortChoice;
+  readonly onChoose: (choice: SortChoice) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const chosen = choiceValue(props.choice);
+  return (
+    <ActionChooser
+      fieldLabel={t("browse.sort")}
+      current={sortChoiceLabel(t, props.choice)}
+      options={sortChoicesOf(props.sorts).map((choice) => ({
+        key: choiceValue(choice),
+        label: sortFieldLabel(t, choice.sort),
+        mark: <SortArrowIcon isAscending={choice.order === "ascending"} />,
+        spoken: sortChoiceLabel(t, choice),
+        isCurrent: choiceValue(choice) === chosen,
+        onChoose: () => {
+          props.onChoose(choice);
+        },
+      }))}
+    />
   );
 }

@@ -38,6 +38,7 @@ import { DebugToolsContext, type DebugToolsChoice } from "./debug-tools.tsx";
 import { Libraries } from "./libraries.tsx";
 import { LibraryPage } from "./library-manage.tsx";
 import { LibraryBrowse } from "./library-browse.tsx";
+import { chipsOf } from "./list-filters.ts";
 import { People } from "./people.tsx";
 import {
   BackgroundChangesContext,
@@ -310,6 +311,7 @@ function viewerScreen(route: Route): JSX.Element | undefined {
         sort={route.sort}
         order={route.order}
         query={route.query ?? ""}
+        filters={chipsOf(route)}
       />
     );
   }

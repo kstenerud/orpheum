@@ -11,6 +11,7 @@ import {
   useAlphabetRailLetters,
   useLetterJump,
   useLetterJumpState,
+  useResetJumpOnChange,
   type LetterJump,
 } from "./alphabet-rail.tsx";
 import { arrivalMark } from "./focus-navigation.ts";
@@ -20,22 +21,18 @@ import { dataOrThrow, unavailableText } from "./problem.ts";
 import { StatusTray } from "./status-cues.tsx";
 import { PosterCard, PosterDetail } from "./poster-card.tsx";
 import { Still } from "./poster.tsx";
-import { ActionChooser } from "./route-chooser.tsx";
 import { itemRoute, routeHref, type ListFilters, type ListState } from "./router.ts";
 import { EndOfList } from "./end-of-list.tsx";
 import { useServices } from "./services.tsx";
+import { orderOf, orderQuery, type SortChoice } from "./sort-choices.ts";
 import {
-  defaultOrderOf,
-  orderOf,
-  orderQuery,
-  sortChoiceLabel,
-  sortChoicesOf,
-  sortFieldLabel,
-  type SortChoice,
-} from "./sort-choices.ts";
-import { ListChips } from "./list-chips.tsx";
-import { chipsOf, filtersKey, filtersQuery, hasFilters } from "./list-filters.ts";
-import { ListingTools, SearchButton, SortArrowIcon, SortIcon } from "./listing-tools.tsx";
+  chipsOf,
+  criteriaKey,
+  filtersQuery,
+  hasFilters,
+  type ListCriteria,
+} from "./list-filters.ts";
+import { ListCriteriaButton, ListingTools, useListCriteria } from "./listing-tools.tsx";
 import { Loaded } from "./loaded.tsx";
 import { useListLoadsToFocusNoted } from "./input-layer.tsx";
 import { useItemsInView } from "./items-in-view.ts";
@@ -186,22 +183,31 @@ export function Browse(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const { navigation } = useServices();
-  const choice = browseChoiceOf(props.state);
   const [jump, onLetter, clearJump] = useLetterJumpState();
-  // The list's search, a criterion of the list itself, as its sort is (the owner, 2026-10-30); both
-  // in the address, so Back from a title opened from the list returns to it (the owner, 2026-11-02).
-  const search = props.state.query ?? "";
-  // The chips, kept in the address beside the search, so Back restores them too (search-by-more §4.3).
-  const filters = chipsOf(props.state);
-  const replaceState = (next: ListState): void => {
-    clearJump();
-    navigation.replace({ screen: props.kind === "movie" ? "films" : "series", ...next });
-  };
-  const onChips = (next: ListFilters): void => {
-    replaceState(listStateOf(choice, search, next));
-  };
+  // The list's text, chips and sort, criteria of the list itself (the owner, 2026-10-30), in the
+  // address, so Back from a title opened from the list returns to it (the owner, 2026-11-02), all of
+  // them one pop-up's (D417).
+  const criteria = useListCriteria(
+    {
+      query: props.state.query ?? "",
+      choice: browseChoiceOf(props.state),
+      filters: chipsOf(props.state),
+    },
+    props.kind,
+    (next) => {
+      navigation.replace({
+        screen: props.kind === "movie" ? "films" : "series",
+        ...listStateOf(next),
+      });
+    },
+  );
+  const { shown } = criteria;
+  const { choice, filters } = shown;
+  const search = shown.query.trim();
   const listRef = useRef<HTMLDivElement>(null);
   const isNamed = choice.sort === "name";
+  const listKey = `${props.kind}/${criteriaKey(shown)}`;
+  useResetJumpOnChange(listKey, clearJump);
   return (
     <section className="browse browse__layout" aria-labelledby="browse-heading">
       <div ref={listRef}>
@@ -209,20 +215,15 @@ export function Browse(props: {
           <h1 id="browse-heading">
             {t(props.kind === "movie" ? "browse.films" : "browse.series")}
           </h1>
-          {/* The chips on the bar's line, between its name and its tools, so Up from the list's
-              first row meets the bar there, whichever poster it leaves, and Up again the banner
-              (the owner, 2026-11-04: Up goes to the list's tools before the banner). */}
-          <ListChips kind={props.kind} filters={filters} onChange={onChips} />
-          <BrowseTools
-            kind={props.kind}
-            choice={choice}
-            search={search}
-            filters={filters}
-            onState={replaceState}
-          />
+          {/* Its tools on the bar's line after its name, so Up from the list's first row meets them,
+              whichever poster it leaves, and Up again the banner (the owner, 2026-11-04: Up goes to
+              the list's tools before the banner). */}
+          <ListingTools>
+            <ListCriteriaButton criteria={criteria} sorts={browseSorts} />
+          </ListingTools>
         </div>
         <BrowsePages
-          key={`${props.kind}/${choice.sort}/${choice.order}/${search}/${filtersKey(filters)}`}
+          key={listKey}
           kind={props.kind}
           choice={choice}
           search={search}
@@ -241,34 +242,6 @@ export function Browse(props: {
         />
       ) : null}
     </section>
-  );
-}
-
-/** Films' or Series' search and sort, each keeping the other and the chips as they are. */
-function BrowseTools(props: {
-  readonly kind: BrowseKind;
-  readonly choice: SortChoice;
-  readonly search: string;
-  readonly filters: ListFilters;
-  readonly onState: (next: ListState) => void;
-}): JSX.Element {
-  const { choice, search, filters, onState } = props;
-  return (
-    <ListingTools>
-      <SearchButton
-        query={search}
-        genreList={props.kind === "series" ? "series" : "films"}
-        onSearch={(next) => {
-          onState(listStateOf(choice, next, filters));
-        }}
-      />
-      <SortChooser
-        choice={choice}
-        onChoose={(chosen) => {
-          onState(listStateOf(chosen, search, filters));
-        }}
-      />
-    </ListingTools>
   );
 }
 
@@ -304,50 +277,19 @@ function browseChoiceOf(state: ListState): SortChoice {
   return { sort, order: orderOf(sort, state.order) };
 }
 
-/** What the address holds for a sort chosen and a search: each left out at the list's own. */
-function listStateOf(choice: SortChoice, query: string, filters: ListFilters): ListState {
+/**
+ * What the address holds for a list's criteria: the sort, its way, the text trimmed and each chip,
+ * each left out at the list's own.
+ */
+export function listStateOf(criteria: ListCriteria): ListState {
+  const { choice, filters } = criteria;
+  const query = criteria.query.trim();
   return {
     ...(choice.sort === "name" ? {} : { sort: choice.sort }),
     ...orderQuery(choice),
     ...(query === "" ? {} : { query }),
-    ...filters,
+    ...chipsOf(filters),
   };
-}
-
-/** A choice's key among the sort's: its sort, and the way it runs when not the sort's own. */
-function choiceValue(choice: SortChoice): string {
-  return choice.order === defaultOrderOf(choice.sort)
-    ? choice.sort
-    : `${choice.sort}:${choice.order}`;
-}
-
-/**
- * The order to list in: each sort Films and Series offer, either way (D366 §2), by the chooser the
- * Libraries page's sort is (route-chooser.tsx), the page keeping the choice.
- */
-export function SortChooser(props: {
-  readonly choice: SortChoice;
-  readonly onChoose: (choice: SortChoice) => void;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const chosen = choiceValue(props.choice);
-  return (
-    <ActionChooser
-      fieldLabel={t("browse.sort")}
-      openerIcon={<SortIcon />}
-      current={sortChoiceLabel(t, props.choice)}
-      options={sortChoicesOf(browseSorts).map((choice) => ({
-        key: choiceValue(choice),
-        label: sortFieldLabel(t, choice.sort),
-        mark: <SortArrowIcon isAscending={choice.order === "ascending"} />,
-        spoken: sortChoiceLabel(t, choice),
-        isCurrent: choiceValue(choice) === chosen,
-        onChoose: () => {
-          props.onChoose(choice);
-        },
-      }))}
-    />
-  );
 }
 
 /** An entry's id, by which a list shows an entry read twice once, and its tile says it is in view. */

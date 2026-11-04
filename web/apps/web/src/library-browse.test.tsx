@@ -5,21 +5,30 @@ import "./i18n.ts";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import type { JSX } from "react";
+
 import { LibraryBrowse } from "./library-browse.tsx";
+import { chipsOf } from "./list-filters.ts";
+import { useRoute } from "./services.tsx";
 import { BackgroundChangesContext, type Poller } from "./polling.ts";
 import {
   buttonWithText,
   click,
-  enter,
   mount,
   servedBy,
   settleUntil,
-  submit,
   type Answer,
   type Heard,
   type Mounted,
 } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
+import {
+  chooseSort,
+  closeCriteria,
+  criteriaButton,
+  narrowByName,
+  openCriteria,
+} from "./test-list-criteria.tsx";
 
 /** A poller that never asks: a list is read only as the test's steps ask. */
 const neverAsks: Poller = { start: () => () => undefined };
@@ -73,7 +82,8 @@ async function mountBrowse(
   answers: Record<string, Answer | readonly Answer[]>,
   heard: Heard[] = [],
 ): Promise<Mounted> {
-  const services = servedBy(answers, heard);
+  // A films' or a series' library asks its genres as its Sort and filter opens (list-chips.tsx).
+  const services = servedBy({ "GET /genres": [200, { genres: [] }], ...answers }, heard);
   return await mount(
     <BackgroundChangesContext value={neverAsks}>
       {withServices(
@@ -91,14 +101,33 @@ async function mountBrowse(
   );
 }
 
-/** The bar's sort, which shows its field and an arrow (the owner, 2026-10-30). */
-function sortButton(container: HTMLElement): HTMLButtonElement | null {
-  return container.querySelector<HTMLButtonElement>('.browse__bar button[aria-label^="Sort:"]');
+/** The Libraries page as app.tsx shows it: what it lists read from the address it replaces. */
+function RoutedLibraryBrowse(): JSX.Element {
+  const route = useRoute();
+  if (route.screen !== "browse") {
+    return <p>{route.screen}</p>;
+  }
+  return (
+    <LibraryBrowse
+      library={route.library}
+      view={route.view}
+      folder={route.folder}
+      sort={route.sort}
+      order={route.order}
+      query={route.query ?? ""}
+      filters={chipsOf(route)}
+    />
+  );
 }
 
-/** The bar's magnifying glass, which opens the search's dialog. */
-function searchButton(container: HTMLElement): HTMLButtonElement | null {
-  return container.querySelector<HTMLButtonElement>('.browse__bar button[aria-label="Search"]');
+/** The sort's options in the Sort and filter, opened for them: each its field after an arrow. */
+async function sortOptions(container: HTMLElement): Promise<HTMLButtonElement[]> {
+  const popUp = await openCriteria(container);
+  const chooser = [...popUp.querySelectorAll(".route-chooser")].find(
+    (each) => each.querySelector(".route-chooser__field")?.textContent === "Sort",
+  );
+  await click(chooser?.querySelector("button[aria-haspopup]"));
+  return [...(chooser?.querySelectorAll<HTMLButtonElement>("dialog li button") ?? [])];
 }
 
 /** The bar's gear, a library's Configure. */
@@ -130,8 +159,8 @@ describe("the Libraries page (D349)", () => {
     expect(buttonWithText(mounted.container, "Alpha")).toBeUndefined();
     expect(bar?.querySelector('[aria-label^="Library:"]')).toBeNull();
     expect(bar?.querySelector('a[href*="library="]')).toBeNull();
-    // Its sort chooser stays.
-    expect(bar?.querySelectorAll(".route-chooser__button")).toHaveLength(1);
+    // Its sort stays, in its Sort and filter (D417).
+    expect(bar?.querySelectorAll(".list-criteria__button")).toHaveLength(1);
     mounted.unmount();
     mounted = await mountBrowse(
       { library: "all" },
@@ -160,13 +189,13 @@ describe("the Libraries page (D349)", () => {
       (field) => field.textContent,
     );
     expect(fieldNames).not.toContain("Library");
-    // The search is a magnifying glass at the bar's right, its field in the dialog it opens (the
-    // owner, 2026-10-30), named to a screen reader alone.
+    // The text filter is in the pop-up its Sort and filter opens (D417), not on the bar, named to
+    // a screen reader by its own label, no label element on the page.
     expect(bar?.querySelector("input[type=search]")).toBeNull();
-    await click(searchButton(mounted.container));
-    expect(
-      mounted.container.querySelector("dialog input[type=search]")?.getAttribute("aria-label"),
-    ).toBe("Search the library chosen, or every one");
+    const popUp = await openCriteria(mounted.container);
+    const field = popUp.querySelector("input[type=search]");
+    expect(field?.getAttribute("aria-label")).toBe("Name contains");
+    expect(popUp.querySelector("label")).toBeNull();
   });
 
   it("picks the first library by name when none is chosen in the address (D349 §9.1 point 1)", async () => {
@@ -290,22 +319,23 @@ describe("the Libraries page (D349)", () => {
   });
 
   it("offers a films library's every sort either way, by release date too, the way in the address (D366)", async () => {
-    mounted = await mountBrowse(
-      { library: 1 },
-      {
-        "GET /libraries": [200, { libraries: [library(1, "Films")] }],
-        "GET /titles": titlesPage(),
-        "GET /titles/letters": lettersPage(),
-      },
+    const services = servedBy({
+      "GET /libraries": [200, { libraries: [library(1, "Films")] }],
+      "GET /titles": titlesPage(),
+      "GET /titles/letters": lettersPage(),
+      "GET /genres": [200, { genres: [] }],
+    });
+    services.navigation.replace({ screen: "browse", library: 1 });
+    mounted = await mount(
+      <BackgroundChangesContext value={neverAsks}>
+        {withServices(<RoutedLibraryBrowse />, services)}
+      </BackgroundChangesContext>,
     );
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
-    await click(sortButton(mounted.container));
-    const links = [...mounted.container.querySelectorAll<HTMLAnchorElement>("a")].filter((link) =>
-      link.href.includes("sort="),
-    );
+    const options = await sortOptions(mounted.container);
     // Each shows its field after an arrow, the way it runs said to a screen reader (the owner,
     // 2026-10-30).
-    expect(links.map((link) => link.textContent)).toEqual([
+    expect(options.map((option) => option.textContent)).toEqual([
       "Name",
       "Name",
       "Released",
@@ -313,18 +343,27 @@ describe("the Libraries page (D349)", () => {
       "Added",
       "Added",
     ]);
-    expect(links.map((link) => link.getAttribute("aria-label"))).toEqual([
+    const spoken = [
       "Name, A–Z",
       "Name, Z–A",
       "Oldest released",
       "Newest released",
       "Oldest added",
       "Newest added",
-    ]);
-    const hrefs = links.map(
-      (link) => new URLSearchParams(link.getAttribute("href")?.split("?")[1]),
-    );
-    expect(hrefs.map((query) => `${query.get("sort") ?? ""}/${query.get("order") ?? ""}`)).toEqual([
+    ];
+    expect(options.map((option) => option.getAttribute("aria-label"))).toEqual(spoken);
+    await closeCriteria(mounted.container);
+    // The address each puts the sort in, its own way left out, chosen last to first so each is a
+    // change from the one before.
+    const addresses: string[] = [];
+    for (const label of spoken.toReversed()) {
+      await chooseSort(mounted.container, label);
+      const route = services.navigation.route();
+      addresses.unshift(
+        route.screen === "browse" ? `${route.sort ?? ""}/${route.order ?? ""}` : route.screen,
+      );
+    }
+    expect(addresses).toEqual([
       "name/",
       "name/descending",
       "released/ascending",
@@ -355,9 +394,11 @@ describe("the Libraries page (D349)", () => {
       (letter) => letter.textContent,
     );
     expect(shown).toEqual(["Z", "H", "A"]);
-    // The sort is an icon, its choice said to a screen reader (the owner, 2026-10-30).
-    expect(sortButton(mounted.container)?.getAttribute("aria-label")).toBe("Sort: Name, Z–A");
-    expect(sortButton(mounted.container)?.textContent).toBe("");
+    // The sort's choice is said by the Sort and filter, to a screen reader and in its summary (D417).
+    expect(criteriaButton(mounted.container)?.getAttribute("aria-label")).toBe(
+      "Sort and filter: Name, Z–A",
+    );
+    expect(criteriaButton(mounted.container)?.textContent).toBe("Sort and filterName, Z–A");
   });
 
   it("asks an other library's folder either way (D366 §2)", async () => {
@@ -456,16 +497,12 @@ describe("the Libraries page (D349)", () => {
     expect(new URLSearchParams(folderRequest?.query).get("folder")).toBe("2024/Summer");
   });
 
-  it("sends the typed query, with the library chosen, to the address on submit", async () => {
+  it("sends the typed text, with the library chosen, to the address as its pop-up closes", async () => {
     const services = servedBy({
       "GET /libraries": [200, { libraries: [library(1, "Films")] }],
       "GET /titles": titlesPage(),
       "GET /titles/letters": lettersPage(),
-      // What the dialog finds as "heat" is typed, the server's whole search (search-found.tsx).
-      "GET /search/grouped": [
-        200,
-        { titles: { hits: [] }, people: { hits: [] }, genres: { hits: [] } },
-      ],
+      "GET /genres": [200, { genres: [] }],
     });
     mounted = await mount(
       <BackgroundChangesContext value={neverAsks}>
@@ -482,30 +519,30 @@ describe("the Libraries page (D349)", () => {
       </BackgroundChangesContext>,
     );
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
-    await click(searchButton(mounted.container));
-    await enter(mounted.container.querySelector("input[type=search]"), "heat");
-    await submit(mounted.container.querySelector("form[role=search]"));
+    await narrowByName(mounted.container, "heat");
     expect(services.navigation.route()).toEqual({ screen: "browse", library: 1, query: "heat" });
     // A search is a view of the list: it takes the entry's place, adding no step (D367 §9).
     expect(services.navigation.behind()).toEqual([]);
     // So is a sort.
-    await click(sortButton(mounted.container));
-    const newest = [...mounted.container.querySelectorAll<HTMLAnchorElement>("dialog a")].find(
-      (link) => link.getAttribute("aria-label") === "Newest added",
-    );
-    await click(newest);
+    await chooseSort(mounted.container, "Newest added");
     expect(services.navigation.route()).toMatchObject({ screen: "browse", sort: "added" });
     expect(services.navigation.behind()).toEqual([]);
   });
 
   // The owner, 2026-10-30: "a "Show all" button that removes all search criteria, closes the dialog,
-  // and refreshes the list".
-  it("drops the search by its dialog's Show all, closing it, the list shown again", async () => {
-    const services = servedBy({
-      "GET /libraries": [200, { libraries: [library(1, "Films")] }],
-      "GET /titles": titlesPage(),
-      "GET /titles/letters": lettersPage(),
-    });
+  // and refreshes the list"; D417 makes it the pop-up's Clear, which clears every filter but the
+  // sort, the list changing under the pop-up, and goes as it clears.
+  it("drops the search by its pop-up's Clear, the list shown again", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "GET /libraries": [200, { libraries: [library(1, "Films")] }],
+        "GET /titles": titlesPage(),
+        "GET /titles/letters": lettersPage(),
+        "GET /genres": [200, { genres: [] }],
+      },
+      heard,
+    );
     mounted = await mount(
       <BackgroundChangesContext value={neverAsks}>
         {withServices(
@@ -521,8 +558,16 @@ describe("the Libraries page (D349)", () => {
       </BackgroundChangesContext>,
     );
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
-    await click(searchButton(mounted.container));
-    await click(buttonWithText(mounted.container, "Show all"));
+    const popUp = await openCriteria(mounted.container);
+    await click(buttonWithText(popUp, "Clear"));
+    await settleUntil(
+      () => heard.filter((each) => each.methodAndPath === "GET /titles").length >= 2,
+    );
+    const titlesAsked = heard.filter((each) => each.methodAndPath === "GET /titles");
+    expect(new URLSearchParams(titlesAsked[1]?.query).get("query")).toBeNull();
+    expect(popUp.querySelector<HTMLInputElement>("input[type=search]")?.value).toBe("");
+    expect(buttonWithText(popUp, "Clear")).toBeUndefined();
+    await closeCriteria(mounted.container);
     expect(mounted.container.querySelector("dialog")).toBeNull();
     expect(services.navigation.route()).toEqual({ screen: "browse", library: 1 });
   });
@@ -553,11 +598,10 @@ describe("the Libraries page (D349)", () => {
       heard.find((each) => each.methodAndPath === "GET /titles/letters")?.query,
     );
     expect(letters.get("query")).toBe("heat");
-    // The query the address names is in the box its search opens (as the retired Search page's was).
-    await click(searchButton(mounted.container));
-    expect(mounted.container.querySelector<HTMLInputElement>("input[type=search]")?.value).toBe(
-      "heat",
-    );
+    // The query the address names is in the field its Sort and filter opens (as the retired Search
+    // page's was).
+    const popUp = await openCriteria(mounted.container);
+    expect(popUp.querySelector<HTMLInputElement>("input[type=search]")?.value).toBe("heat");
   });
 
   it("says when nothing matches its search", async () => {

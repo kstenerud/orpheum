@@ -11,8 +11,6 @@ import { BackgroundChangesContext, type Poller } from "./polling.ts";
 import { useRoute } from "./services.tsx";
 import {
   buttonWithText,
-  chooseIn,
-  click,
   mount,
   servedBy,
   settleUntil,
@@ -21,6 +19,12 @@ import {
   type Mounted,
 } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
+import {
+  chooseInCriteria,
+  closeCriteria,
+  criteriaPopUp,
+  pressUnwatched,
+} from "./test-list-criteria.tsx";
 
 /** Films as app.tsx shows it: its sort, search and chips read from the address it replaces. */
 function RoutedFilms(): JSX.Element {
@@ -81,15 +85,26 @@ describe("Films' chips (search-by-more §4.3)", () => {
     await settleUntil(() => titlesAsked(heard).length >= 1);
     expect(heard.some((each) => each.methodAndPath === "GET /genres")).toBe(false);
 
-    await chooseIn(mounted.container, "Genre", "Crime");
+    // In the list's Sort and filter (D417), which asks the genres as it opens.
+    await chooseInCriteria(mounted.container, "Genre", "Crime");
     expect(
       new URLSearchParams(heard.find((each) => each.methodAndPath === "GET /genres")?.query).get(
         "kind",
       ),
     ).toBe("movie");
-    await chooseIn(mounted.container, "Decade", "1990s");
-    await click(buttonWithText(mounted.container, "Unwatched"));
+    // The choice closes the Genre's list alone, the Sort and filter left open for the next.
+    expect(criteriaPopUp(mounted.container)?.querySelectorAll("dialog")).toHaveLength(0);
+    expect(criteriaPopUp(mounted.container)).not.toBeNull();
+    await chooseInCriteria(mounted.container, "Decade", "1990s");
+    await pressUnwatched(mounted.container);
+    // The list changes under the pop-up as each is chosen.
     await settleUntil(() => titlesAsked(heard).length >= 4);
+    const popUp = criteriaPopUp(mounted.container);
+    expect(
+      popUp === null ? undefined : buttonWithText(popUp, "Unwatched")?.getAttribute("aria-pressed"),
+    ).toBe("true");
+    // The address takes them as the pop-up closes.
+    await closeCriteria(mounted.container);
 
     expect(services.navigation.route()).toEqual({
       screen: "films",
@@ -105,9 +120,6 @@ describe("Films' chips (search-by-more §4.3)", () => {
       last?.get("decade"),
       last?.get("unwatched"),
     ]).toEqual(["heat", "80", "1990", "true"]);
-    expect(buttonWithText(mounted.container, "Unwatched")?.getAttribute("aria-pressed")).toBe(
-      "true",
-    );
   });
 
   it("show the chips the address names, the genre by its name, as Back returns to them", async () => {
@@ -126,10 +138,16 @@ describe("Films' chips (search-by-more §4.3)", () => {
         {withServices(<RoutedFilms />, services)}
       </BackgroundChangesContext>,
     );
+    // Shown in the Sort and filter's summary, on the bar (D417).
     await settleUntil(
-      () => mounted?.container.querySelector(".list-chips")?.textContent.includes("Drama") === true,
+      () =>
+        mounted?.container
+          .querySelector(".list-criteria__summary")
+          ?.textContent.includes("Drama") === true,
     );
-    expect(mounted.container.querySelector(".list-chips")?.textContent).toContain("1980s");
+    expect(mounted.container.querySelector(".list-criteria__summary")?.textContent).toContain(
+      "1980s",
+    );
     const asked = titlesAsked(heard)[0];
     expect([asked?.get("genre"), asked?.get("decade"), asked?.get("unwatched")]).toEqual([
       "18",

@@ -52,8 +52,6 @@ const clientKeys = new Set([
   "orpheum.sound.latencyMs",
   // That the note on the browser's local-network prompt was dismissed (local-network-note.tsx).
   "orpheum.localNetwork.noteDismissed",
-  // The searches this device made last, shown in the search's dialog (recent-searches.ts).
-  "orpheum.search.recent",
   // Until when, and for which fix, the admin snoozed the security update's banner (update.ts).
   "orpheum.securityUpdate.snoozed",
 ]);

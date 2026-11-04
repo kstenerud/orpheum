@@ -14,17 +14,16 @@ import {
   buttonNamed,
   buttonWithText,
   click,
-  enter,
   mount,
   servedBy,
   settleUntil,
-  submit,
   type Answer,
   type Heard,
   type Mounted,
 } from "./test-dom.tsx";
 import { useRoute } from "./services.tsx";
 import { withServices } from "./test-services.tsx";
+import { chooseSort, closeCriteria, narrowByName, openCriteria } from "./test-list-criteria.tsx";
 
 /** Films or Series as app.tsx shows it: its sort and search read from the address it replaces. */
 function RoutedBrowse(props: { readonly kind: BrowseKind }): JSX.Element {
@@ -184,6 +183,7 @@ describe("Films' and Series' rail shows only letters that lead somewhere (D349 �
       {
         "GET /titles": [firstPage],
         "GET /titles/letters": [200, { letters: ["#", "B", "M"] }],
+        "GET /genres": [200, { genres: [] }],
       },
       heard,
     );
@@ -205,7 +205,11 @@ describe("Films' and Series' rail shows only letters that lead somewhere (D349 �
   it("shows no rail, and asks the server for no letters, sorted newest first", async () => {
     const heard: Heard[] = [];
     const services = servedBy(
-      { "GET /titles": [firstPage, firstPage], "GET /titles/letters": [200, { letters: [] }] },
+      {
+        "GET /titles": [firstPage, firstPage],
+        "GET /titles/letters": [200, { letters: [] }],
+        "GET /genres": [200, { genres: [] }],
+      },
       heard,
     );
     mounted = await mount(
@@ -244,11 +248,7 @@ describe("All Films' and All Series' search (the owner, 2026-10-30)", () => {
       {
         "GET /titles": [firstPage, page([film(4, "Metropolis")], "")],
         "GET /titles/letters": [200, { letters: [] }],
-        // What the dialog finds as "heat" is typed, the server's whole search (search-found.tsx).
-        "GET /search/grouped": [
-          200,
-          { titles: { hits: [] }, people: { hits: [] }, genres: { hits: [] } },
-        ],
+        "GET /genres": [200, { genres: [] }],
       },
       heard,
     );
@@ -259,9 +259,7 @@ describe("All Films' and All Series' search (the owner, 2026-10-30)", () => {
     );
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
     expect(mounted.container.querySelector("h1")?.textContent).toBe("All Films");
-    await click(mounted.container.querySelector('button[aria-label="Search"]'));
-    await enter(mounted.container.querySelector("dialog input[type=search]"), "heat");
-    await submit(mounted.container.querySelector("dialog form[role=search]"));
+    await narrowByName(mounted.container, "heat");
     await settleUntil(() => titlesHeard(heard).length >= 2);
     const searched = new URLSearchParams(titlesHeard(heard)[1]?.query);
     expect([searched.get("kind"), searched.get("query"), searched.get("sort")]).toEqual([
@@ -288,6 +286,7 @@ describe("Films' search and sort, kept in the address for Back to return to", ()
     const services = servedBy({
       "GET /titles": [firstPage, page([film(4, "Metropolis")], ""), page([film(4, "Metropolis")], "")],
       "GET /titles/letters": [200, { letters: [] }],
+      "GET /genres": [200, { genres: [] }],
     });
     mounted = await mount(
       <BackgroundChangesContext value={neverAsks}>
@@ -295,9 +294,7 @@ describe("Films' search and sort, kept in the address for Back to return to", ()
       </BackgroundChangesContext>,
     );
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
-    await click(mounted.container.querySelector('button[aria-label="Search"]'));
-    await enter(mounted.container.querySelector("dialog input[type=search]"), "heat");
-    await submit(mounted.container.querySelector("dialog form[role=search]"));
+    await narrowByName(mounted.container, "heat");
     await settleUntil(() => mounted?.container.querySelector('a[href="/titles/1"]') === null);
     await chooseSort(mounted.container, "Oldest added");
     expect(services.navigation.route()).toEqual({
@@ -314,6 +311,7 @@ describe("Films' search and sort, kept in the address for Back to return to", ()
       {
         "GET /titles": [page([film(4, "Metropolis")], "")],
         "GET /titles/letters": [200, { letters: [] }],
+        "GET /genres": [200, { genres: [] }],
       },
       heard,
     );
@@ -331,21 +329,10 @@ describe("Films' search and sort, kept in the address for Back to return to", ()
       null,
     ]);
     expect(
-      mounted.container
-        .querySelector(".listing-tools .route-chooser__button")
-        ?.getAttribute("aria-label"),
-    ).toBe("Sort: Newest released");
+      mounted.container.querySelector(".list-criteria__button")?.getAttribute("aria-label"),
+    ).toBe("Sort and filter: Released · “heat”");
   });
 });
-
-/**
- * Chooses the sort labelled label in the page's sort chooser, opened for it: the tools' chooser, the
- * chips' Genre and Decade before it on the bar's line.
- */
-async function chooseSort(container: HTMLElement, label: string): Promise<void> {
-  await click(container.querySelector(".listing-tools .route-chooser__button"));
-  await click(buttonNamed(container, label));
-}
 
 describe("the rail follows a name sort's direction (D366 §4)", () => {
   let mounted: Mounted | undefined;
@@ -368,6 +355,7 @@ describe("the rail follows a name sort's direction (D366 §4)", () => {
       {
         "GET /titles": [firstPage, lastPage, page([film(5, "Keepsake Hollow")], "")],
         "GET /titles/letters": [200, { letters: ["#", "B", "M"] }],
+        "GET /genres": [200, { genres: [] }],
       },
       heard,
     );
@@ -377,8 +365,12 @@ describe("the rail follows a name sort's direction (D366 §4)", () => {
       </BackgroundChangesContext>,
     );
     await settleUntil(() => mounted?.container.querySelector(".alphabet-rail") !== null);
-    await click(mounted.container.querySelector(".listing-tools .route-chooser__button"));
-    const options = [...mounted.container.querySelectorAll("dialog li button")].map((each) =>
+    const popUp = await openCriteria(mounted.container);
+    const sortChooser = [...popUp.querySelectorAll(".route-chooser")].find(
+      (each) => each.querySelector(".route-chooser__field")?.textContent === "Sort",
+    );
+    await click(sortChooser?.querySelector("button[aria-haspopup]"));
+    const options = [...(sortChooser?.querySelectorAll("dialog li button") ?? [])].map((each) =>
       each.getAttribute("aria-label"),
     );
     expect(options).toEqual([
@@ -390,6 +382,7 @@ describe("the rail follows a name sort's direction (D366 §4)", () => {
       "Newest added",
     ]);
     await click(buttonNamed(mounted.container, "Name, Z–A"));
+    await closeCriteria(mounted.container);
     await settleUntil(() => titlesHeard(heard).length >= 2);
     expect(new URLSearchParams(titlesHeard(heard)[1]?.query).get("order")).toBe("descending");
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);

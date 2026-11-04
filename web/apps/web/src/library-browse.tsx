@@ -12,6 +12,7 @@ import {
   useAlphabetRailLetters,
   useLetterJump,
   useLetterJumpState,
+  useResetJumpOnChange,
   type LetterJump,
 } from "./alphabet-rail.tsx";
 import { PosterGrid, type Entry } from "./browse.tsx";
@@ -25,22 +26,34 @@ import { useBackgroundChangesPoller } from "./polling.ts";
 import { UpTrail } from "./up-trail.tsx";
 import type { Upward } from "./upward.ts";
 import { dataOrThrow } from "./problem.ts";
-import { itemRoute, routeHref, type LibrarySort, type Route, type SortOrder } from "./router.ts";
+import {
+  itemRoute,
+  routeHref,
+  type LibrarySort,
+  type ListFilters,
+  type Route,
+  type SortOrder,
+} from "./router.ts";
 import { LibraryConfigure } from "./library-configure.tsx";
 import { useLibrariesReached, sortedLibraries, type LibraryBody } from "./libraries-reached.ts";
-import { RouteChooser, type Choice } from "./route-chooser.tsx";
-import { ListingTools, SearchButton, SortArrowIcon, SortIcon } from "./listing-tools.tsx";
-import { useServices } from "./services.tsx";
+import type { ChipsKind } from "./list-chips.tsx";
 import {
-  isByName,
-  isSameChoice,
-  orderOf,
-  orderQuery,
-  sortChoiceLabel,
-  sortChoicesOf,
-  sortFieldLabel,
-  type SortChoice,
-} from "./sort-choices.ts";
+  chipsOf,
+  criteriaKey,
+  filtersKey,
+  filtersQuery,
+  hasFilters,
+  type ListCriteria,
+} from "./list-filters.ts";
+import { RouteChooser, type Choice } from "./route-chooser.tsx";
+import {
+  ListCriteriaButton,
+  ListingTools,
+  useListCriteria,
+  type ShownCriteria,
+} from "./listing-tools.tsx";
+import { useServices } from "./services.tsx";
+import { isByName, isSameChoice, orderOf, orderQuery, type SortChoice } from "./sort-choices.ts";
 import { usePages, type Page } from "./use-pages.ts";
 import { useResource, type Resource } from "./use-resource.ts";
 
@@ -92,6 +105,8 @@ interface BrowseState {
   /** The way the sort runs; undefined for its own (D366 §2). */
   readonly order?: SortOrder | undefined;
   readonly query: string;
+  /** The chips, a films' or a series' library's alone, none when left out (D417 §1). */
+  readonly filters?: ListFilters | undefined;
 }
 
 /** The route for state, with overrides: a key given as undefined clears it, left out keeps it. */
@@ -105,7 +120,29 @@ function routeFor(state: BrowseState, overrides: Partial<BrowseState>): Route {
     ...(next.sort === undefined ? {} : { sort: next.sort }),
     ...(next.order === undefined ? {} : { order: next.order }),
     ...(next.query === "" ? {} : { query: next.query }),
+    ...chipsOf(next.filters ?? {}),
   };
+}
+
+/**
+ * What the address changes for a list's criteria: its text trimmed and its chips; its sort and way
+ * only where another is chosen than the page's, so a list on its own sort keeps an address naming
+ * none.
+ */
+function criteriaOverrides(criteria: ListCriteria, resolved: SortChoice): Partial<BrowseState> {
+  const { choice } = criteria;
+  return {
+    query: criteria.query.trim(),
+    filters: criteria.filters,
+    ...(isSameChoice(choice, resolved)
+      ? {}
+      : { sort: choice.sort, order: orderQuery(choice).order }),
+  };
+}
+
+/** The kind whose genres a library's chips offer: a films' or a series' library's alone. */
+function chipsKindOf(kind: TitlesKind): ChipsKind | undefined {
+  return kind === "movie" || kind === "series" ? kind : undefined;
 }
 
 /** What a library (or All libraries) chosen settles for the page: its kind, sort and view. */
@@ -223,76 +260,75 @@ function LibraryBrowseResolved(props: {
   return <LibraryBrowseLayout state={props.state} libraryOptions={sorted} resolved={resolved} />;
 }
 
-/** Clears a letter jump when key changes: a list remounted under another library or sort starts
- * with none, not the last letter pressed in another one (alphabet-rail.tsx's own concern, shared
- * by Films, Series and this page alike). */
-function useResetJumpOnChange(key: string, clear: () => void): void {
-  const lastKeyRef = useRef(key);
-  useEffect(() => {
-    if (lastKeyRef.current !== key) {
-      lastKeyRef.current = key;
-      clear();
-    }
-  }, [key, clear]);
-}
-
-/** The page once a library (or All libraries) is settled: its bar, its rail, and what it lists. */
+/**
+ * The page once a library (or All libraries) is settled: its bar, its rail, and what it lists, by
+ * the criteria its Sort and filter shows (useListCriteria): its text, its sort and, a films' or a
+ * series' library's, its chips (D417 §1).
+ */
 function LibraryBrowseLayout(props: {
   readonly state: BrowseState;
   readonly libraryOptions: readonly LibraryBody[];
   readonly resolved: ResolvedBrowse;
 }): JSX.Element {
   const { navigation } = useServices();
-  const { state, resolved } = props;
+  const { resolved } = props;
+  const chipsKind = chipsKindOf(resolved.kind);
+  const criteria = useListCriteria(
+    {
+      query: props.state.query,
+      choice: { sort: resolved.sort, order: resolved.order },
+      filters: chipsKind === undefined ? {} : (props.state.filters ?? {}),
+    },
+    chipsKind,
+    (next) => {
+      navigation.replace(routeFor(props.state, criteriaOverrides(next, resolved)));
+    },
+  );
+  const { shown } = criteria;
+  const state: BrowseState = {
+    ...props.state,
+    query: shown.query.trim(),
+    filters: shown.filters,
+  };
+  const shownResolved: ResolvedBrowse = {
+    ...resolved,
+    sort: shown.choice.sort,
+    order: shown.choice.order,
+  };
   const [jump, onLetter, clearJump] = useLetterJumpState();
   const listRef = useRef<HTMLDivElement>(null);
-  useResetJumpOnChange(`${String(state.library)}/${resolved.sort}/${resolved.order}`, clearJump);
-  const showsRail = (state.query !== "" || resolved.view === "all") && isByName(resolved.sort);
+  useResetJumpOnChange(`${String(state.library)}/${criteriaKey(shown)}`, clearJump);
+  const showsRail =
+    (state.query !== "" || shownResolved.view === "all") && isByName(shownResolved.sort);
   return (
     <section className="browse browse__layout" aria-labelledby="browse-heading">
       <div ref={listRef}>
         <LibraryBrowseBar
           state={state}
           libraryOptions={props.libraryOptions}
-          resolved={resolved}
-          onSearch={(query) => {
-            navigation.replace(routeFor(state, { query }));
-          }}
+          resolved={shownResolved}
+          criteria={criteria}
         />
         <LibraryBrowseBody
           state={state}
-          resolved={resolved}
+          resolved={shownResolved}
           jump={showsRail ? jump : undefined}
           listRef={listRef}
         />
       </div>
       {showsRail ? (
         <LibraryLetters
-          kind={resolved.kind}
+          kind={shownResolved.kind}
           search={state.query}
-          library={resolved.libraryId}
-          sort={resolved.sort === "file_name" ? "file_name" : "name"}
-          isZToA={resolved.order === "descending"}
+          filters={shown.filters}
+          library={shownResolved.libraryId}
+          sort={shownResolved.sort === "file_name" ? "file_name" : "name"}
+          isZToA={shownResolved.order === "descending"}
           onLetter={onLetter}
         />
       ) : null}
     </section>
   );
-}
-
-/**
- * The sort chooser's choices: each sort the resolved library (or All libraries) offers, its own way
- * and the other (D366 §2); the address names the way only when it is not the sort's own.
- */
-function sortChoicesOfPage(state: BrowseState, resolved: ResolvedBrowse, t: TFunction): Choice[] {
-  return sortChoicesOf(resolved.sortOptions).map((choice) => ({
-    key: `${choice.sort}/${choice.order}`,
-    label: sortFieldLabel(t, choice.sort),
-    mark: <SortArrowIcon isAscending={choice.order === "ascending"} />,
-    spoken: sortChoiceLabel(t, choice),
-    to: routeFor(state, { sort: choice.sort, order: orderQuery(choice).order }),
-    isCurrent: isSameChoice(choice, resolved),
-  }));
 }
 
 /** The view chooser's choices: All or Folders, an other library's alone (D349 §9.1). */
@@ -314,16 +350,16 @@ function viewChoicesOf(state: BrowseState, resolved: ResolvedBrowse, t: TFunctio
 }
 
 /**
- * The page's top row: the library's name at the left, and at the right (the owner, 2026-10-30), read
- * right to left, its sort, its search and, on one library's page, its configure, with its view
- * before them where it offers one. Another library is the banner's Libraries menu's to choose
- * (app-shell.tsx; the owner, 2026-10-28), so the page has no library chooser of its own.
+ * The page's top row: the library's name at the left, and at the right (the owner, 2026-10-30) its
+ * view where it offers one, its configure on one library's page, and its Sort and filter (D417).
+ * Another library is the banner's Libraries menu's to choose (app-shell.tsx; the owner, 2026-10-28),
+ * so the page has no library chooser of its own.
  */
 function LibraryBrowseBar(props: {
   readonly state: BrowseState;
   readonly libraryOptions: readonly LibraryBody[];
   readonly resolved: ResolvedBrowse;
-  readonly onSearch: (query: string) => void;
+  readonly criteria: ShownCriteria;
 }): JSX.Element {
   const { t } = useTranslation();
   const { state, resolved } = props;
@@ -341,18 +377,7 @@ function LibraryBrowseBar(props: {
           />
         ) : null}
         {chosen === undefined ? null : <LibraryConfigure library={chosen} />}
-        <SearchButton
-          query={state.query}
-          onSearch={props.onSearch}
-          genreList={resolved.kind === "series" ? "series" : "films"}
-        />
-        <RouteChooser
-          fieldLabel={t("browse.sort")}
-          openerIcon={<SortIcon />}
-          current={sortChoiceLabel(t, resolved)}
-          options={sortChoicesOfPage(state, resolved, t)}
-          isAView
-        />
+        <ListCriteriaButton criteria={props.criteria} sorts={resolved.sortOptions} />
       </ListingTools>
     </div>
   );
@@ -388,10 +413,11 @@ function LibraryBrowseBody(props: {
   }
   return (
     <LibraryGrid
-      key={`${resolved.kind}/${String(resolved.libraryId)}/${resolved.sort}/${resolved.order}/${state.query}`}
+      key={`${resolved.kind}/${String(resolved.libraryId)}/${resolved.sort}/${resolved.order}/${state.query}/${filtersKey(state.filters ?? {})}`}
       kind={resolved.kind}
       library={resolved.libraryId}
       search={state.query}
+      filters={state.filters ?? {}}
       choice={resolved}
       jump={props.jump}
       listRef={props.listRef}
@@ -406,6 +432,7 @@ function LibraryBrowseBody(props: {
 function LibraryLetters(props: {
   readonly kind: TitlesKind;
   readonly search: string;
+  readonly filters: ListFilters;
   readonly library: number | undefined;
   readonly sort: "name" | "file_name";
   readonly isZToA: boolean;
@@ -426,6 +453,7 @@ function titlesQuery(
     readonly sort: LibrarySort;
     readonly order: SortOrder;
     readonly search: string;
+    readonly filters: ListFilters;
   },
   cursor: string,
 ) {
@@ -437,8 +465,17 @@ function titlesQuery(
     limit: entriesPerPage,
     ...(library === undefined ? {} : { library }),
     ...(search === "" ? {} : { query: search }),
+    ...filtersQuery(list.filters),
     ...(cursor === "" ? {} : { cursor }),
   };
+}
+
+/** Why a library's list is empty: nothing its search matches, nothing its chips keep, or nothing yet. */
+function emptyText(t: TFunction, search: string, filters: ListFilters): string {
+  if (search !== "") {
+    return t("search.none", { query: search });
+  }
+  return hasFilters(filters) ? t("chips.none") : t("browse.empty");
 }
 
 /** The address an entry's poster leads to, by the entry's own kind, as PosterGrid draws it. */
@@ -454,21 +491,34 @@ function LibraryGrid(props: {
   readonly library: number | undefined;
   /** The list's search, "" for none (GET /titles' query). */
   readonly search: string;
+  /** The list's chips, none chosen when empty (GET /titles' genre, decade and unwatched). */
+  readonly filters: ListFilters;
   readonly choice: SortChoice;
   readonly jump: LetterJump | undefined;
   readonly listRef: RefObject<HTMLElement | null>;
 }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const { kind, library, search } = props;
+  const { kind, library, search, filters } = props;
   const { sort, order } = props.choice;
+  const { genre, decade, isUnwatchedOnly } = filters;
   const loadPage = useCallback(
     async (cursor: string): Promise<Page<Entry>> => {
-      const query = titlesQuery({ kind, library, sort, order, search }, cursor);
+      const query = titlesQuery(
+        {
+          kind,
+          library,
+          sort,
+          order,
+          search,
+          filters: chipsOf({ genre, decade, isUnwatchedOnly }),
+        },
+        cursor,
+      );
       const titlesPage = dataOrThrow(await api.GET("/titles", { params: { query } }));
       return { items: titlesPage.titles ?? [], nextCursor: titlesPage.nextCursor ?? "" };
     },
-    [api, kind, library, sort, order, search],
+    [api, kind, library, sort, order, search, genre, decade, isUnwatchedOnly],
   );
   const pages = usePages(loadPage, useBackgroundChangesPoller(), entryId);
   const watchItemAt = useItemsInView(pages.showRange);
@@ -479,6 +529,7 @@ function LibraryGrid(props: {
     isZToA: order === "descending",
     library,
     search,
+    filters,
     jump: isByName(sort) ? props.jump : undefined,
     pages,
     listRef: props.listRef,
@@ -488,9 +539,7 @@ function LibraryGrid(props: {
       resource={pages.loadedSoFar}
       render={(page) =>
         page.items.length === 0 ? (
-          <p className="browse__empty">
-            {search === "" ? t("browse.empty") : t("search.none", { query: search })}
-          </p>
+          <p className="browse__empty">{emptyText(t, search, filters)}</p>
         ) : (
           <>
             <PosterGrid entries={page.items} watchItemAt={watchItemAt} />
