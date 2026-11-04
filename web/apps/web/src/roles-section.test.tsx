@@ -348,10 +348,15 @@ it("gives a person another role from their page", async () => {
       ),
     ),
   );
-  const choice = buttonWithText(mounted.container, "Give this role")?.closest("form");
-  await choose(choice?.querySelector("select"), "friends");
-  await submit(choice);
+  // Saved as it is chosen (the owner, 2026-11-04, Q5): no button to press after.
+  const choice = [...mounted.container.querySelectorAll("label")]
+    .find((label) => label.textContent.startsWith("Role"))
+    ?.querySelector("select");
+  await choose(choice, "friends");
   expect(heard.find((each) => each.methodAndPath === "PUT /users/5/role")?.body).toEqual({
     role: "friends",
   });
+  expect(choice?.closest(".form-row")?.querySelector("output.save-note")?.textContent).toBe(
+    "Saved",
+  );
 });

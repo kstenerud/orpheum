@@ -93,7 +93,7 @@ export function YourDevices(props: {
  * where there are more, "All devices (N)": an expanding section, as the Files page's long groups are
  * (files.tsx), which opened shows every device in the recent ones' place.
  */
-function RecentDevices(props: Parameters<typeof DeviceList>[0]): JSX.Element {
+export function RecentDevices(props: Parameters<typeof DeviceList>[0]): JSX.Element {
   const { t } = useTranslation();
   const [isAllShown, setIsAllShown] = useState(false);
   const { devices } = props;
