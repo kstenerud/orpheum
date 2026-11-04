@@ -673,11 +673,7 @@ describe("a series returned to by Up from an episode of another season (D367 §9
 
 describe("Space on an ordinary Play page, in a computer's browser", () => {
   let walking: Walking | undefined;
-  afterEach(async () => {
-    if (document.fullscreenElement !== null) {
-      await document.exitFullscreen(); // the next file cannot size a full-screen window
-    }
-    await expect.poll(() => [window.innerWidth, window.innerHeight]).toEqual([1280, 800]);
+  afterEach(() => {
     walking?.unmount();
     walking = undefined;
     vi.restoreAllMocks();
@@ -689,6 +685,9 @@ describe("Space on an ordinary Play page, in a computer's browser", () => {
   // on full screen it goes (really, as it was pressed) full screen, its controls the overlay.
   it("plays and pauses by Space with focus on the video, and presses the player's button focused", async () => {
     const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+    // Refused, so the stage fills the window: a really full-screen window outlasts this file and
+    // cannot be sized by the next.
+    vi.spyOn(Element.prototype, "requestFullscreen").mockRejectedValue(new TypeError("refused"));
     await page.viewport(1280, 800);
     walking = await mountApp(walkServices(filmToPlay, "/play/1030"));
     const video = await theFailedVideo();
