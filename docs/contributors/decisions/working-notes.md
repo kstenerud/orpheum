@@ -26090,3 +26090,25 @@ raised (ui-audit-2026-11-04.md §3, "The player" and "A film's page"). **Amends*
    anything.
 
 **Status:** Decided 2026-11-04; not built (the UI revamp's first wave builds it).
+
+
+## D419 — Home's Hide sits in a strip above its card; Your account places its leftover sections; focus after Hide goes to the next card
+
+**Decided** (2026-11-04), by the project owner, agreeing ("1, 2, 3: agreed") to what the UI
+revamp's first wave proposed where the audit gave no placement (ui-audit-2026-11-04.md §3, Home and
+Your account).
+
+1. **A Continue watching card's "…", holding Hide, sits in a small strip above the card,** reached
+   by Up from it, so Down leaves the row in one press. Its cards stand a little taller than the
+   other rows' for it. A long press is not the only way in.
+2. **Your account places the sections the audit did not:** a limited session's note at the top;
+   Administering from away after Change password; the registration link after Your server at home.
+3. **Once Hide is chosen, focus goes to the card after the hidden one,** or the one before it when
+   it was the last, or to Undo when none is left; never to the page's body.
+
+**Proven by:**
+- 1: web/apps/web/src/input-rows.browser.test.tsx
+- 2: web/apps/web/src/account.test.tsx, web/apps/web/src/input-pages.browser.test.tsx
+- 3: web/apps/web/src/input-rows.browser.test.tsx
+
+**Status:** Decided 2026-11-04; not built (the UI revamp's first wave builds it).
