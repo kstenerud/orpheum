@@ -32,7 +32,12 @@ import {
   hasFilters,
   type ListCriteria,
 } from "./list-filters.ts";
-import { ListCriteriaButton, ListingTools, useListCriteria } from "./listing-tools.tsx";
+import {
+  ListCriteriaButton,
+  ListingTools,
+  useListCriteria,
+  type ShownCriteria,
+} from "./listing-tools.tsx";
 import { Loaded } from "./loaded.tsx";
 import { useListLoadsToFocusNoted } from "./input-layer.tsx";
 import { useItemsInView } from "./items-in-view.ts";
@@ -173,6 +178,29 @@ export function EntryDetails(props: { readonly entry: Entry }): JSX.Element {
 }
 
 /**
+ * Films' or Series' text, chips and sort, criteria of the list itself (the owner, 2026-10-30), in the
+ * address, so Back from a title opened from the list returns to it (the owner, 2026-11-02), all of
+ * them one pop-up's (D417).
+ */
+function useBrowseCriteria(kind: BrowseKind, state: ListState): ShownCriteria {
+  const { navigation } = useServices();
+  return useListCriteria(
+    {
+      query: state.query ?? "",
+      choice: browseChoiceOf(state),
+      filters: chipsOf(state),
+    },
+    kind,
+    (next) => {
+      navigation.replace({
+        screen: kind === "movie" ? "films" : "series",
+        ...listStateOf(next),
+      });
+    },
+  );
+}
+
+/**
  * Films or series, by name, release date or date added, either way (D366), with no pagination to
  * click through: the next page loads as the end comes into view, or on the button that is always
  * there for it.
@@ -182,31 +210,14 @@ export function Browse(props: {
   readonly state: ListState;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { navigation } = useServices();
   const [jump, onLetter, clearJump] = useLetterJumpState();
-  // The list's text, chips and sort, criteria of the list itself (the owner, 2026-10-30), in the
-  // address, so Back from a title opened from the list returns to it (the owner, 2026-11-02), all of
-  // them one pop-up's (D417).
-  const criteria = useListCriteria(
-    {
-      query: props.state.query ?? "",
-      choice: browseChoiceOf(props.state),
-      filters: chipsOf(props.state),
-    },
-    props.kind,
-    (next) => {
-      navigation.replace({
-        screen: props.kind === "movie" ? "films" : "series",
-        ...listStateOf(next),
-      });
-    },
-  );
-  const { shown } = criteria;
-  const { choice, filters } = shown;
-  const search = shown.query.trim();
+  const criteria = useBrowseCriteria(props.kind, props.state);
+  const { listed } = criteria;
+  const { choice, filters } = listed;
+  const search = listed.query.trim();
   const listRef = useRef<HTMLDivElement>(null);
   const isNamed = choice.sort === "name";
-  const listKey = `${props.kind}/${criteriaKey(shown)}`;
+  const listKey = `${props.kind}/${criteriaKey(listed)}`;
   useResetJumpOnChange(listKey, clearJump);
   return (
     <section className="browse browse__layout" aria-labelledby="browse-heading">

@@ -630,7 +630,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     await drawn(".list-criteria__clear");
     const controls = focusTargetsIn(document.querySelector(".list-criteria") ?? document);
     const reached = new Set<Element>([document.activeElement ?? document.body]);
-    for (let step = 0; step < controls.length; step += 1) {
+    for (let stepsLeft = controls.length; stepsLeft > 0; stepsLeft -= 1) {
       await press("{ArrowDown}");
       reached.add(document.activeElement ?? document.body);
     }

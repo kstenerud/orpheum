@@ -54,7 +54,7 @@ import {
 } from "./listing-tools.tsx";
 import { useServices } from "./services.tsx";
 import { isByName, isSameChoice, orderOf, orderQuery, type SortChoice } from "./sort-choices.ts";
-import { usePages, type Page } from "./use-pages.ts";
+import { usePages, type Page, type Pages } from "./use-pages.ts";
 import { useResource, type Resource } from "./use-resource.ts";
 
 /** A subfolder of an other library's folder, as the server sends it. */
@@ -261,6 +261,40 @@ function LibraryBrowseResolved(props: {
 }
 
 /**
+ * A library's criteria (useListCriteria): its text, its sort and, a films' or a series' library's,
+ * its chips (D417 §1), kept in the address; with the page's state and its library's as the list is
+ * asked for them.
+ */
+function useLibraryCriteria(
+  fromAddress: BrowseState,
+  resolved: ResolvedBrowse,
+): {
+  readonly criteria: ShownCriteria;
+  readonly state: BrowseState;
+  readonly listedResolved: ResolvedBrowse;
+} {
+  const { navigation } = useServices();
+  const chipsKind = chipsKindOf(resolved.kind);
+  const criteria = useListCriteria(
+    {
+      query: fromAddress.query,
+      choice: { sort: resolved.sort, order: resolved.order },
+      filters: chipsKind === undefined ? {} : (fromAddress.filters ?? {}),
+    },
+    chipsKind,
+    (next) => {
+      navigation.replace(routeFor(fromAddress, criteriaOverrides(next, resolved)));
+    },
+  );
+  const { listed } = criteria;
+  return {
+    criteria,
+    state: { ...fromAddress, query: listed.query.trim(), filters: listed.filters },
+    listedResolved: { ...resolved, sort: listed.choice.sort, order: listed.choice.order },
+  };
+}
+
+/**
  * The page once a library (or All libraries) is settled: its bar, its rail, and what it lists, by
  * the criteria its Sort and filter shows (useListCriteria): its text, its sort and, a films' or a
  * series' library's, its chips (D417 §1).
@@ -270,60 +304,36 @@ function LibraryBrowseLayout(props: {
   readonly libraryOptions: readonly LibraryBody[];
   readonly resolved: ResolvedBrowse;
 }): JSX.Element {
-  const { navigation } = useServices();
-  const { resolved } = props;
-  const chipsKind = chipsKindOf(resolved.kind);
-  const criteria = useListCriteria(
-    {
-      query: props.state.query,
-      choice: { sort: resolved.sort, order: resolved.order },
-      filters: chipsKind === undefined ? {} : (props.state.filters ?? {}),
-    },
-    chipsKind,
-    (next) => {
-      navigation.replace(routeFor(props.state, criteriaOverrides(next, resolved)));
-    },
-  );
-  const { shown } = criteria;
-  const state: BrowseState = {
-    ...props.state,
-    query: shown.query.trim(),
-    filters: shown.filters,
-  };
-  const shownResolved: ResolvedBrowse = {
-    ...resolved,
-    sort: shown.choice.sort,
-    order: shown.choice.order,
-  };
+  const { criteria, state, listedResolved } = useLibraryCriteria(props.state, props.resolved);
   const [jump, onLetter, clearJump] = useLetterJumpState();
   const listRef = useRef<HTMLDivElement>(null);
-  useResetJumpOnChange(`${String(state.library)}/${criteriaKey(shown)}`, clearJump);
+  useResetJumpOnChange(`${String(state.library)}/${criteriaKey(criteria.listed)}`, clearJump);
   const showsRail =
-    (state.query !== "" || shownResolved.view === "all") && isByName(shownResolved.sort);
+    (state.query !== "" || listedResolved.view === "all") && isByName(listedResolved.sort);
   return (
     <section className="browse browse__layout" aria-labelledby="browse-heading">
       <div ref={listRef}>
         <LibraryBrowseBar
           state={state}
           libraryOptions={props.libraryOptions}
-          resolved={shownResolved}
+          resolved={listedResolved}
           criteria={criteria}
         />
         <LibraryBrowseBody
           state={state}
-          resolved={shownResolved}
+          resolved={listedResolved}
           jump={showsRail ? jump : undefined}
           listRef={listRef}
         />
       </div>
       {showsRail ? (
         <LibraryLetters
-          kind={shownResolved.kind}
+          kind={listedResolved.kind}
           search={state.query}
-          filters={shown.filters}
-          library={shownResolved.libraryId}
-          sort={shownResolved.sort === "file_name" ? "file_name" : "name"}
-          isZToA={shownResolved.order === "descending"}
+          filters={criteria.listed.filters}
+          library={listedResolved.libraryId}
+          sort={listedResolved.sort === "file_name" ? "file_name" : "name"}
+          isZToA={listedResolved.order === "descending"}
           onLetter={onLetter}
         />
       ) : null}
@@ -481,26 +491,17 @@ function emptyText(t: TFunction, search: string, filters: ListFilters): string {
 /** The address an entry's poster leads to, by the entry's own kind, as PosterGrid draws it. */
 const entryHref = (entry: Entry): string => routeHref(itemRoute(entry.kind, entry.id));
 
-/**
- * One library's (or All libraries') list, in one order, read a page at a time, moved to a letter
- * as the alphabet rail asks (D349 §9.1). kind and library say what GET /titles asks for; All
- * libraries' grid reads each entry's own kind (browse.tsx's PosterGrid).
- */
-function LibraryGrid(props: {
+/** A library's list's pages, as GET /titles reads them for its kind, library, search, chips and sort. */
+function useTitlesPages(list: {
   readonly kind: TitlesKind;
   readonly library: number | undefined;
-  /** The list's search, "" for none (GET /titles' query). */
   readonly search: string;
-  /** The list's chips, none chosen when empty (GET /titles' genre, decade and unwatched). */
   readonly filters: ListFilters;
   readonly choice: SortChoice;
-  readonly jump: LetterJump | undefined;
-  readonly listRef: RefObject<HTMLElement | null>;
-}): JSX.Element {
-  const { t } = useTranslation();
+}): Pages<Entry> {
   const { api } = useServices();
-  const { kind, library, search, filters } = props;
-  const { sort, order } = props.choice;
+  const { kind, library, search, filters } = list;
+  const { sort, order } = list.choice;
   const { genre, decade, isUnwatchedOnly } = filters;
   const loadPage = useCallback(
     async (cursor: string): Promise<Page<Entry>> => {
@@ -521,6 +522,29 @@ function LibraryGrid(props: {
     [api, kind, library, sort, order, search, genre, decade, isUnwatchedOnly],
   );
   const pages = usePages(loadPage, useBackgroundChangesPoller(), entryId);
+  return pages;
+}
+
+/**
+ * One library's (or All libraries') list, in one order, read a page at a time, moved to a letter
+ * as the alphabet rail asks (D349 §9.1). kind and library say what GET /titles asks for; All
+ * libraries' grid reads each entry's own kind (browse.tsx's PosterGrid).
+ */
+function LibraryGrid(props: {
+  readonly kind: TitlesKind;
+  readonly library: number | undefined;
+  /** The list's search, "" for none (GET /titles' query). */
+  readonly search: string;
+  /** The list's chips, none chosen when empty (GET /titles' genre, decade and unwatched). */
+  readonly filters: ListFilters;
+  readonly choice: SortChoice;
+  readonly jump: LetterJump | undefined;
+  readonly listRef: RefObject<HTMLElement | null>;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { kind, library, search, filters } = props;
+  const { sort, order } = props.choice;
+  const pages = useTitlesPages(props);
   const watchItemAt = useItemsInView(pages.showRange);
   useListLoadsToFocusNoted(pages, entryHref);
   useLetterJump({
