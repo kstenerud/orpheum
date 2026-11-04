@@ -141,7 +141,7 @@ describe("Subtitles and Sound track, opened by a remote's OK", () => {
     expect(shown.isCurrent).toBe(true);
     // The list is cut by the screen, so the test shows its scrolling, not a list wholly in view.
     expect(shown.isListCut).toBe(true);
-    expect(shown.areNeighboursInView).toBe(true);
+    expect(shown.showsNeighbours).toBe(true);
   });
 
   it("opens Sound track on its current choice, a choice above and below it in view", async () => {
@@ -151,7 +151,7 @@ describe("Subtitles and Sound track, opened by a remote's OK", () => {
     expect(shown.isCurrent).toBe(true);
     // The list is cut by the screen, so the test shows its scrolling, not a list wholly in view.
     expect(shown.isListCut).toBe(true);
-    expect(shown.areNeighboursInView).toBe(true);
+    expect(shown.showsNeighbours).toBe(true);
   });
 });
 
@@ -163,7 +163,7 @@ function focusedAndNeighbours(): {
   text: string | null | undefined;
   isCurrent: boolean;
   isListCut: boolean;
-  areNeighboursInView: boolean;
+  showsNeighbours: boolean;
 } {
   const focused = document.activeElement;
   const list = drawnIn("dialog .list-box");
@@ -176,8 +176,7 @@ function focusedAndNeighbours(): {
     text: focused?.textContent,
     isCurrent: focused?.getAttribute("aria-current") === "true",
     isListCut: list.scrollHeight > list.clientHeight,
-    areNeighboursInView:
-      isInView(place?.previousElementSibling) && isInView(place?.nextElementSibling),
+    showsNeighbours: isInView(place?.previousElementSibling) && isInView(place?.nextElementSibling),
   };
 }
 
