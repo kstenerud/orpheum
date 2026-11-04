@@ -79,6 +79,16 @@ const aSeason: WalkAnswers = {
   "GET /items/303": filmDetail(303, "Episode 3"),
 };
 
+/** aSeason with its next episode, the second, which its page opens on (R3). */
+const withNextUp: WalkAnswers = {
+  ...aSeason,
+  "GET /collections/20": {
+    ...(aSeason["GET /collections/20"] as Record<string, unknown>),
+    orderings: [{ name: "aired", kind: "aired", episodeCount: 5 }],
+    nextUp: { titleId: 302, name: "Episode 2", groupNumber: 1, numberInGroup: 2, fileId: 3020 },
+  },
+};
+
 /**
  * A series of three seasons, the specials last, its first of four episodes (D379): another series
  * than aSeason's, whose episode an earlier walk reached, and which its page would focus on showing.
@@ -217,6 +227,28 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
     await expect.poll(() => isDrawn(".series__episode")).toBe(true);
     await expect.poll(focusedEpisode).toBe("Episode 3");
   });
+
+  // R5 of ui-audit-2026-11-04.md: Back finds the episode left, not the page's arrival, its next
+  // episode's Play, though the page opens on it; at the series' own address too, whose season is
+  // the next episode's, read after the page.
+  it.each(["/series/20?season=1", "/series/20"])(
+    "goes back to the episode it opened at %s, not the page's Play",
+    async (path) => {
+      await page.viewport(width, height);
+      walking = await mountApp(walkServices(withNextUp, path));
+      await expect.poll(() => isDrawn(".series__episode")).toBe(true);
+      await expect.poll(() => isFocusIn("main")).toBe(true);
+      expect(await pressUntil("{ArrowDown}", () => focusedEpisode() === "Episode 3")).toBe(true);
+      await userEvent.keyboard("{Enter}");
+      await expect.poll(() => isDrawn(".title")).toBe(true);
+      await userEvent.keyboard("{Escape}");
+      await expect.poll(() => isDrawn(".series__episode")).toBe(true);
+      await expect.poll(focusedEpisode).toBe("Episode 3");
+      // And stays there, the arrival given no second time as the page's reads come in.
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      expect(focusedEpisode()).toBe("Episode 3");
+    },
+  );
 
   // D379 §3: the seasons' posters are one focus row, Left and Right along it, Down into the episodes.
   it("moves along the seasons' row by Left and Right, and down from it into the season's episodes", async () => {

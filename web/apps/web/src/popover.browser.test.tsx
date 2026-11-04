@@ -303,3 +303,31 @@ describe("🔈's pop-up, laid out by a real browser", () => {
     expectClearOfTheEdges(box, 1280, 800);
   });
 });
+
+// R5 of ui-audit-2026-11-04.md: a pop-up closed any way gives focus back to the button that opened it.
+describe("a pop-up closed", () => {
+  it("gives focus back to its button, closed by Back, by a press outside and by choosing", async () => {
+    await page.viewport(1280, 800);
+    mounted = await mount(menuAt({ left: "40px", top: "40px" }, ["One", "Two"]));
+    const opener = document.querySelector<HTMLElement>(".test-opener");
+    const opened = async (): Promise<void> => {
+      opener?.focus();
+      await userEvent.keyboard("{Enter}");
+      await expect.poll(() => document.activeElement?.closest("dialog[open]")).not.toBeNull();
+    };
+    await opened();
+    await userEvent.keyboard("{Escape}");
+    await expect.poll(() => document.querySelector("dialog[open]")).toBeNull();
+    expect(document.activeElement).toBe(opener);
+    await opened();
+    document
+      .querySelector("dialog[open]")
+      ?.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 1270, clientY: 790 }));
+    await expect.poll(() => document.querySelector("dialog[open]")).toBeNull();
+    expect(document.activeElement).toBe(opener);
+    await opened();
+    await userEvent.keyboard("{ArrowDown}{Enter}");
+    await expect.poll(() => document.querySelector("dialog[open]")).toBeNull();
+    expect(document.activeElement).toBe(opener);
+  });
+});
