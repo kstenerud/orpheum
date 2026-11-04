@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./system.css";
+
 import type { components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
@@ -31,11 +33,13 @@ export function SystemReachability(): JSX.Element {
   };
   return (
     <section aria-labelledby="system-reachability">
-      <h2 id="system-reachability">{t("system.reachability.heading")}</h2>
+      <div className="system__heading-row">
+        <h2 id="system-reachability">{t("system.reachability.heading")}</h2>
+        <button type="button" disabled={isBusy} onClick={check}>
+          {t("system.reachability.check")}
+        </button>
+      </div>
       <p>{t("system.reachability.what")}</p>
-      <button type="button" disabled={isBusy} onClick={check}>
-        {t("system.reachability.check")}
-      </button>
       {problem === undefined ? null : <p role="alert">{problem}</p>}
       {report === undefined ? null : <ReachabilityReport report={report} />}
     </section>

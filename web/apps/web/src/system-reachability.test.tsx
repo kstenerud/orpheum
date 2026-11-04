@@ -47,3 +47,11 @@ it("checks the public name and the relay when asked, and names the hop that fail
   );
   expect(text).toContain("The voice relay over TCP: reached this server.");
 });
+
+it("puts Check now in the section's heading row (ui-audit-2026-11-04.md §3)", async () => {
+  mounted = await mount(withServices(<SystemReachability />, servedBy({})));
+  const container = mounted.container;
+  const row = container.querySelector("#system-reachability")?.parentElement;
+  expect(row?.contains(buttonWithText(container, "Check now") ?? null)).toBe(true);
+  expect(row?.querySelector("p")).toBeNull();
+});

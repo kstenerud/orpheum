@@ -54,6 +54,21 @@ it("asks for a backup now, the key only when asked, and lists the backup once ma
   expect(container.textContent).toContain("backup-20261003T120000Z.tar.gz, 2.5 MB");
 });
 
+it("puts Back up now in the heading's row and folds the list of backups, closed (ui-audit-2026-11-04.md §3)", async () => {
+  const services = servedBy({
+    "GET /backups": [200, { directory: "/srv/orpheum/backups", backups: [made] }],
+  });
+  mounted = await mount(withServices(<SystemBackups />, services));
+  const container = mounted.container;
+  const row = container.querySelector("#system-backups")?.parentElement;
+  expect(row?.contains(buttonWithText(container, "Back up now") ?? null)).toBe(true);
+  expect(row?.querySelector("p, label")).toBeNull();
+  const fold = container.querySelector("details");
+  expect(fold?.open).toBe(false);
+  expect(fold?.querySelector("summary")?.textContent).toBe("The backups kept (1)");
+  expect(fold?.textContent).toContain("backup-20261003T120000Z.tar.gz");
+});
+
 it("warns what a backup with the key holds, and says why one was refused", async () => {
   const heard: Heard[] = [];
   const services = servedBy(

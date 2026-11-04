@@ -81,6 +81,14 @@ it("shows what the server and each node used, and each hour beside what it was d
   expect(text).toContain("900 MB held, 3 GB cached, 1.2 GB at most");
   expect(text).toContain("310% (busiest minute 395.5%)");
   expect(text).toContain("Making a film's chunks × 2");
+  // Each process's hours are folded, closed, under their count (ui-audit-2026-11-04.md §3).
+  const folds = [...mounted.container.querySelectorAll("details")];
+  expect(folds.map((each) => each.open)).toEqual([false, false]);
+  expect(folds.map((each) => each.querySelector("summary")?.textContent)).toEqual([
+    "Its hours of the last day (1)",
+    "Its hours of the last day (1)",
+  ]);
+  expect(folds.every((each) => each.querySelector("table") !== null)).toBe(true);
 });
 
 it("says nothing is measured before the first minute", async () => {

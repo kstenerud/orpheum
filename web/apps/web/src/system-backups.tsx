@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./system.css";
+
 import type { components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
@@ -47,7 +49,12 @@ export function SystemBackups(): JSX.Element {
   };
   return (
     <section aria-labelledby="system-backups">
-      <h2 id="system-backups">{t("system.backups.heading")}</h2>
+      <div className="system__heading-row">
+        <h2 id="system-backups">{t("system.backups.heading")}</h2>
+        <button type="button" disabled={isBusy} onClick={makeBackup}>
+          {t("system.backups.make")}
+        </button>
+      </div>
       <p>{t("system.backups.what")}</p>
       <label>
         <input
@@ -59,10 +66,7 @@ export function SystemBackups(): JSX.Element {
         />{" "}
         {t("system.backups.includeKey")}
       </label>
-      {shouldIncludeKey ? <p>{t("system.backups.includeKeyWarning")}</p> : null}{" "}
-      <button type="button" disabled={isBusy} onClick={makeBackup}>
-        {t("system.backups.make")}
-      </button>
+      {shouldIncludeKey ? <p>{t("system.backups.includeKeyWarning")}</p> : null}
       {isAsked ? <output>{t("system.backups.asked")}</output> : null}
       {problem === undefined ? null : <p role="alert">{problem}</p>}
       <Loaded resource={backups} render={(value) => <BackupList backups={value} />} />
@@ -70,7 +74,7 @@ export function SystemBackups(): JSX.Element {
   );
 }
 
-/** The backups directory, newest first, and where it is. */
+/** The backups directory, newest first, folded under their count, and where it is. */
 function BackupList(props: { readonly backups: Backups }): JSX.Element {
   const { t } = useTranslation();
   const listed = props.backups.backups ?? [];
@@ -80,17 +84,20 @@ function BackupList(props: { readonly backups: Backups }): JSX.Element {
       {listed.length === 0 ? (
         <p>{t("system.backups.none")}</p>
       ) : (
-        <ul>
-          {listed.map((backup) => (
-            <li key={backup.name}>
-              {t("system.backups.backup", {
-                name: backup.name,
-                size: byteSizeText(backup.sizeBytes, i18n.language),
-                at: dateTimeText(backup.madeAt, i18n.language),
-              })}
-            </li>
-          ))}
-        </ul>
+        <details className="system__fold">
+          <summary>{t("system.backups.list", { count: listed.length })}</summary>
+          <ul>
+            {listed.map((backup) => (
+              <li key={backup.name}>
+                {t("system.backups.backup", {
+                  name: backup.name,
+                  size: byteSizeText(backup.sizeBytes, i18n.language),
+                  at: dateTimeText(backup.madeAt, i18n.language),
+                })}
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
     </>
   );

@@ -6,7 +6,7 @@ import "./i18n.ts";
 import { afterEach, expect, it } from "vitest";
 
 import { System, type SystemNode, type SystemReport } from "./system.tsx";
-import { mount, servedBy, type Mounted } from "./test-dom.tsx";
+import { click, mount, servedBy, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 /** The backups section's answer when there are none (D242 §5). */
@@ -349,4 +349,31 @@ it("the System page says when the public name's certificate expires, or that the
   expect(obtained).toContain("it is renewed a month before.");
   mounted?.unmount();
   expect(await withCertificate()).toContain("Not obtained yet");
+});
+
+it("the System page opens with a contents row whose links focus their sections' headings (ui-audit-2026-11-04.md §3)", async () => {
+  await shown(connected);
+  const container = mounted?.container;
+  const links = [...(container?.querySelectorAll('nav[aria-label="On this page"] a') ?? [])];
+  const names = links.map((each) => each.textContent);
+  expect(names).toEqual([
+    "This server",
+    "What doctor finds",
+    "Outside services",
+    "Machine: local",
+    "Now playing",
+    "Resource use",
+    "Backups",
+    "Reached from outside",
+    "Remote access",
+  ]);
+  // Each link leads to the heading that names it.
+  expect(
+    links.map((each) => container?.querySelector(each.getAttribute("href") ?? "")?.textContent),
+  ).toEqual(names);
+  await click(links.find((each) => each.textContent === "Backups"));
+  expect(document.activeElement).toBe(container?.querySelector("#system-backups"));
+  await click(links.find((each) => each.textContent === "Machine: local"));
+  expect(document.activeElement).toBe(container?.querySelector("#system-node-local"));
+  expect(location.hash).toBe("");
 });

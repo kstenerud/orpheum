@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./system.css";
 import "./system-resource-use.css";
 
 import type { components } from "@orpheum/sdk";
@@ -63,7 +64,7 @@ function ResourceUseView(props: { readonly use: ResourceUse }): JSX.Element {
   );
 }
 
-/** One process: what it used over the month kept, and its hours of the last day. */
+/** One process: what it used over the month kept, and its hours of the last day, folded. */
 function ProcessUse(props: {
   readonly summary: Summary;
   readonly hours: readonly Hour[];
@@ -82,28 +83,31 @@ function ProcessUse(props: {
         })}
       </p>
       {props.hours.length === 0 ? null : (
-        <div className="resource-use__scroll">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">{t("system.resourceUse.hour")}</th>
-                <th scope="col">{t("system.resourceUse.cpu")}</th>
-                <th scope="col">{t("system.resourceUse.memory")}</th>
-                <th scope="col">{t("system.resourceUse.doing")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {props.hours.map((hour) => (
-                <tr key={hour.start}>
-                  <th scope="row">{timeText(hour.start, i18n.language)}</th>
-                  <td>{cpuText(t, hour.cpuPercent, hour.busiestCpuPercent)}</td>
-                  <td>{memoryText(t, hour)}</td>
-                  <td>{doingText(t, hour)}</td>
+        <details className="system__fold">
+          <summary>{t("system.resourceUse.hours", { count: props.hours.length })}</summary>
+          <div className="resource-use__scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">{t("system.resourceUse.hour")}</th>
+                  <th scope="col">{t("system.resourceUse.cpu")}</th>
+                  <th scope="col">{t("system.resourceUse.memory")}</th>
+                  <th scope="col">{t("system.resourceUse.doing")}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {props.hours.map((hour) => (
+                  <tr key={hour.start}>
+                    <th scope="row">{timeText(hour.start, i18n.language)}</th>
+                    <td>{cpuText(t, hour.cpuPercent, hour.busiestCpuPercent)}</td>
+                    <td>{memoryText(t, hour)}</td>
+                    <td>{doingText(t, hour)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
       )}
     </section>
   );
