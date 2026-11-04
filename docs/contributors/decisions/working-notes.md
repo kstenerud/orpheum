@@ -26128,3 +26128,30 @@ version, one ordering, no admin's choices, since D418 §5 took File details out 
 - 1: web/apps/web/src/title-head.browser.test.tsx
 
 **Status:** Decided 2026-11-04; not built (the UI revamp's first wave builds it).
+
+## D421 — A dialog's safe choice comes first and is where focus arrives; where every choice is dangerous, none is
+
+**Decided** (2026-11-04), by the project owner ("If the only options available in a dialog are all
+dangerous, don't auto-select any of them. The user must move onto one of them. Otherwise the first
+item and default selected item is the safe one."), answering the Manage agent's question whether
+the repair dialogs' Keep it, already focused (ui-audit-2026-11-04.md §3, A library), should come
+first too. It holds for every dialog and every inline ask-again (`ConfirmButton`), not the library's
+alone.
+
+1. **Where a dialog offers a safe choice** (Keep it, Cancel, Close, anything that changes nothing),
+   **it is the first choice in the row and where focus arrives** as the dialog opens, so an OK
+   pressed once too often changes nothing.
+2. **Where every choice is dangerous**, **focus arrives on none of them**: it rests on the dialog
+   itself (its heading or its words), and the person must move onto a choice before OK does
+   anything. Escape or Back still closes it, sending nothing.
+3. **The dialog decides, from a mark** (the owner, 2026-11-04: "What we can do for dialogs is allow
+   marking a selectable widget 'dangerous action'. Then it can auto-decide which (if any) to
+   auto-select on open."): a choice is marked as a dangerous action where it is written, and the
+   dialog, as it opens, puts focus on its first choice not so marked, or on none where every choice
+   is; no dialog picks its arrival by hand for this.
+
+**Proven by:**
+- 1: web/apps/web/src/retire.test.tsx (`ConfirmDialog`), web/apps/web/src/warning-sign.test.tsx
+  (`ConfirmButton`)
+
+**Status:** Decided 2026-11-04; not built (the UI revamp's first wave builds it).

@@ -124,6 +124,11 @@ it("retires a root only once the admin confirms, and keeping it sends nothing (D
   expect(container.querySelector('dialog [data-focus-start="arrival"]')?.textContent).toBe(
     "Keep it",
   );
+  // The safe choice first in the row, too (D421).
+  expect([...container.querySelectorAll("dialog p button")].map((b) => b.textContent)).toEqual([
+    "Keep it",
+    "Retire the folder",
+  ]);
   await click(buttonWithText(container, "Keep it"));
   expect(container.querySelector("dialog")).toBeNull();
   await click(repairs());

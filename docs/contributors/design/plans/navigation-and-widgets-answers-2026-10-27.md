@@ -1720,6 +1720,23 @@ scrub-bar overlay hide, `lab-pad-input`'s stick test, `sw.browser.test.ts` under
 `together-leader`'s leftover group, `listeners_test.go`'s closed port and `session_uses_test.go`'s
 sleep.
 
+**The owner's answers to the Manage agent's questions (2026-11-04):**
+- **The settings' labels** (`web/apps/web/src/locales/en-setting-labels.ts`, about 150): "Accept them
+  for now. I'll look later." Kept as written; the owner reviews them later.
+- **A dialog's choices:** D421, for every dialog this wave touches.
+- **Jobs' filters:** "Option A. We need to rethink this anyway because there are so many jobs that
+  it's hard to make any sense of them." The page filters the newest `job_view_max_jobs` jobs in the
+  browser; the server neither filters nor pages.
+
+**Next batch, for the owner to order:**
+- **Rethink the Jobs page** (the owner, 2026-11-04, above): there are so many jobs that it is hard to
+  make sense of them. What an admin needs from it, and whether the server filters and pages, is a
+  design question for the owner first.
+- **A browser test's page shows an earlier test's details in Firefox** (the series agent,
+  2026-11-04): a page mounted in one test showed the details an earlier test left under the same
+  title id; the agent's tests use distinct ids (104, 22, 23) to avoid it. Likely a cache the browser
+  tests' setup does not reset between tests; find which and reset it.
+
 ## The API batch (the owner, 2026-11-04, D416)
 
 The batch after the first wave, alone: "Do everything in one batch, nothing else in the batch, then

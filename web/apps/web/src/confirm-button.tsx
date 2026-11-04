@@ -6,10 +6,16 @@ import { useTranslation } from "react-i18next";
 import { arrivalMark } from "./focus-navigation.ts";
 import { ModalDialog } from "./modal-dialog.tsx";
 
+/** Puts focus on a button as it is drawn: the ask's Keep it (D421). */
+function focusAsDrawn(button: HTMLButtonElement | null): void {
+  button?.focus();
+}
+
 /**
  * A button for what cannot be undone: pressed, it says what will happen and asks again, and only
  * the second press acts; "Keep it" puts things back as they were. Both it and what it says are in
- * the irreversible red (D278 §4): outlined first, filled to confirm.
+ * the irreversible red (D278 §4): outlined first, filled to confirm. Asking, Keep it comes first and
+ * has focus (D421), so a press too many keeps things as they are.
  */
 export function ConfirmButton(props: {
   /** What the first button says. */
@@ -46,6 +52,15 @@ export function ConfirmButton(props: {
       <span className="irreversible-words">{props.consequence}</span>{" "}
       <button
         type="button"
+        ref={focusAsDrawn}
+        onClick={() => {
+          setIsAsking(false);
+        }}
+      >
+        {t("common.keepIt")}
+      </button>{" "}
+      <button
+        type="button"
         className="irreversible"
         onClick={() => {
           setIsAsking(false);
@@ -53,14 +68,6 @@ export function ConfirmButton(props: {
         }}
       >
         {props.confirmLabel}
-      </button>{" "}
-      <button
-        type="button"
-        onClick={() => {
-          setIsAsking(false);
-        }}
-      >
-        {t("common.keepIt")}
       </button>
     </span>
   );
@@ -68,9 +75,9 @@ export function ConfirmButton(props: {
 
 /**
  * A dialog asking before what cannot be undone, for an action under a "…" (more-actions.tsx): its
- * heading, what will happen, in the irreversible red, the action, filled red, and "Keep it", the
- * least harmful choice, focused as it opens (ui-audit-2026-11-04.md §3, A library), so a remote's
- * OK pressed once too often keeps things as they are. Keep it, Escape or Back close it, sending
+ * heading, what will happen, in the irreversible red, "Keep it", the least harmful choice, first and
+ * focused as it opens (D421), and the action, filled red (ui-audit-2026-11-04.md §3, A library), so a
+ * remote's OK pressed once too often keeps things as they are. Keep it, Escape or Back close it, sending
  * nothing.
  */
 export function ConfirmDialog(props: {
@@ -88,6 +95,9 @@ export function ConfirmDialog(props: {
       <h2>{props.heading}</h2>
       <p className="irreversible-words">{props.consequence}</p>
       <p>
+        <button type="button" {...arrivalMark} onClick={props.onClose}>
+          {t("common.keepIt")}
+        </button>{" "}
         <button
           type="button"
           className="irreversible"
@@ -97,9 +107,6 @@ export function ConfirmDialog(props: {
           }}
         >
           {props.confirmLabel}
-        </button>{" "}
-        <button type="button" {...arrivalMark} onClick={props.onClose}>
-          {t("common.keepIt")}
         </button>
       </p>
     </ModalDialog>
