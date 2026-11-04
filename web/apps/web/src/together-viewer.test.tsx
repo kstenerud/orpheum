@@ -157,7 +157,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       group: { state: "Paused", positionMs: 0, rate: 1, fileId: 5 },
     });
     expect(mounted.container.querySelector("video")).not.toBeNull();
-    expect(mounted.container.textContent).not.toContain("Sound:");
+    expect(mounted.container.textContent).not.toContain("Sound on this device");
     expect(buttonWithText(mounted.container, "Change")).toBeUndefined();
     mounted.unmount();
   });
