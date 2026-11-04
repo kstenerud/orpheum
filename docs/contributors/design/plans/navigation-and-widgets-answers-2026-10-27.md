@@ -1650,3 +1650,41 @@ research run in this batch … The actual UI revamp will be done next batch."*
 widget and its real player rows, `ModalDialog`'s `className`), folded into the revamp; the
 Diagnostics page (D341); AirPlay, recorded in [airplay.md](airplay.md), its spike scheduled by the
 owner. End: one check-pr, the owner's go, nas.example.
+
+## The UI revamp's first wave (the owner, 2026-11-04: "start the UI revamp batch")
+
+Built from [ui-audit-2026-11-04.md](../research/ui-audit-2026-11-04.md) with the owner's answers, and
+[search-by-more-2026-11-04.md](../research/search-by-more-2026-11-04.md). Everything but the shell's
+navigation (Q1, Q2), which is the second wave's design loops on real devices. VQ262's result, if it
+asks for a quick fix, is folded in (the owner, 2026-11-04).
+
+1. **Genres and people, kept.** TMDB's stored responses already carry `genres` and `credits` (asked
+   with `append_to_response=credits`); the NFO reader (`internal/core/identify/nfo.go`) gains
+   `<genre>`, `<actor>` (name, role, order) and `<director>`/`<credits>`. A new migration keeps
+   genres, people and each title's credits (role, character, order); identification fills them, and
+   a one-time pass fills them from the responses already stored, with no new request. People and
+   genres join the text index.
+2. **One search, grouped.** Results at each keystroke from the first letter: Titles, People, Genres.
+   A person or genre opens the list filtered by it. Recent searches. No result cap.
+3. **Filters on the list:** Genre, Decade and Unwatched chips on Films and Series.
+4. **A title's people:** its cast and director on its page, each one press from their titles.
+5. **Arrival and Back (R3–R6):** each page focuses its main action on arrival, with no ring for mouse
+   and touch (Q6); a screen reader hears the page's heading; Back restores the last focus and a
+   closed dialog returns focus to its opener; the arrow search falls back to the nearest control off
+   the line, and a test walks every page's controls by arrows and fails on one it cannot reach. A
+   grid's short last row keeps "stay" (Q3).
+6. **The pages (§3 of the audit):** Sign in, Home, the lists, a film's page (R8, the actions row with
+   Play first), an episode's and a series' pages, the player (full window, controls over the
+   picture, Back never a third state, item 8), the Watch Together and Cast dialogs, Your account,
+   This device, About, and Manage's pages (a library, Create a library, a person, Settings, Jobs,
+   System, How to update). No poster grows on focus (Q4).
+7. **Every setting saves at once** (Q5), the admin's forms too; a creation (a library, an invitation)
+   keeps its one Create.
+8. **One name per library** (Q7): Films and Series stay the places, filtered by library; `/browse` is
+   "Libraries".
+9. **For testers** (Q8): the player's diagnostics and Device tests move behind it.
+10. **Folded in:** the SWAG research's remote (the held seek, the seek rest, "Still watching?"),
+    the UI review's items (the scrub bar's time, the gallery's pop-ups per widget and its real
+    player rows, `ModalDialog`'s `className`).
+
+End: one check-pr, the owner's go, nas.example.
