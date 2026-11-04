@@ -223,9 +223,7 @@ export function Browse(props: {
     <section className="browse browse__layout" aria-labelledby="browse-heading">
       <div ref={listRef}>
         <div className="browse__bar">
-          <h1 id="browse-heading">
-            {t(props.kind === "movie" ? "browse.films" : "browse.series")}
-          </h1>
+          <h1 id="browse-heading">{t(props.kind === "movie" ? "nav.films" : "nav.series")}</h1>
           {/* Its tools on the bar's line after its name, so Up from the list's first row meets them,
               whichever poster it leaves, and Up again the banner (the owner, 2026-11-04: Up goes to
               the list's tools before the banner). */}

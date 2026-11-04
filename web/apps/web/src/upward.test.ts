@@ -262,3 +262,20 @@ describe("Up over the history (D367 §7; navigation-back-up-2026-10-27.md §3)",
     expect(historyOf(fromHome.place, fromHome.navigation)).toBe("/ [/browse?library=3]");
   });
 });
+
+// ui-audit-2026-11-04.md Q7, the owner's yes: one name for each list wherever it is shown. Every
+// library together is the Libraries page, as its heading and the banner's menu say.
+describe("a library's Up says the list's one name (ui-audit-2026-11-04.md Q7)", () => {
+  it("names every library together Libraries, and Films Films", () => {
+    const all = libraryCrumb("series", [shows], {
+      t: i18n.t,
+      behind: [home, { screen: "browse", library: "all" }],
+    });
+    expect(all.label).toBe("Libraries");
+    const filmsPlace = libraryCrumb("movie", [films], {
+      t: i18n.t,
+      behind: [home, { screen: "films" }],
+    });
+    expect(filmsPlace.label).toBe("Films");
+  });
+});

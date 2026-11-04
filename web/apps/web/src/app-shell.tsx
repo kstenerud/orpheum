@@ -453,8 +453,9 @@ function PlaceLink(props: {
 
 /**
  * The banner's Libraries (the owner, 2026-10-28: "make the libraries icon a menu that lists the
- * libraries under it"): a drop-down of the person's libraries by name, each its page, then All
- * libraries last, the one shown marked; the shared drop-down (drop-down.tsx), so on a TV it closes as
+ * libraries under it"): a drop-down of the person's libraries by name, each its page, then the
+ * Libraries page, every library together, last (one name for it everywhere, ui-audit-2026-11-04.md
+ * Q7), the one shown marked; the shared drop-down (drop-down.tsx), so on a TV it closes as
  * any chooser does, at Back, Left or Right, and scrolls within its height. With one library the icon
  * goes straight to its page, no menu of one; with none, or before they are read, to the Libraries
  * page, as it did.
@@ -502,7 +503,7 @@ function LibrariesMenu(props: {
           </ListOption>
         ))}
         <ListOption to={{ screen: "browse", library: "all" }} isCurrent={shown === "all"}>
-          {t("browse.allLibraries")}
+          {t("browse.libraries")}
         </ListOption>
       </DropDown>
     </li>

@@ -235,7 +235,7 @@ describe("Films' and Series' rail shows only letters that lead somewhere (D349 Â
   });
 });
 
-describe("All Films' and All Series' search (the owner, 2026-10-30)", () => {
+describe("Films' and Series' search (the owner, 2026-10-30)", () => {
   let mounted: Mounted | undefined;
   afterEach(() => {
     mounted?.unmount();
@@ -258,7 +258,7 @@ describe("All Films' and All Series' search (the owner, 2026-10-30)", () => {
       </BackgroundChangesContext>,
     );
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
-    expect(mounted.container.querySelector("h1")?.textContent).toBe("All Films");
+    expect(mounted.container.querySelector("h1")?.textContent).toBe("Films");
     await narrowByName(mounted.container, "heat");
     await settleUntil(() => titlesHeard(heard).length >= 2);
     const searched = new URLSearchParams(titlesHeard(heard)[1]?.query);

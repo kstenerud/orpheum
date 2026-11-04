@@ -172,7 +172,7 @@ describe("the Libraries page (D349)", () => {
       },
     );
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
-    expect(mounted.container.querySelector(".browse__bar h1")?.textContent).toBe("All Libraries");
+    expect(mounted.container.querySelector(".browse__bar h1")?.textContent).toBe("Libraries");
   });
 
   it("names neither the library chooser nor the search on the page, only to a screen reader (the owner, 2026-10-27)", async () => {

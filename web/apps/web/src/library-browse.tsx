@@ -196,7 +196,7 @@ function resolveBrowse(
     view: showsFolders && state.view === "folders" ? "folders" : "all",
     libraryId: state.library === "all" ? undefined : state.library,
     currentLabel:
-      chosen?.name ?? (state.library === "all" ? t("browse.allLibraries") : t("browse.library")),
+      chosen?.name ?? (state.library === "all" ? t("browse.libraries") : t("browse.library")),
   };
 }
 

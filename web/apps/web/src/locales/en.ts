@@ -315,8 +315,6 @@ export const en = {
     makeLibrary: "Make a library",
   },
   browse: {
-    films: "All Films",
-    series: "All Series",
     libraries: "Libraries",
     sort: "Sort",
     fieldName: "Name",
@@ -341,7 +339,6 @@ export const en = {
     noLibrariesAtAll: "No libraries have been made yet. Ask whoever runs this server to make one.",
     year: "{{year}}",
     library: "Library",
-    allLibraries: "All Libraries",
     view: "View",
     viewAll: "All",
     viewFolders: "Folders",

@@ -60,7 +60,7 @@ describe("the banner's Libraries", () => {
     await settleUntil(() => container.querySelector(librariesButton) !== null);
     await click(container.querySelector(librariesButton));
     const links = [...container.querySelectorAll<HTMLAnchorElement>("dialog ul a")];
-    expect(links.map((link) => link.textContent)).toEqual(["Alpha", "Zoo", "All Libraries"]);
+    expect(links.map((link) => link.textContent)).toEqual(["Alpha", "Zoo", "Libraries"]);
     expect(links.map((link) => link.getAttribute("href"))).toEqual([
       "/browse?library=1",
       "/browse?library=2",
