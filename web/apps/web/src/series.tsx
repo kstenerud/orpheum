@@ -9,7 +9,7 @@ import type { TFunction } from "i18next";
 
 import { episodeReachedOf, letGoOfEpisodeReached, type EpisodeReached } from "./episode-reached.ts";
 import { restoreWhenDrawn } from "./focus-memory.ts";
-import { arrivalMark, focusAndShow } from "./focus-navigation.ts";
+import { focusAndShow } from "./focus-navigation.ts";
 import { routeHref } from "./router.ts";
 import { UpTrail, useLibraryContext } from "./up-trail.tsx";
 import { libraryCrumb } from "./upward.ts";
@@ -29,6 +29,7 @@ import { ActionChooser, currentLabelOf, type ActionChoice } from "./route-choose
 import { usePageInterest } from "./page-interest.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
+import { TitleHead } from "./title-head.tsx";
 import { Remembered, useRemembered } from "./remembered.ts";
 import { useResource, type Resource } from "./use-resource.ts";
 import { usePages, type Page } from "./use-pages.ts";
@@ -55,8 +56,10 @@ function seasonName(t: TFunction, series: SeriesDetail, season: Season): string 
 }
 
 /**
- * A series' page, one page whatever season it shows (D367 §9): its art and what it is about, then its
- * seasons as a row of posters (D379), then one season's episodes, the season chosen in the row, which
+ * A series' page, one page whatever season it shows (D367 §9): its first screen in the title template
+ * (title-head.tsx, ui-audit-2026-11-04.md R8), its actions row Continue or Play its next episode
+ * first, the page's arrival, then Mark as watched and the "…"; then its seasons as a row of posters
+ * (D379), then one season's episodes, the season chosen in the row, which
  * changes the view and adds no step to the history; with none chosen, the season of the person's next episode, else the first. Every season's
  * episodes on one page, the seasons only headings, was too long a list to find one in (the owner,
  * 2026-10-07). The seasons are the groups of the ordering the person watches the series in, which a
@@ -78,33 +81,40 @@ export function SeriesView(props: {
   const seasons = series.seasons ?? [];
   const [marks, onWatchedChanged] = useMarksCounted(props.onWatchedChanged);
   const shown = shownSeasonOf(series, props.season);
+  const { nextUp } = series;
+  const nextUpPlay =
+    nextUp === undefined ? null : (
+      <NextUpPlay nextUp={nextUp} ordering={series.ordering} isOnlyGroup={seasons.length === 1} />
+    );
+  // One that cannot be played now is said among the notes; one that can, the actions row's first.
+  const isNextUpPlayable = nextUp !== undefined && nextUp.unavailable === undefined;
   return (
     <article className="series">
-      <div className="series__head">
-        <Poster sourceSha256={series.art.posterSha256} />
-        <div>
-          <h1>{series.name}</h1>
-          {series.year === undefined ? null : <p className="series__year">{series.year}</p>}
-          {series.overview === undefined ? null : <p>{series.overview}</p>}
-          <StatusNotes subject={series} />
-          {series.nextUp === undefined ? null : (
-            <NextUpPlay
-              nextUp={series.nextUp}
-              ordering={series.ordering}
-              isOnlyGroup={seasons.length === 1}
-            />
-          )}
-          <OrderingFetching series={series} />
-          <div className="page-actions">
+      <TitleHead
+        backdropSha256={series.art.backdropSha256}
+        art={<Poster sourceSha256={series.art.posterSha256} />}
+        name={series.name}
+        facts={series.year === undefined ? null : <span>{series.year}</span>}
+        notes={
+          <>
+            <StatusNotes subject={series} />
+            {isNextUpPlayable ? null : nextUpPlay}
+            <OrderingFetching series={series} />
+          </>
+        }
+        actions={
+          <>
+            {isNextUpPlayable ? nextUpPlay : null}
             <SeriesMark series={series} onChanged={onWatchedChanged} />
             <SeriesMoreActions
               series={series}
               onMatchCorrected={props.onMatchCorrected}
               onOrderingChosen={props.onOrderingChosen}
             />
-          </div>
-        </div>
-      </div>
+          </>
+        }
+        overview={series.overview}
+      />
       {shown === undefined || seasons.length === 1 ? null : (
         <SeasonRow series={series} shown={shown} />
       )}
@@ -326,13 +336,11 @@ export function NextUpPlay(props: {
     );
   }
   return (
-    <p {...arrivalMark}>
-      <Link to={{ screen: "play", fileId: nextUp.fileId }} className="title__play">
-        {nextUp.isPartway
-          ? t("title.continueEpisode", { episode })
-          : t("title.playEpisode", { episode })}
-      </Link>
-    </p>
+    <Link to={{ screen: "play", fileId: nextUp.fileId }} className="title__play">
+      {nextUp.isPartway
+        ? t("title.continueEpisode", { episode })
+        : t("title.playEpisode", { episode })}
+    </Link>
   );
 }
 
