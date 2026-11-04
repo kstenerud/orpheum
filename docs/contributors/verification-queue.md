@@ -2575,8 +2575,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   (`web/packages/sdk/src/playable-formats.ts`'s `startsHevcOnlyAtIdr`)
   - Run 2026-11-04, the owner, Firefox 157 and Safari on a Mac, staging: Firefox played the converted
     copy throughout, Safari the film's own picture.
-- [ ] **VQ261** — Safari on a Mac says its picture timing is not measured, never a figure of millions of
+- [x] **VQ261** — Safari on a Mac says its picture timing is not measured, never a figure of millions of
   milliseconds (the owner, 2026-11-04). The figure's bound is tested; what Safari gives is seen only on
   the Mac. On staging, in Safari on the Mac, any film played past its first seconds. Passes when the play
   page's info says "Picture timing: this browser does not say." and Firefox on the same Mac still gives
   a figure under a second. (`web/apps/web/src/frame-timing.ts`'s `farthestBehindSoundMs`)
+  - Run 2026-11-04, the owner, Safari and Firefox on a Mac, staging, film 451: Safari "this browser does not
+    say", Firefox 0 ms after it is ready, 15 ms behind the sound.
