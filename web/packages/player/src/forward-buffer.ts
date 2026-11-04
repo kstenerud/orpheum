@@ -19,7 +19,7 @@ import { holdsQualityAheadS } from "./abr.ts";
 
 /**
  * How far ahead a playback loads below its top quality, in seconds: the step-up's 20 s loaded ahead
- * (stepUpBufferMs) and room for one chunk of the ten-second grid to load. Less, and the step-up could
+ * (stepUpBufferMs) and room for one chunk of up to 10 s, as 99% are (D414 §5), to load. Less, and the step-up could
  * never open; more only delays the better picture, which shows only once everything loaded below it
  * has played: at the lead's 60 s, up to 90 s from the decision to the change on screen
  * (forward-buffer-2026-10-29.md §1.2, P1; dash.js keeps 18 s below its top). A justified constant,

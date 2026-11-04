@@ -18,6 +18,7 @@ func (services *Services) openPlayback(parts Parts) {
 	database, queue := parts.Database, services.Queue
 	services.ReadThrough = readthrough.NewService(readthrough.Parts{
 		Database: database, Queue: queue, Nodes: services.nodes, Exchanges: services.Exchanges, Clock: parts.Clock,
+		Logger: parts.Logger,
 	})
 	levels := loudness.NewService(loudness.Parts{Database: database, Settings: parts.Settings})
 	services.subtitles = subtitles.NewService(subtitles.Parts{

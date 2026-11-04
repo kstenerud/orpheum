@@ -77,8 +77,9 @@ export interface Preload {
 }
 
 /**
- * How far ahead a film page's hidden player loads: its first buffer, one chunk of the ladder's
- * ten-second grid, not the half minute hls.js loads by itself. Three or more chunks of a film's
+ * How far ahead a film page's hidden player loads: its first buffer, the first chunk or few of its
+ * film (one to five, by where its keyframes fall: one where its chunks are 10 s, D414 §5), not the
+ * half minute hls.js loads by itself. Three or more chunks of a film's
  * own picture, 12 MB of Bram's, held a phone's link after its person had moved on (2026-10-07).
  */
 export const preloadAheadS = 10;

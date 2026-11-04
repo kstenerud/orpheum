@@ -4,6 +4,8 @@ package readthrough
 
 import (
 	"context"
+	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -61,6 +63,38 @@ func TestTimeRead_AFullReadTellsItsBytesAndHowLongItRan(t *testing.T) {
 	if want := []timing{{nodeID: 1, bytes: 4000, took: 40 * time.Second}}; len(record.told) != 1 ||
 		record.told[0] != want[0] {
 		t.Errorf("the timings were told %+v; want %+v, the full read alone", record.told, want)
+	}
+}
+
+// An index read's time is logged, from when its node said it ran, for whether play_ladder_wait_ms
+// outlasts it; a full read's is not, and the timings are told it instead (D414 §5).
+func TestTimeRead_AnIndexReadLogsHowLongItTook(t *testing.T) {
+	t.Parallel()
+	now := clocktest.NewFake(time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC))
+	var logged strings.Builder
+	service := &Service{clock: now, logger: slog.New(slog.NewTextHandler(&logged, nil))}
+	job := jobs.Job{ID: 9, Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: 4}}
+	service.timeRead(t.Context(), job, nodes.Attempt{
+		NodeID: 1, RunningSince: now.Now().Add(-1500 * time.Millisecond),
+		Work: nodeproto.Work{ReadThrough: &nodeproto.ReadThrough{
+			VideoTimeline: &nodeproto.VideoTimelineAsk{IsFromIndexOnly: true},
+		}},
+	})
+	line := logged.String()
+	for _, want := range []string{"keyframes were read from its index", "fileId=4", "nodeId=1", "tookMs=1500"} {
+		if !strings.Contains(line, want) {
+			t.Errorf("the log says %q; want it to hold %q", line, want)
+		}
+	}
+	logged.Reset()
+	service.timeRead(t.Context(), job, nodes.Attempt{
+		NodeID: 1, RunningSince: now.Now().Add(-time.Second),
+		Work: nodeproto.Work{ReadThrough: &nodeproto.ReadThrough{
+			LoudnessTracks: []nodeproto.LoudnessTrack{{StreamIndex: 1}},
+		}},
+	})
+	if logged.Len() != 0 {
+		t.Errorf("a full read logged %q; want nothing", logged.String())
 	}
 }
 

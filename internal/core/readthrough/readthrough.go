@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -52,6 +53,8 @@ type Parts struct {
 	// results with them.
 	Exchanges *nodes.Exchanges
 	Clock     clock.Clock
+	// Logger says how long each read of a file's index took (D414 §5); nil says nothing.
+	Logger *slog.Logger
 }
 
 // Timings are told each node's full read-throughs: the bytes read and how long their reading took
@@ -68,6 +71,7 @@ type Service struct {
 	nodes     Nodes
 	exchanges *nodes.Exchanges
 	clock     clock.Clock
+	logger    *slog.Logger
 	// timings are told how long each full read took, for how long the next will (D324 §6); nil tells
 	// nothing (TimeReadsBy).
 	timings Timings
@@ -91,7 +95,8 @@ func noIndexKey(payloadHash []byte, videoStreamIndex int) string {
 func NewService(parts Parts) *Service {
 	service := &Service{
 		database: parts.Database, queue: parts.Queue, nodes: parts.Nodes,
-		exchanges: parts.Exchanges, clock: parts.Clock, noIndex: noIndexes{byKey: map[string]bool{}},
+		exchanges: parts.Exchanges, clock: parts.Clock, logger: parts.Logger,
+		noIndex: noIndexes{byKey: map[string]bool{}},
 	}
 	parts.Exchanges.Record(nodeproto.CommandReadThrough, service.record)
 	return service
@@ -531,18 +536,30 @@ func (service *Service) takeProgress(ctx context.Context, attempt nodes.Attempt,
 // serves.
 func (service *Service) TimeReadsBy(timings Timings) { service.timings = timings }
 
-// timeRead tells the timings how long a full read of a file took, from when its node said it ran:
-// an index read says nothing of how fast the node reads.
+// timeRead tells the timings how long a full read of a file took, from when its node said it ran;
+// an index read says nothing of how fast the node reads, and is logged instead, for whether
+// play_ladder_wait_ms outlasts it (D414 §5).
 func (service *Service) timeRead(ctx context.Context, job jobs.Job, attempt nodes.Attempt) {
 	command := attempt.Work.ReadThrough
-	if service.timings == nil || command == nil || command.IsFromIndexOnly() || attempt.RunningSince.IsZero() {
+	if command == nil || attempt.RunningSince.IsZero() {
+		return
+	}
+	took := service.clock.Now().Sub(attempt.RunningSince)
+	if command.IsFromIndexOnly() {
+		if service.logger != nil {
+			service.logger.InfoContext(ctx, "a file's keyframes were read from its index",
+				"fileId", job.FileID, "nodeId", attempt.NodeID, "tookMs", took.Milliseconds())
+		}
+		return
+	}
+	if service.timings == nil {
 		return
 	}
 	file, err := library.PlayableFile(ctx, service.database.Read(), job.FileID)
 	if err != nil || file.SizeBytes == nil {
 		return // a file gone since says nothing of the node's speed
 	}
-	service.timings.ReadThroughFinished(attempt.NodeID, *file.SizeBytes, service.clock.Now().Sub(attempt.RunningSince))
+	service.timings.ReadThroughFinished(attempt.NodeID, *file.SizeBytes, took)
 }
 
 // followIndexRead queues a file's full read once its index was read (D269 §5): for its loudness

@@ -25929,4 +25929,19 @@ revamp (the owner, 2026-11-04).
    one can be counted; the index read's time is logged; `hls_segment_length_seconds`' help says a film's
    keyframes decide its chunks, and its 2 s is a floor often not reached.
 
-**Status:** Decided 2026-10-29; not built yet (the 11-06 batch, item 4).
+**Proven by:**
+- 1: web/packages/player/src/stalls.test.ts
+- 2: web/packages/sdk/src/together-refill.test.ts, web/packages/player/src/next-chunk.test.ts, VQ262
+- 3: web/packages/player/src/abr-choice.test.ts, web/packages/player/src/abr-measure.test.ts
+- 4: web/apps/web/src/discovery-paths.test.ts, web/apps/web/src/path-choice.test.ts, web/packages/sdk/src/direct-path.test.ts
+- 5: TestTimeRead_AnIndexReadLogsHowLongItTook, web/apps/web/src/settings.test.tsx
+
+**Status:** Decided 2026-10-29; built 2026-11-04 (the 11-06 batch, item 4). §1 in
+`web/packages/player/src/stalls.ts` (`slowLoadAfterMs`); §2 in `web/packages/sdk/src/together-refill.ts`
+(`refillAfterStallOf`), told by `next-chunk.ts`; §3 in `web/packages/player/src/abr-choice.ts`
+(`SmallChunkRun`), fed by `abr.ts`'s `measures`; §4 in `web/apps/web/src/discovery-start.ts`
+(`webrtcAfterMs`, `firstRace`), each name's time in `direct-path.ts` and `path-choice.ts`; §5: the
+give-up's log line (`logUnplayables`, `internal/core/api/report.go`) already carried its `deviceId` and
+`qualityKbps`, the index read's time is logged by `timeRead` (`internal/core/readthrough`), and the help
+text is in `registry.go` and `en-settings.ts`, with the comments of `preloadAheadS`, `keptBehindS` and
+`loadsAheadBelowTopS` no longer speaking of a ten-second grid.

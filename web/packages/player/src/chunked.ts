@@ -80,7 +80,7 @@ export const chunkAskAgainCount = 90;
 /**
  * How much of what was played a chunked playback keeps in the browser's buffer behind where it plays,
  * in seconds: three of the player's 10 s steps back (seekStepMs) and a Watch Together follower's
- * jump back of a second or less, its chunk on the ten-second grid kept with it, so a step back plays
+ * jump back of a second or less, its chunk of up to 10 s (99% are, D414 §5) kept with it, so a step back plays
  * at once. hls.js keeps everything played by default (Infinity), so a device would hold a film's
  * played minutes up to the browser's memory for a page's picture, and then evict at every append
  * (the efficiency audit's finding 5, web-client-efficiency-audit-2026-10-28.md). That memory is

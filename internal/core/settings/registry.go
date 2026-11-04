@@ -519,8 +519,11 @@ func artworkAndPlaybackDefinitions() []Definition {
 		sourced(durationSetting(HLSSegmentLengthSeconds, time.Second,
 			strconv.Itoa(nodeproto.StartingSegmentLengthSeconds), nodeproto.MinSegmentLengthSeconds,
 			nodeproto.MaxSegmentLengthSeconds,
-			"seconds per chunk of a film cut into chunks: shorter switches the dialogue boost sooner, longer "+
-				"makes fewer requests; a film is cut again at another length when next played (D217 §3, D259 §1)"),
+			"the shortest chunk, in seconds, of a film cut into chunks: a chunk ends only at a keyframe, so a "+
+				"film's keyframes decide its chunks and this floor is often not reached (most film time plays "+
+				"from chunks of 6-7 s, 44% from chunks of 8 s or more); shorter switches the dialogue boost "+
+				"sooner, longer makes fewer requests; a film is cut again at another length when next played "+
+				"(D217 §3, D259 §1, D414 §5)"),
 			"D217 §3: the owner's two seconds, 2026-09-26, over six"),
 		important(sourced(integerSetting(InProgressAfterPercent, "5", 0, 50,
 			"percent of a file's length after which it counts as in progress: it resumes there and shows in "+
