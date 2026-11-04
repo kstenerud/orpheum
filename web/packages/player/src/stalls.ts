@@ -11,11 +11,13 @@ export const stallAfterMs = 1000;
 /**
  * How long a load, the first or a seek's, may leave a player unable to play before it counts as a
  * stall, and again each time as long: a player that cannot get going never stalls while it plays,
- * and so was never offered a lower quality (the owner's choice, 2026-10-05, D247 §2). Two come
- * within the 60 s a Watch Together group waits for its host. Counted only while the wait is the
- * link's (slowLoads).
+ * and so was never offered a lower quality (the owner's choice, 2026-10-05, D247 §2). 8 s, the
+ * industry's line for a start that has failed (Conviva counts an exit before start as abandonment
+ * past 8 s; Media3's and hls.js's load timeouts are 8–10 s), where 15 s was past it (D414 §1,
+ * starts-chunks-remote-2026-10-29.md §1.1). Counted only while the wait is the link's (slowLoads),
+ * so a start slow because the core is making its chunk lowers nothing.
  */
-export const slowLoadAfterMs = 15_000;
+export const slowLoadAfterMs = 8000;
 
 /** HTMLMediaElement.HAVE_FUTURE_DATA, which a plain page may not define: it can play on. */
 export const haveFutureData = 3;
