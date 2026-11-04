@@ -18,7 +18,10 @@ suite last passed on is recorded, as area_stamp.py records it; against it:
   (revert_red_dependents.web_source_readers), which no import graph reaches.
 
 A pass records the tree. That is sound by induction: the tests not run were passing on the recorded
-tree and import nothing that changed since.
+tree and import nothing that changed since. The last PASSES_KEPT passed trees are kept, newest first,
+and the run is measured from the nearest: the record is shared by every worktree, and with one tree
+kept, the lead's checkout and an agent's worktree on another base each found the other's pass and ran
+the tests of both trees' differences (the lock's wargaming, 2026-11-04).
 
 `--browser` does the same for the browser-mode tests (web/vitest.browser.config.ts), under their own
 record: any change under web/ ran all of them, 66 s and growing, last in make check, where every
@@ -82,6 +85,37 @@ def command_for(changes: list[tuple[str, str]], root: str, suite: Suite = UNIT) 
     return [*suite.related, *within, *web_source_readers(root)]
 
 
+# The passed trees each suite keeps.
+PASSES_KEPT = 8
+
+
+def passed_trees(stamp: Path) -> list[str]:
+    """The trees the suite passed on, newest first."""
+    return [line.strip() for line in stamp.read_text().splitlines() if line.strip()] if stamp.exists() else []
+
+
+def nearest_command(trees: list[str], tree: str, root: str, suite: Suite) -> list[str] | None:
+    """The smallest run any passed tree calls for: None when one holds what tree holds under web/, the
+    whole suite when none is usable (a tree git has since pruned is passed over)."""
+    best = suite.whole
+    for passed in trees:
+        try:
+            command = command_for(changes_since(passed, tree), root, suite)
+        except subprocess.CalledProcessError:
+            continue
+        if command is None:
+            return None
+        if command is not suite.whole and (best is suite.whole or len(command) < len(best)):
+            best = command
+    return best
+
+
+def record_pass(stamp: Path, tree: str) -> None:
+    trees = [tree, *(passed for passed in passed_trees(stamp) if passed != tree)][:PASSES_KEPT]
+    stamp.parent.mkdir(parents=True, exist_ok=True)
+    stamp.write_text("\n".join(trees) + "\n")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--browser", action="store_true", help="the browser-mode tests")
@@ -94,7 +128,7 @@ def main(argv: list[str] | None = None) -> int:
     tree = working_tree_id()
     stamp = stamp_path(suite.step)
     if stamp.exists():
-        command = command_for(changes_since(stamp.read_text().strip(), tree), root, suite)
+        command = nearest_command(passed_trees(stamp), tree, root, suite)
         if command is None:
             print(f"{suite.step}: nothing it reads changed since it last passed; not run again")
             return 1 if arguments.due else 0
@@ -103,12 +137,11 @@ def main(argv: list[str] | None = None) -> int:
     if arguments.due:
         return 0
     if command is not suite.whole:
-        print(f"{suite.step}: only the tests the changes since the last pass reach")
+        print(f"{suite.step}: only the tests the changes since the nearest pass reach")
     done = subprocess.run(command, check=False)
     if done.returncode != 0:
         return done.returncode
-    stamp.parent.mkdir(parents=True, exist_ok=True)
-    stamp.write_text(tree + "\n")
+    record_pass(stamp, tree)
     return 0
 
 

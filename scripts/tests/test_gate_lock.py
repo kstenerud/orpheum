@@ -127,6 +127,104 @@ class GateLock(unittest.TestCase):
             self.assertIn(kind, gate_lock.LONG)
 
 
+def alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    return True
+
+
+def until(condition, seconds: float = 30) -> None:
+    deadline = time.monotonic() + seconds
+    while not condition():
+        if time.monotonic() > deadline:
+            raise AssertionError("the condition never held")
+        time.sleep(0.05)
+
+
+class TheLockGoesWithTheRun(unittest.TestCase):
+    """The lock's wargaming, 2026-11-04: a wrapper killed by the Bash tool's timeout let the lock go while
+    the tests it ran went on outside it, loading the machine beside the next run."""
+
+    def started_run(self, root: Path, *lock_args: str) -> tuple[subprocess.Popen[str], int]:
+        """A run holding the lock whose command starts a grandchild and waits on it; and that grandchild."""
+        started, grandchild = root / "started", root / "grandchild"
+        run = run_lock(root, *lock_args, "sh", "-c", f"sleep 60 & echo $! > {grandchild}; touch {started}; wait")
+        self.addCleanup(run.kill)
+        wait_for(started)
+        pid = int(grandchild.read_text())
+        self.addCleanup(lambda: alive(pid) and os.kill(pid, 9))
+        return run, pid
+
+    def test_a_wrapper_asked_to_end_ends_its_whole_run_and_lets_the_lock_go(self):
+        root = repository(self)
+        run, grandchild = self.started_run(root)
+        run.terminate()
+        run.wait(timeout=30)
+        until(lambda: not alive(grandchild))
+        self.assertIsNone(gate_lock.holder(root))
+
+    def test_a_wrapper_killed_outright_leaves_the_lock_with_its_command(self):
+        root = repository(self)
+        run, grandchild = self.started_run(root)
+        run.kill()
+        run.wait(timeout=30)
+        self.assertTrue(alive(grandchild))
+        self.assertIsNotNone(gate_lock.holder(root), "the command still holds the lock")
+        os.kill(grandchild, 9)
+        until(lambda: gate_lock.holder(root) is None)
+
+    def test_a_run_past_its_lease_is_ended_and_says_so(self):
+        root = repository(self)
+        run, grandchild = self.started_run(root, "--lease", "1")
+        out, _ = run.communicate(timeout=30)
+        self.assertEqual(run.returncode, 124)
+        self.assertIn("for its whole lease", out)
+        until(lambda: not alive(grandchild))
+        self.assertIsNone(gate_lock.holder(root))
+
+    def test_a_waiting_run_ends_a_holder_past_its_lease_whose_wrapper_is_gone(self):
+        root = repository(self)
+        run, grandchild = self.started_run(root, "--as", "test", "--lease", "1")
+        run.kill()
+        run.wait(timeout=30)
+        second = run_lock(root, "true")
+        out, _ = second.communicate(timeout=30)
+        self.assertEqual(second.returncode, 0, out)
+        self.assertIn("past its lease", out)
+        self.assertFalse(alive(grandchild))
+
+
+class TheQueue(unittest.TestCase):
+    def test_a_finished_hold_records_its_kind_and_length(self):
+        root = repository(self)
+        self.assertEqual(run_lock(root, "--as", "spot", "true").wait(timeout=30), 0)
+        self.assertEqual(list(gate_lock.hold_lengths(root)), ["spot"])
+
+    def test_the_wait_is_the_holders_rest_and_each_waiting_runs_usual_length(self):
+        root = repository(self)
+        self.assertEqual(gate_lock.expected_wait(root), (0.0, ""))
+        for _ in range(3):
+            gate_lock.record_hold(root, "check", 300)
+            gate_lock.record_hold(root, "spot", 40)
+        with open(gate_lock.lock_path(root), "a+", encoding="utf-8") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            gate_lock.mark(lock, "check", 1800, started=time.time() - 100)
+            wait, said = gate_lock.expected_wait(root)
+            self.assertAlmostEqual(wait, 200, delta=5)
+            self.assertIn("check has held it 2 min", said)
+            with mock.patch.object(gate_lock.os, "getpid", return_value=os.getpid()), \
+                    gate_lock._registered_waiting(root, "spot"):
+                wait, said = gate_lock.expected_wait(root)
+            self.assertAlmostEqual(wait, 240, delta=5)
+            self.assertIn("1 more waits before it (spot)", said)
+
+    def test_a_run_held_past_every_recorded_hold_is_expected_to_take_a_while_yet(self):
+        self.assertEqual(gate_lock.remaining("check", 1000, {"check": [100, 200]}), gate_lock.OVERDUE_SECONDS)
+        self.assertEqual(gate_lock.remaining("check", 150, {"check": [100, 200]}), 50)
+
+
 class Wiring(unittest.TestCase):
     def test_the_gates_take_the_lock(self):
         """make check, make spot, revert-red's targets and check-pr's snapshot each hold it (F17; spot,
