@@ -2,7 +2,8 @@
 
 /**
  * A seek the person is still choosing, shown before it is made (D369 §1): a held or repeated arrow
- * moves where the player's timeline and time say, faster the longer it goes on, and the film seeks
+ * moves where the player's timeline and time say, a held one by the time held, faster the longer it
+ * goes on, and the film seeks
  * once, to the place shown, when the presses rest; a press on the timeline shows its place at once.
  * The shown place stays until the seek has landed. One mechanism for every player's source: a video
  * on this page (seekAheadOf) and a remote's film another device plays (useSeekAhead), whose drags
@@ -20,16 +21,29 @@ import { useEffect, useRef, useState } from "react";
  */
 export const seekStepMs = 10_000;
 
+/** One stage of a held arrow's speed (heldSeekSpeeds). */
+export interface HeldSeekSpeed {
+  /** How long the key has been held when the stage starts, in milliseconds. */
+  readonly afterMs: number;
+  /** The least it moves in a second held, in milliseconds of film. */
+  readonly msPerS: number;
+  /** The part of the film's length it moves in a second held, where that is more. */
+  readonly ofLengthPerS: number;
+}
+
 /**
- * How far each press of a held or repeated arrow moves, by how long its presses have gone on
- * without a rest: seekStepMs at first, then 30 s from 2 s on, then 60 s from 4 s on, the modest
- * acceleration of a TV player's scrubbing, so a long film is crossed in seconds while a short hold
- * stays precise (the owner, 2026-10-29). Justified constants.
+ * How fast a held arrow moves the place shown, by wall time, not by the key's repeats, whose rate
+ * differs eightfold between devices: a Fire TV's Silk passing Android's 50 ms repeats moved 25
+ * minutes in a 4 s hold at 10/30/60 s a repeat (starts-chunks-remote-2026-10-29.md §3.1). Each stage
+ * moves the larger of its seconds and its part of the film's length a second, as Leanback and Media3
+ * scale by the length, so a 2-hour film is crossed in about 12 s at the top speed and a 22-minute
+ * episode at 120 s a second; the stages accelerate as a TV player's scrubbing does (the owner,
+ * 2026-10-29). Justified constants, the research's own guesses until the lab's timings (§3.1's test).
  */
-export const heldSeekSteps: readonly { readonly afterMs: number; readonly stepMs: number }[] = [
-  { afterMs: 0, stepMs: seekStepMs },
-  { afterMs: 2000, stepMs: 30_000 },
-  { afterMs: 4000, stepMs: 60_000 },
+export const heldSeekSpeeds: readonly HeldSeekSpeed[] = [
+  { afterMs: 0, msPerS: 20_000, ofLengthPerS: 0.01 },
+  { afterMs: 2000, msPerS: 60_000, ofLengthPerS: 0.03 },
+  { afterMs: 4000, msPerS: 120_000, ofLengthPerS: 0.08 },
 ];
 
 /**
@@ -61,15 +75,22 @@ export const landedWithinMs = 1500;
  */
 export const landingShownForMs = 10_000;
 
-/** The step a press moves after its presses have gone on heldForMs without a rest. */
-export function heldStepMs(heldForMs: number): number {
-  let stepMs = seekStepMs;
-  for (const step of heldSeekSteps) {
-    if (heldForMs >= step.afterMs) {
-      stepMs = step.stepMs;
+/**
+ * How far a key held heldForMs has moved the place shown by its holding (heldSeekSpeeds), in
+ * milliseconds of a film lengthMs long, its first press's seekStepMs not counted; a length not known
+ * (Infinity) moves each stage's seconds.
+ */
+export function heldTravelMs(heldForMs: number, lengthMs: number): number {
+  let travelledMs = 0;
+  heldSeekSpeeds.forEach((speed, index) => {
+    const endMs = heldSeekSpeeds[index + 1]?.afterMs ?? Infinity;
+    const spanMs = Math.min(heldForMs, endMs) - speed.afterMs;
+    if (spanMs > 0) {
+      const byLength = Number.isFinite(lengthMs) ? speed.ofLengthPerS * lengthMs : 0;
+      travelledMs += (spanMs / 1000) * Math.max(speed.msPerS, byLength);
     }
-  }
-  return stepMs;
+  });
+  return travelledMs;
 }
 
 /** What a SeekAhead seeks and tells. */
@@ -96,8 +117,11 @@ export class SeekAhead {
   #askedBy: string | undefined;
   /** When the seek to the aim was made; undefined while it waits for the presses to rest. */
   #madeAtMs: number | undefined;
-  /** When the steps of this run of presses began. */
-  #runFromMs: number | undefined;
+  /**
+   * The key held down, while it is: when it was pressed, which way, and when its last press or
+   * repeat moved the place shown.
+   */
+  #held: { readonly fromMs: number; readonly direction: -1 | 1; lastAtMs: number } | undefined;
   #timer: ReturnType<typeof setTimeout> | undefined;
   #stopHearingKeys: (() => void) | undefined;
 
@@ -147,9 +171,11 @@ export class SeekAhead {
 
   /**
    * An arrow's press: moves the place shown, from where the film stands (film.atMs) where none is,
-   * by its step (heldStepMs) towards direction, never before 0 nor past film.mostMs; the seek is
-   * made once the presses rest. A key's press (press.isKey) waits for the key's release, then
-   * seekRestMs; press.askedBy is what asked it (askedByOf), told with the seek.
+   * towards direction, never before 0 nor past film.mostMs; the seek is made once the presses rest.
+   * A press moves seekStepMs; a key's press that comes with no release since its last, its repeat,
+   * marked or not (Silk sends them unmarked, VQ122), moves by the time held since (heldTravelMs). A
+   * key's press (press.isKey) waits for the key's release, then seekRestMs; press.askedBy is what
+   * asked it (askedByOf), told with the seek.
    */
   step(
     direction: -1 | 1,
@@ -159,12 +185,19 @@ export class SeekAhead {
     const { atMs: fromMs, mostMs } = film;
     const { isKey, askedBy } = press;
     const nowMs = this.#now();
-    this.#runFromMs ??= nowMs;
+    const held = this.#held;
+    const isHeldDown = isKey && this.#stopHearingKeys !== undefined;
+    let moveMs = seekStepMs;
+    if (isHeldDown && held?.direction === direction) {
+      moveMs =
+        heldTravelMs(nowMs - held.fromMs, mostMs) -
+        heldTravelMs(held.lastAtMs - held.fromMs, mostMs);
+      held.lastAtMs = nowMs;
+    } else {
+      this.#held = isKey ? { fromMs: nowMs, direction, lastAtMs: nowMs } : undefined;
+    }
     const baseMs = this.shownMs(fromMs);
-    const toMs = Math.min(
-      Math.max(baseMs + direction * heldStepMs(nowMs - this.#runFromMs), 0),
-      mostMs,
-    );
+    const toMs = Math.min(Math.max(baseMs + direction * moveMs, 0), mostMs);
     if (isKey) {
       this.#hearRelease();
     }
@@ -199,7 +232,7 @@ export class SeekAhead {
     this.#timer = undefined;
     this.#stopHearingKeys?.();
     this.#stopHearingKeys = undefined;
-    this.#runFromMs = undefined;
+    this.#held = undefined;
     const aimMs = this.#aimMs;
     if (aimMs === undefined) {
       return;
@@ -217,6 +250,7 @@ export class SeekAhead {
     const released = (): void => {
       this.#stopHearingKeys?.();
       this.#stopHearingKeys = undefined;
+      this.#held = undefined;
       if (this.#aimMs !== undefined && this.#madeAtMs === undefined) {
         clearTimeout(this.#timer);
         this.#timer = setTimeout(() => {

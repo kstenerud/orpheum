@@ -168,10 +168,12 @@ describe("the player's controls under the film outside full screen (D369 §2, D4
     const timeline = bar()?.querySelector<HTMLInputElement>(".timeline__range");
     const shown = (): string | undefined => bar()?.querySelector(".timeline__times")?.textContent;
     expect(shown()).toBe("0:30 / 10:00");
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
     act(() => {
+      // The press's 10 s, then a second held at 20 s a second (seek-ahead.ts's heldSeekSpeeds).
       for (let repeat = 0; repeat < 3; repeat += 1) {
         answerPlayerCommand(video, "right", "key");
+        vi.advanceTimersByTime(repeat < 2 ? 500 : 0);
       }
     });
     expect(shown()).toBe("1:00 / 10:00");
