@@ -9,12 +9,51 @@ import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./loaded.tsx";
 import { useResource } from "./use-resource.ts";
+import { useUpdate, type Update } from "./update.ts";
 import { WarningIcon } from "./warning-sign.tsx";
+
+/**
+ * A newer version, once the server's word of one is read, leading to How to update, which no menu
+ * reaches (ui-audit-2026-11-04.md §3, How to update); with the warning sign where it carries a
+ * security fix. Nothing while there is none.
+ */
+function UpdateItem(props: { readonly newer: Update | undefined }): JSX.Element | null {
+  const { t } = useTranslation();
+  const { newer } = props;
+  if (newer?.latest === undefined) {
+    return null;
+  }
+  return (
+    <li>
+      {newer.security === undefined ? null : <WarningIcon />}{" "}
+      {t("update.available", { latest: newer.latest })}{" "}
+      <Link to={{ screen: "update" }}>{t("update.howTo")}</Link>
+    </li>
+  );
+}
+
+/** The server's word of a newer version, once read; undefined while it knows of none. */
+function useNewerVersion(): Update | undefined {
+  const update = useUpdate(true);
+  return update.state === "loaded" && update.value?.latest !== undefined ? update.value : undefined;
+}
+
+/** The pages that have each kind of what needs the admin, with what fixes it. */
+function ToPages(): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <p>
+      <Link to={{ screen: "system" }}>{t("needsAttention.toSystem")}</Link> ·{" "}
+      <Link to={{ screen: "libraries" }}>{t("needsAttention.toLibraries")}</Link> ·{" "}
+      <Link to={{ screen: "identify" }}>{t("needsAttention.toIdentify")}</Link>
+    </p>
+  );
+}
 
 /**
  * Everything that needs the admin, in one place, which the status tray's warning sign leads to
  * (D280). A placeholder until it is designed: it counts what needs them and leads to the pages that
- * have each, the System page, the Libraries and Needs a match.
+ * have each, the System page, the Libraries and Needs a match, and a newer version to How to update.
  */
 export function NeedsAttention(): JSX.Element {
   const { t } = useTranslation();
@@ -22,6 +61,7 @@ export function NeedsAttention(): JSX.Element {
   const [counts] = useResource("needs-attention", async () =>
     dataOrThrow(await api.GET("/needs-attention")),
   );
+  const newer = useNewerVersion();
   return (
     <section aria-labelledby="needs-attention-heading">
       <h1 id="needs-attention-heading">{t("needsAttention.heading")}</h1>
@@ -38,10 +78,12 @@ export function NeedsAttention(): JSX.Element {
           ].filter((line) => line.count > 0);
           const readWrongly = value.seriesReadWrongly ?? [];
           const withoutSound = value.filmsWithoutSound ?? [];
-          return lines.length + readWrongly.length + withoutSound.length === 0 ? (
+          return lines.length + readWrongly.length + withoutSound.length === 0 &&
+            newer === undefined ? (
             <p>{t("needsAttention.nothing")}</p>
           ) : (
             <ul {...arrivalMark}>
+              <UpdateItem newer={newer} />
               {lines.map((line) => (
                 <li key={line.key}>
                   <WarningIcon /> {t(line.key, { count: line.count })}
@@ -67,11 +109,7 @@ export function NeedsAttention(): JSX.Element {
           );
         }}
       />
-      <p>
-        <Link to={{ screen: "system" }}>{t("needsAttention.toSystem")}</Link> ·{" "}
-        <Link to={{ screen: "libraries" }}>{t("needsAttention.toLibraries")}</Link> ·{" "}
-        <Link to={{ screen: "identify" }}>{t("needsAttention.toIdentify")}</Link>
-      </p>
+      <ToPages />
     </section>
   );
 }
