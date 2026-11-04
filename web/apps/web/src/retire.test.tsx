@@ -113,7 +113,8 @@ it("retires a root only once the admin confirms, and keeping it sends nothing (D
   );
   mounted = await mount(withServices(<LibraryPage libraryId={3} />, services));
   const container = mounted.container;
-  // Under the folder's own "…" (ui-audit-2026-11-04.md §3), its dialog's Keep it where focus arrives.
+  // Under the folder's own "…" (ui-audit-2026-11-04.md §3), its dialog's action marked dangerous, so
+  // focus arrives on Keep it (D421; dangerous-choices.browser.test.tsx).
   const repairs = (): HTMLButtonElement | undefined =>
     buttonNamed(container, "More for local: /media/films");
   await click(repairs());
@@ -121,8 +122,8 @@ it("retires a root only once the admin confirms, and keeping it sends nothing (D
   expect(container.querySelector("dialog")?.textContent).toContain(
     "it is never scanned again; what was watched is kept.",
   );
-  expect(container.querySelector('dialog [data-focus-start="arrival"]')?.textContent).toBe(
-    "Keep it",
+  expect(container.querySelector("dialog [data-dangerous-action]")?.textContent).toBe(
+    "Retire the folder",
   );
   // The safe choice first in the row, too (D421).
   expect([...container.querySelectorAll("dialog p button")].map((b) => b.textContent)).toEqual([

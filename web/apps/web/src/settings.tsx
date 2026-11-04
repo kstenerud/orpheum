@@ -8,6 +8,8 @@ import { memo, useCallback, useEffect, useRef, useState, type JSX } from "react"
 import { useTranslation } from "react-i18next";
 
 import { camelKey } from "./catalogue-key.ts";
+import { focusAsDrawn } from "./confirm-button.tsx";
+import { dangerousMark } from "./focus-navigation.ts";
 import { fieldProblemText, dataOrThrow, throwIfRefused } from "./problem.ts";
 import { Link } from "./link.tsx";
 import { SaveNote, shownSaveState } from "./save-note.tsx";
@@ -86,7 +88,10 @@ function useSecretField(
   return { text: fieldText, setText, commit };
 }
 
-/** The bin's question before a secret is removed, which cannot be undone (D278 §4). */
+/**
+ * The bin's question before a secret is removed, which cannot be undone (D278 §4): Keep it first and
+ * focused, the bin that asked being disabled, and Remove marked a dangerous action (D421).
+ */
 function RemoveQuestion(props: {
   readonly onRemove: () => void;
   readonly onKeep: () => void;
@@ -95,11 +100,11 @@ function RemoveQuestion(props: {
   return (
     <p className="settings__question">
       <span className="irreversible-words">{t("settings.removeConsequence")}</span>{" "}
-      <button type="button" className="irreversible" onClick={props.onRemove}>
-        {t("settings.removeConfirm")}
-      </button>{" "}
-      <button type="button" onClick={props.onKeep}>
+      <button type="button" ref={focusAsDrawn} onClick={props.onKeep}>
         {t("common.keepIt")}
+      </button>{" "}
+      <button type="button" className="irreversible" {...dangerousMark} onClick={props.onRemove}>
+        {t("settings.removeConfirm")}
       </button>
     </p>
   );
