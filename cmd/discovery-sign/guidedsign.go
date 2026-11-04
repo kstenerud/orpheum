@@ -45,6 +45,9 @@ func (guide *guided) signWith(place *folder, namespace, path string, signers []k
 	if err = os.WriteFile(path+addressdoc.SignatureEnd, []byte(signature), 0o600); err != nil {
 		return trust.Signed{}, fmt.Errorf("write the signature: %w", err)
 	}
+	if err := removeParts(path); err != nil {
+		return trust.Signed{}, err
+	}
 	return trust.Signed{Payload: string(payload), Signature: signature}, nil
 }
 
@@ -80,7 +83,7 @@ func (guide *guided) signAttempt(task signTask, key keyEntry, expected trust.Roo
 		}
 	}
 	// Each attempt signs its own copy, so a signature is never mistaken for an older one.
-	copyDirectory := task.path + ".parts"
+	copyDirectory := task.path + partsEnd
 	copied := filepath.Join(copyDirectory, key.Chain+"-"+key.Name+"-"+strconv.Itoa(attempt))
 	if err := os.MkdirAll(copyDirectory, 0o700); err != nil {
 		return "", err
