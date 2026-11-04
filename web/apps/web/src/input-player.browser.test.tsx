@@ -363,12 +363,14 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
     });
     const scrub = document.querySelector<HTMLInputElement>(".player-overlay .timeline__range");
     scrub?.focus();
+    vi.useFakeTimers({ toFake: ["performance"] }); // the hold takes no time: its press's 10 s (5.1)
     await press("{ArrowRight>4/}"); // held: three repeats, then released
-    expect(scrub?.getAttribute("aria-valuetext")).toBe("1:10");
+    expect(scrub?.getAttribute("aria-valuetext")).toBe("0:40");
     expect(seeks).toEqual([]);
-    await expect.poll(() => seeks).toEqual([70]);
-    expect(scrub?.getAttribute("aria-valuetext")).toBe("1:10"); // until the seek lands
+    await expect.poll(() => seeks).toEqual([40]);
+    expect(scrub?.getAttribute("aria-valuetext")).toBe("0:40"); // until the seek lands
     expect(document.activeElement).toBe(scrub);
+    vi.useRealTimers();
   });
 
   /** Shows the overlay by Up and hides it by Back (D407 §5), focus left on the video. */
