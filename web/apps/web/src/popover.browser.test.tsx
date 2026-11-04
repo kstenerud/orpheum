@@ -327,7 +327,11 @@ describe("a pop-up closed", () => {
     await expect.poll(() => document.querySelector("dialog[open]")).toBeNull();
     expect(document.activeElement).toBe(opener);
     await opened();
-    await userEvent.keyboard("{ArrowDown}{Enter}");
+    // Down moves to the second item; it is chosen by click(), not by Enter, for the reason above.
+    const first = document.activeElement;
+    await userEvent.keyboard("{ArrowDown}");
+    await expect.poll(() => document.activeElement).not.toBe(first);
+    (document.activeElement as HTMLElement | null)?.click();
     await expect.poll(() => document.querySelector("dialog[open]")).toBeNull();
     expect(document.activeElement).toBe(opener);
   });
