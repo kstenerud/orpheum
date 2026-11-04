@@ -172,3 +172,63 @@ describe("a modal dialog, laid out by a real browser", () => {
     mounted.unmount();
   });
 });
+
+/** A page whose button opens a dialog of one choice, as a page's dialogs are opened. */
+function PageWithAnOpener(): JSX.Element {
+  const [isOpen, setIsOpen] = useState(false);
+  return (
+    <main>
+      <button
+        type="button"
+        onClick={() => {
+          setIsOpen(true);
+        }}
+      >
+        opener
+      </button>
+      {isOpen ? (
+        <ModalDialog
+          label="Which"
+          onClose={() => {
+            setIsOpen(false);
+          }}
+        >
+          <button type="button">inside</button>
+        </ModalDialog>
+      ) : null}
+    </main>
+  );
+}
+
+// R5 of ui-audit-2026-11-04.md: a dialog closed any way gives focus back to the button that opened it.
+describe("a modal dialog closed", () => {
+  it("gives focus back to its opener, closed by Back, by its Close and by a press outside", async () => {
+    await page.viewport(960, 480);
+    const mounted = await mount(withServices(<PageWithAnOpener />));
+    const opener = page.getByRole("button", { name: "opener" }).element();
+    const opened = async (): Promise<void> => {
+      if (opener instanceof HTMLElement) {
+        opener.focus();
+      }
+      await userEvent.keyboard("{Enter}");
+      await expect.poll(() => document.activeElement?.closest("dialog[open]")).not.toBeNull();
+    };
+    const closed = async (): Promise<void> => {
+      await expect.poll(() => document.querySelector("dialog")).toBeNull();
+      expect(document.activeElement).toBe(opener);
+    };
+    await opened();
+    await userEvent.keyboard("{Backspace}");
+    await closed();
+    await opened();
+    document.querySelector<HTMLElement>(".modal-dialog__close button")?.focus();
+    await userEvent.keyboard("{Enter}");
+    await closed();
+    await opened();
+    document
+      .querySelector("dialog[open]")
+      ?.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 2, clientY: 2 }));
+    await closed();
+    mounted.unmount();
+  });
+});
