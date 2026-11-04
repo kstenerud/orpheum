@@ -76,6 +76,33 @@ describe("a page's arrival", () => {
     walking = undefined;
   });
 
+  // First, so a Cast dialog it left open would hold the focus of every page after it, as one did
+  // before test-walk.tsx's mountApp closed the tray's dialog (tray-dialog.ts keeps it for the tab).
+  it("is Cast's first device, once its list is read, not its Close", async () => {
+    await page.viewport(1280, 800);
+    const server = fakeTogetherServer();
+    walking = await mountApp({
+      ...walkServices({
+        ...signedIn,
+        "GET /me/devices": {
+          devices: [device(1, "Laptop", true), device(2, "Fire TV"), device(3, "Pixel")],
+        },
+      }),
+      openTogetherSocket: server.openSocket,
+    });
+    await server.accept();
+    await server.say({ type: "devices", deviceIds: [1, 2, 3], inFrontDeviceIds: [1, 2, 3] });
+    await expect.poll(() => isDrawn('button[aria-label="Cast to a device"]')).toBe(true);
+    document.querySelector<HTMLElement>('button[aria-label="Cast to a device"]')?.focus();
+    await userEvent.keyboard("{Enter}");
+    await expect.poll(() => isDrawn("dialog")).toBe(true);
+    // The devices are listed once the live connection says what this device casts: nothing.
+    await server.say({ type: "sending" });
+    await expect.poll(() => isDrawn("dialog .cast-to__devices button")).toBe(true);
+    await expect.poll(() => isFocusOnFirst("dialog .cast-to__devices button")).toBe(true);
+    expect(focusedName()).toContain("Fire TV");
+  });
+
   it("is a list's first poster", async () => {
     await page.viewport(1280, 800);
     walking = await mountApp(walkServices(signedIn, "/films"));
@@ -213,30 +240,5 @@ describe("a page's arrival", () => {
     await expect
       .poll(() => document.activeElement?.getAttribute("name"), { message: focused() })
       .toBe("name");
-  });
-
-  it("is Cast's first device, once its list is read, not its Close", async () => {
-    await page.viewport(1280, 800);
-    const server = fakeTogetherServer();
-    walking = await mountApp({
-      ...walkServices({
-        ...signedIn,
-        "GET /me/devices": {
-          devices: [device(1, "Laptop", true), device(2, "Fire TV"), device(3, "Pixel")],
-        },
-      }),
-      openTogetherSocket: server.openSocket,
-    });
-    await server.accept();
-    await server.say({ type: "devices", deviceIds: [1, 2, 3], inFrontDeviceIds: [1, 2, 3] });
-    await expect.poll(() => isDrawn('button[aria-label="Cast to a device"]')).toBe(true);
-    document.querySelector<HTMLElement>('button[aria-label="Cast to a device"]')?.focus();
-    await userEvent.keyboard("{Enter}");
-    await expect.poll(() => isDrawn("dialog")).toBe(true);
-    // The devices are listed once the live connection says what this device casts: nothing.
-    await server.say({ type: "sending" });
-    await expect.poll(() => isDrawn("dialog .cast-to__devices button")).toBe(true);
-    await expect.poll(() => isFocusOnFirst("dialog .cast-to__devices button")).toBe(true);
-    expect(focusedName()).toContain("Fire TV");
   });
 });
