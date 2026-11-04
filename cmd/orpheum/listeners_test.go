@@ -46,7 +46,9 @@ func TestJoinListeners_AcceptsFromEachAndClosesThemAll(t *testing.T) {
 	if _, err := joined.Accept(); !errors.Is(err, net.ErrClosed) {
 		t.Errorf("after the close Accept = %v; want net.ErrClosed", err)
 	}
-	if _, err := (&net.Dialer{}).DialContext(t.Context(), "tcp", thisMachine.Addr().String()); err == nil {
-		t.Error("the second listener still takes connections after the close")
+	for name, listener := range map[string]net.Listener{"the house's": house, "this machine's": thisMachine} {
+		if _, err := listener.Accept(); !errors.Is(err, net.ErrClosed) {
+			t.Errorf("after the close %s listener's Accept = %v; want net.ErrClosed", name, err)
+		}
 	}
 }
