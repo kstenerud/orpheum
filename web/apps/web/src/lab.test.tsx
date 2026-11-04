@@ -117,14 +117,14 @@ describe("the device lab", () => {
     expect(player).not.toContain("app-shell");
   });
 
-  it("is reached by Device tests in the menu, and its pages say the tests are off while the server has them off (the owner, 2026-10-25)", async () => {
+  it("is reached from This device, not the menu, and its pages say the tests are off while the server has them off (the owner, 2026-10-25)", async () => {
     const on = await mountedAt("/lab", true);
     expect(on.container.querySelector("#lab-heading")?.textContent).toBe("Device lab");
-    // The menu's places are drawn while it is open (drop-down.tsx).
+    // Behind "For testers" on This device (this-device.test.tsx), no longer the menu's
+    // (ui-audit-2026-11-04.md Q8). The menu's places are drawn while it is open (drop-down.tsx).
     await click(on.container.querySelector(".app-shell__menu-button"));
-    expect(on.container.querySelector('.app-shell__menu a[href="/lab"]')?.textContent).toBe(
-      "Device tests",
-    );
+    expect(on.container.querySelector("dialog")).not.toBeNull();
+    expect(on.container.querySelector('.app-shell__menu a[href="/lab"]')).toBeNull();
     expect(on.container.querySelector('a[href="/lab/device"]')).not.toBeNull();
     on.unmount();
     for (const path of ["/lab", "/lab/device", "/lab/cast"]) {

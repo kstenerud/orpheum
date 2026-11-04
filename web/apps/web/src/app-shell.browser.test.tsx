@@ -182,7 +182,6 @@ describe("the shell, laid out by a real browser", () => {
           onSignOut={() => undefined}
           signedInAs={{ name: "owner", deviceName: undefined }}
           realm="staging"
-          showsDeviceTests={true}
         >
           <p>screen</p>
         </AppShell>
@@ -394,7 +393,6 @@ describe("the shell, laid out by a real browser", () => {
         onSignOut={() => undefined}
         signedInAs={{ name: "owner", deviceName: "Silk on Fire TV" }}
         showsDeveloperPages={true}
-        showsDeviceTests={true}
         onSwitchHousehold={() => undefined}
       >
         <p>screen</p>
@@ -444,7 +442,6 @@ describe("the shell, laid out by a real browser", () => {
           onSignOut={() => undefined}
           signedInAs={{ name: "owner", deviceName: "Silk on Fire TV" }}
           showsDeveloperPages={true}
-          showsDeviceTests={true}
           onSwitchHousehold={() => undefined}
         >
           <p>screen</p>

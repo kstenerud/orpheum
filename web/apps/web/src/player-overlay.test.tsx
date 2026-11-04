@@ -38,21 +38,12 @@ function press(command: string, target: EventTarget = document.body): boolean {
   return event.defaultPrevented;
 }
 
-/**
- * Shows the overlay, hidden as the player opens (D418 §1), as a mouse moved over the page does
- * (player-taps.ts): the pointer's first move is where it was, the second a move.
- */
+/** Shows the overlay, hidden as the player opens (D418 §1), as a mouse's move does (two moves). */
 function shownByAMouse(): void {
   for (const screenX of [5, 50]) {
+    const move = { bubbles: true, pointerType: "mouse", screenX, screenY: 5 };
     act(() => {
-      document.body.dispatchEvent(
-        new PointerEvent("pointermove", {
-          bubbles: true,
-          pointerType: "mouse",
-          screenX,
-          screenY: 5,
-        }),
-      );
+      document.body.dispatchEvent(new PointerEvent("pointermove", move));
     });
   }
 }

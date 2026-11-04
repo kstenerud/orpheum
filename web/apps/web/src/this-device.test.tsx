@@ -6,6 +6,7 @@ import "./i18n.ts";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { chooseOk, chosenOkButton, okChoiceKey } from "./controller-choice.ts";
+import { DeviceTestsOfferedContext } from "./lab-offered.ts";
 import {
   buttonWithText,
   click,
@@ -126,5 +127,29 @@ describe("the This device page", () => {
     await click(choice("automatic"));
     expect(localStorage.getItem(okChoiceKey)).toBeNull();
     expect(chosenOkButton()).toBeUndefined();
+  });
+
+  // The owner, 2026-11-04 (ui-audit-2026-11-04.md Q8): Device tests move from the menu to here,
+  // behind "For testers", shown as the menu showed them: while the server offers them.
+  it("leads to Device tests under For testers only while the server offers them", async () => {
+    const drawnWith = async (isOffered: boolean | undefined): Promise<Element | null> => {
+      const services = servedBy({ "GET /me/devices": [200, { devices: [laptop] }] });
+      services.session.signIn("token");
+      mounted?.unmount();
+      mounted = await mount(
+        withServices(
+          <DeviceTestsOfferedContext value={isOffered}>
+            <ThisDevice />
+          </DeviceTestsOfferedContext>,
+          services,
+        ),
+      );
+      return mounted.container.querySelector('a[href="/lab"]');
+    };
+    expect((await drawnWith(true))?.textContent).toBe("Device tests");
+    expect(mounted?.container.textContent).toContain("For testers");
+    expect(await drawnWith(false)).toBeNull();
+    expect(mounted?.container.textContent).not.toContain("For testers");
+    expect(await drawnWith(undefined)).toBeNull();
   });
 });

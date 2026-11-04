@@ -56,7 +56,6 @@ export const en = {
     administerFromHomeAt: "You administer this server from home, at",
     films: "Films",
     series: "Series",
-    deviceTests: "Device tests",
     identify: "Needs a match",
     libraries: "Libraries",
     settings: "Settings",

@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { useState, type JSX } from "react";
+import { use, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { listMyDevices, renameMyDevice } from "./accounts.ts";
 import { chooseOk, okChoices, useOkChoice } from "./controller-choice.ts";
 import { arrivalMark } from "./focus-navigation.ts";
+import { DeviceTestsOfferedContext } from "./lab-offered.ts";
 import { Link } from "./link.tsx";
 import { problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
@@ -43,6 +44,26 @@ function ControllerChoice(): JSX.Element {
           </label>
         ))}
       </fieldset>
+    </>
+  );
+}
+
+/**
+ * The device lab's tests, while the server offers them (DeviceTestsOfferedContext): a test is of the
+ * device in hand, so they are this page's, not the menu's, which they crowded for everyone else
+ * (ui-audit-2026-11-04.md Q8, the owner's answer: "For testers").
+ */
+function DeviceTests(): JSX.Element | null {
+  const { t } = useTranslation();
+  if (use(DeviceTestsOfferedContext) !== true) {
+    return null;
+  }
+  return (
+    <>
+      <h2>{t("thisDevice.deviceTests.heading")}</h2>
+      <p>
+        <Link to={{ screen: "lab" }}>{t("thisDevice.deviceTests.open")}</Link>
+      </p>
     </>
   );
 }
@@ -94,6 +115,7 @@ export function ThisDevice(): JSX.Element {
         }}
       />
       <ControllerChoice />
+      <DeviceTests />
       <p>
         <Link to={{ screen: "account" }}>{t("thisDevice.elsewhere")}</Link>
       </p>

@@ -128,7 +128,6 @@ describe("a pop-up's width, laid out by a real browser", () => {
           onSwitchHousehold={() => undefined}
           signedInAs={{ name: "owner", deviceName: "the living room's television" }}
           realm="staging"
-          showsDeviceTests={true}
         >
           <p>screen</p>
         </AppShell>,
@@ -161,7 +160,6 @@ describe("a pop-up's width, laid out by a real browser", () => {
             name: "owner",
             deviceName: "Firefox on the Mac in the study at the top of the stairs",
           }}
-          showsDeviceTests={false}
         >
           <p>screen</p>
         </AppShell>,

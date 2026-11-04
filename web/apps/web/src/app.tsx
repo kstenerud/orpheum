@@ -189,7 +189,6 @@ function SignedIn(): JSX.Element {
                   administersFromHomeAt={administersFromHomeAt(me)}
                   realm={realm}
                   showsDeveloperPages={clientSettings?.shouldShowDeveloperPages === true}
-                  showsDeviceTests={clientSettings?.shouldOfferDeviceTests === true}
                   onSwitchHousehold={switchHousehold}
                   onSignOut={signOut}
                 >
