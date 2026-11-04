@@ -212,6 +212,7 @@ package writes each table is schema.md's [owners table](plans/schema.md#who-writ
 | video_timeline (a picture's keyframes and bytes in each second, by payload hash) | persistent.db | T3 (reads the whole file, copying the picture's packets) | yes | the T3 kept with T1, as loudness is, whose read gathers it (step 0035; one version in cache.db before, F1) |
 | subtitle_text (ass, vtt) | persistent.db | T3 for embedded tracks (reads the whole video); T4 for fetched ones | yes | correct: moved from cache.db by step 0029 (F1) |
 | item_text (name, overview) | persistent.db | TO/T2, resolved | yes | — |
+| person, genre, item_genre, credit | persistent.db | TO/T2, resolved | yes | each title's and series' genres and people, from its NFO or stored response (step 0067; D186) |
 | other_video (an other video's date, where it came from, its file's name and sort key) | persistent.db | TO, resolved (a person's correction is field_override's, T1) | yes | the pass's, from the file, its probe and the override (D349) |
 | item_text.search_alternates, item_fts, item_fts_tri, sort_key | persistent.db | T4 | yes | ⚑ cheap derived in the backup; re-derived at start anyway. See F12 |
 | link_memory (each player's last word on its link on each network: speed, spread, steadiness) | persistent.db | TO (a player's measurement; the schema calls it "class C") | yes | in persistent.db, not cache.db, so a release that rebuilds cache.db keeps it: kept in memory, each deploy forgot it (step 0063, bandwidth-sampling-2026-10-29.md P2); its rows deleted a day after their last word |

@@ -54,6 +54,9 @@ type snapshot struct {
 	extras       map[memberKey]sqlcgen.ListLibraryExtraRelationsRow // by owner, then extra
 	// otherVideos are each held other video's date and file name, as the pass last wrote them.
 	otherVideos map[int64]sqlcgen.UpsertOtherVideoParams
+	// credits and genres are each held item's, as the pass last wrote them.
+	credits map[int64][]heldCredit
+	genres  map[int64][]heldGenre
 }
 
 // responseKey names one stored provider response.
@@ -84,6 +87,7 @@ func (filer *libraryFiler) loadSnapshot(ctx context.Context, libraryID int64) er
 		seriesPlaces: map[int64][]sqlcgen.ListSeriesEpisodePlacesRow{},
 		seriesMatch:  map[int64]sqlcgen.GetSeriesForMatchRow{},
 		extras:       map[memberKey]sqlcgen.ListLibraryExtraRelationsRow{},
+		credits:      map[int64][]heldCredit{}, genres: map[int64][]heldGenre{},
 	}
 	versions, err := filer.queries.ListLibraryVersionTitles(ctx, libraryID)
 	if err != nil {
@@ -108,6 +112,9 @@ func (filer *libraryFiler) loadSnapshot(ctx context.Context, libraryID int64) er
 		return loadErr
 	}
 	if loadErr := snap.loadOtherVideos(ctx, filer.queries, libraryID); loadErr != nil {
+		return loadErr
+	}
+	if loadErr := snap.loadPeople(ctx, filer.queries, libraryID); loadErr != nil {
 		return loadErr
 	}
 	responses, err := filer.queries.ListLibraryProviderResponses(ctx, &libraryID)

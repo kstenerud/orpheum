@@ -320,6 +320,41 @@ func TestParse_ASeriesNamesEachSeasonsPosterByItsSeason(t *testing.T) {
 	}
 }
 
+// A work's genres and people are read from the response as stored: the cast in billing order, the
+// directors and writers from the crew, the rest of the crew left out, each person once in a role.
+func TestParse_AWorksGenresCastAndCrew(t *testing.T) {
+	t.Parallel()
+	body := []byte(`{"id":9019,"title":"Metropolis","genres":[{"id":28,"name":"Action"},{"id":80,"name":"Crime"}],
+		"credits":{"cast":[
+			{"id":5101,"name":"Ansel Vardo","character":"Mira Holloway-Pent","order":1,"profile_path":"/al.jpg"},
+			{"id":5104,"name":"Ada Wexcombe","character":"Tamsin Vell","order":0,"profile_path":null}],
+		"crew":[
+			{"id":5102,"name":"Oren Talisk","job":"Director"},
+			{"id":5102,"name":"Oren Talisk","job":"Writer"},
+			{"id":5102,"name":"Oren Talisk","job":"Screenplay"},
+			{"id":9,"name":"Pim Arlecott","job":"Producer"},
+			{"id":10,"name":"Lio Varnesse","job":"Director of Photography"}]}}`)
+	film, err := (&Client{}).Parse("movie", body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(film.Genres, []string{"Action", "Crime"}) {
+		t.Errorf("genres %v", film.Genres)
+	}
+	want := []identify.Credit{
+		{Role: identify.RoleCast, Name: "Ada Wexcombe", PersonID: "380", Character: "Tamsin Vell"},
+		{
+			Role: identify.RoleCast, Name: "Ansel Vardo", PersonID: "1158", Character: "Mira Holloway-Pent",
+			PictureRef: "/al.jpg",
+		},
+		{Role: identify.RoleDirector, Name: "Oren Talisk", PersonID: "638"},
+		{Role: identify.RoleWriter, Name: "Oren Talisk", PersonID: "638"},
+	}
+	if !slices.Equal(film.Credits, want) {
+		t.Errorf("credits %+v,\nwant %+v", film.Credits, want)
+	}
+}
+
 func TestGet_RefusesAnAnswerLargerThanItsBoundRatherThanReadingItCutShort(t *testing.T) {
 	t.Parallel()
 	// Cut at the bound, this answer still parses: only refusing it shows it was too large.

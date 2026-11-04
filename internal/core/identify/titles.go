@@ -34,6 +34,8 @@ type titleSpec struct {
 	identification string     // identified or unidentified
 	reason         string     // why a file is unidentified
 	other          otherFacts // an other video's date and file name (D349 section 4)
+	genres         []string   // its source's genres
+	credits        []Credit   // its source's cast and crew
 }
 
 // fromNFO takes an NFO as the title's source: its values over the path's, and its locked fields
@@ -53,6 +55,7 @@ func (spec *titleSpec) fromNFO(nfo NFO) {
 	merged := maps.Clone(spec.ids)
 	maps.Copy(merged, nfo.ProviderIDs)
 	spec.ids, spec.lockedFields = merged, nfo.LockedFields
+	spec.genres, spec.credits = nfo.Genres, nfo.Credits
 	spec.source, spec.identification = sourceNFO, identificationIdentified
 }
 
@@ -259,13 +262,27 @@ func (filer *libraryFiler) resolve(ctx context.Context, titleID int64, spec titl
 	if err != nil {
 		return titleResolution{}, fmt.Errorf("name title %d: %w", titleID, err)
 	}
-	if spec.kind == library.TitleKindOther {
-		if err := filer.resolveOtherVideo(ctx, titleID, spec.other, values[fieldRecordedAt]); err != nil {
-			return titleResolution{}, err
-		}
+	if err := filer.resolveKindAndPeople(ctx, titleID, spec, values[fieldRecordedAt]); err != nil {
+		return titleResolution{}, err
 	}
 	filer.reportImages(titleID, spec.source, spec.artwork)
 	return titleResolution{identification: identification, reason: spec.reason}, nil
+}
+
+// resolveKindAndPeople writes an other video's own fields, and a title's genres and people from its
+// source; a title whose match is pending keeps what it had until its source is known.
+func (filer *libraryFiler) resolveKindAndPeople(ctx context.Context, titleID int64, spec titleSpec,
+	recordedAt string,
+) error {
+	if spec.kind == library.TitleKindOther {
+		if err := filer.resolveOtherVideo(ctx, titleID, spec.other, recordedAt); err != nil {
+			return err
+		}
+	}
+	if spec.source == "" {
+		return nil
+	}
+	return filer.writePeople(ctx, titleID, spec.genres, spec.credits)
 }
 
 // recordIDs keeps the provider ids a title's evidence names.

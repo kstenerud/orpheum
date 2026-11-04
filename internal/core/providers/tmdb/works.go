@@ -3,11 +3,13 @@
 package tmdb
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
+	"slices"
 	"strconv"
 	"time"
 
@@ -148,6 +150,74 @@ type workDetails struct {
 		SeasonNumber int    `json:"season_number"`
 		PosterPath   string `json:"poster_path"`
 	} `json:"seasons"`
+	Genres []struct {
+		Name string `json:"name"`
+	} `json:"genres"`
+	// Credits are what append_to_response=credits adds: the cast, and the crew of which the
+	// directors and writers are read.
+	Credits struct {
+		Cast []castMember `json:"cast"`
+		Crew []crewMember `json:"crew"`
+	} `json:"credits"`
+}
+
+// castMember is one of a work's cast, in TMDB's names.
+//
+//nolint:tagliatelle // TMDB's field names
+type castMember struct {
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	Character   string `json:"character"`
+	Order       int    `json:"order"`
+	ProfilePath string `json:"profile_path"`
+}
+
+// crewMember is one of a work's crew, in TMDB's names.
+//
+//nolint:tagliatelle // TMDB's field names
+type crewMember struct {
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	Job         string `json:"job"`
+	ProfilePath string `json:"profile_path"`
+}
+
+// crewRole is the role a crew job is kept as, by TMDB's job name; a job not kept is not.
+func crewRole(job string) (string, bool) {
+	switch job {
+	case "Director":
+		return identify.RoleDirector, true
+	case "Writer", "Screenplay":
+		return identify.RoleWriter, true
+	}
+	return "", false
+}
+
+// credits are a work's cast in TMDB's billing order, then its directors and writers in the crew's
+// order, each person once in each role.
+func (work workDetails) credits() []identify.Credit {
+	cast := slices.Clone(work.Credits.Cast)
+	slices.SortStableFunc(cast, func(first, second castMember) int { return cmp.Compare(first.Order, second.Order) })
+	credits := make([]identify.Credit, 0, len(cast))
+	for _, member := range cast {
+		credits = append(credits, identify.Credit{
+			Role: identify.RoleCast, Name: member.Name, PersonID: strconv.FormatInt(member.ID, 10),
+			Character: member.Character, PictureRef: member.ProfilePath,
+		})
+	}
+	seen := map[string]bool{}
+	for _, member := range work.Credits.Crew {
+		role, kept := crewRole(member.Job)
+		key := role + "|" + strconv.FormatInt(member.ID, 10)
+		if !kept || seen[key] {
+			continue
+		}
+		seen[key] = true
+		credits = append(credits, identify.Credit{
+			Role: role, Name: member.Name, PersonID: strconv.FormatInt(member.ID, 10), PictureRef: member.ProfilePath,
+		})
+	}
+	return credits
 }
 
 // Parse reads a stored /movie/{id} or /tv/{id} response.
@@ -181,6 +251,10 @@ func (*Client) Parse(kind string, body []byte) (identify.Metadata, error) {
 	if work.BackdropPath != "" {
 		artwork = append(artwork, identify.ImageRef{Kind: library.ArtBackdrop, Ref: work.BackdropPath})
 	}
+	genres := make([]string, 0, len(work.Genres))
+	for _, genre := range work.Genres {
+		genres = append(genres, genre.Name)
+	}
 	var seasons []int
 	for _, season := range work.Seasons {
 		seasons = append(seasons, season.SeasonNumber)
@@ -196,7 +270,7 @@ func (*Client) Parse(kind string, body []byte) (identify.Metadata, error) {
 		Overview: work.Overview, Tagline: work.Tagline, Year: summary.Year,
 		ReleaseDate: firstNonEmpty(work.ReleaseDate, work.FirstAirDate),
 		RuntimeMs:   runtimeMinutes * int64(time.Minute/time.Millisecond), IDs: ids, Artwork: artwork,
-		SeasonNumbers: seasons,
+		SeasonNumbers: seasons, Genres: genres, Credits: work.credits(),
 	}, nil
 }
 
