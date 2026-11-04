@@ -2,10 +2,19 @@
 
 import "./title-head.css";
 
-import { useEffect, useRef, useState, type JSX, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type JSX,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { useTranslation } from "react-i18next";
 
-import { arrivalMark } from "./focus-navigation.ts";
+import { focusableSelector } from "./focus-engine.ts";
+import { arrivalMark, arrivalValue, focusStartAttribute } from "./focus-navigation.ts";
 import { WideArt } from "./poster.tsx";
 
 /**
@@ -18,7 +27,9 @@ import { WideArt } from "./poster.tsx";
  * off its line to whatever lay to the right further down the page (a series' season's Mark as
  * watched, half a screen below). A title with nothing to play has no main action, and arrives on its
  * "…" instead, so an OK opens a menu and never changes anything (D418 §7): not on Mark as watched,
- * the row's first then. Where it has no "…" either, the head is no arrival.
+ * the row's first then. Where it has no "…" either, it arrives on its notes, which say why it cannot
+ * play (D420): OK there does nothing, and one press reaches the row. Where those say nothing, the
+ * head is no arrival.
  */
 export function TitleHead(props: {
   readonly backdropSha256: string | undefined;
@@ -39,6 +50,7 @@ export function TitleHead(props: {
   readonly tagline?: string | undefined;
   readonly overview?: string | undefined;
 }): JSX.Element {
+  const { overflowRef, notesRef } = useNotesArrival(props.hasMainAction);
   return (
     <div className="title-head">
       <WideArt
@@ -52,14 +64,20 @@ export function TitleHead(props: {
           {props.above}
           <h1>{props.name}</h1>
           <p className="title-head__facts">{props.facts}</p>
-          {props.notes}
+          <div ref={notesRef} className="title-head__notes">
+            {props.notes}
+          </div>
           <div
             className="page-actions title-head__actions"
             data-focus-container=""
             {...(props.hasMainAction ? arrivalMark : {})}
           >
             {props.actions}
-            <span className="title-head__overflow" {...(props.hasMainAction ? {} : arrivalMark)}>
+            <span
+              ref={overflowRef}
+              className="title-head__overflow"
+              {...(props.hasMainAction ? {} : arrivalMark)}
+            >
               {props.more}
             </span>
           </div>
@@ -71,6 +89,37 @@ export function TitleHead(props: {
       </div>
     </div>
   );
+}
+
+/**
+ * Makes the notes the head's arrival where the title has nothing to play, its "…" offers nothing and
+ * the notes say something (D420), a stop for focus then and only then; marked on the drawn head, as
+ * what the "…" offers and what the notes say are decided by the components inside them.
+ */
+function useNotesArrival(hasMainAction: boolean): {
+  readonly overflowRef: RefObject<HTMLSpanElement | null>;
+  readonly notesRef: RefObject<HTMLDivElement | null>;
+} {
+  const overflowRef = useRef<HTMLSpanElement>(null);
+  const notesRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const notes = notesRef.current;
+    if (notes === null) {
+      return;
+    }
+    const isArrival =
+      !hasMainAction &&
+      overflowRef.current?.querySelector(focusableSelector) === null &&
+      notes.textContent.trim() !== "";
+    if (isArrival) {
+      notes.setAttribute(focusStartAttribute, arrivalValue);
+      notes.tabIndex = 0;
+    } else {
+      notes.removeAttribute(focusStartAttribute);
+      notes.removeAttribute("tabindex");
+    }
+  });
+  return { overflowRef, notesRef };
 }
 
 /**

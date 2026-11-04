@@ -423,8 +423,9 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D415](working-notes.md#d415--in-full-screen-a-fingers-tap-on-the-picture-shows-or-hides-the-overlay-and-a-double-tap-on-a-side-seeks-10-s) In full screen a finger's tap on the picture shows or hides the overlay, and a double tap on a side seeks 10 s
 - [D416](working-notes.md#d416--the-api-is-renamed-once-before-anyone-else-depends-on-it-users-items-groups-people-one-list-shape-capabilities-declared-per-operation) The API is renamed once, before anyone else depends on it: users, items, groups, people; one list shape; capabilities declared per operation
 - [D417](working-notes.md#d417--a-lists-filters-are-one-pop-up-that-narrows-the-posters-shown-a-search-across-everything-waits-for-its-own-plan) A list's filters are one pop-up that narrows the posters shown; a search across everything waits for its own plan
-- [D418](working-notes.md#d418--the-player-fills-the-window-on-every-device-its-controls-over-the-picture-a-title-page-arrives-on-its-main-action-or-on-more) The player fills the window on every device, its controls over the picture; a title page arrives on its main action, or on More
+- [D418](working-notes.md#d418--the-player-fills-the-window-on-every-device-its-controls-over-the-picture-a-title-page-arrives-on-its-main-action-or-on-more) The player fills the window on every device, its controls over the picture; a title page arrives on its main action, or on More — *revisited by D420*
 - [D419](working-notes.md#d419--homes-hide-sits-in-a-strip-above-its-card-your-account-places-its-leftover-sections-focus-after-hide-goes-to-the-next-card) Home's Hide sits in a strip above its card; Your account places its leftover sections; focus after Hide goes to the next card
+- [D420](working-notes.md#d420--a-title-page-with-nothing-to-play-and-no--arrives-on-the-words-saying-why) A title page with nothing to play and no "…" arrives on the words saying why
 
 ## Archived
 

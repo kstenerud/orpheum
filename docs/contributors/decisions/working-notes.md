@@ -26112,3 +26112,19 @@ Your account).
 - 3: web/apps/web/src/input-rows.browser.test.tsx
 
 **Status:** Decided 2026-11-04; not built (the UI revamp's first wave builds it).
+
+## D420 — A title page with nothing to play and no "…" arrives on the words saying why
+
+**Decided** (2026-11-04), by the project owner ("Go with option 2"), amending D418 §7, which left
+such a page with no arrival: a person's page with nothing to play whose "…" offers nothing (one
+version, one ordering, no admin's choices, since D418 §5 took File details out of it).
+
+1. **Such a page arrives on its notes, the words saying why it cannot play** (as "on devnas, which is
+   away"): focus rests on the words, OK there does nothing, a screen reader reads why, and one
+   press reaches the actions row and its Mark as watched. The notes are a stop for focus on such a
+   page alone. Where the notes say nothing either, the head marks no arrival, as D418 §7 left it.
+
+**Proven by:**
+- 1: web/apps/web/src/title-head.browser.test.tsx
+
+**Status:** Decided 2026-11-04; not built (the UI revamp's first wave builds it).
