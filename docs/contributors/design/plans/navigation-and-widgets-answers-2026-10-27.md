@@ -1578,7 +1578,10 @@ research run in this batch … The actual UI revamp will be done next batch."*
    a video is rarely interesting anyway."* The 3 Hearthstead MKVs are another shape (no picture
    before 2 s; their sound is led in already) and stay as they are. Their stored keyframe lists are
    read again only once forgotten (a migration step, the owner's call).
-2. **A run's last chunk past its boundary** (11-05's "still filed").
+2. **A run's last chunk past its boundary** (11-05's "still filed"). *Built 2026-11-04
+   ("fix(chunks): a chunk listed ending past its bound by more than a few frames is refused"):* a chunk listed ending more than 250 ms past its bound is refused, the run's last
+   too; the start keeps its 500 ms. Measured first: 270 chunks of 30 of staging's films ended
+   within 85 ms of their bounds.
 3. **Why Firefox on a Mac cannot append The Gold Rush's own picture** (toolkit.md; the symptom fixed
    by "fix(web): a film given up on its own picture before its first frame opens again playing", the cause open), and **file 5667's HEVC** with the Mac's Firefox.
 4. **The SWAG research's starts and stalls** (11-05's "still filed"; the upload and ladder stay
