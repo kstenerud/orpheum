@@ -664,7 +664,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   its main action with `arrivalMark` and focus goes there as it is drawn (`arriveWhenDrawn`,
   `src/focus-navigation.ts`; a dialog's by `src/modal-layer.tsx`), shown with a ring after a key or
   a controller and none after a pointer, and taken only from nothing or from what opened it, never
-  once the person has moved on; `src/arrival.browser.test.tsx`. *The announcer* (R4): the input
+  once the person has moved on; `src/arrival.browser.test.tsx`. A dialog with no marked arrival
+  decides its own from its choices (D421): its first not marked a dangerous action
+  (`dangerousMark`), never its Close, or, where every choice is, none, focus resting on the dialog
+  itself (`choiceArrivalIn`); "where a dialog's focus arrives as it opens (D421)" in
+  `src/modal-dialog.browser.test.tsx`. *The announcer* (R4): the input
   layer appends one polite `<output>` to `document.body` and puts the new page's heading in it once
   the page draws it, so a screen reader says where it now is while focus stays on the arrival
   (`src/input-layer.tsx`); "stays off the heading, which is announced, on a page opened and on one

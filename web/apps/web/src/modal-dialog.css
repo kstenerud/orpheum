@@ -36,3 +36,10 @@
   inset-block-start: var(--space-1);
   inset-inline-end: var(--space-1);
 }
+
+/* Focus resting on the dialog itself, every choice it offers dangerous (D421 §2), shows no ring:
+   nothing is chosen until the person moves onto a choice. */
+.modal-dialog:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-card-hover);
+}

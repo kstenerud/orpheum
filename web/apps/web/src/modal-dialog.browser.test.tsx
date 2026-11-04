@@ -13,6 +13,7 @@ import { useState, type JSX } from "react";
 import { describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import { dangerousMark } from "./focus-navigation.ts";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { mount } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
@@ -259,5 +260,79 @@ describe("a modal dialog closed", () => {
     }
     expect(stops.filter((stop) => stop.startsWith("dialog"))).toEqual([]);
     mounted.unmount();
+  });
+});
+
+/** A dialog of the choices named, those in dangerous marked as dangerous actions. */
+function DialogOf(props: {
+  readonly choices: readonly string[];
+  readonly dangerous?: readonly string[];
+  readonly onPress?: (choice: string) => void;
+}): JSX.Element {
+  return (
+    <ModalDialog label="Which" onClose={() => undefined}>
+      <p>What happens next.</p>
+      {props.choices.map((choice) => (
+        <button
+          key={choice}
+          type="button"
+          {...(props.dangerous?.includes(choice) === true ? dangerousMark : {})}
+          onClick={() => {
+            props.onPress?.(choice);
+          }}
+        >
+          {choice}
+        </button>
+      ))}
+    </ModalDialog>
+  );
+}
+
+// D421 (the owner, 2026-11-04): "If the only options available in a dialog are all dangerous, don't
+// auto-select any of them. The user must move onto one of them. Otherwise the first item and default
+// selected item is the safe one."
+describe("where a dialog's focus arrives as it opens (D421)", () => {
+  it("arrives on its first choice not marked a dangerous action", async () => {
+    const mounted = await mount(
+      withServices(<DialogOf choices={["Erase", "Keep it", "Other"]} dangerous={["Erase"]} />),
+    );
+    await expect.poll(() => document.activeElement?.textContent).toBe("Keep it");
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    expect(document.activeElement?.textContent).toBe("Keep it");
+    mounted.unmount();
+  });
+
+  it("arrives on no choice where every one is dangerous, nor on its Close, until the person moves onto one", async () => {
+    const pressed: string[] = [];
+    const mounted = await mount(
+      withServices(
+        <DialogOf
+          choices={["Erase", "Wipe"]}
+          dangerous={["Erase", "Wipe"]}
+          onPress={(choice) => pressed.push(choice)}
+        />,
+      ),
+    );
+    const dialog = document.querySelector("dialog[open]");
+    await expect.poll(() => document.activeElement).toBe(dialog);
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    expect(document.activeElement).toBe(dialog);
+    await userEvent.keyboard("{Enter}");
+    expect(pressed).toEqual([]);
+    await userEvent.keyboard("{ArrowDown}");
+    expect(["Erase", "Wipe"]).toContain(document.activeElement?.textContent);
+    mounted.unmount();
+  });
+
+  it("arrives on its first choice where none is marked, as before, and on no Close where it offers nothing else", async () => {
+    const marked = await mount(withServices(<DialogOf choices={["One", "Two"]} />));
+    await expect.poll(() => document.activeElement?.textContent).toBe("One");
+    marked.unmount();
+    const bare = await mount(withServices(<DialogOf choices={[]} />));
+    const dialog = document.querySelector("dialog[open]");
+    await expect.poll(() => document.activeElement).toBe(dialog);
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    expect(document.activeElement?.closest("[data-dialog-close]")).toBeNull();
+    bare.unmount();
   });
 });
