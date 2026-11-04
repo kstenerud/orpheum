@@ -8,7 +8,7 @@
 import { expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
 
 import { test } from "./browser-map.ts";
-import { openFilm, serverUrl, shownOverTheFilm } from "./pages.ts";
+import { openFilm, playFromTheStart, serverUrl, shownOverTheFilm } from "./pages.ts";
 
 /** D243 §9: voice one-way under 300 ms, and audible loss under 2%. */
 const voiceOneWayAtMostMs = 300;
@@ -79,7 +79,7 @@ export async function join(guest: Page, link: string): Promise<void> {
 /** The host plays film, which goes on for everyone in the session. */
 export async function hostPlays(host: Page, film: string): Promise<void> {
   await openFilm(host, film);
-  await host.getByRole("link", { name: "Play" }).click();
+  await playFromTheStart(host).click();
   await expect(host.locator("video")).toHaveCount(1, { timeout: 30_000 });
   await expect(await shownOverTheFilm(host, togetherOverTheFilm)).toBeVisible({ timeout: 30_000 });
 }

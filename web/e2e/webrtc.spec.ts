@@ -4,7 +4,7 @@ import { expect } from "@playwright/test";
 
 import { test } from "./browser-map.ts";
 import { oneBrowserTag } from "./only-these-tests.ts";
-import { isPlaying, serverUrl, shownOverTheFilm, signIn } from "./pages.ts";
+import { isPlaying, playFromTheStart, serverUrl, shownOverTheFilm, signIn } from "./pages.ts";
 import { warmUpFilm } from "./server.ts";
 import { endSession, join } from "./together-pages.ts";
 
@@ -44,7 +44,7 @@ test("once on the WebRTC path, a tab finds and plays a film with nothing of the 
   await expect(card).toBeVisible({ timeout: 60_000 });
   await card.click();
   await expect(page.getByRole("heading", { name: warmUpFilm })).toBeVisible();
-  await page.getByRole("link", { name: "Play" }).click();
+  await playFromTheStart(page).click();
   await expect.poll(() => isPlaying(page), { timeout: 30_000 }).toBe(true);
   expect(overHttp).toEqual([]);
 });
@@ -108,7 +108,7 @@ test(
       .filter({ hasText: new RegExp(warmUpFilm, "u") });
     await expect(card).toBeVisible({ timeout: 60_000 });
     await card.click();
-    await host.getByRole("link", { name: "Play" }).click();
+    await playFromTheStart(host).click();
     await expect(host.locator("video")).toHaveCount(1, { timeout: 30_000 });
     await expect(await shownOverTheFilm(host, "Watch Together is on: its controls")).toBeVisible({
       timeout: 30_000,

@@ -24,7 +24,7 @@ import {
   startDiscovery,
   type Discovery,
 } from "./discovery-pages.ts";
-import { isPlaying, serverUrl, signIn } from "./pages.ts";
+import { isPlaying, playFromTheStart, serverUrl, signIn } from "./pages.ts";
 import { secondFilm, warmUpFilm } from "./server.ts";
 import {
   endSession,
@@ -148,7 +148,7 @@ test("a browser registers and plays through a discovery, over WebRTC, its core's
     .filter({ hasText: new RegExp(warmUpFilm, "u") });
   await expect(card).toBeVisible({ timeout: 60_000 });
   await card.click();
-  await page.getByRole("link", { name: "Play" }).click();
+  await playFromTheStart(page).click();
   await expect.poll(() => isPlaying(page), { timeout: 60_000 }).toBe(true);
 });
 
@@ -303,7 +303,7 @@ test("a page on the discovery's origin plays from its core's own name, its poste
   // Its poster, fetched from the core with the header into a blob, shows.
   await expect.poll(() => posterShows(card), { timeout: 30_000 }).toBe(true);
   await card.click();
-  await page.getByRole("link", { name: "Play" }).click();
+  await playFromTheStart(page).click();
   await expect.poll(() => isPlaying(page), { timeout: 60_000 }).toBe(true);
   // Nothing reached the core by a cookie: every request carried the header, but the registration
   // made before the page had one.
