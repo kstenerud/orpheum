@@ -1563,10 +1563,12 @@ noexec step 2; the ceremony's address defaults; a security-fix branch process fo
 the scrub bar's time, `ModalDialog`'s `className` (one review with the owner); exact cut times for
 a re-timed copy (the margin stays for now). End: one check-pr, the owner's go, nas.example.
 
-## The 11-06 batch (the owner agreed 2026-11-04, "yes that sounds good"): playback holds up, and the remote reaches every control
+## The 11-06 batch (the owner agreed 2026-11-04, "yes that sounds good"): playback holds up, and the UI audit's research
 
-After the 11-05 batch (deployed to nas.example 2026-11-04). Bugs a beta household would feel; none
-needs design from the owner but item 7's rule, which is proposed before it is built.
+After the 11-05 batch (deployed to nas.example 2026-11-04). Bugs a beta household would feel, and the
+research for the UI revamp. The owner changed item 7 the same day: *"it might be time to do a full
+UI audit since the majority of the UI-affecting functionality is now in place. We'll do only a
+research run in this batch … The actual UI revamp will be done next batch."*
 
 1. **A film's first seconds before its second keyframe play** (17 files on staging; the 11-05
    batch's step 0, "a playback batch"): the first chunk starts at the discarded keyframe and is cut
@@ -1576,17 +1578,30 @@ needs design from the owner but item 7's rule, which is proposed before it is bu
    by "fix(web): a film given up on its own picture before its first frame opens again playing", the cause open), and **file 5667's HEVC** with the Mac's Firefox.
 4. **The SWAG research's starts and stalls** (11-05's "still filed"; the upload and ladder stay
    their own batch).
-5. **The SWAG research's remote**, where it is not covered by item 7.
+5. *(Moved to the revamp, 2026-11-04:)* the SWAG research's remote (the held seek, the seek rest,
+   "Still watching?") is input to item 7's research and built with the revamp.
 6. *(Optional, the owner's call at the batch's start:)* a re-timed copy cut at exact times
    (toolkit.md's next batch); the owner said in 11-05 to keep the margin for now.
-7. **The arrows' search reaches every control** (item 13 of the owner's comments of 2026-11-02):
-   it prefers a control in line with the press over a nearer one beside it, so Down from
-   *‹ Series* passes *Play S5E1*, Right at the end of Continue Watching jumps into the banner, and
-   others listed there. The rule is proposed to the owner first; then each case gets a test.
-8. **The paused player's first Back** does something visible (item 13): the whole overlay stays
-   while paused, so the first Back now seems to do nothing.
+7. **The UI audit's research, research only** (the owner, 2026-11-04): consulting experts,
+   studies and competitors on
+   - what information should be reachable in how many clicks or presses, on each kind of page;
+   - where focus lands when a page opens, and where it goes on Back;
+   - how a page's controls are laid out for the best flow, on a computer, a phone and a TV remote.
+
+   The pages have grown over time with little regard to layout, flow or where a person starts
+   (the owner's examples: the video's info page, and most "leaf" pages off the menu). The run
+   walks every page as it is (staging, the Fire TV, the Pixel), builds on the research already
+   done rather than repeating it (ux-principles-2026-10-09, competitor-ux-rationale-2026-10-09,
+   ui-competitors, ui-design-practice-2026-10-05, playback-ui-2026-10-28,
+   navigation-back-up-2026-10-27, back-navigation-2026-10-24, ui-widgets-audit-2026-10-27,
+   starts-chunks-remote-2026-10-29), and ends in one report with a recommendation per page for the
+   owner. Item 13's arrow cases (the arrows' search passing a control in line, the paused player's
+   first Back) are its evidence; the arrows' rule is decided with the revamp, not before.
+8. *(Moved to the revamp, 2026-11-04:)* the paused player's first Back, with item 7's evidence.
+
+**Next batch (the owner, 2026-11-04):** the UI revamp, from item 7's report, as m5.md's B4.
 
 **Not this batch:** the UI review with the owner (the scrub bar's time, the gallery's pop-ups per
-widget and its real player rows, `ModalDialog`'s `className`); the Diagnostics page (D341), the batch
-after; AirPlay (asked about 2026-11-04, see below once answered). End: one check-pr, the owner's go,
-nas.example.
+widget and its real player rows, `ModalDialog`'s `className`), folded into the revamp; the
+Diagnostics page (D341); AirPlay, recorded in [airplay.md](airplay.md), its spike scheduled by the
+owner. End: one check-pr, the owner's go, nas.example.

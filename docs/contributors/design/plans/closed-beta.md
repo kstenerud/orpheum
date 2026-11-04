@@ -129,7 +129,7 @@ rest. m5.md's open questions are answered when it starts.
 | TV mode for a TV's own browser | m5.md Q5 | M–L | Remote-control navigation and a layout for across the room; Fire TV's browser already plays (the owner) |
 | TV sign-in by a code the TV shows, through the paid service too | D93, D288; discovery-core K15 | M | |
 | Google Cast | cut-a M6; D88, D135–D137; D226 §4 | L | A receiver page registered with Google, no app store |
-| AirPlay from Safari | — | S | To be checked; the video element offers it |
+| AirPlay from Safari | [airplay.md](airplay.md) | M | A playlist the TV fetches itself and a grant lasting the film; the spike first |
 | "Get this ready" and the session-start prepare | cut-a M6 | S | |
 | Voice on a second device as the same person | watch-together.md; D120 | M | The film on the TV, voice on the phone |
 
