@@ -11,6 +11,7 @@ import { Account } from "./account.tsx";
 import { AppShell } from "./app-shell.tsx";
 import { tabStorage } from "./browser-storage.ts";
 import { Browse } from "./browse.tsx";
+import { CreditedPerson } from "./credits.tsx";
 import { Home } from "./home.tsx";
 import { NeedsAttention } from "./needs-attention.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
@@ -312,7 +313,14 @@ function viewerScreen(route: Route): JSX.Element | undefined {
       />
     );
   }
-  return undefined;
+  return creditedScreen(route);
+}
+
+/** A credited person's page: someone a title credits, and their titles (search-by-more §4.4). */
+function creditedScreen(route: Route): JSX.Element | undefined {
+  return route.screen === "credited-person" ? (
+    <CreditedPerson key={route.personId} id={route.personId} />
+  ) : undefined;
 }
 
 /**
