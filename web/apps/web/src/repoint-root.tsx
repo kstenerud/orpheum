@@ -3,7 +3,9 @@
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { arrivalMark } from "./focus-navigation.ts";
 import { FolderBrowser, type Place } from "./folder-picker.tsx";
+import { ModalDialog } from "./modal-dialog.tsx";
 
 export type { Place } from "./folder-picker.tsx";
 
@@ -13,40 +15,52 @@ function isSamePlace(a: Place, b: Place): boolean {
 }
 
 /**
- * Saying a root moved (D241 §6): the admin chooses where it is now, among the connected nodes'
- * roots, or a folder browsed to inside one in the folder browser's dialog (D359 §3, D361 §3), and
- * confirms; the root and its files take the
- * new path with their history, and the next scan confirms each. The root's own place is not offered.
+ * Saying a root moved (D241 §6), its "This folder moved…" under its "…" (ui-audit-2026-11-04.md §3,
+ * A library): a dialog where the admin chooses where it is now, among the connected nodes' roots, or
+ * a folder browsed to inside one in the folder browser's dialog (D359 §3, D361 §3), and confirms;
+ * the root and its files take the new path with their history, and the next scan confirms each. The
+ * root's own place is not offered. "Keep it where it is", the least harmful choice, is focused as it
+ * opens.
  */
-export function RepointRoot(props: {
+export function RepointDialog(props: {
   readonly from: Place;
   readonly places: readonly Place[];
   readonly onRepoint: (to: Place) => void;
-}): JSX.Element | null {
+  readonly onClose: () => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const heading = t("libraries.repointHeading");
+  return (
+    <ModalDialog label={heading} onClose={props.onClose}>
+      <h2>{heading}</h2>
+      <RepointForm
+        from={props.from}
+        places={props.places}
+        onRepoint={(to) => {
+          props.onClose();
+          props.onRepoint(to);
+        }}
+        onKeep={props.onClose}
+      />
+    </ModalDialog>
+  );
+}
+
+/**
+ * Where the root is now, chosen among the places offered or a folder browsed to inside one, then
+ * confirmed, or kept where it is.
+ */
+function RepointForm(props: {
+  readonly from: Place;
+  readonly places: readonly Place[];
+  readonly onRepoint: (to: Place) => void;
+  readonly onKeep: () => void;
+}): JSX.Element {
   const { t } = useTranslation();
   const [browsed, setBrowsed] = useState<Place | undefined>(undefined);
   const offered = props.places.filter((place) => !isSamePlace(place, props.from));
   const choices = browsed === undefined ? offered : [...offered, browsed];
-  const [chosenIndex, setChosenIndex] = useState<number | undefined>(undefined);
-  if (props.places.length === 0) {
-    return null;
-  }
-  if (chosenIndex === undefined) {
-    return (
-      <button
-        type="button"
-        onClick={() => {
-          setChosenIndex(0);
-        }}
-      >
-        {t("libraries.repoint")}
-      </button>
-    );
-  }
-  const close = (): void => {
-    setChosenIndex(undefined);
-    setBrowsed(undefined);
-  };
+  const [chosenIndex, setChosenIndex] = useState(0);
   return (
     <>
       <RepointChoice
@@ -55,12 +69,11 @@ export function RepointRoot(props: {
         onChoose={setChosenIndex}
         onConfirm={() => {
           const to = choices[chosenIndex];
-          close();
           if (to !== undefined) {
             props.onRepoint(to);
           }
         }}
-        onKeep={close}
+        onKeep={props.onKeep}
       />{" "}
       <FolderBrowser
         opener={t("libraries.browseInside")}
@@ -108,7 +121,7 @@ function RepointChoice(props: {
       <button type="button" onClick={props.onConfirm}>
         {t("libraries.repointConfirm")}
       </button>{" "}
-      <button type="button" onClick={props.onKeep}>
+      <button type="button" {...arrivalMark} onClick={props.onKeep}>
         {t("libraries.repointKeep")}
       </button>
     </span>

@@ -6,7 +6,8 @@ import { useTranslation } from "react-i18next";
 
 import { AddRoot } from "./add-root.tsx";
 import { BusyGroup } from "./busy-group.tsx";
-import { ConfirmButton } from "./confirm-button.tsx";
+import { ConfirmButton, ConfirmDialog } from "./confirm-button.tsx";
+import { arrivalMark } from "./focus-navigation.ts";
 import { idempotent } from "./idempotent.ts";
 import {
   FilingCounts,
@@ -20,8 +21,10 @@ import { Link } from "./link.tsx";
 import { Loaded } from "./loaded.tsx";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
-import { RepointRoot, type Place } from "./repoint-root.tsx";
+import { MoreActions, type MoreAction } from "./more-actions.tsx";
+import { RepointDialog, type Place } from "./repoint-root.tsx";
 import { RootWarning } from "./root-warning.tsx";
+import { SaveNote, useSaveState, type SaveState } from "./save-note.tsx";
 import { useServices } from "./services.tsx";
 import { UpTrail } from "./up-trail.tsx";
 import { adminLibrariesCrumb } from "./upward.ts";
@@ -114,22 +117,61 @@ export function RootLine(props: {
         <RootWatch watch={root.watch} />
       ) : null}
       <RootAnswers root={root} onAnswer={props.onAnswer} />
-      <p>
-        <ConfirmButton
-          label={t("libraries.retireRoot")}
-          consequence={t("libraries.retireRootConsequence")}
-          confirmLabel={t("libraries.retireRootConfirm")}
-          onConfirm={() => {
-            props.onAnswer(root, { kind: "retire" });
-          }}
-        />{" "}
-        <RepointRoot
-          from={{ nodeName: root.nodeName, path: root.rootPath }}
-          places={props.places ?? []}
-          onRepoint={(to) => props.onRepoint?.(root, to)}
-        />
-      </p>
+      <RootRepairs
+        root={root}
+        places={props.places ?? []}
+        onRetire={() => {
+          props.onAnswer(root, { kind: "retire" });
+        }}
+        onRepoint={(to) => props.onRepoint?.(root, to)}
+      />
     </li>
+  );
+}
+
+/**
+ * A folder's two repairs, rarely used, under its own "…" (ui-audit-2026-11-04.md §3, A library):
+ * retiring it for good, and moving it where it now is, where there is a place to move it to. Each
+ * opens a dialog whose least harmful choice, keeping it, is focused as it opens.
+ */
+function RootRepairs(props: {
+  readonly root: Root;
+  readonly places: readonly Place[];
+  readonly onRetire: () => void;
+  readonly onRepoint: (to: Place) => void;
+}): JSX.Element | null {
+  const { t } = useTranslation();
+  const from = { nodeName: props.root.nodeName, path: props.root.rootPath };
+  const retire: MoreAction = {
+    key: "retire",
+    label: t("libraries.retireRoot"),
+    dialog: (close) => (
+      <ConfirmDialog
+        heading={t("libraries.retireRootHeading")}
+        consequence={t("libraries.retireRootConsequence")}
+        confirmLabel={t("libraries.retireRootConfirm")}
+        onConfirm={props.onRetire}
+        onClose={close}
+      />
+    ),
+  };
+  const repoint: MoreAction = {
+    key: "repoint",
+    label: t("libraries.repoint"),
+    dialog: (close) => (
+      <RepointDialog
+        from={from}
+        places={props.places}
+        onRepoint={props.onRepoint}
+        onClose={close}
+      />
+    ),
+  };
+  return (
+    <MoreActions
+      label={t("libraries.folderMore", { node: from.nodeName, path: from.path })}
+      actions={props.places.length === 0 ? [retire] : [retire, repoint]}
+    />
   );
 }
 
@@ -221,29 +263,29 @@ export type ChangeDetection = Pick<Library, "changeDetection" | "checkEveryHours
 
 /**
  * How a library notices changes, chosen again after it was made (the owner, 2026-10-09): watching,
- * checking every so many hours, or when asked; saved when the admin says so, hours only with an
- * interval, which the admin gives.
+ * checking every so many hours, or when asked; saved at once (the owner, 2026-11-04, Q5), a choice
+ * as it is made and the hours on Enter or on leaving their field, an interval only once it has its
+ * hours, and saying Saved, or the refusal, beside it.
  */
 export function ChangeDetectionChoice(props: {
   readonly library: Library;
-  readonly onSave: (choice: ChangeDetection) => void;
+  readonly onSave: (choice: ChangeDetection) => Promise<void>;
 }): JSX.Element {
   const { t } = useTranslation();
   const { library } = props;
   const [detection, setDetection] = useState(library.changeDetection);
   const [hours, setHours] = useState<number | undefined>(library.checkEveryHours);
+  const { state, send } = useSentOnce(library, props.onSave);
   const isInterval = detection === "interval";
-  const isUnchanged =
-    detection === library.changeDetection && (!isInterval || hours === library.checkEveryHours);
+  const withHours = (chosen: Library["changeDetection"]): ChangeDetection =>
+    chosen === "interval" && hours !== undefined
+      ? { changeDetection: chosen, checkEveryHours: hours }
+      : { changeDetection: chosen };
   return (
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        props.onSave(
-          isInterval && hours !== undefined
-            ? { changeDetection: detection, checkEveryHours: hours }
-            : { changeDetection: detection },
-        );
+        send(withHours(detection));
       }}
     >
       <label>
@@ -254,6 +296,7 @@ export function ChangeDetectionChoice(props: {
             const chosen = changeDetections.find((each) => each === event.target.value);
             if (chosen !== undefined) {
               setDetection(chosen);
+              send(withHours(chosen));
             }
           }}
         >
@@ -273,14 +316,49 @@ export function ChangeDetectionChoice(props: {
             onChange={(event) => {
               setHours(event.target.value === "" ? undefined : Number(event.target.value));
             }}
+            onBlur={() => {
+              send(withHours(detection));
+            }}
           />
         </label>
       ) : null}{" "}
-      <button type="submit" disabled={isUnchanged}>
-        {t("libraries.changeDetectionSave")}
-      </button>
+      <SaveNote state={state} />
     </form>
   );
+}
+
+/**
+ * Sending a way of noticing changes as it is chosen, not the one last sent again, nor an interval
+ * still without its hours; a refused one may be sent again.
+ */
+function useSentOnce(
+  library: Library,
+  onSave: (choice: ChangeDetection) => Promise<void>,
+): { readonly state: SaveState; readonly send: (choice: ChangeDetection) => void } {
+  const { state, save } = useSaveState();
+  const [sent, setSent] = useState(() => choiceKey(library));
+  const send = (choice: ChangeDetection): void => {
+    if (choice.changeDetection === "interval" && choice.checkEveryHours === undefined) {
+      return;
+    }
+    if (choiceKey(choice) === sent) {
+      return;
+    }
+    setSent(choiceKey(choice));
+    void save(async () => {
+      await onSave(choice);
+    }).then((isSaved) => {
+      if (!isSaved) {
+        setSent("");
+      }
+    });
+  };
+  return { state, send };
+}
+
+/** A way of noticing changes as one string, to tell whether it is the one last sent. */
+function choiceKey(choice: ChangeDetection): string {
+  return `${choice.changeDetection}:${String(choice.checkEveryHours)}`;
 }
 
 /**
@@ -301,7 +379,7 @@ export function LibraryManagement(props: {
   readonly onRepoint?: (root: Root, to: Place) => void;
   /** Adding a folder to it, one of a node's configured roots or a folder inside one (D359 §3). */
   readonly onAddRoot?: (to: Place) => void;
-  readonly onChangeDetection?: (choice: ChangeDetection) => void;
+  readonly onChangeDetection?: (choice: ChangeDetection) => Promise<void>;
 }): JSX.Element {
   const { t } = useTranslation();
   const { library } = props;
@@ -309,6 +387,11 @@ export function LibraryManagement(props: {
     <article className="library" aria-labelledby="library-heading">
       <h1 id="library-heading">{library.name}</h1>
       <LibrarySummary library={library} />
+      <LibraryButtons
+        library={library}
+        onScan={props.onScan}
+        {...(props.onRescan === undefined ? {} : { onRescan: props.onRescan })}
+      />
       {props.note === "" ? null : <output>{props.note}</output>}
       <h2>{t("libraries.foldersHeading")}</h2>
       <ul className="library__folders">
@@ -328,17 +411,13 @@ export function LibraryManagement(props: {
       )}
       <h2>{t("libraries.scansHeading")}</h2>
       <ChangeDetectionChoice
-        key={`${library.changeDetection}:${String(library.checkEveryHours)}`}
         library={library}
-        onSave={(choice) => props.onChangeDetection?.(choice)}
+        onSave={async (choice) => {
+          await props.onChangeDetection?.(choice);
+        }}
       />
       <FilingCounts library={library} />
       {library.rescan === undefined ? null : <RescanProgress rescan={library.rescan} />}
-      <LibraryButtons
-        library={library}
-        onScan={props.onScan}
-        {...(props.onRescan === undefined ? {} : { onRescan: props.onRescan })}
-      />
       <h2>{t("libraries.deleteHeading")}</h2>
       <ConfirmButton
         label={t("libraries.delete")}
@@ -351,8 +430,9 @@ export function LibraryManagement(props: {
 }
 
 /**
- * A library's files, its scan, and for a library of films or of series its rescan (D357) and its full
- * rescan beside it (D392).
+ * A library's scan, first on its page and where focus arrives (ui-audit-2026-11-04.md §3, A
+ * library), for a library of films or of series its rescan (D357) and its full rescan beside it
+ * (D392), then its files.
  */
 function LibraryButtons(props: {
   readonly library: Library;
@@ -363,8 +443,7 @@ function LibraryButtons(props: {
   const { library } = props;
   return (
     <p>
-      <Link to={{ screen: "files", libraryId: library.id }}>{t("libraries.files")}</Link>{" "}
-      <button type="button" onClick={props.onScan}>
+      <button type="button" {...arrivalMark} onClick={props.onScan}>
         {(library.roots ?? []).some((root) => root.scan !== undefined)
           ? t("libraries.scanAgainAfter")
           : t("libraries.scan")}
@@ -391,7 +470,8 @@ function LibraryButtons(props: {
             {t("libraries.fullRescan")}
           </button>
         </>
-      ) : null}
+      ) : null}{" "}
+      <Link to={{ screen: "files", libraryId: library.id }}>{t("libraries.files")}</Link>
     </p>
   );
 }
@@ -406,7 +486,7 @@ interface LibraryActions {
   readonly deleteLibrary: () => void;
   readonly repoint: (root: Root, to: Place) => void;
   readonly addRoot: (to: Place) => void;
-  readonly setChangeDetection: (choice: ChangeDetection) => void;
+  readonly setChangeDetection: (choice: ChangeDetection) => Promise<void>;
 }
 
 /**
@@ -510,7 +590,6 @@ function useFolderActions(
  * no longer listed (D361 §2).
  */
 function useLibraryActions(libraryId: number, reload: () => void): LibraryActions {
-  const { t } = useTranslation();
   const { api, navigation } = useServices();
   const { note, setNote, act, isActing } = useLibraryNote();
   return {
@@ -518,17 +597,14 @@ function useLibraryActions(libraryId: number, reload: () => void): LibraryAction
     isActing,
     ...useScanActions(libraryId, { act, setNote, reload }),
     ...useFolderActions(libraryId, { act, setNote, reload }),
-    setChangeDetection: (choice) => {
-      act(async () => {
-        throwIfRefused(
-          await api.PUT("/libraries/{id}/change-detection", {
-            params: { path: { id: libraryId } },
-            body: choice,
-          }),
-        );
-        setNote(t("libraries.changeDetectionSaved"));
-        reload();
-      });
+    setChangeDetection: async (choice) => {
+      throwIfRefused(
+        await api.PUT("/libraries/{id}/change-detection", {
+          params: { path: { id: libraryId } },
+          body: choice,
+        }),
+      );
+      reload();
     },
     deleteLibrary: () => {
       act(async () => {

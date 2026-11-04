@@ -64,7 +64,9 @@ export const enLibraries = {
     approveRemovals: "Remove what the last scan did not find",
     diskMissing: "Nothing is mounted any more at",
     diskGone: "What was mounted here is gone for good",
+    folderMore: "More for {{node}}: {{path}}",
     retireRoot: "This folder is gone for good…",
+    retireRootHeading: "This folder is gone for good",
     retireRootConsequence:
       "Its films leave the library and it is never scanned again; what was watched is kept.",
     repoint: "This folder moved…",
@@ -96,8 +98,6 @@ export const enLibraries = {
     changesInterval: "Check every so many hours",
     changesManual: "Only when I ask",
     checkEvery: "Hours between checks",
-    changeDetectionSave: "Save",
-    changeDetectionSaved: "Saved: changes are noticed as chosen.",
     writable: "May the server write beside the media",
     writableHelp:
       "Read-only unless you allow it; while read-only, nothing is saved beside your files.",
