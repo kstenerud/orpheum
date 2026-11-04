@@ -128,6 +128,11 @@ export const enPlay = {
     stoppedByAdmin: "The administrator stopped this: {{message}}",
     positionNotKept: "Where you are is no longer being kept for next time. {{reason}}",
     reopening: "The server restarted. Opening the film again where you were…",
+    audioAndSubtitles: {
+      label: "Audio and subtitles",
+      named: "Audio and subtitles: {{current}}",
+      audio: "Audio",
+    },
     audio: {
       label: "Sound",
       unknownLanguage: "Unknown language",

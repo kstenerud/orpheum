@@ -10,6 +10,7 @@ import { createRef } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import type { AudioTrack } from "./audio-tracks.tsx";
 import type { PlayerSound } from "./player-controls.tsx";
 import { PlayerMenus, PlayerMenusContext, type PlayerMenusWays } from "./player-menus.tsx";
 import { PlayerTracksContext, type PlayerTracks } from "./player-tracks.tsx";
@@ -106,6 +107,97 @@ describe("the overlay's pop-ups, laid out by a real browser", () => {
     expect(boxOf(later).left - boxOf(offset).right).toBeCloseTo(8, 0);
   });
 });
+
+// ui-audit-2026-11-04.md §3, The player: "Audio and subtitles (one panel, 3–4 presses to change a
+// track)". Two menus, 💬 and 🎧, each took a walk along the row to reach before.
+describe("Audio and subtitles, walked by a remote's keys", () => {
+  /** Draws the panel's button for a film of two audio tracks and one subtitle track, focused. */
+  async function drawnFocused(chosen: { audio: number[]; subtitles: string[] }): Promise<void> {
+    await page.viewport(960, 480);
+    mounted = await mount(
+      withServices(
+        <PlayerTracksContext value={tracksNoting(chosen)}>
+          <PlayerMenus
+            videoRef={createRef()}
+            shown={["audioAndSubtitles"]}
+            onOpenChange={() => undefined}
+          />
+        </PlayerTracksContext>,
+      ),
+    );
+    const opener = document.querySelector<HTMLElement>('button[aria-label^="Audio and subtitles"]');
+    opener?.focus();
+    expect(document.activeElement).toBe(opener);
+  }
+
+  /**
+   * Opens the panel by OK, then presses Down until focus is on the entry after the heading, and
+   * OK: the presses it took from the opening, OK included.
+   */
+  async function pressesToChoose(heading: string, entry: string): Promise<number> {
+    await userEvent.keyboard("{Enter}");
+    await expect.poll(() => document.querySelector("dialog .list-box") !== null).toBe(true);
+    let presses = 0;
+    while (!isFocusedUnder(heading, entry) && presses < 8) {
+      await userEvent.keyboard("{ArrowDown}");
+      presses += 1;
+    }
+    await userEvent.keyboard("{Enter}");
+    return presses + 1;
+  }
+
+  it("changes the audio track within 4 presses of its opening", async () => {
+    const chosen = { audio: [] as number[], subtitles: [] as string[] };
+    await drawnFocused(chosen);
+    expect(await pressesToChoose("Audio", "French")).toBeLessThanOrEqual(4);
+    expect(chosen).toEqual({ audio: [81], subtitles: [] });
+  });
+
+  it("changes the subtitles within 4 presses of its opening", async () => {
+    const chosen = { audio: [] as number[], subtitles: [] as string[] };
+    await drawnFocused(chosen);
+    expect(await pressesToChoose("Subtitles", "English")).toBeLessThanOrEqual(4);
+    expect(chosen).toEqual({ audio: [], subtitles: ["s5"] });
+  });
+});
+
+/** Whether focus is on the panel's entry named so, among those after the heading named so. */
+function isFocusedUnder(heading: string, entry: string): boolean {
+  const entries = [...document.querySelectorAll("dialog .list-box > *")];
+  const from = entries.findIndex((each) => each.textContent === heading);
+  const after = entries.slice(from + 1);
+  const end = after.findIndex((each) => !each.matches(".list-box__entry"));
+  const group = end === -1 ? after : after.slice(0, end);
+  const focused = document.activeElement;
+  return group.some((each) => each.textContent === entry && each.contains(focused));
+}
+
+/** A film's tracks of two audio tracks, English playing, and an English subtitle track, off. */
+function tracksNoting(chosen: { audio: number[]; subtitles: string[] }): PlayerTracks {
+  return {
+    ...subtitledTracks,
+    subtitles: {
+      ...subtitledTracks.subtitles,
+      tracks: [subtitleTrack(5)],
+      choose: (key) => {
+        chosen.subtitles.push(key ?? "off");
+      },
+    },
+    audio: {
+      tracks: twoAudioTracks,
+      chosenStreamId: 80,
+      choose: (track) => {
+        chosen.audio.push(track.streamId);
+      },
+      problem: undefined,
+    },
+  };
+}
+
+const twoAudioTracks: readonly AudioTrack[] = [
+  { streamId: 80, audioTrackIndex: 0, language: "en", kind: "plain" },
+  { streamId: 81, audioTrackIndex: 1, language: "fr", kind: "plain" },
+];
 
 /** The first element the selector finds, or a failure where none is drawn. */
 function drawnIn(selector: string): Element {

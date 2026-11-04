@@ -195,15 +195,15 @@ describe.each(screens)("the player by a remote's keys, on $name", ({ width, heig
     const reached = await reachedFrom(scrub ?? video, press);
     const overlay = document.querySelector(".player-overlay");
     const controls = focusTargetsIn(overlay ?? document.body);
-    // This film's: ‹ Film 3, the scrub bar, ⏪ ▶ ⏩, the subtitle and audio menus, ⁝ and ⤢.
+    // This film's: ‹ Film 3, the scrub bar, ⏪ ▶ ⏩, Audio and subtitles, ⁝ and ⤢.
     expect(controls.map((control) => control.getAttribute("aria-label"))).toEqual(
       expect.arrayContaining(["Back 10 s", "Play", "Forward 10 s", "Full screen"]),
     );
-    // The subtitle and audio menus are choosers (the toolkit batch's step 6), no longer selects.
+    // The tracks are one panel's (ui-audit-2026-11-04.md §3), no longer selects nor two menus.
     expect(controls.some((control) => control.tagName === "SELECT")).toBe(false);
     expect(
-      controls.filter((control) => control.classList.contains("route-chooser__button")).length,
-    ).toBeGreaterThanOrEqual(2);
+      controls.filter((each) => (each.ariaLabel ?? "").startsWith("Audio and subtitles: ")).length,
+    ).toBe(1);
     expect(video.closest(".film-player__stage")?.contains(overlay ?? null)).toBe(true);
     const unreached = controls.filter((control) => !reached.has(control));
     expect(unreached.map((control) => control.outerHTML.slice(0, 80))).toEqual([]);
@@ -407,7 +407,7 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
 
   // Plan item 17 (2026-11-02): the buttons hid between presses, and Right meant for Full screen
   // sought the film instead. Their row now stays while focus walks it, and Right never seeks there.
-  // The menus 💬, 🎧 and ⁝ stand between ⏩ and Full screen (D407 §1, §8).
+  // The menus Audio and subtitles and ⁝ stand between ⏩ and Full screen (D407 §1, §8).
   it("walks its buttons by Right to Full screen, the film not seeking", async () => {
     const video = await onAFireTv(true);
     const positionAt = standsAt(video, 30);
@@ -418,15 +418,14 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
     await press("{ArrowDown}");
     expect(document.activeElement?.getAttribute("aria-label")).toBe("Back 10 s");
     const walked: (string | null | undefined)[] = [];
-    for (let step = 0; step < 6; step += 1) {
+    for (let step = 0; step < 5; step += 1) {
       await press("{ArrowRight}");
       walked.push(document.activeElement?.getAttribute("aria-label"));
     }
     expect(walked).toEqual([
       "Play",
       "Forward 10 s",
-      "Subtitles: Off",
-      "Sound: English",
+      "Audio and subtitles: English, Off",
       "Settings",
       "Full screen",
     ]);

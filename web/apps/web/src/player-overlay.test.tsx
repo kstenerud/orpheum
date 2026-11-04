@@ -612,7 +612,7 @@ describe("the overlay's menus on a television (D407 §6, §8)", () => {
     return mounted;
   }
 
-  it("draws 💬 and ⁝ before full screen, no 🎧 for one audio track", async () => {
+  it("draws Audio and subtitles and ⁝ before full screen, one button for the tracks", async () => {
     const on = await drawnWithMoreOpen();
     const names = [
       ...on.container.querySelectorAll(
@@ -621,7 +621,7 @@ describe("the overlay's menus on a television (D407 §6, §8)", () => {
     ]
       .filter((button) => button.closest("dialog") === null)
       .map((button) => button.getAttribute("aria-label"));
-    expect(names).toEqual(["Subtitles: Off", "Settings", "Full screen"]);
+    expect(names).toEqual(["Audio and subtitles: Off", "Settings", "Full screen"]);
   });
 
   it("leaves Back to the open menu, which closes, the overlay staying", async () => {
