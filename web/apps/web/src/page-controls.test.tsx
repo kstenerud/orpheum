@@ -10,7 +10,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { OfferPiece, OfferPlace } from "./convenience-area.tsx";
 import { setFillsWindow } from "./film-fullscreen.ts";
 import { arrowsAreCommandsAttribute } from "./focus-engine.ts";
-import { commandEventName } from "./input-commands.ts";
+import {
+  commandEventName,
+  commandReleaseEventName,
+  type CommandRelease,
+} from "./input-commands.ts";
 import { OverTheFilm, PageControls } from "./page-controls.tsx";
 import { PlayUpwardContext } from "./play-up.tsx";
 import {
@@ -172,7 +176,10 @@ describe("the player's controls under the film outside full screen (D369 §2, D4
     act(() => {
       // The press's 10 s, then a second held at 20 s a second (seek-ahead.ts's heldSeekSpeeds).
       for (let repeat = 0; repeat < 3; repeat += 1) {
-        answerPlayerCommand(video, "right", "key");
+        answerPlayerCommand(video, "right", {
+          source: "key",
+          hold: repeat === 0 ? "start" : "continue",
+        });
         vi.advanceTimersByTime(repeat < 2 ? 500 : 0);
       }
     });
@@ -180,7 +187,8 @@ describe("the player's controls under the film outside full screen (D369 §2, D4
     expect(timeline?.value).toBe("60000");
     expect(seeks).toEqual([]);
     act(() => {
-      window.dispatchEvent(new KeyboardEvent("keyup", { key: "ArrowRight" }));
+      const detail: CommandRelease = { command: "right", source: "key" };
+      window.dispatchEvent(new CustomEvent(commandReleaseEventName, { detail }));
       vi.advanceTimersByTime(seekRestMs);
     });
     expect(seeks).toEqual([60]); // once, to the place shown

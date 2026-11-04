@@ -4,7 +4,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  heldKeyRestMs,
+  heldRestMs,
   heldTravelMs,
   landedWithinMs,
   landingShownForMs,
@@ -14,13 +14,15 @@ import {
   seekStepMs,
   soughtByOf,
 } from "./seek-ahead.ts";
+import { commandReleaseEventName, type CommandRelease } from "./input-commands.ts";
 import { answerPlayerCommand } from "./player-commands.ts";
 
 /** A SeekAhead on a clock the test moves, its seeks and its changes counted. */
 function aheadOnClock(): {
   readonly ahead: SeekAhead;
   readonly seeks: number[];
-  readonly keys: EventTarget;
+  /** Tells the hold's release, as the input layer tells a key's or a controller's going up. */
+  readonly release: () => void;
   /** Moves the clock and the timers on by ms. */
   readonly pass: (ms: number) => void;
   readonly changes: () => number;
@@ -28,19 +30,22 @@ function aheadOnClock(): {
   let nowMs = 0;
   let changes = 0;
   const seeks: number[] = [];
-  const keys = new EventTarget();
+  const releases = new EventTarget();
   const ahead = new SeekAhead({
     seek: (atMs) => seeks.push(atMs),
     changed: () => {
       changes += 1;
     },
-    keys,
+    releases,
     now: () => nowMs,
   });
   return {
     ahead,
     seeks,
-    keys,
+    release: () => {
+      const detail: CommandRelease = { command: "right", source: "key" };
+      releases.dispatchEvent(new CustomEvent(commandReleaseEventName, { detail }));
+    },
     pass: (ms) => {
       nowMs += ms;
       vi.advanceTimersByTime(ms);
@@ -58,28 +63,32 @@ describe("a seek chosen before it is made (D369 §1; the owner, Fire TV, 2026-10
   });
 
   it("moves the place shown at each press of a held key without seeking, and seeks once, there, after its release", () => {
-    const { ahead, seeks, keys, pass, changes } = aheadOnClock();
+    const { ahead, seeks, release, pass, changes } = aheadOnClock();
     for (let press = 0; press < 5; press += 1) {
-      ahead.step(1, { atMs: 30_000, mostMs: 600_000 }, { isKey: true });
+      ahead.step(
+        1,
+        { atMs: 30_000, mostMs: 600_000 },
+        { hold: press === 0 ? "start" : "continue" },
+      );
       pass(50); // a remote's held key repeats
     }
     // The press's step, then 200 ms held at 20 s a second.
     expect(ahead.shownMs(30_250)).toBe(30_000 + seekStepMs + 4000);
     expect(changes()).toBe(5);
-    pass(heldKeyRestMs - 300); // a pause in the repeats, the key still down
+    pass(heldRestMs - 300); // a pause in the repeats, the key still down
     expect(seeks).toEqual([]);
-    keys.dispatchEvent(new Event("keyup"));
+    release();
     pass(seekRestMs - 1);
     expect(seeks).toEqual([]);
     pass(1);
     expect(seeks).toEqual([44_000]);
   });
 
-  it("seeks once repeated presses rest, as a controller's that has no release", () => {
+  it("seeks once repeated presses nothing holds rest, as a media control's, which has no release", () => {
     const { ahead, seeks, pass } = aheadOnClock();
-    ahead.step(-1, { atMs: 300_000, mostMs: 600_000 }, { isKey: false });
+    ahead.step(-1, { atMs: 300_000, mostMs: 600_000 }, {});
     pass(seekRestMs - 100);
-    ahead.step(-1, { atMs: 300_000, mostMs: 600_000 }, { isKey: false });
+    ahead.step(-1, { atMs: 300_000, mostMs: 600_000 }, {});
     pass(seekRestMs - 1);
     expect(seeks).toEqual([]);
     pass(1);
@@ -88,9 +97,9 @@ describe("a seek chosen before it is made (D369 §1; the owner, Fire TV, 2026-10
 
   it("waits three quarters of a second for the next press, as Kodi does, so a slow presser's run is one seek (§3.2)", () => {
     const { ahead, seeks, pass } = aheadOnClock();
-    ahead.step(1, { atMs: 60_000, mostMs: 600_000 }, { isKey: false });
+    ahead.step(1, { atMs: 60_000, mostMs: 600_000 }, {});
     pass(700); // a slow second press, past the half second the rest once was
-    ahead.step(1, { atMs: 60_000, mostMs: 600_000 }, { isKey: false });
+    ahead.step(1, { atMs: 60_000, mostMs: 600_000 }, {});
     pass(749);
     expect(seeks).toEqual([]);
     pass(1);
@@ -99,22 +108,22 @@ describe("a seek chosen before it is made (D369 §1; the owner, Fire TV, 2026-10
 
   it("seeks anyway when a held key's release is never heard", () => {
     const { ahead, seeks, pass } = aheadOnClock();
-    ahead.step(1, { atMs: 0, mostMs: 600_000 }, { isKey: true });
-    pass(heldKeyRestMs);
+    ahead.step(1, { atMs: 0, mostMs: 600_000 }, { hold: "start" });
+    pass(heldRestMs);
     expect(seeks).toEqual([seekStepMs]);
   });
 
   it("moves a held key by the time held, not by its repeats: the same however fast the device repeats (§3.1)", () => {
     const hold = (repeatEveryMs: number): number => {
-      const { ahead, keys, pass, seeks } = aheadOnClock();
-      ahead.step(1, { atMs: 0, mostMs: 7_200_000 }, { isKey: true });
+      const { ahead, release, pass, seeks } = aheadOnClock();
+      ahead.step(1, { atMs: 0, mostMs: 7_200_000 }, { hold: "start" });
       for (let heldMs = repeatEveryMs; heldMs <= 6000; heldMs += repeatEveryMs) {
         pass(repeatEveryMs);
-        ahead.step(1, { atMs: 0, mostMs: 7_200_000 }, { isKey: true });
+        ahead.step(1, { atMs: 0, mostMs: 7_200_000 }, { hold: "continue" });
       }
       const shownMs = ahead.shownMs(0);
       expect(seeks).toEqual([]); // no seek while it is held
-      keys.dispatchEvent(new Event("keyup"));
+      release();
       return shownMs;
     };
     // A 2-hour film held 6 s: 2 s at 72 s a second (1%), 2 s at 216 s (3%), 2 s at 576 s (8%).
@@ -133,14 +142,14 @@ describe("a seek chosen before it is made (D369 §1; the owner, Fire TV, 2026-10
   });
 
   it("moves a press 10 s however many came before: only a held key's repeats go faster", () => {
-    const { ahead, seeks, keys, pass } = aheadOnClock();
+    const { ahead, seeks, release, pass } = aheadOnClock();
     for (let press = 0; press < 30; press += 1) {
-      ahead.step(1, { atMs: 0, mostMs: 3_600_000 }, { isKey: true });
+      ahead.step(1, { atMs: 0, mostMs: 3_600_000 }, { hold: "start" });
       pass(100);
-      keys.dispatchEvent(new Event("keyup")); // pressed again and again, never held
+      release(); // pressed again and again, never held
     }
     for (let press = 0; press < 20; press += 1) {
-      ahead.step(1, { atMs: 0, mostMs: 3_600_000 }, { isKey: false }); // a controller's
+      ahead.step(1, { atMs: 0, mostMs: 3_600_000 }, {}); // a media control's, which nothing holds
       pass(100);
     }
     pass(seekRestMs);
@@ -148,27 +157,27 @@ describe("a seek chosen before it is made (D369 §1; the owner, Fire TV, 2026-10
   });
 
   it("starts a held key again from a press at its release, and at a turn the other way", () => {
-    const { ahead, keys, pass } = aheadOnClock();
-    ahead.step(1, { atMs: 600_000, mostMs: 3_600_000 }, { isKey: true });
-    pass(1000); // its repeats' rest is under heldKeyRestMs
-    ahead.step(1, { atMs: 600_000, mostMs: 3_600_000 }, { isKey: true });
+    const { ahead, release, pass } = aheadOnClock();
+    ahead.step(1, { atMs: 600_000, mostMs: 3_600_000 }, { hold: "start" });
+    pass(1000); // its repeats' rest is under heldRestMs
+    ahead.step(1, { atMs: 600_000, mostMs: 3_600_000 }, { hold: "continue" });
     const heldToMs = 600_000 + seekStepMs + heldTravelMs(1000, 3_600_000);
     expect(ahead.shownMs(600_000)).toBe(heldToMs);
-    keys.dispatchEvent(new Event("keyup"));
-    ahead.step(1, { atMs: 600_000, mostMs: 3_600_000 }, { isKey: true });
+    release();
+    ahead.step(1, { atMs: 600_000, mostMs: 3_600_000 }, { hold: "start" });
     expect(ahead.shownMs(600_000)).toBe(heldToMs + seekStepMs);
     pass(100);
-    ahead.step(-1, { atMs: 600_000, mostMs: 3_600_000 }, { isKey: true });
+    ahead.step(-1, { atMs: 600_000, mostMs: 3_600_000 }, { hold: "start" });
     expect(ahead.shownMs(600_000)).toBe(heldToMs);
   });
 
   it("never goes before the start nor past the end", () => {
     const { ahead, pass, seeks } = aheadOnClock();
-    ahead.step(-1, { atMs: 4000, mostMs: 20_000 }, { isKey: false });
+    ahead.step(-1, { atMs: 4000, mostMs: 20_000 }, {});
     expect(ahead.shownMs(4000)).toBe(0);
     pass(seekRestMs);
     ahead.landed();
-    ahead.step(1, { atMs: 15_000, mostMs: 20_000 }, { isKey: false });
+    ahead.step(1, { atMs: 15_000, mostMs: 20_000 }, {});
     expect(ahead.shownMs(15_000)).toBe(20_000);
     pass(seekRestMs);
     expect(seeks).toEqual([0, 20_000]);
@@ -193,7 +202,7 @@ describe("a seek chosen before it is made (D369 §1; the owner, Fire TV, 2026-10
     ahead.aim(300_000, 0);
     ahead.landed();
     expect(ahead.shownMs(290_000)).toBe(290_000);
-    ahead.step(1, { atMs: 290_000, mostMs: 600_000 }, { isKey: false });
+    ahead.step(1, { atMs: 290_000, mostMs: 600_000 }, {});
     ahead.land();
     expect(seeks).toEqual([300_000, 300_000]);
   });
@@ -208,7 +217,7 @@ describe("a seek chosen before it is made (D369 §1; the owner, Fire TV, 2026-10
     video.addEventListener(seekAskedEvent, (event) => {
       asked.push({ by: soughtByOf(event), atS: video.currentTime });
     });
-    answerPlayerCommand(video, "seekBack", "media");
+    answerPlayerCommand(video, "seekBack", { source: "media" });
     expect(asked).toEqual([]); // not before the presses rest
     vi.advanceTimersByTime(seekRestMs);
     expect(asked).toEqual([{ by: "seekBack-media", atS: 100 }]);

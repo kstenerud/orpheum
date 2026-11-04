@@ -17,7 +17,7 @@ import { leaveFullScreenAsked } from "./film-fullscreen.ts";
 import { arrowsAreCommandsAttribute } from "./focus-engine.ts";
 import { useCommands, useMediaSeeks } from "./input-layer.tsx";
 import type { Command } from "./input-buttons.ts";
-import type { CommandSource, MediaTracks } from "./input-commands.ts";
+import type { CommandHold, CommandSource, MediaTracks } from "./input-commands.ts";
 import { askedByOf, seekAheadOf } from "./seek-ahead.ts";
 
 /** Plays video where it is paused, else pauses it, making a seek being chosen first. */
@@ -32,23 +32,24 @@ function playOrPause(video: HTMLVideoElement): void {
 
 /**
  * Moves where video's player shows a step towards direction, never before its start nor past its
- * end, and seeks it there once the presses rest (seek-ahead.ts), a key's once it is released: a
- * held key seeked at each of its repeats (the owner, Fire TV, 2026-10-29). The seek says which
- * command asked it, and from where (askedByOf): a television's overlay steps for Left and Right
- * itself, so its seek names the arrow pressed, not a seeking command.
+ * end, and seeks it there once the presses rest (seek-ahead.ts), a held one's once it is released,
+ * a remote's key and a controller's stick alike (CommandHold): a held key seeked at each of its
+ * repeats (the owner, Fire TV, 2026-10-29). The seek says which command asked it, and from where
+ * (askedByOf): a television's overlay steps for Left and Right itself, so its seek names the arrow
+ * pressed, not a seeking command.
  */
-export function seekBy(
-  video: HTMLVideoElement,
-  direction: -1 | 1,
-  asked: { readonly command: Command; readonly source: CommandSource | undefined },
-): void {
+export function seekBy(video: HTMLVideoElement, direction: -1 | 1, asked: AskedCommand): void {
   const durationMs = Number.isFinite(video.duration) ? video.duration * 1000 : Infinity;
   const film = { atMs: video.currentTime * 1000, mostMs: durationMs };
-  const { command, source } = asked;
-  seekAheadOf(video).step(direction, film, {
-    isKey: source === "key",
-    askedBy: askedByOf(command, source),
-  });
+  const { command, source, hold } = asked;
+  seekAheadOf(video).step(direction, film, { hold, askedBy: askedByOf(command, source) });
+}
+
+/** A command as the player is asked it: where it came from (none: a click's), and how it is held. */
+interface AskedCommand {
+  readonly command: Command;
+  readonly source?: CommandSource | undefined;
+  readonly hold?: CommandHold | undefined;
 }
 
 /**
@@ -131,35 +132,35 @@ function stepVolume(video: HTMLVideoElement, direction: -1 | 1): boolean {
 }
 
 /**
- * Each command's answer for a video, by command, told where it came from (none: a click's): whether
- * it answered. Up and Down move focus.
+ * Each command's answer for a video, by command, told how it was asked (AskedCommand): whether it
+ * answered. Up and Down move focus.
  */
 const answers: Readonly<
-  Partial<Record<Command, (video: HTMLVideoElement, source?: CommandSource) => boolean>>
+  Partial<Record<Command, (video: HTMLVideoElement, asked: AskedCommand) => boolean>>
 > = {
   playPause: (video) => {
     playOrPause(video);
     return true;
   },
-  seekBack: (video, source) => {
-    seekBy(video, -1, { command: "seekBack", source });
+  seekBack: (video, asked) => {
+    seekBy(video, -1, asked);
     return true;
   },
-  seekForward: (video, source) => {
-    seekBy(video, 1, { command: "seekForward", source });
+  seekForward: (video, asked) => {
+    seekBy(video, 1, asked);
     return true;
   },
-  left: (video, source) => {
+  left: (video, asked) => {
     const isSeeking = isVideosToSeek(video);
     if (isSeeking) {
-      seekBy(video, -1, { command: "left", source });
+      seekBy(video, -1, asked);
     }
     return isSeeking;
   },
-  right: (video, source) => {
+  right: (video, asked) => {
     const isSeeking = isVideosToSeek(video);
     if (isSeeking) {
-      seekBy(video, 1, { command: "right", source });
+      seekBy(video, 1, asked);
     }
     return isSeeking;
   },
@@ -176,15 +177,15 @@ const answers: Readonly<
 };
 
 /**
- * Answers command for video, as source gave it (a key's seek waits for the key's release; none is a
- * click's); whether it did.
+ * Answers command for video, as asked: from where (none: a click's), and how it is held (a held
+ * seek waits for its release); whether it did.
  */
 export function answerPlayerCommand(
   video: HTMLVideoElement,
   command: Command,
-  source?: CommandSource,
+  asked: Omit<AskedCommand, "command"> = {},
 ): boolean {
-  return answers[command]?.(video, source) ?? false;
+  return answers[command]?.(video, { ...asked, command }) ?? false;
 }
 
 /**
@@ -286,7 +287,7 @@ export function usePlayerCommands(video: HTMLVideoElement | null, tracks?: Media
   useSpacePlaysAndPauses(video);
   useMediaSeeks(tracks);
   useCommands("document", (detail, event) => {
-    if (video !== null && answerPlayerCommand(video, detail.command, detail.source)) {
+    if (video !== null && answerPlayerCommand(video, detail.command, detail)) {
       event.preventDefault();
     }
   });

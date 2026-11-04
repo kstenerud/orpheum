@@ -689,7 +689,7 @@ function useLeavingPresses(
         // up between them (VQ122: gapMs=433 upsBetween=0, then every ~35 ms): a second OK counts only
         // with a key up since the first.
         const isSecondOk =
-          isSelect && detail.isRepeat !== true && isSecondPress(now) && gaps.isUpSince();
+          isSelect && detail.hold !== "continue" && isSecondPress(now) && gaps.isUpSince();
         if (detail.command === "back" || isSecondOk) {
           event.preventDefault();
           leave(isSelect ? "select" : "back", isSelect ? gaps.how(now) : "");

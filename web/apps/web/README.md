@@ -603,7 +603,13 @@ The web client: the browser and phone interface, served embedded by the core. MP
   (`src/input-commands.ts`, run around every screen by `src/input-layer.tsx`) turns a key (by its
   `key`, then the platforms' keyCodes), a controller's buttons, D-pad and left stick
   (`src/input-pad-poll.ts`, its OK by its make or as chosen on This device) and the browser's media
-  seeking into commands; pages hear commands, never keys, and single-letter shortcuts have none. A
+  seeking into commands; pages hear commands, never keys, and single-letter shortcuts have none.
+  Each device's driver tells a command's hold alike (`CommandHold`, the owner, 2026-11-04): started
+  at its press, continued at each repeat, marked or not (Silk's are not, VQ122), a stick's and a
+  D-pad's too, and released as its key or button goes up, its stick centres or turns, its pad goes or
+  the page loses the keys (`onCommandRelease`), a key down again over a second after its last starts
+  a new hold, its keyup lost (`keyRepeatsWithinMs`); a controller's buttons never repeat; pages read the
+  hold, never a key's `repeat` (`src/input-holds.test.tsx`). A
   command is offered first at what has focus, so an open menu or dialog answers Back before
   anything else; one no one answers moves real DOM focus by the geometric engine
   (`src/focus-navigation.ts`, `src/focus-engine.ts`), searching the marked container around focus
@@ -629,10 +635,10 @@ The web client: the browser and phone interface, served embedded by the core. MP
   browser's media controls and Left and Right while the video, nothing or the player's timeline has
   focus, + and − moving the volume 5 % wherever focus is but a text field, + turning a muted film's
   sound on (D407 §10), and Back leaving full screen before the page; every control over and under the video is
-  reached by arrows. A seek is shown before it is made (`src/seek-ahead.ts`): a held or repeated
-  arrow or seeking button moves the timeline's marker and time alone, by 10 s steps, 30 s from 2 s
-  on and 60 s from 4 s, and the film seeks once, there, as the presses rest (half a second, a key's
-  after its release); a press on the timeline shows its place at once; and the place shown stays
+  reached by arrows. A seek is shown before it is made (`src/seek-ahead.ts`): each press of an
+  arrow or seeking button moves the timeline's marker and time alone 10 s, a held one, a remote's
+  key and a controller's stick alike, by the time held, faster each 2 s, and the film seeks once,
+  there, as the presses rest (three quarters of a second, a held one's after its release); a press on the timeline shows its place at once; and the place shown stays
   until the seek lands. A remote's drags and steps are one command once they rest the same way
   (the owner, Fire TV, 2026-10-29). In full screen, the browser's or a stage filling the window, every
   device's controls are the overlay (`src/player-overlay.tsx`, D407 §1, §5): its rows, Up and the

@@ -15,6 +15,8 @@
 import { seekTo } from "@orpheum/player";
 import { useEffect, useRef, useState } from "react";
 
+import { onCommandRelease, type CommandHold } from "./input-commands.ts";
+
 /**
  * How far a seek moves, in milliseconds: the usual step of a TV's player, the app having had no
  * keyboard seeking of its own to follow. A justified constant.
@@ -23,7 +25,7 @@ export const seekStepMs = 10_000;
 
 /** One stage of a held arrow's speed (heldSeekSpeeds). */
 export interface HeldSeekSpeed {
-  /** How long the key has been held when the stage starts, in milliseconds. */
+  /** How long the arrow has been held when the stage starts, in milliseconds. */
   readonly afterMs: number;
   /** The least it moves in a second held, in milliseconds of film. */
   readonly msPerS: number;
@@ -56,11 +58,11 @@ export const heldSeekSpeeds: readonly HeldSeekSpeed[] = [
 export const seekRestMs = 750;
 
 /**
- * How long a key held down may go without a repeat before the seek is made anyway, in
- * milliseconds: its release makes the seek seekRestMs later, and this covers a release the page
- * never hears. A justified constant.
+ * How long a held press, a key's or a controller's (CommandHold), may go without a repeat before the
+ * seek is made anyway, in milliseconds: its release makes the seek seekRestMs later, and this covers
+ * a release the page never hears. A justified constant.
  */
-export const heldKeyRestMs = 1500;
+export const heldRestMs = 1500;
 
 /**
  * How near the film must come to the place shown for its seek to have landed, in milliseconds: a
@@ -76,7 +78,7 @@ export const landedWithinMs = 1500;
 export const landingShownForMs = 10_000;
 
 /**
- * How far a key held heldForMs has moved the place shown by its holding (heldSeekSpeeds), in
+ * How far an arrow held heldForMs has moved the place shown by its holding (heldSeekSpeeds), in
  * milliseconds of a film lengthMs long, its first press's seekStepMs not counted; a length not known
  * (Infinity) moves each stage's seconds.
  */
@@ -99,8 +101,8 @@ export interface SeekAheadWays {
   readonly seek: (atMs: number, askedBy?: string) => void;
   /** Tells the place shown changed. */
   readonly changed: () => void;
-  /** Where a held key's release is heard: the page's window. */
-  readonly keys?: EventTarget | undefined;
+  /** Where a hold's release is heard (onCommandRelease): the page's window. */
+  readonly releases?: EventTarget | undefined;
   /** The clock, in ms. */
   readonly now?: () => number;
 }
@@ -118,12 +120,12 @@ export class SeekAhead {
   /** When the seek to the aim was made; undefined while it waits for the presses to rest. */
   #madeAtMs: number | undefined;
   /**
-   * The key held down, while it is: when it was pressed, which way, and when its last press or
-   * repeat moved the place shown.
+   * The press held down, a key's or a controller's, while it is: when it went down, which way, and
+   * when its last press or repeat moved the place shown.
    */
   #held: { readonly fromMs: number; readonly direction: -1 | 1; lastAtMs: number } | undefined;
   #timer: ReturnType<typeof setTimeout> | undefined;
-  #stopHearingKeys: (() => void) | undefined;
+  #stopHearingReleases: (() => void) | undefined;
 
   constructor(ways: SeekAheadWays) {
     this.#ways = ways;
@@ -172,36 +174,35 @@ export class SeekAhead {
   /**
    * An arrow's press: moves the place shown, from where the film stands (film.atMs) where none is,
    * towards direction, never before 0 nor past film.mostMs; the seek is made once the presses rest.
-   * A press moves seekStepMs; a key's press that comes with no release since its last, its repeat,
-   * marked or not (Silk sends them unmarked, VQ122), moves by the time held since (heldTravelMs). A
-   * key's press (press.isKey) waits for the key's release, then seekRestMs; press.askedBy is what
-   * asked it (askedByOf), told with the seek.
+   * A press moves seekStepMs; a held one's repeat (press.hold "continue", from a remote's key and a
+   * controller's stick alike, CommandHold) moves by the time held since (heldTravelMs). A held press
+   * waits for its release, then seekRestMs; press.askedBy is what asked it (askedByOf), told with
+   * the seek.
    */
   step(
     direction: -1 | 1,
     film: { readonly atMs: number; readonly mostMs: number },
-    press: { readonly isKey: boolean; readonly askedBy?: string | undefined },
+    press: { readonly hold?: CommandHold | undefined; readonly askedBy?: string | undefined },
   ): void {
     const { atMs: fromMs, mostMs } = film;
-    const { isKey, askedBy } = press;
+    const { hold, askedBy } = press;
     const nowMs = this.#now();
     const held = this.#held;
-    const isHeldDown = isKey && this.#stopHearingKeys !== undefined;
     let moveMs = seekStepMs;
-    if (isHeldDown && held?.direction === direction) {
+    if (hold === "continue" && held?.direction === direction) {
       moveMs =
         heldTravelMs(nowMs - held.fromMs, mostMs) -
         heldTravelMs(held.lastAtMs - held.fromMs, mostMs);
       held.lastAtMs = nowMs;
     } else {
-      this.#held = isKey ? { fromMs: nowMs, direction, lastAtMs: nowMs } : undefined;
+      this.#held = hold === undefined ? undefined : { fromMs: nowMs, direction, lastAtMs: nowMs };
     }
     const baseMs = this.shownMs(fromMs);
     const toMs = Math.min(Math.max(baseMs + direction * moveMs, 0), mostMs);
-    if (isKey) {
+    if (hold !== undefined) {
       this.#hearRelease();
     }
-    this.aim(toMs, this.#stopHearingKeys === undefined ? seekRestMs : heldKeyRestMs, askedBy);
+    this.aim(toMs, this.#stopHearingReleases === undefined ? seekRestMs : heldRestMs, askedBy);
   }
 
   /** Makes a waiting seek now: play or pause pressed while choosing. */
@@ -223,15 +224,15 @@ export class SeekAhead {
   /** Stops waiting: the player is gone. */
   stop(): void {
     clearTimeout(this.#timer);
-    this.#stopHearingKeys?.();
-    this.#stopHearingKeys = undefined;
+    this.#stopHearingReleases?.();
+    this.#stopHearingReleases = undefined;
   }
 
   #make(): void {
     clearTimeout(this.#timer);
     this.#timer = undefined;
-    this.#stopHearingKeys?.();
-    this.#stopHearingKeys = undefined;
+    this.#stopHearingReleases?.();
+    this.#stopHearingReleases = undefined;
     this.#held = undefined;
     const aimMs = this.#aimMs;
     if (aimMs === undefined) {
@@ -241,15 +242,15 @@ export class SeekAhead {
     this.#ways.seek(aimMs, this.#askedBy);
   }
 
-  /** Waits for the held key's release, or the page losing the keys, to rest seekRestMs. */
+  /** Waits for the hold's release (onCommandRelease) to rest seekRestMs. */
   #hearRelease(): void {
-    const keys = this.#ways.keys;
-    if (keys === undefined || this.#stopHearingKeys !== undefined) {
+    const releases = this.#ways.releases;
+    if (releases === undefined || this.#stopHearingReleases !== undefined) {
       return;
     }
-    const released = (): void => {
-      this.#stopHearingKeys?.();
-      this.#stopHearingKeys = undefined;
+    this.#stopHearingReleases = onCommandRelease(releases, () => {
+      this.#stopHearingReleases?.();
+      this.#stopHearingReleases = undefined;
       this.#held = undefined;
       if (this.#aimMs !== undefined && this.#madeAtMs === undefined) {
         clearTimeout(this.#timer);
@@ -257,13 +258,7 @@ export class SeekAhead {
           this.#make();
         }, seekRestMs);
       }
-    };
-    keys.addEventListener("keyup", released, true);
-    keys.addEventListener("blur", released);
-    this.#stopHearingKeys = () => {
-      keys.removeEventListener("keyup", released, true);
-      keys.removeEventListener("blur", released);
-    };
+    });
   }
 
   #now(): number {
@@ -318,7 +313,7 @@ export function seekAheadOf(video: HTMLVideoElement): SeekAhead {
     changed: () => {
       video.dispatchEvent(new Event(seekAimedEvent));
     },
-    keys: video.ownerDocument.defaultView ?? undefined,
+    releases: video.ownerDocument.defaultView ?? undefined,
   });
   // Any seek landing ends the wait, a Watch Together follower's own undoing a seek too.
   video.addEventListener("seeked", () => {

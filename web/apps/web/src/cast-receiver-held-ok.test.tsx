@@ -62,6 +62,9 @@ describe("the receiver's controlled mode at OK held", () => {
     vi.advanceTimersByTime(50);
     held(true);
     expect(onLeave).not.toHaveBeenCalled();
+    act(() => {
+      document.body.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", bubbles: true })); // let go
+    });
     vi.advanceTimersByTime(doublePressWithinMs + 1);
     press("Enter");
     vi.advanceTimersByTime(doublePressWithinMs - 1);

@@ -139,7 +139,7 @@ describe("the input layer", () => {
     try {
       main.querySelector("button")?.focus();
       const event = press("Escape", 27);
-      expect(heard).toEqual([{ command: "back", source: "key" }]);
+      expect(heard).toEqual([{ command: "back", source: "key", hold: "start" }]);
       expect(event.defaultPrevented).toBe(true);
       expect(running?.ways.backs).toEqual([]);
     } finally {
