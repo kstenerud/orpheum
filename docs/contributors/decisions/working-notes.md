@@ -26153,5 +26153,8 @@ alone.
 **Proven by:**
 - 1: web/apps/web/src/retire.test.tsx (`ConfirmDialog`), web/apps/web/src/warning-sign.test.tsx
   (`ConfirmButton`)
+- 2, 3: "where a dialog's focus arrives as it opens (D421)" in
+  web/apps/web/src/modal-dialog.browser.test.tsx: the first choice not marked arrived on, none where
+  every one is marked, the first where none is, never the Close
 
 **Status:** Decided 2026-11-04; not built (the UI revamp's first wave builds it).

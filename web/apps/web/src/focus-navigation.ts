@@ -81,6 +81,38 @@ export function arrivalIn(root: ParentNode): HTMLElement | undefined {
 }
 
 /**
+ * The attribute marking a choice as a dangerous action where it is written (D421 §3): one that
+ * changes something a press too many should not, as a red confirm (D278 §4) or Sign out. A dialog's
+ * focus never arrives on one as it opens (choiceArrivalIn). It says nothing of the choice's colour.
+ */
+export const dangerousActionAttribute = "data-dangerous-action";
+
+/** The attribute marking a choice as a dangerous action (D421), spread into its JSX. */
+export const dangerousMark = { [dangerousActionAttribute]: "" } as const;
+
+/**
+ * The attribute marking a dialog's standard Close (modal-dialog.tsx): a way out, never where focus
+ * arrives as the dialog opens (D421 §2).
+ */
+export const dialogCloseAttribute = "data-dialog-close";
+
+/**
+ * Where focus goes as the dialog root opens (D421): its marked arrival, where it has one; else its
+ * first control not marked a dangerous action, nor its standard Close; else, every choice it offers
+ * being dangerous, none (undefined), and focus rests on the dialog itself.
+ */
+export function choiceArrivalIn(root: HTMLElement): HTMLElement | undefined {
+  return (
+    arrivalIn(root) ??
+    focusTargetsIn(root).find(
+      (target) =>
+        target.closest(`[${dangerousActionAttribute}]`) === null &&
+        target.closest(`[${dialogCloseAttribute}]`) === null,
+    )
+  );
+}
+
+/**
  * Where the first arrow goes while nothing in region has focus: in the page's main content (not the
  * shell's banner, the owner, 2026-10-25), its marked start, else its first control; in a dialog, its
  * first control.
@@ -104,11 +136,13 @@ export function startIn(region: HTMLElement): HTMLElement | undefined {
  * Continue watching, read apart from its newest rows); never while a dialog or a full-screen element
  * over root holds focus, nor once focus has gone anywhere else, the person having moved on
  * (watchWhileDrawn). The first look waits a frame, for the page opened to replace the one left,
- * whose arrival it would otherwise show for a moment. Returns the stopping.
+ * whose arrival it would otherwise show for a moment. arrivalOf finds the arrival: a page's marked
+ * one (arrivalIn), or a dialog's, from its marks (choiceArrivalIn). Returns the stopping.
  */
 export function arriveWhenDrawn(
   root: () => HTMLElement | null,
   focus: (element: HTMLElement) => void,
+  arrivalOf: (root: HTMLElement) => HTMLElement | undefined = arrivalIn,
 ): () => void {
   const atOpening = document.activeElement;
   let given: Element | undefined;
@@ -125,7 +159,7 @@ export function arriveWhenDrawn(
     }
     stopWatching = watchWhileDrawn(document.body, (give) => {
       const within = root();
-      const arrival = within === null ? undefined : arrivalIn(within);
+      const arrival = within === null ? undefined : arrivalOf(within);
       if (within === null || arrival === undefined || arrival === given) {
         return false;
       }

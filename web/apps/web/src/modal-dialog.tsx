@@ -5,6 +5,7 @@ import "./modal-dialog.css";
 import { useEffect, useRef, type JSX, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
+import { dialogCloseAttribute } from "./focus-navigation.ts";
 import { IconButton } from "./icon-button.tsx";
 import { useModalLayer } from "./modal-layer.tsx";
 import { CloseIcon } from "./player-icons.tsx";
@@ -38,7 +39,9 @@ interface ModalDialogProps {
  * modal ... darken the rest"): the modal layer (modal-layer.tsx: the browser's own modal, Escape,
  * Back, a press outside, focus given back) in the middle of a darkened screen, the arrows moving
  * among its own controls alone (focus-navigation.ts), with the standard Close, a cross at its
- * top-right, and its own width. A pop-up is not one (popover.tsx, D408 §2).
+ * top-right, and its own width. Focus arrives, as it opens, on its first choice not marked a
+ * dangerous action (dangerousMark), or, where every choice is, on none: on the dialog itself (D421).
+ * A pop-up is not one (popover.tsx, D408 §2).
  */
 export function ModalDialog(props: ModalDialogProps): JSX.Element {
   const ref = useRef<HTMLDialogElement>(null);
@@ -55,7 +58,7 @@ export function ModalDialog(props: ModalDialogProps): JSX.Element {
     // own in Chromium and Firefox, reached as nothing (the Cast and Watch Together dialogs, 2026-11-04).
     <dialog ref={ref} className={classes} role={props.role} aria-label={props.label} tabIndex={-1}>
       {props.children}
-      {/* After what it holds, so opening focuses that first; drawn at the top-right. */}
+      {/* After what it holds, and never where focus arrives (D421); drawn at the top-right. */}
       <StandardClose toldRef={toldRef} />
     </dialog>
   );
@@ -70,7 +73,7 @@ function StandardClose(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   return (
-    <span className="modal-dialog__close">
+    <span className="modal-dialog__close" {...{ [dialogCloseAttribute]: "" }}>
       <IconButton
         label={t("dropDown.close")}
         icon={<CloseIcon />}

@@ -4,7 +4,7 @@ import "./modal-layer.css";
 
 import { use, useEffect, useLayoutEffect, type RefObject } from "react";
 
-import { arriveWhenDrawn, scrollIntoViewGently } from "./focus-navigation.ts";
+import { arriveWhenDrawn, choiceArrivalIn, scrollIntoViewGently } from "./focus-navigation.ts";
 import { useCommands } from "./input-layer.tsx";
 import { ServicesContext } from "./services.tsx";
 
@@ -20,25 +20,32 @@ function isOutside(dialog: HTMLDialogElement, event: MouseEvent): boolean {
 }
 
 /**
- * Opens dialog as the browser's own modal, unless it is open: its first field focused if asked, else
- * its marked arrival once drawn (focus-navigation.ts arriveWhenDrawn), in place of the first control
- * the browser focuses, which in a dialog whose list is still read is its Close (Cast to). Returns the
- * stopping of the watch for its arrival.
+ * Opens dialog as the browser's own modal, unless it is open: its first field focused if asked and
+ * drawn; else its arrival from its marks (D421, focus-navigation.ts choiceArrivalIn), its first
+ * choice not marked a dangerous action, or, where every choice is, the dialog itself, never its
+ * Close; and that arrival again as more is drawn (arriveWhenDrawn), as a list still read when it
+ * opened (Cast to). The browser's own opening focuses the first control, which may be a dangerous
+ * one or the Close. Returns the stopping of the watch for its arrival.
  */
 function openModal(dialog: HTMLDialogElement, shouldFocusFirstField: boolean): () => void {
   if (dialog.open) {
     return () => undefined;
   }
   dialog.showModal();
-  if (shouldFocusFirstField) {
-    dialog.querySelector<HTMLElement>(firstFieldSelector)?.focus();
+  const field = shouldFocusFirstField
+    ? dialog.querySelector<HTMLElement>(firstFieldSelector)
+    : null;
+  if (field !== null) {
+    field.focus();
     return () => undefined;
   }
+  (choiceArrivalIn(dialog) ?? dialog).focus();
   return arriveWhenDrawn(
     () => dialog,
     (element) => {
       element.focus();
     },
+    choiceArrivalIn,
   );
 }
 
