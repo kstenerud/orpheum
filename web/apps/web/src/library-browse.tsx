@@ -341,7 +341,11 @@ function LibraryBrowseBar(props: {
           />
         ) : null}
         {chosen === undefined ? null : <LibraryConfigure library={chosen} />}
-        <SearchButton query={state.query} onSearch={props.onSearch} />
+        <SearchButton
+          query={state.query}
+          onSearch={props.onSearch}
+          genreList={resolved.kind === "series" ? "series" : "films"}
+        />
         <RouteChooser
           fieldLabel={t("browse.sort")}
           openerIcon={<SortIcon />}

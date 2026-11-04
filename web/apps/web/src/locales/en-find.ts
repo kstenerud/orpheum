@@ -18,5 +18,7 @@ export const enFind = {
     more: "More",
     recent: "Recent searches",
     titleCount: "{{count}} titles",
+    oneTitle: "1 title",
+    none: "Nothing matches that.",
   },
 };
