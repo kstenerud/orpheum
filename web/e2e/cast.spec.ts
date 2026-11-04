@@ -100,7 +100,10 @@ async function castFromOneToTheOther(
   // The receiver asks once (D364 §2): the sender says it is asking until it answers.
   await expect(sender.getByText(/^Asking /u)).toBeVisible({ timeout: 10_000 });
   await expect(receiver.getByText(/wants to use this device for playback$/u)).toBeVisible();
-  await receiver.locator(".cast-asked").getByRole("button", { name: "Use" }).click();
+  await receiver
+    .getByRole("dialog", { name: /wants to use this device for playback$/u })
+    .getByRole("button", { name: "Use" })
+    .click();
 
   await expect(sender.getByText(/^Playing on /u)).toBeVisible({ timeout: 10_000 });
   await expect(sender.getByRole("dialog", { name: "Cast" })).toHaveCount(0); // closed once its receiver said Use
@@ -139,7 +142,9 @@ test(
       });
       await expect(sender.locator("video")).toHaveCount(0);
       await expect.poll(() => receiver.url(), { timeout: 10_000 }).not.toBe(firstAddress);
-      await expect(receiver.locator(".cast-asked")).toHaveCount(0);
+      await expect(receiver.getByRole("dialog", { name: /wants to use this device/u })).toHaveCount(
+        0,
+      );
       await expect.poll(async () => await isPlaying(receiver), { timeout: 30_000 }).toBe(true);
 
       // The remote is found again from any page, by the tray's sign's dialog, on the film's page
