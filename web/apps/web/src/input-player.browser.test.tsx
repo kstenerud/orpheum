@@ -673,7 +673,11 @@ describe("a series returned to by Up from an episode of another season (D367 §9
 
 describe("Space on an ordinary Play page, in a computer's browser", () => {
   let walking: Walking | undefined;
-  afterEach(() => {
+  afterEach(async () => {
+    if (document.fullscreenElement !== null) {
+      await document.exitFullscreen(); // the next file cannot size a full-screen window
+    }
+    await expect.poll(() => [window.innerWidth, window.innerHeight]).toEqual([1280, 800]);
     walking?.unmount();
     walking = undefined;
     vi.restoreAllMocks();
@@ -681,9 +685,8 @@ describe("Space on an ordinary Play page, in a computer's browser", () => {
 
   // After a click on the browser's own full-screen button, focus on it, Space pressed it again
   // (the owner, Chrome, 2026-10-27): focus on the browser's controls is focus on their video, where
-  // Space plays and pauses. D407 §5 reverses Space on the player's own buttons, which once played
-  // too: Space presses the focused button, as OK does, so on full screen it goes full screen, and
-  // the player's controls are then the overlay.
+  // Space plays and pauses. D407 §5: Space presses the player's own focused button, as OK does, so
+  // on full screen it goes (really, as it was pressed) full screen, its controls the overlay.
   it("plays and pauses by Space with focus on the video, and presses the player's button focused", async () => {
     const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
     await page.viewport(1280, 800);
@@ -710,9 +713,6 @@ describe("Space on an ordinary Play page, in a computer's browser", () => {
     ).toBe(true);
     expect(document.querySelector(".page-controls")).toBeNull();
     expect(play.mock.calls.length).toBe(playsBefore + 1);
-    if (document.fullscreenElement !== null) {
-      await document.exitFullscreen();
-    }
   });
 });
 

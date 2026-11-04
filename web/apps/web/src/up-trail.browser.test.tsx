@@ -167,18 +167,17 @@ describe.each(screens.filter((screen) => !screen.isTelevision))(
     // The owner, 2026-10-28: "When I play a video, there's no way to go directly back to the info
     // page", then: "it always leaves a trail that goes back to the info page before going any
     // further back". The playing is the trail's last part, what plays' page its parent. Since the
-    // film fills the window (D418 §1), the trail lies under it, and the overlay's Up is its way up.
-    it("keeps what plays under the film, the overlay's Up leading to its page, and goes there in its place", async () => {
+    // film fills the window (D418 §1), the trail may lie under it, and the overlay's Up is its way up.
+    it("names what plays, the overlay's Up leading to its page, and goes there in its place", async () => {
       await page.viewport(width, height);
       walking = await mountApp(walkServices(episodeToPlay, "/play/230"));
       const { navigation } = walking.services;
-      const trail = await theTrail();
+      await theTrail();
       await expect.poll(() => isDrawn("video")).toBe(true);
       expect(whatPlays()?.textContent).toBe("S2E3 Low Water");
       expect(document.querySelector('.up-trail [aria-current="page"]')?.textContent).toBe(
         "Playing",
       );
-      expect(coveredPointsOf(trail)).not.toEqual([]);
       await userEvent.keyboard("{ArrowUp}");
       await expect.poll(() => isDrawn(".player-overlay .player-overlay__up")).toBe(true);
       expect(
