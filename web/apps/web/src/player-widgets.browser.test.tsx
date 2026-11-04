@@ -347,11 +347,25 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
         const overlay = found(mounted.container, ".player-overlay");
         const scrub = found(overlay, '[aria-label="Where the film stands"]');
         const forward = found(overlay, '[aria-label="Forward 10 s"]');
-        shownByAMouse();
-        await userEvent.click(forward);
-        expect(getComputedStyle(scrub).opacity).toBe("1");
-        while (document.activeElement !== scrub) {
-          await userEvent.keyboard("{Shift>}{Tab}{/Shift}");
+        // The walk back to the scrub bar by keys, from a click on Forward. The overlay hides 3 s after
+        // the click; under make check's load the walk can outlast that (Firefox, 2026-11-04), and the
+        // press that shows it again puts focus on the scrub bar by script (D411), not by the key, so
+        // a walk that met the overlay hidden starts again from the click.
+        const walkedBackByKeys = async (): Promise<boolean> => {
+          shownByAMouse();
+          await userEvent.click(forward);
+          expect(getComputedStyle(scrub).opacity).toBe("1");
+          while (document.activeElement !== scrub) {
+            if (overlay.getAttribute("data-shown") === "hidden") {
+              return false;
+            }
+            await userEvent.keyboard("{Shift>}{Tab}{/Shift}");
+          }
+          return true;
+        };
+        let walks = 1;
+        while (!(await walkedBackByKeys()) && walks < 3) {
+          walks += 1;
         }
         expect(scrub.matches(":focus-visible")).toBe(true);
         expect(getComputedStyle(scrub).outlineStyle).toBe("none");
