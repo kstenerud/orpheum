@@ -2566,10 +2566,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   at the first chunk's end shows no jump or freeze. (`internal/node/container/keyframes.go`'s
   `StartingKeyframes`, `internal/node/readthrough/timeline.go`)
   - Run 2026-11-04, the owner, Firefox 157.0.1 on a Mac, staging: both played from their start.
-- [ ] **VQ260** — Firefox on a Mac starts an HEVC film at its twin, with no hiccup (the 11-06 batch's item 3,
+- [x] **VQ260** — Firefox on a Mac starts an HEVC film at its twin, with no hiccup (the 11-06 batch's item 3,
   D413). The formats listed are tested; what the core makes of them in Firefox on a Mac is seen only on the
   Mac. On staging, in Firefox 157 on the Mac, with no other tab of it open and the core restarted (so no
   earlier give-up is remembered): The Pumbletons S33E01 (file 5667) from its start, played past 0:20, then a
   seek to about 10:00. Passes when it plays throughout with no freeze, the core's log of the playback naming
   no HEVC own picture, and Safari on the same Mac still takes the film's own picture.
   (`web/packages/sdk/src/playable-formats.ts`'s `startsHevcOnlyAtIdr`)
+  - Run 2026-11-04, the owner, Firefox 157 and Safari on a Mac, staging: Firefox played the converted
+    copy throughout, Safari the film's own picture.
