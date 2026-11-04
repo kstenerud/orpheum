@@ -12,12 +12,15 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
   type JSX,
   type ReactNode,
   type RefObject,
 } from "react";
 
-import { asFocusNote, noteOf, restoreWhenDrawn } from "./focus-memory.ts";
+import "./input-layer.css";
+
+import { asFocusNote, noteOf, restoreWaitsMs, restoreWhenDrawn } from "./focus-memory.ts";
 import { arriveWhenDrawn, focusAndShow, scrollIntoViewGently } from "./focus-navigation.ts";
 import type { Command } from "./input-buttons.ts";
 import {
@@ -93,15 +96,59 @@ function focusArrival(element: HTMLElement, input: Input): void {
   }
 }
 
+/** The page's heading, where it has one. */
+function headingNow(): HTMLElement | null {
+  return document.querySelector<HTMLElement>("main h1");
+}
+
+/**
+ * Tells announce the heading of the page now opening once it is drawn: a heading other than the one
+ * the page left had, or the same element named anew, as the page reads its answers; until
+ * restoreWaitsMs pass. Returns the stopping. Focus is left on the page's arrival, not moved to the
+ * heading (ui-audit-2026-11-04.md R4).
+ */
+function announceWhenDrawn(announce: (heading: string) => void): () => void {
+  const left = headingNow();
+  const leftName = left?.textContent ?? "";
+  const look = (): boolean => {
+    const heading = headingNow();
+    const name = heading?.textContent.trim() ?? "";
+    if (heading === null || name === "" || (heading === left && name === leftName)) {
+      return false;
+    }
+    announce(name);
+    return true;
+  };
+  const observer = new MutationObserver(() => {
+    if (look()) {
+      stop();
+    }
+  });
+  const timer = setTimeout(() => {
+    stop();
+  }, restoreWaitsMs);
+  function stop(): void {
+    observer.disconnect();
+    clearTimeout(timer);
+  }
+  observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+  return stop;
+}
+
 /**
  * Notes on the history entry what has focus as go leaves it, and gives focus back to the element so
  * noted when Back returns to the entry, once its page draws it (focus-memory.ts), shown as a key's
  * is where a controller pressed Back. A page go opens starts at its top: the window kept the scroll
  * of the page left, so a series chosen far down the Series list opened at its last episodes, past
  * what had focus (the owner's Fire TV, 2026-10-29); and focus is put on its arrival as it is drawn
- * (focus-navigation.ts arriveWhenDrawn), as on the page the app opens on.
+ * (focus-navigation.ts arriveWhenDrawn), as on the page the app opens on. Either way the new page's
+ * heading is told to announce, for a screen reader to say where it now is (R4).
  */
-function keepFocusOnEntries(navigation: Navigation, input: Input): () => void {
+function keepFocusOnEntries(
+  navigation: Navigation,
+  input: Input,
+  announce: (heading: string) => void,
+): () => void {
   let isOpeningNew = false;
   const stopNoting = navigation.beforeLeaving(() => {
     isOpeningNew = true;
@@ -119,6 +166,7 @@ function keepFocusOnEntries(navigation: Navigation, input: Input): () => void {
       },
     );
   let stopRestoring = arrive();
+  let stopAnnouncing = (): void => undefined;
   const stopListening = navigation.subscribe(() => {
     const now = routeHref(navigation.route());
     const isNew = isOpeningNew;
@@ -128,6 +176,8 @@ function keepFocusOnEntries(navigation: Navigation, input: Input): () => void {
     }
     shown = now;
     stopRestoring();
+    stopAnnouncing();
+    stopAnnouncing = announceWhenDrawn(announce);
     if (isNew) {
       window.scrollTo({ top: 0, left: 0 });
       stopRestoring = arrive();
@@ -145,6 +195,7 @@ function keepFocusOnEntries(navigation: Navigation, input: Input): () => void {
     stopNoting();
     stopListening();
     stopRestoring();
+    stopAnnouncing();
   };
 }
 
@@ -168,12 +219,13 @@ function RunningInputLayer(props: { readonly children: ReactNode }): JSX.Element
   const backUpRef = useRef<Route | undefined>(undefined);
   const offCountRef = useRef(0);
   const inputRef = useRef<Input | undefined>(undefined);
+  const [announced, setAnnounced] = useState("");
   useEffect(() => {
     const started = startInput({
       goBack: () => navigation.back(backUpRef.current),
       isNavigating: () => offCountRef.current === 0,
     });
-    const stopKeeping = keepFocusOnEntries(navigation, started);
+    const stopKeeping = keepFocusOnEntries(navigation, started, setAnnounced);
     // The browser's own Back at the base laid under a page opened directly goes where its Back does.
     const stopBase = navigation.onBase(() => {
       navigation.replace(backUpRef.current ?? { screen: "home" });
@@ -199,7 +251,15 @@ function RunningInputLayer(props: { readonly children: ReactNode }): JSX.Element
     }),
     [],
   );
-  return <InputContext value={told}>{props.children}</InputContext>;
+  return (
+    <InputContext value={told}>
+      {props.children}
+      {/* A status, said politely after what the reader is saying: the page's name as each opens (R4). */}
+      <output className="input-layer__announced" aria-live="polite">
+        {announced}
+      </output>
+    </InputContext>
+  );
 }
 
 /**

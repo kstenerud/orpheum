@@ -57,6 +57,13 @@ function focused(): string {
   return document.activeElement?.outerHTML.slice(0, 120) ?? "nothing";
 }
 
+/** What the page's live region last said, for a screen reader alone. */
+function announced(): string {
+  const region = document.querySelector("output.input-layer__announced");
+  // A polite live region, so the reader waits for what it is saying.
+  return region?.getAttribute("aria-live") === "polite" ? region.textContent : "";
+}
+
 /** Waits until what has focus is inside what selector names. */
 async function arrivesIn(selector: string): Promise<void> {
   await expect.poll(() => isFocusIn(selector), { message: focused() }).toBe(true);
@@ -72,6 +79,26 @@ describe("a page's arrival", () => {
   it("is a list's first poster", async () => {
     await page.viewport(1280, 800);
     walking = await mountApp(walkServices(signedIn, "/films"));
+    await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
+  });
+
+  // ui-audit-2026-11-04.md R4: a screen reader is told where it now is, politely, while focus stays
+  // on the page's arrival rather than on its heading.
+  it("stays off the heading, which is announced, on a page opened and on one Back returns to", async () => {
+    await page.viewport(1280, 800);
+    walking = await mountApp(
+      walkServices({ ...signedIn, "GET /items/101": filmDetail(101, "Film 1") }, "/films"),
+    );
+    await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
+    const listName = document.querySelector("main h1")?.textContent ?? "";
+    expect(listName).not.toBe("");
+    await userEvent.keyboard("{Enter}");
+    await arrivesIn('section[aria-labelledby="title-versions"]');
+    await expect.poll(announced).toBe("Film 1");
+    expect(document.activeElement?.closest("h1")).toBeNull();
+    await userEvent.keyboard("{Escape}");
+    await expect.poll(announced).toBe(listName);
+    // Back gives focus to the poster it left (focus-memory.ts), not the arrival.
     await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
   });
 
