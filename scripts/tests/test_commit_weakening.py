@@ -29,6 +29,22 @@ class CommitBeingWritten(unittest.TestCase):
             explained = "test: drop B\n\nTest-Weakened: B tested what A does\n"
             self.assertEqual(tw.main(["--message-file", self.message(explained)]), 0)
 
+    def test_names_the_commit_being_written_not_its_stand_ins_hash(self):
+        # Agents reported the stand-in's hash as their commit, and a pick of it recorded the
+        # placeholder author "commit-msg check" (2026-11-04).
+        import contextlib
+        import io
+        repo = Repo({"x_test.go": 'func TestA(t *testing.T) { t.Fatal("a") }\n'})
+        repo.commit("first")
+        repo.write({"x_test.go": 'func TestA(t *testing.T) { t.Fatal("a") }\nfunc TestB(t *testing.T) {}\n'})
+        with repo.cwd():
+            repo.git("add", "x_test.go")
+            said = io.StringIO()
+            with contextlib.redirect_stdout(said):
+                self.assertEqual(tw.main(["--message-file", self.message("test: add B\n")]), 0)
+        self.assertIn("nothing weakened in the commit being written", said.getvalue())
+        self.assertNotIn("..", said.getvalue())
+
     def test_an_index_locked_for_a_moment_by_another_git_is_waited_for(self):
         # An agent committing beside another found the index locked, and the check failed with
         # "not a valid object name" (2026-10-24).
