@@ -2591,3 +2591,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   total time stalled within a third of the earlier run's, and its log's refills after a stall say a
   figure near 60 s × (1 − r) rather than 10 s. (`web/packages/sdk/src/ready-ahead.ts`'s
   `refillAfterStallOf`)
+  - Run 2026-11-04, the lead, staging, file 4443 (54:21; lowest quality 496 + 96 kb/s), leader a desktop
+    Chromium, follower a Chromium in a network namespace held by `tc netem` to 475 kbit/s and 40 ms (0.8×
+    the lowest), 10 minutes each. **Before ("test(e2e): the local-paths probe meets the web lint's return-await and template rules"):** the follower joined but never played: it took the
+    2.0 Mb/s video and showed "loading the film" for all 9 minutes, its video never past readyState 0.
+    **After (main, "refactor(web): the focus engine's nearest search takes its start and direction as one"):** it played 767 s of film with 9 stalls, 77.9 s stalled in all; the core's log
+    gave refills of 30 s (`readyOnMs=30000`) at load ratios 1.1, 0.8 and 0.6. **Not passed as written:** the
+    stall counts cannot be compared, since the earlier batch did not play at all on this link, and the
+    refills were the 30 s cap rather than 60 s × (1 − r), which at r = 0.8 is 12 s, near the 10 s the item
+    says to beat. Left open for the owner: the item's figures need restating before a rerun. Also seen:
+    the follower's pong took 7–15 s on the full link, and the page said "Connection lost. Reconnecting…"
+    while the film played.
