@@ -1282,7 +1282,7 @@ User-Agent (D263; the User-Agent is logged only).
   default-prevented) and `keyup` on the focused button, and no `click`, which a button's Enter
   dispatches on its keypress. Chromium never lost one.
 - **What we do:** the tests of what a dialog gives focus back to, and of the sign-out question,
-  open or answer by `click()` on the focused button, not by Enter: the Enter's click is the
+  open, answer or choose (`popover`'s choosing, dropped in a make check 2026-11-04) by `click()` on the focused button, not by Enter: the Enter's click is the
   browser's, not the app's. Pressing Enter again did not help: four presses over 12 s were all
   dropped once one was. The app presses nothing and waits for nothing.
 - **Evidence:** the event log above, from a probe in `app-shell.browser.test.tsx` run with the
