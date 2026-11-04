@@ -135,6 +135,51 @@ class StopCannotRun(unittest.TestCase):
         for field in ("start", "seconds", "loadBefore", "loadAfter"):
             self.assertIn(field, runs[-1])
 
+    def test_the_gate_is_marked_running_while_it_runs_and_unmarked_after(self):
+        # The owner, 2026-11-04: a status line shows the gate running, which the hook cannot print.
+        import tempfile
+        from unittest import mock
+
+        sys.path.insert(0, str(HOOKS))
+        import on_stop  # noqa: PLC0415
+
+        pending = Path(tempfile.mkdtemp())
+        seen = pending / "seen"
+        mark = pending / on_stop.RUNNING
+        with mock.patch.object(on_stop, "PENDING", pending), \
+                mock.patch.object(on_stop.hooklib, "read_event", lambda: {}), \
+                mock.patch.object(on_stop.hooklib, "check_pr_running", lambda: None), \
+                mock.patch.object(on_stop, "already_passed", lambda: False), \
+                mock.patch.object(on_stop, "changed_since_pass", lambda: ["internal/core/x.go"]), \
+                mock.patch.object(on_stop, "gate_held", lambda: False), \
+                mock.patch.object(on_stop, "ffmpeg_jobs", lambda: 0), \
+                mock.patch.object(on_stop.worktrees, "clean", lambda root: ([], [])), \
+                mock.patch.object(on_stop.run_gate, "gate_command",
+                                  lambda target, env: ["cp", str(mark), str(seen)]):
+            on_stop.main()
+        during = json.loads(seen.read_text())
+        self.assertEqual(during["target"], "check")
+        self.assertIn("start", during)
+        self.assertFalse(mark.exists(), "the mark goes once the gate ends")
+
+    def test_the_status_segment_shows_a_running_gate_and_nothing_for_a_dead_or_absent_one(self):
+        import os
+        import subprocess
+        import tempfile
+
+        sys.path.insert(0, str(HOOKS))
+        import gate_status  # noqa: PLC0415
+
+        root = Path(tempfile.mkdtemp())
+        self.assertEqual(gate_status.segment(root, 100.0), "")
+        (root / gate_status.MARK).parent.mkdir(parents=True)
+        (root / gate_status.MARK).write_text(json.dumps({"target": "check", "start": 100.0, "pid": os.getpid()}))
+        self.assertEqual(gate_status.segment(root, 230.0), "make check: 2m10s")
+        gone = subprocess.Popen(["true"])
+        gone.wait()
+        (root / gate_status.MARK).write_text(json.dumps({"target": "check", "start": 100.0, "pid": gone.pid}))
+        self.assertEqual(gate_status.segment(root, 230.0), "", "a killed hook's mark shows nothing")
+
     def _needs_build(self) -> int:
         sys.path.insert(0, str(HOOKS))
         import on_stop  # noqa: PLC0415
