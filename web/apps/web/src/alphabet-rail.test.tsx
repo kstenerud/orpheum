@@ -326,14 +326,19 @@ describe("Films' search and sort, kept in the address for Back to return to", ()
       null,
     ]);
     expect(
-      mounted.container.querySelector(".route-chooser__button")?.getAttribute("aria-label"),
+      mounted.container
+        .querySelector(".listing-tools .route-chooser__button")
+        ?.getAttribute("aria-label"),
     ).toBe("Sort: Newest released");
   });
 });
 
-/** Chooses the sort labelled label in the page's sort chooser, opened for it. */
+/**
+ * Chooses the sort labelled label in the page's sort chooser, opened for it: the tools' chooser, the
+ * chips' Genre and Decade before it on the bar's line.
+ */
 async function chooseSort(container: HTMLElement, label: string): Promise<void> {
-  await click(container.querySelector(".route-chooser__button"));
+  await click(container.querySelector(".listing-tools .route-chooser__button"));
   await click(buttonNamed(container, label));
 }
 
@@ -367,7 +372,7 @@ describe("the rail follows a name sort's direction (D366 §4)", () => {
       </BackgroundChangesContext>,
     );
     await settleUntil(() => mounted?.container.querySelector(".alphabet-rail") !== null);
-    await click(mounted.container.querySelector(".route-chooser__button"));
+    await click(mounted.container.querySelector(".listing-tools .route-chooser__button"));
     const options = [...mounted.container.querySelectorAll("dialog li button")].map((each) =>
       each.getAttribute("aria-label"),
     );

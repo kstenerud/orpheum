@@ -311,9 +311,11 @@ describe.each(screens)("the app by a game controller, on $name", ({ width, heigh
     expect(document.querySelector("dialog")).not.toBeNull();
     await pressPad(pad, padButtons.down);
     await pressPad(pad, padButtons.ok);
-    // The next choice after Name, A–Z is Name, Z–A (D366 §2).
+    // The next choice after Name, A–Z is Name, Z–A (D366 §2); the sort's, among the bar's choosers.
     await expect
-      .poll(() => document.querySelector(".route-chooser__button")?.getAttribute("aria-label"))
+      .poll(() =>
+        document.querySelector(".listing-tools .route-chooser__button")?.getAttribute("aria-label"),
+      )
       .toBe("Sort: Name, Z–A");
     await expect
       .poll(() => heard.filter((each) => each === "GET /titles").length)
