@@ -187,6 +187,9 @@ class TheLockGoesWithTheRun(unittest.TestCase):
     def test_a_waiting_run_ends_a_holder_past_its_lease_whose_wrapper_is_gone(self):
         root = repository(self)
         run, grandchild = self.started_run(root, "--as", "test", "--lease", "1")
+        # Its command can start before the wrapper records its group; killed before that, the waiting run
+        # could only name it (a race make check's load hit, 2026-11-04).
+        until(lambda: "group" in (gate_lock.holder_record(root) or {}))
         run.kill()
         run.wait(timeout=30)
         second = run_lock(root, "true")
