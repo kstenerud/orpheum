@@ -3316,7 +3316,9 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   which drops it. Seen in `/proc/net/nf_conntrack` and Firefox's `getStats()`. Who makes the entry
   first is a race, which is why it passed for weeks and then failed every time.
 - **What we do:** the sandbox exempts loopback from NAT: `sudo iptables -t nat -I POSTROUTING 1 -o lo
-  -j RETURN` (lost when the sandbox restarts). With it the test passed 3 of 3. A device on the house's
+  -j RETURN` (lost when the sandbox restarts). With it the test passed 3 of 3. The browser tier's
+  setup sends one UDP packet between every two of the machine's addresses and fails, naming that
+  command, when one arrives from another address than it left (`web/e2e/local-paths.ts`). A device on the house's
   network never reaches a bridge address, so only a browser on the core's own machine meets this.
   Whether the core should offer no candidates on container bridges at all is the owner's call.
 - **Evidence:** the sandbox, 2026-11-04. **[web]** Others met the same: a 2023 discuss-webrtc thread,

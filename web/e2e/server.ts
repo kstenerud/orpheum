@@ -18,6 +18,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { filmCache } from "./film-cache.ts";
+import { deliveries, ownAddresses, rewritten, rewrittenMessage } from "./local-paths.ts";
 
 /** The people and films the tests use; the spec reads them from here. */
 export const owner = { name: "owner", password: "owner-browser-test" } as const;
@@ -332,6 +333,10 @@ function makeInstances(paths: {
  * same film at once. The last run's server logs go, as each server writes its own.
  */
 export default async function globalSetup(): Promise<void> {
+  const found = rewritten(await deliveries(ownAddresses()));
+  if (found.length > 0) {
+    throw new Error(rewrittenMessage(found));
+  }
   const ffmpeg = path.join(requiredEnv("ORPHEUM_TEST_FFMPEG_DIR"), "ffmpeg");
   const root = mkdtempSync(path.join(tmpdir(), "orpheum-browser-films-"));
   try {
