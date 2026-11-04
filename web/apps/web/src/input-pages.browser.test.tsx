@@ -683,6 +683,41 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     }
   });
 
+  it("goes Down from This device's Rename, its arrival, to the controller's choices", async () => {
+    await page.viewport(width, height);
+    walking = await mountApp(
+      walkServices(
+        {
+          ...signedIn,
+          "GET /me/devices": {
+            devices: [
+              {
+                id: 1,
+                name: "Device 1",
+                platform: "web",
+                addedAt: 0,
+                lastUsedAt: 0,
+                isSignedIn: true,
+                isByCode: false,
+                isThisDevice: true,
+              },
+            ],
+          },
+        },
+        "/this-device",
+      ),
+    );
+    await expect.poll(focusedName).toBe("Rename");
+    expect(await unreachedInMain()).toEqual([]);
+    document.querySelector<HTMLElement>(".your-devices__name button")?.focus();
+    expect(
+      await pressUntil(
+        "{ArrowDown}",
+        () => document.activeElement?.getAttribute("type") === "radio",
+      ),
+    ).toBe(true);
+  });
+
   it("reaches every control of the sign-in page and types in its fields", async () => {
     await page.viewport(width, height);
     const services = walkServices({ "GET /client-settings": {} });
