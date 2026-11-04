@@ -12,7 +12,7 @@ import "./base.css";
 import "./i18n.ts";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 
 import { routeHref } from "./router.ts";
 import { directDecision } from "./test-fixtures.ts";
@@ -166,8 +166,9 @@ describe.each(screens.filter((screen) => !screen.isTelevision))(
 
     // The owner, 2026-10-28: "When I play a video, there's no way to go directly back to the info
     // page", then: "it always leaves a trail that goes back to the info page before going any
-    // further back". The playing is the trail's last part, what plays' page its parent.
-    it("shows what plays, nothing drawn over it, and goes to its page in its place", async () => {
+    // further back". The playing is the trail's last part, what plays' page its parent. Since the
+    // film fills the window (D418 §1), the trail lies under it, and the overlay's Up is its way up.
+    it("keeps what plays under the film, the overlay's Up leading to its page, and goes there in its place", async () => {
       await page.viewport(width, height);
       walking = await mountApp(walkServices(episodeToPlay, "/play/230"));
       const { navigation } = walking.services;
@@ -177,7 +178,12 @@ describe.each(screens.filter((screen) => !screen.isTelevision))(
       expect(document.querySelector('.up-trail [aria-current="page"]')?.textContent).toBe(
         "Playing",
       );
-      expect(coveredPointsOf(trail)).toEqual([]);
+      expect(coveredPointsOf(trail)).not.toEqual([]);
+      await userEvent.keyboard("{ArrowUp}");
+      await expect.poll(() => isDrawn(".player-overlay .player-overlay__up")).toBe(true);
+      expect(
+        document.querySelector(".player-overlay .player-overlay__up")?.getAttribute("href"),
+      ).toBe(whatPlays()?.getAttribute("href"));
       whatPlays()?.click();
       await expect
         .poll(() => routeHref(navigation.route()))

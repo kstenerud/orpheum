@@ -138,6 +138,22 @@ export function focusedName(): string {
   return (focused.getAttribute("aria-label") ?? focused.textContent).trim();
 }
 
+/**
+ * Presses by press: a key until isThere, at most most times (times unless said), saying whether it
+ * got there. One walk's pressUntil, made once with its press.
+ */
+export function pressesUntil(
+  press: (keys: string) => Promise<void>,
+  times = 12,
+): (key: string, isThere: () => boolean, most?: number) => Promise<boolean> {
+  return async (key, isThere, most = times) => {
+    for (let pressed = 0; pressed < most && !isThere(); pressed += 1) {
+      await press(key);
+    }
+    return isThere();
+  };
+}
+
 /** Whether what has focus is inside the element selector names. */
 export function isFocusIn(selector: string): boolean {
   return document.querySelector(selector)?.contains(document.activeElement) === true;

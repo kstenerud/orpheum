@@ -34,6 +34,7 @@ import {
   walkServices,
   type Walking,
   type WalkAnswers,
+  pressesUntil,
 } from "./test-walk.tsx";
 
 /** The screens the walks are made at: a Fire TV's page in Silk, and a desktop's window. */
@@ -144,13 +145,8 @@ async function press(keys: string): Promise<void> {
   await userEvent.keyboard(keys);
 }
 
-/** Presses key until isThere, at most times times; whether it got there. */
-async function pressUntil(key: string, isThere: () => boolean, times = 12): Promise<boolean> {
-  for (let pressed = 0; pressed < times && !isThere(); pressed += 1) {
-    await press(key);
-  }
-  return isThere();
-}
+/** Presses a key until a test holds, at most 12 times; whether it held. */
+const pressUntil = pressesUntil(press);
 
 /** Waits until the page draws selector. */
 async function drawn(selector: string): Promise<void> {
