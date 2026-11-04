@@ -14,6 +14,7 @@ import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./loaded.tsx";
+import { ModalDialog } from "./modal-dialog.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 
@@ -33,6 +34,50 @@ export function SystemBackups(): JSX.Element {
     useBackgroundChangesPoller(),
   );
   const [isAsked, setIsAsked] = useState(false);
+  const [isAsking, setIsAsking] = useState(false);
+  return (
+    <section aria-labelledby="system-backups">
+      <div className="system__heading-row">
+        <h2 id="system-backups">{t("system.backups.heading")}</h2>
+        <button
+          type="button"
+          onClick={() => {
+            setIsAsking(true);
+          }}
+        >
+          {t("system.backups.make")}
+        </button>
+      </div>
+      <p>{t("system.backups.what")}</p>
+      {isAsking ? (
+        <AskForBackup
+          onAsked={() => {
+            setIsAsking(false);
+            setIsAsked(true);
+            reload();
+          }}
+          onClose={() => {
+            setIsAsking(false);
+          }}
+        />
+      ) : null}
+      {isAsked ? <output>{t("system.backups.asked")}</output> : null}
+      <Loaded resource={backups} render={(value) => <BackupList backups={value} />} />
+    </section>
+  );
+}
+
+/**
+ * The dialog "Back up now" opens (the owner, 2026-11-04): whether to put the server's keys in the
+ * backup, and the request. Making a backup is not dangerous, so focus arrives on its first field
+ * (D421). It closes once the backup is asked for; a refusal is said in it, and it stays.
+ */
+function AskForBackup(props: {
+  readonly onAsked: () => void;
+  readonly onClose: () => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { api } = useServices();
   const { isBusy, problem, runRequest } = useRequest((cause) => problemText(t, cause));
   const [shouldIncludeKey, setShouldIncludeKey] = useState(false);
   const makeBackup = (): void => {
@@ -43,19 +88,12 @@ export function SystemBackups(): JSX.Element {
           ...idempotent(idempotencyKey),
         }),
       );
-      setIsAsked(true);
-      reload();
+      props.onAsked();
     });
   };
   return (
-    <section aria-labelledby="system-backups">
-      <div className="system__heading-row">
-        <h2 id="system-backups">{t("system.backups.heading")}</h2>
-        <button type="button" disabled={isBusy} onClick={makeBackup}>
-          {t("system.backups.make")}
-        </button>
-      </div>
-      <p>{t("system.backups.what")}</p>
+    <ModalDialog label={t("system.backups.make")} isWide onClose={props.onClose}>
+      <h2>{t("system.backups.make")}</h2>
       <label>
         <input
           type="checkbox"
@@ -67,10 +105,11 @@ export function SystemBackups(): JSX.Element {
         {t("system.backups.includeKey")}
       </label>
       {shouldIncludeKey ? <p>{t("system.backups.includeKeyWarning")}</p> : null}
-      {isAsked ? <output>{t("system.backups.asked")}</output> : null}
       {problem === undefined ? null : <p role="alert">{problem}</p>}
-      <Loaded resource={backups} render={(value) => <BackupList backups={value} />} />
-    </section>
+      <button type="button" disabled={isBusy} onClick={makeBackup}>
+        {t("system.backups.create")}
+      </button>
+    </ModalDialog>
   );
 }
 
