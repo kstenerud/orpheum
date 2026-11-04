@@ -1,0 +1,180 @@
+// SPDX-License-Identifier: MPL-2.0
+
+import "./credits.css";
+
+import type { components } from "@orpheum/sdk";
+import type { TFunction } from "i18next";
+import type { JSX } from "react";
+import { useTranslation } from "react-i18next";
+
+import { arrivalMark } from "./focus-navigation.ts";
+import { Link } from "./link.tsx";
+import { Loaded } from "./loaded.tsx";
+import { dataOrThrow } from "./problem.ts";
+import { itemRoute } from "./router.ts";
+import { useServices } from "./services.tsx";
+import { useResource } from "./use-resource.ts";
+
+/** A title's cast, directors and writers, as the server sends them, each in billing order. */
+export type Credits = components["schemas"]["CreditsBody"];
+type Credit = components["schemas"]["CreditBody"];
+type PersonTitle = components["schemas"]["PersonTitleBody"];
+type PersonRole = components["schemas"]["PersonRoleBody"];
+
+/** A name's initials: its first word's first letter and its last's, as a face's placeholder shows. */
+export function initialsOf(name: string): string {
+  const words = name.split(/\s+/u).filter((word) => word !== "");
+  const ends = words.length > 1 ? [words[0], words.at(-1)] : words;
+  return ends
+    .map((word) => firstLetterOf(word ?? ""))
+    .join("")
+    .toLocaleUpperCase();
+}
+
+/** A word's first letter as a reader sees one, an accent or a joined emoji with it. */
+function firstLetterOf(word: string): string {
+  const segments = new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(word);
+  return segments.containing(0)?.segment ?? "";
+}
+
+/**
+ * A person's face's place: their initials in a circle. The server keeps where their picture is at
+ * its source (pictureRef) but serves no picture yet, so none is shown; hidden from a screen reader,
+ * which hears the name beside it.
+ */
+export function PersonFace(props: { readonly name: string }): JSX.Element {
+  return (
+    <span className="person-face" aria-hidden="true">
+      {initialsOf(props.name)}
+    </span>
+  );
+}
+
+/** One person a title credits: their face's place, their name and, in the cast, their part under it. */
+function CreditLink(props: { readonly credit: Credit }): JSX.Element {
+  const { credit } = props;
+  return (
+    <Link to={{ screen: "credited-person", personId: credit.personId }} className="credit">
+      <PersonFace name={credit.name} />
+      <span className="credit__words">
+        <span className="credit__name">{credit.name}</span>
+        {credit.character === undefined || credit.character === "" ? null : (
+          <span className="credit__character">{credit.character}</span>
+        )}
+      </span>
+    </Link>
+  );
+}
+
+/** One group of a title's credits under its heading, each leading to the person's page; none when empty. */
+function CreditGroup(props: {
+  readonly id: string;
+  readonly heading: string;
+  readonly credits: readonly Credit[] | null | undefined;
+}): JSX.Element | null {
+  const credits = props.credits ?? [];
+  if (credits.length === 0) {
+    return null;
+  }
+  return (
+    <section className="credits__group" aria-labelledby={props.id}>
+      <h2 id={props.id}>{props.heading}</h2>
+      <ul className="credits__list" data-focus-container="">
+        {credits.map((credit, index) => (
+          // A person may be credited twice in one group (two parts); their place keeps each apart.
+          <li key={`${String(credit.personId)}/${String(index)}`}>
+            <CreditLink credit={credit} />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/**
+ * A title's people (search-by-more §4.4): its cast in billing order, each one's part under their
+ * name, then its directors and writers, each one press from their page and its titles. An episode's
+ * are its series' (the server's). Nothing when the title credits no one.
+ */
+export function TitlePeople(props: { readonly credits: Credits | undefined }): JSX.Element | null {
+  const { t } = useTranslation();
+  const { credits } = props;
+  if (credits === undefined) {
+    return null;
+  }
+  return (
+    <div className="credits">
+      <CreditGroup id="credits-cast" heading={t("credits.cast")} credits={credits.cast} />
+      <CreditGroup
+        id="credits-directors"
+        heading={t("credits.directors")}
+        credits={credits.directors}
+      />
+      <CreditGroup id="credits-writers" heading={t("credits.writers")} credits={credits.writers} />
+    </div>
+  );
+}
+
+/** What a person did on a title, in words: "Director", "Writer", or "as" their part in the cast. */
+function roleText(t: TFunction, role: PersonRole): string {
+  switch (role.role) {
+    case "director":
+      return t("credits.roleDirector");
+    case "writer":
+      return t("credits.roleWriter");
+    case "cast":
+      return role.character === undefined || role.character === ""
+        ? t("credits.roleCast")
+        : t("credits.roleAs", { character: role.character });
+  }
+}
+
+/** One title on a person's page: its name, its year, and what they did on it, leading to its page. */
+function PersonTitleLink(props: { readonly title: PersonTitle }): JSX.Element {
+  const { t } = useTranslation();
+  const { title } = props;
+  const roles = (title.roles ?? []).map((role) => roleText(t, role)).join(", ");
+  return (
+    <Link to={itemRoute(title.kind, title.id)} className="credited-person__title">
+      <span className="credited-person__title-name">{title.name}</span>
+      {title.year === undefined ? null : (
+        <span className="credited-person__title-detail">
+          {t("browse.year", { year: title.year })}
+        </span>
+      )}
+      {roles === "" ? null : <span className="credited-person__title-detail">{roles}</span>}
+    </Link>
+  );
+}
+
+/**
+ * A credited person's page (search-by-more §4.4): their name, and the titles they reach that credit
+ * them, newest first as the server orders them, each opening its page. One no title the person
+ * reaches credits is not found (the server's 404), told as any page's failure is.
+ */
+export function CreditedPerson(props: { readonly id: number }): JSX.Element {
+  const { api } = useServices();
+  const [person] = useResource(`credited-person/${String(props.id)}`, async () =>
+    dataOrThrow(await api.GET("/people/{id}", { params: { path: { id: props.id } } })),
+  );
+  return (
+    <Loaded
+      resource={person}
+      render={(loaded) => (
+        <section className="credited-person" aria-labelledby="credited-person-heading">
+          <div className="credited-person__head">
+            <PersonFace name={loaded.name} />
+            <h1 id="credited-person-heading">{loaded.name}</h1>
+          </div>
+          <ul className="credited-person__titles" data-focus-container="" {...arrivalMark}>
+            {(loaded.titles ?? []).map((title) => (
+              <li key={`${title.kind}/${String(title.id)}`}>
+                <PersonTitleLink title={title} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    />
+  );
+}

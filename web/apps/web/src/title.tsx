@@ -10,6 +10,7 @@ import { use, useEffect, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { camelKey } from "./catalogue-key.ts";
+import { TitlePeople } from "./credits.tsx";
 import { languageName } from "./language-name.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { ConfirmButton } from "./confirm-button.tsx";
@@ -124,6 +125,7 @@ export function TitleView(props: {
         )}
         <TitleMoreActions title={title} onMatchCorrected={props.onMatchCorrected} />
       </div>
+      <TitlePeople credits={title.credits} />
       <Extras extras={title.extras ?? []} />
     </article>
   );

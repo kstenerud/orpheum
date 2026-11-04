@@ -20,6 +20,7 @@ import { ModalDialog } from "./modal-dialog.tsx";
 import { MoreActions, type MoreAction } from "./more-actions.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
 import { StatusNotes, StatusTray } from "./status-cues.tsx";
+import { TitlePeople } from "./credits.tsx";
 import { PosterCard, PosterDetail } from "./poster-card.tsx";
 import { PosterRow } from "./poster-row.tsx";
 import { Poster, Still } from "./poster.tsx";
@@ -113,6 +114,7 @@ export function SeriesView(props: {
         marks={marks}
         onWatchedChanged={onWatchedChanged}
       />
+      <TitlePeople credits={series.credits} />
     </article>
   );
 }
