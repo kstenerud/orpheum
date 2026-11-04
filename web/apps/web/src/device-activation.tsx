@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 
 import { activateDevice, answerActivation, type Activation } from "./accounts.ts";
+import { arrivalMark } from "./focus-navigation.ts";
 import { FormRow } from "./form-row.tsx";
 import { fieldProblemText } from "./problem.ts";
 import type { Scanned } from "./router.ts";
@@ -124,6 +125,7 @@ function EnterCode(props: {
         {t("activate.code")}{" "}
         <input
           className="device-activation__code-field"
+          {...arrivalMark}
           required
           autoComplete="off"
           autoCapitalize="none"

@@ -1,0 +1,215 @@
+// SPDX-License-Identifier: MPL-2.0
+
+/**
+ * Where focus is as a page or a dialog opens, its arrival (ui-audit-2026-11-04.md R3; focus-navigation.ts
+ * arriveWhenDrawn): on what the page is for, so the first press acts on it, in a real browser, as
+ * the app draws it from the server's answers; and shown with no ring where a pointer opened it.
+ */
+
+// Every page's ground, as the client's entry lays it (client-main.tsx): its tokens and base rules.
+import "./tokens.css";
+import "./base.css";
+import "./i18n.ts";
+
+import { afterEach, describe, expect, it } from "vitest";
+import { page, userEvent } from "vitest/browser";
+
+import { createSession } from "./session.ts";
+import { fakeTogetherServer } from "./test-together.ts";
+import {
+  filmDetail,
+  films,
+  focusedName,
+  isDrawn,
+  isFocusIn,
+  isFocusOnFirst,
+  mountApp,
+  viewer,
+  walkServices,
+  type Walking,
+  type WalkAnswers,
+} from "./test-walk.tsx";
+
+/** The server's answers every signed-in page reads. */
+const signedIn: WalkAnswers = {
+  "GET /me": viewer,
+  "GET /client-settings": {},
+  "GET /home": { continueWatching: [] },
+  "GET /titles": { titles: films(6), nextCursor: "" },
+};
+
+/** A device of the person's, as GET /me/devices lists it. */
+function device(id: number, name: string, isThisDevice = false): Record<string, unknown> {
+  return {
+    id,
+    name,
+    platform: "web",
+    addedAt: 0,
+    lastUsedAt: 0,
+    isSignedIn: true,
+    isByCode: false,
+    isThisDevice,
+  };
+}
+
+/** What has focus, as a failure shows it. */
+function focused(): string {
+  return document.activeElement?.outerHTML.slice(0, 120) ?? "nothing";
+}
+
+/** Waits until what has focus is inside what selector names. */
+async function arrivesIn(selector: string): Promise<void> {
+  await expect.poll(() => isFocusIn(selector), { message: focused() }).toBe(true);
+}
+
+describe("a page's arrival", () => {
+  let walking: Walking | undefined;
+  afterEach(() => {
+    walking?.unmount();
+    walking = undefined;
+  });
+
+  it("is a list's first poster", async () => {
+    await page.viewport(1280, 800);
+    walking = await mountApp(walkServices(signedIn, "/films"));
+    await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
+  });
+
+  it("shows no ring on a page a pointer opened", async () => {
+    // A window the runner's own holds: at 1280 × 800 Playwright never found See all "visible,
+    // enabled and stable" to press, though its box held still.
+    await page.viewport(800, 600);
+    walking = await mountApp(walkServices(signedIn, "/"));
+    await expect.poll(() => isDrawn('main a[href="/titles/101"]')).toBe(true);
+    await expect.poll(() => document.activeElement?.getAttribute("href")).toBe("/titles/101");
+    // Home's newest films' See all, pressed by a real pointer.
+    const seeAll = document.querySelector<HTMLElement>('main a[href^="/films"]');
+    expect(seeAll).not.toBeNull();
+    if (seeAll !== null) {
+      await userEvent.click(seeAll);
+    }
+    await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
+    // Focused, so the first key acts on it, but with no ring for a person using a mouse (Q6).
+    expect(document.activeElement?.matches(":focus-visible")).toBe(false);
+  });
+
+  it("is a film's versions, its Play first", async () => {
+    await page.viewport(1280, 800);
+    walking = await mountApp(
+      walkServices({ ...signedIn, "GET /items/103": filmDetail(103, "Film 3") }, "/titles/103"),
+    );
+    await arrivesIn('section[aria-labelledby="title-versions"]');
+  });
+
+  it("is a series' next episode", async () => {
+    await page.viewport(1280, 800);
+    walking = await mountApp(
+      walkServices(
+        {
+          ...signedIn,
+          "GET /collections/20": {
+            id: 20,
+            kind: "series",
+            name: "Glass Tide",
+            libraryId: 1,
+            art: {},
+            orderings: [{ name: "aired", kind: "aired", episodeCount: 2 }],
+            seasons: [{ seasonNumber: 1, episodeCount: 2 }],
+            nextUp: {
+              titleId: 302,
+              name: "Low Water",
+              groupNumber: 1,
+              numberInGroup: 2,
+              fileId: 3020,
+            },
+          },
+        },
+        "/series/20",
+      ),
+    );
+    await arrivesIn('main [data-focus-start="arrival"]');
+    expect(focusedName()).toBe("Play S1E2");
+  });
+
+  it("is Home's Continue watching, where it has anything, before the newest films", async () => {
+    await page.viewport(1280, 800);
+    walking = await mountApp(
+      walkServices(
+        {
+          ...signedIn,
+          "GET /home": {
+            continueWatching: [
+              { id: 7, name: "Metropolis", libraryId: 1, fileId: 70, positionMs: 250, durationMs: 1000 },
+            ],
+          },
+        },
+        "/",
+      ),
+    );
+    await expect.poll(() => isDrawn('main a[href="/titles/101"]')).toBe(true);
+    await expect.poll(focusedName, { message: focused() }).toContain("Metropolis");
+  });
+
+  it("is Home's newest films where nothing is being watched", async () => {
+    await page.viewport(1280, 800);
+    walking = await mountApp(walkServices(signedIn, "/"));
+    await expect
+      .poll(() => document.activeElement?.getAttribute("href"), { message: focused() })
+      .toBe("/titles/101");
+  });
+
+  it("is This device's Rename", async () => {
+    await page.viewport(1280, 800);
+    walking = await mountApp(
+      walkServices(
+        { ...signedIn, "GET /me/devices": { devices: [device(5, "Karl's laptop", true)] } },
+        "/this-device",
+      ),
+    );
+    await expect.poll(focusedName, { message: focused() }).toBe("Rename");
+  });
+
+  it("is Your account's code field", async () => {
+    await page.viewport(1280, 800);
+    walking = await mountApp(walkServices(signedIn, "/account"));
+    await expect
+      .poll(() => document.activeElement?.classList.contains("device-activation__code-field"), {
+        message: focused(),
+      })
+      .toBe(true);
+  });
+
+  it("is the sign-in form's first empty field", async () => {
+    await page.viewport(1280, 800);
+    const services = walkServices({ "GET /client-settings": {} });
+    walking = await mountApp({ ...services, session: createSession(undefined) });
+    await expect
+      .poll(() => document.activeElement?.getAttribute("name"), { message: focused() })
+      .toBe("name");
+  });
+
+  it("is Cast's first device, once its list is read, not its Close", async () => {
+    await page.viewport(1280, 800);
+    const server = fakeTogetherServer();
+    walking = await mountApp({
+      ...walkServices({
+        ...signedIn,
+        "GET /me/devices": {
+          devices: [device(1, "Laptop", true), device(2, "Fire TV"), device(3, "Pixel")],
+        },
+      }),
+      openTogetherSocket: server.openSocket,
+    });
+    await server.accept();
+    await server.say({ type: "devices", deviceIds: [1, 2, 3], inFrontDeviceIds: [1, 2, 3] });
+    await expect.poll(() => isDrawn('button[aria-label="Cast to a device"]')).toBe(true);
+    document.querySelector<HTMLElement>('button[aria-label="Cast to a device"]')?.focus();
+    await userEvent.keyboard("{Enter}");
+    await expect.poll(() => isDrawn("dialog")).toBe(true);
+    // The devices are listed once the live connection says what this device casts: nothing.
+    await server.say({ type: "sending" });
+    await expect.poll(() => isDrawn("dialog .cast-to__devices button")).toBe(true);
+    await expect.poll(() => isFocusOnFirst("dialog .cast-to__devices button")).toBe(true);
+    expect(focusedName()).toContain("Fire TV");
+  });
+});

@@ -5,6 +5,7 @@ import "./credentials-form.css";
 import type { JSX, ReactNode } from "react";
 
 import logo from "./assets/orpheum-logo.svg";
+import { arrivalMark } from "./focus-navigation.ts";
 import { submitWith } from "./form-row.tsx";
 import { productName } from "./product-name.ts";
 
@@ -20,7 +21,11 @@ export function CredentialsForm(props: {
   return (
     <main className="credentials-form">
       <img className="credentials-form__logo" src={logo} alt={productName} />
-      <form className="credentials-form__form" onSubmit={submitWith(props.onSubmit)}>
+      <form
+        className="credentials-form__form"
+        onSubmit={submitWith(props.onSubmit)}
+        {...arrivalMark}
+      >
         <h1>{props.heading}</h1>
         {props.children}
       </form>
@@ -52,7 +57,7 @@ export function CredentialsNotice(props: {
   return (
     <main className="credentials-form">
       <img className="credentials-form__logo" src={logo} alt={productName} />
-      <section className="credentials-form__form">
+      <section className="credentials-form__form" {...arrivalMark}>
         <h1>{props.heading}</h1>
         {props.children}
       </section>

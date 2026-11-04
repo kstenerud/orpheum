@@ -3,6 +3,7 @@
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { arrivalMark } from "./focus-navigation.ts";
 import { Link } from "./link.tsx";
 import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
@@ -40,7 +41,7 @@ export function NeedsAttention(): JSX.Element {
           return lines.length + readWrongly.length + withoutSound.length === 0 ? (
             <p>{t("needsAttention.nothing")}</p>
           ) : (
-            <ul>
+            <ul {...arrivalMark}>
               {lines.map((line) => (
                 <li key={line.key}>
                   <WarningIcon /> {t(line.key, { count: line.count })}

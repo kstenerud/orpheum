@@ -4,7 +4,7 @@ import "./modal-layer.css";
 
 import { use, useEffect, useLayoutEffect, type RefObject } from "react";
 
-import { scrollIntoViewGently } from "./focus-navigation.ts";
+import { arriveWhenDrawn, scrollIntoViewGently } from "./focus-navigation.ts";
 import { useCommands } from "./input-layer.tsx";
 import { ServicesContext } from "./services.tsx";
 
@@ -19,14 +19,27 @@ function isOutside(dialog: HTMLDialogElement, event: MouseEvent): boolean {
   );
 }
 
-/** Opens dialog as the browser's own modal, unless it is open, its first field focused if asked. */
-function openModal(dialog: HTMLDialogElement, shouldFocusFirstField: boolean): void {
-  if (!dialog.open) {
-    dialog.showModal();
-    if (shouldFocusFirstField) {
-      dialog.querySelector<HTMLElement>(firstFieldSelector)?.focus();
-    }
+/**
+ * Opens dialog as the browser's own modal, unless it is open: its first field focused if asked, else
+ * its marked arrival once drawn (focus-navigation.ts arriveWhenDrawn), in place of the first control
+ * the browser focuses, which in a dialog whose list is still read is its Close (Cast to). Returns the
+ * stopping of the watch for its arrival.
+ */
+function openModal(dialog: HTMLDialogElement, shouldFocusFirstField: boolean): () => void {
+  if (dialog.open) {
+    return () => undefined;
   }
+  dialog.showModal();
+  if (shouldFocusFirstField) {
+    dialog.querySelector<HTMLElement>(firstFieldSelector)?.focus();
+    return () => undefined;
+  }
+  return arriveWhenDrawn(
+    () => dialog,
+    (element) => {
+      element.focus();
+    },
+  );
 }
 
 /**
@@ -144,7 +157,7 @@ export function useModalLayer(
     }
     const returns = focusReturnsFrom(document.activeElement);
     focusReturns.set(dialog, returns);
-    openModal(dialog, toldRef.current.shouldFocusFirstField === true);
+    const stopArriving = openModal(dialog, toldRef.current.shouldFocusFirstField === true);
     const cancel = (event: Event): void => {
       event.preventDefault(); // the page, not the browser, closes it, by unmounting it
       toldRef.current.onClose();
@@ -168,6 +181,7 @@ export function useModalLayer(
     dialog.addEventListener("keydown", keepEscape);
     dialog.addEventListener("click", pressOutside);
     return () => {
+      stopArriving();
       dialog.removeEventListener("cancel", cancel);
       dialog.removeEventListener("keydown", keepEscape);
       dialog.removeEventListener("click", pressOutside);

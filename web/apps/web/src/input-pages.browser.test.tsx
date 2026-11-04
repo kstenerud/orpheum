@@ -27,6 +27,7 @@ import {
   focusedName,
   isDrawn,
   isFocusIn,
+  isFocusOnFirst,
   mountApp,
   reachedFrom,
   viewer,
@@ -139,11 +140,16 @@ async function drawn(selector: string): Promise<void> {
 }
 
 /**
- * The controls of the page's main content no arrow reaches from the first an arrow starts at, by
- * their markup's start; none on a page a remote can use.
+ * The controls of the page's main content no arrow reaches from its arrival, where focus is as it
+ * opens (ui-audit-2026-11-04.md R3), or, on a page that has none, from the first an arrow starts at,
+ * by their markup's start; none on a page a remote can use.
  */
-async function unreachedInMain(): Promise<string[]> {
-  await press("{ArrowDown}");
+async function unreachedInMain({ hasArrival = true } = {}): Promise<string[]> {
+  if (hasArrival) {
+    await expect.poll(() => isFocusIn("main")).toBe(true);
+  } else {
+    await press("{ArrowDown}");
+  }
   return await unreachedIn("main");
 }
 
@@ -184,8 +190,8 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
   it("opens the banner's menu by OK, goes down its places to This device, and Back returns to its icon", async () => {
     await page.viewport(width, height);
     walking = await mountApp(walkServices({ ...signedIn, "GET /me/devices": { devices: [] } }));
-    await drawn(".poster-grid .poster-card__link");
-    await press("{ArrowDown}");
+    // The page opens with focus on its first poster, its arrival (ui-audit-2026-11-04.md R3).
+    await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
     expect(await pressUntil("{ArrowUp}", () => isFocusIn(".app-shell__banner"))).toBe(true);
     expect(await pressUntil("{ArrowRight}", () => focusedName() === "Menu")).toBe(true);
     await press("{Enter}");
@@ -202,8 +208,8 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
   it("closes the open menu by Back, keeping its icon, before going anywhere", async () => {
     await page.viewport(width, height);
     walking = await mountApp(walkServices(signedIn));
-    await drawn(".poster-grid .poster-card__link");
-    await press("{ArrowDown}");
+    // The page opens with focus on its first poster, its arrival (ui-audit-2026-11-04.md R3).
+    await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
     await pressUntil("{ArrowUp}", () => isFocusIn(".app-shell__banner"));
     await pressUntil("{ArrowRight}", () => focusedName() === "Menu");
     await press("{Enter}{ArrowDown}");
@@ -223,8 +229,8 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     const navigation = createNavigation(place, false);
     navigation.go({ screen: "films" });
     walking = await mountApp({ ...walkServices(signedIn), navigation });
-    await drawn(".poster-grid .poster-card__link");
-    await press("{ArrowDown}");
+    // The page opens with focus on its first poster, its arrival (ui-audit-2026-11-04.md R3).
+    await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
     await pressUntil("{ArrowUp}", () => isFocusIn(".app-shell__banner"));
     await pressUntil("{ArrowRight}", () => focusedName() === "Menu");
     await press("{Enter}{ArrowDown}");
@@ -239,8 +245,8 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
   it("closes the open menu by Left and by Right, focus on its icon, Down still moving within it", async () => {
     await page.viewport(width, height);
     walking = await mountApp(walkServices(signedIn));
-    await drawn(".poster-grid .poster-card__link");
-    await press("{ArrowDown}");
+    // The page opens with focus on its first poster, its arrival (ui-audit-2026-11-04.md R3).
+    await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
     await pressUntil("{ArrowUp}", () => isFocusIn(".app-shell__banner"));
     await pressUntil("{ArrowRight}", () => focusedName() === "Menu");
     for (const arrow of ["{ArrowLeft}", "{ArrowRight}"]) {
@@ -455,9 +461,13 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
             ],
           },
           "GET /titles/letters": { letters: [] },
-          // A search is the list's own query (the owner, 2026-10-30): its matches are the list.
+          // A search is the list's own query (the owner, 2026-10-30): its matches are the list. A
+          // row of them, so the page's tools above its end are reached from the first film, where
+          // the page opens (R3): over a list shorter than a row only the banner is above, and Down
+          // from it goes back to the film (focus-memory.ts), the tools reached by no arrow.
           "GET /titles": {
             titles: [
+              ...films(6).map((film) => ({ ...film, id: Number(film["id"]) + 100 })),
               {
                 id: 101,
                 kind: "movie",
@@ -484,7 +494,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     );
     // The search is the bar's magnifying glass, its field in the dialog it opens (the owner, 2026-10-30).
     await drawn('main button[aria-label="Search"]');
-    await press("{ArrowDown}");
+    await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
     const first = document.activeElement;
     expect(first).toBeInstanceOf(HTMLElement);
     const reached: Set<Element> =
@@ -513,7 +523,8 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     );
     await drawn('input[value="right"]');
     try {
-      expect(await unreachedInMain()).toEqual([]);
+      // No device listed, so no Rename to arrive at.
+      expect(await unreachedInMain({ hasArrival: false })).toEqual([]);
       document.querySelector<HTMLElement>('input[value="automatic"]')?.focus();
       expect(
         await pressUntil(

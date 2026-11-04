@@ -5,6 +5,7 @@ import "./watch-together.css";
 import { useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { arrivalMark } from "./focus-navigation.ts";
 import { tabStorage } from "./browser-storage.ts";
 import { BusyGroup } from "./busy-group.tsx";
 import { ConfirmButton } from "./confirm-button.tsx";
@@ -103,6 +104,7 @@ function StartSession(props: {
       <button
         type="button"
         className="watch-together__start"
+        {...arrivalMark}
         disabled={isBusy}
         onClick={() => {
           runRequest(async (idempotencyKey) => {

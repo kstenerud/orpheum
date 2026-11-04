@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import { listMyDevices, renameMyDevice } from "./accounts.ts";
 import { chooseOk, okChoices, useOkChoice } from "./controller-choice.ts";
+import { arrivalMark } from "./focus-navigation.ts";
 import { Link } from "./link.tsx";
 import { problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
@@ -70,15 +71,17 @@ export function ThisDevice(): JSX.Element {
           return (
             <>
               <h2>{t("thisDevice.name")}</h2>
-              <DeviceName
-                device={device}
-                onRename={(_, name) => {
-                  runRequest(async () => {
-                    await renameMyDevice(api, device.id, name);
-                    reload();
-                  });
-                }}
-              />
+              <div {...arrivalMark}>
+                <DeviceName
+                  device={device}
+                  onRename={(_, name) => {
+                    runRequest(async () => {
+                      await renameMyDevice(api, device.id, name);
+                      reload();
+                    });
+                  }}
+                />
+              </div>
               {problem === undefined ? null : <p role="alert">{problem}</p>}
             </>
           );

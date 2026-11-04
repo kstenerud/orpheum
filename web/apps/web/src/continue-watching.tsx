@@ -122,7 +122,7 @@ export function ContinueWatchingView(props: {
           </button>
         </output>
       )}
-      <PosterRow>
+      <PosterRow isArrival>
         {props.rows.map((row) => (
           <ContinueWatchingRowView
             key={row.id}

@@ -13,6 +13,7 @@ import {
   type Account,
   type Invitation,
 } from "./accounts.ts";
+import { arrivalMark } from "./focus-navigation.ts";
 import { InvitationDialog, InvitationsSection } from "./invitations-section.tsx";
 import { Link } from "./link.tsx";
 import { Loaded } from "./loaded.tsx";
@@ -209,7 +210,7 @@ export function IssuedInvitationView(props: { readonly issued: IssuedInvitation 
 export function PeopleList(props: { readonly accounts: readonly Account[] }): JSX.Element {
   const { t } = useTranslation();
   return (
-    <ul className="people__list">
+    <ul className="people__list" {...arrivalMark}>
       {props.accounts.map((account) => (
         <li key={account.id}>
           <Link to={{ screen: "person", userId: account.id }} className="people__row">

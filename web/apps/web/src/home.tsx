@@ -98,7 +98,7 @@ export function NewestRow(props: { readonly kind: BrowseKind }): JSX.Element | n
           {t("home.seeAll")}
         </Link>
       </div>
-      <PosterRow>
+      <PosterRow isArrival>
         {entries.value.map((entry: Entry) => (
           <EntryPoster key={entry.id} kind={kind} entry={entry} />
         ))}
