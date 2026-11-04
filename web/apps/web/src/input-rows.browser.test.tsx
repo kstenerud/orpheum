@@ -48,6 +48,22 @@ const withContinueWatching: WalkAnswers = {
   "GET /titles": { titles: films(12), nextCursor: "" },
 };
 
+/**
+ * Continue Watching as the server has it once it has heard each hide: the rows less those whose
+ * POST /items/<id>/hide is in heard. Read at each request, so a background poll before the hide
+ * still finds the row, and its card's open "…" stays.
+ */
+function homeLessHidden(
+  rows: readonly Record<string, unknown>[],
+  heard: readonly string[],
+): object {
+  return {
+    get continueWatching() {
+      return rows.filter((row) => !heard.includes(`POST /items/${String(row["id"])}/hide`));
+    },
+  };
+}
+
 /** An episode of season 1 of series 20. */
 function episode(number: number): Record<string, unknown> {
   return {
@@ -219,8 +235,12 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
   it("leaves Continue Watching by one Down, and hides a film from the card's own …, reached by Up", async () => {
     await page.viewport(width, height);
     const heard: string[] = [];
-    const answers: Record<string, unknown> = {
+    const answers: WalkAnswers = {
       ...withContinueWatching,
+      "GET /home": homeLessHidden(
+        [partway(201, "Metropolis"), partway(202, "Nosferatu"), partway(203, "Sunrise")],
+        heard,
+      ),
       "POST /items/202/hide": null,
     };
     walking = await mountApp(walkServices(answers, "/", heard));
@@ -239,8 +259,6 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
     await userEvent.keyboard("{Enter}");
     await expect.poll(() => isDrawn("dialog .list-box button")).toBe(true);
     expect(document.activeElement?.textContent).toBe("Hide");
-    // The server's rows from here on are without Nosferatu, as after a hide.
-    answers["GET /home"] = { continueWatching: [partway(201, "Metropolis"), partway(203, "Sunrise")] };
     await userEvent.keyboard("{Enter}");
     await expect.poll(() => heard).toContain("POST /items/202/hide");
     // Focus goes to the card after the one hidden, not to the page's body (D419 §3).
@@ -251,13 +269,14 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
 
   it("puts focus on the card before a hidden last one, and on Undo when none is left (D419 §3)", async () => {
     await page.viewport(width, height);
-    const answers: Record<string, unknown> = {
+    const heard: string[] = [];
+    const answers: WalkAnswers = {
       ...withContinueWatching,
-      "GET /home": { continueWatching: [partway(201, "Metropolis"), partway(203, "Sunrise")] },
+      "GET /home": homeLessHidden([partway(201, "Metropolis"), partway(203, "Sunrise")], heard),
       "POST /items/203/hide": null,
       "POST /items/201/hide": null,
     };
-    walking = await mountApp(walkServices(answers, "/"));
+    walking = await mountApp(walkServices(answers, "/", heard));
     await expect.poll(focusedCard).toBe("Metropolis");
     await userEvent.keyboard("{ArrowRight}");
     expect(focusedCard()).toBe("Sunrise");
@@ -265,14 +284,12 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
     expect(document.activeElement?.getAttribute("aria-label")).toBe("More for Sunrise");
     await userEvent.keyboard("{Enter}");
     await expect.poll(() => isDrawn("dialog .list-box button")).toBe(true);
-    answers["GET /home"] = { continueWatching: [partway(201, "Metropolis")] };
     await userEvent.keyboard("{Enter}");
     await expect.poll(focusedCard).toBe("Metropolis");
     await userEvent.keyboard("{ArrowUp}");
     expect(document.activeElement?.getAttribute("aria-label")).toBe("More for Metropolis");
     await userEvent.keyboard("{Enter}");
     await expect.poll(() => isDrawn("dialog .list-box button")).toBe(true);
-    answers["GET /home"] = { continueWatching: [] };
     await userEvent.keyboard("{Enter}");
     await expect.poll(() => document.activeElement?.textContent).toBe("Undo");
     expect(document.activeElement?.closest(".continue-watching__hidden")).not.toBeNull();
