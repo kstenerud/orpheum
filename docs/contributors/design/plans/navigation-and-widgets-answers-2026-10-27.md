@@ -1593,8 +1593,17 @@ research run in this batch … The actual UI revamp will be done next batch."*
    all (`videoBuffered=""`, four chunks appended and not held, `bufferAppendNoProgress`) and the
    player stepped to 720p, the owner's "hiccup". Its chunks read whole with the pinned FFprobe: each
    starts with a CRA, decode times rise, no chunk carries parameter sets of its own, the run one
-   (0–55). Nothing in the chunks explains it; the next step is Firefox's own media log
-   (about:logging, "Media playback") from the owner's Mac while it plays 5667.
+   (0–55). **Cause found** (Firefox's media log from the owner's Mac, 2026-11-04, and Gecko's
+   source): on macOS Firefox counts an HEVC picture a keyframe only when it is an IDR, never a CRA
+   (`MP4Demuxer.cpp`'s `GetNextSample`, under `MOZ_APPLEMEDIA`, because VideoToolbox can fail
+   starting at a CRA), and MSE reads appended chunks through that same demuxer. An open-GOP x265
+   film (5667: one IDR, then CRAs; The Gold Rush the same) then has one random access point, its
+   first picture. hls.js's removal of the played 0–4.96 s removed the whole picture buffer
+   (0.08–96.77 s: the MSE removal runs to the next random access point, and there is none), and
+   every chunk appended after, each starting at a CRA, was skipped whole ("skipping sample",
+   waiting for a random access point): `bufferAppendNoProgress`. A start or seek past chunk 0 fails
+   at its first chunk the same way (the resume at 2:09). **Owner to decide** the workaround (the
+   lead's proposal: Firefox on a Mac does not take an HEVC film's own picture, starting at its twin).
 4. **The SWAG research's starts and stalls** (11-05's "still filed"; the upload and ladder stay
    their own batch).
 5. *(Moved to the revamp, 2026-11-04:)* the SWAG research's remote (the held seek, the seek rest,
