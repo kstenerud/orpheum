@@ -106,12 +106,15 @@ export function SeriesView(props: {
           <>
             {isNextUpPlayable ? nextUpPlay : null}
             <SeriesMark series={series} onChanged={onWatchedChanged} />
-            <SeriesMoreActions
-              series={series}
-              onMatchCorrected={props.onMatchCorrected}
-              onOrderingChosen={props.onOrderingChosen}
-            />
           </>
+        }
+        hasMainAction={isNextUpPlayable}
+        more={
+          <SeriesMoreActions
+            series={series}
+            onMatchCorrected={props.onMatchCorrected}
+            onOrderingChosen={props.onOrderingChosen}
+          />
         }
         overview={series.overview}
       />

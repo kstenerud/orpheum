@@ -67,6 +67,11 @@
   color: var(--color-muted);
 }
 
+/* The "…"'s holder, there to mark it the arrival where nothing plays; no box of its own in the row. */
+.title-head__overflow {
+  display: contents;
+}
+
 .title-head__tagline {
   color: var(--color-muted);
   font-style: italic;

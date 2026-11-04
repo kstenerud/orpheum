@@ -149,3 +149,111 @@ describe.each(screens)("a title's first screen, on $name", ({ width, height }) =
     expect(more?.getAttribute("aria-expanded")).toBe("true");
   });
 });
+
+describe("a title's actions row, by a remote", () => {
+  let walking: Walking | undefined;
+  afterEach(() => {
+    walking?.unmount();
+    walking = undefined;
+  });
+
+  // D418 §7: a title with nothing to play arrives on its "…", so an OK opens a menu and never
+  // changes anything, rather than on Mark as watched, then the row's first.
+  it("arrives on the … of a film that cannot be played now, not on Mark as watched", async () => {
+    await page.viewport(1280, 800);
+    const away = { ...film, id: 104, unavailable: { reason: "node_away", nodeName: "devnas" } };
+    walking = await mountApp(
+      walkServices(
+        {
+          ...signedIn,
+          "GET /me": { ...viewer, role: "admin", isAdmin: true },
+          "GET /items/104": away,
+        },
+        "/titles/104",
+      ),
+    );
+    await expect.poll(() => isFocusIn(".title-head__actions")).toBe(true);
+    expect(focusedName()).toBe("More actions");
+    expect(document.querySelector(".title-head__actions .title__play")).toBeNull();
+    expect(document.querySelector(".title-head__actions .watched-marking")).not.toBeNull();
+  });
+
+  it("arrives on the … of a series with nothing next, not on Mark as watched", async () => {
+    await page.viewport(1280, 800);
+    const watchedThrough = {
+      ...series,
+      id: 22,
+      nextUp: undefined,
+      orderings: [
+        { name: "aired", kind: "aired", episodeCount: 4 },
+        { name: "tmdb:dvd", kind: "dvd", label: "DVD Order", listedCount: 4, episodeCount: 4 },
+      ],
+    };
+    walking = await mountApp(
+      walkServices({ ...signedIn, "GET /collections/22": watchedThrough }, "/series/22"),
+    );
+    await expect.poll(() => isFocusIn(".title-head__actions")).toBe(true);
+    expect(focusedName()).toBe("More actions");
+    expect(document.querySelector(".title-head__actions .title__play")).toBeNull();
+  });
+
+  // The actions row is a row (title-head.tsx): Right at its end stays, as at a poster row's end
+  // (Q3), rather than falling off its line to the season's Mark as watched half a screen down.
+  it("keeps Right at the end of a series' actions row in the row", async () => {
+    await page.viewport(960, 480);
+    const twoOrders = {
+      ...series,
+      id: 23,
+      orderings: [
+        { name: "aired", kind: "aired", episodeCount: 4 },
+        { name: "tmdb:dvd", kind: "dvd", label: "DVD Order", listedCount: 4, episodeCount: 4 },
+      ],
+    };
+    walking = await mountApp(
+      walkServices({ ...signedIn, "GET /collections/23": twoOrders }, "/series/23"),
+    );
+    await expect.poll(() => isDrawn(".series__season-head button")).toBe(true);
+    const more = document.querySelector<HTMLElement>(".title-head__actions .more-actions__button");
+    more?.focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(document.activeElement).toBe(more);
+    await userEvent.keyboard("{ArrowLeft}");
+    expect(focusedName()).toBe("Mark all of Glass Tide as watched");
+    expect(isFocusIn(".title-head__actions")).toBe(true);
+  });
+
+  // D418 §6: an episode's Next episode starts playing it.
+  it("plays the next episode from an episode's Next episode", async () => {
+    await page.viewport(1280, 800);
+    walking = await mountApp(
+      walkServices(
+        {
+          ...signedIn,
+          "GET /items/230": episode,
+          "GET /files/2300/up-next": {
+            upNext: {
+              ordering: "aired",
+              episode: {
+                fileId: 2310,
+                titleId: 231,
+                groupNumber: 2,
+                numberInGroup: 4,
+                isPartway: false,
+              },
+            },
+          },
+        },
+        "/titles/230",
+      ),
+    );
+    await expect.poll(() => isDrawn(".title-head__actions .title__action")).toBe(true);
+    const next = [...document.querySelectorAll<HTMLElement>(".title-head__actions a")].find(
+      (link) => link.textContent === "Next episode",
+    );
+    next?.focus();
+    await userEvent.keyboard("{Enter}");
+    await expect
+      .poll(() => walking?.services.navigation.route())
+      .toMatchObject({ screen: "play", fileId: 2310 });
+  });
+});
