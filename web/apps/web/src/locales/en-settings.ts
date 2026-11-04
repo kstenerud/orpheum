@@ -79,7 +79,7 @@ export const enSettingsCatalogue = {
     finishedAfterPercent:
       "Credits often take the last part of a film. Past this share of its length, the video counts as watched: it leaves Continue Watching and plays from the start next time.",
     hlsSegmentLengthSeconds:
-      "A converted film is sent in short pieces. Shorter pieces let the dialogue boost and other sound changes start sooner; longer ones make fewer requests. Changing it cuts each film again the next time it's played.",
+      "A converted film is sent in short pieces. A piece can only start where the film has a keyframe, so this is the shortest a piece is made, not its length: most of a film usually plays from pieces of 6 to 7 seconds, and pieces of 10 seconds or more are common. Shorter pieces let the dialogue boost and other sound changes start sooner; longer ones make fewer requests. Changing it cuts each film again the next time it's played.",
     inProgressAfterPercent:
       "A video watched only a little, a few minutes of trying it, isn't worth coming back to. Until playback passes this share of its length, it plays from the start next time and stays out of Continue Watching. Past it, it resumes where it stopped.",
     invariantsCheckEveryHours:
@@ -260,7 +260,7 @@ export const enSettingsCatalogue = {
     finishedAfterPercent: "How far into a video it counts as watched and leaves Continue Watching.",
     finishedJobsKeptDays: "How long finished jobs stay in the job list.",
     hlsSegmentLengthSeconds:
-      "The length of each piece a converted film is cut into. Changing it cuts films again when they are next played.",
+      "The shortest piece a converted film is cut into; its keyframes decide where each piece ends. Changing it cuts films again when they are next played.",
     invariantsCheckEveryHours:
       "How often the database is checked for consistency, besides at each start.",
     jobAttemptLimit: "How many times a failing background job is tried before it is marked failed.",

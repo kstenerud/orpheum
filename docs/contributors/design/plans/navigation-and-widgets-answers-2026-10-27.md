@@ -1607,7 +1607,11 @@ research run in this batch … The actual UI revamp will be done next batch."*
    D413, Firefox on a Mac up to 157 offered no HEVC, a later release offered it again so the check
    happens at each release. **Built 2026-11-04**; VQ260 for the Mac.
 4. **The SWAG research's starts and stalls** (11-05's "still filed"; the upload and ladder stay
-   their own batch).
+   their own batch). D414: a slow load counts at 8 s; a Watch Together refill after a stall by the
+   seek's rule, a minute's play where the link is slower than the lowest quality; small chunks
+   loaded back to back measure the link together; WebRTC starts 250 ms into the race for the core's
+   names; the index read's time logged; the chunk length's help says it is a floor its keyframes
+   decide. **Built 2026-11-04**; VQ262 for the slow-link lab run.
 5. *(Moved to the revamp, 2026-11-04:)* the SWAG research's remote (the held seek, the seek rest,
    "Still watching?") is input to item 7's research and built with the revamp.
 6. *(Not this batch, the owner, 2026-11-04, "go with your recommendation":)* a re-timed copy cut

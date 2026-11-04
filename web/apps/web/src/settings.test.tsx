@@ -260,10 +260,10 @@ describe("settings", () => {
     ]);
   });
 
-  it("says a film is converted, not prepared, now the whole-film prepare is retired (D344)", async () => {
+  it("says a film is converted, not prepared, now the whole-film prepare is retired (D344), its pieces' length a floor its keyframes decide (D414 §5)", async () => {
     expect(await paragraphsFor("hls_segment_length_seconds")).toEqual([
-      "The length of each piece a converted film is cut into. Changing it cuts films again when they are next played.",
-      "A converted film is sent in short pieces. Shorter pieces let the dialogue boost and other sound changes start sooner; longer ones make fewer requests. Changing it cuts each film again the next time it's played.",
+      "The shortest piece a converted film is cut into; its keyframes decide where each piece ends. Changing it cuts films again when they are next played.",
+      "A converted film is sent in short pieces. A piece can only start where the film has a keyframe, so this is the shortest a piece is made, not its length: most of a film usually plays from pieces of 6 to 7 seconds, and pieces of 10 seconds or more are common. Shorter pieces let the dialogue boost and other sound changes start sooner; longer ones make fewer requests. Changing it cuts each film again the next time it's played.",
     ]);
     const playLadder = await paragraphsFor("play_ladder_wait_ms");
     expect(playLadder[1]).toBe(
