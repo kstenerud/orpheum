@@ -479,6 +479,16 @@ describe("A finger's taps on the full-screen picture, as a real browser lays it 
         expect(atS).toBe(100);
         await new Promise((done) => setTimeout(done, doubleTapWaitMs * 2));
         expect(overlay.getAttribute("data-shown")).toBe("full");
+        // The indicator stands in the stage's left third (a full-screen film fills it), catching no tap.
+        const seeked = found(mounted.container, ".player-overlay-seeked");
+        expect(seeked.textContent).toBe("\u221210");
+        expect(getComputedStyle(seeked).pointerEvents).toBe("none");
+        const seekedBox = seeked.getBoundingClientRect();
+        const stageBox = found(mounted.container, ".film-player__stage").getBoundingClientRect();
+        expect(seekedBox.left + seekedBox.width / 2).toBeLessThan(
+          stageBox.left + stageBox.width / 3,
+        );
+        expect(seekedBox.left).toBeGreaterThanOrEqual(stageBox.left);
       },
     );
   });

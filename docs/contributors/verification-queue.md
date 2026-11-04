@@ -2612,6 +2612,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   up until tapped away again; (3) a double tap on the right third seeks 10 s forward and on the left
   third 10 s back, a third and fourth quick tap stack 10 s each, and none of them shows or hides the
   overlay; (4) a double tap in the middle third seeks nothing and the page does not zoom anywhere;
-  (5) a tap on a button still does the button's own thing. Note whether the wait before a lone tap on a
-  side shows or hides feels slow. (`web/apps/web/src/player-taps.ts`'s `useAnswersPictureTaps`;
+  (5) a tap on a button still does the button's own thing; (6) each double-tap seek shows "+10" (or
+  "−10" on the left) on the side tapped, stacked taps show "+20", "+30", it fades shortly (about
+  0.7 s) after the last tap, it does not show the overlay or catch a tap, and with Android's "Remove
+  animations" on it appears and goes with no fade. Note whether it is big and quick enough to read
+  without hiding the picture. Note whether the wait before a lone tap on a side shows or hides feels
+  slow. (`web/apps/web/src/player-taps.ts`'s `useAnswersPictureTaps`;
   `doubleTapWaitMs`)

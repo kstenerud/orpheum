@@ -25974,10 +25974,18 @@ open) stands. Research:
    renews the overlay's time), and the tap that closes an open menu closes only the menu.
 5. **What a tap is:** a touch lifted within 10 px of where it came down and 500 ms after, with no
    second finger. The click such a tap makes is its own and is not heard twice.
+6. **A double-tap seek shows its size** (added 2026-11-04; the owner, 2026-11-04: "Yes, I like that
+   +10 idea"), as Netflix and YouTube do: a "+10" (forward) or "−10" (back) at the middle of the
+   third tapped, the running total as taps stack ("+20", "+30"), fading 200 ms after it has stood
+   700 ms (`seekFeedbackShownMs`) from the last tap. It is `pointer-events: none`, takes no focus and
+   does not show the overlay; it is `aria-hidden`, since the seek is what assistive technology has and a
+   second announcement would only repeat it. With `prefers-reduced-motion` it appears and goes with no
+   fade. Its text is the catalogue's `playerControls.seekedForward` and `seekedBack`.
 
 **Proven by:**
 - 1–3: web/apps/web/src/player-overlay-state.test.ts, web/apps/web/src/player-overlay.test.tsx, web/apps/web/src/player-widgets.browser.test.tsx
 - 4: web/apps/web/src/player-overlay.test.tsx; on a phone, VQ263
+- 6: web/apps/web/src/player-overlay.test.tsx, web/apps/web/src/player-widgets.browser.test.tsx; on a phone, VQ263
 
 **Status:** Decided 2026-11-04.
 

@@ -43,7 +43,7 @@ import {
   type OverlayState,
   type PressContext,
 } from "./player-overlay-state.ts";
-import { useAnswersPictureTaps, useOpensAtThePointer } from "./player-taps.ts";
+import { useAnswersPictureTaps, useOpensAtThePointer, type SeekFeedback } from "./player-taps.ts";
 import { PlayerTracksContext } from "./player-tracks.tsx";
 import { Timeline } from "./timeline.tsx";
 import { isTelevision } from "./tv-device.ts";
@@ -88,7 +88,7 @@ export function PlayerOverlay(
     convenienceRef,
   };
   const told = { hasOffer, isMenuOpen };
-  const { state, source, isTv, isVolumeShown } = useOverlay(refs, told);
+  const { state, source, isTv, isVolumeShown, seekFeedback } = useOverlay(refs, told);
   const convenience = {
     film,
     offer,
@@ -102,6 +102,7 @@ export function PlayerOverlay(
       <span className="player-overlay-paused" hidden={state.shown !== "paused"} aria-hidden="true">
         <PauseIcon />
       </span>
+      <SeekFeedbackShown feedback={seekFeedback} />
       <VolumeShown sound={source.sound} isShown={isVolumeShown} />
       <div
         ref={overlayRef}
@@ -139,6 +140,7 @@ function useOverlay(
   readonly source: PlayerSource;
   readonly isTv: boolean;
   readonly isVolumeShown: boolean;
+  readonly seekFeedback: SeekFeedback | undefined;
 } {
   const { hasOffer, isMenuOpen } = told;
   const isTv = isTelevision(navigator.userAgent);
@@ -158,7 +160,7 @@ function useOverlay(
     stateRef.current = state;
     isMenuOpenRef.current = isMenuOpen;
   });
-  const onPictureTap = useAnswersPictureTaps(refs.videoRef, () => {
+  const { onPictureTap, feedback } = useAnswersPictureTaps(refs.videoRef, () => {
     setState(afterPictureTap(stateRef.current));
     notePress();
   });
@@ -173,7 +175,7 @@ function useOverlay(
   const presses = { state, setState, isTv, hasOffer, isMenuOpen, onVolumeShown: volume.show };
   useOverlayPresses({ ...presses, notePress, ...refs });
   usePlayersControls(refs.overlayRef, refs.videoRef);
-  return { state, source, isTv, isVolumeShown: volume.isShown };
+  return { state, source, isTv, isVolumeShown: volume.isShown, seekFeedback: feedback };
 }
 
 /**
@@ -201,6 +203,33 @@ function useVolumeShown(): { readonly isShown: boolean; readonly show: () => voi
       setPressCount((count) => count + 1);
     },
   };
+}
+
+/**
+ * A double-tap seek's "+10" or "−10", stacking as "+20", on the side tapped, fading shortly after the
+ * last tap (D415 §5). It is aria-hidden: the seek is what a screen reader's user has, not a second
+ * announcement; it takes no pointer and no focus.
+ */
+function SeekFeedbackShown(props: {
+  readonly feedback: SeekFeedback | undefined;
+}): JSX.Element | null {
+  const { t } = useTranslation();
+  const { feedback } = props;
+  if (feedback === undefined) {
+    return null;
+  }
+  const key =
+    feedback.direction === 1 ? "playerControls.seekedForward" : "playerControls.seekedBack";
+  return (
+    <span
+      className="player-overlay-seeked"
+      data-side={feedback.direction === 1 ? "right" : "left"}
+      data-shown={feedback.isShown ? "" : undefined}
+      aria-hidden="true"
+    >
+      {t(key, { seconds: feedback.seconds })}
+    </span>
+  );
 }
 
 /** The volume + or − left, in the middle of the film a moment (useVolumeShown); muted is none. */

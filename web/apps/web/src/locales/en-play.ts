@@ -36,6 +36,8 @@ export const enPlay = {
     endsAt: "Ends at {{time}}",
     mute: "Mute",
     unmute: "Sound on",
+    seekedForward: "+{{seconds}}",
+    seekedBack: "−{{seconds}}",
     volume: "Volume",
     volumeLevel: "Volume {{percent}} %",
     fullScreen: "Full screen",
