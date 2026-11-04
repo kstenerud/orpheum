@@ -281,6 +281,12 @@
 //     TestPlaceToRead_IsAReachedPlaceAndFallsBackOnlyAmongThem,
 //     TestSubtitleTracks_ASubtitleBesideACopyIsOfferedWhereItsPlaceIsReached.
 //
+//   - A credited person, a genre and a grouped search's people are of the titles their reader
+//     reaches with a live file: a person no such title credits is no person to them, a genre counts
+//     only such titles, and a search finds no one whom only another title credits (D243 §4).
+//     TestPerson_ListsTheReachedTitlesCreditingThem, TestGenres_CountTheReachedTitles,
+//     TestSearchGrouped_FindsTitlesPeopleAndGenresFromTheFirstLetter.
+//
 //   - A place at which a read found its file not there, renamed or deleted, is read last of the
 //     places its reader reaches until a complete scan of it sees the file there again (Absences, the
 //     ingester's, in memory), and asks for a scan of its folder (D363 §8).

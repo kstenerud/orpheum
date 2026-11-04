@@ -784,8 +784,22 @@
           "art": {
             "$ref": "#/components/schemas/ArtBody"
           },
+          "credits": {
+            "$ref": "#/components/schemas/CreditsBody",
+            "description": "Its cast, directors and writers in billing order"
+          },
           "fetchFailure": {
             "$ref": "#/components/schemas/FetchFailureBody"
+          },
+          "genres": {
+            "description": "Its genres in its source's order",
+            "items": {
+              "$ref": "#/components/schemas/GenreBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "id": {
             "format": "int64",
@@ -875,7 +889,9 @@
           "kind",
           "name",
           "seasons",
-          "art"
+          "art",
+          "genres",
+          "credits"
         ],
         "type": "object"
       },
@@ -1132,6 +1148,102 @@
         },
         "required": [
           "id"
+        ],
+        "type": "object"
+      },
+      "CreditBody": {
+        "additionalProperties": false,
+        "properties": {
+          "character": {
+            "description": "A cast member's part; absent for crew and where the source names none",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "personId": {
+            "description": "GET /people/{id}; GET /titles?person= lists their titles",
+            "format": "int64",
+            "type": "integer"
+          },
+          "pictureRef": {
+            "description": "Their picture as their source names it, a TMDB profile path or an NFO's thumb; not fetched by the server yet",
+            "type": "string"
+          }
+        },
+        "required": [
+          "personId",
+          "name"
+        ],
+        "type": "object"
+      },
+      "CreditedPersonOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "pictureRef": {
+            "description": "Their picture as their source names it, a TMDB profile path or an NFO's thumb; not fetched by the server yet",
+            "type": "string"
+          },
+          "titles": {
+            "description": "The titles the person reaches that credit them, newest first; GET /titles?person= lists them as a list does",
+            "items": {
+              "$ref": "#/components/schemas/PersonTitleBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "titles"
+        ],
+        "type": "object"
+      },
+      "CreditsBody": {
+        "additionalProperties": false,
+        "properties": {
+          "cast": {
+            "items": {
+              "$ref": "#/components/schemas/CreditBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "directors": {
+            "items": {
+              "$ref": "#/components/schemas/CreditBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "writers": {
+            "items": {
+              "$ref": "#/components/schemas/CreditBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "cast",
+          "directors",
+          "writers"
         ],
         "type": "object"
       },
@@ -2432,6 +2544,128 @@
         ],
         "type": "object"
       },
+      "GenreBody": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "titleCount": {
+            "description": "How many films, series or other videos the person reaches are in it; absent on a title's page",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "GenresOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "genres": {
+            "items": {
+              "$ref": "#/components/schemas/GenreBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "genres"
+        ],
+        "type": "object"
+      },
+      "GroupBody": {
+        "additionalProperties": false,
+        "properties": {
+          "hits": {
+            "items": {
+              "$ref": "#/components/schemas/GroupHitBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "nextCursor": {
+            "description": "The group's next page, with group; absent on its last",
+            "type": "string"
+          }
+        },
+        "required": [
+          "hits"
+        ],
+        "type": "object"
+      },
+      "GroupHitBody": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "A title's: GET /items/{id}, or GET /collections/{id} for a series; a person's: GET /people/{id}; a genre's: GET /titles?genre=",
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "description": "A title's kind; absent for a person or a genre",
+            "enum": [
+              "movie",
+              "series",
+              "other"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "pictureRef": {
+            "description": "A person's picture as their source names it; not fetched by the server yet",
+            "type": "string"
+          },
+          "titleCount": {
+            "description": "A genre's titles the person reaches",
+            "format": "int64",
+            "type": "integer"
+          },
+          "year": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "GroupedSearchOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "genres": {
+            "$ref": "#/components/schemas/GroupBody"
+          },
+          "people": {
+            "$ref": "#/components/schemas/GroupBody"
+          },
+          "titles": {
+            "$ref": "#/components/schemas/GroupBody"
+          }
+        },
+        "required": [
+          "titles",
+          "people",
+          "genres"
+        ],
+        "type": "object"
+      },
       "HandOffOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -3026,6 +3260,10 @@
           "art": {
             "$ref": "#/components/schemas/ArtBody"
           },
+          "credits": {
+            "$ref": "#/components/schemas/CreditsBody",
+            "description": "Its cast, directors and writers in billing order; an episode's are its series'"
+          },
           "episode": {
             "$ref": "#/components/schemas/EpisodePlaceBody"
           },
@@ -3047,6 +3285,16 @@
           },
           "followedSource": {
             "type": "string"
+          },
+          "genres": {
+            "description": "Its genres in its source's order; an episode's are its series'",
+            "items": {
+              "$ref": "#/components/schemas/GenreBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "id": {
             "format": "int64",
@@ -3125,7 +3373,9 @@
           "identificationState",
           "versions",
           "extras",
-          "art"
+          "art",
+          "genres",
+          "credits"
         ],
         "type": "object"
       },
@@ -4902,6 +5152,68 @@
         "required": [
           "account",
           "watchStats"
+        ],
+        "type": "object"
+      },
+      "PersonRoleBody": {
+        "additionalProperties": false,
+        "properties": {
+          "character": {
+            "description": "Their part, in the cast; absent for crew and where the source names none",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "cast",
+              "director",
+              "writer"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "type": "object"
+      },
+      "PersonTitleBody": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "GET /items/{id} for a film or other video, GET /collections/{id} for a series",
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "movie",
+              "series",
+              "other"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/PersonRoleBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "year": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "roles"
         ],
         "type": "object"
       },
@@ -11291,6 +11603,77 @@
         ]
       }
     },
+    "/genres": {
+      "get": {
+        "operationId": "getGenres",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "movie, series or other: the genres of that kind's titles; any: of every kind",
+            "explode": false,
+            "in": "query",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "description": "movie, series or other: the genres of that kind's titles; any: of every kind",
+              "enum": [
+                "movie",
+                "series",
+                "other",
+                "any"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "As GET /titles takes it",
+            "explode": false,
+            "in": "query",
+            "name": "library",
+            "schema": {
+              "description": "As GET /titles takes it",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenresOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "The genres with a title the person reaches, each with how many",
+        "tags": [
+          "Browse"
+        ]
+      }
+    },
     "/health": {
       "get": {
         "description": "Unauthenticated. Starting and migrating answer 200 so a container manager does not kill a busy server; degraded answers 503 with its reasons.",
@@ -14707,6 +15090,57 @@
         ]
       }
     },
+    "/people/{id}": {
+      "get": {
+        "operationId": "getCreditedPerson",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreditedPersonOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "A person: their name, their picture and the titles crediting them",
+        "tags": [
+          "Browse"
+        ]
+      }
+    },
     "/playback": {
       "post": {
         "operationId": "startPlayback",
@@ -15373,6 +15807,99 @@
           }
         },
         "summary": "Titles and series by name, in any script (D48); superseded by GET /titles?query=",
+        "tags": [
+          "Browse"
+        ]
+      }
+    },
+    "/search/grouped": {
+      "get": {
+        "operationId": "searchGrouped",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "What was typed: from its first letter, in any script (D48)",
+            "explode": false,
+            "in": "query",
+            "name": "query",
+            "required": true,
+            "schema": {
+              "description": "What was typed: from its first letter, in any script (D48)",
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "description": "One group's next page alone; absent for the first page of each",
+            "explode": false,
+            "in": "query",
+            "name": "group",
+            "schema": {
+              "description": "One group's next page alone; absent for the first page of each",
+              "enum": [
+                "titles",
+                "people",
+                "genres"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "With group, that group's nextCursor from the page before",
+            "explode": false,
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "description": "With group, that group's nextCursor from the page before",
+              "type": "string"
+            }
+          },
+          {
+            "description": "At most this many in each group",
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "description": "At most this many in each group",
+              "format": "int64",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupedSearchOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Titles, people and genres by what was typed, from its first letter, each group the best first",
         "tags": [
           "Browse"
         ]
@@ -16455,6 +16982,54 @@
               "maxLength": 200,
               "type": "string"
             }
+          },
+          {
+            "description": "Only the titles in this genre, by its id from GET /genres",
+            "explode": false,
+            "in": "query",
+            "name": "genre",
+            "schema": {
+              "description": "Only the titles in this genre, by its id from GET /genres",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only the titles crediting this person, by their id from a title's credits or a search",
+            "explode": false,
+            "in": "query",
+            "name": "person",
+            "schema": {
+              "description": "Only the titles crediting this person, by their id from a title's credits or a search",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only the titles first out in this decade, by its first year (1980 for the 1980s); a series by its first air date",
+            "explode": false,
+            "in": "query",
+            "name": "decade",
+            "schema": {
+              "description": "Only the titles first out in this decade, by its first year (1980 for the 1980s); a series by its first air date",
+              "format": "int64",
+              "maximum": 9990,
+              "minimum": 0,
+              "multipleOf": 10,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only the titles the person has not watched: a series while one of its episodes with a file is not",
+            "explode": false,
+            "in": "query",
+            "name": "unwatched",
+            "schema": {
+              "description": "Only the titles the person has not watched: a series while one of its episodes with a file is not",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -16551,6 +17126,54 @@
               "description": "As GET /titles takes it: only the letters some title whose name matches it is under",
               "maxLength": 200,
               "type": "string"
+            }
+          },
+          {
+            "description": "Only the titles in this genre, by its id from GET /genres",
+            "explode": false,
+            "in": "query",
+            "name": "genre",
+            "schema": {
+              "description": "Only the titles in this genre, by its id from GET /genres",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only the titles crediting this person, by their id from a title's credits or a search",
+            "explode": false,
+            "in": "query",
+            "name": "person",
+            "schema": {
+              "description": "Only the titles crediting this person, by their id from a title's credits or a search",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only the titles first out in this decade, by its first year (1980 for the 1980s); a series by its first air date",
+            "explode": false,
+            "in": "query",
+            "name": "decade",
+            "schema": {
+              "description": "Only the titles first out in this decade, by its first year (1980 for the 1980s); a series by its first air date",
+              "format": "int64",
+              "maximum": 9990,
+              "minimum": 0,
+              "multipleOf": 10,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only the titles the person has not watched: a series while one of its episodes with a file is not",
+            "explode": false,
+            "in": "query",
+            "name": "unwatched",
+            "schema": {
+              "description": "Only the titles the person has not watched: a series while one of its episodes with a file is not",
+              "type": "boolean"
             }
           }
         ],

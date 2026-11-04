@@ -6,9 +6,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 
 	"github.com/kstenerud/orpheum/internal/core/textindex"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
+	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
 // matchedNamesAtMost is how many matching names a searched list draws its titles from: the best
@@ -29,20 +32,43 @@ type matchedItems struct {
 // whether none can match: a query that plans to nothing, as Search finds nothing for it, or one that
 // matches no title.
 func (browser *Browser) withMatched(ctx context.Context, query ListQuery) (ListQuery, bool, error) {
-	if query.Query == "" {
+	isFiltered := query.GenreID != 0 || query.PersonID != 0 || query.Decade != 0 || query.IsUnwatched
+	if query.Query == "" && !isFiltered {
 		return query, false, nil
 	}
-	plan := textindex.PlanQuery(query.Query)
-	if plan.IndexQuery == "" {
-		return query, true, nil
+	var ids []int64
+	if query.Query != "" {
+		plan := textindex.PlanQuery(query.Query)
+		if plan.IndexQuery == "" {
+			return query, true, nil
+		}
+		isEveryLibrary, libraryIDsJSON := query.Reach.QueryArgs()
+		matched, err := browser.database.MatchListed(ctx, store.SearchQuery{
+			Route: store.SearchRoute(plan.Route), IndexQuery: plan.IndexQuery, Limit: matchedNamesAtMost,
+			IsEveryLibrary: isEveryLibrary, LibraryIDsJSON: libraryIDsJSON,
+		})
+		if err != nil {
+			return query, false, fmt.Errorf("match a list's query: %w", err)
+		}
+		ids = matched
 	}
-	isEveryLibrary, libraryIDsJSON := query.Reach.QueryArgs()
-	ids, err := browser.database.MatchListed(ctx, store.SearchQuery{
-		Route: store.SearchRoute(plan.Route), IndexQuery: plan.IndexQuery, Limit: matchedNamesAtMost,
-		IsEveryLibrary: isEveryLibrary, LibraryIDsJSON: libraryIDsJSON,
-	})
-	if err != nil {
-		return query, false, fmt.Errorf("match a list's query: %w", err)
+	if isFiltered {
+		kept, err := browser.database.Read().ListFilteredItemIDs(ctx, sqlcgen.ListFilteredItemIDsParams{
+			GenreID: ptr.NilIfZero(query.GenreID), PersonID: ptr.NilIfZero(query.PersonID),
+			Decade:      ptr.NilIfZero(query.Decade),
+			IsUnwatched: boolInt(query.IsUnwatched), UserID: query.UserID,
+		})
+		if err != nil {
+			return query, false, fmt.Errorf("filter a list: %w", err)
+		}
+		if query.Query == "" {
+			ids = kept
+		} else {
+			ids = slices.DeleteFunc(ids, func(id int64) bool {
+				_, isKept := slices.BinarySearch(kept, id)
+				return !isKept
+			})
+		}
 	}
 	if len(ids) == 0 {
 		return query, true, nil

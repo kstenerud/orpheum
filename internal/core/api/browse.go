@@ -118,6 +118,7 @@ type TitlesInput struct {
 	From    string `doc:"A name, by name or file name only and with no cursor: A to Z, the page starts at the first title sorted at or after it, as a letter of the alphabet does; Z to A, at the last title sorted before it, so the letter after a letter starts that letter's titles" maxLength:"100" query:"from"` //nolint:lll // one struct tag
 	Limit   int64  `maximum:"500" minimum:"1" query:"limit" required:"true"`
 	Query   string `doc:"Only the titles whose name matches it, in any script, as GET /search matches them (D48): a film, other video or series by its own name, never by an episode's or an extra's; every other criterion applies as without it. A query that matches nothing, or with nothing an index can match (only spaces, or only punctuation in a longer query), lists nothing. The titles come from the first 10000 names it matches, the best first" maxLength:"200" query:"query"` //nolint:lll // one struct tag
+	ListFilters
 }
 
 // TitlesOutput is one page.
@@ -208,6 +209,8 @@ type ItemDetailOutput struct {
 		Unavailable         *UnavailableBody  `doc:"Why none of its files can be read now; absent when one can" json:"unavailable,omitempty"`                                                                       //nolint:lll // one struct tag
 		IsWatched           bool              `doc:"Whether the person watched it, by playing it to its finish or by hand (D370)" json:"isWatched,omitempty"`                                                       //nolint:lll // one struct tag
 		Libraries           []LibraryNameBody `doc:"The libraries its person reaches that list it, by name: its page goes up to the one the person came through, else the first (D367)" json:"libraries,omitempty"` //nolint:lll // one struct tag
+		Genres              []GenreBody       `doc:"Its genres in its source's order; an episode's are its series'" json:"genres"`                                                                                  //nolint:lll // one struct tag
+		Credits             CreditsBody       `doc:"Its cast, directors and writers in billing order; an episode's are its series'" json:"credits"`                                                                 //nolint:lll // one struct tag
 		FilmOfExtra         *FilmOfExtraBody  `doc:"The film an extra belongs to, which its page goes up to (D367); absent for anything else" json:"filmOfExtra,omitempty"`                                         //nolint:lll // one struct tag
 	}
 }
@@ -257,10 +260,12 @@ type CollectionOutput struct {
 		NotInOrderingCount  int64             `doc:"How many of its episodes the ordering in use leaves out: GET /collections/{id}/not-in-order" json:"notInOrderingCount,omitempty"` //nolint:lll // one struct tag
 		Art                 ArtBody           `json:"art"`
 		FetchFailure        *FetchFailureBody `json:"fetchFailure,omitempty"`
-		RefreshRequestedAt  int64             `doc:"When a person asked for it to be refreshed, while no fetch has answered yet" json:"refreshRequestedAt,omitempty"`                                                                //nolint:lll // one struct tag
-		Unavailable         *UnavailableBody  `doc:"Why none of its episodes' files can be read now; absent when one can" json:"unavailable,omitempty"`                                                                              //nolint:lll // one struct tag
-		NextUp              *NextUpBody       `doc:"The person's next episode, which the page offers to play; absent when every one is finished or none has a file" json:"nextUp,omitempty"`                                         //nolint:lll // one struct tag
-		IsWatched           bool              `doc:"Whether the person watched every one of its episodes with a file, in the ordering they watch it in (D370)" json:"isWatched,omitempty"`                                           //nolint:lll // one struct tag
+		RefreshRequestedAt  int64             `doc:"When a person asked for it to be refreshed, while no fetch has answered yet" json:"refreshRequestedAt,omitempty"`                        //nolint:lll // one struct tag
+		Unavailable         *UnavailableBody  `doc:"Why none of its episodes' files can be read now; absent when one can" json:"unavailable,omitempty"`                                      //nolint:lll // one struct tag
+		NextUp              *NextUpBody       `doc:"The person's next episode, which the page offers to play; absent when every one is finished or none has a file" json:"nextUp,omitempty"` //nolint:lll // one struct tag
+		IsWatched           bool              `doc:"Whether the person watched every one of its episodes with a file, in the ordering they watch it in (D370)" json:"isWatched,omitempty"`   //nolint:lll // one struct tag
+		Genres              []GenreBody       `doc:"Its genres in its source's order" json:"genres"`
+		Credits             CreditsBody       `doc:"Its cast, directors and writers in billing order" json:"credits"`
 		Libraries           []LibraryNameBody `doc:"The libraries its person reaches that list one of its episodes, by name: its page goes up to the one the person came through, else the first (D367)" json:"libraries,omitempty"` //nolint:lll // one struct tag
 	}
 }
@@ -386,10 +391,10 @@ func (server *Server) getTitles(ctx context.Context, input *TitlesInput) (*Title
 	if err != nil {
 		return nil, err
 	}
-	page, err := dependencies.Browser.List(ctx, library.ListQuery{
+	page, err := dependencies.Browser.List(ctx, input.withFilters(library.ListQuery{
 		Kind: input.Kind, Sort: input.Sort, Order: input.Order, Cursor: input.Cursor, From: input.From,
 		Limit: input.Limit, Reach: reach, UserID: principal.UserID, Query: input.Query,
-	})
+	}))
 	if err != nil {
 		return nil, server.libraryError(ctx, "list titles", err)
 	}
@@ -415,6 +420,7 @@ func (server *Server) getTitle(ctx context.Context, input *ItemInput) (*ItemDeta
 	output := &ItemDetailOutput{}
 	body := &output.Body
 	body.ID, body.Kind, body.Name = detail.ID, detail.Kind, ptr.ValueOrZero(detail.Name)
+	body.Genres, body.Credits = peopleBodies(detail.People)
 	body.IdentificationState, body.IsGuessed = detail.IdentificationState, detail.IsGuessed
 	body.Overview = ptr.ValueOrZero(detail.Overview)
 	body.Tagline = ptr.ValueOrZero(detail.Tagline)
@@ -501,6 +507,7 @@ func (server *Server) getSeries(ctx context.Context, input *ItemInput) (*Collect
 	output := &CollectionOutput{}
 	body := &output.Body
 	body.ID, body.Kind = series.ID, "series"
+	body.Genres, body.Credits = peopleBodies(series.People)
 	if series.Ordering != library.OrderingAired {
 		body.Ordering = series.Ordering
 	}
