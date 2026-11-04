@@ -1577,13 +1577,24 @@ research run in this batch … The actual UI revamp will be done next batch."*
    few frames late; the owner, 2026-11-04: *"That's an acceptable compromise. The very beginning of
    a video is rarely interesting anyway."* The 3 Hearthstead MKVs are another shape (no picture
    before 2 s; their sound is led in already) and stay as they are. Their stored keyframe lists are
-   read again only once forgotten (a migration step, the owner's call).
+   read again only once forgotten: on staging the 17 rows were deleted by hand (2026-11-04); on
+   nas.example, the only deployed system, they are deleted by hand at its deploy (the owner, 2026-11-04:
+   "clear them by hand. nas.example is the only deployed system"), not by a migration step. The owner saw
+   both films play from their start in Firefox on a Mac (VQ259).
 2. **A run's last chunk past its boundary** (11-05's "still filed"). *Built 2026-11-04
    ("fix(chunks): a chunk listed ending past its bound by more than a few frames is refused"):* a chunk listed ending more than 250 ms past its bound is refused, the run's last
    too; the start keeps its 500 ms. Measured first: 270 chunks of 30 of staging's films ended
    within 85 ms of their bounds.
 3. **Why Firefox on a Mac cannot append The Gold Rush's own picture** (toolkit.md; the symptom fixed
-   by "fix(web): a film given up on its own picture before its first frame opens again playing", the cause open), and **file 5667's HEVC** with the Mac's Firefox.
+   by "fix(web): a film given up on its own picture before its first frame opens again playing", the cause open), and **file 5667's HEVC** with the Mac's Firefox. *Tried
+   2026-11-04* (the owner, Firefox 157.0.1 on an aarch64 Mac, staging): The Gold Rush's own picture
+   plays from its start. File 5667 (The Pumbletons S33E01, MKV, HEVC Main `hvc1`, open GOP: CRA
+   keyframes, RASL pictures after some) played its own picture 36 s, then Firefox held no picture at
+   all (`videoBuffered=""`, four chunks appended and not held, `bufferAppendNoProgress`) and the
+   player stepped to 720p, the owner's "hiccup". Its chunks read whole with the pinned FFprobe: each
+   starts with a CRA, decode times rise, no chunk carries parameter sets of its own, the run one
+   (0–55). Nothing in the chunks explains it; the next step is Firefox's own media log
+   (about:logging, "Media playback") from the owner's Mac while it plays 5667.
 4. **The SWAG research's starts and stalls** (11-05's "still filed"; the upload and ladder stay
    their own batch).
 5. *(Moved to the revamp, 2026-11-04:)* the SWAG research's remote (the held seek, the seek rest,
