@@ -54,7 +54,8 @@ func TestBrowse_GenresAndPeopleAreShownListedFilteredAndSearched(t *testing.T) {
 		{"/titles?kind=any&sort=name&limit=10&genre=2", `"name":"Brass Arena"`},
 		{"/titles?kind=movie&sort=name&limit=10&person=41&decade=1990", `"name":"Metropolis"`},
 		{"/titles?kind=movie&sort=name&limit=10&person=42", `"titles":[]`},
-		{"/titles/letters?kind=movie&sort=name&genre=1", `"letters":[`},
+		{"/titles/letters?kind=movie&sort=name&genre=1", `"letters":["H"]`},
+		{"/titles/letters?kind=movie&sort=name&genre=2", `"letters":[]`},
 		{"/search/grouped?query=r&limit=10", `"titles":{"hits":[`},
 		{"/search/grouped?query=cr&limit=10", `"genres":{"hits":[{"id":1,"name":"Crime","titleCount":1}]}`},
 		{"/search/grouped?query=a&limit=1", `"people":{"hits":[{"id":40,"name":"Ansel Vardo",` +
