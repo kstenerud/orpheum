@@ -63,7 +63,7 @@ describe("TitleView", () => {
     expect(markup).toContain('src="/api/v1/bytes/art/p1/portrait-m.webp"');
     expect(markup).toContain("<h1>Metropolis</h1>");
     expect(markup).toContain("170 min");
-    expect(markup).toContain("Audio: truehd English 8 channels");
+    expect(markup).toContain("Sound: truehd English 8 channels");
     expect(markup).not.toContain("ttf");
     expect(markup).toContain('href="/titles/30"');
     expect(markup).toContain("Trailer");
@@ -119,7 +119,7 @@ describe("TitleView", () => {
         markup,
       )?.[1];
     expect(details).toContain("/m/Metropolis (1995).mkv");
-    expect(details).toContain("Audio: truehd English 8 channels");
+    expect(details).toContain("Sound: truehd English 8 channels");
     expect(details).not.toContain("Play");
     // Play is the actions row's first, above the synopsis, not a file's below the cast (R8).
     expect(markup).toMatch(
