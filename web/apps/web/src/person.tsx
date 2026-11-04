@@ -28,9 +28,10 @@ import { listRoles, roleLabel, setPersonsRole } from "./roles.ts";
 import { NoLibraryNote } from "./roles-section.tsx";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./loaded.tsx";
+import { SaveNote, useSaveState } from "./save-note.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
-import { DeviceList } from "./your-devices.tsx";
+import { RecentDevices } from "./your-devices.tsx";
 
 /**
  * One person, for the admin: their name, which can be changed; a new registration invitation, or a
@@ -60,7 +61,12 @@ export function PersonPage(props: { readonly userId: number }): JSX.Element {
           resource={person}
           render={(value) => (
             <>
-              <PersonHead person={value} actions={actions} onActivated={reloadDevices} />
+              <PersonHead
+                person={value}
+                actions={actions}
+                isRemovable={isRemovable}
+                onActivated={reloadDevices}
+              />
               <OwnLink person={value} onRevoke={actions.revokeOwnLink} />
             </>
           )}
@@ -70,16 +76,8 @@ export function PersonPage(props: { readonly userId: number }): JSX.Element {
         <h2>{t("person.devices")}</h2>
         <Loaded
           resource={devices}
-          render={(list) => <DeviceList devices={list} onRemove={actions.remove} />}
+          render={(list) => <RecentDevices devices={list} onRemove={actions.remove} />}
         />
-        {isRemovable && person.state === "loaded" ? (
-          <ConfirmButton
-            label={t("person.remove", { name: person.value.account.name })}
-            consequence={t("person.removeConsequence", { name: person.value.account.name })}
-            confirmLabel={t("person.removeConfirm")}
-            onConfirm={actions.removePerson}
-          />
-        ) : null}
       </section>
     </BusyGroup>
   );
@@ -87,9 +85,9 @@ export function PersonPage(props: { readonly userId: number }): JSX.Element {
 
 /** What the admin does to a person. */
 interface PersonActions {
-  readonly rename: (name: string) => void;
-  readonly setNote: (note: string) => void;
-  readonly giveRole: (role: string) => void;
+  readonly rename: (name: string) => Promise<void>;
+  readonly setNote: (note: string) => Promise<void>;
+  readonly giveRole: (role: string) => Promise<void>;
   readonly issueLink: (name: string) => void;
   readonly remove: (device: Device) => void;
   readonly removePerson: () => void;
@@ -119,16 +117,15 @@ function usePersonActions(
       reloads.reloadPerson();
     });
   };
+  // A setting saved at once: its field says how it went (SaveNote), and the page is read again.
+  const saved = async (request: Promise<void>): Promise<void> => {
+    await request;
+    reloads.reloadPerson();
+  };
   const actions = {
-    rename: (name: string): void => {
-      change(() => renamePerson(api, userId, name));
-    },
-    setNote: (note: string): void => {
-      change(() => setAdminNote(api, userId, note));
-    },
-    giveRole: (role: string): void => {
-      change(() => setPersonsRole(api, userId, role));
-    },
+    rename: (name: string) => saved(renamePerson(api, userId, name)),
+    setNote: (note: string) => saved(setAdminNote(api, userId, note)),
+    giveRole: (role: string) => saved(setPersonsRole(api, userId, role)),
     issueLink: (name: string): void => {
       runRequest(async (idempotencyKey) => {
         const invitation = await issueRegistrationInvitation(api, userId, idempotencyKey);
@@ -180,15 +177,15 @@ function OwnLink(props: {
   );
 }
 
-/** A person's name, which can be changed, what they have watched, and what the admin can make. */
+/**
+ * A person's name, what they have watched, the admin's actions on them in one row under it (New
+ * link, and Remove where they may be removed; ui-audit-2026-11-04.md §3, A person), their settings,
+ * each saved at once, and activating a device of theirs.
+ */
 function PersonHead(props: {
   readonly person: Person;
-  readonly actions: {
-    readonly rename: (name: string) => void;
-    readonly setNote: (note: string) => void;
-    readonly giveRole: (role: string) => void;
-    readonly issueLink: (name: string) => void;
-  };
+  readonly actions: PersonActions;
+  readonly isRemovable: boolean;
   readonly onActivated: () => void;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
@@ -205,57 +202,67 @@ function PersonHead(props: {
         {registrationText(t, account)} ·{" "}
         {t("person.watched", { hours, titles: watchStats.titlesWatchedCount, last: lastWatched })}
       </p>
-      <OneField
+      <div className="page-actions person__actions">
+        <ConfirmButton
+          label={t("people.newLink")}
+          consequence={t("people.newLinkConsequence", { name: account.name })}
+          confirmLabel={t("people.newLinkConfirm")}
+          onConfirm={() => {
+            props.actions.issueLink(account.name);
+          }}
+        />
+        {props.isRemovable ? (
+          <ConfirmButton
+            label={t("person.remove", { name: account.name })}
+            consequence={t("person.removeConsequence", { name: account.name })}
+            confirmLabel={t("person.removeConfirm")}
+            onConfirm={props.actions.removePerson}
+          />
+        ) : null}
+      </div>
+      <SavedField
         label={t("people.name")}
         initialValue={account.name}
-        submitLabel={t("person.rename")}
-        onSubmit={props.actions.rename}
+        onSave={props.actions.rename}
       />
-      <OneField
+      <SavedField
         label={t("people.adminNote")}
         initialValue={account.adminNote ?? ""}
-        submitLabel={t("person.saveNote")}
-        onSubmit={props.actions.setNote}
+        onSave={props.actions.setNote}
         isOptional
         maxLength={200}
       />
-      <RoleChoice current={account.role} onGive={props.actions.giveRole} />
-      <ConfirmButton
-        label={t("people.newLink")}
-        consequence={t("people.newLinkConsequence", { name: account.name })}
-        confirmLabel={t("people.newLinkConfirm")}
-        onConfirm={() => {
-          props.actions.issueLink(account.name);
-        }}
-      />
+      <RoleChoice current={account.role} onSave={props.actions.giveRole} />
       <ActivateDevice userId={account.id} onActivated={props.onActivated} />
     </>
   );
 }
 
-/** The person's role, their whole access, which the admin may change (D243 §4). */
+/**
+ * The person's role, their whole access, which the admin may change (D243 §4); saved as it is chosen
+ * (the owner, 2026-11-04, Q5), saying Saved, or the refusal, beside it.
+ */
 function RoleChoice(props: {
   readonly current: string;
-  readonly onGive: (role: string) => void;
+  readonly onSave: (role: string) => Promise<void>;
 }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [roles] = useResource("person-roles", () => listRoles(api));
   const [role, setRole] = useState(props.current);
+  const { state, save } = useSaveState();
   const names =
     roles.state === "loaded" ? roles.value.roles.map((each) => each.name) : [props.current];
   return (
-    <FormRow
-      onSubmit={() => {
-        props.onGive(role);
-      }}
-    >
+    <div className="form-row">
       <label>
         {t("people.role")}{" "}
         <select
           value={role}
           onChange={(event) => {
-            setRole(event.target.value);
+            const chosen = event.target.value;
+            setRole(chosen);
+            void save(() => props.onSave(chosen));
           }}
         >
           {names.map((name) => (
@@ -265,30 +272,43 @@ function RoleChoice(props: {
           ))}
         </select>
       </label>
-      <button type="submit">{t("person.changeRole")}</button>
+      <SaveNote state={state} />
       <NoLibraryNote
         roles={roles.state === "loaded" ? roles.value.roles : undefined}
         roleName={role}
       />
-    </FormRow>
+    </div>
   );
 }
 
-/** A form of one text field and its button; an optional one may be left empty. */
-function OneField(props: {
+/**
+ * One text field of the person's, saved at once (the owner, 2026-11-04, Q5): on Enter or on leaving
+ * it, and only a value not already sent; an optional one may be left empty. Saved, or the refusal,
+ * shows beside it.
+ */
+function SavedField(props: {
   readonly label: string;
   readonly initialValue: string;
-  readonly submitLabel: string;
-  readonly onSubmit: (value: string) => void;
+  readonly onSave: (value: string) => Promise<void>;
   readonly isOptional?: boolean;
   readonly maxLength?: number;
 }): JSX.Element {
   const [value, setValue] = useState(props.initialValue);
-  const submit = (): void => {
-    props.onSubmit(value);
+  const [sent, setSent] = useState<string | undefined>(props.initialValue);
+  const { state, save } = useSaveState();
+  const send = (): void => {
+    if (value === sent || (props.isOptional !== true && value.trim() === "")) {
+      return;
+    }
+    setSent(value);
+    void save(() => props.onSave(value)).then((isSaved) => {
+      if (!isSaved) {
+        setSent(undefined);
+      }
+    });
   };
   return (
-    <FormRow onSubmit={submit}>
+    <FormRow onSubmit={send}>
       <label>
         {props.label}{" "}
         <input
@@ -298,9 +318,10 @@ function OneField(props: {
           onChange={(event) => {
             setValue(event.target.value);
           }}
+          onBlur={send}
         />
       </label>
-      <button type="submit">{props.submitLabel}</button>
+      <SaveNote state={state} />
     </FormRow>
   );
 }

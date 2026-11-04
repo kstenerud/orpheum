@@ -12,8 +12,11 @@ import {
   buttonWithText,
   choose,
   click,
+  enter,
+  fire,
   mount,
   servedBy,
+  submit,
   type Answers,
   type Heard,
   type Mounted,
@@ -190,4 +193,77 @@ it("tells someone given no library why their list is empty", async () => {
   mounted.unmount();
   mounted = await mount(withServices(view, servedBy({ "GET /me": me(5, false) })));
   expect(mounted.container.textContent).toContain("Once a library is scanned");
+});
+
+/** Seven devices of Dan's, more than a person's page shows before All devices. */
+const sevenDevices = Array.from({ length: 7 }, (_, at) => ({
+  id: 10 + at,
+  name: `Device ${String(at + 1)}`,
+  platform: "web",
+  addedAt: 0,
+  lastUsedAt: 0,
+  isSignedIn: true,
+  isByCode: false,
+  isThisDevice: false,
+}));
+
+/** The text field labelled label on a page. */
+function fieldLabelled(page: Element, label: string): Element | null | undefined {
+  return [...page.querySelectorAll("label")]
+    .find((each) => each.textContent.startsWith(label))
+    ?.querySelector("input");
+}
+
+// ui-audit-2026-11-04.md §3, A person: as Your account, five devices and All devices, the actions
+// in a header row; and each setting saved at once (the owner, 2026-11-04, Q5).
+it("shows a person's five latest devices with All devices, their actions in a row under their name, and saves their name and note at once", async () => {
+  const heard: Heard[] = [];
+  mounted = await mount(
+    withServices(
+      <PersonPage userId={5} />,
+      servedBy(
+        {
+          "GET /me": me(1),
+          "GET /users/5": [
+            200,
+            {
+              account: { id: 5, name: "Dan", role: "user", hasPassword: true },
+              watchStats: { watchedMs: 0, titlesWatchedCount: 0 },
+            },
+          ],
+          "GET /users/5/devices": [200, { devices: sevenDevices }],
+          "GET /roles": [200, roles],
+          "PUT /users/5": [204, null],
+          "PUT /users/5/admin-note": [204, null],
+        },
+        heard,
+      ),
+    ),
+  );
+  const page = mounted.container;
+  expect([...page.querySelectorAll(".your-devices__name")].map((name) => name.textContent)).toEqual(
+    ["Device 1", "Device 2", "Device 3", "Device 4", "Device 5"],
+  );
+  expect(page.querySelector(".your-devices__all summary")?.textContent).toBe("All devices (7)");
+  // The actions sit in one row straight under the name, before the settings.
+  const row = page.querySelector("h1 + p + .person__actions");
+  expect([...(row?.querySelectorAll("button") ?? [])].map((button) => button.textContent)).toEqual([
+    "New link",
+    "Remove Dan…",
+  ]);
+  expect(buttonWithText(page, "Rename")).toBeUndefined();
+  const name = fieldLabelled(page, "Name");
+  await enter(name, "Daniel");
+  await fire(name, new FocusEvent("focusout", { bubbles: true }));
+  await fire(name, new FocusEvent("focusout", { bubbles: true }));
+  expect(
+    heard.filter((each) => each.methodAndPath === "PUT /users/5").map((each) => each.body),
+  ).toEqual([{ name: "Daniel" }]);
+  expect(name?.closest("form")?.querySelector("output.save-note")?.textContent).toBe("Saved");
+  const note = fieldLabelled(page, "Who it is for");
+  await enter(note, "my brother");
+  await submit(note?.closest("form"));
+  expect(heard.find((each) => each.methodAndPath === "PUT /users/5/admin-note")?.body).toEqual({
+    adminNote: "my brother",
+  });
 });

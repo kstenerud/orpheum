@@ -57,9 +57,6 @@ export const enPeople = {
   },
   person: {
     devices: "Their devices",
-    rename: "Rename",
-    saveNote: "Keep the note",
-    changeRole: "Give this role",
     watched: "Watched {{hours}} hours of {{titles}} titles; last {{last}}",
     neverWatched: "never",
     remove: "Remove {{name}}…",
