@@ -2602,3 +2602,16 @@ An item is ticked only by the person who did it, and only with what they saw.
     says to beat. Left open for the owner: the item's figures need restating before a rerun. Also seen:
     the follower's pong took 7–15 s on the full link, and the page said "Connection lost. Reconnecting…"
     while the film played.
+- [ ] **VQ263** — A finger's taps in full screen behave as D415 says: a tap on the picture clears the
+  overlay, a tap brings it back, a double tap on a side seeks. The rules and their timing are tested
+  with synthetic pointer events; whether a real finger's tap is told from a drag, whether the double-tap
+  wait of 250 ms feels right, and whether Chrome on Android zooms or scrolls the page on a double tap are
+  seen only on a phone. On staging, on the lab's Pixel 3a in Chrome, play a film in full screen. Passes
+  when: (1) a tap on the picture while the overlay shows hides it, playing or paused; (2) a tap while it
+  is hidden shows it and does not pause, and a paused film's overlay, tapped away and tapped back, stays
+  up until tapped away again; (3) a double tap on the right third seeks 10 s forward and on the left
+  third 10 s back, a third and fourth quick tap stack 10 s each, and none of them shows or hides the
+  overlay; (4) a double tap in the middle third seeks nothing and the page does not zoom anywhere;
+  (5) a tap on a button still does the button's own thing. Note whether the wait before a lone tap on a
+  side shows or hides feels slow. (`web/apps/web/src/player-taps.ts`'s `useAnswersPictureTaps`;
+  `doubleTapWaitMs`)
