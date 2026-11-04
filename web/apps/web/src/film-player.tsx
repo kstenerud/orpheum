@@ -41,6 +41,7 @@ import {
   ladderStartingAudio,
 } from "./ladder-sound.ts";
 import { camelKey } from "./catalogue-key.ts";
+import { ForTesters } from "./for-testers.tsx";
 import { startOn, type LadderOffer } from "./moving-down.ts";
 import { isThisHandheld } from "./handheld.ts";
 import { rateText } from "./rate-text.ts";
@@ -186,7 +187,9 @@ export function FilmPlayer(props: {
   return (
     <>
       <DirectFilm decision={decision} composition={composition} />
-      <TracksNote tracks={decision.tracks} sound={sound} />
+      <ForTesters>
+        <TracksNote tracks={decision.tracks} sound={sound} />
+      </ForTesters>
     </>
   );
 }
@@ -499,7 +502,9 @@ function ChunkedFilm(props: {
         ladder={{ offer, positionMs, playing, cannotKeepUp, sound, heardLevel, playSound }}
       />
       {hasTracks && sound !== undefined ? (
-        <TracksNote tracks={tracks} height={height} sound={sound} />
+        <ForTesters>
+          <TracksNote tracks={tracks} height={height} sound={sound} />
+        </ForTesters>
       ) : null}
       <LadderNotes
         offer={offer}
@@ -743,7 +748,11 @@ export function LadderNotes(props: {
   const lowest = rateText(cannotKeepUp?.lowestKbps ?? offer.startAtBps / 1000);
   return (
     <>
-      {props.hasTracks === true ? null : <QualityLine {...props} />}
+      {props.hasTracks === true ? null : (
+        <ForTesters>
+          <QualityLine {...props} />
+        </ForTesters>
+      )}
       {isBeyondTheLink ? (
         <p role="alert">
           {cannotKeepUp?.linkKbps === undefined

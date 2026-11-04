@@ -97,4 +97,61 @@ describe("the original file, chosen over the ladder (web-client.md: playback is 
     expect(video?.hasAttribute("controls")).toBe(true);
     expect(mounted.container.querySelector(".film-player__stage")).toBeNull();
   });
+
+  it("is the quality entry of the player's ⁝ (D418 §4)", async () => {
+    const asked: string[] = [];
+    mounted = await onItsLadder(true, asked);
+    await fire(moreButton(mounted), new MouseEvent("click", { bubbles: true }));
+    const original = [...menuOpen(mounted).querySelectorAll("button")].find(
+      (each) => each.textContent === "Play the original file",
+    );
+    await fire(original ?? null, new MouseEvent("click", { bubbles: true }));
+    expect(asked).toEqual(["originalChosen"]);
+  });
+});
+
+/** The player's ⁝ (player-menus.tsx). */
+function moreButton(on: Mounted): Element | null {
+  return on.container.querySelector('button[aria-label="More"]');
+}
+
+/** The menu or dialog open over the film. */
+function menuOpen(on: Mounted): Element {
+  const open = on.container.querySelector("dialog[open]");
+  if (open === null) {
+    throw new Error("nothing open over the film");
+  }
+  return open;
+}
+
+// Item 9 of ui-audit-2026-11-04.md: the notes under the film, hidden once it fills the window
+// (D418 §1), are ⁝'s For testers, still kept as it plays, nothing removed for testers.
+describe("the player's For testers", () => {
+  const quality = "Starting at 480p";
+
+  it("keeps the notes the film hides out of view until ⁝'s For testers shows them, and again after", async () => {
+    mounted = await onItsLadder(true);
+    const note = (): Element | undefined =>
+      [...mounted!.container.querySelectorAll(".for-testers p")].find((each) =>
+        each.textContent.startsWith(quality),
+      );
+    expect(note()?.closest("[hidden]")).not.toBeNull();
+    await fire(moreButton(mounted), new MouseEvent("click", { bubbles: true }));
+    const entry = [...menuOpen(mounted).querySelectorAll(".list-box__option")].find(
+      (each) => each.textContent === "For testers",
+    );
+    await fire(entry ?? null, new MouseEvent("click", { bubbles: true }));
+    const dialog = menuOpen(mounted);
+    expect(dialog.getAttribute("aria-label") ?? dialog.textContent).toContain("For testers");
+    expect(note()?.closest("dialog")).toBe(dialog);
+    expect(note()?.closest("[hidden]")).toBeNull();
+    // Its tools too: the debug link's, kept beside the notes (play.tsx's UnderThePlayer).
+    expect(dialog.querySelector(".for-testers")?.childElementCount).toBeGreaterThan(1);
+    const close = [...dialog.querySelectorAll("button")].find(
+      (each) => each.getAttribute("aria-label") === "Close" || each.textContent === "Close",
+    );
+    await fire(close ?? null, new MouseEvent("click", { bubbles: true }));
+    expect(mounted.container.querySelector("dialog[open]")).toBeNull();
+    expect(note()?.closest("[hidden]")).not.toBeNull();
+  });
 });
