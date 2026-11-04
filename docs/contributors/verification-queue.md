@@ -2549,3 +2549,4 @@ An item is ticked only by the person who did it, and only with what they saw.
   seasons show no arrow, and Left, Right, Up and Down move along and between the rows as before,
   never stopping on an arrow; (3) on the Pixel, the rows show no arrow and swipe as before. Passes
   when all three hold. (`web/apps/web/src/poster-row.tsx`, `poster-row.css`)
+  Part (1) passed on staging (the owner, 2026-11-04: "verified on staging and it looks good"); (2) and (3) open.
