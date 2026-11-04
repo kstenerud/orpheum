@@ -25,6 +25,7 @@ import type { Services } from "./services.tsx";
 import { fakePlace, withServices } from "./test-services.tsx";
 import { fakeTogetherServer, type FakeTogetherServer } from "./test-together.ts";
 import { hideTheDocument, playingVideo } from "./test-hidden.ts";
+import { comingAndGoingShownMs } from "./together-over-the-film.tsx";
 import { TogetherViewer } from "./together-viewer.tsx";
 
 const joined = {
@@ -118,8 +119,43 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     // A guest by link alone waits on their own page too, told for what (VQ193).
     expect(stage?.textContent).toContain("Waiting for the host to start a film.");
     expect(mounted.container.textContent).toContain("Here: Karl and Gran");
+    // Drawn as the session's panel, which the sign over the film moves over it (D423).
+    expect(mounted.container.querySelector(".together-panel")?.textContent).toContain(
+      "Here: Karl and Gran",
+    );
     expect(mounted.container.textContent).not.toContain("Sign out");
     mounted.unmount();
+  });
+
+  it("notes over the film, for a while, who joins the session and who leaves it, never who was there as it came (D423)", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
+    try {
+      const { services, server } = viewerServices("/together#link-secret", {
+        "POST /together/join/check": [204, undefined],
+        "POST /together/join": [200, joined],
+      });
+      const mounted = await mount(withServices(<TogetherViewer />, services));
+      await enter(mounted.container.querySelector("input"), "Gran");
+      await click(buttonWithText(mounted.container, "Join"));
+      await server.accept();
+      await server.say(welcome);
+      const note = (): string | undefined =>
+        mounted.container.querySelector(".together-coming")?.textContent;
+      expect(note()).toBeUndefined();
+      const anna = { id: 4, name: "Anna", isHost: false, devices: [{ id: 9, role: "video" }] };
+      await server.say({ type: "roster", roster: [...welcome.roster, anna] });
+      expect(note()).toBe("Anna joined");
+      await act(async () => {
+        vi.advanceTimersByTime(comingAndGoingShownMs);
+        await Promise.resolve();
+      });
+      expect(note()).toBeUndefined();
+      await server.say({ type: "roster", roster: welcome.roster });
+      expect(note()).toBe("Anna left");
+      mounted.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("tells the session its page waits on nothing once it has had its tap: there are no speakers to choose (D336 §4)", async () => {

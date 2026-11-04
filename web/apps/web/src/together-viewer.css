@@ -33,18 +33,6 @@
   gap: var(--space-2);
 }
 
-/* Over a film the browser would only play muted, in its middle: the one tap its sound needs. */
-/* Small, at the film's top: the sound the page had, lost, asked back by a tap. */
-.together-viewer__sound-on {
-  position: absolute;
-  inset-block-start: var(--space-2);
-  inset-inline-start: 50%;
-  z-index: 2;
-  transform: translateX(-50%);
-  font-size: var(--font-size-small);
-  opacity: 0.9;
-}
-
 /* The whole page until its first tap: the invitation and Tap to continue alone. */
 .together-viewer__continue {
   min-height: 100dvh;

@@ -64,6 +64,8 @@ export const enTogether = {
       none: "none",
     },
     hostPlaying: "Watch Together is on: this plays for everyone in your session.",
+    cameIn: "{{name}} joined",
+    wentOut: "{{name}} left",
     voice: {
       label: "Voice",
       talk: "Talk",

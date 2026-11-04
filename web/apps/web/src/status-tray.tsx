@@ -71,7 +71,7 @@ function useClosesTheDialogAsThePageMoves(): void {
 }
 
 /** A sign's mark: blue and pulsing while its function is on, the banner's white while it is off. */
-function signMark(isOn: boolean): "running" | undefined {
+export function signMark(isOn: boolean): "running" | undefined {
   return isOn ? "running" : undefined;
 }
 

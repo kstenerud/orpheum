@@ -23,6 +23,7 @@ import { useHostsSessionOver } from "./together-session-end.ts";
 import type { Membership } from "./together-storage.ts";
 import { followFilmVolume } from "./film-volume.ts";
 import { FilmVolumeSlider } from "./film-volume-slider.tsx";
+import { ComingAndGoing, onTheFilmsStage, TogetherPanel } from "./together-over-the-film.tsx";
 import { useHostVoice, VoiceControls } from "./together-voice.tsx";
 import { monotonicMs, useTogether, useToldCannotKeepUp } from "./use-together.ts";
 
@@ -181,11 +182,14 @@ function HostLeading(
   }, [endReason, onOver]);
   return (
     <div className="together-host">
-      <SoundOn video={video} connection={connection} />
-      <p>{t("together.hostPlaying")}</p>
-      <TogetherNews snapshot={snapshot} />
-      {hostVoice === undefined ? null : <VoiceControls {...hostVoice} />}
-      <FilmVolumeSlider />
+      {onTheFilmsStage(video, <SoundOn video={video} connection={connection} />)}
+      <ComingAndGoing snapshot={snapshot} video={video} />
+      <TogetherPanel>
+        <p>{t("together.hostPlaying")}</p>
+        <TogetherNews snapshot={snapshot} />
+        {hostVoice === undefined ? null : <VoiceControls {...hostVoice} />}
+        <FilmVolumeSlider />
+      </TogetherPanel>
     </div>
   );
 }
@@ -220,6 +224,7 @@ export function SoundOn(props: {
   return (
     <button
       type="button"
+      className="together-host__sound-on"
       onClick={() => {
         soundOnAtTap(video, connection);
         setIsMuted(false);

@@ -27,7 +27,6 @@ import {
   type JSX,
   type RefObject,
 } from "react";
-import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 
 import { pressOf, type CastAnswer } from "./cast-asked.tsx";
@@ -41,6 +40,7 @@ import type { Navigation } from "./navigation.ts";
 import { showNotice } from "./notice.ts";
 import { answerPlayerCommand } from "./player-commands.ts";
 import { HostPlaysTogether, useLeadingPlayer } from "./together-host.tsx";
+import { onTheFilmsStage } from "./together-over-the-film.tsx";
 import { SoundPanelContext, type SoundPanel } from "./sound-panel.ts";
 import { isTelevision } from "./tv-device.ts";
 import { useTogether } from "./use-together.ts";
@@ -400,9 +400,7 @@ export function SoundAtAnyPress(props: {
     return null;
   }
   const line = <output className="cast-receiver__sound-on">{soundOnText(t)}</output>;
-  // Over the film, inside its stage, so it shows in full screen too.
-  const stage = video.closest(".film-player__stage");
-  return stage instanceof HTMLElement ? createPortal(line, stage) : line;
+  return onTheFilmsStage(video, line);
 }
 
 /** Whether the browser plays video muted, having refused its sound (playedMutedEvent). */

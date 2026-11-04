@@ -1,0 +1,28 @@
+/* Watch Together over the playing film (together-over-the-film.tsx, D423). */
+
+/* Over a film the browser would only play muted, in its middle: the one tap its sound needs. */
+/* Small, at the film's top: the sound the page had, lost, asked back by a tap; the host's too. */
+.together-viewer__sound-on,
+.together-host__sound-on {
+  position: absolute;
+  inset-block-start: var(--space-2);
+  inset-inline-start: 50%;
+  z-index: 2;
+  transform: translateX(-50%);
+  font-size: var(--font-size-small);
+  opacity: 0.9;
+}
+
+/* Someone joined or left, a short note low over the film (ComingAndGoing). */
+.together-coming {
+  position: absolute;
+  z-index: 2;
+  inset-block-end: var(--space-6);
+  inset-inline-start: 50%;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-card);
+  background: var(--color-video-card);
+  color: var(--color-on-video);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
