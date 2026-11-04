@@ -274,6 +274,23 @@ export class Watching {
   }
 
   /**
+   * Where fileId resumes for its person, as its film page's warm-up was told (StartPlaybackOutput's
+   * resumePositionMs), 0 for its start; undefined where it is not the film warmed up or its warm-up
+   * failed. A title's page names its Play by it, Resume with the point, asking nothing more.
+   */
+  async warmResumeMs(fileId: number): Promise<number | undefined> {
+    const warm = this.warm;
+    if (this.fileId !== fileId || warm === undefined) {
+      return undefined;
+    }
+    try {
+      return (await warm.decision).resumePositionMs;
+    } catch {
+      return undefined; // the Play page asks again (decide's warmUpFailed)
+    }
+  }
+
+  /**
    * The film fileId plays on a cast's receiver, not here (D364 §3): its film page's warm-up, which
    * this device will not take, is let go of, its preload and its playback. A preload left behind
    * kept its hidden video and its chunks on the sender for half an hour (the cast test, 2026-10-27).

@@ -1,55 +1,5 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
-/*
- * The backdrop runs to the page's edges and fades into it: the words sit on the page, never on art.
- * It starts under the page's trail (up-trail.tsx), not up at the banner: risen into the trail's
- * space, its mask, which makes it a layer of its own, drew it over the trail's lower half (the
- * owner, 2026-10-28).
- */
-.title__backdrop {
-  display: block;
-  width: calc(100% + 2 * var(--space-page));
-  max-width: none;
-  height: clamp(10rem, 40vh, 28rem);
-  margin: 0 calc(-1 * var(--space-page)) calc(-1 * var(--space-7));
-  object-fit: cover;
-  mask-image: linear-gradient(to bottom, black 55%, transparent);
-}
-
-.title__head {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(6.5rem, 9rem) minmax(0, 1fr);
-  gap: var(--space-4);
-  align-items: start;
-  padding-block: var(--space-4);
-}
-
-/* On a phone the art floats at the start and the words wrap around it, then use the full width. */
-@media (max-width: 599px) {
-  .title__head {
-    display: flow-root;
-  }
-
-  .title__head > :first-child {
-    float: inline-start;
-    width: 8.5rem;
-    margin-block-end: var(--space-3);
-    margin-inline-end: var(--space-4);
-  }
-}
-
-@media (min-width: 600px) {
-  .title__head {
-    grid-template-columns: minmax(8rem, 14rem) minmax(0, 1fr);
-    gap: var(--space-6);
-  }
-}
-
-.title__head h1 {
-  margin-block-start: 0;
-}
-
 .title__still {
   width: 100%;
   aspect-ratio: 16 / 9;
@@ -57,19 +7,7 @@
   border-radius: var(--radius-card);
 }
 
-.title__facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-4);
-  color: var(--color-muted);
-}
-
-.title__tagline {
-  color: var(--color-muted);
-  font-style: italic;
-}
-
-/* Each file: Play first, as the page's one primary action, then what the file holds. */
+/* Each file: what it holds, its path and streams, and an admin's retire of one gone. */
 .title__file {
   display: grid;
   gap: var(--space-2);
@@ -116,6 +54,28 @@
 .title__play:hover {
   background: var(--color-accent-hover);
   color: var(--color-on-accent);
+}
+
+/* The actions row's others, Start over, Next episode, a version's Play: a quiet button's look
+   (base.css), drawn on its link. */
+.title__action {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--size-control);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-raised);
+  color: inherit;
+  font-weight: var(--font-weight-strong);
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .title__action:hover {
+    background: var(--color-border);
+    color: inherit;
+  }
 }
 
 .title__file code {
