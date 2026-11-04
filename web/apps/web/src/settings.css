@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
-/* The server settings: one to a row, by section, as about:config lists them. */
+/* The server settings: one to a row, by section, each in one column. */
 .settings__filters {
   display: flex;
   flex-wrap: wrap;
@@ -24,28 +24,41 @@
   font-size: calc(var(--font-size-h3) * 1.5);
 }
 
-/* A row: the key, its value, then its controls; a refusal takes the row's whole width below. */
+/*
+ * A row, in one column (ui-audit-2026-11-04.md §3): the setting's name, its key in small type under
+ * it, then its field with its controls, then "Saved" or a refusal.
+ */
 .settings__row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(8rem, 16rem) auto;
-  gap: var(--space-1) var(--space-3);
-  align-items: center;
-  padding: var(--space-1) var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-inline-size: 40rem;
+  padding: var(--space-2);
   border-block-end: 1px solid var(--color-border);
 }
 
+.settings__label {
+  font-weight: 600;
+}
+
 .settings__key {
+  color: var(--color-muted);
   font-family: var(--font-mono);
+  font-size: var(--font-size-small);
   overflow-wrap: anywhere;
 }
 
-/* A checkbox keeps its own size, at the start of its column. */
-.settings__row > input[type="checkbox"] {
-  justify-self: start;
+/* The field, then what it is for and its way back, on one line. */
+.settings__field {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
 }
 
 .settings__value {
-  inline-size: 100%;
+  flex: 1;
+  min-inline-size: 0;
+  max-inline-size: 24rem;
 }
 
 .settings__controls {
@@ -133,15 +146,4 @@
   margin-block-start: 0;
   font-size: var(--font-size-h3);
   overflow-wrap: anywhere;
-}
-
-/* On a narrow screen the key takes its own line above the value and controls. */
-@media (width < 36rem) {
-  .settings__row {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .settings__key {
-    grid-column: 1 / -1;
-  }
 }

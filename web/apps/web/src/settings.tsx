@@ -9,12 +9,17 @@ import { useTranslation } from "react-i18next";
 
 import { camelKey } from "./catalogue-key.ts";
 import { fieldProblemText, dataOrThrow, throwIfRefused } from "./problem.ts";
+import { Link } from "./link.tsx";
+import { SaveNote, shownSaveState } from "./save-note.tsx";
 import {
   AboutButton,
   isFound,
   ResetIcon,
+  RowName,
   ServerSettings,
+  settingLabel,
   SettingsFilters,
+  withMember,
 } from "./server-settings.tsx";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
@@ -128,12 +133,16 @@ function SecretControls(props: {
   );
 }
 
-/** What a secret's row says below it: the bin's question, and why it must be entered again or was refused. */
+/**
+ * What a secret's row says below it: the bin's question, why it must be entered again, and how its
+ * last change went: "Saved", or why it was refused.
+ */
 function SecretNotes(props: {
   readonly isAsking: boolean;
   readonly needsReentry: boolean;
   /** Why the server refused the secret's last change; "" when it did not. */
   readonly problem: string;
+  readonly isSaved: boolean;
   readonly onRemove: () => void;
   readonly onKeep: () => void;
 }): JSX.Element {
@@ -146,23 +155,47 @@ function SecretNotes(props: {
           {t("settings.secretReentry")}
         </p>
       ) : null}
-      {props.problem === "" ? null : (
-        <p className="settings__problem" role="alert">
-          {props.problem}
-        </p>
-      )}
+      <SaveNote state={shownSaveState(props.problem, props.isSaved)} />
     </>
   );
 }
 
+/** A secret's field: what is typed, never what is set, which its placeholder says is. */
+function SecretField(props: {
+  readonly id: string;
+  readonly name: string;
+  readonly placeholder: string;
+  readonly text: string;
+  readonly onText: (text: string) => void;
+  readonly onCommit: () => void;
+}): JSX.Element {
+  return (
+    <input
+      id={props.id}
+      className="settings__value"
+      type="password"
+      autoComplete="off"
+      aria-labelledby={`secret-${props.name}`}
+      placeholder={props.placeholder}
+      value={props.text}
+      onChange={(event) => {
+        props.onText(event.target.value);
+      }}
+      onBlur={props.onCommit}
+    />
+  );
+}
+
 /**
- * One secret's row: its name, a field to type a new one in, which says whether one is set, what it
- * is for, and a bin that removes it once asked again.
+ * One secret's row, in one column as a setting's: its name, its key under it, a field to type a new
+ * one in, which says whether one is set, what it is for, and a bin that removes it once asked again.
  */
 const SecretRow = memo(function SecretRow(props: {
   readonly secret: Secret;
   /** Why the server refused this secret's last change; "" when it did not. */
   readonly problem: string;
+  /** Whether its last change was saved, so it says so. */
+  readonly isSaved: boolean;
   readonly onSave: (name: string, value: string) => void;
   readonly onRemove: (name: string) => void;
 }): JSX.Element {
@@ -170,7 +203,7 @@ const SecretRow = memo(function SecretRow(props: {
   const { secret } = props;
   const { text, setText, commit } = useSecretField(secret.name, props.onSave);
   const [isAsking, setIsAsking] = useState(false);
-  const state = secretState(t, secret);
+  const fieldId = `secret-field-${secret.name}`;
   return (
     <form
       className="settings__row"
@@ -180,32 +213,34 @@ const SecretRow = memo(function SecretRow(props: {
         commit();
       }}
     >
-      <code className="settings__key" id={`secret-${secret.name}`}>
-        {secret.name}
-      </code>
-      <input
-        className="settings__value"
-        type="password"
-        autoComplete="off"
-        aria-labelledby={`secret-${secret.name}`}
-        placeholder={state}
-        value={text}
-        onChange={(event) => {
-          setText(event.target.value);
-        }}
-        onBlur={commit}
+      <RowName
+        id={`secret-${secret.name}`}
+        fieldId={fieldId}
+        label={settingLabel(t, "secretLabels", secret.name)}
+        settingKey={secret.name}
       />
-      <SecretControls
-        secret={secret}
-        isAsking={isAsking}
-        onAsk={() => {
-          setIsAsking(true);
-        }}
-      />
+      <span className="settings__field">
+        <SecretField
+          id={fieldId}
+          name={secret.name}
+          placeholder={secretState(t, secret)}
+          text={text}
+          onText={setText}
+          onCommit={commit}
+        />
+        <SecretControls
+          secret={secret}
+          isAsking={isAsking}
+          onAsk={() => {
+            setIsAsking(true);
+          }}
+        />
+      </span>
       <SecretNotes
         isAsking={isAsking}
         needsReentry={secret.needsReentry}
         problem={props.problem}
+        isSaved={props.isSaved}
         onRemove={() => {
           setIsAsking(false);
           props.onRemove(secret.name);
@@ -225,6 +260,8 @@ export function SecretsView(props: {
   readonly search: string;
   /** Why the server refused a secret's last change, by name. */
   readonly problems: ReadonlyMap<string, string>;
+  /** The secrets whose last change was saved, which say so. */
+  readonly saved?: ReadonlySet<string>;
   readonly onSave: (name: string, value: string) => void;
   readonly onRemove: (name: string) => void;
 }): JSX.Element | null {
@@ -245,6 +282,7 @@ export function SecretsView(props: {
           key={secret.name}
           secret={secret}
           problem={props.problems.get(secret.name) ?? ""}
+          isSaved={props.saved?.has(secret.name) ?? false}
           onSave={props.onSave}
           onRemove={props.onRemove}
         />
@@ -265,6 +303,9 @@ export function Settings(): JSX.Element {
   return (
     <section className="settings" aria-labelledby="settings-heading">
       <h1 id="settings-heading">{t("settings.heading")}</h1>
+      <p>
+        {t("settings.intro")} <Link to={{ screen: "update" }}>{t("update.howTo")}</Link>
+      </p>
       <SettingsFilters
         isAdvanced={isAdvanced}
         onAdvanced={setIsAdvanced}
@@ -283,6 +324,7 @@ function Secrets(props: { readonly search: string }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [problems, setProblems] = useState<ReadonlyMap<string, string>>(() => new Map());
+  const [saved, setSaved] = useState<ReadonlySet<string>>(() => new Set());
   const [secrets, reload] = useResource("secrets", async () => {
     const secretsBody = dataOrThrow(await api.GET("/secrets"));
     return secretsBody.secrets ?? [];
@@ -297,6 +339,7 @@ function Secrets(props: { readonly search: string }): JSX.Element {
         problem = fieldProblemText(t, cause, { fields: { "body.value": name } });
       }
       setProblems((previous) => new Map(previous).set(name, problem));
+      setSaved((previous) => withMember(previous, name, problem === ""));
       reload();
     },
     [t, reload],
@@ -328,6 +371,7 @@ function Secrets(props: { readonly search: string }): JSX.Element {
           secrets={loaded}
           search={props.search}
           problems={problems}
+          saved={saved}
           onSave={save}
           onRemove={remove}
         />

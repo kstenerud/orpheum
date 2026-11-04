@@ -1,0 +1,13 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* "Saved" beside a field that saved at once, in small type; a refusal in the warning colour. */
+.save-note {
+  display: block;
+  margin: 0;
+  color: var(--color-muted);
+  font-size: var(--font-size-small);
+}
+
+.save-note--refused {
+  color: var(--color-warning);
+}

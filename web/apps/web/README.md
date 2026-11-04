@@ -10,6 +10,12 @@ The web client: the browser and phone interface, served embedded by the core. MP
   devices and a new link that stops the old one all go through it (the owner, 2026-10-12: "red button +
   confirm action is a general pattern that will occur often"). `confirmed-actions.test.tsx`,
   `your-devices.test.tsx`, `system-waiting.test.tsx`, `watch-together.test.tsx`.
+- **Every setting saves at once, the admin's too** (the owner, 2026-11-04, Q5): no page has a Save
+  for a setting; a choice saves as it is made, typing on Enter or on leaving its field, and
+  `SaveNote` (`src/save-note.tsx`) says "Saved" beside it, or the refusal in its place. A creation
+  (a library, an invitation) keeps its one Create. Settings shows each setting in one column, its
+  name in the person's words above its key (`locales/en-setting-labels.ts`, every setting's held by
+  `TestRegistry_TheWebCatalogueLabelsEverySetting`). `src/settings.test.tsx`.
 - **Imports packages by name, never another app.** `app-not-to-other-app` and
   `not-into-another-package-by-path` (`web/.dependency-cruiser.cjs`).
 - **Server calls go through `@orpheum/sdk`.** `no-restricted-globals` (`fetch`,

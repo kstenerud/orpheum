@@ -15,8 +15,8 @@ import {
   settingText,
   startText,
 } from "./server-settings.tsx";
-import { SecretsView } from "./settings.tsx";
-import { click, mount, type Mounted } from "./test-dom.tsx";
+import { SecretsView, Settings } from "./settings.tsx";
+import { click, enter, mount, servedBy, settleAnswers, submit, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 const ignore = (): void => undefined;
@@ -272,6 +272,71 @@ describe("settings", () => {
     expect(await paragraphsFor("node_progress_every_seconds")).toEqual([
       "How often, at most, a media node reports how far a read-through in progress is.",
     ]);
+  });
+
+  // ui-audit-2026-11-04.md §3, Settings; the owner, 2026-11-04, Q5: every setting saves at once.
+  it("lays each setting out in one column, its name above its key above its field, and says Saved once it saves", async () => {
+    const services = servedBy({
+      "GET /secrets": [200, { secrets: [] }],
+      "GET /system/update": [200, { version: "v0.3.1", checkedAt: 0 }],
+      "GET /config": [
+        200,
+        {
+          settings: [
+            {
+              key: "log_level",
+              kind: "string",
+              description: "log",
+              value: "info",
+              startingValue: "info",
+              isModified: false,
+              isImportant: true,
+              section: "diagnostics",
+              setAt: 1,
+            },
+          ],
+        },
+      ],
+      "PUT /config": [
+        200,
+        {
+          settings: [
+            {
+              key: "log_level",
+              kind: "string",
+              description: "log",
+              value: "debug",
+              startingValue: "info",
+              isModified: true,
+              isImportant: true,
+              section: "diagnostics",
+              setAt: 2,
+            },
+          ],
+        },
+      ],
+    });
+    mounted = await mount(withServices(<Settings />, services));
+    const { container } = mounted;
+    // The heading's sentence leads to How to update, which no menu does.
+    expect(container.querySelector('h1 + p a[href="/update"]')?.textContent).toBe("How to update");
+    const row = container.querySelector('form[aria-labelledby="setting-log_level"]');
+    if (row === null) {
+      throw new Error("no row for log_level");
+    }
+    expect([...row.children].map((part) => [part.className, part.textContent])).toEqual([
+      ["settings__label", "Log level"],
+      ["settings__key", "log_level"],
+      ["settings__field", ""],
+    ]);
+    const field = row.querySelector("input");
+    expect([...(field?.labels ?? [])].map((label) => label.textContent)).toEqual(["Log level"]);
+    expect(row.querySelector("button[type=submit]")).toBeNull();
+    expect(row.textContent).not.toContain("Saved");
+    await enter(field, "debug");
+    await submit(row);
+    await settleAnswers();
+    expect(row.querySelector("output.save-note")?.textContent).toBe("Saved");
   });
 
   it("says the server's log level can be changed at once (D347)", async () => {

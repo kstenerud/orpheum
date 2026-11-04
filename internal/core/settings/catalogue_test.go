@@ -44,6 +44,26 @@ func TestRegistry_TheWebCatalogueDescribesEverySettingAndNamesEverySection(t *te
 	}
 }
 
+// The settings page names each setting above its field in the person's words, its key in small type
+// under it (ui-audit-2026-11-04.md §3, Settings): every setting has its label in the web catalogue.
+func TestRegistry_TheWebCatalogueLabelsEverySetting(t *testing.T) {
+	t.Parallel()
+	source, err := os.ReadFile(filepath.Join("..", "..", "..", "web", "apps", "web", "src", "locales",
+		"en-setting-labels.ts"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, labels, found := strings.Cut(string(source), "\n  labels: {")
+	if !found {
+		t.Fatal("en-setting-labels.ts has no labels this test can read; say where they went")
+	}
+	for _, definition := range Registry() {
+		if !regexp.MustCompile(`\n\s+` + camelCase(string(definition.Key)) + `:`).MatchString(labels) {
+			t.Errorf("the catalogue has no label for %s", definition.Key)
+		}
+	}
+}
+
 // The chunk length's help says it is a floor its film's keyframes decide, not each chunk's length:
 // a chunk ends only at a keyframe, and most film time plays from chunks of 6-7 s at the 2 s setting
 // (D414 §5).

@@ -6,6 +6,7 @@ import { enDiscovery } from "./en-discovery.ts";
 import { enLibraries } from "./en-libraries.ts";
 import { enPeople } from "./en-people.ts";
 import { enPlay } from "./en-play.ts";
+import { enSettingLabels } from "./en-setting-labels.ts";
 import { enSettingsCatalogue } from "./en-settings.ts";
 import { enGallery } from "./en-gallery.ts";
 import { enLab } from "./en-lab.ts";
@@ -525,6 +526,8 @@ export const en = {
     tipResetting: "Returning to default",
     tipRemove: "Remove it",
     tipNotSet: "Not set, so nothing to remove",
+    intro: "Every setting is saved as it is changed. For a newer release of the server, see",
+    ...enSettingLabels,
     ...enSettingsCatalogue,
   },
   shell: {
@@ -543,6 +546,7 @@ export const en = {
     show: "Show",
     noPoster: "No poster",
     keepIt: "Keep it",
+    saved: "Saved",
   },
 } as const;
 
