@@ -108,7 +108,6 @@ interface Destination {
   readonly labelKey:
     | "films"
     | "series"
-    | "deviceTests"
     | "identify"
     | "libraries"
     | "people"
@@ -120,10 +119,10 @@ interface Destination {
     | "about"
     | "uiGallery";
   /**
-   * Who it shows to: everyone, an admin, anyone while the admin has the pages for development turned
-   * on, or anyone while the admin offers the device tests.
+   * Who it shows to: everyone, an admin, or anyone while the admin has the pages for development
+   * turned on. The device tests are This device's (this-device.tsx), not the menu's.
    */
-  readonly audience: "everyone" | "admin" | "developer" | "tester";
+  readonly audience: "everyone" | "admin" | "developer";
   /**
    * Where in the banner it is: the places for watching, always in view; or, in the one menu at the
    * banner's end, the admin's area under Manage, the pages for development, or the person's own
@@ -160,14 +159,6 @@ const destinations: readonly Destination[] = [
     group: "watching",
     icon: LibrariesIcon,
     isLibrariesMenu: true,
-  },
-  {
-    // In the menu, not the places for watching: on a phone the row ran past the window (the owner,
-    // 2026-10-28: "the device tests could be moved into the menu").
-    route: { screen: "lab" },
-    labelKey: "deviceTests",
-    audience: "tester",
-    group: "own",
   },
   { route: { screen: "identify" }, labelKey: "identify", audience: "admin", group: "manage" },
   { route: { screen: "libraries" }, labelKey: "libraries", audience: "admin", group: "manage" },
@@ -212,12 +203,6 @@ export function AppShell(props: {
    * admin turns on (the owner, 2026-10-17: "development items behind a setting").
    */
   readonly showsDeveloperPages?: boolean;
-  /**
-   * Whether the places for watching offer the device lab's tests, beside Watch Together: a server
-   * setting the admin turns on (the owner, 2026-10-25: for running device tests with beta
-   * participants).
-   */
-  readonly showsDeviceTests?: boolean;
   /**
    * Goes to the discovery's list of households, offered in the menu while a discovery's loader runs
    * the page (D308 §8); undefined, and the menu offers none.
@@ -286,8 +271,6 @@ function isShownTo(
       return shell.isAdmin;
     case "developer":
       return shell.showsDeveloperPages === true;
-    case "tester":
-      return shell.showsDeviceTests === true;
   }
 }
 

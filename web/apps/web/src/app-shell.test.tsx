@@ -8,6 +8,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import { AppShell } from "./app-shell.tsx";
+import { DeviceTestsOfferedContext } from "./lab-offered.ts";
 import { localNetworkNoteDismissedKey } from "./local-network-note.tsx";
 import { createNavigation } from "./navigation.ts";
 import { buttonNamed, buttonWithText, click, fire, mount, settleUntil } from "./test-dom.tsx";
@@ -245,29 +246,26 @@ describe("AppShell", () => {
     expect(await markupWith(false)).not.toContain('href="/ui-gallery"');
   });
 
-  it("offers Device tests in the menu, to everyone, only while the server offers them (the owner, 2026-10-25, 2026-10-28)", async () => {
-    const shellWith = async (showsDeviceTests: boolean | undefined): Promise<string> =>
-      await drawnWithMenuOpen(
+  // The owner, 2026-11-04 (ui-audit-2026-11-04.md Q8): the device tests move behind "For testers",
+  // on This device (this-device.tsx); neither the menu nor the places for watching lead to them.
+  it("offers no Device tests in the menu or the places for watching, while the server offers them too", async () => {
+    const markup = await drawnWithMenuOpen(
+      <DeviceTestsOfferedContext value={true}>
         <AppShell
-          isAdmin={false}
+          isAdmin={true}
           canHostWatchTogether={true}
           currentScreen="films"
           onSignOut={ignore}
           signedInAs={undefined}
-          {...(showsDeviceTests === undefined ? {} : { showsDeviceTests })}
         >
           <p>screen</p>
-        </AppShell>,
-      );
-    const watching = (markup: string): string =>
-      /<ul class="app-shell__watching">(.*?)<\/ul>/u.exec(markup)?.[1] ?? "";
-    // On a phone the row of places ran past the window: the device tests are the menu's.
-    expect(await shellWith(true)).toMatch(
-      /<div class="app-shell__menu[^]*<dialog[^]*href="\/lab"[^>]*>Device tests<\/a>/u,
+        </AppShell>
+      </DeviceTestsOfferedContext>,
     );
-    expect(watching(await shellWith(true))).not.toContain('href="/lab"');
-    expect(await shellWith(false)).not.toContain('href="/lab"');
-    expect(await shellWith(undefined)).not.toContain('href="/lab"');
+    expect(markup).toMatch(/<div class="app-shell__menu[^]*<dialog[^]*href="\/this-device"/u);
+    expect(markup).not.toContain('href="/lab"');
+    expect(markup).not.toContain("Device tests");
+    expect(markup).not.toContain("For testers");
   });
 
   it("offers to switch household only while a discovery's loader runs the page (D308 §8)", async () => {

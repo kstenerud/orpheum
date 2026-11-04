@@ -29,7 +29,6 @@ const inTheShell = (
       currentScreen="lab"
       onSignOut={() => undefined}
       signedInAs={{ name: "tester", deviceName: undefined }}
-      showsDeviceTests={true}
     >
       <Lab probe="input" />
     </AppShell>
