@@ -543,19 +543,23 @@ def main(argv: list[str] | None = None) -> int:
         args.base, args.head = being_written
     elif not args.base:
         ap.error("--base is required unless --message-file is given")
+    # The commit being written is a dangling stand-in under a placeholder author, never recorded:
+    # its hash is not named, or an agent reports it as its commit and a pick records the stand-in
+    # (2026-11-04: two commits picked as "commit-msg check <check@localhost>").
+    span = "the commit being written" if args.message_file else f"{args.base}..{args.head}"
     gate_status = check_gates(args.base, args.head)
     moves: list[str] = []
     found = weakenings(args.base, args.head, moves)
     if moves:
-        print(f"Tests renamed or moved in {args.base}..{args.head}, not counted as removed:")
+        print(f"Tests renamed or moved in {span}, not counted as removed:")
         for move in moves:
             print(f"  {move}")
     if not found:
-        print(f"check_test_weakening: nothing weakened in {args.base}..{args.head}")
+        print(f"check_test_weakening: nothing weakened in {span}")
         return gate_status
     paths = list(dict.fromkeys(w.path for w in found))
     explained, unexplained = explain(args.base, args.head, paths, TRAILER)
-    print(f"Tests weakened in {args.base}..{args.head}:")
+    print(f"Tests weakened in {span}:")
     for w in found:
         print(f"  {w.path}: {w.what}")
     if explained:
