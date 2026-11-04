@@ -33,6 +33,10 @@
    year and a series' year, the small ones, the lead's staging Connect account, and (the owner, 2026-11-03) a Chromecast's first test away from
    home: the lab's receiver served by Connect, for the owner's test in Berlin. End: one check-pr,
    the owner's go, nas.example.
+   **The 11-06 batch (owner 2026-11-04, "yes that sounds good"):** after the 11-05 batch (deployed
+   to nas.example 2026-11-04), the plan file's "The 11-06 batch": playback holds up (a film's first
+   seconds, a run's last chunk, Firefox on a Mac, file 5667, SWAG starts and stalls) and the remote
+   reaches every control (item 13; its rule proposed first). End: one check-pr, the owner's go, nas.example.
    **Queued for the owner to order later:** the rest of the plan file and inventory-2026-10-27.md.
    **Superseded (owner 2026-10-30, D385):** a receiver taking control back ends the cast and goes home; the sender plays on.
 3. **Only then:** new work (Diagnostics, D341, D345, the queued items), and code-fixing batches from
