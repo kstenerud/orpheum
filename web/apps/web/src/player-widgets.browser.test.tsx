@@ -15,7 +15,7 @@ import "./up-next.css";
 import "./i18n.ts";
 
 import { act, createRef } from "react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { commandEventName } from "./input-commands.ts";
@@ -67,6 +67,29 @@ const episodeUpward: Upward = {
   crumbs: [{ label: "Gus Doyle", to: { screen: "home" }, isIt: () => false }],
   here: "S2E3",
 };
+
+/**
+ * Puts the overlay's time in the test's hands, as player-overlay.test.tsx does: its look whether its
+ * time is up (an interval) runs only as the test moves the time on, and performance.now, which it
+ * reads, says the test's time. A key the browser delivers late, a machine under load taking more than
+ * the overlay's 3 s for a round trip, then hides nothing. Returns what moves the time on by ms.
+ */
+function overlayTimeHeld(): (ms: number) => void {
+  vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+  let pageNowMs = 0;
+  vi.spyOn(performance, "now").mockImplementation(() => pageNowMs);
+  return (ms) => {
+    pageNowMs += ms;
+    act(() => {
+      vi.advanceTimersByTime(ms);
+    });
+  };
+}
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 
 describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
   it("draws every icon button, the status tray's signs too, a fingertip square: 2.75rem", async () => {
@@ -232,6 +255,7 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
     Object.defineProperty(video, "paused", { get: () => false });
     const videoRef = createRef<HTMLVideoElement>();
     Reflect.set(videoRef, "current", video);
+    const elapse = overlayTimeHeld();
     await drawn(
       <div className="film-player__stage">
         <PlayerOverlay videoRef={videoRef} readLinkKbps={() => undefined} failure={undefined} />
@@ -241,15 +265,14 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
         mounted.container.append(video);
         video.tabIndex = -1;
         video.focus();
-        // A key's focus in it, whether the overlay is still up from its start or hid already, as
-        // Firefox under the gate's load can be slower than its 3 s.
         await userEvent.keyboard("{ArrowDown}");
         await expect.poll(() => overlay.contains(document.activeElement)).toBe(true);
         expect(document.activeElement?.matches(":focus-visible")).toBe(true);
         expect(overlay.getAttribute("data-shown")).toBe("full");
-        await expect
-          .poll(() => overlay.getAttribute("data-shown"), { timeout: 5000 })
-          .toBe("hidden");
+        elapse(2900);
+        expect(overlay.getAttribute("data-shown")).toBe("full");
+        elapse(200);
+        expect(overlay.getAttribute("data-shown")).toBe("hidden");
         expect(overlay.contains(document.activeElement)).toBe(false);
       },
     );
@@ -263,6 +286,7 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
     Object.defineProperty(video, "paused", { get: () => false });
     const videoRef = createRef<HTMLVideoElement>();
     Reflect.set(videoRef, "current", video);
+    overlayTimeHeld(); // a playing film's overlay, which would hide as the keys come late
     await drawn(
       <PlayUpwardContext value={episodeUpward}>
         <div className="film-player__stage">
