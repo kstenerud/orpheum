@@ -6,7 +6,7 @@ import { idempotent } from "./idempotent.ts";
 import "./continue-watching.css";
 
 import type { Api, components } from "@orpheum/sdk";
-import { useEffect, useRef, useState, type JSX } from "react";
+import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import { MoreActions } from "./more-actions.tsx";
@@ -96,29 +96,28 @@ interface FocusAfterHide {
 }
 
 /**
- * The rows, each playing its file at once when chosen (D188), with a way to hide it; and after a
- * hide, a way to undo it. Once the hidden row is gone, focus goes to the card after it, or before
- * it when it was the last, or to Undo when no card is left (D419 §3); never to the page's body.
+ * Where focus goes once a hidden row is gone (D419 §3): the card after it, or before it when it was
+ * the last, or Undo when no card is left; nothing moves when the hide was refused and the row stays.
  */
-export function ContinueWatchingView(props: {
-  readonly rows: readonly ContinueWatchingRow[];
-  readonly hiddenName: string | undefined;
-  readonly onHide: (row: ContinueWatchingRow) => void;
-  readonly onUndo: () => void;
-}): JSX.Element | null {
-  const { t } = useTranslation();
+function useFocusAfterHide(
+  rows: readonly ContinueWatchingRow[],
+  onHide: (row: ContinueWatchingRow) => void,
+): {
+  readonly sectionRef: RefObject<HTMLElement | null>;
+  readonly undoRef: RefObject<HTMLButtonElement | null>;
+  readonly hide: (row: ContinueWatchingRow) => void;
+} {
   const sectionRef = useRef<HTMLElement>(null);
   const undoRef = useRef<HTMLButtonElement>(null);
-  const focusAfterHide = useRef<FocusAfterHide | undefined>(undefined);
-  const { rows } = props;
+  const pendingRef = useRef<FocusAfterHide | undefined>(undefined);
   useEffect(() => {
-    const pending = focusAfterHide.current;
+    const pending = pendingRef.current;
     if (pending === undefined) {
       return;
     }
-    focusAfterHide.current = undefined;
+    pendingRef.current = undefined;
     if (rows.some((row) => row.id === pending.hiddenId)) {
-      return; // refused: the row stays, and focus with it
+      return;
     }
     const nextIndex = rows.findIndex((row) => row.id === pending.nextId);
     const card =
@@ -129,9 +128,25 @@ export function ContinueWatchingView(props: {
   }, [rows]);
   const hide = (row: ContinueWatchingRow): void => {
     const index = rows.indexOf(row);
-    focusAfterHide.current = { hiddenId: row.id, nextId: (rows[index + 1] ?? rows[index - 1])?.id };
-    props.onHide(row);
+    pendingRef.current = { hiddenId: row.id, nextId: (rows[index + 1] ?? rows[index - 1])?.id };
+    onHide(row);
   };
+  return { sectionRef, undoRef, hide };
+}
+
+/**
+ * The rows, each playing its file at once when chosen (D188), with a way to hide it; and after a
+ * hide, a way to undo it, focus moved off the hidden card by useFocusAfterHide.
+ */
+export function ContinueWatchingView(props: {
+  readonly rows: readonly ContinueWatchingRow[];
+  readonly hiddenName: string | undefined;
+  readonly onHide: (row: ContinueWatchingRow) => void;
+  readonly onUndo: () => void;
+}): JSX.Element | null {
+  const { t } = useTranslation();
+  const { rows } = props;
+  const { sectionRef, undoRef, hide } = useFocusAfterHide(rows, props.onHide);
   if (rows.length === 0 && props.hiddenName === undefined) {
     return null;
   }

@@ -219,7 +219,10 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
   it("leaves Continue Watching by one Down, and hides a film from the card's own …, reached by Up", async () => {
     await page.viewport(width, height);
     const heard: string[] = [];
-    const answers: WalkAnswers = { ...withContinueWatching, "POST /items/202/hide": null };
+    const answers: Record<string, unknown> = {
+      ...withContinueWatching,
+      "POST /items/202/hide": null,
+    };
     walking = await mountApp(walkServices(answers, "/", heard));
     await expect.poll(() => isDrawn(`${newestFilms} .poster-card__link`)).toBe(true);
     await expect.poll(focusedCard).toBe("Metropolis");
@@ -248,7 +251,7 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
 
   it("puts focus on the card before a hidden last one, and on Undo when none is left (D419 §3)", async () => {
     await page.viewport(width, height);
-    const answers: WalkAnswers = {
+    const answers: Record<string, unknown> = {
       ...withContinueWatching,
       "GET /home": { continueWatching: [partway(201, "Metropolis"), partway(203, "Sunrise")] },
       "POST /items/203/hide": null,
