@@ -46,7 +46,45 @@ WRITES_DESTINATION = frozenset({"cp", "mv", "install", "ln", "rsync"})
 # Commands that edit their file operands in place when given `-i`.
 EDITS_IN_PLACE = frozenset({"sed", "perl"})
 # Words that run the command after them.
-PREFIXES = frozenset({"sudo", "env", "nohup", "time", "command", "exec", "nice"})
+PREFIXES = frozenset({"sudo", "env", "nohup", "time", "command", "exec", "nice", "timeout", "ionice", "stdbuf",
+                      "setsid", "xvfb-run", "chrt", "taskset"})
+# Each prefix's options that take the word after them as their value.
+PREFIX_VALUE_OPTIONS = {
+    "sudo": {"-u", "-g", "-C", "-D", "-h", "-p", "-U"}, "env": {"-u", "-C", "-S", "--unset", "--chdir"},
+    "time": {"-f", "-o", "--format", "--output"}, "nice": {"-n", "--adjustment"},
+    "timeout": {"-s", "-k", "--signal", "--kill-after"}, "ionice": {"-c", "-n", "-p", "-P", "-u"},
+    "stdbuf": {"-i", "-o", "-e"}, "xvfb-run": {"-n", "-s", "-e", "-f", "-p", "-w", "--server-args"},
+}
+# Prefixes whose first word after their options is an argument of theirs, not the command.
+PREFIX_ARGUMENTS = {"timeout": 1, "chrt": 1, "taskset": 1}
+
+
+def strip_prefix_words(words: list[str], dev: bool = False) -> list[str]:
+    """words past any prefix (`env`, `nice -n 19`, `timeout 600`, ...) with its options and arguments,
+    and past assignments, and past `./dev` when dev: what is left starts with the command run. Agents'
+    `timeout 600 npm test` ran outside the test lock while only the prefix's name was passed over
+    (2026-11-04: 33 runs of three agents)."""
+    while words:
+        name = Path(words[0]).name
+        if ASSIGNMENT.match(words[0]):
+            words = words[1:]
+            continue
+        if dev and name == "dev":
+            words = words[1:]
+            continue
+        if words[0] not in PREFIXES:
+            return words
+        prefix, words = words[0], words[1:]
+        takes_value = PREFIX_VALUE_OPTIONS.get(prefix, set())
+        while words and words[0].startswith("-") and words[0] != "--":
+            option = words[0]
+            words = words[2:] if option in takes_value else words[1:]
+        if words[:1] == ["--"]:
+            words = words[1:]
+        while prefix == "env" and words and ASSIGNMENT.match(words[0]):
+            words = words[1:]
+        words = words[PREFIX_ARGUMENTS.get(prefix, 0):]
+    return words
 SEPARATORS = frozenset({";", "&&", "||", "|", "&", "(", ")", ";;", "|&"})
 
 
@@ -196,9 +234,7 @@ class Resolver:
 
 
 def strip_prefixes(args: list[str]) -> list[str]:
-    while args and (args[0] in PREFIXES or ASSIGNMENT.match(args[0])):
-        args = args[1:]
-    return args
+    return strip_prefix_words(args)
 
 
 def gate_writes(command: str, cwd: Path) -> list[str]:
@@ -263,8 +299,7 @@ def runs_git_commit(command: str) -> bool:
     """Whether a simple command of command is `git commit`, after any prefix such as `env`."""
     for args, _ in simple_commands(tokens(command)):
         words = [word for word in args if not ASSIGNMENT.match(word)]
-        while words and words[0] in PREFIXES:
-            words = words[1:]
+        words = strip_prefix_words(words)
         if words and Path(words[0]).name == "git" and git_subcommand(words[1:]) == "commit":
             return True
     return False
@@ -306,8 +341,7 @@ def loads_the_machine(command: str, cwd: Path) -> bool:
     directory = cwd
     for args, _ in simple_commands(tokens(command)):
         words = [word for word in args if not ASSIGNMENT.match(word)]
-        while words and (words[0] in PREFIXES or Path(words[0]).name == "dev"):
-            words = words[1:]
+        words = strip_prefix_words(words, dev=True)
         if words[:1] == ["cd"] and len(words) == 2:
             directory = directory / Path(words[1]).expanduser()
             continue
@@ -334,8 +368,7 @@ def lock_kind(command: str) -> str | None:
     kind = None
     for args, _ in simple_commands(tokens(command)):
         words = [word for word in args if not ASSIGNMENT.match(word)]
-        while words and (words[0] in PREFIXES or Path(words[0]).name == "dev"):
-            words = words[1:]
+        words = strip_prefix_words(words, dev=True)
         if not words or not _runs_tests(Path(words[0]).name, words[1:]):
             continue
         name = Path(words[0]).name
@@ -370,8 +403,7 @@ def waits_on_the_lock(command: str) -> bool:
         return True
     for args, _ in simple_commands(tokens(command)):
         words = [word for word in args if not ASSIGNMENT.match(word)]
-        while words and (words[0] in PREFIXES or Path(words[0]).name == "dev"):
-            words = words[1:]
+        words = strip_prefix_words(words, dev=True)
         if not words:
             continue
         name = Path(words[0]).name

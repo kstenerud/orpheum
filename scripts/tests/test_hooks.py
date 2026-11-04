@@ -492,14 +492,21 @@ class TestsRunHoldingTheLock(unittest.TestCase):
 
         for cmd in ("./dev go test -run X ./internal/core/api/", "npm --prefix web test -- x.ts",
                     "cd web && npx vitest run x", "./dev npm --prefix web run test:browser -- x",
-                    "make test-browser", "go vet ./...", "make spot && go test ./x/"):
+                    "make test-browser", "go vet ./...", "make spot && go test ./x/",
+                    # A prefix's options and arguments are passed over too (2026-11-04: agents'
+                    # `timeout 600 npm test` ran outside the lock).
+                    "timeout 600 npm --prefix web test -- x.tsx 2>&1 | tail -60",
+                    "cd /x && timeout -k 5 600 npm --prefix web test -- x.tsx", "nice -n 19 go test ./x/",
+                    "env -u CI FOO=1 npx vitest run x", "ionice -c 3 nice -n 10 ./dev go test ./x/",
+                    "time -p npm --prefix web test", "stdbuf -oL npx vitest run x"):
             self.assertEqual(pre_bash.lock_kind(cmd), "test", cmd)
         for cmd in ("python3 scripts/check_revert_red.py --base x", "./dev python3 scripts/check_pr_snapshot.py"):
             self.assertEqual(pre_bash.lock_kind(cmd), "gate", cmd)
         # Gates that take the lock themselves, naming what they are, and a commit, whose spot check does.
         for cmd in ("make check", "./dev make check-pr > /tmp/log 2>&1", "make -j6 spot", "make spot BASE=HEAD~3",
                     "make check-revert-red ONLY=x", "make check-pr-failed", "git commit -q -F -",
-                    "git status --short", "go build ./...", "echo go test"):
+                    "git status --short", "go build ./...", "echo go test", "timeout 5 make check",
+                    "nice -n 19 git commit -q -F -"):
             self.assertIsNone(pre_bash.lock_kind(cmd), cmd)
 
     def test_the_hook_runs_a_test_command_through_the_lock_in_its_own_shell(self):
