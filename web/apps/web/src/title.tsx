@@ -141,9 +141,10 @@ export function TitleView(props: {
                 onChanged={props.onWatchedChanged}
               />
             )}
-            <TitleMoreActions title={title} onMatchCorrected={props.onMatchCorrected} />
           </>
         }
+        hasMainAction={fileId !== undefined}
+        more={<TitleMoreActions title={title} onMatchCorrected={props.onMatchCorrected} />}
         tagline={title.tagline}
         overview={title.overview}
       />
@@ -187,8 +188,9 @@ function PlayActions(props: {
  * A title's rarely used actions, under its "…": an admin's "Identified incorrectly" (none for an
  * extra, a work of its film's), its match chosen again only for a film, the one kind of title matched
  * itself (D301 §2), and only where the page is told of a correction; while its match is a guess,
- * "Identified correctly", which confirms it (D301 §4); then, for everyone, its File details and,
- * where it has more than one version to play, the choice of which (ui-audit-2026-11-04.md §3).
+ * "Identified correctly", which confirms it (D301 §4); then, for everyone, where it has more than
+ * one version to play, the choice of which (ui-audit-2026-11-04.md §3). Its File details are the
+ * section below its cast alone, the one place for its technical detail (D418 §5).
  */
 function TitleMoreActions(props: {
   readonly title: TitleDetail;
@@ -207,18 +209,6 @@ function TitleMoreActions(props: {
     }
   }
   const versions = title.versions ?? [];
-  if (versions.some((version) => (version.files ?? []).length > 0)) {
-    actions.push({
-      key: "file-details",
-      label: t("title.fileDetails"),
-      dialog: (close) => (
-        <ModalDialog label={t("title.fileDetails")} onClose={close}>
-          <h2>{t("title.fileDetails")}</h2>
-          <VersionsDetail versions={versions} isOpen />
-        </ModalDialog>
-      ),
-    });
-  }
   if (title.unavailable === undefined && versions.length > 1) {
     actions.push({
       key: "versions",
@@ -402,8 +392,6 @@ function VersionsDetail(props: {
   readonly versions: readonly components["schemas"]["VersionBody"][];
   /** Where given, an admin's retire of each file with a path. */
   readonly retiring?: ((fileId: number) => void) | undefined;
-  /** Whether each File details is open, as the "…"'s dialog shows them. */
-  readonly isOpen?: boolean;
 }): JSX.Element {
   const { t } = useTranslation();
   const { versions, retiring } = props;
@@ -415,7 +403,7 @@ function VersionsDetail(props: {
           {(version.files ?? []).map((file) => (
             <div key={file.id} className="title__file">
               {/* What the file is, for whoever wants it, kept out of the way (the owner, 2026-10-06). */}
-              <details className="title__details" open={props.isOpen}>
+              <details className="title__details">
                 <summary>{t("title.fileDetails")}</summary>
                 {file.path === undefined ? null : <code>{file.path}</code>}
                 <ul>

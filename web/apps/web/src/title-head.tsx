@@ -16,7 +16,9 @@ import { WideArt } from "./poster.tsx";
  * and what it is about, clamped with More. What else the page has follows it. The actions row is a
  * focus container, a row as a poster row is: Right at its end goes nowhere (Q3), where it fell back
  * off its line to whatever lay to the right further down the page (a series' season's Mark as
- * watched, half a screen below).
+ * watched, half a screen below). A title with nothing to play has no main action, and arrives on its
+ * "…" instead, so an OK opens a menu and never changes anything (D418 §7): not on Mark as watched,
+ * the row's first then. Where it has no "…" either, the head is no arrival.
  */
 export function TitleHead(props: {
   readonly backdropSha256: string | undefined;
@@ -28,8 +30,12 @@ export function TitleHead(props: {
   /** The facts, each a span: the year, the length, the sound. */
   readonly facts: ReactNode;
   readonly notes?: ReactNode;
-  /** The actions row: Play or Resume first, then the rest, the "…" last. */
+  /** The actions row: Play or Resume first, where there is one, then the rest. */
   readonly actions: ReactNode;
+  /** Whether the actions row starts with something that plays the title: the page's arrival. */
+  readonly hasMainAction: boolean;
+  /** The "…" of what is rarely used, the actions row's last. */
+  readonly more: ReactNode;
   readonly tagline?: string | undefined;
   readonly overview?: string | undefined;
 }): JSX.Element {
@@ -50,9 +56,12 @@ export function TitleHead(props: {
           <div
             className="page-actions title-head__actions"
             data-focus-container=""
-            {...arrivalMark}
+            {...(props.hasMainAction ? arrivalMark : {})}
           >
             {props.actions}
+            <span className="title-head__overflow" {...(props.hasMainAction ? {} : arrivalMark)}>
+              {props.more}
+            </span>
           </div>
           {props.tagline === undefined ? null : (
             <p className="title-head__tagline">{props.tagline}</p>

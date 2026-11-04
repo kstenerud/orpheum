@@ -365,23 +365,6 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     await expect.poll(() => document.querySelector("main h2")?.textContent).toBe("Season 2");
   });
 
-  // A title's actions row is a row (title-head.tsx): Right at its end stays, as at a poster row's
-  // end (Q3), rather than falling off its line to the season's Mark as watched half a screen down.
-  it("keeps Right at the end of a series' actions row in the row", async () => {
-    await page.viewport(width, height);
-    walking = await mountApp(
-      walkServices({ ...signedIn, "GET /collections/20": glassTide }, "/series/20"),
-    );
-    await drawn(".series__season-head button");
-    const more = document.querySelector<HTMLElement>(".title-head__actions .more-actions__button");
-    more?.focus();
-    await press("{ArrowRight}");
-    expect(document.activeElement).toBe(more);
-    await press("{ArrowLeft}");
-    expect(focusedName()).toBe("Mark all of Glass Tide as watched");
-    expect(isFocusIn(".title-head__actions")).toBe(true);
-  });
-
   it("closes a chooser's list by the browser's own Back, a history step, choosing nothing, and draws no Close", async () => {
     await page.viewport(width, height);
     const place = fakePlace("/");

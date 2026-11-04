@@ -462,10 +462,9 @@ describe("a film whose match is a guess (D301)", () => {
     );
     const forUser = await mount(withServices(<Title id={12} />, services));
     expect(forUser.container.textContent).toContain("may be another work of the same name");
-    // Everyone's "…" holds the File details (ui-audit-2026-11-04.md §3); a correction, an admin's alone.
-    await click(buttonNamed(forUser.container, "More actions"));
-    expect(buttonWithText(forUser.container, "File details")).toBeDefined();
-    expect(buttonWithText(forUser.container, "Identified incorrectly")).toBeUndefined();
+    // A correction is an admin's alone, and the "…" holds no File details (D418 §5): a person's
+    // page has no "…" for a film of one version.
+    expect(buttonNamed(forUser.container, "More actions")).toBeUndefined();
     expect(forUser.container.textContent).not.toContain("Identified incorrectly");
     forUser.unmount();
     const forAdmin = await mount(
@@ -695,7 +694,6 @@ describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
     expect(page.querySelectorAll("a.title__play")).toHaveLength(1);
     expect(page.querySelector("a.title__play")?.getAttribute("href")).toBe("/play/1");
     await click(buttonNamed(page, "More actions"));
-    expect(buttonWithText(page, "File details")).toBeDefined();
     await click(buttonWithText(page, "Versions"));
     const offered = [...(page.querySelector("dialog")?.querySelectorAll("a") ?? [])].map((link) => [
       link.textContent,
@@ -711,9 +709,27 @@ describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
   it("offers no choice of version where there is one", async () => {
     const mounted = await mount(withServices(<TitleView title={heat} />));
     const page = mounted.container;
-    await click(buttonNamed(page, "More actions"));
-    expect(buttonWithText(page, "File details")).toBeDefined();
+    // Nothing else is under a person's "…" there, so there is none.
+    expect(buttonNamed(page, "More actions")).toBeUndefined();
     expect(buttonWithText(page, "Versions")).toBeUndefined();
+    mounted.unmount();
+  });
+
+  // D418 §5: a title's technical detail lives in one place, the section below its cast.
+  it("keeps its File details below its cast alone, none under its …", async () => {
+    const twoVersions: TitleDetail = {
+      ...heat,
+      versions: [
+        ...(heat.versions ?? []),
+        { id: 2, files: [{ id: 5, path: "/m/Metropolis (1995) 4K.mkv", streams: [] }] },
+      ],
+    };
+    const mounted = await mount(withServices(<TitleView title={twoVersions} />));
+    const page = mounted.container;
+    expect(page.querySelectorAll("section details.title__details")).toHaveLength(2);
+    await click(buttonNamed(page, "More actions"));
+    expect(buttonWithText(page, "Versions")).toBeDefined();
+    expect(buttonWithText(page, "File details")).toBeUndefined();
     mounted.unmount();
   });
 });
