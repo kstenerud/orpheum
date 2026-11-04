@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 
 import { idempotent } from "./idempotent.ts";
 import { dateTimeText } from "./date-time-text.ts";
+import { arrivalMark } from "./focus-navigation.ts";
 import { i18n } from "./i18n.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow } from "./problem.ts";
@@ -22,7 +23,10 @@ export type WaitingItem = components["schemas"]["ItemBody"];
 /** Which items to show: those with several matches, or those with none. */
 export type WaitingFilter = "ambiguous" | "unidentified";
 
-/** The items waiting, each with a way to choose its match or have it looked up again. */
+/**
+ * The items waiting, each with a way to choose its match or have it looked up again; the first
+ * item's is where the page's focus arrives (ui-audit-2026-11-04.md §3, Needs a match).
+ */
 export function WaitingList(props: {
   readonly items: readonly WaitingItem[];
   readonly waitingFilter: WaitingFilter;
@@ -34,25 +38,75 @@ export function WaitingList(props: {
   }
   return (
     <ul>
-      {props.items.map((item) => (
+      {props.items.map((item, index) => (
         <li key={item.id}>
-          <WaitingRow item={item} waitingFilter={props.waitingFilter} onChanged={props.onChanged} />
+          <WaitingRow
+            item={item}
+            waitingFilter={props.waitingFilter}
+            isArrival={index === 0}
+            onChanged={props.onChanged}
+          />
         </li>
       ))}
     </ul>
   );
 }
 
-/** One waiting item: its name and year, and what can be done about it. */
+/**
+ * One waiting item: its name and year, and what can be done about it; its main action, Choose its
+ * match where it has several, else Look again, is the page's arrival where isArrival.
+ */
 function WaitingRow(props: {
   readonly item: WaitingItem;
   readonly waitingFilter: WaitingFilter;
+  readonly isArrival: boolean;
   readonly onChanged: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { api } = useServices();
   const { item } = props;
   const [isChoosing, setIsChoosing] = useState(false);
+  const { note, refresh, refreshing } = useLookAgain(item);
+  const isChoosable = props.waitingFilter === "ambiguous";
+  const arrival = props.isArrival ? arrivalMark : {};
+  return (
+    <div>
+      <Link to={itemRoute(item.kind, item.id)}>{item.name}</Link>{" "}
+      {item.year === undefined ? null : <span>{item.year}</span>}{" "}
+      {isChoosable ? (
+        <button
+          type="button"
+          {...arrival}
+          aria-expanded={isChoosing}
+          onClick={() => {
+            setIsChoosing(!isChoosing);
+          }}
+        >
+          {t("identify.choose")}
+        </button>
+      ) : null}{" "}
+      <button
+        type="button"
+        {...(isChoosable ? {} : arrival)}
+        disabled={refreshing.isBusy}
+        onClick={refresh}
+      >
+        {t("identify.refresh")}
+      </button>
+      {note === "" ? null : <output>{note}</output>}
+      {refreshing.problem === undefined ? null : <output>{refreshing.problem}</output>}
+      {isChoosing ? <CandidateChooser itemId={item.id} onChosen={props.onChanged} /> : null}
+    </div>
+  );
+}
+
+/** Looking an item up again, and what the last look said. */
+function useLookAgain(item: WaitingItem): {
+  readonly note: string;
+  readonly refresh: () => void;
+  readonly refreshing: ReturnType<typeof useRequest>;
+} {
+  const { t } = useTranslation();
+  const { api } = useServices();
   const [note, setNote] = useState("");
   const refreshing = useRequest((cause) => identifyProblemText(t, cause));
   const refresh = (): void => {
@@ -76,29 +130,7 @@ function WaitingRow(props: {
       );
     });
   };
-  return (
-    <div>
-      <Link to={itemRoute(item.kind, item.id)}>{item.name}</Link>{" "}
-      {item.year === undefined ? null : <span>{item.year}</span>}{" "}
-      {props.waitingFilter === "ambiguous" ? (
-        <button
-          type="button"
-          aria-expanded={isChoosing}
-          onClick={() => {
-            setIsChoosing(!isChoosing);
-          }}
-        >
-          {t("identify.choose")}
-        </button>
-      ) : null}{" "}
-      <button type="button" disabled={refreshing.isBusy} onClick={refresh}>
-        {t("identify.refresh")}
-      </button>
-      {note === "" ? null : <output>{note}</output>}
-      {refreshing.problem === undefined ? null : <output>{refreshing.problem}</output>}
-      {isChoosing ? <CandidateChooser itemId={item.id} onChosen={props.onChanged} /> : null}
-    </div>
-  );
+  return { note, refresh, refreshing };
 }
 
 /** The two lists of what waits, by why. */

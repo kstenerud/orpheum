@@ -90,4 +90,24 @@ describe("identify", () => {
     expect(markup).toContain('aria-pressed="false">Several matches (0)</button>');
     expect(markup).toContain('aria-pressed="true">No match (2)</button>');
   });
+
+  // ui-audit-2026-11-04.md §3, Needs a match: arrival focuses the first item's main action.
+  it("arrives on the first item's main action: Choose its match, or Look again where there are none", () => {
+    const arrivals = (filter: "ambiguous" | "unidentified"): string[] => {
+      const markup = renderToStaticMarkup(
+        withServices(
+          <WaitingList
+            waitingFilter={filter}
+            onChanged={ignore}
+            items={[waiting, { ...waiting, id: 8, name: "Intolerance" }]}
+          />,
+        ),
+      );
+      return [...markup.matchAll(/<button[^>]*data-focus-start="arrival"[^>]*>([^<]*)</gu)].map(
+        (match) => match[1] ?? "",
+      );
+    };
+    expect(arrivals("ambiguous")).toEqual(["Choose its match"]);
+    expect(arrivals("unidentified")).toEqual(["Look again"]);
+  });
 });
