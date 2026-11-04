@@ -19,6 +19,7 @@ import { MoreActions } from "./more-actions.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
 import { StatusNotes } from "./status-cues.tsx";
 import { Poster, WideArt } from "./poster.tsx";
+import { arrivalMark } from "./focus-navigation.ts";
 import { Link } from "./link.tsx";
 import type { Route } from "./router.ts";
 import { noteEpisodeReached } from "./episode-reached.ts";
@@ -272,7 +273,7 @@ function Versions(props: {
     return null;
   }
   return (
-    <section aria-labelledby="title-versions">
+    <section aria-labelledby="title-versions" {...arrivalMark}>
       <h2 id="title-versions">{t("title.versions")}</h2>
       {versions.map((version, index) => (
         <div key={version.id}>

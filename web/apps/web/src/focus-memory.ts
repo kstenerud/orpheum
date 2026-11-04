@@ -147,8 +147,9 @@ export function asFocusNote(kept: unknown): FocusNote | undefined {
 }
 
 /**
- * How long a page returned to by Back is watched for the element its note names: as long as a slow
- * link's first answer takes, after which the person has moved on. A justified constant.
+ * How long a page is watched for the element focus is to be given to as it draws, returned to by
+ * Back or opened: as long as a slow link's first answer takes, after which the person has moved on.
+ * A justified constant.
  */
 export const restoreWaitsMs = 10_000;
 
@@ -163,23 +164,51 @@ export function restoreWhenDrawn(
   root: HTMLElement,
   focus: (element: HTMLElement) => void,
 ): () => void {
-  const found = elementOfNote(note, root);
-  if (found !== undefined) {
-    focus(found);
+  return watchWhileDrawn(root, (give) => {
+    const element = elementOfNote(note, root);
+    if (element === undefined) {
+      return false;
+    }
+    give(element, focus);
+    return true;
+  });
+}
+
+/**
+ * Gives focus by give to what look finds as root draws: look is called now and at each change to
+ * root's tree, given give, until it answers that it is done, restoreWaitsMs pass, or focus goes
+ * anywhere not by give, the person having moved on. The one watch both a page returned to
+ * (restoreWhenDrawn) and a page opened (focus-navigation.ts arriveWhenDrawn) use. Returns the
+ * stopping.
+ */
+export function watchWhileDrawn(
+  root: HTMLElement,
+  look: (give: (element: HTMLElement, focus: (element: HTMLElement) => void) => void) => boolean,
+): () => void {
+  let isGiving = false;
+  const give = (element: HTMLElement, focus: (element: HTMLElement) => void): void => {
+    isGiving = true;
+    try {
+      focus(element);
+    } finally {
+      isGiving = false;
+    }
+  };
+  if (look(give)) {
     return () => undefined;
   }
   const observer = new MutationObserver(() => {
-    const element = elementOfNote(note, root);
-    if (element !== undefined) {
+    if (look(give)) {
       stop();
-      focus(element);
     }
   });
   const timer = setTimeout(() => {
     stop();
   }, restoreWaitsMs);
   const movedOn = (): void => {
-    stop();
+    if (!isGiving) {
+      stop();
+    }
   };
   function stop(): void {
     observer.disconnect();

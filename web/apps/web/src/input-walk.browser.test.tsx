@@ -25,6 +25,7 @@ import {
   focusedTile,
   isDrawn,
   isFocusIn,
+  isFocusOnFirst,
   isFocusInView,
   mountApp,
   viewer,
@@ -64,14 +65,10 @@ describe.each(screens)("the app by a remote's keys, on $name", ({ width, height 
   it("starts in the page, not the banner, moves across the films, opens one and goes back to it", async () => {
     await page.viewport(width, height);
     walking = await mountApp(walkServices(filmsAndOne));
+    // The page opens with focus on its first film, its arrival (ui-audit-2026-11-04.md R3).
     await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
-    await userEvent.keyboard("{ArrowDown}");
-    // The bar's tools, at its end, then the film below them, then along its row to the first.
-    await expect.poll(() => document.activeElement?.closest(".listing-tools") !== null).toBe(true);
-    await userEvent.keyboard("{ArrowDown}");
-    expect(focusedTile()).not.toBe("");
-    await userEvent.keyboard("{ArrowLeft}{ArrowLeft}{ArrowLeft}{ArrowLeft}{ArrowLeft}{ArrowLeft}");
-    await expect.poll(focusedTile).toBe("Film 1");
+    await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
+    expect(focusedTile()).toBe("Film 1");
     await userEvent.keyboard("{ArrowRight}{ArrowRight}");
     await expect.poll(focusedTile).toBe("Film 3");
     await userEvent.keyboard("{Enter}");
@@ -87,9 +84,7 @@ describe.each(screens)("the app by a remote's keys, on $name", ({ width, height 
     await page.viewport(width, height);
     walking = await mountApp(walkServices(filmsAndOne));
     await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
-    await userEvent.keyboard(
-      "{ArrowDown}{ArrowDown}{ArrowLeft}{ArrowLeft}{ArrowLeft}{ArrowLeft}{ArrowLeft}",
-    );
+    await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
     await userEvent.keyboard("{ArrowRight}");
     await expect.poll(focusedTile).toBe("Film 2");
     await userEvent.keyboard("{ArrowUp}");
@@ -257,15 +252,15 @@ describe.each(screens)("the app by a game controller, on $name", ({ width, heigh
     await page.viewport(width, height);
     walking = await mountApp(walkServices(filmsAndOne));
     await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
+    await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
+    expect(focusedTile()).toBe("Film 1");
     globalThis.dispatchEvent(new Event("gamepadconnected"));
-    await pressPad(pad, padButtons.down);
-    await pressPad(pad, padButtons.down);
-    expect(focusedTile()).not.toBe("");
+    await pressPad(pad, padButtons.right);
+    await expect.poll(focusedTile).toBe("Film 2");
     // A gamepad's press is no key: the browser shows the focus only because the app asks it to.
     expect(document.activeElement?.matches(":focus-visible")).toBe(true);
-    for (let step = 0; step < 6; step += 1) {
-      await pressPad(pad, padButtons.left);
-    }
+    await pressPad(pad, padButtons.left);
+    await expect.poll(focusedTile).toBe("Film 1");
     await pressPad(pad, padButtons.right);
     await expect.poll(focusedTile).toBe("Film 2");
     await pressPad(pad, padButtons.ok);
@@ -283,9 +278,21 @@ describe.each(screens)("the app by a game controller, on $name", ({ width, heigh
     const heard: string[] = [];
     await page.viewport(width, height);
     walking = await mountApp(walkServices(filmsAndOne, "/films", heard));
+    // The page opens with focus on its first film, its arrival (ui-audit-2026-11-04.md R3); the
+    // sort is above the row's last films.
     await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
+    await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
     globalThis.dispatchEvent(new Event("gamepadconnected"));
-    await pressPad(pad, padButtons.down);
+    // Along the first row to its last film, short of the alphabet's rail beside the grid.
+    const posters = [...document.querySelectorAll<HTMLElement>(".poster-grid .poster-card__link")];
+    const topOf = (element: Element | undefined): number | undefined =>
+      element?.getBoundingClientRect().top;
+    const firstRow = posters.filter((each) => topOf(each) === topOf(posters[0]));
+    for (let step = 1; step < firstRow.length; step += 1) {
+      await pressPad(pad, padButtons.right);
+    }
+    await expect.poll(() => document.activeElement).toBe(firstRow.at(-1));
+    await pressPad(pad, padButtons.up);
     // The bar's tools, the sort at their right end (the owner, 2026-10-30).
     expect(document.activeElement?.closest(".listing-tools")).not.toBeNull();
     if (document.activeElement?.classList.contains("route-chooser__button") !== true) {

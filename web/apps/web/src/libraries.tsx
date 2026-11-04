@@ -7,6 +7,7 @@ import type { TFunction } from "i18next";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { arrivalMark } from "./focus-navigation.ts";
 import { RootWarning } from "./root-warning.tsx";
 import { useRequest } from "./use-request.ts";
 import { idempotent } from "./idempotent.ts";
@@ -214,7 +215,7 @@ export function Libraries(): JSX.Element {
           value.length === 0 ? (
             <p>{t("libraries.none")}</p>
           ) : (
-            <ul className="libraries__list">
+            <ul className="libraries__list" {...arrivalMark}>
               {value.map((library) => (
                 <LibraryRow key={library.id} library={library} />
               ))}

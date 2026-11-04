@@ -9,7 +9,7 @@ import type { TFunction } from "i18next";
 
 import { episodeReachedOf, letGoOfEpisodeReached, type EpisodeReached } from "./episode-reached.ts";
 import { restoreWhenDrawn } from "./focus-memory.ts";
-import { focusAndShow } from "./focus-navigation.ts";
+import { arrivalMark, focusAndShow } from "./focus-navigation.ts";
 import { routeHref } from "./router.ts";
 import { UpTrail, useLibraryContext } from "./up-trail.tsx";
 import { libraryCrumb } from "./upward.ts";
@@ -324,7 +324,7 @@ export function NextUpPlay(props: {
     );
   }
   return (
-    <p>
+    <p {...arrivalMark}>
       <Link to={{ screen: "play", fileId: nextUp.fileId }} className="title__play">
         {nextUp.isPartway
           ? t("title.continueEpisode", { episode })

@@ -8,6 +8,7 @@
  */
 
 import {
+  caretOf,
   coversTopAttribute,
   focusTargetsIn,
   geometricFocus,
@@ -16,7 +17,7 @@ import {
   searchBoxOf,
   type FocusEngine,
 } from "./focus-engine.ts";
-import { rememberingAround, type ContainerMemory } from "./focus-memory.ts";
+import { rememberingAround, watchWhileDrawn, type ContainerMemory } from "./focus-memory.ts";
 import type { Direction } from "./input-buttons.ts";
 
 /**
@@ -34,9 +35,50 @@ export function focusRegion(): HTMLElement {
 
 /**
  * The attribute that marks where a page's first arrow starts, where that is not its main content's
- * first control: the device lab's tiles.
+ * first control (the player's video, the device lab's tiles); valued arrivalValue, it marks too where
+ * focus goes as the page or dialog opens (arriveWhenDrawn).
  */
 export const focusStartAttribute = "data-focus-start";
+
+/**
+ * focusStartAttribute's value that makes the element marked a page's or a dialog's arrival: where
+ * focus is put as it opens, so the first press acts on what the page is for (ui-audit-2026-11-04.md
+ * R3). Where several are drawn, the first in the page's order is the arrival: Home marks Continue
+ * watching and the newest rows under it.
+ */
+export const arrivalValue = "arrival";
+
+/** The attribute marking an element as its page's or dialog's arrival, spread into its JSX. */
+export const arrivalMark = { [focusStartAttribute]: arrivalValue } as const;
+
+/**
+ * Where focus goes into an element marked as a start: the element itself where it takes focus; else
+ * its first empty text field, a form's first to fill in; else its first control.
+ */
+function startOf(marked: HTMLElement): HTMLElement | undefined {
+  if (isFocusTarget(marked)) {
+    return marked;
+  }
+  const targets = focusTargetsIn(marked);
+  const empty = targets.find((target) => caretOf(target)?.valueLength === 0);
+  return empty ?? targets[0];
+}
+
+/** The first start marked in root, of those marked selector, that has a control to go to. */
+function firstMarkedIn(root: ParentNode, selector: string): HTMLElement | undefined {
+  for (const marked of root.querySelectorAll<HTMLElement>(selector)) {
+    const start = startOf(marked);
+    if (start !== undefined) {
+      return start;
+    }
+  }
+  return undefined;
+}
+
+/** Where focus goes as the page or dialog root opens: its marked arrival, where it has drawn it. */
+export function arrivalIn(root: ParentNode): HTMLElement | undefined {
+  return firstMarkedIn(root, `[${focusStartAttribute}="${arrivalValue}"]`);
+}
 
 /**
  * Where the first arrow goes while nothing in region has focus: in the page's main content (not the
@@ -45,14 +87,86 @@ export const focusStartAttribute = "data-focus-start";
  */
 export function startIn(region: HTMLElement): HTMLElement | undefined {
   const main = region.querySelector("main") ?? region;
-  const marked = main.querySelector<HTMLElement>(`[${focusStartAttribute}]`);
-  if (marked !== null) {
-    const first = isFocusTarget(marked) ? marked : focusTargetsIn(marked)[0];
-    if (first !== undefined) {
-      return first;
+  return (
+    firstMarkedIn(main, `[${focusStartAttribute}]`) ??
+    focusTargetsIn(main)[0] ??
+    focusTargetsIn(region)[0]
+  );
+}
+
+/**
+ * Gives focus by focus to the arrival of the page or dialog within root as it is drawn
+ * (ui-audit-2026-11-04.md R3): a page reads its data after it opens, so its posters come later.
+ * Focus is taken only from nothing (what the page left took with it), from what had it as the page
+ * or dialog opened where that is no text field (the banner's place that opened the page; the first
+ * control the browser focuses in a dialog it opens, which in Cast to, its list still read, was its
+ * Close), or from the arrival given before, which an earlier one drawn after it replaces (Home's
+ * Continue watching, read apart from its newest rows); never while a dialog or a full-screen element
+ * over root holds focus, nor once focus has gone anywhere else, the person having moved on
+ * (watchWhileDrawn). The first look waits a frame, for the page opened to replace the one left,
+ * whose arrival it would otherwise show for a moment. Returns the stopping.
+ */
+export function arriveWhenDrawn(
+  root: () => HTMLElement | null,
+  focus: (element: HTMLElement) => void,
+): () => void {
+  const atOpening = document.activeElement;
+  let given: Element | undefined;
+  let hasMovedOn = false;
+  const movedOn = (): void => {
+    hasMovedOn = true;
+  };
+  document.addEventListener("focusin", movedOn);
+  let stopWatching = (): void => undefined;
+  const frame = requestAnimationFrame(() => {
+    document.removeEventListener("focusin", movedOn);
+    if (hasMovedOn) {
+      return;
     }
+    stopWatching = watchWhileDrawn(document.body, (give) => {
+      const within = root();
+      const arrival = within === null ? undefined : arrivalIn(within);
+      if (within === null || arrival === undefined || arrival === given) {
+        return false;
+      }
+      const focused = document.activeElement;
+      if (given?.isConnected === true && focused !== given) {
+        return true; // focus left the arrival, a pointer's press on no control taking it
+      }
+      if (focused !== given && !isFreeToTake(focused, atOpening, within)) {
+        return false;
+      }
+      given = arrival;
+      give(arrival, focus);
+      return false;
+    });
+  });
+  return () => {
+    cancelAnimationFrame(frame);
+    document.removeEventListener("focusin", movedOn);
+    stopWatching();
+  };
+}
+
+/**
+ * Whether focus on focused may be taken for an arrival within root: it is on nothing, or still on
+ * atOpening, what had it as root opened, which is no text field; and no dialog or full-screen
+ * element over root holds it.
+ */
+function isFreeToTake(
+  focused: Element | null,
+  atOpening: Element | null,
+  root: HTMLElement,
+): boolean {
+  const region = focusRegion();
+  if (region !== document.body && !region.contains(root)) {
+    return false;
   }
-  return focusTargetsIn(main)[0] ?? focusTargetsIn(region)[0];
+  return (
+    focused === null ||
+    focused === document.body ||
+    (focused === atOpening && caretOf(focused) === undefined)
+  );
 }
 
 /**

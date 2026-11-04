@@ -5,6 +5,7 @@ import { useCallback, useState, type JSX } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
+import { arrivalMark } from "./focus-navigation.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow } from "./problem.ts";
 import { EndOfList } from "./end-of-list.tsx";
@@ -62,7 +63,7 @@ export function groupByReason(files: readonly SeenFile[]): ReasonGroup[] {
 export function ReasonGroups(props: { readonly files: readonly SeenFile[] }): JSX.Element {
   const { t } = useTranslation();
   return (
-    <>
+    <div {...arrivalMark}>
       {groupByReason(props.files).map((group) => (
         <details key={`${group.filing}/${group.filingReason}`}>
           <summary>
@@ -91,7 +92,7 @@ export function ReasonGroups(props: { readonly files: readonly SeenFile[] }): JS
           </ul>
         </details>
       ))}
-    </>
+    </div>
   );
 }
 

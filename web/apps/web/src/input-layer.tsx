@@ -18,7 +18,7 @@ import {
 } from "react";
 
 import { asFocusNote, noteOf, restoreWhenDrawn } from "./focus-memory.ts";
-import { focusAndShow, scrollIntoViewGently } from "./focus-navigation.ts";
+import { arriveWhenDrawn, focusAndShow, scrollIntoViewGently } from "./focus-navigation.ts";
 import type { Command } from "./input-buttons.ts";
 import {
   hearMediaSeeks,
@@ -80,11 +80,26 @@ function showAgainOnceLaidOut(element: HTMLElement): void {
 }
 
 /**
+ * Focuses a page's arrival: shown as a key's focus is where a controller last pressed, and scrolled
+ * gently into view where any key or controller did; for a pointer neither, so a page opened by a
+ * click shows no ring (the browser's :focus-visible draws none after a pointer) and does not move.
+ */
+function focusArrival(element: HTMLElement, input: Input): void {
+  const source = input.lastSource();
+  if (source === undefined) {
+    element.focus({ preventScroll: true });
+  } else {
+    focusAndShow(element, source === "pad");
+  }
+}
+
+/**
  * Notes on the history entry what has focus as go leaves it, and gives focus back to the element so
  * noted when Back returns to the entry, once its page draws it (focus-memory.ts), shown as a key's
  * is where a controller pressed Back. A page go opens starts at its top: the window kept the scroll
  * of the page left, so a series chosen far down the Series list opened at its last episodes, past
- * what had focus (the owner's Fire TV, 2026-10-29).
+ * what had focus (the owner's Fire TV, 2026-10-29); and focus is put on its arrival as it is drawn
+ * (focus-navigation.ts arriveWhenDrawn), as on the page the app opens on.
  */
 function keepFocusOnEntries(navigation: Navigation, input: Input): () => void {
   let isOpeningNew = false;
@@ -96,7 +111,14 @@ function keepFocusOnEntries(navigation: Navigation, input: Input): () => void {
     }
   });
   let shown = routeHref(navigation.route());
-  let stopRestoring = (): void => undefined;
+  const arrive = (): (() => void) =>
+    arriveWhenDrawn(
+      () => document.querySelector("main"),
+      (element) => {
+        focusArrival(element, input);
+      },
+    );
+  let stopRestoring = arrive();
   const stopListening = navigation.subscribe(() => {
     const now = routeHref(navigation.route());
     const isNew = isOpeningNew;
@@ -108,6 +130,8 @@ function keepFocusOnEntries(navigation: Navigation, input: Input): () => void {
     stopRestoring();
     if (isNew) {
       window.scrollTo({ top: 0, left: 0 });
+      stopRestoring = arrive();
+      return;
     }
     const note = asFocusNote(navigation.entryNote());
     if (note !== undefined) {

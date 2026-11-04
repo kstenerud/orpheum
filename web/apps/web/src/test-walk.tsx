@@ -163,6 +163,15 @@ export function focusedTile(): string {
     : (focused?.querySelector(".poster-card__name")?.textContent ?? "");
 }
 
+/**
+ * Whether what has focus is the first element selector names: a page's arrival, where focus goes as
+ * the page opens (focus-navigation.ts arriveWhenDrawn).
+ */
+export function isFocusOnFirst(selector: string): boolean {
+  const first = document.querySelector(selector);
+  return first !== null && document.activeElement === first;
+}
+
 /** Whether the page draws an element by selector, for a walk to wait on. */
 export function isDrawn(selector: string): boolean {
   return document.querySelector(selector) !== null;

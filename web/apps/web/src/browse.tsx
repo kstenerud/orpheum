@@ -13,6 +13,7 @@ import {
   useLetterJumpState,
   type LetterJump,
 } from "./alphabet-rail.tsx";
+import { arrivalMark } from "./focus-navigation.ts";
 import { dateText } from "./date-time-text.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, unavailableText } from "./problem.ts";
@@ -72,7 +73,7 @@ export function PosterGrid(props: {
     props.watchItemAt,
   );
   return (
-    <ul className="poster-grid" data-focus-container="">
+    <ul className="poster-grid" data-focus-container="" {...arrivalMark}>
       {props.entries.map((entry, index) => (
         <GridPoster key={entry.id} kind={props.kind} entry={entry} watch={watchAt(index)} />
       ))}

@@ -5,6 +5,7 @@ import "./poster-row.css";
 import { useEffect, useRef, useState, type JSX, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
+import { arrivalMark } from "./focus-navigation.ts";
 import { Icon } from "./icon.tsx";
 import { IconButton } from "./icon-button.tsx";
 
@@ -34,6 +35,8 @@ export function PosterRow(props: {
   /** The list's name, where no heading names it. */
   readonly label?: string | undefined;
   readonly listRef?: RefObject<HTMLUListElement | null> | undefined;
+  /** Whether its first poster is where focus goes as its page opens (focus-navigation.ts). */
+  readonly isArrival?: boolean | undefined;
   /** The posters, each an `li`. */
   readonly children: ReactNode;
 }): JSX.Element {
@@ -54,6 +57,7 @@ export function PosterRow(props: {
         className={props.className === undefined ? "poster-row" : `poster-row ${props.className}`}
         aria-label={props.label}
         data-focus-container=""
+        {...(props.isArrival === true ? arrivalMark : {})}
       >
         {props.children}
       </ul>
