@@ -363,18 +363,10 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
           }
           return true;
         };
-        let walks = 1;
-        while (!(await walkedBackByKeys()) && walks < 3) {
-          walks += 1;
-        }
-        expect(scrub.matches(":focus-visible")).toBe(true);
-        expect(getComputedStyle(scrub).outlineStyle).toBe("none");
-        expect(getComputedStyle(scrub).boxShadow).toBe("none");
-        await expect.poll(() => getComputedStyle(scrub).opacity).toBe("1");
-        await userEvent.keyboard("{Tab}");
-        expect(overlay.contains(document.activeElement)).toBe(true);
-        // Under make check's load Firefox once left it at 1 (2026-11-04), passing alone; the message says
-        // where focus was and whether it counted as a key's, so a failure names its cause.
+        // Under make check's load Firefox once left it at 1 (2026-11-04), passing alone, with focus on
+        // Back 10 s not :focus-visible: the overlay had hidden, and the Tab that showed it again put focus
+        // there by script. The message says where focus was and whether it counted as a key's; a try in
+        // which the overlay hid starts again from the click, as the walk back does.
         const focusSaid = (): string => {
           const focused = document.activeElement;
           return `focus on ${focused?.outerHTML.slice(0, 120) ?? "nothing"}, :focus-visible ${String(
@@ -383,10 +375,28 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
             scrub.isConnected,
           )}`;
         };
-        try {
-          await expect.poll(() => getComputedStyle(scrub).opacity).toBe("0.6");
-        } catch (error) {
-          throw new Error(`${String(error)}; ${focusSaid()}`, { cause: error });
+        for (let tries = 1; ; tries += 1) {
+          let walks = 1;
+          while (!(await walkedBackByKeys()) && walks < 3) {
+            walks += 1;
+          }
+          expect(scrub.matches(":focus-visible")).toBe(true);
+          expect(getComputedStyle(scrub).outlineStyle).toBe("none");
+          expect(getComputedStyle(scrub).boxShadow).toBe("none");
+          await expect.poll(() => getComputedStyle(scrub).opacity).toBe("1");
+          const hiding = hidingSeenOn(overlay);
+          await userEvent.keyboard("{Tab}");
+          expect(overlay.contains(document.activeElement)).toBe(true);
+          try {
+            await expect.poll(() => getComputedStyle(scrub).opacity).toBe("0.6");
+            hiding.stop();
+            break;
+          } catch (error) {
+            if (hiding.stop() && tries < 3) {
+              continue;
+            }
+            throw new Error(`${String(error)}; ${focusSaid()}`, { cause: error });
+          }
         }
       },
     );
@@ -462,7 +472,7 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
 
   it("draws the gallery's film black, the bar over it along its bottom", async () => {
     await drawn(<UiGallery />, (mounted) => {
-      const film = found(mounted.container, ".ui-gallery__film:not(.ui-gallery__film--strip)");
+      const film = found(mounted.container, ".ui-gallery__film:has(> .ui-gallery__bar)");
       expect(getComputedStyle(film).backgroundColor).toBe("rgb(0, 0, 0)");
       const bar = found(film, ".ui-gallery__bar").getBoundingClientRect();
       const box = film.getBoundingClientRect();
@@ -568,3 +578,18 @@ describe("A finger's taps on the full-screen picture, as a real browser lays it 
     );
   });
 });
+
+/** Watches the overlay from now; stop says whether it hid meanwhile, and stops watching. */
+function hidingSeenOn(overlay: Element): { stop: () => boolean } {
+  let hasHidden = overlay.getAttribute("data-shown") === "hidden";
+  const observer = new MutationObserver(() => {
+    hasHidden ||= overlay.getAttribute("data-shown") === "hidden";
+  });
+  observer.observe(overlay, { attributes: true, attributeFilter: ["data-shown"] });
+  return {
+    stop: () => {
+      observer.disconnect();
+      return hasHidden;
+    },
+  };
+}
