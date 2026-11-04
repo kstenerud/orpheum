@@ -2,7 +2,12 @@
 
 import { describe, expect, it } from "vitest";
 
-import { framesTimed, timeFrames, type FrameTiming } from "./frame-timing.ts";
+import {
+  farthestBehindSoundMs,
+  framesTimed,
+  timeFrames,
+  type FrameTiming,
+} from "./frame-timing.ts";
 
 /**
  * A playing video whose frames the test hands it, each as the browser would say of it, and whether
@@ -83,6 +88,43 @@ describe("how late a video's picture reaches the screen (the owner's TCL TV, 202
     showASample(show);
     expect(isFrameAsked()).toBe(false);
     expect(told).toHaveLength(2);
+  });
+
+  it("says a sample timed from another clock than the film's is not told, as Safari on a Mac's (2026-11-04)", () => {
+    const { video, show } = framedVideo();
+    const told: (FrameTiming | undefined)[] = [];
+    timeFrames(video, (timing) => told.push(timing));
+    // The owner's Mac: each frame's mediaTime about 3,787,722 s past the element's time.
+    for (let index = 0; index < framesTimed; index += 1) {
+      const nowMs = 1000 + index * 40;
+      show({
+        nowMs,
+        displayMs: nowMs,
+        presentedMs: nowMs,
+        mediaS: 3_787_742 + index * 0.04,
+        currentS: 20 + index * 0.04,
+      });
+    }
+    expect(told).toEqual([undefined]);
+  });
+
+  it("still tells a picture as far behind its sound as is believed", () => {
+    const { video, show } = framedVideo();
+    const told: (FrameTiming | undefined)[] = [];
+    timeFrames(video, (timing) => told.push(timing));
+    for (let index = 0; index < framesTimed; index += 1) {
+      const nowMs = 1000 + index * 40;
+      show({
+        nowMs,
+        displayMs: nowMs,
+        presentedMs: nowMs,
+        mediaS: index * 0.04,
+        currentS: index * 0.04 + farthestBehindSoundMs / 1000,
+      });
+    }
+    expect(told).toEqual([
+      { frames: framesTimed, displayAfterMs: 0, behindSoundMs: farthestBehindSoundMs },
+    ]);
   });
 
   it("says a browser that cannot say, once", () => {
