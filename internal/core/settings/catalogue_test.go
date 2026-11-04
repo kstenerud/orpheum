@@ -43,3 +43,19 @@ func TestRegistry_TheWebCatalogueDescribesEverySettingAndNamesEverySection(t *te
 		}
 	}
 }
+
+// The chunk length's help says it is a floor its film's keyframes decide, not each chunk's length:
+// a chunk ends only at a keyframe, and most film time plays from chunks of 6-7 s at the 2 s setting
+// (D414 §5).
+func TestRegistry_TheChunkLengthsHelpSaysItsKeyframesDecide(t *testing.T) {
+	t.Parallel()
+	definition, ok := Lookup(HLSSegmentLengthSeconds)
+	if !ok {
+		t.Fatalf("no definition for %s", HLSSegmentLengthSeconds)
+	}
+	for _, want := range []string{"the shortest chunk", "keyframe", "D414 §5"} {
+		if !strings.Contains(definition.Description, want) {
+			t.Errorf("the help %q says nothing of %q", definition.Description, want)
+		}
+	}
+}
