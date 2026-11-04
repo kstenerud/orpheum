@@ -184,6 +184,12 @@ body:has(.film-player__stage--fills-window) {
   visibility: hidden;
 }
 
+/* Nor does the hidden page scroll under it: the Play page's film fills the window on every device
+   (play.tsx's useWholeWindow), and a page taller than the window would scroll under the picture. */
+html:has(.film-player__stage--fills-window) {
+  overflow: hidden;
+}
+
 .film-player__stage--fills-window,
 .cast-receiver,
 dialog[open] {

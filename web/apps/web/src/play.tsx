@@ -30,8 +30,9 @@ import type { ReopenAt } from "./reopen.ts";
 import type { LadderOffer } from "./moving-down.ts";
 import { usePlayState } from "./play-state.ts";
 import { usePlayerCommands } from "./player-commands.ts";
-import { fillTheScreen } from "./film-fullscreen.ts";
+import { fillTheScreen, keepFillingTheWindow } from "./film-fullscreen.ts";
 import { isBrowserFullscreen, isTelevision, thisBrowserWindow } from "./tv-device.ts";
+import { useFullScreenLeftAsBack } from "./input-layer.tsx";
 import { useServices } from "./services.tsx";
 import { BarePlayer } from "./bare-player.tsx";
 import { PlayOriginal } from "./play-original.tsx";
@@ -169,6 +170,9 @@ function PlayerView(
   const tracks = useSequenceCommands(offered);
   usePlayerCommands(video, tracks);
   useFullscreenAsTheBrowserIs(video);
+  // A cast's receiver fills the window itself (cast-receiver.tsx).
+  useWholeWindow(receiving === undefined ? video : null);
+  useFullScreenLeftAsBack(receiving === undefined && isTelevision(navigator.userAgent));
   const ways = useMemo(
     () => ({
       fileId,
@@ -232,6 +236,20 @@ function UnderThePlayer(props: { readonly onBare: (() => void) | undefined }): J
       <LinkDebugTools />
     </>
   );
+}
+
+/**
+ * Keeps the player's stage filling the window while the page shows it, on every device, its
+ * controls over the picture and nothing of the page under it (D418 §1): leaving the browser's full
+ * screen, by ⤢, Escape or a Fire TV's Back the page never hears (D407 §7), leaves the film filling
+ * the window, not the page under it. Back then hides the controls where they show, else leaves the
+ * film, and has no third state.
+ */
+function useWholeWindow(video: HTMLVideoElement | null): void {
+  useEffect(() => {
+    const stage = video?.closest(".film-player__stage");
+    return stage instanceof HTMLElement ? keepFillingTheWindow(stage) : undefined;
+  }, [video]);
 }
 
 /**

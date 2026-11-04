@@ -19,6 +19,7 @@ import {
 
 import "./input-layer.css";
 
+import { isFullScreenLeaveAsked } from "./film-fullscreen.ts";
 import { asFocusNote, noteOf, restoreWaitsMs, restoreWhenDrawn } from "./focus-memory.ts";
 import { arriveWhenDrawn, focusAndShow, scrollIntoViewGently } from "./focus-navigation.ts";
 import type { Command } from "./input-buttons.ts";
@@ -297,6 +298,38 @@ export function useBackTarget(up: Route): void {
       }
     };
   }, [told, href]);
+}
+
+/**
+ * Offers Back where the browser leaves full screen unasked while isOn (isFullScreenLeaveAsked): a
+ * Fire TV's Back in full screen, which Silk takes for itself and keeps from the page (D407 §7). The
+ * Play page's film fills the window still (play.tsx's useWholeWindow), so the press does what the
+ * page's Back does: it hides the player's controls where they show, else leaves the film
+ * (ui-audit-2026-11-04.md §3: "Back hides the controls if they are shown, else leaves; never a
+ * third state"). Full screen left because the page took its element away is no one's press.
+ */
+export function useFullScreenLeftAsBack(isOn: boolean): void {
+  const told = use(InputContext);
+  useEffect(() => {
+    if (!isOn || told === undefined) {
+      return undefined;
+    }
+    let shown = document.fullscreenElement;
+    const changed = (): void => {
+      const wasShown = shown;
+      shown = document.fullscreenElement;
+      if (shown instanceof Element || isFullScreenLeaveAsked(document)) {
+        return;
+      }
+      if (wasShown instanceof Element && wasShown.isConnected) {
+        told.dispatch("back", "key");
+      }
+    };
+    document.addEventListener("fullscreenchange", changed);
+    return () => {
+      document.removeEventListener("fullscreenchange", changed);
+    };
+  }, [told, isOn]);
 }
 
 /** Leaves the arrows to the browser's own navigation while isOn: the device lab's measure of it. */

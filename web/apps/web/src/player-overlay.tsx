@@ -250,9 +250,13 @@ function VolumeShown(props: {
   );
 }
 
-/** The overlay as the player opens: all of it, shown by a remote on a television. */
+/**
+ * The overlay as the player opens: hidden on every device, the picture alone with nothing ringed
+ * (ui-audit-2026-11-04.md §3, the player: "no ring, controls hidden"); the first press shows it
+ * (player-overlay-state.ts), a remote's on a television.
+ */
 function openedWith(isTv: boolean): OverlayState {
-  return { shown: "full", shownBy: isTv ? "remote" : "pointer" };
+  return { shown: "hidden", shownBy: isTv ? "remote" : "pointer" };
 }
 
 /**
@@ -395,7 +399,8 @@ function useOverlayPresses({
   readonly isMenuOpen: boolean;
   readonly onVolumeShown: () => void;
 }): void {
-  const askFocusToScrub = useFocusOnceDrawn(scrubRef, isTv);
+  // Nothing is focused onto the overlay as the film opens: it opens hidden (openedWith).
+  const askFocusToScrub = useFocusOnceDrawn(scrubRef, false);
   usePlayingLeavesPlay(playRef, videoRef, isTv);
   useMenuLeftAtFullScreenFocusesScrub(isMenuOpen, askFocusToScrub);
   useCommands(

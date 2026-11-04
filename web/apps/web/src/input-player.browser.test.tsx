@@ -93,6 +93,83 @@ async function theFailedVideo(): Promise<HTMLVideoElement> {
   return video;
 }
 
+/**
+ * Expects the Play page's film to fill the window, its controls over the picture, the page under it
+ * neither drawn nor scrolled (ui-audit-2026-11-04.md §3, the player: "Full window on every device,
+ * controls over the picture").
+ */
+async function expectsTheWholeWindow(width: number, height: number): Promise<void> {
+  const stage = document.querySelector(".film-player__stage");
+  await expect.poll(() => stage?.classList.contains(fillsWindowClass)).toBe(true);
+  expect([window.innerWidth, window.innerHeight]).toEqual([width, height]);
+  const box = stage?.getBoundingClientRect();
+  expect([box?.left, box?.top, box?.width, box?.height]).toEqual([0, 0, width, height]);
+  const overlay = document.querySelector(".player-overlay");
+  expect(overlay).not.toBeNull();
+  expect(stage?.contains(overlay)).toBe(true);
+  expect(document.querySelector(".page-controls")).toBeNull();
+  expect(getComputedStyle(document.body).visibility).toBe("hidden");
+  expect(getComputedStyle(document.documentElement).overflowY).toBe("hidden");
+}
+
+/** The overlay's state, as it draws it. */
+function shown(): string | null | undefined {
+  return document.querySelector(".player-overlay")?.getAttribute("data-shown");
+}
+
+/** The screens the whole window is checked at beside the walks': a large television's, a phone's. */
+const wholeWindowScreens = [
+  { name: "a 1920 × 1080 screen", width: 1920, height: 1080 },
+  { name: "a phone's screen", width: 390, height: 844 },
+] as const;
+
+describe.each(wholeWindowScreens)(
+  "the player as the whole window, on $name",
+  ({ width, height }) => {
+    let walking: Walking | undefined;
+    afterEach(() => {
+      walking?.unmount();
+      walking = undefined;
+      vi.restoreAllMocks();
+    });
+
+    it("draws its controls over the film, which fills the window with no page to scroll", async () => {
+      vi.spyOn(Element.prototype, "requestFullscreen").mockRejectedValue(new Error("refused"));
+      await page.viewport(width, height);
+      walking = await mountApp(walkServices(filmToPlay, "/play/1030"));
+      await theFailedVideo();
+      await expectsTheWholeWindow(width, height);
+      expect(shown()).toBe("hidden");
+    });
+
+    // The first Back after pausing showed the page under the player (ui-audit-2026-11-04.md §3, plan
+    // item 8): Back hides the controls where they show, else leaves, and has no third state.
+    it("hides the paused film's controls by the first Back and leaves the film by the next", async () => {
+      vi.spyOn(Element.prototype, "requestFullscreen").mockRejectedValue(new Error("refused"));
+      await page.viewport(width, height);
+      const services = walkServices(filmToPlay, "/play/1030");
+      walking = await mountApp(services);
+      const video = await theFailedVideo();
+      Object.defineProperty(video, "paused", { configurable: true, get: () => false });
+      const pause = vi
+        .spyOn(HTMLMediaElement.prototype, "pause")
+        .mockImplementation(() => undefined);
+      video.focus();
+      await press("{Enter}");
+      expect(pause).toHaveBeenCalledTimes(1);
+      await expect.poll(shown).toBe("paused");
+      await press("{Escape}");
+      await expect.poll(shown).toBe("hidden");
+      await expectsTheWholeWindow(width, height);
+      expect(routeHref(services.navigation.route())).toBe("/play/1030");
+      await press("{Escape}");
+      await expect
+        .poll(() => routeHref(services.navigation.route()))
+        .toBe(routeHref({ screen: "title", itemId: 103 }));
+    });
+  },
+);
+
 describe.each(screens)("the player by a remote's keys, on $name", ({ width, height }) => {
   let walking: Walking | undefined;
   afterEach(() => {
@@ -101,26 +178,30 @@ describe.each(screens)("the player by a remote's keys, on $name", ({ width, heig
     vi.restoreAllMocks();
   });
 
-  it("reaches every control under the video by arrows, starting on the video", async () => {
+  // The controls are over the picture, hidden as the film opens (ui-audit-2026-11-04.md §3, the
+  // player); Up shows them, focus on the scrub bar (D410), and the arrows reach every one of them.
+  it("reaches every control over the film by arrows, once Up from the video shows them", async () => {
     await page.viewport(width, height);
     walking = await mountApp(walkServices(filmToPlay, "/play/1030"));
     const video = await theFailedVideo();
-    await press("{ArrowDown}");
+    video.focus();
     expect(document.activeElement).toBe(video);
-    const reached = await reachedFrom(video, press);
-    const player = document.querySelector(".play");
-    const controls = focusTargetsIn(player ?? document.body);
-    // This film's: the video, Start over, the subtitle and audio menus, Find subtitles, Level
-    // loudness and the bare player.
-    expect(controls.map((control) => control.textContent)).toEqual(
-      expect.arrayContaining(["Start over", "Find subtitles…", "Play in a bare player"]),
+    await press("{ArrowUp}");
+    const scrub = document.querySelector<HTMLElement>(".player-overlay .timeline__range");
+    await expect.poll(() => document.activeElement).toBe(scrub);
+    const reached = await reachedFrom(scrub ?? video, press);
+    const overlay = document.querySelector(".player-overlay");
+    const controls = focusTargetsIn(overlay ?? document.body);
+    // This film's: ‹ Film 3, the scrub bar, ⏪ ▶ ⏩, the subtitle and audio menus, ⁝ and ⤢.
+    expect(controls.map((control) => control.getAttribute("aria-label"))).toEqual(
+      expect.arrayContaining(["Back 10 s", "Play", "Forward 10 s", "Full screen"]),
     );
     // The subtitle and audio menus are choosers (the toolkit batch's step 6), no longer selects.
     expect(controls.some((control) => control.tagName === "SELECT")).toBe(false);
     expect(
       controls.filter((control) => control.classList.contains("route-chooser__button")).length,
     ).toBeGreaterThanOrEqual(2);
-    expect(controls[0]).toBe(video);
+    expect(video.closest(".film-player__stage")?.contains(overlay ?? null)).toBe(true);
     const unreached = controls.filter((control) => !reached.has(control));
     expect(unreached.map((control) => control.outerHTML.slice(0, 80))).toEqual([]);
   });
@@ -154,21 +235,14 @@ describe.each(screens)("the player by a remote's keys, on $name", ({ width, heig
     expect(play.mock.calls.length).toBe(playsBefore + 1);
   });
 
-  // D407 §9: outside full screen nothing lies over the film; the controls are under it.
-  it("draws nothing over the film outside full screen, its controls under it", async () => {
+  // The player is the whole window on every device, its controls over the picture
+  // (ui-audit-2026-11-04.md §3, the player), where D407 §9 had them under it outside full screen.
+  it("draws its controls over the film, which fills the window with no page to scroll", async () => {
     vi.spyOn(Element.prototype, "requestFullscreen").mockRejectedValue(new Error("refused"));
     await page.viewport(width, height);
     walking = await mountApp(walkServices(filmToPlay, "/play/1030"));
-    const video = await theFailedVideo();
-    const stage = video.closest(".film-player__stage");
-    // The video, and the subtitles' layer over it where a subtitle shows (JASSUB's canvas).
-    const over = [...(stage?.children ?? [])].filter(
-      (child) => child !== video && child.tagName !== "CANVAS",
-    );
-    expect(over.map((child) => child.outerHTML.slice(0, 80))).toEqual([]);
-    const controls = document.querySelector(".page-controls");
-    expect(controls?.querySelector('button[aria-label="Play"]')).not.toBeNull();
-    expect(stage?.contains(controls ?? null)).toBe(false);
+    await theFailedVideo();
+    await expectsTheWholeWindow(width, height);
   });
 
   it("goes back to the film's page by Back, to its Play", async () => {
@@ -196,13 +270,12 @@ describe("a Play page opened with no page of this app behind it", () => {
   // and its remote's Back went nowhere (the owner, 2026-10-27). Back goes up to the film's page, the
   // one it plays from ("Would it be better to go back to the non-fullscreen page?"), there as on a
   // computer.
-  for (const [name, userAgent, isTelevision] of [
+  for (const [name, userAgent] of [
     [
       "a Fire TV's Silk",
       "Mozilla/5.0 (Linux; Android 9; AFTSSS) AppleWebKit/537.36 (KHTML, like Gecko) Silk/138.19.9 like Chrome/138.0.7204.244 Safari/537.36",
-      true,
     ],
-    ["a computer's browser", navigator.userAgent, false],
+    ["a computer's browser", navigator.userAgent],
   ] as const) {
     it(`goes up to the film's page by Back, on ${name}`, async () => {
       vi.spyOn(Navigator.prototype, "userAgent", "get").mockReturnValue(userAgent);
@@ -213,17 +286,16 @@ describe("a Play page opened with no page of this app behind it", () => {
       const services = walkServices(filmToPlay, "/play/1030");
       walking = await mountApp(services);
       await theVideo();
-      // A television's player opens with all of its overlay showing, which its first Back hides
-      // (D407 §5); the next leaves the page. The overlay comes once the refused full screen has
-      // fallen back to filling the window, a promise's settling later, so it is waited for.
-      await expect
-        .poll(() => document.querySelector(".player-overlay") !== null)
-        .toBe(isTelevision);
+      // The player opens hidden on every device, the film the whole window (ui-audit-2026-11-04.md
+      // §3); Up shows its controls, which the first Back hides (D407 §5), and the next leaves.
+      await expect.poll(shown).toBe("hidden");
       const overlay = document.querySelector(".player-overlay");
-      if (overlay !== null) {
-        await press("{Escape}");
-        await expect.poll(() => overlay.getAttribute("data-shown")).toBe("hidden");
-      }
+      expect(overlay).not.toBeNull();
+      await press("{ArrowUp}");
+      await expect.poll(shown).toBe("full");
+      await expect.poll(() => overlay?.contains(document.activeElement)).toBe(true);
+      await press("{Escape}");
+      await expect.poll(shown).toBe("hidden");
       await press("{Escape}");
       await expect
         .poll(() => routeHref(services.navigation.route()))
@@ -240,20 +312,28 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
     vi.restoreAllMocks();
   });
 
-  /** The Play page as a Fire TV's Silk opens it, full screen refused, and its video. */
-  async function onAFireTv(): Promise<HTMLVideoElement> {
+  /**
+   * The Play page as a Fire TV's Silk opens it, full screen refused, and its video; its overlay,
+   * hidden as the film opens (ui-audit-2026-11-04.md §3), shown by Up where isShown.
+   */
+  async function onAFireTv(isShown = false): Promise<HTMLVideoElement> {
     vi.spyOn(Navigator.prototype, "userAgent", "get").mockReturnValue(fireTvSilk);
     vi.spyOn(Element.prototype, "requestFullscreen").mockRejectedValue(new Error("refused"));
     await page.viewport(960, 480);
     walking = await mountApp(walkServices(filmToPlay, "/play/1030"));
-    return await theFailedVideo();
+    const video = await theFailedVideo();
+    if (isShown) {
+      await press("{ArrowUp}");
+      await expect.poll(shown).toBe("full");
+    }
+    return video;
   }
 
   // Left and Right on the focused scrub bar did nothing on the owner's Fire TV (2026-10-27): the
   // range kept its arrows from the input layer, and its own keydown's preventDefault had the layer
   // leave them alone.
   it("seeks by Left and Right on the scrub bar, focus staying there", async () => {
-    const video = await onAFireTv();
+    const video = await onAFireTv(true);
     const positionAt = standsAt(video, 30);
     const scrub = document.querySelector<HTMLInputElement>(".player-overlay .timeline__range");
     scrub?.focus();
@@ -268,7 +348,7 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
   // Each repeat of a held Right seeked the video, the marker moving only as each landed, so a
   // person guessed how long to hold (the owner, Fire TV, 2026-10-29).
   it("runs the scrub bar's time ahead while Right is held, and seeks once, there, after its release", async () => {
-    const video = await onAFireTv();
+    const video = await onAFireTv(true);
     const seeks: number[] = [];
     Object.defineProperty(video, "duration", { configurable: true, get: () => 600 });
     Object.defineProperty(video, "currentTime", {
@@ -288,13 +368,10 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
     expect(document.activeElement).toBe(scrub);
   });
 
-  /** The overlay's state, as it draws it. */
-  function shown(): string | null | undefined {
-    return document.querySelector(".player-overlay")?.getAttribute("data-shown");
-  }
-
-  /** Hides the overlay the player opens with, by Back (D407 §5), focus left on the video. */
+  /** Shows the overlay by Up and hides it by Back (D407 §5), focus left on the video. */
   async function hideTheOverlay(video: HTMLVideoElement): Promise<void> {
+    await expect.poll(shown).toBe("hidden");
+    await press("{ArrowUp}");
     await expect.poll(() => document.activeElement?.closest(".player-overlay")).toBeTruthy();
     await press("{Escape}");
     await expect.poll(shown).toBe("hidden");
@@ -304,7 +381,7 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
   // D407 §3: Up and Down walk the rows, Up from the scrub bar to "‹ Film 3", which goes up. Focus
   // starts on the scrub bar (D410).
   it("walks its rows by Up and Down, from the buttons to the scrub bar and up to the film's page", async () => {
-    await onAFireTv();
+    await onAFireTv(true);
     const backTen = document.querySelector<HTMLElement>('.player-overlay [aria-label="Back 10 s"]');
     const scrub = document.querySelector<HTMLElement>(".player-overlay .timeline__range");
     const upLink = document.querySelector<HTMLElement>(".player-overlay .player-overlay__up");
@@ -329,7 +406,7 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
   // sought the film instead. Their row now stays while focus walks it, and Right never seeks there.
   // The menus 💬, 🎧 and ⁝ stand between ⏩ and Full screen (D407 §1, §8).
   it("walks its buttons by Right to Full screen, the film not seeking", async () => {
-    const video = await onAFireTv();
+    const video = await onAFireTv(true);
     const positionAt = standsAt(video, 30);
     const fullScreen = document.querySelector<HTMLElement>(`.player-overlay ${FULL_SCREEN}`);
     await expect
@@ -398,7 +475,7 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
   // Space on a button presses it (D407 §5); on the scrub bar, which it cannot press, it plays.
   it("plays and pauses by Space on its scrub bar, which Space does not press", async () => {
     const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
-    await onAFireTv();
+    await onAFireTv(true);
     const scrub = document.querySelector<HTMLInputElement>(".player-overlay .timeline__range");
     scrub?.focus();
     const playsBefore = play.mock.calls.length;
@@ -407,10 +484,11 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
     expect(document.activeElement).toBe(scrub);
   });
 
-  // D407 §7, §9: a Fire TV's Back leaves the browser's full screen itself, the page never hearing
-  // it; the controls are then under the film, focus on play, and the next Back goes to the film's
-  // page.
-  it("shows the controls under the film as full screen is left, focus on play, and goes to the film's page by the next Back", async () => {
+  // D407 §7: a Fire TV's Back leaves the browser's full screen itself, the page never hearing it,
+  // and the first Back after pausing showed the page under the player (ui-audit-2026-11-04.md §3,
+  // plan item 8). The film fills the window still, and that Back does what the page's does: it
+  // hides the controls shown, and the next Back goes to the film's page.
+  it("hides the controls as a Fire TV's Back leaves full screen, the film filling the window, and goes to the film's page by the next Back", async () => {
     vi.spyOn(Navigator.prototype, "userAgent", "get").mockReturnValue(fireTvSilk);
     let fullScreen: Element | null = null;
     vi.spyOn(Document.prototype, "fullscreenElement", "get").mockImplementation(() => fullScreen);
@@ -423,14 +501,14 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
     const services = walkServices(filmToPlay, "/play/1030");
     walking = await mountApp(services);
     await theFailedVideo();
-    await expect.poll(() => isDrawn(".player-overlay")).toBe(true);
+    await expect.poll(() => fullScreen).not.toBeNull();
+    await press("{ArrowUp}");
+    await expect.poll(shown).toBe("full");
     fullScreen = null;
     document.dispatchEvent(new Event("fullscreenchange"));
-    await expect.poll(() => isDrawn(".player-overlay")).toBe(false);
-    const play = document.querySelector(".page-controls button[aria-label='Play']");
-    expect(play).not.toBeNull();
-    await expect.poll(() => document.activeElement).toBe(play);
-    expect(document.querySelector(".page-controls .player-overlay__up")).not.toBeNull();
+    await expect.poll(shown).toBe("hidden");
+    await expectsTheWholeWindow(960, 480);
+    expect(routeHref(services.navigation.route())).toBe("/play/1030");
     await press("{Escape}");
     await expect
       .poll(() => routeHref(services.navigation.route()))
@@ -446,7 +524,7 @@ describe("the Play page's trail, in a computer's browser (D367 §6–§8)", () =
     vi.restoreAllMocks();
   });
 
-  it("shows where the film is, with no Back of its own, and its Up goes back to the film's page, adding nothing", async () => {
+  it("keeps where the film is under it, with no Back of its own, and the overlay's Up goes back to the film's page, adding nothing", async () => {
     await page.viewport(1280, 800);
     walking = await mountApp(walkServices(filmToPlay, "/titles/103"));
     const { navigation } = walking.services;
@@ -459,7 +537,14 @@ describe("the Play page's trail, in a computer's browser (D367 §6–§8)", () =
     const filmCrumb = [...document.querySelectorAll<HTMLAnchorElement>(".up-trail a")].find(
       (link) => link.textContent === "Film 3",
     );
-    filmCrumb?.focus();
+    expect(filmCrumb).toBeDefined();
+    // The trail lies under the film, which fills the window (ui-audit-2026-11-04.md §3): the way up
+    // is the overlay's ‹ Film 3, a link to the same page as the trail's.
+    await press("{ArrowUp}");
+    const upLink = document.querySelector<HTMLAnchorElement>(".player-overlay .player-overlay__up");
+    await expect.poll(() => isDrawn(".player-overlay .player-overlay__up")).toBe(true);
+    expect(upLink?.getAttribute("href")).toBe(filmCrumb?.getAttribute("href"));
+    upLink?.focus();
     await press("{Enter}");
     await expect
       .poll(() => routeHref(navigation.route()))
@@ -559,7 +644,9 @@ describe("Space on an ordinary Play page, in a computer's browser", () => {
     await press(" ");
     expect(play.mock.calls.length).toBe(playsBefore + 1);
     expect(document.activeElement).toBe(video);
-    const fullScreen = document.querySelector<HTMLElement>(`.page-controls ${FULL_SCREEN}`);
+    await press("{ArrowUp}");
+    await expect.poll(shown).toBe("full");
+    const fullScreen = document.querySelector<HTMLElement>(`.player-overlay ${FULL_SCREEN}`);
     expect(fullScreen).not.toBeNull();
     fullScreen?.focus();
     await press(" ");

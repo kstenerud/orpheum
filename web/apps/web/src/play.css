@@ -7,6 +7,27 @@
   gap: var(--space-4);
 }
 
+/* The Play page's film fills the window on every device (play.tsx's useWholeWindow), the page under
+   it hidden (player-overlay.css). What the page tells beside the film, a failure or a refusal, is
+   drawn over the picture at its top, a card on the film, not lost in the hidden page. */
+.play:has(.film-player__stage--fills-window) {
+  position: fixed;
+  z-index: 50;
+  inset: 0 0 auto;
+  padding: var(--space-page);
+}
+
+.play:has(.film-player__stage--fills-window) [role="alert"]:not(.film-player__stage *) {
+  position: relative;
+  z-index: 51;
+  margin: 0 0 var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-card);
+  color: var(--color-on-video);
+  background: var(--color-video-card);
+  visibility: visible;
+}
+
 /* The film's name above the picture: smaller than a page's heading, the picture is the page. */
 .play__title {
   margin: 0 0 var(--space-3);
