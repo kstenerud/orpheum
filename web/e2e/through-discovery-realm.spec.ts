@@ -55,7 +55,7 @@ test("a person with no link signs in at a paid discovery's page by realm, name a
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.locator(".app-shell__realm")).toHaveText("karlnas", { timeout: 60_000 });
     expect(new URL(page.url()).hostname.endsWith(".localhost")).toBe(true);
-    await expect(page.getByRole("link", { name: "Films" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Films", exact: true })).toBeVisible();
     // Back at the loader, the household is listed, and Forget forgets it; how the list is laid out
     // is realm-sign-in.browser.test.tsx's.
     await page.goto(`${discovery.loaderOrigin}/?households=`);
