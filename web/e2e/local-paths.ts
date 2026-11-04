@@ -57,7 +57,7 @@ export async function deliveries(
   const pairs = addresses.flatMap((from) =>
     addresses.filter((to) => to !== from).map((to) => ({ from, to })),
   );
-  return Promise.all(pairs.map(async ({ from, to }) => deliver(from, to, waitMs)));
+  return await Promise.all(pairs.map(async ({ from, to }) => await deliver(from, to, waitMs)));
 }
 
 async function deliver(from: string, to: string, waitMs: number): Promise<Delivery> {
@@ -66,7 +66,9 @@ async function deliver(from: string, to: string, waitMs: number): Promise<Delive
   try {
     const arrivedFrom = await new Promise<string>((resolve, reject) => {
       const timer = setTimeout(() => {
-        reject(new Error(`a UDP packet from ${from} to ${to} did not arrive in ${waitMs} ms`));
+        reject(
+          new Error(`a UDP packet from ${from} to ${to} did not arrive in ${String(waitMs)} ms`),
+        );
       }, waitMs);
       receiver.once("message", (_message, remote) => {
         clearTimeout(timer);
