@@ -25886,3 +25886,47 @@ nothing the browser says tells it in advance.
 
 **Status:** Decided 2026-11-04. In `web/packages/sdk/src/playable-formats.ts` (`startsHevcOnlyAtIdr`,
 `lastFirefoxStartingHevcOnlyAtIdr`); tested by `playable-formats.test.ts`; on a device, VQ260.
+
+## D414 — The SWAG research's starts and stalls: a slow load counts at 8 s, a refill after a stall buys a minute's play, small chunks measure the link together, and WebRTC starts 250 ms in
+
+**Decided** (2026-10-29), by the project owner, agreeing the recommendations of
+`research/starts-chunks-remote-2026-10-29.md`; built in the 11-06 batch (navigation-and-widgets plan,
+item 4; the owner, 2026-11-04, "yes that sounds good"). **Amends**
+[D247](#d247--a-slow-link-gets-a-lower-version-made-at-its-first-stall-and-played-from-its-second-and-a-group-waits-for-a-stalled-viewer-once-then-lets-them-catch-up-alone)
+§2's 15 s, and the refill after a stall of `together-refill.ts`, which was `refillAheadMs` always. The
+remote's parts of the research (the held seek, the seek rest, "Still watching?") moved to the UI
+revamp (the owner, 2026-11-04).
+
+1. **A load that leaves a player asked to play unable to play counts as a stall at 8 s, once for each
+   8 s** (`slowLoadAfterMs`), where D247 §2 said 15 s. Conviva counts a start past 8 s as a failed one,
+   and Media3's and hls.js's load timeouts are 8–10 s; a 10 s chunk took 4.5–5.8 s on the slow links
+   D285 §3 measured, so 8 s is past any load that will end well. It still counts only while the wait is
+   the link's: not a paused player nothing asks to play, nor one waiting while the core makes its chunk
+   (built in "fix(player): a slow load counts as a stall only while the link keeps the player waiting").
+2. **A Watch Together player refills after a stall by the seek's rule** (`readyAheadOf`: 150% of its
+   next chunk's expected load) **where its link keeps up.** Where it does not, the next chunk's load
+   longer than its film, and its player is already at the lowest quality it may load, it refills
+   60 s × (1 − r), r the link's share of the quality's rate, so that it plays about a minute before it
+   stalls again, capped by what its player loads ahead (`refillAfterStallOf`). A fixed 10 s gave a loop
+   of 10 s played, a stall and a refill, and viewers mind several short stalls more than one long one.
+   `refillAheadMs` stays where the player can say nothing. The 60 s is the research's, of low
+   confidence; the lab's run at 0.8× the lowest quality (VQ262) is its test.
+3. **Small chunks of one quality loaded back to back measure the link together** (`SmallChunkRun`):
+   chunks under `measuresFromBytesAtLeast` (128 KiB), each asked for within `backToBackWithinMs`
+   (50 ms) of the last one's end, unpaced and not from the browser's cache, are pooled until their bytes
+   reach the floor, and count as one sample, from the first one's bytes after its first piece (D382 §2)
+   to the last one's last byte. A third of a 400 kb/s quality's chunks were under the floor, so a slow
+   link, which most needs samples, had fewest. The floor stays, against a lone first chunk of 44.8 KB
+   measuring a LAN at 676 kb/s (2026-10-18). The pooled sample goes to the player's own estimate, not to
+   hls.js's, which keeps counting single chunks.
+4. **A page starts WebRTC 250 ms after the race for the core's published names begins, where no name
+   has answered by then** (RFC 8305's Happy Eyeballs delay), where it waited for every name to answer,
+   fail or wait 3 s. The 3 s stays as each name's own limit, and `betterPathGraceMs` still lets a
+   direct name that answers after WebRTC take over. At home the LAN name answers well inside 250 ms;
+   away, a name whose packets vanish costs 250 ms, not 3 s. The log line "a page chose its path to the
+   core" says each name's time.
+5. **Smaller things the research found:** a give-up (D266) logs its device and its quality, so a false
+   one can be counted; the index read's time is logged; `hls_segment_length_seconds`' help says a film's
+   keyframes decide its chunks, and its 2 s is a floor often not reached.
+
+**Status:** Decided 2026-10-29; not built yet (the 11-06 batch, item 4).

@@ -2582,3 +2582,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   a figure under a second. (`web/apps/web/src/frame-timing.ts`'s `farthestBehindSoundMs`)
   - Run 2026-11-04, the owner, Safari and Firefox on a Mac, staging, film 451: Safari "this browser does not
     say", Firefox 0 ms after it is ready, 15 ms behind the sound.
+- [ ] **VQ262** — A Watch Together follower on a link slower than its lowest quality stalls less often,
+  for about as long in all (D414 §2). The rule's figures are tested; whether a minute's refill beats
+  ten seconds' for a viewer is seen only on a device on a slow link. On staging, a group of two with the
+  follower a computer whose link is throttled to 0.8× the film's lowest quality (the browser's network
+  throttling, or `tc` on the lab's machine), a 10-minute run on a film with 2 s chunks, once on the
+  batch before (10 s after each stall) and once after. Passes when the follower stalls fewer times, the
+  total time stalled within a third of the earlier run's, and its log's refills after a stall say a
+  figure near 60 s × (1 − r) rather than 10 s. (`web/packages/sdk/src/ready-ahead.ts`'s
+  `refillAfterStallOf`)
