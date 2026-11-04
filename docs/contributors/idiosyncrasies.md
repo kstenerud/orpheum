@@ -76,6 +76,7 @@ User-Agent (D263; the User-Agent is logged only).
 | With voice on, the film was turned down and the volume buttons stopped changing its volume. | [Firefox on Android makes a "call" of gain control and noise suppression, even with echo cancelling off](#firefox-on-android-makes-a-call-of-gain-control-and-noise-suppression-even-with-echo-cancelling-off) |
 | On Linux Mint with MATE, the screen blanked during a full-screen film in Firefox while the film's sound played on. | [Firefox's inhibit through the desktop portal does not stop MATE's screensaver](#firefoxs-inhibit-through-the-desktop-portal-does-not-stop-mates-screensaver) |
 | A volume slider on an iPhone moves only when the touch lands on its thumb. | [iPhone Safari moves a range slider only by a touch that starts on its thumb](#iphone-safari-moves-a-range-slider-only-by-a-touch-that-starts-on-its-thumb) |
+| The play page says the picture is millions of milliseconds behind the sound, in Safari. | [Safari's requestVideoFrameCallback gives a mediaTime that is not the film's](#safaris-requestvideoframecallback-gives-a-mediatime-that-is-not-the-films) |
 | The position reads as not advancing, which looks like false drift and causes spurious nudges. | [Safari's `currentTime` stands still for up to about 250 ms after play, seek or a rate change](#safaris-currenttime-stands-still-for-up-to-about-250-ms-after-play-seek-or-a-rate-change) |
 | Each rate change may make the sound skip. | [Safari's rate nudges stutter or skip, especially with pitch-keeping on](#safaris-rate-nudges-stutter-or-skip-especially-with-pitch-keeping-on) |
 | `window.MediaSource` is undefined on iPhone, so a probe that uses only MSE misses ManagedMediaSource, and hls.js cannot run below 17.1. | [iPhone has no `MediaSource`, only `ManagedMediaSource`, and only from iOS 17.1](#iphone-has-no-mediasource-only-managedmediasource-and-only-from-ios-171) |
@@ -600,6 +601,25 @@ User-Agent (D263; the User-Agent is logged only).
   `<input type='range'>` sliders work better on touch devices"), which does the same: it sets the value
   from the touch's position.
 
+
+### Safari's requestVideoFrameCallback gives a mediaTime that is not the film's
+
+- **Technology:** Safari on macOS (the owner's MacBook Air, 2026-11-04), `requestVideoFrameCallback` on an
+  MSE video, an HEVC film's own picture and another film alike.
+- **Symptom:** the play page's line said the picture was "-3787722337 ms behind the sound"; a few minutes
+  later, on another film, "-3787958372 ms": each frame's `mediaTime` about 3.79 million seconds past the
+  element's `currentTime`, growing with the wall clock (236 s more about four minutes later).
+- **Cause (likely):** the figure runs with time, not with the film, so it is a clock: about 43.8 days
+  against the Mac's 54 days up, the gap of about 10 days fitting the host clock (`mach_absolute_time`),
+  which stops while the Mac sleeps. The spec says `mediaTime` is the frame's presentation time in the
+  film. No matching report was found: [WebKit bug 316190](https://bugs.webkit.org/show_bug.cgi?id=316190)
+  is a huge `mediaTime` for a canvas stream (fixed 2026-06), [WebKit bug
+  283448](https://bugs.webkit.org/show_bug.cgi?id=283448) the frame before a seek's.
+- **What we do:** a sample whose picture is more than 10 s from its sound is told as not measured, the
+  line saying the browser does not say. `web/apps/web/src/frame-timing.ts` (`farthestBehindSoundMs`).
+  Re-check when Safari updates: a sane figure on the Mac means it is fixed.
+- **Evidence:** [owner] 2026-11-04, staging, two films in Safari on the Mac, and `uptime`; [web] WebKit bugs
+  316190 and 283448, read 2026-11-04.
 
 ### Safari's `currentTime` stands still for up to about 250 ms after play, seek or a rate change
 

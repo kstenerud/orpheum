@@ -18,6 +18,14 @@ export interface FrameTiming {
 /** How many frames a timing is the middle of: one sample, two seconds of a 24 fps film. */
 export const framesTimed = 48;
 
+/**
+ * The farthest a picture is believed behind or ahead of its sound. A real lag is under a second;
+ * Safari on a Mac says a frame's mediaTime from the host's clock, not the film's, about 44 days
+ * ahead of the sound on the owner's Mac (idiosyncrasies.md, "Safari's requestVideoFrameCallback
+ * gives a mediaTime that is not the film's"), and such a figure says nothing.
+ */
+export const farthestBehindSoundMs = 10_000;
+
 /** The middle of values, which a frame or two held up by a seek or a stall does not move. */
 function median(values: readonly number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
@@ -31,7 +39,8 @@ function median(values: readonly number[]): number {
  * 60 a second, beside a weak device's decoding, for as long as the film plays (the efficiency
  * audit's finding 2, web-client-efficiency-audit-2026-10-28.md). A video already playing is sampled
  * at once. It returns the stop. A browser without requestVideoFrameCallback is told as undefined,
- * once.
+ * once, and so is a sample whose picture is farther from its sound than farthestBehindSoundMs: its
+ * browser does not say the frames' times in the film.
  */
 export function timeFrames(
   video: HTMLVideoElement,
@@ -57,11 +66,16 @@ export function timeFrames(
       behind.push((soundAtS - frame.mediaTime) * 1000);
       if (behind.length >= framesTimed) {
         isSampling = false;
-        onTiming({
-          frames: behind.length,
-          displayAfterMs: Math.round(median(displayAfter)),
-          behindSoundMs: Math.round(median(behind)),
-        });
+        const behindSoundMs = Math.round(median(behind));
+        onTiming(
+          Math.abs(behindSoundMs) > farthestBehindSoundMs
+            ? undefined
+            : {
+                frames: behind.length,
+                displayAfterMs: Math.round(median(displayAfter)),
+                behindSoundMs,
+              },
+        );
         return;
       }
     }
