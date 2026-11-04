@@ -17,6 +17,8 @@ import { NeedsAttention } from "./needs-attention.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
 import { InputLayer } from "./input-layer.tsx";
 import { LiveProvider } from "./live.tsx";
+import { CastSignOverTheFilmContext } from "./cast-sign-over-the-film.tsx";
+import { castSignOverTheFilm } from "./status-tray.tsx";
 import { useEpisodesReachedLetGoOnGoing } from "./episode-reached.ts";
 import { Files } from "./files.tsx";
 import { Identify } from "./identify.tsx";
@@ -174,31 +176,33 @@ function SignedIn(): JSX.Element {
     <IsAdminContext value={isAdmin}>
       <DebugToolsContext value={debugTools}>
         <LiveProvider>
-          <HostVoiceProvider membership={hostMembership}>
-            <BackgroundChangesContext value={poller}>
-              <InterestSaidEveryContext value={clientSettings?.interestSaidEverySeconds ?? 15}>
-                <AppShell
-                  isAdmin={isAdmin}
-                  canHostWatchTogether={me.state === "loaded" && me.value.canHostWatchTogether}
-                  signedInAs={
-                    me.state === "loaded"
-                      ? { name: me.value.name, deviceName: me.value.device?.name }
-                      : undefined
-                  }
-                  currentScreen={route.screen}
-                  administersFromHomeAt={administersFromHomeAt(me)}
-                  realm={realm}
-                  showsDeveloperPages={clientSettings?.shouldShowDeveloperPages === true}
-                  onSwitchHousehold={switchHousehold}
-                  onSignOut={signOut}
-                >
-                  <DeviceTestsOfferedContext value={clientSettings?.shouldOfferDeviceTests}>
-                    <Screen route={route} />
-                  </DeviceTestsOfferedContext>
-                </AppShell>
-              </InterestSaidEveryContext>
-            </BackgroundChangesContext>
-          </HostVoiceProvider>
+          <CastSignOverTheFilmContext value={castSignOverTheFilm}>
+            <HostVoiceProvider membership={hostMembership}>
+              <BackgroundChangesContext value={poller}>
+                <InterestSaidEveryContext value={clientSettings?.interestSaidEverySeconds ?? 15}>
+                  <AppShell
+                    isAdmin={isAdmin}
+                    canHostWatchTogether={me.state === "loaded" && me.value.canHostWatchTogether}
+                    signedInAs={
+                      me.state === "loaded"
+                        ? { name: me.value.name, deviceName: me.value.device?.name }
+                        : undefined
+                    }
+                    currentScreen={route.screen}
+                    administersFromHomeAt={administersFromHomeAt(me)}
+                    realm={realm}
+                    showsDeveloperPages={clientSettings?.shouldShowDeveloperPages === true}
+                    onSwitchHousehold={switchHousehold}
+                    onSignOut={signOut}
+                  >
+                    <DeviceTestsOfferedContext value={clientSettings?.shouldOfferDeviceTests}>
+                      <Screen route={route} />
+                    </DeviceTestsOfferedContext>
+                  </AppShell>
+                </InterestSaidEveryContext>
+              </BackgroundChangesContext>
+            </HostVoiceProvider>
+          </CastSignOverTheFilmContext>
         </LiveProvider>
       </DebugToolsContext>
     </IsAdminContext>

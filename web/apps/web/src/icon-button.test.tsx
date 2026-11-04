@@ -10,7 +10,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { FullScreenButton } from "./full-screen-button.tsx";
 import { IconButton } from "./icon-button.tsx";
 import { PlayIcon } from "./player-icons.tsx";
+import { CastSignOverTheFilmContext } from "./cast-sign-over-the-film.tsx";
 import { PlayerOverlay } from "./player-overlay.tsx";
+import { castSignOverTheFilm } from "./status-tray.tsx";
 import { mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
@@ -66,7 +68,10 @@ describe("the player's buttons, icons in place of characters a television's font
     Reflect.set(videoRef, "current", document.createElement("video"));
     mounted = await mount(
       withServices(
-        <PlayerOverlay videoRef={videoRef} readLinkKbps={() => undefined} failure={undefined} />,
+        // Cast's sign as the signed-in app hands it to the overlay (app.tsx).
+        <CastSignOverTheFilmContext value={castSignOverTheFilm}>
+          <PlayerOverlay videoRef={videoRef} readLinkKbps={() => undefined} failure={undefined} />
+        </CastSignOverTheFilmContext>,
       ),
     );
     const buttons = [...mounted.container.querySelectorAll("button")];
