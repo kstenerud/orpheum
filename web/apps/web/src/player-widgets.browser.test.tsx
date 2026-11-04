@@ -351,7 +351,7 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
         try {
           await expect.poll(() => getComputedStyle(scrub).opacity).toBe("0.6");
         } catch (error) {
-          throw new Error(`${String(error)}; ${focusSaid()}`);
+          throw new Error(`${String(error)}; ${focusSaid()}`, { cause: error });
         }
       },
     );
