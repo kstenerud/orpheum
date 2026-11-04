@@ -52,9 +52,10 @@ type CreditsBody struct {
 	Writers   []CreditBody `json:"writers"`
 }
 
-// peopleBodies are a title's genres and credits as the API says them.
-func peopleBodies(people library.TitlePeople) ([]GenreBody, CreditsBody) {
-	genres := make([]GenreBody, 0, len(people.Genres))
+// peopleBodies are a title's genres and credits as the API says them: nil for none, which a page
+// leaves out.
+func peopleBodies(people library.TitlePeople) ([]GenreBody, *CreditsBody) {
+	var genres []GenreBody
 	for _, genre := range people.Genres {
 		genres = append(genres, GenreBody{ID: genre.ID, Name: genre.Name})
 	}
@@ -68,7 +69,10 @@ func peopleBodies(people library.TitlePeople) ([]GenreBody, CreditsBody) {
 		}
 		return bodies
 	}
-	return genres, CreditsBody{
+	if len(people.Cast)+len(people.Directors)+len(people.Writers) == 0 {
+		return genres, nil
+	}
+	return genres, &CreditsBody{
 		Cast: credits(people.Cast), Directors: credits(people.Directors), Writers: credits(people.Writers),
 	}
 }

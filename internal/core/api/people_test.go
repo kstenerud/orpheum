@@ -74,6 +74,12 @@ func TestBrowse_GenresAndPeopleAreShownListedFilteredAndSearched(t *testing.T) {
 	if strings.Contains(heat.body, "Brass Arena") {
 		t.Errorf("the Crime titles = %s; want Metropolis alone", heat.body)
 	}
+	storetest.ExecRaw(t, harness.databasePath, "DELETE FROM credit WHERE item_id = 10",
+		"DELETE FROM item_genre WHERE item_id = 10")
+	if bare := harness.do(t, http.MethodGet, "/items/10", admin, nil); strings.Contains(bare.body, `"genres"`) ||
+		strings.Contains(bare.body, `"credits"`) {
+		t.Errorf("a title with no genres or credits = %s; want neither field", bare.body)
+	}
 	wantError(t, harness.do(t, http.MethodGet, "/people/99", admin, nil), http.StatusNotFound, api.CodeNotFound)
 	wantError(t, harness.do(t, http.MethodGet, "/search/grouped?query=a&limit=1&cursor=1", admin, nil),
 		http.StatusUnprocessableEntity, api.CodeInvalidRequest)

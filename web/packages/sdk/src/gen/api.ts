@@ -2745,11 +2745,11 @@ export interface components {
         };
         CollectionOutputBody: {
             art: components["schemas"]["ArtBody"];
-            /** @description Its cast, directors and writers in billing order */
-            credits: components["schemas"]["CreditsBody"];
+            /** @description Its cast, directors and writers in billing order; absent when it credits no one */
+            credits?: components["schemas"]["CreditsBody"];
             fetchFailure?: components["schemas"]["FetchFailureBody"];
-            /** @description Its genres in its source's order */
-            genres: components["schemas"]["GenreBody"][] | null;
+            /** @description Its genres in its source's order; absent when it has none */
+            genres?: components["schemas"]["GenreBody"][] | null;
             /** Format: int64 */
             id: number;
             identificationState?: string;
@@ -3586,16 +3586,16 @@ export interface components {
         };
         ItemDetailOutputBody: {
             art: components["schemas"]["ArtBody"];
-            /** @description Its cast, directors and writers in billing order; an episode's are its series' */
-            credits: components["schemas"]["CreditsBody"];
+            /** @description Its cast, directors and writers in billing order; an episode's are its series'; absent when it credits no one */
+            credits?: components["schemas"]["CreditsBody"];
             episode?: components["schemas"]["EpisodePlaceBody"];
             extras: components["schemas"]["ExtraBody"][] | null;
             fetchFailure?: components["schemas"]["FetchFailureBody"];
             /** @description The film an extra belongs to, which its page goes up to (D367); absent for anything else */
             filmOfExtra?: components["schemas"]["FilmOfExtraBody"];
             followedSource?: string;
-            /** @description Its genres in its source's order; an episode's are its series' */
-            genres: components["schemas"]["GenreBody"][] | null;
+            /** @description Its genres in its source's order; an episode's are its series'; absent when it has none */
+            genres?: components["schemas"]["GenreBody"][] | null;
             /** Format: int64 */
             id: number;
             identificationState: string;
