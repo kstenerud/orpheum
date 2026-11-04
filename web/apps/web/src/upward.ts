@@ -74,7 +74,10 @@ function isListOf(listed: Listed, libraries: readonly LibraryName[] | undefined)
   };
 }
 
-/** A list's name: Films, Series, All libraries, the Libraries page, or the library's own. */
+/**
+ * A list's name: Films, Series, Libraries, or the library's own, one name for each wherever it is
+ * shown (ui-audit-2026-11-04.md Q7): every library together is the Libraries page.
+ */
 function listLabel(
   route: Route,
   libraries: readonly LibraryName[] | undefined,
@@ -86,11 +89,8 @@ function listLabel(
   if (route.screen === "series") {
     return t("nav.series");
   }
-  if (route.screen !== "browse" || route.library === undefined) {
+  if (route.screen !== "browse" || route.library === undefined || route.library === "all") {
     return t("browse.libraries");
-  }
-  if (route.library === "all") {
-    return t("browse.allLibraries");
   }
   const id = route.library;
   return libraries?.find((library) => library.id === id)?.name ?? t("browse.library");

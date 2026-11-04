@@ -102,7 +102,10 @@ describe("App", () => {
 
   it("shows the screen each address names", () => {
     const films = renderToStaticMarkup(withServices(<App />, testServices("token", "/films")));
-    expect(films).toContain('id="browse-heading">All Films<');
+    // One name for each place (ui-audit-2026-11-04.md Q7): the heading says what the banner does.
+    expect(films).toContain('id="browse-heading">Films<');
+    const series = renderToStaticMarkup(withServices(<App />, testServices("token", "/series")));
+    expect(series).toContain('id="browse-heading">Series<');
     // Its bar needs the libraries list first (for the chooser, the sort and the view it offers),
     // so it shows Loading… here, as the System page does; library-browse.test.tsx mounts it
     // asynchronously and finds its Sort and filter once that answers.
