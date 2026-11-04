@@ -210,7 +210,12 @@ describe("a modal dialog closed", () => {
       if (opener instanceof HTMLElement) {
         opener.focus();
       }
-      await userEvent.keyboard("{Enter}");
+      // Opened by click(), not by Enter: the browser's own Enter click is not what this test is of,
+      // and Firefox now and then never dispatches it (idiosyncrasies.md, "Firefox now and then
+      // drops the click of an Enter on a button").
+      if (opener instanceof HTMLElement) {
+        opener.click();
+      }
       await expect.poll(() => document.activeElement?.closest("dialog[open]")).not.toBeNull();
     };
     const closed = async (): Promise<void> => {

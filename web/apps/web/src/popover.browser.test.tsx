@@ -312,7 +312,10 @@ describe("a pop-up closed", () => {
     const opener = document.querySelector<HTMLElement>(".test-opener");
     const opened = async (): Promise<void> => {
       opener?.focus();
-      await userEvent.keyboard("{Enter}");
+      // Opened by click(), not by Enter: the browser's own Enter click is not what this test is of,
+      // and Firefox now and then never dispatches it (idiosyncrasies.md, "Firefox now and then
+      // drops the click of an Enter on a button").
+      opener?.click();
       await expect.poll(() => document.activeElement?.closest("dialog[open]")).not.toBeNull();
     };
     await opened();
