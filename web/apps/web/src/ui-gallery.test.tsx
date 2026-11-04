@@ -83,8 +83,8 @@ it("shows the player's widgets, drawn by the components themselves (D369 §1)", 
   expect(player).toContain(
     'class="icon-button icon-button--over-video" aria-label="An icon button over a film"',
   );
-  expect([...player.matchAll(/class="timeline__range"/gu)]).toHaveLength(3);
-  expect([...player.matchAll(/<div class="player-controls">/gu)]).toHaveLength(2);
+  expect([...player.matchAll(/class="timeline__range"/gu)]).toHaveLength(4);
+  expect([...player.matchAll(/<div class="player-controls">/gu)]).toHaveLength(3);
   for (const name of ["Pause", "Full screen", "Mute", "Back 10 s", "Forward 10 s"]) {
     expect(player).toContain(`aria-label="${name}"`);
   }

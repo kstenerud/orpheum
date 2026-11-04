@@ -274,10 +274,12 @@ interface OverlayRefs {
 
 /**
  * The overlay's three rows (D407 §1): the way up and the convenience area (convenience-area.tsx);
- * the scrub bar; the buttons, those the device shows (controlsShown), the menus 🔈 💬 🎧 ⁝ before full
- * screen (player-menus.tsx), and previous and next where the sequence has them (moves).
+ * the scrub bar; the buttons, those the device shows (controlsShown), the menus 🔈, Subtitles, Sound
+ * track and ⁝ before full screen (player-menus.tsx), and previous and next where the sequence has
+ * them (moves). Exported for the UI gallery, which draws the real rows over no film (ui-gallery.tsx);
+ * what the overlay does with them, its showing, hiding and presses, is PlayerOverlay's.
  */
-function OverlayRows({
+export function OverlayRows({
   source,
   isTv,
   refs,
