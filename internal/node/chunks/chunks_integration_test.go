@@ -5,6 +5,7 @@
 package chunks_test
 
 import (
+	"bytes"
 	"log/slog"
 	"math"
 	"os"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/node/chunks"
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/node/container"
 	"github.com/kstenerud/orpheum/internal/node/encode"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/prepared"
@@ -506,5 +508,51 @@ func TestMake_ACopiedSoundOfAFilmWhoseGridStartsPastItsStartIsCutAtItsFirstChunk
 			t.Errorf("packet %d is at %.4f s, want the film's %.4f s, offset", index, shown, want)
 			break
 		}
+	}
+}
+
+// A film whose first keyframe its edit shows before its start, flagged discarded, is cut from its
+// start: its index counts that keyframe at 0, before the next keyframes a read-through counts, and
+// its copied picture's chunks from that grid, made in two runs, hold every picture of the film once,
+// the first chunk's from its start; cut from its next keyframe, its first seconds never played (A
+// Perfect World, staging, 2026-11-04).
+func TestMake_AFilmWhoseFirstKeyframeIsBeforeItsStartIsCutFromItsStart(t *testing.T) {
+	t.Parallel()
+	runner, err := execx.NewRunner(testutil.FFmpegDirectory(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := filmStartingPastItsFirstKeyframe(t)
+	contents, err := os.ReadFile(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	indexed, err := container.KeyframesMs(bytes.NewReader(contents), int64(len(contents)), 0)
+	counted := countedKeyframes(t, runner, source)
+	// The index puts a keyframe of a film under an edit a picture later than ffprobe (code-debt.md).
+	const picture = 1000 / 24
+	isCounted := len(indexed) == len(counted)+1 && len(indexed) >= 6 && indexed[0] == 0
+	for index := 1; isCounted && index < len(indexed); index++ {
+		isCounted = math.Abs(float64(indexed[index]-counted[index-1])) <= picture
+	}
+	if err != nil || !isCounted {
+		t.Fatalf("the index's keyframes are %v, %v; want 0, then those counted, %v", indexed, err, counted)
+	}
+	grid := slices.Concat(indexed[:6], []int64{indexed[5] + 2_000})
+	directory := t.TempDir()
+	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
+		clocktest.NewFake(time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
+	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264)
+	storeDir := "1/chunks-picture/0123456789abcdef"
+	makeInTwoRuns(t, maker, source, storeDir, grid, nodeproto.ChunkStream{Kind: nodeproto.StreamPicture})
+	stored := packetSizes(t, runner, joined(t, filepath.Join(directory, storeDir), len(grid)-1), "0")
+	if want := packetSizes(t, runner, source, "v:0"); !slices.Equal(stored, want) {
+		t.Errorf("the chunks hold %d pictures; want the film's %d, packet for packet", len(stored), len(want))
+	}
+	times := packetTimes(t, runner, filepath.Join(directory, storeDir), len(grid)-1)
+	offset := float64(chunks.TimelineOffsetMs) / 1000
+	if len(times) == 0 || times[0] < offset-0.001 || times[0] > offset+0.25 {
+		t.Errorf("the first picture is shown at %v; want it at the film's start, %.3f s, or a few frames after",
+			times, offset)
 	}
 }

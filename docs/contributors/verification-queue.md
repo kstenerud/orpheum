@@ -2556,3 +2556,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   focus along *New films* to its last poster and along the seasons from 1 to 11 and back, Down and Up
   moved between the rows, and focus never landed on an arrow. (3) On the Pixel's Chrome (no hover, no
   fine pointer) no arrow showed; a swipe moved *New films* 600 px and the swipe back returned it to 0.
+- [ ] **VQ259** — a film whose first keyframe sits before its start plays from its start (the 11-06
+  batch's item 1; the owner, 2026-11-04, accepting the first chunk's picture a few frames late). The
+  keyframe readers and the chunks of a film cut so are tested with the pinned FFmpeg; a real film's
+  first chunk in a real player is seen only on a device. On staging, once its keyframes are read again
+  (the step that forgets the 17 films' lists, or a re-read): *A Woman of Paris* (file 5667) and
+  *The Gold Rush* from their starts, on a computer. Passes when each shows its first seconds (the studio's
+  logo) instead of beginning about 10 s in, with its sound in step by the second chunk, and the join
+  at the first chunk's end shows no jump or freeze. (`internal/node/container/keyframes.go`'s
+  `StartingKeyframes`, `internal/node/readthrough/timeline.go`)

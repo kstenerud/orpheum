@@ -345,7 +345,8 @@ func path(data []byte, kinds ...string) ([]byte, bool) {
 }
 
 // trakKeyframesMs are a picture trak's sync samples' times: each one's decode time from stts, plus
-// its composition offset from ctts, less the edit list's media start, in its media's timescale.
+// its composition offset from ctts, less the edit list's media start, in its media's timescale; one
+// before the edit's start counts at it when no other is (StartingKeyframes).
 func trakKeyframesMs(trak []byte) ([]int64, error) {
 	handler, hasHandler := path(trak, "mdia", "hdlr")
 	if !hasHandler || len(handler) < 12 || string(handler[8:12]) != "vide" {
@@ -376,6 +377,7 @@ func trakKeyframesMs(trak []byte) ([]int64, error) {
 	}
 	start := editMediaStart(trak)
 	keyframes := make([]int64, 0, len(syncSamples))
+	hasKeyframeBeforeStart := false
 	for index := range syncSamples {
 		shown := decodeTimes[index] - start
 		if hasOffsets {
@@ -383,10 +385,12 @@ func trakKeyframesMs(trak []byte) ([]int64, error) {
 		}
 		if shown >= 0 {
 			keyframes = append(keyframes, shown*1000/timescale)
+		} else {
+			hasKeyframeBeforeStart = true
 		}
 	}
 	slices.Sort(keyframes)
-	return slices.Compact(keyframes), nil
+	return StartingKeyframes(slices.Compact(keyframes), hasKeyframeBeforeStart), nil
 }
 
 // mediaTimescale is a trak's media timescale, from its mdhd.
@@ -524,4 +528,20 @@ func editMediaStart(trak []byte) int64 {
 		}
 	}
 	return 0
+}
+
+// StartingKeyframes are a picture's keyframes, ascending, from the film's start: when a keyframe
+// before the start was left out (an MP4's edit list, as a rip cut by copying puts it, shows the
+// film from a few pictures after its first keyframe, which it flags discarded), and none is at or
+// before the start, the film's start is one, since its first pictures are decoded from that
+// keyframe and a copy run from the start holds it. Without it the film's grid starts at its next
+// keyframe, up to ten seconds in, and those seconds never play (A Woman of Paris, staging,
+// 2026-11-04). The copied picture of the first chunk is then late by the pictures before the start,
+// a few frames, which the owner accepted (2026-11-04). The read-through of a film and the read of
+// its index count them alike (internal/node/readthrough).
+func StartingKeyframes(keyframesMs []int64, hasKeyframeBeforeStart bool) []int64 {
+	if !hasKeyframeBeforeStart || (len(keyframesMs) > 0 && keyframesMs[0] <= 0) {
+		return keyframesMs
+	}
+	return slices.Concat([]int64{0}, keyframesMs)
 }

@@ -54,6 +54,36 @@ func TestPacketLines_KeepTheKeyframesInOrderOnceAndTheBytesOfEachSecond(t *testi
 	}
 }
 
+// A keyframe an MP4's edit shows before the film's start, flagged discarded (F=0x5), is the film's
+// first keyframe at its start when no other is at or before it, since the film's first pictures are
+// decoded from it; one discarded after the start, or with a keyframe at the start, is not (A Perfect
+// World, staging, 2026-11-04).
+func TestPacketLines_AKeyframeDiscardedBeforeTheStartIsTheFilmsFirstAtItsStart(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name    string
+		packets string
+		want    []int64
+	}{
+		{"before the start", "0, -100, -100, 40, 900, 0x1, F=0x5\n0, -50, -50, 40, 9, 0x2, F=0x4\n" +
+			"0, 0, 0, 40, 9, 0x3, F=0x0\n0, 10176, 10176, 40, 900, 0x4\n", []int64{0, 10176}},
+		{"after the start", "0, 0, 0, 40, 9, 0x3, F=0x0\n0, 500, 500, 40, 900, 0x1, F=0x5\n" +
+			"0, 10176, 10176, 40, 900, 0x4\n", []int64{10176}},
+		{"with one at the start", "0, -100, -100, 40, 900, 0x1, F=0x5\n0, 0, 0, 40, 900, 0x4\n" +
+			"0, 2000, 2000, 40, 900, 0x5\n", []int64{0, 2000}},
+	} {
+		var lines packetLines
+		if _, err := lines.Write([]byte("#tb 0: 1/1000\n" + test.packets)); err != nil {
+			t.Fatal(err)
+		}
+		timeline, err := lines.timeline()
+		if err != nil || !slices.Equal(timeline.KeyframesMs, test.want) {
+			t.Errorf("a discarded keyframe %s: the keyframes are %v, %v; want %v", test.name,
+				timeline.KeyframesMs, err, test.want)
+		}
+	}
+}
+
 func TestPacketLines_WhatFFmpegWroteThatCannotBeReadIsSaid(t *testing.T) {
 	t.Parallel()
 	for name, written := range map[string]string{

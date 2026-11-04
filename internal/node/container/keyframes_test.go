@@ -81,12 +81,15 @@ func fullBox(kind string, words ...uint32) []byte {
 // mp4File is an MP4 whose first trak is sound and second a picture of ten samples of 512 ticks in a
 // timescale of 12800, so 40 ms each, each shown 1024 ticks after it is decoded, with an edit that
 // starts the media at 1024; tables are its picture's stbl boxes besides stts and ctts.
-func mp4File(tables ...[]byte) []byte {
+func mp4File(tables ...[]byte) []byte { return mp4FileEditedFrom(1024, tables...) }
+
+// mp4FileEditedFrom is mp4File with its picture's edit starting the media at editStart ticks.
+func mp4FileEditedFrom(editStart uint32, tables ...[]byte) []byte {
 	sound := box("trak", box("mdia", fullBox("hdlr", 0, binary.BigEndian.Uint32([]byte("soun")), 0, 0, 0)))
 	stbl := box("stbl", slices.Concat(
 		[][]byte{fullBox("stts", 1, 10, 512), fullBox("ctts", 1, 10, 1024)}, tables)...)
 	picture := box("trak",
-		box("edts", fullBox("elst", 1, 4000, 1024, 0x00010000)),
+		box("edts", fullBox("elst", 1, 4000, editStart, 0x00010000)),
 		box("mdia",
 			fullBox("mdhd", 0, 0, 12800, 5120, 0),
 			fullBox("hdlr", 0, binary.BigEndian.Uint32([]byte("vide")), 0, 0, 0),
@@ -129,6 +132,18 @@ func TestKeyframesMs_MP4SyncSamplesAreThePicturesKeyframes(t *testing.T) {
 	}
 	if got, err = keyframesOf(t, mp4File(fullBox("stss", 2, 1, 6)), 0); !errors.Is(err, ErrNoIndex) {
 		t.Errorf("the sound's track's keyframes = %v, %v; want ErrNoIndex", got, err)
+	}
+}
+
+// An MP4 whose edit starts its media after its first sync sample, as a rip cut by copying is, counts
+// that sample at the film's start, since its first pictures are decoded from it; its next is where
+// it is: sample 1 shown 80 ms before the edit's start counts at 0, and sample 6 at 120 ms (A Perfect
+// World, staging, 2026-11-04).
+func TestKeyframesMs_AnMP4sSyncSampleBeforeItsEditsStartIsAtTheStart(t *testing.T) {
+	t.Parallel()
+	got, err := keyframesOf(t, mp4FileEditedFrom(2048, fullBox("stss", 2, 1, 6)), 1)
+	if err != nil || !slices.Equal(got, []int64{0, 120}) {
+		t.Errorf("the picture's keyframes = %v, %v; want 0 and 120 ms", got, err)
 	}
 }
 
