@@ -1580,8 +1580,8 @@ research run in this batch … The actual UI revamp will be done next batch."*
    their own batch).
 5. *(Moved to the revamp, 2026-11-04:)* the SWAG research's remote (the held seek, the seek rest,
    "Still watching?") is input to item 7's research and built with the revamp.
-6. *(Optional, the owner's call at the batch's start:)* a re-timed copy cut at exact times
-   (toolkit.md's next batch); the owner said in 11-05 to keep the margin for now.
+6. *(Not this batch, the owner, 2026-11-04, "go with your recommendation":)* a re-timed copy cut
+   at exact times stays filed in toolkit.md; the 400 ms margin stays until a film fails past it.
 7. **The UI audit's research, research only** (the owner, 2026-11-04): consulting experts,
    studies and competitors on
    - what information should be reachable in how many clicks or presses, on each kind of page;
