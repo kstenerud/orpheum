@@ -13,7 +13,10 @@ import { WideArt } from "./poster.tsx";
  * R8): the backdrop behind it, not a band above it; the art; then, in reading order, the line above
  * the name (an episode's series and season), the name, one line of facts, the status notes, the
  * actions row, its main action first and the page's arrival, so a remote's first OK plays (R1, R3),
- * and what it is about, clamped with More. What else the page has follows it.
+ * and what it is about, clamped with More. What else the page has follows it. The actions row is a
+ * focus container, a row as a poster row is: Right at its end goes nowhere (Q3), where it fell back
+ * off its line to whatever lay to the right further down the page (a series' season's Mark as
+ * watched, half a screen below).
  */
 export function TitleHead(props: {
   readonly backdropSha256: string | undefined;
@@ -44,7 +47,11 @@ export function TitleHead(props: {
           <h1>{props.name}</h1>
           <p className="title-head__facts">{props.facts}</p>
           {props.notes}
-          <div className="page-actions title-head__actions" {...arrivalMark}>
+          <div
+            className="page-actions title-head__actions"
+            data-focus-container=""
+            {...arrivalMark}
+          >
             {props.actions}
           </div>
           {props.tagline === undefined ? null : (

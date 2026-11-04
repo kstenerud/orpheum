@@ -61,7 +61,31 @@ const episode = {
   kind: "episode",
   overview: longOverview,
   extras: null,
-  episode: { seriesId: 20, seriesName: "Glass Tide", seasonNumber: 2, episodeNumber: 3 },
+  episode: { seriesId: 21, seriesName: "Glass Tide", seasonNumber: 2, episodeNumber: 3 },
+};
+
+/** A series, partway through its next episode, with a long synopsis and a backdrop. */
+const series = {
+  id: 20,
+  kind: "series",
+  name: "Glass Tide",
+  libraryId: 1,
+  year: 2019,
+  overview: longOverview,
+  art: { posterSha256: "p20", backdropSha256: "b20" },
+  orderings: [{ name: "aired", kind: "aired", episodeCount: 4 }],
+  seasons: [
+    { seasonNumber: 1, episodeCount: 2 },
+    { seasonNumber: 2, episodeCount: 2 },
+  ],
+  nextUp: {
+    titleId: 302,
+    name: "Low Water",
+    groupNumber: 1,
+    numberInGroup: 2,
+    fileId: 3020,
+    isPartway: true,
+  },
 };
 
 /** A laptop's window, and a phone's, held upright. */
@@ -90,6 +114,18 @@ describe.each(screens)("a title's first screen, on $name", ({ width, height }) =
     walking = await mountApp(walkServices({ ...signedIn, ...answers }, path));
     await expect.poll(() => isFocusIn(".title-head__actions")).toBe(true);
     expect(focusedName()).toBe("Play");
+    const top = mainAction()?.getBoundingClientRect().top ?? Infinity;
+    expect(top).toBeGreaterThanOrEqual(0);
+    expect(top).toBeLessThan(window.innerHeight);
+  });
+
+  it("has a series' Continue within the window, focused as it opens", async () => {
+    await page.viewport(width, height);
+    walking = await mountApp(
+      walkServices({ ...signedIn, "GET /collections/20": series }, "/series/20"),
+    );
+    await expect.poll(() => isFocusIn(".title-head__actions")).toBe(true);
+    expect(focusedName()).toBe("Continue S1E2");
     const top = mainAction()?.getBoundingClientRect().top ?? Infinity;
     expect(top).toBeGreaterThanOrEqual(0);
     expect(top).toBeLessThan(window.innerHeight);

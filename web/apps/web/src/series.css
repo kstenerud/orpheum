@@ -1,38 +1,5 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
-.series__head {
-  display: grid;
-  grid-template-columns: minmax(6.5rem, 9rem) minmax(0, 1fr);
-  gap: var(--space-4);
-  align-items: start;
-}
-
-/* On a phone the art floats at the start and the words wrap around it, then use the full width. */
-@media (max-width: 599px) {
-  .series__head {
-    display: flow-root;
-  }
-
-  .series__head > :first-child {
-    float: inline-start;
-    width: 8.5rem;
-    margin-block-end: var(--space-3);
-    margin-inline-end: var(--space-4);
-  }
-}
-
-@media (min-width: 600px) {
-  .series__head {
-    grid-template-columns: minmax(8rem, 14rem) minmax(0, 1fr);
-    gap: var(--space-6);
-  }
-}
-
-.series__head h1 {
-  margin-block-start: 0;
-}
-
-.series__year,
 .series__absent {
   color: var(--color-muted);
 }
