@@ -51,6 +51,9 @@ export const enGallery = {
     iconButton: "An icon button",
     iconButtonOverVideo: "An icon button over a film",
     timeline: "A film's timeline",
+    overlayRows: "The player's overlay over a film, in full screen",
+    overlayPopUps:
+      "Each of its buttons opens its own pop-up: the volume, Subtitles, Sound track and Settings.",
     barOverFilm: "The player's bar over a film",
     barRemote: "The player's bar on a cast's remote",
   },

@@ -2,7 +2,7 @@
 
 import "./ui-gallery.css";
 
-import type { JSX } from "react";
+import { useRef, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { MenuIcon } from "./app-shell.tsx";
@@ -10,7 +10,10 @@ import { ConfirmButton } from "./confirm-button.tsx";
 import { IconButton } from "./icon-button.tsx";
 import { Cluster, Stack } from "./layout.tsx";
 import { ListBox, ListNote, ListOption } from "./list-box.tsx";
+import { PlayUpwardContext } from "./play-up.tsx";
 import { PlayerControls, type PlayerSource } from "./player-controls.tsx";
+import { OverlayRows } from "./player-overlay.tsx";
+import { PlayerTracksContext, type PlayerTracks } from "./player-tracks.tsx";
 import { PopoverButton } from "./popover.tsx";
 import {
   AudioIcon,
@@ -38,6 +41,7 @@ import { StillReadingIcon } from "./still-reading.tsx";
 import { Timeline } from "./timeline.tsx";
 import { MicrophoneIcon } from "./together-voice.tsx";
 import { UncertainMatchIcon } from "./uncertain-match.tsx";
+import type { Upward } from "./upward.ts";
 import { WarningIcon } from "./warning-sign.tsx";
 import { WatchedIcon } from "./watched-mark.tsx";
 
@@ -392,6 +396,9 @@ function PlayerWidgets(): JSX.Element {
         durationMs={galleryFilm.durationMs}
         onSeek={() => undefined}
       />
+      <h3>{t("gallery.overlayRows")}</h3>
+      <p>{t("gallery.overlayPopUps")}</p>
+      <GalleryOverlayRows />
       <h3>{t("gallery.barOverFilm")}</h3>
       <div className="ui-gallery__film">
         <div className="ui-gallery__bar">
@@ -405,5 +412,97 @@ function PlayerWidgets(): JSX.Element {
       <h3>{t("gallery.barRemote")}</h3>
       <PlayerControls source={galleryFilm} controls={["play", "steps", "timeline"]} />
     </section>
+  );
+}
+
+/**
+ * The film's tracks the gallery's overlay chooses among: two sound tracks and two subtitle tracks,
+ * so Subtitles and Sound track each draw their pop-up; it chooses nothing.
+ */
+const galleryTracks: PlayerTracks = {
+  subtitles: {
+    tracks: [
+      {
+        streamId: 5,
+        language: "en",
+        isDefault: false,
+        isForced: false,
+        isHearingImpaired: false,
+        assUrl: "",
+        vttUrl: "",
+      },
+      {
+        streamId: 7,
+        language: "fr",
+        isDefault: false,
+        isForced: false,
+        isHearingImpaired: false,
+        assUrl: "",
+        vttUrl: "",
+      },
+    ],
+    chosenTrackKey: undefined,
+    choose: () => undefined,
+    offsetMs: 0,
+    shiftOffset: () => undefined,
+    failure: undefined,
+  },
+  audio: {
+    tracks: [
+      { streamId: 80, audioTrackIndex: 0, language: "en", kind: "plain" },
+      { streamId: 81, audioTrackIndex: 1, language: "en", kind: "commentary" },
+    ],
+    chosenStreamId: 80,
+    choose: () => undefined,
+    problem: undefined,
+  },
+  levelling: { isOn: false, switchTo: () => undefined, problem: undefined },
+  level: { levelling: { isMeasured: true, gainDb: -2 }, carriedGainDb: 0 },
+  measuring: undefined,
+  boost: undefined,
+};
+
+/** The page above the gallery's film, for the overlay's Up: the gallery itself. */
+const galleryUpward: Upward = {
+  crumbs: [{ label: "UI gallery", to: { screen: "ui-gallery" }, isIt: () => true }],
+  here: "",
+};
+
+/**
+ * The player's full-screen overlay's three rows (D407 §1), the real ones (OverlayRows), all shown,
+ * over a film's ground, as a computer draws them: its Up, the end time, the scrub bar and the buttons
+ * with 🔈, Subtitles, Sound track and ⁝, each opening its own pop-up. The overlay's showing, hiding
+ * and presses are PlayerOverlay's, not drawn here.
+ */
+function GalleryOverlayRows(): JSX.Element {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const playRef = useRef<HTMLButtonElement | null>(null);
+  const scrubRef = useRef<HTMLInputElement | null>(null);
+  const buttonsRef = useRef<HTMLDivElement | null>(null);
+  const areaRef = useRef<HTMLDivElement | null>(null);
+  return (
+    <PlayUpwardContext value={galleryUpward}>
+      <PlayerTracksContext value={galleryTracks}>
+        <div className="ui-gallery__film">
+          <div className="player-overlay" data-shown="full">
+            <OverlayRows
+              source={galleryFilm}
+              isTv={false}
+              refs={{ playRef, scrubRef, buttonsRef, videoRef }}
+              convenience={{
+                film: { videoRef, readLinkKbps: () => undefined, failure: undefined },
+                offer: undefined,
+                hasOffer: false,
+                isOverlayFull: true,
+                onOffered: () => undefined,
+                areaRef,
+              }}
+              moves={undefined}
+              onMenuOpenChange={() => undefined}
+            />
+          </div>
+        </div>
+      </PlayerTracksContext>
+    </PlayUpwardContext>
   );
 }
