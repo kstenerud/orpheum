@@ -9,7 +9,6 @@ import re
 import subprocess
 import sys
 import tempfile
-import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -614,14 +613,20 @@ class RevertRedStylesheetsTogether(unittest.TestCase):
         spare: queue.Queue[str] = queue.Queue()
         spare.put(str(spare_tree))
         where = Path(tempfile.mkdtemp()) / "where"
-        # Each run says which tree it ran in and takes a second; red only for the unclaimed sheet.
-        importing = ["sh", "-c", f'pwd >> {where}; sleep 1; ! grep -q old {self.UNCLAIMED}', "browser-mode"]
-        started = time.monotonic()
+        # Each run says which tree it ran in, when it started and when it ended, and takes a second; red
+        # only for the unclaimed sheet. Side by side is runs in the two trees overlapping in time, not a
+        # wall-clock bound, which a loaded machine broke (3.0-3.6 s against 2.9, 2026-11-03).
+        importing = ["sh", "-c", f'echo "$(pwd) $(date +%s.%N)" > {where}.$$; sleep 1; '
+                     f'echo "$(date +%s.%N)" >> {where}.$$; cat {where}.$$ | tr "\\n" " " >> {where}; '
+                     f'echo >> {where}; ! grep -q old {self.UNCLAIMED}', "browser-mode"]
         with repo.cwd():
             settled = rr.stylesheets_together(str(repo.root), base, "HEAD", self.changes(), 60, ["true"],
                                               importing, spare=spare)
-        self.assertLess(time.monotonic() - started, 2.9, "three one-second runs in two trees, not in one")
-        self.assertEqual(set(where.read_text().split()), {str(repo.root.resolve()), str(spare_tree.resolve())})
+        runs = [line.split() for line in where.read_text().splitlines() if line.strip()]
+        self.assertEqual({tree for tree, _, _ in runs}, {str(repo.root.resolve()), str(spare_tree.resolve())})
+        self.assertTrue(any(tree != other_tree and float(start) < float(other_end) and float(other_start) < float(end)
+                            for tree, start, end in runs for other_tree, other_start, other_end in runs),
+                        f"runs in the two trees side by side, not one after another: {runs}")
         self.assertEqual(settled[self.UNCLAIMED].verdict, "RED_TEST")
         self.assertEqual(spare.get_nowait(), str(spare_tree), "the borrowed tree is given back")
         self.assertEqual(repo.git("status", "--porcelain"), "")
