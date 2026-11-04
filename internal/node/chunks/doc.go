@@ -97,8 +97,9 @@
 //     chunks of a flattened H.264 and HEVC clip have the clip's own composition offsets, but its last
 //     few pictures', and an encode of it every picture once, by
 //     TestMake_APictureWhoseBFramesCarryNoDisplayTimesIsReTimedWhenMarked (integration tier).
-//   - A raw file is made a chunk only when the span the muxer lists for it is its chunk's, and the
-//     run's last only once FFmpeg has ended: FFmpeg stopped in a file closes it and lists it as
+//   - A raw file is made a chunk only when the span the muxer lists for it is its chunk's, ending no
+//     more than a few frames past its bound, the run's last chunk too, and the run's last only once
+//     FFmpeg has ended: FFmpeg stopped in a file closes it and lists it as
 //     finished; the refusal says where the run read from and first cut. Enforced by
 //     TestMake_NeverMakesAChunkOfAFileNotCutAtItsBounds and
 //     TestMake_ACopiedSoundWhoseFilmsFirstChunkStartsLateDropsWhatIsBeforeIt.
