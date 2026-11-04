@@ -12,7 +12,6 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
   type JSX,
   type ReactNode,
   type RefObject,
@@ -213,19 +212,39 @@ export function InputLayer(props: { readonly children: ReactNode }): JSX.Element
   );
 }
 
+/**
+ * A status said politely after what the reader is saying: the page's name as each opens (R4). The
+ * document's, not a page's: it sits in the body, outside what any page draws, from the layer's
+ * start, since a region added with its words already in it is not reliably read.
+ */
+function startAnnouncer(): { readonly say: (text: string) => void; readonly stop: () => void } {
+  const region = document.createElement("output");
+  region.className = "input-layer__announced";
+  region.setAttribute("aria-live", "polite");
+  document.body.append(region);
+  return {
+    say: (text) => {
+      region.textContent = text;
+    },
+    stop: () => {
+      region.remove();
+    },
+  };
+}
+
 /** The input layer's one run, with what screens tell it. */
 function RunningInputLayer(props: { readonly children: ReactNode }): JSX.Element {
   const { navigation } = useServices();
   const backUpRef = useRef<Route | undefined>(undefined);
   const offCountRef = useRef(0);
   const inputRef = useRef<Input | undefined>(undefined);
-  const [announced, setAnnounced] = useState("");
   useEffect(() => {
     const started = startInput({
       goBack: () => navigation.back(backUpRef.current),
       isNavigating: () => offCountRef.current === 0,
     });
-    const stopKeeping = keepFocusOnEntries(navigation, started, setAnnounced);
+    const announcer = startAnnouncer();
+    const stopKeeping = keepFocusOnEntries(navigation, started, announcer.say);
     // The browser's own Back at the base laid under a page opened directly goes where its Back does.
     const stopBase = navigation.onBase(() => {
       navigation.replace(backUpRef.current ?? { screen: "home" });
@@ -235,6 +254,7 @@ function RunningInputLayer(props: { readonly children: ReactNode }): JSX.Element
       inputRef.current = undefined;
       stopBase();
       stopKeeping();
+      announcer.stop();
       started.stop();
     };
   }, [navigation]);
@@ -251,15 +271,7 @@ function RunningInputLayer(props: { readonly children: ReactNode }): JSX.Element
     }),
     [],
   );
-  return (
-    <InputContext value={told}>
-      {props.children}
-      {/* A status, said politely after what the reader is saying: the page's name as each opens (R4). */}
-      <output className="input-layer__announced" aria-live="polite">
-        {announced}
-      </output>
-    </InputContext>
-  );
+  return <InputContext value={told}>{props.children}</InputContext>;
 }
 
 /**
