@@ -49,6 +49,7 @@ User-Agent (D263; the User-Agent is logged only).
 | On a Fire TV in Silk, Left and Right in an open drop-down left it open, focus on a place, where Chromium and Firefox close it. | [Silk on Fire TV: Left and Right in an open drop-down did not close it (unexplained)](#silk-on-fire-tv-left-and-right-in-an-open-drop-down-did-not-close-it-unexplained) |
 | A game controller paired to a Fire TV moved Silk's pointer, its D-pad did nothing, and its right stick left Silk for the home screen. | [Fire TV keeps a game controller's D-pad and sticks from a page in Silk](#fire-tv-keeps-a-game-controllers-d-pad-and-sticks-from-a-page-in-silk) |
 | On a Fire TV in Silk, the page said the browser was asking to reach devices on the network, and nothing asked. | [Silk on Fire TV leaves the local-network permission still to ask, and never asks](#silk-on-fire-tv-leaves-the-local-network-permission-still-to-ask-and-never-asks) |
+| In a loaded machine's Firefox, an Enter on a focused button did nothing: no click, no dialog opened. | [Firefox now and then drops the click of an Enter on a button](#firefox-now-and-then-drops-the-click-of-an-enter-on-a-button) |
 | On a Fire TV in Silk, OK on a sign-in's checkbox signed in, as though Sign in had been pressed. | [Enter on a focused checkbox submits its form, and does not tick it](#enter-on-a-focused-checkbox-submits-its-form-and-does-not-tick-it) |
 | On a Fire TV in Silk, holding OK on a cast's receiver took control back, as OK pressed twice. | [Silk on Fire TV sends a held OK's repeats as fresh presses, unmarked and with no key up](#silk-on-fire-tv-sends-a-held-oks-repeats-as-fresh-presses-unmarked-and-with-no-key-up) |
 | On a Fire TV in Silk, holding Up left the page for Silk's own address bar and menu. | [Silk on Fire TV takes a held Up for its own address bar and menu](#silk-on-fire-tv-takes-a-held-up-for-its-own-address-bar-and-menu) |
@@ -1268,6 +1269,24 @@ User-Agent (D263; the User-Agent is logged only).
 - **Evidence:** a probe in vitest's browser mode (the realm sign-in filled in, the box focused, Enter
   pressed): unguarded, both browsers submitted the form and left the box unticked; guarded, the box
   ticked and nothing submitted (`realm-sign-in.browser.test.tsx`). VQ199 on the Fire TV.
+
+### Firefox now and then drops the click of an Enter on a button
+
+- **Technology:** Firefox (Playwright's, headless, in vitest's browser mode), a key press on a focused
+  `<button>`, measured 2026-11-04 on a machine with a load average of 80 to 100.
+- **Symptom:** a browser test that focused a button and pressed Enter saw no dialog open and no
+  handler run, for the 10 s of its poll; it passed alone and failed in about one run in three of the
+  browser tier's files together (`app-shell`, `modal-dialog` and `popover`'s tests).
+- **Cause:** unexplained. A listener on the window logged the key's `keydown`, `keypress` (not
+  default-prevented) and `keyup` on the focused button, and no `click`, which a button's Enter
+  dispatches on its keypress. Chromium never lost one.
+- **What we do:** the tests of what a dialog gives focus back to, and of the sign-out question,
+  open or answer by `click()` on the focused button, not by Enter: the Enter's click is the
+  browser's, not the app's. Pressing Enter again did not help: four presses over 12 s were all
+  dropped once one was. The app presses nothing and waits for nothing.
+- **Evidence:** the event log above, from a probe in `app-shell.browser.test.tsx` run with the
+  browser tier's other files at once (`modal-dialog`, `popover`, `player-widgets`, `input-walk`) and
+  eight busy loops beside; 3 failures in 5 runs, none once the tests clicked.
 
 ### A Response made from a stream that fails reads as "Failed to fetch" or an AbortError, never the stream's own error
 

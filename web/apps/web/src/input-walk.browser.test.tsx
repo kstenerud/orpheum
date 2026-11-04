@@ -104,10 +104,17 @@ describe.each(screens)("the app by a remote's keys, on $name", ({ width, height 
 
   it("keeps the focused film in view as it moves down a long list, clear of the banner", async () => {
     await page.viewport(width, height);
+    // Sixty films: ten rows at the Fire TV's width, so eight presses from the first film stay in the
+    // list; forty ended at the seventh row, and a press past it reached the letters beside the list,
+    // where focus is on no film.
     walking = await mountApp(
-      walkServices({ ...filmsAndOne, "GET /titles": { titles: films(40), nextCursor: "" } }),
+      walkServices({ ...filmsAndOne, "GET /titles": { titles: films(60), nextCursor: "" } }),
     );
     await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
+    // The first press waits for the page's arrival, on the first film: pressed before it, the arrow
+    // from no focus only goes to that film (focus-navigation.ts startIn), one press short, so the
+    // walk's end depended on whether the arrival came first.
+    await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
     await userEvent.keyboard("{ArrowDown}{ArrowDown}");
     for (let step = 0; step < 6; step += 1) {
       await userEvent.keyboard("{ArrowDown}");

@@ -544,9 +544,14 @@ describe("the shell, laid out by a real browser", () => {
         await userEvent.click(page.getByRole("button", { name: "Sign out" }));
         await expect.poll(asked).not.toBeNull();
         expect(document.activeElement?.textContent).toBe("Sign out");
-        await userEvent.keyboard("{Enter}");
+        // Activated by click(), not by Enter: Enter's click is the browser's own, not the shell's,
+        // and a loaded machine's Firefox now and then never dispatches it (idiosyncrasies.md,
+        // "Firefox now and then drops the click of an Enter on a button").
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.click();
+        }
         await vi.waitFor(() => {
-          expect(signedOut).toBe(1); // Firefox answers the key after a turn
+          expect(signedOut).toBe(1);
         });
       },
     );
