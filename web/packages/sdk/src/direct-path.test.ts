@@ -95,11 +95,17 @@ describe("a core's direct paths (W2c)", () => {
       }),
     ).toBe("https://v6.core.example");
     // The LAN name had not answered when the grace ran out; the race went on without it.
+    // Each name that answered or failed says how long after the race began (D414 §4).
+    const inTime = expect.any(Number) as number;
     expect(told).toEqual([
       [
         { url: "https://lan.core.example", outcome: "not waited for" },
-        { url: "https://v6.core.example", outcome: "answered" },
-        { url: "https://gone.core.example", outcome: "failed: TypeError: Failed to fetch" },
+        { url: "https://v6.core.example", outcome: "answered", afterMs: inTime },
+        {
+          url: "https://gone.core.example",
+          outcome: "failed: TypeError: Failed to fetch",
+          afterMs: inTime,
+        },
       ],
     ]);
     told.length = 0;
@@ -111,13 +117,20 @@ describe("a core's direct paths (W2c)", () => {
     });
     expect(told).toEqual([
       [
-        { url: "https://lan.core.example", outcome: "failed: no answer within 50 ms" },
+        {
+          url: "https://lan.core.example",
+          outcome: "failed: no answer within 50 ms",
+          afterMs: inTime,
+        },
         {
           url: "https://v4.core.example",
           outcome: "failed: Error: https://v4.core.example answered 502",
+          afterMs: inTime,
         },
       ],
     ]);
+    // The name that waited out its 50 ms says so.
+    expect((told[0] as readonly DirectOutcome[])[0]?.afterMs).toBeGreaterThanOrEqual(45);
   });
 
   it("tells a name that failed at once from one that never answered or answered a failure", async () => {

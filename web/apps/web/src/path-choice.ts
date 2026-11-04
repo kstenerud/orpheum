@@ -75,6 +75,16 @@ function leftOutBecause(isLanNameUsed: boolean, localNetwork: LocalNetworkState)
   return `left out: the local-network permission is ${localNetwork}`;
 }
 
+/** A raced name's outcome, with its time where it answered or failed (D414 §4); unraced, why. */
+function outcomeOf(raced: DirectOutcome | undefined, unraced: string): string {
+  if (raced === undefined) {
+    return unraced;
+  }
+  return raced.afterMs === undefined
+    ? raced.outcome
+    : `${raced.outcome} (${String(raced.afterMs)} ms)`;
+}
+
 /**
  * How the page chose its first path, from its race: what came of each name offered, its outcome where
  * raced, else why it was left out.
@@ -90,9 +100,9 @@ export function pathChoiceOf(race: FirstRace): PathChoice {
     lanOffered: race.lanUrls.length,
     names: race.directUrls.slice(0, namesMost).map((name) => ({
       name: name.slice(0, wordsMost),
-      outcome: (
-        race.raced.find((each) => each.url === name)?.outcome ??
-        (race.lanUrls.includes(name) ? leftOut : "not raced")
+      outcome: outcomeOf(
+        race.raced.find((each) => each.url === name),
+        race.lanUrls.includes(name) ? leftOut : "not raced",
       ).slice(0, wordsMost),
     })),
     reached: (race.directOrigin === undefined ? "webrtc" : `direct ${race.directOrigin}`).slice(
@@ -114,7 +124,11 @@ export const pairsSettleMs = 5_000;
 export interface PathChoiceTold {
   /** The session's token once the wait is over; nothing is sent without one. */
   readonly token: () => string | undefined;
-  readonly choice: PathChoice;
+  /**
+   * The choice, read once the wait is over, as a race WebRTC won may end after the page took it
+   * (D414 §4); undefined where the page has none to tell.
+   */
+  readonly choice: () => PathChoice | undefined;
   readonly transport?:
     { readonly candidatePairs: () => Promise<readonly CandidatePairSeen[]> } | undefined;
 }
@@ -122,7 +136,8 @@ export interface PathChoiceTold {
 /**
  * Tells the core's log how the page chose its path, once pairsSettleMs have passed, sent over send
  * with the session's token then: over WebRTC with the candidate pairs of the transport's connection.
- * Nothing is sent from a page with no session by then; a failure to send is the caller's to drop.
+ * Nothing is sent from a page with no session by then, or no choice; a failure to send is the caller's
+ * to drop.
  */
 export async function reportPathChoice(
   send: FetchRequest,
@@ -134,15 +149,16 @@ export async function reportPathChoice(
 ): Promise<void> {
   await wait(pairsSettleMs);
   const held = told.token();
-  if (held === undefined) {
+  const choice = told.choice();
+  if (held === undefined || choice === undefined) {
     return;
   }
   const webrtcPairs = (await told.transport?.candidatePairs()) ?? [];
   const api = createApi({ getToken: () => held, fetch: send });
   await api.POST("/client-paths", {
     body: {
-      ...told.choice,
-      names: [...told.choice.names],
+      ...choice,
+      names: [...choice.names],
       ...(webrtcPairs.length === 0 ? {} : { webrtcPairs: [...webrtcPairs] }),
     },
   });

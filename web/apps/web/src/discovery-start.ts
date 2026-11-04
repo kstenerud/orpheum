@@ -260,7 +260,10 @@ export type Reached =
  */
 export interface Reaching {
   readonly first: Reached;
-  /** How the first path was chosen, and why, for the core's log (path-choice.ts). */
+  /**
+   * How the first path was chosen, and why, for the core's log (path-choice.ts): read once the race
+   * has ended, which it may do after WebRTC was taken (D414 §4).
+   */
   readonly choice: PathChoice;
   readonly another: (failed: Reached) => Promise<Reached>;
   readonly better: (current: Reached) => Promise<Reached | undefined>;
@@ -290,7 +293,8 @@ function rankOf(target: Target, path: Reached): number {
 
 /**
  * Reaches the target: at the first of its published names to answer, else over WebRTC through the
- * discovery (the protocol's §3.3; W2c, which races the names and then falls back). Its WebRTC
+ * discovery (the protocol's §3.3; W2c, which races the names and then falls back), started
+ * webrtcAfterMs into the race where no name has answered by then (D414 §4). Its WebRTC
  * connection, once made, serves every later move to WebRTC. The LAN name is tried as the browser's
  * local-network permission allows (W2c item 1): never once denied, and while the browser is still to
  * ask, asked once to raise the prompt, the race never waiting on it (raced); the look for a better
@@ -303,31 +307,26 @@ export async function reachCore(
 ): Promise<Reaching> {
   const notLan = (urls: readonly string[]): readonly string[] =>
     urls.filter((url) => !target.lanUrls.includes(url));
-  let webrtc: Promise<Reached> | undefined;
-  const overWebrtc = (): Promise<Reached> => {
-    webrtc ??= connectThrough(client, target).then(
-      (transport): Reached => ({ kind: "webrtc", transport }),
-      (problem: unknown) => {
-        webrtc = undefined;
-        throw problem;
-      },
-    );
-    return webrtc;
-  };
+  const webrtc = webrtcThrough(client, target);
   const direct = async (urls: readonly string[]): Promise<Reached | undefined> => {
     const origin = await firstDirectPath(urls, client.fetch);
     return origin === undefined ? undefined : { kind: "direct", origin };
   };
   const state = await localNetwork.state();
-  const race = await firstRace(client, target, state);
-  const first = race.first ?? (await overWebrtc());
+  const race = firstRace(client, target, state);
+  const first = await firstPath(race.first, race.hasAnswered, webrtc.connect);
+  if (first.kind === "direct") {
+    webrtc.drop();
+  }
   // Whether the page is in the house: its LAN name answered. There WebRTC finds the LAN pair, and
   // the core's public names are never better than it: through them the page is away, with no admin
   // (D300 §4; the owner's Firefox at home, 2026-10-15, moved to the public IPv6 name and lost admin).
   let isAtHome = isLanOf(target, first);
   return {
     first,
-    choice: race.choice(first),
+    get choice(): PathChoice {
+      return race.choice(first);
+    },
     another: async (failed) => {
       const others = target.directUrls.filter(
         (url) => failed.kind !== "direct" || new URL(url).origin !== failed.origin,
@@ -337,7 +336,7 @@ export async function reachCore(
       // names would take it out through the VPS, away from admin (D300 §4).
       if (isLanOf(target, failed)) {
         isAtHome = true;
-        return await overWebrtc().catch(async (problem: unknown) => {
+        return await webrtc.connect().catch(async (problem: unknown) => {
           const named = await direct(others);
           if (named === undefined) {
             throw problem;
@@ -345,7 +344,7 @@ export async function reachCore(
           return named;
         });
       }
-      return (await direct(others)) ?? (await overWebrtc());
+      return (await direct(others)) ?? (await webrtc.connect());
     },
     better: async (current) => {
       const state = await localNetwork.state();
@@ -364,16 +363,123 @@ export async function reachCore(
 }
 
 /**
- * The first race of the target's names, as the browser's local-network permission, state, allows: the
- * name that answered, if one did, and how the choice of the path taken, first, was made and why. The
- * target's tellRaced hears what came of each name once the race is decided, and its tellIpv6Probe,
- * when the discovery named an IPv6 probe, what fetching it beside the race judged.
+ * The page's one WebRTC connection through the discovery to the target, made when first asked for
+ * and again after one fails; drop closes one made beside the first race that a name won (D414 §4),
+ * and a later move to WebRTC makes its own.
  */
-async function firstRace(
+function webrtcThrough(
+  client: DiscoveryClient,
+  target: Target,
+): { readonly connect: () => Promise<Reached>; readonly drop: () => void } {
+  let webrtc: Promise<Reached> | undefined;
+  return {
+    connect: () => {
+      webrtc ??= connectThrough(client, target).then(
+        (transport): Reached => ({ kind: "webrtc", transport }),
+        (problem: unknown) => {
+          webrtc = undefined;
+          throw problem;
+        },
+      );
+      return webrtc;
+    },
+    drop: () => {
+      const spare = webrtc;
+      webrtc = undefined;
+      void spare?.then(
+        (path) => {
+          if (path.kind === "webrtc") {
+            path.transport.close();
+          }
+        },
+        () => undefined,
+      );
+    },
+  };
+}
+
+/**
+ * How long into the first race of the core's names WebRTC starts beside it where no name has answered
+ * yet (D414 §4): RFC 8305's Connection Attempt Delay. At home the LAN name answers well inside it;
+ * away, a name whose packets vanish cost its whole directPathWaitMs, 3 s, before WebRTC began.
+ */
+export const webrtcAfterMs = 250;
+
+/**
+ * The first path: the name the race took, or WebRTC, started webrtcAfterMs into the race where no
+ * name has answered by then, and at once when the race ends with none; whichever is reached first.
+ * It fails when neither is.
+ */
+function firstPath(
+  raced: Promise<Reached | undefined>,
+  hasAnswered: () => boolean,
+  overWebrtc: () => Promise<Reached>,
+): Promise<Reached> {
+  return new Promise((resolve, reject) => {
+    let isDone = false;
+    let isRaceOver = false;
+    let webrtcState: "notStarted" | "started" | { readonly failed: unknown } = "notStarted";
+    const take = (path: Reached): void => {
+      if (!isDone) {
+        isDone = true;
+        clearTimeout(timer);
+        resolve(path);
+      }
+    };
+    const fail = (problem: unknown): void => {
+      if (!isDone) {
+        isDone = true;
+        reject(problem instanceof Error ? problem : new Error(String(problem)));
+      }
+    };
+    const startWebrtc = (): void => {
+      if (webrtcState !== "notStarted" || isDone) {
+        return;
+      }
+      webrtcState = "started";
+      overWebrtc().then(take, (problem: unknown) => {
+        webrtcState = { failed: problem };
+        if (isRaceOver) {
+          fail(problem);
+        }
+      });
+    };
+    const timer = setTimeout(() => {
+      if (!hasAnswered()) {
+        startWebrtc();
+      }
+    }, webrtcAfterMs);
+    void raced.then((first) => {
+      isRaceOver = true;
+      clearTimeout(timer);
+      if (first !== undefined) {
+        take(first);
+      } else if (webrtcState === "notStarted") {
+        startWebrtc();
+      } else if (webrtcState !== "started") {
+        fail(webrtcState.failed);
+      }
+    });
+  });
+}
+
+/**
+ * The first race of the target's names, as the browser's local-network permission, state, allows: the
+ * name that answered, if one did, whether one has answered yet, and how the choice of the path
+ * taken, first, was made and why. The target's tellRaced hears what came of each name
+ * once the race is decided, and its tellIpv6Probe, when the discovery named an IPv6 probe, what
+ * fetching it beside the race judged.
+ */
+function firstRace(
   client: DiscoveryClient,
   target: Target,
   state: LocalNetworkState,
-): Promise<{ readonly first?: Reached; readonly choice: (first: Reached) => PathChoice }> {
+): {
+  readonly first: Promise<Reached | undefined>;
+  readonly hasAnswered: () => boolean;
+  readonly choice: (first: Reached) => PathChoice;
+} {
+  let hasAnswered = false;
   let outcomes: readonly DirectOutcome[] = [];
   if (target.ipv6Probe !== undefined) {
     // Beside the race, never waited on: what it judges is heard whenever it ends (D398 §7).
@@ -381,10 +487,13 @@ async function firstRace(
       target.tellIpv6Probe?.(judged);
     });
   }
-  const origin = await firstDirectPath(raced(target, state, client.fetch), client.fetch, {
+  const origin = firstDirectPath(raced(target, state, client.fetch), client.fetch, {
     tell: (told) => {
       outcomes = told;
       target.tellRaced?.(told);
+    },
+    answered: () => {
+      hasAnswered = true;
     },
   });
   const choice = (first: Reached): PathChoice =>
@@ -395,7 +504,13 @@ async function firstRace(
       userAgent: globalThis.navigator.userAgent,
       directOrigin: first.kind === "direct" ? first.origin : undefined,
     });
-  return origin === undefined ? { choice } : { first: { kind: "direct", origin }, choice };
+  return {
+    first: origin.then((answering) =>
+      answering === undefined ? undefined : { kind: "direct", origin: answering },
+    ),
+    hasAnswered: () => hasAnswered,
+    choice,
+  };
 }
 
 /**

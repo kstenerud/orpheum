@@ -100,10 +100,28 @@ describe("why a page took its path to the core (local-path-2026-10-27.md §4 ite
       lanOffered: 1,
       names: [
         { name: lan, outcome: "left out: the local-network permission is denied" },
-        { name: ipv6, outcome: "answered" },
+        { name: ipv6, outcome: expect.stringMatching(/^answered \(\d+ ms\)$/u) as string },
       ],
       reached: `direct ${ipv6}`,
     });
+  });
+
+  it("says how long each raced name took to answer or fail (D414 §4)", () => {
+    const choice = pathChoiceOf({
+      directUrls: [lan, ipv6],
+      lanUrls: [lan],
+      raced: [
+        { url: lan, outcome: "failed: no answer within 3000 ms", afterMs: 3001 },
+        { url: ipv6, outcome: "answered", afterMs: 42 },
+      ],
+      localNetwork: "granted",
+      userAgent: "",
+      directOrigin: ipv6,
+    });
+    expect(choice.names.map((each) => each.outcome)).toEqual([
+      "failed: no answer within 3000 ms (3001 ms)",
+      "answered (42 ms)",
+    ]);
   });
 });
 
@@ -143,7 +161,7 @@ describe("telling the core how the page chose its path", () => {
       keeping(sent),
       {
         token: () => signedIn.token,
-        choice,
+        choice: () => choice,
         transport: { candidatePairs: () => Promise.resolve([pair]) },
       },
       (ms) => {
@@ -166,11 +184,11 @@ describe("telling the core how the page chose its path", () => {
   it("sends nothing for a page with no session, and no pairs for a direct path", async () => {
     const sent: { path: string; authorization: string | null; body: unknown }[] = [];
     const now = (): Promise<void> => Promise.resolve();
-    await reportPathChoice(keeping(sent), { token: () => undefined, choice }, now);
+    await reportPathChoice(keeping(sent), { token: () => undefined, choice: () => choice }, now);
     expect(sent).toEqual([]);
     await reportPathChoice(
       keeping(sent),
-      { token: () => "a-token", choice: { ...choice, reached: `direct ${ipv6}` } },
+      { token: () => "a-token", choice: () => ({ ...choice, reached: `direct ${ipv6}` }) },
       now,
     );
     expect(sent.map((each) => each.body)).toEqual([{ ...choice, reached: `direct ${ipv6}` }]);
