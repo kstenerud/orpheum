@@ -26066,3 +26066,27 @@ and all of that including the search are additive to that filter."
 - 2: web/apps/web/src/alphabet-rail.test.tsx
 
 **Status:** Decided 2026-11-04. Built in the UI revamp's first wave.
+
+
+## D418 — The player fills the window on every device, its controls over the picture; a title page arrives on its main action, or on More
+
+**Decided** (2026-11-04), by the project owner, answering the questions the UI revamp's first wave
+raised (ui-audit-2026-11-04.md §3, "The player" and "A film's page"). **Amends** D407 §9.
+
+1. **The player fills the window on every device,** computers and phones included, with its
+   controls drawn over the picture as in full screen; the page under it does not scroll. D407 §9's
+   controls below the video, with nothing drawn over it, go.
+2. **The first press stays D410's:** "Focus goes to the scrub bar. Pressing select on the scrub bar
+   does pause/play (updating the icon). left/right skips forward/back." The audit's "first press
+   shows them with play/pause focused" is not followed.
+3. **The way up from the player is the overlay's ‹ and the title,** the Play page's trail hidden
+   under the film ("Yes, overlay only").
+4. **The player's Settings holds Play the original as its quality entry;** no quality chooser in
+   this batch.
+5. **A title page's technical detail lives in one place,** the section below its cast; More holds
+   no File details.
+6. **An episode's Next episode starts playing it.**
+7. **A title page with nothing to play arrives on More,** so an OK opens a menu and never changes
+   anything.
+
+**Status:** Decided 2026-11-04; not built (the UI revamp's first wave builds it).
