@@ -12,6 +12,7 @@ import { Icon } from "./icon.tsx";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { dataOrThrow, fieldProblemText } from "./problem.ts";
+import { SaveNote, shownSaveState } from "./save-note.tsx";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
@@ -57,6 +58,39 @@ export function parseSettingText(kind: Setting["kind"], text: string): SettingVa
     return text === "true";
   }
   return kind === "integer" ? Number(text) : text;
+}
+
+/**
+ * A setting's or a key's name in the person's words, shown above its field: the catalogue's, or its
+ * key where the catalogue has none (ui-audit-2026-11-04.md §3, Settings).
+ */
+export function settingLabel(
+  t: TFunction,
+  catalogue: "labels" | "secretLabels",
+  key: string,
+): string {
+  return t(`settings.${catalogue}.${camelKey(key)}`, { defaultValue: key });
+}
+
+/**
+ * The top of a setting's row, in one column (ui-audit-2026-11-04.md §3): its name in the person's
+ * words, which names its field and its row, and its key in small type under it.
+ */
+export function RowName(props: {
+  /** The id its row and field are named by. */
+  readonly id: string;
+  readonly fieldId: string;
+  readonly label: string;
+  readonly settingKey: string;
+}): JSX.Element {
+  return (
+    <>
+      <label className="settings__label" id={props.id} htmlFor={props.fieldId}>
+        {props.label}
+      </label>
+      <code className="settings__key">{props.settingKey}</code>
+    </>
+  );
 }
 
 /** What a setting is for, in the person's words: the catalogue's, or the server's for one it lacks. */
@@ -209,6 +243,7 @@ function useSavedField(
 
 /** The field a setting's value is typed or chosen in, by its kind. */
 function ValueField(props: {
+  readonly id: string;
   readonly setting: Setting;
   readonly text: string;
   readonly onText: (text: string) => void;
@@ -218,6 +253,7 @@ function ValueField(props: {
   if (setting.kind === "bool") {
     return (
       <input
+        id={props.id}
         type="checkbox"
         aria-labelledby={`setting-${setting.key}`}
         checked={props.text === "true"}
@@ -232,6 +268,7 @@ function ValueField(props: {
   }
   return (
     <input
+      id={props.id}
       className="settings__value"
       type={setting.kind === "integer" ? "number" : "text"}
       aria-labelledby={`setting-${setting.key}`}
@@ -320,20 +357,25 @@ function RowControls(props: {
 }
 
 /**
- * One setting's row: its key, its value, what it is for, and a way back to its starting value. A
- * change is saved without a button: a choice at once, typing on Enter or on leaving the field, the
- * page included.
+ * One setting's row, in one column: its name, its key in small type under it, then its value with
+ * what it is for and a way back to its starting value, then how its last change went. A change is
+ * saved without a button (the owner, 2026-11-04, Q5): a choice at once, typing on Enter or on
+ * leaving the field, the page included; "Saved" says it was, or the refusal shows in its place.
  */
 const SettingRow = memo(function SettingRow(props: {
   readonly setting: Setting;
   /** Why the server refused this setting's last change; "" when it did not. */
   readonly problem: string;
+  /** Whether its last change was saved, so it says so. */
+  readonly isSaved: boolean;
   readonly isResetting: boolean;
   readonly onSave: (key: string, value: SettingValue) => void;
   readonly onReset: (key: string) => void;
 }): JSX.Element {
+  const { t } = useTranslation();
   const { setting } = props;
   const { text, setText, commit } = useSavedField(setting, props.onSave);
+  const fieldId = `setting-field-${setting.key}`;
   return (
     <form
       className="settings__row"
@@ -343,16 +385,17 @@ const SettingRow = memo(function SettingRow(props: {
         commit();
       }}
     >
-      <code className="settings__key" id={`setting-${setting.key}`}>
-        {setting.key}
-      </code>
-      <ValueField setting={setting} text={text} onText={setText} onCommit={commit} />
-      <RowControls setting={setting} isResetting={props.isResetting} onReset={props.onReset} />
-      {props.problem === "" ? null : (
-        <p className="settings__problem" role="alert">
-          {props.problem}
-        </p>
-      )}
+      <RowName
+        id={`setting-${setting.key}`}
+        fieldId={fieldId}
+        label={settingLabel(t, "labels", setting.key)}
+        settingKey={setting.key}
+      />
+      <span className="settings__field">
+        <ValueField id={fieldId} setting={setting} text={text} onText={setText} onCommit={commit} />
+        <RowControls setting={setting} isResetting={props.isResetting} onReset={props.onReset} />
+      </span>
+      <SaveNote state={shownSaveState(props.problem, props.isSaved)} />
     </form>
   );
 });
@@ -404,6 +447,8 @@ export function SettingsView(props: {
   readonly search: string;
   /** Why the server refused a setting's last change, by key. */
   readonly problems: ReadonlyMap<string, string>;
+  /** The settings whose last change was saved, which say so. */
+  readonly saved?: ReadonlySet<string>;
   /** The settings a reset of is running, whose bins wait. */
   readonly resetting: ReadonlySet<string>;
   readonly onSave: (key: string, value: SettingValue) => void;
@@ -428,6 +473,7 @@ export function SettingsView(props: {
               key={setting.key}
               setting={setting}
               problem={props.problems.get(setting.key) ?? ""}
+              isSaved={props.saved?.has(setting.key) ?? false}
               isResetting={props.resetting.has(setting.key)}
               onSave={props.onSave}
               onReset={props.onReset}
@@ -440,7 +486,7 @@ export function SettingsView(props: {
 }
 
 /** A set with value added, or taken out. */
-function withMember(
+export function withMember(
   set: ReadonlySet<string>,
   value: string,
   isMember: boolean,
@@ -461,6 +507,7 @@ function withMember(
 function useSettingChanges(loaded: readonly Setting[]): {
   readonly settings: readonly Setting[];
   readonly problems: ReadonlyMap<string, string>;
+  readonly saved: ReadonlySet<string>;
   readonly resetting: ReadonlySet<string>;
   readonly save: (key: string, value: SettingValue) => void;
   readonly reset: (key: string) => void;
@@ -470,7 +517,8 @@ function useSettingChanges(loaded: readonly Setting[]): {
   const [settings, setSettings] = useState(loaded);
   const [problems, setProblems] = useState<ReadonlyMap<string, string>>(() => new Map());
   const [resetting, setResetting] = useState<ReadonlySet<string>>(() => new Set());
-  /** Takes the server's answer for one setting, or why it refused, beside it. */
+  const [saved, setSaved] = useState<ReadonlySet<string>>(() => new Set());
+  /** Takes the server's answer for one setting, or why it refused, beside it; it says it saved. */
   const settle = useCallback(
     async (key: string, send: () => Promise<Setting | undefined>): Promise<void> => {
       let problem = "";
@@ -485,6 +533,7 @@ function useSettingChanges(loaded: readonly Setting[]): {
       setProblems((previous) =>
         (previous.get(key) ?? "") === problem ? previous : new Map(previous).set(key, problem),
       );
+      setSaved((previous) => withMember(previous, key, problem === ""));
     },
     [t],
   );
@@ -515,7 +564,7 @@ function useSettingChanges(loaded: readonly Setting[]): {
     },
     [api, settle],
   );
-  return { settings, problems, resetting, save, reset };
+  return { settings, problems, saved, resetting, save, reset };
 }
 
 /** The settings as loaded, each saved or reset on its own. */
@@ -531,6 +580,7 @@ function ChangingSettings(props: {
       search={props.search}
       settings={changes.settings}
       problems={changes.problems}
+      saved={changes.saved}
       resetting={changes.resetting}
       onSave={changes.save}
       onReset={changes.reset}
