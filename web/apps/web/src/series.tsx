@@ -21,6 +21,7 @@ import { MoreActions, type MoreAction } from "./more-actions.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
 import { StatusNotes, StatusTray } from "./status-cues.tsx";
 import { PosterCard, PosterDetail } from "./poster-card.tsx";
+import { PosterRow } from "./poster-row.tsx";
 import { Poster, Still } from "./poster.tsx";
 import { Link } from "./link.tsx";
 import { ActionChooser, currentLabelOf, type ActionChoice } from "./route-chooser.tsx";
@@ -448,12 +449,7 @@ function SeasonRow(props: { readonly series: SeriesDetail; readonly shown: Seaso
     }
   }, [shown.seasonNumber]);
   return (
-    <ul
-      ref={rowRef}
-      className="poster-row series__seasons"
-      aria-label={t("title.seasons")}
-      data-focus-container=""
-    >
+    <PosterRow listRef={rowRef} className="series__seasons" label={t("title.seasons")}>
       {(series.seasons ?? []).map((season) => (
         <PosterCard
           key={season.seasonNumber}
@@ -472,7 +468,7 @@ function SeasonRow(props: { readonly series: SeriesDetail; readonly shown: Seaso
           cues={<StatusTray subject={{ isWatched: season.isWatched }} />}
         />
       ))}
-    </ul>
+    </PosterRow>
   );
 }
 

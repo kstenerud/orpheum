@@ -26,4 +26,9 @@ export const enNavigation = {
   dropDown: {
     close: "Close",
   },
+  /** A poster row's arrows, for a mouse (poster-row.tsx). */
+  posterRow: {
+    scrollBack: "Scroll left",
+    scrollOn: "Scroll right",
+  },
 };

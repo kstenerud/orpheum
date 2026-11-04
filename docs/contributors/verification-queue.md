@@ -2540,3 +2540,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   wait two minutes and open System as admin. Passes when **Resource use** shows a summary and an
   hour for *The server* and for *Media node* with CPU and memory figures, not "Nothing is measured
   yet". (`cmd/orpheum/metadata.go`'s `startUpkeep`)
+- [ ] **VQ258** — a poster row's arrows show for a mouse alone (the owner, 2026-11-04: rows a mouse
+  without a sideways wheel could not browse). The browser test hovers a headless desktop browser;
+  what a real device's pointer reports is seen only on it. On staging: (1) on a computer with a
+  mouse, Home's *New films* with more posters than fit: hovering the row shows a right arrow, a
+  click moves the row about its width less one poster onto a poster's edge, a left arrow then
+  shows, and neither shows with the pointer off the row; (2) on the Fire TV, Home and a series'
+  seasons show no arrow, and Left, Right, Up and Down move along and between the rows as before,
+  never stopping on an arrow; (3) on the Pixel, the rows show no arrow and swipe as before. Passes
+  when all three hold. (`web/apps/web/src/poster-row.tsx`, `poster-row.css`)

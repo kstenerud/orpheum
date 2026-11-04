@@ -11,3 +11,11 @@
 .home__row h2 {
   margin-block-start: 0;
 }
+
+/* A newest row's heading, its See all at the end of the line. */
+.home__row-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}

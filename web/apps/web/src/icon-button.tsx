@@ -40,8 +40,15 @@ export function IconButton(props: {
    * motion); "applied", a filter it opens is applied, the accent. Unmarked, the region's colour.
    */
   readonly mark?: "running" | "applied" | undefined;
+  /**
+   * Whether only a pointer uses it (a poster row's arrows, poster-row.tsx): out of Tab's order and a
+   * remote's (focus-engine.ts takes no element with a negative tabindex), and a press leaves focus
+   * where it was, as what it does a keyboard or a remote already does another way.
+   */
+  readonly isPointerOnly?: boolean | undefined;
 }): JSX.Element {
   const { ref, label, icon, onClick, isOverVideo, isExpanded, isDisabled, isOnCard, mark } = props;
+  const isPointerOnly = props.isPointerOnly === true;
   const classes = ["icon-button"];
   if (isOverVideo === true) {
     classes.push("icon-button--over-video");
@@ -60,6 +67,14 @@ export function IconButton(props: {
       aria-label={label}
       aria-expanded={isExpanded}
       disabled={isDisabled}
+      tabIndex={isPointerOnly ? -1 : undefined}
+      onMouseDown={
+        isPointerOnly
+          ? (event) => {
+              event.preventDefault();
+            }
+          : undefined
+      }
       onClick={onClick}
     >
       {icon}
