@@ -78,11 +78,6 @@
   height: 1.5rem;
 }
 
-/* As an iPhone without headphones talks: a notice, its edge the warning yellow (the owner, 2026-10-11). */
-.together-voice__headphones {
-  border-block-start-color: var(--color-warning);
-}
-
 /* The browser plays no voice until its person taps: the one tap it waits for, plain to see. */
 .together-voice__tap {
   justify-self: start;

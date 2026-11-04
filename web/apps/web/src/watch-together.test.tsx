@@ -172,7 +172,7 @@ describe("the host's Watch Together dialog (D246 §3, §5; D384 §2)", () => {
     );
     const mounted = await mount(withServices(<WatchTogether />, services));
     await click(buttonWithText(mounted.container, "Invite someone"));
-    const dialog = mounted.container.querySelector("dialog.watch-together__dialog");
+    const dialog = mounted.container.querySelector(".watch-together__dialog")?.closest("dialog");
     expect(dialog).not.toBeNull();
     // On the backdrop: the press reaches the dialog itself, at a point outside its box.
     await act(async () => {
@@ -400,9 +400,9 @@ describe("the host's Watch Together dialog (D246 §3, §5; D384 §2)", () => {
     await enter(film?.querySelector("input"), "30");
     expect(filmVolume()).toBe(0.3);
     await click(rowStarting(mounted.container, "Gran (Grandma)"));
-    const dialog = mounted.container.querySelector<HTMLElement>(
-      '.watch-together__dialog[aria-label="Gran"]',
-    );
+    const dialog = mounted.container
+      .querySelector(".watch-together__dialog")
+      ?.closest<HTMLElement>('dialog[aria-label="Gran"]');
     expect(dialog?.textContent).toContain("Gran's voice");
     await click(
       (dialog ?? mounted.container).querySelector<HTMLButtonElement>(".modal-dialog__close button"),

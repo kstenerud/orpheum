@@ -55,7 +55,9 @@ const backgroundAnswers: Answers = {
 async function signOutByMenu(container: HTMLElement): Promise<void> {
   await click(container.querySelector(".app-shell__menu-button"));
   await click(buttonWithText(container, "Sign out"));
-  const asked = container.querySelector<HTMLElement>(".app-shell__sign-out-asked");
+  const asked = container.querySelector<HTMLElement>(
+    'dialog[aria-label="Sign out of this device?"]',
+  );
   await click(asked === null ? undefined : buttonWithText(asked, "Sign out"));
 }
 

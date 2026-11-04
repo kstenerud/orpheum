@@ -28,11 +28,7 @@ export function TogetherDialog(props: { readonly onClose: () => void }): JSX.Ele
   const isHosting = useMembership(tabStorage, "host") !== undefined;
   const viewing = useMembership(browserStorage, "viewer");
   return (
-    <ModalDialog
-      label={t("watchTogether.heading")}
-      onClose={props.onClose}
-      className="together-dialog"
-    >
+    <ModalDialog label={t("watchTogether.heading")} onClose={props.onClose}>
       <section className="watch-together" aria-labelledby="watch-together-heading">
         <h2 id="watch-together-heading">{t("watchTogether.heading")}</h2>
         {viewing !== undefined && !isHosting ? (

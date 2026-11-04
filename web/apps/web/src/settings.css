@@ -137,11 +137,6 @@
   color: var(--color-warning);
 }
 
-/* What a setting is for: a modal sized to the screen, scrolling inside where it is long. */
-.settings__about {
-  width: min(36rem, 92vw);
-}
-
 .settings__about-name {
   margin-block-start: 0;
   font-size: var(--font-size-h3);

@@ -311,12 +311,14 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     await drawn("dialog .list-box button");
     expect(focusedName()).toBe("Identified incorrectly");
     await press("{Enter}");
-    await drawn("dialog.match-correction");
+    await drawn('dialog[aria-label="Identified incorrectly"]');
     expect(document.querySelectorAll("dialog")).toHaveLength(1);
     expect(await pressUntil("{ArrowDown}", () => focusedName() === "Enter manually")).toBe(true);
     await press("{Enter}");
-    await drawn(".match-correction li button");
-    const inDialog = focusTargetsIn(document.querySelector("dialog.match-correction") ?? document);
+    await drawn('dialog[aria-label="Identified incorrectly"] li button');
+    const inDialog = focusTargetsIn(
+      document.querySelector('dialog[aria-label="Identified incorrectly"]') ?? document,
+    );
     const first = inDialog[0];
     const reached = first === undefined ? new Set<Element>() : await reachedFrom(first, press);
     expect(
@@ -766,16 +768,16 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
       ),
     );
     // Its code loads as the dialog is first shown (later-screens.tsx).
-    await drawn("dialog.together-dialog[open]");
+    await drawn('dialog[aria-label="Watch Together"][open]');
     expect(walking.services.navigation.route()).toEqual({ screen: "home" });
     try {
       expect(await pressUntil("{ArrowDown}", () => focusedName() === "Start a session")).toBe(true);
       await press("{Enter}");
       await expect.poll(() => document.body.textContent).toContain("Grandma");
       await press("{ArrowDown}");
-      expect(await unreachedIn("dialog.together-dialog")).toEqual([]);
+      expect(await unreachedIn('dialog[aria-label="Watch Together"]')).toEqual([]);
       const invite = [
-        ...document.querySelectorAll<HTMLElement>("dialog.together-dialog button"),
+        ...document.querySelectorAll<HTMLElement>('dialog[aria-label="Watch Together"] button'),
       ].find((button) => button.textContent === "Invite someone");
       invite?.focus();
       await press("{Enter}");

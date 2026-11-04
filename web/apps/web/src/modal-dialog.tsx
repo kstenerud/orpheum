@@ -30,7 +30,13 @@ interface ModalDialogProps {
    * point is typing, as an invitation's who-it-is-for (the owner, 2026-10-12).
    */
   readonly shouldFocusFirstField?: boolean;
-  readonly className?: string;
+  /**
+   * Whether it is wide, 40rem where the screen has room, not a notice's 26rem: a path and its
+   * folders (the folder browser), or what a setting is for, need room.
+   */
+  readonly isWide?: boolean;
+  /** What its top edge says, where it says anything: "warning", a notice in the warning yellow. */
+  readonly mark?: "warning";
   readonly children: ReactNode;
 }
 
@@ -39,7 +45,8 @@ interface ModalDialogProps {
  * modal ... darken the rest"): the modal layer (modal-layer.tsx: the browser's own modal, Escape,
  * Back, a press outside, focus given back) in the middle of a darkened screen, the arrows moving
  * among its own controls alone (focus-navigation.ts), with the standard Close, a cross at its
- * top-right, and its own width. Focus arrives, as it opens, on its first choice not marked a
+ * top-right, and its own width, wide or not (isWide). It takes no class from where it is drawn: its
+ * looks are named options (plans/toolkit.md). Focus arrives, as it opens, on its first choice not marked a
  * dangerous action (dangerousMark), or, where every choice is, on none: on the dialog itself (D421).
  * A pop-up is not one (popover.tsx, D408 §2).
  */
@@ -52,11 +59,23 @@ export function ModalDialog(props: ModalDialogProps): JSX.Element {
     toldRef.current = props;
   });
   useModalLayer(ref, toldRef);
-  const classes = ["modal-dialog", props.className].filter(Boolean).join(" ");
+  const classes = ["modal-dialog"];
+  if (props.isWide === true) {
+    classes.push("modal-dialog--wide");
+  }
+  if (props.mark !== undefined) {
+    classes.push(`modal-dialog--${props.mark}`);
+  }
   return (
     // tabIndex -1: a dialog taller than the window scrolls, and a box that scrolls is a Tab stop of its
     // own in Chromium and Firefox, reached as nothing (the Cast and Watch Together dialogs, 2026-11-04).
-    <dialog ref={ref} className={classes} role={props.role} aria-label={props.label} tabIndex={-1}>
+    <dialog
+      ref={ref}
+      className={classes.join(" ")}
+      role={props.role}
+      aria-label={props.label}
+      tabIndex={-1}
+    >
       {props.children}
       {/* After what it holds, and never where focus arrives (D421); drawn at the top-right. */}
       <StandardClose toldRef={toldRef} />

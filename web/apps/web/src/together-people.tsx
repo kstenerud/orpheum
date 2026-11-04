@@ -71,17 +71,18 @@ export function ActionDialog(props: {
 }): JSX.Element {
   return (
     <ModalDialog
-      className="watch-together__dialog"
       label={props.heading}
       onClose={props.onClose}
       // A press outside closes it: what it holds is a few words and two ticks, nothing worth a guard
       // against a stray press (the owner, 2026-10-29: "losing it isn't a big deal").
       shouldFocusFirstField={props.shouldFocusFirstField === true}
     >
-      <div className="watch-together__dialog-head">
-        <h2>{props.heading}</h2>
+      <div className="watch-together__dialog">
+        <div className="watch-together__dialog-head">
+          <h2>{props.heading}</h2>
+        </div>
+        {props.children}
       </div>
-      {props.children}
     </ModalDialog>
   );
 }

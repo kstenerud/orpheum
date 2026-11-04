@@ -336,3 +336,32 @@ describe("where a dialog's focus arrives as it opens (D421)", () => {
     bare.unmount();
   });
 });
+
+// plans/toolkit.md: a dialog takes no class from where it is drawn; its looks are named options, so
+// the owner reviews the dialogs together.
+describe("a modal dialog's looks, named options rather than a class", () => {
+  it("is wider when wide, and its top edge the warning yellow when so marked", async () => {
+    const plain = await mount(
+      withServices(
+        <ModalDialog label="Plain" onClose={() => undefined}>
+          <p>words</p>
+        </ModalDialog>,
+      ),
+    );
+    const plainBox = document.querySelector("dialog[open]");
+    const plainWidth = plainBox?.getBoundingClientRect().width ?? 0;
+    const plainEdge = plainBox === null ? "" : getComputedStyle(plainBox).borderTopColor;
+    plain.unmount();
+    const wide = await mount(
+      withServices(
+        <ModalDialog label="Wide" isWide mark="warning" onClose={() => undefined}>
+          <p>words</p>
+        </ModalDialog>,
+      ),
+    );
+    const wideBox = document.querySelector("dialog[open]");
+    expect(wideBox?.getBoundingClientRect().width ?? 0).toBeGreaterThan(plainWidth);
+    expect(wideBox === null ? "" : getComputedStyle(wideBox).borderTopColor).not.toBe(plainEdge);
+    wide.unmount();
+  });
+});

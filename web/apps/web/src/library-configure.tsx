@@ -49,7 +49,6 @@ export function LibraryConfigure(props: { readonly library: LibraryBody }): JSX.
       />
       {isOpen ? (
         <ModalDialog
-          className="library-configure"
           label={t("libraryConfigure.heading", { library: props.library.name })}
           onClose={close}
         >
