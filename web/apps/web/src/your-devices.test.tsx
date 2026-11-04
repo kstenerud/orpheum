@@ -3,6 +3,7 @@
 
 import "./i18n.ts";
 
+import { act } from "react";
 import { expect, it } from "vitest";
 
 import { buttonWithText, click, mount } from "./test-dom.tsx";
@@ -32,6 +33,66 @@ it("removes a device only when asked again, its button in the irreversible red",
   );
   await click(buttonWithText(mounted.container, "Remove it"));
   expect(removed).toEqual([5]);
+  mounted.unmount();
+});
+
+/** count devices, the server's order, most recently used first; the first is this one. */
+function devicesUsed(count: number): ReturnType<typeof television>[] {
+  return Array.from({ length: count }, (_, at) =>
+    television({ id: at + 1, name: `Device ${String(at + 1)}`, isThisDevice: at === 0 }),
+  );
+}
+
+/** The names of the devices listed in container, in its order. */
+function listedNames(container: HTMLElement): string[] {
+  return [...container.querySelectorAll(".your-devices__device .your-devices__name")].map(
+    (name) => name.firstChild?.textContent ?? "",
+  );
+}
+
+it("shows the five most recently used, and All devices (N) opens every one in their place", async () => {
+  const mounted = await mount(
+    withServices(
+      <YourDevices
+        devices={{ state: "loaded", value: devicesUsed(7) }}
+        onChanged={() => undefined}
+        canManage
+      />,
+    ),
+  );
+  expect(listedNames(mounted.container)).toEqual([
+    "Device 1",
+    "Device 2",
+    "Device 3",
+    "Device 4",
+    "Device 5",
+  ]);
+  const all = mounted.container.querySelector("details.your-devices__all");
+  expect(all?.querySelector("summary")?.textContent).toBe("All devices (7)");
+  expect(buttonWithText(mounted.container, "Sign out everywhere else")).toBeDefined();
+  await act(async () => {
+    all?.setAttribute("open", "");
+    all?.dispatchEvent(new Event("toggle"));
+    await Promise.resolve();
+  });
+  expect(listedNames(mounted.container)).toEqual(
+    Array.from({ length: 7 }, (_, at) => `Device ${String(at + 1)}`),
+  );
+  mounted.unmount();
+});
+
+it("shows every device, and no All devices, while there are five or fewer", async () => {
+  const mounted = await mount(
+    withServices(
+      <YourDevices
+        devices={{ state: "loaded", value: devicesUsed(5) }}
+        onChanged={() => undefined}
+        canManage
+      />,
+    ),
+  );
+  expect(listedNames(mounted.container)).toHaveLength(5);
+  expect(mounted.container.querySelector("details")).toBeNull();
   mounted.unmount();
 });
 

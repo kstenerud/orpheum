@@ -24,13 +24,15 @@ import { useResource, type Resource } from "./use-resource.ts";
 import { YourDevices } from "./your-devices.tsx";
 
 /**
- * A person's own account: under its heading, who is signed in (the owner, 2026-10-30: "nothing
- * anywhere to tell me who I'm logged in as"); then activating a device by the code it shows (D288); their
- * devices, the link they registered by, the server's home address (D292 §6), their password
- * (D218, D221), how their episodes play on (plans/up-next.md), and, last, whether their pages show
- * debug tools. A device activated joins the list. A session that may not
- * change the account's security (a device a code activated, D292 §4) sees its devices and is told
- * where to do the rest.
+ * A person's own account, in the order of how often each is used (ui-audit-2026-11-04.md §3, Your
+ * account): under its heading, who is signed in (the owner, 2026-10-30: "nothing anywhere to tell me
+ * who I'm logged in as"); then activating a device by the code it shows (D288), its code, name and
+ * Activate in one row; how their episodes play on (plans/up-next.md); their password (D218, D221) and,
+ * for an admin, administering from away (D302); the server's home address (D292 §6) and the link they
+ * registered by; their devices, the most recent five, with signing out everywhere else; and, last,
+ * whether their pages show debug tools. A device activated joins the list. A session that may not
+ * change the account's security (a device a code activated, D292 §4) is told so at the top, where
+ * what it may not do would stand, and sees its devices.
  */
 export function Account(): JSX.Element {
   const { t } = useTranslation();
@@ -42,18 +44,18 @@ export function Account(): JSX.Element {
     <section className="account" aria-labelledby="account-heading">
       <h1 id="account-heading">{t("account.heading")}</h1>
       <SignedInAs me={me} />
+      <NotOnThisDevice isShown={me.state === "loaded" && !canManage} />
       {canManage ? <ActivateHere onActivated={reload} /> : null}
-      <YourDevices devices={devices} onChanged={reload} canManage={canManage} />
-      {canManage ? <YourLink /> : null}
-      <YourServerAtHome
-        addresses={me.state === "loaded" ? (me.value.homeAddresses ?? undefined) : undefined}
-      />
+      <AutoplaySetting />
       {canManage ? <ChangePassword /> : null}
       {me.state === "loaded" && me.value.adminAway !== undefined ? (
         <AdminAway adminAway={me.value.adminAway} onChanged={reloadMe} />
       ) : null}
-      <NotOnThisDevice isShown={me.state === "loaded" && !canManage} />
-      <AutoplaySetting />
+      <YourServerAtHome
+        addresses={me.state === "loaded" ? (me.value.homeAddresses ?? undefined) : undefined}
+      />
+      {canManage ? <YourLink /> : null}
+      <YourDevices devices={devices} onChanged={reload} canManage={canManage} />
       <DebugToolsSetting />
     </section>
   );

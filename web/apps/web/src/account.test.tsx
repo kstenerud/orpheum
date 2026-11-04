@@ -50,6 +50,19 @@ async function accountOf(
 }
 
 describe("your account", () => {
+  it("is ordered by how often each part is used, Testing last (ui-audit-2026-11-04.md §3)", async () => {
+    const page = await accountOf(true);
+    await settleUntil(() => page.querySelector("#playing-heading") !== null);
+    const headings = [...page.querySelectorAll("h2")].map((heading) => heading.textContent);
+    expect(headings).toEqual([
+      "Activate a device",
+      "Playing",
+      "Change password",
+      "Your devices",
+      "Testing",
+    ]);
+  });
+
   it("says who is signed in, under its heading (the owner, 2026-10-30)", async () => {
     const page = await accountOf(true);
     await settleUntil(() => page.querySelector(".account__who") !== null);

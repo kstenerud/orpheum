@@ -16,10 +16,17 @@ import { useRequest } from "./use-request.ts";
 import type { Resource } from "./use-resource.ts";
 
 /**
+ * How many of a person's devices their account shows before "All devices (N)": the five most
+ * recently used (ui-audit-2026-11-04.md §3, Your account; one account had 115).
+ */
+export const recentDevicesShown = 5;
+
+/**
  * This person's devices (D218 §4, D221): each named, when added and last used, and whether signed
  * in, with a way to rename it and to remove it, which signs it out
  * at its next request; and a way to sign out everywhere but here. A device signed out signs in again
- * by a code it shows (D288).
+ * by a code it shows (D288). The recentDevicesShown most recently used show; "All devices (N)" opens
+ * the whole list in their place.
  */
 export function YourDevices(props: {
   readonly devices: Resource<Device[]>;
@@ -49,7 +56,7 @@ export function YourDevices(props: {
         <Loaded
           resource={props.devices}
           render={(list) => (
-            <DeviceList
+            <RecentDevices
               devices={list}
               onRename={(device, name) => {
                 applyChange(() => renameMyDevice(api, device.id, name));
@@ -78,6 +85,35 @@ export function YourDevices(props: {
         {problem === undefined ? null : <p role="alert">{problem}</p>}
       </div>
     </BusyGroup>
+  );
+}
+
+/**
+ * The devices most recently used, the server's order (device.sql's ListDevices, last used first), and
+ * where there are more, "All devices (N)": an expanding section, as the Files page's long groups are
+ * (files.tsx), which opened shows every device in the recent ones' place.
+ */
+function RecentDevices(props: Parameters<typeof DeviceList>[0]): JSX.Element {
+  const { t } = useTranslation();
+  const [isAllShown, setIsAllShown] = useState(false);
+  const { devices } = props;
+  if (devices.length <= recentDevicesShown) {
+    return <DeviceList {...props} />;
+  }
+  return (
+    <>
+      {isAllShown ? null : <DeviceList {...props} devices={devices.slice(0, recentDevicesShown)} />}
+      <details
+        className="your-devices__all"
+        open={isAllShown}
+        onToggle={(event) => {
+          setIsAllShown(event.currentTarget.open);
+        }}
+      >
+        <summary>{t("devices.all", { count: devices.length })}</summary>
+        {isAllShown ? <DeviceList {...props} /> : null}
+      </details>
+    </>
   );
 }
 
