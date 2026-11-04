@@ -312,7 +312,7 @@ describe("the dialogue boost on a film's ladder", () => {
       ?.querySelector("input");
     expect(box?.checked).toBe(false);
     expect(mounted.container.textContent).toContain(
-      "Audio: AAC stereo, 128 kb/s (transcoded from E-AC-3 5.1)",
+      "Sound: AAC stereo, 128 kb/s (transcoded from E-AC-3 5.1)",
     );
     await click(box);
     expect(heard).toContainEqual({
@@ -320,7 +320,7 @@ describe("the dialogue boost on a film's ladder", () => {
       body: { isDialogueBoostOn: true },
     });
     expect(mounted.container.textContent).toContain(
-      "Audio: AAC stereo, 128 kb/s (transcoded from E-AC-3 5.1, dialogue boost)",
+      "Sound: AAC stereo, 128 kb/s (transcoded from E-AC-3 5.1, dialogue boost)",
     );
   });
 

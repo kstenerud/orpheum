@@ -347,7 +347,8 @@ export type OverlayControl =
   | "seekForward"
   | "next"
   | "sound"
-  | "audioAndSubtitles"
+  | "subtitles"
+  | "audio"
   | "more"
   | "fullScreen";
 
@@ -356,6 +357,7 @@ export interface ControlsContext {
   readonly isTelevision: boolean;
   readonly isTouch: boolean;
   readonly isVolumeSettable: boolean;
+  readonly audioTrackCount: number;
   readonly hasPrevious: boolean;
   readonly hasNext: boolean;
   /** Whether the page is a cast's receiver, which has no way up. */
@@ -365,8 +367,8 @@ export interface ControlsContext {
 /**
  * Which controls the overlay shows (D407 §2; plans/player-overlay.md §2.6): previous and next only
  * within a sequence; the sound not on a television or a touch screen, and only where the page can
- * set the volume; Up everywhere but a cast's receiver; the rest always, Audio and subtitles one
- * panel whatever the film's tracks (ui-audit-2026-11-04.md §3, The player).
+ * set the volume; the audio tracks only where there are more than one; Up everywhere but a cast's
+ * receiver; the rest always.
  */
 export function controlsShown(context: ControlsContext): readonly OverlayControl[] {
   const shows: Record<OverlayControl, boolean> = {
@@ -378,7 +380,8 @@ export function controlsShown(context: ControlsContext): readonly OverlayControl
     next: context.hasNext,
     sound: !context.isTelevision && !context.isTouch && context.isVolumeSettable,
     // A cast's receiver draws no menus (D407 §12): the remote holds its choices.
-    audioAndSubtitles: !context.isReceiver,
+    subtitles: !context.isReceiver,
+    audio: context.audioTrackCount > 1 && !context.isReceiver,
     more: !context.isReceiver,
     fullScreen: true,
   };
@@ -394,7 +397,8 @@ const overlayControlsInOrder: readonly OverlayControl[] = [
   "seekForward",
   "next",
   "sound",
-  "audioAndSubtitles",
+  "subtitles",
+  "audio",
   "more",
   "fullScreen",
 ];

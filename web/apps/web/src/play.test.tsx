@@ -78,7 +78,7 @@ describe("playing a file", () => {
     expect(markup).toContain("playsInline");
     // Its tracks say it plays as it is, each the original (the owner, 2026-10-20).
     expect(markup).toContain("Video: H.264 1920×1080, 2.4 Mb/s (original)");
-    expect(markup).toContain("Audio: AAC stereo (original)");
+    expect(markup).toContain("Sound: AAC stereo (original)");
     // Levelling sits under the video, on as the person left it, and says what it does (D226).
     expect(markup).toContain("Level loudness");
     expect(markup).toContain("Its loudness is not measured yet, so it plays as it is.");
