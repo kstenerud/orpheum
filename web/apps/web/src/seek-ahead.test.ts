@@ -85,6 +85,17 @@ describe("a seek chosen before it is made (D369 §1; the owner, Fire TV, 2026-10
     expect(seeks).toEqual([300_000 - 2 * seekStepMs]);
   });
 
+  it("waits three quarters of a second for the next press, as Kodi does, so a slow presser's run is one seek (§3.2)", () => {
+    const { ahead, seeks, pass } = aheadOnClock();
+    ahead.step(1, { atMs: 60_000, mostMs: 600_000 }, { isKey: false });
+    pass(700); // a slow second press, past the half second the rest once was
+    ahead.step(1, { atMs: 60_000, mostMs: 600_000 }, { isKey: false });
+    pass(749);
+    expect(seeks).toEqual([]);
+    pass(1);
+    expect(seeks).toEqual([80_000]);
+  });
+
   it("seeks anyway when a held key's release is never heard", () => {
     const { ahead, seeks, pass } = aheadOnClock();
     ahead.step(1, { atMs: 0, mostMs: 600_000 }, { isKey: true });
