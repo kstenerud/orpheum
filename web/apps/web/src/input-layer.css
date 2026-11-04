@@ -1,0 +1,11 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* The page's name as each opens, for a screen reader only: the eye has the heading. */
+.input-layer__announced {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
