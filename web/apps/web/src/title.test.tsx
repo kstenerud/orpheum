@@ -76,7 +76,7 @@ describe("TitleView", () => {
     // yet, or never made, showed as a broken image across the top of the page (staging answered
     // 404 for 12 Patient Sailors's landscape-l).
     const page = await mount(withServices(<TitleView title={heat} />));
-    const backdrop = (): Element | null => page.container.querySelector("img.title__backdrop");
+    const backdrop = (): Element | null => page.container.querySelector("img.title-head__backdrop");
     expect(backdrop()?.getAttribute("src")).toBe("/api/v1/bytes/art/b1/landscape-l.webp");
     act(() => {
       backdrop()?.dispatchEvent(new Event("error"));
@@ -112,7 +112,7 @@ describe("TitleView", () => {
     expect(markup).not.toContain("Cast to another device");
   });
 
-  it("keeps a file's path and streams in a closed File details, with Play outside it", () => {
+  it("keeps a file's path and streams in a closed File details, with Play outside it, first in the actions row", () => {
     const markup = renderToStaticMarkup(withServices(<TitleView title={heat} />));
     const details =
       /<details class="title__details"><summary>File details<\/summary>(.*?)<\/details>/u.exec(
@@ -121,7 +121,14 @@ describe("TitleView", () => {
     expect(details).toContain("/m/Metropolis (1995).mkv");
     expect(details).toContain("Audio: truehd English 8 channels");
     expect(details).not.toContain("Play");
-    expect(markup).toMatch(/class="title__play"[^>]*>Play<\/a><details class="title__details">/u);
+    // Play is the actions row's first, above the synopsis, not a file's below the cast (R8).
+    expect(markup).toMatch(
+      /<div class="page-actions title-head__actions"[^>]*><a [^>]*class="title__play"[^>]*>Play<\/a>/u,
+    );
+    expect(markup.indexOf('class="title__play"')).toBeLessThan(
+      markup.indexOf('<details class="title__details">'),
+    );
+    expect(markup.match(/class="title__play"/gu)).toHaveLength(1);
   });
 
   // The owner, 2026-10-29: "Play is the page's first button, not its last", and the rarely used
@@ -455,7 +462,11 @@ describe("a film whose match is a guess (D301)", () => {
     );
     const forUser = await mount(withServices(<Title id={12} />, services));
     expect(forUser.container.textContent).toContain("may be another work of the same name");
-    expect(buttonNamed(forUser.container, "More actions")).toBeUndefined();
+    // Everyone's "…" holds the File details (ui-audit-2026-11-04.md §3); a correction, an admin's alone.
+    await click(buttonNamed(forUser.container, "More actions"));
+    expect(buttonWithText(forUser.container, "File details")).toBeDefined();
+    expect(buttonWithText(forUser.container, "Identified incorrectly")).toBeUndefined();
+    expect(forUser.container.textContent).not.toContain("Identified incorrectly");
     forUser.unmount();
     const forAdmin = await mount(
       withServices(
@@ -561,6 +572,148 @@ describe("a film whose match is a guess (D301)", () => {
     await click(buttonNamed(page, "More actions"));
     expect(page.textContent).toContain("Identified incorrectly");
     expect(page.textContent).not.toContain("Identified correctly");
+    mounted.unmount();
+  });
+});
+
+describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
+  const played = (resumePositionMs: number): [number, unknown] => [
+    200,
+    { delivery: "direct", url: "/u", notDirectReasons: [], mediaToken: "a", resumePositionMs },
+  ];
+
+  it("names its Play Resume with the point its warm-up was told, and offers Start over beside it", async () => {
+    const services = servedBy({
+      "GET /items/10": [200, heat],
+      "POST /playback": played(754_000),
+      "PUT /interest/10": [204, null],
+      "DELETE /interest/10": [204, null],
+    });
+    const mounted = await mount(withServices(<Title id={10} />, services));
+    const page = mounted.container;
+    const play = (): Element | null => page.querySelector("a.title__play");
+    await settleUntil(() => play()?.textContent === "Resume from 12:34");
+    // Resume plays where the server says it left off, as Play always has; Start over, from 0.
+    expect(play()?.getAttribute("href")).toBe("/play/1");
+    const startOver = [...page.querySelectorAll(".title-head__actions a")].find(
+      (link) => link.textContent === "Start over",
+    );
+    expect(startOver?.getAttribute("href")).toBe("/play/1?at=0");
+    mounted.unmount();
+  });
+
+  it("names its Play Play, and offers no Start over, where nothing was watched", async () => {
+    const services = servedBy({
+      "GET /items/10": [200, heat],
+      "POST /playback": played(0),
+      "PUT /interest/10": [204, null],
+      "DELETE /interest/10": [204, null],
+    });
+    const mounted = await mount(withServices(<Title id={10} />, services));
+    const page = mounted.container;
+    await settleUntil(() => page.querySelector("a.title__play") !== null);
+    expect(page.querySelector("a.title__play")?.textContent).toBe("Play");
+    expect(page.textContent).not.toContain("Start over");
+    mounted.unmount();
+  });
+
+  it("offers an episode's Next episode in its actions row, from what the player's Up next asks", async () => {
+    const pilot: TitleDetail = {
+      ...heat,
+      id: 40,
+      kind: "episode",
+      name: "Pilot",
+      art: {},
+      episode: { seriesId: 20, seriesName: "Brass Arena", seasonNumber: 1, episodeNumber: 1 },
+      extras: null,
+    };
+    const services = servedBy({
+      "GET /items/40": [200, pilot],
+      "POST /playback": played(0),
+      "GET /files/1/up-next": [
+        200,
+        {
+          upNext: {
+            ordering: "aired",
+            episode: { fileId: 7, titleId: 41, groupNumber: 1, numberInGroup: 2, isPartway: false },
+          },
+        },
+      ],
+      "PUT /interest/40": [204, null],
+      "DELETE /interest/40": [204, null],
+    });
+    const mounted = await mount(withServices(<Title id={40} />, services));
+    const page = mounted.container;
+    const next = (): Element | undefined =>
+      [...page.querySelectorAll(".title-head__actions a")].find(
+        (link) => link.textContent === "Next episode",
+      );
+    await settleUntil(() => next() !== undefined);
+    expect(next()?.getAttribute("href")).toBe("/play/7");
+    // Its series and season sit above its name, the breadcrumb line.
+    const words = page.querySelector(".title-head__words");
+    expect(words?.firstElementChild?.textContent).toContain("Brass Arena");
+    expect(words?.firstElementChild?.nextElementSibling?.tagName).toBe("H1");
+    mounted.unmount();
+  });
+
+  it("asks a film for no next episode", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "GET /items/10": [200, heat],
+        "POST /playback": played(0),
+        "PUT /interest/10": [204, null],
+        "DELETE /interest/10": [204, null],
+      },
+      heard,
+    );
+    const mounted = await mount(withServices(<Title id={10} />, services));
+    await settleUntil(() => mounted.container.querySelector("a.title__play") !== null);
+    expect(heard.map((request) => request.methodAndPath)).not.toContain("GET /files/1/up-next");
+    expect(mounted.container.textContent).not.toContain("Next episode");
+    mounted.unmount();
+  });
+
+  it("says its facts on one line: year, length and the sound its Play plays", () => {
+    const markup = renderToStaticMarkup(withServices(<TitleView title={heat} />));
+    expect(markup).toContain(
+      '<p class="title-head__facts"><span>1995</span><span>170 min</span><span>TRUEHD · 8 channels</span></p>',
+    );
+  });
+
+  it("plays its first version, and keeps the choice of the others under its …", async () => {
+    const twoVersions: TitleDetail = {
+      ...heat,
+      versions: [
+        ...(heat.versions ?? []),
+        { id: 2, files: [{ id: 5, path: "/m/Metropolis (1995) 4K.mkv", streams: [] }] },
+      ],
+    };
+    const mounted = await mount(withServices(<TitleView title={twoVersions} />));
+    const page = mounted.container;
+    expect(page.querySelectorAll("a.title__play")).toHaveLength(1);
+    expect(page.querySelector("a.title__play")?.getAttribute("href")).toBe("/play/1");
+    await click(buttonNamed(page, "More actions"));
+    expect(buttonWithText(page, "File details")).toBeDefined();
+    await click(buttonWithText(page, "Versions"));
+    const offered = [...(page.querySelector("dialog")?.querySelectorAll("a") ?? [])].map((link) => [
+      link.textContent,
+      link.getAttribute("href"),
+    ]);
+    expect(offered).toEqual([
+      ["Play version 1", "/play/1"],
+      ["Play version 2", "/play/5"],
+    ]);
+    mounted.unmount();
+  });
+
+  it("offers no choice of version where there is one", async () => {
+    const mounted = await mount(withServices(<TitleView title={heat} />));
+    const page = mounted.container;
+    await click(buttonNamed(page, "More actions"));
+    expect(buttonWithText(page, "File details")).toBeDefined();
+    expect(buttonWithText(page, "Versions")).toBeUndefined();
     mounted.unmount();
   });
 });

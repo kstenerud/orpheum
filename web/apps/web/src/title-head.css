@@ -1,0 +1,86 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/*
+ * A title's first screen (title-head.tsx): its backdrop behind it, running to the page's edges and
+ * fading into the page below, dimmed so the words over it read as on the page (ui-audit-2026-11-04.md
+ * R8); before, a 40vh band above the words pushed Play below the fold. It starts under the page's
+ * trail (up-trail.tsx), never risen into it: a mask makes it a layer of its own, which drew it over
+ * the trail's lower half (the owner, 2026-10-28).
+ */
+.title-head {
+  position: relative;
+  isolation: isolate;
+}
+
+.title-head__backdrop {
+  position: absolute;
+  z-index: -1;
+  inset-block-start: 0;
+  inset-inline-start: calc(-1 * var(--space-page));
+  display: block;
+  width: calc(100% + 2 * var(--space-page));
+  max-width: none;
+  height: max(100%, clamp(12rem, 60vh, 34rem));
+  object-fit: cover;
+  opacity: 0.4;
+  mask-image: linear-gradient(to bottom, black 50%, transparent);
+}
+
+.title-head__body {
+  display: grid;
+  grid-template-columns: minmax(6.5rem, 9rem) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+  padding-block: var(--space-4);
+}
+
+/* On a phone the art floats at the start and the words wrap around it, then use the full width. */
+@media (max-width: 599px) {
+  .title-head__body {
+    display: flow-root;
+  }
+
+  .title-head__body > :first-child {
+    float: inline-start;
+    width: 8.5rem;
+    margin-block-end: var(--space-3);
+    margin-inline-end: var(--space-4);
+  }
+}
+
+@media (min-width: 600px) {
+  .title-head__body {
+    grid-template-columns: minmax(8rem, 14rem) minmax(0, 1fr);
+    gap: var(--space-6);
+  }
+}
+
+.title-head__words h1 {
+  margin-block: 0 var(--space-2);
+}
+
+.title-head__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin-block: 0 var(--space-2);
+  color: var(--color-muted);
+}
+
+.title-head__tagline {
+  color: var(--color-muted);
+  font-style: italic;
+}
+
+/* What it is about, three lines until More shows the rest. */
+.title-head__clamped {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+.title-head__synopsis > p {
+  margin-block-end: var(--space-2);
+}

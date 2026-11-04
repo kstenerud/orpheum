@@ -93,21 +93,22 @@ function coveredPointsOf(trail: HTMLElement): string[] {
 }
 
 /**
- * Draws a backdrop on a title's page, as WideArt does, an img of the class in the article's place
- * for it: the walk serves no art's bytes, and a backdrop that fails to load is not drawn.
+ * Draws a backdrop on a title's page, as WideArt does, an img of the class in its place behind the
+ * title's first screen: the walk serves no art's bytes, and a backdrop that fails to load is not
+ * drawn.
  */
 function drawBackdrop(): void {
-  const article = document.querySelector("article.title");
-  if (article === null) {
+  const head = document.querySelector("article.title .title-head");
+  if (head === null) {
     throw new Error("the page draws no title");
   }
   const backdrop = document.createElement("img");
-  backdrop.className = "title__backdrop";
+  backdrop.className = "title-head__backdrop";
   backdrop.alt = "";
   backdrop.src = `data:image/svg+xml,${encodeURIComponent(
     '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="9"><rect width="16" height="9"/></svg>',
   )}`;
-  article.prepend(backdrop);
+  head.prepend(backdrop);
 }
 
 describe.each(screens)("the trail, on $name", ({ width, height, isTelevision }) => {
@@ -136,10 +137,10 @@ describe.each(screens)("the trail, on $name", ({ width, height, isTelevision }) 
       ),
     );
     const trail = await theTrail();
-    await expect.poll(() => isDrawn(".title__head")).toBe(true);
+    await expect.poll(() => isDrawn(".title-head__body")).toBe(true);
     drawBackdrop();
     const banner = document.querySelector(".app-shell__banner")?.getBoundingClientRect();
-    const backdrop = document.querySelector(".title__backdrop")?.getBoundingClientRect();
+    const backdrop = document.querySelector(".title-head__backdrop")?.getBoundingClientRect();
     const box = trail.getBoundingClientRect();
     expect(box.top).toBeGreaterThanOrEqual(banner?.bottom ?? Infinity);
     expect(backdrop?.top).toBeGreaterThanOrEqual(box.bottom);
@@ -189,7 +190,7 @@ describe.each(screens.filter((screen) => !screen.isTelevision))(
       await page.viewport(width, height);
       walking = await mountApp(walkServices(episodeToPlay, "/titles/23"));
       const { navigation } = walking.services;
-      await expect.poll(() => isDrawn(".title__head")).toBe(true);
+      await expect.poll(() => isDrawn(".title-head__body")).toBe(true);
       navigation.go({ screen: "play", fileId: 230 });
       await expect.poll(() => whatPlays() !== null).toBe(true);
       whatPlays()?.click();

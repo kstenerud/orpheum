@@ -120,7 +120,7 @@ describe("a page's arrival", () => {
     const listName = document.querySelector("main h1")?.textContent ?? "";
     expect(listName).not.toBe("");
     await userEvent.keyboard("{Enter}");
-    await arrivesIn('section[aria-labelledby="title-versions"]');
+    await arrivesIn(".title-head__actions");
     await expect.poll(announced).toBe("Film 1");
     expect(document.activeElement?.closest("h1")).toBeNull();
     await userEvent.keyboard("{Escape}");
@@ -147,12 +147,14 @@ describe("a page's arrival", () => {
     expect(document.activeElement?.matches(":focus-visible")).toBe(false);
   });
 
-  it("is a film's versions, its Play first", async () => {
+  // ui-audit-2026-11-04.md §3: the actions row's Play, so the remote's first OK plays.
+  it("is a film's Play, first in its actions row", async () => {
     await page.viewport(1280, 800);
     walking = await mountApp(
       walkServices({ ...signedIn, "GET /items/103": filmDetail(103, "Film 3") }, "/titles/103"),
     );
-    await arrivesIn('section[aria-labelledby="title-versions"]');
+    await arrivesIn(".title-head__actions");
+    expect(focusedName()).toBe("Play");
   });
 
   it("is a series' next episode", async () => {

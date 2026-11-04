@@ -6,8 +6,9 @@ import { idempotent } from "./idempotent.ts";
 import "./title.css";
 
 import type { components } from "@orpheum/sdk";
-import { use, useEffect, type JSX } from "react";
+import { use, useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
 import { camelKey } from "./catalogue-key.ts";
 import { TitlePeople } from "./credits.tsx";
@@ -16,11 +17,14 @@ import { useBackgroundChangesPoller } from "./polling.ts";
 import { ConfirmButton } from "./confirm-button.tsx";
 import { dataOrThrow, throwIfRefused } from "./problem.ts";
 import { identifiedCorrectlyAction, identifiedIncorrectlyAction } from "./match-correction.tsx";
-import { MoreActions } from "./more-actions.tsx";
+import { MoreActions, type MoreAction } from "./more-actions.tsx";
+import { ModalDialog } from "./modal-dialog.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
 import { StatusNotes } from "./status-cues.tsx";
 import { Poster, WideArt } from "./poster.tsx";
-import { arrivalMark } from "./focus-navigation.ts";
+import { TitleHead } from "./title-head.tsx";
+import { clockText } from "./timeline.tsx";
+import { useUpNext } from "./up-next.tsx";
 import { Link } from "./link.tsx";
 import type { Route } from "./router.ts";
 import { noteEpisodeReached } from "./episode-reached.ts";
@@ -82,10 +86,17 @@ export function StreamLine(props: { readonly stream: Stream }): JSX.Element | nu
   }
 }
 
+/** The episode after one, as the server's up-next says it (GET /files/{id}/up-next). */
+type NextUp = components["schemas"]["NextUpBody"];
+
 /**
- * A title's page: its art, name, year and length, what it is about, its versions, Play first among
- * its buttons (the owner, 2026-10-29: "Play is the page's first button, not its last"), then Mark as
- * watched and the "…" of what is rarely used, and its extras.
+ * A title's page, a film's, an episode's or an extra's, in the title template (title-head.tsx,
+ * ui-audit-2026-11-04.md R8): its backdrop behind its first screen; an episode's series and season
+ * above its name; one line of facts; the actions row, Play or Resume first (the owner, 2026-10-29:
+ * "Play is the page's first button, not its last"), Start over when resuming, an episode's Next
+ * episode, Mark as watched and the "…" of what is rarely used, the choice of version among them; what
+ * it is about, clamped; then its cast and crew, its versions' technical detail and its extras. Play
+ * plays the first version's first file (firstPlayableFile), the one its page warms up.
  */
 export function TitleView(props: {
   readonly title: TitleDetail;
@@ -95,47 +106,89 @@ export function TitleView(props: {
   readonly onMatchCorrected?: () => void;
   /** Told it was marked watched or unwatched by hand (D370 §4): the page reads it again. */
   readonly onWatchedChanged?: () => void;
+  /** Where its Play resumes, as its warm-up was told: 0 at its start, undefined while unknown. */
+  readonly resumeMs?: number | undefined;
+  /** An episode's next, which its Next episode plays; undefined where none is known. */
+  readonly nextEpisode?: NextUp | undefined;
 }): JSX.Element {
-  const { title } = props;
+  const { t } = useTranslation();
+  const { title, nextEpisode } = props;
+  const fileId = firstPlayableFile(title);
   return (
     <article className="title">
-      <WideArt
-        sourceSha256={title.art.backdropSha256}
-        size="landscape-l"
-        className="title__backdrop"
+      <TitleHead
+        backdropSha256={title.art.backdropSha256}
+        art={<TitleArt title={title} />}
+        above={title.episode === undefined ? null : <EpisodePlaceFacts place={title.episode} />}
+        name={title.name}
+        facts={<TitleFacts title={title} />}
+        notes={<StatusNotes subject={title} />}
+        actions={
+          <>
+            {fileId === undefined ? null : (
+              <PlayActions fileId={fileId} resumeMs={props.resumeMs} />
+            )}
+            {nextEpisode === undefined || nextEpisode.unavailable !== undefined ? null : (
+              <Link to={{ screen: "play", fileId: nextEpisode.fileId }} className="title__action">
+                {t("title.nextEpisode")}
+              </Link>
+            )}
+            {/* An extra is a different work, never marked watched (D370 §2, D162). */}
+            {title.kind === "extra" || props.onWatchedChanged === undefined ? null : (
+              <MarkWatched
+                target={{ kind: "title", id: title.id }}
+                isWatched={title.isWatched === true}
+                onChanged={props.onWatchedChanged}
+              />
+            )}
+            <TitleMoreActions title={title} onMatchCorrected={props.onMatchCorrected} />
+          </>
+        }
+        tagline={title.tagline}
+        overview={title.overview}
       />
-      <div className="title__head">
-        <TitleArt title={title} />
-        <TitleFacts title={title} />
-      </div>
-      <StatusNotes subject={title} />
+      <TitlePeople credits={title.credits} />
       <Versions
         versions={title.versions ?? []}
         isPlayable={title.unavailable === undefined}
         {...(props.onRetireFile === undefined ? {} : { onRetireFile: props.onRetireFile })}
       />
-      <div className="page-actions">
-        {/* An extra is a different work, never marked watched (D370 §2, D162). */}
-        {title.kind === "extra" || props.onWatchedChanged === undefined ? null : (
-          <MarkWatched
-            target={{ kind: "title", id: title.id }}
-            isWatched={title.isWatched === true}
-            onChanged={props.onWatchedChanged}
-          />
-        )}
-        <TitleMoreActions title={title} onMatchCorrected={props.onMatchCorrected} />
-      </div>
-      <TitlePeople credits={title.credits} />
       <Extras extras={title.extras ?? []} />
     </article>
   );
 }
 
 /**
+ * The actions row's first: Play, or, where its person stopped partway, Resume with the point, which
+ * plays from there as Play always has (the server's resume position), and Start over, from its start.
+ */
+function PlayActions(props: {
+  readonly fileId: number;
+  readonly resumeMs: number | undefined;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { fileId, resumeMs } = props;
+  const isResuming = resumeMs !== undefined && resumeMs > 0;
+  return (
+    <>
+      <Link to={{ screen: "play", fileId }} className="title__play">
+        {isResuming ? t("title.resumeFrom", { at: clockText(resumeMs) }) : t("title.play")}
+      </Link>
+      {isResuming ? (
+        <Link to={{ screen: "play", fileId, atMs: 0 }} className="title__action">
+          {t("play.startOver")}
+        </Link>
+      ) : null}
+    </>
+  );
+}
+
+/**
  * A title's rarely used actions, under its "…": an admin's "Identified incorrectly" (none for an
  * extra, a work of its film's), its match chosen again only for a film, the one kind of title matched
- * itself (D301 §2), and only where the page is told of a correction; and while its match is a guess,
- * "Identified correctly", which confirms it (D301 §4).
+ * itself (D301 §2), and only where the page is told of a correction; while its match is a guess,
+ * "Identified correctly", which confirms it (D301 §4); then, for everyone, its File details and,
+ * where it has more than one version to play, the choice of which (ui-audit-2026-11-04.md §3).
  */
 function TitleMoreActions(props: {
   readonly title: TitleDetail;
@@ -144,16 +197,59 @@ function TitleMoreActions(props: {
   const { t } = useTranslation();
   const isAdmin = use(IsAdminContext);
   const { title, onMatchCorrected } = props;
-  if (!isAdmin || title.kind === "extra") {
-    return null;
+  const actions: MoreAction[] = [];
+  if (isAdmin && title.kind !== "extra") {
+    const isWork = title.kind === "movie" && onMatchCorrected !== undefined;
+    const onCorrected = onMatchCorrected ?? (() => undefined);
+    actions.push(identifiedIncorrectlyAction(t, { itemId: title.id, isWork, onCorrected }));
+    if (title.isGuessed === true) {
+      actions.push(identifiedCorrectlyAction(t, { itemId: title.id, onConfirmed: onCorrected }));
+    }
   }
-  const isWork = title.kind === "movie" && onMatchCorrected !== undefined;
-  const onCorrected = onMatchCorrected ?? (() => undefined);
-  const actions = [identifiedIncorrectlyAction(t, { itemId: title.id, isWork, onCorrected })];
-  if (title.isGuessed === true) {
-    actions.push(identifiedCorrectlyAction(t, { itemId: title.id, onConfirmed: onCorrected }));
+  const versions = title.versions ?? [];
+  if (versions.some((version) => (version.files ?? []).length > 0)) {
+    actions.push({
+      key: "file-details",
+      label: t("title.fileDetails"),
+      dialog: (close) => (
+        <ModalDialog label={t("title.fileDetails")} onClose={close}>
+          <h2>{t("title.fileDetails")}</h2>
+          <VersionsDetail versions={versions} isOpen />
+        </ModalDialog>
+      ),
+    });
+  }
+  if (title.unavailable === undefined && versions.length > 1) {
+    actions.push({
+      key: "versions",
+      label: t("title.chooseVersion"),
+      dialog: (close) => (
+        <ModalDialog label={t("title.chooseVersion")} onClose={close}>
+          <h2>{t("title.chooseVersion")}</h2>
+          <VersionChoice versions={versions} />
+        </ModalDialog>
+      ),
+    });
   }
   return <MoreActions actions={actions} />;
+}
+
+/** Each version of a title by its number, a Play for each of its files: the "…"'s choice. */
+function VersionChoice(props: {
+  readonly versions: readonly components["schemas"]["VersionBody"][];
+}): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <div className="more-actions__offers">
+      {props.versions.map((version, index) =>
+        (version.files ?? []).map((file) => (
+          <Link key={file.id} to={{ screen: "play", fileId: file.id }} className="title__action">
+            {t("title.playVersion", { index: index + 1 })}
+          </Link>
+        )),
+      )}
+    </div>
+  );
 }
 
 /** A film's poster, or an episode's still. */
@@ -236,33 +332,47 @@ function InOrdering(props: {
   );
 }
 
-/** A title's name, its place in its series, its year and length, and what it is about. */
+/**
+ * A title's facts, one line (R8): its year, its length, the sound of the file its Play plays, and
+ * that it is not identified yet. What the server does not send, a rating or a picture's size, is
+ * left out.
+ */
 function TitleFacts(props: { readonly title: TitleDetail }): JSX.Element {
   const { t } = useTranslation();
   const { title } = props;
-  const episodePlace = title.episode;
+  const sound = soundOf(t, title);
   return (
-    <div>
-      <h1>{title.name}</h1>
-      {episodePlace === undefined ? null : <EpisodePlaceFacts place={episodePlace} />}
-      <p className="title__facts">
-        {title.year === undefined ? null : <span>{title.year}</span>}
-        {title.runtimeMs === undefined ? null : (
-          <span>{t("title.runtime", { minutes: Math.round(title.runtimeMs / 60_000) })}</span>
-        )}
-        {title.identificationState === "unidentified" ? (
-          <span>{t("title.unidentified")}</span>
-        ) : null}
-      </p>
-      {title.tagline === undefined ? null : <p className="title__tagline">{title.tagline}</p>}
-      {title.overview === undefined ? null : <p>{title.overview}</p>}
-    </div>
+    <>
+      {title.year === undefined ? null : <span>{title.year}</span>}
+      {title.runtimeMs === undefined ? null : (
+        <span>{t("title.runtime", { minutes: Math.round(title.runtimeMs / 60_000) })}</span>
+      )}
+      {sound === undefined ? null : <span>{sound}</span>}
+      {title.identificationState === "unidentified" ? <span>{t("title.unidentified")}</span> : null}
+    </>
   );
 }
 
 /**
- * A title's versions, each file with its path (for an admin) and its streams, and a way to play it
- * unless none can be played now (D241 §3).
+ * The sound of the file a title's Play plays, its first version's first file: its first audio
+ * stream's codec and channels, "TRUEHD · 8 channels"; undefined where it has none.
+ */
+function soundOf(t: TFunction, title: TitleDetail): string | undefined {
+  const streams = title.versions?.[0]?.files?.[0]?.streams ?? [];
+  const audio = streams.find((stream) => stream.kind === "audio" && (stream.codec ?? "") !== "");
+  if (audio === undefined) {
+    return undefined;
+  }
+  const name = (audio.codec ?? "").toUpperCase();
+  return audio.channelCount === undefined
+    ? name
+    : t("title.factSound", { codec: name, count: audio.channelCount });
+}
+
+/**
+ * A title's versions' technical detail, below its cast (R8): each file with its path (for an admin)
+ * and its streams, closed until asked for, and, for an admin, a way to say one that cannot be read
+ * now is gone for good (D241 §5). Its Play is the actions row's; another version's, the "…"'s.
  */
 function Versions(props: {
   readonly versions: readonly components["schemas"]["VersionBody"][];
@@ -275,20 +385,37 @@ function Versions(props: {
     return null;
   }
   return (
-    <section aria-labelledby="title-versions" {...arrivalMark}>
+    <section aria-labelledby="title-versions">
       <h2 id="title-versions">{t("title.versions")}</h2>
+      <VersionsDetail
+        versions={versions}
+        retiring={
+          props.isPlayable || props.onRetireFile === undefined ? undefined : props.onRetireFile
+        }
+      />
+    </section>
+  );
+}
+
+/** Each version's files, each its path and streams in a closed File details. */
+function VersionsDetail(props: {
+  readonly versions: readonly components["schemas"]["VersionBody"][];
+  /** Where given, an admin's retire of each file with a path. */
+  readonly retiring?: ((fileId: number) => void) | undefined;
+  /** Whether each File details is open, as the "…"'s dialog shows them. */
+  readonly isOpen?: boolean;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { versions, retiring } = props;
+  return (
+    <>
       {versions.map((version, index) => (
         <div key={version.id}>
           {versions.length === 1 ? null : <h3>{t("title.version", { index: index + 1 })}</h3>}
           {(version.files ?? []).map((file) => (
             <div key={file.id} className="title__file">
-              {props.isPlayable ? (
-                <Link to={{ screen: "play", fileId: file.id }} className="title__play">
-                  {t("title.play")}
-                </Link>
-              ) : null}
               {/* What the file is, for whoever wants it, kept out of the way (the owner, 2026-10-06). */}
-              <details className="title__details">
+              <details className="title__details" open={props.isOpen}>
                 <summary>{t("title.fileDetails")}</summary>
                 {file.path === undefined ? null : <code>{file.path}</code>}
                 <ul>
@@ -298,21 +425,21 @@ function Versions(props: {
                 </ul>
               </details>
               {/* An admin sees the path, and says a file that cannot be read now is gone (D241 §5). */}
-              {props.isPlayable ||
-              file.path === undefined ||
-              props.onRetireFile === undefined ? null : (
+              {retiring === undefined || file.path === undefined ? null : (
                 <ConfirmButton
                   label={t("title.retireFile")}
                   consequence={t("title.retireFileConsequence")}
                   confirmLabel={t("title.retireFileConfirm")}
-                  onConfirm={() => props.onRetireFile?.(file.id)}
+                  onConfirm={() => {
+                    retiring(file.id);
+                  }}
                 />
               )}
             </div>
           ))}
         </div>
       ))}
-    </section>
+    </>
   );
 }
 
@@ -395,15 +522,28 @@ const rememberedTitles = new Remembered<TitleDetail>();
 /**
  * Warms up fileId, the first file a title's page plays, while the page shows it (D258 §1); its
  * preload is made only where the page's media do not go over WebRTC (D260 §3's revision of
- * 2026-10-28).
+ * 2026-10-28). Returns where it resumes, as the warm-up was told, undefined until it is.
  */
-function useWarmsUp(fileId: number | undefined): void {
+function useWarmsUp(fileId: number | undefined): number | undefined {
   const { api, playableFormats, pathMoves } = useServices();
+  const [resume, setResume] = useState<{ readonly fileId: number; readonly ms: number }>();
   useEffect(() => {
-    if (fileId !== undefined) {
-      watchingOf(api).warmUp(fileId, playableFormats(), () => pathMoves?.isOverWebrtc() === true);
+    if (fileId === undefined) {
+      return undefined;
     }
+    const watching = watchingOf(api);
+    watching.warmUp(fileId, playableFormats(), () => pathMoves?.isOverWebrtc() === true);
+    let isCurrent = true;
+    void watching.warmResumeMs(fileId).then((ms) => {
+      if (isCurrent && ms !== undefined) {
+        setResume({ fileId, ms });
+      }
+    });
+    return () => {
+      isCurrent = false;
+    };
   }, [api, playableFormats, pathMoves, fileId]);
+  return resume !== undefined && resume.fileId === fileId ? resume.ms : undefined;
 }
 
 /** A title's page, loaded by its id. Opening it warms up its first file (D258 §1). */
@@ -425,7 +565,10 @@ export function Title(props: { readonly id: number }): JSX.Element {
   const shown = title.state === "loaded" ? title.value : undefined;
   useEpisodeReached(shown);
   const context = useLibraryContext();
-  useWarmsUp(title.state === "loaded" ? firstPlayableFile(title.value) : undefined);
+  const fileId = shown === undefined ? undefined : firstPlayableFile(shown);
+  const resumeMs = useWarmsUp(fileId);
+  // An episode's next, as its player's Up next asks for it: a film has none to ask for.
+  const nextEpisode = useUpNext(fileId ?? 0, shown?.kind === "episode" && fileId !== undefined);
   // A refusal shows the title as the server has it, as success does.
   const retiring = useRequest(() => "");
   const retireFile = (fileId: number): void => {
@@ -454,6 +597,8 @@ export function Title(props: { readonly id: number }): JSX.Element {
               onRetireFile={retireFile}
               onMatchCorrected={reload}
               onWatchedChanged={reload}
+              resumeMs={resumeMs}
+              nextEpisode={nextEpisode?.episode}
             />
           )}
         />
