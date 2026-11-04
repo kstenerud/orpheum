@@ -14,8 +14,8 @@ import type { Route } from "./router.ts";
  * the icon tray and the play status if mid-play. Then they all react the same way, fill in the same
  * way"): the poster, its name and the lines under it, a link to where it leads, the status cues'
  * tray over its top-right corner, and how far in it is watched as a bar along its bottom; and what a
- * list may add, Continue Watching's "…" holding its Hide. Its size is the list's: a grid's column, a row's
- * --size-poster-min.
+ * list may add, Continue Watching's "…" holding its Hide. Its size is the list's: a grid's column,
+ * a row's --size-poster-min.
  */
 export function PosterCard(props: {
   readonly to: Route;
