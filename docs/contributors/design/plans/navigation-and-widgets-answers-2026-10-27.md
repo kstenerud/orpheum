@@ -1676,6 +1676,11 @@ asks for a quick fix, is folded in (the owner, 2026-11-04).
    the shell: where nothing in the page is straight above a poster, as over a Films, Series or
    Libraries list shorter than a row, Up goes to the list's tools first, then, Up again, the bar (the
    owner, 2026-11-04, "Agreed on the too few posters fix"; `focus-engine.ts`'s `containerAround`).
+   It holds for a full first row too: Up from any poster with nothing straight above it reaches the
+   tools before the bar (the owner, 2026-11-04, "Agreed: (a)"). The list's chips, search and sort
+   move into one pop-up (the owner, 2026-11-04: "What if we put all of those things inside the sort
+   popup? It's all criteria that filters what gets shown, and all of that including the search are
+   additive to that filter"). `/ui-gallery` is left out of the arrow walk (the owner, 2026-11-04).
 6. **The pages (§3 of the audit):** Sign in, Home, the lists, a film's page (R8, the actions row with
    Play first), an episode's and a series' pages, the player (full window, controls over the
    picture, Back never a third state, item 8), the Watch Together and Cast dialogs, Your account,
