@@ -24,6 +24,10 @@ DEFERRED = "check-deferred"
 # "why is make check taking so long?"; agreed for the 11-05 batch). The newest RUNS_KEPT lines stay.
 RUNS = "gate-runs.jsonl"
 RUNS_KEPT = 1000
+# Present while the turn-end gate runs, naming its target, start and this hook's process, for a status
+# line to show (gate_status.py): Claude Code shows a hook's output only once it ends, so a turn whose gate
+# ran for minutes showed nothing of it (the owner, 2026-11-04: "go with your recommendation").
+RUNNING = "gate-running.json"
 
 
 def main() -> None:
@@ -77,7 +81,14 @@ def main() -> None:
     # Never build the image here: a build takes minutes past the hook's limit (./dev says to run it).
     env = {**os.environ, "ORPHEUM_DEV_NO_BUILD": "1"}
     started, load, transcodes = time.time(), os.getloadavg()[0], ffmpeg_jobs()
-    done = subprocess.run(command, cwd=hooklib.ROOT, capture_output=True, text=True, check=False, env=env)
+    running = PENDING / RUNNING
+    with contextlib.suppress(OSError):
+        PENDING.mkdir(parents=True, exist_ok=True)
+        running.write_text(json.dumps({"target": target, "start": started, "pid": os.getpid()}))
+    try:
+        done = subprocess.run(command, cwd=hooklib.ROOT, capture_output=True, text=True, check=False, env=env)
+    finally:
+        running.unlink(missing_ok=True)
     with contextlib.suppress(OSError):
         record_run({"start": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(started)), "target": target,
                     "seconds": round(time.time() - started), "exit": done.returncode,
