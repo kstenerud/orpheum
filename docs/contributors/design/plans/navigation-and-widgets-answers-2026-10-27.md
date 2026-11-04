@@ -1631,6 +1631,11 @@ research run in this batch … The actual UI revamp will be done next batch."*
    starts-chunks-remote-2026-10-29), and ends in one report with a recommendation per page for the
    owner. Item 13's arrow cases (the arrows' search passing a control in line, the paused player's
    first Back) are its evidence; the arrows' rule is decided with the revamp, not before.
+   **Report done** (ui-audit-2026-11-04.md). The owner's answers, 2026-11-04: Q3, Q4, Q6, Q7, Q8 as
+   recommended; Q5 every setting saves at once, admin forms too; Q1 and Q2 wait on research into the
+   phone's bottom bar (who uses it, how their users feel, a mock-up); and the search dialog is
+   revamped now to search by genre and the like, after research into what competitors offer and
+   what people use (the audit's §4, the owner's answers).
 8. *(Moved to the revamp, 2026-11-04:)* the paused player's first Back, with item 7's evidence.
 
 **Next batch (the owner, 2026-11-04):** the UI revamp, from item 7's report, as m5.md's B4.
