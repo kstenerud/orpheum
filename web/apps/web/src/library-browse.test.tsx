@@ -191,9 +191,9 @@ describe("the Libraries page (D349)", () => {
     expect(fieldNames).not.toContain("Library");
     // The text filter is in the pop-up its Sort and filter opens (D417), not on the bar, named to
     // a screen reader by its own label, no label element on the page.
-    expect(bar?.querySelector("input[type=search]")).toBeNull();
+    expect(bar?.querySelector("input.list-criteria__name")).toBeNull();
     const popUp = await openCriteria(mounted.container);
-    const field = popUp.querySelector("input[type=search]");
+    const field = popUp.querySelector("input.list-criteria__name");
     expect(field?.getAttribute("aria-label")).toBe("Name contains");
     expect(popUp.querySelector("label")).toBeNull();
   });
@@ -565,7 +565,7 @@ describe("the Libraries page (D349)", () => {
     );
     const titlesAsked = heard.filter((each) => each.methodAndPath === "GET /titles");
     expect(new URLSearchParams(titlesAsked[1]?.query).get("query")).toBeNull();
-    expect(popUp.querySelector<HTMLInputElement>("input[type=search]")?.value).toBe("");
+    expect(popUp.querySelector<HTMLInputElement>("input.list-criteria__name")?.value).toBe("");
     expect(buttonWithText(popUp, "Clear")).toBeUndefined();
     await closeCriteria(mounted.container);
     expect(mounted.container.querySelector("dialog")).toBeNull();
@@ -601,7 +601,7 @@ describe("the Libraries page (D349)", () => {
     // The query the address names is in the field its Sort and filter opens (as the retired Search
     // page's was).
     const popUp = await openCriteria(mounted.container);
-    expect(popUp.querySelector<HTMLInputElement>("input[type=search]")?.value).toBe("heat");
+    expect(popUp.querySelector<HTMLInputElement>("input.list-criteria__name")?.value).toBe("heat");
   });
 
   it("says when nothing matches its search", async () => {

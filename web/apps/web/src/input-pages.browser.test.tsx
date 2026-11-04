@@ -98,13 +98,17 @@ const manyLibraries: WalkAnswers = {
   },
 };
 
-/** A library's page's sort chooser: its button, found by the field it chooses. */
+/** A list's Sort and filter button, on its bar (listing-tools.tsx, D417). */
+function criteriaButton(): HTMLElement | undefined {
+  return document.querySelector<HTMLElement>("main .list-criteria__button") ?? undefined;
+}
+
+/** The sort's chooser in the open Sort and filter: its button, found by the field it chooses. */
 function sortChooser(): HTMLElement | undefined {
-  // The sort shows its field and an arrow, its name for a screen reader alone (the owner, 2026-10-30).
-  return (
-    document.querySelector<HTMLElement>('main .route-chooser__button[aria-label^="Sort:"]') ??
-    undefined
+  const chooser = [...document.querySelectorAll(".list-criteria .route-chooser")].find(
+    (each) => each.querySelector(".route-chooser__field")?.textContent === "Sort",
   );
+  return chooser?.querySelector<HTMLElement>(".route-chooser__button") ?? undefined;
 }
 
 /** Whether element holds more than it shows, scrolling within its own height. */
@@ -354,25 +358,39 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     navigation.go({ screen: "browse", library: 1 });
     walking = await mountApp({ ...walkServices(aLibrary), navigation });
     await drawn(".poster-grid a");
-    const picker = sortChooser();
-    // The sort is an icon, no chevron, as the menu has none (the owner, 2026-10-30).
-    expect(picker?.querySelector(".route-chooser__chevron")).toBeNull();
+    // The sort is in the list's Sort and filter (D417), a chooser inside its pop-up; the button has
+    // no chevron, as the menu has none (the owner, 2026-10-30).
+    const button = criteriaButton();
+    expect(button?.querySelector(".route-chooser__chevron")).toBeNull();
     expect(document.querySelector(".app-shell__menu-button .route-chooser__chevron")).toBeNull();
+    button?.focus();
+    await press("{Enter}");
+    await drawn(".list-criteria");
+    const picker = sortChooser();
     picker?.focus();
     await press("{Enter}");
-    await drawn("dialog a");
+    await drawn("dialog .list-box button");
+    // The browser's Back closes the chooser's list alone, then the pop-up it was opened from.
+    place.history.back();
+    await expect.poll(() => document.querySelectorAll("dialog")).toHaveLength(1);
+    await expect.poll(() => document.activeElement).toBe(picker);
     place.history.back();
     await expect.poll(() => document.querySelector("dialog")).toBeNull();
-    expect(document.activeElement).toBe(picker);
+    await expect.poll(() => document.activeElement).toBe(button);
     expect(navigation.route()).toEqual({ screen: "browse", library: 1 });
     expect(navigation.behind()).toEqual([{ screen: "home" }]);
     // A pop-up, not a dialog: no Close among its places (the owner, 2026-11-02; D408 §2).
     await press("{Enter}");
-    await drawn("dialog a");
+    await drawn(".list-criteria");
+    sortChooser()?.focus();
+    await press("{Enter}");
+    await drawn("dialog .list-box button");
     expect(document.querySelector('dialog button[aria-label="Close"]')).toBeNull();
     await press("{Escape}");
+    await expect.poll(() => document.querySelectorAll("dialog")).toHaveLength(1);
+    await press("{Escape}");
     await expect.poll(() => document.querySelector("dialog")).toBeNull();
-    expect(document.activeElement).toBe(picker);
+    expect(document.activeElement).toBe(button);
     expect(navigation.route()).toEqual({ screen: "browse", library: 1 });
   });
 
@@ -386,24 +404,37 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     try {
       walking = await mountApp(walkServices(aLibrary, "/browse?library=1"));
       await drawn(".poster-grid a");
-      const picker = sortChooser();
-      if (picker === undefined) {
-        throw new Error("the library's page draws no sort chooser");
+      const button = criteriaButton();
+      if (button === undefined) {
+        throw new Error("the library's page draws no Sort and filter");
       }
-      window.scrollBy({ top: picker.getBoundingClientRect().top - height / 2 });
+      window.scrollBy({ top: button.getBoundingClientRect().top - height / 2 });
       const scrolled = window.scrollY;
       expect(scrolled).toBeGreaterThan(0);
+      button.focus({ preventScroll: true });
+      // The sort is a chooser in the list's Sort and filter (D417): neither pop-up moves the page.
+      await press("{Enter}");
+      await drawn(".list-criteria");
+      expect(window.scrollY).toBe(scrolled);
+      const picker = sortChooser();
+      if (picker === undefined) {
+        throw new Error("the Sort and filter draws no sort chooser");
+      }
       picker.focus({ preventScroll: true });
       await press("{Enter}");
-      await drawn("dialog a");
+      await drawn("dialog .list-box button");
       expect(isFocusIn("dialog ul")).toBe(true);
-      expect(document.activeElement?.getAttribute("aria-current")).toBe("page");
+      expect(document.activeElement?.getAttribute("aria-current")).toBe("true");
       expect(window.scrollY).toBe(scrolled);
       expect(await pressUntil("{ArrowUp}", isOnFirstPlace)).toBe(true);
       expect(window.scrollY).toBe(scrolled);
       await press("{Escape}");
-      await expect.poll(() => document.querySelector("dialog")).toBeNull();
+      await expect.poll(() => document.querySelectorAll("dialog")).toHaveLength(1);
       expect(document.activeElement).toBe(picker);
+      expect(window.scrollY).toBe(scrolled);
+      await press("{Escape}");
+      await expect.poll(() => document.querySelector("dialog")).toBeNull();
+      expect(document.activeElement).toBe(button);
       expect(window.scrollY).toBe(scrolled);
     } finally {
       above.remove();
@@ -449,13 +480,43 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
         "/browse?library=1",
       ),
     );
-    await drawn('main button[aria-label="Search"]');
+    await drawn("main .list-criteria__button");
     await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
     await press("{ArrowUp}");
     expect(isFocusIn("main .browse__bar")).toBe(true);
     await press("{ArrowUp}");
     expect(isFocusIn("header")).toBe(true);
   });
+
+  // The plan's first wave, item 5 (the owner, 2026-11-04, "Agreed: (a)"): Up from any poster of a
+  // full first row, nothing in the page straight above it, reaches the list's tools before the bar.
+  it.each(["/films", "/browse?library=1"])(
+    "goes Up from every poster of a full first row on %s to its tools, its Sort and filter among them",
+    async (path) => {
+      await page.viewport(width, height);
+      walking = await mountApp(
+        walkServices({ ...aLibrary, "GET /titles": { titles: films(12), nextCursor: "" } }, path),
+      );
+      await drawn("main .list-criteria__button");
+      await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
+      const posters = [
+        ...document.querySelectorAll<HTMLElement>(".poster-grid .poster-card__link"),
+      ];
+      const topOf = (element: Element | undefined): number | undefined =>
+        element?.getBoundingClientRect().top;
+      const firstRow = posters.filter((each) => topOf(each) === topOf(posters[0]));
+      expect(firstRow.length).toBeLessThan(posters.length);
+      for (const poster of firstRow) {
+        poster.focus();
+        await press("{ArrowUp}");
+        expect(isFocusIn("main .browse__bar"), poster.textContent).toBe(true);
+      }
+      // The Sort and filter, at the tools' right end, is one arrow along them.
+      expect(await pressUntil("{ArrowRight}", () => isFocusIn(".list-criteria__button"))).toBe(
+        true,
+      );
+    },
+  );
 
   it("types a search on the Libraries page, arrows into its results, opens one and goes back", async () => {
     await page.viewport(width, height);
@@ -501,31 +562,34 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
             nextCursor: "",
           },
           "GET /items/102": filmDetail(102, "Metropolis Wave"),
-          // What the dialog finds as "heat" is typed, the server's whole search (search-found.tsx).
-          "GET /search/grouped": {
-            titles: { hits: [] },
-            people: { hits: [] },
-            genres: { hits: [] },
-          },
+          "GET /genres": { genres: [] },
         },
         "/browse?library=1",
       ),
     );
-    // The search is the bar's magnifying glass, its field in the dialog it opens (the owner, 2026-10-30).
-    await drawn('main button[aria-label="Search"]');
+    // The search is the field of the list's Sort and filter, the first thing in its pop-up (D417).
+    await drawn("main .list-criteria__button");
     await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
     const first = document.activeElement;
     expect(first).toBeInstanceOf(HTMLElement);
     const reached: Set<Element> =
       first instanceof HTMLElement ? await reachedFrom(first, press) : new Set();
-    const isSearchButton = (control: Element): control is HTMLButtonElement =>
-      control instanceof HTMLButtonElement && control.getAttribute("aria-label") === "Search";
-    const searchButton = [...reached].find(isSearchButton);
-    expect(searchButton).toBeDefined();
-    searchButton?.focus();
+    const isCriteriaButton = (control: Element): control is HTMLButtonElement =>
+      control instanceof HTMLButtonElement && control.classList.contains("list-criteria__button");
+    const button = [...reached].find(isCriteriaButton);
+    expect(button).toBeDefined();
+    button?.focus();
     await press("{Enter}");
-    await drawn("dialog input[type=search]");
-    await press("heat{Enter}");
+    await drawn("dialog input.list-criteria__name");
+    expect(document.activeElement?.classList.contains("list-criteria__name")).toBe(true);
+    await press("heat");
+    // Closed, what was typed goes to the address (useListCriteria), the list narrowed by it.
+    await press("{Escape}");
+    await expect.poll(() => document.querySelector("dialog")).toBeNull();
+    expect(document.activeElement).toBe(button);
+    await expect
+      .poll(() => walking?.services.navigation.route())
+      .toMatchObject({ screen: "browse", library: 1, query: "heat" });
     await drawn('main a[href="/titles/102"]');
     expect(await pressUntil("{ArrowDown}", () => isFocusOnLinkTo("/titles/102"))).toBe(true);
     await press("{Enter}");
@@ -534,9 +598,10 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     await expect.poll(() => isFocusOnLinkTo("/titles/102")).toBe(true);
   });
 
-  // search-by-more §4.2: what the server's search finds shows under the field as it is typed; on a
-  // TV focus arrives in the field (R3), Down reaches the results, and every one is reached.
-  it("types in Films' search, Down reaching its grouped results, every one reached by arrows", async () => {
+  // D417 §1: a list's text, chips and sort are one pop-up's, each adding to the others. On a TV
+  // focus arrives in its field (R3), Up and Down reach every control in it, a genre chosen in its
+  // chooser closes that chooser's list alone, and the pop-up closed puts them all in the address.
+  it("opens Films' Sort and filter on its field, Down reaching every control, and a genre chosen adds to what is typed", async () => {
     await page.viewport(width, height);
     walking = await mountApp(
       walkServices(
@@ -544,35 +609,49 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
           ...signedIn,
           "GET /titles": { titles: films(3), nextCursor: "" },
           "GET /titles/letters": { letters: [] },
-          "GET /search/grouped": {
-            titles: {
-              hits: [
-                { id: 101, kind: "movie", name: "Metropolis", year: 1995 },
-                { id: 102, kind: "series", name: "Heatwave" },
-              ],
-            },
-            people: { hits: [{ id: 41, name: "Heather Graham" }], nextCursor: "p2" },
-            genres: { hits: [{ id: 3, name: "Heist", titleCount: 4 }] },
+          "GET /genres": {
+            genres: [
+              { id: 2, name: "Drama" },
+              { id: 3, name: "Heist" },
+            ],
           },
         },
         "/films",
       ),
     );
-    await drawn('main button[aria-label="Search"]');
-    document.querySelector<HTMLElement>('main button[aria-label="Search"]')?.focus();
+    await drawn("main .list-criteria__button");
+    const button = criteriaButton();
+    button?.focus();
     await press("{Enter}");
-    await drawn("dialog input[type=search]");
-    expect(document.activeElement?.getAttribute("type")).toBe("search");
+    await drawn("dialog input.list-criteria__name");
+    expect(document.activeElement?.classList.contains("list-criteria__name")).toBe(true);
     await press("hea");
-    await drawn('dialog a[href="/titles/101"]');
-    expect(await pressUntil("{ArrowDown}", () => isFocusOnLinkTo("/titles/101"), 3)).toBe(true);
-    expect(await unreachedIn("dialog.listing-search")).toEqual([]);
-    document.querySelector<HTMLElement>('dialog a[href="/films?genre=3"]')?.focus();
+    // Clear is there once something narrows the list: the last control.
+    await drawn(".list-criteria__clear");
+    const controls = focusTargetsIn(document.querySelector(".list-criteria") ?? document);
+    const reached = new Set<Element>([document.activeElement ?? document.body]);
+    for (let step = 0; step < controls.length; step += 1) {
+      await press("{ArrowDown}");
+      reached.add(document.activeElement ?? document.body);
+    }
+    expect(
+      controls.filter((control) => !reached.has(control)).map((each) => each.outerHTML),
+    ).toEqual([]);
+    expect(isFocusIn(".list-criteria")).toBe(true);
+    expect(await pressUntil("{ArrowUp}", () => focusedName() === "Name contains")).toBe(true);
+    expect(await pressUntil("{ArrowDown}", () => focusedName() === "Any genre")).toBe(true);
     await press("{Enter}");
+    await drawn("dialog .list-box button");
+    expect(await pressUntil("{ArrowDown}", () => focusedName() === "Heist")).toBe(true);
+    await press("{Enter}");
+    await expect.poll(() => document.querySelectorAll("dialog")).toHaveLength(1);
+    expect(focusedName()).toBe("Heist");
+    await press("{Escape}");
+    await expect.poll(() => document.querySelector("dialog")).toBeNull();
+    expect(document.activeElement).toBe(button);
     await expect
       .poll(() => walking?.services.navigation.route())
-      .toEqual({ screen: "films", genre: 3 });
-    expect(isDrawn("dialog.listing-search")).toBe(false);
+      .toEqual({ screen: "films", query: "hea", genre: 3 });
   });
 
   it("chooses a controller's OK on This device by arrows and OK, every control reached", async () => {

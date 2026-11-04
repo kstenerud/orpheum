@@ -45,6 +45,7 @@ User-Agent (D263; the User-Agent is logged only).
 | A film cast to Chrome or a Fire TV played muted, with no way to turn the sound on by remote, and out of full screen. | [A cast receiver is started by a message, so the browser gives it neither sound nor full screen](#a-cast-receiver-is-started-by-a-message-so-the-browser-gives-it-neither-sound-nor-full-screen) |
 | A page said "The server could not be reached" after 40 s with the core there; its report said only "TypeError: Failed to fetch". | [A Response made from a stream that fails reads as "Failed to fetch" or an AbortError, never the stream's own error](#a-response-made-from-a-stream-that-fails-reads-as-failed-to-fetch-or-an-aborterror-never-the-streams-own-error) |
 | A dialog closed on Escape left focus on the page's start, not on the button that opened it. | [A modal dialog removed from the page while open gives focus back to nothing](#a-modal-dialog-removed-from-the-page-while-open-gives-focus-back-to-nothing) |
+| A name typed in a list's Sort and filter, then Escape, left the pop-up open and the name cleared. | [Escape in a search field with text clears it, and does not close the dialog around it](#escape-in-a-search-field-with-text-clears-it-and-does-not-close-the-dialog-around-it) |
 | Opening a drop-down mid-page scrolled the page up to its top first; closing it scrolled back to the button, not to where the page was. | [A modal dialog given position relative is laid out at the page's top, not the screen's](#a-modal-dialog-given-position-relative-is-laid-out-at-the-pages-top-not-the-screens) |
 | On a Fire TV in Silk, Left and Right in an open drop-down left it open, focus on a place, where Chromium and Firefox close it. | [Silk on Fire TV: Left and Right in an open drop-down did not close it (unexplained)](#silk-on-fire-tv-left-and-right-in-an-open-drop-down-did-not-close-it-unexplained) |
 | A game controller paired to a Fire TV moved Silk's pointer, its D-pad did nothing, and its right stick left Silk for the home screen. | [Fire TV keeps a game controller's D-pad and sticks from a page in Silk](#fire-tv-keeps-a-game-controllers-d-pad-and-sticks-from-a-page-in-silk) |
@@ -1468,6 +1469,22 @@ User-Agent (D263; the User-Agent is logged only).
   Firefox without `giveFocusBack`, `document.activeElement` being `<body>` (2026-10-27). **[doc]** the HTML
   standard's dialog removing steps remove the element from the top layer and run no focusing steps; only
   its close steps restore the previously focused element.
+
+
+### Escape in a search field with text clears it, and does not close the dialog around it
+
+- **Technology:** `<input type="search">` inside a modal `<dialog>`, in Chromium and Firefox alike.
+- **Symptom:** in a list's Sort and filter (D417), a name typed and then Escape left the pop-up open
+  and the field empty: the list's filter by name was undone, and a second Escape was needed to close.
+- **Cause:** a search field's own default action for Escape, with a value, is to clear it; the key is
+  then taken, and the dialog hears no cancel. Only an empty search field lets Escape through.
+- **What we do:** the Sort and filter's field is `type="text"` (with `enterkeyhint="search"`), so
+  Escape, a remote's Back where it is a key, closes the pop-up and keeps what was typed
+  (`web/apps/web/src/listing-tools.tsx`).
+- **Evidence:** **[measured]** `web/apps/web/src/input-pages.browser.test.tsx`'s walk of the Libraries
+  page typed "heat" and pressed Escape: in Chromium and Firefox the pop-up stayed open with the field's
+  value `""` (2026-11-04). **[doc]** the HTML standard leaves a search field's look and its clearing to
+  the browser; both clear on Escape.
 
 
 ### A modal dialog given position relative is laid out at the page's top, not the screen's
