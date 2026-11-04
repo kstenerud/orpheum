@@ -471,6 +471,53 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
     expect(shown()).toBe("full");
   });
 
+  // D418 §2: the overlay opens hidden (D418 §1), and the first press is D410's, not the audit's
+  // "shows them with play/pause focused": Up focuses the scrub bar, OK there pauses and plays, the
+  // play button's icon following (pausing shows the pause sign and the scrub bar, D410 §2), and
+  // Left and Right seek.
+  it("takes the first press after the film opens as D410 has it: Up to the scrub bar, OK there pausing and playing, Right seeking", async () => {
+    const video = await onAFireTv();
+    let isPaused = false;
+    Object.defineProperty(video, "paused", { configurable: true, get: () => isPaused });
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {
+      isPaused = true;
+      video.dispatchEvent(new Event("pause"));
+    });
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(() => {
+      isPaused = false;
+      video.dispatchEvent(new Event("play"));
+      return Promise.resolve();
+    });
+    const positionAt = standsAt(video, 30);
+    expect(shown()).toBe("hidden");
+    expect(document.activeElement?.closest(".player-overlay")).toBeNull();
+    await press("{ArrowUp}");
+    const scrub = document.querySelector(".player-overlay .timeline__range");
+    await expect.poll(() => document.activeElement).toBe(scrub);
+    const playButton = (): Element | null =>
+      document.querySelector(
+        ".player-overlay__buttons button:is([aria-label='Play'], [aria-label='Pause'])",
+      );
+    await press("{Enter}");
+    expect(isPaused).toBe(true);
+    await expect.poll(() => playButton()?.getAttribute("aria-label")).toBe("Play");
+    expect(shown()).toBe("paused"); // the pause sign and the scrub bar (D410 §2)
+    await press("{Enter}");
+    expect(isPaused).toBe(false);
+    await expect.poll(() => playButton()?.getAttribute("aria-label")).toBe("Pause");
+    await press("{ArrowRight}");
+    await expect.poll(positionAt).toBeCloseTo(30 + seekStepMs / 1000, 1);
+  });
+
+  it("seeks by Right as the first press after the film opens, the scrub bar alone showing (D418 §2)", async () => {
+    const video = await onAFireTv();
+    const positionAt = standsAt(video, 30);
+    expect(shown()).toBe("hidden");
+    await press("{ArrowRight}");
+    await expect.poll(positionAt).toBeCloseTo(30 + seekStepMs / 1000, 1);
+    expect(shown()).toBe("scrub");
+  });
+
   // A cast's receiver, whose overlay this is, did nothing at Space (the owner, Chrome, 2026-10-27).
   // Space on a button presses it (D407 §5); on the scrub bar, which it cannot press, it plays.
   it("plays and pauses by Space on its scrub bar, which Space does not press", async () => {
