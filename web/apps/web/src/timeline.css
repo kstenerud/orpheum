@@ -8,6 +8,30 @@
   gap: var(--space-4);
 }
 
+/* The slider and the time a mouse points at above it (TimeUnderPointer). */
+.timeline__track {
+  position: relative;
+  min-width: 0;
+}
+
+/* The time under a mouse's pointer, above the slider at the pointer, as a control's tooltip is
+   (settings.css): above, so the pointer does not hide it. */
+.timeline__pointed {
+  position: absolute;
+  inset-block-end: calc(100% + var(--space-1));
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-raised);
+  color: var(--color-text);
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+  translate: -50% 0;
+}
+
 /* As tall as a touch target, the page not scrolling under a finger on it. */
 .timeline__range {
   width: 100%;

@@ -2,7 +2,7 @@
 
 import "./timeline.css";
 
-import { useRef, type JSX, type RefObject } from "react";
+import { useRef, useState, type JSX, type PointerEvent, type RefObject } from "react";
 
 import { fractionAlong, useTouchAnywhere } from "./range-touch.ts";
 
@@ -42,7 +42,8 @@ export function ClockTimes(props: {
  * moves at once and stays (seek-ahead.ts). A touch anywhere on it sets it where
  * the finger is, as a volume's does (range-touch.ts), Safari on an iPhone moving a slider only from
  * its thumb. On a television its Left and Right are commands, which its player answers by seeking a
- * step (arrowsAreCommandsAttribute in focus-engine.ts), not the slider's own small steps.
+ * step (arrowsAreCommandsAttribute in focus-engine.ts), not the slider's own small steps. A mouse
+ * over it shows the time under the pointer above it (TimeUnderPointer).
  */
 export function Timeline(props: {
   /** What the slider is, in the viewer's words: its accessible name. */
@@ -68,25 +69,63 @@ export function Timeline(props: {
     onSeek,
   );
   const shownMs = durationMs > 0 ? Math.min(atMs, durationMs) : atMs;
+  const [pointedFraction, setPointedFraction] = useState<number | undefined>(undefined);
+  const notePointer = (event: PointerEvent<HTMLInputElement>): void => {
+    setPointedFraction(
+      event.pointerType === "mouse" && durationMs > 0
+        ? fractionAlong(event.clientX, event.currentTarget.getBoundingClientRect())
+        : undefined,
+    );
+  };
   return (
     <div className="timeline">
-      <input
-        ref={inputRef}
-        type="range"
-        className="timeline__range"
-        aria-label={label}
-        aria-valuetext={clockText(shownMs)}
-        min={0}
-        max={mostMs}
-        step={dragStepMs}
-        value={Math.min(shownMs, mostMs)}
-        disabled={isDisabled}
-        data-focus-arrows-are-commands={hasArrowsAsCommands === true ? "" : undefined}
-        onChange={(event) => {
-          onSeek(Number(event.currentTarget.value));
-        }}
-      />
+      <div className="timeline__track">
+        <input
+          ref={inputRef}
+          type="range"
+          className="timeline__range"
+          aria-label={label}
+          aria-valuetext={clockText(shownMs)}
+          min={0}
+          max={mostMs}
+          step={dragStepMs}
+          value={Math.min(shownMs, mostMs)}
+          disabled={isDisabled}
+          data-focus-arrows-are-commands={hasArrowsAsCommands === true ? "" : undefined}
+          onChange={(event) => {
+            onSeek(Number(event.currentTarget.value));
+          }}
+          onPointerMove={notePointer}
+          onPointerLeave={() => {
+            setPointedFraction(undefined);
+          }}
+        />
+        {pointedFraction === undefined ? null : (
+          <TimeUnderPointer fraction={pointedFraction} durationMs={durationMs} />
+        )}
+      </div>
       <ClockTimes atMs={shownMs} durationMs={durationMs} />
     </div>
+  );
+}
+
+/**
+ * The time under a mouse's pointer on a timeline, above it at the pointer (the UI review's "the
+ * scrub bar's time", item 10 of the UI revamp's first wave, navigation-and-widgets-answers-2026-10-27.md): fraction along
+ * the film of durationMs. A mouse's alone: a finger on it seeks at once (useTouchAnywhere), and a
+ * remote's focus has the times beside it. A screen reader hears the slider's own value instead.
+ */
+function TimeUnderPointer(props: {
+  readonly fraction: number;
+  readonly durationMs: number;
+}): JSX.Element {
+  return (
+    <span
+      className="timeline__pointed"
+      style={{ insetInlineStart: `${String(props.fraction * 100)}%` }}
+      aria-hidden="true"
+    >
+      {clockText(props.fraction * props.durationMs)}
+    </span>
   );
 }
