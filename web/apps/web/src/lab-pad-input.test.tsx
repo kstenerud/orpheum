@@ -4,7 +4,7 @@
 import "./i18n.ts";
 
 import { act } from "react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { chooseOk } from "./controller-choice.ts";
 import { LabInput } from "./lab-input.tsx";
@@ -71,27 +71,40 @@ function fakePad(id: string, mapping = "standard"): FakePad {
 /** The pads navigator.getGamepads gives: a browser with the Gamepad API, none connected yet. */
 let connected: FakePad[] = [];
 
-/** Connects pad: navigator.getGamepads gives it from now on, and the page is told. */
-function connect(pad: FakePad): void {
+/** How far the test's clock moves for one of the page's frames, in ms. */
+const frameMs = 16;
+
+/**
+ * Runs the page's next frame, in which it polls its pads once. The frames and the time the poll
+ * reads are the test's (beforeEach fakes them), so a stick or button is held for the frames the test
+ * runs while holding it, however slowly a loaded machine runs the test: held in real time, a press
+ * waited on past the 400 ms a held arrow takes to repeat walked focus off the tiles (2026-11-01).
+ */
+async function aFrame(): Promise<void> {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(frameMs);
+  });
+}
+
+/** Connects pad: navigator.getGamepads gives it from now on, the page is told, and it polls. */
+async function connect(pad: FakePad): Promise<void> {
   connected = [pad];
   act(() => {
     globalThis.dispatchEvent(new Event("gamepadconnected"));
   });
+  await aFrame();
 }
 
-/** Lets the page poll its pads a few frames. */
-async function aFewFrames(): Promise<void> {
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 60));
-  });
-}
-
-/** Presses button on pad, held until the page has read it, then lets it go. */
+/**
+ * Presses button on pad for one frame, which the page reads, then lets it go and lets the page read
+ * that, before waiting until isRead says what the press caused has come.
+ */
 async function pressPad(pad: FakePad, button: number, isRead: () => boolean): Promise<void> {
   pad.hold(button);
-  await settleUntil(isRead);
+  await aFrame();
   pad.hold(undefined);
-  await aFewFrames();
+  await aFrame();
+  await settleUntil(isRead);
 }
 
 /** The button test, its events sent to a stand-in server that takes them all. */
@@ -106,6 +119,7 @@ describe("the button test's controllers", () => {
     // The OK a test chose is kept in the browser, as the person's is: each test starts with none.
     chooseOk("automatic");
     connected = [];
+    vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame", "performance"] });
     Object.defineProperty(navigator, "getGamepads", {
       configurable: true,
       value: () => connected,
@@ -115,6 +129,7 @@ describe("the button test's controllers", () => {
     mounted?.unmount();
     mounted = undefined;
     Reflect.deleteProperty(navigator, "getGamepads");
+    vi.useRealTimers();
   });
 
   it("reads a pad the browser announced before the test opened, as on coming back to it", async () => {
@@ -123,6 +138,7 @@ describe("the button test's controllers", () => {
     connected = [fakePad("045e-02e0-8Bitdo SN30 Pro")];
     const heard: Heard[] = [];
     mounted = await mountTest(heard);
+    await aFrame();
     await settleUntil(() => eventsOf(heard, "pad").length > 0);
     expect(eventsOf(heard, "pad")).toEqual([
       expect.objectContaining({ padLayout: "xbox", padMapping: "standard" }),
@@ -133,7 +149,7 @@ describe("the button test's controllers", () => {
     const heard: Heard[] = [];
     mounted = await mountTest(heard);
     const pad = fakePad("Pro Controller (STANDARD GAMEPAD Vendor: 057e Product: 2009)");
-    connect(pad);
+    await connect(pad);
     await settleUntil(() => eventsOf(heard, "pad").length > 0);
     expect(eventsOf(heard, "pad")).toEqual([
       expect.objectContaining({
@@ -164,7 +180,7 @@ describe("the button test's controllers", () => {
     const heard: Heard[] = [];
     mounted = await mountTest(heard);
     const pad = fakePad("8Bitdo SF30 Pro (STANDARD GAMEPAD Vendor: 2dc8 Product: 6102)");
-    connect(pad);
+    await connect(pad);
     await settleUntil(() => eventsOf(heard, "pad").length > 0);
     expect(eventsOf(heard, "pad")).toEqual([
       expect.objectContaining({ padLayout: "unknown", okButton: "bottom" }),
@@ -185,7 +201,7 @@ describe("the button test's controllers", () => {
     const heard: Heard[] = [];
     mounted = await mountTest(heard);
     const pad = fakePad("2dc8-6102-8Bitdo SF30 Pro", "");
-    connect(pad);
+    await connect(pad);
     await settleUntil(() => eventsOf(heard, "pad").length > 0);
     expect(mounted.container.textContent).toContain("This controller has no standard layout");
     await pressPad(pad, 14, () => eventsOf(heard, "gamepad").length > 0);
@@ -194,10 +210,12 @@ describe("the button test's controllers", () => {
     ]);
     expect(eventsOf(heard, "gamepad")[0]).not.toHaveProperty("padButtonName");
     pad.lean([0, 0, 0.4, 0]);
-    await aFewFrames();
+    await aFrame();
     pad.lean([0, 0, 0.9, 0]);
+    await aFrame();
     await settleUntil(() => eventsOf(heard, "axis").length > 0);
     pad.lean([0, 0, 0.1, 0]);
+    await aFrame();
     await settleUntil(() => eventsOf(heard, "axis").length > 1);
     expect(eventsOf(heard, "axis")).toEqual([
       expect.objectContaining({ padIndex: 0, axisIndex: 2, axisValue: 0.9 }),
@@ -209,8 +227,9 @@ describe("the button test's controllers", () => {
     const heard: Heard[] = [];
     mounted = await mountTest(heard);
     const pad = fakePad("Xbox 360 Controller (XInput STANDARD GAMEPAD)");
-    connect(pad);
+    await connect(pad);
     pad.lean([0, 0.8, 0, 0]);
+    await aFrame();
     await settleUntil(() => eventsOf(heard, "stick").length > 0);
     expect(eventsOf(heard, "stick")).toEqual([
       expect.objectContaining({
@@ -220,12 +239,11 @@ describe("the button test's controllers", () => {
         padLayout: "xbox",
       }),
     ]);
-    // The first arrow starts our navigation at the tiles, as a key's does: the focus moves a frame
-    // after the event is heard, which a loaded machine may not give before the check.
+    // The first arrow starts our navigation at the tiles, as a key's does.
     await settleUntil(() => document.activeElement?.classList.contains("lab__tile") === true);
     expect(document.activeElement?.classList.contains("lab__tile")).toBe(true);
     pad.lean([0, 0, 0, 0]);
-    await aFewFrames();
+    await aFrame();
     act(() => {
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
@@ -243,7 +261,7 @@ describe("the button test's controllers", () => {
     const heard: Heard[] = [];
     mounted = await mountTest(heard);
     const pad = fakePad("Xbox 360 Controller (XInput STANDARD GAMEPAD)");
-    connect(pad);
+    await connect(pad);
     const browsers = buttonWithText(mounted.container, "The browser's own");
     act(() => {
       browsers?.focus();
