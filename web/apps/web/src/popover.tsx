@@ -14,6 +14,7 @@ import {
 import { reportFailure } from "@orpheum/sdk";
 
 import { listPlace, overOpenerPlace, type ScreenBox } from "./drop-down-place.ts";
+import { caretOf } from "./focus-engine.ts";
 import { directionOfKey, keyCodeOf } from "./input-buttons.ts";
 import { useCommands } from "./input-layer.tsx";
 import { useModalLayer, type ModalLayerTold } from "./modal-layer.tsx";
@@ -248,9 +249,10 @@ function focusedDescribed(popover: Element | null): string {
 }
 
 /**
- * Tells the core's log of a Left or Right that left the pop-up open: on the owner's Fire TV (Silk
- * 138, spatial navigation) neither closed it with focus on a place, where Chromium and Firefox close
- * it by the same key (2026-10-28; idiosyncrasies.md). It says which key came, whether something had
+ * Tells the core's log of a Left or Right that left the pop-up open, but in a text field, which keeps
+ * them (isTakenInPopUp): on the owner's Fire TV (Silk 138, spatial navigation) neither closed it
+ * with focus on a place, where Chromium and Firefox close it by the same key (2026-10-28;
+ * idiosyncrasies.md). It says which key came, whether something had
  * taken it before the app heard it and after, and where focus was, so the next check on the device
  * shows which layer kept it. isClosingRef says it was told to close, which it does a render later.
  */
@@ -262,7 +264,8 @@ function useStuckArrowTold(
     const checks = new Set<ReturnType<typeof setTimeout>>();
     const heard = (event: KeyboardEvent): void => {
       const direction = directionOfKey(event.key, keyCodeOf(event));
-      if (direction !== "left" && direction !== "right") {
+      // A text field keeps Left and Right, the pop-up open (isTakenInPopUp).
+      if ((direction !== "left" && direction !== "right") || isInTextField()) {
         return;
       }
       const isTakenBefore = event.defaultPrevented;
@@ -360,20 +363,28 @@ interface PopoverProps extends Placing {
   readonly children: ReactNode;
 }
 
+/** Whether focus is in a text field, where Left and Right are the caret's (focus-engine.ts's caretOf). */
+function isInTextField(): boolean {
+  const focused = document.activeElement;
+  return focused !== null && caretOf(focused) !== undefined;
+}
+
 /**
- * What a command does in a pop-up, closed by onClose: Left and Right close it; in one that is one
- * control, Up and Down step it and OK closes it. Whether it took the command.
+ * What a command does in a pop-up, closed by onClose: Left and Right close it, but from a text field,
+ * a list's Sort and filter's name (listing-tools.tsx), where they are the caret's and, at its value's
+ * edge, go where they would in a dialog's field, to nothing beside it in a column, not closing it; in
+ * one that is one control, Up and Down step it and OK closes it. Whether it took the command.
  */
 function isTakenInPopUp(
   command: string,
   oneControl: OneControl | undefined,
   onClose: () => void,
 ): boolean {
-  if (
-    command === "left" ||
-    command === "right" ||
-    (oneControl !== undefined && command === "select")
-  ) {
+  const isAcross = command === "left" || command === "right";
+  if (isAcross && isInTextField()) {
+    return false;
+  }
+  if (isAcross || (oneControl !== undefined && command === "select")) {
     onClose();
     return true;
   }

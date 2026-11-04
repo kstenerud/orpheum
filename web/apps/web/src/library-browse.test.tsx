@@ -3,11 +3,12 @@
 
 import "./i18n.ts";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { JSX } from "react";
+import { act, type JSX } from "react";
 
 import { LibraryBrowse } from "./library-browse.tsx";
+import { typingRestMs } from "./listing-tools.tsx";
 import { chipsOf } from "./list-filters.ts";
 import { useRoute } from "./services.tsx";
 import { BackgroundChangesContext, type Poller } from "./polling.ts";
@@ -532,6 +533,52 @@ describe("the Libraries page (D349)", () => {
   // The owner, 2026-10-30: "a "Show all" button that removes all search criteria, closes the dialog,
   // and refreshes the list"; D417 makes it the pop-up's Clear, which clears every filter but the
   // sort, the list changing under the pop-up, and goes as it clears.
+  // Each letter of a word is not a request: the list asks for what is typed once typing rests.
+  it("asks for the text typed in its Sort and filter once typing rests, not at each letter", async () => {
+    const heard: Heard[] = [];
+    mounted = await mountBrowse(
+      { library: 1 },
+      {
+        "GET /libraries": [200, { libraries: [library(1, "Films")] }],
+        "GET /titles": titlesPage(),
+        "GET /titles/letters": lettersPage(),
+      },
+      heard,
+    );
+    await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
+    const popUp = await openCriteria(mounted.container);
+    const field = popUp.querySelector("input.list-criteria__name");
+    const queriesAsked = (): (string | null)[] =>
+      heard
+        .filter((each) => each.methodAndPath === "GET /titles")
+        .map((each) => new URLSearchParams(each.query).get("query"));
+    expect(queriesAsked()).toEqual([null]);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      for (const typed of ["h", "he", "hea", "heat"]) {
+        await act(async () => {
+          Reflect.set(HTMLInputElement.prototype, "value", typed, field);
+          field?.dispatchEvent(new Event("input", { bubbles: true }));
+          await Promise.resolve();
+        });
+        await act(async () => {
+          vi.advanceTimersByTime(typingRestMs - 1);
+          await Promise.resolve();
+        });
+      }
+      // Shown at once in the button's summary, though not yet asked for.
+      expect(criteriaButton(mounted.container)?.getAttribute("title")).toBe("Name · “heat”");
+      await act(async () => {
+        vi.advanceTimersByTime(1);
+        await Promise.resolve();
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+    await settleUntil(() => queriesAsked().includes("heat"));
+    expect(queriesAsked()).toEqual([null, "heat"]);
+  });
+
   it("drops the search by its pop-up's Clear, the list shown again", async () => {
     const heard: Heard[] = [];
     const services = servedBy(

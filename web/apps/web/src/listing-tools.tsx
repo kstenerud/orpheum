@@ -89,8 +89,13 @@ export function SortArrowIcon(props: { readonly isAscending: boolean }): JSX.Ele
 
 /** A list's criteria as its page shows them while its pop-up is open, and how they change. */
 export interface ShownCriteria {
-  /** The criteria the list shows: those the pop-up has changed while open, else the address's. */
+  /** The criteria the pop-up shows: those it has changed while open, else the address's. */
   readonly shown: ListCriteria;
+  /**
+   * The criteria the list is asked for: those shown, but a text still being typed, which is asked for
+   * once typing rests (useRestedText).
+   */
+  readonly listed: ListCriteria;
   readonly change: (next: ListCriteria) => void;
   /** Told as the pop-up opens and closes (PopoverButton's onOpenChange). */
   readonly onOpenChange: (isOpen: boolean) => void;
@@ -156,8 +161,44 @@ export function useListCriteria(
     writeRef.current(now);
   }, []);
   const shown = held ?? fromAddress;
+  const listed = useRestedText(shown);
   const genres = useGenres(chipsKind, isOpened || shown.filters.genre !== undefined);
-  return { shown, change, onOpenChange, chipsKind, genres };
+  return { shown, listed, change, onOpenChange, chipsKind, genres };
+}
+
+/**
+ * How long typing in a list's Sort and filter rests before the list is asked for what is typed: each
+ * letter of a word is not a request (as the grouped search's field waited, before D417 took it out).
+ */
+export const typingRestMs = 200;
+
+/**
+ * The criteria a list is asked for, of those shown: where only the text differs from those last
+ * asked for, those until typing rests typingRestMs; any other change, a chip, the sort or Clear, at
+ * once, the text with it.
+ */
+function useRestedText(shown: ListCriteria): ListCriteria {
+  const [listed, setListed] = useState(shown);
+  const shownRef = useRef(shown);
+  useEffect(() => {
+    shownRef.current = shown;
+  });
+  const shownKey = criteriaKey(shown);
+  const isTextAlone =
+    listed.query.trim() !== shown.query.trim() &&
+    criteriaKey({ ...listed, query: shown.query }) === shownKey;
+  useEffect(() => {
+    const rest = setTimeout(
+      () => {
+        setListed(shownRef.current);
+      },
+      isTextAlone ? typingRestMs : 0,
+    );
+    return () => {
+      clearTimeout(rest);
+    };
+  }, [shownKey, isTextAlone]);
+  return isTextAlone ? listed : shown;
 }
 
 /** A list's criteria's few words (criteriaSummary), the chosen genre named once its name is read. */
@@ -184,8 +225,6 @@ export function ListCriteriaButton(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const summary = useSummary(props.criteria);
-  const { shown, change, chipsKind, genres } = props.criteria;
-  const fieldRef = useRef<HTMLInputElement>(null);
   return (
     <PopoverButton
       label={t("criteria.open")}
@@ -201,52 +240,65 @@ export function ListCriteriaButton(props: {
       isFromItsTop
       onOpenChange={props.criteria.onOpenChange}
     >
-      <div className="list-criteria" data-focus-container="" {...{ [keepsOpenAttribute]: "" }}>
-        {/* A text field, not a search one: Escape in a search field with text clears it, in
-            Chromium and Firefox, and does not close the pop-up (idiosyncrasies.md). */}
-        <input
-          ref={fieldRef}
-          type="text"
-          enterKeyHint="search"
-          className="list-criteria__name"
-          aria-label={t("criteria.name")}
-          placeholder={t("criteria.name")}
-          value={shown.query}
-          onChange={(event) => {
-            change({ ...shown, query: event.target.value });
-          }}
-        />
-        {chipsKind === undefined ? null : (
-          <ListChips
-            genres={genres}
-            filters={shown.filters}
-            onChange={(filters) => {
-              change({ ...shown, filters });
-            }}
-          />
-        )}
-        <SortChooser
-          sorts={props.sorts}
-          choice={shown.choice}
-          onChoose={(choice) => {
-            change({ ...shown, choice });
-          }}
-        />
-        {isNarrowed(shown) ? (
-          <button
-            type="button"
-            className="list-criteria__clear"
-            onClick={() => {
-              change(clearedCriteria(shown));
-              // Clear goes as it clears: focus to the field, the pop-up's first control.
-              fieldRef.current?.focus();
-            }}
-          >
-            {t("criteria.clear")}
-          </button>
-        ) : null}
-      </div>
+      <CriteriaControls criteria={props.criteria} sorts={props.sorts} />
     </PopoverButton>
+  );
+}
+
+/** What a list's Sort and filter's pop-up holds, one column (ListCriteriaButton). */
+function CriteriaControls(props: {
+  readonly criteria: ShownCriteria;
+  readonly sorts: readonly LibrarySort[];
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { shown, change, chipsKind, genres } = props.criteria;
+  const fieldRef = useRef<HTMLInputElement>(null);
+  return (
+    <div className="list-criteria" data-focus-container="" {...{ [keepsOpenAttribute]: "" }}>
+      {/* A text field, not a search one: Escape in a search field with text clears it, in
+          Chromium and Firefox, and does not close the pop-up (idiosyncrasies.md). */}
+      <input
+        ref={fieldRef}
+        type="text"
+        enterKeyHint="search"
+        className="list-criteria__name"
+        aria-label={t("criteria.name")}
+        placeholder={t("criteria.name")}
+        value={shown.query}
+        onChange={(event) => {
+          change({ ...shown, query: event.target.value });
+        }}
+      />
+      {chipsKind === undefined ? null : (
+        <ListChips
+          genres={genres}
+          filters={shown.filters}
+          onChange={(filters) => {
+            change({ ...shown, filters });
+          }}
+        />
+      )}
+      <SortChooser
+        sorts={props.sorts}
+        choice={shown.choice}
+        onChoose={(choice) => {
+          change({ ...shown, choice });
+        }}
+      />
+      {isNarrowed(shown) ? (
+        <button
+          type="button"
+          className="list-criteria__clear"
+          onClick={() => {
+            change(clearedCriteria(shown));
+            // Clear goes as it clears: focus to the field, the pop-up's first control.
+            fieldRef.current?.focus();
+          }}
+        >
+          {t("criteria.clear")}
+        </button>
+      ) : null}
+    </div>
   );
 }
 
