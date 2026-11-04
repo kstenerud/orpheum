@@ -269,6 +269,9 @@ describe("All Films' and All Series' search (the owner, 2026-10-30)", () => {
     ]);
     await settleUntil(() => mounted?.container.querySelector('a[href="/titles/4"]') !== null);
     expect(mounted.container.querySelector('a[href="/titles/1"]')).toBeNull();
+    // What is typed narrows this list alone: the search across titles, people and genres is not
+    // asked (D417 §2).
+    expect(heard.filter((each) => each.methodAndPath.startsWith("GET /search"))).toEqual([]);
   });
 });
 

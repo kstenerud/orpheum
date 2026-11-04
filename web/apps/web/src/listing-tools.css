@@ -47,14 +47,19 @@
   text-overflow: ellipsis;
 }
 
-/* What it opens, one control a line, the field first: as wide as a phone's screen allows (360 px
-   less the room at its edges and the pop-up's border), no wider than a column on a wider one. */
+/* What it opens, one control a line, the field first: as wide as a pop-up may be (--popover-widest,
+   the owner's half the screen, 16rem on a phone) less the pop-up's border, and never wider than the
+   screen less the room at its edges; no wider than a column on a wider screen. */
 .list-criteria {
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: var(--space-3);
-  width: min(22rem, 100vw - var(--screen-edge-room-left) - var(--screen-edge-room-right) - 2px);
+  width: min(
+    22rem,
+    var(--popover-widest) - 2px,
+    100vw - var(--screen-edge-room-left) - var(--screen-edge-room-right) - 2px
+  );
   padding: var(--space-3);
 }
 
