@@ -202,9 +202,12 @@ export function ListCriteriaButton(props: {
       onOpenChange={props.criteria.onOpenChange}
     >
       <div className="list-criteria" data-focus-container="" {...{ [keepsOpenAttribute]: "" }}>
+        {/* A text field, not a search one: Escape in a search field with text clears it, in
+            Chromium and Firefox, and does not close the pop-up (idiosyncrasies.md). */}
         <input
           ref={fieldRef}
-          type="search"
+          type="text"
+          enterKeyHint="search"
           className="list-criteria__name"
           aria-label={t("criteria.name")}
           placeholder={t("criteria.name")}

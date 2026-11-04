@@ -307,23 +307,42 @@ describe.each(screens)("the app by a game controller, on $name", ({ width, heigh
     }
     await expect.poll(() => document.activeElement).toBe(firstRow.at(-1));
     await pressPad(pad, padButtons.up);
-    // The bar's tools, the sort at their right end (the owner, 2026-10-30).
+    // The bar's tools, the Sort and filter at their right end (the owner, 2026-10-30; D417).
     expect(document.activeElement?.closest(".listing-tools")).not.toBeNull();
-    if (document.activeElement?.classList.contains("route-chooser__button") !== true) {
+    if (document.activeElement?.classList.contains("list-criteria__button") !== true) {
       await pressPad(pad, padButtons.right);
     }
-    expect(document.activeElement?.classList.contains("route-chooser__button")).toBe(true);
+    expect(document.activeElement?.classList.contains("list-criteria__button")).toBe(true);
+    const criteria = document.activeElement;
+    await pressPad(pad, padButtons.ok);
+    // Its pop-up opens on its field; the sort is a chooser further down it.
+    await expect
+      .poll(() => document.activeElement?.classList.contains("list-criteria__name"))
+      .toBe(true);
+    // The sort's chooser, found by the field its button is described by.
+    const sortChooser = (): Element | undefined =>
+      [...document.querySelectorAll(".list-criteria .route-chooser")]
+        .find((each) => each.querySelector(".route-chooser__field")?.textContent === "Sort")
+        ?.querySelector(".route-chooser__button") ?? undefined;
+    const isOnSort = (): boolean =>
+      document.activeElement !== null && document.activeElement === sortChooser();
+    for (let step = 0; step < 6 && !isOnSort(); step += 1) {
+      await pressPad(pad, padButtons.down);
+    }
+    expect(isOnSort()).toBe(true);
     await pressPad(pad, padButtons.ok);
     await expect.poll(() => document.activeElement?.getAttribute("aria-label")).toBe("Name, A–Z");
-    expect(document.querySelector("dialog")).not.toBeNull();
+    expect(document.querySelectorAll("dialog")).toHaveLength(2);
     await pressPad(pad, padButtons.down);
     await pressPad(pad, padButtons.ok);
-    // The next choice after Name, A–Z is Name, Z–A (D366 §2); the sort's, among the bar's choosers.
-    await expect
-      .poll(() =>
-        document.querySelector(".listing-tools .route-chooser__button")?.getAttribute("aria-label"),
-      )
-      .toBe("Sort: Name, Z–A");
+    // The next choice after Name, A–Z is Name, Z–A (D366 §2): the sort's chooser says it, its list
+    // closed alone, and B closes the pop-up, its button saying it too.
+    await expect.poll(() => sortChooser()?.textContent).toBe("Name, Z–A");
+    expect(document.querySelectorAll("dialog")).toHaveLength(1);
+    await pressPad(pad, padButtons.back);
+    await expect.poll(() => document.querySelector("dialog")).toBeNull();
+    expect(document.activeElement).toBe(criteria);
+    expect(criteria?.getAttribute("aria-label")).toBe("Sort and filter: Name, Z–A");
     await expect
       .poll(() => heard.filter((each) => each === "GET /titles").length)
       .toBeGreaterThan(1);

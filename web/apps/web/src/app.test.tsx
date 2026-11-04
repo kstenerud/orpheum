@@ -103,7 +103,7 @@ describe("App", () => {
     expect(films).toContain('id="browse-heading">All Films<');
     // Its bar needs the libraries list first (for the chooser, the sort and the view it offers),
     // so it shows Loading… here, as the System page does; library-browse.test.tsx mounts it
-    // asynchronously and finds its role="search" field once that answers.
+    // asynchronously and finds its Sort and filter once that answers.
     const browse = renderToStaticMarkup(withServices(<App />, testServices("token", "/browse")));
     expect(browse).toContain("Loading…");
     const libraries = renderToStaticMarkup(
