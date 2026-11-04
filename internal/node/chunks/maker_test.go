@@ -456,8 +456,9 @@ func TestMake_RefusesARunNotOfARunsShape(t *testing.T) {
 
 // A raw file whose listed span is not its chunk's is never made a chunk, and fails the run, keeping
 // the chunks before it: FFmpeg missed a cut or cut a keyframe off, or was stopped in the file and
-// listed it (idiosyncrasies.md). The run's last chunk, which FFmpeg's
-// end may close before its bound, as at a film's end, is taken only when FFmpeg ended of itself.
+// listed it (idiosyncrasies.md). A file listed past its bound by more than a few frames holds the
+// next chunk's start, the run's last chunk too. The run's last chunk, which FFmpeg's end may close
+// before its bound, as at a film's end, is taken only when FFmpeg ended of itself.
 func TestMake_NeverMakesAChunkOfAFileNotCutAtItsBounds(t *testing.T) {
 	t.Parallel()
 	picture := func(numbers ...int) map[int][]byte {
@@ -480,6 +481,14 @@ func TestMake_NeverMakesAChunkOfAFileNotCutAtItsBounds(t *testing.T) {
 		{"a cut a keyframe early", map[int]string{11: "9.300,14.000"}, []int{10, 11, 12, 13}, nil, 10, true},
 		{"a file FFmpeg was stopped in", map[int]string{11: "9.960,11.000"}, []int{10, 11}, stalled, 10, true},
 		{"the last chunk, stopped in", map[int]string{12: "13.714,15.000"}, []int{10, 11, 12}, stalled, 11, true},
+		{
+			"the last chunk, holding the next one's first half second",
+			map[int]string{12: "13.764,24.232"},
+			[]int{10, 11, 12, 13},
+			nil, 11, true,
+		},
+		{"a chunk a quarter second past", map[int]string{11: "10.010,14.064"}, []int{10, 11, 12, 13}, nil, 10, true},
+		{"the last chunk, frames past", map[int]string{12: "13.764,23.832"}, []int{10, 11, 12, 13}, nil, 12, false},
 		{
 			"the last chunk, ended early by the film's end",
 			map[int]string{12: "13.714,22.900"},

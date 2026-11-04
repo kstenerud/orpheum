@@ -18,6 +18,15 @@ import (
 // keyframes or more (idiosyncrasies.md).
 const spanToleranceMs = 500
 
+// spanPastEndToleranceMs is how far past its chunk's end a raw file may be listed ending. Its end is
+// where the next keyframe is shown, as its cut or FFmpeg's end at the bound leaves it, within a few
+// frames: across 270 chunks of 30 films of staging's library (HEVC, H.264 and MPEG-4 in Matroska,
+// MP4 and AVI, the pinned FFmpeg, 2026-11-04) within 85 ms, and the suite's clips within 184 ms. A
+// file listed further past holds the next chunk's start: a cut missed, which spanToleranceMs let pass
+// when the run's last chunk took in the next one's first half second (idiosyncrasies.md, "dts2pts
+// guesses an H.264 IDR's time").
+const spanPastEndToleranceMs = 250
+
 // errNotHeld is a raw file whose span is not its chunk's: it is never made a chunk.
 var errNotHeld = errors.New("FFmpeg cut it elsewhere or was stopped in it")
 
@@ -72,7 +81,8 @@ func chunkSpan(command nodeproto.MakeChunks, number int) (fromMs, toMs int64) {
 	return command.BoundsMs[index] - origin, command.BoundsMs[index+1] - origin
 }
 
-// checkSpan fails a raw file whose listed span is not its chunk's. A file closed by FFmpeg's end
+// checkSpan fails a raw file whose listed span is not its chunk's, or that ends past it by more than
+// a few frames (spanPastEndToleranceMs), the run's last chunk too. A file closed by FFmpeg's end
 // and not by a cut, the run's last chunk when FFmpeg ended cleanly, may end before its chunk does,
 // as a film's last picture may. The list times a run from its first frame, so a whole run begun a
 // keyframe early passes when its chunks are as long as the stretches between keyframes: a copied
@@ -80,7 +90,7 @@ func chunkSpan(command nodeproto.MakeChunks, number int) (fromMs, toMs int64) {
 func checkSpan(command nodeproto.MakeChunks, raw listed, isClosedByTheEnd bool) error {
 	fromMs, toMs := chunkSpan(command, raw.number)
 	isStartOff := math.Abs(float64(raw.startMs-fromMs)) > spanToleranceMs
-	isEndOff := raw.endMs > toMs+spanToleranceMs || (!isClosedByTheEnd && raw.endMs < toMs-spanToleranceMs)
+	isEndOff := raw.endMs > toMs+spanPastEndToleranceMs || (!isClosedByTheEnd && raw.endMs < toMs-spanToleranceMs)
 	if isStartOff || isEndOff {
 		return fmt.Errorf("raw %s holds %d to %d ms of the run, not its chunk %d's %d to %d ms "+
 			"(the run read from %d ms, its first cut at %s s): %w",
