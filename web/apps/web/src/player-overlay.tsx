@@ -45,6 +45,7 @@ import {
 } from "./player-overlay-state.ts";
 import { useAnswersPictureTaps, useOpensAtThePointer, type SeekFeedback } from "./player-taps.ts";
 import { PlayerTracksContext } from "./player-tracks.tsx";
+import { CastSignOverTheFilm } from "./status-tray.tsx";
 import { Timeline } from "./timeline.tsx";
 import { isTelevision } from "./tv-device.ts";
 
@@ -306,6 +307,7 @@ export function OverlayRows({
           {...convenience}
           leftMs={source.durationMs === 0 ? undefined : source.durationMs - source.atMs}
         />
+        <CastSignOverTheFilm onOpenChange={onMenuOpenChange} />
       </div>
       <div className="player-overlay__row player-overlay__scrub" data-focus-container="">
         <Timeline

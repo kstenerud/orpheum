@@ -34,6 +34,7 @@
 }
 
 .player-overlay[data-shown="convenience"] .player-overlay__up,
+.player-overlay[data-shown="convenience"] .player-overlay__cast,
 .player-overlay[data-shown="convenience"] .player-overlay__scrub,
 .player-overlay[data-shown="convenience"] .player-overlay__buttons {
   visibility: hidden;

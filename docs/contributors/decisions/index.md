@@ -389,7 +389,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D381](working-notes.md#d381--the-player-chooses-the-quality-it-starts-on-by-the-rule-it-plays-by) The player chooses the quality it starts on, by the rule it plays by
 - [D382](working-notes.md#d382--a-given-up-chunk-lowers-quality-only-as-far-as-the-links-estimate-carries-and-a-busy-page-or-a-first-piece-measures-nothing) A given-up chunk lowers quality only as far as the link's estimate carries, and a busy page or a first piece measures nothing
 - [D383](working-notes.md#d383--back-or-forward-never-starts-a-film-and-a-receiver-with-no-controller-goes-to-the-films-page) Back or Forward never starts a film, and a receiver with no controller goes to the film's page — *revisited by D384*
-- [D384](working-notes.md#d384--a-cast-that-ends-sends-its-receiver-home-and-the-page-cast-from-stays-the-page-it-was) A cast that ends sends its receiver home, and the page cast from stays the page it was
+- [D384](working-notes.md#d384--a-cast-that-ends-sends-its-receiver-home-and-the-page-cast-from-stays-the-page-it-was) A cast that ends sends its receiver home, and the page cast from stays the page it was — *revisited by D422*
 - [D385](working-notes.md#d385--a-receiver-that-takes-control-back-ends-the-cast-it-goes-home-and-the-sender-plays-on-from-where-it-stood) A receiver that takes control back ends the cast: it goes home, and the sender plays on from where it stood — *revisited by D386*
 - [D386](working-notes.md#d386--a-device-receiving-a-cast-is-no-one-elses-cast-target-and-a-cast-the-server-no-longer-knows-sends-its-page-home) A device receiving a cast is no one else's cast target, and a cast the server no longer knows sends its page home
 - [D387](working-notes.md#d387--a-paused-players-ask-for-a-chunk-where-a-seek-took-it-moves-where-it-wants-from) A paused player's ask for a chunk where a seek took it moves where it wants from
@@ -427,6 +427,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D419](working-notes.md#d419--homes-hide-sits-in-a-strip-above-its-card-your-account-places-its-leftover-sections-focus-after-hide-goes-to-the-next-card) Home's Hide sits in a strip above its card; Your account places its leftover sections; focus after Hide goes to the next card
 - [D420](working-notes.md#d420--a-title-page-with-nothing-to-play-and-no--arrives-on-the-words-saying-why) A title page with nothing to play and no "…" arrives on the words saying why
 - [D421](working-notes.md#d421--a-dialogs-safe-choice-comes-first-and-is-where-focus-arrives-where-every-choice-is-dangerous-none-is) A dialog's safe choice comes first and is where focus arrives; where every choice is dangerous, none is
+- [D422](working-notes.md#d422--casts-sign-shows-over-the-playing-film-too-watch-together-stays-in-the-tray) Cast's sign shows over the playing film too; Watch Together stays in the tray
 
 ## Archived
 

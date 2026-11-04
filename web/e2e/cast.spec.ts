@@ -15,7 +15,7 @@ import { expect, type Browser, type Page } from "@playwright/test";
 
 import { test } from "./browser-map.ts";
 import { oneBrowserTag, timingTag } from "./only-these-tests.ts";
-import { isPlaying, openFilm, signIn } from "./pages.ts";
+import { isPlaying, openFilm, shownOverTheFilm, signIn } from "./pages.ts";
 import { secondFilm, warmUpFilm } from "./server.ts";
 
 /** Whether the page's video is paused. */
@@ -85,20 +85,25 @@ async function castFromOneToTheOther(
   await openFilm(sender, warmUpFilm);
   await sender.getByRole("link", { name: "Play" }).click();
   await expect.poll(async () => await isPlaying(sender), { timeout: 30_000 }).toBe(true);
-  // No Cast in the top bar: the tray's sign is the entry point (D364 §12), opening its dialog over
-  // the Play page, which stays where it is (D384 §2).
+  // The film fills the window over the tray, so Cast's sign over the film opens its dialog, over
+  // the Play page, which stays where it is (D384 §2, D418 §1; the owner, 2026-11-04).
   const playAddress = sender.url();
-  await expect(castSign(sender)).toBeVisible();
+  const overTheFilm = await shownOverTheFilm(sender, "Cast to a device");
+  await expect(overTheFilm).toBeVisible();
   await expect(castSign(sender)).not.toHaveClass(/icon-button--running/u);
-  await castSign(sender).click();
-  await sender.locator(".cast-dialog .cast-to__devices button").first().click();
+  await overTheFilm.click();
+  await sender
+    .getByRole("dialog", { name: "Cast" })
+    .locator(".cast-to__devices button")
+    .first()
+    .click();
   // The receiver asks once (D364 §2): the sender says it is asking until it answers.
   await expect(sender.getByText(/^Asking /u)).toBeVisible({ timeout: 10_000 });
   await expect(receiver.getByText(/wants to use this device for playback$/u)).toBeVisible();
   await receiver.locator(".cast-asked").getByRole("button", { name: "Use" }).click();
 
   await expect(sender.getByText(/^Playing on /u)).toBeVisible({ timeout: 10_000 });
-  await expect(sender.locator(".cast-dialog")).toHaveCount(0); // closed once its receiver said Use
+  await expect(sender.getByRole("dialog", { name: "Cast" })).toHaveCount(0); // closed once its receiver said Use
   expect(sender.url()).toBe(playAddress);
   await expect(sender.locator("video")).toHaveCount(0);
   await expect(castSign(sender)).toHaveClass(/icon-button--running/u);
@@ -142,7 +147,7 @@ test(
       await sender.goto(new URL("/films", sender.url()).href);
       await castSign(sender).click();
       await sender
-        .locator(".cast-dialog")
+        .getByRole("dialog", { name: "Cast" })
         .getByRole("button", { name: "Back to the film" })
         .click();
       await expect(sender.getByText(/^Playing on /u)).toBeVisible({ timeout: 10_000 });
@@ -180,7 +185,8 @@ test(
         await signIn(third);
         await castSign(third).click();
         const receiving = third
-          .locator(".cast-dialog .cast-to__devices li")
+          .getByRole("dialog", { name: "Cast" })
+          .locator(".cast-to__devices li")
           .filter({ hasText: "Showing another cast" });
         await expect(receiving).toHaveCount(1, { timeout: 10_000 });
         await expect(receiving.getByRole("button")).toBeDisabled();
