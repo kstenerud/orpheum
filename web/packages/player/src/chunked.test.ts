@@ -33,7 +33,7 @@ import { loadsAheadBelowTopS } from "./forward-buffer.ts";
 import { markSeeks, soughtHeader, type LoadingHls } from "./hls.ts";
 import { linkSpreadOf, takeLinkNotes } from "./link-estimate.ts";
 import { steadinessOf } from "./steadiness.ts";
-import { stallAfterMs, type WatchedMedia } from "./stalls.ts";
+import { slowLoadAfterMs, stallAfterMs, type WatchedMedia } from "./stalls.ts";
 
 /** Three qualities, as hls.js reads them from the playlist. */
 const levels = [
@@ -371,7 +371,8 @@ describe("a slow load the controller is not told of as a stall (starts-chunks-re
     vi.useFakeTimers();
     expect(unableToPlay(true, false)()).toBe(0);
     expect(unableToPlay(false, true)()).toBe(0);
-    expect(unableToPlay(false, false)()).toBe(4); // asked to play, waiting on the link
+    // Asked to play, waiting on the link: one for each slowLoadAfterMs of the minute.
+    expect(unableToPlay(false, false)()).toBe(Math.floor(60_000 / slowLoadAfterMs));
     vi.useRealTimers();
   });
 });

@@ -86,17 +86,28 @@ describe("counting a player's stalls (D247 §2)", () => {
     expect(stalls).toHaveLength(2);
   });
 
+  it("counts a load that has left it unable to play for 8 s, not 15 (D414 §1)", () => {
+    const media = new FakeMedia();
+    media.readyState = 1;
+    const stalls: Stall[] = [];
+    watchStalls(media as unknown as WatchedMedia, (stall) => stalls.push(stall));
+    vi.advanceTimersByTime(7999);
+    expect(stalls).toEqual([]);
+    vi.advanceTimersByTime(1);
+    expect(stalls).toEqual([{ count: 1, positionMs: 0 }]);
+  });
+
   it("counts a load as long as it cannot play, through the seeks of a player catching up", () => {
     const media = new FakeMedia();
     const stalls: Stall[] = [];
     watchStalls(media as unknown as WatchedMedia, (stall) => stalls.push(stall));
     media.readyState = 1;
-    for (const positionS of [100, 108, 116]) {
+    for (const positionS of [100, 108, 116, 124]) {
       media.currentTime = positionS;
       media.fire("seeking");
-      vi.advanceTimersByTime(slowLoadAfterMs / 3);
+      vi.advanceTimersByTime(slowLoadAfterMs / 4);
     }
-    expect(stalls).toEqual([{ count: 1, positionMs: 116_000 }]);
+    expect(stalls).toEqual([{ count: 1, positionMs: 124_000 }]);
   });
 
   it("counts no slow load of a paused player nothing asks to play, nor lowers a ceiling (staging, 2026-10-29)", () => {
