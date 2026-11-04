@@ -72,7 +72,7 @@ export function nearestInDirection<T>(
   direction: Direction,
 ): T | undefined {
   const isAlongALine = direction === "left" || direction === "right";
-  return nearestBy(from, candidates, direction, (along, across) =>
+  return nearestBy({ from, direction }, candidates, (along, across) =>
     isAlongALine && across > 0 ? undefined : along + acrossWeight * across,
   );
 }
@@ -102,7 +102,7 @@ export function nearestOffTheLine<T>(
   direction: Direction,
 ): T | undefined {
   const weight = direction === "left" || direction === "right" ? offTheLineWeight : acrossWeight;
-  return nearestBy(from, candidates, direction, (along, across) => along + weight * across);
+  return nearestBy({ from, direction }, candidates, (along, across) => along + weight * across);
 }
 
 /**
@@ -110,9 +110,8 @@ export function nearestOffTheLine<T>(
  * by its gap along and its gap across, the first of equals; one scored undefined is none.
  */
 function nearestBy<T>(
-  from: Box,
+  { from, direction }: { readonly from: Box; readonly direction: Direction },
   candidates: readonly Placed<T>[],
-  direction: Direction,
   scoreOf: (along: number, across: number) => number | undefined,
 ): T | undefined {
   let best: { readonly item: T; readonly score: number } | undefined;
