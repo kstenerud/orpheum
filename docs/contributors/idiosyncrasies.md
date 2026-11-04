@@ -51,6 +51,9 @@ User-Agent (D263; the User-Agent is logged only).
 | A game controller paired to a Fire TV moved Silk's pointer, its D-pad did nothing, and its right stick left Silk for the home screen. | [Fire TV keeps a game controller's D-pad and sticks from a page in Silk](#fire-tv-keeps-a-game-controllers-d-pad-and-sticks-from-a-page-in-silk) |
 | On a Fire TV in Silk, the page said the browser was asking to reach devices on the network, and nothing asked. | [Silk on Fire TV leaves the local-network permission still to ask, and never asks](#silk-on-fire-tv-leaves-the-local-network-permission-still-to-ask-and-never-asks) |
 | In a loaded machine's Firefox, an Enter on a focused button did nothing: no click, no dialog opened. | [Firefox now and then drops the click of an Enter on a button](#firefox-now-and-then-drops-the-click-of-an-enter-on-a-button) |
+| A Tab under load put focus on the overlay's button with no focus ring: not `:focus-visible` in Firefox. | [Firefox counts a script's focus as a key's only when focus was already shown](#firefox-counts-a-scripts-focus-as-a-keys-only-when-focus-was-already-shown) |
+| A Tab stopped on a tall dialog's body, focus drawn round nothing. | [A box that scrolls is a Tab stop of its own, in Chromium and Firefox](#a-box-that-scrolls-is-a-tab-stop-of-its-own-in-chromium-and-firefox) |
+| The browser test file after one that went full screen could not size the window. | [A real full-screen window outlasts its test file](#a-real-full-screen-window-outlasts-its-test-file) |
 | On a Fire TV in Silk, OK on a sign-in's checkbox signed in, as though Sign in had been pressed. | [Enter on a focused checkbox submits its form, and does not tick it](#enter-on-a-focused-checkbox-submits-its-form-and-does-not-tick-it) |
 | On a Fire TV in Silk, holding OK on a cast's receiver took control back, as OK pressed twice. | [Silk on Fire TV sends a held OK's repeats as fresh presses, unmarked and with no key up](#silk-on-fire-tv-sends-a-held-oks-repeats-as-fresh-presses-unmarked-and-with-no-key-up) |
 | On a Fire TV in Silk, holding Up left the page for Silk's own address bar and menu. | [Silk on Fire TV takes a held Up for its own address bar and menu](#silk-on-fire-tv-takes-a-held-up-for-its-own-address-bar-and-menu) |
@@ -1290,6 +1293,34 @@ User-Agent (D263; the User-Agent is logged only).
 - **Evidence:** the event log above, from a probe in `app-shell.browser.test.tsx` run with the
   browser tier's other files at once (`modal-dialog`, `popover`, `player-widgets`, `input-walk`) and
   eight busy loops beside; 3 failures in 5 runs, none once the tests clicked.
+
+### Firefox counts a script's focus as a key's only when focus was already shown
+
+- **Technology:** Firefox's `:focus-visible` (Playwright's, headless, in vitest's browser mode),
+  measured 2026-11-04 under make check's load.
+- **Symptom:** a test pressed Tab in the player's overlay and found the newly focused button not
+  `:focus-visible`, so no focus ring was drawn; it passed alone and failed about once in a make check.
+- **Cause:** the overlay had hidden between presses, taking focus off its controls; the Tab that showed
+  it again moved focus to a control by script. The spec's heuristic, as Firefox applies it, lets a
+  script's focus show as a key's only when the element it leaves was itself showing focus; the page
+  body was not. Not measured in Chromium under the same load.
+- **What we do:** the test watches for the overlay hiding during its presses and, if it hid, starts
+  again from its click (`hidingSeenOn` in `player-widgets.browser.test.tsx`), its assertions as they
+  were. The app is unchanged: a person's Tab on a hidden overlay shows it, and the next Tab is a key's.
+- **Evidence:** "test(web): the browser tests find the gallery's bar, and outlast Firefox's slow runs"; the failure message (focus on Back 10 s, `:focus-visible false`).
+
+### A box that scrolls is a Tab stop of its own, in Chromium and Firefox
+
+- **Technology:** Chromium from 130 ("keyboard-focusable scrollers") and Firefox, which long did the
+  same: an element whose content overflows and scrolls takes keyboard focus with no `tabindex`.
+- **Symptom:** in the Cast and Watch Together dialogs, taller than the window, a Tab stopped on the
+  dialog's body, focus drawn round nothing, between its choices.
+- **Cause:** the browsers make a scroll container with no focusable child in view focusable, so a
+  keyboard user can scroll it; a `<dialog>` taller than the window is one.
+- **What we do:** `ModalDialog` gives its `<dialog>` `tabIndex={-1}`, which leaves it out of the Tab
+  order (`modal-dialog.tsx`). Any other
+  scrolling box that holds no control in view needs the same thought.
+- **Evidence:** "feat(web): the player's notes for testers are in ⁝'s For testers; a dialog's body is no Tab stop"; [Chrome for Developers, "Keyboard focusable scrollers"](https://developer.chrome.com/blog/keyboard-focusable-scrollers).
 
 ### A Response made from a stream that fails reads as "Failed to fetch" or an AbortError, never the stream's own error
 
@@ -3936,6 +3967,21 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   (searched Bugzilla and the ServiceWorker spec's issues, 2026-10-28); Firefox's
   [1426979](https://bugzilla.mozilla.org/show_bug.cgi?id=1426979) is an older iframe-control bug,
   fixed.
+
+### A real full-screen window outlasts its test file
+
+- **Technology:** vitest's browser mode on Playwright's Chromium and Firefox, one browser window shared
+  by a run's test files, the Fullscreen API, 2026-11-04.
+- **Symptom:** the file after the Space walk (`popover`'s) failed at its first `page.viewport()`: the
+  window could not be sized.
+- **Cause:** the walk had really gone full screen. `document.exitFullscreen()` resolves before the
+  window has left its full-screen state; Firefox restores the window's size late, and Chromium keeps
+  the window in its full-screen state a while longer, even after the size is back.
+- **What we do:** a browser test that presses into full screen has the browser refuse it (as some
+  browsers do), so the stage fills the window instead, which the app already handles, and no real
+  full-screen window is made (`input-walk`'s Space walk). Waiting for the size back was enough for
+  Firefox, not Chromium.
+- **Evidence:** "test(web): the Space walk leaves full screen before the next file; the trail check holds in Firefox" (the wait, Firefox), "test(web): the Space walk's browser refuses full screen, so no full-screen window outlasts it" (the refusal, Chromium).
 
 ### Playwright fails a test whose route handler is still running as it ends
 

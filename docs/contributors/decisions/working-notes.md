@@ -26089,7 +26089,16 @@ raised (ui-audit-2026-11-04.md §3, "The player" and "A film's page"). **Amends*
 7. **A title page with nothing to play arrives on More,** so an OK opens a menu and never changes
    anything.
 
-**Status:** Decided 2026-11-04; not built (the UI revamp's first wave builds it).
+**Proven by:**
+- 1: web/apps/web/src/player-overlay.test.tsx, web/apps/web/src/input-player.browser.test.tsx,
+  web/apps/web/src/play-state.test.ts, web/apps/web/src/player-seek-feedback.test.tsx
+- 2: web/apps/web/src/input-player.browser.test.tsx
+- 3: web/apps/web/src/up-trail.browser.test.tsx
+- 4: web/apps/web/src/play-original.test.tsx
+- 5: web/apps/web/src/title.test.tsx
+- 6, 7: web/apps/web/src/title-head.browser.test.tsx
+
+**Status:** Built 2026-11-04 (the UI revamp's first wave).
 
 
 ## D419 — Home's Hide sits in a strip above its card; Your account places its leftover sections; focus after Hide goes to the next card
@@ -26111,7 +26120,7 @@ Your account).
 - 2: web/apps/web/src/account.test.tsx, web/apps/web/src/input-pages.browser.test.tsx
 - 3: web/apps/web/src/input-rows.browser.test.tsx
 
-**Status:** Decided 2026-11-04; not built (the UI revamp's first wave builds it).
+**Status:** Built 2026-11-04 (the UI revamp's first wave).
 
 ## D420 — A title page with nothing to play and no "…" arrives on the words saying why
 
@@ -26127,7 +26136,7 @@ version, one ordering, no admin's choices, since D418 §5 took File details out 
 **Proven by:**
 - 1: web/apps/web/src/title-head.browser.test.tsx
 
-**Status:** Decided 2026-11-04; not built (the UI revamp's first wave builds it).
+**Status:** Built 2026-11-04 (the UI revamp's first wave).
 
 ## D421 — A dialog's safe choice comes first and is where focus arrives; where every choice is dangerous, none is
 
@@ -26160,4 +26169,4 @@ alone.
   web/apps/web/src/modal-dialog.browser.test.tsx: the first choice not marked arrived on, none where
   every one is marked, the first where none is, never the Close
 
-**Status:** Decided 2026-11-04; not built (the UI revamp's first wave builds it).
+**Status:** Built 2026-11-04 (the UI revamp's first wave).
