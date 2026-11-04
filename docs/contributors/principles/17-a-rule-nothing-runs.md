@@ -22,9 +22,17 @@ and a gate checks that every cited test exists and every such test is cited
 ([D190](../decisions/working-notes.md)). *"This is a judgement, not a claim"* is the right answer
 for most sentences; only checkable facts about the code need a test.
 
+**A step that must happen is a rule too.** Asking an agent to remember to do something guarantees
+that one day it will not, because of how agents work (the owner, 2026-11-04). So a step the code
+needs to work — a setup a test tier depends on, a value a deploy must carry — is either done
+automatically or checked for, and the check is enough: it fails deterministically and its message
+names the fix, and whoever it alerts fixes it. The browser tier's setup, for example, refuses a
+machine whose Docker rewrites the packets it sends itself, and prints the `iptables` command that
+fixes it (`web/e2e/local-paths.ts`), instead of a note saying to remember the rule.
+
 Where a rule cannot be mechanical, say so: every rule in `../standards/` names its mechanism or
 says it is review-only, so nobody mistakes a hope for a gate.
 
 **Bites when:** you write "must", "never" or "always" in a doc, a comment or `AGENTS.md`, and
 nothing would fail if the code did the opposite — or you answer a repeated mistake by rewording
-the rule.
+the rule, or you write "remember to" for a step something could do or check.
