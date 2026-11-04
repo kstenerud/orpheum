@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/node/container"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
@@ -44,7 +45,10 @@ type packetLines struct {
 	// times it is seconds. Zero until the header comes.
 	timeBaseNumerator, timeBaseDenominator int64
 	keyframesMs                            []int64
-	bytesInEachSecond                      []int64
+	// hasKeyframeBeforeStart is a keyframe shown before the film's start, which a container's edit
+	// flags discarded: the film's first pictures are decoded from it (startingKeyframes).
+	hasKeyframeBeforeStart bool
+	bytesInEachSecond      []int64
 	// unreadable is the first line it could not read, or the first packet past longestTimeline.
 	unreadable error
 }
@@ -121,10 +125,20 @@ func (lines *packetLines) readPacket(line string) error {
 		lines.bytesInEachSecond = append(lines.bytesInEachSecond, 0)
 	}
 	lines.bytesInEachSecond[second] += size
-	if flags&packetFlagKey != 0 && flags&(packetFlagCorrupt|packetFlagDiscard) == 0 {
-		lines.keyframesMs = append(lines.keyframesMs, shownAtMs)
-	}
+	lines.keepKeyframe(flags, shownAtMs)
 	return nil
+}
+
+// keepKeyframe keeps a whole keyframe's time. One flagged discarded is left out, but one before
+// the film's start is noted, to count at the start when no other is (container.StartingKeyframes).
+func (lines *packetLines) keepKeyframe(flags, shownAtMs int64) {
+	switch {
+	case flags&packetFlagKey == 0 || flags&packetFlagCorrupt != 0:
+	case flags&packetFlagDiscard == 0:
+		lines.keyframesMs = append(lines.keyframesMs, shownAtMs)
+	case shownAtMs < 0:
+		lines.hasKeyframeBeforeStart = true
+	}
 }
 
 // timeline is what the lines said, once FFmpeg has ended: the keyframes in time order, each once,
@@ -141,7 +155,8 @@ func (lines *packetLines) timeline() (nodeproto.VideoTimeline, error) {
 	if lines.timeBaseDenominator == 0 {
 		return nodeproto.VideoTimeline{}, fmt.Errorf("FFmpeg wrote no time base for the picture")
 	}
-	keyframesMs := slices.Compact(slices.Sorted(slices.Values(lines.keyframesMs)))
+	keyframesMs := container.StartingKeyframes(slices.Compact(slices.Sorted(slices.Values(lines.keyframesMs))),
+		lines.hasKeyframeBeforeStart)
 	// Never nil, so the wire says an empty list rather than none.
 	return nodeproto.VideoTimeline{
 		KeyframesMs:       append([]int64{}, keyframesMs...),

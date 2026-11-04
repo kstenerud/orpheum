@@ -29,9 +29,13 @@
 //   - The timeline is read from the one read that measures the sound, by the picture's stream
 //     index among all the file's streams, copied and never decoded, and as FFmpeg writes it, so no
 //     film's packets are held: its keyframes in time order, each once, in milliseconds of the
-//     film's time base, and every packet's bytes in the second it is shown in. Enforced by
-//     TestRead_TheTimelineComesFromTheSameReadAsTheLoudness and
-//     TestPacketLines_KeepTheKeyframesInOrderOnceAndTheBytesOfEachSecond.
+//     film's time base, and every packet's bytes in the second it is shown in. A keyframe flagged
+//     discarded is left out, except one before the film's start, which counts at the start when no
+//     other is at or before it (container.StartingKeyframes). Enforced by
+//     TestRead_TheTimelineComesFromTheSameReadAsTheLoudness,
+//     TestPacketLines_KeepTheKeyframesInOrderOnceAndTheBytesOfEachSecond,
+//     TestPacketLines_AKeyframeDiscardedBeforeTheStartIsTheFilmsFirstAtItsStart and, with the
+//     pinned FFmpeg, TestRead_AFilmsKeyframeBeforeItsStartIsCountedAtItsStart.
 //
 //   - A measurement matches what FFmpeg measures of a sound of known level, as it is and as the
 //     stereo mix, and a timeline the keyframes and seconds of a picture made with known ones.

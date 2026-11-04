@@ -89,3 +89,29 @@ func checkTimeline(t *testing.T, timeline *nodeproto.VideoTimeline) {
 		}
 	}
 }
+
+// A film copied from 0.1 s in, as rips cut by copying are, has its first keyframe before its start,
+// flagged discarded by the MP4's edit, and its next 1.9 s in: its read-through counts the first at
+// its start, so its grid starts there and its first seconds play (A Woman of Paris, staging,
+// 2026-11-04).
+func TestRead_AFilmsKeyframeBeforeItsStartIsCountedAtItsStart(t *testing.T) {
+	t.Parallel()
+	runner, err := execx.NewRunner(testutil.FFmpegDirectory(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	whole := filepath.Join(t.TempDir(), "whole.mp4")
+	testutil.GenerateMedia(t, whole, "-f", "lavfi", "-i", "testsrc2=size=160x120:rate=24:duration=6",
+		"-c:v", "libx264", "-preset", "fast", "-bf", "2", "-g", "48", "-keyint_min", "48", "-sc_threshold", "0")
+	cut := filepath.Join(t.TempDir(), "cut.mp4")
+	testutil.GenerateMedia(t, cut, "-ss", "0.1", "-i", "file:"+whole, "-c", "copy")
+	findings, err := readthrough.NewReader(runner, 20<<20).Read(t.Context(), execx.Film{Path: cut}, nil,
+		&nodeproto.VideoTimelineAsk{VideoStreamIndex: 0}, 0, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	keyframes := findings.VideoTimeline.KeyframesMs
+	if len(keyframes) != 3 || keyframes[0] != 0 || keyframes[1] < 1_800 || keyframes[1] > 2_000 {
+		t.Errorf("the keyframes are %v ms; want the start, then about 1.9 s and 3.9 s", keyframes)
+	}
+}

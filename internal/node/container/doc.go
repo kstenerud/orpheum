@@ -16,7 +16,10 @@
 //     tests, which read through these readers).
 //   - A film's keyframes from a Matroska file's cues on its picture's track, or from an MP4's sync
 //     samples with their composition offsets and edit, are times FFmpeg shows keyframes at; a file
-//     with no index says so (ErrNoIndex), and no input panics (D259 §2).
+//     with no index says so (ErrNoIndex), and no input panics (D259 §2). A sync sample before the
+//     edit's start counts at the start when no other is at or before it, as the read-through counts
+//     a keyframe flagged discarded (StartingKeyframes; the 11-06 batch's item 1).
+//     TestKeyframesMs_AnMP4sSyncSampleBeforeItsEditsStartIsAtTheStart,
 //     TestKeyframesMs_MatroskaCuesAreThePicturesKeyframes,
 //     TestKeyframesMs_MP4SyncSamplesAreThePicturesKeyframes, TestKeyframesMs_AFileWithNoIndexSaysSo,
 //     FuzzKeyframesMs, and against ffprobe on files the pinned tools make,
