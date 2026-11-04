@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   isArrowTheFields,
   nearestInDirection,
+  nearestOffTheLine,
   type Box,
   type Caret,
   type Placed,
@@ -54,6 +55,29 @@ describe("the geometric focus search", () => {
     expect(nearestInDirection(at(2, 1), shortRow, "right")).toBeUndefined();
     expect(nearestInDirection(at(1, 3), grid, "right")).toBeUndefined();
     expect(nearestInDirection(at(2, 1), shortRow, "left")).toBe("2,0");
+  });
+
+  it("falls back off the line to the nearest that way, a step across weighing more Left and Right", () => {
+    // A field at the right of a heading's line, the next line's field and button under it at the left.
+    const codeField: Box = { left: 600, top: 0, right: 800, bottom: 40 };
+    const nameField: Placed<string> = {
+      item: "name",
+      box: { left: 0, top: 60, right: 200, bottom: 100 },
+    };
+    const activate: Placed<string> = {
+      item: "activate",
+      box: { left: 220, top: 60, right: 320, bottom: 100 },
+    };
+    const farDown: Placed<string> = {
+      item: "far down",
+      box: { left: 400, top: 600, right: 500, bottom: 640 },
+    };
+    const lines = [nameField, activate, farDown];
+    expect(nearestInDirection(codeField, lines, "left")).toBeUndefined();
+    expect(nearestOffTheLine(codeField, lines, "left")).toBe("activate");
+    expect(nearestOffTheLine(activate.box, lines, "left")).toBe("name");
+    expect(nearestOffTheLine(codeField, lines, "right")).toBeUndefined();
+    expect(nearestOffTheLine(at(0, 0), grid, "down")).toBe("1,0");
   });
 
   it("from a header tile goes down to the tile beneath it, not the first of the row", () => {

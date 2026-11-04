@@ -64,7 +64,7 @@ function gapAcross(from: Box, to: Box, direction: Direction): number {
  * past from's edge that way (a box may touch it), by the gap along plus acrossWeight times the gap
  * across; undefined where none lies that way. Left and Right move along from's line alone, to a box
  * beside it: Right at the end of a grid's short last row goes nowhere rather than up a row (a walk
- * at Silk's 960 × 480, 2026-10-25).
+ * at Silk's 960 × 480, 2026-10-25; kept by the owner, ui-audit-2026-11-04.md Q3).
  */
 export function nearestInDirection<T>(
   from: Box,
@@ -72,15 +72,54 @@ export function nearestInDirection<T>(
   direction: Direction,
 ): T | undefined {
   const isAlongALine = direction === "left" || direction === "right";
+  return nearestBy(from, candidates, direction, (along, across) =>
+    isAlongALine && across > 0 ? undefined : along + acrossWeight * across,
+  );
+}
+
+/**
+ * How much a step across counts beside one along where nothing lies in line Left or Right and the
+ * search falls back to what lies off it (nearestOffTheLine): a control on the next line a little to
+ * the side is chosen over one far along it on another. The W3C CSS Spatial Navigation draft's
+ * orthogonalWeight for Left and Right ("find the shortest distance", https://www.w3.org/TR/css-nav-1/),
+ * whose 2 for Up and Down is acrossWeight's. A justified constant, the draft's.
+ */
+const offTheLineWeight = 30;
+
+/**
+ * The candidate an arrow in direction falls back to where nothing lies in line that way (R6 of
+ * ui-audit-2026-11-04.md): the nearest whose box lies wholly past from's edge that way, at any step
+ * across, which weighs offTheLineWeight steps along for Left and Right and acrossWeight for Up and
+ * Down. The usual TV engines' way: Android's FocusFinder prefers a candidate in the arrow's beam and
+ * else takes the nearest in the half-plane (`beamBeats`, then `getWeightedDistanceFor`); the W3C
+ * draft searches the half-plane by a distance weighted off the axis. Without it a control with no
+ * other on its line was left by no Left or Right (Your account's code field, the name field under it
+ * reached by no arrow, the audit's walk).
+ */
+export function nearestOffTheLine<T>(
+  from: Box,
+  candidates: readonly Placed<T>[],
+  direction: Direction,
+): T | undefined {
+  const weight = direction === "left" || direction === "right" ? offTheLineWeight : acrossWeight;
+  return nearestBy(from, candidates, direction, (along, across) => along + weight * across);
+}
+
+/**
+ * The candidate wholly past from's edge in direction (a box may touch it) that scoreOf scores least
+ * by its gap along and its gap across, the first of equals; one scored undefined is none.
+ */
+function nearestBy<T>(
+  from: Box,
+  candidates: readonly Placed<T>[],
+  direction: Direction,
+  scoreOf: (along: number, across: number) => number | undefined,
+): T | undefined {
   let best: { readonly item: T; readonly score: number } | undefined;
   for (const candidate of candidates) {
     const along = gapAlong(from, candidate.box, direction);
-    const across = gapAcross(from, candidate.box, direction);
-    if (along < 0 || (isAlongALine && across > 0)) {
-      continue;
-    }
-    const score = along + acrossWeight * across;
-    if (best === undefined || score < best.score) {
+    const score = along < 0 ? undefined : scoreOf(along, gapAcross(from, candidate.box, direction));
+    if (score !== undefined && (best === undefined || score < best.score)) {
       best = { item: candidate.item, score };
     }
   }
@@ -172,7 +211,13 @@ export function searchBoxOf(element: Element): Box {
   };
 }
 
-/** Our geometric engine over the region's elements that can take focus, but from and those in it. */
+/**
+ * Our geometric engine over the region's elements that can take focus, but from and those in it: the
+ * nearest in line (nearestInDirection); where none is, and from is in no focus container in the
+ * region, the nearest off the line (nearestOffTheLine). A row's or a grid's control keeps to its
+ * line, so Right at the end of a grid's short last row stays (Q3) and at a row's end goes nowhere;
+ * a page's loose controls, as a form's fields set in no grid, reach each other.
+ */
 export const geometricFocus: FocusEngine = {
   name: "geometric",
   next: (from, direction, region) => {
@@ -182,9 +227,19 @@ export const geometricFocus: FocusEngine = {
         candidates.push({ item: element, box: searchBoxOf(element) });
       }
     }
-    return nearestInDirection(searchBoxOf(from), candidates, direction);
+    const box = searchBoxOf(from);
+    const inLine = nearestInDirection(box, candidates, direction);
+    return inLine !== undefined || isInAContainer(from, region)
+      ? inLine
+      : nearestOffTheLine(box, candidates, direction);
   },
 };
+
+/** Whether element is inside a focus container in region, region itself counting. */
+function isInAContainer(element: Element, region: Element): boolean {
+  const container = element.parentElement?.closest(`[${focusContainerAttribute}]`);
+  return container !== null && container !== undefined && region.contains(container);
+}
 
 /**
  * The attribute that marks a focus container in the markup (controller-input-2026-10-25.md §6.1
