@@ -250,9 +250,24 @@ function isInAContainer(element: Element, region: Element): boolean {
  */
 export const focusContainerAttribute = "data-focus-container";
 
-/** The container nearest around element, inside root; root itself where none is. */
+/**
+ * What holds a page's own content, apart from the shell's banner around it: an arrow searches it whole
+ * before the banner, as it does a container, though it is none (a loose control in it still falls back
+ * off the line, nearestOffTheLine). So Up from a list shorter than a row, with nothing in the page
+ * straight above it, goes to the list's tools beside its heading before the banner over them, whose
+ * place straight above would otherwise win (the owner, 2026-11-04: the tools of Films, Series and
+ * Libraries were reached by no arrow).
+ */
+const pageContentSelector = "main";
+
+/**
+ * The scope nearest around element that an arrow searches, inside root: the focus container around
+ * it, else the page's content (pageContentSelector); root itself where neither is.
+ */
 export function containerAround(element: Element, root: Element): Element {
-  const container = element.parentElement?.closest(`[${focusContainerAttribute}]`);
+  const container = element.parentElement?.closest(
+    `[${focusContainerAttribute}], ${pageContentSelector}`,
+  );
   return container !== null && container !== undefined && root.contains(container)
     ? container
     : root;
@@ -260,8 +275,8 @@ export function containerAround(element: Element, root: Element): Element {
 
 /**
  * The element an arrow in direction moves focus to from from, by engine, within root: the nearest
- * that way inside from's container, else inside the container around that, out to root; undefined
- * where none lies that way in root.
+ * that way inside from's container, else inside the container around that, then the page's content,
+ * out to root; undefined where none lies that way in root.
  */
 export function nextInContainers(
   from: HTMLElement,
