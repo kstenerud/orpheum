@@ -44,6 +44,8 @@ const nothingWrong = {
   matchCount: 0,
 };
 const somethingWrong = { ...nothingWrong, waitingRootCount: 1, unreadCount: 2 };
+/** The server's word of updates where it knows of none, which Needs attention reads too. */
+const noUpdate = { "GET /system/update": [200, { version: "v0.3.1", checkedAt: 1 }] } as const;
 const hostedSession = {
   sessionId: 7,
   nextRights: { canPlayPause: true, canSeek: true },
@@ -361,7 +363,10 @@ it("shows an admin the yellow sign when something needs them, leading to the pag
 
 it("the page of what needs the admin counts each kind, a placeholder until it is designed", async () => {
   mounted = await mount(
-    withServices(<NeedsAttention />, servedBy({ "GET /needs-attention": [200, somethingWrong] })),
+    withServices(
+      <NeedsAttention />,
+      servedBy({ "GET /needs-attention": [200, somethingWrong], ...noUpdate }),
+    ),
   );
   const text = mounted.container.textContent;
   expect(text).toContain("1 library folders' scans wait for you");
@@ -385,7 +390,10 @@ it("tells an admin of a series whose episodes were likely read wrongly, leading 
   ).not.toBeNull();
   mounted.unmount();
   mounted = await mount(
-    withServices(<NeedsAttention />, servedBy({ "GET /needs-attention": [200, readWrongly] })),
+    withServices(
+      <NeedsAttention />,
+      servedBy({ "GET /needs-attention": [200, readWrongly], ...noUpdate }),
+    ),
   );
   expect(mounted.container.querySelector('a[href="/series/606"]')?.textContent).toBe("Greywolf");
   expect(mounted.container.textContent).toContain(": 24 of its episodes have no number");
@@ -407,8 +415,38 @@ it("tells an admin of a film whose video has no sound, leading to it (the owner,
   ).not.toBeNull();
   mounted.unmount();
   mounted = await mount(
-    withServices(<NeedsAttention />, servedBy({ "GET /needs-attention": [200, silent] })),
+    withServices(
+      <NeedsAttention />,
+      servedBy({ "GET /needs-attention": [200, silent], ...noUpdate }),
+    ),
   );
   expect(mounted.container.querySelector('a[href="/titles/880"]')?.textContent).toBe("Mister 517");
   expect(mounted.container.textContent).toContain(": its video has no sound track");
+});
+
+// ui-audit-2026-11-04.md §3, How to update: no menu leads to it; Needs attention does.
+it("tells an admin of a newer version, leading to How to update, and says nothing needs them only without one", async () => {
+  const newer = { version: "v0.3.1", latest: "v0.4.0", checkedAt: 1 };
+  mounted = await mount(
+    withServices(
+      <NeedsAttention />,
+      servedBy({
+        "GET /needs-attention": [200, nothingWrong],
+        "GET /system/update": [200, newer],
+      }),
+    ),
+  );
+  const howTo = mounted.container.querySelector('li a[href="/update"]');
+  expect(howTo?.textContent).toBe("How to update");
+  expect(howTo?.closest("li")?.textContent).toContain("v0.4.0 is available.");
+  expect(mounted.container.textContent).not.toContain("Nothing needs your attention.");
+  mounted.unmount();
+  mounted = await mount(
+    withServices(
+      <NeedsAttention />,
+      servedBy({ "GET /needs-attention": [200, nothingWrong], ...noUpdate }),
+    ),
+  );
+  expect(mounted.container.querySelector('a[href="/update"]')).toBeNull();
+  expect(mounted.container.textContent).toContain("Nothing needs your attention.");
 });
