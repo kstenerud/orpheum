@@ -59,13 +59,22 @@ PREFIX_VALUE_OPTIONS = {
 PREFIX_ARGUMENTS = {"timeout": 1, "chrt": 1, "taskset": 1}
 
 
+# The shell's reserved words that may come before a command in the same simple command.
+SHELL_KEYWORDS = frozenset({"do", "then", "else", "elif", "if", "while", "until", "{", "!"})
+
+
 def strip_prefix_words(words: list[str], dev: bool = False) -> list[str]:
     """words past any prefix (`env`, `nice -n 19`, `timeout 600`, ...) with its options and arguments,
     and past assignments, and past `./dev` when dev: what is left starts with the command run. Agents'
     `timeout 600 npm test` ran outside the test lock while only the prefix's name was passed over
-    (2026-11-04: 33 runs of three agents)."""
+    (2026-11-04: 33 runs of three agents). A shell keyword before a command (`do`, `then`, `if`, `{`,
+    `!`) is passed over too: an agent's `for i in 1 2; do npm test …; done` ran outside the lock,
+    its `do` read as the command (2026-11-04)."""
     while words:
         name = Path(words[0]).name
+        if words[0] in SHELL_KEYWORDS:
+            words = words[1:]
+            continue
         if ASSIGNMENT.match(words[0]):
             words = words[1:]
             continue
@@ -359,6 +368,20 @@ LOCKING_TARGET = re.compile(r"^(?:check|spot|check-pr\b.*|check-revert-red\b.*)$
 LONG_SCRIPT = re.compile(r"(?:^|/)scripts/(?:check_revert_red|check_pr_snapshot|quiet_gate)\.py$")
 
 
+SHELLS = frozenset({"bash", "sh", "zsh", "dash"})
+
+
+def shell_script_of(words: list[str]) -> str | None:
+    """The script a shell is given to run by `-c`, as `bash -c "npm test"`, or None: a test run inside
+    one runs as surely as one typed bare (2026-11-04)."""
+    if not words or Path(words[0]).name not in SHELLS:
+        return None
+    for index, word in enumerate(words[1:-1], start=1):
+        if word.startswith("-") and not word.startswith("--") and "c" in word[1:]:
+            return words[index + 1]
+    return None
+
+
 def lock_kind(command: str) -> str | None:
     """What a command holds the repository's test lock as (scripts/gate_lock.py), or None when it
     needs no lock taken for it: it runs no tests, or only gates that take the lock themselves (make
@@ -369,6 +392,10 @@ def lock_kind(command: str) -> str | None:
     for args, _ in simple_commands(tokens(command)):
         words = [word for word in args if not ASSIGNMENT.match(word)]
         words = strip_prefix_words(words, dev=True)
+        inner = shell_script_of(words)
+        if inner is not None:
+            kind = lock_kind(inner) or kind
+            continue
         if not words or not _runs_tests(Path(words[0]).name, words[1:]):
             continue
         name = Path(words[0]).name

@@ -498,7 +498,13 @@ class TestsRunHoldingTheLock(unittest.TestCase):
                     "timeout 600 npm --prefix web test -- x.tsx 2>&1 | tail -60",
                     "cd /x && timeout -k 5 600 npm --prefix web test -- x.tsx", "nice -n 19 go test ./x/",
                     "env -u CI FOO=1 npx vitest run x", "ionice -c 3 nice -n 10 ./dev go test ./x/",
-                    "time -p npm --prefix web test", "stdbuf -oL npx vitest run x"):
+                    "time -p npm --prefix web test", "stdbuf -oL npx vitest run x",
+                    # Inside a loop, a conditional or a group, and in a shell's -c script (2026-11-04:
+                    # an agent's `for i in 1 2; do npm test …; done` ran outside the lock).
+                    "for i in 1 2; do npm test -- --config vitest.browser.config.ts x; done",
+                    "while true; do go test ./x/; done", "if true; then npx vitest run x; fi",
+                    "{ npm --prefix web test; }", "! go test ./x/", 'bash -c "npm --prefix web test -- x"',
+                    "sh -c 'go test ./...'", 'bash -lc "cd web && npx vitest run x"'):
             self.assertEqual(pre_bash.lock_kind(cmd), "test", cmd)
         for cmd in ("python3 scripts/check_revert_red.py --base x", "./dev python3 scripts/check_pr_snapshot.py"):
             self.assertEqual(pre_bash.lock_kind(cmd), "gate", cmd)
@@ -506,7 +512,8 @@ class TestsRunHoldingTheLock(unittest.TestCase):
         for cmd in ("make check", "./dev make check-pr > /tmp/log 2>&1", "make -j6 spot", "make spot BASE=HEAD~3",
                     "make check-revert-red ONLY=x", "make check-pr-failed", "git commit -q -F -",
                     "git status --short", "go build ./...", "echo go test", "timeout 5 make check",
-                    "nice -n 19 git commit -q -F -"):
+                    "nice -n 19 git commit -q -F -", 'bash -c "echo hi"', "bash script.sh",
+                    "echo do npm test", "for f in a b; do echo $f; done"):
             self.assertIsNone(pre_bash.lock_kind(cmd), cmd)
 
     def test_the_hook_runs_a_test_command_through_the_lock_in_its_own_shell(self):
