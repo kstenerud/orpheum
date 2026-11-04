@@ -479,6 +479,10 @@ func fullScansAllowed() map[string]string {
 			"waiting ones' links (D267 section 5)",
 		"ListInvitations": "a household has a handful of invitations; the admin's people page lists the waiting " +
 			"ones, a used one dropped (D403)",
+		"ListGenresWithCounts": "a household has a few dozen genres, from TMDB and the NFOs; the list's Genre " +
+			"chip counts each once as it opens",
+		"ListFilteredItemIDs": "a list's genre, person, decade or unwatched filter reads the films and series " +
+			"once, as a short search reads every name (D48): a household's titles take milliseconds",
 	}
 }
 
