@@ -25980,3 +25980,77 @@ open) stands. Research:
 - 4: web/apps/web/src/player-overlay.test.tsx; on a phone, VQ263
 
 **Status:** Decided 2026-11-04.
+
+## D416 — The API is renamed once, before anyone else depends on it: users, items, groups, people; one list shape; capabilities declared per operation
+
+**Decided** (2026-11-04), by the project owner, on the lead's proposal. The owner asked: "For the API
+endpoints: let's Greenfield them. Nothing is deployed to other people so this is the cheapest time
+for invasive changes. We can use account or user where we use people now. Look at our whole API and
+make sure it will handle the future things we have planned (for example, music)." Research, with the
+inventory, the old-to-new route table and the questions:
+[api-greenfield-2026-11-04.md](../design/research/api-greenfield-2026-11-04.md). The owner's answers:
+questions 1–8 "Agreed"; 9 "Remove everything, including doctor. We can add it again later if we need
+it"; 10 "If we can make them better, I'm fine with touching those as well. We only have staging and
+prod to change, so now is the best time"; 11 "We do this in the next batch. Do everything in one
+batch, nothing else in the batch, then deploy."
+
+1. **A household member is a user** in paths, schemas, operations, fields and pages; the admin's
+   pages are `/users` and `/users/{id}`, labelled "Users". "Account" is the paid service's word
+   (D289 §1). "Person" is a credited person only.
+2. **Everything browsable is an item.** `GET /items` is the one list, filtered by kind, library,
+   genre, person, decade, unwatched and identification state; `GET /items/{id}` answers every kind
+   as a union on `kind`. Per-user state on an item is `PUT`/`DELETE /items/{id}/<state>` (`watched`,
+   `hidden`, later `starred`, `watchlisted`). `/titles` and `/collections` as paths are gone.
+3. **Orderings are groups** (D186 §2): `/items/{id}/groups/{group}` is a season or a disc.
+4. **Credited persons are `/people/{id}`**, artists among them when music comes, in the API and as
+   the web page's address (no `/credited/`). A credit's job is `job`, never `role` (D186 §2).
+5. **One kind vocabulary**, singular, shared by libraries and items: `movie`, `series`, `episode`,
+   `extra`, `other`, `mixed` for a library, and later `music`, `album`, `artist`, `track`. A library's
+   allowed kinds are a schema change, made inside the migration window (D272 §5).
+6. **One list shape**: `cursor` and `limit` in, `nextCursor` out, absent on the last page, on every
+   list that can grow. One parameter name per filter (`library`, not `libraryId`).
+7. **An action is on the resource it acts on** (`/nodes/{name}/retire`,
+   `/together/{id}/members/{member}/eject`); a state that is on or off is a noun put and deleted. One
+   endpoint per job: interest is `PUT`/`DELETE /interest` for one item or many; the player's wants
+   are `PUT /playback/{token}`.
+8. **Who may call an operation is declared in the document** as `x-orpheum-capability`, and a
+   `TestArch_` test holds each handler to its declaration. No `/admin` prefix.
+9. **The rename is in place under `/api/v1`**, with no `/v2` beside it. The loader's endpoints and
+   both sides of pairing may move too where a better shape exists (the owner's answer to 10): only
+   staging and production run them, Connect's included, and both are changed in the same batch.
+10. **Removed:** `GET /search` (`/search` becomes the grouped search, which the web app does not
+    offer until it is planned, D417), `GET`/`PUT /settings` (`/config` is the one view), and
+    `GET /doctor`.
+11. **The socket is `/socket`**, and each channel opens with `{type:"hello", channel}`.
+12. **One batch, alone:** the rename is the next batch, with nothing else in it, then deployed to
+    staging and production. The API's compatibility check starts once it has landed.
+
+**Rejected:** a `/v2` beside `/v1` (two APIs to serve, for no client that needs the old one); an
+`/admin` prefix (splits one resource by caller, and cannot say account manager or metadata editor);
+mimicking Jellyfin's or OpenSubsonic's shapes (they are adapters, D18).
+
+**Amends:** cut-a.md §5's client API map and §5.1's hello, which take the new names; D186 §2's
+credit column, which this names `job`.
+
+**Status:** Decided 2026-11-04; the batch after the UI revamp's first wave makes it.
+
+## D417 — A list's filters are one pop-up that narrows the posters shown; a search across everything waits for its own plan
+
+**Decided** (2026-11-04), by the project owner, correcting what was built from the UI audit's
+"search by the other things": "What I'd wanted there was filters for that particular page only,
+meaning that search would only narrow down the posters shown. What was actually built was a full
+search engine that transcends data types. I'm fine with having both, but I think that transcendent
+search needs to be carefully planned out, and made available later. What I want now is a pop-up set
+of filters for the current list of videos to narrow down what is shown." Earlier the same day: "What
+if we put all of those things inside the sort popup? It's all criteria that filters what gets shown,
+and all of that including the search are additive to that filter."
+
+1. **Films, Series and a library's list have one pop-up** holding the text filter, Genre, Decade,
+   Unwatched and the sort. Each narrows the posters of that list only, and they add up.
+2. **The grouped search across titles, people and genres is not offered** in the web app until it
+   has its own plan; the server's grouped search stays for it.
+
+**Amends:** the plan file's first-wave items "grouped search" and the chips' placement
+(navigation-and-widgets-answers-2026-10-27.md).
+
+**Status:** Decided 2026-11-04; the UI revamp's first wave makes it.
