@@ -1639,7 +1639,9 @@ research run in this batch … The actual UI revamp will be done next batch."*
    and search-by-more-2026-11-04 (genres and people are not kept at all; they come first).
    **The revamp is the next batch, in two waves** (the owner, 2026-11-04): the first is everything
    but what depends on Q1 and Q2; the second, the shell's navigation, is design loops trying the
-   approaches on real devices (design-cycle.md).
+   approaches on real devices (design-cycle.md). The first wave reads and keeps each title's genres
+   and people (cast and crew) from TMDB and the NFOs, for search by them (the owner, 2026-11-04,
+   "yes, include reading and keeping genres and people").
 8. *(Moved to the revamp, 2026-11-04:)* the paused player's first Back, with item 7's evidence.
 
 **Next batch (the owner, 2026-11-04):** the UI revamp, from item 7's report, as m5.md's B4.
