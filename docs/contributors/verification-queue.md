@@ -2540,7 +2540,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   wait two minutes and open System as admin. Passes when **Resource use** shows a summary and an
   hour for *The server* and for *Media node* with CPU and memory figures, not "Nothing is measured
   yet". (`cmd/orpheum/metadata.go`'s `startUpkeep`)
-- [ ] **VQ258** — a poster row's arrows show for a mouse alone (the owner, 2026-11-04: rows a mouse
+- [x] **VQ258** — a poster row's arrows show for a mouse alone (the owner, 2026-11-04: rows a mouse
   without a sideways wheel could not browse). The browser test hovers a headless desktop browser;
   what a real device's pointer reports is seen only on it. On staging: (1) on a computer with a
   mouse, Home's *New films* with more posters than fit: hovering the row shows a right arrow, a
@@ -2549,4 +2549,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   seasons show no arrow, and Left, Right, Up and Down move along and between the rows as before,
   never stopping on an arrow; (3) on the Pixel, the rows show no arrow and swipe as before. Passes
   when all three hold. (`web/apps/web/src/poster-row.tsx`, `poster-row.css`)
-  Part (1) passed on staging (the owner, 2026-11-04: "verified on staging and it looks good"); (2) and (3) open.
+  Part (1) passed on staging (the owner, 2026-11-04: "verified on staging and it looks good").
+  **Passed 2026-11-04 (agent, staging, as lead-tests):** (2) on the Fire TV in Silk 138 by adb, Silk
+  reports `hover: hover` but `pointer: coarse`, so Home's *New films* and *New series* and M*A*S*H's
+  eleven seasons each hold their arrow at `display: none`, out of the tab order; Right and Left took
+  focus along *New films* to its last poster and along the seasons from 1 to 11 and back, Down and Up
+  moved between the rows, and focus never landed on an arrow. (3) On the Pixel's Chrome (no hover, no
+  fine pointer) no arrow showed; a swipe moved *New films* 600 px and the swipe back returned it to 0.
