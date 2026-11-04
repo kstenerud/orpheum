@@ -150,14 +150,12 @@ export function keepPath(
   // carried over per path would answer each load once for every path the page ever used.
   tellMediaCarriers((url) => carrierOn(inUse, url));
   const carried = carryMediaOver(keeper.fetch, () => credentials(), sendingOn(reaching.first).name);
-  if (reaching.choice !== undefined) {
-    // A failure to tell it is dropped: it is for the log alone.
-    reportPathChoice(keeper.fetch, {
-      token: session.token,
-      choice: reaching.choice,
-      transport: reaching.first.kind === "webrtc" ? reaching.first.transport : undefined,
-    }).catch(() => undefined);
-  }
+  // A failure to tell it is dropped: it is for the log alone. Read when told, its race over (D414 §4).
+  reportPathChoice(keeper.fetch, {
+    token: session.token,
+    choice: () => reaching.choice,
+    transport: reaching.first.kind === "webrtc" ? reaching.first.transport : undefined,
+  }).catch(() => undefined);
   carried.catch(reportFailure);
   const looking = lookForBetterPaths(keeper, reaching, pathJudge(session));
   used.onClose(looking.stop);

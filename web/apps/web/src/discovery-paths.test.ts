@@ -3,7 +3,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { Target } from "@orpheum/sdk";
-import { reachCore, type Reached, type Reaching } from "./discovery-start.ts";
+import { reachCore, webrtcAfterMs, type Reached, type Reaching } from "./discovery-start.ts";
 
 const fingerprint = "Vkdap1RjR0wChd9dvyvKtz2mUTWIOem3dIGy6rEHcIw";
 
@@ -179,6 +179,65 @@ describe("the paths a core is reached by after the first (webrtc-transport.md W2
     expect(await reaching.better(overWebrtc)).toBeUndefined();
     isLanBlocked = false;
     expect(await reaching.better(overWebrtc)).toEqual({ kind: "direct", origin: lan });
+  });
+});
+
+describe("WebRTC beside the first race (D414 §4; RFC 8305's Happy Eyeballs)", () => {
+  const ipv6 = "https://2a00-1.k7xq2.zone.example";
+  const target: Target = {
+    coreId: "k7xq2",
+    fingerprint,
+    held: { bootstrapToken: "a-bootstrap-token" },
+    key: new Uint8Array(32),
+    iceServers: [],
+    directUrls: [ipv6],
+    lanUrls: [],
+  };
+  const granted = {
+    state: () => Promise.resolve("granted" as const),
+    onGranted: () => () => undefined,
+    onAsking: () => () => undefined,
+  };
+
+  /** When, after the race began, WebRTC was first tried, its name answering after answerMs or never. */
+  async function webrtcTriedAfter(answerMs: number | "never"): Promise<number | undefined> {
+    let triedAtMs: number | undefined;
+    // No browser WebRTC here: a connection attempt is heard, and fails as one through no path would.
+    vi.stubGlobal("RTCPeerConnection", function noWebRTC(): never {
+      triedAtMs ??= performance.now();
+      throw new Error("no WebRTC in this test");
+    });
+    const fetched: typeof fetch = () =>
+      answerMs === "never"
+        ? new Promise<Response>(() => undefined) // its packets vanish
+        : new Promise((resolve) => {
+            setTimeout(() => {
+              resolve(new Response("{}", { status: 200 }));
+            }, answerMs);
+          });
+    const startedMs = performance.now();
+    const reaching = reachCore(
+      { clientApi: "https://discovery.example/client/v1", fetch: fetched },
+      target,
+      granted,
+    );
+    reaching.catch(() => undefined);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, webrtcAfterMs * 3));
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    return triedAtMs === undefined ? undefined : triedAtMs - startedMs;
+  }
+
+  it("starts WebRTC 250 ms in where no name has answered, not after the name's 3 s", async () => {
+    const afterMs = await webrtcTriedAfter("never");
+    expect(afterMs).toBeGreaterThanOrEqual(webrtcAfterMs - 10);
+    expect(afterMs).toBeLessThan(webrtcAfterMs * 3);
+  });
+
+  it("starts no WebRTC where a name answers first, as the LAN name does at home", async () => {
+    expect(await webrtcTriedAfter(20)).toBeUndefined();
   });
 });
 

@@ -37,9 +37,13 @@ export function firstDirectPath(
     readonly answerMs?: number;
     readonly betterMs?: number;
     readonly tell?: ((outcomes: readonly DirectOutcome[]) => void) | undefined;
+    /** Told once, when the first name answers, before the race is decided. */
+    readonly answered?: (() => void) | undefined;
   } = {},
 ): Promise<string | undefined> {
   const { answerMs: waitMs = directPathWaitMs, betterMs = betterPathGraceMs, tell } = waits;
+  const startedMs = performance.now();
+  const afterMs = (): number => Math.round(performance.now() - startedMs);
   return new Promise((resolve) => {
     const answered: (string | undefined)[] = urls.map(() => undefined);
     const failed = urls.map(() => false);
@@ -68,13 +72,16 @@ export function firstDirectPath(
     urls.forEach((url, index) => {
       void healthOf(url, send, waitMs).then(
         (origin) => {
+          if (answered.every((each) => each === undefined)) {
+            waits.answered?.();
+          }
           answered[index] = origin;
-          outcomes[index] = { url, outcome: "answered" };
+          outcomes[index] = { url, outcome: "answered", afterMs: afterMs() };
           decide();
         },
         (problem: unknown) => {
           failed[index] = true;
-          outcomes[index] = { url, outcome: failureOf(problem, waitMs) };
+          outcomes[index] = { url, outcome: failureOf(problem, waitMs), afterMs: afterMs() };
           decide();
         },
       );
@@ -83,10 +90,14 @@ export function firstDirectPath(
   });
 }
 
-/** What came of one of a race's names: "answered", "failed: " and how, or notWaitedFor. */
+/**
+ * What came of one of a race's names: "answered", "failed: " and how, or notWaitedFor; and, for one
+ * that answered or failed, how long after the race began, in ms (D414 §4).
+ */
 export interface DirectOutcome {
   readonly url: string;
   readonly outcome: string;
+  readonly afterMs?: number;
 }
 
 /** The outcome of a name the race was decided without, still unanswered then. */
