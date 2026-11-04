@@ -1,8 +1,12 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
-/* The page's name as each opens, for a screen reader only: the eye has the heading. */
+/* The page's name as each opens, for a screen reader only: the eye has the heading. Fixed in a
+   corner, since it is the body's last child: where it would fall, under the page, it would make the
+   page a pixel taller than it draws. */
 .input-layer__announced {
-  position: absolute;
+  position: fixed;
+  inset-block-start: 0;
+  inset-inline-start: 0;
   width: 1px;
   height: 1px;
   overflow: hidden;
