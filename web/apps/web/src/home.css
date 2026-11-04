@@ -12,10 +12,10 @@
   margin-block-start: 0;
 }
 
-/* A newest row's heading, its See all at the end of the line. */
+/* A newest row's heading, its See all beside it (ui-audit-2026-11-04.md §3, Home), not across
+   the screen from it. */
 .home__row-heading {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
   gap: var(--space-3);
 }

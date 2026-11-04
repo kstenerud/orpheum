@@ -8,18 +8,20 @@
   margin-block-start: 0;
 }
 
-/* Hide: a quiet word under the card, not a second button competing with the poster. */
-.continue-watching .poster-card__action {
+/* A card's "…", which holds its Hide: a quiet mark over the card's top-right, first in its column,
+   so Up from the card reaches it and Down from the card leaves the row at once. */
+.continue-watching__more {
+  order: -1;
+  justify-self: end;
+  width: auto;
   min-height: auto;
-  padding: var(--space-1) 0;
+  padding: 0 var(--space-1);
   border: 0;
   background: none;
   color: var(--color-muted);
-  font-size: var(--font-size-small);
-  font-weight: normal;
 }
 
-.continue-watching .poster-card__action:hover:not(:disabled) {
+.continue-watching__more:hover:not(:disabled) {
   background: none;
   color: var(--color-text);
 }

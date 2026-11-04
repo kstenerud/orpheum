@@ -9,6 +9,7 @@ import type { Api, components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { MoreActions } from "./more-actions.tsx";
 import { StatusTray } from "./status-cues.tsx";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, throwIfRefused } from "./problem.ts";
@@ -138,7 +139,8 @@ export function ContinueWatchingView(props: {
 
 /**
  * One row: its file played at once when chosen, or, when it cannot be played now, its page, which
- * says why (D241 §3); and a way to hide it.
+ * says why (D241 §3); and Hide in the card's own "…" (more-actions.tsx), over its top-right, Up from
+ * the card, so Down leaves the row in one press (ui-audit-2026-11-04.md §3, Home).
  */
 function ContinueWatchingRowView(props: {
   readonly row: ContinueWatchingRow;
@@ -172,16 +174,19 @@ function ContinueWatchingRowView(props: {
       }
       cues={<StatusTray subject={row} />}
       actions={
-        <button
-          type="button"
-          className="poster-card__action"
-          onClick={() => {
-            props.onHide(row);
-          }}
-          aria-label={t("continueWatching.hideLabel", { name: props.name })}
-        >
-          {t("continueWatching.hide")}
-        </button>
+        <MoreActions
+          label={t("continueWatching.more", { name: props.name })}
+          className="continue-watching__more"
+          actions={[
+            {
+              key: "hide",
+              label: t("continueWatching.hide"),
+              onChoose: () => {
+                props.onHide(row);
+              },
+            },
+          ]}
+        />
       }
     />
   );
