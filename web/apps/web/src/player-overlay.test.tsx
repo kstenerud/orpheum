@@ -17,7 +17,6 @@ import { seekAskedEvent, seekRestMs, soughtByOf } from "./seek-ahead.ts";
 import { mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 import { clockText } from "./timeline.tsx";
-import { TogetherPanel } from "./together-over-the-film.tsx";
 
 /** The full-screen button, found by its name as a viewer finds it (it takes no class of its own). */
 const FULL_SCREEN = 'button:is([aria-label="Full screen"], [aria-label="Leave full screen"])';
@@ -172,30 +171,6 @@ describe("the player's full-screen overlay on a television (D407)", () => {
     expect(container?.querySelector(".back-button")).toBeNull();
     for (const row of container?.querySelectorAll(".player-overlay__row") ?? []) {
       expect(row.hasAttribute("data-focus-container")).toBe(true);
-    }
-  });
-
-  // D422: the film fills the window over the status tray (D418 §1), so a cast is
-  // started from over the film.
-  it("draws Cast's sign last in its top row, over the film", async () => {
-    await drawn(document.createElement("video"));
-    const top = mounted?.container.querySelector(".player-overlay__top");
-    const last = top?.lastElementChild?.querySelector("button");
-    expect(last?.getAttribute("aria-label")).toBe("Cast to a device");
-    expect(last?.classList.contains("icon-button--over-video")).toBe(true);
-  });
-
-  it("draws Watch Together's sign just before Cast's while a session's panel is drawn (D423)", async () => {
-    await drawn(document.createElement("video"));
-    const panel = await mount(<TogetherPanel>{null}</TogetherPanel>);
-    try {
-      const top = mounted?.container.querySelector(".player-overlay__top");
-      const labels = [...(top?.querySelectorAll("button") ?? [])].map((button) =>
-        button.getAttribute("aria-label"),
-      );
-      expect(labels.slice(-2)).toEqual(["Watch Together is on: its controls", "Cast to a device"]);
-    } finally {
-      panel.unmount();
     }
   });
 

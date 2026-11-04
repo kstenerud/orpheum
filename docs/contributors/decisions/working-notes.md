@@ -26186,7 +26186,7 @@ D364 §12) could not be reached while a film played. Amends D384 §2 and D418 §
 
 **Proven by:**
 - 1: "draws Cast's sign last in its top row, over the film" in
-  web/apps/web/src/player-overlay.test.tsx
+  web/apps/web/src/player-overlay-signs.test.tsx
 - 2: "has Cast's sign over the film open its dialog in the player…" in
   web/apps/web/src/status-tray.test.tsx; web/e2e/cast.spec.ts casts from it
 
@@ -26209,7 +26209,7 @@ panels are drawn on that page. Amends D422 §3, D418 §1 and D384 §2.
 
 **Proven by:**
 - 1: "draws Watch Together's sign just before Cast's while a session's panel is drawn (D423)" in
-  web/apps/web/src/player-overlay.test.tsx; "shows Watch Together's sign over the film only while a
+  web/apps/web/src/player-overlay-signs.test.tsx; "shows Watch Together's sign over the film only while a
   session's panel is drawn, blue" in web/apps/web/src/together-over-the-film.test.tsx
 - 2: "moves the session's panel, its state kept, into the dialog the sign opens over the film…" in
   web/apps/web/src/together-over-the-film.test.tsx; web/e2e/together.spec.ts talks from it

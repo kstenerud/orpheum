@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 
 import { IconButton } from "./icon-button.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
-import { signMark, TogetherIcon } from "./status-tray.tsx";
+import { signMark, TogetherIcon } from "./sign-mark.tsx";
 
 /**
  * Watch Together over the playing film (D423): the film fills the window over the page (D418 §1), so
@@ -48,7 +48,7 @@ function currentDialogBody(): HTMLElement | null {
  */
 export function TogetherPanel(props: { readonly children: ReactNode }): JSX.Element {
   const [box] = useState(() => document.createElement("div"));
-  const home = useRef<HTMLDivElement>(null);
+  const homeRef = useRef<HTMLDivElement>(null);
   const target = useSyncExternalStore(subscribe, currentDialogBody, currentDialogBody);
   useEffect(() => {
     panels += 1;
@@ -59,10 +59,10 @@ export function TogetherPanel(props: { readonly children: ReactNode }): JSX.Elem
     };
   }, []);
   useEffect(() => {
-    (target ?? home.current)?.append(box);
+    (target ?? homeRef.current)?.append(box);
   }, [target, box]);
   return (
-    <div ref={home} className="together-panel">
+    <div ref={homeRef} className="together-panel">
       {createPortal(props.children, box)}
     </div>
   );
@@ -151,6 +151,11 @@ function presentNames(snapshot: TogetherSnapshot | undefined): readonly string[]
     : undefined;
 }
 
+/** The names a roster's key holds (ComingAndGoing). */
+function namesOf(key: string): readonly string[] {
+  return key.split("\u0000").filter((name) => name !== "");
+}
+
 /**
  * A short note over the film as someone joins the session or leaves it (D423), so a person watching
  * learns it without opening the panel; who was there as this page came is no news.
@@ -162,27 +167,24 @@ export function ComingAndGoing(props: {
   const { t } = useTranslation();
   const names = presentNames(props.snapshot);
   const key = names?.join("\u0000");
-  const before = useRef<readonly string[] | undefined>(undefined);
-  // Who was there as the page came is no news: the first connected roster is only the measure.
+  // Who was there as the page came is no news: the first connected roster is only the measure, and
+  // who was there last stays it across a drop. Measured as the roster changes, during the render.
+  const [measured, setMeasured] = useState<string | undefined>(undefined);
   const [note, setNote] = useState<{ readonly text: string } | undefined>(undefined);
-  useEffect(() => {
-    if (key === undefined) {
-      return; // who was there last stays the news's measure across a drop
+  if (key !== undefined && key !== measured) {
+    setMeasured(key);
+    if (measured !== undefined) {
+      const was = namesOf(measured);
+      const now = namesOf(key);
+      const lines = [
+        ...now.filter((name) => !was.includes(name)).map((name) => t("together.cameIn", { name })),
+        ...was.filter((name) => !now.includes(name)).map((name) => t("together.wentOut", { name })),
+      ];
+      if (lines.length > 0) {
+        setNote({ text: lines.join(" · ") });
+      }
     }
-    const now = key.split("\u0000").filter((name) => name !== "");
-    const was = before.current;
-    before.current = now;
-    if (was === undefined) {
-      return;
-    }
-    const lines = [
-      ...now.filter((name) => !was.includes(name)).map((name) => t("together.cameIn", { name })),
-      ...was.filter((name) => !now.includes(name)).map((name) => t("together.wentOut", { name })),
-    ];
-    if (lines.length > 0) {
-      setNote({ text: lines.join(" · ") });
-    }
-  }, [key, t]);
+  }
   useEffect(() => {
     if (note === undefined) {
       return undefined;

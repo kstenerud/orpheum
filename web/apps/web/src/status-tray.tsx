@@ -18,6 +18,7 @@ import { closeTrayDialog, openTrayDialog, useTrayDialog } from "./tray-dialog.ts
 import { useMembership } from "./together-membership.ts";
 import { CastDialog, TogetherDialog, useLoadsTrayDialogsAhead } from "./tray-dialog-code.tsx";
 import { LaterScreen } from "./screen-load.tsx";
+import { signMark, TogetherIcon } from "./sign-mark.tsx";
 import { useResource } from "./use-resource.ts";
 import { WarningIcon } from "./warning-sign.tsx";
 import { usePrefetchedHostedDetails } from "./hosted-details.ts";
@@ -68,11 +69,6 @@ function useClosesTheDialogAsThePageMoves(): void {
       }
     });
   }, [navigation]);
-}
-
-/** A sign's mark: blue and pulsing while its function is on, the banner's white while it is off. */
-export function signMark(isOn: boolean): "running" | undefined {
-  return isOn ? "running" : undefined;
 }
 
 /**
@@ -162,6 +158,11 @@ export function CastSignOverTheFilm(props: {
   );
 }
 
+/** Cast's sign over the film, as the signed-in app gives it to the overlay (CastSignOverTheFilmContext). */
+export function castSignOverTheFilm(onOpenChange: (isOpen: boolean) => void): JSX.Element {
+  return <CastSignOverTheFilm onOpenChange={onOpenChange} />;
+}
+
 /** Cast's sign itself: Cast to a device, or, blue, what plays on which device while a cast is on. */
 function CastSignButton(props: {
   readonly sending: CastSending | undefined;
@@ -194,25 +195,6 @@ function CastDialogLoaded(props: { readonly onClose: () => void }): JSX.Element 
     <LaterScreen resetKey="cast-dialog">
       <CastDialog onClose={props.onClose} />
     </LaterScreen>
-  );
-}
-
-/**
- * A screen playing, two people before it: Watch Together, in the colour of the text it sits in. The
- * owner's choice, drawn by Claude Design (2026-10-12).
- */
-export function TogetherIcon(): JSX.Element {
-  return (
-    <Icon className="status-tray__icon">
-      <path
-        fillRule="evenodd"
-        d="M4 2h16a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm6 2.8v5.4l4.6-2.7z"
-      />
-      <circle cx="7.5" cy="17.3" r="2.3" />
-      <circle cx="16.5" cy="17.3" r="2.3" />
-      <path d="M3.2 23a4.3 3.6 0 0 1 8.6 0z" />
-      <path d="M12.2 23a4.3 3.6 0 0 1 8.6 0z" />
-    </Icon>
   );
 }
 

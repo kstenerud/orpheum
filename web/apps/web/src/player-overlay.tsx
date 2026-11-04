@@ -14,6 +14,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
+import { CastSignOverTheFilmContext } from "./cast-sign-over-the-film.tsx";
 import { ConvenienceArea, type OfferPiece } from "./convenience-area.tsx";
 import { useIsVolumeSettable } from "./film-volume-slider.tsx";
 import type { FilmParts } from "./film-player.tsx";
@@ -45,7 +46,6 @@ import {
 } from "./player-overlay-state.ts";
 import { useAnswersPictureTaps, useOpensAtThePointer, type SeekFeedback } from "./player-taps.ts";
 import { PlayerTracksContext } from "./player-tracks.tsx";
-import { CastSignOverTheFilm } from "./status-tray.tsx";
 import { Timeline } from "./timeline.tsx";
 import { TogetherSignOverTheFilm } from "./together-over-the-film.tsx";
 import { isTelevision } from "./tv-device.ts";
@@ -274,6 +274,19 @@ interface OverlayRefs {
   readonly convenienceRef: RefObject<HTMLDivElement | null>;
 }
 
+/** The tray's signs over the film, last in the top row: Watch Together's, then Cast's (D422, D423). */
+function SignsOverTheFilm(props: {
+  readonly onOpenChange: (isOpen: boolean) => void;
+}): JSX.Element {
+  const castSign = use(CastSignOverTheFilmContext);
+  return (
+    <>
+      <TogetherSignOverTheFilm onOpenChange={props.onOpenChange} />
+      {castSign(props.onOpenChange)}
+    </>
+  );
+}
+
 /**
  * The overlay's three rows (D407 §1): the way up and the convenience area (convenience-area.tsx);
  * the scrub bar; the buttons, those the device shows (controlsShown), the menus 🔈, Subtitles, Sound
@@ -308,8 +321,7 @@ export function OverlayRows({
           {...convenience}
           leftMs={source.durationMs === 0 ? undefined : source.durationMs - source.atMs}
         />
-        <TogetherSignOverTheFilm onOpenChange={onMenuOpenChange} />
-        <CastSignOverTheFilm onOpenChange={onMenuOpenChange} />
+        <SignsOverTheFilm onOpenChange={onMenuOpenChange} />
       </div>
       <div className="player-overlay__row player-overlay__scrub" data-focus-container="">
         <Timeline
