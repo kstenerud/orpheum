@@ -79,3 +79,20 @@ export async function isPlaying(page: Page): Promise<boolean> {
     return false; // no video on the page yet
   }
 }
+
+/**
+ * A control of the player's overlay, over the film (D418 §1), by its name: the controls are hidden
+ * while the film plays, so the pointer moves over the film first, as a person's would, which shows
+ * them.
+ */
+export async function shownOverTheFilm(
+  page: Page,
+  name: string | RegExp,
+): Promise<ReturnType<Page["locator"]>> {
+  const film = await page.locator("video").boundingBox();
+  if (film !== null) {
+    await page.mouse.move(film.x + film.width / 2, film.y + film.height / 2);
+    await page.mouse.move(film.x + film.width / 2 + 8, film.y + film.height / 2 + 8);
+  }
+  return page.locator(".player-overlay").getByRole("button", { name });
+}
