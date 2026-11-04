@@ -786,13 +786,13 @@
           },
           "credits": {
             "$ref": "#/components/schemas/CreditsBody",
-            "description": "Its cast, directors and writers in billing order"
+            "description": "Its cast, directors and writers in billing order; absent when it credits no one"
           },
           "fetchFailure": {
             "$ref": "#/components/schemas/FetchFailureBody"
           },
           "genres": {
-            "description": "Its genres in its source's order",
+            "description": "Its genres in its source's order; absent when it has none",
             "items": {
               "$ref": "#/components/schemas/GenreBody"
             },
@@ -889,9 +889,7 @@
           "kind",
           "name",
           "seasons",
-          "art",
-          "genres",
-          "credits"
+          "art"
         ],
         "type": "object"
       },
@@ -3262,7 +3260,7 @@
           },
           "credits": {
             "$ref": "#/components/schemas/CreditsBody",
-            "description": "Its cast, directors and writers in billing order; an episode's are its series'"
+            "description": "Its cast, directors and writers in billing order; an episode's are its series'; absent when it credits no one"
           },
           "episode": {
             "$ref": "#/components/schemas/EpisodePlaceBody"
@@ -3287,7 +3285,7 @@
             "type": "string"
           },
           "genres": {
-            "description": "Its genres in its source's order; an episode's are its series'",
+            "description": "Its genres in its source's order; an episode's are its series'; absent when it has none",
             "items": {
               "$ref": "#/components/schemas/GenreBody"
             },
@@ -3373,9 +3371,7 @@
           "identificationState",
           "versions",
           "extras",
-          "art",
-          "genres",
-          "credits"
+          "art"
         ],
         "type": "object"
       },

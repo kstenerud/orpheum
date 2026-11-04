@@ -209,8 +209,8 @@ type ItemDetailOutput struct {
 		Unavailable         *UnavailableBody  `doc:"Why none of its files can be read now; absent when one can" json:"unavailable,omitempty"`                                                                       //nolint:lll // one struct tag
 		IsWatched           bool              `doc:"Whether the person watched it, by playing it to its finish or by hand (D370)" json:"isWatched,omitempty"`                                                       //nolint:lll // one struct tag
 		Libraries           []LibraryNameBody `doc:"The libraries its person reaches that list it, by name: its page goes up to the one the person came through, else the first (D367)" json:"libraries,omitempty"` //nolint:lll // one struct tag
-		Genres              []GenreBody       `doc:"Its genres in its source's order; an episode's are its series'" json:"genres"`                                                                                  //nolint:lll // one struct tag
-		Credits             CreditsBody       `doc:"Its cast, directors and writers in billing order; an episode's are its series'" json:"credits"`                                                                 //nolint:lll // one struct tag
+		Genres              []GenreBody       `doc:"Its genres in its source's order; an episode's are its series'; absent when it has none" json:"genres,omitempty"`                                               //nolint:lll // one struct tag
+		Credits             *CreditsBody      `doc:"Its cast, directors and writers in billing order; an episode's are its series'; absent when it credits no one" json:"credits,omitempty"`                        //nolint:lll // one struct tag
 		FilmOfExtra         *FilmOfExtraBody  `doc:"The film an extra belongs to, which its page goes up to (D367); absent for anything else" json:"filmOfExtra,omitempty"`                                         //nolint:lll // one struct tag
 	}
 }
@@ -260,12 +260,12 @@ type CollectionOutput struct {
 		NotInOrderingCount  int64             `doc:"How many of its episodes the ordering in use leaves out: GET /collections/{id}/not-in-order" json:"notInOrderingCount,omitempty"` //nolint:lll // one struct tag
 		Art                 ArtBody           `json:"art"`
 		FetchFailure        *FetchFailureBody `json:"fetchFailure,omitempty"`
-		RefreshRequestedAt  int64             `doc:"When a person asked for it to be refreshed, while no fetch has answered yet" json:"refreshRequestedAt,omitempty"`                        //nolint:lll // one struct tag
-		Unavailable         *UnavailableBody  `doc:"Why none of its episodes' files can be read now; absent when one can" json:"unavailable,omitempty"`                                      //nolint:lll // one struct tag
-		NextUp              *NextUpBody       `doc:"The person's next episode, which the page offers to play; absent when every one is finished or none has a file" json:"nextUp,omitempty"` //nolint:lll // one struct tag
-		IsWatched           bool              `doc:"Whether the person watched every one of its episodes with a file, in the ordering they watch it in (D370)" json:"isWatched,omitempty"`   //nolint:lll // one struct tag
-		Genres              []GenreBody       `doc:"Its genres in its source's order" json:"genres"`
-		Credits             CreditsBody       `doc:"Its cast, directors and writers in billing order" json:"credits"`
+		RefreshRequestedAt  int64             `doc:"When a person asked for it to be refreshed, while no fetch has answered yet" json:"refreshRequestedAt,omitempty"`                                                                //nolint:lll // one struct tag
+		Unavailable         *UnavailableBody  `doc:"Why none of its episodes' files can be read now; absent when one can" json:"unavailable,omitempty"`                                                                              //nolint:lll // one struct tag
+		NextUp              *NextUpBody       `doc:"The person's next episode, which the page offers to play; absent when every one is finished or none has a file" json:"nextUp,omitempty"`                                         //nolint:lll // one struct tag
+		IsWatched           bool              `doc:"Whether the person watched every one of its episodes with a file, in the ordering they watch it in (D370)" json:"isWatched,omitempty"`                                           //nolint:lll // one struct tag
+		Genres              []GenreBody       `doc:"Its genres in its source's order; absent when it has none" json:"genres,omitempty"`                                                                                              //nolint:lll // one struct tag
+		Credits             *CreditsBody      `doc:"Its cast, directors and writers in billing order; absent when it credits no one" json:"credits,omitempty"`                                                                       //nolint:lll // one struct tag
 		Libraries           []LibraryNameBody `doc:"The libraries its person reaches that list one of its episodes, by name: its page goes up to the one the person came through, else the first (D367)" json:"libraries,omitempty"` //nolint:lll // one struct tag
 	}
 }
