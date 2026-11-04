@@ -74,10 +74,13 @@
 }
 
 /* Row 0: the way up, "‹ S1E1 Pilot" (D367 §8, D407 §1). */
+/* Its items stand the row's full height, so Up from the scrub bar, finding them all at one gap,
+   goes to the first, the film's page, not to the tallest, a sign over the film whose box came
+   nearer (D422, D423); each centres its own content. */
 .player-overlay__top {
   display: flex;
   gap: var(--space-3);
-  align-items: center;
+  align-items: stretch;
 }
 
 .player-overlay__up {
