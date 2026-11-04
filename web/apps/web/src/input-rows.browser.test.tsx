@@ -219,9 +219,8 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
   it("leaves Continue Watching by one Down, and hides a film from the card's own …, reached by Up", async () => {
     await page.viewport(width, height);
     const heard: string[] = [];
-    walking = await mountApp(
-      walkServices({ ...withContinueWatching, "POST /items/202/hide": null }, "/", heard),
-    );
+    const answers: WalkAnswers = { ...withContinueWatching, "POST /items/202/hide": null };
+    walking = await mountApp(walkServices(answers, "/", heard));
     await expect.poll(() => isDrawn(`${newestFilms} .poster-card__link`)).toBe(true);
     await expect.poll(focusedCard).toBe("Metropolis");
     await userEvent.keyboard("{ArrowRight}");
@@ -237,8 +236,43 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
     await userEvent.keyboard("{Enter}");
     await expect.poll(() => isDrawn("dialog .list-box button")).toBe(true);
     expect(document.activeElement?.textContent).toBe("Hide");
+    // The server's rows from here on are without Nosferatu, as after a hide.
+    answers["GET /home"] = { continueWatching: [partway(201, "Metropolis"), partway(203, "Sunrise")] };
     await userEvent.keyboard("{Enter}");
     await expect.poll(() => heard).toContain("POST /items/202/hide");
+    // Focus goes to the card after the one hidden, not to the page's body (D419 §3).
+    await expect.poll(() => isDrawn(".continue-watching__hidden")).toBe(true);
+    await expect.poll(focusedCard).toBe("Sunrise");
+    expect(document.activeElement?.classList.contains("poster-card__link")).toBe(true);
+  });
+
+  it("puts focus on the card before a hidden last one, and on Undo when none is left (D419 §3)", async () => {
+    await page.viewport(width, height);
+    const answers: WalkAnswers = {
+      ...withContinueWatching,
+      "GET /home": { continueWatching: [partway(201, "Metropolis"), partway(203, "Sunrise")] },
+      "POST /items/203/hide": null,
+      "POST /items/201/hide": null,
+    };
+    walking = await mountApp(walkServices(answers, "/"));
+    await expect.poll(focusedCard).toBe("Metropolis");
+    await userEvent.keyboard("{ArrowRight}");
+    expect(focusedCard()).toBe("Sunrise");
+    await userEvent.keyboard("{ArrowUp}");
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("More for Sunrise");
+    await userEvent.keyboard("{Enter}");
+    await expect.poll(() => isDrawn("dialog .list-box button")).toBe(true);
+    answers["GET /home"] = { continueWatching: [partway(201, "Metropolis")] };
+    await userEvent.keyboard("{Enter}");
+    await expect.poll(focusedCard).toBe("Metropolis");
+    await userEvent.keyboard("{ArrowUp}");
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("More for Metropolis");
+    await userEvent.keyboard("{Enter}");
+    await expect.poll(() => isDrawn("dialog .list-box button")).toBe(true);
+    answers["GET /home"] = { continueWatching: [] };
+    await userEvent.keyboard("{Enter}");
+    await expect.poll(() => document.activeElement?.textContent).toBe("Undo");
+    expect(document.activeElement?.closest(".continue-watching__hidden")).not.toBeNull();
   });
 
   it("sets each newest row's See all beside its heading, not across the screen", async () => {

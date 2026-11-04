@@ -6,7 +6,7 @@ import { idempotent } from "./idempotent.ts";
 import "./continue-watching.css";
 
 import type { Api, components } from "@orpheum/sdk";
-import { useState, type JSX } from "react";
+import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { MoreActions } from "./more-actions.tsx";
@@ -89,9 +89,16 @@ export function rowName(
   });
 }
 
+/** A hide waiting for the rows without its row, and the row whose card focus then goes to. */
+interface FocusAfterHide {
+  readonly hiddenId: number;
+  readonly nextId: number | undefined;
+}
+
 /**
  * The rows, each playing its file at once when chosen (D188), with a way to hide it; and after a
- * hide, a way to undo it.
+ * hide, a way to undo it. Once the hidden row is gone, focus goes to the card after it, or before
+ * it when it was the last, or to Undo when no card is left (D419 §3); never to the page's body.
  */
 export function ContinueWatchingView(props: {
   readonly rows: readonly ContinueWatchingRow[];
@@ -100,7 +107,32 @@ export function ContinueWatchingView(props: {
   readonly onUndo: () => void;
 }): JSX.Element | null {
   const { t } = useTranslation();
-  if (props.rows.length === 0 && props.hiddenName === undefined) {
+  const sectionRef = useRef<HTMLElement>(null);
+  const undoRef = useRef<HTMLButtonElement>(null);
+  const focusAfterHide = useRef<FocusAfterHide | undefined>(undefined);
+  const { rows } = props;
+  useEffect(() => {
+    const pending = focusAfterHide.current;
+    if (pending === undefined) {
+      return;
+    }
+    focusAfterHide.current = undefined;
+    if (rows.some((row) => row.id === pending.hiddenId)) {
+      return; // refused: the row stays, and focus with it
+    }
+    const nextIndex = rows.findIndex((row) => row.id === pending.nextId);
+    const card =
+      nextIndex < 0
+        ? undefined
+        : sectionRef.current?.querySelectorAll<HTMLElement>(".poster-card__link")[nextIndex];
+    (card ?? undoRef.current)?.focus();
+  }, [rows]);
+  const hide = (row: ContinueWatchingRow): void => {
+    const index = rows.indexOf(row);
+    focusAfterHide.current = { hiddenId: row.id, nextId: (rows[index + 1] ?? rows[index - 1])?.id };
+    props.onHide(row);
+  };
+  if (rows.length === 0 && props.hiddenName === undefined) {
     return null;
   }
   const nameOf = (row: ContinueWatchingRow): string =>
@@ -113,24 +145,23 @@ export function ContinueWatchingView(props: {
       (ordering, place) => placeCode(t, ordering, place),
     );
   return (
-    <section className="continue-watching" aria-labelledby="continue-watching-heading">
+    <section
+      ref={sectionRef}
+      className="continue-watching"
+      aria-labelledby="continue-watching-heading"
+    >
       <h2 id="continue-watching-heading">{t("continueWatching.heading")}</h2>
       {props.hiddenName === undefined ? null : (
         <output className="continue-watching__hidden">
           {t("continueWatching.hidden", { name: props.hiddenName })}{" "}
-          <button type="button" onClick={props.onUndo}>
+          <button ref={undoRef} type="button" onClick={props.onUndo}>
             {t("continueWatching.undo")}
           </button>
         </output>
       )}
       <PosterRow isArrival>
-        {props.rows.map((row) => (
-          <ContinueWatchingRowView
-            key={row.id}
-            row={row}
-            name={nameOf(row)}
-            onHide={props.onHide}
-          />
+        {rows.map((row) => (
+          <ContinueWatchingRowView key={row.id} row={row} name={nameOf(row)} onHide={hide} />
         ))}
       </PosterRow>
     </section>

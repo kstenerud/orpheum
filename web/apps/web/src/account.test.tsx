@@ -63,6 +63,58 @@ describe("your account", () => {
     ]);
   });
 
+  it("places the sections the audit left: from away after the password, the link after home (D419 §2)", async () => {
+    mounted = await mount(
+      withServices(
+        <Account />,
+        servedBy({
+          "GET /me/devices": [200, { devices: [television()] }],
+          "GET /me": [
+            200,
+            {
+              id: 1,
+              name: "owner",
+              role: "admin",
+              isAdmin: true,
+              canManageAccount: true,
+              adminAway: "never",
+              homeAddresses: ["https://192-168-1-250.k7xq2.orpheum-core.com:8443"],
+            },
+          ],
+          "GET /me/own-link": [200, { secret: "a-links-secret", expiresAt: 2 }],
+          "GET /me/preferences": [
+            200,
+            { isDialogueBoostOn: false, isLevellingOn: true, isAutoplayOn: true },
+          ],
+          "GET /libraries": [200, { libraries: [] }],
+        }),
+      ),
+    );
+    const page = mounted.container;
+    await settleUntil(() => page.querySelector("#your-link-heading") !== null);
+    const headings = [...page.querySelectorAll("h2")].map((heading) => heading.textContent);
+    expect(headings).toEqual([
+      "Activate a device",
+      "Playing",
+      "Change password",
+      "Administering from away from home",
+      "Your server at home",
+      "Your link",
+      "Your devices",
+      "Testing",
+    ]);
+  });
+
+  it("puts a limited session's note at the top, under who is signed in (D419 §2)", async () => {
+    const page = await accountOf(false);
+    await settleUntil(() => page.querySelector("#playing-heading") !== null);
+    const who = page.querySelector(".account__who");
+    expect(who?.nextElementSibling?.tagName).toBe("P");
+    expect(who?.nextElementSibling?.nextElementSibling?.querySelector("h2")?.textContent).toBe(
+      "Playing",
+    );
+  });
+
   it("says who is signed in, under its heading (the owner, 2026-10-30)", async () => {
     const page = await accountOf(true);
     await settleUntil(() => page.querySelector(".account__who") !== null);
