@@ -98,6 +98,20 @@ const manyLibraries: WalkAnswers = {
   },
 };
 
+/** count of the person's devices, as GET /me/devices lists them, the first this one. */
+function devices(count: number): Record<string, unknown>[] {
+  return Array.from({ length: count }, (_, at) => ({
+    id: at + 1,
+    name: `Device ${String(at + 1)}`,
+    platform: "web",
+    addedAt: 0,
+    lastUsedAt: 0,
+    isSignedIn: true,
+    isByCode: false,
+    isThisDevice: at === 0,
+  }));
+}
+
 /** A list's Sort and filter button, on its bar (listing-tools.tsx, D417). */
 function criteriaButton(): HTMLElement | undefined {
   return document.querySelector<HTMLElement>("main .list-criteria__button") ?? undefined;
@@ -686,26 +700,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
   it("goes Down from This device's Rename, its arrival, to the controller's choices", async () => {
     await page.viewport(width, height);
     walking = await mountApp(
-      walkServices(
-        {
-          ...signedIn,
-          "GET /me/devices": {
-            devices: [
-              {
-                id: 1,
-                name: "Device 1",
-                platform: "web",
-                addedAt: 0,
-                lastUsedAt: 0,
-                isSignedIn: true,
-                isByCode: false,
-                isThisDevice: true,
-              },
-            ],
-          },
-        },
-        "/this-device",
-      ),
+      walkServices({ ...signedIn, "GET /me/devices": { devices: devices(1) } }, "/this-device"),
     );
     await expect.poll(focusedName).toBe("Rename");
     expect(await unreachedInMain()).toEqual([]);
@@ -716,6 +711,28 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
         () => document.activeElement?.getAttribute("type") === "radio",
       ),
     ).toBe(true);
+  });
+
+  it("goes Right on Your account from the code, its arrival, to the name and Activate, Down to every control, the devices past five behind All devices", async () => {
+    await page.viewport(width, height);
+    walking = await mountApp(
+      walkServices({ ...signedIn, "GET /me/devices": { devices: devices(7) } }, "/account"),
+    );
+    await drawn("details.your-devices__all");
+    await expect
+      .poll(() => document.activeElement?.classList.contains("device-activation__code-field"))
+      .toBe(true);
+    expect(await unreachedInMain()).toEqual([]);
+    document.querySelector<HTMLElement>(".device-activation__code-field")?.focus();
+    await press("{ArrowRight}");
+    // The device's name: the field beside the code.
+    expect(document.activeElement?.getAttribute("maxlength")).toBe("100");
+    await press("{ArrowRight}");
+    expect(focusedName()).toBe("Activate");
+    expect(document.querySelectorAll(".your-devices__device")).toHaveLength(5);
+    expect(await pressUntil("{ArrowDown}", () => focusedName() === "All devices (7)", 30)).toBe(
+      true,
+    );
   });
 
   it("reaches every control of the sign-in page and types in its fields", async () => {

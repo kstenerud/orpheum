@@ -25,6 +25,7 @@ export const enDevices = {
   },
   devices: {
     heading: "Your devices",
+    all: "All devices ({{count}})",
     thisDevice: "This device",
     signedIn: "Signed in",
     signedOut: "Signed out",

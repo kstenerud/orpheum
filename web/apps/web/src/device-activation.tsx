@@ -102,7 +102,11 @@ function Done(props: { readonly step: Extract<Step, { kind: "done" }> }): JSX.El
   );
 }
 
-/** The code a device shows and the name to list it by, and the button that enters them. */
+/**
+ * The code a device shows and the name to list it by, and the button that enters them, the three in
+ * one row under what to do (ui-audit-2026-11-04.md §3, Your account), so Right goes from the code to
+ * the name to Activate.
+ */
 function EnterCode(props: {
   readonly isBusy: boolean;
   readonly onEnter: (code: string, deviceName: string) => void;
@@ -112,47 +116,49 @@ function EnterCode(props: {
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   return (
-    <FormRow
-      onSubmit={() => {
-        props.onEnter(code, name);
-      }}
-    >
+    <>
       <p>{t("activate.explain", { origin: codeAddress ?? navigation.origin() })}</p>
       <p className="device-activation__entry-warning" role="note">
         {t("activate.entryWarning")}
       </p>
-      <label>
-        {t("activate.code")}{" "}
-        <input
-          className="device-activation__code-field"
-          {...arrivalMark}
-          required
-          autoComplete="off"
-          autoCapitalize="none"
-          spellCheck={false}
-          maxLength={12}
-          placeholder={t("activate.codeExample")}
-          value={code}
-          onChange={(event) => {
-            setCode(event.target.value);
-          }}
-        />
-      </label>
-      <label>
-        {t("activate.deviceName")}{" "}
-        <input
-          maxLength={100}
-          placeholder={t("activate.deviceNameExample")}
-          value={name}
-          onChange={(event) => {
-            setName(event.target.value);
-          }}
-        />
-      </label>
-      <button type="submit" disabled={props.isBusy}>
-        {t("activate.submit")}
-      </button>
-    </FormRow>
+      <FormRow
+        onSubmit={() => {
+          props.onEnter(code, name);
+        }}
+      >
+        <label>
+          {t("activate.code")}{" "}
+          <input
+            className="device-activation__code-field"
+            {...arrivalMark}
+            required
+            autoComplete="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            maxLength={12}
+            placeholder={t("activate.codeExample")}
+            value={code}
+            onChange={(event) => {
+              setCode(event.target.value);
+            }}
+          />
+        </label>
+        <label>
+          {t("activate.deviceName")}{" "}
+          <input
+            maxLength={100}
+            placeholder={t("activate.deviceNameExample")}
+            value={name}
+            onChange={(event) => {
+              setName(event.target.value);
+            }}
+          />
+        </label>
+        <button type="submit" disabled={props.isBusy}>
+          {t("activate.submit")}
+        </button>
+      </FormRow>
+    </>
   );
 }
 
