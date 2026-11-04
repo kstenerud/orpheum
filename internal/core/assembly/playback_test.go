@@ -3,10 +3,16 @@
 package assembly
 
 import (
+	"log/slog"
 	"slices"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/playback"
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
 // A playback a film's page warmed up, which never played, is no one watching: its file's work is
@@ -30,5 +36,32 @@ func TestBuild_EveryThingDerivedFromAProbeCanBeThrownOut(t *testing.T) {
 	}
 	if unwired := services.ingester.UnwiredDroppers(); len(unwired) != 0 {
 		t.Errorf("the ingest has no way to throw out %v", unwired)
+	}
+}
+
+// The server's read-through logs how long each read of a file's index took, for whether
+// play_ladder_wait_ms outlasts it: the server's logger reaches it (D414 §5).
+func TestBuild_TheReadThroughLogsAnIndexReadsTime(t *testing.T) {
+	t.Parallel()
+	parts := testParts(t)
+	var logged strings.Builder
+	parts.Logger = slog.New(slog.NewTextHandler(&logged, nil))
+	services, err := Build(t.Context(), parts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	job := jobs.Job{ID: 9, Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: 4}}
+	attempt := nodes.Attempt{
+		NodeID: 1, RunningSince: parts.Clock.Now().Add(-time.Second),
+		Work: nodeproto.Work{ReadThrough: &nodeproto.ReadThrough{
+			VideoTimeline: &nodeproto.VideoTimelineAsk{IsFromIndexOnly: true},
+		}},
+	}
+	answer := nodeproto.Result{ReadThrough: &nodeproto.ReadThroughResult{}}
+	if err := services.ReadThrough.Assignee(nil).Answer(t.Context(), job, attempt, answer); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(logged.String(), "a file's keyframes were read from its index") {
+		t.Errorf("logged %s; want the index read's time", logged.String())
 	}
 }
