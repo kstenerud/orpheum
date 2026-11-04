@@ -29,6 +29,9 @@ type TitleDetail struct {
 	Unreadable *Unreadable
 	// IsWatched is whether its person watched it, by playing or by hand (D370 §1).
 	IsWatched bool
+	// People are its genres and credits; an episode's are its series', which its source keeps them
+	// on (step 0067).
+	People TitlePeople
 }
 
 // Version is one of a title's versions: its files in part order (D155).
@@ -91,6 +94,13 @@ func (browser *Browser) Title(ctx context.Context, reach auth.Reach, userID, tit
 		return TitleDetail{}, err
 	}
 	detail.IsWatched = watched[titleID]
+	peopleOf := titleID
+	if detail.Episode != nil {
+		peopleOf = detail.Episode.CollectionID
+	}
+	if detail.People, err = browser.peopleOf(ctx, peopleOf); err != nil {
+		return TitleDetail{}, err
+	}
 	return detail, nil
 }
 
@@ -145,6 +155,8 @@ type SeriesDetail struct {
 	// IsWatched is whether its person watched every one of its episodes with a file, one at least, in
 	// the ordering they watch it in (D370 §3).
 	IsWatched bool
+	// People are its genres and credits (step 0067).
+	People TitlePeople
 }
 
 // SeasonSummary is one season of a series, a group of the ordering it is shown in: its number,
@@ -185,8 +197,8 @@ func (browser *Browser) Series(ctx context.Context, reach auth.Reach, userID, se
 		return SeriesDetail{}, fmt.Errorf("list series %d's episodes in its %s ordering: %w", seriesID, ordering, err)
 	}
 	detail := SeriesDetail{GetSeriesDetailRow: series, Ordering: ordering}
-	if detail.Art, err = browser.itemArt(ctx, seriesID); err != nil {
-		return SeriesDetail{}, err
+	if artErr := browser.withArtAndPeople(ctx, &detail); artErr != nil {
+		return SeriesDetail{}, artErr
 	}
 	ids := make([]int64, 0, len(episodes))
 	for _, episode := range episodes {
@@ -223,6 +235,16 @@ func (browser *Browser) Series(ctx context.Context, reach auth.Reach, userID, se
 		detail.Unreadable = &why
 	}
 	return detail, nil
+}
+
+// withArtAndPeople is detail with its series' art, genres and credits.
+func (browser *Browser) withArtAndPeople(ctx context.Context, detail *SeriesDetail) error {
+	var err error
+	if detail.Art, err = browser.itemArt(ctx, detail.ID); err != nil {
+		return err
+	}
+	detail.People, err = browser.peopleOf(ctx, detail.ID)
+	return err
 }
 
 // reachedSeries is a series reach reaches; ErrNoItem for one it does not, or that does not exist.

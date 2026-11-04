@@ -1,0 +1,80 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+package api_test
+
+import (
+	"net/http"
+	"strings"
+	"testing"
+
+	"github.com/kstenerud/orpheum/internal/core/api"
+	"github.com/kstenerud/orpheum/internal/store/storetest"
+)
+
+// shelvePeople adds to shelve's Metropolis and Brass Arena their genres and people: Metropolis a Crime film
+// with Ansel Vardo as Mira Holloway-Pent, directed by Oren Talisk; Brass Arena a Drama with Bryan
+// Cranston as Corwin Ashby.
+func (harness testHarness) shelvePeople(t *testing.T) {
+	t.Helper()
+	harness.shelve(t)
+	storetest.ExecRaw(t, harness.databasePath,
+		`INSERT INTO item (id, kind, added_at) VALUES (40, 'person', 1), (41, 'person', 1), (42, 'person', 1)`,
+		`INSERT INTO person (id, tmdb_id, name_key, picture_ref) VALUES
+		 (40, '1158', 'ansel vardo', '/vardo.jpg'), (41, '638', 'oren talisk', NULL),
+		 (42, '17419', 'bela ostrander', NULL)`,
+		`INSERT INTO item_text (item_id, language, is_original, name, search_alternates) VALUES
+		 (40, 'und', 1, 'Ansel Vardo', 'ansel vardo'), (41, 'und', 1, 'Oren Talisk', 'oren talisk'),
+		 (42, 'und', 1, 'Bela Ostrander', 'bela ostrander')`,
+		`INSERT INTO genre (id, name, name_key) VALUES (1, 'Crime', 'crime'), (2, 'Drama', 'drama')`,
+		`INSERT INTO item_genre (item_id, genre_id, ordinal) VALUES (10, 1, 0), (20, 2, 0)`,
+		`INSERT INTO credit (item_id, role, ordinal, person_id, character) VALUES
+		 (10, 'cast', 0, 40, 'Mira Holloway-Pent'), (10, 'director', 0, 41, NULL), (20, 'cast', 0, 42, 'Corwin Ashby')`)
+}
+
+// A title's page carries its genres and credits, an episode its series'; a person's page lists the
+// titles crediting them; the genres are counted; the list filters by genre and person; a grouped
+// search finds titles, people and genres, a group paged by its cursor.
+func TestBrowse_GenresAndPeopleAreShownListedFilteredAndSearched(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelvePeople(t)
+	wants := []struct{ path, want string }{
+		{"/items/10", `"genres":[{"id":1,"name":"Crime"}],"credits":{"cast":[{"personId":40,"name":"Ansel Vardo",` +
+			`"character":"Mira Holloway-Pent","pictureRef":"/vardo.jpg"}],"directors":[{"personId":41,` +
+			`"name":"Oren Talisk"}],"writers":[]}`},
+		{"/items/21", `"genres":[{"id":2,"name":"Drama"}],"credits":{"cast":[{"personId":42,` +
+			`"name":"Bela Ostrander",`},
+		{"/collections/20", `"genres":[{"id":2,"name":"Drama"}],"credits":{"cast":[{"personId":42,`},
+		{"/people/40", `{"id":40,"name":"Ansel Vardo","pictureRef":"/vardo.jpg","titles":[{"id":10,"kind":"movie",` +
+			`"name":"Metropolis","year":1995,"roles":[{"role":"cast","character":"Mira Holloway-Pent"}]}]}`},
+		{"/genres?kind=any", `"genres":[{"id":1,"name":"Crime","titleCount":1},` +
+			`{"id":2,"name":"Drama","titleCount":1}]`},
+		{"/genres?kind=movie", `"genres":[{"id":1,"name":"Crime","titleCount":1}]`},
+		{"/titles?kind=any&sort=name&limit=10&genre=2", `"name":"Brass Arena"`},
+		{"/titles?kind=movie&sort=name&limit=10&person=41&decade=1990", `"name":"Metropolis"`},
+		{"/titles?kind=movie&sort=name&limit=10&person=42", `"titles":[]`},
+		{"/titles/letters?kind=movie&sort=name&genre=1", `"letters":[`},
+		{"/search/grouped?query=r&limit=10", `"titles":{"hits":[`},
+		{"/search/grouped?query=cr&limit=10", `"genres":{"hits":[{"id":1,"name":"Crime","titleCount":1}]}`},
+		{"/search/grouped?query=a&limit=1", `"people":{"hits":[{"id":40,"name":"Ansel Vardo",` +
+			`"pictureRef":"/vardo.jpg"}],` +
+			`"nextCursor":"1"}`},
+		{"/search/grouped?query=a&limit=1&group=people&cursor=1", `"people":{"hits":[{"id":42,` +
+			`"name":"Bela Ostrander"}],` +
+			`"nextCursor":"2"}`},
+	}
+	for _, want := range wants {
+		if got := harness.do(t, http.MethodGet, want.path, admin, nil); got.status != http.StatusOK ||
+			!strings.Contains(got.body, want.want) {
+			t.Errorf("%s = %d %s; want %s", want.path, got.status, got.body, want.want)
+		}
+	}
+	heat := harness.do(t, http.MethodGet, "/titles?kind=any&sort=name&limit=10&genre=1", admin, nil)
+	if strings.Contains(heat.body, "Brass Arena") {
+		t.Errorf("the Crime titles = %s; want Metropolis alone", heat.body)
+	}
+	wantError(t, harness.do(t, http.MethodGet, "/people/99", admin, nil), http.StatusNotFound, api.CodeNotFound)
+	wantError(t, harness.do(t, http.MethodGet, "/search/grouped?query=a&limit=1&cursor=1", admin, nil),
+		http.StatusUnprocessableEntity, api.CodeInvalidRequest)
+}

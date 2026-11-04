@@ -169,6 +169,14 @@ type ListQuery struct {
 	// Query, when not "", lists only the titles whose names match it, as search matches them (D48):
 	// a film, other video or series by its own name, never by an episode's or an extra's.
 	Query string
+	// GenreID, PersonID and Decade, when not zero, list only the titles in that genre, crediting
+	// that person, or first out in that decade (its first year, 1980), and IsUnwatched only those
+	// UserID has not watched, a series while one of its episodes with a file is not: the list's
+	// filters, combined with each other and with Query (search-by-more-2026-11-04.md §4).
+	GenreID     int64
+	PersonID    int64
+	Decade      int64
+	IsUnwatched bool
 	// matched is the items Query matched, which List and Letters find before they read the list.
 	matched matchedItems
 }

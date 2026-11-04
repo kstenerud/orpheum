@@ -136,6 +136,12 @@ func searchQueries() []listQuery {
 		{name: "MatchWords", sql: matchWordsSQL},
 		{name: "MatchTrigram", sql: matchTrigramSQL},
 		{name: "MatchSubstring", sql: matchSubstringSQL},
+		{name: "FindTitlesWords", sql: findTitlesWordsSQL},
+		{name: "FindTitlesTrigram", sql: findTitlesTrigramSQL},
+		{name: "FindTitlesSubstring", sql: findTitlesSubstringSQL},
+		{name: "FindPeopleWords", sql: findPeopleWordsSQL},
+		{name: "FindPeopleTrigram", sql: findPeopleTrigramSQL},
+		{name: "FindPeopleSubstring", sql: findPeopleSubstringSQL},
 	}
 }
 
@@ -343,6 +349,14 @@ func wholeReadsAllowed() map[string]string {
 		"SearchWords":                    folders + "a search's hits",
 		"MatchTrigram":                   folders + "the titles a searched list holds",
 		"MatchWords":                     folders + "the titles a searched list holds",
+		"FindTitlesTrigram":              folders + "a grouped search's titles",
+		"FindTitlesWords":                folders + "a grouped search's titles",
+		"FindPeopleTrigram":              folders + "the titles crediting a grouped search's people",
+		"FindPeopleWords":                folders + "the titles crediting a grouped search's people",
+		"FindTitlesSubstring": "a grouped search's query too short for either full-text index reads every " +
+			"name once, as search does (D48); " + folders + "its titles",
+		"FindPeopleSubstring": "a grouped search's query too short for either full-text index reads every " +
+			"name once, as search does (D48); " + folders + "the titles crediting its people",
 		"ListCopyCandidates": sweep + "the copies' sweep reads every live video for one whose payload a video " +
 			"found before it has (D363 section 2)",
 		// Defects the redesign removes (the access audit and the independent audit).
