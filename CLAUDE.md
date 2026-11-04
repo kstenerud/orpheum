@@ -28,7 +28,7 @@ the `AGENTS.md` convention read the same rules. Only Claude-specific mechanics b
   ships the segment, not the line.
 - **After a commit**, `.githooks/post-commit` starts revert-red's code part over the batch so far in
   the background, niced, on two probe trees (`scripts/background_probe.py`), so check-pr finds most
-  files already probed; a run of the gate's own stops it. `touch .git/revert-red/background-off`
+  files already probed; any other test run wanting the repository's test lock stops it. `touch .git/revert-red/background-off`
   while the owner tests on staging, and remove it after.
 - **While `make check-pr` runs**, it runs on HEAD in its own worktree (`scripts/check_pr_snapshot.py`)
   and holds a lock: edit freely, but `.claude/hooks/pre_bash.py` refuses tests, lints and commits
@@ -42,6 +42,11 @@ the `AGENTS.md` convention read the same rules. Only Claude-specific mechanics b
   changed or a compaction dropped them, and says when the context passes 120k; `pre_agent.py` refuses an
   agent launch naming no model, a fourth running, or one that can edit without a worktree; `on_tool_done.py` tells an agent past 150 tool calls
   to commit, report and stop. `scripts/token_usage.py` is the ledger, read at a batch's end.
+- **One test run at a time** (the owner, 2026-11-04): `make check`, `make spot`, check-pr, revert-red,
+  the background probe and a test command typed in a session (`go test`, `vitest`, `npm test`,
+  `playwright`, …, which `pre_bash.py` runs through `scripts/gate_lock.py`, in its own shell, so a `cd`
+  in it does not carry) hold one lock shared by every worktree. A run that finds it held says what holds
+  it and waits; `python3 scripts/gate_lock.py --held` prints the holder.
 - **Before a shell command**, `.claude/hooks/pre_bash.py` refuses commands that add a
   dependency, `--no-verify` or repointing `core.hooksPath`, force-pushes, and shell writes whose
   target — a redirect, `tee`, `cp`/`mv`'s destination, `sed -i`, `rm` — is a gate file in this

@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Tests for gate_lock.py: one gate at a time on a repository, a second waits, a gate's own
 # ABOUTME: sub-runs pass through, and whether one runs can be asked without waiting.
+import fcntl
 import os
 import shutil
 import subprocess
@@ -9,6 +10,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 SCRIPTS = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SCRIPTS))
@@ -78,13 +80,61 @@ class GateLock(unittest.TestCase):
         self.assertLess(time.monotonic() - started, 1.5, "a held run did not wait on its own lock")
         first.wait(timeout=30)
 
+    def test_the_holder_says_what_it_is(self):
+        root = repository(self)
+        started = root / "first-started"
+        release = root / "release"
+        first = run_lock(root, "--as", "spot", "sh", "-c",
+                         f"touch {started}; i=0; while [ ! -e {release} ] && [ $i -lt 1500 ]; do sleep 0.02; "
+                         f"i=$((i+1)); done")
+        wait_for(started)
+        held = run_lock(root, "--held")
+        said, _ = held.communicate(timeout=30)
+        release.touch()
+        first.wait(timeout=30)
+        self.assertEqual(held.returncode, 0)
+        self.assertRegex(said, r"^spot pid \d+ since \d\d:\d\d:\d\d UTC")
+        self.assertEqual(gate_lock.holder_kind(said), "spot")
+        self.assertIsNone(gate_lock.holder(root), "nothing holds it once the run ended")
+
+    def test_a_run_behind_the_background_probe_asks_it_to_stop_and_takes_the_lock(self):
+        # The probe gives way to every other run (the owner, 2026-11-04): one waiting behind a probe pass
+        # of many minutes slowed agents' spot checks as much as running beside it loaded them.
+        root = repository(self)
+        asked: list[Path | None] = []
+        with open(gate_lock.lock_path(root), "a+", encoding="utf-8") as probe:
+            fcntl.flock(probe, fcntl.LOCK_EX)
+            gate_lock.mark(probe, gate_lock.PROBE)
+
+            def stop(where):
+                asked.append(where)
+                fcntl.flock(probe, fcntl.LOCK_UN)  # the probe's pass ends
+                return 0.0
+
+            import background_probe  # noqa: PLC0415
+
+            with mock.patch.object(background_probe, "stop", side_effect=stop), \
+                    mock.patch.dict(os.environ, {gate_lock.GATE_LOCK_HELD: ""}), \
+                    gate_lock.holding(root, "test") as env:
+                self.assertEqual(gate_lock.holder_kind(gate_lock.holder(root)), "test")
+                self.assertEqual(env[gate_lock.GATE_LOCK_HELD], "1")
+        self.assertEqual(asked, [root])
+
+    def test_the_stop_hook_waits_behind_short_runs_only(self):
+        for kind in ("spot", "test", "probe"):
+            self.assertNotIn(kind, gate_lock.LONG)
+        for kind in ("check", "check-pr", "revert-red", "gate", ""):
+            self.assertIn(kind, gate_lock.LONG)
+
 
 class Wiring(unittest.TestCase):
     def test_the_gates_take_the_lock(self):
-        """make check, revert-red's targets and check-pr's snapshot each hold it (F17)."""
+        """make check, make spot, revert-red's targets and check-pr's snapshot each hold it (F17; spot,
+        the owner, 2026-11-04)."""
         makefile = (SCRIPTS.parent / "Makefile").read_text()
-        recipe = makefile.split("\ncheck: ", 1)[1].split("\n\n", 1)[0]
-        self.assertIn("$(GATE_LOCK)", recipe)
+        for target, kind in (("check", "check"), ("spot", "spot")):
+            recipe = makefile.split(f"\n{target}: ", 1)[1].split("\n\n", 1)[0]
+            self.assertIn(f"$(GATE_LOCK) --as {kind} ", recipe)
         for line in makefile.splitlines():
             if "scripts/check_revert_red.py" in line and line.startswith("\t"):
                 self.assertIn("$(GATE_LOCK)", line, line)

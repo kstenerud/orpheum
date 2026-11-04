@@ -293,5 +293,22 @@ class StopRunsTheGateForWhatChanged(unittest.TestCase):
         self.assertTrue((pending / "check-pending-code").exists(), "the gate is still owed")
 
 
+class StopBehindTheTestLock(unittest.TestCase):
+    def test_it_leaves_make_check_behind_a_long_gate_and_waits_behind_a_short_run(self):
+        # Every test run takes the lock now (the owner, 2026-11-04): a turn ending during an agent's spot
+        # check must still gate, waiting for it, not leave the turn ungated.
+        from unittest import mock
+
+        sys.path.insert(0, str(HOOKS))
+        import gate_lock  # noqa: PLC0415
+        import on_stop  # noqa: PLC0415
+
+        for said, held in (("check-pr pid 1 since 10:00:00 UTC", True), ("check pid 1", True),
+                           ("revert-red pid 1", True), ("", True), ("spot pid 1", False),
+                           ("test pid 1", False), ("probe pid 1", False), (None, False)):
+            with mock.patch.object(gate_lock, "holder", lambda root, said=said: said):
+                self.assertEqual(on_stop.gate_held(), held, said)
+
+
 if __name__ == "__main__":
     unittest.main()
