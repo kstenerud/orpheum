@@ -535,64 +535,6 @@ func (q *Queries) ListLibraryItemGenres(ctx context.Context, libraryID *int64) (
 	return items, nil
 }
 
-const listPeopleByName = `-- name: ListPeopleByName :many
-SELECT person.id, item_text.name, person.name_key, person.picture_ref
-FROM person
-CROSS JOIN item_text ON item_text.item_id = person.id AND item_text.is_original = 1
-WHERE person.id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
-  AND (person.name_key > ?2 OR (person.name_key = ?2 AND person.id > ?3))
-ORDER BY person.name_key, person.id
-LIMIT ?4
-`
-
-type ListPeopleByNameParams struct {
-	PersonIdsJSON string
-	AfterKey      string
-	AfterID       int64
-	MaxRows       int64
-}
-
-type ListPeopleByNameRow struct {
-	ID         int64
-	Name       string
-	NameKey    string
-	PictureRef *string
-}
-
-// A page of the people in person_ids_json, by folded name, after a name and an id.
-func (q *Queries) ListPeopleByName(ctx context.Context, arg ListPeopleByNameParams) ([]ListPeopleByNameRow, error) {
-	rows, err := q.db.QueryContext(ctx, listPeopleByName,
-		arg.PersonIdsJSON,
-		arg.AfterKey,
-		arg.AfterID,
-		arg.MaxRows,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListPeopleByNameRow{}
-	for rows.Next() {
-		var i ListPeopleByNameRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.NameKey,
-			&i.PictureRef,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listPersonCredits = `-- name: ListPersonCredits :many
 SELECT credit.item_id, credit.role, credit.ordinal, credit.character, item.kind AS item_kind,
   title.kind AS title_kind, title.year AS title_year, collection.year AS series_year, item_text.name

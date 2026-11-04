@@ -195,13 +195,3 @@ WHERE item.removed_at IS NULL AND (title.kind IN ('movie', 'other') OR collectio
           WHERE title_watched.user_id = sqlc.arg(user_id) AND title_watched.title_id = episode.id
             AND title_watched.watched_at IS NOT NULL))))
 ORDER BY item.id;
-
--- name: ListPeopleByName :many
--- A page of the people in person_ids_json, by folded name, after a name and an id.
-SELECT person.id, item_text.name, person.name_key, person.picture_ref
-FROM person
-CROSS JOIN item_text ON item_text.item_id = person.id AND item_text.is_original = 1
-WHERE person.id IN (SELECT value FROM json_each(CAST(sqlc.arg(person_ids_json) AS TEXT)))
-  AND (person.name_key > sqlc.arg(after_key) OR (person.name_key = sqlc.arg(after_key) AND person.id > sqlc.arg(after_id)))
-ORDER BY person.name_key, person.id
-LIMIT sqlc.arg(max_rows);
