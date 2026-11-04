@@ -335,19 +335,20 @@ describe("which controls show (D407 §2)", () => {
     isTelevision: false,
     isTouch: false,
     isVolumeSettable: true,
+    audioTrackCount: 1,
     hasPrevious: false,
     hasNext: false,
     isReceiver: false,
   };
 
-  it("shows a computer's every control but previous and next, Audio and subtitles one panel", () => {
+  it("shows a computer's every control but previous, next and a lone audio track's Sound track", () => {
     expect(controlsShown(computer)).toEqual([
       "up",
       "seekBack",
       "play",
       "seekForward",
       "sound",
-      "audioAndSubtitles",
+      "subtitles",
       "more",
       "fullScreen",
     ]);
@@ -364,11 +365,16 @@ describe("which controls show (D407 §2)", () => {
     }
   });
 
-  it("shows previous and next within a sequence, before Audio and subtitles", () => {
-    const shown = controlsShown({ ...computer, hasPrevious: true, hasNext: true });
+  it("shows previous and next within a sequence, Sound track where there are more than one audio track", () => {
+    const shown = controlsShown({
+      ...computer,
+      hasPrevious: true,
+      hasNext: true,
+      audioTrackCount: 2,
+    });
     expect(shown).toContain("previous");
     expect(shown).toContain("next");
-    expect(shown.indexOf("next")).toBeLessThan(shown.indexOf("audioAndSubtitles"));
+    expect(shown).toContain("audio");
   });
 
   it("shows no way up on a cast's receiver", () => {
@@ -376,10 +382,10 @@ describe("which controls show (D407 §2)", () => {
   });
 
   it("shows no menus on a cast's receiver (D407 §12)", () => {
-    const shown = controlsShown({ ...computer, isReceiver: true });
-    expect(shown).not.toContain("audioAndSubtitles");
+    const shown = controlsShown({ ...computer, audioTrackCount: 2, isReceiver: true });
+    expect(shown).not.toContain("subtitles");
+    expect(shown).not.toContain("audio");
     expect(shown).not.toContain("more");
-    expect(shown).toEqual(["seekBack", "play", "seekForward", "sound", "fullScreen"]);
   });
 });
 

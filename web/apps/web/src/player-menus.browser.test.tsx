@@ -108,96 +108,107 @@ describe("the overlay's pop-ups, laid out by a real browser", () => {
   });
 });
 
-// ui-audit-2026-11-04.md §3, The player: "Audio and subtitles (one panel, 3–4 presses to change a
-// track)". Two menus, 💬 and 🎧, each took a walk along the row to reach before.
-describe("Audio and subtitles, walked by a remote's keys", () => {
-  /** Draws the panel's button for a film of two audio tracks and one subtitle track, focused. */
-  async function drawnFocused(chosen: { audio: number[]; subtitles: string[] }): Promise<void> {
+// The owner, 2026-11-04: Sound track and Subtitles are two menus, not one panel, "each opens on its current
+// value, with at least one choice above it and one below it in view where there are any".
+describe("Subtitles and Sound track, opened by a remote's OK", () => {
+  /** Draws the two menus for a film of many tracks, the one named opener focused, and opens it. */
+  async function openedByOk(opener: string, tracks: PlayerTracks): Promise<void> {
     await page.viewport(960, 480);
     mounted = await mount(
       withServices(
-        <PlayerTracksContext value={tracksNoting(chosen)}>
-          <PlayerMenus
-            videoRef={createRef()}
-            shown={["audioAndSubtitles"]}
-            onOpenChange={() => undefined}
-          />
-        </PlayerTracksContext>,
+        <div style={{ position: "fixed", right: "16px", bottom: "16px" }}>
+          <PlayerTracksContext value={tracks}>
+            <PlayerMenus
+              videoRef={createRef()}
+              shown={["subtitles", "audio"]}
+              onOpenChange={() => undefined}
+            />
+          </PlayerTracksContext>
+        </div>,
       ),
     );
-    const opener = document.querySelector<HTMLElement>('button[aria-label^="Audio and subtitles"]');
-    opener?.focus();
-    expect(document.activeElement).toBe(opener);
-  }
-
-  /**
-   * Opens the panel by OK, then presses Down until focus is on the entry after the heading, and
-   * OK: the presses it took from the opening, OK included.
-   */
-  async function pressesToChoose(heading: string, entry: string): Promise<number> {
+    const button = document.querySelector<HTMLElement>(`button[aria-label^="${opener}: "]`);
+    button?.focus();
+    expect(document.activeElement).toBe(button);
     await userEvent.keyboard("{Enter}");
     await expect.poll(() => document.querySelector("dialog .list-box") !== null).toBe(true);
-    let presses = 0;
-    while (!isFocusedUnder(heading, entry) && presses < 8) {
-      await userEvent.keyboard("{ArrowDown}");
-      presses += 1;
-    }
-    await userEvent.keyboard("{Enter}");
-    return presses + 1;
   }
 
-  it("changes the audio track within 4 presses of its opening", async () => {
-    const chosen = { audio: [] as number[], subtitles: [] as string[] };
-    await drawnFocused(chosen);
-    expect(await pressesToChoose("Audio", "French")).toBeLessThanOrEqual(4);
-    expect(chosen).toEqual({ audio: [81], subtitles: [] });
+  it("opens Subtitles on its current choice, a choice above and below it in view", async () => {
+    await openedByOk("Subtitles", manyTracks({ subtitleKey: "s19", audioStreamId: 80 }));
+    const shown = focusedAndNeighbours();
+    expect(shown.text).toBe("English · Track 19");
+    expect(shown.isCurrent).toBe(true);
+    // The list is cut by the screen, so the test shows its scrolling, not a list wholly in view.
+    expect(shown.isListCut).toBe(true);
+    expect(shown.areNeighboursInView).toBe(true);
   });
 
-  it("changes the subtitles within 4 presses of its opening", async () => {
-    const chosen = { audio: [] as number[], subtitles: [] as string[] };
-    await drawnFocused(chosen);
-    expect(await pressesToChoose("Subtitles", "English")).toBeLessThanOrEqual(4);
-    expect(chosen).toEqual({ audio: [], subtitles: ["s5"] });
+  it("opens Sound track on its current choice, a choice above and below it in view", async () => {
+    await openedByOk("Sound track", manyTracks({ subtitleKey: undefined, audioStreamId: 89 }));
+    const shown = focusedAndNeighbours();
+    expect(shown.text).toBe("English · Track 9");
+    expect(shown.isCurrent).toBe(true);
+    // The list is cut by the screen, so the test shows its scrolling, not a list wholly in view.
+    expect(shown.isListCut).toBe(true);
+    expect(shown.areNeighboursInView).toBe(true);
   });
 });
 
-/** Whether focus is on the panel's entry named so, among those after the heading named so. */
-function isFocusedUnder(heading: string, entry: string): boolean {
-  const entries = [...document.querySelectorAll("dialog .list-box > *")];
-  const from = entries.findIndex((each) => each.textContent === heading);
-  const after = entries.slice(from + 1);
-  const end = after.findIndex((each) => !each.matches(".list-box__entry"));
-  const group = end === -1 ? after : after.slice(0, end);
+/**
+ * The open list's focused choice: its text, whether it is marked current, whether the list is cut
+ * by the screen, and whether the choices either side of it are wholly within the list's view.
+ */
+function focusedAndNeighbours(): {
+  text: string | null | undefined;
+  isCurrent: boolean;
+  isListCut: boolean;
+  areNeighboursInView: boolean;
+} {
   const focused = document.activeElement;
-  return group.some((each) => each.textContent === entry && each.contains(focused));
+  const list = drawnIn("dialog .list-box");
+  const place = focused?.closest("li");
+  const view = boxOf(list);
+  const isInView = (neighbour: Element | null | undefined): boolean =>
+    boxOf(neighbour).top >= view.top - roundingPx &&
+    boxOf(neighbour).bottom <= view.bottom + roundingPx;
+  return {
+    text: focused?.textContent,
+    isCurrent: focused?.getAttribute("aria-current") === "true",
+    isListCut: list.scrollHeight > list.clientHeight,
+    areNeighboursInView:
+      isInView(place?.previousElementSibling) && isInView(place?.nextElementSibling),
+  };
 }
 
-/** A film's tracks of two audio tracks, English playing, and an English subtitle track, off. */
-function tracksNoting(chosen: { audio: number[]; subtitles: string[] }): PlayerTracks {
+/** Audio and subtitle tracks enough to cut the lists, each English and titled "Track n". */
+function manyTracks(chosen: {
+  subtitleKey: string | undefined;
+  audioStreamId: number;
+}): PlayerTracks {
+  const count = 30;
+  const numbers = Array.from({ length: count }, (_, index) => index + 1);
   return {
     ...subtitledTracks,
     subtitles: {
       ...subtitledTracks.subtitles,
-      tracks: [subtitleTrack(5)],
-      choose: (key) => {
-        chosen.subtitles.push(key ?? "off");
-      },
+      tracks: numbers.map((n) => ({ ...subtitleTrack(n), containerTitle: `Track ${String(n)}` })),
+      chosenTrackKey: chosen.subtitleKey,
     },
     audio: {
-      tracks: twoAudioTracks,
-      chosenStreamId: 80,
-      choose: (track) => {
-        chosen.audio.push(track.streamId);
-      },
+      tracks: numbers.map((n): AudioTrack => ({
+        streamId: 80 + n,
+        audioTrackIndex: n,
+        language: "en",
+        kind: "plain",
+        containerTitle: `Track ${String(n)}`,
+      })),
+      chosenStreamId: chosen.audioStreamId,
+      choose: () => undefined,
       problem: undefined,
     },
   };
 }
-
-const twoAudioTracks: readonly AudioTrack[] = [
-  { streamId: 80, audioTrackIndex: 0, language: "en", kind: "plain" },
-  { streamId: 81, audioTrackIndex: 1, language: "fr", kind: "plain" },
-];
 
 /** The first element the selector finds, or a failure where none is drawn. */
 function drawnIn(selector: string): Element {

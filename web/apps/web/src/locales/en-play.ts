@@ -56,7 +56,7 @@ export const enPlay = {
     tracks: {
       heading: "Tracks:",
       video: "Video: {{line}}",
-      audio: "Audio: {{line}}",
+      audio: "Sound: {{line}}",
       original: "{{what}} (original)",
       transcoded: "{{what}} (transcoded from {{from}})",
       transcodedBoosted: "{{what}} (transcoded from {{from}}, dialogue boost)",
@@ -128,13 +128,9 @@ export const enPlay = {
     stoppedByAdmin: "The administrator stopped this: {{message}}",
     positionNotKept: "Where you are is no longer being kept for next time. {{reason}}",
     reopening: "The server restarted. Opening the film again where you were…",
-    audioAndSubtitles: {
-      label: "Audio and subtitles",
-      named: "Audio and subtitles: {{current}}",
-      audio: "Audio",
-    },
     audio: {
       label: "Sound",
+      menu: "Sound track",
       unknownLanguage: "Unknown language",
       commentary: "commentary",
       described: "described for the blind and partially sighted",

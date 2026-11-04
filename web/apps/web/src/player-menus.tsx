@@ -13,24 +13,24 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
-import { useAudioChoices } from "./audio-tracks.tsx";
+import { useAudioChoices, type AudioChoice } from "./audio-tracks.tsx";
 import { DropDown } from "./drop-down.tsx";
 import { ForTestersContext, ForTestersShown } from "./for-testers.tsx";
-import { ListEntry, ListNote, ListOption } from "./list-box.tsx";
+import { ListEntry, ListOption } from "./list-box.tsx";
 import { LevellingControl } from "./levelling.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { PlayOriginal } from "./play-original.tsx";
 import { keepsOpenAttribute, PopoverButton, type OneControl } from "./popover.tsx";
 import { volumeAfter } from "./player-commands.ts";
 import { muteClass, SoundControls, type PlayerSound } from "./player-controls.tsx";
-import { MutedIcon, SettingsIcon, SoundIcon, SubtitlesIcon } from "./player-icons.tsx";
+import { AudioIcon, MutedIcon, SettingsIcon, SoundIcon, SubtitlesIcon } from "./player-icons.tsx";
 import type { OverlayControl } from "./player-overlay-state.ts";
 import { PlayerTracksContext, type PlayerTracks } from "./player-tracks.tsx";
-import { currentLabelOf, type ActionChoice } from "./route-chooser.tsx";
+import { ActionChooser, currentLabelOf, type ActionChoice } from "./route-chooser.tsx";
 import { BoostBox } from "./sound.tsx";
 import { SoundOffsetControl } from "./sound-delay.tsx";
 import { FindSubtitles } from "./subtitle-search.tsx";
-import { OffsetControl, useSubtitleChoices } from "./subtitles.tsx";
+import { OffsetControl, useSubtitleChoices, type SubtitleChoice } from "./subtitles.tsx";
 
 /**
  * What the page playing gives the overlay's menus beside the film's tracks (PlayerTracksContext):
@@ -49,16 +49,18 @@ export interface PlayerMenusWays {
 export const PlayerMenusContext = createContext<PlayerMenusWays | undefined>(undefined);
 
 /**
- * The menu open now, if one is: 🔈, Audio and subtitles, ⁝, or the dialog one opened (Find
- * subtitles, For testers).
+ * The menu open now, if one is: 🔈, Subtitles, Sound track, ⁝, or the dialog one opened (Find subtitles,
+ * For testers).
  */
-type OpenMenu = "volume" | "audioAndSubtitles" | "more" | "find" | "testers";
+type OpenMenu = "volume" | "subtitles" | "audio" | "more" | "find" | "testers";
 
 /**
  * The full-screen overlay's menus, in row 2's trailing group before full screen (D407 §1, §8): 🔈,
- * the volume upright and mute, where the overlay shows it (D407 §10); Audio and subtitles, one
- * panel of the film's audio tracks, Off, its subtitle tracks and Find subtitles; ⁝ (Settings), the
- * rest of what lies under the film outside full screen. Each reads and writes the film's choices in
+ * the volume upright and mute, where the overlay shows it (D407 §10); Subtitles, Off, the film's
+ * subtitle tracks and Find subtitles; Sound track, the audio tracks, where there are more than one; ⁝
+ * (Settings), the rest of what lies under the film outside full screen. Subtitles and Sound track are two
+ * menus, each a button of its own, not one panel (the owner, 2026-11-04), and each opens on its
+ * current choice with a choice either side in view where there are (DropDown, D408 §3). Each reads and writes the film's choices in
  * PlayerTracksContext, so a choice here is the one under the film. onOpenChange is told whether one
  * is open, for the overlay to hold its time and leave its presses to it (D407 §6). Find subtitles is
  * a dialog of its own, which a change of full screen closes, as it does a menu. No track's menu is
@@ -123,7 +125,7 @@ export function PlayerMenus(props: {
   );
 }
 
-/** Audio and subtitles and ⁝ among those shown, over the film's tracks (PlayerMenus). */
+/** Subtitles, Sound track and ⁝ among those shown, over the film's tracks (PlayerMenus). */
 function TrackMenus(props: {
   readonly tracks: PlayerTracks;
   readonly ways: PlayerMenusWays | undefined;
@@ -137,12 +139,15 @@ function TrackMenus(props: {
   const { tracks, shown, toldOf } = props;
   return (
     <>
-      {shown.includes("audioAndSubtitles") ? (
-        <AudioAndSubtitlesMenu
-          tracks={tracks}
+      {shown.includes("subtitles") ? (
+        <SubtitlesMenu
+          choice={tracks.subtitles}
           onFind={props.onFind}
-          onOpenChange={toldOf("audioAndSubtitles")}
+          onOpenChange={toldOf("subtitles")}
         />
+      ) : null}
+      {shown.includes("audio") ? (
+        <AudioMenuOverTheFilm choice={tracks.audio} onOpenChange={toldOf("audio")} />
       ) : null}
       {shown.includes("more") ? (
         <MoreMenu
@@ -244,67 +249,54 @@ function useDialogEndedAtFullScreen(
 }
 
 /**
- * Audio and subtitles, one button and one panel on the bottom row (ui-audit-2026-11-04.md §3, The
- * player: "one panel, 3–4 presses to change a track"): the film's audio tracks under Audio, where
- * there are more than one, then the subtitles under theirs, Off, the film's tracks and Find
- * subtitles where the page offers it (D407 §8). It opens on the audio track playing, else on the
- * subtitles' current choice, as a list opens on its current entry (list-box.tsx), so a track is
- * changed in a few presses of Down and OK. Its button is named by what plays: the audio track
- * where there is a choice, and the subtitles.
+ * Subtitles (💬): Off, the film's subtitle tracks, then Find subtitles where the page offers it (D407
+ * §8), named by the choice showing: "Subtitles: Off".
  */
-function AudioAndSubtitlesMenu(props: {
-  readonly tracks: PlayerTracks;
+function SubtitlesMenu(props: {
+  readonly choice: SubtitleChoice;
   readonly onFind: (() => void) | undefined;
   readonly onOpenChange: (isOpen: boolean) => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const subtitleChoices = useSubtitleChoices(props.tracks.subtitles);
-  const audioChoices = useAudioChoices(props.tracks.audio);
-  const isAudioChosen = audioChoices.length > 1;
+  const trackChoices = useSubtitleChoices(props.choice);
   const { onFind } = props;
-  const current = [
-    ...(isAudioChosen ? [currentLabelOf(audioChoices)] : []),
-    currentLabelOf(subtitleChoices),
-  ].join(", ");
-  const named = t("play.audioAndSubtitles.named", { current });
+  const find: ActionChoice[] =
+    onFind === undefined
+      ? []
+      : [{ key: "find", label: t("play.findSubtitles.open"), isCurrent: false, onChoose: onFind }];
+  const options = [...trackChoices, ...find];
   return (
-    <DropDown
-      label={t("play.audioAndSubtitles.label")}
-      opener={<SubtitlesIcon />}
-      openerClassName="icon-button icon-button--over-video"
-      openerNaming={{ "aria-label": named }}
+    <ActionChooser
+      fieldLabel={t("play.subtitles.label")}
+      current={currentLabelOf(trackChoices)}
+      openerIcon={<SubtitlesIcon />}
+      isOverVideo
       onOpenChange={props.onOpenChange}
-    >
-      {isAudioChosen ? (
-        <>
-          <ListNote>{t("play.audioAndSubtitles.audio")}</ListNote>
-          <Choices choices={audioChoices} />
-        </>
-      ) : null}
-      <ListNote>{t("play.subtitles.label")}</ListNote>
-      <Choices choices={subtitleChoices} />
-      {onFind === undefined ? null : (
-        <ListOption onChoose={onFind}>{t("play.findSubtitles.open")}</ListOption>
-      )}
-    </DropDown>
+      options={options}
+    />
   );
 }
 
-/** A group of a panel's choices, the one playing current. */
-function Choices(props: { readonly choices: readonly ActionChoice[] }): JSX.Element {
+/**
+ * Sound track (🎧): the film's audio tracks (D407 §8), named by the one playing, the chosen, else
+ * the first: "Sound track: English". Its words are Sound track, as the app says Sound elsewhere
+ * (the owner, 2026-11-04: "Use sound track").
+ */
+function AudioMenuOverTheFilm(props: {
+  readonly choice: AudioChoice;
+  readonly onOpenChange: (isOpen: boolean) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const options = useAudioChoices(props.choice);
   return (
-    <>
-      {props.choices.map((choice) => (
-        <ListOption
-          key={choice.key}
-          isCurrent={choice.isCurrent}
-          spoken={choice.spoken}
-          onChoose={choice.onChoose}
-        >
-          {choice.label}
-        </ListOption>
-      ))}
-    </>
+    <ActionChooser
+      fieldLabel={t("play.audio.menu")}
+      current={currentLabelOf(options)}
+      openerIcon={<AudioIcon />}
+      isOverVideo
+      onOpenChange={props.onOpenChange}
+      options={options}
+    />
   );
 }
 
@@ -405,7 +397,7 @@ function KeptOpen(props: { readonly children: ReactNode }): JSX.Element {
   );
 }
 
-/** Find subtitles, opened from 💬 in a dialog of its own, closing once one is fetched (D407 §8). */
+/** Find subtitles, opened from Subtitles in a dialog of its own, closing once one is fetched (D407 §8). */
 function FindSubtitlesDialog(props: {
   readonly ways: PlayerMenusWays;
   readonly onClose: () => void;

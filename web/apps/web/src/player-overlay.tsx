@@ -44,6 +44,7 @@ import {
   type PressContext,
 } from "./player-overlay-state.ts";
 import { useAnswersPictureTaps, useOpensAtThePointer, type SeekFeedback } from "./player-taps.ts";
+import { PlayerTracksContext } from "./player-tracks.tsx";
 import { Timeline } from "./timeline.tsx";
 import { isTelevision } from "./tv-device.ts";
 
@@ -273,7 +274,7 @@ interface OverlayRefs {
 
 /**
  * The overlay's three rows (D407 §1): the way up and the convenience area (convenience-area.tsx);
- * the scrub bar; the buttons, those the device shows (controlsShown), the menus 🔈, Audio and subtitles, ⁝ before full
+ * the scrub bar; the buttons, those the device shows (controlsShown), the menus 🔈 💬 🎧 ⁝ before full
  * screen (player-menus.tsx), and previous and next where the sequence has them (moves).
  */
 function OverlayRows({
@@ -341,11 +342,13 @@ export function useControlsShown(
   moves: SequenceMoves | undefined,
 ): readonly OverlayControl[] {
   const isVolumeSettable = useIsVolumeSettable();
+  const tracks = use(PlayerTracksContext);
   const upward = use(PlayUpwardContext);
   return controlsShown({
     isTelevision: isTv,
     isTouch: isThisHandheld(),
     isVolumeSettable,
+    audioTrackCount: tracks?.audio.tracks.length ?? 0,
     hasPrevious: moves?.previous !== undefined,
     hasNext: moves?.next !== undefined,
     isReceiver: upward === undefined,
