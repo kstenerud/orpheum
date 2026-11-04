@@ -5,8 +5,10 @@
  * Media Session press becomes a command (input-buttons.ts), offered first to what has focus and what
  * holds it, as a DOM event that bubbles from the focused element, so an open menu, a dialog or the
  * player answers it; one none answers does what it does everywhere: an arrow moves focus
- * (focus-navigation.ts), OK presses what has focus, Back goes back in the app's history. Pages hear
- * commands, never keys.
+ * (focus-navigation.ts), OK presses what has focus, Back goes back in the app's history. Each command
+ * a key or a controller's button or stick asks says whether it starts a hold or continues one, and
+ * each hold's end is told as a release (CommandHold), the same from every device: the keys' driver
+ * here, the controllers' in input-pad-poll.ts. Pages hear commands and releases, never keys.
  */
 
 import { noteForTheLog } from "@orpheum/sdk";
@@ -27,15 +29,28 @@ import { listenToPads, type PadButtonPress, type StickPress } from "./input-pad-
 /** Where a command came from: a key, a game controller, or the browser's media controls. */
 export type CommandSource = "key" | "pad" | "media";
 
+/**
+ * Where a command stands in the holding of the key or button that asks it: "start" as it goes down,
+ * "continue" at each repeat while it stays down. Each device's driver tells it alike, whatever the
+ * device sends (the owner, 2026-11-04: the UI knows nothing of a controller's quirks): a key's repeat
+ * whether the browser marks it or not (Silk on a Fire TV sends a held key's repeats unmarked, VQ122),
+ * a controller's stick and D-pad as their arrows repeat while held; a controller's buttons start a
+ * hold but never repeat. Each hold ends in a release (onCommandRelease).
+ */
+export type CommandHold = "start" | "continue";
+
 /** What a command event carries. */
 export interface CommandDetail {
   readonly command: Command;
   readonly source: CommandSource;
-  /**
-   * Whether it is a held key's repeat (KeyboardEvent.repeat), not a press of its own: absent for a
-   * press. A controller's buttons never repeat; its stick's and D-pad's arrows do, as presses.
-   */
-  readonly isRepeat?: true;
+  /** How it is held (CommandHold); absent for a press nothing holds, a media control's or a click's. */
+  readonly hold?: CommandHold;
+}
+
+/** What a release carries: the command its key or button asked as it went down, and from where. */
+export interface CommandRelease {
+  readonly command: Command;
+  readonly source: CommandSource;
 }
 
 /** The name of the DOM event a command is offered as. */
@@ -66,6 +81,96 @@ export function onCommand(
   target.addEventListener(commandEventName, hear, isCapture);
   return () => {
     target.removeEventListener(commandEventName, hear, isCapture);
+  };
+}
+
+/** The name of the DOM event a hold's release is told as, at the window (onCommandRelease). */
+export const commandReleaseEventName = "orpheum-command-release";
+
+/** Whether event is a release event, and so carries a release. */
+function isReleaseEvent(event: Event): event is CustomEvent<CommandRelease> {
+  return event instanceof CustomEvent && event.type === commandReleaseEventName;
+}
+
+/**
+ * Hears each release of a held command (CommandHold) told at target, the window:
+ * its key or button went up, or the page lost the keys while it was down. Returns the stopping.
+ */
+export function onCommandRelease(
+  target: EventTarget,
+  handler: (release: CommandRelease) => void,
+): () => void {
+  const hear = (event: Event): void => {
+    if (isReleaseEvent(event)) {
+      handler(event.detail);
+    }
+  };
+  target.addEventListener(commandReleaseEventName, hear);
+  return () => {
+    target.removeEventListener(commandReleaseEventName, hear);
+  };
+}
+
+/** Tells release at the window. */
+function tellRelease(release: CommandRelease): void {
+  window.dispatchEvent(new CustomEvent(commandReleaseEventName, { detail: release }));
+}
+
+/**
+ * The keyboard's and a remote's driver of holds: which keys are down, each with the command it went
+ * down as, so that a key's every keydown after its first is its repeat, marked by the browser or not
+ * (Silk's are not, VQ122), and its keyup, or the page losing the keys, is its release.
+ */
+interface KeyHolds {
+  /** How a keydown asking command holds it: its key's start, or its repeat. */
+  readonly down: (event: KeyboardEvent, command: Command) => CommandHold;
+  /** The command a keyup releases, where its key was held. */
+  readonly up: (event: KeyboardEvent) => Command | undefined;
+  /** Releases every key held: the page lost the keys, and will hear none of their keyups. */
+  readonly upAll: () => Command[];
+}
+
+/** A key's name for its holding: its key and keyCode, the same at its keydown and keyup. */
+function heldKeyOf(event: KeyboardEvent): string {
+  return `${event.key}/${String(keyCodeOf(event))}`;
+}
+
+/**
+ * How long after a held key's last keydown its next is still its repeat, in ms: past it, its keyup
+ * was lost and the key is pressed again. A remote's first repeat comes 400–500 ms after its press
+ * (starts-chunks-remote-2026-10-29.md §3.3), so a second is well past any. A justified constant.
+ */
+export const keyRepeatsWithinMs = 1000;
+
+/** A key held: the command it went down as, and when it last went down, in performance.now's ms. */
+interface HeldKey {
+  readonly command: Command;
+  readonly lastDownMs: number;
+}
+
+/** Holds no key yet. */
+function createKeyHolds(): KeyHolds {
+  const held = new Map<string, HeldKey>();
+  return {
+    down: (event, command) => {
+      const key = heldKeyOf(event);
+      const nowMs = performance.now();
+      const lastDownMs = held.get(key)?.lastDownMs;
+      const isHeld = lastDownMs !== undefined && nowMs - lastDownMs <= keyRepeatsWithinMs;
+      held.set(key, { command, lastDownMs: nowMs });
+      return isHeld || event.repeat ? "continue" : "start";
+    },
+    up: (event) => {
+      const key = heldKeyOf(event);
+      const command = held.get(key)?.command;
+      held.delete(key);
+      return command;
+    },
+    upAll: () => {
+      const commands = [...held.values()].map((each) => each.command);
+      held.clear();
+      return commands;
+    },
   };
 }
 
@@ -201,6 +306,76 @@ function isRangesVertical(command: Command): boolean {
   );
 }
 
+/** Offers detail at what has focus; whether something acted on it, the layer by default included. */
+type Offer = (detail: CommandDetail) => boolean;
+
+/**
+ * The key driver: offers each key's command as offer says, its hold started or continued
+ * (createKeyHolds), and tells its release at its keyup, or when the page loses the keys. Returns the
+ * stopping.
+ */
+function listenToKeys(offer: Offer): () => void {
+  const keyHolds = createKeyHolds();
+  const heardKey = (event: KeyboardEvent): void => {
+    const command = keysCommand(event);
+    if (command === undefined) {
+      return;
+    }
+    const hold = keyHolds.down(event, command);
+    if (offer({ command, source: "key", hold }) || isRangesVertical(command)) {
+      event.preventDefault();
+    }
+  };
+  const keyUp = (event: KeyboardEvent): void => {
+    const command = keyHolds.up(event);
+    if (command !== undefined) {
+      tellRelease({ command, source: "key" });
+    }
+  };
+  const keysLost = (): void => {
+    for (const command of keyHolds.upAll()) {
+      tellRelease({ command, source: "key" });
+    }
+  };
+  document.addEventListener("keydown", heardKey);
+  // A keyup is a release whatever answered it: captured, so none is kept from the driver.
+  document.addEventListener("keyup", keyUp, true);
+  window.addEventListener("blur", keysLost);
+  return () => {
+    document.removeEventListener("keydown", heardKey);
+    document.removeEventListener("keyup", keyUp, true);
+    window.removeEventListener("blur", keysLost);
+  };
+}
+
+/**
+ * The controllers' driver: offers each button's command and each arrow of a stick or D-pad, a
+ * button's hold started at its press and an arrow's continued at its repeats, and tells each release
+ * as the poll sees it (input-pad-poll.ts). Returns the stopping.
+ */
+function listenToPadHolds(offer: Offer): () => void {
+  return listenToPads({
+    onPress: (press) => {
+      const command = padsCommand(press);
+      if (command !== undefined) {
+        offer({ command, source: "pad", hold: "start" });
+      }
+    },
+    onButtonUp: (press) => {
+      const command = padsCommand(press);
+      if (command !== undefined) {
+        tellRelease({ command, source: "pad" });
+      }
+    },
+    onArrow: (direction, isRepeat) => {
+      offer({ command: direction, source: "pad", hold: isRepeat ? "continue" : "start" });
+    },
+    onArrowUp: (direction) => {
+      tellRelease({ command: direction, source: "pad" });
+    },
+  });
+}
+
 /**
  * Starts the input layer: keys, controllers and each focus noted in its container's memory. A key the
  * layer acted on has the browser's own handling prevented, so on a TV's browser our navigation alone
@@ -221,47 +396,25 @@ export function startInput(ways: InputWays): Input {
     return event.defaultPrevented || actByDefault(event.detail, ways, memory);
   };
   const dispatch = (command: Command, source: CommandSource): boolean => offer({ command, source });
-  const heardKey = (event: KeyboardEvent): void => {
-    const command = keysCommand(event);
-    if (command === undefined) {
-      return;
-    }
-    const detail: CommandDetail = event.repeat
-      ? { command, source: "key", isRepeat: true }
-      : { command, source: "key" };
-    if (offer(detail) || isRangesVertical(command)) {
-      event.preventDefault();
-    }
-  };
   const focused = (event: FocusEvent): void => {
     if (event.target instanceof Element) {
       memory.noteFocused(event.target);
     }
   };
-  document.addEventListener("keydown", heardKey);
+  const stopKeys = listenToKeys(offer);
   document.addEventListener("focusin", focused);
   // OK on a form's checkbox ticks it before the layer hears it, and never submits (form-ok.ts).
   const stopFormsOk = guardFormsOk(
     { target: window, focused: () => document.activeElement },
     noteForTheLog,
   );
-  const stopPads = listenToPads({
-    onPress: (press) => {
-      const command = padsCommand(press);
-      if (command !== undefined) {
-        dispatch(command, "pad");
-      }
-    },
-    onArrow: (direction) => {
-      dispatch(direction, "pad");
-    },
-  });
+  const stopPads = listenToPadHolds(offer);
   return {
     dispatch,
     lastSource: () => lastSource,
     memory,
     stop: () => {
-      document.removeEventListener("keydown", heardKey);
+      stopKeys();
       document.removeEventListener("focusin", focused);
       stopFormsOk();
       stopPads();

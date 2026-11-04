@@ -989,8 +989,10 @@ User-Agent (D263; the User-Agent is logged only).
   upsBetween=0"`, then `gapMs=42`, `38`, `30`, `31` (the owner's Fire TV, staging, 2026-10-29).
 - **What we do:** a second OK takes control back only with a key up heard since the first
   (`selectGaps` in `web/apps/web/src/cast-receiver.tsx`); a real double press always has one.
-  The rest of the input layer still trusts `repeat`, where a lost key up would otherwise make every
-  later press a repeat.
+  The input layer's key driver (`createKeyHolds` in `web/apps/web/src/input-commands.ts`, the
+  owner, 2026-11-04) takes a held key's every keydown before its keyup as its repeat, marked or not,
+  so pages read a command's hold (`CommandHold`), never `repeat`; a keydown over a second after the
+  key's last starts a new hold, so a lost key up cannot make every later press a repeat.
 - **Evidence:** the core's log of VQ122's run, 2026-10-29.
 
 ### Silk on Fire TV leaves the local-network permission still to ask, and never asks

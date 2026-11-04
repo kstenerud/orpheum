@@ -4,9 +4,11 @@
  * The controllers connected, polled each frame only while one is (controller-input-2026-10-25.md
  * §6.1 item 5), once for every listener: the app's input layer, which turns them into commands, and
  * the device lab's button test, which logs them. Each pad is read by input-pads.ts for its layout and
- * by the OK the person chose (controller-choice.ts); each button told as it goes down, a standard
- * pad's left stick as a direction as it leans past half way, its stick or D-pad as a repeating arrow
- * while held, and a pad with no standard mapping's axes as they cross half way either way. Proven by
+ * by the OK the person chose (controller-choice.ts); each button told as it goes down and as it goes
+ * up, a standard pad's left stick as a direction as it leans past half way, its stick or D-pad as an
+ * arrow that repeats while held and is let go, the controllers' driver of the input layer's holds
+ * (CommandHold in input-commands.ts), and a pad with no standard mapping's axes as they cross half
+ * way either way. Proven by
  * the button test (plans/tv-device-tests.md H8).
  */
 
@@ -72,12 +74,19 @@ export interface PadHandlers {
   /** A pad seen for the first time, or again with another name in its place. */
   readonly onSeen: (pad: PadState) => void;
   readonly onPress: (press: PadButtonPress | StickPress) => void;
+  /** A button going up, told as its press was. */
+  readonly onButtonUp: (press: PadButtonPress) => void;
   readonly onAxis: (crossing: AxisCrossing) => void;
   /**
-   * A standard pad's arrow, from its left stick or its D-pad: as it is pushed a new way, then
-   * repeating while held (input-pads.ts).
+   * A standard pad's arrow, from its left stick or its D-pad: as it is pushed a new way (isRepeat
+   * false), then repeating while held (input-pads.ts).
    */
-  readonly onArrow: (direction: Direction) => void;
+  readonly onArrow: (direction: Direction, isRepeat: boolean) => void;
+  /**
+   * A standard pad's arrow let go: its stick back at its centre or turned another way, its D-pad's
+   * button up, or its pad gone.
+   */
+  readonly onArrowUp: (direction: Direction) => void;
   /** The pads as read this frame. */
   readonly onRead: (pads: readonly PadState[]) => void;
 }
@@ -129,19 +138,27 @@ interface PadFrame {
   readonly nowMs: number;
 }
 
-/** Tells onPress each of the pad's buttons that went down since the last frame. */
-function tellButtons({ pad, before }: PadFrame, onPress: PadHandlers["onPress"]): void {
+/** Pad's button as a press tells it. */
+function buttonPressOf(pad: PadState, button: number): PadButtonPress {
+  return {
+    kind: "pad",
+    index: pad.index,
+    pad: pad.id,
+    layout: pad.layout,
+    button,
+    isStandard: pad.isStandard,
+    okButton: pad.okButton,
+  };
+}
+
+/** Tells handlers each of the pad's buttons that went down, then each that went up, since the last frame. */
+function tellButtons({ pad, before }: PadFrame, handlers: PadHandlers): void {
   const pressedBefore = before?.pressed ?? [];
   for (const button of pad.pressed.filter((each) => !pressedBefore.includes(each))) {
-    onPress({
-      kind: "pad",
-      index: pad.index,
-      pad: pad.id,
-      layout: pad.layout,
-      button,
-      isStandard: pad.isStandard,
-      okButton: pad.okButton,
-    });
+    handlers.onPress(buttonPressOf(pad, button));
+  }
+  for (const button of pressedBefore.filter((each) => !pad.pressed.includes(each))) {
+    handlers.onButtonUp(buttonPressOf(pad, button));
   }
 }
 
@@ -168,10 +185,10 @@ function tellAxes({ pad, before }: PadFrame, handlers: PadHandlers): number[] {
 }
 
 /**
- * A standard pad's arrow's hold after this frame, its left stick's or else its D-pad's, its arrow
- * told to onArrow as it moves.
+ * A standard pad's arrow's hold after this frame, its left stick's or else its D-pad's: told to
+ * handlers as it is let go, and as it moves, a repeat where it was held that way already.
  */
-function nextHold({ pad, before, nowMs }: PadFrame, onArrow: PadHandlers["onArrow"]): StickHold {
+function nextHold({ pad, before, nowMs }: PadFrame, handlers: PadHandlers): StickHold {
   const hold = before?.hold ?? stickAtRest;
   if (!pad.isStandard) {
     return hold;
@@ -179,10 +196,25 @@ function nextHold({ pad, before, nowMs }: PadFrame, onArrow: PadHandlers["onArro
   const direction =
     stickDirectionOf(pad.axes[0] ?? 0, pad.axes[1] ?? 0) ?? dpadDirectionOf(pad.pressed);
   const step = stickStep(hold, direction, nowMs);
-  if (step.shouldMove && step.hold.direction !== undefined) {
-    onArrow(step.hold.direction);
-  }
+  tellArrow(hold, step, handlers);
   return step.hold;
+}
+
+/**
+ * Tells handlers how a pad's arrow went from its hold to step's: let go where it was held another way
+ * or none, then moved where step says, a repeat where it was held that way already.
+ */
+function tellArrow(
+  hold: StickHold,
+  step: ReturnType<typeof stickStep>,
+  handlers: PadHandlers,
+): void {
+  if (hold.direction !== undefined && step.hold.direction !== hold.direction) {
+    handlers.onArrowUp(hold.direction);
+  }
+  if (step.shouldMove && step.hold.direction !== undefined) {
+    handlers.onArrow(step.hold.direction, step.hold.direction === hold.direction);
+  }
 }
 
 /** Tells handlers what changed on the frame's pad since the last; what to keep for the next. */
@@ -190,10 +222,23 @@ function tellChanges(frame: PadFrame, handlers: PadHandlers): PadMemory {
   if (frame.before?.id !== frame.pad.id) {
     handlers.onSeen(frame.pad);
   }
-  tellButtons(frame, handlers.onPress);
+  tellButtons(frame, handlers);
   const leans = tellAxes(frame, handlers);
-  const hold = nextHold(frame, handlers.onArrow);
+  const hold = nextHold(frame, handlers);
   return { id: frame.pad.id, pressed: frame.pad.pressed, leans, hold };
+}
+
+/**
+ * Lets go the arrow of each pad gone since the last frame where it was held, telling its release: a
+ * controller unplugged or asleep with its stick held leaves no hold on.
+ */
+function letGoneGo(read: readonly PadState[], handlers: PadHandlers): void {
+  for (const [index, memory] of memories) {
+    if (memory.hold.direction !== undefined && !read.some((pad) => pad.index === index)) {
+      memories.set(index, { ...memory, hold: stickAtRest });
+      handlers.onArrowUp(memory.hold.direction);
+    }
+  }
 }
 
 /** Each listener, the newest first: a page hears a pad before the app's navigation acts on it. */
@@ -225,9 +270,19 @@ const everyListener: PadHandlers = {
       listener.onAxis?.(crossing);
     }
   },
-  onArrow: (direction) => {
+  onButtonUp: (press) => {
     for (const listener of [...listeners]) {
-      listener.onArrow?.(direction);
+      listener.onButtonUp?.(press);
+    }
+  },
+  onArrow: (direction, isRepeat) => {
+    for (const listener of [...listeners]) {
+      listener.onArrow?.(direction, isRepeat);
+    }
+  },
+  onArrowUp: (direction) => {
+    for (const listener of [...listeners]) {
+      listener.onArrowUp?.(direction);
     }
   },
   onRead: (pads) => {
@@ -252,6 +307,7 @@ function poll(nowMs: number): void {
   frame = undefined;
   const read = readPads(chosenOkButton());
   greet(read);
+  letGoneGo(read, everyListener);
   for (const pad of read) {
     const padFrame = { pad, before: memories.get(pad.index), nowMs };
     memories.set(pad.index, tellChanges(padFrame, everyListener));
