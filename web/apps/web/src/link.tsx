@@ -18,6 +18,8 @@ export function Link(props: {
    * of the same page, a season or a sort (D367 §9).
    */
   readonly isReplacing?: boolean;
+  /** Told as a plain click follows it in place, before the page changes: a dialog it is in closes. */
+  readonly onFollow?: () => void;
   readonly children: ReactNode;
 }): JSX.Element {
   const { navigation } = useServices();
@@ -26,6 +28,7 @@ export function Link(props: {
       event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
     if (isPlain) {
       event.preventDefault();
+      props.onFollow?.();
       if (props.isReplacing === true) {
         navigation.replace(props.to);
       } else {

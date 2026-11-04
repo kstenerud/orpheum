@@ -213,7 +213,13 @@ export function Browse(props: {
               first row meets the bar there, whichever poster it leaves, and Up again the banner
               (the owner, 2026-11-04: Up goes to the list's tools before the banner). */}
           <ListChips kind={props.kind} filters={filters} onChange={onChips} />
-          <BrowseTools choice={choice} search={search} filters={filters} onState={replaceState} />
+          <BrowseTools
+            kind={props.kind}
+            choice={choice}
+            search={search}
+            filters={filters}
+            onState={replaceState}
+          />
         </div>
         <BrowsePages
           key={`${props.kind}/${choice.sort}/${choice.order}/${search}/${filtersKey(filters)}`}
@@ -240,6 +246,7 @@ export function Browse(props: {
 
 /** Films' or Series' search and sort, each keeping the other and the chips as they are. */
 function BrowseTools(props: {
+  readonly kind: BrowseKind;
   readonly choice: SortChoice;
   readonly search: string;
   readonly filters: ListFilters;
@@ -250,6 +257,7 @@ function BrowseTools(props: {
     <ListingTools>
       <SearchButton
         query={search}
+        genreList={props.kind === "series" ? "series" : "films"}
         onSearch={(next) => {
           onState(listStateOf(choice, next, filters));
         }}

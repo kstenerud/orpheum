@@ -501,6 +501,12 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
             nextCursor: "",
           },
           "GET /items/102": filmDetail(102, "Metropolis Wave"),
+          // What the dialog finds as "heat" is typed, the server's whole search (search-found.tsx).
+          "GET /search/grouped": {
+            titles: { hits: [] },
+            people: { hits: [] },
+            genres: { hits: [] },
+          },
         },
         "/browse?library=1",
       ),
@@ -526,6 +532,47 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     await drawn(".title__play");
     await press("{Escape}");
     await expect.poll(() => isFocusOnLinkTo("/titles/102")).toBe(true);
+  });
+
+  // search-by-more §4.2: what the server's search finds shows under the field as it is typed; on a
+  // TV focus arrives in the field (R3), Down reaches the results, and every one is reached.
+  it("types in Films' search, Down reaching its grouped results, every one reached by arrows", async () => {
+    await page.viewport(width, height);
+    walking = await mountApp(
+      walkServices(
+        {
+          ...signedIn,
+          "GET /titles": { titles: films(3), nextCursor: "" },
+          "GET /titles/letters": { letters: [] },
+          "GET /search/grouped": {
+            titles: {
+              hits: [
+                { id: 101, kind: "movie", name: "Metropolis", year: 1995 },
+                { id: 102, kind: "series", name: "Heatwave" },
+              ],
+            },
+            people: { hits: [{ id: 41, name: "Heather Graham" }], nextCursor: "p2" },
+            genres: { hits: [{ id: 3, name: "Heist", titleCount: 4 }] },
+          },
+        },
+        "/films",
+      ),
+    );
+    await drawn('main button[aria-label="Search"]');
+    document.querySelector<HTMLElement>('main button[aria-label="Search"]')?.focus();
+    await press("{Enter}");
+    await drawn("dialog input[type=search]");
+    expect(document.activeElement?.getAttribute("type")).toBe("search");
+    await press("hea");
+    await drawn('dialog a[href="/titles/101"]');
+    expect(await pressUntil("{ArrowDown}", () => isFocusOnLinkTo("/titles/101"), 3)).toBe(true);
+    expect(await unreachedIn("dialog.listing-search")).toEqual([]);
+    document.querySelector<HTMLElement>('dialog a[href="/films?genre=3"]')?.focus();
+    await press("{Enter}");
+    await expect
+      .poll(() => walking?.services.navigation.route())
+      .toEqual({ screen: "films", genre: 3 });
+    expect(isDrawn("dialog.listing-search")).toBe(false);
   });
 
   it("chooses a controller's OK on This device by arrows and OK, every control reached", async () => {

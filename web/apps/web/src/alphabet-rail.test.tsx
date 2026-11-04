@@ -244,6 +244,11 @@ describe("All Films' and All Series' search (the owner, 2026-10-30)", () => {
       {
         "GET /titles": [firstPage, page([film(4, "Metropolis")], "")],
         "GET /titles/letters": [200, { letters: [] }],
+        // What the dialog finds as "heat" is typed, the server's whole search (search-found.tsx).
+        "GET /search/grouped": [
+          200,
+          { titles: { hits: [] }, people: { hits: [] }, genres: { hits: [] } },
+        ],
       },
       heard,
     );

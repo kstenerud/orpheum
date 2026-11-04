@@ -8,6 +8,8 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "./icon.tsx";
 import { IconButton } from "./icon-button.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
+import { keepRecentSearch } from "./recent-searches.ts";
+import { SearchFound, type GenreList } from "./search-found.tsx";
 
 /**
  * A listing page's tools, at the right of its top line beside its name (the owner, 2026-10-30): read
@@ -99,6 +101,8 @@ export function SearchButton(props: {
   /** The search the page shows now, "" for none. */
   readonly query: string;
   readonly onSearch: (query: string) => void;
+  /** The list a genre the search finds opens: Films, or Series from Series' own page. */
+  readonly genreList: GenreList;
 }): JSX.Element {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
@@ -125,10 +129,12 @@ export function SearchButton(props: {
         >
           <SearchForm
             query={props.query}
+            genreList={props.genreList}
             onSearch={(query) => {
               close();
               props.onSearch(query);
             }}
+            onOpen={close}
           />
         </ModalDialog>
       ) : null}
@@ -139,11 +145,17 @@ export function SearchButton(props: {
 /**
  * The search's dialog: its heading on the line its Close is on, as every dialog's (Configure's), and
  * under it the field, Search beside it, and Show all, which drops every search criterion and lists
- * everything again (the owner, 2026-10-30).
+ * everything again (the owner, 2026-10-30). Search filters the page's list by what is typed; under
+ * the field, at each letter, is what the whole server's search finds, in groups, and while it is
+ * empty the device's recent searches (search-by-more §4.2, §4.5). A search submitted, or one a
+ * result is opened from, is kept as the newest recent one.
  */
 function SearchForm(props: {
   readonly query: string;
+  readonly genreList: GenreList;
   readonly onSearch: (query: string) => void;
+  /** Told as a result is opened, the page changing under the dialog. */
+  readonly onOpen: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const [typed, setTyped] = useState(props.query);
@@ -155,6 +167,7 @@ function SearchForm(props: {
         className="listing-search__form"
         onSubmit={(event) => {
           event.preventDefault();
+          keepRecentSearch(typed);
           props.onSearch(typed.trim());
         }}
       >
@@ -169,6 +182,15 @@ function SearchForm(props: {
         />
         <button type="submit">{t("browse.searchSubmit")}</button>
       </form>
+      <SearchFound
+        typed={typed}
+        genreList={props.genreList}
+        onRecent={setTyped}
+        onOpen={() => {
+          keepRecentSearch(typed);
+          props.onOpen();
+        }}
+      />
       <div className="listing-search__actions">
         <button
           type="button"

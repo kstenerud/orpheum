@@ -461,6 +461,11 @@ describe("the Libraries page (D349)", () => {
       "GET /libraries": [200, { libraries: [library(1, "Films")] }],
       "GET /titles": titlesPage(),
       "GET /titles/letters": lettersPage(),
+      // What the dialog finds as "heat" is typed, the server's whole search (search-found.tsx).
+      "GET /search/grouped": [
+        200,
+        { titles: { hits: [] }, people: { hits: [] }, genres: { hits: [] } },
+      ],
     });
     mounted = await mount(
       <BackgroundChangesContext value={neverAsks}>
