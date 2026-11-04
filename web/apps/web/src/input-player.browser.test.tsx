@@ -29,6 +29,7 @@ import {
   walkServices,
   type Walking,
   type WalkAnswers,
+  pressesUntil,
 } from "./test-walk.tsx";
 
 /** The screens the walks are made at: a Fire TV's page in Silk, and a desktop's window. */
@@ -71,6 +72,8 @@ const filmToPlay: WalkAnswers = {
 async function press(keys: string): Promise<void> {
   await userEvent.keyboard(keys);
 }
+
+const pressUntil = pressesUntil(press); // a key until a test holds, at most 12 times
 
 /** The page's video, once drawn. */
 async function theVideo(): Promise<HTMLVideoElement> {
@@ -589,15 +592,10 @@ describe("the Play page's trail, in a computer's browser (D367 §6–§8)", () =
     // is the overlay's ‹ Film 3, a link to the same page as the trail's.
     await press("{ArrowUp}");
     await expect.poll(() => isDrawn(".player-overlay .player-overlay__up")).toBe(true);
-    // Found once drawn: the overlay draws it after the press, at its own pace.
     const upLink = document.querySelector<HTMLAnchorElement>(".player-overlay .player-overlay__up");
     expect(upLink?.getAttribute("href")).toBe(filmCrumb?.getAttribute("href"));
-    // Reached by presses, as a viewer does: each press keeps the playing film's controls shown,
-    // where focus put by script would leave them to hide 3 s after the first (D407 §6).
-    for (let presses = 0; presses < 4 && document.activeElement !== upLink; presses += 1) {
-      await press("{ArrowUp}");
-    }
-    expect(document.activeElement).toBe(upLink);
+    // By presses: script focus restarts no hide timer (D407 §6), and the controls could hide.
+    expect(await pressUntil("{ArrowUp}", () => document.activeElement === upLink, 4)).toBe(true);
     await press("{Enter}");
     await expect
       .poll(() => routeHref(navigation.route()))
@@ -701,7 +699,9 @@ describe("Space on an ordinary Play page, in a computer's browser", () => {
     await expect.poll(shown).toBe("full");
     const fullScreen = document.querySelector<HTMLElement>(`.player-overlay ${FULL_SCREEN}`);
     expect(fullScreen).not.toBeNull();
-    fullScreen?.focus();
+    await press("{ArrowDown}"); // to the buttons by presses, as the Up walk does
+    const isOnIt = (): boolean => document.activeElement === fullScreen;
+    expect(await pressUntil("{ArrowRight}", isOnIt)).toBe(true);
     await press(" ");
     await expect.poll(() => isDrawn(".player-overlay")).toBe(true);
     const stage = document.querySelector(".film-player__stage");

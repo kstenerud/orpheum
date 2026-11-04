@@ -25,6 +25,7 @@ import {
   walkServices,
   type Walking,
   type WalkAnswers,
+  pressesUntil,
 } from "./test-walk.tsx";
 
 /** The screens the walks are made at: a Fire TV's page in Silk, and a desktop's window. */
@@ -151,13 +152,8 @@ function focusedSeason(): string {
   return card?.querySelector(".poster-card__name")?.textContent ?? "";
 }
 
-/** Presses key until isThere, at most times times; whether it got there. */
-async function pressUntil(key: string, isThere: () => boolean, times = 8): Promise<boolean> {
-  for (let pressed = 0; pressed < times && !isThere(); pressed += 1) {
-    await userEvent.keyboard(key);
-  }
-  return isThere();
-}
+/** Presses a key until a test holds, at most 8 times; whether it held. */
+const pressUntil = pressesUntil((keys) => userEvent.keyboard(keys), 8);
 
 /** Home's row of the newest films. */
 const newestFilms = '[aria-labelledby="home-newest-movie"]';
