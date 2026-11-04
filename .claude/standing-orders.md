@@ -35,8 +35,11 @@
    the owner's go, nas.example.
    **The 11-06 batch (owner 2026-11-04, "yes that sounds good"):** after the 11-05 batch (deployed
    to nas.example 2026-11-04), the plan file's "The 11-06 batch": playback holds up (a film's first
-   seconds, a run's last chunk, Firefox on a Mac, file 5667, SWAG starts and stalls) and the remote
-   reaches every control (item 13; its rule proposed first). End: one check-pr, the owner's go, nas.example.
+   seconds, a run's last chunk, Firefox on a Mac, file 5667, SWAG starts and stalls) and (the owner,
+   2026-11-04) the UI audit's research only: clicks to each piece of information, where focus lands,
+   the controls' layout, from experts, studies and competitors. The UI revamp is the next batch.
+   AirPlay is recorded in airplay.md; the owner schedules its spike. End: one check-pr, the owner's
+   go, nas.example.
    **Queued for the owner to order later:** the rest of the plan file and inventory-2026-10-27.md.
    **Superseded (owner 2026-10-30, D385):** a receiver taking control back ends the cast and goes home; the sender plays on.
 3. **Only then:** new work (Diagnostics, D341, D345, the queued items), and code-fixing batches from
