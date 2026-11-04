@@ -1747,8 +1747,8 @@ sleep.
    player's controls" ("growing steps (Kodi's), not by rates").
 2. **Audio and subtitles are two menus, not one panel**: each opens on its current value, with at
    least one choice above it and one below it in view where there are any.
-3. **"Audio" or "Sound":** the owner asked what each part that says either is for; answered, not
-   yet decided.
+3. **"Audio" or "Sound":** "Use sound track" (the owner, after each use was explained): the app says
+   "Sound" throughout, the track menu is "Sound track", and the technical line reads "Sound: …".
 4. **A controller's held stick:** handled a layer down: drivers we provide turn each controller's
    events into one uniform API ("this button was pressed", "this button is held"), and the UI knows
    nothing of any controller's quirks.
