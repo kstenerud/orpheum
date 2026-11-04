@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import type { components } from "@orpheum/sdk";
-import { useState, type JSX } from "react";
+import { useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { FolderBrowser } from "./folder-picker.tsx";
@@ -309,34 +309,43 @@ function WhatItHolds(props: {
   );
 }
 
-/** The three questions, each answer saying what it means (D184). */
-function ThreeQuestions(props: {
+/** Where the library's information comes from: a choice for films and series, a note for others. */
+function MetadataQuestion(props: {
+  readonly draft: NewLibrary;
+  readonly setAnswer: SetAnswer;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { draft, setAnswer } = props;
+  return draft.kind === "other" ? (
+    <p>{t("libraries.sourceOther")}</p>
+  ) : (
+    <Question
+      legend={t("libraries.metadataSource")}
+      name="source"
+      value={draft.metadataSource ?? "nfo_then_tmdb"}
+      onChange={(value) => {
+        setAnswer("metadataSource", value);
+      }}
+      choices={[
+        ["nfo_then_tmdb", t("libraries.sourceNfoThenTmdb")],
+        ["tmdb", t("libraries.sourceTmdb")],
+        ["nfo", t("libraries.sourceNfo")],
+      ]}
+    />
+  );
+}
+
+/** How changes in the folders are noticed, and, on an interval, how often (D184). */
+function ScanningQuestions(props: {
   readonly draft: NewLibrary;
   readonly checkEveryHoursToStart: number;
   readonly setAnswer: SetAnswer;
   readonly onDraftChange: (draft: NewLibrary) => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { draft, setAnswer } = props;
+  const { draft } = props;
   return (
     <>
-      {draft.kind === "other" ? (
-        <p>{t("libraries.sourceOther")}</p>
-      ) : (
-        <Question
-          legend={t("libraries.metadataSource")}
-          name="source"
-          value={draft.metadataSource ?? "nfo_then_tmdb"}
-          onChange={(value) => {
-            setAnswer("metadataSource", value);
-          }}
-          choices={[
-            ["nfo_then_tmdb", t("libraries.sourceNfoThenTmdb")],
-            ["tmdb", t("libraries.sourceTmdb")],
-            ["nfo", t("libraries.sourceNfo")],
-          ]}
-        />
-      )}
       <Question
         legend={t("libraries.changeDetection")}
         name="changes"
@@ -359,13 +368,26 @@ function ThreeQuestions(props: {
             required
             value={draft.checkEveryHours ?? props.checkEveryHoursToStart}
             onChange={(event) => {
-              setAnswer("checkEveryHours", Number(event.target.value));
+              props.setAnswer("checkEveryHours", Number(event.target.value));
             }}
           />
         </label>
       ) : null}
-      <WritableChoice draft={draft} setAnswer={setAnswer} />
     </>
+  );
+}
+
+/** One group of the form under its heading (ui-audit-2026-11-04.md §3, Create a library). */
+function FormGroup(props: {
+  readonly id: string;
+  readonly heading: string;
+  readonly children: ReactNode;
+}): JSX.Element {
+  return (
+    <section className="create-library__group" aria-labelledby={props.id}>
+      <h2 id={props.id}>{props.heading}</h2>
+      {props.children}
+    </section>
   );
 }
 
@@ -392,7 +414,11 @@ function WritableChoice(props: {
   );
 }
 
-/** Creating a library asks three things, each stating its effect (D184): sources, changes, writing. */
+/**
+ * Creating a library asks three things, each stating its effect (D184): sources, changes, writing;
+ * grouped as what it is, its source and its scanning, with Create and scan after the last, so Down
+ * from the last field reaches it (ui-audit-2026-11-04.md §3, Create a library).
+ */
 export function CreateLibraryForm(props: {
   readonly draft: NewLibrary;
   readonly nodes: readonly LibraryNode[];
@@ -412,14 +438,22 @@ export function CreateLibraryForm(props: {
   return (
     <form onSubmit={submitWith(props.onSubmit)} aria-labelledby="create-library-heading">
       <h1 id="create-library-heading">{t("libraries.createHeading")}</h1>
-      <WhatItHolds draft={draft} setAnswer={setAnswer} />
-      <ThreeQuestions
-        draft={draft}
-        checkEveryHoursToStart={props.checkEveryHoursToStart}
-        setAnswer={setAnswer}
-        onDraftChange={props.onDraftChange}
-      />
-      <WhereItIs draft={draft} nodes={props.nodes} setAnswer={setAnswer} />
+      <FormGroup id="create-library-what" heading={t("libraries.groupWhat")}>
+        <WhatItHolds draft={draft} setAnswer={setAnswer} />
+      </FormGroup>
+      <FormGroup id="create-library-source" heading={t("libraries.groupSource")}>
+        <WhereItIs draft={draft} nodes={props.nodes} setAnswer={setAnswer} />
+        <MetadataQuestion draft={draft} setAnswer={setAnswer} />
+        <WritableChoice draft={draft} setAnswer={setAnswer} />
+      </FormGroup>
+      <FormGroup id="create-library-scanning" heading={t("libraries.groupScanning")}>
+        <ScanningQuestions
+          draft={draft}
+          checkEveryHoursToStart={props.checkEveryHoursToStart}
+          setAnswer={setAnswer}
+          onDraftChange={props.onDraftChange}
+        />
+      </FormGroup>
       {props.problem === "" ? null : <p role="alert">{props.problem}</p>}
       <button type="submit" disabled={!hasARoot(draft) || props.isCreating === true}>
         {t("libraries.create")}
