@@ -2,7 +2,7 @@
 
 /** What every browser test does to a page: reach the server, sign in, open a film, see it play. */
 
-import { expect, type Page, type Request } from "@playwright/test";
+import { expect, type Locator, type Page, type Request } from "@playwright/test";
 
 import { owner, serverAddressEnvVariable } from "./server.ts";
 
@@ -35,6 +35,15 @@ export async function openFilm(page: Page, name: string): Promise<void> {
     await expect(card).toBeVisible({ timeout: 1000 });
   }).toPass({ timeout: 60_000 });
   await card.click();
+}
+
+/**
+ * The film page's link that plays the film from its start: Play, or Start over beside Resume where
+ * the film was played before. The tests share one server and its films, so a film another test
+ * played shows Resume and Start over in Play's place (check-pr, 2026-11-04).
+ */
+export function playFromTheStart(page: Page): Locator {
+  return page.getByRole("link", { name: /^(Play|Start over)$/u });
 }
 
 /** A request for one of a film's chunks, which a film page makes only for a film on its ladder. */

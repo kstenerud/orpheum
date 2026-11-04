@@ -15,7 +15,7 @@ import { expect, type Browser, type Page } from "@playwright/test";
 
 import { test } from "./browser-map.ts";
 import { oneBrowserTag, timingTag } from "./only-these-tests.ts";
-import { isPlaying, openFilm, shownOverTheFilm, signIn } from "./pages.ts";
+import { isPlaying, openFilm, playFromTheStart, shownOverTheFilm, signIn } from "./pages.ts";
 import { secondFilm, warmUpFilm } from "./server.ts";
 
 /** Whether the page's video is paused. */
@@ -83,7 +83,7 @@ async function castFromOneToTheOther(
   await signIn(sender);
   await signIn(receiver); // open on its home page, as a TV left on would be
   await openFilm(sender, warmUpFilm);
-  await sender.getByRole("link", { name: "Play" }).click();
+  await playFromTheStart(sender).click();
   await expect.poll(async () => await isPlaying(sender), { timeout: 30_000 }).toBe(true);
   // The film fills the window over the tray, so Cast's sign over the film opens its dialog, over
   // the Play page, which stays where it is (D384 §2, D418 §1; the owner, 2026-11-04).
@@ -136,7 +136,7 @@ test(
       // The session goes on: the next film the sender plays plays on the receiver (D364 §3).
       const firstAddress = receiver.url();
       await openFilm(sender, secondFilm);
-      await sender.getByRole("link", { name: "Play" }).click();
+      await playFromTheStart(sender).click();
       await expect(sender.getByRole("heading", { name: secondFilm })).toBeVisible({
         timeout: 10_000,
       });

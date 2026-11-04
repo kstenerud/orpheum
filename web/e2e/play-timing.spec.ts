@@ -8,6 +8,7 @@ import {
   isPlaying,
   openFilm,
   openFilmOnItsLadder,
+  playFromTheStart,
   serverUrl,
   shownOverTheFilm,
   signIn,
@@ -34,7 +35,7 @@ test(
     // its ladder, whose timeline a loaded machine may still be reading (failed 2 of 4 check-pr
     // runs, 2026-10-09).
     await openFilmOnItsLadder(page, warmUpFilm);
-    await page.getByRole("link", { name: "Play" }).click();
+    await playFromTheStart(page).click();
     await expect.poll(() => isPlaying(page), { timeout: 30_000 }).toBe(true);
     // Its ladder's top plays the warm-up's own AAC sound, copied (D368 §1), where it was the light track.
     await expect(page.locator(".play__tracks")).toContainText("AAC stereo, 128 kb/s (original)");
@@ -42,7 +43,7 @@ test(
     // Its page fills the player's first buffer before Play is pressed (D260 §3).
     await openFilmOnItsLadder(page, timingFilm(browserName));
     const pressedAt = Date.now();
-    await page.getByRole("link", { name: "Play" }).click();
+    await playFromTheStart(page).click();
     await expect
       .poll(() => isPlaying(page), { timeout: playsWithinMs, intervals: [50] })
       .toBe(true);
@@ -75,7 +76,7 @@ test("on a phone's screen, the play page is no wider than the screen, whatever i
   await page.setViewportSize({ width: 412, height: 915 });
   await signIn(page);
   await openFilm(page, timingFilm(browserName));
-  await page.getByRole("link", { name: "Play" }).click();
+  await playFromTheStart(page).click();
   // The subtitles' chooser, the overlay's Subtitles menu (D418 §1), open on its list, the long name
   // in it.
   await (await shownOverTheFilm(page, /^Subtitles: /u)).click();
