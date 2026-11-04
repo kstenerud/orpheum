@@ -23,10 +23,20 @@ import { refillAheadMs } from "./together-media.ts";
  */
 export type NextChunkLoadFrom = NonNullable<components["schemas"]["SeekBody"]["nextChunkLoadFrom"]>;
 
-/** How long a next chunk is expected to take to load, in ms, and what that rests on. */
+/**
+ * How long a next chunk is expected to take to load, in ms, and what that rests on; and, where its
+ * player says them, how much film it plays, whether it is of the lowest quality the player may
+ * load, and the most the player loads ahead, which a refill after a stall reads (refillAfterStallOf).
+ */
 export interface NextChunkLoad {
   readonly loadMs: number;
   readonly from: Exclude<NextChunkLoadFrom, "none">;
+  /** How much film the chunk plays, in ms. */
+  readonly filmMs?: number;
+  /** Whether the chunk is of the lowest quality its player may load: no lower one can keep up. */
+  readonly isLowestQuality?: boolean;
+  /** The most film its player loads ahead, in ms: a refill waiting for more would never end. */
+  readonly loadsAheadAtMostMs?: number;
 }
 
 /**
@@ -85,5 +95,39 @@ export function readyAheadOf(media: object): ReadyAhead {
     aheadMs: Math.round((told.loadMs * marginPercent) / 100),
     nextChunkLoadMs: Math.round(told.loadMs),
     nextChunkLoadFrom: told.from,
+  };
+}
+
+/**
+ * How long a run of play a refill after a stall buys, in ms, where the link is slower than the
+ * lowest quality: a fixed 10 s refill on such a link plays 10 s and stalls again, without end
+ * (staging, 2026-10-28: device 64 stalled at 2405, 2415, 2425 and 2435 s of its film), and people
+ * mind several short stalls more than one long one (starts-chunks-remote-2026-10-29.md §1.3; D414
+ * §2). A minute: low confidence, the research's, until the lab's run at 0.8× the lowest quality.
+ */
+export const runAfterStallMs = 60_000;
+
+/**
+ * What media is ready to play on after a stall (D414 §2): the seek's rule (readyAheadOf) where its
+ * link keeps up with its next chunk, or where a lower quality may still; where it does not at the
+ * lowest quality, enough for a run of runAfterStallMs while the link falls behind it, runAfterStallMs
+ * × (1 − the link's share of the chunk's rate), never past the most its player loads ahead.
+ */
+export function refillAfterStallOf(media: object): ReadyAhead {
+  const seek = readyAheadOf(media);
+  const told = nextChunkLoads.get(media)?.();
+  if (
+    seek.nextChunkLoadFrom === "none" ||
+    told?.filmMs === undefined ||
+    told.isLowestQuality !== true ||
+    told.loadMs <= told.filmMs
+  ) {
+    return seek;
+  }
+  const linkShare = told.filmMs / told.loadMs;
+  const runMs = Math.round(runAfterStallMs * (1 - linkShare));
+  return {
+    ...seek,
+    aheadMs: Math.min(Math.max(seek.aheadMs, runMs), told.loadsAheadAtMostMs ?? Infinity),
   };
 }

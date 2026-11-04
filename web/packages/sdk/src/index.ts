@@ -268,7 +268,13 @@ export { followGroup, tellsNoFilmHere } from "./together-follow-group.ts";
 export { waitAheadAtMostMs } from "./together-follow.ts";
 export type { FollowedMedia } from "./together-media.ts";
 export { isAskedToPlay, loadedAheadMsOf, startGateOf } from "./start-gate.ts";
-export { readyAheadOf, setReadyAheadPercent, tellNextChunkLoadMs } from "./ready-ahead.ts";
+export {
+  readyAheadOf,
+  refillAfterStallOf,
+  runAfterStallMs,
+  setReadyAheadPercent,
+  tellNextChunkLoadMs,
+} from "./ready-ahead.ts";
 export type { NextChunkLoad, NextChunkLoadFrom, ReadyAhead } from "./ready-ahead.ts";
 export type { GatedMedia, StartGate, StartWait } from "./start-gate.ts";
 export {

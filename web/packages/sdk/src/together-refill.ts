@@ -1,23 +1,20 @@
 // SPDX-License-Identifier: MPL-2.0
 
 /**
- * When a following player is ready to play on after it stalled or sought: refillAheadMs of film
- * loaded after a stall, and after a seek its group or its person made, enough to outlast loading its
- * next chunk with a margin (readyAheadOf, the rule every player starts by; the owner, 2026-10-28),
- * refillAheadMs where its player cannot say how long that takes. Every other player started on a
+ * When a following player is ready to play on after it stalled or sought: after a seek its group or
+ * its person made, enough to outlast loading its next chunk with a margin (readyAheadOf, the rule
+ * every player starts by; the owner, 2026-10-28), refillAheadMs where its player cannot say how long
+ * that takes; after a stall the same, but enough for a minute's run where the link is slower than
+ * the lowest quality (refillAfterStallOf, D414 §2), where a fixed refillAheadMs played ten seconds
+ * and stalled again. Every other player started on a
  * second or two after a seek (Media3 1 s, Jellyfin SyncPlay its first frame); ten seconds kept a
  * jump's group waiting about ten (seek-resync-2026-10-12.md), and a fixed 3 s once the link loaded
  * well faster than real time replaced it until a Fire TV's chunk of 10.4 s took 2.3 s to come.
  */
 
-import { readyAheadOf } from "./ready-ahead.ts";
+import { readyAheadOf, refillAfterStallOf } from "./ready-ahead.ts";
 import type { ChunkLoaded } from "./together-player-events.ts";
-import {
-  hasRefilled,
-  haveFutureData,
-  refillAheadMs,
-  type FollowedMedia,
-} from "./together-media.ts";
+import { hasRefilled, haveFutureData, type FollowedMedia } from "./together-media.ts";
 
 /** Why the player is loading before it can play on: a stall or a catch-up's seek, or a seek. */
 type RefillCause = "stall" | "seek";
@@ -101,8 +98,8 @@ export class Refill {
   readonly isShort = (media: FollowedMedia): boolean =>
     this.#isRefilling && !hasRefilled(media, this.#readyAheadMs(media));
 
-  /** After a seek, what readyAheadOf says; after a stall, refillAheadMs. */
+  /** After a seek, what readyAheadOf says; after a stall, refillAfterStallOf. */
   #readyAheadMs(media: FollowedMedia): number {
-    return this.#cause === "seek" ? readyAheadOf(media).aheadMs : refillAheadMs;
+    return (this.#cause === "seek" ? readyAheadOf(media) : refillAfterStallOf(media)).aheadMs;
   }
 }

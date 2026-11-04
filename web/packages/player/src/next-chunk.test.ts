@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { loadedAheadMsOf, readyAheadOf } from "@orpheum/sdk";
+import { loadedAheadMsOf, readyAheadOf, refillAfterStallOf } from "@orpheum/sdk";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -26,7 +26,12 @@ function listing(averageBps: number, byteRange: readonly number[] = []): ChunkLi
     duration: 10.4,
     byteRange: index === 173 ? byteRange : [],
   }));
-  return { loadLevel: 0, levels: [{ averageBitrate: averageBps, details: { fragments } }] };
+  return {
+    loadLevel: 0,
+    minAutoLevel: 0,
+    levels: [{ averageBitrate: averageBps, details: { fragments } }],
+    config: { maxBufferLength: 30, maxMaxBufferLength: 30 },
+  };
 }
 
 /** A stand-in video: where it is, what it loaded, and its events. */
@@ -53,7 +58,7 @@ describe("how long the next chunk is expected to take to load (the owner, 2026-1
   });
 
   it("is unknown before the quality's playlist is loaded", () => {
-    expect(nextChunkBits({ loadLevel: 0, levels: [] }, marrowgateVideo())).toBeUndefined();
+    expect(nextChunkBits({ ...listing(7_700_000), levels: [] }, marrowgateVideo())).toBeUndefined();
   });
 
   it("tells the SDK its load: its first byte's wait and its bits over the link its controller names", () => {
@@ -75,6 +80,31 @@ describe("how long the next chunk is expected to take to load (the owner, 2026-1
     });
     stop();
     expect(readyAheadOf(video).nextChunkLoadMs).toBeUndefined();
+  });
+
+  it("tells the chunk's film, whether it is of the lowest quality, and the most hls.js loads ahead (D414 §2)", () => {
+    const video = marrowgateVideo();
+    const lowest = {
+      ...listing(1_782_000),
+      config: { maxBufferLength: 30, maxMaxBufferLength: 20 },
+    };
+    const stopLowest = tellNextChunkLoad(lowest, video, () => ({
+      kbps: 1000,
+      firstByteMs: 0,
+      from: "confident",
+    }));
+    // 10.4 s at 1.782 Mb/s over 1 Mb/s: 18.5 s, the seek's rule 27.8 s and a minute's run 26.3 s;
+    // at the lowest quality, no more than the 20 s hls.js loads ahead.
+    expect(refillAfterStallOf(video).aheadMs).toBe(20_000);
+    stopLowest();
+    const above = { ...lowest, loadLevel: 1, levels: [lowest.levels[0]!, lowest.levels[0]!] };
+    const stopAbove = tellNextChunkLoad(above, video, () => ({
+      kbps: 1000,
+      firstByteMs: 0,
+      from: "confident",
+    }));
+    expect(refillAfterStallOf(video).aheadMs).toBe(readyAheadOf(video).aheadMs);
+    stopAbove();
   });
 
   it("says nothing with nothing remembered and nothing measured, and the player waits refillAheadMs", () => {
