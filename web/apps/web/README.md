@@ -641,6 +641,34 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/focus-navigation.browser.test.tsx`; on devices, VQ61 and VQ62.
   A row that scrolls sideways keeps room for the focus ring (`--focus-ring-room` in
   `src/tokens.css`), which it would clip.
+- **A page opens on what it is for, says where it is, and Back finds where the person was**
+  (ui-audit-2026-11-04.md R3–R6; the owner, 2026-11-04). *Arrival* (R3): a page or dialog marks
+  its main action with `arrivalMark` and focus goes there as it is drawn (`arriveWhenDrawn`,
+  `src/focus-navigation.ts`; a dialog's by `src/modal-layer.tsx`), shown with a ring after a key or
+  a controller and none after a pointer, and taken only from nothing or from what opened it, never
+  once the person has moved on; `src/arrival.browser.test.tsx`. *The announcer* (R4): the input
+  layer appends one polite `<output>` to `document.body` and puts the new page's heading in it once
+  the page draws it, so a screen reader says where it now is while focus stays on the arrival
+  (`src/input-layer.tsx`); "stays off the heading, which is announced, on a page opened and on one
+  Back returns to" in `src/arrival.browser.test.tsx`. *Back's restore* (R5): Back returns focus to
+  what had it on the page left, noted on its history entry and found once the page draws it, before
+  the page's arrival (`src/focus-memory.ts`); a closed dialog or pop-up gives focus back to its
+  opener (`src/modal-layer.tsx`); a series' season is chosen in its place, no history step.
+  `src/focus-memory.test.ts`, "gives focus back to the link a page was left by when Back returns to
+  it" in `src/input-layer.test.tsx`, "goes back to the episode it opened at %s, not the page's Play"
+  in `src/input-rows.browser.test.tsx`, "a modal dialog closed" in
+  `src/modal-dialog.browser.test.tsx`, "a pop-up closed" in `src/popover.browser.test.tsx`, "reaches
+  every control of a series' page, and picks a season in its place" in
+  `src/input-pages.browser.test.tsx`. *The fallback* (R6): where nothing lies in line that way, an
+  arrow from a control in no row or grid goes to the nearest off the line (`nearestOffTheLine`,
+  `src/focus-engine.ts`), a grid's short last row keeping Right where it is (Q3); and an arrow
+  searches the page's main content whole before the banner, so Up from a list shorter than a row
+  reaches its tools before the bar (`containerAround`; the owner, 2026-11-04). `src/focus-engine.test.ts`,
+  `src/focus-navigation.browser.test.tsx`, "goes Up from a list shorter than a row to its tools, and
+  Up again to the banner (the owner, 2026-11-04)" in `src/input-pages.browser.test.tsx`. *The walk*:
+  every page the test services draw is walked by arrows from its arrival, failing on a control it
+  cannot reach, the pages it leaves to others listed in it with why,
+  `src/page-walk.browser.test.tsx`.
 - **Focus only adds** (D189): ring, lift and modest scale are custom properties in
   `src/tokens.css`. Review-only until the first tile lands; then the geometry and luminance
   tests of [testing-strategy.md](../../../docs/contributors/design/plans/testing-strategy.md) enforce it.
