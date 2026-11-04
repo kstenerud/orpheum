@@ -36,6 +36,15 @@ function touchAt(type: "touchstart" | "touchmove", clientX: number): Event {
   return event;
 }
 
+/** A pointer's event at clientX, of a mouse or a finger, leaving for nothing where it leaves. */
+function pointerAt(
+  type: "pointermove" | "pointerout",
+  clientX: number,
+  pointerType: string,
+): Event {
+  return new PointerEvent(type, { bubbles: true, clientX, pointerType, relatedTarget: null });
+}
+
 /** Moves a range to value as a drag does: its value set, then its input event. */
 async function dragTo(range: HTMLInputElement, value: number): Promise<void> {
   await enter(range, String(value));
@@ -121,6 +130,25 @@ describe("a film's timeline (D369 §1)", () => {
     await fire(range, touchAt("touchmove", 400));
     expect(seeks).toEqual([150_000, 450_000]);
     expect(start.defaultPrevented).toBe(true); // the page does not scroll under the finger
+  });
+
+  // The UI review's "the scrub bar's time" (the UI revamp's first wave, item 10).
+  it("shows the time under a mouse's pointer above it, and not a finger's", async () => {
+    const range = await drawn(
+      <Timeline label="Where" atMs={0} durationMs={600_000} onSeek={() => undefined} />,
+    );
+    range.getBoundingClientRect = () => new DOMRect(100, 0, 400, 44);
+    const pointed = (): HTMLElement | null =>
+      mounted?.container.querySelector<HTMLElement>(".timeline__pointed") ?? null;
+    await fire(range, pointerAt("pointermove", 200, "mouse"));
+    expect(pointed()?.textContent).toBe("2:30");
+    expect(pointed()?.style.insetInlineStart).toBe("25%");
+    await fire(range, pointerAt("pointermove", 400, "mouse"));
+    expect(pointed()?.textContent).toBe("7:30");
+    await fire(range, pointerAt("pointerout", 600, "mouse"));
+    expect(pointed()).toBeNull();
+    await fire(range, pointerAt("pointermove", 200, "touch"));
+    expect(pointed()).toBeNull();
   });
 
   it("leaves its Left and Right to the player on a television", async () => {
