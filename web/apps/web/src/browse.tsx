@@ -21,7 +21,7 @@ import { StatusTray } from "./status-cues.tsx";
 import { PosterCard, PosterDetail } from "./poster-card.tsx";
 import { Still } from "./poster.tsx";
 import { ActionChooser } from "./route-chooser.tsx";
-import { itemRoute, routeHref, type ListFilters, type ListState } from "./router.ts";
+import { itemRoute, routeHref, type ListState } from "./router.ts";
 import { EndOfList } from "./end-of-list.tsx";
 import { useServices } from "./services.tsx";
 import {
@@ -33,8 +33,6 @@ import {
   sortFieldLabel,
   type SortChoice,
 } from "./sort-choices.ts";
-import { ListChips } from "./list-chips.tsx";
-import { chipsOf, filtersKey, filtersQuery, hasFilters } from "./list-filters.ts";
 import { ListingTools, SearchButton, SortArrowIcon, SortIcon } from "./listing-tools.tsx";
 import { Loaded } from "./loaded.tsx";
 import { useListLoadsToFocusNoted } from "./input-layer.tsx";
@@ -191,14 +189,10 @@ export function Browse(props: {
   // The list's search, a criterion of the list itself, as its sort is (the owner, 2026-10-30); both
   // in the address, so Back from a title opened from the list returns to it (the owner, 2026-11-02).
   const search = props.state.query ?? "";
-  // The chips, kept in the address beside the search, so Back restores them too (search-by-more §4.3).
-  const filters = chipsOf(props.state);
   const replaceState = (next: ListState): void => {
     clearJump();
-    navigation.replace({ screen: props.kind === "movie" ? "films" : "series", ...next });
-  };
-  const onChips = (next: ListFilters): void => {
-    replaceState(listStateOf(choice, search, next));
+    const screen = props.kind === "movie" ? "films" : "series";
+    navigation.replace({ screen, ...next });
   };
   const listRef = useRef<HTMLDivElement>(null);
   const isNamed = choice.sort === "name";
@@ -209,15 +203,26 @@ export function Browse(props: {
           <h1 id="browse-heading">
             {t(props.kind === "movie" ? "browse.films" : "browse.series")}
           </h1>
-          <BrowseTools choice={choice} search={search} filters={filters} onState={replaceState} />
+          <ListingTools>
+            <SearchButton
+              query={search}
+              onSearch={(next) => {
+                replaceState(listStateOf(choice, next));
+              }}
+            />
+            <SortChooser
+              choice={choice}
+              onChoose={(chosen) => {
+                replaceState(listStateOf(chosen, search));
+              }}
+            />
+          </ListingTools>
         </div>
-        <ListChips kind={props.kind} filters={filters} onChange={onChips} />
         <BrowsePages
-          key={`${props.kind}/${choice.sort}/${choice.order}/${search}/${filtersKey(filters)}`}
+          key={`${props.kind}/${choice.sort}/${choice.order}/${search}`}
           kind={props.kind}
           choice={choice}
           search={search}
-          filters={filters}
           jump={isNamed ? jump : undefined}
           listRef={listRef}
         />
@@ -226,38 +231,11 @@ export function Browse(props: {
         <BrowseAlphabetRail
           kind={props.kind}
           search={search}
-          filters={filters}
           isZToA={choice.order === "descending"}
           onLetter={onLetter}
         />
       ) : null}
     </section>
-  );
-}
-
-/** Films' or Series' search and sort, each keeping the other and the chips as they are. */
-function BrowseTools(props: {
-  readonly choice: SortChoice;
-  readonly search: string;
-  readonly filters: ListFilters;
-  readonly onState: (next: ListState) => void;
-}): JSX.Element {
-  const { choice, search, filters, onState } = props;
-  return (
-    <ListingTools>
-      <SearchButton
-        query={search}
-        onSearch={(next) => {
-          onState(listStateOf(choice, next, filters));
-        }}
-      />
-      <SortChooser
-        choice={choice}
-        onChoose={(chosen) => {
-          onState(listStateOf(chosen, search, filters));
-        }}
-      />
-    </ListingTools>
   );
 }
 
@@ -270,7 +248,6 @@ function BrowseTools(props: {
 function BrowseAlphabetRail(props: {
   readonly kind: BrowseKind;
   readonly search: string;
-  readonly filters: ListFilters;
   readonly isZToA: boolean;
   readonly onLetter: (letter: string) => void;
 }): JSX.Element {
@@ -279,7 +256,6 @@ function BrowseAlphabetRail(props: {
     library: undefined,
     sort: "name",
     search: props.search,
-    filters: props.filters,
   });
   return <AlphabetRail onLetter={props.onLetter} letters={letters} isZToA={props.isZToA} />;
 }
@@ -294,12 +270,11 @@ function browseChoiceOf(state: ListState): SortChoice {
 }
 
 /** What the address holds for a sort chosen and a search: each left out at the list's own. */
-function listStateOf(choice: SortChoice, query: string, filters: ListFilters): ListState {
+function listStateOf(choice: SortChoice, query: string): ListState {
   return {
     ...(choice.sort === "name" ? {} : { sort: choice.sort }),
     ...orderQuery(choice),
     ...(query === "" ? {} : { query }),
-    ...filters,
   };
 }
 
@@ -348,15 +323,12 @@ function BrowsePages(props: {
   readonly choice: SortChoice;
   /** The list's search, "" for none (GET /titles' query). */
   readonly search: string;
-  /** The list's chips, none chosen when empty (GET /titles' genre, decade and unwatched). */
-  readonly filters: ListFilters;
   readonly jump: LetterJump | undefined;
   readonly listRef: RefObject<HTMLElement | null>;
 }): JSX.Element {
   const { api } = useServices();
-  const { kind, search, filters } = props;
+  const { kind, search } = props;
   const { sort, order } = props.choice;
-  const { genre, decade, isUnwatchedOnly } = filters;
   const loadPage = useCallback(
     async (cursor: string): Promise<Page<Entry>> => {
       const query = {
@@ -365,13 +337,12 @@ function BrowsePages(props: {
         ...orderQuery({ sort, order }),
         limit: entriesPerPage,
         ...(search === "" ? {} : { query: search }),
-        ...filtersQuery({ genre, decade, isUnwatchedOnly }),
         ...(cursor === "" ? {} : { cursor }),
       };
       const titlesPage = dataOrThrow(await api.GET("/titles", { params: { query } }));
       return { items: titlesPage.titles ?? [], nextCursor: titlesPage.nextCursor ?? "" };
     },
-    [api, kind, sort, order, search, genre, decade, isUnwatchedOnly],
+    [api, kind, sort, order, search],
   );
   const pages = usePages(loadPage, useBackgroundChangesPoller(), entryId);
   const watchItemAt = useItemsInView(pages.showRange);
@@ -385,7 +356,6 @@ function BrowsePages(props: {
     isZToA: order === "descending",
     library: undefined,
     search,
-    filters,
     jump: props.jump,
     pages,
     listRef: props.listRef,
@@ -394,7 +364,6 @@ function BrowsePages(props: {
     <BrowseView
       kind={kind}
       search={search}
-      isNarrowed={hasFilters(filters)}
       loadedEntries={pages.loadedSoFar}
       isLoadingMore={pages.isLoadingMore}
       onLoadMore={pages.loadMore}
@@ -408,8 +377,6 @@ export function BrowseView(props: {
   readonly kind: BrowseKind;
   /** The list's search, "" for none: an empty list then says nothing matches it. */
   readonly search?: string;
-  /** Whether chips narrow the list: an empty list then says nothing matches them. */
-  readonly isNarrowed?: boolean;
   readonly loadedEntries: Resource<Page<Entry>>;
   readonly isLoadingMore: boolean;
   readonly onLoadMore: () => void;
@@ -420,7 +387,7 @@ export function BrowseView(props: {
       resource={props.loadedEntries}
       render={(page) =>
         page.items.length === 0 ? (
-          <EmptyList search={props.search ?? ""} isNarrowed={props.isNarrowed === true} />
+          <EmptyList search={props.search ?? ""} />
         ) : (
           <>
             <PosterGrid kind={props.kind} entries={page.items} watchItemAt={props.watchItemAt} />
@@ -438,16 +405,13 @@ export function BrowseView(props: {
  * Why a list is empty: nothing its search matches; nothing scanned yet; or, for someone whose role the admin has given no
  * library, that they have been given none (D243 §4), which only the admin can change.
  */
-function EmptyList(props: { readonly search: string; readonly isNarrowed: boolean }): JSX.Element {
+function EmptyList(props: { readonly search: string }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [me] = useResource("me", async () => dataOrThrow(await api.GET("/me")));
   const isGivenNoLibrary = me.state === "loaded" && me.value.hasNoLibrary;
   if (props.search !== "") {
     return <p className="browse__empty">{t("search.none", { query: props.search })}</p>;
-  }
-  if (props.isNarrowed) {
-    return <p className="browse__empty">{t("chips.none")}</p>;
   }
   return (
     <p className="browse__empty">{t(isGivenNoLibrary ? "browse.noLibrary" : "browse.empty")}</p>

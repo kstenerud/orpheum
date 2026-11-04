@@ -5,9 +5,7 @@ import { useCallback, useEffect, useRef, useState, type JSX, type RefObject } fr
 import { useTranslation } from "react-i18next";
 
 import { clearOfTheBannerPx, focusAndShow } from "./focus-navigation.ts";
-import { filtersKey, filtersQuery } from "./list-filters.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
-import type { ListFilters } from "./router.ts";
 import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import type { Pages } from "./use-pages.ts";
@@ -87,13 +85,11 @@ export function useAlphabetRailLetters(list: {
   readonly sort: "name" | "file_name";
   /** The list's search, "" for none: only letters some matching title begins with. */
   readonly search: string;
-  /** The list's chips (Films and Series): only letters some title they keep begins with. */
-  readonly filters?: ListFilters | undefined;
 }): readonly string[] | undefined {
-  const { kind, library, sort, search, filters } = list;
+  const { kind, library, sort, search } = list;
   const { api } = useServices();
   const [letters] = useResource(
-    `alphabet-rail-letters/${kind}/${String(library)}/${sort}/${search}/${filtersKey(filters)}`,
+    `alphabet-rail-letters/${kind}/${String(library)}/${sort}/${search}`,
     async () => {
       const body = dataOrThrow(
         await api.GET("/titles/letters", {
@@ -103,7 +99,6 @@ export function useAlphabetRailLetters(list: {
               sort,
               ...(library === undefined ? {} : { library }),
               ...(search === "" ? {} : { query: search }),
-              ...(filters === undefined ? {} : filtersQuery(filters)),
             },
           },
         }),
@@ -233,16 +228,14 @@ export function useLetterJump<T extends { readonly id: number }>(props: {
   readonly library: number | undefined;
   /** The list's search, "" for none: a jump finds its letter among what the search lists. */
   readonly search?: string;
-  /** The list's chips: a jump finds its letter among what they keep. */
-  readonly filters?: ListFilters | undefined;
   readonly jump: LetterJump | undefined;
   readonly pages: Pages<T>;
   readonly listRef: RefObject<HTMLElement | null>;
 }): void {
   const { api } = useServices();
   const { kind, sort, library, jump, listRef } = props;
-  const { genre, decade, isUnwatchedOnly } = props.filters ?? {};
-  const [search, isZToA] = [props.search ?? "", props.isZToA === true];
+  const search = props.search ?? "";
+  const isZToA = props.isZToA === true;
   const { loadUntil } = props.pages;
   const showWhenDrawn = useJumpedToShown(props.pages, listRef);
   useEffect(() => {
@@ -257,7 +250,6 @@ export function useLetterJump<T extends { readonly id: number }>(props: {
       ...(isZToA ? { order: "descending" as const } : {}),
       ...(library === undefined ? {} : { library }),
       ...(search === "" ? {} : { query: search }),
-      ...filtersQuery({ genre, decade, isUnwatchedOnly }),
       ...fromForLetter(jump.letter, isZToA),
     };
     api
@@ -273,20 +265,7 @@ export function useLetterJump<T extends { readonly id: number }>(props: {
     return () => {
       isCurrent = false;
     };
-  }, [
-    api,
-    kind,
-    sort,
-    isZToA,
-    library,
-    search,
-    genre,
-    decade,
-    isUnwatchedOnly,
-    jump,
-    loadUntil,
-    showWhenDrawn,
-  ]);
+  }, [api, kind, sort, isZToA, library, search, jump, loadUntil, showWhenDrawn]);
 }
 
 /**

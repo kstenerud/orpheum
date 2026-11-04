@@ -28,18 +28,8 @@ export type SortOrder = "ascending" | "descending";
 
 const sortOrders: readonly SortOrder[] = ["ascending", "descending"];
 
-/**
- * Films' and Series' chips (search-by-more §4.3): a genre by its id, a decade by its first year
- * (1980 for the 1980s), and only what the person has not watched; each left out when not chosen.
- */
-export interface ListFilters {
-  readonly genre?: number;
-  readonly decade?: number;
-  readonly isUnwatchedOnly?: boolean;
-}
-
-/** What Films' or Series' address holds of the list: its sort, its sort's way, its search, its chips. */
-export interface ListState extends ListFilters {
+/** What Films' or Series' address holds of the list: its sort, its sort's way, its search. */
+export interface ListState {
   readonly sort?: LibrarySort;
   readonly order?: SortOrder;
   readonly query?: string;
@@ -258,21 +248,6 @@ function listState(search: URLSearchParams): ListState {
     ...(sort === undefined ? {} : { sort }),
     ...(order === undefined ? {} : { order }),
     ...(query === "" ? {} : { query }),
-    ...listFilters(search),
-  };
-}
-
-/**
- * The chips an address names: a genre a positive whole number, a decade a year ending in 0 from 1800
- * to 2990, unwatched only as 1; anything else names none.
- */
-function listFilters(search: URLSearchParams): ListFilters {
-  const genre = search.get("genre") ?? "";
-  const decade = search.get("decade") ?? "";
-  return {
-    ...(/^[1-9]\d{0,15}$/u.test(genre) ? { genre: Number(genre) } : {}),
-    ...(/^(?:1[89]|2\d)\d0$/u.test(decade) ? { decade: Number(decade) } : {}),
-    ...(search.get("unwatched") === "1" ? { isUnwatchedOnly: true } : {}),
   };
 }
 
@@ -341,15 +316,6 @@ function listStateQuery(state: ListState, query = new URLSearchParams()): URLSea
   }
   if (state.query !== undefined && state.query !== "") {
     query.set("query", state.query);
-  }
-  if (state.genre !== undefined) {
-    query.set("genre", String(state.genre));
-  }
-  if (state.decade !== undefined) {
-    query.set("decade", String(state.decade));
-  }
-  if (state.isUnwatchedOnly === true) {
-    query.set("unwatched", "1");
   }
   return query;
 }
