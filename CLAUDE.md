@@ -46,7 +46,11 @@ the `AGENTS.md` convention read the same rules. Only Claude-specific mechanics b
   the background probe and a test command typed in a session (`go test`, `vitest`, `npm test`,
   `playwright`, …, which `pre_bash.py` runs through `scripts/gate_lock.py`, in its own shell, so a `cd`
   in it does not carry) hold one lock shared by every worktree. A run that finds it held says what holds
-  it and waits; `python3 scripts/gate_lock.py --held` prints the holder.
+  it and waits; `python3 scripts/gate_lock.py --held` prints the holder. The command holds the lock too,
+  so a killed wrapper cannot let its tests run on outside it, and ending the wrapper ends the command's
+  whole process group. Each kind of run has a lease (a hung run is ended at it). A foreground command
+  whose wait for the lock would use more than half its timeout is refused, naming the holder and the
+  queue: run it in the background, or with the longer timeout it names.
 - **Before a shell command**, `.claude/hooks/pre_bash.py` refuses commands that add a
   dependency, `--no-verify` or repointing `core.hooksPath`, force-pushes, and shell writes whose
   target — a redirect, `tee`, `cp`/`mv`'s destination, `sed -i`, `rm` — is a gate file in this

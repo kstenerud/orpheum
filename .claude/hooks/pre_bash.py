@@ -357,6 +357,56 @@ def holding_the_lock(command: str, kind: str) -> str:
     return f"{shlex.quote(sys.executable)} {shlex.quote(str(script))} --as {kind} bash -c {shlex.quote(command)}"
 
 
+# The Bash tool's timeout when a call names none.
+DEFAULT_TIMEOUT_MS = 120_000
+# The longest timeout a call can ask for.
+LONGEST_TIMEOUT_MS = 600_000
+
+
+def waits_on_the_lock(command: str) -> bool:
+    """Whether command takes the repository's test lock, itself (lock_kind), through a gate that takes
+    it (make check, spot, check-pr, revert-red), or through a commit, whose spot check takes it."""
+    if lock_kind(command) is not None:
+        return True
+    for args, _ in simple_commands(tokens(command)):
+        words = [word for word in args if not ASSIGNMENT.match(word)]
+        while words and (words[0] in PREFIXES or Path(words[0]).name == "dev"):
+            words = words[1:]
+        if not words:
+            continue
+        name = Path(words[0]).name
+        if name == "git" and git_subcommand(words[1:]) == "commit":
+            return True
+        if name == "make" and any(LOCKING_TARGET.match(target) for target in operands(words[1:], MAKE_VALUE_FLAGS)):
+            return True
+    return False
+
+
+def wait_refusal(event: dict, command: str) -> str | None:
+    """Why command should not run in the foreground now: waiting for the test lock would use more than
+    half its timeout, and the tool would kill it as it waits (the lock's wargaming, 2026-11-04: make
+    check takes up to 5 min, an agent's commit behind one timed out at 2 min, before it began)."""
+    tool_input = event.get("tool_input") or {}
+    if tool_input.get("run_in_background") or not waits_on_the_lock(command):
+        return None
+    limit = float(tool_input.get("timeout") or DEFAULT_TIMEOUT_MS) / 1000
+    import gate_lock  # noqa: PLC0415 (only a command that waits on the lock needs it)
+
+    try:
+        wait, said = gate_lock.expected_wait(hooklib.ROOT)
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    if wait <= limit / 2:
+        return None
+    needed_ms = int((wait * 2 + 60) * 1000)
+    longer = (f"or give it a timeout of at least {needed_ms} ms" if needed_ms <= LONGEST_TIMEOUT_MS
+              else "the wait is past the longest timeout a call can have")
+    return (f"This command takes the repository's test lock, which is busy: {said}. Waiting would take about "
+            f"{wait / 60:.0f} min, more than half this call's {limit:.0f} s timeout, and the tool would kill it "
+            f"while it waits. Run it with run_in_background (you are told when it ends), {longer}. "
+            "`python3 scripts/gate_lock.py --held` names the holder.")
+
+
 def git_directory(words: list[str], directory: Path) -> Path:
     """The directory a git command's words run it in, from directory: each `-C` moves it on."""
     for option, value in zip(words, words[1:], strict=False):
@@ -457,6 +507,9 @@ def main() -> None:
 
     if refusals:
         hooklib.deny(refusals[0])
+        return
+    if in_this_project(cwd) and (waited := wait_refusal(event, command)) is not None:
+        hooklib.deny(waited)
         return
     kind = lock_kind(command)
     if kind is not None and not in_this_project(cwd):

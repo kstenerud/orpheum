@@ -75,6 +75,33 @@ class WebTestsTest(unittest.TestCase):
         self.assertEqual(len(ran), 3)
         self.assertEqual(ran[2][len(web_tests.RELATED)], "apps/web/src/a.ts")
 
+    def test_a_tree_another_worktree_passed_is_measured_from_the_nearest_pass(self) -> None:
+        # The record is shared by every worktree: with one tree kept, the lead's checkout and an agent's
+        # worktree each found the other's pass and ran the tests of both trees' differences (2026-11-04).
+        ran: list[list[str]] = []
+
+        def run(command, *args, **kwargs):  # type: ignore[no-untyped-def]
+            if command[0] == "git":
+                return REAL_RUN(command, *args, **kwargs)
+            ran.append(command)
+            return mock.Mock(returncode=0)
+
+        with self.repo.cwd(), mock.patch.object(web_tests.subprocess, "run", side_effect=run):
+            self.repo.write({"web/apps/web/src/a.ts": "export const a = 2;"})
+            self.assertEqual(web_tests.main([]), 0)  # the lead's tree: the first pass runs all
+            self.repo.write({"web/apps/web/src/a.ts": "export const a = 1;", "web/apps/web/src/b.ts": "export const b = 2;"})
+            self.assertEqual(web_tests.main([]), 0)  # an agent's tree
+            self.repo.write({"web/apps/web/src/a.ts": "export const a = 2;", "web/apps/web/src/b.ts": "export const b = 1;"})
+            self.assertEqual(web_tests.main([]), 0)  # the lead's again: passed already, nothing runs
+            self.repo.write({"web/apps/web/src/a.ts": "export const a = 3;"})
+            self.assertEqual(web_tests.main([]), 0)
+        self.assertEqual(len(ran), 3)
+        self.assertEqual(ran[2][len(web_tests.RELATED):][:1], ["apps/web/src/a.ts"],
+                         "measured from the lead's pass, not the agent's: b.ts is not run again")
+        self.assertNotIn("apps/web/src/b.ts", ran[2])
+        with self.repo.cwd():
+            self.assertEqual(len(web_tests.passed_trees(web_tests.stamp_path(web_tests.UNIT.step))), 3)
+
     def test_the_browser_mode_tests_run_their_related_ones_in_their_own_configuration(self) -> None:
         changes = self.changes_after({"web/apps/web/src/b.ts": "export const b = 2;"})
         command = web_tests.command_for(changes, str(self.repo.root), web_tests.BROWSER)

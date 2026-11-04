@@ -9,6 +9,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 HOOKS = ROOT / ".claude" / "hooks"
@@ -30,11 +31,14 @@ HERMETIC = {"TZ": "UTC", "LC_ALL": "C.UTF-8", "GIT_CONFIG_GLOBAL": "/dev/null", 
 # Where a hook keeps its agents' records while these tests run: never the repository's own
 # (.claude/hooks/agents.py); the subagent tests' "a1" was written there (2026-10-27).
 AGENTS_STATE = tempfile.mkdtemp()
+# Where a hook finds the repository's test lock while these tests run: an empty folder, free, never the
+# lock of the clone the tests run in, which another run may hold (scripts/gate_lock.py).
+GATE_LOCK_DIR = tempfile.mkdtemp()
 
 
 def run_hook(name: str, event: dict, **env: str) -> dict:
     named = {"PATH": os.environ["PATH"], "HOME": os.environ["HOME"], "CLAUDE_PROJECT_DIR": str(ROOT),
-             "ORPHEUM_AGENTS_STATE_DIR": AGENTS_STATE}
+             "ORPHEUM_AGENTS_STATE_DIR": AGENTS_STATE, "ORPHEUM_GATE_LOCK_DIR": GATE_LOCK_DIR}
     done = subprocess.run(
         [sys.executable, str(HOOKS / name)],
         input=json.dumps(event), capture_output=True, text=True, check=True,
@@ -512,6 +516,29 @@ class TestsRunHoldingTheLock(unittest.TestCase):
         ran = said["hookSpecificOutput"]["updatedInput"]["command"]
         self.assertIn("ORPHEUM_AGENT_ID=a1", ran)
         self.assertIn("gate_lock.py --as test bash -c 'go test ./x/'", ran)
+
+    def test_a_command_that_would_spend_its_timeout_waiting_for_the_lock_is_refused(self):
+        # The lock's wargaming, 2026-11-04: an agent's commit behind a 5-minute make check timed out at
+        # 2 minutes before its own spot check began, and the agent took the tests for hung.
+        sys.path.insert(0, str(HOOKS))
+        import gate_lock  # noqa: PLC0415
+        import pre_bash  # noqa: PLC0415
+
+        busy = (300.0, "check has held it 1 min")
+        for cmd in ("git commit -q -F -", "make spot", "./dev make check-pr", "go test ./x/"):
+            self.assertTrue(pre_bash.waits_on_the_lock(cmd), cmd)
+        self.assertFalse(pre_bash.waits_on_the_lock("git status"))
+        with mock.patch.object(gate_lock, "expected_wait", return_value=busy):
+            said = pre_bash.wait_refusal({"tool_input": {"command": "git commit -q -F -"}}, "git commit -q -F -")
+            self.assertIn("check has held it 1 min", said)
+            self.assertIn("run_in_background", said)
+            self.assertIsNone(pre_bash.wait_refusal(
+                {"tool_input": {"command": "make spot", "run_in_background": True}}, "make spot"))
+            self.assertIsNone(pre_bash.wait_refusal(
+                {"tool_input": {"command": "make spot", "timeout": 600_000}}, "make spot"))
+            self.assertIsNone(pre_bash.wait_refusal({"tool_input": {"command": "ls"}}, "ls"))
+        with mock.patch.object(gate_lock, "expected_wait", return_value=(20.0, "spot has held it 10 s")):
+            self.assertIsNone(pre_bash.wait_refusal({"tool_input": {"command": "make spot"}}, "make spot"))
 
     def test_a_test_command_in_another_repository_takes_no_lock(self):
         with tempfile.TemporaryDirectory() as other:
