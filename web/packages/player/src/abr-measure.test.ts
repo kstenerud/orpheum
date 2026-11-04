@@ -71,4 +71,38 @@ describe("how the controller measures the link inside hls.js (D247 §9, D265 §7
     expect(abr.choosing()?.linkKbps()).toBeCloseTo(8400, 0);
     hls.destroy();
   });
+
+  it("measures the link by small chunks loaded back to back, which alone measure nothing (D414 §3)", () => {
+    /** The link the controller reports after eight 40 KB chunks, each asked restMs after the last ended. */
+    const linkAfter = (restMs: number): number | undefined => {
+      const abr = orpheumAbr({
+        startAtBps: 0,
+        monotonicMs: () => 0,
+        isVoiceLive: () => false,
+        fromCache: () => false,
+      });
+      const hls = new Hls({ abrController: abr.controller });
+      let askedMs = 0;
+      for (let sn = 0; sn < 8; sn++) {
+        const chunk = pictureChunk(sn, 40_000, {
+          start: askedMs,
+          first: askedMs + 50,
+          end: askedMs + 250,
+        });
+        hls.trigger(Events.FRAG_BUFFERED, {
+          stats: chunk.stats,
+          frag: chunk,
+          part: null,
+          id: PlaylistLevelType.MAIN,
+        });
+        askedMs += 250 + restMs;
+      }
+      const kbps = abr.choosing()?.linkKbps();
+      hls.destroy();
+      return kbps;
+    };
+    // Two samples of 160 KB, each over 980 ms: 1306 kb/s.
+    expect(linkAfter(10)).toBeCloseTo(1306, 0);
+    expect(linkAfter(500)).toBeUndefined();
+  });
 });

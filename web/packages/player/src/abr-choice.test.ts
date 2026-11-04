@@ -3,6 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  backToBackWithinMs,
   chunksNotHeld,
   chunksWhileStill,
   heldAheadAtLeastS,
@@ -17,6 +18,8 @@ import {
   linkShareWhenAhead,
   measuresFromBytesAtLeast,
   measuresTheLink,
+  joinsSmallChunks,
+  SmallChunkRun,
   startingLevel,
   standsStillAtMostMs,
   steadyLevel,
@@ -204,6 +207,60 @@ describe("what measures the link (D265 §7)", () => {
     // 4.2 Mb/s arriving: at a 4.4 Mb/s pace, the pace held it; at 6 Mb/s, the link did.
     expect(measuresTheLink({ ...loaded, paceBps: 4_400_000 })).toBe(false);
     expect(measuresTheLink({ ...loaded, paceBps: 6_000_000 })).toBe(true);
+  });
+});
+
+describe("small chunks loaded back to back measure the link together (D414 §3)", () => {
+  /** A small chunk of level 0, asked at askedMs, its 40 KB arriving from 50 ms after for 200 ms. */
+  const small = (askedMs: number, level = 0) => ({
+    level,
+    askedMs,
+    measuredFromMs: askedMs + 50,
+    endMs: askedMs + 250,
+    bytes: 40_000,
+    measuredBytes: 40_000,
+  });
+
+  it("are one sample once four 40 KB chunks, each asked as the last ended, reach the floor", () => {
+    const run = new SmallChunkRun();
+    expect(run.add(small(0), 50)).toBeUndefined();
+    expect(run.add(small(260), 50)).toBeUndefined();
+    expect(run.add(small(520), 50)).toBeUndefined();
+    // 160 KB from the first one's first byte, at 50 ms, to the last one's end, at 1030 ms.
+    expect(run.add(small(780), 50)).toEqual({
+      level: 0,
+      bytes: 160_000,
+      arrivedMs: 980,
+      firstByteMs: 50,
+    });
+    // The run starts afresh after its sample.
+    expect(run.add(small(1040), 50)).toBeUndefined();
+  });
+
+  it("are not chunks with a rest between them, nor of another quality", () => {
+    const run = new SmallChunkRun();
+    run.add(small(0), 50);
+    run.add(small(250 + backToBackWithinMs + 1), 50); // rested: starts its own run
+    run.add(small(600, 1), 50); // another quality: its own
+    expect(run.add(small(860, 1), 50)).toBeUndefined();
+    run.clear();
+    run.add(small(1120, 1), 50);
+    run.add(small(1380, 1), 50);
+    expect(run.add(small(1640, 1), 50)).toBeUndefined(); // three since the clear: 120 KB
+  });
+
+  it("are small chunks over the link, unpaced", () => {
+    const loaded = {
+      loadMs: 250,
+      arrivingMs: 200,
+      bytes: 40_000,
+      paceBps: undefined,
+      isFromCache: undefined,
+    };
+    expect(joinsSmallChunks(loaded)).toBe(true);
+    expect(joinsSmallChunks({ ...loaded, bytes: measuresFromBytesAtLeast })).toBe(false); // alone
+    expect(joinsSmallChunks({ ...loaded, isFromCache: true })).toBe(false);
+    expect(joinsSmallChunks({ ...loaded, paceBps: 2_000_000 })).toBe(false);
   });
 });
 
