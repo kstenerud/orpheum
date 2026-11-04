@@ -24,7 +24,7 @@ import {
   AudioIcon,
   BackIcon,
   CloseIcon,
-  MoreIcon,
+  SettingsIcon,
   NextIcon,
   PreviousIcon,
   SubtitlesIcon,
@@ -133,7 +133,7 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
       next: <NextIcon />,
       subtitles: <SubtitlesIcon />,
       audio: <AudioIcon />,
-      more: <MoreIcon />,
+      settings: <SettingsIcon />,
       back: <BackIcon />,
     };
     await page.viewport(1280, 720);

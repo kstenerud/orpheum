@@ -427,7 +427,7 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
       "Forward 10 s",
       "Subtitles: Off",
       "Sound: English",
-      "More",
+      "Settings",
       "Full screen",
     ]);
     expect(document.activeElement).toBe(fullScreen);

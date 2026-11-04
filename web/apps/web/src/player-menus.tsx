@@ -23,7 +23,7 @@ import { PlayOriginal } from "./play-original.tsx";
 import { keepsOpenAttribute, PopoverButton, type OneControl } from "./popover.tsx";
 import { volumeAfter } from "./player-commands.ts";
 import { muteClass, SoundControls, type PlayerSound } from "./player-controls.tsx";
-import { AudioIcon, MoreIcon, MutedIcon, SoundIcon, SubtitlesIcon } from "./player-icons.tsx";
+import { AudioIcon, MutedIcon, SettingsIcon, SoundIcon, SubtitlesIcon } from "./player-icons.tsx";
 import type { OverlayControl } from "./player-overlay-state.ts";
 import { PlayerTracksContext, type PlayerTracks } from "./player-tracks.tsx";
 import { ActionChooser, currentLabelOf, type ActionChoice } from "./route-chooser.tsx";
@@ -307,10 +307,10 @@ function MoreMenu(props: {
   const { subtitles, boost } = tracks;
   return (
     <DropDown
-      label={t("playerControls.more")}
-      opener={<MoreIcon />}
+      label={t("playerControls.settings")}
+      opener={<SettingsIcon />}
       openerClassName="icon-button icon-button--over-video"
-      openerNaming={{ "aria-label": t("playerControls.more") }}
+      openerNaming={{ "aria-label": t("playerControls.settings") }}
       isFromItsTop
       onOpenChange={props.onOpenChange}
     >

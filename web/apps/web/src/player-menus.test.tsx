@@ -143,7 +143,7 @@ describe("the overlay's menus (D407 §8)", () => {
 
   it("holds the rest under ⁝: Start over, the subtitles' offset, levelling", async () => {
     const on = await drawn(tracksNoting({ subtitles: [], audio: [] }));
-    await opened(on, "More");
+    await opened(on, "Settings");
     const shown = places(on).join(" | ");
     expect(shown).toContain("Start over");
     expect(shown).toContain("Subtitle offset");
