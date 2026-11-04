@@ -3,6 +3,7 @@
 # ABOUTME: stays quiet on ordinary work, run as Claude Code runs them (JSON on stdin).
 import json
 import os
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -474,6 +475,48 @@ class CommitNeedsHooks(unittest.TestCase):
         self.assertTrue(pre_bash.hooks_installed(bare))
         subprocess.run(["git", "-C", str(bare), "config", "core.hooksPath", "/dev/null"], check=True)
         self.assertFalse(pre_bash.hooks_installed(bare))
+
+
+class TestsRunHoldingTheLock(unittest.TestCase):
+    """A test command typed in a session runs holding the repository's test lock (scripts/gate_lock.py):
+    agents' runs by hand beside each other and the gates loaded the machine to 70 on 8 cores and failed
+    each other's browser tests (the owner, 2026-11-04)."""
+
+    def test_what_each_command_holds_the_lock_as(self):
+        sys.path.insert(0, str(HOOKS))
+        import pre_bash  # noqa: PLC0415
+
+        for cmd in ("./dev go test -run X ./internal/core/api/", "npm --prefix web test -- x.ts",
+                    "cd web && npx vitest run x", "./dev npm --prefix web run test:browser -- x",
+                    "make test-browser", "go vet ./...", "make spot && go test ./x/"):
+            self.assertEqual(pre_bash.lock_kind(cmd), "test", cmd)
+        for cmd in ("python3 scripts/check_revert_red.py --base x", "./dev python3 scripts/check_pr_snapshot.py"):
+            self.assertEqual(pre_bash.lock_kind(cmd), "gate", cmd)
+        # Gates that take the lock themselves, naming what they are, and a commit, whose spot check does.
+        for cmd in ("make check", "./dev make check-pr > /tmp/log 2>&1", "make -j6 spot", "make spot BASE=HEAD~3",
+                    "make check-revert-red ONLY=x", "make check-pr-failed", "git commit -q -F -",
+                    "git status --short", "go build ./...", "echo go test"):
+            self.assertIsNone(pre_bash.lock_kind(cmd), cmd)
+
+    def test_the_hook_runs_a_test_command_through_the_lock_in_its_own_shell(self):
+        command = "cd web && npx vitest run 'a b.ts'"
+        said = run_hook("pre_bash.py", {"cwd": str(ROOT), "tool_input": {"command": command}})
+        ran = said["hookSpecificOutput"]["updatedInput"]["command"]
+        self.assertEqual(shlex.split(ran)[1:], [str(ROOT / "scripts" / "gate_lock.py"), "--as", "test", "bash", "-c",
+                                                command])
+        self.assertEqual(run_hook("pre_bash.py", {"cwd": str(ROOT), "tool_input": {"command": "make check"}}), {})
+
+    def test_an_agents_test_command_is_both_locked_and_tagged(self):
+        said = run_hook("pre_bash.py", {"cwd": str(ROOT), "agent_id": "a1",
+                                        "tool_input": {"command": "go test ./x/"}})
+        ran = said["hookSpecificOutput"]["updatedInput"]["command"]
+        self.assertIn("ORPHEUM_AGENT_ID=a1", ran)
+        self.assertIn("gate_lock.py --as test bash -c 'go test ./x/'", ran)
+
+    def test_a_test_command_in_another_repository_takes_no_lock(self):
+        with tempfile.TemporaryDirectory() as other:
+            subprocess.run(["git", "init", "-q", other], check=True, env={**os.environ, **HERMETIC})
+            self.assertEqual(run_hook("pre_bash.py", {"cwd": other, "tool_input": {"command": "go test ./..."}}), {})
 
 
 class NothingTestsBesideCheckPr(unittest.TestCase):

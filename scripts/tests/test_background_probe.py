@@ -128,6 +128,42 @@ class BackgroundProbe(unittest.TestCase):
         self.assertRegex(out.getvalue(), r"background probe: abc\.\.\w+, started at \d\d:\d\d:\d\d UTC")
         self.assertRegex(out.getvalue(), r"background probe: ended at \d\d:\d\d:\d\d UTC, after \d+ s \(exit 0\)")
 
+    def test_a_pass_waits_for_another_test_run_and_holds_the_test_lock_as_the_probe(self):
+        # 2026-11-04: the probe ran beside agents' spot checks and test runs, the load reached 70 on 8
+        # cores, and their browser tests failed each other's.
+        seen: list[str | None] = []
+        with self.repo.cwd(), open(bp.gate_lock.lock_path(), "a+", encoding="utf-8") as other:
+            bp.fcntl.flock(other, fcntl.LOCK_EX)
+            bp.gate_lock.mark(other, "spot")
+
+            def release(_seconds):
+                seen.append(bp.gate_lock.holder_kind(bp.gate_lock.holder()))
+                fcntl.flock(other, fcntl.LOCK_UN)
+
+            def fake(_here, _command):
+                seen.append(bp.gate_lock.holder_kind(bp.gate_lock.holder()))
+                return 0
+
+            with mock.patch.object(bp, "base", return_value="abc"), \
+                    mock.patch.object(bp.time, "sleep", side_effect=release), \
+                    mock.patch.object(bp, "probe_until_stopped", side_effect=fake):
+                bp.run()
+        self.assertEqual(seen, ["spot", "probe"], "it waited behind the spot check, then probed holding the lock")
+        with self.repo.cwd():
+            self.assertIsNone(bp.gate_lock.holder(), "the lock is let go after the pass")
+
+    def test_a_stop_asked_while_it_waits_for_the_test_lock_ends_it_unprobed(self):
+        with self.repo.cwd(), open(bp.gate_lock.lock_path(), "a+", encoding="utf-8") as other:
+            fcntl.flock(other, fcntl.LOCK_EX)
+            with mock.patch.object(bp.time, "sleep", side_effect=lambda _s: (self.here / bp.STOP).touch()):
+                self.assertEqual(self.probes(), [])
+
+    def test_a_probe_runs_revert_red_as_a_sub_run_of_the_lock_it_holds(self):
+        with self.repo.cwd() as out, mock.patch.dict(os.environ, {bp.gate_lock.GATE_LOCK_HELD: ""}):
+            status = bp.probe_until_stopped(self.here, [
+                sys.executable, "-c", f"import os, sys; sys.exit(os.environ['{bp.gate_lock.GATE_LOCK_HELD}'] != '1')"])
+        self.assertEqual(status, 0, out.getvalue())
+
 
 class Environment(unittest.TestCase):
     def test_the_run_takes_none_of_the_hooks_git_variables(self):

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: PreToolUse hook for shell commands: refuses adding dependencies, skipping git
-# ABOUTME: hooks, force-pushing, and shell writes whose target is a gate file in this project.
+# ABOUTME: hooks, force-pushing, and shell writes whose target is a gate file in this project, and
+# ABOUTME: runs a test command holding the repository's test lock (scripts/gate_lock.py).
 # ABOUTME: A speed bump, not a wall: a script can write a file without naming it on the
 # ABOUTME: command line. The wall is the branch gate's Gate-Changed trailer and review.
 """Decide from what a command does, not from the words it contains.
@@ -318,6 +319,44 @@ def loads_the_machine(command: str, cwd: Path) -> bool:
     return False
 
 
+# Make targets that hold the test lock themselves, naming what they are (scripts/gate_lock.py's --as).
+LOCKING_TARGET = re.compile(r"^(?:check|spot|check-pr\b.*|check-revert-red\b.*)$")
+# Gate scripts that, run by hand, take as long as their gate: the Stop hook does not wait behind them.
+LONG_SCRIPT = re.compile(r"(?:^|/)scripts/(?:check_revert_red|check_pr_snapshot|quiet_gate)\.py$")
+
+
+def lock_kind(command: str) -> str | None:
+    """What a command holds the repository's test lock as (scripts/gate_lock.py), or None when it
+    needs no lock taken for it: it runs no tests, or only gates that take the lock themselves (make
+    check, make spot, check-pr, revert-red's targets) and commits, whose spot check does. Agents' test
+    runs by hand beside each other and beside the gates loaded the machine to 70 on 8 cores and failed
+    each other's browser tests (the owner, 2026-11-04)."""
+    kind = None
+    for args, _ in simple_commands(tokens(command)):
+        words = [word for word in args if not ASSIGNMENT.match(word)]
+        while words and (words[0] in PREFIXES or Path(words[0]).name == "dev"):
+            words = words[1:]
+        if not words or not _runs_tests(Path(words[0]).name, words[1:]):
+            continue
+        name = Path(words[0]).name
+        if name == "git":
+            continue
+        if name == "make" and all(LOCKING_TARGET.match(target) for target in operands(words[1:], MAKE_VALUE_FLAGS)
+                                  if LOADING_TARGET.match(target)):
+            continue
+        if name.startswith("python") and any(LONG_SCRIPT.search(word) for word in operands(words[1:])):
+            return "gate"
+        kind = "test"
+    return kind
+
+
+def holding_the_lock(command: str, kind: str) -> str:
+    """command, run holding the repository's test lock as kind: in its own shell, so a `cd` in it no
+    longer carries to the next command."""
+    script = hooklib.ROOT / "scripts" / "gate_lock.py"
+    return f"{shlex.quote(sys.executable)} {shlex.quote(str(script))} --as {kind} bash -c {shlex.quote(command)}"
+
+
 def git_directory(words: list[str], directory: Path) -> Path:
     """The directory a git command's words run it in, from directory: each `-C` moves it on."""
     for option, value in zip(words, words[1:], strict=False):
@@ -418,8 +457,22 @@ def main() -> None:
 
     if refusals:
         hooklib.deny(refusals[0])
-    elif agents.is_agent_id(event.get("agent_id")):
-        tag_for_its_agent(event, command)
+        return
+    kind = lock_kind(command)
+    if kind is not None and not in_this_project(cwd):
+        kind = None
+    run = holding_the_lock(command, kind) if kind is not None else command
+    if agents.is_agent_id(event.get("agent_id")):
+        tag_for_its_agent(event, run)
+    elif run != command:
+        rewrite(event, run)
+
+
+def rewrite(event: dict, command: str) -> None:
+    """Runs command in place of the one the tool was given."""
+    tool_input = dict(event.get("tool_input") or {})
+    tool_input["command"] = command
+    json.dump({"hookSpecificOutput": {"hookEventName": "PreToolUse", "updatedInput": tool_input}}, sys.stdout)
 
 
 def tag_for_its_agent(event: dict, command: str) -> None:
@@ -429,9 +482,7 @@ def tag_for_its_agent(event: dict, command: str) -> None:
     agent_id = str(event["agent_id"])
     agents.mark_active(agent_id)
     tool_input = dict(event.get("tool_input") or {})
-    tool_input["command"] = agents.wrapped(command, agent_id,
-                                           is_background=bool(tool_input.get("run_in_background")))
-    json.dump({"hookSpecificOutput": {"hookEventName": "PreToolUse", "updatedInput": tool_input}}, sys.stdout)
+    rewrite(event, agents.wrapped(command, agent_id, is_background=bool(tool_input.get("run_in_background"))))
 
 
 if __name__ == "__main__":

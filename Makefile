@@ -52,8 +52,9 @@ export PWTEST_CACHE_DIR := $(or $(PWTEST_CACHE_DIR),$(HOME)/.cache/orpheum/playw
 # web/e2e/test-timings.ts; the owner, 2026-10-20): it reads `go test -json` and prints go test's own text.
 GO_TIMINGS = $(PYTHON) scripts/go_test_timings.py
 
-# One gate at a time on the repository, every worktree's included: a second waits; a gate's own
-# sub-runs pass through (scripts/gate_lock.py; process review F17, 2026-10-27).
+# One test run at a time on the repository, every worktree's included: a second waits; a run's own
+# sub-runs pass through. `--as` names the holder, which the Stop hook reads (scripts/gate_lock.py;
+# process review F17, 2026-10-27; make spot and every test run too, the owner, 2026-11-04).
 GATE_LOCK = $(PYTHON) scripts/gate_lock.py
 
 .PHONY: help
@@ -72,16 +73,17 @@ CHECK_JOBS ?= $(shell nproc 2>/dev/null || echo 4)
 check: hooks ## The gate: everything that runs on every change, quietly (VERBOSE=1 prints all; the log is in .git/gate-logs)
 	@# Where the hooks run it: the gate's container when there is an engine (scripts/run_gate.py, F1).
 	@if $(PYTHON) scripts/run_gate.py --hops check; then exec $(PYTHON) scripts/in_dev_image.py check; \
-	  else $(GATE_LOCK) $(PYTHON) scripts/quiet_gate.py --fail-fast "make check" check-verbose; fi
+	  else $(GATE_LOCK) --as check $(PYTHON) scripts/quiet_gate.py --fail-fast "make check" check-verbose; fi
 
 # The spot check, while working: the tests of what changed and of what imports it, about 30 s; not
 # the gate, which make check is at the turn's end; the pre-commit hook runs it (D279, testing.md §10).
+# It holds the test lock, so agents' commits wait for each other's tests (the owner, 2026-11-04).
 # BASE=<rev> checks commits.
 .PHONY: spot
 spot: hooks ## Spot check while working: tests of what changed since BASE (default HEAD, so uncommitted) and its importers, ~30 s
 	@# In the gate's container, as make check: one Go test cache for both (the caching audit's finding 4).
 	@if $(PYTHON) scripts/run_gate.py --hops spot; then exec $(PYTHON) scripts/in_dev_image.py spot $(if $(BASE),BASE='$(BASE)') $(if $(SPOT_JOBS),SPOT_JOBS=$(SPOT_JOBS)); \
-	  else $(PYTHON) scripts/spot_check.py $(if $(BASE),--base '$(BASE)') $(if $(SPOT_JOBS),--jobs $(SPOT_JOBS)); fi
+	  else $(GATE_LOCK) --as spot $(PYTHON) scripts/spot_check.py $(if $(BASE),--base '$(BASE)') $(if $(SPOT_JOBS),--jobs $(SPOT_JOBS)); fi
 
 .PHONY: check-verbose
 # web-deps runs before the parallel steps: check-generated and check-web both need it, and two
@@ -308,7 +310,7 @@ CHECK_PR_BUDGET_S := 300
 
 .PHONY: check-pr
 check-pr: hooks ## Branch gates against BASE, quietly (VERBOSE=1 prints all; the log is in .git/gate-logs)
-	@if ! $(PYTHON) scripts/run_gate.py --hops check-pr; then $(GATE_LOCK) $(MAKE) --no-print-directory check-pr-locked $(if $(BASE),BASE=$(BASE)); else exec $(PYTHON) scripts/in_dev_image.py check-pr $(if $(BASE),BASE=$(BASE)); fi
+	@if ! $(PYTHON) scripts/run_gate.py --hops check-pr; then $(GATE_LOCK) --as check-pr $(MAKE) --no-print-directory check-pr-locked $(if $(BASE),BASE=$(BASE)); else exec $(PYTHON) scripts/in_dev_image.py check-pr $(if $(BASE),BASE=$(BASE)); fi
 
 # check-pr once it holds the gate lock: the browsers, and with them web-deps' npm ci, install under it,
 # so a make check the Stop hook started cannot run its own npm ci beside them (the 11-01 batch: they
@@ -401,25 +403,25 @@ web-lint-full: web-deps ## eslint without its cache: make check's cached lint ca
 
 .PHONY: check-revert-red
 check-revert-red: ## Every behaviour change can turn a test red when reverted (D190); ONLY="a b" probes only those paths
-	@base="$$($(RESOLVE_BASE))"; $(GATE_LOCK) $(PYTHON) scripts/check_revert_red.py --base "$$base" $(if $(ONLY),--only $(ONLY))
+	@base="$$($(RESOLVE_BASE))"; $(GATE_LOCK) --as revert-red $(PYTHON) scripts/check_revert_red.py --base "$$base" $(if $(ONLY),--only $(ONLY))
 
 .PHONY: check-revert-red-failed
 check-revert-red-failed: ## Revert-red on only the files its last run against BASE failed on; then run the full check
-	@base="$$($(RESOLVE_BASE))"; $(GATE_LOCK) $(PYTHON) scripts/check_revert_red.py --base "$$base" --rerun-failed
+	@base="$$($(RESOLVE_BASE))"; $(GATE_LOCK) --as revert-red $(PYTHON) scripts/check_revert_red.py --base "$$base" --rerun-failed
 
 .PHONY: check-revert-red-code check-revert-red-browser check-revert-red-code-failed check-revert-red-browser-failed
 check-revert-red-code: ## Revert-red on the code (Go, TypeScript, Python) with its cheap runs alone: check-pr's tier after the medium one
-	@base="$$($(RESOLVE_BASE))"; $(GATE_LOCK) $(PYTHON) scripts/check_revert_red.py --base "$$base" --part code
+	@base="$$($(RESOLVE_BASE))"; $(GATE_LOCK) --as revert-red $(PYTHON) scripts/check_revert_red.py --base "$$base" --part code
 check-revert-red-browser: ## Revert-red's browser runs: the stylesheets, and the code check-revert-red-code left owing them; check-pr's last step
-	@base="$$($(RESOLVE_BASE))"; $(GATE_LOCK) $(PYTHON) scripts/check_revert_red.py --base "$$base" --part browser
+	@base="$$($(RESOLVE_BASE))"; $(GATE_LOCK) --as revert-red $(PYTHON) scripts/check_revert_red.py --base "$$base" --part browser
 check-revert-red-code-failed: ## Revert-red on only the code files its last run against BASE failed on
-	@base="$$($(RESOLVE_BASE))"; $(GATE_LOCK) $(PYTHON) scripts/check_revert_red.py --base "$$base" --rerun-failed --part code
+	@base="$$($(RESOLVE_BASE))"; $(GATE_LOCK) --as revert-red $(PYTHON) scripts/check_revert_red.py --base "$$base" --rerun-failed --part code
 check-revert-red-browser-failed: ## Revert-red's browser runs on only the files its last run against BASE failed on
-	@base="$$($(RESOLVE_BASE))"; $(GATE_LOCK) $(PYTHON) scripts/check_revert_red.py --base "$$base" --rerun-failed --part browser
+	@base="$$($(RESOLVE_BASE))"; $(GATE_LOCK) --as revert-red $(PYTHON) scripts/check_revert_red.py --base "$$base" --rerun-failed --part browser
 
 .PHONY: check-commit-red
 check-commit-red: ## Revert-red on the last commit's code alone, against its parent: a minute's check after each commit, so a change no test notices is found while it is fresh (the owner, 2026-10-15)
-	@$(GATE_LOCK) $(PYTHON) scripts/check_revert_red.py --base HEAD~1 --part code --unrecorded
+	@$(GATE_LOCK) --as revert-red $(PYTHON) scripts/check_revert_red.py --base HEAD~1 --part code --unrecorded
 
 .PHONY: check-test-weakening
 check-test-weakening: ## No test got weaker, and no gate changed, without a trailer on a commit that touched it
@@ -466,7 +468,7 @@ check-everything: browsers ## Everything, trusting no stamp, cache or map: CI's 
 	  base="$$(git rev-list -1 --before='$(SINCE)' HEAD)"; \
 	  if [ -z "$$base" ] || [ "$$base" = "$$(git rev-parse HEAD)" ]; then \
 	    echo "check-everything: no commit since $(SINCE), so revert-red has nothing to probe"; \
-	  else $(GATE_LOCK) $(PYTHON) scripts/check_revert_red.py --base "$$base" --part all --unrecorded --trust-no-record || failed=1; fi; \
+	  else $(GATE_LOCK) --as revert-red $(PYTHON) scripts/check_revert_red.py --base "$$base" --part all --unrecorded --trust-no-record || failed=1; fi; \
 	  if [ "$$failed" -ne 0 ]; then echo "make check-everything: FAILED; every step ran, so each failure is above"; exit 1; fi; \
 	  echo "make check-everything: everything passed"
 

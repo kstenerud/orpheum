@@ -42,7 +42,7 @@ class PlaywrightPin(unittest.TestCase):
         # Installed before the lock, check-pr's npm ci raced the Stop hook's make check (2026-11-01).
         makefile = (REPO / "Makefile").read_text()
         self.assertRegex(makefile, r"(?m)^check-pr: hooks ##")
-        self.assertRegex(makefile, r"(?m)^\t@if .*then \$\(GATE_LOCK\) \$\(MAKE\) --no-print-directory check-pr-locked\b")
+        self.assertRegex(makefile, r"(?m)^\t@if .*then \$\(GATE_LOCK\) --as check-pr \$\(MAKE\) --no-print-directory check-pr-locked\b")
         self.assertRegex(makefile, r"(?m)^check-pr-locked: browsers$")
 
     def test_eslint_may_send_the_reader_only_to_an_installed_package(self):

@@ -139,11 +139,17 @@ def cannot_run(target: str, output: str, blocked_before: bool) -> None:
 
 
 def gate_held() -> bool:
-    """Whether some gate holds the repository's gate lock (scripts/gate_lock.py). The Stop hook never
-    waits for one: it has ten minutes, and check-pr takes longer; the mark stays for the next turn."""
-    done = subprocess.run([sys.executable, str(hooklib.ROOT / "scripts" / "gate_lock.py"), "--held"],
-                          cwd=hooklib.ROOT, capture_output=True, check=False)
-    return done.returncode == 0
+    """Whether a long gate holds the repository's test lock (scripts/gate_lock.py: make check,
+    check-pr, revert-red). The Stop hook never waits for one: it has ten minutes, and check-pr takes
+    longer; the mark stays for the next turn. Behind a spot check or a test run its make check waits,
+    and the background probe gives way to it (the owner, 2026-11-04)."""
+    import gate_lock  # noqa: PLC0415 (in scripts/, which hooklib puts on the path)
+
+    try:
+        kind = gate_lock.holder_kind(gate_lock.holder(hooklib.ROOT))
+    except (OSError, subprocess.CalledProcessError):
+        return False  # no git to find the lock by (a bare machine): the gate's own run says what is missing
+    return kind is not None and kind in gate_lock.LONG
 
 
 def already_passed() -> bool:

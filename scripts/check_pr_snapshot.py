@@ -109,7 +109,7 @@ def main(argv: list[str]) -> int:
         return 2
     folder.mkdir(parents=True, exist_ok=True)
     # The repository's one gate lock first (gate_lock.py), then check-pr's own, which the hooks read.
-    with gate_lock.holding(source) as gate_env, open(folder / "lock", "a", encoding="utf-8") as lock:
+    with gate_lock.holding(source, "check-pr") as gate_env, open(folder / "lock", "a", encoding="utf-8") as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:

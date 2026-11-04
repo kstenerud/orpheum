@@ -16,6 +16,9 @@ runs `background_probe.py launch`; it starts this, detached, and returns at once
 - **Out of the way.** It runs the code part alone (no browser), on two probe trees, at nice 19,
   holding the probe trees' lock as any revert-red run does. A run of the gate's own (check-pr, a
   targeted revert-red) stops it first (`stop`), taking the trees; what it had probed is kept.
+- **One test run at a time.** Each pass holds the repository's test lock as `probe` (gate_lock.py),
+  waiting for it while anything else runs tests, and any run wanting the lock stops the pass first
+  (the owner, 2026-11-04: the probe beside agents' runs loaded the machine and failed their tests).
 - **Stopped by a file, not a signal.** The post-commit hook starts it on the host, and check-pr runs
   in the gate's container, whose processes are numbered apart: its signal to the recorded process
   group reached nothing, said nothing, and check-pr waited eight minutes for the run to end on its
@@ -40,8 +43,13 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import IO
 
 SCRIPTS = Path(__file__).resolve().parent
+sys.path.insert(0, str(SCRIPTS))
+
+import gate_lock  # noqa: E402
+
 OFF = "background-off"
 AGAIN = "again"
 LOCK = "background.lock"
@@ -124,9 +132,22 @@ def clock_text() -> str:
     return datetime.datetime.now(datetime.timezone.utc).strftime("%H:%M:%S")
 
 
+def take_test_lock(here: Path, lock: IO[str]) -> bool:
+    """Takes the repository's test lock (gate_lock.py) as the probe, waiting while another run holds
+    it; False, without it, once the run is asked to stop or is no longer wanted. It never blocks on the
+    lock: a gate holding it may be waiting in `stop` for this run to end."""
+    while is_wanted(here) and not (here / STOP).exists():
+        if gate_lock.try_take(lock):
+            gate_lock.mark(lock, gate_lock.PROBE)
+            return True
+        time.sleep(STOP_POLL_SECONDS)
+    return False
+
+
 def probe_until_stopped(here: Path, command: list[str]) -> int:
     """Runs revert-red, ending it with SIGTERM once the stop file appears; its exit status."""
-    with subprocess.Popen(command) as running:  # noqa: S603
+    env = {**os.environ, gate_lock.GATE_LOCK_HELD: "1"}
+    with subprocess.Popen(command, env=env) as running:  # noqa: S603
         while running.poll() is None:
             if (here / STOP).exists():
                 print(f"background probe: stopped at {clock_text()} UTC, for a run of the gate's own", flush=True)
@@ -161,13 +182,16 @@ def run() -> int:
                 break
             head = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True,
                                   check=False).stdout.strip()
-            print(f"background probe: {start[:12]}..{head[:12]}, started at {clock_text()} UTC", flush=True)
-            began = time.monotonic()
-            status = probe_until_stopped(here, [
-                "nice", "-n", str(NICENESS), sys.executable, str(SCRIPTS / "check_revert_red.py"),
-                "--base", start, "--head", head, "--part", "code", "--unrecorded", "--jobs", str(JOBS)])
-            print(f"background probe: ended at {clock_text()} UTC, after {time.monotonic() - began:.0f} s "
-                  f"(exit {status})", flush=True)
+            with open(gate_lock.lock_path(), "a+", encoding="utf-8") as test_lock:
+                if not take_test_lock(here, test_lock):
+                    break
+                print(f"background probe: {start[:12]}..{head[:12]}, started at {clock_text()} UTC", flush=True)
+                began = time.monotonic()
+                status = probe_until_stopped(here, [
+                    "nice", "-n", str(NICENESS), sys.executable, str(SCRIPTS / "check_revert_red.py"),
+                    "--base", start, "--head", head, "--part", "code", "--unrecorded", "--jobs", str(JOBS)])
+                print(f"background probe: ended at {clock_text()} UTC, after {time.monotonic() - began:.0f} s "
+                      f"(exit {status})", flush=True)
             if not (here / AGAIN).exists():
                 break
     return 0
