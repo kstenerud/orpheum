@@ -26,6 +26,7 @@ import {
   type Walking,
   type WalkAnswers,
 } from "./test-walk.tsx";
+import { routeHref } from "./router.ts";
 
 /** A synopsis long enough to run past its clamp on any screen. */
 const longOverview = Array.from(
@@ -176,6 +177,24 @@ describe("a title's actions row, by a remote", () => {
     expect(focusedName()).toBe("More actions");
     expect(document.querySelector(".title-head__actions .title__play")).toBeNull();
     expect(document.querySelector(".title-head__actions .watched-marking")).not.toBeNull();
+  });
+
+  it("arrives on the words saying why a person's film cannot play, where it has no …, and OK there changes nothing (D420)", async () => {
+    await page.viewport(1280, 800);
+    const away = { ...film, id: 105, unavailable: { reason: "node_away", nodeName: "devnas" } };
+    const heard: string[] = [];
+    walking = await mountApp(
+      walkServices({ ...signedIn, "GET /items/105": away }, "/titles/105", heard),
+    );
+    await expect.poll(() => document.activeElement?.className ?? "").toContain("title-head__notes");
+    expect(document.querySelector(".title-head__overflow button")).toBeNull();
+    expect(document.activeElement?.textContent).toContain("devnas");
+    const asked = heard.length;
+    await userEvent.keyboard("{Enter}");
+    expect(routeHref(walking.services.navigation.route())).toBe("/titles/105");
+    expect(heard.slice(asked).filter((request) => !request.startsWith("GET "))).toEqual([]);
+    await userEvent.keyboard("{ArrowDown}");
+    expect(document.activeElement?.closest(".watched-marking")).not.toBeNull();
   });
 
   it("arrives on the … of a series with nothing next, not on Mark as watched", async () => {
