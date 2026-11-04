@@ -3,7 +3,7 @@
 import "./jobs.css";
 
 import type { Api, components } from "@orpheum/sdk";
-import type { JSX } from "react";
+import { useState, type JSX } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
@@ -11,7 +11,7 @@ import { useRequest } from "./use-request.ts";
 import { idempotent } from "./idempotent.ts";
 import { BusyGroup } from "./busy-group.tsx";
 import { camelKey } from "./catalogue-key.ts";
-import { dateTimeText } from "./date-time-text.ts";
+import { dateText, dateTimeText } from "./date-time-text.ts";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./loaded.tsx";
@@ -105,9 +105,158 @@ export function Jobs(): JSX.Element {
       <h1 id="jobs-heading">{t("jobs.heading")}</h1>
       {problem === undefined ? null : <p role="alert">{problem}</p>}
       <BusyGroup isBusy={isBusy}>
-        <Loaded resource={jobs} render={(value) => <JobList jobs={value} onCancel={cancel} />} />
+        <Loaded resource={jobs} render={(value) => <JobsView jobs={value} onCancel={cancel} />} />
       </BusyGroup>
     </section>
+  );
+}
+
+/** Which jobs to show: every one, or those of one state or one kind; "" is every one. */
+export interface JobFilter {
+  readonly state: Job["state"] | "";
+  readonly kind: Job["kind"] | "";
+}
+
+/** The jobs a filter keeps, in the order the server sent them. */
+export function filteredJobs(jobs: readonly Job[], filter: JobFilter): readonly Job[] {
+  return jobs.filter(
+    (job) =>
+      (filter.state === "" || job.state === filter.state) &&
+      (filter.kind === "" || job.kind === filter.kind),
+  );
+}
+
+/** The jobs not yet ended, running before waiting, each in the order the server sent them. */
+export function activeJobs(jobs: readonly Job[]): readonly Job[] {
+  return [
+    ...jobs.filter((job) => job.state === "running"),
+    ...jobs.filter((job) => job.state === "queued"),
+  ];
+}
+
+/** The ended jobs of one day, the day as the start of it, local time. */
+export interface JobDay {
+  readonly day: number;
+  readonly jobs: readonly Job[];
+}
+
+/**
+ * The ended jobs by the local day they ended (or, without an end, were queued), the newest day
+ * first, each day's in the order the server sent them.
+ */
+export function finishedByDay(jobs: readonly Job[]): readonly JobDay[] {
+  const days = new Map<number, Job[]>();
+  for (const job of jobs.filter((each) => !isCancellable(each))) {
+    const at = new Date(job.finishedAt ?? job.createdAt);
+    const day = new Date(at.getFullYear(), at.getMonth(), at.getDate()).getTime();
+    days.set(day, [...(days.get(day) ?? []), job]);
+  }
+  return [...days.entries()]
+    .sort(([one], [other]) => other - one)
+    .map(([day, dayJobs]) => ({ day, jobs: dayJobs }));
+}
+
+/** Every state a job can be in, in the order a job passes through them. */
+const jobStates = [
+  "queued",
+  "running",
+  "done",
+  "failed",
+  "cancelled",
+] as const satisfies readonly Job["state"][];
+
+/**
+ * The job view's list (ui-audit-2026-11-04.md §3, Jobs): a filter by state and by kind, run here on
+ * the newest jobs the server sends (the owner, 2026-11-04, Option A); then the jobs running and
+ * waiting; then the ended ones, folded by the day they ended.
+ */
+export function JobsView(props: {
+  readonly jobs: readonly Job[];
+  readonly onCancel: (job: Job) => void;
+}): JSX.Element {
+  const { t, i18n } = useTranslation();
+  const [filter, setFilter] = useState<JobFilter>({ state: "", kind: "" });
+  if (props.jobs.length === 0) {
+    return <p>{t("jobs.none")}</p>;
+  }
+  const shown = filteredJobs(props.jobs, filter);
+  const active = activeJobs(shown);
+  const days = finishedByDay(shown);
+  return (
+    <>
+      <JobFilters jobs={props.jobs} filter={filter} onChange={setFilter} />
+      {shown.length === 0 ? <p>{t("jobs.noneShown")}</p> : null}
+      {active.length === 0 ? null : (
+        <>
+          <h2>{t("jobs.active")}</h2>
+          <JobList jobs={active} onCancel={props.onCancel} />
+        </>
+      )}
+      {days.length === 0 ? null : <h2>{t("jobs.finished")}</h2>}
+      {days.map(({ day, jobs }) => (
+        <details key={day} className="jobs__day">
+          <summary>
+            {t("jobs.day", { day: dateText(day, i18n.language), count: jobs.length })}
+          </summary>
+          <JobList jobs={jobs} onCancel={props.onCancel} />
+        </details>
+      ))}
+    </>
+  );
+}
+
+/** The filters: one state, or every one; one kind of those listed, or every one. */
+function JobFilters(props: {
+  readonly jobs: readonly Job[];
+  readonly filter: JobFilter;
+  readonly onChange: (filter: JobFilter) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { filter } = props;
+  // The kinds listed, and one chosen that the newest jobs no longer hold, so it can be undone.
+  const kinds = [
+    ...new Set([
+      ...props.jobs.map((job) => job.kind),
+      ...(filter.kind === "" ? [] : [filter.kind]),
+    ]),
+  ];
+  return (
+    <div className="page-actions jobs__filters">
+      <label>
+        {t("jobs.filterState")}{" "}
+        <select
+          value={filter.state}
+          onChange={(event) => {
+            const state = jobStates.find((each) => each === event.target.value) ?? "";
+            props.onChange({ ...filter, state });
+          }}
+        >
+          <option value="">{t("jobs.every")}</option>
+          {jobStates.map((state) => (
+            <option key={state} value={state}>
+              {t(`jobs.state.${state}`)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        {t("jobs.filterKind")}{" "}
+        <select
+          value={filter.kind}
+          onChange={(event) => {
+            const kind = kinds.find((each) => each === event.target.value) ?? "";
+            props.onChange({ ...filter, kind });
+          }}
+        >
+          <option value="">{t("jobs.every")}</option>
+          {kinds.map((kind) => (
+            <option key={kind} value={kind}>
+              {t(`jobs.kind.${camelKey(kind)}`)}
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
   );
 }
 
