@@ -52,7 +52,7 @@ function tracksNoting(chosen: Chosen): PlayerTracks {
   const off = { isOn: false, switchTo: () => undefined, problem: undefined };
   return {
     subtitles: {
-      tracks: [subtitleTrack({}), subtitleTrack({ streamId: 7, language: "fr" })],
+      tracks: [subtitleTrack({}), subtitleTrack({ streamId: 7, language: "de" })],
       chosenTrackKey: undefined,
       choose: (key) => {
         chosen.subtitles.push(key);
@@ -78,7 +78,7 @@ function tracksNoting(chosen: Chosen): PlayerTracks {
 
 const ways: PlayerMenusWays = { fileId: 3, soundOffsetMs: 0, onSubtitleFetched: () => undefined };
 
-const everyMenu: readonly OverlayControl[] = ["subtitles", "audio", "more"];
+const everyMenu: readonly OverlayControl[] = ["audioAndSubtitles", "more"];
 
 /** Draws the overlay's menus over tracks, telling told each opening and closing. */
 async function drawn(tracks: PlayerTracks, told: boolean[] = []): Promise<Mounted> {
@@ -122,21 +122,30 @@ async function choosing(on: Mounted, text: string): Promise<void> {
 }
 
 describe("the overlay's menus (D407 §8)", () => {
-  it("lists Off, the tracks and Find subtitles under 💬, and chooses one", async () => {
+  it("lists Off, the subtitle tracks and Find subtitles in Audio and subtitles, after the audio tracks, and chooses one", async () => {
     const chosen: Chosen = { subtitles: [], audio: [] };
     const on = await drawn(tracksNoting(chosen));
-    await opened(on, "Subtitles");
-    expect(places(on)).toEqual(["Off", "English", "French", "Find subtitles…"]);
-    await choosing(on, "French");
+    await opened(on, "Audio and subtitles");
+    expect(places(on)).toEqual([
+      "Audio",
+      "English",
+      "French",
+      "Subtitles",
+      "Off",
+      "English",
+      "German",
+      "Find subtitles…",
+    ]);
+    await choosing(on, "German");
     expect(chosen.subtitles).toEqual(["s7"]);
     expect(on.container.querySelector("dialog")).toBeNull();
   });
 
-  it("lists the audio tracks under 🎧, and chooses one", async () => {
+  it("lists the audio tracks first in Audio and subtitles, and chooses one", async () => {
     const chosen: Chosen = { subtitles: [], audio: [] };
     const on = await drawn(tracksNoting(chosen));
-    await opened(on, "Sound");
-    expect(places(on)).toEqual(["English", "French"]);
+    await opened(on, "Audio and subtitles");
+    expect(places(on).slice(0, 3)).toEqual(["Audio", "English", "French"]);
     await choosing(on, "French");
     expect(chosen.audio).toEqual([81]);
   });
@@ -153,7 +162,7 @@ describe("the overlay's menus (D407 §8)", () => {
   it("tells the overlay a menu is open, and Find subtitles' dialog after it, until it closes", async () => {
     const told: boolean[] = [];
     const on = await drawn(tracksNoting({ subtitles: [], audio: [] }), told);
-    await opened(on, "Subtitles");
+    await opened(on, "Audio and subtitles");
     await choosing(on, "Find subtitles…");
     expect(on.container.querySelector("dialog .subtitle-search")).not.toBeNull();
     expect(told.at(-1)).toBe(true);
@@ -164,10 +173,25 @@ describe("the overlay's menus (D407 §8)", () => {
     expect(told).toEqual([false, true, false]);
   });
 
-  it("names 🎧 by the first track where none is chosen, as the playback plays it", async () => {
+  it("names Audio and subtitles by the first audio track where none is chosen, as the playback plays it", async () => {
     const tracks = tracksNoting({ subtitles: [], audio: [] });
     await drawn({ ...tracks, audio: { ...tracks.audio, chosenStreamId: undefined } });
-    expect(openerNamed("Sound")?.getAttribute("aria-label")).toBe("Sound: English");
+    expect(openerNamed("Audio and subtitles")?.getAttribute("aria-label")).toBe(
+      "Audio and subtitles: English, Off",
+    );
+  });
+
+  it("lists no audio where the film has one audio track, and is named by its subtitles alone", async () => {
+    const tracks = tracksNoting({ subtitles: [], audio: [] });
+    const on = await drawn({
+      ...tracks,
+      audio: { ...tracks.audio, tracks: audioTracks.slice(0, 1) },
+    });
+    expect(openerNamed("Audio and subtitles")?.getAttribute("aria-label")).toBe(
+      "Audio and subtitles: Off",
+    );
+    await opened(on, "Audio and subtitles");
+    expect(places(on)).toEqual(["Subtitles", "Off", "English", "German", "Find subtitles…"]);
   });
 
   it("draws nothing without the film's tracks", async () => {
@@ -285,7 +309,7 @@ describe("🔈 (D407 §10, Q11)", () => {
       button.getAttribute("aria-label"),
     );
     expect(names[0]).toBe("Volume");
-    expect(names[1]).toMatch(/^Subtitles/u);
+    expect(names[1]).toMatch(/^Audio and subtitles/u);
     mounted.unmount();
     await drawn(tracks);
     expect(openerNamed("Volume")).toBeUndefined();
