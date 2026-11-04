@@ -71,23 +71,60 @@ describe("when a player is ready again (seek-resync-2026-10-12.md)", () => {
     expect(refill.isShort(loadedAhead(1570, 2300))).toBe(true);
   });
 
-  it("needs ten seconds after a stall, a catch-up's seek, or a seek whose player cannot say how long its next chunk takes", () => {
+  it("is ready after a stall or a catch-up's seek by the seek's rule where its link keeps up (D414 §2)", () => {
+    const readyOnMs = (2000 * readyAheadOfNextChunkPercent) / 100;
     const stalled = new Refill();
     stalled.chunkLoaded(pictureChunk);
     stalled.heard("waiting", loadedAhead(0));
-    expect(stalled.isShort(loadedAhead(5000, 2000))).toBe(true);
-    expect(stalled.isShort(loadedAhead(refillAheadMs, 2000))).toBe(false);
+    expect(stalled.isShort(loadedAhead(readyOnMs - 100, 2000))).toBe(true);
+    expect(stalled.isShort(loadedAhead(readyOnMs, 2000))).toBe(false);
 
     const caughtUp = new Refill();
     caughtUp.chunkLoaded(pictureChunk);
     caughtUp.sought("catchUp");
     caughtUp.heard("seeking", loadedAhead(0));
-    expect(caughtUp.isShort(loadedAhead(5000, 2000))).toBe(true);
+    expect(caughtUp.isShort(loadedAhead(readyOnMs - 100, 2000))).toBe(true);
+    expect(caughtUp.isShort(loadedAhead(readyOnMs, 2000))).toBe(false);
+  });
+
+  it("needs ten seconds after a stall or a seek whose player cannot say how long its next chunk takes", () => {
+    const stalled = new Refill();
+    stalled.heard("waiting", loadedAhead(0));
+    expect(stalled.isShort(loadedAhead(refillAheadMs - 100))).toBe(true);
+    expect(stalled.isShort(loadedAhead(refillAheadMs))).toBe(false);
 
     const unmeasured = new Refill();
     unmeasured.heard("seeking", loadedAhead(0));
     expect(unmeasured.isShort(loadedAhead(refillAheadMs - 100))).toBe(true);
     expect(unmeasured.isShort(loadedAhead(refillAheadMs))).toBe(false);
+  });
+
+  it("needs a minute's run after a stall where the link is slower than the lowest quality, within what it loads ahead (D414 §2)", () => {
+    /** At 60 s with aheadMs loaded, its next chunk 2 s of film taking loadMs, of the lowest quality or not. */
+    const nextChunk = (
+      aheadMs: number,
+      loadMs: number,
+      more: { readonly isLowestQuality: boolean; readonly loadsAheadAtMostMs?: number },
+    ): FakeMedia => {
+      const media = loadedAhead(aheadMs);
+      tellNextChunkLoadMs(media, () => ({ loadMs, from: "confident", filmMs: 2000, ...more }));
+      return media;
+    };
+    const lowest = { isLowestQuality: true } as const;
+    const stalled = new Refill();
+    stalled.heard("waiting", loadedAhead(0));
+    // The link carries 0.8 of the lowest quality, 2.5 s for 2 s of film: the seek's rule asks 3.75 s
+    // and plays a chunk or two before the next stall; a minute's run asks 60 × 0.2 = 12 s.
+    expect(stalled.isShort(nextChunk(11_900, 2500, lowest))).toBe(true);
+    expect(stalled.isShort(nextChunk(12_000, 2500, lowest))).toBe(false);
+    // At half of it, 30 s, but no more than the 20 s its player loads ahead.
+    const capped = { isLowestQuality: true, loadsAheadAtMostMs: 20_000 } as const;
+    expect(stalled.isShort(nextChunk(19_900, 4000, capped))).toBe(true);
+    expect(stalled.isShort(nextChunk(20_000, 4000, capped))).toBe(false);
+    // A link that keeps up with it, or a quality above the lowest, which the controller steps down
+    // from: the seek's rule, 150% of the load.
+    expect(stalled.isShort(nextChunk(1500, 1000, lowest))).toBe(false);
+    expect(stalled.isShort(nextChunk(3750, 2500, { isLowestQuality: false }))).toBe(false);
   });
 });
 

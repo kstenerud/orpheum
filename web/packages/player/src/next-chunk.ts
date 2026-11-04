@@ -24,13 +24,18 @@ interface ListedChunk {
   readonly byteRange: readonly number[];
 }
 
-/** The part of hls.js the next chunk is read from: the quality it loads and each quality's chunks. */
+/**
+ * The part of hls.js the next chunk is read from: the quality it loads, the lowest it may, each
+ * quality's chunks, and how far ahead it loads (keepForwardBuffer sets both lengths).
+ */
 export interface ChunkListing {
   readonly loadLevel: number;
+  readonly minAutoLevel: number;
   readonly levels: readonly {
     readonly averageBitrate: number;
     readonly details?: { readonly fragments: readonly ListedChunk[] } | undefined;
   }[];
+  readonly config: { readonly maxBufferLength: number; readonly maxMaxBufferLength: number };
 }
 
 /** A hair past the end of what is loaded, in seconds, so the chunk ending there is not taken for the next. */
@@ -45,6 +50,14 @@ export function nextChunkBits(
   listing: ChunkListing,
   video: Pick<HTMLMediaElement, "buffered" | "currentTime">,
 ): number | undefined {
+  return nextChunkOf(listing, video)?.bits;
+}
+
+/** The chunk after what video loaded where it is, on the quality hls.js loads: its bits and its film. */
+function nextChunkOf(
+  listing: ChunkListing,
+  video: Pick<HTMLMediaElement, "buffered" | "currentTime">,
+): { readonly bits: number; readonly filmMs: number } | undefined {
   const level = listing.levels[listing.loadLevel];
   const loadedEndS = video.currentTime + loadedAheadMsOf(video) / 1000 + pastTheEndS;
   const next = level?.details?.fragments.find((chunk) => chunk.start + chunk.duration > loadedEndS);
@@ -52,9 +65,11 @@ export function nextChunkBits(
     return undefined;
   }
   const [from, to] = next.byteRange;
-  return from !== undefined && to !== undefined && to > from
-    ? (to - from) * 8
-    : next.duration * level.averageBitrate;
+  const bits =
+    from !== undefined && to !== undefined && to > from
+      ? (to - from) * 8
+      : next.duration * level.averageBitrate;
+  return { bits, filmMs: next.duration * 1000 };
 }
 
 /**
@@ -71,7 +86,9 @@ export interface NextChunkLink {
 /**
  * Tells the SDK, for video, how long its next chunk is expected to take to load and what that rests
  * on (tellNextChunkLoadMs): the wait for its first byte plus its bits over the link nextChunkLink
- * names, its controller's next-chunk bound (Choosing.nextChunkLink). Returns the end of it.
+ * names, its controller's next-chunk bound (Choosing.nextChunkLink); with the film it plays, whether
+ * it is of the lowest quality hls.js may load, and the most it loads ahead, which a refill after a
+ * stall reads (refillAfterStallOf, D414 §2). Returns the end of it.
  */
 export function tellNextChunkLoad(
   listing: ChunkListing,
@@ -80,10 +97,17 @@ export function tellNextChunkLoad(
 ): () => void {
   return tellNextChunkLoadMs(video, () => {
     const over = nextChunkLink();
-    const bits = nextChunkBits(listing, video);
+    const next = nextChunkOf(listing, video);
+    const { maxBufferLength, maxMaxBufferLength } = listing.config;
     // A kilobit a second is a bit a millisecond.
-    return over === undefined || bits === undefined || over.kbps <= 0
+    return over === undefined || next === undefined || over.kbps <= 0
       ? undefined
-      : { loadMs: over.firstByteMs + bits / over.kbps, from: over.from };
+      : {
+          loadMs: over.firstByteMs + next.bits / over.kbps,
+          from: over.from,
+          filmMs: next.filmMs,
+          isLowestQuality: listing.loadLevel <= listing.minAutoLevel,
+          loadsAheadAtMostMs: Math.min(maxBufferLength, maxMaxBufferLength) * 1000,
+        };
   });
 }
