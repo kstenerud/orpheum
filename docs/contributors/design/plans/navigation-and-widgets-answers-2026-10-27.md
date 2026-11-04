@@ -1755,6 +1755,10 @@ sleep.
 5. **Back up now** opens a dialog holding the "Put the server's keys in it" checkbox and a "Create
    backup" button. The contents row's margin and no links for the sections that come and go: agreed.
 6. **The Manage and dialogs agents' other questions:** their suggestions, as given.
+7. **The trigger-repeat agent's questions** (the owner, 2026-11-04, "Agreed on the questions"): a held
+   play/pause (Start) never repeats, as OK and Back do not; a pad whose triggers report only as an axis
+   is left until VQ264 says whether the Fire TV's pad does. If one is handled, try the axis's amount as
+   the seek's speed (the owner: "we might test using the axis amount to control seek speed").
 
 ## The API batch (the owner, 2026-11-04, D416)
 
