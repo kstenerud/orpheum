@@ -426,6 +426,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D418](working-notes.md#d418--the-player-fills-the-window-on-every-device-its-controls-over-the-picture-a-title-page-arrives-on-its-main-action-or-on-more) The player fills the window on every device, its controls over the picture; a title page arrives on its main action, or on More — *revisited by D420*
 - [D419](working-notes.md#d419--homes-hide-sits-in-a-strip-above-its-card-your-account-places-its-leftover-sections-focus-after-hide-goes-to-the-next-card) Home's Hide sits in a strip above its card; Your account places its leftover sections; focus after Hide goes to the next card
 - [D420](working-notes.md#d420--a-title-page-with-nothing-to-play-and-no--arrives-on-the-words-saying-why) A title page with nothing to play and no "…" arrives on the words saying why
+- [D421](working-notes.md#d421--a-dialogs-safe-choice-comes-first-and-is-where-focus-arrives-where-every-choice-is-dangerous-none-is) A dialog's safe choice comes first and is where focus arrives; where every choice is dangerous, none is
 
 ## Archived
 

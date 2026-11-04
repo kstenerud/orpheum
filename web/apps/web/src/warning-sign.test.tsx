@@ -124,3 +124,19 @@ it("colours what cannot be undone red: outlined to ask, filled to confirm, its w
       ?.className,
   ).toBe("irreversible");
 });
+
+it("asks again with Keep it first and focused, so a press too many keeps things as they are (D421)", async () => {
+  mounted = await mountAs(
+    true,
+    <ConfirmButton
+      label="Remove Dan…"
+      consequence="This cannot be undone."
+      confirmLabel="Remove them"
+      onConfirm={() => undefined}
+    />,
+  );
+  await click(mounted.container.querySelector("button"));
+  const choices = [...mounted.container.querySelectorAll("button")].map((b) => b.textContent);
+  expect(choices).toEqual(["Keep it", "Remove them"]);
+  expect(document.activeElement?.textContent).toBe("Keep it");
+});
