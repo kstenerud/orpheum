@@ -575,7 +575,7 @@ function SignOutAsked(props: {
   const { t } = useTranslation();
   const question = t("nav.signOutAsked");
   return (
-    <ModalDialog label={question} onClose={props.onCancel} className="app-shell__sign-out-asked">
+    <ModalDialog label={question} onClose={props.onCancel}>
       <p>{question}</p>
       <div className="app-shell__sign-out-buttons">
         <button type="button" onClick={props.onCancel}>

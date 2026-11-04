@@ -530,7 +530,7 @@ describe("the shell, laid out by a real browser", () => {
       </AppShell>,
       async (mounted) => {
         const asked = (): Element | null =>
-          mounted.container.querySelector(".app-shell__sign-out-asked");
+          mounted.container.querySelector('dialog[aria-label="Sign out of this device?"]');
         await userEvent.click(page.getByRole("button", { name: "Menu" }));
         await userEvent.click(page.getByRole("button", { name: "Sign out" }));
         await expect.poll(asked).not.toBeNull();

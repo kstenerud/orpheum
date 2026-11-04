@@ -314,7 +314,7 @@ describe("AppShell", () => {
       ),
     );
     const asked = (): HTMLElement | null =>
-      shown.container.querySelector<HTMLElement>(".app-shell__sign-out-asked");
+      shown.container.querySelector<HTMLElement>('dialog[aria-label="Sign out of this device?"]');
     await click(shown.container.querySelector(".app-shell__menu-button"));
     await click(buttonWithText(shown.container, "Sign out"));
     expect(signedOut).toBe(0);

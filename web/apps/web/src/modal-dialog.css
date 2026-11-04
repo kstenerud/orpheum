@@ -19,6 +19,17 @@
   overscroll-behavior: contain;
 }
 
+/* A wide dialog: a path and its folders, or what a setting is for, need room. */
+.modal-dialog--wide {
+  width: min(40rem, 92vw);
+}
+
+/* A notice whose top edge is the warning yellow, as an iPhone without headphones talks (the owner,
+   2026-10-11). */
+.modal-dialog--warning {
+  border-block-start-color: var(--color-warning);
+}
+
 .modal-dialog::backdrop {
   background: var(--color-backdrop);
 }

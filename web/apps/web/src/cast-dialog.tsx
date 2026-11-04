@@ -35,7 +35,7 @@ export function CastDialog(props: { readonly onClose: () => void }): JSX.Element
   const taken = sending?.isAccepted === true ? sending : undefined;
   useClosesOnceTaken(taken?.castId, props.onClose);
   return (
-    <ModalDialog label={t("cast.page")} onClose={props.onClose} className="cast-dialog">
+    <ModalDialog label={t("cast.page")} onClose={props.onClose}>
       {!isSendingKnown ? <p>{t("common.loading")}</p> : null}
       {isSendingKnown && taken === undefined ? <CastTargets film={film} /> : null}
       {taken === undefined ? null : (

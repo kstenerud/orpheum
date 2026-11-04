@@ -127,20 +127,22 @@ export function FolderBrowser(props: {
         {props.opener}
       </button>
       {isOpen ? (
-        <ModalDialog label={props.heading} className="folder-browser" onClose={close}>
-          <h2>{props.heading}</h2>
-          <FolderPicker
-            starts={props.starts}
-            onChoose={(place) => {
-              close();
-              props.onChoose(place);
-            }}
-          />
-          <p>
-            <button type="button" onClick={close}>
-              {t("libraries.browseCancel")}
-            </button>
-          </p>
+        <ModalDialog label={props.heading} isWide onClose={close}>
+          <div className="folder-browser">
+            <h2>{props.heading}</h2>
+            <FolderPicker
+              starts={props.starts}
+              onChoose={(place) => {
+                close();
+                props.onChoose(place);
+              }}
+            />
+            <p>
+              <button type="button" onClick={close}>
+                {t("libraries.browseCancel")}
+              </button>
+            </p>
+          </div>
         </ModalDialog>
       ) : null}
     </>

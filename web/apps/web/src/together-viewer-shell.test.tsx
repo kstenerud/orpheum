@@ -188,7 +188,7 @@ describe("a signed-in guest in a Watch Together session (D372 §9, D384 §2)", (
     await sockets.session.refuse();
     await settleUntil(() => services.navigation.route().screen === "home");
     expect(window.localStorage.getItem("orpheum.together.viewer")).toBeNull();
-    expect(mounted.container.querySelector("dialog.together-dialog")).toBeNull();
+    expect(mounted.container.querySelector('dialog[aria-label="Watch Together"]')).toBeNull();
     expect(mounted.container.querySelector(sign)).toBeNull();
     mounted.unmount();
   });

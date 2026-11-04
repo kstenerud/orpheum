@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
-/* The folder browser's dialog (D361 §3) is wider than a notice's: a path and its folders need room. */
-.modal-dialog.folder-browser {
-  width: min(40rem, 92vw);
+/* The folder browser's dialog (D361 §3), a wide one: a path and its folders, broken anywhere. */
+.folder-browser {
   overflow-wrap: anywhere;
 }
 

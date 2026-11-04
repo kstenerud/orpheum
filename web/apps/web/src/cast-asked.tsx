@@ -169,7 +169,6 @@ export function CastAsked(props: {
     <ModalDialog
       label={question}
       onClose={decline}
-      className="cast-asked"
       // Closing declines the cast: a press beside the question must not answer it.
       shouldStayOpenOnOutsidePress
     >
@@ -203,12 +202,7 @@ function CastGone(props: { readonly said: string; readonly onClose: () => void }
     okRef.current?.focus();
   }, []);
   return (
-    <ModalDialog
-      label={props.said}
-      onClose={props.onClose}
-      role="alertdialog"
-      className="cast-asked"
-    >
+    <ModalDialog label={props.said} onClose={props.onClose} role="alertdialog">
       <p className="cast-asked__question">{props.said}</p>
       <div className="cast-asked__buttons">
         <button ref={okRef} type="button" onClick={props.onClose}>

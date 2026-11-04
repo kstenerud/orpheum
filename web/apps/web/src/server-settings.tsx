@@ -128,7 +128,7 @@ export function AboutButton(props: {
       {isOpen ? (
         <ModalDialog
           label={about}
-          className="settings__about"
+          isWide
           onClose={() => {
             setIsOpen(false);
           }}

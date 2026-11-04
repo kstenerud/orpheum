@@ -263,7 +263,7 @@ function HeadphonesWarning(props: { readonly onRead: () => void }): JSX.Element 
   const { t } = useTranslation();
   return (
     <ModalDialog
-      className="together-voice__headphones"
+      mark="warning"
       role="alertdialog"
       label={t("together.voice.earpiece")}
       onClose={props.onRead}

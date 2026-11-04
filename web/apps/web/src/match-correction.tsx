@@ -60,7 +60,7 @@ function IdentifiedCorrectlyDialog(props: {
   const confirming = useRequest((cause) => identifyProblemText(t, cause));
   const heading = t("title.identifiedCorrectly");
   return (
-    <ModalDialog className="match-correction" label={heading} onClose={props.onClose}>
+    <ModalDialog label={heading} onClose={props.onClose}>
       <h2>{heading}</h2>
       <p>{t("title.identifiedCorrectlyExplain")}</p>
       <div className="more-actions__offers">
@@ -103,7 +103,7 @@ function IdentifiedIncorrectlyDialog(props: {
   const [isChoosing, setIsChoosing] = useState(false);
   const heading = t("title.identifiedIncorrectly");
   return (
-    <ModalDialog className="match-correction" label={heading} onClose={props.onClose}>
+    <ModalDialog label={heading} onClose={props.onClose}>
       <h2>{heading}</h2>
       <div className="more-actions__offers">
         {props.isWork ? <RescanThis itemId={props.itemId} /> : null}
