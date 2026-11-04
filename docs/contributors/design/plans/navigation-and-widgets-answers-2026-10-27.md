@@ -1701,6 +1701,14 @@ End: one check-pr, the owner's go, nas.example.
 become one pop-up of filters that narrows the posters of that list only; the grouped search across
 titles, people and genres comes out of the web app until it has its own plan.
 
+**Paused after item 5 (the owner, 2026-11-04: "pause this batch once the last running agent finishes
+its task and changes are brought in"):** agents' test runs outside the gate lock (`make spot`, direct
+vitest and go test runs, the background revert-red probe) loaded the machine to 70 on 8 cores and failed
+each other's browser tests. The gate change that makes them take the repository's lock comes first, in
+a session the owner starts with `ORPHEUM_ALLOW_GATE_EDIT=1`; then this wave resumes at item 6. Left:
+items 6–10 and the full-screen scrub-bar test's overlay hide under load (`useOverlayHiding`'s 3 s wall
+clock outrunning slow key presses).
+
 ## The API batch (the owner, 2026-11-04, D416)
 
 The batch after the first wave, alone: "Do everything in one batch, nothing else in the batch, then
