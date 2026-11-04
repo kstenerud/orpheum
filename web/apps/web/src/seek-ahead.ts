@@ -34,10 +34,12 @@ export const heldSeekSteps: readonly { readonly afterMs: number; readonly stepMs
 
 /**
  * How long an arrow's presses rest before the seek is made, in milliseconds: longer than a held
- * key's or a controller's first repeat (stickRepeatFirstMs, 400 ms), short enough to feel at once
- * (the owner, 2026-10-29: about half a second). A justified constant.
+ * key's or a controller's first repeat (stickRepeatFirstMs, 400 ms), and Kodi's 750 ms, so a person
+ * pressing slowly, or a remote with lag, does not end a run early with a seek that loads chunks
+ * (starts-chunks-remote-2026-10-29.md §3.2; it was 500 ms, the owner's "about half a second" of
+ * 2026-10-29). A justified constant.
  */
-export const seekRestMs = 500;
+export const seekRestMs = 750;
 
 /**
  * How long a key held down may go without a repeat before the seek is made anyway, in
