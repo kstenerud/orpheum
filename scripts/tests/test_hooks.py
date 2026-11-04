@@ -591,6 +591,7 @@ class NothingTestsBesideCheckPr(unittest.TestCase):
             refused = []
             event = {"tool_name": "Bash", "tool_input": {"command": command}}
             with mock.patch.object(pre_bash.hooklib, "read_event", lambda: event), \
+                    mock.patch.dict(os.environ, {"ORPHEUM_GATE_LOCK_DIR": GATE_LOCK_DIR}), \
                     mock.patch.object(pre_bash.hooklib, "check_pr_running", lambda: run), \
                     mock.patch.object(pre_bash.hooklib, "deny", refused.append):
                 pre_bash.main()
