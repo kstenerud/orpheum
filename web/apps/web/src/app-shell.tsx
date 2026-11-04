@@ -15,6 +15,7 @@ import { useTranslation } from "react-i18next";
 
 import logo from "./assets/orpheum-logo.svg";
 import { DropDown } from "./drop-down.tsx";
+import { dangerousMark } from "./focus-navigation.ts";
 import { ListNote, ListOption } from "./list-box.tsx";
 import { Icon } from "./icon.tsx";
 import { StatusTray } from "./status-tray.tsx";
@@ -563,9 +564,9 @@ function MainMenu(props: {
 
 /**
  * The question the menu's Sign out asks first (the owner, 2026-10-30: "Selecting 'sign out' should
- * open a confirmation"): the shared modal dialog, in the menu's place, with Sign out and Cancel, a
- * remote's arrows reaching both; only Sign out signs out, and Cancel, Escape, Back or a press outside
- * it leaves the person signed in.
+ * open a confirmation"): the shared modal dialog, in the menu's place, with Cancel, first and focused,
+ * and Sign out, marked a dangerous action (D421), a remote's arrows reaching both; only Sign out
+ * signs out, and Cancel, Escape, Back or a press outside it leaves the person signed in.
  */
 function SignOutAsked(props: {
   readonly onSignOut: () => void;
@@ -577,11 +578,11 @@ function SignOutAsked(props: {
     <ModalDialog label={question} onClose={props.onCancel} className="app-shell__sign-out-asked">
       <p>{question}</p>
       <div className="app-shell__sign-out-buttons">
-        <button type="button" onClick={props.onSignOut}>
-          {t("nav.signOut")}
-        </button>
         <button type="button" onClick={props.onCancel}>
           {t("nav.signOutCancel")}
+        </button>
+        <button type="button" {...dangerousMark} onClick={props.onSignOut}>
+          {t("nav.signOut")}
         </button>
       </div>
     </ModalDialog>

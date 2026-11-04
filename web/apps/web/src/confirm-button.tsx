@@ -3,11 +3,14 @@
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { arrivalMark } from "./focus-navigation.ts";
+import { dangerousMark } from "./focus-navigation.ts";
 import { ModalDialog } from "./modal-dialog.tsx";
 
-/** Puts focus on a button as it is drawn: the ask's Keep it (D421). */
-function focusAsDrawn(button: HTMLButtonElement | null): void {
+/**
+ * Puts focus on a button as it is drawn: an inline ask's Keep it (D421), the button that asked having
+ * gone or been disabled with focus on it; a dialog decides its own from its marks (modal-layer.tsx).
+ */
+export function focusAsDrawn(button: HTMLButtonElement | null): void {
   button?.focus();
 }
 
@@ -62,6 +65,7 @@ export function ConfirmButton(props: {
       <button
         type="button"
         className="irreversible"
+        {...dangerousMark}
         onClick={() => {
           setIsAsking(false);
           props.onConfirm();
@@ -76,8 +80,9 @@ export function ConfirmButton(props: {
 /**
  * A dialog asking before what cannot be undone, for an action under a "…" (more-actions.tsx): its
  * heading, what will happen, in the irreversible red, "Keep it", the least harmful choice, first and
- * focused as it opens (D421), and the action, filled red (ui-audit-2026-11-04.md §3, A library), so a
- * remote's OK pressed once too often keeps things as they are. Keep it, Escape or Back close it, sending
+ * so focused as it opens, and the action, filled red and marked a dangerous action (D421;
+ * ui-audit-2026-11-04.md §3, A library), so a remote's OK pressed once too often keeps things as they
+ * are. Keep it, Escape or Back close it, sending
  * nothing.
  */
 export function ConfirmDialog(props: {
@@ -95,12 +100,13 @@ export function ConfirmDialog(props: {
       <h2>{props.heading}</h2>
       <p className="irreversible-words">{props.consequence}</p>
       <p>
-        <button type="button" {...arrivalMark} onClick={props.onClose}>
+        <button type="button" onClick={props.onClose}>
           {t("common.keepIt")}
         </button>{" "}
         <button
           type="button"
           className="irreversible"
+          {...dangerousMark}
           onClick={() => {
             props.onClose();
             props.onConfirm();

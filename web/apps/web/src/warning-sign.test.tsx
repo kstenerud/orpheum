@@ -139,4 +139,7 @@ it("asks again with Keep it first and focused, so a press too many keeps things 
   const choices = [...mounted.container.querySelectorAll("button")].map((b) => b.textContent);
   expect(choices).toEqual(["Keep it", "Remove them"]);
   expect(document.activeElement?.textContent).toBe("Keep it");
+  expect(
+    [...mounted.container.querySelectorAll("[data-dangerous-action]")].map((b) => b.textContent),
+  ).toEqual(["Remove them"]);
 });

@@ -26153,6 +26153,9 @@ alone.
 **Proven by:**
 - 1: web/apps/web/src/retire.test.tsx (`ConfirmDialog`), web/apps/web/src/warning-sign.test.tsx
   (`ConfirmButton`)
+- 1, each dialog: web/apps/web/src/dangerous-choices.browser.test.tsx (`ConfirmDialog`, the
+  repoint dialog), "asks before it signs out" in web/apps/web/src/app-shell.browser.test.tsx, a
+  secret's removal in web/apps/web/src/confirmed-actions.test.tsx
 - 2, 3: "where a dialog's focus arrives as it opens (D421)" in
   web/apps/web/src/modal-dialog.browser.test.tsx: the first choice not marked arrived on, none where
   every one is marked, the first where none is, never the Close

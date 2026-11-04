@@ -3,7 +3,7 @@
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { arrivalMark } from "./focus-navigation.ts";
+import { arrivalMark, dangerousMark } from "./focus-navigation.ts";
 import { FolderBrowser, type Place } from "./folder-picker.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 
@@ -19,8 +19,9 @@ function isSamePlace(a: Place, b: Place): boolean {
  * A library): a dialog where the admin chooses where it is now, among the connected nodes' roots, or
  * a folder browsed to inside one in the folder browser's dialog (D359 §3, D361 §3), and confirms;
  * the root and its files take the new path with their history, and the next scan confirms each. The
- * root's own place is not offered. "Keep it where it is", the least harmful choice, is focused as it
- * opens.
+ * root's own place is not offered. "Keep it where it is", the least harmful choice, comes before the
+ * move, which is marked a dangerous action, and is focused as it opens (D421): marked the arrival by
+ * hand, the place to choose being the dialog's first control.
  */
 export function RepointDialog(props: {
   readonly from: Place;
@@ -91,7 +92,7 @@ function RepointForm(props: {
   );
 }
 
-/** Where the root is now, chosen among the places, and confirming or keeping it where it is. */
+/** Where the root is now, chosen among the places, and keeping it where it is or confirming. */
 function RepointChoice(props: {
   readonly choices: readonly Place[];
   readonly chosenIndex: number;
@@ -118,11 +119,11 @@ function RepointChoice(props: {
         </select>
       </label>{" "}
       {t("libraries.repointConsequence")}{" "}
-      <button type="button" onClick={props.onConfirm}>
-        {t("libraries.repointConfirm")}
-      </button>{" "}
       <button type="button" {...arrivalMark} onClick={props.onKeep}>
         {t("libraries.repointKeep")}
+      </button>{" "}
+      <button type="button" {...dangerousMark} onClick={props.onConfirm}>
+        {t("libraries.repointConfirm")}
       </button>
     </span>
   );

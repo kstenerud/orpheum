@@ -201,6 +201,14 @@ it("removes a stored secret only when asked again", async () => {
   expect(heard.map((each) => each.methodAndPath)).not.toContain("DELETE /secrets/tmdb_api_key");
   const confirm = buttonWithText(mounted.container, "Remove it");
   expect(confirm?.className).toBe("irreversible");
+  // Keep it first and focused, the bin that asked disabled; Remove marked dangerous (D421).
+  expect(
+    [
+      ...(mounted.container.querySelector(".settings__question")?.querySelectorAll("button") ?? []),
+    ].map((button) => button.textContent),
+  ).toEqual(["Keep it", "Remove it"]);
+  expect(document.activeElement?.textContent).toBe("Keep it");
+  expect(confirm?.hasAttribute("data-dangerous-action")).toBe(true);
   await click(confirm);
   expect(heard.map((each) => each.methodAndPath)).toContain("DELETE /secrets/tmdb_api_key");
 });

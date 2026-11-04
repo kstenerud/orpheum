@@ -512,7 +512,8 @@ describe("the shell, laid out by a real browser", () => {
   });
 
   // The owner, 2026-10-30: "Selecting 'sign out' should open a confirmation." A remote answers it as
-  // any other modal: focus in the question, OK on its Sign out, and Back (Escape) declining it.
+  // any other modal: focus in the question on Cancel, first, its Sign out marked dangerous (D421), and
+  // Back (Escape) declining it.
   it("asks before it signs out, focus in the question, Escape keeping the person in", async () => {
     let signedOut = 0;
     await drawn(
@@ -540,6 +541,8 @@ describe("the shell, laid out by a real browser", () => {
         await userEvent.click(page.getByRole("button", { name: "Menu" }));
         await userEvent.click(page.getByRole("button", { name: "Sign out" }));
         await expect.poll(asked).not.toBeNull();
+        expect(document.activeElement?.textContent).toBe("Cancel");
+        await userEvent.keyboard("{ArrowRight}");
         expect(document.activeElement?.textContent).toBe("Sign out");
         // Activated by click(), not by Enter: Enter's click is the browser's own, not the shell's,
         // and a loaded machine's Firefox now and then never dispatches it (idiosyncrasies.md,
