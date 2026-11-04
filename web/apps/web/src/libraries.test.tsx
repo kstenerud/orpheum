@@ -337,6 +337,40 @@ describe("libraries", () => {
     expect(hasARoot(blankLibrary())).toBe(false);
   });
 
+  // ui-audit-2026-11-04.md §3, Create a library: grouped, with Create and scan after the last field.
+  it("groups the form as the library, its source and its scanning, with Create and scan after the last", () => {
+    const markup = renderToStaticMarkup(
+      withServices(
+        <CreateLibraryForm
+          draft={{ ...blankLibrary(), changeDetection: "interval" }}
+          nodes={[{ name: "local", isConnected: true, rootPaths: ["/media/films"] }]}
+          checkEveryHoursToStart={24}
+          problem=""
+          onDraftChange={ignore}
+          onSubmit={ignore}
+        />,
+      ),
+    );
+    const groups = markup.split('<section class="create-library__group"').slice(1);
+    expect(groups.map((group) => /<h2[^>]*>([^<]*)<\/h2>/u.exec(group)?.[1])).toEqual([
+      "The library",
+      "Its source",
+      "Scanning",
+    ]);
+    const [what = "", source = "", scanning = ""] = groups;
+    expect(what).toContain("<legend>What it holds</legend>");
+    expect(source).toContain("Machine");
+    expect(source).toContain("<legend>Folders this library reads</legend>");
+    expect(source).toContain("<legend>Where information comes from</legend>");
+    expect(source).toContain("May the server write beside the media");
+    expect(scanning).toContain("<legend>How changes are noticed</legend>");
+    expect(scanning).toMatch(/Hours between checks<input type="number"/u);
+    // Nothing to fill in after the last group's fields but the button.
+    expect(scanning.slice(scanning.lastIndexOf("<input"))).toMatch(
+      /^<input[^>]*\/><\/label><\/section><button type="submit"[^>]*>Create and scan<\/button><\/form>$/u,
+    );
+  });
+
   it("starts on the first connected machine, whatever it is called, and lists its folders (2026-10-06)", () => {
     const nodes = [
       { name: "attic", isConnected: false, rootPaths: [] },
