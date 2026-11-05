@@ -122,9 +122,7 @@ describe.each(screens)("a title's first screen, on $name", ({ width, height }) =
 
   it("has a series' Continue within the window, focused as it opens", async () => {
     await page.viewport(width, height);
-    walking = await mountApp(
-      walkServices({ ...signedIn, "GET /collections/20": series }, "/series/20"),
-    );
+    walking = await mountApp(walkServices({ ...signedIn, "GET /items/20": series }, "/series/20"));
     await expect.poll(() => isFocusIn(".title-head__actions")).toBe(true);
     expect(focusedName()).toBe("Continue S1E2");
     const top = mainAction()?.getBoundingClientRect().top ?? Infinity;
@@ -209,7 +207,7 @@ describe("a title's actions row, by a remote", () => {
       ],
     };
     walking = await mountApp(
-      walkServices({ ...signedIn, "GET /collections/22": watchedThrough }, "/series/22"),
+      walkServices({ ...signedIn, "GET /items/22": watchedThrough }, "/series/22"),
     );
     await expect.poll(() => isFocusIn(".title-head__actions")).toBe(true);
     expect(focusedName()).toBe("More actions");
@@ -229,7 +227,7 @@ describe("a title's actions row, by a remote", () => {
       ],
     };
     walking = await mountApp(
-      walkServices({ ...signedIn, "GET /collections/23": twoOrders }, "/series/23"),
+      walkServices({ ...signedIn, "GET /items/23": twoOrders }, "/series/23"),
     );
     await expect.poll(() => isDrawn(".series__season-head button")).toBe(true);
     const more = document.querySelector<HTMLElement>(".title-head__actions .more-actions__button");

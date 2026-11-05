@@ -96,7 +96,7 @@ describe("the watched check on rows (D370 §2, §3)", () => {
       withServices(
         <Series id={5} />,
         servedBy({
-          "GET /collections/5": [200, series],
+          "GET /items/5": [200, series],
           "GET /collections/5/seasons/1": [200, { episodes: [] }],
           "PUT /interest/page": [204, null],
           "DELETE /interest/page": [204, null],
@@ -158,7 +158,7 @@ describe("marking by hand (D370 §4)", () => {
   it("marks a season, named for a screen reader, and reads its episodes again", async () => {
     const heard: Heard[] = [];
     const answers: Answers = {
-      "GET /collections/5": [200, series],
+      "GET /items/5": [200, series],
       "GET /collections/5/seasons/2": [200, episodes],
       "PUT /collections/5/seasons/2/watched": [200, { previous: [] }],
       "PUT /interest/page": [204, null],
@@ -178,7 +178,7 @@ describe("marking by hand (D370 §4)", () => {
   it("marks a whole series unwatched from its page once it is watched", async () => {
     const heard: Heard[] = [];
     const answers: Answers = {
-      "GET /collections/5": [200, { ...series, isWatched: true }],
+      "GET /items/5": [200, { ...series, isWatched: true }],
       "GET /collections/5/seasons/1": [200, { episodes: [] }],
       "DELETE /collections/5/watched": [200, { previous: [{ titleId: 21, watchedAt: 3 }] }],
       "PUT /interest/page": [204, null],

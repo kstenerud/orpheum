@@ -98,13 +98,13 @@ func TestLoggingSlow_NamesEveryAPIResponseOverAMebibyte(t *testing.T) {
 		}))
 	}
 	for path, size := range map[string]int{
-		Prefix + "/collections/606": 5 << 20, Prefix + "/me": 2 << 10, Prefix + "/bytes/media/x.m4s": 8 << 20,
+		Prefix + "/items/606": 5 << 20, Prefix + "/me": 2 << 10, Prefix + "/bytes/media/x.m4s": 8 << 20,
 	} {
 		request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
 		writing(size).ServeHTTP(httptest.NewRecorder(), request)
 	}
 	logged := logs.String()
-	if !strings.Contains(logged, `"path":"/api/v1/collections/606","bytes":5242880`) ||
+	if !strings.Contains(logged, `"path":"/api/v1/items/606","bytes":5242880`) ||
 		strings.Count(logged, "a response was large") != 1 {
 		t.Errorf("want the one large response named with its size:\n%s", logged)
 	}

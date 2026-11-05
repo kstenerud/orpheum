@@ -62,7 +62,7 @@ const anAdmin: WalkAnswers = {
     ],
   },
   "GET /items/103": filmDetail(103, "Film 3"),
-  "GET /collections/20": {
+  "GET /items/20": {
     id: 20,
     kind: "series",
     name: "Glass Tide",

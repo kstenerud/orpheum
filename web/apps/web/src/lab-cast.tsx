@@ -18,6 +18,7 @@ import { sendLabResult, useLabSending, type Sending } from "./lab-send.ts";
 import { dataOrThrow } from "./problem.ts";
 import { useServices, type ThroughDiscovery } from "./services.tsx";
 import { firstPlayableFile } from "./first-playable.ts";
+import { titleOrThrow } from "./item-detail.ts";
 import { requestPlayback } from "./watching.ts";
 
 /** Where the custom receiver's app id is kept, so a TV visit types it once. */
@@ -115,7 +116,9 @@ async function startPlayback(
   filmId: number,
   log: (line: string) => void,
 ): Promise<ReceiverPlayback> {
-  const title = dataOrThrow(await api.GET("/items/{id}", { params: { path: { id: filmId } } }));
+  const title = titleOrThrow(
+    dataOrThrow(await api.GET("/items/{id}", { params: { path: { id: filmId } } })),
+  );
   const fileId = firstPlayableFile(title);
   if (fileId === undefined) {
     throw new Error("the film has no file that plays now");

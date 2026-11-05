@@ -730,121 +730,6 @@
         ],
         "type": "object"
       },
-      "CollectionOutputBody": {
-        "additionalProperties": false,
-        "properties": {
-          "art": {
-            "$ref": "#/components/schemas/ArtBody"
-          },
-          "credits": {
-            "$ref": "#/components/schemas/CreditsBody",
-            "description": "Its cast, directors and writers in billing order; absent when it credits no one"
-          },
-          "fetchFailure": {
-            "$ref": "#/components/schemas/FetchFailureBody"
-          },
-          "genres": {
-            "description": "Its genres in its source's order; absent when it has none",
-            "items": {
-              "$ref": "#/components/schemas/GenreBody"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
-          "id": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "identificationState": {
-            "type": "string"
-          },
-          "isGuessed": {
-            "description": "Whether its match is a guess no person confirmed (D301)",
-            "type": "boolean"
-          },
-          "isWatched": {
-            "description": "Whether the person watched every one of its episodes with a file, in the ordering they watch it in (D370)",
-            "type": "boolean"
-          },
-          "kind": {
-            "enum": [
-              "series"
-            ],
-            "type": "string"
-          },
-          "libraries": {
-            "description": "The libraries its person reaches that list one of its episodes, by name: its page goes up to the one the person came through, else the first (D367)",
-            "items": {
-              "$ref": "#/components/schemas/LibraryNameBody"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
-          "name": {
-            "type": "string"
-          },
-          "nextUp": {
-            "$ref": "#/components/schemas/NextUpBody",
-            "description": "The person's next episode, which the page offers to play; absent when every one is finished or none has a file"
-          },
-          "notInOrderingCount": {
-            "description": "How many of its episodes the ordering in use leaves out: GET /collections/{id}/not-in-order",
-            "format": "int64",
-            "type": "integer"
-          },
-          "ordering": {
-            "description": "The ordering its person watches it in, which its seasons are the groups of; absent for aired",
-            "type": "string"
-          },
-          "orderings": {
-            "description": "Every ordering it has, aired first; its page offers a choice when there is more than one",
-            "items": {
-              "$ref": "#/components/schemas/OrderingBody"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
-          "overview": {
-            "type": "string"
-          },
-          "refreshRequestedAt": {
-            "description": "When a person asked for it to be refreshed, while no fetch has answered yet",
-            "format": "int64",
-            "type": "integer"
-          },
-          "seasons": {
-            "items": {
-              "$ref": "#/components/schemas/SeasonBody"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
-          "unavailable": {
-            "$ref": "#/components/schemas/UnavailableBody",
-            "description": "Why none of its episodes' files can be read now; absent when one can"
-          },
-          "year": {
-            "format": "int64",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "id",
-          "kind",
-          "name",
-          "seasons",
-          "art"
-        ],
-        "type": "object"
-      },
       "ConfigFileKey": {
         "additionalProperties": false,
         "properties": {
@@ -2528,7 +2413,7 @@
         "additionalProperties": false,
         "properties": {
           "id": {
-            "description": "A title's: GET /items/{id}, or GET /collections/{id} for a series; a person's: GET /people/{id}; a genre's: GET /titles?genre=",
+            "description": "A title's: GET /items/{id}, of any kind; a person's: GET /people/{id}; a genre's: GET /titles?genre=",
             "format": "int64",
             "type": "integer"
           },
@@ -3139,129 +3024,6 @@
           "kind",
           "name",
           "identificationState"
-        ],
-        "type": "object"
-      },
-      "ItemDetailOutputBody": {
-        "additionalProperties": false,
-        "properties": {
-          "art": {
-            "$ref": "#/components/schemas/ArtBody"
-          },
-          "credits": {
-            "$ref": "#/components/schemas/CreditsBody",
-            "description": "Its cast, directors and writers in billing order; an episode's are its series'; absent when it credits no one"
-          },
-          "episode": {
-            "$ref": "#/components/schemas/EpisodePlaceBody"
-          },
-          "extras": {
-            "items": {
-              "$ref": "#/components/schemas/ExtraBody"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
-          "fetchFailure": {
-            "$ref": "#/components/schemas/FetchFailureBody"
-          },
-          "filmOfExtra": {
-            "$ref": "#/components/schemas/FilmOfExtraBody",
-            "description": "The film an extra belongs to, which its page goes up to (D367); absent for anything else"
-          },
-          "followedSource": {
-            "type": "string"
-          },
-          "genres": {
-            "description": "Its genres in its source's order; an episode's are its series'; absent when it has none",
-            "items": {
-              "$ref": "#/components/schemas/GenreBody"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
-          "id": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "identificationState": {
-            "type": "string"
-          },
-          "isGuessed": {
-            "description": "Whether its match is a guess no person confirmed (D301)",
-            "type": "boolean"
-          },
-          "isWatched": {
-            "description": "Whether the person watched it, by playing it to its finish or by hand (D370)",
-            "type": "boolean"
-          },
-          "kind": {
-            "enum": [
-              "movie",
-              "episode",
-              "extra",
-              "other"
-            ],
-            "type": "string"
-          },
-          "libraries": {
-            "description": "The libraries its person reaches that list it, by name: its page goes up to the one the person came through, else the first (D367)",
-            "items": {
-              "$ref": "#/components/schemas/LibraryNameBody"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
-          "name": {
-            "type": "string"
-          },
-          "overview": {
-            "type": "string"
-          },
-          "refreshRequestedAt": {
-            "description": "When a person asked for it to be refreshed, while no fetch has answered yet",
-            "format": "int64",
-            "type": "integer"
-          },
-          "runtimeMs": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "tagline": {
-            "type": "string"
-          },
-          "unavailable": {
-            "$ref": "#/components/schemas/UnavailableBody",
-            "description": "Why none of its files can be read now; absent when one can"
-          },
-          "versions": {
-            "items": {
-              "$ref": "#/components/schemas/VersionBody"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
-          "year": {
-            "format": "int64",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "id",
-          "kind",
-          "name",
-          "identificationState",
-          "versions",
-          "extras",
-          "art"
         ],
         "type": "object"
       },
@@ -5098,7 +4860,7 @@
         "additionalProperties": false,
         "properties": {
           "id": {
-            "description": "GET /items/{id} for a film or other video, GET /collections/{id} for a series",
+            "description": "GET /items/{id}, of any kind",
             "format": "int64",
             "type": "integer"
           },
@@ -7061,6 +6823,121 @@
         ],
         "type": "object"
       },
+      "SeriesBody": {
+        "additionalProperties": false,
+        "properties": {
+          "art": {
+            "$ref": "#/components/schemas/ArtBody"
+          },
+          "credits": {
+            "$ref": "#/components/schemas/CreditsBody",
+            "description": "Its cast, directors and writers in billing order; absent when it credits no one"
+          },
+          "fetchFailure": {
+            "$ref": "#/components/schemas/FetchFailureBody"
+          },
+          "genres": {
+            "description": "Its genres in its source's order; absent when it has none",
+            "items": {
+              "$ref": "#/components/schemas/GenreBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "identificationState": {
+            "type": "string"
+          },
+          "isGuessed": {
+            "description": "Whether its match is a guess no person confirmed (D301)",
+            "type": "boolean"
+          },
+          "isWatched": {
+            "description": "Whether the person watched every one of its episodes with a file, in the ordering they watch it in (D370)",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "series"
+            ],
+            "type": "string"
+          },
+          "libraries": {
+            "description": "The libraries its person reaches that list one of its episodes, by name: its page goes up to the one the person came through, else the first (D367)",
+            "items": {
+              "$ref": "#/components/schemas/LibraryNameBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "nextUp": {
+            "$ref": "#/components/schemas/NextUpBody",
+            "description": "The person's next episode, which the page offers to play; absent when every one is finished or none has a file"
+          },
+          "notInOrderingCount": {
+            "description": "How many of its episodes the ordering in use leaves out: GET /items/{id}/not-in-order",
+            "format": "int64",
+            "type": "integer"
+          },
+          "ordering": {
+            "description": "The ordering its person watches it in, which its seasons are the groups of; absent for aired",
+            "type": "string"
+          },
+          "orderings": {
+            "description": "Every ordering it has, aired first; its page offers a choice when there is more than one",
+            "items": {
+              "$ref": "#/components/schemas/OrderingBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "overview": {
+            "type": "string"
+          },
+          "refreshRequestedAt": {
+            "description": "When a person asked for it to be refreshed, while no fetch has answered yet",
+            "format": "int64",
+            "type": "integer"
+          },
+          "seasons": {
+            "items": {
+              "$ref": "#/components/schemas/SeasonBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "unavailable": {
+            "$ref": "#/components/schemas/UnavailableBody",
+            "description": "Why none of its episodes' files can be read now; absent when one can"
+          },
+          "year": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "seasons",
+          "art"
+        ],
+        "type": "object"
+      },
       "SeriesReadWronglyBody": {
         "additionalProperties": false,
         "properties": {
@@ -8414,6 +8291,129 @@
         },
         "required": [
           "items"
+        ],
+        "type": "object"
+      },
+      "TitleBody": {
+        "additionalProperties": false,
+        "properties": {
+          "art": {
+            "$ref": "#/components/schemas/ArtBody"
+          },
+          "credits": {
+            "$ref": "#/components/schemas/CreditsBody",
+            "description": "Its cast, directors and writers in billing order; an episode's are its series'; absent when it credits no one"
+          },
+          "episode": {
+            "$ref": "#/components/schemas/EpisodePlaceBody"
+          },
+          "extras": {
+            "items": {
+              "$ref": "#/components/schemas/ExtraBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "fetchFailure": {
+            "$ref": "#/components/schemas/FetchFailureBody"
+          },
+          "filmOfExtra": {
+            "$ref": "#/components/schemas/FilmOfExtraBody",
+            "description": "The film an extra belongs to, which its page goes up to (D367); absent for anything else"
+          },
+          "followedSource": {
+            "type": "string"
+          },
+          "genres": {
+            "description": "Its genres in its source's order; an episode's are its series'; absent when it has none",
+            "items": {
+              "$ref": "#/components/schemas/GenreBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "identificationState": {
+            "type": "string"
+          },
+          "isGuessed": {
+            "description": "Whether its match is a guess no person confirmed (D301)",
+            "type": "boolean"
+          },
+          "isWatched": {
+            "description": "Whether the person watched it, by playing it to its finish or by hand (D370)",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "movie",
+              "episode",
+              "extra",
+              "other"
+            ],
+            "type": "string"
+          },
+          "libraries": {
+            "description": "The libraries its person reaches that list it, by name: its page goes up to the one the person came through, else the first (D367)",
+            "items": {
+              "$ref": "#/components/schemas/LibraryNameBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "overview": {
+            "type": "string"
+          },
+          "refreshRequestedAt": {
+            "description": "When a person asked for it to be refreshed, while no fetch has answered yet",
+            "format": "int64",
+            "type": "integer"
+          },
+          "runtimeMs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "tagline": {
+            "type": "string"
+          },
+          "unavailable": {
+            "$ref": "#/components/schemas/UnavailableBody",
+            "description": "Why none of its files can be read now; absent when one can"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/VersionBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "year": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "identificationState",
+          "versions",
+          "extras",
+          "art"
         ],
         "type": "object"
       },
@@ -10271,57 +10271,6 @@
         ]
       }
     },
-    "/collections/{id}": {
-      "get": {
-        "operationId": "getSeries",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CollectionOutputBody"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "A series with its seasons, each with how many episodes it has",
-        "tags": [
-          "Browse"
-        ]
-      }
-    },
     "/collections/{id}/not-in-order": {
       "get": {
         "operationId": "getNotInOrdering",
@@ -12143,7 +12092,8 @@
     },
     "/items/{id}": {
       "get": {
-        "operationId": "getTitle",
+        "description": "A credited person is not an item here: their id answers 404, and their page is GET /people/{id} (D425 §7).",
+        "operationId": "getItem",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -12169,7 +12119,24 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ItemDetailOutputBody"
+                  "discriminator": {
+                    "mapping": {
+                      "episode": "#/components/schemas/TitleBody",
+                      "extra": "#/components/schemas/TitleBody",
+                      "movie": "#/components/schemas/TitleBody",
+                      "other": "#/components/schemas/TitleBody",
+                      "series": "#/components/schemas/SeriesBody"
+                    },
+                    "propertyName": "kind"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/TitleBody"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SeriesBody"
+                    }
+                  ]
                 }
               }
             },
@@ -12186,7 +12153,7 @@
             "description": "Error"
           }
         },
-        "summary": "A title's detail: versions, files, streams, extras and, for an episode, its place",
+        "summary": "An item's detail, by its kind: a title's versions, files, streams, extras and, for an episode, its place; a series' seasons, each with how many episodes it has",
         "tags": [
           "Browse"
         ]

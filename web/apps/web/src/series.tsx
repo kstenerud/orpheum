@@ -15,6 +15,7 @@ import { UpTrail, useLibraryContext } from "./up-trail.tsx";
 import { libraryCrumb } from "./upward.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, problemText, throwIfRefused, unavailableText } from "./problem.ts";
+import { seriesOrThrow } from "./item-detail.ts";
 import { identifiedCorrectlyAction, identifiedIncorrectlyAction } from "./match-correction.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { MoreActions, type MoreAction } from "./more-actions.tsx";
@@ -41,7 +42,7 @@ import { useRequest } from "./use-request.ts";
 import { MarkWatched, WatchedRowMark } from "./watched-mark.tsx";
 
 /** A series with its seasons, as the server sends it; each season's episodes are read apart. */
-export type SeriesDetail = components["schemas"]["CollectionOutputBody"];
+export type SeriesDetail = components["schemas"]["SeriesBody"];
 type Season = components["schemas"]["SeasonBody"];
 type Episode = components["schemas"]["EpisodeBody"];
 type NextUp = components["schemas"]["NextUpBody"];
@@ -677,10 +678,12 @@ export function Series(props: {
   const [loaded, reload] = useResource(
     `series/${String(props.id)}`,
     async () => {
-      return dataOrThrow(
-        await api.GET("/collections/{id}", {
-          params: { path: { id: props.id } },
-        }),
+      return seriesOrThrow(
+        dataOrThrow(
+          await api.GET("/items/{id}", {
+            params: { path: { id: props.id } },
+          }),
+        ),
       );
     },
     useBackgroundChangesPoller(),

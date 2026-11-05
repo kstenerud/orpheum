@@ -51,6 +51,19 @@ type FileDetail struct {
 	Streams   []sqlcgen.ListStreamsOfVideoFileRow
 }
 
+// IsCollection is whether an item is a collection (a series) rather than a title, which says whose
+// detail its page reads; a credited person, or an item that does not exist, is ErrNoItem (D425 §7).
+func (browser *Browser) IsCollection(ctx context.Context, itemID int64) (bool, error) {
+	kind, err := store.OrNotFound(browser.database.Read().GetItemKind(ctx, itemID))
+	if errors.Is(err, store.ErrNotFound) || (err == nil && kind == itemKindPerson) {
+		return false, fmt.Errorf("item %d: %w", itemID, ErrNoItem)
+	}
+	if err != nil {
+		return false, fmt.Errorf("read the kind of item %d: %w", itemID, err)
+	}
+	return kind == itemKindCollection, nil
+}
+
 // Title is a title's detail as userID sees it, an episode placed in the ordering they watch its
 // series in; one in a library reach does not reach is ErrNoItem, as one that does not exist (D243 §4).
 func (browser *Browser) Title(ctx context.Context, reach auth.Reach, userID, titleID int64) (TitleDetail, error) {

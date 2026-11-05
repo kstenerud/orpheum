@@ -110,7 +110,7 @@ func (harness testHarness) readJSON(t *testing.T, path, token string, into any) 
 func (harness testHarness) seriesSummary(t *testing.T, token string) string {
 	t.Helper()
 	var seen seriesSeen
-	harness.readJSON(t, "/collections/20", token, &seen)
+	harness.readJSON(t, "/items/20", token, &seen)
 	return seen.summary()
 }
 
@@ -185,7 +185,7 @@ func TestOrderings_APersonChoosesAmongTheOrderingsASeriesHas(t *testing.T) {
 	var offered struct {
 		Orderings []api.OrderingBody `json:"orderings"`
 	}
-	harness.readJSON(t, "/collections/20", user, &offered)
+	harness.readJSON(t, "/items/20", user, &offered)
 	if got, want := fmt.Sprint(offered.Orderings),
 		"[{aired aired  0 4 false} {tmdb:dvd dvd DVD Order 5 3 false}]"; got != want {
 		t.Errorf("orderings offered %s; want %s", got, want)
@@ -206,7 +206,7 @@ func TestOrderings_APersonChoosesAmongTheOrderingsASeriesHas(t *testing.T) {
 	if got, want := harness.seriesSummary(t, user), "tmdb:dvd seasons[1:2,2:1] next 23:1:1"; got != want {
 		t.Errorf("chosen: %s; want %s", got, want)
 	}
-	series := harness.do(t, http.MethodGet, "/collections/20", user, nil)
+	series := harness.do(t, http.MethodGet, "/items/20", user, nil)
 	for _, want := range []string{
 		`{"seasonNumber":1,"name":"Disc 1","episodeCount":2,`, `"notInOrderingCount":1`, `"groupName":"Disc 1"`,
 	} {
@@ -285,7 +285,7 @@ func TestOrderings_ChoosingAGroupNotFetchedYetQueuesItsFetch(t *testing.T) {
 	var offered struct {
 		Orderings []api.OrderingBody `json:"orderings"`
 	}
-	harness.readJSON(t, "/collections/20", admin, &offered)
+	harness.readJSON(t, "/items/20", admin, &offered)
 	if got := fmt.Sprint(offered.Orderings[2]); got != "{tmdb:intended absolute Intended Order 14 0 true}" {
 		t.Errorf("a group not fetched is offered as %s; want it awaiting its fetch, holding none", got)
 	}

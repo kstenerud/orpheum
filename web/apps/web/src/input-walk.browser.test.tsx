@@ -178,7 +178,7 @@ function pagedSeriesServices(count: number): Services {
       const next = from + pageSize < count ? String(from + pageSize) : "";
       return Response.json({ titles: all.slice(from, from + pageSize), nextCursor: next });
     }
-    const series = /^\/collections\/(\d+)$/u.exec(path);
+    const series = /^\/items\/(\d+)$/u.exec(path);
     if (request.method === "GET" && series !== null) {
       const id = Number(series[1]);
       return Response.json({

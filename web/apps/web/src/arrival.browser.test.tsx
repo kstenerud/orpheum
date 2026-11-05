@@ -202,7 +202,7 @@ describe("a page's arrival", () => {
       walkServices(
         {
           ...signedIn,
-          "GET /collections/20": {
+          "GET /items/20": {
             id: 20,
             kind: "series",
             name: "Glass Tide",
