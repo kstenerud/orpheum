@@ -49,7 +49,7 @@ import { firstPlayableFile } from "./first-playable.ts";
 import { titleOrThrow } from "./item-detail.ts";
 import { Loaded } from "./loaded.tsx";
 import { groupName, placeCode } from "./episode-place.ts";
-import { Remembered, useRemembered } from "./remembered.ts";
+import { rememberedInTheTab, useRemembered } from "./remembered.ts";
 import { MarkWatched } from "./watched-mark.tsx";
 
 // Where they were before a screen that shows no title used them: a title's page loads with the player
@@ -506,7 +506,7 @@ function useEpisodeReached(title: TitleDetail | undefined): void {
 }
 
 /** The titles' pages this tab has shown. */
-const rememberedTitles = new Remembered<TitleDetail>();
+const rememberedTitles = rememberedInTheTab<TitleDetail>();
 
 /**
  * Warms up fileId, the first file a title's page plays, while the page shows it (D258 §1); its

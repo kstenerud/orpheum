@@ -227,14 +227,19 @@ export async function loadScreenCode<T>(
   }
 }
 
-/** The resets of every module of lazy screens loaded so far, which test-dom's mount() runs. */
+/**
+ * The resets of every module loaded so far that holds state for the tab, which test-dom's mount()
+ * and test-walk's mountApp() run.
+ */
 const lazyResets = new Set<() => void>();
 
 /**
- * Test-only: a module of lazy screens (later-screens.tsx, tray-dialog-code.tsx) gives its reset here
- * as it loads, so a mount meets its screens cold without test-dom importing it: an import from the
- * helper made every test related to every screen, half the suite rerun for one changed screen (the
- * test-regime audit of 2026-10-31, R4). Only a module that loaded has warmed screens to reset.
+ * Test-only: a module of lazy screens (later-screens.tsx, tray-dialog-code.tsx), or one holding
+ * what the tab remembers of its pages (remembered.ts's rememberedInTheTab), gives its reset here as
+ * it loads, so a mount meets its screens cold and its pages unremembered without test-dom importing
+ * it: an import from the helper made every test related to every screen, half the suite rerun for
+ * one changed screen (the test-regime audit of 2026-10-31, R4). Only a module that loaded has state
+ * to reset.
  */
 export function resetOnEachTestMount(reset: () => void): void {
   lazyResets.add(reset);
