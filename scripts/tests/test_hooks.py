@@ -365,7 +365,7 @@ class AgentLimits(unittest.TestCase):
             return said.get("hookSpecificOutput", {}).get("additionalContext", "")
         said = [call() for _ in range(10)]
         self.assertEqual(said[:7], [""] * 7)
-        self.assertIn("tool call 8 of a budget of 10", said[7], "warned at four fifths, not by a quoted budget")
+        self.assertIn("tool call 8; your budget is 10: about 2 left", said[7], "warned at four fifths, not by a quoted budget")
         self.assertEqual(said[8], "", "warned once")
         self.assertIn("your budget is 10", said[9])
         self.assertIn("The lead resumes you", said[9])
@@ -388,7 +388,7 @@ class AgentLimits(unittest.TestCase):
         record = json.loads((records / "a9.json").read_text())
         self.assertEqual((record["spent"], record["budget"], record["first_budget"]), (10, 10, 10),
                          "15 asked, 10 given: twice the brief's 10 is the ceiling")
-        self.assertIn("your budget is 10", said[9])
+        self.assertIn("tool call 10 of this run (20 in all); your budget is 10", said[9])
         self.assertIn("This is the ceiling", said[9])
 
     def test_the_records_directory_is_asked_of_git_once_not_once_per_record(self):
