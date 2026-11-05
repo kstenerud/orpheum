@@ -344,7 +344,7 @@ func TestPlayback_SaysWhatItPlaysAndWhereItLives(t *testing.T) {
 		}
 	}
 	storetest.ExecRaw(t, harness.databasePath, `INSERT INTO preference (user_id, scope, scope_id, axis, value_json,
-		set_at) VALUES (1, 'work', 20, 'episode_ordering', '"tmdb:dvd"', 1)`)
+		set_at) VALUES (1, 'item', 20, 'episode_ordering', '"tmdb:dvd"', 1)`)
 	for fileID, want := range map[int64]string{
 		5: `episode 24 in library 1, series 20 season 2 "tmdb:dvd" group 2`,
 		4: `episode 23 in library 1, series 20 season 1 "tmdb:dvd" group 1`,

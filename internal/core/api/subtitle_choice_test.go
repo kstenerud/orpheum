@@ -274,7 +274,7 @@ func TestSubtitleChoice_IsReadFromTheWorksLanguageAndTheFilesUsedTrack(t *testin
 	storetest.ExecRaw(t, harness.databasePath,
 		"UPDATE stream SET container_title = 'Signs' WHERE id = 53",
 		`INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at) VALUES
-		 (1, 'work', 20, 'subtitle_language', '{"language":"fr","kind":"plain","containerTitle":"Signs"}', 1),
+		 (1, 'item', 20, 'subtitle_language', '{"language":"fr","kind":"plain","containerTitle":"Signs"}', 1),
 		 (1, 'file', 2, 'subtitle_used', '{"streamId":99,"track":{"language":"es","kind":"plain"}}', 1)`)
 	if got := harness.subtitlesIn(t, user, 2, 5); got[5] != "53" || got[2] != "51" {
 		t.Errorf("stored as subtitle_language and subtitle_used: files start with %v, want 5 French (53) "+

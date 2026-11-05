@@ -180,7 +180,7 @@ WHERE ordering.sequence_id = sqlc.arg(sequence_id) AND ordering.name = sqlc.arg(
 -- longer has, is not listed.
 SELECT ordering.sequence_id, ordering.name
 FROM json_each(CAST(sqlc.arg(sequence_ids_json) AS TEXT)) AS chosen
-JOIN preference ON preference.user_id = sqlc.arg(user_id) AND preference.scope = 'work'
+JOIN preference ON preference.user_id = sqlc.arg(user_id) AND preference.scope = 'item'
   AND preference.scope_id = chosen.value AND preference.axis = sqlc.arg(axis)
 JOIN ordering ON ordering.sequence_id = preference.scope_id
   AND ordering.name = CAST(json_extract(preference.value_json, '$') AS TEXT);

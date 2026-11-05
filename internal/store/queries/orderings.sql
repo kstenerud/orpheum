@@ -84,7 +84,7 @@ ORDER BY item.id;
 -- first fetch, on their act (D170; episode-orderings.md section 3.4).
 SELECT DISTINCT CAST(ordering.source_id AS TEXT) AS source_id
 FROM ordering
-JOIN preference ON preference.scope = 'work' AND preference.scope_id = ordering.sequence_id
+JOIN preference ON preference.scope = 'item' AND preference.scope_id = ordering.sequence_id
   AND preference.axis = sqlc.arg(axis) AND CAST(json_extract(preference.value_json, '$') AS TEXT) = ordering.name
 WHERE ordering.sequence_id = sqlc.arg(sequence_id) AND ordering.provider = sqlc.arg(provider)
   AND ordering.source_id IS NOT NULL
@@ -102,7 +102,7 @@ ORDER BY 1;
 -- never a flood (D335 section 3).
 SELECT sequence.id, CAST(EXISTS (
     SELECT 1 FROM ordering
-    JOIN preference ON preference.scope = 'work' AND preference.scope_id = ordering.sequence_id
+    JOIN preference ON preference.scope = 'item' AND preference.scope_id = ordering.sequence_id
       AND preference.axis = sqlc.arg(axis) AND CAST(json_extract(preference.value_json, '$') AS TEXT) = ordering.name
     WHERE ordering.sequence_id = sequence.id AND ordering.source_id IS NOT NULL
       AND NOT EXISTS (
@@ -130,7 +130,7 @@ WHERE sequence.kind = 'series' AND item.followed_source = sqlc.arg(provider)
     )
     OR EXISTS (
       SELECT 1 FROM ordering
-      JOIN preference ON preference.scope = 'work' AND preference.scope_id = ordering.sequence_id
+      JOIN preference ON preference.scope = 'item' AND preference.scope_id = ordering.sequence_id
         AND preference.axis = sqlc.arg(axis) AND CAST(json_extract(preference.value_json, '$') AS TEXT) = ordering.name
       WHERE ordering.sequence_id = sequence.id AND ordering.source_id IS NOT NULL
         AND NOT EXISTS (

@@ -96,7 +96,7 @@ func (lib *testLibrary) choose(seriesID int64, ordering string) {
 	lib.t.Helper()
 	storetest.ExecRaw(lib.t, lib.database.Path(), fmt.Sprintf(
 		`INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at)
-		 VALUES (1, 'work', %d, 'episode_ordering', '"%s"', 1)
+		 VALUES (1, 'item', %d, 'episode_ordering', '"%s"', 1)
 		 ON CONFLICT (user_id, scope, scope_id, axis) DO UPDATE SET value_json = excluded.value_json`,
 		seriesID, ordering))
 }

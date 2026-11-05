@@ -442,7 +442,7 @@ func TestRaiser_ALookAtASeriesFollowsTheOrderingItsPersonWatchesItIn(t *testing.
 		`INSERT INTO position (ordering_id, work_id, group_number, number_in_group, sort_order) VALUES
 		 (2, 23, 1, 1, 10001), (2, 21, 1, 2, 10002), (2, 26, 2, 1, 20001)`,
 		`INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at)
-		 VALUES (1, 'work', 20, 'episode_ordering', '"tmdb:dvd"', 1)`)
+		 VALUES (1, 'item', 20, 'episode_ordering', '"tmdb:dvd"', 1)`)
 	librarytest.Watch(t, database, librarytest.WatchSpec{FileID: 230, PositionMs: 1000, ReadAt: 5})
 	now := clocktest.NewFake(time.Date(2026, 10, 25, 12, 0, 0, 0, time.UTC))
 	register := NewRegister(now)

@@ -131,7 +131,7 @@ INSERT INTO item_hidden (user_id, item_id, hidden_at) VALUES (1, 1, 179000000000
 INSERT INTO work_watched (user_id, work_id, watched_at, marked_at) VALUES (1, 1, 1790000000000, 1790000000000);
 INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at)
   VALUES (2, 'file', 1, 'subtitle_offset_ms', '-250', 1790000000000),
-         (2, 'work', 3, 'audio_language', '{"language":"en","kind":"plain"}', 1790000000000);
+         (2, 'item', 3, 'audio_language', '{"language":"en","kind":"plain"}', 1790000000000);
 INSERT INTO provider_response (item_id, provider, part, fetched_at, last_asked_at, body_gzip)
   VALUES (1, 'tmdb', '', 1790000000000, 1790000300000, X'1F8B0800');
 INSERT INTO provider_response (item_id, provider, part, fetched_at, last_asked_at, body_gzip)

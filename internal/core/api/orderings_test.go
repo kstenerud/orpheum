@@ -132,7 +132,7 @@ func TestOrderings_APersonsChosenOrderingIsTheSeriesTheySee(t *testing.T) {
 	}
 	before := harness.playState(t)
 	storetest.ExecRaw(t, harness.databasePath, `INSERT INTO preference (user_id, scope, scope_id, axis, value_json,
-		set_at) VALUES (1, 'work', 20, 'episode_ordering', '"tmdb:dvd"', 1)`)
+		set_at) VALUES (1, 'item', 20, 'episode_ordering', '"tmdb:dvd"', 1)`)
 	if got, want := harness.seriesSummary(t, user), "tmdb:dvd seasons[1:2,2:1] next 21:1:2"; got != want {
 		t.Errorf("chosen: %s; want %s, the DVD order's discs and 21 after 23", got, want)
 	}

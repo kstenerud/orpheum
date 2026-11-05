@@ -104,7 +104,7 @@ type Preferences struct {
 // The preference table's names for what is kept.
 const (
 	scopeFile = "file"
-	scopeWork = "work"
+	scopeItem = "item" // a film or a whole series (D428)
 	scopeUser = "user"
 	// A file's.
 	axisSubtitleOffsetMs = "subtitle_offset_ms"
@@ -238,7 +238,7 @@ func (service *Service) workLanguages(
 		return nil, nil, err
 	}
 	stored, err := queries.ListPreferencesAtScope(ctx, sqlcgen.ListPreferencesAtScopeParams{
-		UserID: userID, Scope: scopeWork, ScopeID: workID,
+		UserID: userID, Scope: scopeItem, ScopeID: workID,
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("read the preferences for work %d: %w", workID, err)

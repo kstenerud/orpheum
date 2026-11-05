@@ -141,7 +141,9 @@
 //     step 0074 (D426 §3), which renames title to work and collection to sequence, in
 //     TestMigrate_Step0074KeepsEveryRowUnderWorkAndSequence; step 0075 (D426 §10, sql.md M1), which
 //     stores six small tables by their key and gives edited rows a revision, in
-//     TestMigrate_Step0075KeepsEveryRowWithoutTheRowidAndAtRevisionZero.
+//     TestMigrate_Step0075KeepsEveryRowWithoutTheRowidAndAtRevisionZero; step 0076 (D428), which
+//     moves a preference on a film or a series to the scope 'item', in
+//     TestMigrate_Step0076MovesEveryWorkPreferenceToTheScopeItem.
 //   - Every write to a row people edit (a field set by hand, a library, a user, a role, a setting)
 //     raises its revision (sql.md M1). Enforced by TestRevision_EachUpdateOfAnEditedRowRaisesIt.
 //   - The schema keeps the rules D303 put in the engine: every table, both databases', STRICT; a

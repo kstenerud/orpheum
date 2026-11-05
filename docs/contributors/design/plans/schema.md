@@ -1043,10 +1043,10 @@ CREATE INDEX link_memory_said ON link_memory(said_at);
 
 CREATE TABLE preference (                                  -- class A (D24, D57, D90, D103, D230)
   user_id     INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
-  scope       TEXT NOT NULL CHECK (scope IN ('user','library','work','device','file')),  -- 0028: 'work' for 'series'
-  scope_id    INTEGER NOT NULL DEFAULT 0,  -- 0 for 'user'; a work's is its series' or its title's item
+  scope       TEXT NOT NULL CHECK (scope IN ('user','library','item','device','file')),  -- 'item' since step 0076 (D428)
+  scope_id    INTEGER NOT NULL DEFAULT 0,  -- 0 for 'user'; an item's is its film's or its series'
   axis        TEXT NOT NULL,               -- a file's 'subtitle_offset_ms', 'subtitle_used',
-                                           -- 'audio_used'; a work's 'subtitle_language',
+                                           -- 'audio_used'; an item's 'subtitle_language',
                                            -- 'audio_language', a series' 'episode_ordering'
                                            -- (the ordering's name as a JSON string); a person's
                                            -- own 'dialogue_boost', 'levelling'

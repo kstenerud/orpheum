@@ -68,8 +68,8 @@ func (service *Service) choose(
 	if err != nil || !found {
 		return err
 	}
-	inWork := place{userID: userID, scope: scopeWork, scopeID: workID, axis: kept.languageAxis}
-	return service.set(ctx, queries, replacing, inWork, kept.language)
+	inItem := place{userID: userID, scope: scopeItem, scopeID: workID, axis: kept.languageAxis}
+	return service.set(ctx, queries, replacing, inItem, kept.language)
 }
 
 // KeepUsed keeps what a playback of a file used, once the person has started it, where the file
@@ -140,7 +140,7 @@ func (service *Service) setPersonalSwitch(ctx context.Context, userID int64, axi
 // caller has found the series has it; one it no longer has is read as no choice.
 func (service *Service) ChooseEpisodeOrdering(ctx context.Context, userID, seriesID int64, ordering string) error {
 	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		inSeries := place{userID: userID, scope: scopeWork, scopeID: seriesID, axis: AxisEpisodeOrdering}
+		inSeries := place{userID: userID, scope: scopeItem, scopeID: seriesID, axis: AxisEpisodeOrdering}
 		return service.set(ctx, queries, replacing, inSeries, ordering)
 	})
 	if err != nil {

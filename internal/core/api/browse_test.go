@@ -492,7 +492,7 @@ func TestBrowse_AListShowsHowFarThePersonIsThroughEach(t *testing.T) {
 	}
 	storetest.ExecRaw(t, harness.databasePath,
 		`INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at)
-		 VALUES (1, 'work', 20, 'episode_ordering', '"tmdb:dvd"', 1)`,
+		 VALUES (1, 'item', 20, 'episode_ordering', '"tmdb:dvd"', 1)`,
 		`INSERT INTO item_hidden (user_id, item_id, hidden_at) VALUES (1, 10, 5)`)
 	if got, want := harness.titlesProgress(t, "/items?kind=series&sort=name&limit=10", user), "20:0:1/3"; got != want {
 		t.Errorf("series in the DVD order: %s; want %s, one of its three finished", got, want)
@@ -530,7 +530,7 @@ func TestBrowse_ASeriesSeasonsShowTheirOwnPostersInAiredOrderAlone(t *testing.T)
 			seen.Art.PosterSha256, want)
 	}
 	storetest.ExecRaw(t, harness.databasePath, `INSERT INTO preference (user_id, scope, scope_id, axis, value_json,
-		set_at) VALUES (1, 'work', 20, 'episode_ordering', '"tmdb:dvd"', 1)`)
+		set_at) VALUES (1, 'item', 20, 'episode_ordering', '"tmdb:dvd"', 1)`)
 	seen.Seasons = nil
 	harness.readJSON(t, "/items/20", user, &seen)
 	if got, want = fmt.Sprint(seen.Seasons), "[{1 } {2 }]"; got != want {
