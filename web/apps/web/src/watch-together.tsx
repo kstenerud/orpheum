@@ -39,7 +39,11 @@ import { TogetherPlays } from "./together-plays.tsx";
  * nothing (D364 §15). Ending the session here is told onEnded once it is forgotten: the dialog
  * closes then, its work done (D385's Also).
  */
-export function WatchTogetherControls(props: { readonly onEnded: () => void }): JSX.Element {
+export function WatchTogetherControls(props: {
+  readonly onEnded: () => void;
+  /** Whether the session's panel shows under these, holding Talk and the volumes (D433 §2). */
+  readonly hasPanel?: boolean;
+}): JSX.Element {
   const { t } = useTranslation();
   // Started here, or had back from the server on another of the host's devices (D267 §2).
   const membership = useMembership(tabStorage, "host");
@@ -62,6 +66,7 @@ export function WatchTogetherControls(props: { readonly onEnded: () => void }): 
         <HostedSession
           key={membership.sessionId}
           membership={membership}
+          hasPanel={props.hasPanel ?? false}
           onOver={() => {
             setIsOver(true);
             over(membership.sessionId, "gone");
@@ -132,6 +137,7 @@ function isSessionOver(cause: unknown): boolean {
  */
 function HostedSession(props: {
   readonly membership: Membership;
+  readonly hasPanel: boolean;
   readonly onOver: () => void;
   readonly onEnded: () => void;
 }): JSX.Element | null {
@@ -161,6 +167,7 @@ function HostedSession(props: {
       render={(value) => (
         <SessionView
           membership={props.membership}
+          hasPanel={props.hasPanel}
           details={value}
           onChanged={reload}
           onEnded={props.onEnded}
@@ -302,6 +309,7 @@ function usePanelConnection(membership: Membership): ReturnType<typeof useTogeth
  */
 function SessionView(props: {
   readonly membership: Membership;
+  readonly hasPanel: boolean; // as WatchTogetherControls's
   readonly details: SessionDetails;
   readonly onChanged: () => void;
   readonly onEnded: () => void;
@@ -313,7 +321,6 @@ function SessionView(props: {
   const { isBusy, problem, runRequest } = useRequest((cause) =>
     fieldProblemText(t, cause, hostingWords(t)),
   );
-  const id = props.details.sessionId;
   const showIssued = (issued: Issued): void => {
     setDialog({ kind: "issued", ...issued, wasUsed: isUsed(props.details, issued.secret) });
   };
@@ -322,8 +329,8 @@ function SessionView(props: {
     <div className="watch-together__controls">
       <p>{t("watchTogether.onExplain")}</p>
       <TogetherPlays session={session} details={props.details} onChanged={props.onChanged} />
-      {voice === undefined ? null : <VoiceControls {...voice} />}
-      <FilmVolumeSlider />
+      {voice === undefined || props.hasPanel ? null : <VoiceControls {...voice} />}
+      {props.hasPanel ? null : <FilmVolumeSlider />}
       {problem === undefined ? null : <p role="alert">{problem}</p>}
       <BusyGroup isBusy={isBusy}>
         <div className="watch-together__people-head">
@@ -355,7 +362,7 @@ function SessionView(props: {
             setDialog(undefined);
           }}
         />
-        <EndSession sessionId={id} run={runRequest} onEnded={props.onEnded} />
+        <EndSession sessionId={props.details.sessionId} run={runRequest} onEnded={props.onEnded} />
       </BusyGroup>
     </div>
   );

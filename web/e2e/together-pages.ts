@@ -88,9 +88,9 @@ export async function hostPlays(host: Page, film: string): Promise<void> {
 const togetherOverTheFilm = "Watch Together is on: its controls";
 
 /**
- * Opens the session's panel over the film by Watch Together's sign there, the film filling the
- * window over the page that holds it (D418 §1, D423); a page whose film does not fill it shows the
- * panel where it stands.
+ * Opens Watch Together's dialog over the film by its sign there, the session's panel moved in under
+ * its controls, the film filling the window over the page that holds it (D418 §1, D423, D433); a page
+ * whose film does not fill it shows the panel where it stands.
  */
 export async function openPanelOverTheFilm(page: Page): Promise<void> {
   const dialog = page.getByRole("dialog", { name: "Watch Together" });
