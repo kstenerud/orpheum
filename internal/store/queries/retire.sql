@@ -66,7 +66,7 @@ SELECT place.id
 FROM file AS place
 WHERE place.node_id = sqlc.arg(node_id) AND place.removed_at IS NULL
   AND place.reported_path_raw > CAST(sqlc.arg(after) AS BLOB) AND place.reported_path_raw < CAST(sqlc.arg(before) AS BLOB)
-  AND NOT EXISTS (SELECT 1 FROM place_library WHERE place_library.place_id = place.id)
+  AND NOT EXISTS (SELECT 1 FROM library_place WHERE library_place.place_id = place.id)
 ORDER BY place.id;
 
 -- name: RemoveNode :execrows

@@ -143,7 +143,9 @@
 //     stores six small tables by their key and gives edited rows a revision, in
 //     TestMigrate_Step0075KeepsEveryRowWithoutTheRowidAndAtRevisionZero; step 0076 (D428), which
 //     moves a preference on a film or a series to the scope 'item', in
-//     TestMigrate_Step0076MovesEveryWorkPreferenceToTheScopeItem.
+//     TestMigrate_Step0076MovesEveryWorkPreferenceToTheScopeItem; step 0077 (D426 §4), which keeps
+//     one view of which library covers a place, in
+//     TestMigrate_Step0077KeepsOneCoverageViewThatSaysWhatTheThreeSaid.
 //   - Every write to a row people edit (a field set by hand, a library, a user, a role, a setting)
 //     raises its revision (sql.md M1). Enforced by TestRevision_EachUpdateOfAnEditedRowRaisesIt.
 //   - The schema keeps the rules D303 put in the engine: every table, both databases', STRICT; a

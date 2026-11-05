@@ -33,12 +33,12 @@ LEFT JOIN file_probe ON file_probe.file_id = file.id
 LEFT JOIN file AS owner ON owner.id = file.attached_to_file
 WHERE library_place.library_id = sqlc.arg(library_id)
   AND (file.filing <> 'video' OR (
-    (SELECT governing.library_id FROM place_library AS governing
+    (SELECT governing.library_id FROM library_place AS governing
      WHERE (governing.place_id = file.id OR governing.copy_of = file.id)
        AND governing.library_kind = library_place.library_kind
      ORDER BY length(governing.root_path), governing.library_id LIMIT 1) = library_place.library_id
     AND NOT EXISTS (
-      SELECT 1 FROM place_library AS earlier
+      SELECT 1 FROM library_place AS earlier
       WHERE (earlier.place_id = file.id OR earlier.copy_of = file.id) AND earlier.library_id = library_place.library_id
         AND (earlier.copy_of IS NOT NULL, earlier.first_seen_at, earlier.place_id)
           < (library_place.copy_of IS NOT NULL, library_place.first_seen_at, library_place.place_id))))
@@ -56,7 +56,7 @@ CROSS JOIN version ON version.id = file_filing.version_id
 CROSS JOIN item ON item.id = version.work_id
 WHERE library_place.library_id = sqlc.arg(library_id)
   AND item.removed_at IS NULL AND item.filing_library_id IS NOT library_place.library_id
-  AND (SELECT governing.library_id FROM place_library AS governing
+  AND (SELECT governing.library_id FROM library_place AS governing
        WHERE (governing.place_id = file_filing.file_id OR governing.copy_of = file_filing.file_id)
          AND governing.library_kind = file_filing.library_kind
        ORDER BY length(governing.root_path), governing.library_id LIMIT 1) = library_place.library_id
@@ -64,7 +64,7 @@ WHERE library_place.library_id = sqlc.arg(library_id)
     SELECT 1 FROM version AS held
     CROSS JOIN file_filing AS filed ON filed.version_id = held.id
     WHERE held.work_id = item.id
-      AND (SELECT governing.library_id FROM place_library AS governing
+      AND (SELECT governing.library_id FROM library_place AS governing
            WHERE (governing.place_id = filed.file_id OR governing.copy_of = filed.file_id)
              AND governing.library_kind = filed.library_kind
            ORDER BY length(governing.root_path), governing.library_id LIMIT 1) = item.filing_library_id)

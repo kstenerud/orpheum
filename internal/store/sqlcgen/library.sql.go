@@ -219,7 +219,7 @@ SELECT place.id, CAST(coalesce(covering.id, 0) AS INTEGER) AS library_id, place.
   place.error_detail_json, place.size_bytes, place.first_seen_at, place.last_seen_at
 FROM file AS place
 LEFT JOIN library AS covering ON covering.id = (
-  SELECT first.library_id FROM place_library AS first
+  SELECT first.library_id FROM library_place AS first
   WHERE first.place_id = place.id AND (first.library_id = ?1 OR ?1 IS NULL)
   ORDER BY first.library_id LIMIT 1)
 LEFT JOIN file_filing ON file_filing.file_id = place.id AND file_filing.library_kind = covering.kind

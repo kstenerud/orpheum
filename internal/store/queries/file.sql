@@ -228,7 +228,7 @@ WHERE file.id = ? AND file.removed_at IS NULL AND file.filing = 'video';
 -- by whom (D363 section 8).
 SELECT place.id AS place_id, place.node_id, place.path, place.reported_path_raw, place.first_seen_at,
   CAST(coalesce((
-    SELECT json_group_array(place_library.library_id) FROM place_library WHERE place_library.place_id = place.id
+    SELECT json_group_array(library_place.library_id) FROM library_place WHERE library_place.place_id = place.id
   ), '[]') AS TEXT) AS library_ids_json
 FROM file AS place
 WHERE (place.id = sqlc.arg(file_id) OR place.copy_of = sqlc.arg(file_id)) AND place.removed_at IS NULL
@@ -254,8 +254,8 @@ JOIN file f ON f.id = s.bytes_file AND f.removed_at IS NULL
 WHERE s.video_file = sqlc.arg(video_file) AND s.kind = 'subtitle'
   AND (s.bytes_file = s.video_file OR CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
     OR EXISTS (
-      SELECT 1 FROM place_library WHERE place_library.place_id = s.bytes_file
-        AND place_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT)))))
+      SELECT 1 FROM library_place WHERE library_place.place_id = s.bytes_file
+        AND library_place.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT)))))
 ORDER BY s.bytes_file <> s.video_file, s.stream_index, f.path;
 
 -- name: ListAudioTracksOfVideo :many
@@ -356,10 +356,10 @@ WHERE id IN (SELECT value FROM json_each(CAST(sqlc.arg(ids_json) AS TEXT)));
 -- Whether a live library of those listed, or any when every library is reached, covers a live place
 -- of a file: who may reach it (D243 section 4, D363 section 8). A copy's place is its file's.
 SELECT CAST(EXISTS (
-  SELECT 1 FROM place_library
-  WHERE (place_library.place_id = sqlc.arg(file_id) OR place_library.copy_of = sqlc.arg(file_id))
+  SELECT 1 FROM library_place
+  WHERE (library_place.place_id = sqlc.arg(file_id) OR library_place.copy_of = sqlc.arg(file_id))
     AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
-      OR place_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
+      OR library_place.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
 ) AS INTEGER) AS is_reached;
 
 -- name: ListFilesAHeldBackScanDidNotSee :many
@@ -388,8 +388,8 @@ SELECT library.id AS library_id, library.name AS library_name, node.name AS node
 FROM file
 JOIN node ON node.id = file.node_id AND node.removed_at IS NULL
 JOIN library ON library.id = (
-  SELECT place_library.library_id FROM place_library WHERE place_library.place_id = file.id
-  ORDER BY place_library.library_id LIMIT 1)
+  SELECT library_place.library_id FROM library_place WHERE library_place.place_id = file.id
+  ORDER BY library_place.library_id LIMIT 1)
 WHERE file.filing = 'errored' AND file.removed_at IS NULL
 -- In file_errored's order, which it then reads, never the whole table (D303).
 ORDER BY file.node_id, file.path;

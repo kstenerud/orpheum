@@ -234,8 +234,8 @@ One row per observed path, **whatever its filing** — a video, a copy, attached
 errored — so the admin view is this table with no filter
 ([D163](../../decisions/working-notes.md)), and an unidentified file is already a playable row
 (obligation #2). Since step 0060 (D363) a row is a **place**, a node and a path: no library owns it
-(the libraries whose live folders cover the path do, the view `place_library`, and `library_place`
-from the folder's side), a confirmed copy's row names the file it is a copy of (`copy_of`), and how
+(the libraries whose live folders cover the path do: the one view `library_place`, read from either
+side, since step 0077 (D426 section 4); `version_library` is what it says of a version's files), a confirmed copy's row names the file it is a copy of (`copy_of`), and how
 each kind of library files a video is `file_filing`, keyed by file and kind.
 
 ```sql
