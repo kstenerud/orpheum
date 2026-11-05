@@ -3130,6 +3130,8 @@ export interface components {
         FolderOutputBody: {
             /** @description Its path below the library's folders; empty at their top */
             folder: string;
+            /** @description The next page's cursor; absent on the last */
+            nextCursor?: string;
             subfolders: components["schemas"]["SubfolderBody"][] | null;
             titles: (components["schemas"]["TitleEntryBody"] | components["schemas"]["SeriesEntryBody"])[] | null;
         };
@@ -3847,6 +3849,8 @@ export interface components {
             failure?: string;
             /** @description The names of the folders in it, in byte order: no link and no hidden folder */
             folders: string[] | null;
+            /** @description The next page's cursor; absent on the last */
+            nextCursor?: string;
             path: string;
             /** @enum {string} */
             state: "readable" | "notAnswering" | "missing" | "failed";
@@ -7794,8 +7798,11 @@ export interface operations {
     getLibraryFolder: {
         parameters: {
             query: {
+                /** @description From the previous page's nextCursor; absent for the first page */
+                cursor?: string;
                 /** @description Its path below the library's folders, as a listed folder's path says it; absent for their top */
                 folder?: string;
+                limit: number;
                 /** @description The way the sort runs, as GET /titles takes it */
                 order?: "ascending" | "descending";
                 /** @description The order its videos come in */
@@ -8742,6 +8749,9 @@ export interface operations {
     getNodeFolders: {
         parameters: {
             query: {
+                /** @description From the previous page's nextCursor; absent for the first page */
+                cursor?: string;
+                limit: number;
                 /** @description One of the node's configured roots, or a folder inside one, by a clean absolute path */
                 path: string;
             };

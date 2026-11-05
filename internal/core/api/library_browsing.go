@@ -37,7 +37,9 @@ type FolderInput struct {
 	ID     int64  `path:"id"`
 	Folder string `doc:"Its path below the library's folders, as a listed folder's path says it; absent for their top" maxLength:"4096" query:"folder"` //nolint:lll // one struct tag
 	Sort   string `doc:"The order its videos come in" enum:"recorded,name,file_name,added" query:"sort" required:"true"`
-	Order  string `doc:"The way the sort runs, as GET /titles takes it" enum:"ascending,descending" query:"order"`
+	// A page holds the folder's folders first, then its videos: limit of them in all (D432 §3).
+	PageInput
+	Order string `doc:"The way the sort runs, as GET /titles takes it" enum:"ascending,descending" query:"order"`
 }
 
 // SubfolderBody is a folder in a folder.
@@ -53,6 +55,7 @@ type FolderOutput struct {
 		Folder     string          `doc:"Its path below the library's folders; empty at their top" json:"folder"`
 		Subfolders []SubfolderBody `json:"subfolders"`
 		Titles     []ItemEntryBody `json:"titles"`
+		NextCursor string          `doc:"The next page's cursor; absent on the last" json:"nextCursor,omitempty"`
 	}
 }
 
@@ -168,9 +171,13 @@ func (server *Server) getLibraryFolder(ctx context.Context, input *FolderInput) 
 	if err != nil {
 		return nil, err
 	}
+	_, offset, err := decodeCursor(input.Cursor)
+	if err != nil || offset < 0 {
+		return nil, errBadCursor()
+	}
 	folder, err := dependencies.Browser.Folder(ctx, library.FolderQuery{
 		LibraryID: input.ID, Path: input.Folder, Sort: input.Sort, Order: input.Order, Reach: principal.Reach,
-		UserID: principal.UserID,
+		UserID: principal.UserID, Offset: offset, Limit: input.Limit,
 	})
 	if errors.Is(err, library.ErrNoFolders) {
 		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "path.id", err.Error())
@@ -191,5 +198,11 @@ func (server *Server) getLibraryFolder(ctx context.Context, input *FolderInput) 
 	for _, entry := range folder.Entries {
 		output.Body.Titles = append(output.Body.Titles, itemEntryBody(entry, nodeName))
 	}
+	// A folder is read whole and sorted afresh for each page, so its cursor is how many of its
+	// entries the pages before gave.
+	given := len(folder.Subfolders) + len(folder.Entries)
+	output.Body.NextCursor = nextCursorOf(given, input.Limit, func() string {
+		return library.EncodeCursor(nil, offset+int64(given))
+	})
 	return output, nil
 }

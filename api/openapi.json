@@ -2160,6 +2160,10 @@
             "description": "Its path below the library's folders; empty at their top",
             "type": "string"
           },
+          "nextCursor": {
+            "description": "The next page's cursor; absent on the last",
+            "type": "string"
+          },
           "subfolders": {
             "items": {
               "$ref": "#/components/schemas/SubfolderBody"
@@ -4226,6 +4230,10 @@
               "array",
               "null"
             ]
+          },
+          "nextCursor": {
+            "description": "The next page's cursor; absent on the last",
+            "type": "string"
           },
           "path": {
             "type": "string"
@@ -13253,6 +13261,28 @@
             }
           },
           {
+            "description": "From the previous page's nextCursor; absent for the first page",
+            "explode": false,
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "description": "From the previous page's nextCursor; absent for the first page",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
             "description": "The way the sort runs, as GET /titles takes it",
             "explode": false,
             "in": "query",
@@ -14595,6 +14625,28 @@
               "description": "One of the node's configured roots, or a folder inside one, by a clean absolute path",
               "minLength": 1,
               "type": "string"
+            }
+          },
+          {
+            "description": "From the previous page's nextCursor; absent for the first page",
+            "explode": false,
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "description": "From the previous page's nextCursor; absent for the first page",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
             }
           }
         ],

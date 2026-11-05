@@ -2,7 +2,7 @@
 
 import "./folder-picker.css";
 
-import type { Api, components } from "@orpheum/sdk";
+import { allPages, type Api, type components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -42,13 +42,31 @@ export function folderInside(path: string, name: string): string {
   return path === "/" ? `/${name}` : `${path}/${name}`;
 }
 
-/** Asks the server for the folders in a folder on a node (D359 §2). */
+/**
+ * Asks the server for the folders in a folder on a node (D359 §2): every page of them, the first
+ * page's state and path with them all (D432 §3).
+ */
 async function listFolders(api: Api, place: Place): Promise<FolderListing> {
-  return dataOrThrow(
-    await api.GET("/nodes/{name}/folders", {
-      params: { path: { name: place.nodeName }, query: { path: place.path } },
-    }),
-  );
+  let first: FolderListing | undefined;
+  const folders = await allPages(async (query) => {
+    const page = dataOrThrow(
+      await api.GET("/nodes/{name}/folders", {
+        params: { path: { name: place.nodeName }, query: { path: place.path, ...query } },
+      }),
+    );
+    first ??= page;
+    return { entries: page.folders ?? [], nextCursor: page.nextCursor };
+  });
+  if (first === undefined) {
+    throw new Error("the server answered no page of folders");
+  }
+  // The listing is the first page's, its path, state and failure, with every page's folders.
+  return {
+    path: first.path,
+    state: first.state,
+    folders,
+    ...(first.failure === undefined ? {} : { failure: first.failure }),
+  };
 }
 
 /**

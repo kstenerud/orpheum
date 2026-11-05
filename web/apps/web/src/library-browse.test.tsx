@@ -405,6 +405,42 @@ describe("the Libraries page (D349)", () => {
     expect(criteriaButton(mounted.container)?.textContent).toBe("Sort and filterName, Z–A");
   });
 
+  it("shows an other library's folder whole, following each page's cursor (D432 §3)", async () => {
+    const heard: Heard[] = [];
+    mounted = await mountBrowse(
+      { library: 5, view: "folders" },
+      {
+        "GET /libraries": [200, { libraries: [library(5, "Home movies", "other")] }],
+        "GET /libraries/5/folders": [
+          [
+            200,
+            {
+              folder: "",
+              subfolders: [{ name: "Beach", path: "Beach", videoCount: 3 }],
+              titles: [],
+              nextCursor: "next",
+            },
+          ],
+          [
+            200,
+            {
+              folder: "",
+              subfolders: [{ name: "Garden", path: "Garden", videoCount: 1 }],
+              titles: [],
+            },
+          ],
+        ],
+      },
+      heard,
+    );
+    await settleUntil(() => mounted?.container.textContent.includes("Garden") === true);
+    expect(mounted.container.textContent).toContain("Beach");
+    const cursors = heard
+      .filter((each) => each.methodAndPath === "GET /libraries/5/folders")
+      .map((each) => new URLSearchParams(each.query).get("cursor"));
+    expect(cursors.slice(0, 2)).toEqual([null, "next"]);
+  });
+
   it("asks an other library's folder either way (D366 §2)", async () => {
     const heard: Heard[] = [];
     mounted = await mountBrowse(

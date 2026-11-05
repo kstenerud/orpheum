@@ -55,6 +55,30 @@ function askedPaths(heard: readonly Heard[]): string[] {
 const starts: readonly Place[] = [{ nodeName: "nas", path: "/tank/media" }];
 
 describe("choosing a library folder (D359)", () => {
+  it("lists every page of a folder's folders, following each page's cursor (D432 §3)", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "GET /nodes/nas/folders": [
+          [200, { path: "/tank/media", state: "readable", folders: ["music"], nextCursor: "next" }],
+          readable("/tank/media", ["video"]),
+        ],
+      },
+      heard,
+    );
+    mounted = await mount(
+      withServices(<FolderPicker starts={starts} onChoose={() => undefined} />, services),
+    );
+    await click(buttonWithText(mounted.container, "Browse nas: /tank/media"));
+    await settleAnswers();
+    expect(buttonWithText(mounted.container, "music")).toBeDefined();
+    expect(buttonWithText(mounted.container, "video")).toBeDefined();
+    const cursors = heard
+      .filter((each) => each.methodAndPath === "GET /nodes/nas/folders")
+      .map((each) => new URLSearchParams(each.query).get("cursor"));
+    expect(cursors).toEqual([null, "next"]);
+  });
+
   it("browses from a node's root into the folders beneath it, up as far as the root, and chooses one", async () => {
     const heard: Heard[] = [];
     const chosen: Place[] = [];
