@@ -430,13 +430,14 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D422](working-notes.md#d422--casts-sign-shows-over-the-playing-film-too-watch-together-stays-in-the-tray) Cast's sign shows over the playing film too; Watch Together stays in the tray — *revisited by D423*
 - [D423](working-notes.md#d423--watch-togethers-sign-shows-over-the-playing-film-and-opens-its-sessions-panel-there) Watch Together's sign shows over the playing film, and opens its session's panel there
 - [D424](working-notes.md#d424--a-failed-quick-tier-stops-check-pr-before-its-long-ones) A failed quick tier stops check-pr before its long ones
-- [D425](working-notes.md#d425--d416s-rename-corrected-by-review-two-interests-one-release-of-aliases-the-loader-frozen-no-mixed-callers-declared-as-security) D416's rename, corrected by review: two interests, one release of aliases, the loader frozen, no `mixed`, callers declared as security
+- [D425](working-notes.md#d425--d416s-rename-corrected-by-review-two-interests-one-release-of-aliases-the-loader-frozen-no-mixed-callers-declared-as-security) D416's rename, corrected by review: two interests, one release of aliases, the loader frozen, no `mixed`, callers declared as security — *revisited by D432*
 - [D426](working-notes.md#d426--the-schema-is-rebuilt-greenfield-in-d416s-batch-the-kind-on-item-file-split-from-place-groups-as-rows-work-and-sequence) The schema is rebuilt greenfield in D416's batch: the kind on `item`, `file` split from `place`, groups as rows, `work` and `sequence` — *revisited by D427, D430*
 - [D427](working-notes.md#d427--a-players-measured-link-stays-in-persistentdb-only-resource_use-moves-to-cachedb) A player's measured link stays in `persistent.db`; only `resource_use` moves to `cache.db`
 - [D428](working-notes.md#d428--a-preference-set-on-a-film-or-a-series-has-the-scope-item-not-work) A preference set on a film or a series has the scope `item`, not `work`
 - [D429](working-notes.md#d429--a-library-moves-by-one-operation-folder-x-on-node-a-is-now-folder-y-on-node-b-over-absolute-paths) A library moves by one operation, "folder X on node A is now folder Y on node B", over absolute paths
 - [D430](working-notes.md#d430--peoples-state-carries-over-by-the-migration-itself-rehearsed-on-a-copy-of-naslans-database-no-exportimport-tool) People's state carries over by the migration itself, rehearsed on a copy of nas.example's database; no export/import tool
 - [D431](working-notes.md#d431--which-library-shows-an-item-stays-computed-not-stored) Which library shows an item stays computed, not stored
+- [D432](working-notes.md#d432--the-expansion-and-relocation-audits-answers-kinds-named-by-list-open-responses-profiles-as-users) The expansion and relocation audits' answers: kinds named by list, open responses, profiles as users
 
 ## Archived
 

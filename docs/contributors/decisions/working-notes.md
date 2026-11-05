@@ -26430,3 +26430,28 @@ writing per 1,000 scanned files).
    performance-targets.md at scale; the research doc's numbers are the baseline.
 
 **Status:** Decided 2026-11-05.
+
+## D432 — The expansion and relocation audits' answers: kinds named by list, open responses, profiles as users
+
+**Decided** (2026-11-05), by the owner, on the expansion audit
+([expansion-audit-2026-11-05.md](../design/research/expansion-audit-2026-11-05.md)) and the relocation
+audit ([relocation-audit-2026-11-05.md](../design/research/relocation-audit-2026-11-05.md)), amending
+D425. Each goes in before D416's batch deploys, while a change still costs nothing.
+
+1. **A list's `kind` filter takes a list of named kinds** (`kind=movie,series,other`), on `/items`,
+   `/items/letters` and `/genres`; `any` is dropped. A client names what it shows, so music, photos or
+   recordings never appear in an old client's "All libraries".
+2. **Responses are open.** Response schemas drop `additionalProperties: false`; the kind and error-code
+   enums are marked extensible; the API document says a client ignores a field or kind it does not
+   know. Requests stay closed.
+3. **A closed `CHECK` list is widened by SQLite's documented `writable_schema` route**, written into
+   standards/sql.md as the way a step widens one; no list widens now.
+4. **A profile (B2) is a `user` row**, so the per-person tables keyed on `user_id` need no re-keying.
+5. **The folder listings are paged** (`/libraries/{id}/folders`, `/nodes/{name}/folders`) by the
+   `/items` cursor and limit, and `/needs-attention` caps its arrays and gives counts.
+6. **The relocation audit's three steps go in:** a repoint marks a place unconfirmed
+   (`place.is_unconfirmed`) instead of clearing its modified time; a live node's name is unique; the
+   `item_found` view and the `place_found_au` trigger key on `place.file_id` rather than assume a
+   place's id is its file's.
+
+**Status:** Decided 2026-11-05; to be made in D416's batch, before check-pr.
