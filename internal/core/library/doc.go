@@ -298,7 +298,13 @@
 //
 //   - Films and series are listed in the sort_locale's order (D47) or newest first, a page at a
 //     time behind an opaque cursor, and only those with a live file. TestBrowse_FilmsInTheLocalesOrderAPageAtATime,
-//     TestBrowse_FilmsNewestFirst. Newest first is by the scan that found it, most recent first,
+//     TestBrowse_FilmsNewestFirst. Every list of the library that pages (a season's episodes, those
+//     an ordering leaves out, a grouped search's groups) pages by that one cursor (EncodeCursor),
+//     its key the list's order and then the id, so entries ranked alike are never repeated or
+//     skipped across a page's edge (D416 §6): a search's by its rank as its index ranks it.
+//     TestSearchGrouped_PagesTitlesThatRankAlikeWithNoRepeatAndNoSkip, TestSearchGrouped_PagesOneGroup,
+//     TestBrowse_EpisodesAtTheSamePlaceArePagedWithNoRepeatAndNoSkip (internal/core/api).
+//     Newest first is by the scan that found it, most recent first,
 //     then by its file's own time: a film as the scan that first found it, a series as its newest
 //     episode (the owner, 2026-10-25; the store's step 0058).
 //     TestFound_FilmsNewestFirstByTheScanThatFoundThemThenTheirFilesTime,

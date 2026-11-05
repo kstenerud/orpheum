@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"math"
 	"slices"
-	"strconv"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
@@ -348,12 +347,13 @@ type SeasonPage struct {
 // cursor this server did not give ErrBadCursor (D306 §9).
 func (browser *Browser) Season(ctx context.Context, reach auth.Reach, query SeasonQuery) (SeasonPage, error) {
 	return browser.episodePage(ctx, reach, query, func(
-		queries *sqlcgen.Queries, ordering string, after float64,
+		queries *sqlcgen.Queries, ordering string, after episodeAfter,
 	) ([]sqlcgen.ListSeasonEpisodeDetailsRow, error) {
 		isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
 		episodes, err := queries.ListSeasonEpisodeDetails(ctx, sqlcgen.ListSeasonEpisodeDetailsParams{
 			IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
-			SequenceID: query.SeriesID, OrderingName: ordering, SeasonNumber: query.Season, AfterSortOrder: after,
+			SequenceID: query.SeriesID, OrderingName: ordering, SeasonNumber: query.Season,
+			AfterSortOrder: after.sortOrder, AfterID: after.id,
 			MaxRows: query.Limit + 1,
 		})
 		if err != nil {
@@ -369,7 +369,7 @@ func (browser *Browser) Season(ctx context.Context, reach auth.Reach, query Seas
 // is empty. The query's season is not read.
 func (browser *Browser) NotInOrdering(ctx context.Context, reach auth.Reach, query SeasonQuery) (SeasonPage, error) {
 	return browser.episodePage(ctx, reach, query, func(
-		queries *sqlcgen.Queries, ordering string, after float64,
+		queries *sqlcgen.Queries, ordering string, after episodeAfter,
 	) ([]sqlcgen.ListSeasonEpisodeDetailsRow, error) {
 		if ordering == OrderingAired {
 			return nil, nil
@@ -377,7 +377,8 @@ func (browser *Browser) NotInOrdering(ctx context.Context, reach auth.Reach, que
 		isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
 		rows, err := queries.ListEpisodesNotInOrdering(ctx, sqlcgen.ListEpisodesNotInOrderingParams{
 			IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
-			SequenceID: query.SeriesID, OrderingName: ordering, AfterSortOrder: after, MaxRows: query.Limit + 1,
+			SequenceID: query.SeriesID, OrderingName: ordering, AfterSortOrder: after.sortOrder, AfterID: after.id,
+			MaxRows: query.Limit + 1,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("list series %d's episodes its %s ordering leaves out: %w", query.SeriesID,
@@ -391,22 +392,45 @@ func (browser *Browser) NotInOrdering(ctx context.Context, reach auth.Reach, que
 	})
 }
 
+// episodeAfter is where a page of a series' episodes starts: after the episode at this sort order
+// and, among those at the same one, after this id (D416 §6).
+type episodeAfter struct {
+	sortOrder float64
+	id        int64
+}
+
+// episodeAfterCursor is where the page after cursor starts, the list's start for "", and
+// ErrBadCursor for a cursor this server did not give: the browse lists' cursor (EncodeCursor), its
+// key the last episode's sort order.
+func episodeAfterCursor(cursor string) (episodeAfter, error) {
+	if cursor == "" {
+		return episodeAfter{sortOrder: math.Inf(-1)}, nil
+	}
+	key, id, err := DecodeCursor(cursor)
+	if err != nil {
+		return episodeAfter{}, err
+	}
+	sortOrder, isFloat := keyFloat64(key)
+	if !isFloat {
+		return episodeAfter{}, ErrBadCursor
+	}
+	return episodeAfter{sortOrder: sortOrder, id: id}, nil
+}
+
 // episodePage is a page of a series' episodes as list reads them, after the cursor, in the ordering
 // the query's person watches it in, with their stills and why none of their files can be read now.
 func (browser *Browser) episodePage(
 	ctx context.Context, reach auth.Reach, query SeasonQuery,
-	list func(queries *sqlcgen.Queries, ordering string, after float64) ([]sqlcgen.ListSeasonEpisodeDetailsRow, error),
+	list func(
+		queries *sqlcgen.Queries, ordering string, after episodeAfter,
+	) ([]sqlcgen.ListSeasonEpisodeDetailsRow, error),
 ) (SeasonPage, error) {
 	if _, err := browser.reachedSeries(ctx, reach, query.SeriesID); err != nil {
 		return SeasonPage{}, err
 	}
-	after := math.Inf(-1)
-	if query.Cursor != "" {
-		parsed, err := strconv.ParseFloat(query.Cursor, 64)
-		if err != nil || math.IsNaN(parsed) {
-			return SeasonPage{}, ErrBadCursor
-		}
-		after = parsed
+	after, err := episodeAfterCursor(query.Cursor)
+	if err != nil {
+		return SeasonPage{}, err
 	}
 	queries := browser.database.Read()
 	ordering, err := ViewingOrdering(ctx, queries, query.UserID, query.SeriesID)
@@ -420,7 +444,8 @@ func (browser *Browser) episodePage(
 	page := SeasonPage{}
 	if int64(len(episodes)) > query.Limit {
 		episodes = episodes[:query.Limit]
-		page.NextCursor = strconv.FormatFloat(episodes[len(episodes)-1].SortOrder, 'g', -1, 64)
+		last := episodes[len(episodes)-1]
+		page.NextCursor = EncodeCursor(float64Key(last.SortOrder), last.WorkID)
 	}
 	page.Episodes = episodes
 	ids := make([]int64, 0, len(episodes))

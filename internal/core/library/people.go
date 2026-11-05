@@ -179,84 +179,198 @@ const (
 )
 
 // GroupedQuery is one grouped search: the text typed, of the libraries reach reaches, a page of
-// Limit hits in each group from Offset, or of one group alone when Group names one.
+// Limit hits in each group, or of one group alone after its Cursor when Group names one.
 type GroupedQuery struct {
-	Reach  auth.Reach
-	Query  string
-	Group  string // "" for every group
-	Offset int64
+	Reach auth.Reach
+	Query string
+	Group string // "" for every group
+	// Cursor is Group's NextCursor from the page before, "" for the first: the browse lists' cursor
+	// (EncodeCursor), its key the last hit's rank as the group ranks, its id the hit's (D416 §6).
+	Cursor string
 	Limit  int64
 }
 
-// GroupedHits is a grouped search's page: each group's hits, the best first, and whether each has
-// more after them.
+// GroupedHits is a grouped search's page: each group's hits, the best first, and the cursor of
+// each one's next page, "" on its last.
 type GroupedHits struct {
-	Titles        []store.SearchHit
-	People        []store.PersonHit
-	Genres        []Genre
-	HasMoreTitles bool
-	HasMorePeople bool
-	HasMoreGenres bool
+	Titles           []store.SearchHit
+	People           []store.PersonHit
+	Genres           []Genre
+	NextTitlesCursor string
+	NextPeopleCursor string
+	NextGenresCursor string
 }
 
 // SearchGrouped finds titles, people and genres by what was typed, from its first letter
 // (search-by-more-2026-11-04.md §4): titles and people through the index that can answer it (D48),
 // the substring route for a query under three characters; genres by their folded names. No group is
-// capped but by its page.
+// capped but by its page. A cursor this server did not give, or one with no group, is ErrBadCursor.
 func (browser *Browser) SearchGrouped(ctx context.Context, query GroupedQuery) (GroupedHits, error) {
 	hits := GroupedHits{Titles: []store.SearchHit{}, People: []store.PersonHit{}, Genres: []Genre{}}
+	if query.Cursor != "" && query.Group == "" {
+		return GroupedHits{}, ErrBadCursor
+	}
 	plan := textindex.PlanQuery(query.Query)
 	if plan.IndexQuery == "" {
 		return hits, nil
 	}
-	isEveryLibrary, libraryIDsJSON := query.Reach.QueryArgs()
-	// One more than the page, so that whether there are more needs no count.
-	indexQuery := store.SearchQuery{
-		Route: store.SearchRoute(plan.Route), IndexQuery: plan.IndexQuery, Limit: query.Limit + 1,
-		Offset: query.Offset, IsEveryLibrary: isEveryLibrary, LibraryIDsJSON: libraryIDsJSON,
+	route := store.SearchRoute(plan.Route)
+	indexQuery, err := indexQueryOf(query, route, plan.IndexQuery)
+	if err != nil {
+		return GroupedHits{}, err
 	}
-	var err error
 	if query.Group == "" || query.Group == GroupTitles {
 		if hits.Titles, err = browser.database.FindTitles(ctx, indexQuery); err != nil {
 			return GroupedHits{}, fmt.Errorf("search titles: %w", err)
 		}
-		hits.Titles, hits.HasMoreTitles = pageOf(hits.Titles, query.Limit)
+		hits.Titles, hits.NextTitlesCursor = pageOf(hits.Titles, query.Limit, func(hit store.SearchHit) string {
+			return searchCursor(route, hit.Place)
+		})
 	}
 	if query.Group == "" || query.Group == GroupPeople {
 		if hits.People, err = browser.database.FindPeople(ctx, indexQuery); err != nil {
 			return GroupedHits{}, fmt.Errorf("search people: %w", err)
 		}
-		hits.People, hits.HasMorePeople = pageOf(hits.People, query.Limit)
+		hits.People, hits.NextPeopleCursor = pageOf(hits.People, query.Limit, func(hit store.PersonHit) string {
+			return searchCursor(route, hit.Place)
+		})
 	}
 	if query.Group == "" || query.Group == GroupGenres {
-		genres, genresErr := browser.Genres(ctx, query.Reach, ListAny)
-		if genresErr != nil {
-			return GroupedHits{}, genresErr
+		if hits.Genres, hits.NextGenresCursor, err = browser.genresMatching(ctx, query); err != nil {
+			return GroupedHits{}, err
 		}
-		matched := matchGenres(genres, textindex.Fold(query.Query))
-		matched = matched[min(int64(len(matched)), query.Offset):]
-		hits.Genres, hits.HasMoreGenres = pageOf(matched, query.Limit)
 	}
 	return hits, nil
 }
 
-// pageOf is the first limit of hits, and whether there were more.
-func pageOf[Hit any](hits []Hit, limit int64) ([]Hit, bool) {
-	if int64(len(hits)) > limit {
-		return hits[:limit], true
+// indexQueryOf is the index's query for a grouped search's titles and people: one more than the
+// page, so that whether there are more needs no count, after the place its cursor holds when it
+// pages one of them.
+func indexQueryOf(query GroupedQuery, route store.SearchRoute, indexQuery string) (store.SearchQuery, error) {
+	isEveryLibrary, libraryIDsJSON := query.Reach.QueryArgs()
+	asked := store.SearchQuery{
+		Route: route, IndexQuery: indexQuery, Limit: query.Limit + 1,
+		IsEveryLibrary: isEveryLibrary, LibraryIDsJSON: libraryIDsJSON,
 	}
-	return hits, false
+	if query.Cursor != "" && (query.Group == GroupTitles || query.Group == GroupPeople) {
+		after, err := searchPlaceAfter(route, query.Cursor)
+		if err != nil {
+			return store.SearchQuery{}, err
+		}
+		asked.After = &after
+	}
+	return asked, nil
+}
+
+// genresMatching is a page of the genres whose names hold what query typed, after its cursor, in
+// matchGenres' order, and the next page's cursor.
+func (browser *Browser) genresMatching(ctx context.Context, query GroupedQuery) ([]Genre, string, error) {
+	var after *genreHit
+	if query.Cursor != "" {
+		key, id, err := DecodeCursor(query.Cursor)
+		if err != nil {
+			return nil, "", err
+		}
+		if after, err = genreHitOfKey(key, id); err != nil {
+			return nil, "", err
+		}
+	}
+	genres, err := browser.Genres(ctx, query.Reach, ListAny)
+	if err != nil {
+		return nil, "", err
+	}
+	matched := matchGenres(genres, textindex.Fold(query.Query))
+	if after != nil {
+		start, _ := slices.BinarySearchFunc(matched, *after, compareGenreHits)
+		for start < len(matched) && compareGenreHits(matched[start], *after) <= 0 {
+			start++
+		}
+		matched = matched[start:]
+	}
+	page, next := pageOf(matched, query.Limit, func(hit genreHit) string {
+		return EncodeCursor(genreHitKey(hit), hit.ID)
+	})
+	pageGenres := make([]Genre, 0, len(page))
+	for _, hit := range page {
+		pageGenres = append(pageGenres, hit.Genre)
+	}
+	return pageGenres, next, nil
+}
+
+// searchPlaceAfter is where a page of a group of titles or people starts: after the place cursor
+// holds, and ErrBadCursor for a cursor this server did not give. Its key is the rank as route
+// ranks: the words index's score (float64Key), or the hit's name.
+func searchPlaceAfter(route store.SearchRoute, cursor string) (store.SearchPlace, error) {
+	key, id, err := DecodeCursor(cursor)
+	if err != nil {
+		return store.SearchPlace{}, err
+	}
+	if route != store.SearchRouteWords {
+		return store.SearchPlace{Name: string(key), ID: id}, nil
+	}
+	score, isScore := keyFloat64(key)
+	if !isScore {
+		return store.SearchPlace{}, ErrBadCursor
+	}
+	return store.SearchPlace{Score: score, ID: id}, nil
+}
+
+// searchCursor is the cursor of the page after a hit at place: searchPlaceAfter reads it back.
+func searchCursor(route store.SearchRoute, place store.SearchPlace) string {
+	if route == store.SearchRouteWords {
+		return EncodeCursor(float64Key(place.Score), place.ID)
+	}
+	return EncodeCursor([]byte(place.Name), place.ID)
+}
+
+// pageOf is the first limit of hits, and the cursor made from the last of them when there were
+// more, "" when there were not.
+func pageOf[Hit any](hits []Hit, limit int64, cursorOf func(Hit) string) ([]Hit, string) {
+	if int64(len(hits)) > limit {
+		return hits[:limit], cursorOf(hits[limit-1])
+	}
+	return hits, ""
+}
+
+// genreHit is a genre a search matched, with how well: matchGenres' rank, the lower the better.
+type genreHit struct {
+	Genre
+	rank int64
+}
+
+// compareGenreHits is matchGenres' order: by rank, then the most titles first, then by name and id.
+func compareGenreHits(first, second genreHit) int {
+	return cmp.Or(cmp.Compare(first.rank, second.rank), cmp.Compare(second.TitleCount, first.TitleCount),
+		cmp.Compare(first.Name, second.Name), cmp.Compare(first.ID, second.ID))
+}
+
+// genreHitKey is a genre hit's place as a cursor's key: its rank and its title count (Int64Key
+// each), then its name.
+func genreHitKey(hit genreHit) []byte {
+	return append(append(Int64Key(hit.rank), Int64Key(hit.TitleCount)...), hit.Name...)
+}
+
+// genreHitOfKey reads genreHitKey's place back, with the id of the cursor that held it; ErrBadCursor
+// for a key that is not one.
+func genreHitOfKey(key []byte, id int64) (*genreHit, error) {
+	const numbers = 16
+	if len(key) < numbers {
+		return nil, ErrBadCursor
+	}
+	rank, _ := KeyInt64(key[:numbers/2])
+	titleCount, _ := KeyInt64(key[numbers/2 : numbers])
+	return &genreHit{Genre: Genre{ID: id, Name: string(key[numbers:]), TitleCount: titleCount}, rank: rank}, nil
 }
 
 // matchGenres are the genres whose folded names hold folded, the most relevant first: those that
 // begin with it, then those with a word that does, then the rest; within each, the most titles
-// first, then by name.
-func matchGenres(genres []Genre, folded string) []Genre {
+// first, then by name (compareGenreHits).
+func matchGenres(genres []Genre, folded string) []genreHit {
 	folded = strings.TrimSpace(folded)
 	if folded == "" {
-		return []Genre{}
+		return []genreHit{}
 	}
-	rank := func(genre Genre) int {
+	rank := func(genre Genre) int64 {
 		name := textindex.Fold(genre.Name)
 		switch {
 		case strings.HasPrefix(name, folded):
@@ -268,15 +382,12 @@ func matchGenres(genres []Genre, folded string) []Genre {
 		}
 		return -1
 	}
-	matched := []Genre{}
+	matched := []genreHit{}
 	for _, genre := range genres {
-		if rank(genre) >= 0 {
-			matched = append(matched, genre)
+		if genreRank := rank(genre); genreRank >= 0 {
+			matched = append(matched, genreHit{Genre: genre, rank: genreRank})
 		}
 	}
-	slices.SortStableFunc(matched, func(first, second Genre) int {
-		return cmp.Or(cmp.Compare(rank(first), rank(second)), cmp.Compare(second.TitleCount, first.TitleCount),
-			cmp.Compare(first.Name, second.Name))
-	})
+	slices.SortFunc(matched, compareGenreHits)
 	return matched
 }

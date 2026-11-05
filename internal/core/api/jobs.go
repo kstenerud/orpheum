@@ -113,7 +113,7 @@ func (server *Server) listJobs(ctx context.Context, input *JobsInput) (*JobsOutp
 	var listedBefore int64
 	if input.Cursor != "" {
 		var isCount bool
-		if listedBefore, isCount = keyInt64(key); !isCount || listedBefore < 1 || beforeID < 1 {
+		if listedBefore, isCount = library.KeyInt64(key); !isCount || listedBefore < 1 || beforeID < 1 {
 			return nil, errBadCursor()
 		}
 	}
@@ -133,7 +133,7 @@ func (server *Server) listJobs(ctx context.Context, input *JobsInput) (*JobsOutp
 	}
 	if listedBefore+int64(len(views)) < maxJobs {
 		output.Body.NextCursor = nextCursorOf(len(views), limit, func() string {
-			return library.EncodeCursor(int64Key(listedBefore+int64(len(views))), views[len(views)-1].ID)
+			return library.EncodeCursor(library.Int64Key(listedBefore+int64(len(views))), views[len(views)-1].ID)
 		})
 	}
 	nodeName := server.nodeNamer(ctx, dependencies)

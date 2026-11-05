@@ -13,6 +13,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
+	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
 // creditedShelf is a shelf of films with genres, years and people, as the identification pass
@@ -340,19 +341,98 @@ func TestSearchGrouped_FindsTitlesPeopleAndGenresFromTheFirstLetter(t *testing.T
 	}
 }
 
-// A grouped search's group is paged with no cap but its page: one group alone, from an offset,
-// saying whether more follow (search-by-more-2026-11-04.md §4).
+// A grouped search's group is paged with no cap but its page: one group alone, after its cursor,
+// with the cursor of the next page while more follow (search-by-more-2026-11-04.md §4); a cursor
+// with no group, or one this server did not give, is refused.
 func TestSearchGrouped_PagesOneGroup(t *testing.T) {
 	t.Parallel()
 	world := newCreditedShelf(t)
 	first := world.searchGrouped(GroupedQuery{Query: "a", Group: GroupPeople, Limit: 1})
-	rest := world.searchGrouped(GroupedQuery{Query: "a", Group: GroupPeople, Offset: 1, Limit: 1})
-	if _, people, _ := groupedNames(first); !slices.Equal(people, []string{"Ansel Vardo"}) || !first.HasMorePeople ||
-		len(first.Titles) != 0 {
-		t.Errorf("the first page of people %v (more %v, titles %v); want Ansel Vardo alone, more after", people,
-			first.HasMorePeople, first.Titles)
+	if _, people, _ := groupedNames(first); !slices.Equal(people, []string{"Ansel Vardo"}) ||
+		first.NextPeopleCursor == "" || len(first.Titles) != 0 {
+		t.Errorf("the first page of people %v (next %q, titles %v); want Ansel Vardo alone, more after", people,
+			first.NextPeopleCursor, first.Titles)
 	}
-	if _, people, _ := groupedNames(rest); !slices.Equal(people, []string{"Oren Talisk"}) || rest.HasMorePeople {
-		t.Errorf("the next page of people %v (more %v); want Oren Talisk, the last", people, rest.HasMorePeople)
+	rest := world.searchGrouped(GroupedQuery{Query: "a", Group: GroupPeople, Cursor: first.NextPeopleCursor, Limit: 1})
+	if _, people, _ := groupedNames(rest); !slices.Equal(people, []string{"Oren Talisk"}) ||
+		rest.NextPeopleCursor != "" {
+		t.Errorf("the next page of people %v (next %q); want Oren Talisk, the last", people, rest.NextPeopleCursor)
+	}
+	short := EncodeCursor([]byte("x"), 1)
+	for name, query := range map[string]GroupedQuery{
+		"a cursor with no group":       {Query: "a", Cursor: first.NextPeopleCursor, Limit: 1},
+		"a cursor not given":           {Query: "a", Group: GroupPeople, Cursor: "!", Limit: 1},
+		"a words cursor with no score": {Query: "vardo", Group: GroupPeople, Cursor: short, Limit: 1},
+		"a genres cursor too short":    {Query: "a", Group: GroupGenres, Cursor: short, Limit: 1},
+	} {
+		query.Reach = auth.EveryLibrary()
+		if _, err := world.browser.SearchGrouped(t.Context(), query); !errors.Is(err, ErrBadCursor) {
+			t.Errorf("%s: %v; want ErrBadCursor", name, err)
+		}
+	}
+}
+
+// pagedTitles are a grouped search's titles, a page of limit at a time, each page after the last's
+// cursor, to the page with none.
+func (world *shelf) pagedTitles(query string, limit int64) []int64 {
+	world.t.Helper()
+	ids, cursor := []int64{}, ""
+	for range 100 {
+		hits, err := world.browser.SearchGrouped(world.t.Context(), GroupedQuery{
+			Reach: auth.EveryLibrary(), Query: query, Group: GroupTitles, Cursor: cursor, Limit: limit,
+		})
+		if err != nil {
+			world.t.Fatal(err)
+		}
+		for _, hit := range hits.Titles {
+			ids = append(ids, hit.ItemID)
+		}
+		if cursor = hits.NextTitlesCursor; cursor == "" {
+			return ids
+		}
+	}
+	world.t.Fatalf("%q's titles never ended", query)
+	return nil
+}
+
+// A grouped search's titles are paged by their rank and then their id, the browse lists' cursor
+// (D416 §6): titles that rank alike (the words index's score, or the name on the trigram and
+// substring routes) cross a page's edge with none repeated and none skipped, and a title that
+// matches by two of its names is one hit, at its better one's place, on one page.
+func TestSearchGrouped_PagesTitlesThatRankAlikeWithNoRepeatAndNoSkip(t *testing.T) {
+	t.Parallel()
+	world := newShelf(t)
+	names := []string{
+		"Twin Peaks", "Twin Peaks", "Twin Peaks", "Twin Peaks", "Twin", "Twin Peaks", "ツインピークス", "ツインピークス",
+		"ツインピークス",
+	}
+	records := []nodeproto.ScanRecord{}
+	for index := range names {
+		records = append(records, observedRecord(fmt.Sprintf("t%d.mkv", index), fmt.Sprintf("t%d", index)))
+	}
+	world.scan(records, true)
+	ids := make([]int64, len(names))
+	for index, name := range names {
+		ids[index] = world.fileAsFilm(name, fmt.Sprintf("t%d.mkv", index))
+	}
+	// The fifth has a second name that matches too, worse ranked: the words index scores the
+	// longer name lower, and by name it sorts after.
+	storetest.ExecRaw(t, world.database.Path(), fmt.Sprintf(
+		"INSERT INTO item_text (item_id, language, is_original, name, search_alternates) "+
+			"VALUES (%d, 'de', 0, 'Twin Peaks Twin Peaks Zwillinge', 'twin peaks twin peaks zwillinge')", ids[4]))
+	for query, want := range map[string]int{"twin": 6, "tw": 6, "ツイン": 3} {
+		whole := world.pagedTitles(query, 100)
+		if len(whole) != want {
+			t.Errorf("%q in one page: %v; want its %d titles", query, whole, want)
+		}
+		for _, limit := range []int64{1, 2, 4} {
+			if paged := world.pagedTitles(query, limit); !slices.Equal(paged, whole) {
+				t.Errorf("%q a page of %d at a time: %v; want %v, each once, in the one page's order", query, limit,
+					paged, whole)
+			}
+		}
+	}
+	if twin := world.pagedTitles("twin", 100); twin[0] != ids[4] {
+		t.Errorf("twin: %v; want Twin, the best scored by its shorter name, first", twin)
 	}
 }

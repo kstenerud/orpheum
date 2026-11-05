@@ -5,7 +5,6 @@ package api
 import (
 	"context"
 	"net/http"
-	"strconv"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -112,7 +111,7 @@ type SearchInput struct {
 	Query  string `doc:"What was typed: from its first letter, in any script (D48)" maxLength:"200" query:"query" required:"true"` //nolint:lll // one struct tag
 	Group  string `doc:"One group's next page alone; absent for the first page of each" enum:"titles,people,genres" query:"group"` //nolint:lll // one struct tag
 	Cursor string `doc:"With group, that group's nextCursor from the page before" query:"cursor"`
-	Limit  int64  `doc:"At most this many in each group" maximum:"100" minimum:"1" query:"limit" required:"true"`
+	Limit  int64  `doc:"At most this many in each group" maximum:"500" minimum:"1" query:"limit" required:"true"`
 }
 
 // GroupHitBody is a title, person or genre a grouped search found.
@@ -208,25 +207,11 @@ func (server *Server) search(ctx context.Context, input *SearchInput) (*SearchOu
 	if err != nil {
 		return nil, err
 	}
-	var offset int64
-	if input.Cursor != "" {
-		offset, err = strconv.ParseInt(input.Cursor, 10, 64)
-		if input.Group == "" || err != nil || offset < 0 {
-			return nil, invalidRequestAt(http.StatusUnprocessableEntity, "query.cursor",
-				"a cursor is a group's nextCursor, with its group")
-		}
-	}
 	hits, err := dependencies.Browser.SearchGrouped(ctx, library.GroupedQuery{
-		Reach: principal.Reach, Query: input.Query, Group: input.Group, Offset: offset, Limit: input.Limit,
+		Reach: principal.Reach, Query: input.Query, Group: input.Group, Cursor: input.Cursor, Limit: input.Limit,
 	})
 	if err != nil {
 		return nil, server.libraryError(ctx, "search", err)
-	}
-	next := func(hasMore bool) string {
-		if !hasMore {
-			return ""
-		}
-		return strconv.FormatInt(offset+input.Limit, 10)
 	}
 	output := &SearchOutput{}
 	body := &output.Body
@@ -251,8 +236,8 @@ func (server *Server) search(ctx context.Context, input *SearchInput) (*SearchOu
 			ID: genre.ID, Name: genre.Name, TitleCount: genre.TitleCount,
 		})
 	}
-	body.Titles.NextCursor = next(hits.HasMoreTitles)
-	body.People.NextCursor = next(hits.HasMorePeople)
-	body.Genres.NextCursor = next(hits.HasMoreGenres)
+	body.Titles.NextCursor = hits.NextTitlesCursor
+	body.People.NextCursor = hits.NextPeopleCursor
+	body.Genres.NextCursor = hits.NextGenresCursor
 	return output, nil
 }

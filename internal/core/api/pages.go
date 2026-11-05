@@ -3,7 +3,6 @@
 package api
 
 import (
-	"encoding/binary"
 	"net/http"
 
 	"github.com/kstenerud/orpheum/internal/core/library"
@@ -30,19 +29,6 @@ func decodeCursor(cursor string) ([]byte, int64, error) {
 		return nil, 0, errBadCursor()
 	}
 	return key, id, nil
-}
-
-// int64Key is a number as a cursor's key: eight bytes, big-endian.
-func int64Key(value int64) []byte {
-	return binary.BigEndian.AppendUint64(nil, uint64(value)) //nolint:gosec // read back by keyInt64
-}
-
-// keyInt64 reads int64Key's number back; false for a key that is not one.
-func keyInt64(key []byte) (int64, bool) {
-	if len(key) != 8 {
-		return 0, false
-	}
-	return int64(binary.BigEndian.Uint64(key)), true //nolint:gosec // written by int64Key
 }
 
 // nextCursorOf is a page's nextCursor: the cursor made from its last entry when the page is full,
