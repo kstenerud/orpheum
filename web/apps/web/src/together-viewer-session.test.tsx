@@ -94,7 +94,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     const { services, server } = viewerServices(
       "/together",
       {
-        "GET /together/mine": [
+        "GET /me/together": [
           200,
           {
             sessions: [
@@ -225,7 +225,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       "/together#link-secret",
       {
         "POST /together/join/check": [204, undefined],
-        "GET /together/mine": [200, { sessions: [] }],
+        "GET /me/together": [200, { sessions: [] }],
         "GET /me": [200, { id: 4, name: "Partner", isAdmin: false, canHostWatchTogether: false }],
         "POST /together/join": [200, joined],
       },

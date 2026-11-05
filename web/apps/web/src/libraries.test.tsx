@@ -210,11 +210,11 @@ describe("libraries", () => {
       missingMountPaths: ["/media/films/disk1", "/media/films/disk2"],
     };
     expect(rootAnswerRequest(root, { kind: "diskGone", mountPath: "/media/films/disk2" })).toEqual({
-      endpoint: "/libraries/{id}/mounts/gone",
+      endpoint: "/libraries/{id}/roots/mount-gone",
       body: { nodeName: "local", path: "/media/films/disk2" },
     });
     expect(rootAnswerRequest(root, { kind: "approveRemovals" })).toEqual({
-      endpoint: "/libraries/{id}/removals",
+      endpoint: "/libraries/{id}/roots/removals",
       body: { nodeName: "local", path: "/media/films" },
     });
     expect(rootAnswerRequest(root, { kind: "retire" })).toEqual({

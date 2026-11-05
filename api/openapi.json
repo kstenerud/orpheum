@@ -1198,11 +1198,6 @@
             "minLength": 1,
             "type": "string"
           },
-          "nodeName": {
-            "description": "The node's configured name",
-            "minLength": 1,
-            "type": "string"
-          },
           "readerLimit": {
             "format": "int64",
             "maximum": 64,
@@ -1211,8 +1206,8 @@
           }
         },
         "required": [
-          "nodeName",
-          "deviceKey"
+          "deviceKey",
+          "readerLimit"
         ],
         "type": "object"
       },
@@ -6174,20 +6169,6 @@
         ],
         "type": "object"
       },
-      "RetireNodeInputBody": {
-        "additionalProperties": false,
-        "properties": {
-          "nodeName": {
-            "description": "The node's configured name",
-            "minLength": 1,
-            "type": "string"
-          }
-        },
-        "required": [
-          "nodeName"
-        ],
-        "type": "object"
-      },
       "RetiredOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -9089,103 +9070,6 @@
   },
   "openapi": "3.1.0",
   "paths": {
-    "/activations": {
-      "post": {
-        "operationId": "activateDevice",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ActivationInputBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ActivationOutputBody"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Enter the code a device shows; both then show a check code (D288)",
-        "tags": [
-          "Users"
-        ]
-      }
-    },
-    "/activations/answer": {
-      "post": {
-        "operationId": "answerActivation",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ActivationAnswerInputBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Say whether the check codes match: only a match activates the device",
-        "tags": [
-          "Users"
-        ]
-      }
-    },
     "/backups": {
       "get": {
         "operationId": "listBackups",
@@ -10168,7 +10052,7 @@
         ]
       },
       "put": {
-        "operationId": "putConfig",
+        "operationId": "setConfig",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -10262,7 +10146,7 @@
     },
     "/config/unused/{key}": {
       "delete": {
-        "operationId": "deleteUnusedConfig",
+        "operationId": "removeUnusedConfig",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -10355,7 +10239,7 @@
     },
     "/files": {
       "get": {
-        "operationId": "getFiles",
+        "operationId": "listFiles",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -10564,7 +10448,7 @@
     },
     "/files/{id}/retire": {
       "post": {
-        "operationId": "postFileRetire",
+        "operationId": "retireFile",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -10681,7 +10565,7 @@
     },
     "/files/{id}/subtitles": {
       "post": {
-        "operationId": "postFileSubtitle",
+        "operationId": "fetchFileSubtitle",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -10937,7 +10821,7 @@
     },
     "/genres": {
       "get": {
-        "operationId": "getGenres",
+        "operationId": "listGenres",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -11908,7 +11792,7 @@
     },
     "/items/{id}/confirm-match": {
       "post": {
-        "operationId": "postItemConfirmMatch",
+        "operationId": "confirmItemMatch",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -11952,7 +11836,7 @@
     },
     "/items/{id}/filing-report": {
       "post": {
-        "operationId": "postFilingReport",
+        "operationId": "writeFilingReport",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -12300,7 +12184,7 @@
     },
     "/items/{id}/match": {
       "post": {
-        "operationId": "postItemMatch",
+        "operationId": "matchItem",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -12354,7 +12238,7 @@
     },
     "/items/{id}/match-by-link": {
       "post": {
-        "operationId": "postItemMatchByLink",
+        "operationId": "matchItemByLink",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -12481,7 +12365,7 @@
     },
     "/items/{id}/overrides/{field}": {
       "delete": {
-        "operationId": "deleteOverride",
+        "operationId": "clearOverride",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -12539,7 +12423,7 @@
         ]
       },
       "put": {
-        "operationId": "putOverride",
+        "operationId": "setOverride",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -12664,7 +12548,7 @@
     },
     "/items/{id}/refresh": {
       "post": {
-        "operationId": "postItemRefresh",
+        "operationId": "refreshItem",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -12715,7 +12599,7 @@
     },
     "/items/{id}/rescan": {
       "post": {
-        "operationId": "postItemRescan",
+        "operationId": "rescanItem",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -12961,7 +12845,7 @@
         ]
       }
     },
-    "/lab-input-events": {
+    "/lab/input-events": {
       "post": {
         "operationId": "reportLabInputEvents",
         "parameters": [
@@ -13006,7 +12890,7 @@
         ]
       }
     },
-    "/lab-results": {
+    "/lab/results": {
       "post": {
         "operationId": "reportLabResult",
         "parameters": [
@@ -13058,7 +12942,7 @@
         ]
       }
     },
-    "/lab-throughput": {
+    "/lab/throughput": {
       "get": {
         "operationId": "getLabThroughput",
         "parameters": [
@@ -13127,7 +13011,7 @@
     },
     "/libraries": {
       "get": {
-        "operationId": "getLibraries",
+        "operationId": "listLibraries",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -13167,7 +13051,7 @@
         ]
       },
       "post": {
-        "operationId": "postLibrary",
+        "operationId": "createLibrary",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -13219,7 +13103,7 @@
     },
     "/libraries/rescan": {
       "post": {
-        "operationId": "postLibrariesRescan",
+        "operationId": "rescanLibraries",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -13271,7 +13155,7 @@
     },
     "/libraries/{id}": {
       "delete": {
-        "operationId": "deleteLibrary",
+        "operationId": "removeLibrary",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -13322,7 +13206,7 @@
     },
     "/libraries/{id}/change-detection": {
       "put": {
-        "operationId": "putLibraryChangeDetection",
+        "operationId": "setLibraryChangeDetection",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -13467,131 +13351,9 @@
         ]
       }
     },
-    "/libraries/{id}/mounts/gone": {
-      "post": {
-        "operationId": "postLibraryMountGone",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": "integer"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RootActionInputBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "202": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RescanOutputBody"
-                }
-              }
-            },
-            "description": "Accepted"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Say a disk missing from a mount point in a root is gone; its files are removed (admin; D208)",
-        "tags": [
-          "Libraries"
-        ]
-      }
-    },
-    "/libraries/{id}/removals": {
-      "post": {
-        "operationId": "postLibraryRemovals",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": "integer"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RootActionInputBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "202": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RescanOutputBody"
-                }
-              }
-            },
-            "description": "Accepted"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Approve a root's withheld removals; its next scan removes what it does not see (admin; D208)",
-        "tags": [
-          "Libraries"
-        ]
-      }
-    },
     "/libraries/{id}/rescan": {
       "post": {
-        "operationId": "postLibraryRescan",
+        "operationId": "rescanLibrary",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -13652,7 +13414,7 @@
     },
     "/libraries/{id}/roots": {
       "post": {
-        "operationId": "postLibraryRoot",
+        "operationId": "addLibraryRoot",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -13704,9 +13466,131 @@
         ]
       }
     },
+    "/libraries/{id}/roots/mount-gone": {
+      "post": {
+        "operationId": "markLibraryMountGone",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RootActionInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RescanOutputBody"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Say a disk missing from a mount point in a root is gone; its files are removed (admin; D208)",
+        "tags": [
+          "Libraries"
+        ]
+      }
+    },
+    "/libraries/{id}/roots/removals": {
+      "post": {
+        "operationId": "approveLibraryRemovals",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RootActionInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RescanOutputBody"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Approve a root's withheld removals; its next scan removes what it does not see (admin; D208)",
+        "tags": [
+          "Libraries"
+        ]
+      }
+    },
     "/libraries/{id}/roots/repoint": {
       "post": {
-        "operationId": "postLibraryRootRepoint",
+        "operationId": "repointLibraryRoot",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -13767,7 +13651,7 @@
     },
     "/libraries/{id}/roots/retire": {
       "post": {
-        "operationId": "postLibraryRootRetire",
+        "operationId": "retireLibraryRoot",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -13828,7 +13712,7 @@
     },
     "/libraries/{id}/scan": {
       "post": {
-        "operationId": "postLibraryScan",
+        "operationId": "scanLibrary",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -14680,6 +14564,48 @@
         ]
       }
     },
+    "/me/together": {
+      "get": {
+        "operationId": "listMyTogether",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyTogetherOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "The sessions you are in, as host or as a member who joined signed in, each with a credential for this device (D267 §2)",
+        "tags": [
+          "Watch Together"
+        ]
+      }
+    },
     "/me/watched": {
       "put": {
         "operationId": "restoreWatched",
@@ -14769,7 +14695,7 @@
     },
     "/nodes": {
       "get": {
-        "operationId": "getNodes",
+        "operationId": "listNodes",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -14804,103 +14730,6 @@
           }
         },
         "summary": "The nodes, and the roots each connected one configured, for a new library (admin)",
-        "tags": [
-          "Libraries"
-        ]
-      }
-    },
-    "/nodes/device-reader-limit": {
-      "put": {
-        "operationId": "putDeviceReaderLimit",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DeviceReaderLimitInputBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Set how many may read one of a node's devices at once, or give it back to its kind's (admin; D240)",
-        "tags": [
-          "Running it"
-        ]
-      }
-    },
-    "/nodes/retire": {
-      "post": {
-        "operationId": "postNodeRetire",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RetireNodeInputBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RetiredOutputBody"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Retire a node for good: its roots are retired and its work is cancelled (admin; D231 §7)",
         "tags": [
           "Libraries"
         ]
@@ -14965,6 +14794,171 @@
           }
         },
         "summary": "The folders in a node's root or a folder inside it, to choose a library folder (admin; D359)",
+        "tags": [
+          "Libraries"
+        ]
+      }
+    },
+    "/nodes/{name}/reader-limit": {
+      "delete": {
+        "operationId": "clearReaderLimit",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The node's configured name",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "The node's configured name",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "The node's name for the device, as the System page lists it",
+            "explode": false,
+            "in": "query",
+            "name": "deviceKey",
+            "required": true,
+            "schema": {
+              "description": "The node's name for the device, as the System page lists it",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Give one of a node's devices back to its kind's reader limit (admin; D240)",
+        "tags": [
+          "Running it"
+        ]
+      },
+      "put": {
+        "operationId": "setReaderLimit",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The node's configured name",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "The node's configured name",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceReaderLimitInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Set how many may read one of a node's devices at once (admin; D240)",
+        "tags": [
+          "Running it"
+        ]
+      }
+    },
+    "/nodes/{name}/retire": {
+      "post": {
+        "operationId": "retireNode",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The node's configured name",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "The node's configured name",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetiredOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Retire a node for good: its roots are retired and its work is cancelled (admin; D231 §7)",
         "tags": [
           "Libraries"
         ]
@@ -15103,6 +15097,103 @@
           }
         },
         "summary": "A code for this device to show, which a person signed in enters to activate it (D288)",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/pairings/check": {
+      "post": {
+        "operationId": "answerPairingCheck",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActivationAnswerInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Say whether the check codes match: only a match activates the device",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/pairings/code": {
+      "post": {
+        "operationId": "enterPairingCode",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActivationInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivationOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Enter the code a device shows; both then show a check code (D288)",
         "tags": [
           "Users"
         ]
@@ -15695,7 +15786,7 @@
     },
     "/roles/{id}": {
       "delete": {
-        "operationId": "deleteRole",
+        "operationId": "removeRole",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -15793,7 +15884,7 @@
     },
     "/rtc/offer": {
       "post": {
-        "operationId": "postRTCOffer",
+        "operationId": "answerRTCOffer",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -15938,7 +16029,7 @@
     },
     "/secrets": {
       "get": {
-        "operationId": "getSecrets",
+        "operationId": "listSecrets",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -15980,7 +16071,7 @@
     },
     "/secrets/{name}": {
       "delete": {
-        "operationId": "deleteSecret",
+        "operationId": "removeSecret",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -16021,7 +16112,7 @@
         ]
       },
       "put": {
-        "operationId": "putSecret",
+        "operationId": "setSecret",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -16879,48 +16970,6 @@
         ]
       }
     },
-    "/together/mine": {
-      "get": {
-        "operationId": "listMyTogether",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MyTogetherOutputBody"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "The sessions you are in, as host or as a member who joined signed in, each with a credential for this device (D267 §2)",
-        "tags": [
-          "Watch Together"
-        ]
-      }
-    },
     "/together/playback": {
       "post": {
         "operationId": "playTogether",
@@ -17070,61 +17119,6 @@
           }
         },
         "summary": "The session's links and members, with your notes (host)",
-        "tags": [
-          "Watch Together"
-        ]
-      }
-    },
-    "/together/{id}/eject/{member}": {
-      "post": {
-        "operationId": "ejectFromTogether",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "minimum": 1,
-              "type": "integer"
-            }
-          },
-          {
-            "in": "path",
-            "name": "member",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "minimum": 1,
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Remove a member; their devices are told and their credential admits nothing (host; D119)",
         "tags": [
           "Watch Together"
         ]
@@ -17294,6 +17288,61 @@
           }
         },
         "summary": "Withdraw a link not yet used (host)",
+        "tags": [
+          "Watch Together"
+        ]
+      }
+    },
+    "/together/{id}/members/{member}/eject": {
+      "post": {
+        "operationId": "ejectFromTogether",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "member",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Remove a member; their devices are told and their credential admits nothing (host; D119)",
         "tags": [
           "Watch Together"
         ]

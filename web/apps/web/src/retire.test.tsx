@@ -198,7 +198,7 @@ it("the System page says since when each folder and disk is offline, and retires
         [200, report],
         [200, { ...report, nodes: [] }],
       ],
-      "POST /nodes/retire": [200, { tombstonedFileCount: 3, cancelledJobCount: 1 }],
+      "POST /nodes/attic/retire": [200, { tombstonedFileCount: 3, cancelledJobCount: 1 }],
     },
     heard,
   );
@@ -209,7 +209,7 @@ it("the System page says since when each folder and disk is offline, and retires
   await click(buttonWithText(mounted.container, "This machine is gone for good…"));
   await click(buttonWithText(mounted.container, "Retire the machine"));
   expect(heard.filter((each) => each.methodAndPath.startsWith("POST"))).toEqual([
-    { methodAndPath: "POST /nodes/retire", body: { nodeName: "attic" } },
+    { methodAndPath: "POST /nodes/attic/retire", body: undefined },
   ]);
   expect(mounted.container.textContent).not.toContain("Machine: attic");
 });

@@ -70,7 +70,7 @@ async function mountedAt(
           shouldOfferDeviceTests: isOffered,
         },
       ],
-      "GET /together/mine": [200, { sessions: [] }],
+      "GET /me/together": [200, { sessions: [] }],
       "GET /libraries": [200, { libraries: [] }],
     },
     [],
@@ -143,10 +143,10 @@ describe("the device lab", () => {
 
   it("sends a probe's results to the server's log and shows the name the log keeps them by", async () => {
     const heard: Heard[] = [];
-    const services = servedBy({ "POST /lab-results": [200, { id: "K3J9QW2A" }] }, heard, "token");
+    const services = servedBy({ "POST /lab/results": [200, { id: "K3J9QW2A" }] }, heard, "token");
     const mounted = await mount(withServices(<LabDevice />, services));
     await click(buttonWithText(mounted.container, "Send to server"));
-    const sent = heard.find((request) => request.methodAndPath === "POST /lab-results");
+    const sent = heard.find((request) => request.methodAndPath === "POST /lab/results");
     expect(sent === undefined ? undefined : bodyField(sent, "probe")).toBe("device");
     const result = sent === undefined ? undefined : bodyField(sent, "result");
     expect(Array.isArray(Reflect.get(Object(result), "codecs"))).toBe(true);

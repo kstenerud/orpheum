@@ -201,7 +201,7 @@ describe("the host's Watch Together dialog (D246 §3, §5; D384 §2)", () => {
           ],
           [200, { sessionId: 3, nextRights: allRights, links: [], members: [karl] }],
         ],
-        "POST /together/3/eject/2": [204, undefined],
+        "POST /together/3/members/2/eject": [204, undefined],
       },
       heard,
       "token",
@@ -215,7 +215,7 @@ describe("the host's Watch Together dialog (D246 §3, §5; D384 §2)", () => {
     await click(buttonWithText(mounted.container, "Remove"));
     // Removing someone cannot be undone: it is asked again (D278 §4).
     await click(buttonWithText(mounted.container, "Remove them"));
-    expect(heard.map((each) => each.methodAndPath)).toContain("POST /together/3/eject/2");
+    expect(heard.map((each) => each.methodAndPath)).toContain("POST /together/3/members/2/eject");
     expect(mounted.container.textContent).not.toContain("Gran (Grandma)");
     mounted.unmount();
   });

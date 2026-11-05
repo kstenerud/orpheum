@@ -61,7 +61,7 @@ async function endedFor(
   );
   const server = fakeTogetherServer();
   const services = {
-    ...servedBy({ "GET /together/mine": [200, { sessions: [] }] }, [], token),
+    ...servedBy({ "GET /me/together": [200, { sessions: [] }] }, [], token),
     navigation: createNavigation(fakePlace(token === undefined ? "/together" : "/play/5")),
     openTogetherSocket: server.openSocket,
   };
@@ -94,7 +94,7 @@ describe("a Watch Together guest's page as their session ends", () => {
   it("takes a signed-in guest home whose session the server no longer has, as after its restart, not to a page saying the address has no invitation (the owner's Mac, staging, 2026-10-29)", async () => {
     const server = fakeTogetherServer();
     const services = {
-      ...servedBy({ "GET /together/mine": [200, { sessions: [] }] }, [], "signed-in-token"),
+      ...servedBy({ "GET /me/together": [200, { sessions: [] }] }, [], "signed-in-token"),
       navigation: createNavigation(fakePlace("/together")),
       openTogetherSocket: server.openSocket,
     };
@@ -112,7 +112,7 @@ describe("a Watch Together guest's page as their session ends", () => {
     const services = {
       ...servedBy(
         {
-          "GET /together/mine": [refusal(503, "unavailable"), [200, { sessions: [] }]],
+          "GET /me/together": [refusal(503, "unavailable"), [200, { sessions: [] }]],
         },
         [],
         "signed-in-token",
@@ -139,7 +139,7 @@ describe("a Watch Together guest's page as their session ends", () => {
     const services = {
       ...servedBy(
         {
-          "GET /together/mine": [200, { sessions: [] }],
+          "GET /me/together": [200, { sessions: [] }],
           "POST /together/leave": refusal(404, "not_found"),
         },
         [],

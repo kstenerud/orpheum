@@ -145,9 +145,9 @@ func (server *Server) registerPeople() {
 		Summary: "A person: their name and their picture; GET /items?person= lists what credits them", Tags: tags,
 	}, server.getPerson)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "getGenres", Method: http.MethodGet, Path: "/genres",
+		OperationID: "listGenres", Method: http.MethodGet, Path: "/genres",
 		Summary: "The genres with a title the person reaches, each with how many", Tags: tags,
-	}, server.getGenres)
+	}, server.listGenres)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "search", Method: http.MethodGet, Path: "/search",
 		Summary: "Titles, people and genres by what was typed, from its first letter, each group the best first",
@@ -170,7 +170,7 @@ func (server *Server) getPerson(ctx context.Context, input *ItemInput) (*PersonO
 	return output, nil
 }
 
-func (server *Server) getGenres(ctx context.Context, input *GenresInput) (*GenresOutput, error) {
+func (server *Server) listGenres(ctx context.Context, input *GenresInput) (*GenresOutput, error) {
 	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err

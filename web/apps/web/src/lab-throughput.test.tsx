@@ -34,8 +34,8 @@ async function mounted(): Promise<{
   const heard: Heard[] = [];
   const services = servedBy(
     {
-      "GET /lab-throughput": [200, body],
-      "POST /lab-results": [200, { id: "T8QW2K3J" }],
+      "GET /lab/throughput": [200, body],
+      "POST /lab/results": [200, { id: "T8QW2K3J" }],
     },
     heard,
     "token",
@@ -46,7 +46,7 @@ async function mounted(): Promise<{
 /** The leg each load of the body asked for, in turn. */
 function legsAsked(heard: readonly Heard[]): string[] {
   return heard
-    .filter((request) => request.methodAndPath === "GET /lab-throughput")
+    .filter((request) => request.methodAndPath === "GET /lab/throughput")
     .map((request) => new URLSearchParams(request.query).get("leg") ?? "");
 }
 
@@ -55,12 +55,12 @@ describe("the throughput test", () => {
     const { heard, page } = await mounted();
     await enter(page.container.querySelector('input[type="url"]'), "https://lan.example:8443/");
     await click(buttonWithText(page.container, "Run"));
-    await settleUntil(() => heard.some((request) => request.methodAndPath === "POST /lab-results"));
+    await settleUntil(() => heard.some((request) => request.methodAndPath === "POST /lab/results"));
 
     expect(legsAsked(heard)).toEqual(["transport", "relay", "lan"]);
-    const asked = heard.find((request) => request.methodAndPath === "GET /lab-throughput");
+    const asked = heard.find((request) => request.methodAndPath === "GET /lab/throughput");
     expect(new URLSearchParams(asked?.query).get("bytes")).toBe(String(throughputBytes));
-    const sent = heard.find((request) => request.methodAndPath === "POST /lab-results");
+    const sent = heard.find((request) => request.methodAndPath === "POST /lab/results");
     expect(sent === undefined ? undefined : bodyField(sent, "probe")).toBe("throughput");
     const result = sent === undefined ? undefined : bodyField(sent, "result");
     for (const leg of ["transport", "relay", "lan"]) {
@@ -76,7 +76,7 @@ describe("the throughput test", () => {
     const first = await mounted();
     await click(buttonWithText(first.page.container, "Run"));
     await settleUntil(() =>
-      first.heard.some((request) => request.methodAndPath === "POST /lab-results"),
+      first.heard.some((request) => request.methodAndPath === "POST /lab/results"),
     );
     expect(legsAsked(first.heard)).toEqual(["transport", "relay"]);
     expect(first.page.container.textContent).toContain("skipped: no address typed");

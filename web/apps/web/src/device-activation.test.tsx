@@ -59,7 +59,7 @@ async function accountWithCodeEntered(answers: Answers, heard: Heard[]): Promise
             { isDialogueBoostOn: false, isLevellingOn: true, isAutoplayOn: true },
           ],
           "GET /libraries": [200, { libraries: [] }],
-          "POST /activations": [
+          "POST /pairings/code": [
             200,
             {
               checkCode: "wxyz-0123",
@@ -68,7 +68,7 @@ async function accountWithCodeEntered(answers: Answers, heard: Heard[]): Promise
               askedSecondsAgo: 30,
             },
           ],
-          "POST /activations/answer": [204, undefined],
+          "POST /pairings/check": [204, undefined],
           ...answers,
         },
         heard,
@@ -106,10 +106,10 @@ describe("activating a device by the code it shows (D288)", () => {
       ),
     ).toEqual([
       {
-        methodAndPath: "POST /activations",
+        methodAndPath: "POST /pairings/code",
         body: { code: "ABCD EFGH", deviceName: "Living room TV" },
       },
-      { methodAndPath: "POST /activations/answer", body: { code: "ABCD EFGH", isMatch: true } },
+      { methodAndPath: "POST /pairings/check", body: { code: "ABCD EFGH", isMatch: true } },
     ]);
     expect(heard.filter((request) => request.methodAndPath === "GET /me/devices")).toHaveLength(2);
   });
@@ -117,7 +117,7 @@ describe("activating a device by the code it shows (D288)", () => {
   it("warns where the code is entered, and again when the code was asked for a while ago (M3)", async () => {
     mounted = await accountWithCodeEntered(
       {
-        "POST /activations": [
+        "POST /pairings/code": [
           200,
           { checkCode: "wxyz-0123", deviceName: "TV", platform: "web", askedSecondsAgo: 300 },
         ],
@@ -143,14 +143,17 @@ describe("activating a device by the code it shows (D288)", () => {
     await click(buttonWithText(mounted.container, "They don't match"));
     expect(mounted.container.textContent).toContain("Nothing was activated.");
     expect(heard.at(-1)).toEqual({
-      methodAndPath: "POST /activations/answer",
+      methodAndPath: "POST /pairings/check",
       body: { code: "ABCD EFGH", isMatch: false },
     });
     expect(heard.filter((request) => request.methodAndPath === "GET /me/devices")).toHaveLength(1);
   });
 
   it("says when no device shows the code entered", async () => {
-    mounted = await accountWithCodeEntered({ "POST /activations": refusal(404, "not_found") }, []);
+    mounted = await accountWithCodeEntered(
+      { "POST /pairings/code": refusal(404, "not_found") },
+      [],
+    );
     expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
       "No device is showing that code.",
     );
@@ -163,7 +166,7 @@ describe("activating a device by the code it shows (D288)", () => {
       withServices(
         <ActivateDevice userId={7} onActivated={() => undefined} />,
         servedBy(
-          { "POST /activations": [200, { checkCode: "wxyz-0123", deviceName: "Gran's TV" }] },
+          { "POST /pairings/code": [200, { checkCode: "wxyz-0123", deviceName: "Gran's TV" }] },
           heard,
         ),
       ),
@@ -173,7 +176,7 @@ describe("activating a device by the code it shows (D288)", () => {
     await submit(mounted.container.querySelector("form"));
     expect(heard).toEqual([
       {
-        methodAndPath: "POST /activations",
+        methodAndPath: "POST /pairings/code",
         body: { code: "abcd-efgh", deviceName: "Gran's TV", userId: 7 },
       },
     ]);
@@ -217,11 +220,11 @@ describe("activating a device whose QR code was scanned (D321)", () => {
           { isDialogueBoostOn: false, isLevellingOn: true, isAutoplayOn: true },
         ],
         "GET /libraries": [200, { libraries: [] }],
-        "POST /activations": [
+        "POST /pairings/code": [
           200,
           { checkCode: "", deviceName: "Tizen", platform: "Tizen", askedSecondsAgo: 5 },
         ],
-        "POST /activations/answer": [204, undefined],
+        "POST /pairings/check": [204, undefined],
       },
       heard,
     );
@@ -229,7 +232,7 @@ describe("activating a device whose QR code was scanned (D321)", () => {
     mounted = await mount(withServices(<Account />, { ...services, navigation }));
     const { container } = mounted;
     await settleUntil(() => container.textContent.includes("Activate Tizen?"));
-    expect(heard.find((each) => each.methodAndPath === "POST /activations")?.body).toEqual({
+    expect(heard.find((each) => each.methodAndPath === "POST /pairings/code")?.body).toEqual({
       code: "abcd-efgh",
       deviceName: "",
       keyHash: "rTBVo-NI60s-RZ3ENfKqkw",
@@ -239,7 +242,7 @@ describe("activating a device whose QR code was scanned (D321)", () => {
     expect(container.querySelector(".device-activation__check-code")).toBeNull();
     await click(buttonWithText(container, "Activate"));
     await settleUntil(() => container.textContent.includes("Tizen is activated and signed in."));
-    expect(heard.find((each) => each.methodAndPath === "POST /activations/answer")?.body).toEqual({
+    expect(heard.find((each) => each.methodAndPath === "POST /pairings/check")?.body).toEqual({
       code: "abcd-efgh",
       isMatch: true,
     });

@@ -60,7 +60,7 @@ export type PostEvents = (body: LabEventsBody, isLeaving: boolean) => Promise<vo
 /** Posts a request of events through the SDK, kept alive past the page as it leaves. */
 export function postEventsBy(api: Api): PostEvents {
   return async (body, isLeaving) => {
-    throwIfRefused(await api.POST("/lab-input-events", { body, keepalive: isLeaving }));
+    throwIfRefused(await api.POST("/lab/input-events", { body, keepalive: isLeaving }));
   };
 }
 

@@ -172,13 +172,13 @@
 //     device tests off (should_offer_device_tests, its start), it is refused as not_found, and
 //     /client-settings says whether they are offered. Enforced by
 //     TestLab_ResultsAreRefusedAndTheTestsNotOfferedUntilTheAdminTurnsThemOn.
-//   - The throughput test's body (GET /lab-throughput) is the 1 to 256 MiB asked for, of bytes no
+//   - The throughput test's body (GET /lab/throughput) is the 1 to 256 MiB asked for, of bytes no
 //     gzip shrinks, never cached, behind the same sign-in and setting, each one logged as sent with
 //     the path it came over; a throughput test's figures are logged as "a throughput test ran"
 //     (webrtc-throughput-2026-10-28.md). Enforced by
 //     TestLab_TheThroughputTestsBodyIsTheSizeAskedForAndLoggedAsSent and
 //     TestLab_AThroughputTestsFiguresAreLoggedUnderTheirOwnWords.
-//   - The button test's events (POST /lab-input-events) are logged at info a line each, flat, by
+//   - The button test's events (POST /lab/input-events) are logged at info a line each, flat, by
 //     the run's name the page made, with a line for the run's start; a request carries 1 to 200
 //     events, each field named and bounded (a kind, a button, a controller's layout and mapping and
 //     a full screen's target from their lists, a key's key and code at most 40 characters, numbers

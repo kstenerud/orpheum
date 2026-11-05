@@ -259,7 +259,7 @@ function PersonDialog(
           onConfirm={() => {
             props.onClose();
             sendThenReload(props, (idempotencyKey) =>
-              api.POST("/together/{id}/eject/{member}", {
+              api.POST("/together/{id}/members/{member}/eject", {
                 params: { path: { id: sessionId, member: member.id } },
                 ...idempotent(idempotencyKey),
               }),

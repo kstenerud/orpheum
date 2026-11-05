@@ -2,7 +2,7 @@
 
 /**
  * The throughput test's timing (webrtc-throughput-2026-10-28.md): how long one load of the core's
- * throughput body (GET /lab-throughput) took to arrive whole, read as it comes, never held.
+ * throughput body (GET /lab/throughput) took to arrive whole, read as it comes, never held.
  */
 
 /** What one load took: the bytes read, its first byte's wait, its whole time, and its rate. */

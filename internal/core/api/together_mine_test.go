@@ -19,13 +19,13 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/together"
 )
 
-// mine is GET /together/mine as token.
+// mine is GET /me/together as token.
 func (harness testHarness) mine(t *testing.T, token string) api.MyTogetherOutput {
 	t.Helper()
-	answer := harness.do(t, http.MethodGet, "/together/mine", token, nil)
+	answer := harness.do(t, http.MethodGet, "/me/together", token, nil)
 	var mine api.MyTogetherOutput
 	if err := json.Unmarshal([]byte(answer.body), &mine.Body); err != nil || answer.status != http.StatusOK {
-		t.Fatalf("GET /together/mine = %d %s", answer.status, answer.body)
+		t.Fatalf("GET /me/together = %d %s", answer.status, answer.body)
 	}
 	return mine
 }
@@ -63,9 +63,9 @@ func TestTogether_ASessionFollowsWhoeverJoinedSignedIn(t *testing.T) {
 	if len(hosted) != 1 || !hosted[0].IsHost || hosted[0].Locator != "" {
 		t.Errorf("the host's sessions are %+v; want theirs, as host, with no locator: they have their own", hosted)
 	}
-	signedOut := harness.do(t, http.MethodGet, "/together/mine", "", nil)
+	signedOut := harness.do(t, http.MethodGet, "/me/together", "", nil)
 	if signedOut.status != http.StatusUnauthorized {
-		t.Errorf("GET /together/mine signed out = %d, want 401", signedOut.status)
+		t.Errorf("GET /me/together signed out = %d, want 401", signedOut.status)
 	}
 }
 

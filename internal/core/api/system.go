@@ -313,32 +313,59 @@ func (server *Server) registerSystem() {
 		Summary: "Every fact about the server and each node, with doctor's findings: the System page (admin; D225)",
 	}, server.getSystem)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "putDeviceReaderLimit", Method: http.MethodPut, Path: "/nodes/device-reader-limit",
+		OperationID: "setReaderLimit", Method: http.MethodPut, Path: "/nodes/{name}/reader-limit",
 		Tags: []string{tagRunningIt}, DefaultStatus: http.StatusNoContent,
-		Summary: "Set how many may read one of a node's devices at once, or give it back to its kind's (admin; D240)",
-	}, server.putDeviceReaderLimit)
+		Summary: "Set how many may read one of a node's devices at once (admin; D240)",
+	}, server.setReaderLimit)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "clearReaderLimit", Method: http.MethodDelete, Path: "/nodes/{name}/reader-limit",
+		Tags: []string{tagRunningIt}, DefaultStatus: http.StatusNoContent,
+		Summary: "Give one of a node's devices back to its kind's reader limit (admin; D240)",
+	}, server.clearReaderLimit)
 	server.registerResourceUse()
 }
 
 // DeviceReaderLimitInput sets one of a node's devices' reader limit.
 type DeviceReaderLimitInput struct {
 	AuthorizationHeader
+	Name string `doc:"The node's configured name" minLength:"1" path:"name"`
 	Body struct {
-		NodeName string `doc:"The node's configured name" json:"nodeName" minLength:"1"`
 		// DeviceKey is the node's name for the device, as the System page lists it.
 		DeviceKey string `json:"deviceKey" minLength:"1"`
-		// ReaderLimit is how many may read it at once; absent gives it back to its kind's setting.
-		ReaderLimit *int `json:"readerLimit,omitempty" maximum:"64" minimum:"1"`
+		// ReaderLimit is how many may read it at once.
+		ReaderLimit int `json:"readerLimit" maximum:"64" minimum:"1"`
 	}
 }
 
-func (server *Server) putDeviceReaderLimit(ctx context.Context, input *DeviceReaderLimitInput) (*struct{}, error) {
+// ClearReaderLimitInput gives one of a node's devices back to its kind's reader limit.
+type ClearReaderLimitInput struct {
+	AuthorizationHeader
+	Name      string `doc:"The node's configured name" minLength:"1" path:"name"`
+	DeviceKey string `doc:"The node's name for the device, as the System page lists it" minLength:"1" query:"deviceKey" required:"true"` //nolint:lll // one struct tag
+}
+
+func (server *Server) setReaderLimit(ctx context.Context, input *DeviceReaderLimitInput) (*struct{}, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	body := input.Body
-	err = dependencies.NodeReports.SetReaderLimit(ctx, body.NodeName, body.DeviceKey, body.ReaderLimit)
+	limit := input.Body.ReaderLimit
+	return server.changeReaderLimit(ctx, dependencies, input.Name, input.Body.DeviceKey, &limit)
+}
+
+func (server *Server) clearReaderLimit(ctx context.Context, input *ClearReaderLimitInput) (*struct{}, error) {
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	return server.changeReaderLimit(ctx, dependencies, input.Name, input.DeviceKey, nil)
+}
+
+// changeReaderLimit sets a device's reader limit, or, nil, gives it back to its kind's.
+func (server *Server) changeReaderLimit(
+	ctx context.Context, dependencies *Dependencies, nodeName, deviceKey string, limit *int,
+) (*struct{}, error) {
+	err := dependencies.NodeReports.SetReaderLimit(ctx, nodeName, deviceKey, limit)
 	if errors.Is(err, nodes.ErrNoNode) {
 		return nil, newError(http.StatusNotFound, CodeNotFound, "no such node")
 	}

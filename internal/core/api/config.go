@@ -82,9 +82,9 @@ func (server *Server) registerConfig() {
 		Tags: tags,
 	}, server.getConfig)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "putConfig", Method: http.MethodPut, Path: "/config",
+		OperationID: "setConfig", Method: http.MethodPut, Path: "/config",
 		Summary: "Change any server settings, all or none (admin)", Tags: tags,
-	}, server.putConfig)
+	}, server.setConfig)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "resetConfig", Method: http.MethodPost, Path: "/config/{key}/reset",
 		Summary: "Set a server setting to default: its starting value, no longer marked modified, so it " +
@@ -96,12 +96,12 @@ func (server *Server) registerConfig() {
 		Summary: "Setting rows this release does not read: retired keys, or typos (admin)", Tags: tags,
 	}, server.getUnusedConfig)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "deleteUnusedConfig", Method: http.MethodDelete, Path: "/config/unused/{key}",
+		OperationID: "removeUnusedConfig", Method: http.MethodDelete, Path: "/config/unused/{key}",
 		DefaultStatus: http.StatusNoContent,
 		Summary: "Delete a setting row this release does not read; a setting in use is set to default " +
 			"instead (admin)",
 		Tags: tags,
-	}, server.deleteUnusedConfig)
+	}, server.removeUnusedConfig)
 }
 
 func (server *Server) getConfig(ctx context.Context, input *ConfigListInput) (*ConfigOutput, error) {
@@ -124,7 +124,7 @@ func (server *Server) getConfig(ctx context.Context, input *ConfigListInput) (*C
 	return output, nil
 }
 
-func (server *Server) putConfig(ctx context.Context, input *PutSettingsInput) (*SettingsOutput, error) {
+func (server *Server) setConfig(ctx context.Context, input *PutSettingsInput) (*SettingsOutput, error) {
 	dependencies, principal, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -174,7 +174,7 @@ func (server *Server) getUnusedConfig(ctx context.Context, input *AuthorizationH
 	return output, nil
 }
 
-func (server *Server) deleteUnusedConfig(ctx context.Context, input *DeleteUnusedInput) (*struct{}, error) {
+func (server *Server) removeUnusedConfig(ctx context.Context, input *DeleteUnusedInput) (*struct{}, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err

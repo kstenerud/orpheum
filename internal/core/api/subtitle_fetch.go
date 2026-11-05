@@ -79,10 +79,10 @@ func (server *Server) registerSubtitleFetch() {
 		Tags:    []string{tagPlayback},
 	}, server.getSubtitleCandidates)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "postFileSubtitle", Method: http.MethodPost, Path: "/files/{id}/subtitles",
+		OperationID: "fetchFileSubtitle", Method: http.MethodPost, Path: "/files/{id}/subtitles",
 		Summary: "Fetch a subtitle for a file; spends one of the account's daily downloads (D224)",
 		Tags:    []string{tagPlayback},
-	}, server.postFileSubtitle)
+	}, server.fetchFileSubtitle)
 }
 
 func (server *Server) getSubtitleCandidates(
@@ -115,7 +115,7 @@ func (server *Server) getSubtitleCandidates(
 	return output, nil
 }
 
-func (server *Server) postFileSubtitle(ctx context.Context, input *FetchSubtitleInput) (*FetchSubtitleOutput, error) {
+func (server *Server) fetchFileSubtitle(ctx context.Context, input *FetchSubtitleInput) (*FetchSubtitleOutput, error) {
 	dependencies, principal, err := server.requireSignedInReachingFile(ctx, input.Authorization, input.FileID)
 	if err != nil {
 		return nil, err

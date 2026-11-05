@@ -97,10 +97,10 @@ func (server *Server) registerRoles() {
 		Tags: tags,
 	}, server.updateRole)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "deleteRole", Method: http.MethodDelete, Path: "/roles/{id}",
+		OperationID: "removeRole", Method: http.MethodDelete, Path: "/roles/{id}",
 		DefaultStatus: http.StatusNoContent,
 		Summary:       "Delete a role the admin made that no one holds (admin)", Tags: tags,
-	}, server.deleteRole)
+	}, server.removeRole)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "setUserRole", Method: http.MethodPut, Path: "/users/{id}/role",
 		DefaultStatus: http.StatusNoContent,
@@ -160,7 +160,7 @@ func (server *Server) updateRole(ctx context.Context, input *UpdateRoleInput) (*
 	return &struct{}{}, nil
 }
 
-func (server *Server) deleteRole(ctx context.Context, input *RoleInput) (*struct{}, error) {
+func (server *Server) removeRole(ctx context.Context, input *RoleInput) (*struct{}, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err

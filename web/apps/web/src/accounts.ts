@@ -222,7 +222,7 @@ export async function activateDevice(
   if (activation.keyHash !== undefined) {
     body.keyHash = activation.keyHash;
   }
-  return dataOrThrow(await api.POST("/activations", { body, ...idempotent(idempotencyKey) }));
+  return dataOrThrow(await api.POST("/pairings/code", { body, ...idempotent(idempotencyKey) }));
 }
 
 /** Says whether the two check codes match: only a match activates the device (D288 §3). */
@@ -232,7 +232,7 @@ export async function answerActivation(
   idempotencyKey: string,
 ): Promise<void> {
   throwIfRefused(
-    await api.POST("/activations/answer", { body: { ...answer }, ...idempotent(idempotencyKey) }),
+    await api.POST("/pairings/check", { body: { ...answer }, ...idempotent(idempotencyKey) }),
   );
 }
 

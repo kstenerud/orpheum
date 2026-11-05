@@ -121,36 +121,36 @@ func (server *Server) registerIdentification() {
 			"search (edit_metadata)", Tags: tags,
 	}, server.getItemCandidates)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "postItemMatchByLink", Method: http.MethodPost, Path: "/items/{id}/match-by-link",
+		OperationID: "matchItemByLink", Method: http.MethodPost, Path: "/items/{id}/match-by-link",
 		DefaultStatus: http.StatusNoContent, Tags: tags,
 		Summary: "Choose a film's or series' match by its address or id at TMDB or IMDb; permanent (edit_metadata)",
-	}, server.postItemMatchByLink)
+	}, server.matchItemByLink)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "postItemMatch", Method: http.MethodPost, Path: "/items/{id}/match",
+		OperationID: "matchItem", Method: http.MethodPost, Path: "/items/{id}/match",
 		DefaultStatus: http.StatusNoContent, Tags: tags,
 		Summary: "Choose a film's or series' match; permanent (edit_metadata)",
-	}, server.postItemMatch)
+	}, server.matchItem)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "postItemConfirmMatch", Method: http.MethodPost, Path: "/items/{id}/confirm-match",
+		OperationID: "confirmItemMatch", Method: http.MethodPost, Path: "/items/{id}/confirm-match",
 		DefaultStatus: http.StatusNoContent, Tags: tags,
 		Summary: "Confirm a guessed match as it stands, \"Identified correctly\"; permanent (edit_metadata; D301 §4)",
-	}, server.postItemConfirmMatch)
+	}, server.confirmItemMatch)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "putOverride", Method: http.MethodPut, Path: "/items/{id}/overrides/{field}",
+		OperationID: "setOverride", Method: http.MethodPut, Path: "/items/{id}/overrides/{field}",
 		DefaultStatus: http.StatusNoContent, Tags: tags,
 		Summary: "Set a field to a person's value, kept over every source (edit_metadata)",
-	}, server.putOverride)
+	}, server.setOverride)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "deleteOverride", Method: http.MethodDelete, Path: "/items/{id}/overrides/{field}",
+		OperationID: "clearOverride", Method: http.MethodDelete, Path: "/items/{id}/overrides/{field}",
 		DefaultStatus: http.StatusNoContent, Tags: tags,
 		Summary: "Remove a field's override, so it follows its source again (edit_metadata)",
-	}, server.deleteOverride)
+	}, server.clearOverride)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "postItemRefresh", Method: http.MethodPost, Path: "/items/{id}/refresh",
+		OperationID: "refreshItem", Method: http.MethodPost, Path: "/items/{id}/refresh",
 		DefaultStatus: http.StatusAccepted, Tags: tags,
 		Summary: "Fetch a film's or series' data and its missing images again, whenever a person likes " +
 			"(edit_metadata; D213)",
-	}, server.postItemRefresh)
+	}, server.refreshItem)
 }
 
 func (server *Server) getItemCandidates(ctx context.Context, input *CandidatesInput) (*CandidatesOutput, error) {
@@ -180,7 +180,7 @@ func (server *Server) getItemCandidates(ctx context.Context, input *CandidatesIn
 	return output, nil
 }
 
-func (server *Server) postItemMatch(ctx context.Context, input *MatchInput) (*struct{}, error) {
+func (server *Server) matchItem(ctx context.Context, input *MatchInput) (*struct{}, error) {
 	dependencies, _, err := server.requireMetadataEditorReaching(ctx, input.Authorization, input.ID)
 	if err != nil {
 		return nil, err
@@ -189,7 +189,7 @@ func (server *Server) postItemMatch(ctx context.Context, input *MatchInput) (*st
 	return &struct{}{}, server.identifyError(ctx, "choose a match", err)
 }
 
-func (server *Server) postItemConfirmMatch(ctx context.Context, input *ItemInput) (*struct{}, error) {
+func (server *Server) confirmItemMatch(ctx context.Context, input *ItemInput) (*struct{}, error) {
 	dependencies, _, err := server.requireMetadataEditorReaching(ctx, input.Authorization, input.ID)
 	if err != nil {
 		return nil, err
@@ -198,7 +198,7 @@ func (server *Server) postItemConfirmMatch(ctx context.Context, input *ItemInput
 	return &struct{}{}, server.identifyError(ctx, "confirm a guessed match", err)
 }
 
-func (server *Server) postItemMatchByLink(ctx context.Context, input *MatchByLinkInput) (*struct{}, error) {
+func (server *Server) matchItemByLink(ctx context.Context, input *MatchByLinkInput) (*struct{}, error) {
 	dependencies, _, err := server.requireMetadataEditorReaching(ctx, input.Authorization, input.ID)
 	if err != nil {
 		return nil, err
@@ -214,7 +214,7 @@ func (server *Server) postItemMatchByLink(ctx context.Context, input *MatchByLin
 	return &struct{}{}, server.identifyError(ctx, "choose a match by its link", err)
 }
 
-func (server *Server) postItemRefresh(ctx context.Context, input *ItemInput) (*RefreshOutput, error) {
+func (server *Server) refreshItem(ctx context.Context, input *ItemInput) (*RefreshOutput, error) {
 	dependencies, _, err := server.requireMetadataEditorReaching(ctx, input.Authorization, input.ID)
 	if err != nil {
 		return nil, err
@@ -232,7 +232,7 @@ func (server *Server) postItemRefresh(ctx context.Context, input *ItemInput) (*R
 	return output, nil
 }
 
-func (server *Server) putOverride(ctx context.Context, input *PutOverrideInput) (*struct{}, error) {
+func (server *Server) setOverride(ctx context.Context, input *PutOverrideInput) (*struct{}, error) {
 	dependencies, principal, err := server.requireMetadataEditorReaching(ctx, input.Authorization, input.ID)
 	if err != nil {
 		return nil, err
@@ -241,7 +241,7 @@ func (server *Server) putOverride(ctx context.Context, input *PutOverrideInput) 
 	return &struct{}{}, server.identifyError(ctx, "set an override", err)
 }
 
-func (server *Server) deleteOverride(ctx context.Context, input *OverrideInput) (*struct{}, error) {
+func (server *Server) clearOverride(ctx context.Context, input *OverrideInput) (*struct{}, error) {
 	dependencies, _, err := server.requireMetadataEditorReaching(ctx, input.Authorization, input.ID)
 	if err != nil {
 		return nil, err

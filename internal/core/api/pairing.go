@@ -102,14 +102,40 @@ func (server *Server) registerPairing() {
 		Summary:       "The session a confirmed pairing made, once", Tags: tags,
 	}, server.takePairedSession)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "activateDevice", Method: http.MethodPost, Path: "/activations",
+		OperationID: "enterPairingCode", Method: http.MethodPost, Path: "/pairings/code",
 		Summary: "Enter the code a device shows; both then show a check code (D288)", Tags: tags,
-	}, server.activateDevice)
+	}, server.enterPairingCode)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "answerActivation", Method: http.MethodPost, Path: "/activations/answer",
+		OperationID: "answerPairingCheck", Method: http.MethodPost, Path: "/pairings/check",
 		DefaultStatus: http.StatusNoContent,
 		Summary:       "Say whether the check codes match: only a match activates the device", Tags: tags,
-	}, server.answerActivation)
+	}, server.answerPairingCheck)
+	// The old paths, kept outside the document for one release (D425 §3): Connect serves the web
+	// build it was last deployed with, which enters a code at /activations. They go in the next batch.
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "enterPairingCodeAtItsOldPath", Method: http.MethodPost, Path: "/activations",
+		Hidden: true,
+	}, server.enterPairingCodeAtItsOldPath)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "answerPairingCheckAtItsOldPath", Method: http.MethodPost, Path: "/activations/answer",
+		Hidden: true, DefaultStatus: http.StatusNoContent,
+	}, server.answerPairingCheckAtItsOldPath)
+}
+
+// enterPairingCodeAtItsOldPath is enterPairingCode at the path it had before D425 §4, for one
+// release (D425 §3).
+func (server *Server) enterPairingCodeAtItsOldPath(
+	ctx context.Context, input *ActivationInput,
+) (*ActivationOutput, error) {
+	return server.enterPairingCode(ctx, input)
+}
+
+// answerPairingCheckAtItsOldPath is answerPairingCheck at the path it had before D425 §4, for one
+// release (D425 §3).
+func (server *Server) answerPairingCheckAtItsOldPath(
+	ctx context.Context, input *ActivationAnswerInput,
+) (*struct{}, error) {
+	return server.answerPairingCheck(ctx, input)
 }
 
 func (server *Server) requestPairing(ctx context.Context, input *PairingRequestInput) (*PairingOutput, error) {
@@ -152,7 +178,7 @@ func (server *Server) takePairedSession(ctx context.Context, input *PairingSecre
 	return server.newSessionOutput(ctx, dependencies, issued, input.isOverTLS)
 }
 
-func (server *Server) activateDevice(ctx context.Context, input *ActivationInput) (*ActivationOutput, error) {
+func (server *Server) enterPairingCode(ctx context.Context, input *ActivationInput) (*ActivationOutput, error) {
 	dependencies, principal, err := server.requireAccountManager(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -185,7 +211,7 @@ func (server *Server) activateDevice(ctx context.Context, input *ActivationInput
 	return output, nil
 }
 
-func (server *Server) answerActivation(ctx context.Context, input *ActivationAnswerInput) (*struct{}, error) {
+func (server *Server) answerPairingCheck(ctx context.Context, input *ActivationAnswerInput) (*struct{}, error) {
 	dependencies, principal, err := server.requireAccountManager(ctx, input.Authorization)
 	if err != nil {
 		return nil, err

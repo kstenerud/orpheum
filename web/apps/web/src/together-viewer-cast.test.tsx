@@ -42,7 +42,7 @@ describe("a signed-in guest's Play page of the group's film while their device c
       ...servedBy(
         {
           "POST /together/playback": [200, directDecision({ titleName: "Metropolis" })],
-          "GET /together/mine": [200, { sessions: [] }],
+          "GET /me/together": [200, { sessions: [] }],
         },
         [],
         "token",

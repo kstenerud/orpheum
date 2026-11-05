@@ -67,18 +67,20 @@ export function rootAnswerRequest(
   answer: RootAnswer,
 ): {
   readonly endpoint:
-    "/libraries/{id}/removals" | "/libraries/{id}/mounts/gone" | "/libraries/{id}/roots/retire";
+    | "/libraries/{id}/roots/removals"
+    | "/libraries/{id}/roots/mount-gone"
+    | "/libraries/{id}/roots/retire";
   readonly body: { readonly nodeName: string; readonly path: string };
 } {
   switch (answer.kind) {
     case "approveRemovals":
       return {
-        endpoint: "/libraries/{id}/removals",
+        endpoint: "/libraries/{id}/roots/removals",
         body: { nodeName: root.nodeName, path: root.rootPath },
       };
     case "diskGone":
       return {
-        endpoint: "/libraries/{id}/mounts/gone",
+        endpoint: "/libraries/{id}/roots/mount-gone",
         body: { nodeName: root.nodeName, path: answer.mountPath },
       };
     case "retire":

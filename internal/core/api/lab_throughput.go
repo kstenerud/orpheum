@@ -35,7 +35,7 @@ type LabThroughputInput struct {
 
 func (server *Server) registerLabThroughput() {
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "getLabThroughput", Method: http.MethodGet, Path: "/lab-throughput",
+		OperationID: "getLabThroughput", Method: http.MethodGet, Path: "/lab/throughput",
 		Summary: "The throughput test's body: bytes of no meaning, for a lab page to time its loads by " +
 			"(webrtc-throughput-2026-10-28.md)",
 		Tags: []string{tagRunningIt},

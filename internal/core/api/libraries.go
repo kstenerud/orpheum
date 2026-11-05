@@ -148,12 +148,10 @@ type RescanOutput struct {
 	}
 }
 
-// RetireNodeInput names a node an admin retires, by its name.
+// RetireNodeInput names a node an admin retires, by its name in the path (D416 §7).
 type RetireNodeInput struct {
 	AuthorizationHeader
-	Body struct {
-		NodeName string `doc:"The node's configured name" json:"nodeName" minLength:"1"`
-	}
+	Name string `doc:"The node's configured name" minLength:"1" path:"name"`
 }
 
 // RetiredOutput says what a retire took out of the library (D231 §7).
@@ -219,66 +217,66 @@ type FilesOutput struct {
 func (server *Server) registerLibraries() {
 	tags := []string{tagLibraries}
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "postLibrary", Method: http.MethodPost, Path: "/libraries", DefaultStatus: http.StatusCreated,
+		OperationID: "createLibrary", Method: http.MethodPost, Path: "/libraries", DefaultStatus: http.StatusCreated,
 		Summary: "Create a library over a node's roots, and scan it (admin)", Tags: tags,
-	}, server.postLibrary)
+	}, server.createLibrary)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "getNodes", Method: http.MethodGet, Path: "/nodes",
+		OperationID: "listNodes", Method: http.MethodGet, Path: "/nodes",
 		Summary: "The nodes, and the roots each connected one configured, for a new library (admin)", Tags: tags,
-	}, server.getNodes)
+	}, server.listNodes)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "getLibraries", Method: http.MethodGet, Path: "/libraries",
+		OperationID: "listLibraries", Method: http.MethodGet, Path: "/libraries",
 		Summary: "The libraries; an admin also sees their roots and files by filing", Tags: tags,
-	}, server.getLibraries)
+	}, server.listLibraries)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "putLibraryChangeDetection", Method: http.MethodPut, Path: "/libraries/{id}/change-detection",
+		OperationID: "setLibraryChangeDetection", Method: http.MethodPut, Path: "/libraries/{id}/change-detection",
 		Summary: "Choose again how a library notices changes: watching, checking every so many hours, or when asked",
 		Tags:    tags, DefaultStatus: http.StatusNoContent,
-	}, server.putLibraryChangeDetection)
+	}, server.setLibraryChangeDetection)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "postLibraryScan", Method: http.MethodPost, Path: "/libraries/{id}/scan",
+		OperationID: "scanLibrary", Method: http.MethodPost, Path: "/libraries/{id}/scan",
 		DefaultStatus: http.StatusAccepted, Summary: "Ask a library's nodes to scan it (admin)", Tags: tags,
-	}, server.postLibraryScan)
+	}, server.scanLibrary)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "postLibraryRemovals", Method: http.MethodPost, Path: "/libraries/{id}/removals",
+		OperationID: "approveLibraryRemovals", Method: http.MethodPost, Path: "/libraries/{id}/roots/removals",
 		DefaultStatus: http.StatusAccepted, Tags: tags,
 		Summary: "Approve a root's withheld removals; its next scan removes what it does not see (admin; D208)",
-	}, server.postLibraryRemovals)
+	}, server.approveLibraryRemovals)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "postLibraryMountGone", Method: http.MethodPost, Path: "/libraries/{id}/mounts/gone",
+		OperationID: "markLibraryMountGone", Method: http.MethodPost, Path: "/libraries/{id}/roots/mount-gone",
 		DefaultStatus: http.StatusAccepted, Tags: tags,
 		Summary: "Say a disk missing from a mount point in a root is gone; its files are removed (admin; D208)",
-	}, server.postLibraryMountGone)
+	}, server.markLibraryMountGone)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "postLibraryRootRetire", Method: http.MethodPost, Path: "/libraries/{id}/roots/retire", Tags: tags,
+		OperationID: "retireLibraryRoot", Method: http.MethodPost, Path: "/libraries/{id}/roots/retire", Tags: tags,
 		Summary: "Retire a root for good: its files become tombstones and their work is cancelled (admin; D231 §7)",
-	}, server.postLibraryRootRetire)
+	}, server.retireLibraryRoot)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "postLibraryRootRepoint", Method: http.MethodPost, Path: "/libraries/{id}/roots/repoint",
+		OperationID: "repointLibraryRoot", Method: http.MethodPost, Path: "/libraries/{id}/roots/repoint",
 		Tags:    tags,
 		Summary: "Say a root moved: it and its files take the new path with their history, and a scan confirms each (admin; D241 §6)", //nolint:lll // one summary
-	}, server.postLibraryRootRepoint)
+	}, server.repointLibraryRoot)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "postFileRetire", Method: http.MethodPost, Path: "/files/{id}/retire", Tags: tags,
+		OperationID: "retireFile", Method: http.MethodPost, Path: "/files/{id}/retire", Tags: tags,
 		Summary: "Retire one file that cannot be read now: it becomes a tombstone, its history kept (admin; D241 §5)",
-	}, server.postFileRetire)
+	}, server.retireFile)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "deleteLibrary", Method: http.MethodDelete, Path: "/libraries/{id}", Tags: tags,
+		OperationID: "removeLibrary", Method: http.MethodDelete, Path: "/libraries/{id}", Tags: tags,
 		Summary: "Delete a library: its titles are hidden with their history, its work cancelled (admin; D231 §7)",
-	}, server.deleteLibrary)
+	}, server.removeLibrary)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "postNodeRetire", Method: http.MethodPost, Path: "/nodes/retire", Tags: tags,
+		OperationID: "retireNode", Method: http.MethodPost, Path: "/nodes/{name}/retire", Tags: tags,
 		Summary: "Retire a node for good: its roots are retired and its work is cancelled (admin; D231 §7)",
-	}, server.postNodeRetire)
+	}, server.retireNode)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "getFiles", Method: http.MethodGet, Path: "/files",
+		OperationID: "listFiles", Method: http.MethodGet, Path: "/files",
 		Summary: "What the scanner saw: every file with its filing and reason (admin; D163)", Tags: tags,
-	}, server.getFiles)
+	}, server.listFiles)
 	server.registerRescans()
 	server.registerLibraryFolders()
 }
 
-func (server *Server) postLibrary(ctx context.Context, input *CreateLibraryInput) (*CreatedOutput, error) {
+func (server *Server) createLibrary(ctx context.Context, input *CreateLibraryInput) (*CreatedOutput, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -338,7 +336,7 @@ type NodesOutput struct {
 	}
 }
 
-func (server *Server) getNodes(ctx context.Context, input *AuthorizationHeader) (*NodesOutput, error) {
+func (server *Server) listNodes(ctx context.Context, input *AuthorizationHeader) (*NodesOutput, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -357,7 +355,7 @@ func (server *Server) getNodes(ctx context.Context, input *AuthorizationHeader) 
 	return output, nil
 }
 
-func (server *Server) getLibraries(ctx context.Context, input *AuthorizationHeader) (*LibrariesOutput, error) {
+func (server *Server) listLibraries(ctx context.Context, input *AuthorizationHeader) (*LibrariesOutput, error) {
 	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -419,7 +417,7 @@ func scanBodyOf(progress *library.ScanProgress) *RootScanBody {
 	}
 }
 
-func (server *Server) postLibraryScan(ctx context.Context, input *LibraryInput) (*ScanOutput, error) {
+func (server *Server) scanLibrary(ctx context.Context, input *LibraryInput) (*ScanOutput, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -433,7 +431,7 @@ func (server *Server) postLibraryScan(ctx context.Context, input *LibraryInput) 
 	return output, nil
 }
 
-func (server *Server) postLibraryRemovals(ctx context.Context, input *RootActionInput) (*RescanOutput, error) {
+func (server *Server) approveLibraryRemovals(ctx context.Context, input *RootActionInput) (*RescanOutput, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -447,7 +445,7 @@ func (server *Server) postLibraryRemovals(ctx context.Context, input *RootAction
 	return output, nil
 }
 
-func (server *Server) postLibraryMountGone(ctx context.Context, input *RootActionInput) (*RescanOutput, error) {
+func (server *Server) markLibraryMountGone(ctx context.Context, input *RootActionInput) (*RescanOutput, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -461,7 +459,7 @@ func (server *Server) postLibraryMountGone(ctx context.Context, input *RootActio
 	return output, nil
 }
 
-func (server *Server) postLibraryRootRetire(ctx context.Context, input *RootActionInput) (*RetiredOutput, error) {
+func (server *Server) retireLibraryRoot(ctx context.Context, input *RootActionInput) (*RetiredOutput, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -493,7 +491,7 @@ type RepointedOutput struct {
 	}
 }
 
-func (server *Server) postLibraryRootRepoint(ctx context.Context, input *RepointInput) (*RepointedOutput, error) {
+func (server *Server) repointLibraryRoot(ctx context.Context, input *RepointInput) (*RepointedOutput, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -513,7 +511,7 @@ func (server *Server) postLibraryRootRepoint(ctx context.Context, input *Repoint
 	return output, nil
 }
 
-func (server *Server) postFileRetire(ctx context.Context, input *ItemInput) (*RetiredOutput, error) {
+func (server *Server) retireFile(ctx context.Context, input *ItemInput) (*RetiredOutput, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -525,7 +523,7 @@ func (server *Server) postFileRetire(ctx context.Context, input *ItemInput) (*Re
 	return retiredOutput(retired), nil
 }
 
-func (server *Server) putLibraryChangeDetection(ctx context.Context, input *ChangeDetectionInput) (*struct{}, error) {
+func (server *Server) setLibraryChangeDetection(ctx context.Context, input *ChangeDetectionInput) (*struct{}, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -542,7 +540,7 @@ func (server *Server) putLibraryChangeDetection(ctx context.Context, input *Chan
 	return &struct{}{}, nil
 }
 
-func (server *Server) deleteLibrary(ctx context.Context, input *LibraryInput) (*RetiredOutput, error) {
+func (server *Server) removeLibrary(ctx context.Context, input *LibraryInput) (*RetiredOutput, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -554,19 +552,19 @@ func (server *Server) deleteLibrary(ctx context.Context, input *LibraryInput) (*
 	return retiredOutput(retired), nil
 }
 
-func (server *Server) postNodeRetire(ctx context.Context, input *RetireNodeInput) (*RetiredOutput, error) {
+func (server *Server) retireNode(ctx context.Context, input *RetireNodeInput) (*RetiredOutput, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	retired, err := dependencies.Libraries.RetireNode(ctx, input.Body.NodeName)
+	retired, err := dependencies.Libraries.RetireNode(ctx, input.Name)
 	if err != nil {
 		return nil, server.libraryError(ctx, "retire a node", err)
 	}
 	return retiredOutput(retired), nil
 }
 
-func (server *Server) getFiles(ctx context.Context, input *FilesInput) (*FilesOutput, error) {
+func (server *Server) listFiles(ctx context.Context, input *FilesInput) (*FilesOutput, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err

@@ -49,14 +49,14 @@ type LabResultOutput struct {
 
 func (server *Server) registerLab() {
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "reportLabResult", Method: http.MethodPost, Path: "/lab-results",
+		OperationID: "reportLabResult", Method: http.MethodPost, Path: "/lab/results",
 		Summary:       "What a lab page measured on a device, for the server's log (tv-device-tests.md)",
 		Tags:          []string{tagRunningIt},
 		DefaultStatus: http.StatusOK,
 		MaxBodyBytes:  labResultBytesAtMost,
 	}, server.reportLabResult)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "reportLabInputEvents", Method: http.MethodPost, Path: "/lab-input-events",
+		OperationID: "reportLabInputEvents", Method: http.MethodPost, Path: "/lab/input-events",
 		Summary:       "What the button test heard, as it heard it, for the server's log (tv-device-tests.md H2)",
 		Tags:          []string{tagRunningIt},
 		DefaultStatus: http.StatusNoContent,
