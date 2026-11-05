@@ -318,7 +318,7 @@ describe("the Libraries page (D349)", () => {
     const query = new URLSearchParams(
       heard.find((each) => each.methodAndPath === "GET /items")?.query,
     );
-    expect(query.get("kind")).toBe("any");
+    expect(query.get("kind")).toBe("movie,series,other");
     expect(query.has("library")).toBe(false);
   });
 

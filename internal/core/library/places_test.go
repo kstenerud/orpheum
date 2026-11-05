@@ -49,13 +49,14 @@ func TestBrowse_AFilmAtTwoPlacesOfTwoLibrariesIsListedOnceToWhoeverReachesEither
 	backupID, titleID := world.backupID, world.titleID
 	for _, reach := range []auth.Reach{auth.EveryLibrary(), auth.LibrariesOnly(1), auth.LibrariesOnly(backupID)} {
 		page, err := world.browser.List(t.Context(),
-			ListQuery{Reach: reach, Kind: ListFilms, Sort: SortName, Limit: 10})
+			ListQuery{Reach: reach, Kinds: []string{ListFilms}, Sort: SortName, Limit: 10})
 		if err != nil || !slices.Equal(entryNames(page), []string{"Metropolis"}) {
 			t.Errorf("films reached by %+v = %v, %v; want Metropolis once", reach, entryNames(page), err)
 		}
 	}
 	nowhere := auth.LibrariesOnly(99)
-	page, err := world.browser.List(t.Context(), ListQuery{Reach: nowhere, Kind: ListFilms, Sort: SortName, Limit: 10})
+	page, err := world.browser.List(t.Context(),
+		ListQuery{Reach: nowhere, Kinds: []string{ListFilms}, Sort: SortName, Limit: 10})
 	if err != nil || len(page.Entries) != 0 {
 		t.Errorf("films reached by no library of theirs = %v, %v; want none", entryNames(page), err)
 	}

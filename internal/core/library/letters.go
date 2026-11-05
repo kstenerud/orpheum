@@ -24,7 +24,7 @@ func RailLetters() []string {
 // and one more.
 func (browser *Browser) Letters(ctx context.Context, query ListQuery) ([]string, error) {
 	if !isByName(query.Sort) {
-		return nil, fmt.Errorf("letters of %s by %s: %w", query.Kind, query.Sort, ErrNoSuchSort)
+		return nil, fmt.Errorf("letters of %v by %s: %w", query.Kinds, query.Sort, ErrNoSuchSort)
 	}
 	query, isNoneMatched, err := browser.withMatched(ctx, query)
 	if err != nil || isNoneMatched {
@@ -59,12 +59,8 @@ func (browser *Browser) Letters(ctx context.Context, query ListQuery) ([]string,
 
 // firstFrom is the first entry after a place in a list's order, or nil when there is none.
 func (browser *Browser) firstFrom(ctx context.Context, query ListQuery, after listPosition) (*keyedEntry, error) {
-	kinds := []string{query.Kind}
-	if query.Kind == ListAny {
-		kinds = []string{ListFilms, ListSeries, ListOther}
-	}
 	var first *keyedEntry
-	for _, kind := range kinds {
+	for _, kind := range distinctKinds(query.Kinds) {
 		keyed, err := browser.listKind(ctx, kind, query, after)
 		if err != nil {
 			return nil, fmt.Errorf("the first %s after a letter: %w", kind, err)

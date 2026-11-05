@@ -323,7 +323,7 @@ function BrowsePages(props: {
   const loadPage = useCallback(
     async (cursor: string): Promise<Page<Entry>> => {
       const query = {
-        kind,
+        kind: [kind],
         sort,
         ...orderQuery({ sort, order }),
         limit: entriesPerPage,

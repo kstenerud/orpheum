@@ -30,7 +30,9 @@ export function useGenres(kind: ChipsKind | undefined, isWanted: boolean): reado
     }
     let isCurrent = true;
     allPages(async (query) => {
-      const page = dataOrThrow(await api.GET("/genres", { params: { query: { kind, ...query } } }));
+      const page = dataOrThrow(
+        await api.GET("/genres", { params: { query: { kind: [kind], ...query } } }),
+      );
       return { entries: page.genres ?? [], nextCursor: page.nextCursor };
     })
       .then((every) => {

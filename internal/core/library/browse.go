@@ -34,9 +34,6 @@ const (
 	ListSeries = "series"
 	// ListOther is an other library's videos, neither films nor series (D349 §3).
 	ListOther = "other"
-	// ListAny is films, series and other videos together, by name or newest first: every library's
-	// (D349 §1).
-	ListAny   = "any"
 	SortName  = "name"
 	SortAdded = "added"
 	// SortRecorded is newest recorded first, and SortFileName by the files' names: other videos'
@@ -149,7 +146,9 @@ type Page struct {
 
 // ListQuery asks for one page of a list, of the libraries Reach reaches (D243 §4).
 type ListQuery struct {
-	Kind string // ListFilms, ListSeries, ListOther or ListAny
+	// Kinds are the kinds it lists, merged in its order: ListFilms, ListSeries or ListOther, each
+	// named, never "every kind", so a kind added later is in no list that does not name it (D432 §1).
+	Kinds []string
 	// Sort is SortName or SortAdded; for ListOther SortRecorded or SortFileName too, for ListFilms
 	// and ListSeries SortReleased.
 	Sort string
@@ -200,6 +199,24 @@ func isByName(sort string) bool {
 	return sort == SortName || sort == SortFileName
 }
 
+// ListKinds are every kind a list can name today: films, series and other videos (D432 §1).
+func ListKinds() []string {
+	return []string{ListFilms, ListSeries, ListOther}
+}
+
+// isSortOfKinds is whether a list of kinds comes in sort's order: every one of them does. A list
+// names one kind at least.
+func isSortOfKinds(kinds []string, sort string) bool {
+	return len(kinds) > 0 && !slices.ContainsFunc(kinds, func(kind string) bool { return !isSortOfKind(kind, sort) })
+}
+
+// distinctKinds are kinds each once, in a fixed order, so a kind named twice lists its entries once.
+func distinctKinds(kinds []string) []string {
+	distinct := slices.Clone(kinds)
+	slices.Sort(distinct)
+	return slices.Compact(distinct)
+}
+
 // isSortOfKind is whether a list of kind comes in sort's order.
 func isSortOfKind(kind, sort string) bool {
 	switch sort {
@@ -213,8 +230,8 @@ func isSortOfKind(kind, sort string) bool {
 
 // List is one page of films, series or other videos, only those with a live file.
 func (browser *Browser) List(ctx context.Context, query ListQuery) (Page, error) {
-	if !isSortOfKind(query.Kind, query.Sort) {
-		return Page{}, fmt.Errorf("%s by %s: %w", query.Kind, query.Sort, ErrNoSuchSort)
+	if !isSortOfKinds(query.Kinds, query.Sort) {
+		return Page{}, fmt.Errorf("%v by %s: %w", query.Kinds, query.Sort, ErrNoSuchSort)
 	}
 	query, isNoneMatched, err := browser.withMatched(ctx, query)
 	if err != nil || isNoneMatched {
@@ -257,12 +274,8 @@ func (browser *Browser) listKeyed(ctx context.Context, query ListQuery) ([]keyed
 	if err != nil {
 		return nil, err
 	}
-	kinds := []string{query.Kind}
-	if query.Kind == ListAny {
-		kinds = []string{ListFilms, ListSeries, ListOther}
-	}
 	var keyed []keyedEntry
-	for _, kind := range kinds {
+	for _, kind := range distinctKinds(query.Kinds) {
 		ofKind, listErr := browser.listKind(ctx, kind, query, after)
 		if listErr != nil {
 			return nil, fmt.Errorf("list %s by %s: %w", kind, query.Sort, listErr)

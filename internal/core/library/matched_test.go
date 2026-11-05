@@ -38,7 +38,7 @@ func TestList_AQueryListsOnlyWhatMatchesInTheListsOwnOrderAndPages(t *testing.T)
 	world := searchedShelf(t)
 	list := func(query ListQuery) Page {
 		t.Helper()
-		query.Reach, query.Kind, query.Query = auth.EveryLibrary(), ListFilms, "heat"
+		query.Reach, query.Kinds, query.Query = auth.EveryLibrary(), []string{ListFilms}, "heat"
 		page, err := world.browser.List(t.Context(), query)
 		if err != nil {
 			t.Fatal(err)
@@ -86,7 +86,7 @@ func TestList_AQueryInAnyScriptAndAQueryThatMatchesNothing(t *testing.T) {
 		"zzz":  nil, // matches nothing
 	} {
 		page, err := world.browser.List(t.Context(), ListQuery{
-			Reach: auth.EveryLibrary(), Kind: ListAny, Sort: SortName, Limit: 10, Query: query,
+			Reach: auth.EveryLibrary(), Kinds: ListKinds(), Sort: SortName, Limit: 10, Query: query,
 		})
 		if err != nil || !slices.Equal(entryNames(page), want) || page.Entries == nil {
 			t.Errorf("every kind's titles matching %q = %v, %v; want %v", query, entryNames(page), err, want)
@@ -96,7 +96,7 @@ func TestList_AQueryInAnyScriptAndAQueryThatMatchesNothing(t *testing.T) {
 		"heat": {"H"}, "ordet": {"O"}, "u": {"U"}, "zzz": nil, "   ": nil,
 	} {
 		letters, err := world.browser.Letters(t.Context(), ListQuery{
-			Reach: auth.EveryLibrary(), Kind: ListFilms, Sort: SortName, Query: query,
+			Reach: auth.EveryLibrary(), Kinds: []string{ListFilms}, Sort: SortName, Query: query,
 		})
 		if err != nil || !slices.Equal(letters, want) || letters == nil {
 			t.Errorf("the letters of the films matching %q = %v, %v; want %v", query, letters, err, want)

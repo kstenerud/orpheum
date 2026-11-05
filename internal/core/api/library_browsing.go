@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -16,10 +17,10 @@ import (
 // LettersInput asks which letters of the alphabet rail a list by name or file name has titles under.
 type LettersInput struct {
 	AuthorizationHeader
-	Kind    string `doc:"As GET /items takes it" enum:"movie,series,other,any" query:"kind" required:"true"`
-	Sort    string `doc:"The order the rail follows: by name, or an other video's by file name" enum:"name,file_name" query:"sort" required:"true"` //nolint:lll // one struct tag
-	Library int64  `doc:"As GET /items takes it" minimum:"0" query:"library"`
-	Query   string `doc:"As GET /items takes it: only the letters some title whose name matches it is under" maxLength:"200" query:"query"` //nolint:lll // one struct tag
+	Kinds   []string `doc:"As GET /items takes it: the kinds, each named, comma-separated" enum:"movie,series,other" minItems:"1" query:"kind" required:"true"` //nolint:lll // one struct tag
+	Sort    string   `doc:"The order the rail follows: by name, or an other video's by file name" enum:"name,file_name" query:"sort" required:"true"`           //nolint:lll // one struct tag
+	Library int64    `doc:"As GET /items takes it" minimum:"0" query:"library"`
+	Query   string   `doc:"As GET /items takes it: only the letters some title whose name matches it is under" maxLength:"200" query:"query"` //nolint:lll // one struct tag
 	ListFilters
 }
 
@@ -64,10 +65,10 @@ func (server *Server) registerLibraryBrowsing() {
 	}, server.getLibraryFolder)
 }
 
-// listOf is which list a request asks for: its kind, one library's or 0, and whether it is a row of
+// listOf is which list a request asks for: its kinds, one library's or 0, and whether it is a row of
 // Home.
 type listOf struct {
-	kind      string
+	kinds     []string
 	libraryID int64
 	isHome    bool
 }
@@ -87,7 +88,7 @@ func (server *Server) listReach(
 		return narrowed, nil
 	case list.isHome:
 		return server.homeReach(ctx, dependencies, principal)
-	case list.kind != library.ListFilms && list.kind != library.ListSeries:
+	case !isFilmsOrSeriesAlone(list.kinds):
 		return principal.Reach, nil
 	}
 	leftOut, err := dependencies.Preferences.LeftOutLibraries(ctx, principal.UserID)
@@ -95,6 +96,23 @@ func (server *Server) listReach(
 		return auth.Reach{}, server.logInternalError(ctx, "read the libraries a person left out", err)
 	}
 	return server.reachWithout(ctx, dependencies, principal, leftOut)
+}
+
+// isFilmsOrSeriesAlone is whether a list names films alone or series alone, the lists a person
+// leaves libraries out of (D349 §8). A list of several kinds is All libraries' and leaves none out,
+// as the "any" it replaced did (D432 §1).
+func isFilmsOrSeriesAlone(kinds []string) bool {
+	return len(kinds) > 0 && (kinds[0] == library.ListFilms || kinds[0] == library.ListSeries) &&
+		!slices.ContainsFunc(kinds, func(kind string) bool { return kind != kinds[0] })
+}
+
+// isEveryListKind is whether a list names every kind there is, and no other.
+func isEveryListKind(kinds []string) bool {
+	named := slices.Clone(kinds)
+	slices.Sort(named)
+	every := library.ListKinds()
+	slices.Sort(every)
+	return slices.Equal(slices.Compact(named), every)
 }
 
 // homeReach is the libraries Home's rows draw on: every one the person reaches less those they left
@@ -129,13 +147,13 @@ func (server *Server) listItemLetters(ctx context.Context, input *LettersInput) 
 	if err != nil {
 		return nil, err
 	}
-	reach, err := server.listReach(ctx, dependencies, principal, listOf{kind: input.Kind, libraryID: input.Library})
+	reach, err := server.listReach(ctx, dependencies, principal, listOf{kinds: input.Kinds, libraryID: input.Library})
 	if err != nil {
 		return nil, err
 	}
 	letters, err := dependencies.Browser.Letters(ctx,
 		input.withFilters(library.ListQuery{
-			Kind: input.Kind, Sort: input.Sort, Reach: reach, UserID: principal.UserID, Query: input.Query,
+			Kinds: input.Kinds, Sort: input.Sort, Reach: reach, UserID: principal.UserID, Query: input.Query,
 		}))
 	if err != nil {
 		return nil, server.libraryError(ctx, "list a list's letters", err)

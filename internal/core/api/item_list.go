@@ -142,16 +142,16 @@ func itemEntryBody(entry library.Entry, nodeName func(nodeID int64) string) Item
 // every library the person reaches or of one (D349), or the items in one state of identification.
 type ListItemsInput struct {
 	AuthorizationHeader
-	Kind           string `default:"any" doc:"movie, series or other; any: every kind, every library's" enum:"movie,series,other,any" query:"kind"`                                                                                                                                                                                                                                                                                                                                                                                                                  //nolint:lll // one struct tag
-	Sort           string `default:"name" doc:"name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode. recorded: newest recorded first, and file_name: by the files' names, other videos only. released: newest first by a film's release date or a series' first air date, those with none last, films and series only" enum:"name,added,recorded,file_name,released" query:"sort"` //nolint:lll // one struct tag
-	Order          string `doc:"The way the sort runs (D366): ascending, A to Z or oldest first; descending, Z to A or newest first; absent for the sort's own, A to Z by a name and newest first by a date. What has no date is last either way" enum:"ascending,descending" query:"order"`                                                                                                                                                                                                                                                                         //nolint:lll // one struct tag
-	Library        int64  `doc:"One library's alone; absent for every library the person reaches, less, for films and series, those they left out (leftOutLibraryIds)" minimum:"0" query:"library"`                                                                                                                                                                                                                                                                                                                                                                  //nolint:lll // one struct tag
-	IsHome         bool   `doc:"The list as a row of Home shows it, with no library: of every library the person reaches less those they left out of Home (leftOutOfHomeLibraryIds, D366), in place of those left out of Films and Series" query:"home"`                                                                                                                                                                                                                                                                                                             //nolint:lll // one struct tag
-	Identification string `doc:"Only the films, extras and series in this state of identification, as Needs a match lists them, by name, each with its identification; with no other filter than library" enum:"identified,ambiguous,unidentified,confirmed" query:"identification"`                                                                                                                                                                                                                                                                                 //nolint:lll // one struct tag
-	Cursor         string `doc:"From the previous page's nextCursor" query:"cursor"`
-	From           string `doc:"A name, by name or file name only and with no cursor: A to Z, the page starts at the first item sorted at or after it, as a letter of the alphabet does; Z to A, at the last item sorted before it, so the letter after a letter starts that letter's items" maxLength:"100" query:"from"` //nolint:lll // one struct tag
-	Limit          int64  `maximum:"500" minimum:"1" query:"limit" required:"true"`
-	Query          string `doc:"Only the items whose name matches it, in any script (D48): a film, other video or series by its own name, never by an episode's or an extra's; every other criterion applies as without it. A query that matches nothing, or with nothing an index can match (only spaces, or only punctuation in a longer query), lists nothing. The items come from the first 10000 names it matches, the best first" maxLength:"200" query:"query"` //nolint:lll // one struct tag
+	Kinds          []string `default:"movie,series,other" doc:"The kinds it lists, each named, comma-separated: movie, series or other. Absent: films, series and other videos together, every library's. A kind a later server adds is listed only where a client names it (D432 §1)" enum:"movie,series,other" minItems:"1" query:"kind"`                                                                                                                                                                                                                            //nolint:lll // one struct tag
+	Sort           string   `default:"name" doc:"name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode. recorded: newest recorded first, and file_name: by the files' names, other videos only. released: newest first by a film's release date or a series' first air date, those with none last, films and series only" enum:"name,added,recorded,file_name,released" query:"sort"` //nolint:lll // one struct tag
+	Order          string   `doc:"The way the sort runs (D366): ascending, A to Z or oldest first; descending, Z to A or newest first; absent for the sort's own, A to Z by a name and newest first by a date. What has no date is last either way" enum:"ascending,descending" query:"order"`                                                                                                                                                                                                                                                                         //nolint:lll // one struct tag
+	Library        int64    `doc:"One library's alone; absent for every library the person reaches, less, for films and series, those they left out (leftOutLibraryIds)" minimum:"0" query:"library"`                                                                                                                                                                                                                                                                                                                                                                  //nolint:lll // one struct tag
+	IsHome         bool     `doc:"The list as a row of Home shows it, with no library: of every library the person reaches less those they left out of Home (leftOutOfHomeLibraryIds, D366), in place of those left out of Films and Series" query:"home"`                                                                                                                                                                                                                                                                                                             //nolint:lll // one struct tag
+	Identification string   `doc:"Only the films, extras and series in this state of identification, as Needs a match lists them, by name, each with its identification; with no other filter than library" enum:"identified,ambiguous,unidentified,confirmed" query:"identification"`                                                                                                                                                                                                                                                                                 //nolint:lll // one struct tag
+	Cursor         string   `doc:"From the previous page's nextCursor" query:"cursor"`
+	From           string   `doc:"A name, by name or file name only and with no cursor: A to Z, the page starts at the first item sorted at or after it, as a letter of the alphabet does; Z to A, at the last item sorted before it, so the letter after a letter starts that letter's items" maxLength:"100" query:"from"` //nolint:lll // one struct tag
+	Limit          int64    `maximum:"500" minimum:"1" query:"limit" required:"true"`
+	Query          string   `doc:"Only the items whose name matches it, in any script (D48): a film, other video or series by its own name, never by an episode's or an extra's; every other criterion applies as without it. A query that matches nothing, or with nothing an index can match (only spaces, or only punctuation in a longer query), lists nothing. The items come from the first 10000 names it matches, the best first" maxLength:"200" query:"query"` //nolint:lll // one struct tag
 	ListFilters
 }
 
@@ -196,12 +196,12 @@ func (server *Server) listItems(ctx context.Context, input *ListItemsInput) (*Li
 			"a row of Home is of every library the person keeps on it, not of one library")
 	}
 	reach, err := server.listReach(ctx, dependencies, principal,
-		listOf{kind: input.Kind, libraryID: input.Library, isHome: input.IsHome})
+		listOf{kinds: input.Kinds, libraryID: input.Library, isHome: input.IsHome})
 	if err != nil {
 		return nil, err
 	}
 	page, err := dependencies.Browser.List(ctx, input.withFilters(library.ListQuery{
-		Kind: input.Kind, Sort: input.Sort, Order: input.Order, Cursor: input.Cursor, From: input.From,
+		Kinds: input.Kinds, Sort: input.Sort, Order: input.Order, Cursor: input.Cursor, From: input.From,
 		Limit: input.Limit, Reach: reach, UserID: principal.UserID, Query: input.Query,
 	}))
 	if err != nil {
@@ -256,13 +256,13 @@ func (server *Server) addCredits(
 func (server *Server) listItemsByIdentification(
 	ctx context.Context, dependencies *Dependencies, principal auth.Principal, input *ListItemsInput,
 ) (*ListItemsOutput, error) {
-	if input.Kind != library.ListAny || input.Sort != library.SortName || input.Order != "" || input.IsHome ||
+	if !isEveryListKind(input.Kinds) || input.Sort != library.SortName || input.Order != "" || input.IsHome ||
 		input.From != "" || input.Query != "" || input.ListFilters != (ListFilters{}) {
 		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "query.identification",
 			"a list by identification is of every kind, by name, and takes no other filter than library")
 	}
 	reach, err := server.listReach(ctx, dependencies, principal,
-		listOf{kind: library.ListAny, libraryID: input.Library})
+		listOf{kinds: library.ListKinds(), libraryID: input.Library})
 	if err != nil {
 		return nil, err
 	}
