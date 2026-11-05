@@ -3,7 +3,7 @@
 import type { components } from "@orpheum/sdk";
 
 /** A title's detail, as the server sends it (title.tsx's TitleDetail). */
-type TitleDetail = components["schemas"]["ItemDetailOutputBody"];
+type TitleDetail = components["schemas"]["TitleBody"];
 
 /** The file a title's Play goes to first, which its page warms up; undefined if none plays now. */
 export function firstPlayableFile(title: TitleDetail): number | undefined {

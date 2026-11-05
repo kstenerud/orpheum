@@ -185,7 +185,7 @@ func TestReach_AnEditorReachesOnlyTheLibrariesTheirRoleLists(t *testing.T) {
 func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *testing.T) {
 	t.Parallel()
 	reachChecked := []string{
-		"getTitles", "getTitle", "getSeries", "getSeason", "search", "getHome", "getItemsByIdentification",
+		"getTitles", "getItem", "getSeason", "search", "getHome", "getItemsByIdentification",
 		"getLibraries",
 		"getFileAvailability", "getFileWaits", "getSubtitleCandidates", "postFileSubtitle", "startPlayback",
 		"getDirect",

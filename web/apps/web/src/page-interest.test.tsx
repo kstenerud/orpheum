@@ -40,7 +40,7 @@ describe("usePageInterest", () => {
       const heard: Heard[] = [];
       const services = servedBy(
         {
-          "GET /collections/20": [200, series],
+          "GET /items/20": [200, series],
           "GET /collections/20/seasons/1": [200, { episodes: [] }],
           "GET /collections/20/seasons/2": [200, { episodes: [] }],
           "PUT /interest/page": [204, null],

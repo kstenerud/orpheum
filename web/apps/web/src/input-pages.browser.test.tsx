@@ -339,7 +339,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
   it("reaches every control of a series' page, and picks a season in its place", async () => {
     await page.viewport(width, height);
     walking = await mountApp(
-      walkServices({ ...signedIn, "GET /collections/20": glassTide }, "/series/20"),
+      walkServices({ ...signedIn, "GET /items/20": glassTide }, "/series/20"),
     );
     await drawn(".title__play");
     // Its order chosen under its "…", rarely used (the owner, 2026-10-29), not on the page.

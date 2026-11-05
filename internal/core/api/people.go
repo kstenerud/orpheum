@@ -86,7 +86,7 @@ type PersonJobBody struct {
 
 // PersonTitleBody is a title crediting a person.
 type PersonTitleBody struct {
-	ID   int64           `doc:"GET /items/{id} for a film or other video, GET /collections/{id} for a series" json:"id"` //nolint:lll // one struct tag
+	ID   int64           `doc:"GET /items/{id}, of any kind" json:"id"`
 	Kind string          `enum:"movie,series,other" json:"kind"`
 	Name string          `json:"name"`
 	Year int64           `json:"year,omitempty"`
@@ -131,8 +131,8 @@ type GroupedSearchInput struct {
 
 // GroupHitBody is a title, person or genre a grouped search found.
 type GroupHitBody struct {
-	ID         int64  `doc:"A title's: GET /items/{id}, or GET /collections/{id} for a series; a person's: GET /people/{id}; a genre's: GET /titles?genre=" json:"id"` //nolint:lll // one struct tag
-	Kind       string `doc:"A title's kind; absent for a person or a genre" enum:"movie,series,other" json:"kind,omitempty"`                                           //nolint:lll // one struct tag
+	ID         int64  `doc:"A title's: GET /items/{id}, of any kind; a person's: GET /people/{id}; a genre's: GET /titles?genre=" json:"id"` //nolint:lll // one struct tag
+	Kind       string `doc:"A title's kind; absent for a person or a genre" enum:"movie,series,other" json:"kind,omitempty"`                 //nolint:lll // one struct tag
 	Name       string `json:"name"`
 	Year       int64  `json:"year,omitempty"`
 	PictureRef string `doc:"A person's picture as their source names it; not fetched by the server yet" json:"pictureRef,omitempty"` //nolint:lll // one struct tag

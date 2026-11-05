@@ -45,7 +45,7 @@ describe("a series returned to by Up from an episode of another season (D367 §9
         {
           "GET /me": viewer,
           "GET /client-settings": {},
-          "GET /collections/5": {
+          "GET /items/5": {
             id: 5,
             kind: "series",
             name: "Long Run",

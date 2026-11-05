@@ -46,6 +46,7 @@ import { useServices } from "./services.tsx";
 import { useResource } from "./use-resource.ts";
 import { watchingOf } from "./watching.ts";
 import { firstPlayableFile } from "./first-playable.ts";
+import { titleOrThrow } from "./item-detail.ts";
 import { Loaded } from "./loaded.tsx";
 import { groupName, placeCode } from "./episode-place.ts";
 import { Remembered, useRemembered } from "./remembered.ts";
@@ -56,7 +57,7 @@ import { MarkWatched } from "./watched-mark.tsx";
 export { firstPlayableFile, Loaded };
 
 /** A title's detail, as the server sends it. */
-export type TitleDetail = components["schemas"]["ItemDetailOutputBody"];
+export type TitleDetail = components["schemas"]["TitleBody"];
 type Stream = components["schemas"]["StreamBody"];
 type EpisodePlace = components["schemas"]["EpisodePlaceBody"];
 
@@ -540,11 +541,13 @@ export function Title(props: { readonly id: number }): JSX.Element {
   const [loaded, reload] = useResource(
     `title/${String(props.id)}`,
     async (signal) =>
-      dataOrThrow(
-        await api.GET("/items/{id}", {
-          params: { path: { id: props.id } },
-          signal: signal ?? null,
-        }),
+      titleOrThrow(
+        dataOrThrow(
+          await api.GET("/items/{id}", {
+            params: { path: { id: props.id } },
+            signal: signal ?? null,
+          }),
+        ),
       ),
     useBackgroundChangesPoller(),
   );

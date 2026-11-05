@@ -36,6 +36,10 @@ const (
 	// TitleKindOther is a video of an other library: one file, never matched (D349 §3).
 	TitleKindOther = "other"
 
+	// The kinds itemKindCollection and itemKindPerson are an item's kinds beside a title (D303).
+	itemKindCollection = "collection"
+	itemKindPerson     = "person"
+
 	ArtPoster   = "poster"
 	ArtBackdrop = "backdrop"
 	ArtLogo     = "logo"

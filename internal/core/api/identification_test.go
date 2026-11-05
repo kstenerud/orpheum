@@ -407,7 +407,7 @@ func TestIdentification_APersonConfirmsAGuessedMatch(t *testing.T) {
 	wantError(t, harness.do(t, http.MethodPost, "/items/10/confirm-match", user, nil), http.StatusForbidden,
 		api.CodeForbidden)
 	for _, item := range []struct{ confirm, page string }{
-		{"/items/10/confirm-match", "/items/10"}, {"/items/20/confirm-match", "/collections/20"},
+		{"/items/10/confirm-match", "/items/10"}, {"/items/20/confirm-match", "/items/20"},
 	} {
 		for range 2 {
 			if confirmed := harness.do(t, http.MethodPost, item.confirm, admin, nil); confirmed.status !=

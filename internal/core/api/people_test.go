@@ -45,7 +45,7 @@ func TestBrowse_GenresAndPeopleAreShownListedFilteredAndSearched(t *testing.T) {
 			`"name":"Oren Talisk"}],"writers":[]}`},
 		{"/items/21", `"genres":[{"id":2,"name":"Drama"}],"credits":{"cast":[{"personId":42,` +
 			`"name":"Bela Ostrander",`},
-		{"/collections/20", `"genres":[{"id":2,"name":"Drama"}],"credits":{"cast":[{"personId":42,`},
+		{"/items/20", `"genres":[{"id":2,"name":"Drama"}],"credits":{"cast":[{"personId":42,`},
 		{"/people/40", `{"id":40,"name":"Ansel Vardo","pictureRef":"/vardo.jpg","titles":[{"id":10,"kind":"movie",` +
 			`"name":"Metropolis","year":1995,"jobs":[{"job":"cast","character":"Mira Holloway-Pent"}]}]}`},
 		{"/genres?kind=any", `"genres":[{"id":1,"name":"Crime","titleCount":1},` +
@@ -82,6 +82,8 @@ func TestBrowse_GenresAndPeopleAreShownListedFilteredAndSearched(t *testing.T) {
 		t.Errorf("a title with no genres or credits = %s; want neither field", bare.body)
 	}
 	wantError(t, harness.do(t, http.MethodGet, "/people/99", admin, nil), http.StatusNotFound, api.CodeNotFound)
+	// A credited person is no item: their page is /people/{id} (D425 §7).
+	wantError(t, harness.do(t, http.MethodGet, "/items/40", admin, nil), http.StatusNotFound, api.CodeNotFound)
 	wantError(t, harness.do(t, http.MethodGet, "/search/grouped?query=a&limit=1&cursor=1", admin, nil),
 		http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 }

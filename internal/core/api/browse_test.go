@@ -135,8 +135,10 @@ func TestBrowse_ListsDetailsSeriesAndSearch(t *testing.T) {
 	}
 	wantError(t, harness.do(t, http.MethodGet, "/items/99", user, nil), http.StatusNotFound, api.CodeNotFound)
 
-	series := harness.do(t, http.MethodGet, "/collections/20", user, nil)
-	if !strings.Contains(series.body, `"seasons":[{"seasonNumber":1,"episodeCount":1`) {
+	series := harness.do(t, http.MethodGet, "/items/20", user, nil)
+	// One item answers every kind, the series by its kind (D416 §2).
+	if !strings.Contains(series.body, `"kind":"series"`) ||
+		!strings.Contains(series.body, `"seasons":[{"seasonNumber":1,"episodeCount":1`) {
 		t.Errorf("a series = %d %s; want its one season of one episode", series.status, series.body)
 	}
 	if !strings.Contains(series.body, `"libraries":[{"id":1,"name":`) {
@@ -186,9 +188,9 @@ func TestBrowse_EachItemShowsItsChosenOrNewestStoredImage(t *testing.T) {
 		{"/titles?kind=movie&sort=name&limit=10", `"posterSha256":"` + chosen + `"`},
 		{"/titles?kind=series&sort=added&limit=10", `"posterSha256":"` + seriesPoster + `"`},
 		{"/items/10", `"art":{"posterSha256":"` + chosen + `"}`}, // and no refused backdrop
-		{"/collections/20", `"stillSha256":"` + still + `"`},     // its season's, its first episode's
+		{"/items/20", `"stillSha256":"` + still + `"`},           // its season's, its first episode's
 		{"/collections/20/seasons/1?limit=10", `"stillSha256":"` + still + `"`},
-		{"/collections/20", `"art":{"posterSha256":"` + seriesPoster + `"}`},
+		{"/items/20", `"art":{"posterSha256":"` + seriesPoster + `"}`},
 	} {
 		if answer := harness.do(t, http.MethodGet, check.path, user, nil); !strings.Contains(answer.body, check.want) {
 			t.Errorf("%s = %d %s; want %s", check.path, answer.status, answer.body, check.want)
@@ -212,7 +214,7 @@ func TestBrowse_ATitleThatCannotBeReadNowIsListedAndMarkedUnavailable(t *testing
 	const missing = `"unavailable":{"reason":"root_missing","nodeName":"local","path":"/m","unavailableAt":4000}`
 	for _, path := range []string{
 		"/titles?kind=movie&sort=name&limit=10", "/titles?kind=series&sort=added&limit=10", "/items/10",
-		"/items/21", "/collections/20", "/collections/20/seasons/1?limit=10",
+		"/items/21", "/items/20", "/collections/20/seasons/1?limit=10",
 	} {
 		if got := harness.do(t, http.MethodGet, path, user, nil); got.status != http.StatusOK ||
 			!strings.Contains(got.body, missing) {
@@ -247,7 +249,7 @@ func TestBrowse_ATitleStillBeingReadIsListedAndMarkedSo(t *testing.T) {
 		"UPDATE file SET reported_path_raw = CAST(path AS BLOB), payload_hash = NULL")
 	const reading = `"unavailable":{"reason":"still_reading","nodeName":"local"}`
 	for _, path := range []string{
-		"/titles?kind=movie&sort=name&limit=10", "/items/10", "/collections/20", "/collections/20/seasons/1?limit=10",
+		"/titles?kind=movie&sort=name&limit=10", "/items/10", "/items/20", "/collections/20/seasons/1?limit=10",
 	} {
 		if got := harness.do(t, http.MethodGet, path, user, nil); got.status != http.StatusOK ||
 			!strings.Contains(got.body, reading) {
@@ -281,7 +283,7 @@ func TestBrowse_ASeriesListsItsSeasonsAndASeasonComesAPageAtATime(t *testing.T) 
 			 VALUES (1, %d, %d, %d, %d)`, id, episode.season, episode.number, 10001+index+1))
 	}
 	storetest.ExecRaw(t, harness.databasePath, statements...)
-	series := harness.do(t, http.MethodGet, "/collections/20", user, nil)
+	series := harness.do(t, http.MethodGet, "/items/20", user, nil)
 	if !strings.Contains(series.body, `"seasons":[{"seasonNumber":1,"episodeCount":3,`) ||
 		!strings.Contains(series.body, `{"seasonNumber":2,"episodeCount":1},{"seasonNumber":0,"episodeCount":2}]`) ||
 		strings.Contains(series.body, `"episodes"`) {
@@ -355,12 +357,12 @@ func TestBrowse_ASeriesSaysItsPersonsNextEpisode(t *testing.T) {
 	}
 	next := func(t *testing.T) *nextUp {
 		t.Helper()
-		answer := harness.do(t, http.MethodGet, "/collections/20", user, nil)
+		answer := harness.do(t, http.MethodGet, "/items/20", user, nil)
 		var series struct {
 			NextUp *nextUp `json:"nextUp"`
 		}
 		if err := json.Unmarshal([]byte(answer.body), &series); err != nil || answer.status != http.StatusOK {
-			t.Fatalf("GET /collections/20 = %d %s (%v)", answer.status, answer.body, err)
+			t.Fatalf("GET /items/20 = %d %s (%v)", answer.status, answer.body, err)
 		}
 		return series.NextUp
 	}
@@ -409,7 +411,7 @@ func TestBrowse_AGuessedMatchSaysSoWhereItsTitleIsShown(t *testing.T) {
 			t.Errorf("%s = %s; want Brass Arena's guess said", path, shows.body)
 		}
 	}
-	if series := harness.do(t, http.MethodGet, "/collections/20", admin, nil); !strings.Contains(series.body,
+	if series := harness.do(t, http.MethodGet, "/items/20", admin, nil); !strings.Contains(series.body,
 		`"isGuessed":true`) {
 		t.Errorf("the series' page = %s; want its guess said", series.body)
 	}
@@ -520,7 +522,7 @@ func TestBrowse_ASeriesSeasonsShowTheirOwnPostersInAiredOrderAlone(t *testing.T)
 			PosterSha256 string `json:"posterSha256"`
 		} `json:"seasons"`
 	}
-	harness.readJSON(t, "/collections/20", user, &seen)
+	harness.readJSON(t, "/items/20", user, &seen)
 	got, want := fmt.Sprint(seen.Seasons), "[{1 "+seasonOne+"} {2 }]"
 	if got != want || seen.Art.PosterSha256 != seriesPoster {
 		t.Errorf("aired: seasons %s, series poster %s; want %s and the series' own poster", got,
@@ -529,7 +531,7 @@ func TestBrowse_ASeriesSeasonsShowTheirOwnPostersInAiredOrderAlone(t *testing.T)
 	storetest.ExecRaw(t, harness.databasePath, `INSERT INTO preference (user_id, scope, scope_id, axis, value_json,
 		set_at) VALUES (1, 'work', 20, 'episode_ordering', '"tmdb:dvd"', 1)`)
 	seen.Seasons = nil
-	harness.readJSON(t, "/collections/20", user, &seen)
+	harness.readJSON(t, "/items/20", user, &seen)
 	if got, want = fmt.Sprint(seen.Seasons), "[{1 } {2 }]"; got != want {
 		t.Errorf("the DVD order: seasons %s; want %s, no disc a season's poster", got, want)
 	}

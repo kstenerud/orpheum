@@ -55,7 +55,7 @@ const series: SeriesDetail = {
 /** The stand-in server's answers for a title's or a series' page. */
 function pageAnswers(detail: TitleDetail | SeriesDetail): Answers {
   const id = String(detail.id);
-  const path = detail.kind === "series" ? `/collections/${id}` : `/items/${id}`;
+  const path = `/items/${id}`;
   return {
     [`GET ${path}`]: [200, detail],
     "GET /collections/5/seasons/1": [200, { episodes: [] }],

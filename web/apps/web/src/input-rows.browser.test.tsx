@@ -81,7 +81,7 @@ function episode(number: number): Record<string, unknown> {
 const aSeason: WalkAnswers = {
   "GET /me": viewer,
   "GET /client-settings": {},
-  "GET /collections/20": {
+  "GET /items/20": {
     id: 20,
     kind: "series",
     name: "Glass Tide",
@@ -99,8 +99,8 @@ const aSeason: WalkAnswers = {
 /** aSeason with its next episode, the second, which its page opens on (R3). */
 const withNextUp: WalkAnswers = {
   ...aSeason,
-  "GET /collections/20": {
-    ...(aSeason["GET /collections/20"] as Record<string, unknown>),
+  "GET /items/20": {
+    ...(aSeason["GET /items/20"] as Record<string, unknown>),
     orderings: [{ name: "aired", kind: "aired", episodeCount: 5 }],
     nextUp: { titleId: 302, name: "Episode 2", groupNumber: 1, numberInGroup: 2, fileId: 3020 },
   },
@@ -114,7 +114,7 @@ const withThreeSeasons: WalkAnswers = {
   "GET /me": viewer,
   "GET /client-settings": {},
   "GET /collections/21/seasons/1": { episodes: [1, 2, 3, 4].map(episode), nextCursor: "" },
-  "GET /collections/21": {
+  "GET /items/21": {
     id: 21,
     kind: "series",
     name: "Glass Tide",
@@ -133,7 +133,7 @@ const withTenSeasons: WalkAnswers = {
   "GET /me": viewer,
   "GET /client-settings": {},
   "GET /collections/22/seasons/10": { episodes: [1, 2].map(episode), nextCursor: "" },
-  "GET /collections/22": {
+  "GET /items/22": {
     id: 22,
     kind: "series",
     name: "Long Haul",

@@ -210,23 +210,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/collections/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** A series with its seasons, each with how many episodes it has */
-        get: operations["getSeries"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/collections/{id}/not-in-order": {
         parameters: {
             query?: never;
@@ -719,8 +702,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** A title's detail: versions, files, streams, extras and, for an episode, its place */
-        get: operations["getTitle"];
+        /**
+         * An item's detail, by its kind: a title's versions, files, streams, extras and, for an episode, its place; a series' seasons, each with how many episodes it has
+         * @description A credited person is not an item here: their id answers 404, and their page is GET /people/{id} (D425 §7).
+         */
+        get: operations["getItem"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2730,48 +2716,6 @@ export interface components {
             shouldOfferDeviceTests: boolean;
             shouldShowDeveloperPages: boolean;
         };
-        CollectionOutputBody: {
-            art: components["schemas"]["ArtBody"];
-            /** @description Its cast, directors and writers in billing order; absent when it credits no one */
-            credits?: components["schemas"]["CreditsBody"];
-            fetchFailure?: components["schemas"]["FetchFailureBody"];
-            /** @description Its genres in its source's order; absent when it has none */
-            genres?: components["schemas"]["GenreBody"][] | null;
-            /** Format: int64 */
-            id: number;
-            identificationState?: string;
-            /** @description Whether its match is a guess no person confirmed (D301) */
-            isGuessed?: boolean;
-            /** @description Whether the person watched every one of its episodes with a file, in the ordering they watch it in (D370) */
-            isWatched?: boolean;
-            /** @enum {string} */
-            kind: "series";
-            /** @description The libraries its person reaches that list one of its episodes, by name: its page goes up to the one the person came through, else the first (D367) */
-            libraries?: components["schemas"]["LibraryNameBody"][] | null;
-            name: string;
-            /** @description The person's next episode, which the page offers to play; absent when every one is finished or none has a file */
-            nextUp?: components["schemas"]["NextUpBody"];
-            /**
-             * Format: int64
-             * @description How many of its episodes the ordering in use leaves out: GET /collections/{id}/not-in-order
-             */
-            notInOrderingCount?: number;
-            /** @description The ordering its person watches it in, which its seasons are the groups of; absent for aired */
-            ordering?: string;
-            /** @description Every ordering it has, aired first; its page offers a choice when there is more than one */
-            orderings?: components["schemas"]["OrderingBody"][] | null;
-            overview?: string;
-            /**
-             * Format: int64
-             * @description When a person asked for it to be refreshed, while no fetch has answered yet
-             */
-            refreshRequestedAt?: number;
-            seasons: components["schemas"]["SeasonBody"][] | null;
-            /** @description Why none of its episodes' files can be read now; absent when one can */
-            unavailable?: components["schemas"]["UnavailableBody"];
-            /** Format: int64 */
-            year?: number;
-        };
         ConfigFileKey: {
             description: string;
             /** @description False when the file lacks it: it runs on its starting value */
@@ -3353,7 +3297,7 @@ export interface components {
         GroupHitBody: {
             /**
              * Format: int64
-             * @description A title's: GET /items/{id}, or GET /collections/{id} for a series; a person's: GET /people/{id}; a genre's: GET /titles?genre=
+             * @description A title's: GET /items/{id}, of any kind; a person's: GET /people/{id}; a genre's: GET /titles?genre=
              */
             id: number;
             /**
@@ -3546,45 +3490,6 @@ export interface components {
              * @description When a person asked for it to be refreshed, while no fetch has answered yet
              */
             refreshRequestedAt?: number;
-            /** Format: int64 */
-            year?: number;
-        };
-        ItemDetailOutputBody: {
-            art: components["schemas"]["ArtBody"];
-            /** @description Its cast, directors and writers in billing order; an episode's are its series'; absent when it credits no one */
-            credits?: components["schemas"]["CreditsBody"];
-            episode?: components["schemas"]["EpisodePlaceBody"];
-            extras: components["schemas"]["ExtraBody"][] | null;
-            fetchFailure?: components["schemas"]["FetchFailureBody"];
-            /** @description The film an extra belongs to, which its page goes up to (D367); absent for anything else */
-            filmOfExtra?: components["schemas"]["FilmOfExtraBody"];
-            followedSource?: string;
-            /** @description Its genres in its source's order; an episode's are its series'; absent when it has none */
-            genres?: components["schemas"]["GenreBody"][] | null;
-            /** Format: int64 */
-            id: number;
-            identificationState: string;
-            /** @description Whether its match is a guess no person confirmed (D301) */
-            isGuessed?: boolean;
-            /** @description Whether the person watched it, by playing it to its finish or by hand (D370) */
-            isWatched?: boolean;
-            /** @enum {string} */
-            kind: "movie" | "episode" | "extra" | "other";
-            /** @description The libraries its person reaches that list it, by name: its page goes up to the one the person came through, else the first (D367) */
-            libraries?: components["schemas"]["LibraryNameBody"][] | null;
-            name: string;
-            overview?: string;
-            /**
-             * Format: int64
-             * @description When a person asked for it to be refreshed, while no fetch has answered yet
-             */
-            refreshRequestedAt?: number;
-            /** Format: int64 */
-            runtimeMs?: number;
-            tagline?: string;
-            /** @description Why none of its files can be read now; absent when one can */
-            unavailable?: components["schemas"]["UnavailableBody"];
-            versions: components["schemas"]["VersionBody"][] | null;
             /** Format: int64 */
             year?: number;
         };
@@ -4262,7 +4167,7 @@ export interface components {
         PersonTitleBody: {
             /**
              * Format: int64
-             * @description GET /items/{id} for a film or other video, GET /collections/{id} for a series
+             * @description GET /items/{id}, of any kind
              */
             id: number;
             jobs: components["schemas"]["PersonJobBody"][] | null;
@@ -4905,6 +4810,51 @@ export interface components {
             /** Format: int64 */
             waitedForAheadMs?: number;
         };
+        SeriesBody: {
+            art: components["schemas"]["ArtBody"];
+            /** @description Its cast, directors and writers in billing order; absent when it credits no one */
+            credits?: components["schemas"]["CreditsBody"];
+            fetchFailure?: components["schemas"]["FetchFailureBody"];
+            /** @description Its genres in its source's order; absent when it has none */
+            genres?: components["schemas"]["GenreBody"][] | null;
+            /** Format: int64 */
+            id: number;
+            identificationState?: string;
+            /** @description Whether its match is a guess no person confirmed (D301) */
+            isGuessed?: boolean;
+            /** @description Whether the person watched every one of its episodes with a file, in the ordering they watch it in (D370) */
+            isWatched?: boolean;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "series";
+            /** @description The libraries its person reaches that list one of its episodes, by name: its page goes up to the one the person came through, else the first (D367) */
+            libraries?: components["schemas"]["LibraryNameBody"][] | null;
+            name: string;
+            /** @description The person's next episode, which the page offers to play; absent when every one is finished or none has a file */
+            nextUp?: components["schemas"]["NextUpBody"];
+            /**
+             * Format: int64
+             * @description How many of its episodes the ordering in use leaves out: GET /items/{id}/not-in-order
+             */
+            notInOrderingCount?: number;
+            /** @description The ordering its person watches it in, which its seasons are the groups of; absent for aired */
+            ordering?: string;
+            /** @description Every ordering it has, aired first; its page offers a choice when there is more than one */
+            orderings?: components["schemas"]["OrderingBody"][] | null;
+            overview?: string;
+            /**
+             * Format: int64
+             * @description When a person asked for it to be refreshed, while no fetch has answered yet
+             */
+            refreshRequestedAt?: number;
+            seasons: components["schemas"]["SeasonBody"][] | null;
+            /** @description Why none of its episodes' files can be read now; absent when one can */
+            unavailable?: components["schemas"]["UnavailableBody"];
+            /** Format: int64 */
+            year?: number;
+        };
         SeriesReadWronglyBody: {
             name: string;
             /** Format: int64 */
@@ -5325,6 +5275,48 @@ export interface components {
         TilesInterestInputBody: {
             /** @description The items whose tiles are in view */
             items: number[] | null;
+        };
+        TitleBody: {
+            art: components["schemas"]["ArtBody"];
+            /** @description Its cast, directors and writers in billing order; an episode's are its series'; absent when it credits no one */
+            credits?: components["schemas"]["CreditsBody"];
+            episode?: components["schemas"]["EpisodePlaceBody"];
+            extras: components["schemas"]["ExtraBody"][] | null;
+            fetchFailure?: components["schemas"]["FetchFailureBody"];
+            /** @description The film an extra belongs to, which its page goes up to (D367); absent for anything else */
+            filmOfExtra?: components["schemas"]["FilmOfExtraBody"];
+            followedSource?: string;
+            /** @description Its genres in its source's order; an episode's are its series'; absent when it has none */
+            genres?: components["schemas"]["GenreBody"][] | null;
+            /** Format: int64 */
+            id: number;
+            identificationState: string;
+            /** @description Whether its match is a guess no person confirmed (D301) */
+            isGuessed?: boolean;
+            /** @description Whether the person watched it, by playing it to its finish or by hand (D370) */
+            isWatched?: boolean;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "episode" | "extra" | "movie" | "other";
+            /** @description The libraries its person reaches that list it, by name: its page goes up to the one the person came through, else the first (D367) */
+            libraries?: components["schemas"]["LibraryNameBody"][] | null;
+            name: string;
+            overview?: string;
+            /**
+             * Format: int64
+             * @description When a person asked for it to be refreshed, while no fetch has answered yet
+             */
+            refreshRequestedAt?: number;
+            /** Format: int64 */
+            runtimeMs?: number;
+            tagline?: string;
+            /** @description Why none of its files can be read now; absent when one can */
+            unavailable?: components["schemas"]["UnavailableBody"];
+            versions: components["schemas"]["VersionBody"][] | null;
+            /** Format: int64 */
+            year?: number;
         };
         TitlesOutputBody: {
             /** @description Empty on the last page */
@@ -6176,40 +6168,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClientSettingsBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getSeries: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CollectionOutputBody"];
                 };
             };
             /** @description Error */
@@ -7397,7 +7355,7 @@ export interface operations {
             };
         };
     };
-    getTitle: {
+    getItem: {
         parameters: {
             query?: never;
             header?: {
@@ -7417,7 +7375,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ItemDetailOutputBody"];
+                    "application/json": components["schemas"]["TitleBody"] | components["schemas"]["SeriesBody"];
                 };
             };
             /** @description Error */

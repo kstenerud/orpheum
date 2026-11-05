@@ -212,7 +212,7 @@ func (harness testHarness) seriesWatched(t *testing.T, token string) string {
 			TitleID int64 `json:"titleId"`
 		} `json:"nextUp"`
 	}
-	harness.readJSON(t, "/collections/20", token, &series)
+	harness.readJSON(t, "/items/20", token, &series)
 	seasons := []string{}
 	for _, season := range series.Seasons {
 		seasons = append(seasons, fmt.Sprintf("%d:%t", season.SeasonNumber, season.IsWatched))
