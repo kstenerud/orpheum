@@ -10,6 +10,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/identify/identifytest"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -69,7 +70,8 @@ func TestChooser_AChosenMatchIsPermanent(t *testing.T) {
 	}
 	for _, when := range []string{"after choosing", "after another pass"} {
 		file := lib.titlesByPath()["The General (2004).mkv"]
-		if file.IdentificationState != identify.IdentificationConfirmed || file.Year == nil || *file.Year != 2002 ||
+		if ptr.ValueOrZero(file.IdentificationState) != identify.IdentificationConfirmed ||
+			file.Year == nil || *file.Year != 2002 ||
 			file.Filing != identify.FilingListed {
 			t.Errorf("%s: %+v; want the chosen film, confirmed", when, file)
 		}
@@ -104,7 +106,8 @@ func TestChooser_AGuessConfirmedIsAPersonsMatch(t *testing.T) {
 	}
 	for _, when := range []string{"after confirming", "after another pass"} {
 		file := lib.titlesByPath()[rel]
-		if file.IdentificationState != identify.IdentificationConfirmed || file.Year == nil || *file.Year != 1961 ||
+		if ptr.ValueOrZero(file.IdentificationState) != identify.IdentificationConfirmed ||
+			file.Year == nil || *file.Year != 1961 ||
 			lib.isGuessed(titleID) {
 			t.Errorf("%s: %+v, guessed %t; want the guessed film, confirmed, no guess", when, file,
 				lib.isGuessed(titleID))
@@ -139,7 +142,7 @@ func TestChooser_AChoiceWinsOverTheNFOAndReplacesAnEarlierOne(t *testing.T) {
 	lib.scan(videoRecord("Metropolis (1995).mkv"),
 		nfoRecord("Metropolis (1995).nfo", "<movie><title>Metropolis</title><year>1995</year><tmdbid>9019</tmdbid></movie>"))
 	file := lib.titlesByPath()["Metropolis (1995).mkv"]
-	if titleName(file) != theo.Name || file.IdentificationState != identify.IdentificationConfirmed {
+	if titleName(file) != theo.Name || ptr.ValueOrZero(file.IdentificationState) != identify.IdentificationConfirmed {
 		t.Errorf("file %+v is %q; want the person's choice over the NFO", file, titleName(file))
 	}
 	ids, err := lib.database.Read().ListItemProviderIDs(t.Context(), titleID)

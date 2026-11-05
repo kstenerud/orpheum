@@ -18,15 +18,14 @@ INSERT INTO role_library (role_id, library_id, may_rebroadcast) VALUES (2, 1, 0)
 INSERT INTO device (id, user_id, name, platform, added_at, last_signed_in_at)
   VALUES (1, 2, 'Living room TV', 'webos', 1790000000000, 1790000100000);
 
-INSERT INTO item (id, kind, filing_library_id, added_at) VALUES
-  (1, 'title', 1, 1790000000000),
-  (2, 'title', 1, 1790000000000),
-  (3, 'collection', 1, 1790000000000),
-  (4, 'person', NULL, 1790000000000);
+INSERT INTO item (id, kind, filing_library_id, added_at, year, released_on, followed_source, followed_source_id,
+    identification_state) VALUES
+  (1, 'movie', 1, 1790000000000, 2020, 20200314, 'tmdb', '10001', 'identified'),
+  (2, 'extra', 1, 1790000000000, 2020, NULL, 'none', NULL, 'unidentified'),
+  (3, 'series', 1, 1790000000000, 2019, NULL, 'tmdb', '615', 'identified'),
+  (4, 'person', NULL, 1790000000000, NULL, NULL, NULL, NULL, NULL);
 INSERT INTO item_provider_id (item_id, provider, provider_id) VALUES (1, 'tmdb', '10001');
-INSERT INTO title (id, kind, year, runtime_ms, followed_source, followed_source_id, identification_state)
-  VALUES (1, 'movie', 2020, 5400000, 'tmdb', '10001', 'identified'),
-         (2, 'extra', 2020, 120000, 'none', NULL, 'unidentified');
+INSERT INTO title (id, kind, runtime_ms) VALUES (1, 'movie', 5400000), (2, 'extra', 120000);
 INSERT INTO version (id, title_id, created_at) VALUES (1, 1, 1790000000000);
 INSERT INTO extra_relation (owner_title, extra_title, extra_type, asserted_by)
   VALUES (1, 2, 'trailer', 'scanner');
@@ -78,7 +77,7 @@ INSERT INTO item_text (item_id, language, is_original, name, overview, tagline)
   VALUES (1, 'en', 1, 'Direct Play Film', 'A synthetic film.', 'It plays.');
 INSERT INTO item_text (item_id, language, is_original, name, overview, tagline)
   VALUES (4, 'en', 1, 'Ada Player', NULL, NULL);
-INSERT INTO person (id, tmdb_id, name_key, picture_ref) VALUES (4, '501', 'ada player', '/ada.jpg');
+INSERT INTO person (id, kind, tmdb_id, name_key, picture_ref) VALUES (4, 'person', '501', 'ada player', '/ada.jpg');
 INSERT INTO genre (id, name, name_key) VALUES (1, 'Drama', 'drama');
 INSERT INTO item_genre (item_id, genre_id, ordinal) VALUES (1, 1, 0);
 INSERT INTO credit (item_id, job, ordinal, person_id, character) VALUES (1, 'cast', 0, 4, 'The Lead'),
@@ -93,8 +92,7 @@ INSERT INTO artwork (id, item_id, kind, language, source, source_ref, source_sha
 INSERT INTO artwork (id, item_id, kind, source, source_ref, refused_at, refusal, is_missing_at_source)
   VALUES (2, 1, 'backdrop', 'tmdb', '/gone.jpg', 1790000700000, 'no image there', 1);
 
-INSERT INTO collection (id, kind, created_by, followed_source, followed_source_id, identification_state)
-  VALUES (3, 'series', 'scanner', 'tmdb', '7615', 'identified');
+INSERT INTO collection (id, kind, created_by) VALUES (3, 'series', 'scanner');
 INSERT INTO collection_member (collection_id, member_title, position) VALUES (3, 1, 1.0);
 INSERT INTO ordering (id, collection_id, name, provider, kind) VALUES (1, 3, 'aired', 'tmdb', 'aired');
 INSERT INTO ordering (id, collection_id, name, provider, kind, source_id, label, listed_count)

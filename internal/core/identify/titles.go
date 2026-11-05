@@ -90,14 +90,14 @@ func (filer *libraryFiler) findOrAddTitle(ctx context.Context, spec titleSpec) (
 	}
 	libraryID := filer.library.ID
 	id, err := filer.queries.InsertItem(ctx, sqlcgen.InsertItemParams{
-		Kind: "title", LibraryID: &libraryID, AddedAt: filer.nowMs,
+		Kind: spec.kind, LibraryID: &libraryID, AddedAt: filer.nowMs,
+		IdentificationState: ptr.NilIfZero(identificationUnidentified),
 	})
 	if err != nil {
 		return 0, fmt.Errorf("add a title for %q: %w", spec.name, err)
 	}
 	err = filer.queries.InsertTitle(ctx, sqlcgen.InsertTitleParams{
 		ID: id, Kind: spec.kind,
-		IdentificationState: identificationUnidentified,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("add title %q: %w", spec.name, err)
@@ -248,10 +248,9 @@ func (filer *libraryFiler) resolve(ctx context.Context, titleID int64, spec titl
 	}
 	identification, err := filer.resolveTitleValues(ctx, sqlcgen.UpdateTitleResolvedParams{
 		Kind: spec.kind, Year: ptr.NilIfZero(year), ReleasedOn: releasedOn(year, spec.releaseDate),
-		RuntimeMs:      ptr.NilIfZero(runtimeMs),
 		FollowedSource: source, FollowedSourceID: sourceID,
-		IdentificationState: spec.identification, ID: titleID,
-	})
+		IdentificationState: ptr.NilIfZero(spec.identification), ID: titleID,
+	}, ptr.NilIfZero(runtimeMs))
 	if err != nil {
 		return titleResolution{}, err
 	}

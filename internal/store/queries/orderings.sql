@@ -25,12 +25,12 @@ ORDER BY id;
 -- name: ListSeriesEpisodeSourceIDs :many
 -- A series' live episodes, each with its id at the provider it takes its values from: what places it
 -- in a provider's ordering, by the episode that ordering lists.
-SELECT title.id AS title_id, CAST(title.followed_source_id AS TEXT) AS followed_source_id
+SELECT title.id AS title_id, CAST(item.followed_source_id AS TEXT) AS followed_source_id
 FROM collection_member
 JOIN title ON title.id = collection_member.member_title
 JOIN item ON item.id = title.id AND item.removed_at IS NULL
-WHERE collection_member.collection_id = sqlc.arg(collection_id) AND title.followed_source = sqlc.arg(provider)
-  AND title.followed_source_id IS NOT NULL
+WHERE collection_member.collection_id = sqlc.arg(collection_id) AND item.followed_source = sqlc.arg(provider)
+  AND item.followed_source_id IS NOT NULL
 ORDER BY title.id;
 
 -- name: ListOrderingPositions :many
@@ -69,7 +69,7 @@ WHERE ordering_id = sqlc.arg(ordering_id) AND group_number = sqlc.arg(group_numb
 -- in as they come and go.
 SELECT item.id AS collection_id
 FROM item
-WHERE item.filing_library_id = sqlc.arg(library_id) AND item.kind = 'collection' AND item.removed_at IS NULL
+WHERE item.filing_library_id = sqlc.arg(library_id) AND item.kind = 'series' AND item.removed_at IS NULL
   AND EXISTS (
     SELECT 1 FROM ordering
     JOIN provider_response ON provider_response.item_id = ordering.collection_id
@@ -113,9 +113,9 @@ SELECT collection.id, CAST(EXISTS (
   ) AS INTEGER) AS is_chosen
 FROM collection
 JOIN item ON item.id = collection.id AND item.removed_at IS NULL
-WHERE collection.kind = 'series' AND collection.followed_source = sqlc.arg(provider)
-  AND collection.followed_source_id IS NOT NULL
-  AND collection.identification_state IN ('identified', 'confirmed')
+WHERE collection.kind = 'series' AND item.followed_source = sqlc.arg(provider)
+  AND item.followed_source_id IS NOT NULL
+  AND item.identification_state IN ('identified', 'confirmed')
   AND NOT EXISTS (SELECT 1 FROM fetch_failure WHERE fetch_failure.item_id = collection.id)
   AND EXISTS (
     SELECT 1 FROM provider_response

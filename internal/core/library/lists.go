@@ -100,7 +100,8 @@ func (browser *Browser) listFilmsOrSeriesByName(
 	for _, row := range rows {
 		keyed = append(keyed, keyedEntry{key: row.CollationKey, entry: Entry{
 			ID: row.ItemID, Kind: ListFilms, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
-			IdentificationState: row.IdentificationState, AddedAt: row.AddedAt, IsGuessed: row.IsGuessed,
+			IdentificationState: ptr.ValueOrZero(row.IdentificationState), AddedAt: row.AddedAt,
+			IsGuessed: row.IsGuessed,
 		}})
 	}
 	return keyed, err
@@ -154,7 +155,8 @@ func (browser *Browser) listFilmsOrSeriesByAdded(
 	for _, row := range rows {
 		keyed = append(keyed, keyedEntry{key: timeKey(row.FoundAt, row.FoundFileModifiedAt), entry: Entry{
 			ID: row.ItemID, Kind: ListFilms, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
-			IdentificationState: row.IdentificationState, AddedAt: row.AddedAt, IsGuessed: row.IsGuessed,
+			IdentificationState: ptr.ValueOrZero(row.IdentificationState), AddedAt: row.AddedAt,
+			IsGuessed: row.IsGuessed,
 		}})
 	}
 	return keyed, err

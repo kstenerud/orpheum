@@ -54,9 +54,9 @@
 //     that fails integrity_check is refused (M6). Enforced by
 //     TestBackupInto_RefusesACopyThatFailsItsIntegrityCheck.
 //   - A title's and a series' found_at and found_file_modified_at, which newest first walks by an
-//     index, are derived from their files by step 0058's triggers, as its views title_found and
-//     collection_found define them, whatever writes the files, versions or members, and only on a
-//     change. Enforced by TestFound_FilmsNewestFirstByTheScanThatFoundThemThenTheirFilesTime,
+//     index, are derived from their files by step 0058's triggers, kept on the item since step 0072
+//     as its view item_found defines them, whatever writes the files, versions or members, and only
+//     on a change. Enforced by TestFound_FilmsNewestFirstByTheScanThatFoundThemThenTheirFilesTime,
 //     TestFound_ASeriesIsAsNewAsItsNewestEpisode, and the invariant "every title and series is as
 //     new as its files say".
 //   - Every query of both databases, and each of search's statements, reads by an index, or is
@@ -134,7 +134,9 @@
 //     TestMigrate_Step0068MakesEveryLibraryKindSingular; step 0069 (D426 §7), which renames as the
 //     API names, in TestMigrate_Step0069KeepsEveryRowUnderItsNewName; step 0070 (D426 §9), which
 //     moves the telemetry to cache.db, in TestMigrate_Step0070MovesTheTelemetryToTheCache; step 0071
-//     (D426 §8), which drops the dead schema, in TestMigrate_Step0071DropsTheDeadSchemaAndKeepsEveryRow.
+//     (D426 §8), which drops the dead schema, in TestMigrate_Step0071DropsTheDeadSchemaAndKeepsEveryRow;
+//     step 0072 (D426 §2), which puts an item's kind and the columns every kind shares on the item, in
+//     TestMigrate_Step0072MovesTheKindAndSharedColumnsToTheItem.
 //   - The schema keeps the rules D303 put in the engine: every table, both databases', STRICT; a
 //     title and a collection an item of their kind; an id at a source only with its source; a
 //     library's interval only for checking by interval; one sort key per item in each locale; the

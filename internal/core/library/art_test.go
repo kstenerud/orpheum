@@ -19,7 +19,7 @@ func insertItemWithArt(t *testing.T, world *shelf, artKind string, sourceSha256 
 	err := world.database.Write(world.t.Context(), func(queries *sqlcgen.Queries) error {
 		var err error
 		itemID, err = queries.InsertItem(world.t.Context(), sqlcgen.InsertItemParams{
-			Kind: "title", LibraryID: new(int64(1)), AddedAt: 1,
+			Kind: "movie", LibraryID: new(int64(1)), AddedAt: 1, IdentificationState: new("identified"),
 		})
 		if err != nil {
 			return err

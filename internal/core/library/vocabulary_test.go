@@ -17,7 +17,7 @@ import (
 func TestArtKinds_AreTheOnesTheArtworkTableAccepts(t *testing.T) {
 	t.Parallel()
 	database := storetest.OpenMigrated(t)
-	itemID := librarytest.Item(t, database, librarytest.ItemSpec{ID: 1, Kind: "title"})
+	itemID := librarytest.Item(t, database, librarytest.ItemSpec{ID: 1, Kind: "movie"})
 	for _, kind := range []string{library.ArtPoster, library.ArtBackdrop, library.ArtLogo, library.ArtStill} {
 		storetest.ExecRaw(t, database.Path(),
 			fmt.Sprintf("INSERT INTO artwork (item_id, kind, source) VALUES (%d, '%s', 'tmdb')", itemID, kind))

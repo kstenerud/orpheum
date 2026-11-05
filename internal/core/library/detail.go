@@ -60,7 +60,7 @@ func (browser *Browser) IsCollection(ctx context.Context, itemID int64) (bool, e
 	if err != nil {
 		return false, fmt.Errorf("read the kind of item %d: %w", itemID, err)
 	}
-	return kind == itemKindCollection, nil
+	return kind == itemKindSeries, nil
 }
 
 // Title is a title's detail as userID sees it, an episode placed in the ordering they watch its

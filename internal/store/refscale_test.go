@@ -168,8 +168,8 @@ func (filler *referenceScaleFiller) insertProviderData(itemID int64, kind string
 // insertSeries inserts one series with its episodes, their places in the aired order and their stills.
 func (filler *referenceScaleFiller) insertSeries(index int) {
 	id := filler.insertItem("collection", 2, "series")
-	filler.exec("INSERT INTO collection (id, kind, created_by) "+
-		"VALUES (?, 'series', 'scanner')", id)
+	filler.exec("INSERT INTO collection (id, kind, membership, created_by) "+
+		"VALUES (?, 'series', 'explicit', 'scanner')", id)
 	filler.exec("INSERT INTO ordering (collection_id, name, provider) VALUES (?, 'aired', 'tmdb')", id)
 	var orderingID int64
 	if err := filler.tx.QueryRowContext(filler.ctx, "SELECT last_insert_rowid()").Scan(&orderingID); err != nil {
@@ -217,7 +217,7 @@ func fillReferenceScale(t *testing.T, database *Database) {
 	}
 	filler.exec("INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)")
 	filler.exec(`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
-		VALUES (1, 'Films', 'movie', 'nfo_then_tmdb', 'watch', 0, 1), (2, 'Series', 'series', 'tmdb', 'watch', 0, 1)`)
+		VALUES (1, 'Films', 'movies', 'nfo_then_tmdb', 'watch', 0, 1), (2, 'Series', 'shows', 'tmdb', 'watch', 0, 1)`)
 	filler.exec("INSERT INTO library_root (library_id, node_id, root_path) " +
 		"VALUES (1, 1, '/media/films'), (2, 1, '/media/shows')")
 	filler.exec("INSERT INTO user (id, name, role_id, created_at) VALUES (1, 'owner', 1, 1), (2, 'partner', 2, 1)")
@@ -464,7 +464,6 @@ func rebuildStep(t *testing.T, database *Database, table string, version int) St
 // query that no longer scans fails until it is taken off (sql.md section 11).
 func fullScansAllowed() map[string]string {
 	return map[string]string{
-		"ListTitlesByIdentification":    "the admin's needs-a-match list: 1.3 ms at the reference scale",
 		"ListLibraries":                 "a household has a handful of libraries",
 		"ListRoles":                     "a household has a handful of roles; the admin lists them (D243 section 4)",
 		"ListRoleLibraries":             "a role reaches a handful of libraries; the admin lists them (D243 section 4)",

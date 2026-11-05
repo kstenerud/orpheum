@@ -103,7 +103,8 @@ func (browser *Browser) filmsReleased(ctx context.Context, isReversed bool) rele
 	entryOf := func(row sqlcgen.ListFilmsByReleasedRow) keyedEntry {
 		return keyedEntry{key: releasedKey(row.ReleasedOn), entry: Entry{
 			ID: row.ItemID, Kind: ListFilms, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
-			IdentificationState: row.IdentificationState, AddedAt: row.AddedAt, IsGuessed: row.IsGuessed,
+			IdentificationState: ptr.ValueOrZero(row.IdentificationState), AddedAt: row.AddedAt,
+			IsGuessed: row.IsGuessed,
 		}}
 	}
 	list := eitherWay[sqlcgen.ListFilmsByReleasedParams, sqlcgen.ListFilmsByReleasedAscendingParams,

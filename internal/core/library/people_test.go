@@ -66,7 +66,7 @@ func newCreditedShelf(t *testing.T) *creditedShelf {
 func (world *creditedShelf) dateFilms(queries *sqlcgen.Queries) error {
 	for name, year := range map[string]int64{"Metropolis": 1995, "The Boarder": 1999, "Scarlet Wren": 1983, "Up": 2009} {
 		if err := queries.UpdateTitleResolved(world.t.Context(), sqlcgen.UpdateTitleResolvedParams{
-			Kind: ListFilms, Year: new(year), IdentificationState: "identified", ID: world.films[name],
+			Kind: ListFilms, Year: new(year), IdentificationState: new("identified"), ID: world.films[name],
 		}); err != nil {
 			return err
 		}

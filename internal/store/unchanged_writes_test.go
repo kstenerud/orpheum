@@ -24,7 +24,8 @@ func TestTextWrites_LeaveAnUnchangedTextAlone(t *testing.T) {
 	t.Parallel()
 	database := openMigrated(t)
 	ctx := t.Context()
-	execRaw(t, database, "INSERT INTO item (id, kind, added_at) VALUES (7, 'title', 1)")
+	execRaw(t, database,
+		"INSERT INTO item (id, kind, added_at, identification_state) VALUES (7, 'movie', 1, 'identified')")
 	text := sqlcgen.UpsertOriginalTextParams{
 		ItemID: 7, Language: "und", Name: "The General", Overview: new("A planet."), SearchAlternates: new("solaris"),
 	}

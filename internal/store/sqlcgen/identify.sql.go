@@ -10,7 +10,7 @@ import (
 )
 
 const confirmTitleMatch = `-- name: ConfirmTitleMatch :exec
-UPDATE title SET identification_state = 'confirmed' WHERE id = ?
+UPDATE item SET identification_state = 'confirmed' WHERE id = ? AND kind IN ('movie', 'episode', 'extra', 'other')
 `
 
 // A person confirmed the match: permanent, and never moved by a later pass (D172).
@@ -167,26 +167,26 @@ func (q *Queries) GetOtherVideo(ctx context.Context, titleID int64) (OtherVideo,
 }
 
 const getTitleIdentification = `-- name: GetTitleIdentification :one
-SELECT identification_state FROM title WHERE id = ?
+SELECT identification_state FROM item WHERE id = ? AND kind IN ('movie', 'episode', 'extra', 'other')
 `
 
-func (q *Queries) GetTitleIdentification(ctx context.Context, id int64) (string, error) {
+func (q *Queries) GetTitleIdentification(ctx context.Context, id int64) (*string, error) {
 	row := q.db.QueryRowContext(ctx, getTitleIdentification, id)
-	var identification_state string
+	var identification_state *string
 	err := row.Scan(&identification_state)
 	return identification_state, err
 }
 
 const getVersionTitle = `-- name: GetVersionTitle :one
-SELECT version.title_id, title.identification_state
+SELECT version.title_id, item.identification_state
 FROM version
-JOIN title ON title.id = version.title_id
+JOIN item ON item.id = version.title_id
 WHERE version.id = ?
 `
 
 type GetVersionTitleRow struct {
 	TitleID             int64
-	IdentificationState string
+	IdentificationState *string
 }
 
 func (q *Queries) GetVersionTitle(ctx context.Context, id int64) (GetVersionTitleRow, error) {
@@ -213,35 +213,49 @@ func (q *Queries) HasSortKeysOfOtherLocales(ctx context.Context, locale string) 
 
 const insertCollection = `-- name: InsertCollection :exec
 INSERT INTO collection (id, kind, created_by)
-VALUES (?1, ?2, ?3)
+VALUES (?1, 'series', ?2)
 `
 
 type InsertCollectionParams struct {
 	ID        int64
-	Kind      string
 	CreatedBy string
 }
 
 func (q *Queries) InsertCollection(ctx context.Context, arg InsertCollectionParams) error {
-	_, err := q.db.ExecContext(ctx, insertCollection, arg.ID, arg.Kind, arg.CreatedBy)
+	_, err := q.db.ExecContext(ctx, insertCollection, arg.ID, arg.CreatedBy)
 	return err
 }
 
 const insertItem = `-- name: InsertItem :one
-INSERT INTO item (kind, filing_library_id, added_at)
-VALUES (?1, ?2, ?3)
+INSERT INTO item (kind, filing_library_id, added_at, year, followed_source, followed_source_id, identification_state)
+VALUES (?1, ?2, ?3, ?4, ?5,
+  ?6, ?7)
 RETURNING id
 `
 
 type InsertItemParams struct {
-	Kind      string
-	LibraryID *int64
-	AddedAt   int64
+	Kind                string
+	LibraryID           *int64
+	AddedAt             int64
+	Year                *int64
+	FollowedSource      *string
+	FollowedSourceID    *string
+	IdentificationState *string
 }
 
-// An item, and the library whose pass files it (D363 section 5).
+// An item of its kind, the library whose pass files it (D363 section 5), and what every kind shares
+// (D426 section 2): its year, the source it follows and how far it is identified, NULL for a person
+// alone. Its found_at starts at 0, as a new item has no file; the triggers move it (step 0058).
 func (q *Queries) InsertItem(ctx context.Context, arg InsertItemParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, insertItem, arg.Kind, arg.LibraryID, arg.AddedAt)
+	row := q.db.QueryRowContext(ctx, insertItem,
+		arg.Kind,
+		arg.LibraryID,
+		arg.AddedAt,
+		arg.Year,
+		arg.FollowedSource,
+		arg.FollowedSourceID,
+		arg.IdentificationState,
+	)
 	var id int64
 	err := row.Scan(&id)
 	return id, err
@@ -311,31 +325,19 @@ func (q *Queries) InsertOverrideIfAbsent(ctx context.Context, arg InsertOverride
 }
 
 const insertTitle = `-- name: InsertTitle :exec
-INSERT INTO title (id, kind, year, runtime_ms, followed_source, followed_source_id, identification_state)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6,
-  ?7)
+INSERT INTO title (id, kind, runtime_ms)
+VALUES (?1, ?2, ?3)
 `
 
 type InsertTitleParams struct {
-	ID                  int64
-	Kind                string
-	Year                *int64
-	RuntimeMs           *int64
-	FollowedSource      *string
-	FollowedSourceID    *string
-	IdentificationState string
+	ID        int64
+	Kind      string
+	RuntimeMs *int64
 }
 
+// A title on its item, of the item's kind, which the pair (id, kind) holds to (D426 section 2).
 func (q *Queries) InsertTitle(ctx context.Context, arg InsertTitleParams) error {
-	_, err := q.db.ExecContext(ctx, insertTitle,
-		arg.ID,
-		arg.Kind,
-		arg.Year,
-		arg.RuntimeMs,
-		arg.FollowedSource,
-		arg.FollowedSourceID,
-		arg.IdentificationState,
-	)
+	_, err := q.db.ExecContext(ctx, insertTitle, arg.ID, arg.Kind, arg.RuntimeMs)
 	return err
 }
 
@@ -358,12 +360,13 @@ func (q *Queries) InsertVersion(ctx context.Context, arg InsertVersionParams) (i
 
 const listFileTitles = `-- name: ListFileTitles :many
 SELECT library_place.file_id AS id, library_place.path, file_filing.filing, file_filing.filing_reason,
-  title.id AS title_id, title.kind, title.identification_state, title.year, title.followed_source, item_text.name
+  title.id AS title_id, title.kind, item.identification_state, item.year, item.followed_source, item_text.name
 FROM library_place
 CROSS JOIN file_filing ON file_filing.file_id = library_place.file_id
   AND file_filing.library_kind = library_place.library_kind
 CROSS JOIN version ON version.id = file_filing.version_id
 CROSS JOIN title ON title.id = version.title_id
+CROSS JOIN item ON item.id = title.id
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
 WHERE library_place.library_id = ?1
 ORDER BY library_place.path
@@ -376,7 +379,7 @@ type ListFileTitlesRow struct {
 	FilingReason        *string
 	TitleID             int64
 	Kind                string
-	IdentificationState string
+	IdentificationState *string
 	Year                *int64
 	FollowedSource      *string
 	Name                *string
@@ -459,10 +462,11 @@ func (q *Queries) ListFileVersions(ctx context.Context, id int64) ([]ListFileVer
 
 const listFilesOfWork = `-- name: ListFilesOfWork :many
 SELECT file.id, file.path, file_filing.filing, file_filing.filing_reason, file.size_bytes, file.node_id,
-  title.id AS title_id, title.kind AS title_kind, title.identification_state,
-  CAST(coalesce(title_text.name, '') AS TEXT) AS title_name, title.year,
+  title.id AS title_id, title.kind AS title_kind, item.identification_state,
+  CAST(coalesce(title_text.name, '') AS TEXT) AS title_name, item.year,
   position.group_number, position.number_in_group
 FROM title
+JOIN item ON item.id = title.id
 JOIN version ON version.title_id = title.id AND version.removed_at IS NULL
 JOIN file_filing ON file_filing.version_id = version.id
 JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
@@ -490,7 +494,7 @@ type ListFilesOfWorkRow struct {
 	NodeID              int64
 	TitleID             int64
 	TitleKind           string
-	IdentificationState string
+	IdentificationState *string
 	TitleName           string
 	Year                *int64
 	GroupNumber         *int64
@@ -681,7 +685,7 @@ SELECT position.title_id, position.ordering_id, ordering.collection_id, position
 FROM item
 CROSS JOIN position ON position.title_id = item.id
 CROSS JOIN ordering ON ordering.id = position.ordering_id AND ordering.name = 'aired'
-WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND item.kind = 'title'
+WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND item.kind IN ('movie', 'episode', 'extra', 'other')
 `
 
 type ListLibraryAiredPositionsRow struct {
@@ -728,7 +732,7 @@ const listLibraryExtraRelations = `-- name: ListLibraryExtraRelations :many
 SELECT extra_relation.owner_title, extra_relation.extra_title, extra_relation.extra_type, extra_relation.asserted_by
 FROM item
 JOIN extra_relation ON extra_relation.owner_title = item.id
-WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND item.kind = 'title'
+WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND item.kind IN ('movie', 'episode', 'extra', 'other')
 `
 
 // The extras of the library's live titles, and who asserted each.
@@ -762,13 +766,13 @@ func (q *Queries) ListLibraryExtraRelations(ctx context.Context, libraryID *int6
 
 const listLibraryLiveEpisodeSources = `-- name: ListLibraryLiveEpisodeSources :many
 SELECT ordering.collection_id, position.title_id, position.group_number, position.number_in_group,
-  title.followed_source, episode.added_at
+  episode.followed_source, episode.added_at
 FROM item
 CROSS JOIN ordering ON ordering.collection_id = item.id AND ordering.name = 'aired'
 CROSS JOIN position ON position.ordering_id = ordering.id
 CROSS JOIN title ON title.id = position.title_id
 CROSS JOIN item AS episode ON episode.id = title.id
-WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND item.kind = 'collection' AND episode.removed_at IS NULL
+WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND item.kind = 'series' AND episode.removed_at IS NULL
 ORDER BY ordering.collection_id, position.sort_order
 `
 
@@ -908,7 +912,7 @@ SELECT other_video.title_id, other_video.recorded_at, other_video.recorded_from,
   other_video.file_name_key
 FROM item
 JOIN other_video ON other_video.title_id = item.id
-WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND item.kind = 'title'
+WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND item.kind IN ('movie', 'episode', 'extra', 'other')
 `
 
 // The other videos of a library's live titles, as the pass last derived them (D349 section 4).
@@ -1173,7 +1177,7 @@ FROM item
 CROSS JOIN ordering ON ordering.collection_id = item.id AND ordering.name = 'aired'
 CROSS JOIN position ON position.ordering_id = ordering.id
 CROSS JOIN item AS episode ON episode.id = position.title_id
-WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND item.kind = 'collection'
+WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND item.kind = 'series'
   AND (episode.removed_at IS NULL OR episode.merged_into IS NULL)
 ORDER BY ordering.collection_id, position.sort_order
 `
@@ -1217,15 +1221,15 @@ func (q *Queries) ListLibrarySeriesEpisodePlaces(ctx context.Context, libraryID 
 }
 
 const listLibrarySeriesForPass = `-- name: ListLibrarySeriesForPass :many
-SELECT collection.id, collection.year, collection.released_on, collection.followed_source,
-  collection.followed_source_id, collection.identification_state, item.filing_library_id, library.metadata_source,
+SELECT collection.id, item.year, item.released_on, item.followed_source,
+  item.followed_source_id, item.identification_state, item.filing_library_id, library.metadata_source,
   item_text.name, ordering.id AS aired_ordering_id
 FROM item
 CROSS JOIN collection ON collection.id = item.id AND collection.kind = 'series'
 CROSS JOIN library ON library.id = item.filing_library_id
 LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_original = 1
 LEFT JOIN ordering ON ordering.collection_id = collection.id AND ordering.name = 'aired'
-WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND item.kind = 'collection'
+WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND item.kind = 'series'
 `
 
 type ListLibrarySeriesForPassRow struct {
@@ -1280,7 +1284,7 @@ const listLibrarySeriesMembers = `-- name: ListLibrarySeriesMembers :many
 SELECT collection_member.collection_id, collection_member.member_title, collection_member.position
 FROM item
 JOIN collection_member ON collection_member.collection_id = item.id
-WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND item.kind = 'collection'
+WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND item.kind = 'series'
   AND collection_member.member_title IS NOT NULL
 `
 
@@ -1315,7 +1319,7 @@ func (q *Queries) ListLibrarySeriesMembers(ctx context.Context, libraryID *int64
 }
 
 const listLibraryTitles = `-- name: ListLibraryTitles :many
-SELECT title.id, title.kind, title.year, title.identification_state, item.filing_library_id, item_text.name
+SELECT title.id, title.kind, item.year, item.identification_state, item.filing_library_id, item_text.name
 FROM title
 JOIN item ON item.id = title.id
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
@@ -1327,7 +1331,7 @@ type ListLibraryTitlesRow struct {
 	ID                  int64
 	Kind                string
 	Year                *int64
-	IdentificationState string
+	IdentificationState *string
 	FilingLibraryID     *int64
 	Name                *string
 }
@@ -1363,11 +1367,11 @@ func (q *Queries) ListLibraryTitles(ctx context.Context, libraryID *int64) ([]Li
 }
 
 const listLibraryTitlesForPass = `-- name: ListLibraryTitlesForPass :many
-SELECT title.id, title.kind, title.year, title.released_on, title.runtime_ms, title.identification_state,
-  title.followed_source, title.followed_source_id
+SELECT title.id, title.kind, item.year, item.released_on, title.runtime_ms, item.identification_state,
+  item.followed_source, item.followed_source_id
 FROM item
 JOIN title ON title.id = item.id
-WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND item.kind = 'title'
+WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND item.kind IN ('movie', 'episode', 'extra', 'other')
 `
 
 type ListLibraryTitlesForPassRow struct {
@@ -1376,7 +1380,7 @@ type ListLibraryTitlesForPassRow struct {
 	Year                *int64
 	ReleasedOn          *int64
 	RuntimeMs           *int64
-	IdentificationState string
+	IdentificationState *string
 	FollowedSource      *string
 	FollowedSourceID    *string
 }
@@ -1458,19 +1462,19 @@ func (q *Queries) ListLibraryUnnumberedEpisodePaths(ctx context.Context, library
 
 const listLibraryVersionTitles = `-- name: ListLibraryVersionTitles :many
 
-SELECT version.id, version.title_id, title.identification_state
+SELECT version.id, version.title_id, item.identification_state
 FROM library_place
 CROSS JOIN file_filing ON file_filing.file_id = library_place.file_id
   AND file_filing.library_kind = library_place.library_kind
 CROSS JOIN version ON version.id = file_filing.version_id
-CROSS JOIN title ON title.id = version.title_id
+CROSS JOIN item ON item.id = version.title_id
 WHERE library_place.library_id = ?1
 `
 
 type ListLibraryVersionTitlesRow struct {
 	ID                  int64
 	TitleID             int64
-	IdentificationState string
+	IdentificationState *string
 }
 
 // The rows a pass reads of its library at its start, a few statements whatever its size, which it
@@ -1766,8 +1770,8 @@ SELECT DISTINCT collection_member.collection_id
 FROM item AS episode
 CROSS JOIN collection_member ON collection_member.member_title = episode.id
 CROSS JOIN item AS series ON series.id = collection_member.collection_id
-WHERE episode.filing_library_id = ?1 AND episode.removed_at IS NULL AND episode.kind = 'title'
-  AND series.removed_at IS NULL AND series.kind = 'collection' AND series.filing_library_id IS NOT ?1
+WHERE episode.filing_library_id = ?1 AND episode.removed_at IS NULL AND episode.kind IN ('movie', 'episode', 'extra', 'other')
+  AND series.removed_at IS NULL AND series.kind = 'series' AND series.filing_library_id IS NOT ?1
   AND NOT EXISTS (
     SELECT 1 FROM collection_member AS held
     CROSS JOIN item AS sibling ON sibling.id = held.member_title
@@ -1802,7 +1806,7 @@ func (q *Queries) ListSeriesToAdopt(ctx context.Context, libraryID *int64) ([]in
 }
 
 const listTitlesByProviderID = `-- name: ListTitlesByProviderID :many
-SELECT title.id, item.filing_library_id, title.identification_state, title.kind, item.removed_at,
+SELECT title.id, item.filing_library_id, item.identification_state, title.kind, item.removed_at,
   CAST(item.removed_at IS NOT NULL OR NOT EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
     WHERE version.title_id = title.id AND version.removed_at IS NULL
@@ -1823,7 +1827,7 @@ type ListTitlesByProviderIDParams struct {
 type ListTitlesByProviderIDRow struct {
 	ID                  int64
 	FilingLibraryID     *int64
-	IdentificationState string
+	IdentificationState *string
 	Kind                string
 	RemovedAt           *int64
 	IsFiledByNone       int64
@@ -2175,44 +2179,58 @@ func (q *Queries) SetSearchAlternates(ctx context.Context, arg SetSearchAlternat
 }
 
 const updateTitleResolved = `-- name: UpdateTitleResolved :exec
-UPDATE title SET
+UPDATE item SET
   kind = ?1,
-  year = ?2, released_on = ?3, runtime_ms = ?4,
-  followed_source = ?5, followed_source_id = ?6,
-  identification_state = CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE ?7 END
-WHERE id = ?8
+  year = ?2, released_on = ?3,
+  followed_source = ?4, followed_source_id = ?5,
+  identification_state = CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE ?6 END
+WHERE id = ?7 AND kind IN ('movie', 'episode', 'extra', 'other')
   -- Only when it changes something (D303, DL9).
-  AND (kind, year, released_on, runtime_ms, followed_source, followed_source_id, identification_state)
-    IS NOT (?1, ?2, ?3, ?4, ?5,
-      ?6,
-      CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE ?7 END)
+  AND (kind, year, released_on, followed_source, followed_source_id, identification_state)
+    IS NOT (?1, ?2, ?3, ?4,
+      ?5,
+      CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE ?6 END)
 `
 
 type UpdateTitleResolvedParams struct {
 	Kind                string
 	Year                *int64
 	ReleasedOn          *int64
-	RuntimeMs           *int64
 	FollowedSource      *string
 	FollowedSourceID    *string
-	IdentificationState string
+	IdentificationState *string
 	ID                  int64
 }
 
-// A confirmed match is a person's: the pass never lowers it (D172). Its kind is how the pass files
-// it: an extra whose film is gone is filed as a film (D162), and its kind follows, which the sort
-// keys are listed by.
+// A title's item as the pass resolves it. A confirmed match is a person's: the pass never lowers it
+// (D172). Its kind is how the pass files it: an extra whose film is gone is filed as a film (D162),
+// and the title's kind and its sort keys' listing follow the item's by their keys (D426 section 2).
 func (q *Queries) UpdateTitleResolved(ctx context.Context, arg UpdateTitleResolvedParams) error {
 	_, err := q.db.ExecContext(ctx, updateTitleResolved,
 		arg.Kind,
 		arg.Year,
 		arg.ReleasedOn,
-		arg.RuntimeMs,
 		arg.FollowedSource,
 		arg.FollowedSourceID,
 		arg.IdentificationState,
 		arg.ID,
 	)
+	return err
+}
+
+const updateTitleRuntime = `-- name: UpdateTitleRuntime :exec
+UPDATE title SET runtime_ms = ?1
+WHERE id = ?2 AND runtime_ms IS NOT ?1
+`
+
+type UpdateTitleRuntimeParams struct {
+	RuntimeMs *int64
+	ID        int64
+}
+
+// A title's running time as the pass resolves it; only when it changes (D303, DL9).
+func (q *Queries) UpdateTitleRuntime(ctx context.Context, arg UpdateTitleRuntimeParams) error {
+	_, err := q.db.ExecContext(ctx, updateTitleRuntime, arg.RuntimeMs, arg.ID)
 	return err
 }
 

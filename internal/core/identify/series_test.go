@@ -97,7 +97,8 @@ func checkOrbitorama(t *testing.T, lib *testLibrary, when string) {
 	files := lib.titlesByPath()
 	clone, missing := files[orbitoramaFiles[0]], files[orbitoramaFiles[1]]
 	fromTMDB := clone.FollowedSource != nil && *clone.FollowedSource == identify.SourceTMDB
-	if titleName(clone) != "A Comet of My Own" || clone.IdentificationState != identify.IdentificationIdentified ||
+	if titleName(clone) != "A Comet of My Own" ||
+		ptr.ValueOrZero(clone.IdentificationState) != identify.IdentificationIdentified ||
 		clone.Filing != identify.FilingListed ||
 		!fromTMDB || clone.Year == nil || *clone.Year != 2000 {
 		t.Errorf("%s: S02E10 = %+v named %q", when, clone, titleName(clone))

@@ -18,7 +18,7 @@ type Provider interface {
 
 // WorkSource is what a provider says about films and series: search, find, fetch and read.
 type WorkSource interface {
-	// Name is the provider's name as title.followed_source and item_provider_id store it: "tmdb".
+	// Name is the provider's name as item.followed_source and item_provider_id store it: "tmdb".
 	Name() string
 	// Search lists the works a name and year may be, best first.
 	Search(ctx context.Context, query Query) ([]Candidate, error)

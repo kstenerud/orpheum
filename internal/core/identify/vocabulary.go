@@ -32,6 +32,4 @@ const (
 	extraShort      = "short"
 	extraClip       = "clip"
 	extraUnknown    = "unknown"
-
-	itemKindCollection = "collection"
 )

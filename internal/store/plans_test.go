@@ -187,9 +187,8 @@ func TestQueryPlans_EveryQueryReadsByAnIndexOrSaysWhy(t *testing.T) {
 // taken off. An entry naming D303 is a defect the redesign removes (sql.md section 13).
 func wholeReadsAllowed() map[string]string {
 	const (
-		few      = "a household has a handful: "
-		redesign = "a defect D303's fresh baseline removes: "
-		sweep    = "a background sweep over the library, which D303 phase C makes incremental: "
+		few   = "a household has a handful: "
+		sweep = "a background sweep over the library, which D303 phase C makes incremental: "
 		// folders is a read of whether a place is covered, through place_library, version_library or
 		// library_place: the library folders on its node, a handful, read whole (D363).
 		folders = "a household has a handful of library folders, those on a place's node read whole for " +
@@ -244,8 +243,8 @@ func wholeReadsAllowed() map[string]string {
 		"ListAllSealedSecrets":       few + "secrets; doctor lists them",
 		"ListSettings":               few + "settings, a fixed registry; the admin lists them",
 		"ListSeriesByIdentification": "the needs-a-match list's series, which are few",
-		"CountWaitingForAPerson": "it reads title_ambiguous and title_waiting, indexes of the few titles it counts, " +
-			"and the series, which are few",
+		"CountWaitingForAPerson": "it reads item_ambiguous and item_waiting, indexes of the few items it counts, " +
+			"the few fetch_failure rows, and library_root, a handful, for whether a library lists each",
 		"SearchSubstring": "a query too short for either full-text index reads every name once, by design " +
 			"(D48): a household's names take milliseconds",
 		"MatchSubstring": "a list searched by a query too short for either full-text index reads every name " +
@@ -358,12 +357,12 @@ func wholeReadsAllowed() map[string]string {
 			"name once, as search does (D48); " + folders + "the titles crediting its people",
 		"ListCopyCandidates": sweep + "the copies' sweep reads every live video for one whose payload a video " +
 			"found before it has (D363 section 2)",
-		// Defects the redesign removes (the access audit and the independent audit).
-		"ListTitlesByIdentification": redesign + "counted by fetching every row (access audit A7)",
-		"ListRefreshRequests":        "the refresh sweep reads every request a person made, a handful",
-		"ListLiveLocators":           few + "signed-in devices, one locator each; a discovery lists them",
-		"cache.CountJobsByKind":      "the System page counts the queue, which pruning holds to what ended lately",
-		"cache.ListJobs":             "the job view walks the newest jobs by id and stops at its LIMIT",
+		"ListTitlesByIdentification": folders + "the chooser's list, its titles of one state found by " +
+			"item_identification (audit 8)",
+		"ListRefreshRequests":   "the refresh sweep reads every request a person made, a handful",
+		"ListLiveLocators":      few + "signed-in devices, one locator each; a discovery lists them",
+		"cache.CountJobsByKind": "the System page counts the queue, which pruning holds to what ended lately",
+		"cache.ListJobs":        "the job view walks the newest jobs by id and stops at its LIMIT",
 		// Whole-library sweeps the derivation split makes incremental.
 		"ListItemsDueRecheck":                   sweep + "the recheck sweep reads every image",
 		"ListItemsWithLiveUnchosenLocalArtwork": sweep + "each pass reads every image",

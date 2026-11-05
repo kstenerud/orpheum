@@ -77,8 +77,8 @@ SELECT person.id, person.name_key, person.picture_ref FROM person WHERE person.t
 SELECT person.id FROM person WHERE person.name_key = sqlc.arg(name_key) ORDER BY person.id LIMIT 1;
 
 -- name: InsertPerson :exec
-INSERT INTO person (id, tmdb_id, name_key, picture_ref)
-VALUES (sqlc.arg(id), sqlc.arg(tmdb_id), sqlc.arg(name_key), sqlc.arg(picture_ref));
+INSERT INTO person (id, kind, tmdb_id, name_key, picture_ref)
+VALUES (sqlc.arg(id), 'person', sqlc.arg(tmdb_id), sqlc.arg(name_key), sqlc.arg(picture_ref));
 
 -- name: UpdatePerson :exec
 -- A person their source now names or pictures otherwise; unchanged, nothing is written.
@@ -163,7 +163,7 @@ WHERE item.removed_at IS NULL AND (title.kind IN ('movie', 'other') OR collectio
     SELECT 1 FROM credit
     WHERE credit.item_id = item.id AND credit.person_id = CAST(sqlc.narg(person_id) AS INTEGER)))
   AND (CAST(sqlc.narg(decade) AS INTEGER) IS NULL
-    OR coalesce(title.year, collection.year) BETWEEN CAST(sqlc.narg(decade) AS INTEGER)
+    OR coalesce(item.year, item.year) BETWEEN CAST(sqlc.narg(decade) AS INTEGER)
       AND CAST(sqlc.narg(decade) AS INTEGER) + 9)
   AND (CAST(sqlc.arg(is_unwatched) AS INTEGER) = 0
     OR (title.id IS NOT NULL AND NOT EXISTS (

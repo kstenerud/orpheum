@@ -16,10 +16,9 @@ import (
 func (lib *testLibrary) releasedOnOf() []string {
 	lib.t.Helper()
 	return storetest.QueryRaw(lib.t, lib.database.Path(),
-		`SELECT item_text.name || ' ' || coalesce(title.released_on, collection.released_on, 'none')
-		 FROM item_text LEFT JOIN title ON title.id = item_text.item_id AND title.kind = 'movie'
-		 LEFT JOIN collection ON collection.id = item_text.item_id
-		 WHERE item_text.is_original = 1 AND (title.id IS NOT NULL OR collection.id IS NOT NULL)
+		`SELECT item_text.name || ' ' || coalesce(item.released_on, 'none')
+		 FROM item_text JOIN item ON item.id = item_text.item_id
+		 WHERE item_text.is_original = 1 AND item.kind IN ('movie', 'series')
 		 ORDER BY item_text.name`)
 }
 

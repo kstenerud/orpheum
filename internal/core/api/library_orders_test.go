@@ -38,7 +38,9 @@ func (harness testHarness) shelveDatedFilms(t *testing.T) {
 			fmt.Sprintf(`INSERT INTO sort_key (item_id, locale, listing, collation_key) VALUES (%d, 'en', 'movie', %s)`,
 				id, key(name)))
 	}
-	librarytest.Item(t, harness.database, librarytest.ItemSpec{ID: 30, Kind: "collection", LibraryID: 1, AddedAt: 3})
+	librarytest.Item(t, harness.database, librarytest.ItemSpec{
+		ID: 30, Kind: "series", LibraryID: 1, AddedAt: 3, IdentificationState: "identified",
+	})
 	librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: 31, Library: 1, Kind: "episode", AddedAt: 3})
 	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: 31, TitleID: 31, CreatedAt: 3})
 	librarytest.File(t, harness.database, librarytest.FileSpec{
@@ -46,10 +48,11 @@ func (harness testHarness) shelveDatedFilms(t *testing.T) {
 		Filing: "listed", VersionID: 31,
 	})
 	storetest.ExecRaw(t, harness.databasePath,
-		"UPDATE title SET released_on = CASE id WHEN 10 THEN 19951215 WHEN 11 THEN 19790525 WHEN 12 THEN 19850000 END",
-		"UPDATE collection SET released_on = 20080120 WHERE id = 20",
-		`INSERT INTO collection (id, kind, created_by, identification_state)
-		 VALUES (30, 'series', 'scanner', 'identified')`,
+		"UPDATE item SET year = CASE id WHEN 11 THEN 1979 WHEN 12 THEN 1985 ELSE year END, "+
+			"released_on = CASE id WHEN 10 THEN 19951215 WHEN 11 THEN 19790525 WHEN 12 THEN 19850000 END "+
+			"WHERE id IN (10, 11, 12)",
+		"UPDATE item SET released_on = 20080120 WHERE id = 20",
+		"INSERT INTO collection (id, kind, created_by) VALUES (30, 'series', 'scanner')",
 		"INSERT INTO collection_member (collection_id, member_title, position) VALUES (30, 31, 10001)",
 		`INSERT INTO item_text (item_id, language, is_original, name, search_alternates)
 		 VALUES (30, 'und', 1, 'Tweedcoat', 'tweedcoat'), (31, 'und', 1, 'Pilot', 'pilot')`,

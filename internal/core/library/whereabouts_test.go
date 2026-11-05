@@ -32,7 +32,7 @@ func TestWhereabouts_NameTheLibrariesTheCallerReachesAndAnExtrasFilm(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	series := librarytest.Item(t, world.database, librarytest.ItemSpec{Kind: "collection", LibraryID: 1})
+	series := librarytest.Item(t, world.database, librarytest.ItemSpec{Kind: "series", LibraryID: 1})
 	storetest.ExecRaw(t, world.database.Path(),
 		fmt.Sprintf("INSERT INTO collection (id, kind, created_by) VALUES (%d, 'series', "+
 			"'scanner')", series),

@@ -180,7 +180,8 @@ func TestPass_TheDevLibrarysFilms(t *testing.T) {
 func checkMetropolis(t *testing.T, heat sqlcgen.ListFileTitlesRow) {
 	t.Helper()
 	if titleName(heat) != "Metropolis" || heat.Year == nil || *heat.Year != 1995 ||
-		heat.IdentificationState != identify.IdentificationIdentified || heat.Filing != identify.FilingListed ||
+		ptr.ValueOrZero(heat.IdentificationState) != identify.IdentificationIdentified ||
+		heat.Filing != identify.FilingListed ||
 		heat.FollowedSource == nil || *heat.FollowedSource != identify.SourceNFO {
 		t.Errorf("Metropolis = %+v, want identified from its NFO and listed", heat)
 	}
@@ -523,7 +524,7 @@ func TestPass_ATitleAFileLeftIsMergedIntoItsNewOneAndNoneIsMadeForAFileThatStays
 		t.Errorf("the title the renamed file left is merged into %v; want %v, the file's new title", merged, want)
 	}
 	live := storetest.QueryRaw(t, lib.database.Path(),
-		"SELECT count(*) FROM item WHERE kind = 'title' AND removed_at IS NULL")
+		"SELECT count(*) FROM item WHERE kind IN ('movie', 'episode', 'extra', 'other') AND removed_at IS NULL")
 	if !slices.Equal(live, []string{"2"}) {
 		t.Errorf("%v live titles; want 2, Metropolis and the confirmed Nosferatu, none made for Nosferatu 2 and left empty", live)
 	}
@@ -544,7 +545,7 @@ func TestPass_AnEpisodeRenumberedByItsNFOLeavesNoEmptyTitleAtItsNewPlace(t *test
 	lib.scan(show, videoRecord(rel), numbered(2))
 	lib.scan(show, videoRecord(rel), numbered(4))
 	live := storetest.QueryRaw(t, lib.database.Path(),
-		"SELECT count(*) FROM item WHERE kind = 'title' AND removed_at IS NULL")
+		"SELECT count(*) FROM item WHERE kind IN ('movie', 'episode', 'extra', 'other') AND removed_at IS NULL")
 	if !slices.Equal(live, []string{"1"}) {
 		t.Errorf("%v live episodes; want 1, none made at the NFO's new place and left empty", live)
 	}
@@ -734,7 +735,8 @@ func TestPass_AFilmMovedToAnotherDiskEndsInItsOldTitle(t *testing.T) {
 			old)
 	}
 	merged := storetest.QueryRaw(t, lib.database.Path(), fmt.Sprintf(
-		"SELECT count(*) FROM item WHERE kind = 'title' AND removed_at IS NULL AND id != %d", old))
+		"SELECT count(*) FROM item WHERE kind IN ('movie', 'episode', 'extra', 'other') "+
+			"AND removed_at IS NULL AND id != %d", old))
 	if !slices.Equal(merged, []string{"0"}) {
 		t.Errorf("%v other live titles; want none, the one made from its path merged into its old one", merged)
 	}

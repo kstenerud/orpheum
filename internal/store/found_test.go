@@ -18,12 +18,13 @@ func foundShelf(t *testing.T, database *Database) {
 		 VALUES (1, 'Everything', 'movie', 'nfo', 'manual', 0, 1)`,
 		`INSERT INTO node (id, name, enrolled_at) VALUES (1, 'nas', 1)`,
 		`INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/')`,
-		`INSERT INTO item (id, kind, filing_library_id, added_at) VALUES (1, 'title', 1, 4), (2, 'title', 1, 3),
-		 (3, 'title', 1, 2), (4, 'title', 1, 1), (10, 'collection', 1, 9), (11, 'title', 1, 9), (12, 'title', 1, 9),
-		 (20, 'collection', 1, 1), (21, 'title', 1, 1)`,
-		`INSERT INTO title (id, kind, identification_state) VALUES (1, 'movie', 'identified'),
-		 (2, 'movie', 'identified'), (3, 'movie', 'identified'), (4, 'movie', 'identified'),
-		 (11, 'episode', 'identified'), (12, 'episode', 'identified'), (21, 'episode', 'identified')`,
+		`INSERT INTO item (id, kind, filing_library_id, added_at, identification_state) VALUES
+		 (1, 'movie', 1, 4, 'identified'), (2, 'movie', 1, 3, 'identified'), (3, 'movie', 1, 2, 'identified'),
+		 (4, 'movie', 1, 1, 'identified'), (10, 'series', 1, 9, 'unidentified'),
+		 (11, 'episode', 1, 9, 'identified'), (12, 'episode', 1, 9, 'identified'),
+		 (20, 'series', 1, 1, 'unidentified'), (21, 'episode', 1, 1, 'identified')`,
+		`INSERT INTO title (id, kind) VALUES (1, 'movie'), (2, 'movie'), (3, 'movie'), (4, 'movie'),
+		 (11, 'episode'), (12, 'episode'), (21, 'episode')`,
 		`INSERT INTO collection (id, kind, created_by) VALUES (10, 'series', 'scanner'),
 		 (20, 'series', 'scanner')`,
 		`INSERT INTO collection_member (collection_id, member_title, position) VALUES (10, 11, 1), (10, 12, 2),
@@ -135,7 +136,7 @@ func TestFound_ASeriesIsAsNewAsItsNewestEpisode(t *testing.T) {
 	}
 	execRaw(t, database, `DELETE FROM collection_member WHERE collection_id = 20`,
 		`INSERT INTO collection_member (collection_id, member_title, position) VALUES (10, 21, 3)`)
-	got := fmt.Sprint(queryRows(t, database, "SELECT id, found_at FROM collection ORDER BY id", 2))
+	got := fmt.Sprint(queryRows(t, database, "SELECT id, found_at FROM item WHERE kind = 'series' ORDER BY id", 2))
 	if want := "[[10 200] [20 0]]"; got != want {
 		t.Errorf("with series 20's episode moved to 10 = %s; want %s", got, want)
 	}

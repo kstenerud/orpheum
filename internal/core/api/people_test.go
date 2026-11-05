@@ -19,9 +19,9 @@ func (harness testHarness) shelvePeople(t *testing.T) {
 	harness.shelve(t)
 	storetest.ExecRaw(t, harness.databasePath,
 		`INSERT INTO item (id, kind, added_at) VALUES (40, 'person', 1), (41, 'person', 1), (42, 'person', 1)`,
-		`INSERT INTO person (id, tmdb_id, name_key, picture_ref) VALUES
-		 (40, '1158', 'ansel vardo', '/vardo.jpg'), (41, '638', 'oren talisk', NULL),
-		 (42, '17419', 'bela ostrander', NULL)`,
+		`INSERT INTO person (id, kind, tmdb_id, name_key, picture_ref) VALUES
+		 (40, 'person', '1158', 'ansel vardo', '/vardo.jpg'), (41, 'person', '638', 'oren talisk', NULL),
+		 (42, 'person', '17419', 'bela ostrander', NULL)`,
 		`INSERT INTO item_text (item_id, language, is_original, name, search_alternates) VALUES
 		 (40, 'und', 1, 'Ansel Vardo', 'ansel vardo'), (41, 'und', 1, 'Oren Talisk', 'oren talisk'),
 		 (42, 'und', 1, 'Bela Ostrander', 'bela ostrander')`,

@@ -123,7 +123,7 @@ func (reports *FilingReports) workOf(
 			return reportedWork{}, fmt.Errorf("read title %d: %w", itemID, titleErr)
 		}
 		work.kind, work.name, work.year = title.Kind, ptr.ValueOrZero(title.Name), ptr.ValueOrZero(title.Year)
-		work.identification, work.isGuessed = title.IdentificationState, title.IsGuessed
+		work.identification, work.isGuessed = ptr.ValueOrZero(title.IdentificationState), title.IsGuessed
 	} else {
 		return reportedWork{}, fmt.Errorf("read series %d: %w", itemID, err)
 	}
@@ -224,7 +224,7 @@ func filedAs(file sqlcgen.ListFilesOfWorkRow) string {
 			title += fmt.Sprintf(", S%02dE%02d", ptr.ValueOrZero(file.GroupNumber), *file.NumberInGroup)
 		}
 	}
-	return filed + ": " + title + ", " + file.IdentificationState
+	return filed + ": " + title + ", " + ptr.ValueOrZero(file.IdentificationState)
 }
 
 // yearText is " (1995)", or nothing for no year.

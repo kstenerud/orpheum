@@ -276,7 +276,7 @@ func (raiser *Raiser) worksOf(ctx context.Context, look Look) (jobs.Interested, 
 		return jobs.Interested{}, nil, fmt.Errorf("read item %d's kind: %w", itemID, err)
 	}
 	interested := jobs.Interested{ItemIDs: []int64{itemID}}
-	if kind != "title" {
+	if kind == "series" || kind == "person" { // an item of no file of its own (D426 §2)
 		return raiser.withMembersAhead(ctx, look, interested)
 	}
 	files, err := queries.ListLiveFilesOfTitle(ctx, itemID)

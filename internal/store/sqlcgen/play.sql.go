@@ -409,7 +409,7 @@ SELECT play_position.file_id, play_position.position_ms, play_position.position_
       AND (CAST(?1 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?2 AS TEXT))))
     ORDER BY place.copy_of IS NOT NULL, place.first_seen_at, place.id LIMIT 1) AS TEXT) AS path,
-  title.id AS title_id, title.kind, title.year, item_text.name, item_hidden.hidden_at, title_watched.marked_at
+  title.id AS title_id, title.kind, item.year, item_text.name, item_hidden.hidden_at, title_watched.marked_at
 FROM play_position
 JOIN file ON file.id = play_position.file_id AND file.removed_at IS NULL
 JOIN file_filing ON file_filing.file_id = file.id

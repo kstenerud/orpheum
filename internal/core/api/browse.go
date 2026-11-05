@@ -266,7 +266,7 @@ func (server *Server) episodePageOutput(
 			EpisodeNumber: ptr.ValueOrZero(episode.NumberInGroup),
 			Name:          ptr.ValueOrZero(episode.Name),
 			Year:          ptr.ValueOrZero(episode.Year), RuntimeMs: ptr.ValueOrZero(episode.RuntimeMs),
-			IdentificationState: episode.IdentificationState,
+			IdentificationState: ptr.ValueOrZero(episode.IdentificationState),
 			HasLiveFile:         episode.Available, StillSha256: page.StillSha256ByEpisodeID[episode.TitleID],
 			IsWatched: page.IsWatchedByEpisodeID[episode.TitleID],
 		})

@@ -34,14 +34,16 @@ func TestWriteUnlessUnchanged_TakesTheWriterOnlyForADerivationThatWrites(t *test
 	wrote, err = database.WriteUnlessUnchanged(ctx, func(queries *sqlcgen.Queries) error {
 		runs++
 		var insertErr error
-		itemID, insertErr = queries.InsertItem(ctx, sqlcgen.InsertItemParams{Kind: "title", AddedAt: 1})
+		itemID, insertErr = queries.InsertItem(ctx, sqlcgen.InsertItemParams{
+			Kind: "movie", AddedAt: 1, IdentificationState: new("identified"),
+		})
 		return insertErr //nolint:wrapcheck // the test reads it as it is
 	})
 	if err != nil || !wrote || runs != 2 || tally.Writes() != 1 {
 		t.Errorf("a derivation that writes: wrote %v, %v, ran %d times, %d write transactions; want a read run "+
 			"refused, then one write", wrote, err, runs, tally.Writes())
 	}
-	if kind, kindErr := database.Read().GetItemKind(ctx, itemID); kindErr != nil || kind != "title" {
+	if kind, kindErr := database.Read().GetItemKind(ctx, itemID); kindErr != nil || kind != "movie" {
 		t.Errorf("the derivation's item %d is %q, %v; want it kept", itemID, kind, kindErr)
 	}
 

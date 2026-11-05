@@ -68,8 +68,9 @@ func TestOpenMigrated_FailsATestThatBreaksAnInvariant(t *testing.T) {
 		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'nas', 1)",
 		"INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at) "+
 			"VALUES (1, 'Films', 'movie', 'nfo', 'manual', 0, 1)",
-		"INSERT INTO item (id, kind, added_at, removed_at) VALUES (7, 'title', 1, 2)",
-		"INSERT INTO title (id, kind, identification_state) VALUES (7, 'movie', 'unidentified')",
+		"INSERT INTO item (id, kind, added_at, removed_at, identification_state) "+
+			"VALUES (7, 'movie', 1, 2, 'unidentified')",
+		"INSERT INTO title (id, kind) VALUES (7, 'movie')",
 		"INSERT INTO version (id, title_id, created_at) VALUES (5, 7, 1)",
 		"INSERT INTO file (id, node_id, path, filing, first_seen_at, last_seen_at) "+
 			"VALUES (1, 1, '/m/f.mkv', 'video', 1, 1)",

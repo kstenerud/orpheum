@@ -31,6 +31,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -190,7 +191,9 @@ func newBench(t *testing.T, images fakeFetcher) *bench {
 	var itemID int64
 	err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 		var err error
-		itemID, err = queries.InsertItem(t.Context(), sqlcgen.InsertItemParams{Kind: "title", AddedAt: 1})
+		itemID, err = queries.InsertItem(t.Context(), sqlcgen.InsertItemParams{
+			Kind: "movie", AddedAt: 1, IdentificationState: ptr.NilIfZero("identified"),
+		})
 		return err
 	})
 	if err != nil {

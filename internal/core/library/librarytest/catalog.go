@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -74,35 +75,47 @@ func sqlBlob(bytes []byte) string {
 	return fmt.Sprintf("X'%x'", bytes)
 }
 
-// ItemSpec is an item row a test builds directly: a collection's or a person's, or a title's own,
+// ItemSpec is an item row a test builds directly: a series' or a person's, or a title's own,
 // which Title makes for it.
 type ItemSpec struct {
-	ID        int64  // 0: let the database choose
-	Kind      string // "title", "collection" or "person"; defaults to "title"
-	LibraryID int64  // the library whose pass files it (item.filing_library_id); 0: none
-	AddedAt   int64  // defaults to 1
+	ID                  int64  // 0: let the database choose
+	Kind                string // movie/series/episode/extra/other/person; defaults to "movie"
+	LibraryID           int64  // the library whose pass files it (item.filing_library_id); 0: none
+	AddedAt             int64  // defaults to 1
+	Year                int64  // 0: NULL
+	FollowedSource      string // "": NULL; else nfo/tmdb/tvdb/none
+	FollowedSourceID    string // "": NULL
+	IdentificationState string // defaults to "unidentified" for a series, "identified" for a title; NULL for a person
 }
 
 // Item adds an item row and returns its id.
 func Item(t *testing.T, database *store.Database, spec ItemSpec) int64 {
 	t.Helper()
-	kind := defaultString(spec.Kind, "title")
+	kind := defaultString(spec.Kind, "movie")
 	addedAt := defaultInt(spec.AddedAt, 1)
+	var state string
+	switch kind {
+	case "person":
+	case "series":
+		state = defaultString(spec.IdentificationState, "unidentified")
+	default:
+		state = defaultString(spec.IdentificationState, "identified")
+	}
 	if spec.ID != 0 {
 		storetest.ExecRaw(t, database.Path(), fmt.Sprintf(
-			"INSERT INTO item (id, kind, filing_library_id, added_at) VALUES (%d, %s, %s, %d)",
-			spec.ID, sqlString(kind), sqlNullableInt(spec.LibraryID), addedAt))
+			"INSERT INTO item (id, kind, filing_library_id, added_at, year, followed_source, followed_source_id, "+
+				"identification_state) VALUES (%d, %s, %s, %d, %s, %s, %s, %s)",
+			spec.ID, sqlString(kind), sqlNullableInt(spec.LibraryID), addedAt, sqlNullableInt(spec.Year),
+			sqlNullableString(spec.FollowedSource), sqlNullableString(spec.FollowedSourceID), sqlNullableString(state)))
 		return spec.ID
-	}
-	var libraryID *int64
-	if spec.LibraryID != 0 {
-		libraryID = &spec.LibraryID
 	}
 	var id int64
 	err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 		var err error
 		id, err = queries.InsertItem(t.Context(), sqlcgen.InsertItemParams{
-			Kind: kind, LibraryID: libraryID, AddedAt: addedAt,
+			Kind: kind, LibraryID: ptr.NilIfZero(spec.LibraryID), AddedAt: addedAt, Year: ptr.NilIfZero(spec.Year),
+			FollowedSource: ptr.NilIfZero(spec.FollowedSource), FollowedSourceID: ptr.NilIfZero(spec.FollowedSourceID),
+			IdentificationState: ptr.NilIfZero(state),
 		})
 		return err
 	})
@@ -125,30 +138,18 @@ type TitleSpec struct {
 	AddedAt             int64  // the item's added_at; defaults to 1
 }
 
-// Title adds an item of kind "title" and the title row on it, and returns their shared id.
+// Title adds an item of the title's kind and the title row on it, and returns their shared id.
 func Title(t *testing.T, database *store.Database, spec TitleSpec) int64 {
 	t.Helper()
-	itemID := Item(t, database, ItemSpec{ID: spec.ID, Kind: "title", LibraryID: spec.Library, AddedAt: spec.AddedAt})
 	kind := defaultString(spec.Kind, "movie")
-	state := defaultString(spec.IdentificationState, "identified")
-	var year, runtimeMs *int64
-	if spec.Year != 0 {
-		year = &spec.Year
-	}
-	if spec.RuntimeMs != 0 {
-		runtimeMs = &spec.RuntimeMs
-	}
-	var followedSource, followedSourceID *string
-	if spec.FollowedSource != "" {
-		followedSource = &spec.FollowedSource
-	}
-	if spec.FollowedSourceID != "" {
-		followedSourceID = &spec.FollowedSourceID
-	}
+	itemID := Item(t, database, ItemSpec{
+		ID: spec.ID, Kind: kind, LibraryID: spec.Library, AddedAt: spec.AddedAt, Year: spec.Year,
+		FollowedSource: spec.FollowedSource, FollowedSourceID: spec.FollowedSourceID,
+		IdentificationState: defaultString(spec.IdentificationState, "identified"),
+	})
 	err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 		return queries.InsertTitle(t.Context(), sqlcgen.InsertTitleParams{
-			ID: itemID, Kind: kind, Year: year, RuntimeMs: runtimeMs,
-			FollowedSource: followedSource, FollowedSourceID: followedSourceID, IdentificationState: state,
+			ID: itemID, Kind: kind, RuntimeMs: ptr.NilIfZero(spec.RuntimeMs),
 		})
 	})
 	if err != nil {
