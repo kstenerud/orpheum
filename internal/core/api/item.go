@@ -42,8 +42,13 @@ func (body ItemDetailBody) MarshalJSON() ([]byte, error) {
 
 // Schema is the union on kind, which huma cannot derive from a Go struct.
 func (ItemDetailBody) Schema(registry huma.Registry) *huma.Schema {
-	title := registry.Schema(reflect.TypeFor[TitleBody](), true, "TitleBody")
-	series := registry.Schema(reflect.TypeFor[SeriesBody](), true, "SeriesBody")
+	return unionOnKind(registry.Schema(reflect.TypeFor[TitleBody](), true, "TitleBody"),
+		registry.Schema(reflect.TypeFor[SeriesBody](), true, "SeriesBody"))
+}
+
+// unionOnKind is an item's body of whichever kind, a title's or a series', as the document says it:
+// a oneOf with a discriminator on kind, so a generated client narrows on kind (D425 §7).
+func unionOnKind(title, series *huma.Schema) *huma.Schema {
 	mapping := map[string]string{itemKindSeries: series.Ref}
 	for _, kind := range []string{
 		library.TitleKindMovie, library.TitleKindEpisode, library.TitleKindExtra, library.TitleKindOther,
