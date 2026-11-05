@@ -8865,11 +8865,6 @@
       "VersionBody": {
         "additionalProperties": false,
         "properties": {
-          "editionId": {
-            "description": "Absent when the cut is unknown",
-            "format": "int64",
-            "type": "integer"
-          },
           "files": {
             "items": {
               "$ref": "#/components/schemas/FileDetailBody"

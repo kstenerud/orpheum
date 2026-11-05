@@ -155,7 +155,7 @@ func (service *Service) UpdateRole(ctx context.Context, roleID int64, change Rol
 // updateBuiltinRole changes a built-in role's libraries, the one thing it takes: its name and
 // capabilities stay, and the admin role, which reaches every library, lists none.
 func updateBuiltinRole(
-	ctx context.Context, queries *sqlcgen.Queries, role sqlcgen.GetRoleRow, name, capabilities string,
+	ctx context.Context, queries *sqlcgen.Queries, role sqlcgen.Role, name, capabilities string,
 	libraries []RoleLibrary,
 ) error {
 	if name != role.Name || capabilities != role.Capabilities {

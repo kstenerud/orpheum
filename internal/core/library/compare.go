@@ -369,11 +369,11 @@ func (rules ScanRules) kindOf(name string) (nodeproto.ExamineKind, nodeproto.Ski
 }
 
 // isStoredAsListed is whether a stored file is the one listed, read whole, as a file of kind: its size and
-// modified time as stored, its identity confirmed (D179), and what reading it gave kept: a video's
+// modified time as stored, and what reading it gave kept: a video's
 // payload hash, an NFO's bytes, a subtitle's hash. A file that was skipped or could not be read is
 // read again.
 func isStoredAsListed(stored sqlcgen.ListFilesToCompareRow, kind nodeproto.ExamineKind, listed *nodeproto.Listed) bool {
-	if !isAsListed(stored, listed) || stored.IsIdentityConfirmed == 0 {
+	if !isAsListed(stored, listed) {
 		return false
 	}
 	sidecarKind := ptr.ValueOrZero(stored.SidecarKind)

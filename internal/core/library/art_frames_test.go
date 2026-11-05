@@ -105,7 +105,7 @@ func seriesWithEpisodes(t *testing.T, world *shelf) (seriesID int64, firstStill 
 	t.Helper()
 	seriesID = librarytest.Item(t, world.database, librarytest.ItemSpec{Kind: "collection", LibraryID: 1})
 	statements := []string{
-		fmt.Sprintf("INSERT INTO collection (id, kind, membership, created_by) VALUES (%d, 'series', 'explicit', "+
+		fmt.Sprintf("INSERT INTO collection (id, kind, created_by) VALUES (%d, 'series', "+
 			"'scanner')", seriesID),
 		fmt.Sprintf("INSERT INTO ordering (id, collection_id, name) VALUES (%d, %d, 'aired')", seriesID, seriesID),
 	}

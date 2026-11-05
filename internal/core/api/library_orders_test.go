@@ -48,8 +48,8 @@ func (harness testHarness) shelveDatedFilms(t *testing.T) {
 	storetest.ExecRaw(t, harness.databasePath,
 		"UPDATE title SET released_on = CASE id WHEN 10 THEN 19951215 WHEN 11 THEN 19790525 WHEN 12 THEN 19850000 END",
 		"UPDATE collection SET released_on = 20080120 WHERE id = 20",
-		`INSERT INTO collection (id, kind, membership, created_by, identification_state)
-		 VALUES (30, 'series', 'explicit', 'scanner', 'identified')`,
+		`INSERT INTO collection (id, kind, created_by, identification_state)
+		 VALUES (30, 'series', 'scanner', 'identified')`,
 		"INSERT INTO collection_member (collection_id, member_title, position) VALUES (30, 31, 10001)",
 		`INSERT INTO item_text (item_id, language, is_original, name, search_alternates)
 		 VALUES (30, 'und', 1, 'Tweedcoat', 'tweedcoat'), (31, 'und', 1, 'Pilot', 'pilot')`,

@@ -133,7 +133,8 @@
 //     was finished until it, in TestMigrate_Step0062KeepsWatchedWhatWasFinished; step 0068 (D416 §5) in
 //     TestMigrate_Step0068MakesEveryLibraryKindSingular; step 0069 (D426 §7), which renames as the
 //     API names, in TestMigrate_Step0069KeepsEveryRowUnderItsNewName; step 0070 (D426 §9), which
-//     moves the telemetry to cache.db, in TestMigrate_Step0070MovesTheTelemetryToTheCache.
+//     moves the telemetry to cache.db, in TestMigrate_Step0070MovesTheTelemetryToTheCache; step 0071
+//     (D426 §8), which drops the dead schema, in TestMigrate_Step0071DropsTheDeadSchemaAndKeepsEveryRow.
 //   - The schema keeps the rules D303 put in the engine: every table, both databases', STRICT; a
 //     title and a collection an item of their kind; an id at a source only with its source; a
 //     library's interval only for checking by interval; one sort key per item in each locale; the

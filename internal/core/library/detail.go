@@ -36,9 +36,8 @@ type TitleDetail struct {
 
 // Version is one of a title's versions: its files in part order (D155).
 type Version struct {
-	ID        int64
-	EditionID *int64
-	Files     []FileDetail
+	ID    int64
+	Files []FileDetail
 }
 
 // FileDetail is one file of a version, with its streams, at the places its person reaches: Path is the
@@ -131,7 +130,7 @@ func (browser *Browser) versions(ctx context.Context, reach auth.Reach, titleID 
 	versions := []Version{}
 	for _, place := range places {
 		if len(versions) == 0 || versions[len(versions)-1].ID != place.VersionID {
-			versions = append(versions, Version{ID: place.VersionID, EditionID: place.EditionID})
+			versions = append(versions, Version{ID: place.VersionID})
 		}
 		last := &versions[len(versions)-1]
 		if count := len(last.Files); count > 0 && last.Files[count-1].ID == place.FileID {

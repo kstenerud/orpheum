@@ -102,7 +102,7 @@ func TestPass_EpisodesAnOlderReadingSplitIntoSeriesOfTheirOwnComeTogether(t *tes
 	split := fmt.Sprintf
 	librarytest.Item(t, lib.database, librarytest.ItemSpec{ID: 9001, Kind: "collection", LibraryID: lib.libraryID})
 	storetest.ExecRaw(t, lib.database.Path(),
-		`INSERT INTO collection (id, kind, membership, created_by) VALUES (9001, 'series', 'explicit', 'scanner')`,
+		`INSERT INTO collection (id, kind, created_by) VALUES (9001, 'series', 'scanner')`,
 		split(`INSERT INTO item_text (item_id, language, is_original, name)
 			SELECT 9001, language, is_original, 'Arkon Horizon S01E02' FROM item_text WHERE item_id = %d`, seriesID),
 		`INSERT INTO ordering (id, collection_id, name) VALUES (9001, 9001, 'aired')`,

@@ -254,8 +254,8 @@ WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL 
 ORDER BY collection.id;
 
 -- name: InsertCollection :exec
-INSERT INTO collection (id, kind, membership, created_by)
-VALUES (sqlc.arg(id), sqlc.arg(kind), 'explicit', sqlc.arg(created_by));
+INSERT INTO collection (id, kind, created_by)
+VALUES (sqlc.arg(id), sqlc.arg(kind), sqlc.arg(created_by));
 
 -- name: UpsertCollectionMember :exec
 INSERT INTO collection_member (collection_id, member_title, position)
@@ -543,7 +543,7 @@ LEFT JOIN item_text AS title_text ON title_text.item_id = title.id AND title_tex
 JOIN version ON version.title_id = title.id AND version.removed_at IS NULL
 JOIN file_filing ON file_filing.version_id = version.id
 JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
-WHERE title.kind = 'movie' AND title.media_kind = 'video'
+WHERE title.kind = 'movie'
   AND EXISTS (SELECT 1 FROM stream WHERE stream.video_file = file.id AND stream.kind = 'video'
     AND (stream.disposition_flags & 1024) = 0)
   AND NOT EXISTS (SELECT 1 FROM stream WHERE stream.video_file = file.id AND stream.kind = 'audio')

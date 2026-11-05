@@ -15,8 +15,8 @@ INSERT INTO user (id, name, role_id, password_hash, admin_note, created_at)
   VALUES (1, 'owner', 1, CAST('$argon2id$v=19$m=65536,t=3,p=4$c2FsdA$aGFzaA' AS BLOB), NULL, 1790000000000),
          (2, 'partner', 2, NULL, 'Anna, from the bus station', 1790000000000);
 INSERT INTO role_library (role_id, library_id, may_rebroadcast) VALUES (2, 1, 0);
-INSERT INTO device (id, user_id, name, platform, audio_output, added_at, last_signed_in_at)
-  VALUES (1, 2, 'Living room TV', 'webos', 'built_in_speakers', 1790000000000, 1790000100000);
+INSERT INTO device (id, user_id, name, platform, added_at, last_signed_in_at)
+  VALUES (1, 2, 'Living room TV', 'webos', 1790000000000, 1790000100000);
 
 INSERT INTO item (id, kind, filing_library_id, added_at) VALUES
   (1, 'title', 1, 1790000000000),
@@ -24,39 +24,38 @@ INSERT INTO item (id, kind, filing_library_id, added_at) VALUES
   (3, 'collection', 1, 1790000000000),
   (4, 'person', NULL, 1790000000000);
 INSERT INTO item_provider_id (item_id, provider, provider_id) VALUES (1, 'tmdb', '10001');
-INSERT INTO title (id, kind, media_kind, year, runtime_ms, original_language, followed_source, followed_source_id, identification_state)
-  VALUES (1, 'movie', 'video', 2020, 5400000, 'en', 'tmdb', '10001', 'identified'),
-         (2, 'extra', 'video', 2020, 120000, 'en', 'none', NULL, 'unidentified');
-INSERT INTO edition (id, title_id, created_by, created_at) VALUES (1, 1, 'user', 1790000000000);
-INSERT INTO version (id, title_id, edition_id, created_at) VALUES (1, 1, 1, 1790000000000);
-INSERT INTO extra_relation (owner_title, owner_edition, extra_title, extra_type, position, asserted_by)
-  VALUES (1, 1, 2, 'trailer', 1, 'scanner');
+INSERT INTO title (id, kind, year, runtime_ms, followed_source, followed_source_id, identification_state)
+  VALUES (1, 'movie', 2020, 5400000, 'tmdb', '10001', 'identified'),
+         (2, 'extra', 2020, 120000, 'none', NULL, 'unidentified');
+INSERT INTO version (id, title_id, created_at) VALUES (1, 1, 1790000000000);
+INSERT INTO extra_relation (owner_title, extra_title, extra_type, asserted_by)
+  VALUES (1, 2, 'trailer', 'scanner');
 
-INSERT INTO file (id, node_id, path, size_bytes, modified_at, payload_hash, payload_bytes, is_identity_confirmed,
+INSERT INTO file (id, node_id, path, size_bytes, modified_at, payload_hash, payload_bytes,
                   filing, filing_reason, first_seen_at, last_seen_at, opensubtitles_hash)
   VALUES (1, 1, '/media/films/Direct Play Film (2020)/Direct Play Film (2020).mp4', 1048576, 1780000000000,
-          X'00112233445566778899AABBCCDDEEFF', 1000000, 1, 'video', NULL, 1790000000000, 1790000002000,
+          X'00112233445566778899AABBCCDDEEFF', 1000000, 'video', NULL, 1790000000000, 1790000002000,
           '8e245d9679d31e12');
 INSERT INTO file_filing (file_id, library_kind, filing, filing_reason, version_id, part_index, identified_from_path)
   VALUES (1, 'movie', 'listed', 'movie folder', 1, 1,
           '/media/films/Direct Play Film (2020)/Direct Play Film (2020).mp4');
-INSERT INTO file (id, node_id, path, size_bytes, modified_at, payload_hash, payload_bytes, is_identity_confirmed,
+INSERT INTO file (id, node_id, path, size_bytes, modified_at, payload_hash, payload_bytes,
                   filing, filing_reason, copy_of, first_seen_at, last_seen_at)
   VALUES (4, 1, '/media/films/Copies/Direct Play Film (2020).mp4', 1048576, 1780000000000,
-          X'00112233445566778899AABBCCDDEEFF', 1000000, 1, 'copy',
+          X'00112233445566778899AABBCCDDEEFF', 1000000, 'copy',
           'byte for byte the file found before it, at another place', 1, 1790000001000, 1790000002000);
 INSERT INTO whole_file_hash (file_id, sha256, size_bytes, modified_at, failure, hashed_at)
   VALUES (1, X'0F0F', 1048576, 1780000000000, NULL, 1790000001500),
          (4, X'0F0F', 1048576, 1780000000000, NULL, 1790000001600);
 INSERT INTO file_probe (file_id, probe_json, duration_ms) VALUES (1, '{"format":{"durationMs":5400000}}', 5400000);
-INSERT INTO file (id, node_id, path, size_bytes, modified_at, is_identity_confirmed, filing, filing_reason,
+INSERT INTO file (id, node_id, path, size_bytes, modified_at, filing, filing_reason,
                   sidecar_kind, attached_to_file, first_seen_at, last_seen_at)
   VALUES (2, 1, '/media/films/Direct Play Film (2020)/Direct Play Film (2020).en.srt', 2048, 1780000000000,
-          0, 'attached', 'a subtitle beside its video', 'subtitle', 1, 1790000000000, 1790000002000);
-INSERT INTO file (id, node_id, path, size_bytes, modified_at, is_identity_confirmed, filing, filing_reason,
+          'attached', 'a subtitle beside its video', 'subtitle', 1, 1790000000000, 1790000002000);
+INSERT INTO file (id, node_id, path, size_bytes, modified_at, filing, filing_reason,
                   sidecar_kind, attached_to_file, first_seen_at, last_seen_at)
   VALUES (3, 1, '/media/films/Direct Play Film (2020)/Direct Play Film (2020).nfo', 512, 1780000000000,
-          0, 'attached', 'an NFO beside its video', 'nfo', 1, 1790000000000, 1790000002000);
+          'attached', 'an NFO beside its video', 'nfo', 1, 1790000000000, 1790000002000);
 INSERT INTO file_nfo (file_id, body) VALUES (3, CAST('<movie><title>Direct Play Film</title></movie>' AS BLOB));
 INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, container_language, language, container_title, disposition_flags,
                     channel_count)
@@ -84,7 +83,6 @@ INSERT INTO genre (id, name, name_key) VALUES (1, 'Drama', 'drama');
 INSERT INTO item_genre (item_id, genre_id, ordinal) VALUES (1, 1, 0);
 INSERT INTO credit (item_id, job, ordinal, person_id, character) VALUES (1, 'cast', 0, 4, 'The Lead'),
   (1, 'director', 0, 4, NULL);
-INSERT INTO edition_text (edition_id, language, name) VALUES (1, 'en', 'Director''s Cut');
 INSERT INTO sort_key (item_id, locale, listing, collation_key) VALUES (1, 'en', 'movie', X'4450');
 INSERT INTO other_video (title_id, recorded_at, recorded_from, file_name, file_name_key)
   VALUES (1, 1563100262000, 'tag', 'direct-play.mkv', X'4450');
@@ -94,19 +92,16 @@ INSERT INTO artwork (id, item_id, kind, language, source, source_ref, source_sha
   VALUES (1, 1, 'poster', 'en', 'nfo', 'poster.jpg', X'AABB', 1);
 INSERT INTO artwork (id, item_id, kind, source, source_ref, refused_at, refusal, is_missing_at_source)
   VALUES (2, 1, 'backdrop', 'tmdb', '/gone.jpg', 1790000700000, 'no image there', 1);
-INSERT INTO tag (id, name) VALUES (1, 'favourite of the house');
-INSERT INTO item_tag (item_id, tag_id) VALUES (1, 1);
 
-INSERT INTO collection (id, kind, membership, created_by, followed_source, followed_source_id, identification_state)
-  VALUES (3, 'series', 'explicit', 'scanner', 'tmdb', '7615', 'identified');
+INSERT INTO collection (id, kind, created_by, followed_source, followed_source_id, identification_state)
+  VALUES (3, 'series', 'scanner', 'tmdb', '7615', 'identified');
 INSERT INTO collection_member (collection_id, member_title, position) VALUES (3, 1, 1.0);
 INSERT INTO ordering (id, collection_id, name, provider, kind) VALUES (1, 3, 'aired', 'tmdb', 'aired');
 INSERT INTO ordering (id, collection_id, name, provider, kind, source_id, label, listed_count)
   VALUES (2, 3, 'tmdb:5e9077d2e640d600151f32bd', 'tmdb', 'dvd', '5e9077d2e640d600151f32bd', 'DVD Order', 23);
 INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order) VALUES (1, 1, 1, 1, 1.0);
-INSERT INTO group_text (ordering_id, group_number, language, name, overview) VALUES (1, 1, 'en', 'Season 1', 'The first.');
+INSERT INTO group_text (ordering_id, group_number, language, name) VALUES (1, 1, 'en', 'Season 1');
 
-INSERT INTO user_deny (user_id, item_id) VALUES (2, 2);
 INSERT INTO "grant" (secret_sha256, kind, user_id, scope, issued_at, expires_at, last_used_at, device_name, device_id,
                      locate_hash, offer_key)
   VALUES (X'01', 'session', 2, 'role', 1790000000000, NULL, 1790000100000, 'phone', 1, NULL, NULL),
@@ -128,14 +123,10 @@ INSERT INTO play_position (user_id, file_id, position_ms, report_seq, device_id,
 INSERT INTO play_event (id, user_id, file_id, device_id, kind, position_ms, happened_at, happened_mono_ms)
   VALUES (1, 2, 1, 1, 'paused', 3600000, 1790000200000, 987654);
 INSERT INTO play_span (id, user_id, file_id, device_id, from_position_ms, to_position_ms, started_at, ended_at,
-                       is_unterminated,
                        is_unattended)
-  VALUES (1, 2, 1, 1, 0, 3600000, 1790000100000, 1790000200000, 0, 0);
+  VALUES (1, 2, 1, 1, 0, 3600000, 1790000100000, 1790000200000, 0);
 INSERT INTO purged_watching (user_id, version_id, completed_count, watched_ms, last_watched_at)
   VALUES (2, 1, 2, 7200000, 1790000000000);
-INSERT INTO favourite (user_id, item_id, added_at) VALUES (2, 1, 1790000000000);
-INSERT INTO user_rating (user_id, item_id, rating, rated_at) VALUES (2, 1, 8, 1790000000000);
-INSERT INTO watchlist (user_id, item_id, added_at) VALUES (1, 1, 1790000000000);
 INSERT INTO item_hidden (user_id, item_id, hidden_at) VALUES (1, 1, 1790000000000);
 INSERT INTO title_watched (user_id, title_id, watched_at, marked_at) VALUES (1, 1, 1790000000000, 1790000000000);
 INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at)

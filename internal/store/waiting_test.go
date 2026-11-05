@@ -43,9 +43,9 @@ func TestCountWaitingForAPerson_CountsWhatTheListShows(t *testing.T) {
 	title(7, "episode", "identified", "'tmdb'", true)
 	execRaw(t, database,
 		"INSERT INTO item (id, kind, added_at) VALUES (20, 'collection', 1), (21, 'collection', 1)",
-		"INSERT INTO collection (id, kind, membership, created_by, identification_state, followed_source) VALUES "+
-			"(20, 'series', 'explicit', 'scanner', 'ambiguous', NULL), "+
-			"(21, 'series', 'explicit', 'scanner', 'unidentified', 'none')",
+		"INSERT INTO collection (id, kind, created_by, identification_state, followed_source) VALUES "+
+			"(20, 'series', 'scanner', 'ambiguous', NULL), "+
+			"(21, 'series', 'scanner', 'unidentified', 'none')",
 		"INSERT INTO collection_member (collection_id, member_title) VALUES (20, 6), (21, 7)")
 	count, err := database.Read().CountWaitingForAPerson(t.Context())
 	if err != nil || count != 4 {

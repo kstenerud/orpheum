@@ -82,8 +82,8 @@ func (world *frameWorld) series(t *testing.T, followedSource string, episodeIDs 
 	seriesID := librarytest.Item(t, world.bench.database, librarytest.ItemSpec{
 		Kind: "collection", LibraryID: world.libraryID,
 	})
-	statements := []string{fmt.Sprintf("INSERT INTO collection (id, kind, membership, created_by, followed_source, "+
-		"identification_state) VALUES (%d, 'series', 'explicit', 'scanner', '%s', 'identified')", seriesID,
+	statements := []string{fmt.Sprintf("INSERT INTO collection (id, kind, created_by, followed_source, "+
+		"identification_state) VALUES (%d, 'series', 'scanner', '%s', 'identified')", seriesID,
 		followedSource)}
 	for _, episodeID := range episodeIDs {
 		statements = append(statements, fmt.Sprintf(

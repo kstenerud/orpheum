@@ -249,8 +249,6 @@ CREATE TABLE file (                                        -- class I (identity 
   opensubtitles_hash TEXT,               -- migration 0017: the provider's moviehash, 16 hex digits (D224 §3)
   filesystem_device INTEGER,             -- migration 0050: where the node last read it, with inode,
   inode         INTEGER,                 --   which tell it moved on its disk (D304 §5)
-  is_identity_confirmed INTEGER NOT NULL DEFAULT 1
-                  CHECK (is_identity_confirmed IN (0, 1)),   -- D179: 0 after a rebuild, until re-seen
   filing        TEXT NOT NULL CHECK (filing IN
                   ('video','copy','attached','skipped','errored')),   -- 0060: a video's kind is file_filing's
   filing_reason TEXT,                    -- the rule verbatim, the error code, what was tried
@@ -286,7 +284,6 @@ CREATE TABLE whole_file_hash (
   file_id     INTEGER PRIMARY KEY REFERENCES file(id) ON DELETE RESTRICT,
   sha256      BLOB, size_bytes INTEGER, modified_at INTEGER, failure TEXT, hashed_at INTEGER NOT NULL
 );
-CREATE VIEW live_file AS SELECT * FROM file WHERE removed_at IS NULL;
 
 -- D303 (M8, step 0047): what is wide and rarely read sits beside the file, so the row a scan stamps
 -- stays narrow, and each is written only when it changed.
@@ -341,7 +338,6 @@ CREATE TABLE fetched_subtitle (                            -- class A: quota-lim
   fetched_at  INTEGER NOT NULL,
   release_name TEXT                      -- migration 0017: the provider's name for it (D224)
 );
-CREATE INDEX fetched_subtitle_video ON fetched_subtitle(video_file);  -- migration 0018
 -- Migration 0032 (D244 section 4, S90): one per file and provider's file, since each cost a download.
 CREATE UNIQUE INDEX fetched_subtitle_once ON fetched_subtitle(video_file, provider, provider_file_id);
 ```
@@ -394,7 +390,7 @@ CREATE TABLE video_timeline (                              -- class O: what the 
 ) WITHOUT ROWID;
 ```
 
-## Items: what text, artwork, tags, overrides and favourites attach to
+## Items: what text, artwork and overrides attach to
 
 Titles are not the only things with a name, a poster, a sort position, tags, a person's
 corrections or a star: **a series, a box set, an album and an artist have all of them**. So they
@@ -406,13 +402,11 @@ CREATE TABLE item (                                        -- class I
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   kind        TEXT NOT NULL CHECK (kind IN ('title','collection','person')),
   filing_library_id  INTEGER REFERENCES library(id) ON DELETE RESTRICT,  -- 0060: the library whose pass files it (D363)
-  origin_server      TEXT,                      -- NULL = this server; else who gave it (D174)
   merged_into INTEGER REFERENCES item(id) ON DELETE RESTRICT,  -- D173
   added_at  INTEGER NOT NULL,
   removed_at  INTEGER
 );
 CREATE INDEX item_filing_library ON item(filing_library_id, kind) WHERE removed_at IS NULL;
-CREATE VIEW live_item AS SELECT * FROM item WHERE removed_at IS NULL;
 
 CREATE TABLE item_provider_id (                            -- class I; several per provider (ISRCs)
   item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
@@ -479,7 +473,7 @@ A credit with a TMDB id is that TMDB person's; an NFO's credit, which names a pe
 is the first person of that folded name from any source, and a TMDB credit is never filed under a
 person an NFO alone named. Artists arrive with music as more roles.
 
-## The work: Title → Edition → Version → File
+## The work: Title → Version → File
 
 ```sql
 CREATE TABLE title (                                       -- mixed: see the columns
@@ -487,10 +481,8 @@ CREATE TABLE title (                                       -- mixed: see the col
   -- other: a video of an other library, one file, never matched (step 0059, D349). The step adds
   -- the column anew, so it stands last in the table, with the default adding it needs.
   kind           TEXT NOT NULL CHECK (kind IN ('movie','episode','extra','other')),
-  media_kind     TEXT NOT NULL DEFAULT 'video' CHECK (media_kind IN ('video','audio')),
   year           INTEGER,                                    -- O: resolved
   runtime_ms     INTEGER,                                    -- O: resolved
-  original_language  TEXT,                                       -- O: resolved
   -- D170/D183: the one source this title follows, and its id there. F, or A once a person
   -- chose it: a match is a fetch, and a migration never redoes one.
   followed_source         TEXT CHECK (followed_source IN ('nfo','tmdb','tvdb','none')),       -- F/A
@@ -510,18 +502,9 @@ CREATE INDEX title_waiting ON title(id)
   WHERE identification_state = 'unidentified' AND followed_source = 'none' AND kind != 'episode';
 CREATE INDEX title_film_found ON title(found_at, found_file_modified_at) WHERE kind = 'movie';
 
-CREATE TABLE edition (                                     -- class A when a person made it
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  title_id    INTEGER NOT NULL REFERENCES title(id) ON DELETE RESTRICT,
-  created_by  TEXT NOT NULL CHECK (created_by IN ('provider','user')),  -- D158
-  created_at  INTEGER NOT NULL,
-  removed_at  INTEGER
-);
-
 CREATE TABLE version (                                     -- class I
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   title_id    INTEGER NOT NULL REFERENCES title(id) ON DELETE RESTRICT,
-  edition_id  INTEGER REFERENCES edition(id) ON DELETE RESTRICT,  -- NULL: cut unknown (D155)
   created_at  INTEGER NOT NULL,
   removed_at  INTEGER
 );
@@ -529,12 +512,10 @@ CREATE INDEX version_title ON version(title_id);     -- every version, removed t
 
 CREATE TABLE extra_relation (                              -- class O, or A when asserted
   owner_title   INTEGER NOT NULL REFERENCES title(id) ON DELETE RESTRICT,
-  owner_edition INTEGER REFERENCES edition(id) ON DELETE RESTRICT,  -- only a person sets it
   extra_title   INTEGER NOT NULL REFERENCES title(id) ON DELETE RESTRICT,
   extra_type          TEXT NOT NULL CHECK (extra_type IN ('trailer','teaser','clip','featurette',
                   'behind_the_scenes','deleted_scene','interview','short','scene',
                   'theme_song','theme_video','unknown')),       -- D97, D162: eleven + unknown
-  position      INTEGER,
   asserted_by   TEXT NOT NULL CHECK (asserted_by IN ('scanner','user')),
   PRIMARY KEY (owner_title, extra_title)
 );
@@ -560,13 +541,6 @@ CREATE TABLE item_text (                                   -- class O/F, resolve
   UNIQUE (item_id, language)
 );
 CREATE UNIQUE INDEX item_text_original ON item_text(item_id) WHERE is_original = 1;
-
-CREATE TABLE edition_text (                                -- class A or O
-  edition_id  INTEGER NOT NULL REFERENCES edition(id) ON DELETE RESTRICT,
-  language        TEXT NOT NULL,
-  name        TEXT NOT NULL,
-  PRIMARY KEY (edition_id, language)
-);
 
 -- Step 0059: what an other video's lists sort by besides its name (D349 section 4): when it was
 -- recorded, and where that came from (its container's tag, a date in its file's or a folder's name,
@@ -680,16 +654,6 @@ CREATE TABLE artwork (                                     -- class O/F; A when 
 );
 CREATE UNIQUE INDEX artwork_chosen ON artwork(item_id, kind) WHERE is_chosen = 1;
 CREATE INDEX artwork_item ON artwork(item_id, kind);
-
-CREATE TABLE tag (                                         -- class A (D164)
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  name        TEXT NOT NULL UNIQUE
-);
-CREATE TABLE item_tag (
-  item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
-  tag_id      INTEGER NOT NULL REFERENCES tag(id) ON DELETE RESTRICT,
-  PRIMARY KEY (tag_id, item_id)
-) WITHOUT ROWID;
 ```
 
 An image that could not be stored is a row with no `source_sha256`: its item holds it, so it is
@@ -711,8 +675,6 @@ rewritten whenever a layer changes. They are what everything reads.
 CREATE TABLE collection (                                  -- class A or O
   id          INTEGER PRIMARY KEY REFERENCES item(id) ON DELETE RESTRICT,
   kind        TEXT NOT NULL CHECK (kind IN ('series','box_set','user')),
-  membership  TEXT NOT NULL CHECK (membership IN ('explicit','predicate','external')),
-  predicate   TEXT,                      -- D75's serialised form, for 'predicate'
   created_by  TEXT NOT NULL CHECK (created_by IN ('scanner','provider','user')),
   -- D209, migration 0007: a series is what is identified for shows, so it carries what a title
   -- does. NULL for box sets and a person's collections.
@@ -763,7 +725,6 @@ CREATE TABLE group_text (                                  -- a season's name, a
   group_number         INTEGER NOT NULL,
   language        TEXT NOT NULL,
   name        TEXT,
-  overview    TEXT,
   PRIMARY KEY (ordering_id, group_number, language)
 );
 ```
@@ -773,8 +734,8 @@ episodes; a season is a group number within an ordering, with optional text — 
 tables hold an album's discs and tracks, which is why they are named `position` and `group_number` rather
 than `episode_position` and `season` ([D186](../../decisions/working-notes.md))
 ([D160](../../decisions/working-notes.md)). `kind` omits `season` and `smart` from
-library-model.md's list for that reason: a season is not a Collection here, and "smart" is
-`membership = 'predicate'`.
+library-model.md's list for that reason: a season is not a Collection here, and "smart", a
+collection by a rule, is not built (its `membership` and `predicate` went in step 0071, D426 §8).
 
 ## People, roles, devices, credentials
 
@@ -783,8 +744,7 @@ CREATE TABLE role (                                        -- class A (D130)
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   name          TEXT NOT NULL UNIQUE,
   is_builtin       INTEGER NOT NULL DEFAULT 0 CHECK (is_builtin IN (0,1)),
-  capabilities  TEXT NOT NULL,           -- a set from the closed enum, e.g. 'administer,download'
-  predicate     TEXT                     -- NULL = sees everything; invalid = sees nothing (D164)
+  capabilities  TEXT NOT NULL            -- a set from the closed enum, e.g. 'administer,download'
 );
 -- Ceilings (F31) and the download lease (D169) arrive with their features as columns here
 -- (D180); they were sketched and dropped by the second audit (D193).
@@ -813,18 +773,11 @@ CREATE TABLE user (                                        -- class A
 );
 CREATE UNIQUE INDEX user_live_name ON user(name) WHERE removed_at IS NULL;
 
-CREATE TABLE user_deny (                                   -- class A: narrows only
-  user_id     INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
-  item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
-  PRIMARY KEY (user_id, item_id)
-) WITHOUT ROWID;
-
 CREATE TABLE device (                                      -- class A
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id       INTEGER REFERENCES user(id) ON DELETE RESTRICT,
   name          TEXT NOT NULL,
   platform      TEXT NOT NULL,
-  audio_output  TEXT CHECK (audio_output IN ('built_in_speakers','receiver','headphones')),  -- migration 0020; unused since D336 §4: nothing reads or writes it, and no one is asked
   sound_offset_ms INTEGER NOT NULL DEFAULT 0 CHECK (sound_offset_ms BETWEEN -2000 AND 2000),  -- migration 0056 (0055's sound_delay_ms): the sound moved later (+) or earlier (-) than its picture
   added_at    INTEGER NOT NULL,
   last_signed_in_at     INTEGER NOT NULL,
@@ -1002,7 +955,6 @@ CREATE TABLE play_span (                                   -- class A (D165)
   to_position_ms   INTEGER NOT NULL,
   started_at      INTEGER NOT NULL,
   ended_at        INTEGER NOT NULL,
-  is_unterminated INTEGER NOT NULL DEFAULT 0 CHECK (is_unterminated IN (0,1)),
   is_unattended  INTEGER NOT NULL DEFAULT 0 CHECK (is_unattended IN (0,1))  -- after "still watching?" went unanswered (D188): never completes anything
 );
 CREATE INDEX play_span_user ON play_span(user_id, started_at);
@@ -1023,9 +975,8 @@ CREATE INDEX purged_watching_version ON purged_watching(version_id);
 **What was watched outlives the file** (D306 §8). A removed file is deleted once
 `removed_files_kept_days` (90) have passed; before it goes, how often each person finished it and
 how long they watched are added to its version's row here, and its spans, events and position go
-with it. A version keeps its edition and moves with its title when titles merge, so a new copy of
-a film, filed to the same title, finds what was watched of the old one: an unknown cut matches any
-cut, and two different known cuts keep their own. The position does not carry: it names a moment
+with it. A version moves with its title when titles merge, so a new copy of a film, filed to the
+same title, finds what was watched of the old one. The position does not carry: it names a moment
 in the deleted file's timeline (play-state.md). Step 0052 also indexes the file by when it was
 removed and by the video a sidecar is attached to, and each play and file preference by its file,
 since the purge finds and deletes by them (D303, DL3).
@@ -1041,15 +992,6 @@ drops a report sent again.
 
 ```sql
 
-CREATE TABLE favourite (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
-  item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT, added_at INTEGER NOT NULL,
-  PRIMARY KEY (user_id, item_id)) WITHOUT ROWID;
-CREATE TABLE user_rating (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
-  item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT, rating INTEGER NOT NULL,
-  rated_at INTEGER NOT NULL, PRIMARY KEY (user_id, item_id)) WITHOUT ROWID;
-CREATE TABLE watchlist (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
-  item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT, added_at INTEGER NOT NULL,
-  PRIMARY KEY (user_id, item_id)) WITHOUT ROWID;
 -- Hidden from Continue Watching / Next Up (D188). Not a completion; it lapses by itself when
 -- the item has activity after `hidden_at`, so there is nothing to clear.
 CREATE TABLE item_hidden (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
@@ -1425,10 +1367,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `credit` | persistent.db | `internal/core/identify` | the pass, from each title's and series' source (step 0067) |
 | `device` | persistent.db | `internal/core/auth` | |
 | `device_reader_limit` | persistent.db | `internal/core/nodes` | an admin's limit on one of a node's devices (D240 §5) |
-| `edition` | persistent.db | none yet | |
-| `edition_text` | persistent.db | none yet | |
 | `extra_relation` | persistent.db | `internal/core/identify` | |
-| `favourite` | persistent.db | none yet | |
 | `fetched_subtitle` | persistent.db | `internal/core/subtitles` | |
 | `fetch_failure` | persistent.db | `internal/core/identify` | the fetch_metadata runner's failure recorder, and a person's refresh, which clears it |
 | `field_override` | persistent.db | `internal/core/identify` | |
@@ -1446,7 +1385,6 @@ second writer, or on a writer this table does not name. A table no package write
 | `item_genre` | persistent.db | `internal/core/identify` | the pass, from each title's and series' source (step 0067) |
 | `item_fts`, `item_fts_tri` | persistent.db | `internal/core/identify` | kept by `item_text`'s triggers |
 | `item_provider_id` | persistent.db | `internal/core/identify` | |
-| `item_tag` | persistent.db | none yet | |
 | `item_text` | persistent.db | `internal/core/identify` | |
 | `library` | persistent.db | `internal/core/library` | |
 | `library_root` | persistent.db | `internal/core/library` | |
@@ -1480,15 +1418,11 @@ second writer, or on a writer this table does not name. A table no package write
 | `sort_key` | persistent.db | `internal/core/identify` | |
 | `stream` | persistent.db | `internal/core/library` | |
 | `subtitle_text` | persistent.db | `internal/core/subtitles` | |
-| `tag` | persistent.db | none yet | |
 | `title` | persistent.db | `internal/core/identify` | |
 | `title_watched` | persistent.db | `internal/core/playback` | whether each person watched each title, set by a play to its finish and by hand (D370) |
 | `unavailable_place` | persistent.db | `internal/core/library` | only its `availability.go` (D328) |
 | `user` | persistent.db | `internal/core/auth` | |
-| `user_deny` | persistent.db | none yet | |
-| `user_rating` | persistent.db | none yet | |
 | `version` | persistent.db | `internal/core/identify` | |
-| `watchlist` | persistent.db | none yet | |
 | `whole_file_hash` | persistent.db | `internal/core/library` | the SHA-256 of a file's every byte, D116's whole-file comparison, for a likely copy and the file it may be a copy of (D363 §2) |
 | `art_served` | cache.db | `internal/core/artwork` | |
 | `chunk_store` | cache.db | `internal/core/chunks` | made on a store's first run; its make_chunks jobs target it (D247 §10) |
@@ -1540,11 +1474,11 @@ any (sessions live in memory and end with the process — [D119](../../decisions
 | --- | --- |
 | 1. an item need not have a File | a `title` with no `version` |
 | 2. playback addressable by File | every observation is a `file` row |
-| 3. referenced rows tombstoned | `removed_at` + `ON DELETE RESTRICT` + `live_*` |
-| 4. collection membership is three kinds | `collection.membership` |
+| 3. referenced rows tombstoned | `removed_at` + `ON DELETE RESTRICT` |
+| 4. collection membership is three kinds | not held: `collection.membership`, never written, went in step 0071 (D426 §8); it returns additively with rule-made collections |
 | 7. the track model is not three axes | `stream.kind` is a closed set that widens by rebuild |
 | 13. a grant may have a parent | `"grant".parent_secret_sha256` |
-| 14. every item carries its source | `item.origin_server` |
+| 14. every item carries its source | not held: `item.origin_server`, never written, went in step 0071 (D426 §8); it returns additively with federation |
 
 Obligations 5, 6 and 8–12 are satisfied by additive tables or by client behaviour and are
 unaffected by this sketch.

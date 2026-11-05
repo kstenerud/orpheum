@@ -4,6 +4,13 @@
 
 package sqlcgen
 
+type ExtraRelation struct {
+	OwnerTitle int64
+	ExtraTitle int64
+	ExtraType  string
+	AssertedBy string
+}
+
 type FileNFO struct {
 	FileID int64
 	Body   []byte
@@ -38,6 +45,13 @@ type RefreshRequest struct {
 	ItemID            int64
 	RequestedAt       int64
 	ShouldFetchImages int64
+}
+
+type Role struct {
+	ID           int64
+	Name         string
+	IsBuiltin    int64
+	Capabilities string
 }
 
 type RoleLibrary struct {

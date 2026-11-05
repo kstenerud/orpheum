@@ -89,9 +89,8 @@ type FileDetailBody struct {
 
 // VersionBody is one version of a title (D155): its files, in part order.
 type VersionBody struct {
-	ID        int64            `json:"id"`
-	EditionID *int64           `doc:"Absent when the cut is unknown" json:"editionId,omitempty"`
-	Files     []FileDetailBody `json:"files"`
+	ID    int64            `json:"id"`
+	Files []FileDetailBody `json:"files"`
 }
 
 // ExtraBody is one extra of a title (D162).

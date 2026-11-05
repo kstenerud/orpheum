@@ -51,7 +51,7 @@ type snapshot struct {
 	// lists them.
 	seriesPlaces map[int64][]sqlcgen.ListSeriesEpisodePlacesRow
 	seriesMatch  map[int64]sqlcgen.GetSeriesForMatchRow
-	extras       map[memberKey]sqlcgen.ListLibraryExtraRelationsRow // by owner, then extra
+	extras       map[memberKey]sqlcgen.ExtraRelation // by owner, then extra
 	// otherVideos are each held other video's date and file name, as the pass last wrote them.
 	otherVideos map[int64]sqlcgen.UpsertOtherVideoParams
 	// credits and genres are each held item's, as the pass last wrote them.
@@ -86,7 +86,7 @@ func (filer *libraryFiler) loadSnapshot(ctx context.Context, libraryID int64) er
 		seriesValues: map[int64]sqlcgen.UpdateSeriesResolvedParams{},
 		seriesPlaces: map[int64][]sqlcgen.ListSeriesEpisodePlacesRow{},
 		seriesMatch:  map[int64]sqlcgen.GetSeriesForMatchRow{},
-		extras:       map[memberKey]sqlcgen.ListLibraryExtraRelationsRow{},
+		extras:       map[memberKey]sqlcgen.ExtraRelation{},
 		credits:      map[int64][]heldCredit{}, genres: map[int64][]heldGenre{},
 	}
 	versions, err := filer.queries.ListLibraryVersionTitles(ctx, libraryID)
@@ -661,7 +661,7 @@ func (filer *libraryFiler) keepExtraRelation(
 		return nil
 	}
 	if filer.snap.isLoaded {
-		filer.snap.extras[key] = sqlcgen.ListLibraryExtraRelationsRow{
+		filer.snap.extras[key] = sqlcgen.ExtraRelation{
 			OwnerTitle: relation.OwnerTitle, ExtraTitle: relation.ExtraTitle, ExtraType: relation.ExtraType,
 			AssertedBy: assertedByScanner,
 		}
