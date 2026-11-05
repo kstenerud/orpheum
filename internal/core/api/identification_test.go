@@ -343,14 +343,16 @@ func TestInterest_ASessionSaysThePageItShowsAndLeavesIt(t *testing.T) {
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
 	harness.ambiguousTitle(t)
-	if shown := harness.do(t, http.MethodPut, "/interest/10", admin, nil); shown.status != http.StatusNoContent {
-		t.Fatalf("PUT /interest/10 = %d %s", shown.status, shown.body)
+	if shown := harness.do(t, http.MethodPut, "/interest/page", admin, map[string]int64{"item": 10}); shown.status !=
+		http.StatusNoContent {
+		t.Fatalf("PUT /interest/page of 10 = %d %s", shown.status, shown.body)
 	}
 	if looks := harness.looks.Looks(time.Minute); len(looks) != 1 || looks[0].ItemID != 10 {
 		t.Errorf("looks %+v; want the session at film 10", looks)
 	}
-	if left := harness.do(t, http.MethodDelete, "/interest/10", admin, nil); left.status != http.StatusNoContent {
-		t.Fatalf("DELETE /interest/10 = %d %s", left.status, left.body)
+	if left := harness.do(t, http.MethodDelete, "/interest/page?item=10", admin, nil); left.status !=
+		http.StatusNoContent {
+		t.Fatalf("DELETE /interest/page?item=10 = %d %s", left.status, left.body)
 	}
 	if looks := harness.looks.Looks(time.Minute); len(looks) != 0 {
 		t.Errorf("looks %+v after leaving; want none", looks)
@@ -364,21 +366,23 @@ func TestInterest_ASeasonsPageSaysItsSeason(t *testing.T) {
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
 	harness.ambiguousTitle(t)
-	shown := harness.do(t, http.MethodPut, "/interest/10?season=2", admin, nil)
+	shown := harness.do(t, http.MethodPut, "/interest/page", admin, map[string]int64{"item": 10, "group": 2})
 	if shown.status != http.StatusNoContent {
-		t.Fatalf("PUT /interest/10?season=2 = %d %s", shown.status, shown.body)
+		t.Fatalf("PUT /interest/page of 10, group 2 = %d %s", shown.status, shown.body)
 	}
 	if looks := harness.looks.Looks(time.Minute); len(looks) != 1 || looks[0].ItemID != 10 || looks[0].Season != 2 {
 		t.Errorf("looks %+v; want the session at item 10's season 2", looks)
 	}
-	if left := harness.do(t, http.MethodDelete, "/interest/10", admin, nil); left.status != http.StatusNoContent {
-		t.Fatalf("DELETE /interest/10 = %d %s", left.status, left.body)
+	if left := harness.do(t, http.MethodDelete, "/interest/page?item=10", admin, nil); left.status !=
+		http.StatusNoContent {
+		t.Fatalf("DELETE /interest/page?item=10 = %d %s", left.status, left.body)
 	}
 	if looks := harness.looks.Looks(time.Minute); len(looks) != 1 {
 		t.Errorf("looks %+v after leaving the page without a season; want season 2's still", looks)
 	}
-	if shown = harness.do(t, http.MethodPut, "/interest/10", admin, nil); shown.status != http.StatusNoContent {
-		t.Fatalf("PUT /interest/10 = %d %s", shown.status, shown.body)
+	if shown = harness.do(t, http.MethodPut, "/interest/page", admin, map[string]int64{"item": 10}); shown.status !=
+		http.StatusNoContent {
+		t.Fatalf("PUT /interest/page of 10 = %d %s", shown.status, shown.body)
 	}
 	if looks := harness.looks.Looks(time.Minute); len(looks) != 1 || looks[0].Season != interest.NoSeason {
 		t.Errorf("looks %+v; want the item's own page, no season", looks)

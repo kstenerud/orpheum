@@ -160,7 +160,7 @@ func TestReach_AnEditorReachesOnlyTheLibrariesTheirRoleLists(t *testing.T) {
 		{http.MethodPost, "/items/30/match-by-link", map[string]any{"link": "tt0456789"}},
 		{http.MethodPost, "/items/30/confirm-match", nil},
 		{http.MethodGet, "/items/30/candidates?name=Civilisation", nil},
-		{http.MethodPut, "/interest/30", nil},
+		{http.MethodPut, "/interest/page", map[string]int64{"item": 30}},
 		{http.MethodPut, "/items/30/overrides/name", map[string]any{"value": "Other"}},
 		{http.MethodDelete, "/items/30/overrides/name", nil},
 		{http.MethodPost, "/items/30/refresh", nil},
@@ -169,10 +169,10 @@ func TestReach_AnEditorReachesOnlyTheLibrariesTheirRoleLists(t *testing.T) {
 			api.CodeNotFound)
 	}
 	// The tiles of a list it does not reach raise nothing (D362 §4).
-	tiles := harness.do(t, http.MethodPut, "/tiles/interest", editor, map[string][]int64{"itemIds": {30}})
+	tiles := harness.do(t, http.MethodPut, "/interest/tiles", editor, map[string][]int64{"items": {30}})
 	if looks := harness.looks.Looks(time.Minute); tiles.status != http.StatusNoContent || len(looks) != 1 ||
 		len(looks[0].Tiles) != 0 {
-		t.Errorf("PUT /tiles/interest of a title not reached = %d, looks %+v; want its tiles shown as none",
+		t.Errorf("PUT /interest/tiles of a title not reached = %d, looks %+v; want its tiles shown as none",
 			tiles.status, looks)
 	}
 }
@@ -192,8 +192,8 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		"headDirect", "getChunksMasterPlaylist", "getChunkFile",
 		"getSubtitle", "reportPlayback",
 		"setFilePreferences", "hideProgress", "getArt", "getItemCandidates", "postItemMatch", "putOverride",
-		"deleteOverride", "postItemRefresh", "postItemMatchByLink", "postItemConfirmMatch", "putInterest",
-		"putTilesInterest",
+		"deleteOverride", "postItemRefresh", "postItemMatchByLink", "postItemConfirmMatch", "sayPageInterest",
+		"sayTilesInterest",
 		// TestOrderings_APersonChoosesAmongTheOrderingsASeriesHas.
 		"getNotInOrdering", "setSeriesPreferences",
 		// What plays after a file, which reaches the file (requireSignedInReachingFile).
@@ -226,7 +226,7 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		"unhideProgress", "restoreWatched",
 		"getMe", "freshLocator", "getOwnLink", "listMyDevices", "changeMyDevice", "removeMyDevice",
 		"signOutElsewhere", "activateDevice", "answerActivation", "changePassword", "setMyPreferences",
-		"getMyPreferences", "deleteInterest", "deleteTilesInterest",
+		"getMyPreferences", "withdrawPageInterest", "withdrawTilesInterest",
 		"getClientSettings",
 		// A WebRTC connection, which grants nothing: each request over it checks its own reach (D273 §8).
 		"postRTCOffer",

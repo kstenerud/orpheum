@@ -60,8 +60,8 @@ function pageAnswers(detail: TitleDetail | SeriesDetail): Answers {
     [`GET ${path}`]: [200, detail],
     "GET /collections/5/seasons/1": [200, { episodes: [] }],
     "GET /collections/5/seasons/2": [200, { episodes: [] }],
-    [`PUT /interest/${id}`]: [204, null],
-    [`DELETE /interest/${id}`]: [204, null],
+    "PUT /interest/page": [204, null],
+    "DELETE /interest/page": [204, null],
   };
 }
 
