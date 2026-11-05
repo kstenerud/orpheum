@@ -618,6 +618,45 @@ describe("the Libraries page (D349)", () => {
     expect(queriesAsked()).toEqual([null, "heat"]);
   });
 
+  // The 11-08 batch: a list asked again after its pop-up closed replaced the list an arrow pressed
+  // after Escape had moved focus onto, and focus fell to the page. Closing does not wait the rest.
+  it("asks for the text typed in its Sort and filter at once as its pop-up closes", async () => {
+    const heard: Heard[] = [];
+    mounted = await mountBrowse(
+      { library: 1 },
+      {
+        "GET /libraries": [200, { libraries: [library(1, "Films")] }],
+        "GET /items": titlesPage(),
+        "GET /items/letters": lettersPage(),
+      },
+      heard,
+    );
+    await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
+    const popUp = await openCriteria(mounted.container);
+    const field = popUp.querySelector("input.list-criteria__name");
+    const queriesAsked = (): (string | null)[] =>
+      heard
+        .filter((each) => each.methodAndPath === "GET /items")
+        .map((each) => new URLSearchParams(each.query).get("query"));
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      await act(async () => {
+        Reflect.set(HTMLInputElement.prototype, "value", "heat", field);
+        field?.dispatchEvent(new Event("input", { bubbles: true }));
+        await Promise.resolve();
+      });
+      await closeCriteria(mounted.container);
+      // No time passes: the rest is not waited once the pop-up is closed.
+      await act(async () => {
+        vi.advanceTimersByTime(0);
+        await Promise.resolve();
+      });
+      expect(queriesAsked()).toEqual([null, "heat"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("drops the search by its pop-up's Clear, the list shown again", async () => {
     const heard: Heard[] = [];
     const services = servedBy(
