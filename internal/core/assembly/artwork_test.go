@@ -18,7 +18,7 @@ import (
 func TestFoundImages_HandsTheArtworkServiceEveryImageAPassFound(t *testing.T) {
 	t.Parallel()
 	poster := identify.ImageRef{Kind: library.ArtPoster, Ref: "/p.jpg"}
-	seasonPoster := identify.ImageRef{Kind: library.ArtPoster, SeasonNumber: new(int64(2)), Ref: "/s2.jpg"}
+	seasonPoster := identify.ImageRef{Kind: library.ArtPoster, GroupNumber: new(int64(2)), Ref: "/s2.jpg"}
 	report := identify.Report{
 		NamedImages: []identify.NamedImages{
 			{ItemID: 1, Source: "tmdb", Refs: []identify.ImageRef{poster, seasonPoster}},
@@ -33,7 +33,7 @@ func TestFoundImages_HandsTheArtworkServiceEveryImageAPassFound(t *testing.T) {
 		Named: []artwork.ItemImages{
 			{ItemID: 1, Source: "tmdb", Refs: []artwork.Ref{
 				{Kind: library.ArtPoster, SourceRef: "/p.jpg"},
-				{Kind: library.ArtPoster, SeasonNumber: new(int64(2)), SourceRef: "/s2.jpg"},
+				{Kind: library.ArtPoster, GroupNumber: new(int64(2)), SourceRef: "/s2.jpg"},
 			}},
 		},
 		Rematched:     []artwork.ItemImages{{ItemID: 2, Source: "tmdb", Refs: []artwork.Ref{}}},

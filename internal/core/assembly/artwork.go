@@ -58,7 +58,7 @@ func itemImages(named []identify.NamedImages) []artwork.ItemImages {
 	for _, item := range named {
 		refs := make([]artwork.Ref, 0, len(item.Refs))
 		for _, ref := range item.Refs {
-			refs = append(refs, artwork.Ref{Kind: ref.Kind, SeasonNumber: ref.SeasonNumber, SourceRef: ref.Ref})
+			refs = append(refs, artwork.Ref{Kind: ref.Kind, GroupNumber: ref.GroupNumber, SourceRef: ref.Ref})
 		}
 		images = append(images, artwork.ItemImages{ItemID: item.ItemID, Source: item.Source, Refs: refs})
 	}

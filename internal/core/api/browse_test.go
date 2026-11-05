@@ -492,7 +492,7 @@ func TestBrowse_AListShowsHowFarThePersonIsThroughEach(t *testing.T) {
 	storetest.ExecRaw(t, harness.databasePath,
 		`INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at)
 		 VALUES (1, 'work', 20, 'episode_ordering', '"tmdb:dvd"', 1)`,
-		`INSERT INTO progress_hide (user_id, item_id, hidden_at) VALUES (1, 10, 5)`)
+		`INSERT INTO item_hidden (user_id, item_id, hidden_at) VALUES (1, 10, 5)`)
 	if got, want := harness.titlesProgress(t, "/items?kind=series&sort=name&limit=10", user), "20:0:1/3"; got != want {
 		t.Errorf("series in the DVD order: %s; want %s, one of its three finished", got, want)
 	}
@@ -511,7 +511,7 @@ func TestBrowse_ASeriesSeasonsShowTheirOwnPostersInAiredOrderAlone(t *testing.T)
 	harness.shelveDVDOrder(t)
 	seasonOne, seriesPoster := strings.Repeat("ab", 32), strings.Repeat("cc", 32)
 	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO artwork (item_id, kind, season_number, source, source_ref, source_sha256) VALUES
+		`INSERT INTO artwork (item_id, kind, group_number, source, source_ref, source_sha256) VALUES
 		 (20, 'poster', 1, 'tmdb', '/s1.jpg', X'`+seasonOne+`')`)
 	var seen struct {
 		Art struct {

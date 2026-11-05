@@ -494,7 +494,7 @@ func TestRescan_AFilmItsSearchNoLongerSettlesIsNamedFromItsFileAgain(t *testing.
 
 // D357 §4: what a person watched stays theirs across a changed match. Watching is kept by file
 // (play_position, play_span and play_event name the file), and a person's hiding of a film's
-// progress by its item (progress_hide); a rescan's new match keeps the film's title and its files in
+// progress by its item (item_hidden); a rescan's new match keeps the film's title and its files in
 // it, so its Continue Watching row is the same film's, under its new name.
 func TestRescan_WhatAPersonWatchedSurvivesAChangedMatch(t *testing.T) {
 	t.Parallel()

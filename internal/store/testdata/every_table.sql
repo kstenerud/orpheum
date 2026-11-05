@@ -82,7 +82,7 @@ INSERT INTO item_text (item_id, language, is_original, name, overview, tagline)
 INSERT INTO person (id, tmdb_id, name_key, picture_ref) VALUES (4, '501', 'ada player', '/ada.jpg');
 INSERT INTO genre (id, name, name_key) VALUES (1, 'Drama', 'drama');
 INSERT INTO item_genre (item_id, genre_id, ordinal) VALUES (1, 1, 0);
-INSERT INTO credit (item_id, role, ordinal, person_id, character) VALUES (1, 'cast', 0, 4, 'The Lead'),
+INSERT INTO credit (item_id, job, ordinal, person_id, character) VALUES (1, 'cast', 0, 4, 'The Lead'),
   (1, 'director', 0, 4, NULL);
 INSERT INTO edition_text (edition_id, language, name) VALUES (1, 'en', 'Director''s Cut');
 INSERT INTO sort_key (item_id, locale, listing, collation_key) VALUES (1, 'en', 'movie', X'4450');
@@ -136,7 +136,7 @@ INSERT INTO purged_watching (user_id, version_id, completed_count, watched_ms, l
 INSERT INTO favourite (user_id, item_id, added_at) VALUES (2, 1, 1790000000000);
 INSERT INTO user_rating (user_id, item_id, rating, rated_at) VALUES (2, 1, 8, 1790000000000);
 INSERT INTO watchlist (user_id, item_id, added_at) VALUES (1, 1, 1790000000000);
-INSERT INTO progress_hide (user_id, item_id, hidden_at) VALUES (1, 1, 1790000000000);
+INSERT INTO item_hidden (user_id, item_id, hidden_at) VALUES (1, 1, 1790000000000);
 INSERT INTO title_watched (user_id, title_id, watched_at, marked_at) VALUES (1, 1, 1790000000000, 1790000000000);
 INSERT INTO link_memory (player, network, speed_kbps, speed_log_spread, speed_at, steadiness, steadiness_at, said_at)
   VALUES ('device 1', '2001:db8:1:2::/64', 17000, 0.31, 1790000000000, 1, 1790000000000, 1790000000000);
@@ -146,7 +146,7 @@ INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at)
 INSERT INTO provider_response (item_id, provider, part, fetched_at, last_asked_at, body_gzip)
   VALUES (1, 'tmdb', '', 1790000000000, 1790000300000, X'1F8B0800');
 INSERT INTO provider_response (item_id, provider, part, fetched_at, last_asked_at, body_gzip)
-  VALUES (3, 'tmdb', 'season/2', 1790000000000, 1790000000000, X'1F8B0800');
+  VALUES (3, 'tmdb', 'group/2', 1790000000000, 1790000000000, X'1F8B0800');
 INSERT INTO fetch_failure (item_id, failure, failed_at) VALUES (2, 'TMDB answered 500 five times', 1790000400000);
 INSERT INTO refresh_request (item_id, requested_at, should_fetch_images) VALUES (1, 1790000500000, 1);
 INSERT INTO subtitle_text (source_hash, stream_index, ass, vtt, failure, made_at)

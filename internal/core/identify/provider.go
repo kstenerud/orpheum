@@ -174,8 +174,8 @@ type ImageRef struct {
 	Kind string // library.ArtPoster, ArtBackdrop, ArtLogo, ArtStill
 	// SeasonNumber is, for a series' season's poster, its season in the series' aired ordering, the
 	// specials' 0 among them (D379); nil for an image of the work itself.
-	SeasonNumber *int64
-	Ref          string // the provider's path, which its image service resolves
+	GroupNumber *int64
+	Ref         string // the provider's path, which its image service resolves
 }
 
 // Errors a provider returns, wrapped.

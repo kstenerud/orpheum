@@ -27,7 +27,7 @@ func (harness testHarness) shelvePeople(t *testing.T) {
 		 (42, 'und', 1, 'Bela Ostrander', 'bela ostrander')`,
 		`INSERT INTO genre (id, name, name_key) VALUES (1, 'Crime', 'crime'), (2, 'Drama', 'drama')`,
 		`INSERT INTO item_genre (item_id, genre_id, ordinal) VALUES (10, 1, 0), (20, 2, 0)`,
-		`INSERT INTO credit (item_id, role, ordinal, person_id, character) VALUES
+		`INSERT INTO credit (item_id, job, ordinal, person_id, character) VALUES
 		 (10, 'cast', 0, 40, 'Mira Holloway-Pent'), (10, 'director', 0, 41, NULL), (20, 'cast', 0, 42, 'Corwin Ashby')`)
 }
 

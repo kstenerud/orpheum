@@ -37,7 +37,7 @@ func (snap *snapshot) loadPeople(ctx context.Context, queries *sqlcgen.Queries, 
 	}
 	for _, credit := range credits {
 		snap.credits[credit.ItemID] = append(snap.credits[credit.ItemID], heldCredit{
-			role: credit.Role, ordinal: credit.Ordinal, character: ptr.ValueOrZero(credit.Character),
+			role: credit.Job, ordinal: credit.Ordinal, character: ptr.ValueOrZero(credit.Character),
 			tmdbID: ptr.ValueOrZero(credit.TmdbID), name: credit.Name, pictureRef: ptr.ValueOrZero(credit.PictureRef),
 		})
 	}
@@ -63,7 +63,7 @@ func (filer *libraryFiler) heldCredits(ctx context.Context, itemID int64) ([]hel
 	held := make([]heldCredit, 0, len(rows))
 	for _, row := range rows {
 		held = append(held, heldCredit{
-			role: row.Role, ordinal: row.Ordinal, character: ptr.ValueOrZero(row.Character),
+			role: row.Job, ordinal: row.Ordinal, character: ptr.ValueOrZero(row.Character),
 			tmdbID: ptr.ValueOrZero(row.TmdbID), name: row.Name, pictureRef: ptr.ValueOrZero(row.PictureRef),
 		})
 	}
@@ -206,7 +206,7 @@ func (filer *libraryFiler) writeCredits(ctx context.Context, itemID int64, wante
 			return err
 		}
 		err = filer.queries.InsertCredit(ctx, sqlcgen.InsertCreditParams{
-			ItemID: itemID, Role: credit.role, Ordinal: credit.ordinal, PersonID: personID,
+			ItemID: itemID, Job: credit.role, Ordinal: credit.ordinal, PersonID: personID,
 			Character: ptr.NilIfZero(credit.character),
 		})
 		if err != nil {

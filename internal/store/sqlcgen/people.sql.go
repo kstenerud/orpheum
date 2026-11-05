@@ -115,13 +115,13 @@ func (q *Queries) GetPersonReached(ctx context.Context, arg GetPersonReachedPara
 }
 
 const insertCredit = `-- name: InsertCredit :exec
-INSERT INTO credit (item_id, role, ordinal, person_id, character)
+INSERT INTO credit (item_id, job, ordinal, person_id, character)
 VALUES (?1, ?2, ?3, ?4, ?5)
 `
 
 type InsertCreditParams struct {
 	ItemID    int64
-	Role      string
+	Job       string
 	Ordinal   int64
 	PersonID  int64
 	Character *string
@@ -130,7 +130,7 @@ type InsertCreditParams struct {
 func (q *Queries) InsertCredit(ctx context.Context, arg InsertCreditParams) error {
 	_, err := q.db.ExecContext(ctx, insertCredit,
 		arg.ItemID,
-		arg.Role,
+		arg.Job,
 		arg.Ordinal,
 		arg.PersonID,
 		arg.Character,
@@ -330,18 +330,18 @@ func (q *Queries) ListGenresWithCounts(ctx context.Context, arg ListGenresWithCo
 }
 
 const listItemCredits = `-- name: ListItemCredits :many
-SELECT credit.item_id, credit.role, credit.ordinal, credit.character, credit.person_id, person.tmdb_id,
+SELECT credit.item_id, credit.job, credit.ordinal, credit.character, credit.person_id, person.tmdb_id,
   person.picture_ref, item_text.name
 FROM credit
 CROSS JOIN person ON person.id = credit.person_id
 CROSS JOIN item_text ON item_text.item_id = person.id AND item_text.is_original = 1
 WHERE credit.item_id = ?1
-ORDER BY credit.role, credit.ordinal
+ORDER BY credit.job, credit.ordinal
 `
 
 type ListItemCreditsRow struct {
 	ItemID     int64
-	Role       string
+	Job        string
 	Ordinal    int64
 	Character  *string
 	PersonID   int64
@@ -350,7 +350,7 @@ type ListItemCreditsRow struct {
 	Name       string
 }
 
-// One item's credits, each with its person, in billing order within each role.
+// One item's credits, each with its person, in billing order within each job.
 func (q *Queries) ListItemCredits(ctx context.Context, itemID int64) ([]ListItemCreditsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listItemCredits, itemID)
 	if err != nil {
@@ -362,7 +362,7 @@ func (q *Queries) ListItemCredits(ctx context.Context, itemID int64) ([]ListItem
 		var i ListItemCreditsRow
 		if err := rows.Scan(
 			&i.ItemID,
-			&i.Role,
+			&i.Job,
 			&i.Ordinal,
 			&i.Character,
 			&i.PersonID,
@@ -429,19 +429,19 @@ func (q *Queries) ListItemGenres(ctx context.Context, itemID int64) ([]ListItemG
 
 const listLibraryCredits = `-- name: ListLibraryCredits :many
 
-SELECT credit.item_id, credit.role, credit.ordinal, credit.character, credit.person_id, person.tmdb_id,
+SELECT credit.item_id, credit.job, credit.ordinal, credit.character, credit.person_id, person.tmdb_id,
   person.picture_ref, item_text.name
 FROM item
 CROSS JOIN credit ON credit.item_id = item.id
 CROSS JOIN person ON person.id = credit.person_id
 CROSS JOIN item_text ON item_text.item_id = person.id AND item_text.is_original = 1
 WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL
-ORDER BY credit.item_id, credit.role, credit.ordinal
+ORDER BY credit.item_id, credit.job, credit.ordinal
 `
 
 type ListLibraryCreditsRow struct {
 	ItemID     int64
-	Role       string
+	Job        string
 	Ordinal    int64
 	Character  *string
 	PersonID   int64
@@ -469,7 +469,7 @@ func (q *Queries) ListLibraryCredits(ctx context.Context, libraryID *int64) ([]L
 		var i ListLibraryCreditsRow
 		if err := rows.Scan(
 			&i.ItemID,
-			&i.Role,
+			&i.Job,
 			&i.Ordinal,
 			&i.Character,
 			&i.PersonID,
@@ -536,11 +536,11 @@ func (q *Queries) ListLibraryItemGenres(ctx context.Context, libraryID *int64) (
 }
 
 const listPersonCreditsOn = `-- name: ListPersonCreditsOn :many
-SELECT credit.item_id, credit.role, credit.character
+SELECT credit.item_id, credit.job, credit.character
 FROM credit
 WHERE credit.person_id = ?1
   AND credit.item_id IN (SELECT value FROM json_each(CAST(?2 AS TEXT)))
-ORDER BY credit.item_id, credit.role, credit.ordinal
+ORDER BY credit.item_id, credit.job, credit.ordinal
 `
 
 type ListPersonCreditsOnParams struct {
@@ -550,7 +550,7 @@ type ListPersonCreditsOnParams struct {
 
 type ListPersonCreditsOnRow struct {
 	ItemID    int64
-	Role      string
+	Job       string
 	Character *string
 }
 
@@ -565,7 +565,7 @@ func (q *Queries) ListPersonCreditsOn(ctx context.Context, arg ListPersonCredits
 	items := []ListPersonCreditsOnRow{}
 	for rows.Next() {
 		var i ListPersonCreditsOnRow
-		if err := rows.Scan(&i.ItemID, &i.Role, &i.Character); err != nil {
+		if err := rows.Scan(&i.ItemID, &i.Job, &i.Character); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

@@ -56,12 +56,12 @@ func isSeriesMatched(row sqlcgen.GetSeriesForMatchRow) bool {
 		(identification == identificationIdentified || identification == identificationConfirmed)
 }
 
-// seasonPart is where a season's listing is stored in provider_response.
-func seasonPart(season int) string { return "season/" + strconv.Itoa(season) }
+// groupPart is where a season's listing is stored in provider_response.
+func groupListingPart(season int) string { return "group/" + strconv.Itoa(season) }
 
-// seasonOfPart is the season a stored part names: seasonPart read back.
+// seasonOfPart is the season a stored part names: groupPart read back.
 func seasonOfPart(part string) (int, error) {
-	season, err := strconv.Atoi(strings.TrimPrefix(part, "season/"))
+	season, err := strconv.Atoi(strings.TrimPrefix(part, "group/"))
 	if err != nil {
 		return 0, fmt.Errorf("stored part %q: %w", part, err)
 	}
@@ -96,7 +96,7 @@ func (filer *libraryFiler) seasonListing(
 	if episodes, found := filer.listings[key]; found {
 		return episodes, episodes != nil, nil
 	}
-	bodyGzip, isFetched, err := filer.storedResponse(ctx, seriesID, provider.Name(), seasonPart(season))
+	bodyGzip, isFetched, err := filer.storedResponse(ctx, seriesID, provider.Name(), groupListingPart(season))
 	if err != nil {
 		return nil, false, fmt.Errorf("read series %d's season %d: %w", seriesID, season, err)
 	}
@@ -113,7 +113,7 @@ func storedListing(
 	ctx context.Context, queries *sqlcgen.Queries, provider Provider, seriesID int64, season int,
 ) ([]Episode, error) {
 	bodyGzip, err := store.OrNotFound(queries.GetProviderResponse(ctx, sqlcgen.GetProviderResponseParams{
-		ItemID: seriesID, Provider: provider.Name(), Part: seasonPart(season),
+		ItemID: seriesID, Provider: provider.Name(), Part: groupListingPart(season),
 	}))
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, nil
@@ -234,7 +234,7 @@ func (stored *storedSeasons) listing(ctx context.Context, where seasonAtProvider
 
 func (stored *storedSeasons) listingFetchedAt(ctx context.Context, where seasonAtProvider) (int64, error) {
 	listing := sqlcgen.GetProviderResponseFetchedAtParams{
-		ItemID: where.seriesID, Provider: where.provider.Name(), Part: seasonPart(where.season),
+		ItemID: where.seriesID, Provider: where.provider.Name(), Part: groupListingPart(where.season),
 	}
 	return stored.queries.GetProviderResponseFetchedAt(ctx, listing) //nolint:wrapcheck // isListingStale says which
 }

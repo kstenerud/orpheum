@@ -109,7 +109,7 @@ func (q *Queries) DeleteOverride(ctx context.Context, arg DeleteOverrideParams) 
 
 const deleteSeasonListings = `-- name: DeleteSeasonListings :exec
 DELETE FROM provider_response
-WHERE item_id = ?1 AND provider = ?2 AND part LIKE 'season/%'
+WHERE item_id = ?1 AND provider = ?2 AND part LIKE 'group/%'
 `
 
 type DeleteSeasonListingsParams struct {
@@ -166,7 +166,7 @@ type GetProviderResponseParams struct {
 	Part     string
 }
 
-// An item's stored response: part ” is the item itself, 'season/N' a series' season listing.
+// An item's stored response: part ” is the item itself, 'group/N' a series' listing of one group.
 func (q *Queries) GetProviderResponse(ctx context.Context, arg GetProviderResponseParams) ([]byte, error) {
 	row := q.db.QueryRowContext(ctx, getProviderResponse, arg.ItemID, arg.Provider, arg.Part)
 	var body_gzip []byte

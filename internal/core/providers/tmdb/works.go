@@ -261,7 +261,7 @@ func (*Client) Parse(kind string, body []byte) (identify.Metadata, error) {
 		if season.PosterPath != "" && season.SeasonNumber >= 0 {
 			number := int64(season.SeasonNumber)
 			artwork = append(artwork, identify.ImageRef{
-				Kind: library.ArtPoster, SeasonNumber: &number, Ref: season.PosterPath,
+				Kind: library.ArtPoster, GroupNumber: &number, Ref: season.PosterPath,
 			})
 		}
 	}

@@ -29,15 +29,15 @@ const SourceLocal = "local"
 // season of the series' aired ordering, the specials' 0 among them, and is held as its series' image
 // (D379); nil is an image of the item itself.
 type Ref struct {
-	Kind         string `json:"kind"`
-	SeasonNumber *int64 `json:"seasonNumber,omitempty"`
-	SourceRef    string `json:"sourceRef"`
+	Kind        string `json:"kind"`
+	GroupNumber *int64 `json:"seasonNumber,omitempty"`
+	SourceRef   string `json:"sourceRef"`
 }
 
 // isRow reports whether an artwork row of a source is this image: its kind, its season and the
 // source's reference to it.
 func (ref Ref) isRow(row sqlcgen.ListLiveArtworkRow, source string) bool {
-	return row.Kind == ref.Kind && sameSeason(row.SeasonNumber, ref.SeasonNumber) && row.Source == source &&
+	return row.Kind == ref.Kind && sameSeason(row.GroupNumber, ref.GroupNumber) && row.Source == source &&
 		row.SourceRef != nil && *row.SourceRef == ref.SourceRef
 }
 
@@ -205,7 +205,7 @@ func (service *Service) owed(ctx context.Context, named []ItemImages) ([]ItemIma
 		var missing []Ref
 		for _, ref := range item.Refs {
 			// Only an item's own images are found beside the media: a season's is never among them.
-			if ref.SeasonNumber == nil && slices.Contains(localKinds, ref.Kind) {
+			if ref.GroupNumber == nil && slices.Contains(localKinds, ref.Kind) {
 				continue
 			}
 			isOwed, err := service.isOwed(ctx, rows, item.Source, ref)
@@ -274,7 +274,7 @@ func (service *Service) kindsShownFromBesideTheMedia(
 	}
 	kinds := service.beside.kindsOf(item.ItemID)
 	for _, row := range rows {
-		if row.Source == SourceLocal && row.SourceSha256 != nil && row.SeasonNumber == nil &&
+		if row.Source == SourceLocal && row.SourceSha256 != nil && row.GroupNumber == nil &&
 			!slices.Contains(kinds, row.Kind) {
 			kinds = append(kinds, row.Kind)
 		}
@@ -335,7 +335,7 @@ type refusal struct {
 func (service *Service) record(ctx context.Context, want wantedImage, sourceSha256 []byte, refused *refusal) error {
 	now := service.parts.Clock.Now().UnixMilli()
 	insert := sqlcgen.InsertArtworkParams{
-		ItemID: want.itemID, Kind: want.ref.Kind, SeasonNumber: want.ref.SeasonNumber, Source: want.source,
+		ItemID: want.itemID, Kind: want.ref.Kind, GroupNumber: want.ref.GroupNumber, Source: want.source,
 		SourceRef: &want.ref.SourceRef, SourceSha256: sourceSha256,
 	}
 	if refused != nil {
@@ -357,7 +357,7 @@ func (service *Service) record(ctx context.Context, want wantedImage, sourceSha2
 			return err
 		}
 		err = queries.RetireReplacedArtwork(ctx, sqlcgen.RetireReplacedArtworkParams{
-			RemovedAt: &now, ItemID: want.itemID, Kind: want.ref.Kind, SeasonNumber: want.ref.SeasonNumber,
+			RemovedAt: &now, ItemID: want.itemID, Kind: want.ref.Kind, GroupNumber: want.ref.GroupNumber,
 			Source: want.source, KeepID: id,
 		})
 		if err != nil {

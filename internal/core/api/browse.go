@@ -18,7 +18,7 @@ const tagBrowse = "Browse"
 // §4).
 type RecordedBody struct {
 	RecordedAt int64  `doc:"Unix milliseconds" json:"recordedAt"`
-	From       string `doc:"Its container's recorded-time tag, a date in its file's or a folder's name, the file's own time, or a person's correction" enum:"tag,name,file,person" json:"from"` //nolint:lll // one struct tag
+	From       string `doc:"Its container's recorded-time tag, a date in its file's or a folder's name, the file's own time, or a user's correction" enum:"tag,name,file,user" json:"from"` //nolint:lll // one struct tag
 	FileName   string `doc:"Its file's name" json:"fileName"`
 }
 

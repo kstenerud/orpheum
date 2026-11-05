@@ -227,7 +227,7 @@ func (matcher *Matcher) fetchSeasonListings(
 func (matcher *Matcher) storeSeason(
 	ctx context.Context, provider Provider, seriesID int64, season int, body []byte,
 ) error {
-	return matcher.storePartBody(ctx, provider, seriesID, seasonPart(season), body)
+	return matcher.storePartBody(ctx, provider, seriesID, groupListingPart(season), body)
 }
 
 // recordSeriesAndRederive writes what a match found, if anything, and marks the series' library as

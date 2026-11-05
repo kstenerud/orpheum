@@ -32,10 +32,10 @@ WHERE (provider_response.fetched_at, provider_response.last_asked_at, provider_r
 -- A series' stored season listings, dropped as a person chooses its match, which may be another
 -- series than the one they listed (D301 section 2): the next listings are the chosen one's.
 DELETE FROM provider_response
-WHERE item_id = sqlc.arg(item_id) AND provider = sqlc.arg(provider) AND part LIKE 'season/%';
+WHERE item_id = sqlc.arg(item_id) AND provider = sqlc.arg(provider) AND part LIKE 'group/%';
 
 -- name: GetProviderResponse :one
--- An item's stored response: part '' is the item itself, 'season/N' a series' season listing.
+-- An item's stored response: part '' is the item itself, 'group/N' a series' listing of one group.
 SELECT body_gzip
 FROM provider_response
 WHERE item_id = sqlc.arg(item_id) AND provider = sqlc.arg(provider) AND part = sqlc.arg(part);

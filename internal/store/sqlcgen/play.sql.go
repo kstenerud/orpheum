@@ -75,7 +75,7 @@ func (q *Queries) DeletePlaySpansOfUser(ctx context.Context, userID int64) error
 }
 
 const deleteProgressHidesOfUser = `-- name: DeleteProgressHidesOfUser :exec
-DELETE FROM progress_hide WHERE user_id = ?1
+DELETE FROM item_hidden WHERE user_id = ?1
 `
 
 func (q *Queries) DeleteProgressHidesOfUser(ctx context.Context, userID int64) error {
@@ -221,9 +221,9 @@ func (q *Queries) GetPlayPosition(ctx context.Context, arg GetPlayPositionParams
 }
 
 const hideProgress = `-- name: HideProgress :exec
-INSERT INTO progress_hide (user_id, item_id, hidden_at) VALUES (?1, ?2, ?3)
+INSERT INTO item_hidden (user_id, item_id, hidden_at) VALUES (?1, ?2, ?3)
 ON CONFLICT (user_id, item_id) DO UPDATE SET hidden_at = excluded.hidden_at
-WHERE (progress_hide.hidden_at) IS NOT (excluded.hidden_at)
+WHERE (item_hidden.hidden_at) IS NOT (excluded.hidden_at)
 `
 
 type HideProgressParams struct {
@@ -409,7 +409,7 @@ SELECT play_position.file_id, play_position.position_ms, play_position.position_
       AND (CAST(?1 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?2 AS TEXT))))
     ORDER BY place.copy_of IS NOT NULL, place.first_seen_at, place.id LIMIT 1) AS TEXT) AS path,
-  title.id AS title_id, title.kind, title.year, item_text.name, progress_hide.hidden_at, title_watched.marked_at
+  title.id AS title_id, title.kind, title.year, item_text.name, item_hidden.hidden_at, title_watched.marked_at
 FROM play_position
 JOIN file ON file.id = play_position.file_id AND file.removed_at IS NULL
 JOIN file_filing ON file_filing.file_id = file.id
@@ -417,7 +417,7 @@ JOIN version ON version.id = file_filing.version_id AND version.removed_at IS NU
 JOIN title ON title.id = version.title_id AND title.kind IN ('movie', 'episode', 'other')
 JOIN item ON item.id = title.id AND item.removed_at IS NULL
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
-LEFT JOIN progress_hide ON progress_hide.user_id = play_position.user_id AND progress_hide.item_id = title.id
+LEFT JOIN item_hidden ON item_hidden.user_id = play_position.user_id AND item_hidden.item_id = title.id
 LEFT JOIN title_watched ON title_watched.user_id = play_position.user_id AND title_watched.title_id = title.id
 WHERE play_position.user_id = ?3
   AND EXISTS (
@@ -500,13 +500,13 @@ const listTitlesPlayPositions = `-- name: ListTitlesPlayPositions :many
 SELECT version.title_id, play_position.position_ms, play_position.position_read_at,
   CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
     AS duration_ms,
-  progress_hide.hidden_at, title_watched.marked_at
+  item_hidden.hidden_at, title_watched.marked_at
 FROM json_each(CAST(?1 AS TEXT)) AS listed
 CROSS JOIN version ON version.title_id = listed.value AND version.removed_at IS NULL
 CROSS JOIN file_filing ON file_filing.version_id = version.id
 CROSS JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
 CROSS JOIN play_position ON play_position.user_id = ?2 AND play_position.file_id = file.id
-LEFT JOIN progress_hide ON progress_hide.user_id = play_position.user_id AND progress_hide.item_id = version.title_id
+LEFT JOIN item_hidden ON item_hidden.user_id = play_position.user_id AND item_hidden.item_id = version.title_id
 LEFT JOIN title_watched ON title_watched.user_id = play_position.user_id AND title_watched.title_id = version.title_id
 ORDER BY play_position.position_read_at DESC
 `
@@ -830,7 +830,7 @@ func (q *Queries) RestoreTitlesWatched(ctx context.Context, arg RestoreTitlesWat
 }
 
 const unhideProgress = `-- name: UnhideProgress :exec
-DELETE FROM progress_hide WHERE user_id = ?1 AND item_id = ?2
+DELETE FROM item_hidden WHERE user_id = ?1 AND item_id = ?2
 `
 
 type UnhideProgressParams struct {

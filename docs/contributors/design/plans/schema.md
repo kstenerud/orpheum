@@ -466,11 +466,11 @@ CREATE INDEX item_genre_genre ON item_genre(genre_id, item_id);
 
 CREATE TABLE credit (                                       -- class C, derived by the pass
   item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
-  role        TEXT NOT NULL CHECK (role IN ('cast', 'director', 'writer')),
+  job         TEXT NOT NULL CHECK (job IN ('cast', 'director', 'writer')),
   ordinal     INTEGER NOT NULL CHECK (ordinal >= 0),  -- billing order within the role
   person_id   INTEGER NOT NULL REFERENCES person(id) ON DELETE RESTRICT,
   character   TEXT,                          -- a cast member's part; NULL for crew
-  PRIMARY KEY (item_id, role, ordinal)
+  PRIMARY KEY (item_id, job, ordinal)
 ) WITHOUT ROWID, STRICT;
 CREATE INDEX credit_person ON credit(person_id, item_id);
 ```
@@ -575,7 +575,7 @@ CREATE TABLE edition_text (                                -- class A or O
 CREATE TABLE other_video (                                 -- class C (D349)
   title_id      INTEGER PRIMARY KEY REFERENCES title(id) ON DELETE RESTRICT,
   recorded_at   INTEGER NOT NULL,          -- Unix milliseconds
-  recorded_from TEXT NOT NULL CHECK (recorded_from IN ('tag','name','file','person')),
+  recorded_from TEXT NOT NULL CHECK (recorded_from IN ('tag','name','file','user')),
   file_name     TEXT NOT NULL,             -- its file's name, the last part of its path
   file_name_key BLOB NOT NULL              -- file_name's CLDR sort key in the sort_locale, BINARY order
 ) STRICT;
@@ -674,9 +674,9 @@ CREATE TABLE artwork (                                     -- class O/F; A when 
   refused_at  INTEGER,
   refusal     TEXT,
   is_missing_at_source INTEGER NOT NULL DEFAULT 0 CHECK (is_missing_at_source IN (0, 1)),
-  -- 0064: a series' season's poster, an image of the series naming its season of the aired
-  -- ordering (D379); NULL for an image of the item itself
-  season_number INTEGER CHECK (season_number >= 0)
+  -- 0064: a series' group's poster, an image of the series naming its group of the aired
+  -- ordering (D379; named group_number by 0069); NULL for an image of the item itself
+  group_number INTEGER CHECK (group_number >= 0)
 );
 CREATE UNIQUE INDEX artwork_chosen ON artwork(item_id, kind) WHERE is_chosen = 1;
 CREATE INDEX artwork_item ON artwork(item_id, kind);
@@ -900,7 +900,7 @@ CREATE TABLE invitation (                                  -- class A (D246 sect
   role_id       INTEGER NOT NULL REFERENCES role(id) ON DELETE RESTRICT,
   admin_note    TEXT NOT NULL CHECK (admin_note <> ''),
   issued_at     INTEGER NOT NULL,
-  made_user_id  INTEGER REFERENCES user(id) ON DELETE RESTRICT,  -- the account its use made
+  made_user_id  INTEGER REFERENCES user(id) ON DELETE RESTRICT,  -- the user its use made
   made_at       INTEGER,
   CHECK ((made_user_id IS NULL) = (made_at IS NULL))
 );
@@ -1052,7 +1052,7 @@ CREATE TABLE watchlist (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE R
   PRIMARY KEY (user_id, item_id)) WITHOUT ROWID;
 -- Hidden from Continue Watching / Next Up (D188). Not a completion; it lapses by itself when
 -- the item has activity after `hidden_at`, so there is nothing to clear.
-CREATE TABLE progress_hide (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
+CREATE TABLE item_hidden (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
   item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT, hidden_at INTEGER NOT NULL,
   PRIMARY KEY (user_id, item_id)) WITHOUT ROWID;
 -- Whether a person watched a title (D370, step 0062): set by a play to its finish and by hand, never
@@ -1141,7 +1141,7 @@ correlated in-progress check must be a `LIMIT 1` scalar subquery driven by `vers
 CREATE TABLE provider_response (                           -- class F: the stored input (D170)
   item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
   provider    TEXT NOT NULL,
-  part        TEXT NOT NULL DEFAULT '',  -- '' the item itself; 'season/N' a series' season listing
+  part        TEXT NOT NULL DEFAULT '',  -- '' the item itself; 'group/N' a series' listing of one group (0069)
   fetched_at  INTEGER NOT NULL,          -- when body_gzip was fetched: the body's age
   last_asked_at INTEGER NOT NULL,        -- 0027: when the provider was last asked, with or without a new body (D213 §4)
   body_gzip   BLOB NOT NULL,             -- gzipped; cast and crew are read from here in Cut A
@@ -1454,7 +1454,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `purged_watching` | persistent.db | `internal/core/playback` | what deleted files left of each person's watching on their versions, folded as library's purge deletes the files (D306 §8) |
 | `position` | persistent.db | `internal/core/identify` | |
 | `preference` | persistent.db | `internal/core/preferences` | |
-| `progress_hide` | persistent.db | `internal/core/playback` | |
+| `item_hidden` | persistent.db | `internal/core/playback` | |
 | `provider_response` | persistent.db | `internal/core/identify` | |
 | `refresh_request` | persistent.db | `internal/core/identify` | |
 | `resource_use` | persistent.db | `internal/core/resourceuse` | what the core and each node used of their machines each minute, beside what they did; kept a month (toolkit.md) |
@@ -1504,7 +1504,7 @@ rows. Each class that would grow with no bound but time is kept to a limit a set
 | The library | `file`, `file_probe`, `file_nfo`, `stream`, `item`, `title`, `version`, `collection`, `collection_member`, `ordering`, `position`, `extra_relation`, `item_text`, `sort_key`, `other_video`, `item_provider_id`, `field_override`, `artwork`, `provider_response`, `loudness`, `video_timeline`, `subtitle_text`, `fetched_subtitle`, `person`, `genre`, `item_genre`, `credit` | the files and works the libraries hold, **and every one they ever held**: a removed file is a tombstone, kept so that a file copied back returns with what was read of it (D208 §4, D231 §7), and deleted `removed_files_kept_days` (90) after, with its streams, probe, NFO, subtitles fetched for it and the choices made in it (D306 §8); a removed item, title or version stays, and nothing purges those yet |
 | The library's open questions | `fetch_failure`, `refresh_request`, `guessed_match` | one row an item at most; each is deleted when its question is answered |
 | People and their devices | `user`, `device`, `"grant"`, `locator` | the people and devices there are, and a removed person's nameless row (D305 §1); a credential that ended, revoked or expired, is deleted `ended_credentials_kept_days` (90) after, with its locator (D304 §6); a removed device stays as a row while a play names it |
-| Watching | `play_event`, `play_span`, `play_position`, `progress_hide`, `purged_watching`, `title_watched` | every play of the files there are; a deleted file's plays fold into one `purged_watching` row a person a version (D306 §8); one `title_watched` row a person a title they watched or marked (D370); all deleted with the person who watched (`ForgetWatchingOf`) |
+| Watching | `play_event`, `play_span`, `play_position`, `item_hidden`, `purged_watching`, `title_watched` | every play of the files there are; a deleted file's plays fold into one `purged_watching` row a person a version (D306 §8); one `title_watched` row a person a title they watched or marked (D370); all deleted with the person who watched (`ForgetWatchingOf`) |
 | Players' links | `link_memory` | one row a player a network it played from; a row said nothing of within `link_speed_fresh_hours` (24) is deleted at the next player's word (D257 §1) |
 | Scans | `root_scan`, `root_mount`, `root_state`, `unavailable_place` | one row a root or a disk in it, deleted with the root |
 | Settings, roles, invitations, secrets | `setting`, `role`, `role_library`, `invitation`, `invitation_link`, `secret` | what an admin made; deleted when they delete it |
