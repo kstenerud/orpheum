@@ -1786,5 +1786,10 @@ Not started; the owner orders them after D416. Check each against
      the grid; the fix needs a browser test pressing each entry's centre (`elementFromPoint`).
 2. **The other grids** need the same treatment: the "needs a match" list, the accounts list and the
    roles list (`match-correction.tsx`, `accounts.ts`, `roles-section.tsx`).
+   The owner (2026-11-05): "Likely we're going to need a grid UI widget for alignment, which supports
+   some columns wrapping and some not." One shared widget, then, for every such list (rule 11: one way
+   to do each job): its columns line up across rows, each column declares whether its text wraps or
+   stays on one line (truncated, or the column sized to it), and each row is one pressable target
+   covering exactly what is drawn. Search for an existing grid or table mechanism in `web/` first.
 3. **The System page is a wall of text** (`system-*.tsx`).
 4. **The account page is messy** (`account.tsx`).
