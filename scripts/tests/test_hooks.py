@@ -338,7 +338,7 @@ class AgentLimits(unittest.TestCase):
             said = run_hook("on_tool_done.py", {"agent_id": agent, "tool_name": "Read"},
                             ORPHEUM_AGENTS_STATE_DIR=str(records))
             return said.get("hookSpecificOutput", {}).get("additionalContext", "")
-        (records / "a7.json").write_text(json.dumps({"active": 1.0, "calls": 148}))
+        (records / "a7.json").write_text(json.dumps({"active": 1.0, "calls": 148, "warned": 120}))
         self.assertEqual(call(), "")
         self.assertIn("tool call 150", call())
         self.assertEqual(call(), "")
@@ -351,6 +351,45 @@ class AgentLimits(unittest.TestCase):
         self.assertIsNone(on_tool_done.reminder(176, 175))
         self.assertIsNotNone(on_tool_done.reminder(152), "a count that skipped 150 still reminds")
         self.assertIsNone(on_tool_done.reminder(160, 152))
+
+    def test_an_agent_is_warned_at_four_fifths_of_its_briefs_budget_and_stopped_at_it(self):
+        records, session = self.records(), Path(tempfile.mkdtemp()) / "session.jsonl"
+        transcript = session.with_suffix("") / "subagents" / "agent-a9.jsonl"
+        transcript.parent.mkdir(parents=True)
+        brief = {"type": "user", "message": {"content": "Build the thing.\n\nCall budget: 10\n"}}
+        quoted = {"type": "user", "message": {"content": [{"type": "tool_result", "content": "Call budget: 900"}]}}
+        transcript.write_text(json.dumps(brief) + "\n" + json.dumps(quoted) + "\n")
+        def call() -> str:
+            said = run_hook("on_tool_done.py", {"agent_id": "a9", "tool_name": "Read", "transcript_path": str(session)},
+                            ORPHEUM_AGENTS_STATE_DIR=str(records))
+            return said.get("hookSpecificOutput", {}).get("additionalContext", "")
+        said = [call() for _ in range(10)]
+        self.assertEqual(said[:7], [""] * 7)
+        self.assertIn("tool call 8 of a budget of 10", said[7], "warned at four fifths, not by a quoted budget")
+        self.assertEqual(said[8], "", "warned once")
+        self.assertIn("your budget is 10", said[9])
+        self.assertIn("The lead resumes you", said[9])
+
+    def test_a_resumed_agent_gets_the_budget_its_message_states_up_to_the_ceiling(self):
+        import time
+        records, session = self.records(), Path(tempfile.mkdtemp()) / "session.jsonl"
+        transcript = session.with_suffix("") / "subagents" / "agent-a9.jsonl"
+        transcript.parent.mkdir(parents=True)
+        messages = [{"type": "user", "message": {"content": "Call budget: 10"}},
+                    {"type": "user", "message": {"content": [{"type": "text", "text": "Go on.\nCall budget: 15"}]}}]
+        transcript.write_text("".join(json.dumps(m) + "\n" for m in messages))
+        (records / "a9.json").write_text(json.dumps({"active": 1.0, "calls": 10, "reminded": 10, "budget": 10,
+                                                     "first_budget": 10, "stopped": time.time()}))
+        def call() -> str:
+            said = run_hook("on_tool_done.py", {"agent_id": "a9", "tool_name": "Read", "transcript_path": str(session)},
+                            ORPHEUM_AGENTS_STATE_DIR=str(records))
+            return said.get("hookSpecificOutput", {}).get("additionalContext", "")
+        said = [call() for _ in range(10)]
+        record = json.loads((records / "a9.json").read_text())
+        self.assertEqual((record["spent"], record["budget"], record["first_budget"]), (10, 10, 10),
+                         "15 asked, 10 given: twice the brief's 10 is the ceiling")
+        self.assertIn("your budget is 10", said[9])
+        self.assertIn("This is the ceiling", said[9])
 
     def test_the_records_directory_is_asked_of_git_once_not_once_per_record(self):
         from unittest import mock

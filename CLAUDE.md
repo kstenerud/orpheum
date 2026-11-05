@@ -40,7 +40,7 @@ the `AGENTS.md` convention read the same rules. Only Claude-specific mechanics b
   `scripts/gate_paths.py`.
 - **On cost** (docs/contributors/lead.md §1–2): the prompt hook shows the standing orders only when they
   changed or a compaction dropped them, and says when the context passes 120k; `pre_agent.py` refuses an
-  agent launch naming no model, a fourth running, or one that can edit without a worktree; `on_tool_done.py` tells an agent past 150 tool calls
+  agent launch naming no model, a fourth running, or one that can edit without a worktree; `on_tool_done.py` warns an agent at four fifths of the call budget its brief states (`Call budget: N`, 150 if none) and past it tells it
   to commit, report and stop. `scripts/token_usage.py` is the ledger, read at a batch's end.
 - **One test run at a time** (the owner, 2026-11-04): `make check`, `make spot`, check-pr, revert-red,
   the background probe and a test command typed in a session (`go test`, `vitest`, `npm test`,

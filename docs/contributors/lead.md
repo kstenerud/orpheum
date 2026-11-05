@@ -32,7 +32,7 @@ cache reads were 85% of the bill, agents 77% of it.
 - **The hooks hold the limits, not memory:** the prompt hook warns past 120k of context and asks for a compaction
   at the next phase boundary (one costs about $0.50, paid back over about 25 calls: never mid-step or
   before a short stretch), an agent launch
-  needs a model and a free slot of three, an agent past 150 calls is told to stop (`CLAUDE.md`, "On
+  needs a model and a free slot of three, an agent past its call budget is told to stop (§2) (`CLAUDE.md`, "On
   cost"). At a batch's end, read `python3 scripts/token_usage.py --since <the batch's first day>` and put
   its totals in the batch's report.
 
@@ -46,6 +46,14 @@ cache reads were 85% of the bill, agents 77% of it.
   says: end at `make spot` (the lead runs `make check` once at the merge), no polling, never walk
   `/` (`find / -path /tank -prune -o …`), regenerate generated files rather than edit them, classify
   each value it adds (setting, config key, constant: §7).
+- **A brief states its call budget** on a line of its own, `Call budget: N` (150 when it states none;
+  `scripts/call_budget.py`). Size it to the work: two of three schema rounds stopped at a flat 150 with
+  their work uncommitted (2026-11-05). The hook warns the agent at four fifths to land its stage, and at the
+  budget it commits, reports what is left with its estimate of the calls the rest needs, and stops. A small
+  remainder: resume the same agent (SendMessage, its context intact) with a new `Call budget:` line. A large
+  one, or a context already long: a fresh agent from the committed state. An agent's calls over all its runs
+  never pass twice its brief's budget. `scripts/token_usage.py` sets each agent's calls against its budget:
+  read it at the batch's end and size the next briefs from it.
 - **Every agent that can edit gets `isolation: "worktree"`**; read-only work goes to Explore
   (2026-10-26: five agents in one tree starved commits for 90 minutes; 2026-10-31: one sharing the
   tree failed the Stop hook three times, so `pre_agent.py` now refuses the launch). The lead rebases each finished branch onto main and fast-forwards. Each agent
