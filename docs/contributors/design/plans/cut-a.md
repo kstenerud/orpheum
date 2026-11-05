@@ -300,7 +300,13 @@ table its map (checked against it at the pre-M4 audit, 2026-10-04). A POST that 
 committed, and diffed in CI with `oasdiff` ([D85](../../decisions/working-notes.md)). The TS SDK
 is generated with `openapi-typescript` + `openapi-fetch`. Credentials travel in a header or a
 cookie, **never in a URL** ([D154](../../decisions/working-notes.md)). Media URLs carry an opaque
-single-playback token that the core maps to a grant.
+single-playback token that the core maps to a grant. Who may call each operation is in the document
+(D425 §6): its `security`, of the schemes `session` (a session's bearer token), `membership` (a
+Watch Together member's bearer credential) and `media` (the media cookie, D216), and its
+`x-orpheum-capability`, the role its handler checks: `signedIn`, `admin`, `manageUsers` (a session
+that may change its account's security, which a device a code activated may not), `editMetadata`,
+`deviceTests`, `member`, `media`, or `none` for a secret in the request itself. The `Authorization`
+header is not a parameter of any operation; the security says it.
 
 Two headers of Orpheum's own: every API answer carries `X-Orpheum-Client`, the file name, hashed by
 the build, of the web client's script the server serves, and a page running another one reloads
