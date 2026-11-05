@@ -83,13 +83,13 @@ func (server *Server) registerDevices() {
 		OperationID: "removeMyDevice", Method: http.MethodDelete, Path: "/me/devices/{id}",
 		Summary: "Remove one of one's devices; it is signed out at its next request", Tags: tags,
 		DefaultStatus: http.StatusNoContent,
-		Extensions:    callableBy(capabilityManageUsers),
+		Extensions:    callableBy(capabilityAccountSecurity),
 	}, server.removeMyDevice)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "signOutElsewhere", Method: http.MethodPost, Path: "/me/devices/sign-out-elsewhere",
 		Summary: "Sign out every device but this one; they stay listed", Tags: tags,
 		DefaultStatus: http.StatusNoContent,
-		Extensions:    callableBy(capabilityManageUsers),
+		Extensions:    callableBy(capabilityAccountSecurity),
 	}, server.signOutElsewhere)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "listUserDevices", Method: http.MethodGet, Path: "/users/{id}/devices",

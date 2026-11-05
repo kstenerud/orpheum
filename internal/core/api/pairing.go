@@ -107,25 +107,25 @@ func (server *Server) registerPairing() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "enterPairingCode", Method: http.MethodPost, Path: "/pairings/code",
 		Summary: "Enter the code a device shows; both then show a check code (D288)", Tags: tags,
-		Extensions: callableBy(capabilityManageUsers),
+		Extensions: callableBy(capabilityAccountSecurity),
 	}, server.enterPairingCode)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "answerPairingCheck", Method: http.MethodPost, Path: "/pairings/check",
 		DefaultStatus: http.StatusNoContent,
 		Summary:       "Say whether the check codes match: only a match activates the device", Tags: tags,
-		Extensions: callableBy(capabilityManageUsers),
+		Extensions: callableBy(capabilityAccountSecurity),
 	}, server.answerPairingCheck)
 	// The old paths, kept outside the document for one release (D425 §3): Connect serves the web
 	// build it was last deployed with, which enters a code at /activations. They go in the next batch.
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "enterPairingCodeAtItsOldPath", Method: http.MethodPost, Path: "/activations",
 		Hidden:     true,
-		Extensions: callableBy(capabilityManageUsers),
+		Extensions: callableBy(capabilityAccountSecurity),
 	}, server.enterPairingCodeAtItsOldPath)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "answerPairingCheckAtItsOldPath", Method: http.MethodPost, Path: "/activations/answer",
 		Hidden: true, DefaultStatus: http.StatusNoContent,
-		Extensions: callableBy(capabilityManageUsers),
+		Extensions: callableBy(capabilityAccountSecurity),
 	}, server.answerPairingCheckAtItsOldPath)
 }
 

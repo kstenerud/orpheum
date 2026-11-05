@@ -197,7 +197,7 @@ func (server *Server) registerSetupAndAuth() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getOwnLink", Method: http.MethodGet, Path: "/me/own-link",
 		Summary: "Your own link, which leads your devices back to this server through its discovery", Tags: tags,
-		Extensions: callableBy(capabilityManageUsers),
+		Extensions: callableBy(capabilityAccountSecurity),
 	}, server.getOwnLink)
 	server.registerHandOff()
 }
