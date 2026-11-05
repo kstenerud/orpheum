@@ -26286,3 +26286,48 @@ Each point corrects a fact the plan had wrong or keeps to the owner's stated int
    `rescanLibrary`, not `post…`).
 
 **Status:** Decided 2026-11-05; D416's batch makes it.
+
+## D426 — The schema is rebuilt greenfield in D416's batch: the kind on `item`, `file` split from `place`, groups as rows, `work` and `sequence`
+
+**Decided** (2026-11-05), by the owner, on a greenfield audit of the schema at step 0068. From the
+owner: "If we've got to do a schema migration, let's do an audit of the schema as well. This is
+another case where greenfield is fine since I can just regenerate the db on nas.example." Of the
+audit's eleven findings the owner chose all of them, the `file`/`place` split included, in this
+batch. **Amends** D416 §12 (the batch is the API rename alone), D160 and schema.md's "no season
+table", and D272 §5 for this one fold: production's database is regenerated, not migrated.
+
+1. **One new baseline replaces steps 0048–0068.** nas.example's and staging's databases are made anew.
+2. **An item's kind lives on `item`**, in D416's singular words (movie, series, episode, extra,
+   other, person; album, artist and track later), with the columns every kind shares: year,
+   released date, the source it follows, identification state, when it was found. The subtypes
+   keep a `kind` column limited by CHECK to their own kinds and tied to `item(id, kind)` by a
+   foreign key. This replaces the constant `item_kind` and the per-kind list queries and indexes.
+3. **The subtypes are renamed:** `title` → `work` (the playable thing: movie, episode, extra,
+   other), `collection` → `sequence` (the ordered container: series, box set, later album; D160's
+   "a sequence is what a collection produces").
+4. **`file` holds the payload, and `place` holds where it was seen**: node, path and its raw bytes,
+   device and inode, seen times, removal, and the file it holds. Everything that means the
+   file (streams, probe, NFO, filing, play, fetched subtitles) references `file`. There is one
+   view of which library covers a place.
+5. **A group is a row**: `grp(id, ordering_id, number)` for a season or a disc. A group's text, its
+   artwork and later per-group state reference it. A position names its group. The API still
+   addresses a group as item + number.
+6. **Series membership is the default ordering's positions.** `collection_member` remains only
+   for box sets, without its own position.
+7. **Names follow D416 and D425:** credit `job`, group terms for season, `'user'` for the user,
+   `item_hidden` for `progress_hide`.
+8. **Dead schema goes:** the edition, tag, user_deny, favourite, user_rating and watchlist tables,
+   the unwritten and constant columns, the unused views and the duplicate index. Each returns with
+   its feature (schema.md's "additive later").
+9. **Telemetry leaves `persistent.db`:** `resource_use` and `link_memory` go to `cache.db`, so the
+   hourly backup can again skip an unchanged database (sql.md §13).
+10. **The baseline drops what migrations needed:** defaults that served only ALTER TABLE (above all
+    `title.kind DEFAULT 'movie'`). It adds CHECKs for what was implicit, WITHOUT ROWID on the small
+    keyed tables, and a `revision` on rows people edit (sql.md M1).
+
+**Open:** what of nas.example's database survives the rebuild (users, watched state, positions,
+passkeys): an export and import, or a fresh start. This is the owner's to say before production.
+Before folding, re-measure visibility at 500k rows (audit §9), and use the measurement to decide
+whether visibility is stored per item and library.
+
+**Status:** Decided 2026-11-05; D416's batch makes it.
