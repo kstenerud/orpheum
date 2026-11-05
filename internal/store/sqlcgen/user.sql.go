@@ -312,8 +312,17 @@ SELECT user.id, user.name, role.name AS role_name, user.admin_note, user.passwor
 FROM user
 JOIN role ON role.id = user.role_id
 WHERE user.removed_at IS NULL
+  AND (user.name COLLATE NOCASE > CAST(?1 AS TEXT)
+    OR (user.name COLLATE NOCASE = CAST(?1 AS TEXT) AND user.id > CAST(?2 AS INTEGER)))
 ORDER BY user.name COLLATE NOCASE, user.id
+LIMIT ?3
 `
+
+type ListLiveUsersParams struct {
+	AfterName string
+	AfterID   int64
+	MaxRows   int64
+}
 
 type ListLiveUsersRow struct {
 	ID          int64
@@ -325,9 +334,10 @@ type ListLiveUsersRow struct {
 }
 
 // Everyone, for the admin's list of people: whether each has set a password yet, and the admin's
-// note of who each is for (D246 section 2).
-func (q *Queries) ListLiveUsers(ctx context.Context) ([]ListLiveUsersRow, error) {
-	rows, err := q.db.QueryContext(ctx, listLiveUsers)
+// note of who each is for (D246 section 2). A page: at most max_rows (-1 for everyone) after the
+// person named after_name with after_id, by name (” and 0 for the first).
+func (q *Queries) ListLiveUsers(ctx context.Context, arg ListLiveUsersParams) ([]ListLiveUsersRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLiveUsers, arg.AfterName, arg.AfterID, arg.MaxRows)
 	if err != nil {
 		return nil, err
 	}

@@ -50,12 +50,12 @@ func TestServe_ThisMachinesPortAdministersWhereTheHousesPortDoesNot(t *testing.T
 	setUpOwner(t, server, path, "owner")
 	token := signInAs(t, server.baseURL, "owner", ownerPassword)
 	_, port, _ := net.SplitHostPort(thisMachine) //nolint:errcheck // the listener's own address
-	if refused := requestAPI(t, http.MethodGet, server.baseURL+"/users", token, nil); refused.status !=
+	if refused := requestAPI(t, http.MethodGet, server.baseURL+"/users?limit=500", token, nil); refused.status !=
 		http.StatusForbidden || !strings.Contains(refused.body, "http://localhost:"+port) {
 		t.Errorf("GET /users on the house's port = %d %s; want 403 naming http://localhost:%s",
 			refused.status, refused.body, port)
 	}
-	allowed := requestAPI(t, http.MethodGet, "http://"+thisMachine+api.Prefix+"/users", token, nil)
+	allowed := requestAPI(t, http.MethodGet, "http://"+thisMachine+api.Prefix+"/users?limit=500", token, nil)
 	if allowed.status != http.StatusOK {
 		t.Errorf("GET /users on this machine's port = %d %s; want 200", allowed.status, allowed.body)
 	}

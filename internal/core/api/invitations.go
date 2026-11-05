@@ -11,6 +11,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/discovery"
+	"github.com/kstenerud/orpheum/internal/core/library"
 )
 
 // InvitationBody is an invitation: its role and the admin's note of who it is for; while it waits,
@@ -51,7 +52,14 @@ type InviteOutput struct {
 type InvitationsOutput struct {
 	Body struct {
 		Invitations []InvitationBody `json:"invitations"`
+		NextCursor  string           `doc:"The next page's cursor; absent on the last" json:"nextCursor,omitempty"`
 	}
+}
+
+// InvitationsInput asks for a page of the invitations still waiting.
+type InvitationsInput struct {
+	AuthorizationHeader
+	PageInput
 }
 
 // InvitationInput names an invitation.
@@ -140,7 +148,8 @@ func (server *Server) createInvitation(ctx context.Context, input *InviteInput) 
 	if err != nil {
 		return nil, server.authError(ctx, "invite someone", err)
 	}
-	listed, err := server.invitationBodies(ctx, dependencies)
+	// The new invitation is the newest: the first of the first page.
+	listed, _, err := server.invitationBodies(ctx, dependencies, auth.InvitationsFirst(), 1)
 	if err != nil {
 		return nil, err
 	}
@@ -153,28 +162,48 @@ func (server *Server) createInvitation(ctx context.Context, input *InviteInput) 
 }
 
 func (server *Server) listInvitations(
-	ctx context.Context, input *struct{ AuthorizationHeader },
+	ctx context.Context, input *InvitationsInput,
 ) (*InvitationsOutput, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
+	// The cursor is the last invitation's issue time, Unix milliseconds, and its id.
+	before := auth.InvitationsFirst()
+	if input.Cursor != "" {
+		key, id, cursorErr := decodeCursor(input.Cursor)
+		if cursorErr != nil {
+			return nil, cursorErr
+		}
+		issuedAt, isTime := keyInt64(key)
+		if !isTime || id < 1 {
+			return nil, errBadCursor()
+		}
+		before = auth.InvitationPlace{IssuedAt: issuedAt, ID: id}
+	}
 	output := &InvitationsOutput{}
-	output.Body.Invitations, err = server.invitationBodies(ctx, dependencies)
+	body := &output.Body
+	body.Invitations, body.NextCursor, err = server.invitationBodies(ctx, dependencies, before, input.Limit)
 	return output, err
 }
 
-// invitationBodies are the invitations, as the API shows them.
-func (server *Server) invitationBodies(ctx context.Context, dependencies *Dependencies) ([]InvitationBody, error) {
-	invitations, err := dependencies.Auth.Invitations(ctx)
+// invitationBodies are a page of the invitations, as the API shows them, with the next page's cursor.
+func (server *Server) invitationBodies(
+	ctx context.Context, dependencies *Dependencies, before auth.InvitationPlace, limit int64,
+) ([]InvitationBody, string, error) {
+	invitations, err := dependencies.Auth.InvitationsBefore(ctx, before, limit)
 	if err != nil {
-		return nil, server.authError(ctx, "list invitations", err)
+		return nil, "", server.authError(ctx, "list invitations", err)
 	}
 	bodies := make([]InvitationBody, 0, len(invitations))
 	for _, invitation := range invitations {
 		bodies = append(bodies, invitationBody(invitation, dependencies.Discovery))
 	}
-	return bodies, nil
+	next := nextCursorOf(len(invitations), limit, func() string {
+		last := invitations[len(invitations)-1]
+		return library.EncodeCursor(int64Key(last.IssuedAt.UnixMilli()), last.ID)
+	})
+	return bodies, next, nil
 }
 
 func (server *Server) withdrawInvitation(ctx context.Context, input *InvitationInput) (*struct{}, error) {

@@ -32,7 +32,7 @@ func (harness testHarness) signInFrom(t *testing.T, header http.Header) string {
 // mayAdminister is whether a session may make an admin's call and change its own password.
 func (harness testHarness) mayAdminister(t *testing.T, token string) (isAdmin, canManageAccount bool) {
 	t.Helper()
-	isAdmin = harness.do(t, http.MethodGet, "/users", token, nil).status == http.StatusOK
+	isAdmin = harness.do(t, http.MethodGet, "/users?limit=500", token, nil).status == http.StatusOK
 	changed := harness.do(t, http.MethodPut, "/me/password", token, map[string]string{
 		"currentPassword": "owner-password", "newPassword": "owner-password",
 	})
@@ -86,14 +86,14 @@ func TestAdmin_AdministersOnlyFromTheHousesNetworkDirectlyOrOverWebRTCFromIt(t *
 		return link.Do(rtcapi.RequestHead{Method: http.MethodGet, Path: api.Prefix + path, Headers: headers}, nil)
 	}
 	// The harness's home is this machine, which the connection's pair reaches directly.
-	if users := ask("/users"); users.Head.Status != http.StatusOK {
+	if users := ask("/users?limit=500"); users.Head.Status != http.StatusOK {
 		t.Errorf("an admin's GET /users over WebRTC from home = %d %s; want 200", users.Head.Status, users.Body)
 	}
 	if !isAdminOver(t, ask("/me")) {
 		t.Error("an admin's /me over WebRTC from home says they do not administer")
 	}
 	harness.server.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("192.168.1.0/24")})
-	users := ask("/users")
+	users := ask("/users?limit=500")
 	if users.Head.Status != http.StatusForbidden || !strings.Contains(string(users.Body), "own network") {
 		t.Errorf("an admin's GET /users over WebRTC from away = %d %s; want 403, administering only at home",
 			users.Head.Status, users.Body)
@@ -102,7 +102,7 @@ func TestAdmin_AdministersOnlyFromTheHousesNetworkDirectlyOrOverWebRTCFromIt(t *
 	if isAdminOver(t, ask("/me")) {
 		t.Error("an admin's /me over WebRTC from away says they administer")
 	}
-	wantError(t, harness.do(t, http.MethodGet, "/users", admin, nil), http.StatusForbidden, api.CodeForbidden)
+	wantError(t, harness.do(t, http.MethodGet, "/users?limit=500", admin, nil), http.StatusForbidden, api.CodeForbidden)
 	if _, canManage := harness.mayAdminister(t, admin); !canManage {
 		t.Error("away from home the admin may not manage their own account, which a person may")
 	}
@@ -204,14 +204,14 @@ func TestAdmin_AdministersFromAwayOnlyByTheirOwnSettingSetFromHome(t *testing.T)
 		t.Errorf("an admin's /me = %s; want never, the default", me.body)
 	}
 	harness.server.SetHomeNetworks(away)
-	wantError(t, harness.do(t, http.MethodGet, "/users", admin, nil), http.StatusForbidden, api.CodeForbidden)
+	wantError(t, harness.do(t, http.MethodGet, "/users?limit=500", admin, nil), http.StatusForbidden, api.CodeForbidden)
 	wantError(t, setAway(admin, "always"), http.StatusForbidden, api.CodeForbidden)
 	harness.server.SetHomeNetworks(home)
 	if set := setAway(admin, "always"); set.status != http.StatusNoContent {
 		t.Fatalf("setting always from home = %d %s", set.status, set.body)
 	}
 	harness.server.SetHomeNetworks(away)
-	if users := harness.do(t, http.MethodGet, "/users", admin, nil); users.status != http.StatusOK {
+	if users := harness.do(t, http.MethodGet, "/users?limit=500", admin, nil); users.status != http.StatusOK {
 		t.Errorf("an admin set to always, from away: GET /users = %d %s; want 200", users.status, users.body)
 	}
 	if isAdmin, _ := harness.mayAdminister(t, admin); !isAdmin {

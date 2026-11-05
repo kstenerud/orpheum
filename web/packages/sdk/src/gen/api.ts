@@ -3106,6 +3106,8 @@ export interface components {
             writtenAt: number;
         };
         FilingReportsOutputBody: {
+            /** @description The next page's cursor; absent on the last */
+            nextCursor?: string;
             reports: components["schemas"]["FilingReportEntryBody"][] | null;
         };
         FilmOfExtraBody: {
@@ -3143,6 +3145,8 @@ export interface components {
         };
         GenresOutputBody: {
             genres: components["schemas"]["GenreBody"][] | null;
+            /** @description The next page's cursor; absent on the last */
+            nextCursor?: string;
         };
         GPUBody: {
             devicePath: string;
@@ -3319,6 +3323,8 @@ export interface components {
         };
         InvitationsOutputBody: {
             invitations: components["schemas"]["InvitationBody"][] | null;
+            /** @description The next page's cursor; absent on the last */
+            nextCursor?: string;
         };
         InviteInputBody: {
             /** @description Who it is for: "Uncle Joe"; only the admin sees it */
@@ -3442,6 +3448,8 @@ export interface components {
         };
         JobsOutputBody: {
             jobs: components["schemas"]["JobBody"][] | null;
+            /** @description The next page's cursor; absent on the last */
+            nextCursor?: string;
         };
         JoinTogetherInputBody: {
             /** @description A membership this browser keeps, of another session */
@@ -5390,6 +5398,8 @@ export interface components {
             role: string;
         };
         UsersOutputBody: {
+            /** @description The next page's cursor; absent on the last */
+            nextCursor?: string;
             users: components["schemas"]["UserEntryBody"][] | null;
         };
         VersionBody: {
@@ -6439,7 +6449,11 @@ export interface operations {
     };
     listFilingReports: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description From the previous page's nextCursor; absent for the first page */
+                cursor?: string;
+                limit: number;
+            };
             header?: {
                 /** @description Bearer <session token> */
                 Authorization?: string;
@@ -6506,10 +6520,13 @@ export interface operations {
     listGenres: {
         parameters: {
             query: {
+                /** @description From the previous page's nextCursor; absent for the first page */
+                cursor?: string;
                 /** @description movie, series or other: the genres of that kind's titles; any: of every kind */
                 kind: "movie" | "series" | "other" | "any";
                 /** @description As GET /items takes it */
                 library?: number;
+                limit: number;
             };
             header?: {
                 /** @description Bearer <session token> */
@@ -6736,7 +6753,11 @@ export interface operations {
     };
     listInvitations: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description From the previous page's nextCursor; absent for the first page */
+                cursor?: string;
+                limit: number;
+            };
             header?: {
                 /** @description Bearer <session token> */
                 Authorization?: string;
@@ -7615,7 +7636,11 @@ export interface operations {
     };
     listJobs: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description From the previous page's nextCursor; absent for the first page */
+                cursor?: string;
+                limit: number;
+            };
             header?: {
                 /** @description Bearer <session token> */
                 Authorization?: string;
@@ -10834,7 +10859,11 @@ export interface operations {
     };
     listUsers: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description From the previous page's nextCursor; absent for the first page */
+                cursor?: string;
+                limit: number;
+            };
             header?: {
                 /** @description Bearer <session token> */
                 Authorization?: string;

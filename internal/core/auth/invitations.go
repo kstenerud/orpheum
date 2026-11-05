@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/settings"
@@ -126,8 +127,30 @@ func (service *Service) issueInvitationLink(
 // Invitations are the invitations still waiting, newest first, with their links; one used is gone
 // from the list, the account it made is among the accounts (D403).
 func (service *Service) Invitations(ctx context.Context) ([]Invitation, error) {
+	return service.InvitationsBefore(ctx, InvitationsFirst(), -1)
+}
+
+// InvitationsFirst is where the first page of the invitations starts: before every one.
+func InvitationsFirst() InvitationPlace {
+	return InvitationPlace{IssuedAt: math.MaxInt64, ID: math.MaxInt64}
+}
+
+// InvitationPlace is an invitation's place in the list, newest first: when it was issued, Unix
+// milliseconds, and its id.
+type InvitationPlace struct {
+	IssuedAt int64
+	ID       int64
+}
+
+// InvitationsBefore is a page of the invitations still waiting, newest first, with their links: at
+// most limit (-1 for every one) placed after before, InvitationsFirst for the first page.
+func (service *Service) InvitationsBefore(
+	ctx context.Context, before InvitationPlace, limit int64,
+) ([]Invitation, error) {
 	now := new(service.clock.Now().UnixMilli())
-	rows, err := service.database.Read().ListInvitations(ctx, now)
+	rows, err := service.database.Read().ListInvitations(ctx, sqlcgen.ListInvitationsParams{
+		Now: now, BeforeIssuedAt: before.IssuedAt, BeforeID: before.ID, MaxRows: limit,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("list invitations: %w", err)
 	}

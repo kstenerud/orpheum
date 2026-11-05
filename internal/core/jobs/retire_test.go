@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
+	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
 
 func TestCancelRetired_CancelsTheWorkOfWhatWasRetiredByTargetOrDestinationAndForgetsTheDestinations(t *testing.T) {
@@ -35,7 +36,7 @@ func TestCancelRetired_CancelsTheWorkOfWhatWasRetiredByTargetOrDestinationAndFor
 	if err != nil || cancelled != 5 {
 		t.Errorf("CancelRetired = %d, %v; want the five jobs of what was retired", cancelled, err)
 	}
-	rows, err := fixed.cache.Read().ListJobs(t.Context(), 100)
+	rows, err := fixed.cache.Read().ListJobs(t.Context(), cachegen.ListJobsParams{MaxRows: 100})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -40,7 +40,7 @@ func TestAccounts_TheAdminMakesAPersonWhoRegistersByLinkAndAddsATelevisionByCode
 	wantError(t, harness.do(t, http.MethodPost, "/invitations", admin, map[string]string{"role": "user"}),
 		http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 	invitation := harness.invite(t, admin, "user", "the partner")
-	if pending := harness.do(t, http.MethodGet, "/invitations", admin, nil); !strings.Contains(pending.body,
+	if pending := harness.do(t, http.MethodGet, "/invitations?limit=500", admin, nil); !strings.Contains(pending.body,
 		`"role":"user","adminNote":"the partner"`) {
 		t.Errorf("GET /invitations = %s, want the partner's", pending.body)
 	}
@@ -348,7 +348,7 @@ func TestInvitations_AUsedOneIsNoLongerListed(t *testing.T) {
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
 	invitation := harness.invite(t, admin, "user", "the cousin")
-	listed := harness.do(t, http.MethodGet, "/invitations", admin, nil)
+	listed := harness.do(t, http.MethodGet, "/invitations?limit=500", admin, nil)
 	if !strings.Contains(listed.body, `"liveLinks":1`) {
 		t.Errorf("GET /invitations = %s; want one live link", listed.body)
 	}
@@ -360,7 +360,7 @@ func TestInvitations_AUsedOneIsNoLongerListed(t *testing.T) {
 		"secret": invitation.Link.Secret, "name": "another", "password": "x", "device": testDevice,
 	}), http.StatusUnauthorized, api.CodeAuthRequired)
 	var after api.InvitationsOutput
-	answer := harness.do(t, http.MethodGet, "/invitations", admin, nil)
+	answer := harness.do(t, http.MethodGet, "/invitations?limit=500", admin, nil)
 	if err := json.Unmarshal([]byte(answer.body), &after.Body); err != nil || len(after.Body.Invitations) != 0 {
 		t.Errorf("GET /invitations = %s; want the used invitation gone", answer.body)
 	}
@@ -377,7 +377,7 @@ func TestInvitations_TheListShowsEachLiveLinkAgainUntilOneIsUsed(t *testing.T) {
 	invitation := harness.invite(t, admin, "user", "the neighbour")
 	listedLinks := func() []api.IssuedSecretBody {
 		var listed api.InvitationsOutput
-		answer := harness.do(t, http.MethodGet, "/invitations", admin, nil)
+		answer := harness.do(t, http.MethodGet, "/invitations?limit=500", admin, nil)
 		if err := json.Unmarshal([]byte(answer.body), &listed.Body); err != nil || len(listed.Body.Invitations) > 1 {
 			t.Fatalf("GET /invitations = %d %s", answer.status, answer.body)
 		}
@@ -420,7 +420,7 @@ type InvitationAndLink struct {
 // accountNamed is the person named name, as the admin's list shows them.
 func (harness testHarness) accountNamed(t *testing.T, admin, name string) api.UserEntryBody {
 	t.Helper()
-	listed := harness.do(t, http.MethodGet, "/users", admin, nil)
+	listed := harness.do(t, http.MethodGet, "/users?limit=500", admin, nil)
 	var everyone api.UsersOutput
 	if err := json.Unmarshal([]byte(listed.body), &everyone.Body); err != nil {
 		t.Fatal(err)
@@ -457,7 +457,8 @@ func TestPeople_AnAdminRemovesAPersonWhoseNextRequestIsRefused(t *testing.T) {
 	if me := harness.do(t, http.MethodGet, "/me", partner, nil); me.status != http.StatusUnauthorized {
 		t.Errorf("the removed person's next request = %d %s, want 401", me.status, me.body)
 	}
-	if listed := harness.do(t, http.MethodGet, "/users", admin, nil); strings.Contains(listed.body, "partner") {
+	listed := harness.do(t, http.MethodGet, "/users?limit=500", admin, nil)
+	if strings.Contains(listed.body, "partner") {
 		t.Errorf("GET /users after removal = %s", listed.body)
 	}
 	wantError(t, harness.do(t, http.MethodDelete, "/users/2", admin, nil), http.StatusNotFound, api.CodeNotFound)

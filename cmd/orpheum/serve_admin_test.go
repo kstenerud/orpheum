@@ -15,6 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/discovery"
 	"github.com/kstenerud/orpheum/internal/store"
+	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -102,7 +103,7 @@ func TestServe_DiscardsACacheFromAnotherVersionAndBuildsItAgain(t *testing.T) {
 	}()
 	// The rebuilt cache may hold what the start's sweeps queued; never the old file's job, the one
 	// created at 0.
-	jobs, err := cache.Read().ListJobs(t.Context(), 100)
+	jobs, err := cache.Read().ListJobs(t.Context(), cachegen.ListJobsParams{MaxRows: 100})
 	if err != nil {
 		t.Fatal(err)
 	}

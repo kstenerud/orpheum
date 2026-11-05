@@ -116,7 +116,7 @@ func TestRunNode_AFilmInATMDBLibraryIsQueuedForItsMatch(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = cache.Close() }() //nolint:errcheck // read only
-	jobs, err := cache.Read().ListJobs(t.Context(), 10)
+	jobs, err := cache.Read().ListJobs(t.Context(), cachegen.ListJobsParams{MaxRows: 10})
 	if err != nil {
 		t.Fatal(err)
 	}

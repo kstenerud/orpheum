@@ -12,6 +12,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/discovery"
 	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
@@ -70,10 +71,17 @@ func discoveryLink(status discovery.Status, page, secret string) string {
 	}.String()
 }
 
-// UsersOutput is everyone.
+// UsersInput asks for a page of everyone.
+type UsersInput struct {
+	AuthorizationHeader
+	PageInput
+}
+
+// UsersOutput is a page of everyone, by name.
 type UsersOutput struct {
 	Body struct {
-		Users []UserEntryBody `json:"users"`
+		Users      []UserEntryBody `json:"users"`
+		NextCursor string          `doc:"The next page's cursor; absent on the last" json:"nextCursor,omitempty"`
 	}
 }
 
@@ -164,16 +172,24 @@ func userEntryBody(account auth.Account) UserEntryBody {
 	}
 }
 
-func (server *Server) listUsers(ctx context.Context, input *struct{ AuthorizationHeader }) (*UsersOutput, error) {
+func (server *Server) listUsers(ctx context.Context, input *UsersInput) (*UsersOutput, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	accounts, err := dependencies.Auth.Accounts(ctx)
+	afterName, afterID, err := decodeCursor(input.Cursor)
+	if err != nil {
+		return nil, err
+	}
+	accounts, err := dependencies.Auth.AccountsAfter(ctx, string(afterName), afterID, input.Limit)
 	if err != nil {
 		return nil, server.authError(ctx, "list accounts", err)
 	}
 	output := &UsersOutput{}
+	output.Body.NextCursor = nextCursorOf(len(accounts), input.Limit, func() string {
+		last := accounts[len(accounts)-1]
+		return library.EncodeCursor([]byte(last.Name), last.ID)
+	})
 	output.Body.Users = make([]UserEntryBody, 0, len(accounts))
 	for _, account := range accounts {
 		output.Body.Users = append(output.Body.Users, userEntryBody(account))

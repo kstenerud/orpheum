@@ -324,13 +324,19 @@ const listJobs = `-- name: ListJobs :many
 SELECT id, kind, item_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, args_json, priority, state, destination, runnable_at,
        is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at, assigned_until, wanted_until
 FROM job
+WHERE CAST(?1 AS INTEGER) = 0 OR id < CAST(?1 AS INTEGER)
 ORDER BY id DESC
-LIMIT ?1
+LIMIT ?2
 `
 
-// The job view, newest first.
-func (q *Queries) ListJobs(ctx context.Context, maxRows int64) ([]Job, error) {
-	rows, err := q.db.QueryContext(ctx, listJobs, maxRows)
+type ListJobsParams struct {
+	BeforeID int64
+	MaxRows  int64
+}
+
+// The job view, newest first: a page of those before before_id (0 for the first).
+func (q *Queries) ListJobs(ctx context.Context, arg ListJobsParams) ([]Job, error) {
+	rows, err := q.db.QueryContext(ctx, listJobs, arg.BeforeID, arg.MaxRows)
 	if err != nil {
 		return nil, err
 	}

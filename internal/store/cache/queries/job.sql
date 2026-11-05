@@ -125,10 +125,11 @@ UPDATE job SET state = 'queued'
 WHERE state = 'running';
 
 -- name: ListJobs :many
--- The job view, newest first.
+-- The job view, newest first: a page of those before before_id (0 for the first).
 SELECT id, kind, item_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, args_json, priority, state, destination, runnable_at,
        is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at, assigned_until, wanted_until
 FROM job
+WHERE CAST(sqlc.arg(before_id) AS INTEGER) = 0 OR id < CAST(sqlc.arg(before_id) AS INTEGER)
 ORDER BY id DESC
 LIMIT sqlc.arg(max_rows);
 

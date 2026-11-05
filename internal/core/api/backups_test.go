@@ -27,7 +27,8 @@ func TestBackups_AnAdminMakesOneAndSeesItListed(t *testing.T) {
 	if made.status != http.StatusAccepted {
 		t.Fatalf("POST /backups = %d %s; want it queued", made.status, made.body)
 	}
-	if queued := harness.do(t, http.MethodGet, "/jobs", admin, nil); !strings.Contains(queued.body, `"kind":"backup"`) {
+	queued := harness.do(t, http.MethodGet, "/jobs?limit=500", admin, nil)
+	if !strings.Contains(queued.body, `"kind":"backup"`) {
 		t.Errorf("the job view after a backup was asked for: %s; want the backup's job (D243 §11)", queued.body)
 	}
 	harness.runBackups(t)

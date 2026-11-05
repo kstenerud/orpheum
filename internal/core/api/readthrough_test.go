@@ -165,7 +165,7 @@ func TestReadThrough_APlayRetriesAPictureThatFailedBeforeItAndNotOneThatFailedAf
 	if err != nil || !isRetried {
 		t.Fatalf("retrying film 1's read-through that failed before the play = %t, %v; want retried", isRetried, err)
 	}
-	views, err := harness.queue.List(t.Context(), 5)
+	views, err := harness.queue.List(t.Context(), 0, 5)
 	if err != nil || len(views) != 1 || views[0].Kind != jobs.KindReadThrough ||
 		!strings.Contains(views[0].Reason, "a player is waiting") {
 		t.Errorf("after the retry the queue holds %+v, %v; want film 1 read through for the player", views, err)
@@ -204,7 +204,7 @@ func TestReadThrough_AFileUnderAMissingRootIsNotSweptAndItsReadThroughWaitsForTh
 	if len(harness.nodes.commanded) != 0 {
 		t.Error("the node was asked to measure a file its missing root holds")
 	}
-	views, err := harness.queue.List(t.Context(), 1)
+	views, err := harness.queue.List(t.Context(), 0, 1)
 	if err != nil {
 		t.Fatal(err)
 	}

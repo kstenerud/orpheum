@@ -423,9 +423,9 @@ func (jobStorage *JobStorage) RequeueRunning(ctx context.Context) (int64, error)
 	return count, err
 }
 
-// List is the newest jobs, newest first, at most limit.
-func (jobStorage *JobStorage) List(ctx context.Context, limit int64) ([]jobqueue.Row[JobTarget], error) {
-	rows, err := jobStorage.cache.Read().ListJobs(ctx, limit)
+// List is the newest jobs before beforeID (0 for the newest), newest first, at most limit.
+func (jobStorage *JobStorage) List(ctx context.Context, beforeID, limit int64) ([]jobqueue.Row[JobTarget], error) {
+	rows, err := jobStorage.cache.Read().ListJobs(ctx, cachegen.ListJobsParams{BeforeID: beforeID, MaxRows: limit})
 	if err != nil {
 		return nil, fmt.Errorf("list jobs: %w", err)
 	}

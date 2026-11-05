@@ -145,12 +145,21 @@ func (browser *Browser) CreditsOn(
 // Genres are the genres with a film, series or other video of kind (ListFilms, ListSeries, ListOther,
 // or ListAny for every kind) that reach reaches, each with how many, by name.
 func (browser *Browser) Genres(ctx context.Context, reach auth.Reach, kind string) ([]Genre, error) {
+	return browser.GenresAfter(ctx, reach, kind, "", 0, -1)
+}
+
+// GenresAfter is a page of Genres: at most limit (-1 for every one) after the genre named afterName
+// with afterID ("" and 0 for the first page).
+func (browser *Browser) GenresAfter(
+	ctx context.Context, reach auth.Reach, kind, afterName string, afterID, limit int64,
+) ([]Genre, error) {
 	if kind == ListAny {
 		kind = ""
 	}
 	isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
 	rows, err := browser.database.Read().ListGenresWithCounts(ctx, sqlcgen.ListGenresWithCountsParams{
-		Kind: kind, IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
+		AfterName: afterName, AfterID: afterID,
+		Kind: kind, IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON, MaxRows: limit,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list the genres: %w", err)

@@ -40,13 +40,17 @@ WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 
 -- name: ListLiveUsers :many
 -- Everyone, for the admin's list of people: whether each has set a password yet, and the admin's
--- note of who each is for (D246 section 2).
+-- note of who each is for (D246 section 2). A page: at most max_rows (-1 for everyone) after the
+-- person named after_name with after_id, by name ('' and 0 for the first).
 SELECT user.id, user.name, role.name AS role_name, user.admin_note, user.password_hash IS NOT NULL AS has_password,
   user.created_at
 FROM user
 JOIN role ON role.id = user.role_id
 WHERE user.removed_at IS NULL
-ORDER BY user.name COLLATE NOCASE, user.id;
+  AND (user.name COLLATE NOCASE > CAST(sqlc.arg(after_name) AS TEXT)
+    OR (user.name COLLATE NOCASE = CAST(sqlc.arg(after_name) AS TEXT) AND user.id > CAST(sqlc.arg(after_id) AS INTEGER)))
+ORDER BY user.name COLLATE NOCASE, user.id
+LIMIT sqlc.arg(max_rows);
 
 -- name: SetUserAdminNote :exec
 UPDATE user SET revision = revision + 1, admin_note = sqlc.narg(admin_note) WHERE id = sqlc.arg(id) AND removed_at IS NULL;

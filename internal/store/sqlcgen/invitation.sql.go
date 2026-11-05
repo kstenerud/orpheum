@@ -141,8 +141,18 @@ SELECT invitation.id, invitation.admin_note, role.name AS role_name, invitation.
 FROM invitation
 JOIN role ON role.id = invitation.role_id
 WHERE invitation.made_user_id IS NULL
+  AND (invitation.issued_at, invitation.id)
+    < (CAST(?2 AS INTEGER), CAST(?3 AS INTEGER))
 ORDER BY invitation.issued_at DESC, invitation.id DESC
+LIMIT ?4
 `
+
+type ListInvitationsParams struct {
+	Now            *int64
+	BeforeIssuedAt int64
+	BeforeID       int64
+	MaxRows        int64
+}
 
 type ListInvitationsRow struct {
 	ID            int64
@@ -155,10 +165,16 @@ type ListInvitationsRow struct {
 
 // Every invitation still waiting, newest first, for the admin's list: its links still live and when
 // the last of them ends. One used is no longer listed: its account shows among the accounts (D403).
-// CROSS JOIN keeps SQLite's order: an invitation's links by
+// A page: at most max_rows issued before before_issued_at and before_id (the largest integer for
+// the first). CROSS JOIN keeps SQLite's order: an invitation's links by
 // their index, then each one's grant by its key, never every grant for each invitation.
-func (q *Queries) ListInvitations(ctx context.Context, now *int64) ([]ListInvitationsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listInvitations, now)
+func (q *Queries) ListInvitations(ctx context.Context, arg ListInvitationsParams) ([]ListInvitationsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listInvitations,
+		arg.Now,
+		arg.BeforeIssuedAt,
+		arg.BeforeID,
+		arg.MaxRows,
+	)
 	if err != nil {
 		return nil, err
 	}

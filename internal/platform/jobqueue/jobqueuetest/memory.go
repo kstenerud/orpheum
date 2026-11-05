@@ -299,10 +299,12 @@ func (memory *Memory[T]) RequeueRunning(context.Context) (int64, error) {
 }
 
 // List is the newest jobs first.
-func (memory *Memory[T]) List(_ context.Context, limit int64) ([]jobqueue.Row[T], error) {
+func (memory *Memory[T]) List(_ context.Context, beforeID, limit int64) ([]jobqueue.Row[T], error) {
 	memory.mutex.Lock()
 	defer memory.mutex.Unlock()
-	rows := slices.Clone(memory.rows)
+	rows := slices.DeleteFunc(slices.Clone(memory.rows), func(row jobqueue.Row[T]) bool {
+		return beforeID != 0 && row.ID >= beforeID
+	})
 	slices.Reverse(rows)
 	return rows[:min(int64(len(rows)), limit)], nil
 }

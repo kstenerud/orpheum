@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { components } from "@orpheum/sdk";
+import { allPages, type components } from "@orpheum/sdk";
 import { use, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -97,14 +97,18 @@ export function SystemFilingReports(): JSX.Element {
   const { api } = useServices();
   const [reports] = useResource(
     "filing-reports",
-    async () => dataOrThrow(await api.GET("/filing-reports")),
+    async () =>
+      await allPages(async (query) => {
+        const page = dataOrThrow(await api.GET("/filing-reports", { params: { query } }));
+        return { entries: page.reports ?? [], nextCursor: page.nextCursor };
+      }),
     useBackgroundChangesPoller(),
   );
   return (
     <section aria-labelledby="system-filing-reports">
       <h2 id="system-filing-reports">{t("filingReport.heading")}</h2>
       <p>{t("filingReport.what")}</p>
-      {reports.state === "loaded" ? <ReportList reports={reports.value.reports ?? []} /> : null}
+      {reports.state === "loaded" ? <ReportList reports={reports.value} /> : null}
       {reports.state === "failed" ? <p role="alert">{problemText(t, reports.cause)}</p> : null}
     </section>
   );

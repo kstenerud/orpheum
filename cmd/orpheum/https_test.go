@@ -25,6 +25,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue/jobqueuetest"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/store"
+	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -136,7 +137,7 @@ func TestRenewWhenTokenSet_SettingTheTokenAsksForTheCertificateAtOnce(t *testing
 	}
 	renewWhenTokenSet(world.secrets, certificates, slog.New(slog.DiscardHandler))
 	renewals := func() int {
-		listed, listErr := world.cache.Read().ListJobs(t.Context(), 100)
+		listed, listErr := world.cache.Read().ListJobs(t.Context(), cachegen.ListJobsParams{MaxRows: 100})
 		if listErr != nil {
 			t.Fatal(listErr)
 		}

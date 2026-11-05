@@ -6,11 +6,13 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
 
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
+	"github.com/kstenerud/orpheum/internal/core/library"
 )
 
 // FilingReportBody is a report of how a work was filed, as it was written (D306 §3).
@@ -26,10 +28,17 @@ type FilingReportOutput struct {
 	Body   FilingReportBody
 }
 
-// FilingReportsOutput lists the reports, newest first.
+// FilingReportsInput asks for a page of the reports.
+type FilingReportsInput struct {
+	AuthorizationHeader
+	PageInput
+}
+
+// FilingReportsOutput is a page of the reports, newest first.
 type FilingReportsOutput struct {
 	Body struct {
-		Reports []FilingReportEntryBody `json:"reports"`
+		Reports    []FilingReportEntryBody `json:"reports"`
+		NextCursor string                  `doc:"The next page's cursor; absent on the last" json:"nextCursor,omitempty"` //nolint:lll // one struct tag
 	}
 }
 
@@ -81,8 +90,14 @@ func (server *Server) writeFilingReport(ctx context.Context, input *ItemInput) (
 	return output, nil
 }
 
-func (server *Server) listFilingReports(ctx context.Context, input *AuthorizationHeader) (*FilingReportsOutput, error) {
+func (server *Server) listFilingReports(ctx context.Context, input *FilingReportsInput) (*FilingReportsOutput, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	// The cursor is the last report's name and when it was written, Unix nanoseconds: the reports
+	// are files, listed whole and paged here, newest first and by name backwards among equals.
+	afterName, afterWritten, err := decodeCursor(input.Cursor)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +105,18 @@ func (server *Server) listFilingReports(ctx context.Context, input *Authorizatio
 	if err != nil {
 		return nil, server.logInternalError(ctx, "list the filing reports", err)
 	}
+	if input.Cursor != "" {
+		listed = slices.DeleteFunc(listed, func(report instancedir.ReportFile) bool {
+			written := report.WrittenAt.UnixNano()
+			return written > afterWritten || (written == afterWritten && report.Name >= string(afterName))
+		})
+	}
+	listed = listed[:min(int64(len(listed)), input.Limit)]
 	output := &FilingReportsOutput{}
+	output.Body.NextCursor = nextCursorOf(len(listed), input.Limit, func() string {
+		last := listed[len(listed)-1]
+		return library.EncodeCursor([]byte(last.Name), last.WrittenAt.UnixNano())
+	})
 	output.Body.Reports = make([]FilingReportEntryBody, 0, len(listed))
 	for _, report := range listed {
 		output.Body.Reports = append(output.Body.Reports, FilingReportEntryBody{

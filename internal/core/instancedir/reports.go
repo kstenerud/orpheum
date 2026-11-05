@@ -3,6 +3,7 @@
 package instancedir
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/platform/atomics"
@@ -59,7 +61,8 @@ func (directories *Directories) WriteReport(name string, contents []byte) (path 
 	return directories.ReportPath(name), nil
 }
 
-// ListReports lists the reports, newest first; none before the first is written.
+// ListReports lists the reports, newest first, by name backwards among those written together (a
+// page's cursor needs one order); none before the first is written.
 func (directories *Directories) ListReports() ([]ReportFile, error) {
 	entries, err := os.ReadDir(filepath.Join(directories.backupsDirectory, reportsDirectoryName))
 	if errors.Is(err, os.ErrNotExist) {
@@ -79,7 +82,9 @@ func (directories *Directories) ListReports() ([]ReportFile, error) {
 		}
 		files = append(files, ReportFile{Name: entry.Name(), SizeBytes: info.Size(), WrittenAt: info.ModTime()})
 	}
-	slices.SortFunc(files, func(first, second ReportFile) int { return second.WrittenAt.Compare(first.WrittenAt) })
+	slices.SortFunc(files, func(first, second ReportFile) int {
+		return cmp.Or(second.WrittenAt.Compare(first.WrittenAt), strings.Compare(second.Name, first.Name))
+	})
 	return files, nil
 }
 

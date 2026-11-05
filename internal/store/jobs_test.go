@@ -55,7 +55,7 @@ func (fixed jobStorageFixture) claim(kind jobqueue.Kind, now time.Time) (jobqueu
 // byID is every job, by its id.
 func (fixed jobStorageFixture) byID() map[int64]jobqueue.Row[JobTarget] {
 	fixed.t.Helper()
-	rows, err := fixed.jobs.List(fixed.t.Context(), 100)
+	rows, err := fixed.jobs.List(fixed.t.Context(), 0, 100)
 	if err != nil {
 		fixed.t.Fatal(err)
 	}

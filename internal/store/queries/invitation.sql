@@ -15,7 +15,8 @@ VALUES (sqlc.arg(secret_sha256), sqlc.arg(invitation_id));
 -- name: ListInvitations :many
 -- Every invitation still waiting, newest first, for the admin's list: its links still live and when
 -- the last of them ends. One used is no longer listed: its account shows among the accounts (D403).
--- CROSS JOIN keeps SQLite's order: an invitation's links by
+-- A page: at most max_rows issued before before_issued_at and before_id (the largest integer for
+-- the first). CROSS JOIN keeps SQLite's order: an invitation's links by
 -- their index, then each one's grant by its key, never every grant for each invitation.
 SELECT invitation.id, invitation.admin_note, role.name AS role_name, invitation.issued_at,
   CAST((SELECT count(*) FROM invitation_link
@@ -29,7 +30,10 @@ SELECT invitation.id, invitation.admin_note, role.name AS role_name, invitation.
 FROM invitation
 JOIN role ON role.id = invitation.role_id
 WHERE invitation.made_user_id IS NULL
-ORDER BY invitation.issued_at DESC, invitation.id DESC;
+  AND (invitation.issued_at, invitation.id)
+    < (CAST(sqlc.arg(before_issued_at) AS INTEGER), CAST(sqlc.arg(before_id) AS INTEGER))
+ORDER BY invitation.issued_at DESC, invitation.id DESC
+LIMIT sqlc.arg(max_rows);
 
 -- name: ListLiveInvitationLinks :many
 -- Each live link of every invitation still waiting, oldest first, with its secret sealed, for the

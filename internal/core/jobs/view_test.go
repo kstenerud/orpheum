@@ -61,7 +61,7 @@ func TestCancel_AQueuedJobNeverRunsAndARunningOnesHandlerIsToldAndItStaysCancell
 // view is one job as the job view lists it.
 func (fixed fixture) view(t *testing.T, id int64) View {
 	t.Helper()
-	views, err := fixed.queue.List(t.Context(), 100)
+	views, err := fixed.queue.List(t.Context(), 0, 100)
 	if err != nil {
 		t.Fatal(err)
 	}

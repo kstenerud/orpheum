@@ -95,12 +95,14 @@ type GenresInput struct {
 	AuthorizationHeader
 	Kind    string `doc:"movie, series or other: the genres of that kind's titles; any: of every kind" enum:"movie,series,other,any" query:"kind" required:"true"` //nolint:lll // one struct tag
 	Library int64  `doc:"As GET /items takes it" minimum:"0" query:"library"`
+	PageInput
 }
 
-// GenresOutput is the genres with a title the person reaches, by name.
+// GenresOutput is a page of the genres with a title the person reaches, by name.
 type GenresOutput struct {
 	Body struct {
-		Genres []GenreBody `json:"genres"`
+		Genres     []GenreBody `json:"genres"`
+		NextCursor string      `doc:"The next page's cursor; absent on the last" json:"nextCursor,omitempty"`
 	}
 }
 
@@ -179,11 +181,19 @@ func (server *Server) listGenres(ctx context.Context, input *GenresInput) (*Genr
 	if err != nil {
 		return nil, err
 	}
-	genres, err := dependencies.Browser.Genres(ctx, reach, input.Kind)
+	afterName, afterID, err := decodeCursor(input.Cursor)
+	if err != nil {
+		return nil, err
+	}
+	genres, err := dependencies.Browser.GenresAfter(ctx, reach, input.Kind, string(afterName), afterID, input.Limit)
 	if err != nil {
 		return nil, server.libraryError(ctx, "list the genres", err)
 	}
 	output := &GenresOutput{}
+	output.Body.NextCursor = nextCursorOf(len(genres), input.Limit, func() string {
+		last := genres[len(genres)-1]
+		return library.EncodeCursor([]byte(last.Name), last.ID)
+	})
 	output.Body.Genres = make([]GenreBody, 0, len(genres))
 	for _, genre := range genres {
 		output.Body.Genres = append(output.Body.Genres, GenreBody{

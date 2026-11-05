@@ -2116,6 +2116,10 @@
       "FilingReportsOutputBody": {
         "additionalProperties": false,
         "properties": {
+          "nextCursor": {
+            "description": "The next page's cursor; absent on the last",
+            "type": "string"
+          },
           "reports": {
             "items": {
               "$ref": "#/components/schemas/FilingReportEntryBody"
@@ -2277,6 +2281,10 @@
               "array",
               "null"
             ]
+          },
+          "nextCursor": {
+            "description": "The next page's cursor; absent on the last",
+            "type": "string"
           }
         },
         "required": [
@@ -2792,6 +2800,10 @@
               "array",
               "null"
             ]
+          },
+          "nextCursor": {
+            "description": "The next page's cursor; absent on the last",
+            "type": "string"
           }
         },
         "required": [
@@ -3100,6 +3112,10 @@
               "array",
               "null"
             ]
+          },
+          "nextCursor": {
+            "description": "The next page's cursor; absent on the last",
+            "type": "string"
           }
         },
         "required": [
@@ -8847,6 +8863,10 @@
       "UsersOutputBody": {
         "additionalProperties": false,
         "properties": {
+          "nextCursor": {
+            "description": "The next page's cursor; absent on the last",
+            "type": "string"
+          },
           "users": {
             "items": {
               "$ref": "#/components/schemas/UserEntryBody"
@@ -10737,6 +10757,28 @@
               "description": "Bearer \u003csession token\u003e",
               "type": "string"
             }
+          },
+          {
+            "description": "From the previous page's nextCursor; absent for the first page",
+            "explode": false,
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "description": "From the previous page's nextCursor; absent for the first page",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -10856,6 +10898,28 @@
               "description": "As GET /items takes it",
               "format": "int64",
               "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "From the previous page's nextCursor; absent for the first page",
+            "explode": false,
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "description": "From the previous page's nextCursor; absent for the first page",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "maximum": 500,
+              "minimum": 1,
               "type": "integer"
             }
           }
@@ -11155,6 +11219,28 @@
             "schema": {
               "description": "Bearer \u003csession token\u003e",
               "type": "string"
+            }
+          },
+          {
+            "description": "From the previous page's nextCursor; absent for the first page",
+            "explode": false,
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "description": "From the previous page's nextCursor; absent for the first page",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
             }
           }
         ],
@@ -12767,6 +12853,28 @@
             "schema": {
               "description": "Bearer \u003csession token\u003e",
               "type": "string"
+            }
+          },
+          {
+            "description": "From the previous page's nextCursor; absent for the first page",
+            "explode": false,
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "description": "From the previous page's nextCursor; absent for the first page",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
             }
           }
         ],
@@ -17419,6 +17527,28 @@
             "schema": {
               "description": "Bearer \u003csession token\u003e",
               "type": "string"
+            }
+          },
+          {
+            "description": "From the previous page's nextCursor; absent for the first page",
+            "explode": false,
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "description": "From the previous page's nextCursor; absent for the first page",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
             }
           }
         ],

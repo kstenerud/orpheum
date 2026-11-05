@@ -77,8 +77,9 @@ type Working[T comparable] interface {
 
 // Listing is the part of Storage that reads jobs for a person, and the open ones for a cancel.
 type Listing[T comparable] interface {
-	// List is the newest jobs, newest first, at most limit: the job view's.
-	List(ctx context.Context, limit int64) ([]Row[T], error)
+	// List is the newest jobs before beforeID (0 for the newest), newest first, at most limit: a page
+	// of the job view.
+	List(ctx context.Context, beforeID, limit int64) ([]Row[T], error)
 	// ListOpen is every queued, running and assigned job, for a cancel of the work of what a program
 	// retires. What became of a job that ended is never a fact a program derives work from
 	// (D231 section 3).
