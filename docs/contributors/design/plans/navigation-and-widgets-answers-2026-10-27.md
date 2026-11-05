@@ -1793,6 +1793,10 @@ Not started; the owner orders them after D416. Check each against
    covering exactly what is drawn. Search for an existing grid or table mechanism in `web/` first.
 3. **The System page is a wall of text** (`system-*.tsx`).
 4. **The account page is messy** (`account.tsx`).
+5. **Next or Previous episode leaves full screen** (the owner, 2026-11-05): "Pressing next or
+   previous episode while in fullscreen removes fullscreen." The next episode should play on in
+   full screen. Likely the Play page remounting its player (a new route, a new element) drops the
+   document's full-screen element; keep the stage mounted across the episode change, or re-enter.
 
 ## Quillwick starts grey (the owner, 2026-11-05), after the API batch
 
