@@ -33,11 +33,11 @@ type SearchHit struct {
 // The search statements: written by hand because sqlc cannot parse FTS5's MATCH, and static, so
 // nothing a person types becomes SQL (gosec G201, G202). The column lists are the same in each.
 const (
-	searchColumns = `item_text.item_id, item.kind, title.kind, item_text.name,
+	searchColumns = `item_text.item_id, item.kind, work.kind, item_text.name,
   item.year`
 	searchJoins = `JOIN item ON item.id = item_text.item_id
-LEFT JOIN title ON title.id = item.id
-LEFT JOIN collection ON collection.id = item.id`
+LEFT JOIN work ON work.id = item.id
+LEFT JOIN sequence ON sequence.id = item.id`
 	// The listed check keeps only what browse would list, and of the libraries the caller reaches (D243
 	// section 4): a title a library of those lists by a live file at a place it covers, or a series one
 	// of whose episodes it does (version_library, D363 sections 6, 8). Every library, ?2 = 1, or those
@@ -47,14 +47,14 @@ LEFT JOIN collection ON collection.id = item.id`
 	searchReached = `(CAST(?2 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))`
 	searchListedCondition = `item.removed_at IS NULL AND (
-  (title.id IS NOT NULL AND EXISTS (
+  (work.id IS NOT NULL AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = title.id AND version.removed_at IS NULL AND ` + searchReached + `))
-  OR (collection.id IS NOT NULL AND EXISTS (
-    SELECT 1 FROM collection_member
-    CROSS JOIN version ON version.title_id = collection_member.member_title
+    WHERE version.work_id = work.id AND version.removed_at IS NULL AND ` + searchReached + `))
+  OR (sequence.id IS NOT NULL AND EXISTS (
+    SELECT 1 FROM sequence_member
+    CROSS JOIN version ON version.work_id = sequence_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE collection_member.collection_id = collection.id AND version.removed_at IS NULL
+    WHERE sequence_member.sequence_id = sequence.id AND version.removed_at IS NULL
       AND ` + searchReached + `)))`
 
 	searchWordsSQL = `SELECT ` + searchColumns + `
@@ -84,7 +84,7 @@ LIMIT ?4`
 	// owner, 2026-10-30): the same match and the same listed check as search's, but only the ids, and
 	// only of what a list lists, films, other videos and series; never an episode or an extra. They
 	// number their arguments as search's do.
-	matchListable = `(title.kind IN ('movie', 'other') OR collection.kind = 'series')`
+	matchListable = `(work.kind IN ('movie', 'other') OR sequence.kind = 'series')`
 
 	matchWordsSQL = `SELECT item_text.item_id
 FROM item_fts
@@ -147,8 +147,8 @@ JOIN item AS person_item ON person_item.id = person.id`
 	findPeopleCredited = ` AND person_item.removed_at IS NULL AND EXISTS (
   SELECT 1 FROM credit
   CROSS JOIN item ON item.id = credit.item_id
-  LEFT JOIN title ON title.id = item.id
-  LEFT JOIN collection ON collection.id = item.id
+  LEFT JOIN work ON work.id = item.id
+  LEFT JOIN sequence ON sequence.id = item.id
   WHERE credit.person_id = person.id AND ` + matchListable + ` AND ` + searchListedCondition + `)`
 
 	findPeopleWordsSQL = `SELECT ` + findPeopleColumns + `

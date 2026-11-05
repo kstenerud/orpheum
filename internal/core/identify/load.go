@@ -79,7 +79,7 @@ func (filer *libraryFiler) loadNFOs(ctx context.Context) error {
 }
 
 func (filer *libraryFiler) loadTitles(ctx context.Context, libraryID int64) error {
-	titles, err := filer.queries.ListLibraryTitles(ctx, &libraryID)
+	titles, err := filer.queries.ListLibraryWorks(ctx, &libraryID)
 	if err != nil {
 		return fmt.Errorf("list its titles: %w", err)
 	}
@@ -115,9 +115,9 @@ func (filer *libraryFiler) knowEpisodesOf(ctx context.Context, seriesID int64) e
 	}
 	for _, episode := range episodes {
 		filer.titleIDByKey[episodeKey(seriesID, int(ptr.ValueOrZero(episode.GroupNumber)),
-			int(ptr.ValueOrZero(episode.NumberInGroup)))] = episode.TitleID
+			int(ptr.ValueOrZero(episode.NumberInGroup)))] = episode.WorkID
 		if episode.RemovedAt != nil {
-			filer.returningEpisodes[episode.TitleID] = true
+			filer.returningEpisodes[episode.WorkID] = true
 		}
 	}
 	return nil

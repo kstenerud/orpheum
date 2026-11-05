@@ -30,7 +30,7 @@ func (lib *testLibrary) seriesOfEach() map[int64]string {
 		}
 		for _, place := range places {
 			if place.RemovedAt == nil {
-				byTitle[place.TitleID] = *one.Name
+				byTitle[place.WorkID] = *one.Name
 			}
 		}
 	}
@@ -67,7 +67,7 @@ func TestPass_ASeriesLibraryFilesEveryVideoAsAnEpisodeOrASpecialNeverAFilm(t *te
 		wing1: "Arkon Horizon", wing2: "Arkon Horizon",
 	}
 	for path, series := range want {
-		if got := seriesOf[titles[path].TitleID]; got != series {
+		if got := seriesOf[titles[path].WorkID]; got != series {
 			t.Errorf("%s is in series %q; want %q", path, got, series)
 		}
 	}
@@ -77,7 +77,7 @@ func TestPass_ASeriesLibraryFilesEveryVideoAsAnEpisodeOrASpecialNeverAFilm(t *te
 	if name := titleName(titles[film]); name != "Grey Comet The Promised Land" {
 		t.Errorf("the film made of the series is named %q; want its file's name, as a special", name)
 	}
-	if titles[wing1].TitleID == titles[wing2].TitleID {
+	if titles[wing1].WorkID == titles[wing2].WorkID {
 		t.Error("Arkon Horizon's two episodes are one title")
 	}
 }
@@ -102,25 +102,25 @@ func TestPass_EpisodesAnOlderReadingSplitIntoSeriesOfTheirOwnComeTogether(t *tes
 	split := fmt.Sprintf
 	librarytest.Item(t, lib.database, librarytest.ItemSpec{ID: 9001, Kind: "series", LibraryID: lib.libraryID})
 	storetest.ExecRaw(t, lib.database.Path(),
-		`INSERT INTO collection (id, kind, created_by) VALUES (9001, 'series', 'scanner')`,
+		`INSERT INTO sequence (id, kind, created_by) VALUES (9001, 'series', 'scanner')`,
 		split(`INSERT INTO item_text (item_id, language, is_original, name)
 			SELECT 9001, language, is_original, 'Arkon Horizon S01E02' FROM item_text WHERE item_id = %d`, seriesID),
-		`INSERT INTO ordering (id, collection_id, name) VALUES (9001, 9001, 'aired')`,
-		split(`UPDATE position SET ordering_id = 9001 WHERE title_id = %d`, titles[second].TitleID),
-		split(`UPDATE collection_member SET collection_id = 9001 WHERE member_title = %d`, titles[second].TitleID),
+		`INSERT INTO ordering (id, sequence_id, name) VALUES (9001, 9001, 'aired')`,
+		split(`UPDATE position SET ordering_id = 9001 WHERE work_id = %d`, titles[second].WorkID),
+		split(`UPDATE sequence_member SET sequence_id = 9001 WHERE member_work = %d`, titles[second].WorkID),
 		split(`UPDATE item_text SET name = 'Arkon Horizon S01E01' WHERE item_id = %d`, seriesID),
 	)
-	if seriesOf := lib.seriesOfEach(); seriesOf[titles[first].TitleID] == seriesOf[titles[second].TitleID] {
+	if seriesOf := lib.seriesOfEach(); seriesOf[titles[first].WorkID] == seriesOf[titles[second].WorkID] {
 		t.Fatal("the older reading's state was not built: the episodes share a series")
 	}
 	lib.scan(videoRecord(first), videoRecord(second))
 	after := lib.titlesByPath()
 	seriesOf := lib.seriesOfEach()
-	one, other := seriesOf[after[first].TitleID], seriesOf[after[second].TitleID]
+	one, other := seriesOf[after[first].WorkID], seriesOf[after[second].WorkID]
 	if one != "Arkon Horizon" || other != "Arkon Horizon" {
 		t.Errorf("the episodes are in series %q and %q; want Arkon Horizon", one, other)
 	}
-	if lib.seriesIDOf(after[first].TitleID) != lib.seriesIDOf(after[second].TitleID) {
+	if lib.seriesIDOf(after[first].WorkID) != lib.seriesIDOf(after[second].WorkID) {
 		t.Error("the episodes are in two series of one name; want them in one")
 	}
 	waiting, err := lib.database.Read().ListSeriesByIdentification(t.Context(),
@@ -144,7 +144,7 @@ func (lib *testLibrary) seriesIDOf(titleID int64) int64 {
 			lib.t.Fatal(err)
 		}
 		for _, place := range places {
-			if place.TitleID == titleID && place.RemovedAt == nil {
+			if place.WorkID == titleID && place.RemovedAt == nil {
 				return id
 			}
 		}

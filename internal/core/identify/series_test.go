@@ -185,7 +185,7 @@ func TestSeries_OfSeveralByItsNameTheOldestIsGuessedAndAPersonCorrectsIt(t *test
 		lib.isGuessed(series.ID) {
 		t.Errorf("the chosen series is %s, guessed %t; want confirmed, no guess", ident, lib.isGuessed(series.ID))
 	}
-	episode := lib.titlesByPath()[rel].TitleID
+	episode := lib.titlesByPath()[rel].WorkID
 	if err := lib.chooser.Choose(t.Context(), episode, "tmdb", "9"); err == nil {
 		t.Error("an episode's match was chosen; its series is what is matched (D209)")
 	}
@@ -320,19 +320,19 @@ func TestSeries_AnUnnumberedEpisodeIsPlacedByItsNameAcrossEverySeason(t *testing
 	}
 	titles := lib.titlesByPath()
 	placed := titles[unplaced]
-	if titleName(placed) != "Comet Pilot 3000" || !lib.isGuessed(placed.TitleID) {
+	if titleName(placed) != "Comet Pilot 3000" || !lib.isGuessed(placed.WorkID) {
 		t.Errorf("the unnumbered episode = %+v named %q, guessed %v; want S01E01 by its name, a guess", placed,
-			titleName(placed), lib.isGuessed(placed.TitleID))
+			titleName(placed), lib.isGuessed(placed.WorkID))
 	}
 	place := storetest.QueryRaw(t, lib.database.Path(), fmt.Sprintf(
-		"SELECT group_number || 'x' || number_in_group FROM position WHERE title_id = %d", placed.TitleID))
+		"SELECT group_number || 'x' || number_in_group FROM position WHERE work_id = %d", placed.WorkID))
 	if !slices.Equal(place, []string{"1x1"}) {
 		t.Errorf("the unnumbered episode is at %v; want 1x1, Comet Pilot 3000's place", place)
 	}
-	if titles[bonus].TitleID == placed.TitleID || lib.isGuessed(titles[bonus].TitleID) {
+	if titles[bonus].WorkID == placed.WorkID || lib.isGuessed(titles[bonus].WorkID) {
 		t.Errorf("the extra was placed as the episode, or guessed; want it a special of its own")
 	}
-	if lib.isGuessed(titles[numbered].TitleID) {
+	if lib.isGuessed(titles[numbered].WorkID) {
 		t.Error("a numbered episode is marked a guess")
 	}
 }

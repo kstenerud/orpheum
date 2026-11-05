@@ -76,7 +76,7 @@ func (matcher *Matcher) Match(ctx context.Context, itemID int64) (Outcome, error
 }
 
 func (matcher *Matcher) matchTitle(ctx context.Context, titleID int64) (Outcome, error) {
-	title, err := store.OrNotFound(matcher.database.Read().GetTitleForMatch(ctx, titleID))
+	title, err := store.OrNotFound(matcher.database.Read().GetWorkForMatch(ctx, titleID))
 	if errors.Is(err, store.ErrNotFound) {
 		return OutcomeNothingToDo, nil // gone since it was queued
 	}
@@ -190,7 +190,7 @@ func (matcher *Matcher) ReconsiderAmbiguous(ctx context.Context) (int, error) {
 	}
 	err = matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		for _, item := range settled {
-			returnErr := queries.ReturnAmbiguousTitleToItsFirstMatch(ctx, item.id)
+			returnErr := queries.ReturnAmbiguousWorkToItsFirstMatch(ctx, item.id)
 			if item.query.Kind == KindSeries {
 				returnErr = queries.ReturnAmbiguousSeriesToItsFirstMatch(ctx, item.id)
 			}
@@ -218,7 +218,7 @@ const everyRow = -1
 // ambiguousItems are the films and series left ambiguous, with a live file, and their queries.
 func (matcher *Matcher) ambiguousItems(ctx context.Context) ([]reconsidered, error) {
 	queries := matcher.database.Read()
-	titles, err := queries.ListTitlesByIdentification(ctx, sqlcgen.ListTitlesByIdentificationParams{
+	titles, err := queries.ListWorksByIdentification(ctx, sqlcgen.ListWorksByIdentificationParams{
 		IdentificationState: ptr.NilIfZero(identificationAmbiguous), IsEveryLibrary: 1, LibraryIdsJSON: "[]",
 		RowLimit: everyRow,
 	})
@@ -292,7 +292,7 @@ func (matcher *Matcher) keptCandidates(ctx context.Context, itemID int64) ([]Can
 // the matcher or confirmed by a person. A title that turns out to be one already in the library
 // joins it.
 func (matcher *Matcher) accept(
-	ctx context.Context, provider Provider, title sqlcgen.GetTitleForMatchRow, id, identification string,
+	ctx context.Context, provider Provider, title sqlcgen.GetWorkForMatchRow, id, identification string,
 ) error {
 	return matcher.acceptAnswer(ctx, provider, title, answer{id: id, identification: identification})
 }
@@ -310,7 +310,7 @@ type answer struct {
 
 // acceptAnswer is accept, of an answer.
 func (matcher *Matcher) acceptAnswer(
-	ctx context.Context, provider Provider, title sqlcgen.GetTitleForMatchRow, settled answer,
+	ctx context.Context, provider Provider, title sqlcgen.GetWorkForMatchRow, settled answer,
 ) error {
 	id, identification := settled.id, settled.identification
 	body := settled.body
@@ -372,7 +372,7 @@ type titleMatch struct {
 
 // recordMatch stores a match's response and re-derives the title from it, as a pass would.
 func (matcher *Matcher) recordMatch(
-	ctx context.Context, queries *sqlcgen.Queries, found titleMatch, title sqlcgen.GetTitleForMatchRow, bodyGzip []byte,
+	ctx context.Context, queries *sqlcgen.Queries, found titleMatch, title sqlcgen.GetWorkForMatchRow, bodyGzip []byte,
 	derive derivation,
 ) error {
 	provider, id := found.provider, found.id
@@ -405,7 +405,7 @@ func (matcher *Matcher) recordMatch(
 	if err != nil {
 		return fmt.Errorf("store the response: %w", err)
 	}
-	err = queries.SetTitleMatch(ctx, sqlcgen.SetTitleMatchParams{
+	err = queries.SetWorkMatch(ctx, sqlcgen.SetWorkMatchParams{
 		FollowedSource: &provider, FollowedSourceID: &id, IdentificationState: ptr.NilIfZero(found.identification),
 		ID: titleID,
 	})
@@ -426,7 +426,7 @@ func (matcher *Matcher) recordMatch(
 // title of its library, or a title of its kind whose library lists none of its files any more, a
 // deleted library's, which comes back (D231 §7, D363 §10).
 func joinableTitle(
-	row sqlcgen.ListTitlesByProviderIDRow, title sqlcgen.GetTitleForMatchRow,
+	row sqlcgen.ListWorksByProviderIDRow, title sqlcgen.GetWorkForMatchRow,
 ) (isJoinable, isDeletedLibrarys bool) {
 	if row.ID == title.ID || title.FilingLibraryID == nil {
 		return false, false
@@ -442,10 +442,10 @@ func joinableTitle(
 // library with its history (D208 §2, D231 §7); it leaves a tombstone pointing there (D173), and
 // returns the title that stays.
 func joinExisting(
-	ctx context.Context, queries *sqlcgen.Queries, provider, id string, title sqlcgen.GetTitleForMatchRow, now int64,
+	ctx context.Context, queries *sqlcgen.Queries, provider, id string, title sqlcgen.GetWorkForMatchRow, now int64,
 ) (int64, error) {
-	lookup := sqlcgen.ListTitlesByProviderIDParams{Provider: provider, ProviderID: id}
-	rows, err := queries.ListTitlesByProviderID(ctx, lookup)
+	lookup := sqlcgen.ListWorksByProviderIDParams{Provider: provider, ProviderID: id}
+	rows, err := queries.ListWorksByProviderID(ctx, lookup)
 	if err != nil {
 		return 0, fmt.Errorf("look up %s %s: %w", provider, id, err)
 	}
@@ -460,8 +460,8 @@ func joinExisting(
 				return 0, fmt.Errorf("bring title %d back: %w", row.ID, moveErr)
 			}
 		}
-		move := sqlcgen.MoveVersionsBetweenTitlesParams{ToTitle: row.ID, FromTitle: title.ID}
-		err = queries.MoveVersionsBetweenTitles(ctx, move)
+		move := sqlcgen.MoveVersionsBetweenWorksParams{ToWork: row.ID, FromWork: title.ID}
+		err = queries.MoveVersionsBetweenWorks(ctx, move)
 		if err != nil {
 			return 0, fmt.Errorf("join title %d to %d: %w", title.ID, row.ID, err)
 		}
@@ -481,13 +481,13 @@ func joinExisting(
 
 // markAmbiguous keeps the search results and marks the title for the chooser (D172).
 func (matcher *Matcher) markAmbiguous(
-	ctx context.Context, provider Provider, title sqlcgen.GetTitleForMatchRow, candidates []Candidate,
+	ctx context.Context, provider Provider, title sqlcgen.GetWorkForMatchRow, candidates []Candidate,
 ) error {
 	if err := matcher.keepCandidates(ctx, provider, title.ID, candidates); err != nil {
 		return err
 	}
 	err := matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		markErr := queries.SetTitleMatch(ctx, sqlcgen.SetTitleMatchParams{
+		markErr := queries.SetWorkMatch(ctx, sqlcgen.SetWorkMatchParams{
 			IdentificationState: ptr.NilIfZero(identificationAmbiguous),
 			ID:                  title.ID,
 		})
@@ -505,7 +505,7 @@ func (matcher *Matcher) markAmbiguous(
 // acceptGuess accepts a film's match the matcher guessed among candidates (D301): matched as any
 // other, its candidates kept for a person correcting it, and marked a guess until one does.
 func (matcher *Matcher) acceptGuess(
-	ctx context.Context, provider Provider, title sqlcgen.GetTitleForMatchRow, guessed answer, candidates []Candidate,
+	ctx context.Context, provider Provider, title sqlcgen.GetWorkForMatchRow, guessed answer, candidates []Candidate,
 ) error {
 	if err := matcher.acceptAnswer(ctx, provider, title, guessed); err != nil {
 		return err
@@ -531,9 +531,9 @@ func (matcher *Matcher) markGuess(ctx context.Context, provider Provider, itemID
 
 // markNoMatch records that the provider has nothing for the title, so it is not searched again
 // until a person asks.
-func (matcher *Matcher) markNoMatch(ctx context.Context, title sqlcgen.GetTitleForMatchRow) error {
+func (matcher *Matcher) markNoMatch(ctx context.Context, title sqlcgen.GetWorkForMatchRow) error {
 	err := matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		err := queries.SetTitleMatch(ctx, sqlcgen.SetTitleMatchParams{
+		err := queries.SetWorkMatch(ctx, sqlcgen.SetWorkMatchParams{
 			FollowedSource: new(sourceNone), IdentificationState: ptr.NilIfZero(identificationUnidentified),
 			ID: title.ID,
 		})
@@ -591,7 +591,7 @@ func (matcher *Matcher) dropCandidates(ctx context.Context, itemID int64) error 
 
 // refile files a title's live files by its identification, as the pass would.
 func refile(ctx context.Context, queries *sqlcgen.Queries, titleID int64, identification, reason string) error {
-	files, err := queries.ListLiveFilesOfTitle(ctx, titleID)
+	files, err := queries.ListLiveFilesOfWork(ctx, titleID)
 	if err != nil {
 		return fmt.Errorf("list title %d's files: %w", titleID, err)
 	}

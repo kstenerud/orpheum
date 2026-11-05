@@ -75,7 +75,7 @@ func matchedMetropolis(t *testing.T) (*testLibrary, int64) {
 	if outcome := lib.matchFileTitle("Metropolis (1995).mkv"); outcome != identify.OutcomeMatched {
 		t.Fatalf("outcome %s", outcome)
 	}
-	return lib, lib.titlesByPath()["Metropolis (1995).mkv"].TitleID
+	return lib, lib.titlesByPath()["Metropolis (1995).mkv"].WorkID
 }
 
 func TestRefresh_TakesTheProvidersNewValuesAndKeepsAPersonsOverride(t *testing.T) {
@@ -91,7 +91,7 @@ func TestRefresh_TakesTheProvidersNewValuesAndKeepsAPersonsOverride(t *testing.T
 	lib.provider.Films[heat.ID] = changed
 	lib.clock.Advance(time.Hour)
 	lib.refresh(titleID)
-	detail, err := lib.database.Read().GetTitleDetail(t.Context(), titleID)
+	detail, err := lib.database.Read().GetWorkDetail(t.Context(), titleID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +145,7 @@ func TestRefresh_ASeriesFetchesItsRecordAndEachSeasonItKeeps(t *testing.T) {
 	calls := len(lib.provider.Calls)
 	lib.clock.Advance(time.Hour)
 	// An episode's refresh is its series'.
-	lib.refresh(lib.titlesByPath()[orbitoramaFiles[0]].TitleID)
+	lib.refresh(lib.titlesByPath()[orbitoramaFiles[0]].WorkID)
 	lib.runOwedPasses()
 	if got, want := lib.provider.Calls[calls:], []string{"fetch 615", "season 615/2"}; !slices.Equal(got, want) {
 		t.Errorf("calls %v, want %v", got, want)
@@ -259,7 +259,7 @@ func TestRefresher_AFirstMatchIsOwedUntilTheItemHasAnAnswerHoweverOftenItsJobIsL
 	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(heat)}
 	lib.provider.Searches[identifytest.SearchKey("Nothing", 2001)] = []identify.Candidate{}
 	lib.scan(videoRecord("Metropolis (1995).mkv"), videoRecord("Nothing (2001).mkv"))
-	metropolisID, nothingID := lib.titlesByPath()["Metropolis (1995).mkv"].TitleID, lib.titlesByPath()["Nothing (2001).mkv"].TitleID
+	metropolisID, nothingID := lib.titlesByPath()["Metropolis (1995).mkv"].WorkID, lib.titlesByPath()["Nothing (2001).mkv"].WorkID
 	owed := func(when string, want ...int64) {
 		t.Helper()
 		queue := &jobstest.Queue{}
@@ -302,7 +302,7 @@ func TestRecordFailure_AnItemsOwnFailureIsShownPassedOverAndClearedByAPersonsRef
 	t.Parallel()
 	lib := newTestLibrary(t, "movie", "tmdb")
 	lib.scan(videoRecord("Metropolis (1995).mkv"))
-	metropolisID := lib.titlesByPath()["Metropolis (1995).mkv"].TitleID
+	metropolisID := lib.titlesByPath()["Metropolis (1995).mkv"].WorkID
 	job := jobs.Job{ID: 7, Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: metropolisID}}
 	if err := lib.matcher.RecordFailure(t.Context(), job, "TMDB answered 500 five times"); err != nil {
 		t.Fatal(err)

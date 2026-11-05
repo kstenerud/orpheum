@@ -68,7 +68,7 @@ func (harness testHarness) otherVideoTitle(t *testing.T) {
 		Filing: "listed", VersionID: 2,
 	})
 	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO other_video (title_id, recorded_at, recorded_from, file_name, file_name_key)
+		`INSERT INTO other_video (work_id, recorded_at, recorded_from, file_name, file_name_key)
 		 VALUES (20, 1500000000000, 'name', 'Beach day.mp4', X'00')`)
 }
 

@@ -52,8 +52,8 @@ func (harness testHarness) shelveDatedFilms(t *testing.T) {
 			"released_on = CASE id WHEN 10 THEN 19951215 WHEN 11 THEN 19790525 WHEN 12 THEN 19850000 END "+
 			"WHERE id IN (10, 11, 12)",
 		"UPDATE item SET released_on = 20080120 WHERE id = 20",
-		"INSERT INTO collection (id, kind, created_by) VALUES (30, 'series', 'scanner')",
-		"INSERT INTO collection_member (collection_id, member_title, position) VALUES (30, 31, 10001)",
+		"INSERT INTO sequence (id, kind, created_by) VALUES (30, 'series', 'scanner')",
+		"INSERT INTO sequence_member (sequence_id, member_work, position) VALUES (30, 31, 10001)",
 		`INSERT INTO item_text (item_id, language, is_original, name, search_alternates)
 		 VALUES (30, 'und', 1, 'Tweedcoat', 'tweedcoat'), (31, 'und', 1, 'Pilot', 'pilot')`,
 		fmt.Sprintf("INSERT INTO sort_key (item_id, locale, listing, collation_key) VALUES (30, 'en', 'series', %s)",
@@ -136,7 +136,7 @@ func TestBrowse_OtherVideosRunEitherWay(t *testing.T) {
 	storetest.ExecRaw(t, harness.databasePath,
 		"INSERT INTO item_text (item_id, language, is_original, name, search_alternates) "+
 			"VALUES (43, 'und', 1, 'arrival', 'arrival')",
-		"INSERT INTO other_video (title_id, recorded_at, recorded_from, file_name, file_name_key) "+
+		"INSERT INTO other_video (work_id, recorded_at, recorded_from, file_name, file_name_key) "+
 			"VALUES (43, -86400000, 'file', 'sparrows.mp4', X'01')")
 	// Recorded in 1969, before every other, whichever way the list runs.
 	for path, want := range map[string]string{

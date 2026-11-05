@@ -97,7 +97,7 @@ func (filer *libraryFiler) markPlacedByGuess(ctx context.Context, titleID int64,
 		return nil
 	}
 	if wasThere {
-		state, stateErr := filer.queries.GetTitleIdentification(ctx, titleID)
+		state, stateErr := filer.queries.GetWorkIdentification(ctx, titleID)
 		if stateErr != nil {
 			return fmt.Errorf("read whether episode %d is confirmed: %w", titleID, stateErr)
 		}
@@ -284,7 +284,7 @@ func (filer *libraryFiler) currentSeries(ctx context.Context, file sqlcgen.ListI
 	if err != nil || !isEpisode {
 		return 0, err
 	}
-	return place.CollectionID, nil
+	return place.SequenceID, nil
 }
 
 // fromListing gives an episode its values from its series' stored season listing, or says why
@@ -360,8 +360,8 @@ func (filer *libraryFiler) findOrAddSeries(ctx context.Context, evidence seriesS
 	if err != nil {
 		return 0, fmt.Errorf("add series %q: %w", name, err)
 	}
-	collection := sqlcgen.InsertCollectionParams{ID: id, CreatedBy: "scanner"}
-	err = filer.queries.InsertCollection(ctx, collection)
+	collection := sqlcgen.InsertSequenceParams{ID: id, CreatedBy: "scanner"}
+	err = filer.queries.InsertSequence(ctx, collection)
 	if err != nil {
 		return 0, fmt.Errorf("add series %q: %w", name, err)
 	}
@@ -376,8 +376,8 @@ func (filer *libraryFiler) findOrAddSeries(ctx context.Context, evidence seriesS
 // positionEpisode puts an episode in its series and in the series' aired order.
 func (filer *libraryFiler) positionEpisode(ctx context.Context, seriesID, titleID int64, season, number int) error {
 	sortOrder := float64(season)*10_000 + float64(number)
-	err := filer.keepMember(ctx, sqlcgen.UpsertCollectionMemberParams{
-		CollectionID: seriesID, MemberTitle: &titleID, Position: &sortOrder,
+	err := filer.keepMember(ctx, sqlcgen.UpsertSequenceMemberParams{
+		SequenceID: seriesID, MemberWork: &titleID, Position: &sortOrder,
 	})
 	if err != nil {
 		return fmt.Errorf("add title %d to series %d: %w", titleID, seriesID, err)
@@ -388,7 +388,7 @@ func (filer *libraryFiler) positionEpisode(ctx context.Context, seriesID, titleI
 	}
 	groupNumber, numberInGroup := int64(season), int64(number)
 	err = filer.keepPosition(ctx, sqlcgen.UpsertPositionParams{
-		OrderingID: ordering, TitleID: titleID, GroupNumber: &groupNumber, NumberInGroup: &numberInGroup,
+		OrderingID: ordering, WorkID: titleID, GroupNumber: &groupNumber, NumberInGroup: &numberInGroup,
 		SortOrder: sortOrder,
 	})
 	if err != nil {
@@ -401,8 +401,8 @@ func (filer *libraryFiler) positionEpisode(ctx context.Context, seriesID, titleI
 // numbered ones, with no number of its own.
 func (filer *libraryFiler) positionUnnumbered(ctx context.Context, seriesID, titleID int64) error {
 	sortOrder := float64(unnumberedSortOrder)
-	err := filer.keepMember(ctx, sqlcgen.UpsertCollectionMemberParams{
-		CollectionID: seriesID, MemberTitle: &titleID, Position: &sortOrder,
+	err := filer.keepMember(ctx, sqlcgen.UpsertSequenceMemberParams{
+		SequenceID: seriesID, MemberWork: &titleID, Position: &sortOrder,
 	})
 	if err != nil {
 		return fmt.Errorf("add title %d to series %d: %w", titleID, seriesID, err)
@@ -413,7 +413,7 @@ func (filer *libraryFiler) positionUnnumbered(ctx context.Context, seriesID, tit
 	}
 	season := int64(0)
 	err = filer.keepPosition(ctx, sqlcgen.UpsertPositionParams{
-		OrderingID: ordering, TitleID: titleID, GroupNumber: &season, NumberInGroup: nil, SortOrder: sortOrder,
+		OrderingID: ordering, WorkID: titleID, GroupNumber: &season, NumberInGroup: nil, SortOrder: sortOrder,
 	})
 	if err != nil {
 		return fmt.Errorf("place title %d among series %d's specials: %w", titleID, seriesID, err)
@@ -426,11 +426,11 @@ const unnumberedSortOrder = 9_999
 
 // airedOrderingOf is a series' aired order, made when it has none yet.
 func airedOrderingOf(ctx context.Context, queries *sqlcgen.Queries, seriesID int64) (int64, error) {
-	aired := sqlcgen.GetOrderingParams{CollectionID: seriesID, Name: airedOrdering}
+	aired := sqlcgen.GetOrderingParams{SequenceID: seriesID, Name: airedOrdering}
 	ordering, err := queries.GetOrdering(ctx, aired)
 	if err != nil {
 		ordering, err = queries.InsertOrdering(ctx, sqlcgen.InsertOrderingParams{
-			CollectionID: seriesID, Name: airedOrdering, Kind: new(airedOrdering),
+			SequenceID: seriesID, Name: airedOrdering, Kind: new(airedOrdering),
 		})
 		if err != nil {
 			return 0, fmt.Errorf("add series %d's aired order: %w", seriesID, err)

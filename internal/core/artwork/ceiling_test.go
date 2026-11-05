@@ -42,7 +42,7 @@ func (bench *bench) list(t *testing.T) {
 	nodeID, libraryID := librarytest.NodeWithLibrary(t, bench.database,
 		librarytest.Library{Name: "Films", Kind: "movie", MetadataSource: "tmdb", Root: "/m"})
 	storetest.ExecRaw(t, bench.database.Path(), fmt.Sprintf(
-		"INSERT INTO title (id, kind) VALUES (%d, 'movie')", bench.itemID))
+		"INSERT INTO work (id, kind) VALUES (%d, 'movie')", bench.itemID))
 	librarytest.Version(t, bench.database, librarytest.VersionSpec{ID: 1, TitleID: bench.itemID})
 	librarytest.File(t, bench.database, librarytest.FileSpec{
 		ID: 1, LibraryID: libraryID, NodeID: nodeID, Path: "/m/a.mkv", Filing: "listed", VersionID: 1,

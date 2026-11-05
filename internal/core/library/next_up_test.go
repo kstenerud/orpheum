@@ -179,35 +179,35 @@ func TestMembersOf_ReadThePersonsPositionsAgainstTheThresholds(t *testing.T) {
 	position := func(ms int64) *int64 { return &ms }
 	rows := []sqlcgen.ListOrderingMemberFilesWithPositionsRow{
 		{
-			TitleID: 1, GroupNumber: 1, NumberInGroup: 1, Name: "Pilot", FileID: 10, DurationMs: 1000,
+			WorkID: 1, GroupNumber: 1, NumberInGroup: 1, Name: "Pilot", FileID: 10, DurationMs: 1000,
 			PositionMs: position(950), PositionReadAt: position(7), WatchedAt: position(7),
 		},
 		{
-			TitleID: 2, GroupNumber: 1, NumberInGroup: 2, FileID: 20, DurationMs: 1000, PositionMs: position(500),
+			WorkID: 2, GroupNumber: 1, NumberInGroup: 2, FileID: 20, DurationMs: 1000, PositionMs: position(500),
 			PositionReadAt: position(9),
 		},
 		{
-			TitleID: 2, GroupNumber: 1, NumberInGroup: 2, FileID: 21, DurationMs: 1000, PositionMs: position(400),
+			WorkID: 2, GroupNumber: 1, NumberInGroup: 2, FileID: 21, DurationMs: 1000, PositionMs: position(400),
 			PositionReadAt: position(11),
 		},
-		{TitleID: 2, GroupNumber: 1, NumberInGroup: 2, FileID: 22, DurationMs: 1000},
+		{WorkID: 2, GroupNumber: 1, NumberInGroup: 2, FileID: 22, DurationMs: 1000},
 		{
-			TitleID: 3, GroupNumber: 2, NumberInGroup: 1, FileID: 30, DurationMs: 1000, PositionMs: position(10),
+			WorkID: 3, GroupNumber: 2, NumberInGroup: 1, FileID: 30, DurationMs: 1000, PositionMs: position(10),
 			PositionReadAt: position(3),
 		},
 		// Past the threshold, but never watched to it: an unattended play, so not finished.
 		{
-			TitleID: 4, GroupNumber: 2, NumberInGroup: 2, FileID: 40, DurationMs: 1000, PositionMs: position(950),
+			WorkID: 4, GroupNumber: 2, NumberInGroup: 2, FileID: 40, DurationMs: 1000, PositionMs: position(950),
 			PositionReadAt: position(4),
 		},
 		// Marked watched by hand at 8, partway at 6 before it: finished, and partway through nothing.
 		{
-			TitleID: 5, GroupNumber: 2, NumberInGroup: 3, FileID: 50, DurationMs: 1000, PositionMs: position(500),
+			WorkID: 5, GroupNumber: 2, NumberInGroup: 3, FileID: 50, DurationMs: 1000, PositionMs: position(500),
 			PositionReadAt: position(6), WatchedAt: position(8), MarkedAt: position(8),
 		},
 		// Watched at 2, begun again at 12 and a third in: finished, partway in its rewatch.
 		{
-			TitleID: 6, GroupNumber: 2, NumberInGroup: 4, FileID: 60, DurationMs: 1000, PositionMs: position(300),
+			WorkID: 6, GroupNumber: 2, NumberInGroup: 4, FileID: 60, DurationMs: 1000, PositionMs: position(300),
 			PositionReadAt: position(12), WatchedAt: position(2),
 		},
 	}

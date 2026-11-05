@@ -20,9 +20,9 @@ import (
 // TitleDetail is a film, episode or extra with what a detail page shows: its versions and their
 // files and streams, its extras, and, for an episode, its series and place.
 type TitleDetail struct {
-	sqlcgen.GetTitleDetailRow
+	sqlcgen.GetWorkDetailRow
 	Versions []Version
-	Extras   []sqlcgen.ListTitleExtrasRow
+	Extras   []sqlcgen.ListWorkExtrasRow
 	Episode  *EpisodePlace
 	Art      Art
 	// Unreadable is why none of its files can be read now, or nil when one can (D241 §3).
@@ -67,7 +67,7 @@ func (browser *Browser) IsCollection(ctx context.Context, itemID int64) (bool, e
 // series in; one in a library reach does not reach is ErrNoItem, as one that does not exist (D243 §4).
 func (browser *Browser) Title(ctx context.Context, reach auth.Reach, userID, titleID int64) (TitleDetail, error) {
 	queries := browser.database.Read()
-	title, err := store.OrNotFound(queries.GetTitleDetail(ctx, titleID))
+	title, err := store.OrNotFound(queries.GetWorkDetail(ctx, titleID))
 	if errors.Is(err, store.ErrNotFound) {
 		return TitleDetail{}, fmt.Errorf("title %d: %w", titleID, ErrNoItem)
 	}
@@ -77,13 +77,13 @@ func (browser *Browser) Title(ctx context.Context, reach auth.Reach, userID, tit
 	if reachErr := ReachItem(ctx, queries, reach, titleID); reachErr != nil {
 		return TitleDetail{}, reachErr
 	}
-	detail := TitleDetail{GetTitleDetailRow: title}
+	detail := TitleDetail{GetWorkDetailRow: title}
 	if detail.Versions, err = browser.versions(ctx, reach, titleID); err != nil {
 		return TitleDetail{}, err
 	}
 	isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
-	detail.Extras, err = queries.ListTitleExtras(ctx, sqlcgen.ListTitleExtrasParams{
-		OwnerTitle: titleID, IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
+	detail.Extras, err = queries.ListWorkExtras(ctx, sqlcgen.ListWorkExtrasParams{
+		OwnerWork: titleID, IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
 	})
 	if err != nil {
 		return TitleDetail{}, fmt.Errorf("list title %d's extras: %w", titleID, err)
@@ -108,7 +108,7 @@ func (browser *Browser) Title(ctx context.Context, reach auth.Reach, userID, tit
 	detail.IsWatched = watched[titleID]
 	peopleOf := titleID
 	if detail.Episode != nil {
-		peopleOf = detail.Episode.CollectionID
+		peopleOf = detail.Episode.SequenceID
 	}
 	if detail.People, err = browser.peopleOf(ctx, peopleOf); err != nil {
 		return TitleDetail{}, err
@@ -121,8 +121,8 @@ func (browser *Browser) Title(ctx context.Context, reach auth.Reach, userID, tit
 func (browser *Browser) versions(ctx context.Context, reach auth.Reach, titleID int64) ([]Version, error) {
 	queries := browser.database.Read()
 	isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
-	places, err := queries.ListTitleFiles(ctx, sqlcgen.ListTitleFilesParams{
-		TitleID: titleID, IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
+	places, err := queries.ListWorkFiles(ctx, sqlcgen.ListWorkFilesParams{
+		WorkID: titleID, IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list title %d's files: %w", titleID, err)
@@ -203,7 +203,7 @@ func (browser *Browser) Series(ctx context.Context, reach auth.Reach, userID, se
 	}
 	isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
 	episodes, err := queries.ListSeriesEpisodeDetails(ctx, sqlcgen.ListSeriesEpisodeDetailsParams{
-		IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON, CollectionID: seriesID, OrderingName: ordering,
+		IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON, SequenceID: seriesID, OrderingName: ordering,
 	})
 	if err != nil {
 		return SeriesDetail{}, fmt.Errorf("list series %d's episodes in its %s ordering: %w", seriesID, ordering, err)
@@ -214,7 +214,7 @@ func (browser *Browser) Series(ctx context.Context, reach auth.Reach, userID, se
 	}
 	ids := make([]int64, 0, len(episodes))
 	for _, episode := range episodes {
-		ids = append(ids, episode.TitleID)
+		ids = append(ids, episode.WorkID)
 	}
 	stills, err := browser.shownArtSourceSha256s(ctx, ArtStill, ids)
 	if err != nil {
@@ -297,13 +297,13 @@ func seasonsOf(
 		}
 		if episode.Available {
 			season.IsWatched = !unwatched[number]
-			if !watched[episode.TitleID] {
+			if !watched[episode.WorkID] {
 				season.IsWatched, unwatched[number] = false, true
 			}
 		}
 		season.EpisodeCount++
 		if season.StillSha256 == "" {
-			season.StillSha256 = stills[episode.TitleID]
+			season.StillSha256 = stills[episode.WorkID]
 		}
 	}
 	// The specials, aired's season 0, come after every numbered season.
@@ -353,7 +353,7 @@ func (browser *Browser) Season(ctx context.Context, reach auth.Reach, query Seas
 		isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
 		episodes, err := queries.ListSeasonEpisodeDetails(ctx, sqlcgen.ListSeasonEpisodeDetailsParams{
 			IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
-			CollectionID: query.SeriesID, OrderingName: ordering, SeasonNumber: query.Season, AfterSortOrder: after,
+			SequenceID: query.SeriesID, OrderingName: ordering, SeasonNumber: query.Season, AfterSortOrder: after,
 			MaxRows: query.Limit + 1,
 		})
 		if err != nil {
@@ -377,7 +377,7 @@ func (browser *Browser) NotInOrdering(ctx context.Context, reach auth.Reach, que
 		isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
 		rows, err := queries.ListEpisodesNotInOrdering(ctx, sqlcgen.ListEpisodesNotInOrderingParams{
 			IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
-			CollectionID: query.SeriesID, OrderingName: ordering, AfterSortOrder: after, MaxRows: query.Limit + 1,
+			SequenceID: query.SeriesID, OrderingName: ordering, AfterSortOrder: after, MaxRows: query.Limit + 1,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("list series %d's episodes its %s ordering leaves out: %w", query.SeriesID,
@@ -425,7 +425,7 @@ func (browser *Browser) episodePage(
 	page.Episodes = episodes
 	ids := make([]int64, 0, len(episodes))
 	for _, episode := range episodes {
-		ids = append(ids, episode.TitleID)
+		ids = append(ids, episode.WorkID)
 	}
 	if page.StillSha256ByEpisodeID, err = browser.shownArtSourceSha256s(ctx, ArtStill, ids); err != nil {
 		return SeasonPage{}, err
@@ -458,7 +458,7 @@ type FileWork struct {
 // is not.
 func (browser *Browser) WorkOfFile(ctx context.Context, reach auth.Reach, fileID int64) (FileWork, error) {
 	queries := browser.database.Read()
-	row, err := store.OrNotFound(queries.GetTitleOfFile(ctx, fileID))
+	row, err := store.OrNotFound(queries.GetFilesWork(ctx, fileID))
 	if errors.Is(err, store.ErrNotFound) {
 		return FileWork{}, fmt.Errorf("file %d: %w", fileID, ErrNoFile)
 	}
@@ -470,7 +470,7 @@ func (browser *Browser) WorkOfFile(ctx context.Context, reach auth.Reach, fileID
 		return FileWork{}, fmt.Errorf("read the libraries of file %d: %w", fileID, err)
 	}
 	work := FileWork{
-		TitleID: ptr.ValueOrZero(row.TitleID), TitleKind: ptr.ValueOrZero(row.TitleKind),
+		TitleID: ptr.ValueOrZero(row.WorkID), TitleKind: ptr.ValueOrZero(row.WorkKind),
 		Name: ptr.ValueOrZero(row.Name), Path: row.Path, DurationMs: row.DurationMs,
 	}
 	for _, libraryID := range libraryIDs {

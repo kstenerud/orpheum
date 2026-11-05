@@ -41,7 +41,7 @@ func TestPass_AFilmAndASeriesAreDatedByTheirSourcesDayElseTheirYear(t *testing.T
 	if got := lib.releasedOnOf(); !slices.Equal(got, want) {
 		t.Errorf("the films' days = %v; want %v", got, want)
 	}
-	metropolisID := lib.titlesByPath()["Metropolis (1995)/Metropolis (1995).mkv"].TitleID
+	metropolisID := lib.titlesByPath()["Metropolis (1995)/Metropolis (1995).mkv"].WorkID
 	storetest.ExecRaw(t, lib.database.Path(), fmt.Sprintf(`INSERT INTO field_override (item_id, field, language,
 		override_value, origin, set_at) VALUES (%d, 'year', '', '1996', 'typed', 1)`, metropolisID))
 	lib.scan(

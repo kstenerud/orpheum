@@ -121,7 +121,7 @@ func TestPass_AgainOverAnUnchangedLibraryWithAnEpisodePlacedByItsNameWritesNothi
 		t.Errorf("a pass over an unchanged library with an episode placed by its name changed %d rows; want none",
 			after-before)
 	}
-	if placed := lib.titlesByPath()[placedByNameUnplaced]; !lib.isGuessed(placed.TitleID) {
+	if placed := lib.titlesByPath()[placedByNameUnplaced]; !lib.isGuessed(placed.WorkID) {
 		t.Error("the episode placed by its name is no longer marked a guess")
 	}
 }
@@ -135,14 +135,14 @@ func TestPass_AConfirmedFilmFiledAsAnExtraTakesTheKindExtra(t *testing.T) {
 	lib := newTestLibrary(t, "movie", "nfo")
 	const making = "Metropolis (1995)/Featurettes/Making Metropolis.mkv"
 	lib.scan(videoRecord(making))
-	title := lib.titlesByPath()[making].TitleID
+	title := lib.titlesByPath()[making].WorkID
 	if err := lib.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
-		return queries.ConfirmTitleMatch(t.Context(), title)
+		return queries.ConfirmWorkMatch(t.Context(), title)
 	}); err != nil {
 		t.Fatal(err)
 	}
 	lib.scan(videoRecord("Metropolis (1995)/Metropolis (1995).mkv"), videoRecord(making))
-	kind := storetest.QueryRaw(t, lib.database.Path(), fmt.Sprintf("SELECT kind FROM title WHERE id = %d", title))
+	kind := storetest.QueryRaw(t, lib.database.Path(), fmt.Sprintf("SELECT kind FROM work WHERE id = %d", title))
 	if !slices.Equal(kind, []string{"extra"}) {
 		t.Errorf("the title filed as an extra is of kind %v; want extra", kind)
 	}

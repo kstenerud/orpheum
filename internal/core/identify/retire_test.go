@@ -62,7 +62,7 @@ func (lib *testLibrary) isListed(titleID int64) bool {
 // isLive is whether an item is live, not a tombstone.
 func (lib *testLibrary) isLive(itemID int64) bool {
 	lib.t.Helper()
-	_, err := store.OrNotFound(lib.database.Read().GetTitleForMatch(lib.t.Context(), itemID))
+	_, err := store.OrNotFound(lib.database.Read().GetWorkForMatch(lib.t.Context(), itemID))
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		lib.t.Fatal(err)
 	}
@@ -78,13 +78,13 @@ func TestPass_ADeletedLibrarysFilmThatReappearsElsewhereBringsItsTitleBack(t *te
 	const body = `<movie><title>The Kid</title><year>2014</year><uniqueid type="tmdb">480600</uniqueid></movie>`
 	const film, nfo = "The Kid (2014)/The Kid (2014).mkv", "The Kid (2014)/The Kid (2014).nfo"
 	lib.scan(videoRecord(film), nfoRecord(nfo, body))
-	the kid := lib.titlesByPath()[film].TitleID
+	the kid := lib.titlesByPath()[film].WorkID
 	lib.deleteAndStartAnother("movie", "nfo")
 	if !lib.isLive(the kid) {
 		t.Fatal("the deleted library's title is a tombstone; deleting a library deletes no item (D363 §10)")
 	}
 	lib.scan(videoRecord(film), nfoRecord(nfo, body))
-	if got := lib.titlesByPath()[film].TitleID; got != the kid || !lib.isLive(the kid) {
+	if got := lib.titlesByPath()[film].WorkID; got != the kid || !lib.isLive(the kid) {
 		t.Errorf("The Kid in Kids is title %d (live %v), want %d brought back", got, lib.isLive(got), the kid)
 	}
 }
@@ -98,14 +98,14 @@ func TestMatch_ADeletedLibrarysFilmMatchedAgainElsewhereBringsItsTitleBack(t *te
 	const film = "Metropolis (1995).mkv"
 	lib.scan(videoRecord(film))
 	lib.matchFileTitle(film)
-	metropolisTitle := lib.titlesByPath()[film].TitleID
+	metropolisTitle := lib.titlesByPath()[film].WorkID
 	lib.deleteAndStartAnother("movie", "tmdb")
 	lib.scan(videoRecord(film))
-	if newTitle := lib.titlesByPath()[film].TitleID; newTitle == metropolisTitle {
+	if newTitle := lib.titlesByPath()[film].WorkID; newTitle == metropolisTitle {
 		t.Fatal("the film was filed under its old title before any match; the test proves nothing")
 	}
 	lib.matchFileTitle(film)
-	if got := lib.titlesByPath()[film].TitleID; got != metropolisTitle || !lib.isLive(metropolisTitle) {
+	if got := lib.titlesByPath()[film].WorkID; got != metropolisTitle || !lib.isLive(metropolisTitle) {
 		t.Errorf("Metropolis in Kids is title %d (live %v), want %d brought back by the match",
 			got, lib.isLive(got), metropolisTitle)
 	}
@@ -114,11 +114,11 @@ func TestMatch_ADeletedLibrarysFilmMatchedAgainElsewhereBringsItsTitleBack(t *te
 // seriesOfFile is the series a file's episode is placed in.
 func (lib *testLibrary) seriesOfFile(rel string) int64 {
 	lib.t.Helper()
-	place, err := lib.database.Read().GetEpisodePlace(lib.t.Context(), lib.titlesByPath()[rel].TitleID)
+	place, err := lib.database.Read().GetEpisodePlace(lib.t.Context(), lib.titlesByPath()[rel].WorkID)
 	if err != nil {
 		lib.t.Fatalf("%s's place: %v", rel, err)
 	}
-	return place.CollectionID
+	return place.SequenceID
 }
 
 // S24, D231 §7, D208 §2: a deleted library's series whose episodes reappear in another library,
@@ -132,13 +132,13 @@ func TestPass_ADeletedLibrarysSeriesThatReappearsElsewhereComesBack(t *testing.T
 	const first, second = "Puddlejump/Season 01/Puddlejump - S01E01.mkv", "Puddlejump/Season 01/Puddlejump - S01E02.mkv"
 	lib.scan(nfoRecord("Puddlejump/tvshow.nfo", show), videoRecord(first), videoRecord(second))
 	puddlejump := lib.onlySeries().ID
-	magicXylophone, hospital := lib.titlesByPath()[first].TitleID, lib.titlesByPath()[second].TitleID
+	magicXylophone, hospital := lib.titlesByPath()[first].WorkID, lib.titlesByPath()[second].WorkID
 	lib.deleteAndStartAnother("series", "nfo")
 	lib.scan(nfoRecord("Puddlejump/tvshow.nfo", show), videoRecord(first))
 	if got := lib.onlySeries().ID; got != puddlejump {
 		t.Errorf("Puddlejump in Kids is series %d, want %d brought back", got, puddlejump)
 	}
-	if got := lib.titlesByPath()[first].TitleID; got != magicXylophone || !lib.isLive(magicXylophone) {
+	if got := lib.titlesByPath()[first].WorkID; got != magicXylophone || !lib.isLive(magicXylophone) {
 		t.Errorf("S01E01 in Kids is title %d (live %v), want %d brought back", got, lib.isLive(got), magicXylophone)
 	}
 	if !lib.isLive(hospital) || lib.isListed(hospital) {
@@ -160,7 +160,7 @@ func TestMatch_ADeletedLibrarysSeriesMatchedAgainElsewhereComesBack(t *testing.T
 		t.Fatalf("Match(series) = %s, %v", outcome, err)
 	}
 	orbitoramaSeries := lib.onlySeries().ID
-	clone, later := lib.titlesByPath()[orbitoramaFiles[0]].TitleID, lib.titlesByPath()[orbitoramaFiles[1]].TitleID
+	clone, later := lib.titlesByPath()[orbitoramaFiles[0]].WorkID, lib.titlesByPath()[orbitoramaFiles[1]].WorkID
 	lib.deleteAndStartAnother("series", "tmdb")
 	const added = "Orbitorama/Season 02/Orbitorama - S02E12.mkv"
 	lib.scanAll(orbitoramaFiles[0], added)
@@ -174,7 +174,7 @@ func TestMatch_ADeletedLibrarysSeriesMatchedAgainElsewhereComesBack(t *testing.T
 	if got := lib.onlySeries().ID; got != orbitoramaSeries {
 		t.Errorf("Orbitorama in Kids is series %d, want %d brought back by the match", got, orbitoramaSeries)
 	}
-	if got := lib.titlesByPath()[orbitoramaFiles[0]].TitleID; got != clone || !lib.isLive(clone) {
+	if got := lib.titlesByPath()[orbitoramaFiles[0]].WorkID; got != clone || !lib.isLive(clone) {
 		t.Errorf("S02E10 in Kids is title %d (live %v), want %d brought back", got, lib.isLive(got), clone)
 	}
 	if got := lib.seriesOfFile(added); got != orbitoramaSeries {
@@ -185,7 +185,7 @@ func TestMatch_ADeletedLibrarysSeriesMatchedAgainElsewhereComesBack(t *testing.T
 			"no library", lib.isLive(later), lib.isListed(later))
 	}
 	lib.scanAll(orbitoramaFiles[0], orbitoramaFiles[1], added)
-	if got := lib.titlesByPath()[orbitoramaFiles[1]].TitleID; got != later || !lib.isLive(later) {
+	if got := lib.titlesByPath()[orbitoramaFiles[1]].WorkID; got != later || !lib.isLive(later) {
 		t.Errorf("S02E11, reappearing later, is title %d (live %v), want %d brought back", got, lib.isLive(got), later)
 	}
 }

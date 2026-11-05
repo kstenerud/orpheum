@@ -128,20 +128,20 @@ func (lib *testLibrary) runOwedPasses() {
 }
 
 // titlesByPath is each live video's title, by path below the root.
-func (lib *testLibrary) titlesByPath() map[string]sqlcgen.ListFileTitlesRow {
+func (lib *testLibrary) titlesByPath() map[string]sqlcgen.ListFileWorksRow {
 	lib.t.Helper()
-	rows, err := lib.database.Read().ListFileTitles(lib.t.Context(), lib.libraryID)
+	rows, err := lib.database.Read().ListFileWorks(lib.t.Context(), lib.libraryID)
 	if err != nil {
 		lib.t.Fatal(err)
 	}
-	byPath := map[string]sqlcgen.ListFileTitlesRow{}
+	byPath := map[string]sqlcgen.ListFileWorksRow{}
 	for _, row := range rows {
 		byPath[strings.TrimPrefix(row.Path, strings.TrimSuffix(library.PathText([]byte(lib.rootPath)), "/")+"/")] = row
 	}
 	return byPath
 }
 
-func titleName(row sqlcgen.ListFileTitlesRow) string {
+func titleName(row sqlcgen.ListFileWorksRow) string {
 	if row.Name == nil {
 		return ""
 	}
@@ -177,7 +177,7 @@ func TestPass_TheDevLibrarysFilms(t *testing.T) {
 	}
 }
 
-func checkMetropolis(t *testing.T, heat sqlcgen.ListFileTitlesRow) {
+func checkMetropolis(t *testing.T, heat sqlcgen.ListFileWorksRow) {
 	t.Helper()
 	if titleName(heat) != "Metropolis" || heat.Year == nil || *heat.Year != 1995 ||
 		ptr.ValueOrZero(heat.IdentificationState) != identify.IdentificationIdentified ||
@@ -187,15 +187,15 @@ func checkMetropolis(t *testing.T, heat sqlcgen.ListFileTitlesRow) {
 	}
 }
 
-func checkVersionsAndTrailer(t *testing.T, files map[string]sqlcgen.ListFileTitlesRow) {
+func checkVersionsAndTrailer(t *testing.T, files map[string]sqlcgen.ListFileWorksRow) {
 	t.Helper()
 	high := files["Two Versions Film (2019)/Two Versions Film (2019) - 1080p.mkv"]
 	low := files["Two Versions Film (2019)/Two Versions Film (2019) - 720p.mkv"]
-	if high.TitleID != low.TitleID || titleName(high) != "Two Versions Film" || high.Filing != identify.FilingListed {
+	if high.WorkID != low.WorkID || titleName(high) != "Two Versions Film" || high.Filing != identify.FilingListed {
 		t.Errorf("the two versions are %+v and %+v, want one listed title (D155)", high, low)
 	}
 	trailer := files["Two Versions Film (2019)/trailers/Two Versions Film trailer.mp4"]
-	if trailer.Kind != identify.KindExtra || trailer.TitleID == high.TitleID {
+	if trailer.Kind != identify.KindExtra || trailer.WorkID == high.WorkID {
 		t.Errorf("the trailer is %+v, want an extra of its own (D162)", trailer)
 	}
 	if trailer.Filing != identify.FilingExtra || trailer.FilingReason == nil ||
@@ -205,7 +205,7 @@ func checkVersionsAndTrailer(t *testing.T, files map[string]sqlcgen.ListFileTitl
 	}
 }
 
-func checkUnidentified(t *testing.T, rip sqlcgen.ListFileTitlesRow) {
+func checkUnidentified(t *testing.T, rip sqlcgen.ListFileWorksRow) {
 	t.Helper()
 	if rip.Filing != identify.FilingUnidentified || rip.FilingReason == nil || *rip.FilingReason != "no NFO file" {
 		t.Errorf("the rip = %+v, want unidentified: no NFO in an NFO-only library", rip)
@@ -223,7 +223,7 @@ func TestPass_ASeriesFromItsFoldersAndItsTvshowNFO(t *testing.T) {
 	files := lib.titlesByPath()
 	first := files["Test Show/Season 01/Test Show - S01E01.mkv"]
 	second := files["Test Show/Season 01/Test Show - S01E02.mkv"]
-	if first.Kind != "episode" || first.Filing != "listed" || first.TitleID == second.TitleID {
+	if first.Kind != "episode" || first.Filing != "listed" || first.WorkID == second.WorkID {
 		t.Errorf("episodes %+v and %+v, want two listed episode titles", first, second)
 	}
 	series, err := lib.database.Read().ListLibrarySeries(t.Context(), &lib.libraryID)
@@ -284,8 +284,8 @@ func TestPass_AFilmSpelledAnotherWayWithItsYearIsTheSameFilm(t *testing.T) {
 	files := lib.titlesByPath()
 	first := files["Moth-Lantern (2002)/Moth-Lantern (2002).mkv"]
 	second := files["Moth Lantern (2002)/Moth Lantern (2002) 4K.mkv"]
-	if first.TitleID == 0 || first.TitleID != second.TitleID {
-		t.Errorf("the two files are titles %d and %d; want one film", first.TitleID, second.TitleID)
+	if first.WorkID == 0 || first.WorkID != second.WorkID {
+		t.Errorf("the two files are titles %d and %d; want one film", first.WorkID, second.WorkID)
 	}
 }
 
@@ -301,9 +301,9 @@ func TestPass_RunningAgainChangesNothing(t *testing.T) {
 	before := lib.titlesByPath()
 	lib.scan(records...)
 	for path, row := range lib.titlesByPath() {
-		if before[path].TitleID != row.TitleID {
+		if before[path].WorkID != row.WorkID {
 			t.Errorf("%s moved from title %d to %d on a second pass over the same files",
-				path, before[path].TitleID, row.TitleID)
+				path, before[path].WorkID, row.WorkID)
 		}
 	}
 }
@@ -316,20 +316,20 @@ func TestPass_ARenamedFileIsIdentifiedAgainUnlessConfirmed(t *testing.T) {
 	typo := lib.titlesByPath()["Metropols (1995).mkv"]
 	ronin := lib.titlesByPath()["Nosferatu (1998).mkv"]
 	if err := lib.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
-		return queries.ConfirmTitleMatch(t.Context(), ronin.TitleID)
+		return queries.ConfirmWorkMatch(t.Context(), ronin.WorkID)
 	}); err != nil {
 		t.Fatal(err)
 	}
 
 	lib.scan(videoMoved("Metropols (1995).mkv", "Metropolis (1995).mkv"), videoMoved("Nosferatu (1998).mkv", "Nosferatu 2 (1998).mkv"))
 	fixed := lib.titlesByPath()["Metropolis (1995).mkv"]
-	if fixed.TitleID == typo.TitleID || titleName(fixed) != "Metropolis" {
+	if fixed.WorkID == typo.WorkID || titleName(fixed) != "Metropolis" {
 		t.Errorf("after the rename, the file is title %d %q, want a title called Metropolis (D208 §1)",
-			fixed.TitleID, titleName(fixed))
+			fixed.WorkID, titleName(fixed))
 	}
-	if kept := lib.titlesByPath()["Nosferatu 2 (1998).mkv"]; kept.TitleID != ronin.TitleID {
+	if kept := lib.titlesByPath()["Nosferatu 2 (1998).mkv"]; kept.WorkID != ronin.WorkID {
 		t.Errorf("the confirmed file moved from title %d to %d; a person's match never moves (D172)",
-			ronin.TitleID, kept.TitleID)
+			ronin.WorkID, kept.WorkID)
 	}
 }
 
@@ -359,7 +359,7 @@ func TestPass_ATitleFollowsItsFilesToAnotherLibrary(t *testing.T) {
 	lib.scan(videoRecord("The Kid (2014)/The Kid (2014).mkv"),
 		nfoRecord("The Kid (2014)/The Kid (2014).nfo", body),
 		videoRecord("Metropolis (1995).mkv"))
-	the kid := lib.titlesByPath()["The Kid (2014)/The Kid (2014).mkv"].TitleID
+	the kid := lib.titlesByPath()["The Kid (2014)/The Kid (2014).mkv"].WorkID
 
 	// The film leaves this library...
 	lib.scan(videoRecord("Metropolis (1995).mkv"))
@@ -375,13 +375,13 @@ func TestPass_ATitleFollowsItsFilesToAnotherLibrary(t *testing.T) {
 	if _, passErr := lib.pass.IdentifyLibrary(t.Context(), kidsID); passErr != nil {
 		t.Fatal(passErr)
 	}
-	rows, err := lib.database.Read().ListFileTitles(t.Context(), kidsID)
+	rows, err := lib.database.Read().ListFileWorks(t.Context(), kidsID)
 	if err != nil || len(rows) != 1 {
 		t.Fatalf("Kids holds %+v, %v", rows, err)
 	}
-	if rows[0].TitleID != the kid {
+	if rows[0].WorkID != the kid {
 		t.Errorf("The Kid in Kids is title %d, want %d: the title follows its files (D208 §2)",
-			rows[0].TitleID, the kid)
+			rows[0].WorkID, the kid)
 	}
 }
 
@@ -509,15 +509,15 @@ func TestPass_ATitleAFileLeftIsMergedIntoItsNewOneAndNoneIsMadeForAFileThatStays
 	t.Parallel()
 	lib := newTestLibrary(t, "movie", "nfo_then_tmdb")
 	lib.scan(videoRecord("Metropols (1995).mkv"), videoRecord("Nosferatu (1998).mkv"))
-	typo := lib.titlesByPath()["Metropols (1995).mkv"].TitleID
-	ronin := lib.titlesByPath()["Nosferatu (1998).mkv"].TitleID
+	typo := lib.titlesByPath()["Metropols (1995).mkv"].WorkID
+	ronin := lib.titlesByPath()["Nosferatu (1998).mkv"].WorkID
 	if err := lib.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
-		return queries.ConfirmTitleMatch(t.Context(), ronin)
+		return queries.ConfirmWorkMatch(t.Context(), ronin)
 	}); err != nil {
 		t.Fatal(err)
 	}
 	lib.scan(videoMoved("Metropols (1995).mkv", "Metropolis (1995).mkv"), videoMoved("Nosferatu (1998).mkv", "Nosferatu 2 (1998).mkv"))
-	heat := lib.titlesByPath()["Metropolis (1995).mkv"].TitleID
+	heat := lib.titlesByPath()["Metropolis (1995).mkv"].WorkID
 	merged := storetest.QueryRaw(t, lib.database.Path(),
 		fmt.Sprintf("SELECT merged_into FROM item WHERE id = %d AND removed_at IS NOT NULL", typo))
 	if want := []string{strconv.FormatInt(heat, 10)}; !slices.Equal(merged, want) {
@@ -713,8 +713,8 @@ func TestPass_AFilmIsATitleFromItsListingAndKeepsItOnceRead(t *testing.T) {
 		t.Fatalf("after its listing the film is %+v, filed %v; want a title called Metropolis", listed, filed)
 	}
 	lib.readThenPass(videoRecord(heat))
-	if read := lib.titlesByPath()[heat]; read.TitleID != listed.TitleID {
-		t.Errorf("once read the film is title %d, want %d, the one its listing gave it", read.TitleID, listed.TitleID)
+	if read := lib.titlesByPath()[heat]; read.WorkID != listed.WorkID {
+		t.Errorf("once read the film is title %d, want %d, the one its listing gave it", read.WorkID, listed.WorkID)
 	}
 }
 
@@ -726,11 +726,11 @@ func TestPass_AFilmMovedToAnotherDiskEndsInItsOldTitle(t *testing.T) {
 	lib := newTestLibrary(t, "movie", "nfo")
 	const heat, moved = "Metropolis (1995)/Metropolis (1995).mkv", "Disk 2/Metropolis (1995)/Metropolis (1995).mkv"
 	lib.scan(videoRecord(heat))
-	old := lib.titlesByPath()[heat].TitleID
+	old := lib.titlesByPath()[heat].WorkID
 	lib.listThenPass(listedRecord(moved, 99))
-	fromPath := lib.titlesByPath()[moved].TitleID
+	fromPath := lib.titlesByPath()[moved].WorkID
 	lib.readThenPass(videoMoved(heat, moved))
-	if got := lib.titlesByPath()[moved].TitleID; got != old {
+	if got := lib.titlesByPath()[moved].WorkID; got != old {
 		t.Errorf("once read the moved film is title %d (from its path, %d); want %d, the one it had", got, fromPath,
 			old)
 	}

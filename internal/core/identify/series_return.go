@@ -130,7 +130,7 @@ func joinEpisodes(ctx context.Context, queries *sqlcgen.Queries, fromSeries, kep
 	}
 	keptAt := make(map[episodePlace]int64, len(keptPlaces))
 	for _, place := range keptPlaces {
-		keptAt[placeOf(place)] = place.TitleID
+		keptAt[placeOf(place)] = place.WorkID
 	}
 	fromPlaces, err := queries.ListSeriesEpisodePlaces(ctx, fromSeries)
 	if err != nil {
@@ -144,9 +144,9 @@ func joinEpisodes(ctx context.Context, queries *sqlcgen.Queries, fromSeries, kep
 	}
 	for _, place := range fromPlaces {
 		if kept, isAtAKeptPlace := keptAt[placeOf(place)]; isAtAKeptPlace {
-			err = join.mergeEpisode(ctx, place.TitleID, kept)
+			err = join.mergeEpisode(ctx, place.WorkID, kept)
 		} else {
-			err = join.moveEpisode(ctx, place.TitleID)
+			err = join.moveEpisode(ctx, place.WorkID)
 		}
 		if err != nil {
 			return err
@@ -166,8 +166,8 @@ func (join seriesJoin) bringBack(ctx context.Context, itemID int64) error {
 // mergeEpisode gives an episode's versions to the kept series' episode at its place, which comes
 // back, and leaves a tombstone pointing there.
 func (join seriesJoin) mergeEpisode(ctx context.Context, episode, kept int64) error {
-	move := sqlcgen.MoveVersionsBetweenTitlesParams{ToTitle: kept, FromTitle: episode}
-	err := join.queries.MoveVersionsBetweenTitles(ctx, move)
+	move := sqlcgen.MoveVersionsBetweenWorksParams{ToWork: kept, FromWork: episode}
+	err := join.queries.MoveVersionsBetweenWorks(ctx, move)
 	if err == nil {
 		err = join.bringBack(ctx, kept)
 	}
@@ -183,11 +183,11 @@ func (join seriesJoin) mergeEpisode(ctx context.Context, episode, kept int64) er
 // moveEpisode moves an episode into the kept series, at the same place in its aired order.
 func (join seriesJoin) moveEpisode(ctx context.Context, episode int64) error {
 	err := join.queries.MoveEpisodeToSeries(ctx, sqlcgen.MoveEpisodeToSeriesParams{
-		ToSeries: join.keptSeries, FromSeries: join.fromSeries, TitleID: &episode,
+		ToSeries: join.keptSeries, FromSeries: join.fromSeries, WorkID: &episode,
 	})
 	if err == nil {
 		err = join.queries.MovePositionToOrdering(ctx, sqlcgen.MovePositionToOrderingParams{
-			ToOrdering: join.keptOrdering, FromOrdering: join.fromOrdering, TitleID: episode,
+			ToOrdering: join.keptOrdering, FromOrdering: join.fromOrdering, WorkID: episode,
 		})
 	}
 	if err != nil {

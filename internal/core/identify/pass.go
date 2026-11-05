@@ -370,7 +370,7 @@ func (filer *libraryFiler) listAwaitingMatch(ctx context.Context, libraryID int6
 	if filer.library.MetadataSource == sourceNFO {
 		return nil
 	}
-	films, err := filer.queries.ListTitlesAwaitingMatch(ctx, &libraryID)
+	films, err := filer.queries.ListWorksAwaitingMatch(ctx, &libraryID)
 	if err != nil {
 		return fmt.Errorf("list the films awaiting a match: %w", err)
 	}
@@ -439,8 +439,8 @@ func (filer *libraryFiler) identify(ctx context.Context) error {
 func (filer *libraryFiler) retireEmptied(ctx context.Context) error {
 	for _, titleID := range slices.Sorted(maps.Keys(filer.leftFor)) {
 		into := filer.leftFor[titleID]
-		merged, err := filer.queries.MergeTitleLeftWithoutVersions(ctx, sqlcgen.MergeTitleLeftWithoutVersionsParams{
-			MergedInto: &into, RemovedAt: &filer.nowMs, TitleID: titleID,
+		merged, err := filer.queries.MergeWorkLeftWithoutVersions(ctx, sqlcgen.MergeWorkLeftWithoutVersionsParams{
+			MergedInto: &into, RemovedAt: &filer.nowMs, WorkID: titleID,
 		})
 		if err != nil {
 			return fmt.Errorf("merge title %d, left with no version, into %d: %w", titleID, into, err)
@@ -569,7 +569,7 @@ func (filer *libraryFiler) contradictedPlacements(ctx context.Context) error {
 		if ptr.ValueOrZero(current.IdentificationState) == identificationConfirmed {
 			continue
 		}
-		place, isEpisode, err := filer.episodePlace(ctx, current.TitleID)
+		place, isEpisode, err := filer.episodePlace(ctx, current.WorkID)
 		if err != nil {
 			return err
 		}
@@ -577,7 +577,7 @@ func (filer *libraryFiler) contradictedPlacements(ctx context.Context) error {
 			filer.contradicted[file.ID] = true // not an episode
 			continue
 		}
-		series, err := filer.cachedSeriesMatch(ctx, place.CollectionID)
+		series, err := filer.cachedSeriesMatch(ctx, place.SequenceID)
 		if err != nil {
 			return err
 		}
@@ -684,7 +684,7 @@ func (filer *libraryFiler) noteLeft(leftTitleID, inTitleID int64) {
 // newVersion gives a file its own Version under the title.
 func (filer *libraryFiler) newVersion(ctx context.Context, file sqlcgen.ListIdentifyFilesRow, titleID int64) error {
 	version, err := filer.queries.InsertVersion(ctx,
-		sqlcgen.InsertVersionParams{TitleID: titleID, CreatedAt: filer.nowMs})
+		sqlcgen.InsertVersionParams{WorkID: titleID, CreatedAt: filer.nowMs})
 	if err != nil {
 		return fmt.Errorf("add a version for %s: %w", file.Path, err)
 	}
@@ -705,10 +705,10 @@ func (filer *libraryFiler) keepOrMove(
 		return 0, fmt.Errorf("read %s's version: %w", file.Path, err)
 	}
 	if ptr.ValueOrZero(current.IdentificationState) == identificationConfirmed || !filer.isFiledAgain(file) {
-		titleID = current.TitleID
-	} else if current.TitleID != titleID {
+		titleID = current.WorkID
+	} else if current.WorkID != titleID {
 		err = filer.moveVersion(ctx, *file.VersionID, titleID)
-		filer.noteLeft(current.TitleID, titleID)
+		filer.noteLeft(current.WorkID, titleID)
 		if err != nil {
 			return 0, fmt.Errorf("move %s to its title: %w", file.Path, err)
 		}
@@ -743,5 +743,5 @@ func (filer *libraryFiler) currentTitle(ctx context.Context, file sqlcgen.ListId
 	if ptr.ValueOrZero(current.IdentificationState) != identificationConfirmed && filer.isFiledAgain(file) {
 		return 0, false, nil
 	}
-	return current.TitleID, true, nil
+	return current.WorkID, true, nil
 }

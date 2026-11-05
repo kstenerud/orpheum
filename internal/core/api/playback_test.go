@@ -296,7 +296,7 @@ func TestPlayback_SaysWhatItPlaysAndWhereItLives(t *testing.T) {
 	librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: 31, Library: 1, Kind: "extra", AddedAt: 3})
 	librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: 8, TitleID: 31, CreatedAt: 3})
 	storetest.ExecRaw(t, harness.databasePath, `INSERT INTO extra_relation
-		(owner_title, extra_title, extra_type, asserted_by)
+		(owner_work, extra_work, extra_type, asserted_by)
 		VALUES (10, 31, 'trailer', 'scanner')`)
 	for _, file := range []librarytest.FileSpec{
 		{ID: 6, Path: "/m/Home/Beach.mkv", PayloadHash: []byte{0x06}, Filing: "listed", VersionID: 6},

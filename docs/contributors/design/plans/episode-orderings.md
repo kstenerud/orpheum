@@ -115,7 +115,7 @@ What follows from it:
 - **One episode appears at most once in a group.** A contributor's note on *One Piece*'s Hulu
   group: *"As episodes can't be listed twice in the same episode group, the episode is listed in
   this group as part of season 10 instead of as a special."* That matches
-  `position`'s `PRIMARY KEY (ordering_id, title_id)`.
+  `position`'s `PRIMARY KEY (ordering_id, work_id)`.
 - **A group cannot split or merge an episode**: an entry is a whole TMDB episode by id, with no
   field for a part of one (inferred from the schema; UNVERIFIED against a group that tries).
 
@@ -163,8 +163,8 @@ tables.
 ## 3. Mapping onto the schema
 
 The tables (`internal/store/testdata/golden/schema-v0056.sql`) already hold most of this: an
-`ordering` per `(collection_id, name)` with a `provider`, a `position` per
-`(ordering_id, title_id)` with `group_number`, `number_in_group` and a total `sort_order`, and a
+`ordering` per `(sequence_id, name)` with a `provider`, a `position` per
+`(ordering_id, work_id)` with `group_number`, `number_in_group` and a total `sort_order`, and a
 `group_text` for a group's name. What is missing is small and listed in §3.5.
 
 ### 3.1 Names
@@ -239,9 +239,9 @@ local data, unidentified, saying so — D209 §2's rule with a different listing
 | Gap | Why | Proposal |
 | --- | --- | --- |
 | `ordering` has no kind, no source id, no label | the selector needs *"DVD Order — DVD, 23 episodes"*; `name` must stay a key | add `kind`, `source_id` (the group id), and a label (or an `ordering_text` per language, like `item_text`) |
-| `group_text` is keyed by `collection_id` | a group number means a different part in each ordering (Season 1 aired; Disc 1 DVD) | re-key it by `ordering_id`; nothing reads or writes it today (no query names it), so the step is cheap |
+| `group_text` is keyed by `sequence_id` | a group number means a different part in each ordering (Season 1 aired; Disc 1 DVD) | re-key it by `ordering_id`; nothing reads or writes it today (no query names it), so the step is cheap |
 | no files' order on the series | D210 §1 | `collection.files_ordering_id` (NULL means `aired`), or a household setting per series |
-| `collection_member.position` mirrors aired's `sort_order` (`episodes.go:342`–`:345`) | a second copy of one ordering | leave it: it orders a series as a member of another collection; note it is not the viewing order |
+| `sequence_member.position` mirrors aired's `sort_order` (`episodes.go:342`–`:345`) | a second copy of one ordering | leave it: it orders a series as a member of another collection; note it is not the viewing order |
 
 Migrations are live (`internal/store/migrations/CHECKPOINT` is 48; the last step is 0056), so
 each is an appended step (D272 §5, standards sql.md), cut by the owner.
@@ -291,17 +291,17 @@ in flight, which parameterises the member query by ordering name and passes `air
 Each is one of three meanings. **V**, the viewing order: becomes the person's resolved ordering.
 **F**, the files' order: becomes the series' files' order (aired until D210 §1 is built).
 **M**, membership: means "the episodes of this series" and should not name an ordering at all
-(`collection_member`), or may keep `aired`, which every episode is in today.
+(`sequence_member`), or may keep `aired`, which every episode is in today.
 
 | Where | What | Meaning | Should |
 | --- | --- | --- | --- |
 | `internal/store/queries/browse.sql:128`–`134` `GetEpisodePlace` | an episode's series and place | V for labels; M for its callers in identify | take an ordering for labels; identify asks for the series alone |
 | `browse.sql:149`–`162` `ListSeriesEpisodeDetails` | a series' episodes, grouped into the page's seasons | V | take the ordering name |
 | `browse.sql:165`–`179` `ListSeasonEpisodeDetails` | one season's page of episodes | V | take the ordering; "season" is the group |
-| `browse.sql:196`–`205` `ListLiveFileLocationsOfSeries` | whether a series' files can be read | M | read `collection_member` |
+| `browse.sql:196`–`205` `ListLiveFileLocationsOfSeries` | whether a series' files can be read | M | read `sequence_member` |
 | `browse.sql:231`–`247` `ListSeriesEpisodeFilesWithPositions` | where a person is in a series | V | in flight: `ordering_name` argument |
 | `internal/store/queries/series.sql:40`–`49` `ListLiveSeriesEpisodeSources` | which season listings to fetch | F | the files' order's listing |
-| `series.sql:86`–`102` `ListSeriesAwaitingMatch` | a series with an episode no NFO speaks for | M | `collection_member` |
+| `series.sql:86`–`102` `ListSeriesAwaitingMatch` | a series with an episode no NFO speaks for | M | `sequence_member` |
 | `internal/store/queries/identify.sql:70`–`78` `MoveEpisodeToSeries`, `MovePositionToOrdering` | joining two series moves the aired position | every ordering | move each position whose ordering the kept series has; drop the rest; re-materialise provider orderings |
 | `identify.sql:200`–`207` `ListSeriesEpisodePlaces` | a series' episodes by number, for filing | F | files' order |
 | `identify.sql:330`–`336` `ListLibraryAiredPositions` | each title's place, for a pass | F | files' order |
@@ -309,7 +309,7 @@ Each is one of three meanings. **V**, the viewing order: becomes the person's re
 | `identify.sql:359`–`363` `ListLibrarySeriesEpisodePlaces` | as `ListSeriesEpisodePlaces`, per library | F | files' order |
 | `identify.sql:378`–`383` `ListLibraryLiveEpisodeSources` | as `ListLiveSeriesEpisodeSources`, per library | F | files' order |
 | `identify.sql:420`–`426`, `:455`–`465`, `:469`–`473` the unnumbered queries | episodes with no number | F | files' order |
-| `identify.sql:436`–`451` `ListFilesOfWork` | a work's files and their numbers, for the filing report | M, and F for the numbers | membership by `collection_member`; numbers in the files' order |
+| `identify.sql:436`–`451` `ListFilesOfWork` | a work's files and their numbers, for the filing report | M, and F for the numbers | membership by `sequence_member`; numbers in the files' order |
 | `internal/core/identify/episodes.go:18`–`19` `airedOrdering`; `:340`–`386` `positionEpisode`, `positionUnnumbered`; `:391`–`404` `airedOrderingOf` | a file's numbers placed in aired | F | place in the files' order; when that is a group, place in aired too from the entry (§3.3) |
 | `episodes.go:257`–`288` `fromListing` | look a number up in the aired season listing | F | look up in the files' order's listing |
 | `identify/series_return.go:108`–`146`, `:187` | returning an episode to its first series, by aired place | every ordering | as `MoveEpisodeToSeries` |

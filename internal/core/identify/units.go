@@ -97,7 +97,7 @@ func (filer *libraryFiler) unitKeys(
 		if err != nil {
 			return nil, err
 		}
-		currentTitle = current.TitleID
+		currentTitle = current.WorkID
 		keys = append(keys, "title:"+strconv.FormatInt(currentTitle, 10))
 	}
 	parsed := filer.parse(relativePath)
@@ -149,7 +149,7 @@ func (filer *libraryFiler) episodeUnitKeys(
 			return nil, err
 		}
 		if isEpisode {
-			keys = append(keys, "seriesid:"+strconv.FormatInt(place.CollectionID, 10))
+			keys = append(keys, "seriesid:"+strconv.FormatInt(place.SequenceID, 10))
 		}
 	}
 	return keys, nil

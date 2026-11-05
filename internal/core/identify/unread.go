@@ -23,7 +23,7 @@ func RetireVersionInto(ctx context.Context, queries *sqlcgen.Queries, versionID,
 	if holding > 0 {
 		return nil // another part of it stays
 	}
-	version, err := queries.GetVersionTitle(ctx, versionID)
+	version, err := queries.GetVersionWork(ctx, versionID)
 	if err != nil {
 		return fmt.Errorf("read version %d's title: %w", versionID, err)
 	}
@@ -31,14 +31,14 @@ func RetireVersionInto(ctx context.Context, queries *sqlcgen.Queries, versionID,
 	if err != nil {
 		return fmt.Errorf("remove version %d: %w", versionID, err)
 	}
-	if version.TitleID == intoTitleID {
+	if version.WorkID == intoTitleID {
 		return nil
 	}
-	err = queries.MergeTitleWithNoLiveVersion(ctx, sqlcgen.MergeTitleWithNoLiveVersionParams{
-		MergedInto: &intoTitleID, RemovedAt: &nowMs, TitleID: version.TitleID,
+	err = queries.MergeWorkWithNoLiveVersion(ctx, sqlcgen.MergeWorkWithNoLiveVersionParams{
+		MergedInto: &intoTitleID, RemovedAt: &nowMs, WorkID: version.WorkID,
 	})
 	if err != nil {
-		return fmt.Errorf("merge title %d into %d: %w", version.TitleID, intoTitleID, err)
+		return fmt.Errorf("merge title %d into %d: %w", version.WorkID, intoTitleID, err)
 	}
 	return nil
 }

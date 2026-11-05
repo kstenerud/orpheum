@@ -130,7 +130,7 @@ func TestMatch_ANameALetterOffIsGuessedOnlyWhereItCannotBeAnotherWork(t *testing
 			t.Errorf("%s: outcome %s; want %s", path, outcome, want)
 		}
 	}
-	if potterID := lib.titlesByPath()[misspelt+" (2001).mkv"].TitleID; !lib.isGuessed(potterID) {
+	if potterID := lib.titlesByPath()[misspelt+" (2001).mkv"].WorkID; !lib.isGuessed(potterID) {
 		t.Error("the misspelt The Thief of Bagdad is matched but not marked a guess")
 	}
 }

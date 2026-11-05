@@ -81,7 +81,7 @@ func TestServe_AConfirmedFilmCopiedElsewhereAndDeletedKeepsItsTitleAndNoOther(t 
 	})
 	pollUntil(t, "one live title, the confirmed one", func() bool {
 		live := storetest.QueryRaw(t, database.Path(),
-			"SELECT identification_state FROM title JOIN item ON item.id = title.id WHERE item.removed_at IS NULL")
+			"SELECT identification_state FROM work JOIN item ON item.id = work.id WHERE item.removed_at IS NULL")
 		return len(live) == 1 && live[0] == "confirmed"
 	})
 }
@@ -95,7 +95,7 @@ func TestServe_OpeningTheFilmStillBeingReadsPageHasItRead(t *testing.T) {
 	server, token, filmFileID := playableFilm(t, shelved)
 	database := openDatabase(t, shelved.config)
 	storetest.ExecRaw(t, database.Path(), "UPDATE file SET payload_hash = NULL WHERE path LIKE '%.mkv'")
-	titles := storetest.QueryRaw(t, database.Path(), "SELECT version.title_id FROM file_filing JOIN version ON "+
+	titles := storetest.QueryRaw(t, database.Path(), "SELECT version.work_id FROM file_filing JOIN version ON "+
 		"version.id = file_filing.version_id WHERE file_filing.file_id = "+strconv.FormatInt(filmFileID, 10))
 	if len(titles) != 1 {
 		t.Fatalf("the film's title: %v", titles)

@@ -36,14 +36,14 @@ func watchedTitles(ctx context.Context, queries *sqlcgen.Queries, userID int64, 
 	if err != nil {
 		return nil, fmt.Errorf("encode %d title ids: %w", len(titleIDs), err)
 	}
-	rows, err := queries.ListTitlesWatched(ctx, sqlcgen.ListTitlesWatchedParams{
-		TitleIdsJSON: string(encoded), UserID: userID,
+	rows, err := queries.ListWorksWatched(ctx, sqlcgen.ListWorksWatchedParams{
+		WorkIdsJSON: string(encoded), UserID: userID,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("read user %d's watched marks of %d titles: %w", userID, len(titleIDs), err)
 	}
 	for _, row := range rows {
-		watched[row.TitleID] = row.WatchedAt != nil
+		watched[row.WorkID] = row.WatchedAt != nil
 	}
 	return watched, nil
 }
@@ -58,7 +58,7 @@ func (browser *Browser) WatchedTitles(ctx context.Context, userID int64, titleID
 // ErrNotWatchable for an extra.
 func (browser *Browser) TitleToMark(ctx context.Context, reach auth.Reach, titleID int64) error {
 	queries := browser.database.Read()
-	title, err := store.OrNotFound(queries.GetTitleDetail(ctx, titleID))
+	title, err := store.OrNotFound(queries.GetWorkDetail(ctx, titleID))
 	if errors.Is(err, store.ErrNotFound) {
 		return fmt.Errorf("title %d: %w", titleID, ErrNoItem)
 	}

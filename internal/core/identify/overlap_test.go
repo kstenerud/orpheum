@@ -34,11 +34,11 @@ func (lib *testLibrary) passOf(libraryID int64) {
 func (lib *testLibrary) filings() []string {
 	lib.t.Helper()
 	return storetest.QueryRaw(lib.t, lib.database.Path(),
-		`SELECT file_filing.library_kind, file_filing.filing, title.kind, coalesce(item_text.name, '')
+		`SELECT file_filing.library_kind, file_filing.filing, work.kind, coalesce(item_text.name, '')
 		 FROM file_filing JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
 		 LEFT JOIN version ON version.id = file_filing.version_id
-		 LEFT JOIN title ON title.id = version.title_id
-		 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
+		 LEFT JOIN work ON work.id = version.work_id
+		 LEFT JOIN item_text ON item_text.item_id = work.id AND item_text.is_original = 1
 		 ORDER BY file.path, file_filing.library_kind`)
 }
 
@@ -60,12 +60,12 @@ func TestPass_OneKindOfLibraryFilesAFileOnceAndAnotherKindGivesItsOwnItem(t *tes
 		t.Errorf("the filings = %v; want the film once and the other video once: %v", got, want)
 	}
 	titles := storetest.QueryRaw(t, lib.database.Path(),
-		"SELECT count(*) FROM title WHERE kind = 'movie'")
+		"SELECT count(*) FROM work WHERE kind = 'movie'")
 	if !slices.Equal(titles, []string{"1"}) {
 		t.Errorf("films = %v; want one, which both films libraries list", titles)
 	}
 	for _, libraryID := range []int64{lib.libraryID, inner} {
-		rows, err := lib.database.Read().ListFileTitles(t.Context(), libraryID)
+		rows, err := lib.database.Read().ListFileWorks(t.Context(), libraryID)
 		if err != nil || len(rows) != 1 || titleName(rows[0]) != "Metropolis" {
 			t.Errorf("library %d lists %+v, %v; want Metropolis", libraryID, rows, err)
 		}

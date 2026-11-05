@@ -105,9 +105,9 @@ func seriesWithEpisodes(t *testing.T, world *shelf) (seriesID int64, firstStill 
 	t.Helper()
 	seriesID = librarytest.Item(t, world.database, librarytest.ItemSpec{Kind: "series", LibraryID: 1})
 	statements := []string{
-		fmt.Sprintf("INSERT INTO collection (id, kind, created_by) VALUES (%d, 'series', "+
+		fmt.Sprintf("INSERT INTO sequence (id, kind, created_by) VALUES (%d, 'series', "+
 			"'scanner')", seriesID),
-		fmt.Sprintf("INSERT INTO ordering (id, collection_id, name) VALUES (%d, %d, 'aired')", seriesID, seriesID),
+		fmt.Sprintf("INSERT INTO ordering (id, sequence_id, name) VALUES (%d, %d, 'aired')", seriesID, seriesID),
 	}
 	for index, place := range []struct{ season, number int64 }{{0, 1}, {2, 1}, {1, 2}, {1, 1}} {
 		episode := librarytest.Title(t, world.database, librarytest.TitleSpec{Library: 1, Kind: "episode"})
@@ -116,7 +116,7 @@ func seriesWithEpisodes(t *testing.T, world *shelf) (seriesID int64, firstStill 
 			LibraryID: 1, NodeID: world.nodeID, Path: fmt.Sprintf("%s/S%dE%d.mkv", world.rootPath, place.season,
 				place.number), VersionID: version,
 		})
-		statements = append(statements, fmt.Sprintf("INSERT INTO position (ordering_id, title_id, group_number, "+
+		statements = append(statements, fmt.Sprintf("INSERT INTO position (ordering_id, work_id, group_number, "+
 			"number_in_group, sort_order) VALUES (%d, %d, %d, %d, %d)", seriesID, episode, place.season, place.number,
 			place.season*100+place.number))
 		still := storeArt(t, world, episode, ArtStill, ArtSourceFrame, byte(0x50+index))

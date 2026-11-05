@@ -91,7 +91,7 @@ func matchedFilms(t *testing.T, size int) *testLibrary {
 		}
 	}
 	// A person's chosen match is confirmed, which a pass never lowers (D172).
-	if err := lib.chooser.Choose(t.Context(), lib.titlesByPath()["Film 0 (1990)/Film 0 (1990).mkv"].TitleID,
+	if err := lib.chooser.Choose(t.Context(), lib.titlesByPath()["Film 0 (1990)/Film 0 (1990).mkv"].WorkID,
 		"tmdb", "100"); err != nil {
 		t.Fatal(err)
 	}

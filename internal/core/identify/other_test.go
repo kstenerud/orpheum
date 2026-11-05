@@ -65,7 +65,7 @@ func TestPass_AnOtherLibraryFilesEachVideoAsATitleOfItsOwnNeverMatched(t *testin
 	titles := map[int64]bool{}
 	for path, wanted := range want {
 		file := files[path]
-		other := lib.otherVideoOf(file.TitleID)
+		other := lib.otherVideoOf(file.WorkID)
 		got := fmt.Sprintf("%s|%s|%d", titleName(file), other.RecordedFrom, other.RecordedAt)
 		isOther := file.Kind == identify.KindOther && file.Filing == identify.FilingListed &&
 			ptr.ValueOrZero(file.IdentificationState) == identify.IdentificationIdentified
@@ -73,7 +73,7 @@ func TestPass_AnOtherLibraryFilesEachVideoAsATitleOfItsOwnNeverMatched(t *testin
 			t.Errorf("%s: %s, a %s %s %s; want %s, an identified other video, listed", path, got, file.Kind,
 				ptr.ValueOrZero(file.IdentificationState), file.Filing, wanted)
 		}
-		titles[file.TitleID] = true
+		titles[file.WorkID] = true
 	}
 	if len(titles) != len(want) {
 		t.Errorf("%d titles for %d videos; want each its own", len(titles), len(want))
@@ -97,11 +97,11 @@ func TestPass_AnOtherVideoMovedStaysItsTitleAndAPassAgainWritesNothing(t *testin
 	before := lib.titlesByPath()["Holiday/2019-07-14 Beach.mp4"]
 	lib.scan(videoMoved("Holiday/2019-07-14 Beach.mp4", "2019/2019-08-01 Beach at dusk.mp4"))
 	after := lib.titlesByPath()["2019/2019-08-01 Beach at dusk.mp4"]
-	if after.TitleID != before.TitleID || titleName(after) != "Beach at dusk" {
-		t.Errorf("moved: title %d %q; want title %d named again by its new name", after.TitleID, titleName(after),
-			before.TitleID)
+	if after.WorkID != before.WorkID || titleName(after) != "Beach at dusk" {
+		t.Errorf("moved: title %d %q; want title %d named again by its new name", after.WorkID, titleName(after),
+			before.WorkID)
 	}
-	if other := lib.otherVideoOf(after.TitleID); other.FileName != "2019-08-01 Beach at dusk.mp4" ||
+	if other := lib.otherVideoOf(after.WorkID); other.FileName != "2019-08-01 Beach at dusk.mp4" ||
 		strconv.FormatInt(other.RecordedAt, 10) != msOf(2019, 8, 1, 0, 0, 0) {
 		t.Errorf("moved: %+v; want its new file's name and date", other)
 	}
@@ -123,7 +123,7 @@ func TestChooser_AnOtherVideosDateIsCorrectedAndItIsNeverMatched(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "other", "nfo")
 	lib.scan(videoRecord("2019-07-14 Beach.mp4"))
-	titleID := lib.titlesByPath()["2019-07-14 Beach.mp4"].TitleID
+	titleID := lib.titlesByPath()["2019-07-14 Beach.mp4"].WorkID
 	person := storetest.InsertUser(t, lib.database, "alice", "admin")
 	corrected := msOf(2019, 7, 15, 9, 0, 0)
 	if err := lib.chooser.SetOverride(t.Context(), titleID, "recorded_at", corrected, person); err != nil {
@@ -188,7 +188,7 @@ func TestRefreshSortAndSearchKeys_KeysAnOtherVideosFileNameInTheNewLocale(t *tes
 		t.Fatal(err)
 	}
 	for path, file := range lib.titlesByPath() {
-		if other := lib.otherVideoOf(file.TitleID); !bytes.Equal(other.FileNameKey, swedish.Key(path)) {
+		if other := lib.otherVideoOf(file.WorkID); !bytes.Equal(other.FileNameKey, swedish.Key(path)) {
 			t.Errorf("%s: its file name is not keyed in Swedish", path)
 		}
 	}

@@ -67,14 +67,14 @@ func (world *shelf) fileAsFilm(text, path string) int64 {
 		if err != nil {
 			return err
 		}
-		film := sqlcgen.InsertTitleParams{ID: titleID, Kind: "movie"}
-		err = queries.InsertTitle(world.t.Context(), film)
+		film := sqlcgen.InsertWorkParams{ID: titleID, Kind: "movie"}
+		err = queries.InsertWork(world.t.Context(), film)
 		if err != nil {
 			return err
 		}
 		nameItem(world.t, queries, titleID, ListFilms, text)
 		version, err := queries.InsertVersion(world.t.Context(),
-			sqlcgen.InsertVersionParams{TitleID: titleID, CreatedAt: 1})
+			sqlcgen.InsertVersionParams{WorkID: titleID, CreatedAt: 1})
 		if err != nil || fileID == 0 {
 			return err // with no file, a film whose files are gone: its version is all that is left
 		}
@@ -279,7 +279,7 @@ func TestBrowse_ATitlesExtrasAreOnlyThoseWithALiveFile(t *testing.T) {
 	err := world.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 		for _, extra := range []int64{trailer, interview} {
 			relation := sqlcgen.UpsertScannerExtraRelationParams{
-				OwnerTitle: heat, ExtraTitle: extra, ExtraType: "trailer",
+				OwnerWork: heat, ExtraWork: extra, ExtraType: "trailer",
 			}
 			if err := queries.UpsertScannerExtraRelation(t.Context(), relation); err != nil {
 				return err
@@ -298,7 +298,7 @@ func TestBrowse_ATitlesExtrasAreOnlyThoseWithALiveFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(detail.Extras) != 1 || detail.Extras[0].ExtraTitle != trailer {
+	if len(detail.Extras) != 1 || detail.Extras[0].ExtraWork != trailer {
 		t.Errorf("extras = %+v; want only the trailer, whose file is live", detail.Extras)
 	}
 }

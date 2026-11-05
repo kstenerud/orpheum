@@ -303,14 +303,14 @@ WHERE id = sqlc.arg(id);
 -- A live video, what finds subtitles made for it (D224 section 3): its OpenSubtitles hash, and the
 -- title it is a version of, if it is identified: a film's or an episode's before an other video's,
 -- which no provider knows.
-SELECT f.id, f.opensubtitles_hash, v.title_id, t.kind AS title_kind
+SELECT f.id, f.opensubtitles_hash, v.work_id, t.kind AS work_kind
 FROM file f
 LEFT JOIN version v ON v.id = (
   SELECT file_filing.version_id FROM file_filing
   CROSS JOIN version AS live ON live.id = file_filing.version_id AND live.removed_at IS NULL
   WHERE file_filing.file_id = f.id
   ORDER BY file_filing.library_kind = 'other', file_filing.library_kind LIMIT 1)
-LEFT JOIN title t ON t.id = v.title_id
+LEFT JOIN work t ON t.id = v.work_id
 WHERE f.id = sqlc.arg(id) AND f.removed_at IS NULL;
 
 -- name: SetFileVersionAndIdentifiedPath :exec

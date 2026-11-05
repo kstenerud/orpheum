@@ -28,8 +28,8 @@ type snapshot struct {
 	// items are the live items of the library it holds, and those the pass added: an item's
 	// overrides, ids and text are all here, or it has none.
 	items         map[int64]bool
-	versionTitles map[int64]sqlcgen.GetVersionTitleRow // by version
-	titles        map[int64]sqlcgen.ListLibraryTitlesForPassRow
+	versionTitles map[int64]sqlcgen.GetVersionWorkRow // by version
+	titles        map[int64]sqlcgen.ListLibraryWorksForPassRow
 	overrides     map[int64]map[string]string // by item, then field
 	providerIDs   map[int64]map[providerID]bool
 	itemsByID     map[providerID][]int64 // the held items each provider id names
@@ -76,8 +76,8 @@ func providerIDOf(provider, id string) providerID { return providerID{provider: 
 // loadSnapshot reads the library's versions, titles, overrides, provider ids, text and NFO bodies.
 func (filer *libraryFiler) loadSnapshot(ctx context.Context, libraryID int64) error {
 	snap := snapshot{
-		isLoaded: true, items: map[int64]bool{}, versionTitles: map[int64]sqlcgen.GetVersionTitleRow{},
-		titles: map[int64]sqlcgen.ListLibraryTitlesForPassRow{}, overrides: map[int64]map[string]string{},
+		isLoaded: true, items: map[int64]bool{}, versionTitles: map[int64]sqlcgen.GetVersionWorkRow{},
+		titles: map[int64]sqlcgen.ListLibraryWorksForPassRow{}, overrides: map[int64]map[string]string{},
 		providerIDs: map[int64]map[providerID]bool{}, itemsByID: map[providerID][]int64{},
 		texts: map[int64]sqlcgen.ListLibraryOriginalTextsRow{}, nfoBodies: map[int64][]byte{},
 		responses: map[responseKey][]byte{}, fetchedAt: map[responseKey]int64{},
@@ -89,16 +89,16 @@ func (filer *libraryFiler) loadSnapshot(ctx context.Context, libraryID int64) er
 		extras:       map[memberKey]sqlcgen.ExtraRelation{},
 		credits:      map[int64][]heldCredit{}, genres: map[int64][]heldGenre{},
 	}
-	versions, err := filer.queries.ListLibraryVersionTitles(ctx, libraryID)
+	versions, err := filer.queries.ListLibraryVersionWorks(ctx, libraryID)
 	if err != nil {
 		return fmt.Errorf("list the titles of its versions: %w", err)
 	}
 	for _, version := range versions {
-		snap.versionTitles[version.ID] = sqlcgen.GetVersionTitleRow{
-			TitleID: version.TitleID, IdentificationState: version.IdentificationState,
+		snap.versionTitles[version.ID] = sqlcgen.GetVersionWorkRow{
+			WorkID: version.WorkID, IdentificationState: version.IdentificationState,
 		}
 	}
-	titles, err := filer.queries.ListLibraryTitlesForPass(ctx, &libraryID)
+	titles, err := filer.queries.ListLibraryWorksForPass(ctx, &libraryID)
 	if err != nil {
 		return fmt.Errorf("list its titles: %w", err)
 	}
@@ -130,7 +130,7 @@ func (filer *libraryFiler) loadSnapshot(ctx context.Context, libraryID int64) er
 		return fmt.Errorf("list its extras: %w", err)
 	}
 	for _, extra := range extras {
-		snap.extras[memberKey{extra.OwnerTitle, extra.ExtraTitle}] = extra
+		snap.extras[memberKey{extra.OwnerWork, extra.ExtraWork}] = extra
 	}
 	bodies, err := filer.queries.ListLibraryNFOBodies(ctx, libraryID)
 	if err != nil {
@@ -171,10 +171,10 @@ func (snap *snapshot) loadSeries(ctx context.Context, queries *sqlcgen.Queries, 
 	}
 	twice := map[int64]bool{}
 	for _, position := range positions {
-		if _, seen := snap.places[position.TitleID]; seen {
-			twice[position.TitleID] = true
+		if _, seen := snap.places[position.WorkID]; seen {
+			twice[position.WorkID] = true
 		}
-		snap.places[position.TitleID] = position
+		snap.places[position.WorkID] = position
 	}
 	for titleID := range twice {
 		delete(snap.places, titleID)
@@ -184,7 +184,7 @@ func (snap *snapshot) loadSeries(ctx context.Context, queries *sqlcgen.Queries, 
 		return fmt.Errorf("list its series' members: %w", err)
 	}
 	for _, member := range members {
-		snap.members[memberKey{member.CollectionID, *member.MemberTitle}] = member.Position
+		snap.members[memberKey{member.SequenceID, *member.MemberWork}] = member.Position
 	}
 	return snap.loadSeriesPlaces(ctx, queries, libraryID)
 }
@@ -196,9 +196,9 @@ func (snap *snapshot) loadSeriesPlaces(ctx context.Context, queries *sqlcgen.Que
 		return fmt.Errorf("list its series' episodes: %w", err)
 	}
 	for _, place := range places {
-		snap.seriesPlaces[place.CollectionID] = append(snap.seriesPlaces[place.CollectionID],
+		snap.seriesPlaces[place.SequenceID] = append(snap.seriesPlaces[place.SequenceID],
 			sqlcgen.ListSeriesEpisodePlacesRow{
-				TitleID: place.TitleID, GroupNumber: place.GroupNumber, NumberInGroup: place.NumberInGroup,
+				WorkID: place.WorkID, GroupNumber: place.GroupNumber, NumberInGroup: place.NumberInGroup,
 				RemovedAt: place.RemovedAt,
 			})
 	}
@@ -249,7 +249,7 @@ func (snap *snapshot) holdAdded(itemID int64, titleKind string) {
 	}
 	snap.items[itemID] = true
 	if titleKind != "" {
-		snap.titles[itemID] = sqlcgen.ListLibraryTitlesForPassRow{
+		snap.titles[itemID] = sqlcgen.ListLibraryWorksForPassRow{
 			ID: itemID, Kind: titleKind, IdentificationState: ptr.NilIfZero(identificationUnidentified),
 		}
 	}
@@ -273,22 +273,22 @@ func (snap *snapshot) noteProviderID(itemID int64, id providerID) {
 }
 
 // versionTitle is the title a version is in, with that title's identification.
-func (filer *libraryFiler) versionTitle(ctx context.Context, versionID int64) (sqlcgen.GetVersionTitleRow, error) {
+func (filer *libraryFiler) versionTitle(ctx context.Context, versionID int64) (sqlcgen.GetVersionWorkRow, error) {
 	if row, held := filer.snap.versionTitles[versionID]; held {
 		return row, nil
 	}
-	return filer.queries.GetVersionTitle(ctx, versionID) //nolint:wrapcheck // its callers say which file
+	return filer.queries.GetVersionWork(ctx, versionID) //nolint:wrapcheck // its callers say which file
 }
 
 // moveVersion moves a version to another title.
 func (filer *libraryFiler) moveVersion(ctx context.Context, versionID, titleID int64) error {
-	err := filer.queries.MoveVersionToTitle(ctx, sqlcgen.MoveVersionToTitleParams{TitleID: titleID, ID: versionID})
+	err := filer.queries.MoveVersionToWork(ctx, sqlcgen.MoveVersionToWorkParams{WorkID: titleID, ID: versionID})
 	delete(filer.snap.versionTitles, versionID) // read again, with its new title's identification
 	return err                                  //nolint:wrapcheck // its caller says which file
 }
 
 // heldTitleByProviderID is the first live title of a kind in the library that a provider's id
-// names, as ListTitlesByProviderID orders them; false when the snapshot cannot say.
+// names, as ListWorksByProviderID orders them; false when the snapshot cannot say.
 func (filer *libraryFiler) heldTitleByProviderID(kind string, id providerID) (int64, bool) {
 	if !filer.snap.isLoaded {
 		return 0, false
@@ -314,7 +314,7 @@ func (filer *libraryFiler) titleMatchState(ctx context.Context, titleID int64) (
 			metadataSource: filer.library.MetadataSource,
 		}, true, nil
 	}
-	row, err := store.OrNotFound(filer.queries.GetTitleForMatch(ctx, titleID))
+	row, err := store.OrNotFound(filer.queries.GetWorkForMatch(ctx, titleID))
 	if errors.Is(err, store.ErrNotFound) {
 		return titleMatchRow{}, false, nil
 	}
@@ -375,10 +375,10 @@ func (filer *libraryFiler) keepProviderID(ctx context.Context, itemID int64, pro
 }
 
 // resolveTitleValues writes a title's resolved values, its item's and its running time, unless they
-// are already its own; a confirmed match stays confirmed (UpdateTitleResolved). It returns the
+// are already its own; a confirmed match stays confirmed (UpdateWorkResolved). It returns the
 // title's identification.
 func (filer *libraryFiler) resolveTitleValues(
-	ctx context.Context, values sqlcgen.UpdateTitleResolvedParams, runtimeMs *int64) (string, error,
+	ctx context.Context, values sqlcgen.UpdateWorkResolvedParams, runtimeMs *int64) (string, error,
 ) {
 	held, isHeld := filer.snap.titles[values.ID]
 	if isHeld {
@@ -394,17 +394,17 @@ func (filer *libraryFiler) resolveTitleValues(
 		}
 		filer.snap.titles[values.ID] = resolved
 	}
-	if err := filer.queries.UpdateTitleResolved(ctx, values); err != nil {
+	if err := filer.queries.UpdateWorkResolved(ctx, values); err != nil {
 		return "", fmt.Errorf("resolve title %d: %w", values.ID, err)
 	}
-	runtime := sqlcgen.UpdateTitleRuntimeParams{ID: values.ID, RuntimeMs: runtimeMs}
-	if err := filer.queries.UpdateTitleRuntime(ctx, runtime); err != nil {
+	runtime := sqlcgen.UpdateWorkRuntimeParams{ID: values.ID, RuntimeMs: runtimeMs}
+	if err := filer.queries.UpdateWorkRuntime(ctx, runtime); err != nil {
 		return "", fmt.Errorf("resolve title %d's running time: %w", values.ID, err)
 	}
 	if isHeld {
 		return ptr.ValueOrZero(filer.snap.titles[values.ID].IdentificationState), nil
 	}
-	identification, err := store.OrNotFound(filer.queries.GetTitleIdentification(ctx, values.ID))
+	identification, err := store.OrNotFound(filer.queries.GetWorkIdentification(ctx, values.ID))
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return "", fmt.Errorf("read title %d's identification: %w", values.ID, err)
 	}
@@ -412,7 +412,7 @@ func (filer *libraryFiler) resolveTitleValues(
 }
 
 // isSameTitleValues is whether two of a title's rows hold the same values.
-func isSameTitleValues(first, second sqlcgen.ListLibraryTitlesForPassRow) bool {
+func isSameTitleValues(first, second sqlcgen.ListLibraryWorksForPassRow) bool {
 	return first.ID == second.ID && first.Kind == second.Kind && ptr.Equal(first.Year, second.Year) &&
 		ptr.Equal(first.ReleasedOn, second.ReleasedOn) &&
 		ptr.Equal(first.RuntimeMs, second.RuntimeMs) &&
@@ -470,9 +470,9 @@ func (filer *libraryFiler) nfoBody(ctx context.Context, fileID int64) ([]byte, e
 func (filer *libraryFiler) episodePlace(ctx context.Context, titleID int64) (sqlcgen.GetEpisodePlaceRow, bool, error) {
 	if filer.snap.items[titleID] {
 		place, held := filer.snap.places[titleID]
-		if series, isSeriesHeld := filer.snap.seriesMatch[place.CollectionID]; held && isSeriesHeld {
+		if series, isSeriesHeld := filer.snap.seriesMatch[place.SequenceID]; held && isSeriesHeld {
 			return sqlcgen.GetEpisodePlaceRow{
-				CollectionID: place.CollectionID, GroupNumber: place.GroupNumber, NumberInGroup: place.NumberInGroup,
+				SequenceID: place.SequenceID, GroupNumber: place.GroupNumber, NumberInGroup: place.NumberInGroup,
 				SeriesName: series.Name,
 			}, true, nil
 		}
@@ -500,20 +500,20 @@ func (filer *libraryFiler) airedOrdering(ctx context.Context, seriesID int64) (i
 }
 
 // keepMember puts a title in a series at a place, unless it is there already.
-func (filer *libraryFiler) keepMember(ctx context.Context, member sqlcgen.UpsertCollectionMemberParams) error {
-	key := memberKey{member.CollectionID, *member.MemberTitle}
+func (filer *libraryFiler) keepMember(ctx context.Context, member sqlcgen.UpsertSequenceMemberParams) error {
+	key := memberKey{member.SequenceID, *member.MemberWork}
 	if held, isHeld := filer.snap.members[key]; isHeld && ptr.Equal(held, member.Position) {
 		return nil
 	}
 	if filer.snap.isLoaded {
 		filer.snap.members[key] = member.Position
 	}
-	return filer.queries.UpsertCollectionMember(ctx, member) //nolint:wrapcheck // its callers say which title
+	return filer.queries.UpsertSequenceMember(ctx, member) //nolint:wrapcheck // its callers say which title
 }
 
 // keepPosition places a title in an ordering, unless it is placed so already.
 func (filer *libraryFiler) keepPosition(ctx context.Context, position sqlcgen.UpsertPositionParams) error {
-	held, isHeld := filer.snap.places[position.TitleID]
+	held, isHeld := filer.snap.places[position.WorkID]
 	if isHeld && held.OrderingID == position.OrderingID && ptr.Equal(held.GroupNumber, position.GroupNumber) &&
 		ptr.Equal(held.NumberInGroup, position.NumberInGroup) && held.SortOrder == position.SortOrder {
 		return nil
@@ -521,7 +521,7 @@ func (filer *libraryFiler) keepPosition(ctx context.Context, position sqlcgen.Up
 	if isHeld && held.OrderingID == position.OrderingID {
 		held.GroupNumber, held.NumberInGroup, held.SortOrder = position.GroupNumber, position.NumberInGroup,
 			position.SortOrder
-		filer.snap.places[position.TitleID] = held
+		filer.snap.places[position.WorkID] = held
 	}
 	return filer.queries.UpsertPosition(ctx, position) //nolint:wrapcheck // its callers say which title
 }
@@ -600,9 +600,9 @@ func (filer *libraryFiler) liveEpisodeSources(
 		}
 		filer.snap.episodeSources = map[int64][]sqlcgen.ListLiveSeriesEpisodeSourcesRow{}
 		for _, row := range rows {
-			filer.snap.episodeSources[row.CollectionID] = append(filer.snap.episodeSources[row.CollectionID],
+			filer.snap.episodeSources[row.SequenceID] = append(filer.snap.episodeSources[row.SequenceID],
 				sqlcgen.ListLiveSeriesEpisodeSourcesRow{
-					TitleID: row.TitleID, GroupNumber: row.GroupNumber, NumberInGroup: row.NumberInGroup,
+					WorkID: row.WorkID, GroupNumber: row.GroupNumber, NumberInGroup: row.NumberInGroup,
 					FollowedSource: row.FollowedSource, AddedAt: row.AddedAt,
 				})
 		}
@@ -661,14 +661,14 @@ func (filer *libraryFiler) listingFetchedAt(ctx context.Context, where seasonAtP
 func (filer *libraryFiler) keepExtraRelation(
 	ctx context.Context, relation sqlcgen.UpsertScannerExtraRelationParams,
 ) error {
-	key := memberKey{relation.OwnerTitle, relation.ExtraTitle}
+	key := memberKey{relation.OwnerWork, relation.ExtraWork}
 	held, isHeld := filer.snap.extras[key]
 	if isHeld && (held.AssertedBy != assertedByScanner || held.ExtraType == relation.ExtraType) {
 		return nil
 	}
 	if filer.snap.isLoaded {
 		filer.snap.extras[key] = sqlcgen.ExtraRelation{
-			OwnerTitle: relation.OwnerTitle, ExtraTitle: relation.ExtraTitle, ExtraType: relation.ExtraType,
+			OwnerWork: relation.OwnerWork, ExtraWork: relation.ExtraWork, ExtraType: relation.ExtraType,
 			AssertedBy: assertedByScanner,
 		}
 	}

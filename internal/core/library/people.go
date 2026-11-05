@@ -157,7 +157,7 @@ func (browser *Browser) Genres(ctx context.Context, reach auth.Reach, kind strin
 	}
 	genres := make([]Genre, 0, len(rows))
 	for _, row := range rows {
-		genres = append(genres, Genre{ID: row.ID, Name: row.Name, TitleCount: row.TitleCount})
+		genres = append(genres, Genre{ID: row.ID, Name: row.Name, TitleCount: row.WorkCount})
 	}
 	return genres, nil
 }

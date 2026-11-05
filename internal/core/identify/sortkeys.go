@@ -85,7 +85,7 @@ func storedNameKeys(rows []sqlcgen.ListNamesWithSortAndSearchKeysRow) []storedNa
 			items = append(items, storedNameKey{
 				itemID: row.ItemID, name: row.Name, searchAlternates: ptr.ValueOrZero(row.SearchAlternates),
 				sortTitle: ptr.ValueOrZero(row.SortTitle),
-				listing:   sortListingOf(row.TitleKind, row.CollectionKind),
+				listing:   sortListingOf(row.WorkKind, row.SequenceKind),
 			})
 		}
 		if row.KeyedListing != nil {
@@ -175,10 +175,10 @@ func rekeyOtherFileNames(ctx context.Context, queries *sqlcgen.Queries, sorter *
 			continue
 		}
 		err := queries.SetOtherVideoFileNameKey(ctx, sqlcgen.SetOtherVideoFileNameKeyParams{
-			FileNameKey: key, TitleID: row.TitleID,
+			FileNameKey: key, WorkID: row.WorkID,
 		})
 		if err != nil {
-			return rewritten, fmt.Errorf("key other video %d's file name again: %w", row.TitleID, err)
+			return rewritten, fmt.Errorf("key other video %d's file name again: %w", row.WorkID, err)
 		}
 		rewritten++
 	}

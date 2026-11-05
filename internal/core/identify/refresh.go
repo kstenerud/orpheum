@@ -126,7 +126,7 @@ func (matcher *Matcher) refresh(ctx context.Context, itemID int64, shouldRetryIm
 	if kind == KindSeries {
 		return matcher.refreshSeries(ctx, itemID, shouldRetryImages)
 	}
-	title, err := store.OrNotFound(queries.GetTitleForMatch(ctx, itemID))
+	title, err := store.OrNotFound(queries.GetWorkForMatch(ctx, itemID))
 	if errors.Is(err, store.ErrNotFound) {
 		return OutcomeNothingToDo, nil
 	}
@@ -138,7 +138,7 @@ func (matcher *Matcher) refresh(ctx context.Context, itemID int64, shouldRetryIm
 		if placeErr != nil {
 			return OutcomeNothingToDo, nil //nolint:nilerr // an episode with no series has nothing to refresh
 		}
-		return matcher.refreshSeries(ctx, place.CollectionID, shouldRetryImages)
+		return matcher.refreshSeries(ctx, place.SequenceID, shouldRetryImages)
 	}
 	provider, known := matcher.providers[ptr.ValueOrZero(title.FollowedSource)]
 	if !known || title.FollowedSourceID == nil {
@@ -347,7 +347,7 @@ func (matcher *Matcher) retrySeriesImages(ctx context.Context, seriesID int64) e
 	}
 	ids := []int64{seriesID}
 	for _, episode := range episodes {
-		ids = append(ids, episode.TitleID)
+		ids = append(ids, episode.WorkID)
 	}
 	return matcher.retryImages(ctx, ids...)
 }
@@ -465,7 +465,7 @@ func (refresher *Refresher) QueueFirstMatches(ctx context.Context) (int, error) 
 	}
 	queued := 0
 	for _, libraryID := range libraryIDs {
-		films, err := queries.ListTitlesAwaitingMatch(ctx, &libraryID)
+		films, err := queries.ListWorksAwaitingMatch(ctx, &libraryID)
 		if err != nil {
 			return queued, fmt.Errorf("list library %d's films awaiting a match: %w", libraryID, err)
 		}

@@ -21,48 +21,48 @@ func (q *Queries) ClearOverridesSetByRemovedUser(ctx context.Context, userID *in
 
 const countWaitingForAPerson = `-- name: CountWaitingForAPerson :one
 SELECT CAST((
-  SELECT count(*) FROM item CROSS JOIN title ON title.id = item.id
+  SELECT count(*) FROM item CROSS JOIN work ON work.id = item.id
   WHERE item.identification_state = 'ambiguous' AND item.kind IN ('movie', 'episode', 'extra', 'other')
     AND item.removed_at IS NULL AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = item.id AND version.removed_at IS NULL)
+    WHERE version.work_id = item.id AND version.removed_at IS NULL)
 ) + (
-  SELECT count(*) FROM item CROSS JOIN title ON title.id = item.id
+  SELECT count(*) FROM item CROSS JOIN work ON work.id = item.id
   WHERE item.identification_state = 'unidentified' AND item.followed_source = 'none' AND item.kind != 'episode'
     AND item.kind IN ('movie', 'extra', 'other') AND item.removed_at IS NULL AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = item.id AND version.removed_at IS NULL)
+    WHERE version.work_id = item.id AND version.removed_at IS NULL)
 ) + (
   SELECT count(*) FROM item
   WHERE item.identification_state = 'ambiguous' AND item.kind = 'series' AND item.removed_at IS NULL
     AND EXISTS (
-    SELECT 1 FROM collection_member
-    CROSS JOIN version ON version.title_id = collection_member.member_title
+    SELECT 1 FROM sequence_member
+    CROSS JOIN version ON version.work_id = sequence_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE collection_member.collection_id = item.id AND version.removed_at IS NULL)
+    WHERE sequence_member.sequence_id = item.id AND version.removed_at IS NULL)
 ) + (
   SELECT count(*) FROM item
   WHERE item.identification_state = 'unidentified' AND item.followed_source = 'none' AND item.kind != 'episode'
     AND item.kind = 'series' AND item.removed_at IS NULL
     AND EXISTS (
-    SELECT 1 FROM collection_member
-    CROSS JOIN version ON version.title_id = collection_member.member_title
+    SELECT 1 FROM sequence_member
+    CROSS JOIN version ON version.work_id = sequence_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE collection_member.collection_id = item.id AND version.removed_at IS NULL)
+    WHERE sequence_member.sequence_id = item.id AND version.removed_at IS NULL)
 ) + (
   SELECT count(*) FROM fetch_failure CROSS JOIN item ON item.id = fetch_failure.item_id
   WHERE item.identification_state = 'unidentified' AND IFNULL(item.followed_source, '') != 'none'
     AND item.kind IN ('movie', 'extra', 'other') AND item.removed_at IS NULL AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = item.id AND version.removed_at IS NULL)
+    WHERE version.work_id = item.id AND version.removed_at IS NULL)
 ) + (
   SELECT count(*) FROM fetch_failure CROSS JOIN item ON item.id = fetch_failure.item_id
   WHERE item.kind = 'series' AND item.identification_state = 'unidentified'
     AND IFNULL(item.followed_source, '') != 'none' AND item.removed_at IS NULL AND EXISTS (
-    SELECT 1 FROM collection_member
-    CROSS JOIN version ON version.title_id = collection_member.member_title
+    SELECT 1 FROM sequence_member
+    CROSS JOIN version ON version.work_id = sequence_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE collection_member.collection_id = item.id AND version.removed_at IS NULL)
+    WHERE sequence_member.sequence_id = item.id AND version.removed_at IS NULL)
 ) AS INTEGER) AS waiting_count
 `
 
@@ -180,18 +180,18 @@ func (q *Queries) GetProviderResponse(ctx context.Context, arg GetProviderRespon
 	return body_gzip, err
 }
 
-const getTitleForMatch = `-- name: GetTitleForMatch :one
+const getWorkForMatch = `-- name: GetWorkForMatch :one
 
-SELECT title.id, title.kind, item.year, item.identification_state, item.followed_source, item.followed_source_id, item.filing_library_id,
+SELECT work.id, work.kind, item.year, item.identification_state, item.followed_source, item.followed_source_id, item.filing_library_id,
   library.metadata_source, item_text.name
-FROM title
-JOIN item ON item.id = title.id
+FROM work
+JOIN item ON item.id = work.id
 JOIN library ON library.id = item.filing_library_id
-LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
-WHERE title.id = ?1 AND item.removed_at IS NULL
+LEFT JOIN item_text ON item_text.item_id = work.id AND item_text.is_original = 1
+WHERE work.id = ?1 AND item.removed_at IS NULL
 `
 
-type GetTitleForMatchRow struct {
+type GetWorkForMatchRow struct {
 	ID                  int64
 	Kind                string
 	Year                *int64
@@ -206,9 +206,9 @@ type GetTitleForMatchRow struct {
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Matching a title to its provider (identification.md; D170, D172): the fetch_metadata job's reads and
 // writes in persistent.db. The kept search results are cache.db's.
-func (q *Queries) GetTitleForMatch(ctx context.Context, id int64) (GetTitleForMatchRow, error) {
-	row := q.db.QueryRowContext(ctx, getTitleForMatch, id)
-	var i GetTitleForMatchRow
+func (q *Queries) GetWorkForMatch(ctx context.Context, id int64) (GetWorkForMatchRow, error) {
+	row := q.db.QueryRowContext(ctx, getWorkForMatch, id)
+	var i GetWorkForMatchRow
 	err := row.Scan(
 		&i.ID,
 		&i.Kind,
@@ -258,37 +258,37 @@ func (q *Queries) ListItemProviderIDs(ctx context.Context, itemID int64) ([]List
 	return items, nil
 }
 
-const listLiveFilesOfTitle = `-- name: ListLiveFilesOfTitle :many
+const listLiveFilesOfWork = `-- name: ListLiveFilesOfWork :many
 SELECT file.id, file.path, file_filing.library_kind,
   CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
     AS duration_ms
 FROM version
 CROSS JOIN file_filing ON file_filing.version_id = version.id
 CROSS JOIN file ON file.id = file_filing.file_id
-WHERE version.title_id = ?1 AND version.removed_at IS NULL AND file.removed_at IS NULL
+WHERE version.work_id = ?1 AND version.removed_at IS NULL AND file.removed_at IS NULL
 ORDER BY file.path
 `
 
-type ListLiveFilesOfTitleRow struct {
+type ListLiveFilesOfWorkRow struct {
 	ID          int64
 	Path        string
 	LibraryKind string
 	DurationMs  int64
 }
 
-// A title's live files: live files of its live versions, as ListTitleFiles and
-// CountLiveFilesOfTitle count them, each with the kind of library that filed it in the title, and
+// A title's live files: live files of its live versions, as ListWorkFiles and
+// CountLiveFilesOfWork count them, each with the kind of library that filed it in the title, and
 // how long each plays, 0 before it is probed, which a film's candidates' runtimes are fitted against
 // (D365 section 1).
-func (q *Queries) ListLiveFilesOfTitle(ctx context.Context, titleID int64) ([]ListLiveFilesOfTitleRow, error) {
-	rows, err := q.db.QueryContext(ctx, listLiveFilesOfTitle, titleID)
+func (q *Queries) ListLiveFilesOfWork(ctx context.Context, workID int64) ([]ListLiveFilesOfWorkRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLiveFilesOfWork, workID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListLiveFilesOfTitleRow{}
+	items := []ListLiveFilesOfWorkRow{}
 	for rows.Next() {
-		var i ListLiveFilesOfTitleRow
+		var i ListLiveFilesOfWorkRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Path,
@@ -308,24 +308,24 @@ func (q *Queries) ListLiveFilesOfTitle(ctx context.Context, titleID int64) ([]Li
 	return items, nil
 }
 
-const listTitlesAwaitingMatch = `-- name: ListTitlesAwaitingMatch :many
-SELECT title.id
-FROM title
-JOIN item ON item.id = title.id
-WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND title.kind = 'movie'
+const listWorksAwaitingMatch = `-- name: ListWorksAwaitingMatch :many
+SELECT work.id
+FROM work
+JOIN item ON item.id = work.id
+WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND work.kind = 'movie'
   AND item.followed_source IS NULL AND item.identification_state = 'unidentified'
-  AND NOT EXISTS (SELECT 1 FROM fetch_failure WHERE fetch_failure.item_id = title.id)
+  AND NOT EXISTS (SELECT 1 FROM fetch_failure WHERE fetch_failure.item_id = work.id)
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = title.id AND version.removed_at IS NULL
+    WHERE version.work_id = work.id AND version.removed_at IS NULL
   )
-ORDER BY title.id
+ORDER BY work.id
 `
 
 // Films a library lists that no source has answered for yet, and that have no failure of their
 // own: owed their first match however often an earlier fetch was lost (D170, D231 section 3).
-func (q *Queries) ListTitlesAwaitingMatch(ctx context.Context, libraryID *int64) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, listTitlesAwaitingMatch, libraryID)
+func (q *Queries) ListWorksAwaitingMatch(ctx context.Context, libraryID *int64) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listWorksAwaitingMatch, libraryID)
 	if err != nil {
 		return nil, err
 	}
@@ -347,34 +347,34 @@ func (q *Queries) ListTitlesAwaitingMatch(ctx context.Context, libraryID *int64)
 	return items, nil
 }
 
-const listTitlesByIdentification = `-- name: ListTitlesByIdentification :many
-SELECT title.id, title.kind, item.year, item.identification_state, item.followed_source, item.followed_source_id, item.filing_library_id,
+const listWorksByIdentification = `-- name: ListWorksByIdentification :many
+SELECT work.id, work.kind, item.year, item.identification_state, item.followed_source, item.followed_source_id, item.filing_library_id,
   item_text.name, fetch_failure.failure AS fetch_failure, fetch_failure.failed_at AS fetch_failed_at,
   refresh_request.requested_at AS refresh_requested_at
-FROM title
-JOIN item ON item.id = title.id
-LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
-LEFT JOIN fetch_failure ON fetch_failure.item_id = title.id
-LEFT JOIN refresh_request ON refresh_request.item_id = title.id
+FROM work
+JOIN item ON item.id = work.id
+LEFT JOIN item_text ON item_text.item_id = work.id AND item_text.is_original = 1
+LEFT JOIN fetch_failure ON fetch_failure.item_id = work.id
+LEFT JOIN refresh_request ON refresh_request.item_id = work.id
 WHERE item.identification_state = ?1 AND item.removed_at IS NULL
-  AND title.kind NOT IN ('episode', 'other')
+  AND work.kind NOT IN ('episode', 'other')
   AND (item.identification_state != 'unidentified' OR item.followed_source = 'none'
     OR fetch_failure.item_id IS NOT NULL OR refresh_request.item_id IS NOT NULL)
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = title.id AND version.removed_at IS NULL
+    WHERE version.work_id = work.id AND version.removed_at IS NULL
       AND (CAST(?2 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
   )
   -- A page starts after the name and id of the last one listed before it ('' and 0 for the first),
   -- and holds at most row_limit (-1 for every one), so the list pages by cursor (D425 section 7).
   AND (COALESCE(item_text.name, '') > ?4
-    OR (COALESCE(item_text.name, '') = ?4 AND title.id > ?5))
-ORDER BY COALESCE(item_text.name, ''), title.id
+    OR (COALESCE(item_text.name, '') = ?4 AND work.id > ?5))
+ORDER BY COALESCE(item_text.name, ''), work.id
 LIMIT ?6
 `
 
-type ListTitlesByIdentificationParams struct {
+type ListWorksByIdentificationParams struct {
 	IdentificationState *string
 	IsEveryLibrary      int64
 	LibraryIdsJSON      string
@@ -383,7 +383,7 @@ type ListTitlesByIdentificationParams struct {
 	RowLimit            int64
 }
 
-type ListTitlesByIdentificationRow struct {
+type ListWorksByIdentificationRow struct {
 	ID                  int64
 	Kind                string
 	Year                *int64
@@ -405,8 +405,8 @@ type ListTitlesByIdentificationRow struct {
 // no one, unless its fetch failed on its own, which waits for a person's look again, or a person
 // asked for it again, which the list says is coming. So the list is what CountWaitingForAPerson counts, and those asked for (the owner's
 // staging, 2026-10-21, where the count said 15 and the list was hundreds of episodes).
-func (q *Queries) ListTitlesByIdentification(ctx context.Context, arg ListTitlesByIdentificationParams) ([]ListTitlesByIdentificationRow, error) {
-	rows, err := q.db.QueryContext(ctx, listTitlesByIdentification,
+func (q *Queries) ListWorksByIdentification(ctx context.Context, arg ListWorksByIdentificationParams) ([]ListWorksByIdentificationRow, error) {
+	rows, err := q.db.QueryContext(ctx, listWorksByIdentification,
 		arg.IdentificationState,
 		arg.IsEveryLibrary,
 		arg.LibraryIdsJSON,
@@ -418,9 +418,9 @@ func (q *Queries) ListTitlesByIdentification(ctx context.Context, arg ListTitles
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListTitlesByIdentificationRow{}
+	items := []ListWorksByIdentificationRow{}
 	for rows.Next() {
-		var i ListTitlesByIdentificationRow
+		var i ListWorksByIdentificationRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Kind,
@@ -465,22 +465,22 @@ func (q *Queries) MergeItem(ctx context.Context, arg MergeItemParams) error {
 	return err
 }
 
-const moveVersionsBetweenTitles = `-- name: MoveVersionsBetweenTitles :exec
-UPDATE version SET title_id = ?1
-WHERE title_id = ?2
+const moveVersionsBetweenWorks = `-- name: MoveVersionsBetweenWorks :exec
+UPDATE version SET work_id = ?1
+WHERE work_id = ?2
 `
 
-type MoveVersionsBetweenTitlesParams struct {
-	ToTitle   int64
-	FromTitle int64
+type MoveVersionsBetweenWorksParams struct {
+	ToWork   int64
+	FromWork int64
 }
 
-func (q *Queries) MoveVersionsBetweenTitles(ctx context.Context, arg MoveVersionsBetweenTitlesParams) error {
-	_, err := q.db.ExecContext(ctx, moveVersionsBetweenTitles, arg.ToTitle, arg.FromTitle)
+func (q *Queries) MoveVersionsBetweenWorks(ctx context.Context, arg MoveVersionsBetweenWorksParams) error {
+	_, err := q.db.ExecContext(ctx, moveVersionsBetweenWorks, arg.ToWork, arg.FromWork)
 	return err
 }
 
-const returnAmbiguousTitleToItsFirstMatch = `-- name: ReturnAmbiguousTitleToItsFirstMatch :exec
+const returnAmbiguousWorkToItsFirstMatch = `-- name: ReturnAmbiguousWorkToItsFirstMatch :exec
 UPDATE item SET identification_state = 'unidentified'
 WHERE id = ?1 AND kind IN ('movie', 'episode', 'extra', 'other') AND identification_state = 'ambiguous'
 `
@@ -488,18 +488,18 @@ WHERE id = ?1 AND kind IN ('movie', 'episode', 'extra', 'other') AND identificat
 // A film the matcher left ambiguous that its kept results now settle, under rules that changed
 // since: owed its first match again, which the matcher takes (the owner's NAS, 2026-10-13). A
 // person's choice is never undone: only 'ambiguous' changes.
-func (q *Queries) ReturnAmbiguousTitleToItsFirstMatch(ctx context.Context, id int64) error {
-	_, err := q.db.ExecContext(ctx, returnAmbiguousTitleToItsFirstMatch, id)
+func (q *Queries) ReturnAmbiguousWorkToItsFirstMatch(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, returnAmbiguousWorkToItsFirstMatch, id)
 	return err
 }
 
-const setTitleMatch = `-- name: SetTitleMatch :exec
+const setWorkMatch = `-- name: SetWorkMatch :exec
 UPDATE item SET followed_source = ?1, followed_source_id = ?2,
   identification_state = CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE ?3 END
 WHERE id = ?4 AND kind IN ('movie', 'episode', 'extra', 'other')
 `
 
-type SetTitleMatchParams struct {
+type SetWorkMatchParams struct {
 	FollowedSource      *string
 	FollowedSourceID    *string
 	IdentificationState *string
@@ -508,8 +508,8 @@ type SetTitleMatchParams struct {
 
 // The outcome of a match: the source and its id, or ambiguous, or 'none' when the provider has
 // nothing. A confirmed match is a person's and stays (D172).
-func (q *Queries) SetTitleMatch(ctx context.Context, arg SetTitleMatchParams) error {
-	_, err := q.db.ExecContext(ctx, setTitleMatch,
+func (q *Queries) SetWorkMatch(ctx context.Context, arg SetWorkMatchParams) error {
+	_, err := q.db.ExecContext(ctx, setWorkMatch,
 		arg.FollowedSource,
 		arg.FollowedSourceID,
 		arg.IdentificationState,

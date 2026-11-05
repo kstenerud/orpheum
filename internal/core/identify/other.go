@@ -164,7 +164,7 @@ func (filer *libraryFiler) fileOther(
 		if err != nil {
 			return fmt.Errorf("read %s's version: %w", file.Path, err)
 		}
-		titleID = current.TitleID
+		titleID = current.WorkID
 	} else {
 		var err error
 		if titleID, err = filer.findOrAddTitle(ctx, spec); err != nil {
@@ -234,7 +234,7 @@ func (filer *libraryFiler) resolveOtherVideo(
 	ctx context.Context, titleID int64, facts otherFacts, corrected string,
 ) error {
 	values := sqlcgen.UpsertOtherVideoParams{
-		TitleID: titleID, RecordedAt: facts.recordedAtMs, RecordedFrom: facts.recordedFrom,
+		WorkID: titleID, RecordedAt: facts.recordedAtMs, RecordedFrom: facts.recordedFrom,
 		FileName: facts.fileName, FileNameKey: filer.sorter.KeyExact(facts.fileName),
 	}
 	if at, err := strconv.ParseInt(corrected, 10, 64); err == nil && at > 0 {
@@ -254,7 +254,7 @@ func (filer *libraryFiler) resolveOtherVideo(
 
 // isSameOtherVideo is whether two of an other video's rows hold the same values.
 func isSameOtherVideo(first, second sqlcgen.UpsertOtherVideoParams) bool {
-	return first.TitleID == second.TitleID && first.RecordedAt == second.RecordedAt &&
+	return first.WorkID == second.WorkID && first.RecordedAt == second.RecordedAt &&
 		first.RecordedFrom == second.RecordedFrom && first.FileName == second.FileName &&
 		string(first.FileNameKey) == string(second.FileNameKey)
 }
@@ -267,7 +267,7 @@ func (snap *snapshot) loadOtherVideos(ctx context.Context, queries *sqlcgen.Quer
 		return fmt.Errorf("list its other videos: %w", err)
 	}
 	for _, row := range rows {
-		snap.otherVideos[row.TitleID] = sqlcgen.UpsertOtherVideoParams(row)
+		snap.otherVideos[row.WorkID] = sqlcgen.UpsertOtherVideoParams(row)
 	}
 	return nil
 }

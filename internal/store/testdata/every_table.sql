@@ -25,9 +25,9 @@ INSERT INTO item (id, kind, filing_library_id, added_at, year, released_on, foll
   (3, 'series', 1, 1790000000000, 2019, NULL, 'tmdb', '615', 'identified'),
   (4, 'person', NULL, 1790000000000, NULL, NULL, NULL, NULL, NULL);
 INSERT INTO item_provider_id (item_id, provider, provider_id) VALUES (1, 'tmdb', '10001');
-INSERT INTO title (id, kind, runtime_ms) VALUES (1, 'movie', 5400000), (2, 'extra', 120000);
-INSERT INTO version (id, title_id, created_at) VALUES (1, 1, 1790000000000);
-INSERT INTO extra_relation (owner_title, extra_title, extra_type, asserted_by)
+INSERT INTO work (id, kind, runtime_ms) VALUES (1, 'movie', 5400000), (2, 'extra', 120000);
+INSERT INTO version (id, work_id, created_at) VALUES (1, 1, 1790000000000);
+INSERT INTO extra_relation (owner_work, extra_work, extra_type, asserted_by)
   VALUES (1, 2, 'trailer', 'scanner');
 
 INSERT INTO file (id, node_id, path, size_bytes, modified_at, payload_hash, payload_bytes,
@@ -83,7 +83,7 @@ INSERT INTO item_genre (item_id, genre_id, ordinal) VALUES (1, 1, 0);
 INSERT INTO credit (item_id, job, ordinal, person_id, character) VALUES (1, 'cast', 0, 4, 'The Lead'),
   (1, 'director', 0, 4, NULL);
 INSERT INTO sort_key (item_id, locale, listing, collation_key) VALUES (1, 'en', 'movie', X'4450');
-INSERT INTO other_video (title_id, recorded_at, recorded_from, file_name, file_name_key)
+INSERT INTO other_video (work_id, recorded_at, recorded_from, file_name, file_name_key)
   VALUES (1, 1563100262000, 'tag', 'direct-play.mkv', X'4450');
 INSERT INTO field_override (item_id, field, language, override_value, origin, set_by_user_id, set_at)
   VALUES (1, 'name', 'en', 'Direct Play Film', 'typed', 1, 1790000004000);
@@ -92,12 +92,12 @@ INSERT INTO artwork (id, item_id, kind, language, source, source_ref, source_sha
 INSERT INTO artwork (id, item_id, kind, source, source_ref, refused_at, refusal, is_missing_at_source)
   VALUES (2, 1, 'backdrop', 'tmdb', '/gone.jpg', 1790000700000, 'no image there', 1);
 
-INSERT INTO collection (id, kind, created_by) VALUES (3, 'series', 'scanner');
-INSERT INTO collection_member (collection_id, member_title, position) VALUES (3, 1, 1.0);
-INSERT INTO ordering (id, collection_id, name, provider, kind) VALUES (1, 3, 'aired', 'tmdb', 'aired');
-INSERT INTO ordering (id, collection_id, name, provider, kind, source_id, label, listed_count)
+INSERT INTO sequence (id, kind, created_by) VALUES (3, 'series', 'scanner');
+INSERT INTO sequence_member (sequence_id, member_work, position) VALUES (3, 1, 1.0);
+INSERT INTO ordering (id, sequence_id, name, provider, kind) VALUES (1, 3, 'aired', 'tmdb', 'aired');
+INSERT INTO ordering (id, sequence_id, name, provider, kind, source_id, label, listed_count)
   VALUES (2, 3, 'tmdb:5e9077d2e640d600151f32bd', 'tmdb', 'dvd', '5e9077d2e640d600151f32bd', 'DVD Order', 23);
-INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order) VALUES (1, 1, 1, 1, 1.0);
+INSERT INTO position (ordering_id, work_id, group_number, number_in_group, sort_order) VALUES (1, 1, 1, 1, 1.0);
 INSERT INTO group_text (ordering_id, group_number, language, name) VALUES (1, 1, 'en', 'Season 1');
 
 INSERT INTO "grant" (secret_sha256, kind, user_id, scope, issued_at, expires_at, last_used_at, device_name, device_id,
@@ -128,7 +128,7 @@ INSERT INTO play_span (id, user_id, file_id, device_id, from_position_ms, to_pos
 INSERT INTO purged_watching (user_id, version_id, completed_count, watched_ms, last_watched_at)
   VALUES (2, 1, 2, 7200000, 1790000000000);
 INSERT INTO item_hidden (user_id, item_id, hidden_at) VALUES (1, 1, 1790000000000);
-INSERT INTO title_watched (user_id, title_id, watched_at, marked_at) VALUES (1, 1, 1790000000000, 1790000000000);
+INSERT INTO work_watched (user_id, work_id, watched_at, marked_at) VALUES (1, 1, 1790000000000, 1790000000000);
 INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at)
   VALUES (2, 'file', 1, 'subtitle_offset_ms', '-250', 1790000000000),
          (2, 'work', 3, 'audio_language', '{"language":"en","kind":"plain"}', 1790000000000);

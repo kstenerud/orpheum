@@ -44,9 +44,9 @@ type Member struct {
 func MembersOf(rows []sqlcgen.ListOrderingMemberFilesWithPositionsRow, thresholds ResumeThresholds) []Member {
 	var members []Member
 	for _, row := range rows {
-		if len(members) == 0 || members[len(members)-1].TitleID != row.TitleID {
+		if len(members) == 0 || members[len(members)-1].TitleID != row.WorkID {
 			members = append(members, Member{
-				TitleID: row.TitleID, Group: row.GroupNumber, NumberInGroup: row.NumberInGroup, Name: row.Name,
+				TitleID: row.WorkID, Group: row.GroupNumber, NumberInGroup: row.NumberInGroup, Name: row.Name,
 				partwayWatchedAt: -1,
 			})
 		}
@@ -150,7 +150,7 @@ func ReadMembers(
 	}
 	isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
 	rows, err := queries.ListOrderingMemberFilesWithPositions(ctx, sqlcgen.ListOrderingMemberFilesWithPositionsParams{
-		CollectionID: collectionID, UserID: userID, OrderingName: ordering,
+		SequenceID: collectionID, UserID: userID, OrderingName: ordering,
 		IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
 	})
 	if err != nil {
@@ -265,7 +265,7 @@ func (browser *Browser) sequencePlaceOf(ctx context.Context, reach auth.Reach, u
 		return sequencePlace{}, false, err
 	}
 	members, err := ReadMembers(ctx, browser.database.Read(), browser.settings, Viewer{UserID: userID, Reach: reach},
-		place.CollectionID, place.Ordering)
+		place.SequenceID, place.Ordering)
 	if err != nil {
 		return sequencePlace{}, false, err
 	}
@@ -306,7 +306,7 @@ func (browser *Browser) NeighboursOf(ctx context.Context, reach auth.Reach, user
 	}
 	var neighbours Neighbours
 	if sequence.at > 0 {
-		previous, previousErr := browser.nextUpOf(ctx, reach, sequence.place.CollectionID, sequence.place.Ordering,
+		previous, previousErr := browser.nextUpOf(ctx, reach, sequence.place.SequenceID, sequence.place.Ordering,
 			sequence.members[sequence.at-1])
 		if previousErr != nil {
 			return Neighbours{}, previousErr
@@ -331,7 +331,7 @@ func (browser *Browser) upNextIn(ctx context.Context, reach auth.Reach, sequence
 	if at+1 >= len(members) {
 		return UpNext{}, false, nil
 	}
-	next, err := browser.nextUpOf(ctx, reach, place.CollectionID, place.Ordering, members[at+1])
+	next, err := browser.nextUpOf(ctx, reach, place.SequenceID, place.Ordering, members[at+1])
 	if err != nil {
 		return UpNext{}, false, err
 	}

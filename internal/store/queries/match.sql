@@ -2,14 +2,14 @@
 -- Matching a title to its provider (identification.md; D170, D172): the fetch_metadata job's reads and
 -- writes in persistent.db. The kept search results are cache.db's.
 
--- name: GetTitleForMatch :one
-SELECT title.id, title.kind, item.year, item.identification_state, item.followed_source, item.followed_source_id, item.filing_library_id,
+-- name: GetWorkForMatch :one
+SELECT work.id, work.kind, item.year, item.identification_state, item.followed_source, item.followed_source_id, item.filing_library_id,
   library.metadata_source, item_text.name
-FROM title
-JOIN item ON item.id = title.id
+FROM work
+JOIN item ON item.id = work.id
 JOIN library ON library.id = item.filing_library_id
-LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
-WHERE title.id = sqlc.arg(id) AND item.removed_at IS NULL;
+LEFT JOIN item_text ON item_text.item_id = work.id AND item_text.is_original = 1
+WHERE work.id = sqlc.arg(id) AND item.removed_at IS NULL;
 
 -- name: ListItemProviderIDs :many
 SELECT provider, provider_id
@@ -40,16 +40,16 @@ SELECT body_gzip
 FROM provider_response
 WHERE item_id = sqlc.arg(item_id) AND provider = sqlc.arg(provider) AND part = sqlc.arg(part);
 
--- name: SetTitleMatch :exec
+-- name: SetWorkMatch :exec
 -- The outcome of a match: the source and its id, or ambiguous, or 'none' when the provider has
 -- nothing. A confirmed match is a person's and stays (D172).
 UPDATE item SET followed_source = sqlc.arg(followed_source), followed_source_id = sqlc.arg(followed_source_id),
   identification_state = CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE sqlc.arg(identification_state) END
 WHERE id = sqlc.arg(id) AND kind IN ('movie', 'episode', 'extra', 'other');
 
--- name: ListLiveFilesOfTitle :many
--- A title's live files: live files of its live versions, as ListTitleFiles and
--- CountLiveFilesOfTitle count them, each with the kind of library that filed it in the title, and
+-- name: ListLiveFilesOfWork :many
+-- A title's live files: live files of its live versions, as ListWorkFiles and
+-- CountLiveFilesOfWork count them, each with the kind of library that filed it in the title, and
 -- how long each plays, 0 before it is probed, which a film's candidates' runtimes are fitted against
 -- (D365 section 1).
 SELECT file.id, file.path, file_filing.library_kind,
@@ -58,12 +58,12 @@ SELECT file.id, file.path, file_filing.library_kind,
 FROM version
 CROSS JOIN file_filing ON file_filing.version_id = version.id
 CROSS JOIN file ON file.id = file_filing.file_id
-WHERE version.title_id = sqlc.arg(title_id) AND version.removed_at IS NULL AND file.removed_at IS NULL
+WHERE version.work_id = sqlc.arg(work_id) AND version.removed_at IS NULL AND file.removed_at IS NULL
 ORDER BY file.path;
 
--- name: MoveVersionsBetweenTitles :exec
-UPDATE version SET title_id = sqlc.arg(to_title)
-WHERE title_id = sqlc.arg(from_title);
+-- name: MoveVersionsBetweenWorks :exec
+UPDATE version SET work_id = sqlc.arg(to_work)
+WHERE work_id = sqlc.arg(from_work);
 
 -- name: MergeItem :exec
 -- A title found to be another already here: it leaves a tombstone pointing at the one that
@@ -71,22 +71,22 @@ WHERE title_id = sqlc.arg(from_title);
 UPDATE item SET merged_into = sqlc.arg(merged_into), removed_at = sqlc.arg(removed_at)
 WHERE id = sqlc.arg(id);
 
--- name: ListTitlesAwaitingMatch :many
+-- name: ListWorksAwaitingMatch :many
 -- Films a library lists that no source has answered for yet, and that have no failure of their
 -- own: owed their first match however often an earlier fetch was lost (D170, D231 section 3).
-SELECT title.id
-FROM title
-JOIN item ON item.id = title.id
-WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND title.kind = 'movie'
+SELECT work.id
+FROM work
+JOIN item ON item.id = work.id
+WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND work.kind = 'movie'
   AND item.followed_source IS NULL AND item.identification_state = 'unidentified'
-  AND NOT EXISTS (SELECT 1 FROM fetch_failure WHERE fetch_failure.item_id = title.id)
+  AND NOT EXISTS (SELECT 1 FROM fetch_failure WHERE fetch_failure.item_id = work.id)
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = title.id AND version.removed_at IS NULL
+    WHERE version.work_id = work.id AND version.removed_at IS NULL
   )
-ORDER BY title.id;
+ORDER BY work.id;
 
--- name: ListTitlesByIdentification :many
+-- name: ListWorksByIdentification :many
 -- The titles in one state of identification, for the chooser's list (cut-a section 5), with a
 -- failure of their own to be fetched and a person's refresh waiting (D231 section 4). Only those
 -- with a live file: a title whose files went elsewhere waits for no one (the owner's NAS,
@@ -95,29 +95,29 @@ ORDER BY title.id;
 -- no one, unless its fetch failed on its own, which waits for a person's look again, or a person
 -- asked for it again, which the list says is coming. So the list is what CountWaitingForAPerson counts, and those asked for (the owner's
 -- staging, 2026-10-21, where the count said 15 and the list was hundreds of episodes).
-SELECT title.id, title.kind, item.year, item.identification_state, item.followed_source, item.followed_source_id, item.filing_library_id,
+SELECT work.id, work.kind, item.year, item.identification_state, item.followed_source, item.followed_source_id, item.filing_library_id,
   item_text.name, fetch_failure.failure AS fetch_failure, fetch_failure.failed_at AS fetch_failed_at,
   refresh_request.requested_at AS refresh_requested_at
-FROM title
-JOIN item ON item.id = title.id
-LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
-LEFT JOIN fetch_failure ON fetch_failure.item_id = title.id
-LEFT JOIN refresh_request ON refresh_request.item_id = title.id
+FROM work
+JOIN item ON item.id = work.id
+LEFT JOIN item_text ON item_text.item_id = work.id AND item_text.is_original = 1
+LEFT JOIN fetch_failure ON fetch_failure.item_id = work.id
+LEFT JOIN refresh_request ON refresh_request.item_id = work.id
 WHERE item.identification_state = sqlc.arg(identification_state) AND item.removed_at IS NULL
-  AND title.kind NOT IN ('episode', 'other')
+  AND work.kind NOT IN ('episode', 'other')
   AND (item.identification_state != 'unidentified' OR item.followed_source = 'none'
     OR fetch_failure.item_id IS NOT NULL OR refresh_request.item_id IS NOT NULL)
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = title.id AND version.removed_at IS NULL
+    WHERE version.work_id = work.id AND version.removed_at IS NULL
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
   )
   -- A page starts after the name and id of the last one listed before it ('' and 0 for the first),
   -- and holds at most row_limit (-1 for every one), so the list pages by cursor (D425 section 7).
   AND (COALESCE(item_text.name, '') > sqlc.arg(after_name)
-    OR (COALESCE(item_text.name, '') = sqlc.arg(after_name) AND title.id > sqlc.arg(after_id)))
-ORDER BY COALESCE(item_text.name, ''), title.id
+    OR (COALESCE(item_text.name, '') = sqlc.arg(after_name) AND work.id > sqlc.arg(after_id)))
+ORDER BY COALESCE(item_text.name, ''), work.id
 LIMIT sqlc.arg(row_limit);
 
 -- name: DeleteItemProviderIDsAtProvider :exec
@@ -142,7 +142,7 @@ WHERE (field_override.override_value, field_override.origin, field_override.set_
 DELETE FROM field_override
 WHERE item_id = sqlc.arg(item_id) AND field = sqlc.arg(field) AND language = '';
 
--- name: ReturnAmbiguousTitleToItsFirstMatch :exec
+-- name: ReturnAmbiguousWorkToItsFirstMatch :exec
 -- A film the matcher left ambiguous that its kept results now settle, under rules that changed
 -- since: owed its first match again, which the matcher takes (the owner's NAS, 2026-10-13). A
 -- person's choice is never undone: only 'ambiguous' changes.
@@ -155,48 +155,48 @@ WHERE id = sqlc.arg(id) AND kind IN ('movie', 'episode', 'extra', 'other') AND i
 -- episode is its series' (D209). Each part repeats the index it is counted by, item_ambiguous or
 -- item_waiting (D303, DL4; D426 section 2), or the few fetch_failure rows.
 SELECT CAST((
-  SELECT count(*) FROM item CROSS JOIN title ON title.id = item.id
+  SELECT count(*) FROM item CROSS JOIN work ON work.id = item.id
   WHERE item.identification_state = 'ambiguous' AND item.kind IN ('movie', 'episode', 'extra', 'other')
     AND item.removed_at IS NULL AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = item.id AND version.removed_at IS NULL)
+    WHERE version.work_id = item.id AND version.removed_at IS NULL)
 ) + (
-  SELECT count(*) FROM item CROSS JOIN title ON title.id = item.id
+  SELECT count(*) FROM item CROSS JOIN work ON work.id = item.id
   WHERE item.identification_state = 'unidentified' AND item.followed_source = 'none' AND item.kind != 'episode'
     AND item.kind IN ('movie', 'extra', 'other') AND item.removed_at IS NULL AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = item.id AND version.removed_at IS NULL)
+    WHERE version.work_id = item.id AND version.removed_at IS NULL)
 ) + (
   SELECT count(*) FROM item
   WHERE item.identification_state = 'ambiguous' AND item.kind = 'series' AND item.removed_at IS NULL
     AND EXISTS (
-    SELECT 1 FROM collection_member
-    CROSS JOIN version ON version.title_id = collection_member.member_title
+    SELECT 1 FROM sequence_member
+    CROSS JOIN version ON version.work_id = sequence_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE collection_member.collection_id = item.id AND version.removed_at IS NULL)
+    WHERE sequence_member.sequence_id = item.id AND version.removed_at IS NULL)
 ) + (
   SELECT count(*) FROM item
   WHERE item.identification_state = 'unidentified' AND item.followed_source = 'none' AND item.kind != 'episode'
     AND item.kind = 'series' AND item.removed_at IS NULL
     AND EXISTS (
-    SELECT 1 FROM collection_member
-    CROSS JOIN version ON version.title_id = collection_member.member_title
+    SELECT 1 FROM sequence_member
+    CROSS JOIN version ON version.work_id = sequence_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE collection_member.collection_id = item.id AND version.removed_at IS NULL)
+    WHERE sequence_member.sequence_id = item.id AND version.removed_at IS NULL)
 ) + (
   SELECT count(*) FROM fetch_failure CROSS JOIN item ON item.id = fetch_failure.item_id
   WHERE item.identification_state = 'unidentified' AND IFNULL(item.followed_source, '') != 'none'
     AND item.kind IN ('movie', 'extra', 'other') AND item.removed_at IS NULL AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = item.id AND version.removed_at IS NULL)
+    WHERE version.work_id = item.id AND version.removed_at IS NULL)
 ) + (
   SELECT count(*) FROM fetch_failure CROSS JOIN item ON item.id = fetch_failure.item_id
   WHERE item.kind = 'series' AND item.identification_state = 'unidentified'
     AND IFNULL(item.followed_source, '') != 'none' AND item.removed_at IS NULL AND EXISTS (
-    SELECT 1 FROM collection_member
-    CROSS JOIN version ON version.title_id = collection_member.member_title
+    SELECT 1 FROM sequence_member
+    CROSS JOIN version ON version.work_id = sequence_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE collection_member.collection_id = item.id AND version.removed_at IS NULL)
+    WHERE sequence_member.sequence_id = item.id AND version.removed_at IS NULL)
 ) AS INTEGER) AS waiting_count;
 
 -- name: ClearOverridesSetByRemovedUser :exec

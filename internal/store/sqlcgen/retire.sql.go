@@ -184,80 +184,6 @@ func (q *Queries) ListStreamIDsOfFiles(ctx context.Context, fileIDListJson strin
 	return items, nil
 }
 
-const listTitlesNoLibraryLists = `-- name: ListTitlesNoLibraryLists :many
-SELECT title.id
-FROM title
-JOIN item ON item.id = title.id
-WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = title.id AND version.removed_at IS NULL
-  )
-ORDER BY title.id
-`
-
-// The live titles a library's pass files that no library lists any more: after a retire, their work
-// goes, and their data waits for the storage budgets to need its room (D363 section 10).
-func (q *Queries) ListTitlesNoLibraryLists(ctx context.Context, libraryID *int64) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, listTitlesNoLibraryLists, libraryID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []int64{}
-	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		items = append(items, id)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listTitlesOfFileNoLibraryLists = `-- name: ListTitlesOfFileNoLibraryLists :many
-SELECT DISTINCT version.title_id
-FROM file_filing
-CROSS JOIN version ON version.id = file_filing.version_id
-WHERE file_filing.file_id = ?1
-  AND NOT EXISTS (
-    SELECT 1 FROM version AS listed CROSS JOIN version_library ON version_library.version_id = listed.id
-    WHERE listed.title_id = version.title_id AND listed.removed_at IS NULL
-  )
-ORDER BY version.title_id
-`
-
-// The titles a file is in, of each kind, that no library lists any more: after an admin said it is
-// gone, their work goes with its.
-func (q *Queries) ListTitlesOfFileNoLibraryLists(ctx context.Context, fileID int64) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, listTitlesOfFileNoLibraryLists, fileID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []int64{}
-	for rows.Next() {
-		var title_id int64
-		if err := rows.Scan(&title_id); err != nil {
-			return nil, err
-		}
-		items = append(items, title_id)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listUncoveredFilesUnder = `-- name: ListUncoveredFilesUnder :many
 SELECT place.id
 FROM file AS place
@@ -289,6 +215,80 @@ func (q *Queries) ListUncoveredFilesUnder(ctx context.Context, arg ListUncovered
 			return nil, err
 		}
 		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWorksNoLibraryLists = `-- name: ListWorksNoLibraryLists :many
+SELECT work.id
+FROM work
+JOIN item ON item.id = work.id
+WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
+    WHERE version.work_id = work.id AND version.removed_at IS NULL
+  )
+ORDER BY work.id
+`
+
+// The live titles a library's pass files that no library lists any more: after a retire, their work
+// goes, and their data waits for the storage budgets to need its room (D363 section 10).
+func (q *Queries) ListWorksNoLibraryLists(ctx context.Context, libraryID *int64) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listWorksNoLibraryLists, libraryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWorksOfFileNoLibraryLists = `-- name: ListWorksOfFileNoLibraryLists :many
+SELECT DISTINCT version.work_id
+FROM file_filing
+CROSS JOIN version ON version.id = file_filing.version_id
+WHERE file_filing.file_id = ?1
+  AND NOT EXISTS (
+    SELECT 1 FROM version AS listed CROSS JOIN version_library ON version_library.version_id = listed.id
+    WHERE listed.work_id = version.work_id AND listed.removed_at IS NULL
+  )
+ORDER BY version.work_id
+`
+
+// The titles a file is in, of each kind, that no library lists any more: after an admin said it is
+// gone, their work goes with its.
+func (q *Queries) ListWorksOfFileNoLibraryLists(ctx context.Context, fileID int64) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listWorksOfFileNoLibraryLists, fileID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var work_id int64
+		if err := rows.Scan(&work_id); err != nil {
+			return nil, err
+		}
+		items = append(items, work_id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

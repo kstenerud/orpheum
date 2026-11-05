@@ -5,8 +5,8 @@
 package sqlcgen
 
 type ExtraRelation struct {
-	OwnerTitle int64
-	ExtraTitle int64
+	OwnerWork  int64
+	ExtraWork  int64
 	ExtraType  string
 	AssertedBy string
 }
@@ -34,7 +34,7 @@ type Loudness struct {
 }
 
 type OtherVideo struct {
-	TitleID      int64
+	WorkID       int64
 	RecordedAt   int64
 	RecordedFrom string
 	FileName     string

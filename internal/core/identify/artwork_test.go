@@ -32,7 +32,7 @@ func TestPass_ReportsTheImagesAMatchNamesOnEveryPass(t *testing.T) {
 	if outcome := lib.matchFileTitle(rel); outcome != identify.OutcomeMatched {
 		t.Fatalf("outcome %s", outcome)
 	}
-	titleID := lib.titlesByPath()[rel].TitleID
+	titleID := lib.titlesByPath()[rel].WorkID
 	if len(followed) != 1 || !slices.Equal(followed[0].Refs, film.Artwork) {
 		t.Errorf("the match itself reported %+v; want the film's images, without waiting for a scan", followed)
 	}
@@ -68,7 +68,7 @@ func TestChoose_ARematchReportsTheNewWorksImages(t *testing.T) {
 	if len(rematched) != 0 {
 		t.Fatalf("a first match reported %+v rematched; want nothing", rematched)
 	}
-	titleID := lib.titlesByPath()[rel].TitleID
+	titleID := lib.titlesByPath()[rel].WorkID
 	if err := lib.chooser.Choose(t.Context(), titleID, "tmdb", other.ID); err != nil {
 		t.Fatal(err)
 	}

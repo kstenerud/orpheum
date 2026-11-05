@@ -26,7 +26,7 @@ func ambiguousTheGeneral(t *testing.T) (*testLibrary, int64) {
 	if outcome := lib.matchFileTitle("The General (2004).mkv"); outcome != identify.OutcomeAmbiguous {
 		t.Fatalf("outcome %s, want ambiguous", outcome)
 	}
-	return lib, lib.titlesByPath()["The General (2004).mkv"].TitleID
+	return lib, lib.titlesByPath()["The General (2004).mkv"].WorkID
 }
 
 func TestChooser_ListsTheAmbiguousTitlesAndTheirCandidates(t *testing.T) {
@@ -97,7 +97,7 @@ func TestChooser_AGuessConfirmedIsAPersonsMatch(t *testing.T) {
 	if outcome := lib.matchFileTitle(rel); outcome != identify.OutcomeMatched {
 		t.Fatalf("outcome %s, want matched by a guess", outcome)
 	}
-	titleID := lib.titlesByPath()[rel].TitleID
+	titleID := lib.titlesByPath()[rel].WorkID
 	if !lib.isGuessed(titleID) {
 		t.Fatal("the film is not marked a guess")
 	}
@@ -133,7 +133,7 @@ func TestChooser_AChoiceWinsOverTheNFOAndReplacesAnEarlierOne(t *testing.T) {
 	lib.provider.Add(theo)
 	lib.scan(videoRecord("Metropolis (1995).mkv"),
 		nfoRecord("Metropolis (1995).nfo", "<movie><title>Metropolis</title><year>1995</year><tmdbid>9019</tmdbid></movie>"))
-	titleID := lib.titlesByPath()["Metropolis (1995).mkv"].TitleID
+	titleID := lib.titlesByPath()["Metropolis (1995).mkv"].WorkID
 	for _, id := range []string{heat.ID, theo.ID} {
 		if err := lib.chooser.Choose(t.Context(), titleID, "tmdb", id); err != nil {
 			t.Fatal(err)

@@ -214,7 +214,7 @@ func (raiser *Raiser) RaiseWatched(ctx context.Context) error {
 	var interested jobs.Interested
 	for _, row := range rows {
 		interested.FileIDs = append(interested.FileIDs, row.FileID)
-		interested.ItemIDs = append(interested.ItemIDs, row.TitleID)
+		interested.ItemIDs = append(interested.ItemIDs, row.WorkID)
 	}
 	return raiser.raise(ctx, interested, jobs.PriorityShownInterest, time.Time{})
 }
@@ -279,7 +279,7 @@ func (raiser *Raiser) worksOf(ctx context.Context, look Look) (jobs.Interested, 
 	if kind == "series" || kind == "person" { // an item of no file of its own (D426 §2)
 		return raiser.withMembersAhead(ctx, look, interested)
 	}
-	files, err := queries.ListLiveFilesOfTitle(ctx, itemID)
+	files, err := queries.ListLiveFilesOfWork(ctx, itemID)
 	if err != nil {
 		return jobs.Interested{}, nil, fmt.Errorf("list title %d's files: %w", itemID, err)
 	}

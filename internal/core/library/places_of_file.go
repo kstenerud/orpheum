@@ -143,7 +143,7 @@ func retireFilingsInto(
 	}
 	titleOfKind := map[string]int64{}
 	for _, version := range fileVersions {
-		titleOfKind[version.LibraryKind] = version.TitleID
+		titleOfKind[version.LibraryKind] = version.WorkID
 	}
 	for _, kind := range libraryKinds() {
 		err = queries.MoveFilingToFile(ctx,

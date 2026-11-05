@@ -133,7 +133,7 @@ func (matcher *Matcher) settleRematch(
 
 // rematchFilm is rematch of a film.
 func (matcher *Matcher) rematchFilm(ctx context.Context, titleID int64, said filesQuery) (rematched, error) {
-	title, err := store.OrNotFound(matcher.database.Read().GetTitleForMatch(ctx, titleID))
+	title, err := store.OrNotFound(matcher.database.Read().GetWorkForMatch(ctx, titleID))
 	if errors.Is(err, store.ErrNotFound) || err == nil && title.Kind != KindMovie {
 		return rematched{outcome: rematchLeftAlone, leftAloneBecause: leftAloneGone}, nil
 	}
@@ -170,7 +170,7 @@ func (matcher *Matcher) rematchFilm(ctx context.Context, titleID int64, said fil
 
 // leftAloneFilm says whether a rescan leaves a film as it is, and why: a person chose its match,
 // or an NFO speaks for it.
-func leftAloneFilm(title sqlcgen.GetTitleForMatchRow, said filesQuery) (string, bool) {
+func leftAloneFilm(title sqlcgen.GetWorkForMatchRow, said filesQuery) (string, bool) {
 	switch {
 	case ptr.ValueOrZero(title.IdentificationState) == identificationConfirmed:
 		return leftAloneChosen, true
@@ -202,7 +202,7 @@ func (matcher *Matcher) keepGuessOrNot(
 // several candidates, ambiguous, kept for a person; with none, not found. The ids an earlier match
 // recorded go, and its library owes a pass, which names it from its files again.
 func (matcher *Matcher) unsettleFilm(
-	ctx context.Context, provider Provider, title sqlcgen.GetTitleForMatchRow, said filesQuery,
+	ctx context.Context, provider Provider, title sqlcgen.GetWorkForMatchRow, said filesQuery,
 	candidates []Candidate,
 ) error {
 	if err := matcher.forgetEarlierMatch(ctx, title.ID, said); err != nil {

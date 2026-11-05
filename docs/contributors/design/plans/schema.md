@@ -51,7 +51,7 @@ where that kind of hole is visible.
   (a client's monotonic clock, [D165](../../decisions/working-notes.md)).
 - **Every table is `STRICT`** (D303, M5; the baseline at 0048), in both databases, so a value of
   the wrong type is refused, not kept as another type that never compares equal. **A subtype row
-  is tied to its supertype's kind**: `title`, `collection` and `person` each carry a `kind`
+  is tied to its supertype's kind**: `work`, `sequence` and `person` each carry a `kind`
   limited by a `CHECK` to their own, and a composite foreign key `(id, kind)` to `item(id, kind)`,
   which `item` makes unique, `ON UPDATE CASCADE`, so a kind changed on the item follows (step 0072,
   D426 §2). **A rule a row obeys alone is a `CHECK`**: an id at a source only with its source
@@ -78,7 +78,7 @@ where that kind of hole is visible.
 | **F** fetched | provider values with no stored response | migrate in place; never refetch |
 | **C** cache | anything rebuildable from the above | drop |
 
-**A table that mixes classes names them per column** (`file`, `title`). A migration then
+**A table that mixes classes names them per column** (`file`, `work`). A migration then
 re-derives only its **O** columns and carries every **A**, **I** and **F** column in place — a
 person's choice or a fetched fact is never lost because it shares a row with something
 derivable.
@@ -396,7 +396,7 @@ CREATE TABLE video_timeline (                              -- class O: what the 
 Titles are not the only things with a name, a poster, a sort position, tags, a person's
 corrections or a star: **a series, a box set, an album and an artist have all of them**. So they
 share one id space ([D186](../../decisions/working-notes.md)), and every table below that describes
-"a thing" references `item`, not `title`.
+"a thing" references `item`, not `work`.
 
 ```sql
 CREATE TABLE item (                                        -- class I, and O/F/A by column
@@ -502,10 +502,14 @@ A credit with a TMDB id is that TMDB person's; an NFO's credit, which names a pe
 is the first person of that folded name from any source, and a TMDB credit is never filed under a
 person an NFO alone named. Artists arrive with music as more roles.
 
-## The work: Title → Version → File
+## The work: Work → Version → File
+
+The playable thing is a `work` and the ordered container a `sequence` (D426 §3); they were
+`title` and `collection` until step 0074, which renamed every table, column, index and trigger
+named for them.
 
 ```sql
-CREATE TABLE title (                                       -- mixed: see the columns
+CREATE TABLE work (                                        -- mixed: see the columns
   id             INTEGER PRIMARY KEY REFERENCES item(id) ON DELETE RESTRICT,
   -- A movie, an episode, an extra or an other video, as its item says (step 0072, D426 §2); other:
   -- a video of an other library, one file, never matched (step 0059, D349). Its year, source,
@@ -517,20 +521,20 @@ CREATE TABLE title (                                       -- mixed: see the col
 
 CREATE TABLE version (                                     -- class I
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  title_id    INTEGER NOT NULL REFERENCES title(id) ON DELETE RESTRICT,
+  work_id    INTEGER NOT NULL REFERENCES work(id) ON DELETE RESTRICT,
   created_at  INTEGER NOT NULL,
   removed_at  INTEGER
 );
-CREATE INDEX version_title ON version(title_id);     -- every version, removed too, which a merge moves (D303)
+CREATE INDEX version_work ON version(work_id);     -- every version, removed too, which a merge moves (D303)
 
 CREATE TABLE extra_relation (                              -- class O, or A when asserted
-  owner_title   INTEGER NOT NULL REFERENCES title(id) ON DELETE RESTRICT,
-  extra_title   INTEGER NOT NULL REFERENCES title(id) ON DELETE RESTRICT,
+  owner_work   INTEGER NOT NULL REFERENCES work(id) ON DELETE RESTRICT,
+  extra_work   INTEGER NOT NULL REFERENCES work(id) ON DELETE RESTRICT,
   extra_type          TEXT NOT NULL CHECK (extra_type IN ('trailer','teaser','clip','featurette',
                   'behind_the_scenes','deleted_scene','interview','short','scene',
                   'theme_song','theme_video','unknown')),       -- D97, D162: eleven + unknown
   asserted_by   TEXT NOT NULL CHECK (asserted_by IN ('scanner','user')),
-  PRIMARY KEY (owner_title, extra_title)
+  PRIMARY KEY (owner_work, extra_work)
 );
 ```
 
@@ -560,14 +564,14 @@ CREATE UNIQUE INDEX item_text_original ON item_text(item_id) WHERE is_original =
 -- the file's own time, or a person's correction, the override recorded_at), and its file's name with
 -- that name's sort key in the sort_locale. The identification pass's.
 CREATE TABLE other_video (                                 -- class C (D349)
-  title_id      INTEGER PRIMARY KEY REFERENCES title(id) ON DELETE RESTRICT,
+  work_id      INTEGER PRIMARY KEY REFERENCES work(id) ON DELETE RESTRICT,
   recorded_at   INTEGER NOT NULL,          -- Unix milliseconds
   recorded_from TEXT NOT NULL CHECK (recorded_from IN ('tag','name','file','user')),
   file_name     TEXT NOT NULL,             -- its file's name, the last part of its path
   file_name_key BLOB NOT NULL              -- file_name's CLDR sort key in the sort_locale, BINARY order
 ) STRICT;
-CREATE INDEX other_video_recorded ON other_video(recorded_at, title_id);    -- newest recorded first
-CREATE INDEX other_video_file_name ON other_video(file_name_key, title_id); -- by file name
+CREATE INDEX other_video_recorded ON other_video(recorded_at, work_id);    -- newest recorded first
+CREATE INDEX other_video_file_name ON other_video(file_name_key, work_id); -- by file name
 
 CREATE TABLE sort_key (                                    -- class C (D47)
   item_id     INTEGER NOT NULL,
@@ -681,16 +685,16 @@ derived from this row and never held as a job (D213 §1, D231 §3), and a second
 A refused image beside the media is owed again once a scan has seen its file since, so a disk
 that was away brings its images back (G9).
 
-The columns in `title` and `item_text` are **the resolved values** — override, else the
+The columns in `work` and `item_text` are **the resolved values** — override, else the
 title's source, else local fallbacks ([D183](../../decisions/working-notes.md)) — and are
 rewritten whenever a layer changes. They are what everything reads.
 
-## Series, collections and orderings
+## Series (sequences) and orderings
 
 ```sql
-CREATE TABLE collection (                                  -- class A or O
+CREATE TABLE sequence (                                    -- class A or O
   id          INTEGER PRIMARY KEY REFERENCES item(id) ON DELETE RESTRICT,
-  -- A series, as its item says (step 0072, D426 §2): every collection written was one, and a box
+  -- A series, as its item says (step 0072, D426 §2): every sequence written was one, and a box
   -- set returns with its feature. A series is what is identified for shows (D209), so its item
   -- carries a year, a source and a match state as a film's does; one not yet resolved, which held
   -- no state before step 0072, is unidentified.
@@ -698,19 +702,19 @@ CREATE TABLE collection (                                  -- class A or O
   created_by  TEXT NOT NULL CHECK (created_by IN ('scanner','provider','user')),
   FOREIGN KEY (id, kind) REFERENCES item(id, kind) ON UPDATE CASCADE ON DELETE RESTRICT
 );
-CREATE TABLE collection_member (                           -- D159, D160
-  collection_id     INTEGER NOT NULL REFERENCES collection(id) ON DELETE RESTRICT,
-  member_title      INTEGER REFERENCES title(id) ON DELETE RESTRICT,
-  member_collection INTEGER REFERENCES collection(id) ON DELETE RESTRICT,
+CREATE TABLE sequence_member (                           -- D159, D160
+  sequence_id     INTEGER NOT NULL REFERENCES sequence(id) ON DELETE RESTRICT,
+  member_work      INTEGER REFERENCES work(id) ON DELETE RESTRICT,
+  member_sequence INTEGER REFERENCES sequence(id) ON DELETE RESTRICT,
   position          REAL,                -- NULL: a member without a place (Machete order)
-  CHECK ((member_title IS NULL) <> (member_collection IS NULL)),
-  UNIQUE (collection_id, member_title),
-  UNIQUE (collection_id, member_collection)
+  CHECK ((member_work IS NULL) <> (member_sequence IS NULL)),
+  UNIQUE (sequence_id, member_work),
+  UNIQUE (sequence_id, member_sequence)
 );
 
 CREATE TABLE ordering (                                    -- D96, D159
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
-  collection_id INTEGER NOT NULL REFERENCES collection(id) ON DELETE RESTRICT,
+  sequence_id INTEGER NOT NULL REFERENCES sequence(id) ON DELETE RESTRICT,
   name          TEXT NOT NULL,           -- 'aired', a TMDB episode group's 'tmdb:<group id>', a person's; 'release' for an album
   provider      TEXT,                    -- NULL when user-authored
   kind          TEXT,                    -- 0057: 'aired', a TMDB group's type ('dvd', 'absolute', 'digital',
@@ -718,20 +722,20 @@ CREATE TABLE ordering (                                    -- D96, D159
   source_id     TEXT,                    -- 0057: the provider's id for it, a TMDB group's; NULL for aired
   label         TEXT,                    -- 0057: its provider's name for it ("DVD Order"); name stays the key
   listed_count  INTEGER,                 -- 0057: how many episodes its provider lists in it, before it is fetched
-  UNIQUE (collection_id, name)
+  UNIQUE (sequence_id, name)
 );
 CREATE TABLE position (                                    -- season/episode, or disc/track
   ordering_id INTEGER NOT NULL REFERENCES ordering(id) ON DELETE RESTRICT,
-  title_id    INTEGER NOT NULL REFERENCES title(id) ON DELETE RESTRICT,
+  work_id    INTEGER NOT NULL REFERENCES work(id) ON DELETE RESTRICT,
   group_number         INTEGER,                   -- season, or disc
   number_in_group      INTEGER,                   -- episode, or track
   sort_order        REAL NOT NULL,             -- a total order within the ordering
-  PRIMARY KEY (ordering_id, title_id)
+  PRIMARY KEY (ordering_id, work_id)
 );
 CREATE INDEX position_order ON position(ordering_id, sort_order);  -- 0023: was position_sort
-CREATE INDEX position_title ON position(title_id);
+CREATE INDEX position_work ON position(work_id);
 CREATE TABLE group_text (                                  -- a season's name, a disc's, a part's
-  ordering_id     INTEGER NOT NULL REFERENCES ordering(id) ON DELETE RESTRICT,  -- 0057: was collection_id
+  ordering_id     INTEGER NOT NULL REFERENCES ordering(id) ON DELETE RESTRICT,  -- 0057: was sequence_id
   group_number         INTEGER NOT NULL,
   language        TEXT NOT NULL,
   name        TEXT,
@@ -1007,14 +1011,14 @@ drops a report sent again.
 CREATE TABLE item_hidden (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
   item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT, hidden_at INTEGER NOT NULL,
   PRIMARY KEY (user_id, item_id)) WITHOUT ROWID;
--- Whether a person watched a title (D370, step 0062): set by a play to its finish and by hand, never
+-- Whether a person watched a work (D370, step 0062): set by a play to its finish and by hand, never
 -- read from where they are now. A mark by hand is a fresh start for where it resumes.
-CREATE TABLE title_watched (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
-  title_id INTEGER NOT NULL REFERENCES title(id) ON DELETE RESTRICT,
+CREATE TABLE work_watched (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
+  work_id INTEGER NOT NULL REFERENCES work(id) ON DELETE RESTRICT,
   watched_at INTEGER,  -- NULL while it is not watched
   marked_at INTEGER,   -- the last mark by hand, either way; NULL for never
   CHECK (watched_at IS NOT NULL OR marked_at IS NOT NULL),
-  PRIMARY KEY (user_id, title_id)) WITHOUT ROWID, STRICT;
+  PRIMARY KEY (user_id, work_id)) WITHOUT ROWID, STRICT;
 
 -- What each player last said of its link on each network (D257 §1, D352 Q2, step 0063; in cache.db from step 0070 until step 0073, D427): its speed
 -- with its samples' spread, and its steadiness level, kept across restarts so the next playback
@@ -1084,7 +1088,7 @@ The page budget is **50 ms** ([performance-targets.md](performance-targets.md)).
 0.5 ms for a table, an invalidation path on every completion, and a staleness class — the same
 verdict [D164](../../decisions/working-notes.md) reached for the role cache. **Not built.** What
 the measurement did show is that **query shape matters ten times more than caching**: the
-correlated in-progress check must be a `LIMIT 1` scalar subquery driven by `version_title`, not an
+correlated in-progress check must be a `LIMIT 1` scalar subquery driven by `version_work`, not an
 `EXISTS` the planner turns into a scan. That is a rule for the query review, not for the schema.
 
 ## Fetched responses — in `persistent.db`
@@ -1104,7 +1108,7 @@ CREATE TABLE provider_response (                           -- class F: the store
 **Keyed on `item` since migration 0007** ([D209](../../decisions/working-notes.md)): a series
 is matched, not its episodes, and its own response and its season listings are stored against
 it. An episode has no response of its own; it takes its values from its season's listing. Before
-0007 the table was keyed on `title_id`, which left a series nowhere to keep its match — the one
+0007 the table was keyed on `work_id`, which left a series nowhere to keep its match — the one
 table that did not follow D186.
 
 ```sql
@@ -1129,7 +1133,7 @@ person's refresh, "try again", clears it, as a fetch that succeeds does. A perso
 `refresh_request`, which a sweep queues until a fetch that began after it ends; so a request lost
 with `cache.db`, or merged into a rolling refresh, still happens, images and all.
 
-**Moved here from `cache.db` by the second audit.** The resolved columns of `title` and
+**Moved here from `cache.db` by the second audit.** The resolved columns of `work` and
 `item_text` re-derive from these bodies, and D170 forbids refetching them, so losing them was
 never "only a cache" — deleting `cache.db` would have forced exactly the refetch the design rules
 out. At a few kilobytes compressed per title this adds tens of megabytes to the backup at the
@@ -1372,8 +1376,8 @@ second writer, or on a writer this table does not name. A table no package write
 | Table | Database | Writing package | Notes |
 | --- | --- | --- | --- |
 | `artwork` | persistent.db | `internal/core/artwork` | identify reports the images it found; the server's wiring hands them to `artwork.Service.Take` |
-| `collection` | persistent.db | `internal/core/identify` | |
-| `collection_member` | persistent.db | `internal/core/identify` | |
+| `sequence` | persistent.db | `internal/core/identify` | |
+| `sequence_member` | persistent.db | `internal/core/identify` | |
 | `credit` | persistent.db | `internal/core/identify` | the pass, from each title's and series' source (step 0067) |
 | `device` | persistent.db | `internal/core/auth` | |
 | `device_reader_limit` | persistent.db | `internal/core/nodes` | an admin's limit on one of a node's devices (D240 §5) |
@@ -1428,8 +1432,8 @@ second writer, or on a writer this table does not name. A table no package write
 | `sort_key` | persistent.db | `internal/core/identify` | |
 | `stream` | persistent.db | `internal/core/library` | |
 | `subtitle_text` | persistent.db | `internal/core/subtitles` | |
-| `title` | persistent.db | `internal/core/identify` | |
-| `title_watched` | persistent.db | `internal/core/playback` | whether each person watched each title, set by a play to its finish and by hand (D370) |
+| `work` | persistent.db | `internal/core/identify` | |
+| `work_watched` | persistent.db | `internal/core/playback` | whether each person watched each title, set by a play to its finish and by hand (D370) |
 | `unavailable_place` | persistent.db | `internal/core/library` | only its `availability.go` (D328) |
 | `user` | persistent.db | `internal/core/auth` | |
 | `version` | persistent.db | `internal/core/identify` | |
@@ -1453,10 +1457,10 @@ rows. Each class that would grow with no bound but time is kept to a limit a set
 
 | Grows with | Tables | Bounded by, today |
 | --- | --- | --- |
-| The library | `file`, `file_probe`, `file_nfo`, `stream`, `item`, `title`, `version`, `collection`, `collection_member`, `ordering`, `position`, `extra_relation`, `item_text`, `sort_key`, `other_video`, `item_provider_id`, `field_override`, `artwork`, `provider_response`, `loudness`, `video_timeline`, `subtitle_text`, `fetched_subtitle`, `person`, `genre`, `item_genre`, `credit` | the files and works the libraries hold, **and every one they ever held**: a removed file is a tombstone, kept so that a file copied back returns with what was read of it (D208 §4, D231 §7), and deleted `removed_files_kept_days` (90) after, with its streams, probe, NFO, subtitles fetched for it and the choices made in it (D306 §8); a removed item, title or version stays, and nothing purges those yet |
+| The library | `file`, `file_probe`, `file_nfo`, `stream`, `item`, `work`, `version`, `sequence`, `sequence_member`, `ordering`, `position`, `extra_relation`, `item_text`, `sort_key`, `other_video`, `item_provider_id`, `field_override`, `artwork`, `provider_response`, `loudness`, `video_timeline`, `subtitle_text`, `fetched_subtitle`, `person`, `genre`, `item_genre`, `credit` | the files and works the libraries hold, **and every one they ever held**: a removed file is a tombstone, kept so that a file copied back returns with what was read of it (D208 §4, D231 §7), and deleted `removed_files_kept_days` (90) after, with its streams, probe, NFO, subtitles fetched for it and the choices made in it (D306 §8); a removed item, title or version stays, and nothing purges those yet |
 | The library's open questions | `fetch_failure`, `refresh_request`, `guessed_match` | one row an item at most; each is deleted when its question is answered |
 | People and their devices | `user`, `device`, `"grant"`, `locator` | the people and devices there are, and a removed person's nameless row (D305 §1); a credential that ended, revoked or expired, is deleted `ended_credentials_kept_days` (90) after, with its locator (D304 §6); a removed device stays as a row while a play names it |
-| Watching | `play_event`, `play_span`, `play_position`, `item_hidden`, `purged_watching`, `title_watched` | every play of the files there are; a deleted file's plays fold into one `purged_watching` row a person a version (D306 §8); one `title_watched` row a person a title they watched or marked (D370); all deleted with the person who watched (`ForgetWatchingOf`) |
+| Watching | `play_event`, `play_span`, `play_position`, `item_hidden`, `purged_watching`, `work_watched` | every play of the files there are; a deleted file's plays fold into one `purged_watching` row a person a version (D306 §8); one `work_watched` row a person a title they watched or marked (D370); all deleted with the person who watched (`ForgetWatchingOf`) |
 | Scans | `root_scan`, `root_mount`, `root_state`, `unavailable_place` | one row a root or a disk in it, deleted with the root |
 | Players' links | `link_memory` | one row a player a network it played from; a row said nothing of within `link_speed_fresh_hours` (24) is deleted at the next player's word (D257 §1) |
 | Settings, roles, invitations, secrets | `setting`, `role`, `role_library`, `invitation`, `invitation_link`, `secret` | what an admin made; deleted when they delete it |
@@ -1482,7 +1486,7 @@ any (sessions live in memory and end with the process — [D119](../../decisions
 
 | Obligation (FEATURES.md) | Where |
 | --- | --- |
-| 1. an item need not have a File | a `title` with no `version` |
+| 1. an item need not have a File | a `work` with no `version` |
 | 2. playback addressable by File | every observation is a `file` row |
 | 3. referenced rows tombstoned | `removed_at` + `ON DELETE RESTRICT` |
 | 4. collection membership is three kinds | not held: `collection.membership`, never written, went in step 0071 (D426 §8); it returns additively with rule-made collections |

@@ -187,7 +187,7 @@ func (server *Server) titleBody(
 	body.Extras = make([]ExtraBody, 0, len(detail.Extras))
 	for _, extra := range detail.Extras {
 		body.Extras = append(body.Extras, ExtraBody{
-			ID: extra.ExtraTitle, ExtraType: extra.ExtraType, Name: ptr.ValueOrZero(extra.Name),
+			ID: extra.ExtraWork, ExtraType: extra.ExtraType, Name: ptr.ValueOrZero(extra.Name),
 		})
 	}
 	body.Art = artBody(detail.Art)
@@ -215,7 +215,7 @@ func episodePlaceBody(place *library.EpisodePlace) *EpisodePlaceBody {
 		return nil
 	}
 	body := &EpisodePlaceBody{
-		SeriesID: place.CollectionID, SeriesName: ptr.ValueOrZero(place.SeriesName),
+		SeriesID: place.SequenceID, SeriesName: ptr.ValueOrZero(place.SeriesName),
 		SeasonNumber: ptr.ValueOrZero(place.GroupNumber), EpisodeNumber: ptr.ValueOrZero(place.NumberInGroup),
 	}
 	if place.Ordering != library.OrderingAired {

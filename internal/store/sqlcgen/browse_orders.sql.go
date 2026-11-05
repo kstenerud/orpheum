@@ -20,7 +20,7 @@ WHERE item.kind = 'movie' AND item.removed_at IS NULL
     > (?1, ?2, ?3)
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = item.id AND version.removed_at IS NULL
+    WHERE version.work_id = item.id AND version.removed_at IS NULL
       AND (CAST(?4 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
   )
@@ -103,7 +103,7 @@ WHERE sort_key.locale = ?1 AND sort_key.listing = 'movie' AND item.removed_at IS
   AND (sort_key.collation_key < ?2 OR (sort_key.collation_key = ?2 AND sort_key.item_id < ?3))
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = item.id AND version.removed_at IS NULL
+    WHERE version.work_id = item.id AND version.removed_at IS NULL
       AND (CAST(?4 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
   )
@@ -185,7 +185,7 @@ WHERE item.kind = 'movie' AND item.removed_at IS NULL
   AND (item.released_on, item.id) < (CAST(?1 AS INTEGER), CAST(?2 AS INTEGER))
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = item.id AND version.removed_at IS NULL
+    WHERE version.work_id = item.id AND version.removed_at IS NULL
       AND (CAST(?3 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?4 AS TEXT))))
   )
@@ -263,7 +263,7 @@ WHERE item.kind = 'movie' AND item.removed_at IS NULL
   AND (item.released_on, item.id) > (CAST(?1 AS INTEGER), CAST(?2 AS INTEGER))
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = item.id AND version.removed_at IS NULL
+    WHERE version.work_id = item.id AND version.removed_at IS NULL
       AND (CAST(?3 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?4 AS TEXT))))
   )
@@ -339,7 +339,7 @@ LEFT JOIN item_text ON item_text.item_id = item.id AND item_text.is_original = 1
 WHERE item.kind = 'movie' AND item.released_on IS NULL AND item.removed_at IS NULL AND item.id > ?1
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = item.id AND version.removed_at IS NULL
+    WHERE version.work_id = item.id AND version.removed_at IS NULL
       AND (CAST(?2 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
   )
@@ -412,13 +412,13 @@ SELECT item.id AS item_id, item_text.name, item.identification_state, item.added
   other_video.file_name
 FROM item
 LEFT JOIN item_text ON item_text.item_id = item.id AND item_text.is_original = 1
-LEFT JOIN other_video ON other_video.title_id = item.id
+LEFT JOIN other_video ON other_video.work_id = item.id
 WHERE item.kind = 'other' AND item.removed_at IS NULL
   AND (item.found_at, item.found_file_modified_at, item.id)
     > (?1, ?2, ?3)
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = item.id AND version.removed_at IS NULL
+    WHERE version.work_id = item.id AND version.removed_at IS NULL
       AND (CAST(?4 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
   )
@@ -496,20 +496,20 @@ const listOtherByFileNameDescending = `-- name: ListOtherByFileNameDescending :m
 SELECT item.id AS item_id, other_video.file_name_key, item_text.name, item.identification_state,
   item.added_at, other_video.recorded_at, other_video.recorded_from, other_video.file_name
 FROM other_video
-CROSS JOIN item ON item.id = other_video.title_id
-LEFT JOIN item_text ON item_text.item_id = other_video.title_id AND item_text.is_original = 1
+CROSS JOIN item ON item.id = other_video.work_id
+LEFT JOIN item_text ON item_text.item_id = other_video.work_id AND item_text.is_original = 1
 WHERE item.removed_at IS NULL
-  AND (other_video.file_name_key, other_video.title_id)
+  AND (other_video.file_name_key, other_video.work_id)
     < (CAST(?1 AS BLOB), CAST(?2 AS INTEGER))
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = item.id AND version.removed_at IS NULL
+    WHERE version.work_id = item.id AND version.removed_at IS NULL
       AND (CAST(?3 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?4 AS TEXT))))
   )
   AND (CAST(?5 AS TEXT) IS NULL
     OR item.id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
-ORDER BY other_video.file_name_key DESC, other_video.title_id DESC
+ORDER BY other_video.file_name_key DESC, other_video.work_id DESC
 LIMIT ?6
 `
 
@@ -579,12 +579,12 @@ SELECT sort_key.item_id, sort_key.collation_key, item_text.name, item.identifica
 FROM sort_key
 JOIN item ON item.id = sort_key.item_id
 LEFT JOIN item_text ON item_text.item_id = sort_key.item_id AND item_text.is_original = 1
-LEFT JOIN other_video ON other_video.title_id = sort_key.item_id
+LEFT JOIN other_video ON other_video.work_id = sort_key.item_id
 WHERE sort_key.locale = ?1 AND sort_key.listing = 'other' AND item.removed_at IS NULL
   AND (sort_key.collation_key < ?2 OR (sort_key.collation_key = ?2 AND sort_key.item_id < ?3))
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = item.id AND version.removed_at IS NULL
+    WHERE version.work_id = item.id AND version.removed_at IS NULL
       AND (CAST(?4 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
   )
@@ -660,19 +660,19 @@ const listOtherByRecordedAscending = `-- name: ListOtherByRecordedAscending :man
 SELECT item.id AS item_id, item_text.name, item.identification_state, item.added_at,
   other_video.recorded_at, other_video.recorded_from, other_video.file_name
 FROM other_video
-CROSS JOIN item ON item.id = other_video.title_id
-LEFT JOIN item_text ON item_text.item_id = other_video.title_id AND item_text.is_original = 1
+CROSS JOIN item ON item.id = other_video.work_id
+LEFT JOIN item_text ON item_text.item_id = other_video.work_id AND item_text.is_original = 1
 WHERE item.removed_at IS NULL
-  AND (other_video.recorded_at, other_video.title_id) > (?1, ?2)
+  AND (other_video.recorded_at, other_video.work_id) > (?1, ?2)
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = item.id AND version.removed_at IS NULL
+    WHERE version.work_id = item.id AND version.removed_at IS NULL
       AND (CAST(?3 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?4 AS TEXT))))
   )
   AND (CAST(?5 AS TEXT) IS NULL
     OR item.id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
-ORDER BY other_video.recorded_at, other_video.title_id
+ORDER BY other_video.recorded_at, other_video.work_id
 LIMIT ?6
 `
 
@@ -745,10 +745,10 @@ WHERE item.kind = 'series' AND item.removed_at IS NULL
   AND (item.found_at, item.found_file_modified_at, item.id)
     > (?1, ?2, ?3)
   AND EXISTS (
-    SELECT 1 FROM collection_member
-    CROSS JOIN version ON version.title_id = collection_member.member_title
+    SELECT 1 FROM sequence_member
+    CROSS JOIN version ON version.work_id = sequence_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE collection_member.collection_id = item.id AND version.removed_at IS NULL
+    WHERE sequence_member.sequence_id = item.id AND version.removed_at IS NULL
       AND (CAST(?4 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
   )
@@ -829,10 +829,10 @@ LEFT JOIN item_text ON item_text.item_id = sort_key.item_id AND item_text.is_ori
 WHERE sort_key.locale = ?1 AND sort_key.listing = 'series' AND item.removed_at IS NULL
   AND (sort_key.collation_key < ?2 OR (sort_key.collation_key = ?2 AND sort_key.item_id < ?3))
   AND EXISTS (
-    SELECT 1 FROM collection_member
-    CROSS JOIN version ON version.title_id = collection_member.member_title
+    SELECT 1 FROM sequence_member
+    CROSS JOIN version ON version.work_id = sequence_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE collection_member.collection_id = item.id AND version.removed_at IS NULL
+    WHERE sequence_member.sequence_id = item.id AND version.removed_at IS NULL
       AND (CAST(?4 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
   )
@@ -910,10 +910,10 @@ LEFT JOIN item_text ON item_text.item_id = item.id AND item_text.is_original = 1
 WHERE item.kind = 'series' AND item.removed_at IS NULL
   AND (item.released_on, item.id) < (CAST(?1 AS INTEGER), CAST(?2 AS INTEGER))
   AND EXISTS (
-    SELECT 1 FROM collection_member
-    CROSS JOIN version ON version.title_id = collection_member.member_title
+    SELECT 1 FROM sequence_member
+    CROSS JOIN version ON version.work_id = sequence_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE collection_member.collection_id = item.id AND version.removed_at IS NULL
+    WHERE sequence_member.sequence_id = item.id AND version.removed_at IS NULL
       AND (CAST(?3 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?4 AS TEXT))))
   )
@@ -990,10 +990,10 @@ LEFT JOIN item_text ON item_text.item_id = item.id AND item_text.is_original = 1
 WHERE item.kind = 'series' AND item.removed_at IS NULL
   AND (item.released_on, item.id) > (CAST(?1 AS INTEGER), CAST(?2 AS INTEGER))
   AND EXISTS (
-    SELECT 1 FROM collection_member
-    CROSS JOIN version ON version.title_id = collection_member.member_title
+    SELECT 1 FROM sequence_member
+    CROSS JOIN version ON version.work_id = sequence_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE collection_member.collection_id = item.id AND version.removed_at IS NULL
+    WHERE sequence_member.sequence_id = item.id AND version.removed_at IS NULL
       AND (CAST(?3 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?4 AS TEXT))))
   )
@@ -1069,10 +1069,10 @@ LEFT JOIN item_text ON item_text.item_id = item.id AND item_text.is_original = 1
 WHERE item.kind = 'series' AND item.released_on IS NULL AND item.removed_at IS NULL
   AND item.id > ?1
   AND EXISTS (
-    SELECT 1 FROM collection_member
-    CROSS JOIN version ON version.title_id = collection_member.member_title
+    SELECT 1 FROM sequence_member
+    CROSS JOIN version ON version.work_id = sequence_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE collection_member.collection_id = item.id AND version.removed_at IS NULL
+    WHERE sequence_member.sequence_id = item.id AND version.removed_at IS NULL
       AND (CAST(?2 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
   )

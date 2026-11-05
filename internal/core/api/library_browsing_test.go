@@ -52,7 +52,7 @@ func (harness testHarness) shelveOtherVideos(t *testing.T) {
 		fmt.Sprintf(`INSERT INTO sort_key (item_id, locale, listing, collation_key)
 		 VALUES (40, 'en', 'other', %s), (41, 'en', 'other', %s), (42, 'en', 'other', %s)`,
 			key("Beach day"), key("Wedding"), key("clip")),
-		fmt.Sprintf(`INSERT INTO other_video (title_id, recorded_at, recorded_from, file_name, file_name_key) VALUES
+		fmt.Sprintf(`INSERT INTO other_video (work_id, recorded_at, recorded_from, file_name, file_name_key) VALUES
 		 (40, %d, 'tag', '2019-07-14 Beach day.mp4', %s), (41, %d, 'name', 'ceremony.mp4', %s),
 		 (42, %d, 'file', 'clip.mp4', %s)`,
 			day(2019, 7, 14), key("2019-07-14 Beach day.mp4"), day(2018, 6, 1), key("ceremony.mp4"),

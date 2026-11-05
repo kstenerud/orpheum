@@ -93,19 +93,19 @@ CROSS JOIN item_text ON item_text.item_id = person.id AND item_text.is_original 
 WHERE person.id = sqlc.arg(person_id) AND EXISTS (
   SELECT 1 FROM credit
   CROSS JOIN item ON item.id = credit.item_id
-  LEFT JOIN title ON title.id = credit.item_id
-  LEFT JOIN collection ON collection.id = credit.item_id
+  LEFT JOIN work ON work.id = credit.item_id
+  LEFT JOIN sequence ON sequence.id = credit.item_id
   WHERE credit.person_id = person.id AND item.removed_at IS NULL AND (
-    (title.kind IN ('movie', 'other') AND EXISTS (
+    (work.kind IN ('movie', 'other') AND EXISTS (
       SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-      WHERE version.title_id = title.id AND version.removed_at IS NULL
+      WHERE version.work_id = work.id AND version.removed_at IS NULL
         AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
           OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))))
-    OR (collection.kind = 'series' AND EXISTS (
-      SELECT 1 FROM collection_member
-      CROSS JOIN version ON version.title_id = collection_member.member_title
+    OR (sequence.kind = 'series' AND EXISTS (
+      SELECT 1 FROM sequence_member
+      CROSS JOIN version ON version.work_id = sequence_member.member_work
       CROSS JOIN version_library ON version_library.version_id = version.id
-      WHERE collection_member.collection_id = collection.id AND version.removed_at IS NULL
+      WHERE sequence_member.sequence_id = sequence.id AND version.removed_at IS NULL
         AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
           OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))))));
 
@@ -121,26 +121,26 @@ ORDER BY credit.item_id, credit.job, credit.ordinal;
 -- name: ListGenresWithCounts :many
 -- Each genre with how many films, series or other videos of a kind the caller reaches are in it;
 -- an empty kind counts every kind. A genre none of them is in is left out.
-SELECT genre.id, genre.name, count(*) AS title_count
+SELECT genre.id, genre.name, count(*) AS work_count
 FROM genre
 CROSS JOIN item_genre ON item_genre.genre_id = genre.id
 CROSS JOIN item ON item.id = item_genre.item_id
-LEFT JOIN title ON title.id = item_genre.item_id
-LEFT JOIN collection ON collection.id = item_genre.item_id
+LEFT JOIN work ON work.id = item_genre.item_id
+LEFT JOIN sequence ON sequence.id = item_genre.item_id
 WHERE item.removed_at IS NULL
-  AND (CAST(sqlc.arg(kind) AS TEXT) = '' OR title.kind = CAST(sqlc.arg(kind) AS TEXT)
-    OR (CAST(sqlc.arg(kind) AS TEXT) = 'series' AND collection.kind = 'series'))
+  AND (CAST(sqlc.arg(kind) AS TEXT) = '' OR work.kind = CAST(sqlc.arg(kind) AS TEXT)
+    OR (CAST(sqlc.arg(kind) AS TEXT) = 'series' AND sequence.kind = 'series'))
   AND (
-  (title.kind IN ('movie', 'other') AND EXISTS (
+  (work.kind IN ('movie', 'other') AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = title.id AND version.removed_at IS NULL
+    WHERE version.work_id = work.id AND version.removed_at IS NULL
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))))
-  OR (collection.kind = 'series' AND EXISTS (
-    SELECT 1 FROM collection_member
-    CROSS JOIN version ON version.title_id = collection_member.member_title
+  OR (sequence.kind = 'series' AND EXISTS (
+    SELECT 1 FROM sequence_member
+    CROSS JOIN version ON version.work_id = sequence_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE collection_member.collection_id = collection.id AND version.removed_at IS NULL
+    WHERE sequence_member.sequence_id = sequence.id AND version.removed_at IS NULL
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT)))))))
 GROUP BY genre.id
@@ -153,9 +153,9 @@ ORDER BY genre.name, genre.id;
 -- version is. The list's own query applies the caller's reach (browse.sql).
 SELECT item.id
 FROM item
-LEFT JOIN title ON title.id = item.id
-LEFT JOIN collection ON collection.id = item.id
-WHERE item.removed_at IS NULL AND (title.kind IN ('movie', 'other') OR collection.kind = 'series')
+LEFT JOIN work ON work.id = item.id
+LEFT JOIN sequence ON sequence.id = item.id
+WHERE item.removed_at IS NULL AND (work.kind IN ('movie', 'other') OR sequence.kind = 'series')
   AND (CAST(sqlc.narg(genre_id) AS INTEGER) IS NULL OR EXISTS (
     SELECT 1 FROM item_genre
     WHERE item_genre.item_id = item.id AND item_genre.genre_id = CAST(sqlc.narg(genre_id) AS INTEGER)))
@@ -166,17 +166,17 @@ WHERE item.removed_at IS NULL AND (title.kind IN ('movie', 'other') OR collectio
     OR coalesce(item.year, item.year) BETWEEN CAST(sqlc.narg(decade) AS INTEGER)
       AND CAST(sqlc.narg(decade) AS INTEGER) + 9)
   AND (CAST(sqlc.arg(is_unwatched) AS INTEGER) = 0
-    OR (title.id IS NOT NULL AND NOT EXISTS (
-      SELECT 1 FROM title_watched
-      WHERE title_watched.user_id = sqlc.arg(user_id) AND title_watched.title_id = title.id
-        AND title_watched.watched_at IS NOT NULL))
-    OR (collection.id IS NOT NULL AND EXISTS (
-      SELECT 1 FROM collection_member
-      CROSS JOIN item AS episode ON episode.id = collection_member.member_title
-      WHERE collection_member.collection_id = collection.id AND episode.removed_at IS NULL
-        AND EXISTS (SELECT 1 FROM version WHERE version.title_id = episode.id AND version.removed_at IS NULL)
+    OR (work.id IS NOT NULL AND NOT EXISTS (
+      SELECT 1 FROM work_watched
+      WHERE work_watched.user_id = sqlc.arg(user_id) AND work_watched.work_id = work.id
+        AND work_watched.watched_at IS NOT NULL))
+    OR (sequence.id IS NOT NULL AND EXISTS (
+      SELECT 1 FROM sequence_member
+      CROSS JOIN item AS episode ON episode.id = sequence_member.member_work
+      WHERE sequence_member.sequence_id = sequence.id AND episode.removed_at IS NULL
+        AND EXISTS (SELECT 1 FROM version WHERE version.work_id = episode.id AND version.removed_at IS NULL)
         AND NOT EXISTS (
-          SELECT 1 FROM title_watched
-          WHERE title_watched.user_id = sqlc.arg(user_id) AND title_watched.title_id = episode.id
-            AND title_watched.watched_at IS NOT NULL))))
+          SELECT 1 FROM work_watched
+          WHERE work_watched.user_id = sqlc.arg(user_id) AND work_watched.work_id = episode.id
+            AND work_watched.watched_at IS NOT NULL))))
 ORDER BY item.id;

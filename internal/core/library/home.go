@@ -66,26 +66,26 @@ func (browser *Browser) ContinueWatching(ctx context.Context, userID int64, reac
 		if IsBeforeMark(row.PositionReadAt, row.MarkedAt) {
 			continue // marked by hand since: a fresh start (D370 §4)
 		}
-		if _, seen := latestWatchedAt[row.TitleID]; !seen {
-			latestWatchedAt[row.TitleID] = row.PositionReadAt
+		if _, seen := latestWatchedAt[row.WorkID]; !seen {
+			latestWatchedAt[row.WorkID] = row.PositionReadAt
 		}
-		if !thresholds.resumesAt(row.PositionMs, row.DurationMs, row.HiddenAt, latestWatchedAt[row.TitleID]) {
+		if !thresholds.resumesAt(row.PositionMs, row.DurationMs, row.HiddenAt, latestWatchedAt[row.WorkID]) {
 			continue
 		}
-		partwayFileCountByTitle[row.TitleID]++
-		if _, placed := rowIndexByTitle[row.TitleID]; placed || int64(len(inProgress)) == maxWorks {
+		partwayFileCountByTitle[row.WorkID]++
+		if _, placed := rowIndexByTitle[row.WorkID]; placed || int64(len(inProgress)) == maxWorks {
 			continue
 		}
-		rowIndexByTitle[row.TitleID] = len(inProgress)
+		rowIndexByTitle[row.WorkID] = len(inProgress)
 		inProgress = append(inProgress, InProgress{
 			Entry: Entry{
-				ID: row.TitleID, Kind: row.Kind, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
+				ID: row.WorkID, Kind: row.Kind, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
 			},
 			FileID: row.FileID, PositionMs: row.PositionMs, DurationMs: row.DurationMs, FileName: path.Base(row.Path),
 		})
 		if row.Kind == TitleKindEpisode {
 			last := &inProgress[len(inProgress)-1]
-			if last.Episode, err = browser.EpisodePlaceOf(ctx, userID, row.TitleID); err != nil {
+			if last.Episode, err = browser.EpisodePlaceOf(ctx, userID, row.WorkID); err != nil {
 				return nil, err
 			}
 		}
@@ -142,7 +142,7 @@ func (browser *Browser) withSeriesPosters(ctx context.Context, rows []InProgress
 	var seriesIDs []int64
 	for _, row := range rows {
 		if row.PosterSha256 == "" && row.Episode != nil {
-			seriesIDs = append(seriesIDs, row.Episode.CollectionID)
+			seriesIDs = append(seriesIDs, row.Episode.SequenceID)
 		}
 	}
 	if len(seriesIDs) == 0 {
@@ -154,7 +154,7 @@ func (browser *Browser) withSeriesPosters(ctx context.Context, rows []InProgress
 	}
 	for index := range rows {
 		if rows[index].PosterSha256 == "" && rows[index].Episode != nil {
-			rows[index].PosterSha256 = posters[rows[index].Episode.CollectionID]
+			rows[index].PosterSha256 = posters[rows[index].Episode.SequenceID]
 		}
 	}
 	return nil

@@ -118,7 +118,7 @@ func (reports *FilingReports) workOf(
 		work.kind, work.name, work.year = "series", ptr.ValueOrZero(series.Name), ptr.ValueOrZero(series.Year)
 		work.identification, work.isGuessed = ptr.ValueOrZero(series.IdentificationState), series.IsGuessed
 	} else if errors.Is(err, store.ErrNotFound) {
-		title, titleErr := queries.GetTitleDetail(ctx, itemID)
+		title, titleErr := queries.GetWorkDetail(ctx, itemID)
 		if titleErr != nil {
 			return reportedWork{}, fmt.Errorf("read title %d: %w", itemID, titleErr)
 		}
@@ -216,8 +216,8 @@ func filedAs(file sqlcgen.ListFilesOfWorkRow) string {
 	if reason := ptr.ValueOrZero(file.FilingReason); reason != "" {
 		filed += " (" + reason + ")"
 	}
-	title := fmt.Sprintf("%s %q%s", file.TitleKind, file.TitleName, yearText(ptr.ValueOrZero(file.Year)))
-	if file.TitleKind == library.TitleKindEpisode {
+	title := fmt.Sprintf("%s %q%s", file.WorkKind, file.WorkName, yearText(ptr.ValueOrZero(file.Year)))
+	if file.WorkKind == library.TitleKindEpisode {
 		if file.NumberInGroup == nil {
 			title += fmt.Sprintf(", season %d, no number", ptr.ValueOrZero(file.GroupNumber))
 		} else {

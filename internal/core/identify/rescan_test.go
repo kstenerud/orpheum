@@ -125,7 +125,7 @@ func (lib *testLibrary) followed(rel string) (id, name string) {
 	if !found {
 		lib.t.Fatalf("no file %s", rel)
 	}
-	title, err := lib.database.Read().GetTitleForMatch(lib.t.Context(), file.TitleID)
+	title, err := lib.database.Read().GetWorkForMatch(lib.t.Context(), file.WorkID)
 	if err != nil {
 		lib.t.Fatal(err)
 	}
@@ -192,11 +192,11 @@ func TestRescan_LeavesAPersonsChoiceAndEditedFieldsAlone(t *testing.T) {
 	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(heat)}
 	lib.provider.Add(identify.Metadata{ID: "950", Name: "Metropolis", Year: 1986})
 	lib.scan(videoRecord(crowdFile), videoRecord(chosenFile))
-	chosen := lib.titlesByPath()[chosenFile].TitleID
+	chosen := lib.titlesByPath()[chosenFile].WorkID
 	if err := lib.chooser.Choose(t.Context(), chosen, "tmdb", "950"); err != nil {
 		t.Fatal(err)
 	}
-	crowd := lib.titlesByPath()[crowdFile].TitleID
+	crowd := lib.titlesByPath()[crowdFile].WorkID
 	person := storetest.InsertUser(t, lib.database, "alice", "admin")
 	if err := lib.chooser.SetOverride(t.Context(), crowd, identify.FieldName, "Ours", person); err != nil {
 		t.Fatal(err)
@@ -230,7 +230,7 @@ func TestRescan_RematchesAnUnconfirmedGuess(t *testing.T) {
 	lib.provider.Searches[identifytest.SearchKey("The General", 2002)] = []identify.Candidate{lesser, popular}
 	lib.scan(videoRecord(rel))
 	lib.matchFileTitle(rel)
-	titleID := lib.titlesByPath()[rel].TitleID
+	titleID := lib.titlesByPath()[rel].WorkID
 	if id, _ := lib.followed(rel); id != "3" || !lib.isGuessed(titleID) {
 		t.Fatalf("before: follows %s, guessed %v; want the most voted, guessed", id, lib.isGuessed(titleID))
 	}
@@ -251,7 +251,7 @@ func TestRescan_RematchesAnUnconfirmedGuess(t *testing.T) {
 func TestRescan_ADifferentMatchReplacesTheOld(t *testing.T) {
 	t.Parallel()
 	lib := crowdAsBeforeTheFix(t)
-	titleID := lib.titlesByPath()[crowdFile].TitleID
+	titleID := lib.titlesByPath()[crowdFile].WorkID
 	rescan := lib.rescanning()
 	rescan.library()
 	rescan.run()
@@ -292,7 +292,7 @@ func TestRescan_ASecondPressWhileOneRunsAddsNothing(t *testing.T) {
 	if err != nil || isStarted {
 		t.Errorf("a second press = %v, %v; want nothing started", isStarted, err)
 	}
-	titleID := lib.titlesByPath()[crowdFile].TitleID
+	titleID := lib.titlesByPath()[crowdFile].WorkID
 	isStarted, err = rescan.rescans.RescanItem(t.Context(), titleID, identify.Rescan)
 	if err != nil || isStarted {
 		t.Errorf("a press on its film = %v, %v; want nothing started", isStarted, err)
@@ -341,7 +341,7 @@ func TestRescan_OneItemRescansItsFilesAndRematchesIt(t *testing.T) {
 	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(heat)}
 	lib.scan(videoRecord(crowdFile), videoRecord(otherFile))
 	lib.matchFileTitle(otherFile)
-	titleID := lib.titlesByPath()[crowdFile].TitleID
+	titleID := lib.titlesByPath()[crowdFile].WorkID
 	rescan := lib.rescanning()
 	isStarted, err := rescan.rescans.RescanItem(t.Context(), titleID, identify.Rescan)
 	if err != nil || !isStarted {
@@ -361,7 +361,7 @@ func TestRescan_OneItemRescansItsFilesAndRematchesIt(t *testing.T) {
 	}
 	seriesLib := orbitoramaLibrary(t)
 	seriesLib.scanAll(orbitoramaFiles...)
-	episode := seriesLib.titlesByPath()[orbitoramaFiles[0]].TitleID
+	episode := seriesLib.titlesByPath()[orbitoramaFiles[0]].WorkID
 	if _, err := seriesLib.rescanning().rescans.RescanItem(t.Context(), episode, identify.Rescan); err == nil {
 		t.Error("an episode was rescanned alone; want it refused, its series is what is rescanned")
 	}
@@ -376,7 +376,7 @@ func TestRescan_LogsEachChangedMatchAndTheRunsTotals(t *testing.T) {
 	rescan := lib.rescanningLogged(slog.New(slog.NewTextHandler(&logged, nil)))
 	rescan.library()
 	rescan.run()
-	titleID := lib.titlesByPath()[crowdFile].TitleID
+	titleID := lib.titlesByPath()[crowdFile].WorkID
 	for _, want := range []string{
 		`msg="a rescan matched an item to another work" itemId=` + strconv.FormatInt(titleID, 10) +
 			` before=32 beforeName="The Crowd" after=31 afterName=Crowd settledBy="the name and the year"` +
@@ -447,7 +447,7 @@ func TestRescan_ALibraryWithAnEpisodePlacedByItsNameIsMatchedAgain(t *testing.T)
 func TestRescan_ALibraryThatKeepsChangingIsLoggedWithTheWriteThatChangesIt(t *testing.T) {
 	t.Parallel()
 	lib := crowdAsBeforeTheFix(t)
-	titleID := lib.titlesByPath()[crowdFile].TitleID
+	titleID := lib.titlesByPath()[crowdFile].WorkID
 	takeAway := `DELETE FROM sort_key WHERE item_id = ` + strconv.FormatInt(titleID, 10)
 	storetest.ExecRaw(t, lib.database.Path(), takeAway)
 	lib.pass.AfterPass(func(context.Context, identify.Report) {
@@ -474,7 +474,7 @@ func TestRescan_ALibraryThatKeepsChangingIsLoggedWithTheWriteThatChangesIt(t *te
 func TestRescan_AFilmItsSearchNoLongerSettlesIsNamedFromItsFileAgain(t *testing.T) {
 	t.Parallel()
 	lib := crowdAsBeforeTheFix(t)
-	titleID := lib.titlesByPath()[crowdFile].TitleID
+	titleID := lib.titlesByPath()[crowdFile].WorkID
 	lib.provider.Searches[identifytest.SearchKey("Crowd", 2022)] = nil
 	lib.provider.Searches[identifytest.SearchKey("The Crowd", 2022)] = nil
 	rescan := lib.rescanning()
@@ -518,7 +518,7 @@ func TestRescan_WhatAPersonWatchedSurvivesAChangedMatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(watching) != 1 || watching[0].TitleID != file.TitleID || watching[0].PositionMs != 600000 ||
+	if len(watching) != 1 || watching[0].WorkID != file.WorkID || watching[0].PositionMs != 600000 ||
 		ptr.ValueOrZero(watching[0].Name) != "Crowd" {
 		t.Errorf("what alice was watching: %+v; want the same film, ten minutes in, named Crowd now", watching)
 	}
@@ -558,7 +558,7 @@ func TestRescan_AFullRescanReadsItsFilesAgainAndAsksAgainForMissingImages(t *tes
 	t.Parallel()
 	rescan, images, logged := fullRescanning(t)
 	lib := rescan.lib
-	titleID := lib.titlesByPath()[crowdFile].TitleID
+	titleID := lib.titlesByPath()[crowdFile].WorkID
 	rescan.scans.scanning[lib.libraryID] = true
 	isStarted, err := rescan.rescans.RescanLibrary(t.Context(), lib.libraryID, identify.FullRescan)
 	if err != nil || !isStarted || !slices.Equal(rescan.scans.librariesReadAgain, []int64{lib.libraryID}) {
@@ -590,7 +590,7 @@ func TestRescan_AFullRescanOfOneFilmReadsItsFilesAgain(t *testing.T) {
 	t.Parallel()
 	rescan, images, _ := fullRescanning(t)
 	lib := rescan.lib
-	titleID := lib.titlesByPath()[crowdFile].TitleID
+	titleID := lib.titlesByPath()[crowdFile].WorkID
 	if isStarted, err := rescan.rescans.RescanItem(t.Context(), titleID, identify.FullRescan); err != nil ||
 		!isStarted || !slices.Equal(rescan.scans.worksReadAgain, []int64{titleID}) {
 		t.Fatalf("a full rescan of the film = %v, %v, reading again %v; want its files read again", isStarted, err,

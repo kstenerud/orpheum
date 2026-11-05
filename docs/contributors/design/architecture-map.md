@@ -188,10 +188,10 @@ package writes each table is schema.md's [owners table](plans/schema.md#who-writ
 | --- | --- | --- | --- | --- |
 | user, role, role_library, invitation, invitation_link, device, grant, locator, realm_key | persistent.db | T1 | yes | — |
 | setting, secret (sealed) | persistent.db | T1 | yes (`secret.key` only when asked, D194 §4) | by design |
-| play_position, play_event, play_span, purged_watching, item_hidden, title_watched, preference | persistent.db | T1 | yes | — |
+| play_position, play_event, play_span, purged_watching, item_hidden, work_watched, preference | persistent.db | T1 | yes | — |
 | field_override, group_text, extra_relation (asserted), collection (user) | persistent.db | T1 | yes | group_text has no writer yet |
 | library, library_root | persistent.db | T1 (the admin's) | yes | — |
-| item, title, version, item_provider_id, collection_member, ordering, position | persistent.db | T1 identity + TO/T2 resolved columns | yes | ⚑ mixed tiers per column (title, collection: O/F/A) |
+| item, work, sequence, version, item_provider_id, sequence_member, ordering, position | persistent.db | T1 identity + TO/T2 resolved columns | yes | ⚑ mixed tiers per column (work, sequence: O/F/A) |
 | file | persistent.db | T1 identity columns + TO | yes | ⚑ mixed; one writer since 2026-09-30 (§1) |
 | file_filing | persistent.db | T1 identity (the version, a person's match) + TO | yes | how each kind of library files a video, one row a kind (D363 §5, §6) |
 | whole_file_hash | persistent.db | T3 (reads the whole file) | yes | a likely copy's and its file's every byte hashed (D363 §2, D116); kept so a copy is not read again |

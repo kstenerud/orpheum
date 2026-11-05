@@ -25,7 +25,7 @@ type filmFit struct {
 // fileLengths are the known lengths of a title's live files, each saying whether its name says it
 // is a longer cut (D412 §4).
 func (matcher *Matcher) fileLengths(ctx context.Context, titleID int64) ([]fileLength, error) {
-	files, err := matcher.database.Read().ListLiveFilesOfTitle(ctx, titleID)
+	files, err := matcher.database.Read().ListLiveFilesOfWork(ctx, titleID)
 	if err != nil {
 		return nil, fmt.Errorf("list title %d's files: %w", titleID, err)
 	}

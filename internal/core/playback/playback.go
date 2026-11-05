@@ -742,7 +742,7 @@ func (service *Service) ReadWhenViewed(ctx context.Context, titleID int64) error
 	if service.reads == nil {
 		return nil
 	}
-	files, err := service.database.Read().ListUnreadFilesOfTitle(ctx, titleID)
+	files, err := service.database.Read().ListUnreadFilesOfWork(ctx, titleID)
 	if err != nil {
 		return fmt.Errorf("list title %d's files still being read: %w", titleID, err)
 	}

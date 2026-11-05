@@ -69,7 +69,7 @@ func (service *Service) queueFrameStills(
 	}
 	queued := 0
 	for _, candidate := range candidates {
-		if slices.Contains(found.AwaitingMatch, candidate.TitleID) ||
+		if slices.Contains(found.AwaitingMatch, candidate.WorkID) ||
 			(candidate.SeriesID != 0 && slices.Contains(found.AwaitingListings, candidate.SeriesID)) {
 			continue
 		}
@@ -97,10 +97,10 @@ func (service *Service) queueFrameStills(
 func (service *Service) isPictureToCome(
 	ctx context.Context, candidate sqlcgen.ListFrameStillCandidatesRow, named []ItemImages,
 ) (bool, error) {
-	kinds := pictureKindsOf(candidate.TitleKind)
+	kinds := pictureKindsOf(candidate.WorkKind)
 	var itsOwn []ItemImages
 	for _, item := range named {
-		if item.ItemID != candidate.TitleID {
+		if item.ItemID != candidate.WorkID {
 			continue
 		}
 		var refs []Ref
@@ -120,9 +120,9 @@ func (service *Service) isPictureToCome(
 	if err != nil || len(owed) > 0 {
 		return len(owed) > 0, err
 	}
-	rows, err := service.parts.Database.Read().ListLiveArtwork(ctx, candidate.TitleID)
+	rows, err := service.parts.Database.Read().ListLiveArtwork(ctx, candidate.WorkID)
 	if err != nil {
-		return false, fmt.Errorf("list item %d's artwork: %w", candidate.TitleID, err)
+		return false, fmt.Errorf("list item %d's artwork: %w", candidate.WorkID, err)
 	}
 	return slices.ContainsFunc(rows, func(row sqlcgen.ListLiveArtworkRow) bool {
 		return row.IsRecheckOwed == 1 && slices.Contains(kinds, row.Kind)
@@ -142,7 +142,7 @@ func (service *Service) queueFrameStill(
 			})
 		})
 		if err != nil {
-			return false, fmt.Errorf("ask again for item %d's frame still: %w", candidate.TitleID, err)
+			return false, fmt.Errorf("ask again for item %d's frame still: %w", candidate.WorkID, err)
 		}
 	}
 	ref := localRef(LocalImage{
@@ -153,14 +153,14 @@ func (service *Service) queueFrameStill(
 		ArtworkSource: SourceFrame, Refs: []Ref{{Kind: library.ArtStill, SourceRef: ref}},
 	})
 	if err != nil {
-		return false, fmt.Errorf("encode item %d's frame still: %w", candidate.TitleID, err)
+		return false, fmt.Errorf("encode item %d's frame still: %w", candidate.WorkID, err)
 	}
 	added, err := service.parts.Queue.Enqueue(ctx, jobs.Request{
-		Kind: jobs.KindMakeArtworkSizes, Target: jobs.Target{ItemID: candidate.TitleID}, ArgsJSON: string(args),
+		Kind: jobs.KindMakeArtworkSizes, Target: jobs.Target{ItemID: candidate.WorkID}, ArgsJSON: string(args),
 		Priority: jobs.PriorityBackground, Reason: "a still of its video: nothing else gives it a picture",
 	})
 	if err != nil {
-		return false, fmt.Errorf("queue item %d's frame still: %w", candidate.TitleID, err)
+		return false, fmt.Errorf("queue item %d's frame still: %w", candidate.WorkID, err)
 	}
 	return added, nil
 }
@@ -221,7 +221,7 @@ func isStillOfFileAsItIs(ref string, sizeBytes *int64) bool {
 // frame: real artwork always wins, and no still is taken where it shows (D362 §2).
 func (service *Service) isStillNeedless(ctx context.Context, want wantedImage) (bool, error) {
 	queries := service.parts.Database.Read()
-	titleKind, err := store.OrNotFound(queries.GetTitleKind(ctx, want.itemID))
+	titleKind, err := store.OrNotFound(queries.GetWorkKind(ctx, want.itemID))
 	if errors.Is(err, store.ErrNotFound) {
 		return true, nil // an item no longer a title, or gone
 	}

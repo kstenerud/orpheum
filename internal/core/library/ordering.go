@@ -42,13 +42,13 @@ func ViewingOrderings(ctx context.Context, queries *sqlcgen.Queries, userID int6
 		return nil, fmt.Errorf("encode %d series ids: %w", len(seriesIDs), err)
 	}
 	chosen, err := queries.ListChosenOrderings(ctx, sqlcgen.ListChosenOrderingsParams{
-		CollectionIdsJSON: string(encoded), UserID: userID, Axis: preferences.AxisEpisodeOrdering,
+		SequenceIdsJSON: string(encoded), UserID: userID, Axis: preferences.AxisEpisodeOrdering,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("read the orderings user %d watches %d series in: %w", userID, len(seriesIDs), err)
 	}
 	for _, row := range chosen {
-		orderings[row.CollectionID] = row.Name
+		orderings[row.SequenceID] = row.Name
 	}
 	return orderings, nil
 }
@@ -83,7 +83,7 @@ func (browser *Browser) EpisodePlaceOf(ctx context.Context, userID, titleID int6
 	case err != nil:
 		return nil, fmt.Errorf("read title %d's place: %w", titleID, err)
 	}
-	ordering, err := ViewingOrdering(ctx, queries, userID, aired.CollectionID)
+	ordering, err := ViewingOrdering(ctx, queries, userID, aired.SequenceID)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (browser *Browser) EpisodePlaceOf(ctx context.Context, userID, titleID int6
 		return place, nil
 	}
 	inOrdering, err := store.OrNotFound(queries.GetPlaceInOrdering(ctx, sqlcgen.GetPlaceInOrderingParams{
-		CollectionID: aired.CollectionID, OrderingName: ordering, TitleID: titleID,
+		SequenceID: aired.SequenceID, OrderingName: ordering, WorkID: titleID,
 	}))
 	switch {
 	case errors.Is(err, store.ErrNotFound):
@@ -146,7 +146,7 @@ func (browser *Browser) withOrderings(ctx context.Context, detail *SeriesDetail)
 		return nil
 	}
 	detail.NotInOrderingCount, err = queries.CountEpisodesNotInOrdering(ctx, sqlcgen.CountEpisodesNotInOrderingParams{
-		CollectionID: detail.ID, OrderingName: detail.Ordering,
+		SequenceID: detail.ID, OrderingName: detail.Ordering,
 	})
 	if err != nil {
 		return fmt.Errorf("count series %d's episodes its %s ordering leaves out: %w", detail.ID, detail.Ordering, err)
@@ -160,7 +160,7 @@ func groupNames(
 	ctx context.Context, queries *sqlcgen.Queries, seriesID int64, ordering string,
 ) (map[int64]string, error) {
 	rows, err := queries.ListOrderingGroupNames(ctx, sqlcgen.ListOrderingGroupNamesParams{
-		CollectionID: seriesID, OrderingName: ordering,
+		SequenceID: seriesID, OrderingName: ordering,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("read the group names of series %d's %s ordering: %w", seriesID, ordering, err)

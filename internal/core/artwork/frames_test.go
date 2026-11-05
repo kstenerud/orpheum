@@ -83,10 +83,10 @@ func (world *frameWorld) series(t *testing.T, followedSource string, episodeIDs 
 		Kind: "series", LibraryID: world.libraryID, FollowedSource: followedSource, IdentificationState: "identified",
 	})
 	statements := []string{fmt.Sprintf(
-		"INSERT INTO collection (id, kind, created_by) VALUES (%d, 'series', 'scanner')", seriesID)}
+		"INSERT INTO sequence (id, kind, created_by) VALUES (%d, 'series', 'scanner')", seriesID)}
 	for _, episodeID := range episodeIDs {
 		statements = append(statements, fmt.Sprintf(
-			"INSERT INTO collection_member (collection_id, member_title) VALUES (%d, %d)", seriesID, episodeID))
+			"INSERT INTO sequence_member (sequence_id, member_work) VALUES (%d, %d)", seriesID, episodeID))
 	}
 	storetest.ExecRaw(t, world.bench.database.Path(), statements...)
 	return seriesID

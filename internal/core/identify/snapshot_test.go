@@ -15,8 +15,8 @@ import (
 // identifiedTables are the tables a pass writes, each read whole in a fixed order.
 var identifiedTables = []string{
 	"SELECT * FROM item ORDER BY id",
-	"SELECT * FROM title ORDER BY id",
-	"SELECT * FROM collection ORDER BY id",
+	"SELECT * FROM work ORDER BY id",
+	"SELECT * FROM sequence ORDER BY id",
 	"SELECT * FROM version ORDER BY id",
 	"SELECT file.id, file.filing, file.filing_reason, file_filing.filing, file_filing.filing_reason, " +
 		"file_filing.version_id, file_filing.identified_from_path FROM file " +
@@ -27,10 +27,10 @@ var identifiedTables = []string{
 	"SELECT * FROM sort_key ORDER BY item_id, locale",
 	"SELECT * FROM field_override ORDER BY item_id, field, language",
 	"SELECT * FROM item_provider_id ORDER BY item_id, provider, provider_id",
-	"SELECT * FROM collection_member ORDER BY collection_id, member_title",
+	"SELECT * FROM sequence_member ORDER BY sequence_id, member_work",
 	"SELECT * FROM ordering ORDER BY id",
-	"SELECT * FROM position ORDER BY ordering_id, title_id",
-	"SELECT * FROM extra_relation ORDER BY owner_title, extra_title",
+	"SELECT * FROM position ORDER BY ordering_id, work_id",
+	"SELECT * FROM extra_relation ORDER BY owner_work, extra_work",
 }
 
 // A pass that reads its library from the snapshot writes what one that reads each row as it needs
@@ -98,14 +98,14 @@ func nfoScenario() []func(lib *testLibrary) {
 		},
 		func(lib *testLibrary) {
 			person := storetest.InsertUser(lib.t, lib.database, "alice", "admin")
-			title := lib.titlesByPath()["Test Show/Season 01/Test Show - S01E01.mkv"].TitleID
+			title := lib.titlesByPath()["Test Show/Season 01/Test Show - S01E01.mkv"].WorkID
 			err := lib.chooser.SetOverride(lib.t.Context(), title, identify.FieldName, "The First", person)
 			if err != nil {
 				lib.t.Fatal(err)
 			}
 		},
 		func(lib *testLibrary) {
-			title := lib.titlesByPath()["Test Show/Season 01/Test Show - S01E01.mkv"].TitleID
+			title := lib.titlesByPath()["Test Show/Season 01/Test Show - S01E01.mkv"].WorkID
 			if err := lib.chooser.ClearOverride(lib.t.Context(), title, identify.FieldName); err != nil {
 				lib.t.Fatal(err)
 			}
@@ -131,7 +131,7 @@ func tmdbFilmsScenario() []func(lib *testLibrary) {
 		func(lib *testLibrary) { lib.scan(films...) },
 		func(lib *testLibrary) {
 			person := storetest.InsertUser(lib.t, lib.database, "alice", "admin")
-			title := lib.titlesByPath()["Metropolis (1995).mkv"].TitleID
+			title := lib.titlesByPath()["Metropolis (1995).mkv"].WorkID
 			if err := lib.chooser.SetOverride(lib.t.Context(), title, identify.FieldYear, "1996", person); err != nil {
 				lib.t.Fatal(err)
 			}

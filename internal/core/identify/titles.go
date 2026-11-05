@@ -96,7 +96,7 @@ func (filer *libraryFiler) findOrAddTitle(ctx context.Context, spec titleSpec) (
 	if err != nil {
 		return 0, fmt.Errorf("add a title for %q: %w", spec.name, err)
 	}
-	err = filer.queries.InsertTitle(ctx, sqlcgen.InsertTitleParams{
+	err = filer.queries.InsertWork(ctx, sqlcgen.InsertWorkParams{
 		ID: id, Kind: spec.kind,
 	})
 	if err != nil {
@@ -118,13 +118,13 @@ func (filer *libraryFiler) claimTitleByProviderID(
 	if held, found := filer.heldTitleByProviderID(kind, providerIDOf(provider, providerID)); found {
 		return held, nil
 	}
-	rows, err := filer.queries.ListTitlesByProviderID(ctx, sqlcgen.ListTitlesByProviderIDParams{
+	rows, err := filer.queries.ListWorksByProviderID(ctx, sqlcgen.ListWorksByProviderIDParams{
 		Provider: provider, ProviderID: providerID,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("look up %s %s: %w", provider, providerID, err)
 	}
-	rows = slices.DeleteFunc(rows, func(row sqlcgen.ListTitlesByProviderIDRow) bool { return row.Kind != kind })
+	rows = slices.DeleteFunc(rows, func(row sqlcgen.ListWorksByProviderIDRow) bool { return row.Kind != kind })
 	for _, row := range rows {
 		if row.FilingLibraryID != nil && *row.FilingLibraryID == filer.library.ID {
 			return row.ID, nil
@@ -246,7 +246,7 @@ func (filer *libraryFiler) resolve(ctx context.Context, titleID int64, spec titl
 			sourceID = &id
 		}
 	}
-	identification, err := filer.resolveTitleValues(ctx, sqlcgen.UpdateTitleResolvedParams{
+	identification, err := filer.resolveTitleValues(ctx, sqlcgen.UpdateWorkResolvedParams{
 		Kind: spec.kind, Year: ptr.NilIfZero(year), ReleasedOn: releasedOn(year, spec.releaseDate),
 		FollowedSource: source, FollowedSourceID: sourceID,
 		IdentificationState: ptr.NilIfZero(spec.identification), ID: titleID,

@@ -54,17 +54,17 @@ func (harness testHarness) shelve(t *testing.T) {
 		BytesFile: 1, StreamIndex: 1, Kind: "audio", Codec: "truehd", Language: "en", ChannelCount: 8,
 	})
 	storetest.ExecRaw(t, harness.databasePath,
-		"INSERT INTO collection (id, kind, created_by) VALUES (20, 'series', 'scanner')",
+		"INSERT INTO sequence (id, kind, created_by) VALUES (20, 'series', 'scanner')",
 		`INSERT INTO item_text (item_id, language, is_original, name, overview, search_alternates) VALUES
 		 (10, 'und', 1, 'Metropolis', 'A crime saga.', 'heat'), (20, 'und', 1, 'Brass Arena', NULL, 'brass arena'),
 		 (21, 'und', 1, 'Pilot', NULL, 'pilot')`,
 		fmt.Sprintf(`INSERT INTO sort_key (item_id, locale, listing, collation_key)
 		 VALUES (10, 'en', 'movie', %s), (20, 'en', 'series', %s)`,
 			key("Metropolis"), key("Brass Arena")),
-		"INSERT INTO ordering (id, collection_id, name, kind) VALUES (1, 20, 'aired', 'aired')",
-		"INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order) "+
+		"INSERT INTO ordering (id, sequence_id, name, kind) VALUES (1, 20, 'aired', 'aired')",
+		"INSERT INTO position (ordering_id, work_id, group_number, number_in_group, sort_order) "+
 			"VALUES (1, 21, 1, 1, 10001)",
-		"INSERT INTO collection_member (collection_id, member_title, position) VALUES (20, 21, 10001)",
+		"INSERT INTO sequence_member (sequence_id, member_work, position) VALUES (20, 21, 10001)",
 		// Metropolis's poster is a person's choice over a newer one TMDB named; its backdrop was refused.
 		`INSERT INTO artwork (item_id, kind, source, source_ref, source_sha256, is_chosen, removed_at) VALUES
 		 (10, 'poster', 'user', NULL, X'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 1, NULL),
@@ -280,7 +280,7 @@ func TestBrowse_ASeriesListsItsSeasonsAndASeasonComesAPageAtATime(t *testing.T) 
 		statements = append(statements,
 			fmt.Sprintf("INSERT INTO item_text (item_id, language, is_original, name) VALUES (%d, 'und', 1, 'E%d')", id,
 				id),
-			fmt.Sprintf(`INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order)
+			fmt.Sprintf(`INSERT INTO position (ordering_id, work_id, group_number, number_in_group, sort_order)
 			 VALUES (1, %d, %d, %d, %d)`, id, episode.season, episode.number, 10001+index+1))
 	}
 	storetest.ExecRaw(t, harness.databasePath, statements...)
@@ -342,7 +342,7 @@ func TestBrowse_ASeriesSaysItsPersonsNextEpisode(t *testing.T) {
 	storetest.ExecRaw(t, harness.databasePath,
 		"INSERT INTO item_text (item_id, language, is_original, name) VALUES (22, 'und', 1, 'Cat'), "+
 			"(23, 'und', 1, 'Bag')",
-		"INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order) "+
+		"INSERT INTO position (ordering_id, work_id, group_number, number_in_group, sort_order) "+
 			"VALUES (1, 22, 1, 2, 10002), (1, 23, 1, 3, 10003)")
 	type nextUp struct {
 		TitleID       int64  `json:"titleId"`

@@ -54,8 +54,8 @@ func newCreditedShelf(t *testing.T) *creditedShelf {
 		if err != nil {
 			return err
 		}
-		return queries.MarkTitlesWatched(t.Context(), sqlcgen.MarkTitlesWatchedParams{
-			UserID: world.userID, MarkedAt: 2, TitleIdsJSON: fmt.Sprintf("[%d]", world.films["Metropolis"]),
+		return queries.MarkWorksWatched(t.Context(), sqlcgen.MarkWorksWatchedParams{
+			UserID: world.userID, MarkedAt: 2, WorkIdsJSON: fmt.Sprintf("[%d]", world.films["Metropolis"]),
 		})
 	})
 	world.gonePal = world.people["Ghost Actor"]
@@ -65,7 +65,7 @@ func newCreditedShelf(t *testing.T) *creditedShelf {
 // dateFilms gives each film its year.
 func (world *creditedShelf) dateFilms(queries *sqlcgen.Queries) error {
 	for name, year := range map[string]int64{"Metropolis": 1995, "The Boarder": 1999, "Scarlet Wren": 1983, "Up": 2009} {
-		if err := queries.UpdateTitleResolved(world.t.Context(), sqlcgen.UpdateTitleResolvedParams{
+		if err := queries.UpdateWorkResolved(world.t.Context(), sqlcgen.UpdateWorkResolvedParams{
 			Kind: ListFilms, Year: new(year), IdentificationState: new("identified"), ID: world.films[name],
 		}); err != nil {
 			return err

@@ -13,48 +13,48 @@ const countEpisodesNotInOrdering = `-- name: CountEpisodesNotInOrdering :one
 SELECT count(*)
 FROM ordering AS aired_ordering
 JOIN position AS aired ON aired.ordering_id = aired_ordering.id
-JOIN item ON item.id = aired.title_id AND item.removed_at IS NULL
-WHERE aired_ordering.collection_id = ?1 AND aired_ordering.name = 'aired'
+JOIN item ON item.id = aired.work_id AND item.removed_at IS NULL
+WHERE aired_ordering.sequence_id = ?1 AND aired_ordering.name = 'aired'
   AND NOT EXISTS (
     SELECT 1 FROM ordering AS chosen JOIN position AS there ON there.ordering_id = chosen.id
-    WHERE chosen.collection_id = aired_ordering.collection_id AND chosen.name = ?2
-      AND there.title_id = aired.title_id
+    WHERE chosen.sequence_id = aired_ordering.sequence_id AND chosen.name = ?2
+      AND there.work_id = aired.work_id
   )
 `
 
 type CountEpisodesNotInOrderingParams struct {
-	CollectionID int64
+	SequenceID   int64
 	OrderingName string
 }
 
 // How many of a series' live episodes one of its orderings leaves out.
 func (q *Queries) CountEpisodesNotInOrdering(ctx context.Context, arg CountEpisodesNotInOrderingParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countEpisodesNotInOrdering, arg.CollectionID, arg.OrderingName)
+	row := q.db.QueryRowContext(ctx, countEpisodesNotInOrdering, arg.SequenceID, arg.OrderingName)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
 }
 
 const countOrderingMembers = `-- name: CountOrderingMembers :many
-SELECT ordering.collection_id, count(*) AS member_count,
+SELECT ordering.sequence_id, count(*) AS member_count,
   CAST(sum(EXISTS (
-    SELECT 1 FROM title_watched WHERE title_watched.user_id = ?1
-      AND title_watched.title_id = position.title_id AND title_watched.watched_at IS NOT NULL
+    SELECT 1 FROM work_watched WHERE work_watched.user_id = ?1
+      AND work_watched.work_id = position.work_id AND work_watched.watched_at IS NOT NULL
   )) AS INTEGER) AS watched_count
 FROM json_each(CAST(?2 AS TEXT)) AS named
-CROSS JOIN ordering ON ordering.collection_id = json_extract(named.value, '$[0]')
+CROSS JOIN ordering ON ordering.sequence_id = json_extract(named.value, '$[0]')
   AND ordering.name = json_extract(named.value, '$[1]')
 CROSS JOIN position ON position.ordering_id = ordering.id
-CROSS JOIN item ON item.id = position.title_id AND item.removed_at IS NULL
+CROSS JOIN item ON item.id = position.work_id AND item.removed_at IS NULL
 WHERE EXISTS (
   SELECT 1 FROM version CROSS JOIN file_filing ON file_filing.version_id = version.id
   CROSS JOIN version_library ON version_library.version_id = version.id AND version_library.file_id = file_filing.file_id
-  WHERE version.title_id = position.title_id AND version.removed_at IS NULL
+  WHERE version.work_id = position.work_id AND version.removed_at IS NULL
     AND file_filing.filing IN ('listed', 'unidentified')
     AND (CAST(?3 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?4 AS TEXT))))
 )
-GROUP BY ordering.collection_id
+GROUP BY ordering.sequence_id
 `
 
 type CountOrderingMembersParams struct {
@@ -65,7 +65,7 @@ type CountOrderingMembersParams struct {
 }
 
 type CountOrderingMembersRow struct {
-	CollectionID int64
+	SequenceID   int64
 	MemberCount  int64
 	WatchedCount int64
 }
@@ -89,7 +89,7 @@ func (q *Queries) CountOrderingMembers(ctx context.Context, arg CountOrderingMem
 	items := []CountOrderingMembersRow{}
 	for rows.Next() {
 		var i CountOrderingMembersRow
-		if err := rows.Scan(&i.CollectionID, &i.MemberCount, &i.WatchedCount); err != nil {
+		if err := rows.Scan(&i.SequenceID, &i.MemberCount, &i.WatchedCount); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -104,26 +104,26 @@ func (q *Queries) CountOrderingMembers(ctx context.Context, arg CountOrderingMem
 }
 
 const getEpisodePlace = `-- name: GetEpisodePlace :one
-SELECT ordering.collection_id, position.group_number, position.number_in_group, item_text.name AS series_name
+SELECT ordering.sequence_id, position.group_number, position.number_in_group, item_text.name AS series_name
 FROM position
 JOIN ordering ON ordering.id = position.ordering_id
-LEFT JOIN item_text ON item_text.item_id = ordering.collection_id AND item_text.is_original = 1
-WHERE position.title_id = ?1 AND ordering.name = 'aired'
+LEFT JOIN item_text ON item_text.item_id = ordering.sequence_id AND item_text.is_original = 1
+WHERE position.work_id = ?1 AND ordering.name = 'aired'
 `
 
 type GetEpisodePlaceRow struct {
-	CollectionID  int64
+	SequenceID    int64
 	GroupNumber   *int64
 	NumberInGroup *int64
 	SeriesName    *string
 }
 
 // An episode's series and its place in the aired order.
-func (q *Queries) GetEpisodePlace(ctx context.Context, titleID int64) (GetEpisodePlaceRow, error) {
-	row := q.db.QueryRowContext(ctx, getEpisodePlace, titleID)
+func (q *Queries) GetEpisodePlace(ctx context.Context, workID int64) (GetEpisodePlaceRow, error) {
+	row := q.db.QueryRowContext(ctx, getEpisodePlace, workID)
 	var i GetEpisodePlaceRow
 	err := row.Scan(
-		&i.CollectionID,
+		&i.SequenceID,
 		&i.GroupNumber,
 		&i.NumberInGroup,
 		&i.SeriesName,
@@ -131,27 +131,64 @@ func (q *Queries) GetEpisodePlace(ctx context.Context, titleID int64) (GetEpisod
 	return i, err
 }
 
+const getFilesWork = `-- name: GetFilesWork :one
+SELECT file.path, work.id AS work_id, work.kind AS work_kind, item_text.name,
+  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
+    AS duration_ms
+FROM file
+LEFT JOIN version ON version.id = (
+  SELECT file_filing.version_id FROM file_filing WHERE file_filing.file_id = file.id AND file_filing.version_id IS NOT NULL
+  ORDER BY file_filing.library_kind = 'other', file_filing.library_kind LIMIT 1)
+LEFT JOIN work ON work.id = version.work_id
+LEFT JOIN item_text ON item_text.item_id = work.id AND item_text.is_original = 1
+WHERE file.id = ?1
+`
+
+type GetFilesWorkRow struct {
+	Path       string
+	WorkID     *int64
+	WorkKind   *string
+	Name       *string
+	DurationMs int64
+}
+
+// What a file is, for now playing and a cast's remote: its title, its kind and name when one is
+// filed, a film's or an episode's before an other video's (D363 section 5), its first place's path,
+// and how long it plays, 0 before it is probed.
+func (q *Queries) GetFilesWork(ctx context.Context, id int64) (GetFilesWorkRow, error) {
+	row := q.db.QueryRowContext(ctx, getFilesWork, id)
+	var i GetFilesWorkRow
+	err := row.Scan(
+		&i.Path,
+		&i.WorkID,
+		&i.WorkKind,
+		&i.Name,
+		&i.DurationMs,
+	)
+	return i, err
+}
+
 const getFilmOfExtra = `-- name: GetFilmOfExtra :one
-SELECT extra_relation.owner_title, item_text.name
+SELECT extra_relation.owner_work, item_text.name
 FROM extra_relation
-JOIN item ON item.id = extra_relation.owner_title
-LEFT JOIN item_text ON item_text.item_id = extra_relation.owner_title AND item_text.is_original = 1
-WHERE extra_relation.extra_title = ?1 AND item.removed_at IS NULL
-ORDER BY extra_relation.owner_title
+JOIN item ON item.id = extra_relation.owner_work
+LEFT JOIN item_text ON item_text.item_id = extra_relation.owner_work AND item_text.is_original = 1
+WHERE extra_relation.extra_work = ?1 AND item.removed_at IS NULL
+ORDER BY extra_relation.owner_work
 LIMIT 1
 `
 
 type GetFilmOfExtraRow struct {
-	OwnerTitle int64
-	Name       *string
+	OwnerWork int64
+	Name      *string
 }
 
 // The title an extra belongs to, the lowest where several hold it, with its name: the page an
 // extra's goes up to (D367 section 2).
-func (q *Queries) GetFilmOfExtra(ctx context.Context, extraTitle int64) (GetFilmOfExtraRow, error) {
-	row := q.db.QueryRowContext(ctx, getFilmOfExtra, extraTitle)
+func (q *Queries) GetFilmOfExtra(ctx context.Context, extraWork int64) (GetFilmOfExtraRow, error) {
+	row := q.db.QueryRowContext(ctx, getFilmOfExtra, extraWork)
 	var i GetFilmOfExtraRow
-	err := row.Scan(&i.OwnerTitle, &i.Name)
+	err := row.Scan(&i.OwnerWork, &i.Name)
 	return i, err
 }
 
@@ -167,14 +204,14 @@ SELECT position.group_number, position.number_in_group,
   ), '') AS TEXT) AS group_name
 FROM ordering
 JOIN position ON position.ordering_id = ordering.id
-WHERE ordering.collection_id = ?1 AND ordering.name = ?2
-  AND position.title_id = ?3
+WHERE ordering.sequence_id = ?1 AND ordering.name = ?2
+  AND position.work_id = ?3
 `
 
 type GetPlaceInOrderingParams struct {
-	CollectionID int64
+	SequenceID   int64
 	OrderingName string
-	TitleID      int64
+	WorkID       int64
 }
 
 type GetPlaceInOrderingRow struct {
@@ -188,7 +225,7 @@ type GetPlaceInOrderingRow struct {
 // it, how many groups the ordering has, one for an ordering that is a single run (absolute), and its
 // group's name where the ordering names it, ” where it does not.
 func (q *Queries) GetPlaceInOrdering(ctx context.Context, arg GetPlaceInOrderingParams) (GetPlaceInOrderingRow, error) {
-	row := q.db.QueryRowContext(ctx, getPlaceInOrdering, arg.CollectionID, arg.OrderingName, arg.TitleID)
+	row := q.db.QueryRowContext(ctx, getPlaceInOrdering, arg.SequenceID, arg.OrderingName, arg.WorkID)
 	var i GetPlaceInOrderingRow
 	err := row.Scan(
 		&i.GroupNumber,
@@ -200,16 +237,16 @@ func (q *Queries) GetPlaceInOrdering(ctx context.Context, arg GetPlaceInOrdering
 }
 
 const getSeriesDetail = `-- name: GetSeriesDetail :one
-SELECT collection.id, item.year, item.identification_state, item.followed_source, item.followed_source_id,
+SELECT sequence.id, item.year, item.identification_state, item.followed_source, item.followed_source_id,
   item_text.name, item_text.overview,
   fetch_failure.failure AS fetch_failure, fetch_failure.failed_at AS fetch_failed_at,
   refresh_request.requested_at AS refresh_requested_at, EXISTS (SELECT 1 FROM guessed_match WHERE guessed_match.item_id = item.id) AS is_guessed
-FROM collection
-JOIN item ON item.id = collection.id
-LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_original = 1
-LEFT JOIN fetch_failure ON fetch_failure.item_id = collection.id
-LEFT JOIN refresh_request ON refresh_request.item_id = collection.id
-WHERE collection.id = ?1 AND collection.kind = 'series' AND item.removed_at IS NULL
+FROM sequence
+JOIN item ON item.id = sequence.id
+LEFT JOIN item_text ON item_text.item_id = sequence.id AND item_text.is_original = 1
+LEFT JOIN fetch_failure ON fetch_failure.item_id = sequence.id
+LEFT JOIN refresh_request ON refresh_request.item_id = sequence.id
+WHERE sequence.id = ?1 AND sequence.kind = 'series' AND item.removed_at IS NULL
 `
 
 type GetSeriesDetailRow struct {
@@ -246,20 +283,20 @@ func (q *Queries) GetSeriesDetail(ctx context.Context, id int64) (GetSeriesDetai
 	return i, err
 }
 
-const getTitleDetail = `-- name: GetTitleDetail :one
-SELECT title.id, title.kind, item.year, title.runtime_ms, item.identification_state, item.followed_source, item.followed_source_id,
+const getWorkDetail = `-- name: GetWorkDetail :one
+SELECT work.id, work.kind, item.year, work.runtime_ms, item.identification_state, item.followed_source, item.followed_source_id,
   item.added_at, item_text.name, item_text.overview, item_text.tagline,
   fetch_failure.failure AS fetch_failure, fetch_failure.failed_at AS fetch_failed_at,
   refresh_request.requested_at AS refresh_requested_at, EXISTS (SELECT 1 FROM guessed_match WHERE guessed_match.item_id = item.id) AS is_guessed
-FROM title
-JOIN item ON item.id = title.id
-LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
-LEFT JOIN fetch_failure ON fetch_failure.item_id = title.id
-LEFT JOIN refresh_request ON refresh_request.item_id = title.id
-WHERE title.id = ?1 AND item.removed_at IS NULL
+FROM work
+JOIN item ON item.id = work.id
+LEFT JOIN item_text ON item_text.item_id = work.id AND item_text.is_original = 1
+LEFT JOIN fetch_failure ON fetch_failure.item_id = work.id
+LEFT JOIN refresh_request ON refresh_request.item_id = work.id
+WHERE work.id = ?1 AND item.removed_at IS NULL
 `
 
-type GetTitleDetailRow struct {
+type GetWorkDetailRow struct {
 	ID                  int64
 	Kind                string
 	Year                *int64
@@ -278,9 +315,9 @@ type GetTitleDetailRow struct {
 }
 
 // A title, with a failure of its own to be fetched and a person's refresh waiting (D231 section 4).
-func (q *Queries) GetTitleDetail(ctx context.Context, id int64) (GetTitleDetailRow, error) {
-	row := q.db.QueryRowContext(ctx, getTitleDetail, id)
-	var i GetTitleDetailRow
+func (q *Queries) GetWorkDetail(ctx context.Context, id int64) (GetWorkDetailRow, error) {
+	row := q.db.QueryRowContext(ctx, getWorkDetail, id)
+	var i GetWorkDetailRow
 	err := row.Scan(
 		&i.ID,
 		&i.Kind,
@@ -301,54 +338,17 @@ func (q *Queries) GetTitleDetail(ctx context.Context, id int64) (GetTitleDetailR
 	return i, err
 }
 
-const getTitleOfFile = `-- name: GetTitleOfFile :one
-SELECT file.path, title.id AS title_id, title.kind AS title_kind, item_text.name,
-  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
-    AS duration_ms
-FROM file
-LEFT JOIN version ON version.id = (
-  SELECT file_filing.version_id FROM file_filing WHERE file_filing.file_id = file.id AND file_filing.version_id IS NOT NULL
-  ORDER BY file_filing.library_kind = 'other', file_filing.library_kind LIMIT 1)
-LEFT JOIN title ON title.id = version.title_id
-LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
-WHERE file.id = ?1
-`
-
-type GetTitleOfFileRow struct {
-	Path       string
-	TitleID    *int64
-	TitleKind  *string
-	Name       *string
-	DurationMs int64
-}
-
-// What a file is, for now playing and a cast's remote: its title, its kind and name when one is
-// filed, a film's or an episode's before an other video's (D363 section 5), its first place's path,
-// and how long it plays, 0 before it is probed.
-func (q *Queries) GetTitleOfFile(ctx context.Context, id int64) (GetTitleOfFileRow, error) {
-	row := q.db.QueryRowContext(ctx, getTitleOfFile, id)
-	var i GetTitleOfFileRow
-	err := row.Scan(
-		&i.Path,
-		&i.TitleID,
-		&i.TitleKind,
-		&i.Name,
-		&i.DurationMs,
-	)
-	return i, err
-}
-
 const isItemReached = `-- name: IsItemReached :one
 SELECT CAST(EXISTS (
   SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-  WHERE version.title_id = ?1 AND version.removed_at IS NULL
+  WHERE version.work_id = ?1 AND version.removed_at IS NULL
     AND (CAST(?2 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
 ) OR EXISTS (
-  SELECT 1 FROM collection_member
-  CROSS JOIN version ON version.title_id = collection_member.member_title
+  SELECT 1 FROM sequence_member
+  CROSS JOIN version ON version.work_id = sequence_member.member_work
   CROSS JOIN version_library ON version_library.version_id = version.id
-  WHERE collection_member.collection_id = ?1 AND version.removed_at IS NULL
+  WHERE sequence_member.sequence_id = ?1 AND version.removed_at IS NULL
     AND (CAST(?2 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
 ) AS INTEGER) AS is_reached
@@ -370,30 +370,30 @@ func (q *Queries) IsItemReached(ctx context.Context, arg IsItemReachedParams) (i
 }
 
 const listChosenOrderings = `-- name: ListChosenOrderings :many
-SELECT ordering.collection_id, ordering.name
+SELECT ordering.sequence_id, ordering.name
 FROM json_each(CAST(?1 AS TEXT)) AS chosen
 JOIN preference ON preference.user_id = ?2 AND preference.scope = 'work'
   AND preference.scope_id = chosen.value AND preference.axis = ?3
-JOIN ordering ON ordering.collection_id = preference.scope_id
+JOIN ordering ON ordering.sequence_id = preference.scope_id
   AND ordering.name = CAST(json_extract(preference.value_json, '$') AS TEXT)
 `
 
 type ListChosenOrderingsParams struct {
-	CollectionIdsJSON string
-	UserID            int64
-	Axis              string
+	SequenceIdsJSON string
+	UserID          int64
+	Axis            string
 }
 
 type ListChosenOrderingsRow struct {
-	CollectionID int64
-	Name         string
+	SequenceID int64
+	Name       string
 }
 
 // The ordering a person chose to watch each of some series in (D159 section 1), a preference at the
 // series' work scope, when the series still has it; a series they chose none for, or one it no
 // longer has, is not listed.
 func (q *Queries) ListChosenOrderings(ctx context.Context, arg ListChosenOrderingsParams) ([]ListChosenOrderingsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listChosenOrderings, arg.CollectionIdsJSON, arg.UserID, arg.Axis)
+	rows, err := q.db.QueryContext(ctx, listChosenOrderings, arg.SequenceIdsJSON, arg.UserID, arg.Axis)
 	if err != nil {
 		return nil, err
 	}
@@ -401,7 +401,7 @@ func (q *Queries) ListChosenOrderings(ctx context.Context, arg ListChosenOrderin
 	items := []ListChosenOrderingsRow{}
 	for rows.Next() {
 		var i ListChosenOrderingsRow
-		if err := rows.Scan(&i.CollectionID, &i.Name); err != nil {
+		if err := rows.Scan(&i.SequenceID, &i.Name); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -416,25 +416,25 @@ func (q *Queries) ListChosenOrderings(ctx context.Context, arg ListChosenOrderin
 }
 
 const listEpisodesNotInOrdering = `-- name: ListEpisodesNotInOrdering :many
-SELECT aired.title_id, aired.group_number, aired.number_in_group, aired.sort_order, item_text.name,
-  item.year, title.runtime_ms, item.identification_state,
+SELECT aired.work_id, aired.group_number, aired.number_in_group, aired.sort_order, item_text.name,
+  item.year, work.runtime_ms, item.identification_state,
   EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = aired.title_id AND version.removed_at IS NULL
+    WHERE version.work_id = aired.work_id AND version.removed_at IS NULL
       AND (CAST(?1 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?2 AS TEXT))))
   ) AS available
 FROM ordering AS aired_ordering
 JOIN position AS aired ON aired.ordering_id = aired_ordering.id
-JOIN title ON title.id = aired.title_id
-JOIN item ON item.id = title.id
-LEFT JOIN item_text ON item_text.item_id = aired.title_id AND item_text.is_original = 1
-WHERE aired_ordering.collection_id = ?3 AND aired_ordering.name = 'aired'
+JOIN work ON work.id = aired.work_id
+JOIN item ON item.id = work.id
+LEFT JOIN item_text ON item_text.item_id = aired.work_id AND item_text.is_original = 1
+WHERE aired_ordering.sequence_id = ?3 AND aired_ordering.name = 'aired'
   AND item.removed_at IS NULL
   AND NOT EXISTS (
     SELECT 1 FROM ordering AS chosen JOIN position AS there ON there.ordering_id = chosen.id
-    WHERE chosen.collection_id = aired_ordering.collection_id AND chosen.name = ?4
-      AND there.title_id = aired.title_id
+    WHERE chosen.sequence_id = aired_ordering.sequence_id AND chosen.name = ?4
+      AND there.work_id = aired.work_id
   )
   AND aired.sort_order > ?5
 ORDER BY aired.sort_order
@@ -444,14 +444,14 @@ LIMIT ?6
 type ListEpisodesNotInOrderingParams struct {
 	IsEveryLibrary int64
 	LibraryIdsJSON string
-	CollectionID   int64
+	SequenceID     int64
 	OrderingName   string
 	AfterSortOrder float64
 	MaxRows        int64
 }
 
 type ListEpisodesNotInOrderingRow struct {
-	TitleID             int64
+	WorkID              int64
 	GroupNumber         *int64
 	NumberInGroup       *int64
 	SortOrder           float64
@@ -469,7 +469,7 @@ func (q *Queries) ListEpisodesNotInOrdering(ctx context.Context, arg ListEpisode
 	rows, err := q.db.QueryContext(ctx, listEpisodesNotInOrdering,
 		arg.IsEveryLibrary,
 		arg.LibraryIdsJSON,
-		arg.CollectionID,
+		arg.SequenceID,
 		arg.OrderingName,
 		arg.AfterSortOrder,
 		arg.MaxRows,
@@ -482,7 +482,7 @@ func (q *Queries) ListEpisodesNotInOrdering(ctx context.Context, arg ListEpisode
 	for rows.Next() {
 		var i ListEpisodesNotInOrderingRow
 		if err := rows.Scan(
-			&i.TitleID,
+			&i.WorkID,
 			&i.GroupNumber,
 			&i.NumberInGroup,
 			&i.SortOrder,
@@ -516,7 +516,7 @@ WHERE item.kind = 'movie' AND item.removed_at IS NULL
     < (?1, ?2, ?3)
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = item.id AND version.removed_at IS NULL
+    WHERE version.work_id = item.id AND version.removed_at IS NULL
       AND (CAST(?4 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
   )
@@ -600,7 +600,7 @@ WHERE sort_key.locale = ?1 AND sort_key.listing = 'movie' AND item.removed_at IS
   AND (sort_key.collation_key > ?2 OR (sort_key.collation_key = ?2 AND sort_key.item_id > ?3))
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = item.id AND version.removed_at IS NULL
+    WHERE version.work_id = item.id AND version.removed_at IS NULL
       AND (CAST(?4 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
   )
@@ -719,13 +719,13 @@ FROM library
 WHERE library.removed_at IS NULL AND library.id IN (
   SELECT version_library.library_id
   FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-  WHERE version.title_id = ?1 AND version.removed_at IS NULL
+  WHERE version.work_id = ?1 AND version.removed_at IS NULL
   UNION
   SELECT version_library.library_id
-  FROM collection_member
-  CROSS JOIN version ON version.title_id = collection_member.member_title
+  FROM sequence_member
+  CROSS JOIN version ON version.work_id = sequence_member.member_work
   CROSS JOIN version_library ON version_library.version_id = version.id
-  WHERE collection_member.collection_id = ?1 AND version.removed_at IS NULL
+  WHERE sequence_member.sequence_id = ?1 AND version.removed_at IS NULL
 )
 ORDER BY library.name, library.id
 `
@@ -762,19 +762,19 @@ func (q *Queries) ListLibrariesOfItem(ctx context.Context, itemID int64) ([]List
 }
 
 const listLiveFileLocationsOfSeries = `-- name: ListLiveFileLocationsOfSeries :many
-SELECT ordering.collection_id AS item_id, place.node_id, place.reported_path_raw,
+SELECT ordering.sequence_id AS item_id, place.node_id, place.reported_path_raw,
   CAST(file.payload_hash IS NULL AS INTEGER) AS is_unread
 FROM ordering
 JOIN position ON position.ordering_id = ordering.id
-JOIN version ON version.title_id = position.title_id AND version.removed_at IS NULL
+JOIN version ON version.work_id = position.work_id AND version.removed_at IS NULL
 CROSS JOIN version_library ON version_library.version_id = version.id
 CROSS JOIN file ON file.id = version_library.file_id
 CROSS JOIN file AS place ON place.id = version_library.place_id
-WHERE ordering.collection_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
+WHERE ordering.sequence_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
   AND ordering.name = 'aired' AND file.filing = 'video'
   AND (CAST(?2 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
-ORDER BY ordering.collection_id, place.id
+ORDER BY ordering.sequence_id, place.id
 `
 
 type ListLiveFileLocationsOfSeriesParams struct {
@@ -820,27 +820,27 @@ func (q *Queries) ListLiveFileLocationsOfSeries(ctx context.Context, arg ListLiv
 	return items, nil
 }
 
-const listLiveFileLocationsOfTitles = `-- name: ListLiveFileLocationsOfTitles :many
-SELECT version.title_id AS item_id, place.node_id, place.reported_path_raw,
+const listLiveFileLocationsOfWorks = `-- name: ListLiveFileLocationsOfWorks :many
+SELECT version.work_id AS item_id, place.node_id, place.reported_path_raw,
   CAST(file.payload_hash IS NULL AS INTEGER) AS is_unread
 FROM version
 CROSS JOIN version_library ON version_library.version_id = version.id
 CROSS JOIN file ON file.id = version_library.file_id
 CROSS JOIN file AS place ON place.id = version_library.place_id
-WHERE version.title_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
+WHERE version.work_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
   AND version.removed_at IS NULL AND file.filing = 'video'
   AND (CAST(?2 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
-ORDER BY version.title_id, place.id
+ORDER BY version.work_id, place.id
 `
 
-type ListLiveFileLocationsOfTitlesParams struct {
+type ListLiveFileLocationsOfWorksParams struct {
 	ItemIDListJSON string
 	IsEveryLibrary int64
 	LibraryIdsJSON string
 }
 
-type ListLiveFileLocationsOfTitlesRow struct {
+type ListLiveFileLocationsOfWorksRow struct {
 	ItemID          int64
 	NodeID          int64
 	ReportedPathRaw []byte
@@ -849,15 +849,15 @@ type ListLiveFileLocationsOfTitlesRow struct {
 
 // Where each of some titles' live playable files is: each place its caller reaches, its node and the
 // path it reported, for whether any can be read now (D241 section 3, D363 section 8).
-func (q *Queries) ListLiveFileLocationsOfTitles(ctx context.Context, arg ListLiveFileLocationsOfTitlesParams) ([]ListLiveFileLocationsOfTitlesRow, error) {
-	rows, err := q.db.QueryContext(ctx, listLiveFileLocationsOfTitles, arg.ItemIDListJSON, arg.IsEveryLibrary, arg.LibraryIdsJSON)
+func (q *Queries) ListLiveFileLocationsOfWorks(ctx context.Context, arg ListLiveFileLocationsOfWorksParams) ([]ListLiveFileLocationsOfWorksRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLiveFileLocationsOfWorks, arg.ItemIDListJSON, arg.IsEveryLibrary, arg.LibraryIdsJSON)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListLiveFileLocationsOfTitlesRow{}
+	items := []ListLiveFileLocationsOfWorksRow{}
 	for rows.Next() {
-		var i ListLiveFileLocationsOfTitlesRow
+		var i ListLiveFileLocationsOfWorksRow
 		if err := rows.Scan(
 			&i.ItemID,
 			&i.NodeID,
@@ -881,12 +881,12 @@ const listOrderingGroupNames = `-- name: ListOrderingGroupNames :many
 SELECT group_text.group_number, CAST(group_text.name AS TEXT) AS name
 FROM ordering
 JOIN group_text ON group_text.ordering_id = ordering.id AND group_text.name IS NOT NULL
-WHERE ordering.collection_id = ?1 AND ordering.name = ?2
+WHERE ordering.sequence_id = ?1 AND ordering.name = ?2
 ORDER BY group_text.group_number, group_text.language
 `
 
 type ListOrderingGroupNamesParams struct {
-	CollectionID int64
+	SequenceID   int64
 	OrderingName string
 }
 
@@ -898,7 +898,7 @@ type ListOrderingGroupNamesRow struct {
 // The names an ordering of a series gives its groups ("Disc 2", "Volume 3"), each group's in the first
 // language it has one in; a group it names none of is not listed.
 func (q *Queries) ListOrderingGroupNames(ctx context.Context, arg ListOrderingGroupNamesParams) ([]ListOrderingGroupNamesRow, error) {
-	rows, err := q.db.QueryContext(ctx, listOrderingGroupNames, arg.CollectionID, arg.OrderingName)
+	rows, err := q.db.QueryContext(ctx, listOrderingGroupNames, arg.SequenceID, arg.OrderingName)
 	if err != nil {
 		return nil, err
 	}
@@ -921,23 +921,23 @@ func (q *Queries) ListOrderingGroupNames(ctx context.Context, arg ListOrderingGr
 }
 
 const listOrderingMemberFilesWithPositions = `-- name: ListOrderingMemberFilesWithPositions :many
-SELECT position.title_id, CAST(coalesce(position.group_number, 0) AS INTEGER) AS group_number,
+SELECT position.work_id, CAST(coalesce(position.group_number, 0) AS INTEGER) AS group_number,
   CAST(coalesce(position.number_in_group, 0) AS INTEGER) AS number_in_group,
   CAST(coalesce(item_text.name, '') AS TEXT) AS name,
   file.id AS file_id,
   CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
     AS duration_ms,
-  play_position.position_ms, play_position.position_read_at, title_watched.watched_at, title_watched.marked_at
+  play_position.position_ms, play_position.position_read_at, work_watched.watched_at, work_watched.marked_at
 FROM ordering
 JOIN position ON position.ordering_id = ordering.id
-JOIN item ON item.id = position.title_id AND item.removed_at IS NULL
-JOIN version ON version.title_id = position.title_id AND version.removed_at IS NULL
+JOIN item ON item.id = position.work_id AND item.removed_at IS NULL
+JOIN version ON version.work_id = position.work_id AND version.removed_at IS NULL
 JOIN file_filing ON file_filing.version_id = version.id AND file_filing.filing IN ('listed', 'unidentified')
 JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
-LEFT JOIN item_text ON item_text.item_id = position.title_id AND item_text.is_original = 1
+LEFT JOIN item_text ON item_text.item_id = position.work_id AND item_text.is_original = 1
 LEFT JOIN play_position ON play_position.file_id = file.id AND play_position.user_id = ?1
-LEFT JOIN title_watched ON title_watched.user_id = ?1 AND title_watched.title_id = position.title_id
-WHERE ordering.collection_id = ?2 AND ordering.name = ?3
+LEFT JOIN work_watched ON work_watched.user_id = ?1 AND work_watched.work_id = position.work_id
+WHERE ordering.sequence_id = ?2 AND ordering.name = ?3
   AND EXISTS (
     SELECT 1 FROM version_library WHERE version_library.version_id = version.id
       AND version_library.file_id = file.id
@@ -948,14 +948,14 @@ ORDER BY position.sort_order, version.id, file_filing.part_index, file.id
 
 type ListOrderingMemberFilesWithPositionsParams struct {
 	UserID         int64
-	CollectionID   int64
+	SequenceID     int64
 	OrderingName   string
 	IsEveryLibrary int64
 	LibraryIdsJSON string
 }
 
 type ListOrderingMemberFilesWithPositionsRow struct {
-	TitleID        int64
+	WorkID         int64
 	GroupNumber    int64
 	NumberInGroup  int64
 	Name           string
@@ -978,7 +978,7 @@ type ListOrderingMemberFilesWithPositionsRow struct {
 func (q *Queries) ListOrderingMemberFilesWithPositions(ctx context.Context, arg ListOrderingMemberFilesWithPositionsParams) ([]ListOrderingMemberFilesWithPositionsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listOrderingMemberFilesWithPositions,
 		arg.UserID,
-		arg.CollectionID,
+		arg.SequenceID,
 		arg.OrderingName,
 		arg.IsEveryLibrary,
 		arg.LibraryIdsJSON,
@@ -991,7 +991,7 @@ func (q *Queries) ListOrderingMemberFilesWithPositions(ctx context.Context, arg 
 	for rows.Next() {
 		var i ListOrderingMemberFilesWithPositionsRow
 		if err := rows.Scan(
-			&i.TitleID,
+			&i.WorkID,
 			&i.GroupNumber,
 			&i.NumberInGroup,
 			&i.Name,
@@ -1021,13 +1021,13 @@ SELECT item.id AS item_id, item_text.name, item.identification_state, item.added
   other_video.file_name
 FROM item
 LEFT JOIN item_text ON item_text.item_id = item.id AND item_text.is_original = 1
-LEFT JOIN other_video ON other_video.title_id = item.id
+LEFT JOIN other_video ON other_video.work_id = item.id
 WHERE item.kind = 'other' AND item.removed_at IS NULL
   AND (item.found_at, item.found_file_modified_at, item.id)
     < (?1, ?2, ?3)
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = item.id AND version.removed_at IS NULL
+    WHERE version.work_id = item.id AND version.removed_at IS NULL
       AND (CAST(?4 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
   )
@@ -1105,20 +1105,20 @@ const listOtherByFileName = `-- name: ListOtherByFileName :many
 SELECT item.id AS item_id, other_video.file_name_key, item_text.name, item.identification_state,
   item.added_at, other_video.recorded_at, other_video.recorded_from, other_video.file_name
 FROM other_video
-CROSS JOIN item ON item.id = other_video.title_id
-LEFT JOIN item_text ON item_text.item_id = other_video.title_id AND item_text.is_original = 1
+CROSS JOIN item ON item.id = other_video.work_id
+LEFT JOIN item_text ON item_text.item_id = other_video.work_id AND item_text.is_original = 1
 WHERE item.removed_at IS NULL
-  AND (other_video.file_name_key, other_video.title_id)
+  AND (other_video.file_name_key, other_video.work_id)
     > (CAST(?1 AS BLOB), CAST(?2 AS INTEGER))
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = item.id AND version.removed_at IS NULL
+    WHERE version.work_id = item.id AND version.removed_at IS NULL
       AND (CAST(?3 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?4 AS TEXT))))
   )
   AND (CAST(?5 AS TEXT) IS NULL
     OR item.id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
-ORDER BY other_video.file_name_key, other_video.title_id
+ORDER BY other_video.file_name_key, other_video.work_id
 LIMIT ?6
 `
 
@@ -1188,12 +1188,12 @@ SELECT sort_key.item_id, sort_key.collation_key, item_text.name, item.identifica
 FROM sort_key
 JOIN item ON item.id = sort_key.item_id
 LEFT JOIN item_text ON item_text.item_id = sort_key.item_id AND item_text.is_original = 1
-LEFT JOIN other_video ON other_video.title_id = sort_key.item_id
+LEFT JOIN other_video ON other_video.work_id = sort_key.item_id
 WHERE sort_key.locale = ?1 AND sort_key.listing = 'other' AND item.removed_at IS NULL
   AND (sort_key.collation_key > ?2 OR (sort_key.collation_key = ?2 AND sort_key.item_id > ?3))
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = item.id AND version.removed_at IS NULL
+    WHERE version.work_id = item.id AND version.removed_at IS NULL
       AND (CAST(?4 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
   )
@@ -1269,19 +1269,19 @@ const listOtherByRecorded = `-- name: ListOtherByRecorded :many
 SELECT item.id AS item_id, item_text.name, item.identification_state, item.added_at,
   other_video.recorded_at, other_video.recorded_from, other_video.file_name
 FROM other_video
-CROSS JOIN item ON item.id = other_video.title_id
-LEFT JOIN item_text ON item_text.item_id = other_video.title_id AND item_text.is_original = 1
+CROSS JOIN item ON item.id = other_video.work_id
+LEFT JOIN item_text ON item_text.item_id = other_video.work_id AND item_text.is_original = 1
 WHERE item.removed_at IS NULL
-  AND (other_video.recorded_at, other_video.title_id) < (?1, ?2)
+  AND (other_video.recorded_at, other_video.work_id) < (?1, ?2)
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = item.id AND version.removed_at IS NULL
+    WHERE version.work_id = item.id AND version.removed_at IS NULL
       AND (CAST(?3 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?4 AS TEXT))))
   )
   AND (CAST(?5 AS TEXT) IS NULL
     OR item.id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
-ORDER BY other_video.recorded_at DESC, other_video.title_id DESC
+ORDER BY other_video.recorded_at DESC, other_video.work_id DESC
 LIMIT ?6
 `
 
@@ -1345,17 +1345,17 @@ func (q *Queries) ListOtherByRecorded(ctx context.Context, arg ListOtherByRecord
 }
 
 const listOtherVideosOfLibrary = `-- name: ListOtherVideosOfLibrary :many
-SELECT title.id AS title_id, library_place.path, item_text.name, item.identification_state, item.added_at,
+SELECT work.id AS work_id, library_place.path, item_text.name, item.identification_state, item.added_at,
   other_video.recorded_at, other_video.recorded_from, other_video.file_name, other_video.file_name_key,
   item.found_at, item.found_file_modified_at
 FROM library_place
 CROSS JOIN file_filing ON file_filing.file_id = library_place.file_id
   AND file_filing.library_kind = library_place.library_kind
 CROSS JOIN version ON version.id = file_filing.version_id AND version.removed_at IS NULL
-CROSS JOIN title ON title.id = version.title_id
-CROSS JOIN item ON item.id = title.id AND item.removed_at IS NULL
-CROSS JOIN other_video ON other_video.title_id = title.id
-JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
+CROSS JOIN work ON work.id = version.work_id
+CROSS JOIN item ON item.id = work.id AND item.removed_at IS NULL
+CROSS JOIN other_video ON other_video.work_id = work.id
+JOIN item_text ON item_text.item_id = work.id AND item_text.is_original = 1
 WHERE library_place.library_id = ?1
   AND NOT EXISTS (
     SELECT 1 FROM place_library AS earlier
@@ -1367,7 +1367,7 @@ ORDER BY library_place.path
 `
 
 type ListOtherVideosOfLibraryRow struct {
-	TitleID             int64
+	WorkID              int64
 	Path                string
 	Name                string
 	IdentificationState *string
@@ -1393,7 +1393,7 @@ func (q *Queries) ListOtherVideosOfLibrary(ctx context.Context, libraryID int64)
 	for rows.Next() {
 		var i ListOtherVideosOfLibraryRow
 		if err := rows.Scan(
-			&i.TitleID,
+			&i.WorkID,
 			&i.Path,
 			&i.Name,
 			&i.IdentificationState,
@@ -1419,20 +1419,20 @@ func (q *Queries) ListOtherVideosOfLibrary(ctx context.Context, libraryID int64)
 }
 
 const listSeasonEpisodeDetails = `-- name: ListSeasonEpisodeDetails :many
-SELECT position.title_id, position.group_number, position.number_in_group, position.sort_order, item_text.name,
-  item.year, title.runtime_ms, item.identification_state,
+SELECT position.work_id, position.group_number, position.number_in_group, position.sort_order, item_text.name,
+  item.year, work.runtime_ms, item.identification_state,
   EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = position.title_id AND version.removed_at IS NULL
+    WHERE version.work_id = position.work_id AND version.removed_at IS NULL
       AND (CAST(?1 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?2 AS TEXT))))
   ) AS available
 FROM position
 JOIN ordering ON ordering.id = position.ordering_id
-JOIN title ON title.id = position.title_id
-JOIN item ON item.id = title.id
-LEFT JOIN item_text ON item_text.item_id = position.title_id AND item_text.is_original = 1
-WHERE ordering.collection_id = ?3 AND ordering.name = ?4 AND item.removed_at IS NULL
+JOIN work ON work.id = position.work_id
+JOIN item ON item.id = work.id
+LEFT JOIN item_text ON item_text.item_id = position.work_id AND item_text.is_original = 1
+WHERE ordering.sequence_id = ?3 AND ordering.name = ?4 AND item.removed_at IS NULL
   AND coalesce(position.group_number, 0) = CAST(?5 AS INTEGER)
   AND position.sort_order > ?6
 ORDER BY position.sort_order
@@ -1442,7 +1442,7 @@ LIMIT ?7
 type ListSeasonEpisodeDetailsParams struct {
 	IsEveryLibrary int64
 	LibraryIdsJSON string
-	CollectionID   int64
+	SequenceID     int64
 	OrderingName   string
 	SeasonNumber   int64
 	AfterSortOrder float64
@@ -1450,7 +1450,7 @@ type ListSeasonEpisodeDetailsParams struct {
 }
 
 type ListSeasonEpisodeDetailsRow struct {
-	TitleID             int64
+	WorkID              int64
 	GroupNumber         *int64
 	NumberInGroup       *int64
 	SortOrder           float64
@@ -1468,7 +1468,7 @@ func (q *Queries) ListSeasonEpisodeDetails(ctx context.Context, arg ListSeasonEp
 	rows, err := q.db.QueryContext(ctx, listSeasonEpisodeDetails,
 		arg.IsEveryLibrary,
 		arg.LibraryIdsJSON,
-		arg.CollectionID,
+		arg.SequenceID,
 		arg.OrderingName,
 		arg.SeasonNumber,
 		arg.AfterSortOrder,
@@ -1482,7 +1482,7 @@ func (q *Queries) ListSeasonEpisodeDetails(ctx context.Context, arg ListSeasonEp
 	for rows.Next() {
 		var i ListSeasonEpisodeDetailsRow
 		if err := rows.Scan(
-			&i.TitleID,
+			&i.WorkID,
 			&i.GroupNumber,
 			&i.NumberInGroup,
 			&i.SortOrder,
@@ -1515,10 +1515,10 @@ WHERE item.kind = 'series' AND item.removed_at IS NULL
   AND (item.found_at, item.found_file_modified_at, item.id)
     < (?1, ?2, ?3)
   AND EXISTS (
-    SELECT 1 FROM collection_member
-    CROSS JOIN version ON version.title_id = collection_member.member_title
+    SELECT 1 FROM sequence_member
+    CROSS JOIN version ON version.work_id = sequence_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE collection_member.collection_id = item.id AND version.removed_at IS NULL
+    WHERE sequence_member.sequence_id = item.id AND version.removed_at IS NULL
       AND (CAST(?4 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
   )
@@ -1600,10 +1600,10 @@ LEFT JOIN item_text ON item_text.item_id = sort_key.item_id AND item_text.is_ori
 WHERE sort_key.locale = ?1 AND sort_key.listing = 'series' AND item.removed_at IS NULL
   AND (sort_key.collation_key > ?2 OR (sort_key.collation_key = ?2 AND sort_key.item_id > ?3))
   AND EXISTS (
-    SELECT 1 FROM collection_member
-    CROSS JOIN version ON version.title_id = collection_member.member_title
+    SELECT 1 FROM sequence_member
+    CROSS JOIN version ON version.work_id = sequence_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE collection_member.collection_id = item.id AND version.removed_at IS NULL
+    WHERE sequence_member.sequence_id = item.id AND version.removed_at IS NULL
       AND (CAST(?4 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
   )
@@ -1673,32 +1673,32 @@ func (q *Queries) ListSeriesByName(ctx context.Context, arg ListSeriesByNamePara
 }
 
 const listSeriesEpisodeDetails = `-- name: ListSeriesEpisodeDetails :many
-SELECT position.title_id, position.group_number, position.number_in_group, item_text.name, item.year, title.runtime_ms,
+SELECT position.work_id, position.group_number, position.number_in_group, item_text.name, item.year, work.runtime_ms,
   item.identification_state,
   EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = position.title_id AND version.removed_at IS NULL
+    WHERE version.work_id = position.work_id AND version.removed_at IS NULL
       AND (CAST(?1 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?2 AS TEXT))))
   ) AS available
 FROM position
 JOIN ordering ON ordering.id = position.ordering_id
-JOIN title ON title.id = position.title_id
-JOIN item ON item.id = title.id
-LEFT JOIN item_text ON item_text.item_id = position.title_id AND item_text.is_original = 1
-WHERE ordering.collection_id = ?3 AND ordering.name = ?4 AND item.removed_at IS NULL
+JOIN work ON work.id = position.work_id
+JOIN item ON item.id = work.id
+LEFT JOIN item_text ON item_text.item_id = position.work_id AND item_text.is_original = 1
+WHERE ordering.sequence_id = ?3 AND ordering.name = ?4 AND item.removed_at IS NULL
 ORDER BY position.sort_order
 `
 
 type ListSeriesEpisodeDetailsParams struct {
 	IsEveryLibrary int64
 	LibraryIdsJSON string
-	CollectionID   int64
+	SequenceID     int64
 	OrderingName   string
 }
 
 type ListSeriesEpisodeDetailsRow struct {
-	TitleID             int64
+	WorkID              int64
 	GroupNumber         *int64
 	NumberInGroup       *int64
 	Name                *string
@@ -1714,7 +1714,7 @@ func (q *Queries) ListSeriesEpisodeDetails(ctx context.Context, arg ListSeriesEp
 	rows, err := q.db.QueryContext(ctx, listSeriesEpisodeDetails,
 		arg.IsEveryLibrary,
 		arg.LibraryIdsJSON,
-		arg.CollectionID,
+		arg.SequenceID,
 		arg.OrderingName,
 	)
 	if err != nil {
@@ -1725,7 +1725,7 @@ func (q *Queries) ListSeriesEpisodeDetails(ctx context.Context, arg ListSeriesEp
 	for rows.Next() {
 		var i ListSeriesEpisodeDetailsRow
 		if err := rows.Scan(
-			&i.TitleID,
+			&i.WorkID,
 			&i.GroupNumber,
 			&i.NumberInGroup,
 			&i.Name,
@@ -1749,15 +1749,15 @@ func (q *Queries) ListSeriesEpisodeDetails(ctx context.Context, arg ListSeriesEp
 
 const listSeriesOrderings = `-- name: ListSeriesOrderings :many
 SELECT ordering.name, ordering.kind, ordering.label, ordering.listed_count,
-  (SELECT count(*) FROM position JOIN item ON item.id = position.title_id AND item.removed_at IS NULL
+  (SELECT count(*) FROM position JOIN item ON item.id = position.work_id AND item.removed_at IS NULL
    WHERE position.ordering_id = ordering.id) AS episode_count,
   CAST(ordering.source_id IS NOT NULL AND NOT EXISTS (
     SELECT 1 FROM provider_response
-    WHERE provider_response.item_id = ordering.collection_id AND provider_response.provider = ordering.provider
+    WHERE provider_response.item_id = ordering.sequence_id AND provider_response.provider = ordering.provider
       AND provider_response.part = 'episode_group/' || ordering.source_id
   ) AS INTEGER) AS is_awaiting_fetch
 FROM ordering
-WHERE ordering.collection_id = ?1
+WHERE ordering.sequence_id = ?1
 ORDER BY ordering.name <> 'aired', ordering.provider IS NULL, coalesce(ordering.label, ordering.name), ordering.id
 `
 
@@ -1774,8 +1774,8 @@ type ListSeriesOrderingsRow struct {
 // provider's by its label, then the household's own; each with its kind, its provider's label and
 // how many episodes the provider lists in it, how many of the series' live episodes it holds, and
 // whether it is a provider's group whose contents are not fetched yet.
-func (q *Queries) ListSeriesOrderings(ctx context.Context, collectionID int64) ([]ListSeriesOrderingsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listSeriesOrderings, collectionID)
+func (q *Queries) ListSeriesOrderings(ctx context.Context, sequenceID int64) ([]ListSeriesOrderingsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSeriesOrderings, sequenceID)
 	if err != nil {
 		return nil, err
 	}
@@ -1852,43 +1852,34 @@ func (q *Queries) ListStreamsOfVideoFile(ctx context.Context, videoFile int64) (
 	return items, nil
 }
 
-const listTitleExtras = `-- name: ListTitleExtras :many
-SELECT extra_relation.extra_title, extra_relation.extra_type, item_text.name
-FROM extra_relation
-JOIN item ON item.id = extra_relation.extra_title
-LEFT JOIN item_text ON item_text.item_id = extra_relation.extra_title AND item_text.is_original = 1
-WHERE extra_relation.owner_title = ?1 AND item.removed_at IS NULL
-  AND EXISTS (
-    SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = extra_relation.extra_title AND version.removed_at IS NULL
-      AND (CAST(?2 AS INTEGER) = 1
-        OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
-  )
-ORDER BY extra_relation.extra_title
+const listUnreadFilesOfWork = `-- name: ListUnreadFilesOfWork :many
+SELECT file.id, file.node_id, file.reported_path_raw
+FROM version
+CROSS JOIN file_filing ON file_filing.version_id = version.id
+CROSS JOIN file ON file.id = file_filing.file_id
+WHERE version.work_id = ?1 AND version.removed_at IS NULL AND file.removed_at IS NULL
+  AND file.payload_hash IS NULL AND file.sidecar_kind IS NULL
+ORDER BY file.id
 `
 
-type ListTitleExtrasParams struct {
-	OwnerTitle     int64
-	IsEveryLibrary int64
-	LibraryIdsJSON string
+type ListUnreadFilesOfWorkRow struct {
+	ID              int64
+	NodeID          int64
+	ReportedPathRaw []byte
 }
 
-type ListTitleExtrasRow struct {
-	ExtraTitle int64
-	ExtraType  string
-	Name       *string
-}
-
-func (q *Queries) ListTitleExtras(ctx context.Context, arg ListTitleExtrasParams) ([]ListTitleExtrasRow, error) {
-	rows, err := q.db.QueryContext(ctx, listTitleExtras, arg.OwnerTitle, arg.IsEveryLibrary, arg.LibraryIdsJSON)
+// A title's live videos its listing stored that are not read yet, by where each is, for a person
+// who opened its page to have them read first (D304 section 4).
+func (q *Queries) ListUnreadFilesOfWork(ctx context.Context, workID int64) ([]ListUnreadFilesOfWorkRow, error) {
+	rows, err := q.db.QueryContext(ctx, listUnreadFilesOfWork, workID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListTitleExtrasRow{}
+	items := []ListUnreadFilesOfWorkRow{}
 	for rows.Next() {
-		var i ListTitleExtrasRow
-		if err := rows.Scan(&i.ExtraTitle, &i.ExtraType, &i.Name); err != nil {
+		var i ListUnreadFilesOfWorkRow
+		if err := rows.Scan(&i.ID, &i.NodeID, &i.ReportedPathRaw); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1902,14 +1893,64 @@ func (q *Queries) ListTitleExtras(ctx context.Context, arg ListTitleExtrasParams
 	return items, nil
 }
 
-const listTitleFiles = `-- name: ListTitleFiles :many
+const listWorkExtras = `-- name: ListWorkExtras :many
+SELECT extra_relation.extra_work, extra_relation.extra_type, item_text.name
+FROM extra_relation
+JOIN item ON item.id = extra_relation.extra_work
+LEFT JOIN item_text ON item_text.item_id = extra_relation.extra_work AND item_text.is_original = 1
+WHERE extra_relation.owner_work = ?1 AND item.removed_at IS NULL
+  AND EXISTS (
+    SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
+    WHERE version.work_id = extra_relation.extra_work AND version.removed_at IS NULL
+      AND (CAST(?2 AS INTEGER) = 1
+        OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
+  )
+ORDER BY extra_relation.extra_work
+`
+
+type ListWorkExtrasParams struct {
+	OwnerWork      int64
+	IsEveryLibrary int64
+	LibraryIdsJSON string
+}
+
+type ListWorkExtrasRow struct {
+	ExtraWork int64
+	ExtraType string
+	Name      *string
+}
+
+func (q *Queries) ListWorkExtras(ctx context.Context, arg ListWorkExtrasParams) ([]ListWorkExtrasRow, error) {
+	rows, err := q.db.QueryContext(ctx, listWorkExtras, arg.OwnerWork, arg.IsEveryLibrary, arg.LibraryIdsJSON)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListWorkExtrasRow{}
+	for rows.Next() {
+		var i ListWorkExtrasRow
+		if err := rows.Scan(&i.ExtraWork, &i.ExtraType, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWorkFiles = `-- name: ListWorkFiles :many
 SELECT version.id AS version_id, file.id AS file_id, place.id AS place_id, place.path,
   file.size_bytes, file_filing.part_index
 FROM version
 CROSS JOIN file_filing ON file_filing.version_id = version.id
 CROSS JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
 CROSS JOIN file AS place ON (place.id = file.id OR place.copy_of = file.id) AND place.removed_at IS NULL
-WHERE version.title_id = ?1 AND version.removed_at IS NULL
+WHERE version.work_id = ?1 AND version.removed_at IS NULL
   AND EXISTS (
     SELECT 1 FROM place_library WHERE place_library.place_id = place.id
       AND place_library.library_kind = file_filing.library_kind
@@ -1918,13 +1959,13 @@ WHERE version.title_id = ?1 AND version.removed_at IS NULL
 ORDER BY version.id, file_filing.part_index, file.id, place.copy_of IS NOT NULL, place.first_seen_at, place.id
 `
 
-type ListTitleFilesParams struct {
-	TitleID        int64
+type ListWorkFilesParams struct {
+	WorkID         int64
 	IsEveryLibrary int64
 	LibraryIdsJSON string
 }
 
-type ListTitleFilesRow struct {
+type ListWorkFilesRow struct {
 	VersionID int64
 	FileID    int64
 	PlaceID   int64
@@ -1936,15 +1977,15 @@ type ListTitleFilesRow struct {
 // A title's versions and their live files, a version's parts in order, each file at each of its live
 // places a library of the title's kind covers that its caller reaches, its first place first (D363
 // section 8): a version none of whose files they reach is not listed, nor is a place they do not.
-func (q *Queries) ListTitleFiles(ctx context.Context, arg ListTitleFilesParams) ([]ListTitleFilesRow, error) {
-	rows, err := q.db.QueryContext(ctx, listTitleFiles, arg.TitleID, arg.IsEveryLibrary, arg.LibraryIdsJSON)
+func (q *Queries) ListWorkFiles(ctx context.Context, arg ListWorkFilesParams) ([]ListWorkFilesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listWorkFiles, arg.WorkID, arg.IsEveryLibrary, arg.LibraryIdsJSON)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListTitleFilesRow{}
+	items := []ListWorkFilesRow{}
 	for rows.Next() {
-		var i ListTitleFilesRow
+		var i ListWorkFilesRow
 		if err := rows.Scan(
 			&i.VersionID,
 			&i.FileID,
@@ -1953,47 +1994,6 @@ func (q *Queries) ListTitleFiles(ctx context.Context, arg ListTitleFilesParams) 
 			&i.SizeBytes,
 			&i.PartIndex,
 		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listUnreadFilesOfTitle = `-- name: ListUnreadFilesOfTitle :many
-SELECT file.id, file.node_id, file.reported_path_raw
-FROM version
-CROSS JOIN file_filing ON file_filing.version_id = version.id
-CROSS JOIN file ON file.id = file_filing.file_id
-WHERE version.title_id = ?1 AND version.removed_at IS NULL AND file.removed_at IS NULL
-  AND file.payload_hash IS NULL AND file.sidecar_kind IS NULL
-ORDER BY file.id
-`
-
-type ListUnreadFilesOfTitleRow struct {
-	ID              int64
-	NodeID          int64
-	ReportedPathRaw []byte
-}
-
-// A title's live videos its listing stored that are not read yet, by where each is, for a person
-// who opened its page to have them read first (D304 section 4).
-func (q *Queries) ListUnreadFilesOfTitle(ctx context.Context, titleID int64) ([]ListUnreadFilesOfTitleRow, error) {
-	rows, err := q.db.QueryContext(ctx, listUnreadFilesOfTitle, titleID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListUnreadFilesOfTitleRow{}
-	for rows.Next() {
-		var i ListUnreadFilesOfTitleRow
-		if err := rows.Scan(&i.ID, &i.NodeID, &i.ReportedPathRaw); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
