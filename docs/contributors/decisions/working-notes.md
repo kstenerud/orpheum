@@ -26335,3 +26335,13 @@ Before folding, re-measure visibility at 500k rows (audit §9), and use the meas
 whether visibility is stored per item and library.
 
 **Status:** Decided 2026-11-05; D416's batch makes it.
+
+## D427 — A player's measured link stays in `persistent.db`; only `resource_use` moves to `cache.db`
+
+**Decided** (2026-11-05), by the owner ("Back to persistent"), when round 1 of D426's rebuild
+found step 0063's reason for `link_memory`'s place: a release that rebuilds `cache.db` keeps what
+each player measured of its link, so no player measures again after an upgrade. **Amends** D426
+§9. `link_memory` changes only when a player measures its link, so the hourly backup still skips
+an unchanged database once `resource_use`, written every minute, is in `cache.db`.
+
+**Status:** Decided 2026-11-05; D426's rebuild moves `link_memory` back.
