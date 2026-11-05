@@ -166,7 +166,7 @@ func (server *Server) registerUsers() {
 		OperationID: "changePassword", Method: http.MethodPut, Path: "/me/password",
 		DefaultStatus: http.StatusNoContent,
 		Summary:       "Change one's own password; other sessions stay signed in", Tags: tags,
-		Extensions: callableBy(capabilityManageUsers),
+		Extensions: callableBy(capabilityAccountSecurity),
 	}, server.changePassword)
 }
 

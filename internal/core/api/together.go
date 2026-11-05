@@ -202,7 +202,7 @@ func (server *Server) registerTogether() {
 		OperationID: "openTogether", Method: http.MethodPost, Path: "/together", Tags: tags,
 		Summary: "Start a Watch Together session, nothing playing, ending the one you host and leaving one " +
 			"you joined (D246 §5, D372 §8)",
-		Extensions: callableBy(capabilitySignedIn),
+		Extensions: callableBy(capabilityHostTogether),
 	}, server.openTogether)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "listMyTogether", Method: http.MethodGet, Path: "/me/together", Tags: tags,
@@ -278,13 +278,24 @@ func (server *Server) registerTogetherMembers(tags []string) {
 	}, server.leaveTogether)
 }
 
-func (server *Server) openTogether(ctx context.Context, input *AuthorizationHeader) (*OpenTogetherOutput, error) {
-	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+// requireTogetherHost lets in a person signed in whose role may host Watch Together.
+func (server *Server) requireTogetherHost(ctx context.Context, authorization string) (
+	*Dependencies, auth.Principal, error,
+) {
+	dependencies, principal, err := server.requireSignedIn(ctx, authorization)
 	if err != nil {
-		return nil, err
+		return nil, principal, err
 	}
 	if !principal.CanHostWatchTogether() {
-		return nil, newError(http.StatusForbidden, CodeForbidden, "your role may not host Watch Together")
+		return nil, principal, newError(http.StatusForbidden, CodeForbidden, "your role may not host Watch Together")
+	}
+	return dependencies, principal, nil
+}
+
+func (server *Server) openTogether(ctx context.Context, input *AuthorizationHeader) (*OpenTogetherOutput, error) {
+	dependencies, principal, err := server.requireTogetherHost(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
 	}
 	opened, err := dependencies.Together.Open(together.Person{UserID: principal.UserID, Name: principal.Name})
 	if err != nil {

@@ -14212,7 +14212,7 @@
         "tags": [
           "Users"
         ],
-        "x-orpheum-capability": "manageUsers"
+        "x-orpheum-capability": "accountSecurity"
       }
     },
     "/me/devices/{id}": {
@@ -14254,7 +14254,7 @@
         "tags": [
           "Users"
         ],
-        "x-orpheum-capability": "manageUsers"
+        "x-orpheum-capability": "accountSecurity"
       },
       "put": {
         "operationId": "changeMyDevice",
@@ -14378,7 +14378,7 @@
         "tags": [
           "Setup and auth"
         ],
-        "x-orpheum-capability": "manageUsers"
+        "x-orpheum-capability": "accountSecurity"
       }
     },
     "/me/password": {
@@ -14418,7 +14418,7 @@
         "tags": [
           "Users"
         ],
-        "x-orpheum-capability": "manageUsers"
+        "x-orpheum-capability": "accountSecurity"
       }
     },
     "/me/preferences": {
@@ -15033,7 +15033,7 @@
         "tags": [
           "Users"
         ],
-        "x-orpheum-capability": "manageUsers"
+        "x-orpheum-capability": "accountSecurity"
       }
     },
     "/pairings/code": {
@@ -15080,7 +15080,7 @@
         "tags": [
           "Users"
         ],
-        "x-orpheum-capability": "manageUsers"
+        "x-orpheum-capability": "accountSecurity"
       }
     },
     "/pairings/session": {
@@ -16652,7 +16652,7 @@
         "tags": [
           "Watch Together"
         ],
-        "x-orpheum-capability": "signedIn"
+        "x-orpheum-capability": "hostTogether"
       }
     },
     "/together/join": {

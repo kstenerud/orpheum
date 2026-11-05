@@ -18,9 +18,11 @@ const (
 	capabilityAdmin capability = "admin"
 	// A session that may change its account's security, which a device a code activated may not
 	// (D292 §4): requireAccountManager.
-	capabilityManageUsers capability = "manageUsers"
+	capabilityAccountSecurity capability = "accountSecurity"
 	// A role with edit_metadata: requireMetadataEditor.
 	capabilityEditMetadata capability = "editMetadata"
+	// A role that may host Watch Together: requireTogetherHost.
+	capabilityHostTogether capability = "hostTogether"
 	// Anyone signed in while the admin offers the device tests: requireDeviceTests.
 	capabilityDeviceTests capability = "deviceTests"
 	// A Watch Together member, by their membership credential (D246 §3).
@@ -97,8 +99,8 @@ func defaultSchemes(declared capability) []string {
 		return []string{schemeMembership}
 	case capabilityMedia:
 		return []string{schemeSession, schemeMedia}
-	case capabilitySignedIn, capabilityAdmin, capabilityManageUsers, capabilityEditMetadata,
-		capabilityDeviceTests:
+	case capabilitySignedIn, capabilityAdmin, capabilityAccountSecurity, capabilityEditMetadata,
+		capabilityHostTogether, capabilityDeviceTests:
 	}
 	return []string{schemeSession}
 }

@@ -38,9 +38,10 @@ var callerChecks = map[string]callerCheck{
 	"requireSignedInReachingFile":   {"signedIn", []string{schemeSession}},
 	"requireSignedInReachingItem":   {"signedIn", []string{schemeSession}},
 	"requireAdmin":                  {"admin", []string{schemeSession}},
-	"requireAccountManager":         {"manageUsers", []string{schemeSession}},
+	"requireAccountManager":         {"accountSecurity", []string{schemeSession}},
 	"requireMetadataEditor":         {"editMetadata", []string{schemeSession}},
 	"requireMetadataEditorReaching": {"editMetadata", []string{schemeSession}},
+	"requireTogetherHost":           {"hostTogether", []string{schemeSession}},
 	"requireDeviceTests":            {"deviceTests", []string{schemeSession}},
 	"deviceTestsCaller":             {"deviceTests", []string{schemeSession}},
 	"requireSignedInForMedia":       {"media", []string{schemeSession, schemeMedia}},
@@ -54,6 +55,10 @@ var callerChecks = map[string]callerCheck{
 	// Who joins Watch Together signed in joins as themselves; the link is the grant (D117).
 	"signedInBy": {"none", []string{schemeSession}},
 }
+
+// checksOfOtherPackages are the callerChecks another package declares; every other one is a
+// function of this package, so a check removed or renamed cannot leave its capability unenforced.
+var checksOfOtherPackages = map[string]bool{"MemberOf": true, "ViewerOf": true}
 
 // secretsChecked are the operations anyone may call, each with the secret in the request that its
 // handler checks itself, or why it has none to check. A new operation declaring none is listed
@@ -352,6 +357,11 @@ func TestArch_EveryHandlerChecksTheCallersItsOperationDeclares(t *testing.T) {
 	}
 	for _, violation := range accessViolations(sources, secretsChecked) {
 		t.Error(violation)
+	}
+	for _, name := range slices.Sorted(maps.Keys(callerChecks)) {
+		if index.functions[name] == nil && !checksOfOtherPackages[name] {
+			t.Errorf("callerChecks names %s, which this package does not declare", name)
+		}
 	}
 }
 
