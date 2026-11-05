@@ -42,6 +42,11 @@ func TestCheckInvariants_NamesEachThatDoesNotHold(t *testing.T) {
 			"VALUES (8, 'movie', 999, 1, 'identified')",
 		"PRAGMA foreign_keys = ON",
 		"INSERT INTO item_fts (rowid, name, search_alternates, overview) VALUES (42, 'ghost', 'ghost', '')",
+		"INSERT INTO item (id, kind, added_at, identification_state) VALUES (9, 'series', 1, 'identified')",
+		"INSERT INTO \"sequence\" (id, kind, created_by) VALUES (9, 'series', 'scanner')",
+		"INSERT INTO ordering (id, sequence_id, name) VALUES (1, 9, 'aired'), (2, 9, 'tmdb:dvd')",
+		"INSERT INTO grp (id, ordering_id, number) VALUES (1, 2, 1)",
+		"INSERT INTO position (ordering_id, work_id, grp_id, sort_order) VALUES (1, 7, 1, 1)",
 	)
 	violations, err := database.CheckInvariants(t.Context())
 	if err != nil {
@@ -55,6 +60,7 @@ func TestCheckInvariants_NamesEachThatDoesNotHold(t *testing.T) {
 	want := []string{
 		"every foreign key names a row that exists", "item_fts agrees",
 		"no live version belongs to a removed title: 5",
+		"a group is its ordering's, and a season's poster its series' aired order's: position",
 	}
 	for _, prefix := range want {
 		if !slices.ContainsFunc(named, func(each string) bool { return strings.HasPrefix(each, prefix) }) {

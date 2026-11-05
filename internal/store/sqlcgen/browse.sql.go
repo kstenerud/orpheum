@@ -104,9 +104,10 @@ func (q *Queries) CountOrderingMembers(ctx context.Context, arg CountOrderingMem
 }
 
 const getEpisodePlace = `-- name: GetEpisodePlace :one
-SELECT ordering.sequence_id, position.group_number, position.number_in_group, item_text.name AS series_name
+SELECT ordering.sequence_id, grp.number AS group_number, position.number_in_group, item_text.name AS series_name
 FROM position
 JOIN ordering ON ordering.id = position.ordering_id
+LEFT JOIN grp ON grp.id = position.grp_id
 LEFT JOIN item_text ON item_text.item_id = ordering.sequence_id AND item_text.is_original = 1
 WHERE position.work_id = ?1 AND ordering.name = 'aired'
 `
@@ -194,17 +195,18 @@ func (q *Queries) GetFilmOfExtra(ctx context.Context, extraWork int64) (GetFilmO
 }
 
 const getPlaceInOrdering = `-- name: GetPlaceInOrdering :one
-SELECT position.group_number, position.number_in_group,
-  (SELECT count(DISTINCT coalesce(other.group_number, 0)) FROM position AS other WHERE other.ordering_id = ordering.id)
+SELECT grp.number AS group_number, position.number_in_group,
+  (SELECT count(DISTINCT coalesce(other_group.number, 0)) FROM position AS other
+   LEFT JOIN grp AS other_group ON other_group.id = other.grp_id WHERE other.ordering_id = ordering.id)
     AS group_count,
   CAST(coalesce((
     SELECT group_text.name FROM group_text
-    WHERE group_text.ordering_id = ordering.id AND group_text.group_number = position.group_number
-      AND group_text.name IS NOT NULL
+    WHERE group_text.grp_id = position.grp_id AND group_text.name IS NOT NULL
     ORDER BY group_text.language LIMIT 1
   ), '') AS TEXT) AS group_name
 FROM ordering
 JOIN position ON position.ordering_id = ordering.id
+LEFT JOIN grp ON grp.id = position.grp_id
 WHERE ordering.sequence_id = ?1 AND ordering.name = ?2
   AND position.work_id = ?3
 `
@@ -417,7 +419,7 @@ func (q *Queries) ListChosenOrderings(ctx context.Context, arg ListChosenOrderin
 }
 
 const listEpisodesNotInOrdering = `-- name: ListEpisodesNotInOrdering :many
-SELECT aired.work_id, aired.group_number, aired.number_in_group, aired.sort_order, item_text.name,
+SELECT aired.work_id, aired_group.number AS group_number, aired.number_in_group, aired.sort_order, item_text.name,
   item.year, work.runtime_ms, item.identification_state,
   EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
@@ -430,6 +432,7 @@ JOIN position AS aired ON aired.ordering_id = aired_ordering.id
 JOIN work ON work.id = aired.work_id
 JOIN item ON item.id = work.id
 LEFT JOIN item_text ON item_text.item_id = aired.work_id AND item_text.is_original = 1
+LEFT JOIN grp AS aired_group ON aired_group.id = aired.grp_id
 WHERE aired_ordering.sequence_id = ?3 AND aired_ordering.name = 'aired'
   AND item.removed_at IS NULL
   AND NOT EXISTS (
@@ -881,11 +884,12 @@ func (q *Queries) ListLiveFileLocationsOfWorks(ctx context.Context, arg ListLive
 }
 
 const listOrderingGroupNames = `-- name: ListOrderingGroupNames :many
-SELECT group_text.group_number, CAST(group_text.name AS TEXT) AS name
+SELECT grp.number AS group_number, CAST(group_text.name AS TEXT) AS name
 FROM ordering
-JOIN group_text ON group_text.ordering_id = ordering.id AND group_text.name IS NOT NULL
+JOIN grp ON grp.ordering_id = ordering.id
+JOIN group_text ON group_text.grp_id = grp.id AND group_text.name IS NOT NULL
 WHERE ordering.sequence_id = ?1 AND ordering.name = ?2
-ORDER BY group_text.group_number, group_text.language
+ORDER BY grp.number, group_text.language
 `
 
 type ListOrderingGroupNamesParams struct {
@@ -924,7 +928,7 @@ func (q *Queries) ListOrderingGroupNames(ctx context.Context, arg ListOrderingGr
 }
 
 const listOrderingMemberFilesWithPositions = `-- name: ListOrderingMemberFilesWithPositions :many
-SELECT position.work_id, CAST(coalesce(position.group_number, 0) AS INTEGER) AS group_number,
+SELECT position.work_id, CAST(coalesce(grp.number, 0) AS INTEGER) AS group_number,
   CAST(coalesce(position.number_in_group, 0) AS INTEGER) AS number_in_group,
   CAST(coalesce(item_text.name, '') AS TEXT) AS name,
   own.id AS file_id,
@@ -938,6 +942,7 @@ JOIN version ON version.work_id = position.work_id AND version.removed_at IS NUL
 JOIN file_filing ON file_filing.version_id = version.id AND file_filing.filing IN ('listed', 'unidentified')
 JOIN place AS own ON own.id = file_filing.file_id AND own.removed_at IS NULL
 LEFT JOIN item_text ON item_text.item_id = position.work_id AND item_text.is_original = 1
+LEFT JOIN grp ON grp.id = position.grp_id
 LEFT JOIN play_position ON play_position.file_id = own.id AND play_position.user_id = ?1
 LEFT JOIN work_watched ON work_watched.user_id = ?1 AND work_watched.work_id = position.work_id
 WHERE ordering.sequence_id = ?2 AND ordering.name = ?3
@@ -1422,7 +1427,7 @@ func (q *Queries) ListOtherVideosOfLibrary(ctx context.Context, libraryID int64)
 }
 
 const listSeasonEpisodeDetails = `-- name: ListSeasonEpisodeDetails :many
-SELECT position.work_id, position.group_number, position.number_in_group, position.sort_order, item_text.name,
+SELECT position.work_id, grp.number AS group_number, position.number_in_group, position.sort_order, item_text.name,
   item.year, work.runtime_ms, item.identification_state,
   EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
@@ -1435,8 +1440,9 @@ JOIN ordering ON ordering.id = position.ordering_id
 JOIN work ON work.id = position.work_id
 JOIN item ON item.id = work.id
 LEFT JOIN item_text ON item_text.item_id = position.work_id AND item_text.is_original = 1
+LEFT JOIN grp ON grp.id = position.grp_id
 WHERE ordering.sequence_id = ?3 AND ordering.name = ?4 AND item.removed_at IS NULL
-  AND coalesce(position.group_number, 0) = CAST(?5 AS INTEGER)
+  AND coalesce(grp.number, 0) = CAST(?5 AS INTEGER)
   AND position.sort_order > ?6
 ORDER BY position.sort_order
 LIMIT ?7
@@ -1676,7 +1682,7 @@ func (q *Queries) ListSeriesByName(ctx context.Context, arg ListSeriesByNamePara
 }
 
 const listSeriesEpisodeDetails = `-- name: ListSeriesEpisodeDetails :many
-SELECT position.work_id, position.group_number, position.number_in_group, item_text.name, item.year, work.runtime_ms,
+SELECT position.work_id, grp.number AS group_number, position.number_in_group, item_text.name, item.year, work.runtime_ms,
   item.identification_state,
   EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
@@ -1689,6 +1695,7 @@ JOIN ordering ON ordering.id = position.ordering_id
 JOIN work ON work.id = position.work_id
 JOIN item ON item.id = work.id
 LEFT JOIN item_text ON item_text.item_id = position.work_id AND item_text.is_original = 1
+LEFT JOIN grp ON grp.id = position.grp_id
 WHERE ordering.sequence_id = ?3 AND ordering.name = ?4 AND item.removed_at IS NULL
 ORDER BY position.sort_order
 `

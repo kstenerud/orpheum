@@ -328,14 +328,38 @@ type refusal struct {
 	isMissingAtSource bool
 }
 
+// seasonGroup is the group of a series' aired order that a season's image is of (D379, D426 section 5),
+// and whether the series has it. Artwork only looks a group up: identify makes them, one for each
+// season the series' provider lists and each its episodes are found in, and one table has one writer.
+func seasonGroup(ctx context.Context, queries *sqlcgen.Queries, seriesID, season int64) (int64, bool, error) {
+	ordering, err := store.OrNotFound(queries.GetOrdering(ctx, sqlcgen.GetOrderingParams{
+		SequenceID: seriesID, Name: "aired",
+	}))
+	if errors.Is(err, store.ErrNotFound) {
+		return 0, false, nil
+	}
+	if err != nil {
+		return 0, false, fmt.Errorf("read series %d's aired order: %w", seriesID, err)
+	}
+	id, err := store.OrNotFound(queries.GetGroup(ctx, sqlcgen.GetGroupParams{OrderingID: ordering, Number: season}))
+	if errors.Is(err, store.ErrNotFound) {
+		return 0, false, nil
+	}
+	if err != nil {
+		return 0, false, fmt.Errorf("read series %d's season %d: %w", seriesID, season, err)
+	}
+	return id, true, nil
+}
+
 // record records an item's image: stored, or, with no hash, refused, with why and when, so it is
 // not fetched again (D213 §1, D231 §4). A stored image retires the source's earlier one of its
 // kind and season, never a person's choice, so an older image stays shown only until a newer one is stored.
-// An item removed since it was queued records nothing.
+// An item removed since it was queued records nothing, and neither does a season's image whose season
+// the series has no group for: identify makes the groups, and artwork does not (D426 section 5).
 func (service *Service) record(ctx context.Context, want wantedImage, sourceSha256 []byte, refused *refusal) error {
 	now := service.parts.Clock.Now().UnixMilli()
 	insert := sqlcgen.InsertArtworkParams{
-		ItemID: want.itemID, Kind: want.ref.Kind, GroupNumber: want.ref.GroupNumber, Source: want.source,
+		ItemID: want.itemID, Kind: want.ref.Kind, Source: want.source,
 		SourceRef: &want.ref.SourceRef, SourceSha256: sourceSha256,
 	}
 	if refused != nil {
@@ -352,12 +376,19 @@ func (service *Service) record(ctx context.Context, want wantedImage, sourceSha2
 		if err != nil {
 			return fmt.Errorf("read item %d: %w", want.itemID, err)
 		}
+		if want.ref.GroupNumber != nil {
+			group, hasGroup, groupErr := seasonGroup(ctx, queries, want.itemID, *want.ref.GroupNumber)
+			if groupErr != nil || !hasGroup {
+				return groupErr
+			}
+			insert.GrpID = &group
+		}
 		id, err := queries.InsertArtwork(ctx, insert)
 		if err != nil || sourceSha256 == nil {
 			return err
 		}
 		err = queries.RetireReplacedArtwork(ctx, sqlcgen.RetireReplacedArtworkParams{
-			RemovedAt: &now, ItemID: want.itemID, Kind: want.ref.Kind, GroupNumber: want.ref.GroupNumber,
+			RemovedAt: &now, ItemID: want.itemID, Kind: want.ref.Kind, GrpID: insert.GrpID,
 			Source: want.source, KeepID: id,
 		})
 		if err != nil {

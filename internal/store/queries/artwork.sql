@@ -3,28 +3,29 @@
 -- its sizes are stored under in cache/art/. A person's choice is is_chosen = 1 and stays.
 
 -- name: ListLiveArtwork :many
--- An item's images, stored or refused, a series' groups' among them (group_number, D379); a miss at
+-- An item's images, stored or refused, a series' seasons' among them (its group's number, D379); a miss at
 -- its source that is not yet looked at again, as ListItemsDueRecheck finds it, is one still to be
 -- tried (D213 section 1).
-SELECT artwork.id, artwork.kind, artwork.group_number, artwork.source, artwork.source_ref, artwork.source_sha256,
+SELECT artwork.id, artwork.kind, grp.number AS group_number, artwork.source, artwork.source_ref, artwork.source_sha256,
   artwork.is_chosen, artwork.refused_at, artwork.is_missing_at_source,
   CAST(artwork.is_missing_at_source = 1 AND artwork.source_sha256 IS NULL AND NOT EXISTS (
     SELECT 1 FROM artwork earlier
     WHERE earlier.item_id = artwork.item_id AND earlier.kind = artwork.kind
-      AND earlier.group_number IS artwork.group_number AND earlier.source = artwork.source
+      AND earlier.grp_id IS artwork.grp_id AND earlier.source = artwork.source
       AND earlier.source_ref = artwork.source_ref AND earlier.source_sha256 IS NULL AND earlier.removed_at IS NOT NULL
   ) AS INTEGER) AS is_recheck_owed
 FROM artwork
+LEFT JOIN grp ON grp.id = artwork.grp_id
 WHERE artwork.item_id = sqlc.arg(item_id) AND artwork.removed_at IS NULL
 ORDER BY artwork.kind, artwork.is_chosen DESC, artwork.id DESC;
 
 -- name: InsertArtwork :one
 -- A stored image, with its hash; or one that could not be stored, with none, and when and why
 -- (D231 section 4), and whether its source said it was not there (D213 section 1). A season's
--- poster names its season (D379); NULL is the item's own.
-INSERT INTO artwork (item_id, kind, group_number, source, source_ref, source_sha256, refused_at, refusal,
+-- poster names its season, a group of the series' aired order (D379); NULL is the item's own.
+INSERT INTO artwork (item_id, kind, grp_id, source, source_ref, source_sha256, refused_at, refusal,
   is_missing_at_source)
-VALUES (sqlc.arg(item_id), sqlc.arg(kind), sqlc.narg(group_number), sqlc.arg(source), sqlc.arg(source_ref),
+VALUES (sqlc.arg(item_id), sqlc.arg(kind), sqlc.narg(grp_id), sqlc.arg(source), sqlc.arg(source_ref),
   sqlc.arg(source_sha256), sqlc.arg(refused_at), sqlc.arg(refusal), sqlc.arg(is_missing_at_source))
 RETURNING id;
 
@@ -32,7 +33,7 @@ RETURNING id;
 -- A provider's image replaced by a newer one of the same season, or of none; a person's choice is
 -- never replaced this way.
 UPDATE artwork SET removed_at = sqlc.arg(removed_at)
-WHERE item_id = sqlc.arg(item_id) AND kind = sqlc.arg(kind) AND group_number IS sqlc.narg(group_number)
+WHERE item_id = sqlc.arg(item_id) AND kind = sqlc.arg(kind) AND grp_id IS sqlc.narg(grp_id)
   AND source = sqlc.arg(source)
   AND is_chosen = 0 AND removed_at IS NULL AND id != sqlc.arg(keep_id);
 
@@ -55,7 +56,7 @@ FROM artwork
 JOIN item ON item.id = artwork.item_id
 LEFT JOIN library ON library.id = item.filing_library_id
 WHERE artwork.item_id IN (SELECT value FROM json_each(CAST(sqlc.arg(item_id_list_json) AS TEXT)))
-  AND artwork.kind = sqlc.arg(kind) AND artwork.group_number IS NULL AND artwork.removed_at IS NULL
+  AND artwork.kind = sqlc.arg(kind) AND artwork.grp_id IS NULL AND artwork.removed_at IS NULL
   AND artwork.source_sha256 IS NOT NULL
 ORDER BY artwork.item_id, artwork.source = 'frame', artwork.is_chosen DESC,
   (artwork.source = 'local') = (COALESCE(library.metadata_source, '') != 'tmdb') DESC, artwork.id DESC;
@@ -64,13 +65,14 @@ ORDER BY artwork.item_id, artwork.source = 'frame', artwork.is_chosen DESC,
 -- The posters of a series' seasons, D379: per season, a person's choice first, then the source its
 -- library prefers, then the newest stored, as ListShownArtwork orders an item's own. The caller keeps
 -- each season's first row.
-SELECT CAST(artwork.group_number AS INTEGER) AS group_number, artwork.source_sha256
+SELECT grp.number AS group_number, artwork.source_sha256
 FROM artwork
+JOIN grp ON grp.id = artwork.grp_id
 JOIN item ON item.id = artwork.item_id
 LEFT JOIN library ON library.id = item.filing_library_id
-WHERE artwork.item_id = sqlc.arg(series_id) AND artwork.kind = 'poster' AND artwork.group_number IS NOT NULL
+WHERE artwork.item_id = sqlc.arg(series_id) AND artwork.kind = 'poster'
   AND artwork.removed_at IS NULL AND artwork.source_sha256 IS NOT NULL
-ORDER BY artwork.group_number, artwork.is_chosen DESC,
+ORDER BY grp.number, artwork.is_chosen DESC,
   (artwork.source = 'local') = (COALESCE(library.metadata_source, '') != 'tmdb') DESC, artwork.id DESC;
 
 -- name: RetryItemArtwork :exec
@@ -140,7 +142,7 @@ WHERE artwork.source = sqlc.arg(source) AND artwork.removed_at IS NULL AND artwo
   AND NOT EXISTS (
     SELECT 1 FROM artwork earlier
     WHERE earlier.item_id = artwork.item_id AND earlier.kind = artwork.kind
-      AND earlier.group_number IS artwork.group_number AND earlier.source = artwork.source
+      AND earlier.grp_id IS artwork.grp_id AND earlier.source = artwork.source
       AND earlier.source_ref = artwork.source_ref AND earlier.source_sha256 IS NULL AND earlier.removed_at IS NOT NULL
   )
 ORDER BY artwork.item_id;
@@ -270,11 +272,12 @@ ORDER BY work.id;
 SELECT ordering.sequence_id AS series_id, CAST((
   SELECT position.work_id FROM position
   JOIN work ON work.id = position.work_id
+  LEFT JOIN grp ON grp.id = position.grp_id
   WHERE position.ordering_id = ordering.id AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
     WHERE version.work_id = work.id AND version.removed_at IS NULL
   )
-  ORDER BY position.group_number IS NULL, position.group_number = 0, position.group_number, position.sort_order
+  ORDER BY grp.number IS NULL, grp.number = 0, grp.number, position.sort_order
   LIMIT 1
 ) AS INTEGER) AS episode_id
 FROM ordering

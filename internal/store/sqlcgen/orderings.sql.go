@@ -11,7 +11,8 @@ import (
 
 const deleteGroupText = `-- name: DeleteGroupText :exec
 DELETE FROM group_text
-WHERE ordering_id = ?1 AND group_number = ?2 AND language = ?3
+WHERE grp_id = (SELECT grp.id FROM grp WHERE grp.ordering_id = ?1 AND grp.number = ?2)
+  AND language = ?3
 `
 
 type DeleteGroupTextParams struct {
@@ -38,6 +39,40 @@ type DeletePositionParams struct {
 // A title an ordering no longer places: its provider's group no longer lists it, or it left the series.
 func (q *Queries) DeletePosition(ctx context.Context, arg DeletePositionParams) error {
 	_, err := q.db.ExecContext(ctx, deletePosition, arg.OrderingID, arg.WorkID)
+	return err
+}
+
+const getGroup = `-- name: GetGroup :one
+SELECT id FROM grp WHERE ordering_id = ?1 AND number = ?2
+`
+
+type GetGroupParams struct {
+	OrderingID int64
+	Number     int64
+}
+
+// A group of an ordering by its number.
+func (q *Queries) GetGroup(ctx context.Context, arg GetGroupParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getGroup, arg.OrderingID, arg.Number)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const insertGroup = `-- name: InsertGroup :exec
+INSERT INTO grp (ordering_id, number) VALUES (?1, ?2)
+ON CONFLICT (ordering_id, number) DO NOTHING
+`
+
+type InsertGroupParams struct {
+	OrderingID int64
+	Number     int64
+}
+
+// A group of an ordering, a season or a disc (D426 section 5), made before the first position or name
+// in it; one there already is kept.
+func (q *Queries) InsertGroup(ctx context.Context, arg InsertGroupParams) error {
+	_, err := q.db.ExecContext(ctx, insertGroup, arg.OrderingID, arg.Number)
 	return err
 }
 
@@ -127,10 +162,11 @@ func (q *Queries) ListLibrarySeriesWithFetchedGroups(ctx context.Context, librar
 }
 
 const listOrderingGroupTexts = `-- name: ListOrderingGroupTexts :many
-SELECT group_number, language, name
-FROM group_text
-WHERE ordering_id = ?1
-ORDER BY group_number, language
+SELECT grp.number AS group_number, group_text.language, group_text.name
+FROM grp
+JOIN group_text ON group_text.grp_id = grp.id
+WHERE grp.ordering_id = ?1
+ORDER BY grp.number, group_text.language
 `
 
 type ListOrderingGroupTextsRow struct {
@@ -164,10 +200,11 @@ func (q *Queries) ListOrderingGroupTexts(ctx context.Context, orderingID int64) 
 }
 
 const listOrderingPositions = `-- name: ListOrderingPositions :many
-SELECT work_id, group_number, number_in_group, sort_order
+SELECT position.work_id, grp.number AS group_number, position.number_in_group, position.sort_order
 FROM position
-WHERE ordering_id = ?1
-ORDER BY work_id
+LEFT JOIN grp ON grp.id = position.grp_id
+WHERE position.ordering_id = ?1
+ORDER BY position.work_id
 `
 
 type ListOrderingPositionsRow struct {
@@ -387,9 +424,10 @@ func (q *Queries) ListSeriesOwingOrderingParts(ctx context.Context, arg ListSeri
 }
 
 const upsertGroupText = `-- name: UpsertGroupText :exec
-INSERT INTO group_text (ordering_id, group_number, language, name)
-VALUES (?1, ?2, ?3, ?4)
-ON CONFLICT (ordering_id, group_number, language) DO UPDATE SET name = excluded.name
+INSERT INTO group_text (grp_id, language, name)
+VALUES ((SELECT grp.id FROM grp WHERE grp.ordering_id = ?1 AND grp.number = ?2),
+  ?3, ?4)
+ON CONFLICT (grp_id, language) DO UPDATE SET name = excluded.name
 WHERE group_text.name IS NOT excluded.name
 `
 
@@ -400,7 +438,8 @@ type UpsertGroupTextParams struct {
 	Name        *string
 }
 
-// A group's name in an ordering, in one language.
+// A group's name in an ordering, in one language; InsertGroup makes the group first, and a group not
+// made has no id, which group_text refuses.
 // Only when it changes something (D303, DL9).
 func (q *Queries) UpsertGroupText(ctx context.Context, arg UpsertGroupTextParams) error {
 	_, err := q.db.ExecContext(ctx, upsertGroupText,

@@ -46,14 +46,14 @@ func (harness testHarness) shelveDVDOrder(t *testing.T) {
 	storetest.ExecRaw(t, harness.databasePath,
 		"INSERT INTO item_text (item_id, language, is_original, name) VALUES (22, 'und', 1, 'Cat'), "+
 			"(23, 'und', 1, 'Bag'), (24, 'und', 1, 'Seven')",
-		"INSERT INTO position (ordering_id, work_id, group_number, number_in_group, sort_order) "+
-			"VALUES (1, 22, 1, 2, 10002), (1, 23, 1, 3, 10003), (1, 24, 2, 1, 20001)",
+		storetest.Positions(
+			"(1, 22, 1, 2, 10002), (1, 23, 1, 3, 10003), (1, 24, 2, 1, 20001)"),
 		"INSERT INTO sequence_member (sequence_id, member_work, position) VALUES (20, 22, 10002), "+
 			"(20, 23, 10003), (20, 24, 20001)",
 		`INSERT INTO ordering (id, sequence_id, name, provider, kind, source_id, label, listed_count)
 		 VALUES (2, 20, 'tmdb:dvd', 'tmdb', 'dvd', 'dvd', 'DVD Order', 5)`,
-		"INSERT INTO position (ordering_id, work_id, group_number, number_in_group, sort_order) "+
-			"VALUES (2, 23, 1, 1, 10001), (2, 21, 1, 2, 10002), (2, 24, 2, 1, 20001)",
+		storetest.Positions(
+			"(2, 23, 1, 1, 10001), (2, 21, 1, 2, 10002), (2, 24, 2, 1, 20001)"),
 		`INSERT INTO provider_response (item_id, provider, part, fetched_at, last_asked_at, body_gzip)
 		 VALUES (20, 'tmdb', 'episode_group/dvd', 1, 1, X'')`)
 }
@@ -181,7 +181,8 @@ func TestOrderings_APersonChoosesAmongTheOrderingsASeriesHas(t *testing.T) {
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveDVDOrder(t)
 	storetest.ExecRaw(t, harness.databasePath,
-		"INSERT INTO group_text (ordering_id, group_number, language, name) VALUES (2, 1, 'en', 'Disc 1')")
+		"INSERT INTO group_text (grp_id, language, name) "+
+			"SELECT id, 'en', 'Disc 1' FROM grp WHERE ordering_id = 2 AND number = 1")
 	var offered struct {
 		Orderings []api.OrderingBody `json:"orderings"`
 	}

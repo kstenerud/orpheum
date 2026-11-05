@@ -50,11 +50,12 @@ WHERE id = sqlc.arg(id) AND kind = 'series'
 -- A series' episodes in its aired order, with where each takes its values from and when it
 -- first appeared: a new episode missing from a season listing fetched before it arrived is
 -- what fetches that listing again (D209 section 3).
-SELECT position.work_id, position.group_number, position.number_in_group, item.followed_source, item.added_at
+SELECT position.work_id, grp.number AS group_number, position.number_in_group, item.followed_source, item.added_at
 FROM position
 JOIN ordering ON ordering.id = position.ordering_id
 JOIN work ON work.id = position.work_id
 JOIN item ON item.id = work.id
+LEFT JOIN grp ON grp.id = position.grp_id
 WHERE ordering.sequence_id = sqlc.arg(sequence_id) AND ordering.name = 'aired' AND item.removed_at IS NULL
 ORDER BY position.sort_order;
 

@@ -27,7 +27,8 @@ func confirmedPlacement(t *testing.T) (lib *testLibrary, titleID int64) {
 func (lib *testLibrary) placeOf(titleID int64) []string {
 	lib.t.Helper()
 	return storetest.QueryRaw(lib.t, lib.database.Path(),
-		fmt.Sprintf("SELECT group_number || 'x' || number_in_group FROM position WHERE work_id = %d", titleID))
+		fmt.Sprintf("SELECT grp.number || 'x' || number_in_group FROM position "+
+			"LEFT JOIN grp ON grp.id = position.grp_id WHERE work_id = %d", titleID))
 }
 
 // A confirmed placement sticks (D401, amending D307 §2): a pass that places the episode by its

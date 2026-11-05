@@ -146,7 +146,7 @@ func joinEpisodes(ctx context.Context, queries *sqlcgen.Queries, fromSeries, kep
 		if kept, isAtAKeptPlace := keptAt[placeOf(place)]; isAtAKeptPlace {
 			err = join.mergeEpisode(ctx, place.WorkID, kept)
 		} else {
-			err = join.moveEpisode(ctx, place.WorkID)
+			err = join.moveEpisode(ctx, place.WorkID, place.GroupNumber)
 		}
 		if err != nil {
 			return err
@@ -180,11 +180,15 @@ func (join seriesJoin) mergeEpisode(ctx context.Context, episode, kept int64) er
 	return nil
 }
 
-// moveEpisode moves an episode into the kept series, at the same place in its aired order.
-func (join seriesJoin) moveEpisode(ctx context.Context, episode int64) error {
+// moveEpisode moves an episode into the kept series, at the same place in its aired order: in the
+// group of its season's number there, made when the kept series has none (D426 section 5).
+func (join seriesJoin) moveEpisode(ctx context.Context, episode int64, season *int64) error {
 	err := join.queries.MoveEpisodeToSeries(ctx, sqlcgen.MoveEpisodeToSeriesParams{
 		ToSeries: join.keptSeries, FromSeries: join.fromSeries, WorkID: &episode,
 	})
+	if err == nil && season != nil {
+		err = makeGroup(ctx, join.queries, join.keptOrdering, *season)
+	}
 	if err == nil {
 		err = join.queries.MovePositionToOrdering(ctx, sqlcgen.MovePositionToOrderingParams{
 			ToOrdering: join.keptOrdering, FromOrdering: join.fromOrdering, WorkID: episode,

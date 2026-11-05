@@ -50,6 +50,9 @@ const groupNameLanguage = "und"
 // (D303, DL9): run it through store.WriteUnlessUnchanged. A group the list no longer names is kept
 // (D213 §4); an episode a group leaves out has no place in it (D96).
 func deriveOrderings(ctx context.Context, queries *sqlcgen.Queries, provider Provider, seriesID int64) error {
+	if err := deriveListedSeasons(ctx, queries, provider, seriesID); err != nil {
+		return err
+	}
 	if err := deriveGroupList(ctx, queries, provider, seriesID); err != nil {
 		return err
 	}
@@ -79,6 +82,45 @@ func deriveOrderings(ctx context.Context, queries *sqlcgen.Queries, provider Pro
 		if err := nameGroups(ctx, queries, ordering.ID, parts); err != nil {
 			return fmt.Errorf("name the groups of series %d's %s ordering: %w", seriesID, ordering.Name, err)
 		}
+	}
+	return nil
+}
+
+// deriveListedSeasons makes a group in a series' aired order for each season its own stored response
+// lists, the specials among them, whether any episode of it is found or not, so that a season's
+// poster has its group to name: identify alone makes groups, and artwork only looks them up (D426
+// section 5).
+func deriveListedSeasons(ctx context.Context, queries *sqlcgen.Queries, provider Provider, seriesID int64) error {
+	ownGzip, err := store.OrNotFound(queries.GetProviderResponse(ctx, sqlcgen.GetProviderResponseParams{
+		ItemID: seriesID, Provider: provider.Name(), Part: "",
+	}))
+	if errors.Is(err, store.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read series %d's own response: %w", seriesID, err)
+	}
+	seasons := seasonsWithSpecials(provider, ownGzip)
+	if len(seasons) == 0 {
+		return nil
+	}
+	ordering, err := airedOrderingOf(ctx, queries, seriesID)
+	if err != nil {
+		return err
+	}
+	for _, season := range seasons {
+		if err := makeGroup(ctx, queries, ordering, int64(season)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// makeGroup makes an ordering's group of a number, a season or a disc, when it has none yet (D426
+// section 5): what names a group by its number, a position or a name, finds it made.
+func makeGroup(ctx context.Context, queries *sqlcgen.Queries, orderingID, number int64) error {
+	if err := queries.InsertGroup(ctx, sqlcgen.InsertGroupParams{OrderingID: orderingID, Number: number}); err != nil {
+		return fmt.Errorf("make group %d of ordering %d: %w", number, orderingID, err)
 	}
 	return nil
 }
@@ -210,7 +252,7 @@ func placeInGroup(
 		case ptr.ValueOrZero(was.GroupNumber) == *place.GroupNumber &&
 			ptr.ValueOrZero(was.NumberInGroup) == *place.NumberInGroup && was.SortOrder == place.SortOrder:
 		default:
-			err = queries.UpsertPosition(ctx, place)
+			err = placeTitle(ctx, queries, place)
 		}
 		if err != nil {
 			return fmt.Errorf("place title %d: %w", was.WorkID, err)
@@ -218,9 +260,23 @@ func placeInGroup(
 		delete(wanted, was.WorkID)
 	}
 	for titleID, place := range wanted {
-		if err := queries.UpsertPosition(ctx, place); err != nil {
+		if err := placeTitle(ctx, queries, place); err != nil {
 			return fmt.Errorf("place title %d: %w", titleID, err)
 		}
+	}
+	return nil
+}
+
+// placeTitle places a title in an ordering, making its group first: a position names its group's row
+// (D426 section 5), which UpsertPosition finds by its number.
+func placeTitle(ctx context.Context, queries *sqlcgen.Queries, place sqlcgen.UpsertPositionParams) error {
+	if place.GroupNumber != nil {
+		if err := makeGroup(ctx, queries, place.OrderingID, *place.GroupNumber); err != nil {
+			return err
+		}
+	}
+	if err := queries.UpsertPosition(ctx, place); err != nil {
+		return fmt.Errorf("place it in ordering %d: %w", place.OrderingID, err)
 	}
 	return nil
 }
@@ -249,7 +305,7 @@ func nameGroups(ctx context.Context, queries *sqlcgen.Queries, orderingID int64,
 				OrderingID: orderingID, GroupNumber: was.GroupNumber, Language: groupNameLanguage,
 			})
 		case ptr.ValueOrZero(was.Name) != name:
-			err = queries.UpsertGroupText(ctx, sqlcgen.UpsertGroupTextParams{
+			err = queries.UpsertGroupText(ctx, sqlcgen.UpsertGroupTextParams{ // named, so its group is made
 				OrderingID: orderingID, GroupNumber: was.GroupNumber, Language: groupNameLanguage, Name: &name,
 			})
 		}
@@ -259,9 +315,12 @@ func nameGroups(ctx context.Context, queries *sqlcgen.Queries, orderingID int64,
 		delete(wanted, was.GroupNumber)
 	}
 	for group, name := range wanted {
-		err := queries.UpsertGroupText(ctx, sqlcgen.UpsertGroupTextParams{
-			OrderingID: orderingID, GroupNumber: group, Language: groupNameLanguage, Name: &name,
-		})
+		err := makeGroup(ctx, queries, orderingID, group)
+		if err == nil {
+			err = queries.UpsertGroupText(ctx, sqlcgen.UpsertGroupTextParams{
+				OrderingID: orderingID, GroupNumber: group, Language: groupNameLanguage, Name: &name,
+			})
+		}
 		if err != nil {
 			return fmt.Errorf("name group %d: %w", group, err)
 		}

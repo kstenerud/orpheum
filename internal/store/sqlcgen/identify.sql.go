@@ -464,7 +464,7 @@ const listFilesOfWork = `-- name: ListFilesOfWork :many
 SELECT file.id, place.path, file_filing.filing, file_filing.filing_reason, file.size_bytes, place.node_id,
   work.id AS work_id, work.kind AS work_kind, item.identification_state,
   CAST(coalesce(work_text.name, '') AS TEXT) AS work_name, item.year,
-  position.group_number, position.number_in_group
+  grp.number AS group_number, position.number_in_group
 FROM work
 JOIN item ON item.id = work.id
 JOIN version ON version.work_id = work.id AND version.removed_at IS NULL
@@ -474,6 +474,7 @@ JOIN file ON file.id = place.id
 LEFT JOIN item_text AS work_text ON work_text.item_id = work.id AND work_text.is_original = 1
 LEFT JOIN position ON position.work_id = work.id
   AND position.ordering_id IN (SELECT ordering.id FROM ordering WHERE ordering.name = 'aired')
+LEFT JOIN grp ON grp.id = position.grp_id
 WHERE work.id = ?1
   OR work.id IN (SELECT position.work_id FROM position JOIN ordering ON ordering.id = position.ordering_id
     WHERE ordering.sequence_id = ?1 AND ordering.name = 'aired')
@@ -683,11 +684,12 @@ func (q *Queries) ListIdentifyFiles(ctx context.Context, libraryID int64) ([]Lis
 }
 
 const listLibraryAiredPositions = `-- name: ListLibraryAiredPositions :many
-SELECT position.work_id, position.ordering_id, ordering.sequence_id, position.group_number,
+SELECT position.work_id, position.ordering_id, ordering.sequence_id, grp.number AS group_number,
   position.number_in_group, position.sort_order
 FROM item
 CROSS JOIN position ON position.work_id = item.id
 CROSS JOIN ordering ON ordering.id = position.ordering_id AND ordering.name = 'aired'
+LEFT JOIN grp ON grp.id = position.grp_id
 WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND item.kind IN ('movie', 'episode', 'extra', 'other')
 `
 
@@ -768,13 +770,14 @@ func (q *Queries) ListLibraryExtraRelations(ctx context.Context, libraryID *int6
 }
 
 const listLibraryLiveEpisodeSources = `-- name: ListLibraryLiveEpisodeSources :many
-SELECT ordering.sequence_id, position.work_id, position.group_number, position.number_in_group,
+SELECT ordering.sequence_id, position.work_id, grp.number AS group_number, position.number_in_group,
   episode.followed_source, episode.added_at
 FROM item
 CROSS JOIN ordering ON ordering.sequence_id = item.id AND ordering.name = 'aired'
 CROSS JOIN position ON position.ordering_id = ordering.id
 CROSS JOIN work ON work.id = position.work_id
 CROSS JOIN item AS episode ON episode.id = work.id
+LEFT JOIN grp ON grp.id = position.grp_id
 WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND item.kind = 'series' AND episode.removed_at IS NULL
 ORDER BY ordering.sequence_id, position.sort_order
 `
@@ -1175,11 +1178,12 @@ func (q *Queries) ListLibrarySeries(ctx context.Context, libraryID *int64) ([]Li
 }
 
 const listLibrarySeriesEpisodePlaces = `-- name: ListLibrarySeriesEpisodePlaces :many
-SELECT ordering.sequence_id, position.work_id, position.group_number, position.number_in_group, episode.removed_at
+SELECT ordering.sequence_id, position.work_id, grp.number AS group_number, position.number_in_group, episode.removed_at
 FROM item
 CROSS JOIN ordering ON ordering.sequence_id = item.id AND ordering.name = 'aired'
 CROSS JOIN position ON position.ordering_id = ordering.id
 CROSS JOIN item AS episode ON episode.id = position.work_id
+LEFT JOIN grp ON grp.id = position.grp_id
 WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND item.kind = 'series'
   AND (episode.removed_at IS NULL OR episode.merged_into IS NULL)
 ORDER BY ordering.sequence_id, position.sort_order
@@ -1722,10 +1726,11 @@ func (q *Queries) ListSeriesByProviderID(ctx context.Context, arg ListSeriesByPr
 }
 
 const listSeriesEpisodePlaces = `-- name: ListSeriesEpisodePlaces :many
-SELECT position.work_id, position.group_number, position.number_in_group, item.removed_at
+SELECT position.work_id, grp.number AS group_number, position.number_in_group, item.removed_at
 FROM position
 JOIN ordering ON ordering.id = position.ordering_id
 JOIN item ON item.id = position.work_id
+LEFT JOIN grp ON grp.id = position.grp_id
 WHERE ordering.sequence_id = ? AND ordering.name = 'aired'
   AND (item.removed_at IS NULL OR item.merged_into IS NULL)
 ORDER BY position.sort_order
@@ -2089,8 +2094,12 @@ func (q *Queries) MoveItemToLibrary(ctx context.Context, arg MoveItemToLibraryPa
 }
 
 const movePositionToOrdering = `-- name: MovePositionToOrdering :exec
-UPDATE position SET ordering_id = ?1
-WHERE ordering_id = ?2 AND work_id = ?3
+UPDATE position SET ordering_id = ?1,
+  grp_id = CASE WHEN position.grp_id IS NOT NULL THEN coalesce((
+    SELECT there.id FROM grp AS here
+    JOIN grp AS there ON there.ordering_id = ?1 AND there.number = here.number
+    WHERE here.id = position.grp_id), 0) END
+WHERE position.ordering_id = ?2 AND position.work_id = ?3
 `
 
 type MovePositionToOrderingParams struct {
@@ -2099,6 +2108,8 @@ type MovePositionToOrderingParams struct {
 	WorkID       int64
 }
 
+// A position into another ordering, in its group of the same number there, which must be made first:
+// with none, the group is 0, which the foreign key refuses, never a place silently in no group.
 func (q *Queries) MovePositionToOrdering(ctx context.Context, arg MovePositionToOrderingParams) error {
 	_, err := q.db.ExecContext(ctx, movePositionToOrdering, arg.ToOrdering, arg.FromOrdering, arg.WorkID)
 	return err
@@ -2306,12 +2317,16 @@ func (q *Queries) UpsertOtherVideo(ctx context.Context, arg UpsertOtherVideoPara
 }
 
 const upsertPosition = `-- name: UpsertPosition :exec
-INSERT INTO position (ordering_id, work_id, group_number, number_in_group, sort_order)
-VALUES (?1, ?2, ?3, ?4, ?5)
-ON CONFLICT (ordering_id, work_id) DO UPDATE SET group_number = excluded.group_number, number_in_group = excluded.number_in_group,
+INSERT INTO position (ordering_id, work_id, grp_id, number_in_group, sort_order)
+VALUES (?1, ?2,
+  coalesce(
+    (SELECT grp.id FROM grp WHERE grp.ordering_id = ?1 AND grp.number = ?3),
+    CASE WHEN ?3 IS NOT NULL THEN 0 END),
+  ?4, ?5)
+ON CONFLICT (ordering_id, work_id) DO UPDATE SET grp_id = excluded.grp_id, number_in_group = excluded.number_in_group,
   sort_order = excluded.sort_order
-WHERE (position.group_number, position.number_in_group, position.sort_order)
-  IS NOT (excluded.group_number, excluded.number_in_group, excluded.sort_order)
+WHERE (position.grp_id, position.number_in_group, position.sort_order)
+  IS NOT (excluded.grp_id, excluded.number_in_group, excluded.sort_order)
 `
 
 type UpsertPositionParams struct {
@@ -2322,6 +2337,9 @@ type UpsertPositionParams struct {
 	SortOrder     float64
 }
 
+// A title's place in an ordering, in its group by number, NULL for none (D426 section 5). InsertGroup
+// makes the group first; a number whose group was not made names group 0, which no row is, and the
+// foreign key refuses it.
 // Only when it changes something (D303, DL9).
 func (q *Queries) UpsertPosition(ctx context.Context, arg UpsertPositionParams) error {
 	_, err := q.db.ExecContext(ctx, upsertPosition,

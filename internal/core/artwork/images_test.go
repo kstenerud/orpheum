@@ -259,6 +259,7 @@ func TestRecordFailure_AnArtworkJobThatGaveUpHoldsItsImagesAsRefusedWithWhy(t *t
 func TestTake_ASeasonsPosterIsOwedByItsSeasonApartFromItsSeriesOwn(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t, fakeFetcher{})
+	bench.becomeSeries(t)
 	queue := &jobstest.Queue{}
 	bench.service.parts.Queue = queue
 	// TMDB often names one image as the series' poster and its first season's: each is owed apart.
@@ -275,7 +276,7 @@ func TestTake_ASeasonsPosterIsOwedByItsSeasonApartFromItsSeriesOwn(t *testing.T)
 	}
 	// Season 1's poster is stored: only the specials' is owed.
 	bench.insert(t, sqlcgen.InsertArtworkParams{
-		Kind: library.ArtPoster, GroupNumber: new(int64(1)), Source: "tmdb", SourceRef: new("/f.jpg"),
+		Kind: library.ArtPoster, GrpID: bench.season(t, 1), Source: "tmdb", SourceRef: new("/f.jpg"),
 		SourceSha256: []byte{1},
 	})
 	*queue = nil
@@ -288,6 +289,7 @@ func TestTake_ASeasonsPosterIsOwedByItsSeasonApartFromItsSeriesOwn(t *testing.T)
 func TestTake_ASeasonsPosterIsOwedWhereTheSeriesShowsAPosterBesideItsMedia(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t, fakeFetcher{})
+	bench.becomeSeries(t)
 	queue := &jobstest.Queue{}
 	bench.service.parts.Queue = queue
 	_, libraryID := bench.inLibrary(t, "nfo_then_tmdb")

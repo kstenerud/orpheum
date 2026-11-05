@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/identify"
@@ -187,5 +188,31 @@ func TestMatch_ADeletedLibrarysSeriesMatchedAgainElsewhereComesBack(t *testing.T
 	lib.scanAll(orbitoramaFiles[0], orbitoramaFiles[1], added)
 	if got := lib.titlesByPath()[orbitoramaFiles[1]].WorkID; got != later || !lib.isLive(later) {
 		t.Errorf("S02E11, reappearing later, is title %d (live %v), want %d brought back", got, lib.isLive(got), later)
+	}
+}
+
+// D426 §5: an episode joining a series that comes back, in a season the kept series has no episode
+// of, keeps its season there: its group is made in the kept series' aired order, never dropped.
+func TestMatch_AnEpisodeJoiningASeriesThatComesBackKeepsASeasonTheSeriesLacked(t *testing.T) {
+	t.Parallel()
+	lib := orbitoramaLibrary(t)
+	lib.scanAll(orbitoramaFiles...)
+	if outcome, err := lib.matcher.Match(t.Context(), lib.onlySeries().ID); err != nil ||
+		outcome != identify.OutcomeMatched {
+		t.Fatalf("Match(series) = %s, %v", outcome, err)
+	}
+	orbitoramaSeries := lib.onlySeries().ID
+	lib.deleteAndStartAnother("series", "tmdb")
+	const added = "Orbitorama/Season 03/Orbitorama - S03E01.mkv"
+	lib.scanAll(orbitoramaFiles[0], added)
+	if outcome, err := lib.matcher.Match(t.Context(), lib.onlySeries().ID); err != nil ||
+		outcome != identify.OutcomeMatched {
+		t.Fatalf("Match(series) = %s, %v", outcome, err)
+	}
+	if got := lib.seriesOfFile(added); got != orbitoramaSeries {
+		t.Fatalf("S03E01, new in Kids, is in series %d, want %d", got, orbitoramaSeries)
+	}
+	if got := lib.placeOf(lib.titlesByPath()[added].WorkID); !slices.Equal(got, []string{"3x1"}) {
+		t.Errorf("S03E01 is placed at %v in the series it joined; want 3x1", got)
 	}
 }
