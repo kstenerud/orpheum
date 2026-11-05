@@ -10,6 +10,7 @@ import {
   createContext,
   use,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   type JSX,
@@ -362,7 +363,11 @@ export function useMediaSeeks(tracks: MediaTracks = {}): void {
 
 /**
  * Hears the commands offered at target (an element's ref, or the document) while mounted, the latest
- * handler each time; capture hears them before what has focus does.
+ * handler each time; capture hears them before what has focus does. The latest is the drawn page's
+ * from the moment it is drawn, as the page's layout effects run: a passive effect may run a while
+ * after the page shows, and a Fire TV's Back that soon after Up showed the player's controls was
+ * answered by the handler of the controls still hidden, leaving the film (the overlay's browser test,
+ * 2026-11-05).
  */
 export function useCommands(
   target: RefObject<Element | null> | "document",
@@ -370,7 +375,7 @@ export function useCommands(
   options: { readonly isCapture?: boolean } = {},
 ): void {
   const handlerRef = useRef(handler);
-  useEffect(() => {
+  useLayoutEffect(() => {
     handlerRef.current = handler;
   });
   const isCapture = options.isCapture === true;
