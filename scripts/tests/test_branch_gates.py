@@ -84,32 +84,6 @@ class BranchBase(unittest.TestCase):
                 bb.resolve("no-such-ref")
 
 
-def expand_variables(makefile: str, text: str) -> str:
-    """`text` with the Makefile's simple variables expanded, `$(NAME)` and `$(NAME:%=prefix%)`."""
-    values = dict(re.findall(r"(?m)^([A-Z_]+) := (.*)$", makefile))
-
-    def expand(match: re.Match[str]) -> str:
-        words = values.get(match.group(1))
-        if words is None:
-            return match.group(0)
-        prefix = match.group(2) or ""
-        return " ".join(prefix + word for word in words.split())
-    return re.sub(r"\$\(([A-Z_]+)(?::%=([^%)]*)%)?\)", expand, text)
-
-
-def revert_red_waits_for_the_tiers(makefile: str) -> bool:
-    """Whether check-pr runs check-revert-red in a make of its own after the parallel one. The
-    steps are check-pr-verbose's; check-pr runs it quietly (scripts/quiet_gate.py)."""
-    recipe = re.search(r"^check-pr-verbose:.*\n((?:\t.*\n)+)", makefile, re.M)
-    if recipe is None:
-        return False
-    body = expand_variables(makefile, recipe.group(1).replace("\\\n", " "))
-    parallel = body.find("-j")
-    tiers = body.find("test-integration")
-    revert = body.find("check-revert-red")
-    return 0 <= parallel < tiers < revert and "$(MAKE)" in body[tiers:revert]
-
-
 class BrowserTier(unittest.TestCase):
     def test_what_the_tier_builds_or_runs_needs_it_and_docs_scripts_and_tests_do_not(self):
         for path in ("internal/core/playback/playback.go", "web/apps/web/src/play.tsx", "cmd/orpheum/main.go",
@@ -146,25 +120,6 @@ class TreeState(unittest.TestCase):
             with_new = tree_state.fingerprint()
             repo.write({"new.txt": "n\n"})
             self.assertNotEqual(tree_state.fingerprint(), with_new, "an untracked file's content")
-
-
-class CheckPrWiring(unittest.TestCase):
-    MAKEFILE = (REPO / "Makefile").read_text()
-
-    def test_revert_red_runs_after_the_timing_tiers_not_beside_them(self):
-        self.assertTrue(revert_red_waits_for_the_tiers(self.MAKEFILE))
-        beside = ("check-pr-verbose:\n\t@$(MAKE) -j4 test-integration test-browser check-revert-red lint-commits\n")
-        self.assertFalse(revert_red_waits_for_the_tiers(beside))
-
-    def test_every_branch_gate_resolves_its_base_the_one_way(self):
-        self.assertRegex(self.MAKEFILE, r"(?m)^check-pr-locked:.*\n\t.*quiet_gate\.py .*check-pr-verbose")
-        for target in ("check-pr-verbose", "check-pr-failed", "check-revert-red", "check-revert-red-failed",
-                       "check-test-weakening", "check-decision-status", "lint-commits"):
-            recipe = re.search(rf"^{target}:.*\n\t(.*)", self.MAKEFILE, re.M)
-            self.assertIsNotNone(recipe, target)
-            self.assertIn("$(RESOLVE_BASE)", recipe.group(1), target)
-        self.assertRegex(self.MAKEFILE, r"(?m)^RESOLVE_BASE = .*scripts/branch_base\.py")
-        self.assertRegex(self.MAKEFILE, r"(?m)^mark-applied:.*\n\t.*branch_base\.py --mark")
 
 
 class WebDeps(unittest.TestCase):

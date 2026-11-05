@@ -280,7 +280,9 @@ RESOLVE_BASE = $(PYTHON) scripts/branch_base.py $(if $(BASE),--base '$(BASE)')
 # parallelization"). check-pr is the last run of a block of work, which is expected to pass, its
 # pieces' tests having run already: every tier runs to its end, a failed one too, so one run shows
 # every failure (the owner, 2026-10-17: "fail fast on piecework… run to completion on the final
-# test run"). The piecework re-run, check-pr-failed, still stops at a failed tier. Each
+# test run"), except that a failed fast or medium tier stops it before revert-red and the slow
+# tiers, minutes spent behind a lint error found in one (D424, 2026-11-05). The piecework re-run,
+# check-pr-failed, still stops at a failed tier. Each
 # step runs through pr-step-<step>, which records whether it passed and on what commit
 # (scripts/check_pr_steps.py), so `make check-pr-failed` can re-run only what failed.
 PR_FAST_STEPS := check-test-weakening check-decision-status lint-commits
@@ -326,7 +328,7 @@ check-pr-locked: browsers
 CHECK_PR_IN_ITS_TREE = if [ -z "$${ORPHEUM_CHECK_PR_TREE:-}" ]; then exec $(PYTHON) scripts/check_pr_snapshot.py
 
 .PHONY: check-pr-verbose
-check-pr-verbose: ## Branch gates against BASE (default: where the last pass ended, or the owner's mark), its tiers from the quickest, every one run to its end, revert-red's browser runs last, in check-pr's own tree; a pass marks HEAD as checked
+check-pr-verbose: ## Branch gates against BASE (default: where the last pass ended, or the owner's mark), its tiers from the quickest, every one run to its end once the quick ones pass (D424), revert-red's browser runs last, in check-pr's own tree; a pass marks HEAD as checked
 	@base="$$($(RESOLVE_BASE))"; $(CHECK_PR_IN_ITS_TREE) check-pr-verbose BASE="$$base"; fi; \
 	  started="$$(date +%s)"; head="$$(git rev-parse HEAD)"; \
 	  if $(PYTHON) scripts/documentation_only.py --base "$$base"; then \
@@ -341,13 +343,17 @@ check-pr-verbose: ## Branch gates against BASE (default: where the last pass end
 	      $(PR_FAST_STEPS:%=pr-step-%) || failed=1; \
 	    $(MAKE) --no-print-directory -j$(CHECK_JOBS) -k --output-sync=target BASE="$$base" \
 	      $(PR_MEDIUM_STEPS:%=pr-step-%) || failed=1; \
+	    if [ "$$failed" -eq 0 ]; then \
 	    $(MAKE) --no-print-directory BASE="$$base" $(PR_CODE_RED_STEP:%=pr-step-%) || failed=1; \
 	    $(MAKE) --no-print-directory BASE="$$base" $(PR_SERIAL_STEP:%=pr-step-%) || failed=1; \
 	    $(MAKE) --no-print-directory BASE="$$base" $(PR_SLOW_STEPS:%=pr-step-%) || failed=1; \
 	    $(MAKE) --no-print-directory BASE="$$base" $(PR_LAST_STEP:%=pr-step-%) || failed=1; \
+	    else quick_failed=1; fi; \
 	    [ "$$failed" -eq 0 ]; } || { \
 	    $(PYTHON) scripts/check_pr_steps.py durations $(PR_STEPS) $(PR_CODE_RED_STEP) $(PR_SERIAL_STEP) $(PR_LAST_STEP); \
-	    echo "make check-pr: a tier failed; every tier still ran, so each failure is above"; exit 1; }; \
+	    if [ -n "$${quick_failed:-}" ]; then \
+	      echo "make check-pr: a quick tier failed, so revert-red, the acceptance and the browser tiers did not run (D424): fix it, then run the whole check-pr"; \
+	    else echo "make check-pr: a tier failed; every tier still ran, so each failure is above"; fi; exit 1; }; \
 	  $(PYTHON) scripts/check_pr_steps.py durations $(PR_STEPS) $(PR_CODE_RED_STEP) $(PR_SERIAL_STEP) $(PR_LAST_STEP); \
 	  $(PYTHON) scripts/tree_state.py --check "$$state"; \
 	  $(PYTHON) scripts/branch_base.py --checked "$$head" --base "$$base" && $(PYTHON) scripts/check_pr_debt.py paid && { \

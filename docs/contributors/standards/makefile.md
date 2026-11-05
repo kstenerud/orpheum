@@ -140,7 +140,9 @@ day's commits with every browser run in turn, each step to its end. Run it by ha
 
 check-pr is the last run of a block of work, which is expected to pass, since its pieces' tests
 have run already: **every tier runs to its end**, a failed one too, so one run shows every
-failure, and check-pr fails at the end. The piecework runs fail fast: `make check-pr-failed` stops
+failure, and check-pr fails at the end; only a failed quick tier (the commits' checks, the
+integration tier, the full web lint) stops it before revert-red and the slow tiers, a minute's
+finding not held behind half an hour (D424). The piecework runs fail fast: `make check-pr-failed` stops
 at a failed tier, and each revert-red probe's browser run stops at its first failing test (the
 owner, 2026-10-17: "fail fast on piecework… run to completion on the final test run";
 [principles §24](../principles/24-cheap-checks-first.md)).
