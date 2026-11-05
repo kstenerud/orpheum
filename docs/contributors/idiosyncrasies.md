@@ -1304,9 +1304,12 @@ User-Agent (D263; the User-Agent is logged only).
   it again moved focus to a control by script. The spec's heuristic, as Firefox applies it, lets a
   script's focus show as a key's only when the element it leaves was itself showing focus; the page
   body was not. Not measured in Chromium under the same load.
-- **What we do:** the test watches for the overlay hiding during its presses and, if it hid, starts
-  again from its click (`hidingSeenOn` in `player-widgets.browser.test.tsx`), its assertions as they
-  were. The app is unchanged: a person's Tab on a hidden overlay shows it, and the next Tab is a key's.
+- **What we do:** the test holds the overlay's time (`overlayTimeHeld` in
+  `player-widgets.browser.test.tsx`: its hide timer's interval faked and `performance.now` the
+  test's), so the overlay cannot hide during its presses, however slowly the keys come. A first fix
+  that started the walk again where the overlay hid still lost three walks in a row under load
+  (2026-11-05). The app is unchanged: a person's Tab on a hidden overlay shows it, and the next Tab
+  is a key's.
 - **Evidence:** "test(web): the browser tests find the gallery's bar, and outlast Firefox's slow runs"; the failure message (focus on Back 10 s, `:focus-visible false`).
 
 ### A box that scrolls is a Tab stop of its own, in Chromium and Firefox

@@ -339,6 +339,10 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
   it("draws the focused scrub bar with no ring, and fades it a little while a key's focus is on a button", async () => {
     const videoRef = createRef<HTMLVideoElement>();
     Reflect.set(videoRef, "current", document.createElement("video"));
+    // The overlay's time held, so it stays up while the keys come: under load a walk outlasted its
+    // 3 s (Firefox, 2026-11-04), and the press that showed it again put focus on by script (D411),
+    // not by the key, so not :focus-visible.
+    overlayTimeHeld();
     await drawn(
       <div className="film-player__stage">
         <PlayerOverlay videoRef={videoRef} readLinkKbps={() => undefined} failure={undefined} />
@@ -347,57 +351,21 @@ describe("the player's widgets, laid out by a real browser (D369 §1)", () => {
         const overlay = found(mounted.container, ".player-overlay");
         const scrub = found(overlay, '[aria-label="Where the film stands"]');
         const forward = found(overlay, '[aria-label="Forward 10 s"]');
-        // The walk back to the scrub bar by keys, from a click on Forward. The overlay hides 3 s after
-        // the click; under make check's load the walk can outlast that (Firefox, 2026-11-04), and the
-        // press that shows it again puts focus on the scrub bar by script (D411), not by the key, so
-        // a walk that met the overlay hidden starts again from the click.
-        const walkedBackByKeys = async (): Promise<boolean> => {
-          shownByAMouse();
-          await userEvent.click(forward);
-          expect(getComputedStyle(scrub).opacity).toBe("1");
-          while (document.activeElement !== scrub) {
-            if (overlay.getAttribute("data-shown") === "hidden") {
-              return false;
-            }
-            await userEvent.keyboard("{Shift>}{Tab}{/Shift}");
-          }
-          return true;
-        };
-        // Under make check's load Firefox once left it at 1 (2026-11-04), passing alone, with focus on
-        // Back 10 s not :focus-visible: the overlay had hidden, and the Tab that showed it again put focus
-        // there by script. The message says where focus was and whether it counted as a key's; a try in
-        // which the overlay hid starts again from the click, as the walk back does.
-        const focusSaid = (): string => {
-          const focused = document.activeElement;
-          return `focus on ${focused?.outerHTML.slice(0, 120) ?? "nothing"}, :focus-visible ${String(
-            focused?.matches(":focus-visible"),
-          )}, the overlay ${overlay.getAttribute("data-shown") ?? "?"}, the scrub bar in the page ${String(
-            scrub.isConnected,
-          )}`;
-        };
-        for (let tries = 1; ; tries += 1) {
-          let walks = 1;
-          while (!(await walkedBackByKeys()) && walks < 3) {
-            walks += 1;
-          }
-          expect(scrub.matches(":focus-visible")).toBe(true);
-          expect(getComputedStyle(scrub).outlineStyle).toBe("none");
-          expect(getComputedStyle(scrub).boxShadow).toBe("none");
-          await expect.poll(() => getComputedStyle(scrub).opacity).toBe("1");
-          const hiding = hidingSeenOn(overlay);
-          await userEvent.keyboard("{Tab}");
-          expect(overlay.contains(document.activeElement)).toBe(true);
-          try {
-            await expect.poll(() => getComputedStyle(scrub).opacity).toBe("0.6");
-            hiding.stop();
-            break;
-          } catch (error) {
-            if (hiding.stop() && tries < 3) {
-              continue;
-            }
-            throw new Error(`${String(error)}; ${focusSaid()}`, { cause: error });
-          }
+        // The walk back to the scrub bar by keys, from a click on Forward.
+        shownByAMouse();
+        await userEvent.click(forward);
+        expect(getComputedStyle(scrub).opacity).toBe("1");
+        while (document.activeElement !== scrub) {
+          await userEvent.keyboard("{Shift>}{Tab}{/Shift}");
         }
+        expect(overlay.getAttribute("data-shown")).toBe("full");
+        expect(scrub.matches(":focus-visible")).toBe(true);
+        expect(getComputedStyle(scrub).outlineStyle).toBe("none");
+        expect(getComputedStyle(scrub).boxShadow).toBe("none");
+        await expect.poll(() => getComputedStyle(scrub).opacity).toBe("1");
+        await userEvent.keyboard("{Tab}");
+        expect(overlay.contains(document.activeElement)).toBe(true);
+        await expect.poll(() => getComputedStyle(scrub).opacity).toBe("0.6");
       },
     );
   });
@@ -578,18 +546,3 @@ describe("A finger's taps on the full-screen picture, as a real browser lays it 
     );
   });
 });
-
-/** Watches the overlay from now; stop says whether it hid meanwhile, and stops watching. */
-function hidingSeenOn(overlay: Element): { stop: () => boolean } {
-  let hasHidden = overlay.getAttribute("data-shown") === "hidden";
-  const observer = new MutationObserver(() => {
-    hasHidden ||= overlay.getAttribute("data-shown") === "hidden";
-  });
-  observer.observe(overlay, { attributes: true, attributeFilter: ["data-shown"] });
-  return {
-    stop: () => {
-      observer.disconnect();
-      return hasHidden;
-    },
-  };
-}
