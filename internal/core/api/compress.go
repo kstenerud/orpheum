@@ -33,7 +33,10 @@ var compressedOperations = []string{ //nolint:gochecknoglobals // a constant lis
 }
 
 // documentedOperation is one operation the API document holds.
-type documentedOperation struct{ id, method, path string }
+type documentedOperation struct {
+	id, method, path string
+	operation        *huma.Operation
+}
 
 // operationsIn is every operation document holds, its path without Prefix.
 func operationsIn(document *huma.OpenAPI) []documentedOperation {
@@ -44,7 +47,7 @@ func operationsIn(document *huma.OpenAPI) []documentedOperation {
 			http.MethodDelete: item.Delete, http.MethodHead: item.Head, http.MethodPatch: item.Patch,
 		} {
 			if operation != nil {
-				operations = append(operations, documentedOperation{operation.OperationID, method, path})
+				operations = append(operations, documentedOperation{operation.OperationID, method, path, operation})
 			}
 		}
 	}

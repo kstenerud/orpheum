@@ -181,7 +181,8 @@ func documentConfig() huma.Config {
 	config.DocsPath = "" // the docs page loads scripts from a CDN; the document itself is served
 	config.CreateHooks = nil
 	config.Info.Description = "The Orpheum media server's client API (cut-a §5). Errors have one shape: " +
-		"an object whose error holds a code, a message, a detail and, for a reachability error, the failedHop."
+		"an object whose error holds a code, a message, a detail and, for a reachability error, the failedHop." +
+		openDescription
 	declareCallers(&config)
 	return config
 }
@@ -229,6 +230,7 @@ func NewServer(logger *slog.Logger) *Server {
 	mux.HandleFunc("GET "+socketPath, server.serveTogetherSocket)
 	mux.HandleFunc("GET "+togetherSocketPath, server.serveTogetherSocket)
 	server.registerJobs()
+	openResponses(server.humaAPI.OpenAPI())
 	return server
 }
 

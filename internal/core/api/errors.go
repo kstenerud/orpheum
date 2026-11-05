@@ -265,7 +265,10 @@ func problemForm(formCodes []Code, detail *huma.Schema) *huma.Schema {
 		names = append(names, string(code))
 	}
 	properties := map[string]*huma.Schema{
-		"code":    {Type: huma.TypeString, Enum: names},
+		"code": {
+			Type: huma.TypeString, Enum: names,
+			Extensions: map[string]any{extensibleEnum: names},
+		},
 		"message": {Type: huma.TypeString, Description: "For developers, in English"},
 		"failedHop": {
 			Type: huma.TypeString, Enum: []any{string(HopNode), string(HopProvider)},

@@ -44,6 +44,17 @@ else's* compatibility surface too, against clients we do not control and cannot 
   type or nullability. New behaviour arrives as a new field or a new endpoint. A client must
   ignore fields it does not know — the same rule
   [D61](../../decisions/working-notes.md) already imposes on the node wire format.
+- **Responses are open; requests are closed** ([D432](../../decisions/working-notes.md) §2). No
+  schema only a response uses says `additionalProperties: false`, and every `kind` enumeration
+  in a response, and the error's `code`, is marked `x-extensible-enum`: a client ignores a field
+  it does not know, and skips an item of a kind it does not know or treats an unknown code as
+  the closest it knows. A request body stays closed, so the server refuses a field it does not
+  name. The document's `info.description` says the same (`openResponses`, in
+  `internal/core/api/open_responses.go`). A schema both a request and a response use stays
+  closed, as the request needs.
+- **A list names its kinds** ([D432](../../decisions/working-notes.md) §1). A filter over kinds
+  takes each by name (`kind=movie,series,other`), never a word for "every kind", so a kind a
+  later server adds reaches no client that did not ask for it.
 - **Removal needs a window.** Measured in releases, announced in the OpenAPI document and in a
   `Deprecation` / `Sunset` response header **while the endpoint still works**. Removal without a
   preceding window is the breaking change; removal after one is maintenance.

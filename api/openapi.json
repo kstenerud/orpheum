@@ -50,7 +50,6 @@
         "type": "object"
       },
       "ActivationOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "askedSecondsAgo": {
             "description": "How long ago the device asked for its code, by the server's clock",
@@ -126,7 +125,6 @@
         "type": "object"
       },
       "AllowanceBody": {
-        "additionalProperties": false,
         "properties": {
           "allowedDownloads": {
             "format": "int64",
@@ -148,7 +146,6 @@
         "type": "object"
       },
       "ArtBody": {
-        "additionalProperties": false,
         "properties": {
           "backdropSha256": {
             "type": "string"
@@ -179,7 +176,6 @@
         "type": "object"
       },
       "AudioTrackBody": {
-        "additionalProperties": false,
         "properties": {
           "audioTrackIndex": {
             "format": "int64",
@@ -194,7 +190,12 @@
               "commentary",
               "described"
             ],
-            "type": "string"
+            "type": "string",
+            "x-extensible-enum": [
+              "plain",
+              "commentary",
+              "described"
+            ]
           },
           "language": {
             "description": "BCP 47; empty when nothing names one",
@@ -214,7 +215,6 @@
         "type": "object"
       },
       "BackupBody": {
-        "additionalProperties": false,
         "properties": {
           "madeAt": {
             "description": "Unix milliseconds",
@@ -237,7 +237,6 @@
         "type": "object"
       },
       "BackupsOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "backups": {
             "items": {
@@ -260,7 +259,6 @@
         "type": "object"
       },
       "BuildBody": {
-        "additionalProperties": false,
         "properties": {
           "binarySha256": {
             "type": "string"
@@ -293,7 +291,6 @@
         "type": "object"
       },
       "CandidateBody": {
-        "additionalProperties": false,
         "properties": {
           "name": {
             "type": "string"
@@ -350,7 +347,6 @@
         "type": "object"
       },
       "CandidatesOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "candidates": {
             "items": {
@@ -371,7 +367,6 @@
         "type": "object"
       },
       "CastBody": {
-        "additionalProperties": false,
         "properties": {
           "castId": {
             "format": "int64",
@@ -455,7 +450,6 @@
         "type": "object"
       },
       "CertificateBody": {
-        "additionalProperties": false,
         "properties": {
           "expiresAt": {
             "format": "int64",
@@ -566,7 +560,6 @@
         "type": "object"
       },
       "ClientManifestBody": {
-        "additionalProperties": false,
         "properties": {
           "manifest": {
             "type": "string"
@@ -690,7 +683,6 @@
         "type": "object"
       },
       "ClientSettingsBody": {
-        "additionalProperties": false,
         "properties": {
           "interestSaidEverySeconds": {
             "format": "int64",
@@ -731,7 +723,6 @@
         "type": "object"
       },
       "ConfigFileKey": {
-        "additionalProperties": false,
         "properties": {
           "description": {
             "type": "string"
@@ -758,7 +749,6 @@
         "type": "object"
       },
       "ConfigOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "configFileKeys": {
             "items": {
@@ -786,7 +776,6 @@
         "type": "object"
       },
       "ConfinementBody": {
-        "additionalProperties": false,
         "properties": {
           "causeCode": {
             "enum": [
@@ -918,7 +907,6 @@
         "type": "object"
       },
       "CreateRoleOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "id": {
             "format": "int64",
@@ -962,7 +950,6 @@
         "type": "object"
       },
       "CreateUserOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "user": {
             "$ref": "#/components/schemas/UserEntryBody"
@@ -974,7 +961,6 @@
         "type": "object"
       },
       "CreatedOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "id": {
             "format": "int64",
@@ -987,7 +973,6 @@
         "type": "object"
       },
       "CreditBody": {
-        "additionalProperties": false,
         "properties": {
           "character": {
             "description": "A cast member's part; absent for crew and where the source names none",
@@ -1013,7 +998,6 @@
         "type": "object"
       },
       "CreditsBody": {
-        "additionalProperties": false,
         "properties": {
           "cast": {
             "items": {
@@ -1051,7 +1035,6 @@
         "type": "object"
       },
       "CurrentDeviceBody": {
-        "additionalProperties": false,
         "properties": {
           "id": {
             "format": "int64",
@@ -1068,7 +1051,6 @@
         "type": "object"
       },
       "DatabaseBody": {
-        "additionalProperties": false,
         "properties": {
           "name": {
             "enum": [
@@ -1089,7 +1071,6 @@
         "type": "object"
       },
       "DeadEndCauseBody": {
-        "additionalProperties": false,
         "properties": {
           "cause": {
             "type": "string"
@@ -1106,7 +1087,6 @@
         "type": "object"
       },
       "DestinationBody": {
-        "additionalProperties": false,
         "properties": {
           "destination": {
             "type": "string"
@@ -1141,7 +1121,6 @@
         "type": "object"
       },
       "DeviceBody": {
-        "additionalProperties": false,
         "properties": {
           "addedAt": {
             "description": "Unix milliseconds",
@@ -1212,7 +1191,6 @@
         "type": "object"
       },
       "DevicesOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "devices": {
             "items": {
@@ -1230,7 +1208,6 @@
         "type": "object"
       },
       "DiscoveryProbeBody": {
-        "additionalProperties": false,
         "properties": {
           "address": {
             "type": "string"
@@ -1241,7 +1218,11 @@
               "https",
               "turn"
             ],
-            "type": "string"
+            "type": "string",
+            "x-extensible-enum": [
+              "https",
+              "turn"
+            ]
           },
           "port": {
             "format": "int64",
@@ -1261,7 +1242,6 @@
         "type": "object"
       },
       "DiscoveryStatusBody": {
-        "additionalProperties": false,
         "properties": {
           "account": {
             "description": "The address of the account the server is enrolled with, at a discovery with accounts (D310 §5)",
@@ -1486,7 +1466,6 @@
         "type": "object"
       },
       "DiskBody": {
-        "additionalProperties": false,
         "properties": {
           "availableBytes": {
             "description": "What a user who is not root may still write",
@@ -1513,7 +1492,6 @@
         "type": "object"
       },
       "EncoderTrialBody": {
-        "additionalProperties": false,
         "properties": {
           "encoder": {
             "enum": [
@@ -1552,7 +1530,6 @@
         "type": "object"
       },
       "EndCastOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "isPlaying": {
             "type": "boolean"
@@ -1569,7 +1546,6 @@
         "type": "object"
       },
       "EpisodeBody": {
-        "additionalProperties": false,
         "properties": {
           "episodeNumber": {
             "format": "int64",
@@ -1624,7 +1600,6 @@
         "type": "object"
       },
       "EpisodePlaceBody": {
-        "additionalProperties": false,
         "properties": {
           "episodeNumber": {
             "description": "Its number in its aired season",
@@ -1660,7 +1635,6 @@
         "type": "object"
       },
       "Error": {
-        "additionalProperties": false,
         "properties": {
           "error": {
             "$ref": "#/components/schemas/ProblemBody"
@@ -1672,7 +1646,6 @@
         "type": "object"
       },
       "ErrorDetailBody": {
-        "additionalProperties": false,
         "properties": {
           "groupGid": {
             "format": "int64",
@@ -1807,7 +1780,6 @@
         "type": "object"
       },
       "ExtraBody": {
-        "additionalProperties": false,
         "properties": {
           "extraType": {
             "type": "string"
@@ -1828,7 +1800,6 @@
         "type": "object"
       },
       "FetchFailureBody": {
-        "additionalProperties": false,
         "properties": {
           "failedAt": {
             "format": "int64",
@@ -1866,7 +1837,6 @@
         "type": "object"
       },
       "FetchSubtitleOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "downloadsResetAt": {
             "description": "When the count starts again, Unix milliseconds",
@@ -1890,7 +1860,6 @@
         "type": "object"
       },
       "FileAvailabilityOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "unavailable": {
             "$ref": "#/components/schemas/UnavailableBody"
@@ -1899,7 +1868,6 @@
         "type": "object"
       },
       "FileBody": {
-        "additionalProperties": false,
         "properties": {
           "errorDetail": {
             "$ref": "#/components/schemas/ErrorDetailBody"
@@ -1945,7 +1913,6 @@
         "type": "object"
       },
       "FileDetailBody": {
-        "additionalProperties": false,
         "properties": {
           "id": {
             "format": "int64",
@@ -1985,7 +1952,6 @@
         "type": "object"
       },
       "FilePictureBody": {
-        "additionalProperties": false,
         "properties": {
           "codec": {
             "type": "string"
@@ -2007,7 +1973,6 @@
         "type": "object"
       },
       "FileSoundBody": {
-        "additionalProperties": false,
         "properties": {
           "audioTrackIndex": {
             "format": "int64",
@@ -2029,7 +1994,6 @@
         "type": "object"
       },
       "FileWaitsOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "levellings": {
             "description": "What brings each of its audio tracks to the level, by its place among them, played as it is (D226): a player whose film was measured as it played takes it up from here; absent until one is measured",
@@ -2049,7 +2013,6 @@
         "type": "object"
       },
       "FilesOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "files": {
             "items": {
@@ -2071,7 +2034,6 @@
         "type": "object"
       },
       "FilingReportBody": {
-        "additionalProperties": false,
         "properties": {
           "markdown": {
             "type": "string"
@@ -2091,7 +2053,6 @@
         "type": "object"
       },
       "FilingReportEntryBody": {
-        "additionalProperties": false,
         "properties": {
           "name": {
             "type": "string"
@@ -2114,7 +2075,6 @@
         "type": "object"
       },
       "FilingReportsOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "nextCursor": {
             "description": "The next page's cursor; absent on the last",
@@ -2136,7 +2096,6 @@
         "type": "object"
       },
       "FilmOfExtraBody": {
-        "additionalProperties": false,
         "properties": {
           "id": {
             "format": "int64",
@@ -2153,7 +2112,6 @@
         "type": "object"
       },
       "FilmWithoutSoundBody": {
-        "additionalProperties": false,
         "properties": {
           "name": {
             "type": "string"
@@ -2170,7 +2128,6 @@
         "type": "object"
       },
       "FindingBody": {
-        "additionalProperties": false,
         "properties": {
           "action": {
             "type": "string"
@@ -2198,7 +2155,6 @@
         "type": "object"
       },
       "FolderOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "folder": {
             "description": "Its path below the library's folders; empty at their top",
@@ -2248,7 +2204,6 @@
         "type": "object"
       },
       "GPUBody": {
-        "additionalProperties": false,
         "properties": {
           "devicePath": {
             "type": "string"
@@ -2266,7 +2221,6 @@
         "type": "object"
       },
       "GenreBody": {
-        "additionalProperties": false,
         "properties": {
           "id": {
             "format": "int64",
@@ -2288,7 +2242,6 @@
         "type": "object"
       },
       "GenresOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "genres": {
             "items": {
@@ -2310,7 +2263,6 @@
         "type": "object"
       },
       "GroupBody": {
-        "additionalProperties": false,
         "properties": {
           "hits": {
             "items": {
@@ -2332,7 +2284,6 @@
         "type": "object"
       },
       "GroupHitBody": {
-        "additionalProperties": false,
         "properties": {
           "id": {
             "description": "A title's: GET /items/{id}, of any kind; a person's: GET /people/{id}; a genre's: GET /items?genre=",
@@ -2346,7 +2297,12 @@
               "series",
               "other"
             ],
-            "type": "string"
+            "type": "string",
+            "x-extensible-enum": [
+              "movie",
+              "series",
+              "other"
+            ]
           },
           "name": {
             "type": "string"
@@ -2372,7 +2328,6 @@
         "type": "object"
       },
       "GroupOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "episodes": {
             "items": {
@@ -2394,7 +2349,6 @@
         "type": "object"
       },
       "HandOffOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "code": {
             "description": "Taken once, within a minute, by POST /session/redeem at the client origin",
@@ -2407,7 +2361,6 @@
         "type": "object"
       },
       "HardwareBody": {
-        "additionalProperties": false,
         "properties": {
           "chosenEncoder": {
             "enum": [
@@ -2445,7 +2398,6 @@
         "type": "object"
       },
       "HealthOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "detail": {
             "type": "string"
@@ -2476,7 +2428,6 @@
         "type": "object"
       },
       "HomeOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "continueWatching": {
             "items": {
@@ -2494,7 +2445,6 @@
         "type": "object"
       },
       "HostBody": {
-        "additionalProperties": false,
         "properties": {
           "codename": {
             "type": "string"
@@ -2522,7 +2472,6 @@
         "type": "object"
       },
       "HouseNetworkBody": {
-        "additionalProperties": false,
         "properties": {
           "device": {
             "description": "A learnt network's: the address in the house of the device that last witnessed it",
@@ -2554,7 +2503,6 @@
         "type": "object"
       },
       "ICEOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "iceServers": {
             "items": {
@@ -2572,7 +2520,6 @@
         "type": "object"
       },
       "ICEServerBody": {
-        "additionalProperties": false,
         "properties": {
           "credential": {
             "type": "string"
@@ -2604,7 +2551,6 @@
         "type": "object"
       },
       "IdentificationBody": {
-        "additionalProperties": false,
         "properties": {
           "fetchFailure": {
             "$ref": "#/components/schemas/FetchFailureBody"
@@ -2626,7 +2572,6 @@
         "type": "object"
       },
       "IdentifiedDiscoveryOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "identity": {
             "description": "The discovery's identity, od1-..., to compare with what its operator shows",
@@ -2667,7 +2612,6 @@
         "type": "object"
       },
       "InAnotherSessionDetailBody": {
-        "additionalProperties": false,
         "properties": {
           "hostName": {
             "description": "The other session's host",
@@ -2685,7 +2629,6 @@
         "type": "object"
       },
       "InProgressBody": {
-        "additionalProperties": false,
         "properties": {
           "durationMs": {
             "description": "0 when the file's length is unknown",
@@ -2739,7 +2682,6 @@
         "type": "object"
       },
       "InvalidRequestDetailBody": {
-        "additionalProperties": false,
         "properties": {
           "problems": {
             "items": {
@@ -2757,7 +2699,6 @@
         "type": "object"
       },
       "InvitationBody": {
-        "additionalProperties": false,
         "properties": {
           "adminNote": {
             "type": "string"
@@ -2807,7 +2748,6 @@
         "type": "object"
       },
       "InvitationsOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "invitations": {
             "items": {
@@ -2851,7 +2791,6 @@
         "type": "object"
       },
       "InviteOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "invitation": {
             "$ref": "#/components/schemas/InvitationBody"
@@ -2867,7 +2806,6 @@
         "type": "object"
       },
       "IssuedSecretBody": {
-        "additionalProperties": false,
         "properties": {
           "expiresAt": {
             "description": "Unix milliseconds",
@@ -2889,7 +2827,6 @@
         "type": "object"
       },
       "ItemCreditBody": {
-        "additionalProperties": false,
         "properties": {
           "character": {
             "description": "Their part, in the cast; absent for crew and where the source names none",
@@ -2917,7 +2854,6 @@
         "type": "object"
       },
       "JobBody": {
-        "additionalProperties": false,
         "properties": {
           "attemptCount": {
             "format": "int64",
@@ -2970,7 +2906,20 @@
               "renew_certificate",
               "hash_whole_file"
             ],
-            "type": "string"
+            "type": "string",
+            "x-extensible-enum": [
+              "fetch_metadata",
+              "make_artwork_sizes",
+              "extract_subtitle",
+              "convert_fetched_subtitle",
+              "read_through",
+              "make_chunks",
+              "scan",
+              "examine",
+              "backup",
+              "renew_certificate",
+              "hash_whole_file"
+            ]
           },
           "lastFailure": {
             "type": "string"
@@ -3028,7 +2977,6 @@
         "type": "object"
       },
       "JobsOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "jobs": {
             "items": {
@@ -3080,7 +3028,6 @@
         "type": "object"
       },
       "JoinTogetherOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "locator": {
             "description": "What this device finds the server by through a discovery",
@@ -3504,7 +3451,6 @@
         "type": "object"
       },
       "LabResultOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "id": {
             "description": "The result's name in the server's log",
@@ -3517,7 +3463,6 @@
         "type": "object"
       },
       "LadderBody": {
-        "additionalProperties": false,
         "properties": {
           "filmPictureKbps": {
             "format": "int64",
@@ -3590,7 +3535,6 @@
         "type": "object"
       },
       "LettersOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "letters": {
             "description": "In order, # (before A) then A to Z, only those some title is under: the first at or after the letter, before the next",
@@ -3609,7 +3553,6 @@
         "type": "object"
       },
       "LevellingBody": {
-        "additionalProperties": false,
         "properties": {
           "gainDb": {
             "description": "Applied after the player's volume; negative lowers a loud film",
@@ -3628,7 +3571,6 @@
         "type": "object"
       },
       "LibrariesOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "libraries": {
             "items": {
@@ -3646,7 +3588,6 @@
         "type": "object"
       },
       "LibraryBody": {
-        "additionalProperties": false,
         "properties": {
           "changeDetection": {
             "enum": [
@@ -3685,7 +3626,12 @@
               "series",
               "other"
             ],
-            "type": "string"
+            "type": "string",
+            "x-extensible-enum": [
+              "movie",
+              "series",
+              "other"
+            ]
           },
           "metadataSource": {
             "enum": [
@@ -3723,7 +3669,6 @@
         "type": "object"
       },
       "LibraryNameBody": {
-        "additionalProperties": false,
         "properties": {
           "id": {
             "format": "int64",
@@ -3740,7 +3685,6 @@
         "type": "object"
       },
       "LibraryRescanBody": {
-        "additionalProperties": false,
         "properties": {
           "isScanning": {
             "description": "Whether a rescan of it waits for its scan before it lists its films and series",
@@ -3778,7 +3722,6 @@
         "type": "object"
       },
       "LinkKindOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "isInvitation": {
             "type": "boolean"
@@ -3794,7 +3737,6 @@
         "type": "object"
       },
       "ListItemsOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "items": {
             "items": {
@@ -3833,7 +3775,6 @@
         "type": "object"
       },
       "LocatorOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "locator": {
             "type": "string"
@@ -3845,7 +3786,6 @@
         "type": "object"
       },
       "MadeBackupOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "includesKey": {
             "type": "boolean"
@@ -3907,7 +3847,6 @@
         "type": "object"
       },
       "MediaUnreachableDetailBody": {
-        "additionalProperties": false,
         "properties": {
           "nodeName": {
             "description": "The machine that holds the file",
@@ -3938,7 +3877,6 @@
         "type": "object"
       },
       "MyCastsOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "casts": {
             "items": {
@@ -3956,7 +3894,6 @@
         "type": "object"
       },
       "MyPreferencesBody": {
-        "additionalProperties": false,
         "properties": {
           "isAutoplayOn": {
             "description": "Whether the next episode plays by itself after a countdown",
@@ -4003,7 +3940,6 @@
         "type": "object"
       },
       "MyTogetherBody": {
-        "additionalProperties": false,
         "properties": {
           "isHost": {
             "type": "boolean"
@@ -4033,7 +3969,6 @@
         "type": "object"
       },
       "MyTogetherOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "sessions": {
             "items": {
@@ -4051,7 +3986,6 @@
         "type": "object"
       },
       "NeedsAttentionOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "diskCount": {
             "format": "int64",
@@ -4136,7 +4070,6 @@
         "type": "object"
       },
       "NextUpBody": {
-        "additionalProperties": false,
         "properties": {
           "fileId": {
             "description": "The file its Play plays: the one the person is partway through, else its first",
@@ -4188,7 +4121,6 @@
         "type": "object"
       },
       "NodeBody": {
-        "additionalProperties": false,
         "properties": {
           "isConnected": {
             "description": "Whether it is connected now: polling for its commands, or heard within node_silent_after_seconds",
@@ -4216,7 +4148,6 @@
         "type": "object"
       },
       "NodeDeviceBody": {
-        "additionalProperties": false,
         "properties": {
           "disks": {
             "description": "The whole disks it reads from; none when the node cannot see them",
@@ -4247,7 +4178,13 @@
               "network",
               "unknown"
             ],
-            "type": "string"
+            "type": "string",
+            "x-extensible-enum": [
+              "spinning",
+              "ssd",
+              "network",
+              "unknown"
+            ]
           },
           "mountPaths": {
             "items": {
@@ -4275,7 +4212,6 @@
         "type": "object"
       },
       "NodeFoldersOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "failure": {
             "description": "Why it could not be listed, in the node's words",
@@ -4312,7 +4248,6 @@
         "type": "object"
       },
       "NodeWorkBody": {
-        "additionalProperties": false,
         "properties": {
           "brokenInvariantCount": {
             "format": "int64",
@@ -4344,7 +4279,6 @@
         "type": "object"
       },
       "NodesOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "nodes": {
             "items": {
@@ -4362,7 +4296,6 @@
         "type": "object"
       },
       "NowPlayingBody": {
-        "additionalProperties": false,
         "properties": {
           "delivery": {
             "description": "direct or hls",
@@ -4441,7 +4374,6 @@
         "type": "object"
       },
       "NowPlayingOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "playbacks": {
             "items": {
@@ -4459,7 +4391,6 @@
         "type": "object"
       },
       "OfflineBody": {
-        "additionalProperties": false,
         "properties": {
           "libraryId": {
             "format": "int64",
@@ -4493,7 +4424,6 @@
         "type": "object"
       },
       "OpenTogetherOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "membershipCredential": {
             "type": "string"
@@ -4510,7 +4440,6 @@
         "type": "object"
       },
       "OrderingBody": {
-        "additionalProperties": false,
         "properties": {
           "episodeCount": {
             "description": "How many of the series' episodes it holds",
@@ -4543,7 +4472,6 @@
         "type": "object"
       },
       "OrderingPlaceBody": {
-        "additionalProperties": false,
         "properties": {
           "groupName": {
             "description": "The group's name, where the ordering names it (Disc 2)",
@@ -4571,7 +4499,6 @@
         "type": "object"
       },
       "OwnLinkOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "expiresAt": {
             "description": "Unix milliseconds; each visit renews it",
@@ -4612,7 +4539,6 @@
         "type": "object"
       },
       "PairingOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "code": {
             "type": "string"
@@ -4677,7 +4603,6 @@
         "type": "object"
       },
       "PairingStateOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "checkCode": {
             "type": "string"
@@ -4718,7 +4643,6 @@
         "type": "object"
       },
       "PersonBody": {
-        "additionalProperties": false,
         "properties": {
           "id": {
             "format": "int64",
@@ -4739,7 +4663,6 @@
         "type": "object"
       },
       "PictureTrackBody": {
-        "additionalProperties": false,
         "properties": {
           "codec": {
             "description": "ffprobe's name for it: hevc, h264, av1 ...",
@@ -4864,7 +4787,6 @@
         "type": "object"
       },
       "PlaybackPreferencesBody": {
-        "additionalProperties": false,
         "properties": {
           "audioChoice": {
             "$ref": "#/components/schemas/AudioChoiceBody"
@@ -4926,7 +4848,6 @@
         "type": "object"
       },
       "PlaysBody": {
-        "additionalProperties": false,
         "properties": {
           "episode": {
             "$ref": "#/components/schemas/EpisodePlaceBody",
@@ -4942,7 +4863,13 @@
               "extra",
               "other"
             ],
-            "type": "string"
+            "type": "string",
+            "x-extensible-enum": [
+              "movie",
+              "episode",
+              "extra",
+              "other"
+            ]
           },
           "libraryId": {
             "description": "A library its person reaches that covers its file's place, which a person goes back up to; absent for none",
@@ -4964,7 +4891,6 @@
         "type": "object"
       },
       "PortMappingBody": {
-        "additionalProperties": false,
         "properties": {
           "checkedAt": {
             "description": "Unix milliseconds; 0 before the first",
@@ -5003,7 +4929,6 @@
         "type": "object"
       },
       "PortMappingItemBody": {
-        "additionalProperties": false,
         "properties": {
           "expiresAt": {
             "description": "Unix milliseconds; 0 for one the router made for good",
@@ -5036,7 +4961,6 @@
         "type": "object"
       },
       "PreparedBody": {
-        "additionalProperties": false,
         "properties": {
           "budgetBytes": {
             "format": "int64",
@@ -5067,13 +4991,15 @@
         "description": "An error: a person is shown words chosen by its code, never its message (cut-a §5.2)",
         "oneOf": [
           {
-            "additionalProperties": false,
             "properties": {
               "code": {
                 "enum": [
                   "auth_required"
                 ],
-                "type": "string"
+                "type": "string",
+                "x-extensible-enum": [
+                  "auth_required"
+                ]
               },
               "detail": {
                 "$ref": "#/components/schemas/SignedOutDetailBody"
@@ -5098,13 +5024,15 @@
             "type": "object"
           },
           {
-            "additionalProperties": false,
             "properties": {
               "code": {
                 "enum": [
                   "invalid_request"
                 ],
-                "type": "string"
+                "type": "string",
+                "x-extensible-enum": [
+                  "invalid_request"
+                ]
               },
               "detail": {
                 "$ref": "#/components/schemas/InvalidRequestDetailBody"
@@ -5129,13 +5057,15 @@
             "type": "object"
           },
           {
-            "additionalProperties": false,
             "properties": {
               "code": {
                 "enum": [
                   "rate_limited"
                 ],
-                "type": "string"
+                "type": "string",
+                "x-extensible-enum": [
+                  "rate_limited"
+                ]
               },
               "detail": {
                 "$ref": "#/components/schemas/RateLimitedDetailBody"
@@ -5160,13 +5090,15 @@
             "type": "object"
           },
           {
-            "additionalProperties": false,
             "properties": {
               "code": {
                 "enum": [
                   "quota_exhausted"
                 ],
-                "type": "string"
+                "type": "string",
+                "x-extensible-enum": [
+                  "quota_exhausted"
+                ]
               },
               "detail": {
                 "$ref": "#/components/schemas/QuotaExhaustedDetailBody"
@@ -5191,13 +5123,15 @@
             "type": "object"
           },
           {
-            "additionalProperties": false,
             "properties": {
               "code": {
                 "enum": [
                   "provider_error"
                 ],
-                "type": "string"
+                "type": "string",
+                "x-extensible-enum": [
+                  "provider_error"
+                ]
               },
               "detail": {
                 "$ref": "#/components/schemas/ProviderRefusalDetailBody"
@@ -5222,13 +5156,15 @@
             "type": "object"
           },
           {
-            "additionalProperties": false,
             "properties": {
               "code": {
                 "enum": [
                   "media_unreachable"
                 ],
-                "type": "string"
+                "type": "string",
+                "x-extensible-enum": [
+                  "media_unreachable"
+                ]
               },
               "detail": {
                 "$ref": "#/components/schemas/MediaUnreachableDetailBody"
@@ -5253,13 +5189,15 @@
             "type": "object"
           },
           {
-            "additionalProperties": false,
             "properties": {
               "code": {
                 "enum": [
                   "in_another_session"
                 ],
-                "type": "string"
+                "type": "string",
+                "x-extensible-enum": [
+                  "in_another_session"
+                ]
               },
               "detail": {
                 "$ref": "#/components/schemas/InAnotherSessionDetailBody"
@@ -5284,7 +5222,6 @@
             "type": "object"
           },
           {
-            "additionalProperties": false,
             "properties": {
               "code": {
                 "enum": [
@@ -5304,7 +5241,24 @@
                   "receiving_a_cast",
                   "internal"
                 ],
-                "type": "string"
+                "type": "string",
+                "x-extensible-enum": [
+                  "setup_required",
+                  "forbidden",
+                  "not_found",
+                  "conflict",
+                  "stale",
+                  "node_silent",
+                  "file_unavailable",
+                  "preparing",
+                  "prepare_failed",
+                  "cannot_convert",
+                  "no_room_to_make",
+                  "playback_gone",
+                  "migrating",
+                  "receiving_a_cast",
+                  "internal"
+                ]
               },
               "failedHop": {
                 "description": "The leg of the request that failed, for reachability errors",
@@ -5328,7 +5282,6 @@
         ]
       },
       "ProviderBody": {
-        "additionalProperties": false,
         "properties": {
           "backgroundRatePerSecond": {
             "format": "double",
@@ -5374,7 +5327,6 @@
         "type": "object"
       },
       "ProviderRefusalDetailBody": {
-        "additionalProperties": false,
         "properties": {
           "nextCheckAt": {
             "format": "int64",
@@ -5444,7 +5396,6 @@
         "type": "object"
       },
       "QueueKindBody": {
-        "additionalProperties": false,
         "properties": {
           "failedLastDayCount": {
             "format": "int64",
@@ -5470,7 +5421,6 @@
         "type": "object"
       },
       "QuotaBody": {
-        "additionalProperties": false,
         "properties": {
           "allowed": {
             "description": "How many the host allows a day; 0 before it said",
@@ -5503,7 +5453,6 @@
         "type": "object"
       },
       "QuotaExhaustedDetailBody": {
-        "additionalProperties": false,
         "properties": {
           "downloadsResetAt": {
             "description": "Unix milliseconds",
@@ -5536,7 +5485,6 @@
         "type": "object"
       },
       "RateLimitedDetailBody": {
-        "additionalProperties": false,
         "properties": {
           "retryAfterMs": {
             "description": "How long the provider asks us to wait",
@@ -5550,7 +5498,6 @@
         "type": "object"
       },
       "ReachabilityOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "addresses": {
             "description": "Where the name points",
@@ -5592,7 +5539,6 @@
         "type": "object"
       },
       "ReachabilityResult": {
-        "additionalProperties": false,
         "properties": {
           "detail": {
             "type": "string"
@@ -5615,7 +5561,6 @@
         "type": "object"
       },
       "RecordedBody": {
-        "additionalProperties": false,
         "properties": {
           "fileName": {
             "description": "Its file's name",
@@ -5659,7 +5604,6 @@
         "type": "object"
       },
       "RefreshOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "isQueued": {
             "description": "False when a fetch for it was already waiting",
@@ -5748,7 +5692,6 @@
         "type": "object"
       },
       "RepointedOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "movedFileCount": {
             "format": "int64",
@@ -5899,7 +5842,6 @@
         "type": "object"
       },
       "ReportOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "lowerQuality": {
             "$ref": "#/components/schemas/LadderBody",
@@ -5913,7 +5855,6 @@
         "type": "object"
       },
       "RequestProblemBody": {
-        "additionalProperties": false,
         "properties": {
           "location": {
             "description": "Where it is: a field such as body.name or query.cursor, or body when the body as a whole is wrong",
@@ -5930,7 +5871,6 @@
         "type": "object"
       },
       "RescanOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "isScanning": {
             "type": "boolean"
@@ -5942,7 +5882,6 @@
         "type": "object"
       },
       "RescanStartedOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "isStarted": {
             "type": "boolean"
@@ -5954,7 +5893,6 @@
         "type": "object"
       },
       "RescansStartedOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "startedCount": {
             "format": "int64",
@@ -5967,7 +5905,6 @@
         "type": "object"
       },
       "ResourceUseHourBody": {
-        "additionalProperties": false,
         "properties": {
           "busiestCpuPercent": {
             "description": "Its busiest minute's, in percent of one core",
@@ -6030,7 +5967,6 @@
         "type": "object"
       },
       "ResourceUseOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "hours": {
             "description": "The last day's hours, the core's first, newest first",
@@ -6059,7 +5995,6 @@
         "type": "object"
       },
       "ResourceUseSummaryBody": {
-        "additionalProperties": false,
         "properties": {
           "busiestCpuPercent": {
             "description": "Its busiest minute's, in percent of one core",
@@ -6129,7 +6064,6 @@
         "type": "object"
       },
       "RetiredOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "cancelledJobCount": {
             "format": "int64",
@@ -6152,7 +6086,6 @@
         "type": "object"
       },
       "RoleBody": {
-        "additionalProperties": false,
         "properties": {
           "capabilities": {
             "items": {
@@ -6256,7 +6189,6 @@
         "type": "object"
       },
       "RolesOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "capabilities": {
             "description": "The closed set a role's capabilities come from",
@@ -6305,7 +6237,6 @@
         "type": "object"
       },
       "RootBody": {
-        "additionalProperties": false,
         "properties": {
           "lastScanAt": {
             "format": "int64",
@@ -6356,7 +6287,6 @@
         "type": "object"
       },
       "RootScanBody": {
-        "additionalProperties": false,
         "properties": {
           "examinedCount": {
             "description": "Of those, read",
@@ -6392,7 +6322,6 @@
         "type": "object"
       },
       "RootWatchBody": {
-        "additionalProperties": false,
         "properties": {
           "cause": {
             "enum": [
@@ -6419,7 +6348,6 @@
         "type": "object"
       },
       "ScanOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "askedRootCount": {
             "format": "int64",
@@ -6432,7 +6360,6 @@
         "type": "object"
       },
       "SearchOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "genres": {
             "$ref": "#/components/schemas/GroupBody"
@@ -6452,7 +6379,6 @@
         "type": "object"
       },
       "SeasonBody": {
-        "additionalProperties": false,
         "properties": {
           "episodeCount": {
             "format": "int64",
@@ -6487,7 +6413,6 @@
         "type": "object"
       },
       "SecretBody": {
-        "additionalProperties": false,
         "properties": {
           "description": {
             "type": "string"
@@ -6524,7 +6449,6 @@
         "type": "object"
       },
       "SecretsOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "secrets": {
             "items": {
@@ -6542,7 +6466,6 @@
         "type": "object"
       },
       "SecurityFixBody": {
-        "additionalProperties": false,
         "properties": {
           "fixedIn": {
             "description": "The first release that has it, \"v0.3.2\"",
@@ -6631,7 +6554,6 @@
         "type": "object"
       },
       "SeriesBody": {
-        "additionalProperties": false,
         "properties": {
           "art": {
             "$ref": "#/components/schemas/ArtBody"
@@ -6672,7 +6594,10 @@
             "enum": [
               "series"
             ],
-            "type": "string"
+            "type": "string",
+            "x-extensible-enum": [
+              "series"
+            ]
           },
           "libraries": {
             "description": "The libraries its person reaches that list one of its episodes, by name: its page goes up to the one the person came through, else the first (D367)",
@@ -6746,7 +6671,6 @@
         "type": "object"
       },
       "SeriesEntryBody": {
-        "additionalProperties": false,
         "properties": {
           "addedAt": {
             "description": "When the scan that found it ran, Unix milliseconds; absent in a list by identification",
@@ -6791,7 +6715,10 @@
             "enum": [
               "series"
             ],
-            "type": "string"
+            "type": "string",
+            "x-extensible-enum": [
+              "series"
+            ]
           },
           "name": {
             "type": "string"
@@ -6821,7 +6748,6 @@
         "type": "object"
       },
       "SeriesReadWronglyBody": {
-        "additionalProperties": false,
         "properties": {
           "name": {
             "type": "string"
@@ -6844,7 +6770,6 @@
         "type": "object"
       },
       "ServerBody": {
-        "additionalProperties": false,
         "properties": {
           "build": {
             "$ref": "#/components/schemas/BuildBody"
@@ -6915,7 +6840,6 @@
         "type": "object"
       },
       "SessionOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "deviceSecret": {
             "type": "string"
@@ -7007,7 +6931,6 @@
         "type": "object"
       },
       "SettingBody": {
-        "additionalProperties": false,
         "properties": {
           "description": {
             "type": "string"
@@ -7028,7 +6951,12 @@
               "integer",
               "string"
             ],
-            "type": "string"
+            "type": "string",
+            "x-extensible-enum": [
+              "bool",
+              "integer",
+              "string"
+            ]
           },
           "maximum": {
             "format": "int64",
@@ -7089,7 +7017,6 @@
         "type": "object"
       },
       "SettingsOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "settings": {
             "items": {
@@ -7131,7 +7058,6 @@
         "type": "object"
       },
       "SetupOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "isRequired": {
             "description": "No one can sign in until the first admin is made with the setup code",
@@ -7166,7 +7092,6 @@
         "type": "object"
       },
       "SignedOutDetailBody": {
-        "additionalProperties": false,
         "properties": {
           "reason": {
             "enum": [
@@ -7183,7 +7108,6 @@
         "type": "object"
       },
       "SoundTrackBody": {
-        "additionalProperties": false,
         "properties": {
           "audioTrackIndex": {
             "format": "int64",
@@ -7499,7 +7423,6 @@
         "type": "object"
       },
       "StartPlaybackOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "audioTracks": {
             "items": {
@@ -7696,7 +7619,6 @@
         "type": "object"
       },
       "StopBody": {
-        "additionalProperties": false,
         "properties": {
           "message": {
             "type": "string"
@@ -7721,7 +7643,6 @@
         "type": "object"
       },
       "StreamBody": {
-        "additionalProperties": false,
         "properties": {
           "channelCount": {
             "format": "int64",
@@ -7753,7 +7674,6 @@
         "type": "object"
       },
       "StuckBody": {
-        "additionalProperties": false,
         "properties": {
           "gaveUpAt": {
             "format": "int64",
@@ -7785,7 +7705,6 @@
         "type": "object"
       },
       "SubfolderBody": {
-        "additionalProperties": false,
         "properties": {
           "name": {
             "type": "string"
@@ -7808,7 +7727,6 @@
         "type": "object"
       },
       "SubtitleCandidateBody": {
-        "additionalProperties": false,
         "properties": {
           "downloadCount": {
             "format": "int64",
@@ -7853,7 +7771,6 @@
         "type": "object"
       },
       "SubtitleCandidatesOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "allowance": {
             "$ref": "#/components/schemas/AllowanceBody"
@@ -7904,7 +7821,6 @@
         "type": "object"
       },
       "SubtitleTrackBody": {
-        "additionalProperties": false,
         "properties": {
           "assUrl": {
             "description": "The track as ASS, for JASSUB",
@@ -7957,7 +7873,6 @@
         "type": "object"
       },
       "SystemNodeBody": {
-        "additionalProperties": false,
         "properties": {
           "build": {
             "$ref": "#/components/schemas/BuildBody"
@@ -8064,7 +7979,6 @@
         "type": "object"
       },
       "SystemOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "destinations": {
             "items": {
@@ -8177,7 +8091,6 @@
         "type": "object"
       },
       "TitleBody": {
-        "additionalProperties": false,
         "properties": {
           "art": {
             "$ref": "#/components/schemas/ArtBody"
@@ -8240,7 +8153,13 @@
               "extra",
               "other"
             ],
-            "type": "string"
+            "type": "string",
+            "x-extensible-enum": [
+              "movie",
+              "episode",
+              "extra",
+              "other"
+            ]
           },
           "libraries": {
             "description": "The libraries its person reaches that list it, by name: its page goes up to the one the person came through, else the first (D367)",
@@ -8300,7 +8219,6 @@
         "type": "object"
       },
       "TitleEntryBody": {
-        "additionalProperties": false,
         "properties": {
           "addedAt": {
             "description": "When the scan that found it ran, Unix milliseconds; absent in a list by identification",
@@ -8338,7 +8256,13 @@
               "extra",
               "other"
             ],
-            "type": "string"
+            "type": "string",
+            "x-extensible-enum": [
+              "movie",
+              "episode",
+              "extra",
+              "other"
+            ]
           },
           "landscapeSha256": {
             "description": "An other video's 16:9 picture: GET /bytes/art/{sourceSha256}/landscape-s.webp",
@@ -8380,7 +8304,6 @@
         "type": "object"
       },
       "TogetherDetailsOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "durationMs": {
             "description": "How long what plays lasts, in ms; absent when unknown",
@@ -8431,7 +8354,6 @@
         "type": "object"
       },
       "TogetherLinkBody": {
-        "additionalProperties": false,
         "properties": {
           "expiresAt": {
             "description": "Unix milliseconds after which it admits no one; absent once used (D346)",
@@ -8491,7 +8413,6 @@
         "type": "object"
       },
       "TogetherLinkOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "link": {
             "description": "The link to pass on, while a discovery has claimed the server",
@@ -8512,7 +8433,6 @@
         "type": "object"
       },
       "TogetherMemberBody": {
-        "additionalProperties": false,
         "properties": {
           "hostNote": {
             "description": "The note of the link they joined by; only the host sees it",
@@ -8556,7 +8476,6 @@
         "type": "object"
       },
       "TracksBody": {
-        "additionalProperties": false,
         "properties": {
           "filePicture": {
             "$ref": "#/components/schemas/FilePictureBody",
@@ -8600,7 +8519,6 @@
         "type": "object"
       },
       "UnavailableBody": {
-        "additionalProperties": false,
         "properties": {
           "nodeName": {
             "description": "The machine that holds it",
@@ -8675,7 +8593,6 @@
         "type": "object"
       },
       "UnreadBody": {
-        "additionalProperties": false,
         "properties": {
           "code": {
             "type": "string"
@@ -8713,7 +8630,6 @@
         "type": "object"
       },
       "UnusedBody": {
-        "additionalProperties": false,
         "properties": {
           "key": {
             "type": "string"
@@ -8734,7 +8650,6 @@
         "type": "object"
       },
       "UnusedOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "unusedSettings": {
             "items": {
@@ -8752,7 +8667,6 @@
         "type": "object"
       },
       "UpNextBody": {
-        "additionalProperties": false,
         "properties": {
           "episode": {
             "$ref": "#/components/schemas/NextUpBody"
@@ -8776,7 +8690,6 @@
         "type": "object"
       },
       "UpNextOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "previous": {
             "$ref": "#/components/schemas/NextUpBody",
@@ -8790,7 +8703,6 @@
         "type": "object"
       },
       "UpdateBody": {
-        "additionalProperties": false,
         "properties": {
           "checkedAt": {
             "description": "Unix milliseconds a signed release record was last read; 0 before one has",
@@ -8833,7 +8745,6 @@
         "type": "object"
       },
       "UserBody": {
-        "additionalProperties": false,
         "properties": {
           "adminAway": {
             "enum": [
@@ -8893,7 +8804,6 @@
         "type": "object"
       },
       "UserEntryBody": {
-        "additionalProperties": false,
         "properties": {
           "adminNote": {
             "type": "string"
@@ -8923,7 +8833,6 @@
         "type": "object"
       },
       "UserPageOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "ownLinkExpiresAt": {
             "description": "Unix milliseconds",
@@ -8959,7 +8868,6 @@
         "type": "object"
       },
       "UsersOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "nextCursor": {
             "description": "The next page's cursor; absent on the last",
@@ -8981,7 +8889,6 @@
         "type": "object"
       },
       "VersionBody": {
-        "additionalProperties": false,
         "properties": {
           "files": {
             "items": {
@@ -9016,7 +8923,6 @@
         "type": "object"
       },
       "WaitBody": {
-        "additionalProperties": false,
         "properties": {
           "isRunning": {
             "description": "Whether it is being done now, rather than waiting its turn",
@@ -9034,7 +8940,6 @@
         "type": "object"
       },
       "WaitingBody": {
-        "additionalProperties": false,
         "properties": {
           "fileCount": {
             "description": "How many files the scan would remove",
@@ -9084,7 +8989,6 @@
         "type": "object"
       },
       "WatchStatsBody": {
-        "additionalProperties": false,
         "properties": {
           "lastWatchedAt": {
             "description": "Unix milliseconds; absent when nothing was watched",
@@ -9107,7 +9011,6 @@
         "type": "object"
       },
       "WatchedMarkOutputBody": {
-        "additionalProperties": false,
         "properties": {
           "previous": {
             "description": "Each title's mark as it stood before; PUT /me/watched with them undoes the mark",
@@ -9149,7 +9052,6 @@
         "type": "object"
       },
       "WebRTCPathBody": {
-        "additionalProperties": false,
         "properties": {
           "count": {
             "format": "int64",
@@ -9195,7 +9097,7 @@
     }
   },
   "info": {
-    "description": "The Orpheum media server's client API (cut-a §5). Errors have one shape: an object whose error holds a code, a message, a detail and, for a reachability error, the failedHop.",
+    "description": "The Orpheum media server's client API (cut-a §5). Errors have one shape: an object whose error holds a code, a message, a detail and, for a reachability error, the failedHop. Responses are open: a client ignores a field it does not know, and a kind or an error code it does not know (an enumeration marked x-extensible-enum gains values without notice), skipping the item or treating it as the closest it knows. Requests are closed: a field the document does not name is refused.",
     "title": "Orpheum",
     "version": "1"
   },

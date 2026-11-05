@@ -5,8 +5,8 @@
 // translates; the decisions belong to the packages it calls. It also relays media bytes from the
 // node to the client for direct play and chunks.
 //
-// Every error leaves in the one shape of cut-a §5.2, with a code from its closed enumeration.
-// Credentials travel in a header or a cookie, never in a URL (D154).
+// Every error leaves in the one shape of cut-a §5.2, with a code from its enumeration, which a later
+// server may extend (D432 §2). Credentials travel in a header or a cookie, never in a URL (D154).
 //
 // # Invariants
 //
@@ -54,6 +54,11 @@
 //   - Every error, huma's own included, leaves as {"error": {...}} with a code from the
 //     enumeration, and never echoes a submitted value. Enforced by the tests' wantError and
 //     TestSecrets_AreWriteOnly.
+//   - Responses are open and requests closed: no schema only a response uses refuses a field it
+//     does not name, its kind enumerations and the error codes are marked x-extensible-enum, and
+//     the document says a client ignores what it does not know; a request body still refuses an
+//     unknown field (D432 §2; openResponses). Enforced by
+//     TestDocument_ResponsesAreOpenAndRequestsClosed.
 //   - Every error the API answers with, huma's own included, is logged at debug with its operation,
 //     method, path, status, code and message, never the submitted value, since a client shows only
 //     words chosen by the code. Enforced by TestErrorAnswers_AreLoggedWithTheirOperationAndCode.
