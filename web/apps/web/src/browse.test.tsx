@@ -174,11 +174,15 @@ describe("how far in a poster's film or series is watched (the owner, 2026-10-25
 
   it("is a film's partway file's percent, and a series' episodes finished of those it has", () => {
     expect(watchedPercentOf({ ...base, watchedPercent: 40 })).toBe(40);
-    expect(watchedPercentOf({ ...base, episodeCount: 8, finishedEpisodeCount: 2 })).toBe(25);
+    expect(
+      watchedPercentOf({ ...base, kind: "series", episodeCount: 8, finishedEpisodeCount: 2 }),
+    ).toBe(25);
   });
 
   it("is nothing for one not begun, or a series with no episodes", () => {
     expect(watchedPercentOf(base)).toBeUndefined();
-    expect(watchedPercentOf({ ...base, episodeCount: 0, finishedEpisodeCount: 0 })).toBeUndefined();
+    expect(
+      watchedPercentOf({ ...base, kind: "series", episodeCount: 0, finishedEpisodeCount: 0 }),
+    ).toBeUndefined();
   });
 });

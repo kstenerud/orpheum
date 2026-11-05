@@ -44,7 +44,7 @@ const library: components["schemas"]["LibraryBody"] = {
   ],
 };
 
-const waitingItem: components["schemas"]["ItemEntryBody"] = {
+const waitingItem: components["schemas"]["TitleEntryBody"] = {
   id: 7,
   kind: "movie",
   name: "Théo",

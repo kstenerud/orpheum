@@ -3131,7 +3131,7 @@ export interface components {
             /** @description Its path below the library's folders; empty at their top */
             folder: string;
             subfolders: components["schemas"]["SubfolderBody"][] | null;
-            titles: components["schemas"]["ItemEntryBody"][] | null;
+            titles: (components["schemas"]["TitleEntryBody"] | components["schemas"]["SeriesEntryBody"])[] | null;
         };
         GenreBody: {
             /** Format: int64 */
@@ -3351,57 +3351,6 @@ export interface components {
             character?: string;
             /** @description Their jobs on it, cast first */
             jobs: ("cast" | "director" | "writer")[] | null;
-        };
-        ItemEntryBody: {
-            /**
-             * Format: int64
-             * @description When the scan that found it ran, Unix milliseconds; absent in a list by identification
-             */
-            addedAt?: number;
-            /** @description The person's credit on it; present in a list by person alone */
-            credit?: components["schemas"]["ItemCreditBody"];
-            /**
-             * Format: int64
-             * @description How many episodes a series has with a file, in the ordering the person watches it in; absent for a film
-             */
-            episodeCount?: number;
-            /**
-             * Format: int64
-             * @description How many of those episodes the person watched, by playing or by hand (D370); absent when none, and for a film
-             */
-            finishedEpisodeCount?: number;
-            /**
-             * Format: int64
-             * @description GET /items/{id}
-             */
-            id: number;
-            /** @description Where its match stands; present in a list by identification alone */
-            identification?: components["schemas"]["IdentificationBody"];
-            identificationState: string;
-            isGuessed?: boolean;
-            /** @description Whether the person watched it: a film or other video by playing it to its finish or by hand, a series once they watched every episode it counts (D370) */
-            isWatched?: boolean;
-            /**
-             * @description What it is: a film, a series, an episode, an extra or an other video (D349, D416 §5)
-             * @enum {string}
-             */
-            kind: "movie" | "series" | "episode" | "extra" | "other";
-            /** @description An other video's 16:9 picture: GET /bytes/art/{sourceSha256}/landscape-s.webp */
-            landscapeSha256?: string;
-            name: string;
-            /** @description A film's or series' 16:9 picture when it has no poster, shown above the mark of a missing poster: GET /bytes/art/{sourceSha256}/landscape-s.webp */
-            noPosterStillSha256?: string;
-            /** @description Its poster's hash: GET /bytes/art/{sourceSha256}/portrait-m.webp */
-            posterSha256?: string;
-            recorded?: components["schemas"]["RecordedBody"];
-            unavailable?: components["schemas"]["UnavailableBody"];
-            /**
-             * Format: int64
-             * @description How far, in percent, the person is through a film, where Continue Watching would resume it; absent for a series, and for a film they are not partway through, have hidden since, or whose file's length is not known
-             */
-            watchedPercent?: number;
-            /** Format: int64 */
-            year?: number;
         };
         JobBody: {
             /** Format: int64 */
@@ -3747,7 +3696,7 @@ export interface components {
             name?: string;
         };
         ListItemsOutputBody: {
-            items: components["schemas"]["ItemEntryBody"][] | null;
+            items: (components["schemas"]["TitleEntryBody"] | components["schemas"]["SeriesEntryBody"])[] | null;
             /** @description The next page's cursor; absent on the last */
             nextCursor?: string;
         };
@@ -4741,6 +4690,49 @@ export interface components {
             /** Format: int64 */
             year?: number;
         };
+        SeriesEntryBody: {
+            /**
+             * Format: int64
+             * @description When the scan that found it ran, Unix milliseconds; absent in a list by identification
+             */
+            addedAt?: number;
+            /** @description The person's credit on it; present in a list by person alone */
+            credit?: components["schemas"]["ItemCreditBody"];
+            /**
+             * Format: int64
+             * @description How many episodes a series has with a file, in the ordering the person watches it in; absent for a film
+             */
+            episodeCount?: number;
+            /**
+             * Format: int64
+             * @description How many of those episodes the person watched, by playing or by hand (D370); absent when none, and for a film
+             */
+            finishedEpisodeCount?: number;
+            /**
+             * Format: int64
+             * @description GET /items/{id}
+             */
+            id: number;
+            /** @description Where its match stands; present in a list by identification alone */
+            identification?: components["schemas"]["IdentificationBody"];
+            identificationState: string;
+            isGuessed?: boolean;
+            /** @description Whether the person watched it: a film or other video by playing it to its finish or by hand, a series once they watched every episode it counts (D370) */
+            isWatched?: boolean;
+            /**
+             * @description A series (D416 §5) (enum property replaced by openapi-typescript)
+             * @enum {string}
+             */
+            kind: "series";
+            name: string;
+            /** @description A film's or series' 16:9 picture when it has no poster, shown above the mark of a missing poster: GET /bytes/art/{sourceSha256}/landscape-s.webp */
+            noPosterStillSha256?: string;
+            /** @description Its poster's hash: GET /bytes/art/{sourceSha256}/portrait-m.webp */
+            posterSha256?: string;
+            unavailable?: components["schemas"]["UnavailableBody"];
+            /** Format: int64 */
+            year?: number;
+        };
         SeriesReadWronglyBody: {
             name: string;
             /** Format: int64 */
@@ -5201,6 +5193,47 @@ export interface components {
             /** @description Why none of its files can be read now; absent when one can */
             unavailable?: components["schemas"]["UnavailableBody"];
             versions: components["schemas"]["VersionBody"][] | null;
+            /** Format: int64 */
+            year?: number;
+        };
+        TitleEntryBody: {
+            /**
+             * Format: int64
+             * @description When the scan that found it ran, Unix milliseconds; absent in a list by identification
+             */
+            addedAt?: number;
+            /** @description The person's credit on it; present in a list by person alone */
+            credit?: components["schemas"]["ItemCreditBody"];
+            /**
+             * Format: int64
+             * @description GET /items/{id}
+             */
+            id: number;
+            /** @description Where its match stands; present in a list by identification alone */
+            identification?: components["schemas"]["IdentificationBody"];
+            identificationState: string;
+            isGuessed?: boolean;
+            /** @description Whether the person watched it: a film or other video by playing it to its finish or by hand, a series once they watched every episode it counts (D370) */
+            isWatched?: boolean;
+            /**
+             * @description What it is: a film, an episode, an extra or an other video (D349, D416 §5) (enum property replaced by openapi-typescript)
+             * @enum {string}
+             */
+            kind: "episode" | "extra" | "movie" | "other";
+            /** @description An other video's 16:9 picture: GET /bytes/art/{sourceSha256}/landscape-s.webp */
+            landscapeSha256?: string;
+            name: string;
+            /** @description A film's or series' 16:9 picture when it has no poster, shown above the mark of a missing poster: GET /bytes/art/{sourceSha256}/landscape-s.webp */
+            noPosterStillSha256?: string;
+            /** @description Its poster's hash: GET /bytes/art/{sourceSha256}/portrait-m.webp */
+            posterSha256?: string;
+            recorded?: components["schemas"]["RecordedBody"];
+            unavailable?: components["schemas"]["UnavailableBody"];
+            /**
+             * Format: int64
+             * @description How far, in percent, the person is through a film, where Continue Watching would resume it; absent for a series, and for a film they are not partway through, have hidden since, or whose file's length is not known
+             */
+            watchedPercent?: number;
             /** Format: int64 */
             year?: number;
         };

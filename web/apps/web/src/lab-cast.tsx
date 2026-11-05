@@ -45,7 +45,7 @@ const receiverFormats: PlayableFormats = {
 type SdkState = "loading" | "ready" | "unavailable" | "failed";
 
 /** A film the probe may cast. */
-type Film = components["schemas"]["ItemEntryBody"];
+type Film = components["schemas"]["TitleEntryBody"] | components["schemas"]["SeriesEntryBody"];
 
 /** The films the person may pick from. */
 function useFilms(api: Api): readonly Film[] {

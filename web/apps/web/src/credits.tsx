@@ -22,7 +22,8 @@ const creditedPageSize = 500;
 /** A title's cast, directors and writers, as the server sends them, each in billing order. */
 export type Credits = components["schemas"]["CreditsBody"];
 type Credit = components["schemas"]["CreditBody"];
-type PersonItem = components["schemas"]["ItemEntryBody"];
+type PersonItem =
+  components["schemas"]["TitleEntryBody"] | components["schemas"]["SeriesEntryBody"];
 type PersonCredit = components["schemas"]["ItemCreditBody"];
 
 /** A name's initials: its first word's first letter and its last's, as a face's placeholder shows. */

@@ -20,7 +20,8 @@ import { useResource } from "./use-resource.ts";
 import { loadAgain } from "./use-pages.ts";
 
 /** A film or series waiting for a match, as the server sends it. */
-export type WaitingItem = components["schemas"]["ItemEntryBody"];
+export type WaitingItem =
+  components["schemas"]["TitleEntryBody"] | components["schemas"]["SeriesEntryBody"];
 /** Which items to show: those with several matches, or those with none. */
 export type WaitingFilter = "ambiguous" | "unidentified";
 

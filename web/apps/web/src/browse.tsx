@@ -46,7 +46,8 @@ import { usePages, type Page } from "./use-pages.ts";
 import { useResource, type Resource } from "./use-resource.ts";
 
 /** One film, series or other video in a list, as the server sends it. */
-export type Entry = components["schemas"]["ItemEntryBody"];
+export type Entry =
+  components["schemas"]["TitleEntryBody"] | components["schemas"]["SeriesEntryBody"];
 
 /** Which list: films or series. */
 export type BrowseKind = "movie" | "series";
@@ -143,7 +144,7 @@ export function EntryPoster(props: {
  * begun.
  */
 export function watchedPercentOf(entry: Entry): number | undefined {
-  if (entry.watchedPercent !== undefined) {
+  if (entry.kind !== "series") {
     return entry.watchedPercent;
   }
   const { episodeCount, finishedEpisodeCount } = entry;
@@ -165,7 +166,7 @@ export function EntryDetails(props: { readonly entry: Entry }): JSX.Element {
       {entry.year === undefined ? null : (
         <PosterDetail>{t("browse.year", { year: entry.year })}</PosterDetail>
       )}
-      {entry.recorded === undefined ? null : (
+      {entry.kind === "series" || entry.recorded === undefined ? null : (
         <PosterDetail>{dateText(entry.recorded.recordedAt, i18n.language)}</PosterDetail>
       )}
       {entry.unavailable === undefined ? null : (
