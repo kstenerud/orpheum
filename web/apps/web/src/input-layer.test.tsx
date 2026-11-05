@@ -3,10 +3,12 @@
 
 import "./i18n.ts";
 
-import { act, type JSX } from "react";
+import { act, useLayoutEffect, useState, type JSX } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BackButton } from "./back-button.tsx";
+import { commandEventName } from "./input-commands.ts";
+import { useCommands } from "./input-layer.tsx";
 import { Link } from "./link.tsx";
 import { useRoute } from "./services.tsx";
 import { mount, settleUntil, type Mounted } from "./test-dom.tsx";
@@ -97,5 +99,73 @@ describe("the input layer in the app", () => {
     expect(services.navigation.route()).toEqual({ screen: "films" });
     // Up from the list, with nowhere before it, goes nowhere and leaves the key to the browser.
     expect(press("Escape", 27).defaultPrevented).toBe(false);
+  });
+});
+
+/**
+ * Controls shown by a press of their button, each command heard named with what showed as it was
+ * heard, and Back offered as the shown controls are drawn, before anything after the drawing runs: a
+ * Fire TV's Back as soon after the press as it can come.
+ */
+function ShownControls(props: { readonly heard: string[] }): JSX.Element {
+  const [shown, setShown] = useState("hidden");
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          setShown("full");
+        }}
+      >
+        {shown}
+      </button>
+      <ControlsHearing shown={shown} heard={props.heard} />
+      <BackOnceShown shown={shown} />
+    </>
+  );
+}
+
+/** Hears the commands, noting each with what showed as it was heard. */
+function ControlsHearing(props: { readonly shown: string; readonly heard: string[] }): null {
+  useCommands(
+    "document",
+    (detail) => {
+      props.heard.push(`${detail.command} while ${props.shown}`);
+    },
+    { isCapture: true },
+  );
+  return null;
+}
+
+/** Offers Back as the controls are drawn shown, in the drawing's own layout effects. */
+function BackOnceShown(props: { readonly shown: string }): null {
+  useLayoutEffect(() => {
+    if (props.shown === "full") {
+      const detail = { command: "back", source: "key" };
+      document.body.dispatchEvent(
+        new CustomEvent(commandEventName, { bubbles: true, cancelable: true, detail }),
+      );
+    }
+  }, [props.shown]);
+  return null;
+}
+
+describe("a component's commands", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+  });
+
+  // A Fire TV's Back just after Up showed the player's controls left the film, heard by the handler
+  // of the controls still hidden (the overlay's browser test, 2026-11-05).
+  it("hears a command offered as soon as the page is drawn by the handler that drew it", async () => {
+    const heard: string[] = [];
+    mounted = await mount(<ShownControls heard={heard} />);
+    act(() => {
+      mounted?.container.querySelector("button")?.click();
+    });
+    expect(mounted.container.textContent).toBe("full");
+    expect(heard).toEqual(["back while full"]);
   });
 });
