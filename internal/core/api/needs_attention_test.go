@@ -3,6 +3,7 @@
 package api_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -12,6 +13,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
+	"github.com/kstenerud/orpheum/internal/store"
+	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -157,4 +160,92 @@ func TestNeedsAttention_ListsAHundredAndCountsThemAll(t *testing.T) {
 		t.Errorf("GET /needs-attention listed %d films without sound and counted %d; want 100 and %d",
 			len(got.Body.FilmsWithoutSound), got.Body.FilmsWithoutSoundCount, silentFilms)
 	}
+}
+
+// A series' unplaced episodes' files are counted in full however many there are (D432 §4): the read
+// of unnumbered episodes' files once stopped at 5000 rows, under-reporting a series with more. The count
+// is of files.
+func TestNeedsAttention_CountsASeriesUnplacedEpisodesPastFiveThousand(t *testing.T) {
+	t.Parallel()
+	const episodes, filesEach = 1001, 5
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelve(t)
+	places := make([]string, 0, episodes)
+	for index := range episodes {
+		id := int64(100 + index)
+		librarytest.Title(t, harness.database, librarytest.TitleSpec{
+			ID: id, Library: 1, Kind: "episode", IdentificationState: "unidentified", AddedAt: 2,
+		})
+		places = append(places, fmt.Sprintf(`(1, %d, 0, NULL, %d)`, id, 20000+index))
+	}
+	storetest.ExecRaw(t, harness.databasePath, storetest.Positions(strings.Join(places, ", ")))
+	seedEpisodeFiles(t, harness.database, 100, episodes, filesEach)
+	got := harness.do(t, http.MethodGet, "/needs-attention", admin, nil)
+	unplaced := episodes * filesEach
+	want := fmt.Sprintf(`"seriesReadWrongly":[{"seriesId":20,"name":"Brass Arena","unplacedCount":%d}]`, unplaced)
+	if !strings.Contains(got.body, want) {
+		t.Errorf("GET /needs-attention = %d %.400s; want Brass Arena's %d unplaced files counted", got.status,
+			got.body, unplaced)
+	}
+}
+
+// seedEpisodeFiles gives each of the episodes from firstID a version holding filesEach files, as
+// librarytest.File writes each, in one transaction: a transaction per file, or every file in one
+// title (title_found's trigger recomputes over a title's files), takes minutes.
+func seedEpisodeFiles(t *testing.T, database *store.Database, firstID int64, episodes, filesEach int) {
+	t.Helper()
+	library, err := database.Read().GetLibraryForIdentify(t.Context(), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+		for index := range episodes * filesEach {
+			episodeID := firstID + int64(index/filesEach)
+			if seedErr := seedEpisodeFile(t.Context(), queries, library.Kind, episodeID, index); seedErr != nil {
+				return seedErr
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("files: %v", err)
+	}
+}
+
+// seedEpisodeFile writes the index'th file, read and listed, in a new version of the episode.
+func seedEpisodeFile(
+	ctx context.Context, queries *sqlcgen.Queries, libraryKind string, episodeID int64, index int,
+) error {
+	path := fmt.Sprintf("/m/BB/Brass Arena - part %d.mkv", index)
+	sizeBytes := int64(10)
+	id, err := queries.InsertFile(ctx, sqlcgen.InsertFileParams{
+		SizeBytes: &sizeBytes, PayloadHash: []byte(path),
+	})
+	if err != nil {
+		return fmt.Errorf("file %d: %w", index, err)
+	}
+	err = queries.InsertPlace(ctx, sqlcgen.InsertPlaceParams{
+		FileID: id, NodeID: 1, Path: path, ReportedPathRaw: []byte(path), Filing: "read", SeenAt: 1,
+	})
+	if err != nil {
+		return fmt.Errorf("place %d: %w", index, err)
+	}
+	err = queries.UpsertFileFiling(ctx, sqlcgen.UpsertFileFilingParams{
+		FileID: id, LibraryKind: libraryKind, Filing: "listed",
+	})
+	if err != nil {
+		return fmt.Errorf("filing %d: %w", index, err)
+	}
+	versionID, err := queries.InsertVersion(ctx, sqlcgen.InsertVersionParams{WorkID: episodeID, CreatedAt: 2})
+	if err != nil {
+		return fmt.Errorf("version %d: %w", index, err)
+	}
+	err = queries.SetFileVersionAndIdentifiedPath(ctx, sqlcgen.SetFileVersionAndIdentifiedPathParams{
+		LibraryKind: libraryKind, VersionID: &versionID, FileID: id,
+	})
+	if err != nil {
+		return fmt.Errorf("file %d's version: %w", index, err)
+	}
+	return nil
 }
