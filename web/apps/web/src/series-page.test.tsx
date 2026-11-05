@@ -9,7 +9,7 @@
 
 import "./i18n.ts";
 
-import { act, type JSX } from "react";
+import { act, useState, type JSX, type ReactNode } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
@@ -54,6 +54,19 @@ const answers: Answers = {
 
 let shown: Mounted | undefined;
 
+/**
+ * Shows its children once shown() is called, so a test notes an episode reached after its mount,
+ * which forgets what an earlier test left (resetOnEachTestMount), and before the page shows.
+ */
+let show: (() => void) | undefined;
+function ShownLater(props: { readonly children: ReactNode }): JSX.Element {
+  const [shownYet, setShownYet] = useState(false);
+  show = () => {
+    setShownYet(true);
+  };
+  return <>{shownYet ? props.children : null}</>;
+}
+
 /** The Series list, standing in, and a series' page, letting episodes reached go as the app does. */
 function ListAndSeries(): JSX.Element {
   useEpisodesReachedLetGoOnGoing();
@@ -84,10 +97,18 @@ describe("a series' page, one page with a season picker (D367 §9)", () => {
   it("returned to from an episode, shows that episode's season, the episode focused", async () => {
     const place = fakePlace("/series/6?season=1");
     const navigation = createNavigation(place, false);
-    noteEpisodeReached(6, { season: 2, episodeId: 42 });
     shown = await mount(
-      withServices(<Series id={6} season={1} />, { ...servedBy(answers), navigation }),
+      withServices(
+        <ShownLater>
+          <Series id={6} season={1} />
+        </ShownLater>,
+        { ...servedBy(answers), navigation },
+      ),
     );
+    noteEpisodeReached(6, { season: 2, episodeId: 42 });
+    act(() => {
+      show?.();
+    });
     await settleUntil(() => document.activeElement?.getAttribute("href") === "/titles/42");
     expect(place.addresses).toEqual(["/series/6?season=2"]);
     expect(shown.container.querySelector("h2")?.textContent).toBe("Season 2");
@@ -124,5 +145,12 @@ describe("a series' page, one page with a season picker (D367 §9)", () => {
       ),
     );
     expect(episodeReachedOf(7)).toEqual({ season: 3, episodeId: 42 });
+  });
+
+  it("forgets, at each test's mount, an episode an earlier test reached, as a new tab would", async () => {
+    noteEpisodeReached(6, { season: 2, episodeId: 42 });
+    expect(episodeReachedOf(6)).toBeDefined();
+    shown = await mount(withServices(<p>{"next test"}</p>));
+    expect(episodeReachedOf(6)).toBeUndefined();
   });
 });

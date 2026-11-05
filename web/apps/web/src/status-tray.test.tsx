@@ -335,6 +335,24 @@ it("has the hosted session's details at hand as the sign shows, so its page show
   window.sessionStorage.clear();
 });
 
+it("forgets, at each test's mount, the hosted details an earlier test's tray fetched, as a new tab would", async () => {
+  window.sessionStorage.setItem(
+    "orpheum.together.host",
+    JSON.stringify({ sessionId: 17, credential: "host-credential" }),
+  );
+  mounted = await mount(
+    withServices(
+      <StatusTray isAdmin={false} canHostWatchTogether />,
+      servedBy({ "GET /together/17": [200, { ...hostedSession, sessionId: 17 }] }),
+    ),
+  );
+  expect(knownDetailsOf(17)).toBeDefined();
+  mounted.unmount();
+  window.sessionStorage.clear();
+  mounted = await mount(withServices(<p>{"next test"}</p>));
+  expect(knownDetailsOf(17)).toBeUndefined();
+});
+
 it("turns Cast's sign blue while this device casts, naming the receiver and what plays, its dialog saying so, with the way back to the film and Stop casting (D364 §7; D384 §2)", async () => {
   const server = fakeTogetherServer();
   const heard: Heard[] = [];
