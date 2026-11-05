@@ -210,75 +210,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/collections/{id}/not-in-order": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** A page of a series' episodes the ordering the person watches it in leaves out, in aired order */
-        get: operations["getNotInOrdering"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/collections/{id}/preferences": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Keep a person's choices in one series: the ordering they watch it in, which its pages, its episodes' labels and its Next Up follow */
-        put: operations["setSeriesPreferences"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/collections/{id}/seasons/{season}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** A page of one season's episodes, in the ordering the person watches the series in */
-        get: operations["getSeason"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/collections/{id}/seasons/{season}/watched": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Mark every episode of a season with a file watched by hand (D370) */
-        put: operations["markSeasonWatched"];
-        post?: never;
-        /** Mark every episode of a season with a file unwatched by hand (D370) */
-        delete: operations["markSeasonUnwatched"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/collections/{id}/watched": {
         parameters: {
             query?: never;
@@ -766,6 +697,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/items/{id}/groups/{group}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A page of one season's episodes, in the ordering the person watches the series in */
+        get: operations["getGroup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/items/{id}/groups/{group}/watched": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Mark every episode of a season with a file watched by hand (D370) */
+        put: operations["markGroupWatched"];
+        post?: never;
+        /** Mark every episode of a season with a file unwatched by hand (D370) */
+        delete: operations["unmarkGroupWatched"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/items/{id}/hide": {
         parameters: {
             query?: never;
@@ -818,6 +784,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/items/{id}/not-in-order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A page of a series' episodes the ordering the person watches it in leaves out, in aired order */
+        get: operations["listNotInOrder"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/items/{id}/overrides/{field}": {
         parameters: {
             query?: never;
@@ -831,6 +814,23 @@ export interface paths {
         post?: never;
         /** Remove a field's override, so it follows its source again (edit_metadata) */
         delete: operations["deleteOverride"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/items/{id}/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Keep a person's choices in one series: the ordering they watch it in, which its pages, its episodes' labels and its Next Up follow */
+        put: operations["setItemPreferences"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -3316,6 +3316,11 @@ export interface components {
             /** Format: int64 */
             year?: number;
         };
+        GroupOutputBody: {
+            episodes: components["schemas"]["EpisodeBody"][] | null;
+            /** @description The next page's cursor; absent on the last */
+            nextCursor?: string;
+        };
         HandOffOutputBody: {
             /** @description Taken once, within a minute, by POST /session/redeem at the client origin */
             code: string;
@@ -4760,11 +4765,6 @@ export interface components {
             /** @description Its first episode's still that has one */
             stillSha256?: string;
         };
-        SeasonOutputBody: {
-            episodes: components["schemas"]["EpisodeBody"][] | null;
-            /** @description The next page's cursor; absent on the last */
-            nextCursor?: string;
-        };
         SecretBody: {
             description: string;
             isSet: boolean;
@@ -4895,6 +4895,9 @@ export interface components {
             /** Format: int64 */
             subtitleOffsetMs?: number;
         };
+        SetItemPreferencesInputBody: {
+            episodeOrdering?: string;
+        };
         SetMyPreferencesInputBody: {
             isAutoplayOn?: boolean;
             isDialogueBoostOn?: boolean;
@@ -4902,9 +4905,6 @@ export interface components {
             leftOutLibraryIds?: number[] | null;
             leftOutOfHomeLibraryIds?: number[] | null;
             showsDebugTools?: boolean;
-        };
-        SetSeriesPreferencesInputBody: {
-            episodeOrdering?: string;
         };
         SettingBody: {
             description: string;
@@ -6181,192 +6181,6 @@ export interface operations {
             };
         };
     };
-    getNotInOrdering: {
-        parameters: {
-            query: {
-                /** @description From the previous page's nextCursor */
-                cursor?: string;
-                limit: number;
-            };
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SeasonOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    setSeriesPreferences: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SetSeriesPreferencesInputBody"];
-            };
-        };
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getSeason: {
-        parameters: {
-            query: {
-                /** @description From the previous page's nextCursor */
-                cursor?: string;
-                limit: number;
-            };
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path: {
-                id: number;
-                /** @description 0 for the specials and the episodes with no season */
-                season: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SeasonOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    markSeasonWatched: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path: {
-                id: number;
-                /** @description 0 for the specials and the episodes with no season */
-                season: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WatchedMarkOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    markSeasonUnwatched: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path: {
-                id: number;
-                /** @description 0 for the specials and the episodes with no season */
-                season: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WatchedMarkOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
     markSeriesWatched: {
         parameters: {
             query?: never;
@@ -7494,6 +7308,118 @@ export interface operations {
             };
         };
     };
+    getGroup: {
+        parameters: {
+            query: {
+                /** @description From the previous page's nextCursor */
+                cursor?: string;
+                limit: number;
+            };
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                /** @description A group of the ordering the person watches it in, a season or a disc; aired's 0 for the specials and the episodes with no season */
+                group: number;
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    markGroupWatched: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                /** @description A group of the ordering the person watches it in, a season or a disc; aired's 0 for the specials and the episodes with no season */
+                group: number;
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchedMarkOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    unmarkGroupWatched: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                /** @description A group of the ordering the person watches it in, a season or a disc; aired's 0 for the specials and the episodes with no season */
+                group: number;
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchedMarkOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     hideProgress: {
         parameters: {
             query?: never;
@@ -7630,6 +7556,44 @@ export interface operations {
             };
         };
     };
+    listNotInOrder: {
+        parameters: {
+            query: {
+                /** @description From the previous page's nextCursor */
+                cursor?: string;
+                limit: number;
+            };
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     putOverride: {
         parameters: {
             query?: never;
@@ -7681,6 +7645,42 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setItemPreferences: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetItemPreferencesInputBody"];
+            };
+        };
         responses: {
             /** @description No Content */
             204: {

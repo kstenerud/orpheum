@@ -136,9 +136,9 @@ describe("a series in the ordering its person chose (episode-orderings.md §4)",
     const heard: Heard[] = [];
     const services = servedBy(
       {
-        "PUT /collections/20/preferences": [204, null],
-        "GET /collections/20/not-in-order": [200, { episodes: [] }],
-        "GET /collections/20/seasons/1": [200, { episodes: [] }],
+        "PUT /items/20/preferences": [204, null],
+        "GET /items/20/not-in-order": [200, { episodes: [] }],
+        "GET /items/20/groups/1": [200, { episodes: [] }],
       },
       heard,
       "token",
@@ -164,7 +164,7 @@ describe("a series in the ordering its person chose (episode-orderings.md §4)",
     page.unmount();
     const puts = heard.filter((each) => each.methodAndPath.startsWith("PUT "));
     expect(puts.map((each) => [each.methodAndPath, each.body])).toEqual([
-      ["PUT /collections/20/preferences", { episodeOrdering: "aired" }],
+      ["PUT /items/20/preferences", { episodeOrdering: "aired" }],
     ]);
     expect(services.navigation.route()).toEqual({ screen: "series-page", collectionId: 20 });
     // In place of the season it was at, a view of the same page, not a second copy of it behind

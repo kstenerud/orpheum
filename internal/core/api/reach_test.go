@@ -185,7 +185,7 @@ func TestReach_AnEditorReachesOnlyTheLibrariesTheirRoleLists(t *testing.T) {
 func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *testing.T) {
 	t.Parallel()
 	reachChecked := []string{
-		"getTitles", "getItem", "getSeason", "search", "getHome", "getItemsByIdentification",
+		"getTitles", "getItem", "getGroup", "search", "getHome", "getItemsByIdentification",
 		"getLibraries",
 		"getFileAvailability", "getFileWaits", "getSubtitleCandidates", "postFileSubtitle", "startPlayback",
 		"getDirect",
@@ -195,7 +195,7 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		"deleteOverride", "postItemRefresh", "postItemMatchByLink", "postItemConfirmMatch", "sayPageInterest",
 		"sayTilesInterest",
 		// TestOrderings_APersonChoosesAmongTheOrderingsASeriesHas.
-		"getNotInOrdering", "setSeriesPreferences",
+		"listNotInOrder", "setItemPreferences",
 		// What plays after a file, which reaches the file (requireSignedInReachingFile).
 		"getUpNext",
 		// A list's letters and an other library's folders (TestBrowse_OneLibrarysListAndALibraryNotReached).
@@ -211,8 +211,8 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		"moveCastOn",
 		// A mark by hand (TestReach_ALibraryTakenBackIsGoneAtTheNextRequestEverywhere,
 		// TestWatched_ASeriesNotReachedIsNoSuchSeriesToMark).
-		"markTitleWatched", "markTitleUnwatched", "markSeriesWatched", "markSeriesUnwatched", "markSeasonWatched",
-		"markSeasonUnwatched",
+		"markTitleWatched", "markTitleUnwatched", "markSeriesWatched", "markSeriesUnwatched", "markGroupWatched",
+		"unmarkGroupWatched",
 		// A film played in a cast is reach-checked as startCast's is (castFilmOf;
 		// TestCast_IsASessionInWhichEachFilmPlayedGoesToTheReceiver).
 		"playInCast",

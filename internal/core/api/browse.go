@@ -242,18 +242,18 @@ type NextUpBody struct {
 	Unavailable   *UnavailableBody `doc:"Why none of its files can be read now, as its own page says; absent when one can" json:"unavailable,omitempty"` //nolint:lll // one struct tag
 }
 
-// SeasonInput asks for a page of one season's episodes.
-type SeasonInput struct {
+// GroupInput asks for a page of one group's members: a season's episodes (D416 §3).
+type GroupInput struct {
 	AuthorizationHeader
 	ID     int64  `path:"id"`
-	Season int64  `doc:"0 for the specials and the episodes with no season" minimum:"0" path:"season"`
+	Group  int64  `doc:"A group of the ordering the person watches it in, a season or a disc; aired's 0 for the specials and the episodes with no season" minimum:"0" path:"group"` //nolint:lll // one struct tag
 	Cursor string `doc:"From the previous page's nextCursor" query:"cursor"`
 	Limit  int64  `maximum:"500" minimum:"1" query:"limit" required:"true"`
 }
 
-// SeasonOutput is a page of one season's episodes, a group of the ordering its person watches the
+// GroupOutput is a page of one group's members, a season's episodes, a group of the ordering its person watches the
 // series in, in its order.
-type SeasonOutput struct {
+type GroupOutput struct {
 	Body struct {
 		Episodes   []EpisodeBody `json:"episodes"`
 		NextCursor string        `doc:"The next page's cursor; absent on the last" json:"nextCursor,omitempty"`
@@ -291,14 +291,14 @@ func (server *Server) registerBrowse() {
 		Summary: "Films or series, by name in the library's locale or newest first", Tags: tags,
 	}, server.getTitles)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "getSeason", Method: http.MethodGet, Path: "/collections/{id}/seasons/{season}",
+		OperationID: "getGroup", Method: http.MethodGet, Path: "/items/{id}/groups/{group}",
 		Summary: "A page of one season's episodes, in the ordering the person watches the series in", Tags: tags,
-	}, server.getSeason)
+	}, server.getGroup)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "getNotInOrdering", Method: http.MethodGet, Path: "/collections/{id}/not-in-order",
+		OperationID: "listNotInOrder", Method: http.MethodGet, Path: "/items/{id}/not-in-order",
 		Summary: "A page of a series' episodes the ordering the person watches it in leaves out, in aired order",
 		Tags:    tags,
-	}, server.getNotInOrdering)
+	}, server.listNotInOrder)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "search", Method: http.MethodGet, Path: "/search",
 		Summary: "Titles and series by name, in any script (D48); superseded by GET /titles?query=",
@@ -344,13 +344,13 @@ func (server *Server) getTitles(ctx context.Context, input *TitlesInput) (*Title
 	return output, nil
 }
 
-func (server *Server) getSeason(ctx context.Context, input *SeasonInput) (*SeasonOutput, error) {
+func (server *Server) getGroup(ctx context.Context, input *GroupInput) (*GroupOutput, error) {
 	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
 	page, err := dependencies.Browser.Season(ctx, principal.Reach, library.SeasonQuery{
-		SeriesID: input.ID, UserID: principal.UserID, Season: input.Season, Cursor: input.Cursor, Limit: input.Limit,
+		SeriesID: input.ID, UserID: principal.UserID, Season: input.Group, Cursor: input.Cursor, Limit: input.Limit,
 	})
 	if err != nil {
 		return nil, server.libraryError(ctx, "read a season", err)
@@ -366,10 +366,10 @@ type NotInOrderingInput struct {
 	Limit  int64  `maximum:"500" minimum:"1" query:"limit" required:"true"`
 }
 
-// getNotInOrdering is a page of the episodes the ordering the person watches a series in leaves out,
+// listNotInOrder is a page of the episodes the ordering the person watches a series in leaves out,
 // at their aired places, which its page lists after the ordering's groups (episode-orderings.md
 // §7 Q4); none in aired.
-func (server *Server) getNotInOrdering(ctx context.Context, input *NotInOrderingInput) (*SeasonOutput, error) {
+func (server *Server) listNotInOrder(ctx context.Context, input *NotInOrderingInput) (*GroupOutput, error) {
 	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -386,8 +386,8 @@ func (server *Server) getNotInOrdering(ctx context.Context, input *NotInOrdering
 // episodePageOutput is a page of a series' episodes as the API says it.
 func (server *Server) episodePageOutput(
 	ctx context.Context, dependencies *Dependencies, page library.SeasonPage,
-) *SeasonOutput {
-	output := &SeasonOutput{}
+) *GroupOutput {
+	output := &GroupOutput{}
 	output.Body.Episodes = make([]EpisodeBody, 0, len(page.Episodes))
 	nodeName := server.nodeNamer(ctx, dependencies)
 	for _, episode := range page.Episodes {

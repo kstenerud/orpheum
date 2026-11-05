@@ -46,8 +46,8 @@ function episode(id: number, season: number) {
 
 const answers: Answers = {
   "GET /items/6": [200, series],
-  "GET /collections/6/seasons/1": [200, { episodes: [episode(41, 1)] }],
-  "GET /collections/6/seasons/2": [200, { episodes: [episode(42, 2)] }],
+  "GET /items/6/groups/1": [200, { episodes: [episode(41, 1)] }],
+  "GET /items/6/groups/2": [200, { episodes: [episode(42, 2)] }],
   "PUT /interest/page": [204, null],
   "DELETE /interest/page": [204, null],
 };

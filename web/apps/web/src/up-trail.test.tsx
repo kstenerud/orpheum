@@ -58,8 +58,8 @@ function pageAnswers(detail: TitleDetail | SeriesDetail): Answers {
   const path = `/items/${id}`;
   return {
     [`GET ${path}`]: [200, detail],
-    "GET /collections/5/seasons/1": [200, { episodes: [] }],
-    "GET /collections/5/seasons/2": [200, { episodes: [] }],
+    "GET /items/5/groups/1": [200, { episodes: [] }],
+    "GET /items/5/groups/2": [200, { episodes: [] }],
     "PUT /interest/page": [204, null],
     "DELETE /interest/page": [204, null],
   };

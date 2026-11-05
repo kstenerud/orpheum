@@ -52,8 +52,8 @@ describe("a series returned to by Up from an episode of another season (D367 §9
             art: {},
             seasons: [1, 2].map((seasonNumber) => ({ seasonNumber, episodeCount: 1 })),
           },
-          "GET /collections/5/seasons/1": { episodes: [episodeOf(21, 1)] },
-          "GET /collections/5/seasons/2": { episodes: [episodeOf(23, 2)] },
+          "GET /items/5/groups/1": { episodes: [episodeOf(21, 1)] },
+          "GET /items/5/groups/2": { episodes: [episodeOf(23, 2)] },
           "GET /items/23": {
             id: 23,
             kind: "episode",

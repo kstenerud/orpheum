@@ -2449,6 +2449,28 @@
         ],
         "type": "object"
       },
+      "GroupOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "episodes": {
+            "items": {
+              "$ref": "#/components/schemas/EpisodeBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "nextCursor": {
+            "description": "The next page's cursor; absent on the last",
+            "type": "string"
+          }
+        },
+        "required": [
+          "episodes"
+        ],
+        "type": "object"
+      },
       "GroupedSearchOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -6657,28 +6679,6 @@
         ],
         "type": "object"
       },
-      "SeasonOutputBody": {
-        "additionalProperties": false,
-        "properties": {
-          "episodes": {
-            "items": {
-              "$ref": "#/components/schemas/EpisodeBody"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
-          "nextCursor": {
-            "description": "The next page's cursor; absent on the last",
-            "type": "string"
-          }
-        },
-        "required": [
-          "episodes"
-        ],
-        "type": "object"
-      },
       "SecretBody": {
         "additionalProperties": false,
         "properties": {
@@ -7074,6 +7074,16 @@
         },
         "type": "object"
       },
+      "SetItemPreferencesInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "episodeOrdering": {
+            "maxLength": 200,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "SetMyPreferencesInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -7110,16 +7120,6 @@
           },
           "showsDebugTools": {
             "type": "boolean"
-          }
-        },
-        "type": "object"
-      },
-      "SetSeriesPreferencesInputBody": {
-        "additionalProperties": false,
-        "properties": {
-          "episodeOrdering": {
-            "maxLength": 200,
-            "type": "string"
           }
         },
         "type": "object"
@@ -10271,343 +10271,6 @@
         ]
       }
     },
-    "/collections/{id}/not-in-order": {
-      "get": {
-        "operationId": "getNotInOrdering",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "From the previous page's nextCursor",
-            "explode": false,
-            "in": "query",
-            "name": "cursor",
-            "schema": {
-              "description": "From the previous page's nextCursor",
-              "type": "string"
-            }
-          },
-          {
-            "explode": false,
-            "in": "query",
-            "name": "limit",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "maximum": 500,
-              "minimum": 1,
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SeasonOutputBody"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "A page of a series' episodes the ordering the person watches it in leaves out, in aired order",
-        "tags": [
-          "Browse"
-        ]
-      }
-    },
-    "/collections/{id}/preferences": {
-      "put": {
-        "operationId": "setSeriesPreferences",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "minimum": 1,
-              "type": "integer"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SetSeriesPreferencesInputBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Keep a person's choices in one series: the ordering they watch it in, which its pages, its episodes' labels and its Next Up follow",
-        "tags": [
-          "Browse"
-        ]
-      }
-    },
-    "/collections/{id}/seasons/{season}": {
-      "get": {
-        "operationId": "getSeason",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "0 for the specials and the episodes with no season",
-            "in": "path",
-            "name": "season",
-            "required": true,
-            "schema": {
-              "description": "0 for the specials and the episodes with no season",
-              "format": "int64",
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          {
-            "description": "From the previous page's nextCursor",
-            "explode": false,
-            "in": "query",
-            "name": "cursor",
-            "schema": {
-              "description": "From the previous page's nextCursor",
-              "type": "string"
-            }
-          },
-          {
-            "explode": false,
-            "in": "query",
-            "name": "limit",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "maximum": 500,
-              "minimum": 1,
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SeasonOutputBody"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "A page of one season's episodes, in the ordering the person watches the series in",
-        "tags": [
-          "Browse"
-        ]
-      }
-    },
-    "/collections/{id}/seasons/{season}/watched": {
-      "delete": {
-        "operationId": "markSeasonUnwatched",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "0 for the specials and the episodes with no season",
-            "in": "path",
-            "name": "season",
-            "required": true,
-            "schema": {
-              "description": "0 for the specials and the episodes with no season",
-              "format": "int64",
-              "minimum": 0,
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/WatchedMarkOutputBody"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Mark every episode of a season with a file unwatched by hand (D370)",
-        "tags": [
-          "Playback"
-        ]
-      },
-      "put": {
-        "operationId": "markSeasonWatched",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "0 for the specials and the episodes with no season",
-            "in": "path",
-            "name": "season",
-            "required": true,
-            "schema": {
-              "description": "0 for the specials and the episodes with no season",
-              "format": "int64",
-              "minimum": 0,
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/WatchedMarkOutputBody"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Mark every episode of a season with a file watched by hand (D370)",
-        "tags": [
-          "Playback"
-        ]
-      }
-    },
     "/collections/{id}/watched": {
       "delete": {
         "operationId": "markSeriesUnwatched",
@@ -12326,6 +11989,215 @@
         ]
       }
     },
+    "/items/{id}/groups/{group}": {
+      "get": {
+        "operationId": "getGroup",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "A group of the ordering the person watches it in, a season or a disc; aired's 0 for the specials and the episodes with no season",
+            "in": "path",
+            "name": "group",
+            "required": true,
+            "schema": {
+              "description": "A group of the ordering the person watches it in, a season or a disc; aired's 0 for the specials and the episodes with no season",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "From the previous page's nextCursor",
+            "explode": false,
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "description": "From the previous page's nextCursor",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "A page of one season's episodes, in the ordering the person watches the series in",
+        "tags": [
+          "Browse"
+        ]
+      }
+    },
+    "/items/{id}/groups/{group}/watched": {
+      "delete": {
+        "operationId": "unmarkGroupWatched",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "A group of the ordering the person watches it in, a season or a disc; aired's 0 for the specials and the episodes with no season",
+            "in": "path",
+            "name": "group",
+            "required": true,
+            "schema": {
+              "description": "A group of the ordering the person watches it in, a season or a disc; aired's 0 for the specials and the episodes with no season",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchedMarkOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Mark every episode of a season with a file unwatched by hand (D370)",
+        "tags": [
+          "Playback"
+        ]
+      },
+      "put": {
+        "operationId": "markGroupWatched",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "A group of the ordering the person watches it in, a season or a disc; aired's 0 for the specials and the episodes with no season",
+            "in": "path",
+            "name": "group",
+            "required": true,
+            "schema": {
+              "description": "A group of the ordering the person watches it in, a season or a disc; aired's 0 for the specials and the episodes with no season",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchedMarkOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Mark every episode of a season with a file watched by hand (D370)",
+        "tags": [
+          "Playback"
+        ]
+      }
+    },
     "/items/{id}/hide": {
       "delete": {
         "operationId": "unhideProgress",
@@ -12522,6 +12394,79 @@
         ]
       }
     },
+    "/items/{id}/not-in-order": {
+      "get": {
+        "operationId": "listNotInOrder",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "From the previous page's nextCursor",
+            "explode": false,
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "description": "From the previous page's nextCursor",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "A page of a series' episodes the ordering the person watches it in leaves out, in aired order",
+        "tags": [
+          "Browse"
+        ]
+      }
+    },
     "/items/{id}/overrides/{field}": {
       "delete": {
         "operationId": "deleteOverride",
@@ -12647,6 +12592,61 @@
         "summary": "Set a field to a person's value, kept over every source (edit_metadata)",
         "tags": [
           "Identification"
+        ]
+      }
+    },
+    "/items/{id}/preferences": {
+      "put": {
+        "operationId": "setItemPreferences",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetItemPreferencesInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Keep a person's choices in one series: the ordering they watch it in, which its pages, its episodes' labels and its Next Up follow",
+        "tags": [
+          "Browse"
         ]
       }
     },

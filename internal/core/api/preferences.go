@@ -82,11 +82,11 @@ func (server *Server) registerPreferences() {
 		Tags: []string{tagPlayback}, DefaultStatus: http.StatusNoContent,
 	}, server.setFilePreferences)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "setSeriesPreferences", Method: http.MethodPut, Path: "/collections/{id}/preferences",
+		OperationID: "setItemPreferences", Method: http.MethodPut, Path: "/items/{id}/preferences",
 		Summary: "Keep a person's choices in one series: the ordering they watch it in, which its pages, " +
 			"its episodes' labels and its Next Up follow",
 		Tags: []string{tagBrowse}, DefaultStatus: http.StatusNoContent,
-	}, server.setSeriesPreferences)
+	}, server.setItemPreferences)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "setMyPreferences", Method: http.MethodPut, Path: "/me/preferences",
 		Summary: "Keep a person's own choices, which hold in every file they play: the boost, levelling, " +
@@ -237,8 +237,8 @@ func (server *Server) setFilePreferences(ctx context.Context, input *SetFilePref
 	return &struct{}{}, nil
 }
 
-// SetSeriesPreferencesInput changes a person's choices in one series: what it names only.
-type SetSeriesPreferencesInput struct {
+// SetItemPreferencesInput changes a person's choices in one series: what it names only.
+type SetItemPreferencesInput struct {
 	AuthorizationHeader
 	SeriesID int64 `minimum:"1" path:"id"`
 	Body     struct {
@@ -248,7 +248,7 @@ type SetSeriesPreferencesInput struct {
 	}
 }
 
-func (server *Server) setSeriesPreferences(ctx context.Context, input *SetSeriesPreferencesInput) (*struct{}, error) {
+func (server *Server) setItemPreferences(ctx context.Context, input *SetItemPreferencesInput) (*struct{}, error) {
 	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err

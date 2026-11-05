@@ -236,7 +236,7 @@ func TestWatched_ASeasonOrASeriesIsMarkedByHandAndCheckedOnceEveryEpisodeIs(t *t
 	if got, want := harness.seriesWatched(t, user), "false 1:false,2:false next 21"; got != want {
 		t.Errorf("nothing watched: %s; want %s", got, want)
 	}
-	previous := harness.mark(t, http.MethodPut, "/collections/20/seasons/1/watched", user)
+	previous := harness.mark(t, http.MethodPut, "/items/20/groups/1/watched", user)
 	if len(previous) != 3 {
 		t.Errorf("season 1 marked: previous %+v; want its three episodes", previous)
 	}
@@ -249,7 +249,7 @@ func TestWatched_ASeasonOrASeriesIsMarkedByHandAndCheckedOnceEveryEpisodeIs(t *t
 	var season struct {
 		Episodes []api.EpisodeBody `json:"episodes"`
 	}
-	harness.readJSON(t, "/collections/20/seasons/1?limit=10", user, &season)
+	harness.readJSON(t, "/items/20/groups/1?limit=10", user, &season)
 	for _, episode := range season.Episodes {
 		if !episode.IsWatched {
 			t.Errorf("season 1 marked: its episode %d's row is not watched", episode.ID)
@@ -270,7 +270,7 @@ func TestWatched_ASeasonOrASeriesIsMarkedByHandAndCheckedOnceEveryEpisodeIs(t *t
 	if len(listed.Titles) != 1 || !listed.Titles[0].IsWatched {
 		t.Errorf("the series marked: the list %+v; want it watched", listed.Titles)
 	}
-	harness.mark(t, http.MethodDelete, "/collections/20/seasons/2/watched", user)
+	harness.mark(t, http.MethodDelete, "/items/20/groups/2/watched", user)
 	if got, want := harness.seriesWatched(t, user), "false 1:true,2:false next 24"; got != want {
 		t.Errorf("season 2 marked unwatched: %s; want %s", got, want)
 	}
@@ -318,13 +318,13 @@ func TestWatched_ASeriesNotReachedIsNoSuchSeriesToMark(t *testing.T) {
 	}
 	partner := harness.signIn(t, "partner", "partner-password")
 	harness.giveRoleLibraries(t, admin, "watchers", 1)
-	harness.mark(t, http.MethodPut, "/collections/20/seasons/1/watched", partner)
+	harness.mark(t, http.MethodPut, "/items/20/groups/1/watched", partner)
 	harness.giveRoleLibraries(t, admin, "watchers")
 	for _, request := range []struct{ method, path string }{
 		{http.MethodPut, "/collections/20/watched"},
 		{http.MethodDelete, "/collections/20/watched"},
-		{http.MethodPut, "/collections/20/seasons/1/watched"},
-		{http.MethodDelete, "/collections/20/seasons/1/watched"},
+		{http.MethodPut, "/items/20/groups/1/watched"},
+		{http.MethodDelete, "/items/20/groups/1/watched"},
 		{http.MethodPut, "/items/21/watched"},
 		{http.MethodDelete, "/items/21/watched"},
 	} {

@@ -106,7 +106,7 @@ func (harness testHarness) readJSON(t *testing.T, path, token string, into any) 
 	}
 }
 
-// seriesSummary is GET /collections/20's summary.
+// seriesSummary is GET /items/20's summary.
 func (harness testHarness) seriesSummary(t *testing.T, token string) string {
 	t.Helper()
 	var seen seriesSeen
@@ -142,7 +142,7 @@ func TestOrderings_APersonsChosenOrderingIsTheSeriesTheySee(t *testing.T) {
 			EpisodeNumber int64 `json:"episodeNumber"`
 		} `json:"episodes"`
 	}
-	harness.readJSON(t, "/collections/20/seasons/1?limit=10", user, &disc)
+	harness.readJSON(t, "/items/20/groups/1?limit=10", user, &disc)
 	if got := fmt.Sprint(disc.Episodes); got != "[{23 1} {21 2}]" {
 		t.Errorf("disc 1 = %s; want 23 then 21, numbered in the DVD order", got)
 	}
@@ -191,11 +191,11 @@ func TestOrderings_APersonChoosesAmongTheOrderingsASeriesHas(t *testing.T) {
 		t.Errorf("orderings offered %s; want %s", got, want)
 	}
 	choose := func(ordering string) response {
-		return harness.do(t, http.MethodPut, "/collections/20/preferences", user,
+		return harness.do(t, http.MethodPut, "/items/20/preferences", user,
 			map[string]string{"episodeOrdering": ordering})
 	}
 	wantError(t, choose("tmdb:none"), http.StatusBadRequest, api.CodeInvalidRequest)
-	wantError(t, harness.do(t, http.MethodPut, "/collections/99/preferences", user,
+	wantError(t, harness.do(t, http.MethodPut, "/items/99/preferences", user,
 		map[string]string{"episodeOrdering": "aired"}), http.StatusNotFound, api.CodeNotFound)
 	if got, want := harness.seriesSummary(t, user), "aired seasons[1:3,2:1] next 21:1:1"; got != want {
 		t.Errorf("after a refused choice: %s; want %s", got, want)
@@ -225,7 +225,7 @@ func TestOrderings_APersonChoosesAmongTheOrderingsASeriesHas(t *testing.T) {
 			EpisodeNumber int64 `json:"episodeNumber"`
 		} `json:"episodes"`
 	}
-	harness.readJSON(t, "/collections/20/not-in-order?limit=10", user, &left)
+	harness.readJSON(t, "/items/20/not-in-order?limit=10", user, &left)
 	if got := fmt.Sprint(left.Episodes); got != "[{22 1 2}]" {
 		t.Errorf("not in the DVD order: %s; want 22, at its aired S1E2", got)
 	}
@@ -242,7 +242,7 @@ func TestOrderings_APersonChoosesAmongTheOrderingsASeriesHas(t *testing.T) {
 	if got, want := harness.seriesSummary(t, user), "aired seasons[1:3,2:1] next none"; got != want {
 		t.Errorf("aired chosen again: %s; want %s", got, want)
 	}
-	harness.readJSON(t, "/collections/20/not-in-order?limit=10", user, &left)
+	harness.readJSON(t, "/items/20/not-in-order?limit=10", user, &left)
 	if len(left.Episodes) != 0 {
 		t.Errorf("not in aired: %v; want none", left.Episodes)
 	}
@@ -264,9 +264,9 @@ func (harness testHarness) wantSeriesOrderingsUnreached(t *testing.T, admin stri
 		t.Fatal(err)
 	}
 	partner := harness.signIn(t, "partner", "partner-password")
-	wantError(t, harness.do(t, http.MethodPut, "/collections/20/preferences", partner,
+	wantError(t, harness.do(t, http.MethodPut, "/items/20/preferences", partner,
 		map[string]string{"episodeOrdering": "tmdb:dvd"}), http.StatusNotFound, api.CodeNotFound)
-	wantError(t, harness.do(t, http.MethodGet, "/collections/20/not-in-order?limit=10", partner, nil),
+	wantError(t, harness.do(t, http.MethodGet, "/items/20/not-in-order?limit=10", partner, nil),
 		http.StatusNotFound, api.CodeNotFound)
 }
 
@@ -289,7 +289,7 @@ func TestOrderings_ChoosingAGroupNotFetchedYetQueuesItsFetch(t *testing.T) {
 	if got := fmt.Sprint(offered.Orderings[2]); got != "{tmdb:intended absolute Intended Order 14 0 true}" {
 		t.Errorf("a group not fetched is offered as %s; want it awaiting its fetch, holding none", got)
 	}
-	if answer := harness.do(t, http.MethodPut, "/collections/20/preferences", admin,
+	if answer := harness.do(t, http.MethodPut, "/items/20/preferences", admin,
 		map[string]string{"episodeOrdering": "tmdb:intended"}); answer.status != http.StatusNoContent {
 		t.Fatalf("choosing it = %d %s", answer.status, answer.body)
 	}

@@ -28,11 +28,12 @@ type WatchedMarkOutput struct {
 	}
 }
 
-// SeasonMarkInput names a season of a series to mark: a group of the ordering the person watches it in.
-type SeasonMarkInput struct {
+// GroupMarkInput names a group of a series to mark, a season: a group of the ordering the person
+// watches it in (D416 §3).
+type GroupMarkInput struct {
 	AuthorizationHeader
-	ID     int64 `path:"id"`
-	Season int64 `doc:"0 for the specials and the episodes with no season" minimum:"0" path:"season"`
+	ID    int64 `path:"id"`
+	Group int64 `doc:"A group of the ordering the person watches it in, a season or a disc; aired's 0 for the specials and the episodes with no season" minimum:"0" path:"group"` //nolint:lll // one struct tag
 }
 
 // RestoreWatchedInput puts marks back as a mark by hand's answer gave them.
@@ -65,14 +66,14 @@ func (server *Server) registerWatched() {
 			"unwatched by hand (D370)",
 	}, server.markSeriesUnwatched)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "markSeasonWatched", Method: http.MethodPut, Path: "/collections/{id}/seasons/{season}/watched",
+		OperationID: "markGroupWatched", Method: http.MethodPut, Path: "/items/{id}/groups/{group}/watched",
 		Tags: tags, Summary: "Mark every episode of a season with a file watched by hand (D370)",
-	}, server.markSeasonWatched)
+	}, server.markGroupWatched)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "markSeasonUnwatched", Method: http.MethodDelete,
-		Path: "/collections/{id}/seasons/{season}/watched", Tags: tags,
+		OperationID: "unmarkGroupWatched", Method: http.MethodDelete,
+		Path: "/items/{id}/groups/{group}/watched", Tags: tags,
 		Summary: "Mark every episode of a season with a file unwatched by hand (D370)",
-	}, server.markSeasonUnwatched)
+	}, server.unmarkGroupWatched)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "restoreWatched", Method: http.MethodPut, Path: "/watched", Tags: tags,
 		Summary:       "Put the person's watched marks back as a mark by hand's answer gave them: its Undo (D370)",
@@ -96,12 +97,12 @@ func (server *Server) markSeriesUnwatched(ctx context.Context, input *ItemInput)
 	return server.markEpisodes(ctx, input.Authorization, input.ID, nil, false)
 }
 
-func (server *Server) markSeasonWatched(ctx context.Context, input *SeasonMarkInput) (*WatchedMarkOutput, error) {
-	return server.markEpisodes(ctx, input.Authorization, input.ID, &input.Season, true)
+func (server *Server) markGroupWatched(ctx context.Context, input *GroupMarkInput) (*WatchedMarkOutput, error) {
+	return server.markEpisodes(ctx, input.Authorization, input.ID, &input.Group, true)
 }
 
-func (server *Server) markSeasonUnwatched(ctx context.Context, input *SeasonMarkInput) (*WatchedMarkOutput, error) {
-	return server.markEpisodes(ctx, input.Authorization, input.ID, &input.Season, false)
+func (server *Server) unmarkGroupWatched(ctx context.Context, input *GroupMarkInput) (*WatchedMarkOutput, error) {
+	return server.markEpisodes(ctx, input.Authorization, input.ID, &input.Group, false)
 }
 
 func (server *Server) markTitle(ctx context.Context, input *ItemInput, isWatched bool) (*WatchedMarkOutput, error) {
