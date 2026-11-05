@@ -1786,6 +1786,12 @@ Jobs list keeps its `job_view_max_jobs` cap ("Keep the cap"); backups, libraries
 secrets, roles, now-playing, casts, together, needs-attention, candidates, waits, system, config,
 folders and letters stay unpaged, and the expansion audit checks each against music, photos and DVR.
 
+The owner's answers on API step E (2026-11-05), amending D425 §6's list: `manageUsers` is renamed
+`accountSecurity` (it guards changes to the caller's own account's security, refused to a device
+activated by a code, D292 §4); starting Watch Together gets a capability of its own, `hostTogether`.
+cut-a.md §5 says CI diffs the document with oasdiff, but no such gate exists yet: the API's
+compatibility check is the owner's gate to add once the batch lands.
+
 ## UI issues the owner saw (2026-11-05), recorded only: after the API batch
 
 The owner: "I only want these recorded for now because I want to get the API revamp out of the way."
