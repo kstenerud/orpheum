@@ -1,0 +1,81 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* A list whose rows share one set of columns (grid-list.tsx): the list holds the column template,
+   each row and its target take the list's columns as their own (subgrid), so a column's cells line
+   up in every row, a "fit" column as wide as its widest cell in any row. */
+.grid-list {
+  display: grid;
+  grid-template-columns: var(--grid-list-columns);
+  gap: var(--space-2) var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.grid-list__row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+}
+
+/* A row's one pressable target, the caller's Link or button, spanning its cells and only them. */
+.grid-list__target {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  min-block-size: var(--size-control);
+  padding-block: var(--space-1);
+  border-radius: var(--radius-control);
+  color: inherit;
+  text-align: start;
+  text-decoration: none;
+}
+
+.grid-list--aside .grid-list__target {
+  grid-column: 1 / -2;
+}
+
+.grid-list__aside {
+  grid-column: -2 / -1;
+}
+
+.grid-list__after {
+  grid-column: 1 / -1;
+}
+
+/* A cell never reaches past its column: it may shrink below its content, which wraps or is cut. */
+.grid-list__cell {
+  min-inline-size: 0;
+}
+
+.grid-list__cell--wrap {
+  overflow-wrap: anywhere;
+}
+
+.grid-list__cell--truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.grid-list__cell--fit {
+  white-space: nowrap;
+}
+
+/* Several rows to a line, each as wide as the others and laying out the same columns in itself. */
+.grid-list--across {
+  grid-template-columns: repeat(auto-fill, minmax(min(15rem, 100%), 1fr));
+  gap: var(--space-2) var(--space-4);
+}
+
+.grid-list--across .grid-list__row {
+  display: block;
+  grid-column: auto;
+}
+
+.grid-list--across .grid-list__target {
+  grid-template-columns: var(--grid-list-columns);
+  column-gap: var(--space-2);
+}

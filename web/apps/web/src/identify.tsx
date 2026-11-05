@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { idempotent } from "./idempotent.ts";
 import { dateTimeText } from "./date-time-text.ts";
 import { arrivalMark } from "./focus-navigation.ts";
+import { GridAfter, GridCell, GridFrame, GridRow, type GridText } from "./grid-list.tsx";
 import { i18n } from "./i18n.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow } from "./problem.ts";
@@ -39,20 +40,26 @@ export function WaitingList(props: {
     return <p>{t("identify.none")}</p>;
   }
   return (
-    <ul>
+    <GridFrame texts={Object.values(waitingColumns)}>
       {props.items.map((item, index) => (
-        <li key={item.id}>
-          <WaitingRow
-            item={item}
-            waitingFilter={props.waitingFilter}
-            isArrival={index === 0}
-            onChanged={props.onChanged}
-          />
-        </li>
+        <WaitingRow
+          key={item.id}
+          item={item}
+          waitingFilter={props.waitingFilter}
+          isArrival={index === 0}
+          onChanged={props.onChanged}
+        />
       ))}
-    </ul>
+    </GridFrame>
   );
 }
+
+/** A waiting item's columns, in order: its name, wrapping; its year; what can be done about it. */
+const waitingColumns = {
+  name: "wrap",
+  year: "fit",
+  actions: "fit",
+} as const satisfies Readonly<Record<string, GridText>>;
 
 /**
  * One waiting item: its name and year, and what can be done about it; its main action, Choose its
@@ -70,34 +77,43 @@ function WaitingRow(props: {
   const { note, refresh, refreshing } = useLookAgain(item);
   const isChoosable = props.waitingFilter === "ambiguous";
   const arrival = props.isArrival ? arrivalMark : {};
+  const hasAfter = note !== "" || refreshing.problem !== undefined || isChoosing;
   return (
-    <div>
-      <Link to={itemRoute(item.kind, item.id)}>{item.name}</Link>{" "}
-      {item.year === undefined ? null : <span>{item.year}</span>}{" "}
-      {isChoosable ? (
+    <GridRow>
+      <GridCell text={waitingColumns.name}>
+        <Link to={itemRoute(item.kind, item.id)}>{item.name}</Link>
+      </GridCell>
+      <GridCell text={waitingColumns.year}>{item.year}</GridCell>
+      <GridCell text={waitingColumns.actions}>
+        {isChoosable ? (
+          <button
+            type="button"
+            {...arrival}
+            aria-expanded={isChoosing}
+            onClick={() => {
+              setIsChoosing(!isChoosing);
+            }}
+          >
+            {t("identify.choose")}
+          </button>
+        ) : null}{" "}
         <button
           type="button"
-          {...arrival}
-          aria-expanded={isChoosing}
-          onClick={() => {
-            setIsChoosing(!isChoosing);
-          }}
+          {...(isChoosable ? {} : arrival)}
+          disabled={refreshing.isBusy}
+          onClick={refresh}
         >
-          {t("identify.choose")}
+          {t("identify.refresh")}
         </button>
-      ) : null}{" "}
-      <button
-        type="button"
-        {...(isChoosable ? {} : arrival)}
-        disabled={refreshing.isBusy}
-        onClick={refresh}
-      >
-        {t("identify.refresh")}
-      </button>
-      {note === "" ? null : <output>{note}</output>}
-      {refreshing.problem === undefined ? null : <output>{refreshing.problem}</output>}
-      {isChoosing ? <CandidateChooser itemId={item.id} onChosen={props.onChanged} /> : null}
-    </div>
+      </GridCell>
+      {hasAfter ? (
+        <GridAfter>
+          {note === "" ? null : <output>{note}</output>}
+          {refreshing.problem === undefined ? null : <output>{refreshing.problem}</output>}
+          {isChoosing ? <CandidateChooser itemId={item.id} onChosen={props.onChanged} /> : null}
+        </GridAfter>
+      ) : null}
+    </GridRow>
   );
 }
 

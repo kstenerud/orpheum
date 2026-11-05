@@ -8,6 +8,7 @@ import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { arrivalMark } from "./focus-navigation.ts";
+import { GridList, type GridColumn } from "./grid-list.tsx";
 import { Link } from "./link.tsx";
 import { Loaded } from "./loaded.tsx";
 import { dataOrThrow } from "./problem.ts";
@@ -55,21 +56,25 @@ export function PersonFace(props: { readonly name: string }): JSX.Element {
   );
 }
 
-/** One person a title credits: their face's place, their name and, in the cast, their part under it. */
-function CreditLink(props: { readonly credit: Credit }): JSX.Element {
-  const { credit } = props;
-  return (
-    <Link to={{ screen: "person", personId: credit.personId }} className="credit">
-      <PersonFace name={credit.name} />
+/**
+ * A credit's columns: their face's place, then their name and, in the cast, their part under it,
+ * wrapping where a name is long.
+ */
+const creditColumns: readonly GridColumn<Credit>[] = [
+  { key: "face", text: "fit", cell: (credit) => <PersonFace name={credit.name} /> },
+  {
+    key: "words",
+    text: "wrap",
+    cell: (credit) => (
       <span className="credit__words">
         <span className="credit__name">{credit.name}</span>
         {credit.character === undefined || credit.character === "" ? null : (
           <span className="credit__character">{credit.character}</span>
         )}
       </span>
-    </Link>
-  );
-}
+    ),
+  },
+];
 
 /** One group of a title's credits under its heading, each leading to the person's page; none when empty. */
 function CreditGroup(props: {
@@ -84,14 +89,22 @@ function CreditGroup(props: {
   return (
     <section className="credits__group" aria-labelledby={props.id}>
       <h2 id={props.id}>{props.heading}</h2>
-      <ul className="credits__list" data-focus-container="">
-        {credits.map((credit, index) => (
-          // A person may be credited twice in one group (two parts); their place keeps each apart.
-          <li key={`${String(credit.personId)}/${String(index)}`}>
-            <CreditLink credit={credit} />
-          </li>
-        ))}
-      </ul>
+      <GridList
+        rows={credits}
+        // A person may be credited twice in one group (two parts); their place keeps each apart.
+        rowKey={(credit, index) => `${String(credit.personId)}/${String(index)}`}
+        columns={creditColumns}
+        target={(credit, drawn) => (
+          <Link
+            to={{ screen: "person", personId: credit.personId }}
+            className={`${drawn.className} credit`}
+          >
+            {drawn.children}
+          </Link>
+        )}
+        isAcross
+        isFocusContainer
+      />
     </section>
   );
 }

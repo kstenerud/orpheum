@@ -5,6 +5,7 @@ import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
 import { ConfirmButton } from "./confirm-button.tsx";
+import { GridList } from "./grid-list.tsx";
 import type { FormWords } from "./problem.ts";
 import { isWithoutLibrary, roleLabel, type Role } from "./roles.ts";
 import { WarningSign } from "./warning-sign.tsx";
@@ -36,28 +37,31 @@ export function RolesSection(props: {
     <section className="roles" aria-labelledby="roles-heading">
       <h2 id="roles-heading">{t("roles.heading")}</h2>
       <p>{t("roles.explain")}</p>
-      <ul className="people__list">
-        {props.roles.map((role) => (
-          <li key={role.id} className="people__item">
-            <button
-              type="button"
-              className="people__row"
-              onClick={() => {
-                props.onOpen(role);
-              }}
-            >
-              <span className="people__name">{roleLabel(t, role.name)}</span>
-              <span>{holdersText(t, role.holderCount)}</span>
-            </button>
-            {isWithoutLibrary(role) ? (
-              <WarningSign
-                summary={t("warning.roleWithoutLibrary")}
-                forAdmin={t("roles.noLibrary")}
-              />
-            ) : null}
-          </li>
-        ))}
-      </ul>
+      <GridList
+        rows={props.roles}
+        rowKey={(role) => String(role.id)}
+        columns={[
+          { key: "name", text: "wrap", cell: (role) => roleLabel(t, role.name) },
+          { key: "holders", text: "fit", cell: (role) => holdersText(t, role.holderCount) },
+        ]}
+        target={(role, drawn) => (
+          <button
+            type="button"
+            {...drawn}
+            onClick={() => {
+              props.onOpen(role);
+            }}
+          />
+        )}
+        aside={(role) =>
+          isWithoutLibrary(role) ? (
+            <WarningSign
+              summary={t("warning.roleWithoutLibrary")}
+              forAdmin={t("roles.noLibrary")}
+            />
+          ) : null
+        }
+      />
     </section>
   );
 }

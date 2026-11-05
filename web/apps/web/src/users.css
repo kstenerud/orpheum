@@ -1,11 +1,6 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
-.people__list {
-  display: grid;
-  gap: var(--space-4);
-  padding: 0;
-  list-style: none;
-}
+/* The People page's lists (invitations, accounts, roles) are grid lists (grid-list.tsx). */
 
 .people__actions {
   display: flex;
@@ -14,25 +9,8 @@
   margin-block-end: var(--space-4);
 }
 
-/* A row of a section: its parts side by side, wrapping on a narrow screen, the whole row pressable. */
-.people__row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-3);
-  inline-size: 100%;
-  text-align: start;
-}
-
 .people__details {
   display: grid;
   grid-template-columns: max-content 1fr;
   gap: var(--space-2) var(--space-3);
-}
-
-/* A row with something beside it that is not part of the link, as a role's warning sign. */
-.people__item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
 }

@@ -8,6 +8,7 @@ import { registrationUrl, withdrawInvitation, type Invitation } from "./accounts
 import { BusyGroup } from "./busy-group.tsx";
 import { ConfirmButton } from "./confirm-button.tsx";
 import { dateTimeText } from "./date-time-text.ts";
+import { GridList } from "./grid-list.tsx";
 import { i18n } from "./i18n.ts";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { personWords } from "./person-words.ts";
@@ -35,25 +36,29 @@ export function InvitationsSection(props: {
   return (
     <section aria-labelledby="people-invitations">
       <h2 id="people-invitations">{t("people.invitations")}</h2>
-      <ul className="people__list">
-        {props.invitations.map((invitation) => (
-          <li key={invitation.id}>
-            <button
-              type="button"
-              className="people__row"
-              onClick={() => {
-                props.onOpen(invitation);
-              }}
-            >
-              <span className="people__name">{invitation.adminNote}</span>
-              <span>{roleLabel(t, invitation.role)}</span>
-              <span>
-                {t("people.issuedOn", { at: dateTimeText(invitation.issuedAt, i18n.language) })}
-              </span>
-            </button>
-          </li>
-        ))}
-      </ul>
+      <GridList
+        rows={props.invitations}
+        rowKey={(invitation) => String(invitation.id)}
+        columns={[
+          { key: "note", text: "wrap", cell: (invitation) => invitation.adminNote },
+          { key: "role", text: "fit", cell: (invitation) => roleLabel(t, invitation.role) },
+          {
+            key: "issued",
+            text: "fit",
+            cell: (invitation) =>
+              t("people.issuedOn", { at: dateTimeText(invitation.issuedAt, i18n.language) }),
+          },
+        ]}
+        target={(invitation, drawn) => (
+          <button
+            type="button"
+            {...drawn}
+            onClick={() => {
+              props.onOpen(invitation);
+            }}
+          />
+        )}
+      />
     </section>
   );
 }
