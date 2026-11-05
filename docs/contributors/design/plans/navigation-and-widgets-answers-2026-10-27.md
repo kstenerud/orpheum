@@ -2025,3 +2025,15 @@ each showing what it showed before. These are left for the owner; each has a rec
 4. **Which accounts-list columns wrap?** Now the name is cut to one line with an ellipsis, the
    admin's note wraps, and the role takes its widest word. Recommendation: keep this. A name is
    short and known, and a note is free text that is worth reading whole.
+
+## The 11-09 batch (the owner, 2026-11-05: "put together more batches and run them until I'm back")
+
+1. **The expansion audit of the API and database** (the owner's, above), research only: its
+   findings go to `design/research/expansion-audit-2026-11-05-research.md` for the owner, each with
+   the change it proposes and the churn it saves. Nothing is built from it before the owner reads it;
+   it runs now because nas.example's greenfield deploy (tag `batch-2026-11-05-api`) is the last point
+   where a schema change costs nothing.
+2. **Two page caches no test resets** (the cache agent, 2026-11-05): `episode-reached.ts`'s `reached`
+   and `hosted-details.ts`'s `knownDetails` survive from one test to the next, as the title and
+   series pages' did ("fix(web): each test's walk forgets the title and series pages an earlier walk remembered"). Each is reset through `resetOnEachTestMount`, with a test that
+   fails without it.
