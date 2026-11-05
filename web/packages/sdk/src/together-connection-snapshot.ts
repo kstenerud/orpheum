@@ -307,6 +307,7 @@ export function helloText(options: TogetherConnectionOptions): string {
   return JSON.stringify({
     v: togetherProtocolVersion,
     type: "hello",
+    channel: "together",
     credential: options.credential,
     ...(options.sessionToken === undefined ? {} : { sessionToken: options.sessionToken }),
     role,

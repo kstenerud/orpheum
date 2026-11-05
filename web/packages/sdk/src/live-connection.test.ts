@@ -50,7 +50,8 @@ describe("a page's live connection (D337 §2)", () => {
     connection.open();
     sockets.opened[0]!.onOpen();
     expect(sockets.sent[0]).toEqual({
-      type: "live",
+      type: "hello",
+      channel: "live",
       sessionToken: "session",
       client: "index-T3st.js",
     });
@@ -199,7 +200,12 @@ describe("a page's live connection (D337 §2)", () => {
     connection.showFront(true); // before the hello, which says where the tab is then
     expect(sockets.sent).toEqual([]);
     sockets.opened[0]!.onOpen();
-    expect(sockets.sent[0]).toEqual({ type: "live", sessionToken: "session", behind: true });
+    expect(sockets.sent[0]).toEqual({
+      type: "hello",
+      channel: "live",
+      sessionToken: "session",
+      behind: true,
+    });
     isInFront = true;
     connection.showFront(true);
     connection.showFront(false);

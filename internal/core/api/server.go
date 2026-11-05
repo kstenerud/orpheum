@@ -218,6 +218,7 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerReachability()
 	server.registerDiscovery()
 	server.registerRTC()
+	mux.HandleFunc("GET "+socketPath, server.serveTogetherSocket)
 	mux.HandleFunc("GET "+togetherSocketPath, server.serveTogetherSocket)
 	server.registerJobs()
 	return server

@@ -22,8 +22,17 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
-// togetherSocketPath is the session WebSocket's path (cut-a §5.1): one per device.
+// socketPath is the socket's path, one per device, whose first message names its channel, live or
+// together (D416 §11, D425 §3).
+const socketPath = Prefix + "/socket"
+
+// togetherSocketPath is the socket's old path, which a client of the last release opens (D425 §3, goes
+// next batch).
 const togetherSocketPath = Prefix + "/together/ws"
+
+// channelTogether is the channel a session's hello names; a hello naming none is taken for one, as a
+// client of the last release says it (D425 §3, goes next batch).
+const channelTogether = "together"
 
 // helloWait is how long a device has to say hello once its socket is open: a second's work on any
 // network, with room for a slow phone.
@@ -232,6 +241,13 @@ func togetherHelloOf(first json.RawMessage) (together.Inbound, error) {
 	var hello together.Inbound
 	if err := json.Unmarshal(first, &hello); err != nil {
 		return hello, fmt.Errorf("the first message is not JSON: %w", err)
+	}
+	var channel struct {
+		Channel string `json:"channel"`
+	}
+	if err := json.Unmarshal(first, &channel); err != nil || channel.Channel != "" &&
+		channel.Channel != channelTogether {
+		return hello, errors.New("the first message names no channel the socket serves")
 	}
 	if hello.Type != together.MessageHello || hello.Credential == "" {
 		return hello, errors.New("the first message is not a hello with a credential")

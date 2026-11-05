@@ -25,6 +25,7 @@ const (
 	SilenceLimit             = silenceLimit
 	SmallestCompressedAnswer = smallestCompressedAnswer
 	TogetherSocketPath       = togetherSocketPath
+	SocketPath               = socketPath
 )
 
 var (

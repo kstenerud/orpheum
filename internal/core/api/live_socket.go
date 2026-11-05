@@ -36,9 +36,13 @@ const (
 // isLiveHello is whether a device's first message opens a live connection rather than a session's.
 func isLiveHello(first json.RawMessage) bool {
 	var hello struct {
-		Type live.MessageType `json:"type"`
+		Type    live.MessageType `json:"type"`
+		Channel string           `json:"channel"`
 	}
-	return json.Unmarshal(first, &hello) == nil && hello.Type == live.MessageHello
+	if json.Unmarshal(first, &hello) != nil {
+		return false
+	}
+	return hello.Type == live.MessageHello && hello.Channel == live.ChannelLive || hello.Type == live.MessageOldHello
 }
 
 // serveLiveSocket is a device's live connection, after its hello: registered while it lasts, in front
@@ -124,7 +128,8 @@ func readLive(
 			showFront(!message.IsBehind)
 		// The server's own messages, never a page's: a cast's sending (D364; VQ90) and a removed
 		// device's signing out (VQ87) among them.
-		case live.MessageHello, live.MessageDevices, live.MessageReceive, live.MessageSending, live.MessagePong,
+		case live.MessageHello, live.MessageOldHello, live.MessageDevices, live.MessageReceive,
+			live.MessageSending, live.MessagePong,
 			live.MessageSignedOut:
 		}
 	}

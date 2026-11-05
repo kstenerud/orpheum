@@ -311,6 +311,7 @@ describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
     expect(server.sent[0]).toEqual({
       v: 2,
       type: "hello",
+      channel: "together",
       credential: "membership",
       role: "panel",
     });
