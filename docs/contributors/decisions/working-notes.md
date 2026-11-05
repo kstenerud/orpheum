@@ -26413,3 +26413,20 @@ the migration instead.
    database has migrated, the owner may move the checkpoint and fold at any time.
 
 **Status:** Decided 2026-11-05; D416's batch rehearses before its nas.example deploy.
+
+## D431 — Which library shows an item stays computed, not stored
+
+**Decided** (2026-11-05), by the owner, on the measurement D426 asked for before folding
+([visibility-at-scale-2026-11-05.md](../design/research/visibility-at-scale-2026-11-05.md)). At
+496,000 items, a caller who reaches every library pays under 1 ms either way. A caller who reaches
+only a small library pays 52–104 ms for a series list and up to 1.1 s for a common-word search,
+against about 1 ms and 0.27 s with a stored `(item_id, library_id)` table (18 MB, about 0.2 s more
+writing per 1,000 scanned files).
+
+1. **Visibility stays derived** from places and library roots (the step 0077 view): one source of
+   truth, nothing to keep in step, and a few milliseconds at a household's size (about 14,000
+   items).
+2. **The trigger to revisit** is a restricted caller's search or list missing its target in
+   performance-targets.md at scale; the research doc's numbers are the baseline.
+
+**Status:** Decided 2026-11-05.

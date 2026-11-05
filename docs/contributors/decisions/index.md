@@ -436,6 +436,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D428](working-notes.md#d428--a-preference-set-on-a-film-or-a-series-has-the-scope-item-not-work) A preference set on a film or a series has the scope `item`, not `work`
 - [D429](working-notes.md#d429--a-library-moves-by-one-operation-folder-x-on-node-a-is-now-folder-y-on-node-b-over-absolute-paths) A library moves by one operation, "folder X on node A is now folder Y on node B", over absolute paths
 - [D430](working-notes.md#d430--peoples-state-carries-over-by-the-migration-itself-rehearsed-on-a-copy-of-naslans-database-no-exportimport-tool) People's state carries over by the migration itself, rehearsed on a copy of nas.example's database; no export/import tool
+- [D431](working-notes.md#d431--which-library-shows-an-item-stays-computed-not-stored) Which library shows an item stays computed, not stored
 
 ## Archived
 
