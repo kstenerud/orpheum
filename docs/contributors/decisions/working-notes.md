@@ -26355,3 +26355,26 @@ scope is `'item'`: the preference attaches to the item a person set it on, in D4
 **Amends** D230.
 
 **Status:** Decided 2026-11-05; D426's rebuild renames the stored value.
+
+## D429 — A place's path is relative to its library's root, so a library moves by changing one row
+
+**Decided** (2026-11-05), by the owner, while the media was being copied to devnas.example for nas.example's
+memory tests: "Ideally, if anything in a library's items needs a path, it should be stored relative to
+the library it belongs to. Then when you change the library location, only 1 record needs to change.
+The one hitch is if a path exists in multiple libraries, but this would be the user's problem to sort
+out. We'd just point out that things are missing." **Amends** D426 §4 (a place records a node and a
+whole path) and D363's coverage of a place by every library whose root is above it.
+
+1. **A path that belongs to a library is stored relative to the library's root.** A place names its
+   root (`library_root` gains an id) and its path below it, in both the NFC form and the raw bytes
+   the node reported (D211). The root alone names the node and the absolute folder.
+2. **A library moves by changing its root's row**: its folder, its node, or both. Nothing else is
+   rewritten. A library with several roots moves one root at a time.
+3. **Overlapping libraries are the person's to sort out.** A folder under two libraries' roots is
+   seen once for each root. When one of them moves, the other's places that are no longer there are
+   reported as missing, as any vanished file is. Nothing tries to reconcile them.
+4. **What stays keyed on content stays so:** people's watching, choices and fetched subtitles hang
+   on `file`, matched by hash, never on a path (step 0078).
+
+**Status:** Decided 2026-11-05. The expansion audit checks every other path stored in the schema
+against it. The repoint feature itself is the batch after D416's.

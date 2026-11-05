@@ -1865,5 +1865,6 @@ in the following batch."
   file not found at the new root; and whether the old root is kept as a fallback until it is gone.
 - **The schema allows it before the feature is built** (the owner, 2026-11-05). The expansion audit
   checks it, and fixes the schema while it is still greenfield (see that section's "Relocation").
+- **The model (D429, the owner, 2026-11-05):** a place stores its path relative to its library's root, so a repoint changes the root's one row; a folder in two libraries is the person's to sort out, and what goes missing is shown as missing.
 - **Seen during the devnas.example stand-in:** libraries are tied to their node. A moved database finds its
   libraries only if the new machine's node keeps the old node's name.

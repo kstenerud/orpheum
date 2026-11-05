@@ -431,9 +431,10 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D423](working-notes.md#d423--watch-togethers-sign-shows-over-the-playing-film-and-opens-its-sessions-panel-there) Watch Together's sign shows over the playing film, and opens its session's panel there
 - [D424](working-notes.md#d424--a-failed-quick-tier-stops-check-pr-before-its-long-ones) A failed quick tier stops check-pr before its long ones
 - [D425](working-notes.md#d425--d416s-rename-corrected-by-review-two-interests-one-release-of-aliases-the-loader-frozen-no-mixed-callers-declared-as-security) D416's rename, corrected by review: two interests, one release of aliases, the loader frozen, no `mixed`, callers declared as security
-- [D426](working-notes.md#d426--the-schema-is-rebuilt-greenfield-in-d416s-batch-the-kind-on-item-file-split-from-place-groups-as-rows-work-and-sequence) The schema is rebuilt greenfield in D416's batch: the kind on `item`, `file` split from `place`, groups as rows, `work` and `sequence` — *revisited by D427*
+- [D426](working-notes.md#d426--the-schema-is-rebuilt-greenfield-in-d416s-batch-the-kind-on-item-file-split-from-place-groups-as-rows-work-and-sequence) The schema is rebuilt greenfield in D416's batch: the kind on `item`, `file` split from `place`, groups as rows, `work` and `sequence` — *revisited by D427, D429*
 - [D427](working-notes.md#d427--a-players-measured-link-stays-in-persistentdb-only-resource_use-moves-to-cachedb) A player's measured link stays in `persistent.db`; only `resource_use` moves to `cache.db`
 - [D428](working-notes.md#d428--a-preference-set-on-a-film-or-a-series-has-the-scope-item-not-work) A preference set on a film or a series has the scope `item`, not `work`
+- [D429](working-notes.md#d429--a-places-path-is-relative-to-its-librarys-root-so-a-library-moves-by-changing-one-row) A place's path is relative to its library's root, so a library moves by changing one row
 
 ## Archived
 
