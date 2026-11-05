@@ -26236,3 +26236,53 @@ Amends the owner's rule of 2026-10-17 that check-pr runs every tier to its end
 
 **Status:** Decided 2026-11-05.
 
+
+## D425 — D416's rename, corrected by review: two interests, one release of aliases, the loader frozen, no `mixed`, callers declared as security
+
+**Decided** (2026-11-05), by the lead, on an independent review of D416 and its route table
+([api-greenfield-2026-11-04.md](../design/research/api-greenfield-2026-11-04.md) §4) against the code,
+under the owner's instruction: "do an independent review of the plan. Make sure it's sound and
+according to best practices. If it's fixable without my help, go ahead with the implementation."
+Each point corrects a fact the plan had wrong or keeps to the owner's stated intent. **Amends** D416
+§2, §5, §7, §9 and the route table.
+
+1. **Interest is two sub-resources, not one endpoint.** The register keeps two slots per session
+   (`internal/core/interest/register.go`): the page shown (one item, left only if still shown) and
+   the tiles in view (a set, replaced whole). One `PUT /interest` cannot say which. They are
+   `PUT`/`DELETE /interest/page` (body `{item, group?}`; the DELETE names them in its query) and
+   `PUT`/`DELETE /interest/tiles` (body `{items}`).
+2. **What the player wants is `PUT /playback/{token}/wants`**, not `PUT /playback/{token}`: a PUT
+   on the playback itself would replace its position too.
+3. **Old clients keep working for one release.** A client waits to reload while a film plays
+   (`reload-when-outdated.tsx`), Watch Together's guests too, and its player keeps calling the old
+   routes over the core's restart. Kept for this release, outside the document: `/together/ws`,
+   a `live` hello and a hello with no `channel` (taken as `together`), `PUT
+   /playback/{token}/interest`, and `/activations` (Connect serves the web build it was last
+   deployed with). They go in the next batch.
+4. **The loader's endpoints and the device side of pairing stay as they are** (D416 §9 allowed
+   moving them, not required it): a TV's loader is kept by its service worker and may be any age.
+   Frozen: `/session/handoff`, `/session/redeem`, `/client-manifest`, `/client-problems`,
+   `/rtc/offer`, `/reachability/{nonce}`, `/pairings`, `/pairings/state`, `/pairings/session`. The
+   person's side moves: `/activations` → `/pairings/code`, `/activations/answer` →
+   `/pairings/check`.
+5. **No `mixed` library kind.** D363 removed it and migration 0060 refuses one; D416 §5's `mixed`
+   came from the research's mistaken "already exists in the database". A library's kinds are
+   `movie`, `series`, `other`. Production runs (`CHECKPOINT` 48), so the change is an appended step.
+6. **Who may call an operation is declared as OpenAPI security and as `x-orpheum-capability`.**
+   The document declares its schemes (`session`, the bearer token; `membership`, a Watch Together
+   guest's; `media`, the media cookie) and each operation its `security`; the capability names the
+   role check (`signedIn`, `admin`, `manageUsers`, `editMetadata`, `deviceTests`, `member`,
+   `media`, `none` for a secret in the request itself). The `TestArch_` test holds each handler to
+   it.
+7. **`/items` holds every kind but a credited person**, whose id `/items/{id}` answers 404. An
+   entry's identification is an optional object, filled when listed by identification, which pages
+   by cursor too. The union on `kind` is written as `oneOf` with a discriminator, so a generated
+   client narrows on it. `GET /people/{id}` answers the person alone; their items are `GET
+   /items?person=`.
+8. **Names agree:** per-user state is `markWatched`/`unmarkWatched`, `markHidden`/`unmarkHidden`,
+   `markGroupWatched`/`unmarkGroupWatched`; Undo's `PUT /watched` is `PUT /me/watched`;
+   `/together/mine` is `/me/together`; a node's reader limit is `PUT`/`DELETE
+   /nodes/{name}/reader-limit`; every operation has an id, without an old prefix (`matchItem`,
+   `rescanLibrary`, not `post…`).
+
+**Status:** Decided 2026-11-05; D416's batch makes it.
