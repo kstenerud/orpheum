@@ -235,7 +235,7 @@ role = "admin"
 
 [[library]]
 name = "Films"
-kind = "movies"
+kind = "movie"
 root_path = "${library}"
 metadata_source = "nfo"
 change_detection = "watch"

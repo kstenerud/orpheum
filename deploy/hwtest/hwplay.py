@@ -208,7 +208,7 @@ def library_of(core, directory, media):
     deadline = time.time() + 120
     while True:
         status, made = core.call("POST", "/libraries", {
-            "name": "hwplay", "kind": "movies", "metadataSource": "nfo", "changeDetection": "manual",
+            "name": "hwplay", "kind": "movie", "metadataSource": "nfo", "changeDetection": "manual",
             "isWritable": False, "nodeName": node_name, "rootPaths": [media]})
         # A node not yet back since the core started is waited for.
         if status != 503 or time.time() > deadline:
