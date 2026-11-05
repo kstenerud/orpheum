@@ -10,7 +10,7 @@ import (
 )
 
 const confirmSeriesMatch = `-- name: ConfirmSeriesMatch :exec
-UPDATE collection SET identification_state = 'confirmed'
+UPDATE item SET identification_state = 'confirmed'
 WHERE id = ?1 AND kind = 'series'
   -- Only when it changes something (D303, DL9).
   AND identification_state IS NOT 'confirmed'
@@ -57,7 +57,7 @@ func (q *Queries) GetProviderResponseFetchedAt(ctx context.Context, arg GetProvi
 }
 
 const getSeriesForMatch = `-- name: GetSeriesForMatch :one
-SELECT collection.id, collection.year, collection.followed_source, collection.followed_source_id, collection.identification_state,
+SELECT collection.id, item.year, item.followed_source, item.followed_source_id, item.identification_state,
   item.filing_library_id, library.metadata_source, item_text.name
 FROM collection
 JOIN item ON item.id = collection.id
@@ -94,7 +94,7 @@ func (q *Queries) GetSeriesForMatch(ctx context.Context, id int64) (GetSeriesFor
 }
 
 const listLiveSeriesEpisodeSources = `-- name: ListLiveSeriesEpisodeSources :many
-SELECT position.title_id, position.group_number, position.number_in_group, title.followed_source, item.added_at
+SELECT position.title_id, position.group_number, position.number_in_group, item.followed_source, item.added_at
 FROM position
 JOIN ordering ON ordering.id = position.ordering_id
 JOIN title ON title.id = position.title_id
@@ -149,15 +149,15 @@ FROM collection
 JOIN item ON item.id = collection.id
 JOIN library ON library.id = item.filing_library_id
 WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND collection.kind = 'series'
-  AND library.metadata_source != 'nfo' AND collection.identification_state = 'unidentified'
-  AND collection.followed_source IS NOT 'none'
+  AND library.metadata_source != 'nfo' AND item.identification_state = 'unidentified'
+  AND item.followed_source IS NOT 'none'
   AND NOT EXISTS (SELECT 1 FROM fetch_failure WHERE fetch_failure.item_id = collection.id)
   AND EXISTS (
     SELECT 1 FROM ordering
     JOIN position ON position.ordering_id = ordering.id
-    JOIN title ON title.id = position.title_id
+    JOIN item AS episode ON episode.id = position.title_id
     WHERE ordering.collection_id = collection.id AND ordering.name = 'aired'
-      AND (title.followed_source IS NULL OR title.followed_source != 'nfo')
+      AND (episode.followed_source IS NULL OR episode.followed_source != 'nfo')
   )
   AND EXISTS (
     SELECT 1 FROM collection_member
@@ -195,7 +195,7 @@ func (q *Queries) ListSeriesAwaitingMatch(ctx context.Context, libraryID *int64)
 }
 
 const listSeriesByIdentification = `-- name: ListSeriesByIdentification :many
-SELECT collection.id, collection.year, collection.identification_state, collection.followed_source, collection.followed_source_id,
+SELECT collection.id, item.year, item.identification_state, item.followed_source, item.followed_source_id,
   item.filing_library_id, item_text.name, fetch_failure.failure AS fetch_failure, fetch_failure.failed_at AS fetch_failed_at,
   refresh_request.requested_at AS refresh_requested_at
 FROM collection
@@ -203,8 +203,8 @@ JOIN item ON item.id = collection.id
 LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_original = 1
 LEFT JOIN fetch_failure ON fetch_failure.item_id = collection.id
 LEFT JOIN refresh_request ON refresh_request.item_id = collection.id
-WHERE collection.kind = 'series' AND collection.identification_state = ?1 AND item.removed_at IS NULL
-  AND (collection.identification_state != 'unidentified' OR collection.followed_source = 'none'
+WHERE collection.kind = 'series' AND item.identification_state = ?1 AND item.removed_at IS NULL
+  AND (item.identification_state != 'unidentified' OR item.followed_source = 'none'
     OR fetch_failure.item_id IS NOT NULL OR refresh_request.item_id IS NOT NULL)
   AND EXISTS (
     SELECT 1 FROM collection_member
@@ -291,7 +291,7 @@ func (q *Queries) ListSeriesByIdentification(ctx context.Context, arg ListSeries
 }
 
 const markSeriesUnmatched = `-- name: MarkSeriesUnmatched :exec
-UPDATE collection SET followed_source = 'none'
+UPDATE item SET followed_source = 'none'
 WHERE id = ?1 AND kind = 'series' AND followed_source IS NULL
 `
 
@@ -302,7 +302,7 @@ func (q *Queries) MarkSeriesUnmatched(ctx context.Context, id int64) error {
 }
 
 const returnAmbiguousSeriesToItsFirstMatch = `-- name: ReturnAmbiguousSeriesToItsFirstMatch :exec
-UPDATE collection SET identification_state = 'unidentified'
+UPDATE item SET identification_state = 'unidentified'
 WHERE id = ?1 AND kind = 'series' AND identification_state = 'ambiguous'
 `
 
@@ -313,7 +313,7 @@ func (q *Queries) ReturnAmbiguousSeriesToItsFirstMatch(ctx context.Context, id i
 }
 
 const setSeriesMatch = `-- name: SetSeriesMatch :exec
-UPDATE collection SET followed_source_id = ?1,
+UPDATE item SET followed_source_id = ?1,
   followed_source = coalesce(?2, followed_source),
   identification_state = CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE ?3 END
 WHERE id = ?4 AND kind = 'series'
@@ -340,7 +340,7 @@ func (q *Queries) SetSeriesMatch(ctx context.Context, arg SetSeriesMatchParams) 
 }
 
 const updateSeriesResolved = `-- name: UpdateSeriesResolved :exec
-UPDATE collection SET year = ?1, released_on = ?2,
+UPDATE item SET year = ?1, released_on = ?2,
   followed_source = ?3,
   identification_state = CASE WHEN identification_state IN ('identified', 'ambiguous', 'confirmed') THEN identification_state ELSE ?4 END
 WHERE id = ?5 AND kind = 'series'

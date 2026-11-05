@@ -15,6 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -67,10 +68,10 @@ func TestPass_AnOtherLibraryFilesEachVideoAsATitleOfItsOwnNeverMatched(t *testin
 		other := lib.otherVideoOf(file.TitleID)
 		got := fmt.Sprintf("%s|%s|%d", titleName(file), other.RecordedFrom, other.RecordedAt)
 		isOther := file.Kind == identify.KindOther && file.Filing == identify.FilingListed &&
-			file.IdentificationState == identify.IdentificationIdentified
+			ptr.ValueOrZero(file.IdentificationState) == identify.IdentificationIdentified
 		if got != wanted || !isOther {
 			t.Errorf("%s: %s, a %s %s %s; want %s, an identified other video, listed", path, got, file.Kind,
-				file.IdentificationState, file.Filing, wanted)
+				ptr.ValueOrZero(file.IdentificationState), file.Filing, wanted)
 		}
 		titles[file.TitleID] = true
 	}

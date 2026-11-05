@@ -56,7 +56,8 @@ func TestServe_AConfirmedFilmCopiedElsewhereAndDeletedKeepsItsTitleAndNoOther(t 
 		t.Fatalf("libraries %v, %v; want the one", libraries, err)
 	}
 	library := libraries[0]
-	storetest.ExecRaw(t, database.Path(), "UPDATE title SET identification_state = 'confirmed'")
+	storetest.ExecRaw(t, database.Path(),
+		"UPDATE item SET identification_state = 'confirmed' WHERE kind IN ('movie', 'episode', 'extra', 'other')")
 	copied := filepath.Join(shelved.media, "Another Name (2021)", "Another Name (2021).mkv")
 	if err = os.MkdirAll(filepath.Dir(copied), 0o700); err != nil {
 		t.Fatal(err)

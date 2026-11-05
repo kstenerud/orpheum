@@ -21,49 +21,55 @@ func (q *Queries) ClearOverridesSetByRemovedUser(ctx context.Context, userID *in
 
 const countWaitingForAPerson = `-- name: CountWaitingForAPerson :one
 SELECT CAST((
-  SELECT count(*) FROM title CROSS JOIN item ON item.id = title.id
-  WHERE title.identification_state = 'ambiguous' AND item.removed_at IS NULL AND EXISTS (
-    SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = title.id AND version.removed_at IS NULL)
-) + (
-  SELECT count(*) FROM title CROSS JOIN item ON item.id = title.id
-  WHERE title.identification_state = 'unidentified' AND title.followed_source = 'none' AND title.kind != 'episode'
+  SELECT count(*) FROM item CROSS JOIN title ON title.id = item.id
+  WHERE item.identification_state = 'ambiguous' AND item.kind IN ('movie', 'episode', 'extra', 'other')
     AND item.removed_at IS NULL AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = title.id AND version.removed_at IS NULL)
+    WHERE version.title_id = item.id AND version.removed_at IS NULL)
 ) + (
-  SELECT count(*) FROM collection CROSS JOIN item ON item.id = collection.id
-  WHERE collection.kind = 'series' AND item.removed_at IS NULL
-    AND (collection.identification_state = 'ambiguous'
-      OR (collection.identification_state = 'unidentified' AND collection.followed_source = 'none'))
+  SELECT count(*) FROM item CROSS JOIN title ON title.id = item.id
+  WHERE item.identification_state = 'unidentified' AND item.followed_source = 'none' AND item.kind != 'episode'
+    AND item.kind IN ('movie', 'extra', 'other') AND item.removed_at IS NULL AND EXISTS (
+    SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
+    WHERE version.title_id = item.id AND version.removed_at IS NULL)
+) + (
+  SELECT count(*) FROM item
+  WHERE item.identification_state = 'ambiguous' AND item.kind = 'series' AND item.removed_at IS NULL
     AND EXISTS (
     SELECT 1 FROM collection_member
     CROSS JOIN version ON version.title_id = collection_member.member_title
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE collection_member.collection_id = collection.id AND version.removed_at IS NULL)
+    WHERE collection_member.collection_id = item.id AND version.removed_at IS NULL)
 ) + (
-  SELECT count(*) FROM fetch_failure CROSS JOIN title ON title.id = fetch_failure.item_id
-  CROSS JOIN item ON item.id = title.id
-  WHERE title.identification_state = 'unidentified' AND IFNULL(title.followed_source, '') != 'none'
-    AND title.kind != 'episode' AND item.removed_at IS NULL AND EXISTS (
-    SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = title.id AND version.removed_at IS NULL)
-) + (
-  SELECT count(*) FROM fetch_failure CROSS JOIN collection ON collection.id = fetch_failure.item_id
-  CROSS JOIN item ON item.id = collection.id
-  WHERE collection.kind = 'series' AND collection.identification_state = 'unidentified'
-    AND IFNULL(collection.followed_source, '') != 'none' AND item.removed_at IS NULL AND EXISTS (
+  SELECT count(*) FROM item
+  WHERE item.identification_state = 'unidentified' AND item.followed_source = 'none' AND item.kind != 'episode'
+    AND item.kind = 'series' AND item.removed_at IS NULL
+    AND EXISTS (
     SELECT 1 FROM collection_member
     CROSS JOIN version ON version.title_id = collection_member.member_title
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE collection_member.collection_id = collection.id AND version.removed_at IS NULL)
+    WHERE collection_member.collection_id = item.id AND version.removed_at IS NULL)
+) + (
+  SELECT count(*) FROM fetch_failure CROSS JOIN item ON item.id = fetch_failure.item_id
+  WHERE item.identification_state = 'unidentified' AND IFNULL(item.followed_source, '') != 'none'
+    AND item.kind IN ('movie', 'extra', 'other') AND item.removed_at IS NULL AND EXISTS (
+    SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
+    WHERE version.title_id = item.id AND version.removed_at IS NULL)
+) + (
+  SELECT count(*) FROM fetch_failure CROSS JOIN item ON item.id = fetch_failure.item_id
+  WHERE item.kind = 'series' AND item.identification_state = 'unidentified'
+    AND IFNULL(item.followed_source, '') != 'none' AND item.removed_at IS NULL AND EXISTS (
+    SELECT 1 FROM collection_member
+    CROSS JOIN version ON version.title_id = collection_member.member_title
+    CROSS JOIN version_library ON version_library.version_id = version.id
+    WHERE collection_member.collection_id = item.id AND version.removed_at IS NULL)
 ) AS INTEGER) AS waiting_count
 `
 
 // The films and series whose match waits for a person, as "Needs a match" lists them: several
 // found, or none found after a search, or a fetch that failed on its own, that a library lists; an
-// episode is its series' (D209). Each part repeats the index it is counted by, title_ambiguous or
-// title_waiting (D303, DL4), or the few fetch_failure rows.
+// episode is its series' (D209). Each part repeats the index it is counted by, item_ambiguous or
+// item_waiting (D303, DL4; D426 section 2), or the few fetch_failure rows.
 func (q *Queries) CountWaitingForAPerson(ctx context.Context) (int64, error) {
 	row := q.db.QueryRowContext(ctx, countWaitingForAPerson)
 	var waiting_count int64
@@ -176,7 +182,7 @@ func (q *Queries) GetProviderResponse(ctx context.Context, arg GetProviderRespon
 
 const getTitleForMatch = `-- name: GetTitleForMatch :one
 
-SELECT title.id, title.kind, title.year, title.identification_state, title.followed_source, title.followed_source_id, item.filing_library_id,
+SELECT title.id, title.kind, item.year, item.identification_state, item.followed_source, item.followed_source_id, item.filing_library_id,
   library.metadata_source, item_text.name
 FROM title
 JOIN item ON item.id = title.id
@@ -189,7 +195,7 @@ type GetTitleForMatchRow struct {
 	ID                  int64
 	Kind                string
 	Year                *int64
-	IdentificationState string
+	IdentificationState *string
 	FollowedSource      *string
 	FollowedSourceID    *string
 	FilingLibraryID     *int64
@@ -307,7 +313,7 @@ SELECT title.id
 FROM title
 JOIN item ON item.id = title.id
 WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND title.kind = 'movie'
-  AND title.followed_source IS NULL AND title.identification_state = 'unidentified'
+  AND item.followed_source IS NULL AND item.identification_state = 'unidentified'
   AND NOT EXISTS (SELECT 1 FROM fetch_failure WHERE fetch_failure.item_id = title.id)
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
@@ -342,7 +348,7 @@ func (q *Queries) ListTitlesAwaitingMatch(ctx context.Context, libraryID *int64)
 }
 
 const listTitlesByIdentification = `-- name: ListTitlesByIdentification :many
-SELECT title.id, title.kind, title.year, title.identification_state, title.followed_source, title.followed_source_id, item.filing_library_id,
+SELECT title.id, title.kind, item.year, item.identification_state, item.followed_source, item.followed_source_id, item.filing_library_id,
   item_text.name, fetch_failure.failure AS fetch_failure, fetch_failure.failed_at AS fetch_failed_at,
   refresh_request.requested_at AS refresh_requested_at
 FROM title
@@ -350,9 +356,9 @@ JOIN item ON item.id = title.id
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
 LEFT JOIN fetch_failure ON fetch_failure.item_id = title.id
 LEFT JOIN refresh_request ON refresh_request.item_id = title.id
-WHERE title.identification_state = ?1 AND item.removed_at IS NULL
+WHERE item.identification_state = ?1 AND item.removed_at IS NULL
   AND title.kind NOT IN ('episode', 'other')
-  AND (title.identification_state != 'unidentified' OR title.followed_source = 'none'
+  AND (item.identification_state != 'unidentified' OR item.followed_source = 'none'
     OR fetch_failure.item_id IS NOT NULL OR refresh_request.item_id IS NOT NULL)
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
@@ -369,7 +375,7 @@ LIMIT ?6
 `
 
 type ListTitlesByIdentificationParams struct {
-	IdentificationState string
+	IdentificationState *string
 	IsEveryLibrary      int64
 	LibraryIdsJSON      string
 	AfterName           string
@@ -381,7 +387,7 @@ type ListTitlesByIdentificationRow struct {
 	ID                  int64
 	Kind                string
 	Year                *int64
-	IdentificationState string
+	IdentificationState *string
 	FollowedSource      *string
 	FollowedSourceID    *string
 	FilingLibraryID     *int64
@@ -475,8 +481,8 @@ func (q *Queries) MoveVersionsBetweenTitles(ctx context.Context, arg MoveVersion
 }
 
 const returnAmbiguousTitleToItsFirstMatch = `-- name: ReturnAmbiguousTitleToItsFirstMatch :exec
-UPDATE title SET identification_state = 'unidentified'
-WHERE id = ?1 AND identification_state = 'ambiguous'
+UPDATE item SET identification_state = 'unidentified'
+WHERE id = ?1 AND kind IN ('movie', 'episode', 'extra', 'other') AND identification_state = 'ambiguous'
 `
 
 // A film the matcher left ambiguous that its kept results now settle, under rules that changed
@@ -488,15 +494,15 @@ func (q *Queries) ReturnAmbiguousTitleToItsFirstMatch(ctx context.Context, id in
 }
 
 const setTitleMatch = `-- name: SetTitleMatch :exec
-UPDATE title SET followed_source = ?1, followed_source_id = ?2,
+UPDATE item SET followed_source = ?1, followed_source_id = ?2,
   identification_state = CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE ?3 END
-WHERE id = ?4
+WHERE id = ?4 AND kind IN ('movie', 'episode', 'extra', 'other')
 `
 
 type SetTitleMatchParams struct {
 	FollowedSource      *string
 	FollowedSourceID    *string
-	IdentificationState string
+	IdentificationState *string
 	ID                  int64
 }
 

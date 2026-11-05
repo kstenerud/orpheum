@@ -178,7 +178,7 @@ const listArtworkSourceSha256s = `-- name: ListArtworkSourceSha256s :many
 SELECT artwork.source_sha256,
   CAST(MAX(CASE WHEN artwork.removed_at IS NULL AND item.removed_at IS NULL THEN 1 ELSE 0 END) AS INTEGER) AS is_live,
   CAST(MAX(CASE WHEN artwork.removed_at IS NULL AND item.removed_at IS NULL AND (
-    item.kind NOT IN ('title', 'collection')
+    item.kind NOT IN ('movie', 'series', 'episode', 'extra', 'other')
     OR EXISTS (
       SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
       WHERE version.title_id = item.id AND version.removed_at IS NULL)
@@ -324,17 +324,17 @@ WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL
   )
   AND (
     title.kind = 'other'
-    OR (title.kind = 'movie' AND title.identification_state != 'ambiguous'
+    OR (title.kind = 'movie' AND item.identification_state != 'ambiguous'
       AND NOT EXISTS (SELECT 1 FROM fetch_failure WHERE fetch_failure.item_id = title.id)
-      AND (library.metadata_source = 'nfo' OR title.followed_source IN ('none', 'nfo')
+      AND (library.metadata_source = 'nfo' OR item.followed_source IN ('none', 'nfo')
         OR EXISTS (
           SELECT 1 FROM provider_response
-          WHERE provider_response.item_id = title.id AND provider_response.provider = title.followed_source
+          WHERE provider_response.item_id = title.id AND provider_response.provider = item.followed_source
             AND provider_response.part = ''
         )))
     OR (title.kind = 'episode' AND EXISTS (
       SELECT 1 FROM collection_member member
-      JOIN collection series ON series.id = member.collection_id AND series.kind = 'series'
+      JOIN item series ON series.id = member.collection_id AND series.kind = 'series'
       WHERE member.member_title = title.id AND series.identification_state != 'ambiguous'
         AND NOT EXISTS (SELECT 1 FROM fetch_failure WHERE fetch_failure.item_id = series.id)
         AND (library.metadata_source = 'nfo' OR series.followed_source IN ('none', 'nfo')

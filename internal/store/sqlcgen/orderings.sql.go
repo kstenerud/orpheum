@@ -90,7 +90,7 @@ func (q *Queries) ListChosenGroupsToFetch(ctx context.Context, arg ListChosenGro
 const listLibrarySeriesWithFetchedGroups = `-- name: ListLibrarySeriesWithFetchedGroups :many
 SELECT item.id AS collection_id
 FROM item
-WHERE item.filing_library_id = ?1 AND item.kind = 'collection' AND item.removed_at IS NULL
+WHERE item.filing_library_id = ?1 AND item.kind = 'series' AND item.removed_at IS NULL
   AND EXISTS (
     SELECT 1 FROM ordering
     JOIN provider_response ON provider_response.item_id = ordering.collection_id
@@ -259,12 +259,12 @@ func (q *Queries) ListProviderOrderingsOfSeries(ctx context.Context, arg ListPro
 }
 
 const listSeriesEpisodeSourceIDs = `-- name: ListSeriesEpisodeSourceIDs :many
-SELECT title.id AS title_id, CAST(title.followed_source_id AS TEXT) AS followed_source_id
+SELECT title.id AS title_id, CAST(item.followed_source_id AS TEXT) AS followed_source_id
 FROM collection_member
 JOIN title ON title.id = collection_member.member_title
 JOIN item ON item.id = title.id AND item.removed_at IS NULL
-WHERE collection_member.collection_id = ?1 AND title.followed_source = ?2
-  AND title.followed_source_id IS NOT NULL
+WHERE collection_member.collection_id = ?1 AND item.followed_source = ?2
+  AND item.followed_source_id IS NOT NULL
 ORDER BY title.id
 `
 
@@ -317,9 +317,9 @@ SELECT collection.id, CAST(EXISTS (
   ) AS INTEGER) AS is_chosen
 FROM collection
 JOIN item ON item.id = collection.id AND item.removed_at IS NULL
-WHERE collection.kind = 'series' AND collection.followed_source = ?2
-  AND collection.followed_source_id IS NOT NULL
-  AND collection.identification_state IN ('identified', 'confirmed')
+WHERE collection.kind = 'series' AND item.followed_source = ?2
+  AND item.followed_source_id IS NOT NULL
+  AND item.identification_state IN ('identified', 'confirmed')
   AND NOT EXISTS (SELECT 1 FROM fetch_failure WHERE fetch_failure.item_id = collection.id)
   AND EXISTS (
     SELECT 1 FROM provider_response

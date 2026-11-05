@@ -15,6 +15,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -93,7 +94,7 @@ func (browser *Browser) Folder(ctx context.Context, query FolderQuery) (Folder, 
 	for _, video := range here {
 		row := video.row
 		facts := &OtherFacts{RecordedAtMs: row.RecordedAt, RecordedFrom: row.RecordedFrom, FileName: row.FileName}
-		page.Entries = append(page.Entries, otherEntry(row.TitleID, &row.Name, row.IdentificationState,
+		page.Entries = append(page.Entries, otherEntry(row.TitleID, &row.Name, ptr.ValueOrZero(row.IdentificationState),
 			row.AddedAt, facts))
 	}
 	if page, err = browser.finishPage(ctx, query.Reach, page); err != nil {

@@ -313,7 +313,7 @@ func (rescans *Rescans) askForMissingImages(ctx context.Context, itemIDs []int64
 			continue
 		case err != nil:
 			return fmt.Errorf("read item %d: %w", itemID, err)
-		case kind == itemKindCollection:
+		case kind == KindSeries:
 			err = rescans.matcher.retrySeriesImages(ctx, itemID)
 		default:
 			err = rescans.matcher.retryImages(ctx, itemID)

@@ -123,7 +123,7 @@ func (matcher *Matcher) refresh(ctx context.Context, itemID int64, shouldRetryIm
 	if err != nil {
 		return "", fmt.Errorf("read item %d: %w", itemID, err)
 	}
-	if kind == itemKindCollection {
+	if kind == KindSeries {
 		return matcher.refreshSeries(ctx, itemID, shouldRetryImages)
 	}
 	title, err := store.OrNotFound(queries.GetTitleForMatch(ctx, itemID))
@@ -149,7 +149,7 @@ func (matcher *Matcher) refresh(ctx context.Context, itemID int64, shouldRetryIm
 			return "", retryErr
 		}
 	}
-	err = matcher.accept(ctx, provider, title, *title.FollowedSourceID, title.IdentificationState)
+	err = matcher.accept(ctx, provider, title, *title.FollowedSourceID, ptr.ValueOrZero(title.IdentificationState))
 	if errors.Is(err, ErrNoMatch) {
 		gone := goneResponsePart{itemID, provider.Name(), ""}
 		return OutcomeKept, matcher.keepGoneCopy(ctx, title.FilingLibraryID, gone)

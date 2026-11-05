@@ -15,7 +15,7 @@ func TestSchema_ASortKeyIsOnePerItemInEachLocaleAndReadByIt(t *testing.T) {
 	t.Parallel()
 	database := openMigrated(t)
 	execRaw(t, database,
-		"INSERT INTO item (id, kind, added_at) VALUES (7, 'title', 1)",
+		"INSERT INTO item (id, kind, added_at, identification_state) VALUES (7, 'movie', 1, 'identified')",
 		"INSERT INTO sort_key (item_id, locale, listing, collation_key) VALUES (7, 'en', 'movie', x'01')")
 	const second = "INSERT INTO sort_key (item_id, locale, listing, collation_key) VALUES (7, 'en', 'series', x'02')"
 	if _, err := database.writer.ExecContext(t.Context(), second); err == nil {
@@ -46,7 +46,7 @@ func TestSchema_TheTextIndexesAreRewrittenOnlyOnChange(t *testing.T) {
 	database := openMigrated(t)
 	ctx := t.Context()
 	execRaw(t, database,
-		"INSERT INTO item (id, kind, added_at) VALUES (7, 'title', 1)",
+		"INSERT INTO item (id, kind, added_at, identification_state) VALUES (7, 'movie', 1, 'identified')",
 		"INSERT INTO item_text (item_id, language, is_original, name, search_alternates) "+
 			"VALUES (7, 'und', 1, 'The General', 'solaris')")
 	found := fmt.Sprint(queryRows(t, database,
@@ -87,8 +87,13 @@ func TestSchema_EachPathsIndexServesIt(t *testing.T) {
 		"SELECT collection_id FROM collection_member WHERE member_title = 1": "collection_member_title",
 		`SELECT secret_sha256 FROM "grant" WHERE device_id = 1`:              "grant_device",
 		"UPDATE version SET title_id = 2 WHERE title_id = 1":                 "version_title",
-		"SELECT id FROM title WHERE identification_state = 'unidentified' AND followed_source = 'none' " +
-			"AND kind != 'episode'": "title_waiting",
+		"SELECT id FROM item WHERE identification_state = 'unidentified' AND followed_source = 'none' " +
+			"AND kind != 'episode' AND kind IN ('movie', 'extra', 'other')": "item_waiting",
+		"SELECT id FROM item WHERE identification_state = 'ambiguous' AND kind = 'series'":    "item_ambiguous",
+		"SELECT id FROM item WHERE identification_state = 'confirmed' AND removed_at IS NULL": "item_identification",
+		"SELECT id FROM item WHERE kind = 'movie' ORDER BY found_at DESC, found_file_modified_at DESC, id DESC " +
+			"LIMIT 10": "item_kind_found",
+		"SELECT id FROM item WHERE kind = 'series' ORDER BY released_on LIMIT 10": "item_kind_released",
 	} {
 		plan := fmt.Sprint(queryRows(t, database, "EXPLAIN QUERY PLAN "+query, 4))
 		if !strings.Contains(plan, index) {
@@ -97,22 +102,32 @@ func TestSchema_EachPathsIndexServesIt(t *testing.T) {
 	}
 }
 
-// A title and a collection are each an item of their own kind, an id at a source has its source, and
-// a library's check interval is for checking by interval alone: the engine refuses each otherwise
-// (D303, M5).
+// A title and a collection are each an item of their own kind, the kind its item says (D426 §2), an id
+// at a source has its source, a release date falls in its year, only a person is never identified,
+// and a library's check interval is for checking by interval alone: the engine refuses each
+// otherwise (D303, M5).
 func TestSchema_RefusesRowsThatBreakTheirRules(t *testing.T) {
 	t.Parallel()
 	database := openMigrated(t)
 	execRaw(t, database,
-		"INSERT INTO item (id, kind, added_at) VALUES (7, 'collection', 1), (8, 'title', 1)")
+		"INSERT INTO item (id, kind, added_at, identification_state) "+
+			"VALUES (7, 'series', 1, 'unidentified'), (8, 'movie', 1, 'identified')")
 	for what, statement := range map[string]string{
-		"a title row on a collection item": "INSERT INTO title (id, kind, identification_state) " +
-			"VALUES (7, 'movie', 'unidentified')",
-		"an id with no source": "INSERT INTO title (id, kind, identification_state, followed_source_id) " +
-			"VALUES (8, 'movie', 'identified', '603')",
+		"a title row on a collection item":  "INSERT INTO title (id, kind) VALUES (7, 'movie')",
+		"a title of a kind its item is not": "INSERT INTO title (id, kind) VALUES (8, 'episode')",
+		"a collection row on a title item": "INSERT INTO collection (id, kind, created_by) " +
+			"VALUES (8, 'series', 'scanner')",
+		"an id with no source": "INSERT INTO item (kind, added_at, identification_state, followed_source_id) " +
+			"VALUES ('movie', 1, 'identified', '603')",
+		"a release date outside its year": "INSERT INTO item (kind, added_at, identification_state, year, " +
+			"released_on) VALUES ('movie', 1, 'identified', 1999, 20000101)",
+		"a person with an identification": "INSERT INTO item (kind, added_at, identification_state) " +
+			"VALUES ('person', 1, 'identified')",
+		"a film with none": "INSERT INTO item (kind, added_at) VALUES ('movie', 1)",
 		"hours for a manual library": "INSERT INTO library (name, kind, metadata_source, change_detection, " +
 			"check_every_hours, is_writable, created_at) VALUES ('Films', 'movie', 'nfo', 'manual', 6, 0, 1)",
-		"text in an integer column": "INSERT INTO item (kind, added_at) VALUES ('title', 'yesterday')",
+		"text in an integer column": "INSERT INTO item (kind, added_at, identification_state) " +
+			"VALUES ('movie', 'yesterday', 'identified')",
 	} {
 		if _, err := database.writer.ExecContext(t.Context(), statement); err == nil {
 			t.Errorf("%s was kept", what)

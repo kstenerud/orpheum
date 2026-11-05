@@ -6,7 +6,7 @@
 SELECT kind FROM item WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 
 -- name: GetSeriesForMatch :one
-SELECT collection.id, collection.year, collection.followed_source, collection.followed_source_id, collection.identification_state,
+SELECT collection.id, item.year, item.followed_source, item.followed_source_id, item.identification_state,
   item.filing_library_id, library.metadata_source, item_text.name
 FROM collection
 JOIN item ON item.id = collection.id
@@ -18,26 +18,26 @@ WHERE collection.id = sqlc.arg(id) AND collection.kind = 'series' AND item.remov
 -- The outcome of a series' match: the source with its id, together, as a title's match writes them
 -- (an id is an id at a source, D303 M5), or no id, the source left as it is. A confirmed match is a
 -- person's and stays (D172).
-UPDATE collection SET followed_source_id = sqlc.arg(followed_source_id),
+UPDATE item SET followed_source_id = sqlc.arg(followed_source_id),
   followed_source = coalesce(sqlc.narg(followed_source), followed_source),
   identification_state = CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE sqlc.arg(identification_state) END
 WHERE id = sqlc.arg(id) AND kind = 'series';
 
 -- name: ConfirmSeriesMatch :exec
 -- A person confirmed a series' match as it stands, as ConfirmTitleMatch a title's (D172).
-UPDATE collection SET identification_state = 'confirmed'
+UPDATE item SET identification_state = 'confirmed'
 WHERE id = sqlc.arg(id) AND kind = 'series'
   -- Only when it changes something (D303, DL9).
   AND identification_state IS NOT 'confirmed';
 
 -- name: MarkSeriesUnmatched :exec
 -- The provider found nothing for a series whose own fields have no source yet.
-UPDATE collection SET followed_source = 'none'
+UPDATE item SET followed_source = 'none'
 WHERE id = sqlc.arg(id) AND kind = 'series' AND followed_source IS NULL;
 
 -- name: UpdateSeriesResolved :exec
 -- A pass's resolution of a series' own fields; its match is the matcher's and a person's.
-UPDATE collection SET year = sqlc.arg(year), released_on = sqlc.arg(released_on),
+UPDATE item SET year = sqlc.arg(year), released_on = sqlc.arg(released_on),
   followed_source = sqlc.arg(followed_source),
   identification_state = CASE WHEN identification_state IN ('identified', 'ambiguous', 'confirmed') THEN identification_state ELSE sqlc.arg(identification_state) END
 WHERE id = sqlc.arg(id) AND kind = 'series'
@@ -50,7 +50,7 @@ WHERE id = sqlc.arg(id) AND kind = 'series'
 -- A series' episodes in its aired order, with where each takes its values from and when it
 -- first appeared: a new episode missing from a season listing fetched before it arrived is
 -- what fetches that listing again (D209 section 3).
-SELECT position.title_id, position.group_number, position.number_in_group, title.followed_source, item.added_at
+SELECT position.title_id, position.group_number, position.number_in_group, item.followed_source, item.added_at
 FROM position
 JOIN ordering ON ordering.id = position.ordering_id
 JOIN title ON title.id = position.title_id
@@ -70,7 +70,7 @@ WHERE item_id = sqlc.arg(item_id) AND provider = sqlc.arg(provider) AND part = s
 -- for no one (the owner's NAS, 2026-10-13), as does an unidentified one not searched yet unless its
 -- fetch failed on its own or a person asked for it again: the list is what CountWaitingForAPerson
 -- counts, and those asked for.
-SELECT collection.id, collection.year, collection.identification_state, collection.followed_source, collection.followed_source_id,
+SELECT collection.id, item.year, item.identification_state, item.followed_source, item.followed_source_id,
   item.filing_library_id, item_text.name, fetch_failure.failure AS fetch_failure, fetch_failure.failed_at AS fetch_failed_at,
   refresh_request.requested_at AS refresh_requested_at
 FROM collection
@@ -78,8 +78,8 @@ JOIN item ON item.id = collection.id
 LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_original = 1
 LEFT JOIN fetch_failure ON fetch_failure.item_id = collection.id
 LEFT JOIN refresh_request ON refresh_request.item_id = collection.id
-WHERE collection.kind = 'series' AND collection.identification_state = sqlc.arg(identification_state) AND item.removed_at IS NULL
-  AND (collection.identification_state != 'unidentified' OR collection.followed_source = 'none'
+WHERE collection.kind = 'series' AND item.identification_state = sqlc.arg(identification_state) AND item.removed_at IS NULL
+  AND (item.identification_state != 'unidentified' OR item.followed_source = 'none'
     OR fetch_failure.item_id IS NOT NULL OR refresh_request.item_id IS NOT NULL)
   AND EXISTS (
     SELECT 1 FROM collection_member
@@ -104,15 +104,15 @@ FROM collection
 JOIN item ON item.id = collection.id
 JOIN library ON library.id = item.filing_library_id
 WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND collection.kind = 'series'
-  AND library.metadata_source != 'nfo' AND collection.identification_state = 'unidentified'
-  AND collection.followed_source IS NOT 'none'
+  AND library.metadata_source != 'nfo' AND item.identification_state = 'unidentified'
+  AND item.followed_source IS NOT 'none'
   AND NOT EXISTS (SELECT 1 FROM fetch_failure WHERE fetch_failure.item_id = collection.id)
   AND EXISTS (
     SELECT 1 FROM ordering
     JOIN position ON position.ordering_id = ordering.id
-    JOIN title ON title.id = position.title_id
+    JOIN item AS episode ON episode.id = position.title_id
     WHERE ordering.collection_id = collection.id AND ordering.name = 'aired'
-      AND (title.followed_source IS NULL OR title.followed_source != 'nfo')
+      AND (episode.followed_source IS NULL OR episode.followed_source != 'nfo')
   )
   AND EXISTS (
     SELECT 1 FROM collection_member
@@ -124,5 +124,5 @@ ORDER BY collection.id;
 
 -- name: ReturnAmbiguousSeriesToItsFirstMatch :exec
 -- A series the matcher left ambiguous that its kept results now settle: owed its first match again.
-UPDATE collection SET identification_state = 'unidentified'
+UPDATE item SET identification_state = 'unidentified'
 WHERE id = sqlc.arg(id) AND kind = 'series' AND identification_state = 'ambiguous';

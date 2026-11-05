@@ -32,7 +32,9 @@ func (harness testHarness) shelve(t *testing.T) {
 	librarytest.NodeWithLibrary(t, harness.database,
 		librarytest.Library{Name: "Films", Kind: "movie", MetadataSource: "nfo", Root: "/m"})
 	librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: 10, Library: 1, Year: 1995, AddedAt: 1})
-	librarytest.Item(t, harness.database, librarytest.ItemSpec{ID: 20, Kind: "collection", LibraryID: 1, AddedAt: 2})
+	librarytest.Item(t, harness.database, librarytest.ItemSpec{
+		ID: 20, Kind: "series", LibraryID: 1, AddedAt: 2, IdentificationState: "identified",
+	})
 	librarytest.Title(t, harness.database, librarytest.TitleSpec{
 		ID: 21, Library: 1, Kind: "episode", Year: 2008, AddedAt: 2,
 	})
@@ -52,8 +54,7 @@ func (harness testHarness) shelve(t *testing.T) {
 		BytesFile: 1, StreamIndex: 1, Kind: "audio", Codec: "truehd", Language: "en", ChannelCount: 8,
 	})
 	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO collection (id, kind, created_by, identification_state)
-		 VALUES (20, 'series', 'scanner', 'identified')`,
+		"INSERT INTO collection (id, kind, created_by) VALUES (20, 'series', 'scanner')",
 		`INSERT INTO item_text (item_id, language, is_original, name, overview, search_alternates) VALUES
 		 (10, 'und', 1, 'Metropolis', 'A crime saga.', 'heat'), (20, 'und', 1, 'Brass Arena', NULL, 'brass arena'),
 		 (21, 'und', 1, 'Pilot', NULL, 'pilot')`,

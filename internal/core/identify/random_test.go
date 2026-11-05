@@ -120,7 +120,8 @@ func checkAgainAfterScan(t *testing.T, lib *testLibrary, step int, paths []strin
 	if err != nil || len(violations) > 0 {
 		t.Errorf("step %d: invariants %v, %v, over %v", step, violations, err, paths)
 	}
-	made := storetest.QueryRaw(t, lib.database.Path(), "SELECT count(*) FROM item WHERE kind = 'title'")
+	made := storetest.QueryRaw(t, lib.database.Path(),
+		"SELECT count(*) FROM item WHERE kind IN ('movie', 'episode', 'extra', 'other')")
 	if count, _ := strconv.Atoi(made[0]); count > placesShown { //nolint:errcheck // a count
 		t.Errorf("step %d: %d titles made over %d places files were shown at; a title is made for a "+
 			"file at a path at most once", step, count, placesShown)

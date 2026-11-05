@@ -156,7 +156,7 @@ func (server *Server) titleBody(
 	body := &TitleBody{}
 	body.ID, body.Kind, body.Name = detail.ID, detail.Kind, ptr.ValueOrZero(detail.Name)
 	body.Genres, body.Credits = peopleBodies(detail.People)
-	body.IdentificationState, body.IsGuessed = detail.IdentificationState, detail.IsGuessed
+	body.IdentificationState, body.IsGuessed = ptr.ValueOrZero(detail.IdentificationState), detail.IsGuessed
 	body.Overview = ptr.ValueOrZero(detail.Overview)
 	body.Tagline = ptr.ValueOrZero(detail.Tagline)
 	body.FollowedSource = ptr.ValueOrZero(detail.FollowedSource)

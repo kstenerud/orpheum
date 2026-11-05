@@ -100,7 +100,7 @@ func TestPass_EpisodesAnOlderReadingSplitIntoSeriesOfTheirOwnComeTogether(t *tes
 	// As the older reading filed them: the second episode in a series of its own, each series named
 	// for its episode's folder.
 	split := fmt.Sprintf
-	librarytest.Item(t, lib.database, librarytest.ItemSpec{ID: 9001, Kind: "collection", LibraryID: lib.libraryID})
+	librarytest.Item(t, lib.database, librarytest.ItemSpec{ID: 9001, Kind: "series", LibraryID: lib.libraryID})
 	storetest.ExecRaw(t, lib.database.Path(),
 		`INSERT INTO collection (id, kind, created_by) VALUES (9001, 'series', 'scanner')`,
 		split(`INSERT INTO item_text (item_id, language, is_original, name)

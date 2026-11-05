@@ -58,7 +58,7 @@ func (browser *Browser) listOtherByName(
 	for _, row := range rows {
 		facts := otherFactsOf(row.RecordedAt, row.RecordedFrom, row.FileName)
 		keyed = append(keyed, keyedEntry{key: row.CollationKey, entry: otherEntry(
-			row.ItemID, row.Name, row.IdentificationState, row.AddedAt, facts)})
+			row.ItemID, row.Name, ptr.ValueOrZero(row.IdentificationState), row.AddedAt, facts)})
 	}
 	return keyed, err
 }
@@ -87,7 +87,7 @@ func (browser *Browser) listOtherByFileName(
 	for _, row := range rows {
 		facts := &OtherFacts{RecordedAtMs: row.RecordedAt, RecordedFrom: row.RecordedFrom, FileName: row.FileName}
 		keyed = append(keyed, keyedEntry{key: row.FileNameKey, entry: otherEntry(
-			row.ItemID, row.Name, row.IdentificationState, row.AddedAt, facts)})
+			row.ItemID, row.Name, ptr.ValueOrZero(row.IdentificationState), row.AddedAt, facts)})
 	}
 	return keyed, err
 }
@@ -121,7 +121,7 @@ func (browser *Browser) listOtherByRecorded(
 	for _, row := range rows {
 		facts := &OtherFacts{RecordedAtMs: row.RecordedAt, RecordedFrom: row.RecordedFrom, FileName: row.FileName}
 		keyed = append(keyed, keyedEntry{key: timeKey(row.RecordedAt), entry: otherEntry(
-			row.ItemID, row.Name, row.IdentificationState, row.AddedAt, facts)})
+			row.ItemID, row.Name, ptr.ValueOrZero(row.IdentificationState), row.AddedAt, facts)})
 	}
 	return keyed, err
 }
@@ -151,7 +151,7 @@ func (browser *Browser) listOtherByAdded(
 	for _, row := range rows {
 		facts := otherFactsOf(row.RecordedAt, row.RecordedFrom, row.FileName)
 		keyed = append(keyed, keyedEntry{key: timeKey(row.FoundAt, row.FoundFileModifiedAt), entry: otherEntry(
-			row.ItemID, row.Name, row.IdentificationState, row.AddedAt, facts)})
+			row.ItemID, row.Name, ptr.ValueOrZero(row.IdentificationState), row.AddedAt, facts)})
 	}
 	return keyed, err
 }

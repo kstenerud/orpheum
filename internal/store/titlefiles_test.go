@@ -21,8 +21,9 @@ func TestTitleFiles_EveryQueryLeavesOutARemovedVersion(t *testing.T) {
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
 		 VALUES (1, 'Films', 'movie', 'nfo', 'manual', 0, 1)`,
 		"INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/m')",
-		"INSERT INTO item (id, kind, filing_library_id, added_at) VALUES (10, 'title', 1, 1)",
-		"INSERT INTO title (id, kind, identification_state) VALUES (10, 'movie', 'identified')",
+		"INSERT INTO item (id, kind, filing_library_id, added_at, identification_state) "+
+			"VALUES (10, 'movie', 1, 1, 'identified')",
+		"INSERT INTO title (id, kind) VALUES (10, 'movie')",
 		"INSERT INTO version (id, title_id, created_at, removed_at) VALUES (1, 10, 1, NULL), (2, 10, 1, 5)",
 		`INSERT INTO file (id, node_id, path, reported_path_raw, size_bytes, filing, first_seen_at, last_seen_at)
 		 VALUES (1, 1, '/m/kept.mkv', CAST('/m/kept.mkv' AS BLOB), 10, 'video', 1, 1),

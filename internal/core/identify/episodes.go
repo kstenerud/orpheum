@@ -101,7 +101,7 @@ func (filer *libraryFiler) markPlacedByGuess(ctx context.Context, titleID int64,
 		if stateErr != nil {
 			return fmt.Errorf("read whether episode %d is confirmed: %w", titleID, stateErr)
 		}
-		if state == identificationConfirmed {
+		if ptr.ValueOrZero(state) == identificationConfirmed {
 			return nil
 		}
 	}
@@ -354,12 +354,13 @@ func (filer *libraryFiler) findOrAddSeries(ctx context.Context, evidence seriesS
 	}
 	libraryID := filer.library.ID
 	id, err := filer.queries.InsertItem(ctx, sqlcgen.InsertItemParams{
-		Kind: itemKindCollection, LibraryID: &libraryID, AddedAt: filer.nowMs,
+		Kind: KindSeries, LibraryID: &libraryID, AddedAt: filer.nowMs,
+		IdentificationState: ptr.NilIfZero(identificationUnidentified),
 	})
 	if err != nil {
 		return 0, fmt.Errorf("add series %q: %w", name, err)
 	}
-	collection := sqlcgen.InsertCollectionParams{ID: id, Kind: "series", CreatedBy: "scanner"}
+	collection := sqlcgen.InsertCollectionParams{ID: id, CreatedBy: "scanner"}
 	err = filer.queries.InsertCollection(ctx, collection)
 	if err != nil {
 		return 0, fmt.Errorf("add series %q: %w", name, err)

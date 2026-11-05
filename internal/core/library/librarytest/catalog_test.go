@@ -16,12 +16,12 @@ import (
 func TestItem_LetsTheDatabaseChooseOrTakesAChosenID(t *testing.T) {
 	t.Parallel()
 	database := storetest.OpenMigrated(t)
-	chosen := librarytest.Item(t, database, librarytest.ItemSpec{ID: 20, Kind: "collection", LibraryID: 0, AddedAt: 5})
+	chosen := librarytest.Item(t, database, librarytest.ItemSpec{ID: 20, Kind: "series", LibraryID: 0, AddedAt: 5})
 	if chosen != 20 {
 		t.Fatalf("Item with ID 20 returned %d", chosen)
 	}
 	got := storetest.QueryRaw(t, database.Path(), "SELECT kind, filing_library_id, added_at FROM item WHERE id = 20")
-	if want := []string{"collection|<nil>|5"}; !slices.Equal(got, want) {
+	if want := []string{"series|<nil>|5"}; !slices.Equal(got, want) {
 		t.Errorf("item 20 = %v, want %v", got, want)
 	}
 
@@ -31,7 +31,7 @@ func TestItem_LetsTheDatabaseChooseOrTakesAChosenID(t *testing.T) {
 	}
 	got = storetest.QueryRaw(t, database.Path(),
 		"SELECT kind, filing_library_id, added_at FROM item WHERE id = "+itoa(chosenByDatabase))
-	if want := []string{"title|<nil>|1"}; !slices.Equal(got, want) {
+	if want := []string{"movie|<nil>|1"}; !slices.Equal(got, want) {
 		t.Errorf("item %d (defaults) = %v, want %v", chosenByDatabase, got, want)
 	}
 }
@@ -50,7 +50,8 @@ func TestTitle_MakesTheItemAndTheTitleRowTogether(t *testing.T) {
 	}
 	librarytest.Version(t, database, librarytest.VersionSpec{TitleID: titleID})
 	got := storetest.QueryRaw(t, database.Path(),
-		"SELECT kind, year, followed_source, followed_source_id, identification_state FROM title WHERE id = 10")
+		"SELECT title.kind, year, followed_source, followed_source_id, identification_state "+
+			"FROM title JOIN item ON item.id = title.id WHERE title.id = 10")
 	if want := []string{"movie|1995|tmdb|4801|identified"}; !slices.Equal(got, want) {
 		t.Errorf("title 10 = %v, want %v", got, want)
 	}
@@ -58,7 +59,8 @@ func TestTitle_MakesTheItemAndTheTitleRowTogether(t *testing.T) {
 	seriesID := librarytest.Title(t, database, librarytest.TitleSpec{Kind: "episode"})
 	librarytest.Version(t, database, librarytest.VersionSpec{TitleID: seriesID})
 	got = storetest.QueryRaw(t, database.Path(),
-		"SELECT kind, year, followed_source, identification_state FROM title WHERE id = "+itoa(seriesID))
+		"SELECT title.kind, year, followed_source, identification_state "+
+			"FROM title JOIN item ON item.id = title.id WHERE title.id = "+itoa(seriesID))
 	if want := []string{"episode|<nil>|<nil>|identified"}; !slices.Equal(got, want) {
 		t.Errorf("title %d (defaults) = %v, want %v", seriesID, got, want)
 	}

@@ -279,7 +279,7 @@ func TestOrderings_ChoosingAGroupNotFetchedYetQueuesItsFetch(t *testing.T) {
 	admin := harness.createAdminAndSignIn(t)
 	harness.shelveDVDOrder(t)
 	storetest.ExecRaw(t, harness.databasePath,
-		`UPDATE collection SET followed_source = 'tmdb', followed_source_id = '1396' WHERE id = 20`,
+		`UPDATE item SET followed_source = 'tmdb', followed_source_id = '1396' WHERE id = 20`,
 		`INSERT INTO ordering (id, collection_id, name, provider, kind, source_id, label, listed_count)
 		 VALUES (3, 20, 'tmdb:intended', 'tmdb', 'absolute', 'intended', 'Intended Order', 14)`)
 	var offered struct {

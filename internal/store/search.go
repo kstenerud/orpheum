@@ -24,7 +24,7 @@ const (
 // SearchHit is one item a search found.
 type SearchHit struct {
 	ItemID    int64
-	ItemKind  string  // title or collection
+	ItemKind  string  // the item's kind: movie, series, other and the rest (D426 §2)
 	TitleKind *string // movie, episode or extra; nil for a collection
 	Name      string
 	Year      *int64
@@ -34,7 +34,7 @@ type SearchHit struct {
 // nothing a person types becomes SQL (gosec G201, G202). The column lists are the same in each.
 const (
 	searchColumns = `item_text.item_id, item.kind, title.kind, item_text.name,
-  coalesce(title.year, collection.year)`
+  item.year`
 	searchJoins = `JOIN item ON item.id = item_text.item_id
 LEFT JOIN title ON title.id = item.id
 LEFT JOIN collection ON collection.id = item.id`

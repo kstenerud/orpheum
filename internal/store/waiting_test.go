@@ -21,9 +21,9 @@ func TestCountWaitingForAPerson_CountsWhatTheListShows(t *testing.T) {
 	title := func(id int, kind, state, source string, hasFile bool) {
 		t.Helper()
 		execRaw(t, database,
-			fmt.Sprintf("INSERT INTO item (id, kind, added_at) VALUES (%d, 'title', 1)", id),
-			fmt.Sprintf("INSERT INTO title (id, kind, identification_state, followed_source) "+
-				"VALUES (%d, '%s', '%s', %s)", id, kind, state, source),
+			fmt.Sprintf("INSERT INTO item (id, kind, added_at, identification_state, followed_source) "+
+				"VALUES (%d, '%s', 1, '%s', %s)", id, kind, state, source),
+			fmt.Sprintf("INSERT INTO title (id, kind) VALUES (%d, '%s')", id, kind),
 			fmt.Sprintf("INSERT INTO version (id, title_id, created_at) VALUES (%d, %d, 1)", id, id))
 		if hasFile {
 			execRaw(t, database, fmt.Sprintf("INSERT INTO file (id, node_id, path, filing, "+
@@ -42,10 +42,9 @@ func TestCountWaitingForAPerson_CountsWhatTheListShows(t *testing.T) {
 	title(6, "episode", "identified", "'tmdb'", true)   // the series' episode
 	title(7, "episode", "identified", "'tmdb'", true)
 	execRaw(t, database,
-		"INSERT INTO item (id, kind, added_at) VALUES (20, 'collection', 1), (21, 'collection', 1)",
-		"INSERT INTO collection (id, kind, created_by, identification_state, followed_source) VALUES "+
-			"(20, 'series', 'scanner', 'ambiguous', NULL), "+
-			"(21, 'series', 'scanner', 'unidentified', 'none')",
+		"INSERT INTO item (id, kind, added_at, identification_state, followed_source) VALUES "+
+			"(20, 'series', 1, 'ambiguous', NULL), (21, 'series', 1, 'unidentified', 'none')",
+		"INSERT INTO collection (id, kind, created_by) VALUES (20, 'series', 'scanner'), (21, 'series', 'scanner')",
 		"INSERT INTO collection_member (collection_id, member_title) VALUES (20, 6), (21, 7)")
 	count, err := database.Read().CountWaitingForAPerson(t.Context())
 	if err != nil || count != 4 {

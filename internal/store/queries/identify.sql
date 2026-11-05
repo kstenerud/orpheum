@@ -77,8 +77,8 @@ SELECT DISTINCT collection_member.collection_id
 FROM item AS episode
 CROSS JOIN collection_member ON collection_member.member_title = episode.id
 CROSS JOIN item AS series ON series.id = collection_member.collection_id
-WHERE episode.filing_library_id = sqlc.arg(library_id) AND episode.removed_at IS NULL AND episode.kind = 'title'
-  AND series.removed_at IS NULL AND series.kind = 'collection' AND series.filing_library_id IS NOT sqlc.arg(library_id)
+WHERE episode.filing_library_id = sqlc.arg(library_id) AND episode.removed_at IS NULL AND episode.kind IN ('movie', 'episode', 'extra', 'other')
+  AND series.removed_at IS NULL AND series.kind = 'series' AND series.filing_library_id IS NOT sqlc.arg(library_id)
   AND NOT EXISTS (
     SELECT 1 FROM collection_member AS held
     CROSS JOIN item AS sibling ON sibling.id = held.member_title
@@ -93,7 +93,7 @@ WHERE id IN (SELECT value FROM json_each(CAST(sqlc.arg(item_ids_json) AS TEXT)))
   AND filing_library_id IS NOT sqlc.arg(library_id);
 
 -- name: ListLibraryTitles :many
-SELECT title.id, title.kind, title.year, title.identification_state, item.filing_library_id, item_text.name
+SELECT title.id, title.kind, item.year, item.identification_state, item.filing_library_id, item_text.name
 FROM title
 JOIN item ON item.id = title.id
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
@@ -106,7 +106,7 @@ ORDER BY title.id;
 -- section 7). Each says whether the library whose pass files it lists none of its files any more:
 -- hidden, or its library deleted or no longer covering them, it follows its files where they are
 -- found again (D363 section 10).
-SELECT title.id, item.filing_library_id, title.identification_state, title.kind, item.removed_at,
+SELECT title.id, item.filing_library_id, item.identification_state, title.kind, item.removed_at,
   CAST(item.removed_at IS NOT NULL OR NOT EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
     WHERE version.title_id = title.id AND version.removed_at IS NULL
@@ -157,15 +157,18 @@ UPDATE position SET ordering_id = sqlc.arg(to_ordering)
 WHERE ordering_id = sqlc.arg(from_ordering) AND title_id = sqlc.arg(title_id);
 
 -- name: GetVersionTitle :one
-SELECT version.title_id, title.identification_state
+SELECT version.title_id, item.identification_state
 FROM version
-JOIN title ON title.id = version.title_id
+JOIN item ON item.id = version.title_id
 WHERE version.id = ?;
 
 -- name: InsertItem :one
--- An item, and the library whose pass files it (D363 section 5).
-INSERT INTO item (kind, filing_library_id, added_at)
-VALUES (sqlc.arg(kind), sqlc.arg(library_id), sqlc.arg(added_at))
+-- An item of its kind, the library whose pass files it (D363 section 5), and what every kind shares
+-- (D426 section 2): its year, the source it follows and how far it is identified, NULL for a person
+-- alone. Its found_at starts at 0, as a new item has no file; the triggers move it (step 0058).
+INSERT INTO item (kind, filing_library_id, added_at, year, followed_source, followed_source_id, identification_state)
+VALUES (sqlc.arg(kind), sqlc.arg(library_id), sqlc.arg(added_at), sqlc.arg(year), sqlc.arg(followed_source),
+  sqlc.arg(followed_source_id), sqlc.arg(identification_state))
 RETURNING id;
 
 -- name: MoveItemToLibrary :exec
@@ -174,25 +177,30 @@ RETURNING id;
 UPDATE item SET filing_library_id = sqlc.arg(library_id), removed_at = NULL WHERE id = sqlc.arg(id);
 
 -- name: InsertTitle :exec
-INSERT INTO title (id, kind, year, runtime_ms, followed_source, followed_source_id, identification_state)
-VALUES (sqlc.arg(id), sqlc.arg(kind), sqlc.arg(year), sqlc.arg(runtime_ms), sqlc.arg(followed_source), sqlc.arg(followed_source_id),
-  sqlc.arg(identification_state));
+-- A title on its item, of the item's kind, which the pair (id, kind) holds to (D426 section 2).
+INSERT INTO title (id, kind, runtime_ms)
+VALUES (sqlc.arg(id), sqlc.arg(kind), sqlc.arg(runtime_ms));
 
 -- name: UpdateTitleResolved :exec
--- A confirmed match is a person's: the pass never lowers it (D172). Its kind is how the pass files
--- it: an extra whose film is gone is filed as a film (D162), and its kind follows, which the sort
--- keys are listed by.
-UPDATE title SET
+-- A title's item as the pass resolves it. A confirmed match is a person's: the pass never lowers it
+-- (D172). Its kind is how the pass files it: an extra whose film is gone is filed as a film (D162),
+-- and the title's kind and its sort keys' listing follow the item's by their keys (D426 section 2).
+UPDATE item SET
   kind = sqlc.arg(kind),
-  year = sqlc.arg(year), released_on = sqlc.arg(released_on), runtime_ms = sqlc.arg(runtime_ms),
+  year = sqlc.arg(year), released_on = sqlc.arg(released_on),
   followed_source = sqlc.arg(followed_source), followed_source_id = sqlc.arg(followed_source_id),
   identification_state = CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE sqlc.arg(identification_state) END
-WHERE id = sqlc.arg(id)
+WHERE id = sqlc.arg(id) AND kind IN ('movie', 'episode', 'extra', 'other')
   -- Only when it changes something (D303, DL9).
-  AND (kind, year, released_on, runtime_ms, followed_source, followed_source_id, identification_state)
-    IS NOT (sqlc.arg(kind), sqlc.arg(year), sqlc.arg(released_on), sqlc.arg(runtime_ms), sqlc.arg(followed_source),
+  AND (kind, year, released_on, followed_source, followed_source_id, identification_state)
+    IS NOT (sqlc.arg(kind), sqlc.arg(year), sqlc.arg(released_on), sqlc.arg(followed_source),
       sqlc.arg(followed_source_id),
       CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE sqlc.arg(identification_state) END);
+
+-- name: UpdateTitleRuntime :exec
+-- A title's running time as the pass resolves it; only when it changes (D303, DL9).
+UPDATE title SET runtime_ms = sqlc.arg(runtime_ms)
+WHERE id = sqlc.arg(id) AND runtime_ms IS NOT sqlc.arg(runtime_ms);
 
 -- name: UpsertOriginalText :exec
 -- search_alternates is the name as the one normaliser folds it (D48), which both search indexes take.
@@ -255,7 +263,7 @@ ORDER BY collection.id;
 
 -- name: InsertCollection :exec
 INSERT INTO collection (id, kind, created_by)
-VALUES (sqlc.arg(id), sqlc.arg(kind), sqlc.arg(created_by));
+VALUES (sqlc.arg(id), 'series', sqlc.arg(created_by));
 
 -- name: UpsertCollectionMember :exec
 INSERT INTO collection_member (collection_id, member_title, position)
@@ -301,22 +309,23 @@ ON CONFLICT (owner_title, extra_title) DO UPDATE SET extra_type = excluded.extra
 WHERE extra_relation.asserted_by = 'scanner' AND extra_relation.extra_type IS NOT excluded.extra_type;
 
 -- name: GetTitleIdentification :one
-SELECT identification_state FROM title WHERE id = ?;
+SELECT identification_state FROM item WHERE id = ? AND kind IN ('movie', 'episode', 'extra', 'other');
 
 -- name: ConfirmTitleMatch :exec
 -- A person confirmed the match: permanent, and never moved by a later pass (D172).
-UPDATE title SET identification_state = 'confirmed' WHERE id = ?;
+UPDATE item SET identification_state = 'confirmed' WHERE id = ? AND kind IN ('movie', 'episode', 'extra', 'other');
 
 -- name: ListFileTitles :many
 -- Each live file a library's folders cover, as the library's kind filed it, with its title: at each
 -- place the library covers.
 SELECT library_place.file_id AS id, library_place.path, file_filing.filing, file_filing.filing_reason,
-  title.id AS title_id, title.kind, title.identification_state, title.year, title.followed_source, item_text.name
+  title.id AS title_id, title.kind, item.identification_state, item.year, item.followed_source, item_text.name
 FROM library_place
 CROSS JOIN file_filing ON file_filing.file_id = library_place.file_id
   AND file_filing.library_kind = library_place.library_kind
 CROSS JOIN version ON version.id = file_filing.version_id
 CROSS JOIN title ON title.id = version.title_id
+CROSS JOIN item ON item.id = title.id
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
 WHERE library_place.library_id = sqlc.arg(library_id)
 ORDER BY library_place.path;
@@ -371,12 +380,12 @@ WHERE locale != sqlc.arg(locale);
 
 -- name: ListLibraryVersionTitles :many
 -- The title each version of a live file at a place the library covers is in, as its kind filed it.
-SELECT version.id, version.title_id, title.identification_state
+SELECT version.id, version.title_id, item.identification_state
 FROM library_place
 CROSS JOIN file_filing ON file_filing.file_id = library_place.file_id
   AND file_filing.library_kind = library_place.library_kind
 CROSS JOIN version ON version.id = file_filing.version_id
-CROSS JOIN title ON title.id = version.title_id
+CROSS JOIN item ON item.id = version.title_id
 WHERE library_place.library_id = sqlc.arg(library_id);
 
 -- name: ListLibraryNFOBodies :many
@@ -388,11 +397,11 @@ WHERE library_place.library_id = sqlc.arg(library_id);
 
 -- name: ListLibraryTitlesForPass :many
 -- The library's live titles, with the values a pass resolves.
-SELECT title.id, title.kind, title.year, title.released_on, title.runtime_ms, title.identification_state,
-  title.followed_source, title.followed_source_id
+SELECT title.id, title.kind, item.year, item.released_on, title.runtime_ms, item.identification_state,
+  item.followed_source, item.followed_source_id
 FROM item
 JOIN title ON title.id = item.id
-WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND item.kind = 'title';
+WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND item.kind IN ('movie', 'episode', 'extra', 'other');
 
 -- name: ListLibraryOverrides :many
 -- The overrides of the library's live items.
@@ -425,26 +434,26 @@ SELECT position.title_id, position.ordering_id, ordering.collection_id, position
 FROM item
 CROSS JOIN position ON position.title_id = item.id
 CROSS JOIN ordering ON ordering.id = position.ordering_id AND ordering.name = 'aired'
-WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND item.kind = 'title';
+WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND item.kind IN ('movie', 'episode', 'extra', 'other');
 
 -- name: ListLibrarySeriesForPass :many
 -- The library's live series, with their aired ordering when they have one and their match.
-SELECT collection.id, collection.year, collection.released_on, collection.followed_source,
-  collection.followed_source_id, collection.identification_state, item.filing_library_id, library.metadata_source,
+SELECT collection.id, item.year, item.released_on, item.followed_source,
+  item.followed_source_id, item.identification_state, item.filing_library_id, library.metadata_source,
   item_text.name, ordering.id AS aired_ordering_id
 FROM item
 CROSS JOIN collection ON collection.id = item.id AND collection.kind = 'series'
 CROSS JOIN library ON library.id = item.filing_library_id
 LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_original = 1
 LEFT JOIN ordering ON ordering.collection_id = collection.id AND ordering.name = 'aired'
-WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND item.kind = 'collection';
+WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND item.kind = 'series';
 
 -- name: ListLibrarySeriesMembers :many
 -- The titles in the library's live series, with their places.
 SELECT collection_member.collection_id, collection_member.member_title, collection_member.position
 FROM item
 JOIN collection_member ON collection_member.collection_id = item.id
-WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND item.kind = 'collection'
+WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND item.kind = 'series'
   AND collection_member.member_title IS NOT NULL;
 
 -- name: ListLibrarySeriesEpisodePlaces :many
@@ -454,7 +463,7 @@ FROM item
 CROSS JOIN ordering ON ordering.collection_id = item.id AND ordering.name = 'aired'
 CROSS JOIN position ON position.ordering_id = ordering.id
 CROSS JOIN item AS episode ON episode.id = position.title_id
-WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND item.kind = 'collection'
+WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND item.kind = 'series'
   AND (episode.removed_at IS NULL OR episode.merged_into IS NULL)
 ORDER BY ordering.collection_id, position.sort_order;
 
@@ -469,13 +478,13 @@ WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL;
 -- name: ListLibraryLiveEpisodeSources :many
 -- ListLiveSeriesEpisodeSources for every live series of the library.
 SELECT ordering.collection_id, position.title_id, position.group_number, position.number_in_group,
-  title.followed_source, episode.added_at
+  episode.followed_source, episode.added_at
 FROM item
 CROSS JOIN ordering ON ordering.collection_id = item.id AND ordering.name = 'aired'
 CROSS JOIN position ON position.ordering_id = ordering.id
 CROSS JOIN title ON title.id = position.title_id
 CROSS JOIN item AS episode ON episode.id = title.id
-WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND item.kind = 'collection' AND episode.removed_at IS NULL
+WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND item.kind = 'series' AND episode.removed_at IS NULL
 ORDER BY ordering.collection_id, position.sort_order;
 
 -- name: ListLibraryExtraRelations :many
@@ -483,7 +492,7 @@ ORDER BY ordering.collection_id, position.sort_order;
 SELECT extra_relation.owner_title, extra_relation.extra_title, extra_relation.extra_type, extra_relation.asserted_by
 FROM item
 JOIN extra_relation ON extra_relation.owner_title = item.id
-WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND item.kind = 'title';
+WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND item.kind IN ('movie', 'episode', 'extra', 'other');
 
 -- name: CountRowsChangedByTheWriter :one
 -- How many rows the writer has changed since it opened: a pass writing in batches reads it as it
@@ -554,10 +563,11 @@ LIMIT sqlc.arg(max_rows);
 -- The live videos a film, an episode or a series holds, a series' through its episodes, each with
 -- how it was filed and its title: what a report of its filing lists (D306 section 3).
 SELECT file.id, file.path, file_filing.filing, file_filing.filing_reason, file.size_bytes, file.node_id,
-  title.id AS title_id, title.kind AS title_kind, title.identification_state,
-  CAST(coalesce(title_text.name, '') AS TEXT) AS title_name, title.year,
+  title.id AS title_id, title.kind AS title_kind, item.identification_state,
+  CAST(coalesce(title_text.name, '') AS TEXT) AS title_name, item.year,
   position.group_number, position.number_in_group
 FROM title
+JOIN item ON item.id = title.id
 JOIN version ON version.title_id = title.id AND version.removed_at IS NULL
 JOIN file_filing ON file_filing.version_id = version.id
 JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
@@ -604,7 +614,7 @@ SELECT other_video.title_id, other_video.recorded_at, other_video.recorded_from,
   other_video.file_name_key
 FROM item
 JOIN other_video ON other_video.title_id = item.id
-WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND item.kind = 'title';
+WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND item.kind IN ('movie', 'episode', 'extra', 'other');
 
 -- name: GetOtherVideo :one
 SELECT title_id, recorded_at, recorded_from, file_name, file_name_key

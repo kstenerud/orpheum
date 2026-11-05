@@ -80,11 +80,10 @@ func (world *frameWorld) fetched(t *testing.T, itemID int64) {
 func (world *frameWorld) series(t *testing.T, followedSource string, episodeIDs ...int64) int64 {
 	t.Helper()
 	seriesID := librarytest.Item(t, world.bench.database, librarytest.ItemSpec{
-		Kind: "collection", LibraryID: world.libraryID,
+		Kind: "series", LibraryID: world.libraryID, FollowedSource: followedSource, IdentificationState: "identified",
 	})
-	statements := []string{fmt.Sprintf("INSERT INTO collection (id, kind, created_by, followed_source, "+
-		"identification_state) VALUES (%d, 'series', 'scanner', '%s', 'identified')", seriesID,
-		followedSource)}
+	statements := []string{fmt.Sprintf(
+		"INSERT INTO collection (id, kind, created_by) VALUES (%d, 'series', 'scanner')", seriesID)}
 	for _, episodeID := range episodeIDs {
 		statements = append(statements, fmt.Sprintf(
 			"INSERT INTO collection_member (collection_id, member_title) VALUES (%d, %d)", seriesID, episodeID))

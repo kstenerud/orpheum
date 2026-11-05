@@ -49,22 +49,24 @@ func TestStatistics_NameTheSchemasIndexesAndNoOthers(t *testing.T) {
 
 // A reader plans by the committed statistics, though it opened before they were loaded: SQLite
 // gives them only to a connection opened after them, so the loader closes the idle readers (D303
-// §3). By them the series list reads the series, which are few, where a planner without them walks
-// sort_key.
+// §3). By them an item's shown artwork starts from the artwork, a few rows an item, where a planner
+// without them starts from the item (the series list, which read the few series by them before
+// step 0072, now walks sort_key either way: no table of series alone is left to read).
 func TestStatistics_AReaderOpenedBeforeThemPlansByThem(t *testing.T) {
 	t.Parallel()
 	database := openMigrated(t)
 	for _, query := range queriesIn(t, "queries") {
-		if query.name != "ListSeriesByName" {
+		if query.name != "ListShownArtwork" {
 			continue
 		}
 		plan := fmt.Sprint(planOf(t, database.readers, query))
-		if !strings.Contains(plan, "SCAN collection") {
-			t.Errorf("a reader plans the series list as %s; want it to read the series, as the statistics say", plan)
+		if !strings.HasPrefix(plan, "[SEARCH artwork") {
+			t.Errorf("a reader plans an item's artwork as %s; want it to start from the artwork, as the "+
+				"statistics say", plan)
 		}
 		return
 	}
-	t.Fatal("no query ListSeriesByName")
+	t.Fatal("no query ListShownArtwork")
 }
 
 // schemaIndexes are the schema's own indexes, by table.

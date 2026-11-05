@@ -144,6 +144,19 @@ func TestMigrate_Step0060CarriesAProductionDatabaseToPlacesAndCoverage(t *testin
 	if after := fmt.Sprint(queryRows(t, database, foundQuery, 3)); after != beforeFound {
 		t.Errorf("newest first changed: %s; want %s as before", after, beforeFound)
 	}
+	// Today's queries read today's schema: the rest of the steps carry the rows on to it (step 0072
+	// moved what the lists read onto the item).
+	if err = database.migrate(t.Context(), steps, testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	checkPartnerReachesTheFilmsLibraryAlone(t, database)
+}
+
+// checkPartnerReachesTheFilmsLibraryAlone checks, with today's queries, that the partner, who
+// reaches the films library alone, is listed its film and none of the series library's, and reaches
+// only the files of the libraries it is given.
+func checkPartnerReachesTheFilmsLibraryAlone(t *testing.T, database *Database) {
+	t.Helper()
 	queries := database.Read()
 	films, err := queries.ListFilmsByAdded(t.Context(), sqlcgen.ListFilmsByAddedParams{
 		BeforeFoundAt: 1 << 62, BeforeModifiedAt: 1 << 62, BeforeID: 1 << 62, MaxRows: 10, LibraryIdsJSON: "[1]",

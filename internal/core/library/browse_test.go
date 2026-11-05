@@ -61,12 +61,13 @@ func (world *shelf) fileAsFilm(text, path string) int64 {
 	err := world.database.Write(world.t.Context(), func(queries *sqlcgen.Queries) error {
 		var err error
 		titleID, err = queries.InsertItem(world.t.Context(), sqlcgen.InsertItemParams{
-			Kind: "title", LibraryID: new(int64(1)), AddedAt: world.clock.Now().UnixMilli(),
+			Kind: "movie", LibraryID: new(int64(1)), AddedAt: world.clock.Now().UnixMilli(),
+			IdentificationState: new("identified"),
 		})
 		if err != nil {
 			return err
 		}
-		film := sqlcgen.InsertTitleParams{ID: titleID, Kind: "movie", IdentificationState: "identified"}
+		film := sqlcgen.InsertTitleParams{ID: titleID, Kind: "movie"}
 		err = queries.InsertTitle(world.t.Context(), film)
 		if err != nil {
 			return err

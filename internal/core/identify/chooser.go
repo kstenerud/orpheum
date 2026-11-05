@@ -131,8 +131,9 @@ func (chooser *Chooser) Items(
 	// Each kind's next limit+1 after the cursor, merged: the page is the first limit, and one more
 	// says another page follows.
 	titles, err := queries.ListTitlesByIdentification(ctx, sqlcgen.ListTitlesByIdentificationParams{
-		IdentificationState: identification, IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
-		AfterName: string(afterName), AfterID: afterID, RowLimit: limit + 1,
+		IdentificationState: ptr.NilIfZero(identification), IsEveryLibrary: isEveryLibrary,
+		LibraryIdsJSON: libraryIDsJSON,
+		AfterName:      string(afterName), AfterID: afterID, RowLimit: limit + 1,
 	})
 	if err != nil {
 		return ItemsPage{}, fmt.Errorf("list %s titles: %w", identification, err)
@@ -148,7 +149,7 @@ func (chooser *Chooser) Items(
 	for _, row := range titles {
 		items = append(items, ItemSummary{
 			ID: row.ID, Kind: row.Kind, Name: ptr.ValueOrZero(row.Name),
-			Year: ptr.ValueOrZero(row.Year), IdentificationState: row.IdentificationState,
+			Year: ptr.ValueOrZero(row.Year), IdentificationState: ptr.ValueOrZero(row.IdentificationState),
 			FollowedSource:     ptr.ValueOrZero(row.FollowedSource),
 			FollowedSourceID:   ptr.ValueOrZero(row.FollowedSourceID),
 			FetchFailure:       fetchFailureOf(row.FetchFailure, row.FetchFailedAt),
@@ -353,10 +354,11 @@ func refuseUnlessConfirmed(ctx context.Context, queries *sqlcgen.Queries, item t
 		}
 		state = ptr.ValueOrZero(series.IdentificationState)
 	} else {
-		var err error
-		if state, err = queries.GetTitleIdentification(ctx, item.id()); err != nil {
+		held, err := queries.GetTitleIdentification(ctx, item.id())
+		if err != nil {
 			return fmt.Errorf("read its match: %w", err)
 		}
+		state = ptr.ValueOrZero(held)
 	}
 	if state == identificationConfirmed {
 		return nil
@@ -490,7 +492,7 @@ func (matcher *Matcher) readTarget(ctx context.Context, itemID int64) (target, e
 		return target{}, fmt.Errorf("read item %d: %w", itemID, err)
 	}
 	var item target
-	if kind == itemKindCollection {
+	if kind == KindSeries {
 		item.isSeries = true
 		item.series, err = store.OrNotFound(queries.GetSeriesForMatch(ctx, itemID))
 	} else {

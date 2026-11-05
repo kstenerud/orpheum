@@ -250,7 +250,7 @@ func (snap *snapshot) holdAdded(itemID int64, titleKind string) {
 	snap.items[itemID] = true
 	if titleKind != "" {
 		snap.titles[itemID] = sqlcgen.ListLibraryTitlesForPassRow{
-			ID: itemID, Kind: titleKind, IdentificationState: identificationUnidentified,
+			ID: itemID, Kind: titleKind, IdentificationState: ptr.NilIfZero(identificationUnidentified),
 		}
 	}
 }
@@ -310,7 +310,7 @@ func (filer *libraryFiler) heldTitleByProviderID(kind string, id providerID) (in
 func (filer *libraryFiler) titleMatchState(ctx context.Context, titleID int64) (titleMatchRow, bool, error) {
 	if title, held := filer.snap.titles[titleID]; held {
 		return titleMatchRow{
-			identificationState: title.IdentificationState, followedSource: title.FollowedSource,
+			identificationState: ptr.ValueOrZero(title.IdentificationState), followedSource: title.FollowedSource,
 			metadataSource: filer.library.MetadataSource,
 		}, true, nil
 	}
@@ -322,7 +322,7 @@ func (filer *libraryFiler) titleMatchState(ctx context.Context, titleID int64) (
 		return titleMatchRow{}, false, fmt.Errorf("read title %d's match: %w", titleID, err)
 	}
 	return titleMatchRow{
-		identificationState: row.IdentificationState, followedSource: row.FollowedSource,
+		identificationState: ptr.ValueOrZero(row.IdentificationState), followedSource: row.FollowedSource,
 		metadataSource: row.MetadataSource,
 	}, true, nil
 }
@@ -374,43 +374,49 @@ func (filer *libraryFiler) keepProviderID(ctx context.Context, itemID int64, pro
 	return filer.queries.InsertItemProviderID(ctx, kept) //nolint:wrapcheck // its callers say which id
 }
 
-// resolveTitleValues writes a title's resolved values, unless they are already its own; a
-// confirmed match stays confirmed (UpdateTitleResolved). It returns the title's identification.
+// resolveTitleValues writes a title's resolved values, its item's and its running time, unless they
+// are already its own; a confirmed match stays confirmed (UpdateTitleResolved). It returns the
+// title's identification.
 func (filer *libraryFiler) resolveTitleValues(
-	ctx context.Context, values sqlcgen.UpdateTitleResolvedParams) (string, error,
+	ctx context.Context, values sqlcgen.UpdateTitleResolvedParams, runtimeMs *int64) (string, error,
 ) {
 	held, isHeld := filer.snap.titles[values.ID]
 	if isHeld {
 		resolved := held
-		resolved.Kind, resolved.Year, resolved.RuntimeMs = values.Kind, values.Year, values.RuntimeMs
+		resolved.Kind, resolved.Year, resolved.RuntimeMs = values.Kind, values.Year, runtimeMs
 		resolved.ReleasedOn = values.ReleasedOn
 		resolved.FollowedSource, resolved.FollowedSourceID = values.FollowedSource, values.FollowedSourceID
-		if held.IdentificationState != identificationConfirmed {
+		if ptr.ValueOrZero(held.IdentificationState) != identificationConfirmed {
 			resolved.IdentificationState = values.IdentificationState
 		}
 		if isSameTitleValues(resolved, held) {
-			return held.IdentificationState, nil
+			return ptr.ValueOrZero(held.IdentificationState), nil
 		}
 		filer.snap.titles[values.ID] = resolved
 	}
 	if err := filer.queries.UpdateTitleResolved(ctx, values); err != nil {
 		return "", fmt.Errorf("resolve title %d: %w", values.ID, err)
 	}
+	runtime := sqlcgen.UpdateTitleRuntimeParams{ID: values.ID, RuntimeMs: runtimeMs}
+	if err := filer.queries.UpdateTitleRuntime(ctx, runtime); err != nil {
+		return "", fmt.Errorf("resolve title %d's running time: %w", values.ID, err)
+	}
 	if isHeld {
-		return filer.snap.titles[values.ID].IdentificationState, nil
+		return ptr.ValueOrZero(filer.snap.titles[values.ID].IdentificationState), nil
 	}
 	identification, err := store.OrNotFound(filer.queries.GetTitleIdentification(ctx, values.ID))
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return "", fmt.Errorf("read title %d's identification: %w", values.ID, err)
 	}
-	return identification, nil
+	return ptr.ValueOrZero(identification), nil
 }
 
 // isSameTitleValues is whether two of a title's rows hold the same values.
 func isSameTitleValues(first, second sqlcgen.ListLibraryTitlesForPassRow) bool {
 	return first.ID == second.ID && first.Kind == second.Kind && ptr.Equal(first.Year, second.Year) &&
 		ptr.Equal(first.ReleasedOn, second.ReleasedOn) &&
-		ptr.Equal(first.RuntimeMs, second.RuntimeMs) && first.IdentificationState == second.IdentificationState &&
+		ptr.Equal(first.RuntimeMs, second.RuntimeMs) &&
+		ptr.Equal(first.IdentificationState, second.IdentificationState) &&
 		ptr.Equal(first.FollowedSource, second.FollowedSource) &&
 		ptr.Equal(first.FollowedSourceID, second.FollowedSourceID)
 }

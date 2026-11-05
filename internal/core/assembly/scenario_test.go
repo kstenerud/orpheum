@@ -35,6 +35,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue/jobqueuetest"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -274,8 +275,8 @@ func TestScenario_S25_ATMDBOutageOvernightParksAndMatchesAllByMorning(t *testing
 	world.clock.Set(morning)
 	world.probeUntil(morning.Add(2 * time.Hour))
 	for number, film := range world.films() {
-		if film.IdentificationState != identifiedState {
-			t.Errorf("film %d is %s by morning, want identified", number, film.IdentificationState)
+		if ptr.ValueOrZero(film.IdentificationState) != identifiedState {
+			t.Errorf("film %d is %s by morning, want identified", number, ptr.ValueOrZero(film.IdentificationState))
 		}
 	}
 	for _, job := range world.fetchJobs() {
@@ -361,8 +362,8 @@ func (world *jobsWorld) checkAPersonsChoiceIsTMDBsProbe(itemID int64) {
 func (world *jobsWorld) checkEveryFilmIdentified(when string) {
 	world.t.Helper()
 	for number, film := range world.films() {
-		if film.IdentificationState != identifiedState {
-			world.t.Errorf("film %d is %s %s, want identified", number, film.IdentificationState, when)
+		if ptr.ValueOrZero(film.IdentificationState) != identifiedState {
+			world.t.Errorf("film %d is %s %s, want identified", number, ptr.ValueOrZero(film.IdentificationState), when)
 		}
 	}
 }
@@ -392,8 +393,9 @@ func TestScenario_S73_ARefusedKeyParksUntilTheKeyChanges(t *testing.T) {
 	}
 	world.runDue()
 	for number, film := range world.films() {
-		if film.IdentificationState != identifiedState {
-			t.Errorf("film %d is %s once the key changed, want identified", number, film.IdentificationState)
+		if ptr.ValueOrZero(film.IdentificationState) != identifiedState {
+			t.Errorf("film %d is %s once the key changed, want identified", number,
+				ptr.ValueOrZero(film.IdentificationState))
 		}
 	}
 	for _, job := range world.fetchJobs() {
@@ -499,9 +501,9 @@ func TestScenario_S78_DiscardingCacheDBLosesOnlyTiming(t *testing.T) {
 	}
 	world.runDue()
 	for number, film := range world.films() {
-		if isOwed := number != 5; isOwed != (film.IdentificationState == identifiedState) {
+		if isOwed := number != 5; isOwed != (ptr.ValueOrZero(film.IdentificationState) == identifiedState) {
 			t.Errorf("film %d is %s; want every film matched but the one that failed for good", number,
-				film.IdentificationState)
+				ptr.ValueOrZero(film.IdentificationState))
 		}
 	}
 }

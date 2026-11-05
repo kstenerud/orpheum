@@ -566,7 +566,7 @@ func (filer *libraryFiler) contradictedPlacements(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("read %s's version: %w", file.Path, err)
 		}
-		if current.IdentificationState == identificationConfirmed {
+		if ptr.ValueOrZero(current.IdentificationState) == identificationConfirmed {
 			continue
 		}
 		place, isEpisode, err := filer.episodePlace(ctx, current.TitleID)
@@ -704,7 +704,7 @@ func (filer *libraryFiler) keepOrMove(
 	if err != nil {
 		return 0, fmt.Errorf("read %s's version: %w", file.Path, err)
 	}
-	if current.IdentificationState == identificationConfirmed || !filer.isFiledAgain(file) {
+	if ptr.ValueOrZero(current.IdentificationState) == identificationConfirmed || !filer.isFiledAgain(file) {
 		titleID = current.TitleID
 	} else if current.TitleID != titleID {
 		err = filer.moveVersion(ctx, *file.VersionID, titleID)
@@ -740,7 +740,7 @@ func (filer *libraryFiler) currentTitle(ctx context.Context, file sqlcgen.ListId
 	if err != nil {
 		return 0, false, fmt.Errorf("read %s's version: %w", file.Path, err)
 	}
-	if current.IdentificationState != identificationConfirmed && filer.isFiledAgain(file) {
+	if ptr.ValueOrZero(current.IdentificationState) != identificationConfirmed && filer.isFiledAgain(file) {
 		return 0, false, nil
 	}
 	return current.TitleID, true, nil

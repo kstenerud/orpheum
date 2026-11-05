@@ -62,7 +62,7 @@ func (matcher *Matcher) rematch(ctx context.Context, itemID int64, said filesQue
 		return rematched{outcome: rematchLeftAlone, leftAloneBecause: leftAloneGone}, nil
 	case err != nil:
 		return rematched{}, fmt.Errorf("read item %d: %w", itemID, err)
-	case kind == itemKindCollection:
+	case kind == KindSeries:
 		return matcher.rematchSeries(ctx, itemID, said)
 	}
 	return matcher.rematchFilm(ctx, itemID, said)
@@ -172,7 +172,7 @@ func (matcher *Matcher) rematchFilm(ctx context.Context, titleID int64, said fil
 // or an NFO speaks for it.
 func leftAloneFilm(title sqlcgen.GetTitleForMatchRow, said filesQuery) (string, bool) {
 	switch {
-	case title.IdentificationState == identificationConfirmed:
+	case ptr.ValueOrZero(title.IdentificationState) == identificationConfirmed:
 		return leftAloneChosen, true
 	case said.isNFOSource || title.MetadataSource == sourceNFO || ptr.ValueOrZero(title.FollowedSource) == sourceNFO:
 		return leftAloneByNFO, true

@@ -171,8 +171,8 @@ func (q *Queries) InsertItemGenre(ctx context.Context, arg InsertItemGenreParams
 }
 
 const insertPerson = `-- name: InsertPerson :exec
-INSERT INTO person (id, tmdb_id, name_key, picture_ref)
-VALUES (?1, ?2, ?3, ?4)
+INSERT INTO person (id, kind, tmdb_id, name_key, picture_ref)
+VALUES (?1, 'person', ?2, ?3, ?4)
 `
 
 type InsertPersonParams struct {
@@ -205,7 +205,7 @@ WHERE item.removed_at IS NULL AND (title.kind IN ('movie', 'other') OR collectio
     SELECT 1 FROM credit
     WHERE credit.item_id = item.id AND credit.person_id = CAST(?2 AS INTEGER)))
   AND (CAST(?3 AS INTEGER) IS NULL
-    OR coalesce(title.year, collection.year) BETWEEN CAST(?3 AS INTEGER)
+    OR coalesce(item.year, item.year) BETWEEN CAST(?3 AS INTEGER)
       AND CAST(?3 AS INTEGER) + 9)
   AND (CAST(?4 AS INTEGER) = 0
     OR (title.id IS NOT NULL AND NOT EXISTS (

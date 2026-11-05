@@ -14,6 +14,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -58,7 +59,8 @@ func TestMatch_ASingleResultMatchingNameAndYearIsAcceptedAndReplayedFromTheStore
 	checkTheo := func(when string) {
 		t.Helper()
 		file := lib.titlesByPath()[rel]
-		if titleName(file) != theo.Name || file.IdentificationState != identify.IdentificationIdentified ||
+		if titleName(file) != theo.Name ||
+			ptr.ValueOrZero(file.IdentificationState) != identify.IdentificationIdentified ||
 			file.FollowedSource == nil || *file.FollowedSource != "tmdb" ||
 			file.Filing != identify.FilingListed || file.Year == nil || *file.Year != 1994 {
 			t.Errorf("%s: %+v (%s), want TMDB's film, listed", when, file, titleName(file))
@@ -205,7 +207,8 @@ func TestMatch_AnUnsettledSearchIsNeverGuessed(t *testing.T) {
 	}
 	lib.scan(videoRecord("The General (2004).mkv"))
 	solaris := lib.titlesByPath()["The General (2004).mkv"]
-	if solaris.IdentificationState != identify.IdentificationAmbiguous || solaris.Filing != identify.FilingListed ||
+	if ptr.ValueOrZero(solaris.IdentificationState) != identify.IdentificationAmbiguous ||
+		solaris.Filing != identify.FilingListed ||
 		solaris.FollowedSource != nil {
 		t.Errorf("after another pass: %+v; want ambiguous, listed on local data", solaris)
 	}
@@ -394,8 +397,9 @@ func TestMatch_AnAmbiguousFilmTheRulesNowSettleIsMatchedAgain(t *testing.T) {
 		t.Errorf("Hollow Violet: %s; want matched once returned", outcome)
 	}
 	kestrel := lib.titlesByPath()["Kestrel (2014).mkv"]
-	if kestrel.IdentificationState != identify.IdentificationAmbiguous {
-		t.Errorf("Kestrel is %s; two a year off its own stay a person's choice", kestrel.IdentificationState)
+	if ptr.ValueOrZero(kestrel.IdentificationState) != identify.IdentificationAmbiguous {
+		t.Errorf("Kestrel is %s; two a year off its own stay a person's choice",
+			ptr.ValueOrZero(kestrel.IdentificationState))
 	}
 }
 
@@ -496,7 +500,7 @@ func TestMatch_AProvidersRefusalReturnsForTheQueueToActOn(t *testing.T) {
 		t.Errorf("Match = %v, want the provider's RateLimitedError", err)
 	}
 	file := lib.titlesByPath()["Metropolis (1995).mkv"]
-	if file.IdentificationState != identify.IdentificationUnidentified || file.FollowedSource != nil {
+	if ptr.ValueOrZero(file.IdentificationState) != identify.IdentificationUnidentified || file.FollowedSource != nil {
 		t.Errorf("a refused call changed the title: %+v", file)
 	}
 }
