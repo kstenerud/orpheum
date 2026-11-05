@@ -154,7 +154,7 @@ func TestBrowse_OtherVideosRunEitherWay(t *testing.T) {
 				Name string `json:"name"`
 			} `json:"titles"`
 		}
-		harness.readJSON(t, "/libraries/2/folders?sort=name&folder=Trip"+order, admin, &trip)
+		harness.readJSON(t, "/libraries/2/folders?limit=500&sort=name&folder=Trip"+order, admin, &trip)
 		names := []string{}
 		for _, title := range trip.Titles {
 			names = append(names, title.Name)

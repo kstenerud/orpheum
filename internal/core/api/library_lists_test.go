@@ -5,6 +5,7 @@ package api_test
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -62,7 +63,7 @@ func TestBrowse_OneLibrarysListAndALibraryNotReached(t *testing.T) {
 	user := harness.signIn(t, "partner", "partner-password")
 	for _, path := range []string{
 		"/items?kind=other&sort=name&limit=10&library=2", "/items/letters?kind=other&sort=name&library=2",
-		"/libraries/2/folders?sort=name",
+		"/libraries/2/folders?limit=500&sort=name",
 	} {
 		wantError(t, harness.do(t, http.MethodGet, path, user, nil), http.StatusNotFound, api.CodeNotFound)
 	}
@@ -171,17 +172,48 @@ func TestBrowse_AnOtherLibrarysFolders(t *testing.T) {
 	harness.shelve(t)
 	harness.shelveOtherVideos(t)
 	var top, trip api.FolderOutput
-	harness.readJSON(t, "/libraries/2/folders?sort=recorded", admin, &top.Body)
+	harness.readJSON(t, "/libraries/2/folders?limit=500&sort=recorded", admin, &top.Body)
 	if got := fmt.Sprint(top.Body.Subfolders); got != "[{2018 Wedding 2018 Wedding 1} {2019 2019 1} {Trip Trip 1}]" ||
 		len(top.Body.Titles) != 0 {
 		t.Errorf("the top = %s and %d videos; want its three folders and none of its own", got, len(top.Body.Titles))
 	}
-	harness.readJSON(t, "/libraries/2/folders?sort=name&folder=Trip", admin, &trip.Body)
+	harness.readJSON(t, "/libraries/2/folders?limit=500&sort=name&folder=Trip", admin, &trip.Body)
 	if len(trip.Body.Titles) != 1 || trip.Body.Titles[0].Name != "clip" || trip.Body.Folder != "Trip" {
 		t.Errorf("Trip = %+v; want the clip", trip.Body)
 	}
-	wantInvalidAt(t, harness.do(t, http.MethodGet, "/libraries/1/folders?sort=name", admin, nil),
+	wantInvalidAt(t, harness.do(t, http.MethodGet, "/libraries/1/folders?limit=500&sort=name", admin, nil),
 		http.StatusUnprocessableEntity, "path.id")
+}
+
+// An other library's folder comes in pages, its folders first and then its videos, each page's
+// cursor taking up where it ended; a cursor the server did not give is refused (D432 §3).
+func TestBrowse_AFolderComesInPages(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelve(t)
+	harness.shelveOtherVideos(t)
+	var names []string
+	cursor, pages := "", 0
+	for ; pages < 5; pages++ {
+		var page api.FolderOutput
+		harness.readJSON(t, "/libraries/2/folders?limit=2&sort=name&cursor="+url.QueryEscape(cursor), admin,
+			&page.Body)
+		for _, subfolder := range page.Body.Subfolders {
+			names = append(names, subfolder.Name)
+		}
+		if cursor = page.Body.NextCursor; cursor == "" {
+			break
+		}
+	}
+	if got := strings.Join(names, ","); got != "2018 Wedding,2019,Trip" || pages != 1 {
+		t.Errorf("the top's folders by pages of two = %s over %d pages after the first; want all three over two",
+			got, pages)
+	}
+	wantInvalidAt(t, harness.do(t, http.MethodGet, "/libraries/2/folders?limit=2&sort=name&cursor=!", admin, nil),
+		http.StatusUnprocessableEntity, "query.cursor")
+	wantInvalidAt(t, harness.do(t, http.MethodGet, "/libraries/2/folders?sort=name", admin, nil),
+		http.StatusUnprocessableEntity, "query.limit")
 }
 
 // A library a person leaves out is gone from their Films and Series, and still on its own (D349 §8).

@@ -42,11 +42,28 @@ func TestLibraries_AnAdminBrowsesTheFoldersInsideANodesRoots(t *testing.T) {
 	harness.nodeBytes.files["folder:/media/video/movies"] = ""
 	harness.nodeBytes.files["folder:/media/video/shows"] = ""
 	harness.nodeBytes.mutex.Unlock()
-	folders := func(path string) string { return "/nodes/local/folders?" + url.Values{"path": {path}}.Encode() }
+	folders := func(path string) string {
+		return "/nodes/local/folders?limit=500&" + url.Values{"path": {path}}.Encode()
+	}
 	listed := harness.do(t, http.MethodGet, folders("/media/video"), admin, nil)
 	if listed.status != http.StatusOK ||
 		!strings.Contains(listed.body, `"state":"readable","folders":["movies","shows"]`) {
 		t.Errorf("GET the folders in /media/video = %d %s; want movies and shows", listed.status, listed.body)
+	}
+	var paged []string
+	cursor := ""
+	for range 4 {
+		var page api.NodeFoldersOutput
+		harness.readJSON(t, "/nodes/local/folders?limit=1&path=/media/video&cursor="+url.QueryEscape(cursor),
+			admin, &page.Body)
+		paged = append(paged, page.Body.Folders...)
+		if cursor = page.Body.NextCursor; cursor == "" {
+			break
+		}
+	}
+	if !slices.Equal(paged, []string{"movies", "shows"}) || cursor != "" {
+		t.Errorf("the folders in /media/video a page of one at a time = %v, then %q; want movies and shows",
+			paged, cursor)
 	}
 	for _, outside := range []string{"/etc", "/media/../etc"} {
 		wantInvalidAt(t, harness.do(t, http.MethodGet, folders(outside), admin, nil),

@@ -2,7 +2,7 @@
 
 import "./library-browse.css";
 
-import type { components } from "@orpheum/sdk";
+import { allPages, type components } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
 import { useCallback, useEffect, useRef, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
@@ -637,8 +637,8 @@ function Subfolders(props: {
 
 /**
  * One folder of an other library (D349 §9.1, §9.2): the folders in it, each leading into its own,
- * and its own videos, in the sort the page chose. Only a view (library-browsing.md §4.1): no
- * pagination, as the scanner's folders are read whole.
+ * and its own videos, in the sort the page chose. Only a view (library-browsing.md §4.1): it reads
+ * every page of the folder before it shows it, so it still shows the folder whole (D432 §3).
  */
 function FolderView(props: {
   readonly libraryId: number;
@@ -653,27 +653,36 @@ function FolderView(props: {
   const sort = choice.sort === "released" ? "recorded" : choice.sort;
   const [result] = useResource(
     `browse-folder/${String(libraryId)}/${folder ?? ""}/${sort}/${choice.order}`,
-    async () =>
-      dataOrThrow(
-        await api.GET("/libraries/{id}/folders", {
-          params: {
-            path: { id: libraryId },
-            query: {
-              sort,
-              ...orderQuery(choice),
-              ...(folder === undefined ? {} : { folder }),
+    async () => {
+      const pages = await allPages(async (query) => {
+        const page = dataOrThrow(
+          await api.GET("/libraries/{id}/folders", {
+            params: {
+              path: { id: libraryId },
+              query: {
+                sort,
+                ...orderQuery(choice),
+                ...(folder === undefined ? {} : { folder }),
+                ...query,
+              },
             },
-          },
-        }),
-      ),
+          }),
+        );
+        return { entries: [page], nextCursor: page.nextCursor };
+      });
+      return {
+        subfolders: pages.flatMap((page) => page.subfolders ?? []),
+        titles: pages.flatMap((page) => page.titles ?? []),
+      };
+    },
     useBackgroundChangesPoller(),
   );
   return (
     <Loaded
       resource={result}
       render={(data) => {
-        const subfolders: readonly SubfolderBody[] = data.subfolders ?? [];
-        const titles: readonly Entry[] = data.titles ?? [];
+        const subfolders: readonly SubfolderBody[] = data.subfolders;
+        const titles: readonly Entry[] = data.titles;
         const isEmpty = subfolders.length === 0 && titles.length === 0;
         return (
           <>

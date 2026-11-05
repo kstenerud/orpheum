@@ -24,7 +24,8 @@ import (
 var ErrNoFolders = errors.New("only an other library's folders are browsed")
 
 // FolderQuery asks for one folder of an other library: its path below the library's roots, "" for
-// their top, and the order its videos come in.
+// their top, the order its videos come in, and the page of it: its folders then its videos, from
+// Offset, at most Limit of them, every one when Limit is 0 (D432 §3).
 type FolderQuery struct {
 	LibraryID int64
 	Path      string
@@ -32,10 +33,12 @@ type FolderQuery struct {
 	Order     string // OrderAscending, OrderDescending, or OrderDefault for the sort's own (D366 §2)
 	Reach     auth.Reach
 	UserID    int64
+	Offset    int64
+	Limit     int64
 }
 
-// Folder is one folder of an other library: the folders in it, and its own videos in the order
-// asked for (D349 §5).
+// Folder is one folder of an other library, or the page of it asked for: the folders in it, and its
+// own videos in the order asked for (D349 §5).
 type Folder struct {
 	Path       string
 	Subfolders []Subfolder
@@ -90,6 +93,7 @@ func (browser *Browser) Folder(ctx context.Context, query FolderQuery) (Folder, 
 		// The other way from the sort's own: Z to A, or oldest first (D366 §2).
 		slices.Reverse(here)
 	}
+	folder.Subfolders, here = folderPage(folder.Subfolders, here, query.Offset, query.Limit)
 	page := Page{Entries: make([]Entry, 0, len(here))}
 	for _, video := range here {
 		row := video.row
@@ -105,6 +109,19 @@ func (browser *Browser) Folder(ctx context.Context, query FolderQuery) (Folder, 
 	}
 	folder.Entries = page.Entries
 	return folder, nil
+}
+
+// folderPage is the part of a folder a page holds: its folders first, then its videos, from offset,
+// at most limit of them, every one from offset when limit is 0.
+func folderPage(
+	subfolders []Subfolder, videos []placedVideo, offset, limit int64,
+) ([]Subfolder, []placedVideo) {
+	split, end := int64(len(subfolders)), int64(len(subfolders)+len(videos))
+	if limit > 0 {
+		end = min(end, offset+limit)
+	}
+	start := min(max(offset, 0), end)
+	return subfolders[min(start, split):min(end, split)], videos[max(start, split)-split : max(end, split)-split]
 }
 
 // placedVideos are an other library's live videos, each with its file's path below its root.

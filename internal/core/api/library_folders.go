@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -18,6 +19,7 @@ type NodeFoldersInput struct {
 	AuthorizationHeader
 	Name string `doc:"The node's configured name" path:"name"`
 	Path string `doc:"One of the node's configured roots, or a folder inside one, by a clean absolute path" minLength:"1" query:"path" required:"true"` //nolint:lll // one struct tag
+	PageInput
 }
 
 // NodeFoldersOutput is the folders in a folder on a node, or why they could not be listed.
@@ -26,9 +28,10 @@ type NodeFoldersOutput struct {
 		Path string `json:"path"`
 		// State: readable, with its folders; notAnswering, its disk or share not answering in time;
 		// missing, not there; failed, any other failure, a link in its path among them.
-		State   string   `enum:"readable,notAnswering,missing,failed" json:"state"`
-		Folders []string `doc:"The names of the folders in it, in byte order: no link and no hidden folder" json:"folders"` //nolint:lll // one struct tag
-		Failure string   `doc:"Why it could not be listed, in the node's words" json:"failure,omitempty"`
+		State      string   `enum:"readable,notAnswering,missing,failed" json:"state"`
+		Folders    []string `doc:"The names of the folders in it, in byte order: no link and no hidden folder" json:"folders"` //nolint:lll // one struct tag
+		Failure    string   `doc:"Why it could not be listed, in the node's words" json:"failure,omitempty"`
+		NextCursor string   `doc:"The next page's cursor; absent on the last" json:"nextCursor,omitempty"`
 	}
 }
 
@@ -70,13 +73,34 @@ func (server *Server) getNodeFolders(ctx context.Context, input *NodeFoldersInpu
 	if err != nil {
 		return nil, server.libraryError(ctx, "list a node's folders", err)
 	}
+	after, _, err := decodeCursor(input.Cursor)
+	if err != nil {
+		return nil, err
+	}
 	output := &NodeFoldersOutput{}
 	output.Body.Path, output.Body.State, output.Body.Failure = listing.Path, string(listing.State), listing.Failure
-	output.Body.Folders = listing.Folders
-	if output.Body.Folders == nil {
-		output.Body.Folders = []string{}
-	}
+	output.Body.Folders = foldersAfter(listing.Folders, string(after), input.Limit)
+	output.Body.NextCursor = nextCursorOf(len(output.Body.Folders), input.Limit, func() string {
+		return library.EncodeCursor([]byte(output.Body.Folders[len(output.Body.Folders)-1]), 0)
+	})
 	return output, nil
+}
+
+// foldersAfter is a page of a node's folders, which come in byte order: at most limit of them, those
+// after the name the page before ended at, every one from the first when after is "".
+func foldersAfter(folders []string, after string, limit int64) []string {
+	start := 0
+	if after != "" {
+		start, _ = slices.BinarySearch(folders, after)
+		if start < len(folders) && folders[start] == after {
+			start++
+		}
+	}
+	page := folders[start:]
+	if int64(len(page)) > limit {
+		page = page[:limit]
+	}
+	return append([]string{}, page...)
 }
 
 func (server *Server) addLibraryRoot(ctx context.Context, input *AddLibraryRootInput) (*struct{}, error) {
