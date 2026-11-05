@@ -1803,3 +1803,7 @@ a decoder starting without its keyframe: the first chunk begins on a non-key fra
 11-06 batch's "a film's first seconds" work and the 37 keyframe rows cleared at that deploy (first
 keyframe ≥ 500 ms): whether Quillwick's files start on a late keyframe or open GOP, and whether chunk
 0 is cut from 0 s rather than from the first keyframe. Not started.
+
+The owner, later the same day: "Note that Quillwick used to play perfectly, so it's a recent change
+that broke it." A regression, then: bisect over the 11-05 batch's playback commits (the first-seconds
+work) and the cleared keyframe rows before reasoning about the files themselves.
