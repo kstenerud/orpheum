@@ -25,6 +25,9 @@ import { createNavigation } from "./navigation.ts";
 import { fakePlace, withServices } from "./test-services.tsx";
 import { fakeTogetherServer, liveAndSession, type FakeTogetherServer } from "./test-together.ts";
 
+/** The hello a signed-in page opens its live channel with (D416 §11). */
+const liveHello = { type: "hello", channel: "live", sessionToken: "token" };
+
 /** A cast's session of one welcoming a device, nothing on yet. */
 const castWelcome = {
   type: "welcome",
@@ -150,7 +153,7 @@ describe("setting a cast up (D364 §1, §2; D337 §2)", () => {
       ),
     );
     await server.accept();
-    expect(server.heard[0]).toEqual({ type: "live", sessionToken: "token" });
+    expect(server.heard[0]).toEqual(liveHello);
     await server.say({ type: "devices", deviceIds: [1, 2] });
     expect(mounted.container.textContent).toContain("Fire TV");
     expect(mounted.container.textContent).not.toContain("Phone, closed");
@@ -431,7 +434,7 @@ describe("setting a cast up (D364 §1, §2; D337 §2)", () => {
         }),
       );
       await server.accept();
-      expect(server.heard[0]).toEqual({ type: "live", sessionToken: "token", behind: true });
+      expect(server.heard[0]).toEqual({ ...liveHello, behind: true });
       visibility = "visible";
       document.dispatchEvent(new Event("visibilitychange"));
       expect(server.heard.at(-1)).toEqual({ type: "front" });

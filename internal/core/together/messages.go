@@ -403,6 +403,8 @@ const (
 type Inbound struct {
 	V    int         `json:"v"`
 	Type MessageType `json:"type"`
+	// Channel, in a hello, is "together", the socket's channel a session's messages take (D416 §11).
+	Channel string `json:"channel,omitempty"`
 	// Credential, in a hello, is the membership's (D243 §2); SessionToken, in a hello, a signed-in
 	// person's session token, which makes the membership theirs. Recording their viewing waits
 	// with D246 §4.

@@ -35,7 +35,7 @@ export function rtcTogetherSocket(openChannel: () => ChannelLike): OpenTogetherS
     };
     const head = {
       method: "GET",
-      path: `${apiPrefix}/together/ws`,
+      path: `${apiPrefix}/socket`,
       headers: { upgrade: ["websocket"] },
     };
     channel.listen({

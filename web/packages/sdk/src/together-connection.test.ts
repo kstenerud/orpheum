@@ -85,6 +85,7 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     expect(sockets.sent[0]).toEqual({
       v: 2,
       type: "hello",
+      channel: "together",
       credential: "membership",
       sessionToken: "session",
       role: "video",
@@ -499,7 +500,13 @@ describe("voice signalling on the session socket (D193 §4)", () => {
 
   it("says hello in the role it was given, a voice device claiming no player's rate", () => {
     const { sockets, connection } = welcomed("panel");
-    expect(sockets.sent[0]).toEqual({ v: 2, type: "hello", credential: "c", role: "panel" });
+    expect(sockets.sent[0]).toEqual({
+      v: 2,
+      type: "hello",
+      channel: "together",
+      credential: "c",
+      role: "panel",
+    });
     expect(connection.snapshot().deviceId).toBe(9);
     expect(welcomed("both").sockets.sent[0]).toMatchObject({ role: "both", canSetRate: true });
   });

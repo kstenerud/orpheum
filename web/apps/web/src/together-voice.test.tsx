@@ -185,6 +185,7 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice; 
     expect(server.heard[0]).toEqual({
       v: 2,
       type: "hello",
+      channel: "together",
       credential: "viewer-credential",
       role: "panel",
     });

@@ -632,13 +632,13 @@ export interface TogetherSocket {
 export type OpenTogetherSocket = (listeners: TogetherSocketListeners) => TogetherSocket;
 
 /**
- * The session WebSocket of the server at origin (GET /together/ws), over the browser's WebSocket:
+ * The session WebSocket of the server at origin (GET /socket), over the browser's WebSocket:
  * wss: where the page is https:. Nothing secret is in its address; the credential goes in the
  * hello (D154).
  */
 export function browserTogetherSocket(origin: string): OpenTogetherSocket {
   return (listeners) => {
-    const address = new URL(`${apiPrefix}/together/ws`, origin);
+    const address = new URL(`${apiPrefix}/socket`, origin);
     address.protocol = address.protocol === "https:" ? "wss:" : "ws:";
     const socket = new WebSocket(address);
     socket.addEventListener("open", listeners.onOpen);

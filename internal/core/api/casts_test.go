@@ -30,15 +30,23 @@ type liveSocket struct {
 // socket's address, with a live hello.
 func (harness testHarness) dialLive(t *testing.T, token string) liveSocket {
 	t.Helper()
-	return harness.dialLiveSaying(t, live.Inbound{Type: live.MessageHello, SessionToken: token})
+	return harness.dialLiveSaying(t, live.Inbound{
+		Type: live.MessageHello, Channel: live.ChannelLive, SessionToken: token,
+	})
 }
 
 // dialLiveSaying opens a page's live connection with hello.
 func (harness testHarness) dialLiveSaying(t *testing.T, hello live.Inbound) liveSocket {
 	t.Helper()
+	return harness.dialLiveAt(t, api.SocketPath, hello)
+}
+
+// dialLiveAt opens a page's live connection at path with hello.
+func (harness testHarness) dialLiveAt(t *testing.T, path string, hello any) liveSocket {
+	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
-	address := "ws" + strings.TrimPrefix(harness.httpServer.URL, "http") + api.TogetherSocketPath
+	address := "ws" + strings.TrimPrefix(harness.httpServer.URL, "http") + path
 	connection, _, err := websocket.Dial(ctx, address, nil) //nolint:bodyclose // coder/websocket closes it
 	if err != nil {
 		t.Fatal(err)
@@ -290,7 +298,7 @@ func TestCast_GoesOnlyToADeviceWithATabInFront(t *testing.T) {
 	phone, television := harness.thisDevice(t, phoneToken), harness.thisDevice(t, tvToken)
 	phoneSocket := harness.dialLive(t, phoneToken)
 	tvSocket := harness.dialLiveSaying(t, live.Inbound{
-		Type: live.MessageHello, SessionToken: tvToken, IsBehind: true,
+		Type: live.MessageHello, Channel: live.ChannelLive, SessionToken: tvToken, IsBehind: true,
 	})
 	phoneSocket.await(live.MessageDevices, func(message live.Outbound) bool {
 		return slices.Equal(message.DeviceIDs, []int64{phone, television}) &&

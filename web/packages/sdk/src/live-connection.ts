@@ -520,7 +520,8 @@ class PageLiveConnection implements LiveConnection {
         if (isCurrent()) {
           wasOpened = true;
           this.#send({
-            type: "live",
+            type: "hello",
+            channel: "live",
             sessionToken: this.#options.sessionToken,
             ...(this.#options.client === undefined ? {} : { client: this.#options.client }),
             ...((this.#options.isInFront?.() ?? true) ? {} : { behind: true }),

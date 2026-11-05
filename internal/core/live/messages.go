@@ -7,8 +7,12 @@ type MessageType string
 
 // The messages a device sends.
 const (
-	// MessageHello opens a live connection: the device's session token, never in the URL (D154).
-	MessageHello MessageType = "live"
+	// MessageHello, with Channel ChannelLive, opens a live connection: the device's session token,
+	// never in the URL (D154). The socket's channels share one hello type (D416 §11, D425 §3).
+	MessageHello MessageType = "hello"
+	// MessageOldHello opens a live connection as a client of the last release does (D425 §3, goes next
+	// batch).
+	MessageOldHello MessageType = "live"
 	// MessagePing keeps it open, as the session socket's pings do (clientPingEvery).
 	MessagePing MessageType = "ping"
 	// MessageFront says the device's tab came to the front, or went behind (D338 §2).
@@ -37,6 +41,8 @@ const (
 // Inbound is one message a device sends.
 type Inbound struct {
 	Type MessageType `json:"type"`
+	// Channel, in a hello, is ChannelLive.
+	Channel string `json:"channel,omitempty"`
 	// SessionToken, in a hello, is the device's sign-in.
 	SessionToken string `json:"sessionToken,omitempty"`
 	// Client, in a hello, is the web client's script the page runs, for the log (agent-failures A28).
@@ -107,6 +113,9 @@ type Sending struct {
 	DurationMs int64  `json:"durationMs"`
 	IsAccepted bool   `json:"isAccepted"`
 }
+
+// ChannelLive is the channel a live connection's hello names on the socket (D416 §11).
+const ChannelLive = "live"
 
 // Sender takes the messages for one live connection: its socket's writer, which must never block.
 type Sender func(message Outbound)

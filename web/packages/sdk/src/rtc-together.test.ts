@@ -78,7 +78,7 @@ describe("the session socket over a data channel", () => {
     const [head] = channel.sent;
     expect(typeof head === "string" ? JSON.parse(head) : head).toEqual({
       method: "GET",
-      path: "/api/v1/together/ws",
+      path: "/api/v1/socket",
       headers: { upgrade: ["websocket"] },
     });
     socket.send("too early");

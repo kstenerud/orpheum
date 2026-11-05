@@ -42,7 +42,7 @@ func (harness testHarness) dialTogetherSignedIn(t *testing.T, credential, sessio
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
-	address := "ws" + strings.TrimPrefix(harness.httpServer.URL, "http") + api.TogetherSocketPath
+	address := "ws" + strings.TrimPrefix(harness.httpServer.URL, "http") + api.SocketPath
 	connection, _, err := websocket.Dial(ctx, address, nil) //nolint:bodyclose // coder/websocket closes it
 	if err != nil {
 		t.Fatal(err)
@@ -50,7 +50,7 @@ func (harness testHarness) dialTogetherSignedIn(t *testing.T, credential, sessio
 	t.Cleanup(func() { _ = connection.CloseNow() }) //nolint:errcheck // closing what may be closed
 	opened := socket{t: t, connection: connection}
 	opened.send(together.Inbound{
-		V: together.ProtocolVersion, Type: together.MessageHello, Credential: credential,
+		V: together.ProtocolVersion, Type: together.MessageHello, Channel: "together", Credential: credential,
 		Role: together.RoleVideo, Client: "index-T3st.js", SessionToken: sessionToken,
 	})
 	return opened
