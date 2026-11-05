@@ -190,7 +190,9 @@ func retireAllBut(ctx context.Context, queries *sqlcgen.Queries, kept ItemImages
 // and ones the source changed. One that could not be stored is held, with no hash, and not asked
 // for again, except an image beside the media that a scan has seen since, whose disk may have
 // been away (G9). In a library that shows an image beside the media first, a provider's image of
-// a kind beside the item's media is not owed: it would never show (D215).
+// a kind beside the item's media is not owed: it would never show (D215). Nor is a season's image
+// whose season its series has no group for: it could not be recorded, so it would be fetched and
+// encoded again each pass; it is owed once identify makes the group (D426 section 5).
 func (service *Service) owed(ctx context.Context, named []ItemImages) ([]ItemImages, error) {
 	var owed []ItemImages
 	for _, item := range named {
@@ -208,7 +210,7 @@ func (service *Service) owed(ctx context.Context, named []ItemImages) ([]ItemIma
 			if ref.GroupNumber == nil && slices.Contains(localKinds, ref.Kind) {
 				continue
 			}
-			isOwed, err := service.isOwed(ctx, rows, item.Source, ref)
+			isOwed, err := service.isOwed(ctx, rows, item, ref)
 			if err != nil {
 				return nil, err
 			}
@@ -223,15 +225,20 @@ func (service *Service) owed(ctx context.Context, named []ItemImages) ([]ItemIma
 	return owed, nil
 }
 
-// isOwed is whether an image a source names is owed: not held, stored or refused, or refused
-// beside the media before a scan saw its file again, whose stale refusal is retired so the image
-// is asked for once more.
+// isOwed is whether an image a source names is owed: not held, stored or refused, of a season its
+// series has a group for, if a season's, or refused beside the media before a scan saw its file
+// again, whose stale refusal is retired so the image is asked for once more.
 func (service *Service) isOwed(
-	ctx context.Context, rows []sqlcgen.ListLiveArtworkRow, source string, ref Ref,
+	ctx context.Context, rows []sqlcgen.ListLiveArtworkRow, item ItemImages, ref Ref,
 ) (bool, error) {
+	source := item.Source
 	index := slices.IndexFunc(rows, func(row sqlcgen.ListLiveArtworkRow) bool { return ref.isRow(row, source) })
 	if index < 0 {
-		return true, nil
+		if ref.GroupNumber == nil {
+			return true, nil
+		}
+		_, hasGroup, err := seasonGroup(ctx, service.parts.Database.Read(), item.ItemID, *ref.GroupNumber)
+		return hasGroup, err
 	}
 	refused := rows[index]
 	if source != SourceLocal || refused.SourceSha256 != nil || refused.RefusedAt == nil {

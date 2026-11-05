@@ -28,6 +28,10 @@
 //     TestTake_ARematchRetiresTheEarlierWorksImagesTheNewOneLacks,
 //     TestTake_AnImageNoLongerBesideTheMediaIsRetired.
 //
+//   - A season's image whose season its series has no group for is not asked for: it could not be
+//     recorded, so each pass would fetch it again; it is owed once identify makes the group (D426
+//     §5). TestTake_ASeasonsPosterWhoseSeasonHasNoGroupIsNotFetchedEachPass.
+//
 //   - The artwork store takes bytes from one place: the node's answer to an artwork command
 //     (D212 §8). A download is an Unsanitised value whose bytes only the node command reads.
 //     TestService_StoresOnlyTheNodesAnswer.
