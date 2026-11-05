@@ -7,7 +7,6 @@ import type { TFunction } from "i18next";
 import { useCallback, useEffect, useRef, useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
-import { arrivalMark } from "./focus-navigation.ts";
 import { listMyDevices, type Device } from "./accounts.ts";
 import { BusyGroup } from "./busy-group.tsx";
 import { CastRemote, type PlaysHereFrom } from "./cast-remote.tsx";
@@ -351,7 +350,7 @@ function TargetList(props: {
       : t("cast.noTabInFront");
   };
   return (
-    <ul className="cast-to__devices" {...arrivalMark}>
+    <ul className="cast-to__devices">
       {props.devices.map((device) => (
         <li key={device.id}>
           <button
