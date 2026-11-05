@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 
+import { resetOnEachTestMount } from "./screen-load.tsx";
 import type { Resource } from "./use-resource.ts";
 
 /**
@@ -26,6 +27,25 @@ export class Remembered<T> {
       this.#values.delete(oldest.value);
     }
   }
+
+  /** Forgets every value. */
+  clear(): void {
+    this.#values.clear();
+  }
+}
+
+/**
+ * A Remembered held by a module for the whole tab, as a kind of page's (title.tsx, series.tsx):
+ * forgotten at each test's mount (resetOnEachTestMount), as a new tab would start, so a test's page
+ * never shows, while it loads, the details an earlier test in its file left under the same id (the
+ * series agent's tests in Firefox, 2026-11-04).
+ */
+export function rememberedInTheTab<T>(): Remembered<T> {
+  const remembered = new Remembered<T>();
+  resetOnEachTestMount(() => {
+    remembered.clear();
+  });
+  return remembered;
 }
 
 /**

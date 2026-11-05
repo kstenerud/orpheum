@@ -25,6 +25,7 @@ import "./title.tsx";
 import "./together-viewer.tsx";
 import "./ui-gallery.tsx";
 import "./watch-together.tsx";
+import { resetLazyScreensOnMount } from "./screen-load.tsx";
 import { ServicesContext, type Services } from "./services.tsx";
 import { testServices } from "./test-services.tsx";
 import { closeTrayDialog } from "./tray-dialog.ts";
@@ -104,9 +105,12 @@ export interface Walking {
 /**
  * Mounts the whole client over services, as client-main.tsx does, with no tray dialog open: which is
  * open is the tab's (tray-dialog.ts), so one an earlier walk left open, Cast's, would otherwise open
- * over this one's page and hold its focus (test-dom.tsx's mount does the same).
+ * over this one's page and hold its focus; and with the tab's state reset (resetLazyScreensOnMount),
+ * so a page never shows, while it loads, what an earlier walk's page left under the same id (Firefox,
+ * 2026-11-04). test-dom.tsx's mount does the same.
  */
 export async function mountApp(services: Services): Promise<Walking> {
+  resetLazyScreensOnMount();
   closeTrayDialog();
   Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", false);
   const container = document.createElement("div");

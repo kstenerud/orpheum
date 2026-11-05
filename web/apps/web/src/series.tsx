@@ -31,7 +31,7 @@ import { usePageInterest } from "./page-interest.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { TitleHead } from "./title-head.tsx";
-import { Remembered, useRemembered } from "./remembered.ts";
+import { rememberedInTheTab, useRemembered } from "./remembered.ts";
 import { useResource, type Resource } from "./use-resource.ts";
 import { usePages, type Page } from "./use-pages.ts";
 import { EndOfList } from "./end-of-list.tsx";
@@ -635,7 +635,7 @@ function EpisodeList(props: {
 }
 
 /** The series' pages this tab has shown. */
-const rememberedSeries = new Remembered<SeriesDetail>();
+const rememberedSeries = rememberedInTheTab<SeriesDetail>();
 
 /**
  * Returning to a series from one of its episodes (D367 §9): the season of the episode last reached,
