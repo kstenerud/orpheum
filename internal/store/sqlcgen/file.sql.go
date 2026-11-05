@@ -782,7 +782,7 @@ const listFilesToCompare = `-- name: ListFilesToCompare :many
 SELECT place.id, place.reported_path_raw, file.size_bytes, place.modified_at,
   CAST(CASE WHEN place.filing <> 'read' THEN place.filing WHEN file.sidecar_kind IS NOT NULL THEN 'attached'
     WHEN place.file_id IS NOT place.id THEN 'copy' ELSE 'video' END AS TEXT) AS filing,
-  file.sidecar_kind, place.filesystem_device, place.inode,
+  file.sidecar_kind, place.filesystem_device, place.inode, place.is_unconfirmed,
   CAST(file.payload_hash IS NOT NULL AS INTEGER) AS has_payload_hash,
   CAST(EXISTS (SELECT 1 FROM file_nfo WHERE file_nfo.file_id = place.file_id) AS INTEGER) AS has_nfo_body
 FROM place
@@ -807,6 +807,7 @@ type ListFilesToCompareRow struct {
 	SidecarKind      *string
 	FilesystemDevice *int64
 	Inode            *int64
+	IsUnconfirmed    int64
 	HasPayloadHash   int64
 	HasNFOBody       int64
 }
@@ -832,6 +833,7 @@ func (q *Queries) ListFilesToCompare(ctx context.Context, arg ListFilesToCompare
 			&i.SidecarKind,
 			&i.FilesystemDevice,
 			&i.Inode,
+			&i.IsUnconfirmed,
 			&i.HasPayloadHash,
 			&i.HasNFOBody,
 		); err != nil {
@@ -943,7 +945,7 @@ func (q *Queries) ListLibrariesAtOrUnderRoot(ctx context.Context, arg ListLibrar
 }
 
 const listLiveCopiesOf = `-- name: ListLiveCopiesOf :many
-SELECT id, node_id, path, reported_path_raw, modified_at, filesystem_device, inode, last_seen_at
+SELECT id, node_id, path, reported_path_raw, modified_at, filesystem_device, inode, last_seen_at, is_unconfirmed
 FROM place
 WHERE file_id = CAST(?1 AS INTEGER) AND id <> CAST(?1 AS INTEGER) AND removed_at IS NULL
 ORDER BY first_seen_at, id
@@ -958,6 +960,7 @@ type ListLiveCopiesOfRow struct {
 	FilesystemDevice *int64
 	Inode            *int64
 	LastSeenAt       int64
+	IsUnconfirmed    int64
 }
 
 // A file's live copies' places, the earliest found first: those that take its own place's when it goes.
@@ -979,6 +982,7 @@ func (q *Queries) ListLiveCopiesOf(ctx context.Context, fileID int64) ([]ListLiv
 			&i.FilesystemDevice,
 			&i.Inode,
 			&i.LastSeenAt,
+			&i.IsUnconfirmed,
 		); err != nil {
 			return nil, err
 		}
@@ -1678,8 +1682,9 @@ func (q *Queries) MoveFileTo(ctx context.Context, arg MoveFileToParams) error {
 const moveFileToItsCopysPlace = `-- name: MoveFileToItsCopysPlace :exec
 UPDATE place SET node_id = ?1, path = ?2, reported_path_raw = ?3,
   modified_at = ?4,
-  filesystem_device = ?5, inode = ?6, last_seen_at = ?7
-WHERE id = ?8 AND removed_at IS NULL
+  filesystem_device = ?5, inode = ?6, last_seen_at = ?7,
+  is_unconfirmed = ?8
+WHERE id = ?9 AND removed_at IS NULL
 `
 
 type MoveFileToItsCopysPlaceParams struct {
@@ -1690,6 +1695,7 @@ type MoveFileToItsCopysPlaceParams struct {
 	FilesystemDevice *int64
 	Inode            *int64
 	LastSeenAt       int64
+	IsUnconfirmed    int64
 	ID               int64
 }
 
@@ -1704,6 +1710,7 @@ func (q *Queries) MoveFileToItsCopysPlace(ctx context.Context, arg MoveFileToIts
 		arg.FilesystemDevice,
 		arg.Inode,
 		arg.LastSeenAt,
+		arg.IsUnconfirmed,
 		arg.ID,
 	)
 	return err
@@ -1913,7 +1920,8 @@ UPDATE place SET
   error_detail_json = NULL,
   filesystem_device = ?5,
   inode = ?6,
-  last_seen_at = ?7
+  last_seen_at = ?7,
+  is_unconfirmed = 0
 WHERE id = ?8
 `
 
@@ -1975,7 +1983,7 @@ func (q *Queries) UpdateSidecarFile(ctx context.Context, arg UpdateSidecarFilePa
 const updateSidecarPlace = `-- name: UpdateSidecarPlace :exec
 UPDATE place SET
   modified_at = ?1, filing = 'read', filing_reason = ?2,
-  error_detail_json = NULL, last_seen_at = ?3
+  error_detail_json = NULL, last_seen_at = ?3, is_unconfirmed = 0
 WHERE id = ?4
 `
 

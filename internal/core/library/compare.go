@@ -392,10 +392,11 @@ func isStoredAsListed(stored sqlcgen.ListFilesToCompareRow, kind nodeproto.Exami
 	return false
 }
 
-// isAsListed is whether a stored file's size and modified time are the listed ones.
+// isAsListed is whether a stored file's size and modified time are the listed ones, and its place
+// confirmed: one a repoint moved is read again, whatever its size and modified time (D432 §6).
 func isAsListed(stored sqlcgen.ListFilesToCompareRow, listed *nodeproto.Listed) bool {
-	return stored.SizeBytes != nil && *stored.SizeBytes == listed.SizeBytes && stored.ModifiedAt != nil &&
-		*stored.ModifiedAt == listed.ModifiedAt
+	return stored.IsUnconfirmed == 0 && stored.SizeBytes != nil && *stored.SizeBytes == listed.SizeBytes &&
+		stored.ModifiedAt != nil && *stored.ModifiedAt == listed.ModifiedAt
 }
 
 // isImage is an image extension a poster or backdrop beside the media is saved with (D215).

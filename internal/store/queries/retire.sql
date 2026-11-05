@@ -80,11 +80,20 @@ UPDATE library_root SET node_id = sqlc.arg(new_node_id), root_path = sqlc.arg(ne
 WHERE library_id = sqlc.arg(library_id) AND node_id = sqlc.arg(node_id) AND root_path = sqlc.arg(root_path)
   AND retired_at IS NULL;
 
+-- name: RepointFileFilings :exec
+-- The path a live file of a repointed root was identified from, where it was identified at this
+-- place, at the place's new path (run before RepointFile moves the place): identification sees a
+-- path that differs as a file moved, and identifies it again (D208 section 1).
+UPDATE file_filing SET identified_from_path = sqlc.arg(path)
+WHERE file_filing.file_id = (SELECT place.file_id FROM place WHERE place.id = sqlc.arg(id))
+  AND file_filing.identified_from_path = (SELECT place.path FROM place WHERE place.id = sqlc.arg(id));
+
 -- name: RepointFile :exec
--- A live file of a repointed root, at its new place: its modified time is forgotten, so the next
--- scan reads it again and confirms it by its payload hash before it counts as there.
+-- A live file of a repointed root, at its new place: it is unconfirmed, so the next scan reads it
+-- again and confirms it by its payload hash before it counts as there. Its modified time is kept,
+-- which leaves its items' found times as they are (D432 section 6).
 UPDATE place SET node_id = sqlc.arg(node_id), path = sqlc.arg(path), reported_path_raw = sqlc.arg(reported_path_raw),
-  modified_at = NULL
+  is_unconfirmed = 1
 WHERE id = sqlc.arg(id);
 
 -- name: ForgetRootState :exec

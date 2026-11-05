@@ -67,7 +67,8 @@ UPDATE place SET
   error_detail_json = NULL,
   filesystem_device = sqlc.narg(filesystem_device),
   inode = sqlc.narg(inode),
-  last_seen_at = sqlc.arg(seen_at)
+  last_seen_at = sqlc.arg(seen_at),
+  is_unconfirmed = 0
 WHERE id = sqlc.arg(id);
 
 -- name: UpdateObservedFile :one
@@ -191,7 +192,7 @@ WHERE file.id = (SELECT place.file_id FROM place WHERE place.id = sqlc.arg(place
 -- A sidecar's place observed again: read, whatever a skip or an error once filed it.
 UPDATE place SET
   modified_at = sqlc.arg(modified_at), filing = 'read', filing_reason = sqlc.arg(filing_reason),
-  error_detail_json = NULL, last_seen_at = sqlc.arg(seen_at)
+  error_detail_json = NULL, last_seen_at = sqlc.arg(seen_at), is_unconfirmed = 0
 WHERE id = sqlc.arg(id);
 
 -- name: ListLiveFilesForAttaching :many
@@ -370,7 +371,7 @@ WHERE (file_filing.filing, file_filing.filing_reason) IS NOT (excluded.filing, e
 SELECT place.id, place.reported_path_raw, file.size_bytes, place.modified_at,
   CAST(CASE WHEN place.filing <> 'read' THEN place.filing WHEN file.sidecar_kind IS NOT NULL THEN 'attached'
     WHEN place.file_id IS NOT place.id THEN 'copy' ELSE 'video' END AS TEXT) AS filing,
-  file.sidecar_kind, place.filesystem_device, place.inode,
+  file.sidecar_kind, place.filesystem_device, place.inode, place.is_unconfirmed,
   CAST(file.payload_hash IS NOT NULL AS INTEGER) AS has_payload_hash,
   CAST(EXISTS (SELECT 1 FROM file_nfo WHERE file_nfo.file_id = place.file_id) AS INTEGER) AS has_nfo_body
 FROM place
@@ -566,7 +567,7 @@ WHERE file_filing.file_id = sqlc.arg(from_file) AND file_filing.library_kind = s
 
 -- name: ListLiveCopiesOf :many
 -- A file's live copies' places, the earliest found first: those that take its own place's when it goes.
-SELECT id, node_id, path, reported_path_raw, modified_at, filesystem_device, inode, last_seen_at
+SELECT id, node_id, path, reported_path_raw, modified_at, filesystem_device, inode, last_seen_at, is_unconfirmed
 FROM place
 WHERE file_id = CAST(sqlc.arg(file_id) AS INTEGER) AND id <> CAST(sqlc.arg(file_id) AS INTEGER) AND removed_at IS NULL
 ORDER BY first_seen_at, id;
@@ -576,7 +577,8 @@ ORDER BY first_seen_at, id;
 -- its filings and its tracks, at the copy's place (D363 section 2).
 UPDATE place SET node_id = sqlc.arg(node_id), path = sqlc.arg(path), reported_path_raw = sqlc.arg(reported_path_raw),
   modified_at = sqlc.arg(modified_at),
-  filesystem_device = sqlc.narg(filesystem_device), inode = sqlc.narg(inode), last_seen_at = sqlc.arg(last_seen_at)
+  filesystem_device = sqlc.narg(filesystem_device), inode = sqlc.narg(inode), last_seen_at = sqlc.arg(last_seen_at),
+  is_unconfirmed = sqlc.arg(is_unconfirmed)
 WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 
 -- name: ReattachSidecars :exec

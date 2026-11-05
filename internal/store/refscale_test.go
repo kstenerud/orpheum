@@ -467,7 +467,6 @@ func fullScansAllowed() map[string]string {
 		"ListLibraries":                 "a household has a handful of libraries",
 		"ListRoles":                     "a household has a handful of roles; the admin lists them (D243 section 4)",
 		"ListRoleLibraries":             "a role reaches a handful of libraries; the admin lists them (D243 section 4)",
-		"ListLiveNodes":                 "a household has a handful of nodes",
 		"ListProviderMatchedLibraryIDs": "a household has a handful of libraries; the first-match sweep lists them",
 		"ListLiveLibraryIDs":            "a household has a handful of libraries; the identification sweep lists them",
 		"ListRefreshRequests": "the refresh sweep reads every request a person made, a handful; it is driven " +

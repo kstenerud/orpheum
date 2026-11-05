@@ -29,6 +29,7 @@ library		2
 library_root	library_root	2 1 1 1
 library_root	library_root_node	2 2 1
 node		1
+node	node_live_name	1 1
 ordering	sqlite_autoindex_ordering_1	200 1 1
 place	place_attached	17350 5
 place	place_errored	0 0 0 0
@@ -47,7 +48,7 @@ position	sqlite_autoindex_position_1	10000 50 1
 provider_response	sqlite_autoindex_provider_response_1	3500 1 1 1
 role	sqlite_autoindex_role_1	2 1
 schema_meta		1
-schema_step		34
+schema_step		37
 sequence		200
 sort_key	sort_key	3700 1 1
 sort_key	sort_key_item	3700 1 1
