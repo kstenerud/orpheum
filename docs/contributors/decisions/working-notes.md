@@ -26325,8 +26325,12 @@ table", and D272 §5 for this one fold: production's database is regenerated, no
     `title.kind DEFAULT 'movie'`). It adds CHECKs for what was implicit, WITHOUT ROWID on the small
     keyed tables, and a `revision` on rows people edit (sql.md M1).
 
-**Open:** what of nas.example's database survives the rebuild (users, watched state, positions,
-passkeys): an export and import, or a fresh start. This is the owner's to say before production.
+11. **People's state carries over** (the owner, 2026-11-05: "Export/import people state"). A one-off
+    export from the old schema, and an import into the new one, carries users and their passkeys,
+    watched state, resume positions, hidden items and preferences. Each is matched on the new side
+    by provider id and file hash. Libraries are rescanned, and identification and artwork are
+    fetched again.
+
 Before folding, re-measure visibility at 500k rows (audit §9), and use the measurement to decide
 whether visibility is stored per item and library.
 
