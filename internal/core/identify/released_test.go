@@ -28,7 +28,7 @@ func (lib *testLibrary) releasedOnOf() []string {
 // year alone (D366 §1).
 func TestPass_AFilmAndASeriesAreDatedByTheirSourcesDayElseTheirYear(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "nfo")
+	lib := newTestLibrary(t, "movie", "nfo")
 	lib.scan(
 		nfoRecord("Metropolis (1995)/Metropolis (1995).nfo",
 			`<movie><title>Metropolis</title><year>1995</year><premiered>1995-12-15</premiered></movie>`),
@@ -54,7 +54,7 @@ func TestPass_AFilmAndASeriesAreDatedByTheirSourcesDayElseTheirYear(t *testing.T
 		t.Errorf("the films' days with Metropolis's year corrected to 1996 = %v; want Metropolis 19960000", got)
 	}
 
-	shows := newTestLibrary(t, "shows", "nfo")
+	shows := newTestLibrary(t, "series", "nfo")
 	shows.scan(
 		nfoRecord("Brass Arena/tvshow.nfo",
 			`<tvshow><title>Brass Arena</title><year>2008</year><premiered>2008-01-20</premiered></tvshow>`),
@@ -68,7 +68,7 @@ func TestPass_AFilmAndASeriesAreDatedByTheirSourcesDayElseTheirYear(t *testing.T
 // A film matched at its provider is dated by the provider's release date (D366 §1).
 func TestMatch_AFilmIsDatedByItsProvidersReleaseDate(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	dated := heat
 	dated.ReleaseDate = "1995-12-15"
 	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(dated)}

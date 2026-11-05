@@ -66,7 +66,7 @@ func (lib *testLibrary) wantList(what string, got, want []string) {
 // D186: a film's NFO file names its genres and people, and the pass keeps them.
 func TestPass_KeepsAnNFOFilmsGenresAndPeople(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "nfo")
+	lib := newTestLibrary(t, "movie", "nfo")
 	lib.scan(videoRecord("Metropolis (1995)/Metropolis (1995).mkv"), nfoRecord("Metropolis (1995)/Metropolis (1995).nfo",
 		`<movie><title>Metropolis</title><year>1995</year><genre>Crime / Drama</genre>`+
 			`<actor><name>Ansel Vardo</name><role>Mira Holloway-Pent</role><order>1</order></actor>`+
@@ -88,7 +88,7 @@ func TestPass_KeepsAnNFOFilmsGenresAndPeople(t *testing.T) {
 // credited on two films is one person, renamed where TMDB renames them.
 func TestPass_KeepsAMatchedFilmsGenresAndPeopleAndOnePersonAcrossFilms(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	vardo := identify.Credit{Role: identify.RoleCast, Name: "Ansel Vardo", PersonID: "1158", Character: "Mira Holloway-Pent"}
 	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{
 		lib.provider.Add(identify.Metadata{
@@ -127,7 +127,7 @@ func TestPass_KeepsAMatchedFilmsGenresAndPeopleAndOnePersonAcrossFilms(t *testin
 // the next pass, with no request to its provider.
 func TestPass_FillsATitlesGenresAndPeopleFromItsStoredResponseWithNoRequest(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{
 		lib.provider.Add(identify.Metadata{
 			ID: "9019", Name: "Metropolis", Year: 1995, Genres: []string{"Crime"},
@@ -155,7 +155,7 @@ func TestPass_FillsATitlesGenresAndPeopleFromItsStoredResponseWithNoRequest(t *t
 // D183: a series' tvshow.nfo names its genres and people, and its series keeps them.
 func TestPass_KeepsASeriesNFOsGenresAndPeople(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "shows", "nfo")
+	lib := newTestLibrary(t, "series", "nfo")
 	lib.scan(nfoRecord("Emberwing/tvshow.nfo", `<tvshow><title>Emberwing</title><genre>Science Fiction</genre>`+
 		`<actor><name>Nathan Fillion</name><role>Mal</role></actor></tvshow>`),
 		videoRecord("Emberwing/Season 01/Emberwing - S01E01.mkv"))
@@ -167,7 +167,7 @@ func TestPass_KeepsASeriesNFOsGenresAndPeople(t *testing.T) {
 // Principles §22, D211: a provider's genres and people are clean where they enter.
 func TestMatch_AProvidersGenresAndPeopleAreCleanWhereTheyEnter(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	lib.provider.Add(identify.Metadata{
 		ID: "9019", Name: "Metropolis", Year: 1995, Genres: []string{"Cri\u202eme", "\u200b"},
 		Credits: []identify.Credit{

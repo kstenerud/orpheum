@@ -140,7 +140,7 @@ func (world *frameWorld) pass(t *testing.T, found Found) []int64 {
 // to come; and never where it shows a poster or a backdrop (the owner, 2026-10-27; D362 §2).
 func TestTake_AFilmGetsAFrameStillOnlyOnceEverySourceWasTriedAndGaveNoPicture(t *testing.T) {
 	t.Parallel()
-	world := newFrameWorld(t, "movies", "tmdb")
+	world := newFrameWorld(t, "movie", "tmdb")
 	matched := librarytest.TitleSpec{FollowedSource: "tmdb", FollowedSourceID: "1"}
 	awaitingMatch, _ := world.video(t, librarytest.TitleSpec{IdentificationState: "unidentified"})
 	awaitingFetch, _ := world.video(t, matched)
@@ -194,7 +194,7 @@ func TestTake_AFilmGetsAFrameStillOnlyOnceEverySourceWasTriedAndGaveNoPicture(t 
 // pass read what is beside it; neither where it shows a picture of its kind (D362 §2).
 func TestTake_AnEpisodeAndAnOtherVideoGetAFrameStillWhenNothingElseShowsThem(t *testing.T) {
 	t.Parallel()
-	shows := newFrameWorld(t, "shows", "tmdb")
+	shows := newFrameWorld(t, "series", "tmdb")
 	episode := librarytest.TitleSpec{Kind: "episode", FollowedSource: "tmdb", FollowedSourceID: "1"}
 	bare, _ := shows.video(t, episode)
 	withStill, _ := shows.video(t, episode)

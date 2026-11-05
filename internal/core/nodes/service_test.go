@@ -183,9 +183,9 @@ func TestHello_EnrolsANodeByNameOnceAndQueuesAScanOfEachRootALibraryCovers(t *te
 	harness := newFixture(t, time.Millisecond)
 	local := librarytest.Node(t, harness.database, "local")
 	librarytest.LibraryOn(t, harness.database, local,
-		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/media/films"})
+		librarytest.Library{Name: "Films", Kind: "movie", MetadataSource: "nfo", Root: "/media/films"})
 	librarytest.LibraryOn(t, harness.database, local,
-		librarytest.Library{Name: "Shows", Kind: "shows", MetadataSource: "nfo", Root: "/media/shows"})
+		librarytest.Library{Name: "Shows", Kind: "series", MetadataSource: "nfo", Root: "/media/shows"})
 	scans := &recordingScans{}
 	harness.service.SetScans(scans)
 	first := harness.hello(t, nodeproto.Hello{
@@ -215,9 +215,9 @@ func TestStatus_ARootWhoseDiskIsNotAnsweringIsMadeUnavailableOnce(t *testing.T) 
 	settingstest.Set(t, harness.settings, settings.ShouldScanOnNodeHello, "false")
 	local := librarytest.Node(t, harness.database, "local")
 	librarytest.LibraryOn(t, harness.database, local,
-		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/media/films"})
+		librarytest.Library{Name: "Films", Kind: "movie", MetadataSource: "nfo", Root: "/media/films"})
 	librarytest.LibraryOn(t, harness.database, local,
-		librarytest.Library{Name: "Shows", Kind: "shows", MetadataSource: "nfo", Root: "/media/shows"})
+		librarytest.Library{Name: "Shows", Kind: "series", MetadataSource: "nfo", Root: "/media/shows"})
 	scans := &recordingScans{}
 	harness.service.SetScans(scans)
 	hello := harness.hello(t, nodeproto.Hello{Name: "local", RootPaths: []string{"/media/films", "/media/shows"}})
@@ -278,9 +278,9 @@ func TestHello_MakesALibraryRootItNoLongerNamesUnavailable(t *testing.T) {
 	settingstest.Set(t, harness.settings, settings.ShouldScanOnNodeHello, "false")
 	local := librarytest.Node(t, harness.database, "local")
 	librarytest.LibraryOn(t, harness.database, local,
-		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/media/films"})
+		librarytest.Library{Name: "Films", Kind: "movie", MetadataSource: "nfo", Root: "/media/films"})
 	librarytest.LibraryOn(t, harness.database, local,
-		librarytest.Library{Name: "Shows", Kind: "shows", MetadataSource: "nfo", Root: "/media/shows"})
+		librarytest.Library{Name: "Shows", Kind: "series", MetadataSource: "nfo", Root: "/media/shows"})
 	scans := &recordingScans{}
 	harness.service.SetScans(scans)
 	harness.hello(t, nodeproto.Hello{Name: "local", RootPaths: []string{"/media/films", "/media/shows"}})
@@ -302,9 +302,9 @@ func TestHello_TheLibraryFoldersInsideARootItNamesAreItsAsTheRootsOwnWere(t *tes
 	harness := newFixture(t, time.Millisecond)
 	local := librarytest.Node(t, harness.database, "local")
 	librarytest.LibraryOn(t, harness.database, local,
-		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/tank/media/video/movies"})
+		librarytest.Library{Name: "Films", Kind: "movie", MetadataSource: "nfo", Root: "/tank/media/video/movies"})
 	librarytest.LibraryOn(t, harness.database, local,
-		librarytest.Library{Name: "Sync", Kind: "movies", MetadataSource: "nfo", Root: "/home/synctest/movies"})
+		librarytest.Library{Name: "Sync", Kind: "movie", MetadataSource: "nfo", Root: "/home/synctest/movies"})
 	scans := &recordingScans{}
 	harness.service.SetScans(scans)
 	hello := harness.hello(t, nodeproto.Hello{Name: "local", RootPaths: []string{"/tank/media", "/home/synctest"}})
@@ -384,7 +384,7 @@ func TestHello_ScansNothingWhenTheSettingSaysNot(t *testing.T) {
 	settingstest.Set(t, harness.settings, settings.ShouldScanOnNodeHello, "false")
 	local := librarytest.Node(t, harness.database, "local")
 	librarytest.LibraryOn(t, harness.database, local,
-		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/media/films"})
+		librarytest.Library{Name: "Films", Kind: "movie", MetadataSource: "nfo", Root: "/media/films"})
 	scans := &recordingScans{}
 	harness.service.SetScans(scans)
 	harness.hello(t, nodeproto.Hello{Name: "local", RootPaths: []string{"/media/films"}})

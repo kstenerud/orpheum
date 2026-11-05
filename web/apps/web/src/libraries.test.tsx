@@ -37,7 +37,7 @@ describe("libraries", () => {
           library={{
             id: 3,
             name: "Films",
-            kind: "movies",
+            kind: "movie",
             metadataSource: "nfo_then_tmdb",
             changeDetection: "manual",
             isWritable: false,
@@ -79,7 +79,7 @@ describe("libraries", () => {
           library={{
             id: 3,
             name: "Films",
-            kind: "movies",
+            kind: "movie",
             metadataSource: "nfo",
             changeDetection,
             isWritable: false,
@@ -126,7 +126,7 @@ describe("libraries", () => {
             library={{
               id: 3,
               name: "Films",
-              kind: "movies",
+              kind: "movie",
               metadataSource: "nfo_then_tmdb",
               changeDetection: "manual",
               isWritable: false,
@@ -190,14 +190,14 @@ describe("libraries", () => {
           />,
         ),
       );
-    expect(card("movies")).toContain(">Rescan</button>");
-    expect(card("shows")).toContain(">Rescan</button>");
+    expect(card("movie")).toContain(">Rescan</button>");
+    expect(card("series")).toContain(">Rescan</button>");
     expect(card("other")).not.toContain(">Rescan</button>");
-    expect(card("movies")).not.toContain("Rescanning");
-    expect(card("movies", { isScanning: true, itemCount: 0, matchedCount: 0 })).toContain(
+    expect(card("movie")).not.toContain("Rescanning");
+    expect(card("movie", { isScanning: true, itemCount: 0, matchedCount: 0 })).toContain(
       "Rescanning… scanning first.",
     );
-    expect(card("movies", { isScanning: false, itemCount: 40, matchedCount: 12 })).toContain(
+    expect(card("movie", { isScanning: false, itemCount: 40, matchedCount: 12 })).toContain(
       "Rescanning… 12 of 40 films and series matched again.",
     );
   });
@@ -231,7 +231,7 @@ describe("libraries", () => {
           library={{
             id: 3,
             name: "Films",
-            kind: "movies",
+            kind: "movie",
             metadataSource: "nfo",
             changeDetection: "manual",
             isWritable: false,

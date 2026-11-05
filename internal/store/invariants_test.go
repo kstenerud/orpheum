@@ -33,7 +33,7 @@ func TestCheckInvariants_NamesEachThatDoesNotHold(t *testing.T) {
 		"INSERT INTO version (id, title_id, created_at) VALUES (5, 7, 1)",
 		"INSERT INTO file (id, node_id, path, filing, first_seen_at, last_seen_at) "+
 			"VALUES (1, 1, '/m/f.mkv', 'video', 1, 1)",
-		"INSERT INTO file_filing (file_id, library_kind, filing, version_id) VALUES (1, 'movies', 'listed', 5)",
+		"INSERT INTO file_filing (file_id, library_kind, filing, version_id) VALUES (1, 'movie', 'listed', 5)",
 		"PRAGMA foreign_keys = ON",
 		"PRAGMA foreign_keys = OFF",
 		"INSERT INTO item (id, kind, filing_library_id, added_at) VALUES (8, 'title', 999, 1)",

@@ -49,13 +49,13 @@ const metropolisNFO = `<movie><title>Metropolis</title><year>1995</year></movie>
 // item, so a film is also an other video.
 func TestPass_OneKindOfLibraryFilesAFileOnceAndAnotherKindGivesItsOwnItem(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "nfo")
-	inner := lib.alsoOver("Metropolis alone", "movies", libraryRoot+"/Metropolis (1995)")
+	lib := newTestLibrary(t, "movie", "nfo")
+	inner := lib.alsoOver("Metropolis alone", "movie", libraryRoot+"/Metropolis (1995)")
 	other := lib.alsoOver("Everything", "other", libraryRoot)
 	lib.scan(nfoRecord("Metropolis (1995)/Metropolis (1995).nfo", metropolisNFO), videoRecord("Metropolis (1995)/Metropolis (1995).mkv"))
 	lib.passOf(inner)
 	lib.passOf(other)
-	want := []string{"movies|listed|movie|Metropolis", "other|listed|other|Metropolis"}
+	want := []string{"movie|listed|movie|Metropolis", "other|listed|other|Metropolis"}
 	if got := lib.filings(); !slices.Equal(got, want) {
 		t.Errorf("the filings = %v; want the film once and the other video once: %v", got, want)
 	}
@@ -76,7 +76,7 @@ func TestPass_OneKindOfLibraryFilesAFileOnceAndAnotherKindGivesItsOwnItem(t *tes
 // first found; the doctor lists the file at both places, and the item whose NFO files disagree.
 func TestPass_TheNFOBesideTheFirstPlaceSpeaksForAFileAtTwo(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "nfo")
+	lib := newTestLibrary(t, "movie", "nfo")
 	first, copied := "A/Metropolis (1995).mkv", "Z/Metropolis (1995).mkv" // the copy read after, by path too
 	lib.scan(nfoRecord("A/Metropolis (1995).nfo", metropolisNFO), videoRecord(first))
 	lib.clock.Advance(time.Minute)
@@ -95,7 +95,7 @@ func TestPass_TheNFOBesideTheFirstPlaceSpeaksForAFileAtTwo(t *testing.T) {
 		"UPDATE file SET filing = 'copy', copy_of = "+strconv.FormatInt(firstID, 10)+" WHERE id = "+
 			strconv.FormatInt(copyID, 10))
 	lib.passOf(lib.libraryID)
-	if got, want := lib.filings(), []string{"movies|listed|movie|Metropolis"}; !slices.Equal(got, want) {
+	if got, want := lib.filings(), []string{"movie|listed|movie|Metropolis"}; !slices.Equal(got, want) {
 		t.Errorf("the filings = %v; want the file named by the NFO beside its first place: %v", got, want)
 	}
 	admin := library.NewAdmin(lib.database, lib.clock, nil, nil, library.Retirement{Work: noWork{}})

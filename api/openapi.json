@@ -872,8 +872,8 @@
           },
           "kind": {
             "enum": [
-              "movies",
-              "shows",
+              "movie",
+              "series",
               "other"
             ],
             "type": "string"
@@ -3814,8 +3814,8 @@
           },
           "kind": {
             "enum": [
-              "movies",
-              "shows",
+              "movie",
+              "series",
               "other"
             ],
             "type": "string"

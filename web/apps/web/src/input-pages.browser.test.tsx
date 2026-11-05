@@ -74,7 +74,7 @@ function filmsLibrary(id: number, name: string): Record<string, unknown> {
   return {
     id,
     name,
-    kind: "movies",
+    kind: "movie",
     metadataSource: "nfo_then_tmdb",
     changeDetection: "watch",
     isWritable: true,
@@ -541,7 +541,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
               {
                 id: 1,
                 name: "Films",
-                kind: "movies",
+                kind: "movie",
                 metadataSource: "nfo_then_tmdb",
                 changeDetection: "watch",
                 isWritable: true,

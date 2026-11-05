@@ -48,7 +48,7 @@ func localKinds(report identify.Report) map[int64][]string {
 
 func TestPass_ImagesBesideTheMediaAreFoundByTheirConventionalNames(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "nfo")
+	lib := newTestLibrary(t, "movie", "nfo")
 	report := lib.scan(
 		videoRecord("Films/Salt Harbour (1981)/Salt Harbour (1981).mkv"),
 		imageRecord("Films/Salt Harbour (1981)/cover.jpg"),
@@ -84,7 +84,7 @@ func TestPass_ImagesBesideTheMediaAreFoundByTheirConventionalNames(t *testing.T)
 		}
 	}
 
-	tmdbOnly := newTestLibrary(t, "movies", "tmdb")
+	tmdbOnly := newTestLibrary(t, "movie", "tmdb")
 	taken := tmdbOnly.scan(
 		videoRecord("Salt Harbour (1981)/Salt Harbour (1981).mkv"), imageRecord("Salt Harbour (1981)/poster.jpg"))
 	if kinds := localKinds(taken); len(kinds) != 1 {
@@ -115,7 +115,7 @@ func TestPass_AnOtherVideoShowsEveryImageBesideIt(t *testing.T) {
 
 func TestPass_ReportsEveryImageTheProviderNamesBesideThoseBesideTheMedia(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "nfo_then_tmdb")
+	lib := newTestLibrary(t, "movie", "nfo_then_tmdb")
 	film := heat
 	film.Artwork = []identify.ImageRef{
 		{Kind: library.ArtPoster, Ref: "/p.jpg"}, {Kind: library.ArtBackdrop, Ref: "/b.jpg"},
@@ -141,7 +141,7 @@ func TestPass_ReportsEveryImageTheProviderNamesBesideThoseBesideTheMedia(t *test
 
 func TestPass_AnImageNoLongerBesideTheMediaIsNoLongerReported(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "nfo")
+	lib := newTestLibrary(t, "movie", "nfo")
 	const rel = "Metropolis (1995)/Metropolis (1995).mkv"
 	report := lib.scan(videoRecord(rel), imageRecord("Metropolis (1995)/poster.jpg"))
 	titleID := lib.titlesByPath()[rel].TitleID
@@ -158,7 +158,7 @@ func TestPass_AnImageNoLongerBesideTheMediaIsNoLongerReported(t *testing.T) {
 
 func TestPass_ASeasonFolderIsReadAsTheFilenameParserReadsOne(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "shows", "nfo")
+	lib := newTestLibrary(t, "series", "nfo")
 	// "Staffel 1" is a season folder to the filename parser, so the series' images are above it.
 	report := lib.scan(
 		videoRecord("Shows/Glass Tide/Staffel 1/Glass Tide - S01E01.mkv"),

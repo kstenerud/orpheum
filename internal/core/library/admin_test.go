@@ -114,7 +114,7 @@ func (nodes *fakeNodes) RequestReadingAgain(
 
 func showsRequest(node string, roots ...string) CreateRequest {
 	return CreateRequest{NodeName: node, NewLibrary: NewLibrary{
-		Name: "Shows", Kind: "shows", MetadataSource: "tmdb", ChangeDetection: "manual", Roots: roots,
+		Name: "Shows", Kind: "series", MetadataSource: "tmdb", ChangeDetection: "manual", Roots: roots,
 	}}
 }
 

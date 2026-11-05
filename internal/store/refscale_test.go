@@ -217,7 +217,7 @@ func fillReferenceScale(t *testing.T, database *Database) {
 	}
 	filler.exec("INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)")
 	filler.exec(`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
-		VALUES (1, 'Films', 'movies', 'nfo_then_tmdb', 'watch', 0, 1), (2, 'Series', 'shows', 'tmdb', 'watch', 0, 1)`)
+		VALUES (1, 'Films', 'movie', 'nfo_then_tmdb', 'watch', 0, 1), (2, 'Series', 'series', 'tmdb', 'watch', 0, 1)`)
 	filler.exec("INSERT INTO library_root (library_id, node_id, root_path) " +
 		"VALUES (1, 1, '/media/films'), (2, 1, '/media/shows')")
 	filler.exec("INSERT INTO user (id, name, role_id, created_at) VALUES (1, 'owner', 1, 1), (2, 'partner', 2, 1)")

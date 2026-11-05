@@ -151,7 +151,7 @@ func newJobsWorld(t *testing.T, start time.Time) *jobsWorld {
 	world.tmdbURL = server.URL
 	world.wireQueue(storetest.OpenCache(t))
 	world.nodeID, world.libraryID = librarytest.NodeWithLibrary(t, database,
-		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "tmdb", Root: "/media"})
+		librarytest.Library{Name: "Films", Kind: "movie", MetadataSource: "tmdb", Root: "/media"})
 	return world
 }
 

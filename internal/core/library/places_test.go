@@ -30,7 +30,7 @@ func placedFilm(t *testing.T) placed {
 	t.Helper()
 	world := newShelf(t)
 	backupID := librarytest.LibraryOn(t, world.database, world.nodeID,
-		librarytest.Library{Name: "Backup", Kind: "movies", MetadataSource: "nfo", Root: "/backup"})
+		librarytest.Library{Name: "Backup", Kind: "movie", MetadataSource: "nfo", Root: "/backup"})
 	world.scan([]nodeproto.ScanRecord{observedRecord("Metropolis.mkv", "heat")}, true)
 	titleID := world.fileAsFilm("Metropolis", "Metropolis.mkv")
 	fileID := world.liveFilesByPath()[root+"/Metropolis.mkv"].ID

@@ -22,7 +22,7 @@ export type NewLibrary = components["schemas"]["CreateLibraryInputBody"];
 export function blankLibrary(): NewLibrary {
   return {
     name: "",
-    kind: "movies",
+    kind: "movie",
     metadataSource: "nfo_then_tmdb",
     changeDetection: "manual",
     isWritable: false,
@@ -300,8 +300,8 @@ function WhatItHolds(props: {
           setAnswer("kind", value);
         }}
         choices={[
-          ["movies", t("libraries.kindMovies")],
-          ["shows", t("libraries.kindShows")],
+          ["movie", t("libraries.kindMovies")],
+          ["series", t("libraries.kindShows")],
           ["other", t("libraries.kindOther")],
         ]}
       />

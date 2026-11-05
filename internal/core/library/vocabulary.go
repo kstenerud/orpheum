@@ -19,12 +19,12 @@ const (
 	FilingSkipped  = "skipped"
 	FilingErrored  = "errored"
 
-	// LibraryKindMovies is a library of films, whose names may also make episodes (D363 removed the
+	// LibraryKindMovie is a library of films, whose names may also make episodes (D363 removed the
 	// mixed kind).
-	LibraryKindMovies = "movies"
-	// LibraryKindShows is a series library, every video of which is an episode of a series (the
+	LibraryKindMovie = "movie"
+	// LibraryKindSeries is a series library, every video of which is an episode of a series (the
 	// owner, 2026-10-13).
-	LibraryKindShows = "shows"
+	LibraryKindSeries = "series"
 	// LibraryKindOther is a library of videos that are neither films nor series, home movies,
 	// concerts, lectures and clips, every one a title of the kind other and none identified online
 	// (D349 §3).

@@ -24,7 +24,7 @@ import (
 func (harness testHarness) ambiguousTitle(t *testing.T) {
 	t.Helper()
 	librarytest.NodeWithLibrary(t, harness.database,
-		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "tmdb", Root: "/m"})
+		librarytest.Library{Name: "Films", Kind: "movie", MetadataSource: "tmdb", Root: "/m"})
 	librarytest.Title(t, harness.database, librarytest.TitleSpec{
 		ID: 10, Library: 1, Year: 2003, IdentificationState: "ambiguous",
 	})

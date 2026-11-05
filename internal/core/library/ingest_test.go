@@ -48,7 +48,7 @@ func newHarnessAt(t *testing.T, rootPath string) *harness {
 	database := storetest.OpenMigrated(t)
 	fakeClock := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
 	nodeID, libraryID := librarytest.NodeWithLibrary(t, database,
-		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: rootPath})
+		librarytest.Library{Name: "Films", Kind: "movie", MetadataSource: "nfo", Root: rootPath})
 	seeded := settingstest.Seeded(t, database)
 	return &harness{
 		t: t, database: database, clock: fakeClock, nodeID: nodeID, libraryID: libraryID, rootPath: rootPath,
@@ -278,7 +278,7 @@ func TestIngest_AFileInAnotherRootIsNeverTakenForAMove(t *testing.T) {
 	const shows = "/media/shows"
 	err := world.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 		libraryID, err := queries.InsertLibrary(t.Context(), sqlcgen.InsertLibraryParams{
-			Name: "Shows", Kind: "shows", MetadataSource: "nfo", ChangeDetection: "manual", CreatedAt: 1,
+			Name: "Shows", Kind: "series", MetadataSource: "nfo", ChangeDetection: "manual", CreatedAt: 1,
 		})
 		if err != nil {
 			return err

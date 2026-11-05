@@ -30,7 +30,7 @@ func (harness testHarness) shelve(t *testing.T) {
 	}
 	key := func(name string) string { return "X'" + hex.EncodeToString(sorter.Key(name)) + "'" }
 	librarytest.NodeWithLibrary(t, harness.database,
-		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/m"})
+		librarytest.Library{Name: "Films", Kind: "movie", MetadataSource: "nfo", Root: "/m"})
 	librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: 10, Library: 1, Year: 1995, AddedAt: 1})
 	librarytest.Item(t, harness.database, librarytest.ItemSpec{ID: 20, Kind: "collection", LibraryID: 1, AddedAt: 2})
 	librarytest.Title(t, harness.database, librarytest.TitleSpec{

@@ -172,7 +172,7 @@ func TestScans_AHellosAskJoinsTheListingWithItsNodeAndOtherAsksFollowIt(t *testi
 	}
 }
 
-// Two libraries over one root path, as staging's "Series" and "shows" are (made before an admin was
+// Two libraries over one root path, as staging's "Series" and "series" are (made before an admin was
 // refused one, ErrRootCovered), share its scan: their asks make one listing and one reading of each
 // file, which has one row, of one library.
 func TestScans_TwoLibrariesOverOneRootPathMakeOneListingAndReadEachFileOnce(t *testing.T) {
@@ -180,7 +180,7 @@ func TestScans_TwoLibrariesOverOneRootPathMakeOneListingAndReadEachFileOnce(t *t
 	bench := newScanBench(t)
 	ctx := t.Context()
 	librarytest.LibraryOn(t, bench.database, bench.nodeID,
-		librarytest.Library{Name: "Series", Kind: "shows", MetadataSource: "nfo", Root: root})
+		librarytest.Library{Name: "Series", Kind: "series", MetadataSource: "nfo", Root: root})
 	for range 2 { // each library's ask: one by the schedule, one by a person's Scan button
 		if err := bench.scans.Request(ctx, bench.nodeID, root, jobs.PriorityBackground); err != nil {
 			t.Fatal(err)

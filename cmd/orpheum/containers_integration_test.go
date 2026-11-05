@@ -135,7 +135,7 @@ func TestPlayback_EachContainerAddedIsReadProbedDecidedAndItsFirstChunkMade(t *t
 	config.Node.RootPaths = []string{media}
 	config.Node.FFmpegDir = ffmpegDir
 	nodeID := enrolNodeWithLibrary(t, config, media,
-		libraryShape{name: "Films", kind: "movies", metadataSource: "nfo"})
+		libraryShape{name: "Films", kind: "movie", metadataSource: "nfo"})
 	captured := newCapturedLog("ready", filmIdentified)
 	t.Cleanup(func() {
 		if t.Failed() {

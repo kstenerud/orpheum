@@ -14,7 +14,7 @@ import (
 // nothing of, and TMDB's Harbour Lights, by its id and by its IMDb id.
 func harborLightsLibrary(t *testing.T) (*testLibrary, int64) {
 	t.Helper()
-	lib := newTestLibrary(t, "shows", "tmdb")
+	lib := newTestLibrary(t, "series", "tmdb")
 	lib.provider.Add(identify.Metadata{ID: "4808", Name: "Harbour Lights", Year: 1969})
 	lib.provider.TMDBIDsByOtherID["tt0456789"] = "9285"
 	lib.scanAll("Harbor Lights/Season 01/Harbor Lights - S01E01.mkv")

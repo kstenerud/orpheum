@@ -77,7 +77,7 @@ func (world *shelf) fileAsFilm(text, path string) int64 {
 		if err != nil || fileID == 0 {
 			return err // with no file, a film whose files are gone: its version is all that is left
 		}
-		return PutInVersion(world.t.Context(), queries, fileID, LibraryKindMovies, version)
+		return PutInVersion(world.t.Context(), queries, fileID, LibraryKindMovie, version)
 	})
 	if err != nil {
 		world.t.Fatal(err)

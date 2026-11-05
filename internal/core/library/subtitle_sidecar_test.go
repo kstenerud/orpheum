@@ -100,7 +100,7 @@ func TestIngest_ASubtitleBesideACopyIsATrackOfTheFileItIsACopyOf(t *testing.T) {
 	world.scan([]nodeproto.ScanRecord{observedRecord("Metropolis (1995)/Metropolis (1995).mkv", "heat")}, true)
 	fileID := world.liveFilesByPath()[root+"/Metropolis (1995)/Metropolis (1995).mkv"].ID
 	backupID := librarytest.LibraryOn(t, world.database, world.nodeID,
-		librarytest.Library{Name: "Backup", Kind: "movies", MetadataSource: "nfo", Root: "/backup"})
+		librarytest.Library{Name: "Backup", Kind: "movie", MetadataSource: "nfo", Root: "/backup"})
 	payloadHash, decodeErr := hex.DecodeString(hashOf("heat"))
 	if decodeErr != nil {
 		t.Fatal(decodeErr)

@@ -27,7 +27,7 @@ import { withServices } from "./test-services.tsx";
 const library: components["schemas"]["LibraryBody"] = {
   id: 3,
   name: "Films",
-  kind: "movies",
+  kind: "movie",
   metadataSource: "nfo_then_tmdb",
   changeDetection: "manual",
   isWritable: false,

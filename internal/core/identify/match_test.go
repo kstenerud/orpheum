@@ -43,7 +43,7 @@ func (lib *testLibrary) matchFileTitle(rel string) identify.Outcome {
 
 func TestMatch_ASingleResultMatchingNameAndYearIsAcceptedAndReplayedFromTheStoredResponse(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	lib.provider.Searches[identifytest.SearchKey("Théo", 1994)] = []identify.Candidate{
 		lib.provider.Add(theo), {ID: "7", Name: "Léon Morin, Priest", Year: 1961},
 	}
@@ -78,7 +78,7 @@ func TestMatch_ASingleResultMatchingNameAndYearIsAcceptedAndReplayedFromTheStore
 // accents its work's name has matches it.
 func TestMatch_ACandidateIsNamedAsTheFileIsByTheOneIdentityFold(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	lib.provider.Searches[identifytest.SearchKey("Theo", 1994)] = []identify.Candidate{
 		lib.provider.Add(theo), {ID: "7", Name: "Léon Morin, Priest", Year: 1961},
 	}
@@ -101,7 +101,7 @@ func TestMatch_ALeadingArticleIsNoPartOfTheName(t *testing.T) {
 		{"Navigator (2015).mkv", "Navigator", "The Navigator", 2015},
 		{"A Fool There Was (2018).mkv", "A Fool There Was", "Quiet Place", 2018},
 	} {
-		lib := newTestLibrary(t, "movies", "tmdb")
+		lib := newTestLibrary(t, "movie", "tmdb")
 		year := each.year
 		lib.provider.Searches[identifytest.SearchKey(each.query, year)] = []identify.Candidate{
 			lib.provider.Add(identify.Metadata{
@@ -131,7 +131,7 @@ func TestMatch_ANameMatchedExactlyWinsOverOneMatchedWithAnArticleAside(t *testin
 		{"Crowd (2022).mkv", "Crowd", "31"},
 		{"The Crowd (2022).mkv", "The Crowd", "32"},
 	} {
-		lib := newTestLibrary(t, "movies", "tmdb")
+		lib := newTestLibrary(t, "movie", "tmdb")
 		plain := lib.provider.Add(identify.Metadata{
 			ID: "31", Name: "Crowd", OriginalName: "Crowd", Year: 2022,
 		})
@@ -162,7 +162,7 @@ func TestMatch_ANameMatchedExactlyWinsOverOneMatchedWithAnArticleAside(t *testin
 // "Crowd" of 2021; fuzzier matches only once the year settles nothing (the owner, 2026-10-27).
 func TestMatch_TheYearIsAStrongerCueThanTheExactName(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	lib.provider.Searches[identifytest.SearchKey("Crowd", 2022)] = []identify.Candidate{
 		lib.provider.Add(identify.Metadata{ID: "41", Name: "Crowd", OriginalName: "Crowd", Year: 2021}),
 		lib.provider.Add(identify.Metadata{
@@ -193,7 +193,7 @@ func (lib *testLibrary) isGuessed(itemID int64) bool {
 // for a person, its results kept for them (D172 §3, which D301 leaves standing for this).
 func TestMatch_AnUnsettledSearchIsNeverGuessed(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	// Two remakes, neither within a year of the one the file names. One a year off would be taken
 	// (TestMatch_AYearOffOrASubtitleStillFindsTheOneWork).
 	lib.provider.Searches[identifytest.SearchKey("The General", 2004)] = []identify.Candidate{
@@ -227,7 +227,7 @@ func TestMatch_AnUnsettledSearchIsNeverGuessed(t *testing.T) {
 // a film with no year and one candidate is a guess too (D301; the owner's NAS, 2026-10-15).
 func TestMatch_SeveralOfOneNameAreSettledByAGuessMarkedAsOne(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	oldest := lib.provider.Add(identify.Metadata{ID: "11", Name: "The Marten King", Year: 1994})
 	oldest.Votes = 2000 // within ten times the remake's, as the real films' are (D412 §3)
 	lib.provider.Searches[identifytest.SearchKey("The Marten King", 0)] = []identify.Candidate{
@@ -270,7 +270,7 @@ func TestMatch_SeveralOfOneNameAreSettledByAGuessMarkedAsOne(t *testing.T) {
 // work; two within a year stay a person's choice.
 func TestMatch_AYearOffOrASubtitleStillFindsTheOneWork(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	lib.provider.Searches[identifytest.SearchKey("Hollow Violet", 1997)] = []identify.Candidate{
 		lib.provider.Add(identify.Metadata{ID: "10", Name: "Hollow Violet", Year: 1998}),
 	}
@@ -313,7 +313,7 @@ func TestMatch_AYearOffOrASubtitleStillFindsTheOneWork(t *testing.T) {
 // that found more is a person's choice.
 func TestMatch_AWorkUnderAnotherNameIsGuessed(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	lib.provider.Searches[identifytest.SearchKey("Kumo no Michi", 1971)] = []identify.Candidate{
 		lib.provider.Add(identify.Metadata{ID: "20", Name: "The Cloud Road", Year: 1971}),
 		{ID: "21", Name: "The Cloud Road Returns", Year: 1985},
@@ -357,7 +357,7 @@ func TestMatch_AWorkUnderAnotherNameIsGuessed(t *testing.T) {
 // stay as they were (the owner's NAS, 2026-10-13).
 func TestMatch_AnAmbiguousFilmTheRulesNowSettleIsMatchedAgain(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	blue := lib.provider.Add(identify.Metadata{ID: "10", Name: "Hollow Violet", Year: 1998})
 	lib.provider.Searches[identifytest.SearchKey("Hollow Violet", 1997)] = []identify.Candidate{
 		blue, {ID: "11", Name: "Hollow Violet", Year: 1998},
@@ -401,7 +401,7 @@ func TestMatch_AnAmbiguousFilmTheRulesNowSettleIsMatchedAgain(t *testing.T) {
 
 func TestMatch_AProviderIDInHandSkipsTheSearch(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	lib.provider.Add(heat)
 	lib.provider.Add(theo)
 	lib.provider.TMDBIDsByOtherID["tt0345678"] = theo.ID
@@ -419,7 +419,7 @@ func TestMatch_AProviderIDInHandSkipsTheSearch(t *testing.T) {
 
 func TestMatch_NothingFoundIsRecordedAndNotSearchedAgain(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "nfo_then_tmdb")
+	lib := newTestLibrary(t, "movie", "nfo_then_tmdb")
 	const rel = "home video (2011).mkv"
 	lib.scan(videoRecord(rel))
 	if outcome := lib.matchFileTitle(rel); outcome != identify.OutcomeNoMatch {
@@ -445,7 +445,7 @@ func TestMatch_NothingFoundIsRecordedAndNotSearchedAgain(t *testing.T) {
 
 func TestMatch_ASecondTitleForTheSameWorkJoinsTheFirst(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(heat)}
 	lib.scan(videoRecord("Metropolis {tmdb-9019}.mkv"), videoRecord("other/Metropolis (1995).mkv"))
 	lib.matchFileTitle("Metropolis {tmdb-9019}.mkv")
@@ -464,7 +464,7 @@ func TestMatch_ASecondTitleForTheSameWorkJoinsTheFirst(t *testing.T) {
 
 func TestMatch_AnOverrideSurvivesTheMatchAndReDerivation(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(heat)}
 	const rel = "Metropolis (1995).mkv"
 	lib.scan(videoRecord(rel))
@@ -488,7 +488,7 @@ func TestMatch_AnOverrideSurvivesTheMatchAndReDerivation(t *testing.T) {
 
 func TestMatch_AProvidersRefusalReturnsForTheQueueToActOn(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	lib.scan(videoRecord("Metropolis (1995).mkv"))
 	lib.provider.SetFailure(&outbound.RateLimitedError{Provider: "TMDB", RetryAfter: 3})
 	_, err := lib.matcher.Match(t.Context(), lib.titlesByPath()["Metropolis (1995).mkv"].TitleID)
@@ -503,7 +503,7 @@ func TestMatch_AProvidersRefusalReturnsForTheQueueToActOn(t *testing.T) {
 
 func TestHandle_AsksTheProviderWithTheJobsImportanceAndPassesOnItsParking(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	lib.scan(videoRecord("Metropolis (1995).mkv"), videoRecord("Nosferatu (1998).mkv"), videoRecord("Arkon (1979).mkv"))
 	titles := lib.titlesByPath()
 	for path, check := range map[string]struct {
@@ -535,7 +535,7 @@ func TestHandle_AsksTheProviderWithTheJobsImportanceAndPassesOnItsParking(t *tes
 
 func TestPass_ATMDBOnlyLibraryIgnoresNFOFiles(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	const body = "<movie><title>Not What The Path Says</title><year>1995</year><tmdbid>9019</tmdbid>" +
 		"<lockdata>true</lockdata></movie>"
 	report := lib.scan(videoRecord("Metropolis (1995).mkv"), nfoRecord("Metropolis (1995).nfo", body))
@@ -558,7 +558,7 @@ func TestPass_ATMDBOnlyLibraryIgnoresNFOFiles(t *testing.T) {
 // Principles §22, D211: what a provider answers is clean where it enters, whoever wrote it.
 func TestMatch_AProvidersTextIsCleanWhereItEnters(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	hostile := identify.Metadata{ID: "9019", Name: "Metropolis\u202Evkm.exe", Year: 1995, Overview: "One.\u200B\n\n\n\nTwo."}
 	lib.provider.Add(hostile)
 	lib.scan(videoRecord("Metropolis {tmdb-9019}.mkv"))
@@ -571,7 +571,7 @@ func TestMatch_AProvidersTextIsCleanWhereItEnters(t *testing.T) {
 // Principles §22: a person's override is clean where it enters.
 func TestChooser_AnOverrideIsCleanWhereItEnters(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "nfo")
+	lib := newTestLibrary(t, "movie", "nfo")
 	lib.scan(videoRecord("Metropolis (1995).mkv"))
 	titleID := lib.titlesByPath()["Metropolis (1995).mkv"].TitleID
 	person := storetest.InsertUser(t, lib.database, "alice", "admin")

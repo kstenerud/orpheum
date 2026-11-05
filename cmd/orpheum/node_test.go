@@ -169,7 +169,7 @@ func filmAnswered(t *testing.T, metadataSource string, reply testutil.FakeReply)
 	config.Node.RootPaths = []string{media}
 	config.Node.FFmpegDir = fake.Directory
 	nodeID := enrolNodeWithLibrary(t, config, media,
-		libraryShape{name: "Films", kind: "movies", metadataSource: metadataSource})
+		libraryShape{name: "Films", kind: "movie", metadataSource: metadataSource})
 	return filmFixture{config: config, configPath: configPath, media: media, nodeID: nodeID}
 }
 

@@ -83,7 +83,7 @@ func (harness testHarness) shelveFilms(t *testing.T) {
 		`{"streamIndex":2,"kind":"subtitle","codec":"ass","language":"en","disposition":["default"]},` +
 		`{"streamIndex":3,"kind":"subtitle","codec":"hdmv_pgs_subtitle"}]}`
 	nodeID, libraryID := librarytest.NodeWithLibrary(t, harness.database,
-		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/media"})
+		librarytest.Library{Name: "Films", Kind: "movie", MetadataSource: "nfo", Root: "/media"})
 	librarytest.File(t, harness.database, librarytest.FileSpec{
 		ID: 1, LibraryID: libraryID, NodeID: nodeID, Path: "/media/Film (2001).mp4", SizeBytes: 10,
 		PayloadHash: []byte{0x0a, 0x0b}, Filing: "listed",
@@ -235,7 +235,7 @@ func TestPlayback_ADirectReadOfAFileGoneFromItsPlaceReadsItsCopy(t *testing.T) {
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
 	backup := librarytest.LibraryOn(t, harness.database, 1,
-		librarytest.Library{Name: "Backup", Kind: "movies", MetadataSource: "nfo", Root: "/backup"})
+		librarytest.Library{Name: "Backup", Kind: "movie", MetadataSource: "nfo", Root: "/backup"})
 	librarytest.File(t, harness.database, librarytest.FileSpec{
 		LibraryID: backup, NodeID: 1, Path: "/backup/Film (2001).mp4", Filing: "copy", CopyOf: 1, FirstSeenAt: 3,
 	})

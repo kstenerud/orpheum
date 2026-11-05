@@ -38,7 +38,7 @@ const neverAsks: Poller = { start: () => () => undefined };
 function library(
   id: number,
   name: string,
-  kind: "movies" | "shows" | "other" = "movies",
+  kind: "movie" | "series" | "other" = "movie",
 ): Record<string, unknown> {
   return {
     id,
@@ -286,7 +286,7 @@ describe("the Libraries page (D349)", () => {
     mounted = await mountBrowse(
       { library: 1 },
       {
-        "GET /libraries": [200, { libraries: [library(1, "Films", "movies")] }],
+        "GET /libraries": [200, { libraries: [library(1, "Films", "movie")] }],
         "GET /items": titlesPage(),
         "GET /items/letters": lettersPage(),
       },
@@ -305,7 +305,10 @@ describe("the Libraries page (D349)", () => {
     mounted = await mountBrowse(
       { library: "all" },
       {
-        "GET /libraries": [200, { libraries: [library(1, "Films"), library(2, "Shows", "shows")] }],
+        "GET /libraries": [
+          200,
+          { libraries: [library(1, "Films"), library(2, "Shows", "series")] },
+        ],
         "GET /items": titlesPage(),
         "GET /items/letters": lettersPage(),
       },

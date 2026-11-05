@@ -123,7 +123,7 @@ func removeFilesAndPlaces(
 type VersionRetirer func(ctx context.Context, queries *sqlcgen.Queries, versionID, intoTitleID, nowMs int64) error
 
 // libraryKinds are the kinds of library, each of which files a file in a title of its own (D363 §5).
-func libraryKinds() []string { return []string{LibraryKindMovies, LibraryKindShows, LibraryKindOther} }
+func libraryKinds() []string { return []string{LibraryKindMovie, LibraryKindSeries, LibraryKindOther} }
 
 // retireFilingsInto gives fileID what each kind of library filed rowID as, rowID being found to be
 // fileID: an unread row whose read found a file stored before (D304 §5), or a copy a whole read

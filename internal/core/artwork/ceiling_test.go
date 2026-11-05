@@ -40,7 +40,7 @@ func (bench *bench) show(t *testing.T, kind, sourceSha256Hex string, removedAt i
 func (bench *bench) list(t *testing.T) {
 	t.Helper()
 	nodeID, libraryID := librarytest.NodeWithLibrary(t, bench.database,
-		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "tmdb", Root: "/m"})
+		librarytest.Library{Name: "Films", Kind: "movie", MetadataSource: "tmdb", Root: "/m"})
 	storetest.ExecRaw(t, bench.database.Path(), fmt.Sprintf(
 		"INSERT INTO title (id, identification_state) VALUES (%d, 'identified')", bench.itemID))
 	librarytest.Version(t, bench.database, librarytest.VersionSpec{ID: 1, TitleID: bench.itemID})

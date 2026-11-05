@@ -14,7 +14,7 @@ import (
 // by fetching its titles (D303, DL6; the access audit's A7).
 func TestWaitingForAPerson_IsOneCountingStatement(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	lib.scan(videoRecord("Metropolis (1995)/Metropolis (1995).mkv"), videoRecord("Arkon (1979)/Arkon (1979).mkv"))
 	ctx, tally := querytally.New(t.Context())
 	if _, err := lib.chooser.WaitingForAPerson(ctx); err != nil {
@@ -30,7 +30,7 @@ func TestWaitingForAPerson_IsOneCountingStatement(t *testing.T) {
 // 2026-10-21, where the count said 15 and the list was hundreds of episodes).
 func TestItems_ListWhatWaitingForAPersonCounts(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "shows", "tmdb")
+	lib := newTestLibrary(t, "series", "tmdb")
 	lib.scanAll("Nowhere Show/Season 01/Nowhere Show - S01E01.mkv",
 		"Nowhere Show/Season 01/Nowhere Show - S01E02.mkv", "Unsearched Show/Season 01/Unsearched Show - S01E01.mkv")
 	series, err := lib.database.Read().ListLibrarySeries(t.Context(), &lib.libraryID)

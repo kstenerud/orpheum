@@ -239,7 +239,7 @@ func chunksFixture(t *testing.T, queue Queue, node fakeNode) (*Service, *fakeRea
 	t.Helper()
 	database := storetest.OpenMigrated(t)
 	nodeID, libraryID := librarytest.NodeWithLibrary(t, database,
-		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/m"})
+		librarytest.Library{Name: "Films", Kind: "movie", MetadataSource: "nfo", Root: "/m"})
 	durationMs := int64(filmMinutes * 60_000)
 	probe := fmt.Sprintf(`{"format":{"durationMs":%d,"bitRateBps":4000000},"streams":[`+
 		`{"kind":"video","codec":"h264","video":{"width":1920,"height":1080}},`+

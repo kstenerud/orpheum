@@ -19,7 +19,7 @@ func TestTitleFiles_EveryQueryLeavesOutARemovedVersion(t *testing.T) {
 	storetest.ExecRaw(t, database.Path(),
 		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
-		 VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)`,
+		 VALUES (1, 'Films', 'movie', 'nfo', 'manual', 0, 1)`,
 		"INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/m')",
 		"INSERT INTO item (id, kind, filing_library_id, added_at) VALUES (10, 'title', 1, 1)",
 		"INSERT INTO title (id, kind, identification_state) VALUES (10, 'movie', 'identified')",
@@ -28,7 +28,7 @@ func TestTitleFiles_EveryQueryLeavesOutARemovedVersion(t *testing.T) {
 		 VALUES (1, 1, '/m/kept.mkv', CAST('/m/kept.mkv' AS BLOB), 10, 'video', 1, 1),
 		        (2, 1, '/m/removed.mkv', CAST('/m/removed.mkv' AS BLOB), 10, 'video', 1, 1)`,
 		`INSERT INTO file_filing (file_id, library_kind, filing, version_id)
-		 VALUES (1, 'movies', 'listed', 1), (2, 'movies', 'listed', 2)`)
+		 VALUES (1, 'movie', 'listed', 1), (2, 'movie', 'listed', 2)`)
 	queries := database.Read()
 	ctx := t.Context()
 
