@@ -197,7 +197,11 @@ describe.each(screens.filter((screen) => !screen.isTelevision))(
       const { navigation } = walking.services;
       await expect.poll(() => isDrawn(".title-head__body")).toBe(true);
       navigation.go({ screen: "play", fileId: 230 });
-      await expect.poll(() => whatPlays() !== null).toBe(true);
+      // The Play page's own trail, not the title page's left showing while Play's code loads.
+      await expect
+        .poll(() => document.querySelector('.up-trail [aria-current="page"]')?.textContent)
+        .toBe("Playing");
+      expect(whatPlays()?.textContent).toBe("S2E3 Low Water");
       whatPlays()?.click();
       await expect
         .poll(() => routeHref(navigation.route()))
