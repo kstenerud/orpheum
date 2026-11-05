@@ -5,6 +5,7 @@ package library
 import (
 	"cmp"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -87,37 +88,25 @@ func (browser *Browser) peopleOf(ctx context.Context, itemID int64) (TitlePeople
 	return people, nil
 }
 
-// PersonCredit is one of a person's roles on a title.
+// PersonCredit is one of a person's roles on an item.
 type PersonCredit struct {
 	Role      string
 	Character string
 }
 
-// PersonTitle is a film, other video or series a person is credited on, with their roles on it.
-type PersonTitle struct {
-	ID int64
-	// Kind is ListFilms, ListOther or ListSeries.
-	Kind  string
-	Name  string
-	Year  int64
-	Roles []PersonCredit
-}
-
-// PersonDetail is a person's page: their name, their picture, and the titles the caller reaches
-// that credit them, newest first.
+// PersonDetail is a person's page: their name and their picture. The items crediting them are a
+// list's, GET /items?person= (D425 §7).
 type PersonDetail struct {
 	ID         int64
 	Name       string
 	PictureRef string
-	Titles     []PersonTitle
 }
 
 // Person is a person's page as reach sees it; a person no title it reaches credits is ErrNoItem, as
 // one that does not exist (D243 §4).
 func (browser *Browser) Person(ctx context.Context, reach auth.Reach, personID int64) (PersonDetail, error) {
-	queries := browser.database.Read()
 	isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
-	person, err := store.OrNotFound(queries.GetPersonReached(ctx, sqlcgen.GetPersonReachedParams{
+	person, err := store.OrNotFound(browser.database.Read().GetPersonReached(ctx, sqlcgen.GetPersonReachedParams{
 		PersonID: personID, IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
 	}))
 	if errors.Is(err, store.ErrNotFound) {
@@ -126,35 +115,31 @@ func (browser *Browser) Person(ctx context.Context, reach auth.Reach, personID i
 	if err != nil {
 		return PersonDetail{}, fmt.Errorf("read person %d: %w", personID, err)
 	}
-	credits, err := queries.ListPersonCredits(ctx, sqlcgen.ListPersonCreditsParams{
-		PersonID: personID, IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
+	return PersonDetail{ID: person.ID, Name: person.Name, PictureRef: ptr.ValueOrZero(person.PictureRef)}, nil
+}
+
+// CreditsOn are a person's roles on each of the items named, by item, in billing order within each
+// role: what a list of the items crediting them says of each (D425 §7). An item that does not
+// credit them is left out.
+func (browser *Browser) CreditsOn(
+	ctx context.Context, personID int64, itemIDs []int64,
+) (map[int64][]PersonCredit, error) {
+	idsJSON, err := json.Marshal(itemIDs)
+	if err != nil {
+		return nil, fmt.Errorf("encode the items' ids: %w", err)
+	}
+	rows, err := browser.database.Read().ListPersonCreditsOn(ctx, sqlcgen.ListPersonCreditsOnParams{
+		PersonID: personID, ItemIdsJSON: string(idsJSON),
 	})
 	if err != nil {
-		return PersonDetail{}, fmt.Errorf("list person %d's credits: %w", personID, err)
+		return nil, fmt.Errorf("list person %d's credits: %w", personID, err)
 	}
-	detail := PersonDetail{
-		ID: person.ID, Name: person.Name, PictureRef: ptr.ValueOrZero(person.PictureRef), Titles: []PersonTitle{},
+	credits := make(map[int64][]PersonCredit, len(itemIDs))
+	for _, row := range rows {
+		credits[row.ItemID] = append(credits[row.ItemID],
+			PersonCredit{Role: row.Role, Character: ptr.ValueOrZero(row.Character)})
 	}
-	for _, credit := range credits {
-		role := PersonCredit{Role: credit.Role, Character: ptr.ValueOrZero(credit.Character)}
-		if last := len(detail.Titles) - 1; last >= 0 && detail.Titles[last].ID == credit.ItemID {
-			detail.Titles[last].Roles = append(detail.Titles[last].Roles, role)
-			continue
-		}
-		kind, year := ListSeries, ptr.ValueOrZero(credit.SeriesYear)
-		if credit.TitleKind != nil {
-			kind, year = *credit.TitleKind, ptr.ValueOrZero(credit.TitleYear)
-		}
-		detail.Titles = append(detail.Titles, PersonTitle{
-			ID: credit.ItemID, Kind: kind, Name: ptr.ValueOrZero(credit.Name), Year: year,
-			Roles: []PersonCredit{role},
-		})
-	}
-	slices.SortStableFunc(detail.Titles, func(first, second PersonTitle) int {
-		return cmp.Or(cmp.Compare(second.Year, first.Year), cmp.Compare(first.Name, second.Name),
-			cmp.Compare(first.ID, second.ID))
-	})
-	return detail, nil
+	return credits, nil
 }
 
 // Genres are the genres with a film, series or other video of kind (ListFilms, ListSeries, ListOther,

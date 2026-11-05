@@ -55,7 +55,7 @@ function library(
 const titlesPage = (): Answer => [
   200,
   {
-    titles: [
+    items: [
       {
         id: 1,
         name: "A film",
@@ -150,8 +150,8 @@ describe("the Libraries page (D349)", () => {
       { library: 1 },
       {
         "GET /libraries": [200, { libraries: [library(2, "Zoo"), library(1, "Alpha")] }],
-        "GET /titles": titlesPage(),
-        "GET /titles/letters": lettersPage(),
+        "GET /items": titlesPage(),
+        "GET /items/letters": lettersPage(),
       },
     );
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
@@ -167,8 +167,8 @@ describe("the Libraries page (D349)", () => {
       { library: "all" },
       {
         "GET /libraries": [200, { libraries: [library(2, "Zoo"), library(1, "Alpha")] }],
-        "GET /titles": titlesPage(),
-        "GET /titles/letters": lettersPage(),
+        "GET /items": titlesPage(),
+        "GET /items/letters": lettersPage(),
       },
     );
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
@@ -180,8 +180,8 @@ describe("the Libraries page (D349)", () => {
       { library: 1 },
       {
         "GET /libraries": [200, { libraries: [library(1, "Alpha")] }],
-        "GET /titles": titlesPage(),
-        "GET /titles/letters": lettersPage(),
+        "GET /items": titlesPage(),
+        "GET /items/letters": lettersPage(),
       },
     );
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
@@ -202,8 +202,8 @@ describe("the Libraries page (D349)", () => {
   it("picks the first library by name when none is chosen in the address (D349 §9.1 point 1)", async () => {
     const services = servedBy({
       "GET /libraries": [200, { libraries: [library(2, "Zoo"), library(1, "Alpha")] }],
-      "GET /titles": titlesPage(),
-      "GET /titles/letters": lettersPage(),
+      "GET /items": titlesPage(),
+      "GET /items/letters": lettersPage(),
     });
     mounted = await mount(
       <BackgroundChangesContext value={neverAsks}>
@@ -239,11 +239,11 @@ describe("the Libraries page (D349)", () => {
     });
     const services = servedBy({
       "GET /libraries": [200, { libraries: [library(1, "Alpha")] }],
-      "GET /titles": [
-        [200, { titles: [film(1)], nextCursor: "c2" }],
-        [200, { titles: [film(2)], nextCursor: "" }],
+      "GET /items": [
+        [200, { items: [film(1)], nextCursor: "c2" }],
+        [200, { items: [film(2)], nextCursor: "" }],
       ],
-      "GET /titles/letters": lettersPage(),
+      "GET /items/letters": lettersPage(),
     });
     services.navigation.noteOnEntry({ href: "/titles/2", ordinal: 0 });
     mounted = await mount(
@@ -270,13 +270,13 @@ describe("the Libraries page (D349)", () => {
       { library: 5 },
       {
         "GET /libraries": [200, { libraries: [library(5, "Home movies", "other")] }],
-        "GET /titles": titlesPage(),
+        "GET /items": titlesPage(),
       },
       otherHeard,
     );
-    await settleUntil(() => otherHeard.some((each) => each.methodAndPath === "GET /titles"));
+    await settleUntil(() => otherHeard.some((each) => each.methodAndPath === "GET /items"));
     const otherQuery = new URLSearchParams(
-      otherHeard.find((each) => each.methodAndPath === "GET /titles")?.query,
+      otherHeard.find((each) => each.methodAndPath === "GET /items")?.query,
     );
     expect(otherQuery.get("kind")).toBe("other");
     expect(otherQuery.get("sort")).toBe("recorded");
@@ -287,14 +287,14 @@ describe("the Libraries page (D349)", () => {
       { library: 1 },
       {
         "GET /libraries": [200, { libraries: [library(1, "Films", "movies")] }],
-        "GET /titles": titlesPage(),
-        "GET /titles/letters": lettersPage(),
+        "GET /items": titlesPage(),
+        "GET /items/letters": lettersPage(),
       },
       filmsHeard,
     );
-    await settleUntil(() => filmsHeard.some((each) => each.methodAndPath === "GET /titles"));
+    await settleUntil(() => filmsHeard.some((each) => each.methodAndPath === "GET /items"));
     const filmsQuery = new URLSearchParams(
-      filmsHeard.find((each) => each.methodAndPath === "GET /titles")?.query,
+      filmsHeard.find((each) => each.methodAndPath === "GET /items")?.query,
     );
     expect(filmsQuery.get("kind")).toBe("movie");
     expect(filmsQuery.get("sort")).toBe("name");
@@ -306,14 +306,14 @@ describe("the Libraries page (D349)", () => {
       { library: "all" },
       {
         "GET /libraries": [200, { libraries: [library(1, "Films"), library(2, "Shows", "shows")] }],
-        "GET /titles": titlesPage(),
-        "GET /titles/letters": lettersPage(),
+        "GET /items": titlesPage(),
+        "GET /items/letters": lettersPage(),
       },
       heard,
     );
-    await settleUntil(() => heard.some((each) => each.methodAndPath === "GET /titles"));
+    await settleUntil(() => heard.some((each) => each.methodAndPath === "GET /items"));
     const query = new URLSearchParams(
-      heard.find((each) => each.methodAndPath === "GET /titles")?.query,
+      heard.find((each) => each.methodAndPath === "GET /items")?.query,
     );
     expect(query.get("kind")).toBe("any");
     expect(query.has("library")).toBe(false);
@@ -322,8 +322,8 @@ describe("the Libraries page (D349)", () => {
   it("offers a films library's every sort either way, by release date too, the way in the address (D366)", async () => {
     const services = servedBy({
       "GET /libraries": [200, { libraries: [library(1, "Films")] }],
-      "GET /titles": titlesPage(),
-      "GET /titles/letters": lettersPage(),
+      "GET /items": titlesPage(),
+      "GET /items/letters": lettersPage(),
       "GET /genres": [200, { genres: [] }],
     });
     services.navigation.replace({ screen: "browse", library: 1 });
@@ -380,14 +380,14 @@ describe("the Libraries page (D349)", () => {
       { library: 1, sort: "name", order: "descending" },
       {
         "GET /libraries": [200, { libraries: [library(1, "Films")] }],
-        "GET /titles": titlesPage(),
-        "GET /titles/letters": [200, { letters: ["A", "H", "Z"] }],
+        "GET /items": titlesPage(),
+        "GET /items/letters": [200, { letters: ["A", "H", "Z"] }],
       },
       heard,
     );
     await settleUntil(() => mounted?.container.querySelector(".alphabet-rail") !== null);
     const query = new URLSearchParams(
-      heard.find((each) => each.methodAndPath === "GET /titles")?.query,
+      heard.find((each) => each.methodAndPath === "GET /items")?.query,
     );
     expect(query.get("sort")).toBe("name");
     expect(query.get("order")).toBe("descending");
@@ -424,8 +424,8 @@ describe("the Libraries page (D349)", () => {
       { library: 1 },
       {
         "GET /libraries": [200, { libraries: [library(1, "Films")] }],
-        "GET /titles": titlesPage(),
-        "GET /titles/letters": lettersPage(),
+        "GET /items": titlesPage(),
+        "GET /items/letters": lettersPage(),
         "GET /me/preferences": [200, { isDialogueBoostOn: false, isLevellingOn: true }],
       },
     );
@@ -440,8 +440,8 @@ describe("the Libraries page (D349)", () => {
       { library: "all" },
       {
         "GET /libraries": [200, { libraries: [library(1, "Films")] }],
-        "GET /titles": titlesPage(),
-        "GET /titles/letters": lettersPage(),
+        "GET /items": titlesPage(),
+        "GET /items/letters": lettersPage(),
       },
     );
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
@@ -453,7 +453,7 @@ describe("the Libraries page (D349)", () => {
       { library: 1, sort: "added" },
       {
         "GET /libraries": [200, { libraries: [library(1, "Films")] }],
-        "GET /titles": titlesPage(),
+        "GET /items": titlesPage(),
       },
     );
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
@@ -501,8 +501,8 @@ describe("the Libraries page (D349)", () => {
   it("sends the typed text, with the library chosen, to the address as its pop-up closes", async () => {
     const services = servedBy({
       "GET /libraries": [200, { libraries: [library(1, "Films")] }],
-      "GET /titles": titlesPage(),
-      "GET /titles/letters": lettersPage(),
+      "GET /items": titlesPage(),
+      "GET /items/letters": lettersPage(),
       "GET /genres": [200, { genres: [] }],
     });
     mounted = await mount(
@@ -540,8 +540,8 @@ describe("the Libraries page (D349)", () => {
       { library: 1 },
       {
         "GET /libraries": [200, { libraries: [library(1, "Films")] }],
-        "GET /titles": titlesPage(),
-        "GET /titles/letters": lettersPage(),
+        "GET /items": titlesPage(),
+        "GET /items/letters": lettersPage(),
       },
       heard,
     );
@@ -550,7 +550,7 @@ describe("the Libraries page (D349)", () => {
     const field = popUp.querySelector("input.list-criteria__name");
     const queriesAsked = (): (string | null)[] =>
       heard
-        .filter((each) => each.methodAndPath === "GET /titles")
+        .filter((each) => each.methodAndPath === "GET /items")
         .map((each) => new URLSearchParams(each.query).get("query"));
     expect(queriesAsked()).toEqual([null]);
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
@@ -584,8 +584,8 @@ describe("the Libraries page (D349)", () => {
     const services = servedBy(
       {
         "GET /libraries": [200, { libraries: [library(1, "Films")] }],
-        "GET /titles": titlesPage(),
-        "GET /titles/letters": lettersPage(),
+        "GET /items": titlesPage(),
+        "GET /items/letters": lettersPage(),
         "GET /genres": [200, { genres: [] }],
       },
       heard,
@@ -608,9 +608,9 @@ describe("the Libraries page (D349)", () => {
     const popUp = await openCriteria(mounted.container);
     await click(buttonWithText(popUp, "Clear"));
     await settleUntil(
-      () => heard.filter((each) => each.methodAndPath === "GET /titles").length >= 2,
+      () => heard.filter((each) => each.methodAndPath === "GET /items").length >= 2,
     );
-    const titlesAsked = heard.filter((each) => each.methodAndPath === "GET /titles");
+    const titlesAsked = heard.filter((each) => each.methodAndPath === "GET /items");
     expect(new URLSearchParams(titlesAsked[1]?.query).get("query")).toBeNull();
     expect(popUp.querySelector<HTMLInputElement>("input.list-criteria__name")?.value).toBe("");
     expect(buttonWithText(popUp, "Clear")).toBeUndefined();
@@ -620,20 +620,20 @@ describe("the Libraries page (D349)", () => {
   });
 
   // The owner, 2026-10-30: search is a criterion of the one list, as its library and sort are.
-  it("lists the library chosen, as sorted, filtered by its search (GET /titles' query)", async () => {
+  it("lists the library chosen, as sorted, filtered by its search (GET /items' query)", async () => {
     const heard: Heard[] = [];
     mounted = await mountBrowse(
       { library: 1, query: "heat" },
       {
         "GET /libraries": [200, { libraries: [library(1, "Films")] }],
-        "GET /titles": titlesPage(),
-        "GET /titles/letters": lettersPage(),
+        "GET /items": titlesPage(),
+        "GET /items/letters": lettersPage(),
       },
       heard,
     );
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
     const titles = new URLSearchParams(
-      heard.find((each) => each.methodAndPath === "GET /titles")?.query,
+      heard.find((each) => each.methodAndPath === "GET /items")?.query,
     );
     expect([titles.get("library"), titles.get("query"), titles.get("sort")]).toEqual([
       "1",
@@ -642,7 +642,7 @@ describe("the Libraries page (D349)", () => {
     ]);
     // The rail's letters are the search's too.
     const letters = new URLSearchParams(
-      heard.find((each) => each.methodAndPath === "GET /titles/letters")?.query,
+      heard.find((each) => each.methodAndPath === "GET /items/letters")?.query,
     );
     expect(letters.get("query")).toBe("heat");
     // The query the address names is in the field its Sort and filter opens (as the retired Search
@@ -656,8 +656,8 @@ describe("the Libraries page (D349)", () => {
       { library: 1, query: "zzz" },
       {
         "GET /libraries": [200, { libraries: [library(1, "Films")] }],
-        "GET /titles": [200, { titles: [], nextCursor: "" }],
-        "GET /titles/letters": lettersPage(),
+        "GET /items": [200, { items: [], nextCursor: "" }],
+        "GET /items/letters": lettersPage(),
       },
     );
     await settleUntil(() => mounted?.container.querySelector(".browse__empty") !== null);

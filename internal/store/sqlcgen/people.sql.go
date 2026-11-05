@@ -535,69 +535,37 @@ func (q *Queries) ListLibraryItemGenres(ctx context.Context, libraryID *int64) (
 	return items, nil
 }
 
-const listPersonCredits = `-- name: ListPersonCredits :many
-SELECT credit.item_id, credit.role, credit.ordinal, credit.character, item.kind AS item_kind,
-  title.kind AS title_kind, title.year AS title_year, collection.year AS series_year, item_text.name
+const listPersonCreditsOn = `-- name: ListPersonCreditsOn :many
+SELECT credit.item_id, credit.role, credit.character
 FROM credit
-CROSS JOIN item ON item.id = credit.item_id
-LEFT JOIN title ON title.id = credit.item_id
-LEFT JOIN collection ON collection.id = credit.item_id
-LEFT JOIN item_text ON item_text.item_id = credit.item_id AND item_text.is_original = 1
-WHERE credit.person_id = ?1 AND item.removed_at IS NULL AND (
-  (title.kind IN ('movie', 'other') AND EXISTS (
-    SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = title.id AND version.removed_at IS NULL
-      AND (CAST(?2 AS INTEGER) = 1
-        OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))))
-  OR (collection.kind = 'series' AND EXISTS (
-    SELECT 1 FROM collection_member
-    CROSS JOIN version ON version.title_id = collection_member.member_title
-    CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE collection_member.collection_id = collection.id AND version.removed_at IS NULL
-      AND (CAST(?2 AS INTEGER) = 1
-        OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT)))))))
+WHERE credit.person_id = ?1
+  AND credit.item_id IN (SELECT value FROM json_each(CAST(?2 AS TEXT)))
 ORDER BY credit.item_id, credit.role, credit.ordinal
 `
 
-type ListPersonCreditsParams struct {
-	PersonID       int64
-	IsEveryLibrary int64
-	LibraryIdsJSON string
+type ListPersonCreditsOnParams struct {
+	PersonID    int64
+	ItemIdsJSON string
 }
 
-type ListPersonCreditsRow struct {
-	ItemID     int64
-	Role       string
-	Ordinal    int64
-	Character  *string
-	ItemKind   string
-	TitleKind  *string
-	TitleYear  *int64
-	SeriesYear *int64
-	Name       *string
+type ListPersonCreditsOnRow struct {
+	ItemID    int64
+	Role      string
+	Character *string
 }
 
-// A person's credits on the films and series the caller reaches.
-func (q *Queries) ListPersonCredits(ctx context.Context, arg ListPersonCreditsParams) ([]ListPersonCreditsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listPersonCredits, arg.PersonID, arg.IsEveryLibrary, arg.LibraryIdsJSON)
+// A person's credits on the items a list of them shows (GET /items?person=, D425 section 7): the
+// list read what the caller reaches, so this reads only the credits of the items it names.
+func (q *Queries) ListPersonCreditsOn(ctx context.Context, arg ListPersonCreditsOnParams) ([]ListPersonCreditsOnRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPersonCreditsOn, arg.PersonID, arg.ItemIdsJSON)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListPersonCreditsRow{}
+	items := []ListPersonCreditsOnRow{}
 	for rows.Next() {
-		var i ListPersonCreditsRow
-		if err := rows.Scan(
-			&i.ItemID,
-			&i.Role,
-			&i.Ordinal,
-			&i.Character,
-			&i.ItemKind,
-			&i.TitleKind,
-			&i.TitleYear,
-			&i.SeriesYear,
-			&i.Name,
-		); err != nil {
+		var i ListPersonCreditsOnRow
+		if err := rows.Scan(&i.ItemID, &i.Role, &i.Character); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

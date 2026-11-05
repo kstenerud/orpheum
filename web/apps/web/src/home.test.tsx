@@ -33,10 +33,10 @@ describe("home (the owner, 2026-10-25)", () => {
             ],
           },
         ],
-        "GET /titles": [
+        "GET /items": [
           200,
           {
-            titles: [{ ...entry(7, "Metropolis"), watchedPercent: 25 }, entry(8, "Nosferatu")],
+            items: [{ ...entry(7, "Metropolis"), watchedPercent: 25 }, entry(8, "Nosferatu")],
             nextCursor: "",
           },
         ],
@@ -61,14 +61,14 @@ describe("home (the owner, 2026-10-25)", () => {
     const services = servedBy(
       {
         "GET /home": [200, { continueWatching: [] }],
-        "GET /titles": [200, { titles: [entry(8, "Nosferatu")], nextCursor: "" }],
+        "GET /items": [200, { items: [entry(8, "Nosferatu")], nextCursor: "" }],
         "GET /libraries": [200, { libraries: [{ id: 1, name: "Films", kind: "movie" }] }],
       },
       heard,
       "token",
     );
     mounted = await mount(withServices(<Home />, services));
-    const rows = heard.filter((each) => each.methodAndPath === "GET /titles");
+    const rows = heard.filter((each) => each.methodAndPath === "GET /items");
     expect(rows.map((each) => new URLSearchParams(each.query).get("home"))).toEqual([
       "true",
       "true",
@@ -86,7 +86,7 @@ describe("home (the owner, 2026-10-25)", () => {
             ],
           },
         ],
-        "GET /titles": [200, { titles: [entry(8, "Nosferatu")], nextCursor: "" }],
+        "GET /items": [200, { items: [entry(8, "Nosferatu")], nextCursor: "" }],
         "GET /libraries": [200, { libraries: [{ id: 1, name: "Films", kind: "movie" }] }],
       },
       [],
@@ -113,7 +113,7 @@ describe("home (the owner, 2026-10-25)", () => {
     const services = servedBy(
       {
         "GET /home": [200, { continueWatching: [] }],
-        "GET /titles": [200, { titles: [], nextCursor: "" }],
+        "GET /items": [200, { items: [], nextCursor: "" }],
         "GET /libraries": [200, { libraries: [{ id: 1, name: "Films", kind: "movie" }] }],
       },
       [],
@@ -128,7 +128,7 @@ describe("home (the owner, 2026-10-25)", () => {
     const services = servedBy(
       {
         "GET /home": [200, { continueWatching: [] }],
-        "GET /titles": [200, { titles: [], nextCursor: "" }],
+        "GET /items": [200, { items: [], nextCursor: "" }],
         "GET /libraries": [200, { libraries: [] }],
       },
       [],
@@ -150,7 +150,7 @@ describe("home (the owner, 2026-10-25)", () => {
     const empty = servedBy(
       {
         "GET /home": [200, { continueWatching: [] }],
-        "GET /titles": [200, { titles: [], nextCursor: "" }],
+        "GET /items": [200, { items: [], nextCursor: "" }],
         "GET /libraries": [200, { libraries: [] }],
       },
       [],
@@ -163,7 +163,7 @@ describe("home (the owner, 2026-10-25)", () => {
     const one = servedBy(
       {
         "GET /home": [200, { continueWatching: [] }],
-        "GET /titles": [200, { titles: [], nextCursor: "" }],
+        "GET /items": [200, { items: [], nextCursor: "" }],
         "GET /libraries": [200, { libraries: [{ id: 1, name: "Films", kind: "movie" }] }],
       },
       [],

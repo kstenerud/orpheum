@@ -123,10 +123,10 @@ func TestWatched_APlayToItsFinishMarksItWatchedAndARestartKeepsIt(t *testing.T) 
 		t.Errorf("a file of unknown length played to its end: not watched; want watched")
 	}
 	var films struct {
-		Titles []api.EntryBody `json:"titles"`
+		Items []api.ItemEntryBody `json:"items"`
 	}
-	harness.readJSON(t, "/titles?kind=movie&sort=name&limit=10", user, &films)
-	for _, film := range films.Titles {
+	harness.readJSON(t, "/items?kind=movie&sort=name&limit=10", user, &films)
+	for _, film := range films.Items {
 		if !film.IsWatched {
 			t.Errorf("the films list: %d not watched; want both watched", film.ID)
 		}
@@ -232,7 +232,7 @@ func TestWatched_ASeasonOrASeriesIsMarkedByHandAndCheckedOnceEveryEpisodeIs(t *t
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveDVDOrder(t)
-	series := "/titles?kind=series&sort=name&limit=10"
+	series := "/items?kind=series&sort=name&limit=10"
 	if got, want := harness.seriesWatched(t, user), "false 1:false,2:false next 21"; got != want {
 		t.Errorf("nothing watched: %s; want %s", got, want)
 	}
@@ -264,11 +264,11 @@ func TestWatched_ASeasonOrASeriesIsMarkedByHandAndCheckedOnceEveryEpisodeIs(t *t
 		t.Errorf("the series marked: %s; want %s", got, want)
 	}
 	var listed struct {
-		Titles []api.EntryBody `json:"titles"`
+		Items []api.ItemEntryBody `json:"items"`
 	}
 	harness.readJSON(t, series, user, &listed)
-	if len(listed.Titles) != 1 || !listed.Titles[0].IsWatched {
-		t.Errorf("the series marked: the list %+v; want it watched", listed.Titles)
+	if len(listed.Items) != 1 || !listed.Items[0].IsWatched {
+		t.Errorf("the series marked: the list %+v; want it watched", listed.Items)
 	}
 	harness.mark(t, http.MethodDelete, "/items/20/groups/2/watched", user)
 	if got, want := harness.seriesWatched(t, user), "false 1:true,2:false next 24"; got != want {
@@ -290,7 +290,7 @@ func TestWatched_RestartingAFinishedEpisodeKeepsTheSeriesWhereItWas(t *testing.T
 	harness.setPositionReadAt(t, 2, 1000, 5) // 21, finished
 	harness.setPositionReadAt(t, 3, 1000, 6) // 22, finished
 	harness.setPositionReadAt(t, 2, 30, 7)   // 21, started again
-	series := "/titles?kind=series&sort=name&limit=10"
+	series := "/items?kind=series&sort=name&limit=10"
 	if got, want := harness.titlesProgress(t, series, user), "20:0:2/4"; got != want {
 		t.Errorf("the first restarted: %s; want %s, both still finished", got, want)
 	}

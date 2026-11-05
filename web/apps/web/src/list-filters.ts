@@ -11,9 +11,9 @@ import {
   type SortChoice,
 } from "./sort-choices.ts";
 
-/** The chips as GET /titles names them. */
+/** The chips as GET /items names them. */
 type TitlesChipsQuery = Pick<
-  NonNullable<paths["/titles"]["get"]["parameters"]["query"]>,
+  NonNullable<paths["/items"]["get"]["parameters"]["query"]>,
   "genre" | "decade" | "unwatched"
 >;
 
@@ -36,7 +36,7 @@ export function chipsOf(state: {
   };
 }
 
-/** The chips as GET /titles and GET /titles/letters take them, each left out when not chosen. */
+/** The chips as GET /items and GET /items/letters take them, each left out when not chosen. */
 export function filtersQuery(chips: {
   readonly [Chip in keyof ListFilters]?: ListFilters[Chip] | undefined;
 }): TitlesChipsQuery {

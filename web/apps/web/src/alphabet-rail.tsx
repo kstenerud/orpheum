@@ -29,7 +29,7 @@ export const railLetters = [
  * A list's alphabet beside its grid, by name only, to jump to a letter (the owner, 2026-10-25): a
  * letter moves the list to its first title, # to the first of all, those beginning with a digit or
  * a mark, a focus container of its own. Given letters (D349 §9.1), only those shown: the ones some
- * title in the list begins with, as the server names them (GET /titles/letters); every letter,
+ * title in the list begins with, as the server names them (GET /items/letters); every letter,
  * undefined, for a list that has not asked. A list Z to A lists its letters Z to A, # last (D366 §4).
  */
 export function AlphabetRail(props: {
@@ -63,7 +63,7 @@ export function AlphabetRail(props: {
 }
 
 /**
- * The name a jump to a letter asks the list to start from (`/titles?from=`), none for the list's
+ * The name a jump to a letter asks the list to start from (`/items?from=`), none for the list's
  * start. A to Z, the letter itself, # the start; Z to A, where the server starts at the last title
  * before the name, the letter after it, Z the start and # A (D366 §4).
  */
@@ -77,7 +77,7 @@ export function fromForLetter(letter: string, isZToA: boolean): { readonly from?
 
 /**
  * The alphabet rail's letters for a list, by its kind, library and sort: only those some title in
- * it begins with (D349 §9), as the server names them (`GET /titles/letters`), asked for again
+ * it begins with (D349 §9), as the server names them (`GET /items/letters`), asked for again
  * with the list's own background poll (D237); undefined while that first answer is loading, for
  * AlphabetRail's own letters prop. Films, Series and the Libraries page all ask this one way.
  */
@@ -96,7 +96,7 @@ export function useAlphabetRailLetters(list: {
     `alphabet-rail-letters/${kind}/${String(library)}/${sort}/${search}/${filtersKey(filters)}`,
     async () => {
       const body = dataOrThrow(
-        await api.GET("/titles/letters", {
+        await api.GET("/items/letters", {
           params: {
             query: {
               kind,
@@ -261,9 +261,9 @@ export function useLetterJump<T extends { readonly id: number }>(props: {
       ...fromForLetter(jump.letter, isZToA),
     };
     api
-      .GET("/titles", { params: { query } })
+      .GET("/items", { params: { query } })
       .then(async (answer) => {
-        const first = dataOrThrow(answer).titles?.[0];
+        const first = dataOrThrow(answer).items?.[0];
         const place = await loadUntil((item) => item.id === first?.id);
         if (isCurrent) {
           showWhenDrawn(place ?? -1);

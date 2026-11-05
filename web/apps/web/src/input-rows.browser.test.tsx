@@ -46,7 +46,7 @@ const withContinueWatching: WalkAnswers = {
   "GET /home": {
     continueWatching: [partway(201, "Metropolis"), partway(202, "Nosferatu"), partway(203, "Sunrise")],
   },
-  "GET /titles": { titles: films(12), nextCursor: "" },
+  "GET /items": { items: films(12), nextCursor: "" },
 };
 
 /**

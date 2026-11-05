@@ -50,7 +50,7 @@ const signedIn: WalkAnswers = {
 /** The films list of twelve, and Film 3's page. */
 const filmsAndOne: WalkAnswers = {
   ...signedIn,
-  "GET /titles": { titles: films(12), nextCursor: "" },
+  "GET /items": { items: films(12), nextCursor: "" },
   "GET /items/103": filmDetail(103, "Film 3"),
   "GET /items/102": filmDetail(102, "Film 2"),
 };
@@ -108,7 +108,7 @@ describe.each(screens)("the app by a remote's keys, on $name", ({ width, height 
     // list; forty ended at the seventh row, and a press past it reached the letters beside the list,
     // where focus is on no film.
     walking = await mountApp(
-      walkServices({ ...filmsAndOne, "GET /titles": { titles: films(60), nextCursor: "" } }),
+      walkServices({ ...filmsAndOne, "GET /items": { items: films(60), nextCursor: "" } }),
     );
     await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
     // The first press waits for the page's arrival, on the first film: pressed before it, the arrow
@@ -344,7 +344,7 @@ describe.each(screens)("the app by a game controller, on $name", ({ width, heigh
     expect(document.activeElement).toBe(criteria);
     expect(criteria?.getAttribute("aria-label")).toBe("Sort and filter: Name, Z–A");
     await expect
-      .poll(() => heard.filter((each) => each === "GET /titles").length)
+      .poll(() => heard.filter((each) => each === "GET /items").length)
       .toBeGreaterThan(1);
   });
 });

@@ -214,13 +214,20 @@ WHERE collection.kind = 'series' AND collection.identification_state = ?1 AND it
       AND (CAST(?2 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
   )
-ORDER BY item_text.name, collection.id
+  -- A page, as ListTitlesByIdentification's (D425 section 7).
+  AND (COALESCE(item_text.name, '') > ?4
+    OR (COALESCE(item_text.name, '') = ?4 AND collection.id > ?5))
+ORDER BY COALESCE(item_text.name, ''), collection.id
+LIMIT ?6
 `
 
 type ListSeriesByIdentificationParams struct {
 	IdentificationState *string
 	IsEveryLibrary      int64
 	LibraryIdsJSON      string
+	AfterName           string
+	AfterID             int64
+	RowLimit            int64
 }
 
 type ListSeriesByIdentificationRow struct {
@@ -243,7 +250,14 @@ type ListSeriesByIdentificationRow struct {
 // fetch failed on its own or a person asked for it again: the list is what CountWaitingForAPerson
 // counts, and those asked for.
 func (q *Queries) ListSeriesByIdentification(ctx context.Context, arg ListSeriesByIdentificationParams) ([]ListSeriesByIdentificationRow, error) {
-	rows, err := q.db.QueryContext(ctx, listSeriesByIdentification, arg.IdentificationState, arg.IsEveryLibrary, arg.LibraryIdsJSON)
+	rows, err := q.db.QueryContext(ctx, listSeriesByIdentification,
+		arg.IdentificationState,
+		arg.IsEveryLibrary,
+		arg.LibraryIdsJSON,
+		arg.AfterName,
+		arg.AfterID,
+		arg.RowLimit,
+	)
 	if err != nil {
 		return nil, err
 	}

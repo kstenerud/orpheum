@@ -45,7 +45,8 @@ func TestItems_ListWhatWaitingForAPersonCounts(t *testing.T) {
 		outcome != identify.OutcomeNoMatch {
 		t.Fatalf("Match = %s, %v; want no match", outcome, matchErr)
 	}
-	items, err := lib.chooser.Items(t.Context(), auth.EveryLibrary(), identify.IdentificationUnidentified)
+	page, err := lib.chooser.Items(t.Context(), auth.EveryLibrary(), identify.IdentificationUnidentified, "", 100)
+	items := page.Items
 	if err != nil || len(items) != 1 || items[0].ID != nowhere {
 		t.Errorf("unidentified items %+v, %v; want the one series searched for, not its episodes", items, err)
 	}

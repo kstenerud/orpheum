@@ -333,7 +333,6 @@ func wholeReadsAllowed() map[string]string {
 		"ListSubtitleTracksOfVideo":     folders + "the subtitles beside the places a person reaches",
 		"ListTitleExtras":               folders + "a title's extras",
 		"GetPersonReached":              folders + "whether a person's page has a title its viewer reaches",
-		"ListPersonCredits":             folders + "a person's page, their titles its viewer reaches",
 		"ListGenresWithCounts": few + "genres, a few dozen from TMDB and the NFOs, each counted once as " +
 			"the genre chips open; " + folders + "the titles counted",
 		"ListFilteredItemIDs": "a list's genre, person, decade or unwatched filter reads the films and series " +

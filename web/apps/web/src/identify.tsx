@@ -17,9 +17,10 @@ import { Loaded } from "./loaded.tsx";
 import { CandidateChooser, identifyProblemText } from "./candidate-chooser.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
+import { loadAgain } from "./use-pages.ts";
 
 /** A film or series waiting for a match, as the server sends it. */
-export type WaitingItem = components["schemas"]["ItemBody"];
+export type WaitingItem = components["schemas"]["ItemEntryBody"];
 /** Which items to show: those with several matches, or those with none. */
 export type WaitingFilter = "ambiguous" | "unidentified";
 
@@ -183,6 +184,9 @@ export function WaitingTabs(props: {
   );
 }
 
+/** How many waiting items one request asks for: the most GET /items gives. */
+const waitingPageSize = 500;
+
 /** Needs a match: the films and series with several possible matches, or none. */
 export function Identify(): JSX.Element {
   const { t } = useTranslation();
@@ -192,11 +196,18 @@ export function Identify(): JSX.Element {
     "items/waiting",
     async (): Promise<WaitingLists> => {
       const [ambiguous, unidentified] = await Promise.all(
-        (["ambiguous", "unidentified"] as const).map(async (identificationState) => {
-          const itemsBody = dataOrThrow(
-            await api.GET("/items", { params: { query: { identificationState } } }),
-          );
-          return itemsBody.items ?? [];
+        (["ambiguous", "unidentified"] as const).map(async (identification) => {
+          // Every page of the list: the page shows them all, and few wait at once (D416 §6).
+          const pages = await loadAgain(async (cursor) => {
+            const query = {
+              identification,
+              limit: waitingPageSize,
+              ...(cursor === "" ? {} : { cursor }),
+            };
+            const page = dataOrThrow(await api.GET("/items", { params: { query } }));
+            return { items: page.items ?? [], nextCursor: page.nextCursor ?? "" };
+          }, Number.POSITIVE_INFINITY);
+          return pages.flatMap((page) => page.items);
         }),
       );
       return { ambiguous: ambiguous ?? [], unidentified: unidentified ?? [] };

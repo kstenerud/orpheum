@@ -158,7 +158,7 @@
 //     file's path is shown to an admin only. Enforced by TestBrowse_ListsDetailsSeriesAndSearch.
 //     A list or a search of one library is of one the user reaches (D349).
 //     Enforced by TestBrowse_OneLibrarysListAndALibraryNotReached and TestSearch_OfOneLibrary.
-//   - Home's rows, Continue Watching and the newest (GET /titles?home=true), draw on every library
+//   - Home's rows, Continue Watching and the newest (GET /items?home=true), draw on every library
 //     the person reaches less those they left out of Home, apart from those left out of Films and
 //     Series; an item two libraries reach is on Home while either is left in (D366 §5). Enforced
 //     by TestHome_ALibraryLeftOutOfHomeAddsNothingToItsRows.

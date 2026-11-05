@@ -45,16 +45,16 @@ const receiverFormats: PlayableFormats = {
 type SdkState = "loading" | "ready" | "unavailable" | "failed";
 
 /** A film the probe may cast. */
-type Film = components["schemas"]["EntryBody"];
+type Film = components["schemas"]["ItemEntryBody"];
 
 /** The films the person may pick from. */
 function useFilms(api: Api): readonly Film[] {
   const [films, setFilms] = useState<readonly Film[]>([]);
   useEffect(() => {
     void api
-      .GET("/titles", { params: { query: { kind: "movie", sort: "name", limit: filmsOffered } } })
+      .GET("/items", { params: { query: { kind: "movie", sort: "name", limit: filmsOffered } } })
       .then((answer) => {
-        setFilms(dataOrThrow(answer).titles ?? []);
+        setFilms(dataOrThrow(answer).items ?? []);
       })
       .catch(() => undefined);
   }, [api]);

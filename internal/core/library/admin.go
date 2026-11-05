@@ -348,7 +348,7 @@ type FilesPage struct {
 
 // Files is one page of live files, by id, behind the same opaque cursor as the browse lists.
 func (admin *Admin) Files(ctx context.Context, query FilesQuery) (FilesPage, error) {
-	key, afterID, err := decodeCursor(query.Cursor)
+	key, afterID, err := DecodeCursor(query.Cursor)
 	if err != nil || len(key) != 0 || afterID < 0 {
 		return FilesPage{}, ErrBadCursor
 	}
@@ -360,7 +360,7 @@ func (admin *Admin) Files(ctx context.Context, query FilesQuery) (FilesPage, err
 	}
 	page := FilesPage{Files: rows}
 	if int64(len(rows)) == query.Limit && len(rows) > 0 {
-		page.NextCursor = encodeCursor(nil, rows[len(rows)-1].ID)
+		page.NextCursor = EncodeCursor(nil, rows[len(rows)-1].ID)
 	}
 	return page, nil
 }

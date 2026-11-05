@@ -12,7 +12,7 @@ import (
 // a film or series with no poster shows in its place (D349 §3, D362 §2).
 func TestEntryBody_SaysEveryPictureTheEntryShows(t *testing.T) {
 	t.Parallel()
-	body := entryBody(library.Entry{
+	body := itemEntryBody(library.Entry{
 		ID: 1, Kind: library.ListFilms, PosterSha256: "p", LandscapeSha256: "l", NoPosterStillSha256: "s",
 	}, func(int64) string { return "" })
 	if body.PosterSha256 != "p" || body.LandscapeSha256 != "l" || body.NoPosterStillSha256 != "s" {

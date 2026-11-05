@@ -113,7 +113,12 @@ WHERE title.identification_state = sqlc.arg(identification_state) AND item.remov
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
   )
-ORDER BY item_text.name, title.id;
+  -- A page starts after the name and id of the last one listed before it ('' and 0 for the first),
+  -- and holds at most row_limit (-1 for every one), so the list pages by cursor (D425 section 7).
+  AND (COALESCE(item_text.name, '') > sqlc.arg(after_name)
+    OR (COALESCE(item_text.name, '') = sqlc.arg(after_name) AND title.id > sqlc.arg(after_id)))
+ORDER BY COALESCE(item_text.name, ''), title.id
+LIMIT sqlc.arg(row_limit);
 
 -- name: DeleteItemProviderIDsAtProvider :exec
 -- A person's choice replaces the ids an earlier match recorded at that provider.

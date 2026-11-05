@@ -89,7 +89,11 @@ WHERE collection.kind = 'series' AND collection.identification_state = sqlc.arg(
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
   )
-ORDER BY item_text.name, collection.id;
+  -- A page, as ListTitlesByIdentification's (D425 section 7).
+  AND (COALESCE(item_text.name, '') > sqlc.arg(after_name)
+    OR (COALESCE(item_text.name, '') = sqlc.arg(after_name) AND collection.id > sqlc.arg(after_id)))
+ORDER BY COALESCE(item_text.name, ''), collection.id
+LIMIT sqlc.arg(row_limit);
 
 -- name: ListSeriesAwaitingMatch :many
 -- Series in a provider's library that are not matched, have an episode no NFO speaks for, and

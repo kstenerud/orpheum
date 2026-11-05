@@ -212,17 +212,21 @@ type reconsidered struct {
 	query Query
 }
 
+// everyRow is a list query's row limit for every row, as SQLite reads a negative LIMIT.
+const everyRow = -1
+
 // ambiguousItems are the films and series left ambiguous, with a live file, and their queries.
 func (matcher *Matcher) ambiguousItems(ctx context.Context) ([]reconsidered, error) {
 	queries := matcher.database.Read()
 	titles, err := queries.ListTitlesByIdentification(ctx, sqlcgen.ListTitlesByIdentificationParams{
-		IdentificationState: identificationAmbiguous, IsEveryLibrary: 1, LibraryIdsJSON: "[]",
+		IdentificationState: identificationAmbiguous, IsEveryLibrary: 1, LibraryIdsJSON: "[]", RowLimit: everyRow,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list the ambiguous titles: %w", err)
 	}
 	series, err := queries.ListSeriesByIdentification(ctx, sqlcgen.ListSeriesByIdentificationParams{
 		IdentificationState: ptr.NilIfZero(identificationAmbiguous), IsEveryLibrary: 1, LibraryIdsJSON: "[]",
+		RowLimit: everyRow,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list the ambiguous series: %w", err)

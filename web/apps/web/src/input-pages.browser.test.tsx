@@ -48,7 +48,7 @@ const signedIn: WalkAnswers = {
   "GET /me": viewer,
   "GET /client-settings": {},
   "GET /home": { continueWatching: [] },
-  "GET /titles": { titles: films(6), nextCursor: "" },
+  "GET /items": { items: films(6), nextCursor: "" },
 };
 
 /** A series of two seasons in two orderings, its next episode the second. */
@@ -86,7 +86,7 @@ function filmsLibrary(id: number, name: string): Record<string, unknown> {
 const aLibrary: WalkAnswers = {
   ...signedIn,
   "GET /libraries": { libraries: [filmsLibrary(1, "Films")] },
-  "GET /titles/letters": { letters: [] },
+  "GET /items/letters": { letters: [] },
 };
 
 /** Sixteen libraries, more than a Fire TV's screen holds in the banner's Libraries menu. */
@@ -488,7 +488,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     await page.viewport(width, height);
     walking = await mountApp(
       walkServices(
-        { ...aLibrary, "GET /titles": { titles: films(2), nextCursor: "" } },
+        { ...aLibrary, "GET /items": { items: films(2), nextCursor: "" } },
         "/browse?library=1",
       ),
     );
@@ -507,7 +507,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     async (path) => {
       await page.viewport(width, height);
       walking = await mountApp(
-        walkServices({ ...aLibrary, "GET /titles": { titles: films(12), nextCursor: "" } }, path),
+        walkServices({ ...aLibrary, "GET /items": { items: films(12), nextCursor: "" } }, path),
       );
       await drawn("main .list-criteria__button");
       await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
@@ -549,11 +549,11 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
               },
             ],
           },
-          "GET /titles/letters": { letters: [] },
+          "GET /items/letters": { letters: [] },
           // A search is the list's own query (the owner, 2026-10-30): its matches are the list,
           // shorter than a row, whose tools Up still reaches before the banner (the owner, 2026-11-04).
-          "GET /titles": {
-            titles: [
+          "GET /items": {
+            items: [
               {
                 id: 101,
                 kind: "movie",
@@ -624,8 +624,8 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
       walkServices(
         {
           ...signedIn,
-          "GET /titles": { titles: films(3), nextCursor: "" },
-          "GET /titles/letters": { letters: [] },
+          "GET /items": { items: films(3), nextCursor: "" },
+          "GET /items/letters": { letters: [] },
           "GET /genres": {
             genres: [
               { id: 2, name: "Drama" },

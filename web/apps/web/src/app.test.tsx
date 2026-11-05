@@ -34,7 +34,7 @@ import { forgetMembership, keepMembership } from "./together-storage.ts";
  */
 const backgroundAnswers: Answers = {
   "GET /libraries": [200, { libraries: [] }],
-  "GET /titles/letters": [200, { letters: [] }],
+  "GET /items/letters": [200, { letters: [] }],
   // An admin's shell asks what it knows of an update (security-update-note.tsx): none pending.
   "GET /system/update": [200, { version: "v0.3.1", checkedAt: 0 }],
   "GET /client-settings": [
@@ -68,7 +68,7 @@ async function noticeAfterSigningOut(answer: Answers[string]): Promise<string | 
       ...backgroundAnswers,
       "GET /me": [200, { id: 1, name: "owner", role: "admin", isAdmin: true }],
       "GET /home": [200, { continueWatching: [] }],
-      "GET /titles": [200, { titles: [], nextCursor: "" }],
+      "GET /items": [200, { items: [], nextCursor: "" }],
       "GET /needs-attention": [
         200,
         { rootCount: 0, diskCount: 0, waitingRootCount: 0, unreadCount: 0, matchCount: 0 },
@@ -148,7 +148,7 @@ describe("App", () => {
         [200, { id: 1, name: "owner", role: "admin", isAdmin: true }],
       ],
       "GET /home": [200, { continueWatching: [] }],
-      "GET /titles": [200, { titles: [], nextCursor: "" }],
+      "GET /items": [200, { items: [], nextCursor: "" }],
       "GET /needs-attention": [
         200,
         { rootCount: 1, diskCount: 0, waitingRootCount: 0, unreadCount: 0, matchCount: 0 },
@@ -176,7 +176,7 @@ describe("App", () => {
       ...backgroundAnswers,
       "GET /me": [200, { id: 1, name: "owner", role: "admin", isAdmin: true }],
       "GET /home": [200, { continueWatching: [] }],
-      "GET /titles": [200, { titles: [], nextCursor: "" }],
+      "GET /items": [200, { items: [], nextCursor: "" }],
       "GET /needs-attention": [
         200,
         { rootCount: 1, diskCount: 0, waitingRootCount: 0, unreadCount: 0, matchCount: 0 },
@@ -206,7 +206,7 @@ describe("App", () => {
           ...backgroundAnswers,
           "GET /me": [200, { id: 1, name: "owner", role: isAdmin ? "admin" : "user", isAdmin }],
           "GET /home": [200, { continueWatching: [] }],
-          "GET /titles": [200, { titles: [], nextCursor: "" }],
+          "GET /items": [200, { items: [], nextCursor: "" }],
           "GET /needs-attention": [
             200,
             { rootCount: 1, diskCount: 0, waitingRootCount: 0, unreadCount: 0, matchCount: 0 },
@@ -236,7 +236,7 @@ describe("App", () => {
         ...backgroundAnswers,
         "GET /me": [200, { id: 1, name: "owner", role: "admin", isAdmin: true }],
         "GET /home": [200, { continueWatching: [] }],
-        "GET /titles": [200, { titles: [], nextCursor: "" }],
+        "GET /items": [200, { items: [], nextCursor: "" }],
         "GET /needs-attention": [
           200,
           { rootCount: 0, diskCount: 0, waitingRootCount: 0, unreadCount: 0, matchCount: 97 },
@@ -263,12 +263,12 @@ describe("App", () => {
     const offersGallery = async (isOn: boolean | undefined): Promise<boolean> => {
       const services = servedBy(
         {
-          "GET /titles/letters": [200, { letters: [] }],
+          "GET /items/letters": [200, { letters: [] }],
           "GET /together/mine": [200, { sessions: [] }],
           "GET /libraries": [200, { libraries: [] }],
           "GET /me": [200, { id: 1, name: "owner", role: "user", isAdmin: false }],
           "GET /home": [200, { continueWatching: [] }],
-          "GET /titles": [200, { titles: [], nextCursor: "" }],
+          "GET /items": [200, { items: [], nextCursor: "" }],
           "GET /client-settings":
             isOn === undefined
               ? unreachable
@@ -318,7 +318,7 @@ describe("App", () => {
         ],
         "GET /me": [200, { id: 1, name: "owner", role: "user", isAdmin: false }],
         "GET /home": [200, { continueWatching: [] }],
-        "GET /titles": [200, { titles: [], nextCursor: "" }],
+        "GET /items": [200, { items: [], nextCursor: "" }],
       },
       [],
       "token",
@@ -353,7 +353,7 @@ describe("App", () => {
         ...backgroundAnswers,
         "GET /me": [200, { id: 1, name: "owner", role: "viewer", isAdmin: false }],
         "GET /home": [200, { continueWatching: [] }],
-        "GET /titles": [200, { titles: [], nextCursor: "" }],
+        "GET /items": [200, { items: [], nextCursor: "" }],
         "DELETE /session": [204, undefined],
       },
       [],
@@ -375,7 +375,7 @@ describe("App", () => {
         ...backgroundAnswers,
         "GET /me": [200, { id: 1, name: "owner", role: "viewer", isAdmin: false }],
         "GET /home": [200, { continueWatching: [] }],
-        "GET /titles": [200, { titles: [], nextCursor: "" }],
+        "GET /items": [200, { items: [], nextCursor: "" }],
         "DELETE /session": [204, undefined],
       },
       [],
@@ -401,7 +401,7 @@ describe("App", () => {
           { id: 1, name: "owner", role: "admin", isAdmin: true, canHostWatchTogether: true },
         ],
         "GET /home": [200, { continueWatching: [] }],
-        "GET /titles": [200, { titles: [], nextCursor: "" }],
+        "GET /items": [200, { items: [], nextCursor: "" }],
         "GET /needs-attention": [
           200,
           { rootCount: 0, diskCount: 0, waitingRootCount: 0, unreadCount: 0, matchCount: 0 },
@@ -447,7 +447,7 @@ describe("the signed-in page's start", () => {
     const services = servedBy(
       {
         "GET /me": [200, { id: 1, name: "owner", role: "user", isAdmin: false }],
-        "GET /titles": [200, { titles: [], nextCursor: "" }],
+        "GET /items": [200, { items: [], nextCursor: "" }],
         "GET /home": [200, { continueWatching: [] }],
         "GET /client-settings": [
           200,
@@ -467,7 +467,7 @@ describe("the signed-in page's start", () => {
     const mounted = await mount(withServices(<App />, services));
     expect(heard.some((each) => each.methodAndPath === "GET /client-settings")).toBe(true);
     const rows = heard
-      .filter((each) => each.methodAndPath === "GET /home" || each.methodAndPath === "GET /titles")
+      .filter((each) => each.methodAndPath === "GET /home" || each.methodAndPath === "GET /items")
       .map((each) => `${each.methodAndPath}${each.query ?? ""}`);
     expect(rows.length).toBe(3);
     // Each row is asked for once, not again when the poller takes the server's waits.

@@ -21,10 +21,10 @@ import (
 // (BREACH). TestArch_NoCompressedOperationAnswersWithACredential holds every one listed here to it.
 var compressedOperations = []string{ //nolint:gochecknoglobals // a constant list
 	// Browsing.
-	"getTitles", "getItem", "getGroup", "listNotInOrder", "search", "getHome",
+	"listItems", "listItemLetters", "getItem", "getGroup", "listNotInOrder", "search", "getHome",
 	"getLibraries", "getUpNext",
 	// Identification and the scanner's view.
-	"getItemsByIdentification", "getItemCandidates", "getFiles", "getSubtitleCandidates",
+	"getItemCandidates", "getFiles", "getSubtitleCandidates",
 	// The admin's views.
 	"getSystem", "getDoctor", "getNodes", "listJobs", "getConfig", "getSettings", "getNowPlaying",
 	"listFilingReports", "getFilingReport", "getNeedsAttention", "listUsers", "listRoles",

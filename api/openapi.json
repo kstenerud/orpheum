@@ -997,7 +997,7 @@
             "type": "string"
           },
           "personId": {
-            "description": "GET /people/{id}; GET /titles?person= lists their titles",
+            "description": "GET /people/{id}; GET /items?person= lists their items",
             "format": "int64",
             "type": "integer"
           },
@@ -1588,86 +1588,6 @@
         "required": [
           "positionMs",
           "isPlaying"
-        ],
-        "type": "object"
-      },
-      "EntryBody": {
-        "additionalProperties": false,
-        "properties": {
-          "addedAt": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "episodeCount": {
-            "description": "How many episodes a series has with a file, in the ordering the person watches it in; absent for a film",
-            "format": "int64",
-            "type": "integer"
-          },
-          "finishedEpisodeCount": {
-            "description": "How many of those episodes the person watched, by playing or by hand (D370); absent when none, and for a film",
-            "format": "int64",
-            "type": "integer"
-          },
-          "id": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "identificationState": {
-            "type": "string"
-          },
-          "isGuessed": {
-            "type": "boolean"
-          },
-          "isWatched": {
-            "description": "Whether the person watched it: a film or other video by playing it to its finish or by hand, a series once they watched every episode it counts (D370)",
-            "type": "boolean"
-          },
-          "kind": {
-            "description": "What it is: a film, a series, or an other video (D349)",
-            "enum": [
-              "movie",
-              "series",
-              "other"
-            ],
-            "type": "string"
-          },
-          "landscapeSha256": {
-            "description": "An other video's 16:9 picture: GET /bytes/art/{sourceSha256}/landscape-s.webp",
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "noPosterStillSha256": {
-            "description": "A film's or series' 16:9 picture when it has no poster, shown above the mark of a missing poster: GET /bytes/art/{sourceSha256}/landscape-s.webp",
-            "type": "string"
-          },
-          "posterSha256": {
-            "description": "Its poster's hash: GET /bytes/art/{sourceSha256}/portrait-m.webp",
-            "type": "string"
-          },
-          "recorded": {
-            "$ref": "#/components/schemas/RecordedBody"
-          },
-          "unavailable": {
-            "$ref": "#/components/schemas/UnavailableBody"
-          },
-          "watchedPercent": {
-            "description": "How far, in percent, the person is through a film, where Continue Watching would resume it; absent for a series, and for a film they are not partway through, have hidden since, or whose file's length is not known",
-            "format": "int64",
-            "type": "integer"
-          },
-          "year": {
-            "format": "int64",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "id",
-          "kind",
-          "name",
-          "identificationState",
-          "addedAt"
         ],
         "type": "object"
       },
@@ -2314,7 +2234,7 @@
           },
           "titles": {
             "items": {
-              "$ref": "#/components/schemas/EntryBody"
+              "$ref": "#/components/schemas/ItemEntryBody"
             },
             "type": [
               "array",
@@ -2413,7 +2333,7 @@
         "additionalProperties": false,
         "properties": {
           "id": {
-            "description": "A title's: GET /items/{id}, of any kind; a person's: GET /people/{id}; a genre's: GET /titles?genre=",
+            "description": "A title's: GET /items/{id}, of any kind; a person's: GET /people/{id}; a genre's: GET /items?genre=",
             "format": "int64",
             "type": "integer"
           },
@@ -2733,6 +2653,28 @@
         ],
         "type": "object"
       },
+      "IdentificationBody": {
+        "additionalProperties": false,
+        "properties": {
+          "fetchFailure": {
+            "$ref": "#/components/schemas/FetchFailureBody"
+          },
+          "followedSource": {
+            "description": "Where its own values come from: nfo, tmdb, or none",
+            "type": "string"
+          },
+          "followedSourceId": {
+            "description": "Its id at its provider",
+            "type": "string"
+          },
+          "refreshRequestedAt": {
+            "description": "When a person asked for it to be refreshed, while no fetch has answered yet",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "IdentifiedDiscoveryOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -2992,47 +2934,109 @@
         ],
         "type": "object"
       },
-      "ItemBody": {
+      "ItemCreditBody": {
         "additionalProperties": false,
         "properties": {
-          "fetchFailure": {
-            "$ref": "#/components/schemas/FetchFailureBody"
-          },
-          "followedSource": {
-            "description": "Where its own values come from: nfo, tmdb, or none",
+          "character": {
+            "description": "Their part, in the cast; absent for crew and where the source names none",
             "type": "string"
           },
-          "followedSourceId": {
-            "description": "Its id at its provider",
-            "type": "string"
-          },
-          "id": {
+          "jobs": {
+            "description": "Their jobs on it, cast first",
+            "items": {
+              "enum": [
+                "cast",
+                "director",
+                "writer"
+              ],
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "jobs"
+        ],
+        "type": "object"
+      },
+      "ItemEntryBody": {
+        "additionalProperties": false,
+        "properties": {
+          "addedAt": {
+            "description": "When the scan that found it ran, Unix milliseconds; absent in a list by identification",
             "format": "int64",
             "type": "integer"
           },
+          "credit": {
+            "$ref": "#/components/schemas/ItemCreditBody",
+            "description": "The person's credit on it; present in a list by person alone"
+          },
+          "episodeCount": {
+            "description": "How many episodes a series has with a file, in the ordering the person watches it in; absent for a film",
+            "format": "int64",
+            "type": "integer"
+          },
+          "finishedEpisodeCount": {
+            "description": "How many of those episodes the person watched, by playing or by hand (D370); absent when none, and for a film",
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "description": "GET /items/{id}",
+            "format": "int64",
+            "type": "integer"
+          },
+          "identification": {
+            "$ref": "#/components/schemas/IdentificationBody",
+            "description": "Where its match stands; present in a list by identification alone"
+          },
           "identificationState": {
+            "type": "string"
+          },
+          "isGuessed": {
+            "type": "boolean"
+          },
+          "isWatched": {
+            "description": "Whether the person watched it: a film or other video by playing it to its finish or by hand, a series once they watched every episode it counts (D370)",
+            "type": "boolean"
+          },
+          "kind": {
+            "description": "What it is: a film, a series, an episode, an extra or an other video (D349, D416 §5)",
             "enum": [
-              "identified",
-              "ambiguous",
-              "unidentified",
-              "confirmed"
+              "movie",
+              "series",
+              "episode",
+              "extra",
+              "other"
             ],
             "type": "string"
           },
-          "kind": {
-            "enum": [
-              "movie",
-              "episode",
-              "extra",
-              "series"
-            ],
+          "landscapeSha256": {
+            "description": "An other video's 16:9 picture: GET /bytes/art/{sourceSha256}/landscape-s.webp",
             "type": "string"
           },
           "name": {
             "type": "string"
           },
-          "refreshRequestedAt": {
-            "description": "When a person asked for it to be refreshed, while no fetch has answered yet",
+          "noPosterStillSha256": {
+            "description": "A film's or series' 16:9 picture when it has no poster, shown above the mark of a missing poster: GET /bytes/art/{sourceSha256}/landscape-s.webp",
+            "type": "string"
+          },
+          "posterSha256": {
+            "description": "Its poster's hash: GET /bytes/art/{sourceSha256}/portrait-m.webp",
+            "type": "string"
+          },
+          "recorded": {
+            "$ref": "#/components/schemas/RecordedBody"
+          },
+          "unavailable": {
+            "$ref": "#/components/schemas/UnavailableBody"
+          },
+          "watchedPercent": {
+            "description": "How far, in percent, the person is through a film, where Continue Watching would resume it; absent for a series, and for a film they are not partway through, have hidden since, or whose file's length is not known",
             "format": "int64",
             "type": "integer"
           },
@@ -3046,24 +3050,6 @@
           "kind",
           "name",
           "identificationState"
-        ],
-        "type": "object"
-      },
-      "ItemsOutputBody": {
-        "additionalProperties": false,
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/ItemBody"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "items"
         ],
         "type": "object"
       },
@@ -3937,6 +3923,28 @@
         },
         "required": [
           "isInvitation"
+        ],
+        "type": "object"
+      },
+      "ListItemsOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ItemEntryBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "nextCursor": {
+            "description": "The next page's cursor; absent on the last",
+            "type": "string"
+          }
+        },
+        "required": [
+          "items"
         ],
         "type": "object"
       },
@@ -4836,86 +4844,13 @@
             "type": "string"
           },
           "pictureRef": {
-            "description": "Their picture as their source names it, a TMDB profile path or an NFO's thumb; not fetched by the server yet",
+            "description": "Their picture as their source names it, a TMDB profile path or an NFO's thumb; not fetched by the server yet. GET /items?person= lists the items crediting them, each with their credit",
             "type": "string"
-          },
-          "titles": {
-            "description": "The titles the person reaches that credit them, newest first, with their jobs on each; GET /titles?person= lists them as a list does",
-            "items": {
-              "$ref": "#/components/schemas/PersonTitleBody"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
           }
         },
         "required": [
           "id",
-          "name",
-          "titles"
-        ],
-        "type": "object"
-      },
-      "PersonJobBody": {
-        "additionalProperties": false,
-        "properties": {
-          "character": {
-            "description": "Their part, in the cast; absent for crew and where the source names none",
-            "type": "string"
-          },
-          "job": {
-            "enum": [
-              "cast",
-              "director",
-              "writer"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "job"
-        ],
-        "type": "object"
-      },
-      "PersonTitleBody": {
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "description": "GET /items/{id}, of any kind",
-            "format": "int64",
-            "type": "integer"
-          },
-          "jobs": {
-            "items": {
-              "$ref": "#/components/schemas/PersonJobBody"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
-          "kind": {
-            "enum": [
-              "movie",
-              "series",
-              "other"
-            ],
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "year": {
-            "format": "int64",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "id",
-          "kind",
-          "name",
-          "jobs"
+          "name"
         ],
         "type": "object"
       },
@@ -8417,28 +8352,6 @@
         ],
         "type": "object"
       },
-      "TitlesOutputBody": {
-        "additionalProperties": false,
-        "properties": {
-          "nextCursor": {
-            "description": "Empty on the last page",
-            "type": "string"
-          },
-          "titles": {
-            "items": {
-              "$ref": "#/components/schemas/EntryBody"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "titles"
-        ],
-        "type": "object"
-      },
       "TogetherDetailsOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -11163,12 +11076,12 @@
             }
           },
           {
-            "description": "As GET /titles takes it",
+            "description": "As GET /items takes it",
             "explode": false,
             "in": "query",
             "name": "library",
             "schema": {
-              "description": "As GET /titles takes it",
+              "description": "As GET /items takes it",
               "format": "int64",
               "minimum": 0,
               "type": "integer"
@@ -11598,7 +11511,7 @@
     },
     "/items": {
       "get": {
-        "operationId": "getItemsByIdentification",
+        "operationId": "listItems",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -11610,11 +11523,83 @@
             }
           },
           {
+            "description": "movie, series or other; any: every kind, every library's",
             "explode": false,
             "in": "query",
-            "name": "identificationState",
-            "required": true,
+            "name": "kind",
             "schema": {
+              "default": "any",
+              "description": "movie, series or other; any: every kind, every library's",
+              "enum": [
+                "movie",
+                "series",
+                "other",
+                "any"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode. recorded: newest recorded first, and file_name: by the files' names, other videos only. released: newest first by a film's release date or a series' first air date, those with none last, films and series only",
+            "explode": false,
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "default": "name",
+              "description": "name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode. recorded: newest recorded first, and file_name: by the files' names, other videos only. released: newest first by a film's release date or a series' first air date, those with none last, films and series only",
+              "enum": [
+                "name",
+                "added",
+                "recorded",
+                "file_name",
+                "released"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "The way the sort runs (D366): ascending, A to Z or oldest first; descending, Z to A or newest first; absent for the sort's own, A to Z by a name and newest first by a date. What has no date is last either way",
+            "explode": false,
+            "in": "query",
+            "name": "order",
+            "schema": {
+              "description": "The way the sort runs (D366): ascending, A to Z or oldest first; descending, Z to A or newest first; absent for the sort's own, A to Z by a name and newest first by a date. What has no date is last either way",
+              "enum": [
+                "ascending",
+                "descending"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "One library's alone; absent for every library the person reaches, less, for films and series, those they left out (leftOutLibraryIds)",
+            "explode": false,
+            "in": "query",
+            "name": "library",
+            "schema": {
+              "description": "One library's alone; absent for every library the person reaches, less, for films and series, those they left out (leftOutLibraryIds)",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The list as a row of Home shows it, with no library: of every library the person reaches less those they left out of Home (leftOutOfHomeLibraryIds, D366), in place of those left out of Films and Series",
+            "explode": false,
+            "in": "query",
+            "name": "home",
+            "schema": {
+              "description": "The list as a row of Home shows it, with no library: of every library the person reaches less those they left out of Home (leftOutOfHomeLibraryIds, D366), in place of those left out of Films and Series",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Only the films, extras and series in this state of identification, as Needs a match lists them, by name, each with its identification; with no other filter than library",
+            "explode": false,
+            "in": "query",
+            "name": "identification",
+            "schema": {
+              "description": "Only the films, extras and series in this state of identification, as Needs a match lists them, by name, each with its identification; with no other filter than library",
               "enum": [
                 "identified",
                 "ambiguous",
@@ -11623,6 +11608,98 @@
               ],
               "type": "string"
             }
+          },
+          {
+            "description": "From the previous page's nextCursor",
+            "explode": false,
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "description": "From the previous page's nextCursor",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A name, by name or file name only and with no cursor: A to Z, the page starts at the first item sorted at or after it, as a letter of the alphabet does; Z to A, at the last item sorted before it, so the letter after a letter starts that letter's items",
+            "explode": false,
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "description": "A name, by name or file name only and with no cursor: A to Z, the page starts at the first item sorted at or after it, as a letter of the alphabet does; Z to A, at the last item sorted before it, so the letter after a letter starts that letter's items",
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only the items whose name matches it, in any script (D48): a film, other video or series by its own name, never by an episode's or an extra's; every other criterion applies as without it. A query that matches nothing, or with nothing an index can match (only spaces, or only punctuation in a longer query), lists nothing. The items come from the first 10000 names it matches, the best first",
+            "explode": false,
+            "in": "query",
+            "name": "query",
+            "schema": {
+              "description": "Only the items whose name matches it, in any script (D48): a film, other video or series by its own name, never by an episode's or an extra's; every other criterion applies as without it. A query that matches nothing, or with nothing an index can match (only spaces, or only punctuation in a longer query), lists nothing. The items come from the first 10000 names it matches, the best first",
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only the titles in this genre, by its id from GET /genres",
+            "explode": false,
+            "in": "query",
+            "name": "genre",
+            "schema": {
+              "description": "Only the titles in this genre, by its id from GET /genres",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only the titles crediting this person, by their id from a title's credits or a search",
+            "explode": false,
+            "in": "query",
+            "name": "person",
+            "schema": {
+              "description": "Only the titles crediting this person, by their id from a title's credits or a search",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only the titles first out in this decade, by its first year (1980 for the 1980s); a series by its first air date",
+            "explode": false,
+            "in": "query",
+            "name": "decade",
+            "schema": {
+              "description": "Only the titles first out in this decade, by its first year (1980 for the 1980s); a series by its first air date",
+              "format": "int64",
+              "maximum": 9990,
+              "minimum": 0,
+              "multipleOf": 10,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only the titles the person has not watched: a series while one of its episodes with a file is not",
+            "explode": false,
+            "in": "query",
+            "name": "unwatched",
+            "schema": {
+              "description": "Only the titles the person has not watched: a series while one of its episodes with a file is not",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -11630,7 +11707,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ItemsOutputBody"
+                  "$ref": "#/components/schemas/ListItemsOutputBody"
                 }
               }
             },
@@ -11647,9 +11724,154 @@
             "description": "Error"
           }
         },
-        "summary": "The titles and series in one state of identification",
+        "summary": "The one list: films, series or other videos by name in the library's locale or newest first, filtered by library, genre, person, decade, unwatched or identification",
         "tags": [
-          "Identification"
+          "Browse"
+        ]
+      }
+    },
+    "/items/letters": {
+      "get": {
+        "operationId": "listItemLetters",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "As GET /items takes it",
+            "explode": false,
+            "in": "query",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "description": "As GET /items takes it",
+              "enum": [
+                "movie",
+                "series",
+                "other",
+                "any"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "The order the rail follows: by name, or an other video's by file name",
+            "explode": false,
+            "in": "query",
+            "name": "sort",
+            "required": true,
+            "schema": {
+              "description": "The order the rail follows: by name, or an other video's by file name",
+              "enum": [
+                "name",
+                "file_name"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "As GET /items takes it",
+            "explode": false,
+            "in": "query",
+            "name": "library",
+            "schema": {
+              "description": "As GET /items takes it",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "As GET /items takes it: only the letters some title whose name matches it is under",
+            "explode": false,
+            "in": "query",
+            "name": "query",
+            "schema": {
+              "description": "As GET /items takes it: only the letters some title whose name matches it is under",
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only the titles in this genre, by its id from GET /genres",
+            "explode": false,
+            "in": "query",
+            "name": "genre",
+            "schema": {
+              "description": "Only the titles in this genre, by its id from GET /genres",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only the titles crediting this person, by their id from a title's credits or a search",
+            "explode": false,
+            "in": "query",
+            "name": "person",
+            "schema": {
+              "description": "Only the titles crediting this person, by their id from a title's credits or a search",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only the titles first out in this decade, by its first year (1980 for the 1980s); a series by its first air date",
+            "explode": false,
+            "in": "query",
+            "name": "decade",
+            "schema": {
+              "description": "Only the titles first out in this decade, by its first year (1980 for the 1980s); a series by its first air date",
+              "format": "int64",
+              "maximum": 9990,
+              "minimum": 0,
+              "multipleOf": 10,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only the titles the person has not watched: a series while one of its episodes with a file is not",
+            "explode": false,
+            "in": "query",
+            "name": "unwatched",
+            "schema": {
+              "description": "Only the titles the person has not watched: a series while one of its episodes with a file is not",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LettersOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "The letters of the alphabet a list by name has items under",
+        "tags": [
+          "Browse"
         ]
       }
     },
@@ -15130,7 +15352,7 @@
             "description": "Error"
           }
         },
-        "summary": "A person: their name, their picture and the titles crediting them",
+        "summary": "A person: their name and their picture; GET /items?person= lists what credits them",
         "tags": [
           "Browse"
         ]
@@ -15733,7 +15955,7 @@
     },
     "/search": {
       "get": {
-        "description": "Superseded: GET /titles takes query, a search as a criterion of the one list, with its kind, library, sort, order and paging. Kept for clients that call it; new code lists with GET /titles.",
+        "description": "Superseded: GET /items takes query, a search as a criterion of the one list, with its kind, library, sort, order and paging. Kept for clients that call it; new code lists with GET /items.",
         "operationId": "search",
         "parameters": [
           {
@@ -15801,7 +16023,7 @@
             "description": "Error"
           }
         },
-        "summary": "Titles and series by name, in any script (D48); superseded by GET /titles?query=",
+        "summary": "Titles and series by name, in any script (D48); superseded by GET /items?query=",
         "tags": [
           "Browse"
         ]
@@ -16769,356 +16991,6 @@
         "summary": "What the server knows of an update: a security fix its version lacks, or a newer release (admin)",
         "tags": [
           "Running it"
-        ]
-      }
-    },
-    "/titles": {
-      "get": {
-        "operationId": "getTitles",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
-            "description": "movie, series or other; any: every kind, every library's",
-            "explode": false,
-            "in": "query",
-            "name": "kind",
-            "required": true,
-            "schema": {
-              "description": "movie, series or other; any: every kind, every library's",
-              "enum": [
-                "movie",
-                "series",
-                "other",
-                "any"
-              ],
-              "type": "string"
-            }
-          },
-          {
-            "description": "name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode. recorded: newest recorded first, and file_name: by the files' names, other videos only. released: newest first by a film's release date or a series' first air date, those with none last, films and series only",
-            "explode": false,
-            "in": "query",
-            "name": "sort",
-            "required": true,
-            "schema": {
-              "description": "name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode. recorded: newest recorded first, and file_name: by the files' names, other videos only. released: newest first by a film's release date or a series' first air date, those with none last, films and series only",
-              "enum": [
-                "name",
-                "added",
-                "recorded",
-                "file_name",
-                "released"
-              ],
-              "type": "string"
-            }
-          },
-          {
-            "description": "The way the sort runs (D366): ascending, A to Z or oldest first; descending, Z to A or newest first; absent for the sort's own, A to Z by a name and newest first by a date. What has no date is last either way",
-            "explode": false,
-            "in": "query",
-            "name": "order",
-            "schema": {
-              "description": "The way the sort runs (D366): ascending, A to Z or oldest first; descending, Z to A or newest first; absent for the sort's own, A to Z by a name and newest first by a date. What has no date is last either way",
-              "enum": [
-                "ascending",
-                "descending"
-              ],
-              "type": "string"
-            }
-          },
-          {
-            "description": "One library's alone; absent for every library the person reaches, less, for films and series, those they left out (leftOutLibraryIds)",
-            "explode": false,
-            "in": "query",
-            "name": "library",
-            "schema": {
-              "description": "One library's alone; absent for every library the person reaches, less, for films and series, those they left out (leftOutLibraryIds)",
-              "format": "int64",
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          {
-            "description": "The list as a row of Home shows it, with no library: of every library the person reaches less those they left out of Home (leftOutOfHomeLibraryIds, D366), in place of those left out of Films and Series",
-            "explode": false,
-            "in": "query",
-            "name": "home",
-            "schema": {
-              "description": "The list as a row of Home shows it, with no library: of every library the person reaches less those they left out of Home (leftOutOfHomeLibraryIds, D366), in place of those left out of Films and Series",
-              "type": "boolean"
-            }
-          },
-          {
-            "description": "From the previous page's nextCursor",
-            "explode": false,
-            "in": "query",
-            "name": "cursor",
-            "schema": {
-              "description": "From the previous page's nextCursor",
-              "type": "string"
-            }
-          },
-          {
-            "description": "A name, by name or file name only and with no cursor: A to Z, the page starts at the first title sorted at or after it, as a letter of the alphabet does; Z to A, at the last title sorted before it, so the letter after a letter starts that letter's titles",
-            "explode": false,
-            "in": "query",
-            "name": "from",
-            "schema": {
-              "description": "A name, by name or file name only and with no cursor: A to Z, the page starts at the first title sorted at or after it, as a letter of the alphabet does; Z to A, at the last title sorted before it, so the letter after a letter starts that letter's titles",
-              "maxLength": 100,
-              "type": "string"
-            }
-          },
-          {
-            "explode": false,
-            "in": "query",
-            "name": "limit",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "maximum": 500,
-              "minimum": 1,
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Only the titles whose name matches it, in any script, as GET /search matches them (D48): a film, other video or series by its own name, never by an episode's or an extra's; every other criterion applies as without it. A query that matches nothing, or with nothing an index can match (only spaces, or only punctuation in a longer query), lists nothing. The titles come from the first 10000 names it matches, the best first",
-            "explode": false,
-            "in": "query",
-            "name": "query",
-            "schema": {
-              "description": "Only the titles whose name matches it, in any script, as GET /search matches them (D48): a film, other video or series by its own name, never by an episode's or an extra's; every other criterion applies as without it. A query that matches nothing, or with nothing an index can match (only spaces, or only punctuation in a longer query), lists nothing. The titles come from the first 10000 names it matches, the best first",
-              "maxLength": 200,
-              "type": "string"
-            }
-          },
-          {
-            "description": "Only the titles in this genre, by its id from GET /genres",
-            "explode": false,
-            "in": "query",
-            "name": "genre",
-            "schema": {
-              "description": "Only the titles in this genre, by its id from GET /genres",
-              "format": "int64",
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Only the titles crediting this person, by their id from a title's credits or a search",
-            "explode": false,
-            "in": "query",
-            "name": "person",
-            "schema": {
-              "description": "Only the titles crediting this person, by their id from a title's credits or a search",
-              "format": "int64",
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Only the titles first out in this decade, by its first year (1980 for the 1980s); a series by its first air date",
-            "explode": false,
-            "in": "query",
-            "name": "decade",
-            "schema": {
-              "description": "Only the titles first out in this decade, by its first year (1980 for the 1980s); a series by its first air date",
-              "format": "int64",
-              "maximum": 9990,
-              "minimum": 0,
-              "multipleOf": 10,
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Only the titles the person has not watched: a series while one of its episodes with a file is not",
-            "explode": false,
-            "in": "query",
-            "name": "unwatched",
-            "schema": {
-              "description": "Only the titles the person has not watched: a series while one of its episodes with a file is not",
-              "type": "boolean"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TitlesOutputBody"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Films or series, by name in the library's locale or newest first",
-        "tags": [
-          "Browse"
-        ]
-      }
-    },
-    "/titles/letters": {
-      "get": {
-        "operationId": "getTitleLetters",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
-            "description": "As GET /titles takes it",
-            "explode": false,
-            "in": "query",
-            "name": "kind",
-            "required": true,
-            "schema": {
-              "description": "As GET /titles takes it",
-              "enum": [
-                "movie",
-                "series",
-                "other",
-                "any"
-              ],
-              "type": "string"
-            }
-          },
-          {
-            "description": "The order the rail follows: by name, or an other video's by file name",
-            "explode": false,
-            "in": "query",
-            "name": "sort",
-            "required": true,
-            "schema": {
-              "description": "The order the rail follows: by name, or an other video's by file name",
-              "enum": [
-                "name",
-                "file_name"
-              ],
-              "type": "string"
-            }
-          },
-          {
-            "description": "As GET /titles takes it",
-            "explode": false,
-            "in": "query",
-            "name": "library",
-            "schema": {
-              "description": "As GET /titles takes it",
-              "format": "int64",
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          {
-            "description": "As GET /titles takes it: only the letters some title whose name matches it is under",
-            "explode": false,
-            "in": "query",
-            "name": "query",
-            "schema": {
-              "description": "As GET /titles takes it: only the letters some title whose name matches it is under",
-              "maxLength": 200,
-              "type": "string"
-            }
-          },
-          {
-            "description": "Only the titles in this genre, by its id from GET /genres",
-            "explode": false,
-            "in": "query",
-            "name": "genre",
-            "schema": {
-              "description": "Only the titles in this genre, by its id from GET /genres",
-              "format": "int64",
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Only the titles crediting this person, by their id from a title's credits or a search",
-            "explode": false,
-            "in": "query",
-            "name": "person",
-            "schema": {
-              "description": "Only the titles crediting this person, by their id from a title's credits or a search",
-              "format": "int64",
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Only the titles first out in this decade, by its first year (1980 for the 1980s); a series by its first air date",
-            "explode": false,
-            "in": "query",
-            "name": "decade",
-            "schema": {
-              "description": "Only the titles first out in this decade, by its first year (1980 for the 1980s); a series by its first air date",
-              "format": "int64",
-              "maximum": 9990,
-              "minimum": 0,
-              "multipleOf": 10,
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Only the titles the person has not watched: a series while one of its episodes with a file is not",
-            "explode": false,
-            "in": "query",
-            "name": "unwatched",
-            "schema": {
-              "description": "Only the titles the person has not watched: a series while one of its episodes with a file is not",
-              "type": "boolean"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LettersOutputBody"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "The alphabet rail's letters a list by name or file name has titles under (D349)",
-        "tags": [
-          "Browse"
         ]
       }
     },

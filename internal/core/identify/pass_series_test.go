@@ -124,7 +124,9 @@ func TestPass_EpisodesAnOlderReadingSplitIntoSeriesOfTheirOwnComeTogether(t *tes
 		t.Error("the episodes are in two series of one name; want them in one")
 	}
 	waiting, err := lib.database.Read().ListSeriesByIdentification(t.Context(),
-		sqlcgen.ListSeriesByIdentificationParams{IdentificationState: ptr.NilIfZero("unidentified"), IsEveryLibrary: 1})
+		sqlcgen.ListSeriesByIdentificationParams{
+			IdentificationState: ptr.NilIfZero("unidentified"), IsEveryLibrary: 1, RowLimit: -1,
+		})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -14,32 +14,6 @@ import (
 
 const tagBrowse = "Browse"
 
-// EntryBody is one film, series or other video in a list.
-type EntryBody struct {
-	ID                  int64  `json:"id"`
-	Kind                string `doc:"What it is: a film, a series, or an other video (D349)" enum:"movie,series,other" json:"kind"` //nolint:lll // one struct tag
-	Name                string `json:"name"`
-	Year                int64  `json:"year,omitempty"`
-	IdentificationState string `json:"identificationState"`
-	// IsGuessed is whether its match is a guess no person confirmed (D301 §4).
-	IsGuessed    bool   `json:"isGuessed,omitempty"`
-	AddedAt      int64  `json:"addedAt"`
-	PosterSha256 string `doc:"Its poster's hash: GET /bytes/art/{sourceSha256}/portrait-m.webp" json:"posterSha256,omitempty"` //nolint:lll // one struct tag
-	// LandscapeSha256 is an other video's 16:9 picture: its still, else its backdrop (D349).
-	LandscapeSha256 string `doc:"An other video's 16:9 picture: GET /bytes/art/{sourceSha256}/landscape-s.webp" json:"landscapeSha256,omitempty"` //nolint:lll // one struct tag
-	// NoPosterStillSha256 is, for a film or series with no poster, the 16:9 picture shown in the top of
-	// its poster's place (D362).
-	NoPosterStillSha256 string `doc:"A film's or series' 16:9 picture when it has no poster, shown above the mark of a missing poster: GET /bytes/art/{sourceSha256}/landscape-s.webp" json:"noPosterStillSha256,omitempty"` //nolint:lll // one struct tag
-	// Recorded is when an other video was recorded, and where that came from; absent for the rest.
-	Recorded *RecordedBody `json:"recorded,omitempty"`
-	// Unavailable says why none of its files can be read now; absent when one can (D241 §3).
-	Unavailable          *UnavailableBody `json:"unavailable,omitempty"`
-	WatchedPercent       int64            `doc:"How far, in percent, the person is through a film, where Continue Watching would resume it; absent for a series, and for a film they are not partway through, have hidden since, or whose file's length is not known" json:"watchedPercent,omitempty"` //nolint:lll // one struct tag
-	EpisodeCount         int64            `doc:"How many episodes a series has with a file, in the ordering the person watches it in; absent for a film" json:"episodeCount,omitempty"`                                                                                                                //nolint:lll // one struct tag
-	FinishedEpisodeCount int64            `doc:"How many of those episodes the person watched, by playing or by hand (D370); absent when none, and for a film" json:"finishedEpisodeCount,omitempty"`                                                                                                  //nolint:lll // one struct tag
-	IsWatched            bool             `doc:"Whether the person watched it: a film or other video by playing it to its finish or by hand, a series once they watched every episode it counts (D370)" json:"isWatched,omitempty"`                                                                    //nolint:lll // one struct tag
-}
-
 // RecordedBody is when an other video was recorded, where that came from, and its file's name (D349
 // §4).
 type RecordedBody struct {
@@ -54,19 +28,6 @@ func recordedBody(facts *library.OtherFacts) *RecordedBody {
 		return nil
 	}
 	return &RecordedBody{RecordedAt: facts.RecordedAtMs, From: facts.RecordedFrom, FileName: facts.FileName}
-}
-
-// entryBody is a list's entry as the API says it.
-func entryBody(entry library.Entry, nodeName func(nodeID int64) string) EntryBody {
-	return EntryBody{
-		ID: entry.ID, Kind: entry.Kind, Name: entry.Name, Year: entry.Year,
-		IdentificationState: entry.IdentificationState, IsGuessed: entry.IsGuessed,
-		AddedAt: entry.AddedAt, PosterSha256: entry.PosterSha256, LandscapeSha256: entry.LandscapeSha256,
-		NoPosterStillSha256: entry.NoPosterStillSha256,
-		Recorded:            recordedBody(entry.Other), Unavailable: unavailableBody(entry.Unreadable, nodeName),
-		WatchedPercent: entry.WatchedPercent, EpisodeCount: entry.EpisodeCount,
-		FinishedEpisodeCount: entry.FinishedEpisodeCount, IsWatched: entry.IsWatched,
-	}
 }
 
 // UnavailableBody is why what is listed cannot be played now: its machine away, or its folder or
@@ -103,30 +64,6 @@ type ArtBody struct {
 
 func artBody(art library.Art) ArtBody {
 	return ArtBody{PosterSha256: art.PosterSha256, BackdropSha256: art.BackdropSha256, StillSha256: art.StillSha256}
-}
-
-// TitlesInput asks for one page of films, series or other videos, of every library the person
-// reaches or of one (D349).
-type TitlesInput struct {
-	AuthorizationHeader
-	Kind    string `doc:"movie, series or other; any: every kind, every library's" enum:"movie,series,other,any" query:"kind" required:"true"`                                                                                                                                                                                                                                                                                                                                                                                                                 //nolint:lll // one struct tag
-	Sort    string `doc:"name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode. recorded: newest recorded first, and file_name: by the files' names, other videos only. released: newest first by a film's release date or a series' first air date, those with none last, films and series only" enum:"name,added,recorded,file_name,released" query:"sort" required:"true"` //nolint:lll // one struct tag
-	Order   string `doc:"The way the sort runs (D366): ascending, A to Z or oldest first; descending, Z to A or newest first; absent for the sort's own, A to Z by a name and newest first by a date. What has no date is last either way" enum:"ascending,descending" query:"order"`                                                                                                                                                                                                                                                                          //nolint:lll // one struct tag
-	Library int64  `doc:"One library's alone; absent for every library the person reaches, less, for films and series, those they left out (leftOutLibraryIds)" minimum:"0" query:"library"`                                                                                                                                                                                                                                                                                                                                                                   //nolint:lll // one struct tag
-	IsHome  bool   `doc:"The list as a row of Home shows it, with no library: of every library the person reaches less those they left out of Home (leftOutOfHomeLibraryIds, D366), in place of those left out of Films and Series" query:"home"`                                                                                                                                                                                                                                                                                                              //nolint:lll // one struct tag
-	Cursor  string `doc:"From the previous page's nextCursor" query:"cursor"`
-	From    string `doc:"A name, by name or file name only and with no cursor: A to Z, the page starts at the first title sorted at or after it, as a letter of the alphabet does; Z to A, at the last title sorted before it, so the letter after a letter starts that letter's titles" maxLength:"100" query:"from"` //nolint:lll // one struct tag
-	Limit   int64  `maximum:"500" minimum:"1" query:"limit" required:"true"`
-	Query   string `doc:"Only the titles whose name matches it, in any script, as GET /search matches them (D48): a film, other video or series by its own name, never by an episode's or an extra's; every other criterion applies as without it. A query that matches nothing, or with nothing an index can match (only spaces, or only punctuation in a longer query), lists nothing. The titles come from the first 10000 names it matches, the best first" maxLength:"200" query:"query"` //nolint:lll // one struct tag
-	ListFilters
-}
-
-// TitlesOutput is one page.
-type TitlesOutput struct {
-	Body struct {
-		Titles     []EntryBody `json:"titles"`
-		NextCursor string      `doc:"Empty on the last page" json:"nextCursor,omitempty"`
-	}
 }
 
 // StreamBody is one stream of a file.
@@ -260,7 +197,7 @@ type GroupOutput struct {
 	}
 }
 
-// SearchInput is a search. Superseded by TitlesInput's Query, search a criterion of the one list (the
+// SearchInput is a search. Superseded by ListItemsInput's Query, search a criterion of the one list (the
 // owner, 2026-10-30); kept for the clients that call it.
 type SearchInput struct {
 	AuthorizationHeader
@@ -287,10 +224,6 @@ type SearchOutput struct {
 func (server *Server) registerBrowse() {
 	tags := []string{tagBrowse}
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "getTitles", Method: http.MethodGet, Path: "/titles",
-		Summary: "Films or series, by name in the library's locale or newest first", Tags: tags,
-	}, server.getTitles)
-	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getGroup", Method: http.MethodGet, Path: "/items/{id}/groups/{group}",
 		Summary: "A page of one season's episodes, in the ordering the person watches the series in", Tags: tags,
 	}, server.getGroup)
@@ -301,47 +234,11 @@ func (server *Server) registerBrowse() {
 	}, server.listNotInOrder)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "search", Method: http.MethodGet, Path: "/search",
-		Summary: "Titles and series by name, in any script (D48); superseded by GET /titles?query=",
-		Description: "Superseded: GET /titles takes query, a search as a criterion of the one list, with its kind, " +
-			"library, sort, order and paging. Kept for clients that call it; new code lists with GET /titles.",
+		Summary: "Titles and series by name, in any script (D48); superseded by GET /items?query=",
+		Description: "Superseded: GET /items takes query, a search as a criterion of the one list, with its kind, " +
+			"library, sort, order and paging. Kept for clients that call it; new code lists with GET /items.",
 		Tags: tags,
 	}, server.search)
-}
-
-func (server *Server) getTitles(ctx context.Context, input *TitlesInput) (*TitlesOutput, error) {
-	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
-	if err != nil {
-		return nil, err
-	}
-	isByName := input.Sort == library.SortName || input.Sort == library.SortFileName
-	if input.From != "" && (!isByName || input.Cursor != "") {
-		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "query.from",
-			"from starts a list by name, in place of its first page: it takes no cursor")
-	}
-	if input.IsHome && input.Library != 0 {
-		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "query.home",
-			"a row of Home is of every library the person keeps on it, not of one library")
-	}
-	reach, err := server.listReach(ctx, dependencies, principal,
-		listOf{kind: input.Kind, libraryID: input.Library, isHome: input.IsHome})
-	if err != nil {
-		return nil, err
-	}
-	page, err := dependencies.Browser.List(ctx, input.withFilters(library.ListQuery{
-		Kind: input.Kind, Sort: input.Sort, Order: input.Order, Cursor: input.Cursor, From: input.From,
-		Limit: input.Limit, Reach: reach, UserID: principal.UserID, Query: input.Query,
-	}))
-	if err != nil {
-		return nil, server.libraryError(ctx, "list titles", err)
-	}
-	output := &TitlesOutput{}
-	output.Body.Titles = make([]EntryBody, 0, len(page.Entries))
-	nodeName := server.nodeNamer(ctx, dependencies)
-	for _, entry := range page.Entries {
-		output.Body.Titles = append(output.Body.Titles, entryBody(entry, nodeName))
-	}
-	output.Body.NextCursor = page.NextCursor
-	return output, nil
 }
 
 func (server *Server) getGroup(ctx context.Context, input *GroupInput) (*GroupOutput, error) {

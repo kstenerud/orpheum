@@ -62,7 +62,7 @@ function signedInGuest(
           "GET /together/mine": [200, { sessions: [] }],
           "GET /libraries": [200, { libraries: [] }],
           "GET /home": [200, { continueWatching: [] }],
-          "GET /titles": [200, { titles: [], nextCursor: "" }],
+          "GET /items": [200, { items: [], nextCursor: "" }],
           "POST /together/playback": [200, directDecision({})],
           ...more,
         },

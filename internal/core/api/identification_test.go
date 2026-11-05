@@ -100,9 +100,9 @@ func TestIdentification_AnOtherVideoIsNeverListedAmongTitlesWaitingOnAMatch(t *t
 	admin := harness.createAdminAndSignIn(t)
 	harness.otherVideoTitle(t)
 
-	listed := harness.do(t, http.MethodGet, "/items?identificationState=identified", admin, nil)
+	listed := harness.do(t, http.MethodGet, "/items?identification=identified&limit=500", admin, nil)
 	if listed.status != http.StatusOK {
-		t.Fatalf("GET /items?identificationState=identified = %d %s", listed.status, listed.body)
+		t.Fatalf("GET /items?identification=identified&limit=500 = %d %s", listed.status, listed.body)
 	}
 	if strings.Contains(listed.body, `"id":20`) {
 		t.Errorf("an other video listed among identified titles: %s; want it left off (D349 §10)", listed.body)
@@ -115,10 +115,10 @@ func TestIdentification_APersonChoosesAnAmbiguousTitlesMatch(t *testing.T) {
 	admin := harness.createAdminAndSignIn(t)
 	harness.ambiguousTitle(t)
 
-	listed := harness.do(t, http.MethodGet, "/items?identificationState=ambiguous", admin, nil)
+	listed := harness.do(t, http.MethodGet, "/items?identification=ambiguous&limit=500", admin, nil)
 	if listed.status != http.StatusOK || !strings.Contains(listed.body, `"id":10`) ||
 		!strings.Contains(listed.body, `"identificationState":"ambiguous"`) {
-		t.Fatalf("GET /items?identificationState=ambiguous = %d %s", listed.status, listed.body)
+		t.Fatalf("GET /items?identification=ambiguous&limit=500 = %d %s", listed.status, listed.body)
 	}
 	candidates := harness.do(t, http.MethodGet, "/items/10/candidates", admin, nil)
 	const second = `{"providerId":"2","name":"The General","year":2002}`
@@ -131,7 +131,7 @@ func TestIdentification_APersonChoosesAnAmbiguousTitlesMatch(t *testing.T) {
 	if chosen.status != http.StatusNoContent {
 		t.Fatalf("POST /items/10/match = %d %s", chosen.status, chosen.body)
 	}
-	confirmed := harness.do(t, http.MethodGet, "/items?identificationState=confirmed", admin, nil)
+	confirmed := harness.do(t, http.MethodGet, "/items?identification=confirmed&limit=500", admin, nil)
 	if !strings.Contains(confirmed.body, `"id":10`) || !strings.Contains(confirmed.body, `"followedSourceId":"2"`) ||
 		!strings.Contains(confirmed.body, `"year":2002`) {
 		t.Errorf("after choosing: %s", confirmed.body)
@@ -142,7 +142,7 @@ func TestIdentification_APersonChoosesAnAmbiguousTitlesMatch(t *testing.T) {
 		map[string]string{"provider": "imdb", "providerId": "2"}), http.StatusUnprocessableEntity, "body.provider")
 	wantError(t, harness.do(t, http.MethodPost, "/items/99/match", admin,
 		map[string]string{"provider": "tmdb", "providerId": "2"}), http.StatusNotFound, api.CodeNotFound)
-	wantError(t, harness.do(t, http.MethodGet, "/items?identificationState=maybe", admin, nil),
+	wantError(t, harness.do(t, http.MethodGet, "/items?identification=maybe&limit=500", admin, nil),
 		http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 }
 
@@ -175,7 +175,7 @@ func TestIdentification_OnlyARoleThatEditsMetadataMayChange(t *testing.T) {
 		t.Fatal(err)
 	}
 	user := harness.signIn(t, "partner", "partner-password")
-	if listed := harness.do(t, http.MethodGet, "/items?identificationState=ambiguous", user,
+	if listed := harness.do(t, http.MethodGet, "/items?identification=ambiguous&limit=500", user,
 		nil); listed.status != http.StatusOK {
 		t.Errorf("a user listing ambiguous titles = %d %s; the question mark is everyone's to see", listed.status,
 			listed.body)
@@ -193,7 +193,7 @@ func TestIdentification_OnlyARoleThatEditsMetadataMayChange(t *testing.T) {
 		wantError(t, harness.do(t, request.method, request.path, user, request.body), http.StatusForbidden,
 			api.CodeForbidden)
 	}
-	wantError(t, harness.do(t, http.MethodGet, "/items?identificationState=ambiguous", "", nil),
+	wantError(t, harness.do(t, http.MethodGet, "/items?identification=ambiguous&limit=500", "", nil),
 		http.StatusUnauthorized,
 		api.CodeAuthRequired)
 }
@@ -223,7 +223,7 @@ func TestIdentification_AnItemsOwnFailureIsShownOnItsPagesAndARefreshTriesAgain(
 	storetest.ExecRaw(t, harness.databasePath,
 		`INSERT INTO fetch_failure (item_id, failure, failed_at) VALUES (10, 'TMDB answered 500 five times', 1234)`)
 	const failure = `"fetchFailure":{"failure":"TMDB answered 500 five times","failedAt":1234}`
-	for _, path := range []string{"/items?identificationState=ambiguous", "/items/10"} {
+	for _, path := range []string{"/items?identification=ambiguous&limit=500", "/items/10"} {
 		if shown := harness.do(t, http.MethodGet, path, admin, nil); !strings.Contains(shown.body, failure) {
 			t.Errorf("GET %s = %d %s; want its failure and when (D231 section 4)", path, shown.status, shown.body)
 		}
@@ -330,7 +330,7 @@ func TestIdentification_APersonMatchesATitleByAPastedLink(t *testing.T) {
 	if chosen.status != http.StatusNoContent {
 		t.Fatalf("POST /items/10/match-by-link = %d %s", chosen.status, chosen.body)
 	}
-	confirmed := harness.do(t, http.MethodGet, "/items?identificationState=confirmed", admin, nil)
+	confirmed := harness.do(t, http.MethodGet, "/items?identification=confirmed&limit=500", admin, nil)
 	if !strings.Contains(confirmed.body, `"id":10`) || !strings.Contains(confirmed.body, `"followedSourceId":"2"`) {
 		t.Errorf("after pasting TMDB's address: %s", confirmed.body)
 	}
@@ -424,4 +424,32 @@ func TestIdentification_APersonConfirmsAGuessedMatch(t *testing.T) {
 		api.CodeConflict)
 	wantError(t, harness.do(t, http.MethodPost, "/items/99/confirm-match", admin, nil), http.StatusNotFound,
 		api.CodeNotFound)
+}
+
+// The list by identification is GET /items' too, and pages by cursor as every list does: a film
+// and a series by name, nextCursor absent on the last page, with where each match stands; it takes
+// no other filter than library (D416 §2, §6; D425 §7).
+func TestIdentification_TheListByIdentificationPagesByCursor(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelve(t)
+	var first, second struct {
+		Items      []api.ItemEntryBody `json:"items"`
+		NextCursor *string             `json:"nextCursor"`
+	}
+	harness.readJSON(t, "/items?identification=identified&limit=1", admin, &first)
+	if len(first.Items) != 1 || first.Items[0].Name != "Brass Arena" || first.Items[0].Kind != "series" ||
+		first.Items[0].Identification == nil || first.NextCursor == nil {
+		t.Fatalf("the first page = %+v; want Brass Arena with its identification, and a cursor", first)
+	}
+	harness.readJSON(t, "/items?identification=identified&limit=1&cursor="+*first.NextCursor, admin, &second)
+	if len(second.Items) != 1 || second.Items[0].Name != "Metropolis" || second.Items[0].Kind != "movie" ||
+		second.NextCursor != nil {
+		t.Errorf("the second page = %+v; want Metropolis, and no cursor on the last page", second)
+	}
+	wantInvalidAt(t, harness.do(t, http.MethodGet, "/items?identification=identified&limit=1&cursor=%25", admin,
+		nil), http.StatusUnprocessableEntity, "query.cursor")
+	wantInvalidAt(t, harness.do(t, http.MethodGet, "/items?identification=identified&limit=1&genre=1", admin,
+		nil), http.StatusUnprocessableEntity, "query.identification")
 }

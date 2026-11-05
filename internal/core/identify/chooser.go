@@ -109,22 +109,40 @@ func requestedAtOf(requestedAt *int64) time.Time {
 	return time.UnixMilli(*requestedAt)
 }
 
-// Items lists the titles and series in one state of identification, by name, of the libraries
-// reach reaches (D243 §4).
-func (chooser *Chooser) Items(ctx context.Context, reach auth.Reach, identification string) ([]ItemSummary, error) {
+// ItemsPage is one page of the titles and series in a state of identification.
+type ItemsPage struct {
+	Items []ItemSummary
+	// NextCursor is the next page's cursor; empty on the last page.
+	NextCursor string
+}
+
+// Items lists a page of the titles and series in one state of identification, by name, of the
+// libraries reach reaches (D243 §4): at most limit, after cursor, a page's NextCursor, empty for the
+// first; a cursor this server did not give is library.ErrBadCursor (D425 §7).
+func (chooser *Chooser) Items(
+	ctx context.Context, reach auth.Reach, identification, cursor string, limit int64,
+) (ItemsPage, error) {
+	afterName, afterID, err := library.DecodeCursor(cursor)
+	if err != nil {
+		return ItemsPage{}, fmt.Errorf("list by identification: %w", err)
+	}
 	queries := chooser.matcher.database.Read()
 	isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
+	// Each kind's next limit+1 after the cursor, merged: the page is the first limit, and one more
+	// says another page follows.
 	titles, err := queries.ListTitlesByIdentification(ctx, sqlcgen.ListTitlesByIdentificationParams{
 		IdentificationState: identification, IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
+		AfterName: string(afterName), AfterID: afterID, RowLimit: limit + 1,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("list %s titles: %w", identification, err)
+		return ItemsPage{}, fmt.Errorf("list %s titles: %w", identification, err)
 	}
 	series, err := queries.ListSeriesByIdentification(ctx, sqlcgen.ListSeriesByIdentificationParams{
 		IdentificationState: &identification, IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
+		AfterName: string(afterName), AfterID: afterID, RowLimit: limit + 1,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("list %s series: %w", identification, err)
+		return ItemsPage{}, fmt.Errorf("list %s series: %w", identification, err)
 	}
 	items := make([]ItemSummary, 0, len(titles)+len(series))
 	for _, row := range titles {
@@ -150,7 +168,13 @@ func (chooser *Chooser) Items(ctx context.Context, reach auth.Reach, identificat
 	slices.SortStableFunc(items, func(a, b ItemSummary) int {
 		return cmp.Or(cmp.Compare(a.Name, b.Name), cmp.Compare(a.ID, b.ID))
 	})
-	return items, nil
+	page := ItemsPage{Items: items}
+	if int64(len(items)) > limit {
+		page.Items = items[:limit]
+		last := page.Items[limit-1]
+		page.NextCursor = library.EncodeCursor([]byte(last.Name), last.ID)
+	}
+	return page, nil
 }
 
 // WaitingForAPerson counts the films and series whose match waits for a person, as "Needs a

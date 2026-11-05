@@ -42,12 +42,12 @@ const heat: Entry = {
   identificationState: "identified",
   addedAt: 1,
 };
-const titles: Answer = [200, { titles: [heat], nextCursor: "" }];
+const titles: Answer = [200, { items: [heat] }];
 
-/** The query of each GET /titles heard, in order. */
+/** The query of each GET /items heard, in order. */
 function titlesAsked(heard: readonly Heard[]): URLSearchParams[] {
   return heard
-    .filter((each) => each.methodAndPath === "GET /titles")
+    .filter((each) => each.methodAndPath === "GET /items")
     .map((each) => new URLSearchParams(each.query));
 }
 
@@ -62,8 +62,8 @@ describe("Films' chips (search-by-more §4.3)", () => {
     const heard: Heard[] = [];
     const services = servedBy(
       {
-        "GET /titles": [titles, titles, titles, titles],
-        "GET /titles/letters": [200, { letters: [] }],
+        "GET /items": [titles, titles, titles, titles],
+        "GET /items/letters": [200, { letters: [] }],
         "GET /genres": [
           200,
           {
@@ -126,8 +126,8 @@ describe("Films' chips (search-by-more §4.3)", () => {
     const heard: Heard[] = [];
     const services = servedBy(
       {
-        "GET /titles": [titles],
-        "GET /titles/letters": [200, { letters: [] }],
+        "GET /items": [titles],
+        "GET /items/letters": [200, { letters: [] }],
         "GET /genres": [200, { genres: [{ id: 18, name: "Drama", titleCount: 3 }] }],
       },
       heard,
@@ -155,7 +155,7 @@ describe("Films' chips (search-by-more §4.3)", () => {
       null,
     ]);
     const letters = new URLSearchParams(
-      heard.find((each) => each.methodAndPath === "GET /titles/letters")?.query,
+      heard.find((each) => each.methodAndPath === "GET /items/letters")?.query,
     );
     expect([letters.get("genre"), letters.get("decade")]).toEqual(["18", "1980"]);
   });
