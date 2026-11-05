@@ -1811,3 +1811,27 @@ keyframe ≥ 500 ms): whether Quillwick's files start on a late keyframe or open
 The owner, later the same day: "Note that Quillwick used to play perfectly, so it's a recent change
 that broke it." A regression, then: bisect over the 11-05 batch's playback commits (the first-seconds
 work) and the cleared keyframe rows before reasoning about the files themselves.
+
+## The expansion audit of the API and database (the owner, 2026-11-05), after the API and schema rounds
+
+The owner: "Once the API and DB batches are done, let's do one more audit of the API and database.
+Make sure they're sound according to expert best practices, and are able to handle the expansion that
+will be necessary when we add the features we have planned. Music would likely cause a lot of churn if
+not properly planned for."
+
+- **Scope:** the API (D416, D425) and the schema (D426) as they stand once their rounds are built,
+  judged against expert practice, and against every planned feature: the B0–B5 items, the queued
+  items, "Later", "Maybe", and music.
+- **Unwanted features too:** live TV and DVR, and photos. The owner does not want them, but
+  competitors have them, and they may be forced if customers insist. The owner expects demand for TV
+  and DVR to fall as cable dies out; the question is how fast. The audit asks what each would need
+  of the schema and the API, and leaves room for it where that is cheap.
+- **Input:** an earlier agent's feature inventory and its comparison with Plex, Jellyfin and Emby
+  (pasted by the owner, 2026-11-05). It is dated, and its feature columns came largely from a
+  model's knowledge up to about 2025. The audit re-checks the current gap from sources, and weighs
+  the gap, not the table.
+- **Its findings:** each says what change it proposes now, and what churn that change saves later.
+- **Timing (the lead's proposal):** run it once the API and schema rounds are built, but before
+  check-pr and the deploy. The batch's deploy regenerates the database on nas.example (greenfield,
+  D426). That is the last point where a schema change costs nothing. After it, every change is
+  an appended migration.
