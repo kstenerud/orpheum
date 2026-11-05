@@ -33,11 +33,11 @@ type bench struct {
 func (bench *bench) SelfUses(context.Context) []nodes.NodeSelfUse { return bench.nodes }
 func (bench *bench) RunningKinds() map[int64]map[jobs.Kind]int    { return bench.running }
 
-// newBench returns a recorder at the top of an hour, on a fresh store.
+// newBench returns a recorder at the top of an hour, on a fresh cache.
 func newBench(t *testing.T) *bench {
 	t.Helper()
 	b := &bench{clock: clocktest.NewFake(time.Date(2026, 11, 3, 20, 0, 0, 0, time.UTC))}
-	b.recorder = resourceuse.NewRecorder(storetest.OpenMigrated(t), b.clock, slog.New(slog.DiscardHandler),
+	b.recorder = resourceuse.NewRecorder(storetest.OpenCache(t), b.clock, slog.New(slog.DiscardHandler),
 		resourceuse.Sources{
 			ReadOwn: func() (selfuse.Sample, error) { return b.own, b.ownErr },
 			Nodes:   b, Work: b, Plays: func() int { return b.plays },

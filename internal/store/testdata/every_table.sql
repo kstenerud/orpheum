@@ -138,8 +138,6 @@ INSERT INTO user_rating (user_id, item_id, rating, rated_at) VALUES (2, 1, 8, 17
 INSERT INTO watchlist (user_id, item_id, added_at) VALUES (1, 1, 1790000000000);
 INSERT INTO item_hidden (user_id, item_id, hidden_at) VALUES (1, 1, 1790000000000);
 INSERT INTO title_watched (user_id, title_id, watched_at, marked_at) VALUES (1, 1, 1790000000000, 1790000000000);
-INSERT INTO link_memory (player, network, speed_kbps, speed_log_spread, speed_at, steadiness, steadiness_at, said_at)
-  VALUES ('device 1', '2001:db8:1:2::/64', 17000, 0.31, 1790000000000, 1, 1790000000000, 1790000000000);
 INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at)
   VALUES (2, 'file', 1, 'subtitle_offset_ms', '-250', 1790000000000),
          (2, 'work', 3, 'audio_language', '{"language":"en","kind":"plain"}', 1790000000000);
@@ -153,7 +151,3 @@ INSERT INTO subtitle_text (source_hash, stream_index, ass, vtt, failure, made_at
   VALUES (X'0102', 3, CAST('[Script Info]' AS BLOB), CAST('WEBVTT' AS BLOB), NULL, 1790000600000),
          (X'0103', 0, NULL, NULL, 'Invalid data found when processing input', 1790000600000);
 INSERT INTO device_reader_limit (node_id, device_key, reader_limit, set_at) VALUES (1, 'disk:sdc', 4, 1790000700000);
-INSERT INTO resource_use (at, process, node_name, scope, cpu_micros, elapsed_ms, held_bytes, cache_bytes, peak_bytes,
-    plays, running_json)
-  VALUES (1790000800000, 'core', '', 'cgroup', NULL, NULL, 1000, 2000, 3000, 1, '{}'),
-         (1790000860000, 'node', 'local', 'process', 600000, 60000, 4000, 5000, NULL, 0, '{"make_chunks":2}');

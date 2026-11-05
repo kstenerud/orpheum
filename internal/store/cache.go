@@ -33,6 +33,9 @@ type Cache struct {
 	database *Database
 }
 
+// Path is cache.db's file, for a test that reads it apart from the store.
+func (cache *Cache) Path() string { return cache.database.Path() }
+
 // SizeBytes is how large cache.db is: its pages, not counting the write-ahead log.
 func (cache *Cache) SizeBytes(ctx context.Context) (uint64, error) {
 	return cache.database.SizeBytes(ctx)

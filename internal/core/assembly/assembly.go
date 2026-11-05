@@ -377,7 +377,7 @@ func (services *Services) wireJobsInto(parts Parts) error {
 	if readOwnUse == nil {
 		readOwnUse = selfuse.Read
 	}
-	dependencies.ResourceUse = resourceuse.NewRecorder(parts.Database, parts.Clock, parts.Logger, resourceuse.Sources{
+	dependencies.ResourceUse = resourceuse.NewRecorder(parts.Cache, parts.Clock, parts.Logger, resourceuse.Sources{
 		ReadOwn: readOwnUse, Nodes: services.nodes, Work: services.Exchanges,
 		Plays: func() int { return len(dependencies.Playback.NowPlaying()) },
 	})

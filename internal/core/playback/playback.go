@@ -46,6 +46,8 @@ type Nodes interface {
 // Parts are what the playback service is built from.
 type Parts struct {
 	Database *store.Database
+	// Cache is cache.db, where each player's link is remembered (D426 §9).
+	Cache    *store.Cache
 	Nodes    Nodes
 	Settings Settings
 	Clock    clock.Clock
@@ -130,7 +132,7 @@ func NewService(parts Parts) *Service {
 		tokens:    newTokens(),
 		subtitles: parts.Subtitles, preferences: parts.Preferences, loudness: parts.Loudness,
 		chunks: parts.Chunks, offers: parts.Offers, reads: parts.Reads, roots: parts.Roots, absences: parts.Absences,
-		speeds:             newLinkSpeeds(parts.Database),
+		speeds:             newLinkSpeeds(parts.Cache),
 		unplayablePictures: newUnplayablePictures(),
 	}
 	// The runs that go on are those its playbacks' players want (D309).

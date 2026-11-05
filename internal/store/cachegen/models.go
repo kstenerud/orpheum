@@ -80,6 +80,20 @@ type Rescan struct {
 	IsFull         int64
 }
 
+type ResourceUse struct {
+	At          int64
+	Process     string
+	NodeName    string
+	Scope       string
+	CpuMicros   *int64
+	ElapsedMs   *int64
+	HeldBytes   int64
+	CacheBytes  int64
+	PeakBytes   *int64
+	Plays       int64
+	RunningJSON string
+}
+
 type Scan struct {
 	ID                  int64
 	NodeID              int64

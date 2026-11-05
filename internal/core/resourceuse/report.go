@@ -10,7 +10,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
+	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
 
 // HoursShown is how far back the hours go: a day, so a day's evening plays sit beside its night's
@@ -102,7 +102,7 @@ type hourSums struct {
 }
 
 // hoursOf groups rows into each process's hours, newest first, the core's before the nodes'.
-func hoursOf(rows []sqlcgen.ResourceUse) []Hour {
+func hoursOf(rows []cachegen.ResourceUse) []Hour {
 	sums := map[hourKey]*hourSums{}
 	for _, row := range rows {
 		start := row.At - row.At%time.Hour.Milliseconds()
@@ -134,7 +134,7 @@ func hoursOf(rows []sqlcgen.ResourceUse) []Hour {
 }
 
 // add adds one row to its hour.
-func (sum *hourSums) add(row sqlcgen.ResourceUse) {
+func (sum *hourSums) add(row cachegen.ResourceUse) {
 	hour := &sum.hour
 	if row.CpuMicros != nil && row.ElapsedMs != nil {
 		sum.cpuMicros += *row.CpuMicros
