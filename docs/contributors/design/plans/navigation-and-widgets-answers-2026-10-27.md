@@ -1767,3 +1767,24 @@ deploy." The whole API renamed in place per D416 and the route table of
 [api-greenfield-2026-11-04.md](../research/api-greenfield-2026-11-04.md), the loader's endpoints
 and pairing included where a better shape exists, Connect changed with it; then staging and
 production. The API's compatibility check starts once it lands.
+
+## UI issues the owner saw (2026-11-05), recorded only: after the API batch
+
+The owner: "I only want these recorded for now because I want to get the API revamp out of the way."
+Not started; the owner orders them after D416. Check each against
+[ui-audit-2026-11-04-research.md](../research/ui-audit-2026-11-04-research.md) and
+[ui-competitors.md](../research/ui-competitors.md) before designing.
+
+1. **A title's cast list (seen on *The Big Parade*'s page; `credits.tsx`, `title.tsx`)** is messy and
+   follows none of the research's guidelines:
+   - the grid's entries are not vertically aligned;
+   - too many columns;
+   - every credit is shown, though most people want the main cast only: look at what competitors
+     and sites like IMDb do (a short top-billed row, the full cast one press away);
+   - **a bug:** the clickable area does not match what is drawn. The top two rows cannot be clicked
+     at all, and the third becomes clickable only halfway down. Likely an overlapping element over
+     the grid; the fix needs a browser test pressing each entry's centre (`elementFromPoint`).
+2. **The other grids** need the same treatment: the "needs a match" list, the accounts list and the
+   roles list (`match-correction.tsx`, `accounts.ts`, `roles-section.tsx`).
+3. **The System page is a wall of text** (`system-*.tsx`).
+4. **The account page is messy** (`account.tsx`).
