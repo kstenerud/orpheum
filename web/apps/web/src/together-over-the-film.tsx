@@ -3,13 +3,22 @@
 import "./together-over-the-film.css";
 
 import type { TogetherSnapshot } from "@orpheum/sdk";
-import { useEffect, useRef, useState, useSyncExternalStore, type JSX, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type JSX,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 
 import { IconButton } from "./icon-button.tsx";
-import { ModalDialog } from "./modal-dialog.tsx";
+import { LaterScreen } from "./screen-load.tsx";
 import { signMark, TogetherIcon } from "./sign-mark.tsx";
+import { TogetherDialog } from "./tray-dialog-code.tsx";
 
 /**
  * Watch Together over the playing film (D423): the film fills the window over the page (D418 §1), so
@@ -70,9 +79,10 @@ export function TogetherPanel(props: { readonly children: ReactNode }): JSX.Elem
 
 /**
  * Watch Together's sign over the film, in the player's top row, shown while a session's panel is
- * drawn, blue as the tray's is while its session is on; it opens the panel in a dialog over the film,
- * which plays on. While it is open, onOpenChange holds the overlay shown and gives the dialog its
- * presses, as the menus do.
+ * drawn, blue as the tray's is while its session is on; it opens Watch Together's dialog, the one the
+ * tray's sign opens, over the film, which plays on, with the panel moved in under its controls
+ * (D433). Ending or leaving the session there closes it, as the tray's does. While it is open,
+ * onOpenChange holds the overlay shown and gives the dialog its presses, as the menus do.
  */
 export function TogetherSignOverTheFilm(props: {
   readonly onOpenChange: (isOpen: boolean) => void;
@@ -81,10 +91,17 @@ export function TogetherSignOverTheFilm(props: {
   const isShown = useSyncExternalStore(subscribe, hasPanel, hasPanel);
   const [isOpen, setIsOpen] = useState(false);
   const { onOpenChange } = props;
-  const openOrClose = (isNowOpen: boolean): void => {
-    setIsOpen(isNowOpen);
-    onOpenChange(isNowOpen);
-  };
+  const openOrClose = useCallback(
+    (isNowOpen: boolean): void => {
+      if (!isNowOpen) {
+        dialogBody = null;
+        tellChanged();
+      }
+      setIsOpen(isNowOpen);
+      onOpenChange(isNowOpen);
+    },
+    [onOpenChange],
+  );
   useEffect(
     () => () => {
       dialogBody = null;
@@ -92,6 +109,7 @@ export function TogetherSignOverTheFilm(props: {
     },
     [],
   );
+  useClosedAsThePanelGoes(isOpen, openOrClose);
   if (!isShown) {
     return null;
   }
@@ -107,14 +125,45 @@ export function TogetherSignOverTheFilm(props: {
         }}
       />
       {isOpen ? (
-        <ModalDialog
-          label={t("status.together")}
+        <TogetherDialogOverTheFilm
           onClose={() => {
-            dialogBody = null;
-            tellChanged();
             openOrClose(false);
           }}
-        >
+        />
+      ) : null}
+    </span>
+  );
+}
+
+/**
+ * Closes the dialog over the film as the session's panel goes while it is open, its session left or
+ * ended (D433 §3): the dialog goes with the sign, and the overlay is told so.
+ */
+function useClosedAsThePanelGoes(isOpen: boolean, openOrClose: (isNowOpen: boolean) => void): void {
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+    let isClosed = false;
+    return subscribe(() => {
+      if (!isClosed && !hasPanel()) {
+        isClosed = true;
+        openOrClose(false);
+      }
+    });
+  }, [isOpen, openOrClose]);
+}
+
+/**
+ * Watch Together's dialog, the tray's (TogetherDialog, its code loaded as the tray's is), opened over
+ * the film with a place under its controls the session's panel is moved into (D433 §2).
+ */
+function TogetherDialogOverTheFilm(props: { readonly onClose: () => void }): JSX.Element {
+  return (
+    <LaterScreen resetKey="together-dialog">
+      <TogetherDialog
+        onClose={props.onClose}
+        panelPlace={
           <div
             ref={(body) => {
               if (body !== null && dialogBody !== body) {
@@ -123,9 +172,9 @@ export function TogetherSignOverTheFilm(props: {
               }
             }}
           />
-        </ModalDialog>
-      ) : null}
-    </span>
+        }
+      />
+    </LaterScreen>
   );
 }
 

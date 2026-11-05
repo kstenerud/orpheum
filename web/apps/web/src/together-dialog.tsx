@@ -2,7 +2,7 @@
 
 import "./watch-together.css";
 
-import { useEffect, type JSX } from "react";
+import { useEffect, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { browserStorage, tabStorage } from "./browser-storage.ts";
@@ -21,21 +21,33 @@ import { WatchTogetherControls } from "./watch-together.tsx";
  * through"): for one who may host, starting a session and running it, what plays with the way back
  * to its film's Play page and Stop for everyone, voice and the volumes, the people and Invite, and
  * ending it (watch-together.tsx), which closes the dialog, nothing opening it again (D385's Also); for
- * a signed-in guest, the way back to the group's film.
+ * a signed-in guest, the way back to the group's film. The sign over the playing film opens the same
+ * dialog, the session's panel moved in under its controls (D433).
  */
-export function TogetherDialog(props: { readonly onClose: () => void }): JSX.Element {
+export function TogetherDialog(props: {
+  readonly onClose: () => void;
+  /**
+   * Where the session's panel is moved, under the controls, when the sign over the playing film
+   * opens the dialog (D433 §2, together-over-the-film.tsx); nothing from the tray. With it, the panel
+   * holds Talk and the volumes, which the host's controls then leave to it, and the guest's Leave; a
+   * guest, at the group's film already, is offered no way back to it.
+   */
+  readonly panelPlace?: ReactNode;
+}): JSX.Element {
   const { t } = useTranslation();
   const isHosting = useMembership(tabStorage, "host") !== undefined;
   const viewing = useMembership(browserStorage, "viewer");
+  const hasPanel = props.panelPlace !== undefined;
+  const isGuest = viewing !== undefined && !isHosting;
   return (
     <ModalDialog label={t("watchTogether.heading")} onClose={props.onClose}>
       <section className="watch-together" aria-labelledby="watch-together-heading">
         <h2 id="watch-together-heading">{t("watchTogether.heading")}</h2>
-        {viewing !== undefined && !isHosting ? (
+        {isGuest && !hasPanel ? (
           <GuestsSession membership={viewing} onEnded={props.onClose} />
-        ) : (
-          <WatchTogetherControls onEnded={props.onClose} />
-        )}
+        ) : null}
+        {isGuest ? null : <WatchTogetherControls onEnded={props.onClose} hasPanel={hasPanel} />}
+        {props.panelPlace}
       </section>
     </ModalDialog>
   );

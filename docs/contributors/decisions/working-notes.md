@@ -26478,4 +26478,21 @@ of the controls or information like the one in the top bar shows." Amends D423 �
    open.
 3. **Ending or leaving from it** closes the dialog and ends the film's session as the tray's does.
 
-**Status:** Decided 2026-11-05; to build in the 11-07 batch.
+Built so: opened over the film, the host's controls leave Talk and the film's volume to the panel
+under them, which holds them, so neither is drawn twice; a guest, at the group's film already, is
+offered no way back to it, the panel holding their Leave.
+
+**Proven by:**
+- 1: "opens the tray's Watch Together dialog over the film, the host's controls with End, the panel
+  under them, which holds Talk and the volumes (D433 §1, §2)" and "opens the guest's dialog over the
+  film with the panel and no way back to the film they watch, and closes it as they leave (D433)" in
+  web/apps/web/src/together-over-the-film.test.tsx
+- 2: "moves the session's panel, its state kept, into the dialog the sign opens over the film, and
+  back to its page as it closes" and "opens the tray's Watch Together dialog over the film, the host's
+  controls with End, the panel under them, which holds Talk and the volumes (D433 §1, §2)" in
+  web/apps/web/src/together-over-the-film.test.tsx; web/e2e/together.spec.ts talks from it
+- 3: "ends the session from the dialog over the film, closing it, as the tray's does (D433 §3)" and
+  "opens the guest's dialog over the film with the panel and no way back to the film they watch, and
+  closes it as they leave (D433)" in web/apps/web/src/together-over-the-film.test.tsx
+
+**Status:** Built 2026-11-05.
