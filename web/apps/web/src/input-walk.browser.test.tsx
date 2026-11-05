@@ -173,10 +173,13 @@ function pagedSeriesServices(count: number): Services {
     await Promise.resolve();
     const url = new URL(request.url);
     const path = url.pathname.slice(apiPrefix.length);
-    if (request.method === "GET" && path === "/titles") {
+    if (request.method === "GET" && path === "/items") {
       const from = Number(url.searchParams.get("cursor") ?? "0");
-      const next = from + pageSize < count ? String(from + pageSize) : "";
-      return Response.json({ titles: all.slice(from, from + pageSize), nextCursor: next });
+      const items = all.slice(from, from + pageSize);
+      // The last page carries no nextCursor (D416 §6).
+      return Response.json(
+        from + pageSize < count ? { items, nextCursor: String(from + pageSize) } : { items },
+      );
     }
     const series = /^\/items\/(\d+)$/u.exec(path);
     if (request.method === "GET" && series !== null) {
