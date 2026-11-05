@@ -24,6 +24,9 @@
   object-fit: cover;
   opacity: 0.4;
   mask-image: linear-gradient(to bottom, black 50%, transparent);
+  /* It runs past the head's foot, over what follows it (the cast), and a positioned layer is drawn
+     over unpositioned content: it takes no click, so none of what is under it is dead. */
+  pointer-events: none;
 }
 
 .title-head__body {

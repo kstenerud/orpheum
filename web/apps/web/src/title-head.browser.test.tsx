@@ -274,3 +274,44 @@ describe("a title's actions row, by a remote", () => {
       .toMatchObject({ screen: "play", fileId: 2310 });
   });
 });
+
+describe("a title's cast list under its backdrop", () => {
+  let walking: Walking | undefined;
+  afterEach(() => {
+    walking?.unmount();
+    walking = undefined;
+  });
+
+  // The owner, 2026-11-05: "The top two rows cannot be clicked at all, and the third becomes
+  // clickable only halfway down." The backdrop, taller than the head it sits behind, was drawn over
+  // the cast that follows the head, and took its clicks.
+  it("takes a click at the centre of every entry, the backdrop never over one", async () => {
+    await page.viewport(1366, 768);
+    const crowded = {
+      ...film,
+      art: { posterSha256: "p103", backdropSha256: "b103" },
+      credits: {
+        ...film.credits,
+        cast: Array.from({ length: 40 }, (_, index) => ({
+          personId: index + 1,
+          name: `Actor ${String(index + 1)}`,
+          character: `Role ${String(index + 1)}`,
+        })),
+      },
+    };
+    walking = await mountApp(
+      walkServices({ ...signedIn, "GET /items/103": crowded }, "/titles/103"),
+    );
+    await expect.poll(() => document.querySelectorAll(".credit").length).toBe(40);
+    const entries = [...document.querySelectorAll<HTMLElement>(".credit")];
+    const covered = entries
+      .filter((entry) => {
+        entry.scrollIntoView({ block: "center" });
+        const box = entry.getBoundingClientRect();
+        const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+        return hit === null || !entry.contains(hit);
+      })
+      .map((entry) => entry.textContent);
+    expect(covered).toEqual([]);
+  });
+});
