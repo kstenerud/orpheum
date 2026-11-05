@@ -44,9 +44,8 @@ func seriesWithAnExtra(t *testing.T, world *shelf) (files, titles map[string]int
 		})
 		titles[each.name] = title
 		if each.kind == "episode" {
-			statements = append(statements, fmt.Sprintf("INSERT INTO position (ordering_id, work_id, group_number, "+
-				"number_in_group, sort_order) VALUES (%d, %d, %d, %d, %d)", seriesID, title, each.season, each.number,
-				each.sortAt))
+			statements = append(statements, storetest.Positions(fmt.Sprintf("(%d, %d, %d, %d, %d)",
+				seriesID, title, each.season, each.number, each.sortAt)))
 		}
 	}
 	statements = append(statements, fmt.Sprintf("INSERT INTO extra_relation (owner_work, extra_work, extra_type, "+

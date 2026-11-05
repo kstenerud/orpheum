@@ -106,7 +106,11 @@ func TestPass_EpisodesAnOlderReadingSplitIntoSeriesOfTheirOwnComeTogether(t *tes
 		split(`INSERT INTO item_text (item_id, language, is_original, name)
 			SELECT 9001, language, is_original, 'Arkon Horizon S01E02' FROM item_text WHERE item_id = %d`, seriesID),
 		`INSERT INTO ordering (id, sequence_id, name) VALUES (9001, 9001, 'aired')`,
-		split(`UPDATE position SET ordering_id = 9001 WHERE work_id = %d`, titles[second].WorkID),
+		split(`INSERT INTO grp (ordering_id, number)
+			SELECT 9001, grp.number FROM position JOIN grp ON grp.id = position.grp_id WHERE work_id = %d`,
+			titles[second].WorkID),
+		split(`UPDATE position SET ordering_id = 9001, grp_id = (SELECT id FROM grp WHERE ordering_id = 9001)
+			WHERE work_id = %d`, titles[second].WorkID),
 		split(`UPDATE sequence_member SET sequence_id = 9001 WHERE member_work = %d`, titles[second].WorkID),
 		split(`UPDATE item_text SET name = 'Arkon Horizon S01E01' WHERE item_id = %d`, seriesID),
 	)

@@ -272,9 +272,8 @@ func seriesOfSix(t *testing.T) *store.Database {
 	storetest.ExecRaw(t, database.Path(),
 		"INSERT INTO sequence (id, kind, created_by) VALUES (20, 'series', 'scanner')",
 		`INSERT INTO ordering (id, sequence_id, name) VALUES (1, 20, 'aired')`,
-		`INSERT INTO position (ordering_id, work_id, group_number, number_in_group, sort_order) VALUES
-		 (1, 21, 1, 1, 10001), (1, 22, 1, 2, 10002), (1, 23, 2, 1, 20001), (1, 24, 2, 2, 20002),
-		 (1, 25, 2, 3, 20003), (1, 26, 2, 4, 20004)`,
+		storetest.Positions(`(1, 21, 1, 1, 10001), (1, 22, 1, 2, 10002), (1, 23, 2, 1, 20001), (1, 24, 2, 2, 20002),
+		 (1, 25, 2, 3, 20003), (1, 26, 2, 4, 20004)`),
 		`INSERT INTO user (id, name, role_id, created_at) VALUES (1, 'owner', 1, 1)`)
 	return database
 }
@@ -439,8 +438,7 @@ func TestRaiser_ALookAtASeriesFollowsTheOrderingItsPersonWatchesItIn(t *testing.
 	// A DVD order: disc 1 is 23 then 21, disc 2 is 26; 22, 24 and 25 are not in it. 23 is finished.
 	storetest.ExecRaw(t, database.Path(),
 		`INSERT INTO ordering (id, sequence_id, name, provider) VALUES (2, 20, 'tmdb:dvd', 'tmdb')`,
-		`INSERT INTO position (ordering_id, work_id, group_number, number_in_group, sort_order) VALUES
-		 (2, 23, 1, 1, 10001), (2, 21, 1, 2, 10002), (2, 26, 2, 1, 20001)`,
+		storetest.Positions(`(2, 23, 1, 1, 10001), (2, 21, 1, 2, 10002), (2, 26, 2, 1, 20001)`),
 		`INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at)
 		 VALUES (1, 'item', 20, 'episode_ordering', '"tmdb:dvd"', 1)`)
 	librarytest.Watch(t, database, librarytest.WatchSpec{FileID: 230, PositionMs: 1000, ReadAt: 5})

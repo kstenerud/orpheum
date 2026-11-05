@@ -62,8 +62,8 @@ func (harness testHarness) shelve(t *testing.T) {
 		 VALUES (10, 'en', 'movie', %s), (20, 'en', 'series', %s)`,
 			key("Metropolis"), key("Brass Arena")),
 		"INSERT INTO ordering (id, sequence_id, name, kind) VALUES (1, 20, 'aired', 'aired')",
-		"INSERT INTO position (ordering_id, work_id, group_number, number_in_group, sort_order) "+
-			"VALUES (1, 21, 1, 1, 10001)",
+		storetest.Positions(
+			"(1, 21, 1, 1, 10001)"),
 		"INSERT INTO sequence_member (sequence_id, member_work, position) VALUES (20, 21, 10001)",
 		// Metropolis's poster is a person's choice over a newer one TMDB named; its backdrop was refused.
 		`INSERT INTO artwork (item_id, kind, source, source_ref, source_sha256, is_chosen, removed_at) VALUES
@@ -280,8 +280,7 @@ func TestBrowse_ASeriesListsItsSeasonsAndASeasonComesAPageAtATime(t *testing.T) 
 		statements = append(statements,
 			fmt.Sprintf("INSERT INTO item_text (item_id, language, is_original, name) VALUES (%d, 'und', 1, 'E%d')", id,
 				id),
-			fmt.Sprintf(`INSERT INTO position (ordering_id, work_id, group_number, number_in_group, sort_order)
-			 VALUES (1, %d, %d, %d, %d)`, id, episode.season, episode.number, 10001+index+1))
+			storetest.Positions(fmt.Sprintf(`(1, %d, %d, %d, %d)`, id, episode.season, episode.number, 10001+index+1)))
 	}
 	storetest.ExecRaw(t, harness.databasePath, statements...)
 	series := harness.do(t, http.MethodGet, "/items/20", user, nil)
@@ -342,8 +341,8 @@ func TestBrowse_ASeriesSaysItsPersonsNextEpisode(t *testing.T) {
 	storetest.ExecRaw(t, harness.databasePath,
 		"INSERT INTO item_text (item_id, language, is_original, name) VALUES (22, 'und', 1, 'Cat'), "+
 			"(23, 'und', 1, 'Bag')",
-		"INSERT INTO position (ordering_id, work_id, group_number, number_in_group, sort_order) "+
-			"VALUES (1, 22, 1, 2, 10002), (1, 23, 1, 3, 10003)")
+		storetest.Positions(
+			"(1, 22, 1, 2, 10002), (1, 23, 1, 3, 10003)"))
 	type nextUp struct {
 		TitleID       int64  `json:"titleId"`
 		Name          string `json:"name"`
@@ -512,8 +511,10 @@ func TestBrowse_ASeriesSeasonsShowTheirOwnPostersInAiredOrderAlone(t *testing.T)
 	harness.shelveDVDOrder(t)
 	seasonOne, seriesPoster := strings.Repeat("ab", 32), strings.Repeat("cc", 32)
 	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO artwork (item_id, kind, group_number, source, source_ref, source_sha256) VALUES
-		 (20, 'poster', 1, 'tmdb', '/s1.jpg', X'`+seasonOne+`')`)
+		`INSERT INTO artwork (item_id, kind, grp_id, source, source_ref, source_sha256)
+		 SELECT 20, 'poster', grp.id, 'tmdb', '/s1.jpg', X'`+seasonOne+`' FROM grp
+		 JOIN ordering ON ordering.id = grp.ordering_id AND ordering.sequence_id = 20 AND ordering.name = 'aired'
+		 WHERE grp.number = 1`)
 	var seen struct {
 		Art struct {
 			PosterSha256 string `json:"posterSha256"`

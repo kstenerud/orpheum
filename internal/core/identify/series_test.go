@@ -325,7 +325,8 @@ func TestSeries_AnUnnumberedEpisodeIsPlacedByItsNameAcrossEverySeason(t *testing
 			titleName(placed), lib.isGuessed(placed.WorkID))
 	}
 	place := storetest.QueryRaw(t, lib.database.Path(), fmt.Sprintf(
-		"SELECT group_number || 'x' || number_in_group FROM position WHERE work_id = %d", placed.WorkID))
+		"SELECT grp.number || 'x' || number_in_group FROM position LEFT JOIN grp ON grp.id = position.grp_id "+
+			"WHERE work_id = %d", placed.WorkID))
 	if !slices.Equal(place, []string{"1x1"}) {
 		t.Errorf("the unnumbered episode is at %v; want 1x1, Comet Pilot 3000's place", place)
 	}

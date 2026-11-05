@@ -91,9 +91,8 @@ func TestNeedsAttention_TellsTheSeriesWhoseEpisodesWereLikelyReadWrongly(t *test
 			ID: id, LibraryID: 1, NodeID: 1, Path: fmt.Sprintf("/m/BB/Brass Arena - 1x%d.mkv", index+2),
 			SizeBytes: 10, PayloadHash: []byte{byte(index + 3)}, Filing: "listed", VersionID: id,
 		})
-		statements = append(statements, fmt.Sprintf(
-			`INSERT INTO position (ordering_id, work_id, group_number, number_in_group, sort_order)
-			 VALUES (1, %d, 0, NULL, %d)`, id, 20000+index))
+		statements = append(statements, storetest.Positions(fmt.Sprintf(
+			`(1, %d, 0, NULL, %d)`, id, 20000+index)))
 	}
 	storetest.ExecRaw(t, harness.databasePath, statements...)
 	got := harness.do(t, http.MethodGet, "/needs-attention", admin, nil)

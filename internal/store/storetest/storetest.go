@@ -147,6 +147,18 @@ func InsertUser(tb testing.TB, database *store.Database, name, role string) int6
 	return id
 }
 
+// Positions is the statement ExecRaw runs to place titles in orderings: rows is the rows of values
+// "(ordering_id, work_id, group_number, number_in_group, sort_order)", a group by its number, NULL for
+// none, as an ordering is read. Each group a row names is made, and each title placed in it, its
+// group a row of its own (D426 section 5).
+func Positions(rows string) string {
+	return "INSERT INTO grp (ordering_id, number) SELECT DISTINCT column1, column3 FROM (VALUES " + rows +
+		") WHERE column3 IS NOT NULL ON CONFLICT (ordering_id, number) DO NOTHING;\n" +
+		"INSERT INTO position (ordering_id, work_id, grp_id, number_in_group, sort_order) " +
+		"SELECT placed.column1, placed.column2, grp.id, placed.column4, placed.column5 FROM (VALUES " + rows +
+		") AS placed LEFT JOIN grp ON grp.ordering_id = placed.column1 AND grp.number = placed.column3"
+}
+
 // ExecRaw runs statements directly on the database file at path, bypassing the store, to build
 // states the store itself never produces: a file a newer release upgraded, a foreign file. It
 // waits for a lock as the store's own connections do: with none, a lock held for an instant just

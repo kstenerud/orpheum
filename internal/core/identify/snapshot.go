@@ -523,7 +523,7 @@ func (filer *libraryFiler) keepPosition(ctx context.Context, position sqlcgen.Up
 			position.SortOrder
 		filer.snap.places[position.WorkID] = held
 	}
-	return filer.queries.UpsertPosition(ctx, position) //nolint:wrapcheck // its callers say which title
+	return placeTitle(ctx, filer.queries, position)
 }
 
 // resolveSeriesValues writes a series' resolved values, unless they are already its own; an

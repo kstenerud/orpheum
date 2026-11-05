@@ -225,6 +225,53 @@ func newBench(t *testing.T, images fakeFetcher) *bench {
 	}
 }
 
+// becomeSeries makes the bench's item a series with an aired order, whose groups its seasons'
+// images are (D379, D426 section 5).
+func (bench *bench) becomeSeries(t *testing.T) {
+	t.Helper()
+	err := bench.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+		id, err := queries.InsertItem(t.Context(), sqlcgen.InsertItemParams{
+			Kind: "series", AddedAt: 1, IdentificationState: ptr.NilIfZero("identified"),
+		})
+		if err == nil {
+			err = queries.InsertSequence(t.Context(), sqlcgen.InsertSequenceParams{ID: id, CreatedBy: "scanner"})
+		}
+		if err == nil {
+			_, err = queries.InsertOrdering(t.Context(), sqlcgen.InsertOrderingParams{
+				SequenceID: id, Name: "aired", Kind: new("aired"),
+			})
+		}
+		bench.itemID = id
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// season is the bench series' aired season's group, made, as identify makes it, when it has none.
+func (bench *bench) season(t *testing.T, number int64) *int64 {
+	t.Helper()
+	var group int64
+	err := bench.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+		aired := sqlcgen.GetOrderingParams{SequenceID: bench.itemID, Name: "aired"}
+		ordering, err := queries.GetOrdering(t.Context(), aired)
+		if err != nil {
+			return err
+		}
+		made := sqlcgen.InsertGroupParams{OrderingID: ordering, Number: number}
+		if insertErr := queries.InsertGroup(t.Context(), made); insertErr != nil {
+			return insertErr
+		}
+		group, err = queries.GetGroup(t.Context(), sqlcgen.GetGroupParams(made))
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &group
+}
+
 // run runs job as a runner would, and returns its answer: its handler's, or, once it gave its
 // images to the node, the answer the node's word resolves it with.
 func (bench *bench) run(t *testing.T, job jobs.Job) error {
@@ -585,6 +632,8 @@ func TestService_AReEncodeTheNodesStatusNoLongerHoldsIsTriedAgainAsWorkLost(t *t
 func TestService_ASeasonsPosterIsKeptAsItsSeasonsAndNeitherReplacesNorShowsAsItsSeriesOwn(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t, fakeFetcher{"/f.jpg": []byte("series"), "/s1.jpg": []byte("season 1")})
+	bench.becomeSeries(t)
+	bench.season(t, 1)
 	bench.node.answer = func(nodeproto.Artwork) nodeproto.ArtworkResult {
 		return nodeproto.ArtworkResult{Images: []nodeproto.ArtImage{{SizeName: nodeproto.PortraitS, WebP: ourWebP}}}
 	}
@@ -612,5 +661,31 @@ func TestService_ASeasonsPosterIsKeptAsItsSeasonsAndNeitherReplacesNorShowsAsIts
 	if err != nil || len(seasons) != 1 || seasons[0].GroupNumber != 1 ||
 		!bytes.Equal(seasons[0].SourceSha256, Received([]byte("season 1")).sourceSha256()) {
 		t.Errorf("season posters %+v (%v); want season 1's", seasons, err)
+	}
+}
+
+// Identify makes a series' groups and artwork only looks them up (D426 section 5): a season's poster
+// whose season the series has no group for is not stored, and no group is made for it.
+func TestService_ASeasonsPosterWhoseSeasonHasNoGroupIsSkippedAndMakesNone(t *testing.T) {
+	t.Parallel()
+	bench := newBench(t, fakeFetcher{"/s3.jpg": []byte("season 3")})
+	bench.becomeSeries(t)
+	bench.node.answer = func(nodeproto.Artwork) nodeproto.ArtworkResult {
+		return nodeproto.ArtworkResult{Images: []nodeproto.ArtImage{{SizeName: nodeproto.PortraitS, WebP: ourWebP}}}
+	}
+	bench.handle(t, Ref{Kind: library.ArtPoster, GroupNumber: new(int64(3)), SourceRef: "/s3.jpg"})
+	if rows := bench.rows(t); len(rows) != 0 {
+		t.Errorf("artwork %+v; want none, its season having no group", rows)
+	}
+	queries := bench.database.Read()
+	aired := sqlcgen.GetOrderingParams{SequenceID: bench.itemID, Name: "aired"}
+	ordering, err := queries.GetOrdering(t.Context(), aired)
+	if err != nil {
+		t.Fatal(err)
+	}
+	third := sqlcgen.GetGroupParams{OrderingID: ordering, Number: 3}
+	group, err := store.OrNotFound(queries.GetGroup(t.Context(), third))
+	if !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("season 3's group %d (%v); want none: identify alone makes them", group, err)
 	}
 }

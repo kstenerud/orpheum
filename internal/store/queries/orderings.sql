@@ -35,10 +35,11 @@ ORDER BY work.id;
 
 -- name: ListOrderingPositions :many
 -- Every place an ordering holds.
-SELECT work_id, group_number, number_in_group, sort_order
+SELECT position.work_id, grp.number AS group_number, position.number_in_group, position.sort_order
 FROM position
-WHERE ordering_id = sqlc.arg(ordering_id)
-ORDER BY work_id;
+LEFT JOIN grp ON grp.id = position.grp_id
+WHERE position.ordering_id = sqlc.arg(ordering_id)
+ORDER BY position.work_id;
 
 -- name: DeletePosition :exec
 -- A title an ordering no longer places: its provider's group no longer lists it, or it left the series.
@@ -46,23 +47,37 @@ DELETE FROM position WHERE ordering_id = sqlc.arg(ordering_id) AND work_id = sql
 
 -- name: ListOrderingGroupTexts :many
 -- The names an ordering gives its groups, in every language.
-SELECT group_number, language, name
-FROM group_text
-WHERE ordering_id = sqlc.arg(ordering_id)
-ORDER BY group_number, language;
+SELECT grp.number AS group_number, group_text.language, group_text.name
+FROM grp
+JOIN group_text ON group_text.grp_id = grp.id
+WHERE grp.ordering_id = sqlc.arg(ordering_id)
+ORDER BY grp.number, group_text.language;
+
+-- name: InsertGroup :exec
+-- A group of an ordering, a season or a disc (D426 section 5), made before the first position or name
+-- in it; one there already is kept.
+INSERT INTO grp (ordering_id, number) VALUES (sqlc.arg(ordering_id), sqlc.arg(number))
+ON CONFLICT (ordering_id, number) DO NOTHING;
+
+-- name: GetGroup :one
+-- A group of an ordering by its number.
+SELECT id FROM grp WHERE ordering_id = sqlc.arg(ordering_id) AND number = sqlc.arg(number);
 
 -- name: UpsertGroupText :exec
--- A group's name in an ordering, in one language.
-INSERT INTO group_text (ordering_id, group_number, language, name)
-VALUES (sqlc.arg(ordering_id), sqlc.arg(group_number), sqlc.arg(language), sqlc.arg(name))
-ON CONFLICT (ordering_id, group_number, language) DO UPDATE SET name = excluded.name
+-- A group's name in an ordering, in one language; InsertGroup makes the group first, and a group not
+-- made has no id, which group_text refuses.
+INSERT INTO group_text (grp_id, language, name)
+VALUES ((SELECT grp.id FROM grp WHERE grp.ordering_id = sqlc.arg(ordering_id) AND grp.number = sqlc.arg(group_number)),
+  sqlc.arg(language), sqlc.arg(name))
+ON CONFLICT (grp_id, language) DO UPDATE SET name = excluded.name
 -- Only when it changes something (D303, DL9).
 WHERE group_text.name IS NOT excluded.name;
 
 -- name: DeleteGroupText :exec
 -- A group an ordering no longer has.
 DELETE FROM group_text
-WHERE ordering_id = sqlc.arg(ordering_id) AND group_number = sqlc.arg(group_number) AND language = sqlc.arg(language);
+WHERE grp_id = (SELECT grp.id FROM grp WHERE grp.ordering_id = sqlc.arg(ordering_id) AND grp.number = sqlc.arg(group_number))
+  AND language = sqlc.arg(language);
 
 -- name: ListLibrarySeriesWithFetchedGroups :many
 -- A library's series with an episode group fetched, whose ordering a pass keeps placing its episodes

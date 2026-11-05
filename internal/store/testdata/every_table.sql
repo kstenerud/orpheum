@@ -100,8 +100,9 @@ INSERT INTO sequence_member (sequence_id, member_work, position) VALUES (3, 1, 1
 INSERT INTO ordering (id, sequence_id, name, provider, kind) VALUES (1, 3, 'aired', 'tmdb', 'aired');
 INSERT INTO ordering (id, sequence_id, name, provider, kind, source_id, label, listed_count)
   VALUES (2, 3, 'tmdb:5e9077d2e640d600151f32bd', 'tmdb', 'dvd', '5e9077d2e640d600151f32bd', 'DVD Order', 23);
-INSERT INTO position (ordering_id, work_id, group_number, number_in_group, sort_order) VALUES (1, 1, 1, 1, 1.0);
-INSERT INTO group_text (ordering_id, group_number, language, name) VALUES (1, 1, 'en', 'Season 1');
+INSERT INTO grp (id, ordering_id, number) VALUES (1, 1, 1);
+INSERT INTO position (ordering_id, work_id, grp_id, number_in_group, sort_order) VALUES (1, 1, 1, 1, 1.0);
+INSERT INTO group_text (grp_id, language, name) VALUES (1, 'en', 'Season 1');
 
 INSERT INTO "grant" (secret_sha256, kind, user_id, scope, issued_at, expires_at, last_used_at, device_name, device_id,
                      locate_hash, offer_key)

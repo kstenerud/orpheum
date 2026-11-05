@@ -683,8 +683,9 @@ CREATE TABLE artwork (                                     -- class O/F; A when 
   refusal     TEXT,
   is_missing_at_source INTEGER NOT NULL DEFAULT 0 CHECK (is_missing_at_source IN (0, 1)),
   -- 0064: a series' group's poster, an image of the series naming its group of the aired
-  -- ordering (D379; named group_number by 0069); NULL for an image of the item itself
-  group_number INTEGER CHECK (group_number >= 0)
+  -- ordering (D379); a number until 0079 made the group a row (D426 §5); NULL for an image of the
+  -- item itself
+  grp_id INTEGER REFERENCES grp(id) ON DELETE RESTRICT
 );
 CREATE UNIQUE INDEX artwork_chosen ON artwork(item_id, kind) WHERE is_chosen = 1;
 CREATE INDEX artwork_item ON artwork(item_id, kind);
@@ -738,10 +739,16 @@ CREATE TABLE ordering (                                    -- D96, D159
   listed_count  INTEGER,                 -- 0057: how many episodes its provider lists in it, before it is fetched
   UNIQUE (sequence_id, name)
 );
+CREATE TABLE grp (                                         -- a season, or a disc (0079, D426 §5)
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  ordering_id INTEGER NOT NULL REFERENCES ordering(id) ON DELETE RESTRICT,
+  number      INTEGER NOT NULL,          -- the season's number, or the disc's
+  UNIQUE (ordering_id, number)
+);
 CREATE TABLE position (                                    -- season/episode, or disc/track
   ordering_id INTEGER NOT NULL REFERENCES ordering(id) ON DELETE RESTRICT,
   work_id    INTEGER NOT NULL REFERENCES work(id) ON DELETE RESTRICT,
-  group_number         INTEGER,                   -- season, or disc
+  grp_id      INTEGER REFERENCES grp(id) ON DELETE RESTRICT,  -- its season, or disc; NULL: none
   number_in_group      INTEGER,                   -- episode, or track
   sort_order        REAL NOT NULL,             -- a total order within the ordering
   PRIMARY KEY (ordering_id, work_id)
@@ -749,19 +756,20 @@ CREATE TABLE position (                                    -- season/episode, or
 CREATE INDEX position_order ON position(ordering_id, sort_order);  -- 0023: was position_sort
 CREATE INDEX position_work ON position(work_id);
 CREATE TABLE group_text (                                  -- a season's name, a disc's, a part's
-  ordering_id     INTEGER NOT NULL REFERENCES ordering(id) ON DELETE RESTRICT,  -- 0057: was sequence_id
-  group_number         INTEGER NOT NULL,
-  language        TEXT NOT NULL,
+  grp_id      INTEGER NOT NULL REFERENCES grp(id) ON DELETE RESTRICT,  -- 0079: was ordering_id, group_number
+  language    TEXT NOT NULL,
   name        TEXT,
-  PRIMARY KEY (ordering_id, group_number, language)
-);
+  PRIMARY KEY (grp_id, language)
+) WITHOUT ROWID;
 ```
 
-**There is no series table and no season table.** A series is a Collection whose members are
-episodes; a season is a group number within an ordering, with optional text — and the same
-tables hold an album's discs and tracks, which is why they are named `position` and `group_number` rather
-than `episode_position` and `season` ([D186](../../decisions/working-notes.md))
-([D160](../../decisions/working-notes.md)). `kind` omits `season` and `smart` from
+**A series is a sequence, and a season is a group of one of its orderings** (D426 §5 amends
+D160 here: a season was a bare number repeated on each position, name and poster). `grp` holds each
+group once, in its ordering; a position, a group's names and a season's poster reference it, and a
+position with no season names none. The API still addresses a group as its item and its number. A
+season's poster names a group of its series' aired ordering, an invariant checks. The same tables
+hold an album's discs and tracks, which is why they are named `position` and `grp` rather than
+`episode_position` and `season` ([D186](../../decisions/working-notes.md)). `kind` omits `season` and `smart` from
 library-model.md's list for that reason: a season is not a Collection here, and "smart", a
 collection by a rule, is not built (its `membership` and `predicate` went in step 0071, D426 §8).
 
@@ -1395,6 +1403,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `artwork` | persistent.db | `internal/core/artwork` | identify reports the images it found; the server's wiring hands them to `artwork.Service.Take` |
 | `sequence` | persistent.db | `internal/core/identify` | |
 | `sequence_member` | persistent.db | `internal/core/identify` | |
+| `grp` | persistent.db | `internal/core/identify` | a season or a disc of an ordering (step 0079, D426 §5): one for each group a position or a name is in, and each season a series' provider lists; artwork only looks a season's up for its poster |
 | `credit` | persistent.db | `internal/core/identify` | the pass, from each title's and series' source (step 0067) |
 | `device` | persistent.db | `internal/core/auth` | |
 | `device_reader_limit` | persistent.db | `internal/core/nodes` | an admin's limit on one of a node's devices (D240 §5) |

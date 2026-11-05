@@ -40,6 +40,12 @@ func isPlaceableByName(filePath string) bool {
 // listedSeasons are the seasons a series' own stored response, gzipped as kept, lists, the
 // specials' 0 left out; none before it is fetched, or from one that cannot be read.
 func listedSeasons(provider Provider, ownBodyGzip []byte) []int {
+	return slices.DeleteFunc(seasonsWithSpecials(provider, ownBodyGzip), func(season int) bool { return season <= 0 })
+}
+
+// seasonsWithSpecials are the seasons a series' own stored response lists, as listedSeasons, the
+// specials' 0 among them.
+func seasonsWithSpecials(provider Provider, ownBodyGzip []byte) []int {
 	if len(ownBodyGzip) == 0 {
 		return nil
 	}
@@ -51,7 +57,7 @@ func listedSeasons(provider Provider, ownBodyGzip []byte) []int {
 	if err != nil {
 		return nil
 	}
-	return slices.DeleteFunc(slices.Clone(metadata.SeasonNumbers), func(season int) bool { return season <= 0 })
+	return slices.Clone(metadata.SeasonNumbers)
 }
 
 // placement is where an episode is placed: its season and number.

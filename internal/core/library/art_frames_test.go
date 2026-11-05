@@ -116,9 +116,8 @@ func seriesWithEpisodes(t *testing.T, world *shelf) (seriesID int64, firstStill 
 			LibraryID: 1, NodeID: world.nodeID, Path: fmt.Sprintf("%s/S%dE%d.mkv", world.rootPath, place.season,
 				place.number), VersionID: version,
 		})
-		statements = append(statements, fmt.Sprintf("INSERT INTO position (ordering_id, work_id, group_number, "+
-			"number_in_group, sort_order) VALUES (%d, %d, %d, %d, %d)", seriesID, episode, place.season, place.number,
-			place.season*100+place.number))
+		statements = append(statements, storetest.Positions(fmt.Sprintf("(%d, %d, %d, %d, %d)",
+			seriesID, episode, place.season, place.number, place.season*100+place.number)))
 		still := storeArt(t, world, episode, ArtStill, ArtSourceFrame, byte(0x50+index))
 		if place.season == 1 && place.number == 1 {
 			firstStill = still

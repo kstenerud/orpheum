@@ -151,9 +151,10 @@ ORDER BY extra_relation.extra_work;
 
 -- name: GetEpisodePlace :one
 -- An episode's series and its place in the aired order.
-SELECT ordering.sequence_id, position.group_number, position.number_in_group, item_text.name AS series_name
+SELECT ordering.sequence_id, grp.number AS group_number, position.number_in_group, item_text.name AS series_name
 FROM position
 JOIN ordering ON ordering.id = position.ordering_id
+LEFT JOIN grp ON grp.id = position.grp_id
 LEFT JOIN item_text ON item_text.item_id = ordering.sequence_id AND item_text.is_original = 1
 WHERE position.work_id = sqlc.arg(work_id) AND ordering.name = 'aired';
 
@@ -161,17 +162,18 @@ WHERE position.work_id = sqlc.arg(work_id) AND ordering.name = 'aired';
 -- A member's place in one of its collection's named orderings (D96, D159): its group and number in
 -- it, how many groups the ordering has, one for an ordering that is a single run (absolute), and its
 -- group's name where the ordering names it, '' where it does not.
-SELECT position.group_number, position.number_in_group,
-  (SELECT count(DISTINCT coalesce(other.group_number, 0)) FROM position AS other WHERE other.ordering_id = ordering.id)
+SELECT grp.number AS group_number, position.number_in_group,
+  (SELECT count(DISTINCT coalesce(other_group.number, 0)) FROM position AS other
+   LEFT JOIN grp AS other_group ON other_group.id = other.grp_id WHERE other.ordering_id = ordering.id)
     AS group_count,
   CAST(coalesce((
     SELECT group_text.name FROM group_text
-    WHERE group_text.ordering_id = ordering.id AND group_text.group_number = position.group_number
-      AND group_text.name IS NOT NULL
+    WHERE group_text.grp_id = position.grp_id AND group_text.name IS NOT NULL
     ORDER BY group_text.language LIMIT 1
   ), '') AS TEXT) AS group_name
 FROM ordering
 JOIN position ON position.ordering_id = ordering.id
+LEFT JOIN grp ON grp.id = position.grp_id
 WHERE ordering.sequence_id = sqlc.arg(sequence_id) AND ordering.name = sqlc.arg(ordering_name)
   AND position.work_id = sqlc.arg(work_id);
 
@@ -202,7 +204,7 @@ WHERE sequence.id = sqlc.arg(id) AND sequence.kind = 'series' AND item.removed_a
 -- name: ListSeriesEpisodeDetails :many
 -- A series' episodes in one of its named orderings (D159; the one its person watches in), each
 -- with whether it has a live file.
-SELECT position.work_id, position.group_number, position.number_in_group, item_text.name, item.year, work.runtime_ms,
+SELECT position.work_id, grp.number AS group_number, position.number_in_group, item_text.name, item.year, work.runtime_ms,
   item.identification_state,
   EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
@@ -215,6 +217,7 @@ JOIN ordering ON ordering.id = position.ordering_id
 JOIN work ON work.id = position.work_id
 JOIN item ON item.id = work.id
 LEFT JOIN item_text ON item_text.item_id = position.work_id AND item_text.is_original = 1
+LEFT JOIN grp ON grp.id = position.grp_id
 WHERE ordering.sequence_id = sqlc.arg(sequence_id) AND ordering.name = sqlc.arg(ordering_name) AND item.removed_at IS NULL
 ORDER BY position.sort_order;
 
@@ -222,7 +225,7 @@ ORDER BY position.sort_order;
 -- A page of one season's episodes, a group of one of the series' named orderings (D159; the one its
 -- person watches in), after the episode at after_sort_order, each with whether it has a live file;
 -- aired's season 0 holds the specials and the episodes with no season.
-SELECT position.work_id, position.group_number, position.number_in_group, position.sort_order, item_text.name,
+SELECT position.work_id, grp.number AS group_number, position.number_in_group, position.sort_order, item_text.name,
   item.year, work.runtime_ms, item.identification_state,
   EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
@@ -235,8 +238,9 @@ JOIN ordering ON ordering.id = position.ordering_id
 JOIN work ON work.id = position.work_id
 JOIN item ON item.id = work.id
 LEFT JOIN item_text ON item_text.item_id = position.work_id AND item_text.is_original = 1
+LEFT JOIN grp ON grp.id = position.grp_id
 WHERE ordering.sequence_id = sqlc.arg(sequence_id) AND ordering.name = sqlc.arg(ordering_name) AND item.removed_at IS NULL
-  AND coalesce(position.group_number, 0) = CAST(sqlc.arg(season_number) AS INTEGER)
+  AND coalesce(grp.number, 0) = CAST(sqlc.arg(season_number) AS INTEGER)
   AND position.sort_order > sqlc.arg(after_sort_order)
 ORDER BY position.sort_order
 LIMIT sqlc.arg(max_rows);
@@ -261,17 +265,18 @@ ORDER BY ordering.name <> 'aired', ordering.provider IS NULL, coalesce(ordering.
 -- name: ListOrderingGroupNames :many
 -- The names an ordering of a series gives its groups ("Disc 2", "Volume 3"), each group's in the first
 -- language it has one in; a group it names none of is not listed.
-SELECT group_text.group_number, CAST(group_text.name AS TEXT) AS name
+SELECT grp.number AS group_number, CAST(group_text.name AS TEXT) AS name
 FROM ordering
-JOIN group_text ON group_text.ordering_id = ordering.id AND group_text.name IS NOT NULL
+JOIN grp ON grp.ordering_id = ordering.id
+JOIN group_text ON group_text.grp_id = grp.id AND group_text.name IS NOT NULL
 WHERE ordering.sequence_id = sqlc.arg(sequence_id) AND ordering.name = sqlc.arg(ordering_name)
-ORDER BY group_text.group_number, group_text.language;
+ORDER BY grp.number, group_text.language;
 
 -- name: ListEpisodesNotInOrdering :many
 -- A page of a series' episodes that one of its orderings leaves out, in aired order, which every
 -- episode is in, after the one at after_sort_order, each at its aired place and with whether it has
 -- a live file: what its page lists under "Not in this order" (episode-orderings.md section 7, Q4).
-SELECT aired.work_id, aired.group_number, aired.number_in_group, aired.sort_order, item_text.name,
+SELECT aired.work_id, aired_group.number AS group_number, aired.number_in_group, aired.sort_order, item_text.name,
   item.year, work.runtime_ms, item.identification_state,
   EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
@@ -284,6 +289,7 @@ JOIN position AS aired ON aired.ordering_id = aired_ordering.id
 JOIN work ON work.id = aired.work_id
 JOIN item ON item.id = work.id
 LEFT JOIN item_text ON item_text.item_id = aired.work_id AND item_text.is_original = 1
+LEFT JOIN grp AS aired_group ON aired_group.id = aired.grp_id
 WHERE aired_ordering.sequence_id = sqlc.arg(sequence_id) AND aired_ordering.name = 'aired'
   AND item.removed_at IS NULL
   AND NOT EXISTS (
@@ -404,7 +410,7 @@ ORDER BY place.id;
 -- name, which its Next Up shows; and when the person watched it, NULL while they have not, and last
 -- marked it by hand (D370). A member's files come as its page lists them, so the first is the one its
 -- page plays first.
-SELECT position.work_id, CAST(coalesce(position.group_number, 0) AS INTEGER) AS group_number,
+SELECT position.work_id, CAST(coalesce(grp.number, 0) AS INTEGER) AS group_number,
   CAST(coalesce(position.number_in_group, 0) AS INTEGER) AS number_in_group,
   CAST(coalesce(item_text.name, '') AS TEXT) AS name,
   own.id AS file_id,
@@ -418,6 +424,7 @@ JOIN version ON version.work_id = position.work_id AND version.removed_at IS NUL
 JOIN file_filing ON file_filing.version_id = version.id AND file_filing.filing IN ('listed', 'unidentified')
 JOIN place AS own ON own.id = file_filing.file_id AND own.removed_at IS NULL
 LEFT JOIN item_text ON item_text.item_id = position.work_id AND item_text.is_original = 1
+LEFT JOIN grp ON grp.id = position.grp_id
 LEFT JOIN play_position ON play_position.file_id = own.id AND play_position.user_id = sqlc.arg(user_id)
 LEFT JOIN work_watched ON work_watched.user_id = sqlc.arg(user_id) AND work_watched.work_id = position.work_id
 WHERE ordering.sequence_id = sqlc.arg(sequence_id) AND ordering.name = sqlc.arg(ordering_name)

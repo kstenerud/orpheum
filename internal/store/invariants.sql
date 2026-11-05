@@ -56,3 +56,14 @@ SELECT sidecar.id FROM place AS sidecar
 JOIN place AS video ON video.id = sidecar.attached_to_place
 WHERE NOT EXISTS (SELECT 1 FROM file WHERE file.id = sidecar.file_id AND file.sidecar_kind IS NOT NULL)
   OR NOT EXISTS (SELECT 1 FROM file WHERE file.id = video.file_id AND file.sidecar_kind IS NULL);
+
+-- invariant: a group is its ordering's, and a season's poster its series' aired order's
+-- A group is a row of one ordering (D426 section 5): a place in it is in that ordering, and a
+-- season's poster names a group of its series' aired order (artwork's seasonGroup).
+SELECT 'position' AS kept, position.work_id FROM position
+JOIN grp ON grp.id = position.grp_id
+WHERE grp.ordering_id <> position.ordering_id
+UNION ALL SELECT 'artwork', artwork.id FROM artwork
+JOIN grp ON grp.id = artwork.grp_id
+JOIN ordering ON ordering.id = grp.ordering_id
+WHERE ordering.sequence_id <> artwork.item_id OR ordering.name <> 'aired';

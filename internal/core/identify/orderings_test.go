@@ -71,14 +71,15 @@ func (lib *testLibrary) orderingsOf(seriesID int64) []string {
 func (lib *testLibrary) placesIn(seriesID int64, ordering string) (places, groupNames []string) {
 	lib.t.Helper()
 	places = storetest.QueryRaw(lib.t, lib.database.Path(), fmt.Sprintf(
-		`SELECT substr(place.path, length(place.path) - 9), position.group_number, position.number_in_group
+		`SELECT substr(place.path, length(place.path) - 9), grp.number, position.number_in_group
 		 FROM ordering JOIN position ON position.ordering_id = ordering.id
+		 LEFT JOIN grp ON grp.id = position.grp_id
 		 JOIN version ON version.work_id = position.work_id JOIN file_filing ON file_filing.version_id = version.id
 		 JOIN place ON place.id = file_filing.file_id
 		 WHERE ordering.sequence_id = %d AND ordering.name = '%s' ORDER BY position.sort_order`, seriesID, ordering))
 	groupNames = storetest.QueryRaw(lib.t, lib.database.Path(), fmt.Sprintf(
-		`SELECT group_text.group_number, group_text.name FROM ordering
-		 JOIN group_text ON group_text.ordering_id = ordering.id
+		`SELECT grp.number, group_text.name FROM ordering
+		 JOIN grp ON grp.ordering_id = ordering.id JOIN group_text ON group_text.grp_id = grp.id
 		 WHERE ordering.sequence_id = %d AND ordering.name = '%s'`, seriesID, ordering))
 	return places, groupNames
 }
@@ -246,4 +247,22 @@ func TestOrderings_ARefreshFetchesEachGroupItKeepsAgain(t *testing.T) {
 		t.Errorf("calls %v; want %v", got, want)
 	}
 	lib.wantPlaces(seriesID, "after the group changed", []string{"S01E01.mkv|1|1", "S01E03.mkv|1|2"})
+}
+
+// A matched series' aired order has a group for each season its provider lists, the specials and a
+// season none of whose episodes is found among them, so that a season's poster has its group to name:
+// identify makes the groups and artwork only looks them up (D426 section 5).
+func TestOrderings_ASeriesAiredOrderHasAGroupForEachSeasonItsProviderLists(t *testing.T) {
+	t.Parallel()
+	lib := emberwingLibrary(t)
+	listed := emberwing
+	listed.SeasonNumbers = []int{0, 1, 2}
+	lib.provider.Searches[identifytest.SearchKey("Emberwing", 0)] = []identify.Candidate{lib.provider.Add(listed)}
+	seriesID := lib.matchEmberwing(emberwingFiles[0])
+	groups := storetest.QueryRaw(t, lib.database.Path(), fmt.Sprintf(
+		`SELECT grp.number FROM ordering JOIN grp ON grp.ordering_id = ordering.id
+		 WHERE ordering.sequence_id = %d AND ordering.name = 'aired' ORDER BY grp.number`, seriesID))
+	if want := []string{"0", "1", "2"}; !slices.Equal(groups, want) {
+		t.Errorf("aired groups %q; want %q, one for each season listed", groups, want)
+	}
 }
