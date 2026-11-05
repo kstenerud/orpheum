@@ -224,8 +224,14 @@ def files_of(core, library, paths):
     core.call("POST", f"/libraries/{library}/scan")
     deadline = time.time() + 300
     while time.time() < deadline:
-        status, out = core.call("GET", f"/files?libraryId={library}&limit=500")
-        files = {f["path"]: f for f in (out or {}).get("files") or [] if f.get("path") in paths}
+        files, cursor = {}, ""
+        while True:
+            page = f"&cursor={urllib.parse.quote(cursor)}" if cursor else ""
+            status, out = core.call("GET", f"/files?library={library}&limit=500{page}")
+            files.update({f["path"]: f for f in (out or {}).get("files") or [] if f.get("path") in paths})
+            cursor = (out or {}).get("nextCursor") or ""
+            if not cursor:
+                break
         if len(files) == len(paths):
             return [files[p] for p in paths]
         time.sleep(2)

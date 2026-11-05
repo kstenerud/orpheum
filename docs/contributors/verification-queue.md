@@ -2631,3 +2631,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   on a trigger still seeks 10 s; (4) holding OK on the controller acts once, as before. Note whether
   a trigger the pad reports as an axis alone (no button) does nothing. (`web/apps/web/src/input-pad-poll.ts`'s
   `nextRepeats`; `input-holds.test.tsx`)
+- [ ] **VQ265** — the hardware playback test runs against this batch's core (D416's API rename). It
+  makes its library with the kind `movie` and finds its films by `GET /files?library=`, following
+  `nextCursor`; it has no test in the suite, so only a run shows it still works. On any machine the
+  hardware test has passed on before, run it as `deploy/hwtest/README.md` says, against a core built at
+  or after this item. Passes when: (1) it makes its library, or finds the one it made, with no 4xx;
+  (2) the scan finds every film it names; (3) the films play as many of N as the machine's last run.
+  (`deploy/hwtest/hwplay.py`'s `library_of` and `files_of`)
