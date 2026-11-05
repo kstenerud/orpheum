@@ -144,11 +144,11 @@ describe("needs a match", () => {
 
 describe("the waiting invitations", () => {
   it("starts the role and the date issued at one x in every row, whatever the notes' lengths", async () => {
-    const invitation = (id: number, adminNote: string, role: string, issuedAt: number) => ({
+    const invitation = (id: number, adminNote: string, role: string) => ({
       id,
       adminNote,
       role,
-      issuedAt,
+      issuedAt: 1_700_000_000_000 + (id - 1) * 100_000_000,
       expiresAt: 0,
       liveLinks: 0,
       links: null,
@@ -159,9 +159,9 @@ describe("the waiting invitations", () => {
       <InvitationsSection
         onOpen={ignore}
         invitations={[
-          invitation(1, "Mum", "admin", 1_700_000_000_000),
-          invitation(2, longNote, "guest", 1_700_100_000_000),
-          invitation(3, "Dan", "guest", 1_700_200_000_000),
+          invitation(1, "Mum", "admin"),
+          invitation(2, longNote, "guest"),
+          invitation(3, "Dan", "guest"),
         ]}
       />,
     );
