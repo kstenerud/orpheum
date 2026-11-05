@@ -97,7 +97,7 @@ describe("the watched check on rows (D370 §2, §3)", () => {
         <Series id={5} />,
         servedBy({
           "GET /items/5": [200, series],
-          "GET /collections/5/seasons/1": [200, { episodes: [] }],
+          "GET /items/5/groups/1": [200, { episodes: [] }],
           "PUT /interest/page": [204, null],
           "DELETE /interest/page": [204, null],
         }),
@@ -159,19 +159,17 @@ describe("marking by hand (D370 §4)", () => {
     const heard: Heard[] = [];
     const answers: Answers = {
       "GET /items/5": [200, series],
-      "GET /collections/5/seasons/2": [200, episodes],
-      "PUT /collections/5/seasons/2/watched": [200, { previous: [] }],
+      "GET /items/5/groups/2": [200, episodes],
+      "PUT /items/5/groups/2/watched": [200, { previous: [] }],
       "PUT /interest/page": [204, null],
       "DELETE /interest/page": [204, null],
     };
     shown = await mount(withServices(<Series id={5} season={2} />, servedBy(answers, heard)));
     const reads = (): number =>
-      heard.filter((each) => each.methodAndPath === "GET /collections/5/seasons/2").length;
+      heard.filter((each) => each.methodAndPath === "GET /items/5/groups/2").length;
     const before = reads();
     await click(buttonNamed(shown.container, "Mark Season 2 as watched"));
-    expect(heard.map((each) => each.methodAndPath)).toContain(
-      "PUT /collections/5/seasons/2/watched",
-    );
+    expect(heard.map((each) => each.methodAndPath)).toContain("PUT /items/5/groups/2/watched");
     expect(reads()).toBeGreaterThan(before);
   });
 
@@ -179,7 +177,7 @@ describe("marking by hand (D370 §4)", () => {
     const heard: Heard[] = [];
     const answers: Answers = {
       "GET /items/5": [200, { ...series, isWatched: true }],
-      "GET /collections/5/seasons/1": [200, { episodes: [] }],
+      "GET /items/5/groups/1": [200, { episodes: [] }],
       "DELETE /collections/5/watched": [200, { previous: [{ titleId: 21, watchedAt: 3 }] }],
       "PUT /interest/page": [204, null],
       "DELETE /interest/page": [204, null],

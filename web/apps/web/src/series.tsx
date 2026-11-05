@@ -374,7 +374,7 @@ export function OrderingChoice(props: {
     }
     runRequest(async () => {
       throwIfRefused(
-        await api.PUT("/collections/{id}/preferences", {
+        await api.PUT("/items/{id}/preferences", {
           params: { path: { id: series.id } },
           body: { episodeOrdering: chosen },
         }),
@@ -500,8 +500,8 @@ function SeasonEpisodes(props: {
     async (cursor: string): Promise<Page<Episode>> => {
       const query = { limit: episodesPerPage, ...(cursor === "" ? {} : { cursor }) };
       const seasonPage = dataOrThrow(
-        await api.GET("/collections/{id}/seasons/{season}", {
-          params: { path: { id: seriesId, season }, query },
+        await api.GET("/items/{id}/groups/{group}", {
+          params: { path: { id: seriesId, group: season }, query },
         }),
       );
       return { items: seasonPage.episodes ?? [], nextCursor: seasonPage.nextCursor ?? "" };
@@ -532,7 +532,7 @@ function NotInOrderEpisodes(props: { readonly seriesId: number }): JSX.Element {
     async (cursor: string): Promise<Page<Episode>> => {
       const query = { limit: episodesPerPage, ...(cursor === "" ? {} : { cursor }) };
       const notInPage = dataOrThrow(
-        await api.GET("/collections/{id}/not-in-order", {
+        await api.GET("/items/{id}/not-in-order", {
           params: { path: { id: seriesId }, query },
         }),
       );

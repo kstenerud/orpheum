@@ -92,7 +92,7 @@ const aSeason: WalkAnswers = {
       { seasonNumber: 2, episodeCount: 1 },
     ],
   },
-  "GET /collections/20/seasons/1": { episodes: [1, 2, 3, 4].map(episode), nextCursor: "" },
+  "GET /items/20/groups/1": { episodes: [1, 2, 3, 4].map(episode), nextCursor: "" },
   "GET /items/303": filmDetail(303, "Episode 3"),
 };
 
@@ -113,7 +113,7 @@ const withNextUp: WalkAnswers = {
 const withThreeSeasons: WalkAnswers = {
   "GET /me": viewer,
   "GET /client-settings": {},
-  "GET /collections/21/seasons/1": { episodes: [1, 2, 3, 4].map(episode), nextCursor: "" },
+  "GET /items/21/groups/1": { episodes: [1, 2, 3, 4].map(episode), nextCursor: "" },
   "GET /items/21": {
     id: 21,
     kind: "series",
@@ -132,7 +132,7 @@ const withThreeSeasons: WalkAnswers = {
 const withTenSeasons: WalkAnswers = {
   "GET /me": viewer,
   "GET /client-settings": {},
-  "GET /collections/22/seasons/10": { episodes: [1, 2].map(episode), nextCursor: "" },
+  "GET /items/22/groups/10": { episodes: [1, 2].map(episode), nextCursor: "" },
   "GET /items/22": {
     id: 22,
     kind: "series",

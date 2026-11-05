@@ -144,7 +144,7 @@ func TestBrowse_ListsDetailsSeriesAndSearch(t *testing.T) {
 	if !strings.Contains(series.body, `"libraries":[{"id":1,"name":`) {
 		t.Errorf("a series = %s; want the library listing its episode", series.body)
 	}
-	season := harness.do(t, http.MethodGet, "/collections/20/seasons/1?limit=10", user, nil)
+	season := harness.do(t, http.MethodGet, "/items/20/groups/1?limit=10", user, nil)
 	if !strings.Contains(season.body, `"name":"Pilot"`) || !strings.Contains(season.body, `"hasLiveFile":true`) {
 		t.Errorf("a season = %d %s", season.status, season.body)
 	}
@@ -189,7 +189,7 @@ func TestBrowse_EachItemShowsItsChosenOrNewestStoredImage(t *testing.T) {
 		{"/titles?kind=series&sort=added&limit=10", `"posterSha256":"` + seriesPoster + `"`},
 		{"/items/10", `"art":{"posterSha256":"` + chosen + `"}`}, // and no refused backdrop
 		{"/items/20", `"stillSha256":"` + still + `"`},           // its season's, its first episode's
-		{"/collections/20/seasons/1?limit=10", `"stillSha256":"` + still + `"`},
+		{"/items/20/groups/1?limit=10", `"stillSha256":"` + still + `"`},
 		{"/items/20", `"art":{"posterSha256":"` + seriesPoster + `"}`},
 	} {
 		if answer := harness.do(t, http.MethodGet, check.path, user, nil); !strings.Contains(answer.body, check.want) {
@@ -214,7 +214,7 @@ func TestBrowse_ATitleThatCannotBeReadNowIsListedAndMarkedUnavailable(t *testing
 	const missing = `"unavailable":{"reason":"root_missing","nodeName":"local","path":"/m","unavailableAt":4000}`
 	for _, path := range []string{
 		"/titles?kind=movie&sort=name&limit=10", "/titles?kind=series&sort=added&limit=10", "/items/10",
-		"/items/21", "/items/20", "/collections/20/seasons/1?limit=10",
+		"/items/21", "/items/20", "/items/20/groups/1?limit=10",
 	} {
 		if got := harness.do(t, http.MethodGet, path, user, nil); got.status != http.StatusOK ||
 			!strings.Contains(got.body, missing) {
@@ -222,7 +222,7 @@ func TestBrowse_ATitleThatCannotBeReadNowIsListedAndMarkedUnavailable(t *testing
 				got.body)
 		}
 	}
-	if season := harness.do(t, http.MethodGet, "/collections/20/seasons/1?limit=10", user,
+	if season := harness.do(t, http.MethodGet, "/items/20/groups/1?limit=10", user,
 		nil); !strings.Contains(season.body, `"name":"Pilot"`) || strings.Count(season.body, missing) != 1 {
 		t.Errorf("the season = %s; want its episode marked", season.body)
 	}
@@ -249,7 +249,7 @@ func TestBrowse_ATitleStillBeingReadIsListedAndMarkedSo(t *testing.T) {
 		"UPDATE file SET reported_path_raw = CAST(path AS BLOB), payload_hash = NULL")
 	const reading = `"unavailable":{"reason":"still_reading","nodeName":"local"}`
 	for _, path := range []string{
-		"/titles?kind=movie&sort=name&limit=10", "/items/10", "/items/20", "/collections/20/seasons/1?limit=10",
+		"/titles?kind=movie&sort=name&limit=10", "/items/10", "/items/20", "/items/20/groups/1?limit=10",
 	} {
 		if got := harness.do(t, http.MethodGet, path, user, nil); got.status != http.StatusOK ||
 			!strings.Contains(got.body, reading) {
@@ -289,7 +289,7 @@ func TestBrowse_ASeriesListsItsSeasonsAndASeasonComesAPageAtATime(t *testing.T) 
 		strings.Contains(series.body, `"episodes"`) {
 		t.Errorf("the series = %s; want seasons 1, 2 and the specials, counted, and no episodes", series.body)
 	}
-	first := harness.do(t, http.MethodGet, "/collections/20/seasons/1?limit=2", user, nil)
+	first := harness.do(t, http.MethodGet, "/items/20/groups/1?limit=2", user, nil)
 	var page struct {
 		Episodes []struct {
 			Name string `json:"name"`
@@ -300,17 +300,17 @@ func TestBrowse_ASeriesListsItsSeasonsAndASeasonComesAPageAtATime(t *testing.T) 
 		page.Episodes[0].Name != "Pilot" || page.Episodes[1].Name != "E30" || page.NextCursor == "" {
 		t.Fatalf("season 1's first page = %s (%v); want Pilot and E30, and a cursor", first.body, err)
 	}
-	next := harness.do(t, http.MethodGet, "/collections/20/seasons/1?limit=2&cursor="+page.NextCursor, user, nil)
+	next := harness.do(t, http.MethodGet, "/items/20/groups/1?limit=2&cursor="+page.NextCursor, user, nil)
 	if !strings.Contains(next.body, `"name":"E31"`) || strings.Contains(next.body, "nextCursor") {
 		t.Errorf("season 1's next page = %s; want E31, the last", next.body)
 	}
-	if specials := harness.do(t, http.MethodGet, "/collections/20/seasons/0?limit=10", user,
+	if specials := harness.do(t, http.MethodGet, "/items/20/groups/0?limit=10", user,
 		nil); !strings.Contains(specials.body, `"name":"E32"`) || !strings.Contains(specials.body, `"name":"E34"`) {
 		t.Errorf("the specials = %s; want E32 and E34", specials.body)
 	}
-	wantError(t, harness.do(t, http.MethodGet, "/collections/20/seasons/1?limit=2&cursor=nope", user, nil),
+	wantError(t, harness.do(t, http.MethodGet, "/items/20/groups/1?limit=2&cursor=nope", user, nil),
 		http.StatusUnprocessableEntity, api.CodeInvalidRequest)
-	wantError(t, harness.do(t, http.MethodGet, "/collections/99/seasons/1?limit=2", user, nil),
+	wantError(t, harness.do(t, http.MethodGet, "/items/99/groups/1?limit=2", user, nil),
 		http.StatusNotFound, api.CodeNotFound)
 }
 

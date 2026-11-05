@@ -75,7 +75,7 @@ const anAdmin: WalkAnswers = {
     ],
     nextUp: { titleId: 302, name: "Episode 2", groupNumber: 1, numberInGroup: 2, fileId: 3020 },
   },
-  "GET /collections/20/seasons/1": {
+  "GET /items/20/groups/1": {
     episodes: [1, 2].map((number) => ({
       id: 300 + number,
       seasonNumber: 1,

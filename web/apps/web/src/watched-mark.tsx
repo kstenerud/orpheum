@@ -92,10 +92,10 @@ export async function markWatched(
       return dataOrThrow(answer).previous ?? [];
     }
     case "season": {
-      const options = { params: { path: { id: target.id, season: target.season } } };
+      const options = { params: { path: { id: target.id, group: target.season } } };
       const answer = isWatched
-        ? await api.PUT("/collections/{id}/seasons/{season}/watched", options)
-        : await api.DELETE("/collections/{id}/seasons/{season}/watched", options);
+        ? await api.PUT("/items/{id}/groups/{group}/watched", options)
+        : await api.DELETE("/items/{id}/groups/{group}/watched", options);
       return dataOrThrow(answer).previous ?? [];
     }
   }
