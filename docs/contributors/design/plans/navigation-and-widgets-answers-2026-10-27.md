@@ -1951,7 +1951,7 @@ After the API batch, tagged `batch-2026-11-05-api`. Built on main while nas.exam
 3. **Next or Previous episode keeps full screen** ("UI issues the owner saw", item 5).
 4. **The cast list's dead click area** ("UI issues the owner saw", item 1's bug only): a browser
    test presses each entry's centre.
-5. **Repointing a library, its design questions** ("Repointing a library"): written for the owner,
+5. **Repointing a library, its design questions** ([repoint-library.md](repoint-library.md)): written for the owner,
    with the devnas.example rehoming tests of 2026-11-06 as input; built after the owner's answers.
 6. **/needs-attention's true totals:** its counts stop at 500 films and 5000 files (D432).
 
