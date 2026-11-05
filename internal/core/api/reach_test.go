@@ -104,7 +104,7 @@ func TestReach_ALibraryTakenBackIsGoneAtTheNextRequestEverywhere(t *testing.T) {
 		}, contains("picture/stream.m3u8")},
 		{"a play report", send(http.MethodPost, reportPath, reportBody(1, 1000, 0)), served},
 		{"a file's preferences", send(http.MethodPut, "/files/1/preferences", offset), served},
-		{"hiding the film", send(http.MethodPost, "/items/30/hide", nil), served},
+		{"hiding the film", send(http.MethodPut, "/items/30/hidden", nil), served},
 		{"marking the film watched", send(http.MethodPut, "/items/30/watched", nil), served},
 		{"marking the film unwatched", send(http.MethodDelete, "/items/30/watched", nil), served},
 		{"its poster", func() response {
@@ -191,7 +191,7 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		"getDirect",
 		"headDirect", "getChunksMasterPlaylist", "getChunkFile",
 		"getSubtitle", "reportPlayback",
-		"setFilePreferences", "hideProgress", "getArt", "getItemCandidates", "postItemMatch", "putOverride",
+		"setFilePreferences", "markHidden", "getArt", "getItemCandidates", "postItemMatch", "putOverride",
 		"deleteOverride", "postItemRefresh", "postItemMatchByLink", "postItemConfirmMatch", "sayPageInterest",
 		"sayTilesInterest",
 		// TestOrderings_APersonChoosesAmongTheOrderingsASeriesHas.
@@ -211,7 +211,7 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		"moveCastOn",
 		// A mark by hand (TestReach_ALibraryTakenBackIsGoneAtTheNextRequestEverywhere,
 		// TestWatched_ASeriesNotReachedIsNoSuchSeriesToMark).
-		"markTitleWatched", "markTitleUnwatched", "markSeriesWatched", "markSeriesUnwatched", "markGroupWatched",
+		"markWatched", "unmarkWatched", "markGroupWatched",
 		"unmarkGroupWatched",
 		// A film played in a cast is reach-checked as startCast's is (castFilmOf;
 		// TestCast_IsASessionInWhichEachFilmPlayedGoesToTheReceiver).
@@ -223,7 +223,7 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 	}
 	noLibraryContent := []string{
 		// The caller's own rows, which say nothing of what a library holds.
-		"unhideProgress", "restoreWatched",
+		"unmarkHidden", "restoreWatched",
 		"getMe", "freshLocator", "getOwnLink", "listMyDevices", "changeMyDevice", "removeMyDevice",
 		"signOutElsewhere", "activateDevice", "answerActivation", "changePassword", "setMyPreferences",
 		"getMyPreferences", "withdrawPageInterest", "withdrawTilesInterest",

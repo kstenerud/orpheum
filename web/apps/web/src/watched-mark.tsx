@@ -77,18 +77,13 @@ export async function markWatched(
   isWatched: boolean,
 ): Promise<readonly WatchedState[]> {
   switch (target.kind) {
-    case "title": {
+    case "title":
+    case "series": {
+      // One route marks an item of either kind (D425 §8).
       const options = { params: { path: { id: target.id } } };
       const answer = isWatched
         ? await api.PUT("/items/{id}/watched", options)
         : await api.DELETE("/items/{id}/watched", options);
-      return dataOrThrow(answer).previous ?? [];
-    }
-    case "series": {
-      const options = { params: { path: { id: target.id } } };
-      const answer = isWatched
-        ? await api.PUT("/collections/{id}/watched", options)
-        : await api.DELETE("/collections/{id}/watched", options);
       return dataOrThrow(answer).previous ?? [];
     }
     case "season": {
@@ -103,7 +98,7 @@ export async function markWatched(
 
 /** Puts marks back as a mark by hand's answer gave them: its Undo. */
 export async function restoreWatched(api: Api, states: readonly WatchedState[]): Promise<void> {
-  throwIfRefused(await api.PUT("/watched", { body: { states: [...states] } }));
+  throwIfRefused(await api.PUT("/me/watched", { body: { states: [...states] } }));
 }
 
 /** What a screen reader says a series' or a season's button marks; undefined for one title's. */

@@ -64,9 +64,9 @@ func (harness testHarness) mark(t *testing.T, method, path, token string) []api.
 // undo puts marks back as a mark's answer gave them.
 func (harness testHarness) undo(t *testing.T, token string, previous []api.WatchedStateBody) {
 	t.Helper()
-	answer := harness.do(t, http.MethodPut, "/watched", token, map[string]any{"states": previous})
+	answer := harness.do(t, http.MethodPut, "/me/watched", token, map[string]any{"states": previous})
 	if answer.status != http.StatusNoContent {
-		t.Fatalf("PUT /watched = %d %s", answer.status, answer.body)
+		t.Fatalf("PUT /me/watched = %d %s", answer.status, answer.body)
 	}
 }
 
@@ -193,7 +193,7 @@ func TestWatched_AnExtraIsNeverMarkedAndAnUndoCannotBeOfTheFuture(t *testing.T) 
 	wantError(t, harness.do(t, http.MethodPut, "/items/12/watched", user, nil), http.StatusUnprocessableEntity,
 		api.CodeInvalidRequest)
 	future := harness.clock.Now().Add(time.Hour).UnixMilli()
-	wantError(t, harness.do(t, http.MethodPut, "/watched", user, map[string]any{
+	wantError(t, harness.do(t, http.MethodPut, "/me/watched", user, map[string]any{
 		"states": []map[string]any{{"titleId": 10, "watchedAt": future}},
 	}), http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 }
@@ -259,7 +259,7 @@ func TestWatched_ASeasonOrASeriesIsMarkedByHandAndCheckedOnceEveryEpisodeIs(t *t
 	if got, want := harness.seriesWatched(t, user), "false 1:false,2:false next 21"; got != want {
 		t.Errorf("season 1's mark undone: %s; want %s", got, want)
 	}
-	harness.mark(t, http.MethodPut, "/collections/20/watched", user)
+	harness.mark(t, http.MethodPut, "/items/20/watched", user)
 	if got, want := harness.seriesWatched(t, user), "true 1:true,2:true next 0"; got != want {
 		t.Errorf("the series marked: %s; want %s", got, want)
 	}
@@ -274,7 +274,7 @@ func TestWatched_ASeasonOrASeriesIsMarkedByHandAndCheckedOnceEveryEpisodeIs(t *t
 	if got, want := harness.seriesWatched(t, user), "false 1:true,2:false next 24"; got != want {
 		t.Errorf("season 2 marked unwatched: %s; want %s", got, want)
 	}
-	harness.mark(t, http.MethodDelete, "/collections/20/watched", user)
+	harness.mark(t, http.MethodDelete, "/items/20/watched", user)
 	if got, want := harness.seriesWatched(t, user), "false 1:false,2:false next 21"; got != want {
 		t.Errorf("the series marked unwatched: %s; want %s", got, want)
 	}
@@ -321,8 +321,8 @@ func TestWatched_ASeriesNotReachedIsNoSuchSeriesToMark(t *testing.T) {
 	harness.mark(t, http.MethodPut, "/items/20/groups/1/watched", partner)
 	harness.giveRoleLibraries(t, admin, "watchers")
 	for _, request := range []struct{ method, path string }{
-		{http.MethodPut, "/collections/20/watched"},
-		{http.MethodDelete, "/collections/20/watched"},
+		{http.MethodPut, "/items/20/watched"},
+		{http.MethodDelete, "/items/20/watched"},
 		{http.MethodPut, "/items/20/groups/1/watched"},
 		{http.MethodDelete, "/items/20/groups/1/watched"},
 		{http.MethodPut, "/items/21/watched"},

@@ -9171,7 +9171,7 @@
         "additionalProperties": false,
         "properties": {
           "previous": {
-            "description": "Each title's mark as it stood before; PUT /watched with them undoes the mark",
+            "description": "Each title's mark as it stood before; PUT /me/watched with them undoes the mark",
             "items": {
               "$ref": "#/components/schemas/WatchedStateBody"
             },
@@ -10268,106 +10268,6 @@
         "summary": "The server settings every client reads: how often a screen asks again (D237), and more",
         "tags": [
           "Settings"
-        ]
-      }
-    },
-    "/collections/{id}/watched": {
-      "delete": {
-        "operationId": "markSeriesUnwatched",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/WatchedMarkOutputBody"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Mark every episode of a series with a file, in the ordering the person watches it in, unwatched by hand (D370)",
-        "tags": [
-          "Playback"
-        ]
-      },
-      "put": {
-        "operationId": "markSeriesWatched",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/WatchedMarkOutputBody"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Mark every episode of a series with a file, in the ordering the person watches it in, watched by hand (D370)",
-        "tags": [
-          "Playback"
         ]
       }
     },
@@ -12198,9 +12098,9 @@
         ]
       }
     },
-    "/items/{id}/hide": {
+    "/items/{id}/hidden": {
       "delete": {
-        "operationId": "unhideProgress",
+        "operationId": "unmarkHidden",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -12242,8 +12142,8 @@
           "Playback"
         ]
       },
-      "post": {
-        "operationId": "hideProgress",
+      "put": {
+        "operationId": "markHidden",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -12764,7 +12664,7 @@
     },
     "/items/{id}/watched": {
       "delete": {
-        "operationId": "markTitleUnwatched",
+        "operationId": "unmarkWatched",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -12807,13 +12707,13 @@
             "description": "Error"
           }
         },
-        "summary": "Mark a film, episode or other video unwatched by hand: as never watched (D370)",
+        "summary": "Mark an item unwatched by hand, as never watched: a film, episode or other video, or every episode of a series with a file, in the ordering the person watches it in (D370)",
         "tags": [
           "Playback"
         ]
       },
       "put": {
-        "operationId": "markTitleWatched",
+        "operationId": "markWatched",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -12856,7 +12756,7 @@
             "description": "Error"
           }
         },
-        "summary": "Mark a film, episode or other video watched by hand: it leaves Continue Watching and plays next from its start (D370)",
+        "summary": "Mark an item watched by hand: a film, episode or other video, or every episode of a series with a file, in the ordering the person watches it in; it leaves Continue Watching and plays next from its start (D370)",
         "tags": [
           "Playback"
         ]
@@ -14663,6 +14563,51 @@
           }
         },
         "summary": "Keep a person's own choices, which hold in every file they play: the boost, levelling, autoplay; and whether their pages show debug tools",
+        "tags": [
+          "Playback"
+        ]
+      }
+    },
+    "/me/watched": {
+      "put": {
+        "operationId": "restoreWatched",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreWatchedInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Put the person's watched marks back as a mark by hand's answer gave them: its Undo (D370)",
         "tags": [
           "Playback"
         ]
@@ -18373,51 +18318,6 @@
         "summary": "Give a user a role, their whole access, from their next request (admin; D243 §4)",
         "tags": [
           "Users"
-        ]
-      }
-    },
-    "/watched": {
-      "put": {
-        "operationId": "restoreWatched",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RestoreWatchedInputBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Put the person's watched marks back as a mark by hand's answer gave them: its Undo (D370)",
-        "tags": [
-          "Playback"
         ]
       }
     }

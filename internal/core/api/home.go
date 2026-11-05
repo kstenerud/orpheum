@@ -45,15 +45,15 @@ func (server *Server) registerHome() {
 		Summary: "The home screen: what the person stopped in the middle of", Tags: []string{"Browse"},
 	}, server.getHome)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "hideProgress", Method: http.MethodPost, Path: "/items/{id}/hide",
+		OperationID: "markHidden", Method: http.MethodPut, Path: "/items/{id}/hidden",
 		Summary:       "Hide a work from Continue Watching until it next has activity; not a completion (D188)",
 		Tags:          []string{tagPlayback},
 		DefaultStatus: http.StatusNoContent,
-	}, server.hideProgress)
+	}, server.markHidden)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "unhideProgress", Method: http.MethodDelete, Path: "/items/{id}/hide",
+		OperationID: "unmarkHidden", Method: http.MethodDelete, Path: "/items/{id}/hidden",
 		Summary: "Undo hiding a work", Tags: []string{tagPlayback}, DefaultStatus: http.StatusNoContent,
-	}, server.unhideProgress)
+	}, server.unmarkHidden)
 	// Marked watched by hand, a work leaves Continue Watching too (D370 §4).
 	server.registerWatched()
 }
@@ -85,7 +85,7 @@ func (server *Server) getHome(ctx context.Context, input *struct{ AuthorizationH
 	return output, nil
 }
 
-func (server *Server) hideProgress(ctx context.Context, input *HideInput) (*struct{}, error) {
+func (server *Server) markHidden(ctx context.Context, input *HideInput) (*struct{}, error) {
 	dependencies, principal, err := server.requireSignedInReachingItem(ctx, input.Authorization, input.ItemID,
 		server.playbackError)
 	if err != nil {
@@ -97,7 +97,7 @@ func (server *Server) hideProgress(ctx context.Context, input *HideInput) (*stru
 	return &struct{}{}, nil
 }
 
-func (server *Server) unhideProgress(ctx context.Context, input *HideInput) (*struct{}, error) {
+func (server *Server) unmarkHidden(ctx context.Context, input *HideInput) (*struct{}, error) {
 	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err

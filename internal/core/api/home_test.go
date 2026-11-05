@@ -114,13 +114,13 @@ func TestContinueWatching_AHiddenWorkLeavesUntilItHasActivityAndUndoBringsItBack
 	harness.setPositionReadAt(t, 2, 60_000, 50)
 	hide := func(method string, id int) {
 		t.Helper()
-		if answer := harness.do(t, method, fmt.Sprintf("/items/%d/hide", id), user, nil); answer.status !=
+		if answer := harness.do(t, method, fmt.Sprintf("/items/%d/hidden", id), user, nil); answer.status !=
 			http.StatusNoContent {
-			t.Fatalf("%s /items/%d/hide = %d %s", method, id, answer.status, answer.body)
+			t.Fatalf("%s /items/%d/hidden = %d %s", method, id, answer.status, answer.body)
 		}
 	}
 	harness.clock.Advance(1)
-	hide(http.MethodPost, 10)
+	hide(http.MethodPut, 10)
 	if got := rowsOf(harness.continueWatching(t, user)); fmt.Sprint(got) != "[21:2:]" {
 		t.Errorf("after hiding Metropolis: %v, want the pilot only", got)
 	}
@@ -128,12 +128,12 @@ func TestContinueWatching_AHiddenWorkLeavesUntilItHasActivityAndUndoBringsItBack
 	if got := rowsOf(harness.continueWatching(t, user)); fmt.Sprint(got) != "[10:1: 21:2:]" {
 		t.Errorf("after undoing the hide: %v, want Metropolis back", got)
 	}
-	hide(http.MethodPost, 10)
+	hide(http.MethodPut, 10)
 	harness.setPositionReadAt(t, 1, 510_000, harness.clock.Now().UnixMilli()+1) // watched again after the hide
 	if got := rowsOf(harness.continueWatching(t, user)); fmt.Sprint(got) != "[10:1: 21:2:]" {
 		t.Errorf("after watching it again: %v, want Metropolis back by itself (D188)", got)
 	}
-	if answer := harness.do(t, http.MethodPost, "/items/99/hide", user, nil); answer.status != http.StatusNotFound {
+	if answer := harness.do(t, http.MethodPut, "/items/99/hidden", user, nil); answer.status != http.StatusNotFound {
 		t.Errorf("hiding what is not there: %d, want 404", answer.status)
 	}
 }

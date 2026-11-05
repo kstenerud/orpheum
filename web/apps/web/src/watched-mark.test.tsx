@@ -137,7 +137,7 @@ describe("marking by hand (D370 §4)", () => {
         [200, film],
       ],
       "PUT /items/10/watched": [200, { previous }],
-      "PUT /watched": [204, null],
+      "PUT /me/watched": [204, null],
       "PUT /interest/page": [204, null],
       "DELETE /interest/page": [204, null],
     };
@@ -149,7 +149,7 @@ describe("marking by hand (D370 §4)", () => {
     expect(buttonWithText(shown.container, "Mark as unwatched")).toBeDefined();
     expect(shown.container.querySelector(".status-note .watched-icon")).not.toBeNull();
     await click(buttonWithText(shown.container, "Undo"));
-    const undo = heard.find((each) => each.methodAndPath === "PUT /watched");
+    const undo = heard.find((each) => each.methodAndPath === "PUT /me/watched");
     expect(undo === undefined ? undefined : bodyField(undo, "states")).toEqual(previous);
     expect(shown.container.textContent).not.toContain("Marked as watched.");
     expect(buttonWithText(shown.container, "Mark as watched")).toBeDefined();
@@ -178,13 +178,13 @@ describe("marking by hand (D370 §4)", () => {
     const answers: Answers = {
       "GET /items/5": [200, { ...series, isWatched: true }],
       "GET /items/5/groups/1": [200, { episodes: [] }],
-      "DELETE /collections/5/watched": [200, { previous: [{ titleId: 21, watchedAt: 3 }] }],
+      "DELETE /items/5/watched": [200, { previous: [{ titleId: 21, watchedAt: 3 }] }],
       "PUT /interest/page": [204, null],
       "DELETE /interest/page": [204, null],
     };
     shown = await mount(withServices(<Series id={5} />, servedBy(answers, heard)));
     await click(buttonNamed(shown.container, "Mark all of Long Run as unwatched"));
-    expect(heard.map((each) => each.methodAndPath)).toContain("DELETE /collections/5/watched");
+    expect(heard.map((each) => each.methodAndPath)).toContain("DELETE /items/5/watched");
     expect(shown.container.textContent).toContain("Marked as unwatched.");
   });
 });

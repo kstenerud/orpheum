@@ -101,17 +101,17 @@ describe("Continue Watching", () => {
     expect(watchedPercent({ positionMs: 250, durationMs: 1000 })).toBe(25);
   });
 
-  it("hides with POST and undoes with DELETE", async () => {
+  it("hides with PUT and undoes with DELETE", async () => {
     const heard: Heard[] = [];
     const { api } = servedBy(
-      { "POST /items/10/hide": [204, undefined], "DELETE /items/10/hide": [204, undefined] },
+      { "PUT /items/10/hidden": [204, undefined], "DELETE /items/10/hidden": [204, undefined] },
       heard,
     );
     await setItemHidden(api, { itemId: 10, isHidden: true }, "click-1");
     await setItemHidden(api, { itemId: 10, isHidden: false }, "click-2");
     expect(heard.map((request) => request.methodAndPath)).toEqual([
-      "POST /items/10/hide",
-      "DELETE /items/10/hide",
+      "PUT /items/10/hidden",
+      "DELETE /items/10/hidden",
     ]);
   });
 });

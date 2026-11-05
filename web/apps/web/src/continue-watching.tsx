@@ -38,8 +38,8 @@ export async function setItemHidden(
   const options = { params: { path: { id: itemId } } };
   throwIfRefused(
     isHidden
-      ? await api.POST("/items/{id}/hide", { ...options, ...idempotent(idempotencyKey) })
-      : await api.DELETE("/items/{id}/hide", options),
+      ? await api.PUT("/items/{id}/hidden", { ...options, ...idempotent(idempotencyKey) })
+      : await api.DELETE("/items/{id}/hidden", options),
   );
 }
 
