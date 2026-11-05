@@ -127,14 +127,16 @@ func TestNeedsAttention_ListsTheFilmsWhoseFileHasNoSound(t *testing.T) {
 	}
 }
 
-// Needs attention lists at most 100 films without sound, and counts them all (D432 §4).
+// Needs attention lists at most 100 films without sound, and counts them all (D432 §4), the count a
+// true total of more films than the files its list reads (filmsWithoutSoundRead, 500).
 func TestNeedsAttention_ListsAHundredAndCountsThemAll(t *testing.T) {
 	t.Parallel()
+	const silentFilms = 520
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
 	harness.shelve(t)
-	names := make([]string, 0, 101)
-	for index := range 101 {
+	names := make([]string, 0, silentFilms)
+	for index := range silentFilms {
 		id := int64(1000 + index)
 		librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: id, Library: 1, Year: 1950, AddedAt: 3})
 		librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: id, TitleID: id, CreatedAt: 3})
@@ -151,8 +153,8 @@ func TestNeedsAttention_ListsAHundredAndCountsThemAll(t *testing.T) {
 			strings.Join(names, ", "))
 	var got api.NeedsAttentionOutput
 	harness.readJSON(t, "/needs-attention", admin, &got.Body)
-	if len(got.Body.FilmsWithoutSound) != 100 || got.Body.FilmsWithoutSoundCount != 101 {
-		t.Errorf("GET /needs-attention listed %d films without sound and counted %d; want 100 and 101",
-			len(got.Body.FilmsWithoutSound), got.Body.FilmsWithoutSoundCount)
+	if len(got.Body.FilmsWithoutSound) != 100 || got.Body.FilmsWithoutSoundCount != silentFilms {
+		t.Errorf("GET /needs-attention listed %d films without sound and counted %d; want 100 and %d",
+			len(got.Body.FilmsWithoutSound), got.Body.FilmsWithoutSoundCount, silentFilms)
 	}
 }

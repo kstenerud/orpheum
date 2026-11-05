@@ -31,6 +31,29 @@ func (q *Queries) CountFilingsOfVersion(ctx context.Context, versionID *int64) (
 	return count, err
 }
 
+const countFilmsWithoutSound = `-- name: CountFilmsWithoutSound :one
+SELECT COUNT(DISTINCT work.id)
+FROM work
+JOIN item ON item.id = work.id AND item.removed_at IS NULL
+JOIN version ON version.work_id = work.id AND version.removed_at IS NULL
+JOIN file_filing ON file_filing.version_id = version.id
+JOIN file_place ON file_place.file_id = file_filing.file_id
+JOIN place ON place.id = file_place.place_id
+WHERE work.kind = 'movie'
+  AND EXISTS (SELECT 1 FROM stream WHERE stream.video_file = place.file_id AND stream.kind = 'video'
+    AND (stream.disposition_flags & 1024) = 0)
+  AND NOT EXISTS (SELECT 1 FROM stream WHERE stream.video_file = place.file_id AND stream.kind = 'audio')
+`
+
+// How many live films ListFilmsWithoutSound's rows are of, each counted once however many of its
+// files lack sound: Needs attention's true total, which its listed films stop short of (D432 section 4).
+func (q *Queries) CountFilmsWithoutSound(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countFilmsWithoutSound)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countItemsMissingSortKey = `-- name: CountItemsMissingSortKey :one
 SELECT count(*)
 FROM item_text
@@ -1801,7 +1824,7 @@ type ListUnnumberedEpisodeFilesRow struct {
 }
 
 // The live files of each series' live episodes that have no number in its aired order, with the
-// series' name, at most max_rows: those outside a specials or extras folder suggest names read
+// series' name, at most max_rows (a negative one reads them all): those outside a specials or extras folder suggest names read
 // wrongly (D306 section 6).
 func (q *Queries) ListUnnumberedEpisodeFiles(ctx context.Context, maxRows int64) ([]ListUnnumberedEpisodeFilesRow, error) {
 	rows, err := q.db.QueryContext(ctx, listUnnumberedEpisodeFiles, maxRows)
