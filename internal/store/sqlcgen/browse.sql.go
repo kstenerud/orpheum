@@ -682,14 +682,16 @@ func (q *Queries) ListFilmsByName(ctx context.Context, arg ListFilmsByNameParams
 }
 
 const listLibrariesOfFile = `-- name: ListLibrariesOfFile :many
-SELECT DISTINCT place_library.library_id
-FROM place_library
-WHERE place_library.place_id = ?1 OR place_library.copy_of = ?1
-ORDER BY place_library.library_id
+SELECT DISTINCT library_place.library_id
+FROM file AS place
+CROSS JOIN library_place ON library_place.place_id = place.id
+WHERE place.id = ?1 OR place.copy_of = ?1
+ORDER BY library_place.library_id
 `
 
 // The live libraries that cover a live place of a file, of any kind: where a person who played it
 // may go back up to, of those they reach (D363 section 4).
+// Read from the file's places outward, by CROSS JOIN: its first and its copies, then what covers each.
 func (q *Queries) ListLibrariesOfFile(ctx context.Context, fileID int64) ([]int64, error) {
 	rows, err := q.db.QueryContext(ctx, listLibrariesOfFile, fileID)
 	if err != nil {
@@ -1358,7 +1360,7 @@ CROSS JOIN other_video ON other_video.work_id = work.id
 JOIN item_text ON item_text.item_id = work.id AND item_text.is_original = 1
 WHERE library_place.library_id = ?1
   AND NOT EXISTS (
-    SELECT 1 FROM place_library AS earlier
+    SELECT 1 FROM library_place AS earlier
     WHERE (earlier.place_id = library_place.file_id OR earlier.copy_of = library_place.file_id)
       AND earlier.library_id = library_place.library_id
       AND (earlier.copy_of IS NOT NULL, earlier.first_seen_at, earlier.place_id)
@@ -1952,10 +1954,10 @@ CROSS JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
 CROSS JOIN file AS place ON (place.id = file.id OR place.copy_of = file.id) AND place.removed_at IS NULL
 WHERE version.work_id = ?1 AND version.removed_at IS NULL
   AND EXISTS (
-    SELECT 1 FROM place_library WHERE place_library.place_id = place.id
-      AND place_library.library_kind = file_filing.library_kind
+    SELECT 1 FROM library_place WHERE library_place.place_id = place.id
+      AND library_place.library_kind = file_filing.library_kind
       AND (CAST(?2 AS INTEGER) = 1
-        OR place_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT)))))
+        OR library_place.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT)))))
 ORDER BY version.id, file_filing.part_index, file.id, place.copy_of IS NOT NULL, place.first_seen_at, place.id
 `
 

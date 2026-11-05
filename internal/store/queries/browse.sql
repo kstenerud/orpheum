@@ -122,10 +122,10 @@ CROSS JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
 CROSS JOIN file AS place ON (place.id = file.id OR place.copy_of = file.id) AND place.removed_at IS NULL
 WHERE version.work_id = sqlc.arg(work_id) AND version.removed_at IS NULL
   AND EXISTS (
-    SELECT 1 FROM place_library WHERE place_library.place_id = place.id
-      AND place_library.library_kind = file_filing.library_kind
+    SELECT 1 FROM library_place WHERE library_place.place_id = place.id
+      AND library_place.library_kind = file_filing.library_kind
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
-        OR place_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT)))))
+        OR library_place.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT)))))
 ORDER BY version.id, file_filing.part_index, file.id, place.copy_of IS NOT NULL, place.first_seen_at, place.id;
 
 -- name: ListStreamsOfVideoFile :many
@@ -374,10 +374,12 @@ WHERE file.id = sqlc.arg(id);
 -- name: ListLibrariesOfFile :many
 -- The live libraries that cover a live place of a file, of any kind: where a person who played it
 -- may go back up to, of those they reach (D363 section 4).
-SELECT DISTINCT place_library.library_id
-FROM place_library
-WHERE place_library.place_id = sqlc.arg(file_id) OR place_library.copy_of = sqlc.arg(file_id)
-ORDER BY place_library.library_id;
+-- Read from the file's places outward, by CROSS JOIN: its first and its copies, then what covers each.
+SELECT DISTINCT library_place.library_id
+FROM file AS place
+CROSS JOIN library_place ON library_place.place_id = place.id
+WHERE place.id = sqlc.arg(file_id) OR place.copy_of = sqlc.arg(file_id)
+ORDER BY library_place.library_id;
 
 -- name: ListUnreadFilesOfWork :many
 -- A title's live videos its listing stored that are not read yet, by where each is, for a person
@@ -551,7 +553,7 @@ CROSS JOIN other_video ON other_video.work_id = work.id
 JOIN item_text ON item_text.item_id = work.id AND item_text.is_original = 1
 WHERE library_place.library_id = sqlc.arg(library_id)
   AND NOT EXISTS (
-    SELECT 1 FROM place_library AS earlier
+    SELECT 1 FROM library_place AS earlier
     WHERE (earlier.place_id = library_place.file_id OR earlier.copy_of = library_place.file_id)
       AND earlier.library_id = library_place.library_id
       AND (earlier.copy_of IS NOT NULL, earlier.first_seen_at, earlier.place_id)

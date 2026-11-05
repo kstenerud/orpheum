@@ -78,7 +78,7 @@ FROM file f
 WHERE f.id > ?1 AND f.id <= ?2 AND f.removed_at IS NULL
   AND f.filing = 'video' AND f.payload_hash IS NOT NULL
   AND EXISTS (SELECT 1 FROM file_probe WHERE file_probe.file_id = f.id)
-  AND EXISTS (SELECT 1 FROM place_library WHERE place_library.place_id = f.id)
+  AND EXISTS (SELECT 1 FROM library_place WHERE library_place.place_id = f.id)
   AND (
     ((SELECT 1 FROM stream s WHERE s.video_file = f.id AND s.kind = 'audio' LIMIT 1) IS NOT NULL
       AND (SELECT 1 FROM loudness l WHERE l.payload_hash = f.payload_hash LIMIT 1) IS NULL)

@@ -281,9 +281,7 @@ func wholeReadsAllowed() map[string]string {
 		// are read once as an extra's page or playing opens (D367 section 2).
 		"GetFilmOfExtra": "the extras' relations, few, read as an extra's page or " +
 			"playing opens (D367)",
-		"ListIdentifyFiles":                    folders + "the identification pass, once",
-		"ListLiveFileLocationsOfWorks":         folders + "where a page's titles' files are",
-		"ListOrderingMemberFilesWithPositions": folders + "a series' members for Next Up",
+		"ListIdentifyFiles": folders + "the identification pass, once",
 		// Every list's other direction, and films and series by release date (D366), as their twins.
 		"ListRecentPlayPositions": folders + "Continue Watching",
 		"ListGenresWithCounts": few + "genres, a few dozen from TMDB and the NFOs, each counted once as " +
