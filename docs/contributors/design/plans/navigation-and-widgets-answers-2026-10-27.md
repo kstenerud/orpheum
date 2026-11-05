@@ -1736,6 +1736,14 @@ sleep.
   2026-11-04): a page mounted in one test showed the details an earlier test left under the same
   title id; the agent's tests use distinct ids (104, 22, 23) to avoid it. Likely a cache the browser
   tests' setup does not reset between tests; find which and reset it.
+- **A season poster whose season has no group is fetched again on every pass** (schema R6,
+  2026-11-05, "refactor(store): make a series' members its aired order's places"): artwork only looks groups up now (identify owns `grp`, the owner,
+  2026-11-05), so a poster for a season the provider's listing does not name stays owed and is
+  fetched and encoded each pass. Record it as refused (missing group) instead, or skip it before
+  the fetch.
+- **Gate-script tests flake under load** (schema R6, 2026-11-05): `scripts/tests/test_gate_lock.py`
+  and then `test_branch_gates.py` each failed one full `make check` and passed alone. A gate, so
+  the owner's to fix.
 
 ## The owner's answers to the System and player agents' questions (the owner, 2026-11-04)
 
