@@ -1880,3 +1880,12 @@ in the following batch."
 - **The model (D429, the owner, 2026-11-05, after a wargame):** paths stay absolute; a repoint is one operation, "folder X on node A is now folder Y on node B", which rewrites every stored path under X in one transaction, at any level, carrying every library over it. It may be slow: moves are rare (the owner).
 - **Seen during the devnas.example stand-in:** libraries are tied to their node. A moved database finds its
   libraries only if the new machine's node keeps the old node's name.
+
+**Measured for it** ([visibility-at-scale-2026-11-05.md](../research/visibility-at-scale-2026-11-05.md)):
+252,000 places rewrite in about 2.5 s in one transaction. What the feature must handle: SQLite checks
+UNIQUE row by row, so moving `/nest` to `/nest/sub` fails partway and needs a temporary prefix; a
+target already holding the same paths is a real conflict; raw and NFC prefixes are rewritten
+separately; `file_filing.identified_from_path` has no node id and is reached through `place`. Paths a
+prefix rewrite cannot reach, for the expansion audit (D429 §4): cache.db `job.destination`
+(`root:3:/media/films`) and `scan_batch.files_json`; free text that may quote a path
+(`place.error_detail_json`, the `filing_reason`s, `person.picture_ref`, `file_nfo.body`).
