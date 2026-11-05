@@ -20,6 +20,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
+import call_budget
+
 ROOT = Path(__file__).resolve().parents[1]
 WEIGHTS = {"input_tokens": 1.0, "cache_creation_input_tokens": 1.25, "cache_read_input_tokens": 0.1,
            "output_tokens": 5.0}
@@ -58,6 +60,13 @@ class Session:
     tools: int = 0
     models: set[str] = field(default_factory=set)
     task: str = ""
+    budgets: list[int] = field(default_factory=list)  # as its brief and the lead's messages state them
+
+    @property
+    def budget(self) -> int:
+        """The calls the agent was given: the brief's budget, or the last a resume stated, to the ceiling."""
+        first = self.budgets[0] if self.budgets else call_budget.DEFAULT_BUDGET
+        return max(first, min(self.budgets[-1] if self.budgets else first, call_budget.CEILING_TIMES * first))
 
 
 def transcripts_of(project: Path) -> Path:
@@ -82,6 +91,8 @@ def read(path: Path, since: str = "") -> Session:
                 continue
             if not session.task and entry.get("type") == "user" and isinstance(message.get("content"), str):
                 session.task = message["content"][:60].replace("\n", " ")
+            if entry.get("type") == "user":
+                session.budgets += call_budget.stated_in(call_budget.said(message))
             if entry.get("type") != "assistant" or str(entry.get("timestamp", "")) < since:
                 continue
             content = message.get("content")
@@ -115,8 +126,15 @@ def report(sessions: list[Session], top: int) -> str:
     unpriced = sorted(set().union(*(s.unpriced for s in sessions)))
     if unpriced:
         lines.append(f"no price for {', '.join(unpriced)}: counted at ${UNKNOWN_INPUT_PRICE:g}/M weighted (PRICES)")
+    agent_sessions = [s for s in sessions if s.is_agent]
+    over = [s for s in agent_sessions if s.tools > s.budget]
+    if agent_sessions:
+        # Set against what each brief stated, so a batch's end shows where the lead's estimates run low.
+        lines.append(f"agents over their call budget: {len(over)} of {len(agent_sessions)}"
+                     + "".join(f"; {s.tools}/{s.budget} {s.task[:30]}" for s in over))
     for s in sorted(sessions, key=lambda s: -s.dollars)[:top]:
-        lines.append(f"${s.dollars:7.2f} {100 * s.dollars / total:4.1f}%  calls {s.calls:4}  tools {s.tools:4}  "
+        budget = f"/{s.budget:<4}" if s.is_agent else "     "
+        lines.append(f"${s.dollars:7.2f} {100 * s.dollars / total:4.1f}%  calls {s.calls:4}  tools {s.tools:4}{budget}  "
                      f"peak {s.peak_context // 1000:4}k  {'agent' if s.is_agent else 'lead '}  "
                      f"{','.join(sorted(s.models))[:24]:24}  {s.task}")
     return "\n".join(lines)

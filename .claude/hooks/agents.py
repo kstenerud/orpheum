@@ -137,11 +137,16 @@ def _record(agent_id: str, key: str, root: Path | None, now: float | None) -> No
 
 def _acting(recorded: dict[str, float], directory: Path, at: float) -> dict[str, float]:
     """The record of an agent acting now, before its "active" is set: an agent first seen takes up one of the
-    launches noted for it; one acting after it stopped was resumed by a message and starts its count anew."""
+    launches noted for it; one acting after it stopped was resumed by a message and starts its count anew,
+    its budget read again from that message, and the calls of its runs before kept as "spent" for the ceiling
+    (on_tool_done.py)."""
     if "active" not in recorded:
         _take_launch(directory, at)
     elif "stopped" in recorded and recorded["stopped"] >= recorded["active"]:
-        recorded = {key: value for key, value in recorded.items() if key not in ("calls", "reminded")}
+        spent = int(recorded.get("spent", 0)) + int(recorded.get("calls", 0))
+        recorded = {key: value for key, value in recorded.items()
+                    if key not in ("calls", "reminded", "warned", "budget")}
+        recorded["spent"] = spent
     return recorded
 
 
@@ -188,11 +193,16 @@ def count_call(agent_id: str, root: Path | None = None, now: float | None = None
 
 
 def mark_reminded(agent_id: str, calls: int, root: Path | None = None) -> None:
+    note(agent_id, root, reminded=calls)
+
+
+def note(agent_id: str, root: Path | None = None, **values: float) -> None:
+    """Sets the values in the agent's record: what the call-budget hook keeps between calls."""
     if not is_agent_id(agent_id):
         return
     path = _state_path(agent_id, root)
     with _locked(path.parent):
-        _write(path, {**_read(path), "reminded": calls})
+        _write(path, {**_read(path), **values})
 
 
 # Launches let through whose agents have not yet acted. Agents launched in one message each passed the

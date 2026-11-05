@@ -73,3 +73,18 @@ class TokenUsage(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Budgets(unittest.TestCase):
+    def test_an_agent_over_the_budget_its_brief_stated_is_named(self):
+        directory = Path(tempfile.mkdtemp())
+        (directory / "subagents").mkdir()
+        (directory / "subagents" / "agent-a.jsonl").write_text("\n".join([
+            json.dumps({"type": "user", "message": {"content": "Rename it.\nCall budget: 1"}}),
+            call("m1", input_tokens=5), call("m2", input_tokens=5)]) + "\n")
+        (directory / "subagents" / "agent-b.jsonl").write_text(call("m3", input_tokens=5) + "\n")
+        self.assertEqual(token_usage.read(directory / "subagents" / "agent-b.jsonl").budget, 150, "none stated")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(token_usage.main(["--dir", str(directory)]), 0)
+        self.assertIn("agents over their call budget: 1 of 2; 2/1 Rename it.", out.getvalue())
