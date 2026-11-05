@@ -1778,7 +1778,7 @@ production. The API's compatibility check starts once it lands.
 
 D426's schema rebuild rides in it (steps 0073–0080, each migrating in place). Before the nas.example
 deploy, the migration is rehearsed on a read-only copy of nas.example's database, with no export/import
-tool (D430, the owner, 2026-11-05).
+tool, and the steps stay appended: no fold this batch (D430, the owner, 2026-11-05).
 
 ## UI issues the owner saw (2026-11-05), recorded only: after the API batch
 

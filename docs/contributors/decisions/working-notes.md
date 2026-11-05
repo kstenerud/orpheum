@@ -26393,7 +26393,7 @@ after it.
 
 ## D430 — People's state carries over by the migration itself, rehearsed on a copy of nas.example's database; no export/import tool
 
-**Decided** (2026-11-05), by the owner, amending D426 §11. D426 §11 planned a one-off export from the
+**Decided** (2026-11-05), by the owner, amending D426 §1, §10 and §11. D426 §11 planned a one-off export from the
 old schema and an import into the new one, because the rebuild was to be greenfield. Every step D416's
 batch added (0073–0080) migrates in place instead, keeping every row, so nas.example's database upgrades
 itself when the new core starts. Asked whether to still build the tool, the owner chose to rehearse
@@ -26406,5 +26406,10 @@ the migration instead.
    rehearsal checks that users, passkeys, watched state, resume positions, hidden items and
    preferences come through, counted before and after, and that the core starts on it.
 3. **A rehearsal that loses anything stops the deploy** and is fixed by a step, as any migration bug is.
+4. **This batch does not fold** (the owner, asked next: "Keep appended, fold later"). A fold rewrites
+   the baseline and leaves an existing database no way to migrate, so D426 §1's new baseline is
+   dropped: the steps stay appended after the checkpoint (D272 §5). D426 §10's cleanups (CHECKs,
+   WITHOUT ROWID, dropping defaults that served only ALTER TABLE) are made as steps too. Once every
+   database has migrated, the owner may move the checkpoint and fold at any time.
 
 **Status:** Decided 2026-11-05; D416's batch rehearses before its nas.example deploy.
