@@ -43,6 +43,8 @@ import {
   filtersKey,
   filtersQuery,
   hasFilters,
+  kindsQuery,
+  type ListedKind,
   type ListCriteria,
 } from "./list-filters.ts";
 import { RouteChooser, type Choice } from "./route-chooser.tsx";
@@ -61,7 +63,7 @@ import { useResource, type Resource } from "./use-resource.ts";
 type SubfolderBody = components["schemas"]["SubfolderBody"];
 
 /** Which titles a list asks for: a library's own kind, or every kind for All libraries. */
-type TitlesKind = "movie" | "series" | "other" | "any";
+type TitlesKind = ListedKind;
 
 /** How many posters a page loads, as Films and Series do (browse.tsx). */
 const entriesPerPage = 60;
@@ -77,7 +79,7 @@ function titlesKindOf(kind: LibraryBody["kind"] | undefined): TitlesKind {
   if (kind === "other") {
     return "other";
   }
-  return "any";
+  return "all";
 }
 
 /**
@@ -91,7 +93,7 @@ function sortOptionsFor(kind: TitlesKind): readonly [LibrarySort, ...LibrarySort
     case "movie":
     case "series":
       return ["name", "released", "added"];
-    case "any":
+    case "all":
       return ["name", "added"];
   }
 }
@@ -183,7 +185,7 @@ function resolveBrowse(
   t: TFunction,
 ): ResolvedBrowse {
   const chosen = chosenLibraryOf(state, sorted);
-  const kind: TitlesKind = state.library === "all" ? "any" : titlesKindOf(chosen?.kind);
+  const kind: TitlesKind = state.library === "all" ? "all" : titlesKindOf(chosen?.kind);
   const sortOptions = sortOptionsFor(kind);
   const showsFolders = kind === "other";
   const sort = resolvedSortOf(state, sortOptions);
@@ -469,7 +471,7 @@ function titlesQuery(
 ) {
   const { kind, library, sort, order, search } = list;
   return {
-    kind,
+    kind: kindsQuery(kind),
     sort,
     ...orderQuery({ sort, order }),
     limit: entriesPerPage,

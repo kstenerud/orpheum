@@ -6483,8 +6483,8 @@ export interface operations {
             query: {
                 /** @description From the previous page's nextCursor; absent for the first page */
                 cursor?: string;
-                /** @description movie, series or other: the genres of that kind's titles; any: of every kind */
-                kind: "movie" | "series" | "other" | "any";
+                /** @description The kinds whose titles' genres it lists, each named, comma-separated: movie, series or other */
+                kind: ("movie" | "series" | "other")[] | null;
                 /** @description As GET /items takes it */
                 library?: number;
                 limit: number;
@@ -6804,8 +6804,8 @@ export interface operations {
                 home?: boolean;
                 /** @description Only the films, extras and series in this state of identification, as Needs a match lists them, by name, each with its identification; with no other filter than library */
                 identification?: "identified" | "ambiguous" | "unidentified" | "confirmed";
-                /** @description movie, series or other; any: every kind, every library's */
-                kind?: "movie" | "series" | "other" | "any";
+                /** @description The kinds it lists, each named, comma-separated: movie, series or other. Absent: films, series and other videos together, every library's. A kind a later server adds is listed only where a client names it (D432 §1) */
+                kind?: ("movie" | "series" | "other")[] | null;
                 /** @description One library's alone; absent for every library the person reaches, less, for films and series, those they left out (leftOutLibraryIds) */
                 library?: number;
                 limit: number;
@@ -7466,8 +7466,8 @@ export interface operations {
                 decade?: number;
                 /** @description Only the titles in this genre, by its id from GET /genres */
                 genre?: number;
-                /** @description As GET /items takes it */
-                kind: "movie" | "series" | "other" | "any";
+                /** @description As GET /items takes it: the kinds, each named, comma-separated */
+                kind: ("movie" | "series" | "other")[] | null;
                 /** @description As GET /items takes it */
                 library?: number;
                 /** @description Only the titles crediting this person, by their id from a title's credits or a search */

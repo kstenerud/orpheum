@@ -78,7 +78,7 @@ export function NewestRow(props: { readonly kind: BrowseKind }): JSX.Element | n
     `newest-${kind}`,
     async () => {
       // A row of Home: of the libraries the person keeps on Home (D366 §5).
-      const query = { kind, sort: "added" as const, limit: newestShown, home: true };
+      const query = { kind: [kind], sort: "added" as const, limit: newestShown, home: true };
       return dataOrThrow(await api.GET("/items", { params: { query } })).items ?? [];
     },
     useBackgroundChangesPoller(),

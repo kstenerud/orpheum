@@ -95,13 +95,14 @@ func TestBrowse_EverySortRunsEitherWayAndWhatHasNoDateIsLast(t *testing.T) {
 		"/items?kind=movie&sort=added":                     "[Faust The Freshman Greed Arkon Metropolis]",
 		"/items?kind=movie&sort=added&order=ascending":     "[Metropolis Arkon Greed The Freshman Faust]",
 		"/items?kind=series&sort=added&order=ascending":    "[Brass Arena Tweedcoat]",
-		"/items?kind=any&sort=name&order=descending":       "[Metropolis Faust Tweedcoat The Freshman Brass Arena Greed Arkon]",
+		"/items?kind=movie,series,other&sort=name&order=descending": "[Metropolis Faust Tweedcoat The Freshman Brass Arena " +
+			"Greed Arkon]",
 	} {
 		if names := harness.pagedNames(t, path, admin); fmt.Sprint(names) != want {
 			t.Errorf("%s in pages of two = %v; want %s", path, names, want)
 		}
 	}
-	for _, kind := range []string{"other", "any"} {
+	for _, kind := range []string{"other", "movie,series,other", "movie,other"} {
 		path := "/items?sort=released&limit=5&kind=" + kind
 		wantInvalidAt(t, harness.do(t, http.MethodGet, path, admin, nil), http.StatusUnprocessableEntity, "query.sort")
 	}

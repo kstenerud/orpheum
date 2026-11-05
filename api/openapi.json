@@ -10923,20 +10923,26 @@
         "operationId": "listGenres",
         "parameters": [
           {
-            "description": "movie, series or other: the genres of that kind's titles; any: of every kind",
+            "description": "The kinds whose titles' genres it lists, each named, comma-separated: movie, series or other",
             "explode": false,
             "in": "query",
             "name": "kind",
             "required": true,
             "schema": {
-              "description": "movie, series or other: the genres of that kind's titles; any: of every kind",
-              "enum": [
-                "movie",
-                "series",
-                "other",
-                "any"
-              ],
-              "type": "string"
+              "description": "The kinds whose titles' genres it lists, each named, comma-separated: movie, series or other",
+              "items": {
+                "enum": [
+                  "movie",
+                  "series",
+                  "other"
+                ],
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": [
+                "array",
+                "null"
+              ]
             }
           },
           {
@@ -11396,20 +11402,30 @@
         "operationId": "listItems",
         "parameters": [
           {
-            "description": "movie, series or other; any: every kind, every library's",
+            "description": "The kinds it lists, each named, comma-separated: movie, series or other. Absent: films, series and other videos together, every library's. A kind a later server adds is listed only where a client names it (D432 §1)",
             "explode": false,
             "in": "query",
             "name": "kind",
             "schema": {
-              "default": "any",
-              "description": "movie, series or other; any: every kind, every library's",
-              "enum": [
+              "default": [
                 "movie",
                 "series",
-                "other",
-                "any"
+                "other"
               ],
-              "type": "string"
+              "description": "The kinds it lists, each named, comma-separated: movie, series or other. Absent: films, series and other videos together, every library's. A kind a later server adds is listed only where a client names it (D432 §1)",
+              "items": {
+                "enum": [
+                  "movie",
+                  "series",
+                  "other"
+                ],
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": [
+                "array",
+                "null"
+              ]
             }
           },
           {
@@ -11614,20 +11630,26 @@
         "operationId": "listItemLetters",
         "parameters": [
           {
-            "description": "As GET /items takes it",
+            "description": "As GET /items takes it: the kinds, each named, comma-separated",
             "explode": false,
             "in": "query",
             "name": "kind",
             "required": true,
             "schema": {
-              "description": "As GET /items takes it",
-              "enum": [
-                "movie",
-                "series",
-                "other",
-                "any"
-              ],
-              "type": "string"
+              "description": "As GET /items takes it: the kinds, each named, comma-separated",
+              "items": {
+                "enum": [
+                  "movie",
+                  "series",
+                  "other"
+                ],
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": [
+                "array",
+                "null"
+              ]
             }
           },
           {

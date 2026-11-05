@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState, type JSX, type RefObject } fr
 import { useTranslation } from "react-i18next";
 
 import { clearOfTheBannerPx, focusAndShow } from "./focus-navigation.ts";
-import { filtersKey, filtersQuery } from "./list-filters.ts";
+import { filtersKey, filtersQuery, kindsQuery, type ListedKind } from "./list-filters.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import type { ListFilters } from "./router.ts";
 import { dataOrThrow } from "./problem.ts";
@@ -82,7 +82,7 @@ export function fromForLetter(letter: string, isZToA: boolean): { readonly from?
  * AlphabetRail's own letters prop. Films, Series and the Libraries page all ask this one way.
  */
 export function useAlphabetRailLetters(list: {
-  readonly kind: "movie" | "series" | "other" | "any";
+  readonly kind: ListedKind;
   readonly library: number | undefined;
   readonly sort: "name" | "file_name";
   /** The list's search, "" for none: only letters some matching title begins with. */
@@ -99,7 +99,7 @@ export function useAlphabetRailLetters(list: {
         await api.GET("/items/letters", {
           params: {
             query: {
-              kind,
+              kind: kindsQuery(kind),
               sort,
               ...(library === undefined ? {} : { library }),
               ...(search === "" ? {} : { query: search }),
@@ -227,7 +227,7 @@ function useJumpedToShown<T>(
  * person went on from it in between. The newest jump wins over one still loading.
  */
 export function useLetterJump<T extends { readonly id: number }>(props: {
-  readonly kind: "movie" | "series" | "other" | "any";
+  readonly kind: ListedKind;
   readonly sort: "name" | "file_name";
   readonly isZToA?: boolean | undefined;
   readonly library: number | undefined;
@@ -251,7 +251,7 @@ export function useLetterJump<T extends { readonly id: number }>(props: {
     }
     let isCurrent = true;
     const query = {
-      kind,
+      kind: kindsQuery(kind),
       sort,
       limit: 1,
       ...(isZToA ? { order: "descending" as const } : {}),

@@ -63,6 +63,9 @@ export function createApi(options: ApiOptions): Api {
   const api = createClient<paths>({
     baseUrl: (options.origin ?? "") + apiPrefix,
     credentials: "same-origin",
+    // A list in a query is one parameter, its values comma-separated (kind=movie,series), as the
+    // document declares every query parameter (explode false; D432 §1).
+    querySerializer: { array: { style: "form", explode: false } },
     ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
   });
   const authorise: Middleware = {

@@ -92,8 +92,8 @@ type PersonOutput struct {
 // GenresInput asks for the genres of a kind of title.
 type GenresInput struct {
 	AuthorizationHeader
-	Kind    string `doc:"movie, series or other: the genres of that kind's titles; any: of every kind" enum:"movie,series,other,any" query:"kind" required:"true"` //nolint:lll // one struct tag
-	Library int64  `doc:"As GET /items takes it" minimum:"0" query:"library"`
+	Kinds   []string `doc:"The kinds whose titles' genres it lists, each named, comma-separated: movie, series or other" enum:"movie,series,other" minItems:"1" query:"kind" required:"true"` //nolint:lll // one struct tag
+	Library int64    `doc:"As GET /items takes it" minimum:"0" query:"library"`
 	PageInput
 }
 
@@ -179,7 +179,7 @@ func (server *Server) listGenres(ctx context.Context, input *GenresInput) (*Genr
 	if err != nil {
 		return nil, err
 	}
-	reach, err := server.listReach(ctx, dependencies, principal, listOf{kind: input.Kind, libraryID: input.Library})
+	reach, err := server.listReach(ctx, dependencies, principal, listOf{kinds: input.Kinds, libraryID: input.Library})
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +187,7 @@ func (server *Server) listGenres(ctx context.Context, input *GenresInput) (*Genr
 	if err != nil {
 		return nil, err
 	}
-	genres, err := dependencies.Browser.GenresAfter(ctx, reach, input.Kind, string(afterName), afterID, input.Limit)
+	genres, err := dependencies.Browser.GenresAfter(ctx, reach, input.Kinds, string(afterName), afterID, input.Limit)
 	if err != nil {
 		return nil, server.libraryError(ctx, "list the genres", err)
 	}

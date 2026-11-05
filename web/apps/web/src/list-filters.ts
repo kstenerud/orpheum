@@ -47,6 +47,22 @@ export function filtersQuery(chips: {
   };
 }
 
+/** A kind GET /items, GET /items/letters and GET /genres take, each by name. */
+type NamedKind = NonNullable<
+  NonNullable<paths["/items"]["get"]["parameters"]["query"]>["kind"]
+>[number];
+
+/** What a list shows: one kind's titles, or every kind's for All libraries. */
+export type ListedKind = NamedKind | "all";
+
+/**
+ * The kinds a list asks for: its one, or All libraries' each by name, so a kind a later server adds
+ * is never shown by a page that does not know it (D432 §1).
+ */
+export function kindsQuery(kind: ListedKind): NamedKind[] {
+  return kind === "all" ? ["movie", "series", "other"] : [kind];
+}
+
 /** The chips as one string, for a list's key: another chip chosen is another list. */
 export function filtersKey(filters: ListFilters | undefined): string {
   if (filters === undefined) {

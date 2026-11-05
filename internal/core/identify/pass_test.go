@@ -390,7 +390,9 @@ func TestPass_NamesAreSortedAndFoundInEveryScript(t *testing.T) {
 	lib := newTestLibrary(t, "movie", "nfo")
 	lib.scan(videoRecord("Sølvi Live (2020).mkv"), videoRecord("Fièvre (2001).mkv"), videoRecord("十字路 (2001).mkv"))
 	browser := library.NewBrowser(lib.database, lib.settings)
-	byName := library.ListQuery{Reach: auth.EveryLibrary(), Kind: library.ListFilms, Sort: library.SortName, Limit: 10}
+	byName := library.ListQuery{
+		Reach: auth.EveryLibrary(), Kinds: []string{library.ListFilms}, Sort: library.SortName, Limit: 10,
+	}
 	listed, err := browser.List(t.Context(), byName)
 	var order []string
 	for _, entry := range listed.Entries {
@@ -415,7 +417,7 @@ func TestRefreshSortAndSearchKeys_ALocaleChangeTakesEffectWithoutAScan(t *testin
 	names := func() []string {
 		t.Helper()
 		byName := library.ListQuery{
-			Reach: auth.EveryLibrary(), Kind: library.ListFilms, Sort: library.SortName, Limit: 10,
+			Reach: auth.EveryLibrary(), Kinds: []string{library.ListFilms}, Sort: library.SortName, Limit: 10,
 		}
 		listed, err := browser.List(t.Context(), byName)
 		if err != nil {
@@ -457,7 +459,9 @@ func TestRefreshSortAndSearchKeys_AKeyOrFoldAnotherBuildMadeIsMadeAgain(t *testi
 	if rewrittenCount, err := lib.pass.RefreshSortAndSearchKeys(t.Context()); err != nil || rewrittenCount != 2 {
 		t.Fatalf("RefreshSortAndSearchKeys = %d, %v; want Apa keyed and Sølvi folded again", rewrittenCount, err)
 	}
-	byName := library.ListQuery{Reach: auth.EveryLibrary(), Kind: library.ListFilms, Sort: library.SortName, Limit: 10}
+	byName := library.ListQuery{
+		Reach: auth.EveryLibrary(), Kinds: []string{library.ListFilms}, Sort: library.SortName, Limit: 10,
+	}
 	listed, err := browser.List(t.Context(), byName)
 	var order []string
 	for _, entry := range listed.Entries {

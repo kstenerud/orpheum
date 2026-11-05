@@ -119,8 +119,8 @@ WHERE credit.person_id = sqlc.arg(person_id)
 ORDER BY credit.item_id, credit.job, credit.ordinal;
 
 -- name: ListGenresWithCounts :many
--- Each genre with how many films, series or other videos of a kind the caller reaches are in it;
--- an empty kind counts every kind. A genre none of them is in is left out. A page: at most max_rows
+-- Each genre with how many films, series or other videos of the kinds kinds_json names (a JSON
+-- array: movie, series, other) the caller reaches are in it. A genre none of them is in is left out. A page: at most max_rows
 -- (-1 for every one) after the genre named after_name with after_id, by name ('' and 0 for the first).
 SELECT genre.id, genre.name, count(*) AS work_count
 FROM genre
@@ -130,8 +130,9 @@ LEFT JOIN work ON work.id = item_genre.item_id
 LEFT JOIN sequence ON sequence.id = item_genre.item_id
 WHERE item.removed_at IS NULL
   AND (genre.name, genre.id) > (CAST(sqlc.arg(after_name) AS TEXT), CAST(sqlc.arg(after_id) AS INTEGER))
-  AND (CAST(sqlc.arg(kind) AS TEXT) = '' OR work.kind = CAST(sqlc.arg(kind) AS TEXT)
-    OR (CAST(sqlc.arg(kind) AS TEXT) = 'series' AND sequence.kind = 'series'))
+  AND (work.kind IN (SELECT value FROM json_each(CAST(sqlc.arg(kinds_json) AS TEXT)))
+    OR (sequence.kind = 'series'
+      AND 'series' IN (SELECT value FROM json_each(CAST(sqlc.arg(kinds_json) AS TEXT)))))
   AND (
   (work.kind IN ('movie', 'other') AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id

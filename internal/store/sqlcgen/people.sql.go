@@ -274,8 +274,9 @@ LEFT JOIN work ON work.id = item_genre.item_id
 LEFT JOIN sequence ON sequence.id = item_genre.item_id
 WHERE item.removed_at IS NULL
   AND (genre.name, genre.id) > (CAST(?1 AS TEXT), CAST(?2 AS INTEGER))
-  AND (CAST(?3 AS TEXT) = '' OR work.kind = CAST(?3 AS TEXT)
-    OR (CAST(?3 AS TEXT) = 'series' AND sequence.kind = 'series'))
+  AND (work.kind IN (SELECT value FROM json_each(CAST(?3 AS TEXT)))
+    OR (sequence.kind = 'series'
+      AND 'series' IN (SELECT value FROM json_each(CAST(?3 AS TEXT)))))
   AND (
   (work.kind IN ('movie', 'other') AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
@@ -297,7 +298,7 @@ LIMIT ?6
 type ListGenresWithCountsParams struct {
 	AfterName      string
 	AfterID        int64
-	Kind           string
+	KindsJSON      string
 	IsEveryLibrary int64
 	LibraryIdsJSON string
 	MaxRows        int64
@@ -309,14 +310,14 @@ type ListGenresWithCountsRow struct {
 	WorkCount int64
 }
 
-// Each genre with how many films, series or other videos of a kind the caller reaches are in it;
-// an empty kind counts every kind. A genre none of them is in is left out. A page: at most max_rows
+// Each genre with how many films, series or other videos of the kinds kinds_json names (a JSON
+// array: movie, series, other) the caller reaches are in it. A genre none of them is in is left out. A page: at most max_rows
 // (-1 for every one) after the genre named after_name with after_id, by name (” and 0 for the first).
 func (q *Queries) ListGenresWithCounts(ctx context.Context, arg ListGenresWithCountsParams) ([]ListGenresWithCountsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listGenresWithCounts,
 		arg.AfterName,
 		arg.AfterID,
-		arg.Kind,
+		arg.KindsJSON,
 		arg.IsEveryLibrary,
 		arg.LibraryIdsJSON,
 		arg.MaxRows,

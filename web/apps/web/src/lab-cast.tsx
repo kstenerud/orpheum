@@ -52,7 +52,7 @@ function useFilms(api: Api): readonly Film[] {
   const [films, setFilms] = useState<readonly Film[]>([]);
   useEffect(() => {
     void api
-      .GET("/items", { params: { query: { kind: "movie", sort: "name", limit: filmsOffered } } })
+      .GET("/items", { params: { query: { kind: ["movie"], sort: "name", limit: filmsOffered } } })
       .then((answer) => {
         setFilms(dataOrThrow(answer).items ?? []);
       })

@@ -169,8 +169,8 @@ func TestList_FiltersByGenrePersonDecadeAndUnwatchedCombine(t *testing.T) {
 	world := newCreditedShelf(t)
 	list := func(query ListQuery) []string {
 		t.Helper()
-		query.Reach, query.Kind, query.Sort, query.Limit, query.UserID = auth.EveryLibrary(), ListFilms, SortName,
-			10, world.userID
+		query.Reach, query.Kinds, query.Sort = auth.EveryLibrary(), []string{ListFilms}, SortName
+		query.Limit, query.UserID = 10, world.userID
 		page, err := world.browser.List(t.Context(), query)
 		if err != nil {
 			t.Fatal(err)
@@ -278,7 +278,7 @@ func TestPerson_ListsTheReachedTitlesCreditingThem(t *testing.T) {
 func TestGenres_CountTheReachedTitles(t *testing.T) {
 	t.Parallel()
 	world := newCreditedShelf(t)
-	genres, err := world.browser.Genres(t.Context(), auth.EveryLibrary(), ListFilms)
+	genres, err := world.browser.Genres(t.Context(), auth.EveryLibrary(), []string{ListFilms})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -289,7 +289,8 @@ func TestGenres_CountTheReachedTitles(t *testing.T) {
 	if want := []string{"Animation 1", "Crime 2", "Drama 2"}; !slices.Equal(got, want) {
 		t.Errorf("genres %v; want %v", got, want)
 	}
-	if none, err := world.browser.Genres(t.Context(), auth.LibrariesOnly(99), ListAny); err != nil || len(none) != 0 {
+	none, err := world.browser.Genres(t.Context(), auth.LibrariesOnly(99), ListKinds())
+	if err != nil || len(none) != 0 {
 		t.Errorf("genres of a library not reached %v, %v; want none", none, err)
 	}
 }
