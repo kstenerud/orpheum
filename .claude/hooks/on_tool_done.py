@@ -23,22 +23,28 @@ CALL_REMINDER = 25
 WARN_AT = 0.8
 
 
-def warning(calls: int, budget: int, warned: bool) -> str | None:
+def _counted(calls: int, spent: int) -> str:
+    """The call as the agent counts it: a resumed agent's run counts anew, and its total is said beside it."""
+    return f"tool call {calls}" + (f" of this run ({calls + spent} in all)" if spent else "")
+
+
+def warning(calls: int, budget: int, warned: bool, spent: int = 0) -> str | None:
     """The one warning, due from WARN_AT of the budget until the budget itself."""
     if warned or calls < math.ceil(WARN_AT * budget) or calls >= budget:
         return None
-    return (f"This is your tool call {calls} of a budget of {budget}: about {budget - calls} left. Finish and "
-            "commit the stage you are in; start another only if it fits.")
+    return (f"This is your {_counted(calls, spent)}; your budget is {budget}: about {budget - calls} left. "
+            "Finish and commit the stage you are in; start another only if it fits.")
 
 
-def reminder(calls: int, reminded: int = 0, budget: int = DEFAULT_BUDGET, at_ceiling: bool = False) -> str | None:
+def reminder(calls: int, reminded: int = 0, budget: int = DEFAULT_BUDGET, at_ceiling: bool = False,
+             spent: int = 0) -> str | None:
     """The reminder due at this call, given the call last reminded at (0: never). Due from the budget, then
     CALL_REMINDER calls after the last, so a count that skips a number still reminds."""
     if calls < budget or (reminded and calls - reminded < CALL_REMINDER):
         return None
     after = ("This is the ceiling: no extension follows, and a fresh agent takes the rest." if at_ceiling else
              "The lead resumes you, or briefs a fresh agent, from your report.")
-    return (f"This is your tool call {calls}; your budget is {budget}. Commit what works, then report what is "
+    return (f"This is your {_counted(calls, spent)}; your budget is {budget}. Commit what works, then report what is "
             f"done, what is left, and your estimate of the calls the rest needs, and stop. {after}")
 
 
@@ -82,11 +88,12 @@ def main() -> None:
     calls, reminded = agents.count_call(agent_id)
     recorded = agents.state(agent_id)
     budget, at_ceiling = budget_of(event, agent_id, recorded)
-    said = reminder(calls, reminded, budget, at_ceiling)
+    spent = int(recorded.get("spent") or 0)
+    said = reminder(calls, reminded, budget, at_ceiling, spent)
     if said:
         agents.mark_reminded(agent_id, calls)
     else:
-        said = warning(calls, budget, bool(recorded.get("warned")))
+        said = warning(calls, budget, bool(recorded.get("warned")), spent)
         if said:
             agents.note(agent_id, warned=calls)
     if said:
