@@ -38,6 +38,45 @@ const signedIn: WalkAnswers = {
   "GET /titles": { titles: films(6), nextCursor: "" },
 };
 
+/** An administrator's answers, for the pages only they reach: Libraries, People, a library's files. */
+const anAdmin: WalkAnswers = {
+  ...signedIn,
+  "GET /me": { ...viewer, role: "admin", isAdmin: true },
+  "GET /libraries": {
+    libraries: [
+      {
+        id: 1,
+        name: "Films",
+        kind: "movies",
+        metadataSource: "nfo_then_tmdb",
+        changeDetection: "watch",
+        isWritable: true,
+        createdAt: 0,
+      },
+    ],
+  },
+  "GET /users": {
+    accounts: [
+      { id: 1, name: "Karl", role: "admin", hasPassword: true },
+      { id: 2, name: "Dana", role: "viewer", hasPassword: true },
+    ],
+  },
+  "GET /invitations": { invitations: [] },
+  "GET /files": {
+    files: [
+      {
+        id: 7,
+        libraryId: 1,
+        path: "/media/7.mkv",
+        filing: "skipped",
+        filingReason: "extension",
+        firstSeenAt: 1,
+        lastSeenAt: 1,
+      },
+    ],
+  },
+};
+
 /** A device of the person's, as GET /me/devices lists it. */
 function device(id: number, name: string, isThisDevice = false): Record<string, unknown> {
   return {
@@ -233,6 +272,26 @@ describe("a page's arrival", () => {
         message: focused(),
       })
       .toBe(true);
+  });
+
+  it("is the Libraries page's first library", async () => {
+    await page.viewport(1280, 800);
+    walking = await mountApp(walkServices(anAdmin, "/libraries"));
+    await arrivesIn(".libraries__list");
+    expect(focusedName()).toBe("Manage this library");
+  });
+
+  it("is the People page's first person", async () => {
+    await page.viewport(1280, 800);
+    walking = await mountApp(walkServices(anAdmin, "/people"));
+    await arrivesIn(".people__list");
+    expect(focusedName()).toContain("Karl");
+  });
+
+  it("is the first of the files a library's scanner saw", async () => {
+    await page.viewport(1280, 800);
+    walking = await mountApp(walkServices(anAdmin, "/libraries/1/files"));
+    await arrivesIn("details");
   });
 
   it("is the sign-in form's first empty field", async () => {
