@@ -1824,6 +1824,12 @@ When the owner asks for it, the gate as tried and dropped that day:
 - Tests with a stand-in oasdiff in a scratch repository (`scripts/tests/gitrepo.py`): a removal
   fails, the trailer lets it through, an addition passes, a missing binary fails.
 
+**Where the batch ends (the owner, 2026-11-05: "Tag that commit so that we don't lose it"):** tag
+`batch-2026-11-05-api` on "test(web): one note on the menu walks' wait, keeping the file at 800 lines". check-pr passed at "fix(hwtest): find the films by GET /files?library=, page by page"; the two commits after it change a
+test only. Staging runs it, migrated 67 → 83 with every person's row kept. nas.example gets this tag
+after 2026-11-06 at the owner's word, not main, which goes on with the next batch. Main may go
+instead if it has passed its own check-pr and been tried on staging.
+
 ## UI issues the owner saw (2026-11-05), recorded only: after the API batch
 
 The owner: "I only want these recorded for now because I want to get the API revamp out of the way."
