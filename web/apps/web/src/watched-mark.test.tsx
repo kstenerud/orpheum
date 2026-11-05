@@ -98,8 +98,8 @@ describe("the watched check on rows (D370 §2, §3)", () => {
         servedBy({
           "GET /collections/5": [200, series],
           "GET /collections/5/seasons/1": [200, { episodes: [] }],
-          "PUT /interest/5": [204, null],
-          "DELETE /interest/5": [204, null],
+          "PUT /interest/page": [204, null],
+          "DELETE /interest/page": [204, null],
         }),
       ),
     );
@@ -138,8 +138,8 @@ describe("marking by hand (D370 §4)", () => {
       ],
       "PUT /items/10/watched": [200, { previous }],
       "PUT /watched": [204, null],
-      "PUT /interest/10": [204, null],
-      "DELETE /interest/10": [204, null],
+      "PUT /interest/page": [204, null],
+      "DELETE /interest/page": [204, null],
     };
     shown = await mount(withServices(<Title id={10} />, servedBy(answers, heard)));
     await click(buttonWithText(shown.container, "Mark as watched"));
@@ -161,8 +161,8 @@ describe("marking by hand (D370 §4)", () => {
       "GET /collections/5": [200, series],
       "GET /collections/5/seasons/2": [200, episodes],
       "PUT /collections/5/seasons/2/watched": [200, { previous: [] }],
-      "PUT /interest/5": [204, null],
-      "DELETE /interest/5": [204, null],
+      "PUT /interest/page": [204, null],
+      "DELETE /interest/page": [204, null],
     };
     shown = await mount(withServices(<Series id={5} season={2} />, servedBy(answers, heard)));
     const reads = (): number =>
@@ -181,8 +181,8 @@ describe("marking by hand (D370 §4)", () => {
       "GET /collections/5": [200, { ...series, isWatched: true }],
       "GET /collections/5/seasons/1": [200, { episodes: [] }],
       "DELETE /collections/5/watched": [200, { previous: [{ titleId: 21, watchedAt: 3 }] }],
-      "PUT /interest/5": [204, null],
-      "DELETE /interest/5": [204, null],
+      "PUT /interest/page": [204, null],
+      "DELETE /interest/page": [204, null],
     };
     shown = await mount(withServices(<Series id={5} />, servedBy(answers, heard)));
     await click(buttonNamed(shown.container, "Mark all of Long Run as unwatched"));

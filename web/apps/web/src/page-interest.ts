@@ -20,18 +20,16 @@ export function usePageInterest(itemId: number, season?: number): void {
   const { api } = useServices();
   const everySeconds = useContext(InterestSaidEveryContext);
   useEffect(() => {
-    const thisItem = {
-      path: { id: itemId },
-      ...(season === undefined ? {} : { query: { season } }),
-    };
+    // A series' season is its group (D186 §2); a film's page or a series' own names none.
+    const thisPage = { item: itemId, ...(season === undefined ? {} : { group: season }) };
     const say = (): void => {
       if (document.visibilityState === "visible") {
-        void api.PUT("/interest/{id}", { params: thisItem }).catch(() => undefined);
+        void api.PUT("/interest/page", { body: thisPage }).catch(() => undefined);
       }
     };
     const leave = (): void => {
       void api
-        .DELETE("/interest/{id}", { params: thisItem, keepalive: true })
+        .DELETE("/interest/page", { params: { query: thisPage }, keepalive: true })
         .catch(() => undefined);
     };
     const onVisibility = (): void => {

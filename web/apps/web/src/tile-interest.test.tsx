@@ -40,10 +40,10 @@ const films = [1, 2, 3, 4].map((id): Entry => ({
 /** What the grid said of its tiles: each PUT's item ids, and each DELETE. */
 function tilesSaid(heard: readonly Heard[]): string[] {
   return heard
-    .filter((request) => request.methodAndPath.endsWith("/tiles/interest"))
+    .filter((request) => request.methodAndPath.endsWith("/interest/tiles"))
     .map((request) =>
       request.methodAndPath.startsWith("PUT")
-        ? `PUT ${JSON.stringify(bodyField(request, "itemIds"))}`
+        ? `PUT ${JSON.stringify(bodyField(request, "items"))}`
         : request.methodAndPath,
     );
 }
@@ -63,7 +63,7 @@ describe("a grid's tiles in view (D362 §4)", () => {
     });
     const heard: Heard[] = [];
     const services = servedBy(
-      { "PUT /tiles/interest": [204, null], "DELETE /tiles/interest": [204, null] },
+      { "PUT /interest/tiles": [204, null], "DELETE /interest/tiles": [204, null] },
       heard,
     );
     const grid = await mount(withServices(<PosterGrid entries={films} />, services));
@@ -98,6 +98,6 @@ describe("a grid's tiles in view (D362 §4)", () => {
     await settleUntil(() => tilesSaid(heard).length === 2);
     expect(tilesSaid(heard)).toEqual(["PUT [1,2]", "PUT [2,3]"]);
     grid.unmount();
-    await settleUntil(() => tilesSaid(heard).at(-1) === "DELETE /tiles/interest");
+    await settleUntil(() => tilesSaid(heard).at(-1) === "DELETE /interest/tiles");
   });
 });

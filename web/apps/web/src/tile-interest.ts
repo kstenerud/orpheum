@@ -65,7 +65,7 @@ export function useTilesInterest(itemIds: readonly number[]): void {
     const leave = (): void => {
       if (hasSaid.current) {
         hasSaid.current = false;
-        void api.DELETE("/tiles/interest", { keepalive: true }).catch(() => undefined);
+        void api.DELETE("/interest/tiles", { keepalive: true }).catch(() => undefined);
       }
     };
     window.addEventListener("pagehide", leave);
@@ -82,7 +82,7 @@ export function useTilesInterest(itemIds: readonly number[]): void {
     const say = (): void => {
       if (document.visibilityState === "visible") {
         hasSaid.current = true;
-        void api.PUT("/tiles/interest", { body: { itemIds: ids } }).catch(() => undefined);
+        void api.PUT("/interest/tiles", { body: { items: ids } }).catch(() => undefined);
       }
     };
     const onVisibility = (): void => {
@@ -90,7 +90,7 @@ export function useTilesInterest(itemIds: readonly number[]): void {
         say();
       } else if (hasSaid.current) {
         hasSaid.current = false;
-        void api.DELETE("/tiles/interest", { keepalive: true }).catch(() => undefined);
+        void api.DELETE("/interest/tiles", { keepalive: true }).catch(() => undefined);
       }
     };
     const settle = setTimeout(say, tilesSettleMs);

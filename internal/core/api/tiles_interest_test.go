@@ -17,15 +17,15 @@ func TestInterest_ASessionSaysTheTilesItShowsAndLeavesThem(t *testing.T) {
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
 	harness.ambiguousTitle(t)
-	shown := harness.do(t, http.MethodPut, "/tiles/interest", admin, map[string][]int64{"itemIds": {10}})
+	shown := harness.do(t, http.MethodPut, "/interest/tiles", admin, map[string][]int64{"items": {10}})
 	if shown.status != http.StatusNoContent {
-		t.Fatalf("PUT /tiles/interest = %d %s", shown.status, shown.body)
+		t.Fatalf("PUT /interest/tiles = %d %s", shown.status, shown.body)
 	}
 	if looks := harness.looks.Looks(time.Minute); len(looks) != 1 || !slices.Equal(looks[0].Tiles, []int64{10}) {
 		t.Errorf("looks %+v; want the session's tiles, film 10's", looks)
 	}
-	if left := harness.do(t, http.MethodDelete, "/tiles/interest", admin, nil); left.status != http.StatusNoContent {
-		t.Fatalf("DELETE /tiles/interest = %d %s", left.status, left.body)
+	if left := harness.do(t, http.MethodDelete, "/interest/tiles", admin, nil); left.status != http.StatusNoContent {
+		t.Fatalf("DELETE /interest/tiles = %d %s", left.status, left.body)
 	}
 	if looks := harness.looks.Looks(time.Minute); len(looks) != 0 {
 		t.Errorf("looks %+v after the list was left; want none", looks)

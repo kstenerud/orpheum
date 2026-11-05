@@ -624,7 +624,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/interest/{id}": {
+    "/interest/page": {
         parameters: {
             query?: never;
             header?: never;
@@ -633,10 +633,28 @@ export interface paths {
         };
         get?: never;
         /** Say this session shows a film's or series' page, or a series' season's, which raises its work, again every interest_said_every_seconds while it does (D324) */
-        put: operations["putInterest"];
+        put: operations["sayPageInterest"];
         post?: never;
         /** Say this session left a film's or series' page, or a series' season's, which lets its work fall back (D324) */
-        delete: operations["deleteInterest"];
+        delete: operations["withdrawPageInterest"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/interest/tiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Say this session shows the tiles of these films, series and videos in view, which raises the work of their pictures, again every interest_said_every_seconds while it does (D362, D324) */
+        put: operations["sayTilesInterest"];
+        post?: never;
+        /** Say this session shows no list's tiles, which lets their work fall back (D362, D324) */
+        delete: operations["withdrawTilesInterest"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2050,24 +2068,6 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/tiles/interest": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Say this session shows the tiles of these films, series and videos in view, which raises the work of their pictures, again every interest_said_every_seconds while it does (D362, D324) */
-        put: operations["putTilesInterest"];
-        post?: never;
-        /** Say this session shows no list's tiles, which lets their work fall back (D362, D324) */
-        delete: operations["deleteTilesInterest"];
         options?: never;
         head?: never;
         patch?: never;
@@ -4198,6 +4198,18 @@ export interface components {
             link?: string;
             secret?: string;
         };
+        PageInterestInputBody: {
+            /**
+             * Format: int64
+             * @description The season a series' page shows, whose episodes it raises, 0 for the specials; absent for a film's page or a series' own
+             */
+            group?: number;
+            /**
+             * Format: int64
+             * @description The film or series whose page it is
+             */
+            item: number;
+        };
         PairingOutputBody: {
             code: string;
             /**
@@ -5312,7 +5324,7 @@ export interface components {
         };
         TilesInterestInputBody: {
             /** @description The items whose tiles are in view */
-            itemIds: number[] | null;
+            items: number[] | null;
         };
         TitlesOutputBody: {
             /** @description Empty on the last page */
@@ -7118,20 +7130,53 @@ export interface operations {
             };
         };
     };
-    putInterest: {
+    sayPageInterest: {
         parameters: {
-            query?: {
-                /** @description The season a series' page shows, whose episodes it raises, 0 for the specials; -1, the default, for a film's page or a series' own */
-                season?: number;
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PageInterestInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    withdrawPageInterest: {
+        parameters: {
+            query: {
+                /** @description The season the series' page showed, 0 for the specials; -1, the default, for a film's page or a series' own */
+                group?: number;
+                /** @description The film or series whose page it was */
+                item: number;
             };
             header?: {
                 /** @description Bearer <session token> */
                 Authorization?: string;
             };
-            path: {
-                /** @description The film or series whose page it is */
-                id: number;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -7154,20 +7199,48 @@ export interface operations {
             };
         };
     };
-    deleteInterest: {
+    sayTilesInterest: {
         parameters: {
-            query?: {
-                /** @description The season a series' page shows, whose episodes it raises, 0 for the specials; -1, the default, for a film's page or a series' own */
-                season?: number;
-            };
+            query?: never;
             header?: {
                 /** @description Bearer <session token> */
                 Authorization?: string;
             };
-            path: {
-                /** @description The film or series whose page it is */
-                id: number;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TilesInterestInputBody"];
             };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    withdrawTilesInterest: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -10541,70 +10614,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["UpdateBody"];
                 };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    putTilesInterest: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TilesInterestInputBody"];
-            };
-        };
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    deleteTilesInterest: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             /** @description Error */
             default: {

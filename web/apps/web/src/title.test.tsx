@@ -251,10 +251,8 @@ describe("Title", () => {
           200,
           { delivery: "direct", url: "/u", notDirectReasons: [], mediaToken: "a" },
         ],
-        "PUT /interest/10": [204, null],
-        "DELETE /interest/10": [204, null],
-        "PUT /interest/11": [204, null],
-        "DELETE /interest/11": [204, null],
+        "PUT /interest/page": [204, null],
+        "DELETE /interest/page": [204, null],
       },
       heard,
     );
@@ -298,8 +296,8 @@ describe("Title", () => {
             200,
             { delivery: "direct", url: "/u", notDirectReasons: [], mediaToken: "a", onLadder },
           ],
-          "PUT /interest/10": [204, null],
-          "DELETE /interest/10": [204, null],
+          "PUT /interest/page": [204, null],
+          "DELETE /interest/page": [204, null],
         },
         heard,
       );
@@ -332,19 +330,27 @@ describe("Title", () => {
               200,
               { ...heat, id: 11, unavailable: { reason: "node_away" as const, nodeName: "devnas" } },
             ],
-            "PUT /interest/11": [204, null],
-            "DELETE /interest/11": [204, null],
+            "PUT /interest/page": [204, null],
+            "DELETE /interest/page": [204, null],
           },
           heard,
         ),
       ),
     );
-    expect(heard.map((request) => request.methodAndPath)).toContain("PUT /interest/11");
+    expect(
+      heard.map((request) => `${request.methodAndPath} ${JSON.stringify(request.body)}`),
+    ).toContain('PUT /interest/page {"item":11}');
     page.unmount();
     await settleUntil(() =>
-      heard.some((request) => request.methodAndPath === "DELETE /interest/11"),
+      heard.some(
+        (request) =>
+          `${request.methodAndPath}${request.query ?? ""}` === "DELETE /interest/page?item=11",
+      ),
     );
-    expect(heard.at(-1)?.methodAndPath).toBe("DELETE /interest/11");
+    const last = heard.at(-1);
+    expect(`${last?.methodAndPath ?? ""}${last?.query ?? ""}`).toBe(
+      "DELETE /interest/page?item=11",
+    );
   });
 
   it("offers Play by itself once its file is read, or can be read again (the owner, 2026-10-24)", async () => {
@@ -368,8 +374,8 @@ describe("Title", () => {
             200,
             { delivery: "direct", url: "/u", notDirectReasons: [], mediaToken: "a" },
           ],
-          [`PUT /interest/${String(id)}`]: [204, null],
-          [`DELETE /interest/${String(id)}`]: [204, null],
+          "PUT /interest/page": [204, null],
+          "DELETE /interest/page": [204, null],
         },
         heard,
       );
@@ -407,8 +413,8 @@ describe("Title", () => {
           200,
           { delivery: "direct", url: "/u", notDirectReasons: [], mediaToken: "a" },
         ],
-        "PUT /interest/15": [204, null],
-        "DELETE /interest/15": [204, null],
+        "PUT /interest/page": [204, null],
+        "DELETE /interest/page": [204, null],
       },
       heard,
     );
@@ -455,8 +461,8 @@ describe("a film whose match is a guess (D301)", () => {
           200,
           { delivery: "direct", url: "/u", notDirectReasons: [], mediaToken: "a" },
         ],
-        "PUT /interest/12": [204, null],
-        "DELETE /interest/12": [204, null],
+        "PUT /interest/page": [204, null],
+        "DELETE /interest/page": [204, null],
       },
       heard,
     );
@@ -521,8 +527,8 @@ describe("a film whose match is a guess (D301)", () => {
           200,
           { delivery: "direct", url: "/u", notDirectReasons: [], mediaToken: "a" },
         ],
-        "PUT /interest/13": [204, null],
-        "DELETE /interest/13": [204, null],
+        "PUT /interest/page": [204, null],
+        "DELETE /interest/page": [204, null],
       },
       heard,
     );
@@ -555,8 +561,8 @@ describe("a film whose match is a guess (D301)", () => {
         200,
         { delivery: "direct", url: "/u", notDirectReasons: [], mediaToken: "a" },
       ],
-      "PUT /interest/14": [204, null],
-      "DELETE /interest/14": [204, null],
+      "PUT /interest/page": [204, null],
+      "DELETE /interest/page": [204, null],
     });
     const mounted = await mount(
       withServices(
@@ -585,8 +591,8 @@ describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
     const services = servedBy({
       "GET /items/10": [200, heat],
       "POST /playback": played(754_000),
-      "PUT /interest/10": [204, null],
-      "DELETE /interest/10": [204, null],
+      "PUT /interest/page": [204, null],
+      "DELETE /interest/page": [204, null],
     });
     const mounted = await mount(withServices(<Title id={10} />, services));
     const page = mounted.container;
@@ -605,8 +611,8 @@ describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
     const services = servedBy({
       "GET /items/10": [200, heat],
       "POST /playback": played(0),
-      "PUT /interest/10": [204, null],
-      "DELETE /interest/10": [204, null],
+      "PUT /interest/page": [204, null],
+      "DELETE /interest/page": [204, null],
     });
     const mounted = await mount(withServices(<Title id={10} />, services));
     const page = mounted.container;
@@ -638,8 +644,8 @@ describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
           },
         },
       ],
-      "PUT /interest/40": [204, null],
-      "DELETE /interest/40": [204, null],
+      "PUT /interest/page": [204, null],
+      "DELETE /interest/page": [204, null],
     });
     const mounted = await mount(withServices(<Title id={40} />, services));
     const page = mounted.container;
@@ -662,8 +668,8 @@ describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
       {
         "GET /items/10": [200, heat],
         "POST /playback": played(0),
-        "PUT /interest/10": [204, null],
-        "DELETE /interest/10": [204, null],
+        "PUT /interest/page": [204, null],
+        "DELETE /interest/page": [204, null],
       },
       heard,
     );

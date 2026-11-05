@@ -4914,6 +4914,27 @@
         ],
         "type": "object"
       },
+      "PageInterestInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "group": {
+            "description": "The season a series' page shows, whose episodes it raises, 0 for the specials; absent for a film's page or a series' own",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "item": {
+            "description": "The film or series whose page it is",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "item"
+        ],
+        "type": "object"
+      },
       "PairingOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -8378,7 +8399,7 @@
       "TilesInterestInputBody": {
         "additionalProperties": false,
         "properties": {
-          "itemIds": {
+          "items": {
             "description": "The items whose tiles are in view",
             "items": {
               "format": "int64",
@@ -8392,7 +8413,7 @@
           }
         },
         "required": [
-          "itemIds"
+          "items"
         ],
         "type": "object"
       },
@@ -11744,9 +11765,9 @@
         ]
       }
     },
-    "/interest/{id}": {
+    "/interest/page": {
       "delete": {
-        "operationId": "deleteInterest",
+        "operationId": "withdrawPageInterest",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -11758,24 +11779,26 @@
             }
           },
           {
-            "description": "The film or series whose page it is",
-            "in": "path",
-            "name": "id",
+            "description": "The film or series whose page it was",
+            "explode": false,
+            "in": "query",
+            "name": "item",
             "required": true,
             "schema": {
-              "description": "The film or series whose page it is",
+              "description": "The film or series whose page it was",
               "format": "int64",
+              "minimum": 1,
               "type": "integer"
             }
           },
           {
-            "description": "The season a series' page shows, whose episodes it raises, 0 for the specials; -1, the default, for a film's page or a series' own",
+            "description": "The season the series' page showed, 0 for the specials; -1, the default, for a film's page or a series' own",
             "explode": false,
             "in": "query",
-            "name": "season",
+            "name": "group",
             "schema": {
               "default": -1,
-              "description": "The season a series' page shows, whose episodes it raises, 0 for the specials; -1, the default, for a film's page or a series' own",
+              "description": "The season the series' page showed, 0 for the specials; -1, the default, for a film's page or a series' own",
               "format": "int64",
               "minimum": -1,
               "type": "integer"
@@ -11803,7 +11826,7 @@
         ]
       },
       "put": {
-        "operationId": "putInterest",
+        "operationId": "sayPageInterest",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -11813,29 +11836,50 @@
               "description": "Bearer \u003csession token\u003e",
               "type": "string"
             }
-          },
-          {
-            "description": "The film or series whose page it is",
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "description": "The film or series whose page it is",
-              "format": "int64",
-              "type": "integer"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PageInterestInputBody"
+              }
             }
           },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Say this session shows a film's or series' page, or a series' season's, which raises its work, again every interest_said_every_seconds while it does (D324)",
+        "tags": [
+          "Browse"
+        ]
+      }
+    },
+    "/interest/tiles": {
+      "delete": {
+        "operationId": "withdrawTilesInterest",
+        "parameters": [
           {
-            "description": "The season a series' page shows, whose episodes it raises, 0 for the specials; -1, the default, for a film's page or a series' own",
-            "explode": false,
-            "in": "query",
-            "name": "season",
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
             "schema": {
-              "default": -1,
-              "description": "The season a series' page shows, whose episodes it raises, 0 for the specials; -1, the default, for a film's page or a series' own",
-              "format": "int64",
-              "minimum": -1,
-              "type": "integer"
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
             }
           }
         ],
@@ -11854,7 +11898,50 @@
             "description": "Error"
           }
         },
-        "summary": "Say this session shows a film's or series' page, or a series' season's, which raises its work, again every interest_said_every_seconds while it does (D324)",
+        "summary": "Say this session shows no list's tiles, which lets their work fall back (D362, D324)",
+        "tags": [
+          "Browse"
+        ]
+      },
+      "put": {
+        "operationId": "sayTilesInterest",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TilesInterestInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Say this session shows the tiles of these films, series and videos in view, which raises the work of their pictures, again every interest_said_every_seconds while it does (D362, D324)",
         "tags": [
           "Browse"
         ]
@@ -16770,84 +16857,6 @@
         "summary": "What the server knows of an update: a security fix its version lacks, or a newer release (admin)",
         "tags": [
           "Running it"
-        ]
-      }
-    },
-    "/tiles/interest": {
-      "delete": {
-        "operationId": "deleteTilesInterest",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Say this session shows no list's tiles, which lets their work fall back (D362, D324)",
-        "tags": [
-          "Browse"
-        ]
-      },
-      "put": {
-        "operationId": "putTilesInterest",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TilesInterestInputBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Say this session shows the tiles of these films, series and videos in view, which raises the work of their pictures, again every interest_said_every_seconds while it does (D362, D324)",
-        "tags": [
-          "Browse"
         ]
       }
     },
