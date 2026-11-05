@@ -274,7 +274,9 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   binary close message names, or 1006 when the channel just ends. `src/rtc-together.test.ts`; in
   both browsers, `web/e2e/webrtc.spec.ts` runs a session whose host opens no WebSocket.
 - **A call's own Authorization wins over the session token**: a Watch Together member's
-  requests carry their membership credential (D246 §3). `src/client.test.ts`.
+  requests carry their membership credential (D246 §3). `src/client.test.ts`. The generated
+  types have no `Authorization` parameter: the document says it as each operation's security
+  (D425 §6), so a call passes its own in `headers`.
 - **Generated code under `src/gen/` is never edited by hand**; it is excluded from lint and
   formatting and regenerated from `api/openapi.json` (`make generate`).
 
