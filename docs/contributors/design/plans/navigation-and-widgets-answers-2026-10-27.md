@@ -1939,3 +1939,21 @@ separately; `file_filing.identified_from_path` has no node id and is reached thr
 prefix rewrite cannot reach, for the expansion audit (D429 §4): cache.db `job.destination`
 (`root:3:/media/films`) and `scan_batch.files_json`; free text that may quote a path
 (`place.error_detail_json`, the `filing_reason`s, `person.picture_ref`, `file_nfo.body`).
+
+## The 11-07 batch (the owner agreed 2026-11-05, "yes go ahead")
+
+After the API batch, tagged `batch-2026-11-05-api`. Built on main while nas.example waits for that tag.
+
+1. **Quillwick starts grey** (above): a regression on nas.example. Bisect over the 11-05 batch's
+   first-seconds work and the cleared keyframe rows first.
+2. **Watch Together over the film opens the tray's dialog** (D433): End, Leave and what it tells,
+   with the session's panel under them.
+3. **Next or Previous episode keeps full screen** ("UI issues the owner saw", item 5).
+4. **The cast list's dead click area** ("UI issues the owner saw", item 1's bug only): a browser
+   test presses each entry's centre.
+5. **Repointing a library, its design questions** ("Repointing a library"): written for the owner,
+   with the devnas.example rehoming tests of 2026-11-06 as input; built after the owner's answers.
+6. **/needs-attention's true totals:** its counts stop at 500 films and 5000 files (D432).
+
+Held for the batch after: the shared grid widget (the cast list, needs-a-match, accounts, roles), and
+the System and account pages. End: one check-pr, the owner's go, staging; nas.example at the owner's word.

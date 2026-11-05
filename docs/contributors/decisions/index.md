@@ -428,7 +428,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D420](working-notes.md#d420--a-title-page-with-nothing-to-play-and-no--arrives-on-the-words-saying-why) A title page with nothing to play and no "…" arrives on the words saying why
 - [D421](working-notes.md#d421--a-dialogs-safe-choice-comes-first-and-is-where-focus-arrives-where-every-choice-is-dangerous-none-is) A dialog's safe choice comes first and is where focus arrives; where every choice is dangerous, none is
 - [D422](working-notes.md#d422--casts-sign-shows-over-the-playing-film-too-watch-together-stays-in-the-tray) Cast's sign shows over the playing film too; Watch Together stays in the tray — *revisited by D423*
-- [D423](working-notes.md#d423--watch-togethers-sign-shows-over-the-playing-film-and-opens-its-sessions-panel-there) Watch Together's sign shows over the playing film, and opens its session's panel there
+- [D423](working-notes.md#d423--watch-togethers-sign-shows-over-the-playing-film-and-opens-its-sessions-panel-there) Watch Together's sign shows over the playing film, and opens its session's panel there — *revisited by D433*
 - [D424](working-notes.md#d424--a-failed-quick-tier-stops-check-pr-before-its-long-ones) A failed quick tier stops check-pr before its long ones
 - [D425](working-notes.md#d425--d416s-rename-corrected-by-review-two-interests-one-release-of-aliases-the-loader-frozen-no-mixed-callers-declared-as-security) D416's rename, corrected by review: two interests, one release of aliases, the loader frozen, no `mixed`, callers declared as security — *revisited by D432*
 - [D426](working-notes.md#d426--the-schema-is-rebuilt-greenfield-in-d416s-batch-the-kind-on-item-file-split-from-place-groups-as-rows-work-and-sequence) The schema is rebuilt greenfield in D416's batch: the kind on `item`, `file` split from `place`, groups as rows, `work` and `sequence` — *revisited by D427, D430*
@@ -438,6 +438,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D430](working-notes.md#d430--peoples-state-carries-over-by-the-migration-itself-rehearsed-on-a-copy-of-naslans-database-no-exportimport-tool) People's state carries over by the migration itself, rehearsed on a copy of nas.example's database; no export/import tool
 - [D431](working-notes.md#d431--which-library-shows-an-item-stays-computed-not-stored) Which library shows an item stays computed, not stored
 - [D432](working-notes.md#d432--the-expansion-and-relocation-audits-answers-kinds-named-by-list-open-responses-profiles-as-users) The expansion and relocation audits' answers: kinds named by list, open responses, profiles as users
+- [D433](working-notes.md#d433--watch-togethers-sign-over-the-film-opens-the-same-dialog-as-the-trays) Watch Together's sign over the film opens the same dialog as the tray's
 
 ## Archived
 
