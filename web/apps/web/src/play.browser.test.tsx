@@ -30,7 +30,7 @@ describe("the Play page while its film fills the window", () => {
         <h1 className="play__title">A film</h1>
         <p role="alert">The film could not be played.</p>
         <div className="film-player__stage film-player__stage--fills-window">
-          <video className="film-player__video" />
+          <div className="film-player__video" />
         </div>
       </div>,
     );
