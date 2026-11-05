@@ -139,7 +139,11 @@
 //     TestMigrate_Step0072MovesTheKindAndSharedColumnsToTheItem; step 0073 (D427), which brings
 //     link_memory back to persistent.db, in TestMigrate_Step0073BringsThePlayersLinkBackToPersistent;
 //     step 0074 (D426 §3), which renames title to work and collection to sequence, in
-//     TestMigrate_Step0074KeepsEveryRowUnderWorkAndSequence.
+//     TestMigrate_Step0074KeepsEveryRowUnderWorkAndSequence; step 0075 (D426 §10, sql.md M1), which
+//     stores six small tables by their key and gives edited rows a revision, in
+//     TestMigrate_Step0075KeepsEveryRowWithoutTheRowidAndAtRevisionZero.
+//   - Every write to a row people edit (a field set by hand, a library, a user, a role, a setting)
+//     raises its revision (sql.md M1). Enforced by TestRevision_EachUpdateOfAnEditedRowRaisesIt.
 //   - The schema keeps the rules D303 put in the engine: every table, both databases', STRICT; a
 //     work and a sequence an item of their kind; an id at a source only with its source; a
 //     library's interval only for checking by interval; one sort key per item in each locale; the

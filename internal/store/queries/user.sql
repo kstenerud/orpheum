@@ -3,7 +3,7 @@
 -- so these read the table and name the tombstone condition themselves.
 
 -- name: GetRoleByName :one
-SELECT id, name, is_builtin, capabilities
+SELECT id, name, is_builtin, capabilities, revision
 FROM role
 WHERE name = ?;
 
@@ -32,10 +32,10 @@ WHERE user.id = ? AND user.removed_at IS NULL;
 
 -- name: SetAdminAway :exec
 -- Whether an admin administers from away from home too (D302): 'never' or 'always'.
-UPDATE user SET admin_away = sqlc.arg(admin_away) WHERE id = sqlc.arg(id) AND removed_at IS NULL;
+UPDATE user SET revision = revision + 1, admin_away = sqlc.arg(admin_away) WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 
 -- name: UpdateUserPasswordHash :exec
-UPDATE user SET password_hash = sqlc.arg(password_hash)
+UPDATE user SET revision = revision + 1, password_hash = sqlc.arg(password_hash)
 WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 
 -- name: ListLiveUsers :many
@@ -49,10 +49,10 @@ WHERE user.removed_at IS NULL
 ORDER BY user.name COLLATE NOCASE, user.id;
 
 -- name: SetUserAdminNote :exec
-UPDATE user SET admin_note = sqlc.narg(admin_note) WHERE id = sqlc.arg(id) AND removed_at IS NULL;
+UPDATE user SET revision = revision + 1, admin_note = sqlc.narg(admin_note) WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 
 -- name: RenameUser :exec
-UPDATE user SET name = sqlc.arg(name) WHERE id = sqlc.arg(id);
+UPDATE user SET revision = revision + 1, name = sqlc.arg(name) WHERE id = sqlc.arg(id);
 
 -- name: GetWatchStats :one
 -- What a person has watched, for their page: time in spans, the titles they watched in, and when
@@ -88,7 +88,8 @@ ORDER BY role_library.library_id;
 
 -- name: RemoveUser :execrows
 -- Their row, nameless: no name, password or note of theirs is kept.
-UPDATE user SET removed_at = sqlc.arg(removed_at), name = '', password_hash = NULL, admin_note = NULL
+UPDATE user SET revision = revision + 1, removed_at = sqlc.arg(removed_at), name = '', password_hash = NULL,
+  admin_note = NULL
 WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 
 -- name: DeleteLocatorsOfRemovedUser :exec
@@ -126,7 +127,7 @@ DELETE FROM realm_key WHERE user_id = sqlc.arg(user_id);
 -- name: DemoteAdministrators :many
 -- Everyone whose role administers, given the built-in user role: the first step of the operator's
 -- reset of who administers (orpheum reset-admin). Returns who was demoted.
-UPDATE user SET role_id = (SELECT id FROM role WHERE name = 'user' AND is_builtin = 1)
+UPDATE user SET revision = revision + 1, role_id = (SELECT id FROM role WHERE name = 'user' AND is_builtin = 1)
 WHERE removed_at IS NULL
   AND role_id IN (SELECT id FROM role WHERE ',' || capabilities || ',' LIKE '%,administer,%')
 RETURNING name;

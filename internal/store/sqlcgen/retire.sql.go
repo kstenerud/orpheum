@@ -300,7 +300,7 @@ func (q *Queries) ListWorksOfFileNoLibraryLists(ctx context.Context, fileID int6
 }
 
 const removeLibrary = `-- name: RemoveLibrary :execrows
-UPDATE library SET removed_at = ?1 WHERE id = ?2 AND removed_at IS NULL
+UPDATE library SET revision = revision + 1, removed_at = ?1 WHERE id = ?2 AND removed_at IS NULL
 `
 
 type RemoveLibraryParams struct {

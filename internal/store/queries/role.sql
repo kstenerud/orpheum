@@ -17,7 +17,7 @@ JOIN library ON library.id = role_library.library_id AND library.removed_at IS N
 ORDER BY role_library.role_id, role_library.library_id;
 
 -- name: GetRole :one
-SELECT id, name, is_builtin, capabilities FROM role WHERE id = sqlc.arg(id);
+SELECT id, name, is_builtin, capabilities, revision FROM role WHERE id = sqlc.arg(id);
 
 -- name: InsertRole :one
 INSERT INTO role (name, is_builtin, capabilities) VALUES (sqlc.arg(name), 0, sqlc.arg(capabilities))
@@ -25,7 +25,7 @@ RETURNING id;
 
 -- name: UpdateRole :exec
 -- A role the admin made: its name and capabilities. A built-in role keeps both.
-UPDATE role SET name = sqlc.arg(name), capabilities = sqlc.arg(capabilities)
+UPDATE role SET revision = revision + 1, name = sqlc.arg(name), capabilities = sqlc.arg(capabilities)
 WHERE id = sqlc.arg(id) AND is_builtin = 0;
 
 -- name: DeleteRole :execrows
@@ -43,4 +43,4 @@ INSERT INTO role_library (role_id, library_id, may_rebroadcast)
 VALUES (sqlc.arg(role_id), sqlc.arg(library_id), sqlc.arg(may_rebroadcast));
 
 -- name: UpdateUserRole :exec
-UPDATE user SET role_id = sqlc.arg(role_id) WHERE id = sqlc.arg(id) AND removed_at IS NULL;
+UPDATE user SET revision = revision + 1, role_id = sqlc.arg(role_id) WHERE id = sqlc.arg(id) AND removed_at IS NULL;

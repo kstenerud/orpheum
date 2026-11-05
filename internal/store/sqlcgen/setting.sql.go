@@ -10,7 +10,7 @@ import (
 )
 
 const clearSettingsSetByRemovedUser = `-- name: ClearSettingsSetByRemovedUser :exec
-UPDATE setting SET set_by_user_id = NULL WHERE set_by_user_id = ?1
+UPDATE setting SET revision = revision + 1, set_by_user_id = NULL WHERE set_by_user_id = ?1
 `
 
 // The settings a removed person changed stay; who changed them is forgotten (D305).
@@ -31,7 +31,7 @@ func (q *Queries) DeleteSetting(ctx context.Context, key string) error {
 }
 
 const getSetting = `-- name: GetSetting :one
-SELECT key, value_json, set_by_user_id, set_at, is_modified
+SELECT key, value_json, set_by_user_id, set_at, is_modified, revision
 FROM setting
 WHERE key = ?
 `
@@ -45,6 +45,7 @@ func (q *Queries) GetSetting(ctx context.Context, key string) (Setting, error) {
 		&i.SetByUserID,
 		&i.SetAt,
 		&i.IsModified,
+		&i.Revision,
 	)
 	return i, err
 }
@@ -68,7 +69,7 @@ func (q *Queries) InsertSettingIfMissing(ctx context.Context, arg InsertSettingI
 
 const listSettings = `-- name: ListSettings :many
 
-SELECT key, value_json, set_by_user_id, set_at, is_modified
+SELECT key, value_json, set_by_user_id, set_at, is_modified, revision
 FROM setting
 ORDER BY key
 `
@@ -91,6 +92,7 @@ func (q *Queries) ListSettings(ctx context.Context) ([]Setting, error) {
 			&i.SetByUserID,
 			&i.SetAt,
 			&i.IsModified,
+			&i.Revision,
 		); err != nil {
 			return nil, err
 		}
@@ -106,7 +108,7 @@ func (q *Queries) ListSettings(ctx context.Context) ([]Setting, error) {
 }
 
 const updateUnmodifiedSetting = `-- name: UpdateUnmodifiedSetting :execrows
-UPDATE setting SET value_json = ?1, set_at = ?2
+UPDATE setting SET revision = revision + 1, value_json = ?1, set_at = ?2
 WHERE key = ?3 AND is_modified = 0 AND value_json != ?1
 `
 
@@ -129,7 +131,7 @@ const upsertSetting = `-- name: UpsertSetting :exec
 INSERT INTO setting (key, value_json, set_by_user_id, set_at, is_modified)
 VALUES (?1, ?2, ?3, ?4, ?5)
 ON CONFLICT (key)
-DO UPDATE SET value_json = excluded.value_json, set_by_user_id = excluded.set_by_user_id, set_at = excluded.set_at,
+DO UPDATE SET revision = setting.revision + 1, value_json = excluded.value_json, set_by_user_id = excluded.set_by_user_id, set_at = excluded.set_at,
               is_modified = excluded.is_modified
 WHERE (setting.value_json, setting.set_by_user_id, setting.set_at, setting.is_modified)
   IS NOT (excluded.value_json, excluded.set_by_user_id, excluded.set_at, excluded.is_modified)

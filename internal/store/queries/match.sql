@@ -130,6 +130,7 @@ WHERE item_id = sqlc.arg(item_id) AND provider = sqlc.arg(provider);
 INSERT INTO field_override (item_id, field, language, override_value, origin, set_by_user_id, set_at)
 VALUES (sqlc.arg(item_id), sqlc.arg(field), '', sqlc.arg(override_value), 'typed', sqlc.arg(set_by_user_id), sqlc.arg(set_at))
 ON CONFLICT (item_id, field, language) DO UPDATE SET
+  revision = field_override.revision + 1,
   override_value = excluded.override_value, origin = excluded.origin, set_by_user_id = excluded.set_by_user_id, set_at = excluded.set_at
 -- Only when it changes something (D303, DL9).
 WHERE (field_override.override_value, field_override.origin, field_override.set_by_user_id,
@@ -201,7 +202,7 @@ SELECT CAST((
 
 -- name: ClearOverridesSetByRemovedUser :exec
 -- The overrides a removed person typed stay, for everyone; who typed them is forgotten (D305).
-UPDATE field_override SET set_by_user_id = NULL WHERE set_by_user_id = sqlc.arg(user_id);
+UPDATE field_override SET revision = revision + 1, set_by_user_id = NULL WHERE set_by_user_id = sqlc.arg(user_id);
 
 -- name: ForgetItemProviderIDsBut :exec
 -- A rescan's answer replaces every id an earlier match recorded: only the ids the item's files and

@@ -30,7 +30,9 @@ var (
 	insertsValues = regexp.MustCompile(`(?is)^\s*INSERT\b[^;]*\bVALUES\b`)
 	// A plan line that reads every row of a table, or of an index over all of it, or
 	// builds an index for one execution because none serves it (sql.md section 13, DL1).
-	wholeRead = regexp.MustCompile(`^(SCAN (\w+)( USING (COVERING )?INDEX \w+)?|.*AUTOMATIC .*INDEX.*)$`)
+	// A WITHOUT ROWID table's own key is its rows, so reading all of it is SCAN … USING PRIMARY KEY.
+	wholeRead = regexp.MustCompile(
+		`^(SCAN (\w+)( USING (COVERING )?INDEX \w+| USING PRIMARY KEY)?|.*AUTOMATIC .*INDEX.*)$`)
 )
 
 // queriesIn are every query in the .sql files of directory, their arguments made placeholders.
@@ -257,8 +259,6 @@ func wholeReadsAllowed() map[string]string {
 		"cache.ListRematches": "the rescans' sweep queues every film and series they wait on, which a rescan's " +
 			"jobs delete as they run (D357)",
 		// Small tables the planner reads whole by the committed statistics (D303, DL15).
-		"ListSeriesByName": "by the statistics the planner reads the series, which are few (200 at the " +
-			"reference scale), and sorts a page of them",
 		"ListFilesOfWork": "the series' orderings, which are few, for the aired one; an admin's report of a " +
 			"work's filing, which is rare (D306 section 3)",
 		"ListUnnumberedEpisodeFiles": "the series' orderings, which are few (one or two a series), each searched " +
@@ -274,91 +274,31 @@ func wholeReadsAllowed() map[string]string {
 			"unnumbered positions; a pass reads it once (D307 section 2)",
 		"ListSeriesAwaitingMatch": "the first-match sweep reads the series, which are few",
 		"ListWorksAwaitingMatch":  sweep + "the first-match sweep reads the titles never answered",
-		"ListLibraryRoots":        few + "roots",
-		"RetireRootsOfLibrary":    few + "roots; a library's removal retires them",
 		// Whether a library covers a place (D363).
-		"CountLibraryFilings":  folders + "the scanner view's counts",
-		"CountOrderingMembers": folders + "a page's series' episodes counted",
-		"IsArtworkReached":     folders + "whether a person reaches an image",
-		"IsFileReached":        folders + "whether a person reaches a file",
-		"IsItemReached":        folders + "whether a person reaches an item",
-		"ListLibrariesOfItem":  folders + "the libraries a title's or a series' page goes up to (D367)",
+		"IsFileReached":       folders + "whether a person reaches a file",
+		"ListLibrariesOfItem": folders + "the libraries a title's or a series' page goes up to (D367)",
 		// No index leads from an extra to its film: the relation's few rows (a film's handful of extras)
 		// are read once as an extra's page or playing opens (D367 section 2).
-		"GetFilmOfExtra": "the extras' relations, few, read as an extra's page or playing opens (D367)",
-		"ListArtworkSourceSha256s": folders + "the artwork ceiling's daily sweep, for the images of what no " +
-			"library lists",
-		"ListEpisodesNotInOrdering":            folders + "a series' episodes an ordering leaves out",
-		"ListFileWorks":                        folders + "the scanner view",
-		"ListFilesPage":                        folders + "the scanner view",
-		"ListFilmsByAdded":                     folders + "a page of films",
-		"ListFilmsByName":                      folders + "a page of films",
-		"ListFilesToReadThrough":               folders + "the read-through sweep, a range of files at a time",
-		"ListFirstEpisodes":                    folders + "a page's series' first episodes",
+		"GetFilmOfExtra": "the extras' relations, few, read as an extra's page or " +
+			"playing opens (D367)",
 		"ListIdentifyFiles":                    folders + "the identification pass, once",
-		"ListLibrariesOfFile":                  folders + "the libraries a played file is in",
-		"ListLibraryNFOBodies":                 folders + "the identification pass's snapshot",
-		"ListLibraryRecordedTimes":             folders + "an other library's pass, once",
-		"ListLibraryVersionWorks":              folders + "the identification pass's snapshot",
-		"ListLiveFileLocationsOfSeries":        folders + "where a page's series' files are",
 		"ListLiveFileLocationsOfWorks":         folders + "where a page's titles' files are",
 		"ListOrderingMemberFilesWithPositions": folders + "a series' members for Next Up",
-		"ListOtherByAdded":                     folders + "a page of other videos",
-		"ListOtherByFileName":                  folders + "a page of other videos",
-		"ListOtherByName":                      folders + "a page of other videos",
-		"ListOtherByRecorded":                  folders + "a page of other videos",
-		"ListOtherVideosOfLibrary":             folders + "an other library's folders",
 		// Every list's other direction, and films and series by release date (D366), as their twins.
-		"ListFilmsByNameDescending":     folders + "a page of films",
-		"ListFilmsByAddedAscending":     folders + "a page of films",
-		"ListFilmsByReleased":           folders + "a page of films",
-		"ListFilmsByReleasedAscending":  folders + "a page of films",
-		"ListFilmsUndated":              folders + "a page of films",
-		"ListSeriesByNameDescending":    folders + "a page of series",
-		"ListSeriesByAddedAscending":    folders + "a page of series",
-		"ListSeriesByReleased":          folders + "a page of series",
-		"ListSeriesByReleasedAscending": folders + "a page of series",
-		"ListSeriesUndated":             folders + "a page of series",
-		"ListOtherByNameDescending":     folders + "a page of other videos",
-		"ListOtherByAddedAscending":     folders + "a page of other videos",
-		"ListOtherByRecordedAscending":  folders + "a page of other videos",
-		"ListOtherByFileNameDescending": folders + "a page of other videos",
-		"ListPlacesOfFile":              folders + "the places a file is read from",
-		"ListRecentPlayPositions":       folders + "Continue Watching",
-		"ListSeasonEpisodeDetails":      folders + "a season's episodes",
-		"ListSeriesByAdded":             folders + "a page of series",
-		"ListSeriesByProviderID":        folders + "a series found by its provider id",
-		"ListSeriesEpisodeDetails":      folders + "a series' episodes",
-		"ListSubtitleTracksOfVideo":     folders + "the subtitles beside the places a person reaches",
-		"ListWorkExtras":                folders + "a title's extras",
-		"GetPersonReached":              folders + "whether a person's page has a title its viewer reaches",
+		"ListRecentPlayPositions": folders + "Continue Watching",
 		"ListGenresWithCounts": few + "genres, a few dozen from TMDB and the NFOs, each counted once as " +
 			"the genre chips open; " + folders + "the titles counted",
 		"ListFilteredItemIDs": "a list's genre, person, decade or unwatched filter reads the films and series " +
 			"once, as MatchSubstring reads every name for a short query (D48): a household's titles take " +
 			"milliseconds",
-		"ListWorkFiles":                 folders + "a title's files at the places its person reaches",
-		"ListWorksByProviderID":         folders + "a film found by its provider id",
-		"ListWorksNoLibraryLists":       folders + "a retire's titles no library lists",
-		"ListWorksOfFileNoLibraryLists": folders + "a retired file's titles",
-		"ListWorksToAdopt":              folders + "the identification pass, once",
-		"ListUncoveredFilesUnder":       folders + "a retired folder's places no library covers",
-		"SearchTrigram":                 folders + "a search's hits",
-		"SearchWords":                   folders + "a search's hits",
-		"MatchTrigram":                  folders + "the titles a searched list holds",
-		"MatchWords":                    folders + "the titles a searched list holds",
-		"FindTitlesTrigram":             folders + "a grouped search's titles",
-		"FindTitlesWords":               folders + "a grouped search's titles",
-		"FindPeopleTrigram":             folders + "the titles crediting a grouped search's people",
-		"FindPeopleWords":               folders + "the titles crediting a grouped search's people",
+		"ListWorkFiles":    folders + "a title's files at the places its person reaches",
+		"ListWorksToAdopt": folders + "the identification pass, once",
 		"FindTitlesSubstring": "a grouped search's query too short for either full-text index reads every " +
 			"name once, as search does (D48); " + folders + "its titles",
 		"FindPeopleSubstring": "a grouped search's query too short for either full-text index reads every " +
 			"name once, as search does (D48); " + folders + "the titles crediting its people",
 		"ListCopyCandidates": sweep + "the copies' sweep reads every live video for one whose payload a video " +
 			"found before it has (D363 section 2)",
-		"ListWorksByIdentification": folders + "the chooser's list, its titles of one state found by " +
-			"item_identification (audit 8)",
 		"ListRefreshRequests":   "the refresh sweep reads every request a person made, a handful",
 		"ListLiveLocators":      few + "signed-in devices, one locator each; a discovery lists them",
 		"cache.CountJobsByKind": "the System page counts the queue, which pruning holds to what ended lately",

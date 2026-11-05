@@ -30,8 +30,8 @@ item_provider_id	item_provider_lookup	7400 3700 1
 item_text	item_text_original	13700 1
 item_text	sqlite_autoindex_item_text_1	13700 1 1
 library		2
+library_root	library_root	2 1 1 1
 library_root	library_root_node	2 2 1
-library_root	sqlite_autoindex_library_root_1	2 1 1 1
 node		1
 ordering	sqlite_autoindex_ordering_1	200 1 1
 play_position	play_position	3790 1895 1
@@ -46,7 +46,7 @@ position	sqlite_autoindex_position_1	10000 50 1
 provider_response	sqlite_autoindex_provider_response_1	3500 1 1 1
 role	sqlite_autoindex_role_1	2 1
 schema_meta		1
-schema_step		28
+schema_step		29
 sequence		200
 sequence_member	sequence_member_work	10000 1
 sequence_member	sqlite_autoindex_sequence_member_1	10000 50 1

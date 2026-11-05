@@ -10,7 +10,7 @@ import (
 )
 
 const clearOverridesSetByRemovedUser = `-- name: ClearOverridesSetByRemovedUser :exec
-UPDATE field_override SET set_by_user_id = NULL WHERE set_by_user_id = ?1
+UPDATE field_override SET revision = revision + 1, set_by_user_id = NULL WHERE set_by_user_id = ?1
 `
 
 // The overrides a removed person typed stay, for everyone; who typed them is forgotten (D305).
@@ -522,6 +522,7 @@ const upsertOverride = `-- name: UpsertOverride :exec
 INSERT INTO field_override (item_id, field, language, override_value, origin, set_by_user_id, set_at)
 VALUES (?1, ?2, '', ?3, 'typed', ?4, ?5)
 ON CONFLICT (item_id, field, language) DO UPDATE SET
+  revision = field_override.revision + 1,
   override_value = excluded.override_value, origin = excluded.origin, set_by_user_id = excluded.set_by_user_id, set_at = excluded.set_at
 WHERE (field_override.override_value, field_override.origin, field_override.set_by_user_id,
   field_override.set_at)
