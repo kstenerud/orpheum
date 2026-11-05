@@ -771,7 +771,7 @@ hold an album's discs and tracks, which is why they are named `position` and `gr
 **A series' members are its aired order's places** (D426 §6, step 0080). `sequence_member` held each
 episode a second time beside its aired place, at the same sort order, and its other role, a sequence
 of sequences (a box set's), no writer filled; it went, and `series_member` reads the membership from
-the aired order. An episode found but not placed is a member by a place in no season. The box set
+the aired order, a view, not a table (the owner, 2026-11-05: "yes" to a view for membership). An episode found but not placed is a member by a place in no season. The box set
 returns with its feature. `kind` omits `season` and `smart` from
 library-model.md's list for that reason: a season is not a Collection here, and "smart", a
 collection by a rule, is not built (its `membership` and `predicate` went in step 0071, D426 §8).
