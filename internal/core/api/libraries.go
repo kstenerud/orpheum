@@ -178,10 +178,10 @@ func retiredOutput(retired library.Retired) *RetiredOutput {
 // FilesInput pages through what the scanner saw.
 type FilesInput struct {
 	AuthorizationHeader
-	Filing    string `enum:"listed,extra,attached,skipped,errored,unidentified," query:"filing"`
-	LibraryID int64  `query:"libraryId"`
-	Cursor    string `doc:"From the previous page's nextCursor" query:"cursor"`
-	Limit     int64  `maximum:"1000" minimum:"1" query:"limit" required:"true"`
+	Filing  string `enum:"listed,extra,attached,skipped,errored,unidentified," query:"filing"`
+	Library int64  `doc:"One library's files alone; absent for every library's" minimum:"0" query:"library"`
+	Cursor  string `doc:"From the previous page's nextCursor" query:"cursor"`
+	Limit   int64  `maximum:"500" minimum:"1" query:"limit" required:"true"`
 }
 
 // ErrorDetailBody is why the node could not read a file, as the platform said it (D163).
@@ -210,7 +210,7 @@ type FileBody struct {
 type FilesOutput struct {
 	Body struct {
 		Files      []FileBody `json:"files"`
-		NextCursor string     `doc:"Empty on the last page" json:"nextCursor,omitempty"`
+		NextCursor string     `doc:"The next page's cursor; absent on the last" json:"nextCursor,omitempty"`
 	}
 }
 
@@ -570,8 +570,8 @@ func (server *Server) listFiles(ctx context.Context, input *FilesInput) (*FilesO
 		return nil, err
 	}
 	query := library.FilesQuery{Cursor: input.Cursor, Limit: input.Limit}
-	if input.LibraryID != 0 {
-		query.LibraryID = &input.LibraryID
+	if input.Library != 0 {
+		query.LibraryID = &input.Library
 	}
 	if input.Filing != "" {
 		query.Filing = &input.Filing

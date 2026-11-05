@@ -3080,7 +3080,7 @@ export interface components {
         };
         FilesOutputBody: {
             files: components["schemas"]["FileBody"][] | null;
-            /** @description Empty on the last page */
+            /** @description The next page's cursor; absent on the last */
             nextCursor?: string;
         };
         FileWaitsOutputBody: {
@@ -6154,7 +6154,8 @@ export interface operations {
                 /** @description From the previous page's nextCursor */
                 cursor?: string;
                 filing?: "listed" | "extra" | "attached" | "skipped" | "errored" | "unidentified" | "";
-                libraryId?: number;
+                /** @description One library's files alone; absent for every library's */
+                library?: number;
                 limit: number;
             };
             header?: {

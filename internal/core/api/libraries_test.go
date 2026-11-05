@@ -509,6 +509,12 @@ func TestFiles_PagesWhatTheScannerSaw(t *testing.T) {
 		ID: 3, LibraryID: 1, NodeID: 1, Path: "/m/c.mkv", Filing: "errored", FilingReason: "permission_denied",
 		FirstSeenAt: 1, LastSeenAt: 2,
 	})
+	otherID := librarytest.LibraryOn(t, harness.database, 1,
+		librarytest.Library{Name: "Other", Kind: "other", MetadataSource: "nfo", Root: "/o"})
+	librarytest.File(t, harness.database, librarytest.FileSpec{
+		ID: 4, LibraryID: otherID, NodeID: 1, Path: "/o/d.mkv", Filing: "skipped", FilingReason: "extension",
+		FirstSeenAt: 1, LastSeenAt: 2,
+	})
 	var page struct {
 		Files      []api.FileBody `json:"files"`
 		NextCursor string         `json:"nextCursor"`
@@ -517,13 +523,19 @@ func TestFiles_PagesWhatTheScannerSaw(t *testing.T) {
 	if err := json.Unmarshal([]byte(first.body), &page); err != nil || len(page.Files) != 2 || page.NextCursor == "" {
 		t.Fatalf("first page = %d %s", first.status, first.body)
 	}
-	rest := harness.do(t, http.MethodGet, "/files?limit=2&cursor="+page.NextCursor, admin, nil)
+	rest := harness.do(t, http.MethodGet, "/files?limit=3&cursor="+page.NextCursor, admin, nil)
 	if !strings.Contains(rest.body, `"path":"/m/c.mkv"`) || strings.Contains(rest.body, "nextCursor") {
-		t.Errorf("last page = %s", rest.body)
+		t.Errorf("second page = %s", rest.body)
 	}
-	skipped := harness.do(t, http.MethodGet, "/files?limit=10&filing=skipped&libraryId=1", admin, nil)
-	if !strings.Contains(skipped.body, `"filingReason":"extension"`) || strings.Contains(skipped.body, "a.mkv") {
-		t.Errorf("filing=skipped = %s", skipped.body)
+	skipped := harness.do(t, http.MethodGet, "/files?limit=10&filing=skipped&library=1", admin, nil)
+	if !strings.Contains(skipped.body, `"filingReason":"extension"`) || strings.Contains(skipped.body, "a.mkv") ||
+		strings.Contains(skipped.body, "d.mkv") {
+		t.Errorf("filing=skipped&library=1 = %s", skipped.body)
+	}
+	// The library filter is library, as on every list (D416 §6): the other library's file alone.
+	other := harness.do(t, http.MethodGet, fmt.Sprintf("/files?limit=10&library=%d", otherID), admin, nil)
+	if !strings.Contains(other.body, `"path":"/o/d.mkv"`) || strings.Contains(other.body, "/m/") {
+		t.Errorf("library=2 = %s", other.body)
 	}
 	wantError(t, harness.do(t, http.MethodGet, "/files", admin, nil),
 		http.StatusUnprocessableEntity, api.CodeInvalidRequest)

@@ -2061,7 +2061,7 @@
             ]
           },
           "nextCursor": {
-            "description": "Empty on the last page",
+            "description": "The next page's cursor; absent on the last",
             "type": "string"
           }
         },
@@ -10263,11 +10263,14 @@
             }
           },
           {
+            "description": "One library's files alone; absent for every library's",
             "explode": false,
             "in": "query",
-            "name": "libraryId",
+            "name": "library",
             "schema": {
+              "description": "One library's files alone; absent for every library's",
               "format": "int64",
+              "minimum": 0,
               "type": "integer"
             }
           },
@@ -10288,7 +10291,7 @@
             "required": true,
             "schema": {
               "format": "int64",
-              "maximum": 1000,
+              "maximum": 500,
               "minimum": 1,
               "type": "integer"
             }

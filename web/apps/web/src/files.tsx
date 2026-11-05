@@ -134,10 +134,10 @@ function FilePages(props: {
   const loadPage = useCallback(
     async (cursor: string): Promise<Page<SeenFile>> => {
       const query = {
-        libraryId,
+        library: libraryId,
         filing: filingFilter,
-        // A best guess under the API's maximum of 1000: a page that loads at once, of a list that
-        // is read a page at a time. Nothing ties it to the maximum.
+        // The API's maximum, as on every list: a page that loads at once, of a list that is read a
+        // page at a time.
         limit: 500,
         ...(cursor === "" ? {} : { cursor }),
       } satisfies FilesQuery;
