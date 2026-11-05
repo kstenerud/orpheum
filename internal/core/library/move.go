@@ -177,9 +177,13 @@ func moveRoot(ctx context.Context, queries *sqlcgen.Queries, repoint Repoint, no
 		}
 		newRaw := bytes.Join([][]byte{[]byte(repoint.NewPath), relative}, []byte("/"))
 		newPath := PathText(newRaw)
-		moveErr := queries.RepointFile(ctx, sqlcgen.RepointFileParams{
-			NodeID: newNodeID, Path: newPath, ReportedPathRaw: newRaw, ID: file.ID,
-		})
+		// The path it was identified from first, read from the place before it moves.
+		moveErr := queries.RepointFileFilings(ctx, sqlcgen.RepointFileFilingsParams{Path: &newPath, ID: file.ID})
+		if moveErr == nil {
+			moveErr = queries.RepointFile(ctx, sqlcgen.RepointFileParams{
+				NodeID: newNodeID, Path: newPath, ReportedPathRaw: newRaw, ID: file.ID,
+			})
+		}
 		if moveErr != nil {
 			return 0, fmt.Errorf("move file %d to %s: %w", file.ID, newPath, moveErr)
 		}

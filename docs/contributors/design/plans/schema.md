@@ -113,6 +113,7 @@ CREATE TABLE node (                                        -- class I
   -- Its last status is kept in memory alone (D303, step 0049): a report every few seconds wrote it
   -- here, and nothing read it back.
 );
+CREATE UNIQUE INDEX node_live_name ON node(name) WHERE removed_at IS NULL;  -- 0082 (D432 §6)
 
 -- How many may read one of a node's devices at once, as an admin set it for that device, over the
 -- setting for its kind (D240 section 5); a device with no row takes its kind's. Migration 0030.
@@ -270,6 +271,8 @@ CREATE TABLE place (                                       -- class I (identity 
   filing_reason TEXT,                    -- the rule verbatim, the error code, what was tried
   error_detail_json TEXT,                -- owner, group, mode; the platform's text (D163)
   attached_to_place INTEGER REFERENCES place(id) ON DELETE RESTRICT,  -- a sidecar's video's place
+  is_unconfirmed INTEGER NOT NULL DEFAULT 0 CHECK (is_unconfirmed IN (0, 1)),  -- 0081: a repoint moved
+                                         -- it and no scan has read it since (D432 §6)
   CHECK (file_id IS NOT NULL OR filing IN ('skipped','errored'))
 );
 CREATE UNIQUE INDEX place_live_path ON place(node_id, reported_path_raw) WHERE removed_at IS NULL;
@@ -432,7 +435,9 @@ CREATE TABLE item (                                        -- class I, and O/F/A
   -- Step 0058: newest first (the owner, 2026-10-25: the most recent scan first, then the file's
   -- own time), derived by triggers as the view item_found defines it: a work's first-found live
   -- file's first_seen_at, its listing's time, which names the scan, and that file's modified_at; a
-  -- series' newest episode's; 0 with none.
+  -- series' newest episode's; 0 with none. Since 0083 (D432 §6) a file's places are found by
+  -- place.file_id: it is found when any of its places first was, at the place it is read from
+  -- (the view file_place: its own place while live, else its earliest live one).
   found_at               INTEGER NOT NULL DEFAULT 0,      -- C
   found_file_modified_at INTEGER NOT NULL DEFAULT 0,      -- C
   CHECK (followed_source_id IS NULL OR followed_source IS NOT NULL),

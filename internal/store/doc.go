@@ -151,7 +151,13 @@
 //     group a row that its positions, names and season posters reference, in
 //     TestMigrate_Step0079MakesEachGroupARowAndKeepsEveryPlace; step 0080 (D426 §6), which makes a
 //     series' members its aired order's places, every member kept, in
-//     TestMigrate_Step0080KeepsEveryMemberAsAPlaceInItsAiredOrder.
+//     TestMigrate_Step0080KeepsEveryMemberAsAPlaceInItsAiredOrder; step 0081 (D432 §6), which adds
+//     a place's mark that a repoint left it unconfirmed, every place confirmed, in
+//     TestMigrate_Step0081LeavesEveryPlaceConfirmedWithItsModifiedTime; step 0082 (D432 §6), which
+//     makes a live node's name unique, the earliest of a name keeping it and the rest renamed, in
+//     TestMigrate_Step0082KeepsTheEarliestLiveNodeOfANameAndRenamesTheRest; step 0083 (D432 §6),
+//     which finds a file's places by place.file_id, in
+//     TestMigrate_Step0083FindsAFileAtAPlaceWhoseIDIsNotItsOwn.
 //   - Every write to a row people edit (a field set by hand, a library, a user, a role, a setting)
 //     raises its revision (sql.md M1). Enforced by TestRevision_EachUpdateOfAnEditedRowRaisesIt.
 //   - The schema keeps the rules D303 put in the engine: every table, both databases', STRICT; a

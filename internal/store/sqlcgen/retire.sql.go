@@ -338,7 +338,7 @@ func (q *Queries) RemoveNode(ctx context.Context, arg RemoveNodeParams) (int64, 
 
 const repointFile = `-- name: RepointFile :exec
 UPDATE place SET node_id = ?1, path = ?2, reported_path_raw = ?3,
-  modified_at = NULL
+  is_unconfirmed = 1
 WHERE id = ?4
 `
 
@@ -349,8 +349,9 @@ type RepointFileParams struct {
 	ID              int64
 }
 
-// A live file of a repointed root, at its new place: its modified time is forgotten, so the next
-// scan reads it again and confirms it by its payload hash before it counts as there.
+// A live file of a repointed root, at its new place: it is unconfirmed, so the next scan reads it
+// again and confirms it by its payload hash before it counts as there. Its modified time is kept,
+// which leaves its items' found times as they are (D432 section 6).
 func (q *Queries) RepointFile(ctx context.Context, arg RepointFileParams) error {
 	_, err := q.db.ExecContext(ctx, repointFile,
 		arg.NodeID,
@@ -358,6 +359,25 @@ func (q *Queries) RepointFile(ctx context.Context, arg RepointFileParams) error 
 		arg.ReportedPathRaw,
 		arg.ID,
 	)
+	return err
+}
+
+const repointFileFilings = `-- name: RepointFileFilings :exec
+UPDATE file_filing SET identified_from_path = ?1
+WHERE file_filing.file_id = (SELECT place.file_id FROM place WHERE place.id = ?2)
+  AND file_filing.identified_from_path = (SELECT place.path FROM place WHERE place.id = ?2)
+`
+
+type RepointFileFilingsParams struct {
+	Path *string
+	ID   int64
+}
+
+// The path a live file of a repointed root was identified from, where it was identified at this
+// place, at the place's new path (run before RepointFile moves the place): identification sees a
+// path that differs as a file moved, and identifies it again (D208 section 1).
+func (q *Queries) RepointFileFilings(ctx context.Context, arg RepointFileFilingsParams) error {
+	_, err := q.db.ExecContext(ctx, repointFileFilings, arg.Path, arg.ID)
 	return err
 }
 

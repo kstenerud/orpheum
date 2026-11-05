@@ -43,7 +43,7 @@ func removePlace(
 	err = queries.MoveFileToItsCopysPlace(ctx, sqlcgen.MoveFileToItsCopysPlaceParams{
 		NodeID: heir.NodeID, Path: heir.Path, ReportedPathRaw: heir.ReportedPathRaw,
 		ModifiedAt: heir.ModifiedAt, FilesystemDevice: heir.FilesystemDevice, Inode: heir.Inode,
-		LastSeenAt: heir.LastSeenAt, ID: placeID,
+		LastSeenAt: heir.LastSeenAt, IsUnconfirmed: heir.IsUnconfirmed, ID: placeID,
 	})
 	if err == nil {
 		err = queries.ReattachSidecars(ctx, sqlcgen.ReattachSidecarsParams{ToPlace: &placeID, FromPlace: &heir.ID})
