@@ -111,7 +111,7 @@ func TestScanSchedule_AsksForTheDueScansOfLibrariesThatCheckByThemselves(t *test
 		{Name: "Watched", ChangeDetection: "watch", Roots: []string{"/media/watched"}},
 		{Name: "Running", ChangeDetection: "watch", Roots: []string{"/media/running"}},
 	} {
-		made.Kind, made.MetadataSource, made.NodeID = "movies", "nfo", world.nodeID
+		made.Kind, made.MetadataSource, made.NodeID = "movie", "nfo", world.nodeID
 		if _, err := Create(t.Context(), world.database, world.clock, made); err != nil {
 			t.Fatal(err)
 		}
@@ -143,7 +143,7 @@ func TestScanSchedule_AWatchersNoticeScansTheFolderOnlyForAWatchedLibrary(t *tes
 			Roots: []string{"/media/checked"},
 		},
 	} {
-		made.Kind, made.MetadataSource, made.NodeID = "movies", "nfo", world.nodeID
+		made.Kind, made.MetadataSource, made.NodeID = "movie", "nfo", world.nodeID
 		if _, err := Create(t.Context(), world.database, world.clock, made); err != nil {
 			t.Fatal(err)
 		}
@@ -174,7 +174,7 @@ func TestScanSchedule_AWatchersNoticeUnderARootScansTheLibraryFoldersInsideItTha
 		{Name: "Movies", ChangeDetection: "watch", Roots: []string{"/tank/video/movies"}},
 		{Name: "Shows", ChangeDetection: "watch", Roots: []string{"/tank/video/shows"}},
 	} {
-		made.Kind, made.MetadataSource, made.NodeID = "movies", "nfo", world.nodeID
+		made.Kind, made.MetadataSource, made.NodeID = "movie", "nfo", world.nodeID
 		if _, err := Create(t.Context(), world.database, world.clock, made); err != nil {
 			t.Fatal(err)
 		}
@@ -217,7 +217,7 @@ func TestScanSchedule_ScansAnUnavailableRootAgainUntilOneReadsIt(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
 	made := NewLibrary{
-		Name: "Away", ChangeDetection: "manual", Kind: "movies", MetadataSource: "nfo", NodeID: world.nodeID,
+		Name: "Away", ChangeDetection: "manual", Kind: "movie", MetadataSource: "nfo", NodeID: world.nodeID,
 		Roots: []string{"/media/away", "/media/lately", "/media/running", "/media/fine"},
 	}
 	if _, err := Create(t.Context(), world.database, world.clock, made); err != nil {
@@ -256,7 +256,7 @@ func TestScanSchedule_ProbesAnUnavailableRootBeforeScanningIt(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
 	made := NewLibrary{
-		Name: "Away", ChangeDetection: "manual", Kind: "movies", MetadataSource: "nfo", NodeID: world.nodeID,
+		Name: "Away", ChangeDetection: "manual", Kind: "movie", MetadataSource: "nfo", NodeID: world.nodeID,
 		Roots: []string{"/media/dead", "/media/back", "/media/moved", "/media/running"},
 	}
 	if _, err := Create(t.Context(), world.database, world.clock, made); err != nil {

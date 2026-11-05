@@ -349,7 +349,7 @@ func (harness testHarness) connectNode(t *testing.T, roots ...string) {
 
 func newShows(root string) map[string]any {
 	return map[string]any{
-		"name": "Shows", "kind": "shows", "metadataSource": "tmdb", "changeDetection": "manual",
+		"name": "Shows", "kind": "series", "metadataSource": "tmdb", "changeDetection": "manual",
 		"isWritable": false, "nodeName": "local", "rootPaths": []string{root},
 	}
 }
@@ -497,7 +497,7 @@ func TestFiles_PagesWhatTheScannerSaw(t *testing.T) {
 	admin := harness.createAdminAndSignIn(t)
 	harness.connectNode(t, "/m")
 	librarytest.LibraryOn(t, harness.database, 1,
-		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/m"})
+		librarytest.Library{Name: "Films", Kind: "movie", MetadataSource: "nfo", Root: "/m"})
 	librarytest.File(t, harness.database, librarytest.FileSpec{
 		ID: 1, LibraryID: 1, NodeID: 1, Path: "/m/a.mkv", Filing: "listed", FirstSeenAt: 1, LastSeenAt: 2,
 	})
@@ -537,7 +537,7 @@ func TestLibraries_AnAdminApprovesWithheldRemovalsAndForgetsAGoneDisk(t *testing
 	admin := harness.createAdminAndSignIn(t)
 	harness.connectNode(t, "/m")
 	librarytest.LibraryOn(t, harness.database, 1,
-		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/m"})
+		librarytest.Library{Name: "Films", Kind: "movie", MetadataSource: "nfo", Root: "/m"})
 	storetest.ExecRaw(t, harness.databasePath,
 		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, withheld_scan_started_at,
 		 withheld_reason)
@@ -566,7 +566,7 @@ func TestLibraries_ARootListsItsMissingMountsAndEachIsWhatADiskGoneTakes(t *test
 	admin := harness.createAdminAndSignIn(t)
 	harness.connectNode(t, "/m")
 	librarytest.LibraryOn(t, harness.database, 1,
-		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/m"})
+		librarytest.Library{Name: "Films", Kind: "movie", MetadataSource: "nfo", Root: "/m"})
 	storetest.ExecRaw(t, harness.databasePath,
 		`INSERT INTO root_mount (node_id, root_path, mount_path, filesystem_device, is_present)
 		 VALUES (1, '/m', '/m/disk1', 21, 0), (1, '/m', '/m/disk2', 22, 1)`)

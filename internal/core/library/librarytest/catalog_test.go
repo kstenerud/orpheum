@@ -95,7 +95,7 @@ func TestFile_LetsTheDatabaseChooseOrTakesAChosenID(t *testing.T) {
 	t.Parallel()
 	database := storetest.OpenMigrated(t)
 	nodeID, libraryID := librarytest.NodeWithLibrary(t, database,
-		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/media"})
+		librarytest.Library{Name: "Films", Kind: "movie", MetadataSource: "nfo", Root: "/media"})
 	titleID := librarytest.Title(t, database, librarytest.TitleSpec{Library: libraryID})
 	versionID := librarytest.Version(t, database, librarytest.VersionSpec{TitleID: titleID})
 
@@ -108,7 +108,7 @@ func TestFile_LetsTheDatabaseChooseOrTakesAChosenID(t *testing.T) {
 			"file_filing.filing, version_id, first_seen_at, last_seen_at "+
 			"FROM file JOIN file_filing ON file_filing.file_id = file.id WHERE id = "+itoa(auto))
 	if want := []string{"/media/Metropolis (1995).mkv|2f6d656469612f4d6574726f706f6c6973202831393935292e6d6b76" +
-		"|1000|01|video|movies|listed|" + itoa(versionID) + "|1|1"}; !slices.Equal(got, want) {
+		"|1000|01|video|movie|listed|" + itoa(versionID) + "|1|1"}; !slices.Equal(got, want) {
 		t.Errorf("auto file %d = %v, want %v: a video its library's kind filed listed in the version", auto, got, want)
 	}
 
@@ -141,7 +141,7 @@ func TestProbe_UpsertsTheFilesProbe(t *testing.T) {
 	t.Parallel()
 	database := storetest.OpenMigrated(t)
 	nodeID, libraryID := librarytest.NodeWithLibrary(t, database,
-		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/media"})
+		librarytest.Library{Name: "Films", Kind: "movie", MetadataSource: "nfo", Root: "/media"})
 	fileID := librarytest.File(t, database,
 		librarytest.FileSpec{LibraryID: libraryID, NodeID: nodeID, Path: "/media/a.mkv"})
 
@@ -166,7 +166,7 @@ func TestStream_CoversItsOwnTrackAndASidecars(t *testing.T) {
 	t.Parallel()
 	database := storetest.OpenMigrated(t)
 	nodeID, libraryID := librarytest.NodeWithLibrary(t, database,
-		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/media"})
+		librarytest.Library{Name: "Films", Kind: "movie", MetadataSource: "nfo", Root: "/media"})
 	video := librarytest.File(t, database,
 		librarytest.FileSpec{LibraryID: libraryID, NodeID: nodeID, Path: "/media/a.mkv"})
 	subtitleFile := librarytest.File(t, database, librarytest.FileSpec{

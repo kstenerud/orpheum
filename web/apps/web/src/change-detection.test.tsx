@@ -19,7 +19,7 @@ afterEach(() => {
 const films: Library = {
   id: 3,
   name: "Films",
-  kind: "movies",
+  kind: "movie",
   metadataSource: "nfo",
   changeDetection: "manual",
   isWritable: false,

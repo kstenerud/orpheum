@@ -17,7 +17,7 @@ import (
 // it is refused rather than read whole.
 func TestPass_AStoredAnswerThatExpandsPastItsBoundIsRefused(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	lib.provider.Add(heat)
 	lib.scan(videoRecord("Metropolis {tmdb-9019}.mkv"))
 	lib.matchFileTitle("Metropolis {tmdb-9019}.mkv")

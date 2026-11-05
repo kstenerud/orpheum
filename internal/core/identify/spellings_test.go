@@ -50,7 +50,7 @@ func TestSpellingVariants_AreTheOtherWaysANameIsWritten(t *testing.T) {
 // finds only works with the word in their names (the owner's staging, 2026-10-21).
 func TestMatch_ASeriesSpelledTheOtherWayIsFoundByItsOtherSpelling(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "shows", "tmdb")
+	lib := newTestLibrary(t, "series", "tmdb")
 	civilisation := identify.Metadata{ID: "4808", Name: "Harbour Lights", Year: 1969}
 	lib.provider.Searches[identifytest.SearchKey("Harbor Lights", 0)] = []identify.Candidate{
 		{ID: "70027", Name: "The Greeks: Crucible of Harbor Lights", Year: 2000},
@@ -75,7 +75,7 @@ func TestMatch_ASeriesSpelledTheOtherWayIsFoundByItsOtherSpelling(t *testing.T) 
 // 2026-11-02, IMDb tt0567890).
 func TestMatch_AFilmWhoseNameSaysAndForItsAmpersandIsFoundByIt(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	film := lib.provider.Add(identify.Metadata{
 		ID: "480500", Name: "Blind & Ugly", OriginalName: "Blind & Hässlich", Year: 2017,
 	})
@@ -95,7 +95,7 @@ func TestMatch_AFilmWhoseNameSaysAndForItsAmpersandIsFoundByIt(t *testing.T) {
 // another year, or two so named are not (the owner, 2026-10-21).
 func TestMatch_ANameALetterOffIsGuessedOnlyWhereItCannotBeAnotherWork(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	potter := identify.Metadata{ID: "4803", Name: "The Thief of Bagdad", Year: 2001}
 	const misspelt = "The Theif of Bagdad"
 	lib.provider.Searches[identifytest.SearchKey(misspelt, 2001)] = []identify.Candidate{

@@ -109,7 +109,7 @@ const oneLibrary = {
       {
         id: 1,
         name: "Films",
-        kind: "movies",
+        kind: "movie",
         metadataSource: "tmdb",
         changeDetection: "watch",
         isWritable: true,

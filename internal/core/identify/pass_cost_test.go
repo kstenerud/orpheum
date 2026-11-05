@@ -51,7 +51,7 @@ func TestPass_OverAnUnchangedLibraryRunsTheSameStatementsAtTwiceItsSizeAndTakesN
 // nfoFilms is a library of films, each with its NFO file, with an extra and a locked field.
 func nfoFilms(t *testing.T, size int) *testLibrary {
 	t.Helper()
-	lib := newTestLibrary(t, "movies", "nfo")
+	lib := newTestLibrary(t, "movie", "nfo")
 	var records []nodeproto.ScanRecord
 	for number := range size {
 		folder := fmt.Sprintf("Film %d (%d)", number, 1990+number)
@@ -71,7 +71,7 @@ func nfoFilms(t *testing.T, size int) *testLibrary {
 // matchedFilms is a library of films, each matched at TMDB, one confirmed by a person.
 func matchedFilms(t *testing.T, size int) *testLibrary {
 	t.Helper()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	var records []nodeproto.ScanRecord
 	for number := range size {
 		name, year := fmt.Sprintf("Film %d", number), 1990+number
@@ -102,7 +102,7 @@ func matchedFilms(t *testing.T, size int) *testLibrary {
 // nfoSeries is a library of series, each with its tvshow.nfo and two episodes.
 func nfoSeries(t *testing.T, size int) *testLibrary {
 	t.Helper()
-	lib := newTestLibrary(t, "shows", "nfo")
+	lib := newTestLibrary(t, "series", "nfo")
 	var records []nodeproto.ScanRecord
 	for number := range size {
 		show := fmt.Sprintf("Show %d", number)
@@ -119,7 +119,7 @@ func nfoSeries(t *testing.T, size int) *testLibrary {
 // matchedSeries is a library of series, each matched at TMDB with its season listed.
 func matchedSeries(t *testing.T, size int) *testLibrary {
 	t.Helper()
-	lib := newTestLibrary(t, "shows", "tmdb")
+	lib := newTestLibrary(t, "series", "tmdb")
 	var rels []string
 	for number := range size {
 		show, id := fmt.Sprintf("Show %d", number), fmt.Sprint(500+number)

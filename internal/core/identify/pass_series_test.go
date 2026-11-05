@@ -43,7 +43,7 @@ func (lib *testLibrary) seriesOfEach() map[int64]string {
 // impossible for any of its contents to be classified as films".
 func TestPass_ASeriesLibraryFilesEveryVideoAsAnEpisodeOrASpecialNeverAFilm(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "shows", "nfo")
+	lib := newTestLibrary(t, "series", "nfo")
 	prisoner := "The Wanderer (1967)/The Wanderer - 01 - The Bells of Saint Quill.mkv"
 	featurette := "Brindlewood/Brindlewood Season 5  [1080p x265 10bit FS89 Joy]/Featurettes/Six Seasons and A Finale.mkv"
 	episode := "Brindlewood/Brindlewood Season 5  [1080p x265 10bit FS89 Joy]/Brindlewood.S05E01.mkv"
@@ -88,7 +88,7 @@ func TestPass_ASeriesLibraryFilesEveryVideoAsAnEpisodeOrASpecialNeverAFilm(t *te
 // Arkon Horizon as six series of one name (the owner's NAS, 2026-10-13).
 func TestPass_EpisodesAnOlderReadingSplitIntoSeriesOfTheirOwnComeTogether(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "shows", "nfo")
+	lib := newTestLibrary(t, "series", "nfo")
 	first := "Arkon Horizon/Season 1/Arkon Horizon - S01E01.mkv"
 	second := "Arkon Horizon/Season 1/Arkon Horizon - S01E02.mkv"
 	lib.scan(videoRecord(first), videoRecord(second))
@@ -170,7 +170,7 @@ func (lib *testLibrary) seriesNames() map[int64]string {
 // a person watches it in until they choose another (episode-orderings.md §3.5).
 func TestPass_ASeriesAiredOrderingIsOfTheKindAired(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "shows", "nfo")
+	lib := newTestLibrary(t, "series", "nfo")
 	lib.scan(videoRecord("Emberwing/Season 1/Emberwing.S01E01.mkv"))
 	orderings := storetest.QueryRaw(t, lib.database.Path(), "SELECT name, kind FROM ordering")
 	if !slices.Equal(orderings, []string{"aired|aired"}) {

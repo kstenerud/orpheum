@@ -194,7 +194,7 @@ func (work reportedWork) relative(path string) string {
 // readAs is what the parser reads from a path in the work's library, as the pass would.
 func (work reportedWork) readAs(relative string) string {
 	parsed := ParsePath(relative)
-	if work.libraryKind == "shows" {
+	if work.libraryKind == library.LibraryKindSeries {
 		parsed = ParseEpisodePath(relative)
 	}
 	if parsed.Kind != library.TitleKindEpisode {

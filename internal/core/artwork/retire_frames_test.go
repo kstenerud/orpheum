@@ -16,7 +16,7 @@ import (
 // (D392 §3).
 func TestRetireFrameStills_RetiresOnlyTheFilesFrameStills(t *testing.T) {
 	t.Parallel()
-	world := newFrameWorld(t, "movies", "tmdb")
+	world := newFrameWorld(t, "movie", "tmdb")
 	titleID, fileID := world.video(t, librarytest.TitleSpec{Kind: "movie"})
 	world.store(t, titleID, sqlcgen.InsertArtworkParams{
 		Kind: library.ArtStill, Source: SourceFrame, SourceRef: new(fmt.Sprintf("file:%d:5000:7", fileID)),

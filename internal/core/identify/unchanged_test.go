@@ -18,7 +18,7 @@ import (
 // filing written again as it was (D303, DL9; the access audit's A2).
 func TestPass_AgainOverAnUnchangedLibraryWritesNothing(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "nfo")
+	lib := newTestLibrary(t, "movie", "nfo")
 	lib.scan(
 		nfoRecord("Metropolis (1995)/Metropolis (1995).nfo", `<movie><title>Metropolis</title><year>1995</year></movie>`),
 		videoRecord("Metropolis (1995)/Metropolis (1995).mkv"),
@@ -48,7 +48,7 @@ func TestPass_AgainOverAnUnchangedLibraryWritesNothing(t *testing.T) {
 // the stored response is what it stored last time (D303, DL9).
 func TestPass_AgainOverAnUnchangedMatchedLibraryWritesNothing(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	lib.provider.Searches[identifytest.SearchKey("Théo", 1994)] = []identify.Candidate{lib.provider.Add(theo)}
 	const rel = "Théo (1994)/Théo (1994).mkv"
 	lib.scan(videoRecord(rel))
@@ -76,7 +76,7 @@ func TestPass_AgainOverAnUnchangedMatchedLibraryWritesNothing(t *testing.T) {
 // not on disk (the owner's NAS, 2026-10-16: 80,246 of them under one series).
 func TestPass_AgainOverAnUnchangedLibraryWithAnUnnumberedSpecialWritesNothing(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "shows", "nfo")
+	lib := newTestLibrary(t, "series", "nfo")
 	lib.scan(
 		nfoRecord("Test Show/tvshow.nfo", `<tvshow><title>Test Show</title><year>2024</year></tvshow>`),
 		videoRecord("Test Show/Season 01/Test Show - S01E01.mkv"),
@@ -132,7 +132,7 @@ func TestPass_AgainOverAnUnchangedLibraryWithAnEpisodePlacedByItsNameWritesNothi
 // TestPass_OverRandomLibrariesAgainWritesNothingAndMakesNoTitleEachPass).
 func TestPass_AConfirmedFilmFiledAsAnExtraTakesTheKindExtra(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "nfo")
+	lib := newTestLibrary(t, "movie", "nfo")
 	const making = "Metropolis (1995)/Featurettes/Making Metropolis.mkv"
 	lib.scan(videoRecord(making))
 	title := lib.titlesByPath()[making].TitleID

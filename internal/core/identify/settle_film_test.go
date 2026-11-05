@@ -57,7 +57,7 @@ func crowdCandidates(lib *testLibrary) {
 // stored from the details read for its runtime, not fetched again.
 func TestMatch_AFilmsCandidateWhoseRuntimeFitsTheFileIsTaken(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	crowdCandidates(lib)
 	lib.scan(videoLasting(crowdRelease, crowdReleaseMs))
 	if outcome := lib.matchFileTitle(crowdRelease); outcome != identify.OutcomeMatched {
@@ -96,7 +96,7 @@ func TestMatch_AFilmsCandidateWhoseRuntimeFitsTheFileIsTaken(t *testing.T) {
 // a rescan; only the work taken is fetched, for its record.
 func TestRescan_AKeptCandidatesRuntimeIsNotFetchedAgain(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	crowdCandidates(lib)
 	lib.scan(videoLasting(crowdRelease, crowdReleaseMs))
 	lib.matchFileTitle(crowdRelease)
@@ -159,7 +159,7 @@ func TestMatch_AFilmsCandidatesAreRankedFitsThenTheRest(t *testing.T) {
 	} {
 		t.Run(each.name, func(t *testing.T) {
 			t.Parallel()
-			lib := newTestLibrary(t, "movies", "tmdb")
+			lib := newTestLibrary(t, "movie", "tmdb")
 			first, second := lib.provider.Add(each.first), lib.provider.Add(each.second)
 			first.Votes, second.Votes = 9000, 10
 			lib.provider.Searches[identifytest.SearchKey("Faust", 2021)] = []identify.Candidate{first, second}
@@ -178,7 +178,7 @@ func TestMatch_AFilmsCandidatesAreRankedFitsThenTheRest(t *testing.T) {
 // fitting, stay a person's choice (D301 §1), one fitting being taken.
 func TestMatch_AFilmsYearAdmitsAYearEitherSideItsOwnFirst(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	ofTheYear := lib.provider.Add(identify.Metadata{ID: "1", Name: "The General", Year: 2002, RuntimeMs: 99 * minuteMs})
 	yearOn := lib.provider.Add(identify.Metadata{ID: "2", Name: "The General", Year: 2003, RuntimeMs: 100 * minuteMs})
 	yearOn.Votes = 9000
@@ -216,7 +216,7 @@ func TestMatch_AFilmsYearAdmitsAYearEitherSideItsOwnFirst(t *testing.T) {
 // separate them (Disney's Alcazar over a later one), and the fit comes first where they do.
 func TestMatch_AFilmWithNoYearTakesTheOldestOfThoseThatFitBest(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	disneys := lib.provider.Add(identify.Metadata{ID: "4812", Name: "Alcazar", Year: 1992, RuntimeMs: 90 * minuteMs})
 	remake := lib.provider.Add(identify.Metadata{ID: "480817", Name: "Alcazar", Year: 2019, RuntimeMs: 128 * minuteMs})
 	disneys.Votes, remake.Votes = 9000, 15000
@@ -235,7 +235,7 @@ func TestMatch_AFilmWithNoYearTakesTheOldestOfThoseThatFitBest(t *testing.T) {
 			t.Errorf("%s follows %s; want %s, %s", each.rel, id, each.want, each.why)
 		}
 	}
-	both := newTestLibrary(t, "movies", "tmdb")
+	both := newTestLibrary(t, "movie", "tmdb")
 	disneys = both.provider.Add(identify.Metadata{ID: "4812", Name: "Alcazar", Year: 1992})
 	remake = both.provider.Add(identify.Metadata{ID: "480817", Name: "Alcazar", Year: 2019})
 	disneys.Votes, remake.Votes = 9000, 15000
@@ -253,7 +253,7 @@ func TestMatch_AFilmWithNoYearTakesTheOldestOfThoseThatFitBest(t *testing.T) {
 // is taken, the most voted by far, the oldest and a longer cut's fit (D412 §3, §4).
 func TestMatch_AFilmWithNoYearIsNotTakenByAnUnknownRuntimeOverTheOldest(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	add := func(id string, year int, runtimeMs int64, votes int) identify.Candidate {
 		candidate := lib.provider.Add(identify.Metadata{
 			ID: id, Name: "Wings", OriginalName: "Wings", Year: year, RuntimeMs: runtimeMs,
@@ -281,7 +281,7 @@ func TestMatch_AFilmWithNoYearIsNotTakenByAnUnknownRuntimeOverTheOldest(t *testi
 // decides nothing.
 func TestMatch_AFilmWithNoYearTakesTheMostVotedOnlyByAWideMargin(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	search := func(name string, older, newer int) {
 		one := lib.provider.Add(identify.Metadata{ID: name + "-1950", Name: name, Year: 1950})
 		other := lib.provider.Add(identify.Metadata{ID: name + "-2001", Name: name, Year: 2001})
@@ -322,7 +322,7 @@ func TestMatch_AFilmWithNoYearFitsALongerCut(t *testing.T) {
 		{"Harrow.mkv", 190 * minuteMs, "1979", "the oldest, 190 minutes too long for a cut not named one"},
 	} {
 		// A library each, as two files of one name would be versions of one title.
-		lib := newTestLibrary(t, "movies", "tmdb")
+		lib := newTestLibrary(t, "movie", "tmdb")
 		older := lib.provider.Add(identify.Metadata{ID: "1979", Name: "Harrow", Year: 1979, RuntimeMs: 95 * minuteMs})
 		camerons := lib.provider.Add(identify.Metadata{
 			ID: "1986", Name: "Harrow", Year: 1986, RuntimeMs: 137 * minuteMs,
@@ -342,7 +342,7 @@ func TestMatch_AFilmWithNoYearFitsALongerCut(t *testing.T) {
 // the owner's Blind & Ugly is named in English, the film German, Blind & Hässlich.
 func TestMatch_AFilmWithNoYearPrefersItsOriginalNameButKeepsATranslatedOne(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	translated := lib.provider.Add(identify.Metadata{
 		ID: "60", Name: "Harbour Lights", OriginalName: "Hafenlichter", Year: 1960,
 	})
@@ -375,7 +375,7 @@ func TestMatch_AFilmWithNoYearPrefersItsOriginalNameButKeepsATranslatedOne(t *te
 // runtime, votes and fit, and the one taken.
 func TestMatch_AFilmsChoiceAmongItsCandidatesIsLogged(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	crowdCandidates(lib)
 	var logged bytes.Buffer
 	lib.matcher = identify.NewMatcher(lib.database, lib.cache, lib.pass, lib.clock,

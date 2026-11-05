@@ -167,7 +167,7 @@ func newBench(t *testing.T) *bench {
 	t.Helper()
 	database := storetest.OpenMigrated(t)
 	nodeID, libraryID := librarytest.NodeWithLibrary(t, database,
-		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/m"})
+		librarytest.Library{Name: "Films", Kind: "movie", MetadataSource: "nfo", Root: "/m"})
 	librarytest.File(t, database, librarytest.FileSpec{
 		ID: 1, LibraryID: libraryID, NodeID: nodeID, Path: "/m/f1.mkv", PayloadHash: []byte{0x01},
 		Filing: "unidentified",

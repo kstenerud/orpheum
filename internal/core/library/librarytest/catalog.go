@@ -271,7 +271,7 @@ func rowFiling(spec FileSpec) string {
 func requireCovered(t *testing.T, database *store.Database, spec FileSpec) string {
 	t.Helper()
 	if spec.LibraryID == 0 {
-		return "movies"
+		return "movie"
 	}
 	var kind string
 	var roots []sqlcgen.ListLibraryRootsRow

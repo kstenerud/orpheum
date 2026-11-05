@@ -42,9 +42,9 @@ func TestPass_FromTheSnapshotWritesWhatAPassReadingAsItGoesWrites(t *testing.T) 
 		name, kind, source string
 		steps              []func(lib *testLibrary)
 	}{
-		{"films and series filed by NFO", "movies", "nfo", nfoScenario()},
-		{"films matched at TMDB", "movies", "tmdb", tmdbFilmsScenario()},
-		{"series matched at TMDB", "shows", "tmdb", tmdbSeriesScenario()},
+		{"films and series filed by NFO", "movie", "nfo", nfoScenario()},
+		{"films matched at TMDB", "movie", "tmdb", tmdbFilmsScenario()},
+		{"series matched at TMDB", "series", "tmdb", tmdbSeriesScenario()},
 	} {
 		fromSnapshot := newTestLibrary(t, scenario.kind, scenario.source)
 		asItGoes := newTestLibrary(t, scenario.kind, scenario.source)

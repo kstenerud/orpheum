@@ -26,7 +26,7 @@ var orbitorama = identify.Metadata{
 // orbitoramaLibrary is a TMDB library holding two episodes of season 2, one of which TMDB lists.
 func orbitoramaLibrary(t *testing.T) *testLibrary {
 	t.Helper()
-	lib := newTestLibrary(t, "shows", "tmdb")
+	lib := newTestLibrary(t, "series", "tmdb")
 	lib.provider.Searches[identifytest.SearchKey("Orbitorama", 0)] = []identify.Candidate{lib.provider.Add(orbitorama)}
 	lib.provider.Seasons["615/2"] = []identify.Episode{{
 		ID: "1101", Season: 2, Number: 10, Name: "A Comet of My Own", Overview: "The Professor names his successor.",
@@ -149,7 +149,7 @@ func TestSeries_ANewEpisodeFetchesItsSeasonAgain(t *testing.T) {
 // one, and a person corrects it from the candidates kept for it, which is final (D301).
 func TestSeries_OfSeveralByItsNameTheOldestIsGuessedAndAPersonCorrectsIt(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "shows", "tmdb")
+	lib := newTestLibrary(t, "series", "tmdb")
 	uk := lib.provider.Add(identify.Metadata{ID: "2996", Name: "The Ledger Room", Year: 2001})
 	american := lib.provider.Add(identify.Metadata{ID: "2316", Name: "The Ledger Room", Year: 2005})
 	lib.provider.Searches[identifytest.SearchKey("The Ledger Room", 0)] = []identify.Candidate{american, uk}
@@ -192,7 +192,7 @@ func TestSeries_OfSeveralByItsNameTheOldestIsGuessedAndAPersonCorrectsIt(t *test
 
 func TestSeries_AYearOrAnIDSettlesTheSearch(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "shows", "nfo_then_tmdb")
+	lib := newTestLibrary(t, "series", "nfo_then_tmdb")
 	uk := lib.provider.Add(identify.Metadata{ID: "2996", Name: "The Ledger Room", Year: 2001})
 	american := lib.provider.Add(identify.Metadata{ID: "2316", Name: "The Ledger Room", Year: 2005})
 	lib.provider.Add(orbitorama)
@@ -217,7 +217,7 @@ func TestSeries_AYearOrAnIDSettlesTheSearch(t *testing.T) {
 
 func TestSeries_AnEpisodeAddedAfterTheSeriesWasRenamedJoinsIt(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "shows", "tmdb")
+	lib := newTestLibrary(t, "series", "tmdb")
 	sunny := lib.provider.Add(identify.Metadata{ID: "2710", Name: "It's Always Sunny in Philadelphia", Year: 2005})
 	lib.provider.Seasons["2710/1"] = []identify.Episode{}
 	first := "Always Sunny {tmdb-2710}/Season 1/S01E02.mkv"
@@ -238,7 +238,7 @@ func TestSeries_AnEpisodeAddedAfterTheSeriesWasRenamedJoinsIt(t *testing.T) {
 // pass, not two (D303, DL14).
 func TestMatch_SeriesMatchesInOneLibraryAreFollowedByOnePass(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "shows", "tmdb")
+	lib := newTestLibrary(t, "series", "tmdb")
 	lib.provider.Searches[identifytest.SearchKey("Orbitorama", 0)] = []identify.Candidate{
 		lib.provider.Add(identify.Metadata{ID: "7615", Name: "Orbitorama", Year: 1999}),
 	}
@@ -290,7 +290,7 @@ const (
 // episode with no number that its name places in season 1 as a guess (D307 §2).
 func placedByNameLibrary(t *testing.T) *testLibrary {
 	t.Helper()
-	lib := newTestLibrary(t, "shows", "tmdb")
+	lib := newTestLibrary(t, "series", "tmdb")
 	listed := orbitorama
 	listed.SeasonNumbers = []int{0, 1, 2}
 	lib.provider.Searches[identifytest.SearchKey("Orbitorama", 0)] = []identify.Candidate{lib.provider.Add(listed)}

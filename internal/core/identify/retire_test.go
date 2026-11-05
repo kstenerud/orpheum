@@ -74,12 +74,12 @@ func (lib *testLibrary) isLive(itemID int64) bool {
 // item (D363 §10): the title stayed, listed by no library, until one covers its file again.
 func TestPass_ADeletedLibrarysFilmThatReappearsElsewhereBringsItsTitleBack(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "nfo")
+	lib := newTestLibrary(t, "movie", "nfo")
 	const body = `<movie><title>The Kid</title><year>2014</year><uniqueid type="tmdb">480600</uniqueid></movie>`
 	const film, nfo = "The Kid (2014)/The Kid (2014).mkv", "The Kid (2014)/The Kid (2014).nfo"
 	lib.scan(videoRecord(film), nfoRecord(nfo, body))
 	the kid := lib.titlesByPath()[film].TitleID
-	lib.deleteAndStartAnother("movies", "nfo")
+	lib.deleteAndStartAnother("movie", "nfo")
 	if !lib.isLive(the kid) {
 		t.Fatal("the deleted library's title is a tombstone; deleting a library deletes no item (D363 §10)")
 	}
@@ -93,13 +93,13 @@ func TestPass_ADeletedLibrarysFilmThatReappearsElsewhereBringsItsTitleBack(t *te
 // matched there to the same work brings its title back, with its history.
 func TestMatch_ADeletedLibrarysFilmMatchedAgainElsewhereBringsItsTitleBack(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(heat)}
 	const film = "Metropolis (1995).mkv"
 	lib.scan(videoRecord(film))
 	lib.matchFileTitle(film)
 	metropolisTitle := lib.titlesByPath()[film].TitleID
-	lib.deleteAndStartAnother("movies", "tmdb")
+	lib.deleteAndStartAnother("movie", "tmdb")
 	lib.scan(videoRecord(film))
 	if newTitle := lib.titlesByPath()[film].TitleID; newTitle == metropolisTitle {
 		t.Fatal("the film was filed under its old title before any match; the test proves nothing")
@@ -127,13 +127,13 @@ func (lib *testLibrary) seriesOfFile(rel string) int64 {
 // (D363 §10).
 func TestPass_ADeletedLibrarysSeriesThatReappearsElsewhereComesBack(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "shows", "nfo")
+	lib := newTestLibrary(t, "series", "nfo")
 	const show = `<tvshow><title>Puddlejump</title><year>2018</year><uniqueid type="tmdb">82728</uniqueid></tvshow>`
 	const first, second = "Puddlejump/Season 01/Puddlejump - S01E01.mkv", "Puddlejump/Season 01/Puddlejump - S01E02.mkv"
 	lib.scan(nfoRecord("Puddlejump/tvshow.nfo", show), videoRecord(first), videoRecord(second))
 	puddlejump := lib.onlySeries().ID
 	magicXylophone, hospital := lib.titlesByPath()[first].TitleID, lib.titlesByPath()[second].TitleID
-	lib.deleteAndStartAnother("shows", "nfo")
+	lib.deleteAndStartAnother("series", "nfo")
 	lib.scan(nfoRecord("Puddlejump/tvshow.nfo", show), videoRecord(first))
 	if got := lib.onlySeries().ID; got != puddlejump {
 		t.Errorf("Puddlejump in Kids is series %d, want %d brought back", got, puddlejump)
@@ -161,7 +161,7 @@ func TestMatch_ADeletedLibrarysSeriesMatchedAgainElsewhereComesBack(t *testing.T
 	}
 	orbitoramaSeries := lib.onlySeries().ID
 	clone, later := lib.titlesByPath()[orbitoramaFiles[0]].TitleID, lib.titlesByPath()[orbitoramaFiles[1]].TitleID
-	lib.deleteAndStartAnother("shows", "tmdb")
+	lib.deleteAndStartAnother("series", "tmdb")
 	const added = "Orbitorama/Season 02/Orbitorama - S02E12.mkv"
 	lib.scanAll(orbitoramaFiles[0], added)
 	newSeries := lib.onlySeries().ID

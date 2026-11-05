@@ -439,7 +439,7 @@ func TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders(t 
 	t.Parallel()
 	bench := newBench(t, fakeFetcher{"/poster.jpg": []byte("tmdb poster")})
 	nodeID, libraryID := librarytest.NodeWithLibrary(t, bench.database,
-		librarytest.Library{Name: "L", Kind: "movies", MetadataSource: "nfo_then_tmdb", Root: "/m"})
+		librarytest.Library{Name: "L", Kind: "movie", MetadataSource: "nfo_then_tmdb", Root: "/m"})
 	fileID := librarytest.File(t, bench.database, librarytest.FileSpec{
 		ID: 40, LibraryID: libraryID, NodeID: nodeID, Path: "/m/Film/poster.jpg",
 		SizeBytes: 5, ModifiedAt: 7, Filing: "attached", FilingReason: "image",

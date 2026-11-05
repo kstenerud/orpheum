@@ -13,7 +13,7 @@ import (
 // never makes an extra, and nothing at a library root is one.
 func TestPass_AFileNamedForItsFoldersTitleWithASuffixIsAnExtra(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "nfo")
+	lib := newTestLibrary(t, "movie", "nfo")
 	report := lib.scan(
 		videoRecord("Quiet Harbour (1999)/Quiet Harbour (1999).mkv"),
 		videoRecord("Quiet Harbour (1999)/Quiet Harbour (1999)-featurette.mkv"),

@@ -59,7 +59,7 @@ type RootScanBody struct {
 type LibraryBody struct {
 	ID                 int64            `json:"id"`
 	Name               string           `json:"name"`
-	Kind               string           `enum:"movies,shows,other" json:"kind"`
+	Kind               string           `enum:"movie,series,other" json:"kind"`
 	MetadataSource     string           `enum:"nfo_then_tmdb,tmdb,nfo" json:"metadataSource"`
 	ChangeDetection    string           `enum:"watch,interval,manual" json:"changeDetection"`
 	CheckEveryHours    *int64           `json:"checkEveryHours,omitempty"`
@@ -86,7 +86,7 @@ type CreateLibraryInput struct {
 		Name string `json:"name"            minLength:"1"`
 		// Kind: films, series, both, or other videos, neither films nor series, never identified
 		// online (D349).
-		Kind string `enum:"movies,shows,other" json:"kind"`
+		Kind string `enum:"movie,series,other" json:"kind"`
 		// MetadataSource: NFO files where present, TMDB for the rest; TMDB only; NFO files only. Asked
 		// of every kind but other, which takes NFO files only and is not asked (D184, D349).
 		MetadataSource  string   `enum:"nfo_then_tmdb,tmdb,nfo" json:"metadataSource,omitempty" required:"false"`

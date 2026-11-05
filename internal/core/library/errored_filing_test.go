@@ -20,7 +20,7 @@ func TestIngest_AFiledVideoThatCannotBeReadIsErroredAndNoLongerAKindsVideo(t *te
 	world.scan([]nodeproto.ScanRecord{observedRecord("locked.mkv", "locked")}, true)
 	fileID := world.liveFilesByPath()[root+"/locked.mkv"].ID
 	err := world.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
-		return FileAs(t.Context(), queries, fileID, LibraryKindMovies, "unidentified", "no NFO file")
+		return FileAs(t.Context(), queries, fileID, LibraryKindMovie, "unidentified", "no NFO file")
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -133,7 +133,7 @@ func serviceWithFilms(t *testing.T) *Service {
 	t.Helper()
 	database := storetest.OpenMigrated(t)
 	nodeID, libraryID := librarytest.NodeWithLibrary(t, database,
-		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/m"})
+		librarytest.Library{Name: "Films", Kind: "movie", MetadataSource: "nfo", Root: "/m"})
 	probes := map[int64]string{
 		1: `{"format":{"durationMs":7000},"streams":[{"kind":"video","codec":"mjpeg","disposition":["attached_pic"]},` +
 			`{"streamIndex":1,"kind":"video","codec":"h264"}]}`,

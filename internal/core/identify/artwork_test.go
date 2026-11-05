@@ -15,7 +15,7 @@ import (
 
 func TestPass_ReportsTheImagesAMatchNamesOnEveryPass(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	film := heat
 	film.Artwork = []identify.ImageRef{
 		{Kind: library.ArtPoster, Ref: "/heat-poster.jpg"}, {Kind: library.ArtBackdrop, Ref: "/heat-back.jpg"},
@@ -47,7 +47,7 @@ func TestPass_ReportsTheImagesAMatchNamesOnEveryPass(t *testing.T) {
 
 func TestChoose_ARematchReportsTheNewWorksImages(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	film := heat
 	film.Artwork = []identify.ImageRef{
 		{Kind: library.ArtPoster, Ref: "/heat-poster.jpg"}, {Kind: library.ArtBackdrop, Ref: "/heat-back.jpg"},
@@ -81,7 +81,7 @@ func TestChoose_ARematchReportsTheNewWorksImages(t *testing.T) {
 
 func TestPass_ReportsASeriesSeasonsPostersByTheirSeasonOnEveryPass(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "shows", "tmdb")
+	lib := newTestLibrary(t, "series", "tmdb")
 	series := identify.Metadata{ID: "4807", Name: "Emberwing", Year: 2002, Artwork: []identify.ImageRef{
 		{Kind: library.ArtPoster, Ref: "/emberwing.jpg"},
 		{Kind: library.ArtPoster, SeasonNumber: new(int64(1)), Ref: "/season-1.jpg"},

@@ -25,7 +25,7 @@ func TestKeepSortAndSearchKeysCurrent_KeysEveryNameAtStartAndOnEveryChange(t *te
 	config := settingstest.Seeded(t, database)
 	storetest.ExecRaw(t, database.Path(),
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
-		 VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)`)
+		 VALUES (1, 'Films', 'movie', 'nfo', 'manual', 0, 1)`)
 	titleID := librarytest.Title(t, database, librarytest.TitleSpec{ID: 10, Library: 1})
 	librarytest.Version(t, database, librarytest.VersionSpec{TitleID: titleID})
 	storetest.ExecRaw(t, database.Path(),

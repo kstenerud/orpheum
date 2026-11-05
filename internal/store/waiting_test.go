@@ -16,7 +16,7 @@ func TestCountWaitingForAPerson_CountsWhatTheListShows(t *testing.T) {
 	execRaw(t, database, "PRAGMA foreign_keys = OFF",
 		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
-		 VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)`,
+		 VALUES (1, 'Films', 'movie', 'nfo', 'manual', 0, 1)`,
 		"INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/')")
 	title := func(id int, kind, state, source string, hasFile bool) {
 		t.Helper()
@@ -31,7 +31,7 @@ func TestCountWaitingForAPerson_CountsWhatTheListShows(t *testing.T) {
 				"VALUES (%d, 1, '/p%d', 'video', 1, 1, CAST('/p%d' AS BLOB))",
 				id, id, id),
 				fmt.Sprintf("INSERT INTO file_filing (file_id, library_kind, filing, version_id) "+
-					"VALUES (%d, 'movies', 'listed', %d)", id, id))
+					"VALUES (%d, 'movie', 'listed', %d)", id, id))
 		}
 	}
 	title(1, "movie", "ambiguous", "NULL", true)        // counted

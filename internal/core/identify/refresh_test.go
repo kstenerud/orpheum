@@ -69,7 +69,7 @@ func (lib *testLibrary) lastAskedAt(itemID int64) int64 {
 // matchedMetropolis is a TMDB library holding Metropolis, matched.
 func matchedMetropolis(t *testing.T) (*testLibrary, int64) {
 	t.Helper()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(heat)}
 	lib.scan(videoRecord("Metropolis (1995).mkv"))
 	if outcome := lib.matchFileTitle("Metropolis (1995).mkv"); outcome != identify.OutcomeMatched {
@@ -255,7 +255,7 @@ func TestRefresher_ARecheckIsARefreshThatAsksForTheImagesAgainDerivedBySweep(t *
 
 func TestRefresher_AFirstMatchIsOwedUntilTheItemHasAnAnswerHoweverOftenItsJobIsLost(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(heat)}
 	lib.provider.Searches[identifytest.SearchKey("Nothing", 2001)] = []identify.Candidate{}
 	lib.scan(videoRecord("Metropolis (1995).mkv"), videoRecord("Nothing (2001).mkv"))
@@ -300,7 +300,7 @@ func (lib *testLibrary) onlyUnidentified() identify.ItemSummary {
 
 func TestRecordFailure_AnItemsOwnFailureIsShownPassedOverAndClearedByAPersonsRefresh(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	lib.scan(videoRecord("Metropolis (1995).mkv"))
 	metropolisID := lib.titlesByPath()["Metropolis (1995).mkv"].TitleID
 	job := jobs.Job{ID: 7, Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: metropolisID}}

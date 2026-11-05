@@ -17,7 +17,7 @@ import (
 // ambiguousTheGeneral is a library holding one film its search could not settle.
 func ambiguousTheGeneral(t *testing.T) (*testLibrary, int64) {
 	t.Helper()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	theGeneral72 := lib.provider.Add(identify.Metadata{ID: "1", Name: "The General", Year: 1972})
 	theGeneral02 := lib.provider.Add(identify.Metadata{ID: "2", Name: "The General", Year: 2002, Overview: "Soderbergh's."})
 	lib.provider.Searches[identifytest.SearchKey("The General", 2004)] = []identify.Candidate{theGeneral72, theGeneral02}
@@ -85,7 +85,7 @@ func TestChooser_AChosenMatchIsPermanent(t *testing.T) {
 // match no guess settled has nothing to confirm.
 func TestChooser_AGuessConfirmedIsAPersonsMatch(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	oldest := lib.provider.Add(identify.Metadata{ID: "31", Name: "The Lantern Keeper", Year: 1961})
 	lib.provider.Searches[identifytest.SearchKey("The Lantern Keeper", 0)] = []identify.Candidate{
 		{ID: "32", Name: "The Lantern Keeper", Year: 2015}, oldest,
@@ -125,7 +125,7 @@ func TestChooser_AGuessConfirmedIsAPersonsMatch(t *testing.T) {
 
 func TestChooser_AChoiceWinsOverTheNFOAndReplacesAnEarlierOne(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "nfo_then_tmdb")
+	lib := newTestLibrary(t, "movie", "nfo_then_tmdb")
 	lib.provider.Add(heat)
 	lib.provider.Add(theo)
 	lib.scan(videoRecord("Metropolis (1995).mkv"),

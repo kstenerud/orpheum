@@ -137,7 +137,7 @@ func (lib *testLibrary) followed(rel string) (id, name string) {
 // exact name won (ab718755); the search now finds the film named exactly too.
 func crowdAsBeforeTheFix(t *testing.T) *testLibrary {
 	t.Helper()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	withArticle := lib.provider.Add(identify.Metadata{
 		ID: "32", Name: "The Crowd", OriginalName: "The Crowd", Year: 2022,
 	})
@@ -221,7 +221,7 @@ func TestRescan_LeavesAPersonsChoiceAndEditedFieldsAlone(t *testing.T) {
 // one the rules now settle clearly is no longer marked a guess (D301).
 func TestRescan_RematchesAnUnconfirmedGuess(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	const rel = "The General (2002).mkv"
 	lesser := lib.provider.Add(identify.Metadata{ID: "2", Name: "The General", Year: 2002})
 	lesser.Votes = 10
@@ -310,10 +310,10 @@ func TestRescan_ASecondPressWhileOneRunsAddsNothing(t *testing.T) {
 // videos are never matched.
 func TestRescan_EveryLibraryOfFilmsOrSeriesAndNoOther(t *testing.T) {
 	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movie", "tmdb")
 	var want []int64
 	want = append(want, lib.libraryID)
-	for index, kind := range []string{"shows", "other"} {
+	for index, kind := range []string{"series", "other"} {
 		source := "tmdb"
 		if kind == "other" {
 			source = "nfo"
@@ -321,7 +321,7 @@ func TestRescan_EveryLibraryOfFilmsOrSeriesAndNoOther(t *testing.T) {
 		libraryID := librarytest.LibraryOn(t, lib.database, lib.nodeID, librarytest.Library{
 			Name: kind, Kind: kind, MetadataSource: source, Root: "/media/" + kind + string(rune('a'+index)),
 		})
-		if kind == "shows" {
+		if kind == "series" {
 			want = append(want, libraryID)
 		}
 	}

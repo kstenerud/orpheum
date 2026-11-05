@@ -30,7 +30,7 @@ func TestRescan_AFileUnchangedOnDiskIsNotProbedAgain(t *testing.T) {
 	versionID := librarytest.Version(t, bench.database, librarytest.VersionSpec{TitleID: titleID})
 	arkon := bench.liveFilesByPath()[root+"/Arkon (1979)/Arkon.mkv"]
 	err = bench.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		return PutInVersion(ctx, queries, arkon.ID, LibraryKindMovies, versionID)
+		return PutInVersion(ctx, queries, arkon.ID, LibraryKindMovie, versionID)
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -68,7 +68,7 @@ func TestRescan_AFullRescanReadsItsFilesAgainChangedOnDiskOrNot(t *testing.T) {
 	versionID := librarytest.Version(t, bench.database, librarytest.VersionSpec{TitleID: titleID})
 	arkon := bench.liveFilesByPath()[root+"/Arkon (1979)/Arkon.mkv"]
 	err = bench.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		return PutInVersion(ctx, queries, arkon.ID, LibraryKindMovies, versionID)
+		return PutInVersion(ctx, queries, arkon.ID, LibraryKindMovie, versionID)
 	})
 	if err != nil {
 		t.Fatal(err)

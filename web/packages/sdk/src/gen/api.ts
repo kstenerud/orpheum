@@ -2726,7 +2726,7 @@ export interface components {
             /** @description May the server write beside the media */
             isWritable: boolean;
             /** @enum {string} */
-            kind: "movies" | "shows" | "other";
+            kind: "movie" | "series" | "other";
             /** @enum {string} */
             metadataSource?: "nfo_then_tmdb" | "tmdb" | "nfo";
             name: string;
@@ -3777,7 +3777,7 @@ export interface components {
             id: number;
             isWritable: boolean;
             /** @enum {string} */
-            kind: "movies" | "shows" | "other";
+            kind: "movie" | "series" | "other";
             /** @enum {string} */
             metadataSource: "nfo_then_tmdb" | "tmdb" | "nfo";
             name: string;

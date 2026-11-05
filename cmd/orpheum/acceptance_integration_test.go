@@ -106,7 +106,7 @@ func acceptanceRun(
 ) map[string]storedFiling {
 	t.Helper()
 	nodeID := enrolNodeWithLibrary(t, config, root,
-		libraryShape{name: "Everything", kind: "movies", metadataSource: "nfo"})
+		libraryShape{name: "Everything", kind: "movie", metadataSource: "nfo"})
 	const identified = "identified a library"
 	captured := newCapturedLog(identified)
 	server := startServing(t, config, captured, identified, start(captured))

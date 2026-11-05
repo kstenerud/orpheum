@@ -4,7 +4,7 @@
 
 INSERT INTO node (id, name, enrolled_at) VALUES (1, 'nas', 1790000000000);
 INSERT INTO library (id, name, kind, metadata_source, change_detection, check_every_hours, is_writable, created_at)
-  VALUES (1, 'Films', 'movies', 'nfo_then_tmdb', 'interval', 6, 0, 1790000000000);
+  VALUES (1, 'Films', 'movie', 'nfo_then_tmdb', 'interval', 6, 0, 1790000000000);
 INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/media/films');
 INSERT INTO root_scan (node_id, root_path, completed_at) VALUES (1, '/media/films', 1790000002000);
 INSERT INTO root_mount (node_id, root_path, mount_path, filesystem_device, is_present) VALUES (1, '/media/films', '/media/films/disk2', 2050, 1);
@@ -38,7 +38,7 @@ INSERT INTO file (id, node_id, path, size_bytes, modified_at, payload_hash, payl
           X'00112233445566778899AABBCCDDEEFF', 1000000, 1, 'video', NULL, 1790000000000, 1790000002000,
           '8e245d9679d31e12');
 INSERT INTO file_filing (file_id, library_kind, filing, filing_reason, version_id, part_index, identified_from_path)
-  VALUES (1, 'movies', 'listed', 'movie folder', 1, 1,
+  VALUES (1, 'movie', 'listed', 'movie folder', 1, 1,
           '/media/films/Direct Play Film (2020)/Direct Play Film (2020).mp4');
 INSERT INTO file (id, node_id, path, size_bytes, modified_at, payload_hash, payload_bytes, is_identity_confirmed,
                   filing, filing_reason, copy_of, first_seen_at, last_seen_at)

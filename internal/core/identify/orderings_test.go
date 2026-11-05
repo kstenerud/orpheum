@@ -27,7 +27,7 @@ var emberwingFiles = []string{
 // intended order, a part named "Intended" of e3, e1 and e2, which leaves e4 out.
 func emberwingLibrary(t *testing.T) *testLibrary {
 	t.Helper()
-	lib := newTestLibrary(t, "shows", "tmdb")
+	lib := newTestLibrary(t, "series", "tmdb")
 	lib.provider.Searches[identifytest.SearchKey("Emberwing", 0)] = []identify.Candidate{lib.provider.Add(emberwing)}
 	for number := 1; number <= 4; number++ {
 		lib.provider.Seasons["1437/1"] = append(lib.provider.Seasons["1437/1"], identify.Episode{

@@ -87,7 +87,7 @@ function puts(heard: readonly Heard[]): unknown[] {
 describe("a library's Configure (the owner, 2026-10-27; D349 §8, D366 §5)", () => {
   it("offers a films library to Films, checked until left out, and leaves one out when unchecked", async () => {
     const heard: Heard[] = [];
-    const page = await configured(library(1, "Films", "movies"), heard);
+    const page = await configured(library(1, "Films", "movie"), heard);
     expect(page.querySelector("dialog")?.getAttribute("aria-label")).toBe("Films");
     expect(choices(page)).toEqual(["Show in Films:true", "Show on Home:true"]);
     const [films] = page.querySelectorAll<HTMLInputElement>('dialog input[type="checkbox"]');
@@ -98,7 +98,7 @@ describe("a library's Configure (the owner, 2026-10-27; D349 §8, D366 §5)", ()
 
   it("shows a library left out of Films unchecked, and puts it back in when checked", async () => {
     const heard: Heard[] = [];
-    const page = await configured(library(2, "Kids' films", "movies"), heard);
+    const page = await configured(library(2, "Kids' films", "movie"), heard);
     expect(choices(page)).toEqual(["Show in Films:false", "Show on Home:true"]);
     const [films] = page.querySelectorAll<HTMLInputElement>('dialog input[type="checkbox"]');
     await click(films);
@@ -107,7 +107,7 @@ describe("a library's Configure (the owner, 2026-10-27; D349 §8, D366 §5)", ()
   });
 
   it("offers a series library to Series", async () => {
-    const page = await configured(library(4, "Shows", "shows"));
+    const page = await configured(library(4, "Shows", "series"));
     expect(choices(page)).toEqual(["Show in Series:true", "Show on Home:true"]);
   });
 
@@ -124,7 +124,7 @@ describe("a library's Configure (the owner, 2026-10-27; D349 §8, D366 §5)", ()
 
   it("leaves a library out of Home when its Show on Home is unchecked", async () => {
     const heard: Heard[] = [];
-    const page = await configured(library(1, "Films", "movies"), heard);
+    const page = await configured(library(1, "Films", "movie"), heard);
     expect(choices(page)).toContain("Show on Home:true");
     const boxes = page.querySelectorAll<HTMLInputElement>('dialog input[type="checkbox"]');
     await click(boxes[1]);
@@ -133,7 +133,7 @@ describe("a library's Configure (the owner, 2026-10-27; D349 §8, D366 §5)", ()
   });
 
   it("closes on a remote's Back, and by its Close, the cross every dialog has", async () => {
-    const page = await configured(library(1, "Films", "movies"));
+    const page = await configured(library(1, "Films", "movie"));
     const box = page.querySelector<HTMLInputElement>('dialog input[type="checkbox"]');
     box?.focus();
     const back = new KeyboardEvent("keydown", {

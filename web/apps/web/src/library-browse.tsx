@@ -68,10 +68,10 @@ const entriesPerPage = 60;
 
 /** The kind of titles a library's own page lists (D349 §9.2); every kind before its library is read. */
 function titlesKindOf(kind: LibraryBody["kind"] | undefined): TitlesKind {
-  if (kind === "movies") {
+  if (kind === "movie") {
     return "movie";
   }
-  if (kind === "shows") {
+  if (kind === "series") {
     return "series";
   }
   if (kind === "other") {

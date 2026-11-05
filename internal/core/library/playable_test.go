@@ -17,7 +17,7 @@ func TestBytesFileOf_NamesAFileUnderARootOfSlash(t *testing.T) {
 	t.Parallel()
 	database := storetest.OpenMigrated(t)
 	nodeID, _ := librarytest.NodeWithLibrary(t, database,
-		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/"})
+		librarytest.Library{Name: "Films", Kind: "movie", MetadataSource: "nfo", Root: "/"})
 	named, err := library.BytesFileOf(t.Context(), database.Read(), library.Located{
 		Subject: "file 1", NodeID: nodeID, ReportedPathRaw: []byte("/Film.mkv"),
 		PayloadHash: []byte{0x0c},

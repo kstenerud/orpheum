@@ -535,7 +535,7 @@ func (filer *libraryFiler) fileFilmOrEpisode(
 
 // isSeriesLibrary is whether every video of the library is an episode of a series.
 func (filer *libraryFiler) isSeriesLibrary() bool {
-	return filer.library.Kind == library.LibraryKindShows
+	return filer.library.Kind == library.LibraryKindSeries
 }
 
 // parse reads a path as the library's kind says: in a series library, as an episode or a special

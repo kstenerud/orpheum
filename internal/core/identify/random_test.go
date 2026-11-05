@@ -27,7 +27,7 @@ import (
 // Its seeds are fixed, so a failure is the same failure every run.
 func TestPass_OverRandomLibrariesAgainWritesNothingAndMakesNoTitleEachPass(t *testing.T) {
 	t.Parallel()
-	for _, kind := range []string{"movies", "shows", "other"} {
+	for _, kind := range []string{"movie", "series", "other"} {
 		for seed := range uint64(4) {
 			t.Run(fmt.Sprintf("%s/%d", kind, seed), func(t *testing.T) {
 				t.Parallel()

@@ -111,7 +111,7 @@ func TestSchema_RefusesRowsThatBreakTheirRules(t *testing.T) {
 		"an id with no source": "INSERT INTO title (id, kind, identification_state, followed_source_id) " +
 			"VALUES (8, 'movie', 'identified', '603')",
 		"hours for a manual library": "INSERT INTO library (name, kind, metadata_source, change_detection, " +
-			"check_every_hours, is_writable, created_at) VALUES ('Films', 'movies', 'nfo', 'manual', 6, 0, 1)",
+			"check_every_hours, is_writable, created_at) VALUES ('Films', 'movie', 'nfo', 'manual', 6, 0, 1)",
 		"text in an integer column": "INSERT INTO item (kind, added_at) VALUES ('title', 'yesterday')",
 	} {
 		if _, err := database.writer.ExecContext(t.Context(), statement); err == nil {

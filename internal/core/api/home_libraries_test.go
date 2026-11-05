@@ -64,7 +64,7 @@ func TestHome_ALibraryLeftOutOfHomeAddsNothingToItsRows(t *testing.T) {
 
 	// A second library over Metropolis's folder reaches Metropolis too, and is left in.
 	librarytest.LibraryOn(t, harness.database, 1,
-		librarytest.Library{Name: "More films", Kind: "movies", MetadataSource: "nfo", Root: "/m"})
+		librarytest.Library{Name: "More films", Kind: "movie", MetadataSource: "nfo", Root: "/m"})
 	if got, want := harness.homeRows(t, admin), "watching [40 10], films [Metropolis]"; got != want {
 		t.Errorf("Home with Metropolis reached by a library left in = %s; want %s", got, want)
 	}

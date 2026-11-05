@@ -64,7 +64,7 @@ func TestAuthenticate_ReadsTheRolesLibrariesAtEachRequest(t *testing.T) {
 	fixture := newFixture(t)
 	storetest.ExecRaw(t, fixture.database.Path(),
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
-		 VALUES (1, 'Films', 'movies', 'tmdb', 'manual', 0, 1), (2, 'Private', 'movies', 'tmdb', 'manual', 0, 1)`)
+		 VALUES (1, 'Films', 'movie', 'tmdb', 'manual', 0, 1), (2, 'Private', 'movie', 'tmdb', 'manual', 0, 1)`)
 	fixture.createUser(t, "owner", "owner-password", RoleAdmin)
 	fixture.createUser(t, "partner", "partner-password", RoleUser)
 	signIn := func(name, password string) string {

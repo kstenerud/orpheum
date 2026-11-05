@@ -24,7 +24,7 @@ func TestPurgeRemovedFiles_KeepsWhatWasWatchedOnTheVersion(t *testing.T) {
 	service := &Service{database: database}
 	userID := storetest.InsertUser(t, database, "alice", "admin")
 	nodeID, libraryID := librarytest.NodeWithLibrary(t, database,
-		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/media"})
+		librarytest.Library{Name: "Films", Kind: "movie", MetadataSource: "nfo", Root: "/media"})
 	const longAgo, lately = 1_000, 9_000
 	titleID := librarytest.Title(t, database, librarytest.TitleSpec{ID: 10, Library: libraryID})
 	librarytest.Version(t, database, librarytest.VersionSpec{ID: 20, TitleID: titleID})

@@ -26,7 +26,7 @@ func TestListFilesToReadThrough_ListsTheLiveVideosThatLackLoudnessOrATimeline(t 
 	storetest.ExecRaw(t, database.Path(),
 		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
-		 VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)`,
+		 VALUES (1, 'Films', 'movie', 'nfo', 'manual', 0, 1)`,
 		"INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/m')",
 		`INSERT INTO file (id, node_id, path, size_bytes, payload_hash, filing, removed_at,
 		 first_seen_at, last_seen_at) VALUES
@@ -130,7 +130,7 @@ func TestVideoTimeline_AFailedReadAfterTheIndexIsKeptAsItsReadFailure(t *testing
 	storetest.ExecRaw(t, database.Path(),
 		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
-		 VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)`,
+		 VALUES (1, 'Films', 'movie', 'nfo', 'manual', 0, 1)`,
 		"INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/m')",
 		`INSERT INTO file (id, node_id, path, size_bytes, payload_hash, filing,
 		 first_seen_at, last_seen_at) VALUES (1, 1, '/m/1.mkv', 10, X'0c', 'video', 1, 1)`,

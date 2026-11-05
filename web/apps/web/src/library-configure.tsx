@@ -125,12 +125,12 @@ function gatheredWords(
   kind: LibraryBody["kind"],
 ): { readonly label: string; readonly text: string } | undefined {
   switch (kind) {
-    case "movies":
+    case "movie":
       return {
         label: t("libraryConfigure.showInFilms"),
         text: t("libraryConfigure.showInFilmsText"),
       };
-    case "shows":
+    case "series":
       return {
         label: t("libraryConfigure.showInSeries"),
         text: t("libraryConfigure.showInSeriesText"),

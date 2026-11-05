@@ -67,13 +67,13 @@ func TestOpenMigrated_FailsATestThatBreaksAnInvariant(t *testing.T) {
 	storetest.ExecRaw(t, database.Path(),
 		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'nas', 1)",
 		"INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at) "+
-			"VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)",
+			"VALUES (1, 'Films', 'movie', 'nfo', 'manual', 0, 1)",
 		"INSERT INTO item (id, kind, added_at, removed_at) VALUES (7, 'title', 1, 2)",
 		"INSERT INTO title (id, kind, identification_state) VALUES (7, 'movie', 'unidentified')",
 		"INSERT INTO version (id, title_id, created_at) VALUES (5, 7, 1)",
 		"INSERT INTO file (id, node_id, path, filing, first_seen_at, last_seen_at) "+
 			"VALUES (1, 1, '/m/f.mkv', 'video', 1, 1)",
-		"INSERT INTO file_filing (file_id, library_kind, filing, version_id) VALUES (1, 'movies', 'listed', 5)")
+		"INSERT INTO file_filing (file_id, library_kind, filing, version_id) VALUES (1, 'movie', 'listed', 5)")
 	for _, cleanup := range slices.Backward(recording.cleanups) {
 		cleanup()
 	}

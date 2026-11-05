@@ -18,7 +18,7 @@ import (
 func showsInside(t *testing.T, world *harness) {
 	t.Helper()
 	librarytest.LibraryOn(t, world.database, world.nodeID,
-		librarytest.Library{Name: "Shows", Kind: "shows", MetadataSource: "nfo", Root: root + "/Shows"})
+		librarytest.Library{Name: "Shows", Kind: "series", MetadataSource: "nfo", Root: root + "/Shows"})
 }
 
 // D363 §1, §2: a folder of one library inside another's is scanned within the outer folder, of its
@@ -94,7 +94,7 @@ func TestScanRootOf_IsTheOutermostFolderAtOrAboveWithTheScopeWithinIt(t *testing
 	for _, tc := range []struct{ folder, scope, root, rootScope string }{
 		{"/m/shows/anime", wholeRoot, "/m", "shows/anime"},
 		{"/m/shows", "Dag", "/m", "shows/Dag"},
-		{"/m", "shows", "/m", "shows"},
+		{"/m", "series", "/m", "series"},
 		{"/n", wholeRoot, "/n", wholeRoot},
 		{"/other", wholeRoot, "/other", wholeRoot},
 	} {

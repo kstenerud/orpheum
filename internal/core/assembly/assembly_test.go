@@ -36,7 +36,7 @@ func TestLibraryAdminOf_NamesAsManyRemovalsAsTheServersSetting(t *testing.T) {
 	settingstest.Set(t, config, settings.ScanWithheldRemovalsNamed, "1")
 	nodeID := librarytest.Node(t, database, "nas")
 	libraryID := librarytest.LibraryOn(t, database, nodeID,
-		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/media"})
+		librarytest.Library{Name: "Films", Kind: "movie", MetadataSource: "nfo", Root: "/media"})
 	librarytest.File(t, database, librarytest.FileSpec{
 		LibraryID: libraryID, NodeID: nodeID, Path: "/media/a.mkv", Filing: "skipped",
 	})

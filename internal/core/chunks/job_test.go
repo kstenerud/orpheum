@@ -201,7 +201,7 @@ func TestHandleMakeChunks_ARunRefusedForItsFilmGoneFromItsPlaceReadsTheCopyBesid
 	service := fixture.service
 	service.absences = library.NewAbsences(slog.New(slog.DiscardHandler))
 	backup := librarytest.LibraryOn(t, service.database, 1,
-		librarytest.Library{Name: "Backup", Kind: "movies", MetadataSource: "nfo", Root: "/m2"})
+		librarytest.Library{Name: "Backup", Kind: "movie", MetadataSource: "nfo", Root: "/m2"})
 	librarytest.File(t, service.database, librarytest.FileSpec{
 		LibraryID: backup, NodeID: 1, Path: "/m2/f1.mkv", Filing: "copy", CopyOf: 1, FirstSeenAt: 3,
 	})

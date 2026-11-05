@@ -112,7 +112,7 @@ func (rescans *Rescans) RescanLibrary(ctx context.Context, libraryID int64, kind
 	if err != nil {
 		return false, fmt.Errorf("read library %d: %w", libraryID, err)
 	}
-	if found.Kind != library.LibraryKindMovies && found.Kind != library.LibraryKindShows {
+	if found.Kind != library.LibraryKindMovie && found.Kind != library.LibraryKindSeries {
 		return false, fmt.Errorf("library %d, of %s: %w", libraryID, found.Kind, ErrNotRescannable)
 	}
 	isStarted, err := rescans.start(ctx, libraryID, nil, kind)

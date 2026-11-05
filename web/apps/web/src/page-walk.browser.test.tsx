@@ -53,7 +53,7 @@ const anAdmin: WalkAnswers = {
       {
         id: 1,
         name: "Films",
-        kind: "movies",
+        kind: "movie",
         metadataSource: "nfo_then_tmdb",
         changeDetection: "watch",
         isWritable: true,
