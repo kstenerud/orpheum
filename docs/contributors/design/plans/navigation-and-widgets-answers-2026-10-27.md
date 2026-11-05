@@ -1793,3 +1793,13 @@ Not started; the owner orders them after D416. Check each against
    covering exactly what is drawn. Search for an existing grid or table mechanism in `web/` first.
 3. **The System page is a wall of text** (`system-*.tsx`).
 4. **The account page is messy** (`account.tsx`).
+
+## Quillwick starts grey (the owner, 2026-11-05), after the API batch
+
+The owner: "When playing any episode of Quillwick from the start, it looks like the initial keyframe
+is missing - the screen starts off grey and only the dynamic changes in the video are shown." Seen on
+nas.example, the day after the 11-05 batch's deploy. A grey picture that fills in only where things move is
+a decoder starting without its keyframe: the first chunk begins on a non-key frame. Look first at the
+11-06 batch's "a film's first seconds" work and the 37 keyframe rows cleared at that deploy (first
+keyframe ≥ 500 ms): whether Quillwick's files start on a late keyframe or open GOP, and whether chunk
+0 is cut from 0 s rather than from the first keyframe. Not started.
