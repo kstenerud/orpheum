@@ -516,7 +516,7 @@ func TestPlayback_AFileRemovedWhilePlayingIsNoFileToPlayAsItIsToStart(t *testing
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
 	decided := harness.play(t, user, chrome(1))
-	storetest.ExecRaw(t, harness.databasePath, "UPDATE file SET removed_at = 2 WHERE id = 1")
+	storetest.ExecRaw(t, harness.databasePath, "UPDATE place SET removed_at = 2 WHERE id = 1")
 	playing := harness.getBytePath(t, decided.URL, user, false, "")
 	wantErrorSaying(t, response{status: playing.status, body: playing.body}, http.StatusNotFound, api.CodeNotFound,
 		"no such file to play")

@@ -49,11 +49,15 @@ func (batch *ingestBatch) recordSidecar(ctx context.Context, scan *scanState, si
 			NodeID: batch.nodeID, ReportedPathRaw: located.reportedBytes,
 		}))
 	if err == nil {
-		err = batch.queries.UpdateSidecarFile(ctx, sqlcgen.UpdateSidecarFileParams{
-			SizeBytes: &sidecar.SizeBytes, ModifiedAt: &sidecar.ModifiedAt,
-			PayloadHash: hash, PayloadBytes: payloadBytes, SidecarKind: &kind,
-			FilingReason: &reason, SeenAt: batch.nowMs, ID: existing.ID,
+		err = batch.queries.UpdateSidecarPlace(ctx, sqlcgen.UpdateSidecarPlaceParams{
+			ModifiedAt: &sidecar.ModifiedAt, FilingReason: &reason, SeenAt: batch.nowMs, ID: existing.ID,
 		})
+		if err == nil {
+			err = batch.queries.UpdateSidecarFile(ctx, sqlcgen.UpdateSidecarFileParams{
+				SizeBytes: &sidecar.SizeBytes, PayloadHash: hash, PayloadBytes: payloadBytes, SidecarKind: &kind,
+				PlaceID: existing.ID,
+			})
+		}
 		if err != nil {
 			return fmt.Errorf("update the sidecar %s: %w", located.text, err)
 		}
@@ -62,11 +66,15 @@ func (batch *ingestBatch) recordSidecar(ctx context.Context, scan *scanState, si
 	if !errors.Is(err, store.ErrNotFound) {
 		return err
 	}
-	id, err := batch.queries.InsertSidecarFile(ctx, sqlcgen.InsertSidecarFileParams{
-		NodeID: batch.nodeID, Path: located.text, ReportedPathRaw: located.reportedBytes,
-		SizeBytes: &sidecar.SizeBytes, ModifiedAt: &sidecar.ModifiedAt, PayloadHash: hash, PayloadBytes: payloadBytes,
-		SidecarKind: &kind, FilingReason: &reason, SeenAt: batch.nowMs,
+	id, err := batch.queries.InsertFile(ctx, sqlcgen.InsertFileParams{
+		SizeBytes: &sidecar.SizeBytes, PayloadHash: hash, PayloadBytes: payloadBytes, SidecarKind: &kind,
 	})
+	if err == nil {
+		err = batch.queries.InsertPlace(ctx, sqlcgen.InsertPlaceParams{
+			FileID: id, NodeID: batch.nodeID, Path: located.text, ReportedPathRaw: located.reportedBytes,
+			ModifiedAt: &sidecar.ModifiedAt, Filing: FilingRead, FilingReason: &reason, SeenAt: batch.nowMs,
+		})
+	}
 	if err != nil {
 		return fmt.Errorf("insert the sidecar %s: %w", located.text, err)
 	}
@@ -125,10 +133,10 @@ func (batch *ingestBatch) attachSidecars(ctx context.Context, scan *scanState) e
 				return err
 			}
 		}
-		if samePointee(file.AttachedToFile, ownerVideoID) {
+		if samePointee(file.AttachedToPlace, ownerVideoID) {
 			continue
 		}
-		attach := sqlcgen.SetFileAttachedToParams{AttachedToFile: ownerVideoID, ID: file.ID}
+		attach := sqlcgen.SetFileAttachedToParams{AttachedToPlace: ownerVideoID, ID: file.ID}
 		err := batch.queries.SetFileAttachedTo(ctx, attach)
 		if err != nil {
 			return fmt.Errorf("attach %s: %w", file.Path, err)

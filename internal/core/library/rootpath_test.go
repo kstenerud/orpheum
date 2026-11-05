@@ -77,8 +77,8 @@ func TestIngest_UnderARootNotInNFCOrOfSlashAScanMovesRemovesKeepsAndAttaches(t *
 		subtitleIndex := slices.IndexFunc(rows, func(row sqlcgen.ListLiveFilesForAttachingRow) bool {
 			return row.Path == textOf("c.en.srt")
 		})
-		if subtitleIndex < 0 || rows[subtitleIndex].AttachedToFile == nil ||
-			*rows[subtitleIndex].AttachedToFile != after[textOf("c.mkv")].ID {
+		if subtitleIndex < 0 || rows[subtitleIndex].AttachedToPlace == nil ||
+			*rows[subtitleIndex].AttachedToPlace != after[textOf("c.mkv")].ID {
 			t.Errorf("root %s: the files are %+v, want c.en.srt attached to c.mkv", rootPath, rows)
 		}
 	}

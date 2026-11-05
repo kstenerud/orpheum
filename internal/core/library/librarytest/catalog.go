@@ -222,7 +222,7 @@ type FileSpec struct {
 	ErrorDetailJSON   string // "": NULL
 	VersionID         int64  // 0: none; the version LibraryID's kind files it in
 	CopyOf            int64  // 0: none; the file it is a copy of, at another place (Filing "copy")
-	AttachedToFile    int64  // 0: none
+	AttachedToFile    int64  // 0: none; the video's place, whose id is its file's unless it is a copy
 	SidecarKind       string // "": an ordinary file; else nfo/subtitle/image
 	FirstSeenAt       int64  // defaults to 1
 	LastSeenAt        int64  // defaults to FirstSeenAt; a different value needs an explicit ID (below)
@@ -305,25 +305,38 @@ func requireCovered(t *testing.T, database *store.Database, spec FileSpec) strin
 func fileWithChosenID(t *testing.T, database *store.Database, spec FileSpec) int64 {
 	t.Helper()
 	reportedPathRaw := fileReportedPathRaw(spec)
-	filing := rowFiling(spec)
-	if spec.SidecarKind != "" {
-		filing = "attached"
-	}
+	filing := placeFiling(rowFiling(spec))
 	firstSeenAt := defaultInt(spec.FirstSeenAt, 1)
 	lastSeenAt := defaultInt(spec.LastSeenAt, firstSeenAt)
+	// A copy's place holds the file it is a copy of; any other place holds its own file, by its id.
+	fileID := spec.ID
+	if spec.CopyOf != 0 {
+		fileID = spec.CopyOf
+	} else {
+		storetest.ExecRaw(t, database.Path(), fmt.Sprintf(
+			`INSERT INTO file (id, size_bytes, payload_hash, payload_bytes, sidecar_kind, opensubtitles_hash)
+			 VALUES (%d, %s, %s, %s, %s, %s)`,
+			spec.ID, sqlNullableInt(spec.SizeBytes), sqlBlob(spec.PayloadHash), sqlNullableInt(spec.PayloadBytes),
+			sqlNullableString(spec.SidecarKind), sqlNullableString(spec.OpensubtitlesHash)))
+	}
 	storetest.ExecRaw(t, database.Path(), fmt.Sprintf(
-		`INSERT INTO file (id, node_id, path, reported_path_raw, size_bytes, modified_at,
-		 payload_hash, payload_bytes, filing, filing_reason, error_detail_json, copy_of,
-		 sidecar_kind, first_seen_at, last_seen_at, opensubtitles_hash, filesystem_device, inode)
-		 VALUES (%d, %d, %s, %s, %s, %s, %s, %s, %s, %s,
-		         %s, %s, %s, %d, %d, %s, %s, %s)`,
-		spec.ID, spec.NodeID, sqlString(spec.Path), sqlBlob(reportedPathRaw),
-		sqlNullableInt(spec.SizeBytes), sqlNullableInt(spec.ModifiedAt), sqlBlob(spec.PayloadHash),
-		sqlNullableInt(spec.PayloadBytes), sqlString(filing), sqlNullableString(spec.FilingReason),
-		sqlNullableString(spec.ErrorDetailJSON), sqlNullableInt(spec.CopyOf),
-		sqlNullableString(spec.SidecarKind), firstSeenAt, lastSeenAt,
-		sqlNullableString(spec.OpensubtitlesHash), sqlNullableInt(spec.FilesystemDevice), sqlNullableInt(spec.Inode)))
+		`INSERT INTO place (id, file_id, node_id, path, reported_path_raw, modified_at, filing, filing_reason,
+		 error_detail_json, first_seen_at, last_seen_at, filesystem_device, inode)
+		 VALUES (%d, %d, %d, %s, %s, %s, %s, %s, %s, %d, %d, %s, %s)`,
+		spec.ID, fileID, spec.NodeID, sqlString(spec.Path), sqlBlob(reportedPathRaw),
+		sqlNullableInt(spec.ModifiedAt), sqlString(filing), sqlNullableString(spec.FilingReason),
+		sqlNullableString(spec.ErrorDetailJSON), firstSeenAt, lastSeenAt,
+		sqlNullableInt(spec.FilesystemDevice), sqlNullableInt(spec.Inode)))
 	return spec.ID
+}
+
+// placeFiling is how a place stored with filing is filed: read, unless it was skipped or errored
+// (D426 §4).
+func placeFiling(filing string) string {
+	if filing == "skipped" || filing == "errored" {
+		return filing
+	}
+	return "read"
 }
 
 // fileReportedPathRaw is spec's reported_path_raw, or, unset, the path's own bytes, as a scan of
@@ -335,8 +348,8 @@ func fileReportedPathRaw(spec FileSpec) []byte {
 	return []byte(spec.Path)
 }
 
-// insertSidecarFile is File's path for a sidecar (SidecarKind set), through InsertSidecarFile,
-// which always files it attached.
+// insertSidecarFile is File's path for a sidecar (SidecarKind set), through InsertFile and
+// InsertPlace, as a scan stores one.
 func insertSidecarFile(t *testing.T, database *store.Database, spec FileSpec) int64 {
 	t.Helper()
 	var sizeBytes, modifiedAt, payloadBytes *int64
@@ -357,13 +370,16 @@ func insertSidecarFile(t *testing.T, database *store.Database, spec FileSpec) in
 	var id int64
 	err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 		var err error
-		id, err = queries.InsertSidecarFile(t.Context(), sqlcgen.InsertSidecarFileParams{
-			NodeID: spec.NodeID, Path: spec.Path,
-			ReportedPathRaw: fileReportedPathRaw(spec), SizeBytes: sizeBytes, ModifiedAt: modifiedAt,
-			PayloadHash: spec.PayloadHash, PayloadBytes: payloadBytes,
-			FilingReason: filingReason, SidecarKind: &sidecarKind, SeenAt: defaultInt(spec.FirstSeenAt, 1),
+		id, err = queries.InsertFile(t.Context(), sqlcgen.InsertFileParams{
+			SizeBytes: sizeBytes, PayloadHash: spec.PayloadHash, PayloadBytes: payloadBytes, SidecarKind: &sidecarKind,
 		})
-		return err
+		if err != nil {
+			return err
+		}
+		return queries.InsertPlace(t.Context(), sqlcgen.InsertPlaceParams{
+			FileID: id, NodeID: spec.NodeID, Path: spec.Path, ReportedPathRaw: fileReportedPathRaw(spec),
+			ModifiedAt: modifiedAt, Filing: "read", FilingReason: filingReason, SeenAt: defaultInt(spec.FirstSeenAt, 1),
+		})
 	})
 	if err != nil {
 		t.Fatalf("sidecar file: %v", err)
@@ -404,14 +420,18 @@ func insertOrdinaryFile(t *testing.T, database *store.Database, spec FileSpec) i
 	err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 		var err error
 		id, err = queries.InsertFile(t.Context(), sqlcgen.InsertFileParams{
-			NodeID: spec.NodeID, Path: spec.Path,
-			ReportedPathRaw: fileReportedPathRaw(spec), SizeBytes: sizeBytes, ModifiedAt: modifiedAt,
-			PayloadHash: spec.PayloadHash, PayloadBytes: payloadBytes,
-			Filing: rowFiling(spec), FilingReason: filingReason, ErrorDetailJSON: errorDetailJSON,
-			SeenAt: defaultInt(spec.FirstSeenAt, 1), OpensubtitlesHash: opensubtitlesHash,
+			SizeBytes: sizeBytes, PayloadHash: spec.PayloadHash, PayloadBytes: payloadBytes,
+			OpensubtitlesHash: opensubtitlesHash,
+		})
+		if err != nil {
+			return err
+		}
+		return queries.InsertPlace(t.Context(), sqlcgen.InsertPlaceParams{
+			FileID: id, NodeID: spec.NodeID, Path: spec.Path, ReportedPathRaw: fileReportedPathRaw(spec),
+			ModifiedAt: modifiedAt, Filing: placeFiling(rowFiling(spec)), FilingReason: filingReason,
+			ErrorDetailJSON: errorDetailJSON, SeenAt: defaultInt(spec.FirstSeenAt, 1),
 			FilesystemDevice: filesystemDevice, Inode: inode,
 		})
-		return err
 	})
 	if err != nil {
 		t.Fatalf("file: %v", err)
@@ -463,9 +483,12 @@ func applyPlaceFollowUps(t *testing.T, queries *sqlcgen.Queries, spec FileSpec, 
 	t.Helper()
 	if spec.CopyOf != 0 && spec.ID == 0 {
 		copyOf := spec.CopyOf
-		made, err := queries.MakeFileACopy(t.Context(), sqlcgen.MakeFileACopyParams{CopyOf: &copyOf, ID: id})
+		made, err := queries.MakeFileACopy(t.Context(), sqlcgen.MakeFileACopyParams{FileID: copyOf, ID: id})
 		if err == nil && made != 1 {
 			err = fmt.Errorf("file %d was not made a copy of file %d", id, copyOf)
+		}
+		if err == nil {
+			err = queries.DeleteFileNoPlaceHolds(t.Context(), id)
 		}
 		if err != nil {
 			return err
@@ -474,7 +497,7 @@ func applyPlaceFollowUps(t *testing.T, queries *sqlcgen.Queries, spec FileSpec, 
 	if spec.AttachedToFile != 0 {
 		attachedTo := spec.AttachedToFile
 		err := queries.SetFileAttachedTo(t.Context(),
-			sqlcgen.SetFileAttachedToParams{AttachedToFile: &attachedTo, ID: id})
+			sqlcgen.SetFileAttachedToParams{AttachedToPlace: &attachedTo, ID: id})
 		if err != nil {
 			return fmt.Errorf("attached_to_file: %w", err)
 		}

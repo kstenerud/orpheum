@@ -235,39 +235,51 @@ errored — so the admin view is this table with no filter
 ([D163](../../decisions/working-notes.md)), and an unidentified file is already a playable row
 (obligation #2). Since step 0060 (D363) a row is a **place**, a node and a path: no library owns it
 (the libraries whose live folders cover the path do: the one view `library_place`, read from either
-side, since step 0077 (D426 section 4); `version_library` is what it says of a version's files), a confirmed copy's row names the file it is a copy of (`copy_of`), and how
-each kind of library files a video is `file_filing`, keyed by file and kind.
+side, since step 0077 (D426 section 4); `version_library` is what it says of a version's files), and how
+each kind of library files a video is `file_filing`, keyed by file and kind. Since step 0078 (D426
+section 4) the payload and the place are two tables: `file` is the bytes, `place` where they were
+seen. A file's id is its first place's; a confirmed copy is a place holding the file found before it,
+and a sidecar attaches to the place beside it. The words the API answers with (`video`, `copy`,
+`attached`, `skipped`, `errored`) are read from the place's filing, its file's `sidecar_kind` and
+whether the place is the file's first.
 
 ```sql
-CREATE TABLE file (                                        -- class I (identity columns) + O
-  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+CREATE TABLE file (                                        -- class I + O; 0078 (D426 §4): the payload
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,  -- the id of the place it was first found at
+  size_bytes    INTEGER,
+  payload_hash  BLOB,                    -- D179: anchored on the media payload; NULL until it is read
+  payload_bytes INTEGER,
+  opensubtitles_hash TEXT,               -- migration 0017: the provider's moviehash, 16 hex digits (D224 §3)
+  sidecar_kind  TEXT CHECK (sidecar_kind IN ('nfo','subtitle','image'))  -- NULL: a media file
+);
+CREATE INDEX file_payload ON file(payload_hash) WHERE payload_hash IS NOT NULL;  -- moves, duplicates
+
+CREATE TABLE place (                                       -- class I (identity columns) + O; 0078 (D426 §4)
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,  -- its file's id where the file was first found
+  file_id       INTEGER REFERENCES file(id) ON DELETE RESTRICT,  -- what is here; a copy's is another place's
   node_id       INTEGER NOT NULL REFERENCES node(id) ON DELETE RESTRICT,
   path          TEXT NOT NULL,           -- NFC form
-  reported_path_raw        BLOB,                    -- migration 0011: the reported bytes, always; the live-file key (D211); 0027: was reported_path_bytes
-  size_bytes          INTEGER,
-  modified_at         INTEGER,
-  payload_hash  BLOB,                    -- D179: anchored on the media payload
-  payload_bytes   INTEGER,
-  opensubtitles_hash TEXT,               -- migration 0017: the provider's moviehash, 16 hex digits (D224 §3)
+  reported_path_raw BLOB NOT NULL,       -- the reported bytes, always; the live place's key (D211)
   filesystem_device INTEGER,             -- migration 0050: where the node last read it, with inode,
   inode         INTEGER,                 --   which tell it moved on its disk (D304 §5)
-  filing        TEXT NOT NULL CHECK (filing IN
-                  ('video','copy','attached','skipped','errored')),   -- 0060: a video's kind is file_filing's
+  modified_at   INTEGER,
+  first_seen_at INTEGER NOT NULL,
+  last_seen_at  INTEGER NOT NULL,
+  removed_at    INTEGER,                 -- tombstone: only on a positive report (D34, D179)
+  filing        TEXT NOT NULL CHECK (filing IN ('read','skipped','errored')),  -- a video's kind is file_filing's
   filing_reason TEXT,                    -- the rule verbatim, the error code, what was tried
-  sidecar_kind  TEXT CHECK (sidecar_kind IN ('nfo','subtitle','image')),  -- 0023: an attached file's kind
   error_detail_json TEXT,                -- owner, group, mode; the platform's text (D163)
-  attached_to_file INTEGER REFERENCES file(id) ON DELETE RESTRICT,  -- a sidecar's video, at its place
-  copy_of       INTEGER REFERENCES file(id) ON DELETE RESTRICT,  -- 0060: the file a copy is, at another place
-  first_seen_at    INTEGER NOT NULL,
-  last_seen_at     INTEGER NOT NULL,
-  removed_at    INTEGER                  -- tombstone: only on a positive report (D34, D179)
+  attached_to_place INTEGER REFERENCES place(id) ON DELETE RESTRICT,  -- a sidecar's video's place
+  CHECK (file_id IS NOT NULL OR filing IN ('skipped','errored'))
 );
-CREATE UNIQUE INDEX file_live_path ON file(node_id, reported_path_raw) WHERE removed_at IS NULL;  -- 0011: was (node_id, path)
--- D303 (step 0045): the paths queries take that none served.
-CREATE INDEX file_removed_payload ON file(node_id, payload_hash, removed_at) WHERE removed_at IS NOT NULL;
-CREATE INDEX file_errored ON file(filing, node_id, path) WHERE filing = 'errored' AND removed_at IS NULL;
-CREATE INDEX file_payload ON file(payload_hash) WHERE removed_at IS NULL;  -- moves, duplicates
-CREATE INDEX file_copy ON file(copy_of) WHERE copy_of IS NOT NULL;
+CREATE UNIQUE INDEX place_live_path ON place(node_id, reported_path_raw) WHERE removed_at IS NULL;
+CREATE INDEX place_file ON place(file_id);  -- a file's places, a copy's file
+CREATE INDEX place_attached ON place(attached_to_place);
+CREATE INDEX place_errored ON place(filing, node_id, path) WHERE filing = 'errored' AND removed_at IS NULL;
+CREATE INDEX place_removed_at ON place(removed_at) WHERE removed_at IS NOT NULL;
+-- invariants.sql: no row meaning a file (its tracks, probe, NFO, filings, watching, fetched subtitles)
+-- points at a file no place holds; a sidecar's place holds a sidecar, and the place it is attached to
+-- a video.
 
 -- 0060 (D363 §5, §6): how each kind of library files a video, one row a kind.
 CREATE TABLE file_filing (
@@ -1390,7 +1402,8 @@ second writer, or on a writer this table does not name. A table no package write
 | `fetched_subtitle` | persistent.db | `internal/core/subtitles` | |
 | `fetch_failure` | persistent.db | `internal/core/identify` | the fetch_metadata runner's failure recorder, and a person's refresh, which clears it |
 | `field_override` | persistent.db | `internal/core/identify` | |
-| `file` | persistent.db | `internal/core/library` | one row per place a file is found at: a confirmed copy's row names the file it is a copy of (D363 §2) |
+| `file` | persistent.db | `internal/core/library` | one row per payload, its id its first place's (D426 §4) |
+| `place` | persistent.db | `internal/core/library` | one row per place a file is found at, the file it holds; a confirmed copy is a place holding the file found before it (D363 §2, D426 §4) |
 | `file_filing` | persistent.db | `internal/core/library` | how each kind of library files a video; identification writes it through `library.FileAs` and `library.PutInVersion` (D363 §6) |
 | `file_probe` | persistent.db | `internal/core/library` | a scan's probe of each video, beside its row (D303) |
 | `file_nfo` | persistent.db | `internal/core/library` | an NFO's bytes, beside its row (D303) |

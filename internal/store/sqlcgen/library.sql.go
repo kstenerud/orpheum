@@ -10,9 +10,10 @@ import (
 )
 
 const countLibraryFilings = `-- name: CountLibraryFilings :many
-SELECT CAST(CASE WHEN library_place.filing = 'video' THEN coalesce(file_filing.filing, 'unidentified')
-  ELSE library_place.filing END AS TEXT) AS filing, count(*) AS files
+SELECT CAST(CASE WHEN library_place.filing <> 'read' THEN library_place.filing WHEN file.sidecar_kind IS NOT NULL THEN 'attached'
+    WHEN library_place.place_id IS NOT library_place.file_id THEN 'copy' ELSE coalesce(file_filing.filing, 'unidentified') END AS TEXT) AS filing, count(*) AS files
 FROM library_place
+LEFT JOIN file ON file.id = library_place.file_id
 LEFT JOIN file_filing ON file_filing.file_id = library_place.place_id
   AND file_filing.library_kind = library_place.library_kind
 WHERE library_place.library_id = ?1
@@ -213,11 +214,12 @@ func (q *Queries) ListCheckedRoots(ctx context.Context) ([]ListCheckedRootsRow, 
 
 const listFilesPage = `-- name: ListFilesPage :many
 SELECT place.id, CAST(coalesce(covering.id, 0) AS INTEGER) AS library_id, place.path,
-  CAST(CASE WHEN place.filing = 'video' THEN coalesce(file_filing.filing, 'unidentified')
-    ELSE place.filing END AS TEXT) AS filing,
+  CAST(CASE WHEN place.filing <> 'read' THEN place.filing WHEN file.sidecar_kind IS NOT NULL THEN 'attached'
+    WHEN place.id IS NOT place.file_id THEN 'copy' ELSE coalesce(file_filing.filing, 'unidentified') END AS TEXT) AS filing,
   coalesce(file_filing.filing_reason, place.filing_reason) AS filing_reason,
-  place.error_detail_json, place.size_bytes, place.first_seen_at, place.last_seen_at
-FROM file AS place
+  place.error_detail_json, file.size_bytes, place.first_seen_at, place.last_seen_at
+FROM place
+LEFT JOIN file ON file.id = place.file_id
 LEFT JOIN library AS covering ON covering.id = (
   SELECT first.library_id FROM library_place AS first
   WHERE first.place_id = place.id AND (first.library_id = ?1 OR ?1 IS NULL)
@@ -225,7 +227,8 @@ LEFT JOIN library AS covering ON covering.id = (
 LEFT JOIN file_filing ON file_filing.file_id = place.id AND file_filing.library_kind = covering.kind
 WHERE place.removed_at IS NULL AND place.id > ?2
   AND (covering.id IS NOT NULL OR ?1 IS NULL)
-  AND (CASE WHEN place.filing = 'video' THEN coalesce(file_filing.filing, 'unidentified') ELSE place.filing END
+  AND (CAST(CASE WHEN place.filing <> 'read' THEN place.filing WHEN file.sidecar_kind IS NOT NULL THEN 'attached'
+    WHEN place.id IS NOT place.file_id THEN 'copy' ELSE coalesce(file_filing.filing, 'unidentified') END AS TEXT)
     = ?3 OR ?3 IS NULL)
 ORDER BY place.id
 LIMIT ?4

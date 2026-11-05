@@ -20,7 +20,7 @@ ORDER BY id;
 -- A fetched subtitle and the live video it is for, for the job that converts it.
 SELECT s.id, s.video_file, s.body_gzip, f.node_id
 FROM fetched_subtitle s
-JOIN file f ON f.id = s.video_file AND f.removed_at IS NULL
+JOIN place f ON f.id = s.video_file AND f.removed_at IS NULL
 WHERE s.id = sqlc.arg(id);
 
 -- name: DeleteFetchedSubtitle :exec

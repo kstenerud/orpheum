@@ -17,31 +17,33 @@ SELECT id, kind, metadata_source FROM library WHERE id = ? AND removed_at IS NUL
 -- at a place it covers, a sidecar of a copy attached to the copy's file, and whether it lies beside a
 -- copy rather than the file's first place, whose NFO is read first (section 9). A video is governed by
 -- the library of its kind with the outermost folder covering one of its places, the oldest of two.
-SELECT library_place.file_id AS id, library_place.node_id, library_place.path, library_place.reported_path_raw,
-  CAST(CASE WHEN file.filing = 'video' THEN coalesce(file_filing.filing, 'unidentified') ELSE file.filing END AS TEXT)
+SELECT file.id, library_place.node_id, library_place.path, library_place.reported_path_raw,
+  CAST(CASE WHEN library_place.filing <> 'read' THEN library_place.filing
+    WHEN file.sidecar_kind IS NOT NULL THEN 'attached' ELSE coalesce(file_filing.filing, 'unidentified') END AS TEXT)
     AS filing,
   file_filing.filing_reason,
   file.sidecar_kind, file.payload_hash, file_filing.version_id,
-  coalesce(owner.copy_of, file.attached_to_file) AS attached_to_file,
-  CAST(owner.copy_of IS NOT NULL AS INTEGER) AS is_beside_a_copy,
+  owner.file_id AS attached_to_file,
+  CAST(owner.file_id IS NOT owner.id AS INTEGER) AS is_beside_a_copy,
   CAST(coalesce(file_probe.duration_ms, 0) AS INTEGER) AS duration_ms,
-  file_filing.identified_from_path, file.size_bytes, file.modified_at
+  file_filing.identified_from_path, file.size_bytes, place.modified_at
 FROM library_place
+CROSS JOIN place ON place.id = library_place.place_id
 CROSS JOIN file ON file.id = library_place.file_id
 LEFT JOIN file_filing ON file_filing.file_id = file.id AND file_filing.library_kind = library_place.library_kind
 LEFT JOIN file_probe ON file_probe.file_id = file.id
-LEFT JOIN file AS owner ON owner.id = file.attached_to_file
+LEFT JOIN place AS owner ON owner.id = place.attached_to_place
 WHERE library_place.library_id = sqlc.arg(library_id)
-  AND (file.filing <> 'video' OR (
+  AND (library_place.filing <> 'read' OR file.sidecar_kind IS NOT NULL OR (
     (SELECT governing.library_id FROM library_place AS governing
-     WHERE (governing.place_id = file.id OR governing.copy_of = file.id)
+     WHERE governing.file_id = file.id
        AND governing.library_kind = library_place.library_kind
      ORDER BY length(governing.root_path), governing.library_id LIMIT 1) = library_place.library_id
     AND NOT EXISTS (
       SELECT 1 FROM library_place AS earlier
-      WHERE (earlier.place_id = file.id OR earlier.copy_of = file.id) AND earlier.library_id = library_place.library_id
-        AND (earlier.copy_of IS NOT NULL, earlier.first_seen_at, earlier.place_id)
-          < (library_place.copy_of IS NOT NULL, library_place.first_seen_at, library_place.place_id))))
+      WHERE earlier.file_id = file.id AND earlier.library_id = library_place.library_id
+        AND (earlier.place_id <> earlier.file_id, earlier.first_seen_at, earlier.place_id)
+          < (library_place.place_id <> library_place.file_id, library_place.first_seen_at, library_place.place_id))))
 ORDER BY library_place.path;
 
 -- name: ListWorksToAdopt :many
@@ -57,7 +59,7 @@ CROSS JOIN item ON item.id = version.work_id
 WHERE library_place.library_id = sqlc.arg(library_id)
   AND item.removed_at IS NULL AND item.filing_library_id IS NOT library_place.library_id
   AND (SELECT governing.library_id FROM library_place AS governing
-       WHERE (governing.place_id = file_filing.file_id OR governing.copy_of = file_filing.file_id)
+       WHERE governing.file_id = file_filing.file_id
          AND governing.library_kind = file_filing.library_kind
        ORDER BY length(governing.root_path), governing.library_id LIMIT 1) = library_place.library_id
   AND NOT EXISTS (
@@ -65,7 +67,7 @@ WHERE library_place.library_id = sqlc.arg(library_id)
     CROSS JOIN file_filing AS filed ON filed.version_id = held.id
     WHERE held.work_id = item.id
       AND (SELECT governing.library_id FROM library_place AS governing
-           WHERE (governing.place_id = filed.file_id OR governing.copy_of = filed.file_id)
+           WHERE governing.file_id = filed.file_id
              AND governing.library_kind = filed.library_kind
            ORDER BY length(governing.root_path), governing.library_id LIMIT 1) = item.filing_library_id)
 ORDER BY version.work_id;
@@ -124,8 +126,8 @@ ORDER BY item.removed_at IS NOT NULL, work.id;
 SELECT count(*)
 FROM version
 CROSS JOIN file_filing ON file_filing.version_id = version.id
-CROSS JOIN file ON file.id = file_filing.file_id
-WHERE version.work_id = ? AND version.removed_at IS NULL AND file.removed_at IS NULL;
+CROSS JOIN place ON place.id = file_filing.file_id
+WHERE version.work_id = ? AND version.removed_at IS NULL AND place.removed_at IS NULL;
 
 -- name: ListSeriesByProviderID :many
 -- The series a provider's id names: the live ones, and those hidden with a deleted library before
@@ -318,7 +320,7 @@ UPDATE item SET identification_state = 'confirmed' WHERE id = ? AND kind IN ('mo
 -- name: ListFileWorks :many
 -- Each live file a library's folders cover, as the library's kind filed it, with its title: at each
 -- place the library covers.
-SELECT library_place.file_id AS id, library_place.path, file_filing.filing, file_filing.filing_reason,
+SELECT file_filing.file_id AS id, library_place.path, file_filing.filing, file_filing.filing_reason,
   work.id AS work_id, work.kind, item.identification_state, item.year, item.followed_source, item_text.name
 FROM library_place
 CROSS JOIN file_filing ON file_filing.file_id = library_place.file_id
@@ -528,7 +530,7 @@ WHERE item.id = sqlc.arg(work_id) AND item.removed_at IS NULL
 -- The live files of each series' live episodes that have no number in its aired order, with the
 -- series' name, at most max_rows: those outside a specials or extras folder suggest names read
 -- wrongly (D306 section 6).
-SELECT ordering.sequence_id AS series_id, CAST(coalesce(series_text.name, '') AS TEXT) AS series_name, file.path
+SELECT ordering.sequence_id AS series_id, CAST(coalesce(series_text.name, '') AS TEXT) AS series_name, place.path
 FROM position
 JOIN ordering ON ordering.id = position.ordering_id AND ordering.name = 'aired'
 JOIN item AS episode ON episode.id = position.work_id AND episode.removed_at IS NULL
@@ -536,33 +538,33 @@ JOIN item AS series ON series.id = ordering.sequence_id AND series.removed_at IS
 LEFT JOIN item_text AS series_text ON series_text.item_id = ordering.sequence_id AND series_text.is_original = 1
 JOIN version ON version.work_id = position.work_id AND version.removed_at IS NULL
 JOIN file_filing ON file_filing.version_id = version.id
-JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
+JOIN place ON place.id = file_filing.file_id AND place.removed_at IS NULL
 WHERE position.number_in_group IS NULL
-ORDER BY ordering.sequence_id, file.path
+ORDER BY ordering.sequence_id, place.path
 LIMIT sqlc.arg(max_rows);
 
 -- name: ListFilmsWithoutSound :many
 -- The live films whose video file was read and holds a picture but no audio track, with the film's
 -- name, at most max_rows: a video-only download whose sound was never merged in, which Needs
 -- attention lists among the problem films (the owner, 2026-11-02).
-SELECT work.id AS work_id, CAST(coalesce(work_text.name, '') AS TEXT) AS work_name, file.path
+SELECT work.id AS work_id, CAST(coalesce(work_text.name, '') AS TEXT) AS work_name, place.path
 FROM work
 JOIN item ON item.id = work.id AND item.removed_at IS NULL
 LEFT JOIN item_text AS work_text ON work_text.item_id = work.id AND work_text.is_original = 1
 JOIN version ON version.work_id = work.id AND version.removed_at IS NULL
 JOIN file_filing ON file_filing.version_id = version.id
-JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
+JOIN place ON place.id = file_filing.file_id AND place.removed_at IS NULL
 WHERE work.kind = 'movie'
-  AND EXISTS (SELECT 1 FROM stream WHERE stream.video_file = file.id AND stream.kind = 'video'
+  AND EXISTS (SELECT 1 FROM stream WHERE stream.video_file = place.id AND stream.kind = 'video'
     AND (stream.disposition_flags & 1024) = 0)
-  AND NOT EXISTS (SELECT 1 FROM stream WHERE stream.video_file = file.id AND stream.kind = 'audio')
-ORDER BY work.id, file.path
+  AND NOT EXISTS (SELECT 1 FROM stream WHERE stream.video_file = place.id AND stream.kind = 'audio')
+ORDER BY work.id, place.path
 LIMIT sqlc.arg(max_rows);
 
 -- name: ListFilesOfWork :many
 -- The live videos a film, an episode or a series holds, a series' through its episodes, each with
 -- how it was filed and its title: what a report of its filing lists (D306 section 3).
-SELECT file.id, file.path, file_filing.filing, file_filing.filing_reason, file.size_bytes, file.node_id,
+SELECT file.id, place.path, file_filing.filing, file_filing.filing_reason, file.size_bytes, place.node_id,
   work.id AS work_id, work.kind AS work_kind, item.identification_state,
   CAST(coalesce(work_text.name, '') AS TEXT) AS work_name, item.year,
   position.group_number, position.number_in_group
@@ -570,43 +572,44 @@ FROM work
 JOIN item ON item.id = work.id
 JOIN version ON version.work_id = work.id AND version.removed_at IS NULL
 JOIN file_filing ON file_filing.version_id = version.id
-JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
+JOIN place ON place.id = file_filing.file_id AND place.removed_at IS NULL
+JOIN file ON file.id = place.id
 LEFT JOIN item_text AS work_text ON work_text.item_id = work.id AND work_text.is_original = 1
 LEFT JOIN position ON position.work_id = work.id
   AND position.ordering_id IN (SELECT ordering.id FROM ordering WHERE ordering.name = 'aired')
 WHERE work.id = sqlc.arg(item_id)
   OR work.id IN (SELECT position.work_id FROM position JOIN ordering ON ordering.id = position.ordering_id
     WHERE ordering.sequence_id = sqlc.arg(item_id) AND ordering.name = 'aired')
-ORDER BY file.path
+ORDER BY place.path
 LIMIT sqlc.arg(max_rows);
 
 -- name: ListUnnumberedEpisodePathsOfSeries :many
 -- The live files of a series' live episodes that have no number in its aired order: those outside
 -- a specials or extras folder have every season's listing fetched, to be placed by their names
 -- (D307 section 2).
-SELECT file.path
+SELECT place.path
 FROM ordering
 JOIN position ON position.ordering_id = ordering.id AND position.number_in_group IS NULL
 JOIN item AS episode ON episode.id = position.work_id AND episode.removed_at IS NULL
 JOIN version ON version.work_id = position.work_id AND version.removed_at IS NULL
 JOIN file_filing ON file_filing.version_id = version.id
-JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
+JOIN place ON place.id = file_filing.file_id AND place.removed_at IS NULL
 WHERE ordering.sequence_id = sqlc.arg(series_id) AND ordering.name = 'aired'
-ORDER BY file.path
+ORDER BY place.path
 LIMIT sqlc.arg(max_rows);
 
 -- name: ListLibraryUnnumberedEpisodePaths :many
 -- ListUnnumberedEpisodePathsOfSeries for every series of a library, in one statement a pass.
-SELECT ordering.sequence_id AS series_id, file.path
+SELECT ordering.sequence_id AS series_id, place.path
 FROM item AS series
 JOIN ordering ON ordering.sequence_id = series.id AND ordering.name = 'aired'
 JOIN position ON position.ordering_id = ordering.id AND position.number_in_group IS NULL
 JOIN item AS episode ON episode.id = position.work_id AND episode.removed_at IS NULL
 JOIN version ON version.work_id = position.work_id AND version.removed_at IS NULL
 JOIN file_filing ON file_filing.version_id = version.id
-JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
+JOIN place ON place.id = file_filing.file_id AND place.removed_at IS NULL
 WHERE series.filing_library_id = sqlc.arg(library_id) AND series.removed_at IS NULL
-ORDER BY ordering.sequence_id, file.path;
+ORDER BY ordering.sequence_id, place.path;
 
 -- name: ListLibraryOtherVideos :many
 -- The other videos of a library's live titles, as the pass last derived them (D349 section 4).
@@ -634,7 +637,7 @@ WHERE (other_video.recorded_at, other_video.recorded_from, other_video.file_name
 -- name: ListLibraryRecordedTimes :many
 -- When each live file at a place a library covers says it was recorded, as its node's probe read it,
 -- for those that say: an other video's date (D349 section 4).
-SELECT DISTINCT library_place.file_id,
+SELECT DISTINCT file_probe.file_id,
   CAST(json_extract(file_probe.probe_json, '$.format.recordedAtMs') AS INTEGER) AS recorded_at_ms
 FROM library_place
 CROSS JOIN file_probe ON file_probe.file_id = library_place.file_id

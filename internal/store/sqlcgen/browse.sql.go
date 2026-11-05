@@ -132,10 +132,11 @@ func (q *Queries) GetEpisodePlace(ctx context.Context, workID int64) (GetEpisode
 }
 
 const getFilesWork = `-- name: GetFilesWork :one
-SELECT file.path, work.id AS work_id, work.kind AS work_kind, item_text.name,
+SELECT place.path, work.id AS work_id, work.kind AS work_kind, item_text.name,
   CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
     AS duration_ms
 FROM file
+CROSS JOIN place ON place.id = file.id
 LEFT JOIN version ON version.id = (
   SELECT file_filing.version_id FROM file_filing WHERE file_filing.file_id = file.id AND file_filing.version_id IS NOT NULL
   ORDER BY file_filing.library_kind = 'other', file_filing.library_kind LIMIT 1)
@@ -153,7 +154,7 @@ type GetFilesWorkRow struct {
 }
 
 // What a file is, for now playing and a cast's remote: its title, its kind and name when one is
-// filed, a film's or an episode's before an other video's (D363 section 5), its first place's path,
+// filed, a film's or an episode's before an other video's (D363 section 5), its own place's path,
 // and how long it plays, 0 before it is probed.
 func (q *Queries) GetFilesWork(ctx context.Context, id int64) (GetFilesWorkRow, error) {
 	row := q.db.QueryRowContext(ctx, getFilesWork, id)
@@ -683,15 +684,15 @@ func (q *Queries) ListFilmsByName(ctx context.Context, arg ListFilmsByNameParams
 
 const listLibrariesOfFile = `-- name: ListLibrariesOfFile :many
 SELECT DISTINCT library_place.library_id
-FROM file AS place
+FROM place
 CROSS JOIN library_place ON library_place.place_id = place.id
-WHERE place.id = ?1 OR place.copy_of = ?1
+WHERE place.file_id = CAST(?1 AS INTEGER)
 ORDER BY library_place.library_id
 `
 
 // The live libraries that cover a live place of a file, of any kind: where a person who played it
 // may go back up to, of those they reach (D363 section 4).
-// Read from the file's places outward, by CROSS JOIN: its first and its copies, then what covers each.
+// Read from the file's places outward, by CROSS JOIN: its own and its copies', then what covers each.
 func (q *Queries) ListLibrariesOfFile(ctx context.Context, fileID int64) ([]int64, error) {
 	rows, err := q.db.QueryContext(ctx, listLibrariesOfFile, fileID)
 	if err != nil {
@@ -771,9 +772,9 @@ JOIN position ON position.ordering_id = ordering.id
 JOIN version ON version.work_id = position.work_id AND version.removed_at IS NULL
 CROSS JOIN version_library ON version_library.version_id = version.id
 CROSS JOIN file ON file.id = version_library.file_id
-CROSS JOIN file AS place ON place.id = version_library.place_id
+CROSS JOIN place ON place.id = version_library.place_id
 WHERE ordering.sequence_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
-  AND ordering.name = 'aired' AND file.filing = 'video'
+  AND ordering.name = 'aired' AND file.sidecar_kind IS NULL
   AND (CAST(?2 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
 ORDER BY ordering.sequence_id, place.id
@@ -828,9 +829,9 @@ SELECT version.work_id AS item_id, place.node_id, place.reported_path_raw,
 FROM version
 CROSS JOIN version_library ON version_library.version_id = version.id
 CROSS JOIN file ON file.id = version_library.file_id
-CROSS JOIN file AS place ON place.id = version_library.place_id
+CROSS JOIN place ON place.id = version_library.place_id
 WHERE version.work_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
-  AND version.removed_at IS NULL AND file.filing = 'video'
+  AND version.removed_at IS NULL AND file.sidecar_kind IS NULL
   AND (CAST(?2 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
 ORDER BY version.work_id, place.id
@@ -926,8 +927,8 @@ const listOrderingMemberFilesWithPositions = `-- name: ListOrderingMemberFilesWi
 SELECT position.work_id, CAST(coalesce(position.group_number, 0) AS INTEGER) AS group_number,
   CAST(coalesce(position.number_in_group, 0) AS INTEGER) AS number_in_group,
   CAST(coalesce(item_text.name, '') AS TEXT) AS name,
-  file.id AS file_id,
-  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
+  own.id AS file_id,
+  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = own.id), 0) AS INTEGER)
     AS duration_ms,
   play_position.position_ms, play_position.position_read_at, work_watched.watched_at, work_watched.marked_at
 FROM ordering
@@ -935,17 +936,17 @@ JOIN position ON position.ordering_id = ordering.id
 JOIN item ON item.id = position.work_id AND item.removed_at IS NULL
 JOIN version ON version.work_id = position.work_id AND version.removed_at IS NULL
 JOIN file_filing ON file_filing.version_id = version.id AND file_filing.filing IN ('listed', 'unidentified')
-JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
+JOIN place AS own ON own.id = file_filing.file_id AND own.removed_at IS NULL
 LEFT JOIN item_text ON item_text.item_id = position.work_id AND item_text.is_original = 1
-LEFT JOIN play_position ON play_position.file_id = file.id AND play_position.user_id = ?1
+LEFT JOIN play_position ON play_position.file_id = own.id AND play_position.user_id = ?1
 LEFT JOIN work_watched ON work_watched.user_id = ?1 AND work_watched.work_id = position.work_id
 WHERE ordering.sequence_id = ?2 AND ordering.name = ?3
   AND EXISTS (
     SELECT 1 FROM version_library WHERE version_library.version_id = version.id
-      AND version_library.file_id = file.id
+      AND version_library.file_id = own.id
       AND (CAST(?4 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?5 AS TEXT)))))
-ORDER BY position.sort_order, version.id, file_filing.part_index, file.id
+ORDER BY position.sort_order, version.id, file_filing.part_index, own.id
 `
 
 type ListOrderingMemberFilesWithPositionsParams struct {
@@ -1361,10 +1362,10 @@ JOIN item_text ON item_text.item_id = work.id AND item_text.is_original = 1
 WHERE library_place.library_id = ?1
   AND NOT EXISTS (
     SELECT 1 FROM library_place AS earlier
-    WHERE (earlier.place_id = library_place.file_id OR earlier.copy_of = library_place.file_id)
+    WHERE earlier.file_id = library_place.file_id
       AND earlier.library_id = library_place.library_id
-      AND (earlier.copy_of IS NOT NULL, earlier.first_seen_at, earlier.place_id)
-        < (library_place.copy_of IS NOT NULL, library_place.first_seen_at, library_place.place_id))
+      AND (earlier.place_id <> earlier.file_id, earlier.first_seen_at, earlier.place_id)
+        < (library_place.place_id <> library_place.file_id, library_place.first_seen_at, library_place.place_id))
 ORDER BY library_place.path
 `
 
@@ -1855,13 +1856,14 @@ func (q *Queries) ListStreamsOfVideoFile(ctx context.Context, videoFile int64) (
 }
 
 const listUnreadFilesOfWork = `-- name: ListUnreadFilesOfWork :many
-SELECT file.id, file.node_id, file.reported_path_raw
+SELECT place.id, place.node_id, place.reported_path_raw
 FROM version
 CROSS JOIN file_filing ON file_filing.version_id = version.id
-CROSS JOIN file ON file.id = file_filing.file_id
-WHERE version.work_id = ?1 AND version.removed_at IS NULL AND file.removed_at IS NULL
+CROSS JOIN place ON place.id = file_filing.file_id
+CROSS JOIN file ON file.id = place.id
+WHERE version.work_id = ?1 AND version.removed_at IS NULL AND place.removed_at IS NULL
   AND file.payload_hash IS NULL AND file.sidecar_kind IS NULL
-ORDER BY file.id
+ORDER BY place.id
 `
 
 type ListUnreadFilesOfWorkRow struct {
@@ -1950,15 +1952,16 @@ SELECT version.id AS version_id, file.id AS file_id, place.id AS place_id, place
   file.size_bytes, file_filing.part_index
 FROM version
 CROSS JOIN file_filing ON file_filing.version_id = version.id
-CROSS JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
-CROSS JOIN file AS place ON (place.id = file.id OR place.copy_of = file.id) AND place.removed_at IS NULL
+CROSS JOIN place AS own ON own.id = file_filing.file_id AND own.removed_at IS NULL
+CROSS JOIN file ON file.id = own.id
+CROSS JOIN place ON place.file_id = file.id AND place.removed_at IS NULL
 WHERE version.work_id = ?1 AND version.removed_at IS NULL
   AND EXISTS (
     SELECT 1 FROM library_place WHERE library_place.place_id = place.id
       AND library_place.library_kind = file_filing.library_kind
       AND (CAST(?2 AS INTEGER) = 1
         OR library_place.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT)))))
-ORDER BY version.id, file_filing.part_index, file.id, place.copy_of IS NOT NULL, place.first_seen_at, place.id
+ORDER BY version.id, file_filing.part_index, file.id, place.id <> place.file_id, place.first_seen_at, place.id
 `
 
 type ListWorkFilesParams struct {
@@ -1977,7 +1980,7 @@ type ListWorkFilesRow struct {
 }
 
 // A title's versions and their live files, a version's parts in order, each file at each of its live
-// places a library of the title's kind covers that its caller reaches, its first place first (D363
+// places a library of the title's kind covers that its caller reaches, its own place first (D363
 // section 8): a version none of whose files they reach is not listed, nor is a place they do not.
 func (q *Queries) ListWorkFiles(ctx context.Context, arg ListWorkFilesParams) ([]ListWorkFilesRow, error) {
 	rows, err := q.db.QueryContext(ctx, listWorkFiles, arg.WorkID, arg.IsEveryLibrary, arg.LibraryIdsJSON)

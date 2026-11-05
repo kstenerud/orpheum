@@ -92,7 +92,7 @@ func TestReadThrough_TheSweepReadsAFileWithNoIndexReaderFirst(t *testing.T) {
 	harness.shelvePictures(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 1)
 	storetest.ExecRaw(t, harness.databasePath,
-		`UPDATE file SET reported_path_raw = CAST('/media/Film (2002).avi' AS BLOB) WHERE id = 2`)
+		`UPDATE place SET reported_path_raw = CAST('/media/Film (2002).avi' AS BLOB) WHERE id = 2`)
 	if queued, err := harness.readThrough.QueueReadThroughs(t.Context()); err != nil || queued != 2 {
 		t.Fatalf("the sweep queued %d, %v; want both films", queued, err)
 	}

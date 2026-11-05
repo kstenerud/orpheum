@@ -71,10 +71,10 @@ func (lib *testLibrary) orderingsOf(seriesID int64) []string {
 func (lib *testLibrary) placesIn(seriesID int64, ordering string) (places, groupNames []string) {
 	lib.t.Helper()
 	places = storetest.QueryRaw(lib.t, lib.database.Path(), fmt.Sprintf(
-		`SELECT substr(file.path, length(file.path) - 9), position.group_number, position.number_in_group
+		`SELECT substr(place.path, length(place.path) - 9), position.group_number, position.number_in_group
 		 FROM ordering JOIN position ON position.ordering_id = ordering.id
 		 JOIN version ON version.work_id = position.work_id JOIN file_filing ON file_filing.version_id = version.id
-		 JOIN file ON file.id = file_filing.file_id
+		 JOIN place ON place.id = file_filing.file_id
 		 WHERE ordering.sequence_id = %d AND ordering.name = '%s' ORDER BY position.sort_order`, seriesID, ordering))
 	groupNames = storetest.QueryRaw(lib.t, lib.database.Path(), fmt.Sprintf(
 		`SELECT group_text.group_number, group_text.name FROM ordering

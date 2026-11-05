@@ -301,7 +301,7 @@ type mergedCopy struct {
 func (copies *Copies) merge(ctx context.Context, queries *sqlcgen.Queries, copyID, fileID int64) (mergedCopy, error) {
 	var merged mergedCopy
 	made, err := queries.MakeFileACopy(ctx, sqlcgen.MakeFileACopyParams{
-		FilingReason: new("byte for byte the file found before it, at another place"), CopyOf: &fileID, ID: copyID,
+		FilingReason: new("byte for byte the file found before it, at another place"), FileID: fileID, ID: copyID,
 	})
 	if err != nil || made == 0 {
 		return merged, errors.Join(err, errCopyNotMade)
@@ -325,6 +325,13 @@ func (copies *Copies) merge(ctx context.Context, queries *sqlcgen.Queries, copyI
 		if foldErr := fold(ctx, queries, copyID, fileID); foldErr != nil {
 			return merged, foldErr
 		}
+	}
+	// The file the copy's place held is held by no place now, and nothing is kept of it.
+	if err = queries.DeleteFileOfACopy(ctx, copyID); err == nil {
+		err = queries.DeleteFileNoPlaceHolds(ctx, copyID)
+	}
+	if err != nil {
+		return merged, fmt.Errorf("delete the file copy %d held: %w", copyID, err)
 	}
 	if merged.libraryIDs, err = queries.ListLibrariesOfFile(ctx, fileID); err != nil {
 		return merged, fmt.Errorf("list the libraries of file %d: %w", fileID, err)

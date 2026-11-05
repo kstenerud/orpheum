@@ -235,7 +235,7 @@ func TestRaiser_ALookThatGoesOnReleasesWhatLeftIt(t *testing.T) {
 	if err := raiser.Raise(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	storetest.ExecRaw(t, database.Path(), `UPDATE file SET removed_at = 2 WHERE id = 101`)
+	storetest.ExecRaw(t, database.Path(), `UPDATE place SET removed_at = 2 WHERE id = 101`)
 	if err := raiser.Raise(t.Context()); err != nil {
 		t.Fatal(err)
 	}

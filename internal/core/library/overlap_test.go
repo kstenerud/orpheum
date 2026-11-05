@@ -47,7 +47,7 @@ func TestScans_AFolderInsideAnotherLibrarysFolderIsScannedOnceWithinIt(t *testin
 		t.Errorf("the listing was of %s; want the outer folder %s", sent.List.RootPath, root)
 	}
 	places := storetest.QueryRaw(t, bench.database.Path(),
-		"SELECT path FROM file WHERE removed_at IS NULL ORDER BY path")
+		"SELECT path FROM place WHERE removed_at IS NULL ORDER BY path")
 	if !slices.Equal(places, []string{root + "/Shows/Dag/1.mkv"}) {
 		t.Errorf("the live places are %v; want the episode once", places)
 	}

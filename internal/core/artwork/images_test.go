@@ -222,7 +222,7 @@ func TestTake_ARefusedImageBesideTheMediaIsOwedAgainOnceAScanHasSeenItsFile(t *t
 	if len(*queue) != 0 {
 		t.Fatalf("queued %+v; want the refusal held until a scan sees the file again", *queue)
 	}
-	storetest.ExecRaw(t, bench.database.Path(), "UPDATE file SET last_seen_at = 3000 WHERE id = 40")
+	storetest.ExecRaw(t, bench.database.Path(), "UPDATE place SET last_seen_at = 3000 WHERE id = 40")
 	bench.service.Take(t.Context(), found)
 	if got := queuedRefs(t, queue)[SourceLocal]; !slices.Equal(got, []Ref{{Kind: library.ArtPoster, SourceRef: ref}}) {
 		t.Errorf("queued %+v once a scan saw the file again; want the poster asked for once more (G9)", got)

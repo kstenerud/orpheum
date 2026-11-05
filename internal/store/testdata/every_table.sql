@@ -30,31 +30,34 @@ INSERT INTO version (id, work_id, created_at) VALUES (1, 1, 1790000000000);
 INSERT INTO extra_relation (owner_work, extra_work, extra_type, asserted_by)
   VALUES (1, 2, 'trailer', 'scanner');
 
-INSERT INTO file (id, node_id, path, size_bytes, modified_at, payload_hash, payload_bytes,
-                  filing, filing_reason, first_seen_at, last_seen_at, opensubtitles_hash)
-  VALUES (1, 1, '/media/films/Direct Play Film (2020)/Direct Play Film (2020).mp4', 1048576, 1780000000000,
-          X'00112233445566778899AABBCCDDEEFF', 1000000, 'video', NULL, 1790000000000, 1790000002000,
-          '8e245d9679d31e12');
+INSERT INTO file (id, size_bytes, payload_hash, payload_bytes, opensubtitles_hash, sidecar_kind)
+  VALUES (1, 1048576, X'00112233445566778899AABBCCDDEEFF', 1000000, '8e245d9679d31e12', NULL),
+         (2, 2048, NULL, NULL, NULL, 'subtitle'),
+         (3, 512, NULL, NULL, NULL, 'nfo');
+INSERT INTO place (id, file_id, node_id, path, reported_path_raw, modified_at, filing, filing_reason,
+                   first_seen_at, last_seen_at)
+  VALUES (1, 1, 1, '/media/films/Direct Play Film (2020)/Direct Play Film (2020).mp4',
+          CAST('/media/films/Direct Play Film (2020)/Direct Play Film (2020).mp4' AS BLOB), 1780000000000,
+          'read', NULL, 1790000000000, 1790000002000);
 INSERT INTO file_filing (file_id, library_kind, filing, filing_reason, version_id, part_index, identified_from_path)
   VALUES (1, 'movie', 'listed', 'movie folder', 1, 1,
           '/media/films/Direct Play Film (2020)/Direct Play Film (2020).mp4');
-INSERT INTO file (id, node_id, path, size_bytes, modified_at, payload_hash, payload_bytes,
-                  filing, filing_reason, copy_of, first_seen_at, last_seen_at)
-  VALUES (4, 1, '/media/films/Copies/Direct Play Film (2020).mp4', 1048576, 1780000000000,
-          X'00112233445566778899AABBCCDDEEFF', 1000000, 'copy',
-          'byte for byte the file found before it, at another place', 1, 1790000001000, 1790000002000);
+INSERT INTO place (id, file_id, node_id, path, reported_path_raw, modified_at, filing, filing_reason,
+                   first_seen_at, last_seen_at)
+  VALUES (4, 1, 1, '/media/films/Copies/Direct Play Film (2020).mp4',
+          CAST('/media/films/Copies/Direct Play Film (2020).mp4' AS BLOB), 1780000000000, 'read',
+          'byte for byte the file found before it, at another place', 1790000001000, 1790000002000);
 INSERT INTO whole_file_hash (file_id, sha256, size_bytes, modified_at, failure, hashed_at)
-  VALUES (1, X'0F0F', 1048576, 1780000000000, NULL, 1790000001500),
-         (4, X'0F0F', 1048576, 1780000000000, NULL, 1790000001600);
+  VALUES (1, X'0F0F', 1048576, 1780000000000, NULL, 1790000001500);
 INSERT INTO file_probe (file_id, probe_json, duration_ms) VALUES (1, '{"format":{"durationMs":5400000}}', 5400000);
-INSERT INTO file (id, node_id, path, size_bytes, modified_at, filing, filing_reason,
-                  sidecar_kind, attached_to_file, first_seen_at, last_seen_at)
-  VALUES (2, 1, '/media/films/Direct Play Film (2020)/Direct Play Film (2020).en.srt', 2048, 1780000000000,
-          'attached', 'a subtitle beside its video', 'subtitle', 1, 1790000000000, 1790000002000);
-INSERT INTO file (id, node_id, path, size_bytes, modified_at, filing, filing_reason,
-                  sidecar_kind, attached_to_file, first_seen_at, last_seen_at)
-  VALUES (3, 1, '/media/films/Direct Play Film (2020)/Direct Play Film (2020).nfo', 512, 1780000000000,
-          'attached', 'an NFO beside its video', 'nfo', 1, 1790000000000, 1790000002000);
+INSERT INTO place (id, file_id, node_id, path, reported_path_raw, modified_at, filing, filing_reason,
+                   attached_to_place, first_seen_at, last_seen_at)
+  VALUES (2, 2, 1, '/media/films/Direct Play Film (2020)/Direct Play Film (2020).en.srt',
+          CAST('/media/films/Direct Play Film (2020)/Direct Play Film (2020).en.srt' AS BLOB), 1780000000000,
+          'read', 'a subtitle beside its video', 1, 1790000000000, 1790000002000),
+         (3, 3, 1, '/media/films/Direct Play Film (2020)/Direct Play Film (2020).nfo',
+          CAST('/media/films/Direct Play Film (2020)/Direct Play Film (2020).nfo' AS BLOB), 1780000000000,
+          'read', 'an NFO beside its video', 1, 1790000000000, 1790000002000);
 INSERT INTO file_nfo (file_id, body) VALUES (3, CAST('<movie><title>Direct Play Film</title></movie>' AS BLOB));
 INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, container_language, language, container_title, disposition_flags,
                     channel_count)

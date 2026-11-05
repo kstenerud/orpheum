@@ -254,7 +254,7 @@ func TestTake_AFrameStillIsNotAskedAgainButAFailureIsOnceAScanSeesTheVideo(t *te
 		t.Fatalf("planned %v; want nothing: a still held, a video with no frame, a failure no scan has seen past",
 			planned)
 	}
-	storetest.ExecRaw(t, world.bench.database.Path(), "UPDATE file SET last_seen_at = 30")
+	storetest.ExecRaw(t, world.bench.database.Path(), "UPDATE place SET last_seen_at = 30")
 	if planned := world.pass(t, Found{}); !slices.Equal(planned, []int64{failed}) {
 		t.Errorf("planned %v once a scan saw the videos again; want only the failed %d asked again", planned, failed)
 	}

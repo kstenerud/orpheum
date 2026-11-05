@@ -28,19 +28,22 @@ func TestListFilesToReadThrough_ListsTheLiveVideosThatLackLoudnessOrATimeline(t 
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
 		 VALUES (1, 'Films', 'movie', 'nfo', 'manual', 0, 1)`,
 		"INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/m')",
-		`INSERT INTO file (id, node_id, path, size_bytes, payload_hash, filing, removed_at,
+		`INSERT INTO file (id, size_bytes, payload_hash) VALUES
+		 (1, 10, X'01'), (2, 10, X'02'), (3, 10, X'03'), (4, 10, X'04'), (5, 10, X'05'),
+		 (6, 10, X'06'), (7, 10, X'07'), (8, 10, X'08'), (9, 10, X'09'), (10, 10, X'0a')`,
+		`INSERT INTO place (id, file_id, node_id, path, reported_path_raw, filing, removed_at,
 		 first_seen_at, last_seen_at) VALUES
-		 (1, 1, '/m/1.mkv', 10, X'01', 'video', NULL, 1, 1),
-		 (2, 1, '/m/2.mkv', 10, X'02', 'video', NULL, 1, 1),
-		 (3, 1, '/m/3.mkv', 10, X'03', 'video', NULL, 1, 1),
-		 (4, 1, '/m/4.mkv', 10, X'04', 'video', NULL, 1, 1),
-		 (5, 1, '/m/5.mkv', 10, X'05', 'video', 9, 1, 1),
-		 (6, 1, '/m/6.mkv', 10, X'06', 'skipped', NULL, 1, 1),
-		 (7, 1, '/m/7.mkv', 10, X'07', 'video', NULL, 1, 1),
-		 (8, 1, '/m/8.mkv', 10, X'08', 'video', NULL, 1, 1),
-		 (9, 1, '/m/9.mkv', 10, X'09', 'video', NULL, 1, 1),
-		 (10, 1, '/x/10.mkv', 10, X'0a', 'video', NULL, 1, 1)`,
-		"UPDATE file SET reported_path_raw = CAST(path AS BLOB)",
+		 (1, 1, 1, '/m/1.mkv', CAST('/m/1.mkv' AS BLOB), 'read', NULL, 1, 1),
+		 (2, 2, 1, '/m/2.mkv', CAST('/m/2.mkv' AS BLOB), 'read', NULL, 1, 1),
+		 (3, 3, 1, '/m/3.mkv', CAST('/m/3.mkv' AS BLOB), 'read', NULL, 1, 1),
+		 (4, 4, 1, '/m/4.mkv', CAST('/m/4.mkv' AS BLOB), 'read', NULL, 1, 1),
+		 (5, 5, 1, '/m/5.mkv', CAST('/m/5.mkv' AS BLOB), 'read', 9, 1, 1),
+		 (6, 6, 1, '/m/6.mkv', CAST('/m/6.mkv' AS BLOB), 'skipped', NULL, 1, 1),
+		 (7, 7, 1, '/m/7.mkv', CAST('/m/7.mkv' AS BLOB), 'read', NULL, 1, 1),
+		 (8, 8, 1, '/m/8.mkv', CAST('/m/8.mkv' AS BLOB), 'read', NULL, 1, 1),
+		 (9, 9, 1, '/m/9.mkv', CAST('/m/9.mkv' AS BLOB), 'read', NULL, 1, 1),
+		 (10, 10, 1, '/x/10.mkv', CAST('/x/10.mkv' AS BLOB), 'read', NULL, 1, 1)`,
+		"UPDATE place SET reported_path_raw = CAST(path AS BLOB)",
 		`INSERT INTO file_probe (file_id, probe_json) SELECT id, '{}' FROM file`,
 		`INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, disposition_flags) VALUES
 		 (1, 1, 0, 'video', 'h264', 0), (1, 1, 1, 'audio', 'aac', 0),
@@ -132,9 +135,9 @@ func TestVideoTimeline_AFailedReadAfterTheIndexIsKeptAsItsReadFailure(t *testing
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
 		 VALUES (1, 'Films', 'movie', 'nfo', 'manual', 0, 1)`,
 		"INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/m')",
-		`INSERT INTO file (id, node_id, path, size_bytes, payload_hash, filing,
-		 first_seen_at, last_seen_at) VALUES (1, 1, '/m/1.mkv', 10, X'0c', 'video', 1, 1)`,
-		"UPDATE file SET reported_path_raw = CAST(path AS BLOB)",
+		`INSERT INTO file (id, size_bytes, payload_hash) VALUES (1, 10, X'0c')`,
+		`INSERT INTO place (id, file_id, node_id, path, reported_path_raw, filing,
+		 first_seen_at, last_seen_at) VALUES (1, 1, 1, '/m/1.mkv', CAST('/m/1.mkv' AS BLOB), 'read', 1, 1)`,
 		`INSERT INTO file_probe (file_id, probe_json) VALUES (1, '{}')`,
 		`INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, disposition_flags)
 		 VALUES (1, 1, 0, 'video', 'h264', 0)`)

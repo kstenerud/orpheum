@@ -265,10 +265,11 @@ type liveFiling struct {
 func liveFilingsOfNode(t *testing.T, config Config, nodeID int64) []liveFiling {
 	t.Helper()
 	rows := storetest.QueryRaw(t, openDatabase(t, config).Path(), fmt.Sprintf(
-		`SELECT file.id, hex(CAST(file.path AS BLOB)), hex(file.reported_path_raw),
-		 coalesce(file_filing.filing, file.filing), coalesce(file_filing.filing_reason, file.filing_reason, '')
-		 FROM file LEFT JOIN file_filing ON file_filing.file_id = file.id
-		 WHERE file.node_id = %d AND file.removed_at IS NULL ORDER BY file.path`, nodeID))
+		`SELECT place.id, hex(CAST(place.path AS BLOB)), hex(place.reported_path_raw),
+		 coalesce(file_filing.filing, `+filingWord+`), coalesce(file_filing.filing_reason, place.filing_reason, '')
+		 FROM place JOIN file ON file.id = place.file_id
+		 LEFT JOIN file_filing ON file_filing.file_id = place.file_id AND place.id = place.file_id
+		 WHERE place.node_id = %d AND place.removed_at IS NULL ORDER BY place.path`, nodeID))
 	filings := make([]liveFiling, 0, len(rows))
 	for _, row := range rows {
 		fields := strings.Split(row, "|")
@@ -284,6 +285,13 @@ func liveFilingsOfNode(t *testing.T, config Config, nodeID int64) []liveFiling {
 	}
 	return filings
 }
+
+// filingWord is how a place is filed, in the words the API answers with: skipped or errored as it
+// was stored, else attached for a sidecar, copy for a place holding a file found first elsewhere, and
+// video (D426 section 4).
+const filingWord = "CASE WHEN place.filing <> 'read' THEN place.filing " +
+	"WHEN file.sidecar_kind IS NOT NULL THEN 'attached' " +
+	"WHEN place.id IS NOT place.file_id THEN 'copy' ELSE 'video' END"
 
 func openDatabase(t *testing.T, config Config) *store.Database {
 	t.Helper()

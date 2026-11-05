@@ -44,7 +44,7 @@ func (q *Queries) DeleteFetchedSubtitlesOfPurgedFiles(ctx context.Context, fileI
 const getFetchedSubtitle = `-- name: GetFetchedSubtitle :one
 SELECT s.id, s.video_file, s.body_gzip, f.node_id
 FROM fetched_subtitle s
-JOIN file f ON f.id = s.video_file AND f.removed_at IS NULL
+JOIN place f ON f.id = s.video_file AND f.removed_at IS NULL
 WHERE s.id = ?1
 `
 

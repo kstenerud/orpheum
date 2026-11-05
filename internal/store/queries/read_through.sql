@@ -19,12 +19,13 @@ SELECT CAST(COALESCE(MAX(id), 0) AS INTEGER) AS last_id FROM file;
 -- one with none is read from its index first, the sweep's fast tier (D269 section 5). A file no
 -- library covers, its folder retired or its library deleted, is read by no sweep: it waits to be
 -- covered again or reaped (D363 section 10).
-SELECT f.id, f.node_id, f.reported_path_raw,
+SELECT f.id, own.node_id, own.reported_path_raw,
   CAST((SELECT 1 FROM video_timeline v WHERE v.payload_hash = f.payload_hash LIMIT 1) IS NOT NULL AS INTEGER)
     AS has_timeline
 FROM file f
-WHERE f.id > sqlc.arg(after_id) AND f.id <= sqlc.arg(through_id) AND f.removed_at IS NULL
-  AND f.filing = 'video' AND f.payload_hash IS NOT NULL
+CROSS JOIN place AS own ON own.id = f.id
+WHERE f.id > sqlc.arg(after_id) AND f.id <= sqlc.arg(through_id) AND own.removed_at IS NULL
+  AND own.filing = 'read' AND f.sidecar_kind IS NULL AND f.payload_hash IS NOT NULL
   AND EXISTS (SELECT 1 FROM file_probe WHERE file_probe.file_id = f.id)
   AND EXISTS (SELECT 1 FROM library_place WHERE library_place.place_id = f.id)
   AND (
@@ -40,8 +41,9 @@ ORDER BY f.id;
 -- name: ListFileSizesAndNodes :many
 -- The node, the size and the length of each live file named, by its id: the bytes ahead of a
 -- read-through on its node (D324 section 6). A length not probed is 0.
-SELECT id, node_id, size_bytes,
+SELECT file.id, own.node_id, file.size_bytes,
   CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
     AS duration_ms
 FROM file
-WHERE id IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT))) AND removed_at IS NULL;
+CROSS JOIN place AS own ON own.id = file.id AND own.removed_at IS NULL
+WHERE file.id IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT)));

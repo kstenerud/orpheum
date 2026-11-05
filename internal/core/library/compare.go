@@ -238,13 +238,15 @@ func (listing *listingComparison) readsAgain(kind nodeproto.ExamineKind, relativ
 // read later; its read fills its row in (D304 §1, §4).
 func (listing *listingComparison) storeUnread(ctx context.Context, video listedVideo) error {
 	reason := notIdentifiedYet
-	_, err := listing.batch.queries.InsertFile(ctx, sqlcgen.InsertFileParams{
-		NodeID: listing.batch.nodeID, Path: video.located.text,
-		ReportedPathRaw: video.located.reportedBytes, SizeBytes: &video.listed.SizeBytes,
-		ModifiedAt: &video.listed.ModifiedAt, Filing: FilingVideo, FilingReason: &reason,
-		SeenAt:           listing.batch.nowMs,
-		FilesystemDevice: storedNumber(video.listed.FilesystemDevice), Inode: storedNumber(video.listed.Inode),
-	})
+	id, err := listing.batch.queries.InsertFile(ctx, sqlcgen.InsertFileParams{SizeBytes: &video.listed.SizeBytes})
+	if err == nil {
+		err = listing.batch.queries.InsertPlace(ctx, sqlcgen.InsertPlaceParams{
+			FileID: id, NodeID: listing.batch.nodeID, Path: video.located.text,
+			ReportedPathRaw: video.located.reportedBytes, ModifiedAt: &video.listed.ModifiedAt,
+			Filing: FilingRead, FilingReason: &reason, SeenAt: listing.batch.nowMs,
+			FilesystemDevice: storedNumber(video.listed.FilesystemDevice), Inode: storedNumber(video.listed.Inode),
+		})
+	}
 	if err != nil {
 		return fmt.Errorf("store %s unread: %w", video.located.text, err)
 	}

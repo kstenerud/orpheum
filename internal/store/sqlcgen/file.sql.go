@@ -19,6 +19,27 @@ func (q *Queries) DeleteFileNFO(ctx context.Context, fileID int64) error {
 	return err
 }
 
+const deleteFileNoPlaceHolds = `-- name: DeleteFileNoPlaceHolds :exec
+DELETE FROM file WHERE file.id = ?1
+  AND NOT EXISTS (SELECT 1 FROM place WHERE place.file_id = ?1)
+`
+
+func (q *Queries) DeleteFileNoPlaceHolds(ctx context.Context, fileID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteFileNoPlaceHolds, fileID)
+	return err
+}
+
+const deleteFileOfACopy = `-- name: DeleteFileOfACopy :exec
+DELETE FROM whole_file_hash WHERE whole_file_hash.file_id = ?1
+`
+
+// The file a copy's place held before it was confirmed one, once nothing is kept of it but its
+// whole-file hash, a cache, which goes with it.
+func (q *Queries) DeleteFileOfACopy(ctx context.Context, fileID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteFileOfACopy, fileID)
+	return err
+}
+
 const deleteFileProbe = `-- name: DeleteFileProbe :exec
 DELETE FROM file_probe WHERE file_id = ?1
 `
@@ -66,12 +87,23 @@ func (q *Queries) DeleteProbesOfPurgedFiles(ctx context.Context, fileIdsJson str
 	return err
 }
 
-const deletePurgedFiles = `-- name: DeletePurgedFiles :execrows
+const deletePurgedFiles = `-- name: DeletePurgedFiles :exec
 DELETE FROM file WHERE id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
+  AND NOT EXISTS (SELECT 1 FROM place WHERE place.file_id = file.id)
 `
 
-func (q *Queries) DeletePurgedFiles(ctx context.Context, fileIdsJson string) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deletePurgedFiles, fileIdsJson)
+// The files of purged places that no place holds any more: a file's id is its own place's.
+func (q *Queries) DeletePurgedFiles(ctx context.Context, fileIdsJson string) error {
+	_, err := q.db.ExecContext(ctx, deletePurgedFiles, fileIdsJson)
+	return err
+}
+
+const deletePurgedPlaces = `-- name: DeletePurgedPlaces :execrows
+DELETE FROM place WHERE id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
+`
+
+func (q *Queries) DeletePurgedPlaces(ctx context.Context, placeIdsJson string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deletePurgedPlaces, placeIdsJson)
 	if err != nil {
 		return 0, err
 	}
@@ -127,13 +159,14 @@ func (q *Queries) DeleteWholeHashesOfPurgedFiles(ctx context.Context, fileIdsJso
 const getFileForSubtitleSearch = `-- name: GetFileForSubtitleSearch :one
 SELECT f.id, f.opensubtitles_hash, v.work_id, t.kind AS work_kind
 FROM file f
+CROSS JOIN place ON place.id = f.id AND place.removed_at IS NULL
 LEFT JOIN version v ON v.id = (
   SELECT file_filing.version_id FROM file_filing
   CROSS JOIN version AS live ON live.id = file_filing.version_id AND live.removed_at IS NULL
   WHERE file_filing.file_id = f.id
   ORDER BY file_filing.library_kind = 'other', file_filing.library_kind LIMIT 1)
 LEFT JOIN work t ON t.id = v.work_id
-WHERE f.id = ?1 AND f.removed_at IS NULL
+WHERE f.id = ?1
 `
 
 type GetFileForSubtitleSearchRow struct {
@@ -171,9 +204,10 @@ func (q *Queries) GetFileProbeJSON(ctx context.Context, fileID int64) (string, e
 }
 
 const getFileToHashWhole = `-- name: GetFileToHashWhole :one
-SELECT id, node_id, reported_path_raw, payload_hash, size_bytes, modified_at
+SELECT file.id, place.node_id, place.reported_path_raw, file.payload_hash, file.size_bytes, place.modified_at
 FROM file
-WHERE id = ?1 AND removed_at IS NULL AND filing IN ('video', 'copy')
+CROSS JOIN place ON place.id = file.id AND place.removed_at IS NULL AND place.filing = 'read'
+WHERE file.id = ?1 AND file.sidecar_kind IS NULL
 `
 
 type GetFileToHashWholeRow struct {
@@ -185,7 +219,7 @@ type GetFileToHashWholeRow struct {
 	ModifiedAt      *int64
 }
 
-// A live video to read whole, where it is and as it is now.
+// A live video to read whole, at its own place and as it is now.
 func (q *Queries) GetFileToHashWhole(ctx context.Context, id int64) (GetFileToHashWholeRow, error) {
 	row := q.db.QueryRowContext(ctx, getFileToHashWhole, id)
 	var i GetFileToHashWholeRow
@@ -201,11 +235,11 @@ func (q *Queries) GetFileToHashWhole(ctx context.Context, id int64) (GetFileToHa
 }
 
 const getLatestTombstoneByPayloadHash = `-- name: GetLatestTombstoneByPayloadHash :one
-SELECT id
+SELECT place.id
 FROM file
-WHERE node_id = ?1 AND payload_hash = ?2 AND removed_at IS NOT NULL
-  AND copy_of IS NULL
-ORDER BY removed_at DESC, id DESC
+CROSS JOIN place ON place.id = file.id AND place.removed_at IS NOT NULL
+WHERE place.node_id = ?1 AND file.payload_hash = ?2
+ORDER BY place.removed_at DESC, place.id DESC
 LIMIT 1
 `
 
@@ -214,8 +248,8 @@ type GetLatestTombstoneByPayloadHashParams struct {
 	PayloadHash []byte
 }
 
-// The file a returning payload revives (D208): the latest removed on its node, a file and never a
-// copy of one, whose identity is its file's.
+// The file a returning payload revives (D208): the latest whose own place on the node was removed,
+// never a copy's place, whose identity is its file's.
 func (q *Queries) GetLatestTombstoneByPayloadHash(ctx context.Context, arg GetLatestTombstoneByPayloadHashParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, getLatestTombstoneByPayloadHash, arg.NodeID, arg.PayloadHash)
 	var id int64
@@ -224,9 +258,11 @@ func (q *Queries) GetLatestTombstoneByPayloadHash(ctx context.Context, arg GetLa
 }
 
 const getLiveFileByReportedPathRaw = `-- name: GetLiveFileByReportedPathRaw :one
-SELECT id, payload_hash, last_seen_at
-FROM file
-WHERE node_id = ?1 AND reported_path_raw = ?2 AND removed_at IS NULL
+SELECT place.id, file.payload_hash, place.last_seen_at
+FROM place
+LEFT JOIN file ON file.id = place.file_id
+WHERE place.node_id = ?1 AND place.reported_path_raw = ?2
+  AND place.removed_at IS NULL
 `
 
 type GetLiveFileByReportedPathRawParams struct {
@@ -240,8 +276,8 @@ type GetLiveFileByReportedPathRawRow struct {
 	LastSeenAt  int64
 }
 
-// A live file by the bytes its node reported (D211): two names that are one NFC text are two
-// files.
+// A live place by the bytes its node reported (D211), and the payload of the file there: two names
+// that are one NFC text are two places.
 func (q *Queries) GetLiveFileByReportedPathRaw(ctx context.Context, arg GetLiveFileByReportedPathRawParams) (GetLiveFileByReportedPathRawRow, error) {
 	row := q.db.QueryRowContext(ctx, getLiveFileByReportedPathRaw, arg.NodeID, arg.ReportedPathRaw)
 	var i GetLiveFileByReportedPathRawRow
@@ -261,11 +297,12 @@ func (q *Queries) GetNFOBody(ctx context.Context, id int64) ([]byte, error) {
 }
 
 const getPlayableFile = `-- name: GetPlayableFile :one
-SELECT file.id, file.node_id, file.reported_path_raw, file.payload_hash, file_probe.probe_json,
+SELECT file.id, place.node_id, place.reported_path_raw, file.payload_hash, file_probe.probe_json,
   file.size_bytes
 FROM file
+CROSS JOIN place ON place.id = file.id AND place.removed_at IS NULL AND place.filing = 'read'
 LEFT JOIN file_probe ON file_probe.file_id = file.id
-WHERE file.id = ? AND file.removed_at IS NULL AND file.filing = 'video'
+WHERE file.id = ? AND file.sidecar_kind IS NULL
 `
 
 type GetPlayableFileRow struct {
@@ -278,8 +315,8 @@ type GetPlayableFileRow struct {
 }
 
 // A live file a person may play: a video the scan read or listed, whatever it was identified as, at
-// its first place. What a scan skipped, could not read or attached to another, or a copy, which is
-// its file's place, is not played as a file of its own.
+// its own place. A sidecar, or a file whose own place a scan skipped, could not read or removed, is
+// not played as a file of its own; a copy's place is its file's.
 func (q *Queries) GetPlayableFile(ctx context.Context, id int64) (GetPlayableFileRow, error) {
 	row := q.db.QueryRowContext(ctx, getPlayableFile, id)
 	var i GetPlayableFileRow
@@ -325,9 +362,10 @@ func (q *Queries) GetSidecarStream(ctx context.Context, bytesFile int64) (GetSid
 }
 
 const getSubtitleStream = `-- name: GetSubtitleStream :one
-SELECT s.id, s.video_file, s.stream_index, s.codec, s.bytes_file, f.payload_hash
+SELECT s.id, s.video_file, s.stream_index, s.codec, s.bytes_file, file.payload_hash
 FROM stream s
-JOIN file f ON f.id = s.bytes_file AND f.removed_at IS NULL
+JOIN place ON place.id = s.bytes_file AND place.removed_at IS NULL
+JOIN file ON file.id = s.bytes_file
 WHERE s.id = ?1 AND s.kind = 'subtitle'
 `
 
@@ -357,101 +395,77 @@ func (q *Queries) GetSubtitleStream(ctx context.Context, id int64) (GetSubtitleS
 }
 
 const insertFile = `-- name: InsertFile :one
-INSERT INTO file (
-  node_id, path, reported_path_raw, size_bytes, modified_at, payload_hash, payload_bytes,
-  filing, filing_reason, error_detail_json, first_seen_at, last_seen_at, opensubtitles_hash,
-  filesystem_device, inode
-) VALUES (
+INSERT INTO file (size_bytes, payload_hash, payload_bytes, opensubtitles_hash, sidecar_kind)
+VALUES (
   ?1, ?2, ?3, ?4,
-  ?5, ?6, ?7, ?8,
-  ?9, ?10, ?11, ?11,
-  ?12, ?13, ?14
+  ?5
 )
 RETURNING id
 `
 
 type InsertFileParams struct {
-	NodeID            int64
-	Path              string
-	ReportedPathRaw   []byte
 	SizeBytes         *int64
-	ModifiedAt        *int64
 	PayloadHash       []byte
 	PayloadBytes      *int64
-	Filing            string
-	FilingReason      *string
-	ErrorDetailJSON   *string
-	SeenAt            int64
 	OpensubtitlesHash *string
-	FilesystemDevice  *int64
-	Inode             *int64
+	SidecarKind       *string
 }
 
+// A file found, its payload as read so far; the place it was found at takes its id (InsertPlace).
 func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, insertFile,
+		arg.SizeBytes,
+		arg.PayloadHash,
+		arg.PayloadBytes,
+		arg.OpensubtitlesHash,
+		arg.SidecarKind,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const insertPlace = `-- name: InsertPlace :exec
+INSERT INTO place (
+  id, file_id, node_id, path, reported_path_raw, modified_at, filing, filing_reason, error_detail_json,
+  first_seen_at, last_seen_at, filesystem_device, inode
+) VALUES (
+  ?1, ?1, ?2, ?3, ?4,
+  ?5, ?6, ?7, ?8,
+  ?9, ?9, ?10, ?11
+)
+`
+
+type InsertPlaceParams struct {
+	FileID           int64
+	NodeID           int64
+	Path             string
+	ReportedPathRaw  []byte
+	ModifiedAt       *int64
+	Filing           string
+	FilingReason     *string
+	ErrorDetailJSON  *string
+	SeenAt           int64
+	FilesystemDevice *int64
+	Inode            *int64
+}
+
+// The place a file was first found at, its own: it has the file's id (D426 section 4).
+func (q *Queries) InsertPlace(ctx context.Context, arg InsertPlaceParams) error {
+	_, err := q.db.ExecContext(ctx, insertPlace,
+		arg.FileID,
 		arg.NodeID,
 		arg.Path,
 		arg.ReportedPathRaw,
-		arg.SizeBytes,
 		arg.ModifiedAt,
-		arg.PayloadHash,
-		arg.PayloadBytes,
 		arg.Filing,
 		arg.FilingReason,
 		arg.ErrorDetailJSON,
 		arg.SeenAt,
-		arg.OpensubtitlesHash,
 		arg.FilesystemDevice,
 		arg.Inode,
 	)
-	var id int64
-	err := row.Scan(&id)
-	return id, err
-}
-
-const insertSidecarFile = `-- name: InsertSidecarFile :one
-INSERT INTO file (
-  node_id, path, reported_path_raw, size_bytes, modified_at, payload_hash, payload_bytes, filing,
-  filing_reason, sidecar_kind, first_seen_at, last_seen_at
-) VALUES (
-  ?1, ?2, ?3, ?4,
-  ?5, ?6, ?7, 'attached', ?8,
-  ?9, ?10, ?10
-)
-RETURNING id
-`
-
-type InsertSidecarFileParams struct {
-	NodeID          int64
-	Path            string
-	ReportedPathRaw []byte
-	SizeBytes       *int64
-	ModifiedAt      *int64
-	PayloadHash     []byte
-	PayloadBytes    *int64
-	FilingReason    *string
-	SidecarKind     *string
-	SeenAt          int64
-}
-
-// A subtitle carries its payload hash, the file hashed whole; an NFO or an image has none. Only
-// an NFO's bytes are kept, in nfo_body.
-func (q *Queries) InsertSidecarFile(ctx context.Context, arg InsertSidecarFileParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, insertSidecarFile,
-		arg.NodeID,
-		arg.Path,
-		arg.ReportedPathRaw,
-		arg.SizeBytes,
-		arg.ModifiedAt,
-		arg.PayloadHash,
-		arg.PayloadBytes,
-		arg.FilingReason,
-		arg.SidecarKind,
-		arg.SeenAt,
-	)
-	var id int64
-	err := row.Scan(&id)
-	return id, err
+	return err
 }
 
 const insertSidecarStream = `-- name: InsertSidecarStream :exec
@@ -484,7 +498,7 @@ func (q *Queries) InsertSidecarStream(ctx context.Context, arg InsertSidecarStre
 const isFileReached = `-- name: IsFileReached :one
 SELECT CAST(EXISTS (
   SELECT 1 FROM library_place
-  WHERE (library_place.place_id = ?1 OR library_place.copy_of = ?1)
+  WHERE library_place.file_id = CAST(?1 AS INTEGER)
     AND (CAST(?2 AS INTEGER) = 1
       OR library_place.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
 ) AS INTEGER) AS is_reached
@@ -497,7 +511,7 @@ type IsFileReachedParams struct {
 }
 
 // Whether a live library of those listed, or any when every library is reached, covers a live place
-// of a file: who may reach it (D243 section 4, D363 section 8). A copy's place is its file's.
+// of a file: who may reach it (D243 section 4, D363 section 8).
 func (q *Queries) IsFileReached(ctx context.Context, arg IsFileReachedParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, isFileReached, arg.FileID, arg.IsEveryLibrary, arg.LibraryIdsJSON)
 	var is_reached int64
@@ -553,26 +567,32 @@ func (q *Queries) ListAudioTracksOfVideo(ctx context.Context, videoFile int64) (
 
 const listCopyCandidates = `-- name: ListCopyCandidates :many
 
-SELECT candidate.id, candidate.node_id, candidate.reported_path_raw, candidate.size_bytes, candidate.modified_at,
+SELECT candidate.id, candidate.node_id, candidate.reported_path_raw, candidate_file.size_bytes,
+  candidate.modified_at,
   first.id AS first_id, first.node_id AS first_node_id, first.reported_path_raw AS first_reported_path_raw,
-  first.size_bytes AS first_size_bytes, first.modified_at AS first_modified_at,
+  first_file.size_bytes AS first_size_bytes, first.modified_at AS first_modified_at,
   candidate_hash.sha256 AS candidate_sha256, candidate_hash.size_bytes AS candidate_hashed_size_bytes,
   candidate_hash.modified_at AS candidate_hashed_modified_at, candidate_hash.failure AS candidate_failure,
   first_hash.sha256 AS first_sha256, first_hash.size_bytes AS first_hashed_size_bytes,
   first_hash.modified_at AS first_hashed_modified_at, first_hash.failure AS first_failure
-FROM file AS candidate
-CROSS JOIN file AS first ON first.id = (
-  SELECT earlier.id FROM file AS earlier
-  WHERE earlier.payload_hash = candidate.payload_hash AND earlier.removed_at IS NULL AND earlier.filing = 'video'
+FROM file AS candidate_file
+CROSS JOIN place AS candidate ON candidate.id = candidate_file.id
+CROSS JOIN place AS first ON first.id = (
+  SELECT earlier.id FROM file AS earlier_file
+  CROSS JOIN place AS earlier ON earlier.id = earlier_file.id
+  WHERE earlier_file.payload_hash = candidate_file.payload_hash AND earlier_file.sidecar_kind IS NULL
+    AND earlier.removed_at IS NULL AND earlier.filing = 'read'
     AND (earlier.first_seen_at, earlier.id) < (candidate.first_seen_at, candidate.id)
   ORDER BY earlier.first_seen_at, earlier.id LIMIT 1)
+CROSS JOIN file AS first_file ON first_file.id = first.id
 LEFT JOIN whole_file_hash AS candidate_hash ON candidate_hash.file_id = candidate.id
 LEFT JOIN whole_file_hash AS first_hash ON first_hash.file_id = first.id
-WHERE candidate.removed_at IS NULL AND candidate.filing = 'video' AND candidate.payload_hash IS NOT NULL
+WHERE candidate.removed_at IS NULL AND candidate.filing = 'read' AND candidate_file.sidecar_kind IS NULL
+  AND candidate_file.payload_hash IS NOT NULL
   AND NOT coalesce(candidate_hash.file_id IS NOT NULL AND first_hash.file_id IS NOT NULL
-    AND candidate_hash.size_bytes IS candidate.size_bytes
+    AND candidate_hash.size_bytes IS candidate_file.size_bytes
     AND candidate_hash.modified_at IS candidate.modified_at
-    AND first_hash.size_bytes IS first.size_bytes AND first_hash.modified_at IS first.modified_at
+    AND first_hash.size_bytes IS first_file.size_bytes AND first_hash.modified_at IS first.modified_at
     AND (candidate_hash.failure IS NOT NULL OR first_hash.failure IS NOT NULL
       OR candidate_hash.sha256 IS NOT first_hash.sha256), 0)
 ORDER BY candidate.first_seen_at, candidate.id
@@ -602,12 +622,12 @@ type ListCopyCandidatesRow struct {
 
 // A file found at a second place (D363 section 2): a video read at one place whose payload hash a
 // live video found earlier at another has is a candidate copy of it; D116's whole-file pass, run for
-// the two alone, confirms it, and it becomes the earlier one's place, filed 'copy'. Until then, and if
-// the bytes differ, they are two files.
-// The live videos, read, whose payload a live video found before them has, filed a video and no copy
-// of one, each with the earliest such as the file it may be a copy of, and their whole-file hashes as
-// they stand: one missing, or hashed at another size or modified time than the file's now, is owed a
-// read. A pair both of whose reads are current and whose bytes differ, or one of which could not be
+// the two alone, confirms it, and its place holds the earlier one's file from then on. Until then, and
+// if the bytes differ, they are two files.
+// The live videos read at their own places, whose payload a live video found before them at its own
+// place has, each with the earliest such as the file it may be a copy of, and their whole-file hashes
+// as they stand: one missing, or hashed at another size or modified time than the file's now, is owed
+// a read. A pair both of whose reads are current and whose bytes differ, or one of which could not be
 // read, is settled as two files and listed no more until one changes. At most max_rows, in the order
 // they were found.
 func (q *Queries) ListCopyCandidates(ctx context.Context, maxRows int64) ([]ListCopyCandidatesRow, error) {
@@ -653,18 +673,18 @@ func (q *Queries) ListCopyCandidates(ctx context.Context, maxRows int64) ([]List
 }
 
 const listFilesAHeldBackScanDidNotSee = `-- name: ListFilesAHeldBackScanDidNotSee :many
-SELECT file.path
-FROM file
-WHERE file.node_id = ?1 AND file.removed_at IS NULL
-  AND file.reported_path_raw > CAST(?2 AS BLOB)
-  AND file.reported_path_raw < CAST(?3 AS BLOB)
-  AND file.last_seen_at < ?4 AND file.filing <> 'errored'
+SELECT place.path
+FROM place
+WHERE place.node_id = ?1 AND place.removed_at IS NULL
+  AND place.reported_path_raw > CAST(?2 AS BLOB)
+  AND place.reported_path_raw < CAST(?3 AS BLOB)
+  AND place.last_seen_at < ?4 AND place.filing <> 'errored'
   AND NOT EXISTS (
-    SELECT 1 FROM file AS unread
-    WHERE unread.filing = 'errored' AND unread.removed_at IS NULL AND unread.node_id = file.node_id
-      AND substr(file.path, 1, length(unread.path) + 1) = unread.path || '/'
+    SELECT 1 FROM place AS unread
+    WHERE unread.filing = 'errored' AND unread.removed_at IS NULL AND unread.node_id = place.node_id
+      AND substr(place.path, 1, length(unread.path) + 1) = unread.path || '/'
   )
-ORDER BY file.path
+ORDER BY place.path
 `
 
 type ListFilesAHeldBackScanDidNotSeeParams struct {
@@ -674,9 +694,9 @@ type ListFilesAHeldBackScanDidNotSeeParams struct {
 	ScanStartedAt int64
 }
 
-// The live files under a root (ListLiveFilesUnder's range) that its held-back scan, started at
+// The live places under a root (ListLiveFilesUnder's range) that its held-back scan, started at
 // scan_started_at, did not see: what it would remove (D277 section 2). What could not be read, and
-// the files under it, are not among them: a scan removes nothing it could not read.
+// the places under it, are not among them: a scan removes nothing it could not read.
 func (q *Queries) ListFilesAHeldBackScanDidNotSee(ctx context.Context, arg ListFilesAHeldBackScanDidNotSeeParams) ([]string, error) {
 	rows, err := q.db.QueryContext(ctx, listFilesAHeldBackScanDidNotSee,
 		arg.NodeID,
@@ -706,12 +726,13 @@ func (q *Queries) ListFilesAHeldBackScanDidNotSee(ctx context.Context, arg ListF
 }
 
 const listFilesAtSeveralPlaces = `-- name: ListFilesAtSeveralPlaces :many
-SELECT file.id AS file_id, place.id AS place_id, place.node_id, place.path
-FROM file
-CROSS JOIN file AS place ON (place.id = file.id OR place.copy_of = file.id) AND place.removed_at IS NULL
-WHERE file.removed_at IS NULL AND file.copy_of IS NULL AND file.id > ?1
-  AND EXISTS (SELECT 1 FROM file AS copy WHERE copy.copy_of = file.id AND copy.removed_at IS NULL)
-ORDER BY file.id, place.copy_of IS NOT NULL, place.first_seen_at, place.id
+SELECT own.id AS file_id, place.id AS place_id, place.node_id, place.path
+FROM place AS own
+CROSS JOIN place ON place.file_id = own.id AND place.removed_at IS NULL
+WHERE own.removed_at IS NULL AND own.file_id = own.id AND own.id > ?1
+  AND EXISTS (SELECT 1 FROM place AS copy WHERE copy.file_id = own.id AND copy.id <> own.id
+    AND copy.removed_at IS NULL)
+ORDER BY own.id, place.id <> place.file_id, place.first_seen_at, place.id
 LIMIT ?2
 `
 
@@ -758,13 +779,17 @@ func (q *Queries) ListFilesAtSeveralPlaces(ctx context.Context, arg ListFilesAtS
 }
 
 const listFilesToCompare = `-- name: ListFilesToCompare :many
-SELECT id, reported_path_raw, size_bytes, modified_at, filing, sidecar_kind,
-       filesystem_device, inode,
-       CAST(payload_hash IS NOT NULL AS INTEGER) AS has_payload_hash,
-       CAST(EXISTS (SELECT 1 FROM file_nfo WHERE file_nfo.file_id = file.id) AS INTEGER) AS has_nfo_body
-FROM file
-WHERE node_id = ?1 AND removed_at IS NULL
-  AND reported_path_raw > CAST(?2 AS BLOB) AND reported_path_raw < CAST(?3 AS BLOB)
+SELECT place.id, place.reported_path_raw, file.size_bytes, place.modified_at,
+  CAST(CASE WHEN place.filing <> 'read' THEN place.filing WHEN file.sidecar_kind IS NOT NULL THEN 'attached'
+    WHEN place.file_id IS NOT place.id THEN 'copy' ELSE 'video' END AS TEXT) AS filing,
+  file.sidecar_kind, place.filesystem_device, place.inode,
+  CAST(file.payload_hash IS NOT NULL AS INTEGER) AS has_payload_hash,
+  CAST(EXISTS (SELECT 1 FROM file_nfo WHERE file_nfo.file_id = place.file_id) AS INTEGER) AS has_nfo_body
+FROM place
+LEFT JOIN file ON file.id = place.file_id
+WHERE place.node_id = ?1 AND place.removed_at IS NULL
+  AND place.reported_path_raw > CAST(?2 AS BLOB)
+  AND place.reported_path_raw < CAST(?3 AS BLOB)
 `
 
 type ListFilesToCompareParams struct {
@@ -788,7 +813,7 @@ type ListFilesToCompareRow struct {
 
 // The live places under a scan's root on its node (ListLiveFilesUnder's range), with what a listing
 // is compared with (D240 section 3): a file whose size and modified time are as stored, and which was
-// read whole, needs nothing.
+// read whole, needs nothing. The filing is ListLiveFilesByNode's word.
 func (q *Queries) ListFilesToCompare(ctx context.Context, arg ListFilesToCompareParams) ([]ListFilesToCompareRow, error) {
 	rows, err := q.db.QueryContext(ctx, listFilesToCompare, arg.NodeID, arg.After, arg.Before)
 	if err != nil {
@@ -824,13 +849,13 @@ func (q *Queries) ListFilesToCompare(ctx context.Context, arg ListFilesToCompare
 }
 
 const listFilesToPurge = `-- name: ListFilesToPurge :many
-SELECT file.id FROM file
-WHERE file.removed_at IS NOT NULL AND file.removed_at < ?1
-  AND NOT EXISTS (SELECT 1 FROM file AS sidecar WHERE sidecar.attached_to_file = file.id
+SELECT place.id FROM place
+WHERE place.removed_at IS NOT NULL AND place.removed_at < ?1
+  AND NOT EXISTS (SELECT 1 FROM place AS sidecar WHERE sidecar.attached_to_place = place.id
     AND (sidecar.removed_at IS NULL OR sidecar.removed_at >= ?1))
-  AND NOT EXISTS (SELECT 1 FROM file AS copy WHERE copy.copy_of = file.id
+  AND NOT EXISTS (SELECT 1 FROM place AS copy WHERE copy.file_id = place.id AND copy.id <> place.id
     AND (copy.removed_at IS NULL OR copy.removed_at >= ?1))
-ORDER BY file.removed_at, file.id
+ORDER BY place.removed_at, place.id
 LIMIT ?2
 `
 
@@ -839,8 +864,9 @@ type ListFilesToPurgeParams struct {
 	MaxRows       int64
 }
 
-// Removed files past their keeping (D304 section 6, D306 section 8): removed before the cut-off,
-// each with no sidecar and no copy that stays, oldest first, a batch at a time.
+// Removed places past their keeping (D304 section 6, D306 section 8): removed before the cut-off,
+// each with no sidecar beside it and, a file's own, no other place of its file that stays, oldest
+// first, a batch at a time. A file goes with its last place (DeletePurgedFiles).
 func (q *Queries) ListFilesToPurge(ctx context.Context, arg ListFilesToPurgeParams) ([]int64, error) {
 	rows, err := q.db.QueryContext(ctx, listFilesToPurge, arg.RemovedBefore, arg.MaxRows)
 	if err != nil {
@@ -887,10 +913,10 @@ type ListLibrariesAtOrUnderRootRow struct {
 }
 
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// What the scanner saw (schema.md, Files; D163, D173, D179): one row per observed path, a place
-// (D363 section 2): a file's first place is the file itself, and a confirmed copy at another place is
-// a row filed 'copy' that names it. A folder's places are read by a range of the bytes their node
-// reported (library.PathRange), which file_live_path serves.
+// What the scanner saw (schema.md, Files; D163, D173, D179, D426 section 4): a file, its payload, and
+// each place it was seen at (D363 section 2). A file's id is the id of the place it was first found at,
+// its own place; a confirmed copy at another place is a place holding it. A folder's places are read
+// by a range of the bytes their node reported (library.PathRange), which place_live_path serves.
 // The live libraries with a live folder at or under a scan's root on its node: those whose files its
 // scan finds, handed on to identification. A root no library's folder is at is no scan's to store.
 func (q *Queries) ListLibrariesAtOrUnderRoot(ctx context.Context, arg ListLibrariesAtOrUnderRootParams) ([]ListLibrariesAtOrUnderRootRow, error) {
@@ -917,9 +943,9 @@ func (q *Queries) ListLibrariesAtOrUnderRoot(ctx context.Context, arg ListLibrar
 }
 
 const listLiveCopiesOf = `-- name: ListLiveCopiesOf :many
-SELECT id, node_id, path, reported_path_raw, size_bytes, modified_at, filesystem_device, inode, last_seen_at
-FROM file
-WHERE copy_of = ?1 AND removed_at IS NULL
+SELECT id, node_id, path, reported_path_raw, modified_at, filesystem_device, inode, last_seen_at
+FROM place
+WHERE file_id = CAST(?1 AS INTEGER) AND id <> CAST(?1 AS INTEGER) AND removed_at IS NULL
 ORDER BY first_seen_at, id
 `
 
@@ -928,15 +954,14 @@ type ListLiveCopiesOfRow struct {
 	NodeID           int64
 	Path             string
 	ReportedPathRaw  []byte
-	SizeBytes        *int64
 	ModifiedAt       *int64
 	FilesystemDevice *int64
 	Inode            *int64
 	LastSeenAt       int64
 }
 
-// A file's live copies, the earliest found first: the places that take its first place's when it goes.
-func (q *Queries) ListLiveCopiesOf(ctx context.Context, fileID *int64) ([]ListLiveCopiesOfRow, error) {
+// A file's live copies' places, the earliest found first: those that take its own place's when it goes.
+func (q *Queries) ListLiveCopiesOf(ctx context.Context, fileID int64) ([]ListLiveCopiesOfRow, error) {
 	rows, err := q.db.QueryContext(ctx, listLiveCopiesOf, fileID)
 	if err != nil {
 		return nil, err
@@ -950,7 +975,6 @@ func (q *Queries) ListLiveCopiesOf(ctx context.Context, fileID *int64) ([]ListLi
 			&i.NodeID,
 			&i.Path,
 			&i.ReportedPathRaw,
-			&i.SizeBytes,
 			&i.ModifiedAt,
 			&i.FilesystemDevice,
 			&i.Inode,
@@ -970,16 +994,20 @@ func (q *Queries) ListLiveCopiesOf(ctx context.Context, fileID *int64) ([]ListLi
 }
 
 const listLiveFilesByNode = `-- name: ListLiveFilesByNode :many
-SELECT id, copy_of, path, reported_path_raw, size_bytes, payload_hash, payload_bytes, filing, filing_reason,
-  error_detail_json, first_seen_at, last_seen_at
-FROM file
-WHERE node_id = ? AND removed_at IS NULL
-ORDER BY path
+SELECT place.id, CAST(place.file_id IS NOT place.id AS INTEGER) AS is_copy, place.path, place.reported_path_raw,
+  file.size_bytes, file.payload_hash, file.payload_bytes,
+  CAST(CASE WHEN place.filing <> 'read' THEN place.filing WHEN file.sidecar_kind IS NOT NULL THEN 'attached'
+    WHEN place.file_id IS NOT place.id THEN 'copy' ELSE 'video' END AS TEXT) AS filing,
+  place.filing_reason, place.error_detail_json, place.first_seen_at, place.last_seen_at
+FROM place
+LEFT JOIN file ON file.id = place.file_id
+WHERE place.node_id = ?1 AND place.removed_at IS NULL
+ORDER BY place.path
 `
 
 type ListLiveFilesByNodeRow struct {
 	ID              int64
-	CopyOf          *int64
+	IsCopy          int64
 	Path            string
 	ReportedPathRaw []byte
 	SizeBytes       *int64
@@ -992,6 +1020,9 @@ type ListLiveFilesByNodeRow struct {
 	LastSeenAt      int64
 }
 
+// The live places on a node, each with its file and how the scan filed it: a place skipped or that
+// could not be read; else a sidecar, 'attached', a copy of a file found first elsewhere, 'copy', or a
+// video, as a library's files page words it.
 func (q *Queries) ListLiveFilesByNode(ctx context.Context, nodeID int64) ([]ListLiveFilesByNodeRow, error) {
 	rows, err := q.db.QueryContext(ctx, listLiveFilesByNode, nodeID)
 	if err != nil {
@@ -1003,7 +1034,7 @@ func (q *Queries) ListLiveFilesByNode(ctx context.Context, nodeID int64) ([]List
 		var i ListLiveFilesByNodeRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.CopyOf,
+			&i.IsCopy,
 			&i.Path,
 			&i.ReportedPathRaw,
 			&i.SizeBytes,
@@ -1029,10 +1060,11 @@ func (q *Queries) ListLiveFilesByNode(ctx context.Context, nodeID int64) ([]List
 }
 
 const listLiveFilesByPayloadHash = `-- name: ListLiveFilesByPayloadHash :many
-SELECT id, path, reported_path_raw, last_seen_at
+SELECT place.id, place.path, place.reported_path_raw, place.last_seen_at
 FROM file
-WHERE node_id = ? AND payload_hash = ? AND removed_at IS NULL
-ORDER BY id
+CROSS JOIN place ON place.file_id = file.id AND place.removed_at IS NULL
+WHERE place.node_id = ?1 AND file.payload_hash = ?2
+ORDER BY place.id
 `
 
 type ListLiveFilesByPayloadHashParams struct {
@@ -1047,7 +1079,7 @@ type ListLiveFilesByPayloadHashRow struct {
 	LastSeenAt      int64
 }
 
-// The live places on a node holding a payload: a file and its copies, and a duplicate not yet
+// The live places on a node holding a payload: a file's own and its copies', and a duplicate not yet
 // confirmed one (D179, D363 section 2).
 func (q *Queries) ListLiveFilesByPayloadHash(ctx context.Context, arg ListLiveFilesByPayloadHashParams) ([]ListLiveFilesByPayloadHashRow, error) {
 	rows, err := q.db.QueryContext(ctx, listLiveFilesByPayloadHash, arg.NodeID, arg.PayloadHash)
@@ -1078,11 +1110,16 @@ func (q *Queries) ListLiveFilesByPayloadHash(ctx context.Context, arg ListLiveFi
 }
 
 const listLiveFilesForAttaching = `-- name: ListLiveFilesForAttaching :many
-SELECT id, path, reported_path_raw, filing, sidecar_kind, payload_hash, attached_to_file, copy_of
-FROM file
-WHERE node_id = ?1 AND removed_at IS NULL
-  AND reported_path_raw > CAST(?2 AS BLOB) AND reported_path_raw < CAST(?3 AS BLOB)
-ORDER BY path
+SELECT place.id, file.id AS file_id, place.path, place.reported_path_raw,
+  CAST(CASE WHEN file.sidecar_kind IS NOT NULL THEN 'attached' WHEN place.id IS NOT place.file_id THEN 'copy'
+    ELSE 'video' END AS TEXT) AS filing,
+  file.sidecar_kind, file.payload_hash, place.attached_to_place
+FROM place
+CROSS JOIN file ON file.id = place.file_id
+WHERE place.node_id = ?1 AND place.removed_at IS NULL AND place.filing = 'read'
+  AND place.reported_path_raw > CAST(?2 AS BLOB)
+  AND place.reported_path_raw < CAST(?3 AS BLOB)
+ORDER BY place.path
 `
 
 type ListLiveFilesForAttachingParams struct {
@@ -1093,17 +1130,18 @@ type ListLiveFilesForAttachingParams struct {
 
 type ListLiveFilesForAttachingRow struct {
 	ID              int64
+	FileID          int64
 	Path            string
 	ReportedPathRaw []byte
 	Filing          string
 	SidecarKind     *string
 	PayloadHash     []byte
-	AttachedToFile  *int64
-	CopyOf          *int64
+	AttachedToPlace *int64
 }
 
-// The live places under a folder on a node (ListLiveFilesUnder's range), for the sidecars beside each
-// video and each copy of one: what lies beside a copy is its place's (D363 section 3).
+// The live read places under a folder on a node (ListLiveFilesUnder's range), with the file at each,
+// for the sidecars beside each video's place, its own or a copy's: what lies beside a copy is its
+// place's (D363 section 3).
 func (q *Queries) ListLiveFilesForAttaching(ctx context.Context, arg ListLiveFilesForAttachingParams) ([]ListLiveFilesForAttachingRow, error) {
 	rows, err := q.db.QueryContext(ctx, listLiveFilesForAttaching, arg.NodeID, arg.After, arg.Before)
 	if err != nil {
@@ -1115,13 +1153,13 @@ func (q *Queries) ListLiveFilesForAttaching(ctx context.Context, arg ListLiveFil
 		var i ListLiveFilesForAttachingRow
 		if err := rows.Scan(
 			&i.ID,
+			&i.FileID,
 			&i.Path,
 			&i.ReportedPathRaw,
 			&i.Filing,
 			&i.SidecarKind,
 			&i.PayloadHash,
-			&i.AttachedToFile,
-			&i.CopyOf,
+			&i.AttachedToPlace,
 		); err != nil {
 			return nil, err
 		}
@@ -1137,8 +1175,8 @@ func (q *Queries) ListLiveFilesForAttaching(ctx context.Context, arg ListLiveFil
 }
 
 const listLiveFilesUnder = `-- name: ListLiveFilesUnder :many
-SELECT id, path, reported_path_raw, last_seen_at, filing, copy_of
-FROM file
+SELECT id, path, reported_path_raw, last_seen_at
+FROM place
 WHERE node_id = ?1 AND removed_at IS NULL
   AND reported_path_raw > CAST(?2 AS BLOB) AND reported_path_raw < CAST(?3 AS BLOB)
 ORDER BY id
@@ -1155,8 +1193,6 @@ type ListLiveFilesUnderRow struct {
 	Path            string
 	ReportedPathRaw []byte
 	LastSeenAt      int64
-	Filing          string
-	CopyOf          *int64
 }
 
 // The live places on a node under a folder: those whose reported bytes lie after the folder's path and
@@ -1175,8 +1211,6 @@ func (q *Queries) ListLiveFilesUnder(ctx context.Context, arg ListLiveFilesUnder
 			&i.Path,
 			&i.ReportedPathRaw,
 			&i.LastSeenAt,
-			&i.Filing,
-			&i.CopyOf,
 		); err != nil {
 			return nil, err
 		}
@@ -1192,18 +1226,17 @@ func (q *Queries) ListLiveFilesUnder(ctx context.Context, arg ListLiveFilesUnder
 }
 
 const listLivePlacesOfFiles = `-- name: ListLivePlacesOfFiles :many
-SELECT id, copy_of FROM file
-WHERE removed_at IS NULL AND (id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
-  OR copy_of IN (SELECT value FROM json_each(CAST(?1 AS TEXT))))
+SELECT id, CAST(file_id IS NOT id AS INTEGER) AS is_copy FROM place
+WHERE removed_at IS NULL AND file_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
 ORDER BY id
 `
 
 type ListLivePlacesOfFilesRow struct {
 	ID     int64
-	CopyOf *int64
+	IsCopy int64
 }
 
-// The live places of some files, their first and their copies: what retiring a file or a node
+// The live places of some files, their own and their copies': what retiring a file or a node
 // removes with it. The ids are a JSON array.
 func (q *Queries) ListLivePlacesOfFiles(ctx context.Context, fileIdsJson string) ([]ListLivePlacesOfFilesRow, error) {
 	rows, err := q.db.QueryContext(ctx, listLivePlacesOfFiles, fileIdsJson)
@@ -1214,7 +1247,7 @@ func (q *Queries) ListLivePlacesOfFiles(ctx context.Context, fileIdsJson string)
 	items := []ListLivePlacesOfFilesRow{}
 	for rows.Next() {
 		var i ListLivePlacesOfFilesRow
-		if err := rows.Scan(&i.ID, &i.CopyOf); err != nil {
+		if err := rows.Scan(&i.ID, &i.IsCopy); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1262,14 +1295,15 @@ func (q *Queries) ListLiveRootPathsOnNode(ctx context.Context, nodeID int64) ([]
 }
 
 const listNFOsOfFilesAtSeveralPlaces = `-- name: ListNFOsOfFilesAtSeveralPlaces :many
-SELECT file.id AS file_id, place.id AS place_id, place.path, nfo.id AS nfo_id, file_nfo.body
-FROM file
-CROSS JOIN file AS place ON (place.id = file.id OR place.copy_of = file.id) AND place.removed_at IS NULL
-CROSS JOIN file AS nfo ON nfo.attached_to_file = place.id AND nfo.removed_at IS NULL AND nfo.sidecar_kind = 'nfo'
-CROSS JOIN file_nfo ON file_nfo.file_id = nfo.id
-WHERE file.removed_at IS NULL
-  AND file.id IN (SELECT copy.copy_of FROM file AS copy WHERE copy.copy_of IS NOT NULL AND copy.removed_at IS NULL)
-ORDER BY file.id, place.copy_of IS NOT NULL, place.first_seen_at, place.id
+SELECT own.id AS file_id, place.id AS place_id, place.path, nfo.id AS nfo_id, file_nfo.body
+FROM place AS own
+CROSS JOIN place ON place.file_id = own.id AND place.removed_at IS NULL
+CROSS JOIN place AS nfo ON nfo.attached_to_place = place.id AND nfo.removed_at IS NULL
+CROSS JOIN file AS nfo_file ON nfo_file.id = nfo.file_id AND nfo_file.sidecar_kind = 'nfo'
+CROSS JOIN file_nfo ON file_nfo.file_id = nfo.file_id
+WHERE own.removed_at IS NULL AND own.file_id = own.id
+  AND own.id IN (SELECT copy.file_id FROM place AS copy WHERE copy.file_id <> copy.id AND copy.removed_at IS NULL)
+ORDER BY own.id, place.id <> place.file_id, place.first_seen_at, place.id
 `
 
 type ListNFOsOfFilesAtSeveralPlacesRow struct {
@@ -1281,8 +1315,7 @@ type ListNFOsOfFilesAtSeveralPlacesRow struct {
 }
 
 // The NFO beside each place of each live file found at more than one place, with its bytes: whose
-// places' NFO files disagree, which the doctor lists (D363 section 9). Read from the copies, which
-// file_copy holds alone.
+// places' NFO files disagree, which the doctor lists (D363 section 9). Read from the copies' places.
 func (q *Queries) ListNFOsOfFilesAtSeveralPlaces(ctx context.Context) ([]ListNFOsOfFilesAtSeveralPlacesRow, error) {
 	rows, err := q.db.QueryContext(ctx, listNFOsOfFilesAtSeveralPlaces)
 	if err != nil {
@@ -1317,9 +1350,9 @@ SELECT place.id AS place_id, place.node_id, place.path, place.reported_path_raw,
   CAST(coalesce((
     SELECT json_group_array(library_place.library_id) FROM library_place WHERE library_place.place_id = place.id
   ), '[]') AS TEXT) AS library_ids_json
-FROM file AS place
-WHERE (place.id = ?1 OR place.copy_of = ?1) AND place.removed_at IS NULL
-ORDER BY place.copy_of IS NOT NULL, place.first_seen_at, place.id
+FROM place
+WHERE place.file_id = CAST(?1 AS INTEGER) AND place.removed_at IS NULL
+ORDER BY place.id <> place.file_id, place.first_seen_at, place.id
 `
 
 type ListPlacesOfFileRow struct {
@@ -1331,7 +1364,7 @@ type ListPlacesOfFileRow struct {
 	LibraryIdsJSON  string
 }
 
-// A live file's live places, its first and then its copies in the order they were found, each with
+// A live file's live places, its own and then its copies in the order they were found, each with
 // the live libraries that cover it, as a JSON array, empty where none does: where it may be read, and
 // by whom (D363 section 8).
 func (q *Queries) ListPlacesOfFile(ctx context.Context, fileID int64) ([]ListPlacesOfFileRow, error) {
@@ -1417,9 +1450,10 @@ func (q *Queries) ListStreamsOfBytesFile(ctx context.Context, bytesFile int64) (
 }
 
 const listSubtitleStreamsInFile = `-- name: ListSubtitleStreamsInFile :many
-SELECT s.id, s.stream_index, s.codec, f.node_id, f.reported_path_raw, f.payload_hash
+SELECT s.id, s.stream_index, s.codec, place.node_id, place.reported_path_raw, file.payload_hash
 FROM stream s
-JOIN file f ON f.id = s.bytes_file AND f.removed_at IS NULL
+JOIN place ON place.id = s.bytes_file AND place.removed_at IS NULL
+JOIN file ON file.id = s.bytes_file
 WHERE s.bytes_file = ?1 AND s.kind = 'subtitle'
 ORDER BY s.stream_index
 `
@@ -1434,7 +1468,7 @@ type ListSubtitleStreamsInFileRow struct {
 }
 
 // The subtitle tracks whose bytes are in a live file, a video's own or a sidecar's one, and where
-// the file is: the job that extracts them, all from one read of it (D340).
+// the file is, its own place: the job that extracts them, all from one read of it (D340).
 func (q *Queries) ListSubtitleStreamsInFile(ctx context.Context, bytesFile int64) ([]ListSubtitleStreamsInFileRow, error) {
 	rows, err := q.db.QueryContext(ctx, listSubtitleStreamsInFile, bytesFile)
 	if err != nil {
@@ -1467,15 +1501,16 @@ func (q *Queries) ListSubtitleStreamsInFile(ctx context.Context, bytesFile int64
 
 const listSubtitleTracksOfVideo = `-- name: ListSubtitleTracksOfVideo :many
 SELECT s.id, s.stream_index, s.codec, s.language, s.container_title, s.disposition_flags, s.bytes_file,
-  f.payload_hash AS bytes_payload_hash
+  file.payload_hash AS bytes_payload_hash
 FROM stream s
-JOIN file f ON f.id = s.bytes_file AND f.removed_at IS NULL
+JOIN place ON place.id = s.bytes_file AND place.removed_at IS NULL
+JOIN file ON file.id = s.bytes_file
 WHERE s.video_file = ?1 AND s.kind = 'subtitle'
   AND (s.bytes_file = s.video_file OR CAST(?2 AS INTEGER) = 1
     OR EXISTS (
       SELECT 1 FROM library_place WHERE library_place.place_id = s.bytes_file
         AND library_place.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT)))))
-ORDER BY s.bytes_file <> s.video_file, s.stream_index, f.path
+ORDER BY s.bytes_file <> s.video_file, s.stream_index, place.path
 `
 
 type ListSubtitleTracksOfVideoParams struct {
@@ -1495,8 +1530,8 @@ type ListSubtitleTracksOfVideoRow struct {
 	BytesPayloadHash []byte
 }
 
-// A video's subtitle tracks, its own and those of the live sidecar files attached to it or to a copy
-// of it, with the file each track's bytes are in, its payload hash and, for a person, whether a
+// A video's subtitle tracks, its own and those of the live sidecar files attached to its place or to a
+// copy's, with the file each track's bytes are in, its payload hash and, for a person, whether a
 // library they reach covers the sidecar's place: what a playback offers (D363 section 3).
 func (q *Queries) ListSubtitleTracksOfVideo(ctx context.Context, arg ListSubtitleTracksOfVideoParams) ([]ListSubtitleTracksOfVideoRow, error) {
 	rows, err := q.db.QueryContext(ctx, listSubtitleTracksOfVideo, arg.VideoFile, arg.IsEveryLibrary, arg.LibraryIdsJSON)
@@ -1531,15 +1566,15 @@ func (q *Queries) ListSubtitleTracksOfVideo(ctx context.Context, arg ListSubtitl
 }
 
 const listUnreadablePaths = `-- name: ListUnreadablePaths :many
-SELECT library.id AS library_id, library.name AS library_name, node.name AS node_name, file.node_id,
-  file.path, file.filing_reason, file.error_detail_json, file.first_seen_at
-FROM file
-JOIN node ON node.id = file.node_id AND node.removed_at IS NULL
+SELECT library.id AS library_id, library.name AS library_name, node.name AS node_name, place.node_id,
+  place.path, place.filing_reason, place.error_detail_json, place.first_seen_at
+FROM place
+JOIN node ON node.id = place.node_id AND node.removed_at IS NULL
 JOIN library ON library.id = (
-  SELECT library_place.library_id FROM library_place WHERE library_place.place_id = file.id
+  SELECT library_place.library_id FROM library_place WHERE library_place.place_id = place.id
   ORDER BY library_place.library_id LIMIT 1)
-WHERE file.filing = 'errored' AND file.removed_at IS NULL
-ORDER BY file.node_id, file.path
+WHERE place.filing = 'errored' AND place.removed_at IS NULL
+ORDER BY place.node_id, place.path
 `
 
 type ListUnreadablePathsRow struct {
@@ -1556,7 +1591,7 @@ type ListUnreadablePathsRow struct {
 // What scans could not read in live libraries' folders, each under the first library that covers it,
 // with the platform's error, owner, group and mode (D163 section 8): what the System page lists with
 // the fix (D277 section 3).
-// In file_errored's order, which it then reads, never the whole table (D303).
+// In place_errored's order, which it then reads, never the whole table (D303).
 func (q *Queries) ListUnreadablePaths(ctx context.Context) ([]ListUnreadablePathsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listUnreadablePaths)
 	if err != nil {
@@ -1590,20 +1625,22 @@ func (q *Queries) ListUnreadablePaths(ctx context.Context) ([]ListUnreadablePath
 }
 
 const makeFileACopy = `-- name: MakeFileACopy :execrows
-UPDATE file SET filing = 'copy', filing_reason = ?1, copy_of = ?2
-WHERE id = ?3 AND removed_at IS NULL AND filing = 'video' AND copy_of IS NULL
+UPDATE place SET file_id = CAST(?1 AS INTEGER), filing_reason = ?2
+WHERE place.id = ?3 AND place.removed_at IS NULL AND place.filing = 'read' AND place.file_id = place.id
+  AND (SELECT file.sidecar_kind FROM file WHERE file.id = place.id) IS NULL
 `
 
 type MakeFileACopyParams struct {
+	FileID       int64
 	FilingReason *string
-	CopyOf       *int64
 	ID           int64
 }
 
-// A video confirmed byte for byte the same as one found before it at another place: that file's
-// place from now on, filed 'copy' (D363 section 2).
+// A video confirmed byte for byte the same as one found before it at another place: its place holds
+// that file from now on (D363 section 2), and the file it held, which no place holds then, goes
+// (DeleteFileOfACopy).
 func (q *Queries) MakeFileACopy(ctx context.Context, arg MakeFileACopyParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, makeFileACopy, arg.FilingReason, arg.CopyOf, arg.ID)
+	result, err := q.db.ExecContext(ctx, makeFileACopy, arg.FileID, arg.FilingReason, arg.ID)
 	if err != nil {
 		return 0, err
 	}
@@ -1611,7 +1648,7 @@ func (q *Queries) MakeFileACopy(ctx context.Context, arg MakeFileACopyParams) (i
 }
 
 const moveFileTo = `-- name: MoveFileTo :exec
-UPDATE file SET
+UPDATE place SET
   path = ?1,
   reported_path_raw = ?2,
   last_seen_at = ?3
@@ -1626,7 +1663,7 @@ type MoveFileToParams struct {
 }
 
 // A file a listing found at a new path on the same device and inode, with its size and modified
-// time as stored: it moved, and its row and history follow it without its being read again (D304
+// time as stored: it moved, and its place and history follow it without its being read again (D304
 // section 5). A pass identifies it again from the new path, unless a person confirmed it.
 func (q *Queries) MoveFileTo(ctx context.Context, arg MoveFileToParams) error {
 	_, err := q.db.ExecContext(ctx, moveFileTo,
@@ -1639,17 +1676,16 @@ func (q *Queries) MoveFileTo(ctx context.Context, arg MoveFileToParams) error {
 }
 
 const moveFileToItsCopysPlace = `-- name: MoveFileToItsCopysPlace :exec
-UPDATE file SET node_id = ?1, path = ?2, reported_path_raw = ?3,
-  size_bytes = ?4, modified_at = ?5,
-  filesystem_device = ?6, inode = ?7, last_seen_at = ?8
-WHERE id = ?9 AND removed_at IS NULL
+UPDATE place SET node_id = ?1, path = ?2, reported_path_raw = ?3,
+  modified_at = ?4,
+  filesystem_device = ?5, inode = ?6, last_seen_at = ?7
+WHERE id = ?8 AND removed_at IS NULL
 `
 
 type MoveFileToItsCopysPlaceParams struct {
 	NodeID           int64
 	Path             string
 	ReportedPathRaw  []byte
-	SizeBytes        *int64
 	ModifiedAt       *int64
 	FilesystemDevice *int64
 	Inode            *int64
@@ -1657,14 +1693,13 @@ type MoveFileToItsCopysPlaceParams struct {
 	ID               int64
 }
 
-// A file whose first place went, at the place of a copy of it: the file keeps its id, its history,
+// A file whose own place went, at the place of a copy of it: its own place keeps its id, its history,
 // its filings and its tracks, at the copy's place (D363 section 2).
 func (q *Queries) MoveFileToItsCopysPlace(ctx context.Context, arg MoveFileToItsCopysPlaceParams) error {
 	_, err := q.db.ExecContext(ctx, moveFileToItsCopysPlace,
 		arg.NodeID,
 		arg.Path,
 		arg.ReportedPathRaw,
-		arg.SizeBytes,
 		arg.ModifiedAt,
 		arg.FilesystemDevice,
 		arg.Inode,
@@ -1711,22 +1746,22 @@ func (q *Queries) MoveSidecarTracksToFile(ctx context.Context, arg MoveSidecarTr
 }
 
 const reattachSidecars = `-- name: ReattachSidecars :exec
-UPDATE file SET attached_to_file = ?1 WHERE attached_to_file = ?2
+UPDATE place SET attached_to_place = ?1 WHERE attached_to_place = ?2
 `
 
 type ReattachSidecarsParams struct {
-	ToFile   *int64
-	FromFile *int64
+	ToPlace   *int64
+	FromPlace *int64
 }
 
-// What lay beside a copy, beside the file that took its place.
+// What lay beside a copy's place, beside the place that took its place.
 func (q *Queries) ReattachSidecars(ctx context.Context, arg ReattachSidecarsParams) error {
-	_, err := q.db.ExecContext(ctx, reattachSidecars, arg.ToFile, arg.FromFile)
+	_, err := q.db.ExecContext(ctx, reattachSidecars, arg.ToPlace, arg.FromPlace)
 	return err
 }
 
 const reviveFile = `-- name: ReviveFile :exec
-UPDATE file SET removed_at = NULL WHERE id = ?
+UPDATE place SET removed_at = NULL WHERE id = ?
 `
 
 func (q *Queries) ReviveFile(ctx context.Context, id int64) error {
@@ -1735,23 +1770,24 @@ func (q *Queries) ReviveFile(ctx context.Context, id int64) error {
 }
 
 const setFileAttachedTo = `-- name: SetFileAttachedTo :exec
-UPDATE file SET attached_to_file = ?1 WHERE id = ?2
+UPDATE place SET attached_to_place = ?1 WHERE id = ?2
 `
 
 type SetFileAttachedToParams struct {
-	AttachedToFile *int64
-	ID             int64
+	AttachedToPlace *int64
+	ID              int64
 }
 
+// A sidecar's place attached to the place of the video beside it (D363 section 3).
 func (q *Queries) SetFileAttachedTo(ctx context.Context, arg SetFileAttachedToParams) error {
-	_, err := q.db.ExecContext(ctx, setFileAttachedTo, arg.AttachedToFile, arg.ID)
+	_, err := q.db.ExecContext(ctx, setFileAttachedTo, arg.AttachedToPlace, arg.ID)
 	return err
 }
 
 const setFileVersionAndIdentifiedPath = `-- name: SetFileVersionAndIdentifiedPath :exec
 INSERT INTO file_filing (file_id, library_kind, filing, version_id, identified_from_path)
-SELECT file.id, ?1, 'unidentified', ?2, file.path
-FROM file WHERE file.id = ?3
+SELECT place.id, ?1, 'unidentified', ?2, place.path
+FROM place WHERE place.id = ?3
 ON CONFLICT (file_id, library_kind) DO UPDATE SET version_id = excluded.version_id,
   identified_from_path = excluded.identified_from_path
 WHERE (file_filing.version_id, file_filing.identified_from_path)
@@ -1765,7 +1801,7 @@ type SetFileVersionAndIdentifiedPathParams struct {
 }
 
 // The version a kind of library's identification put a file in, and the path it was identified from
-// (D208 section 1, D363 section 5): its first place's. A file not filed yet is unidentified until
+// (D208 section 1, D363 section 5): its own place's. A file not filed yet is unidentified until
 // FileAs says otherwise.
 // Only when it changes something (D303, DL9).
 func (q *Queries) SetFileVersionAndIdentifiedPath(ctx context.Context, arg SetFileVersionAndIdentifiedPathParams) error {
@@ -1774,7 +1810,7 @@ func (q *Queries) SetFileVersionAndIdentifiedPath(ctx context.Context, arg SetFi
 }
 
 const setFilesSeen = `-- name: SetFilesSeen :exec
-UPDATE file SET last_seen_at = ?1
+UPDATE place SET last_seen_at = ?1
 WHERE id IN (SELECT value FROM json_each(CAST(?2 AS TEXT)))
 `
 
@@ -1783,15 +1819,15 @@ type SetFilesSeenParams struct {
 	IdsJSON string
 }
 
-// The files a listing found as stored: they were seen, and nothing else changed. One statement
-// for the listing's files, not one a file (D303, DL7).
+// The places a listing found as stored: they were seen, and nothing else changed. One statement
+// for the listing's places, not one a place (D303, DL7).
 func (q *Queries) SetFilesSeen(ctx context.Context, arg SetFilesSeenParams) error {
 	_, err := q.db.ExecContext(ctx, setFilesSeen, arg.SeenAt, arg.IdsJSON)
 	return err
 }
 
 const tombstoneFile = `-- name: TombstoneFile :exec
-UPDATE file SET removed_at = ?1 WHERE id = ?2
+UPDATE place SET removed_at = ?1 WHERE id = ?2
 `
 
 type TombstoneFileParams struct {
@@ -1799,13 +1835,14 @@ type TombstoneFileParams struct {
 	ID        int64
 }
 
+// A place removed: a file whose own place this is is removed with it (D34, D179).
 func (q *Queries) TombstoneFile(ctx context.Context, arg TombstoneFileParams) error {
 	_, err := q.db.ExecContext(ctx, tombstoneFile, arg.RemovedAt, arg.ID)
 	return err
 }
 
 const updateFileFilingAndLastSeen = `-- name: UpdateFileFilingAndLastSeen :exec
-UPDATE file SET
+UPDATE place SET
   filing = ?1,
   filing_reason = ?2,
   error_detail_json = ?3,
@@ -1821,7 +1858,7 @@ type UpdateFileFilingAndLastSeenParams struct {
 	ID              int64
 }
 
-// A path the node skipped or could not read: its filing says why, and it was seen.
+// A path the node skipped or could not read: its place's filing says why, and it was seen.
 func (q *Queries) UpdateFileFilingAndLastSeen(ctx context.Context, arg UpdateFileFilingAndLastSeenParams) error {
 	_, err := q.db.ExecContext(ctx, updateFileFilingAndLastSeen,
 		arg.Filing,
@@ -1833,52 +1870,72 @@ func (q *Queries) UpdateFileFilingAndLastSeen(ctx context.Context, arg UpdateFil
 	return err
 }
 
-const updateObservedFile = `-- name: UpdateObservedFile :exec
+const updateObservedFile = `-- name: UpdateObservedFile :one
 UPDATE file SET
-  path = ?1,
-  reported_path_raw = ?2,
-  size_bytes = ?3,
-  modified_at = ?4,
-  payload_hash = ?5,
-  payload_bytes = ?6,
-  filing = CASE WHEN filing IN ('skipped', 'errored') THEN 'video' ELSE filing END,
-  filing_reason = CASE WHEN filing IN ('skipped', 'errored') THEN ?7
-                  ELSE filing_reason END,
-  error_detail_json = NULL,
-  opensubtitles_hash = ?8,
-  filesystem_device = ?9,
-  inode = ?10,
-  last_seen_at = ?11
-WHERE id = ?12
+  size_bytes = ?1,
+  payload_hash = ?2,
+  payload_bytes = ?3,
+  opensubtitles_hash = ?4
+WHERE file.id = (SELECT place.file_id FROM place WHERE place.id = ?5)
+RETURNING id
 `
 
 type UpdateObservedFileParams struct {
+	SizeBytes         *int64
+	PayloadHash       []byte
+	PayloadBytes      *int64
+	OpensubtitlesHash *string
+	PlaceID           int64
+}
+
+// The payload of the file at a place observed again, and that file's id.
+func (q *Queries) UpdateObservedFile(ctx context.Context, arg UpdateObservedFileParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, updateObservedFile,
+		arg.SizeBytes,
+		arg.PayloadHash,
+		arg.PayloadBytes,
+		arg.OpensubtitlesHash,
+		arg.PlaceID,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const updateObservedPlace = `-- name: UpdateObservedPlace :exec
+UPDATE place SET
+  path = ?1,
+  reported_path_raw = ?2,
+  modified_at = ?3,
+  filing = 'read',
+  filing_reason = CASE WHEN filing IN ('skipped', 'errored') THEN ?4
+                  ELSE filing_reason END,
+  error_detail_json = NULL,
+  filesystem_device = ?5,
+  inode = ?6,
+  last_seen_at = ?7
+WHERE id = ?8
+`
+
+type UpdateObservedPlaceParams struct {
 	Path               string
 	ReportedPathRaw    []byte
-	SizeBytes          *int64
 	ModifiedAt         *int64
-	PayloadHash        []byte
-	PayloadBytes       *int64
 	UnidentifiedReason *string
-	OpensubtitlesHash  *string
 	FilesystemDevice   *int64
 	Inode              *int64
 	SeenAt             int64
 	ID                 int64
 }
 
-// A file observed again, or moved to path. A filing the core gave (a video, a copy, attached) stays;
-// one from a skip or an error becomes a video, now that it was read, which identification files.
-func (q *Queries) UpdateObservedFile(ctx context.Context, arg UpdateObservedFileParams) error {
-	_, err := q.db.ExecContext(ctx, updateObservedFile,
+// A place observed again, or a file moved to it. One a skip or an error filed is read now, and its
+// file unidentified until identification files it.
+func (q *Queries) UpdateObservedPlace(ctx context.Context, arg UpdateObservedPlaceParams) error {
+	_, err := q.db.ExecContext(ctx, updateObservedPlace,
 		arg.Path,
 		arg.ReportedPathRaw,
-		arg.SizeBytes,
 		arg.ModifiedAt,
-		arg.PayloadHash,
-		arg.PayloadBytes,
 		arg.UnidentifiedReason,
-		arg.OpensubtitlesHash,
 		arg.FilesystemDevice,
 		arg.Inode,
 		arg.SeenAt,
@@ -1889,32 +1946,50 @@ func (q *Queries) UpdateObservedFile(ctx context.Context, arg UpdateObservedFile
 
 const updateSidecarFile = `-- name: UpdateSidecarFile :exec
 UPDATE file SET
-  size_bytes = ?1,
-  modified_at = ?2, payload_hash = ?3, payload_bytes = ?4,
-  filing = 'attached', sidecar_kind = ?5, filing_reason = ?6,
-  error_detail_json = NULL,
-  last_seen_at = ?7
-WHERE id = ?8
+  size_bytes = ?1, payload_hash = ?2, payload_bytes = ?3,
+  sidecar_kind = ?4
+WHERE file.id = (SELECT place.file_id FROM place WHERE place.id = ?5)
 `
 
 type UpdateSidecarFileParams struct {
 	SizeBytes    *int64
-	ModifiedAt   *int64
 	PayloadHash  []byte
 	PayloadBytes *int64
 	SidecarKind  *string
+	PlaceID      int64
+}
+
+// A sidecar observed again, the payload of the file at its place: a subtitle carries its payload hash,
+// the file hashed whole; an NFO or an image has none. Only an NFO's bytes are kept, in file_nfo.
+func (q *Queries) UpdateSidecarFile(ctx context.Context, arg UpdateSidecarFileParams) error {
+	_, err := q.db.ExecContext(ctx, updateSidecarFile,
+		arg.SizeBytes,
+		arg.PayloadHash,
+		arg.PayloadBytes,
+		arg.SidecarKind,
+		arg.PlaceID,
+	)
+	return err
+}
+
+const updateSidecarPlace = `-- name: UpdateSidecarPlace :exec
+UPDATE place SET
+  modified_at = ?1, filing = 'read', filing_reason = ?2,
+  error_detail_json = NULL, last_seen_at = ?3
+WHERE id = ?4
+`
+
+type UpdateSidecarPlaceParams struct {
+	ModifiedAt   *int64
 	FilingReason *string
 	SeenAt       int64
 	ID           int64
 }
 
-func (q *Queries) UpdateSidecarFile(ctx context.Context, arg UpdateSidecarFileParams) error {
-	_, err := q.db.ExecContext(ctx, updateSidecarFile,
-		arg.SizeBytes,
+// A sidecar's place observed again: read, whatever a skip or an error once filed it.
+func (q *Queries) UpdateSidecarPlace(ctx context.Context, arg UpdateSidecarPlaceParams) error {
+	_, err := q.db.ExecContext(ctx, updateSidecarPlace,
 		arg.ModifiedAt,
-		arg.PayloadHash,
-		arg.PayloadBytes,
-		arg.SidecarKind,
 		arg.FilingReason,
 		arg.SeenAt,
 		arg.ID,

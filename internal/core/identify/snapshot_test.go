@@ -18,9 +18,9 @@ var identifiedTables = []string{
 	"SELECT * FROM work ORDER BY id",
 	"SELECT * FROM sequence ORDER BY id",
 	"SELECT * FROM version ORDER BY id",
-	"SELECT file.id, file.filing, file.filing_reason, file_filing.filing, file_filing.filing_reason, " +
-		"file_filing.version_id, file_filing.identified_from_path FROM file " +
-		"LEFT JOIN file_filing ON file_filing.file_id = file.id ORDER BY file.id, file_filing.library_kind",
+	"SELECT place.id, place.file_id, place.filing, place.filing_reason, file_filing.filing, " +
+		"file_filing.filing_reason, file_filing.version_id, file_filing.identified_from_path FROM place " +
+		"LEFT JOIN file_filing ON file_filing.file_id = place.file_id ORDER BY place.id, file_filing.library_kind",
 	// Not its id: a surrogate, numbered in the order a pass happens to resolve its titles.
 	"SELECT item_id, language, is_original, name, overview, tagline, search_alternates FROM item_text " +
 		"ORDER BY item_id, language",

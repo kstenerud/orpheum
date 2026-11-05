@@ -82,9 +82,10 @@ ORDER BY library_root.node_id, library_root.root_path;
 -- name: CountLibraryFilings :many
 -- How many live places a library's folders cover in each filing: the scanner view's summary (D163). A
 -- video is filed as the library's kind filed it, and unidentified until it has (D363 section 5).
-SELECT CAST(CASE WHEN library_place.filing = 'video' THEN coalesce(file_filing.filing, 'unidentified')
-  ELSE library_place.filing END AS TEXT) AS filing, count(*) AS files
+SELECT CAST(CASE WHEN library_place.filing <> 'read' THEN library_place.filing WHEN file.sidecar_kind IS NOT NULL THEN 'attached'
+    WHEN library_place.place_id IS NOT library_place.file_id THEN 'copy' ELSE coalesce(file_filing.filing, 'unidentified') END AS TEXT) AS filing, count(*) AS files
 FROM library_place
+LEFT JOIN file ON file.id = library_place.file_id
 LEFT JOIN file_filing ON file_filing.file_id = library_place.place_id
   AND file_filing.library_kind = library_place.library_kind
 WHERE library_place.library_id = sqlc.arg(library_id)
@@ -96,11 +97,12 @@ ORDER BY 1;
 -- covers it, optionally of one library and one filing. A video is filed as that library's kind filed
 -- it, and unidentified until it has (D363 section 5); a copy is filed a copy.
 SELECT place.id, CAST(coalesce(covering.id, 0) AS INTEGER) AS library_id, place.path,
-  CAST(CASE WHEN place.filing = 'video' THEN coalesce(file_filing.filing, 'unidentified')
-    ELSE place.filing END AS TEXT) AS filing,
+  CAST(CASE WHEN place.filing <> 'read' THEN place.filing WHEN file.sidecar_kind IS NOT NULL THEN 'attached'
+    WHEN place.id IS NOT place.file_id THEN 'copy' ELSE coalesce(file_filing.filing, 'unidentified') END AS TEXT) AS filing,
   coalesce(file_filing.filing_reason, place.filing_reason) AS filing_reason,
-  place.error_detail_json, place.size_bytes, place.first_seen_at, place.last_seen_at
-FROM file AS place
+  place.error_detail_json, file.size_bytes, place.first_seen_at, place.last_seen_at
+FROM place
+LEFT JOIN file ON file.id = place.file_id
 LEFT JOIN library AS covering ON covering.id = (
   SELECT first.library_id FROM library_place AS first
   WHERE first.place_id = place.id AND (first.library_id = sqlc.narg(library_id) OR sqlc.narg(library_id) IS NULL)
@@ -108,7 +110,8 @@ LEFT JOIN library AS covering ON covering.id = (
 LEFT JOIN file_filing ON file_filing.file_id = place.id AND file_filing.library_kind = covering.kind
 WHERE place.removed_at IS NULL AND place.id > sqlc.arg(after_id)
   AND (covering.id IS NOT NULL OR sqlc.narg(library_id) IS NULL)
-  AND (CASE WHEN place.filing = 'video' THEN coalesce(file_filing.filing, 'unidentified') ELSE place.filing END
+  AND (CAST(CASE WHEN place.filing <> 'read' THEN place.filing WHEN file.sidecar_kind IS NOT NULL THEN 'attached'
+    WHEN place.id IS NOT place.file_id THEN 'copy' ELSE coalesce(file_filing.filing, 'unidentified') END AS TEXT)
     = sqlc.narg(filing) OR sqlc.narg(filing) IS NULL)
 ORDER BY place.id
 LIMIT sqlc.arg(max_rows);

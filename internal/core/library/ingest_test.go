@@ -347,7 +347,7 @@ func TestIngest_ASidecarIsAttachedToTheVideoItBelongsTo(t *testing.T) {
 		byPath[strings.TrimPrefix(row.Path, root+"/")] = row
 	}
 	owner := func(sidecarPath string) string {
-		attached := byPath[sidecarPath].AttachedToFile
+		attached := byPath[sidecarPath].AttachedToPlace
 		if attached == nil {
 			return ""
 		}
