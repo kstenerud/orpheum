@@ -26356,25 +26356,37 @@ scope is `'item'`: the preference attaches to the item a person set it on, in D4
 
 **Status:** Decided 2026-11-05; D426's rebuild renames the stored value.
 
-## D429 — A place's path is relative to its library's root, so a library moves by changing one row
+## D429 — A library moves by one operation, "folder X on node A is now folder Y on node B", over absolute paths
 
 **Decided** (2026-11-05), by the owner, while the media was being copied to devnas.example for nas.example's
-memory tests: "Ideally, if anything in a library's items needs a path, it should be stored relative to
-the library it belongs to. Then when you change the library location, only 1 record needs to change.
-The one hitch is if a path exists in multiple libraries, but this would be the user's problem to sort
-out. We'd just point out that things are missing." **Amends** D426 §4 (a place records a node and a
-whole path) and D363's coverage of a place by every library whose root is above it.
+memory tests. The owner first proposed storing a library's paths relative to the library ("then when
+you change the library location, only 1 record needs to change"), then asked for it to be wargamed:
+"This would marry items to libraries, and so if a library gets deleted, what happens?" The wargame:
 
-1. **A path that belongs to a library is stored relative to the library's root.** A place names its
-   root (`library_root` gains an id) and its path below it, in both the NFC form and the raw bytes
-   the node reported (D211). The root alone names the node and the absolute folder.
-2. **A library moves by changing its root's row**: its folder, its node, or both. Nothing else is
-   rewritten. A library with several roots moves one root at a time.
-3. **Overlapping libraries are the person's to sort out.** A folder under two libraries' roots is
-   seen once for each root. When one of them moves, the other's places that are no longer there are
-   reported as missing, as any vanished file is. Nothing tries to reconcile them.
-4. **What stays keyed on content stays so:** people's watching, choices and fetched subtitles hang
-   on `file`, matched by hash, never on a path (step 0078).
+- **Relative to the library** made deleting and re-adding a library, overlapping or nested libraries,
+  and re-rooting a library each cost a re-find of every file by hash, where today they cost nothing
+  (D363 §10).
+- **Relative to the node's media root** survived those, but not the owner's second case: a
+  reorganisation inside the media root (`/tank/media/video` → `/tank/media/big/video`) rewrites every
+  path anyway.
+- **No anchor makes every move one row**, because folders move at any level.
 
-**Status:** Decided 2026-11-05. The expansion audit checks every other path stored in the schema
-against it. The repoint feature itself is the batch after D416's.
+The owner agreed ("OK, that sounds good"), adding: "since this is a rare occurrence, it's not the end
+of the world if it takes awhile to do when it happens."
+
+1. **Paths stay absolute, on their node**, as D426 §4 has them. A library stays a view onto places
+   and owns none, so deleting, re-rooting and overlapping libraries keep costing nothing.
+2. **A repoint is one operation: "folder X on node A is now folder Y on node B".** In one transaction,
+   it rewrites every place whose path starts with X, every library root at or under X, and every
+   other stored path under X. It works at any level, and carries every library that covers the
+   folder. Speed is not a goal (the owner): it may take a while.
+3. **It is confirmed before it commits.** A move on the same disk keeps device and inode, which the
+   scanner already matches (D304 §5). A move to another machine is confirmed by size, modified time
+   and a sample of payload hashes. What is not found at Y is reported missing, as any vanished file
+   is.
+4. **The schema must let any stored path be rewritten by prefix:** no path folded into a hash, an id
+   or opaque JSON; the raw bytes and the NFC form kept in step; no constraint that a rewrite in one
+   transaction trips over. The expansion audit checks every path the schema stores against this.
+
+**Status:** Decided 2026-11-05. The audit's check is in D416's batch; the repoint feature is the batch
+after it.
