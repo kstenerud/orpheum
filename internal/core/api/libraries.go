@@ -612,8 +612,7 @@ func (server *Server) libraryError(ctx context.Context, action string, err error
 	case errors.Is(err, library.ErrNoItem):
 		return newError(http.StatusNotFound, CodeNotFound, "no such title or series")
 	case errors.Is(err, library.ErrBadCursor):
-		return invalidRequestAt(http.StatusUnprocessableEntity, "query.cursor",
-			"the cursor is not one this server gave")
+		return errBadCursor()
 	case errors.Is(err, library.ErrNoLibrary):
 		return newError(http.StatusNotFound, CodeNotFound, "no such library")
 	case errors.Is(err, library.ErrNoNode):

@@ -440,9 +440,10 @@ WHERE aired_ordering.sequence_id = ?3 AND aired_ordering.name = 'aired'
     WHERE chosen.sequence_id = aired_ordering.sequence_id AND chosen.name = ?4
       AND there.work_id = aired.work_id
   )
-  AND aired.sort_order > ?5
-ORDER BY aired.sort_order
-LIMIT ?6
+  AND (aired.sort_order, aired.work_id)
+    > (CAST(?5 AS REAL), CAST(?6 AS INTEGER))
+ORDER BY aired.sort_order, aired.work_id
+LIMIT ?7
 `
 
 type ListEpisodesNotInOrderingParams struct {
@@ -451,6 +452,7 @@ type ListEpisodesNotInOrderingParams struct {
 	SequenceID     int64
 	OrderingName   string
 	AfterSortOrder float64
+	AfterID        int64
 	MaxRows        int64
 }
 
@@ -467,8 +469,8 @@ type ListEpisodesNotInOrderingRow struct {
 }
 
 // A page of a series' episodes that one of its orderings leaves out, in aired order, which every
-// episode is in, after the one at after_sort_order, each at its aired place and with whether it has
-// a live file: what its page lists under "Not in this order" (episode-orderings.md section 7, Q4).
+// episode is in, after the one at (after_sort_order, after_id), equal sort orders by the episode's
+// id, each at its aired place and with whether it has a live file: what its page lists under "Not in this order" (episode-orderings.md section 7, Q4).
 func (q *Queries) ListEpisodesNotInOrdering(ctx context.Context, arg ListEpisodesNotInOrderingParams) ([]ListEpisodesNotInOrderingRow, error) {
 	rows, err := q.db.QueryContext(ctx, listEpisodesNotInOrdering,
 		arg.IsEveryLibrary,
@@ -476,6 +478,7 @@ func (q *Queries) ListEpisodesNotInOrdering(ctx context.Context, arg ListEpisode
 		arg.SequenceID,
 		arg.OrderingName,
 		arg.AfterSortOrder,
+		arg.AfterID,
 		arg.MaxRows,
 	)
 	if err != nil {
@@ -1443,9 +1446,10 @@ LEFT JOIN item_text ON item_text.item_id = position.work_id AND item_text.is_ori
 LEFT JOIN grp ON grp.id = position.grp_id
 WHERE ordering.sequence_id = ?3 AND ordering.name = ?4 AND item.removed_at IS NULL
   AND coalesce(grp.number, 0) = CAST(?5 AS INTEGER)
-  AND position.sort_order > ?6
-ORDER BY position.sort_order
-LIMIT ?7
+  AND (position.sort_order, position.work_id)
+    > (CAST(?6 AS REAL), CAST(?7 AS INTEGER))
+ORDER BY position.sort_order, position.work_id
+LIMIT ?8
 `
 
 type ListSeasonEpisodeDetailsParams struct {
@@ -1455,6 +1459,7 @@ type ListSeasonEpisodeDetailsParams struct {
 	OrderingName   string
 	SeasonNumber   int64
 	AfterSortOrder float64
+	AfterID        int64
 	MaxRows        int64
 }
 
@@ -1471,7 +1476,8 @@ type ListSeasonEpisodeDetailsRow struct {
 }
 
 // A page of one season's episodes, a group of one of the series' named orderings (D159; the one its
-// person watches in), after the episode at after_sort_order, each with whether it has a live file;
+// person watches in), after the episode at (after_sort_order, after_id), each with whether it has a
+// live file; equal sort orders go by the episode's id, so a page never repeats or skips one (D416 section 6);
 // aired's season 0 holds the specials and the episodes with no season.
 func (q *Queries) ListSeasonEpisodeDetails(ctx context.Context, arg ListSeasonEpisodeDetailsParams) ([]ListSeasonEpisodeDetailsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listSeasonEpisodeDetails,
@@ -1481,6 +1487,7 @@ func (q *Queries) ListSeasonEpisodeDetails(ctx context.Context, arg ListSeasonEp
 		arg.OrderingName,
 		arg.SeasonNumber,
 		arg.AfterSortOrder,
+		arg.AfterID,
 		arg.MaxRows,
 	)
 	if err != nil {

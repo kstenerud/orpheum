@@ -61,12 +61,7 @@ func TestBrowse_GenresAndPeopleAreShownListedFilteredAndSearched(t *testing.T) {
 		{"/items/letters?kind=movie&sort=name&genre=2", `"letters":[]`},
 		{"/search?query=r&limit=10", `"titles":{"hits":[`},
 		{"/search?query=cr&limit=10", `"genres":{"hits":[{"id":1,"name":"Crime","titleCount":1}]}`},
-		{"/search?query=a&limit=1", `"people":{"hits":[{"id":40,"name":"Ansel Vardo",` +
-			`"pictureRef":"/vardo.jpg"}],` +
-			`"nextCursor":"1"}`},
-		{"/search?query=a&limit=1&group=people&cursor=1", `"people":{"hits":[{"id":42,` +
-			`"name":"Bela Ostrander"}],` +
-			`"nextCursor":"2"}`},
+		{"/search?query=a&limit=500", `"people":{"hits":[{"id":40,"name":"Ansel Vardo",`},
 	}
 	for _, want := range wants {
 		if got := harness.do(t, http.MethodGet, want.path, admin, nil); got.status != http.StatusOK ||
@@ -74,6 +69,7 @@ func TestBrowse_GenresAndPeopleAreShownListedFilteredAndSearched(t *testing.T) {
 			t.Errorf("%s = %d %s; want %s", want.path, got.status, got.body, want.want)
 		}
 	}
+	harness.wantSearchPagesPeopleByCursor(t, admin)
 	heat := harness.do(t, http.MethodGet, "/items?kind=any&sort=name&limit=10&genre=1", admin, nil)
 	if strings.Contains(heat.body, "Brass Arena") {
 		t.Errorf("the Crime titles = %s; want Metropolis alone", heat.body)
@@ -89,4 +85,37 @@ func TestBrowse_GenresAndPeopleAreShownListedFilteredAndSearched(t *testing.T) {
 	wantError(t, harness.do(t, http.MethodGet, "/items/40", admin, nil), http.StatusNotFound, api.CodeNotFound)
 	wantError(t, harness.do(t, http.MethodGet, "/search?query=a&limit=1&cursor=1", admin, nil),
 		http.StatusUnprocessableEntity, api.CodeInvalidRequest)
+	wantError(t, harness.do(t, http.MethodGet, "/search?query=a&limit=501", admin, nil),
+		http.StatusUnprocessableEntity, api.CodeInvalidRequest)
+}
+
+// wantSearchPagesPeopleByCursor checks that a search's people come a page at a time, each page after
+// the last's nextCursor, the cursor of every list (D416 §6); a cursor with no group, or one this
+// server did not give, is refused at query.cursor.
+func (harness testHarness) wantSearchPagesPeopleByCursor(t *testing.T, admin string) {
+	t.Helper()
+	type page struct {
+		People struct {
+			Hits []struct {
+				Name string `json:"name"`
+			} `json:"hits"`
+			NextCursor string `json:"nextCursor"`
+		} `json:"people"`
+	}
+	var first, second page
+	harness.readJSON(t, "/search?query=a&limit=1", admin, &first)
+	if len(first.People.Hits) != 1 || first.People.Hits[0].Name != "Ansel Vardo" || first.People.NextCursor == "" {
+		t.Fatalf("the first page of people = %+v; want Ansel Vardo, and a cursor", first.People)
+	}
+	harness.readJSON(t, "/search?query=a&limit=1&group=people&cursor="+first.People.NextCursor, admin, &second)
+	if len(second.People.Hits) != 1 || second.People.Hits[0].Name != "Bela Ostrander" ||
+		second.People.NextCursor == "" {
+		t.Errorf("the next page of people = %+v; want Bela Ostrander, and a cursor", second.People)
+	}
+	for _, path := range []string{
+		"/search?query=a&limit=1&cursor=" + first.People.NextCursor, "/search?query=a&limit=1&group=people&cursor=1",
+	} {
+		wantInvalidAt(t, harness.do(t, http.MethodGet, path, admin, nil), http.StatusUnprocessableEntity,
+			"query.cursor")
+	}
 }

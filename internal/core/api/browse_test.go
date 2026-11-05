@@ -313,6 +313,64 @@ func TestBrowse_ASeriesListsItsSeasonsAndASeasonComesAPageAtATime(t *testing.T) 
 		http.StatusNotFound, api.CodeNotFound)
 }
 
+// pagedEpisodeIDs are the episodes of path, a list of a series' episodes, limit at a time, each
+// page after the last's nextCursor, to the page with none.
+func (harness testHarness) pagedEpisodeIDs(t *testing.T, path, token string, limit int) []int64 {
+	t.Helper()
+	ids, cursor := []int64{}, ""
+	for range 100 {
+		var page struct {
+			Episodes []struct {
+				ID int64 `json:"id"`
+			} `json:"episodes"`
+			NextCursor string `json:"nextCursor"`
+		}
+		harness.readJSON(t, fmt.Sprintf("%s?limit=%d%s", path, limit, cursor), token, &page)
+		for _, episode := range page.Episodes {
+			ids = append(ids, episode.ID)
+		}
+		if page.NextCursor == "" {
+			return ids
+		}
+		cursor = "&cursor=" + page.NextCursor
+	}
+	t.Fatalf("%s never ended", path)
+	return nil
+}
+
+// A season's episodes, and those an ordering leaves out, are paged by their sort order and then
+// their id, as every list's cursor is (D416 §6): episodes at the same place cross a page's edge
+// with none repeated and none skipped.
+func TestBrowse_EpisodesAtTheSamePlaceArePagedWithNoRepeatAndNoSkip(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveDVDOrder(t)
+	rows := []string{}
+	for id := int64(30); id < 35; id++ {
+		librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: id, Library: 1, Kind: "episode", AddedAt: 2})
+		librarytest.Version(t, harness.database, librarytest.VersionSpec{TitleID: id, CreatedAt: 2})
+		rows = append(rows, fmt.Sprintf("(1, %d, 3, 1, 30001)", id))
+	}
+	storetest.ExecRaw(t, harness.databasePath, storetest.Positions(strings.Join(rows, ", ")))
+	want := []int64{30, 31, 32, 33, 34}
+	for _, limit := range []int{1, 2, 3, 100} {
+		if got := harness.pagedEpisodeIDs(t, "/items/20/groups/3", user, limit); !slices.Equal(got, want) {
+			t.Errorf("season 3 a page of %d at a time: %v; want %v, each once", limit, got, want)
+		}
+	}
+	if chose := harness.do(t, http.MethodPut, "/items/20/preferences", user,
+		map[string]string{"episodeOrdering": "tmdb:dvd"}); chose.status != http.StatusNoContent {
+		t.Fatalf("choosing the DVD order = %d %s", chose.status, chose.body)
+	}
+	want = []int64{22, 30, 31, 32, 33, 34}
+	for _, limit := range []int{1, 2, 4, 100} {
+		if got := harness.pagedEpisodeIDs(t, "/items/20/not-in-order", user, limit); !slices.Equal(got, want) {
+			t.Errorf("not in the DVD order a page of %d at a time: %v; want %v, each once", limit, got, want)
+		}
+	}
+}
+
 // A series' page says its person's next episode, which it offers to play (the owner, 2026-10-25):
 // the one they are partway through, with where, which its Play resumes; else the one after the last
 // they finished; else the first; with why it cannot be read now, as its own page says; and none once

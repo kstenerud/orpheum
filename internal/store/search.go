@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/kstenerud/orpheum/internal/platform/querytally"
@@ -28,6 +29,9 @@ type SearchHit struct {
 	TitleKind *string // movie, episode or extra; nil for a collection
 	Name      string
 	Year      *int64
+	// Place is where a grouped search's hit stands in its order (FindTitles), from which the next
+	// page goes on; Search leaves it zero.
+	Place SearchPlace
 }
 
 // The search statements: written by hand because sqlc cannot parse FTS5's MATCH, and static, so
@@ -111,31 +115,33 @@ LIMIT ?4`
 
 	// The grouped search's statements (search-by-more-2026-11-04.md): its titles are what a list
 	// lists, as the matching statements' are, with their names; its people are those credited on one
-	// of them (step 0067). Each is a page, from the offset ?5, in the order the index ranks it.
-	findTitlesListed = ` AND ` + matchListable + ` AND ` + searchListedCondition
+	// of them (step 0067). Each is a page in the order the index ranks it, each item once, at its best
+	// name's place: its rank, the words index's (FTS5's rank, its bm25) or its name, then its id. A
+	// page starts after the place (?5, ?6), as every list's cursor does (D416 section 6).
+	findTitlesListed  = ` AND ` + matchListable + ` AND ` + searchListedCondition
+	findTitlesColumns = `item_text.item_id, item.kind, work.kind, item_text.name, item.year`
+	findPage          = `
+GROUP BY item_text.item_id
+HAVING (hit_rank, item_text.item_id) > (?5, CAST(?6 AS INTEGER))
+ORDER BY hit_rank, item_text.item_id
+LIMIT ?4`
 
-	findTitlesWordsSQL = `SELECT ` + searchColumns + `
+	findTitlesWordsSQL = `SELECT ` + findTitlesColumns + `, min(item_fts.rank) AS hit_rank
 FROM item_fts
 JOIN item_text ON item_text.rowid = item_fts.rowid
 ` + searchJoins + `
-WHERE item_fts MATCH ?1` + findTitlesListed + `
-ORDER BY bm25(item_fts), item_text.item_id
-LIMIT ?4 OFFSET ?5`
+WHERE item_fts MATCH ?1` + findTitlesListed + findPage
 
-	findTitlesTrigramSQL = `SELECT ` + searchColumns + `
+	findTitlesTrigramSQL = `SELECT ` + findTitlesColumns + `, min(item_text.name) AS hit_rank
 FROM item_fts_tri
 JOIN item_text ON item_text.rowid = item_fts_tri.rowid
 ` + searchJoins + `
-WHERE item_fts_tri MATCH ?1` + findTitlesListed + `
-ORDER BY item_text.name, item_text.item_id
-LIMIT ?4 OFFSET ?5`
+WHERE item_fts_tri MATCH ?1` + findTitlesListed + findPage
 
-	findTitlesSubstringSQL = `SELECT ` + searchColumns + `
+	findTitlesSubstringSQL = `SELECT ` + findTitlesColumns + `, min(item_text.name) AS hit_rank
 FROM item_text
 ` + searchJoins + `
-WHERE instr(item_text.search_alternates, ?1) > 0` + findTitlesListed + `
-ORDER BY item_text.name, item_text.item_id
-LIMIT ?4 OFFSET ?5`
+WHERE instr(item_text.search_alternates, ?1) > 0` + findTitlesListed + findPage
 
 	// A person is found by their item's text, as a title is (D48), when a film, other video or series
 	// of the libraries the caller reaches credits them: the credited item is named item inside the
@@ -151,25 +157,19 @@ JOIN item AS person_item ON person_item.id = person.id`
   LEFT JOIN sequence ON sequence.id = item.id
   WHERE credit.person_id = person.id AND ` + matchListable + ` AND ` + searchListedCondition + `)`
 
-	findPeopleWordsSQL = `SELECT ` + findPeopleColumns + `
+	findPeopleWordsSQL = `SELECT ` + findPeopleColumns + `, min(item_fts.rank) AS hit_rank
 FROM item_fts
 JOIN item_text ON item_text.rowid = item_fts.rowid` + findPeopleJoins + `
-WHERE item_fts MATCH ?1` + findPeopleCredited + `
-ORDER BY bm25(item_fts), item_text.item_id
-LIMIT ?4 OFFSET ?5`
+WHERE item_fts MATCH ?1` + findPeopleCredited + findPage
 
-	findPeopleTrigramSQL = `SELECT ` + findPeopleColumns + `
+	findPeopleTrigramSQL = `SELECT ` + findPeopleColumns + `, min(item_text.name) AS hit_rank
 FROM item_fts_tri
 JOIN item_text ON item_text.rowid = item_fts_tri.rowid` + findPeopleJoins + `
-WHERE item_fts_tri MATCH ?1` + findPeopleCredited + `
-ORDER BY item_text.name, item_text.item_id
-LIMIT ?4 OFFSET ?5`
+WHERE item_fts_tri MATCH ?1` + findPeopleCredited + findPage
 
-	findPeopleSubstringSQL = `SELECT ` + findPeopleColumns + `
+	findPeopleSubstringSQL = `SELECT ` + findPeopleColumns + `, min(item_text.name) AS hit_rank
 FROM item_text` + findPeopleJoins + `
-WHERE instr(item_text.search_alternates, ?1) > 0` + findPeopleCredited + `
-ORDER BY item_text.name, item_text.item_id
-LIMIT ?4 OFFSET ?5`
+WHERE instr(item_text.search_alternates, ?1) > 0` + findPeopleCredited + findPage
 )
 
 // SearchQuery is one search: the index's query, a folded substring, an FTS5 query or a trigram
@@ -178,13 +178,24 @@ type SearchQuery struct {
 	Route      SearchRoute
 	IndexQuery string
 	Limit      int64
-	// Offset is how many hits a grouped search's page skips (FindTitles, FindPeople); the other
-	// statements take none.
-	Offset int64
+	// After is where a grouped search's page starts (FindTitles, FindPeople): after this place, nil
+	// for the first page. The other statements take none.
+	After *SearchPlace
 	// IsEveryLibrary is 1 for a caller who reaches every library; otherwise LibraryIDsJSON, a JSON
 	// array of ids, lists those it reaches (auth.Reach.QueryArgs).
 	IsEveryLibrary int64
 	LibraryIDsJSON string
+}
+
+// SearchPlace is a grouped search's hit's place in its order (FindTitles, FindPeople): its rank, as
+// its route ranks, then its id.
+type SearchPlace struct {
+	// Score is the words route's rank: the words index's (FTS5's rank, its bm25), the lower the
+	// better, read back exactly as the index gave it, since the next page's query compares it again.
+	Score float64
+	// Name is the trigram and substring routes' rank: the hit's name.
+	Name string
+	ID   int64
 }
 
 // Search asks one index for the items matching query (D48).
@@ -223,21 +234,31 @@ func scanHit(rows *sql.Rows) (SearchHit, error) {
 }
 
 // FindTitles is a page of the films, other videos and series whose names match query, of the
-// libraries it reaches, the best first where the index ranks them (D48): a grouped search's titles.
-// An item that matches by two of its names is a hit for each, a page holding it once.
+// libraries it reaches, the best first where the index ranks them (D48): a grouped search's titles,
+// each once, at the place of its best name that matches, after query.After.
 func (database *Database) FindTitles(ctx context.Context, query SearchQuery) ([]SearchHit, error) {
 	hits := []SearchHit{}
-	seen := map[int64]bool{}
 	err := database.askIndex(ctx, "FindTitles", map[SearchRoute]string{
 		SearchRouteSubstring: findTitlesSubstringSQL,
 		SearchRouteWords:     findTitlesWordsSQL,
 		SearchRouteTrigram:   findTitlesTrigramSQL,
 	}, query, func(rows *sql.Rows) error {
-		hit, err := scanHit(rows)
-		if err == nil && !seen[hit.ItemID] {
-			seen[hit.ItemID] = true
-			hits = append(hits, hit)
+		var hit SearchHit
+		var titleKind sql.NullString
+		var year sql.NullInt64
+		var rank any
+		if err := rows.Scan(&hit.ItemID, &hit.ItemKind, &titleKind, &hit.Name, &year, &rank); err != nil {
+			return fmt.Errorf("read a hit: %w", err)
 		}
+		if titleKind.Valid {
+			hit.TitleKind = &titleKind.String
+		}
+		if year.Valid {
+			hit.Year = &year.Int64
+		}
+		place, err := placeOf(query.Route, rank, hit.ItemID)
+		hit.Place = place
+		hits = append(hits, hit)
 		return err
 	})
 	if err != nil {
@@ -251,13 +272,15 @@ type PersonHit struct {
 	PersonID   int64
 	Name       string
 	PictureRef *string
+	// Place is where the person stands in the search's order, from which the next page goes on.
+	Place SearchPlace
 }
 
 // FindPeople is a page of the people whose names match query and whom a film, other video or
-// series of the libraries it reaches credits, the best first where the index ranks them (D48).
+// series of the libraries it reaches credits, the best first where the index ranks them (D48), each
+// once, after query.After.
 func (database *Database) FindPeople(ctx context.Context, query SearchQuery) ([]PersonHit, error) {
 	hits := []PersonHit{}
-	seen := map[int64]bool{}
 	err := database.askIndex(ctx, "FindPeople", map[SearchRoute]string{
 		SearchRouteSubstring: findPeopleSubstringSQL,
 		SearchRouteWords:     findPeopleWordsSQL,
@@ -265,22 +288,56 @@ func (database *Database) FindPeople(ctx context.Context, query SearchQuery) ([]
 	}, query, func(rows *sql.Rows) error {
 		var hit PersonHit
 		var pictureRef sql.NullString
-		if err := rows.Scan(&hit.PersonID, &hit.Name, &pictureRef); err != nil {
+		var rank any
+		if err := rows.Scan(&hit.PersonID, &hit.Name, &pictureRef, &rank); err != nil {
 			return fmt.Errorf("read a person: %w", err)
 		}
 		if pictureRef.Valid {
 			hit.PictureRef = &pictureRef.String
 		}
-		if !seen[hit.PersonID] {
-			seen[hit.PersonID] = true
-			hits = append(hits, hit)
-		}
-		return nil
+		place, err := placeOf(query.Route, rank, hit.PersonID)
+		hit.Place = place
+		hits = append(hits, hit)
+		return err
 	})
 	if err != nil {
 		return nil, err
 	}
 	return hits, nil
+}
+
+// placeOf is a grouped search's hit's place: the rank its route's statement read, and its id.
+func placeOf(route SearchRoute, rank any, id int64) (SearchPlace, error) {
+	switch value := rank.(type) {
+	case float64:
+		if route == SearchRouteWords {
+			return SearchPlace{Score: value, ID: id}, nil
+		}
+	case string:
+		if route != SearchRouteWords {
+			return SearchPlace{Name: value, ID: id}, nil
+		}
+	case []byte:
+		if route != SearchRouteWords {
+			return SearchPlace{Name: string(value), ID: id}, nil
+		}
+	}
+	return SearchPlace{}, fmt.Errorf("a %s hit's rank %T is not its route's", route, rank)
+}
+
+// afterArguments are a grouped search's ?5 and ?6: the place its page starts after, in its route's
+// rank, or before every hit for the first page.
+func afterArguments(query SearchQuery) (any, int64) {
+	switch {
+	case query.After == nil && query.Route == SearchRouteWords:
+		return math.Inf(-1), 0
+	case query.After == nil:
+		return "", 0
+	case query.Route == SearchRouteWords:
+		return query.After.Score, query.After.ID
+	default:
+		return query.After.Name, query.After.ID
+	}
 }
 
 // MatchListed is the ids of the films, other videos and series whose names match query, of the
@@ -324,8 +381,9 @@ func (database *Database) askIndex(
 	if tally := querytally.Of(ctx); tally != nil {
 		tally.Count("-- name: " + name + strings.ToUpper(route[:1]) + route[1:] + " ")
 	}
+	afterRank, afterID := afterArguments(query)
 	rows, err := database.readers.QueryContext(ctx, statement, query.IndexQuery, query.IsEveryLibrary,
-		query.LibraryIDsJSON, query.Limit, query.Offset)
+		query.LibraryIDsJSON, query.Limit, afterRank, afterID)
 	if err != nil {
 		return fmt.Errorf("%s %s: %w", name, route, err)
 	}

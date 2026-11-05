@@ -223,7 +223,8 @@ ORDER BY position.sort_order;
 
 -- name: ListSeasonEpisodeDetails :many
 -- A page of one season's episodes, a group of one of the series' named orderings (D159; the one its
--- person watches in), after the episode at after_sort_order, each with whether it has a live file;
+-- person watches in), after the episode at (after_sort_order, after_id), each with whether it has a
+-- live file; equal sort orders go by the episode's id, so a page never repeats or skips one (D416 section 6);
 -- aired's season 0 holds the specials and the episodes with no season.
 SELECT position.work_id, grp.number AS group_number, position.number_in_group, position.sort_order, item_text.name,
   item.year, work.runtime_ms, item.identification_state,
@@ -241,8 +242,9 @@ LEFT JOIN item_text ON item_text.item_id = position.work_id AND item_text.is_ori
 LEFT JOIN grp ON grp.id = position.grp_id
 WHERE ordering.sequence_id = sqlc.arg(sequence_id) AND ordering.name = sqlc.arg(ordering_name) AND item.removed_at IS NULL
   AND coalesce(grp.number, 0) = CAST(sqlc.arg(season_number) AS INTEGER)
-  AND position.sort_order > sqlc.arg(after_sort_order)
-ORDER BY position.sort_order
+  AND (position.sort_order, position.work_id)
+    > (CAST(sqlc.arg(after_sort_order) AS REAL), CAST(sqlc.arg(after_id) AS INTEGER))
+ORDER BY position.sort_order, position.work_id
 LIMIT sqlc.arg(max_rows);
 
 -- name: ListSeriesOrderings :many
@@ -274,8 +276,8 @@ ORDER BY grp.number, group_text.language;
 
 -- name: ListEpisodesNotInOrdering :many
 -- A page of a series' episodes that one of its orderings leaves out, in aired order, which every
--- episode is in, after the one at after_sort_order, each at its aired place and with whether it has
--- a live file: what its page lists under "Not in this order" (episode-orderings.md section 7, Q4).
+-- episode is in, after the one at (after_sort_order, after_id), equal sort orders by the episode's
+-- id, each at its aired place and with whether it has a live file: what its page lists under "Not in this order" (episode-orderings.md section 7, Q4).
 SELECT aired.work_id, aired_group.number AS group_number, aired.number_in_group, aired.sort_order, item_text.name,
   item.year, work.runtime_ms, item.identification_state,
   EXISTS (
@@ -297,8 +299,9 @@ WHERE aired_ordering.sequence_id = sqlc.arg(sequence_id) AND aired_ordering.name
     WHERE chosen.sequence_id = aired_ordering.sequence_id AND chosen.name = sqlc.arg(ordering_name)
       AND there.work_id = aired.work_id
   )
-  AND aired.sort_order > sqlc.arg(after_sort_order)
-ORDER BY aired.sort_order
+  AND (aired.sort_order, aired.work_id)
+    > (CAST(sqlc.arg(after_sort_order) AS REAL), CAST(sqlc.arg(after_id) AS INTEGER))
+ORDER BY aired.sort_order, aired.work_id
 LIMIT sqlc.arg(max_rows);
 
 -- name: CountEpisodesNotInOrdering :one

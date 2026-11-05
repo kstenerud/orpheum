@@ -409,6 +409,33 @@ func DecodeCursor(cursor string) ([]byte, int64, error) {
 	return raw[:split], int64(binary.BigEndian.Uint64(raw[split:])), nil //nolint:gosec // an id we encoded
 }
 
+// Int64Key is a number as a cursor's key: eight bytes, big-endian.
+func Int64Key(value int64) []byte {
+	return binary.BigEndian.AppendUint64(nil, uint64(value)) //nolint:gosec // read back by KeyInt64
+}
+
+// KeyInt64 reads Int64Key's number back; false for a key that is not one.
+func KeyInt64(key []byte) (int64, bool) {
+	if len(key) != 8 {
+		return 0, false
+	}
+	return int64(binary.BigEndian.Uint64(key)), true //nolint:gosec // written by Int64Key
+}
+
+// float64Key is a number as a cursor's key: its eight bytes, big-endian, read back exactly.
+func float64Key(value float64) []byte {
+	return binary.BigEndian.AppendUint64(nil, math.Float64bits(value))
+}
+
+// keyFloat64 reads float64Key's number back; false for a key that is not one.
+func keyFloat64(key []byte) (float64, bool) {
+	if len(key) != 8 {
+		return 0, false
+	}
+	value := math.Float64frombits(binary.BigEndian.Uint64(key))
+	return value, !math.IsNaN(value)
+}
+
 // sorter is the sorter of the sort_locale lists sort in (D47).
 func (browser *Browser) sorter(ctx context.Context) (*textindex.Sorter, error) {
 	locale, err := browser.settings.String(ctx, settings.SortLocale)

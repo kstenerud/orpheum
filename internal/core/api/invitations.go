@@ -175,7 +175,7 @@ func (server *Server) listInvitations(
 		if cursorErr != nil {
 			return nil, cursorErr
 		}
-		issuedAt, isTime := keyInt64(key)
+		issuedAt, isTime := library.KeyInt64(key)
 		if !isTime || id < 1 {
 			return nil, errBadCursor()
 		}
@@ -201,7 +201,7 @@ func (server *Server) invitationBodies(
 	}
 	next := nextCursorOf(len(invitations), limit, func() string {
 		last := invitations[len(invitations)-1]
-		return library.EncodeCursor(int64Key(last.IssuedAt.UnixMilli()), last.ID)
+		return library.EncodeCursor(library.Int64Key(last.IssuedAt.UnixMilli()), last.ID)
 	})
 	return bodies, next, nil
 }
