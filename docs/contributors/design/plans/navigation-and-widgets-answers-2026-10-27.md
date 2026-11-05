@@ -1961,9 +1961,11 @@ the System and account pages. End: one check-pr, the owner's go, staging; nas.ex
 **Progress (2026-11-05, evening):** items 2, 3, 4 and 6 are on main ("feat(web): Watch Together's sign over the film opens the tray's dialog (D433)" with "fix(web): Watch Together's dialog loads apart from Cast's, ending an import cycle", "fix(web): Next and Previous episode keep full screen"
 VQ267, "fix(web): the title's backdrop no longer takes the clicks of the cast under it", "fix(api): /needs-attention counts are true totals, not where the reads stopped"); item 5 is written and waits on the owner's answers. Item 1: no commit
 found at fault (the agent's bisect over the node's recent work); the episodes have no stored keyframes
-on nas.example either, so they are encoded with no seek. The lead found nas.example's stored first chunk of
-three episodes timed at 9.92 s, not 0, and only 13 KB; whether that is the store's numbering or a
-real gap at the start is open, as is which device showed the grey. Three Firefox tests that failed
+on nas.example either, so they are encoded with no seek. nas.example's stored first chunk of three episodes
+(read-only) opens on a keyframe at 9.92 s, which is right: every stream's timeline starts the film
+at 10 s (`TimelineOffsetMs`), less the two frames a picture decodes before it shows. So the node's
+chunks look sound, and the next look is the player, on the device that showed the grey (not yet
+known: the owner's to say). Three Firefox tests that failed
 about one run in three, from before this batch, were fixed in their tests ("test(web): the Libraries search walk waits for the narrowed list before arrowing into it", "test(web): the scrub bar's fade test holds the overlay's time instead of retrying its walk",
 "test(web): the modal dialog's browser tests take down what a failed test left mounted").
 
