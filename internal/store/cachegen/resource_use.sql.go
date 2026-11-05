@@ -3,7 +3,7 @@
 //   sqlc v1.31.1
 // source: resource_use.sql
 
-package sqlcgen
+package cachegen
 
 import (
 	"context"

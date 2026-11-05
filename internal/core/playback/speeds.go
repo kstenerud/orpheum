@@ -11,7 +11,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
-	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
+	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
 
 // speedKey is who measured a link speed, a device or, for one with no device row, its session, and
@@ -64,10 +64,10 @@ func (speed measuredSpeed) countsAsSamples(now time.Time, freshFor time.Duration
 // keeps them: kept in memory, each deploy forgot them, and the next start trusted two samples of a
 // fresh connection over a link measured minutes before (bandwidth-sampling-2026-10-29.md §1.2, P2).
 type linkSpeeds struct {
-	database *store.Database
+	database *store.Cache
 }
 
-func newLinkSpeeds(database *store.Database) *linkSpeeds { return &linkSpeeds{database: database} }
+func newLinkSpeeds(database *store.Cache) *linkSpeeds { return &linkSpeeds{database: database} }
 
 // remember keeps a player's measurement on a network, in place of the last, and forgets every link
 // said nothing of within freshFor: each player on each network it ever played from was kept for the
@@ -83,8 +83,8 @@ func (speeds *linkSpeeds) remember(
 		spread = &speed.logSpread
 	}
 	measuredAtMs := speed.at.UnixMilli()
-	return speeds.keep(ctx, speed.at, freshFor, func(queries *sqlcgen.Queries) error {
-		return queries.UpsertLinkSpeed(ctx, sqlcgen.UpsertLinkSpeedParams{
+	return speeds.keep(ctx, speed.at, freshFor, func(queries *cachegen.Queries) error {
+		return queries.UpsertLinkSpeed(ctx, cachegen.UpsertLinkSpeedParams{
 			Player: key.player, Network: key.network, SpeedKbps: &speed.kbps, SpeedLogSpread: spread,
 			SpeedAt: &measuredAtMs,
 		})
@@ -100,8 +100,8 @@ func (speeds *linkSpeeds) rememberSteadiness(
 		return nil
 	}
 	kept, reportedAtMs := int64(min(level, highestSteadiness)), reportedAt.UnixMilli()
-	return speeds.keep(ctx, reportedAt, freshFor, func(queries *sqlcgen.Queries) error {
-		return queries.UpsertLinkSteadiness(ctx, sqlcgen.UpsertLinkSteadinessParams{
+	return speeds.keep(ctx, reportedAt, freshFor, func(queries *cachegen.Queries) error {
+		return queries.UpsertLinkSteadiness(ctx, cachegen.UpsertLinkSteadinessParams{
 			Player: key.player, Network: key.network, Steadiness: &kept, SteadinessAt: &reportedAtMs,
 		})
 	})
@@ -109,9 +109,9 @@ func (speeds *linkSpeeds) rememberSteadiness(
 
 // keep writes by change, after forgetting every link said nothing of within freshFor of now.
 func (speeds *linkSpeeds) keep(
-	ctx context.Context, now time.Time, freshFor time.Duration, change func(queries *sqlcgen.Queries) error,
+	ctx context.Context, now time.Time, freshFor time.Duration, change func(queries *cachegen.Queries) error,
 ) error {
-	err := speeds.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+	err := speeds.database.Write(ctx, func(queries *cachegen.Queries) error {
 		if err := queries.DeleteLinkMemoriesSaidBefore(ctx, now.Add(-freshFor).UnixMilli()); err != nil {
 			return err
 		}
@@ -125,8 +125,8 @@ func (speeds *linkSpeeds) keep(
 
 // remembered is what the player key names last said of its link on its network; found false for
 // nothing.
-func (speeds *linkSpeeds) remembered(ctx context.Context, key speedKey) (sqlcgen.GetLinkMemoryRow, bool, error) {
-	row, err := store.OrNotFound(speeds.database.Read().GetLinkMemory(ctx, sqlcgen.GetLinkMemoryParams{
+func (speeds *linkSpeeds) remembered(ctx context.Context, key speedKey) (cachegen.GetLinkMemoryRow, bool, error) {
+	row, err := store.OrNotFound(speeds.database.Read().GetLinkMemory(ctx, cachegen.GetLinkMemoryParams{
 		Player: key.player, Network: key.network,
 	}))
 	if errors.Is(err, store.ErrNotFound) {

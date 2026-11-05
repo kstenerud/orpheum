@@ -132,7 +132,8 @@
 //     TestMigrate_Step0061DatesEachTitleAndSeriesByItsYear; step 0062 (D370), which keeps watched what
 //     was finished until it, in TestMigrate_Step0062KeepsWatchedWhatWasFinished; step 0068 (D416 §5) in
 //     TestMigrate_Step0068MakesEveryLibraryKindSingular; step 0069 (D426 §7), which renames as the
-//     API names, in TestMigrate_Step0069KeepsEveryRowUnderItsNewName.
+//     API names, in TestMigrate_Step0069KeepsEveryRowUnderItsNewName; step 0070 (D426 §9), which
+//     moves the telemetry to cache.db, in TestMigrate_Step0070MovesTheTelemetryToTheCache.
 //   - The schema keeps the rules D303 put in the engine: every table, both databases', STRICT; a
 //     title and a collection an item of their kind; an id at a source only with its source; a
 //     library's interval only for checking by interval; one sort key per item in each locale; the

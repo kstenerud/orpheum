@@ -201,7 +201,7 @@ func wholeReadsAllowed() map[string]string {
 		"ListLiveLibraryIDs":            few + "libraries; the identification sweep lists them",
 		"GetLiveLibraryByName":          few + "libraries; a name is checked when one is made or renamed",
 		"ListLibraries":                 few + "libraries",
-		"SummarizeResourceUse": "every row kept is what it sums: a minute's row for the core and each node, " +
+		"cache.SummarizeResourceUse": "every row kept is what it sums: a minute's row for the core and each node, " +
 			"pruned past a month, read when an admin opens the System page",
 		"ListWatchedLiveFiles": "every file anyone watched is what it lists, by the covering index of play " +
 			"position's files, once a minute, for their work's rung above the background (D324)",

@@ -3,7 +3,7 @@
 -- the version below differs from the file's user_version, the file is deleted and built again
 -- from this schema. Raise it on any change. Nothing here is referenced by persistent.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
--- cache schema version 46
+-- cache schema version 47
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -183,3 +183,53 @@ CREATE TABLE node_attempt (                                -- D234 section 7: wo
   sent_at     INTEGER NOT NULL
 ) STRICT;
 CREATE INDEX node_attempt_job ON node_attempt(job_id);
+
+-- Telemetry, written every minute or at each player's word: here, not in persistent.db, so the
+-- hourly backup can skip a persistent.db nothing changed (sql.md section 13, M8; D426 section 9).
+-- A discarded cache forgets them: a link is measured again, and the System page's hours start over.
+CREATE TABLE resource_use (                                 -- class C (toolkit.md); cache.db since step 0070 (D426 section 9)
+  -- When it was measured, by the core's clock, and whose: the core's own, or a node's by its name.
+  at           INTEGER NOT NULL,
+  process      TEXT NOT NULL CHECK (process IN ('core', 'node')),
+  node_name    TEXT NOT NULL DEFAULT '' CHECK ((process = 'node') = (node_name <> '')),
+  -- What was measured: 'cgroup', the process's group with what it started, a node's FFmpeg runs
+  -- among them; or 'process', the process alone (selfuse.Scope).
+  scope        TEXT NOT NULL CHECK (scope IN ('cgroup', 'process')),
+  -- The CPU time it used since its row before, in microseconds, over elapsed_ms of its own clock;
+  -- NULL for the first row after a start, or after a restart reset its counter.
+  cpu_micros   INTEGER CHECK (cpu_micros >= 0),
+  elapsed_ms   INTEGER CHECK (elapsed_ms > 0),
+  -- The memory it held, the files' pages kept for it, and the most it had held since its start;
+  -- peak_bytes NULL where the kernel does not say.
+  held_bytes   INTEGER NOT NULL CHECK (held_bytes >= 0),
+  cache_bytes  INTEGER NOT NULL CHECK (cache_bytes >= 0),
+  peak_bytes   INTEGER CHECK (peak_bytes >= 0),
+  -- What it was doing: on the core's row, the playbacks playing; on a node's, the work it was
+  -- running, as a JSON object of each kind of job's count, {"make_chunks":2}.
+  plays        INTEGER NOT NULL DEFAULT 0 CHECK (plays >= 0),
+  running_json TEXT NOT NULL DEFAULT '{}',
+  CHECK ((cpu_micros IS NULL) = (elapsed_ms IS NULL)),
+  PRIMARY KEY (at, process, node_name)
+) WITHOUT ROWID, STRICT;
+
+CREATE TABLE link_memory (                                  -- class C (D257 section 1); cache.db since step 0070 (D426 section 9)
+  -- Who measured it, "device 3" or a session with no device's "session <key>", and on which
+  -- network, the address the core saw its request come from, as clientnet.Of names it.
+  player           TEXT NOT NULL,
+  network          TEXT NOT NULL,
+  -- Its speed, kbit/s, and the spread of the natural logs of the samples it rested on; NULL while
+  -- it has said only its steadiness.
+  speed_kbps       INTEGER CHECK (speed_kbps > 0),
+  speed_log_spread REAL CHECK (speed_log_spread >= 0),
+  speed_at         INTEGER,
+  -- Its steadiness level (D352 section 3); NULL while it has said only its speed.
+  steadiness       INTEGER CHECK (steadiness BETWEEN 0 AND 3),
+  steadiness_at    INTEGER,
+  -- When it last said anything of the link, the later of the two: what a stale row is found by.
+  said_at          INTEGER NOT NULL,
+  CHECK ((speed_kbps IS NULL) = (speed_at IS NULL)),
+  CHECK ((steadiness IS NULL) = (steadiness_at IS NULL)),
+  CHECK (speed_at IS NOT NULL OR steadiness_at IS NOT NULL),
+  PRIMARY KEY (player, network)
+) WITHOUT ROWID, STRICT;
+CREATE INDEX link_memory_said ON link_memory(said_at);

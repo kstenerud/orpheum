@@ -17,7 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/selfuse"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store"
-	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
+	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
 
 // Every is how often the figures are recorded: a minute, short enough to show a play's or a run's
@@ -57,7 +57,7 @@ type Sources struct {
 // Recorder records, once a minute, what the core and each connected node used of their machines,
 // beside what they were doing, and reads it back for the System page.
 type Recorder struct {
-	database *store.Database
+	database *store.Cache
 	clock    clock.Clock
 	logger   *slog.Logger
 	sources  Sources
@@ -83,7 +83,7 @@ type reading struct {
 }
 
 // NewRecorder returns a recorder writing to database.
-func NewRecorder(database *store.Database, clockSource clock.Clock, logger *slog.Logger, sources Sources) *Recorder {
+func NewRecorder(database *store.Cache, clockSource clock.Clock, logger *slog.Logger, sources Sources) *Recorder {
 	return &Recorder{
 		database: database, clock: clockSource, logger: logger, sources: sources,
 		previous: map[processKey]reading{},
@@ -117,7 +117,7 @@ func (recorder *Recorder) Run(ctx context.Context, tick <-chan time.Time) {
 func (recorder *Recorder) Record(ctx context.Context) error {
 	now := recorder.clock.Now().UnixMilli()
 	rows := recorder.rows(ctx, now)
-	err := recorder.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+	err := recorder.database.Write(ctx, func(queries *cachegen.Queries) error {
 		if err := queries.DeleteResourceUseBefore(ctx, now-KeptFor.Milliseconds()); err != nil {
 			return fmt.Errorf("forget the old rows: %w", err)
 		}
@@ -136,14 +136,14 @@ func (recorder *Recorder) Record(ctx context.Context) error {
 
 // rows are the rows to record at now: the core's, when it can read its own, and each node's that
 // read anew since the last.
-func (recorder *Recorder) rows(ctx context.Context, now int64) []sqlcgen.InsertResourceUseParams {
+func (recorder *Recorder) rows(ctx context.Context, now int64) []cachegen.InsertResourceUseParams {
 	own, ownErr := recorder.sources.ReadOwn()
 	running := recorder.sources.Work.RunningKinds()
 	uses := recorder.sources.Nodes.SelfUses(ctx)
 	plays := int64(recorder.sources.Plays())
 	recorder.mutex.Lock()
 	defer recorder.mutex.Unlock()
-	var rows []sqlcgen.InsertResourceUseParams
+	var rows []cachegen.InsertResourceUseParams
 	if ownErr == nil {
 		core := recorder.row(processKey{process: processCore}, now, now, own)
 		core.Plays = plays
@@ -175,8 +175,8 @@ func (recorder *Recorder) rows(ctx context.Context, now int64) []sqlcgen.InsertR
 // last reading: none for its first, or when its counter went back, its process having restarted.
 func (recorder *Recorder) row(
 	key processKey, now, readAt int64, sample selfuse.Sample,
-) sqlcgen.InsertResourceUseParams {
-	row := sqlcgen.InsertResourceUseParams{
+) cachegen.InsertResourceUseParams {
+	row := cachegen.InsertResourceUseParams{
 		At: now, Process: key.process, NodeName: key.nodeName, Scope: string(sample.Scope),
 		HeldBytes: sample.HeldBytes, CacheBytes: sample.CacheBytes, RunningJSON: "{}",
 	}
