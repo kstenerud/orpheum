@@ -525,9 +525,9 @@ func pageOfIDs(t *testing.T, database *Database, query string) string {
 // seconds here while the dev library showed nothing (audit-2026-09-25).
 func checkPageBudgets(t *testing.T, database *Database) {
 	t.Helper()
-	filmIDs := pageOfIDs(t, database, "SELECT id FROM title WHERE kind = 'movie' ORDER BY id LIMIT 60")
+	filmIDs := pageOfIDs(t, database, "SELECT id FROM work WHERE kind = 'movie' ORDER BY id LIMIT 60")
 	var named []string
-	for _, row := range queryRows(t, database, "SELECT id FROM collection ORDER BY id LIMIT 60", 1) {
+	for _, row := range queryRows(t, database, "SELECT id FROM sequence ORDER BY id LIMIT 60", 1) {
 		named = append(named, "["+row[0]+",\"aired\"]")
 	}
 	orderings := "[" + strings.Join(named, ",") + "]"
@@ -582,15 +582,15 @@ func checkPageBudgets(t *testing.T, database *Database) {
 			return err //nolint:wrapcheck // a test
 		},
 		"a page of films' progress": func() error {
-			_, err := queries.ListTitlesPlayPositions(ctx, sqlcgen.ListTitlesPlayPositionsParams{
-				TitleIdsJSON: filmIDs, UserID: 1,
+			_, err := queries.ListWorksPlayPositions(ctx, sqlcgen.ListWorksPlayPositionsParams{
+				WorkIdsJSON: filmIDs, UserID: 1,
 			})
 			return err //nolint:wrapcheck // a test
 		},
 		// D370: a page's films' watched marks, read by their keys; D185 section 2 measured the same
 		// rollup computed from the plays at 0.84 ms.
 		"a page of films' watched marks": func() error {
-			_, err := queries.ListTitlesWatched(ctx, sqlcgen.ListTitlesWatchedParams{TitleIdsJSON: filmIDs, UserID: 1})
+			_, err := queries.ListWorksWatched(ctx, sqlcgen.ListWorksWatchedParams{WorkIdsJSON: filmIDs, UserID: 1})
 			return err //nolint:wrapcheck // a test
 		},
 		// A page of series' episodes with a file, and how many of them the person watched (D370 section 5).
@@ -603,7 +603,7 @@ func checkPageBudgets(t *testing.T, database *Database) {
 		},
 		"a series' episodes": func() error {
 			_, err := queries.ListSeriesEpisodeDetails(ctx, sqlcgen.ListSeriesEpisodeDetailsParams{
-				CollectionID: int64(refFilms) + 1, OrderingName: "aired", IsEveryLibrary: 1, LibraryIdsJSON: "[]",
+				SequenceID: int64(refFilms) + 1, OrderingName: "aired", IsEveryLibrary: 1, LibraryIdsJSON: "[]",
 			})
 			return err //nolint:wrapcheck // a test
 		},

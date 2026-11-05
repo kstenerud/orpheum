@@ -214,10 +214,10 @@ func (q *Queries) GetRoleByName(ctx context.Context, name string) (Role, error) 
 
 const getWatchStats = `-- name: GetWatchStats :one
 SELECT CAST(coalesce(sum(watching.watched_ms), 0) AS INTEGER) AS watched_ms,
-  count(DISTINCT watching.title_id) AS titles_watched_count,
+  count(DISTINCT watching.work_id) AS works_watched_count,
   CAST(coalesce(max(watching.last_watched_at), 0) AS INTEGER) AS last_watched_at
 FROM (
-  SELECT version.title_id, play_span.ended_at - play_span.started_at AS watched_ms,
+  SELECT version.work_id, play_span.ended_at - play_span.started_at AS watched_ms,
     play_span.ended_at AS last_watched_at
   FROM play_span
   LEFT JOIN file ON file.id = play_span.file_id
@@ -226,7 +226,7 @@ FROM (
     ORDER BY file_filing.library_kind = 'other', file_filing.library_kind LIMIT 1)
   WHERE play_span.user_id = ?1
   UNION ALL
-  SELECT version.title_id, purged_watching.watched_ms, purged_watching.last_watched_at
+  SELECT version.work_id, purged_watching.watched_ms, purged_watching.last_watched_at
   FROM purged_watching
   JOIN version ON version.id = purged_watching.version_id
   WHERE purged_watching.user_id = ?1
@@ -234,9 +234,9 @@ FROM (
 `
 
 type GetWatchStatsRow struct {
-	WatchedMs          int64
-	TitlesWatchedCount int64
-	LastWatchedAt      int64
+	WatchedMs         int64
+	WorksWatchedCount int64
+	LastWatchedAt     int64
 }
 
 // What a person has watched, for their page: time in spans, the titles they watched in, and when
@@ -244,7 +244,7 @@ type GetWatchStatsRow struct {
 func (q *Queries) GetWatchStats(ctx context.Context, userID int64) (GetWatchStatsRow, error) {
 	row := q.db.QueryRowContext(ctx, getWatchStats, userID)
 	var i GetWatchStatsRow
-	err := row.Scan(&i.WatchedMs, &i.TitlesWatchedCount, &i.LastWatchedAt)
+	err := row.Scan(&i.WatchedMs, &i.WorksWatchedCount, &i.LastWatchedAt)
 	return i, err
 }
 

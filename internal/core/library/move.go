@@ -52,7 +52,7 @@ func (admin *Admin) RetireFile(ctx context.Context, fileID int64) (Retired, erro
 		return Retired{}, fmt.Errorf("file %d: %w", fileID, ErrFileReadable)
 	}
 	return admin.retire(ctx, func(retire *retiring) error {
-		titleIDs, listErr := retire.queries.ListTitlesOfFileNoLibraryLists(ctx, fileID)
+		titleIDs, listErr := retire.queries.ListWorksOfFileNoLibraryLists(ctx, fileID)
 		if listErr != nil {
 			return fmt.Errorf("list file %d's titles: %w", fileID, listErr)
 		}
@@ -63,7 +63,7 @@ func (admin *Admin) RetireFile(ctx context.Context, fileID int64) (Retired, erro
 		retire.fileIDs = append(retire.fileIDs, removed...)
 		retire.tombstonedCount += len(removed)
 		// Its titles no library listed but by it are listed by none now.
-		gone, goneErr := retire.queries.ListTitlesOfFileNoLibraryLists(ctx, fileID)
+		gone, goneErr := retire.queries.ListWorksOfFileNoLibraryLists(ctx, fileID)
 		if goneErr != nil {
 			return fmt.Errorf("list file %d's titles: %w", fileID, goneErr)
 		}

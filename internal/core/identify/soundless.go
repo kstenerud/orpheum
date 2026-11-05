@@ -26,10 +26,10 @@ func (chooser *Chooser) FilmsWithoutSound(ctx context.Context) ([]FilmWithoutSou
 	}
 	films := make([]FilmWithoutSound, 0, len(rows))
 	for _, row := range rows {
-		if last := len(films) - 1; last >= 0 && films[last].TitleID == row.TitleID {
+		if last := len(films) - 1; last >= 0 && films[last].TitleID == row.WorkID {
 			continue
 		}
-		films = append(films, FilmWithoutSound{TitleID: row.TitleID, Name: row.TitleName})
+		films = append(films, FilmWithoutSound{TitleID: row.WorkID, Name: row.WorkName})
 	}
 	return films, nil
 }

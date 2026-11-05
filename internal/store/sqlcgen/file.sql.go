@@ -125,22 +125,22 @@ func (q *Queries) DeleteWholeHashesOfPurgedFiles(ctx context.Context, fileIdsJso
 }
 
 const getFileForSubtitleSearch = `-- name: GetFileForSubtitleSearch :one
-SELECT f.id, f.opensubtitles_hash, v.title_id, t.kind AS title_kind
+SELECT f.id, f.opensubtitles_hash, v.work_id, t.kind AS work_kind
 FROM file f
 LEFT JOIN version v ON v.id = (
   SELECT file_filing.version_id FROM file_filing
   CROSS JOIN version AS live ON live.id = file_filing.version_id AND live.removed_at IS NULL
   WHERE file_filing.file_id = f.id
   ORDER BY file_filing.library_kind = 'other', file_filing.library_kind LIMIT 1)
-LEFT JOIN title t ON t.id = v.title_id
+LEFT JOIN work t ON t.id = v.work_id
 WHERE f.id = ?1 AND f.removed_at IS NULL
 `
 
 type GetFileForSubtitleSearchRow struct {
 	ID                int64
 	OpensubtitlesHash *string
-	TitleID           *int64
-	TitleKind         *string
+	WorkID            *int64
+	WorkKind          *string
 }
 
 // A live video, what finds subtitles made for it (D224 section 3): its OpenSubtitles hash, and the
@@ -152,8 +152,8 @@ func (q *Queries) GetFileForSubtitleSearch(ctx context.Context, id int64) (GetFi
 	err := row.Scan(
 		&i.ID,
 		&i.OpensubtitlesHash,
-		&i.TitleID,
-		&i.TitleKind,
+		&i.WorkID,
+		&i.WorkKind,
 	)
 	return i, err
 }

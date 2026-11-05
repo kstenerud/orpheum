@@ -61,6 +61,6 @@ func (browser *Browser) Whereabouts(
 	if err != nil {
 		return Whereabouts{}, fmt.Errorf("read the film of extra %d: %w", itemID, err)
 	}
-	whereabouts.FilmOfExtra = &FilmOfExtra{ID: film.OwnerTitle, Name: ptr.ValueOrZero(film.Name)}
+	whereabouts.FilmOfExtra = &FilmOfExtra{ID: film.OwnerWork, Name: ptr.ValueOrZero(film.Name)}
 	return whereabouts, nil
 }

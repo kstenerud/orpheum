@@ -52,7 +52,7 @@ func (refresher *Refresher) QueueMissing(ctx context.Context) (int, error) {
 // §3.4), which the series' page says is under way. It says whether it queued one.
 func (refresher *Refresher) QueueChosenOrderings(ctx context.Context, seriesID int64) (bool, error) {
 	chosen, err := refresher.database.Read().ListChosenGroupsToFetch(ctx, sqlcgen.ListChosenGroupsToFetchParams{
-		Axis: preferences.AxisEpisodeOrdering, CollectionID: seriesID, Provider: new(FetchProvider),
+		Axis: preferences.AxisEpisodeOrdering, SequenceID: seriesID, Provider: new(FetchProvider),
 	})
 	if err != nil {
 		return false, fmt.Errorf("list the episode groups chosen in series %d: %w", seriesID, err)

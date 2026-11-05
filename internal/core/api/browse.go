@@ -257,18 +257,18 @@ func (server *Server) episodePageOutput(
 	nodeName := server.nodeNamer(ctx, dependencies)
 	for _, episode := range page.Episodes {
 		var unreadable *library.Unreadable
-		if why, isUnreadable := page.UnreadableByEpisodeID[episode.TitleID]; isUnreadable {
+		if why, isUnreadable := page.UnreadableByEpisodeID[episode.WorkID]; isUnreadable {
 			unreadable = &why
 		}
 		output.Body.Episodes = append(output.Body.Episodes, EpisodeBody{
 			Unavailable: unavailableBody(unreadable, nodeName),
-			ID:          episode.TitleID, SeasonNumber: ptr.ValueOrZero(episode.GroupNumber),
+			ID:          episode.WorkID, SeasonNumber: ptr.ValueOrZero(episode.GroupNumber),
 			EpisodeNumber: ptr.ValueOrZero(episode.NumberInGroup),
 			Name:          ptr.ValueOrZero(episode.Name),
 			Year:          ptr.ValueOrZero(episode.Year), RuntimeMs: ptr.ValueOrZero(episode.RuntimeMs),
 			IdentificationState: ptr.ValueOrZero(episode.IdentificationState),
-			HasLiveFile:         episode.Available, StillSha256: page.StillSha256ByEpisodeID[episode.TitleID],
-			IsWatched: page.IsWatchedByEpisodeID[episode.TitleID],
+			HasLiveFile:         episode.Available, StillSha256: page.StillSha256ByEpisodeID[episode.WorkID],
+			IsWatched: page.IsWatchedByEpisodeID[episode.WorkID],
 		})
 	}
 	output.Body.NextCursor = page.NextCursor

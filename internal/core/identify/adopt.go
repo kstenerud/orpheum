@@ -17,7 +17,7 @@ import (
 // writer only when there is one to adopt, and logs each.
 func (pass *Pass) adopt(ctx context.Context, libraryID int64) error {
 	queries := pass.database.Read()
-	titleIDs, err := queries.ListTitlesToAdopt(ctx, libraryID)
+	titleIDs, err := queries.ListWorksToAdopt(ctx, libraryID)
 	if err != nil {
 		return fmt.Errorf("list the titles library %d adopts: %w", libraryID, err)
 	}

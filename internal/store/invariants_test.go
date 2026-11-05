@@ -30,8 +30,8 @@ func TestCheckInvariants_NamesEachThatDoesNotHold(t *testing.T) {
 		"PRAGMA foreign_keys = OFF",
 		"INSERT INTO item (id, kind, added_at, removed_at, identification_state) "+
 			"VALUES (7, 'movie', 1, 2, 'unidentified')",
-		"INSERT INTO title (id, kind) VALUES (7, 'movie')",
-		"INSERT INTO version (id, title_id, created_at) VALUES (5, 7, 1)",
+		"INSERT INTO work (id, kind) VALUES (7, 'movie')",
+		"INSERT INTO version (id, work_id, created_at) VALUES (5, 7, 1)",
 		"INSERT INTO file (id, node_id, path, filing, first_seen_at, last_seen_at) "+
 			"VALUES (1, 1, '/m/f.mkv', 'video', 1, 1)",
 		"INSERT INTO file_filing (file_id, library_kind, filing, version_id) VALUES (1, 'movie', 'listed', 5)",

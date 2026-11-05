@@ -50,8 +50,8 @@ func TestTitle_MakesTheItemAndTheTitleRowTogether(t *testing.T) {
 	}
 	librarytest.Version(t, database, librarytest.VersionSpec{TitleID: titleID})
 	got := storetest.QueryRaw(t, database.Path(),
-		"SELECT title.kind, year, followed_source, followed_source_id, identification_state "+
-			"FROM title JOIN item ON item.id = title.id WHERE title.id = 10")
+		"SELECT work.kind, year, followed_source, followed_source_id, identification_state "+
+			"FROM work JOIN item ON item.id = work.id WHERE work.id = 10")
 	if want := []string{"movie|1995|tmdb|4801|identified"}; !slices.Equal(got, want) {
 		t.Errorf("title 10 = %v, want %v", got, want)
 	}
@@ -59,8 +59,8 @@ func TestTitle_MakesTheItemAndTheTitleRowTogether(t *testing.T) {
 	seriesID := librarytest.Title(t, database, librarytest.TitleSpec{Kind: "episode"})
 	librarytest.Version(t, database, librarytest.VersionSpec{TitleID: seriesID})
 	got = storetest.QueryRaw(t, database.Path(),
-		"SELECT title.kind, year, followed_source, identification_state "+
-			"FROM title JOIN item ON item.id = title.id WHERE title.id = "+itoa(seriesID))
+		"SELECT work.kind, year, followed_source, identification_state "+
+			"FROM work JOIN item ON item.id = work.id WHERE work.id = "+itoa(seriesID))
 	if want := []string{"episode|<nil>|<nil>|identified"}; !slices.Equal(got, want) {
 		t.Errorf("title %d (defaults) = %v, want %v", seriesID, got, want)
 	}
@@ -77,14 +77,14 @@ func TestVersion_LetsTheDatabaseChooseOrTakesAChosenID(t *testing.T) {
 	if chosen != 20 {
 		t.Fatalf("Version with ID 20 returned %d", chosen)
 	}
-	got := storetest.QueryRaw(t, database.Path(), "SELECT title_id, created_at, removed_at FROM version WHERE id = 20")
+	got := storetest.QueryRaw(t, database.Path(), "SELECT work_id, created_at, removed_at FROM version WHERE id = 20")
 	if want := []string{"10|3|<nil>"}; !slices.Equal(got, want) {
 		t.Errorf("version 20 = %v, want %v", got, want)
 	}
 
 	removed := librarytest.Version(t, database, librarytest.VersionSpec{TitleID: titleID, RemovedAt: 9})
 	got = storetest.QueryRaw(t, database.Path(),
-		"SELECT title_id, created_at, removed_at FROM version WHERE id = "+itoa(removed))
+		"SELECT work_id, created_at, removed_at FROM version WHERE id = "+itoa(removed))
 	if want := []string{"10|1|9"}; !slices.Equal(got, want) {
 		t.Errorf("removed version %d = %v, want %v", removed, got, want)
 	}

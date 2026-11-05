@@ -23,7 +23,7 @@ func TestPass_AFileNamedForItsFoldersTitleWithASuffixIsAnExtra(t *testing.T) {
 	files := lib.titlesByPath()
 	film := files["Quiet Harbour (1999)/Quiet Harbour (1999).mkv"]
 	featurette := files["Quiet Harbour (1999)/Quiet Harbour (1999)-featurette.mkv"]
-	if featurette.Kind != identify.KindExtra || featurette.TitleID == film.TitleID ||
+	if featurette.Kind != identify.KindExtra || featurette.WorkID == film.WorkID ||
 		featurette.Filing != identify.FilingExtra ||
 		ptr.ValueOrZero(featurette.FilingReason) != "featurette of Quiet Harbour (1999), by its name" {
 		t.Errorf("the featurette is %+v (%s); want an extra of the film, by its name", featurette,

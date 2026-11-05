@@ -23,13 +23,13 @@ func foundShelf(t *testing.T, database *Database) {
 		 (4, 'movie', 1, 1, 'identified'), (10, 'series', 1, 9, 'unidentified'),
 		 (11, 'episode', 1, 9, 'identified'), (12, 'episode', 1, 9, 'identified'),
 		 (20, 'series', 1, 1, 'unidentified'), (21, 'episode', 1, 1, 'identified')`,
-		`INSERT INTO title (id, kind) VALUES (1, 'movie'), (2, 'movie'), (3, 'movie'), (4, 'movie'),
+		`INSERT INTO work (id, kind) VALUES (1, 'movie'), (2, 'movie'), (3, 'movie'), (4, 'movie'),
 		 (11, 'episode'), (12, 'episode'), (21, 'episode')`,
-		`INSERT INTO collection (id, kind, created_by) VALUES (10, 'series', 'scanner'),
+		`INSERT INTO sequence (id, kind, created_by) VALUES (10, 'series', 'scanner'),
 		 (20, 'series', 'scanner')`,
-		`INSERT INTO collection_member (collection_id, member_title, position) VALUES (10, 11, 1), (10, 12, 2),
+		`INSERT INTO sequence_member (sequence_id, member_work, position) VALUES (10, 11, 1), (10, 12, 2),
 		 (20, 21, 1)`,
-		`INSERT INTO version (id, title_id, created_at) VALUES (1, 1, 1), (2, 2, 1), (3, 3, 1), (4, 4, 1),
+		`INSERT INTO version (id, work_id, created_at) VALUES (1, 1, 1), (2, 2, 1), (3, 3, 1), (4, 4, 1),
 		 (11, 11, 1), (12, 12, 1), (21, 21, 1)`,
 		// The first scan, at 100, found films 1 to 3 and the series' first episode; the second, at 200,
 		// film 4, whose file is older than any, and the other series' episode.
@@ -101,7 +101,7 @@ func TestFound_FilmsNewestFirstByTheScanThatFoundThemThenTheirFilesTime(t *testi
 	}
 	// A second version found later does not make a film new again; its first file gone, it is as new
 	// as the one it has left.
-	execRaw(t, database, `INSERT INTO version (id, title_id, created_at) VALUES (5, 1, 1)`,
+	execRaw(t, database, `INSERT INTO version (id, work_id, created_at) VALUES (5, 1, 1)`,
 		`INSERT INTO file (id, node_id, path, reported_path_raw, modified_at, filing, first_seen_at, last_seen_at)
 		 VALUES (5, 1, '/m/1-4k.mkv', CAST('/m/1-4k.mkv' AS BLOB), 60, 'video', 300, 300)`,
 		`INSERT INTO file_filing (file_id, library_kind, filing, version_id) VALUES (5, 'movie', 'listed', 5)`)
@@ -134,8 +134,8 @@ func TestFound_ASeriesIsAsNewAsItsNewestEpisode(t *testing.T) {
 	if got, want := newestSeries(t, database), "[20 10]"; got != want {
 		t.Errorf("with that episode's file gone = %s; want %s", got, want)
 	}
-	execRaw(t, database, `DELETE FROM collection_member WHERE collection_id = 20`,
-		`INSERT INTO collection_member (collection_id, member_title, position) VALUES (10, 21, 3)`)
+	execRaw(t, database, `DELETE FROM sequence_member WHERE sequence_id = 20`,
+		`INSERT INTO sequence_member (sequence_id, member_work, position) VALUES (10, 21, 3)`)
 	got := fmt.Sprint(queryRows(t, database, "SELECT id, found_at FROM item WHERE kind = 'series' ORDER BY id", 2))
 	if want := "[[10 200] [20 0]]"; got != want {
 		t.Errorf("with series 20's episode moved to 10 = %s; want %s", got, want)

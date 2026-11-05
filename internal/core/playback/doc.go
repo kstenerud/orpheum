@@ -137,7 +137,7 @@
 //     video the file is filed as watched, never an extra, and never a report of unattended watching or
 //     a far position in a file of unknown length; playing it again keeps it watched. A mark by hand
 //     marks titles watched, or unwatched, and answers with each one's mark before, which
-//     RestoreWatched puts back: its Undo (§4). Only this package writes title_watched
+//     RestoreWatched puts back: its Undo (§4). Only this package writes work_watched
 //     (TestArch_EachTableHasOneWritingPackage). Enforced by
 //     TestWatched_APlayToItsFinishMarksItWatchedAndARestartKeepsIt and
 //     TestWatched_AMarkByHandIsAFreshStartAndUndoPutsItBack (internal/core/api).

@@ -137,9 +137,11 @@
 //     (D426 §8), which drops the dead schema, in TestMigrate_Step0071DropsTheDeadSchemaAndKeepsEveryRow;
 //     step 0072 (D426 §2), which puts an item's kind and the columns every kind shares on the item, in
 //     TestMigrate_Step0072MovesTheKindAndSharedColumnsToTheItem; step 0073 (D427), which brings
-//     link_memory back to persistent.db, in TestMigrate_Step0073BringsThePlayersLinkBackToPersistent.
+//     link_memory back to persistent.db, in TestMigrate_Step0073BringsThePlayersLinkBackToPersistent;
+//     step 0074 (D426 §3), which renames title to work and collection to sequence, in
+//     TestMigrate_Step0074KeepsEveryRowUnderWorkAndSequence.
 //   - The schema keeps the rules D303 put in the engine: every table, both databases', STRICT; a
-//     title and a collection an item of their kind; an id at a source only with its source; a
+//     work and a sequence an item of their kind; an id at a source only with its source; a
 //     library's interval only for checking by interval; one sort key per item in each locale; the
 //     full-text indexes rewritten only on change; an index for each path a query takes. Enforced by
 //     TestSchema_EveryTableIsStrict, TestSchema_RefusesRowsThatBreakTheirRules,

@@ -21,7 +21,7 @@ WHERE sort_key.locale = sqlc.arg(locale) AND sort_key.listing = 'movie' AND item
   AND (sort_key.collation_key > sqlc.arg(after_key) OR (sort_key.collation_key = sqlc.arg(after_key) AND sort_key.item_id > sqlc.arg(after_id)))
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = item.id AND version.removed_at IS NULL
+    WHERE version.work_id = item.id AND version.removed_at IS NULL
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
   )
@@ -43,7 +43,7 @@ WHERE item.kind = 'movie' AND item.removed_at IS NULL
     < (sqlc.arg(before_found_at), sqlc.arg(before_modified_at), sqlc.arg(before_id))
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = item.id AND version.removed_at IS NULL
+    WHERE version.work_id = item.id AND version.removed_at IS NULL
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
   )
@@ -61,10 +61,10 @@ LEFT JOIN item_text ON item_text.item_id = sort_key.item_id AND item_text.is_ori
 WHERE sort_key.locale = sqlc.arg(locale) AND sort_key.listing = 'series' AND item.removed_at IS NULL
   AND (sort_key.collation_key > sqlc.arg(after_key) OR (sort_key.collation_key = sqlc.arg(after_key) AND sort_key.item_id > sqlc.arg(after_id)))
   AND EXISTS (
-    SELECT 1 FROM collection_member
-    CROSS JOIN version ON version.title_id = collection_member.member_title
+    SELECT 1 FROM sequence_member
+    CROSS JOIN version ON version.work_id = sequence_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE collection_member.collection_id = item.id AND version.removed_at IS NULL
+    WHERE sequence_member.sequence_id = item.id AND version.removed_at IS NULL
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
   )
@@ -85,10 +85,10 @@ WHERE item.kind = 'series' AND item.removed_at IS NULL
   AND (item.found_at, item.found_file_modified_at, item.id)
     < (sqlc.arg(before_found_at), sqlc.arg(before_modified_at), sqlc.arg(before_id))
   AND EXISTS (
-    SELECT 1 FROM collection_member
-    CROSS JOIN version ON version.title_id = collection_member.member_title
+    SELECT 1 FROM sequence_member
+    CROSS JOIN version ON version.work_id = sequence_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE collection_member.collection_id = item.id AND version.removed_at IS NULL
+    WHERE sequence_member.sequence_id = item.id AND version.removed_at IS NULL
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
   )
@@ -97,20 +97,20 @@ WHERE item.kind = 'series' AND item.removed_at IS NULL
 ORDER BY item.found_at DESC, item.found_file_modified_at DESC, item.id DESC
 LIMIT sqlc.arg(max_rows);
 
--- name: GetTitleDetail :one
+-- name: GetWorkDetail :one
 -- A title, with a failure of its own to be fetched and a person's refresh waiting (D231 section 4).
-SELECT title.id, title.kind, item.year, title.runtime_ms, item.identification_state, item.followed_source, item.followed_source_id,
+SELECT work.id, work.kind, item.year, work.runtime_ms, item.identification_state, item.followed_source, item.followed_source_id,
   item.added_at, item_text.name, item_text.overview, item_text.tagline,
   fetch_failure.failure AS fetch_failure, fetch_failure.failed_at AS fetch_failed_at,
   refresh_request.requested_at AS refresh_requested_at, EXISTS (SELECT 1 FROM guessed_match WHERE guessed_match.item_id = item.id) AS is_guessed
-FROM title
-JOIN item ON item.id = title.id
-LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
-LEFT JOIN fetch_failure ON fetch_failure.item_id = title.id
-LEFT JOIN refresh_request ON refresh_request.item_id = title.id
-WHERE title.id = sqlc.arg(id) AND item.removed_at IS NULL;
+FROM work
+JOIN item ON item.id = work.id
+LEFT JOIN item_text ON item_text.item_id = work.id AND item_text.is_original = 1
+LEFT JOIN fetch_failure ON fetch_failure.item_id = work.id
+LEFT JOIN refresh_request ON refresh_request.item_id = work.id
+WHERE work.id = sqlc.arg(id) AND item.removed_at IS NULL;
 
--- name: ListTitleFiles :many
+-- name: ListWorkFiles :many
 -- A title's versions and their live files, a version's parts in order, each file at each of its live
 -- places a library of the title's kind covers that its caller reaches, its first place first (D363
 -- section 8): a version none of whose files they reach is not listed, nor is a place they do not.
@@ -120,7 +120,7 @@ FROM version
 CROSS JOIN file_filing ON file_filing.version_id = version.id
 CROSS JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
 CROSS JOIN file AS place ON (place.id = file.id OR place.copy_of = file.id) AND place.removed_at IS NULL
-WHERE version.title_id = sqlc.arg(title_id) AND version.removed_at IS NULL
+WHERE version.work_id = sqlc.arg(work_id) AND version.removed_at IS NULL
   AND EXISTS (
     SELECT 1 FROM place_library WHERE place_library.place_id = place.id
       AND place_library.library_kind = file_filing.library_kind
@@ -134,27 +134,27 @@ FROM stream
 WHERE video_file = sqlc.arg(video_file)
 ORDER BY kind, stream_index;
 
--- name: ListTitleExtras :many
-SELECT extra_relation.extra_title, extra_relation.extra_type, item_text.name
+-- name: ListWorkExtras :many
+SELECT extra_relation.extra_work, extra_relation.extra_type, item_text.name
 FROM extra_relation
-JOIN item ON item.id = extra_relation.extra_title
-LEFT JOIN item_text ON item_text.item_id = extra_relation.extra_title AND item_text.is_original = 1
-WHERE extra_relation.owner_title = sqlc.arg(owner_title) AND item.removed_at IS NULL
+JOIN item ON item.id = extra_relation.extra_work
+LEFT JOIN item_text ON item_text.item_id = extra_relation.extra_work AND item_text.is_original = 1
+WHERE extra_relation.owner_work = sqlc.arg(owner_work) AND item.removed_at IS NULL
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = extra_relation.extra_title AND version.removed_at IS NULL
+    WHERE version.work_id = extra_relation.extra_work AND version.removed_at IS NULL
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
   )
-ORDER BY extra_relation.extra_title;
+ORDER BY extra_relation.extra_work;
 
 -- name: GetEpisodePlace :one
 -- An episode's series and its place in the aired order.
-SELECT ordering.collection_id, position.group_number, position.number_in_group, item_text.name AS series_name
+SELECT ordering.sequence_id, position.group_number, position.number_in_group, item_text.name AS series_name
 FROM position
 JOIN ordering ON ordering.id = position.ordering_id
-LEFT JOIN item_text ON item_text.item_id = ordering.collection_id AND item_text.is_original = 1
-WHERE position.title_id = sqlc.arg(title_id) AND ordering.name = 'aired';
+LEFT JOIN item_text ON item_text.item_id = ordering.sequence_id AND item_text.is_original = 1
+WHERE position.work_id = sqlc.arg(work_id) AND ordering.name = 'aired';
 
 -- name: GetPlaceInOrdering :one
 -- A member's place in one of its collection's named orderings (D96, D159): its group and number in
@@ -171,70 +171,70 @@ SELECT position.group_number, position.number_in_group,
   ), '') AS TEXT) AS group_name
 FROM ordering
 JOIN position ON position.ordering_id = ordering.id
-WHERE ordering.collection_id = sqlc.arg(collection_id) AND ordering.name = sqlc.arg(ordering_name)
-  AND position.title_id = sqlc.arg(title_id);
+WHERE ordering.sequence_id = sqlc.arg(sequence_id) AND ordering.name = sqlc.arg(ordering_name)
+  AND position.work_id = sqlc.arg(work_id);
 
 -- name: ListChosenOrderings :many
 -- The ordering a person chose to watch each of some series in (D159 section 1), a preference at the
 -- series' work scope, when the series still has it; a series they chose none for, or one it no
 -- longer has, is not listed.
-SELECT ordering.collection_id, ordering.name
-FROM json_each(CAST(sqlc.arg(collection_ids_json) AS TEXT)) AS chosen
+SELECT ordering.sequence_id, ordering.name
+FROM json_each(CAST(sqlc.arg(sequence_ids_json) AS TEXT)) AS chosen
 JOIN preference ON preference.user_id = sqlc.arg(user_id) AND preference.scope = 'work'
   AND preference.scope_id = chosen.value AND preference.axis = sqlc.arg(axis)
-JOIN ordering ON ordering.collection_id = preference.scope_id
+JOIN ordering ON ordering.sequence_id = preference.scope_id
   AND ordering.name = CAST(json_extract(preference.value_json, '$') AS TEXT);
 
 -- name: GetSeriesDetail :one
 -- A series, with a failure of its own to be fetched and a person's refresh waiting (D231 section 4).
-SELECT collection.id, item.year, item.identification_state, item.followed_source, item.followed_source_id,
+SELECT sequence.id, item.year, item.identification_state, item.followed_source, item.followed_source_id,
   item_text.name, item_text.overview,
   fetch_failure.failure AS fetch_failure, fetch_failure.failed_at AS fetch_failed_at,
   refresh_request.requested_at AS refresh_requested_at, EXISTS (SELECT 1 FROM guessed_match WHERE guessed_match.item_id = item.id) AS is_guessed
-FROM collection
-JOIN item ON item.id = collection.id
-LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_original = 1
-LEFT JOIN fetch_failure ON fetch_failure.item_id = collection.id
-LEFT JOIN refresh_request ON refresh_request.item_id = collection.id
-WHERE collection.id = sqlc.arg(id) AND collection.kind = 'series' AND item.removed_at IS NULL;
+FROM sequence
+JOIN item ON item.id = sequence.id
+LEFT JOIN item_text ON item_text.item_id = sequence.id AND item_text.is_original = 1
+LEFT JOIN fetch_failure ON fetch_failure.item_id = sequence.id
+LEFT JOIN refresh_request ON refresh_request.item_id = sequence.id
+WHERE sequence.id = sqlc.arg(id) AND sequence.kind = 'series' AND item.removed_at IS NULL;
 
 -- name: ListSeriesEpisodeDetails :many
 -- A series' episodes in one of its named orderings (D159; the one its person watches in), each
 -- with whether it has a live file.
-SELECT position.title_id, position.group_number, position.number_in_group, item_text.name, item.year, title.runtime_ms,
+SELECT position.work_id, position.group_number, position.number_in_group, item_text.name, item.year, work.runtime_ms,
   item.identification_state,
   EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = position.title_id AND version.removed_at IS NULL
+    WHERE version.work_id = position.work_id AND version.removed_at IS NULL
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
   ) AS available
 FROM position
 JOIN ordering ON ordering.id = position.ordering_id
-JOIN title ON title.id = position.title_id
-JOIN item ON item.id = title.id
-LEFT JOIN item_text ON item_text.item_id = position.title_id AND item_text.is_original = 1
-WHERE ordering.collection_id = sqlc.arg(collection_id) AND ordering.name = sqlc.arg(ordering_name) AND item.removed_at IS NULL
+JOIN work ON work.id = position.work_id
+JOIN item ON item.id = work.id
+LEFT JOIN item_text ON item_text.item_id = position.work_id AND item_text.is_original = 1
+WHERE ordering.sequence_id = sqlc.arg(sequence_id) AND ordering.name = sqlc.arg(ordering_name) AND item.removed_at IS NULL
 ORDER BY position.sort_order;
 
 -- name: ListSeasonEpisodeDetails :many
 -- A page of one season's episodes, a group of one of the series' named orderings (D159; the one its
 -- person watches in), after the episode at after_sort_order, each with whether it has a live file;
 -- aired's season 0 holds the specials and the episodes with no season.
-SELECT position.title_id, position.group_number, position.number_in_group, position.sort_order, item_text.name,
-  item.year, title.runtime_ms, item.identification_state,
+SELECT position.work_id, position.group_number, position.number_in_group, position.sort_order, item_text.name,
+  item.year, work.runtime_ms, item.identification_state,
   EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = position.title_id AND version.removed_at IS NULL
+    WHERE version.work_id = position.work_id AND version.removed_at IS NULL
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
   ) AS available
 FROM position
 JOIN ordering ON ordering.id = position.ordering_id
-JOIN title ON title.id = position.title_id
-JOIN item ON item.id = title.id
-LEFT JOIN item_text ON item_text.item_id = position.title_id AND item_text.is_original = 1
-WHERE ordering.collection_id = sqlc.arg(collection_id) AND ordering.name = sqlc.arg(ordering_name) AND item.removed_at IS NULL
+JOIN work ON work.id = position.work_id
+JOIN item ON item.id = work.id
+LEFT JOIN item_text ON item_text.item_id = position.work_id AND item_text.is_original = 1
+WHERE ordering.sequence_id = sqlc.arg(sequence_id) AND ordering.name = sqlc.arg(ordering_name) AND item.removed_at IS NULL
   AND coalesce(position.group_number, 0) = CAST(sqlc.arg(season_number) AS INTEGER)
   AND position.sort_order > sqlc.arg(after_sort_order)
 ORDER BY position.sort_order
@@ -246,15 +246,15 @@ LIMIT sqlc.arg(max_rows);
 -- how many episodes the provider lists in it, how many of the series' live episodes it holds, and
 -- whether it is a provider's group whose contents are not fetched yet.
 SELECT ordering.name, ordering.kind, ordering.label, ordering.listed_count,
-  (SELECT count(*) FROM position JOIN item ON item.id = position.title_id AND item.removed_at IS NULL
+  (SELECT count(*) FROM position JOIN item ON item.id = position.work_id AND item.removed_at IS NULL
    WHERE position.ordering_id = ordering.id) AS episode_count,
   CAST(ordering.source_id IS NOT NULL AND NOT EXISTS (
     SELECT 1 FROM provider_response
-    WHERE provider_response.item_id = ordering.collection_id AND provider_response.provider = ordering.provider
+    WHERE provider_response.item_id = ordering.sequence_id AND provider_response.provider = ordering.provider
       AND provider_response.part = 'episode_group/' || ordering.source_id
   ) AS INTEGER) AS is_awaiting_fetch
 FROM ordering
-WHERE ordering.collection_id = sqlc.arg(collection_id)
+WHERE ordering.sequence_id = sqlc.arg(sequence_id)
 ORDER BY ordering.name <> 'aired', ordering.provider IS NULL, coalesce(ordering.label, ordering.name), ordering.id;
 
 -- name: ListOrderingGroupNames :many
@@ -263,32 +263,32 @@ ORDER BY ordering.name <> 'aired', ordering.provider IS NULL, coalesce(ordering.
 SELECT group_text.group_number, CAST(group_text.name AS TEXT) AS name
 FROM ordering
 JOIN group_text ON group_text.ordering_id = ordering.id AND group_text.name IS NOT NULL
-WHERE ordering.collection_id = sqlc.arg(collection_id) AND ordering.name = sqlc.arg(ordering_name)
+WHERE ordering.sequence_id = sqlc.arg(sequence_id) AND ordering.name = sqlc.arg(ordering_name)
 ORDER BY group_text.group_number, group_text.language;
 
 -- name: ListEpisodesNotInOrdering :many
 -- A page of a series' episodes that one of its orderings leaves out, in aired order, which every
 -- episode is in, after the one at after_sort_order, each at its aired place and with whether it has
 -- a live file: what its page lists under "Not in this order" (episode-orderings.md section 7, Q4).
-SELECT aired.title_id, aired.group_number, aired.number_in_group, aired.sort_order, item_text.name,
-  item.year, title.runtime_ms, item.identification_state,
+SELECT aired.work_id, aired.group_number, aired.number_in_group, aired.sort_order, item_text.name,
+  item.year, work.runtime_ms, item.identification_state,
   EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = aired.title_id AND version.removed_at IS NULL
+    WHERE version.work_id = aired.work_id AND version.removed_at IS NULL
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
   ) AS available
 FROM ordering AS aired_ordering
 JOIN position AS aired ON aired.ordering_id = aired_ordering.id
-JOIN title ON title.id = aired.title_id
-JOIN item ON item.id = title.id
-LEFT JOIN item_text ON item_text.item_id = aired.title_id AND item_text.is_original = 1
-WHERE aired_ordering.collection_id = sqlc.arg(collection_id) AND aired_ordering.name = 'aired'
+JOIN work ON work.id = aired.work_id
+JOIN item ON item.id = work.id
+LEFT JOIN item_text ON item_text.item_id = aired.work_id AND item_text.is_original = 1
+WHERE aired_ordering.sequence_id = sqlc.arg(sequence_id) AND aired_ordering.name = 'aired'
   AND item.removed_at IS NULL
   AND NOT EXISTS (
     SELECT 1 FROM ordering AS chosen JOIN position AS there ON there.ordering_id = chosen.id
-    WHERE chosen.collection_id = aired_ordering.collection_id AND chosen.name = sqlc.arg(ordering_name)
-      AND there.title_id = aired.title_id
+    WHERE chosen.sequence_id = aired_ordering.sequence_id AND chosen.name = sqlc.arg(ordering_name)
+      AND there.work_id = aired.work_id
   )
   AND aired.sort_order > sqlc.arg(after_sort_order)
 ORDER BY aired.sort_order
@@ -299,76 +299,76 @@ LIMIT sqlc.arg(max_rows);
 SELECT count(*)
 FROM ordering AS aired_ordering
 JOIN position AS aired ON aired.ordering_id = aired_ordering.id
-JOIN item ON item.id = aired.title_id AND item.removed_at IS NULL
-WHERE aired_ordering.collection_id = sqlc.arg(collection_id) AND aired_ordering.name = 'aired'
+JOIN item ON item.id = aired.work_id AND item.removed_at IS NULL
+WHERE aired_ordering.sequence_id = sqlc.arg(sequence_id) AND aired_ordering.name = 'aired'
   AND NOT EXISTS (
     SELECT 1 FROM ordering AS chosen JOIN position AS there ON there.ordering_id = chosen.id
-    WHERE chosen.collection_id = aired_ordering.collection_id AND chosen.name = sqlc.arg(ordering_name)
-      AND there.title_id = aired.title_id
+    WHERE chosen.sequence_id = aired_ordering.sequence_id AND chosen.name = sqlc.arg(ordering_name)
+      AND there.work_id = aired.work_id
   );
 
--- name: ListLiveFileLocationsOfTitles :many
+-- name: ListLiveFileLocationsOfWorks :many
 -- Where each of some titles' live playable files is: each place its caller reaches, its node and the
 -- path it reported, for whether any can be read now (D241 section 3, D363 section 8).
-SELECT version.title_id AS item_id, place.node_id, place.reported_path_raw,
+SELECT version.work_id AS item_id, place.node_id, place.reported_path_raw,
   CAST(file.payload_hash IS NULL AS INTEGER) AS is_unread
 FROM version
 CROSS JOIN version_library ON version_library.version_id = version.id
 CROSS JOIN file ON file.id = version_library.file_id
 CROSS JOIN file AS place ON place.id = version_library.place_id
-WHERE version.title_id IN (SELECT value FROM json_each(CAST(sqlc.arg(item_id_list_json) AS TEXT)))
+WHERE version.work_id IN (SELECT value FROM json_each(CAST(sqlc.arg(item_id_list_json) AS TEXT)))
   AND version.removed_at IS NULL AND file.filing = 'video'
   AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
-ORDER BY version.title_id, place.id;
+ORDER BY version.work_id, place.id;
 
 -- name: ListLiveFileLocationsOfSeries :many
 -- Where each of some series' episodes' live playable files is, by the series: each place its caller
 -- reaches.
-SELECT ordering.collection_id AS item_id, place.node_id, place.reported_path_raw,
+SELECT ordering.sequence_id AS item_id, place.node_id, place.reported_path_raw,
   CAST(file.payload_hash IS NULL AS INTEGER) AS is_unread
 FROM ordering
 JOIN position ON position.ordering_id = ordering.id
-JOIN version ON version.title_id = position.title_id AND version.removed_at IS NULL
+JOIN version ON version.work_id = position.work_id AND version.removed_at IS NULL
 CROSS JOIN version_library ON version_library.version_id = version.id
 CROSS JOIN file ON file.id = version_library.file_id
 CROSS JOIN file AS place ON place.id = version_library.place_id
-WHERE ordering.collection_id IN (SELECT value FROM json_each(CAST(sqlc.arg(item_id_list_json) AS TEXT)))
+WHERE ordering.sequence_id IN (SELECT value FROM json_each(CAST(sqlc.arg(item_id_list_json) AS TEXT)))
   AND ordering.name = 'aired' AND file.filing = 'video'
   AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
-ORDER BY ordering.collection_id, place.id;
+ORDER BY ordering.sequence_id, place.id;
 
 -- name: IsItemReached :one
 -- Whether a library its caller reaches lists an item: a title one of whose versions it lists, or a
 -- series one of whose episodes' it does (D243 section 4, D363 section 8).
 SELECT CAST(EXISTS (
   SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-  WHERE version.title_id = sqlc.arg(item_id) AND version.removed_at IS NULL
+  WHERE version.work_id = sqlc.arg(item_id) AND version.removed_at IS NULL
     AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
 ) OR EXISTS (
-  SELECT 1 FROM collection_member
-  CROSS JOIN version ON version.title_id = collection_member.member_title
+  SELECT 1 FROM sequence_member
+  CROSS JOIN version ON version.work_id = sequence_member.member_work
   CROSS JOIN version_library ON version_library.version_id = version.id
-  WHERE collection_member.collection_id = sqlc.arg(item_id) AND version.removed_at IS NULL
+  WHERE sequence_member.sequence_id = sqlc.arg(item_id) AND version.removed_at IS NULL
     AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
 ) AS INTEGER) AS is_reached;
 
--- name: GetTitleOfFile :one
+-- name: GetFilesWork :one
 -- What a file is, for now playing and a cast's remote: its title, its kind and name when one is
 -- filed, a film's or an episode's before an other video's (D363 section 5), its first place's path,
 -- and how long it plays, 0 before it is probed.
-SELECT file.path, title.id AS title_id, title.kind AS title_kind, item_text.name,
+SELECT file.path, work.id AS work_id, work.kind AS work_kind, item_text.name,
   CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
     AS duration_ms
 FROM file
 LEFT JOIN version ON version.id = (
   SELECT file_filing.version_id FROM file_filing WHERE file_filing.file_id = file.id AND file_filing.version_id IS NOT NULL
   ORDER BY file_filing.library_kind = 'other', file_filing.library_kind LIMIT 1)
-LEFT JOIN title ON title.id = version.title_id
-LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
+LEFT JOIN work ON work.id = version.work_id
+LEFT JOIN item_text ON item_text.item_id = work.id AND item_text.is_original = 1
 WHERE file.id = sqlc.arg(id);
 
 -- name: ListLibrariesOfFile :many
@@ -379,14 +379,14 @@ FROM place_library
 WHERE place_library.place_id = sqlc.arg(file_id) OR place_library.copy_of = sqlc.arg(file_id)
 ORDER BY place_library.library_id;
 
--- name: ListUnreadFilesOfTitle :many
+-- name: ListUnreadFilesOfWork :many
 -- A title's live videos its listing stored that are not read yet, by where each is, for a person
 -- who opened its page to have them read first (D304 section 4).
 SELECT file.id, file.node_id, file.reported_path_raw
 FROM version
 CROSS JOIN file_filing ON file_filing.version_id = version.id
 CROSS JOIN file ON file.id = file_filing.file_id
-WHERE version.title_id = sqlc.arg(title_id) AND version.removed_at IS NULL AND file.removed_at IS NULL
+WHERE version.work_id = sqlc.arg(work_id) AND version.removed_at IS NULL AND file.removed_at IS NULL
   AND file.payload_hash IS NULL AND file.sidecar_kind IS NULL
 ORDER BY file.id;
 
@@ -399,23 +399,23 @@ ORDER BY file.id;
 -- name, which its Next Up shows; and when the person watched it, NULL while they have not, and last
 -- marked it by hand (D370). A member's files come as its page lists them, so the first is the one its
 -- page plays first.
-SELECT position.title_id, CAST(coalesce(position.group_number, 0) AS INTEGER) AS group_number,
+SELECT position.work_id, CAST(coalesce(position.group_number, 0) AS INTEGER) AS group_number,
   CAST(coalesce(position.number_in_group, 0) AS INTEGER) AS number_in_group,
   CAST(coalesce(item_text.name, '') AS TEXT) AS name,
   file.id AS file_id,
   CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
     AS duration_ms,
-  play_position.position_ms, play_position.position_read_at, title_watched.watched_at, title_watched.marked_at
+  play_position.position_ms, play_position.position_read_at, work_watched.watched_at, work_watched.marked_at
 FROM ordering
 JOIN position ON position.ordering_id = ordering.id
-JOIN item ON item.id = position.title_id AND item.removed_at IS NULL
-JOIN version ON version.title_id = position.title_id AND version.removed_at IS NULL
+JOIN item ON item.id = position.work_id AND item.removed_at IS NULL
+JOIN version ON version.work_id = position.work_id AND version.removed_at IS NULL
 JOIN file_filing ON file_filing.version_id = version.id AND file_filing.filing IN ('listed', 'unidentified')
 JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
-LEFT JOIN item_text ON item_text.item_id = position.title_id AND item_text.is_original = 1
+LEFT JOIN item_text ON item_text.item_id = position.work_id AND item_text.is_original = 1
 LEFT JOIN play_position ON play_position.file_id = file.id AND play_position.user_id = sqlc.arg(user_id)
-LEFT JOIN title_watched ON title_watched.user_id = sqlc.arg(user_id) AND title_watched.title_id = position.title_id
-WHERE ordering.collection_id = sqlc.arg(collection_id) AND ordering.name = sqlc.arg(ordering_name)
+LEFT JOIN work_watched ON work_watched.user_id = sqlc.arg(user_id) AND work_watched.work_id = position.work_id
+WHERE ordering.sequence_id = sqlc.arg(sequence_id) AND ordering.name = sqlc.arg(ordering_name)
   AND EXISTS (
     SELECT 1 FROM version_library WHERE version_library.version_id = version.id
       AND version_library.file_id = file.id
@@ -429,25 +429,25 @@ ORDER BY position.sort_order, version.id, file_filing.part_index, file.id;
 -- section 5): a series' episodes in the ordering its person watches it in, which its progress counts.
 -- Each ordering is named [collection id, name]; the page's orderings drive, in this order, by CROSS
 -- JOIN, and each member's mark is read by its key.
-SELECT ordering.collection_id, count(*) AS member_count,
+SELECT ordering.sequence_id, count(*) AS member_count,
   CAST(sum(EXISTS (
-    SELECT 1 FROM title_watched WHERE title_watched.user_id = sqlc.arg(user_id)
-      AND title_watched.title_id = position.title_id AND title_watched.watched_at IS NOT NULL
+    SELECT 1 FROM work_watched WHERE work_watched.user_id = sqlc.arg(user_id)
+      AND work_watched.work_id = position.work_id AND work_watched.watched_at IS NOT NULL
   )) AS INTEGER) AS watched_count
 FROM json_each(CAST(sqlc.arg(orderings_json) AS TEXT)) AS named
-CROSS JOIN ordering ON ordering.collection_id = json_extract(named.value, '$[0]')
+CROSS JOIN ordering ON ordering.sequence_id = json_extract(named.value, '$[0]')
   AND ordering.name = json_extract(named.value, '$[1]')
 CROSS JOIN position ON position.ordering_id = ordering.id
-CROSS JOIN item ON item.id = position.title_id AND item.removed_at IS NULL
+CROSS JOIN item ON item.id = position.work_id AND item.removed_at IS NULL
 WHERE EXISTS (
   SELECT 1 FROM version CROSS JOIN file_filing ON file_filing.version_id = version.id
   CROSS JOIN version_library ON version_library.version_id = version.id AND version_library.file_id = file_filing.file_id
-  WHERE version.title_id = position.title_id AND version.removed_at IS NULL
+  WHERE version.work_id = position.work_id AND version.removed_at IS NULL
     AND file_filing.filing IN ('listed', 'unidentified')
     AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
 )
-GROUP BY ordering.collection_id;
+GROUP BY ordering.sequence_id;
 
 -- name: ListOtherByName :many
 -- Other videos by name in the locale (D349), as films by name are.
@@ -456,12 +456,12 @@ SELECT sort_key.item_id, sort_key.collation_key, item_text.name, item.identifica
 FROM sort_key
 JOIN item ON item.id = sort_key.item_id
 LEFT JOIN item_text ON item_text.item_id = sort_key.item_id AND item_text.is_original = 1
-LEFT JOIN other_video ON other_video.title_id = sort_key.item_id
+LEFT JOIN other_video ON other_video.work_id = sort_key.item_id
 WHERE sort_key.locale = sqlc.arg(locale) AND sort_key.listing = 'other' AND item.removed_at IS NULL
   AND (sort_key.collation_key > sqlc.arg(after_key) OR (sort_key.collation_key = sqlc.arg(after_key) AND sort_key.item_id > sqlc.arg(after_id)))
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = item.id AND version.removed_at IS NULL
+    WHERE version.work_id = item.id AND version.removed_at IS NULL
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
   )
@@ -477,13 +477,13 @@ SELECT item.id AS item_id, item_text.name, item.identification_state, item.added
   other_video.file_name
 FROM item
 LEFT JOIN item_text ON item_text.item_id = item.id AND item_text.is_original = 1
-LEFT JOIN other_video ON other_video.title_id = item.id
+LEFT JOIN other_video ON other_video.work_id = item.id
 WHERE item.kind = 'other' AND item.removed_at IS NULL
   AND (item.found_at, item.found_file_modified_at, item.id)
     < (sqlc.arg(before_found_at), sqlc.arg(before_modified_at), sqlc.arg(before_id))
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = item.id AND version.removed_at IS NULL
+    WHERE version.work_id = item.id AND version.removed_at IS NULL
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
   )
@@ -498,19 +498,19 @@ LIMIT sqlc.arg(max_rows);
 SELECT item.id AS item_id, item_text.name, item.identification_state, item.added_at,
   other_video.recorded_at, other_video.recorded_from, other_video.file_name
 FROM other_video
-CROSS JOIN item ON item.id = other_video.title_id
-LEFT JOIN item_text ON item_text.item_id = other_video.title_id AND item_text.is_original = 1
+CROSS JOIN item ON item.id = other_video.work_id
+LEFT JOIN item_text ON item_text.item_id = other_video.work_id AND item_text.is_original = 1
 WHERE item.removed_at IS NULL
-  AND (other_video.recorded_at, other_video.title_id) < (sqlc.arg(before_recorded_at), sqlc.arg(before_id))
+  AND (other_video.recorded_at, other_video.work_id) < (sqlc.arg(before_recorded_at), sqlc.arg(before_id))
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = item.id AND version.removed_at IS NULL
+    WHERE version.work_id = item.id AND version.removed_at IS NULL
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
   )
   AND (CAST(sqlc.narg(item_ids_json) AS TEXT) IS NULL
     OR item.id IN (SELECT value FROM json_each(CAST(sqlc.narg(item_ids_json) AS TEXT))))
-ORDER BY other_video.recorded_at DESC, other_video.title_id DESC
+ORDER BY other_video.recorded_at DESC, other_video.work_id DESC
 LIMIT sqlc.arg(max_rows);
 
 -- name: ListOtherByFileName :many
@@ -518,37 +518,37 @@ LIMIT sqlc.arg(max_rows);
 SELECT item.id AS item_id, other_video.file_name_key, item_text.name, item.identification_state,
   item.added_at, other_video.recorded_at, other_video.recorded_from, other_video.file_name
 FROM other_video
-CROSS JOIN item ON item.id = other_video.title_id
-LEFT JOIN item_text ON item_text.item_id = other_video.title_id AND item_text.is_original = 1
+CROSS JOIN item ON item.id = other_video.work_id
+LEFT JOIN item_text ON item_text.item_id = other_video.work_id AND item_text.is_original = 1
 WHERE item.removed_at IS NULL
-  AND (other_video.file_name_key, other_video.title_id)
+  AND (other_video.file_name_key, other_video.work_id)
     > (CAST(sqlc.arg(after_key) AS BLOB), CAST(sqlc.arg(after_id) AS INTEGER))
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = item.id AND version.removed_at IS NULL
+    WHERE version.work_id = item.id AND version.removed_at IS NULL
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
   )
   AND (CAST(sqlc.narg(item_ids_json) AS TEXT) IS NULL
     OR item.id IN (SELECT value FROM json_each(CAST(sqlc.narg(item_ids_json) AS TEXT))))
-ORDER BY other_video.file_name_key, other_video.title_id
+ORDER BY other_video.file_name_key, other_video.work_id
 LIMIT sqlc.arg(max_rows);
 
 -- name: ListOtherVideosOfLibrary :many
 -- An other library's videos with where their files are, for its folders (D349 section 5): each title
 -- whose file the library covers, once, at the first of its places the library covers, by path (D363
 -- section 6); one the pass has not named and dated yet waits for it.
-SELECT title.id AS title_id, library_place.path, item_text.name, item.identification_state, item.added_at,
+SELECT work.id AS work_id, library_place.path, item_text.name, item.identification_state, item.added_at,
   other_video.recorded_at, other_video.recorded_from, other_video.file_name, other_video.file_name_key,
   item.found_at, item.found_file_modified_at
 FROM library_place
 CROSS JOIN file_filing ON file_filing.file_id = library_place.file_id
   AND file_filing.library_kind = library_place.library_kind
 CROSS JOIN version ON version.id = file_filing.version_id AND version.removed_at IS NULL
-CROSS JOIN title ON title.id = version.title_id
-CROSS JOIN item ON item.id = title.id AND item.removed_at IS NULL
-CROSS JOIN other_video ON other_video.title_id = title.id
-JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
+CROSS JOIN work ON work.id = version.work_id
+CROSS JOIN item ON item.id = work.id AND item.removed_at IS NULL
+CROSS JOIN other_video ON other_video.work_id = work.id
+JOIN item_text ON item_text.item_id = work.id AND item_text.is_original = 1
 WHERE library_place.library_id = sqlc.arg(library_id)
   AND NOT EXISTS (
     SELECT 1 FROM place_library AS earlier
@@ -567,23 +567,23 @@ FROM library
 WHERE library.removed_at IS NULL AND library.id IN (
   SELECT version_library.library_id
   FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-  WHERE version.title_id = sqlc.arg(item_id) AND version.removed_at IS NULL
+  WHERE version.work_id = sqlc.arg(item_id) AND version.removed_at IS NULL
   UNION
   SELECT version_library.library_id
-  FROM collection_member
-  CROSS JOIN version ON version.title_id = collection_member.member_title
+  FROM sequence_member
+  CROSS JOIN version ON version.work_id = sequence_member.member_work
   CROSS JOIN version_library ON version_library.version_id = version.id
-  WHERE collection_member.collection_id = sqlc.arg(item_id) AND version.removed_at IS NULL
+  WHERE sequence_member.sequence_id = sqlc.arg(item_id) AND version.removed_at IS NULL
 )
 ORDER BY library.name, library.id;
 
 -- name: GetFilmOfExtra :one
 -- The title an extra belongs to, the lowest where several hold it, with its name: the page an
 -- extra's goes up to (D367 section 2).
-SELECT extra_relation.owner_title, item_text.name
+SELECT extra_relation.owner_work, item_text.name
 FROM extra_relation
-JOIN item ON item.id = extra_relation.owner_title
-LEFT JOIN item_text ON item_text.item_id = extra_relation.owner_title AND item_text.is_original = 1
-WHERE extra_relation.extra_title = sqlc.arg(extra_title) AND item.removed_at IS NULL
-ORDER BY extra_relation.owner_title
+JOIN item ON item.id = extra_relation.owner_work
+LEFT JOIN item_text ON item_text.item_id = extra_relation.owner_work AND item_text.is_original = 1
+WHERE extra_relation.extra_work = sqlc.arg(extra_work) AND item.removed_at IS NULL
+ORDER BY extra_relation.owner_work
 LIMIT 1;

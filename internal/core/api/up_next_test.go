@@ -211,7 +211,7 @@ func TestUpNext_PreviousIsTheEpisodeBeforeInThePersonsOrdering(t *testing.T) {
 		ID: 8, LibraryID: 1, NodeID: 1, Path: "/m/BB/Featurette.mkv", SizeBytes: 10, PayloadHash: []byte{0x08},
 		Filing: "extra", VersionID: 8,
 	})
-	storetest.ExecRaw(t, harness.databasePath, `INSERT INTO extra_relation (owner_title, extra_title, extra_type,
+	storetest.ExecRaw(t, harness.databasePath, `INSERT INTO extra_relation (owner_work, extra_work, extra_type,
 		asserted_by) VALUES (21, 31, 'featurette', 'scanner')`)
 	for fileID, want := range map[int64]string{
 		2: "none", // the first

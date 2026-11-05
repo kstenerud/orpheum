@@ -19,9 +19,9 @@ func seriesWithAnExtra(t *testing.T, world *shelf) (files, titles map[string]int
 	t.Helper()
 	seriesID := librarytest.Item(t, world.database, librarytest.ItemSpec{Kind: "series", LibraryID: 1})
 	statements := []string{
-		fmt.Sprintf("INSERT INTO collection (id, kind, created_by) VALUES (%d, 'series', "+
+		fmt.Sprintf("INSERT INTO sequence (id, kind, created_by) VALUES (%d, 'series', "+
 			"'scanner')", seriesID),
-		fmt.Sprintf("INSERT INTO ordering (id, collection_id, name) VALUES (%d, %d, 'aired')", seriesID, seriesID),
+		fmt.Sprintf("INSERT INTO ordering (id, sequence_id, name) VALUES (%d, %d, 'aired')", seriesID, seriesID),
 	}
 	files, titles = map[string]int64{}, map[string]int64{}
 	for _, each := range []struct {
@@ -44,12 +44,12 @@ func seriesWithAnExtra(t *testing.T, world *shelf) (files, titles map[string]int
 		})
 		titles[each.name] = title
 		if each.kind == "episode" {
-			statements = append(statements, fmt.Sprintf("INSERT INTO position (ordering_id, title_id, group_number, "+
+			statements = append(statements, fmt.Sprintf("INSERT INTO position (ordering_id, work_id, group_number, "+
 				"number_in_group, sort_order) VALUES (%d, %d, %d, %d, %d)", seriesID, title, each.season, each.number,
 				each.sortAt))
 		}
 	}
-	statements = append(statements, fmt.Sprintf("INSERT INTO extra_relation (owner_title, extra_title, extra_type, "+
+	statements = append(statements, fmt.Sprintf("INSERT INTO extra_relation (owner_work, extra_work, extra_type, "+
 		"asserted_by) VALUES (%d, %d, 'featurette', 'scanner')", titles["S1E1"], titles["extra"]))
 	storetest.ExecRaw(t, world.database.Path(), statements...)
 	return files, titles

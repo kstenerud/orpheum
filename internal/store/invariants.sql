@@ -7,7 +7,7 @@
 
 -- invariant: no live version belongs to a removed title
 SELECT version.id FROM version
-JOIN item ON item.id = version.title_id
+JOIN item ON item.id = version.work_id
 WHERE version.removed_at IS NULL AND item.removed_at IS NOT NULL AND EXISTS (
   SELECT 1 FROM file_filing CROSS JOIN file ON file.id = file_filing.file_id
   WHERE file_filing.version_id = version.id AND file.removed_at IS NULL);
@@ -15,9 +15,9 @@ WHERE version.removed_at IS NULL AND item.removed_at IS NOT NULL AND EXISTS (
 -- invariant: every live title has a version
 -- A pass makes a title for a file, and tombstones one it moves the last version out of or made and
 -- did not use (identify's retireEmptied).
-SELECT title.id FROM title
-JOIN item ON item.id = title.id
-WHERE item.removed_at IS NULL AND NOT EXISTS (SELECT 1 FROM version WHERE version.title_id = title.id);
+SELECT work.id FROM work
+JOIN item ON item.id = work.id
+WHERE item.removed_at IS NULL AND NOT EXISTS (SELECT 1 FROM version WHERE version.work_id = work.id);
 
 -- invariant: every title and series is as new as its files say
 -- found_at and found_file_modified_at, which newest first sorts by, are derived by step 0058's

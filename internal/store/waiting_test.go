@@ -23,8 +23,8 @@ func TestCountWaitingForAPerson_CountsWhatTheListShows(t *testing.T) {
 		execRaw(t, database,
 			fmt.Sprintf("INSERT INTO item (id, kind, added_at, identification_state, followed_source) "+
 				"VALUES (%d, '%s', 1, '%s', %s)", id, kind, state, source),
-			fmt.Sprintf("INSERT INTO title (id, kind) VALUES (%d, '%s')", id, kind),
-			fmt.Sprintf("INSERT INTO version (id, title_id, created_at) VALUES (%d, %d, 1)", id, id))
+			fmt.Sprintf("INSERT INTO work (id, kind) VALUES (%d, '%s')", id, kind),
+			fmt.Sprintf("INSERT INTO version (id, work_id, created_at) VALUES (%d, %d, 1)", id, id))
 		if hasFile {
 			execRaw(t, database, fmt.Sprintf("INSERT INTO file (id, node_id, path, filing, "+
 				"first_seen_at, last_seen_at, reported_path_raw) "+
@@ -44,8 +44,8 @@ func TestCountWaitingForAPerson_CountsWhatTheListShows(t *testing.T) {
 	execRaw(t, database,
 		"INSERT INTO item (id, kind, added_at, identification_state, followed_source) VALUES "+
 			"(20, 'series', 1, 'ambiguous', NULL), (21, 'series', 1, 'unidentified', 'none')",
-		"INSERT INTO collection (id, kind, created_by) VALUES (20, 'series', 'scanner'), (21, 'series', 'scanner')",
-		"INSERT INTO collection_member (collection_id, member_title) VALUES (20, 6), (21, 7)")
+		"INSERT INTO sequence (id, kind, created_by) VALUES (20, 'series', 'scanner'), (21, 'series', 'scanner')",
+		"INSERT INTO sequence_member (sequence_id, member_work) VALUES (20, 6), (21, 7)")
 	count, err := database.Read().CountWaitingForAPerson(t.Context())
 	if err != nil || count != 4 {
 		t.Errorf("counted %d, %v; want 4: the ambiguous film, the film nothing was found for, and both series",

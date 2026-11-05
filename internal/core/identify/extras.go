@@ -135,7 +135,7 @@ func (filer *libraryFiler) fileExtra(ctx context.Context, pending pendingExtra) 
 		return err
 	}
 	err = filer.keepExtraRelation(ctx, sqlcgen.UpsertScannerExtraRelationParams{
-		OwnerTitle: ownerTitleID, ExtraTitle: titleID, ExtraType: pending.extra.extraType,
+		OwnerWork: ownerTitleID, ExtraWork: titleID, ExtraType: pending.extra.extraType,
 	})
 	if err != nil {
 		return fmt.Errorf("relate the extra %s: %w", pending.file.Path, err)

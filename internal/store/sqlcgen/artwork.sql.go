@@ -85,13 +85,13 @@ func (q *Queries) GetItemLibraryMetadataSource(ctx context.Context, itemID int64
 	return metadata_source, err
 }
 
-const getTitleKind = `-- name: GetTitleKind :one
-SELECT kind FROM title WHERE id = ?1
+const getWorkKind = `-- name: GetWorkKind :one
+SELECT kind FROM work WHERE id = ?1
 `
 
 // A title's kind: which pictures of it a frame still stands in for, D362.
-func (q *Queries) GetTitleKind(ctx context.Context, id int64) (string, error) {
-	row := q.db.QueryRowContext(ctx, getTitleKind, id)
+func (q *Queries) GetWorkKind(ctx context.Context, id int64) (string, error) {
+	row := q.db.QueryRowContext(ctx, getWorkKind, id)
 	var kind string
 	err := row.Scan(&kind)
 	return kind, err
@@ -144,14 +144,14 @@ SELECT CAST(EXISTS (
   WHERE artwork.source_sha256 = ?1
     AND (EXISTS (
       SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-      WHERE version.title_id = item.id AND version.removed_at IS NULL
+      WHERE version.work_id = item.id AND version.removed_at IS NULL
         AND (CAST(?2 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
     ) OR EXISTS (
-      SELECT 1 FROM collection_member
-      CROSS JOIN version ON version.title_id = collection_member.member_title
+      SELECT 1 FROM sequence_member
+      CROSS JOIN version ON version.work_id = sequence_member.member_work
       CROSS JOIN version_library ON version_library.version_id = version.id
-      WHERE collection_member.collection_id = item.id AND version.removed_at IS NULL
+      WHERE sequence_member.sequence_id = item.id AND version.removed_at IS NULL
         AND (CAST(?2 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
     ))
@@ -181,12 +181,12 @@ SELECT artwork.source_sha256,
     item.kind NOT IN ('movie', 'series', 'episode', 'extra', 'other')
     OR EXISTS (
       SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-      WHERE version.title_id = item.id AND version.removed_at IS NULL)
+      WHERE version.work_id = item.id AND version.removed_at IS NULL)
     OR EXISTS (
-      SELECT 1 FROM collection_member
-      CROSS JOIN version ON version.title_id = collection_member.member_title
+      SELECT 1 FROM sequence_member
+      CROSS JOIN version ON version.work_id = sequence_member.member_work
       CROSS JOIN version_library ON version_library.version_id = version.id
-      WHERE collection_member.collection_id = item.id AND version.removed_at IS NULL)
+      WHERE sequence_member.sequence_id = item.id AND version.removed_at IS NULL)
   ) THEN 1 ELSE 0 END) AS INTEGER) AS is_listed,
   CAST(MAX(COALESCE(artwork.removed_at, item.removed_at, 0)) AS INTEGER) AS gone_at
 FROM artwork
@@ -235,18 +235,18 @@ func (q *Queries) ListArtworkSourceSha256s(ctx context.Context) ([]ListArtworkSo
 }
 
 const listFirstEpisodes = `-- name: ListFirstEpisodes :many
-SELECT ordering.collection_id AS series_id, CAST((
-  SELECT position.title_id FROM position
-  JOIN title ON title.id = position.title_id
+SELECT ordering.sequence_id AS series_id, CAST((
+  SELECT position.work_id FROM position
+  JOIN work ON work.id = position.work_id
   WHERE position.ordering_id = ordering.id AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = title.id AND version.removed_at IS NULL
+    WHERE version.work_id = work.id AND version.removed_at IS NULL
   )
   ORDER BY position.group_number IS NULL, position.group_number = 0, position.group_number, position.sort_order
   LIMIT 1
 ) AS INTEGER) AS episode_id
 FROM ordering
-WHERE ordering.collection_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
+WHERE ordering.sequence_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
   AND ordering.name = 'aired'
 `
 
@@ -282,60 +282,60 @@ func (q *Queries) ListFirstEpisodes(ctx context.Context, seriesIDListJson string
 }
 
 const listFrameStillCandidates = `-- name: ListFrameStillCandidates :many
-SELECT title.id AS title_id, title.kind AS title_kind,
+SELECT work.id AS work_id, work.kind AS work_kind,
   CAST(COALESCE((
-    SELECT member.collection_id FROM collection_member member
-    JOIN collection ON collection.id = member.collection_id AND collection.kind = 'series'
-    WHERE member.member_title = title.id LIMIT 1
+    SELECT member.sequence_id FROM sequence_member member
+    JOIN sequence ON sequence.id = member.sequence_id AND sequence.kind = 'series'
+    WHERE member.member_work = work.id LIMIT 1
   ), 0) AS INTEGER) AS series_id,
   file.id AS file_id, file.size_bytes, file.modified_at,
   CAST(COALESCE((
     SELECT stale.id FROM artwork stale
-    WHERE stale.item_id = title.id AND stale.source = 'frame' AND stale.removed_at IS NULL
+    WHERE stale.item_id = work.id AND stale.source = 'frame' AND stale.removed_at IS NULL
       AND stale.source_ref = printf('file:%d:%d:%d', file.id, file.size_bytes, file.modified_at)
       AND stale.source_sha256 IS NULL AND stale.is_missing_at_source = 0 AND stale.refused_at < file.last_seen_at
     LIMIT 1
   ), 0) AS INTEGER) AS stale_refusal_id
 FROM item
 JOIN library ON library.id = item.filing_library_id
-CROSS JOIN title ON title.id = item.id
+CROSS JOIN work ON work.id = item.id
 JOIN file ON file.id = (
   SELECT live.id FROM version CROSS JOIN file_filing ON file_filing.version_id = version.id
   CROSS JOIN file AS live ON live.id = file_filing.file_id
-  WHERE version.title_id = title.id AND version.removed_at IS NULL AND live.removed_at IS NULL
+  WHERE version.work_id = work.id AND version.removed_at IS NULL AND live.removed_at IS NULL
     AND live.payload_hash IS NOT NULL
   ORDER BY live.path LIMIT 1
 )
 WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL
-  AND title.kind IN ('movie', 'episode', 'other')
+  AND work.kind IN ('movie', 'episode', 'other')
   AND NOT EXISTS (
     SELECT 1 FROM artwork shown
-    WHERE shown.item_id = title.id AND shown.removed_at IS NULL AND shown.source_sha256 IS NOT NULL
+    WHERE shown.item_id = work.id AND shown.removed_at IS NULL AND shown.source_sha256 IS NOT NULL
       AND shown.source != 'frame'
-      AND ((title.kind = 'movie' AND shown.kind IN ('poster', 'backdrop'))
-        OR (title.kind = 'episode' AND shown.kind = 'still')
-        OR (title.kind = 'other' AND shown.kind IN ('still', 'backdrop')))
+      AND ((work.kind = 'movie' AND shown.kind IN ('poster', 'backdrop'))
+        OR (work.kind = 'episode' AND shown.kind = 'still')
+        OR (work.kind = 'other' AND shown.kind IN ('still', 'backdrop')))
   )
   AND NOT EXISTS (
     SELECT 1 FROM artwork held
-    WHERE held.item_id = title.id AND held.source = 'frame' AND held.removed_at IS NULL
+    WHERE held.item_id = work.id AND held.source = 'frame' AND held.removed_at IS NULL
       AND held.source_ref = printf('file:%d:%d:%d', file.id, file.size_bytes, file.modified_at)
       AND (held.source_sha256 IS NOT NULL OR held.is_missing_at_source = 1 OR held.refused_at >= file.last_seen_at)
   )
   AND (
-    title.kind = 'other'
-    OR (title.kind = 'movie' AND item.identification_state != 'ambiguous'
-      AND NOT EXISTS (SELECT 1 FROM fetch_failure WHERE fetch_failure.item_id = title.id)
+    work.kind = 'other'
+    OR (work.kind = 'movie' AND item.identification_state != 'ambiguous'
+      AND NOT EXISTS (SELECT 1 FROM fetch_failure WHERE fetch_failure.item_id = work.id)
       AND (library.metadata_source = 'nfo' OR item.followed_source IN ('none', 'nfo')
         OR EXISTS (
           SELECT 1 FROM provider_response
-          WHERE provider_response.item_id = title.id AND provider_response.provider = item.followed_source
+          WHERE provider_response.item_id = work.id AND provider_response.provider = item.followed_source
             AND provider_response.part = ''
         )))
-    OR (title.kind = 'episode' AND EXISTS (
-      SELECT 1 FROM collection_member member
-      JOIN item series ON series.id = member.collection_id AND series.kind = 'series'
-      WHERE member.member_title = title.id AND series.identification_state != 'ambiguous'
+    OR (work.kind = 'episode' AND EXISTS (
+      SELECT 1 FROM sequence_member member
+      JOIN item series ON series.id = member.sequence_id AND series.kind = 'series'
+      WHERE member.member_work = work.id AND series.identification_state != 'ambiguous'
         AND NOT EXISTS (SELECT 1 FROM fetch_failure WHERE fetch_failure.item_id = series.id)
         AND (library.metadata_source = 'nfo' OR series.followed_source IN ('none', 'nfo')
           OR EXISTS (
@@ -345,12 +345,12 @@ WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL
           ))
     ))
   )
-ORDER BY title.id
+ORDER BY work.id
 `
 
 type ListFrameStillCandidatesRow struct {
-	TitleID        int64
-	TitleKind      string
+	WorkID         int64
+	WorkKind       string
 	SeriesID       int64
 	FileID         int64
 	SizeBytes      *int64
@@ -378,8 +378,8 @@ func (q *Queries) ListFrameStillCandidates(ctx context.Context, libraryID *int64
 	for rows.Next() {
 		var i ListFrameStillCandidatesRow
 		if err := rows.Scan(
-			&i.TitleID,
-			&i.TitleKind,
+			&i.WorkID,
+			&i.WorkKind,
 			&i.SeriesID,
 			&i.FileID,
 			&i.SizeBytes,
@@ -686,7 +686,7 @@ func (q *Queries) RetireArtworkRow(ctx context.Context, arg RetireArtworkRowPara
 const retireFrameStillsOfFile = `-- name: RetireFrameStillsOfFile :execrows
 UPDATE artwork SET removed_at = ?1
 WHERE item_id IN (
-    SELECT version.title_id FROM file_filing JOIN version ON version.id = file_filing.version_id
+    SELECT version.work_id FROM file_filing JOIN version ON version.id = file_filing.version_id
     WHERE file_filing.file_id = ?2
   )
   AND source = 'frame' AND removed_at IS NULL AND is_chosen = 0

@@ -77,19 +77,19 @@ CROSS JOIN item_text ON item_text.item_id = person.id AND item_text.is_original 
 WHERE person.id = ?1 AND EXISTS (
   SELECT 1 FROM credit
   CROSS JOIN item ON item.id = credit.item_id
-  LEFT JOIN title ON title.id = credit.item_id
-  LEFT JOIN collection ON collection.id = credit.item_id
+  LEFT JOIN work ON work.id = credit.item_id
+  LEFT JOIN sequence ON sequence.id = credit.item_id
   WHERE credit.person_id = person.id AND item.removed_at IS NULL AND (
-    (title.kind IN ('movie', 'other') AND EXISTS (
+    (work.kind IN ('movie', 'other') AND EXISTS (
       SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-      WHERE version.title_id = title.id AND version.removed_at IS NULL
+      WHERE version.work_id = work.id AND version.removed_at IS NULL
         AND (CAST(?2 AS INTEGER) = 1
           OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))))
-    OR (collection.kind = 'series' AND EXISTS (
-      SELECT 1 FROM collection_member
-      CROSS JOIN version ON version.title_id = collection_member.member_title
+    OR (sequence.kind = 'series' AND EXISTS (
+      SELECT 1 FROM sequence_member
+      CROSS JOIN version ON version.work_id = sequence_member.member_work
       CROSS JOIN version_library ON version_library.version_id = version.id
-      WHERE collection_member.collection_id = collection.id AND version.removed_at IS NULL
+      WHERE sequence_member.sequence_id = sequence.id AND version.removed_at IS NULL
         AND (CAST(?2 AS INTEGER) = 1
           OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))))))
 `
@@ -195,9 +195,9 @@ func (q *Queries) InsertPerson(ctx context.Context, arg InsertPersonParams) erro
 const listFilteredItemIDs = `-- name: ListFilteredItemIDs :many
 SELECT item.id
 FROM item
-LEFT JOIN title ON title.id = item.id
-LEFT JOIN collection ON collection.id = item.id
-WHERE item.removed_at IS NULL AND (title.kind IN ('movie', 'other') OR collection.kind = 'series')
+LEFT JOIN work ON work.id = item.id
+LEFT JOIN sequence ON sequence.id = item.id
+WHERE item.removed_at IS NULL AND (work.kind IN ('movie', 'other') OR sequence.kind = 'series')
   AND (CAST(?1 AS INTEGER) IS NULL OR EXISTS (
     SELECT 1 FROM item_genre
     WHERE item_genre.item_id = item.id AND item_genre.genre_id = CAST(?1 AS INTEGER)))
@@ -208,19 +208,19 @@ WHERE item.removed_at IS NULL AND (title.kind IN ('movie', 'other') OR collectio
     OR coalesce(item.year, item.year) BETWEEN CAST(?3 AS INTEGER)
       AND CAST(?3 AS INTEGER) + 9)
   AND (CAST(?4 AS INTEGER) = 0
-    OR (title.id IS NOT NULL AND NOT EXISTS (
-      SELECT 1 FROM title_watched
-      WHERE title_watched.user_id = ?5 AND title_watched.title_id = title.id
-        AND title_watched.watched_at IS NOT NULL))
-    OR (collection.id IS NOT NULL AND EXISTS (
-      SELECT 1 FROM collection_member
-      CROSS JOIN item AS episode ON episode.id = collection_member.member_title
-      WHERE collection_member.collection_id = collection.id AND episode.removed_at IS NULL
-        AND EXISTS (SELECT 1 FROM version WHERE version.title_id = episode.id AND version.removed_at IS NULL)
+    OR (work.id IS NOT NULL AND NOT EXISTS (
+      SELECT 1 FROM work_watched
+      WHERE work_watched.user_id = ?5 AND work_watched.work_id = work.id
+        AND work_watched.watched_at IS NOT NULL))
+    OR (sequence.id IS NOT NULL AND EXISTS (
+      SELECT 1 FROM sequence_member
+      CROSS JOIN item AS episode ON episode.id = sequence_member.member_work
+      WHERE sequence_member.sequence_id = sequence.id AND episode.removed_at IS NULL
+        AND EXISTS (SELECT 1 FROM version WHERE version.work_id = episode.id AND version.removed_at IS NULL)
         AND NOT EXISTS (
-          SELECT 1 FROM title_watched
-          WHERE title_watched.user_id = ?5 AND title_watched.title_id = episode.id
-            AND title_watched.watched_at IS NOT NULL))))
+          SELECT 1 FROM work_watched
+          WHERE work_watched.user_id = ?5 AND work_watched.work_id = episode.id
+            AND work_watched.watched_at IS NOT NULL))))
 ORDER BY item.id
 `
 
@@ -266,26 +266,26 @@ func (q *Queries) ListFilteredItemIDs(ctx context.Context, arg ListFilteredItemI
 }
 
 const listGenresWithCounts = `-- name: ListGenresWithCounts :many
-SELECT genre.id, genre.name, count(*) AS title_count
+SELECT genre.id, genre.name, count(*) AS work_count
 FROM genre
 CROSS JOIN item_genre ON item_genre.genre_id = genre.id
 CROSS JOIN item ON item.id = item_genre.item_id
-LEFT JOIN title ON title.id = item_genre.item_id
-LEFT JOIN collection ON collection.id = item_genre.item_id
+LEFT JOIN work ON work.id = item_genre.item_id
+LEFT JOIN sequence ON sequence.id = item_genre.item_id
 WHERE item.removed_at IS NULL
-  AND (CAST(?1 AS TEXT) = '' OR title.kind = CAST(?1 AS TEXT)
-    OR (CAST(?1 AS TEXT) = 'series' AND collection.kind = 'series'))
+  AND (CAST(?1 AS TEXT) = '' OR work.kind = CAST(?1 AS TEXT)
+    OR (CAST(?1 AS TEXT) = 'series' AND sequence.kind = 'series'))
   AND (
-  (title.kind IN ('movie', 'other') AND EXISTS (
+  (work.kind IN ('movie', 'other') AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = title.id AND version.removed_at IS NULL
+    WHERE version.work_id = work.id AND version.removed_at IS NULL
       AND (CAST(?2 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))))
-  OR (collection.kind = 'series' AND EXISTS (
-    SELECT 1 FROM collection_member
-    CROSS JOIN version ON version.title_id = collection_member.member_title
+  OR (sequence.kind = 'series' AND EXISTS (
+    SELECT 1 FROM sequence_member
+    CROSS JOIN version ON version.work_id = sequence_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE collection_member.collection_id = collection.id AND version.removed_at IS NULL
+    WHERE sequence_member.sequence_id = sequence.id AND version.removed_at IS NULL
       AND (CAST(?2 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT)))))))
 GROUP BY genre.id
@@ -299,9 +299,9 @@ type ListGenresWithCountsParams struct {
 }
 
 type ListGenresWithCountsRow struct {
-	ID         int64
-	Name       string
-	TitleCount int64
+	ID        int64
+	Name      string
+	WorkCount int64
 }
 
 // Each genre with how many films, series or other videos of a kind the caller reaches are in it;
@@ -315,7 +315,7 @@ func (q *Queries) ListGenresWithCounts(ctx context.Context, arg ListGenresWithCo
 	items := []ListGenresWithCountsRow{}
 	for rows.Next() {
 		var i ListGenresWithCountsRow
-		if err := rows.Scan(&i.ID, &i.Name, &i.TitleCount); err != nil {
+		if err := rows.Scan(&i.ID, &i.Name, &i.WorkCount); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

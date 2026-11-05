@@ -80,11 +80,11 @@ func (admin *Admin) ItemsWhoseNFOsDisagree(ctx context.Context) ([]DisagreeingNF
 			for _, row := range rows[start:end] {
 				found.Paths = append(found.Paths, row.Path)
 			}
-			title, titleErr := queries.GetTitleOfFile(ctx, found.FileID)
+			title, titleErr := queries.GetFilesWork(ctx, found.FileID)
 			if titleErr != nil {
 				return nil, fmt.Errorf("read what file %d is: %w", found.FileID, titleErr)
 			}
-			found.TitleID, found.Name = ptr.ValueOrZero(title.TitleID), ptr.ValueOrZero(title.Name)
+			found.TitleID, found.Name = ptr.ValueOrZero(title.WorkID), ptr.ValueOrZero(title.Name)
 			disagreeing = append(disagreeing, found)
 		}
 		start = end

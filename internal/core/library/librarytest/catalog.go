@@ -19,7 +19,7 @@ import (
 // shelves a file (docs/contributors/design/research/test-architecture-2026-10-26.md, finding 6).
 //
 // Each builder goes through the store's own writer when the row's id can be whatever the database
-// assigns: InsertItem, InsertTitle, InsertVersion, InsertFile, InsertSidecarFile, UpsertFileProbe,
+// assigns: InsertItem, InsertWork, InsertVersion, InsertFile, InsertSidecarFile, UpsertFileProbe,
 // UpsertStream, and the setters a file's version, attachment or removal go through in production
 // (SetFileVersionAndIdentifiedPath, SetFileAttachedTo, TombstoneFile, RemoveVersion). A test that
 // needs a chosen id, to name a row from elsewhere in its fixture, cannot ask those for one (none
@@ -148,7 +148,7 @@ func Title(t *testing.T, database *store.Database, spec TitleSpec) int64 {
 		IdentificationState: defaultString(spec.IdentificationState, "identified"),
 	})
 	err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
-		return queries.InsertTitle(t.Context(), sqlcgen.InsertTitleParams{
+		return queries.InsertWork(t.Context(), sqlcgen.InsertWorkParams{
 			ID: itemID, Kind: kind, RuntimeMs: ptr.NilIfZero(spec.RuntimeMs),
 		})
 	})
@@ -173,13 +173,13 @@ func Version(t *testing.T, database *store.Database, spec VersionSpec) int64 {
 	var id int64
 	if spec.ID != 0 {
 		storetest.ExecRaw(t, database.Path(), fmt.Sprintf(
-			"INSERT INTO version (id, title_id, created_at) VALUES (%d, %d, %d)", spec.ID, spec.TitleID, createdAt))
+			"INSERT INTO version (id, work_id, created_at) VALUES (%d, %d, %d)", spec.ID, spec.TitleID, createdAt))
 		id = spec.ID
 	} else {
 		err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 			var err error
 			id, err = queries.InsertVersion(t.Context(), sqlcgen.InsertVersionParams{
-				TitleID: spec.TitleID, CreatedAt: createdAt,
+				WorkID: spec.TitleID, CreatedAt: createdAt,
 			})
 			return err
 		})

@@ -173,17 +173,17 @@ func (browser *Browser) unreadableItems(ctx context.Context, reach auth.Reach, i
 	}
 	queries := browser.database.Read()
 	isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
-	var locations []sqlcgen.ListLiveFileLocationsOfTitlesRow
+	var locations []sqlcgen.ListLiveFileLocationsOfWorksRow
 	if isSeries {
 		rows, listErr := queries.ListLiveFileLocationsOfSeries(ctx, sqlcgen.ListLiveFileLocationsOfSeriesParams{
 			ItemIDListJSON: string(encoded), IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
 		})
 		err = listErr
 		for _, row := range rows {
-			locations = append(locations, sqlcgen.ListLiveFileLocationsOfTitlesRow(row))
+			locations = append(locations, sqlcgen.ListLiveFileLocationsOfWorksRow(row))
 		}
 	} else {
-		locations, err = queries.ListLiveFileLocationsOfTitles(ctx, sqlcgen.ListLiveFileLocationsOfTitlesParams{
+		locations, err = queries.ListLiveFileLocationsOfWorks(ctx, sqlcgen.ListLiveFileLocationsOfWorksParams{
 			ItemIDListJSON: string(encoded), IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
 		})
 	}

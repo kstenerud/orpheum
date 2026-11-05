@@ -26,7 +26,7 @@ func TestWhereabouts_NameTheLibrariesTheCallerReachesAndAnExtrasFilm(t *testing.
 	pilot := world.fileAsFilm("Pilot", "pilot.mkv")
 	err := world.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 		return queries.UpsertScannerExtraRelation(t.Context(), sqlcgen.UpsertScannerExtraRelationParams{
-			OwnerTitle: heat, ExtraTitle: trailer, ExtraType: "trailer",
+			OwnerWork: heat, ExtraWork: trailer, ExtraType: "trailer",
 		})
 	})
 	if err != nil {
@@ -34,9 +34,9 @@ func TestWhereabouts_NameTheLibrariesTheCallerReachesAndAnExtrasFilm(t *testing.
 	}
 	series := librarytest.Item(t, world.database, librarytest.ItemSpec{Kind: "series", LibraryID: 1})
 	storetest.ExecRaw(t, world.database.Path(),
-		fmt.Sprintf("INSERT INTO collection (id, kind, created_by) VALUES (%d, 'series', "+
+		fmt.Sprintf("INSERT INTO sequence (id, kind, created_by) VALUES (%d, 'series', "+
 			"'scanner')", series),
-		fmt.Sprintf("INSERT INTO collection_member (collection_id, member_title) VALUES (%d, %d)", series, pilot))
+		fmt.Sprintf("INSERT INTO sequence_member (sequence_id, member_work) VALUES (%d, %d)", series, pilot))
 
 	extra, err := world.browser.Whereabouts(t.Context(), auth.EveryLibrary(), trailer, true)
 	if err != nil {

@@ -130,7 +130,7 @@ func (chooser *Chooser) Items(
 	isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
 	// Each kind's next limit+1 after the cursor, merged: the page is the first limit, and one more
 	// says another page follows.
-	titles, err := queries.ListTitlesByIdentification(ctx, sqlcgen.ListTitlesByIdentificationParams{
+	titles, err := queries.ListWorksByIdentification(ctx, sqlcgen.ListWorksByIdentificationParams{
 		IdentificationState: ptr.NilIfZero(identification), IsEveryLibrary: isEveryLibrary,
 		LibraryIdsJSON: libraryIDsJSON,
 		AfterName:      string(afterName), AfterID: afterID, RowLimit: limit + 1,
@@ -192,7 +192,7 @@ func (chooser *Chooser) WaitingForAPerson(ctx context.Context) (int, error) {
 
 // target is the title or series a request names.
 type target struct {
-	title    sqlcgen.GetTitleForMatchRow
+	title    sqlcgen.GetWorkForMatchRow
 	series   sqlcgen.GetSeriesForMatchRow
 	isSeries bool
 }
@@ -330,7 +330,7 @@ func (chooser *Chooser) ConfirmGuess(ctx context.Context, itemID int64) error {
 		if item.isSeries {
 			confirmErr = queries.ConfirmSeriesMatch(ctx, itemID)
 		} else {
-			confirmErr = queries.ConfirmTitleMatch(ctx, itemID)
+			confirmErr = queries.ConfirmWorkMatch(ctx, itemID)
 		}
 		if confirmErr != nil {
 			return fmt.Errorf("confirm its match: %w", confirmErr)
@@ -354,7 +354,7 @@ func refuseUnlessConfirmed(ctx context.Context, queries *sqlcgen.Queries, item t
 		}
 		state = ptr.ValueOrZero(series.IdentificationState)
 	} else {
-		held, err := queries.GetTitleIdentification(ctx, item.id())
+		held, err := queries.GetWorkIdentification(ctx, item.id())
 		if err != nil {
 			return fmt.Errorf("read its match: %w", err)
 		}
@@ -496,7 +496,7 @@ func (matcher *Matcher) readTarget(ctx context.Context, itemID int64) (target, e
 		item.isSeries = true
 		item.series, err = store.OrNotFound(queries.GetSeriesForMatch(ctx, itemID))
 	} else {
-		item.title, err = store.OrNotFound(queries.GetTitleForMatch(ctx, itemID))
+		item.title, err = store.OrNotFound(queries.GetWorkForMatch(ctx, itemID))
 	}
 	if errors.Is(err, store.ErrNotFound) {
 		return target{}, fmt.Errorf("item %d: %w", itemID, ErrNoItem)

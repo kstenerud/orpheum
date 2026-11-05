@@ -27,45 +27,45 @@ func (q *Queries) DeleteGroupText(ctx context.Context, arg DeleteGroupTextParams
 }
 
 const deletePosition = `-- name: DeletePosition :exec
-DELETE FROM position WHERE ordering_id = ?1 AND title_id = ?2
+DELETE FROM position WHERE ordering_id = ?1 AND work_id = ?2
 `
 
 type DeletePositionParams struct {
 	OrderingID int64
-	TitleID    int64
+	WorkID     int64
 }
 
 // A title an ordering no longer places: its provider's group no longer lists it, or it left the series.
 func (q *Queries) DeletePosition(ctx context.Context, arg DeletePositionParams) error {
-	_, err := q.db.ExecContext(ctx, deletePosition, arg.OrderingID, arg.TitleID)
+	_, err := q.db.ExecContext(ctx, deletePosition, arg.OrderingID, arg.WorkID)
 	return err
 }
 
 const listChosenGroupsToFetch = `-- name: ListChosenGroupsToFetch :many
 SELECT DISTINCT CAST(ordering.source_id AS TEXT) AS source_id
 FROM ordering
-JOIN preference ON preference.scope = 'work' AND preference.scope_id = ordering.collection_id
+JOIN preference ON preference.scope = 'work' AND preference.scope_id = ordering.sequence_id
   AND preference.axis = ?1 AND CAST(json_extract(preference.value_json, '$') AS TEXT) = ordering.name
-WHERE ordering.collection_id = ?2 AND ordering.provider = ?3
+WHERE ordering.sequence_id = ?2 AND ordering.provider = ?3
   AND ordering.source_id IS NOT NULL
   AND NOT EXISTS (
     SELECT 1 FROM provider_response
-    WHERE provider_response.item_id = ordering.collection_id AND provider_response.provider = ordering.provider
+    WHERE provider_response.item_id = ordering.sequence_id AND provider_response.provider = ordering.provider
       AND provider_response.part = 'episode_group/' || ordering.source_id
   )
 ORDER BY 1
 `
 
 type ListChosenGroupsToFetchParams struct {
-	Axis         string
-	CollectionID int64
-	Provider     *string
+	Axis       string
+	SequenceID int64
+	Provider   *string
 }
 
 // The episode groups of a series that a person chose to watch it in and that are not fetched yet: a
 // first fetch, on their act (D170; episode-orderings.md section 3.4).
 func (q *Queries) ListChosenGroupsToFetch(ctx context.Context, arg ListChosenGroupsToFetchParams) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, listChosenGroupsToFetch, arg.Axis, arg.CollectionID, arg.Provider)
+	rows, err := q.db.QueryContext(ctx, listChosenGroupsToFetch, arg.Axis, arg.SequenceID, arg.Provider)
 	if err != nil {
 		return nil, err
 	}
@@ -88,15 +88,15 @@ func (q *Queries) ListChosenGroupsToFetch(ctx context.Context, arg ListChosenGro
 }
 
 const listLibrarySeriesWithFetchedGroups = `-- name: ListLibrarySeriesWithFetchedGroups :many
-SELECT item.id AS collection_id
+SELECT item.id AS sequence_id
 FROM item
 WHERE item.filing_library_id = ?1 AND item.kind = 'series' AND item.removed_at IS NULL
   AND EXISTS (
     SELECT 1 FROM ordering
-    JOIN provider_response ON provider_response.item_id = ordering.collection_id
+    JOIN provider_response ON provider_response.item_id = ordering.sequence_id
       AND provider_response.provider = ordering.provider
       AND provider_response.part = 'episode_group/' || ordering.source_id
-    WHERE ordering.collection_id = item.id AND ordering.source_id IS NOT NULL
+    WHERE ordering.sequence_id = item.id AND ordering.source_id IS NOT NULL
   )
 ORDER BY item.id
 `
@@ -111,11 +111,11 @@ func (q *Queries) ListLibrarySeriesWithFetchedGroups(ctx context.Context, librar
 	defer rows.Close()
 	items := []int64{}
 	for rows.Next() {
-		var collection_id int64
-		if err := rows.Scan(&collection_id); err != nil {
+		var sequence_id int64
+		if err := rows.Scan(&sequence_id); err != nil {
 			return nil, err
 		}
-		items = append(items, collection_id)
+		items = append(items, sequence_id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -164,14 +164,14 @@ func (q *Queries) ListOrderingGroupTexts(ctx context.Context, orderingID int64) 
 }
 
 const listOrderingPositions = `-- name: ListOrderingPositions :many
-SELECT title_id, group_number, number_in_group, sort_order
+SELECT work_id, group_number, number_in_group, sort_order
 FROM position
 WHERE ordering_id = ?1
-ORDER BY title_id
+ORDER BY work_id
 `
 
 type ListOrderingPositionsRow struct {
-	TitleID       int64
+	WorkID        int64
 	GroupNumber   *int64
 	NumberInGroup *int64
 	SortOrder     float64
@@ -188,7 +188,7 @@ func (q *Queries) ListOrderingPositions(ctx context.Context, orderingID int64) (
 	for rows.Next() {
 		var i ListOrderingPositionsRow
 		if err := rows.Scan(
-			&i.TitleID,
+			&i.WorkID,
 			&i.GroupNumber,
 			&i.NumberInGroup,
 			&i.SortOrder,
@@ -209,13 +209,13 @@ func (q *Queries) ListOrderingPositions(ctx context.Context, orderingID int64) (
 const listProviderOrderingsOfSeries = `-- name: ListProviderOrderingsOfSeries :many
 SELECT id, name, kind, source_id, label, listed_count
 FROM ordering
-WHERE collection_id = ?1 AND provider = ?2 AND source_id IS NOT NULL
+WHERE sequence_id = ?1 AND provider = ?2 AND source_id IS NOT NULL
 ORDER BY id
 `
 
 type ListProviderOrderingsOfSeriesParams struct {
-	CollectionID int64
-	Provider     *string
+	SequenceID int64
+	Provider   *string
 }
 
 type ListProviderOrderingsOfSeriesRow struct {
@@ -229,7 +229,7 @@ type ListProviderOrderingsOfSeriesRow struct {
 
 // A series' orderings a provider listed, with what each says of itself.
 func (q *Queries) ListProviderOrderingsOfSeries(ctx context.Context, arg ListProviderOrderingsOfSeriesParams) ([]ListProviderOrderingsOfSeriesRow, error) {
-	rows, err := q.db.QueryContext(ctx, listProviderOrderingsOfSeries, arg.CollectionID, arg.Provider)
+	rows, err := q.db.QueryContext(ctx, listProviderOrderingsOfSeries, arg.SequenceID, arg.Provider)
 	if err != nil {
 		return nil, err
 	}
@@ -259,29 +259,29 @@ func (q *Queries) ListProviderOrderingsOfSeries(ctx context.Context, arg ListPro
 }
 
 const listSeriesEpisodeSourceIDs = `-- name: ListSeriesEpisodeSourceIDs :many
-SELECT title.id AS title_id, CAST(item.followed_source_id AS TEXT) AS followed_source_id
-FROM collection_member
-JOIN title ON title.id = collection_member.member_title
-JOIN item ON item.id = title.id AND item.removed_at IS NULL
-WHERE collection_member.collection_id = ?1 AND item.followed_source = ?2
+SELECT work.id AS work_id, CAST(item.followed_source_id AS TEXT) AS followed_source_id
+FROM sequence_member
+JOIN work ON work.id = sequence_member.member_work
+JOIN item ON item.id = work.id AND item.removed_at IS NULL
+WHERE sequence_member.sequence_id = ?1 AND item.followed_source = ?2
   AND item.followed_source_id IS NOT NULL
-ORDER BY title.id
+ORDER BY work.id
 `
 
 type ListSeriesEpisodeSourceIDsParams struct {
-	CollectionID int64
-	Provider     *string
+	SequenceID int64
+	Provider   *string
 }
 
 type ListSeriesEpisodeSourceIDsRow struct {
-	TitleID          int64
+	WorkID           int64
 	FollowedSourceID string
 }
 
 // A series' live episodes, each with its id at the provider it takes its values from: what places it
 // in a provider's ordering, by the episode that ordering lists.
 func (q *Queries) ListSeriesEpisodeSourceIDs(ctx context.Context, arg ListSeriesEpisodeSourceIDsParams) ([]ListSeriesEpisodeSourceIDsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listSeriesEpisodeSourceIDs, arg.CollectionID, arg.Provider)
+	rows, err := q.db.QueryContext(ctx, listSeriesEpisodeSourceIDs, arg.SequenceID, arg.Provider)
 	if err != nil {
 		return nil, err
 	}
@@ -289,7 +289,7 @@ func (q *Queries) ListSeriesEpisodeSourceIDs(ctx context.Context, arg ListSeries
 	items := []ListSeriesEpisodeSourceIDsRow{}
 	for rows.Next() {
 		var i ListSeriesEpisodeSourceIDsRow
-		if err := rows.Scan(&i.TitleID, &i.FollowedSourceID); err != nil {
+		if err := rows.Scan(&i.WorkID, &i.FollowedSourceID); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -304,47 +304,47 @@ func (q *Queries) ListSeriesEpisodeSourceIDs(ctx context.Context, arg ListSeries
 }
 
 const listSeriesOwingOrderingParts = `-- name: ListSeriesOwingOrderingParts :many
-SELECT collection.id, CAST(EXISTS (
+SELECT sequence.id, CAST(EXISTS (
     SELECT 1 FROM ordering
-    JOIN preference ON preference.scope = 'work' AND preference.scope_id = ordering.collection_id
+    JOIN preference ON preference.scope = 'work' AND preference.scope_id = ordering.sequence_id
       AND preference.axis = ?1 AND CAST(json_extract(preference.value_json, '$') AS TEXT) = ordering.name
-    WHERE ordering.collection_id = collection.id AND ordering.source_id IS NOT NULL
+    WHERE ordering.sequence_id = sequence.id AND ordering.source_id IS NOT NULL
       AND NOT EXISTS (
         SELECT 1 FROM provider_response
-        WHERE provider_response.item_id = ordering.collection_id AND provider_response.provider = ordering.provider
+        WHERE provider_response.item_id = ordering.sequence_id AND provider_response.provider = ordering.provider
           AND provider_response.part = 'episode_group/' || ordering.source_id
       )
   ) AS INTEGER) AS is_chosen
-FROM collection
-JOIN item ON item.id = collection.id AND item.removed_at IS NULL
-WHERE collection.kind = 'series' AND item.followed_source = ?2
+FROM sequence
+JOIN item ON item.id = sequence.id AND item.removed_at IS NULL
+WHERE sequence.kind = 'series' AND item.followed_source = ?2
   AND item.followed_source_id IS NOT NULL
   AND item.identification_state IN ('identified', 'confirmed')
-  AND NOT EXISTS (SELECT 1 FROM fetch_failure WHERE fetch_failure.item_id = collection.id)
+  AND NOT EXISTS (SELECT 1 FROM fetch_failure WHERE fetch_failure.item_id = sequence.id)
   AND EXISTS (
     SELECT 1 FROM provider_response
-    WHERE provider_response.item_id = collection.id AND provider_response.provider = ?2
+    WHERE provider_response.item_id = sequence.id AND provider_response.provider = ?2
       AND provider_response.part = ''
   )
   AND (
     NOT EXISTS (
       SELECT 1 FROM provider_response
-      WHERE provider_response.item_id = collection.id AND provider_response.provider = ?2
+      WHERE provider_response.item_id = sequence.id AND provider_response.provider = ?2
         AND provider_response.part = 'episode_groups'
     )
     OR EXISTS (
       SELECT 1 FROM ordering
-      JOIN preference ON preference.scope = 'work' AND preference.scope_id = ordering.collection_id
+      JOIN preference ON preference.scope = 'work' AND preference.scope_id = ordering.sequence_id
         AND preference.axis = ?1 AND CAST(json_extract(preference.value_json, '$') AS TEXT) = ordering.name
-      WHERE ordering.collection_id = collection.id AND ordering.source_id IS NOT NULL
+      WHERE ordering.sequence_id = sequence.id AND ordering.source_id IS NOT NULL
         AND NOT EXISTS (
           SELECT 1 FROM provider_response
-          WHERE provider_response.item_id = ordering.collection_id AND provider_response.provider = ordering.provider
+          WHERE provider_response.item_id = ordering.sequence_id AND provider_response.provider = ordering.provider
             AND provider_response.part = 'episode_group/' || ordering.source_id
         )
     )
   )
-ORDER BY is_chosen DESC, collection.id
+ORDER BY is_chosen DESC, sequence.id
 LIMIT ?3
 `
 
@@ -414,23 +414,23 @@ func (q *Queries) UpsertGroupText(ctx context.Context, arg UpsertGroupTextParams
 
 const upsertProviderOrdering = `-- name: UpsertProviderOrdering :exec
 
-INSERT INTO ordering (collection_id, name, provider, kind, source_id, label, listed_count)
+INSERT INTO ordering (sequence_id, name, provider, kind, source_id, label, listed_count)
 VALUES (?1, ?2, ?3, ?4, ?5,
   ?6, ?7)
-ON CONFLICT (collection_id, name) DO UPDATE SET provider = excluded.provider, kind = excluded.kind,
+ON CONFLICT (sequence_id, name) DO UPDATE SET provider = excluded.provider, kind = excluded.kind,
   source_id = excluded.source_id, label = excluded.label, listed_count = excluded.listed_count
 WHERE (ordering.provider, ordering.kind, ordering.source_id, ordering.label, ordering.listed_count)
   IS NOT (excluded.provider, excluded.kind, excluded.source_id, excluded.label, excluded.listed_count)
 `
 
 type UpsertProviderOrderingParams struct {
-	CollectionID int64
-	Name         string
-	Provider     *string
-	Kind         *string
-	SourceID     *string
-	Label        *string
-	ListedCount  *int64
+	SequenceID  int64
+	Name        string
+	Provider    *string
+	Kind        *string
+	SourceID    *string
+	Label       *string
+	ListedCount *int64
 }
 
 // SPDX-License-Identifier: AGPL-3.0-or-later
@@ -442,7 +442,7 @@ type UpsertProviderOrderingParams struct {
 // Only when it changes something (D303, DL9).
 func (q *Queries) UpsertProviderOrdering(ctx context.Context, arg UpsertProviderOrderingParams) error {
 	_, err := q.db.ExecContext(ctx, upsertProviderOrdering,
-		arg.CollectionID,
+		arg.SequenceID,
 		arg.Name,
 		arg.Provider,
 		arg.Kind,

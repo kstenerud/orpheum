@@ -35,7 +35,7 @@ func (lib *testLibrary) matchFileTitle(rel string) identify.Outcome {
 	if !found {
 		lib.t.Fatalf("no file %s", rel)
 	}
-	outcome, err := lib.matcher.Match(lib.t.Context(), file.TitleID)
+	outcome, err := lib.matcher.Match(lib.t.Context(), file.WorkID)
 	if err != nil {
 		lib.t.Fatalf("Match(%s): %v", rel, err)
 	}
@@ -153,7 +153,7 @@ func TestMatch_ANameMatchedExactlyWinsOverOneMatchedWithAnArticleAside(t *testin
 		if !slices.Contains(lib.provider.Calls, "fetch "+each.want) {
 			t.Errorf("%s: %s was not fetched as its match: %v", each.file, each.want, lib.provider.Calls)
 		}
-		if lib.isGuessed(lib.titlesByPath()[each.file].TitleID) {
+		if lib.isGuessed(lib.titlesByPath()[each.file].WorkID) {
 			t.Errorf("%s is marked a guess; want it matched clearly by its exact name", each.file)
 		}
 	}
@@ -212,7 +212,7 @@ func TestMatch_AnUnsettledSearchIsNeverGuessed(t *testing.T) {
 		solaris.FollowedSource != nil {
 		t.Errorf("after another pass: %+v; want ambiguous, listed on local data", solaris)
 	}
-	kept, err := lib.cache.Read().ListMatchCandidates(t.Context(), solaris.TitleID)
+	kept, err := lib.cache.Read().ListMatchCandidates(t.Context(), solaris.WorkID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -254,16 +254,16 @@ func TestMatch_SeveralOfOneNameAreSettledByAGuessMarkedAsOne(t *testing.T) {
 		if !slices.Contains(lib.provider.Calls, "fetch "+want) {
 			t.Errorf("%s: %s was not fetched as its match: %v", rel, want, lib.provider.Calls)
 		}
-		if !lib.isGuessed(title.TitleID) {
+		if !lib.isGuessed(title.WorkID) {
 			t.Errorf("%s is not marked a guess", rel)
 		}
 	}
 	// A person's choice is no guess, even of the same work.
 	lion := lib.titlesByPath()["The Marten King.mkv"]
-	if err := lib.chooser.Choose(t.Context(), lion.TitleID, "tmdb", "11"); err != nil {
+	if err := lib.chooser.Choose(t.Context(), lion.WorkID, "tmdb", "11"); err != nil {
 		t.Fatal(err)
 	}
-	if lib.isGuessed(lion.TitleID) {
+	if lib.isGuessed(lion.WorkID) {
 		t.Error("The Marten King is still marked a guess after a person chose it")
 	}
 }
@@ -346,7 +346,7 @@ func TestMatch_AWorkUnderAnotherNameIsGuessed(t *testing.T) {
 		}
 	}
 	for _, path := range []string{"Kumo no Michi (1971).mkv", "Hoshi no Mori.mkv"} {
-		if title := lib.titlesByPath()[path]; !lib.isGuessed(title.TitleID) {
+		if title := lib.titlesByPath()[path]; !lib.isGuessed(title.WorkID) {
 			t.Errorf("%s is matched but not marked a guess", path)
 		}
 	}
@@ -375,7 +375,7 @@ func TestMatch_AnAmbiguousFilmTheRulesNowSettleIsMatchedAgain(t *testing.T) {
 		}
 	}
 	// As earlier rules left it: its kept results now hold its one answer, a year off.
-	blueTitle := lib.titlesByPath()["Hollow Violet (1997).mkv"].TitleID
+	blueTitle := lib.titlesByPath()["Hollow Violet (1997).mkv"].WorkID
 	err := lib.cache.Write(t.Context(), func(queries *cachegen.Queries) error {
 		if err := queries.DeleteMatchCandidates(t.Context(), blueTitle); err != nil {
 			return err //nolint:wrapcheck // the test reads it as is
@@ -456,12 +456,12 @@ func TestMatch_ASecondTitleForTheSameWorkJoinsTheFirst(t *testing.T) {
 	lib.matchFileTitle("other/Metropolis (1995).mkv")
 	files := lib.titlesByPath()
 	first, second := files["Metropolis {tmdb-9019}.mkv"], files["other/Metropolis (1995).mkv"]
-	if first.TitleID != second.TitleID {
+	if first.WorkID != second.WorkID {
 		t.Errorf("titles %d and %d; one work found twice should be one title with two versions",
-			first.TitleID, second.TitleID)
+			first.WorkID, second.WorkID)
 	}
 	lib.scan(videoRecord("Metropolis {tmdb-9019}.mkv"), videoRecord("other/Metropolis (1995).mkv"))
-	if files := lib.titlesByPath(); files["other/Metropolis (1995).mkv"].TitleID != first.TitleID {
+	if files := lib.titlesByPath(); files["other/Metropolis (1995).mkv"].WorkID != first.WorkID {
 		t.Error("another pass split the joined title")
 	}
 }
@@ -472,7 +472,7 @@ func TestMatch_AnOverrideSurvivesTheMatchAndReDerivation(t *testing.T) {
 	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(heat)}
 	const rel = "Metropolis (1995).mkv"
 	lib.scan(videoRecord(rel))
-	titleID := lib.titlesByPath()[rel].TitleID
+	titleID := lib.titlesByPath()[rel].WorkID
 	err := lib.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 		return queries.InsertOverrideIfAbsent(t.Context(), sqlcgen.InsertOverrideIfAbsentParams{
 			ItemID: titleID, Field: identify.FieldName, OverrideValue: "Metropolis (director's copy)", Origin: "user",
@@ -495,7 +495,7 @@ func TestMatch_AProvidersRefusalReturnsForTheQueueToActOn(t *testing.T) {
 	lib := newTestLibrary(t, "movie", "tmdb")
 	lib.scan(videoRecord("Metropolis (1995).mkv"))
 	lib.provider.SetFailure(&outbound.RateLimitedError{Provider: "TMDB", RetryAfter: 3})
-	_, err := lib.matcher.Match(t.Context(), lib.titlesByPath()["Metropolis (1995).mkv"].TitleID)
+	_, err := lib.matcher.Match(t.Context(), lib.titlesByPath()["Metropolis (1995).mkv"].WorkID)
 	if limited, isLimited := errors.AsType[*outbound.RateLimitedError](err); !isLimited || limited.RetryAfter != 3 {
 		t.Errorf("Match = %v, want the provider's RateLimitedError", err)
 	}
@@ -519,7 +519,7 @@ func TestHandle_AsksTheProviderWithTheJobsImportanceAndPassesOnItsParking(t *tes
 	} {
 		lib.provider.Importances = nil
 		job := jobs.Job{
-			Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: titles[path].TitleID}, Priority: check.priority,
+			Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: titles[path].WorkID}, Priority: check.priority,
 		}
 		if err := lib.matcher.Handle(t.Context(), job); err != nil {
 			t.Fatal(err)
@@ -531,7 +531,7 @@ func TestHandle_AsksTheProviderWithTheJobsImportanceAndPassesOnItsParking(t *tes
 	}
 	parking := jobs.Parking{Destination: jobs.DestinationTMDBAPI, Reason: "unreachable"}
 	lib.provider.SetFailure(jobs.Park(parking, errors.New("connection refused")))
-	arkon := jobs.Job{Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: titles["Arkon (1979).mkv"].TitleID}}
+	arkon := jobs.Job{Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: titles["Arkon (1979).mkv"].WorkID}}
 	if parked, isParked := jobqueue.ParkingOf(lib.matcher.Handle(t.Context(), arkon)); !isParked || parked != parking {
 		t.Errorf("the provider parked the fetch as %+v (%v); want its parking passed to the queue", parked, isParked)
 	}
@@ -549,11 +549,11 @@ func TestPass_ATMDBOnlyLibraryIgnoresNFOFiles(t *testing.T) {
 		t.Errorf("file %+v named %q, awaiting %v; want the path's name, awaiting TMDB (D183: ignore NFO files)",
 			file, titleName(file), report.AwaitingMatch)
 	}
-	ids, err := lib.database.Read().ListItemProviderIDs(t.Context(), file.TitleID)
+	ids, err := lib.database.Read().ListItemProviderIDs(t.Context(), file.WorkID)
 	if err != nil || len(ids) != 0 {
 		t.Errorf("ids %+v (%v); the NFO's id should not have been read", ids, err)
 	}
-	overrides, err := lib.database.Read().ListOverrides(t.Context(), file.TitleID)
+	overrides, err := lib.database.Read().ListOverrides(t.Context(), file.WorkID)
 	if err != nil || len(overrides) != 0 {
 		t.Errorf("overrides %+v (%v); the NFO's locked fields should not have been read", overrides, err)
 	}
@@ -577,7 +577,7 @@ func TestChooser_AnOverrideIsCleanWhereItEnters(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movie", "nfo")
 	lib.scan(videoRecord("Metropolis (1995).mkv"))
-	titleID := lib.titlesByPath()["Metropolis (1995).mkv"].TitleID
+	titleID := lib.titlesByPath()["Metropolis (1995).mkv"].WorkID
 	person := storetest.InsertUser(t, lib.database, "alice", "admin")
 	err := lib.chooser.SetOverride(t.Context(), titleID, identify.FieldName, "Mine\u2067\u0000", person)
 	if err != nil {

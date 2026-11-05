@@ -64,7 +64,7 @@ func (lib *testLibrary) orderingsOf(seriesID int64) []string {
 	lib.t.Helper()
 	return storetest.QueryRaw(lib.t, lib.database.Path(), fmt.Sprintf(
 		`SELECT name, coalesce(kind, ''), coalesce(label, ''), coalesce(listed_count, 0) FROM ordering
-		 WHERE collection_id = %d ORDER BY name`, seriesID))
+		 WHERE sequence_id = %d ORDER BY name`, seriesID))
 }
 
 // placesIn are an ordering's places as "file group number", in its order, and its groups' names.
@@ -73,13 +73,13 @@ func (lib *testLibrary) placesIn(seriesID int64, ordering string) (places, group
 	places = storetest.QueryRaw(lib.t, lib.database.Path(), fmt.Sprintf(
 		`SELECT substr(file.path, length(file.path) - 9), position.group_number, position.number_in_group
 		 FROM ordering JOIN position ON position.ordering_id = ordering.id
-		 JOIN version ON version.title_id = position.title_id JOIN file_filing ON file_filing.version_id = version.id
+		 JOIN version ON version.work_id = position.work_id JOIN file_filing ON file_filing.version_id = version.id
 		 JOIN file ON file.id = file_filing.file_id
-		 WHERE ordering.collection_id = %d AND ordering.name = '%s' ORDER BY position.sort_order`, seriesID, ordering))
+		 WHERE ordering.sequence_id = %d AND ordering.name = '%s' ORDER BY position.sort_order`, seriesID, ordering))
 	groupNames = storetest.QueryRaw(lib.t, lib.database.Path(), fmt.Sprintf(
 		`SELECT group_text.group_number, group_text.name FROM ordering
 		 JOIN group_text ON group_text.ordering_id = ordering.id
-		 WHERE ordering.collection_id = %d AND ordering.name = '%s'`, seriesID, ordering))
+		 WHERE ordering.sequence_id = %d AND ordering.name = '%s'`, seriesID, ordering))
 	return places, groupNames
 }
 

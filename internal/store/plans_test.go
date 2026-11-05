@@ -273,7 +273,7 @@ func wholeReadsAllowed() map[string]string {
 		"ListLibraryUnnumberedEpisodePaths": "the series' orderings, which are few, each searched for its " +
 			"unnumbered positions; a pass reads it once (D307 section 2)",
 		"ListSeriesAwaitingMatch": "the first-match sweep reads the series, which are few",
-		"ListTitlesAwaitingMatch": sweep + "the first-match sweep reads the titles never answered",
+		"ListWorksAwaitingMatch":  sweep + "the first-match sweep reads the titles never answered",
 		"ListLibraryRoots":        few + "roots",
 		"RetireRootsOfLibrary":    few + "roots; a library's removal retires them",
 		// Whether a library covers a place (D363).
@@ -289,7 +289,7 @@ func wholeReadsAllowed() map[string]string {
 		"ListArtworkSourceSha256s": folders + "the artwork ceiling's daily sweep, for the images of what no " +
 			"library lists",
 		"ListEpisodesNotInOrdering":            folders + "a series' episodes an ordering leaves out",
-		"ListFileTitles":                       folders + "the scanner view",
+		"ListFileWorks":                        folders + "the scanner view",
 		"ListFilesPage":                        folders + "the scanner view",
 		"ListFilmsByAdded":                     folders + "a page of films",
 		"ListFilmsByName":                      folders + "a page of films",
@@ -299,9 +299,9 @@ func wholeReadsAllowed() map[string]string {
 		"ListLibrariesOfFile":                  folders + "the libraries a played file is in",
 		"ListLibraryNFOBodies":                 folders + "the identification pass's snapshot",
 		"ListLibraryRecordedTimes":             folders + "an other library's pass, once",
-		"ListLibraryVersionTitles":             folders + "the identification pass's snapshot",
+		"ListLibraryVersionWorks":              folders + "the identification pass's snapshot",
 		"ListLiveFileLocationsOfSeries":        folders + "where a page's series' files are",
-		"ListLiveFileLocationsOfTitles":        folders + "where a page's titles' files are",
+		"ListLiveFileLocationsOfWorks":         folders + "where a page's titles' files are",
 		"ListOrderingMemberFilesWithPositions": folders + "a series' members for Next Up",
 		"ListOtherByAdded":                     folders + "a page of other videos",
 		"ListOtherByFileName":                  folders + "a page of other videos",
@@ -330,34 +330,34 @@ func wholeReadsAllowed() map[string]string {
 		"ListSeriesByProviderID":        folders + "a series found by its provider id",
 		"ListSeriesEpisodeDetails":      folders + "a series' episodes",
 		"ListSubtitleTracksOfVideo":     folders + "the subtitles beside the places a person reaches",
-		"ListTitleExtras":               folders + "a title's extras",
+		"ListWorkExtras":                folders + "a title's extras",
 		"GetPersonReached":              folders + "whether a person's page has a title its viewer reaches",
 		"ListGenresWithCounts": few + "genres, a few dozen from TMDB and the NFOs, each counted once as " +
 			"the genre chips open; " + folders + "the titles counted",
 		"ListFilteredItemIDs": "a list's genre, person, decade or unwatched filter reads the films and series " +
 			"once, as MatchSubstring reads every name for a short query (D48): a household's titles take " +
 			"milliseconds",
-		"ListTitleFiles":                 folders + "a title's files at the places its person reaches",
-		"ListTitlesByProviderID":         folders + "a film found by its provider id",
-		"ListTitlesNoLibraryLists":       folders + "a retire's titles no library lists",
-		"ListTitlesOfFileNoLibraryLists": folders + "a retired file's titles",
-		"ListTitlesToAdopt":              folders + "the identification pass, once",
-		"ListUncoveredFilesUnder":        folders + "a retired folder's places no library covers",
-		"SearchTrigram":                  folders + "a search's hits",
-		"SearchWords":                    folders + "a search's hits",
-		"MatchTrigram":                   folders + "the titles a searched list holds",
-		"MatchWords":                     folders + "the titles a searched list holds",
-		"FindTitlesTrigram":              folders + "a grouped search's titles",
-		"FindTitlesWords":                folders + "a grouped search's titles",
-		"FindPeopleTrigram":              folders + "the titles crediting a grouped search's people",
-		"FindPeopleWords":                folders + "the titles crediting a grouped search's people",
+		"ListWorkFiles":                 folders + "a title's files at the places its person reaches",
+		"ListWorksByProviderID":         folders + "a film found by its provider id",
+		"ListWorksNoLibraryLists":       folders + "a retire's titles no library lists",
+		"ListWorksOfFileNoLibraryLists": folders + "a retired file's titles",
+		"ListWorksToAdopt":              folders + "the identification pass, once",
+		"ListUncoveredFilesUnder":       folders + "a retired folder's places no library covers",
+		"SearchTrigram":                 folders + "a search's hits",
+		"SearchWords":                   folders + "a search's hits",
+		"MatchTrigram":                  folders + "the titles a searched list holds",
+		"MatchWords":                    folders + "the titles a searched list holds",
+		"FindTitlesTrigram":             folders + "a grouped search's titles",
+		"FindTitlesWords":               folders + "a grouped search's titles",
+		"FindPeopleTrigram":             folders + "the titles crediting a grouped search's people",
+		"FindPeopleWords":               folders + "the titles crediting a grouped search's people",
 		"FindTitlesSubstring": "a grouped search's query too short for either full-text index reads every " +
 			"name once, as search does (D48); " + folders + "its titles",
 		"FindPeopleSubstring": "a grouped search's query too short for either full-text index reads every " +
 			"name once, as search does (D48); " + folders + "the titles crediting its people",
 		"ListCopyCandidates": sweep + "the copies' sweep reads every live video for one whose payload a video " +
 			"found before it has (D363 section 2)",
-		"ListTitlesByIdentification": folders + "the chooser's list, its titles of one state found by " +
+		"ListWorksByIdentification": folders + "the chooser's list, its titles of one state found by " +
 			"item_identification (audit 8)",
 		"ListRefreshRequests":   "the refresh sweep reads every request a person made, a handful",
 		"ListLiveLocators":      few + "signed-in devices, one locator each; a discovery lists them",
@@ -441,10 +441,10 @@ func weakSearchesAllowed() map[string]string {
 		"ListIdentifyFiles":               library + "the identification pass",
 		"ListLibrarySeriesWithFetchedGroups": library + "a pass's last step, its series with an episode group " +
 			"fetched, whose episodes it keeps placed (episode-orderings.md)",
-		"ListLibraryTitles": library + "the identification pass",
+		"ListLibraryWorks": library + "the identification pass",
 		// What the pass reads of its library at its start, once a pass, so that it runs no
 		// statement per file (D303, DL7).
-		"ListLibraryTitlesForPass":       library + snapshot,
+		"ListLibraryWorksForPass":        library + snapshot,
 		"ListLibraryOverrides":           library + snapshot,
 		"ListLibraryProviderIDs":         library + snapshot,
 		"ListLibraryOriginalTexts":       library + snapshot,
@@ -457,11 +457,11 @@ func weakSearchesAllowed() map[string]string {
 		"ListLibraryExtraRelations":      library + snapshot,
 		"ListLibraryCredits":             library + snapshot,
 		"ListLibraryItemGenres":          library + snapshot,
-		"ListTitlesNoLibraryLists":       library + "a retire's titles no library lists any more",
+		"ListWorksNoLibraryLists":        library + "a retire's titles no library lists any more",
 		"ListLiveFilesByNode":            node + "the System page's files of a node",
 		"DeletePlaySpansOfUser":          person + "their removal",
 		"DeletePlayPositionsOfUser":      person + "their removal",
-		"DeleteTitlesWatchedOfUser":      person + "their removal",
+		"DeleteWorksWatchedOfUser":       person + "their removal",
 		"GetWatchStats":                  person + "their watching's totals",
 	}
 }

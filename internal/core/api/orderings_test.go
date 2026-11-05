@@ -46,13 +46,13 @@ func (harness testHarness) shelveDVDOrder(t *testing.T) {
 	storetest.ExecRaw(t, harness.databasePath,
 		"INSERT INTO item_text (item_id, language, is_original, name) VALUES (22, 'und', 1, 'Cat'), "+
 			"(23, 'und', 1, 'Bag'), (24, 'und', 1, 'Seven')",
-		"INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order) "+
+		"INSERT INTO position (ordering_id, work_id, group_number, number_in_group, sort_order) "+
 			"VALUES (1, 22, 1, 2, 10002), (1, 23, 1, 3, 10003), (1, 24, 2, 1, 20001)",
-		"INSERT INTO collection_member (collection_id, member_title, position) VALUES (20, 22, 10002), "+
+		"INSERT INTO sequence_member (sequence_id, member_work, position) VALUES (20, 22, 10002), "+
 			"(20, 23, 10003), (20, 24, 20001)",
-		`INSERT INTO ordering (id, collection_id, name, provider, kind, source_id, label, listed_count)
+		`INSERT INTO ordering (id, sequence_id, name, provider, kind, source_id, label, listed_count)
 		 VALUES (2, 20, 'tmdb:dvd', 'tmdb', 'dvd', 'dvd', 'DVD Order', 5)`,
-		"INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order) "+
+		"INSERT INTO position (ordering_id, work_id, group_number, number_in_group, sort_order) "+
 			"VALUES (2, 23, 1, 1, 10001), (2, 21, 1, 2, 10002), (2, 24, 2, 1, 20001)",
 		`INSERT INTO provider_response (item_id, provider, part, fetched_at, last_asked_at, body_gzip)
 		 VALUES (20, 'tmdb', 'episode_group/dvd', 1, 1, X'')`)
@@ -280,7 +280,7 @@ func TestOrderings_ChoosingAGroupNotFetchedYetQueuesItsFetch(t *testing.T) {
 	harness.shelveDVDOrder(t)
 	storetest.ExecRaw(t, harness.databasePath,
 		`UPDATE item SET followed_source = 'tmdb', followed_source_id = '1396' WHERE id = 20`,
-		`INSERT INTO ordering (id, collection_id, name, provider, kind, source_id, label, listed_count)
+		`INSERT INTO ordering (id, sequence_id, name, provider, kind, source_id, label, listed_count)
 		 VALUES (3, 20, 'tmdb:intended', 'tmdb', 'absolute', 'intended', 'Intended Order', 14)`)
 	var offered struct {
 		Orderings []api.OrderingBody `json:"orderings"`

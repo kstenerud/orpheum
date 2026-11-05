@@ -16,7 +16,7 @@ WHERE id = ?1 AND kind = 'series'
   AND identification_state IS NOT 'confirmed'
 `
 
-// A person confirmed a series' match as it stands, as ConfirmTitleMatch a title's (D172).
+// A person confirmed a series' match as it stands, as ConfirmWorkMatch a title's (D172).
 func (q *Queries) ConfirmSeriesMatch(ctx context.Context, id int64) error {
 	_, err := q.db.ExecContext(ctx, confirmSeriesMatch, id)
 	return err
@@ -57,13 +57,13 @@ func (q *Queries) GetProviderResponseFetchedAt(ctx context.Context, arg GetProvi
 }
 
 const getSeriesForMatch = `-- name: GetSeriesForMatch :one
-SELECT collection.id, item.year, item.followed_source, item.followed_source_id, item.identification_state,
+SELECT sequence.id, item.year, item.followed_source, item.followed_source_id, item.identification_state,
   item.filing_library_id, library.metadata_source, item_text.name
-FROM collection
-JOIN item ON item.id = collection.id
+FROM sequence
+JOIN item ON item.id = sequence.id
 JOIN library ON library.id = item.filing_library_id
-LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_original = 1
-WHERE collection.id = ?1 AND collection.kind = 'series' AND item.removed_at IS NULL
+LEFT JOIN item_text ON item_text.item_id = sequence.id AND item_text.is_original = 1
+WHERE sequence.id = ?1 AND sequence.kind = 'series' AND item.removed_at IS NULL
 `
 
 type GetSeriesForMatchRow struct {
@@ -94,17 +94,17 @@ func (q *Queries) GetSeriesForMatch(ctx context.Context, id int64) (GetSeriesFor
 }
 
 const listLiveSeriesEpisodeSources = `-- name: ListLiveSeriesEpisodeSources :many
-SELECT position.title_id, position.group_number, position.number_in_group, item.followed_source, item.added_at
+SELECT position.work_id, position.group_number, position.number_in_group, item.followed_source, item.added_at
 FROM position
 JOIN ordering ON ordering.id = position.ordering_id
-JOIN title ON title.id = position.title_id
-JOIN item ON item.id = title.id
-WHERE ordering.collection_id = ?1 AND ordering.name = 'aired' AND item.removed_at IS NULL
+JOIN work ON work.id = position.work_id
+JOIN item ON item.id = work.id
+WHERE ordering.sequence_id = ?1 AND ordering.name = 'aired' AND item.removed_at IS NULL
 ORDER BY position.sort_order
 `
 
 type ListLiveSeriesEpisodeSourcesRow struct {
-	TitleID        int64
+	WorkID         int64
 	GroupNumber    *int64
 	NumberInGroup  *int64
 	FollowedSource *string
@@ -114,8 +114,8 @@ type ListLiveSeriesEpisodeSourcesRow struct {
 // A series' episodes in its aired order, with where each takes its values from and when it
 // first appeared: a new episode missing from a season listing fetched before it arrived is
 // what fetches that listing again (D209 section 3).
-func (q *Queries) ListLiveSeriesEpisodeSources(ctx context.Context, collectionID int64) ([]ListLiveSeriesEpisodeSourcesRow, error) {
-	rows, err := q.db.QueryContext(ctx, listLiveSeriesEpisodeSources, collectionID)
+func (q *Queries) ListLiveSeriesEpisodeSources(ctx context.Context, sequenceID int64) ([]ListLiveSeriesEpisodeSourcesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLiveSeriesEpisodeSources, sequenceID)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ func (q *Queries) ListLiveSeriesEpisodeSources(ctx context.Context, collectionID
 	for rows.Next() {
 		var i ListLiveSeriesEpisodeSourcesRow
 		if err := rows.Scan(
-			&i.TitleID,
+			&i.WorkID,
 			&i.GroupNumber,
 			&i.NumberInGroup,
 			&i.FollowedSource,
@@ -144,28 +144,28 @@ func (q *Queries) ListLiveSeriesEpisodeSources(ctx context.Context, collectionID
 }
 
 const listSeriesAwaitingMatch = `-- name: ListSeriesAwaitingMatch :many
-SELECT collection.id
-FROM collection
-JOIN item ON item.id = collection.id
+SELECT sequence.id
+FROM sequence
+JOIN item ON item.id = sequence.id
 JOIN library ON library.id = item.filing_library_id
-WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND collection.kind = 'series'
+WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND sequence.kind = 'series'
   AND library.metadata_source != 'nfo' AND item.identification_state = 'unidentified'
   AND item.followed_source IS NOT 'none'
-  AND NOT EXISTS (SELECT 1 FROM fetch_failure WHERE fetch_failure.item_id = collection.id)
+  AND NOT EXISTS (SELECT 1 FROM fetch_failure WHERE fetch_failure.item_id = sequence.id)
   AND EXISTS (
     SELECT 1 FROM ordering
     JOIN position ON position.ordering_id = ordering.id
-    JOIN item AS episode ON episode.id = position.title_id
-    WHERE ordering.collection_id = collection.id AND ordering.name = 'aired'
+    JOIN item AS episode ON episode.id = position.work_id
+    WHERE ordering.sequence_id = sequence.id AND ordering.name = 'aired'
       AND (episode.followed_source IS NULL OR episode.followed_source != 'nfo')
   )
   AND EXISTS (
-    SELECT 1 FROM collection_member
-    CROSS JOIN version ON version.title_id = collection_member.member_title
+    SELECT 1 FROM sequence_member
+    CROSS JOIN version ON version.work_id = sequence_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE collection_member.collection_id = collection.id AND version.removed_at IS NULL
+    WHERE sequence_member.sequence_id = sequence.id AND version.removed_at IS NULL
   )
-ORDER BY collection.id
+ORDER BY sequence.id
 `
 
 // Series in a provider's library that are not matched, have an episode no NFO speaks for, and
@@ -195,29 +195,29 @@ func (q *Queries) ListSeriesAwaitingMatch(ctx context.Context, libraryID *int64)
 }
 
 const listSeriesByIdentification = `-- name: ListSeriesByIdentification :many
-SELECT collection.id, item.year, item.identification_state, item.followed_source, item.followed_source_id,
+SELECT sequence.id, item.year, item.identification_state, item.followed_source, item.followed_source_id,
   item.filing_library_id, item_text.name, fetch_failure.failure AS fetch_failure, fetch_failure.failed_at AS fetch_failed_at,
   refresh_request.requested_at AS refresh_requested_at
-FROM collection
-JOIN item ON item.id = collection.id
-LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_original = 1
-LEFT JOIN fetch_failure ON fetch_failure.item_id = collection.id
-LEFT JOIN refresh_request ON refresh_request.item_id = collection.id
-WHERE collection.kind = 'series' AND item.identification_state = ?1 AND item.removed_at IS NULL
+FROM sequence
+JOIN item ON item.id = sequence.id
+LEFT JOIN item_text ON item_text.item_id = sequence.id AND item_text.is_original = 1
+LEFT JOIN fetch_failure ON fetch_failure.item_id = sequence.id
+LEFT JOIN refresh_request ON refresh_request.item_id = sequence.id
+WHERE sequence.kind = 'series' AND item.identification_state = ?1 AND item.removed_at IS NULL
   AND (item.identification_state != 'unidentified' OR item.followed_source = 'none'
     OR fetch_failure.item_id IS NOT NULL OR refresh_request.item_id IS NOT NULL)
   AND EXISTS (
-    SELECT 1 FROM collection_member
-    CROSS JOIN version ON version.title_id = collection_member.member_title
+    SELECT 1 FROM sequence_member
+    CROSS JOIN version ON version.work_id = sequence_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE collection_member.collection_id = collection.id AND version.removed_at IS NULL
+    WHERE sequence_member.sequence_id = sequence.id AND version.removed_at IS NULL
       AND (CAST(?2 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
   )
-  -- A page, as ListTitlesByIdentification's (D425 section 7).
+  -- A page, as ListWorksByIdentification's (D425 section 7).
   AND (COALESCE(item_text.name, '') > ?4
-    OR (COALESCE(item_text.name, '') = ?4 AND collection.id > ?5))
-ORDER BY COALESCE(item_text.name, ''), collection.id
+    OR (COALESCE(item_text.name, '') = ?4 AND sequence.id > ?5))
+ORDER BY COALESCE(item_text.name, ''), sequence.id
 LIMIT ?6
 `
 

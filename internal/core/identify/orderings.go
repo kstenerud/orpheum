@@ -54,7 +54,7 @@ func deriveOrderings(ctx context.Context, queries *sqlcgen.Queries, provider Pro
 		return err
 	}
 	orderings, err := queries.ListProviderOrderingsOfSeries(ctx, sqlcgen.ListProviderOrderingsOfSeriesParams{
-		CollectionID: seriesID, Provider: new(provider.Name()),
+		SequenceID: seriesID, Provider: new(provider.Name()),
 	})
 	if err != nil {
 		return fmt.Errorf("list series %d's %s orderings: %w", seriesID, provider.Name(), err)
@@ -94,7 +94,7 @@ func deriveGroupList(ctx context.Context, queries *sqlcgen.Queries, provider Pro
 		return fmt.Errorf("read series %d's list of episode groups: %w", seriesID, err)
 	}
 	existing, err := queries.ListProviderOrderingsOfSeries(ctx, sqlcgen.ListProviderOrderingsOfSeriesParams{
-		CollectionID: seriesID, Provider: new(provider.Name()),
+		SequenceID: seriesID, Provider: new(provider.Name()),
 	})
 	if err != nil {
 		return fmt.Errorf("list series %d's %s orderings: %w", seriesID, provider.Name(), err)
@@ -105,7 +105,7 @@ func deriveGroupList(ctx context.Context, queries *sqlcgen.Queries, provider Pro
 	}
 	for _, group := range groups {
 		listed := sqlcgen.UpsertProviderOrderingParams{
-			CollectionID: seriesID, Name: groupOrderingName(provider.Name(), group.ID), Provider: new(provider.Name()),
+			SequenceID: seriesID, Name: groupOrderingName(provider.Name(), group.ID), Provider: new(provider.Name()),
 			Kind: ptr.NilIfZero(group.Kind), SourceID: new(group.ID), Label: ptr.NilIfZero(group.Name),
 			ListedCount: ptr.NilIfZero(int64(group.EpisodeCount)),
 		}
@@ -166,14 +166,14 @@ func seriesTitlesByEpisode(
 	ctx context.Context, queries *sqlcgen.Queries, provider Provider, seriesID int64,
 ) (map[string][]int64, error) {
 	rows, err := queries.ListSeriesEpisodeSourceIDs(ctx, sqlcgen.ListSeriesEpisodeSourceIDsParams{
-		CollectionID: seriesID, Provider: new(provider.Name()),
+		SequenceID: seriesID, Provider: new(provider.Name()),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list series %d's episodes at %s: %w", seriesID, provider.Name(), err)
 	}
 	titles := map[string][]int64{}
 	for _, row := range rows {
-		titles[row.FollowedSourceID] = append(titles[row.FollowedSourceID], row.TitleID)
+		titles[row.FollowedSourceID] = append(titles[row.FollowedSourceID], row.WorkID)
 	}
 	return titles, nil
 }
@@ -191,7 +191,7 @@ func placeInGroup(
 			group, number := int64(part.Order), int64(entry.Order+1)
 			for _, titleID := range titlesByEpisode[entry.EpisodeID] {
 				wanted[titleID] = sqlcgen.UpsertPositionParams{
-					OrderingID: orderingID, TitleID: titleID, GroupNumber: &group, NumberInGroup: &number,
+					OrderingID: orderingID, WorkID: titleID, GroupNumber: &group, NumberInGroup: &number,
 					SortOrder: float64(group)*10_000 + float64(number),
 				}
 			}
@@ -202,10 +202,10 @@ func placeInGroup(
 		return fmt.Errorf("list ordering %d's places: %w", orderingID, err)
 	}
 	for _, was := range placed {
-		place, isWanted := wanted[was.TitleID]
+		place, isWanted := wanted[was.WorkID]
 		switch {
 		case !isWanted:
-			unplaced := sqlcgen.DeletePositionParams{OrderingID: orderingID, TitleID: was.TitleID}
+			unplaced := sqlcgen.DeletePositionParams{OrderingID: orderingID, WorkID: was.WorkID}
 			err = queries.DeletePosition(ctx, unplaced)
 		case ptr.ValueOrZero(was.GroupNumber) == *place.GroupNumber &&
 			ptr.ValueOrZero(was.NumberInGroup) == *place.NumberInGroup && was.SortOrder == place.SortOrder:
@@ -213,9 +213,9 @@ func placeInGroup(
 			err = queries.UpsertPosition(ctx, place)
 		}
 		if err != nil {
-			return fmt.Errorf("place title %d: %w", was.TitleID, err)
+			return fmt.Errorf("place title %d: %w", was.WorkID, err)
 		}
-		delete(wanted, was.TitleID)
+		delete(wanted, was.WorkID)
 	}
 	for titleID, place := range wanted {
 		if err := queries.UpsertPosition(ctx, place); err != nil {
@@ -326,7 +326,7 @@ func (matcher *Matcher) fetchOwedOrderings(
 		}
 	}
 	chosen, err := queries.ListChosenGroupsToFetch(ctx, sqlcgen.ListChosenGroupsToFetchParams{
-		Axis: preferences.AxisEpisodeOrdering, CollectionID: series.ID, Provider: new(provider.Name()),
+		Axis: preferences.AxisEpisodeOrdering, SequenceID: series.ID, Provider: new(provider.Name()),
 	})
 	if err != nil {
 		return false, fmt.Errorf("list the episode groups chosen in series %d: %w", series.ID, err)

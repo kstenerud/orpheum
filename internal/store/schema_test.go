@@ -82,11 +82,11 @@ func TestSchema_EachPathsIndexServesIt(t *testing.T) {
 			"AND reported_path_raw > x'2f6d2f' AND reported_path_raw < x'2f6d30'": "file_live_path",
 		"SELECT id FROM file WHERE filing = 'errored' AND removed_at IS NULL " +
 			"ORDER BY node_id, path": "file_errored",
-		"SELECT file_id FROM file_filing WHERE version_id = 1":               "file_filing_version",
-		"SELECT id FROM file WHERE copy_of = 1":                              "file_copy",
-		"SELECT collection_id FROM collection_member WHERE member_title = 1": "collection_member_title",
-		`SELECT secret_sha256 FROM "grant" WHERE device_id = 1`:              "grant_device",
-		"UPDATE version SET title_id = 2 WHERE title_id = 1":                 "version_title",
+		"SELECT file_id FROM file_filing WHERE version_id = 1":          "file_filing_version",
+		"SELECT id FROM file WHERE copy_of = 1":                         "file_copy",
+		"SELECT sequence_id FROM sequence_member WHERE member_work = 1": "sequence_member_work",
+		`SELECT secret_sha256 FROM "grant" WHERE device_id = 1`:         "grant_device",
+		"UPDATE version SET work_id = 2 WHERE work_id = 1":              "version_work",
 		"SELECT id FROM item WHERE identification_state = 'unidentified' AND followed_source = 'none' " +
 			"AND kind != 'episode' AND kind IN ('movie', 'extra', 'other')": "item_waiting",
 		"SELECT id FROM item WHERE identification_state = 'ambiguous' AND kind = 'series'":    "item_ambiguous",
@@ -113,9 +113,9 @@ func TestSchema_RefusesRowsThatBreakTheirRules(t *testing.T) {
 		"INSERT INTO item (id, kind, added_at, identification_state) "+
 			"VALUES (7, 'series', 1, 'unidentified'), (8, 'movie', 1, 'identified')")
 	for what, statement := range map[string]string{
-		"a title row on a collection item":  "INSERT INTO title (id, kind) VALUES (7, 'movie')",
-		"a title of a kind its item is not": "INSERT INTO title (id, kind) VALUES (8, 'episode')",
-		"a collection row on a title item": "INSERT INTO collection (id, kind, created_by) " +
+		"a title row on a collection item":  "INSERT INTO work (id, kind) VALUES (7, 'movie')",
+		"a title of a kind its item is not": "INSERT INTO work (id, kind) VALUES (8, 'episode')",
+		"a collection row on a title item": "INSERT INTO sequence (id, kind, created_by) " +
 			"VALUES (8, 'series', 'scanner')",
 		"an id with no source": "INSERT INTO item (kind, added_at, identification_state, followed_source_id) " +
 			"VALUES ('movie', 1, 'identified', '603')",

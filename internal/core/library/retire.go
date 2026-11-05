@@ -271,7 +271,7 @@ func (retire *retiring) forgetRootAndMounts(ctx context.Context, nodeID int64, r
 // more: their fetches and artwork go with their files' work (D363 §10).
 func (retire *retiring) titlesNoLibraryLists(ctx context.Context) error {
 	for _, libraryID := range retire.libraryIDs {
-		titleIDs, err := retire.queries.ListTitlesNoLibraryLists(ctx, &libraryID)
+		titleIDs, err := retire.queries.ListWorksNoLibraryLists(ctx, &libraryID)
 		if err != nil {
 			return fmt.Errorf("list library %d's titles no library lists: %w", libraryID, err)
 		}

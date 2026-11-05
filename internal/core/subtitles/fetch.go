@@ -110,19 +110,19 @@ func (service *Service) subtitleQuery(
 		MovieHash: ptr.ValueOrZero(file.OpensubtitlesHash), Language: strings.ToLower(language),
 	}
 	switch {
-	case file.TitleID != nil && ptr.ValueOrZero(file.TitleKind) == "episode":
-		place, placeErr := store.OrNotFound(service.database.Read().GetEpisodePlace(ctx, *file.TitleID))
+	case file.WorkID != nil && ptr.ValueOrZero(file.WorkKind) == "episode":
+		place, placeErr := store.OrNotFound(service.database.Read().GetEpisodePlace(ctx, *file.WorkID))
 		if placeErr != nil && !errors.Is(placeErr, store.ErrNotFound) {
-			return opensubtitles.Query{}, false, fmt.Errorf("read the place of title %d: %w", *file.TitleID, placeErr)
+			return opensubtitles.Query{}, false, fmt.Errorf("read the place of title %d: %w", *file.WorkID, placeErr)
 		}
 		if placeErr == nil {
 			query.Season, query.Episode = int(ptr.ValueOrZero(place.GroupNumber)),
 				int(ptr.ValueOrZero(place.NumberInGroup))
-			query.SeriesIMDbID, query.SeriesTMDBID, err = service.providerIDs(ctx, place.CollectionID)
+			query.SeriesIMDbID, query.SeriesTMDBID, err = service.providerIDs(ctx, place.SequenceID)
 			hasIDs = query.SeriesIMDbID != "" || query.SeriesTMDBID != ""
 		}
-	case file.TitleID != nil:
-		query.IMDbID, query.TMDBID, err = service.providerIDs(ctx, *file.TitleID)
+	case file.WorkID != nil:
+		query.IMDbID, query.TMDBID, err = service.providerIDs(ctx, *file.WorkID)
 		hasIDs = query.IMDbID != "" || query.TMDBID != ""
 	}
 	if err != nil {

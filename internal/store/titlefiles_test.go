@@ -23,8 +23,8 @@ func TestTitleFiles_EveryQueryLeavesOutARemovedVersion(t *testing.T) {
 		"INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/m')",
 		"INSERT INTO item (id, kind, filing_library_id, added_at, identification_state) "+
 			"VALUES (10, 'movie', 1, 1, 'identified')",
-		"INSERT INTO title (id, kind) VALUES (10, 'movie')",
-		"INSERT INTO version (id, title_id, created_at, removed_at) VALUES (1, 10, 1, NULL), (2, 10, 1, 5)",
+		"INSERT INTO work (id, kind) VALUES (10, 'movie')",
+		"INSERT INTO version (id, work_id, created_at, removed_at) VALUES (1, 10, 1, NULL), (2, 10, 1, 5)",
 		`INSERT INTO file (id, node_id, path, reported_path_raw, size_bytes, filing, first_seen_at, last_seen_at)
 		 VALUES (1, 1, '/m/kept.mkv', CAST('/m/kept.mkv' AS BLOB), 10, 'video', 1, 1),
 		        (2, 1, '/m/removed.mkv', CAST('/m/removed.mkv' AS BLOB), 10, 'video', 1, 1)`,
@@ -33,7 +33,7 @@ func TestTitleFiles_EveryQueryLeavesOutARemovedVersion(t *testing.T) {
 	queries := database.Read()
 	ctx := t.Context()
 
-	listed, err := queries.ListLiveFilesOfTitle(ctx, 10)
+	listed, err := queries.ListLiveFilesOfWork(ctx, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,18 +42,18 @@ func TestTitleFiles_EveryQueryLeavesOutARemovedVersion(t *testing.T) {
 		listedIDs = append(listedIDs, file.ID)
 	}
 	if !slices.Equal(listedIDs, []int64{1}) {
-		t.Errorf("ListLiveFilesOfTitle = files %v, want [1]: the removed version's file is not the title's", listedIDs)
+		t.Errorf("ListLiveFilesOfWork = files %v, want [1]: the removed version's file is not the title's", listedIDs)
 	}
 
-	count, err := queries.CountLiveFilesOfTitle(ctx, 10)
+	count, err := queries.CountLiveFilesOfWork(ctx, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if count != 1 {
-		t.Errorf("CountLiveFilesOfTitle = %d, want 1: the removed version's file is not the title's", count)
+		t.Errorf("CountLiveFilesOfWork = %d, want 1: the removed version's file is not the title's", count)
 	}
 
-	detail, err := queries.ListTitleFiles(ctx, sqlcgen.ListTitleFilesParams{TitleID: 10, IsEveryLibrary: 1})
+	detail, err := queries.ListWorkFiles(ctx, sqlcgen.ListWorkFilesParams{WorkID: 10, IsEveryLibrary: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,6 +62,6 @@ func TestTitleFiles_EveryQueryLeavesOutARemovedVersion(t *testing.T) {
 		detailIDs = append(detailIDs, file.FileID)
 	}
 	if !slices.Equal(detailIDs, []int64{1}) {
-		t.Errorf("ListTitleFiles = files %v, want [1]: the removed version's file is not the title's", detailIDs)
+		t.Errorf("ListWorkFiles = files %v, want [1]: the removed version's file is not the title's", detailIDs)
 	}
 }

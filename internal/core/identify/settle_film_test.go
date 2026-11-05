@@ -67,7 +67,7 @@ func TestMatch_AFilmsCandidateWhoseRuntimeFitsTheFileIsTaken(t *testing.T) {
 		t.Errorf("the file follows %s; want %s, whose 92 minutes fit its 92.1", id, theCrowd)
 	}
 	title := lib.titlesByPath()[crowdRelease]
-	if !lib.isGuessed(title.TitleID) {
+	if !lib.isGuessed(title.WorkID) {
 		t.Error("the match is not marked a guess; two of the file's name were found")
 	}
 	fetches := map[string]int{}
@@ -79,7 +79,7 @@ func TestMatch_AFilmsCandidateWhoseRuntimeFitsTheFileIsTaken(t *testing.T) {
 	if fetches[obscureCrowd] != 1 || fetches[theCrowd] != 1 {
 		t.Errorf("fetches %v; want each candidate's details once, the one taken stored from them", fetches)
 	}
-	kept, err := lib.cache.Read().ListMatchCandidates(t.Context(), title.TitleID)
+	kept, err := lib.cache.Read().ListMatchCandidates(t.Context(), title.WorkID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -382,7 +382,7 @@ func TestMatch_AFilmsChoiceAmongItsCandidatesIsLogged(t *testing.T) {
 		slog.New(slog.NewTextHandler(&logged, nil)))
 	lib.scan(videoLasting(crowdRelease, crowdReleaseMs))
 	lib.matchFileTitle(crowdRelease)
-	itemID := strconv.FormatInt(lib.titlesByPath()[crowdRelease].TitleID, 10)
+	itemID := strconv.FormatInt(lib.titlesByPath()[crowdRelease].WorkID, 10)
 	for _, want := range []string{
 		`msg="a film's candidate" itemId=` + itemID +
 			` candidate=1020910 year=2023 runtimeMs=5520000 votes=20 fit=fits`,

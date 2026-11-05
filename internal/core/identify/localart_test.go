@@ -62,8 +62,8 @@ func TestPass_ImagesBesideTheMediaAreFoundByTheirConventionalNames(t *testing.T)
 		imageRecord("Shows/Glass Tide/Season 01/Glass Tide - S01E01-thumb.jpg"),
 	)
 	files := lib.titlesByPath()
-	film := files["Films/Salt Harbour (1981)/Salt Harbour (1981).mkv"].TitleID
-	episode := files["Shows/Glass Tide/Season 01/Glass Tide - S01E01.mkv"].TitleID
+	film := files["Films/Salt Harbour (1981)/Salt Harbour (1981).mkv"].WorkID
+	episode := files["Shows/Glass Tide/Season 01/Glass Tide - S01E01.mkv"].WorkID
 	series := lib.onlySeries().ID
 	got := localKinds(report)
 	want := map[int64][]string{
@@ -105,7 +105,7 @@ func TestPass_AnOtherVideoShowsEveryImageBesideIt(t *testing.T) {
 		imageRecord("Clips/trip-clearlogo.png"),
 		imageRecord("Clips/trip-thumb.jpg"),
 	)
-	title := lib.titlesByPath()["Clips/trip.mp4"].TitleID
+	title := lib.titlesByPath()["Clips/trip.mp4"].WorkID
 	got := localKinds(report)
 	want := []string{library.ArtBackdrop, library.ArtLogo, library.ArtPoster, library.ArtStill}
 	if !slices.Equal(got[title], want) {
@@ -127,7 +127,7 @@ func TestPass_ReportsEveryImageTheProviderNamesBesideThoseBesideTheMedia(t *test
 		t.Fatalf("outcome %s", outcome)
 	}
 	report := lib.scan(videoRecord(rel), imageRecord("Metropolis (1995)/poster.jpg"))
-	titleID := lib.titlesByPath()[rel].TitleID
+	titleID := lib.titlesByPath()[rel].WorkID
 	// Which of them is owed, the library's preference says, and the artwork service decides for a
 	// pass and a match alike (TestTake_InALibraryThatShowsTheMediasOwnImagesAProvidersOfAKindBesideItIsNotOwed).
 	tmdb := namedKinds(report, "tmdb")[titleID]
@@ -144,7 +144,7 @@ func TestPass_AnImageNoLongerBesideTheMediaIsNoLongerReported(t *testing.T) {
 	lib := newTestLibrary(t, "movie", "nfo")
 	const rel = "Metropolis (1995)/Metropolis (1995).mkv"
 	report := lib.scan(videoRecord(rel), imageRecord("Metropolis (1995)/poster.jpg"))
-	titleID := lib.titlesByPath()[rel].TitleID
+	titleID := lib.titlesByPath()[rel].WorkID
 	if got := localKinds(report)[titleID]; !slices.Equal(got, []string{library.ArtPoster}) {
 		t.Fatalf("with poster.jpg beside the film: found %v, want the poster", got)
 	}

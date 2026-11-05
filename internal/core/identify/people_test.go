@@ -72,7 +72,7 @@ func TestPass_KeepsAnNFOFilmsGenresAndPeople(t *testing.T) {
 			`<actor><name>Ansel Vardo</name><role>Mira Holloway-Pent</role><order>1</order></actor>`+
 			`<actor><name>Ada Wexcombe</name><role>Tamsin Vell</role><order>0</order></actor>`+
 			`<director>Oren Talisk</director><credits>Oren Talisk</credits></movie>`))
-	titleID := lib.titlesByPath()["Metropolis (1995)/Metropolis (1995).mkv"].TitleID
+	titleID := lib.titlesByPath()["Metropolis (1995)/Metropolis (1995).mkv"].WorkID
 	lib.wantList("genres", lib.genresOf(titleID), []string{"Crime", "Drama"})
 	lib.wantList("credits", lib.creditsOf(titleID), []string{
 		"cast 0 Ada Wexcombe (Tamsin Vell)", "cast 1 Ansel Vardo (Mira Holloway-Pent)",
@@ -108,7 +108,7 @@ func TestPass_KeepsAMatchedFilmsGenresAndPeopleAndOnePersonAcrossFilms(t *testin
 	lib.matchFileTitle(heat)
 	lib.matchFileTitle(phantom)
 	lib.runOwedPasses()
-	metropolisID, phantomID := lib.titlesByPath()[heat].TitleID, lib.titlesByPath()[phantom].TitleID
+	metropolisID, phantomID := lib.titlesByPath()[heat].WorkID, lib.titlesByPath()[phantom].WorkID
 	lib.wantList("Metropolis's genres", lib.genresOf(metropolisID), []string{"Crime", "Drama"})
 	lib.wantList("The Phantom of the Opera's genres", lib.genresOf(phantomID), []string{"Drama", "Crime"})
 	lib.wantList("Metropolis's credits", lib.creditsOf(metropolisID), []string{
@@ -138,7 +138,7 @@ func TestPass_FillsATitlesGenresAndPeopleFromItsStoredResponseWithNoRequest(t *t
 	lib.scan(videoRecord(heat))
 	lib.matchFileTitle(heat)
 	lib.runOwedPasses()
-	titleID := lib.titlesByPath()[heat].TitleID
+	titleID := lib.titlesByPath()[heat].WorkID
 	// As a server that kept none held it: the response stored, nothing read from it yet.
 	storetest.ExecRaw(t, lib.database.Path(),
 		fmt.Sprintf("DELETE FROM credit WHERE item_id = %d", titleID),
@@ -179,7 +179,7 @@ func TestMatch_AProvidersGenresAndPeopleAreCleanWhereTheyEnter(t *testing.T) {
 	lib.scan(videoRecord(heat))
 	lib.matchFileTitle(heat)
 	lib.runOwedPasses()
-	titleID := lib.titlesByPath()[heat].TitleID
+	titleID := lib.titlesByPath()[heat].WorkID
 	lib.wantList("genres", lib.genresOf(titleID), []string{"Crime"})
 	lib.wantList("credits", lib.creditsOf(titleID), []string{"cast 0 Ansel Vardo (Vincent)"})
 }

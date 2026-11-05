@@ -71,8 +71,8 @@ func filmsProgress(
 	if err != nil {
 		return fmt.Errorf("encode %d title ids: %w", len(ids), err)
 	}
-	rows, err := queries.ListTitlesPlayPositions(ctx, sqlcgen.ListTitlesPlayPositionsParams{
-		TitleIdsJSON: string(encoded), UserID: userID,
+	rows, err := queries.ListWorksPlayPositions(ctx, sqlcgen.ListWorksPlayPositionsParams{
+		WorkIdsJSON: string(encoded), UserID: userID,
 	})
 	if err != nil {
 		return fmt.Errorf("read user %d's positions in %d films: %w", userID, len(ids), err)
@@ -84,16 +84,16 @@ func filmsProgress(
 		if IsBeforeMark(row.PositionReadAt, row.MarkedAt) {
 			continue // marked by hand since: a fresh start (D370 §4)
 		}
-		if _, seen := latestWatchedAt[row.TitleID]; !seen {
-			latestWatchedAt[row.TitleID] = row.PositionReadAt
+		if _, seen := latestWatchedAt[row.WorkID]; !seen {
+			latestWatchedAt[row.WorkID] = row.PositionReadAt
 		}
-		if decided[row.TitleID] ||
-			!thresholds.resumesAt(row.PositionMs, row.DurationMs, row.HiddenAt, latestWatchedAt[row.TitleID]) {
+		if decided[row.WorkID] ||
+			!thresholds.resumesAt(row.PositionMs, row.DurationMs, row.HiddenAt, latestWatchedAt[row.WorkID]) {
 			continue
 		}
-		decided[row.TitleID] = true
+		decided[row.WorkID] = true
 		if row.DurationMs > 0 {
-			percent[row.TitleID] = row.PositionMs * 100 / row.DurationMs
+			percent[row.WorkID] = row.PositionMs * 100 / row.DurationMs
 		}
 	}
 	watched, err := watchedTitles(ctx, queries, userID, ids)
@@ -135,7 +135,7 @@ func seriesProgress(
 	}
 	byID := map[int64]sqlcgen.CountOrderingMembersRow{}
 	for _, row := range counts {
-		byID[row.CollectionID] = row
+		byID[row.SequenceID] = row
 	}
 	for index := range entries {
 		count := byID[entries[index].ID]

@@ -45,18 +45,18 @@ ORDER BY id;
 -- The disks mounted inside a root, whose destinations a retire forgets.
 SELECT mount_path FROM root_mount WHERE node_id = sqlc.arg(node_id) AND root_path = sqlc.arg(root_path) ORDER BY mount_path;
 
--- name: ListTitlesNoLibraryLists :many
+-- name: ListWorksNoLibraryLists :many
 -- The live titles a library's pass files that no library lists any more: after a retire, their work
 -- goes, and their data waits for the storage budgets to need its room (D363 section 10).
-SELECT title.id
-FROM title
-JOIN item ON item.id = title.id
+SELECT work.id
+FROM work
+JOIN item ON item.id = work.id
 WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL
   AND NOT EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = title.id AND version.removed_at IS NULL
+    WHERE version.work_id = work.id AND version.removed_at IS NULL
   )
-ORDER BY title.id;
+ORDER BY work.id;
 
 -- name: ListUncoveredFilesUnder :many
 -- The live places under a folder on a node (ListLiveFilesUnder's range) that no live library's live
@@ -97,15 +97,15 @@ DELETE FROM root_mount WHERE node_id = sqlc.arg(node_id) AND root_path = sqlc.ar
 -- name: ForgetRootScan :exec
 DELETE FROM root_scan WHERE node_id = sqlc.arg(node_id) AND root_path = sqlc.arg(root_path);
 
--- name: ListTitlesOfFileNoLibraryLists :many
+-- name: ListWorksOfFileNoLibraryLists :many
 -- The titles a file is in, of each kind, that no library lists any more: after an admin said it is
 -- gone, their work goes with its.
-SELECT DISTINCT version.title_id
+SELECT DISTINCT version.work_id
 FROM file_filing
 CROSS JOIN version ON version.id = file_filing.version_id
 WHERE file_filing.file_id = sqlc.arg(file_id)
   AND NOT EXISTS (
     SELECT 1 FROM version AS listed CROSS JOIN version_library ON version_library.version_id = listed.id
-    WHERE listed.title_id = version.title_id AND listed.removed_at IS NULL
+    WHERE listed.work_id = version.work_id AND listed.removed_at IS NULL
   )
-ORDER BY version.title_id;
+ORDER BY version.work_id;

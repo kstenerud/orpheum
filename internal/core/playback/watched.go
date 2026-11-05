@@ -39,20 +39,20 @@ func (service *Service) MarkWatched(
 	now := service.clock.Now().UnixMilli()
 	var before []WatchedState
 	err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		rows, readErr := queries.ListTitlesWatched(ctx, sqlcgen.ListTitlesWatchedParams{
-			TitleIdsJSON: string(encoded), UserID: userID,
+		rows, readErr := queries.ListWorksWatched(ctx, sqlcgen.ListWorksWatchedParams{
+			WorkIdsJSON: string(encoded), UserID: userID,
 		})
 		if readErr != nil {
 			return readErr
 		}
 		before = statesBefore(titleIDs, rows)
 		if isWatched {
-			return queries.MarkTitlesWatched(ctx, sqlcgen.MarkTitlesWatchedParams{
-				UserID: userID, MarkedAt: now, TitleIdsJSON: string(encoded),
+			return queries.MarkWorksWatched(ctx, sqlcgen.MarkWorksWatchedParams{
+				UserID: userID, MarkedAt: now, WorkIdsJSON: string(encoded),
 			})
 		}
-		return queries.MarkTitlesUnwatched(ctx, sqlcgen.MarkTitlesUnwatchedParams{
-			UserID: userID, MarkedAt: now, TitleIdsJSON: string(encoded),
+		return queries.MarkWorksUnwatched(ctx, sqlcgen.MarkWorksUnwatchedParams{
+			UserID: userID, MarkedAt: now, WorkIdsJSON: string(encoded),
 		})
 	})
 	if err != nil {
@@ -62,10 +62,10 @@ func (service *Service) MarkWatched(
 }
 
 // statesBefore are each title's state as rows read it, one with no row none.
-func statesBefore(titleIDs []int64, rows []sqlcgen.ListTitlesWatchedRow) []WatchedState {
-	byID := map[int64]sqlcgen.ListTitlesWatchedRow{}
+func statesBefore(titleIDs []int64, rows []sqlcgen.ListWorksWatchedRow) []WatchedState {
+	byID := map[int64]sqlcgen.ListWorksWatchedRow{}
 	for _, row := range rows {
-		byID[row.TitleID] = row
+		byID[row.WorkID] = row
 	}
 	states := make([]WatchedState, 0, len(titleIDs))
 	for _, id := range titleIDs {
@@ -104,7 +104,7 @@ func (service *Service) RestoreWatched(ctx context.Context, userID int64, states
 	}
 	err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		if len(kept) > 0 {
-			restoreErr := queries.RestoreTitlesWatched(ctx, sqlcgen.RestoreTitlesWatchedParams{
+			restoreErr := queries.RestoreWorksWatched(ctx, sqlcgen.RestoreWorksWatchedParams{
 				UserID: userID, StatesJSON: string(keptJSON),
 			})
 			if restoreErr != nil {
@@ -114,8 +114,8 @@ func (service *Service) RestoreWatched(ctx context.Context, userID int64, states
 		if len(forgotten) == 0 {
 			return nil
 		}
-		return queries.DeleteTitlesWatched(ctx, sqlcgen.DeleteTitlesWatchedParams{
-			UserID: userID, TitleIdsJSON: string(forgottenJSON),
+		return queries.DeleteWorksWatched(ctx, sqlcgen.DeleteWorksWatchedParams{
+			UserID: userID, WorkIdsJSON: string(forgottenJSON),
 		})
 	})
 	if err != nil {

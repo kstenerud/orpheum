@@ -20,7 +20,7 @@ func ForgetWatchingOf(ctx context.Context, queries *sqlcgen.Queries, userID int6
 		"positions":     queries.DeletePlayPositionsOfUser,
 		"kept watching": queries.DeletePurgedWatchingOfUser,
 		"hidden titles": queries.DeleteProgressHidesOfUser,
-		"watched marks": queries.DeleteTitlesWatchedOfUser,
+		"watched marks": queries.DeleteWorksWatchedOfUser,
 	} {
 		if err := forget(ctx, userID); err != nil {
 			return fmt.Errorf("delete user %d's %s: %w", userID, what, err)

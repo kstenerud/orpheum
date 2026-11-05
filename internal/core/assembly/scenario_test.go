@@ -225,13 +225,13 @@ func (world *jobsWorld) probeUntil(until time.Time) int {
 }
 
 // films are each film's title row, by its number.
-func (world *jobsWorld) films() map[int]sqlcgen.ListFileTitlesRow {
+func (world *jobsWorld) films() map[int]sqlcgen.ListFileWorksRow {
 	world.t.Helper()
-	rows, err := world.database.Read().ListFileTitles(world.t.Context(), world.libraryID)
+	rows, err := world.database.Read().ListFileWorks(world.t.Context(), world.libraryID)
 	if err != nil {
 		world.t.Fatal(err)
 	}
-	byNumber := map[int]sqlcgen.ListFileTitlesRow{}
+	byNumber := map[int]sqlcgen.ListFileWorksRow{}
 	for _, row := range rows {
 		number, err := strconv.Atoi(strings.TrimSuffix(strings.TrimPrefix(row.Path, "/media/Film "), " (2001).mkv"))
 		if err == nil {
@@ -296,7 +296,7 @@ func TestScenario_S70_APersonsRefreshWhileTMDBIsParkedLooksAtOnceAndRunsFirstWhe
 	world := newJobsWorld(t, time.Date(2026, 9, 30, 21, 0, 0, 0, time.UTC))
 	world.addFilms(0, 1)
 	world.runDue()
-	refreshed := world.films()[0].TitleID
+	refreshed := world.films()[0].WorkID
 	world.tmdb.set(true)
 	world.addFilms(1, 3)
 	world.runDue()
@@ -322,7 +322,7 @@ func TestScenario_S70_APersonsRefreshWhileTMDBIsParkedLooksAtOnceAndRunsFirstWhe
 		t.Errorf("the person's refresh while TMDB is still down: %+v; want it waiting for TMDB, no attempt spent",
 			refresh)
 	}
-	world.checkAPersonsChoiceIsTMDBsProbe(world.films()[1].TitleID)
+	world.checkAPersonsChoiceIsTMDBsProbe(world.films()[1].WorkID)
 	world.tmdb.set(false)
 	world.tmdb.mutex.Lock()
 	answeredBefore := len(world.tmdb.answeredPaths)
@@ -446,12 +446,12 @@ func TestScenario_S78_DiscardingCacheDBLosesOnlyTiming(t *testing.T) {
 	world.addFilms(0, 3)
 	world.runDue()
 	films := world.films()
-	refreshed, rechecked := films[0].TitleID, films[1].TitleID
+	refreshed, rechecked := films[0].WorkID, films[1].WorkID
 	world.tmdb.set(true)
 	world.addFilms(3, 3)
 	world.runDue() // films 3 to 5 park on TMDB
 	films = world.films()
-	failed := films[5].TitleID
+	failed := films[5].WorkID
 	if _, err := world.refresher.Request(t.Context(), refreshed); err != nil {
 		t.Fatal(err)
 	}
@@ -485,7 +485,7 @@ func TestScenario_S78_DiscardingCacheDBLosesOnlyTiming(t *testing.T) {
 	}
 	world.queue.RunSweeps(t.Context())
 	want := map[int64]string{
-		films[3].TitleID: "{}", films[4].TitleID: "{}", // owed their first match, however it was lost
+		films[3].WorkID: "{}", films[4].WorkID: "{}", // owed their first match, however it was lost
 		refreshed: `{"isRefresh":true,"shouldRetryImages":true}`, // the person's refresh, images and all
 	}
 	if got := world.openWork(); !maps.Equal(got, want) {
