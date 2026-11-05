@@ -1834,7 +1834,7 @@ not properly planned for."
   of thing"):** the schema must let a library move without losing anything hung on it. That covers a
   move to another folder, another disk, another node or another machine (see "Repointing a library"
   below). The audit checks the following:
-  - a repoint changes only `library_root` and `place` rows;
+  - every stored path can be rewritten by prefix in one transaction (D429 §4);
   - nothing people own or identification found keys on a path, a node's name, or a device and inode;
   - a node can be renamed or replaced;
   - a file found at a new place joins its existing `file` row, matched by hash, keeping its
@@ -1865,6 +1865,6 @@ in the following batch."
   file not found at the new root; and whether the old root is kept as a fallback until it is gone.
 - **The schema allows it before the feature is built** (the owner, 2026-11-05). The expansion audit
   checks it, and fixes the schema while it is still greenfield (see that section's "Relocation").
-- **The model (D429, the owner, 2026-11-05):** a place stores its path relative to its library's root, so a repoint changes the root's one row; a folder in two libraries is the person's to sort out, and what goes missing is shown as missing.
+- **The model (D429, the owner, 2026-11-05, after a wargame):** paths stay absolute; a repoint is one operation, "folder X on node A is now folder Y on node B", which rewrites every stored path under X in one transaction, at any level, carrying every library over it. It may be slow: moves are rare (the owner).
 - **Seen during the devnas.example stand-in:** libraries are tied to their node. A moved database finds its
   libraries only if the new machine's node keeps the old node's name.
