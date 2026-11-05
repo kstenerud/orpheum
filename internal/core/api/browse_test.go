@@ -150,7 +150,7 @@ func TestBrowse_ListsDetailsSeriesAndSearch(t *testing.T) {
 	}
 
 	found := harness.do(t, http.MethodGet, "/search?query=breaking&limit=5", user, nil)
-	if !strings.Contains(found.body, `{"id":20,"kind":"series","name":"Brass Arena"}`) {
+	if !strings.Contains(found.body, `{"id":20,"kind":"series","name":"Brass Arena"`) {
 		t.Errorf("search = %d %s", found.status, found.body)
 	}
 }

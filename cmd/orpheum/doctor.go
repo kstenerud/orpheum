@@ -102,7 +102,7 @@ func diagnose(ctx context.Context, config Config, logger *slog.Logger, now time.
 }
 
 // confinementOfThisMachine is what this machine can confine FFmpeg with, as a node here would
-// report it in its hello, judged by the one check the server's /doctor makes of each node
+// report it in its hello, judged by the one check the server's System page makes of each node
 // (api.ConfinementFinding, D112).
 func confinementOfThisMachine(states []confine.State) finding {
 	judged := api.ConfinementFinding("this machine", confinementReport(states))

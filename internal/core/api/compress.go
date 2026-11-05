@@ -26,7 +26,7 @@ var compressedOperations = []string{ //nolint:gochecknoglobals // a constant lis
 	// Identification and the scanner's view.
 	"getItemCandidates", "getFiles", "getSubtitleCandidates",
 	// The admin's views.
-	"getSystem", "getDoctor", "getNodes", "listJobs", "getConfig", "getSettings", "getNowPlaying",
+	"getSystem", "getNodes", "listJobs", "getConfig", "getNowPlaying",
 	"listFilingReports", "getFilingReport", "getNeedsAttention", "listUsers", "listRoles",
 	// What every client reads.
 	"getClientSettings",

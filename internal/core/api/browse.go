@@ -197,30 +197,6 @@ type GroupOutput struct {
 	}
 }
 
-// SearchInput is a search. Superseded by ListItemsInput's Query, search a criterion of the one list (the
-// owner, 2026-10-30); kept for the clients that call it.
-type SearchInput struct {
-	AuthorizationHeader
-	Query   string `query:"query" required:"true"`
-	Library int64  `doc:"One library's titles alone; absent for every library the person reaches" minimum:"0" query:"library"` //nolint:lll // one struct tag
-	Limit   int64  `maximum:"100" minimum:"1" query:"limit" required:"true"`
-}
-
-// HitBody is one search result: a title, or a series.
-type HitBody struct {
-	ID   int64  `json:"id"`
-	Kind string `enum:"movie,episode,extra,other,series" json:"kind"`
-	Name string `json:"name"`
-	Year int64  `json:"year,omitempty"`
-}
-
-// SearchOutput is a search's results, best first.
-type SearchOutput struct {
-	Body struct {
-		Results []HitBody `json:"results"`
-	}
-}
-
 func (server *Server) registerBrowse() {
 	tags := []string{tagBrowse}
 	huma.Register(server.humaAPI, huma.Operation{
@@ -232,13 +208,6 @@ func (server *Server) registerBrowse() {
 		Summary: "A page of a series' episodes the ordering the person watches it in leaves out, in aired order",
 		Tags:    tags,
 	}, server.listNotInOrder)
-	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "search", Method: http.MethodGet, Path: "/search",
-		Summary: "Titles and series by name, in any script (D48); superseded by GET /items?query=",
-		Description: "Superseded: GET /items takes query, a search as a criterion of the one list, with its kind, " +
-			"library, sort, order and paging. Kept for clients that call it; new code lists with GET /items.",
-		Tags: tags,
-	}, server.search)
 }
 
 func (server *Server) getGroup(ctx context.Context, input *GroupInput) (*GroupOutput, error) {
@@ -305,34 +274,4 @@ func (server *Server) episodePageOutput(
 	}
 	output.Body.NextCursor = page.NextCursor
 	return output
-}
-
-func (server *Server) search(ctx context.Context, input *SearchInput) (*SearchOutput, error) {
-	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
-	if err != nil {
-		return nil, err
-	}
-	reach := principal.Reach
-	if input.Library != 0 {
-		var isReached bool
-		if reach, isReached = reach.Narrowed(input.Library); !isReached {
-			return nil, newError(http.StatusNotFound, CodeNotFound, "no such library")
-		}
-	}
-	hits, err := dependencies.Browser.Search(ctx, reach, input.Query, input.Limit)
-	if err != nil {
-		return nil, server.libraryError(ctx, "search", err)
-	}
-	output := &SearchOutput{}
-	output.Body.Results = make([]HitBody, 0, len(hits))
-	for _, hit := range hits {
-		kind := itemKindSeries
-		if hit.TitleKind != nil {
-			kind = *hit.TitleKind
-		}
-		output.Body.Results = append(output.Body.Results, HitBody{
-			ID: hit.ItemID, Kind: kind, Name: hit.Name, Year: ptr.ValueOrZero(hit.Year),
-		})
-	}
-	return output, nil
 }

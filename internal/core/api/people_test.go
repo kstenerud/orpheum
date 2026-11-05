@@ -59,12 +59,12 @@ func TestBrowse_GenresAndPeopleAreShownListedFilteredAndSearched(t *testing.T) {
 		{"/items?kind=movie&sort=name&limit=10&person=42", `{"items":[]}`},
 		{"/items/letters?kind=movie&sort=name&genre=1", `"letters":["H"]`},
 		{"/items/letters?kind=movie&sort=name&genre=2", `"letters":[]`},
-		{"/search/grouped?query=r&limit=10", `"titles":{"hits":[`},
-		{"/search/grouped?query=cr&limit=10", `"genres":{"hits":[{"id":1,"name":"Crime","titleCount":1}]}`},
-		{"/search/grouped?query=a&limit=1", `"people":{"hits":[{"id":40,"name":"Ansel Vardo",` +
+		{"/search?query=r&limit=10", `"titles":{"hits":[`},
+		{"/search?query=cr&limit=10", `"genres":{"hits":[{"id":1,"name":"Crime","titleCount":1}]}`},
+		{"/search?query=a&limit=1", `"people":{"hits":[{"id":40,"name":"Ansel Vardo",` +
 			`"pictureRef":"/vardo.jpg"}],` +
 			`"nextCursor":"1"}`},
-		{"/search/grouped?query=a&limit=1&group=people&cursor=1", `"people":{"hits":[{"id":42,` +
+		{"/search?query=a&limit=1&group=people&cursor=1", `"people":{"hits":[{"id":42,` +
 			`"name":"Bela Ostrander"}],` +
 			`"nextCursor":"2"}`},
 	}
@@ -87,6 +87,6 @@ func TestBrowse_GenresAndPeopleAreShownListedFilteredAndSearched(t *testing.T) {
 	wantError(t, harness.do(t, http.MethodGet, "/people/99", admin, nil), http.StatusNotFound, api.CodeNotFound)
 	// A credited person is no item: their page is /people/{id} (D425 §7).
 	wantError(t, harness.do(t, http.MethodGet, "/items/40", admin, nil), http.StatusNotFound, api.CodeNotFound)
-	wantError(t, harness.do(t, http.MethodGet, "/search/grouped?query=a&limit=1&cursor=1", admin, nil),
+	wantError(t, harness.do(t, http.MethodGet, "/search?query=a&limit=1&cursor=1", admin, nil),
 		http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 }

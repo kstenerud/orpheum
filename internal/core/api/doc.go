@@ -93,7 +93,7 @@
 //     Libraries page shows an admin each library's rescan as it runs (D357 §1, §5).
 //     TestRescan_IsForAnAdminOnly. Each rescan's request with full set is its full rescan, every file
 //     in its scope read again first (D392 §1, §6). TestRescan_AFullRescanReadsEveryFileOfItsLibraryAgain.
-//   - Only an admin sees /doctor; its artwork finding warns at high water with the ceiling to set
+//   - Only an admin sees doctor's findings; its artwork finding warns at high water with the ceiling to set
 //     (D212 §7). TestDoctor_AnAdminSeesTheArtworkCacheAgainstItsCeiling.
 //   - Only an admin sees /system, the System page: the server's facts, doctor's findings and each
 //     node's, with the encoder trials each node made (D225).
@@ -130,8 +130,8 @@
 //     Enforced by TestHealth_AnswersBeforeTheDatabaseIsReady.
 //   - Secrets are write-only. Enforced by TestSecrets_AreWriteOnly.
 //   - /config shows every setting beside its starting value, filters to the changed ones, seeds
-//     and resets; /settings shows only the important ones, the settings page's normal view
-//     (D200). Enforced by TestConfig_ShowsEverySettingAndTheFileAndResets, TestConfig_ListsAndDeletesOnlyUnusedRows,
+//     and resets, and only an admin changes it (D200). Enforced by
+//     TestConfig_ShowsEverySettingAndTheFileAndResets, TestConfig_ListsAndDeletesOnlyUnusedRows,
 //     TestConfig_FiltersToWhatDiffersFromTheStartingValue
 //     and TestSettings_OnlyAnAdminChangesTheServersAndABadValueChangesNothing.
 //   - Any signed-in user sees which titles and series are ambiguous; only a role with edit_metadata sees

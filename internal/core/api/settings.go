@@ -8,8 +8,6 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/danielgtaylor/huma/v2"
-
 	"github.com/kstenerud/orpheum/internal/core/settings"
 )
 
@@ -26,7 +24,7 @@ type SettingBody struct {
 	Question      string          `json:"question,omitempty"`
 	Description   string          `json:"description"`
 	Section       string          `doc:"The part of the settings page it is listed in, in this order" enum:"general,accounts,libraries,metadata,playback,slow_links,upload,together,nodes,jobs,remote_access,backups,diagnostics" json:"section"` //nolint:lll // one struct tag
-	IsImportant   bool            `doc:"In /settings, the settings page's normal view" json:"isImportant"`
+	IsImportant   bool            `doc:"In the settings page's normal view" json:"isImportant"`
 	SetByUserID   *int64          `json:"setByUserId,omitempty"`
 	SetAt         int64           `json:"setAt"`
 }
@@ -38,7 +36,7 @@ type SettingsOutput struct {
 	}
 }
 
-// PutSettingsInput sets settings, all or none.
+// PutSettingsInput sets settings, all or none (PUT /config).
 type PutSettingsInput struct {
 	AuthorizationHeader
 	Body struct {
@@ -47,22 +45,13 @@ type PutSettingsInput struct {
 }
 
 func (server *Server) registerSettings() {
-	tags := []string{tagSettings}
-	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "getSettings", Method: http.MethodGet, Path: "/settings",
-		Summary: "The important server settings, the settings page's normal view (admin)", Tags: tags,
-	}, server.getSettings)
-	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "putSettings", Method: http.MethodPut, Path: "/settings",
-		Summary: "Change important server settings, all or none (admin)", Tags: tags,
-	}, server.putSettings)
 	server.registerConfig()
 }
 
 func (server *Server) listSettings(
-	ctx context.Context, service *settings.Service, isImportantOnly bool,
+	ctx context.Context, service *settings.Service,
 ) (*SettingsOutput, error) {
-	entries, err := service.List(ctx, isImportantOnly)
+	entries, err := service.List(ctx, false)
 	if err != nil {
 		return nil, server.settingsError(ctx, "list settings", err)
 	}
@@ -110,28 +99,9 @@ func settingBody(entry settings.Entry) SettingBody {
 
 func (server *Server) writeSettings(
 	ctx context.Context, service *settings.Service, values map[string]json.RawMessage, setByUserID int64,
-	isImportantOnly bool,
 ) (*SettingsOutput, error) {
-	if err := service.Set(ctx, values, &setByUserID, isImportantOnly); err != nil {
+	if err := service.Set(ctx, values, &setByUserID, false); err != nil {
 		return nil, server.settingsError(ctx, "set settings", err)
 	}
-	return server.listSettings(ctx, service, isImportantOnly)
-}
-
-// getSettings answers GET /settings: the important server settings (admin).
-func (server *Server) getSettings(ctx context.Context, input *AuthorizationHeader) (*SettingsOutput, error) {
-	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
-	if err != nil {
-		return nil, err
-	}
-	return server.listSettings(ctx, dependencies.Settings, true)
-}
-
-// putSettings answers PUT /settings: change important server settings, all or none (admin).
-func (server *Server) putSettings(ctx context.Context, input *PutSettingsInput) (*SettingsOutput, error) {
-	dependencies, principal, err := server.requireAdmin(ctx, input.Authorization)
-	if err != nil {
-		return nil, err
-	}
-	return server.writeSettings(ctx, dependencies.Settings, input.Body.ValuesByKey, principal.UserID, true)
+	return server.listSettings(ctx, service)
 }

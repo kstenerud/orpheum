@@ -55,17 +55,14 @@ func TestDevSeed_CreatesTheSeedsUsersSettingsAndSecretsAndCanRunAgain(t *testing
 
 	server := startServing(t, config, newCapturedLog("ready"), "ready", nil)
 	token := signInAs(t, server.baseURL, "owner", "owner")
-	settings := requestAPI(t, http.MethodGet, server.baseURL+"/settings", token, nil)
-	if !strings.Contains(settings.body, `"key":"should_check_for_updates","kind":"bool","value":false`) {
-		t.Errorf("the seeded setting is not in force: %s", settings.body)
-	}
 	raw := requestAPI(t, http.MethodGet, server.baseURL+"/config", token, nil)
+	if !strings.Contains(raw.body, `"key":"should_check_for_updates","kind":"bool","value":false`) {
+		t.Errorf("the seeded setting is not in force: %s", raw.body)
+	}
 	const pprofOn = `"key":"should_serve_debug_pprof","kind":"bool","value":true,"startingValue":false,` +
 		`"isModified":true`
-	if !strings.Contains(raw.body, pprofOn) ||
-		strings.Contains(settings.body, "should_serve_debug_pprof") {
-		t.Errorf("the seed did not turn should_serve_debug_pprof on through /config, "+
-			"or the settings page shows it:\n%s", raw.body)
+	if !strings.Contains(raw.body, pprofOn) {
+		t.Errorf("the seed did not turn should_serve_debug_pprof on through /config:\n%s", raw.body)
 	}
 	serverSecrets := requestAPI(t, http.MethodGet, server.baseURL+"/secrets", token, nil)
 	const tmdbSet = `"name":"tmdb_api_key","description":"the TMDB API key metadata is fetched with","isSet":true`
