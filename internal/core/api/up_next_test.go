@@ -110,7 +110,7 @@ func TestUpNext_IsTheNextEpisodeInThePersonsOrdering(t *testing.T) {
 		}
 	}
 	storetest.ExecRaw(t, harness.databasePath, `INSERT INTO preference (user_id, scope, scope_id, axis, value_json,
-		set_at) VALUES (1, 'work', 20, 'episode_ordering', '"tmdb:dvd"', 1)`)
+		set_at) VALUES (1, 'item', 20, 'episode_ordering', '"tmdb:dvd"', 1)`)
 	for fileID, want := range map[int64]string{
 		4: "21:1:2 file 2 still dddd tmdb:dvd",
 		2: "24:2:1 file 5 still none tmdb:dvd",
@@ -228,7 +228,7 @@ func TestUpNext_PreviousIsTheEpisodeBeforeInThePersonsOrdering(t *testing.T) {
 		t.Errorf("aired, after the first: %s; want %s, beside no previous", got, want)
 	}
 	storetest.ExecRaw(t, harness.databasePath, `INSERT INTO preference (user_id, scope, scope_id, axis, value_json,
-		set_at) VALUES (1, 'work', 20, 'episode_ordering', '"tmdb:dvd"', 1)`)
+		set_at) VALUES (1, 'item', 20, 'episode_ordering', '"tmdb:dvd"', 1)`)
 	for fileID, want := range map[int64]string{
 		2: "23:1:1 file 4",
 		4: "none", // 23, the DVD order's first

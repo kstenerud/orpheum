@@ -372,7 +372,7 @@ func (q *Queries) IsItemReached(ctx context.Context, arg IsItemReachedParams) (i
 const listChosenOrderings = `-- name: ListChosenOrderings :many
 SELECT ordering.sequence_id, ordering.name
 FROM json_each(CAST(?1 AS TEXT)) AS chosen
-JOIN preference ON preference.user_id = ?2 AND preference.scope = 'work'
+JOIN preference ON preference.user_id = ?2 AND preference.scope = 'item'
   AND preference.scope_id = chosen.value AND preference.axis = ?3
 JOIN ordering ON ordering.sequence_id = preference.scope_id
   AND ordering.name = CAST(json_extract(preference.value_json, '$') AS TEXT)

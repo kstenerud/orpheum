@@ -44,7 +44,7 @@ func (q *Queries) DeletePosition(ctx context.Context, arg DeletePositionParams) 
 const listChosenGroupsToFetch = `-- name: ListChosenGroupsToFetch :many
 SELECT DISTINCT CAST(ordering.source_id AS TEXT) AS source_id
 FROM ordering
-JOIN preference ON preference.scope = 'work' AND preference.scope_id = ordering.sequence_id
+JOIN preference ON preference.scope = 'item' AND preference.scope_id = ordering.sequence_id
   AND preference.axis = ?1 AND CAST(json_extract(preference.value_json, '$') AS TEXT) = ordering.name
 WHERE ordering.sequence_id = ?2 AND ordering.provider = ?3
   AND ordering.source_id IS NOT NULL
@@ -306,7 +306,7 @@ func (q *Queries) ListSeriesEpisodeSourceIDs(ctx context.Context, arg ListSeries
 const listSeriesOwingOrderingParts = `-- name: ListSeriesOwingOrderingParts :many
 SELECT sequence.id, CAST(EXISTS (
     SELECT 1 FROM ordering
-    JOIN preference ON preference.scope = 'work' AND preference.scope_id = ordering.sequence_id
+    JOIN preference ON preference.scope = 'item' AND preference.scope_id = ordering.sequence_id
       AND preference.axis = ?1 AND CAST(json_extract(preference.value_json, '$') AS TEXT) = ordering.name
     WHERE ordering.sequence_id = sequence.id AND ordering.source_id IS NOT NULL
       AND NOT EXISTS (
@@ -334,7 +334,7 @@ WHERE sequence.kind = 'series' AND item.followed_source = ?2
     )
     OR EXISTS (
       SELECT 1 FROM ordering
-      JOIN preference ON preference.scope = 'work' AND preference.scope_id = ordering.sequence_id
+      JOIN preference ON preference.scope = 'item' AND preference.scope_id = ordering.sequence_id
         AND preference.axis = ?1 AND CAST(json_extract(preference.value_json, '$') AS TEXT) = ordering.name
       WHERE ordering.sequence_id = sequence.id AND ordering.source_id IS NOT NULL
         AND NOT EXISTS (
