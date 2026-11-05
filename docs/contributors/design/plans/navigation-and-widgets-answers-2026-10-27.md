@@ -1996,3 +1996,32 @@ The owner's questions wait for the morning; this batch holds what is specified o
    cache the setup does not reset, and reset it.
 
 End: one check-pr; staging and nas.example wait for the owner.
+
+## The grid widget: the owner's questions
+
+Built in the 11-08 batch (item 1): `GridList` (`web/apps/web/src/grid-list.tsx`) draws the cast
+list, needs a match (`identify.tsx`), the accounts list, the invitations list and the roles list,
+each showing what it showed before. These are left for the owner; each has a recommendation.
+
+1. **Should a title's cast show a top-billed row, the full cast one press away?** The cast is now
+   every credit, several to a line, lined up. Recommendation: yes. Show the first eight to ten
+   billed on the title's page (one line on a laptop, two on a TV), then "Full cast and crew", which
+   opens the whole list, cast, directors and writers. The research puts cast below the first screen
+   and keeps secondary detail behind a disclosure, not in tabs (ui-audit-2026-11-04-research.md
+   §4.1), and the owner's own note above names that shape (a short top-billed row, the full cast
+   one press away). Neither research file surveys how competitors list a cast, so this rests on
+   those two.
+2. **How many columns should the cast take?** Each entry is now at least 15rem wide, as many to a
+   line as fit. Recommendation: keep "as
+   many as fit". A top-billed row (question 1) fixes the count on the title's page. The full list
+   is better as one person a line, in two columns (the person, then their part), so the parts line
+   up as a list's should (§4.7 rule 2: a column's entries share a left edge).
+3. **Should a needs-a-match row be one pressable target?** Its name opens the title, and Choose and
+   Look again sit beside it, so the row is three controls in aligned columns, not one target as the
+   other lists are. Recommendation: keep the three controls. Choosing or looking again is the
+   page's job, and nesting them in a row that opens the title would put a control inside a control,
+   which the research moves to a menu (§4.7 rule 6). The title's own page already has "Identified
+   incorrectly".
+4. **Which accounts-list columns wrap?** Now the name is cut to one line with an ellipsis, the
+   admin's note wraps, and the role takes its widest word. Recommendation: keep this. A name is
+   short and known, and a note is free text that is worth reading whole.
