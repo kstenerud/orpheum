@@ -11,10 +11,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List the backups directory, newest first (admin; D242 §5) */
+        /** List the backups directory, newest first (D242 §5) */
         get: operations["listBackups"];
         put?: never;
-        /** Back the persistent directory up now, into the backups directory, as a job the job view shows (admin; D242 §5, D243 §11) */
+        /** Back the persistent directory up now, into the backups directory, as a job the job view shows (D242 §5, D243 §11) */
         post: operations["makeBackup"];
         delete?: never;
         options?: never;
@@ -183,9 +183,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Every server setting beside its starting value, and the config file's keys (read-only); ?onlyModified=true lists only the settings a person set (admin) */
+        /** Every server setting beside its starting value, and the config file's keys (read-only); ?onlyModified=true lists only the settings a person set */
         get: operations["getConfig"];
-        /** Change any server settings, all or none (admin) */
+        /** Change any server settings, all or none */
         put: operations["setConfig"];
         post?: never;
         delete?: never;
@@ -203,7 +203,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Set a server setting to default: its starting value, no longer marked modified, so it follows its starting value when a release changes it (admin) */
+        /** Set a server setting to default: its starting value, no longer marked modified, so it follows its starting value when a release changes it */
         post: operations["resetConfig"];
         delete?: never;
         options?: never;
@@ -218,7 +218,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Setting rows this release does not read: retired keys, or typos (admin) */
+        /** Setting rows this release does not read: retired keys, or typos */
         get: operations["getUnusedConfig"];
         put?: never;
         post?: never;
@@ -238,7 +238,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete a setting row this release does not read; a setting in use is set to default instead (admin) */
+        /** Delete a setting row this release does not read; a setting in use is set to default instead */
         delete: operations["removeUnusedConfig"];
         options?: never;
         head?: never;
@@ -252,7 +252,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** What the scanner saw: every file with its filing and reason (admin; D163) */
+        /** What the scanner saw: every file with its filing and reason (D163) */
         get: operations["listFiles"];
         put?: never;
         post?: never;
@@ -305,7 +305,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Retire one file that cannot be read now: it becomes a tombstone, its history kept (admin; D241 §5) */
+        /** Retire one file that cannot be read now: it becomes a tombstone, its history kept (D241 §5) */
         post: operations["retireFile"];
         delete?: never;
         options?: never;
@@ -388,7 +388,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The reports of works filed wrongly, newest first (admin; D306 §3) */
+        /** The reports of works filed wrongly, newest first (D306 §3) */
         get: operations["listFilingReports"];
         put?: never;
         post?: never;
@@ -405,7 +405,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** One report of a work filed wrongly (admin; D306 §3) */
+        /** One report of a work filed wrongly (D306 §3) */
         get: operations["getFilingReport"];
         put?: never;
         post?: never;
@@ -512,10 +512,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Every invitation: those waiting, and those used with the account each made (admin) */
+        /** Every invitation: those waiting, and those used with the account each made */
         get: operations["listInvitations"];
         put?: never;
-        /** Invite someone to make their own account under a role, noting who it is for (admin; D246) */
+        /** Invite someone to make their own account under a role, noting who it is for (D246) */
         post: operations["createInvitation"];
         delete?: never;
         options?: never;
@@ -533,7 +533,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Withdraw an invitation still waiting: none of its links admits anyone (admin) */
+        /** Withdraw an invitation still waiting: none of its links admits anyone */
         delete: operations["withdrawInvitation"];
         options?: never;
         head?: never;
@@ -584,7 +584,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** An ambiguous film's or series' search results, to choose from, or those of a person's own search (edit_metadata) */
+        /** An ambiguous film's or series' search results, to choose from, or those of a person's own search */
         get: operations["getItemCandidates"];
         put?: never;
         post?: never;
@@ -603,7 +603,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Confirm a guessed match as it stands, "Identified correctly"; permanent (edit_metadata; D301 §4) */
+        /** Confirm a guessed match as it stands, "Identified correctly"; permanent (D301 §4) */
         post: operations["confirmItemMatch"];
         delete?: never;
         options?: never;
@@ -620,7 +620,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Write a report of how a film, episode or series was filed, as Markdown on the server's disk, for an admin to edit and post as an issue; nothing leaves the server (admin; D306 §3) */
+        /** Write a report of how a film, episode or series was filed, as Markdown on the server's disk, for an admin to edit and post as an issue; nothing leaves the server (D306 §3) */
         post: operations["writeFilingReport"];
         delete?: never;
         options?: never;
@@ -690,7 +690,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Choose a film's or series' match; permanent (edit_metadata) */
+        /** Choose a film's or series' match; permanent */
         post: operations["matchItem"];
         delete?: never;
         options?: never;
@@ -707,7 +707,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Choose a film's or series' match by its address or id at TMDB or IMDb; permanent (edit_metadata) */
+        /** Choose a film's or series' match by its address or id at TMDB or IMDb; permanent */
         post: operations["matchItemByLink"];
         delete?: never;
         options?: never;
@@ -740,10 +740,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Set a field to a person's value, kept over every source (edit_metadata) */
+        /** Set a field to a person's value, kept over every source */
         put: operations["setOverride"];
         post?: never;
-        /** Remove a field's override, so it follows its source again (edit_metadata) */
+        /** Remove a field's override, so it follows its source again */
         delete: operations["clearOverride"];
         options?: never;
         head?: never;
@@ -776,7 +776,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Fetch a film's or series' data and its missing images again, whenever a person likes (edit_metadata; D213) */
+        /** Fetch a film's or series' data and its missing images again, whenever a person likes (D213) */
         post: operations["refreshItem"];
         delete?: never;
         options?: never;
@@ -793,7 +793,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Rescan a film or series: scan its files, then match it again from them, unless a person chose its match (admin; D357); with full, read its files again first and throw out what their differences touch (D392) */
+        /** Rescan a film or series: scan its files, then match it again from them, unless a person chose its match (D357); with full, read its files again first and throw out what their differences touch (D392) */
         post: operations["rescanItem"];
         delete?: never;
         options?: never;
@@ -843,7 +843,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The job view: the newest jobs, what each works on, how far it is and why (admin) */
+        /** The job view: the newest jobs, what each works on, how far it is and why */
         get: operations["listJobs"];
         put?: never;
         post?: never;
@@ -862,7 +862,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Cancel a queued or running job; a node's work is stopped (admin) */
+        /** Cancel a queued or running job; a node's work is stopped */
         post: operations["cancelJob"];
         delete?: never;
         options?: never;
@@ -931,7 +931,7 @@ export interface paths {
         /** The libraries; an admin also sees their roots and files by filing */
         get: operations["listLibraries"];
         put?: never;
-        /** Create a library over a node's roots, and scan it (admin) */
+        /** Create a library over a node's roots, and scan it */
         post: operations["createLibrary"];
         delete?: never;
         options?: never;
@@ -949,7 +949,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete a library: its titles are hidden with their history, its work cancelled (admin; D231 §7) */
+        /** Delete a library: its titles are hidden with their history, its work cancelled (D231 §7) */
         delete: operations["removeLibrary"];
         options?: never;
         head?: never;
@@ -999,7 +999,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Rescan a library of films or of series: scan it, then match each film and series in it again from its files, leaving alone what a person set (admin; D357); with full, read every file again first and throw out what its differences touch (D392) */
+        /** Rescan a library of films or of series: scan it, then match each film and series in it again from its files, leaving alone what a person set (D357); with full, read every file again first and throw out what its differences touch (D392) */
         post: operations["rescanLibrary"];
         delete?: never;
         options?: never;
@@ -1016,7 +1016,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Add a folder to a library, and scan it (admin; D359) */
+        /** Add a folder to a library, and scan it (D359) */
         post: operations["addLibraryRoot"];
         delete?: never;
         options?: never;
@@ -1033,7 +1033,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Say a disk missing from a mount point in a root is gone; its files are removed (admin; D208) */
+        /** Say a disk missing from a mount point in a root is gone; its files are removed (D208) */
         post: operations["markLibraryMountGone"];
         delete?: never;
         options?: never;
@@ -1050,7 +1050,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Approve a root's withheld removals; its next scan removes what it does not see (admin; D208) */
+        /** Approve a root's withheld removals; its next scan removes what it does not see (D208) */
         post: operations["approveLibraryRemovals"];
         delete?: never;
         options?: never;
@@ -1067,7 +1067,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Say a root moved: it and its files take the new path with their history, and a scan confirms each (admin; D241 §6) */
+        /** Say a root moved: it and its files take the new path with their history, and a scan confirms each (D241 §6) */
         post: operations["repointLibraryRoot"];
         delete?: never;
         options?: never;
@@ -1084,7 +1084,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Retire a root for good: its files become tombstones and their work is cancelled (admin; D231 §7) */
+        /** Retire a root for good: its files become tombstones and their work is cancelled (D231 §7) */
         post: operations["retireLibraryRoot"];
         delete?: never;
         options?: never;
@@ -1101,7 +1101,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Ask a library's nodes to scan it (admin) */
+        /** Ask a library's nodes to scan it */
         post: operations["scanLibrary"];
         delete?: never;
         options?: never;
@@ -1118,7 +1118,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Rescan every library of films or of series: scan it, then match each film and series in it again from its files, leaving alone what a person set (admin; D357); with full, read every file again first and throw out what its differences touch (D392) */
+        /** Rescan every library of films or of series: scan it, then match each film and series in it again from its files, leaving alone what a person set (D357); with full, read every file again first and throw out what its differences touch (D392) */
         post: operations["rescanLibraries"];
         delete?: never;
         options?: never;
@@ -1408,7 +1408,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** How many folders and disks are offline, wait for the admin or could not be read (admin; D280) */
+        /** How many folders and disks are offline, wait for the admin or could not be read (D280) */
         get: operations["getNeedsAttention"];
         put?: never;
         post?: never;
@@ -1425,7 +1425,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The nodes, and the roots each connected one configured, for a new library (admin) */
+        /** The nodes, and the roots each connected one configured, for a new library */
         get: operations["listNodes"];
         put?: never;
         post?: never;
@@ -1442,7 +1442,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The folders in a node's root or a folder inside it, to choose a library folder (admin; D359) */
+        /** The folders in a node's root or a folder inside it, to choose a library folder (D359) */
         get: operations["getNodeFolders"];
         put?: never;
         post?: never;
@@ -1460,10 +1460,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Set how many may read one of a node's devices at once (admin; D240) */
+        /** Set how many may read one of a node's devices at once (D240) */
         put: operations["setReaderLimit"];
         post?: never;
-        /** Give one of a node's devices back to its kind's reader limit (admin; D240) */
+        /** Give one of a node's devices back to its kind's reader limit (D240) */
         delete: operations["clearReaderLimit"];
         options?: never;
         head?: never;
@@ -1479,7 +1479,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Retire a node for good: its roots are retired and its work is cancelled (admin; D231 §7) */
+        /** Retire a node for good: its roots are retired and its work is cancelled (D231 §7) */
         post: operations["retireNode"];
         delete?: never;
         options?: never;
@@ -1494,7 +1494,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Every playback heard from lately: who, on which device, what, and how (admin) */
+        /** Every playback heard from lately: who, on which device, what, and how */
         get: operations["getNowPlaying"];
         put?: never;
         post?: never;
@@ -1513,7 +1513,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Stop a playback, with a message its player shows within one report interval (admin; D243 §9) */
+        /** Stop a playback, with a message its player shows within one report interval (D243 §9) */
         post: operations["stopPlayback"];
         delete?: never;
         options?: never;
@@ -1749,10 +1749,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Every role, with its capabilities and the libraries it reaches (admin; D243 §4) */
+        /** Every role, with its capabilities and the libraries it reaches (D243 §4) */
         get: operations["listRoles"];
         put?: never;
-        /** Make a role: its name, capabilities and libraries (admin; D243 §4) */
+        /** Make a role: its name, capabilities and libraries (D243 §4) */
         post: operations["createRole"];
         delete?: never;
         options?: never;
@@ -1768,10 +1768,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Change a role; a library taken back is gone for its members at their next request (admin; D243 §4) */
+        /** Change a role; a library taken back is gone for its members at their next request (D243 §4) */
         put: operations["updateRole"];
         post?: never;
-        /** Delete a role the admin made that no one holds (admin) */
+        /** Delete a role the admin made that no one holds */
         delete: operations["removeRole"];
         options?: never;
         head?: never;
@@ -1819,7 +1819,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Which secrets are set; never their values (admin) */
+        /** Which secrets are set; never their values */
         get: operations["listSecrets"];
         put?: never;
         post?: never;
@@ -1837,10 +1837,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Set a secret; write-only (admin) */
+        /** Set a secret; write-only */
         put: operations["setSecret"];
         post?: never;
-        /** Clear a secret (admin) */
+        /** Clear a secret */
         delete: operations["removeSecret"];
         options?: never;
         head?: never;
@@ -1924,7 +1924,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Every fact about the server and each node, with doctor's findings: the System page (admin; D225) */
+        /** Every fact about the server and each node, with doctor's findings: the System page (D225) */
         get: operations["getSystem"];
         put?: never;
         post?: never;
@@ -1941,12 +1941,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Where the core stands with its discovery (admin; D273) */
+        /** Where the core stands with its discovery (D273) */
         get: operations["getDiscovery"];
         put?: never;
-        /** Enrol the core with a discovery, which answers with the code its owner claims it by (admin; D273) */
+        /** Enrol the core with a discovery, which answers with the code its owner claims it by (D273) */
         post: operations["connectDiscovery"];
-        /** Take the core out of its discovery (admin; D273) */
+        /** Take the core out of its discovery (D273) */
         delete: operations["leaveDiscovery"];
         options?: never;
         head?: never;
@@ -1962,7 +1962,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Enrol the core with its household's account by the key the account made (admin; D310 §5) */
+        /** Enrol the core with its household's account by the key the account made (D310 §5) */
         post: operations["claimDiscovery"];
         delete?: never;
         options?: never;
@@ -1979,7 +1979,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** What a discovery's issuer shows: its identity and name, to compare before enrolling (admin; D393 §4) */
+        /** What a discovery's issuer shows: its identity and name, to compare before enrolling (D393 §4) */
         post: operations["identifyDiscovery"];
         delete?: never;
         options?: never;
@@ -1996,7 +1996,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Check the public name and voice relay from outside in, naming a failing hop (admin; D243 §7) */
+        /** Check the public name and voice relay from outside in, naming a failing hop (D243 §7) */
         post: operations["checkReachability"];
         delete?: never;
         options?: never;
@@ -2011,7 +2011,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** What the core and each node used of their machines, each minute, beside the plays and the work running (admin) */
+        /** What the core and each node used of their machines, each minute, beside the plays and the work running */
         get: operations["getResourceUse"];
         put?: never;
         post?: never;
@@ -2028,7 +2028,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** What the server knows of an update: a security fix its version lacks, or a newer release (admin) */
+        /** What the server knows of an update: a security fix its version lacks, or a newer release */
         get: operations["getSystemUpdate"];
         put?: never;
         post?: never;
@@ -2271,7 +2271,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Change the admin's note of who a person is for (admin) */
+        /** Change the admin's note of who a person is for */
         put: operations["setAdminNote"];
         post?: never;
         delete?: never;
@@ -2356,7 +2356,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Give a user a role, their whole access, from their next request (admin; D243 §4) */
+        /** Give a user a role, their whole access, from their next request (D243 §4) */
         put: operations["setUserRole"];
         post?: never;
         delete?: never;
@@ -5515,10 +5515,7 @@ export interface operations {
     listBackups: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -5547,10 +5544,7 @@ export interface operations {
     makeBackup: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -5584,8 +5578,6 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
                 /** @description A Watch Together viewer's membership, from a page on the discovery's origin */
                 "Orpheum-Viewer"?: string;
                 /** @description The browser's Sec-Fetch-Site */
@@ -5636,8 +5628,6 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
                 /** @description The player loads where a seek took it (D284 §2) */
                 "Orpheum-Sought"?: boolean;
                 /** @description A Watch Together viewer's membership, from a page on the discovery's origin */
@@ -5697,8 +5687,6 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
                 /** @description A Watch Together viewer's membership, from a page on the discovery's origin */
                 "Orpheum-Viewer"?: string;
                 /** @description The browser's Sec-Fetch-Site */
@@ -5752,8 +5740,6 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
                 "If-Range"?: string;
                 /** @description A Watch Together viewer's membership, from a page on the discovery's origin */
                 "Orpheum-Viewer"?: string;
@@ -5800,8 +5786,6 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
                 "If-Range"?: string;
                 /** @description A Watch Together viewer's membership, from a page on the discovery's origin */
                 "Orpheum-Viewer"?: string;
@@ -5848,8 +5832,6 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
                 /** @description A Watch Together viewer's membership, from a page on the discovery's origin */
                 "Orpheum-Viewer"?: string;
                 /** @description The browser's Sec-Fetch-Site */
@@ -5925,10 +5907,7 @@ export interface operations {
     reportClientPath: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -5959,10 +5938,7 @@ export interface operations {
     reportClientProblem: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -5993,10 +5969,7 @@ export interface operations {
     getClientSettings: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6028,10 +6001,7 @@ export interface operations {
                 /** @description Only the settings a person set, even to their starting value */
                 onlyModified?: boolean;
             };
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6060,10 +6030,7 @@ export interface operations {
     setConfig: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6096,10 +6063,7 @@ export interface operations {
     resetConfig: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 key: string;
             };
@@ -6130,10 +6094,7 @@ export interface operations {
     getUnusedConfig: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6162,10 +6123,7 @@ export interface operations {
     removeUnusedConfig: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 key: string;
             };
@@ -6201,10 +6159,7 @@ export interface operations {
                 library?: number;
                 limit: number;
             };
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6236,10 +6191,7 @@ export interface operations {
                 /** @description Hold the answer up to this long while the file cannot be read, and answer as soon as it can (D327 §3); 0 answers at once */
                 waitSeconds?: number;
             };
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -6270,10 +6222,7 @@ export interface operations {
     setFilePreferences: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -6306,10 +6255,7 @@ export interface operations {
     retireFile: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -6343,10 +6289,7 @@ export interface operations {
                 /** @description BCP 47: en, pt-BR */
                 language: string;
             };
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -6377,10 +6320,7 @@ export interface operations {
     fetchFileSubtitle: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -6415,10 +6355,7 @@ export interface operations {
     getUpNext: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -6449,10 +6386,7 @@ export interface operations {
     getFileWaits: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -6487,10 +6421,7 @@ export interface operations {
                 cursor?: string;
                 limit: number;
             };
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6519,10 +6450,7 @@ export interface operations {
     getFilingReport: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 name: string;
             };
@@ -6561,10 +6489,7 @@ export interface operations {
                 library?: number;
                 limit: number;
             };
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6622,10 +6547,7 @@ export interface operations {
     getHome: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6654,10 +6576,7 @@ export interface operations {
     sayPageInterest: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6693,10 +6612,7 @@ export interface operations {
                 /** @description The film or series whose page it was */
                 item: number;
             };
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6723,10 +6639,7 @@ export interface operations {
     sayTilesInterest: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6757,10 +6670,7 @@ export interface operations {
     withdrawTilesInterest: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6791,10 +6701,7 @@ export interface operations {
                 cursor?: string;
                 limit: number;
             };
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6823,10 +6730,7 @@ export interface operations {
     createInvitation: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6859,10 +6763,7 @@ export interface operations {
     withdrawInvitation: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -6919,10 +6820,7 @@ export interface operations {
                 /** @description Only the titles the person has not watched: a series while one of its episodes with a file is not */
                 unwatched?: boolean;
             };
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6951,10 +6849,7 @@ export interface operations {
     getItem: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -6990,10 +6885,7 @@ export interface operations {
                 /** @description The year to search in with name; 0 for any */
                 year?: number;
             };
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -7024,10 +6916,7 @@ export interface operations {
     confirmItemMatch: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -7056,10 +6945,7 @@ export interface operations {
     writeFilingReport: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -7094,10 +6980,7 @@ export interface operations {
                 cursor?: string;
                 limit: number;
             };
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 /** @description A group of the ordering the person watches it in, a season or a disc; aired's 0 for the specials and the episodes with no season */
                 group: number;
@@ -7130,10 +7013,7 @@ export interface operations {
     markGroupWatched: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 /** @description A group of the ordering the person watches it in, a season or a disc; aired's 0 for the specials and the episodes with no season */
                 group: number;
@@ -7166,10 +7046,7 @@ export interface operations {
     unmarkGroupWatched: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 /** @description A group of the ordering the person watches it in, a season or a disc; aired's 0 for the specials and the episodes with no season */
                 group: number;
@@ -7202,10 +7079,7 @@ export interface operations {
     markHidden: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -7234,10 +7108,7 @@ export interface operations {
     unmarkHidden: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -7266,10 +7137,7 @@ export interface operations {
     matchItem: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -7302,10 +7170,7 @@ export interface operations {
     matchItemByLink: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -7342,10 +7207,7 @@ export interface operations {
                 cursor?: string;
                 limit: number;
             };
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -7376,10 +7238,7 @@ export interface operations {
     setOverride: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 field: "name" | "overview" | "tagline" | "year" | "runtime_ms" | "recorded_at";
                 id: number;
@@ -7413,10 +7272,7 @@ export interface operations {
     clearOverride: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 field: "name" | "overview" | "tagline" | "year" | "runtime_ms" | "recorded_at";
                 id: number;
@@ -7446,10 +7302,7 @@ export interface operations {
     setItemPreferences: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -7482,10 +7335,7 @@ export interface operations {
     refreshItem: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -7519,10 +7369,7 @@ export interface operations {
                 /** @description A full rescan (D392): every file read again, changed on disk or not, and what its differences from what was kept touch thrown out; absent for a rescan (D357) */
                 full?: boolean;
             };
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -7553,10 +7400,7 @@ export interface operations {
     markWatched: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -7587,10 +7431,7 @@ export interface operations {
     unmarkWatched: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -7638,10 +7479,7 @@ export interface operations {
                 /** @description Only the titles the person has not watched: a series while one of its episodes with a file is not */
                 unwatched?: boolean;
             };
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7674,10 +7512,7 @@ export interface operations {
                 cursor?: string;
                 limit: number;
             };
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7706,10 +7541,7 @@ export interface operations {
     cancelJob: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -7738,10 +7570,7 @@ export interface operations {
     reportLabInputEvents: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7772,10 +7601,7 @@ export interface operations {
     reportLabResult: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7813,10 +7639,7 @@ export interface operations {
                 /** @description Which way the page loads it, for the log */
                 leg?: "transport" | "relay" | "lan";
             };
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7845,10 +7668,7 @@ export interface operations {
     listLibraries: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7877,10 +7697,7 @@ export interface operations {
     createLibrary: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7913,10 +7730,7 @@ export interface operations {
     removeLibrary: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -7947,10 +7761,7 @@ export interface operations {
     setLibraryChangeDetection: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -7990,10 +7801,7 @@ export interface operations {
                 /** @description The order its videos come in */
                 sort: "recorded" | "name" | "file_name" | "added";
             };
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -8027,10 +7835,7 @@ export interface operations {
                 /** @description A full rescan (D392): every file read again, changed on disk or not, and what its differences from what was kept touch thrown out; absent for a rescan (D357) */
                 full?: boolean;
             };
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -8061,10 +7866,7 @@ export interface operations {
     addLibraryRoot: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -8097,10 +7899,7 @@ export interface operations {
     markLibraryMountGone: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -8135,10 +7934,7 @@ export interface operations {
     approveLibraryRemovals: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -8173,10 +7969,7 @@ export interface operations {
     repointLibraryRoot: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -8211,10 +8004,7 @@ export interface operations {
     retireLibraryRoot: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -8249,10 +8039,7 @@ export interface operations {
     scanLibrary: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -8286,10 +8073,7 @@ export interface operations {
                 /** @description A full rescan (D392): every file read again, changed on disk or not, and what its differences from what was kept touch thrown out; absent for a rescan (D357) */
                 full?: boolean;
             };
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8318,10 +8102,7 @@ export interface operations {
     getMe: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8351,10 +8132,7 @@ export interface operations {
     setAdminAway: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8385,10 +8163,7 @@ export interface operations {
     listMyCasts: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8417,10 +8192,7 @@ export interface operations {
     startCast: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8453,10 +8225,7 @@ export interface operations {
     acceptCast: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -8487,10 +8256,7 @@ export interface operations {
     endCast: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -8525,10 +8291,7 @@ export interface operations {
     moveCastOn: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -8559,10 +8322,7 @@ export interface operations {
     playInCast: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -8597,10 +8357,7 @@ export interface operations {
     listMyDevices: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8629,10 +8386,7 @@ export interface operations {
     changeMyDevice: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -8665,10 +8419,7 @@ export interface operations {
     removeMyDevice: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -8697,10 +8448,7 @@ export interface operations {
     signOutElsewhere: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8727,10 +8475,7 @@ export interface operations {
     freshLocator: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8759,10 +8504,7 @@ export interface operations {
     getOwnLink: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8791,10 +8533,7 @@ export interface operations {
     changePassword: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8825,10 +8564,7 @@ export interface operations {
     getMyPreferences: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8857,10 +8593,7 @@ export interface operations {
     setMyPreferences: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8891,10 +8624,7 @@ export interface operations {
     listMyTogether: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8923,10 +8653,7 @@ export interface operations {
     restoreWatched: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8957,10 +8684,7 @@ export interface operations {
     getNeedsAttention: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8989,10 +8713,7 @@ export interface operations {
     listNodes: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -9024,10 +8745,7 @@ export interface operations {
                 /** @description One of the node's configured roots, or a folder inside one, by a clean absolute path */
                 path: string;
             };
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 /** @description The node's configured name */
                 name: string;
@@ -9059,10 +8777,7 @@ export interface operations {
     setReaderLimit: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 /** @description The node's configured name */
                 name: string;
@@ -9099,10 +8814,7 @@ export interface operations {
                 /** @description The node's name for the device, as the System page lists it */
                 deviceKey: string;
             };
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 /** @description The node's configured name */
                 name: string;
@@ -9132,10 +8844,7 @@ export interface operations {
     retireNode: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 /** @description The node's configured name */
                 name: string;
@@ -9167,10 +8876,7 @@ export interface operations {
     getNowPlaying: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -9199,10 +8905,7 @@ export interface operations {
     stopPlayback: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -9268,10 +8971,7 @@ export interface operations {
     answerPairingCheck: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -9302,10 +9002,7 @@ export interface operations {
     enterPairingCode: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -9405,10 +9102,7 @@ export interface operations {
     getPerson: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -9439,10 +9133,7 @@ export interface operations {
     startPlayback: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -9478,10 +9169,7 @@ export interface operations {
                 /** @description Why: left the page, playing nothing else, or went on to another film, the default (D309 §7) */
                 reason?: "left" | "replaced";
             };
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 /** @description The playback's media token */
                 token: string;
@@ -9511,10 +9199,7 @@ export interface operations {
     reportPlayback: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 /** @description The playback's media token */
                 token: string;
@@ -9550,10 +9235,7 @@ export interface operations {
     setPlaybackWants: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 /** @description The playback's media token */
                 token: string;
@@ -9683,10 +9365,7 @@ export interface operations {
     listRoles: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -9715,10 +9394,7 @@ export interface operations {
     createRole: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -9751,10 +9427,7 @@ export interface operations {
     updateRole: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -9787,10 +9460,7 @@ export interface operations {
     removeRole: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -9819,10 +9489,7 @@ export interface operations {
     answerRTCOffer: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -9864,10 +9531,7 @@ export interface operations {
                 /** @description What was typed: from its first letter, in any script (D48) */
                 query: string;
             };
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -9896,10 +9560,7 @@ export interface operations {
     listSecrets: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -9928,10 +9589,7 @@ export interface operations {
     setSecret: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 name: string;
             };
@@ -9964,10 +9622,7 @@ export interface operations {
     removeSecret: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 name: string;
             };
@@ -10030,10 +9685,7 @@ export interface operations {
     signOut: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10190,10 +9842,7 @@ export interface operations {
     getSystem: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10222,10 +9871,7 @@ export interface operations {
     getDiscovery: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10254,10 +9900,7 @@ export interface operations {
     connectDiscovery: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10290,10 +9933,7 @@ export interface operations {
     leaveDiscovery: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10320,10 +9960,7 @@ export interface operations {
     claimDiscovery: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10356,10 +9993,7 @@ export interface operations {
     identifyDiscovery: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10392,10 +10026,7 @@ export interface operations {
     checkReachability: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10424,10 +10055,7 @@ export interface operations {
     getResourceUse: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10456,10 +10084,7 @@ export interface operations {
     getSystemUpdate: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10488,10 +10113,7 @@ export interface operations {
     openTogether: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10520,10 +10142,7 @@ export interface operations {
     getTogether: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -10554,10 +10173,7 @@ export interface operations {
     endTogether: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -10586,10 +10202,7 @@ export interface operations {
     getTogetherICE: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -10620,10 +10233,7 @@ export interface operations {
     addTogetherLink: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -10658,10 +10268,7 @@ export interface operations {
     removeTogetherLink: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
                 link: number;
@@ -10691,10 +10298,7 @@ export interface operations {
     ejectFromTogether: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
                 member: number;
@@ -10724,10 +10328,7 @@ export interface operations {
     addTogetherLinkFor: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
                 member: number;
@@ -10759,10 +10360,7 @@ export interface operations {
     joinTogether: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10826,10 +10424,7 @@ export interface operations {
     leaveTogether: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10856,10 +10451,7 @@ export interface operations {
     playTogether: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10897,10 +10489,7 @@ export interface operations {
                 cursor?: string;
                 limit: number;
             };
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10929,10 +10518,7 @@ export interface operations {
     createUser: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10965,10 +10551,7 @@ export interface operations {
     getUser: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -10999,10 +10582,7 @@ export interface operations {
     renameUser: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -11035,10 +10615,7 @@ export interface operations {
     removeUser: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -11067,10 +10644,7 @@ export interface operations {
     setAdminNote: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -11103,10 +10677,7 @@ export interface operations {
     listUserDevices: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -11137,10 +10708,7 @@ export interface operations {
     removeUserDevice: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 deviceId: number;
                 id: number;
@@ -11170,10 +10738,7 @@ export interface operations {
     revokeOwnLink: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -11202,10 +10767,7 @@ export interface operations {
     issueRegistrationInvitation: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };
@@ -11236,10 +10798,7 @@ export interface operations {
     setUserRole: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
+            header?: never;
             path: {
                 id: number;
             };

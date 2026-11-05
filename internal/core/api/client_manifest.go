@@ -31,8 +31,9 @@ type ClientManifestOutput struct {
 func (server *Server) registerClientManifest() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getClientManifest", Method: http.MethodGet, Path: "/client-manifest",
-		Summary: "The core's client's files by their hashes, signed by its identity key (D308)",
-		Tags:    []string{tagSetupAndAuth},
+		Summary:    "The core's client's files by their hashes, signed by its identity key (D308)",
+		Tags:       []string{tagSetupAndAuth},
+		Extensions: callableBy(capabilityNone),
 	}, server.getClientManifest)
 }
 

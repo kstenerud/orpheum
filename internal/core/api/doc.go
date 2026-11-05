@@ -43,6 +43,13 @@
 //     TestArch_HomeIsNeverACredential.
 //   - Every handler is the Server method its operation's OperationID names, so the API document
 //     and the code say one name. Enforced by TestArch_APIHandlersAreNamedForTheirOperations.
+//   - Every operation declares who may call it where it is registered (callableBy, access.go): its
+//     capability as x-orpheum-capability (signedIn, admin, manageUsers, editMetadata, deviceTests,
+//     member, media, or none for a secret in the request itself) and its OpenAPI security, of the
+//     schemes session, membership and media; the Authorization header is read for the handler and
+//     documented by the security alone (D425 §6). Each handler checks its caller as its operation
+//     declares, and one declaring none names the secret it checks itself. Enforced by
+//     TestArch_EveryHandlerChecksTheCallersItsOperationDeclares.
 //   - Every error, huma's own included, leaves as {"error": {...}} with a code from the
 //     enumeration, and never echoes a submitted value. Enforced by the tests' wantError and
 //     TestSecrets_AreWriteOnly.
@@ -234,6 +241,7 @@
 //     subtitle_fetch.go, preferences.go, report.go, home.go, watched.go (marking by hand, D370),
 //     accounts.go, devices.go and jobs.go; lab.go, the lab pages' results and the button test's
 //     events.
+//   - access.go: who may call an operation, its capability and security schemes (callableBy, D425 §6).
 //   - server.go holds the readiness gate and the authentication helpers: requireSignedIn,
 //     requireAdmin and requireAccountManager; requireMetadataEditor is in identification.go, and
 //     requireSignedInForMedia,

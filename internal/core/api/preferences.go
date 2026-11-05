@@ -80,23 +80,27 @@ func (server *Server) registerPreferences() {
 		Summary: "Keep a person's choices in one file: its subtitle offset, its subtitle and audio tracks, " +
 			"whose languages its work's unwatched files follow",
 		Tags: []string{tagPlayback}, DefaultStatus: http.StatusNoContent,
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.setFilePreferences)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "setItemPreferences", Method: http.MethodPut, Path: "/items/{id}/preferences",
 		Summary: "Keep a person's choices in one series: the ordering they watch it in, which its pages, " +
 			"its episodes' labels and its Next Up follow",
 		Tags: []string{tagBrowse}, DefaultStatus: http.StatusNoContent,
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.setItemPreferences)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "setMyPreferences", Method: http.MethodPut, Path: "/me/preferences",
 		Summary: "Keep a person's own choices, which hold in every file they play: the boost, levelling, " +
 			"autoplay; and whether their pages show debug tools",
 		Tags: []string{tagPlayback}, DefaultStatus: http.StatusNoContent,
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.setMyPreferences)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getMyPreferences", Method: http.MethodGet, Path: "/me/preferences",
-		Summary: "A person's own choices, which hold in every file they play, as their settings show them",
-		Tags:    []string{tagPlayback},
+		Summary:    "A person's own choices, which hold in every file they play, as their settings show them",
+		Tags:       []string{tagPlayback},
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.getMyPreferences)
 }
 

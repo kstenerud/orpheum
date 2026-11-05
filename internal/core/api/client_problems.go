@@ -38,6 +38,7 @@ func (server *Server) registerClientProblems() {
 		Summary:       "A failure the page met, for the server's log",
 		Tags:          []string{tagPlayback},
 		DefaultStatus: http.StatusNoContent,
+		Extensions:    callableBy(capabilitySignedIn),
 	}, server.reportClientProblem)
 }
 
@@ -105,6 +106,7 @@ func (server *Server) registerClientPaths() {
 		Summary:       "How a page chose its path to the core, and why, for the server's log",
 		Tags:          []string{tagPlayback},
 		DefaultStatus: http.StatusNoContent,
+		Extensions:    callableBy(capabilitySignedIn),
 	}, server.reportClientPath)
 }
 

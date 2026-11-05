@@ -142,26 +142,31 @@ func (server *Server) registerUsers() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "listUsers", Method: http.MethodGet, Path: "/users",
 		Summary: "Everyone, for the admin", Tags: tags,
+		Extensions: callableBy(capabilityAdmin),
 	}, server.listUsers)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "createUser", Method: http.MethodPost, Path: "/users", DefaultStatus: http.StatusCreated,
 		Summary: "Set a user up in full: a name, a password and a role (D246 §2)", Tags: tags,
+		Extensions: callableBy(capabilityAdmin),
 	}, server.createUser)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "issueRegistrationInvitation", Method: http.MethodPost,
-		Path:    "/users/{id}/registration-invitation",
-		Summary: "A new registration link for a person, withdrawing the old; their password works until used",
-		Tags:    tags,
+		Path:       "/users/{id}/registration-invitation",
+		Summary:    "A new registration link for a person, withdrawing the old; their password works until used",
+		Tags:       tags,
+		Extensions: callableBy(capabilityAdmin),
 	}, server.issueRegistrationInvitation)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "register", Method: http.MethodPost, Path: "/registration",
-		Summary: "Use an invitation or a registration link: make the account or set a new password, and sign in",
-		Tags:    tags,
+		Summary:    "Use an invitation or a registration link: make the account or set a new password, and sign in",
+		Tags:       tags,
+		Extensions: callableBy(capabilityNone),
 	}, server.register)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "changePassword", Method: http.MethodPut, Path: "/me/password",
 		DefaultStatus: http.StatusNoContent,
 		Summary:       "Change one's own password; other sessions stay signed in", Tags: tags,
+		Extensions: callableBy(capabilityManageUsers),
 	}, server.changePassword)
 }
 
@@ -291,21 +296,25 @@ func (server *Server) registerUser() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getUser", Method: http.MethodGet, Path: pathUser,
 		Summary: "A user's page, for the admin: who they are and what they have watched", Tags: tags,
+		Extensions: callableBy(capabilityAdmin),
 	}, server.getUser)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "renameUser", Method: http.MethodPut, Path: pathUser,
 		Summary: "Rename a user; names are for display and sign-in, and stay unique", Tags: tags,
 		DefaultStatus: http.StatusNoContent,
+		Extensions:    callableBy(capabilityAdmin),
 	}, server.renameUser)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "removeUser", Method: http.MethodDelete, Path: pathUser,
 		Summary: "Remove a user: their sessions and devices end, and their own watching is deleted (S40)",
 		Tags:    tags, DefaultStatus: http.StatusNoContent,
+		Extensions: callableBy(capabilityAdmin),
 	}, server.removeUser)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "revokeOwnLink", Method: http.MethodDelete, Path: pathUser + "/own-link",
 		Summary: "End a person's own link, which leads them back to the server through a discovery (D292 §4)",
 		Tags:    tags, DefaultStatus: http.StatusNoContent,
+		Extensions: callableBy(capabilityAdmin),
 	}, server.revokeOwnLink)
 }
 

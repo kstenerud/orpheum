@@ -90,12 +90,14 @@ func (server *Server) registerJobs() {
 	tags := []string{tagJobs}
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "listJobs", Method: http.MethodGet, Path: "/jobs",
-		Summary: "The job view: the newest jobs, what each works on, how far it is and why (admin)", Tags: tags,
+		Summary: "The job view: the newest jobs, what each works on, how far it is and why", Tags: tags,
+		Extensions: callableBy(capabilityAdmin),
 	}, server.listJobs)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "cancelJob", Method: http.MethodPost, Path: "/jobs/{id}/cancel",
-		Summary: "Cancel a queued or running job; a node's work is stopped (admin)", Tags: tags,
+		Summary: "Cancel a queued or running job; a node's work is stopped", Tags: tags,
 		DefaultStatus: http.StatusNoContent,
+		Extensions:    callableBy(capabilityAdmin),
 	}, server.cancelJob)
 }
 

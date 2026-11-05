@@ -35,7 +35,8 @@ func (server *Server) registerUpNext() {
 		OperationID: "getUpNext", Method: http.MethodGet, Path: "/files/{id}/up-next",
 		Summary: "What plays after a file as it ends, and what before it: the next and previous episodes in " +
 			"the ordering its person watches its series in",
-		Tags: []string{tagPlayback},
+		Tags:       []string{tagPlayback},
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.getUpNext)
 }
 

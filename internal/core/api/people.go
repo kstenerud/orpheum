@@ -144,15 +144,18 @@ func (server *Server) registerPeople() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getPerson", Method: http.MethodGet, Path: "/people/{id}",
 		Summary: "A person: their name and their picture; GET /items?person= lists what credits them", Tags: tags,
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.getPerson)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "listGenres", Method: http.MethodGet, Path: "/genres",
 		Summary: "The genres with a title the person reaches, each with how many", Tags: tags,
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.listGenres)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "search", Method: http.MethodGet, Path: "/search",
-		Summary: "Titles, people and genres by what was typed, from its first letter, each group the best first",
-		Tags:    tags,
+		Summary:    "Titles, people and genres by what was typed, from its first letter, each group the best first",
+		Tags:       tags,
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.search)
 }
 

@@ -52,25 +52,30 @@ func (server *Server) registerWatched() {
 		Summary: "Mark an item watched by hand: a film, episode or other video, or every episode of a series " +
 			"with a file, in the ordering the person watches it in; it leaves Continue Watching and plays " +
 			"next from its start (D370)",
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.markWatched)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "unmarkWatched", Method: http.MethodDelete, Path: "/items/{id}/watched", Tags: tags,
 		Summary: "Mark an item unwatched by hand, as never watched: a film, episode or other video, or every " +
 			"episode of a series with a file, in the ordering the person watches it in (D370)",
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.unmarkWatched)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "markGroupWatched", Method: http.MethodPut, Path: "/items/{id}/groups/{group}/watched",
 		Tags: tags, Summary: "Mark every episode of a season with a file watched by hand (D370)",
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.markGroupWatched)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "unmarkGroupWatched", Method: http.MethodDelete,
 		Path: "/items/{id}/groups/{group}/watched", Tags: tags,
-		Summary: "Mark every episode of a season with a file unwatched by hand (D370)",
+		Summary:    "Mark every episode of a season with a file unwatched by hand (D370)",
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.unmarkGroupWatched)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "restoreWatched", Method: http.MethodPut, Path: "/me/watched", Tags: tags,
 		Summary:       "Put the person's watched marks back as a mark by hand's answer gave them: its Undo (D370)",
 		DefaultStatus: http.StatusNoContent,
+		Extensions:    callableBy(capabilitySignedIn),
 	}, server.restoreWatched)
 }
 

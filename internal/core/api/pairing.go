@@ -91,34 +91,41 @@ func (server *Server) registerPairing() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "requestPairing", Method: http.MethodPost, Path: "/pairings",
 		Summary: "A code for this device to show, which a person signed in enters to activate it (D288)", Tags: tags,
+		Extensions: callableBy(capabilityNone),
 	}, server.requestPairing)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getPairingState", Method: http.MethodPost, Path: "/pairings/state",
 		Summary: "How this device's pairing stands, and the check code to show", Tags: tags,
+		Extensions: callableBy(capabilityNone),
 	}, server.getPairingState)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "takePairedSession", Method: http.MethodPost, Path: "/pairings/session",
 		DefaultStatus: http.StatusCreated,
 		Summary:       "The session a confirmed pairing made, once", Tags: tags,
+		Extensions: callableBy(capabilityNone),
 	}, server.takePairedSession)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "enterPairingCode", Method: http.MethodPost, Path: "/pairings/code",
 		Summary: "Enter the code a device shows; both then show a check code (D288)", Tags: tags,
+		Extensions: callableBy(capabilityManageUsers),
 	}, server.enterPairingCode)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "answerPairingCheck", Method: http.MethodPost, Path: "/pairings/check",
 		DefaultStatus: http.StatusNoContent,
 		Summary:       "Say whether the check codes match: only a match activates the device", Tags: tags,
+		Extensions: callableBy(capabilityManageUsers),
 	}, server.answerPairingCheck)
 	// The old paths, kept outside the document for one release (D425 §3): Connect serves the web
 	// build it was last deployed with, which enters a code at /activations. They go in the next batch.
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "enterPairingCodeAtItsOldPath", Method: http.MethodPost, Path: "/activations",
-		Hidden: true,
+		Hidden:     true,
+		Extensions: callableBy(capabilityManageUsers),
 	}, server.enterPairingCodeAtItsOldPath)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "answerPairingCheckAtItsOldPath", Method: http.MethodPost, Path: "/activations/answer",
 		Hidden: true, DefaultStatus: http.StatusNoContent,
+		Extensions: callableBy(capabilityManageUsers),
 	}, server.answerPairingCheckAtItsOldPath)
 }
 

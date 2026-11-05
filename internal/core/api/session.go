@@ -166,31 +166,38 @@ func (server *Server) registerSetupAndAuth() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "setup", Method: http.MethodPost, Path: "/setup", DefaultStatus: http.StatusCreated,
 		Summary: "Create the first admin with the one-time setup code from the log", Tags: tags,
+		Extensions: callableBy(capabilityNone),
 	}, server.setup)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getSetup", Method: http.MethodGet, Path: "/setup",
-		Summary: "Whether the server still needs its first admin, so the sign-in page opens on setting it up",
-		Tags:    tags,
+		Summary:    "Whether the server still needs its first admin, so the sign-in page opens on setting it up",
+		Tags:       tags,
+		Extensions: callableBy(capabilityNone),
 	}, server.getSetup)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "signIn", Method: http.MethodPost, Path: "/session", DefaultStatus: http.StatusCreated,
 		Summary: "Sign in; returns a session token for the Authorization header", Tags: tags,
+		Extensions: callableBy(capabilityNone),
 	}, server.signIn)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "signOut", Method: http.MethodDelete, Path: "/session", DefaultStatus: http.StatusNoContent,
 		Summary: "Sign out, revoking this session", Tags: tags,
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.signOut)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getMe", Method: http.MethodGet, Path: "/me",
 		Summary: "Who this session belongs to", Tags: tags,
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.getMe)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "freshLocator", Method: http.MethodPost, Path: "/me/locator",
 		Summary: "A fresh locator for this device, by which it finds its server at a discovery", Tags: tags,
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.freshLocator)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getOwnLink", Method: http.MethodGet, Path: "/me/own-link",
 		Summary: "Your own link, which leads your devices back to this server through its discovery", Tags: tags,
+		Extensions: callableBy(capabilityManageUsers),
 	}, server.getOwnLink)
 	server.registerHandOff()
 }

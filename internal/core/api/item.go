@@ -73,7 +73,8 @@ func (server *Server) registerItem() {
 			"episode, its place; a series' seasons, each with how many episodes it has",
 		Description: "A credited person is not an item here: their id answers 404, and their page is " +
 			"GET /people/{id} (D425 §7).",
-		Tags: []string{tagBrowse},
+		Tags:       []string{tagBrowse},
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.getItem)
 }
 

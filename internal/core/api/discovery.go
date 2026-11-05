@@ -170,27 +170,32 @@ const discoveryPath = "/system/discovery"
 func (server *Server) registerDiscovery() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getDiscovery", Method: http.MethodGet, Path: discoveryPath,
-		Tags: []string{tagRunningIt}, Summary: "Where the core stands with its discovery (admin; D273)",
+		Tags: []string{tagRunningIt}, Summary: "Where the core stands with its discovery (D273)",
+		Extensions: callableBy(capabilityAdmin),
 	}, server.getDiscovery)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "identifyDiscovery", Method: http.MethodPost, Path: discoveryPath + "/identify",
-		Tags:    []string{tagRunningIt},
-		Summary: "What a discovery's issuer shows: its identity and name, to compare before enrolling (admin; D393 §4)",
+		Tags:       []string{tagRunningIt},
+		Summary:    "What a discovery's issuer shows: its identity and name, to compare before enrolling (D393 §4)",
+		Extensions: callableBy(capabilityAdmin),
 	}, server.identifyDiscovery)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "connectDiscovery", Method: http.MethodPost, Path: discoveryPath,
-		Tags:    []string{tagRunningIt},
-		Summary: "Enrol the core with a discovery, which answers with the code its owner claims it by (admin; D273)",
+		Tags:       []string{tagRunningIt},
+		Summary:    "Enrol the core with a discovery, which answers with the code its owner claims it by (D273)",
+		Extensions: callableBy(capabilityAdmin),
 	}, server.connectDiscovery)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "claimDiscovery", Method: http.MethodPost, Path: discoveryPath + "/claim",
-		Tags:    []string{tagRunningIt},
-		Summary: "Enrol the core with its household's account by the key the account made (admin; D310 §5)",
+		Tags:       []string{tagRunningIt},
+		Summary:    "Enrol the core with its household's account by the key the account made (D310 §5)",
+		Extensions: callableBy(capabilityAdmin),
 	}, server.claimDiscovery)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "leaveDiscovery", Method: http.MethodDelete, Path: discoveryPath,
 		Tags: []string{tagRunningIt}, DefaultStatus: http.StatusNoContent,
-		Summary: "Take the core out of its discovery (admin; D273)",
+		Summary:    "Take the core out of its discovery (D273)",
+		Extensions: callableBy(capabilityAdmin),
 	}, server.leaveDiscovery)
 	server.registerUpdate()
 }

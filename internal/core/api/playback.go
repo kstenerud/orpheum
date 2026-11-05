@@ -170,8 +170,9 @@ type DirectInput struct {
 func (server *Server) registerPlayback() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "startPlayback", Method: http.MethodPost, Path: "/playback",
-		Summary: "Decide how a file plays on this client, and where its bytes are (cut-a §6)",
-		Tags:    []string{tagPlayback},
+		Summary:    "Decide how a file plays on this client, and where its bytes are (cut-a §6)",
+		Tags:       []string{tagPlayback},
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.startPlayback)
 	directResponses := map[string]*huma.Response{
 		"200": {Description: "The file", Content: map[string]*huma.MediaType{"application/octet-stream": {}}},
@@ -180,17 +181,20 @@ func (server *Server) registerPlayback() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getDirect", Method: http.MethodGet, Path: "/bytes/media/direct/{token}",
 		Summary: "A file's own bytes, relayed from its node, honouring Range", Tags: []string{tagPlayback},
-		Responses: directResponses,
+		Responses:  directResponses,
+		Extensions: callableBy(capabilityMedia, schemeSession, schemeMedia, schemeMembership),
 	}, server.getDirect)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "headDirect", Method: http.MethodHead, Path: "/bytes/media/direct/{token}",
 		Summary: "What a file's own bytes would be, without them", Tags: []string{tagPlayback},
-		Responses: directResponses,
+		Responses:  directResponses,
+		Extensions: callableBy(capabilityMedia, schemeSession, schemeMedia, schemeMembership),
 	}, server.headDirect)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getFileAvailability", Method: http.MethodGet, Path: "/files/{id}/availability",
-		Summary: "Whether a file can be read now, and if not why: what a player whose fetch failed asks (D241 §7)",
-		Tags:    []string{tagPlayback},
+		Summary:    "Whether a file can be read now, and if not why: what a player whose fetch failed asks (D241 §7)",
+		Tags:       []string{tagPlayback},
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.getFileAvailability)
 	server.registerSubtitles()
 	server.registerSubtitleFetch()

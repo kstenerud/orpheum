@@ -44,8 +44,9 @@ type ClientSettingsOutput struct {
 func (server *Server) registerClientSettings() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getClientSettings", Method: http.MethodGet, Path: "/client-settings",
-		Summary: "The server settings every client reads: how often a screen asks again (D237), and more",
-		Tags:    []string{tagSettings},
+		Summary:    "The server settings every client reads: how often a screen asks again (D237), and more",
+		Tags:       []string{tagSettings},
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.getClientSettings)
 	server.registerClientManifest()
 }

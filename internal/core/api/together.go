@@ -202,62 +202,80 @@ func (server *Server) registerTogether() {
 		OperationID: "openTogether", Method: http.MethodPost, Path: "/together", Tags: tags,
 		Summary: "Start a Watch Together session, nothing playing, ending the one you host and leaving one " +
 			"you joined (D246 §5, D372 §8)",
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.openTogether)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "listMyTogether", Method: http.MethodGet, Path: "/me/together", Tags: tags,
 		Summary: "The sessions you are in, as host or as a member who joined signed in, each with a " +
 			"credential for this device (D267 §2)",
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.listMyTogether)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getTogether", Method: http.MethodGet, Path: "/together/{id}", Tags: tags,
-		Summary: "The session's links and members, with your notes (host)",
+		Summary:    "The session's links and members, with your notes (host)",
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.getTogether)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "addTogetherLink", Method: http.MethodPost, Path: "/together/{id}/links", Tags: tags,
 		DefaultStatus: http.StatusCreated,
 		Summary:       "A link for one person to join by, once, with a note of who it is for (host; D246 §3)",
+		Extensions:    callableBy(capabilitySignedIn),
 	}, server.addTogetherLink)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "addTogetherLinkFor", Method: http.MethodPost, Path: "/together/{id}/members/{member}/links",
 		Tags: tags, DefaultStatus: http.StatusCreated,
 		Summary: "A new link for a guest's place: they stay in until it is used, and whoever joins by it " +
 			"takes the place over, cutting off the devices they came in on (host; D311 §5, D312 §3)",
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.addTogetherLinkFor)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "removeTogetherLink", Method: http.MethodDelete, Path: "/together/{id}/links/{link}",
 		Tags: tags, DefaultStatus: http.StatusNoContent, Summary: "Withdraw a link not yet used (host)",
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.removeTogetherLink)
 	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "ejectFromTogether", Method: http.MethodPost, Path: "/together/{id}/members/{member}/eject",
+		Tags: tags, DefaultStatus: http.StatusNoContent,
+		Summary:    "Remove a member; their devices are told and their credential admits nothing (host; D119)",
+		Extensions: callableBy(capabilitySignedIn),
+	}, server.ejectFromTogether)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "endTogether", Method: http.MethodDelete, Path: "/together/{id}", Tags: tags,
+		DefaultStatus: http.StatusNoContent, Summary: "End the session for everyone (host)",
+		Extensions: callableBy(capabilitySignedIn),
+	}, server.endTogether)
+	server.registerTogetherMembers(tags)
+}
+
+// registerTogetherMembers registers what a member who came by a link calls: joining, and once in.
+func (server *Server) registerTogetherMembers(tags []string) {
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "joinTogether", Method: http.MethodPost, Path: "/together/join", Tags: tags,
-		Summary: "Join a session by your link, with the name the others see; no account needed (D246 §3)",
+		Summary:    "Join a session by your link, with the name the others see; no account needed (D246 §3)",
+		Extensions: callableBy(capabilityNone, schemeSession),
 	}, server.joinTogether)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "checkTogetherLink", Method: http.MethodPost, Path: "/together/join/check", Tags: tags,
 		DefaultStatus: http.StatusNoContent,
 		Summary: "Whether your link would admit you now, asked before its join's form; refused as the join " +
 			"would be, and saying nothing of its session (VQ172)",
+		Extensions: callableBy(capabilityNone),
 	}, server.checkTogetherLink)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "playTogether", Method: http.MethodPost, Path: "/together/playback", Tags: tags,
-		Summary: "A viewer's playback of what the session plays now (D246 §3)",
+		Summary:    "A viewer's playback of what the session plays now (D246 §3)",
+		Extensions: callableBy(capabilityMember),
 	}, server.playTogether)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getTogetherICE", Method: http.MethodGet, Path: "/together/{id}/ice", Tags: tags,
-		Summary: "A member's voice relay credentials, which end with the membership (D243 §8)",
+		Summary:    "A member's voice relay credentials, which end with the membership (D243 §8)",
+		Extensions: callableBy(capabilityMember),
 	}, server.getTogetherICE)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "leaveTogether", Method: http.MethodPost, Path: "/together/leave", Tags: tags,
 		DefaultStatus: http.StatusNoContent, Summary: "Leave the session you joined (a viewer)",
+		Extensions: callableBy(capabilityMember),
 	}, server.leaveTogether)
-	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "ejectFromTogether", Method: http.MethodPost, Path: "/together/{id}/members/{member}/eject",
-		Tags: tags, DefaultStatus: http.StatusNoContent,
-		Summary: "Remove a member; their devices are told and their credential admits nothing (host; D119)",
-	}, server.ejectFromTogether)
-	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "endTogether", Method: http.MethodDelete, Path: "/together/{id}", Tags: tags,
-		DefaultStatus: http.StatusNoContent, Summary: "End the session for everyone (host)",
-	}, server.endTogether)
 }
 
 func (server *Server) openTogether(ctx context.Context, input *AuthorizationHeader) (*OpenTogetherOutput, error) {

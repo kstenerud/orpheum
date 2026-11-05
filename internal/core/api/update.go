@@ -45,8 +45,9 @@ type UpdateOutput struct {
 func (server *Server) registerUpdate() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getSystemUpdate", Method: http.MethodGet, Path: "/system/update",
-		Tags:    []string{tagRunningIt},
-		Summary: "What the server knows of an update: a security fix its version lacks, or a newer release (admin)",
+		Tags:       []string{tagRunningIt},
+		Summary:    "What the server knows of an update: a security fix its version lacks, or a newer release",
+		Extensions: callableBy(capabilityAdmin),
 	}, server.getSystemUpdate)
 }
 

@@ -42,6 +42,7 @@ func (server *Server) registerLabThroughput() {
 		Responses: map[string]*huma.Response{
 			"200": {Description: "The body", Content: map[string]*huma.MediaType{"application/octet-stream": {}}},
 		},
+		Extensions: callableBy(capabilityDeviceTests),
 	}, server.getLabThroughput)
 }
 

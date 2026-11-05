@@ -60,6 +60,7 @@ func (server *Server) registerLibraryBrowsing() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getLibraryFolder", Method: http.MethodGet, Path: "/libraries/{id}/folders",
 		Summary: "One folder of an other library: the folders in it, and its videos (D349)", Tags: tags,
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.getLibraryFolder)
 }
 

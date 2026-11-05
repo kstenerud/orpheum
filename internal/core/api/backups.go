@@ -48,13 +48,15 @@ type MadeBackupOutput struct {
 func (server *Server) registerBackups() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "listBackups", Method: http.MethodGet, Path: "/backups", Tags: []string{tagRunningIt},
-		Summary: "List the backups directory, newest first (admin; D242 §5)",
+		Summary:    "List the backups directory, newest first (D242 §5)",
+		Extensions: callableBy(capabilityAdmin),
 	}, server.listBackups)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "makeBackup", Method: http.MethodPost, Path: "/backups", Tags: []string{tagRunningIt},
 		DefaultStatus: http.StatusAccepted,
 		Summary: "Back the persistent directory up now, into the backups directory, as a job the job view " +
-			"shows (admin; D242 §5, D243 §11)",
+			"shows (D242 §5, D243 §11)",
+		Extensions: callableBy(capabilityAdmin),
 	}, server.makeBackup)
 }
 

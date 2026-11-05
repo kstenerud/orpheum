@@ -44,7 +44,8 @@ type RTCAnswerOutput struct {
 func (server *Server) registerRTC() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "answerRTCOffer", Method: http.MethodPost, Path: "/rtc/offer", Tags: []string{tagRunningIt},
-		Summary: "Answer a WebRTC offer, after which the client sends its requests over data channels (D273 §8)",
+		Summary:    "Answer a WebRTC offer, after which the client sends its requests over data channels (D273 §8)",
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.answerRTCOffer)
 }
 

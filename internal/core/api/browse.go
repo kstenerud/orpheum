@@ -201,11 +201,13 @@ func (server *Server) registerBrowse() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getGroup", Method: http.MethodGet, Path: "/items/{id}/groups/{group}",
 		Summary: "A page of one season's episodes, in the ordering the person watches the series in", Tags: tags,
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.getGroup)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "listNotInOrder", Method: http.MethodGet, Path: "/items/{id}/not-in-order",
-		Summary: "A page of a series' episodes the ordering the person watches it in leaves out, in aired order",
-		Tags:    tags,
+		Summary:    "A page of a series' episodes the ordering the person watches it in leaves out, in aired order",
+		Tags:       tags,
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.listNotInOrder)
 }
 

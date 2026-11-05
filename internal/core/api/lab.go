@@ -54,6 +54,7 @@ func (server *Server) registerLab() {
 		Tags:          []string{tagRunningIt},
 		DefaultStatus: http.StatusOK,
 		MaxBodyBytes:  labResultBytesAtMost,
+		Extensions:    callableBy(capabilityDeviceTests),
 	}, server.reportLabResult)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "reportLabInputEvents", Method: http.MethodPost, Path: "/lab/input-events",
@@ -61,6 +62,7 @@ func (server *Server) registerLab() {
 		Tags:          []string{tagRunningIt},
 		DefaultStatus: http.StatusNoContent,
 		MaxBodyBytes:  labResultBytesAtMost,
+		Extensions:    callableBy(capabilityDeviceTests),
 	}, server.reportLabInputEvents)
 	server.registerLabThroughput()
 }

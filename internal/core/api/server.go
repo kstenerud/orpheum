@@ -174,13 +174,21 @@ type Server struct {
 	togetherSilence atomic.Int64
 }
 
-// NewServer builds the API and registers every operation. UseErrorShape must have been called.
-func NewServer(logger *slog.Logger) *Server {
+// documentConfig is the API's configuration as its document says it: its description and who may
+// call each operation (declareCallers).
+func documentConfig() huma.Config {
 	config := huma.DefaultConfig("Orpheum", documentVersion)
 	config.DocsPath = "" // the docs page loads scripts from a CDN; the document itself is served
 	config.CreateHooks = nil
 	config.Info.Description = "The Orpheum media server's client API (cut-a §5). Errors have one shape: " +
 		"an object whose error holds a code, a message, a detail and, for a reachability error, the failedHop."
+	declareCallers(&config)
+	return config
+}
+
+// NewServer builds the API and registers every operation. UseErrorShape must have been called.
+func NewServer(logger *slog.Logger) *Server {
+	config := documentConfig()
 	mux := http.NewServeMux()
 	server := &Server{mux: mux, logger: logger.With("component", "api")}
 	server.togetherSilence.Store(int64(silenceLimit))
@@ -487,7 +495,9 @@ func (server *Server) logInternalError(ctx context.Context, action string, err e
 	return newError(http.StatusInternalServerError, CodeInternal, "internal error")
 }
 
-// AuthorizationHeader is embedded by every signed-in operation's input.
+// AuthorizationHeader is embedded by every signed-in operation's input. Huma reads the header for
+// the handler, but the document leaves it out: the operation's security says it, a session's or a
+// membership's bearer token (D425 §6).
 type AuthorizationHeader struct {
-	Authorization string `doc:"Bearer <session token>" header:"Authorization"`
+	Authorization string `doc:"Bearer <session token>" header:"Authorization" hidden:"true"`
 }

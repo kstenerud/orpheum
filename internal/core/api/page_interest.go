@@ -56,28 +56,33 @@ func (server *Server) registerPageInterest() {
 		DefaultStatus: http.StatusNoContent, Tags: tags,
 		Summary: "Say this session shows the tiles of these films, series and videos in view, which raises the " +
 			"work of their pictures, again every interest_said_every_seconds while it does (D362, D324)",
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.sayTilesInterest)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "withdrawTilesInterest", Method: http.MethodDelete, Path: pathTilesInterest,
 		DefaultStatus: http.StatusNoContent, Tags: tags,
-		Summary: "Say this session shows no list's tiles, which lets their work fall back (D362, D324)",
+		Summary:    "Say this session shows no list's tiles, which lets their work fall back (D362, D324)",
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.withdrawTilesInterest)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "sayPageInterest", Method: http.MethodPut, Path: pathPageInterest,
 		DefaultStatus: http.StatusNoContent, Tags: tags,
 		Summary: "Say this session shows a film's or series' page, or a series' season's, which raises its " +
 			"work, again every interest_said_every_seconds while it does (D324)",
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.sayPageInterest)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "withdrawPageInterest", Method: http.MethodDelete, Path: pathPageInterest,
 		DefaultStatus: http.StatusNoContent, Tags: tags,
 		Summary: "Say this session left a film's or series' page, or a series' season's, which lets its work " +
 			"fall back (D324)",
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.withdrawPageInterest)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getFileWaits", Method: http.MethodGet, Path: "/files/{id}/waits", Tags: tags,
 		Summary: "The work a file's viewer waits on, its read-through for its loudness and its timeline, " +
 			"and about how long each will take (D324 §6)",
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.getFileWaits)
 }
 

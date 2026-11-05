@@ -310,17 +310,20 @@ type PreparedBody struct {
 func (server *Server) registerSystem() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getSystem", Method: http.MethodGet, Path: "/system", Tags: []string{tagRunningIt},
-		Summary: "Every fact about the server and each node, with doctor's findings: the System page (admin; D225)",
+		Summary:    "Every fact about the server and each node, with doctor's findings: the System page (D225)",
+		Extensions: callableBy(capabilityAdmin),
 	}, server.getSystem)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "setReaderLimit", Method: http.MethodPut, Path: "/nodes/{name}/reader-limit",
 		Tags: []string{tagRunningIt}, DefaultStatus: http.StatusNoContent,
-		Summary: "Set how many may read one of a node's devices at once (admin; D240)",
+		Summary:    "Set how many may read one of a node's devices at once (D240)",
+		Extensions: callableBy(capabilityAdmin),
 	}, server.setReaderLimit)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "clearReaderLimit", Method: http.MethodDelete, Path: "/nodes/{name}/reader-limit",
 		Tags: []string{tagRunningIt}, DefaultStatus: http.StatusNoContent,
-		Summary: "Give one of a node's devices back to its kind's reader limit (admin; D240)",
+		Summary:    "Give one of a node's devices back to its kind's reader limit (D240)",
+		Extensions: callableBy(capabilityAdmin),
 	}, server.clearReaderLimit)
 	server.registerResourceUse()
 }

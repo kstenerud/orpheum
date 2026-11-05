@@ -40,13 +40,15 @@ type ReachabilityEchoInput struct {
 func (server *Server) registerReachability() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "checkReachability", Method: http.MethodPost, Path: "/system/reachability",
-		Tags:    []string{tagRunningIt},
-		Summary: "Check the public name and voice relay from outside in, naming a failing hop (admin; D243 §7)",
+		Tags:       []string{tagRunningIt},
+		Summary:    "Check the public name and voice relay from outside in, naming a failing hop (D243 §7)",
+		Extensions: callableBy(capabilityAdmin),
 	}, server.checkReachability)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "echoReachability", Method: http.MethodGet, Path: reachability.EchoPath + "{nonce}",
 		Tags: []string{tagRunningIt}, DefaultStatus: http.StatusNoContent,
-		Summary: "Answer a reachability check's own request, which came back through the public name",
+		Summary:    "Answer a reachability check's own request, which came back through the public name",
+		Extensions: callableBy(capabilityNone),
 	}, server.echoReachability)
 }
 
