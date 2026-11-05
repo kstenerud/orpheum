@@ -66,13 +66,14 @@ describe("what the scanner saw", () => {
 });
 
 describe("the files screen", () => {
-  it("asks for one library's files by libraryId, the parameter's name (D227)", async () => {
+  it("asks for one library's files by library, the one name of the filter (D416 §6)", async () => {
     const heard: Heard[] = [];
     const services = servedBy({ "GET /files": [200, { files: [file(1, "listed")] }] }, heard);
     const mounted = await mount(withServices(<Files libraryId={3} />, services));
     const asked = new URLSearchParams(heard[0]?.query);
     expect(heard[0]?.methodAndPath).toBe("GET /files");
-    expect(asked.get("libraryId")).toBe("3");
+    expect(asked.get("library")).toBe("3");
+    expect(asked.has("libraryId")).toBe(false);
     expect(mounted.container.textContent).toContain("/media/1.mkv");
     mounted.unmount();
   });
