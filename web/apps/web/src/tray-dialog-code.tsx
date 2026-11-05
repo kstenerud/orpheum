@@ -20,12 +20,12 @@ const loadCastDialog = async (): Promise<{ default: typeof CastDialogComponent }
  * plans/toolkit.md item 10). Kept apart from later-screens.tsx, whose screens draw the shell the tray
  * is in.
  *
- * Watch Together's is in together-dialog-code.tsx, which the sign over the film imports too (D433).
+ * Watch Together's is in together-dialog-code.tsx, which the tray and the sign over the film import
+ * (D433).
  * Cast's is `let`, not `const`, for resetTrayDialogsForTests, as later-screens.tsx's are.
  */
 let castDialog = preloadableScreen("cast-dialog", loadCastDialog);
 export let CastDialog = castDialog.component;
-export { TogetherDialog } from "./together-dialog-code.tsx";
 
 /**
  * How long the first page shows before the tray's dialogs' code is asked for, in ms: past its own
