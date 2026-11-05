@@ -110,11 +110,11 @@ func (server *Server) getNeedsAttention(
 			SeriesID: series.SeriesID, Name: series.SeriesName, UnplacedCount: series.FileCount,
 		})
 	}
-	silent, err := dependencies.Chooser.FilmsWithoutSound(ctx)
+	silent, silentTotal, err := dependencies.Chooser.FilmsWithoutSound(ctx)
 	if err != nil {
 		return nil, server.libraryError(ctx, "find the films with no sound", err)
 	}
-	output.Body.FilmsWithoutSoundCount = len(silent)
+	output.Body.FilmsWithoutSoundCount = silentTotal
 	silent = silent[:min(len(silent), attentionListedAtMost)]
 	output.Body.FilmsWithoutSound = make([]FilmWithoutSoundBody, 0, len(silent))
 	for _, film := range silent {

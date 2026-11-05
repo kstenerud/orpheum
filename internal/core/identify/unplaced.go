@@ -25,9 +25,10 @@ type UnplacedEpisodes struct {
 // Dwarf's three specials, each in a folder of its own).
 const unplacedAtLeast = 5
 
-// unplacedFilesRead bounds how many unnumbered episodes' files a look reads: enough to find a
-// series gone wrong, however many it has.
-const unplacedFilesRead = 5000
+// unplacedFilesRead is the row limit a look gives the read of unnumbered episodes' files: none (a
+// negative one reads them all). Which of them count is decided by their folders' and names' words,
+// in Go, so no query can total the series; a read that stopped short would under-report (D432 §4).
+const unplacedFilesRead = -1
 
 // SeriesWithUnplacedEpisodes are the series with at least unplacedAtLeast episodes whose files have
 // no number and are in no specials or extras folder, in the order of their ids.

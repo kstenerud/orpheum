@@ -265,6 +265,8 @@ func wholeReadsAllowed() map[string]string {
 			"for its positions; Needs attention looks for episodes read wrongly (D306 section 6)",
 		"ListFilmsWithoutSound": "every film's files are checked for a sound track, by index each; Needs " +
 			"attention reads it once a look, and the list stops at its bound",
+		"CountFilmsWithoutSound": "every film's files are checked for a sound track, by index each, as the list " +
+			"is; Needs attention counts once a look, for its true total (D432 section 4)",
 		"ListUnreadablePaths":   few + "nodes, which the errored files are joined to",
 		"ListLibraryRootStates": few + "roots and nodes",
 		"ListLiveRealmKeys":     few + "people, whose realm keys a discovery lists",

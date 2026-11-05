@@ -524,7 +524,7 @@ WHERE item.id = sqlc.arg(work_id) AND item.removed_at IS NULL
 
 -- name: ListUnnumberedEpisodeFiles :many
 -- The live files of each series' live episodes that have no number in its aired order, with the
--- series' name, at most max_rows: those outside a specials or extras folder suggest names read
+-- series' name, at most max_rows (a negative one reads them all): those outside a specials or extras folder suggest names read
 -- wrongly (D306 section 6).
 SELECT ordering.sequence_id AS series_id, CAST(coalesce(series_text.name, '') AS TEXT) AS series_name, place.path
 FROM position
@@ -558,6 +558,21 @@ WHERE work.kind = 'movie'
   AND NOT EXISTS (SELECT 1 FROM stream WHERE stream.video_file = place.file_id AND stream.kind = 'audio')
 ORDER BY work.id, place.path
 LIMIT sqlc.arg(max_rows);
+
+-- name: CountFilmsWithoutSound :one
+-- How many live films ListFilmsWithoutSound's rows are of, each counted once however many of its
+-- files lack sound: Needs attention's true total, which its listed films stop short of (D432 section 4).
+SELECT COUNT(DISTINCT work.id)
+FROM work
+JOIN item ON item.id = work.id AND item.removed_at IS NULL
+JOIN version ON version.work_id = work.id AND version.removed_at IS NULL
+JOIN file_filing ON file_filing.version_id = version.id
+JOIN file_place ON file_place.file_id = file_filing.file_id
+JOIN place ON place.id = file_place.place_id
+WHERE work.kind = 'movie'
+  AND EXISTS (SELECT 1 FROM stream WHERE stream.video_file = place.file_id AND stream.kind = 'video'
+    AND (stream.disposition_flags & 1024) = 0)
+  AND NOT EXISTS (SELECT 1 FROM stream WHERE stream.video_file = place.file_id AND stream.kind = 'audio');
 
 -- name: ListFilesOfWork :many
 -- The live videos a film, an episode or a series holds, a series' through its episodes, each with
