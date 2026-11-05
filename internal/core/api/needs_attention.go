@@ -51,8 +51,9 @@ type FilmWithoutSoundBody struct {
 func (server *Server) registerNeedsAttention() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getNeedsAttention", Method: http.MethodGet, Path: "/needs-attention",
-		Summary: "How many folders and disks are offline, wait for the admin or could not be read (admin; D280)",
-		Tags:    []string{tagRunningIt},
+		Summary:    "How many folders and disks are offline, wait for the admin or could not be read (D280)",
+		Tags:       []string{tagRunningIt},
+		Extensions: callableBy(capabilityAdmin),
 	}, server.getNeedsAttention)
 }
 

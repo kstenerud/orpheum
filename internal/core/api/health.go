@@ -30,7 +30,8 @@ func (server *Server) registerHealth() {
 		Summary:     "Whether the server is starting, migrating, ready or degraded",
 		Description: "Unauthenticated. Starting and migrating answer 200 so a container manager does not kill a " +
 			"busy server; degraded answers 503 with its reasons.",
-		Tags: []string{tagRunningIt},
+		Tags:       []string{tagRunningIt},
+		Extensions: callableBy(capabilityNone),
 	}, server.getHealth)
 }
 

@@ -75,13 +75,15 @@ type FetchSubtitleOutput struct {
 func (server *Server) registerSubtitleFetch() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getSubtitleCandidates", Method: http.MethodGet, Path: "/files/{id}/subtitle-candidates",
-		Summary: "The subtitles OpenSubtitles can give for a file, each unverified, and the downloads left (D224)",
-		Tags:    []string{tagPlayback},
+		Summary:    "The subtitles OpenSubtitles can give for a file, each unverified, and the downloads left (D224)",
+		Tags:       []string{tagPlayback},
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.getSubtitleCandidates)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "fetchFileSubtitle", Method: http.MethodPost, Path: "/files/{id}/subtitles",
-		Summary: "Fetch a subtitle for a file; spends one of the account's daily downloads (D224)",
-		Tags:    []string{tagPlayback},
+		Summary:    "Fetch a subtitle for a file; spends one of the account's daily downloads (D224)",
+		Tags:       []string{tagPlayback},
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.fetchFileSubtitle)
 }
 

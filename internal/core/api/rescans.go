@@ -75,22 +75,25 @@ func (server *Server) registerRescans() {
 		OperationID: "rescanLibraries", Method: http.MethodPost, Path: "/libraries/rescan",
 		DefaultStatus: http.StatusAccepted, Tags: []string{tagLibraries},
 		Summary: "Rescan every library of films or of series: scan it, then match each film and series " +
-			"in it again from its files, leaving alone what a person set (admin; D357); with full, read " +
+			"in it again from its files, leaving alone what a person set (D357); with full, read " +
 			"every file again first and throw out what its differences touch (D392)",
+		Extensions: callableBy(capabilityAdmin),
 	}, server.rescanLibraries)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "rescanLibrary", Method: http.MethodPost, Path: "/libraries/{id}/rescan",
 		DefaultStatus: http.StatusAccepted, Tags: []string{tagLibraries},
 		Summary: "Rescan a library of films or of series: scan it, then match each film and series in it " +
-			"again from its files, leaving alone what a person set (admin; D357); with full, read every " +
+			"again from its files, leaving alone what a person set (D357); with full, read every " +
 			"file again first and throw out what its differences touch (D392)",
+		Extensions: callableBy(capabilityAdmin),
 	}, server.rescanLibrary)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "rescanItem", Method: http.MethodPost, Path: "/items/{id}/rescan",
 		DefaultStatus: http.StatusAccepted, Tags: []string{tagIdentification},
 		Summary: "Rescan a film or series: scan its files, then match it again from them, unless a person " +
-			"chose its match (admin; D357); with full, read its files again first and throw out what their " +
+			"chose its match (D357); with full, read its files again first and throw out what their " +
 			"differences touch (D392)",
+		Extensions: callableBy(capabilityAdmin),
 	}, server.rescanItem)
 }
 

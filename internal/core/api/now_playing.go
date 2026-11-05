@@ -49,12 +49,14 @@ type StopPlaybackInput struct {
 func (server *Server) registerNowPlaying() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getNowPlaying", Method: http.MethodGet, Path: "/now-playing", Tags: []string{tagRunningIt},
-		Summary: "Every playback heard from lately: who, on which device, what, and how (admin)",
+		Summary:    "Every playback heard from lately: who, on which device, what, and how",
+		Extensions: callableBy(capabilityAdmin),
 	}, server.getNowPlaying)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "stopPlayback", Method: http.MethodPost, Path: "/now-playing/{id}/stop",
 		Tags: []string{tagRunningIt}, DefaultStatus: http.StatusNoContent,
-		Summary: "Stop a playback, with a message its player shows within one report interval (admin; D243 §9)",
+		Summary:    "Stop a playback, with a message its player shows within one report interval (D243 §9)",
+		Extensions: callableBy(capabilityAdmin),
 	}, server.stopPlayback)
 }
 

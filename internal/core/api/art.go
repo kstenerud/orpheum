@@ -42,6 +42,7 @@ func (server *Server) registerArt() {
 			}},
 			"307": {Description: "The nearest size, while this one is made or when it cannot be"},
 		},
+		Extensions: callableBy(capabilityMedia),
 	}, server.getArt)
 }
 

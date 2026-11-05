@@ -71,30 +71,36 @@ func (server *Server) registerDevices() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "listMyDevices", Method: http.MethodGet, Path: "/me/devices",
 		Summary: "One's own devices, most recently used first (D218)", Tags: tags,
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.listMyDevices)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "changeMyDevice", Method: http.MethodPut, Path: "/me/devices/{id}",
 		Summary: "Rename one of one's devices, or set how far it moves its sound", Tags: tags,
 		DefaultStatus: http.StatusNoContent,
+		Extensions:    callableBy(capabilitySignedIn),
 	}, server.changeMyDevice)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "removeMyDevice", Method: http.MethodDelete, Path: "/me/devices/{id}",
 		Summary: "Remove one of one's devices; it is signed out at its next request", Tags: tags,
 		DefaultStatus: http.StatusNoContent,
+		Extensions:    callableBy(capabilityManageUsers),
 	}, server.removeMyDevice)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "signOutElsewhere", Method: http.MethodPost, Path: "/me/devices/sign-out-elsewhere",
 		Summary: "Sign out every device but this one; they stay listed", Tags: tags,
 		DefaultStatus: http.StatusNoContent,
+		Extensions:    callableBy(capabilityManageUsers),
 	}, server.signOutElsewhere)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "listUserDevices", Method: http.MethodGet, Path: "/users/{id}/devices",
 		Summary: "A user's devices, for the admin", Tags: tags,
+		Extensions: callableBy(capabilityAdmin),
 	}, server.listUserDevices)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "removeUserDevice", Method: http.MethodDelete, Path: "/users/{id}/devices/{deviceId}",
 		Summary: "Remove a user's device, for the admin: a lost or given-away one", Tags: tags,
 		DefaultStatus: http.StatusNoContent,
+		Extensions:    callableBy(capabilityAdmin),
 	}, server.removeUserDevice)
 }
 

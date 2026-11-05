@@ -118,38 +118,45 @@ func (server *Server) registerIdentification() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getItemCandidates", Method: http.MethodGet, Path: "/items/{id}/candidates",
 		Summary: "An ambiguous film's or series' search results, to choose from, or those of a person's own " +
-			"search (edit_metadata)", Tags: tags,
+			"search", Tags: tags,
+		Extensions: callableBy(capabilityEditMetadata),
 	}, server.getItemCandidates)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "matchItemByLink", Method: http.MethodPost, Path: "/items/{id}/match-by-link",
 		DefaultStatus: http.StatusNoContent, Tags: tags,
-		Summary: "Choose a film's or series' match by its address or id at TMDB or IMDb; permanent (edit_metadata)",
+		Summary:    "Choose a film's or series' match by its address or id at TMDB or IMDb; permanent",
+		Extensions: callableBy(capabilityEditMetadata),
 	}, server.matchItemByLink)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "matchItem", Method: http.MethodPost, Path: "/items/{id}/match",
 		DefaultStatus: http.StatusNoContent, Tags: tags,
-		Summary: "Choose a film's or series' match; permanent (edit_metadata)",
+		Summary:    "Choose a film's or series' match; permanent",
+		Extensions: callableBy(capabilityEditMetadata),
 	}, server.matchItem)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "confirmItemMatch", Method: http.MethodPost, Path: "/items/{id}/confirm-match",
 		DefaultStatus: http.StatusNoContent, Tags: tags,
-		Summary: "Confirm a guessed match as it stands, \"Identified correctly\"; permanent (edit_metadata; D301 §4)",
+		Summary:    "Confirm a guessed match as it stands, \"Identified correctly\"; permanent (D301 §4)",
+		Extensions: callableBy(capabilityEditMetadata),
 	}, server.confirmItemMatch)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "setOverride", Method: http.MethodPut, Path: "/items/{id}/overrides/{field}",
 		DefaultStatus: http.StatusNoContent, Tags: tags,
-		Summary: "Set a field to a person's value, kept over every source (edit_metadata)",
+		Summary:    "Set a field to a person's value, kept over every source",
+		Extensions: callableBy(capabilityEditMetadata),
 	}, server.setOverride)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "clearOverride", Method: http.MethodDelete, Path: "/items/{id}/overrides/{field}",
 		DefaultStatus: http.StatusNoContent, Tags: tags,
-		Summary: "Remove a field's override, so it follows its source again (edit_metadata)",
+		Summary:    "Remove a field's override, so it follows its source again",
+		Extensions: callableBy(capabilityEditMetadata),
 	}, server.clearOverride)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "refreshItem", Method: http.MethodPost, Path: "/items/{id}/refresh",
 		DefaultStatus: http.StatusAccepted, Tags: tags,
 		Summary: "Fetch a film's or series' data and its missing images again, whenever a person likes " +
-			"(edit_metadata; D213)",
+			"(D213)",
+		Extensions: callableBy(capabilityEditMetadata),
 	}, server.refreshItem)
 }
 

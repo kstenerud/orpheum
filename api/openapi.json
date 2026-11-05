@@ -9174,6 +9174,24 @@
         ],
         "type": "object"
       }
+    },
+    "securitySchemes": {
+      "media": {
+        "description": "The media cookie sign-in sets for the byte paths alone, HttpOnly and SameSite Strict (D216); over plain HTTP its name is orpheum_media.",
+        "in": "cookie",
+        "name": "__Host-orpheum_media",
+        "type": "apiKey"
+      },
+      "membership": {
+        "description": "A Watch Together member's membership credential, as opening or joining a session answers it, in the Authorization header (D246 §3). A viewer's byte paths take it in the orpheum_viewer cookie or the Orpheum-Viewer header too.",
+        "scheme": "bearer",
+        "type": "http"
+      },
+      "session": {
+        "description": "A session's token, as sign-in, a hand-off or a pairing answers it, in the Authorization header and never in a URL (D154).",
+        "scheme": "bearer",
+        "type": "http"
+      }
     }
   },
   "info": {
@@ -9186,17 +9204,6 @@
     "/backups": {
       "get": {
         "operationId": "listBackups",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -9219,24 +9226,19 @@
             "description": "Error"
           }
         },
-        "summary": "List the backups directory, newest first (admin; D242 §5)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "List the backups directory, newest first (D242 §5)",
         "tags": [
           "Running it"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       },
       "post": {
         "operationId": "makeBackup",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -9269,25 +9271,22 @@
             "description": "Error"
           }
         },
-        "summary": "Back the persistent directory up now, into the backups directory, as a job the job view shows (admin; D242 §5, D243 §11)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Back the persistent directory up now, into the backups directory, as a job the job view shows (D242 §5, D243 §11)",
         "tags": [
           "Running it"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/bytes/art/{sourceSha256}/{variant}": {
       "get": {
         "operationId": "getArt",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "description": "The media cookie sign-in sets over plain HTTP, for an \u003cimg\u003e",
             "in": "cookie",
@@ -9393,25 +9392,25 @@
             "description": "The nearest size, while this one is made or when it cannot be"
           }
         },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "media": []
+          }
+        ],
         "summary": "One size of one image, in WebP or JPEG (D212)",
         "tags": [
           "Browse"
-        ]
+        ],
+        "x-orpheum-capability": "media"
       }
     },
     "/bytes/media/chunks/{token}/master.m3u8": {
       "get": {
         "operationId": "getChunksMasterPlaylist",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "description": "The media cookie sign-in sets over plain HTTP, for an \u003cimg\u003e",
             "in": "cookie",
@@ -9493,25 +9492,28 @@
             "description": "Not made yet: the film is being read for where it can be cut, or the chunk is being made; ask again after Retry-After"
           }
         },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "media": []
+          },
+          {
+            "membership": []
+          }
+        ],
         "summary": "The master playlist of a playback's film cut into chunks at each quality (D247 §10)",
         "tags": [
           "Playback"
-        ]
+        ],
+        "x-orpheum-capability": "media"
       }
     },
     "/bytes/media/chunks/{token}/{streamName}/{fileName}": {
       "get": {
         "operationId": "getChunkFile",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "description": "The media cookie sign-in sets over plain HTTP, for an \u003cimg\u003e",
             "in": "cookie",
@@ -9622,10 +9624,22 @@
             "description": "Not made yet: the film is being read for where it can be cut, or the chunk is being made; ask again after Retry-After"
           }
         },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "media": []
+          },
+          {
+            "membership": []
+          }
+        ],
         "summary": "One stream's playlist, or its init or a chunk, relayed from the film's node and made there when first asked for (D247 §10)",
         "tags": [
           "Playback"
-        ]
+        ],
+        "x-orpheum-capability": "media"
       }
     },
     "/bytes/media/direct/{token}": {
@@ -9633,15 +9647,6 @@
         "operationId": "getDirect",
         "parameters": [
           {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
             "description": "The media cookie sign-in sets over plain HTTP, for an \u003cimg\u003e",
             "in": "cookie",
             "name": "orpheum_media",
@@ -9731,24 +9736,27 @@
             "description": "The range asked for"
           }
         },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "media": []
+          },
+          {
+            "membership": []
+          }
+        ],
         "summary": "A file's own bytes, relayed from its node, honouring Range",
         "tags": [
           "Playback"
-        ]
+        ],
+        "x-orpheum-capability": "media"
       },
       "head": {
         "operationId": "headDirect",
         "parameters": [
           {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
             "description": "The media cookie sign-in sets over plain HTTP, for an \u003cimg\u003e",
             "in": "cookie",
             "name": "orpheum_media",
@@ -9838,25 +9846,28 @@
             "description": "The range asked for"
           }
         },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "media": []
+          },
+          {
+            "membership": []
+          }
+        ],
         "summary": "What a file's own bytes would be, without them",
         "tags": [
           "Playback"
-        ]
+        ],
+        "x-orpheum-capability": "media"
       }
     },
     "/bytes/media/sub/{token}/{fileName}": {
       "get": {
         "operationId": "getSubtitle",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "description": "The media cookie sign-in sets over plain HTTP, for an \u003cimg\u003e",
             "in": "cookie",
@@ -9944,10 +9955,22 @@
             "description": "Not extracted yet; ask again after Retry-After"
           }
         },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "media": []
+          },
+          {
+            "membership": []
+          }
+        ],
         "summary": "One of a playback's subtitle tracks, as ASS or WebVTT (D217 §6)",
         "tags": [
           "Playback"
-        ]
+        ],
+        "x-orpheum-capability": "media"
       }
     },
     "/client-manifest": {
@@ -9975,26 +9998,17 @@
             "description": "Error"
           }
         },
+        "security": [],
         "summary": "The core's client's files by their hashes, signed by its identity key (D308)",
         "tags": [
           "Setup and auth"
-        ]
+        ],
+        "x-orpheum-capability": "none"
       }
     },
     "/client-paths": {
       "post": {
         "operationId": "reportClientPath",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -10020,26 +10034,21 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "How a page chose its path to the core, and why, for the server's log",
         "tags": [
           "Playback"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/client-problems": {
       "post": {
         "operationId": "reportClientProblem",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -10065,26 +10074,21 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "A failure the page met, for the server's log",
         "tags": [
           "Playback"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/client-settings": {
       "get": {
         "operationId": "getClientSettings",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -10107,25 +10111,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "The server settings every client reads: how often a screen asks again (D237), and more",
         "tags": [
           "Settings"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/config": {
       "get": {
         "operationId": "getConfig",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "description": "Only the settings a person set, even to their starting value",
             "explode": false,
@@ -10159,24 +10160,19 @@
             "description": "Error"
           }
         },
-        "summary": "Every server setting beside its starting value, and the config file's keys (read-only); ?onlyModified=true lists only the settings a person set (admin)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Every server setting beside its starting value, and the config file's keys (read-only); ?onlyModified=true lists only the settings a person set",
         "tags": [
           "Settings"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       },
       "put": {
         "operationId": "setConfig",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -10209,26 +10205,21 @@
             "description": "Error"
           }
         },
-        "summary": "Change any server settings, all or none (admin)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Change any server settings, all or none",
         "tags": [
           "Settings"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/config/unused": {
       "get": {
         "operationId": "getUnusedConfig",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -10251,25 +10242,22 @@
             "description": "Error"
           }
         },
-        "summary": "Setting rows this release does not read: retired keys, or typos (admin)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Setting rows this release does not read: retired keys, or typos",
         "tags": [
           "Settings"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/config/unused/{key}": {
       "delete": {
         "operationId": "removeUnusedConfig",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "key",
@@ -10294,25 +10282,22 @@
             "description": "Error"
           }
         },
-        "summary": "Delete a setting row this release does not read; a setting in use is set to default instead (admin)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Delete a setting row this release does not read; a setting in use is set to default instead",
         "tags": [
           "Settings"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/config/{key}/reset": {
       "post": {
         "operationId": "resetConfig",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "key",
@@ -10344,25 +10329,22 @@
             "description": "Error"
           }
         },
-        "summary": "Set a server setting to default: its starting value, no longer marked modified, so it follows its starting value when a release changes it (admin)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Set a server setting to default: its starting value, no longer marked modified, so it follows its starting value when a release changes it",
         "tags": [
           "Settings"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/files": {
       "get": {
         "operationId": "listFiles",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "explode": false,
             "in": "query",
@@ -10437,25 +10419,22 @@
             "description": "Error"
           }
         },
-        "summary": "What the scanner saw: every file with its filing and reason (admin; D163)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "What the scanner saw: every file with its filing and reason (D163)",
         "tags": [
           "Libraries"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/files/{id}/availability": {
       "get": {
         "operationId": "getFileAvailability",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -10501,25 +10480,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Whether a file can be read now, and if not why: what a player whose fetch failed asks (D241 §7)",
         "tags": [
           "Playback"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/files/{id}/preferences": {
       "put": {
         "operationId": "setFilePreferences",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -10556,25 +10532,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Keep a person's choices in one file: its subtitle offset, its subtitle and audio tracks, whose languages its work's unwatched files follow",
         "tags": [
           "Playback"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/files/{id}/retire": {
       "post": {
         "operationId": "retireFile",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -10607,25 +10580,22 @@
             "description": "Error"
           }
         },
-        "summary": "Retire one file that cannot be read now: it becomes a tombstone, its history kept (admin; D241 §5)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Retire one file that cannot be read now: it becomes a tombstone, its history kept (D241 §5)",
         "tags": [
           "Libraries"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/files/{id}/subtitle-candidates": {
       "get": {
         "operationId": "getSubtitleCandidates",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -10673,25 +10643,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "The subtitles OpenSubtitles can give for a file, each unverified, and the downloads left (D224)",
         "tags": [
           "Playback"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/files/{id}/subtitles": {
       "post": {
         "operationId": "fetchFileSubtitle",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -10735,25 +10702,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Fetch a subtitle for a file; spends one of the account's daily downloads (D224)",
         "tags": [
           "Playback"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/files/{id}/up-next": {
       "get": {
         "operationId": "getUpNext",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -10786,25 +10750,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "What plays after a file as it ends, and what before it: the next and previous episodes in the ordering its person watches its series in",
         "tags": [
           "Playback"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/files/{id}/waits": {
       "get": {
         "operationId": "getFileWaits",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -10837,25 +10798,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "The work a file's viewer waits on, its read-through for its loudness and its timeline, and about how long each will take (D324 §6)",
         "tags": [
           "Browse"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/filing-reports": {
       "get": {
         "operationId": "listFilingReports",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "description": "From the previous page's nextCursor; absent for the first page",
             "explode": false,
@@ -10901,25 +10859,22 @@
             "description": "Error"
           }
         },
-        "summary": "The reports of works filed wrongly, newest first (admin; D306 §3)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "The reports of works filed wrongly, newest first (D306 §3)",
         "tags": [
           "Running it"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/filing-reports/{name}": {
       "get": {
         "operationId": "getFilingReport",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "name",
@@ -10951,25 +10906,22 @@
             "description": "Error"
           }
         },
-        "summary": "One report of a work filed wrongly (admin; D306 §3)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "One report of a work filed wrongly (D306 §3)",
         "tags": [
           "Running it"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/genres": {
       "get": {
         "operationId": "listGenres",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "description": "movie, series or other: the genres of that kind's titles; any: of every kind",
             "explode": false,
@@ -11044,10 +10996,16 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "The genres with a title the person reaches, each with how many",
         "tags": [
           "Browse"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/health": {
@@ -11076,26 +11034,17 @@
             "description": "Error"
           }
         },
+        "security": [],
         "summary": "Whether the server is starting, migrating, ready or degraded",
         "tags": [
           "Running it"
-        ]
+        ],
+        "x-orpheum-capability": "none"
       }
     },
     "/home": {
       "get": {
         "operationId": "getHome",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -11118,25 +11067,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "The home screen: what the person stopped in the middle of",
         "tags": [
           "Browse"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/interest/page": {
       "delete": {
         "operationId": "withdrawPageInterest",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "description": "The film or series whose page it was",
             "explode": false,
@@ -11179,24 +11125,19 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Say this session left a film's or series' page, or a series' season's, which lets its work fall back (D324)",
         "tags": [
           "Browse"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       },
       "put": {
         "operationId": "sayPageInterest",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -11222,26 +11163,21 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Say this session shows a film's or series' page, or a series' season's, which raises its work, again every interest_said_every_seconds while it does (D324)",
         "tags": [
           "Browse"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/interest/tiles": {
       "delete": {
         "operationId": "withdrawTilesInterest",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "204": {
             "description": "No Content"
@@ -11257,24 +11193,19 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Say this session shows no list's tiles, which lets their work fall back (D362, D324)",
         "tags": [
           "Browse"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       },
       "put": {
         "operationId": "sayTilesInterest",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -11300,25 +11231,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Say this session shows the tiles of these films, series and videos in view, which raises the work of their pictures, again every interest_said_every_seconds while it does (D362, D324)",
         "tags": [
           "Browse"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/invitations": {
       "get": {
         "operationId": "listInvitations",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "description": "From the previous page's nextCursor; absent for the first page",
             "explode": false,
@@ -11364,24 +11292,19 @@
             "description": "Error"
           }
         },
-        "summary": "Every invitation: those waiting, and those used with the account each made (admin)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Every invitation: those waiting, and those used with the account each made",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       },
       "post": {
         "operationId": "createInvitation",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -11414,25 +11337,22 @@
             "description": "Error"
           }
         },
-        "summary": "Invite someone to make their own account under a role, noting who it is for (admin; D246)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Invite someone to make their own account under a role, noting who it is for (D246)",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/invitations/{id}": {
       "delete": {
         "operationId": "withdrawInvitation",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -11459,25 +11379,22 @@
             "description": "Error"
           }
         },
-        "summary": "Withdraw an invitation still waiting: none of its links admits anyone (admin)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Withdraw an invitation still waiting: none of its links admits anyone",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/items": {
       "get": {
         "operationId": "listItems",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "description": "movie, series or other; any: every kind, every library's",
             "explode": false,
@@ -11680,25 +11597,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "The one list: films, series or other videos by name in the library's locale or newest first, filtered by library, genre, person, decade, unwatched or identification",
         "tags": [
           "Browse"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/items/letters": {
       "get": {
         "operationId": "listItemLetters",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "description": "As GET /items takes it",
             "explode": false,
@@ -11825,10 +11739,16 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "The letters of the alphabet a list by name has items under",
         "tags": [
           "Browse"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/items/{id}": {
@@ -11836,15 +11756,6 @@
         "description": "A credited person is not an item here: their id answers 404, and their page is GET /people/{id} (D425 §7).",
         "operationId": "getItem",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -11894,25 +11805,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "An item's detail, by its kind: a title's versions, files, streams, extras and, for an episode, its place; a series' seasons, each with how many episodes it has",
         "tags": [
           "Browse"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/items/{id}/candidates": {
       "get": {
         "operationId": "getItemCandidates",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -11966,25 +11874,22 @@
             "description": "Error"
           }
         },
-        "summary": "An ambiguous film's or series' search results, to choose from, or those of a person's own search (edit_metadata)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "An ambiguous film's or series' search results, to choose from, or those of a person's own search",
         "tags": [
           "Identification"
-        ]
+        ],
+        "x-orpheum-capability": "editMetadata"
       }
     },
     "/items/{id}/confirm-match": {
       "post": {
         "operationId": "confirmItemMatch",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -12010,25 +11915,22 @@
             "description": "Error"
           }
         },
-        "summary": "Confirm a guessed match as it stands, \"Identified correctly\"; permanent (edit_metadata; D301 §4)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Confirm a guessed match as it stands, \"Identified correctly\"; permanent (D301 §4)",
         "tags": [
           "Identification"
-        ]
+        ],
+        "x-orpheum-capability": "editMetadata"
       }
     },
     "/items/{id}/filing-report": {
       "post": {
         "operationId": "writeFilingReport",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -12061,25 +11963,22 @@
             "description": "Error"
           }
         },
-        "summary": "Write a report of how a film, episode or series was filed, as Markdown on the server's disk, for an admin to edit and post as an issue; nothing leaves the server (admin; D306 §3)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Write a report of how a film, episode or series was filed, as Markdown on the server's disk, for an admin to edit and post as an issue; nothing leaves the server (D306 §3)",
         "tags": [
           "Running it"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/items/{id}/groups/{group}": {
       "get": {
         "operationId": "getGroup",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -12146,10 +12045,16 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "A page of one season's episodes, in the ordering the person watches the series in",
         "tags": [
           "Browse"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/items/{id}/groups/{group}/watched": {
@@ -12157,15 +12062,6 @@
         "operationId": "unmarkGroupWatched",
         "parameters": [
           {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -12209,24 +12105,21 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Mark every episode of a season with a file unwatched by hand (D370)",
         "tags": [
           "Playback"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       },
       "put": {
         "operationId": "markGroupWatched",
         "parameters": [
           {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -12270,10 +12163,16 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Mark every episode of a season with a file watched by hand (D370)",
         "tags": [
           "Playback"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/items/{id}/hidden": {
@@ -12281,15 +12180,6 @@
         "operationId": "unmarkHidden",
         "parameters": [
           {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -12315,24 +12205,21 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Undo hiding a work",
         "tags": [
           "Playback"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       },
       "put": {
         "operationId": "markHidden",
         "parameters": [
           {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -12358,25 +12245,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Hide a work from Continue Watching until it next has activity; not a completion (D188)",
         "tags": [
           "Playback"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/items/{id}/match": {
       "post": {
         "operationId": "matchItem",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -12412,25 +12296,22 @@
             "description": "Error"
           }
         },
-        "summary": "Choose a film's or series' match; permanent (edit_metadata)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Choose a film's or series' match; permanent",
         "tags": [
           "Identification"
-        ]
+        ],
+        "x-orpheum-capability": "editMetadata"
       }
     },
     "/items/{id}/match-by-link": {
       "post": {
         "operationId": "matchItemByLink",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -12466,25 +12347,22 @@
             "description": "Error"
           }
         },
-        "summary": "Choose a film's or series' match by its address or id at TMDB or IMDb; permanent (edit_metadata)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Choose a film's or series' match by its address or id at TMDB or IMDb; permanent",
         "tags": [
           "Identification"
-        ]
+        ],
+        "x-orpheum-capability": "editMetadata"
       }
     },
     "/items/{id}/not-in-order": {
       "get": {
         "operationId": "listNotInOrder",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -12539,25 +12417,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "A page of a series' episodes the ordering the person watches it in leaves out, in aired order",
         "tags": [
           "Browse"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/items/{id}/overrides/{field}": {
       "delete": {
         "operationId": "clearOverride",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -12599,23 +12474,20 @@
             "description": "Error"
           }
         },
-        "summary": "Remove a field's override, so it follows its source again (edit_metadata)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Remove a field's override, so it follows its source again",
         "tags": [
           "Identification"
-        ]
+        ],
+        "x-orpheum-capability": "editMetadata"
       },
       "put": {
         "operationId": "setOverride",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -12667,25 +12539,22 @@
             "description": "Error"
           }
         },
-        "summary": "Set a field to a person's value, kept over every source (edit_metadata)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Set a field to a person's value, kept over every source",
         "tags": [
           "Identification"
-        ]
+        ],
+        "x-orpheum-capability": "editMetadata"
       }
     },
     "/items/{id}/preferences": {
       "put": {
         "operationId": "setItemPreferences",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -12722,25 +12591,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Keep a person's choices in one series: the ordering they watch it in, which its pages, its episodes' labels and its Next Up follow",
         "tags": [
           "Browse"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/items/{id}/refresh": {
       "post": {
         "operationId": "refreshItem",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -12773,25 +12639,22 @@
             "description": "Error"
           }
         },
-        "summary": "Fetch a film's or series' data and its missing images again, whenever a person likes (edit_metadata; D213)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Fetch a film's or series' data and its missing images again, whenever a person likes (D213)",
         "tags": [
           "Identification"
-        ]
+        ],
+        "x-orpheum-capability": "editMetadata"
       }
     },
     "/items/{id}/rescan": {
       "post": {
         "operationId": "rescanItem",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -12834,10 +12697,16 @@
             "description": "Error"
           }
         },
-        "summary": "Rescan a film or series: scan its files, then match it again from them, unless a person chose its match (admin; D357); with full, read its files again first and throw out what their differences touch (D392)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Rescan a film or series: scan its files, then match it again from them, unless a person chose its match (D357); with full, read its files again first and throw out what their differences touch (D392)",
         "tags": [
           "Identification"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/items/{id}/watched": {
@@ -12845,15 +12714,6 @@
         "operationId": "unmarkWatched",
         "parameters": [
           {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -12885,24 +12745,21 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Mark an item unwatched by hand, as never watched: a film, episode or other video, or every episode of a series with a file, in the ordering the person watches it in (D370)",
         "tags": [
           "Playback"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       },
       "put": {
         "operationId": "markWatched",
         "parameters": [
           {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -12934,25 +12791,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Mark an item watched by hand: a film, episode or other video, or every episode of a series with a file, in the ordering the person watches it in; it leaves Continue Watching and plays next from its start (D370)",
         "tags": [
           "Playback"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/jobs": {
       "get": {
         "operationId": "listJobs",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "description": "From the previous page's nextCursor; absent for the first page",
             "explode": false,
@@ -12998,25 +12852,22 @@
             "description": "Error"
           }
         },
-        "summary": "The job view: the newest jobs, what each works on, how far it is and why (admin)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "The job view: the newest jobs, what each works on, how far it is and why",
         "tags": [
           "Jobs"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/jobs/{id}/cancel": {
       "post": {
         "operationId": "cancelJob",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -13043,26 +12894,21 @@
             "description": "Error"
           }
         },
-        "summary": "Cancel a queued or running job; a node's work is stopped (admin)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Cancel a queued or running job; a node's work is stopped",
         "tags": [
           "Jobs"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/lab/input-events": {
       "post": {
         "operationId": "reportLabInputEvents",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -13088,26 +12934,21 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "What the button test heard, as it heard it, for the server's log (tv-device-tests.md H2)",
         "tags": [
           "Running it"
-        ]
+        ],
+        "x-orpheum-capability": "deviceTests"
       }
     },
     "/lab/results": {
       "post": {
         "operationId": "reportLabResult",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -13140,25 +12981,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "What a lab page measured on a device, for the server's log (tv-device-tests.md)",
         "tags": [
           "Running it"
-        ]
+        ],
+        "x-orpheum-capability": "deviceTests"
       }
     },
     "/lab/throughput": {
       "get": {
         "operationId": "getLabThroughput",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "description": "How many bytes the body holds",
             "explode": false,
@@ -13207,26 +13045,21 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "The throughput test's body: bytes of no meaning, for a lab page to time its loads by (webrtc-throughput-2026-10-28.md)",
         "tags": [
           "Running it"
-        ]
+        ],
+        "x-orpheum-capability": "deviceTests"
       }
     },
     "/libraries": {
       "get": {
         "operationId": "listLibraries",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -13249,24 +13082,19 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "The libraries; an admin also sees their roots and files by filing",
         "tags": [
           "Libraries"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       },
       "post": {
         "operationId": "createLibrary",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -13299,25 +13127,22 @@
             "description": "Error"
           }
         },
-        "summary": "Create a library over a node's roots, and scan it (admin)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Create a library over a node's roots, and scan it",
         "tags": [
           "Libraries"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/libraries/rescan": {
       "post": {
         "operationId": "rescanLibraries",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "description": "A full rescan (D392): every file read again, changed on disk or not, and what its differences from what was kept touch thrown out; absent for a rescan (D357)",
             "explode": false,
@@ -13351,25 +13176,22 @@
             "description": "Error"
           }
         },
-        "summary": "Rescan every library of films or of series: scan it, then match each film and series in it again from its files, leaving alone what a person set (admin; D357); with full, read every file again first and throw out what its differences touch (D392)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Rescan every library of films or of series: scan it, then match each film and series in it again from its files, leaving alone what a person set (D357); with full, read every file again first and throw out what its differences touch (D392)",
         "tags": [
           "Libraries"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/libraries/{id}": {
       "delete": {
         "operationId": "removeLibrary",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -13402,25 +13224,22 @@
             "description": "Error"
           }
         },
-        "summary": "Delete a library: its titles are hidden with their history, its work cancelled (admin; D231 §7)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Delete a library: its titles are hidden with their history, its work cancelled (D231 §7)",
         "tags": [
           "Libraries"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/libraries/{id}/change-detection": {
       "put": {
         "operationId": "setLibraryChangeDetection",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -13456,25 +13275,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Choose again how a library notices changes: watching, checking every so many hours, or when asked",
         "tags": [
           "Libraries"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/libraries/{id}/folders": {
       "get": {
         "operationId": "getLibraryFolder",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -13549,25 +13365,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "One folder of an other library: the folders in it, and its videos (D349)",
         "tags": [
           "Browse"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/libraries/{id}/rescan": {
       "post": {
         "operationId": "rescanLibrary",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -13610,25 +13423,22 @@
             "description": "Error"
           }
         },
-        "summary": "Rescan a library of films or of series: scan it, then match each film and series in it again from its files, leaving alone what a person set (admin; D357); with full, read every file again first and throw out what its differences touch (D392)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Rescan a library of films or of series: scan it, then match each film and series in it again from its files, leaving alone what a person set (D357); with full, read every file again first and throw out what its differences touch (D392)",
         "tags": [
           "Libraries"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/libraries/{id}/roots": {
       "post": {
         "operationId": "addLibraryRoot",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -13664,10 +13474,16 @@
             "description": "Error"
           }
         },
-        "summary": "Add a folder to a library, and scan it (admin; D359)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Add a folder to a library, and scan it (D359)",
         "tags": [
           "Libraries"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/libraries/{id}/roots/mount-gone": {
@@ -13675,15 +13491,6 @@
         "operationId": "markLibraryMountGone",
         "parameters": [
           {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -13725,10 +13532,16 @@
             "description": "Error"
           }
         },
-        "summary": "Say a disk missing from a mount point in a root is gone; its files are removed (admin; D208)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Say a disk missing from a mount point in a root is gone; its files are removed (D208)",
         "tags": [
           "Libraries"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/libraries/{id}/roots/removals": {
@@ -13736,15 +13549,6 @@
         "operationId": "approveLibraryRemovals",
         "parameters": [
           {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -13786,25 +13590,22 @@
             "description": "Error"
           }
         },
-        "summary": "Approve a root's withheld removals; its next scan removes what it does not see (admin; D208)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Approve a root's withheld removals; its next scan removes what it does not see (D208)",
         "tags": [
           "Libraries"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/libraries/{id}/roots/repoint": {
       "post": {
         "operationId": "repointLibraryRoot",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -13847,25 +13648,22 @@
             "description": "Error"
           }
         },
-        "summary": "Say a root moved: it and its files take the new path with their history, and a scan confirms each (admin; D241 §6)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Say a root moved: it and its files take the new path with their history, and a scan confirms each (D241 §6)",
         "tags": [
           "Libraries"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/libraries/{id}/roots/retire": {
       "post": {
         "operationId": "retireLibraryRoot",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -13908,25 +13706,22 @@
             "description": "Error"
           }
         },
-        "summary": "Retire a root for good: its files become tombstones and their work is cancelled (admin; D231 §7)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Retire a root for good: its files become tombstones and their work is cancelled (D231 §7)",
         "tags": [
           "Libraries"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/libraries/{id}/scan": {
       "post": {
         "operationId": "scanLibrary",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -13959,26 +13754,21 @@
             "description": "Error"
           }
         },
-        "summary": "Ask a library's nodes to scan it (admin)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Ask a library's nodes to scan it",
         "tags": [
           "Libraries"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/me": {
       "get": {
         "operationId": "getMe",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -14008,26 +13798,21 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Who this session belongs to",
         "tags": [
           "Setup and auth"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/me/admin-away": {
       "put": {
         "operationId": "setAdminAway",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -14053,26 +13838,21 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Whether you administer from away from home too: never (the default) or always; set from home",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/me/casts": {
       "get": {
         "operationId": "listMyCasts",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -14095,24 +13875,19 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "The casts this device sends or receives, each with a credential for it",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       },
       "post": {
         "operationId": "startCast",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -14145,25 +13920,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Start casting from this device to another of one's own, connected now (D337, D364)",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/me/casts/{id}/accept": {
       "post": {
         "operationId": "acceptCast",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -14197,25 +13969,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Say Use, on its receiver, to a cast it was asked about (D364 §2)",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/me/casts/{id}/end": {
       "post": {
         "operationId": "endCast",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -14259,25 +14028,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "End a cast this device sends or receives, and say where it stood",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/me/casts/{id}/next": {
       "post": {
         "operationId": "moveCastOn",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -14311,25 +14077,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Move a cast this device sends or receives on to what plays after its film, the next episode, which its receiver is handed (plans/up-next.md)",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/me/casts/{id}/play": {
       "post": {
         "operationId": "playInCast",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -14373,26 +14136,21 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Play a film on a cast's receiver, or nothing, the receiver ready for the next (D364 §3, §5)",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/me/devices": {
       "get": {
         "operationId": "listMyDevices",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -14415,26 +14173,21 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "One's own devices, most recently used first (D218)",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/me/devices/sign-out-elsewhere": {
       "post": {
         "operationId": "signOutElsewhere",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "204": {
             "description": "No Content"
@@ -14450,25 +14203,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Sign out every device but this one; they stay listed",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "manageUsers"
       }
     },
     "/me/devices/{id}": {
       "delete": {
         "operationId": "removeMyDevice",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -14495,23 +14245,20 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Remove one of one's devices; it is signed out at its next request",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "manageUsers"
       },
       "put": {
         "operationId": "changeMyDevice",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -14548,26 +14295,21 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Rename one of one's devices, or set how far it moves its sound",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/me/locator": {
       "post": {
         "operationId": "freshLocator",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -14590,26 +14332,21 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "A fresh locator for this device, by which it finds its server at a discovery",
         "tags": [
           "Setup and auth"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/me/own-link": {
       "get": {
         "operationId": "getOwnLink",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -14632,26 +14369,21 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Your own link, which leads your devices back to this server through its discovery",
         "tags": [
           "Setup and auth"
-        ]
+        ],
+        "x-orpheum-capability": "manageUsers"
       }
     },
     "/me/password": {
       "put": {
         "operationId": "changePassword",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -14677,26 +14409,21 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Change one's own password; other sessions stay signed in",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "manageUsers"
       }
     },
     "/me/preferences": {
       "get": {
         "operationId": "getMyPreferences",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -14719,24 +14446,19 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "A person's own choices, which hold in every file they play, as their settings show them",
         "tags": [
           "Playback"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       },
       "put": {
         "operationId": "setMyPreferences",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -14762,26 +14484,21 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Keep a person's own choices, which hold in every file they play: the boost, levelling, autoplay; and whether their pages show debug tools",
         "tags": [
           "Playback"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/me/together": {
       "get": {
         "operationId": "listMyTogether",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -14804,26 +14521,21 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "The sessions you are in, as host or as a member who joined signed in, each with a credential for this device (D267 §2)",
         "tags": [
           "Watch Together"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/me/watched": {
       "put": {
         "operationId": "restoreWatched",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -14849,26 +14561,21 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Put the person's watched marks back as a mark by hand's answer gave them: its Undo (D370)",
         "tags": [
           "Playback"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/needs-attention": {
       "get": {
         "operationId": "getNeedsAttention",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -14891,26 +14598,21 @@
             "description": "Error"
           }
         },
-        "summary": "How many folders and disks are offline, wait for the admin or could not be read (admin; D280)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "How many folders and disks are offline, wait for the admin or could not be read (D280)",
         "tags": [
           "Running it"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/nodes": {
       "get": {
         "operationId": "listNodes",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -14933,25 +14635,22 @@
             "description": "Error"
           }
         },
-        "summary": "The nodes, and the roots each connected one configured, for a new library (admin)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "The nodes, and the roots each connected one configured, for a new library",
         "tags": [
           "Libraries"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/nodes/{name}/folders": {
       "get": {
         "operationId": "getNodeFolders",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "description": "The node's configured name",
             "in": "path",
@@ -14997,25 +14696,22 @@
             "description": "Error"
           }
         },
-        "summary": "The folders in a node's root or a folder inside it, to choose a library folder (admin; D359)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "The folders in a node's root or a folder inside it, to choose a library folder (D359)",
         "tags": [
           "Libraries"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/nodes/{name}/reader-limit": {
       "delete": {
         "operationId": "clearReaderLimit",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "description": "The node's configured name",
             "in": "path",
@@ -15055,23 +14751,20 @@
             "description": "Error"
           }
         },
-        "summary": "Give one of a node's devices back to its kind's reader limit (admin; D240)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Give one of a node's devices back to its kind's reader limit (D240)",
         "tags": [
           "Running it"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       },
       "put": {
         "operationId": "setReaderLimit",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "description": "The node's configured name",
             "in": "path",
@@ -15109,25 +14802,22 @@
             "description": "Error"
           }
         },
-        "summary": "Set how many may read one of a node's devices at once (admin; D240)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Set how many may read one of a node's devices at once (D240)",
         "tags": [
           "Running it"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/nodes/{name}/retire": {
       "post": {
         "operationId": "retireNode",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "description": "The node's configured name",
             "in": "path",
@@ -15162,26 +14852,21 @@
             "description": "Error"
           }
         },
-        "summary": "Retire a node for good: its roots are retired and its work is cancelled (admin; D231 §7)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Retire a node for good: its roots are retired and its work is cancelled (D231 §7)",
         "tags": [
           "Libraries"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/now-playing": {
       "get": {
         "operationId": "getNowPlaying",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -15204,25 +14889,22 @@
             "description": "Error"
           }
         },
-        "summary": "Every playback heard from lately: who, on which device, what, and how (admin)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Every playback heard from lately: who, on which device, what, and how",
         "tags": [
           "Running it"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/now-playing/{id}/stop": {
       "post": {
         "operationId": "stopPlayback",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -15259,10 +14941,16 @@
             "description": "Error"
           }
         },
-        "summary": "Stop a playback, with a message its player shows within one report interval (admin; D243 §9)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Stop a playback, with a message its player shows within one report interval (D243 §9)",
         "tags": [
           "Running it"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/pairings": {
@@ -15300,26 +14988,17 @@
             "description": "Error"
           }
         },
+        "security": [],
         "summary": "A code for this device to show, which a person signed in enters to activate it (D288)",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "none"
       }
     },
     "/pairings/check": {
       "post": {
         "operationId": "answerPairingCheck",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -15345,26 +15024,21 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Say whether the check codes match: only a match activates the device",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "manageUsers"
       }
     },
     "/pairings/code": {
       "post": {
         "operationId": "enterPairingCode",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -15397,10 +15071,16 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Enter the code a device shows; both then show a check code (D288)",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "manageUsers"
       }
     },
     "/pairings/session": {
@@ -15445,10 +15125,12 @@
             "description": "Error"
           }
         },
+        "security": [],
         "summary": "The session a confirmed pairing made, once",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "none"
       }
     },
     "/pairings/state": {
@@ -15486,25 +15168,18 @@
             "description": "Error"
           }
         },
+        "security": [],
         "summary": "How this device's pairing stands, and the check code to show",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "none"
       }
     },
     "/people/{id}": {
       "get": {
         "operationId": "getPerson",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -15537,26 +15212,21 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "A person: their name and their picture; GET /items?person= lists what credits them",
         "tags": [
           "Browse"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/playback": {
       "post": {
         "operationId": "startPlayback",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -15589,25 +15259,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Decide how a file plays on this client, and where its bytes are (cut-a §6)",
         "tags": [
           "Playback"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/playback/{token}": {
       "delete": {
         "operationId": "leavePlayback",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "description": "The playback's media token",
             "in": "path",
@@ -15648,25 +15315,25 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "membership": []
+          }
+        ],
         "summary": "Say the player left the film's page or the player: its work is no longer wanted (D258 §2)",
         "tags": [
           "Playback"
-        ]
+        ],
+        "x-orpheum-capability": "member"
       }
     },
     "/playback/{token}/report": {
       "post": {
         "operationId": "reportPlayback",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "description": "The playback's media token",
             "in": "path",
@@ -15710,25 +15377,25 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "membership": []
+          }
+        ],
         "summary": "Report where a playback is and what changed; the position never moves back (D217 §7)",
         "tags": [
           "Playback"
-        ]
+        ],
+        "x-orpheum-capability": "member"
       }
     },
     "/playback/{token}/wants": {
       "put": {
         "operationId": "setPlaybackWants",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "description": "The playback's media token",
             "in": "path",
@@ -15765,10 +15432,19 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "membership": []
+          }
+        ],
         "summary": "Say which quality and sound the player wants, from where, and whether it is paused (D309)",
         "tags": [
           "Playback"
-        ]
+        ],
+        "x-orpheum-capability": "member"
       }
     },
     "/reachability/{nonce}": {
@@ -15801,10 +15477,12 @@
             "description": "Error"
           }
         },
+        "security": [],
         "summary": "Answer a reachability check's own request, which came back through the public name",
         "tags": [
           "Running it"
-        ]
+        ],
+        "x-orpheum-capability": "none"
       }
     },
     "/registration": {
@@ -15849,10 +15527,12 @@
             "description": "Error"
           }
         },
+        "security": [],
         "summary": "Use an invitation or a registration link: make the account or set a new password, and sign in",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "none"
       }
     },
     "/registration/link": {
@@ -15890,26 +15570,17 @@
             "description": "Error"
           }
         },
+        "security": [],
         "summary": "What a link is for, without using it: an invitation or a registration link",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "none"
       }
     },
     "/roles": {
       "get": {
         "operationId": "listRoles",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -15932,24 +15603,19 @@
             "description": "Error"
           }
         },
-        "summary": "Every role, with its capabilities and the libraries it reaches (admin; D243 §4)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Every role, with its capabilities and the libraries it reaches (D243 §4)",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       },
       "post": {
         "operationId": "createRole",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -15982,25 +15648,22 @@
             "description": "Error"
           }
         },
-        "summary": "Make a role: its name, capabilities and libraries (admin; D243 §4)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Make a role: its name, capabilities and libraries (D243 §4)",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/roles/{id}": {
       "delete": {
         "operationId": "removeRole",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -16027,23 +15690,20 @@
             "description": "Error"
           }
         },
-        "summary": "Delete a role the admin made that no one holds (admin)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Delete a role the admin made that no one holds",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       },
       "put": {
         "operationId": "updateRole",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -16080,26 +15740,21 @@
             "description": "Error"
           }
         },
-        "summary": "Change a role; a library taken back is gone for its members at their next request (admin; D243 §4)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Change a role; a library taken back is gone for its members at their next request (D243 §4)",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/rtc/offer": {
       "post": {
         "operationId": "answerRTCOffer",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -16132,25 +15787,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Answer a WebRTC offer, after which the client sends its requests over data channels (D273 §8)",
         "tags": [
           "Running it"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/search": {
       "get": {
         "operationId": "search",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "description": "What was typed: from its first letter, in any script (D48)",
             "explode": false,
@@ -16225,26 +15877,21 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Titles, people and genres by what was typed, from its first letter, each group the best first",
         "tags": [
           "Browse"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/secrets": {
       "get": {
         "operationId": "listSecrets",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -16267,25 +15914,22 @@
             "description": "Error"
           }
         },
-        "summary": "Which secrets are set; never their values (admin)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Which secrets are set; never their values",
         "tags": [
           "Settings"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/secrets/{name}": {
       "delete": {
         "operationId": "removeSecret",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "name",
@@ -16310,23 +15954,20 @@
             "description": "Error"
           }
         },
-        "summary": "Clear a secret (admin)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Clear a secret",
         "tags": [
           "Settings"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       },
       "put": {
         "operationId": "setSecret",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "name",
@@ -16361,26 +16002,21 @@
             "description": "Error"
           }
         },
-        "summary": "Set a secret; write-only (admin)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Set a secret; write-only",
         "tags": [
           "Settings"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/session": {
       "delete": {
         "operationId": "signOut",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "204": {
             "description": "No Content",
@@ -16403,10 +16039,16 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Sign out, revoking this session",
         "tags": [
           "Setup and auth"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       },
       "post": {
         "operationId": "signIn",
@@ -16449,10 +16091,12 @@
             "description": "Error"
           }
         },
+        "security": [],
         "summary": "Sign in; returns a session token for the Authorization header",
         "tags": [
           "Setup and auth"
-        ]
+        ],
+        "x-orpheum-capability": "none"
       }
     },
     "/session/handoff": {
@@ -16490,10 +16134,12 @@
             "description": "Error"
           }
         },
+        "security": [],
         "summary": "Sign in at the discovery's loader; returns a code the client origin takes the session by (D308)",
         "tags": [
           "Setup and auth"
-        ]
+        ],
+        "x-orpheum-capability": "none"
       }
     },
     "/session/redeem": {
@@ -16538,10 +16184,12 @@
             "description": "Error"
           }
         },
+        "security": [],
         "summary": "Take the session a sign-in at the loader kept, by its code, once",
         "tags": [
           "Setup and auth"
-        ]
+        ],
+        "x-orpheum-capability": "none"
       }
     },
     "/setup": {
@@ -16569,10 +16217,12 @@
             "description": "Error"
           }
         },
+        "security": [],
         "summary": "Whether the server still needs its first admin, so the sign-in page opens on setting it up",
         "tags": [
           "Setup and auth"
-        ]
+        ],
+        "x-orpheum-capability": "none"
       },
       "post": {
         "operationId": "setup",
@@ -16608,26 +16258,17 @@
             "description": "Error"
           }
         },
+        "security": [],
         "summary": "Create the first admin with the one-time setup code from the log",
         "tags": [
           "Setup and auth"
-        ]
+        ],
+        "x-orpheum-capability": "none"
       }
     },
     "/system": {
       "get": {
         "operationId": "getSystem",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -16650,26 +16291,21 @@
             "description": "Error"
           }
         },
-        "summary": "Every fact about the server and each node, with doctor's findings: the System page (admin; D225)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Every fact about the server and each node, with doctor's findings: the System page (D225)",
         "tags": [
           "Running it"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/system/discovery": {
       "delete": {
         "operationId": "leaveDiscovery",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "204": {
             "description": "No Content"
@@ -16685,24 +16321,19 @@
             "description": "Error"
           }
         },
-        "summary": "Take the core out of its discovery (admin; D273)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Take the core out of its discovery (D273)",
         "tags": [
           "Running it"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       },
       "get": {
         "operationId": "getDiscovery",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -16725,24 +16356,19 @@
             "description": "Error"
           }
         },
-        "summary": "Where the core stands with its discovery (admin; D273)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Where the core stands with its discovery (D273)",
         "tags": [
           "Running it"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       },
       "post": {
         "operationId": "connectDiscovery",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -16775,26 +16401,21 @@
             "description": "Error"
           }
         },
-        "summary": "Enrol the core with a discovery, which answers with the code its owner claims it by (admin; D273)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Enrol the core with a discovery, which answers with the code its owner claims it by (D273)",
         "tags": [
           "Running it"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/system/discovery/claim": {
       "post": {
         "operationId": "claimDiscovery",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -16827,26 +16448,21 @@
             "description": "Error"
           }
         },
-        "summary": "Enrol the core with its household's account by the key the account made (admin; D310 §5)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Enrol the core with its household's account by the key the account made (D310 §5)",
         "tags": [
           "Running it"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/system/discovery/identify": {
       "post": {
         "operationId": "identifyDiscovery",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -16879,26 +16495,21 @@
             "description": "Error"
           }
         },
-        "summary": "What a discovery's issuer shows: its identity and name, to compare before enrolling (admin; D393 §4)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "What a discovery's issuer shows: its identity and name, to compare before enrolling (D393 §4)",
         "tags": [
           "Running it"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/system/reachability": {
       "post": {
         "operationId": "checkReachability",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -16921,26 +16532,21 @@
             "description": "Error"
           }
         },
-        "summary": "Check the public name and voice relay from outside in, naming a failing hop (admin; D243 §7)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Check the public name and voice relay from outside in, naming a failing hop (D243 §7)",
         "tags": [
           "Running it"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/system/resource-use": {
       "get": {
         "operationId": "getResourceUse",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -16963,26 +16569,21 @@
             "description": "Error"
           }
         },
-        "summary": "What the core and each node used of their machines, each minute, beside the plays and the work running (admin)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "What the core and each node used of their machines, each minute, beside the plays and the work running",
         "tags": [
           "Running it"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/system/update": {
       "get": {
         "operationId": "getSystemUpdate",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -17005,26 +16606,21 @@
             "description": "Error"
           }
         },
-        "summary": "What the server knows of an update: a security fix its version lacks, or a newer release (admin)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "What the server knows of an update: a security fix its version lacks, or a newer release",
         "tags": [
           "Running it"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/together": {
       "post": {
         "operationId": "openTogether",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -17047,26 +16643,21 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Start a Watch Together session, nothing playing, ending the one you host and leaving one you joined (D246 §5, D372 §8)",
         "tags": [
           "Watch Together"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/together/join": {
       "post": {
         "operationId": "joinTogether",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -17099,10 +16690,17 @@
             "description": "Error"
           }
         },
+        "security": [
+          {},
+          {
+            "session": []
+          }
+        ],
         "summary": "Join a session by your link, with the name the others see; no account needed (D246 §3)",
         "tags": [
           "Watch Together"
-        ]
+        ],
+        "x-orpheum-capability": "none"
       }
     },
     "/together/join/check": {
@@ -17133,26 +16731,17 @@
             "description": "Error"
           }
         },
+        "security": [],
         "summary": "Whether your link would admit you now, asked before its join's form; refused as the join would be, and saying nothing of its session (VQ172)",
         "tags": [
           "Watch Together"
-        ]
+        ],
+        "x-orpheum-capability": "none"
       }
     },
     "/together/leave": {
       "post": {
         "operationId": "leaveTogether",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "204": {
             "description": "No Content"
@@ -17168,26 +16757,21 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "membership": []
+          }
+        ],
         "summary": "Leave the session you joined (a viewer)",
         "tags": [
           "Watch Together"
-        ]
+        ],
+        "x-orpheum-capability": "member"
       }
     },
     "/together/playback": {
       "post": {
         "operationId": "playTogether",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -17227,25 +16811,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "membership": []
+          }
+        ],
         "summary": "A viewer's playback of what the session plays now (D246 §3)",
         "tags": [
           "Watch Together"
-        ]
+        ],
+        "x-orpheum-capability": "member"
       }
     },
     "/together/{id}": {
       "delete": {
         "operationId": "endTogether",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -17272,23 +16853,20 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "End the session for everyone (host)",
         "tags": [
           "Watch Together"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       },
       "get": {
         "operationId": "getTogether",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -17322,25 +16900,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "The session's links and members, with your notes (host)",
         "tags": [
           "Watch Together"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/together/{id}/ice": {
       "get": {
         "operationId": "getTogetherICE",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -17374,25 +16949,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "membership": []
+          }
+        ],
         "summary": "A member's voice relay credentials, which end with the membership (D243 §8)",
         "tags": [
           "Watch Together"
-        ]
+        ],
+        "x-orpheum-capability": "member"
       }
     },
     "/together/{id}/links": {
       "post": {
         "operationId": "addTogetherLink",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -17436,25 +17008,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "A link for one person to join by, once, with a note of who it is for (host; D246 §3)",
         "tags": [
           "Watch Together"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/together/{id}/links/{link}": {
       "delete": {
         "operationId": "removeTogetherLink",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -17491,25 +17060,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Withdraw a link not yet used (host)",
         "tags": [
           "Watch Together"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/together/{id}/members/{member}/eject": {
       "post": {
         "operationId": "ejectFromTogether",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -17546,25 +17112,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Remove a member; their devices are told and their credential admits nothing (host; D119)",
         "tags": [
           "Watch Together"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/together/{id}/members/{member}/links": {
       "post": {
         "operationId": "addTogetherLinkFor",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -17608,25 +17171,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "A new link for a guest's place: they stay in until it is used, and whoever joins by it takes the place over, cutting off the devices they came in on (host; D311 §5, D312 §3)",
         "tags": [
           "Watch Together"
-        ]
+        ],
+        "x-orpheum-capability": "signedIn"
       }
     },
     "/users": {
       "get": {
         "operationId": "listUsers",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "description": "From the previous page's nextCursor; absent for the first page",
             "explode": false,
@@ -17672,24 +17232,19 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Everyone, for the admin",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       },
       "post": {
         "operationId": "createUser",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -17722,25 +17277,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Set a user up in full: a name, a password and a role (D246 §2)",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/users/{id}": {
       "delete": {
         "operationId": "removeUser",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -17767,23 +17319,20 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Remove a user: their sessions and devices end, and their own watching is deleted (S40)",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       },
       "get": {
         "operationId": "getUser",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -17817,23 +17366,20 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "A user's page, for the admin: who they are and what they have watched",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       },
       "put": {
         "operationId": "renameUser",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -17870,25 +17416,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Rename a user; names are for display and sign-in, and stay unique",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/users/{id}/admin-note": {
       "put": {
         "operationId": "setAdminNote",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -17925,25 +17468,22 @@
             "description": "Error"
           }
         },
-        "summary": "Change the admin's note of who a person is for (admin)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Change the admin's note of who a person is for",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/users/{id}/devices": {
       "get": {
         "operationId": "listUserDevices",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -17977,25 +17517,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "A user's devices, for the admin",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/users/{id}/devices/{deviceId}": {
       "delete": {
         "operationId": "removeUserDevice",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -18032,25 +17569,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "Remove a user's device, for the admin: a lost or given-away one",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/users/{id}/own-link": {
       "delete": {
         "operationId": "revokeOwnLink",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -18077,25 +17611,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "End a person's own link, which leads them back to the server through a discovery (D292 §4)",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/users/{id}/registration-invitation": {
       "post": {
         "operationId": "issueRegistrationInvitation",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -18129,25 +17660,22 @@
             "description": "Error"
           }
         },
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "summary": "A new registration link for a person, withdrawing the old; their password works until used",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/users/{id}/role": {
       "put": {
         "operationId": "setUserRole",
         "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "id",
@@ -18184,10 +17712,16 @@
             "description": "Error"
           }
         },
-        "summary": "Give a user a role, their whole access, from their next request (admin; D243 §4)",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Give a user a role, their whole access, from their next request (D243 §4)",
         "tags": [
           "Users"
-        ]
+        ],
+        "x-orpheum-capability": "admin"
       }
     }
   },

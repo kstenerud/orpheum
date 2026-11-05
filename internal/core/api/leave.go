@@ -27,6 +27,7 @@ func (server *Server) registerLeave() {
 		OperationID: "leavePlayback", Method: http.MethodDelete, Path: "/playback/{token}",
 		Summary: "Say the player left the film's page or the player: its work is no longer wanted (D258 §2)",
 		Tags:    []string{tagPlayback}, DefaultStatus: http.StatusNoContent,
+		Extensions: callableBy(capabilityMember, schemeSession, schemeMembership),
 	}, server.leavePlayback)
 	server.registerInterest()
 }

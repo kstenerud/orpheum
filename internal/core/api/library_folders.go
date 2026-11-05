@@ -47,12 +47,14 @@ func (server *Server) registerLibraryFolders() {
 	tags := []string{tagLibraries}
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getNodeFolders", Method: http.MethodGet, Path: "/nodes/{name}/folders", Tags: tags,
-		Summary: "The folders in a node's root or a folder inside it, to choose a library folder (admin; D359)",
+		Summary:    "The folders in a node's root or a folder inside it, to choose a library folder (D359)",
+		Extensions: callableBy(capabilityAdmin),
 	}, server.getNodeFolders)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "addLibraryRoot", Method: http.MethodPost, Path: "/libraries/{id}/roots", Tags: tags,
 		DefaultStatus: http.StatusAccepted,
-		Summary:       "Add a folder to a library, and scan it (admin; D359)",
+		Summary:       "Add a folder to a library, and scan it (D359)",
+		Extensions:    callableBy(capabilityAdmin),
 	}, server.addLibraryRoot)
 }
 

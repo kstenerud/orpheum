@@ -249,8 +249,9 @@ type SpanBody struct {
 func (server *Server) registerReport() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "reportPlayback", Method: http.MethodPost, Path: "/playback/{token}/report",
-		Summary: "Report where a playback is and what changed; the position never moves back (D217 §7)",
-		Tags:    []string{tagPlayback},
+		Summary:    "Report where a playback is and what changed; the position never moves back (D217 §7)",
+		Tags:       []string{tagPlayback},
+		Extensions: callableBy(capabilityMember, schemeSession, schemeMembership),
 	}, server.reportPlayback)
 }
 

@@ -169,10 +169,12 @@ func (server *Server) registerItemList() {
 		OperationID: "listItems", Method: http.MethodGet, Path: "/items",
 		Summary: "The one list: films, series or other videos by name in the library's locale or newest first, " +
 			"filtered by library, genre, person, decade, unwatched or identification", Tags: tags,
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.listItems)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "listItemLetters", Method: http.MethodGet, Path: "/items/letters",
 		Summary: "The letters of the alphabet a list by name has items under", Tags: tags,
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.listItemLetters)
 }
 

@@ -84,28 +84,33 @@ func (server *Server) registerRoles() {
 	tags := []string{tagUsers}
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "listRoles", Method: http.MethodGet, Path: "/roles",
-		Summary: "Every role, with its capabilities and the libraries it reaches (admin; D243 §4)", Tags: tags,
+		Summary: "Every role, with its capabilities and the libraries it reaches (D243 §4)", Tags: tags,
+		Extensions: callableBy(capabilityAdmin),
 	}, server.listRoles)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "createRole", Method: http.MethodPost, Path: "/roles", DefaultStatus: http.StatusCreated,
-		Summary: "Make a role: its name, capabilities and libraries (admin; D243 §4)", Tags: tags,
+		Summary: "Make a role: its name, capabilities and libraries (D243 §4)", Tags: tags,
+		Extensions: callableBy(capabilityAdmin),
 	}, server.createRole)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "updateRole", Method: http.MethodPut, Path: "/roles/{id}", DefaultStatus: http.StatusNoContent,
 		Summary: "Change a role; a library taken back is gone for its members at their next request " +
-			"(admin; D243 §4)",
-		Tags: tags,
+			"(D243 §4)",
+		Tags:       tags,
+		Extensions: callableBy(capabilityAdmin),
 	}, server.updateRole)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "removeRole", Method: http.MethodDelete, Path: "/roles/{id}",
 		DefaultStatus: http.StatusNoContent,
-		Summary:       "Delete a role the admin made that no one holds (admin)", Tags: tags,
+		Summary:       "Delete a role the admin made that no one holds", Tags: tags,
+		Extensions: callableBy(capabilityAdmin),
 	}, server.removeRole)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "setUserRole", Method: http.MethodPut, Path: "/users/{id}/role",
 		DefaultStatus: http.StatusNoContent,
-		Summary:       "Give a user a role, their whole access, from their next request (admin; D243 §4)",
+		Summary:       "Give a user a role, their whole access, from their next request (D243 §4)",
 		Tags:          tags,
+		Extensions:    callableBy(capabilityAdmin),
 	}, server.setUserRole)
 }
 

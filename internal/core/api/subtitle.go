@@ -59,6 +59,7 @@ func (server *Server) registerSubtitles() {
 			}},
 			"425": {Description: "Not extracted yet; ask again after Retry-After"},
 		},
+		Extensions: callableBy(capabilityMedia, schemeSession, schemeMedia, schemeMembership),
 	}, server.getSubtitle)
 }
 

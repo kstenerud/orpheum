@@ -78,29 +78,34 @@ func (server *Server) registerConfig() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getConfig", Method: http.MethodGet, Path: "/config",
 		Summary: "Every server setting beside its starting value, and the config file's keys (read-only); " +
-			"?onlyModified=true lists only the settings a person set (admin)",
-		Tags: tags,
+			"?onlyModified=true lists only the settings a person set",
+		Tags:       tags,
+		Extensions: callableBy(capabilityAdmin),
 	}, server.getConfig)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "setConfig", Method: http.MethodPut, Path: "/config",
-		Summary: "Change any server settings, all or none (admin)", Tags: tags,
+		Summary: "Change any server settings, all or none", Tags: tags,
+		Extensions: callableBy(capabilityAdmin),
 	}, server.setConfig)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "resetConfig", Method: http.MethodPost, Path: "/config/{key}/reset",
 		Summary: "Set a server setting to default: its starting value, no longer marked modified, so it " +
-			"follows its starting value when a release changes it (admin)",
-		Tags: tags,
+			"follows its starting value when a release changes it",
+		Tags:       tags,
+		Extensions: callableBy(capabilityAdmin),
 	}, server.resetConfig)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getUnusedConfig", Method: http.MethodGet, Path: "/config/unused",
-		Summary: "Setting rows this release does not read: retired keys, or typos (admin)", Tags: tags,
+		Summary: "Setting rows this release does not read: retired keys, or typos", Tags: tags,
+		Extensions: callableBy(capabilityAdmin),
 	}, server.getUnusedConfig)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "removeUnusedConfig", Method: http.MethodDelete, Path: "/config/unused/{key}",
 		DefaultStatus: http.StatusNoContent,
 		Summary: "Delete a setting row this release does not read; a setting in use is set to default " +
-			"instead (admin)",
-		Tags: tags,
+			"instead",
+		Tags:       tags,
+		Extensions: callableBy(capabilityAdmin),
 	}, server.removeUnusedConfig)
 }
 

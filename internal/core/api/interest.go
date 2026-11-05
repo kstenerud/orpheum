@@ -31,6 +31,7 @@ func (server *Server) registerInterest() {
 		OperationID: "setPlaybackWants", Method: http.MethodPut, Path: "/playback/{token}/wants",
 		Summary: "Say which quality and sound the player wants, from where, and whether it is paused (D309)",
 		Tags:    []string{tagPlayback}, DefaultStatus: http.StatusNoContent,
+		Extensions: callableBy(capabilityMember, schemeSession, schemeMembership),
 	}, server.setPlaybackWants)
 	// The old path, kept outside the document for one release (D425 §3): a player that started
 	// before the core's restart keeps saying its wants there until its page reloads. It goes in the
@@ -38,6 +39,7 @@ func (server *Server) registerInterest() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "setPlaybackWantsAtItsOldPath", Method: http.MethodPut, Path: "/playback/{token}/interest",
 		Hidden: true, DefaultStatus: http.StatusNoContent,
+		Extensions: callableBy(capabilityMember, schemeSession, schemeMembership),
 	}, server.setPlaybackWantsAtItsOldPath)
 	server.registerPageInterest()
 }

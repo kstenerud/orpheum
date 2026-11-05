@@ -61,15 +61,18 @@ func (server *Server) registerFilingReports() {
 		OperationID: "writeFilingReport", Method: http.MethodPost, Path: "/items/{id}/filing-report", Tags: tags,
 		DefaultStatus: http.StatusCreated,
 		Summary: "Write a report of how a film, episode or series was filed, as Markdown on the server's disk, for " +
-			"an admin to edit and post as an issue; nothing leaves the server (admin; D306 §3)",
+			"an admin to edit and post as an issue; nothing leaves the server (D306 §3)",
+		Extensions: callableBy(capabilityAdmin),
 	}, server.writeFilingReport)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "listFilingReports", Method: http.MethodGet, Path: "/filing-reports", Tags: tags,
-		Summary: "The reports of works filed wrongly, newest first (admin; D306 §3)",
+		Summary:    "The reports of works filed wrongly, newest first (D306 §3)",
+		Extensions: callableBy(capabilityAdmin),
 	}, server.listFilingReports)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getFilingReport", Method: http.MethodGet, Path: "/filing-reports/{name}", Tags: tags,
-		Summary: "One report of a work filed wrongly (admin; D306 §3)",
+		Summary:    "One report of a work filed wrongly (D306 §3)",
+		Extensions: callableBy(capabilityAdmin),
 	}, server.getFilingReport)
 }
 

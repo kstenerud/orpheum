@@ -57,7 +57,8 @@ func (server *Server) registerResourceUse() {
 		OperationID: "getResourceUse", Method: http.MethodGet, Path: "/system/resource-use",
 		Tags: []string{tagRunningIt},
 		Summary: "What the core and each node used of their machines, each minute, beside the plays and " +
-			"the work running (admin)",
+			"the work running",
+		Extensions: callableBy(capabilityAdmin),
 	}, server.getResourceUse)
 }
 

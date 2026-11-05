@@ -218,62 +218,80 @@ func (server *Server) registerLibraries() {
 	tags := []string{tagLibraries}
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "createLibrary", Method: http.MethodPost, Path: "/libraries", DefaultStatus: http.StatusCreated,
-		Summary: "Create a library over a node's roots, and scan it (admin)", Tags: tags,
+		Summary: "Create a library over a node's roots, and scan it", Tags: tags,
+		Extensions: callableBy(capabilityAdmin),
 	}, server.createLibrary)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "listNodes", Method: http.MethodGet, Path: "/nodes",
-		Summary: "The nodes, and the roots each connected one configured, for a new library (admin)", Tags: tags,
+		Summary: "The nodes, and the roots each connected one configured, for a new library", Tags: tags,
+		Extensions: callableBy(capabilityAdmin),
 	}, server.listNodes)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "listLibraries", Method: http.MethodGet, Path: "/libraries",
 		Summary: "The libraries; an admin also sees their roots and files by filing", Tags: tags,
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.listLibraries)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "setLibraryChangeDetection", Method: http.MethodPut, Path: "/libraries/{id}/change-detection",
 		Summary: "Choose again how a library notices changes: watching, checking every so many hours, or when asked",
 		Tags:    tags, DefaultStatus: http.StatusNoContent,
+		Extensions: callableBy(capabilityAdmin),
 	}, server.setLibraryChangeDetection)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "scanLibrary", Method: http.MethodPost, Path: "/libraries/{id}/scan",
-		DefaultStatus: http.StatusAccepted, Summary: "Ask a library's nodes to scan it (admin)", Tags: tags,
+		DefaultStatus: http.StatusAccepted, Summary: "Ask a library's nodes to scan it", Tags: tags,
+		Extensions: callableBy(capabilityAdmin),
 	}, server.scanLibrary)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "listFiles", Method: http.MethodGet, Path: "/files",
+		Summary: "What the scanner saw: every file with its filing and reason (D163)", Tags: tags,
+		Extensions: callableBy(capabilityAdmin),
+	}, server.listFiles)
+	server.registerLibraryRetirements(tags)
+	server.registerRescans()
+	server.registerLibraryFolders()
+}
+
+// registerLibraryRetirements registers what removes or moves a library's roots, files and nodes.
+func (server *Server) registerLibraryRetirements(tags []string) {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "approveLibraryRemovals", Method: http.MethodPost, Path: "/libraries/{id}/roots/removals",
 		DefaultStatus: http.StatusAccepted, Tags: tags,
-		Summary: "Approve a root's withheld removals; its next scan removes what it does not see (admin; D208)",
+		Summary:    "Approve a root's withheld removals; its next scan removes what it does not see (D208)",
+		Extensions: callableBy(capabilityAdmin),
 	}, server.approveLibraryRemovals)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "markLibraryMountGone", Method: http.MethodPost, Path: "/libraries/{id}/roots/mount-gone",
 		DefaultStatus: http.StatusAccepted, Tags: tags,
-		Summary: "Say a disk missing from a mount point in a root is gone; its files are removed (admin; D208)",
+		Summary:    "Say a disk missing from a mount point in a root is gone; its files are removed (D208)",
+		Extensions: callableBy(capabilityAdmin),
 	}, server.markLibraryMountGone)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "retireLibraryRoot", Method: http.MethodPost, Path: "/libraries/{id}/roots/retire", Tags: tags,
-		Summary: "Retire a root for good: its files become tombstones and their work is cancelled (admin; D231 §7)",
+		Summary:    "Retire a root for good: its files become tombstones and their work is cancelled (D231 §7)",
+		Extensions: callableBy(capabilityAdmin),
 	}, server.retireLibraryRoot)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "repointLibraryRoot", Method: http.MethodPost, Path: "/libraries/{id}/roots/repoint",
-		Tags:    tags,
-		Summary: "Say a root moved: it and its files take the new path with their history, and a scan confirms each (admin; D241 §6)", //nolint:lll // one summary
+		Tags:       tags,
+		Summary:    "Say a root moved: it and its files take the new path with their history, and a scan confirms each (D241 §6)", //nolint:lll // one summary
+		Extensions: callableBy(capabilityAdmin),
 	}, server.repointLibraryRoot)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "retireFile", Method: http.MethodPost, Path: "/files/{id}/retire", Tags: tags,
-		Summary: "Retire one file that cannot be read now: it becomes a tombstone, its history kept (admin; D241 §5)",
+		Summary:    "Retire one file that cannot be read now: it becomes a tombstone, its history kept (D241 §5)",
+		Extensions: callableBy(capabilityAdmin),
 	}, server.retireFile)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "removeLibrary", Method: http.MethodDelete, Path: "/libraries/{id}", Tags: tags,
-		Summary: "Delete a library: its titles are hidden with their history, its work cancelled (admin; D231 §7)",
+		Summary:    "Delete a library: its titles are hidden with their history, its work cancelled (D231 §7)",
+		Extensions: callableBy(capabilityAdmin),
 	}, server.removeLibrary)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "retireNode", Method: http.MethodPost, Path: "/nodes/{name}/retire", Tags: tags,
-		Summary: "Retire a node for good: its roots are retired and its work is cancelled (admin; D231 §7)",
+		Summary:    "Retire a node for good: its roots are retired and its work is cancelled (D231 §7)",
+		Extensions: callableBy(capabilityAdmin),
 	}, server.retireNode)
-	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "listFiles", Method: http.MethodGet, Path: "/files",
-		Summary: "What the scanner saw: every file with its filing and reason (admin; D163)", Tags: tags,
-	}, server.listFiles)
-	server.registerRescans()
-	server.registerLibraryFolders()
 }
 
 func (server *Server) createLibrary(ctx context.Context, input *CreateLibraryInput) (*CreatedOutput, error) {

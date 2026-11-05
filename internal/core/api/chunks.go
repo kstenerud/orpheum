@@ -56,6 +56,7 @@ func (server *Server) registerChunks() {
 		Path:    "/bytes/media/chunks/{token}/master.m3u8",
 		Summary: "The master playlist of a playback's film cut into chunks at each quality (D247 §10)",
 		Tags:    []string{tagPlayback}, Responses: responses,
+		Extensions: callableBy(capabilityMedia, schemeSession, schemeMedia, schemeMembership),
 	}, server.getChunksMasterPlaylist)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getChunkFile", Method: http.MethodGet,
@@ -63,6 +64,7 @@ func (server *Server) registerChunks() {
 		Summary: "One stream's playlist, or its init or a chunk, relayed from the film's node and made " +
 			"there when first asked for (D247 §10)",
 		Tags: []string{tagPlayback}, Responses: responses,
+		Extensions: callableBy(capabilityMedia, schemeSession, schemeMedia, schemeMembership),
 	}, server.getChunkFile)
 }
 

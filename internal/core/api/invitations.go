@@ -98,27 +98,32 @@ func (server *Server) registerInvitations() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "createInvitation", Method: http.MethodPost, Path: "/invitations",
 		DefaultStatus: http.StatusCreated,
-		Summary:       "Invite someone to make their own account under a role, noting who it is for (admin; D246)",
+		Summary:       "Invite someone to make their own account under a role, noting who it is for (D246)",
 		Tags:          tags,
+		Extensions:    callableBy(capabilityAdmin),
 	}, server.createInvitation)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "listInvitations", Method: http.MethodGet, Path: "/invitations",
-		Summary: "Every invitation: those waiting, and those used with the account each made (admin)", Tags: tags,
+		Summary: "Every invitation: those waiting, and those used with the account each made", Tags: tags,
+		Extensions: callableBy(capabilityAdmin),
 	}, server.listInvitations)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "withdrawInvitation", Method: http.MethodDelete, Path: "/invitations/{id}",
 		DefaultStatus: http.StatusNoContent,
-		Summary:       "Withdraw an invitation still waiting: none of its links admits anyone (admin)",
+		Summary:       "Withdraw an invitation still waiting: none of its links admits anyone",
 		Tags:          tags,
+		Extensions:    callableBy(capabilityAdmin),
 	}, server.withdrawInvitation)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getLinkKind", Method: http.MethodPost, Path: "/registration/link",
 		Summary: "What a link is for, without using it: an invitation or a registration link", Tags: tags,
+		Extensions: callableBy(capabilityNone),
 	}, server.getLinkKind)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "setAdminNote", Method: http.MethodPut, Path: "/users/{id}/admin-note",
-		DefaultStatus: http.StatusNoContent, Summary: "Change the admin's note of who a person is for (admin)",
-		Tags: tags,
+		DefaultStatus: http.StatusNoContent, Summary: "Change the admin's note of who a person is for",
+		Tags:       tags,
+		Extensions: callableBy(capabilityAdmin),
 	}, server.setAdminNote)
 }
 

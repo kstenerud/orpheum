@@ -93,29 +93,35 @@ func (server *Server) registerCasts() {
 		OperationID: "startCast", Method: http.MethodPost, Path: "/me/casts",
 		Summary: "Start casting from this device to another of one's own, connected now (D337, D364)",
 		Tags:    tags, DefaultStatus: http.StatusCreated,
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.startCast)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "playInCast", Method: http.MethodPost, Path: "/me/casts/{id}/play",
-		Summary: "Play a film on a cast's receiver, or nothing, the receiver ready for the next (D364 §3, §5)",
-		Tags:    tags,
+		Summary:    "Play a film on a cast's receiver, or nothing, the receiver ready for the next (D364 §3, §5)",
+		Tags:       tags,
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.playInCast)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "acceptCast", Method: http.MethodPost, Path: "/me/casts/{id}/accept",
 		Summary: "Say Use, on its receiver, to a cast it was asked about (D364 §2)", Tags: tags,
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.acceptCast)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "listMyCasts", Method: http.MethodGet, Path: "/me/casts",
 		Summary: "The casts this device sends or receives, each with a credential for it", Tags: tags,
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.listMyCasts)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "endCast", Method: http.MethodPost, Path: "/me/casts/{id}/end",
 		Summary: "End a cast this device sends or receives, and say where it stood", Tags: tags,
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.endCast)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "moveCastOn", Method: http.MethodPost, Path: "/me/casts/{id}/next",
 		Summary: "Move a cast this device sends or receives on to what plays after its film, the next " +
 			"episode, which its receiver is handed (plans/up-next.md)",
-		Tags: tags,
+		Tags:       tags,
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.moveCastOn)
 }
 

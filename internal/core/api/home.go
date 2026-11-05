@@ -43,16 +43,19 @@ func (server *Server) registerHome() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getHome", Method: http.MethodGet, Path: "/home",
 		Summary: "The home screen: what the person stopped in the middle of", Tags: []string{"Browse"},
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.getHome)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "markHidden", Method: http.MethodPut, Path: "/items/{id}/hidden",
 		Summary:       "Hide a work from Continue Watching until it next has activity; not a completion (D188)",
 		Tags:          []string{tagPlayback},
 		DefaultStatus: http.StatusNoContent,
+		Extensions:    callableBy(capabilitySignedIn),
 	}, server.markHidden)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "unmarkHidden", Method: http.MethodDelete, Path: "/items/{id}/hidden",
 		Summary: "Undo hiding a work", Tags: []string{tagPlayback}, DefaultStatus: http.StatusNoContent,
+		Extensions: callableBy(capabilitySignedIn),
 	}, server.unmarkHidden)
 	// Marked watched by hand, a work leaves Continue Watching too (D370 §4).
 	server.registerWatched()

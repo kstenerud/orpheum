@@ -35,13 +35,15 @@ func (server *Server) registerHandOff() {
 	tags := []string{tagSetupAndAuth}
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "handOffSession", Method: http.MethodPost, Path: handOffPath, DefaultStatus: http.StatusCreated,
-		Summary: "Sign in at the discovery's loader; returns a code the client origin takes the session by (D308)",
-		Tags:    tags,
+		Summary:    "Sign in at the discovery's loader; returns a code the client origin takes the session by (D308)",
+		Tags:       tags,
+		Extensions: callableBy(capabilityNone),
 	}, server.handOffSession)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "redeemSession", Method: http.MethodPost, Path: "/session/redeem",
 		DefaultStatus: http.StatusCreated,
 		Summary:       "Take the session a sign-in at the loader kept, by its code, once", Tags: tags,
+		Extensions: callableBy(capabilityNone),
 	}, server.redeemSession)
 }
 
