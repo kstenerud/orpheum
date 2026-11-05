@@ -1789,8 +1789,24 @@ folders and letters stay unpaged, and the expansion audit checks each against mu
 The owner's answers on API step E (2026-11-05), amending D425 §6's list: `manageUsers` is renamed
 `accountSecurity` (it guards changes to the caller's own account's security, refused to a device
 activated by a code, D292 §4); starting Watch Together gets a capability of its own, `hostTogether`.
-cut-a.md §5 says CI diffs the document with oasdiff, but no such gate exists yet: the API's
-compatibility check is the owner's gate to add once the batch lands.
+cut-a.md §5 says CI diffs the document with oasdiff, but no such gate exists. The owner
+(2026-11-05) defers it: "An API diff won't tell us anything we don't already know" while the API and
+schema rebuild takes a few cycles to settle, and the beta's last features land fast. Deploys are not
+to need tags for it ("it slows velocity to satisfy the bureaucracy").
+
+When the owner asks for it, the gate as tried and dropped that day:
+- Pin oasdiff in `scripts/fetch_tools.py` like sqlc (1.35.0 then; macOS ships one `darwin_all`
+  archive, so `Tool` needs a per-platform arch name), copy it into the image beside sqlc
+  (`deploy/Containerfile`), and name it in `check-tools`' and `tools`' help.
+- A check-pr fast step, `check-api-compat`, running `oasdiff breaking <base> <head> --fail-on ERR`
+  on `api/openapi.json`; a change rated an error fails unless a commit in the range carries the
+  owner's `API-Breaking: <why>` trailer (read as `Gate-Changed:` is, `check_test_weakening.trailers`).
+  Warnings print, never fail. A missing oasdiff fails.
+- The baseline is the owner's to choose then, and must not need a tag at each deploy: check-pr's
+  own base (`$(RESOLVE_BASE)`) needs nothing new, but weighs each batch alone, not what clients
+  meet across batches.
+- Tests with a stand-in oasdiff in a scratch repository (`scripts/tests/gitrepo.py`): a removal
+  fails, the trailer lets it through, an addition passes, a missing binary fails.
 
 ## UI issues the owner saw (2026-11-05), recorded only: after the API batch
 
