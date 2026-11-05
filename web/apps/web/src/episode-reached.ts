@@ -11,6 +11,7 @@
 
 import { useEffect } from "react";
 
+import { resetOnEachTestMount } from "./screen-load.tsx";
 import { useServices } from "./services.tsx";
 
 /** An episode reached: its season of the series as its page shows it (none: the default), and it. */
@@ -21,6 +22,11 @@ export interface EpisodeReached {
 
 /** The episode last reached of each series, by the series' id; let go of once its page shows it. */
 const reached = new Map<number, EpisodeReached>();
+
+// A tab's memory, forgotten at each test's mount as a new tab would start (resetOnEachTestMount).
+resetOnEachTestMount(() => {
+  reached.clear();
+});
 
 /** Notes that the episode episodeId of series seriesId, at season, was reached. */
 export function noteEpisodeReached(seriesId: number, episode: EpisodeReached): void {

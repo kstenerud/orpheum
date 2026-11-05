@@ -9,6 +9,7 @@ import { useEffect } from "react";
 
 import { tabStorage } from "./browser-storage.ts";
 import { dataOrThrow } from "./problem.ts";
+import { resetOnEachTestMount } from "./screen-load.tsx";
 import { useServices } from "./services.tsx";
 import { useMembership } from "./together-membership.ts";
 import type { SessionDetails } from "./together-people.tsx";
@@ -19,6 +20,11 @@ import type { SessionDetails } from "./together-people.tsx";
  * server first, and the owner found it slow: "Ideally that should be instantaneous" (2026-10-12).
  */
 const knownDetails = new Map<number, SessionDetails>();
+
+// A tab's memory, forgotten at each test's mount as a new tab would start (resetOnEachTestMount).
+resetOnEachTestMount(() => {
+  knownDetails.clear();
+});
 
 /** Asks for a session's details, and keeps them as its last known. */
 export async function detailsOf(api: Api, sessionId: number): Promise<SessionDetails> {
