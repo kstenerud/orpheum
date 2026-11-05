@@ -9,6 +9,11 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 )
 
+// attentionListedAtMost bounds each list /needs-attention answers, so one library read badly makes
+// no unbounded answer: a justified constant, a bound on one admin's page, its list's count field
+// saying how many there are in all (D432 §4).
+const attentionListedAtMost = 100
+
 // NeedsAttentionOutput counts what needs an admin: library folders and disks offline, scans whose
 // removals wait for them, and what scans could not read (D231 §7, D277 §2–§3). The status tray's
 // warning sign shows while any is counted, and leads to the page that lists them (D280).
@@ -27,11 +32,15 @@ type NeedsAttentionOutput struct {
 		// "Needs a match should show up as one of the things under the exclamation point tray icon").
 		MatchCount int `json:"matchCount"`
 		// SeriesReadWrongly are the series some of whose episodes have no number though no specials
-		// or extras folder holds them: their files' names were likely read wrongly (D306 §6).
-		SeriesReadWrongly []SeriesReadWronglyBody `json:"seriesReadWrongly"`
+		// or extras folder holds them: their files' names were likely read wrongly (D306 §6). At most
+		// 100 are listed; SeriesReadWronglyCount is how many there are in all (D432 §4).
+		SeriesReadWrongly      []SeriesReadWronglyBody `maxItems:"100" json:"seriesReadWrongly"`
+		SeriesReadWronglyCount int                     `json:"seriesReadWronglyCount"`
 		// FilmsWithoutSound are the films whose video file holds no sound track, a video-only download
 		// (the owner, 2026-11-02: "videos without sound should be included in the list of problem films").
-		FilmsWithoutSound []FilmWithoutSoundBody `json:"filmsWithoutSound"`
+		// At most 100 are listed; FilmsWithoutSoundCount is how many there are in all (D432 §4).
+		FilmsWithoutSound      []FilmWithoutSoundBody `maxItems:"100" json:"filmsWithoutSound"`
+		FilmsWithoutSoundCount int                    `json:"filmsWithoutSoundCount"`
 	}
 }
 
@@ -93,6 +102,8 @@ func (server *Server) getNeedsAttention(
 	if err != nil {
 		return nil, server.libraryError(ctx, "find the series read wrongly", err)
 	}
+	output.Body.SeriesReadWronglyCount = len(unplaced)
+	unplaced = unplaced[:min(len(unplaced), attentionListedAtMost)]
 	output.Body.SeriesReadWrongly = make([]SeriesReadWronglyBody, 0, len(unplaced))
 	for _, series := range unplaced {
 		output.Body.SeriesReadWrongly = append(output.Body.SeriesReadWrongly, SeriesReadWronglyBody{
@@ -103,6 +114,8 @@ func (server *Server) getNeedsAttention(
 	if err != nil {
 		return nil, server.libraryError(ctx, "find the films with no sound", err)
 	}
+	output.Body.FilmsWithoutSoundCount = len(silent)
+	silent = silent[:min(len(silent), attentionListedAtMost)]
 	output.Body.FilmsWithoutSound = make([]FilmWithoutSoundBody, 0, len(silent))
 	for _, film := range silent {
 		output.Body.FilmsWithoutSound = append(output.Body.FilmsWithoutSound,

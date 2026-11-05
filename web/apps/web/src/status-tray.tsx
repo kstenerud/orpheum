@@ -229,17 +229,23 @@ function NeedsAttentionSign(): JSX.Element | null {
   if (counts.state !== "loaded") {
     return null;
   }
-  const { rootCount, diskCount, waitingRootCount, unreadCount, matchCount } = counts.value;
-  const readWrongly = counts.value.seriesReadWrongly ?? [];
-  const withoutSound = counts.value.filmsWithoutSound ?? [];
+  const {
+    rootCount,
+    diskCount,
+    waitingRootCount,
+    unreadCount,
+    matchCount,
+    seriesReadWronglyCount,
+    filmsWithoutSoundCount,
+  } = counts.value;
   if (
     rootCount +
       diskCount +
       waitingRootCount +
       unreadCount +
       matchCount +
-      readWrongly.length +
-      withoutSound.length ===
+      seriesReadWronglyCount +
+      filmsWithoutSoundCount ===
     0
   ) {
     return null;

@@ -42,6 +42,10 @@ const nothingWrong = {
   waitingRootCount: 0,
   unreadCount: 0,
   matchCount: 0,
+  seriesReadWrongly: [],
+  seriesReadWronglyCount: 0,
+  filmsWithoutSound: [],
+  filmsWithoutSoundCount: 0,
 };
 const somethingWrong = { ...nothingWrong, waitingRootCount: 1, unreadCount: 2 };
 /** The server's word of updates where it knows of none, which Needs attention reads too. */
@@ -424,6 +428,7 @@ it("tells an admin of a series whose episodes were likely read wrongly, leading 
   const readWrongly = {
     ...nothingWrong,
     seriesReadWrongly: [{ seriesId: 606, name: "Greywolf", unplacedCount: 24 }],
+    seriesReadWronglyCount: 1,
   };
   mounted = await mount(
     withServices(
@@ -449,6 +454,7 @@ it("tells an admin of a film whose video has no sound, leading to it (the owner,
   const silent = {
     ...nothingWrong,
     filmsWithoutSound: [{ titleId: 880, name: "Mister 517" }],
+    filmsWithoutSoundCount: 1,
   };
   mounted = await mount(
     withServices(
@@ -468,6 +474,37 @@ it("tells an admin of a film whose video has no sound, leading to it (the owner,
   );
   expect(mounted.container.querySelector('a[href="/titles/880"]')?.textContent).toBe("Mister 517");
   expect(mounted.container.textContent).toContain(": its video has no sound track");
+});
+
+it("says how many more there are than Needs attention lists (D432 §4)", async () => {
+  const many = {
+    ...nothingWrong,
+    seriesReadWrongly: [{ seriesId: 606, name: "Greywolf", unplacedCount: 24 }],
+    seriesReadWronglyCount: 3,
+    filmsWithoutSound: [{ titleId: 880, name: "Mister 517" }],
+    filmsWithoutSoundCount: 101,
+  };
+  mounted = await mount(
+    withServices(
+      <NeedsAttention />,
+      servedBy({ "GET /needs-attention": [200, many], ...noUpdate }),
+    ),
+  );
+  expect(mounted.container.textContent).toContain(
+    "And 2 more series whose file names may have been read wrongly.",
+  );
+  expect(mounted.container.textContent).toContain("And 100 more films with no sound track.");
+  mounted.unmount();
+  const countedOnly = { ...nothingWrong, filmsWithoutSoundCount: 1 };
+  mounted = await mount(
+    withServices(
+      <StatusTray isAdmin canHostWatchTogether={false} />,
+      servedBy({ "GET /needs-attention": [200, countedOnly] }),
+    ),
+  );
+  expect(
+    mounted.container.querySelector('[aria-label="Something needs your attention"]'),
+  ).not.toBeNull();
 });
 
 // ui-audit-2026-11-04.md §3, How to update: no menu leads to it; Needs attention does.
