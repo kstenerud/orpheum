@@ -26345,3 +26345,13 @@ each player measured of its link, so no player measures again after an upgrade. 
 an unchanged database once `resource_use`, written every minute, is in `cache.db`.
 
 **Status:** Decided 2026-11-05; D426's rebuild moves `link_memory` back.
+
+## D428 — A preference set on a film or a series has the scope `item`, not `work`
+
+**Decided** (2026-11-05), by the owner ("'item'"), when round 3 of D426's rebuild named the
+playable thing `work` (a movie, an episode, an extra or another video; never a series). D230's
+scope `'work'` meant a film or a whole series, so the one word would have meant two things. The
+scope is `'item'`: the preference attaches to the item a person set it on, in D416's word.
+**Amends** D230.
+
+**Status:** Decided 2026-11-05; D426's rebuild renames the stored value.

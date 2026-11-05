@@ -189,7 +189,7 @@ package writes each table is schema.md's [owners table](plans/schema.md#who-writ
 | user, role, role_library, invitation, invitation_link, device, grant, locator, realm_key | persistent.db | T1 | yes | — |
 | setting, secret (sealed) | persistent.db | T1 | yes (`secret.key` only when asked, D194 §4) | by design |
 | play_position, play_event, play_span, purged_watching, item_hidden, work_watched, preference | persistent.db | T1 | yes | — |
-| field_override, group_text, extra_relation (asserted), collection (user) | persistent.db | T1 | yes | group_text has no writer yet |
+| field_override, group_text, extra_relation (asserted) | persistent.db | T1 | yes | group_text has no writer yet |
 | library, library_root | persistent.db | T1 (the admin's) | yes | — |
 | item, work, sequence, version, item_provider_id, sequence_member, ordering, position | persistent.db | T1 identity + TO/T2 resolved columns | yes | ⚑ mixed tiers per column (work, sequence: O/F/A) |
 | file | persistent.db | T1 identity columns + TO | yes | ⚑ mixed; one writer since 2026-09-30 (§1) |
@@ -218,7 +218,7 @@ package writes each table is schema.md's [owners table](plans/schema.md#who-writ
 | job | cache.db | T4 | no | correct (D231 §3): level-triggered by the queue's six sweeps (§1) |
 | node_attempt | cache.db | T4 (each job given to a node, by attempt token; D234 §7) | no | lost with cache.db: the node's later word is for no attempt, and the job runs again |
 | resource_use | cache.db | TO (measured each minute, kept a month) | no | in cache.db since step 0070 (D426 §9), so the hourly backup can skip an unchanged persistent.db; lost with cache.db: the System page's hours start over |
-| link_memory (each player's last word on its link on each network: speed, spread, steadiness) | cache.db | TO (a player's measurement) | no | in cache.db since step 0070 (D426 §9); step 0063 had put it in persistent.db so a release that rebuilds cache.db keeps it: a rebuild now forgets it, and each player's first start after one measures its link again; its rows deleted a day after their last word |
+| link_memory (each player's last word on its link on each network: speed, spread, steadiness) | persistent.db | TO (a player's measurement) | yes | in persistent.db (step 0063, D427), so a release that rebuilds cache.db keeps it; it changes only when a player measures, so the hourly backup still skips an unchanged database; its rows deleted a day after their last word |
 | scan, scan_batch | cache.db | T4 (a scan in progress; D241) | no | a lost scan is asked for again |
 | rescan, rematch | cache.db | T4 (an admin's rescan in progress, kept as a scan is; D357) | no | ⚑ an admin's ask in cache.db: a lost rescan is asked for again, as a lost scan is |
 | match_candidate | cache.db | T2 (a TMDB search) | no | ⚑ T2 in cache.db. Mitigated: the chooser searches again when the candidates are lost |
