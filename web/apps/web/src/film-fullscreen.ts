@@ -62,7 +62,12 @@ export function isAStageFillingTheWindow(page: Document): boolean {
  * already full screen looks the same. Safari refuses a request not made in the press itself, and
  * the player opens a moment after the press that opened it (the owner's Mac, 2026-10-25: Safari full
  * screen, the film did not fill it), and may not answer at all, so a request unanswered in time
- * counts as refused.
+ * counts as refused. A stage its page keeps filling the window (keepFillingTheWindow) puts the whole
+ * page full screen instead, which looks the same and outlives the stage: the Play page's next or
+ * previous episode is the page drawn again, a new stage in place of the one full screen, which the
+ * browser left as it went (the owner, 2026-11-05: "Pressing next or previous episode while in
+ * fullscreen removes fullscreen"), and full screen asked again as the new stage shows, no press
+ * behind it, is refused. The page stays, as a cast's receiver's does (askPageFullScreen).
  */
 export function fillTheScreen(stage: HTMLElement, document: Document): void {
   if (document.fullscreenElement instanceof Element || pagesAskedFullScreen.has(document)) {
@@ -71,11 +76,12 @@ export function fillTheScreen(stage: HTMLElement, document: Document): void {
   const fillWindow = (): void => {
     setFillsWindow(stage, true);
   };
-  if (typeof stage.requestFullscreen !== "function") {
+  const asked = stage.hasAttribute(keptFillingAttribute) ? document.documentElement : stage;
+  if (typeof asked.requestFullscreen !== "function") {
     fillWindow();
     return;
   }
-  stage.requestFullscreen().catch(fillWindow);
+  asked.requestFullscreen().catch(fillWindow);
   // A browser that neither grants nor refuses in time is taken to have refused. The answer is read
   // without the page's globals, which a page torn down before the wait ends no longer has.
   setTimeout(() => {

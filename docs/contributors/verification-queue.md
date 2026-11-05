@@ -2638,3 +2638,15 @@ An item is ticked only by the person who did it, and only with what they saw.
   or after this item. Passes when: (1) it makes its library, or finds the one it made, with no 4xx;
   (2) the scan finds every film it names; (3) the films play as many of N as the machine's last run.
   (`deploy/hwtest/hwplay.py`'s `library_of` and `files_of`)
+- [ ] **VQ267** — Next and Previous keep full screen (the owner, 2026-11-05: "Pressing next or
+  previous episode while in fullscreen removes fullscreen"). Full screen asked on the Play page is now
+  the whole page's, not the film stage's, which the next episode's page drew afresh, so the browser
+  left full screen as it went. A test proves what is asked to go full screen outlives the page drawn
+  again; only a real browser's full screen shows the episode after it filling the screen. On staging,
+  in Chrome or Firefox on a computer, and on a phone's browser where it has full screen, play an
+  episode with a next and a previous one. Passes when: (1) after pressing Full screen, Next plays the
+  next episode still full screen, with no flash out of it beyond the moment's Loading; (2) Previous
+  does the same; (3) ⤢ and Escape still leave full screen, the film still filling the window;
+  (4) arrows and the overlay's controls work in full screen as before, and a dialog opened over the
+  film (Watch Together's, a menu) shows over it. (`web/apps/web/src/film-fullscreen.ts`'s
+  `fillTheScreen`; `play-next-full-screen.browser.test.tsx`)
