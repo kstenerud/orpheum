@@ -226,7 +226,10 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
     await pressUntil("{ArrowUp}", () => isFocusIn(".app-shell__banner"));
     await pressUntil("{ArrowRight}", () => focusedName() === "Menu");
-    await press("{Enter}{ArrowDown}");
+    await press("{Enter}");
+    // Down waits for the menu: under load a Down sent with the Enter can come before it draws.
+    await drawn("dialog ul");
+    await press("{ArrowDown}");
     expect(isFocusIn("dialog ul")).toBe(true);
     await press("{Escape}");
     expect(document.querySelector("dialog")).toBeNull();
@@ -247,7 +250,10 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     await expect.poll(() => isFocusOnFirst(".poster-grid .poster-card__link")).toBe(true);
     await pressUntil("{ArrowUp}", () => isFocusIn(".app-shell__banner"));
     await pressUntil("{ArrowRight}", () => focusedName() === "Menu");
-    await press("{Enter}{ArrowDown}");
+    await press("{Enter}");
+    // Down waits for the menu: under load a Down sent with the Enter can come before it draws.
+    await drawn("dialog ul");
+    await press("{ArrowDown}");
     expect(isFocusIn("dialog ul")).toBe(true);
     place.history.back();
     await expect.poll(() => document.querySelector("dialog")).toBeNull();
