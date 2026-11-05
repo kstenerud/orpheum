@@ -540,21 +540,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     walking = await mountApp(
       walkServices(
         {
-          ...signedIn,
-          "GET /libraries": {
-            libraries: [
-              {
-                id: 1,
-                name: "Films",
-                kind: "movie",
-                metadataSource: "nfo_then_tmdb",
-                changeDetection: "watch",
-                isWritable: true,
-                createdAt: 0,
-              },
-            ],
-          },
-          "GET /items/letters": { letters: [] },
+          ...aLibrary,
           // A search is the list's own query (the owner, 2026-10-30): its matches are the list,
           // shorter than a row, whose tools Up still reaches before the banner (the owner, 2026-11-04).
           "GET /items": {
@@ -607,6 +593,9 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     await expect
       .poll(() => walking?.services.navigation.route())
       .toMatchObject({ screen: "browse", library: 1, query: "heat" });
+    // The list asks for the text once typing rests (listing-tools.tsx typingRestMs), drawn anew; the
+    // first, unnarrowed, also has 102, and under load replaced it under focus (2026-11-05).
+    await expect.poll(() => first?.isConnected).toBe(false);
     await drawn('main a[href="/titles/102"]');
     // Down from the button lands on the poster nearest below it, which its summary's width decides
     // ("Name · “heat”" once the address has the text): either result, then Right along the row.
