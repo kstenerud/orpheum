@@ -26215,3 +26215,24 @@ panels are drawn on that page. Amends D422 §3, D418 §1 and D384 §2.
   web/apps/web/src/together-over-the-film.test.tsx; web/e2e/together.spec.ts talks from it
 
 **Status:** Decided 2026-11-04.
+
+## D424 — A failed quick tier stops check-pr before its long ones
+
+**Decided** (2026-11-05), by the project owner, choosing "Quick steps stop check-pr (Recommended)"
+after the 11-06 batch's check-pr found a bare `<video>` in a test by its full web lint in 66 s,
+then spent 25 minutes on revert-red and the browser tiers before failing (agent-failures A60).
+Amends the owner's rule of 2026-10-17 that check-pr runs every tier to its end
+([principles §24](../principles/24-cheap-checks-first.md)).
+
+1. **When a fast or medium tier fails** (`PR_FAST_STEPS`, `PR_MEDIUM_STEPS`: the commits' checks,
+   the integration tier, the full web lint), **check-pr stops there:** revert-red, the acceptance
+   under `home` and the browser tiers do not run, and its last line says so.
+2. **From revert-red's code part on, every tier still runs to its end**, a failed one too, so the
+   long run still names every failure it finds.
+
+**Proven by:**
+- 1, 2: `test_a_failed_quick_tier_stops_check_pr_before_the_long_ones_and_a_long_one_does_not` in
+  scripts/tests/test_check_pr_wiring.py
+
+**Status:** Decided 2026-11-05.
+

@@ -429,6 +429,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D421](working-notes.md#d421--a-dialogs-safe-choice-comes-first-and-is-where-focus-arrives-where-every-choice-is-dangerous-none-is) A dialog's safe choice comes first and is where focus arrives; where every choice is dangerous, none is
 - [D422](working-notes.md#d422--casts-sign-shows-over-the-playing-film-too-watch-together-stays-in-the-tray) Cast's sign shows over the playing film too; Watch Together stays in the tray — *revisited by D423*
 - [D423](working-notes.md#d423--watch-togethers-sign-shows-over-the-playing-film-and-opens-its-sessions-panel-there) Watch Together's sign shows over the playing film, and opens its session's panel there
+- [D424](working-notes.md#d424--a-failed-quick-tier-stops-check-pr-before-its-long-ones) A failed quick tier stops check-pr before its long ones
 
 ## Archived
 

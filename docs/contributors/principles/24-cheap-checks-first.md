@@ -31,7 +31,8 @@ So:
   probe) stops at its first failure: one red settles it, and the rest is time spent on nothing.
 - **The final run finishes.** The run over a whole block of work (`make check-pr`) is expected to
   pass, since its pieces were checked already. It runs every tier to its end, a failed one too, so
-  one run names every failure.
+  one run names every failure; only a failed quick tier stops it before the long ones, as a
+  minute's finding is not held behind half an hour (D424).
 
 The gate holds it: check-pr's tiers from quickest to slowest, revert-red's code part with cheap runs
 alone and its browser runs last, each probe's browser run stopped at its first failure, and every

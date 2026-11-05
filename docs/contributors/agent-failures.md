@@ -49,6 +49,22 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A60 — Proposed a gate change for a lint "gap" that was a gate never run (2026-11-05)
+
+- **What happened:** check-pr's full web lint failed on a test the lead had just committed (a
+  `<video>` without captions), and the lead told the owner that `make check` had missed a lint
+  rule check-pr catches, proposing to run the same rules in both. The owner said "ok add the gate
+  change". Both lints run the same eslint configuration; they differ only in eslint's cache. The
+  test had never met `make check`: the commit's `make spot` runs no web lint, and every turn since
+  21:52 the day before had ended while check-pr ran, so the Stop hook deferred its `make check`
+  (`.claude/.cache/gate-runs.jsonl` holds no run between). The belief came from inferring the
+  cause from which tier reported the failure, without asking which tiers had run.
+- **Caught by:** the lead, starting the change: the two lint scripts differ only in `--cache`, and
+  `make check`'s lint, run on the bare `<video>`, fails it.
+- **Gate:** D424: a failed quick tier now stops check-pr before revert-red, so the next such slip
+  costs a minute, not half an hour. Nothing stops the wrong diagnosis itself; the lesson is to ask
+  which tiers ran before saying which one missed something.
+
 ### A59 — Told the owner a TV is always full screen, from a research summary of today's build (2026-11-02)
 
 - **What happened:** reviewing the owner's overlay design, the lead said the 🔈 and ⤢ buttons were
