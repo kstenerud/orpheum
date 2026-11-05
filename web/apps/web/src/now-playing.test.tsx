@@ -19,7 +19,7 @@ afterEach(() => {
 const playing = {
   id: 3,
   userId: 2,
-  personName: "partner",
+  userName: "partner",
   deviceName: "Firefox on Linux",
   fileId: 7,
   name: "Metropolis",

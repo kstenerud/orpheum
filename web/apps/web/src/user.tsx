@@ -4,16 +4,16 @@ import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
-  getPerson,
+  getUser,
   issueRegistrationInvitation,
-  listPersonDevices,
-  removePerson,
-  removePersonDevice,
-  renamePerson,
+  listUserDevices,
+  removeUser,
+  removeUserDevice,
+  renameUser,
   revokeOwnLink,
   setAdminNote,
   type Device,
-  type Person,
+  type UserPageBody,
 } from "./accounts.ts";
 import { BusyGroup } from "./busy-group.tsx";
 import { ConfirmButton } from "./confirm-button.tsx";
@@ -21,10 +21,10 @@ import { dateText } from "./date-time-text.ts";
 import { ActivateDevice } from "./device-activation.tsx";
 import { FormRow } from "./form-row.tsx";
 import { tenthsText } from "./number-text.ts";
-import { IssuedInvitationView, type IssuedInvitation } from "./people.tsx";
+import { IssuedInvitationView, type IssuedInvitation } from "./users.tsx";
 import { personWords, registrationText } from "./person-words.ts";
 import { dataOrThrow, fieldProblemText } from "./problem.ts";
-import { listRoles, roleLabel, setPersonsRole } from "./roles.ts";
+import { listRoles, roleLabel, setUserRole } from "./roles.ts";
 import { NoLibraryNote } from "./roles-section.tsx";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./loaded.tsx";
@@ -39,19 +39,19 @@ import { RecentDevices } from "./your-devices.tsx";
  * what they have watched (the owner, 2026-09-27); and removing them, which an admin cannot do to
  * themselves (S40).
  */
-export function PersonPage(props: { readonly userId: number }): JSX.Element {
+export function UserPage(props: { readonly userId: number }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [me] = useResource("me", async () => dataOrThrow(await api.GET("/me")));
   const isRemovable = me.state === "loaded" && me.value.id !== props.userId;
-  const [person, reloadPerson] = useResource(`person/${String(props.userId)}`, () =>
-    getPerson(api, props.userId),
+  const [person, reloadUser] = useResource(`user/${String(props.userId)}`, () =>
+    getUser(api, props.userId),
   );
   const [devices, reloadDevices] = useResource(`person-devices/${String(props.userId)}`, () =>
-    listPersonDevices(api, props.userId),
+    listUserDevices(api, props.userId),
   );
   const { actions, issued, isBusy, problem } = usePersonActions(props.userId, {
-    reloadPerson,
+    reloadUser,
     reloadDevices,
   });
   return (
@@ -90,14 +90,14 @@ interface PersonActions {
   readonly giveRole: (role: string) => Promise<void>;
   readonly issueLink: (name: string) => void;
   readonly remove: (device: Device) => void;
-  readonly removePerson: () => void;
+  readonly removeUser: () => void;
   readonly revokeOwnLink: () => void;
 }
 
 /** What the admin does to a person, one request at a time, and what it issued and why one failed. */
 function usePersonActions(
   userId: number,
-  reloads: { readonly reloadPerson: () => void; readonly reloadDevices: () => void },
+  reloads: { readonly reloadUser: () => void; readonly reloadDevices: () => void },
 ): {
   readonly actions: PersonActions;
   readonly issued: IssuedInvitation | undefined;
@@ -114,18 +114,18 @@ function usePersonActions(
   const change = (request: () => Promise<void>): void => {
     runRequest(async () => {
       await request();
-      reloads.reloadPerson();
+      reloads.reloadUser();
     });
   };
   // A setting saved at once: its field says how it went (SaveNote), and the page is read again.
   const saved = async (request: Promise<void>): Promise<void> => {
     await request;
-    reloads.reloadPerson();
+    reloads.reloadUser();
   };
   const actions = {
-    rename: (name: string) => saved(renamePerson(api, userId, name)),
+    rename: (name: string) => saved(renameUser(api, userId, name)),
     setNote: (note: string) => saved(setAdminNote(api, userId, note)),
-    giveRole: (role: string) => saved(setPersonsRole(api, userId, role)),
+    giveRole: (role: string) => saved(setUserRole(api, userId, role)),
     issueLink: (name: string): void => {
       runRequest(async (idempotencyKey) => {
         const invitation = await issueRegistrationInvitation(api, userId, idempotencyKey);
@@ -134,17 +134,17 @@ function usePersonActions(
     },
     remove: (device: Device): void => {
       runRequest(async () => {
-        await removePersonDevice(api, userId, device.id);
+        await removeUserDevice(api, userId, device.id);
         reloads.reloadDevices();
       });
     },
     revokeOwnLink: (): void => {
       change(() => revokeOwnLink(api, userId));
     },
-    removePerson: (): void => {
+    removeUser: (): void => {
       runRequest(async () => {
-        await removePerson(api, userId);
-        navigation.go({ screen: "people" });
+        await removeUser(api, userId);
+        navigation.go({ screen: "users" });
       });
     },
   };
@@ -156,11 +156,11 @@ function usePersonActions(
  * they have none (D292 §4).
  */
 function OwnLink(props: {
-  readonly person: Person;
+  readonly person: UserPageBody;
   readonly onRevoke: () => void;
 }): JSX.Element | null {
   const { t, i18n } = useTranslation();
-  const { account, ownLinkExpiresAt } = props.person;
+  const { user, ownLinkExpiresAt } = props.person;
   if (ownLinkExpiresAt === undefined) {
     return null;
   }
@@ -169,7 +169,7 @@ function OwnLink(props: {
       <p>{t("person.ownLink", { date: dateText(ownLinkExpiresAt, i18n.language) })}</p>
       <ConfirmButton
         label={t("person.revokeOwnLink")}
-        consequence={t("person.revokeOwnLinkConsequence", { name: account.name })}
+        consequence={t("person.revokeOwnLinkConsequence", { name: user.name })}
         confirmLabel={t("person.revokeOwnLinkConfirm")}
         onConfirm={props.onRevoke}
       />
@@ -183,13 +183,13 @@ function OwnLink(props: {
  * each saved at once, and activating a device of theirs.
  */
 function PersonHead(props: {
-  readonly person: Person;
+  readonly person: UserPageBody;
   readonly actions: PersonActions;
   readonly isRemovable: boolean;
   readonly onActivated: () => void;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
-  const { account, watchStats } = props.person;
+  const { user, watchStats } = props.person;
   const hours = tenthsText(watchStats.watchedMs / 3_600_000, i18n.language);
   const lastWatched =
     watchStats.lastWatchedAt === undefined
@@ -197,43 +197,39 @@ function PersonHead(props: {
       : dateText(watchStats.lastWatchedAt, i18n.language);
   return (
     <>
-      <h1>{account.name}</h1>
+      <h1>{user.name}</h1>
       <p>
-        {registrationText(t, account)} ·{" "}
+        {registrationText(t, user)} ·{" "}
         {t("person.watched", { hours, titles: watchStats.titlesWatchedCount, last: lastWatched })}
       </p>
       <div className="page-actions person__actions">
         <ConfirmButton
           label={t("people.newLink")}
-          consequence={t("people.newLinkConsequence", { name: account.name })}
+          consequence={t("people.newLinkConsequence", { name: user.name })}
           confirmLabel={t("people.newLinkConfirm")}
           onConfirm={() => {
-            props.actions.issueLink(account.name);
+            props.actions.issueLink(user.name);
           }}
         />
         {props.isRemovable ? (
           <ConfirmButton
-            label={t("person.remove", { name: account.name })}
-            consequence={t("person.removeConsequence", { name: account.name })}
+            label={t("person.remove", { name: user.name })}
+            consequence={t("person.removeConsequence", { name: user.name })}
             confirmLabel={t("person.removeConfirm")}
-            onConfirm={props.actions.removePerson}
+            onConfirm={props.actions.removeUser}
           />
         ) : null}
       </div>
-      <SavedField
-        label={t("people.name")}
-        initialValue={account.name}
-        onSave={props.actions.rename}
-      />
+      <SavedField label={t("people.name")} initialValue={user.name} onSave={props.actions.rename} />
       <SavedField
         label={t("people.adminNote")}
-        initialValue={account.adminNote ?? ""}
+        initialValue={user.adminNote ?? ""}
         onSave={props.actions.setNote}
         isOptional
         maxLength={200}
       />
-      <RoleChoice current={account.role} onSave={props.actions.giveRole} />
-      <ActivateDevice userId={account.id} onActivated={props.onActivated} />
+      <RoleChoice current={user.role} onSave={props.actions.giveRole} />
+      <ActivateDevice userId={user.id} onActivated={props.onActivated} />
     </>
   );
 }

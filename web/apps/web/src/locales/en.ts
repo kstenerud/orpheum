@@ -61,7 +61,7 @@ export const en = {
     settings: "Settings",
     jobs: "Jobs",
     system: "System",
-    people: "People",
+    users: "Users",
     thisDevice: "This device",
     account: "Your account",
     about: "About",

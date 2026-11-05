@@ -19,7 +19,7 @@ import { useResource } from "./use-resource.ts";
 export type Credits = components["schemas"]["CreditsBody"];
 type Credit = components["schemas"]["CreditBody"];
 type PersonTitle = components["schemas"]["PersonTitleBody"];
-type PersonRole = components["schemas"]["PersonRoleBody"];
+type PersonJob = components["schemas"]["PersonJobBody"];
 
 /** A name's initials: its first word's first letter and its last's, as a face's placeholder shows. */
 export function initialsOf(name: string): string {
@@ -54,7 +54,7 @@ export function PersonFace(props: { readonly name: string }): JSX.Element {
 function CreditLink(props: { readonly credit: Credit }): JSX.Element {
   const { credit } = props;
   return (
-    <Link to={{ screen: "credited-person", personId: credit.personId }} className="credit">
+    <Link to={{ screen: "person", personId: credit.personId }} className="credit">
       <PersonFace name={credit.name} />
       <span className="credit__words">
         <span className="credit__name">{credit.name}</span>
@@ -116,16 +116,16 @@ export function TitlePeople(props: { readonly credits: Credits | undefined }): J
 }
 
 /** What a person did on a title, in words: "Director", "Writer", or "as" their part in the cast. */
-function roleText(t: TFunction, role: PersonRole): string {
-  switch (role.role) {
+function jobText(t: TFunction, job: PersonJob): string {
+  switch (job.job) {
     case "director":
       return t("credits.roleDirector");
     case "writer":
       return t("credits.roleWriter");
     case "cast":
-      return role.character === undefined || role.character === ""
+      return job.character === undefined || job.character === ""
         ? t("credits.roleCast")
-        : t("credits.roleAs", { character: role.character });
+        : t("credits.roleAs", { character: job.character });
   }
 }
 
@@ -133,7 +133,7 @@ function roleText(t: TFunction, role: PersonRole): string {
 function PersonTitleLink(props: { readonly title: PersonTitle }): JSX.Element {
   const { t } = useTranslation();
   const { title } = props;
-  const roles = (title.roles ?? []).map((role) => roleText(t, role)).join(", ");
+  const jobs = (title.jobs ?? []).map((job) => jobText(t, job)).join(", ");
   return (
     <Link to={itemRoute(title.kind, title.id)} className="credited-person__title">
       <span className="credited-person__title-name">{title.name}</span>
@@ -142,7 +142,7 @@ function PersonTitleLink(props: { readonly title: PersonTitle }): JSX.Element {
           {t("browse.year", { year: title.year })}
         </span>
       )}
-      {roles === "" ? null : <span className="credited-person__title-detail">{roles}</span>}
+      {jobs === "" ? null : <span className="credited-person__title-detail">{jobs}</span>}
     </Link>
   );
 }
@@ -154,7 +154,7 @@ function PersonTitleLink(props: { readonly title: PersonTitle }): JSX.Element {
  */
 export function CreditedPerson(props: { readonly id: number }): JSX.Element {
   const { api } = useServices();
-  const [person] = useResource(`credited-person/${String(props.id)}`, async () =>
+  const [person] = useResource(`person/${String(props.id)}`, async () =>
     dataOrThrow(await api.GET("/people/{id}", { params: { path: { id: props.id } } })),
   );
   return (

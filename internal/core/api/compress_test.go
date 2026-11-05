@@ -79,9 +79,9 @@ var notCredentials = map[string]map[string]string{
 		"credentials": "whether a provider's credentials are accepted: unknown, accepted, missing or refused",
 		"key":         "a setting's name",
 	},
-	"getConfig":    {"key": "a setting's name", "configFileKeys": "the config file's keys and values"},
-	"getSettings":  {"key": "a setting's name"},
-	"listAccounts": {"hasPassword": "whether a person has a password, never the password"},
+	"getConfig":   {"key": "a setting's name", "configFileKeys": "the config file's keys and values"},
+	"getSettings": {"key": "a setting's name"},
+	"listUsers":   {"hasPassword": "whether a person has a password, never the password"},
 }
 
 // No operation compressedOperations names answers with a field that is or holds a credential, found

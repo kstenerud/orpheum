@@ -5,8 +5,8 @@ import "./i18n.ts";
 
 import { afterEach, expect, it } from "vitest";
 
-import { People } from "./people.tsx";
-import { PersonPage } from "./person.tsx";
+import { Users } from "./users.tsx";
+import { UserPage } from "./user.tsx";
 import {
   buttonWithText,
   choose,
@@ -87,7 +87,7 @@ const answers = {
   "GET /users": [
     200,
     {
-      accounts: [
+      users: [
         { id: 1, name: "owner", role: "admin", hasPassword: true },
         { id: 5, name: "cousin", role: "user", adminNote: "Anna", hasPassword: true },
       ],
@@ -98,7 +98,7 @@ const answers = {
   "PUT /roles/2": [204, null],
   "PUT /roles/3": [204, null],
   "POST /roles": [201, { id: 4 }],
-  "POST /users": [201, { account: { id: 6, name: "Eve", role: "user", hasPassword: true } }],
+  "POST /users": [201, { user: { id: 6, name: "Eve", role: "user", hasPassword: true } }],
   "GET /invitations": [200, { invitations: [] }],
   "POST /invitations": [
     201,
@@ -117,12 +117,12 @@ const answers = {
   ],
 } as const;
 
-/** The People page, answered with the roles and libraries above. */
+/** The Users page, answered with the roles and libraries above. */
 async function mountPeople(heard: Heard[]): Promise<Mounted> {
-  return await mount(withServices(<People />, servedBy(answers, heard)));
+  return await mount(withServices(<Users />, servedBy(answers, heard)));
 }
 
-/** The People page with a role's dialog opened from its row, answered with the roles above. */
+/** The Users page with a role's dialog opened from its row, answered with the roles above. */
 async function mountRole(roleId: number, heard: Heard[]): Promise<Mounted> {
   const page = await mountPeople(heard);
   await openRole(page, roleId);
@@ -164,7 +164,7 @@ it("lists accounts by name, note and role leading to their pages, and roles by n
     href: each.getAttribute("href"),
     text: each.textContent,
   }));
-  expect(links).toContainEqual({ href: "/people/5", text: "cousinAnnaCan watch" });
+  expect(links).toContainEqual({ href: "/users/5", text: "cousinAnnaCan watch" });
   expect(links.some((link) => link.href?.startsWith("/roles/") === true)).toBe(false);
   const rows = [...mounted.container.querySelectorAll("button.people__row")].map(
     (each) => each.textContent,
@@ -299,7 +299,7 @@ it("offers Delete only while no one has the role, and never for a built-in one (
     roles: roles.roles.map((role) => (role.id === 3 ? { ...role, holderCount: 2 } : role)),
   };
   mounted = await mount(
-    withServices(<People />, servedBy({ ...answers, "GET /roles": [200, held] })),
+    withServices(<Users />, servedBy({ ...answers, "GET /roles": [200, held] })),
   );
   await openRole(mounted, 3);
   expect(buttonWithText(mounted.container, "Delete the role")).toBeUndefined();
@@ -329,14 +329,14 @@ it("gives a person another role from their page", async () => {
   const heard: Heard[] = [];
   mounted = await mount(
     withServices(
-      <PersonPage userId={5} />,
+      <UserPage userId={5} />,
       servedBy(
         {
           "GET /me": [200, { id: 1, name: "owner", role: "admin", isAdmin: true }],
           "GET /users/5": [
             200,
             {
-              account: { id: 5, name: "cousin", role: "user", hasPassword: true },
+              user: { id: 5, name: "cousin", role: "user", hasPassword: true },
               watchStats: { watchedMs: 0, titlesWatchedCount: 0 },
             },
           ],

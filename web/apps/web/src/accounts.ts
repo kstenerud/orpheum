@@ -8,7 +8,7 @@ import { thisDevice, type NewDevice } from "./device.ts";
 import type { Session } from "./session.ts";
 
 /** One person, as the admin's list shows them. */
-export type Account = components["schemas"]["AccountBody"];
+export type Account = components["schemas"]["UserEntryBody"];
 
 /**
  * What signing in answers: the new session's token, the device it is on, that device's secret, the
@@ -47,7 +47,7 @@ export function secretFromHash(hash: string): string | undefined {
 
 /** Everyone, for the admin. */
 export async function listAccounts(api: Api): Promise<Account[]> {
-  return dataOrThrow(await api.GET("/users")).accounts ?? [];
+  return dataOrThrow(await api.GET("/users")).users ?? [];
 }
 
 /** An account the admin sets up in full: a name, a password, a role, and a note of who it is for. */
@@ -66,7 +66,7 @@ export async function createAccount(
 ): Promise<Account> {
   const { adminNote, ...unnoted } = account;
   const body = adminNote === "" ? unnoted : { ...account };
-  return dataOrThrow(await api.POST("/users", { body, ...idempotent(idempotencyKey) })).account;
+  return dataOrThrow(await api.POST("/users", { body, ...idempotent(idempotencyKey) })).user;
 }
 
 /** An invitation not yet used: its role, and the admin's note of who it is for. */
@@ -293,22 +293,22 @@ export async function signOutElsewhere(api: Api, idempotencyKey: string): Promis
 }
 
 /** A person's page, for the admin: who they are and what they have watched. */
-export type Person = components["schemas"]["PersonOutputBody"];
+export type UserPageBody = components["schemas"]["UserPageOutputBody"];
 
 /** A person's page. */
-export async function getPerson(api: Api, userId: number): Promise<Person> {
+export async function getUser(api: Api, userId: number): Promise<UserPageBody> {
   return dataOrThrow(await api.GET("/users/{id}", { params: { path: { id: userId } } }));
 }
 
 /** Renames a person. */
-export async function renamePerson(api: Api, userId: number, name: string): Promise<void> {
+export async function renameUser(api: Api, userId: number, name: string): Promise<void> {
   throwIfRefused(
     await api.PUT("/users/{id}", { params: { path: { id: userId } }, body: { name } }),
   );
 }
 
 /** Removes a person: they are signed out everywhere, and their own watching is deleted (S40). */
-export async function removePerson(api: Api, userId: number): Promise<void> {
+export async function removeUser(api: Api, userId: number): Promise<void> {
   throwIfRefused(await api.DELETE("/users/{id}", { params: { path: { id: userId } } }));
 }
 
@@ -327,7 +327,7 @@ export async function revokeOwnLink(api: Api, userId: number): Promise<void> {
 }
 
 /** A person's devices, for the admin. */
-export async function listPersonDevices(api: Api, userId: number): Promise<Device[]> {
+export async function listUserDevices(api: Api, userId: number): Promise<Device[]> {
   return (
     dataOrThrow(await api.GET("/users/{id}/devices", { params: { path: { id: userId } } }))
       .devices ?? []
@@ -335,11 +335,7 @@ export async function listPersonDevices(api: Api, userId: number): Promise<Devic
 }
 
 /** Removes a person's device, for the admin: a lost or given-away one. */
-export async function removePersonDevice(
-  api: Api,
-  userId: number,
-  deviceId: number,
-): Promise<void> {
+export async function removeUserDevice(api: Api, userId: number, deviceId: number): Promise<void> {
   throwIfRefused(
     await api.DELETE("/users/{id}/devices/{deviceId}", {
       params: { path: { id: userId, deviceId } },

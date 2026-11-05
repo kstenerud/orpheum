@@ -40,7 +40,7 @@ export async function deleteRole(api: Api, roleId: number): Promise<void> {
 }
 
 /** Gives a person a role, from their next request. */
-export async function setPersonsRole(api: Api, userId: number, role: string): Promise<void> {
+export async function setUserRole(api: Api, userId: number, role: string): Promise<void> {
   throwIfRefused(
     await api.PUT("/users/{id}/role", { params: { path: { id: userId } }, body: { role } }),
   );

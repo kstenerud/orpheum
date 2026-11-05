@@ -58,7 +58,7 @@ func TestAccounts_TheAdminMakesAPersonWhoRegistersByLinkAndAddsATelevisionByCode
 	if name != "partner" {
 		t.Errorf("registering signed in as %q, want partner", name)
 	}
-	var made struct{ Account api.AccountBody }
+	var made struct{ Account api.UserEntryBody }
 	made.Account = harness.accountNamed(t, admin, "partner")
 	if made.Account.AdminNote != "the partner" || !made.Account.HasPassword {
 		t.Errorf("GET /users lists partner as %+v, want the invitation's note and a password", made.Account)
@@ -418,20 +418,20 @@ type InvitationAndLink struct {
 }
 
 // accountNamed is the person named name, as the admin's list shows them.
-func (harness testHarness) accountNamed(t *testing.T, admin, name string) api.AccountBody {
+func (harness testHarness) accountNamed(t *testing.T, admin, name string) api.UserEntryBody {
 	t.Helper()
 	listed := harness.do(t, http.MethodGet, "/users", admin, nil)
-	var everyone api.AccountsOutput
+	var everyone api.UsersOutput
 	if err := json.Unmarshal([]byte(listed.body), &everyone.Body); err != nil {
 		t.Fatal(err)
 	}
-	for _, account := range everyone.Body.Accounts {
+	for _, account := range everyone.Body.Users {
 		if account.Name == name {
 			return account
 		}
 	}
 	t.Fatalf("GET /users lists no %s: %s", name, listed.body)
-	return api.AccountBody{}
+	return api.UserEntryBody{}
 }
 
 func TestPeople_AnAdminRemovesAPersonWhoseNextRequestIsRefused(t *testing.T) {

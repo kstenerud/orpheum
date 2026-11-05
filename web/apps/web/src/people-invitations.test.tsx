@@ -5,7 +5,7 @@ import "./i18n.ts";
 
 import { afterEach, expect, it, vi } from "vitest";
 
-import { People } from "./people.tsx";
+import { Users } from "./users.tsx";
 import {
   buttonContaining,
   buttonWithText,
@@ -49,7 +49,7 @@ const waiting = {
   links: [],
 };
 const served = {
-  "GET /users": [200, { accounts: [] }],
+  "GET /users": [200, { users: [] }],
   "GET /roles": [200, roles],
   "GET /libraries": [200, { libraries: [] }],
 } as const;
@@ -76,7 +76,7 @@ it("opens a waiting invitation's dialog with its live links, each with Copy (D26
   try {
     mounted = await mount(
       withServices(
-        <People />,
+        <Users />,
         servedBy({ ...served, "GET /invitations": [200, { invitations: [live] }] }),
       ),
     );
@@ -109,7 +109,7 @@ it("opens a waiting invitation's dialog with its live links, each with Copy (D26
 it("lists the waiting invitations by note, role and date, with nothing to send again (D318, D403)", async () => {
   mounted = await mount(
     withServices(
-      <People />,
+      <Users />,
       servedBy({ ...served, "GET /invitations": [200, { invitations: [waiting] }] }),
     ),
   );
@@ -132,15 +132,13 @@ it("lists the waiting invitations by note, role and date, with nothing to send a
 it("shows no invitations section once the server lists none, a used one's account being among the accounts (D403)", async () => {
   mounted = await mount(
     withServices(
-      <People />,
+      <Users />,
       servedBy({
         ...served,
         "GET /users": [
           200,
           {
-            accounts: [
-              { id: 4, name: "Gran", role: "user", adminNote: "Grandma", hasPassword: true },
-            ],
+            users: [{ id: 4, name: "Gran", role: "user", adminNote: "Grandma", hasPassword: true }],
           },
         ],
         "GET /invitations": [200, { invitations: [] }],

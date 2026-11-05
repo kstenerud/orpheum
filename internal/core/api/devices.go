@@ -52,14 +52,14 @@ type ChangeDeviceInput struct {
 	}
 }
 
-// PersonInput names a person, for the admin.
-type PersonInput struct {
+// UserInput names a user, for the admin.
+type UserInput struct {
 	AuthorizationHeader
 	UserID int64 `minimum:"1" path:"id"`
 }
 
-// PersonDeviceInput names one of a person's devices, for the admin.
-type PersonDeviceInput struct {
+// UserDeviceInput names one of a user's devices, for the admin.
+type UserDeviceInput struct {
 	AuthorizationHeader
 	UserID   int64 `minimum:"1" path:"id"`
 	DeviceID int64 `minimum:"1" path:"deviceId"`
@@ -67,7 +67,7 @@ type PersonDeviceInput struct {
 
 func (server *Server) registerDevices() {
 	server.registerCasts()
-	tags := []string{tagAccounts}
+	tags := []string{tagUsers}
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "listMyDevices", Method: http.MethodGet, Path: "/me/devices",
 		Summary: "One's own devices, most recently used first (D218)", Tags: tags,
@@ -88,14 +88,14 @@ func (server *Server) registerDevices() {
 		DefaultStatus: http.StatusNoContent,
 	}, server.signOutElsewhere)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "listPersonDevices", Method: http.MethodGet, Path: "/users/{id}/devices",
-		Summary: "A person's devices, for the admin", Tags: tags,
-	}, server.listPersonDevices)
+		OperationID: "listUserDevices", Method: http.MethodGet, Path: "/users/{id}/devices",
+		Summary: "A user's devices, for the admin", Tags: tags,
+	}, server.listUserDevices)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "removePersonDevice", Method: http.MethodDelete, Path: "/users/{id}/devices/{deviceId}",
-		Summary: "Remove a person's device, for the admin: a lost or given-away one", Tags: tags,
+		OperationID: "removeUserDevice", Method: http.MethodDelete, Path: "/users/{id}/devices/{deviceId}",
+		Summary: "Remove a user's device, for the admin: a lost or given-away one", Tags: tags,
 		DefaultStatus: http.StatusNoContent,
-	}, server.removePersonDevice)
+	}, server.removeUserDevice)
 }
 
 func (server *Server) devicesOf(ctx context.Context, dependencies *Dependencies, userID, thisDeviceID int64) (
@@ -172,7 +172,7 @@ func (server *Server) signOutElsewhere(ctx context.Context, input *struct{ Autho
 	return server.deviceAnswer(ctx, "sign out elsewhere", err)
 }
 
-func (server *Server) listPersonDevices(ctx context.Context, input *PersonInput) (*DevicesOutput, error) {
+func (server *Server) listUserDevices(ctx context.Context, input *UserInput) (*DevicesOutput, error) {
 	dependencies, principal, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -180,7 +180,7 @@ func (server *Server) listPersonDevices(ctx context.Context, input *PersonInput)
 	return server.devicesOf(ctx, dependencies, input.UserID, principal.DeviceID)
 }
 
-func (server *Server) removePersonDevice(ctx context.Context, input *PersonDeviceInput) (*struct{}, error) {
+func (server *Server) removeUserDevice(ctx context.Context, input *UserDeviceInput) (*struct{}, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err

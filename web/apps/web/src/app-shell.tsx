@@ -111,7 +111,7 @@ interface Destination {
     | "series"
     | "identify"
     | "libraries"
-    | "people"
+    | "users"
     | "settings"
     | "jobs"
     | "system"
@@ -163,7 +163,7 @@ const destinations: readonly Destination[] = [
   },
   { route: { screen: "identify" }, labelKey: "identify", audience: "admin", group: "manage" },
   { route: { screen: "libraries" }, labelKey: "libraries", audience: "admin", group: "manage" },
-  { route: { screen: "people" }, labelKey: "people", audience: "admin", group: "manage" },
+  { route: { screen: "users" }, labelKey: "users", audience: "admin", group: "manage" },
   { route: { screen: "settings" }, labelKey: "settings", audience: "admin", group: "manage" },
   { route: { screen: "jobs" }, labelKey: "jobs", audience: "admin", group: "manage" },
   { route: { screen: "system" }, labelKey: "system", audience: "admin", group: "manage" },

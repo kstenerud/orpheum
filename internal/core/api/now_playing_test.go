@@ -29,7 +29,7 @@ func TestNowPlaying_TheAdminSeesAPlaybackAndStopsItWithAMessage(t *testing.T) {
 	partner := harness.signIn(t, "partner", "partner-password")
 	playing := harness.play(t, partner, chrome(1))
 	shown := harness.onlyPlaying(t, admin)
-	if shown.PersonName != "partner" || shown.FileID != 1 || shown.Delivery != "direct" ||
+	if shown.UserName != "partner" || shown.FileID != 1 || shown.Delivery != "direct" ||
 		!strings.Contains(shown.Name, "Film (2001)") || shown.DeviceName == "" {
 		t.Errorf("now playing shows %+v; want the partner, on their device, playing film 1 directly", shown)
 	}

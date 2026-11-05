@@ -22,7 +22,7 @@ type AdminAwayInput struct {
 func (server *Server) registerAdminAway() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "setAdminAway", Method: http.MethodPut, Path: "/me/admin-away",
-		DefaultStatus: http.StatusNoContent, Tags: []string{tagAccounts},
+		DefaultStatus: http.StatusNoContent, Tags: []string{tagUsers},
 		Summary: "Whether you administer from away from home too: never (the default) or always; set from home",
 	}, server.setAdminAway)
 }

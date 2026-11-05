@@ -14,7 +14,7 @@ export function holdersText(t: TFunction, count: number): string {
   return count === 1 ? t("roles.holdersOne") : t("roles.holders", { count });
 }
 
-/** How a refusal of a role's name or libraries is told, on the People page and a role's own. */
+/** How a refusal of a role's name or libraries is told, on the Users page and a role's own. */
 export function roleWords(t: TFunction): FormWords {
   return {
     fields: { "body.name": t("roles.name"), "body.libraries": t("roles.libraries") },

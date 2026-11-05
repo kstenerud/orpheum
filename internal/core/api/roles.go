@@ -26,7 +26,7 @@ type RoleBody struct {
 	// IsEveryLibrary is a role that administers: it reaches every library and lists none.
 	IsEveryLibrary bool              `doc:"Administers, so reaches every library" json:"isEveryLibrary"`
 	Libraries      []RoleLibraryBody `json:"libraries"`
-	HolderCount    int64             `doc:"How many people hold it" json:"holderCount"`
+	HolderCount    int64             `doc:"How many users hold it" json:"holderCount"`
 }
 
 // RolesOutput is every role, and the capabilities a role may have.
@@ -71,8 +71,8 @@ type UpdateRoleInput struct {
 	Body   RoleChangeBody
 }
 
-// PersonsRoleInput gives a person a role.
-type PersonsRoleInput struct {
+// UserRoleInput gives a user a role.
+type UserRoleInput struct {
 	AuthorizationHeader
 	UserID int64 `minimum:"1" path:"id"`
 	Body   struct {
@@ -81,7 +81,7 @@ type PersonsRoleInput struct {
 }
 
 func (server *Server) registerRoles() {
-	tags := []string{tagAccounts}
+	tags := []string{tagUsers}
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "listRoles", Method: http.MethodGet, Path: "/roles",
 		Summary: "Every role, with its capabilities and the libraries it reaches (admin; D243 §4)", Tags: tags,
@@ -102,11 +102,11 @@ func (server *Server) registerRoles() {
 		Summary:       "Delete a role the admin made that no one holds (admin)", Tags: tags,
 	}, server.deleteRole)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "setPersonsRole", Method: http.MethodPut, Path: "/users/{id}/role",
+		OperationID: "setUserRole", Method: http.MethodPut, Path: "/users/{id}/role",
 		DefaultStatus: http.StatusNoContent,
-		Summary:       "Give a person a role, their whole access, from their next request (admin; D243 §4)",
+		Summary:       "Give a user a role, their whole access, from their next request (admin; D243 §4)",
 		Tags:          tags,
-	}, server.setPersonsRole)
+	}, server.setUserRole)
 }
 
 func (server *Server) listRoles(ctx context.Context, input *AuthorizationHeader) (*RolesOutput, error) {
@@ -171,7 +171,7 @@ func (server *Server) deleteRole(ctx context.Context, input *RoleInput) (*struct
 	return &struct{}{}, nil
 }
 
-func (server *Server) setPersonsRole(ctx context.Context, input *PersonsRoleInput) (*struct{}, error) {
+func (server *Server) setUserRole(ctx context.Context, input *UserRoleInput) (*struct{}, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err

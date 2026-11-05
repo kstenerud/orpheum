@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import "./people.css";
+import "./users.css";
 
 import type { components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
@@ -79,7 +79,7 @@ function Makers(props: { readonly onOpen: (open: DialogState) => void }): JSX.El
  * the roles, each leading to the role's page. A new invitation opens its own dialog at once, with
  * the link to pass on; a new account or role opens nothing.
  */
-export function People(): JSX.Element {
+export function Users(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [accounts, reloadAccounts] = useResource("accounts", () => listAccounts(api));
@@ -108,7 +108,7 @@ export function People(): JSX.Element {
       />
       <section aria-labelledby="people-accounts">
         <h2 id="people-accounts">{t("people.accounts")}</h2>
-        <Loaded resource={accounts} render={(list) => <PeopleList accounts={list} />} />
+        <Loaded resource={accounts} render={(list) => <UsersList accounts={list} />} />
       </section>
       <Loaded
         resource={roles}
@@ -207,13 +207,13 @@ export function IssuedInvitationView(props: { readonly issued: IssuedInvitation 
 }
 
 /** Everyone, each leading to their page (the owner, 2026-09-27): name, the admin's note and role. */
-export function PeopleList(props: { readonly accounts: readonly Account[] }): JSX.Element {
+export function UsersList(props: { readonly accounts: readonly Account[] }): JSX.Element {
   const { t } = useTranslation();
   return (
     <ul className="people__list" {...arrivalMark}>
       {props.accounts.map((account) => (
         <li key={account.id}>
-          <Link to={{ screen: "person", userId: account.id }} className="people__row">
+          <Link to={{ screen: "user", userId: account.id }} className="people__row">
             <span className="people__name">{account.name}</span>
             <span className="people__note">{account.adminNote}</span>
             <span>{roleLabel(t, account.role)}</span>

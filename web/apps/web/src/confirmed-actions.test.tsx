@@ -5,8 +5,8 @@ import "./i18n.ts";
 
 import { afterEach, expect, it } from "vitest";
 
-import { People } from "./people.tsx";
-import { PersonPage } from "./person.tsx";
+import { Users } from "./users.tsx";
+import { UserPage } from "./user.tsx";
 import { Settings } from "./settings.tsx";
 import {
   buttonContaining,
@@ -115,14 +115,14 @@ it("deletes a role from its dialog, and withdraws an invitation from its dialog,
     links: [{ secret: "s", expiresAt: 2 }],
   };
   const answers = {
-    "GET /users": [200, { accounts: [] }],
+    "GET /users": [200, { users: [] }],
     "GET /roles": [200, roles],
     "GET /libraries": [200, libraries],
     "GET /invitations": [200, { invitations: [invitation] }],
     "DELETE /roles/3": [204, null],
     "DELETE /invitations/7": [204, null],
   } as const;
-  mounted = await mount(withServices(<People />, servedBy(answers, heard)));
+  mounted = await mount(withServices(<Users />, servedBy(answers, heard)));
   const roleRow = [...mounted.container.querySelectorAll("button.people__row")].find((each) =>
     each.textContent.startsWith("friends"),
   );
@@ -133,7 +133,7 @@ it("deletes a role from its dialog, and withdraws an invitation from its dialog,
     methodAndPath: "DELETE /roles/3",
   });
   mounted.unmount();
-  mounted = await mount(withServices(<People />, servedBy(answers, heard)));
+  mounted = await mount(withServices(<Users />, servedBy(answers, heard)));
   await click(buttonContaining(mounted.container, "my cousin"));
   await pressAndConfirm(heard, {
     label: "Withdraw",
@@ -146,14 +146,14 @@ it("makes a person a new link only when asked again, their old one stopping", as
   const heard: Heard[] = [];
   mounted = await mount(
     withServices(
-      <PersonPage userId={5} />,
+      <UserPage userId={5} />,
       servedBy(
         {
           "GET /me": [200, { id: 1, name: "owner", role: "admin", isAdmin: true }],
           "GET /users/5": [
             200,
             {
-              account: { id: 5, name: "cousin", role: "user", hasPassword: true },
+              user: { id: 5, name: "cousin", role: "user", hasPassword: true },
               watchStats: { watchedMs: 0, titlesWatchedCount: 0 },
             },
           ],
@@ -217,14 +217,14 @@ it("ends a person's own link only when asked again, saying until when it led the
   const heard: Heard[] = [];
   mounted = await mount(
     withServices(
-      <PersonPage userId={5} />,
+      <UserPage userId={5} />,
       servedBy(
         {
           "GET /me": [200, { id: 1, name: "owner", role: "admin", isAdmin: true }],
           "GET /users/5": [
             200,
             {
-              account: { id: 5, name: "cousin", role: "user", hasPassword: true },
+              user: { id: 5, name: "cousin", role: "user", hasPassword: true },
               watchStats: { watchedMs: 0, titlesWatchedCount: 0 },
               ownLinkExpiresAt: Date.UTC(2027, 0, 12),
             },
@@ -248,14 +248,14 @@ it("ends a person's own link only when asked again, saying until when it led the
 it("shows no own link for a person who has none", async () => {
   mounted = await mount(
     withServices(
-      <PersonPage userId={5} />,
+      <UserPage userId={5} />,
       servedBy(
         {
           "GET /me": [200, { id: 1, name: "owner", role: "admin", isAdmin: true }],
           "GET /users/5": [
             200,
             {
-              account: { id: 5, name: "cousin", role: "user", hasPassword: true },
+              user: { id: 5, name: "cousin", role: "user", hasPassword: true },
               watchStats: { watchedMs: 0, titlesWatchedCount: 0 },
             },
           ],

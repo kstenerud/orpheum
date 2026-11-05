@@ -47,7 +47,7 @@ func TestBrowse_GenresAndPeopleAreShownListedFilteredAndSearched(t *testing.T) {
 			`"name":"Bela Ostrander",`},
 		{"/collections/20", `"genres":[{"id":2,"name":"Drama"}],"credits":{"cast":[{"personId":42,`},
 		{"/people/40", `{"id":40,"name":"Ansel Vardo","pictureRef":"/vardo.jpg","titles":[{"id":10,"kind":"movie",` +
-			`"name":"Metropolis","year":1995,"roles":[{"role":"cast","character":"Mira Holloway-Pent"}]}]}`},
+			`"name":"Metropolis","year":1995,"jobs":[{"job":"cast","character":"Mira Holloway-Pent"}]}]}`},
 		{"/genres?kind=any", `"genres":[{"id":1,"name":"Crime","titleCount":1},` +
 			`{"id":2,"name":"Drama","titleCount":1}]`},
 		{"/genres?kind=movie", `"genres":[{"id":1,"name":"Crime","titleCount":1}]`},
