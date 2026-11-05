@@ -51,9 +51,10 @@ where that kind of hole is visible.
   (a client's monotonic clock, [D165](../../decisions/working-notes.md)).
 - **Every table is `STRICT`** (D303, M5; the baseline at 0048), in both databases, so a value of
   the wrong type is refused, not kept as another type that never compares equal. **A subtype row
-  is tied to its supertype's kind**: `title` and `collection` carry `item_kind`, fixed by a
-  `CHECK`, and a composite foreign key `(id, item_kind)` to `item(id, kind)`, which `item` makes
-  unique. **A rule a row obeys alone is a `CHECK`**: an id at a source only with its source
+  is tied to its supertype's kind**: `title`, `collection` and `person` each carry a `kind`
+  limited by a `CHECK` to their own, and a composite foreign key `(id, kind)` to `item(id, kind)`,
+  which `item` makes unique, `ON UPDATE CASCADE`, so a kind changed on the item follows (step 0072,
+  D426 §2). **A rule a row obeys alone is a `CHECK`**: an id at a source only with its source
   (`followed_source_id` needs `followed_source`), a library's `check_every_hours` only for checking
   by interval. The DDL below shows the tables as the design reads them; the baseline,
   `internal/store/migrations/0048_baseline.sql`, is the schema that runs.
@@ -398,15 +399,44 @@ share one id space ([D186](../../decisions/working-notes.md)), and every table b
 "a thing" references `item`, not `title`.
 
 ```sql
-CREATE TABLE item (                                        -- class I
+CREATE TABLE item (                                        -- class I, and O/F/A by column
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  kind        TEXT NOT NULL CHECK (kind IN ('title','collection','person')),
+  -- Step 0072 (D426 §2): the API's word for what it is (D416); before it, only a class, and the
+  -- kind itself and the columns below sat on the subtype, one copy each.
+  kind        TEXT NOT NULL CHECK (kind IN ('movie','series','episode','extra','other','person')),
   filing_library_id  INTEGER REFERENCES library(id) ON DELETE RESTRICT,  -- 0060: the library whose pass files it (D363)
   merged_into INTEGER REFERENCES item(id) ON DELETE RESTRICT,  -- D173
   added_at  INTEGER NOT NULL,
-  removed_at  INTEGER
+  removed_at  INTEGER,
+  year        INTEGER,                                    -- O: resolved; a series' keys its search (D209)
+  released_on INTEGER CHECK (released_on IS NULL OR (released_on >= 10000 AND released_on / 10000 = year)),  -- F/A (D366)
+  -- D170/D183: the one source it follows, and its id there. F, or A once a person chose it: a
+  -- match is a fetch, and a migration never redoes one.
+  followed_source    TEXT CHECK (followed_source IN ('nfo','tmdb','tvdb','none')),  -- F/A
+  followed_source_id TEXT,                                                          -- F/A
+  identification_state TEXT CHECK (identification_state IN
+                   ('identified','ambiguous','unidentified','confirmed')),           -- F/A (D172)
+  -- Step 0058: newest first (the owner, 2026-10-25: the most recent scan first, then the file's
+  -- own time), derived by triggers as the view item_found defines it: a work's first-found live
+  -- file's first_seen_at, its listing's time, which names the scan, and that file's modified_at; a
+  -- series' newest episode's; 0 with none.
+  found_at               INTEGER NOT NULL DEFAULT 0,      -- C
+  found_file_modified_at INTEGER NOT NULL DEFAULT 0,      -- C
+  CHECK (followed_source_id IS NULL OR followed_source IS NOT NULL),
+  CHECK ((kind = 'person') = (identification_state IS NULL)),  -- every kind but a person is identified
+  UNIQUE (id, kind)
 );
 CREATE INDEX item_filing_library ON item(filing_library_id, kind) WHERE removed_at IS NULL;
+-- One index for every list newest first, and one by release date, of one kind (D366; audit 8).
+CREATE INDEX item_kind_found ON item(kind, found_at, found_file_modified_at, id);
+CREATE INDEX item_kind_released ON item(kind, released_on);
+-- The chooser's list, of the one state it is given, a bound value no partial index can serve.
+CREATE INDEX item_identification ON item(identification_state, followed_source, kind);
+-- The few CountWaitingForAPerson reads (D303, step 0046): keyed by the columns it binds, as
+-- item_identification is, so the planner, weighing the same terms, takes the index of the few rows.
+CREATE INDEX item_ambiguous ON item(identification_state, kind) WHERE identification_state = 'ambiguous';
+CREATE INDEX item_waiting ON item(identification_state, followed_source, kind)
+  WHERE identification_state = 'unidentified' AND followed_source = 'none' AND kind != 'episode';
 
 CREATE TABLE item_provider_id (                            -- class I; several per provider (ISRCs)
   item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
@@ -429,8 +459,7 @@ and so filled the titles identified before step 0067 on its first sweep after it
 ```sql
 CREATE TABLE person (                                       -- class F, an item of kind 'person'
   id          INTEGER PRIMARY KEY REFERENCES item(id) ON DELETE RESTRICT,
-  -- A person is an item of kind 'person' (D303, M5): the pair names the item and its kind.
-  item_kind   TEXT NOT NULL DEFAULT 'person' CHECK (item_kind = 'person'),
+  kind        TEXT NOT NULL CHECK (kind = 'person'),       -- the pair names the item and its kind
   -- Their id at TMDB, whose person ids are numbered apart from its films', so kept here and not in
   -- item_provider_id; NULL for one only an NFO names.
   tmdb_id     TEXT,
@@ -439,7 +468,7 @@ CREATE TABLE person (                                       -- class F, an item 
   name_key    TEXT NOT NULL,
   -- Their picture as their source names it, a TMDB profile path or an NFO's thumb; not fetched.
   picture_ref TEXT,
-  FOREIGN KEY (id, item_kind) REFERENCES item(id, kind) ON DELETE RESTRICT
+  FOREIGN KEY (id, kind) REFERENCES item(id, kind) ON UPDATE CASCADE ON DELETE RESTRICT
 ) STRICT;
 CREATE UNIQUE INDEX person_tmdb ON person(tmdb_id) WHERE tmdb_id IS NOT NULL;
 CREATE INDEX person_name_key ON person(name_key);
@@ -478,29 +507,13 @@ person an NFO alone named. Artists arrive with music as more roles.
 ```sql
 CREATE TABLE title (                                       -- mixed: see the columns
   id             INTEGER PRIMARY KEY REFERENCES item(id) ON DELETE RESTRICT,
-  -- other: a video of an other library, one file, never matched (step 0059, D349). The step adds
-  -- the column anew, so it stands last in the table, with the default adding it needs.
+  -- A movie, an episode, an extra or an other video, as its item says (step 0072, D426 §2); other:
+  -- a video of an other library, one file, never matched (step 0059, D349). Its year, source,
+  -- identification and found times are its item's.
   kind           TEXT NOT NULL CHECK (kind IN ('movie','episode','extra','other')),
-  year           INTEGER,                                    -- O: resolved
   runtime_ms     INTEGER,                                    -- O: resolved
-  -- D170/D183: the one source this title follows, and its id there. F, or A once a person
-  -- chose it: a match is a fetch, and a migration never redoes one.
-  followed_source         TEXT CHECK (followed_source IN ('nfo','tmdb','tvdb','none')),       -- F/A
-  followed_source_id      TEXT,                                                      -- F/A
-  identification_state          TEXT NOT NULL CHECK (identification_state IN
-                   ('identified','ambiguous','unidentified','confirmed')),   -- F/A (D172)
-  -- Step 0058: newest first (the owner, 2026-10-25: the most recent scan first, then the file's
-  -- own time), derived by triggers from the files as the view title_found defines them: the
-  -- first-found live file's first_seen_at, its listing's time, which names the scan, and that
-  -- file's modified_at; 0 with no live file.
-  found_at                      INTEGER NOT NULL DEFAULT 0,                  -- C
-  found_file_modified_at        INTEGER NOT NULL DEFAULT 0                   -- C
+  FOREIGN KEY (id, kind) REFERENCES item(id, kind) ON UPDATE CASCADE ON DELETE RESTRICT
 );
-CREATE INDEX title_ambiguous ON title(id) WHERE identification_state = 'ambiguous';
--- What waits for a person's match after a search found nothing: CountWaitingForAPerson (D303, step 0046).
-CREATE INDEX title_waiting ON title(id)
-  WHERE identification_state = 'unidentified' AND followed_source = 'none' AND kind != 'episode';
-CREATE INDEX title_film_found ON title(found_at, found_file_modified_at) WHERE kind = 'movie';
 
 CREATE TABLE version (                                     -- class I
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -557,13 +570,16 @@ CREATE INDEX other_video_recorded ON other_video(recorded_at, title_id);    -- n
 CREATE INDEX other_video_file_name ON other_video(file_name_key, title_id); -- by file name
 
 CREATE TABLE sort_key (                                    -- class C (D47)
-  item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE CASCADE,
+  item_id     INTEGER NOT NULL,
   locale      TEXT NOT NULL,
-  listing     TEXT NOT NULL,             -- the list it sorts in: 'movie', 'series', 'album'…
+  listing     TEXT NOT NULL,             -- the list it sorts in: its item's kind (step 0072, audit 1)
   collation_key         BLOB NOT NULL,             -- CLDR sort-key bytes, BINARY order
-  PRIMARY KEY (item_id, locale)          -- one key per item in each locale, found by its item (D303)
+  PRIMARY KEY (item_id, locale),         -- one key per item in each locale, found by its item (D303)
+  -- The listing cannot drift from the kind: it follows the item's, and goes with the item.
+  FOREIGN KEY (item_id, listing) REFERENCES item(id, kind) ON UPDATE CASCADE ON DELETE CASCADE
 ) WITHOUT ROWID;
 CREATE INDEX sort_key_listing ON sort_key(locale, listing, collation_key, item_id);  -- the listings' order
+CREATE INDEX sort_key_item ON sort_key(item_id, listing);  -- its key to the item, as the item changes
 
 CREATE VIRTUAL TABLE item_fts USING fts5(                 -- class C (D48)
   name, search_alternates, overview, content='item_text', content_rowid='id',
@@ -674,20 +690,14 @@ rewritten whenever a layer changes. They are what everything reads.
 ```sql
 CREATE TABLE collection (                                  -- class A or O
   id          INTEGER PRIMARY KEY REFERENCES item(id) ON DELETE RESTRICT,
-  kind        TEXT NOT NULL CHECK (kind IN ('series','box_set','user')),
+  -- A series, as its item says (step 0072, D426 §2): every collection written was one, and a box
+  -- set returns with its feature. A series is what is identified for shows (D209), so its item
+  -- carries a year, a source and a match state as a film's does; one not yet resolved, which held
+  -- no state before step 0072, is unidentified.
+  kind        TEXT NOT NULL CHECK (kind = 'series'),
   created_by  TEXT NOT NULL CHECK (created_by IN ('scanner','provider','user')),
-  -- D209, migration 0007: a series is what is identified for shows, so it carries what a title
-  -- does. NULL for box sets and a person's collections.
-  year        INTEGER,                                                       -- O: resolved
-  followed_source      TEXT CHECK (followed_source IN ('nfo','tmdb','tvdb','none')),         -- F/A: its own values
-  followed_source_id   TEXT,                                                          -- F/A: its match
-  identification_state       TEXT CHECK (identification_state IN ('identified','ambiguous','unidentified','confirmed')),  -- F/A
-  -- Step 0058: newest first, its newest member's title.found_at and found_file_modified_at
-  -- (collection_found), derived by triggers; 0 with none.
-  found_at                   INTEGER NOT NULL DEFAULT 0,                              -- C
-  found_file_modified_at     INTEGER NOT NULL DEFAULT 0                               -- C
+  FOREIGN KEY (id, kind) REFERENCES item(id, kind) ON UPDATE CASCADE ON DELETE RESTRICT
 );
-CREATE INDEX collection_series_found ON collection(found_at, found_file_modified_at) WHERE kind = 'series';
 CREATE TABLE collection_member (                           -- D159, D160
   collection_id     INTEGER NOT NULL REFERENCES collection(id) ON DELETE RESTRICT,
   member_title      INTEGER REFERENCES title(id) ON DELETE RESTRICT,
