@@ -118,8 +118,8 @@ SELECT version.id AS version_id, file.id AS file_id, place.id AS place_id, place
   file.size_bytes, file_filing.part_index
 FROM version
 CROSS JOIN file_filing ON file_filing.version_id = version.id
-CROSS JOIN place AS own ON own.id = file_filing.file_id AND own.removed_at IS NULL
-CROSS JOIN file ON file.id = own.id
+CROSS JOIN file_place AS own ON own.file_id = file_filing.file_id
+CROSS JOIN file ON file.id = own.file_id
 CROSS JOIN place ON place.file_id = file.id AND place.removed_at IS NULL
 WHERE version.work_id = sqlc.arg(work_id) AND version.removed_at IS NULL
   AND EXISTS (
@@ -374,7 +374,8 @@ SELECT place.path, work.id AS work_id, work.kind AS work_kind, item_text.name,
   CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
     AS duration_ms
 FROM file
-CROSS JOIN place ON place.id = file.id
+CROSS JOIN place ON place.id = coalesce(
+  (SELECT file_place.place_id FROM file_place WHERE file_place.file_id = file.id), file.id)
 LEFT JOIN version ON version.id = (
   SELECT file_filing.version_id FROM file_filing WHERE file_filing.file_id = file.id AND file_filing.version_id IS NOT NULL
   ORDER BY file_filing.library_kind = 'other', file_filing.library_kind LIMIT 1)
@@ -395,14 +396,15 @@ ORDER BY library_place.library_id;
 -- name: ListUnreadFilesOfWork :many
 -- A title's live videos its listing stored that are not read yet, by where each is, for a person
 -- who opened its page to have them read first (D304 section 4).
-SELECT place.id, place.node_id, place.reported_path_raw
+SELECT file.id, place.node_id, place.reported_path_raw
 FROM version
 CROSS JOIN file_filing ON file_filing.version_id = version.id
-CROSS JOIN place ON place.id = file_filing.file_id
-CROSS JOIN file ON file.id = place.id
+CROSS JOIN file_place ON file_place.file_id = file_filing.file_id
+CROSS JOIN place ON place.id = file_place.place_id
+CROSS JOIN file ON file.id = place.file_id
 WHERE version.work_id = sqlc.arg(work_id) AND version.removed_at IS NULL AND place.removed_at IS NULL
   AND file.payload_hash IS NULL AND file.sidecar_kind IS NULL
-ORDER BY place.id;
+ORDER BY file.id;
 
 -- name: ListOrderingMemberFilesWithPositions :many
 -- A collection's members in one of its named orderings (D159; 'aired' for a series today), each
@@ -416,8 +418,8 @@ ORDER BY place.id;
 SELECT position.work_id, CAST(coalesce(grp.number, 0) AS INTEGER) AS group_number,
   CAST(coalesce(position.number_in_group, 0) AS INTEGER) AS number_in_group,
   CAST(coalesce(item_text.name, '') AS TEXT) AS name,
-  own.id AS file_id,
-  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = own.id), 0) AS INTEGER)
+  file_filing.file_id,
+  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = own.file_id), 0) AS INTEGER)
     AS duration_ms,
   play_position.position_ms, play_position.position_read_at, work_watched.watched_at, work_watched.marked_at
 FROM ordering
@@ -425,18 +427,18 @@ JOIN position ON position.ordering_id = ordering.id
 JOIN item ON item.id = position.work_id AND item.removed_at IS NULL
 JOIN version ON version.work_id = position.work_id AND version.removed_at IS NULL
 JOIN file_filing ON file_filing.version_id = version.id AND file_filing.filing IN ('listed', 'unidentified')
-JOIN place AS own ON own.id = file_filing.file_id AND own.removed_at IS NULL
+JOIN file_place AS own ON own.file_id = file_filing.file_id
 LEFT JOIN item_text ON item_text.item_id = position.work_id AND item_text.is_original = 1
 LEFT JOIN grp ON grp.id = position.grp_id
-LEFT JOIN play_position ON play_position.file_id = own.id AND play_position.user_id = sqlc.arg(user_id)
+LEFT JOIN play_position ON play_position.file_id = own.file_id AND play_position.user_id = sqlc.arg(user_id)
 LEFT JOIN work_watched ON work_watched.user_id = sqlc.arg(user_id) AND work_watched.work_id = position.work_id
 WHERE ordering.sequence_id = sqlc.arg(sequence_id) AND ordering.name = sqlc.arg(ordering_name)
   AND EXISTS (
     SELECT 1 FROM version_library WHERE version_library.version_id = version.id
-      AND version_library.file_id = own.id
+      AND version_library.file_id = own.file_id
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT)))))
-ORDER BY position.sort_order, version.id, file_filing.part_index, own.id;
+ORDER BY position.sort_order, version.id, file_filing.part_index, own.file_id;
 
 -- name: CountOrderingMembers :many
 -- How many members each of some series' orderings has with a live file, as

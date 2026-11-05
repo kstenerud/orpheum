@@ -126,8 +126,8 @@ ORDER BY item.removed_at IS NOT NULL, work.id;
 SELECT count(*)
 FROM version
 CROSS JOIN file_filing ON file_filing.version_id = version.id
-CROSS JOIN place ON place.id = file_filing.file_id
-WHERE version.work_id = ? AND version.removed_at IS NULL AND place.removed_at IS NULL;
+CROSS JOIN file_place ON file_place.file_id = file_filing.file_id
+WHERE version.work_id = ? AND version.removed_at IS NULL;
 
 -- name: ListSeriesByProviderID :many
 -- The series a provider's id names: the live ones, and those hidden with a deleted library before
@@ -534,7 +534,8 @@ JOIN item AS series ON series.id = ordering.sequence_id AND series.removed_at IS
 LEFT JOIN item_text AS series_text ON series_text.item_id = ordering.sequence_id AND series_text.is_original = 1
 JOIN version ON version.work_id = position.work_id AND version.removed_at IS NULL
 JOIN file_filing ON file_filing.version_id = version.id
-JOIN place ON place.id = file_filing.file_id AND place.removed_at IS NULL
+JOIN file_place ON file_place.file_id = file_filing.file_id
+JOIN place ON place.id = file_place.place_id
 WHERE position.number_in_group IS NULL
 ORDER BY ordering.sequence_id, place.path
 LIMIT sqlc.arg(max_rows);
@@ -549,11 +550,12 @@ JOIN item ON item.id = work.id AND item.removed_at IS NULL
 LEFT JOIN item_text AS work_text ON work_text.item_id = work.id AND work_text.is_original = 1
 JOIN version ON version.work_id = work.id AND version.removed_at IS NULL
 JOIN file_filing ON file_filing.version_id = version.id
-JOIN place ON place.id = file_filing.file_id AND place.removed_at IS NULL
+JOIN file_place ON file_place.file_id = file_filing.file_id
+JOIN place ON place.id = file_place.place_id
 WHERE work.kind = 'movie'
-  AND EXISTS (SELECT 1 FROM stream WHERE stream.video_file = place.id AND stream.kind = 'video'
+  AND EXISTS (SELECT 1 FROM stream WHERE stream.video_file = place.file_id AND stream.kind = 'video'
     AND (stream.disposition_flags & 1024) = 0)
-  AND NOT EXISTS (SELECT 1 FROM stream WHERE stream.video_file = place.id AND stream.kind = 'audio')
+  AND NOT EXISTS (SELECT 1 FROM stream WHERE stream.video_file = place.file_id AND stream.kind = 'audio')
 ORDER BY work.id, place.path
 LIMIT sqlc.arg(max_rows);
 
@@ -568,8 +570,9 @@ FROM work
 JOIN item ON item.id = work.id
 JOIN version ON version.work_id = work.id AND version.removed_at IS NULL
 JOIN file_filing ON file_filing.version_id = version.id
-JOIN place ON place.id = file_filing.file_id AND place.removed_at IS NULL
-JOIN file ON file.id = place.id
+JOIN file_place ON file_place.file_id = file_filing.file_id
+JOIN place ON place.id = file_place.place_id
+JOIN file ON file.id = place.file_id
 LEFT JOIN item_text AS work_text ON work_text.item_id = work.id AND work_text.is_original = 1
 LEFT JOIN position ON position.work_id = work.id
   AND position.ordering_id IN (SELECT ordering.id FROM ordering WHERE ordering.name = 'aired')
@@ -590,7 +593,8 @@ JOIN position ON position.ordering_id = ordering.id AND position.number_in_group
 JOIN item AS episode ON episode.id = position.work_id AND episode.removed_at IS NULL
 JOIN version ON version.work_id = position.work_id AND version.removed_at IS NULL
 JOIN file_filing ON file_filing.version_id = version.id
-JOIN place ON place.id = file_filing.file_id AND place.removed_at IS NULL
+JOIN file_place ON file_place.file_id = file_filing.file_id
+JOIN place ON place.id = file_place.place_id
 WHERE ordering.sequence_id = sqlc.arg(series_id) AND ordering.name = 'aired'
 ORDER BY place.path
 LIMIT sqlc.arg(max_rows);
@@ -604,7 +608,8 @@ JOIN position ON position.ordering_id = ordering.id AND position.number_in_group
 JOIN item AS episode ON episode.id = position.work_id AND episode.removed_at IS NULL
 JOIN version ON version.work_id = position.work_id AND version.removed_at IS NULL
 JOIN file_filing ON file_filing.version_id = version.id
-JOIN place ON place.id = file_filing.file_id AND place.removed_at IS NULL
+JOIN file_place ON file_place.file_id = file_filing.file_id
+JOIN place ON place.id = file_place.place_id
 WHERE series.filing_library_id = sqlc.arg(library_id) AND series.removed_at IS NULL
 ORDER BY ordering.sequence_id, place.path;
 
