@@ -150,6 +150,27 @@ D181 is the policy and [migrations.md](../design/plans/migrations.md) the mechan
   depends on it, drop old, rename, recreate indexes, triggers and views; the views and the other
   tables' triggers are dropped before the rename, which checks every trigger. `CREATE TABLE … AS
   SELECT` is not used. **Review-only.**
+- **A closed `CHECK` list is widened in place, by SQLite's `writable_schema` route**, not by a
+  rebuild ([D432](../decisions/working-notes.md#d432--the-expansion-and-relocation-audits-answers-kinds-named-by-list-open-responses-profiles-as-users)
+  §3). It is SQLite's documented way to make a change that alters no stored row (sqlite.org,
+  *ALTER TABLE*, "Making Other Kinds Of Table Schema Changes"), and a wider list is one: every
+  row already holds a value of the narrower list. Inside the step's one transaction:
+  1. read `PRAGMA schema_version`;
+  2. `PRAGMA writable_schema = ON`;
+  3. `UPDATE sqlite_schema SET sql = replace(sql, '<old list>', '<new list>') WHERE type = 'table'
+     AND name = '<table>'`, and check it changed exactly that one row, and that the old list
+     occurred once in its text;
+  4. `PRAGMA schema_version = <the value read + 1>`, so every other connection reads the schema
+     again;
+  5. `PRAGMA writable_schema = OFF`;
+  6. `PRAGMA integrity_check`, which must answer `ok`; then the runner's own checks, and commit.
+
+  Only a widening goes this way: a narrower list, a new column or anything else a stored row
+  could break is a rebuild. A step file holds no pragma (above), and step 4's value is read at
+  run time, so the runner carries these steps for a step that asks for them; it does not yet, and
+  the first step that widens a list adds that to the runner, with a test that a database widened
+  so equals a fresh install's and passes `integrity_check`. No list has been widened so far.
+  **Review-only** until then.
 - **Once migrations are live, every released version has a golden fixture; every golden
   migrates to a schema equal to a fresh install's; killing the runner after any step and
   restarting ends identical; a step takes under 10 s at the reference scale.** Until then, the
