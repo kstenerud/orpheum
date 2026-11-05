@@ -1830,6 +1830,17 @@ not properly planned for."
   (pasted by the owner, 2026-11-05). It is dated, and its feature columns came largely from a
   model's knowledge up to about 2025. The audit re-checks the current gap from sources, and weighs
   the gap, not the table.
+- **Relocation (the owner, 2026-11-05: "We also need to make sure the DB schema allows for this kind
+  of thing"):** the schema must let a library move without losing anything hung on it. That covers a
+  move to another folder, another disk, another node or another machine (see "Repointing a library"
+  below). The audit checks the following:
+  - a repoint changes only `library_root` and `place` rows;
+  - nothing people own or identification found keys on a path, a node's name, or a device and inode;
+  - a node can be renamed or replaced;
+  - a file found at a new place joins its existing `file` row, matched by hash, keeping its
+    watching, choices and fetched subtitles.
+
+  Where it does not, the change goes in before the greenfield deploy.
 - **Its findings:** each says what change it proposes now, and what churn that change saves later.
 - **Timing (the lead's proposal):** run it once the API and schema rounds are built, but before
   check-pr and the deploy. The batch's deploy regenerates the database on nas.example (greenfield,
@@ -1852,4 +1863,7 @@ in the following batch."
   another); how the move is confirmed (the files at the new root are matched by path suffix, then by
   hash, since step 0078's `file`/`place` split lets a file gain a place and lose one); what happens to a
   file not found at the new root; and whether the old root is kept as a fallback until it is gone.
-- **For the expansion audit:** check that the schema after D426 makes this a change of `place` rows alone.
+- **The schema allows it before the feature is built** (the owner, 2026-11-05). The expansion audit
+  checks it, and fixes the schema while it is still greenfield (see that section's "Relocation").
+- **Seen during the devnas.example stand-in:** libraries are tied to their node. A moved database finds its
+  libraries only if the new machine's node keeps the old node's name.
