@@ -37,6 +37,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
+	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -244,7 +245,7 @@ func (world *jobsWorld) films() map[int]sqlcgen.ListFileWorksRow {
 // fetchJobs are the fetch jobs in the view, newest first.
 func (world *jobsWorld) fetchJobs() []jobs.View {
 	world.t.Helper()
-	views, err := world.queue.List(world.t.Context(), 1000)
+	views, err := world.queue.List(world.t.Context(), 0, 1000)
 	if err != nil {
 		world.t.Fatal(err)
 	}
@@ -422,7 +423,7 @@ func (missingPosterFetcher) Destination() jobs.Destination { return jobs.Destina
 // openWork is each open job's item and arguments, the work the queue holds.
 func (world *jobsWorld) openWork() map[int64]string {
 	world.t.Helper()
-	rows, err := world.cache.Read().ListJobs(world.t.Context(), 1000)
+	rows, err := world.cache.Read().ListJobs(world.t.Context(), cachegen.ListJobsParams{MaxRows: 1000})
 	if err != nil {
 		world.t.Fatal(err)
 	}

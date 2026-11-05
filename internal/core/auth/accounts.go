@@ -53,9 +53,17 @@ type Account struct {
 	HasPassword bool
 }
 
-// Accounts lists everyone.
+// Accounts lists everyone, by name.
 func (service *Service) Accounts(ctx context.Context) ([]Account, error) {
-	rows, err := service.database.Read().ListLiveUsers(ctx)
+	return service.AccountsAfter(ctx, "", 0, -1)
+}
+
+// AccountsAfter is a page of everyone, by name: at most limit (-1 for everyone) after the person
+// named afterName with afterID ("" and 0 for the first page).
+func (service *Service) AccountsAfter(ctx context.Context, afterName string, afterID, limit int64) ([]Account, error) {
+	rows, err := service.database.Read().ListLiveUsers(ctx, sqlcgen.ListLiveUsersParams{
+		AfterName: afterName, AfterID: afterID, MaxRows: limit,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("list users: %w", err)
 	}

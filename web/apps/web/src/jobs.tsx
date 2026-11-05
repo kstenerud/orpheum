@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { allPages } from "@orpheum/sdk";
 import "./jobs.css";
 
 import type { Api, components } from "@orpheum/sdk";
@@ -21,9 +22,12 @@ import { useResource } from "./use-resource.ts";
 /** One job, as the job view shows it (cut-a §5.3). */
 export type Job = components["schemas"]["JobBody"];
 
-/** The newest jobs, newest first. */
+/** The newest jobs, newest first: every page the job view has. */
 export async function listJobs(api: Api): Promise<Job[]> {
-  return dataOrThrow(await api.GET("/jobs")).jobs ?? [];
+  return await allPages(async (query) => {
+    const page = dataOrThrow(await api.GET("/jobs", { params: { query } }));
+    return { entries: page.jobs ?? [], nextCursor: page.nextCursor };
+  });
 }
 
 /** Cancels a queued or running job; a node's work is stopped. */

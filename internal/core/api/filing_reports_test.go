@@ -44,7 +44,7 @@ func TestFilingReport_IsMarkdownOnTheServersDiskThatTheAdminReadsBack(t *testing
 	if err != nil || string(onDisk) != report.Markdown {
 		t.Errorf("on the server's disk at %s: %q (%v); want the report", report.Path, onDisk, err)
 	}
-	listed := harness.do(t, http.MethodGet, "/filing-reports", admin, nil)
+	listed := harness.do(t, http.MethodGet, "/filing-reports?limit=500", admin, nil)
 	if !strings.Contains(listed.body, `"name":"`+report.Name+`"`) {
 		t.Errorf("GET /filing-reports = %d %s; want the report listed", listed.status, listed.body)
 	}

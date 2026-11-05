@@ -21,7 +21,7 @@ import (
 // listedJobs is the job view as an admin's GET /jobs answers it.
 func (harness testHarness) listedJobs(t *testing.T, token string) []api.JobBody {
 	t.Helper()
-	answer := harness.do(t, http.MethodGet, "/jobs", token, nil)
+	answer := harness.do(t, http.MethodGet, "/jobs?limit=500", token, nil)
 	var listed api.JobsOutput
 	if err := json.Unmarshal([]byte(answer.body), &listed.Body); err != nil || answer.status != http.StatusOK {
 		t.Fatalf("GET /jobs = %d %s", answer.status, answer.body)
@@ -105,7 +105,7 @@ func TestJobs_OnlyAnAdminSeesOrCancelsThem(t *testing.T) {
 		t.Fatal(err)
 	}
 	guest := harness.signIn(t, "guest", "guest-password")
-	if status := harness.do(t, http.MethodGet, "/jobs", guest, nil).status; status != http.StatusForbidden {
+	if status := harness.do(t, http.MethodGet, "/jobs?limit=500", guest, nil).status; status != http.StatusForbidden {
 		t.Errorf("GET /jobs as a user: %d, want 403", status)
 	}
 	if status := harness.do(t, http.MethodPost, "/jobs/1/cancel", guest, nil).status; status != http.StatusForbidden {

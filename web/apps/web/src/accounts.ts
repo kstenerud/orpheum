@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
-import { readLinkFragment, type Api, type components } from "@orpheum/sdk";
+import { allPages, type Api, type components, readLinkFragment } from "@orpheum/sdk";
 
 import { dataOrThrow, throwIfRefused } from "./problem.ts";
 import { thisDevice, type NewDevice } from "./device.ts";
@@ -45,9 +45,12 @@ export function secretFromHash(hash: string): string | undefined {
   return secret === "" ? undefined : secret;
 }
 
-/** Everyone, for the admin. */
+/** Everyone, for the admin: every page of them. */
 export async function listAccounts(api: Api): Promise<Account[]> {
-  return dataOrThrow(await api.GET("/users")).users ?? [];
+  return await allPages(async (query) => {
+    const page = dataOrThrow(await api.GET("/users", { params: { query } }));
+    return { entries: page.users ?? [], nextCursor: page.nextCursor };
+  });
 }
 
 /** An account the admin sets up in full: a name, a password, a role, and a note of who it is for. */
@@ -85,7 +88,10 @@ export async function invite(
 
 /** The invitations still waiting, newest first; a used one is not listed (D403). */
 export async function listInvitations(api: Api): Promise<Invitation[]> {
-  return dataOrThrow(await api.GET("/invitations")).invitations ?? [];
+  return await allPages(async (query) => {
+    const page = dataOrThrow(await api.GET("/invitations", { params: { query } }));
+    return { entries: page.invitations ?? [], nextCursor: page.nextCursor };
+  });
 }
 
 /** Withdraws an invitation still waiting: none of its links admits anyone. */

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { reportFailure, type components } from "@orpheum/sdk";
+import { allPages, type components, reportFailure } from "@orpheum/sdk";
 import { useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -29,11 +29,13 @@ export function useGenres(kind: ChipsKind | undefined, isWanted: boolean): reado
       return undefined;
     }
     let isCurrent = true;
-    api
-      .GET("/genres", { params: { query: { kind } } })
-      .then((answer) => {
+    allPages(async (query) => {
+      const page = dataOrThrow(await api.GET("/genres", { params: { query: { kind, ...query } } }));
+      return { entries: page.genres ?? [], nextCursor: page.nextCursor };
+    })
+      .then((every) => {
         if (isCurrent) {
-          setGenres(dataOrThrow(answer).genres ?? []);
+          setGenres(every);
         }
       })
       .catch(reportFailure);

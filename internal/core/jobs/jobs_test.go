@@ -64,7 +64,7 @@ func (fixed fixture) runDue(t *testing.T, runner *Runner) {
 
 func (fixed fixture) job(t *testing.T, itemID int64) cachegen.Job {
 	t.Helper()
-	jobs, err := fixed.cache.Read().ListJobs(t.Context(), 100)
+	jobs, err := fixed.cache.Read().ListJobs(t.Context(), cachegen.ListJobsParams{MaxRows: 100})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,8 @@ func TestEnqueue_QueuesATargetOnceWhileItIsOpen(t *testing.T) {
 	for range 2 {
 		jobs.enqueue(t, 7, 0)
 	}
-	if listed, err := jobs.cache.Read().ListJobs(t.Context(), 10); err != nil || len(listed) != 1 {
+	listed, err := jobs.cache.Read().ListJobs(t.Context(), cachegen.ListJobsParams{MaxRows: 10})
+	if err != nil || len(listed) != 1 {
 		t.Fatalf("%d jobs (%v) after queuing one subject twice, want 1", len(listed), err)
 	}
 	runner := jobs.queue.NewRunner(KindFetchMetadata, func(context.Context, Job) error { return nil })
@@ -218,7 +219,7 @@ func TestRunDue_AJobParkedOnItsDestinationWaitsOnCacheDBAtNoCostAndTheViewSaysWh
 		t.Errorf("while the key is not set: job %+v, ran %v; want the first run once, queued, no attempt spent,"+
 			" and the one queued on TMDB never", job, ran)
 	}
-	views, err := jobs.queue.List(t.Context(), 10)
+	views, err := jobs.queue.List(t.Context(), 0, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -498,7 +499,7 @@ func TestPruneFinished_ForgetsWhatEndedLongerAgoThanTheSettingKeeps(t *testing.T
 	if err != nil || pruned != 1 {
 		t.Fatalf("PruneFinished = %d, %v; want the one job that ended 31 days ago", pruned, err)
 	}
-	listed, err := fixed.cache.Read().ListJobs(t.Context(), 100)
+	listed, err := fixed.cache.Read().ListJobs(t.Context(), cachegen.ListJobsParams{MaxRows: 100})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -530,7 +531,8 @@ func TestEnqueue_AWholeServerJobNamesNoTargetAndIsQueuedOnce(t *testing.T) {
 			t.Errorf("a %s naming an item: %v, want ErrNotOneTarget", kind, err)
 		}
 	}
-	if listed, err := jobs.cache.Read().ListJobs(t.Context(), 10); err != nil || len(listed) != 2 {
+	listed, err := jobs.cache.Read().ListJobs(t.Context(), cachegen.ListJobsParams{MaxRows: 10})
+	if err != nil || len(listed) != 2 {
 		t.Errorf("%d jobs (%v) after asking for each whole-server kind twice; want one of each", len(listed), err)
 	}
 }

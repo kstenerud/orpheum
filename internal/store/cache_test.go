@@ -44,7 +44,7 @@ func TestOpenCache_BuildsAnEmptyFileAndKeepsWhatItHolds(t *testing.T) {
 		t.Fatal(closeErr)
 	}
 	reopened := openCacheAt(t, path)
-	jobs, err := reopened.Read().ListJobs(t.Context(), 10)
+	jobs, err := reopened.Read().ListJobs(t.Context(), cachegen.ListJobsParams{MaxRows: 10})
 	if err != nil || len(jobs) != 1 {
 		t.Errorf("after reopening: %d jobs, %v; want the one written", len(jobs), err)
 	}
@@ -65,7 +65,7 @@ func TestOpenCache_QueuesAHashWholeFileJob(t *testing.T) {
 	if err != nil {
 		t.Fatalf("InsertJob: %v", err)
 	}
-	jobs, err := cache.Read().ListJobs(t.Context(), 10)
+	jobs, err := cache.Read().ListJobs(t.Context(), cachegen.ListJobsParams{MaxRows: 10})
 	if err != nil || len(jobs) != 1 || jobs[0].Kind != "hash_whole_file" {
 		t.Errorf("the queued jobs = %+v, %v; want the one hash_whole_file job", jobs, err)
 	}

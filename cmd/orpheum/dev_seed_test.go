@@ -76,7 +76,7 @@ func TestDevSeed_CreatesTheSeedsUsersSettingsAndSecretsAndCanRunAgain(t *testing
 		!strings.Contains(partnersLibraries.body, `"name":"Dev shows"`) {
 		t.Errorf("the seeded partner does not reach the seed's libraries: %s", partnersLibraries.body)
 	}
-	people := requestAPI(t, http.MethodGet, server.baseURL+"/users", token, nil)
+	people := requestAPI(t, http.MethodGet, server.baseURL+"/users?limit=500", token, nil)
 	if !strings.Contains(people.body, `"name":"partner","role":"user","adminNote":"the remote partner"`) {
 		t.Errorf("the seeded partner has not the seed's note of who they are for: %s", people.body)
 	}

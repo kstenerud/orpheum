@@ -51,9 +51,9 @@ func TestBrowse_GenresAndPeopleAreShownListedFilteredAndSearched(t *testing.T) {
 		{"/items?limit=10&person=40", `"name":"Metropolis","year":1995,`},
 		{"/items?limit=10&person=40", `"credit":{"jobs":["cast"],"character":"Mira Holloway-Pent"}}]}`},
 		{"/items?kind=movie&limit=10&person=41", `"credit":{"jobs":["director"]}}]}`},
-		{"/genres?kind=any", `"genres":[{"id":1,"name":"Crime","titleCount":1},` +
+		{"/genres?kind=any&limit=500", `"genres":[{"id":1,"name":"Crime","titleCount":1},` +
 			`{"id":2,"name":"Drama","titleCount":1}]`},
-		{"/genres?kind=movie", `"genres":[{"id":1,"name":"Crime","titleCount":1}]`},
+		{"/genres?kind=movie&limit=500", `"genres":[{"id":1,"name":"Crime","titleCount":1}]`},
 		{"/items?kind=any&sort=name&limit=10&genre=2", `"name":"Brass Arena"`},
 		{"/items?kind=movie&sort=name&limit=10&person=41&decade=1990", `"name":"Metropolis"`},
 		{"/items?kind=movie&sort=name&limit=10&person=42", `{"items":[]}`},

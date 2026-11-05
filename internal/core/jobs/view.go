@@ -52,9 +52,9 @@ func (queue *Queue) SetReportedProgress(words ReportedProgress) {
 	queue.reportedProgress = words
 }
 
-// List is the newest jobs, newest first, at most limit of them.
-func (queue *Queue) List(ctx context.Context, limit int64) ([]View, error) {
-	rows, err := queue.queue.List(ctx, limit)
+// List is the newest jobs before beforeID (0 for the newest), newest first, at most limit of them.
+func (queue *Queue) List(ctx context.Context, beforeID, limit int64) ([]View, error) {
+	rows, err := queue.queue.List(ctx, beforeID, limit)
 	if err != nil {
 		return nil, err
 	}

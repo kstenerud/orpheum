@@ -10,6 +10,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 )
 
@@ -64,10 +65,18 @@ type JobBody struct {
 	OnNode string `enum:"waiting,running,paused" json:"onNode,omitempty"`
 }
 
-// JobsOutput is the job view: the newest jobs first.
+// JobsInput asks for a page of the job view.
+type JobsInput struct {
+	AuthorizationHeader
+	PageInput
+}
+
+// JobsOutput is a page of the job view: the newest jobs first, the pages ending at the newest
+// job_view_max_jobs.
 type JobsOutput struct {
 	Body struct {
-		Jobs []JobBody `json:"jobs"`
+		Jobs       []JobBody `json:"jobs"`
+		NextCursor string    `doc:"The next page's cursor; absent on the last" json:"nextCursor,omitempty"`
 	}
 }
 
@@ -90,21 +99,43 @@ func (server *Server) registerJobs() {
 	}, server.cancelJob)
 }
 
-func (server *Server) listJobs(ctx context.Context, input *AuthorizationHeader) (*JobsOutput, error) {
+func (server *Server) listJobs(ctx context.Context, input *JobsInput) (*JobsOutput, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
+	}
+	// The cursor is the count listed so far and the last job's id: the pages end at the newest
+	// job_view_max_jobs, as the view always did.
+	key, beforeID, err := decodeCursor(input.Cursor)
+	if err != nil {
+		return nil, err
+	}
+	var listedBefore int64
+	if input.Cursor != "" {
+		var isCount bool
+		if listedBefore, isCount = keyInt64(key); !isCount || listedBefore < 1 || beforeID < 1 {
+			return nil, errBadCursor()
+		}
 	}
 	maxJobs, err := dependencies.Settings.Int(ctx, settings.JobViewMaxJobs)
 	if err != nil {
 		return nil, server.settingsError(ctx, "read job_view_max_jobs", err)
 	}
-	views, err := dependencies.Jobs.List(ctx, maxJobs)
+	limit := min(input.Limit, maxJobs-listedBefore)
+	output := &JobsOutput{}
+	output.Body.Jobs = []JobBody{}
+	if limit < 1 {
+		return output, nil
+	}
+	views, err := dependencies.Jobs.List(ctx, beforeID, limit)
 	if err != nil {
 		return nil, server.logInternalError(ctx, "list jobs", err)
 	}
-	output := &JobsOutput{}
-	output.Body.Jobs = make([]JobBody, 0, len(views))
+	if listedBefore+int64(len(views)) < maxJobs {
+		output.Body.NextCursor = nextCursorOf(len(views), limit, func() string {
+			return library.EncodeCursor(int64Key(listedBefore+int64(len(views))), views[len(views)-1].ID)
+		})
+	}
 	nodeName := server.nodeNamer(ctx, dependencies)
 	for _, view := range views {
 		body := JobBody{

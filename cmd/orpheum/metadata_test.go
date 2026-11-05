@@ -142,7 +142,7 @@ func TestDemoteUnwanted_APlaysJobNoOneWaitsForFallsAndItsNodeIsTold(t *testing.T
 	if err := runner.RunDue(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	listed, err := cache.Read().ListJobs(t.Context(), 1)
+	listed, err := cache.Read().ListJobs(t.Context(), cachegen.ListJobsParams{MaxRows: 1})
 	if err != nil || len(listed) != 1 {
 		t.Fatalf("the jobs are %+v (%v), want the one measurement", listed, err)
 	}
@@ -181,7 +181,7 @@ func TestDemoteUnwanted_APlaysJobNoOneWaitsForFallsAndItsNodeIsTold(t *testing.T
 		t.Errorf("the node was told %+v, want job %d at the shown-interest priority", command, job)
 	}
 	// Someone wanted it, so it stays a rung above the background (D324).
-	again, err := cache.Read().ListJobs(t.Context(), 1)
+	again, err := cache.Read().ListJobs(t.Context(), cachegen.ListJobsParams{MaxRows: 1})
 	if err != nil || len(again) != 1 || again[0].Priority != jobs.PriorityShownInterest {
 		t.Errorf("the job is %+v (%v), want it at the shown-interest priority", again, err)
 	}

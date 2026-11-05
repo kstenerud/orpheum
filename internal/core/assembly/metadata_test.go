@@ -16,6 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue/jobqueuetest"
+	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -80,7 +81,7 @@ func TestScenario_S71_APersonsRefreshBehindARollingOneRunsAtTheirPriorityAndAsks
 		t.Fatal(err)
 	}
 	enqueue(2, "a person asked for it to be refreshed", true, 20)
-	rows, err := cache.Read().ListJobs(t.Context(), 10)
+	rows, err := cache.Read().ListJobs(t.Context(), cachegen.ListJobsParams{MaxRows: 10})
 	if err != nil || len(rows) != 2 {
 		t.Fatalf("%d jobs (%v) after two requests for each of two items, want one each", len(rows), err)
 	}
@@ -120,7 +121,7 @@ func TestJobArgsMerges_APlayersIndexReadFoldsIntoTheSweepsQueuedFullRead(t *test
 			t.Fatal(err)
 		}
 	}
-	listed, err := cache.Read().ListJobs(t.Context(), 10)
+	listed, err := cache.Read().ListJobs(t.Context(), cachegen.ListJobsParams{MaxRows: 10})
 	if err != nil || len(listed) != 1 || listed[0].ArgsJSON != `{"isFromIndexOnly":true}` ||
 		listed[0].Priority != jobs.PriorityPlayNow {
 		t.Errorf("the jobs are %+v (%v); want the one, an index read at a play's priority", listed, err)

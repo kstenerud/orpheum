@@ -327,7 +327,7 @@ func (harness testHarness) commandWithin(t *testing.T) (nodeproto.Command, bool)
 		return command, true
 	case <-time.After(commandWait):
 	}
-	views, err := harness.queue.List(context.WithoutCancel(t.Context()), 20)
+	views, err := harness.queue.List(context.WithoutCancel(t.Context()), 0, 20)
 	var jobsNow []string
 	for _, view := range views {
 		jobsNow = append(jobsNow, fmt.Sprintf("job %d %s %s, attempt %d, last failure %q",

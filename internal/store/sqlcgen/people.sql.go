@@ -273,29 +273,34 @@ CROSS JOIN item ON item.id = item_genre.item_id
 LEFT JOIN work ON work.id = item_genre.item_id
 LEFT JOIN sequence ON sequence.id = item_genre.item_id
 WHERE item.removed_at IS NULL
-  AND (CAST(?1 AS TEXT) = '' OR work.kind = CAST(?1 AS TEXT)
-    OR (CAST(?1 AS TEXT) = 'series' AND sequence.kind = 'series'))
+  AND (genre.name, genre.id) > (CAST(?1 AS TEXT), CAST(?2 AS INTEGER))
+  AND (CAST(?3 AS TEXT) = '' OR work.kind = CAST(?3 AS TEXT)
+    OR (CAST(?3 AS TEXT) = 'series' AND sequence.kind = 'series'))
   AND (
   (work.kind IN ('movie', 'other') AND EXISTS (
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
     WHERE version.work_id = work.id AND version.removed_at IS NULL
-      AND (CAST(?2 AS INTEGER) = 1
-        OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))))
+      AND (CAST(?4 AS INTEGER) = 1
+        OR version_library.library_id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))))
   OR (sequence.kind = 'series' AND EXISTS (
     SELECT 1 FROM series_member
     CROSS JOIN version ON version.work_id = series_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
     WHERE series_member.sequence_id = sequence.id AND version.removed_at IS NULL
-      AND (CAST(?2 AS INTEGER) = 1
-        OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT)))))))
+      AND (CAST(?4 AS INTEGER) = 1
+        OR version_library.library_id IN (SELECT value FROM json_each(CAST(?5 AS TEXT)))))))
 GROUP BY genre.id
 ORDER BY genre.name, genre.id
+LIMIT ?6
 `
 
 type ListGenresWithCountsParams struct {
+	AfterName      string
+	AfterID        int64
 	Kind           string
 	IsEveryLibrary int64
 	LibraryIdsJSON string
+	MaxRows        int64
 }
 
 type ListGenresWithCountsRow struct {
@@ -305,9 +310,17 @@ type ListGenresWithCountsRow struct {
 }
 
 // Each genre with how many films, series or other videos of a kind the caller reaches are in it;
-// an empty kind counts every kind. A genre none of them is in is left out.
+// an empty kind counts every kind. A genre none of them is in is left out. A page: at most max_rows
+// (-1 for every one) after the genre named after_name with after_id, by name (” and 0 for the first).
 func (q *Queries) ListGenresWithCounts(ctx context.Context, arg ListGenresWithCountsParams) ([]ListGenresWithCountsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listGenresWithCounts, arg.Kind, arg.IsEveryLibrary, arg.LibraryIdsJSON)
+	rows, err := q.db.QueryContext(ctx, listGenresWithCounts,
+		arg.AfterName,
+		arg.AfterID,
+		arg.Kind,
+		arg.IsEveryLibrary,
+		arg.LibraryIdsJSON,
+		arg.MaxRows,
+	)
 	if err != nil {
 		return nil, err
 	}

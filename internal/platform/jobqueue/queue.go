@@ -312,9 +312,9 @@ func (queue *Queue[T]) Health(ctx context.Context, failedSince time.Time) ([]Kin
 	return health, nil
 }
 
-// List is the newest jobs, newest first, at most limit of them.
-func (queue *Queue[T]) List(ctx context.Context, limit int64) ([]Row[T], error) {
-	rows, err := queue.storage.List(ctx, limit)
+// List is the newest jobs before beforeID (0 for the newest), newest first, at most limit of them.
+func (queue *Queue[T]) List(ctx context.Context, beforeID, limit int64) ([]Row[T], error) {
+	rows, err := queue.storage.List(ctx, beforeID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("list jobs: %w", err)
 	}

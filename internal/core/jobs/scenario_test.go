@@ -19,6 +19,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue/jobqueuetest"
+	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
@@ -117,7 +118,7 @@ func checkParkedForAFullDiskAndSaidOnce(t *testing.T, queue *Queue, logged strin
 // spent an attempt on the full disk, and nothing is parked.
 func checkEveryJobDoneAtItsFirstAttempt(t *testing.T, queue *Queue) {
 	t.Helper()
-	views, err := queue.List(t.Context(), 10)
+	views, err := queue.List(t.Context(), 0, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -187,7 +188,7 @@ func (world *repeatWorld) handle(ctx context.Context, job Job) error {
 // queuedCount is how many queued jobs an item has.
 func (world *repeatWorld) queuedCount(itemID int64) int {
 	world.t.Helper()
-	rows, err := world.fixed.cache.Read().ListJobs(world.t.Context(), 100)
+	rows, err := world.fixed.cache.Read().ListJobs(world.t.Context(), cachegen.ListJobsParams{MaxRows: 100})
 	if err != nil {
 		world.t.Fatal(err)
 	}

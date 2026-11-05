@@ -296,7 +296,7 @@ func TestServe_TheAdminListsTheFilingReports(t *testing.T) {
 	config, path := testConfig(t)
 	server := startServing(t, config, newCapturedLog("ready"), "ready", nil)
 	token := signedInOwner(t, server, path)
-	listed := requestAPI(t, http.MethodGet, server.baseURL+"/filing-reports", token, nil)
+	listed := requestAPI(t, http.MethodGet, server.baseURL+"/filing-reports?limit=500", token, nil)
 	if listed.status != http.StatusOK || !strings.Contains(listed.body, `"reports":[]`) {
 		t.Errorf("GET /filing-reports = %d %s; want none yet", listed.status, listed.body)
 	}

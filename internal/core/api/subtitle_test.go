@@ -99,7 +99,7 @@ func (harness testHarness) storeExtractedText(t *testing.T, payloadHash []byte, 
 // subtitleJobCount counts the extraction jobs ever queued for film 2's text tracks.
 func (harness testHarness) subtitleJobCount(t *testing.T) int {
 	t.Helper()
-	all, err := harness.cache.Read().ListJobs(t.Context(), 100)
+	all, err := harness.cache.Read().ListJobs(t.Context(), cachegen.ListJobsParams{MaxRows: 100})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func (harness testHarness) subtitleJobCount(t *testing.T) int {
 // finishJobs marks every job done, as the queue's runner would once its handler returned.
 func (harness testHarness) finishJobs(t *testing.T) {
 	t.Helper()
-	all, err := harness.cache.Read().ListJobs(t.Context(), 100)
+	all, err := harness.cache.Read().ListJobs(t.Context(), cachegen.ListJobsParams{MaxRows: 100})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -342,7 +342,7 @@ func demotedKinds(t *testing.T, harness testHarness) []jobs.Kind {
 	if err != nil {
 		t.Fatal(err)
 	}
-	views, err := harness.queue.List(t.Context(), 100)
+	views, err := harness.queue.List(t.Context(), 0, 100)
 	if err != nil {
 		t.Fatal(err)
 	}
