@@ -9,7 +9,8 @@ import (
 )
 
 // Step 0070 takes the telemetry out of persistent.db (D426 §9): resource_use and link_memory are
-// gone from it, the rest of the database is kept, and cache.db holds both tables now.
+// gone from it, and the rest of the database is kept. The cache holds resource_use; link_memory
+// returned to persistent.db at step 0073 (D427).
 func TestMigrate_Step0070MovesTheTelemetryToTheCache(t *testing.T) {
 	t.Parallel()
 	steps, err := Steps()
@@ -48,7 +49,7 @@ func TestMigrate_Step0070MovesTheTelemetryToTheCache(t *testing.T) {
 	})
 	inCache := fmt.Sprint(queryRows(t, cache.database, `SELECT name FROM sqlite_schema
 		WHERE name IN ('resource_use', 'link_memory') ORDER BY name`, 1))
-	if inCache != "[[link_memory] [resource_use]]" {
-		t.Errorf("cache.db's telemetry tables: %s; want both", inCache)
+	if inCache != "[[resource_use]]" {
+		t.Errorf("cache.db's telemetry tables: %s; want resource_use alone (D427)", inCache)
 	}
 }

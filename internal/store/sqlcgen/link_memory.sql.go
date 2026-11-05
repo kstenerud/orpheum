@@ -3,7 +3,7 @@
 //   sqlc v1.31.1
 // source: link_memory.sql
 
-package cachegen
+package sqlcgen
 
 import (
 	"context"

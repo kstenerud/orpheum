@@ -104,6 +104,8 @@ INSERT INTO "grant" (secret_sha256, kind, user_id, scope, issued_at, expires_at,
                      locate_hash, offer_key)
   VALUES (X'01', 'session', 2, 'role', 1790000000000, NULL, 1790000100000, 'phone', 1, NULL, NULL),
          (X'02', 'issued_secret', NULL, 'invitation', 1790000000000, 1790600000000, NULL, NULL, NULL, X'0A0B', X'0C0D');
+INSERT INTO link_memory (player, network, speed_kbps, speed_log_spread, speed_at, steadiness, steadiness_at, said_at)
+  VALUES ('device 1', '2001:db8:1:2::/64', 17000, 0.31, 1790000000000, 1, 1790000000000, 1790000000000);
 INSERT INTO locator (session_secret_sha256, hash, issued_at) VALUES (X'01', X'0E0F', 1790000000000);
 INSERT INTO realm_key (user_id, master_realm, key, made_at) VALUES (1, 'karlnas', X'0A0B', 1790000000000);
 INSERT INTO guessed_match (item_id, guessed_at) VALUES (1, 1790000000000);
