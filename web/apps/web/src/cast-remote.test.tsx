@@ -513,7 +513,7 @@ describe("playing here from where a cast stood (§9 Q5)", () => {
       "GET /files/2/waits": [200, {}],
       "GET /files/2/up-next": [200, {}],
       "POST /playback/t/report": [204, undefined],
-      "PUT /playback/t/interest": [204, null],
+      "PUT /playback/t/wants": [204, null],
       "DELETE /playback/t": [204, null],
     });
     services.session.signIn("token", { deviceId: 5 });

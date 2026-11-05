@@ -89,7 +89,7 @@ async function mountPlay(token: string, heard: Heard[]): Promise<HTMLVideoElemen
           [`POST /playback/${token}/report`]: [204, undefined],
           "GET /files/2/waits": [200, {}],
           "GET /files/2/up-next": [200, {}],
-          [`PUT /playback/${token}/interest`]: [204, null],
+          [`PUT /playback/${token}/wants`]: [204, null],
           [`DELETE /playback/${token}`]: [204, null],
         },
         heard,

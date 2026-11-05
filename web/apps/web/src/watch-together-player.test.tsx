@@ -195,7 +195,7 @@ describe("the host's player in a session (D246 §5)", () => {
           "GET /files/5/waits": [200, {}],
           "GET /files/5/up-next": [200, {}],
           "GET /files/5/availability": [200, {}],
-          "PUT /playback/t/interest": [204, null],
+          "PUT /playback/t/wants": [204, null],
           "DELETE /playback/t": [204, null],
         },
         [],

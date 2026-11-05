@@ -143,7 +143,7 @@ describe("play state", () => {
             "POST /playback/gone/report": refusal(404, "not_found"),
             "GET /files/2/waits": [200, {}],
             "GET /files/2/up-next": [200, {}],
-            "PUT /playback/gone/interest": [204, null],
+            "PUT /playback/gone/wants": [204, null],
             "DELETE /playback/gone": [204, null],
           },
           heard,
@@ -163,7 +163,7 @@ describe("play state", () => {
     // One report, refused for good, and none after; the player's word on what it wants beside it.
     const reports = heard.filter((request) => request.methodAndPath.endsWith("/report"));
     expect(reports.map((request) => request.methodAndPath)).toEqual(["POST /playback/gone/report"]);
-    expect(heard.map((request) => request.methodAndPath)).toContain("PUT /playback/gone/interest");
+    expect(heard.map((request) => request.methodAndPath)).toContain("PUT /playback/gone/wants");
     expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
       "Where you are is no longer being kept for next time. That is no longer here",
     );
@@ -184,9 +184,9 @@ describe("play state", () => {
             "POST /playback/again/report": refusal(404, "playback_gone"),
             "GET /files/2/waits": [200, {}],
             "GET /files/2/up-next": [200, {}],
-            "PUT /playback/lost/interest": [204, null],
+            "PUT /playback/lost/wants": [204, null],
             "DELETE /playback/lost": [204, null],
-            "PUT /playback/again/interest": [204, null],
+            "PUT /playback/again/wants": [204, null],
             "DELETE /playback/again": [204, null],
           },
           heard,
@@ -242,7 +242,7 @@ describe("play state", () => {
             "POST /playback/lost/report": refusal(404, "playback_gone"),
             "GET /files/2/waits": [200, {}],
             "GET /files/2/up-next": [200, {}],
-            "PUT /playback/lost/interest": [204, null],
+            "PUT /playback/lost/wants": [204, null],
             "DELETE /playback/lost": [204, null],
             "DELETE /playback/again": [204, null],
           },
@@ -336,7 +336,7 @@ describe("play state", () => {
           "GET /files/2/waits": [200, {}],
           "GET /files/2/up-next": [200, {}],
           "GET /files/2/availability": [200, {}],
-          "PUT /playback/slow/interest": [204, null],
+          "PUT /playback/slow/wants": [204, null],
           "DELETE /playback/slow": [204, null],
         }),
       ),
@@ -374,7 +374,7 @@ describe("play state", () => {
             "POST /playback/timed/report": [204, undefined],
             "GET /files/2/waits": [200, {}],
             "GET /files/2/up-next": [200, {}],
-            "PUT /playback/timed/interest": [204, null],
+            "PUT /playback/timed/wants": [204, null],
             "DELETE /playback/timed": [204, null],
           },
           heard,
@@ -418,7 +418,7 @@ describe("play state", () => {
             "POST /playback/steady/report": [204, undefined],
             "GET /files/2/waits": [200, {}],
             "GET /files/2/up-next": [200, {}],
-            "PUT /playback/steady/interest": [204, null],
+            "PUT /playback/steady/wants": [204, null],
             "DELETE /playback/steady": [204, null],
           },
           heard,
@@ -455,7 +455,7 @@ describe("play state", () => {
             "POST /playback/preloaded/report": [204, undefined],
             "GET /files/2/waits": [200, {}],
             "GET /files/2/up-next": [200, {}],
-            "PUT /playback/preloaded/interest": [204, null],
+            "PUT /playback/preloaded/wants": [204, null],
             "DELETE /playback/preloaded": [204, null],
           },
           heard,

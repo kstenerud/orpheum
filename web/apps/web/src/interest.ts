@@ -57,7 +57,7 @@ export type LeftFor = "left" | "replaced";
 /** Says to the server what the playback mediaToken names wants now; one that fails costs nothing. */
 export function sendInterest(api: Api, mediaToken: string, said: SaidInterest): void {
   api
-    .PUT("/playback/{token}/interest", { params: { path: { token: mediaToken } }, body: said })
+    .PUT("/playback/{token}/wants", { params: { path: { token: mediaToken } }, body: said })
     .catch(() => undefined);
 }
 
