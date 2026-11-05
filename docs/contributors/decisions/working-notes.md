@@ -26454,4 +26454,10 @@ D425. Each goes in before D416's batch deploys, while a change still costs nothi
    `item_found` view and the `place_found_au` trigger key on `place.file_id` rather than assume a
    place's id is its file's.
 
-**Status:** Decided 2026-11-05; to be made in D416's batch, before check-pr.
+**Status:** Built 2026-11-05, its clauses read back against the code. §1: `kind` is a comma-separated
+list, `any` refused with a 422, `/items` without it lists all three kinds. §2: response-only schemas are
+open and their kind and error-code enums carry `x-extensible-enum`; a schema shared with a request stays
+closed; the OpenAPI description and api-compatibility.md state the rule. §3: standards/sql.md §5; the
+migration runner gains the route with the first step that widens a list. §5: both folder listings take
+`cursor` and `limit`; `/needs-attention` lists at most 100 of each, with counts that stop where its
+reads stop (500 films, 5,000 files). §6: steps 0081–0083, with the `file_place` view.
