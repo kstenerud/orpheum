@@ -284,7 +284,7 @@ describe("a page's arrival", () => {
   it("is the People page's first person", async () => {
     await page.viewport(1280, 800);
     walking = await mountApp(walkServices(anAdmin, "/users"));
-    await arrivesIn(".people__list");
+    await arrivesIn('[aria-labelledby="people-accounts"] .grid-list');
     expect(focusedName()).toContain("Karl");
   });
 

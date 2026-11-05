@@ -13,7 +13,7 @@ import {
   type Account,
   type Invitation,
 } from "./accounts.ts";
-import { arrivalMark } from "./focus-navigation.ts";
+import { GridList } from "./grid-list.tsx";
 import { InvitationDialog, InvitationsSection } from "./invitations-section.tsx";
 import { Link } from "./link.tsx";
 import { Loaded } from "./loaded.tsx";
@@ -210,16 +210,16 @@ export function IssuedInvitationView(props: { readonly issued: IssuedInvitation 
 export function UsersList(props: { readonly accounts: readonly Account[] }): JSX.Element {
   const { t } = useTranslation();
   return (
-    <ul className="people__list" {...arrivalMark}>
-      {props.accounts.map((account) => (
-        <li key={account.id}>
-          <Link to={{ screen: "user", userId: account.id }} className="people__row">
-            <span className="people__name">{account.name}</span>
-            <span className="people__note">{account.adminNote}</span>
-            <span>{roleLabel(t, account.role)}</span>
-          </Link>
-        </li>
-      ))}
-    </ul>
+    <GridList
+      rows={props.accounts}
+      rowKey={(account) => String(account.id)}
+      columns={[
+        { key: "name", text: "truncate", cell: (account) => account.name },
+        { key: "note", text: "wrap", cell: (account) => account.adminNote },
+        { key: "role", text: "fit", cell: (account) => roleLabel(t, account.role) },
+      ]}
+      target={(account, drawn) => <Link to={{ screen: "user", userId: account.id }} {...drawn} />}
+      isArrival
+    />
   );
 }

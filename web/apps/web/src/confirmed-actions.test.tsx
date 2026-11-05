@@ -123,7 +123,7 @@ it("deletes a role from its dialog, and withdraws an invitation from its dialog,
     "DELETE /invitations/7": [204, null],
   } as const;
   mounted = await mount(withServices(<Users />, servedBy(answers, heard)));
-  const roleRow = [...mounted.container.querySelectorAll("button.people__row")].find((each) =>
+  const roleRow = [...mounted.container.querySelectorAll("button.grid-list__target")].find((each) =>
     each.textContent.startsWith("friends"),
   );
   await click(roleRow ?? null);

@@ -131,7 +131,7 @@ it("marks a role that reaches no library in Roles, and its dialog says what to d
   } as const;
   mounted = await mount(withServices(<Users />, servedBy(answers)));
   const rowOf = (name: string): Element | undefined =>
-    [...(mounted?.container.querySelectorAll("li.people__item") ?? [])].find(
+    [...(mounted?.container.querySelectorAll("li.grid-list__row") ?? [])].find(
       (row) => row.querySelector("button")?.textContent.includes(name) === true,
     );
   expect(rowOf("Can watch")?.querySelectorAll("button")).toHaveLength(2);

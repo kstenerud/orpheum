@@ -135,7 +135,7 @@ const rowNames: Record<number, string> = { 1: "Administrator", 2: "Can watch", 3
 /** Opens the dialog of the role with id roleId by clicking its row in Roles. */
 async function openRole(page: Mounted, roleId: number): Promise<void> {
   const row = [
-    ...page.container.querySelectorAll("#roles-heading + p + ul button.people__row"),
+    ...page.container.querySelectorAll("#roles-heading + p + ul button.grid-list__target"),
   ].find((each) => each.textContent.startsWith(rowNames[roleId] ?? ""));
   await click(row ?? null);
 }
@@ -166,7 +166,7 @@ it("lists accounts by name, note and role leading to their pages, and roles by n
   }));
   expect(links).toContainEqual({ href: "/users/5", text: "cousinAnnaCan watch" });
   expect(links.some((link) => link.href?.startsWith("/roles/") === true)).toBe(false);
-  const rows = [...mounted.container.querySelectorAll("button.people__row")].map(
+  const rows = [...mounted.container.querySelectorAll("button.grid-list__target")].map(
     (each) => each.textContent,
   );
   expect(rows).toContain("Administrator1 person");
