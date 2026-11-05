@@ -1835,3 +1835,21 @@ not properly planned for."
   check-pr and the deploy. The batch's deploy regenerates the database on nas.example (greenfield,
   D426). That is the last point where a schema change costs nothing. After it, every change is
   an appended migration.
+
+## Repointing a library (the owner, 2026-11-05), the batch after the API and schema batch
+
+The owner, while moving the media off nas.example for its memory tests (a copy on devnas.example at
+`/aitank/mediabackup/video`): "this will likely become a use case: Relocating where a library lives.
+We should have the ability to repoint a library. … once the API and DB work is done I want to do this
+in the following batch."
+
+- **The need:** a library's folders move (a new disk, a new NAS, a different mount point or node), and
+  the household keeps everything that hangs off the library: identification, artwork, overrides, and
+  people's watched state, resume positions and preferences.
+- **What exists:** a library's roots are paths on a node (`library_root`), and each `place` records a
+  path on a node. Today the stand-in is to show the new disk at the old path, so nothing changes.
+- **To design with the owner:** what the person states (an old root → a new root, on the same node or
+  another); how the move is confirmed (the files at the new root are matched by path suffix, then by
+  hash, since step 0078's `file`/`place` split lets a file gain a place and lose one); what happens to a
+  file not found at the new root; and whether the old root is kept as a fallback until it is gone.
+- **For the expansion audit:** check that the schema after D426 makes this a change of `place` rows alone.
