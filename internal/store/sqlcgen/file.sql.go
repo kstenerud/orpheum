@@ -159,7 +159,7 @@ func (q *Queries) DeleteWholeHashesOfPurgedFiles(ctx context.Context, fileIdsJso
 const getFileForSubtitleSearch = `-- name: GetFileForSubtitleSearch :one
 SELECT f.id, f.opensubtitles_hash, v.work_id, t.kind AS work_kind
 FROM file f
-CROSS JOIN place ON place.id = f.id AND place.removed_at IS NULL
+CROSS JOIN file_place ON file_place.file_id = f.id
 LEFT JOIN version v ON v.id = (
   SELECT file_filing.version_id FROM file_filing
   CROSS JOIN version AS live ON live.id = file_filing.version_id AND live.removed_at IS NULL
@@ -206,7 +206,8 @@ func (q *Queries) GetFileProbeJSON(ctx context.Context, fileID int64) (string, e
 const getFileToHashWhole = `-- name: GetFileToHashWhole :one
 SELECT file.id, place.node_id, place.reported_path_raw, file.payload_hash, file.size_bytes, place.modified_at
 FROM file
-CROSS JOIN place ON place.id = file.id AND place.removed_at IS NULL AND place.filing = 'read'
+CROSS JOIN file_place ON file_place.file_id = file.id
+CROSS JOIN place ON place.id = file_place.place_id AND place.filing = 'read'
 WHERE file.id = ?1 AND file.sidecar_kind IS NULL
 `
 
@@ -300,7 +301,8 @@ const getPlayableFile = `-- name: GetPlayableFile :one
 SELECT file.id, place.node_id, place.reported_path_raw, file.payload_hash, file_probe.probe_json,
   file.size_bytes
 FROM file
-CROSS JOIN place ON place.id = file.id AND place.removed_at IS NULL AND place.filing = 'read'
+CROSS JOIN file_place ON file_place.file_id = file.id
+CROSS JOIN place ON place.id = file_place.place_id AND place.filing = 'read'
 LEFT JOIN file_probe ON file_probe.file_id = file.id
 WHERE file.id = ? AND file.sidecar_kind IS NULL
 `
@@ -364,7 +366,8 @@ func (q *Queries) GetSidecarStream(ctx context.Context, bytesFile int64) (GetSid
 const getSubtitleStream = `-- name: GetSubtitleStream :one
 SELECT s.id, s.video_file, s.stream_index, s.codec, s.bytes_file, file.payload_hash
 FROM stream s
-JOIN place ON place.id = s.bytes_file AND place.removed_at IS NULL
+JOIN file_place ON file_place.file_id = s.bytes_file
+JOIN place ON place.id = file_place.place_id
 JOIN file ON file.id = s.bytes_file
 WHERE s.id = ?1 AND s.kind = 'subtitle'
 `
@@ -1456,7 +1459,8 @@ func (q *Queries) ListStreamsOfBytesFile(ctx context.Context, bytesFile int64) (
 const listSubtitleStreamsInFile = `-- name: ListSubtitleStreamsInFile :many
 SELECT s.id, s.stream_index, s.codec, place.node_id, place.reported_path_raw, file.payload_hash
 FROM stream s
-JOIN place ON place.id = s.bytes_file AND place.removed_at IS NULL
+JOIN file_place ON file_place.file_id = s.bytes_file
+JOIN place ON place.id = file_place.place_id
 JOIN file ON file.id = s.bytes_file
 WHERE s.bytes_file = ?1 AND s.kind = 'subtitle'
 ORDER BY s.stream_index
@@ -1507,12 +1511,13 @@ const listSubtitleTracksOfVideo = `-- name: ListSubtitleTracksOfVideo :many
 SELECT s.id, s.stream_index, s.codec, s.language, s.container_title, s.disposition_flags, s.bytes_file,
   file.payload_hash AS bytes_payload_hash
 FROM stream s
-JOIN place ON place.id = s.bytes_file AND place.removed_at IS NULL
+JOIN file_place ON file_place.file_id = s.bytes_file
+JOIN place ON place.id = file_place.place_id
 JOIN file ON file.id = s.bytes_file
 WHERE s.video_file = ?1 AND s.kind = 'subtitle'
   AND (s.bytes_file = s.video_file OR CAST(?2 AS INTEGER) = 1
     OR EXISTS (
-      SELECT 1 FROM library_place WHERE library_place.place_id = s.bytes_file
+      SELECT 1 FROM library_place WHERE library_place.file_id = s.bytes_file
         AND library_place.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT)))))
 ORDER BY s.bytes_file <> s.video_file, s.stream_index, place.path
 `

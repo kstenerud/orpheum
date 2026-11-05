@@ -107,7 +107,7 @@ LEFT JOIN library AS covering ON covering.id = (
   SELECT first.library_id FROM library_place AS first
   WHERE first.place_id = place.id AND (first.library_id = sqlc.narg(library_id) OR sqlc.narg(library_id) IS NULL)
   ORDER BY first.library_id LIMIT 1)
-LEFT JOIN file_filing ON file_filing.file_id = place.id AND file_filing.library_kind = covering.kind
+LEFT JOIN file_filing ON file_filing.file_id = place.file_id AND file_filing.library_kind = covering.kind
 WHERE place.removed_at IS NULL AND place.id > sqlc.arg(after_id)
   AND (covering.id IS NOT NULL OR sqlc.narg(library_id) IS NULL)
   AND (CAST(CASE WHEN place.filing <> 'read' THEN place.filing WHEN file.sidecar_kind IS NOT NULL THEN 'attached'

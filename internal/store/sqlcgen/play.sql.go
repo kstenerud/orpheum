@@ -400,18 +400,18 @@ func (q *Queries) ListPlaySpansOfFile(ctx context.Context, arg ListPlaySpansOfFi
 
 const listRecentPlayPositions = `-- name: ListRecentPlayPositions :many
 SELECT play_position.file_id, play_position.position_ms, play_position.position_read_at,
-  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = own.id), 0) AS INTEGER)
+  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = own.file_id), 0) AS INTEGER)
     AS duration_ms,
   CAST((
     SELECT place.path FROM version_library CROSS JOIN place ON place.id = version_library.place_id
-    WHERE version_library.version_id = version.id AND version_library.file_id = own.id
+    WHERE version_library.version_id = version.id AND version_library.file_id = own.file_id
       AND (CAST(?1 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?2 AS TEXT))))
     ORDER BY place.id <> place.file_id, place.first_seen_at, place.id LIMIT 1) AS TEXT) AS path,
   work.id AS work_id, work.kind, item.year, item_text.name, item_hidden.hidden_at, work_watched.marked_at
 FROM play_position
-JOIN place AS own ON own.id = play_position.file_id AND own.removed_at IS NULL
-JOIN file_filing ON file_filing.file_id = own.id
+JOIN file_place AS own ON own.file_id = play_position.file_id
+JOIN file_filing ON file_filing.file_id = own.file_id
 JOIN version ON version.id = file_filing.version_id AND version.removed_at IS NULL
 JOIN work ON work.id = version.work_id AND work.kind IN ('movie', 'episode', 'other')
 JOIN item ON item.id = work.id AND item.removed_at IS NULL
@@ -421,7 +421,7 @@ LEFT JOIN work_watched ON work_watched.user_id = play_position.user_id AND work_
 WHERE play_position.user_id = ?3
   AND EXISTS (
     SELECT 1 FROM version_library WHERE version_library.version_id = version.id
-      AND version_library.file_id = own.id
+      AND version_library.file_id = own.file_id
       AND (CAST(?1 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?2 AS TEXT)))))
 ORDER BY play_position.position_read_at DESC
@@ -498,8 +498,8 @@ func (q *Queries) ListRecentPlayPositions(ctx context.Context, arg ListRecentPla
 const listWatchedLiveFiles = `-- name: ListWatchedLiveFiles :many
 SELECT DISTINCT play_position.file_id, work.id AS work_id
 FROM play_position
-JOIN place AS own ON own.id = play_position.file_id AND own.removed_at IS NULL
-JOIN file_filing ON file_filing.file_id = own.id
+JOIN file_place AS own ON own.file_id = play_position.file_id
+JOIN file_filing ON file_filing.file_id = own.file_id
 JOIN version ON version.id = file_filing.version_id AND version.removed_at IS NULL
 JOIN work ON work.id = version.work_id AND work.kind IN ('movie', 'episode', 'other')
 JOIN item ON item.id = work.id AND item.removed_at IS NULL
@@ -539,14 +539,14 @@ func (q *Queries) ListWatchedLiveFiles(ctx context.Context) ([]ListWatchedLiveFi
 
 const listWorksPlayPositions = `-- name: ListWorksPlayPositions :many
 SELECT version.work_id, play_position.position_ms, play_position.position_read_at,
-  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = own.id), 0) AS INTEGER)
+  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = own.file_id), 0) AS INTEGER)
     AS duration_ms,
   item_hidden.hidden_at, work_watched.marked_at
 FROM json_each(CAST(?1 AS TEXT)) AS listed
 CROSS JOIN version ON version.work_id = listed.value AND version.removed_at IS NULL
 CROSS JOIN file_filing ON file_filing.version_id = version.id
-CROSS JOIN place AS own ON own.id = file_filing.file_id AND own.removed_at IS NULL
-CROSS JOIN play_position ON play_position.user_id = ?2 AND play_position.file_id = own.id
+CROSS JOIN file_place AS own ON own.file_id = file_filing.file_id
+CROSS JOIN play_position ON play_position.user_id = ?2 AND play_position.file_id = own.file_id
 LEFT JOIN item_hidden ON item_hidden.user_id = play_position.user_id AND item_hidden.item_id = version.work_id
 LEFT JOIN work_watched ON work_watched.user_id = play_position.user_id AND work_watched.work_id = version.work_id
 ORDER BY play_position.position_read_at DESC

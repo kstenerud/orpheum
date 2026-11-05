@@ -259,13 +259,14 @@ func (q *Queries) ListItemProviderIDs(ctx context.Context, itemID int64) ([]List
 }
 
 const listLiveFilesOfWork = `-- name: ListLiveFilesOfWork :many
-SELECT place.id, place.path, file_filing.library_kind,
-  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = place.id), 0) AS INTEGER)
+SELECT file_filing.file_id AS id, place.path, file_filing.library_kind,
+  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file_filing.file_id), 0) AS INTEGER)
     AS duration_ms
 FROM version
 CROSS JOIN file_filing ON file_filing.version_id = version.id
-CROSS JOIN place ON place.id = file_filing.file_id
-WHERE version.work_id = ?1 AND version.removed_at IS NULL AND place.removed_at IS NULL
+CROSS JOIN file_place ON file_place.file_id = file_filing.file_id
+CROSS JOIN place ON place.id = file_place.place_id
+WHERE version.work_id = ?1 AND version.removed_at IS NULL
 ORDER BY place.path
 `
 

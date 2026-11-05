@@ -217,13 +217,14 @@ JOIN library ON library.id = item.filing_library_id
 CROSS JOIN work ON work.id = item.id
 JOIN place AS own ON own.id = (
   SELECT live.id FROM version CROSS JOIN file_filing ON file_filing.version_id = version.id
-  CROSS JOIN place AS live ON live.id = file_filing.file_id
-  CROSS JOIN file AS live_file ON live_file.id = live.id
+  CROSS JOIN file_place AS live_place ON live_place.file_id = file_filing.file_id
+  CROSS JOIN place AS live ON live.id = live_place.place_id
+  CROSS JOIN file AS live_file ON live_file.id = live.file_id
   WHERE version.work_id = work.id AND version.removed_at IS NULL AND live.removed_at IS NULL
     AND live_file.payload_hash IS NOT NULL
   ORDER BY live.path LIMIT 1
 )
-CROSS JOIN file ON file.id = own.id
+CROSS JOIN file ON file.id = own.file_id
 WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL
   AND work.kind IN ('movie', 'episode', 'other')
   AND NOT EXISTS (
