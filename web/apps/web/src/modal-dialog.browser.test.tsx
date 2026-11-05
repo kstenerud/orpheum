@@ -10,13 +10,35 @@ import "./tokens.css";
 import "./base.css";
 
 import { useState, type JSX } from "react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { dangerousMark } from "./focus-navigation.ts";
 import { ModalDialog } from "./modal-dialog.tsx";
-import { mount } from "./test-dom.tsx";
+import { mount as mountTree, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
+
+/** What this file's tests mounted, taken down after each that failed before its own unmount. */
+const mounts: Mounted[] = [];
+
+/**
+ * Mounts tree as test-dom.tsx does, kept to be taken down after the test: a test that fails with its
+ * dialog open would otherwise leave it in the page, and every later test that looks for no dialog
+ * fails too.
+ */
+async function mount(tree: Parameters<typeof mountTree>[0]): Promise<Mounted> {
+  const mounted = await mountTree(tree);
+  mounts.push(mounted);
+  return mounted;
+}
+
+afterEach(() => {
+  for (const mounted of mounts.splice(0)) {
+    if (mounted.container.isConnected) {
+      mounted.unmount();
+    }
+  }
+});
 
 /** A page with a button beside a dialog of two choices, which a controller's Back closes. */
 function PageWithADialog(props: { readonly shouldStayOpenOnOutsidePress?: boolean }): JSX.Element {
