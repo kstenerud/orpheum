@@ -36,19 +36,19 @@ SELECT CAST((
   SELECT count(*) FROM item
   WHERE item.identification_state = 'ambiguous' AND item.kind = 'series' AND item.removed_at IS NULL
     AND EXISTS (
-    SELECT 1 FROM sequence_member
-    CROSS JOIN version ON version.work_id = sequence_member.member_work
+    SELECT 1 FROM series_member
+    CROSS JOIN version ON version.work_id = series_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE sequence_member.sequence_id = item.id AND version.removed_at IS NULL)
+    WHERE series_member.sequence_id = item.id AND version.removed_at IS NULL)
 ) + (
   SELECT count(*) FROM item
   WHERE item.identification_state = 'unidentified' AND item.followed_source = 'none' AND item.kind != 'episode'
     AND item.kind = 'series' AND item.removed_at IS NULL
     AND EXISTS (
-    SELECT 1 FROM sequence_member
-    CROSS JOIN version ON version.work_id = sequence_member.member_work
+    SELECT 1 FROM series_member
+    CROSS JOIN version ON version.work_id = series_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE sequence_member.sequence_id = item.id AND version.removed_at IS NULL)
+    WHERE series_member.sequence_id = item.id AND version.removed_at IS NULL)
 ) + (
   SELECT count(*) FROM fetch_failure CROSS JOIN item ON item.id = fetch_failure.item_id
   WHERE item.identification_state = 'unidentified' AND IFNULL(item.followed_source, '') != 'none'
@@ -59,10 +59,10 @@ SELECT CAST((
   SELECT count(*) FROM fetch_failure CROSS JOIN item ON item.id = fetch_failure.item_id
   WHERE item.kind = 'series' AND item.identification_state = 'unidentified'
     AND IFNULL(item.followed_source, '') != 'none' AND item.removed_at IS NULL AND EXISTS (
-    SELECT 1 FROM sequence_member
-    CROSS JOIN version ON version.work_id = sequence_member.member_work
+    SELECT 1 FROM series_member
+    CROSS JOIN version ON version.work_id = series_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE sequence_member.sequence_id = item.id AND version.removed_at IS NULL)
+    WHERE series_member.sequence_id = item.id AND version.removed_at IS NULL)
 ) AS INTEGER) AS waiting_count
 `
 

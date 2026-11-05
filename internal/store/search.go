@@ -51,10 +51,10 @@ LEFT JOIN sequence ON sequence.id = item.id`
     SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
     WHERE version.work_id = work.id AND version.removed_at IS NULL AND ` + searchReached + `))
   OR (sequence.id IS NOT NULL AND EXISTS (
-    SELECT 1 FROM sequence_member
-    CROSS JOIN version ON version.work_id = sequence_member.member_work
+    SELECT 1 FROM series_member
+    CROSS JOIN version ON version.work_id = series_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE sequence_member.sequence_id = sequence.id AND version.removed_at IS NULL
+    WHERE series_member.sequence_id = sequence.id AND version.removed_at IS NULL
       AND ` + searchReached + `)))`
 
 	searchWordsSQL = `SELECT ` + searchColumns + `

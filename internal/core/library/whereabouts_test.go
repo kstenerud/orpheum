@@ -36,7 +36,7 @@ func TestWhereabouts_NameTheLibrariesTheCallerReachesAndAnExtrasFilm(t *testing.
 	storetest.ExecRaw(t, world.database.Path(),
 		fmt.Sprintf("INSERT INTO sequence (id, kind, created_by) VALUES (%d, 'series', "+
 			"'scanner')", series),
-		fmt.Sprintf("INSERT INTO sequence_member (sequence_id, member_work) VALUES (%d, %d)", series, pilot))
+		storetest.Members(series, fmt.Sprintf("(%d, 1)", pilot)))
 
 	extra, err := world.browser.Whereabouts(t.Context(), auth.EveryLibrary(), trailer, true)
 	if err != nil {

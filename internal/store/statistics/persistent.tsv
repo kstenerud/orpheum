@@ -48,9 +48,6 @@ role	sqlite_autoindex_role_1	2 1
 schema_meta		1
 schema_step		32
 sequence		200
-sequence_member	sequence_member_work	10000 1
-sequence_member	sqlite_autoindex_sequence_member_1	10000 50 1
-sequence_member	sqlite_autoindex_sequence_member_2	10000 50 50
 sort_key	sort_key	3700 1 1
 sort_key	sort_key_item	3700 1 1
 sort_key	sort_key_listing	3700 3700 1850 2 1

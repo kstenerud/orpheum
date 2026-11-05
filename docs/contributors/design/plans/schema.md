@@ -717,15 +717,6 @@ CREATE TABLE sequence (                                    -- class A or O
   created_by  TEXT NOT NULL CHECK (created_by IN ('scanner','provider','user')),
   FOREIGN KEY (id, kind) REFERENCES item(id, kind) ON UPDATE CASCADE ON DELETE RESTRICT
 );
-CREATE TABLE sequence_member (                           -- D159, D160
-  sequence_id     INTEGER NOT NULL REFERENCES sequence(id) ON DELETE RESTRICT,
-  member_work      INTEGER REFERENCES work(id) ON DELETE RESTRICT,
-  member_sequence INTEGER REFERENCES sequence(id) ON DELETE RESTRICT,
-  position          REAL,                -- NULL: a member without a place (Machete order)
-  CHECK ((member_work IS NULL) <> (member_sequence IS NULL)),
-  UNIQUE (sequence_id, member_work),
-  UNIQUE (sequence_id, member_sequence)
-);
 
 CREATE TABLE ordering (                                    -- D96, D159
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -761,6 +752,12 @@ CREATE TABLE group_text (                                  -- a season's name, a
   name        TEXT,
   PRIMARY KEY (grp_id, language)
 ) WITHOUT ROWID;
+-- A series' members: the titles placed in its aired order (0080, D426 §6).
+CREATE VIEW series_member AS
+SELECT ordering.sequence_id, position.work_id AS member_work, position.sort_order
+FROM ordering
+JOIN position ON position.ordering_id = ordering.id
+WHERE ordering.name = 'aired';
 ```
 
 **A series is a sequence, and a season is a group of one of its orderings** (D426 §5 amends
@@ -769,7 +766,13 @@ group once, in its ordering; a position, a group's names and a season's poster r
 position with no season names none. The API still addresses a group as its item and its number. A
 season's poster names a group of its series' aired ordering, an invariant checks. The same tables
 hold an album's discs and tracks, which is why they are named `position` and `grp` rather than
-`episode_position` and `season` ([D186](../../decisions/working-notes.md)). `kind` omits `season` and `smart` from
+`episode_position` and `season` ([D186](../../decisions/working-notes.md)).
+
+**A series' members are its aired order's places** (D426 §6, step 0080). `sequence_member` held each
+episode a second time beside its aired place, at the same sort order, and its other role, a sequence
+of sequences (a box set's), no writer filled; it went, and `series_member` reads the membership from
+the aired order. An episode found but not placed is a member by a place in no season. The box set
+returns with its feature. `kind` omits `season` and `smart` from
 library-model.md's list for that reason: a season is not a Collection here, and "smart", a
 collection by a rule, is not built (its `membership` and `predicate` went in step 0071, D426 §8).
 
@@ -1402,7 +1405,6 @@ second writer, or on a writer this table does not name. A table no package write
 | --- | --- | --- | --- |
 | `artwork` | persistent.db | `internal/core/artwork` | identify reports the images it found; the server's wiring hands them to `artwork.Service.Take` |
 | `sequence` | persistent.db | `internal/core/identify` | |
-| `sequence_member` | persistent.db | `internal/core/identify` | |
 | `grp` | persistent.db | `internal/core/identify` | a season or a disc of an ordering (step 0079, D426 §5): one for each group a position or a name is in, and each season a series' provider lists; artwork only looks a season's up for its poster |
 | `credit` | persistent.db | `internal/core/identify` | the pass, from each title's and series' source (step 0067) |
 | `device` | persistent.db | `internal/core/auth` | |
@@ -1484,7 +1486,7 @@ rows. Each class that would grow with no bound but time is kept to a limit a set
 
 | Grows with | Tables | Bounded by, today |
 | --- | --- | --- |
-| The library | `file`, `file_probe`, `file_nfo`, `stream`, `item`, `work`, `version`, `sequence`, `sequence_member`, `ordering`, `position`, `extra_relation`, `item_text`, `sort_key`, `other_video`, `item_provider_id`, `field_override`, `artwork`, `provider_response`, `loudness`, `video_timeline`, `subtitle_text`, `fetched_subtitle`, `person`, `genre`, `item_genre`, `credit` | the files and works the libraries hold, **and every one they ever held**: a removed file is a tombstone, kept so that a file copied back returns with what was read of it (D208 §4, D231 §7), and deleted `removed_files_kept_days` (90) after, with its streams, probe, NFO, subtitles fetched for it and the choices made in it (D306 §8); a removed item, title or version stays, and nothing purges those yet |
+| The library | `file`, `file_probe`, `file_nfo`, `stream`, `item`, `work`, `version`, `sequence`, `ordering`, `grp`, `position`, `extra_relation`, `item_text`, `sort_key`, `other_video`, `item_provider_id`, `field_override`, `artwork`, `provider_response`, `loudness`, `video_timeline`, `subtitle_text`, `fetched_subtitle`, `person`, `genre`, `item_genre`, `credit` | the files and works the libraries hold, **and every one they ever held**: a removed file is a tombstone, kept so that a file copied back returns with what was read of it (D208 §4, D231 §7), and deleted `removed_files_kept_days` (90) after, with its streams, probe, NFO, subtitles fetched for it and the choices made in it (D306 §8); a removed item, title or version stays, and nothing purges those yet |
 | The library's open questions | `fetch_failure`, `refresh_request`, `guessed_match` | one row an item at most; each is deleted when its question is answered |
 | People and their devices | `user`, `device`, `"grant"`, `locator` | the people and devices there are, and a removed person's nameless row (D305 §1); a credential that ended, revoked or expired, is deleted `ended_credentials_kept_days` (90) after, with its locator (D304 §6); a removed device stays as a row while a play names it |
 | Watching | `play_event`, `play_span`, `play_position`, `item_hidden`, `purged_watching`, `work_watched` | every play of the files there are; a deleted file's plays fold into one `purged_watching` row a person a version (D306 §8); one `work_watched` row a person a title they watched or marked (D370); all deleted with the person who watched (`ForgetWatchingOf`) |

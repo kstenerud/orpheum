@@ -48,8 +48,6 @@ func (harness testHarness) shelveDVDOrder(t *testing.T) {
 			"(23, 'und', 1, 'Bag'), (24, 'und', 1, 'Seven')",
 		storetest.Positions(
 			"(1, 22, 1, 2, 10002), (1, 23, 1, 3, 10003), (1, 24, 2, 1, 20001)"),
-		"INSERT INTO sequence_member (sequence_id, member_work, position) VALUES (20, 22, 10002), "+
-			"(20, 23, 10003), (20, 24, 20001)",
 		`INSERT INTO ordering (id, sequence_id, name, provider, kind, source_id, label, listed_count)
 		 VALUES (2, 20, 'tmdb:dvd', 'tmdb', 'dvd', 'dvd', 'DVD Order', 5)`,
 		storetest.Positions(

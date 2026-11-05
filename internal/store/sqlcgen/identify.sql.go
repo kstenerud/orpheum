@@ -1287,44 +1287,6 @@ func (q *Queries) ListLibrarySeriesForPass(ctx context.Context, libraryID *int64
 	return items, nil
 }
 
-const listLibrarySeriesMembers = `-- name: ListLibrarySeriesMembers :many
-SELECT sequence_member.sequence_id, sequence_member.member_work, sequence_member.position
-FROM item
-JOIN sequence_member ON sequence_member.sequence_id = item.id
-WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND item.kind = 'series'
-  AND sequence_member.member_work IS NOT NULL
-`
-
-type ListLibrarySeriesMembersRow struct {
-	SequenceID int64
-	MemberWork *int64
-	Position   *float64
-}
-
-// The titles in the library's live series, with their places.
-func (q *Queries) ListLibrarySeriesMembers(ctx context.Context, libraryID *int64) ([]ListLibrarySeriesMembersRow, error) {
-	rows, err := q.db.QueryContext(ctx, listLibrarySeriesMembers, libraryID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListLibrarySeriesMembersRow{}
-	for rows.Next() {
-		var i ListLibrarySeriesMembersRow
-		if err := rows.Scan(&i.SequenceID, &i.MemberWork, &i.Position); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listLibraryUnnumberedEpisodePaths = `-- name: ListLibraryUnnumberedEpisodePaths :many
 SELECT ordering.sequence_id AS series_id, place.path
 FROM item AS series
@@ -1668,10 +1630,10 @@ func (q *Queries) ListOverrides(ctx context.Context, itemID int64) ([]ListOverri
 const listSeriesByProviderID = `-- name: ListSeriesByProviderID :many
 SELECT sequence.id, item.filing_library_id, item.removed_at,
   CAST(item.removed_at IS NOT NULL OR NOT EXISTS (
-    SELECT 1 FROM sequence_member
-    CROSS JOIN version ON version.work_id = sequence_member.member_work
+    SELECT 1 FROM series_member
+    CROSS JOIN version ON version.work_id = series_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE sequence_member.sequence_id = sequence.id AND version.removed_at IS NULL
+    WHERE series_member.sequence_id = sequence.id AND version.removed_at IS NULL
       AND version_library.library_id = item.filing_library_id) AS INTEGER) AS is_filed_by_none
 FROM item_provider_id
 JOIN sequence ON sequence.id = item_provider_id.item_id AND sequence.kind = 'series'
@@ -1774,18 +1736,18 @@ func (q *Queries) ListSeriesEpisodePlaces(ctx context.Context, sequenceID int64)
 }
 
 const listSeriesToAdopt = `-- name: ListSeriesToAdopt :many
-SELECT DISTINCT sequence_member.sequence_id
+SELECT DISTINCT series_member.sequence_id
 FROM item AS episode
-CROSS JOIN sequence_member ON sequence_member.member_work = episode.id
-CROSS JOIN item AS series ON series.id = sequence_member.sequence_id
+CROSS JOIN series_member ON series_member.member_work = episode.id
+CROSS JOIN item AS series ON series.id = series_member.sequence_id
 WHERE episode.filing_library_id = ?1 AND episode.removed_at IS NULL AND episode.kind IN ('movie', 'episode', 'extra', 'other')
   AND series.removed_at IS NULL AND series.kind = 'series' AND series.filing_library_id IS NOT ?1
   AND NOT EXISTS (
-    SELECT 1 FROM sequence_member AS held
+    SELECT 1 FROM series_member AS held
     CROSS JOIN item AS sibling ON sibling.id = held.member_work
     WHERE held.sequence_id = series.id AND sibling.removed_at IS NULL
       AND sibling.filing_library_id = series.filing_library_id)
-ORDER BY sequence_member.sequence_id
+ORDER BY series_member.sequence_id
 `
 
 // The series some of whose episodes a library's pass files, whose filing library files none of them
@@ -2056,24 +2018,6 @@ type MergeWorkWithNoLiveVersionParams struct {
 // was, once it has no live version left (D304 section 5).
 func (q *Queries) MergeWorkWithNoLiveVersion(ctx context.Context, arg MergeWorkWithNoLiveVersionParams) error {
 	_, err := q.db.ExecContext(ctx, mergeWorkWithNoLiveVersion, arg.MergedInto, arg.RemovedAt, arg.WorkID)
-	return err
-}
-
-const moveEpisodeToSeries = `-- name: MoveEpisodeToSeries :exec
-UPDATE sequence_member SET sequence_id = ?1
-WHERE sequence_id = ?2 AND member_work = ?3
-`
-
-type MoveEpisodeToSeriesParams struct {
-	ToSeries   int64
-	FromSeries int64
-	WorkID     *int64
-}
-
-// An episode joins another series at the same place: its membership, and its place in the
-// aired order, which moves to the other series' own.
-func (q *Queries) MoveEpisodeToSeries(ctx context.Context, arg MoveEpisodeToSeriesParams) error {
-	_, err := q.db.ExecContext(ctx, moveEpisodeToSeries, arg.ToSeries, arg.FromSeries, arg.WorkID)
 	return err
 }
 
@@ -2368,25 +2312,6 @@ type UpsertScannerExtraRelationParams struct {
 // The scanner may assert an extra of a Title; a relation a person asserted stays theirs (D162).
 func (q *Queries) UpsertScannerExtraRelation(ctx context.Context, arg UpsertScannerExtraRelationParams) error {
 	_, err := q.db.ExecContext(ctx, upsertScannerExtraRelation, arg.OwnerWork, arg.ExtraWork, arg.ExtraType)
-	return err
-}
-
-const upsertSequenceMember = `-- name: UpsertSequenceMember :exec
-INSERT INTO sequence_member (sequence_id, member_work, position)
-VALUES (?1, ?2, ?3)
-ON CONFLICT (sequence_id, member_work) DO UPDATE SET position = excluded.position
-WHERE (sequence_member.position) IS NOT (excluded.position)
-`
-
-type UpsertSequenceMemberParams struct {
-	SequenceID int64
-	MemberWork *int64
-	Position   *float64
-}
-
-// Only when it changes something (D303, DL9).
-func (q *Queries) UpsertSequenceMember(ctx context.Context, arg UpsertSequenceMemberParams) error {
-	_, err := q.db.ExecContext(ctx, upsertSequenceMember, arg.SequenceID, arg.MemberWork, arg.Position)
 	return err
 }
 

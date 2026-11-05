@@ -745,10 +745,10 @@ WHERE item.kind = 'series' AND item.removed_at IS NULL
   AND (item.found_at, item.found_file_modified_at, item.id)
     > (?1, ?2, ?3)
   AND EXISTS (
-    SELECT 1 FROM sequence_member
-    CROSS JOIN version ON version.work_id = sequence_member.member_work
+    SELECT 1 FROM series_member
+    CROSS JOIN version ON version.work_id = series_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE sequence_member.sequence_id = item.id AND version.removed_at IS NULL
+    WHERE series_member.sequence_id = item.id AND version.removed_at IS NULL
       AND (CAST(?4 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
   )
@@ -829,10 +829,10 @@ LEFT JOIN item_text ON item_text.item_id = sort_key.item_id AND item_text.is_ori
 WHERE sort_key.locale = ?1 AND sort_key.listing = 'series' AND item.removed_at IS NULL
   AND (sort_key.collation_key < ?2 OR (sort_key.collation_key = ?2 AND sort_key.item_id < ?3))
   AND EXISTS (
-    SELECT 1 FROM sequence_member
-    CROSS JOIN version ON version.work_id = sequence_member.member_work
+    SELECT 1 FROM series_member
+    CROSS JOIN version ON version.work_id = series_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE sequence_member.sequence_id = item.id AND version.removed_at IS NULL
+    WHERE series_member.sequence_id = item.id AND version.removed_at IS NULL
       AND (CAST(?4 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?5 AS TEXT))))
   )
@@ -910,10 +910,10 @@ LEFT JOIN item_text ON item_text.item_id = item.id AND item_text.is_original = 1
 WHERE item.kind = 'series' AND item.removed_at IS NULL
   AND (item.released_on, item.id) < (CAST(?1 AS INTEGER), CAST(?2 AS INTEGER))
   AND EXISTS (
-    SELECT 1 FROM sequence_member
-    CROSS JOIN version ON version.work_id = sequence_member.member_work
+    SELECT 1 FROM series_member
+    CROSS JOIN version ON version.work_id = series_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE sequence_member.sequence_id = item.id AND version.removed_at IS NULL
+    WHERE series_member.sequence_id = item.id AND version.removed_at IS NULL
       AND (CAST(?3 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?4 AS TEXT))))
   )
@@ -990,10 +990,10 @@ LEFT JOIN item_text ON item_text.item_id = item.id AND item_text.is_original = 1
 WHERE item.kind = 'series' AND item.removed_at IS NULL
   AND (item.released_on, item.id) > (CAST(?1 AS INTEGER), CAST(?2 AS INTEGER))
   AND EXISTS (
-    SELECT 1 FROM sequence_member
-    CROSS JOIN version ON version.work_id = sequence_member.member_work
+    SELECT 1 FROM series_member
+    CROSS JOIN version ON version.work_id = series_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE sequence_member.sequence_id = item.id AND version.removed_at IS NULL
+    WHERE series_member.sequence_id = item.id AND version.removed_at IS NULL
       AND (CAST(?3 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?4 AS TEXT))))
   )
@@ -1069,10 +1069,10 @@ LEFT JOIN item_text ON item_text.item_id = item.id AND item_text.is_original = 1
 WHERE item.kind = 'series' AND item.released_on IS NULL AND item.removed_at IS NULL
   AND item.id > ?1
   AND EXISTS (
-    SELECT 1 FROM sequence_member
-    CROSS JOIN version ON version.work_id = sequence_member.member_work
+    SELECT 1 FROM series_member
+    CROSS JOIN version ON version.work_id = series_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE sequence_member.sequence_id = item.id AND version.removed_at IS NULL
+    WHERE series_member.sequence_id = item.id AND version.removed_at IS NULL
       AND (CAST(?2 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
   )

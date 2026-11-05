@@ -44,7 +44,6 @@ type snapshot struct {
 	// out, and read.
 	places    map[int64]sqlcgen.ListLibraryAiredPositionsRow
 	orderings map[int64]int64 // each held series' aired ordering
-	members   map[memberKey]*float64
 	// seriesValues are each held series' resolved values, as UpdateSeriesResolved compares them.
 	seriesValues map[int64]sqlcgen.UpdateSeriesResolvedParams
 	// seriesPlaces are each held series' episodes in its aired order, as ListSeriesEpisodePlaces
@@ -81,8 +80,8 @@ func (filer *libraryFiler) loadSnapshot(ctx context.Context, libraryID int64) er
 		providerIDs: map[int64]map[providerID]bool{}, itemsByID: map[providerID][]int64{},
 		texts: map[int64]sqlcgen.ListLibraryOriginalTextsRow{}, nfoBodies: map[int64][]byte{},
 		responses: map[responseKey][]byte{}, fetchedAt: map[responseKey]int64{},
-		places:    map[int64]sqlcgen.ListLibraryAiredPositionsRow{},
-		orderings: map[int64]int64{}, members: map[memberKey]*float64{},
+		places:       map[int64]sqlcgen.ListLibraryAiredPositionsRow{},
+		orderings:    map[int64]int64{},
 		seriesValues: map[int64]sqlcgen.UpdateSeriesResolvedParams{},
 		seriesPlaces: map[int64][]sqlcgen.ListSeriesEpisodePlacesRow{},
 		seriesMatch:  map[int64]sqlcgen.GetSeriesForMatchRow{},
@@ -143,7 +142,7 @@ func (filer *libraryFiler) loadSnapshot(ctx context.Context, libraryID int64) er
 	return nil
 }
 
-// loadSeries reads the library's series, their aired orders, members and episodes' places.
+// loadSeries reads the library's series, their aired orders and episodes' places.
 func (snap *snapshot) loadSeries(ctx context.Context, queries *sqlcgen.Queries, libraryID int64) error {
 	series, err := queries.ListLibrarySeriesForPass(ctx, &libraryID)
 	if err != nil {
@@ -178,13 +177,6 @@ func (snap *snapshot) loadSeries(ctx context.Context, queries *sqlcgen.Queries, 
 	}
 	for titleID := range twice {
 		delete(snap.places, titleID)
-	}
-	members, err := queries.ListLibrarySeriesMembers(ctx, &libraryID)
-	if err != nil {
-		return fmt.Errorf("list its series' members: %w", err)
-	}
-	for _, member := range members {
-		snap.members[memberKey{member.SequenceID, *member.MemberWork}] = member.Position
 	}
 	return snap.loadSeriesPlaces(ctx, queries, libraryID)
 }
@@ -497,18 +489,6 @@ func (filer *libraryFiler) airedOrdering(ctx context.Context, seriesID int64) (i
 		filer.snap.orderings[seriesID] = ordering
 	}
 	return ordering, err
-}
-
-// keepMember puts a title in a series at a place, unless it is there already.
-func (filer *libraryFiler) keepMember(ctx context.Context, member sqlcgen.UpsertSequenceMemberParams) error {
-	key := memberKey{member.SequenceID, *member.MemberWork}
-	if held, isHeld := filer.snap.members[key]; isHeld && ptr.Equal(held, member.Position) {
-		return nil
-	}
-	if filer.snap.isLoaded {
-		filer.snap.members[key] = member.Position
-	}
-	return filer.queries.UpsertSequenceMember(ctx, member) //nolint:wrapcheck // its callers say which title
 }
 
 // keepPosition places a title in an ordering, unless it is placed so already.

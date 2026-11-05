@@ -27,7 +27,6 @@ var identifiedTables = []string{
 	"SELECT * FROM sort_key ORDER BY item_id, locale",
 	"SELECT * FROM field_override ORDER BY item_id, field, language",
 	"SELECT * FROM item_provider_id ORDER BY item_id, provider, provider_id",
-	"SELECT * FROM sequence_member ORDER BY sequence_id, member_work",
 	"SELECT * FROM ordering ORDER BY id",
 	"SELECT * FROM position ORDER BY ordering_id, work_id",
 	"SELECT * FROM extra_relation ORDER BY owner_work, extra_work",

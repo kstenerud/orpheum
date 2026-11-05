@@ -84,9 +84,8 @@ func (world *frameWorld) series(t *testing.T, followedSource string, episodeIDs 
 	})
 	statements := []string{fmt.Sprintf(
 		"INSERT INTO sequence (id, kind, created_by) VALUES (%d, 'series', 'scanner')", seriesID)}
-	for _, episodeID := range episodeIDs {
-		statements = append(statements, fmt.Sprintf(
-			"INSERT INTO sequence_member (sequence_id, member_work) VALUES (%d, %d)", seriesID, episodeID))
+	for index, episodeID := range episodeIDs {
+		statements = append(statements, storetest.Members(seriesID, fmt.Sprintf("(%d, %d)", episodeID, index+1)))
 	}
 	storetest.ExecRaw(t, world.bench.database.Path(), statements...)
 	return seriesID

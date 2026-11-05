@@ -81,11 +81,11 @@ func TestSchema_EachPathsIndexServesIt(t *testing.T) {
 			"AND reported_path_raw > x'2f6d2f' AND reported_path_raw < x'2f6d30'": "place_live_path",
 		"SELECT id FROM place WHERE filing = 'errored' AND removed_at IS NULL " +
 			"ORDER BY node_id, path": "place_errored",
-		"SELECT file_id FROM file_filing WHERE version_id = 1":          "file_filing_version",
-		"SELECT id FROM place WHERE file_id = 1":                        "place_file",
-		"SELECT sequence_id FROM sequence_member WHERE member_work = 1": "sequence_member_work",
-		`SELECT secret_sha256 FROM "grant" WHERE device_id = 1`:         "grant_device",
-		"UPDATE version SET work_id = 2 WHERE work_id = 1":              "version_work",
+		"SELECT file_id FROM file_filing WHERE version_id = 1":        "file_filing_version",
+		"SELECT id FROM place WHERE file_id = 1":                      "place_file",
+		"SELECT sequence_id FROM series_member WHERE member_work = 1": "position_work",
+		`SELECT secret_sha256 FROM "grant" WHERE device_id = 1`:       "grant_device",
+		"UPDATE version SET work_id = 2 WHERE work_id = 1":            "version_work",
 		"SELECT id FROM item WHERE identification_state = 'unidentified' AND followed_source = 'none' " +
 			"AND kind != 'episode' AND kind IN ('movie', 'extra', 'other')": "item_waiting",
 		"SELECT id FROM item WHERE identification_state = 'ambiguous' AND kind = 'series'":    "item_ambiguous",

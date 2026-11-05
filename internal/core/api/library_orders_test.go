@@ -53,7 +53,7 @@ func (harness testHarness) shelveDatedFilms(t *testing.T) {
 			"WHERE id IN (10, 11, 12)",
 		"UPDATE item SET released_on = 20080120 WHERE id = 20",
 		"INSERT INTO sequence (id, kind, created_by) VALUES (30, 'series', 'scanner')",
-		"INSERT INTO sequence_member (sequence_id, member_work, position) VALUES (30, 31, 10001)",
+		storetest.Members(30, "(31, 10001)"),
 		`INSERT INTO item_text (item_id, language, is_original, name, search_alternates)
 		 VALUES (30, 'und', 1, 'Tweedcoat', 'tweedcoat'), (31, 'und', 1, 'Pilot', 'pilot')`,
 		fmt.Sprintf("INSERT INTO sort_key (item_id, locale, listing, collation_key) VALUES (30, 'en', 'series', %s)",

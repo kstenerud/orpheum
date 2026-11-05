@@ -149,7 +149,9 @@
 //     splits a file from its places, every id kept and each copy a place, in
 //     TestMigrate_Step0078KeepsEveryIDAndMakesEachCopyAPlace; step 0079 (D426 §5), which makes a
 //     group a row that its positions, names and season posters reference, in
-//     TestMigrate_Step0079MakesEachGroupARowAndKeepsEveryPlace.
+//     TestMigrate_Step0079MakesEachGroupARowAndKeepsEveryPlace; step 0080 (D426 §6), which makes a
+//     series' members its aired order's places, every member kept, in
+//     TestMigrate_Step0080KeepsEveryMemberAsAPlaceInItsAiredOrder.
 //   - Every write to a row people edit (a field set by hand, a library, a user, a role, a setting)
 //     raises its revision (sql.md M1). Enforced by TestRevision_EachUpdateOfAnEditedRowRaisesIt.
 //   - The schema keeps the rules D303 put in the engine: every table, both databases', STRICT; a

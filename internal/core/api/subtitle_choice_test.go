@@ -44,7 +44,7 @@ func (harness testHarness) shelveEpisodes(t *testing.T) {
 	storetest.ExecRaw(t, harness.databasePath,
 		"UPDATE file SET payload_hash = X'0102' WHERE id = 2",
 		"UPDATE place SET reported_path_raw = CAST(path AS BLOB) WHERE id = 2",
-		"INSERT INTO sequence_member (sequence_id, member_work, position) VALUES (20, 22, 10002), (20, 23, 10003)")
+		storetest.Members(20, "(22, 10002), (23, 10003)"))
 	librarytest.Stream(t, harness.database, librarytest.StreamSpec{
 		ID: 50, BytesFile: 2, StreamIndex: 2, Kind: "subtitle", Codec: "subrip", Language: "en",
 	})
@@ -89,8 +89,7 @@ func (harness testHarness) addEpisode(t *testing.T, titleID, fileID int64, track
 	})
 	librarytest.Probe(t, harness.database, librarytest.ProbeSpec{FileID: fileID, ProbeJSON: episodeProbe})
 	storetest.ExecRaw(t, harness.databasePath,
-		fmt.Sprintf("INSERT INTO sequence_member (sequence_id, member_work, position) VALUES (20, %d, %d)",
-			titleID, 10000+titleID),
+		storetest.Members(20, fmt.Sprintf("(%d, %d)", titleID, 10000+titleID)),
 		// tracks is each caller's own VALUES fragment, of however many tracks it wants, under
 		// chosen ids: left as raw SQL rather than Stream, one call per row.
 		"INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, language, disposition_flags) "+

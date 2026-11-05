@@ -373,15 +373,10 @@ func (filer *libraryFiler) findOrAddSeries(ctx context.Context, evidence seriesS
 	return id, nil
 }
 
-// positionEpisode puts an episode in its series and in the series' aired order.
+// positionEpisode puts an episode in its series' aired order, which makes it the series' (D426
+// section 6).
 func (filer *libraryFiler) positionEpisode(ctx context.Context, seriesID, titleID int64, season, number int) error {
 	sortOrder := float64(season)*10_000 + float64(number)
-	err := filer.keepMember(ctx, sqlcgen.UpsertSequenceMemberParams{
-		SequenceID: seriesID, MemberWork: &titleID, Position: &sortOrder,
-	})
-	if err != nil {
-		return fmt.Errorf("add title %d to series %d: %w", titleID, seriesID, err)
-	}
 	ordering, err := filer.airedOrdering(ctx, seriesID)
 	if err != nil {
 		return err
@@ -397,16 +392,10 @@ func (filer *libraryFiler) positionEpisode(ctx context.Context, seriesID, titleI
 	return nil
 }
 
-// positionUnnumbered puts a special no number places in its series, in season 0 after the
-// numbered ones, with no number of its own.
+// positionUnnumbered puts a special no number places in its series' aired order, in season 0 after
+// the numbered ones, with no number of its own.
 func (filer *libraryFiler) positionUnnumbered(ctx context.Context, seriesID, titleID int64) error {
 	sortOrder := float64(unnumberedSortOrder)
-	err := filer.keepMember(ctx, sqlcgen.UpsertSequenceMemberParams{
-		SequenceID: seriesID, MemberWork: &titleID, Position: &sortOrder,
-	})
-	if err != nil {
-		return fmt.Errorf("add title %d to series %d: %w", titleID, seriesID, err)
-	}
 	ordering, err := filer.airedOrdering(ctx, seriesID)
 	if err != nil {
 		return err

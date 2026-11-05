@@ -180,13 +180,12 @@ func (join seriesJoin) mergeEpisode(ctx context.Context, episode, kept int64) er
 	return nil
 }
 
-// moveEpisode moves an episode into the kept series, at the same place in its aired order: in the
-// group of its season's number there, made when the kept series has none (D426 section 5).
+// moveEpisode moves an episode into the kept series, at the same place in its aired order, which
+// makes it the kept series' (D426 section 6): in the group of its season's number there, made when
+// the kept series has none (D426 section 5).
 func (join seriesJoin) moveEpisode(ctx context.Context, episode int64, season *int64) error {
-	err := join.queries.MoveEpisodeToSeries(ctx, sqlcgen.MoveEpisodeToSeriesParams{
-		ToSeries: join.keptSeries, FromSeries: join.fromSeries, WorkID: &episode,
-	})
-	if err == nil && season != nil {
+	var err error
+	if season != nil {
 		err = makeGroup(ctx, join.queries, join.keptOrdering, *season)
 	}
 	if err == nil {
