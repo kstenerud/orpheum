@@ -210,24 +210,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/collections/{id}/watched": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Mark every episode of a series with a file, in the ordering the person watches it in, watched by hand (D370) */
-        put: operations["markSeriesWatched"];
-        post?: never;
-        /** Mark every episode of a series with a file, in the ordering the person watches it in, unwatched by hand (D370) */
-        delete: operations["markSeriesUnwatched"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/config": {
         parameters: {
             query?: never;
@@ -732,7 +714,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/items/{id}/hide": {
+    "/items/{id}/hidden": {
         parameters: {
             query?: never;
             header?: never;
@@ -740,11 +722,11 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
         /** Hide a work from Continue Watching until it next has activity; not a completion (D188) */
-        post: operations["hideProgress"];
+        put: operations["markHidden"];
+        post?: never;
         /** Undo hiding a work */
-        delete: operations["unhideProgress"];
+        delete: operations["unmarkHidden"];
         options?: never;
         head?: never;
         patch?: never;
@@ -878,11 +860,11 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Mark a film, episode or other video watched by hand: it leaves Continue Watching and plays next from its start (D370) */
-        put: operations["markTitleWatched"];
+        /** Mark an item watched by hand: a film, episode or other video, or every episode of a series with a file, in the ordering the person watches it in; it leaves Continue Watching and plays next from its start (D370) */
+        put: operations["markWatched"];
         post?: never;
-        /** Mark a film, episode or other video unwatched by hand: as never watched (D370) */
-        delete: operations["markTitleUnwatched"];
+        /** Mark an item unwatched by hand, as never watched: a film, episode or other video, or every episode of a series with a file, in the ordering the person watches it in (D370) */
+        delete: operations["unmarkWatched"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1412,6 +1394,23 @@ export interface paths {
         get: operations["getMyPreferences"];
         /** Keep a person's own choices, which hold in every file they play: the boost, levelling, autoplay; and whether their pages show debug tools */
         put: operations["setMyPreferences"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/watched": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put the person's watched marks back as a mark by hand's answer gave them: its Undo (D370) */
+        put: operations["restoreWatched"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2430,23 +2429,6 @@ export interface paths {
         get?: never;
         /** Give a user a role, their whole access, from their next request (admin; D243 §4) */
         put: operations["setUserRole"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/watched": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Put the person's watched marks back as a mark by hand's answer gave them: its Undo (D370) */
-        put: operations["restoreWatched"];
         post?: never;
         delete?: never;
         options?: never;
@@ -5558,7 +5540,7 @@ export interface components {
             waitingAt: number;
         };
         WatchedMarkOutputBody: {
-            /** @description Each title's mark as it stood before; PUT /watched with them undoes the mark */
+            /** @description Each title's mark as it stood before; PUT /me/watched with them undoes the mark */
             previous: components["schemas"]["WatchedStateBody"][] | null;
         };
         WatchedStateBody: {
@@ -6168,74 +6150,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClientSettingsBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    markSeriesWatched: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WatchedMarkOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    markSeriesUnwatched: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WatchedMarkOutputBody"];
                 };
             };
             /** @description Error */
@@ -7420,7 +7334,7 @@ export interface operations {
             };
         };
     };
-    hideProgress: {
+    markHidden: {
         parameters: {
             query?: never;
             header?: {
@@ -7452,7 +7366,7 @@ export interface operations {
             };
         };
     };
-    unhideProgress: {
+    unmarkHidden: {
         parameters: {
             query?: never;
             header?: {
@@ -7771,7 +7685,7 @@ export interface operations {
             };
         };
     };
-    markTitleWatched: {
+    markWatched: {
         parameters: {
             query?: never;
             header?: {
@@ -7805,7 +7719,7 @@ export interface operations {
             };
         };
     };
-    markTitleUnwatched: {
+    unmarkWatched: {
         parameters: {
             query?: never;
             header?: {
@@ -9035,6 +8949,40 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SetMyPreferencesInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    restoreWatched: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestoreWatchedInputBody"];
             };
         };
         responses: {
@@ -11482,40 +11430,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["UserRoleInputBody"];
-            };
-        };
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    restoreWatched: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RestoreWatchedInputBody"];
             };
         };
         responses: {

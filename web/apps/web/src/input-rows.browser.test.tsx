@@ -51,7 +51,7 @@ const withContinueWatching: WalkAnswers = {
 
 /**
  * Continue Watching as the server has it once it has heard each hide: the rows less those whose
- * POST /items/<id>/hide is in heard. Read at each request, so a background poll before the hide
+ * PUT /items/<id>/hidden is in heard. Read at each request, so a background poll before the hide
  * still finds the row, and its card's open "…" stays.
  */
 function homeLessHidden(
@@ -60,7 +60,7 @@ function homeLessHidden(
 ): object {
   return {
     get continueWatching() {
-      return rows.filter((row) => !heard.includes(`POST /items/${String(row["id"])}/hide`));
+      return rows.filter((row) => !heard.includes(`PUT /items/${String(row["id"])}/hidden`));
     },
   };
 }
@@ -237,7 +237,7 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
         [partway(201, "Metropolis"), partway(202, "Nosferatu"), partway(203, "Sunrise")],
         heard,
       ),
-      "POST /items/202/hide": null,
+      "PUT /items/202/hidden": null,
     };
     walking = await mountApp(walkServices(answers, "/", heard));
     await expect.poll(() => isDrawn(`${newestFilms} .poster-card__link`)).toBe(true);
@@ -256,7 +256,7 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
     await expect.poll(() => isDrawn("dialog .list-box button")).toBe(true);
     expect(document.activeElement?.textContent).toBe("Hide");
     await userEvent.keyboard("{Enter}");
-    await expect.poll(() => heard).toContain("POST /items/202/hide");
+    await expect.poll(() => heard).toContain("PUT /items/202/hidden");
     // Focus goes to the card after the one hidden, not to the page's body (D419 §3).
     await expect.poll(() => isDrawn(".continue-watching__hidden")).toBe(true);
     await expect.poll(focusedCard).toBe("Sunrise");
@@ -269,8 +269,8 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
     const answers: WalkAnswers = {
       ...withContinueWatching,
       "GET /home": homeLessHidden([partway(201, "Metropolis"), partway(203, "Sunrise")], heard),
-      "POST /items/203/hide": null,
-      "POST /items/201/hide": null,
+      "PUT /items/203/hidden": null,
+      "PUT /items/201/hidden": null,
     };
     walking = await mountApp(walkServices(answers, "/", heard));
     await expect.poll(focusedCard).toBe("Metropolis");
