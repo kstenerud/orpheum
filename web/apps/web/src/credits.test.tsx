@@ -72,11 +72,11 @@ describe("a title's people", () => {
   it("shows a film's cast in billing order, each part under the name, then its directors and writers, each leading to their page", () => {
     const page = parsed(renderToStaticMarkup(withServices(<TitleView title={heat} />)));
     expect(creditsIn(page)).toEqual([
-      "Ansel Vardo|Mira Holloway-Pent|/credited/41",
-      "Ada Wexcombe|Tamsin Vell|/credited/42",
-      "Ivo Brannick||/credited/43",
-      "Oren Talisk||/credited/50",
-      "Oren Talisk||/credited/50",
+      "Ansel Vardo|Mira Holloway-Pent|/people/41",
+      "Ada Wexcombe|Tamsin Vell|/people/42",
+      "Ivo Brannick||/people/43",
+      "Oren Talisk||/people/50",
+      "Oren Talisk||/people/50",
     ]);
     expect([...page.querySelectorAll(".credits h2")].map((heading) => heading.textContent)).toEqual(
       ["Cast", "Directed by", "Written by"],
@@ -93,7 +93,7 @@ describe("a title's people", () => {
 
   it("shows a series' cast on its page, leaving out the groups it has none in", () => {
     const page = parsed(renderToStaticMarkup(withServices(<SeriesView series={longRun} />)));
-    expect(creditsIn(page)).toEqual(["Ann Lead|The Lead|/credited/44"]);
+    expect(creditsIn(page)).toEqual(["Ann Lead|The Lead|/people/44"]);
     expect([...page.querySelectorAll(".credits h2")].map((heading) => heading.textContent)).toEqual(
       ["Cast"],
     );
@@ -129,14 +129,14 @@ describe("a credited person's page", () => {
                   kind: "series",
                   name: "Crime Ledger",
                   year: 2020,
-                  roles: [{ role: "writer" }],
+                  jobs: [{ job: "writer" }],
                 },
                 {
                   id: 10,
                   kind: "movie",
                   name: "Metropolis",
                   year: 1995,
-                  roles: [{ role: "director" }, { role: "cast", character: "A guard" }],
+                  jobs: [{ job: "director" }, { job: "cast", character: "A guard" }],
                 },
               ],
             },

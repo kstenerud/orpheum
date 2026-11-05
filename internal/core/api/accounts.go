@@ -18,10 +18,10 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings"
 )
 
-const tagAccounts = "Accounts"
+const tagUsers = "Users"
 
-// AccountBody is one person, as the admin's list shows them.
-type AccountBody struct {
+// UserEntryBody is one user, as the admin's list and their page show them (D416 §1).
+type UserEntryBody struct {
 	ID   int64  `json:"id"`
 	Name string `json:"name"`
 	Role string `doc:"The role's name, their whole access" json:"role"`
@@ -70,16 +70,16 @@ func discoveryLink(status discovery.Status, page, secret string) string {
 	}.String()
 }
 
-// AccountsOutput is everyone.
-type AccountsOutput struct {
+// UsersOutput is everyone.
+type UsersOutput struct {
 	Body struct {
-		Accounts []AccountBody `json:"accounts"`
+		Users []UserEntryBody `json:"users"`
 	}
 }
 
-// CreateAccountInput is the admin setting a person's account up in full (D246 §2): a name, a
+// CreateUserInput is the admin setting a person's account up in full (D246 §2): a name, a
 // password and a role, and the admin's note of who it is for.
-type CreateAccountInput struct {
+type CreateUserInput struct {
 	AuthorizationHeader
 	Body struct {
 		Name      string `json:"name" maxLength:"100" minLength:"1"`
@@ -89,10 +89,10 @@ type CreateAccountInput struct {
 	}
 }
 
-// CreateAccountOutput is the new person.
-type CreateAccountOutput struct {
+// CreateUserOutput is the new user.
+type CreateUserOutput struct {
 	Body struct {
-		Account AccountBody `json:"account"`
+		User UserEntryBody `json:"user"`
 	}
 }
 
@@ -129,16 +129,16 @@ type ChangePasswordInput struct {
 	}
 }
 
-func (server *Server) registerAccounts() {
-	tags := []string{tagAccounts}
+func (server *Server) registerUsers() {
+	tags := []string{tagUsers}
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "listAccounts", Method: http.MethodGet, Path: "/users",
+		OperationID: "listUsers", Method: http.MethodGet, Path: "/users",
 		Summary: "Everyone, for the admin", Tags: tags,
-	}, server.listAccounts)
+	}, server.listUsers)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "createAccount", Method: http.MethodPost, Path: "/users", DefaultStatus: http.StatusCreated,
-		Summary: "Set a person's account up in full: a name, a password and a role (D246 §2)", Tags: tags,
-	}, server.createAccount)
+		OperationID: "createUser", Method: http.MethodPost, Path: "/users", DefaultStatus: http.StatusCreated,
+		Summary: "Set a user up in full: a name, a password and a role (D246 §2)", Tags: tags,
+	}, server.createUser)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "issueRegistrationInvitation", Method: http.MethodPost,
 		Path:    "/users/{id}/registration-invitation",
@@ -157,14 +157,14 @@ func (server *Server) registerAccounts() {
 	}, server.changePassword)
 }
 
-func accountBody(account auth.Account) AccountBody {
-	return AccountBody{
+func userEntryBody(account auth.Account) UserEntryBody {
+	return UserEntryBody{
 		ID: account.ID, Name: account.Name, Role: string(account.Role), AdminNote: account.AdminNote,
 		HasPassword: account.HasPassword,
 	}
 }
 
-func (server *Server) listAccounts(ctx context.Context, input *struct{ AuthorizationHeader }) (*AccountsOutput, error) {
+func (server *Server) listUsers(ctx context.Context, input *struct{ AuthorizationHeader }) (*UsersOutput, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -173,15 +173,15 @@ func (server *Server) listAccounts(ctx context.Context, input *struct{ Authoriza
 	if err != nil {
 		return nil, server.authError(ctx, "list accounts", err)
 	}
-	output := &AccountsOutput{}
-	output.Body.Accounts = make([]AccountBody, 0, len(accounts))
+	output := &UsersOutput{}
+	output.Body.Users = make([]UserEntryBody, 0, len(accounts))
 	for _, account := range accounts {
-		output.Body.Accounts = append(output.Body.Accounts, accountBody(account))
+		output.Body.Users = append(output.Body.Users, userEntryBody(account))
 	}
 	return output, nil
 }
 
-func (server *Server) createAccount(ctx context.Context, input *CreateAccountInput) (*CreateAccountOutput, error) {
+func (server *Server) createUser(ctx context.Context, input *CreateUserInput) (*CreateUserOutput, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -193,8 +193,8 @@ func (server *Server) createAccount(ctx context.Context, input *CreateAccountInp
 	if err != nil {
 		return nil, server.authError(ctx, "create an account", err)
 	}
-	output := &CreateAccountOutput{}
-	output.Body.Account = AccountBody{
+	output := &CreateUserOutput{}
+	output.Body.User = UserEntryBody{
 		ID: id, Name: input.Body.Name, Role: string(role), AdminNote: input.Body.AdminNote, HasPassword: true,
 	}
 	return output, nil
@@ -240,8 +240,8 @@ func (server *Server) changePassword(ctx context.Context, input *ChangePasswordI
 	return &struct{}{}, nil
 }
 
-// RenamePersonInput renames a person, for the admin.
-type RenamePersonInput struct {
+// RenameUserInput renames a user, for the admin.
+type RenameUserInput struct {
 	AuthorizationHeader
 	UserID int64 `minimum:"1" path:"id"`
 	Body   struct {
@@ -249,10 +249,10 @@ type RenamePersonInput struct {
 	}
 }
 
-// PersonOutput is one person's page, for the admin: who they are, and what they have watched.
-type PersonOutput struct {
+// UserPageOutput is one user's page, for the admin: who they are, and what they have watched.
+type UserPageOutput struct {
 	Body struct {
-		Account    AccountBody    `json:"account"`
+		User       UserEntryBody  `json:"user"`
 		WatchStats WatchStatsBody `json:"watchStats"`
 		// OwnLinkExpiresAt is when the person's own link stops leading them back through a discovery,
 		// unless a visit renews it; absent when they have none (D292 §4).
@@ -267,33 +267,33 @@ type WatchStatsBody struct {
 	LastWatchedAt      int64 `doc:"Unix milliseconds; absent when nothing was watched" json:"lastWatchedAt,omitempty"`
 }
 
-// pathPerson is one person's address, which their page, a rename and a removal share.
-const pathPerson = "/users/{id}"
+// pathUser is one user's address, which their page, a rename and a removal share.
+const pathUser = "/users/{id}"
 
-func (server *Server) registerPerson() {
-	tags := []string{tagAccounts}
+func (server *Server) registerUser() {
+	tags := []string{tagUsers}
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "getPerson", Method: http.MethodGet, Path: pathPerson,
-		Summary: "A person's page, for the admin: who they are and what they have watched", Tags: tags,
-	}, server.getPerson)
+		OperationID: "getUser", Method: http.MethodGet, Path: pathUser,
+		Summary: "A user's page, for the admin: who they are and what they have watched", Tags: tags,
+	}, server.getUser)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "renamePerson", Method: http.MethodPut, Path: pathPerson,
-		Summary: "Rename a person; names are for display and sign-in, and stay unique", Tags: tags,
+		OperationID: "renameUser", Method: http.MethodPut, Path: pathUser,
+		Summary: "Rename a user; names are for display and sign-in, and stay unique", Tags: tags,
 		DefaultStatus: http.StatusNoContent,
-	}, server.renamePerson)
+	}, server.renameUser)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "removePerson", Method: http.MethodDelete, Path: pathPerson,
-		Summary: "Remove a person: their sessions and devices end, and their own watching is deleted (S40)",
+		OperationID: "removeUser", Method: http.MethodDelete, Path: pathUser,
+		Summary: "Remove a user: their sessions and devices end, and their own watching is deleted (S40)",
 		Tags:    tags, DefaultStatus: http.StatusNoContent,
-	}, server.removePerson)
+	}, server.removeUser)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "revokeOwnLink", Method: http.MethodDelete, Path: pathPerson + "/own-link",
+		OperationID: "revokeOwnLink", Method: http.MethodDelete, Path: pathUser + "/own-link",
 		Summary: "End a person's own link, which leads them back to the server through a discovery (D292 §4)",
 		Tags:    tags, DefaultStatus: http.StatusNoContent,
 	}, server.revokeOwnLink)
 }
 
-func (server *Server) revokeOwnLink(ctx context.Context, input *PersonInput) (*struct{}, error) {
+func (server *Server) revokeOwnLink(ctx context.Context, input *UserInput) (*struct{}, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -305,7 +305,7 @@ func (server *Server) revokeOwnLink(ctx context.Context, input *PersonInput) (*s
 	return &struct{}{}, nil
 }
 
-func (server *Server) getPerson(ctx context.Context, input *PersonInput) (*PersonOutput, error) {
+func (server *Server) getUser(ctx context.Context, input *UserInput) (*UserPageOutput, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -314,13 +314,13 @@ func (server *Server) getPerson(ctx context.Context, input *PersonInput) (*Perso
 	if err != nil {
 		return nil, server.authError(ctx, "list accounts", err)
 	}
-	output := &PersonOutput{}
+	output := &UserPageOutput{}
 	for _, account := range accounts {
 		if account.ID == input.UserID {
-			output.Body.Account = accountBody(account)
+			output.Body.User = userEntryBody(account)
 		}
 	}
-	if output.Body.Account.ID == 0 {
+	if output.Body.User.ID == 0 {
 		return nil, server.authError(ctx, "read a person", auth.ErrNoUser)
 	}
 	stats, err := dependencies.Playback.WatchStatsOf(ctx, input.UserID)
@@ -341,7 +341,7 @@ func (server *Server) getPerson(ctx context.Context, input *PersonInput) (*Perso
 	return output, nil
 }
 
-func (server *Server) renamePerson(ctx context.Context, input *RenamePersonInput) (*struct{}, error) {
+func (server *Server) renameUser(ctx context.Context, input *RenameUserInput) (*struct{}, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -353,7 +353,7 @@ func (server *Server) renamePerson(ctx context.Context, input *RenamePersonInput
 	return &struct{}{}, nil
 }
 
-func (server *Server) removePerson(ctx context.Context, input *PersonInput) (*struct{}, error) {
+func (server *Server) removeUser(ctx context.Context, input *UserInput) (*struct{}, error) {
 	dependencies, principal, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err

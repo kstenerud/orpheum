@@ -77,29 +77,33 @@ func peopleBodies(people library.TitlePeople) ([]GenreBody, *CreditsBody) {
 	}
 }
 
-// PersonRoleBody is one of a person's roles on a title.
-type PersonRoleBody struct {
-	Role      string `enum:"cast,director,writer" json:"role"`
+// PersonJobBody is one of a credited person's jobs on a title: a credit's job, never its role
+// (D186 §2, D416 §4).
+type PersonJobBody struct {
+	Job       string `enum:"cast,director,writer" json:"job"`
 	Character string `doc:"Their part, in the cast; absent for crew and where the source names none" json:"character,omitempty"` //nolint:lll // one struct tag
 }
 
 // PersonTitleBody is a title crediting a person.
 type PersonTitleBody struct {
-	ID    int64            `doc:"GET /items/{id} for a film or other video, GET /collections/{id} for a series" json:"id"` //nolint:lll // one struct tag
-	Kind  string           `enum:"movie,series,other" json:"kind"`
-	Name  string           `json:"name"`
-	Year  int64            `json:"year,omitempty"`
-	Roles []PersonRoleBody `json:"roles"`
+	ID   int64           `doc:"GET /items/{id} for a film or other video, GET /collections/{id} for a series" json:"id"` //nolint:lll // one struct tag
+	Kind string          `enum:"movie,series,other" json:"kind"`
+	Name string          `json:"name"`
+	Year int64           `json:"year,omitempty"`
+	Jobs []PersonJobBody `json:"jobs"`
 }
 
-// CreditedPersonOutput is the page of a person titles credit (not an account).
-type CreditedPersonOutput struct {
-	Body struct {
-		ID         int64             `json:"id"`
-		Name       string            `json:"name"`
-		PictureRef string            `doc:"Their picture as their source names it, a TMDB profile path or an NFO's thumb; not fetched by the server yet" json:"pictureRef,omitempty"` //nolint:lll // one struct tag
-		Titles     []PersonTitleBody `doc:"The titles the person reaches that credit them, newest first; GET /titles?person= lists them as a list does" json:"titles"`                //nolint:lll // one struct tag
-	}
+// PersonBody is a credited person, whom titles credit (a user is never a person, D416 §1, §4).
+type PersonBody struct {
+	ID         int64             `json:"id"`
+	Name       string            `json:"name"`
+	PictureRef string            `doc:"Their picture as their source names it, a TMDB profile path or an NFO's thumb; not fetched by the server yet" json:"pictureRef,omitempty"`           //nolint:lll // one struct tag
+	Titles     []PersonTitleBody `doc:"The titles the person reaches that credit them, newest first, with their jobs on each; GET /titles?person= lists them as a list does" json:"titles"` //nolint:lll // one struct tag
+}
+
+// PersonOutput is a credited person's page.
+type PersonOutput struct {
+	Body PersonBody
 }
 
 // GenresInput asks for the genres of a kind of title.
@@ -153,9 +157,9 @@ type GroupedSearchOutput struct {
 func (server *Server) registerPeople() {
 	tags := []string{tagBrowse}
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "getCreditedPerson", Method: http.MethodGet, Path: "/people/{id}",
+		OperationID: "getPerson", Method: http.MethodGet, Path: "/people/{id}",
 		Summary: "A person: their name, their picture and the titles crediting them", Tags: tags,
-	}, server.getCreditedPerson)
+	}, server.getPerson)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getGenres", Method: http.MethodGet, Path: "/genres",
 		Summary: "The genres with a title the person reaches, each with how many", Tags: tags,
@@ -167,7 +171,7 @@ func (server *Server) registerPeople() {
 	}, server.searchGrouped)
 }
 
-func (server *Server) getCreditedPerson(ctx context.Context, input *ItemInput) (*CreditedPersonOutput, error) {
+func (server *Server) getPerson(ctx context.Context, input *ItemInput) (*PersonOutput, error) {
 	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -176,17 +180,17 @@ func (server *Server) getCreditedPerson(ctx context.Context, input *ItemInput) (
 	if err != nil {
 		return nil, server.libraryError(ctx, "read a person", err)
 	}
-	output := &CreditedPersonOutput{}
+	output := &PersonOutput{}
 	body := &output.Body
 	body.ID, body.Name, body.PictureRef = person.ID, person.Name, person.PictureRef
 	body.Titles = make([]PersonTitleBody, 0, len(person.Titles))
 	for _, title := range person.Titles {
-		roles := make([]PersonRoleBody, 0, len(title.Roles))
+		jobs := make([]PersonJobBody, 0, len(title.Roles))
 		for _, role := range title.Roles {
-			roles = append(roles, PersonRoleBody{Role: role.Role, Character: role.Character})
+			jobs = append(jobs, PersonJobBody{Job: role.Role, Character: role.Character})
 		}
 		body.Titles = append(body.Titles, PersonTitleBody{
-			ID: title.ID, Kind: title.Kind, Name: title.Name, Year: title.Year, Roles: roles,
+			ID: title.ID, Kind: title.Kind, Name: title.Name, Year: title.Year, Jobs: jobs,
 		})
 	}
 	return output, nil

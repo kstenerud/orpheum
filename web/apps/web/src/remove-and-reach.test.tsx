@@ -6,8 +6,8 @@ import "./i18n.ts";
 import { afterEach, expect, it } from "vitest";
 
 import { BrowseView } from "./browse.tsx";
-import { People } from "./people.tsx";
-import { PersonPage } from "./person.tsx";
+import { Users } from "./users.tsx";
+import { UserPage } from "./user.tsx";
 import {
   buttonWithText,
   choose,
@@ -94,7 +94,7 @@ async function mountPerson(
       "GET /users/5": [
         200,
         {
-          account: { id: 5, name: "Dan", role: "user", hasPassword: true },
+          user: { id: 5, name: "Dan", role: "user", hasPassword: true },
           watchStats: { watchedMs: 0, titlesWatchedCount: 0 },
         },
       ],
@@ -104,17 +104,17 @@ async function mountPerson(
     },
     heard,
   );
-  return { page: await mount(withServices(<PersonPage userId={5} />, services)), services };
+  return { page: await mount(withServices(<UserPage userId={5} />, services)), services };
 }
 
 it("warns when the role chosen for someone new, or ticked for nobody, reaches no library", async () => {
   const answers = {
-    "GET /users": [200, { accounts: [] }],
+    "GET /users": [200, { users: [] }],
     "GET /roles": [200, roles],
     "GET /libraries": [200, { libraries: [] }],
     "GET /invitations": [200, { invitations: [] }],
   } as const;
-  mounted = await mount(withServices(<People />, servedBy(answers)));
+  mounted = await mount(withServices(<Users />, servedBy(answers)));
   await click(buttonWithText(mounted.container, "Invite Someone"));
   const invitation = buttonWithText(mounted.container, "Make their link")?.closest("form");
   expect(invitation?.textContent).toContain(noLibraryChosen);
@@ -124,12 +124,12 @@ it("warns when the role chosen for someone new, or ticked for nobody, reaches no
 
 it("marks a role that reaches no library in Roles, and its dialog says what to do", async () => {
   const answers = {
-    "GET /users": [200, { accounts: [] }],
+    "GET /users": [200, { users: [] }],
     "GET /roles": [200, roles],
     "GET /libraries": [200, { libraries: [] }],
     "GET /invitations": [200, { invitations: [] }],
   } as const;
-  mounted = await mount(withServices(<People />, servedBy(answers)));
+  mounted = await mount(withServices(<Users />, servedBy(answers)));
   const rowOf = (name: string): Element | undefined =>
     [...(mounted?.container.querySelectorAll("li.people__item") ?? [])].find(
       (row) => row.querySelector("button")?.textContent.includes(name) === true,
@@ -139,7 +139,7 @@ it("marks a role that reaches no library in Roles, and its dialog says what to d
   await click(rowOf("Can watch")?.querySelector("button") ?? null);
   expect(mounted.container.querySelector("dialog")?.textContent).toContain(noLibraryTicked);
   mounted.unmount();
-  mounted = await mount(withServices(<People />, servedBy(answers)));
+  mounted = await mount(withServices(<Users />, servedBy(answers)));
   await click(rowOf("Administrator")?.querySelector("button") ?? null);
   expect(mounted.container.querySelector("dialog")?.textContent).not.toContain(noLibraryTicked);
 });
@@ -151,17 +151,17 @@ it("says on a person's page whether they have used their link", async () => {
       "GET /users/5": [
         200,
         {
-          account: { id: 5, name: "Dan", role: "user", hasPassword },
+          user: { id: 5, name: "Dan", role: "user", hasPassword },
           watchStats: { watchedMs: 0, titlesWatchedCount: 0 },
         },
       ],
       "GET /users/5/devices": [200, { devices: [] }],
       "GET /roles": [200, roles],
     });
-  mounted = await mount(withServices(<PersonPage userId={5} />, served(true)));
+  mounted = await mount(withServices(<UserPage userId={5} />, served(true)));
   expect(mounted.container.textContent).toContain("Has a password");
   mounted.unmount();
-  mounted = await mount(withServices(<PersonPage userId={5} />, served(false)));
+  mounted = await mount(withServices(<UserPage userId={5} />, served(false)));
   expect(mounted.container.textContent).toContain("Has not used their link yet");
 });
 
@@ -175,7 +175,7 @@ it("removes a person once the admin confirms, and goes back to everyone (S40)", 
   expect(heard.some((each) => each.methodAndPath === "DELETE /users/5")).toBe(false);
   await click(buttonWithText(mounted.container, "Remove them"));
   expect(heard.some((each) => each.methodAndPath === "DELETE /users/5")).toBe(true);
-  expect(services.navigation.route()).toEqual({ screen: "people" });
+  expect(services.navigation.route()).toEqual({ screen: "users" });
 });
 
 it("offers no removal on the admin's own page", async () => {
@@ -220,14 +220,14 @@ it("shows a person's five latest devices with All devices, their actions in a ro
   const heard: Heard[] = [];
   mounted = await mount(
     withServices(
-      <PersonPage userId={5} />,
+      <UserPage userId={5} />,
       servedBy(
         {
           "GET /me": me(1),
           "GET /users/5": [
             200,
             {
-              account: { id: 5, name: "Dan", role: "user", hasPassword: true },
+              user: { id: 5, name: "Dan", role: "user", hasPassword: true },
               watchStats: { watchedMs: 0, titlesWatchedCount: 0 },
             },
           ],

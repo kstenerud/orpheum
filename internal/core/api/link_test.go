@@ -101,10 +101,10 @@ func TestPerson_TheAdminSeesAndEndsAPersonsOwnLink(t *testing.T) {
 }
 
 // personPage is GET path, a person's page, as the admin.
-func (harness testHarness) personPage(t *testing.T, admin, path string) api.PersonOutput {
+func (harness testHarness) personPage(t *testing.T, admin, path string) api.UserPageOutput {
 	t.Helper()
 	read := harness.do(t, http.MethodGet, path, admin, nil)
-	var page api.PersonOutput
+	var page api.UserPageOutput
 	if err := json.Unmarshal([]byte(read.body), &page.Body); err != nil || read.status != http.StatusOK {
 		t.Fatalf("GET %s = %d %s", path, read.status, read.body)
 	}

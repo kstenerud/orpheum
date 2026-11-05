@@ -25,7 +25,7 @@ import {
   requestPairing,
   takePairedSession,
 } from "./pairing.ts";
-import { IssuedInvitationView, PeopleList } from "./people.tsx";
+import { IssuedInvitationView, UsersList } from "./users.tsx";
 import { QrCode, qrDataUrl, qrPath } from "./qr-code.tsx";
 import { parseRoute } from "./router.ts";
 import { Share } from "./share.tsx";
@@ -76,7 +76,7 @@ describe("accounts", () => {
       "abc_DEF-123",
     );
     expect(parseRoute("/register", "").screen).toBe("register");
-    expect(parseRoute("/people", "").screen).toBe("people");
+    expect(parseRoute("/users", "").screen).toBe("users");
     expect(parseRoute("/account", "").screen).toBe("account");
   });
 
@@ -85,7 +85,7 @@ describe("accounts", () => {
     const session = [200, { token: "t", user: {} }] as const;
     const { api } = servedBy(
       {
-        "POST /users": [200, { account: {} }],
+        "POST /users": [200, { user: {} }],
         "POST /invitations": [200, { invitation: {}, link: { secret: "s", expiresAt: 1 } }],
         "POST /registration": session,
         "POST /pairings": [200, { secret: "s", code: "abcd-efgh", expiresAt: 1 }],
@@ -169,7 +169,7 @@ describe("accounts", () => {
   it("lists everyone with their note and role, and shows a link with when it stops working", () => {
     const list = renderToStaticMarkup(
       withServices(
-        <PeopleList
+        <UsersList
           accounts={[
             { id: 1, name: "owner", role: "admin", hasPassword: true },
             { id: 2, name: "partner", role: "user", adminNote: "Anna", hasPassword: false },
@@ -178,7 +178,7 @@ describe("accounts", () => {
       ),
     );
     // Each row is its person's page, with the name, the admin's note and the role (D399).
-    expect(list).toContain('href="/people/2"');
+    expect(list).toContain('href="/users/2"');
     expect(list).toContain("Anna");
     expect(list).toContain("Can watch");
     expect(list).toContain("Administrator");

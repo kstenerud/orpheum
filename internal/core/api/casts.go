@@ -88,7 +88,7 @@ type EndCastOutput struct {
 }
 
 func (server *Server) registerCasts() {
-	tags := []string{tagAccounts}
+	tags := []string{tagUsers}
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "startCast", Method: http.MethodPost, Path: "/me/casts",
 		Summary: "Start casting from this device to another of one's own, connected now (D337, D364)",

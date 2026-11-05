@@ -302,8 +302,8 @@ it("the System page says what is not answering, and each outside service's limit
                 quota: {
                   remaining: 12,
                   allowed: 20,
-                  reservedForPeoplePercent: 25,
-                  reservedForPeople: 5,
+                  reservedForUsersPercent: 25,
+                  reservedForUsers: 5,
                 },
               },
             ],

@@ -1,54 +1,6 @@
 {
   "components": {
     "schemas": {
-      "AccountBody": {
-        "additionalProperties": false,
-        "properties": {
-          "adminNote": {
-            "type": "string"
-          },
-          "hasPassword": {
-            "description": "False for an account from before D246 that never registered",
-            "type": "boolean"
-          },
-          "id": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "name": {
-            "type": "string"
-          },
-          "role": {
-            "description": "The role's name, their whole access",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "role",
-          "hasPassword"
-        ],
-        "type": "object"
-      },
-      "AccountsOutputBody": {
-        "additionalProperties": false,
-        "properties": {
-          "accounts": {
-            "items": {
-              "$ref": "#/components/schemas/AccountBody"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "accounts"
-        ],
-        "type": "object"
-      },
       "ActivationAnswerInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -1012,49 +964,6 @@
         ],
         "type": "object"
       },
-      "CreateAccountInputBody": {
-        "additionalProperties": false,
-        "properties": {
-          "adminNote": {
-            "description": "Who it is for; only the admin sees it",
-            "maxLength": 200,
-            "type": "string"
-          },
-          "name": {
-            "maxLength": 100,
-            "minLength": 1,
-            "type": "string"
-          },
-          "password": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "role": {
-            "description": "The role's name, their whole access (D243 §4)",
-            "maxLength": 100,
-            "minLength": 1,
-            "type": "string"
-          }
-        },
-        "required": [
-          "name",
-          "password",
-          "role"
-        ],
-        "type": "object"
-      },
-      "CreateAccountOutputBody": {
-        "additionalProperties": false,
-        "properties": {
-          "account": {
-            "$ref": "#/components/schemas/AccountBody"
-          }
-        },
-        "required": [
-          "account"
-        ],
-        "type": "object"
-      },
       "CreateLibraryInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -1136,6 +1045,49 @@
         ],
         "type": "object"
       },
+      "CreateUserInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "adminNote": {
+            "description": "Who it is for; only the admin sees it",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "password": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "role": {
+            "description": "The role's name, their whole access (D243 §4)",
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "password",
+          "role"
+        ],
+        "type": "object"
+      },
+      "CreateUserOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/UserEntryBody"
+          }
+        },
+        "required": [
+          "user"
+        ],
+        "type": "object"
+      },
       "CreatedOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -1172,38 +1124,6 @@
         "required": [
           "personId",
           "name"
-        ],
-        "type": "object"
-      },
-      "CreditedPersonOutputBody": {
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "name": {
-            "type": "string"
-          },
-          "pictureRef": {
-            "description": "Their picture as their source names it, a TMDB profile path or an NFO's thumb; not fetched by the server yet",
-            "type": "string"
-          },
-          "titles": {
-            "description": "The titles the person reaches that credit them, newest first; GET /titles?person= lists them as a list does",
-            "items": {
-              "$ref": "#/components/schemas/PersonTitleBody"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "titles"
         ],
         "type": "object"
       },
@@ -4833,9 +4753,6 @@
               "null"
             ]
           },
-          "personName": {
-            "type": "string"
-          },
           "positionMs": {
             "description": "Where its last report said it was",
             "format": "int64",
@@ -4858,12 +4775,15 @@
           "userId": {
             "format": "int64",
             "type": "integer"
+          },
+          "userName": {
+            "type": "string"
           }
         },
         "required": [
           "id",
           "userId",
-          "personName",
+          "userName",
           "fileId",
           "name",
           "delivery",
@@ -5130,35 +5050,46 @@
         ],
         "type": "object"
       },
-      "PersonOutputBody": {
+      "PersonBody": {
         "additionalProperties": false,
         "properties": {
-          "account": {
-            "$ref": "#/components/schemas/AccountBody"
-          },
-          "ownLinkExpiresAt": {
-            "description": "Unix milliseconds",
+          "id": {
             "format": "int64",
             "type": "integer"
           },
-          "watchStats": {
-            "$ref": "#/components/schemas/WatchStatsBody"
+          "name": {
+            "type": "string"
+          },
+          "pictureRef": {
+            "description": "Their picture as their source names it, a TMDB profile path or an NFO's thumb; not fetched by the server yet",
+            "type": "string"
+          },
+          "titles": {
+            "description": "The titles the person reaches that credit them, newest first, with their jobs on each; GET /titles?person= lists them as a list does",
+            "items": {
+              "$ref": "#/components/schemas/PersonTitleBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           }
         },
         "required": [
-          "account",
-          "watchStats"
+          "id",
+          "name",
+          "titles"
         ],
         "type": "object"
       },
-      "PersonRoleBody": {
+      "PersonJobBody": {
         "additionalProperties": false,
         "properties": {
           "character": {
             "description": "Their part, in the cast; absent for crew and where the source names none",
             "type": "string"
           },
-          "role": {
+          "job": {
             "enum": [
               "cast",
               "director",
@@ -5168,7 +5099,7 @@
           }
         },
         "required": [
-          "role"
+          "job"
         ],
         "type": "object"
       },
@@ -5179,6 +5110,15 @@
             "description": "GET /items/{id} for a film or other video, GET /collections/{id} for a series",
             "format": "int64",
             "type": "integer"
+          },
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/PersonJobBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "kind": {
             "enum": [
@@ -5191,15 +5131,6 @@
           "name": {
             "type": "string"
           },
-          "roles": {
-            "items": {
-              "$ref": "#/components/schemas/PersonRoleBody"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
           "year": {
             "format": "int64",
             "type": "integer"
@@ -5209,22 +5140,7 @@
           "id",
           "kind",
           "name",
-          "roles"
-        ],
-        "type": "object"
-      },
-      "PersonsRoleInputBody": {
-        "additionalProperties": false,
-        "properties": {
-          "role": {
-            "description": "The role's name",
-            "maxLength": 100,
-            "minLength": 1,
-            "type": "string"
-          }
-        },
-        "required": [
-          "role"
+          "jobs"
         ],
         "type": "object"
       },
@@ -5941,11 +5857,11 @@
             "format": "int64",
             "type": "integer"
           },
-          "reservedForPeople": {
+          "reservedForUsers": {
             "format": "int64",
             "type": "integer"
           },
-          "reservedForPeoplePercent": {
+          "reservedForUsersPercent": {
             "format": "int64",
             "type": "integer"
           },
@@ -5957,8 +5873,8 @@
         "required": [
           "remaining",
           "allowed",
-          "reservedForPeoplePercent",
-          "reservedForPeople"
+          "reservedForUsersPercent",
+          "reservedForUsers"
         ],
         "type": "object"
       },
@@ -6161,7 +6077,7 @@
         ],
         "type": "object"
       },
-      "RenamePersonInputBody": {
+      "RenameUserInputBody": {
         "additionalProperties": false,
         "properties": {
           "name": {
@@ -6638,7 +6554,7 @@
             ]
           },
           "holderCount": {
-            "description": "How many people hold it",
+            "description": "How many users hold it",
             "format": "int64",
             "type": "integer"
           },
@@ -9015,6 +8931,90 @@
         ],
         "type": "object"
       },
+      "UserEntryBody": {
+        "additionalProperties": false,
+        "properties": {
+          "adminNote": {
+            "type": "string"
+          },
+          "hasPassword": {
+            "description": "False for an account from before D246 that never registered",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "description": "The role's name, their whole access",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "role",
+          "hasPassword"
+        ],
+        "type": "object"
+      },
+      "UserPageOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "ownLinkExpiresAt": {
+            "description": "Unix milliseconds",
+            "format": "int64",
+            "type": "integer"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserEntryBody"
+          },
+          "watchStats": {
+            "$ref": "#/components/schemas/WatchStatsBody"
+          }
+        },
+        "required": [
+          "user",
+          "watchStats"
+        ],
+        "type": "object"
+      },
+      "UserRoleInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "description": "The role's name",
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "type": "object"
+      },
+      "UsersOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "users": {
+            "items": {
+              "$ref": "#/components/schemas/UserEntryBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "users"
+        ],
+        "type": "object"
+      },
       "VersionBody": {
         "additionalProperties": false,
         "properties": {
@@ -9271,7 +9271,7 @@
         },
         "summary": "Enter the code a device shows; both then show a check code (D288)",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       }
     },
@@ -9316,7 +9316,7 @@
         },
         "summary": "Say whether the check codes match: only a match activates the device",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       }
     },
@@ -11898,7 +11898,7 @@
         },
         "summary": "Every invitation: those waiting, and those used with the account each made (admin)",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       },
       "post": {
@@ -11948,7 +11948,7 @@
         },
         "summary": "Invite someone to make their own account under a role, noting who it is for (admin; D246)",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       }
     },
@@ -11993,7 +11993,7 @@
         },
         "summary": "Withdraw an invitation still waiting: none of its links admits anyone (admin)",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       }
     },
@@ -13901,7 +13901,7 @@
         },
         "summary": "Whether you administer from away from home too: never (the default) or always; set from home",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       }
     },
@@ -13943,7 +13943,7 @@
         },
         "summary": "The casts this device sends or receives, each with a credential for it",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       },
       "post": {
@@ -13993,7 +13993,7 @@
         },
         "summary": "Start casting from this device to another of one's own, connected now (D337, D364)",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       }
     },
@@ -14045,7 +14045,7 @@
         },
         "summary": "Say Use, on its receiver, to a cast it was asked about (D364 §2)",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       }
     },
@@ -14107,7 +14107,7 @@
         },
         "summary": "End a cast this device sends or receives, and say where it stood",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       }
     },
@@ -14159,7 +14159,7 @@
         },
         "summary": "Move a cast this device sends or receives on to what plays after its film, the next episode, which its receiver is handed (plans/up-next.md)",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       }
     },
@@ -14221,7 +14221,7 @@
         },
         "summary": "Play a film on a cast's receiver, or nothing, the receiver ready for the next (D364 §3, §5)",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       }
     },
@@ -14263,7 +14263,7 @@
         },
         "summary": "One's own devices, most recently used first (D218)",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       }
     },
@@ -14298,7 +14298,7 @@
         },
         "summary": "Sign out every device but this one; they stay listed",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       }
     },
@@ -14343,7 +14343,7 @@
         },
         "summary": "Remove one of one's devices; it is signed out at its next request",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       },
       "put": {
@@ -14396,7 +14396,7 @@
         },
         "summary": "Rename one of one's devices, or set how far it moves its sound",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       }
     },
@@ -14525,7 +14525,7 @@
         },
         "summary": "Change one's own password; other sessions stay signed in",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       }
     },
@@ -14993,7 +14993,7 @@
         },
         "summary": "A code for this device to show, which a person signed in enters to activate it (D288)",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       }
     },
@@ -15041,7 +15041,7 @@
         },
         "summary": "The session a confirmed pairing made, once",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       }
     },
@@ -15082,13 +15082,13 @@
         },
         "summary": "How this device's pairing stands, and the check code to show",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       }
     },
     "/people/{id}": {
       "get": {
-        "operationId": "getCreditedPerson",
+        "operationId": "getPerson",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -15114,7 +15114,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CreditedPersonOutputBody"
+                  "$ref": "#/components/schemas/PersonBody"
                 }
               }
             },
@@ -15445,7 +15445,7 @@
         },
         "summary": "Use an invitation or a registration link: make the account or set a new password, and sign in",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       }
     },
@@ -15486,7 +15486,7 @@
         },
         "summary": "What a link is for, without using it: an invitation or a registration link",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       }
     },
@@ -15528,7 +15528,7 @@
         },
         "summary": "Every role, with its capabilities and the libraries it reaches (admin; D243 §4)",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       },
       "post": {
@@ -15578,7 +15578,7 @@
         },
         "summary": "Make a role: its name, capabilities and libraries (admin; D243 §4)",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       }
     },
@@ -15623,7 +15623,7 @@
         },
         "summary": "Delete a role the admin made that no one holds (admin)",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       },
       "put": {
@@ -15676,7 +15676,7 @@
         },
         "summary": "Change a role; a library taken back is gone for its members at their next request (admin; D243 §4)",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       }
     },
@@ -17848,7 +17848,7 @@
     },
     "/users": {
       "get": {
-        "operationId": "listAccounts",
+        "operationId": "listUsers",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -17865,7 +17865,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AccountsOutputBody"
+                  "$ref": "#/components/schemas/UsersOutputBody"
                 }
               }
             },
@@ -17884,11 +17884,11 @@
         },
         "summary": "Everyone, for the admin",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       },
       "post": {
-        "operationId": "createAccount",
+        "operationId": "createUser",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -17904,7 +17904,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateAccountInputBody"
+                "$ref": "#/components/schemas/CreateUserInputBody"
               }
             }
           },
@@ -17915,7 +17915,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CreateAccountOutputBody"
+                  "$ref": "#/components/schemas/CreateUserOutputBody"
                 }
               }
             },
@@ -17932,15 +17932,15 @@
             "description": "Error"
           }
         },
-        "summary": "Set a person's account up in full: a name, a password and a role (D246 §2)",
+        "summary": "Set a user up in full: a name, a password and a role (D246 §2)",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       }
     },
     "/users/{id}": {
       "delete": {
-        "operationId": "removePerson",
+        "operationId": "removeUser",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -17977,13 +17977,13 @@
             "description": "Error"
           }
         },
-        "summary": "Remove a person: their sessions and devices end, and their own watching is deleted (S40)",
+        "summary": "Remove a user: their sessions and devices end, and their own watching is deleted (S40)",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       },
       "get": {
-        "operationId": "getPerson",
+        "operationId": "getUser",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -18010,7 +18010,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PersonOutputBody"
+                  "$ref": "#/components/schemas/UserPageOutputBody"
                 }
               }
             },
@@ -18027,13 +18027,13 @@
             "description": "Error"
           }
         },
-        "summary": "A person's page, for the admin: who they are and what they have watched",
+        "summary": "A user's page, for the admin: who they are and what they have watched",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       },
       "put": {
-        "operationId": "renamePerson",
+        "operationId": "renameUser",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -18059,7 +18059,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RenamePersonInputBody"
+                "$ref": "#/components/schemas/RenameUserInputBody"
               }
             }
           },
@@ -18080,9 +18080,9 @@
             "description": "Error"
           }
         },
-        "summary": "Rename a person; names are for display and sign-in, and stay unique",
+        "summary": "Rename a user; names are for display and sign-in, and stay unique",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       }
     },
@@ -18137,13 +18137,13 @@
         },
         "summary": "Change the admin's note of who a person is for (admin)",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       }
     },
     "/users/{id}/devices": {
       "get": {
-        "operationId": "listPersonDevices",
+        "operationId": "listUserDevices",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -18187,15 +18187,15 @@
             "description": "Error"
           }
         },
-        "summary": "A person's devices, for the admin",
+        "summary": "A user's devices, for the admin",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       }
     },
     "/users/{id}/devices/{deviceId}": {
       "delete": {
-        "operationId": "removePersonDevice",
+        "operationId": "removeUserDevice",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -18242,9 +18242,9 @@
             "description": "Error"
           }
         },
-        "summary": "Remove a person's device, for the admin: a lost or given-away one",
+        "summary": "Remove a user's device, for the admin: a lost or given-away one",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       }
     },
@@ -18289,7 +18289,7 @@
         },
         "summary": "End a person's own link, which leads them back to the server through a discovery (D292 §4)",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       }
     },
@@ -18341,13 +18341,13 @@
         },
         "summary": "A new registration link for a person, withdrawing the old; their password works until used",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       }
     },
     "/users/{id}/role": {
       "put": {
-        "operationId": "setPersonsRole",
+        "operationId": "setUserRole",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -18373,7 +18373,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PersonsRoleInputBody"
+                "$ref": "#/components/schemas/UserRoleInputBody"
               }
             }
           },
@@ -18394,9 +18394,9 @@
             "description": "Error"
           }
         },
-        "summary": "Give a person a role, their whole access, from their next request (admin; D243 §4)",
+        "summary": "Give a user a role, their whole access, from their next request (admin; D243 §4)",
         "tags": [
-          "Accounts"
+          "Users"
         ]
       }
     },

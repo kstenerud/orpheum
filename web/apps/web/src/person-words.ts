@@ -4,7 +4,7 @@ import type { TFunction } from "i18next";
 
 import type { FormWords } from "./problem.ts";
 
-/** How a refusal of a person's name or role is told, on the People page and a person's own. */
+/** How a refusal of a person's name or role is told, on the Users page and a person's own. */
 export function personWords(t: TFunction): FormWords {
   return {
     fields: {

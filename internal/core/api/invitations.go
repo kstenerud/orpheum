@@ -86,7 +86,7 @@ type AdminNoteInput struct {
 }
 
 func (server *Server) registerInvitations() {
-	tags := []string{tagAccounts}
+	tags := []string{tagUsers}
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "createInvitation", Method: http.MethodPost, Path: "/invitations",
 		DefaultStatus: http.StatusCreated,

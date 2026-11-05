@@ -1593,7 +1593,7 @@ export interface paths {
             cookie?: never;
         };
         /** A person: their name, their picture and the titles crediting them */
-        get: operations["getCreditedPerson"];
+        get: operations["getPerson"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2320,10 +2320,10 @@ export interface paths {
             cookie?: never;
         };
         /** Everyone, for the admin */
-        get: operations["listAccounts"];
+        get: operations["listUsers"];
         put?: never;
-        /** Set a person's account up in full: a name, a password and a role (D246 §2) */
-        post: operations["createAccount"];
+        /** Set a user up in full: a name, a password and a role (D246 §2) */
+        post: operations["createUser"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2337,13 +2337,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** A person's page, for the admin: who they are and what they have watched */
-        get: operations["getPerson"];
-        /** Rename a person; names are for display and sign-in, and stay unique */
-        put: operations["renamePerson"];
+        /** A user's page, for the admin: who they are and what they have watched */
+        get: operations["getUser"];
+        /** Rename a user; names are for display and sign-in, and stay unique */
+        put: operations["renameUser"];
         post?: never;
-        /** Remove a person: their sessions and devices end, and their own watching is deleted (S40) */
-        delete: operations["removePerson"];
+        /** Remove a user: their sessions and devices end, and their own watching is deleted (S40) */
+        delete: operations["removeUser"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2373,8 +2373,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** A person's devices, for the admin */
-        get: operations["listPersonDevices"];
+        /** A user's devices, for the admin */
+        get: operations["listUserDevices"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2393,8 +2393,8 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Remove a person's device, for the admin: a lost or given-away one */
-        delete: operations["removePersonDevice"];
+        /** Remove a user's device, for the admin: a lost or given-away one */
+        delete: operations["removeUserDevice"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2442,8 +2442,8 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Give a person a role, their whole access, from their next request (admin; D243 §4) */
-        put: operations["setPersonsRole"];
+        /** Give a user a role, their whole access, from their next request (admin; D243 §4) */
+        put: operations["setUserRole"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2472,19 +2472,6 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        AccountBody: {
-            adminNote?: string;
-            /** @description False for an account from before D246 that never registered */
-            hasPassword: boolean;
-            /** Format: int64 */
-            id: number;
-            name: string;
-            /** @description The role's name, their whole access */
-            role: string;
-        };
-        AccountsOutputBody: {
-            accounts: components["schemas"]["AccountBody"][] | null;
-        };
         ActivationAnswerInputBody: {
             code: string;
             isMatch: boolean;
@@ -2815,17 +2802,6 @@ export interface components {
             /** @description The admin's own password */
             password: string;
         };
-        CreateAccountInputBody: {
-            /** @description Who it is for; only the admin sees it */
-            adminNote?: string;
-            name: string;
-            password: string;
-            /** @description The role's name, their whole access (D243 §4) */
-            role: string;
-        };
-        CreateAccountOutputBody: {
-            account: components["schemas"]["AccountBody"];
-        };
         CreatedOutputBody: {
             /** Format: int64 */
             id: number;
@@ -2854,6 +2830,17 @@ export interface components {
             /** Format: int64 */
             id: number;
         };
+        CreateUserInputBody: {
+            /** @description Who it is for; only the admin sees it */
+            adminNote?: string;
+            name: string;
+            password: string;
+            /** @description The role's name, their whole access (D243 §4) */
+            role: string;
+        };
+        CreateUserOutputBody: {
+            user: components["schemas"]["UserEntryBody"];
+        };
         CreditBody: {
             /** @description A cast member's part; absent for crew and where the source names none */
             character?: string;
@@ -2865,15 +2852,6 @@ export interface components {
             personId: number;
             /** @description Their picture as their source names it, a TMDB profile path or an NFO's thumb; not fetched by the server yet */
             pictureRef?: string;
-        };
-        CreditedPersonOutputBody: {
-            /** Format: int64 */
-            id: number;
-            name: string;
-            /** @description Their picture as their source names it, a TMDB profile path or an NFO's thumb; not fetched by the server yet */
-            pictureRef?: string;
-            /** @description The titles the person reaches that credit them, newest first; GET /titles?person= lists them as a list does */
-            titles: components["schemas"]["PersonTitleBody"][] | null;
         };
         CreditsBody: {
             cast: components["schemas"]["CreditBody"][] | null;
@@ -4153,7 +4131,6 @@ export interface components {
             /** @description The title's name, or the file's path when it has none */
             name: string;
             notDirectReasons: string[] | null;
-            personName: string;
             /**
              * Format: int64
              * @description Where its last report said it was
@@ -4173,6 +4150,7 @@ export interface components {
             titleId?: number;
             /** Format: int64 */
             userId: number;
+            userName: string;
         };
         NowPlayingOutputBody: {
             playbacks: components["schemas"]["NowPlayingBody"][] | null;
@@ -4267,24 +4245,20 @@ export interface components {
             happenedMonoMs: number;
             to: string;
         };
-        PersonOutputBody: {
-            account: components["schemas"]["AccountBody"];
-            /**
-             * Format: int64
-             * @description Unix milliseconds
-             */
-            ownLinkExpiresAt?: number;
-            watchStats: components["schemas"]["WatchStatsBody"];
+        PersonBody: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /** @description Their picture as their source names it, a TMDB profile path or an NFO's thumb; not fetched by the server yet */
+            pictureRef?: string;
+            /** @description The titles the person reaches that credit them, newest first, with their jobs on each; GET /titles?person= lists them as a list does */
+            titles: components["schemas"]["PersonTitleBody"][] | null;
         };
-        PersonRoleBody: {
+        PersonJobBody: {
             /** @description Their part, in the cast; absent for crew and where the source names none */
             character?: string;
             /** @enum {string} */
-            role: "cast" | "director" | "writer";
-        };
-        PersonsRoleInputBody: {
-            /** @description The role's name */
-            role: string;
+            job: "cast" | "director" | "writer";
         };
         PersonTitleBody: {
             /**
@@ -4292,10 +4266,10 @@ export interface components {
              * @description GET /items/{id} for a film or other video, GET /collections/{id} for a series
              */
             id: number;
+            jobs: components["schemas"]["PersonJobBody"][] | null;
             /** @enum {string} */
             kind: "movie" | "series" | "other";
             name: string;
-            roles: components["schemas"]["PersonRoleBody"][] | null;
             /** Format: int64 */
             year?: number;
         };
@@ -4536,9 +4510,9 @@ export interface components {
             /** Format: int64 */
             remaining: number;
             /** Format: int64 */
-            reservedForPeople: number;
+            reservedForUsers: number;
             /** Format: int64 */
-            reservedForPeoplePercent: number;
+            reservedForUsersPercent: number;
             /** Format: int64 */
             resetAt?: number;
         };
@@ -4609,7 +4583,7 @@ export interface components {
             password: string;
             secret: string;
         };
-        RenamePersonInputBody: {
+        RenameUserInputBody: {
             name: string;
         };
         RepointedOutputBody: {
@@ -4770,7 +4744,7 @@ export interface components {
             capabilities: string[] | null;
             /**
              * Format: int64
-             * @description How many people hold it
+             * @description How many users hold it
              */
             holderCount: number;
             /** Format: int64 */
@@ -5514,6 +5488,32 @@ export interface components {
             name: string;
             role: string;
             showsDebugTools: boolean;
+        };
+        UserEntryBody: {
+            adminNote?: string;
+            /** @description False for an account from before D246 that never registered */
+            hasPassword: boolean;
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /** @description The role's name, their whole access */
+            role: string;
+        };
+        UserPageOutputBody: {
+            /**
+             * Format: int64
+             * @description Unix milliseconds
+             */
+            ownLinkExpiresAt?: number;
+            user: components["schemas"]["UserEntryBody"];
+            watchStats: components["schemas"]["WatchStatsBody"];
+        };
+        UserRoleInputBody: {
+            /** @description The role's name */
+            role: string;
+        };
+        UsersOutputBody: {
+            users: components["schemas"]["UserEntryBody"][] | null;
         };
         VersionBody: {
             /**
@@ -9365,7 +9365,7 @@ export interface operations {
             };
         };
     };
-    getCreditedPerson: {
+    getPerson: {
         parameters: {
             query?: never;
             header?: {
@@ -9385,7 +9385,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CreditedPersonOutputBody"];
+                    "application/json": components["schemas"]["PersonBody"];
                 };
             };
             /** @description Error */
@@ -11161,7 +11161,7 @@ export interface operations {
             };
         };
     };
-    listAccounts: {
+    listUsers: {
         parameters: {
             query?: never;
             header?: {
@@ -11179,7 +11179,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AccountsOutputBody"];
+                    "application/json": components["schemas"]["UsersOutputBody"];
                 };
             };
             /** @description Error */
@@ -11193,7 +11193,7 @@ export interface operations {
             };
         };
     };
-    createAccount: {
+    createUser: {
         parameters: {
             query?: never;
             header?: {
@@ -11205,7 +11205,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateAccountInputBody"];
+                "application/json": components["schemas"]["CreateUserInputBody"];
             };
         };
         responses: {
@@ -11215,7 +11215,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CreateAccountOutputBody"];
+                    "application/json": components["schemas"]["CreateUserOutputBody"];
                 };
             };
             /** @description Error */
@@ -11229,7 +11229,7 @@ export interface operations {
             };
         };
     };
-    getPerson: {
+    getUser: {
         parameters: {
             query?: never;
             header?: {
@@ -11249,7 +11249,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PersonOutputBody"];
+                    "application/json": components["schemas"]["UserPageOutputBody"];
                 };
             };
             /** @description Error */
@@ -11263,7 +11263,7 @@ export interface operations {
             };
         };
     };
-    renamePerson: {
+    renameUser: {
         parameters: {
             query?: never;
             header?: {
@@ -11277,7 +11277,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["RenamePersonInputBody"];
+                "application/json": components["schemas"]["RenameUserInputBody"];
             };
         };
         responses: {
@@ -11299,7 +11299,7 @@ export interface operations {
             };
         };
     };
-    removePerson: {
+    removeUser: {
         parameters: {
             query?: never;
             header?: {
@@ -11367,7 +11367,7 @@ export interface operations {
             };
         };
     };
-    listPersonDevices: {
+    listUserDevices: {
         parameters: {
             query?: never;
             header?: {
@@ -11401,7 +11401,7 @@ export interface operations {
             };
         };
     };
-    removePersonDevice: {
+    removeUserDevice: {
         parameters: {
             query?: never;
             header?: {
@@ -11500,7 +11500,7 @@ export interface operations {
             };
         };
     };
-    setPersonsRole: {
+    setUserRole: {
         parameters: {
             query?: never;
             header?: {
@@ -11514,7 +11514,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PersonsRoleInputBody"];
+                "application/json": components["schemas"]["UserRoleInputBody"];
             };
         };
         responses: {

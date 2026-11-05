@@ -87,7 +87,7 @@ type ActivationAnswerInput struct {
 }
 
 func (server *Server) registerPairing() {
-	tags := []string{tagAccounts}
+	tags := []string{tagUsers}
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "requestPairing", Method: http.MethodPost, Path: "/pairings",
 		Summary: "A code for this device to show, which a person signed in enters to activate it (D288)", Tags: tags,

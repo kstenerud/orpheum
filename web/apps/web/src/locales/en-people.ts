@@ -18,7 +18,7 @@ export const enPeople = {
     alreadySetUp: "This server already has an admin. Go back and sign in.",
   },
   people: {
-    heading: "People",
+    heading: "Users",
     nameTaken: "Someone already has that name. Choose another.",
     qrLabel: "{{name}}'s link as a QR code",
     add: "Add a person",

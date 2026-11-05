@@ -41,7 +41,7 @@ import { Libraries } from "./libraries.tsx";
 import { LibraryPage } from "./library-manage.tsx";
 import { LibraryBrowse } from "./library-browse.tsx";
 import { chipsOf } from "./list-filters.ts";
-import { People } from "./people.tsx";
+import { Users } from "./users.tsx";
 import {
   BackgroundChangesContext,
   backgroundChangeWaits,
@@ -50,7 +50,7 @@ import {
   type Poller,
 } from "./polling.ts";
 import { ApiProblem, dataOrThrow, throwIfRefused } from "./problem.ts";
-import { PersonPage } from "./person.tsx";
+import { UserPage } from "./user.tsx";
 import { CastingLeft, TogetherLeft } from "./old-addresses.tsx";
 import { Register } from "./register.tsx";
 import type { Route } from "./router.ts";
@@ -323,7 +323,7 @@ function viewerScreen(route: Route): JSX.Element | undefined {
 
 /** A credited person's page: someone a title credits, and their titles (search-by-more §4.4). */
 function creditedScreen(route: Route): JSX.Element | undefined {
-  return route.screen === "credited-person" ? (
+  return route.screen === "person" ? (
     <CreditedPerson key={route.personId} id={route.personId} />
   ) : undefined;
 }
@@ -393,11 +393,11 @@ function adminScreen(route: Route): JSX.Element | undefined {
   if (route.screen === "needs-attention") {
     return <NeedsAttention />;
   }
-  if (route.screen === "people") {
-    return <People />;
+  if (route.screen === "users") {
+    return <Users />;
   }
-  if (route.screen === "person") {
-    return <PersonPage key={route.userId} userId={route.userId} />;
+  if (route.screen === "user") {
+    return <UserPage key={route.userId} userId={route.userId} />;
   }
   return librariesScreen(route);
 }

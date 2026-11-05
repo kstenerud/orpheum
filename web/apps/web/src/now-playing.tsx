@@ -83,7 +83,7 @@ function PlayingRow(props: {
     <li>
       <p>
         {t("nowPlaying.who", {
-          person: playing.personName,
+          person: playing.userName,
           device: playing.deviceName ?? t("nowPlaying.noDevice"),
           name: playing.name,
           since: timeText(playing.startedAt, i18n.language),

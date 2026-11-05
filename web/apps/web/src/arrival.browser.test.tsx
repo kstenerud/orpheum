@@ -38,7 +38,7 @@ const signedIn: WalkAnswers = {
   "GET /titles": { titles: films(6), nextCursor: "" },
 };
 
-/** An administrator's answers, for the pages only they reach: Libraries, People, a library's files. */
+/** An administrator's answers, for the pages only they reach: Libraries, Users, a library's files. */
 const anAdmin: WalkAnswers = {
   ...signedIn,
   "GET /me": { ...viewer, role: "admin", isAdmin: true },
@@ -56,7 +56,7 @@ const anAdmin: WalkAnswers = {
     ],
   },
   "GET /users": {
-    accounts: [
+    users: [
       { id: 1, name: "Karl", role: "admin", hasPassword: true },
       { id: 2, name: "Dana", role: "viewer", hasPassword: true },
     ],
@@ -283,7 +283,7 @@ describe("a page's arrival", () => {
 
   it("is the People page's first person", async () => {
     await page.viewport(1280, 800);
-    walking = await mountApp(walkServices(anAdmin, "/people"));
+    walking = await mountApp(walkServices(anAdmin, "/users"));
     await arrivesIn(".people__list");
     expect(focusedName()).toContain("Karl");
   });

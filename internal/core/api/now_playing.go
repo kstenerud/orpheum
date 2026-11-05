@@ -16,7 +16,7 @@ import (
 type NowPlayingBody struct {
 	ID         int64  `doc:"Names the playback to stop it" json:"id"`
 	UserID     int64  `json:"userId"`
-	PersonName string `json:"personName"`
+	UserName   string `json:"userName"`
 	DeviceName string `doc:"Absent for a session with no device" json:"deviceName,omitempty"`
 	FileID     int64  `json:"fileId"`
 	TitleID    int64  `doc:"Absent for a file filed as no title" json:"titleId,omitempty"`
@@ -78,7 +78,7 @@ func (server *Server) getNowPlaying(ctx context.Context, input *AuthorizationHea
 		if bodyErr != nil {
 			return nil, bodyErr
 		}
-		body.PersonName = nameOf[playing.UserID]
+		body.UserName = nameOf[playing.UserID]
 		output.Body.Playbacks = append(output.Body.Playbacks, body)
 	}
 	return output, nil
