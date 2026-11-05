@@ -1978,3 +1978,21 @@ about one run in three, from before this batch, were fixed in their tests ("test
   closes when the panel goes.
 - A test command run from a script is outside the shared test lock and the machinery report (the
   flake agent's five-run loop, 2026-11-05): a gate question for the owner.
+
+## The 11-08 batch (the owner, 2026-11-05: "put together more batches and run them until I'm back")
+
+The owner's questions wait for the morning; this batch holds what is specified or a bug.
+
+1. **The shared grid widget** ("UI issues the owner saw", item 2, the owner's own description): one
+   widget whose columns line up across rows, each column declaring whether its text wraps or stays
+   on one line, each row one pressable target covering what is drawn. Used by the cast list, needs a
+   match, accounts and roles. What each list shows is unchanged: the cast list's top-billed row and
+   its column count are design questions, written for the owner, not built.
+2. **A list asked again while focus is in it drops focus to the page** (filed above): the pop-up's
+   text is sent at once when it closes.
+3. **A season poster with no group is fetched on every pass** ("Next batch" above): recorded as
+   refused instead.
+4. **A Firefox browser test's page shows an earlier test's details** ("Next batch" above): find the
+   cache the setup does not reset, and reset it.
+
+End: one check-pr; staging and nas.example wait for the owner.
