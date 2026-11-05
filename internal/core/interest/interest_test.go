@@ -268,8 +268,8 @@ func seriesOfSix(t *testing.T) *store.Database {
 		librarytest.Probe(t, database, librarytest.ProbeSpec{FileID: fileID, DurationMs: 1000})
 	}
 	storetest.ExecRaw(t, database.Path(),
-		`INSERT INTO collection (id, kind, membership, created_by, identification_state)
-		 VALUES (20, 'series', 'explicit', 'scanner', 'identified')`,
+		`INSERT INTO collection (id, kind, created_by, identification_state)
+		 VALUES (20, 'series', 'scanner', 'identified')`,
 		`INSERT INTO ordering (id, collection_id, name) VALUES (1, 20, 'aired')`,
 		`INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order) VALUES
 		 (1, 21, 1, 1, 10001), (1, 22, 1, 2, 10002), (1, 23, 2, 1, 20001), (1, 24, 2, 2, 20002),

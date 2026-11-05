@@ -52,8 +52,8 @@ func (harness testHarness) shelve(t *testing.T) {
 		BytesFile: 1, StreamIndex: 1, Kind: "audio", Codec: "truehd", Language: "en", ChannelCount: 8,
 	})
 	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO collection (id, kind, membership, created_by, identification_state)
-		 VALUES (20, 'series', 'explicit', 'scanner', 'identified')`,
+		`INSERT INTO collection (id, kind, created_by, identification_state)
+		 VALUES (20, 'series', 'scanner', 'identified')`,
 		`INSERT INTO item_text (item_id, language, is_original, name, overview, search_alternates) VALUES
 		 (10, 'und', 1, 'Metropolis', 'A crime saga.', 'heat'), (20, 'und', 1, 'Brass Arena', NULL, 'brass arena'),
 		 (21, 'und', 1, 'Pilot', NULL, 'pilot')`,

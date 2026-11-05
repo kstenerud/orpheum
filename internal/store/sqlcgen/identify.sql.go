@@ -212,8 +212,8 @@ func (q *Queries) HasSortKeysOfOtherLocales(ctx context.Context, locale string) 
 }
 
 const insertCollection = `-- name: InsertCollection :exec
-INSERT INTO collection (id, kind, membership, created_by)
-VALUES (?1, ?2, 'explicit', ?3)
+INSERT INTO collection (id, kind, created_by)
+VALUES (?1, ?2, ?3)
 `
 
 type InsertCollectionParams struct {
@@ -544,7 +544,7 @@ LEFT JOIN item_text AS title_text ON title_text.item_id = title.id AND title_tex
 JOIN version ON version.title_id = title.id AND version.removed_at IS NULL
 JOIN file_filing ON file_filing.version_id = version.id
 JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
-WHERE title.kind = 'movie' AND title.media_kind = 'video'
+WHERE title.kind = 'movie'
   AND EXISTS (SELECT 1 FROM stream WHERE stream.video_file = file.id AND stream.kind = 'video'
     AND (stream.disposition_flags & 1024) = 0)
   AND NOT EXISTS (SELECT 1 FROM stream WHERE stream.video_file = file.id AND stream.kind = 'audio')
@@ -731,23 +731,16 @@ JOIN extra_relation ON extra_relation.owner_title = item.id
 WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL AND item.kind = 'title'
 `
 
-type ListLibraryExtraRelationsRow struct {
-	OwnerTitle int64
-	ExtraTitle int64
-	ExtraType  string
-	AssertedBy string
-}
-
 // The extras of the library's live titles, and who asserted each.
-func (q *Queries) ListLibraryExtraRelations(ctx context.Context, libraryID *int64) ([]ListLibraryExtraRelationsRow, error) {
+func (q *Queries) ListLibraryExtraRelations(ctx context.Context, libraryID *int64) ([]ExtraRelation, error) {
 	rows, err := q.db.QueryContext(ctx, listLibraryExtraRelations, libraryID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListLibraryExtraRelationsRow{}
+	items := []ExtraRelation{}
 	for rows.Next() {
-		var i ListLibraryExtraRelationsRow
+		var i ExtraRelation
 		if err := rows.Scan(
 			&i.OwnerTitle,
 			&i.ExtraTitle,

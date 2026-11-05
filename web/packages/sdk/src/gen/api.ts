@@ -5393,11 +5393,6 @@ export interface components {
             users: components["schemas"]["UserEntryBody"][] | null;
         };
         VersionBody: {
-            /**
-             * Format: int64
-             * @description Absent when the cut is unknown
-             */
-            editionId?: number;
             files: components["schemas"]["FileDetailBody"][] | null;
             /** Format: int64 */
             id: number;

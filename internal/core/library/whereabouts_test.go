@@ -34,7 +34,7 @@ func TestWhereabouts_NameTheLibrariesTheCallerReachesAndAnExtrasFilm(t *testing.
 	}
 	series := librarytest.Item(t, world.database, librarytest.ItemSpec{Kind: "collection", LibraryID: 1})
 	storetest.ExecRaw(t, world.database.Path(),
-		fmt.Sprintf("INSERT INTO collection (id, kind, membership, created_by) VALUES (%d, 'series', 'explicit', "+
+		fmt.Sprintf("INSERT INTO collection (id, kind, created_by) VALUES (%d, 'series', "+
 			"'scanner')", series),
 		fmt.Sprintf("INSERT INTO collection_member (collection_id, member_title) VALUES (%d, %d)", series, pilot))
 

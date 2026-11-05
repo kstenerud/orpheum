@@ -149,11 +149,12 @@ func TestVerifyPragmas_RefusesAConnectionWithoutThem(t *testing.T) {
 func TestRead_RefusesAWrite(t *testing.T) {
 	t.Parallel()
 	database := openMigrated(t)
-	_, err := database.readers.ExecContext(t.Context(), "INSERT INTO tag (name) VALUES ('x')")
+	_, err := database.readers.ExecContext(t.Context(), "INSERT INTO node (name, enrolled_at) VALUES ('x', 1)")
 	if err == nil || !strings.Contains(err.Error(), "readonly") {
 		t.Errorf("write through the reader pool: error = %v, want SQLite's read-only refusal", err)
 	}
-	if _, err := database.writer.ExecContext(t.Context(), "INSERT INTO tag (name) VALUES ('x')"); err != nil {
+	write := "INSERT INTO node (name, enrolled_at) VALUES ('x', 1)"
+	if _, err := database.writer.ExecContext(t.Context(), write); err != nil {
 		t.Errorf("write through the writer: %v", err)
 	}
 }

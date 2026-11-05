@@ -197,19 +197,12 @@ FROM role
 WHERE name = ?
 `
 
-type GetRoleByNameRow struct {
-	ID           int64
-	Name         string
-	IsBuiltin    int64
-	Capabilities string
-}
-
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // People and their roles (schema.md, People; D125, D130). schema.md defines no live_user view,
 // so these read the table and name the tombstone condition themselves.
-func (q *Queries) GetRoleByName(ctx context.Context, name string) (GetRoleByNameRow, error) {
+func (q *Queries) GetRoleByName(ctx context.Context, name string) (Role, error) {
 	row := q.db.QueryRowContext(ctx, getRoleByName, name)
-	var i GetRoleByNameRow
+	var i Role
 	err := row.Scan(
 		&i.ID,
 		&i.Name,

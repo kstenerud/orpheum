@@ -1872,7 +1872,7 @@ WHERE extra_relation.owner_title = ?1 AND item.removed_at IS NULL
       AND (CAST(?2 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
   )
-ORDER BY extra_relation.position, extra_relation.extra_title
+ORDER BY extra_relation.extra_title
 `
 
 type ListTitleExtrasParams struct {
@@ -1911,7 +1911,7 @@ func (q *Queries) ListTitleExtras(ctx context.Context, arg ListTitleExtrasParams
 }
 
 const listTitleFiles = `-- name: ListTitleFiles :many
-SELECT version.id AS version_id, version.edition_id, file.id AS file_id, place.id AS place_id, place.path,
+SELECT version.id AS version_id, file.id AS file_id, place.id AS place_id, place.path,
   file.size_bytes, file_filing.part_index
 FROM version
 CROSS JOIN file_filing ON file_filing.version_id = version.id
@@ -1934,7 +1934,6 @@ type ListTitleFilesParams struct {
 
 type ListTitleFilesRow struct {
 	VersionID int64
-	EditionID *int64
 	FileID    int64
 	PlaceID   int64
 	Path      string
@@ -1956,7 +1955,6 @@ func (q *Queries) ListTitleFiles(ctx context.Context, arg ListTitleFilesParams) 
 		var i ListTitleFilesRow
 		if err := rows.Scan(
 			&i.VersionID,
-			&i.EditionID,
 			&i.FileID,
 			&i.PlaceID,
 			&i.Path,

@@ -166,7 +166,7 @@ func (server *Server) titleBody(
 	body.RefreshRequestedAt = ptr.ValueOrZero(detail.RefreshRequestedAt)
 	body.Versions = make([]VersionBody, 0, len(detail.Versions))
 	for _, version := range detail.Versions {
-		versionBody := VersionBody{ID: version.ID, EditionID: version.EditionID, Files: []FileDetailBody{}}
+		versionBody := VersionBody{ID: version.ID, Files: []FileDetailBody{}}
 		for _, file := range version.Files {
 			fileBody := FileDetailBody{ID: file.ID, SizeBytes: file.SizeBytes, Streams: []StreamBody{}}
 			// Paths are shown where the admin administers, never from away (the Plex-chain review's T2).

@@ -168,8 +168,8 @@ func (filler *referenceScaleFiller) insertProviderData(itemID int64, kind string
 // insertSeries inserts one series with its episodes, their places in the aired order and their stills.
 func (filler *referenceScaleFiller) insertSeries(index int) {
 	id := filler.insertItem("collection", 2, "series")
-	filler.exec("INSERT INTO collection (id, kind, membership, created_by) "+
-		"VALUES (?, 'series', 'explicit', 'scanner')", id)
+	filler.exec("INSERT INTO collection (id, kind, created_by) "+
+		"VALUES (?, 'series', 'scanner')", id)
 	filler.exec("INSERT INTO ordering (collection_id, name, provider) VALUES (?, 'aired', 'tmdb')", id)
 	var orderingID int64
 	if err := filler.tx.QueryRowContext(filler.ctx, "SELECT last_insert_rowid()").Scan(&orderingID); err != nil {

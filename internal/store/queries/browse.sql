@@ -118,7 +118,7 @@ WHERE title.id = sqlc.arg(id) AND item.removed_at IS NULL;
 -- A title's versions and their live files, a version's parts in order, each file at each of its live
 -- places a library of the title's kind covers that its caller reaches, its first place first (D363
 -- section 8): a version none of whose files they reach is not listed, nor is a place they do not.
-SELECT version.id AS version_id, version.edition_id, file.id AS file_id, place.id AS place_id, place.path,
+SELECT version.id AS version_id, file.id AS file_id, place.id AS place_id, place.path,
   file.size_bytes, file_filing.part_index
 FROM version
 CROSS JOIN file_filing ON file_filing.version_id = version.id
@@ -150,7 +150,7 @@ WHERE extra_relation.owner_title = sqlc.arg(owner_title) AND item.removed_at IS 
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
   )
-ORDER BY extra_relation.position, extra_relation.extra_title;
+ORDER BY extra_relation.extra_title;
 
 -- name: GetEpisodePlace :one
 -- An episode's series and its place in the aired order.

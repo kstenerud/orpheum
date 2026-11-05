@@ -653,18 +653,18 @@ func (q *Queries) ListCopyCandidates(ctx context.Context, maxRows int64) ([]List
 }
 
 const listFilesAHeldBackScanDidNotSee = `-- name: ListFilesAHeldBackScanDidNotSee :many
-SELECT live_file.path
-FROM live_file
-WHERE live_file.node_id = ?1
-  AND live_file.reported_path_raw > CAST(?2 AS BLOB)
-  AND live_file.reported_path_raw < CAST(?3 AS BLOB)
-  AND live_file.last_seen_at < ?4 AND live_file.filing <> 'errored'
+SELECT file.path
+FROM file
+WHERE file.node_id = ?1 AND file.removed_at IS NULL
+  AND file.reported_path_raw > CAST(?2 AS BLOB)
+  AND file.reported_path_raw < CAST(?3 AS BLOB)
+  AND file.last_seen_at < ?4 AND file.filing <> 'errored'
   AND NOT EXISTS (
-    SELECT 1 FROM live_file AS unread
-    WHERE unread.filing = 'errored' AND unread.node_id = live_file.node_id
-      AND substr(live_file.path, 1, length(unread.path) + 1) = unread.path || '/'
+    SELECT 1 FROM file AS unread
+    WHERE unread.filing = 'errored' AND unread.removed_at IS NULL AND unread.node_id = file.node_id
+      AND substr(file.path, 1, length(unread.path) + 1) = unread.path || '/'
   )
-ORDER BY live_file.path
+ORDER BY file.path
 `
 
 type ListFilesAHeldBackScanDidNotSeeParams struct {
@@ -758,7 +758,7 @@ func (q *Queries) ListFilesAtSeveralPlaces(ctx context.Context, arg ListFilesAtS
 }
 
 const listFilesToCompare = `-- name: ListFilesToCompare :many
-SELECT id, reported_path_raw, size_bytes, modified_at, filing, sidecar_kind, is_identity_confirmed,
+SELECT id, reported_path_raw, size_bytes, modified_at, filing, sidecar_kind,
        filesystem_device, inode,
        CAST(payload_hash IS NOT NULL AS INTEGER) AS has_payload_hash,
        CAST(EXISTS (SELECT 1 FROM file_nfo WHERE file_nfo.file_id = file.id) AS INTEGER) AS has_nfo_body
@@ -774,17 +774,16 @@ type ListFilesToCompareParams struct {
 }
 
 type ListFilesToCompareRow struct {
-	ID                  int64
-	ReportedPathRaw     []byte
-	SizeBytes           *int64
-	ModifiedAt          *int64
-	Filing              string
-	SidecarKind         *string
-	IsIdentityConfirmed int64
-	FilesystemDevice    *int64
-	Inode               *int64
-	HasPayloadHash      int64
-	HasNFOBody          int64
+	ID               int64
+	ReportedPathRaw  []byte
+	SizeBytes        *int64
+	ModifiedAt       *int64
+	Filing           string
+	SidecarKind      *string
+	FilesystemDevice *int64
+	Inode            *int64
+	HasPayloadHash   int64
+	HasNFOBody       int64
 }
 
 // The live places under a scan's root on its node (ListLiveFilesUnder's range), with what a listing
@@ -806,7 +805,6 @@ func (q *Queries) ListFilesToCompare(ctx context.Context, arg ListFilesToCompare
 			&i.ModifiedAt,
 			&i.Filing,
 			&i.SidecarKind,
-			&i.IsIdentityConfirmed,
 			&i.FilesystemDevice,
 			&i.Inode,
 			&i.HasPayloadHash,
@@ -1533,15 +1531,15 @@ func (q *Queries) ListSubtitleTracksOfVideo(ctx context.Context, arg ListSubtitl
 }
 
 const listUnreadablePaths = `-- name: ListUnreadablePaths :many
-SELECT library.id AS library_id, library.name AS library_name, node.name AS node_name, live_file.node_id,
-  live_file.path, live_file.filing_reason, live_file.error_detail_json, live_file.first_seen_at
-FROM live_file
-JOIN node ON node.id = live_file.node_id AND node.removed_at IS NULL
+SELECT library.id AS library_id, library.name AS library_name, node.name AS node_name, file.node_id,
+  file.path, file.filing_reason, file.error_detail_json, file.first_seen_at
+FROM file
+JOIN node ON node.id = file.node_id AND node.removed_at IS NULL
 JOIN library ON library.id = (
-  SELECT place_library.library_id FROM place_library WHERE place_library.place_id = live_file.id
+  SELECT place_library.library_id FROM place_library WHERE place_library.place_id = file.id
   ORDER BY place_library.library_id LIMIT 1)
-WHERE live_file.filing = 'errored'
-ORDER BY live_file.node_id, live_file.path
+WHERE file.filing = 'errored' AND file.removed_at IS NULL
+ORDER BY file.node_id, file.path
 `
 
 type ListUnreadablePathsRow struct {
@@ -1843,7 +1841,6 @@ UPDATE file SET
   modified_at = ?4,
   payload_hash = ?5,
   payload_bytes = ?6,
-  is_identity_confirmed = 1,
   filing = CASE WHEN filing IN ('skipped', 'errored') THEN 'video' ELSE filing END,
   filing_reason = CASE WHEN filing IN ('skipped', 'errored') THEN ?7
                   ELSE filing_reason END,

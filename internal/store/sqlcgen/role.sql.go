@@ -38,16 +38,9 @@ const getRole = `-- name: GetRole :one
 SELECT id, name, is_builtin, capabilities FROM role WHERE id = ?1
 `
 
-type GetRoleRow struct {
-	ID           int64
-	Name         string
-	IsBuiltin    int64
-	Capabilities string
-}
-
-func (q *Queries) GetRole(ctx context.Context, id int64) (GetRoleRow, error) {
+func (q *Queries) GetRole(ctx context.Context, id int64) (Role, error) {
 	row := q.db.QueryRowContext(ctx, getRole, id)
-	var i GetRoleRow
+	var i Role
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
