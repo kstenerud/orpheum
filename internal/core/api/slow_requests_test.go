@@ -78,7 +78,7 @@ func TestLoggingSlow_NamesTheStatementsASlowRequestRan(t *testing.T) {
 		now.Advance(2 * time.Second)
 	}))
 	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequestWithContext(t.Context(), http.MethodGet,
-		Prefix+"/titles", nil))
+		Prefix+"/items", nil))
 	if logged := logs.String(); !strings.Contains(logged, `"statements":"GetLiveGrant×1 ListTitles×1","writes":1`) {
 		t.Errorf("the slow request's line does not name its statements and writes:\n%s", logged)
 	}

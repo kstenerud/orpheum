@@ -109,28 +109,13 @@ WHERE person.id = sqlc.arg(person_id) AND EXISTS (
         AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
           OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))))));
 
--- name: ListPersonCredits :many
--- A person's credits on the films and series the caller reaches.
-SELECT credit.item_id, credit.role, credit.ordinal, credit.character, item.kind AS item_kind,
-  title.kind AS title_kind, title.year AS title_year, collection.year AS series_year, item_text.name
+-- name: ListPersonCreditsOn :many
+-- A person's credits on the items a list of them shows (GET /items?person=, D425 section 7): the
+-- list read what the caller reaches, so this reads only the credits of the items it names.
+SELECT credit.item_id, credit.role, credit.character
 FROM credit
-CROSS JOIN item ON item.id = credit.item_id
-LEFT JOIN title ON title.id = credit.item_id
-LEFT JOIN collection ON collection.id = credit.item_id
-LEFT JOIN item_text ON item_text.item_id = credit.item_id AND item_text.is_original = 1
-WHERE credit.person_id = sqlc.arg(person_id) AND item.removed_at IS NULL AND (
-  (title.kind IN ('movie', 'other') AND EXISTS (
-    SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE version.title_id = title.id AND version.removed_at IS NULL
-      AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
-        OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))))
-  OR (collection.kind = 'series' AND EXISTS (
-    SELECT 1 FROM collection_member
-    CROSS JOIN version ON version.title_id = collection_member.member_title
-    CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE collection_member.collection_id = collection.id AND version.removed_at IS NULL
-      AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
-        OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT)))))))
+WHERE credit.person_id = sqlc.arg(person_id)
+  AND credit.item_id IN (SELECT value FROM json_each(CAST(sqlc.arg(item_ids_json) AS TEXT)))
 ORDER BY credit.item_id, credit.role, credit.ordinal;
 
 -- name: ListGenresWithCounts :many

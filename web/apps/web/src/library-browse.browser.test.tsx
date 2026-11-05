@@ -117,8 +117,8 @@ const oneLibrary = {
       },
     ],
   },
-  "GET /titles": {
-    titles: [
+  "GET /items": {
+    items: [
       {
         id: 1,
         name: "A film",
@@ -130,7 +130,7 @@ const oneLibrary = {
     ],
     nextCursor: "",
   },
-  "GET /titles/letters": { letters: [] },
+  "GET /items/letters": { letters: [] },
 };
 
 /** The same server, its library one of other videos, whose page offers a view by folders. */

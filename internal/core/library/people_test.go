@@ -222,8 +222,9 @@ func TestTitle_CarriesItsGenresAndCredits(t *testing.T) {
 	}
 }
 
-// A person's page lists the titles crediting them that its viewer reaches, newest first, with their
-// roles; a person no reached title credits is no person to them (D243 §4).
+// A person's page is the person, their name and picture; the items crediting them are a list's,
+// which says their roles on each (D425 §7). A person no reached title credits is no person to them
+// (D243 §4).
 func TestPerson_ListsTheReachedTitlesCreditingThem(t *testing.T) {
 	t.Parallel()
 	world := newCreditedShelf(t)
@@ -231,18 +232,31 @@ func TestPerson_ListsTheReachedTitlesCreditingThem(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if vardo.Name != "Ansel Vardo" || vardo.PictureRef != "/Ansel Vardo.jpg" {
+		t.Errorf("Ansel Vardo's page %q %q; want his name and picture", vardo.Name, vardo.PictureRef)
+	}
+	ids := []int64{world.films["The Boarder"], world.films["Metropolis"], world.films["Scarlet Wren"]}
+	credits, err := world.browser.CreditsOn(t.Context(), world.people["Ansel Vardo"], ids)
+	if err != nil {
+		t.Fatal(err)
+	}
 	var titles []string
-	for _, title := range vardo.Titles {
-		titles = append(titles, fmt.Sprintf("%s %d %s %s", title.Name, title.Year, title.Roles[0].Role,
-			title.Roles[0].Character))
+	for _, id := range ids {
+		roles := credits[id]
+		if len(roles) == 0 {
+			t.Fatalf("no credit on %d; want his part", id)
+		}
+		titles = append(titles, fmt.Sprintf("%d %s %s", id, roles[0].Role, roles[0].Character))
 	}
 	want := []string{
-		"The Boarder 1999 cast Edda Quarrin", "Metropolis 1995 cast Mira Holloway-Pent",
-		"Scarlet Wren 1983 cast Silas Morrow-Fenn",
+		fmt.Sprintf("%d cast Edda Quarrin", ids[0]), fmt.Sprintf("%d cast Mira Holloway-Pent", ids[1]),
+		fmt.Sprintf("%d cast Silas Morrow-Fenn", ids[2]),
 	}
-	if vardo.Name != "Ansel Vardo" || vardo.PictureRef != "/Ansel Vardo.jpg" || !slices.Equal(titles, want) {
-		t.Errorf("Ansel Vardo's page %q %q %v; want %v, not the film with no live file", vardo.Name,
-			vardo.PictureRef, titles, want)
+	if !slices.Equal(titles, want) {
+		t.Errorf("Ansel Vardo's credits %v; want %v", titles, want)
+	}
+	if len(credits) != len(ids) {
+		t.Errorf("credits on %d items; want the %d named alone", len(credits), len(ids))
 	}
 	for name, reach := range map[string]auth.Reach{
 		"a person only a film with no live file credits": auth.EveryLibrary(),

@@ -236,6 +236,7 @@ func (server *Server) registerWhatPagesLog() {
 // series and other videos, the alphabet rail's letters and an other library's folders.
 func (server *Server) registerBrowsing() {
 	server.registerBrowse()
+	server.registerItemList()
 	server.registerItem()
 	server.registerPeople()
 	server.registerLibraryBrowsing()

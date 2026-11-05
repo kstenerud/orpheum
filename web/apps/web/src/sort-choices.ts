@@ -20,13 +20,13 @@ export function defaultOrderOf(sort: LibrarySort): SortOrder {
   return isByName(sort) ? "ascending" : "descending";
 }
 
-/** A sort's order as asked for, its own default when none is: what GET /titles is asked. */
+/** A sort's order as asked for, its own default when none is: what GET /items is asked. */
 export function orderOf(sort: LibrarySort, order: SortOrder | undefined): SortOrder {
   return order ?? defaultOrderOf(sort);
 }
 
 /**
- * The order GET /titles is sent: none for the sort's own way, so a list run its own way asks as it
+ * The order GET /items is sent: none for the sort's own way, so a list run its own way asks as it
  * always has, the other way named.
  */
 export function orderQuery(choice: SortChoice): { readonly order?: SortOrder } {

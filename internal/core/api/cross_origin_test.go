@@ -89,7 +89,7 @@ func TestCrossOrigin_TheLoadersOriginReachesOnlyWhatFindingTheCoreTakes(t *testi
 	harness.server.NamedClientOrigin().Store(&client)
 	harness.server.NamedLoaderOrigin().Store(&loader)
 	for path, isAllowed := range map[string]bool{
-		"/health": true, "/session/handoff": true, "/session/redeem": false, "/me": false, "/titles": false,
+		"/health": true, "/session/handoff": true, "/session/redeem": false, "/me": false, "/items": false,
 	} {
 		answer := harness.doWithHeader(t, http.MethodGet, path, token, http.Header{"Origin": {loader}}, nil)
 		if allowed := answer.header.Get("Access-Control-Allow-Origin"); (allowed == loader) != isAllowed {

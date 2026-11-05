@@ -31,9 +31,10 @@ func (harness testHarness) shelvePeople(t *testing.T) {
 		 (10, 'cast', 0, 40, 'Mira Holloway-Pent'), (10, 'director', 0, 41, NULL), (20, 'cast', 0, 42, 'Corwin Ashby')`)
 }
 
-// A title's page carries its genres and credits, an episode its series'; a person's page lists the
-// titles crediting them; the genres are counted; the list filters by genre and person; a grouped
-// search finds titles, people and genres, a group paged by its cursor.
+// A title's page carries its genres and credits, an episode its series'; a person's page is the
+// person, and the list by person carries their credit on each item (D425 §7); the genres are
+// counted; the list filters by genre and person; a grouped search finds titles, people and genres, a
+// group paged by its cursor.
 func TestBrowse_GenresAndPeopleAreShownListedFilteredAndSearched(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
@@ -46,16 +47,18 @@ func TestBrowse_GenresAndPeopleAreShownListedFilteredAndSearched(t *testing.T) {
 		{"/items/21", `"genres":[{"id":2,"name":"Drama"}],"credits":{"cast":[{"personId":42,` +
 			`"name":"Bela Ostrander",`},
 		{"/items/20", `"genres":[{"id":2,"name":"Drama"}],"credits":{"cast":[{"personId":42,`},
-		{"/people/40", `{"id":40,"name":"Ansel Vardo","pictureRef":"/vardo.jpg","titles":[{"id":10,"kind":"movie",` +
-			`"name":"Metropolis","year":1995,"jobs":[{"job":"cast","character":"Mira Holloway-Pent"}]}]}`},
+		{"/people/40", `{"id":40,"name":"Ansel Vardo","pictureRef":"/vardo.jpg"}`},
+		{"/items?limit=10&person=40", `"name":"Metropolis","year":1995,`},
+		{"/items?limit=10&person=40", `"credit":{"jobs":["cast"],"character":"Mira Holloway-Pent"}}]}`},
+		{"/items?kind=movie&limit=10&person=41", `"credit":{"jobs":["director"]}}]}`},
 		{"/genres?kind=any", `"genres":[{"id":1,"name":"Crime","titleCount":1},` +
 			`{"id":2,"name":"Drama","titleCount":1}]`},
 		{"/genres?kind=movie", `"genres":[{"id":1,"name":"Crime","titleCount":1}]`},
-		{"/titles?kind=any&sort=name&limit=10&genre=2", `"name":"Brass Arena"`},
-		{"/titles?kind=movie&sort=name&limit=10&person=41&decade=1990", `"name":"Metropolis"`},
-		{"/titles?kind=movie&sort=name&limit=10&person=42", `"titles":[]`},
-		{"/titles/letters?kind=movie&sort=name&genre=1", `"letters":["H"]`},
-		{"/titles/letters?kind=movie&sort=name&genre=2", `"letters":[]`},
+		{"/items?kind=any&sort=name&limit=10&genre=2", `"name":"Brass Arena"`},
+		{"/items?kind=movie&sort=name&limit=10&person=41&decade=1990", `"name":"Metropolis"`},
+		{"/items?kind=movie&sort=name&limit=10&person=42", `{"items":[]}`},
+		{"/items/letters?kind=movie&sort=name&genre=1", `"letters":["H"]`},
+		{"/items/letters?kind=movie&sort=name&genre=2", `"letters":[]`},
 		{"/search/grouped?query=r&limit=10", `"titles":{"hits":[`},
 		{"/search/grouped?query=cr&limit=10", `"genres":{"hits":[{"id":1,"name":"Crime","titleCount":1}]}`},
 		{"/search/grouped?query=a&limit=1", `"people":{"hits":[{"id":40,"name":"Ansel Vardo",` +
@@ -71,7 +74,7 @@ func TestBrowse_GenresAndPeopleAreShownListedFilteredAndSearched(t *testing.T) {
 			t.Errorf("%s = %d %s; want %s", want.path, got.status, got.body, want.want)
 		}
 	}
-	heat := harness.do(t, http.MethodGet, "/titles?kind=any&sort=name&limit=10&genre=1", admin, nil)
+	heat := harness.do(t, http.MethodGet, "/items?kind=any&sort=name&limit=10&genre=1", admin, nil)
 	if strings.Contains(heat.body, "Brass Arena") {
 		t.Errorf("the Crime titles = %s; want Metropolis alone", heat.body)
 	}

@@ -598,8 +598,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The titles and series in one state of identification */
-        get: operations["getItemsByIdentification"];
+        /** The one list: films, series or other videos by name in the library's locale or newest first, filtered by library, genre, person, decade, unwatched or identification */
+        get: operations["listItems"];
         put?: never;
         post?: never;
         delete?: never;
@@ -865,6 +865,23 @@ export interface paths {
         post?: never;
         /** Mark an item unwatched by hand, as never watched: a film, episode or other video, or every episode of a series with a file, in the ordering the person watches it in (D370) */
         delete: operations["unmarkWatched"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/items/letters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The letters of the alphabet a list by name has items under */
+        get: operations["listItemLetters"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1595,7 +1612,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** A person: their name, their picture and the titles crediting them */
+        /** A person: their name and their picture; GET /items?person= lists what credits them */
         get: operations["getPerson"];
         put?: never;
         post?: never;
@@ -1785,8 +1802,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Titles and series by name, in any script (D48); superseded by GET /titles?query=
-         * @description Superseded: GET /titles takes query, a search as a criterion of the one list, with its kind, library, sort, order and paging. Kept for clients that call it; new code lists with GET /titles.
+         * Titles and series by name, in any script (D48); superseded by GET /items?query=
+         * @description Superseded: GET /items takes query, a search as a criterion of the one list, with its kind, library, sort, order and paging. Kept for clients that call it; new code lists with GET /items.
          */
         get: operations["search"];
         put?: never;
@@ -2050,40 +2067,6 @@ export interface paths {
         };
         /** What the server knows of an update: a security fix its version lacks, or a newer release (admin) */
         get: operations["getSystemUpdate"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/titles": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Films or series, by name in the library's locale or newest first */
-        get: operations["getTitles"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/titles/letters": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** The alphabet rail's letters a list by name or file name has titles under (D349) */
-        get: operations["getTitleLetters"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2773,7 +2756,7 @@ export interface components {
             name: string;
             /**
              * Format: int64
-             * @description GET /people/{id}; GET /titles?person= lists their titles
+             * @description GET /people/{id}; GET /items?person= lists their items
              */
             personId: number;
             /** @description Their picture as their source names it, a TMDB profile path or an NFO's thumb; not fetched by the server yet */
@@ -2981,47 +2964,6 @@ export interface components {
             isPlaying: boolean;
             /** Format: int64 */
             positionMs: number;
-        };
-        EntryBody: {
-            /** Format: int64 */
-            addedAt: number;
-            /**
-             * Format: int64
-             * @description How many episodes a series has with a file, in the ordering the person watches it in; absent for a film
-             */
-            episodeCount?: number;
-            /**
-             * Format: int64
-             * @description How many of those episodes the person watched, by playing or by hand (D370); absent when none, and for a film
-             */
-            finishedEpisodeCount?: number;
-            /** Format: int64 */
-            id: number;
-            identificationState: string;
-            isGuessed?: boolean;
-            /** @description Whether the person watched it: a film or other video by playing it to its finish or by hand, a series once they watched every episode it counts (D370) */
-            isWatched?: boolean;
-            /**
-             * @description What it is: a film, a series, or an other video (D349)
-             * @enum {string}
-             */
-            kind: "movie" | "series" | "other";
-            /** @description An other video's 16:9 picture: GET /bytes/art/{sourceSha256}/landscape-s.webp */
-            landscapeSha256?: string;
-            name: string;
-            /** @description A film's or series' 16:9 picture when it has no poster, shown above the mark of a missing poster: GET /bytes/art/{sourceSha256}/landscape-s.webp */
-            noPosterStillSha256?: string;
-            /** @description Its poster's hash: GET /bytes/art/{sourceSha256}/portrait-m.webp */
-            posterSha256?: string;
-            recorded?: components["schemas"]["RecordedBody"];
-            unavailable?: components["schemas"]["UnavailableBody"];
-            /**
-             * Format: int64
-             * @description How far, in percent, the person is through a film, where Continue Watching would resume it; absent for a series, and for a film they are not partway through, have hidden since, or whose file's length is not known
-             */
-            watchedPercent?: number;
-            /** Format: int64 */
-            year?: number;
         };
         EpisodeBody: {
             /** Format: int64 */
@@ -3246,7 +3188,7 @@ export interface components {
             /** @description Its path below the library's folders; empty at their top */
             folder: string;
             subfolders: components["schemas"]["SubfolderBody"][] | null;
-            titles: components["schemas"]["EntryBody"][] | null;
+            titles: components["schemas"]["ItemEntryBody"][] | null;
         };
         GenreBody: {
             /** Format: int64 */
@@ -3279,7 +3221,7 @@ export interface components {
         GroupHitBody: {
             /**
              * Format: int64
-             * @description A title's: GET /items/{id}, of any kind; a person's: GET /people/{id}; a genre's: GET /titles?genre=
+             * @description A title's: GET /items/{id}, of any kind; a person's: GET /people/{id}; a genre's: GET /items?genre=
              */
             id: number;
             /**
@@ -3368,6 +3310,18 @@ export interface components {
             expiresAt: number;
             urls: string[] | null;
             username: string;
+        };
+        IdentificationBody: {
+            fetchFailure?: components["schemas"]["FetchFailureBody"];
+            /** @description Where its own values come from: nfo, tmdb, or none */
+            followedSource?: string;
+            /** @description Its id at its provider */
+            followedSourceId?: string;
+            /**
+             * Format: int64
+             * @description When a person asked for it to be refreshed, while no fetch has answered yet
+             */
+            refreshRequestedAt?: number;
         };
         IdentifiedDiscoveryOutputBody: {
             /** @description The discovery's identity, od1-..., to compare with what its operator shows */
@@ -3459,29 +3413,62 @@ export interface components {
             link?: string;
             secret: string;
         };
-        ItemBody: {
-            fetchFailure?: components["schemas"]["FetchFailureBody"];
-            /** @description Where its own values come from: nfo, tmdb, or none */
-            followedSource?: string;
-            /** @description Its id at its provider */
-            followedSourceId?: string;
-            /** Format: int64 */
-            id: number;
-            /** @enum {string} */
-            identificationState: "identified" | "ambiguous" | "unidentified" | "confirmed";
-            /** @enum {string} */
-            kind: "movie" | "episode" | "extra" | "series";
-            name: string;
+        ItemCreditBody: {
+            /** @description Their part, in the cast; absent for crew and where the source names none */
+            character?: string;
+            /** @description Their jobs on it, cast first */
+            jobs: ("cast" | "director" | "writer")[] | null;
+        };
+        ItemEntryBody: {
             /**
              * Format: int64
-             * @description When a person asked for it to be refreshed, while no fetch has answered yet
+             * @description When the scan that found it ran, Unix milliseconds; absent in a list by identification
              */
-            refreshRequestedAt?: number;
+            addedAt?: number;
+            /** @description The person's credit on it; present in a list by person alone */
+            credit?: components["schemas"]["ItemCreditBody"];
+            /**
+             * Format: int64
+             * @description How many episodes a series has with a file, in the ordering the person watches it in; absent for a film
+             */
+            episodeCount?: number;
+            /**
+             * Format: int64
+             * @description How many of those episodes the person watched, by playing or by hand (D370); absent when none, and for a film
+             */
+            finishedEpisodeCount?: number;
+            /**
+             * Format: int64
+             * @description GET /items/{id}
+             */
+            id: number;
+            /** @description Where its match stands; present in a list by identification alone */
+            identification?: components["schemas"]["IdentificationBody"];
+            identificationState: string;
+            isGuessed?: boolean;
+            /** @description Whether the person watched it: a film or other video by playing it to its finish or by hand, a series once they watched every episode it counts (D370) */
+            isWatched?: boolean;
+            /**
+             * @description What it is: a film, a series, an episode, an extra or an other video (D349, D416 §5)
+             * @enum {string}
+             */
+            kind: "movie" | "series" | "episode" | "extra" | "other";
+            /** @description An other video's 16:9 picture: GET /bytes/art/{sourceSha256}/landscape-s.webp */
+            landscapeSha256?: string;
+            name: string;
+            /** @description A film's or series' 16:9 picture when it has no poster, shown above the mark of a missing poster: GET /bytes/art/{sourceSha256}/landscape-s.webp */
+            noPosterStillSha256?: string;
+            /** @description Its poster's hash: GET /bytes/art/{sourceSha256}/portrait-m.webp */
+            posterSha256?: string;
+            recorded?: components["schemas"]["RecordedBody"];
+            unavailable?: components["schemas"]["UnavailableBody"];
+            /**
+             * Format: int64
+             * @description How far, in percent, the person is through a film, where Continue Watching would resume it; absent for a series, and for a film they are not partway through, have hidden since, or whose file's length is not known
+             */
+            watchedPercent?: number;
             /** Format: int64 */
             year?: number;
-        };
-        ItemsOutputBody: {
-            items: components["schemas"]["ItemBody"][] | null;
         };
         JobBody: {
             /** Format: int64 */
@@ -3824,6 +3811,11 @@ export interface components {
             /** @description A registration link's person; absent for an invitation */
             name?: string;
         };
+        ListItemsOutputBody: {
+            items: components["schemas"]["ItemEntryBody"][] | null;
+            /** @description The next page's cursor; absent on the last */
+            nextCursor?: string;
+        };
         LocatorOutputBody: {
             locator: string;
         };
@@ -4140,29 +4132,8 @@ export interface components {
             /** Format: int64 */
             id: number;
             name: string;
-            /** @description Their picture as their source names it, a TMDB profile path or an NFO's thumb; not fetched by the server yet */
+            /** @description Their picture as their source names it, a TMDB profile path or an NFO's thumb; not fetched by the server yet. GET /items?person= lists the items crediting them, each with their credit */
             pictureRef?: string;
-            /** @description The titles the person reaches that credit them, newest first, with their jobs on each; GET /titles?person= lists them as a list does */
-            titles: components["schemas"]["PersonTitleBody"][] | null;
-        };
-        PersonJobBody: {
-            /** @description Their part, in the cast; absent for crew and where the source names none */
-            character?: string;
-            /** @enum {string} */
-            job: "cast" | "director" | "writer";
-        };
-        PersonTitleBody: {
-            /**
-             * Format: int64
-             * @description GET /items/{id}, of any kind
-             */
-            id: number;
-            jobs: components["schemas"]["PersonJobBody"][] | null;
-            /** @enum {string} */
-            kind: "movie" | "series" | "other";
-            name: string;
-            /** Format: int64 */
-            year?: number;
         };
         PictureTrackBody: {
             /** @description ffprobe's name for it: hevc, h264, av1 ... */
@@ -5299,11 +5270,6 @@ export interface components {
             versions: components["schemas"]["VersionBody"][] | null;
             /** Format: int64 */
             year?: number;
-        };
-        TitlesOutputBody: {
-            /** @description Empty on the last page */
-            nextCursor?: string;
-            titles: components["schemas"]["EntryBody"][] | null;
         };
         TogetherDetailsOutputBody: {
             /**
@@ -6723,7 +6689,7 @@ export interface operations {
             query: {
                 /** @description movie, series or other: the genres of that kind's titles; any: of every kind */
                 kind: "movie" | "series" | "other" | "any";
-                /** @description As GET /titles takes it */
+                /** @description As GET /items takes it */
                 library?: number;
             };
             header?: {
@@ -7049,10 +7015,36 @@ export interface operations {
             };
         };
     };
-    getItemsByIdentification: {
+    listItems: {
         parameters: {
             query: {
-                identificationState: "identified" | "ambiguous" | "unidentified" | "confirmed";
+                /** @description From the previous page's nextCursor */
+                cursor?: string;
+                /** @description Only the titles first out in this decade, by its first year (1980 for the 1980s); a series by its first air date */
+                decade?: number;
+                /** @description A name, by name or file name only and with no cursor: A to Z, the page starts at the first item sorted at or after it, as a letter of the alphabet does; Z to A, at the last item sorted before it, so the letter after a letter starts that letter's items */
+                from?: string;
+                /** @description Only the titles in this genre, by its id from GET /genres */
+                genre?: number;
+                /** @description The list as a row of Home shows it, with no library: of every library the person reaches less those they left out of Home (leftOutOfHomeLibraryIds, D366), in place of those left out of Films and Series */
+                home?: boolean;
+                /** @description Only the films, extras and series in this state of identification, as Needs a match lists them, by name, each with its identification; with no other filter than library */
+                identification?: "identified" | "ambiguous" | "unidentified" | "confirmed";
+                /** @description movie, series or other; any: every kind, every library's */
+                kind?: "movie" | "series" | "other" | "any";
+                /** @description One library's alone; absent for every library the person reaches, less, for films and series, those they left out (leftOutLibraryIds) */
+                library?: number;
+                limit: number;
+                /** @description The way the sort runs (D366): ascending, A to Z or oldest first; descending, Z to A or newest first; absent for the sort's own, A to Z by a name and newest first by a date. What has no date is last either way */
+                order?: "ascending" | "descending";
+                /** @description Only the titles crediting this person, by their id from a title's credits or a search */
+                person?: number;
+                /** @description Only the items whose name matches it, in any script (D48): a film, other video or series by its own name, never by an episode's or an extra's; every other criterion applies as without it. A query that matches nothing, or with nothing an index can match (only spaces, or only punctuation in a longer query), lists nothing. The items come from the first 10000 names it matches, the best first */
+                query?: string;
+                /** @description name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode. recorded: newest recorded first, and file_name: by the files' names, other videos only. released: newest first by a film's release date or a series' first air date, those with none last, films and series only */
+                sort?: "name" | "added" | "recorded" | "file_name" | "released";
+                /** @description Only the titles the person has not watched: a series while one of its episodes with a file is not */
+                unwatched?: boolean;
             };
             header?: {
                 /** @description Bearer <session token> */
@@ -7069,7 +7061,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ItemsOutputBody"];
+                    "application/json": components["schemas"]["ListItemsOutputBody"];
                 };
             };
             /** @description Error */
@@ -7740,6 +7732,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WatchedMarkOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listItemLetters: {
+        parameters: {
+            query: {
+                /** @description Only the titles first out in this decade, by its first year (1980 for the 1980s); a series by its first air date */
+                decade?: number;
+                /** @description Only the titles in this genre, by its id from GET /genres */
+                genre?: number;
+                /** @description As GET /items takes it */
+                kind: "movie" | "series" | "other" | "any";
+                /** @description As GET /items takes it */
+                library?: number;
+                /** @description Only the titles crediting this person, by their id from a title's credits or a search */
+                person?: number;
+                /** @description As GET /items takes it: only the letters some title whose name matches it is under */
+                query?: string;
+                /** @description The order the rail follows: by name, or an other video's by file name */
+                sort: "name" | "file_name";
+                /** @description Only the titles the person has not watched: a series while one of its episodes with a file is not */
+                unwatched?: boolean;
+            };
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LettersOutputBody"];
                 };
             };
             /** @description Error */
@@ -10519,113 +10560,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UpdateBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getTitles: {
-        parameters: {
-            query: {
-                /** @description From the previous page's nextCursor */
-                cursor?: string;
-                /** @description Only the titles first out in this decade, by its first year (1980 for the 1980s); a series by its first air date */
-                decade?: number;
-                /** @description A name, by name or file name only and with no cursor: A to Z, the page starts at the first title sorted at or after it, as a letter of the alphabet does; Z to A, at the last title sorted before it, so the letter after a letter starts that letter's titles */
-                from?: string;
-                /** @description Only the titles in this genre, by its id from GET /genres */
-                genre?: number;
-                /** @description The list as a row of Home shows it, with no library: of every library the person reaches less those they left out of Home (leftOutOfHomeLibraryIds, D366), in place of those left out of Films and Series */
-                home?: boolean;
-                /** @description movie, series or other; any: every kind, every library's */
-                kind: "movie" | "series" | "other" | "any";
-                /** @description One library's alone; absent for every library the person reaches, less, for films and series, those they left out (leftOutLibraryIds) */
-                library?: number;
-                limit: number;
-                /** @description The way the sort runs (D366): ascending, A to Z or oldest first; descending, Z to A or newest first; absent for the sort's own, A to Z by a name and newest first by a date. What has no date is last either way */
-                order?: "ascending" | "descending";
-                /** @description Only the titles crediting this person, by their id from a title's credits or a search */
-                person?: number;
-                /** @description Only the titles whose name matches it, in any script, as GET /search matches them (D48): a film, other video or series by its own name, never by an episode's or an extra's; every other criterion applies as without it. A query that matches nothing, or with nothing an index can match (only spaces, or only punctuation in a longer query), lists nothing. The titles come from the first 10000 names it matches, the best first */
-                query?: string;
-                /** @description name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode. recorded: newest recorded first, and file_name: by the files' names, other videos only. released: newest first by a film's release date or a series' first air date, those with none last, films and series only */
-                sort: "name" | "added" | "recorded" | "file_name" | "released";
-                /** @description Only the titles the person has not watched: a series while one of its episodes with a file is not */
-                unwatched?: boolean;
-            };
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TitlesOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getTitleLetters: {
-        parameters: {
-            query: {
-                /** @description Only the titles first out in this decade, by its first year (1980 for the 1980s); a series by its first air date */
-                decade?: number;
-                /** @description Only the titles in this genre, by its id from GET /genres */
-                genre?: number;
-                /** @description As GET /titles takes it */
-                kind: "movie" | "series" | "other" | "any";
-                /** @description As GET /titles takes it */
-                library?: number;
-                /** @description Only the titles crediting this person, by their id from a title's credits or a search */
-                person?: number;
-                /** @description As GET /titles takes it: only the letters some title whose name matches it is under */
-                query?: string;
-                /** @description The order the rail follows: by name, or an other video's by file name */
-                sort: "name" | "file_name";
-                /** @description Only the titles the person has not watched: a series while one of its episodes with a file is not */
-                unwatched?: boolean;
-            };
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LettersOutputBody"];
                 };
             };
             /** @description Error */

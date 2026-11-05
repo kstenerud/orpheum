@@ -35,7 +35,7 @@ const signedIn: WalkAnswers = {
   "GET /me": viewer,
   "GET /client-settings": {},
   "GET /home": { continueWatching: [] },
-  "GET /titles": { titles: films(6), nextCursor: "" },
+  "GET /items": { items: films(6), nextCursor: "" },
 };
 
 /** An administrator's answers, for the pages only they reach: Libraries, Users, a library's files. */

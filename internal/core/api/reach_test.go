@@ -81,12 +81,12 @@ func TestReach_ALibraryTakenBackIsGoneAtTheNextRequestEverywhere(t *testing.T) {
 	get := func(path string) func() response { return send(http.MethodGet, path, nil) }
 	offset := map[string]any{"subtitleOffsetMs": 100}
 	checks := []check{
-		{"the films list", get("/titles?kind=movie&sort=name&limit=10"), contains(`"name":"Film"`)},
-		{"the newest films", get("/titles?kind=movie&sort=added&limit=10"), contains(`"name":"Film"`)},
+		{"the films list", get("/items?kind=movie&sort=name&limit=10"), contains(`"name":"Film"`)},
+		{"the newest films", get("/items?kind=movie&sort=added&limit=10"), contains(`"name":"Film"`)},
 		{"the film's page", get("/items/30"), contains(`"name":"Film"`)},
 		{"search", get("/search?query=film&limit=10"), contains(`"name":"Film"`)},
 		{"Continue Watching", get("/home"), contains(`"name":"Film"`)},
-		{"the identified list", get("/items?identificationState=identified"), contains(`"id":30`)},
+		{"the identified list", get("/items?identification=identified&limit=500"), contains(`"id":30`)},
 		{"the libraries", get("/libraries"), contains(`"name":"Films"`)},
 		{"whether a file can be read", get("/files/1/availability"), served},
 		{"how long a file's work will take", get("/files/1/waits"), served},
@@ -185,7 +185,7 @@ func TestReach_AnEditorReachesOnlyTheLibrariesTheirRoleLists(t *testing.T) {
 func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *testing.T) {
 	t.Parallel()
 	reachChecked := []string{
-		"getTitles", "getItem", "getGroup", "search", "getHome", "getItemsByIdentification",
+		"listItems", "getItem", "getGroup", "search", "getHome",
 		"getLibraries",
 		"getFileAvailability", "getFileWaits", "getSubtitleCandidates", "postFileSubtitle", "startPlayback",
 		"getDirect",
@@ -199,7 +199,7 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		// What plays after a file, which reaches the file (requireSignedInReachingFile).
 		"getUpNext",
 		// A list's letters and an other library's folders (TestBrowse_OneLibrarysListAndALibraryNotReached).
-		"getTitleLetters", "getLibraryFolder",
+		"listItemLetters", "getLibraryFolder",
 		// A viewer's playback is reach-checked against the host's libraries
 		// (TestTogether_AViewerPlaysOnlyTheFilmOnInTheHostsLibraries).
 		"playTogether",

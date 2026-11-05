@@ -360,13 +360,21 @@ WHERE title.identification_state = ?1 AND item.removed_at IS NULL
       AND (CAST(?2 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
   )
-ORDER BY item_text.name, title.id
+  -- A page starts after the name and id of the last one listed before it ('' and 0 for the first),
+  -- and holds at most row_limit (-1 for every one), so the list pages by cursor (D425 section 7).
+  AND (COALESCE(item_text.name, '') > ?4
+    OR (COALESCE(item_text.name, '') = ?4 AND title.id > ?5))
+ORDER BY COALESCE(item_text.name, ''), title.id
+LIMIT ?6
 `
 
 type ListTitlesByIdentificationParams struct {
 	IdentificationState string
 	IsEveryLibrary      int64
 	LibraryIdsJSON      string
+	AfterName           string
+	AfterID             int64
+	RowLimit            int64
 }
 
 type ListTitlesByIdentificationRow struct {
@@ -392,7 +400,14 @@ type ListTitlesByIdentificationRow struct {
 // asked for it again, which the list says is coming. So the list is what CountWaitingForAPerson counts, and those asked for (the owner's
 // staging, 2026-10-21, where the count said 15 and the list was hundreds of episodes).
 func (q *Queries) ListTitlesByIdentification(ctx context.Context, arg ListTitlesByIdentificationParams) ([]ListTitlesByIdentificationRow, error) {
-	rows, err := q.db.QueryContext(ctx, listTitlesByIdentification, arg.IdentificationState, arg.IsEveryLibrary, arg.LibraryIdsJSON)
+	rows, err := q.db.QueryContext(ctx, listTitlesByIdentification,
+		arg.IdentificationState,
+		arg.IsEveryLibrary,
+		arg.LibraryIdsJSON,
+		arg.AfterName,
+		arg.AfterID,
+		arg.RowLimit,
+	)
 	if err != nil {
 		return nil, err
 	}

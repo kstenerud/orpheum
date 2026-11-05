@@ -142,7 +142,7 @@ describe("the films' grid at a Fire TV's page in Silk", () => {
     await page.viewport(960, 480);
     walking?.unmount();
     walking = await mountApp(
-      walkServices({ ...filmsOnly, "GET /titles": { titles: films(60), nextCursor: "" } }),
+      walkServices({ ...filmsOnly, "GET /items": { items: films(60), nextCursor: "" } }),
     );
     await expect.poll(() => document.querySelectorAll(".poster-grid > li").length).toBe(60);
     window.scrollTo(0, document.documentElement.scrollHeight);
@@ -199,5 +199,5 @@ const filmsOnly = {
   "GET /me": viewer,
   "GET /client-settings": {},
   "GET /home": { continueWatching: [] },
-  "GET /titles": { titles: films(12), nextCursor: "" },
+  "GET /items": { items: films(12), nextCursor: "" },
 };

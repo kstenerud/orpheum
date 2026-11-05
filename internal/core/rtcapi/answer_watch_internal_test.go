@@ -30,7 +30,7 @@ func TestAnswerWatch_LogsAChannelOnlyOnceItLingeredPastTheCoresLastByte(t *testi
 	fake := clocktest.NewFake(time.Unix(1_800_000_000, 0))
 	log := &testutil.Log{}
 	soon := watchFor(fake, log)
-	soon.asked("/api/v1/titles")
+	soon.asked("/api/v1/items")
 	soon.finished(true)
 	fake.Advance(time.Minute - time.Millisecond)
 	soon.closed()

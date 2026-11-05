@@ -81,25 +81,25 @@ func TestBrowse_EverySortRunsEitherWayAndWhatHasNoDateIsLast(t *testing.T) {
 	harness.shelve(t)
 	harness.shelveDatedFilms(t)
 	for path, want := range map[string]string{
-		"/titles?kind=movie&sort=released":                  "[Metropolis Greed Arkon The Freshman Faust]",
-		"/titles?kind=movie&sort=released&order=descending": "[Metropolis Greed Arkon The Freshman Faust]",
-		"/titles?kind=movie&sort=released&order=ascending":  "[Arkon Greed Metropolis The Freshman Faust]",
-		"/titles?kind=series&sort=released":                 "[Brass Arena Tweedcoat]",
-		"/titles?kind=series&sort=released&order=ascending": "[Brass Arena Tweedcoat]",
-		"/titles?kind=movie&sort=name":                      "[Arkon Greed The Freshman Faust Metropolis]",
-		"/titles?kind=movie&sort=name&order=descending":     "[Metropolis Faust The Freshman Greed Arkon]",
-		"/titles?kind=series&sort=name&order=descending":    "[Tweedcoat Brass Arena]",
-		"/titles?kind=movie&sort=added":                     "[Faust The Freshman Greed Arkon Metropolis]",
-		"/titles?kind=movie&sort=added&order=ascending":     "[Metropolis Arkon Greed The Freshman Faust]",
-		"/titles?kind=series&sort=added&order=ascending":    "[Brass Arena Tweedcoat]",
-		"/titles?kind=any&sort=name&order=descending":       "[Metropolis Faust Tweedcoat The Freshman Brass Arena Greed Arkon]",
+		"/items?kind=movie&sort=released":                  "[Metropolis Greed Arkon The Freshman Faust]",
+		"/items?kind=movie&sort=released&order=descending": "[Metropolis Greed Arkon The Freshman Faust]",
+		"/items?kind=movie&sort=released&order=ascending":  "[Arkon Greed Metropolis The Freshman Faust]",
+		"/items?kind=series&sort=released":                 "[Brass Arena Tweedcoat]",
+		"/items?kind=series&sort=released&order=ascending": "[Brass Arena Tweedcoat]",
+		"/items?kind=movie&sort=name":                      "[Arkon Greed The Freshman Faust Metropolis]",
+		"/items?kind=movie&sort=name&order=descending":     "[Metropolis Faust The Freshman Greed Arkon]",
+		"/items?kind=series&sort=name&order=descending":    "[Tweedcoat Brass Arena]",
+		"/items?kind=movie&sort=added":                     "[Faust The Freshman Greed Arkon Metropolis]",
+		"/items?kind=movie&sort=added&order=ascending":     "[Metropolis Arkon Greed The Freshman Faust]",
+		"/items?kind=series&sort=added&order=ascending":    "[Brass Arena Tweedcoat]",
+		"/items?kind=any&sort=name&order=descending":       "[Metropolis Faust Tweedcoat The Freshman Brass Arena Greed Arkon]",
 	} {
 		if names := harness.pagedNames(t, path, admin); fmt.Sprint(names) != want {
 			t.Errorf("%s in pages of two = %v; want %s", path, names, want)
 		}
 	}
 	for _, kind := range []string{"other", "any"} {
-		path := "/titles?sort=released&limit=5&kind=" + kind
+		path := "/items?sort=released&limit=5&kind=" + kind
 		wantInvalidAt(t, harness.do(t, http.MethodGet, path, admin, nil), http.StatusUnprocessableEntity, "query.sort")
 	}
 }
@@ -113,10 +113,10 @@ func TestBrowse_OtherVideosRunEitherWay(t *testing.T) {
 	harness.shelve(t)
 	harness.shelveOtherVideos(t)
 	for path, want := range map[string]string{
-		"/titles?kind=other&sort=recorded&order=ascending":   "[Wedding Beach day clip]",
-		"/titles?kind=other&sort=name&order=descending":      "[Wedding clip Beach day]",
-		"/titles?kind=other&sort=file_name&order=descending": "[clip Wedding Beach day]",
-		"/titles?kind=other&sort=added&order=ascending":      "[Beach day Wedding clip]",
+		"/items?kind=other&sort=recorded&order=ascending":   "[Wedding Beach day clip]",
+		"/items?kind=other&sort=name&order=descending":      "[Wedding clip Beach day]",
+		"/items?kind=other&sort=file_name&order=descending": "[clip Wedding Beach day]",
+		"/items?kind=other&sort=added&order=ascending":      "[Beach day Wedding clip]",
 	} {
 		if names := harness.pagedNames(t, path, admin); fmt.Sprint(names) != want {
 			t.Errorf("%s in pages of two = %v; want %s", path, names, want)
@@ -137,8 +137,8 @@ func TestBrowse_OtherVideosRunEitherWay(t *testing.T) {
 			"VALUES (43, -86400000, 'file', 'sparrows.mp4', X'01')")
 	// Recorded in 1969, before every other, whichever way the list runs.
 	for path, want := range map[string]string{
-		"/titles?kind=other&sort=recorded":                 "[clip Beach day Wedding arrival]",
-		"/titles?kind=other&sort=recorded&order=ascending": "[arrival Wedding Beach day clip]",
+		"/items?kind=other&sort=recorded":                 "[clip Beach day Wedding arrival]",
+		"/items?kind=other&sort=recorded&order=ascending": "[arrival Wedding Beach day clip]",
 	} {
 		if names := harness.pagedNames(t, path, admin); fmt.Sprint(names) != want {
 			t.Errorf("%s in pages of two = %v; want %s", path, names, want)
@@ -170,7 +170,7 @@ func TestBrowse_ZToAFromANameStartsAtTheLastTitleBeforeIt(t *testing.T) {
 	harness.shelve(t)
 	harness.shelveDatedFilms(t)
 	for from, want := range map[string]string{"E": "[Faust The Freshman]", "D": "[The Freshman Greed]", "A": "[]"} {
-		path := "/titles?kind=movie&sort=name&order=descending&limit=2&from=" + from
+		path := "/items?kind=movie&sort=name&order=descending&limit=2&from=" + from
 		if names, _ := harness.titleNames(t, path, admin); fmt.Sprint(names) != want {
 			t.Errorf("Z to A from %s = %v; want %s", from, names, want)
 		}

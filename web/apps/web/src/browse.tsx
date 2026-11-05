@@ -46,7 +46,7 @@ import { usePages, type Page } from "./use-pages.ts";
 import { useResource, type Resource } from "./use-resource.ts";
 
 /** One film, series or other video in a list, as the server sends it. */
-export type Entry = components["schemas"]["EntryBody"];
+export type Entry = components["schemas"]["ItemEntryBody"];
 
 /** Which list: films or series. */
 export type BrowseKind = "movie" | "series";
@@ -308,9 +308,9 @@ const entryId = (entry: Entry): number => entry.id;
 function BrowsePages(props: {
   readonly kind: BrowseKind;
   readonly choice: SortChoice;
-  /** The list's search, "" for none (GET /titles' query). */
+  /** The list's search, "" for none (GET /items' query). */
   readonly search: string;
-  /** The list's chips, none chosen when empty (GET /titles' genre, decade and unwatched). */
+  /** The list's chips, none chosen when empty (GET /items' genre, decade and unwatched). */
   readonly filters: ListFilters;
   readonly jump: LetterJump | undefined;
   readonly listRef: RefObject<HTMLElement | null>;
@@ -330,8 +330,8 @@ function BrowsePages(props: {
         ...filtersQuery({ genre, decade, isUnwatchedOnly }),
         ...(cursor === "" ? {} : { cursor }),
       };
-      const titlesPage = dataOrThrow(await api.GET("/titles", { params: { query } }));
-      return { items: titlesPage.titles ?? [], nextCursor: titlesPage.nextCursor ?? "" };
+      const titlesPage = dataOrThrow(await api.GET("/items", { params: { query } }));
+      return { items: titlesPage.items ?? [], nextCursor: titlesPage.nextCursor ?? "" };
     },
     [api, kind, sort, order, search, genre, decade, isUnwatchedOnly],
   );

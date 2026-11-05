@@ -38,7 +38,7 @@ describe("the status cues", () => {
 
   it("mark what its person watched with the white check, the tray's last, read as Watched (D370 §2)", () => {
     // As the API's schema types it, so a schema without it does not type-check.
-    const isWatched: components["schemas"]["EntryBody"]["isWatched"] = true;
+    const isWatched: components["schemas"]["ItemEntryBody"]["isWatched"] = true;
     const watchedAndGuessed = { isGuessed: true, isWatched };
     const tray = renderToStaticMarkup(withServices(<StatusTray subject={watchedAndGuessed} />));
     expect(tray).toContain("watched-icon");

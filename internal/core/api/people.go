@@ -39,7 +39,7 @@ type GenreBody struct {
 
 // CreditBody is a person a title credits.
 type CreditBody struct {
-	PersonID   int64  `doc:"GET /people/{id}; GET /titles?person= lists their titles" json:"personId"`
+	PersonID   int64  `doc:"GET /people/{id}; GET /items?person= lists their items" json:"personId"`
 	Name       string `json:"name"`
 	Character  string `doc:"A cast member's part; absent for crew and where the source names none" json:"character,omitempty"`                                         //nolint:lll // one struct tag
 	PictureRef string `doc:"Their picture as their source names it, a TMDB profile path or an NFO's thumb; not fetched by the server yet" json:"pictureRef,omitempty"` //nolint:lll // one struct tag
@@ -77,28 +77,12 @@ func peopleBodies(people library.TitlePeople) ([]GenreBody, *CreditsBody) {
 	}
 }
 
-// PersonJobBody is one of a credited person's jobs on a title: a credit's job, never its role
-// (D186 §2, D416 §4).
-type PersonJobBody struct {
-	Job       string `enum:"cast,director,writer" json:"job"`
-	Character string `doc:"Their part, in the cast; absent for crew and where the source names none" json:"character,omitempty"` //nolint:lll // one struct tag
-}
-
-// PersonTitleBody is a title crediting a person.
-type PersonTitleBody struct {
-	ID   int64           `doc:"GET /items/{id}, of any kind" json:"id"`
-	Kind string          `enum:"movie,series,other" json:"kind"`
-	Name string          `json:"name"`
-	Year int64           `json:"year,omitempty"`
-	Jobs []PersonJobBody `json:"jobs"`
-}
-
 // PersonBody is a credited person, whom titles credit (a user is never a person, D416 §1, §4).
 type PersonBody struct {
-	ID         int64             `json:"id"`
-	Name       string            `json:"name"`
-	PictureRef string            `doc:"Their picture as their source names it, a TMDB profile path or an NFO's thumb; not fetched by the server yet" json:"pictureRef,omitempty"`           //nolint:lll // one struct tag
-	Titles     []PersonTitleBody `doc:"The titles the person reaches that credit them, newest first, with their jobs on each; GET /titles?person= lists them as a list does" json:"titles"` //nolint:lll // one struct tag
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+	// PictureRef is their picture; GET /items?person= lists the items crediting them (D425 §7).
+	PictureRef string `doc:"Their picture as their source names it, a TMDB profile path or an NFO's thumb; not fetched by the server yet. GET /items?person= lists the items crediting them, each with their credit" json:"pictureRef,omitempty"` //nolint:lll // one struct tag
 }
 
 // PersonOutput is a credited person's page.
@@ -110,7 +94,7 @@ type PersonOutput struct {
 type GenresInput struct {
 	AuthorizationHeader
 	Kind    string `doc:"movie, series or other: the genres of that kind's titles; any: of every kind" enum:"movie,series,other,any" query:"kind" required:"true"` //nolint:lll // one struct tag
-	Library int64  `doc:"As GET /titles takes it" minimum:"0" query:"library"`
+	Library int64  `doc:"As GET /items takes it" minimum:"0" query:"library"`
 }
 
 // GenresOutput is the genres with a title the person reaches, by name.
@@ -131,8 +115,8 @@ type GroupedSearchInput struct {
 
 // GroupHitBody is a title, person or genre a grouped search found.
 type GroupHitBody struct {
-	ID         int64  `doc:"A title's: GET /items/{id}, of any kind; a person's: GET /people/{id}; a genre's: GET /titles?genre=" json:"id"` //nolint:lll // one struct tag
-	Kind       string `doc:"A title's kind; absent for a person or a genre" enum:"movie,series,other" json:"kind,omitempty"`                 //nolint:lll // one struct tag
+	ID         int64  `doc:"A title's: GET /items/{id}, of any kind; a person's: GET /people/{id}; a genre's: GET /items?genre=" json:"id"` //nolint:lll // one struct tag
+	Kind       string `doc:"A title's kind; absent for a person or a genre" enum:"movie,series,other" json:"kind,omitempty"`                //nolint:lll // one struct tag
 	Name       string `json:"name"`
 	Year       int64  `json:"year,omitempty"`
 	PictureRef string `doc:"A person's picture as their source names it; not fetched by the server yet" json:"pictureRef,omitempty"` //nolint:lll // one struct tag
@@ -158,7 +142,7 @@ func (server *Server) registerPeople() {
 	tags := []string{tagBrowse}
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getPerson", Method: http.MethodGet, Path: "/people/{id}",
-		Summary: "A person: their name, their picture and the titles crediting them", Tags: tags,
+		Summary: "A person: their name and their picture; GET /items?person= lists what credits them", Tags: tags,
 	}, server.getPerson)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getGenres", Method: http.MethodGet, Path: "/genres",
@@ -183,16 +167,6 @@ func (server *Server) getPerson(ctx context.Context, input *ItemInput) (*PersonO
 	output := &PersonOutput{}
 	body := &output.Body
 	body.ID, body.Name, body.PictureRef = person.ID, person.Name, person.PictureRef
-	body.Titles = make([]PersonTitleBody, 0, len(person.Titles))
-	for _, title := range person.Titles {
-		jobs := make([]PersonJobBody, 0, len(title.Roles))
-		for _, role := range title.Roles {
-			jobs = append(jobs, PersonJobBody{Job: role.Role, Character: role.Character})
-		}
-		body.Titles = append(body.Titles, PersonTitleBody{
-			ID: title.ID, Kind: title.Kind, Name: title.Name, Year: title.Year, Jobs: jobs,
-		})
-	}
 	return output, nil
 }
 

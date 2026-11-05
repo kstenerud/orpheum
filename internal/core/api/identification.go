@@ -20,19 +20,6 @@ import (
 
 const tagIdentification = "Identification"
 
-// ItemBody is one title or series in a list.
-type ItemBody struct {
-	ID                  int64             `json:"id"`
-	Kind                string            `enum:"movie,episode,extra,series" json:"kind"`
-	Name                string            `json:"name"`
-	Year                int64             `json:"year,omitempty"`
-	IdentificationState string            `enum:"identified,ambiguous,unidentified,confirmed" json:"identificationState"`            //nolint:lll // one struct tag
-	FollowedSource      string            `doc:"Where its own values come from: nfo, tmdb, or none" json:"followedSource,omitempty"` //nolint:lll // one struct tag
-	FollowedSourceID    string            `doc:"Its id at its provider" json:"followedSourceId,omitempty"`
-	FetchFailure        *FetchFailureBody `json:"fetchFailure,omitempty"`
-	RefreshRequestedAt  int64             `doc:"When a person asked for it to be refreshed, while no fetch has answered yet" json:"refreshRequestedAt,omitempty"` //nolint:lll // one struct tag
-}
-
 // FetchFailureBody is a film's or series' own failure to be fetched, not its provider's being
 // down (D231 §4): its page shows it, and a refresh, "try again", clears it.
 type FetchFailureBody struct {
@@ -46,19 +33,6 @@ func fetchFailureBody(failure *string, failedAt *int64) *FetchFailureBody {
 		return nil
 	}
 	return &FetchFailureBody{Failure: *failure, FailedAt: ptr.ValueOrZero(failedAt)}
-}
-
-// ItemsInput asks for the titles and series in one state of identification.
-type ItemsInput struct {
-	AuthorizationHeader
-	IdentificationState string `enum:"identified,ambiguous,unidentified,confirmed" query:"identificationState" required:"true"` //nolint:lll // one struct tag
-}
-
-// ItemsOutput lists titles and series.
-type ItemsOutput struct {
-	Body struct {
-		Items []ItemBody `json:"items"`
-	}
 }
 
 // ItemInput names one title or series.
@@ -142,10 +116,6 @@ type RefreshOutput struct {
 func (server *Server) registerIdentification() {
 	tags := []string{tagIdentification}
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "getItemsByIdentification", Method: http.MethodGet, Path: "/items",
-		Summary: "The titles and series in one state of identification", Tags: tags,
-	}, server.getItemsByIdentification)
-	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getItemCandidates", Method: http.MethodGet, Path: "/items/{id}/candidates",
 		Summary: "An ambiguous film's or series' search results, to choose from, or those of a person's own " +
 			"search (edit_metadata)", Tags: tags,
@@ -181,32 +151,6 @@ func (server *Server) registerIdentification() {
 		Summary: "Fetch a film's or series' data and its missing images again, whenever a person likes " +
 			"(edit_metadata; D213)",
 	}, server.postItemRefresh)
-}
-
-func (server *Server) getItemsByIdentification(ctx context.Context, input *ItemsInput) (*ItemsOutput, error) {
-	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
-	if err != nil {
-		return nil, err
-	}
-	items, err := dependencies.Chooser.Items(ctx, principal.Reach, input.IdentificationState)
-	if err != nil {
-		return nil, server.identifyError(ctx, "list items", err)
-	}
-	output := &ItemsOutput{}
-	output.Body.Items = make([]ItemBody, 0, len(items))
-	for _, item := range items {
-		body := ItemBody{
-			ID: item.ID, Kind: item.Kind, Name: item.Name, Year: item.Year,
-			IdentificationState: item.IdentificationState,
-			FollowedSource:      item.FollowedSource, FollowedSourceID: item.FollowedSourceID,
-			RefreshRequestedAt: unixMillisOrZero(item.RefreshRequestedAt),
-		}
-		if failure := item.FetchFailure; failure != nil {
-			body.FetchFailure = &FetchFailureBody{Failure: failure.Failure, FailedAt: failure.FailedAt.UnixMilli()}
-		}
-		output.Body.Items = append(output.Body.Items, body)
-	}
-	return output, nil
 }
 
 func (server *Server) getItemCandidates(ctx context.Context, input *CandidatesInput) (*CandidatesOutput, error) {

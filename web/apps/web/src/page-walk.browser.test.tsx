@@ -46,8 +46,8 @@ const anAdmin: WalkAnswers = {
       durationMs: 1_000_000,
     })),
   },
-  "GET /titles": { titles: films(6), nextCursor: "" },
-  "GET /titles/letters": { letters: [] },
+  "GET /items": { items: films(6), nextCursor: "" },
+  "GET /items/letters": { letters: [] },
   "GET /libraries": {
     libraries: [
       {

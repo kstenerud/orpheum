@@ -16,10 +16,10 @@ import (
 // LettersInput asks which letters of the alphabet rail a list by name or file name has titles under.
 type LettersInput struct {
 	AuthorizationHeader
-	Kind    string `doc:"As GET /titles takes it" enum:"movie,series,other,any" query:"kind" required:"true"`
+	Kind    string `doc:"As GET /items takes it" enum:"movie,series,other,any" query:"kind" required:"true"`
 	Sort    string `doc:"The order the rail follows: by name, or an other video's by file name" enum:"name,file_name" query:"sort" required:"true"` //nolint:lll // one struct tag
-	Library int64  `doc:"As GET /titles takes it" minimum:"0" query:"library"`
-	Query   string `doc:"As GET /titles takes it: only the letters some title whose name matches it is under" maxLength:"200" query:"query"` //nolint:lll // one struct tag
+	Library int64  `doc:"As GET /items takes it" minimum:"0" query:"library"`
+	Query   string `doc:"As GET /items takes it: only the letters some title whose name matches it is under" maxLength:"200" query:"query"` //nolint:lll // one struct tag
 	ListFilters
 }
 
@@ -51,16 +51,12 @@ type FolderOutput struct {
 	Body struct {
 		Folder     string          `doc:"Its path below the library's folders; empty at their top" json:"folder"`
 		Subfolders []SubfolderBody `json:"subfolders"`
-		Titles     []EntryBody     `json:"titles"`
+		Titles     []ItemEntryBody `json:"titles"`
 	}
 }
 
 func (server *Server) registerLibraryBrowsing() {
 	tags := []string{tagBrowse}
-	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "getTitleLetters", Method: http.MethodGet, Path: "/titles/letters",
-		Summary: "The alphabet rail's letters a list by name or file name has titles under (D349)", Tags: tags,
-	}, server.getTitleLetters)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getLibraryFolder", Method: http.MethodGet, Path: "/libraries/{id}/folders",
 		Summary: "One folder of an other library: the folders in it, and its videos (D349)", Tags: tags,
@@ -127,7 +123,7 @@ func (server *Server) reachWithout(
 	return principal.Reach.Without(leftOut, live), nil
 }
 
-func (server *Server) getTitleLetters(ctx context.Context, input *LettersInput) (*LettersOutput, error) {
+func (server *Server) listItemLetters(ctx context.Context, input *LettersInput) (*LettersOutput, error) {
 	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -171,10 +167,10 @@ func (server *Server) getLibraryFolder(ctx context.Context, input *FolderInput) 
 			Name: subfolder.Name, Path: subfolder.Path, VideoCount: subfolder.VideoCount,
 		})
 	}
-	output.Body.Titles = make([]EntryBody, 0, len(folder.Entries))
+	output.Body.Titles = make([]ItemEntryBody, 0, len(folder.Entries))
 	nodeName := server.nodeNamer(ctx, dependencies)
 	for _, entry := range folder.Entries {
-		output.Body.Titles = append(output.Body.Titles, entryBody(entry, nodeName))
+		output.Body.Titles = append(output.Body.Titles, itemEntryBody(entry, nodeName))
 	}
 	return output, nil
 }

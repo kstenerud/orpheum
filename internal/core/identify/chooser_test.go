@@ -31,7 +31,8 @@ func ambiguousTheGeneral(t *testing.T) (*testLibrary, int64) {
 func TestChooser_ListsTheAmbiguousTitlesAndTheirCandidates(t *testing.T) {
 	t.Parallel()
 	lib, titleID := ambiguousTheGeneral(t)
-	titles, err := lib.chooser.Items(t.Context(), auth.EveryLibrary(), identify.IdentificationAmbiguous)
+	page, err := lib.chooser.Items(t.Context(), auth.EveryLibrary(), identify.IdentificationAmbiguous, "", 100)
+	titles := page.Items
 	if err != nil || len(titles) != 1 || titles[0].ID != titleID || titles[0].Name != "The General" {
 		t.Fatalf("Items(ambiguous) = %+v, %v", titles, err)
 	}

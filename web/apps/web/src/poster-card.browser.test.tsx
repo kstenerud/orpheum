@@ -29,10 +29,10 @@ describe("an other video's tile, laid out by a real browser", () => {
   it("takes a 16:9 tile, wider than a poster is tall, where a poster would otherwise sit", async () => {
     const services = servedBy({
       "GET /libraries": [200, { libraries: [{ id: 5, name: "Home movies", kind: "other" }] }],
-      "GET /titles": [
+      "GET /items": [
         200,
         {
-          titles: [
+          items: [
             {
               id: 90,
               name: "Beach day",
@@ -46,7 +46,7 @@ describe("an other video's tile, laid out by a real browser", () => {
           nextCursor: "",
         },
       ],
-      "GET /titles/letters": [200, { letters: [] }],
+      "GET /items/letters": [200, { letters: [] }],
     });
     mounted = await mount(
       <BackgroundChangesContext value={neverAsks}>

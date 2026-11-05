@@ -455,7 +455,7 @@ function LibraryLetters(props: {
 /** An entry's id, by which a list shows an entry read twice once. */
 const entryId = (entry: Entry): number => entry.id;
 
-/** A library list's page as GET /titles is asked for it: its criteria, its search one of them. */
+/** A library list's page as GET /items is asked for it: its criteria, its search one of them. */
 function titlesQuery(
   list: {
     readonly kind: TitlesKind;
@@ -491,7 +491,7 @@ function emptyText(t: TFunction, search: string, filters: ListFilters): string {
 /** The address an entry's poster leads to, by the entry's own kind, as PosterGrid draws it. */
 const entryHref = (entry: Entry): string => routeHref(itemRoute(entry.kind, entry.id));
 
-/** A library's list's pages, as GET /titles reads them for its kind, library, search, chips and sort. */
+/** A library's list's pages, as GET /items reads them for its kind, library, search, chips and sort. */
 function useTitlesPages(list: {
   readonly kind: TitlesKind;
   readonly library: number | undefined;
@@ -516,8 +516,8 @@ function useTitlesPages(list: {
         },
         cursor,
       );
-      const titlesPage = dataOrThrow(await api.GET("/titles", { params: { query } }));
-      return { items: titlesPage.titles ?? [], nextCursor: titlesPage.nextCursor ?? "" };
+      const titlesPage = dataOrThrow(await api.GET("/items", { params: { query } }));
+      return { items: titlesPage.items ?? [], nextCursor: titlesPage.nextCursor ?? "" };
     },
     [api, kind, library, sort, order, search, genre, decade, isUnwatchedOnly],
   );
@@ -527,15 +527,15 @@ function useTitlesPages(list: {
 
 /**
  * One library's (or All libraries') list, in one order, read a page at a time, moved to a letter
- * as the alphabet rail asks (D349 §9.1). kind and library say what GET /titles asks for; All
+ * as the alphabet rail asks (D349 §9.1). kind and library say what GET /items asks for; All
  * libraries' grid reads each entry's own kind (browse.tsx's PosterGrid).
  */
 function LibraryGrid(props: {
   readonly kind: TitlesKind;
   readonly library: number | undefined;
-  /** The list's search, "" for none (GET /titles' query). */
+  /** The list's search, "" for none (GET /items' query). */
   readonly search: string;
-  /** The list's chips, none chosen when empty (GET /titles' genre, decade and unwatched). */
+  /** The list's chips, none chosen when empty (GET /items' genre, decade and unwatched). */
   readonly filters: ListFilters;
   readonly choice: SortChoice;
   readonly jump: LetterJump | undefined;

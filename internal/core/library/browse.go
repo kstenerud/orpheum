@@ -229,7 +229,7 @@ func (browser *Browser) List(ctx context.Context, query ListQuery) (Page, error)
 		entries = append(entries, each.entry)
 	}
 	page := closePage(entries, query.Limit, func(last int) string {
-		return encodeCursor(keyed[last].key, entries[last].ID)
+		return EncodeCursor(keyed[last].key, entries[last].ID)
 	})
 	page, err = browser.finishPage(ctx, query.Reach, page)
 	if err != nil {
@@ -290,7 +290,7 @@ func (browser *Browser) listKeyed(ctx context.Context, query ListQuery) ([]keyed
 
 // startOf is where a list's page starts: after its cursor, at its From, or at its start.
 func (browser *Browser) startOf(ctx context.Context, query ListQuery) (listPosition, error) {
-	key, id, err := decodeCursor(query.Cursor)
+	key, id, err := DecodeCursor(query.Cursor)
 	if err != nil {
 		return listPosition{}, err
 	}
@@ -388,13 +388,16 @@ func closePage(entries []Entry, limit int64, nextCursorAt func(last int) string)
 	return closed
 }
 
-// A cursor is the last entry's sort key and id, base64url: opaque to clients.
-func encodeCursor(key []byte, id int64) string {
+// EncodeCursor is a cursor: the last entry's sort key and id, base64url, opaque to clients. A list
+// that pages by a key and an id makes its cursor here and reads it with DecodeCursor.
+func EncodeCursor(key []byte, id int64) string {
 	raw := binary.BigEndian.AppendUint64(append([]byte(nil), key...), uint64(id)) //nolint:gosec // an id
 	return base64.RawURLEncoding.EncodeToString(raw)
 }
 
-func decodeCursor(cursor string) ([]byte, int64, error) {
+// DecodeCursor is a cursor's key and id: empty for the first page's, and ErrBadCursor for one this
+// server did not give.
+func DecodeCursor(cursor string) ([]byte, int64, error) {
 	if cursor == "" {
 		return []byte{}, 0, nil
 	}

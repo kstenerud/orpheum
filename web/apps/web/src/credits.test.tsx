@@ -118,25 +118,28 @@ describe("a credited person's page", () => {
       withServices(
         <CreditedPerson id={50} />,
         servedBy({
-          "GET /people/50": [
+          "GET /people/50": [200, { id: 50, name: "Oren Talisk" }],
+          "GET /items": [
             200,
             {
-              id: 50,
-              name: "Oren Talisk",
-              titles: [
+              items: [
                 {
                   id: 7,
                   kind: "series",
                   name: "Crime Ledger",
                   year: 2020,
-                  jobs: [{ job: "writer" }],
+                  libraryId: 1,
+                  identificationState: "identified",
+                  credit: { jobs: ["writer"] },
                 },
                 {
                   id: 10,
                   kind: "movie",
                   name: "Metropolis",
                   year: 1995,
-                  jobs: [{ job: "director" }, { job: "cast", character: "A guard" }],
+                  libraryId: 1,
+                  identificationState: "identified",
+                  credit: { jobs: ["director", "cast"], character: "A guard" },
                 },
               ],
             },

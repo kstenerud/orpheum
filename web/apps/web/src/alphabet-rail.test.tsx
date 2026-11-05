@@ -40,9 +40,9 @@ function film(id: number, name: string): Entry {
   return { id, name, kind: "movie", identificationState: "identified", addedAt: id };
 }
 
-/** A page of the films list, with the cursor of the next, "" on the last. */
+/** A page of the films list, with the cursor of the next, absent on the last. */
 function page(entries: readonly Entry[], nextCursor: string): Answer {
-  return [200, { titles: entries, nextCursor }];
+  return [200, { items: entries, ...(nextCursor === "" ? {} : { nextCursor }) }];
 }
 
 const firstPage = page([film(1, "12 Patient Sailors"), film(2, "Arkon")], "c1");
@@ -52,7 +52,7 @@ const lastPage = page([film(5, "Keepsake Hollow"), film(6, "Zelkaro")], "");
 /** The films' list, by name, with the rail beside it, answered by answers in turn. */
 async function mountFilms(answers: readonly Answer[], heard: Heard[]): Promise<Mounted> {
   const services = servedBy(
-    { "GET /titles": answers, "GET /titles/letters": [200, { letters: railLetters }] },
+    { "GET /items": answers, "GET /items/letters": [200, { letters: railLetters }] },
     heard,
   );
   return await mount(
@@ -67,10 +67,10 @@ function focusedName(): string | undefined {
   return document.activeElement?.querySelector(".poster-card__name")?.textContent ?? undefined;
 }
 
-/** The requests heard against GET /titles alone, in order: the rail's own letters are a sibling
+/** The requests heard against GET /items alone, in order: the rail's own letters are a sibling
  * request (alphabet-rail.tsx's useAlphabetRailLetters) these tests do not count by position. */
 function titlesHeard(heard: readonly Heard[]): Heard[] {
-  return heard.filter((each) => each.methodAndPath === "GET /titles");
+  return heard.filter((each) => each.methodAndPath === "GET /items");
 }
 
 describe("the alphabet rail (the owner, 2026-10-25)", () => {
@@ -181,8 +181,8 @@ describe("Films' and Series' rail shows only letters that lead somewhere (D349 ย
     const heard: Heard[] = [];
     const services = servedBy(
       {
-        "GET /titles": [firstPage],
-        "GET /titles/letters": [200, { letters: ["#", "B", "M"] }],
+        "GET /items": [firstPage],
+        "GET /items/letters": [200, { letters: ["#", "B", "M"] }],
         "GET /genres": [200, { genres: [] }],
       },
       heard,
@@ -197,7 +197,7 @@ describe("Films' and Series' rail shows only letters that lead somewhere (D349 ย
       (letter) => letter.textContent,
     );
     expect(shown).toEqual(["#", "B", "M"]);
-    const letters = heard.find((each) => each.methodAndPath === "GET /titles/letters");
+    const letters = heard.find((each) => each.methodAndPath === "GET /items/letters");
     expect(new URLSearchParams(letters?.query).get("kind")).toBe("movie");
     expect(new URLSearchParams(letters?.query).get("sort")).toBe("name");
   });
@@ -206,8 +206,8 @@ describe("Films' and Series' rail shows only letters that lead somewhere (D349 ย
     const heard: Heard[] = [];
     const services = servedBy(
       {
-        "GET /titles": [firstPage, firstPage],
-        "GET /titles/letters": [200, { letters: [] }],
+        "GET /items": [firstPage, firstPage],
+        "GET /items/letters": [200, { letters: [] }],
         "GET /genres": [200, { genres: [] }],
       },
       heard,
@@ -220,16 +220,16 @@ describe("Films' and Series' rail shows only letters that lead somewhere (D349 ย
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
     expect(mounted.container.querySelector(".alphabet-rail")).not.toBeNull();
     const lettersAsksByName = heard.filter(
-      (each) => each.methodAndPath === "GET /titles/letters",
+      (each) => each.methodAndPath === "GET /items/letters",
     ).length;
     expect(lettersAsksByName).toBe(1);
     await chooseSort(mounted.container, "Newest added");
     await settleUntil(
-      () => heard.filter((each) => each.methodAndPath === "GET /titles").length >= 2,
+      () => heard.filter((each) => each.methodAndPath === "GET /items").length >= 2,
     );
     expect(mounted.container.querySelector(".alphabet-rail")).toBeNull();
     // The rail unmounts sorted by added: its letters are not asked for again.
-    expect(heard.filter((each) => each.methodAndPath === "GET /titles/letters")).toHaveLength(
+    expect(heard.filter((each) => each.methodAndPath === "GET /items/letters")).toHaveLength(
       lettersAsksByName,
     );
   });
@@ -242,12 +242,12 @@ describe("Films' and Series' search (the owner, 2026-10-30)", () => {
     mounted = undefined;
   });
 
-  it("lists its own kind, as sorted, filtered by the search (GET /titles' query)", async () => {
+  it("lists its own kind, as sorted, filtered by the search (GET /items' query)", async () => {
     const heard: Heard[] = [];
     const services = servedBy(
       {
-        "GET /titles": [firstPage, page([film(4, "Metropolis")], "")],
-        "GET /titles/letters": [200, { letters: [] }],
+        "GET /items": [firstPage, page([film(4, "Metropolis")], "")],
+        "GET /items/letters": [200, { letters: [] }],
         "GET /genres": [200, { genres: [] }],
       },
       heard,
@@ -287,8 +287,8 @@ describe("Films' search and sort, kept in the address for Back to return to", ()
 
   it("puts a search and a sort chosen in the address", async () => {
     const services = servedBy({
-      "GET /titles": [firstPage, page([film(4, "Metropolis")], ""), page([film(4, "Metropolis")], "")],
-      "GET /titles/letters": [200, { letters: [] }],
+      "GET /items": [firstPage, page([film(4, "Metropolis")], ""), page([film(4, "Metropolis")], "")],
+      "GET /items/letters": [200, { letters: [] }],
       "GET /genres": [200, { genres: [] }],
     });
     mounted = await mount(
@@ -312,8 +312,8 @@ describe("Films' search and sort, kept in the address for Back to return to", ()
     const heard: Heard[] = [];
     const services = servedBy(
       {
-        "GET /titles": [page([film(4, "Metropolis")], "")],
-        "GET /titles/letters": [200, { letters: [] }],
+        "GET /items": [page([film(4, "Metropolis")], "")],
+        "GET /items/letters": [200, { letters: [] }],
         "GET /genres": [200, { genres: [] }],
       },
       heard,
@@ -356,8 +356,8 @@ describe("the rail follows a name sort's direction (D366 ยง4)", () => {
     const heard: Heard[] = [];
     const services = servedBy(
       {
-        "GET /titles": [firstPage, lastPage, page([film(5, "Keepsake Hollow")], "")],
-        "GET /titles/letters": [200, { letters: ["#", "B", "M"] }],
+        "GET /items": [firstPage, lastPage, page([film(5, "Keepsake Hollow")], "")],
+        "GET /items/letters": [200, { letters: ["#", "B", "M"] }],
         "GET /genres": [200, { genres: [] }],
       },
       heard,

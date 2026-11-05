@@ -13,13 +13,17 @@ import { Loaded } from "./loaded.tsx";
 import { dataOrThrow } from "./problem.ts";
 import { itemRoute } from "./router.ts";
 import { useServices } from "./services.tsx";
+import { loadAgain } from "./use-pages.ts";
 import { useResource } from "./use-resource.ts";
+
+/** How many of a person's titles one request asks for: the most GET /items gives. */
+const creditedPageSize = 500;
 
 /** A title's cast, directors and writers, as the server sends them, each in billing order. */
 export type Credits = components["schemas"]["CreditsBody"];
 type Credit = components["schemas"]["CreditBody"];
-type PersonTitle = components["schemas"]["PersonTitleBody"];
-type PersonJob = components["schemas"]["PersonJobBody"];
+type PersonItem = components["schemas"]["ItemEntryBody"];
+type PersonCredit = components["schemas"]["ItemCreditBody"];
 
 /** A name's initials: its first word's first letter and its last's, as a face's placeholder shows. */
 export function initialsOf(name: string): string {
@@ -116,24 +120,29 @@ export function TitlePeople(props: { readonly credits: Credits | undefined }): J
 }
 
 /** What a person did on a title, in words: "Director", "Writer", or "as" their part in the cast. */
-function jobText(t: TFunction, job: PersonJob): string {
-  switch (job.job) {
+function jobText(t: TFunction, job: string, character: string | undefined): string {
+  switch (job) {
     case "director":
       return t("credits.roleDirector");
     case "writer":
       return t("credits.roleWriter");
-    case "cast":
-      return job.character === undefined || job.character === ""
+    default:
+      return character === undefined || character === ""
         ? t("credits.roleCast")
-        : t("credits.roleAs", { character: job.character });
+        : t("credits.roleAs", { character });
   }
 }
 
+/** What a person did on a title, each job in words, cast first as the server orders them. */
+function creditText(t: TFunction, credit: PersonCredit | undefined): string {
+  return (credit?.jobs ?? []).map((job) => jobText(t, job, credit?.character)).join(", ");
+}
+
 /** One title on a person's page: its name, its year, and what they did on it, leading to its page. */
-function PersonTitleLink(props: { readonly title: PersonTitle }): JSX.Element {
+function PersonTitleLink(props: { readonly title: PersonItem }): JSX.Element {
   const { t } = useTranslation();
   const { title } = props;
-  const jobs = (title.jobs ?? []).map((job) => jobText(t, job)).join(", ");
+  const jobs = creditText(t, title.credit);
   return (
     <Link to={itemRoute(title.kind, title.id)} className="credited-person__title">
       <span className="credited-person__title-name">{title.name}</span>
@@ -154,9 +163,23 @@ function PersonTitleLink(props: { readonly title: PersonTitle }): JSX.Element {
  */
 export function CreditedPerson(props: { readonly id: number }): JSX.Element {
   const { api } = useServices();
-  const [person] = useResource(`person/${String(props.id)}`, async () =>
-    dataOrThrow(await api.GET("/people/{id}", { params: { path: { id: props.id } } })),
-  );
+  const [person] = useResource(`person/${String(props.id)}`, async () => {
+    const named = dataOrThrow(
+      await api.GET("/people/{id}", { params: { path: { id: props.id } } }),
+    );
+    // Every title crediting them, page after page: the page lists them all (D425 §7).
+    const pages = await loadAgain(async (cursor) => {
+      const query = {
+        person: props.id,
+        sort: "released" as const,
+        limit: creditedPageSize,
+        ...(cursor === "" ? {} : { cursor }),
+      };
+      const page = dataOrThrow(await api.GET("/items", { params: { query } }));
+      return { items: page.items ?? [], nextCursor: page.nextCursor ?? "" };
+    }, Number.POSITIVE_INFINITY);
+    return { ...named, titles: pages.flatMap((page) => page.items) };
+  });
   return (
     <Loaded
       resource={person}
@@ -167,7 +190,7 @@ export function CreditedPerson(props: { readonly id: number }): JSX.Element {
             <h1 id="credited-person-heading">{loaded.name}</h1>
           </div>
           <ul className="credited-person__titles" data-focus-container="" {...arrivalMark}>
-            {(loaded.titles ?? []).map((title) => (
+            {loaded.titles.map((title) => (
               <li key={`${title.kind}/${String(title.id)}`}>
                 <PersonTitleLink title={title} />
               </li>
