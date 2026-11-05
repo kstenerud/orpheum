@@ -1776,6 +1776,10 @@ deploy." The whole API renamed in place per D416 and the route table of
 and pairing included where a better shape exists, Connect changed with it; then staging and
 production. The API's compatibility check starts once it lands.
 
+D426's schema rebuild rides in it (steps 0073–0080, each migrating in place). Before the nas.example
+deploy, the migration is rehearsed on a read-only copy of nas.example's database, with no export/import
+tool (D430, the owner, 2026-11-05).
+
 ## UI issues the owner saw (2026-11-05), recorded only: after the API batch
 
 The owner: "I only want these recorded for now because I want to get the API revamp out of the way."

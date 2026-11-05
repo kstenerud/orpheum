@@ -26390,3 +26390,21 @@ of the world if it takes awhile to do when it happens."
 
 **Status:** Decided 2026-11-05. The audit's check is in D416's batch; the repoint feature is the batch
 after it.
+
+## D430 — People's state carries over by the migration itself, rehearsed on a copy of nas.example's database; no export/import tool
+
+**Decided** (2026-11-05), by the owner, amending D426 §11. D426 §11 planned a one-off export from the
+old schema and an import into the new one, because the rebuild was to be greenfield. Every step D416's
+batch added (0073–0080) migrates in place instead, keeping every row, so nas.example's database upgrades
+itself when the new core starts. Asked whether to still build the tool, the owner chose to rehearse
+the migration instead.
+
+1. **No export/import tool is built.** The steps' own tests (`migrate_00NN_test.go`) prove each one
+   keeps what it moves; the rehearsal proves it on real data.
+2. **Before the deploy, the migration is rehearsed on a copy of nas.example's database**, taken read-only
+   (SQLite's backup, not a copy of a live file). The copy is migrated by the new build, and the
+   rehearsal checks that users, passkeys, watched state, resume positions, hidden items and
+   preferences come through, counted before and after, and that the core starts on it.
+3. **A rehearsal that loses anything stops the deploy** and is fixed by a step, as any migration bug is.
+
+**Status:** Decided 2026-11-05; D416's batch rehearses before its nas.example deploy.
