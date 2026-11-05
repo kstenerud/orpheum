@@ -62,9 +62,13 @@ func TestBrowse_OneLibrarysListAndALibraryNotReached(t *testing.T) {
 	user := harness.signIn(t, "partner", "partner-password")
 	for _, path := range []string{
 		"/items?kind=other&sort=name&limit=10&library=2", "/items/letters?kind=other&sort=name&library=2",
-		"/libraries/2/folders?sort=name", "/search?query=beach&limit=10&library=2",
+		"/libraries/2/folders?sort=name",
 	} {
 		wantError(t, harness.do(t, http.MethodGet, path, user, nil), http.StatusNotFound, api.CodeNotFound)
+	}
+	if found := harness.do(t, http.MethodGet, "/search?query=beach&limit=10", user, nil); found.status !=
+		http.StatusOK || strings.Contains(found.body, "Beach") {
+		t.Errorf("the partner's search = %d %s; want nothing from library 2", found.status, found.body)
 	}
 	if names, _ := harness.titleNames(t, "/items?kind=any&sort=name&limit=10", user); fmt.Sprint(names) !=
 		"[Brass Arena Metropolis]" {
@@ -209,20 +213,5 @@ func TestBrowse_AQueryIsACriterionOfTheList(t *testing.T) {
 		if got := harness.railLetters(t, path, admin); got != want {
 			t.Errorf("%s = %s; want %s", path, got, want)
 		}
-	}
-}
-
-// A search may be of one library alone (D349 §1).
-func TestSearch_OfOneLibrary(t *testing.T) {
-	t.Parallel()
-	harness := newHarness(t)
-	admin := harness.createAdminAndSignIn(t)
-	harness.shelve(t)
-	harness.shelveOtherVideos(t)
-	all := harness.do(t, http.MethodGet, "/search?query=beach&limit=10", admin, nil)
-	one := harness.do(t, http.MethodGet, "/search?query=beach&limit=10&library=1", admin, nil)
-	if !strings.Contains(all.body, `"kind":"other","name":"Beach day"`) || strings.Contains(one.body, "Beach") {
-		t.Errorf("searched everywhere = %s, in library 1 = %s; want the beach day found in its library alone",
-			all.body, one.body)
 	}
 }

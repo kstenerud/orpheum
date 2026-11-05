@@ -279,23 +279,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/doctor": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** What the running server finds wrong with itself, and what to do (admin) */
-        get: operations["getDoctor"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/files": {
         parameters: {
             query?: never;
@@ -1801,28 +1784,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Titles and series by name, in any script (D48); superseded by GET /items?query=
-         * @description Superseded: GET /items takes query, a search as a criterion of the one list, with its kind, library, sort, order and paging. Kept for clients that call it; new code lists with GET /items.
-         */
-        get: operations["search"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/search/grouped": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
         /** Titles, people and genres by what was typed, from its first letter, each group the best first */
-        get: operations["searchGrouped"];
+        get: operations["search"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1912,24 +1875,6 @@ export interface paths {
         put?: never;
         /** Take the session a sign-in at the loader kept, by its code, once */
         post: operations["redeemSession"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/settings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** The important server settings, the settings page's normal view (admin) */
-        get: operations["getSettings"];
-        /** Change important server settings, all or none (admin) */
-        put: operations["putSettings"];
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2945,9 +2890,6 @@ export interface components {
             /** Format: int64 */
             totalBytes: number;
         };
-        DoctorOutputBody: {
-            findings: components["schemas"]["FindingBody"][] | null;
-        };
         EncoderTrialBody: {
             /** @enum {string} */
             encoder: "h264_qsv" | "h264_nvenc" | "h264_vaapi";
@@ -3213,11 +3155,6 @@ export interface components {
             /** @description The group's next page, with group; absent on its last */
             nextCursor?: string;
         };
-        GroupedSearchOutputBody: {
-            genres: components["schemas"]["GroupBody"];
-            people: components["schemas"]["GroupBody"];
-            titles: components["schemas"]["GroupBody"];
-        };
         GroupHitBody: {
             /**
              * Format: int64
@@ -3260,15 +3197,6 @@ export interface components {
             reasons: string[] | null;
             /** @enum {string} */
             status: "starting" | "migrating" | "ready" | "degraded";
-        };
-        HitBody: {
-            /** Format: int64 */
-            id: number;
-            /** @enum {string} */
-            kind: "movie" | "episode" | "extra" | "other" | "series";
-            name: string;
-            /** Format: int64 */
-            year?: number;
         };
         HomeOutputBody: {
             continueWatching: components["schemas"]["InProgressBody"][] | null;
@@ -4699,7 +4627,9 @@ export interface components {
             askedRootCount: number;
         };
         SearchOutputBody: {
-            results: components["schemas"]["HitBody"][] | null;
+            genres: components["schemas"]["GroupBody"];
+            people: components["schemas"]["GroupBody"];
+            titles: components["schemas"]["GroupBody"];
         };
         SeasonBody: {
             /** Format: int64 */
@@ -4861,7 +4791,7 @@ export interface components {
         };
         SettingBody: {
             description: string;
-            /** @description In /settings, the settings page's normal view */
+            /** @description In the settings page's normal view */
             isImportant: boolean;
             isModified: boolean;
             key: string;
@@ -6286,38 +6216,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getDoctor: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DoctorOutputBody"];
-                };
             };
             /** @description Error */
             default: {
@@ -9838,43 +9736,6 @@ export interface operations {
     search: {
         parameters: {
             query: {
-                /** @description One library's titles alone; absent for every library the person reaches */
-                library?: number;
-                limit: number;
-                query: string;
-            };
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SearchOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    searchGrouped: {
-        parameters: {
-            query: {
                 /** @description With group, that group's nextCursor from the page before */
                 cursor?: string;
                 /** @description One group's next page alone; absent for the first page of each */
@@ -9899,7 +9760,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GroupedSearchOutputBody"];
+                    "application/json": components["schemas"]["SearchOutputBody"];
                 };
             };
             /** @description Error */
@@ -10132,74 +9993,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SessionOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getSettings: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SettingsOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    putSettings: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PutSettingsInputBody"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SettingsOutputBody"];
                 };
             };
             /** @description Error */

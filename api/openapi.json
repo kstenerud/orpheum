@@ -1517,24 +1517,6 @@
         ],
         "type": "object"
       },
-      "DoctorOutputBody": {
-        "additionalProperties": false,
-        "properties": {
-          "findings": {
-            "items": {
-              "$ref": "#/components/schemas/FindingBody"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "findings"
-        ],
-        "type": "object"
-      },
       "EncoderTrialBody": {
         "additionalProperties": false,
         "properties": {
@@ -2391,26 +2373,6 @@
         ],
         "type": "object"
       },
-      "GroupedSearchOutputBody": {
-        "additionalProperties": false,
-        "properties": {
-          "genres": {
-            "$ref": "#/components/schemas/GroupBody"
-          },
-          "people": {
-            "$ref": "#/components/schemas/GroupBody"
-          },
-          "titles": {
-            "$ref": "#/components/schemas/GroupBody"
-          }
-        },
-        "required": [
-          "titles",
-          "people",
-          "genres"
-        ],
-        "type": "object"
-      },
       "HandOffOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -2490,38 +2452,6 @@
         "required": [
           "status",
           "reasons"
-        ],
-        "type": "object"
-      },
-      "HitBody": {
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "kind": {
-            "enum": [
-              "movie",
-              "episode",
-              "extra",
-              "other",
-              "series"
-            ],
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "year": {
-            "format": "int64",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "id",
-          "kind",
-          "name"
         ],
         "type": "object"
       },
@@ -6564,18 +6494,20 @@
       "SearchOutputBody": {
         "additionalProperties": false,
         "properties": {
-          "results": {
-            "items": {
-              "$ref": "#/components/schemas/HitBody"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
+          "genres": {
+            "$ref": "#/components/schemas/GroupBody"
+          },
+          "people": {
+            "$ref": "#/components/schemas/GroupBody"
+          },
+          "titles": {
+            "$ref": "#/components/schemas/GroupBody"
           }
         },
         "required": [
-          "results"
+          "titles",
+          "people",
+          "genres"
         ],
         "type": "object"
       },
@@ -7066,7 +6998,7 @@
             "type": "string"
           },
           "isImportant": {
-            "description": "In /settings, the settings page's normal view",
+            "description": "In the settings page's normal view",
             "type": "boolean"
           },
           "isModified": {
@@ -10418,48 +10350,6 @@
         "summary": "Set a server setting to default: its starting value, no longer marked modified, so it follows its starting value when a release changes it (admin)",
         "tags": [
           "Settings"
-        ]
-      }
-    },
-    "/doctor": {
-      "get": {
-        "operationId": "getDoctor",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DoctorOutputBody"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "What the running server finds wrong with itself, and what to do (admin)",
-        "tags": [
-          "Running it"
         ]
       }
     },
@@ -15955,83 +15845,7 @@
     },
     "/search": {
       "get": {
-        "description": "Superseded: GET /items takes query, a search as a criterion of the one list, with its kind, library, sort, order and paging. Kept for clients that call it; new code lists with GET /items.",
         "operationId": "search",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
-            "explode": false,
-            "in": "query",
-            "name": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "One library's titles alone; absent for every library the person reaches",
-            "explode": false,
-            "in": "query",
-            "name": "library",
-            "schema": {
-              "description": "One library's titles alone; absent for every library the person reaches",
-              "format": "int64",
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          {
-            "explode": false,
-            "in": "query",
-            "name": "limit",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "maximum": 100,
-              "minimum": 1,
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SearchOutputBody"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Titles and series by name, in any script (D48); superseded by GET /items?query=",
-        "tags": [
-          "Browse"
-        ]
-      }
-    },
-    "/search/grouped": {
-      "get": {
-        "operationId": "searchGrouped",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -16099,7 +15913,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GroupedSearchOutputBody"
+                  "$ref": "#/components/schemas/SearchOutputBody"
                 }
               }
             },
@@ -16432,98 +16246,6 @@
         "summary": "Take the session a sign-in at the loader kept, by its code, once",
         "tags": [
           "Setup and auth"
-        ]
-      }
-    },
-    "/settings": {
-      "get": {
-        "operationId": "getSettings",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SettingsOutputBody"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "The important server settings, the settings page's normal view (admin)",
-        "tags": [
-          "Settings"
-        ]
-      },
-      "put": {
-        "operationId": "putSettings",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PutSettingsInputBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SettingsOutputBody"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Change important server settings, all or none (admin)",
-        "tags": [
-          "Settings"
         ]
       }
     },

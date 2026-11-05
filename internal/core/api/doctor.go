@@ -5,11 +5,8 @@ package api
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
-
-	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -35,36 +32,7 @@ type FindingBody struct {
 	Action  string  `json:"action,omitempty"`
 }
 
-// DoctorOutput is what the running server finds wrong with itself (cut-a §5, Running it). The
-// artwork cache is its first check; others join as their milestones build them.
-type DoctorOutput struct {
-	Body struct {
-		Findings []FindingBody `json:"findings"`
-	}
-}
-
-func (server *Server) registerDoctor() {
-	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "getDoctor", Method: http.MethodGet, Path: "/doctor", Tags: []string{tagRunningIt},
-		Summary: "What the running server finds wrong with itself, and what to do (admin)",
-	}, server.getDoctor)
-}
-
-func (server *Server) getDoctor(ctx context.Context, input *AuthorizationHeader) (*DoctorOutput, error) {
-	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
-	if err != nil {
-		return nil, err
-	}
-	output := &DoctorOutput{}
-	output.Body.Findings, err = server.collectFindings(ctx, dependencies)
-	if err != nil {
-		return nil, err
-	}
-	return output, nil
-}
-
-// collectFindings lists what the running server finds wrong with itself, for /doctor and the
-// System page.
+// collectFindings lists what the running server finds wrong with itself, for the System page.
 func (server *Server) collectFindings(ctx context.Context, dependencies *Dependencies) ([]FindingBody, error) {
 	findings := []FindingBody{artworkFinding(dependencies)}
 	if server.rtc != nil {
@@ -170,8 +138,8 @@ func preparedFinding(nodeName string, usage nodeproto.PreparedUsage) FindingBody
 // ConfinementFinding is FFmpeg's confinement where it runs, judged from the mechanisms a node
 // reports, or would report, in its hello: a warning naming each mechanism not in force, with what
 // would put it there, because a user whose safety depends on it deserves to know (D112). A report
-// with no mechanism in it is a warning too. It is the one judgement of confinement: /doctor and
-// the System page use it for each node, and the doctor command for this machine. The place,
+// with no mechanism in it is a warning too. It is the one judgement of confinement: the System page
+// uses it for each node, and the doctor command for this machine. The place,
 // where, reads "node devnas" or "this machine".
 func ConfinementFinding(where string, confinement []nodeproto.Confinement) FindingBody {
 	finding := FindingBody{

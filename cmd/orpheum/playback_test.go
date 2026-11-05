@@ -108,9 +108,9 @@ func TestPlayback_AFilmsSubtitleIsExtractedOnItsNodeAndServedByTheCore(t *testin
 		t.Errorf("GET /jobs = %d %s, want the extraction listed", listed.status, listed.body)
 	}
 	// Doctor reads what the node's hello said about its confinement (D112).
-	found := requestAPI(t, http.MethodGet, server.baseURL+"/doctor", token, nil)
+	found := requestAPI(t, http.MethodGet, server.baseURL+"/system", token, nil)
 	if found.status != http.StatusOK || !strings.Contains(found.body, `"check":"FFmpeg confinement on node`) {
-		t.Errorf("GET /doctor = %d %s, want the node's confinement", found.status, found.body)
+		t.Errorf("GET /system = %d %s, want the node's confinement", found.status, found.body)
 	}
 }
 

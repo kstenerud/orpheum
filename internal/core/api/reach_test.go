@@ -216,10 +216,10 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		// A film played in a cast is reach-checked as startCast's is (castFilmOf;
 		// TestCast_IsASessionInWhichEachFilmPlayedGoesToTheReceiver).
 		"playInCast",
-		// A credited person, the genres and a grouped search are of the titles the caller reaches
+		// A credited person, the genres and a search are of the titles the caller reaches
 		// (TestPerson_ListsTheReachedTitlesCreditingThem, TestGenres_CountTheReachedTitles,
 		// TestSearchGrouped_FindsTitlesPeopleAndGenresFromTheFirstLetter).
-		"getPerson", "getGenres", "searchGrouped",
+		"getPerson", "getGenres", "search",
 	}
 	noLibraryContent := []string{
 		// The caller's own rows, which say nothing of what a library holds.

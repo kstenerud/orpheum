@@ -522,27 +522,27 @@ func TestSettings_OnlyAnAdminChangesTheServersAndABadValueChangesNothing(t *test
 		t.Fatal(err)
 	}
 	user := harness.signIn(t, "partner", "partner-password")
-	wantError(t, harness.do(t, http.MethodGet, "/settings", user, nil), http.StatusForbidden, api.CodeForbidden)
+	wantError(t, harness.do(t, http.MethodGet, "/config", user, nil), http.StatusForbidden, api.CodeForbidden)
+	wantError(t, harness.do(t, http.MethodPut, "/config", user,
+		map[string]any{"valuesByKey": map[string]any{"should_check_for_updates": false}}),
+		http.StatusForbidden, api.CodeForbidden)
 
-	wantInvalidAt(t, harness.do(t, http.MethodPut, "/settings", admin,
+	wantInvalidAt(t, harness.do(t, http.MethodPut, "/config", admin,
 		map[string]any{"valuesByKey": map[string]any{"should_check_for_updates": "yes"}}),
 		http.StatusUnprocessableEntity, "body.valuesByKey.should_check_for_updates")
-	wantInvalidAt(t, harness.do(t, http.MethodPut, "/settings", admin,
-		map[string]any{"valuesByKey": map[string]any{"signin_failure_limit": 3}}),
-		http.StatusUnprocessableEntity, "body.valuesByKey.signin_failure_limit")
-	page := harness.do(t, http.MethodGet, "/settings", admin, nil)
-	if strings.Contains(page.body, "signin_failure_limit") || !strings.Contains(page.body, "should_check_for_updates") {
-		t.Errorf("GET /settings shows a setting it should not, or misses one it should: %s", page.body)
+	if page := harness.do(t, http.MethodGet, "/config", admin, nil); !strings.Contains(page.body,
+		`"key":"should_check_for_updates","kind":"bool","value":null`) {
+		t.Errorf("GET /config after a bad value = %s; want the setting unchanged", page.body)
 	}
-	changed := harness.do(t, http.MethodPut, "/settings", admin,
+	changed := harness.do(t, http.MethodPut, "/config", admin,
 		map[string]any{"valuesByKey": map[string]any{"should_check_for_updates": false}})
 	const wantChanged = `"key":"should_check_for_updates","kind":"bool","value":false,"startingValue":null,` +
 		`"isModified":true`
 	if changed.status != http.StatusOK || !strings.Contains(changed.body, wantChanged) {
-		t.Errorf("PUT /settings = %d %s", changed.status, changed.body)
+		t.Errorf("PUT /config = %d %s", changed.status, changed.body)
 	}
 	if !strings.Contains(changed.body, `"setByUserId":1`) {
-		t.Errorf("PUT /settings = %s, want it to name the admin who set it as setByUserId (D227)", changed.body)
+		t.Errorf("PUT /config = %s, want it to name the admin who set it as setByUserId (D227)", changed.body)
 	}
 	// A person's own choices are preferences, not settings (the architecture map's F6).
 	if mine := harness.do(t, http.MethodGet, "/me/settings", user, nil); mine.status != http.StatusNotFound {
@@ -591,7 +591,7 @@ func TestSecrets_AreWriteOnly(t *testing.T) {
 	if cleared.status != http.StatusNoContent {
 		t.Errorf("DELETE /secrets/tmdb_api_key = %d %s", cleared.status, cleared.body)
 	}
-	for _, path := range []string{"/secrets", "/settings", "/me"} {
+	for _, path := range []string{"/secrets", "/config", "/me"} {
 		if got := harness.do(t, http.MethodGet, path, admin, nil); strings.Contains(got.body, "CANARY") {
 			t.Errorf("GET %s shows the secret: %s", path, got.body)
 		}

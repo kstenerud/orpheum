@@ -104,8 +104,8 @@ type GenresOutput struct {
 	}
 }
 
-// GroupedSearchInput is a grouped search.
-type GroupedSearchInput struct {
+// SearchInput is a search, its hits grouped into titles, people and genres (D416 §10).
+type SearchInput struct {
 	AuthorizationHeader
 	Query  string `doc:"What was typed: from its first letter, in any script (D48)" maxLength:"200" query:"query" required:"true"` //nolint:lll // one struct tag
 	Group  string `doc:"One group's next page alone; absent for the first page of each" enum:"titles,people,genres" query:"group"` //nolint:lll // one struct tag
@@ -129,8 +129,8 @@ type GroupBody struct {
 	NextCursor string         `doc:"The group's next page, with group; absent on its last" json:"nextCursor,omitempty"`
 }
 
-// GroupedSearchOutput is a grouped search's page: titles, people and genres.
-type GroupedSearchOutput struct {
+// SearchOutput is a search's page: titles, people and genres.
+type SearchOutput struct {
 	Body struct {
 		Titles GroupBody `json:"titles"`
 		People GroupBody `json:"people"`
@@ -149,10 +149,10 @@ func (server *Server) registerPeople() {
 		Summary: "The genres with a title the person reaches, each with how many", Tags: tags,
 	}, server.getGenres)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "searchGrouped", Method: http.MethodGet, Path: "/search/grouped",
+		OperationID: "search", Method: http.MethodGet, Path: "/search",
 		Summary: "Titles, people and genres by what was typed, from its first letter, each group the best first",
 		Tags:    tags,
-	}, server.searchGrouped)
+	}, server.search)
 }
 
 func (server *Server) getPerson(ctx context.Context, input *ItemInput) (*PersonOutput, error) {
@@ -193,7 +193,7 @@ func (server *Server) getGenres(ctx context.Context, input *GenresInput) (*Genre
 	return output, nil
 }
 
-func (server *Server) searchGrouped(ctx context.Context, input *GroupedSearchInput) (*GroupedSearchOutput, error) {
+func (server *Server) search(ctx context.Context, input *SearchInput) (*SearchOutput, error) {
 	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -218,7 +218,7 @@ func (server *Server) searchGrouped(ctx context.Context, input *GroupedSearchInp
 		}
 		return strconv.FormatInt(offset+input.Limit, 10)
 	}
-	output := &GroupedSearchOutput{}
+	output := &SearchOutput{}
 	body := &output.Body
 	body.Titles.Hits = make([]GroupHitBody, 0, len(hits.Titles))
 	for _, hit := range hits.Titles {

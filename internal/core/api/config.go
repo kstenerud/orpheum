@@ -109,7 +109,7 @@ func (server *Server) getConfig(ctx context.Context, input *ConfigListInput) (*C
 	if err != nil {
 		return nil, err
 	}
-	listed, err := server.listSettings(ctx, dependencies.Settings, false)
+	listed, err := server.listSettings(ctx, dependencies.Settings)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +129,7 @@ func (server *Server) putConfig(ctx context.Context, input *PutSettingsInput) (*
 	if err != nil {
 		return nil, err
 	}
-	return server.writeSettings(ctx, dependencies.Settings, input.Body.ValuesByKey, principal.UserID, false)
+	return server.writeSettings(ctx, dependencies.Settings, input.Body.ValuesByKey, principal.UserID)
 }
 
 func (server *Server) resetConfig(ctx context.Context, input *SettingKeyInput) (*SettingOutput, error) {
@@ -141,7 +141,7 @@ func (server *Server) resetConfig(ctx context.Context, input *SettingKeyInput) (
 	if err != nil {
 		return nil, server.settingsError(ctx, "reset a setting", err)
 	}
-	listed, err := server.listSettings(ctx, dependencies.Settings, false)
+	listed, err := server.listSettings(ctx, dependencies.Settings)
 	if err != nil {
 		return nil, err
 	}

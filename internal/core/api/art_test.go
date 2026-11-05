@@ -127,7 +127,7 @@ func TestDoctor_AnAdminSeesTheArtworkCacheAgainstItsCeiling(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
-	found := harness.do(t, http.MethodGet, "/doctor", admin, nil)
+	found := harness.do(t, http.MethodGet, "/system", admin, nil)
 	if found.status != http.StatusOK ||
 		!strings.Contains(found.body, `{"check":"artwork cache","verdict":"ok","detail":"0.0 GiB of a 0 GiB `) {
 		t.Errorf("doctor = %d %s", found.status, found.body)
@@ -136,7 +136,7 @@ func TestDoctor_AnAdminSeesTheArtworkCacheAgainstItsCeiling(t *testing.T) {
 		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
 		t.Fatal(err)
 	}
-	wantError(t, harness.do(t, http.MethodGet, "/doctor", harness.signIn(t, "partner", "partner-password"), nil),
+	wantError(t, harness.do(t, http.MethodGet, "/system", harness.signIn(t, "partner", "partner-password"), nil),
 		http.StatusForbidden, api.CodeForbidden)
 }
 
@@ -152,7 +152,7 @@ func TestDoctor_SaysANodeRunsFFmpegWithoutAMechanismAndWhatWouldPutItThere(t *te
 		},
 		{Mechanism: "seccomp", IsInForce: true},
 	}
-	found := harness.do(t, http.MethodGet, "/doctor", admin, nil)
+	found := harness.do(t, http.MethodGet, "/system", admin, nil)
 	want := `{"check":"FFmpeg confinement on node local","verdict":"warn",` +
 		`"detail":"FFmpeg runs without all its confinement: landlock: the kernel has Landlock, ` +
 		`but it is not enabled at boot","action":"landlock: add landlock to the lsm= list"}`
@@ -160,7 +160,7 @@ func TestDoctor_SaysANodeRunsFFmpegWithoutAMechanismAndWhatWouldPutItThere(t *te
 		t.Errorf("doctor = %d %s, want the missing mechanism and its remedy (D112)", found.status, found.body)
 	}
 	harness.nodes.confinement[0].IsInForce = true
-	if confined := harness.do(t, http.MethodGet, "/doctor", admin, nil); !strings.Contains(confined.body,
+	if confined := harness.do(t, http.MethodGet, "/system", admin, nil); !strings.Contains(confined.body,
 		`{"check":"FFmpeg confinement on node local","verdict":"ok"`) {
 		t.Errorf("doctor with both in force = %s, want ok", confined.body)
 	}
@@ -175,19 +175,19 @@ func TestDoctor_ShowsEachNodesPreparedCopiesAgainstTheirBudgetAndWarnsPastTheDis
 		UsedBytes: 3 << 30, BudgetBytes: 200 << 30, DiskUsedPercent: 40, DiskUsedLimitPercent: 95,
 		DiskAvailableBytes: 500 << 20, DiskMinFreeBytes: 100 << 20,
 	}
-	within := harness.do(t, http.MethodGet, "/doctor", admin, nil)
+	within := harness.do(t, http.MethodGet, "/system", admin, nil)
 	want := `{"check":"prepared copies on node local","verdict":"ok","detail":"3.0 GiB of a 200 GiB budget; ` +
 		`the disk is 40% full, its limit 95%, with 500 MiB free, its floor 100 MiB"}`
 	if !strings.Contains(within.body, want) {
 		t.Errorf("doctor = %s, want the node's prepared copies against their budget (D217 §5)", within.body)
 	}
 	harness.nodes.prepared.DiskUsedPercent = 97
-	if past := harness.do(t, http.MethodGet, "/doctor", admin, nil); !strings.Contains(past.body,
+	if past := harness.do(t, http.MethodGet, "/system", admin, nil); !strings.Contains(past.body,
 		`{"check":"prepared copies on node local","verdict":"warn"`) {
 		t.Errorf("doctor with the disk past its limit = %s, want a warning", past.body)
 	}
 	harness.nodes.prepared.DiskUsedPercent, harness.nodes.prepared.DiskAvailableBytes = 40, 50<<20
-	if below := harness.do(t, http.MethodGet, "/doctor", admin, nil); !strings.Contains(below.body,
+	if below := harness.do(t, http.MethodGet, "/system", admin, nil); !strings.Contains(below.body,
 		`{"check":"prepared copies on node local","verdict":"warn"`) {
 		t.Errorf("doctor with the disk below its floor of free space = %s, want a warning", below.body)
 	}
@@ -212,7 +212,7 @@ func TestDoctor_NamesAFileAtTwoPlacesAndWarnsWhenTheirNFOFilesDisagree(t *testin
 			"INSERT INTO file_nfo (file_id, body) VALUES (%d, CAST('<movie><title>%d</title></movie>' AS BLOB))",
 			nfoID, index))
 	}
-	found := harness.do(t, http.MethodGet, "/doctor", admin, nil)
+	found := harness.do(t, http.MethodGet, "/system", admin, nil)
 	for _, want := range []string{
 		`{"check":"files found at more than one place","verdict":"ok","detail":"1, each one file, byte for byte ` +
 			`the same, at every place: file 1 at /m/Metropolis (1995).mkv and /m/Copy/Metropolis (1995).mkv"}`,

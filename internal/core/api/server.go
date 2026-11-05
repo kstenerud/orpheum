@@ -195,7 +195,6 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerLibraries()
 	server.registerBrowsing()
 	server.registerArt()
-	server.registerDoctor()
 	server.registerSystem()
 	server.registerBackups()
 	server.registerFilingReports()
