@@ -409,7 +409,8 @@ func (q *Queries) ListLibraryRootStates(ctx context.Context, libraryID int64) ([
 }
 
 const setLibraryChangeDetection = `-- name: SetLibraryChangeDetection :execrows
-UPDATE library SET change_detection = ?1, check_every_hours = ?2
+UPDATE library SET revision = revision + 1, change_detection = ?1,
+  check_every_hours = ?2
 WHERE id = ?3 AND removed_at IS NULL
 `
 

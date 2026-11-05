@@ -52,6 +52,7 @@ type Role struct {
 	Name         string
 	IsBuiltin    int64
 	Capabilities string
+	Revision     int64
 }
 
 type RoleLibrary struct {
@@ -78,6 +79,7 @@ type Setting struct {
 	SetByUserID *int64
 	SetAt       int64
 	IsModified  int64
+	Revision    int64
 }
 
 type SubtitleText struct {

@@ -35,7 +35,7 @@ func (q *Queries) DeleteRoleLibraries(ctx context.Context, roleID int64) error {
 }
 
 const getRole = `-- name: GetRole :one
-SELECT id, name, is_builtin, capabilities FROM role WHERE id = ?1
+SELECT id, name, is_builtin, capabilities, revision FROM role WHERE id = ?1
 `
 
 func (q *Queries) GetRole(ctx context.Context, id int64) (Role, error) {
@@ -46,6 +46,7 @@ func (q *Queries) GetRole(ctx context.Context, id int64) (Role, error) {
 		&i.Name,
 		&i.IsBuiltin,
 		&i.Capabilities,
+		&i.Revision,
 	)
 	return i, err
 }
@@ -164,7 +165,7 @@ func (q *Queries) ListRoles(ctx context.Context) ([]ListRolesRow, error) {
 }
 
 const updateRole = `-- name: UpdateRole :exec
-UPDATE role SET name = ?1, capabilities = ?2
+UPDATE role SET revision = revision + 1, name = ?1, capabilities = ?2
 WHERE id = ?3 AND is_builtin = 0
 `
 
@@ -181,7 +182,7 @@ func (q *Queries) UpdateRole(ctx context.Context, arg UpdateRoleParams) error {
 }
 
 const updateUserRole = `-- name: UpdateUserRole :exec
-UPDATE user SET role_id = ?1 WHERE id = ?2 AND removed_at IS NULL
+UPDATE user SET revision = revision + 1, role_id = ?1 WHERE id = ?2 AND removed_at IS NULL
 `
 
 type UpdateUserRoleParams struct {

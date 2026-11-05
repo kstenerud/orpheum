@@ -94,7 +94,7 @@ func (q *Queries) DeleteRealmKeyOfRemovedUser(ctx context.Context, userID int64)
 }
 
 const demoteAdministrators = `-- name: DemoteAdministrators :many
-UPDATE user SET role_id = (SELECT id FROM role WHERE name = 'user' AND is_builtin = 1)
+UPDATE user SET revision = revision + 1, role_id = (SELECT id FROM role WHERE name = 'user' AND is_builtin = 1)
 WHERE removed_at IS NULL
   AND role_id IN (SELECT id FROM role WHERE ',' || capabilities || ',' LIKE '%,administer,%')
 RETURNING name
@@ -192,7 +192,7 @@ func (q *Queries) GetLiveUserByName(ctx context.Context, name string) (GetLiveUs
 
 const getRoleByName = `-- name: GetRoleByName :one
 
-SELECT id, name, is_builtin, capabilities
+SELECT id, name, is_builtin, capabilities, revision
 FROM role
 WHERE name = ?
 `
@@ -208,6 +208,7 @@ func (q *Queries) GetRoleByName(ctx context.Context, name string) (Role, error) 
 		&i.Name,
 		&i.IsBuiltin,
 		&i.Capabilities,
+		&i.Revision,
 	)
 	return i, err
 }
@@ -358,7 +359,8 @@ func (q *Queries) ListLiveUsers(ctx context.Context) ([]ListLiveUsersRow, error)
 
 const removeUser = `-- name: RemoveUser :execrows
 
-UPDATE user SET removed_at = ?1, name = '', password_hash = NULL, admin_note = NULL
+UPDATE user SET revision = revision + 1, removed_at = ?1, name = '', password_hash = NULL,
+  admin_note = NULL
 WHERE id = ?2 AND removed_at IS NULL
 `
 
@@ -379,7 +381,7 @@ func (q *Queries) RemoveUser(ctx context.Context, arg RemoveUserParams) (int64, 
 }
 
 const renameUser = `-- name: RenameUser :exec
-UPDATE user SET name = ?1 WHERE id = ?2
+UPDATE user SET revision = revision + 1, name = ?1 WHERE id = ?2
 `
 
 type RenameUserParams struct {
@@ -393,7 +395,7 @@ func (q *Queries) RenameUser(ctx context.Context, arg RenameUserParams) error {
 }
 
 const setAdminAway = `-- name: SetAdminAway :exec
-UPDATE user SET admin_away = ?1 WHERE id = ?2 AND removed_at IS NULL
+UPDATE user SET revision = revision + 1, admin_away = ?1 WHERE id = ?2 AND removed_at IS NULL
 `
 
 type SetAdminAwayParams struct {
@@ -408,7 +410,7 @@ func (q *Queries) SetAdminAway(ctx context.Context, arg SetAdminAwayParams) erro
 }
 
 const setUserAdminNote = `-- name: SetUserAdminNote :exec
-UPDATE user SET admin_note = ?1 WHERE id = ?2 AND removed_at IS NULL
+UPDATE user SET revision = revision + 1, admin_note = ?1 WHERE id = ?2 AND removed_at IS NULL
 `
 
 type SetUserAdminNoteParams struct {
@@ -422,7 +424,7 @@ func (q *Queries) SetUserAdminNote(ctx context.Context, arg SetUserAdminNotePara
 }
 
 const updateUserPasswordHash = `-- name: UpdateUserPasswordHash :exec
-UPDATE user SET password_hash = ?1
+UPDATE user SET revision = revision + 1, password_hash = ?1
 WHERE id = ?2 AND removed_at IS NULL
 `
 

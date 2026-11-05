@@ -135,6 +135,7 @@ CREATE TABLE library (                                     -- class A
   is_writable         INTEGER NOT NULL CHECK (is_writable IN (0,1)),
   created_at       INTEGER NOT NULL,
   removed_at       INTEGER,
+  revision    INTEGER NOT NULL DEFAULT 0,  -- raised by every write (sql.md M1; step 0075)
   -- An other library is never identified online: it reads NFO files alone, and is not asked (D349).
   CHECK (kind <> 'other' OR metadata_source = 'nfo')
 );
@@ -145,7 +146,7 @@ CREATE TABLE library_root (                                -- class O: as the no
   root_path       TEXT NOT NULL,
   retired_at INTEGER,                    -- an admin retired it (D231 section 7); migration 0029
   PRIMARY KEY (library_id, node_id, root_path)
-);
+) WITHOUT ROWID;  -- step 0075 (D426 section 10)
 ```
 
 A node's roots are set on the node and never remotely ([D107](../../decisions/working-notes.md));
@@ -166,7 +167,7 @@ CREATE TABLE root_scan (                                   -- class O
   root_path         TEXT NOT NULL,
   completed_at INTEGER NOT NULL,         -- the last scan of this root that finished
   PRIMARY KEY (node_id, root_path)
-);
+) WITHOUT ROWID;  -- step 0075 (D426 section 10)
 ```
 
 **A file is tombstoned only by a completed scan of its root** ([D179](../../decisions/working-notes.md)),
@@ -185,7 +186,7 @@ CREATE TABLE root_state (                                  -- class O; migration
   withheld_reason TEXT,                   -- once the admin confirms
   are_removals_approved INTEGER NOT NULL DEFAULT 0 CHECK (are_removals_approved IN (0, 1)),  -- class A
   PRIMARY KEY (node_id, root_path)
-);
+) WITHOUT ROWID;  -- step 0075 (D426 section 10)
 CREATE TABLE root_mount (                                  -- class O; migration 0004
   node_id  INTEGER NOT NULL REFERENCES node(id) ON DELETE RESTRICT,
   root_path     TEXT NOT NULL,
@@ -193,7 +194,7 @@ CREATE TABLE root_mount (                                  -- class O; migration
   filesystem_device   INTEGER NOT NULL,             -- st_dev when it was last seen where expected
   is_present  INTEGER NOT NULL CHECK (is_present IN (0, 1)),
   PRIMARY KEY (node_id, mount_path)
-);
+) WITHOUT ROWID;  -- step 0075 (D426 section 10)
 CREATE TABLE unavailable_place (                           -- class O; migration 0054 (D328)
   node_id   INTEGER NOT NULL REFERENCES node(id) ON DELETE RESTRICT,
   path      TEXT NOT NULL,             -- the root, or the disk's mount point inside it
@@ -535,7 +536,7 @@ CREATE TABLE extra_relation (                              -- class O, or A when
                   'theme_song','theme_video','unknown')),       -- D97, D162: eleven + unknown
   asserted_by   TEXT NOT NULL CHECK (asserted_by IN ('scanner','user')),
   PRIMARY KEY (owner_work, extra_work)
-);
+) WITHOUT ROWID;  -- step 0075 (D426 section 10)
 ```
 
 **An item need not have a File** (obligation #1): a Title with no Version is valid. **A prepared
@@ -650,8 +651,9 @@ CREATE TABLE field_override (                              -- class A (D183)
   origin      TEXT NOT NULL,             -- 'typed', 'nfo', 'tmdb', 'tvdb' — display only
   set_by_user_id      INTEGER REFERENCES user(id) ON DELETE RESTRICT,
   set_at      INTEGER NOT NULL,
+  revision    INTEGER NOT NULL DEFAULT 0,  -- raised by every write (sql.md M1; step 0075)
   PRIMARY KEY (item_id, field, language)
-);
+) WITHOUT ROWID;  -- step 0075 (D426 section 10)
 
 CREATE TABLE artwork (                                     -- class O/F; A when chosen
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -758,7 +760,8 @@ CREATE TABLE role (                                        -- class A (D130)
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   name          TEXT NOT NULL UNIQUE,
   is_builtin       INTEGER NOT NULL DEFAULT 0 CHECK (is_builtin IN (0,1)),
-  capabilities  TEXT NOT NULL            -- a set from the closed enum, e.g. 'administer,download'
+  capabilities  TEXT NOT NULL,  -- a set from the closed enum, e.g. 'administer,download'
+  revision    INTEGER NOT NULL DEFAULT 0   -- raised by every write (sql.md M1; step 0075)
 );
 -- Ceilings (F31) and the download lease (D169) arrive with their features as columns here
 -- (D180); they were sketched and dropped by the second audit (D193).
@@ -782,7 +785,8 @@ CREATE TABLE user (                                        -- class A
   created_at    INTEGER NOT NULL,
   removed_at    INTEGER,
   admin_note    TEXT,                    -- 0034: who it is for, the admin's alone (D246 section 2)
-  admin_away    TEXT NOT NULL DEFAULT 'never'  -- 0042: an admin administers from away too, 'always' (D302)
+  admin_away    TEXT NOT NULL DEFAULT 'never',  -- 0042: an admin administers from away too, 'always' (D302)
+  revision    INTEGER NOT NULL DEFAULT 0,  -- raised by every write (sql.md M1; step 0075)
     CHECK (admin_away IN ('never', 'always'))
 );
 CREATE UNIQUE INDEX user_live_name ON user(name) WHERE removed_at IS NULL;
@@ -896,7 +900,8 @@ CREATE TABLE setting (                                     -- class A: the serve
   value_json       TEXT NOT NULL,             -- JSON
   set_by_user_id      INTEGER REFERENCES user(id) ON DELETE RESTRICT,  -- NULL: the setup wizard
   set_at      INTEGER NOT NULL,
-  is_modified INTEGER NOT NULL DEFAULT 0 CHECK (is_modified IN (0, 1))  -- a person set it (D201)
+  is_modified INTEGER NOT NULL DEFAULT 0 CHECK (is_modified IN (0, 1)),  -- a person set it (D201)
+  revision    INTEGER NOT NULL DEFAULT 0   -- raised by every write (sql.md M1; step 0075)
 );
 -- 0028 dropped scope and user_id: no setting is a person's. A person's choices are preferences
 -- (the architecture map's F6), and a user scope nothing defined was removed with its endpoints.
