@@ -4,14 +4,11 @@ import { useEffect } from "react";
 
 import type { CastDialog as CastDialogComponent } from "./cast-dialog.tsx";
 import { preloadableScreen, resetOnEachTestMount } from "./screen-load.tsx";
-import type { TogetherDialog as TogetherDialogComponent } from "./together-dialog.tsx";
+import { isTogetherDialogLoaded, preloadTogetherDialog } from "./together-dialog-code.tsx";
 import { whenIdle } from "./when-idle.ts";
 
 const loadCastDialog = async (): Promise<{ default: typeof CastDialogComponent }> => ({
   default: (await import("./cast-dialog.tsx")).CastDialog,
-});
-const loadTogetherDialog = async (): Promise<{ default: typeof TogetherDialogComponent }> => ({
-  default: (await import("./together-dialog.tsx")).TogetherDialog,
 });
 
 /**
@@ -23,12 +20,12 @@ const loadTogetherDialog = async (): Promise<{ default: typeof TogetherDialogCom
  * plans/toolkit.md item 10). Kept apart from later-screens.tsx, whose screens draw the shell the tray
  * is in.
  *
- * Each is `let`, not `const`, for resetTrayDialogsForTests, as later-screens.tsx's are.
+ * Watch Together's is in together-dialog-code.tsx, which the sign over the film imports too (D433).
+ * Cast's is `let`, not `const`, for resetTrayDialogsForTests, as later-screens.tsx's are.
  */
 let castDialog = preloadableScreen("cast-dialog", loadCastDialog);
-let togetherDialog = preloadableScreen("together-dialog", loadTogetherDialog);
 export let CastDialog = castDialog.component;
-export let TogetherDialog = togetherDialog.component;
+export { TogetherDialog } from "./together-dialog-code.tsx";
 
 /**
  * How long the first page shows before the tray's dialogs' code is asked for, in ms: past its own
@@ -42,12 +39,12 @@ const trayDialogsIdleWithinMs = 2000;
 
 /** Loads both dialogs' code ahead, once per page load; a failure is left to the press. */
 async function preloadTrayDialogs(): Promise<void> {
-  await Promise.all([castDialog.preload(), togetherDialog.preload()]);
+  await Promise.all([castDialog.preload(), preloadTogetherDialog()]);
 }
 
 /** Whether both dialogs' code has loaded, so a press opens either at once. */
 export function areTrayDialogsLoaded(): boolean {
-  return castDialog.isLoaded() && togetherDialog.isLoaded();
+  return castDialog.isLoaded() && isTogetherDialogLoaded();
 }
 
 /**
@@ -70,13 +67,11 @@ export function useLoadsTrayDialogsAhead(): void {
 }
 
 /**
- * Test-only: gives each dialog here a fresh, unloaded wrapper, as resetLazyScreensForTests does the
+ * Test-only: gives Cast's dialog a fresh, unloaded wrapper, as resetLazyScreensForTests does the
  * screens (later-screens.tsx). Never called by runtime code.
  */
 export function resetTrayDialogsForTests(): void {
   castDialog = preloadableScreen("cast-dialog", loadCastDialog);
-  togetherDialog = preloadableScreen("together-dialog", loadTogetherDialog);
   CastDialog = castDialog.component;
-  TogetherDialog = togetherDialog.component;
 }
 resetOnEachTestMount(resetTrayDialogsForTests);

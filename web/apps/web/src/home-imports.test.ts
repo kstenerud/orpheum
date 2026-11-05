@@ -91,7 +91,7 @@ describe("what the tests' shared helpers load", () => {
     expect(helpers).toContain("./test-dom.tsx");
     const reached = helpers.flatMap((helper) => {
       const loadedBy = loadedAtStart(helper);
-      return ["./later-screens.tsx", "./tray-dialog-code.tsx"]
+      return ["./later-screens.tsx", "./tray-dialog-code.tsx", "./together-dialog-code.tsx"]
         .filter((path) => loadedBy.has(path))
         .map((path) => chainTo(loadedBy, path));
     });

@@ -18,7 +18,7 @@ import { useTranslation } from "react-i18next";
 import { IconButton } from "./icon-button.tsx";
 import { LaterScreen } from "./screen-load.tsx";
 import { signMark, TogetherIcon } from "./sign-mark.tsx";
-import { TogetherDialog } from "./tray-dialog-code.tsx";
+import { TogetherDialog } from "./together-dialog-code.tsx";
 
 /**
  * Watch Together over the playing film (D423): the film fills the window over the page (D418 §1), so
