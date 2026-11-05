@@ -24,9 +24,9 @@ func TestLab_AResultIsLoggedAsOneLineNamedByItsIDAndIsBounded(t *testing.T) {
 	sent := map[string]any{"probe": "device", "result": map[string]any{
 		"screen": map[string]any{"width": 1920, "height": 1080}, "hasMediaSource": true,
 	}}
-	answer := harness.do(t, http.MethodPost, "/lab-results", user, sent)
+	answer := harness.do(t, http.MethodPost, "/lab/results", user, sent)
 	if answer.status != http.StatusOK {
-		t.Fatalf("POST /lab-results = %d %s", answer.status, answer.body)
+		t.Fatalf("POST /lab/results = %d %s", answer.status, answer.body)
 	}
 	var named struct {
 		ID string `json:"id"`
@@ -38,25 +38,25 @@ func TestLab_AResultIsLoggedAsOneLineNamedByItsIDAndIsBounded(t *testing.T) {
 		`"probe":"device"`, `"userId":1`,
 		`"result":{"hasMediaSource":true,"screen":{"height":1080,"width":1920}}`)
 
-	answer = harness.do(t, http.MethodPost, "/lab-results", "", sent)
+	answer = harness.do(t, http.MethodPost, "/lab/results", "", sent)
 	if answer.status != http.StatusUnauthorized {
 		t.Errorf("a page signed in to nothing sent a result: %d", answer.status)
 	}
 	tooLarge := map[string]any{"probe": "remote", "result": map[string]any{
 		"log": strings.Repeat("x", api.LabResultBytesAtMost),
 	}}
-	answer = harness.do(t, http.MethodPost, "/lab-results", user, tooLarge)
+	answer = harness.do(t, http.MethodPost, "/lab/results", user, tooLarge)
 	if answer.status != http.StatusRequestEntityTooLarge {
 		t.Errorf("a result over %d bytes was taken: %d %s", api.LabResultBytesAtMost, answer.status, answer.body)
 	}
 	unknown := map[string]any{"probe": "elsewhere", "result": map[string]any{}}
-	answer = harness.do(t, http.MethodPost, "/lab-results", user, unknown)
+	answer = harness.do(t, http.MethodPost, "/lab/results", user, unknown)
 	if answer.status != http.StatusUnprocessableEntity {
 		t.Errorf("a result from no lab page was taken: %d", answer.status)
 	}
-	// The button test sends its events as they come (/lab-input-events), never a whole result.
+	// The button test sends its events as they come (/lab/input-events), never a whole result.
 	whole := map[string]any{"probe": "input", "result": map[string]any{}}
-	answer = harness.do(t, http.MethodPost, "/lab-results", user, whole)
+	answer = harness.do(t, http.MethodPost, "/lab/results", user, whole)
 	if answer.status != http.StatusUnprocessableEntity {
 		t.Errorf("a whole result from the button test was taken: %d", answer.status)
 	}
@@ -81,14 +81,14 @@ func TestLab_ResultsAreRefusedAndTheTestsNotOfferedUntilTheAdminTurnsThemOn(t *t
 	if isOffered() {
 		t.Error("the device tests are offered before the admin turned them on")
 	}
-	wantError(t, harness.do(t, http.MethodPost, "/lab-results", user, sent), http.StatusNotFound, api.CodeNotFound)
+	wantError(t, harness.do(t, http.MethodPost, "/lab/results", user, sent), http.StatusNotFound, api.CodeNotFound)
 
 	settingstest.Set(t, harness.server.Dependencies().Load().Settings, settings.ShouldOfferDeviceTests, "true")
 	if !isOffered() {
 		t.Error("the device tests are not offered once the admin turned them on")
 	}
-	if answer := harness.do(t, http.MethodPost, "/lab-results", user, sent); answer.status != http.StatusOK {
-		t.Errorf("POST /lab-results with the tests on = %d %s", answer.status, answer.body)
+	if answer := harness.do(t, http.MethodPost, "/lab/results", user, sent); answer.status != http.StatusOK {
+		t.Errorf("POST /lab/results with the tests on = %d %s", answer.status, answer.body)
 	}
 }
 
@@ -128,9 +128,9 @@ func TestLab_TheButtonTestsEventsAreLoggedALineEachAndBounded(t *testing.T) {
 		"viewportWidth": 960, "viewportHeight": 540, "devicePixelRatio": 2, "mode": "geometric",
 		"hasMediaSession": true, "hasFullscreen": true, "hasCaptureStream": true,
 	}
-	answer := harness.do(t, http.MethodPost, "/lab-input-events", user, sent)
+	answer := harness.do(t, http.MethodPost, "/lab/input-events", user, sent)
 	if answer.status != http.StatusNoContent {
-		t.Fatalf("POST /lab-input-events = %d %s", answer.status, answer.body)
+		t.Fatalf("POST /lab/input-events = %d %s", answer.status, answer.body)
 	}
 	harness.logs.AwaitLine(t, `"msg":"a button test started"`, `"labRun":"K3J9QW2A"`,
 		`"viewport":"960x540"`, `"devicePixelRatio":2`, `"mode":"geometric"`, `"hasMediaSession":true`,
@@ -149,7 +149,7 @@ func TestLab_TheButtonTestsEventsAreLoggedALineEachAndBounded(t *testing.T) {
 	harness.logs.AwaitLine(t, `"msg":"a button test changed who moves focus"`, `"seq":5`, `"kind":"mode"`,
 		`"mode":"browser"`)
 
-	answer = harness.do(t, http.MethodPost, "/lab-input-events", "", sent)
+	answer = harness.do(t, http.MethodPost, "/lab/input-events", "", sent)
 	if answer.status != http.StatusUnauthorized {
 		t.Errorf("a page signed in to nothing sent events: %d", answer.status)
 	}
@@ -170,7 +170,7 @@ func TestLab_TheButtonTestsEventsAreLoggedALineEachAndBounded(t *testing.T) {
 		"an attribute its own": labInputEvents(ownAttribute),
 		"a run of its own":     {"run": "../etc", "events": []map[string]any{labKeyEvent(0)}},
 	} {
-		answer := harness.do(t, http.MethodPost, "/lab-input-events", user, refused)
+		answer := harness.do(t, http.MethodPost, "/lab/input-events", user, refused)
 		if answer.status != http.StatusUnprocessableEntity {
 			t.Errorf("%s were taken: %d %s", name, answer.status, answer.body)
 		}
@@ -183,11 +183,11 @@ func TestLab_TheButtonTestsEventsAreRefusedUntilTheAdminTurnsTheTestsOn(t *testi
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	sent := labInputEvents(labKeyEvent(0))
-	wantError(t, harness.do(t, http.MethodPost, "/lab-input-events", user, sent), http.StatusNotFound, api.CodeNotFound)
+	wantError(t, harness.do(t, http.MethodPost, "/lab/input-events", user, sent), http.StatusNotFound, api.CodeNotFound)
 	settingstest.Set(t, harness.server.Dependencies().Load().Settings, settings.ShouldOfferDeviceTests, "true")
-	answer := harness.do(t, http.MethodPost, "/lab-input-events", user, sent)
+	answer := harness.do(t, http.MethodPost, "/lab/input-events", user, sent)
 	if answer.status != http.StatusNoContent {
-		t.Errorf("POST /lab-input-events with the tests on = %d %s", answer.status, answer.body)
+		t.Errorf("POST /lab/input-events with the tests on = %d %s", answer.status, answer.body)
 	}
 }
 
@@ -233,9 +233,9 @@ func TestLab_TheButtonTestsFieldFullScreenAndControllerEventsAreLoggedFlat(t *te
 		"viewportWidth": 960, "viewportHeight": 540, "devicePixelRatio": 2, "mode": "geometric",
 		"hasMediaSession": true, "hasFullscreen": true, "hasCaptureStream": false,
 	}
-	answer := harness.do(t, http.MethodPost, "/lab-input-events", user, sent)
+	answer := harness.do(t, http.MethodPost, "/lab/input-events", user, sent)
 	if answer.status != http.StatusNoContent {
-		t.Fatalf("POST /lab-input-events = %d %s", answer.status, answer.body)
+		t.Fatalf("POST /lab/input-events = %d %s", answer.status, answer.body)
 	}
 	harness.logs.AwaitLine(t, `"msg":"a button test started"`, `"hasFullscreen":true`,
 		`"hasCaptureStream":false`)
@@ -282,7 +282,7 @@ func TestLab_TheButtonTestsFieldFullScreenAndControllerEventsAreLoggedFlat(t *te
 		"an axis of 64":            event("axis", "axisIndex", 64),
 		"in a field as text":       event("key", "inField", "yes"),
 	} {
-		answer := harness.do(t, http.MethodPost, "/lab-input-events", user, refused)
+		answer := harness.do(t, http.MethodPost, "/lab/input-events", user, refused)
 		if answer.status != http.StatusUnprocessableEntity {
 			t.Errorf("%s was taken: %d %s", name, answer.status, answer.body)
 		}
@@ -304,9 +304,9 @@ func TestLab_TheButtonTestsKeyModifiersAndContextMenuAreLogged(t *testing.T) {
 	}
 	sent := labInputEvents(plus,
 		map[string]any{"seq": 1, "atMs": 200, "kind": "contextmenu", "inFullscreen": true})
-	answer := harness.do(t, http.MethodPost, "/lab-input-events", user, sent)
+	answer := harness.do(t, http.MethodPost, "/lab/input-events", user, sent)
 	if answer.status != http.StatusNoContent {
-		t.Fatalf("POST /lab-input-events = %d %s", answer.status, answer.body)
+		t.Fatalf("POST /lab/input-events = %d %s", answer.status, answer.body)
 	}
 	harness.logs.AwaitLine(t, `"msg":"a button test heard a press"`, `"seq":0`, `"key":"+"`,
 		`"location":3`, `"shiftKey":true,"ctrlKey":true,"altKey":true,"metaKey":true,"altGraph":true`,
@@ -325,7 +325,7 @@ func TestLab_TheButtonTestsKeyModifiersAndContextMenuAreLogged(t *testing.T) {
 		"Shift as text":                  key("shiftKey", "yes"),
 		"AltGr as a number":              key("altGraph", 1),
 	} {
-		answer := harness.do(t, http.MethodPost, "/lab-input-events", user, refused)
+		answer := harness.do(t, http.MethodPost, "/lab/input-events", user, refused)
 		if answer.status != http.StatusUnprocessableEntity {
 			t.Errorf("%s was taken: %d %s", name, answer.status, answer.body)
 		}
@@ -342,9 +342,9 @@ func TestLab_TheButtonTestsVolumeAndTrackKeysAreTaken(t *testing.T) {
 	for seq, button := range []string{"plus", "minus", "previousTrack", "nextTrack"} {
 		event := labKeyEvent(seq)
 		event["button"] = button
-		answer := harness.do(t, http.MethodPost, "/lab-input-events", user, labInputEvents(event))
+		answer := harness.do(t, http.MethodPost, "/lab/input-events", user, labInputEvents(event))
 		if answer.status != http.StatusNoContent {
-			t.Fatalf("POST /lab-input-events with %s = %d %s", button, answer.status, answer.body)
+			t.Fatalf("POST /lab/input-events with %s = %d %s", button, answer.status, answer.body)
 		}
 		harness.logs.AwaitLine(t, `"msg":"a button test heard a press"`, `"button":"`+button+`"`)
 	}

@@ -50,10 +50,10 @@ func (server *Server) registerLibraryFolders() {
 		Summary: "The folders in a node's root or a folder inside it, to choose a library folder (admin; D359)",
 	}, server.getNodeFolders)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "postLibraryRoot", Method: http.MethodPost, Path: "/libraries/{id}/roots", Tags: tags,
+		OperationID: "addLibraryRoot", Method: http.MethodPost, Path: "/libraries/{id}/roots", Tags: tags,
 		DefaultStatus: http.StatusAccepted,
 		Summary:       "Add a folder to a library, and scan it (admin; D359)",
-	}, server.postLibraryRoot)
+	}, server.addLibraryRoot)
 }
 
 func (server *Server) getNodeFolders(ctx context.Context, input *NodeFoldersInput) (*NodeFoldersOutput, error) {
@@ -77,7 +77,7 @@ func (server *Server) getNodeFolders(ctx context.Context, input *NodeFoldersInpu
 	return output, nil
 }
 
-func (server *Server) postLibraryRoot(ctx context.Context, input *AddLibraryRootInput) (*struct{}, error) {
+func (server *Server) addLibraryRoot(ctx context.Context, input *AddLibraryRootInput) (*struct{}, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err

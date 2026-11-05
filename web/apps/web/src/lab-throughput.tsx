@@ -38,7 +38,7 @@ export type LegResult =
 
 /** The body's address under the API, for leg. */
 function bodyPath(leg: ThroughputLeg): string {
-  return `/lab-throughput?bytes=${String(throughputBytes)}&leg=${leg}`;
+  return `/lab/throughput?bytes=${String(throughputBytes)}&leg=${leg}`;
 }
 
 /** The headers each load is signed in with: the session's token, which the core's gate needs. */
@@ -60,7 +60,7 @@ function loadBy(
   switch (leg) {
     case "transport":
       return services.api
-        .GET("/lab-throughput", {
+        .GET("/lab/throughput", {
           params: { query: { bytes: throughputBytes, leg } },
           parseAs: "stream",
         })

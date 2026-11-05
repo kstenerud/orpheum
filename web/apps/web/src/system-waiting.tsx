@@ -56,7 +56,7 @@ function WaitingRemovals(props: {
   const remove = (root: Waiting): void => {
     removing.runRequest(async (idempotencyKey) => {
       throwIfRefused(
-        await api.POST("/libraries/{id}/removals", {
+        await api.POST("/libraries/{id}/roots/removals", {
           params: { path: { id: root.libraryId } },
           body: { nodeName: root.nodeName, path: root.rootPath },
           ...idempotent(idempotencyKey),

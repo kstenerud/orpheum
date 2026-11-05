@@ -35,7 +35,7 @@ function forgetHostedIfGone(
 export async function haveBackMySessions(api: Api): Promise<void> {
   // The session hosted as the server was asked: one started while it answered is not forgotten.
   const asked = readMembership(tabStorage(), "host");
-  const { sessions } = dataOrThrow(await api.GET("/together/mine"));
+  const { sessions } = dataOrThrow(await api.GET("/me/together"));
   const listed = sessions ?? [];
   forgetHostedIfGone(asked?.sessionId, listed);
   const hostedIds = new Set(listed.filter((each) => each.isHost).map((each) => each.sessionId));

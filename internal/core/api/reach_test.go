@@ -186,13 +186,13 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 	t.Parallel()
 	reachChecked := []string{
 		"listItems", "getItem", "getGroup", "search", "getHome",
-		"getLibraries",
-		"getFileAvailability", "getFileWaits", "getSubtitleCandidates", "postFileSubtitle", "startPlayback",
+		"listLibraries",
+		"getFileAvailability", "getFileWaits", "getSubtitleCandidates", "fetchFileSubtitle", "startPlayback",
 		"getDirect",
 		"headDirect", "getChunksMasterPlaylist", "getChunkFile",
 		"getSubtitle", "reportPlayback",
-		"setFilePreferences", "markHidden", "getArt", "getItemCandidates", "postItemMatch", "putOverride",
-		"deleteOverride", "postItemRefresh", "postItemMatchByLink", "postItemConfirmMatch", "sayPageInterest",
+		"setFilePreferences", "markHidden", "getArt", "getItemCandidates", "matchItem", "setOverride",
+		"clearOverride", "refreshItem", "matchItemByLink", "confirmItemMatch", "sayPageInterest",
 		"sayTilesInterest",
 		// TestOrderings_APersonChoosesAmongTheOrderingsASeriesHas.
 		"listNotInOrder", "setItemPreferences",
@@ -219,17 +219,17 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		// A credited person, the genres and a search are of the titles the caller reaches
 		// (TestPerson_ListsTheReachedTitlesCreditingThem, TestGenres_CountTheReachedTitles,
 		// TestSearchGrouped_FindsTitlesPeopleAndGenresFromTheFirstLetter).
-		"getPerson", "getGenres", "search",
+		"getPerson", "listGenres", "search",
 	}
 	noLibraryContent := []string{
 		// The caller's own rows, which say nothing of what a library holds.
 		"unmarkHidden", "restoreWatched",
 		"getMe", "freshLocator", "getOwnLink", "listMyDevices", "changeMyDevice", "removeMyDevice",
-		"signOutElsewhere", "activateDevice", "answerActivation", "changePassword", "setMyPreferences",
+		"signOutElsewhere", "enterPairingCode", "answerPairingCheck", "changePassword", "setMyPreferences",
 		"getMyPreferences", "withdrawPageInterest", "withdrawTilesInterest",
 		"getClientSettings",
 		// A WebRTC connection, which grants nothing: each request over it checks its own reach (D273 §8).
-		"postRTCOffer",
+		"answerRTCOffer",
 		// Signing in and setting up, before there is a caller.
 		"getHealth", "setup", "getSetup", "signIn", "signOut", "register", "getLinkKind",
 		"requestPairing", "getPairingState", "takePairedSession", "handOffSession", "redeemSession",

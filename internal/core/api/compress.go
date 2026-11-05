@@ -22,11 +22,11 @@ import (
 var compressedOperations = []string{ //nolint:gochecknoglobals // a constant list
 	// Browsing.
 	"listItems", "listItemLetters", "getItem", "getGroup", "listNotInOrder", "search", "getHome",
-	"getLibraries", "getUpNext",
+	"listLibraries", "getUpNext",
 	// Identification and the scanner's view.
-	"getItemCandidates", "getFiles", "getSubtitleCandidates",
+	"getItemCandidates", "listFiles", "getSubtitleCandidates",
 	// The admin's views.
-	"getSystem", "getNodes", "listJobs", "getConfig", "getNowPlaying",
+	"getSystem", "listNodes", "listJobs", "getConfig", "getNowPlaying",
 	"listFilingReports", "getFilingReport", "getNeedsAttention", "listUsers", "listRoles",
 	// What every client reads.
 	"getClientSettings",

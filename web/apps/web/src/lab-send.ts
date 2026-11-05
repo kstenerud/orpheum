@@ -15,7 +15,7 @@ export async function sendLabResult(
   probe: LabProbe,
   result: Readonly<Record<string, unknown>>,
 ): Promise<string> {
-  const sent = await api.POST("/lab-results", {
+  const sent = await api.POST("/lab/results", {
     body: { probe, result: { ...result } },
     ...idempotent(newIdempotencyKey()),
   });

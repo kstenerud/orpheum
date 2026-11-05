@@ -282,24 +282,30 @@ func TestSystem_ListsEachNodesDevicesAndAnAdminSetsADevicesReaderLimit(t *testin
 		`"disks":["sdc"],"mountPaths":["/media/films"],"readerLimit":4,"isReaderLimitSet":true}]`) {
 		t.Errorf("GET /system = %d %s; want local's disk, its limit set to 4", got.status, got.body)
 	}
-	four := 4
 	for _, set := range []struct {
-		limit *int
-		want  int
-	}{{&four, 4}, {nil, 0}} {
-		answer := harness.do(t, http.MethodPut, "/nodes/device-reader-limit", admin, map[string]any{
-			"nodeName": "local", "deviceKey": "disk:sdc", "readerLimit": set.limit,
-		})
+		method, path string
+		body         map[string]any
+		want         int
+	}{
+		{http.MethodPut, "/nodes/local/reader-limit", map[string]any{"deviceKey": "disk:sdc", "readerLimit": 4}, 4},
+		{http.MethodDelete, "/nodes/local/reader-limit?deviceKey=disk:sdc", nil, 0},
+	} {
+		answer := harness.do(t, set.method, set.path, admin, set.body)
 		if answer.status != http.StatusNoContent || harness.nodes.readerLimitsSet["local/disk:sdc"] != set.want {
-			t.Errorf("setting sdc's limit to %v = %d %s, set %v; want 204, %d", set.limit, answer.status,
+			t.Errorf("%s %s = %d %s, set %v; want 204, %d", set.method, set.path, answer.status,
 				answer.body, harness.nodes.readerLimitsSet, set.want)
 		}
 	}
-	wantError(t, harness.do(t, http.MethodPut, "/nodes/device-reader-limit", admin, map[string]any{
-		"nodeName": "attic", "deviceKey": "disk:sdc", "readerLimit": 2,
+	wantError(t, harness.do(t, http.MethodPut, "/nodes/attic/reader-limit", admin, map[string]any{
+		"deviceKey": "disk:sdc", "readerLimit": 2,
 	}), http.StatusNotFound, api.CodeNotFound)
-	wantError(t, harness.do(t, http.MethodPut, "/nodes/device-reader-limit", admin, map[string]any{
-		"nodeName": "local", "deviceKey": "disk:sdc", "readerLimit": 0,
+	wantError(t, harness.do(t, http.MethodDelete, "/nodes/attic/reader-limit?deviceKey=disk:sdc", admin, nil),
+		http.StatusNotFound, api.CodeNotFound)
+	wantError(t, harness.do(t, http.MethodPut, "/nodes/local/reader-limit", admin, map[string]any{
+		"deviceKey": "disk:sdc", "readerLimit": 0,
+	}), http.StatusUnprocessableEntity, api.CodeInvalidRequest)
+	wantError(t, harness.do(t, http.MethodPut, "/nodes/local/reader-limit", admin, map[string]any{
+		"deviceKey": "disk:sdc",
 	}), http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 }
 

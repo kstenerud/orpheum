@@ -49,11 +49,11 @@ type FilingReportInput struct {
 func (server *Server) registerFilingReports() {
 	tags := []string{tagRunningIt}
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "postFilingReport", Method: http.MethodPost, Path: "/items/{id}/filing-report", Tags: tags,
+		OperationID: "writeFilingReport", Method: http.MethodPost, Path: "/items/{id}/filing-report", Tags: tags,
 		DefaultStatus: http.StatusCreated,
 		Summary: "Write a report of how a film, episode or series was filed, as Markdown on the server's disk, for " +
 			"an admin to edit and post as an issue; nothing leaves the server (admin; D306 §3)",
-	}, server.postFilingReport)
+	}, server.writeFilingReport)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "listFilingReports", Method: http.MethodGet, Path: "/filing-reports", Tags: tags,
 		Summary: "The reports of works filed wrongly, newest first (admin; D306 §3)",
@@ -64,7 +64,7 @@ func (server *Server) registerFilingReports() {
 	}, server.getFilingReport)
 }
 
-func (server *Server) postFilingReport(ctx context.Context, input *ItemInput) (*FilingReportOutput, error) {
+func (server *Server) writeFilingReport(ctx context.Context, input *ItemInput) (*FilingReportOutput, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err

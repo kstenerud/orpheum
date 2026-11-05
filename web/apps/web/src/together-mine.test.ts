@@ -19,7 +19,7 @@ describe("having back the sessions a signed-in person is in (D267 §2)", () => {
   it("keeps the one they host in the tab and the one they joined in the browser", async () => {
     const { api } = servedBy(
       {
-        "GET /together/mine": [
+        "GET /me/together": [
           200,
           {
             sessions: [
@@ -47,7 +47,7 @@ describe("having back the sessions a signed-in person is in (D267 §2)", () => {
   it("has back a session the person hosts as its host's alone, though another device of theirs joined it as a guest (the owner's Chrome, 2026-10-29)", async () => {
     const { api } = servedBy(
       {
-        "GET /together/mine": [
+        "GET /me/together": [
           200,
           {
             sessions: [
@@ -70,7 +70,7 @@ describe("having back the sessions a signed-in person is in (D267 §2)", () => {
     window.sessionStorage.setItem("orpheum.together.host", kept);
     const { api } = servedBy(
       {
-        "GET /together/mine": [
+        "GET /me/together": [
           200,
           { sessions: [{ sessionId: 3, memberId: 1, isHost: true, membershipCredential: "new" }] },
         ],
@@ -89,7 +89,7 @@ describe("having back the sessions a signed-in person is in (D267 §2)", () => {
     );
     const viewing = JSON.stringify({ sessionId: 7, credential: "a-guest" });
     window.localStorage.setItem("orpheum.together.viewer", viewing);
-    const { api } = servedBy({ "GET /together/mine": [200, { sessions: [] }] }, [], "token");
+    const { api } = servedBy({ "GET /me/together": [200, { sessions: [] }] }, [], "token");
     await haveBackMySessions(api);
     expect(window.sessionStorage.getItem("orpheum.together.host")).toBeNull();
     // A guest's membership is its page's to end: it hears the session is gone itself.
@@ -99,13 +99,13 @@ describe("having back the sessions a signed-in person is in (D267 §2)", () => {
   it("keeps a hosted session when the server cannot be asked", async () => {
     const kept = JSON.stringify({ sessionId: 3, credential: "this-device" });
     window.sessionStorage.setItem("orpheum.together.host", kept);
-    const { api } = servedBy({ "GET /together/mine": unreachable }, [], "token");
+    const { api } = servedBy({ "GET /me/together": unreachable }, [], "token");
     await haveBackMySessions(api).catch(() => undefined);
     expect(window.sessionStorage.getItem("orpheum.together.host")).toBe(kept);
   });
 
   it("keeps a session started while the server answered", async () => {
-    const { api } = servedBy({ "GET /together/mine": [200, { sessions: [] }] }, [], "token");
+    const { api } = servedBy({ "GET /me/together": [200, { sessions: [] }] }, [], "token");
     const asking = haveBackMySessions(api);
     const started = JSON.stringify({ sessionId: 4, credential: "just-started" });
     window.sessionStorage.setItem("orpheum.together.host", started);

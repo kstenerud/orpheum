@@ -23,7 +23,7 @@ import { withServices } from "./test-services.tsx";
 /** Every event the page sent, in order. */
 function sentEvents(heard: readonly Heard[]): Record<string, unknown>[] {
   return heard
-    .filter((request) => request.methodAndPath === "POST /lab-input-events")
+    .filter((request) => request.methodAndPath === "POST /lab/input-events")
     .flatMap((request) => bodyField(request, "events") as Record<string, unknown>[]);
 }
 
@@ -43,7 +43,7 @@ function press(target: EventTarget, key: string, keyCode = 0): KeyboardEvent {
 
 /** The button test, its events sent to a stand-in server that takes them all. */
 async function mountTest(heard: Heard[]): Promise<Mounted> {
-  const services = servedBy({ "POST /lab-input-events": [204, null] }, heard, "token");
+  const services = servedBy({ "POST /lab/input-events": [204, null] }, heard, "token");
   return await mount(withServices(<LabInput />, services));
 }
 

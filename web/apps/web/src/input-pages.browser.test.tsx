@@ -755,7 +755,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
       walkServices(
         {
           ...signedIn,
-          "GET /together/mine": { sessions: [] },
+          "GET /me/together": { sessions: [] },
           "POST /together": { sessionId: 3, membershipCredential: "host-credential", isNew: true },
           "GET /together/3": {
             sessionId: 3,

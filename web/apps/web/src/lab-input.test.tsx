@@ -99,7 +99,7 @@ describe("the button test", () => {
 
   it("sends each press to the server as it comes, with no Send, and says how many under the run's name", async () => {
     const heard: Heard[] = [];
-    const services = servedBy({ "POST /lab-input-events": [204, null] }, heard, "token");
+    const services = servedBy({ "POST /lab/input-events": [204, null] }, heard, "token");
     mounted = await mount(withServices(<LabInput />, services));
     const shown = mounted.container;
     expect(buttonWithText(shown, "Send to server")).toBeUndefined();
@@ -113,7 +113,7 @@ describe("the button test", () => {
     });
     await settleUntil(() => shown.textContent.includes("· 3 sent"));
     expect(shown.textContent).toContain(`Sending as you press · run ${run ?? ""} · 3 sent`);
-    const requests = heard.filter((request) => request.methodAndPath === "POST /lab-input-events");
+    const requests = heard.filter((request) => request.methodAndPath === "POST /lab/input-events");
     expect(requests.map((request) => bodyField(request, "run"))).toEqual([run, run]);
     const events = requests.map((request) => bodyField(request, "events"));
     const firstAt: unknown = Reflect.get(Object(Reflect.get(Object(events[0]), 0)), "atMs");
@@ -143,14 +143,14 @@ describe("the button test", () => {
     expect(
       bodyField(requests[1] ?? { methodAndPath: "", body: undefined }, "start"),
     ).toBeUndefined();
-    expect(heard.some((request) => request.methodAndPath === "POST /lab-results")).toBe(false);
+    expect(heard.some((request) => request.methodAndPath === "POST /lab/results")).toBe(false);
   });
 
   it("sends a key's modifiers, place and composing with it, and a context menu asked for", async () => {
     // D407 §10: the volume keys' rule is read off each layout's + and −, and Silk's Menu key off
     // what the page hears of it.
     const heard: Heard[] = [];
-    const services = servedBy({ "POST /lab-input-events": [204, null] }, heard, "token");
+    const services = servedBy({ "POST /lab/input-events": [204, null] }, heard, "token");
     mounted = await mount(withServices(<LabInput />, services));
     const shown = mounted.container;
     const plus = new KeyboardEvent("keydown", {
@@ -177,7 +177,7 @@ describe("the button test", () => {
     });
     await settleUntil(() => shown.textContent.includes("· 3 sent"));
     const events = heard
-      .filter((request) => request.methodAndPath === "POST /lab-input-events")
+      .filter((request) => request.methodAndPath === "POST /lab/input-events")
       .flatMap((request) => bodyField(request, "events") as unknown[]);
     expect(events).toEqual([
       expect.objectContaining({ seq: 0, kind: "key", key: "+", shiftKey: true }),
@@ -198,7 +198,7 @@ describe("the button test", () => {
   it("says when sending fails, and tries again at the next press", async () => {
     const heard: Heard[] = [];
     const services = servedBy(
-      { "POST /lab-input-events": [refusal(404, "not_found"), [204, null]] },
+      { "POST /lab/input-events": [refusal(404, "not_found"), [204, null]] },
       heard,
       "token",
     );
@@ -212,7 +212,7 @@ describe("the button test", () => {
     press("MediaPlayPause", 179);
     await settleUntil(() => shown.textContent.includes("· 2 sent"));
     const retried = heard.filter(
-      (request) => request.methodAndPath === "POST /lab-input-events",
+      (request) => request.methodAndPath === "POST /lab/input-events",
     )[1];
     const seqs = (retried === undefined ? [] : (bodyField(retried, "events") as unknown[])).map(
       (event): unknown => Reflect.get(Object(event), "seq"),

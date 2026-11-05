@@ -249,14 +249,14 @@ func (harness testHarness) activate(t *testing.T, enteredBy string, body map[str
 		t.Fatalf("POST /pairings = %d %s", asked.status, asked.body)
 	}
 	body["code"] = strings.ToUpper(pairing.Body.Code)
-	entered := harness.do(t, http.MethodPost, "/activations", enteredBy, body)
+	entered := harness.do(t, http.MethodPost, "/pairings/code", enteredBy, body)
 	var claim api.ActivationOutput
 	if err := json.Unmarshal([]byte(entered.body), &claim.Body); err != nil || entered.status != http.StatusOK {
-		t.Fatalf("POST /activations = %d %s", entered.status, entered.body)
+		t.Fatalf("POST /pairings/code = %d %s", entered.status, entered.body)
 	}
 	// The person is shown what asked for the code, and when (the device code audit's M3).
 	if claim.Body.Platform != "web" || claim.Body.AskedSecondsAgo != 0 {
-		t.Errorf("POST /activations shows the platform %q asked %d s ago; want web, just now",
+		t.Errorf("POST /pairings/code shows the platform %q asked %d s ago; want web, just now",
 			claim.Body.Platform, claim.Body.AskedSecondsAgo)
 	}
 	secret := map[string]string{"secret": pairing.Body.Secret}
@@ -264,9 +264,9 @@ func (harness testHarness) activate(t *testing.T, enteredBy string, body map[str
 		`"state":"checking","checkCode":"`+claim.Body.CheckCode+`"`) {
 		t.Errorf("the television's pairing = %s; want the person's check code, %s", state.body, claim.Body.CheckCode)
 	}
-	if answered := harness.do(t, http.MethodPost, "/activations/answer", enteredBy,
+	if answered := harness.do(t, http.MethodPost, "/pairings/check", enteredBy,
 		map[string]any{"code": pairing.Body.Code, "isMatch": true}); answered.status != http.StatusNoContent {
-		t.Fatalf("POST /activations/answer = %d %s", answered.status, answered.body)
+		t.Fatalf("POST /pairings/check = %d %s", answered.status, answered.body)
 	}
 	if state := harness.do(t, http.MethodPost, "/pairings/state", "", secret); !strings.Contains(state.body,
 		`"state":"activated"`) {
@@ -300,12 +300,12 @@ func TestPairing_AnAdminActivatesADeviceForSomeoneElseAndOnlyAnAdmin(t *testing.
 	if err = json.Unmarshal([]byte(asked.body), &pairing.Body); err != nil {
 		t.Fatal(err)
 	}
-	wantError(t, harness.do(t, http.MethodPost, "/activations", partner,
+	wantError(t, harness.do(t, http.MethodPost, "/pairings/code", partner,
 		map[string]any{"code": pairing.Body.Code, "deviceName": "TV", "userId": 1}),
 		http.StatusForbidden, api.CodeForbidden)
-	wantInvalidAt(t, harness.do(t, http.MethodPost, "/activations", partner,
+	wantInvalidAt(t, harness.do(t, http.MethodPost, "/pairings/code", partner,
 		map[string]any{"code": pairing.Body.Code}), http.StatusUnprocessableEntity, "body.deviceName")
-	wantError(t, harness.do(t, http.MethodPost, "/activations", partner,
+	wantError(t, harness.do(t, http.MethodPost, "/pairings/code", partner,
 		map[string]any{"code": "zzzz-zzzz", "deviceName": "TV"}), http.StatusNotFound, api.CodeNotFound)
 	// Never for another admin, and never from away, where the admin does not administer (the
 	// Plex-chain review's T1).
@@ -314,11 +314,11 @@ func TestPairing_AnAdminActivatesADeviceForSomeoneElseAndOnlyAnAdmin(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantError(t, harness.do(t, http.MethodPost, "/activations", admin,
+	wantError(t, harness.do(t, http.MethodPost, "/pairings/code", admin,
 		map[string]any{"code": pairing.Body.Code, "deviceName": "TV", "userId": other}),
 		http.StatusForbidden, api.CodeForbidden)
 	harness.server.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("192.168.1.0/24")})
-	wantError(t, harness.do(t, http.MethodPost, "/activations", admin,
+	wantError(t, harness.do(t, http.MethodPost, "/pairings/code", admin,
 		map[string]any{"code": pairing.Body.Code, "deviceName": "TV", "userId": made}),
 		http.StatusForbidden, api.CodeForbidden)
 }
@@ -331,7 +331,7 @@ func TestPairing_TooManyWrongCodesLimitThePersonEnteringThem(t *testing.T) {
 	admin := harness.createAdminAndSignIn(t)
 	var refused response
 	for range 100 {
-		refused = harness.do(t, http.MethodPost, "/activations", admin,
+		refused = harness.do(t, http.MethodPost, "/pairings/code", admin,
 			map[string]any{"code": "WRONGCODE", "deviceName": "TV"})
 		if refused.status != http.StatusNotFound {
 			break

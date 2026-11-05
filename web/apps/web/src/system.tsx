@@ -59,7 +59,10 @@ export function System(): JSX.Element {
   const retireNode = (nodeName: string): void => {
     retiring.runRequest(async (idempotencyKey) => {
       throwIfRefused(
-        await api.POST("/nodes/retire", { body: { nodeName }, ...idempotent(idempotencyKey) }),
+        await api.POST("/nodes/{name}/retire", {
+          params: { path: { name: nodeName } },
+          ...idempotent(idempotencyKey),
+        }),
       );
       reload();
     });

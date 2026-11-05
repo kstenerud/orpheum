@@ -43,12 +43,12 @@ type RTCAnswerOutput struct {
 
 func (server *Server) registerRTC() {
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "postRTCOffer", Method: http.MethodPost, Path: "/rtc/offer", Tags: []string{tagRunningIt},
+		OperationID: "answerRTCOffer", Method: http.MethodPost, Path: "/rtc/offer", Tags: []string{tagRunningIt},
 		Summary: "Answer a WebRTC offer, after which the client sends its requests over data channels (D273 §8)",
-	}, server.postRTCOffer)
+	}, server.answerRTCOffer)
 }
 
-func (server *Server) postRTCOffer(ctx context.Context, input *RTCOfferInput) (*RTCAnswerOutput, error) {
+func (server *Server) answerRTCOffer(ctx context.Context, input *RTCOfferInput) (*RTCAnswerOutput, error) {
 	if _, _, err := server.requireSignedIn(ctx, input.Authorization); err != nil {
 		return nil, err
 	}

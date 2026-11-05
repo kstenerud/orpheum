@@ -21,16 +21,16 @@ func TestLab_TheThroughputTestsBodyIsTheSizeAskedForAndLoggedAsSent(t *testing.T
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 
-	answer := harness.do(t, http.MethodGet, "/lab-throughput?bytes=1048576", user, nil)
+	answer := harness.do(t, http.MethodGet, "/lab/throughput?bytes=1048576", user, nil)
 	if answer.status != http.StatusNotFound {
 		t.Errorf("the throughput test answered %d while the device tests are off", answer.status)
 	}
 	settingstest.Set(t, harness.server.Dependencies().Load().Settings, settings.ShouldOfferDeviceTests, "true")
 
 	const asked = 3<<20 + 5
-	answer = harness.do(t, http.MethodGet, "/lab-throughput?leg=relay&bytes="+strconv.Itoa(asked), user, nil)
+	answer = harness.do(t, http.MethodGet, "/lab/throughput?leg=relay&bytes="+strconv.Itoa(asked), user, nil)
 	if answer.status != http.StatusOK || len(answer.body) != asked {
-		t.Fatalf("GET /lab-throughput = %d with %d bytes, want 200 with %d", answer.status, len(answer.body), asked)
+		t.Fatalf("GET /lab/throughput = %d with %d bytes, want 200 with %d", answer.status, len(answer.body), asked)
 	}
 	if got := answer.header.Get("Cache-Control"); got != "no-store" {
 		t.Errorf("Cache-Control = %q, want no-store", got)
@@ -54,12 +54,12 @@ func TestLab_TheThroughputTestsBodyIsTheSizeAskedForAndLoggedAsSent(t *testing.T
 		`"bytes":`+strconv.Itoa(asked), `"isWhole":true`, `"userId":1`)
 
 	for _, bounds := range []string{"1048575", "268435457"} {
-		answer = harness.do(t, http.MethodGet, "/lab-throughput?bytes="+bounds, user, nil)
+		answer = harness.do(t, http.MethodGet, "/lab/throughput?bytes="+bounds, user, nil)
 		if answer.status != http.StatusUnprocessableEntity {
 			t.Errorf("a body of %s bytes was answered %d", bounds, answer.status)
 		}
 	}
-	answer = harness.do(t, http.MethodGet, "/lab-throughput", "", nil)
+	answer = harness.do(t, http.MethodGet, "/lab/throughput", "", nil)
 	if answer.status != http.StatusUnauthorized {
 		t.Errorf("a page signed in to nothing was sent the body: %d", answer.status)
 	}
@@ -72,9 +72,9 @@ func TestLab_AThroughputTestsFiguresAreLoggedUnderTheirOwnWords(t *testing.T) {
 	user := harness.createAdminAndSignIn(t)
 	settingstest.Set(t, harness.server.Dependencies().Load().Settings, settings.ShouldOfferDeviceTests, "true")
 	sent := map[string]any{"probe": "throughput", "result": map[string]any{"transportMbps": 41.5}}
-	answer := harness.do(t, http.MethodPost, "/lab-results", user, sent)
+	answer := harness.do(t, http.MethodPost, "/lab/results", user, sent)
 	if answer.status != http.StatusOK {
-		t.Fatalf("POST /lab-results = %d %s", answer.status, answer.body)
+		t.Fatalf("POST /lab/results = %d %s", answer.status, answer.body)
 	}
 	harness.logs.AwaitLine(t, `"msg":"a throughput test ran"`, `"probe":"throughput"`,
 		`"result":{"transportMbps":41.5}`)

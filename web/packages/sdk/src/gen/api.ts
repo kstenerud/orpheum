@@ -4,40 +4,6 @@
  */
 
 export interface paths {
-    "/activations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Enter the code a device shows; both then show a check code (D288) */
-        post: operations["activateDevice"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/activations/answer": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Say whether the check codes match: only a match activates the device */
-        post: operations["answerActivation"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/backups": {
         parameters: {
             query?: never;
@@ -220,7 +186,7 @@ export interface paths {
         /** Every server setting beside its starting value, and the config file's keys (read-only); ?onlyModified=true lists only the settings a person set (admin) */
         get: operations["getConfig"];
         /** Change any server settings, all or none (admin) */
-        put: operations["putConfig"];
+        put: operations["setConfig"];
         post?: never;
         delete?: never;
         options?: never;
@@ -273,7 +239,7 @@ export interface paths {
         put?: never;
         post?: never;
         /** Delete a setting row this release does not read; a setting in use is set to default instead (admin) */
-        delete: operations["deleteUnusedConfig"];
+        delete: operations["removeUnusedConfig"];
         options?: never;
         head?: never;
         patch?: never;
@@ -287,7 +253,7 @@ export interface paths {
             cookie?: never;
         };
         /** What the scanner saw: every file with its filing and reason (admin; D163) */
-        get: operations["getFiles"];
+        get: operations["listFiles"];
         put?: never;
         post?: never;
         delete?: never;
@@ -340,7 +306,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Retire one file that cannot be read now: it becomes a tombstone, its history kept (admin; D241 §5) */
-        post: operations["postFileRetire"];
+        post: operations["retireFile"];
         delete?: never;
         options?: never;
         head?: never;
@@ -374,7 +340,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Fetch a subtitle for a file; spends one of the account's daily downloads (D224) */
-        post: operations["postFileSubtitle"];
+        post: operations["fetchFileSubtitle"];
         delete?: never;
         options?: never;
         head?: never;
@@ -457,7 +423,7 @@ export interface paths {
             cookie?: never;
         };
         /** The genres with a title the person reaches, each with how many */
-        get: operations["getGenres"];
+        get: operations["listGenres"];
         put?: never;
         post?: never;
         delete?: never;
@@ -638,7 +604,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Confirm a guessed match as it stands, "Identified correctly"; permanent (edit_metadata; D301 §4) */
-        post: operations["postItemConfirmMatch"];
+        post: operations["confirmItemMatch"];
         delete?: never;
         options?: never;
         head?: never;
@@ -655,7 +621,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Write a report of how a film, episode or series was filed, as Markdown on the server's disk, for an admin to edit and post as an issue; nothing leaves the server (admin; D306 §3) */
-        post: operations["postFilingReport"];
+        post: operations["writeFilingReport"];
         delete?: never;
         options?: never;
         head?: never;
@@ -725,7 +691,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Choose a film's or series' match; permanent (edit_metadata) */
-        post: operations["postItemMatch"];
+        post: operations["matchItem"];
         delete?: never;
         options?: never;
         head?: never;
@@ -742,7 +708,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Choose a film's or series' match by its address or id at TMDB or IMDb; permanent (edit_metadata) */
-        post: operations["postItemMatchByLink"];
+        post: operations["matchItemByLink"];
         delete?: never;
         options?: never;
         head?: never;
@@ -775,10 +741,10 @@ export interface paths {
         };
         get?: never;
         /** Set a field to a person's value, kept over every source (edit_metadata) */
-        put: operations["putOverride"];
+        put: operations["setOverride"];
         post?: never;
         /** Remove a field's override, so it follows its source again (edit_metadata) */
-        delete: operations["deleteOverride"];
+        delete: operations["clearOverride"];
         options?: never;
         head?: never;
         patch?: never;
@@ -811,7 +777,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Fetch a film's or series' data and its missing images again, whenever a person likes (edit_metadata; D213) */
-        post: operations["postItemRefresh"];
+        post: operations["refreshItem"];
         delete?: never;
         options?: never;
         head?: never;
@@ -828,7 +794,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Rescan a film or series: scan its files, then match it again from them, unless a person chose its match (admin; D357); with full, read its files again first and throw out what their differences touch (D392) */
-        post: operations["postItemRescan"];
+        post: operations["rescanItem"];
         delete?: never;
         options?: never;
         head?: never;
@@ -904,7 +870,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/lab-input-events": {
+    "/lab/input-events": {
         parameters: {
             query?: never;
             header?: never;
@@ -921,7 +887,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/lab-results": {
+    "/lab/results": {
         parameters: {
             query?: never;
             header?: never;
@@ -938,7 +904,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/lab-throughput": {
+    "/lab/throughput": {
         parameters: {
             query?: never;
             header?: never;
@@ -963,10 +929,10 @@ export interface paths {
             cookie?: never;
         };
         /** The libraries; an admin also sees their roots and files by filing */
-        get: operations["getLibraries"];
+        get: operations["listLibraries"];
         put?: never;
         /** Create a library over a node's roots, and scan it (admin) */
-        post: operations["postLibrary"];
+        post: operations["createLibrary"];
         delete?: never;
         options?: never;
         head?: never;
@@ -984,7 +950,7 @@ export interface paths {
         put?: never;
         post?: never;
         /** Delete a library: its titles are hidden with their history, its work cancelled (admin; D231 §7) */
-        delete: operations["deleteLibrary"];
+        delete: operations["removeLibrary"];
         options?: never;
         head?: never;
         patch?: never;
@@ -999,7 +965,7 @@ export interface paths {
         };
         get?: never;
         /** Choose again how a library notices changes: watching, checking every so many hours, or when asked */
-        put: operations["putLibraryChangeDetection"];
+        put: operations["setLibraryChangeDetection"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1024,40 +990,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/libraries/{id}/mounts/gone": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Say a disk missing from a mount point in a root is gone; its files are removed (admin; D208) */
-        post: operations["postLibraryMountGone"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/libraries/{id}/removals": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Approve a root's withheld removals; its next scan removes what it does not see (admin; D208) */
-        post: operations["postLibraryRemovals"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/libraries/{id}/rescan": {
         parameters: {
             query?: never;
@@ -1068,7 +1000,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Rescan a library of films or of series: scan it, then match each film and series in it again from its files, leaving alone what a person set (admin; D357); with full, read every file again first and throw out what its differences touch (D392) */
-        post: operations["postLibraryRescan"];
+        post: operations["rescanLibrary"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1085,7 +1017,41 @@ export interface paths {
         get?: never;
         put?: never;
         /** Add a folder to a library, and scan it (admin; D359) */
-        post: operations["postLibraryRoot"];
+        post: operations["addLibraryRoot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/libraries/{id}/roots/mount-gone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Say a disk missing from a mount point in a root is gone; its files are removed (admin; D208) */
+        post: operations["markLibraryMountGone"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/libraries/{id}/roots/removals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve a root's withheld removals; its next scan removes what it does not see (admin; D208) */
+        post: operations["approveLibraryRemovals"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1102,7 +1068,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Say a root moved: it and its files take the new path with their history, and a scan confirms each (admin; D241 §6) */
-        post: operations["postLibraryRootRepoint"];
+        post: operations["repointLibraryRoot"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1119,7 +1085,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Retire a root for good: its files become tombstones and their work is cancelled (admin; D231 §7) */
-        post: operations["postLibraryRootRetire"];
+        post: operations["retireLibraryRoot"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1136,7 +1102,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Ask a library's nodes to scan it (admin) */
-        post: operations["postLibraryScan"];
+        post: operations["scanLibrary"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1153,7 +1119,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Rescan every library of films or of series: scan it, then match each film and series in it again from its files, leaving alone what a person set (admin; D357); with full, read every file again first and throw out what its differences touch (D392) */
-        post: operations["postLibrariesRescan"];
+        post: operations["rescanLibraries"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1401,6 +1367,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/together": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The sessions you are in, as host or as a member who joined signed in, each with a credential for this device (D267 §2) */
+        get: operations["listMyTogether"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/watched": {
         parameters: {
             query?: never;
@@ -1443,7 +1426,7 @@ export interface paths {
             cookie?: never;
         };
         /** The nodes, and the roots each connected one configured, for a new library (admin) */
-        get: operations["getNodes"];
+        get: operations["listNodes"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1469,7 +1452,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/nodes/device-reader-limit": {
+    "/nodes/{name}/reader-limit": {
         parameters: {
             query?: never;
             header?: never;
@@ -1477,16 +1460,17 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Set how many may read one of a node's devices at once, or give it back to its kind's (admin; D240) */
-        put: operations["putDeviceReaderLimit"];
+        /** Set how many may read one of a node's devices at once (admin; D240) */
+        put: operations["setReaderLimit"];
         post?: never;
-        delete?: never;
+        /** Give one of a node's devices back to its kind's reader limit (admin; D240) */
+        delete: operations["clearReaderLimit"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/nodes/retire": {
+    "/nodes/{name}/retire": {
         parameters: {
             query?: never;
             header?: never;
@@ -1496,7 +1480,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Retire a node for good: its roots are retired and its work is cancelled (admin; D231 §7) */
-        post: operations["postNodeRetire"];
+        post: operations["retireNode"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1548,6 +1532,40 @@ export interface paths {
         put?: never;
         /** A code for this device to show, which a person signed in enters to activate it (D288) */
         post: operations["requestPairing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pairings/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Say whether the check codes match: only a match activates the device */
+        post: operations["answerPairingCheck"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pairings/code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enter the code a device shows; both then show a check code (D288) */
+        post: operations["enterPairingCode"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1754,7 +1772,7 @@ export interface paths {
         put: operations["updateRole"];
         post?: never;
         /** Delete a role the admin made that no one holds (admin) */
-        delete: operations["deleteRole"];
+        delete: operations["removeRole"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1770,7 +1788,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Answer a WebRTC offer, after which the client sends its requests over data channels (D273 §8) */
-        post: operations["postRTCOffer"];
+        post: operations["answerRTCOffer"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1802,7 +1820,7 @@ export interface paths {
             cookie?: never;
         };
         /** Which secrets are set; never their values (admin) */
-        get: operations["getSecrets"];
+        get: operations["listSecrets"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1820,10 +1838,10 @@ export interface paths {
         };
         get?: never;
         /** Set a secret; write-only (admin) */
-        put: operations["putSecret"];
+        put: operations["setSecret"];
         post?: never;
         /** Clear a secret (admin) */
-        delete: operations["deleteSecret"];
+        delete: operations["removeSecret"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2055,23 +2073,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/together/{id}/eject/{member}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Remove a member; their devices are told and their credential admits nothing (host; D119) */
-        post: operations["ejectFromTogether"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/together/{id}/ice": {
         parameters: {
             query?: never;
@@ -2118,6 +2119,23 @@ export interface paths {
         post?: never;
         /** Withdraw a link not yet used (host) */
         delete: operations["removeTogetherLink"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/together/{id}/members/{member}/eject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Remove a member; their devices are told and their credential admits nothing (host; D119) */
+        post: operations["ejectFromTogether"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2185,23 +2203,6 @@ export interface paths {
         put?: never;
         /** Leave the session you joined (a viewer) */
         post: operations["leaveTogether"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/together/mine": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** The sessions you are in, as host or as a member who joined signed in, each with a credential for this device (D267 §2) */
-        get: operations["listMyTogether"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2765,10 +2766,8 @@ export interface components {
         };
         DeviceReaderLimitInputBody: {
             deviceKey: string;
-            /** @description The node's configured name */
-            nodeName: string;
             /** Format: int64 */
-            readerLimit?: number;
+            readerLimit: number;
         };
         DevicesOutputBody: {
             devices: components["schemas"]["DeviceBody"][] | null;
@@ -4539,10 +4538,6 @@ export interface components {
             /** Format: int64 */
             uncoveredFileCount: number;
         };
-        RetireNodeInputBody: {
-            /** @description The node's configured name */
-            nodeName: string;
-        };
         RoleBody: {
             capabilities: string[] | null;
             /**
@@ -5479,76 +5474,6 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    activateDevice: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ActivationInputBody"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ActivationOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    answerActivation: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ActivationAnswerInputBody"];
-            };
-        };
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
     listBackups: {
         parameters: {
             query?: never;
@@ -6094,7 +6019,7 @@ export interface operations {
             };
         };
     };
-    putConfig: {
+    setConfig: {
         parameters: {
             query?: never;
             header?: {
@@ -6196,7 +6121,7 @@ export interface operations {
             };
         };
     };
-    deleteUnusedConfig: {
+    removeUnusedConfig: {
         parameters: {
             query?: never;
             header?: {
@@ -6228,7 +6153,7 @@ export interface operations {
             };
         };
     };
-    getFiles: {
+    listFiles: {
         parameters: {
             query: {
                 /** @description From the previous page's nextCursor */
@@ -6339,7 +6264,7 @@ export interface operations {
             };
         };
     };
-    postFileRetire: {
+    retireFile: {
         parameters: {
             query?: never;
             header?: {
@@ -6410,7 +6335,7 @@ export interface operations {
             };
         };
     };
-    postFileSubtitle: {
+    fetchFileSubtitle: {
         parameters: {
             query?: never;
             header?: {
@@ -6582,7 +6507,7 @@ export interface operations {
             };
         };
     };
-    getGenres: {
+    listGenres: {
         parameters: {
             query: {
                 /** @description movie, series or other: the genres of that kind's titles; any: of every kind */
@@ -7046,7 +6971,7 @@ export interface operations {
             };
         };
     };
-    postItemConfirmMatch: {
+    confirmItemMatch: {
         parameters: {
             query?: never;
             header?: {
@@ -7078,7 +7003,7 @@ export interface operations {
             };
         };
     };
-    postFilingReport: {
+    writeFilingReport: {
         parameters: {
             query?: never;
             header?: {
@@ -7288,7 +7213,7 @@ export interface operations {
             };
         };
     };
-    postItemMatch: {
+    matchItem: {
         parameters: {
             query?: never;
             header?: {
@@ -7324,7 +7249,7 @@ export interface operations {
             };
         };
     };
-    postItemMatchByLink: {
+    matchItemByLink: {
         parameters: {
             query?: never;
             header?: {
@@ -7398,7 +7323,7 @@ export interface operations {
             };
         };
     };
-    putOverride: {
+    setOverride: {
         parameters: {
             query?: never;
             header?: {
@@ -7435,7 +7360,7 @@ export interface operations {
             };
         };
     };
-    deleteOverride: {
+    clearOverride: {
         parameters: {
             query?: never;
             header?: {
@@ -7504,7 +7429,7 @@ export interface operations {
             };
         };
     };
-    postItemRefresh: {
+    refreshItem: {
         parameters: {
             query?: never;
             header?: {
@@ -7538,7 +7463,7 @@ export interface operations {
             };
         };
     };
-    postItemRescan: {
+    rescanItem: {
         parameters: {
             query?: {
                 /** @description A full rescan (D392): every file read again, changed on disk or not, and what its differences from what was kept touch thrown out; absent for a rescan (D357) */
@@ -7863,7 +7788,7 @@ export interface operations {
             };
         };
     };
-    getLibraries: {
+    listLibraries: {
         parameters: {
             query?: never;
             header?: {
@@ -7895,7 +7820,7 @@ export interface operations {
             };
         };
     };
-    postLibrary: {
+    createLibrary: {
         parameters: {
             query?: never;
             header?: {
@@ -7931,7 +7856,7 @@ export interface operations {
             };
         };
     };
-    deleteLibrary: {
+    removeLibrary: {
         parameters: {
             query?: never;
             header?: {
@@ -7965,7 +7890,7 @@ export interface operations {
             };
         };
     };
-    putLibraryChangeDetection: {
+    setLibraryChangeDetection: {
         parameters: {
             query?: never;
             header?: {
@@ -8042,83 +7967,7 @@ export interface operations {
             };
         };
     };
-    postLibraryMountGone: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RootActionInputBody"];
-            };
-        };
-        responses: {
-            /** @description Accepted */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RescanOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    postLibraryRemovals: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RootActionInputBody"];
-            };
-        };
-        responses: {
-            /** @description Accepted */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RescanOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    postLibraryRescan: {
+    rescanLibrary: {
         parameters: {
             query?: {
                 /** @description A full rescan (D392): every file read again, changed on disk or not, and what its differences from what was kept touch thrown out; absent for a rescan (D357) */
@@ -8155,7 +8004,7 @@ export interface operations {
             };
         };
     };
-    postLibraryRoot: {
+    addLibraryRoot: {
         parameters: {
             query?: never;
             header?: {
@@ -8191,7 +8040,83 @@ export interface operations {
             };
         };
     };
-    postLibraryRootRepoint: {
+    markLibraryMountGone: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RootActionInputBody"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RescanOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    approveLibraryRemovals: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RootActionInputBody"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RescanOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    repointLibraryRoot: {
         parameters: {
             query?: never;
             header?: {
@@ -8229,7 +8154,7 @@ export interface operations {
             };
         };
     };
-    postLibraryRootRetire: {
+    retireLibraryRoot: {
         parameters: {
             query?: never;
             header?: {
@@ -8267,7 +8192,7 @@ export interface operations {
             };
         };
     };
-    postLibraryScan: {
+    scanLibrary: {
         parameters: {
             query?: never;
             header?: {
@@ -8301,7 +8226,7 @@ export interface operations {
             };
         };
     };
-    postLibrariesRescan: {
+    rescanLibraries: {
         parameters: {
             query?: {
                 /** @description A full rescan (D392): every file read again, changed on disk or not, and what its differences from what was kept touch thrown out; absent for a rescan (D357) */
@@ -8909,6 +8834,38 @@ export interface operations {
             };
         };
     };
+    listMyTogether: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyTogetherOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     restoreWatched: {
         parameters: {
             query?: never;
@@ -8975,7 +8932,7 @@ export interface operations {
             };
         };
     };
-    getNodes: {
+    listNodes: {
         parameters: {
             query?: never;
             header?: {
@@ -9045,14 +9002,17 @@ export interface operations {
             };
         };
     };
-    putDeviceReaderLimit: {
+    setReaderLimit: {
         parameters: {
             query?: never;
             header?: {
                 /** @description Bearer <session token> */
                 Authorization?: string;
             };
-            path?: never;
+            path: {
+                /** @description The node's configured name */
+                name: string;
+            };
             cookie?: never;
         };
         requestBody: {
@@ -9079,21 +9039,56 @@ export interface operations {
             };
         };
     };
-    postNodeRetire: {
+    clearReaderLimit: {
+        parameters: {
+            query: {
+                /** @description The node's name for the device, as the System page lists it */
+                deviceKey: string;
+            };
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                /** @description The node's configured name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    retireNode: {
         parameters: {
             query?: never;
             header?: {
                 /** @description Bearer <session token> */
                 Authorization?: string;
             };
-            path?: never;
+            path: {
+                /** @description The node's configured name */
+                name: string;
+            };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RetireNodeInputBody"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -9203,6 +9198,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PairingOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    answerPairingCheck: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActivationAnswerInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    enterPairingCode: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActivationInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivationOutputBody"];
                 };
             };
             /** @description Error */
@@ -9665,7 +9730,7 @@ export interface operations {
             };
         };
     };
-    deleteRole: {
+    removeRole: {
         parameters: {
             query?: never;
             header?: {
@@ -9697,7 +9762,7 @@ export interface operations {
             };
         };
     };
-    postRTCOffer: {
+    answerRTCOffer: {
         parameters: {
             query?: never;
             header?: {
@@ -9774,7 +9839,7 @@ export interface operations {
             };
         };
     };
-    getSecrets: {
+    listSecrets: {
         parameters: {
             query?: never;
             header?: {
@@ -9806,7 +9871,7 @@ export interface operations {
             };
         };
     };
-    putSecret: {
+    setSecret: {
         parameters: {
             query?: never;
             header?: {
@@ -9842,7 +9907,7 @@ export interface operations {
             };
         };
     };
-    deleteSecret: {
+    removeSecret: {
         parameters: {
             query?: never;
             header?: {
@@ -10464,39 +10529,6 @@ export interface operations {
             };
         };
     };
-    ejectFromTogether: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path: {
-                id: number;
-                member: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
     getTogetherICE: {
         parameters: {
             query?: never;
@@ -10579,6 +10611,39 @@ export interface operations {
             path: {
                 id: number;
                 link: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ejectFromTogether: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+                member: number;
             };
             cookie?: never;
         };
@@ -10722,38 +10787,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    listMyTogether: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MyTogetherOutputBody"];
-                };
             };
             /** @description Error */
             default: {

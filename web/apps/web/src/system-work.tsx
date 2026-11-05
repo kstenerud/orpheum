@@ -110,14 +110,16 @@ function DeviceReaders(props: {
   const { isBusy, problem, runRequest } = useRequest((cause) => problemText(t, cause));
   const setLimit = (readerLimit: number | undefined): void => {
     runRequest(async () => {
+      const name = { name: props.nodeName };
       throwIfRefused(
-        await api.PUT("/nodes/device-reader-limit", {
-          body: {
-            nodeName: props.nodeName,
-            deviceKey: device.key,
-            ...(readerLimit === undefined ? {} : { readerLimit }),
-          },
-        }),
+        readerLimit === undefined
+          ? await api.DELETE("/nodes/{name}/reader-limit", {
+              params: { path: name, query: { deviceKey: device.key } },
+            })
+          : await api.PUT("/nodes/{name}/reader-limit", {
+              params: { path: name },
+              body: { deviceKey: device.key, readerLimit },
+            }),
       );
       setShown({ limit: readerLimit ?? shown.limit, isSet: readerLimit !== undefined });
     });

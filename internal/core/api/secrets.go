@@ -48,20 +48,20 @@ type PutSecretInput struct {
 func (server *Server) registerSecrets() {
 	tags := []string{tagSettings}
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "getSecrets", Method: http.MethodGet, Path: "/secrets",
+		OperationID: "listSecrets", Method: http.MethodGet, Path: "/secrets",
 		Summary: "Which secrets are set; never their values (admin)", Tags: tags,
-	}, server.getSecrets)
+	}, server.listSecrets)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "putSecret", Method: http.MethodPut, Path: "/secrets/{name}",
+		OperationID: "setSecret", Method: http.MethodPut, Path: "/secrets/{name}",
 		DefaultStatus: http.StatusNoContent, Summary: "Set a secret; write-only (admin)", Tags: tags,
-	}, server.putSecret)
+	}, server.setSecret)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "deleteSecret", Method: http.MethodDelete, Path: "/secrets/{name}",
+		OperationID: "removeSecret", Method: http.MethodDelete, Path: "/secrets/{name}",
 		DefaultStatus: http.StatusNoContent, Summary: "Clear a secret (admin)", Tags: tags,
-	}, server.deleteSecret)
+	}, server.removeSecret)
 }
 
-func (server *Server) listSecrets(ctx context.Context, secretStore *secrets.Store) (*SecretsOutput, error) {
+func (server *Server) secretsListed(ctx context.Context, secretStore *secrets.Store) (*SecretsOutput, error) {
 	statuses, err := secretStore.Statuses(ctx)
 	if err != nil {
 		return nil, server.logInternalError(ctx, "list secrets", err)
@@ -102,17 +102,17 @@ func (server *Server) secretError(ctx context.Context, action string, err error)
 	return server.logInternalError(ctx, action, err)
 }
 
-// getSecrets answers GET /secrets: which secrets are set; never their values (admin).
-func (server *Server) getSecrets(ctx context.Context, input *AuthorizationHeader) (*SecretsOutput, error) {
+// listSecrets answers GET /secrets: which secrets are set; never their values (admin).
+func (server *Server) listSecrets(ctx context.Context, input *AuthorizationHeader) (*SecretsOutput, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	return server.listSecrets(ctx, dependencies.Secrets)
+	return server.secretsListed(ctx, dependencies.Secrets)
 }
 
-// putSecret answers PUT /secrets/{name}: set a secret; write-only (admin).
-func (server *Server) putSecret(ctx context.Context, input *PutSecretInput) (*struct{}, error) {
+// setSecret answers PUT /secrets/{name}: set a secret; write-only (admin).
+func (server *Server) setSecret(ctx context.Context, input *PutSecretInput) (*struct{}, error) {
 	value := secrets.NewValue(input.Body.Value)
 	dependencies, principal, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
@@ -125,8 +125,8 @@ func (server *Server) putSecret(ctx context.Context, input *PutSecretInput) (*st
 	return &struct{}{}, server.secretError(ctx, "set a secret", err)
 }
 
-// deleteSecret answers DELETE /secrets/{name}: clear a secret (admin).
-func (server *Server) deleteSecret(ctx context.Context, input *SecretNameInput) (*struct{}, error) {
+// removeSecret answers DELETE /secrets/{name}: clear a secret (admin).
+func (server *Server) removeSecret(ctx context.Context, input *SecretNameInput) (*struct{}, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err

@@ -204,7 +204,7 @@ func (server *Server) registerTogether() {
 			"you joined (D246 §5, D372 §8)",
 	}, server.openTogether)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "listMyTogether", Method: http.MethodGet, Path: "/together/mine", Tags: tags,
+		OperationID: "listMyTogether", Method: http.MethodGet, Path: "/me/together", Tags: tags,
 		Summary: "The sessions you are in, as host or as a member who joined signed in, each with a " +
 			"credential for this device (D267 §2)",
 	}, server.listMyTogether)
@@ -250,7 +250,7 @@ func (server *Server) registerTogether() {
 		DefaultStatus: http.StatusNoContent, Summary: "Leave the session you joined (a viewer)",
 	}, server.leaveTogether)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "ejectFromTogether", Method: http.MethodPost, Path: "/together/{id}/eject/{member}",
+		OperationID: "ejectFromTogether", Method: http.MethodPost, Path: "/together/{id}/members/{member}/eject",
 		Tags: tags, DefaultStatus: http.StatusNoContent,
 		Summary: "Remove a member; their devices are told and their credential admits nothing (host; D119)",
 	}, server.ejectFromTogether)

@@ -48,7 +48,7 @@ const backgroundAnswers: Answers = {
       shouldOfferDeviceTests: false,
     },
   ],
-  "GET /together/mine": [200, { sessions: [] }],
+  "GET /me/together": [200, { sessions: [] }],
 };
 
 /** Signs out by the menu: its Sign out, which asks first, then the question's own Sign out. */
@@ -264,7 +264,7 @@ describe("App", () => {
       const services = servedBy(
         {
           "GET /items/letters": [200, { letters: [] }],
-          "GET /together/mine": [200, { sessions: [] }],
+          "GET /me/together": [200, { sessions: [] }],
           "GET /libraries": [200, { libraries: [] }],
           "GET /me": [200, { id: 1, name: "owner", role: "user", isAdmin: false }],
           "GET /home": [200, { continueWatching: [] }],
@@ -457,7 +457,7 @@ describe("the signed-in page's start", () => {
             screenRefreshFailedWaitSeconds: 7,
           },
         ],
-        "GET /together/mine": [200, { sessions: [] }],
+        "GET /me/together": [200, { sessions: [] }],
         "GET /libraries": [200, { libraries: [] }],
       },
       heard,

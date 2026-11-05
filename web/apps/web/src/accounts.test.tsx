@@ -91,8 +91,8 @@ describe("accounts", () => {
         "POST /pairings": [200, { secret: "s", code: "abcd-efgh", expiresAt: 1 }],
         "POST /pairings/state": [200, { state: "waiting" }],
         "POST /pairings/session": session,
-        "POST /activations": [200, { checkCode: "wxyz-0123", deviceName: "TV" }],
-        "POST /activations/answer": [204, undefined],
+        "POST /pairings/code": [200, { checkCode: "wxyz-0123", deviceName: "TV" }],
+        "POST /pairings/check": [204, undefined],
       },
       sent,
     );
@@ -145,14 +145,14 @@ describe("accounts", () => {
       { methodAndPath: "POST /pairings", body: { platform: "web", secret: "s" } },
       { methodAndPath: "POST /pairings/state", body: { secret: "s" } },
       {
-        methodAndPath: "POST /activations",
+        methodAndPath: "POST /pairings/code",
         body: { code: "abcd-efgh", deviceName: "Living room TV" },
       },
       {
-        methodAndPath: "POST /activations",
+        methodAndPath: "POST /pairings/code",
         body: { code: "abcd-efgh", deviceName: "Bedroom TV", userId: 7 },
       },
-      { methodAndPath: "POST /activations/answer", body: { code: "abcd-efgh", isMatch: true } },
+      { methodAndPath: "POST /pairings/check", body: { code: "abcd-efgh", isMatch: true } },
       { methodAndPath: "POST /pairings/session", body: { secret: "s" } },
     ]);
     const changing: Heard[] = [];

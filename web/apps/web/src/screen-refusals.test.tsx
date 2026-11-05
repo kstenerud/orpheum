@@ -121,7 +121,7 @@ describe("a screen the server refuses tells the viewer in their words (cut-a §5
       "GET /nodes": [200, { nodes: [] }],
       "GET /config": [200, { settings: [libraryCheck] }],
       "POST /libraries/3/scan": refusal(404, "not_found"),
-      "POST /libraries/3/removals": refusal(409, "conflict"),
+      "POST /libraries/3/roots/removals": refusal(409, "conflict"),
     });
     mounted = await mount(withServices(<LibraryPage libraryId={3} />, services));
     await click(buttonWithText(mounted.container, "Scan now"));

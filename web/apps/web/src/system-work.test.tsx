@@ -72,7 +72,13 @@ it("shows what a machine is doing, and the faults the server saw in what it hold
 
 it("sets how many may read a disk at once, and gives it back to its kind's (D240 §5)", async () => {
   const heard: Heard[] = [];
-  const services = servedBy({ "PUT /nodes/device-reader-limit": [204, null] }, heard);
+  const services = servedBy(
+    {
+      "PUT /nodes/local/reader-limit": [204, null],
+      "DELETE /nodes/local/reader-limit": [204, null],
+    },
+    heard,
+  );
   mounted = await mount(
     withServices(
       <NodeDevices
@@ -97,9 +103,16 @@ it("sets how many may read a disk at once, and gives it back to its kind's (D240
   await enter(container.querySelector("input"), "3");
   await click(buttonWithText(container, "Set"));
   await click(buttonWithText(container, "Use its kind's"));
-  expect(heard.map((each) => each.body)).toEqual([
-    { nodeName: "local", deviceKey: "zfs:tank", readerLimit: 3 },
-    { nodeName: "local", deviceKey: "zfs:tank" },
+  expect(heard).toEqual([
+    {
+      methodAndPath: "PUT /nodes/local/reader-limit",
+      body: { deviceKey: "zfs:tank", readerLimit: 3 },
+    },
+    {
+      methodAndPath: "DELETE /nodes/local/reader-limit",
+      body: undefined,
+      query: "?deviceKey=zfs%3Atank",
+    },
   ]);
   expect(container.textContent).toContain("as for its kind.");
 });

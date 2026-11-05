@@ -155,9 +155,9 @@ func TestPairing_ACodeActivatedDeviceMayNotChangeTheAccountsSecurity(t *testing.
 	if err := json.Unmarshal([]byte(asked.body), &pairing.Body); err != nil {
 		t.Fatal(err)
 	}
-	wantError(t, harness.do(t, http.MethodPost, "/activations", television,
+	wantError(t, harness.do(t, http.MethodPost, "/pairings/code", television,
 		map[string]any{"code": pairing.Body.Code, "deviceName": "Phone"}), http.StatusForbidden, api.CodeForbidden)
-	wantError(t, harness.do(t, http.MethodPost, "/activations/answer", television,
+	wantError(t, harness.do(t, http.MethodPost, "/pairings/check", television,
 		map[string]any{"code": pairing.Body.Code, "isMatch": true}), http.StatusForbidden, api.CodeForbidden)
 	if me := harness.do(t, http.MethodGet, "/me", television, nil); !strings.Contains(me.body,
 		`"canManageAccount":false`) {

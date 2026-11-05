@@ -382,7 +382,7 @@ func TestScenario_S23_ARetiredNodesRootsAreRetiredAndItsParkedWorkCancelled(t *t
 		{Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: 1}, Destination: node},
 		{Kind: jobs.KindMakeChunks, Target: jobs.Target{ChunkStoreID: 7}, Destination: node},
 	}, node)
-	retired := harness.retire(t, admin, http.MethodPost, "/nodes/retire", map[string]string{"nodeName": "local"})
+	retired := harness.retire(t, admin, http.MethodPost, "/nodes/local/retire", nil)
 	if retired.Body.TombstonedFileCount != 3 || retired.Body.CancelledJobCount != 2 {
 		t.Errorf("the retire = %+v; want the node's 3 files removed and both its jobs cancelled", retired.Body)
 	}
@@ -393,7 +393,7 @@ func TestScenario_S23_ARetiredNodesRootsAreRetiredAndItsParkedWorkCancelled(t *t
 		len(libraries.Body.Libraries[0].Roots) != 0 {
 		t.Errorf("the libraries after the node was retired = %s; want Films with no roots", answer.body)
 	}
-	again := harness.do(t, http.MethodPost, "/nodes/retire", admin, map[string]string{"nodeName": "local"})
+	again := harness.do(t, http.MethodPost, "/nodes/local/retire", admin, nil)
 	if again.status != http.StatusNotFound {
 		t.Errorf("retiring it again = %d %s, want 404: it is gone", again.status, again.body)
 	}

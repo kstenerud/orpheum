@@ -63,7 +63,7 @@ it("names what a held-back scan would remove, and removes it on the admin's word
           changedCount += 1;
         }}
       />,
-      servedBy({ "POST /libraries/5/removals": [204, undefined] }, heard),
+      servedBy({ "POST /libraries/5/roots/removals": [204, undefined] }, heard),
     ),
   );
   const text = mounted.container.textContent;
@@ -74,7 +74,9 @@ it("names what a held-back scan would remove, and removes it on the admin's word
   await click(buttonWithText(mounted.container, "Remove these 12 files"));
   // It cannot be undone: it is asked again (D278 §4).
   await click(buttonWithText(mounted.container, "Remove them"));
-  expect(heard.find((each) => each.methodAndPath === "POST /libraries/5/removals")?.body).toEqual({
+  expect(
+    heard.find((each) => each.methodAndPath === "POST /libraries/5/roots/removals")?.body,
+  ).toEqual({
     nodeName: "sandbox",
     path: "/media/shows",
   });

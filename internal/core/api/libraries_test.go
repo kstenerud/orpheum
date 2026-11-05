@@ -544,19 +544,19 @@ func TestLibraries_AnAdminApprovesWithheldRemovalsAndForgetsAGoneDisk(t *testing
 		 VALUES (1, '/m', 'withheld', 5, 4, 'the scan would remove 21 of the root''s 40 files')`,
 		`INSERT INTO root_mount (node_id, root_path, mount_path, filesystem_device, is_present)
 		 VALUES (1, '/m', '/m/disk1', 21, 0)`)
-	approved := harness.do(t, http.MethodPost, "/libraries/1/removals", admin,
+	approved := harness.do(t, http.MethodPost, "/libraries/1/roots/removals", admin,
 		map[string]string{"nodeName": "local", "path": "/m"})
 	if approved.status != http.StatusAccepted || !strings.Contains(approved.body, `"isScanning":true`) {
 		t.Errorf("POST removals = %d %s", approved.status, approved.body)
 	}
-	wantInvalidAt(t, harness.do(t, http.MethodPost, "/libraries/1/removals", admin,
+	wantInvalidAt(t, harness.do(t, http.MethodPost, "/libraries/1/roots/removals", admin,
 		map[string]string{"nodeName": "local", "path": "/other"}), http.StatusUnprocessableEntity, "body.path")
-	gone := harness.do(t, http.MethodPost, "/libraries/1/mounts/gone", admin,
+	gone := harness.do(t, http.MethodPost, "/libraries/1/roots/mount-gone", admin,
 		map[string]string{"nodeName": "local", "path": "/m/disk1"})
 	if gone.status != http.StatusAccepted {
-		t.Errorf("POST mounts/gone = %d %s", gone.status, gone.body)
+		t.Errorf("POST roots/mount-gone = %d %s", gone.status, gone.body)
 	}
-	wantError(t, harness.do(t, http.MethodPost, "/libraries/1/mounts/gone", admin,
+	wantError(t, harness.do(t, http.MethodPost, "/libraries/1/roots/mount-gone", admin,
 		map[string]string{"nodeName": "local", "path": "/m/disk1"}), http.StatusConflict, api.CodeConflict)
 }
 
@@ -575,12 +575,12 @@ func TestLibraries_ARootListsItsMissingMountsAndEachIsWhatADiskGoneTakes(t *test
 		t.Fatalf("GET /libraries = %d %s; want the root to list /m/disk1 alone as missing", listed.status, listed.body)
 	}
 	// The page sends a missing mount's path, not the root's: the root's is refused.
-	wantError(t, harness.do(t, http.MethodPost, "/libraries/1/mounts/gone", admin,
+	wantError(t, harness.do(t, http.MethodPost, "/libraries/1/roots/mount-gone", admin,
 		map[string]string{"nodeName": "local", "path": "/m"}), http.StatusConflict, api.CodeConflict)
-	gone := harness.do(t, http.MethodPost, "/libraries/1/mounts/gone", admin,
+	gone := harness.do(t, http.MethodPost, "/libraries/1/roots/mount-gone", admin,
 		map[string]string{"nodeName": "local", "path": "/m/disk1"})
 	if gone.status != http.StatusAccepted {
-		t.Errorf("POST mounts/gone = %d %s", gone.status, gone.body)
+		t.Errorf("POST roots/mount-gone = %d %s", gone.status, gone.body)
 	}
 	if after := harness.do(t, http.MethodGet, "/libraries", admin, nil); !strings.Contains(after.body,
 		`"missingMountPaths":[]`) {
