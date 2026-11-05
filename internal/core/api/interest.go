@@ -11,9 +11,9 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/playback"
 )
 
-// InterestInput is a player's word on what it wants of its film's chunks now (D309 §1): one picture
-// and its sound, from a position, paused or not. It replaces what the player wanted before.
-type InterestInput struct {
+// PlaybackWantsInput is a player's word on what it wants of its film's chunks now (D309 §1): one
+// picture and its sound, from a position, paused or not. It replaces what the player wanted before.
+type PlaybackWantsInput struct {
 	AuthorizationHeader
 	Token string `doc:"The playback's media token" path:"token"`
 	Body  struct {
@@ -28,14 +28,29 @@ type InterestInput struct {
 
 func (server *Server) registerInterest() {
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "sayInterest", Method: http.MethodPut, Path: "/playback/{token}/interest",
+		OperationID: "setPlaybackWants", Method: http.MethodPut, Path: "/playback/{token}/wants",
 		Summary: "Say which quality and sound the player wants, from where, and whether it is paused (D309)",
 		Tags:    []string{tagPlayback}, DefaultStatus: http.StatusNoContent,
-	}, server.sayInterest)
+	}, server.setPlaybackWants)
+	// The old path, kept outside the document for one release (D425 §3): a player that started
+	// before the core's restart keeps saying its wants there until its page reloads. It goes in the
+	// next batch.
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "setPlaybackWantsAtItsOldPath", Method: http.MethodPut, Path: "/playback/{token}/interest",
+		Hidden: true, DefaultStatus: http.StatusNoContent,
+	}, server.setPlaybackWantsAtItsOldPath)
 	server.registerPageInterest()
 }
 
-func (server *Server) sayInterest(ctx context.Context, input *InterestInput) (*struct{}, error) {
+// setPlaybackWantsAtItsOldPath is setPlaybackWants at the path it had before D425 §2, for one
+// release (D425 §3).
+func (server *Server) setPlaybackWantsAtItsOldPath(
+	ctx context.Context, input *PlaybackWantsInput,
+) (*struct{}, error) {
+	return server.setPlaybackWants(ctx, input)
+}
+
+func (server *Server) setPlaybackWants(ctx context.Context, input *PlaybackWantsInput) (*struct{}, error) {
 	reporter, err := server.reporterOf(ctx, input.Authorization)
 	if err != nil {
 		return nil, err

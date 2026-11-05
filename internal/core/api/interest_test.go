@@ -34,11 +34,11 @@ func TestInterest_ARunOfAQualityThePlayerLeftStops(t *testing.T) {
 		`"storeDir":"1/chunks-q700k432p/`, `"firstChunk":1,`)
 
 	said := map[string]any{"pictureStream": "q400k360p", "positionMs": 10_000, "isPaused": true}
-	if answer := harness.do(t, http.MethodPut, "/playback/"+token+"/interest", user, said); answer.status !=
+	if answer := harness.do(t, http.MethodPut, "/playback/"+token+"/wants", user, said); answer.status !=
 		http.StatusNoContent {
 		t.Errorf("the player's word: %d %s; want 204", answer.status, answer.body)
 	}
-	if answer := harness.do(t, http.MethodPut, "/playback/not-a-token/interest", user, said); answer.status !=
+	if answer := harness.do(t, http.MethodPut, "/playback/not-a-token/wants", user, said); answer.status !=
 		http.StatusNotFound {
 		t.Errorf("a word on a playback not its own: %d %s; want 404", answer.status, answer.body)
 	}
@@ -82,7 +82,7 @@ func TestInterest_APausedPlayersSoughtAskBehindWhereItPausedStartsARunThere(t *t
 	}
 	// Its group waits, its player paused exactly on chunk 2's start.
 	said := map[string]any{"pictureStream": "q700k432p", "positionMs": grid.StartsMs[2], "isPaused": true}
-	if answer := harness.do(t, http.MethodPut, "/playback/"+token+"/interest", user, said); answer.status !=
+	if answer := harness.do(t, http.MethodPut, "/playback/"+token+"/wants", user, said); answer.status !=
 		http.StatusNoContent {
 		t.Fatalf("the player's word, paused: %d %s; want 204", answer.status, answer.body)
 	}
@@ -112,4 +112,29 @@ func (harness testHarness) getSought(t *testing.T, path, user string) int {
 	}
 	_ = answer.Body.Close() //nolint:errcheck // its status is all that is read
 	return answer.StatusCode
+}
+
+// A player that started before the core's restart says its wants at the old path until its page
+// reloads, so the path is served for one release, outside the document (D425 §3); it goes in the
+// next batch.
+func TestPlaybackWants_TheOldPathIsServedOutsideTheDocumentForOneRelease(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	token := harness.play(t, user, chrome(1)).MediaToken
+	said := map[string]any{"pictureStream": "q400k360p", "positionMs": 10_000, "isPaused": true}
+	if answer := harness.do(t, http.MethodPut, "/playback/"+token+"/interest", user, said); answer.status !=
+		http.StatusNoContent {
+		t.Errorf("the player's word at the old path: %d %s; want 204", answer.status, answer.body)
+	}
+	if answer := harness.do(t, http.MethodPut, "/playback/not-a-token/interest", user, said); answer.status !=
+		http.StatusNotFound {
+		t.Errorf("a word at the old path on a playback not its own: %d %s; want 404", answer.status, answer.body)
+	}
+	for _, operation := range api.OperationsIn(harness.server.OpenAPI()) {
+		if operation.Path() == "/playback/{token}/interest" {
+			t.Errorf("the document lists the old path as %s; want it served outside the document", operation.ID())
+		}
+	}
 }

@@ -64,7 +64,7 @@
 //
 //   - D324: work follows interest; docs/contributors/design/plans/interest-priority.md.
 //   - D234 §3: a job's priority and its "wanted until", which a play keeps and interest uses.
-//   - D309: a player's interest in its film's chunks, the playback's own (api's sayInterest).
+//   - D309: a player's interest in its film's chunks, the playback's own (api's setPlaybackWants).
 //
 // # Where to change
 //

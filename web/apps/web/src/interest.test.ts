@@ -50,7 +50,7 @@ describe("what a player says it wants (D309)", () => {
     const heard: Heard[] = [];
     const { api } = servedBy(
       {
-        "PUT /playback/a-token/interest": [204, undefined],
+        "PUT /playback/a-token/wants": [204, undefined],
         "DELETE /playback/a-token": [503, { error: { code: "updating", message: "back soon" } }],
       },
       heard,
@@ -61,7 +61,7 @@ describe("what a player says it wants (D309)", () => {
       expect(heard).toHaveLength(2);
     });
     expect(heard).toContainEqual({
-      methodAndPath: "PUT /playback/a-token/interest",
+      methodAndPath: "PUT /playback/a-token/wants",
       body: { positionMs: 10_000, isPaused: true },
     });
     // Refused, it is let go of: nothing waits on it.

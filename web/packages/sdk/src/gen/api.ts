@@ -1636,23 +1636,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/playback/{token}/interest": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Say which quality and sound the player wants, from where, and whether it is paused (D309) */
-        put: operations["sayInterest"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/playback/{token}/report": {
         parameters: {
             query?: never;
@@ -1664,6 +1647,23 @@ export interface paths {
         put?: never;
         /** Report where a playback is and what changed; the position never moves back (D217 §7) */
         post: operations["reportPlayback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/playback/{token}/wants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Say which quality and sound the player wants, from where, and whether it is paused (D309) */
+        put: operations["setPlaybackWants"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3479,19 +3479,6 @@ export interface components {
             /** Format: int64 */
             year?: number;
         };
-        InterestInputBody: {
-            /** @description Paused, it wants only the minute after its position (D309 §4) */
-            isPaused: boolean;
-            /** @description The picture's stream, as the master playlist names it; empty keeps the one wanted */
-            pictureStream?: string;
-            /**
-             * Format: int64
-             * @description Where in the film the player plays from
-             */
-            positionMs: number;
-            /** @description The sound's stream, as the master playlist names it; empty keeps the one wanted */
-            soundStream?: string;
-        };
         InvalidRequestDetailBody: {
             problems: components["schemas"]["RequestProblemBody"][] | null;
         };
@@ -4318,6 +4305,19 @@ export interface components {
              * @description Shows the subtitles this much later, or earlier when negative
              */
             subtitleOffsetMs: number;
+        };
+        PlaybackWantsInputBody: {
+            /** @description Paused, it wants only the minute after its position (D309 §4) */
+            isPaused: boolean;
+            /** @description The picture's stream, as the master playlist names it; empty keeps the one wanted */
+            pictureStream?: string;
+            /**
+             * Format: int64
+             * @description Where in the film the player plays from
+             */
+            positionMs: number;
+            /** @description The sound's stream, as the master playlist names it; empty keeps the one wanted */
+            soundStream?: string;
         };
         PlaysBody: {
             /** @description An episode's series and place; absent for any other */
@@ -9471,43 +9471,6 @@ export interface operations {
             };
         };
     };
-    sayInterest: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path: {
-                /** @description The playback's media token */
-                token: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["InterestInputBody"];
-            };
-        };
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
     reportPlayback: {
         parameters: {
             query?: never;
@@ -9535,6 +9498,43 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ReportOutputBody"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setPlaybackWants: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                /** @description The playback's media token */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaybackWantsInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

@@ -177,7 +177,7 @@ describe("another audio track chosen in a file played as it is (the owner's answ
   /** The routes a direct playback's page asks for. */
   const routes = {
     "PUT /files/2/preferences": [204, undefined],
-    "PUT /playback/t/interest": [204, null],
+    "PUT /playback/t/wants": [204, null],
     "GET /files/2/waits": [200, {}],
     "GET /files/2/up-next": [200, {}],
     "DELETE /playback/t": [204, null],
@@ -203,7 +203,7 @@ describe("another audio track chosen in a file played as it is (the owner's answ
     expect(asked).toEqual([]);
     expect([tracks[0].enabled, tracks[1].enabled]).toEqual([false, true]);
     expect(heard).toContainEqual({
-      methodAndPath: "PUT /playback/t/interest",
+      methodAndPath: "PUT /playback/t/wants",
       body: { soundStream: "sound1-own", positionMs: 0, isPaused: true },
     });
   });
