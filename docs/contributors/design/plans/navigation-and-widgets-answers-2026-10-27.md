@@ -1780,6 +1780,12 @@ D426's schema rebuild rides in it (steps 0073–0080, each migrating in place). 
 deploy, the migration is rehearsed on a read-only copy of nas.example's database, with no export/import
 tool, and the steps stay appended: no fold this batch (D430, the owner, 2026-11-05).
 
+The owner's answers on API step C3 (2026-11-05): a season's episodes and search move to the `/items`
+cursor in this batch, with the same limits, search's carrying its rank and the id ("Unify now"); the
+Jobs list keeps its `job_view_max_jobs` cap ("Keep the cap"); backups, libraries, nodes, devices,
+secrets, roles, now-playing, casts, together, needs-attention, candidates, waits, system, config,
+folders and letters stay unpaged, and the expansion audit checks each against music, photos and DVR.
+
 ## UI issues the owner saw (2026-11-05), recorded only: after the API batch
 
 The owner: "I only want these recorded for now because I want to get the API revamp out of the way."
