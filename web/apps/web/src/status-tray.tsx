@@ -176,7 +176,7 @@ function CastSignButton(props: {
       ? t("status.cast")
       : t(sending.fileId === 0 ? "status.castingReady" : "status.castingFilm", {
           name: sending.receiverName,
-          film: sending.titleName,
+          film: sending.itemName,
         });
   return (
     <IconButton

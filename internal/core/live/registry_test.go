@@ -3,9 +3,11 @@
 package live
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -323,7 +325,7 @@ func TestRegistry_ACastMovesOnToTheNextFilmAndItsReceiverIsHandedIt(t *testing.T
 	if _, _, err := registry.Cast(cast, "a"); err != nil {
 		t.Fatal(err)
 	}
-	next := Film{FileID: 2, TitleID: 22, TitleName: "Cat", DurationMs: 1000}
+	next := Film{FileID: 2, ItemID: 22, ItemName: "Cat", DurationMs: 1000}
 	if _, err := registry.Play(owner, laptop, 5, next, nil); !errors.Is(err, ErrNoCast) {
 		t.Errorf("a device neither sending nor receiving moved it on: %v; want ErrNoCast", err)
 	}
@@ -331,11 +333,12 @@ func TestRegistry_ACastMovesOnToTheNextFilmAndItsReceiverIsHandedIt(t *testing.T
 		t.Errorf("another person moved it on: %v; want ErrNoCast", err)
 	}
 	moved, err := registry.Play(owner, television, 5, next, nil)
-	if err != nil || moved.FileID != 2 || moved.TitleName != "Cat" || moved.PositionMs != nil {
+	if err != nil || moved.FileID != 2 || moved.ItemName != "Cat" || moved.PositionMs != nil {
 		t.Fatalf("moved on by its receiver: %+v (%v); want file 2, Cat, from where the person left it", moved, err)
 	}
 	received, isTold := receiver.last(MessageReceive)
-	want := "true 2 &{CastID:5 Credential:again-1 FileID:2 TitleName:Cat PositionMs:<nil> FromDeviceID:10 " +
+	want := "true 2 &{CastID:5 Credential:again-1 FileID:2 ItemName:Cat TitleName:Cat " +
+		"PositionMs:<nil> FromDeviceID:10 " +
 		"FromDeviceName: IsAccepted:false TogetherCredential: IsTogetherFollower:false}"
 	if got := fmt.Sprintf("%v %d %+v", isTold, receiver.count(MessageReceive), received.Receive); got != want {
 		t.Errorf("the receiver was handed %s; want cast 5 again, of file 2, Cat, by a new credential", got)
@@ -429,7 +432,7 @@ func TestRegistry_EachFilmPlayedInACastIsHandedToItsReceiver(t *testing.T) {
 	registry := NewRegistry(minted(), newClock())
 	sender, receiver := castWithNothingOn(t, registry)
 	from := int64(5_000)
-	for _, film := range []Film{{FileID: 2, TitleName: "Cat"}, {FileID: 3, TitleName: "Dog"}, {}} {
+	for _, film := range []Film{{FileID: 2, ItemName: "Cat"}, {FileID: 3, ItemName: "Dog"}, {}} {
 		if _, err := registry.Play(owner, phone, 5, film, &from); err != nil {
 			t.Fatal(err)
 		}
@@ -438,7 +441,7 @@ func TestRegistry_EachFilmPlayedInACastIsHandedToItsReceiver(t *testing.T) {
 			t.Errorf("playing %+v, the TV was handed %+v; want cast 5, of that file from 5 s", film, handed.Receive)
 		}
 		if told, _ := sender.last(MessageSending); told.Sending.FileID != film.FileID ||
-			told.Sending.TitleName != film.TitleName {
+			told.Sending.ItemName != film.ItemName {
 			t.Errorf("playing %+v, the phone was told %+v", film, told.Sending)
 		}
 	}
@@ -544,7 +547,7 @@ func TestRegistry_StartingWatchTogetherWhileCastingHandsTheReceiverItsPart(t *te
 	sevenSeconds := int64(7_000)
 	ownCast := Cast{
 		ID: 5, UserID: owner, SenderDeviceID: phone, ReceiverDeviceID: television, FileID: 3,
-		TitleName: "Metropolis", PositionMs: &sevenSeconds,
+		ItemName: "Metropolis", PositionMs: &sevenSeconds,
 	}
 	if _, _, err := registry.Cast(ownCast, "a"); err != nil {
 		t.Fatal(err)
@@ -684,5 +687,27 @@ func TestRegistry_ASessionsEndEndsTheCastsThatTakeAPartInIt(t *testing.T) {
 	}
 	if casts := registry.CastsOf(partner, laptop); len(casts) != 1 {
 		t.Errorf("the partner's cast in session 8 = %+v; want it going on", casts)
+	}
+}
+
+// A receiver and a sender's pages are told the item's name as itemName and, for one release, as
+// titleName too, which a client of the last release reads (D425 §3, goes next batch).
+func TestRegistry_TheItemsNameIsSentByItsOldNameTooForOneRelease(t *testing.T) {
+	t.Parallel()
+	registry := NewRegistry(minted(), newClock())
+	sender, receiver := castWithNothingOn(t, registry)
+	if _, err := registry.Play(owner, phone, 5, Film{FileID: 2, ItemName: "Cat"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	handed, _ := receiver.last(MessageReceive)
+	told, _ := sender.last(MessageSending)
+	for _, message := range []any{handed.Receive, told.Sending} {
+		wire, err := json.Marshal(message)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(wire), `"itemName":"Cat"`) || !strings.Contains(string(wire), `"titleName":"Cat"`) {
+			t.Errorf("sent %s; want the name as itemName and titleName", wire)
+		}
 	}
 }

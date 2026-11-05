@@ -154,7 +154,7 @@ func TestCast_MovesOnToTheNextEpisodeAndItsReceiverIsHandedIt(t *testing.T) {
 	answer := harness.do(t, http.MethodPost, next, tvToken, nil)
 	var moved api.CastBody
 	if err := json.Unmarshal([]byte(answer.body), &moved); err != nil || answer.status != http.StatusOK ||
-		moved.CastID != started.CastID || moved.FileID != 3 || moved.TitleName != "Cat" || moved.IsSender {
+		moved.CastID != started.CastID || moved.FileID != 3 || moved.ItemName != "Cat" || moved.IsSender {
 		t.Fatalf("POST %s by the TV = %d %s; want the same cast, of file 3, Cat", next, answer.status, answer.body)
 	}
 	handed := tvSocket.await(live.MessageReceive, func(message live.Outbound) bool {
@@ -165,7 +165,7 @@ func TestCast_MovesOnToTheNextEpisodeAndItsReceiverIsHandedIt(t *testing.T) {
 	}
 	var phones api.MyCastsOutput
 	harness.readJSON(t, "/me/casts", phoneToken, &phones.Body)
-	if len(phones.Body.Casts) != 1 || phones.Body.Casts[0].FileID != 3 || phones.Body.Casts[0].TitleName != "Cat" {
+	if len(phones.Body.Casts) != 1 || phones.Body.Casts[0].FileID != 3 || phones.Body.Casts[0].ItemName != "Cat" {
 		t.Errorf("the phone's casts = %+v; want the one, now of Cat", phones.Body.Casts)
 	}
 	for range 2 { // to 23, then 24, the last

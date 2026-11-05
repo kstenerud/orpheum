@@ -332,7 +332,7 @@ function RemoteOf(props: {
   const playback = snapshot === undefined ? undefined : leaderOf(snapshot)?.playback;
   return (
     <>
-      <h2 id="cast-remote-heading">{sent.titleName === "" ? t("cast.aFilm") : sent.titleName}</h2>
+      <h2 id="cast-remote-heading">{sent.itemName === "" ? t("cast.aFilm") : sent.itemName}</h2>
       <p>{t("cast.playingOn", { name: sent.receiverName })}</p>
       <ReceiverPlayback playback={playback} />
       <ReceiverSound sound={playback?.sound} connection={connection} />

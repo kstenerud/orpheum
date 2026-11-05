@@ -28,7 +28,7 @@ const sending = {
   receiverDeviceId: 2,
   receiverName: "Fire TV",
   fileId: 4,
-  titleName: "Metropolis",
+  itemName: "Metropolis",
   durationMs: 0,
   isAccepted: true,
 };

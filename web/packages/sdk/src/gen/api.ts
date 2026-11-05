@@ -2508,6 +2508,12 @@ export interface components {
             fileId: number;
             isAccepted: boolean;
             isSender: boolean;
+            /**
+             * Format: int64
+             * @description The item the film is, 0 for none
+             */
+            itemId: number;
+            itemName: string;
             /** @description What this device's session socket says hello with */
             membershipCredential: string;
             /** Format: int64 */
@@ -2516,14 +2522,8 @@ export interface components {
             /** Format: int64 */
             senderDeviceId: number;
             senderName: string;
-            /**
-             * Format: int64
-             * @description The title the film is, 0 for none
-             */
-            titleId: number;
-            titleName: string;
         };
-        CastFilm: {
+        CastItem: {
             /**
              * Format: int64
              * @description What to play; absent, nothing, the receiver ready for the next
@@ -3923,6 +3923,11 @@ export interface components {
             id: number;
             /**
              * Format: int64
+             * @description Absent for a file filed as no item
+             */
+            itemId?: number;
+            /**
+             * Format: int64
              * @description Unix milliseconds
              */
             lastHeardAt: number;
@@ -3941,11 +3946,6 @@ export interface components {
              * @description Unix milliseconds
              */
             startedAt: number;
-            /**
-             * Format: int64
-             * @description Absent for a file filed as no title
-             */
-            titleId?: number;
             /** Format: int64 */
             userId: number;
             userName: string;
@@ -8516,7 +8516,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CastFilm"];
+                "application/json": components["schemas"]["CastItem"];
             };
         };
         responses: {

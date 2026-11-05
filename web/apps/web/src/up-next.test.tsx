@@ -204,7 +204,7 @@ const castHere: CastToReceive = {
   castId: 5,
   membershipCredential: "receiver",
   fileId: 3,
-  titleName: "Metropolis",
+  itemName: "Metropolis",
   positionMs: 61_000,
   fromDeviceId: 2,
   fromDeviceName: "Pixel",

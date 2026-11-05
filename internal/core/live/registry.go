@@ -62,9 +62,9 @@ type Cast struct {
 	SenderName, ReceiverName string
 	// FileID is what the receiver plays now; 0 while it plays nothing, ready between videos (D364 §5).
 	FileID int64
-	// TitleID and TitleName are the title the file is, which the remote shows; 0 and "" for none.
-	TitleID   int64
-	TitleName string
+	// ItemID and ItemName are the item the file is, which the remote shows; 0 and "" for none.
+	ItemID   int64
+	ItemName string
 	// DurationMs is how long the film plays, for the remote's timeline; 0 when unknown.
 	DurationMs int64
 	// PositionMs is where the sender stood, or nil to start where the person left the film.
@@ -342,8 +342,8 @@ func (registry *Registry) End(userID, deviceID, castID int64) (Cast, error) {
 // Film is what a cast plays: the file, the title it is and its name, and how long it plays.
 type Film struct {
 	FileID     int64
-	TitleID    int64
-	TitleName  string
+	ItemID     int64
+	ItemName   string
 	DurationMs int64
 }
 
@@ -361,7 +361,7 @@ func (registry *Registry) Play(userID, deviceID, castID int64, film Film, positi
 	if held == nil {
 		return Cast{}, ErrNoCast
 	}
-	held.FileID, held.TitleID, held.TitleName, held.DurationMs = film.FileID, film.TitleID, film.TitleName,
+	held.FileID, held.ItemID, held.ItemName, held.DurationMs = film.FileID, film.ItemID, film.ItemName,
 		film.DurationMs
 	held.PositionMs = positionMs
 	if holder := owner.connections[held.heldBy]; holder != nil {
@@ -510,7 +510,7 @@ func (registry *Registry) receiveOf(held *heldCast, credential string) *Receive 
 	held.partIn = partIn
 	cast := held.Cast
 	return &Receive{
-		CastID: cast.ID, Credential: credential, FileID: cast.FileID, TitleName: cast.TitleName,
+		CastID: cast.ID, Credential: credential, FileID: cast.FileID, ItemName: cast.ItemName, TitleName: cast.ItemName,
 		PositionMs: cast.PositionMs, FromDeviceID: cast.SenderDeviceID, FromDeviceName: cast.SenderName,
 		IsAccepted: cast.IsAccepted, TogetherCredential: partCredential,
 		IsTogetherFollower: partCredential != "" && !isHost,
@@ -536,7 +536,7 @@ func (owner *person) sendingMessage(deviceID int64) Outbound {
 		if held.SenderDeviceID == deviceID {
 			return Outbound{Type: MessageSending, Sending: &Sending{
 				CastID: held.ID, ReceiverDeviceID: held.ReceiverDeviceID, ReceiverName: held.ReceiverName,
-				FileID: held.FileID, TitleName: held.TitleName, DurationMs: held.DurationMs,
+				FileID: held.FileID, ItemName: held.ItemName, TitleName: held.ItemName, DurationMs: held.DurationMs,
 				IsAccepted: held.IsAccepted,
 			}}
 		}

@@ -20,7 +20,7 @@ const cast = {
   castId: 9,
   membershipCredential: "receiver",
   fileId: 4,
-  titleName: "Metropolis",
+  itemName: "Metropolis",
   positionMs: 61_000,
   fromDeviceId: 1,
   fromDeviceName: "Pixel",

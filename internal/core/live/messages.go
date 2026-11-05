@@ -74,7 +74,10 @@ type Receive struct {
 	CastID     int64  `json:"castId"`
 	Credential string `json:"membershipCredential"`
 	FileID     int64  `json:"fileId"`
-	TitleName  string `json:"titleName"`
+	ItemName   string `json:"itemName"`
+	// TitleName is ItemName by its old name, for a client of the last release (D425 §3, goes next
+	// batch).
+	TitleName string `json:"titleName"`
 	// PositionMs is where the sender stood; absent, the receiver starts where the person left the
 	// film, as a cast from a title's page does.
 	PositionMs     *int64 `json:"positionMs,omitempty"`
@@ -97,9 +100,12 @@ type Sending struct {
 	ReceiverDeviceID int64  `json:"receiverDeviceId"`
 	ReceiverName     string `json:"receiverName"`
 	FileID           int64  `json:"fileId"`
-	TitleName        string `json:"titleName"`
-	DurationMs       int64  `json:"durationMs"`
-	IsAccepted       bool   `json:"isAccepted"`
+	ItemName         string `json:"itemName"`
+	// TitleName is ItemName by its old name, for a client of the last release (D425 §3, goes next
+	// batch).
+	TitleName  string `json:"titleName"`
+	DurationMs int64  `json:"durationMs"`
+	IsAccepted bool   `json:"isAccepted"`
 }
 
 // Sender takes the messages for one live connection: its socket's writer, which must never block.
