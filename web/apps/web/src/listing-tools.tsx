@@ -93,7 +93,7 @@ export interface ShownCriteria {
   readonly shown: ListCriteria;
   /**
    * The criteria the list is asked for: those shown, but a text still being typed, which is asked for
-   * once typing rests (useRestedText).
+   * once typing rests or the pop-up closes (useRestedText).
    */
   readonly listed: ListCriteria;
   readonly change: (next: ListCriteria) => void;
@@ -120,6 +120,7 @@ export function useListCriteria(
 ): ShownCriteria {
   const [held, setHeld] = useState<ListCriteria | undefined>(undefined);
   const [isOpened, setIsOpened] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const heldRef = useRef<ListCriteria | undefined>(undefined);
   const isOpenRef = useRef(false);
   const addressKey = criteriaKey(fromAddress);
@@ -145,6 +146,7 @@ export function useListCriteria(
   }, []);
   const onOpenChange = useCallback((isOpen: boolean) => {
     isOpenRef.current = isOpen;
+    setIsOpen(isOpen);
     if (isOpen) {
       setIsOpened(true);
       return;
@@ -161,7 +163,7 @@ export function useListCriteria(
     writeRef.current(now);
   }, []);
   const shown = held ?? fromAddress;
-  const listed = useRestedText(shown);
+  const listed = useRestedText(shown, isOpen);
   const genres = useGenres(chipsKind, isOpened || shown.filters.genre !== undefined);
   return { shown, listed, change, onOpenChange, chipsKind, genres };
 }
@@ -175,9 +177,12 @@ export const typingRestMs = 200;
 /**
  * The criteria a list is asked for, of those shown: where only the text differs from those last
  * asked for, those until typing rests typingRestMs; any other change, a chip, the sort or Clear, at
- * once, the text with it.
+ * once, the text with it. Closing the pop-up (isTyping false) sends the text at once too: the list
+ * is asked again before an arrow pressed after Escape can reach it, so focus moved onto a poster is
+ * not left on a list the narrowed one then replaces (focus would fall to the page, stranding a
+ * remote's person; the 11-08 batch).
  */
-function useRestedText(shown: ListCriteria): ListCriteria {
+function useRestedText(shown: ListCriteria, isTyping: boolean): ListCriteria {
   const [listed, setListed] = useState(shown);
   const shownRef = useRef(shown);
   useEffect(() => {
@@ -185,6 +190,7 @@ function useRestedText(shown: ListCriteria): ListCriteria {
   });
   const shownKey = criteriaKey(shown);
   const isTextAlone =
+    isTyping &&
     listed.query.trim() !== shown.query.trim() &&
     criteriaKey({ ...listed, query: shown.query }) === shownKey;
   useEffect(() => {
