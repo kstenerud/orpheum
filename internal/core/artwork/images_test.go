@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/jobs/jobstest"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
@@ -260,6 +261,8 @@ func TestTake_ASeasonsPosterIsOwedByItsSeasonApartFromItsSeriesOwn(t *testing.T)
 	t.Parallel()
 	bench := newBench(t, fakeFetcher{})
 	bench.becomeSeries(t)
+	bench.season(t, 0)
+	bench.season(t, 1)
 	queue := &jobstest.Queue{}
 	bench.service.parts.Queue = queue
 	// TMDB often names one image as the series' poster and its first season's: each is owed apart.
@@ -290,6 +293,7 @@ func TestTake_ASeasonsPosterIsOwedWhereTheSeriesShowsAPosterBesideItsMedia(t *te
 	t.Parallel()
 	bench := newBench(t, fakeFetcher{})
 	bench.becomeSeries(t)
+	bench.season(t, 2)
 	queue := &jobstest.Queue{}
 	bench.service.parts.Queue = queue
 	_, libraryID := bench.inLibrary(t, "nfo_then_tmdb")
@@ -303,6 +307,44 @@ func TestTake_ASeasonsPosterIsOwedWhereTheSeriesShowsAPosterBesideItsMedia(t *te
 	})
 	if got := seasonsOf(queuedRefs(t, queue)["tmdb"]); !slices.Equal(got, []string{"2 /s2.jpg"}) {
 		t.Errorf("TMDB images owed %v; want season 2's poster: no image beside the media is a season's", got)
+	}
+}
+
+// A season's poster whose season its series has no group for could not be recorded (identify
+// makes the groups, D426 section 5), so it is not owed: were it, each pass would fetch and encode it
+// again. Once identify makes the group, it is owed.
+func TestTake_ASeasonsPosterWhoseSeasonHasNoGroupIsNotFetchedEachPass(t *testing.T) {
+	t.Parallel()
+	bench := newBench(t, fakeFetcher{})
+	bench.becomeSeries(t)
+	queue := &jobstest.Queue{}
+	bench.service.parts.Queue = queue
+	provider := &failingFetcher{err: ErrNoImage}
+	bench.service.parts.Fetchers["tmdb"] = provider
+	third := Ref{Kind: library.ArtPoster, GroupNumber: new(int64(3)), SourceRef: "/s3.jpg"}
+	named := Found{Named: []ItemImages{{ItemID: bench.itemID, Source: "tmdb", Refs: []Ref{third}}}}
+	pass := func() {
+		t.Helper()
+		*queue = nil
+		bench.service.Take(t.Context(), named)
+		for index, request := range *queue {
+			job := jobs.Job{
+				ID: int64(index + 1), Kind: request.Kind, Target: request.Target, ArgsJSON: request.ArgsJSON,
+			}
+			if err := bench.run(t, job); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	pass()
+	pass()
+	if provider.callCount != 0 {
+		t.Errorf("TMDB asked %d times over two passes; want none, season 3 having no group", provider.callCount)
+	}
+	bench.season(t, 3)
+	pass()
+	if provider.callCount != 1 {
+		t.Errorf("TMDB asked %d times once season 3 has its group; want its poster fetched once", provider.callCount)
 	}
 }
 
