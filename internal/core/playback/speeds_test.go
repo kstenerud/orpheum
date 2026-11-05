@@ -11,7 +11,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
-// testSpeeds are a test's remembered links, in a cache of their own, failing the test at any
+// testSpeeds are a test's remembered links, in a database of their own, failing the test at any
 // error.
 type testSpeeds struct {
 	t      *testing.T
@@ -21,8 +21,8 @@ type testSpeeds struct {
 
 func newTestSpeeds(t *testing.T) testSpeeds {
 	t.Helper()
-	cache := storetest.OpenCache(t)
-	return testSpeeds{t: t, path: cache.Path(), speeds: newLinkSpeeds(cache)}
+	database := storetest.OpenMigrated(t)
+	return testSpeeds{t: t, path: database.Path(), speeds: newLinkSpeeds(database)}
 }
 
 func (test testSpeeds) remember(key speedKey, kbps int64, measuredAt time.Time, freshFor time.Duration) {
@@ -185,7 +185,7 @@ func TestLinkSteadiness_RelaxesAsOftenAsItsSettingSays(t *testing.T) {
 // a link measured minutes before (bandwidth-sampling-2026-10-29.md P2, the owner, 2026-10-29).
 func TestLinkSpeeds_OutliveTheCoreThatHeardThem(t *testing.T) {
 	t.Parallel()
-	database := storetest.OpenCache(t)
+	database := storetest.OpenMigrated(t)
 	measuredAt := time.Date(2026, 10, 29, 18, 0, 0, 0, time.UTC)
 	home := speedKey{player: playerOf(60, ""), network: "2001:db8:1:2::/64"}
 	before := newLinkSpeeds(database)

@@ -136,7 +136,8 @@
 //     moves the telemetry to cache.db, in TestMigrate_Step0070MovesTheTelemetryToTheCache; step 0071
 //     (D426 §8), which drops the dead schema, in TestMigrate_Step0071DropsTheDeadSchemaAndKeepsEveryRow;
 //     step 0072 (D426 §2), which puts an item's kind and the columns every kind shares on the item, in
-//     TestMigrate_Step0072MovesTheKindAndSharedColumnsToTheItem.
+//     TestMigrate_Step0072MovesTheKindAndSharedColumnsToTheItem; step 0073 (D427), which brings
+//     link_memory back to persistent.db, in TestMigrate_Step0073BringsThePlayersLinkBackToPersistent.
 //   - The schema keeps the rules D303 put in the engine: every table, both databases', STRICT; a
 //     title and a collection an item of their kind; an id at a source only with its source; a
 //     library's interval only for checking by interval; one sort key per item in each locale; the

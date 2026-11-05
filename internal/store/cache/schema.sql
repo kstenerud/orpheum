@@ -3,7 +3,7 @@
 -- the version below differs from the file's user_version, the file is deleted and built again
 -- from this schema. Raise it on any change. Nothing here is referenced by persistent.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
--- cache schema version 47
+-- cache schema version 48
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -211,25 +211,3 @@ CREATE TABLE resource_use (                                 -- class C (toolkit.
   CHECK ((cpu_micros IS NULL) = (elapsed_ms IS NULL)),
   PRIMARY KEY (at, process, node_name)
 ) WITHOUT ROWID, STRICT;
-
-CREATE TABLE link_memory (                                  -- class C (D257 section 1); cache.db since step 0070 (D426 section 9)
-  -- Who measured it, "device 3" or a session with no device's "session <key>", and on which
-  -- network, the address the core saw its request come from, as clientnet.Of names it.
-  player           TEXT NOT NULL,
-  network          TEXT NOT NULL,
-  -- Its speed, kbit/s, and the spread of the natural logs of the samples it rested on; NULL while
-  -- it has said only its steadiness.
-  speed_kbps       INTEGER CHECK (speed_kbps > 0),
-  speed_log_spread REAL CHECK (speed_log_spread >= 0),
-  speed_at         INTEGER,
-  -- Its steadiness level (D352 section 3); NULL while it has said only its speed.
-  steadiness       INTEGER CHECK (steadiness BETWEEN 0 AND 3),
-  steadiness_at    INTEGER,
-  -- When it last said anything of the link, the later of the two: what a stale row is found by.
-  said_at          INTEGER NOT NULL,
-  CHECK ((speed_kbps IS NULL) = (speed_at IS NULL)),
-  CHECK ((steadiness IS NULL) = (steadiness_at IS NULL)),
-  CHECK (speed_at IS NOT NULL OR steadiness_at IS NOT NULL),
-  PRIMARY KEY (player, network)
-) WITHOUT ROWID, STRICT;
-CREATE INDEX link_memory_said ON link_memory(said_at);

@@ -35,7 +35,7 @@ func (services *Services) openPlayback(parts Parts) {
 		reads = parts.FileReads
 	}
 	services.playback = playback.NewService(playback.Parts{
-		Database: database, Cache: parts.Cache, Nodes: services.nodes, Settings: parts.Settings, Clock: parts.Clock,
+		Database: database, Nodes: services.nodes, Settings: parts.Settings, Clock: parts.Clock,
 		Random: parts.Random, Subtitles: services.subtitles,
 		Preferences: services.API.Preferences, Loudness: levels, Chunks: services.chunks, Offers: services.chunks,
 		Reads: reads, Roots: services.Scans, Absences: services.ingester.Absences(),

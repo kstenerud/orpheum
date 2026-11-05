@@ -96,7 +96,7 @@ func TestStartOnLadder_WaitsForAFilmsKeyframesUpToTheLadderWaitThenStartsOnTime(
 		clock := clocktest.NewFake(time.Date(2026, 10, 7, 20, 0, 0, 0, time.UTC))
 		cut := &cutAfterChunks{noGridFor: wait.noGridFor}
 		service := &Service{
-			clock: clock, chunks: cut, speeds: newLinkSpeeds(storetest.OpenCache(t)),
+			clock: clock, chunks: cut, speeds: newLinkSpeeds(storetest.OpenMigrated(t)),
 			settings: waitSettings{waitMs: wait.waitMs},
 			tokens:   newTokens(),
 		}
@@ -129,7 +129,7 @@ func TestStartOnLadder_LeavesThePlayersOtherFilmsForGood(t *testing.T) {
 	fake := &stoppingChunks{}
 	before := &tokenPlayback{deviceID: 4, fileID: 2, interest: playerInterest{disposition: Paused}}
 	service := &Service{
-		clock: clock, chunks: fake, speeds: newLinkSpeeds(storetest.OpenCache(t)),
+		clock: clock, chunks: fake, speeds: newLinkSpeeds(storetest.OpenMigrated(t)),
 		settings: waitSettings{}, tokens: newTokens(),
 	}
 	service.tokens.playbackByToken["before"] = before
@@ -150,7 +150,7 @@ func TestStartOnLadder_APersonWhoChoseTheOriginalPlaysIt(t *testing.T) {
 	clock := clocktest.NewFake(time.Date(2026, 10, 24, 20, 0, 0, 0, time.UTC))
 	cut := &cutAfterChunks{}
 	service := &Service{
-		clock: clock, chunks: cut, speeds: newLinkSpeeds(storetest.OpenCache(t)),
+		clock: clock, chunks: cut, speeds: newLinkSpeeds(storetest.OpenMigrated(t)),
 		settings: waitSettings{}, tokens: newTokens(),
 	}
 	offer, why, err := service.startOnLadder(t.Context(), Holder{}, Request{PreferredDelivery: decide.Direct},
