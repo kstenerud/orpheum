@@ -26461,3 +26461,21 @@ closed; the OpenAPI description and api-compatibility.md state the rule. §3: st
 migration runner gains the route with the first step that widens a list. §5: both folder listings take
 `cursor` and `limit`; `/needs-attention` lists at most 100 of each, with counts that stop where its
 reads stop (500 films, 5,000 files). §6: steps 0081–0083, with the `file_place` view.
+
+## D433 — Watch Together's sign over the film opens the same dialog as the tray's
+
+**Decided** (2026-11-05), by the project owner, agreeing the 11-07 batch ("yes go ahead") after
+seeing on staging that the sign over the film opens only the session's panel: "that display is not
+the same as the one from the top bar. Consequently there's no way to end the watch together or any
+of the controls or information like the one in the top bar shows." Amends D423 §2.
+
+1. **The sign over the film opens Watch Together's dialog, the one the tray's sign opens**
+   (`TogetherDialog`): the host's controls with End, or the guest's session with Leave, and what it
+   tells about the session. There is one Watch Together dialog, wherever it is opened from.
+2. **The session's panel (who is here, the news, Talk, the volumes) is moved into it, under its
+   controls,** not drawn again, as D423 §2 moved it, so its voice and state go on; closed, it goes
+   back to its page. The film plays on under the dialog, and the controls stay shown while it is
+   open.
+3. **Ending or leaving from it** closes the dialog and ends the film's session as the tray's does.
+
+**Status:** Decided 2026-11-05; to build in the 11-07 batch.
