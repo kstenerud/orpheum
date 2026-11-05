@@ -84,6 +84,29 @@ describe("a list's Sort and filter, on a phone's 360 px screen", () => {
     expect(outside.map((each) => each.outerHTML)).toEqual([]);
   });
 
+  // browse.css: Unwatched is a toggle drawn as the choosers beside it are, strong while on.
+  it("draws its Unwatched toggle as a chooser, its edge and words strong while on", async () => {
+    await page.viewport(360, 640);
+    walking = await mountApp(walkServices(filmsList, "/films"));
+    await openedByEnter();
+    const toggle = document.querySelector<HTMLElement>("dialog .list-chips__toggle");
+    const looks = (): { weight: number; edge: string; radius: string } => {
+      const style = getComputedStyle(toggle ?? document.body);
+      return {
+        weight: Number(style.fontWeight),
+        edge: style.borderTopColor,
+        radius: style.borderTopLeftRadius,
+      };
+    };
+    const off = looks();
+    expect(off.radius).not.toBe("0px");
+    toggle?.click();
+    await expect.poll(() => toggle?.getAttribute("aria-pressed")).toBe("true");
+    const on = looks();
+    expect(on.weight).toBeGreaterThan(off.weight);
+    expect(on.edge).not.toBe(off.edge);
+  });
+
   it("moves its field's caret by Left and Right, open at the value's edges, and closes at Left from another control", async () => {
     await page.viewport(360, 640);
     const sent: string[] = [];
