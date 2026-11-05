@@ -186,7 +186,7 @@ func (q *Queries) ListStreamIDsOfFiles(ctx context.Context, fileIDListJson strin
 
 const listUncoveredFilesUnder = `-- name: ListUncoveredFilesUnder :many
 SELECT place.id
-FROM file AS place
+FROM place
 WHERE place.node_id = ?1 AND place.removed_at IS NULL
   AND place.reported_path_raw > CAST(?2 AS BLOB) AND place.reported_path_raw < CAST(?3 AS BLOB)
   AND NOT EXISTS (SELECT 1 FROM library_place WHERE library_place.place_id = place.id)
@@ -337,7 +337,7 @@ func (q *Queries) RemoveNode(ctx context.Context, arg RemoveNodeParams) (int64, 
 }
 
 const repointFile = `-- name: RepointFile :exec
-UPDATE file SET node_id = ?1, path = ?2, reported_path_raw = ?3,
+UPDATE place SET node_id = ?1, path = ?2, reported_path_raw = ?3,
   modified_at = NULL
 WHERE id = ?4
 `

@@ -106,7 +106,7 @@ GROUP BY artwork.source_sha256;
 -- name: GetFileForArtwork :one
 -- An image beside the media: the node that holds it, and its path, for the node to read.
 SELECT node_id, path, reported_path_raw
-FROM file
+FROM place
 WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 
 -- name: ListItemsWithLiveUnchosenLocalArtwork :many
@@ -152,7 +152,7 @@ UPDATE artwork SET removed_at = sqlc.arg(removed_at) WHERE id = sqlc.arg(id) AND
 
 -- name: GetFileLastSeenAt :one
 -- When a scan last saw a file: an image beside the media refused before then is owed again.
-SELECT last_seen_at FROM file WHERE id = sqlc.arg(id) AND removed_at IS NULL;
+SELECT last_seen_at FROM place WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 
 -- name: GetItemLibraryMetadataSource :one
 -- Where an item's library takes its data from: one that takes NFO files first shows an image
@@ -202,24 +202,26 @@ SELECT work.id AS work_id, work.kind AS work_kind,
     JOIN sequence ON sequence.id = member.sequence_id AND sequence.kind = 'series'
     WHERE member.member_work = work.id LIMIT 1
   ), 0) AS INTEGER) AS series_id,
-  file.id AS file_id, file.size_bytes, file.modified_at,
+  file.id AS file_id, file.size_bytes, own.modified_at,
   CAST(COALESCE((
     SELECT stale.id FROM artwork stale
     WHERE stale.item_id = work.id AND stale.source = 'frame' AND stale.removed_at IS NULL
-      AND stale.source_ref = printf('file:%d:%d:%d', file.id, file.size_bytes, file.modified_at)
-      AND stale.source_sha256 IS NULL AND stale.is_missing_at_source = 0 AND stale.refused_at < file.last_seen_at
+      AND stale.source_ref = printf('file:%d:%d:%d', file.id, file.size_bytes, own.modified_at)
+      AND stale.source_sha256 IS NULL AND stale.is_missing_at_source = 0 AND stale.refused_at < own.last_seen_at
     LIMIT 1
   ), 0) AS INTEGER) AS stale_refusal_id
 FROM item
 JOIN library ON library.id = item.filing_library_id
 CROSS JOIN work ON work.id = item.id
-JOIN file ON file.id = (
+JOIN place AS own ON own.id = (
   SELECT live.id FROM version CROSS JOIN file_filing ON file_filing.version_id = version.id
-  CROSS JOIN file AS live ON live.id = file_filing.file_id
+  CROSS JOIN place AS live ON live.id = file_filing.file_id
+  CROSS JOIN file AS live_file ON live_file.id = live.id
   WHERE version.work_id = work.id AND version.removed_at IS NULL AND live.removed_at IS NULL
-    AND live.payload_hash IS NOT NULL
+    AND live_file.payload_hash IS NOT NULL
   ORDER BY live.path LIMIT 1
 )
+CROSS JOIN file ON file.id = own.id
 WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL
   AND work.kind IN ('movie', 'episode', 'other')
   AND NOT EXISTS (
@@ -233,8 +235,8 @@ WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL
   AND NOT EXISTS (
     SELECT 1 FROM artwork held
     WHERE held.item_id = work.id AND held.source = 'frame' AND held.removed_at IS NULL
-      AND held.source_ref = printf('file:%d:%d:%d', file.id, file.size_bytes, file.modified_at)
-      AND (held.source_sha256 IS NOT NULL OR held.is_missing_at_source = 1 OR held.refused_at >= file.last_seen_at)
+      AND held.source_ref = printf('file:%d:%d:%d', file.id, file.size_bytes, own.modified_at)
+      AND (held.source_sha256 IS NOT NULL OR held.is_missing_at_source = 1 OR held.refused_at >= own.last_seen_at)
   )
   AND (
     work.kind = 'other'

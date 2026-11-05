@@ -100,10 +100,7 @@ func (batch *ingestBatch) keepSidecarTrack(
 	track := sidecarTrackOf(sidecar.Path, video.Path)
 	// Beside a copy, the track is the file's, whose tracks a play offers; the sidecar stays the copy's
 	// place's, and only who reaches that place is offered it (D363 §3).
-	videoFileID := video.ID
-	if video.CopyOf != nil {
-		videoFileID = *video.CopyOf
-	}
+	videoFileID := video.FileID
 	codec := ptr.NilIfZero(track.codec)
 	containerLanguage, languageTag := ptr.NilIfZero(track.containerLanguage), ptr.NilIfZero(track.languageTag)
 	if !hasTrack {

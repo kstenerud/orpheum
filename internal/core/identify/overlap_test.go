@@ -35,11 +35,11 @@ func (lib *testLibrary) filings() []string {
 	lib.t.Helper()
 	return storetest.QueryRaw(lib.t, lib.database.Path(),
 		`SELECT file_filing.library_kind, file_filing.filing, work.kind, coalesce(item_text.name, '')
-		 FROM file_filing JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
+		 FROM file_filing JOIN place ON place.id = file_filing.file_id AND place.removed_at IS NULL
 		 LEFT JOIN version ON version.id = file_filing.version_id
 		 LEFT JOIN work ON work.id = version.work_id
 		 LEFT JOIN item_text ON item_text.item_id = work.id AND item_text.is_original = 1
-		 ORDER BY file.path, file_filing.library_kind`)
+		 ORDER BY place.path, file_filing.library_kind`)
 }
 
 const metropolisNFO = `<movie><title>Metropolis</title><year>1995</year></movie>`
@@ -92,8 +92,11 @@ func TestPass_TheNFOBesideTheFirstPlaceSpeaksForAFileAtTwo(t *testing.T) {
 	firstID, copyID := paths[libraryRoot+"/"+first], paths[libraryRoot+"/"+copied]
 	storetest.ExecRaw(t, lib.database.Path(),
 		"DELETE FROM file_filing WHERE file_id = "+strconv.FormatInt(copyID, 10),
-		"UPDATE file SET filing = 'copy', copy_of = "+strconv.FormatInt(firstID, 10)+" WHERE id = "+
-			strconv.FormatInt(copyID, 10))
+		"UPDATE place SET file_id = "+strconv.FormatInt(firstID, 10)+" WHERE id = "+strconv.FormatInt(copyID, 10),
+		"DELETE FROM stream WHERE video_file = "+strconv.FormatInt(copyID, 10),
+		"DELETE FROM file_probe WHERE file_id = "+strconv.FormatInt(copyID, 10),
+		"DELETE FROM whole_file_hash WHERE file_id = "+strconv.FormatInt(copyID, 10),
+		"DELETE FROM file WHERE id = "+strconv.FormatInt(copyID, 10))
 	lib.passOf(lib.libraryID)
 	if got, want := lib.filings(), []string{"movie|listed|movie|Metropolis"}; !slices.Equal(got, want) {
 		t.Errorf("the filings = %v; want the file named by the NFO beside its first place: %v", got, want)

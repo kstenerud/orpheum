@@ -207,7 +207,7 @@ func TestBrowse_ATitleThatCannotBeReadNowIsListedAndMarkedUnavailable(t *testing
 	user := harness.createAdminAndSignIn(t)
 	harness.shelve(t)
 	storetest.ExecRaw(t, harness.databasePath,
-		"UPDATE file SET reported_path_raw = CAST(path AS BLOB)",
+		"UPDATE place SET reported_path_raw = CAST(path AS BLOB)",
 		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at)
 		 VALUES (1, '/m', 'unreadable', 5000)`,
 		`INSERT INTO unavailable_place (node_id, path, root_path, since, cause)
@@ -247,7 +247,7 @@ func TestBrowse_ATitleStillBeingReadIsListedAndMarkedSo(t *testing.T) {
 	user := harness.createAdminAndSignIn(t)
 	harness.shelve(t)
 	storetest.ExecRaw(t, harness.databasePath,
-		"UPDATE file SET reported_path_raw = CAST(path AS BLOB), payload_hash = NULL")
+		"UPDATE place SET reported_path_raw = CAST(path AS BLOB)", "UPDATE file SET payload_hash = NULL")
 	const reading = `"unavailable":{"reason":"still_reading","nodeName":"local"}`
 	for _, path := range []string{
 		"/items?kind=movie&sort=name&limit=10", "/items/10", "/items/20", "/items/20/groups/1?limit=10",

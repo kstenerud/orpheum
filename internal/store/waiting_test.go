@@ -26,10 +26,11 @@ func TestCountWaitingForAPerson_CountsWhatTheListShows(t *testing.T) {
 			fmt.Sprintf("INSERT INTO work (id, kind) VALUES (%d, '%s')", id, kind),
 			fmt.Sprintf("INSERT INTO version (id, work_id, created_at) VALUES (%d, %d, 1)", id, id))
 		if hasFile {
-			execRaw(t, database, fmt.Sprintf("INSERT INTO file (id, node_id, path, filing, "+
-				"first_seen_at, last_seen_at, reported_path_raw) "+
-				"VALUES (%d, 1, '/p%d', 'video', 1, 1, CAST('/p%d' AS BLOB))",
-				id, id, id),
+			execRaw(t, database, fmt.Sprintf("INSERT INTO file (id) VALUES (%d)", id),
+				fmt.Sprintf("INSERT INTO place (id, file_id, node_id, path, filing, "+
+					"first_seen_at, last_seen_at, reported_path_raw) "+
+					"VALUES (%d, %d, 1, '/p%d', 'read', 1, 1, CAST('/p%d' AS BLOB))",
+					id, id, id, id),
 				fmt.Sprintf("INSERT INTO file_filing (file_id, library_kind, filing, version_id) "+
 					"VALUES (%d, 'movie', 'listed', %d)", id, id))
 		}

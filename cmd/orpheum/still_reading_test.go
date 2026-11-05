@@ -30,7 +30,8 @@ func TestServe_APlayOfAFilmStillBeingReadHasItReadAndThenPlays(t *testing.T) {
 	shelved := filmOnNode(t, "nfo")
 	server, token, filmFileID := playableFilm(t, shelved)
 	database := openDatabase(t, shelved.config)
-	storetest.ExecRaw(t, database.Path(), "UPDATE file SET payload_hash = NULL WHERE path LIKE '%.mkv'")
+	storetest.ExecRaw(t, database.Path(),
+		"UPDATE file SET payload_hash = NULL WHERE id IN (SELECT file_id FROM place WHERE path LIKE '%.mkv')")
 	refused := requestAPI(t, http.MethodPost, server.baseURL+"/playback", token, chromeMKV(filmFileID))
 	if refused.status != http.StatusServiceUnavailable || !strings.Contains(refused.body, "still_reading") {
 		t.Fatalf("a play of a film still being read = %d %s; want refused, still reading", refused.status, refused.body)
@@ -75,7 +76,7 @@ func TestServe_AConfirmedFilmCopiedElsewhereAndDeletedKeepsItsTitleAndNoOther(t 
 		t.Fatalf("POST scan = %d %s", scanned.status, scanned.body)
 	}
 	pollUntil(t, "the copy read where it is, its film's row kept", func() bool {
-		moved := storetest.QueryRaw(t, database.Path(), "SELECT path FROM file WHERE id = "+
+		moved := storetest.QueryRaw(t, database.Path(), "SELECT path FROM place WHERE id = "+
 			strconv.FormatInt(filmFileID, 10)+" AND removed_at IS NULL")
 		return len(moved) == 1 && strings.HasSuffix(moved[0], "Another Name (2021).mkv")
 	})
@@ -94,7 +95,8 @@ func TestServe_OpeningTheFilmStillBeingReadsPageHasItRead(t *testing.T) {
 	shelved := filmOnNode(t, "nfo")
 	server, token, filmFileID := playableFilm(t, shelved)
 	database := openDatabase(t, shelved.config)
-	storetest.ExecRaw(t, database.Path(), "UPDATE file SET payload_hash = NULL WHERE path LIKE '%.mkv'")
+	storetest.ExecRaw(t, database.Path(),
+		"UPDATE file SET payload_hash = NULL WHERE id IN (SELECT file_id FROM place WHERE path LIKE '%.mkv')")
 	titles := storetest.QueryRaw(t, database.Path(), "SELECT version.work_id FROM file_filing JOIN version ON "+
 		"version.id = file_filing.version_id WHERE file_filing.file_id = "+strconv.FormatInt(filmFileID, 10))
 	if len(titles) != 1 {

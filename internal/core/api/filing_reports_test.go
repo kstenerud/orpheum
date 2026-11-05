@@ -23,7 +23,7 @@ func TestFilingReport_IsMarkdownOnTheServersDiskThatTheAdminReadsBack(t *testing
 	admin := harness.createAdminAndSignIn(t)
 	harness.shelve(t)
 	storetest.ExecRaw(t, harness.databasePath,
-		"UPDATE file SET path = '/m/Brass Arena/Brass Arena - S01E01 - Pilot.mkv' WHERE id = 2")
+		"UPDATE place SET path = '/m/Brass Arena/Brass Arena - S01E01 - Pilot.mkv' WHERE id = 2")
 	made := harness.do(t, http.MethodPost, "/items/20/filing-report", admin, nil)
 	var report api.FilingReportBody
 	if err := json.Unmarshal([]byte(made.body), &report); err != nil || made.status != http.StatusCreated {

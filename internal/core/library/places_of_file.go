@@ -24,7 +24,7 @@ import (
 func removePlace(
 	ctx context.Context, queries *sqlcgen.Queries, logger *slog.Logger, placeID, nowMs int64,
 ) (isFileGone bool, err error) {
-	copies, err := queries.ListLiveCopiesOf(ctx, &placeID)
+	copies, err := queries.ListLiveCopiesOf(ctx, placeID)
 	if err != nil {
 		return false, fmt.Errorf("list the copies of file %d: %w", placeID, err)
 	}
@@ -41,12 +41,12 @@ func removePlace(
 		return false, fmt.Errorf("retire copy %d: %w", heir.ID, err)
 	}
 	err = queries.MoveFileToItsCopysPlace(ctx, sqlcgen.MoveFileToItsCopysPlaceParams{
-		NodeID: heir.NodeID, Path: heir.Path, ReportedPathRaw: heir.ReportedPathRaw, SizeBytes: heir.SizeBytes,
+		NodeID: heir.NodeID, Path: heir.Path, ReportedPathRaw: heir.ReportedPathRaw,
 		ModifiedAt: heir.ModifiedAt, FilesystemDevice: heir.FilesystemDevice, Inode: heir.Inode,
 		LastSeenAt: heir.LastSeenAt, ID: placeID,
 	})
 	if err == nil {
-		err = queries.ReattachSidecars(ctx, sqlcgen.ReattachSidecarsParams{ToFile: &placeID, FromFile: &heir.ID})
+		err = queries.ReattachSidecars(ctx, sqlcgen.ReattachSidecarsParams{ToPlace: &placeID, FromPlace: &heir.ID})
 	}
 	if err != nil {
 		return false, fmt.Errorf("move file %d to its copy %d's place: %w", placeID, heir.ID, err)
@@ -74,7 +74,7 @@ func removePlaces(
 	}
 	isCopy := map[int64]bool{}
 	for _, row := range rows {
-		isCopy[row.ID] = row.CopyOf != nil
+		isCopy[row.ID] = row.IsCopy == 1
 	}
 	for _, copiesFirst := range []bool{true, false} {
 		for _, placeID := range placeIDs {
@@ -105,7 +105,7 @@ func removeFilesAndPlaces(
 	removed := make([]int64, 0, len(places))
 	for _, isCopies := range []bool{true, false} {
 		for _, place := range places {
-			if (place.CopyOf != nil) != isCopies {
+			if (place.IsCopy == 1) != isCopies {
 				continue
 			}
 			if _, err := removePlace(ctx, queries, logger, place.ID, nowMs); err != nil {

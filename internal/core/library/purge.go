@@ -96,8 +96,12 @@ func purgeFiles(
 			return 0, fmt.Errorf("delete the files' %s: %w", step.what, err)
 		}
 	}
-	deleted, err := queries.DeletePurgedFiles(ctx, fileIDsJSON)
+	deleted, err := queries.DeletePurgedPlaces(ctx, fileIDsJSON)
 	if err != nil {
+		return 0, fmt.Errorf("delete the places: %w", err)
+	}
+	// A file goes with the last of its places (D426 §4).
+	if err = queries.DeletePurgedFiles(ctx, fileIDsJSON); err != nil {
 		return 0, fmt.Errorf("delete the files: %w", err)
 	}
 	return deleted, nil

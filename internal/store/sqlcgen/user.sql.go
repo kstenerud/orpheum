@@ -221,9 +221,8 @@ FROM (
   SELECT version.work_id, play_span.ended_at - play_span.started_at AS watched_ms,
     play_span.ended_at AS last_watched_at
   FROM play_span
-  LEFT JOIN file ON file.id = play_span.file_id
   LEFT JOIN version ON version.id = (
-    SELECT file_filing.version_id FROM file_filing WHERE file_filing.file_id = file.id AND file_filing.version_id IS NOT NULL
+    SELECT file_filing.version_id FROM file_filing WHERE file_filing.file_id = play_span.file_id AND file_filing.version_id IS NOT NULL
     ORDER BY file_filing.library_kind = 'other', file_filing.library_kind LIMIT 1)
   WHERE play_span.user_id = ?1
   UNION ALL

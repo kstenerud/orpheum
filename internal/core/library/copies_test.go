@@ -127,8 +127,17 @@ func (bench *copiesBench) read(fileID int64, sha256 string, modifiedAt int64) {
 func (bench *copiesBench) row(fileID int64) string {
 	bench.t.Helper()
 	return strings.Join(storetest.QueryRaw(bench.t, bench.database.Path(),
-		"SELECT filing, coalesce(copy_of, 0), removed_at IS NOT NULL FROM file WHERE id = "+itoa(fileID)), "; ")
+		"SELECT "+filingWord+", CASE WHEN place.id IS NOT place.file_id THEN place.file_id ELSE 0 END, "+
+			"place.removed_at IS NOT NULL FROM place JOIN file ON file.id = place.file_id WHERE place.id = "+
+			itoa(fileID)), "; ")
 }
+
+// filingWord is how a place is filed, in the words the API answers with: skipped or errored as it was
+// stored, else attached for a sidecar, copy for a place holding a file found first elsewhere, and
+// video (D426 section 4).
+const filingWord = "CASE WHEN place.filing <> 'read' THEN place.filing " +
+	"WHEN file.sidecar_kind IS NOT NULL THEN 'attached' " +
+	"WHEN place.id IS NOT place.file_id THEN 'copy' ELSE 'video' END"
 
 // itoa is an id as SQL and a row read back write it.
 func itoa(value int64) string { return strconv.FormatInt(value, 10) }
@@ -213,7 +222,7 @@ func TestCopies_AFileWithTheSamePayloadAndOtherBytesStaysAFileOfItsOwn(t *testin
 	if owed := bench.sweep(); len(owed) != 0 {
 		t.Errorf("the next sweep queued %v; want nothing, the pair settled as two", owed)
 	}
-	storetest.ExecRaw(t, bench.database.Path(), "UPDATE file SET modified_at = 9 WHERE id = "+itoa(bench.second))
+	storetest.ExecRaw(t, bench.database.Path(), "UPDATE place SET modified_at = 9 WHERE id = "+itoa(bench.second))
 	if owed := bench.sweep(); !slices.Equal(owed, []int64{bench.second}) {
 		t.Errorf("after the second changed, the sweep queued %v; want its read again", owed)
 	}
@@ -242,8 +251,10 @@ func TestRemovePlace_AFilesFirstPlaceGoingLeavesItAtItsCopysPlace(t *testing.T) 
 		t.Error("the file is gone; want it at its copy's place")
 	}
 	got := storetest.QueryRaw(t, bench.database.Path(),
-		"SELECT id, path, filing, removed_at IS NOT NULL FROM file WHERE id IN ("+itoa(bench.first)+", "+
-			itoa(bench.second)+") ORDER BY id")
+		"SELECT place.id, place.path, "+filingWord+", "+
+			"place.removed_at IS NOT NULL FROM place JOIN file ON file.id = place.file_id "+
+			"WHERE place.id IN ("+itoa(bench.first)+", "+
+			itoa(bench.second)+") ORDER BY place.id")
 	want := []string{
 		itoa(bench.first) + "|" + secondPlace + "|video|0",
 		itoa(bench.second) + "|" + secondPlace + "|copy|1",
@@ -252,7 +263,7 @@ func TestRemovePlace_AFilesFirstPlaceGoingLeavesItAtItsCopysPlace(t *testing.T) 
 		t.Errorf("the rows = %v; want the file at the copy's place, the copy's row gone: %v", got, want)
 	}
 	attached := storetest.QueryRaw(t, bench.database.Path(),
-		"SELECT attached_to_file FROM file WHERE id = "+itoa(bench.subtitle))
+		"SELECT attached_to_place FROM place WHERE id = "+itoa(bench.subtitle))
 	if !slices.Equal(attached, []string{itoa(bench.first)}) {
 		t.Errorf("the subtitle beside the copy is attached to %v; want the file", attached)
 	}
@@ -291,8 +302,8 @@ func TestRemovePlaces_AFileWhosePlacesAllWentIsGoneAndOneWithACopyLeftIsThere(t 
 				t.Fatal(err)
 			}
 			got := storetest.QueryRaw(t, bench.database.Path(),
-				"SELECT id, path, removed_at IS NOT NULL FROM file WHERE id IN ("+itoa(bench.first)+", "+
-					itoa(bench.second)+") ORDER BY id")
+				"SELECT id, path, removed_at IS NOT NULL FROM place WHERE id IN ("+itoa(bench.first)+", "+
+					itoa(bench.second)+") ORDER BY place.id")
 			want := []string{itoa(bench.first) + "|" + tc.wantFirst, itoa(bench.second) + "|" + secondPlace + "|1"}
 			if !slices.Equal(got, want) {
 				t.Errorf("with %s gone the rows are %v; want %v", tc.name, got, want)

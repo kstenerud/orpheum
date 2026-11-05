@@ -235,7 +235,7 @@ func (retire *retiring) placesOfNode(ctx context.Context, nodeID int64) error {
 	}
 	for _, isCopies := range []bool{true, false} {
 		for _, place := range places {
-			if (place.CopyOf != nil) != isCopies {
+			if (place.IsCopy == 1) != isCopies {
 				continue
 			}
 			isGone, removeErr := removePlace(ctx, retire.queries, retire.logger, place.ID, retire.nowMs)

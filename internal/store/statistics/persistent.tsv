@@ -3,13 +3,8 @@ artwork	artwork_item	17400 2 1
 artwork	artwork_source	17400 1
 device		4
 device	device_owner	4 2
-file	file_attached	17350 5
-file	file_copy	0 0
-file	file_errored	0 0 0 0
-file	file_live_path	17350 17350 1
-file	file_payload	17350 2
-file	file_removed_at	0 0
-file	file_removed_payload	0 0 0 0
+file		17350
+file	file_payload	13850 1
 file_filing	file_filing_version	13850 1
 file_filing	sqlite_autoindex_file_filing_1	13850 1 1
 file_probe		13850
@@ -34,6 +29,11 @@ library_root	library_root	2 1 1 1
 library_root	library_root_node	2 2 1
 node		1
 ordering	sqlite_autoindex_ordering_1	200 1 1
+place	place_attached	17350 5
+place	place_errored	0 0 0 0
+place	place_file	17350 1
+place	place_live_path	17350 17350 1
+place	place_removed_at	0 0
 play_position	play_position	3790 1895 1
 play_position	play_position_device	3790 948
 play_position	play_position_file	3790 1
@@ -46,7 +46,7 @@ position	sqlite_autoindex_position_1	10000 50 1
 provider_response	sqlite_autoindex_provider_response_1	3500 1 1 1
 role	sqlite_autoindex_role_1	2 1
 schema_meta		1
-schema_step		31
+schema_step		32
 sequence		200
 sequence_member	sequence_member_work	10000 1
 sequence_member	sqlite_autoindex_sequence_member_1	10000 50 1

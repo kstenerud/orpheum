@@ -275,15 +275,36 @@ func wholeReadsAllowed() map[string]string {
 		"ListSeriesAwaitingMatch": "the first-match sweep reads the series, which are few",
 		"ListWorksAwaitingMatch":  sweep + "the first-match sweep reads the titles never answered",
 		// Whether a library covers a place (D363).
-		"IsFileReached":       folders + "whether a person reaches a file",
-		"ListLibrariesOfItem": folders + "the libraries a title's or a series' page goes up to (D367)",
+		"ListLibrariesOfItem":      folders + "the libraries a title's or a series' page goes up to (D367)",
+		"ListPlacesOfFile":         folders + "the libraries covering each of a file's places",
+		"IsItemReached":            folders + "whether a person reaches a title or a series",
+		"GetPersonReached":         folders + "whether a person reaches someone credited",
+		"IsArtworkReached":         folders + "whether a person reaches an image's title",
+		"ListArtworkSourceSha256s": folders + "the images of the titles a person reaches",
+		"SearchWords":              folders + "the hits a person reaches",
+		"SearchTrigram":            folders + "the hits a person reaches",
+		"MatchWords":               folders + "the ids a searched list holds that a person reaches",
+		"MatchTrigram":             folders + "the ids a searched list holds that a person reaches",
+		"FindTitlesWords":          folders + "a grouped search's titles",
+		"FindTitlesTrigram":        folders + "a grouped search's titles",
+		"FindPeopleWords":          folders + "the titles crediting a grouped search's people",
+		"FindPeopleTrigram":        folders + "the titles crediting a grouped search's people",
+		// The doctor's check of the NFOs beside a file's places reads every place once for the copies
+		// (D363 section 9).
+		"ListNFOsOfFilesAtSeveralPlaces": "the doctor reads every place once for those holding a copy",
 		// No index leads from an extra to its film: the relation's few rows (a film's handful of extras)
 		// are read once as an extra's page or playing opens (D367 section 2).
 		"GetFilmOfExtra": "the extras' relations, few, read as an extra's page or " +
 			"playing opens (D367)",
 		"ListIdentifyFiles": folders + "the identification pass, once",
 		// Every list's other direction, and films and series by release date (D366), as their twins.
-		"ListRecentPlayPositions": folders + "Continue Watching",
+		"ListSeriesByName":              folders + "a series' episodes a person reaches",
+		"ListSeriesByNameDescending":    folders + "a series' episodes a person reaches",
+		"ListSeriesByAdded":             folders + "a series' episodes a person reaches",
+		"ListSeriesByAddedAscending":    folders + "a series' episodes a person reaches",
+		"ListSeriesByReleased":          folders + "a series' episodes a person reaches",
+		"ListSeriesByReleasedAscending": folders + "a series' episodes a person reaches",
+		"ListSeriesUndated":             folders + "a series' episodes a person reaches",
 		"ListGenresWithCounts": few + "genres, a few dozen from TMDB and the NFOs, each counted once as " +
 			"the genre chips open; " + folders + "the titles counted",
 		"ListFilteredItemIDs": "a list's genre, person, decade or unwatched filter reads the films and series " +
@@ -295,8 +316,6 @@ func wholeReadsAllowed() map[string]string {
 			"name once, as search does (D48); " + folders + "its titles",
 		"FindPeopleSubstring": "a grouped search's query too short for either full-text index reads every " +
 			"name once, as search does (D48); " + folders + "the titles crediting its people",
-		"ListCopyCandidates": sweep + "the copies' sweep reads every live video for one whose payload a video " +
-			"found before it has (D363 section 2)",
 		"ListRefreshRequests":   "the refresh sweep reads every request a person made, a handful",
 		"ListLiveLocators":      few + "signed-in devices, one locator each; a discovery lists them",
 		"cache.CountJobsByKind": "the System page counts the queue, which pruning holds to what ended lately",
@@ -396,11 +415,19 @@ func weakSearchesAllowed() map[string]string {
 		"ListLibraryCredits":             library + snapshot,
 		"ListLibraryItemGenres":          library + snapshot,
 		"ListWorksNoLibraryLists":        library + "a retire's titles no library lists any more",
-		"ListLiveFilesByNode":            node + "the System page's files of a node",
-		"DeletePlaySpansOfUser":          person + "their removal",
-		"DeletePlayPositionsOfUser":      person + "their removal",
-		"DeleteWorksWatchedOfUser":       person + "their removal",
-		"GetWatchStats":                  person + "their watching's totals",
+		// A library's places, read by the range of their paths under each of its folders (D363).
+		"ListOtherVideosOfLibrary":  library + "its other videos",
+		"ListFileWorks":             library + "the identification pass",
+		"ListLibraryVersionWorks":   library + "the identification pass",
+		"ListLibraryNFOBodies":      library + snapshot,
+		"ListLibraryRecordedTimes":  library + snapshot,
+		"CountLibraryFilings":       library + "the count of its files by how each is filed",
+		"ListUncoveredFilesUnder":   library + "a retired folder's places no other library covers",
+		"ListLiveFilesByNode":       node + "the System page's files of a node",
+		"DeletePlaySpansOfUser":     person + "their removal",
+		"DeletePlayPositionsOfUser": person + "their removal",
+		"DeleteWorksWatchedOfUser":  person + "their removal",
+		"GetWatchStats":             person + "their watching's totals",
 	}
 }
 

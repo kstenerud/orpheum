@@ -106,9 +106,10 @@ func TestFile_LetsTheDatabaseChooseOrTakesAChosenID(t *testing.T) {
 		PayloadHash: []byte{0x01}, VersionID: versionID,
 	})
 	got := storetest.QueryRaw(t, database.Path(),
-		"SELECT path, reported_path_raw, size_bytes, payload_hash, file.filing, file_filing.library_kind, "+
-			"file_filing.filing, version_id, first_seen_at, last_seen_at "+
-			"FROM file JOIN file_filing ON file_filing.file_id = file.id WHERE id = "+itoa(auto))
+		"SELECT path, reported_path_raw, size_bytes, payload_hash, "+filingWord+", "+
+			"file_filing.library_kind, file_filing.filing, version_id, first_seen_at, last_seen_at "+
+			"FROM place JOIN file ON file.id = place.file_id JOIN file_filing ON file_filing.file_id = file.id "+
+			"WHERE place.id = "+itoa(auto))
 	if want := []string{"/media/Metropolis (1995).mkv|2f6d656469612f4d6574726f706f6c6973202831393935292e6d6b76" +
 		"|1000|01|video|movie|listed|" + itoa(versionID) + "|1|1"}; !slices.Equal(got, want) {
 		t.Errorf("auto file %d = %v, want %v: a video its library's kind filed listed in the version", auto, got, want)
@@ -122,7 +123,7 @@ func TestFile_LetsTheDatabaseChooseOrTakesAChosenID(t *testing.T) {
 		t.Fatalf("File with ID 50 returned %d", chosen)
 	}
 	got = storetest.QueryRaw(t, database.Path(),
-		"SELECT filing, filing_reason, first_seen_at, last_seen_at FROM file WHERE id = 50")
+		"SELECT filing, filing_reason, first_seen_at, last_seen_at FROM place WHERE id = 50")
 	if want := []string{"errored|permission_denied|7000|9000"}; !slices.Equal(got, want) {
 		t.Errorf("chosen file 50 = %v, want %v", got, want)
 	}
@@ -132,7 +133,9 @@ func TestFile_LetsTheDatabaseChooseOrTakesAChosenID(t *testing.T) {
 		SidecarKind: "subtitle", AttachedToFile: auto,
 	})
 	got = storetest.QueryRaw(t, database.Path(),
-		"SELECT filing, sidecar_kind, attached_to_file FROM file WHERE id = "+itoa(sidecar))
+		"SELECT "+filingWord+", "+
+			"sidecar_kind, attached_to_place FROM place JOIN file ON file.id = place.file_id "+
+			"WHERE place.id = "+itoa(sidecar))
 	if want := []string{"attached|subtitle|" + itoa(auto)}; !slices.Equal(got, want) {
 		t.Errorf("sidecar file %d = %v, want %v", sidecar, got, want)
 	}
@@ -225,3 +228,10 @@ func TestStream_CoversItsOwnTrackAndASidecars(t *testing.T) {
 func itoa(id int64) string {
 	return strconv.FormatInt(id, 10)
 }
+
+// filingWord is how a place is filed, in the words the API answers with: skipped or errored as it was
+// stored, else attached for a sidecar, copy for a place holding a file found first elsewhere, and
+// video (D426 section 4).
+const filingWord = "CASE WHEN place.filing <> 'read' THEN place.filing " +
+	"WHEN file.sidecar_kind IS NOT NULL THEN 'attached' " +
+	"WHEN place.id IS NOT place.file_id THEN 'copy' ELSE 'video' END"

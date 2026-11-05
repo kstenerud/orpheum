@@ -112,21 +112,22 @@ WHERE work.id = sqlc.arg(id) AND item.removed_at IS NULL;
 
 -- name: ListWorkFiles :many
 -- A title's versions and their live files, a version's parts in order, each file at each of its live
--- places a library of the title's kind covers that its caller reaches, its first place first (D363
+-- places a library of the title's kind covers that its caller reaches, its own place first (D363
 -- section 8): a version none of whose files they reach is not listed, nor is a place they do not.
 SELECT version.id AS version_id, file.id AS file_id, place.id AS place_id, place.path,
   file.size_bytes, file_filing.part_index
 FROM version
 CROSS JOIN file_filing ON file_filing.version_id = version.id
-CROSS JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
-CROSS JOIN file AS place ON (place.id = file.id OR place.copy_of = file.id) AND place.removed_at IS NULL
+CROSS JOIN place AS own ON own.id = file_filing.file_id AND own.removed_at IS NULL
+CROSS JOIN file ON file.id = own.id
+CROSS JOIN place ON place.file_id = file.id AND place.removed_at IS NULL
 WHERE version.work_id = sqlc.arg(work_id) AND version.removed_at IS NULL
   AND EXISTS (
     SELECT 1 FROM library_place WHERE library_place.place_id = place.id
       AND library_place.library_kind = file_filing.library_kind
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR library_place.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT)))))
-ORDER BY version.id, file_filing.part_index, file.id, place.copy_of IS NOT NULL, place.first_seen_at, place.id;
+ORDER BY version.id, file_filing.part_index, file.id, place.id <> place.file_id, place.first_seen_at, place.id;
 
 -- name: ListStreamsOfVideoFile :many
 SELECT id, kind, codec, language, container_title, channel_count, disposition_flags
@@ -315,9 +316,9 @@ SELECT version.work_id AS item_id, place.node_id, place.reported_path_raw,
 FROM version
 CROSS JOIN version_library ON version_library.version_id = version.id
 CROSS JOIN file ON file.id = version_library.file_id
-CROSS JOIN file AS place ON place.id = version_library.place_id
+CROSS JOIN place ON place.id = version_library.place_id
 WHERE version.work_id IN (SELECT value FROM json_each(CAST(sqlc.arg(item_id_list_json) AS TEXT)))
-  AND version.removed_at IS NULL AND file.filing = 'video'
+  AND version.removed_at IS NULL AND file.sidecar_kind IS NULL
   AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
 ORDER BY version.work_id, place.id;
@@ -332,9 +333,9 @@ JOIN position ON position.ordering_id = ordering.id
 JOIN version ON version.work_id = position.work_id AND version.removed_at IS NULL
 CROSS JOIN version_library ON version_library.version_id = version.id
 CROSS JOIN file ON file.id = version_library.file_id
-CROSS JOIN file AS place ON place.id = version_library.place_id
+CROSS JOIN place ON place.id = version_library.place_id
 WHERE ordering.sequence_id IN (SELECT value FROM json_each(CAST(sqlc.arg(item_id_list_json) AS TEXT)))
-  AND ordering.name = 'aired' AND file.filing = 'video'
+  AND ordering.name = 'aired' AND file.sidecar_kind IS NULL
   AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
 ORDER BY ordering.sequence_id, place.id;
@@ -358,12 +359,13 @@ SELECT CAST(EXISTS (
 
 -- name: GetFilesWork :one
 -- What a file is, for now playing and a cast's remote: its title, its kind and name when one is
--- filed, a film's or an episode's before an other video's (D363 section 5), its first place's path,
+-- filed, a film's or an episode's before an other video's (D363 section 5), its own place's path,
 -- and how long it plays, 0 before it is probed.
-SELECT file.path, work.id AS work_id, work.kind AS work_kind, item_text.name,
+SELECT place.path, work.id AS work_id, work.kind AS work_kind, item_text.name,
   CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
     AS duration_ms
 FROM file
+CROSS JOIN place ON place.id = file.id
 LEFT JOIN version ON version.id = (
   SELECT file_filing.version_id FROM file_filing WHERE file_filing.file_id = file.id AND file_filing.version_id IS NOT NULL
   ORDER BY file_filing.library_kind = 'other', file_filing.library_kind LIMIT 1)
@@ -374,23 +376,24 @@ WHERE file.id = sqlc.arg(id);
 -- name: ListLibrariesOfFile :many
 -- The live libraries that cover a live place of a file, of any kind: where a person who played it
 -- may go back up to, of those they reach (D363 section 4).
--- Read from the file's places outward, by CROSS JOIN: its first and its copies, then what covers each.
+-- Read from the file's places outward, by CROSS JOIN: its own and its copies', then what covers each.
 SELECT DISTINCT library_place.library_id
-FROM file AS place
+FROM place
 CROSS JOIN library_place ON library_place.place_id = place.id
-WHERE place.id = sqlc.arg(file_id) OR place.copy_of = sqlc.arg(file_id)
+WHERE place.file_id = CAST(sqlc.arg(file_id) AS INTEGER)
 ORDER BY library_place.library_id;
 
 -- name: ListUnreadFilesOfWork :many
 -- A title's live videos its listing stored that are not read yet, by where each is, for a person
 -- who opened its page to have them read first (D304 section 4).
-SELECT file.id, file.node_id, file.reported_path_raw
+SELECT place.id, place.node_id, place.reported_path_raw
 FROM version
 CROSS JOIN file_filing ON file_filing.version_id = version.id
-CROSS JOIN file ON file.id = file_filing.file_id
-WHERE version.work_id = sqlc.arg(work_id) AND version.removed_at IS NULL AND file.removed_at IS NULL
+CROSS JOIN place ON place.id = file_filing.file_id
+CROSS JOIN file ON file.id = place.id
+WHERE version.work_id = sqlc.arg(work_id) AND version.removed_at IS NULL AND place.removed_at IS NULL
   AND file.payload_hash IS NULL AND file.sidecar_kind IS NULL
-ORDER BY file.id;
+ORDER BY place.id;
 
 -- name: ListOrderingMemberFilesWithPositions :many
 -- A collection's members in one of its named orderings (D159; 'aired' for a series today), each
@@ -404,8 +407,8 @@ ORDER BY file.id;
 SELECT position.work_id, CAST(coalesce(position.group_number, 0) AS INTEGER) AS group_number,
   CAST(coalesce(position.number_in_group, 0) AS INTEGER) AS number_in_group,
   CAST(coalesce(item_text.name, '') AS TEXT) AS name,
-  file.id AS file_id,
-  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
+  own.id AS file_id,
+  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = own.id), 0) AS INTEGER)
     AS duration_ms,
   play_position.position_ms, play_position.position_read_at, work_watched.watched_at, work_watched.marked_at
 FROM ordering
@@ -413,17 +416,17 @@ JOIN position ON position.ordering_id = ordering.id
 JOIN item ON item.id = position.work_id AND item.removed_at IS NULL
 JOIN version ON version.work_id = position.work_id AND version.removed_at IS NULL
 JOIN file_filing ON file_filing.version_id = version.id AND file_filing.filing IN ('listed', 'unidentified')
-JOIN file ON file.id = file_filing.file_id AND file.removed_at IS NULL
+JOIN place AS own ON own.id = file_filing.file_id AND own.removed_at IS NULL
 LEFT JOIN item_text ON item_text.item_id = position.work_id AND item_text.is_original = 1
-LEFT JOIN play_position ON play_position.file_id = file.id AND play_position.user_id = sqlc.arg(user_id)
+LEFT JOIN play_position ON play_position.file_id = own.id AND play_position.user_id = sqlc.arg(user_id)
 LEFT JOIN work_watched ON work_watched.user_id = sqlc.arg(user_id) AND work_watched.work_id = position.work_id
 WHERE ordering.sequence_id = sqlc.arg(sequence_id) AND ordering.name = sqlc.arg(ordering_name)
   AND EXISTS (
     SELECT 1 FROM version_library WHERE version_library.version_id = version.id
-      AND version_library.file_id = file.id
+      AND version_library.file_id = own.id
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT)))))
-ORDER BY position.sort_order, version.id, file_filing.part_index, file.id;
+ORDER BY position.sort_order, version.id, file_filing.part_index, own.id;
 
 -- name: CountOrderingMembers :many
 -- How many members each of some series' orderings has with a live file, as
@@ -554,10 +557,10 @@ JOIN item_text ON item_text.item_id = work.id AND item_text.is_original = 1
 WHERE library_place.library_id = sqlc.arg(library_id)
   AND NOT EXISTS (
     SELECT 1 FROM library_place AS earlier
-    WHERE (earlier.place_id = library_place.file_id OR earlier.copy_of = library_place.file_id)
+    WHERE earlier.file_id = library_place.file_id
       AND earlier.library_id = library_place.library_id
-      AND (earlier.copy_of IS NOT NULL, earlier.first_seen_at, earlier.place_id)
-        < (library_place.copy_of IS NOT NULL, library_place.first_seen_at, library_place.place_id))
+      AND (earlier.place_id <> earlier.file_id, earlier.first_seen_at, earlier.place_id)
+        < (library_place.place_id <> library_place.file_id, library_place.first_seen_at, library_place.place_id))
 ORDER BY library_place.path;
 
 -- name: ListLibrariesOfItem :many

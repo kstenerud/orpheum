@@ -198,12 +198,16 @@ func observationOf(root string, observed *nodeproto.Observed) (observation, erro
 func (batch *ingestBatch) insertFile(ctx context.Context, scan *scanState, seenFile observation) error {
 	observed, reason := seenFile.observed, notIdentifiedYet
 	id, err := batch.queries.InsertFile(ctx, sqlcgen.InsertFileParams{
-		NodeID: batch.nodeID, Path: seenFile.path, ReportedPathRaw: seenFile.reportedBytes,
-		SizeBytes: &observed.SizeBytes, ModifiedAt: &observed.ModifiedAt, PayloadHash: seenFile.hash,
-		PayloadBytes: &observed.Identity.PayloadBytes, Filing: FilingVideo, FilingReason: &reason,
-		SeenAt: batch.nowMs, OpensubtitlesHash: seenFile.openSubtitlesHash,
-		FilesystemDevice: storedNumber(observed.FilesystemDevice), Inode: storedNumber(observed.Inode),
+		SizeBytes: &observed.SizeBytes, PayloadHash: seenFile.hash,
+		PayloadBytes: &observed.Identity.PayloadBytes, OpensubtitlesHash: seenFile.openSubtitlesHash,
 	})
+	if err == nil {
+		err = batch.queries.InsertPlace(ctx, sqlcgen.InsertPlaceParams{
+			FileID: id, NodeID: batch.nodeID, Path: seenFile.path, ReportedPathRaw: seenFile.reportedBytes,
+			ModifiedAt: &observed.ModifiedAt, Filing: FilingRead, FilingReason: &reason, SeenAt: batch.nowMs,
+			FilesystemDevice: storedNumber(observed.FilesystemDevice), Inode: storedNumber(observed.Inode),
+		})
+	}
 	if err != nil {
 		return fmt.Errorf("insert %s: %w", seenFile.path, err)
 	}
@@ -214,21 +218,26 @@ func (batch *ingestBatch) insertFile(ctx context.Context, scan *scanState, seenF
 	return batch.syncStreams(ctx, id, observed.Probe)
 }
 
-// updateObservedFile records a file observed again, perhaps at a new path (a move), and re-derives its
-// streams from the new probe.
+// updateObservedFile records a place observed again, perhaps at a new path (a move), and the file it
+// holds as read there, and re-derives the file's streams from the new probe. A copy's place holds the
+// file it is a copy of, which the read refreshes (D426 §4).
 func (batch *ingestBatch) updateObservedFile(
-	ctx context.Context, scan *scanState, id int64, seenFile observation,
+	ctx context.Context, scan *scanState, placeID int64, seenFile observation,
 ) error {
 	observed, reason := seenFile.observed, notIdentifiedYet
-	err := batch.queries.UpdateObservedFile(ctx, sqlcgen.UpdateObservedFileParams{
-		Path: seenFile.path, ReportedPathRaw: seenFile.reportedBytes,
-		SizeBytes:  &observed.SizeBytes,
-		ModifiedAt: &observed.ModifiedAt, PayloadHash: seenFile.hash, PayloadBytes: &observed.Identity.PayloadBytes,
-		UnidentifiedReason: &reason, OpensubtitlesHash: seenFile.openSubtitlesHash,
-		FilesystemDevice: storedNumber(observed.FilesystemDevice), Inode: storedNumber(observed.Inode),
-		SeenAt: batch.nowMs,
-		ID:     id,
+	err := batch.queries.UpdateObservedPlace(ctx, sqlcgen.UpdateObservedPlaceParams{
+		Path: seenFile.path, ReportedPathRaw: seenFile.reportedBytes, ModifiedAt: &observed.ModifiedAt,
+		UnidentifiedReason: &reason,
+		FilesystemDevice:   storedNumber(observed.FilesystemDevice), Inode: storedNumber(observed.Inode),
+		SeenAt: batch.nowMs, ID: placeID,
 	})
+	var id int64
+	if err == nil {
+		id, err = batch.queries.UpdateObservedFile(ctx, sqlcgen.UpdateObservedFileParams{
+			SizeBytes: &observed.SizeBytes, PayloadHash: seenFile.hash, PayloadBytes: &observed.Identity.PayloadBytes,
+			OpensubtitlesHash: seenFile.openSubtitlesHash, PlaceID: placeID,
+		})
+	}
 	if err != nil {
 		return fmt.Errorf("update %s: %w", seenFile.path, err)
 	}
@@ -293,10 +302,13 @@ func (batch *ingestBatch) recordFiling(
 	if !errors.Is(err, store.ErrNotFound) {
 		return err
 	}
-	_, err = batch.queries.InsertFile(ctx, sqlcgen.InsertFileParams{
-		NodeID: batch.nodeID, Path: located.text, ReportedPathRaw: located.reportedBytes,
-		Filing: filing, FilingReason: &reason, ErrorDetailJSON: detail, SeenAt: batch.nowMs,
-	})
+	id, err := batch.queries.InsertFile(ctx, sqlcgen.InsertFileParams{})
+	if err == nil {
+		err = batch.queries.InsertPlace(ctx, sqlcgen.InsertPlaceParams{
+			FileID: id, NodeID: batch.nodeID, Path: located.text, ReportedPathRaw: located.reportedBytes,
+			Filing: filing, FilingReason: &reason, ErrorDetailJSON: detail, SeenAt: batch.nowMs,
+		})
+	}
 	if err != nil {
 		return fmt.Errorf("insert %s as %s: %w", located.text, filing, err)
 	}

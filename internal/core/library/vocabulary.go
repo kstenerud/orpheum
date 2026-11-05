@@ -10,9 +10,12 @@ const (
 	FilingListed       = "listed"
 	FilingUnidentified = "unidentified"
 	FilingExtra        = "extra"
-	// How a scan filed what it found at a place (file.filing): a video, which each kind of library
-	// that covers it files; a copy of a video found first at another place, that video's place (D363
-	// §2); a sidecar, which belongs to a video beside it; and a path skipped or that could not be read.
+	// How a scan filed what it found at a place (place.filing, D426 §4): read, or a path skipped or
+	// that could not be read.
+	FilingRead = "read"
+	// How a read place is reported, from the file it holds: a video, which each kind of library that
+	// covers it files; a copy of a video found first at another place, that video's place (D363 §2);
+	// a sidecar, which belongs to a video beside it.
 	FilingVideo    = "video"
 	FilingCopy     = "copy"
 	FilingAttached = "attached"

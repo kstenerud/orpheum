@@ -25,9 +25,10 @@ func TestTitleFiles_EveryQueryLeavesOutARemovedVersion(t *testing.T) {
 			"VALUES (10, 'movie', 1, 1, 'identified')",
 		"INSERT INTO work (id, kind) VALUES (10, 'movie')",
 		"INSERT INTO version (id, work_id, created_at, removed_at) VALUES (1, 10, 1, NULL), (2, 10, 1, 5)",
-		`INSERT INTO file (id, node_id, path, reported_path_raw, size_bytes, filing, first_seen_at, last_seen_at)
-		 VALUES (1, 1, '/m/kept.mkv', CAST('/m/kept.mkv' AS BLOB), 10, 'video', 1, 1),
-		        (2, 1, '/m/removed.mkv', CAST('/m/removed.mkv' AS BLOB), 10, 'video', 1, 1)`,
+		`INSERT INTO file (id, size_bytes) VALUES (1, 10), (2, 10)`,
+		`INSERT INTO place (id, file_id, node_id, path, reported_path_raw, filing, first_seen_at, last_seen_at)
+		 VALUES (1, 1, 1, '/m/kept.mkv', CAST('/m/kept.mkv' AS BLOB), 'read', 1, 1),
+		        (2, 2, 1, '/m/removed.mkv', CAST('/m/removed.mkv' AS BLOB), 'read', 1, 1)`,
 		`INSERT INTO file_filing (file_id, library_kind, filing, version_id)
 		 VALUES (1, 'movie', 'listed', 1), (2, 'movie', 'listed', 2)`)
 	queries := database.Read()

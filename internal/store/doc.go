@@ -145,7 +145,9 @@
 //     moves a preference on a film or a series to the scope 'item', in
 //     TestMigrate_Step0076MovesEveryWorkPreferenceToTheScopeItem; step 0077 (D426 §4), which keeps
 //     one view of which library covers a place, in
-//     TestMigrate_Step0077KeepsOneCoverageViewThatSaysWhatTheThreeSaid.
+//     TestMigrate_Step0077KeepsOneCoverageViewThatSaysWhatTheThreeSaid; step 0078 (D426 §4), which
+//     splits a file from its places, every id kept and each copy a place, in
+//     TestMigrate_Step0078KeepsEveryIDAndMakesEachCopyAPlace.
 //   - Every write to a row people edit (a field set by hand, a library, a user, a role, a setting)
 //     raises its revision (sql.md M1). Enforced by TestRevision_EachUpdateOfAnEditedRowRaisesIt.
 //   - The schema keeps the rules D303 put in the engine: every table, both databases', STRICT; a

@@ -63,7 +63,7 @@ ORDER BY work.id;
 -- folder covers: what a retired folder or a deleted library leaves to no one, kept with its history,
 -- whose work goes (D363 section 10).
 SELECT place.id
-FROM file AS place
+FROM place
 WHERE place.node_id = sqlc.arg(node_id) AND place.removed_at IS NULL
   AND place.reported_path_raw > CAST(sqlc.arg(after) AS BLOB) AND place.reported_path_raw < CAST(sqlc.arg(before) AS BLOB)
   AND NOT EXISTS (SELECT 1 FROM library_place WHERE library_place.place_id = place.id)
@@ -83,7 +83,7 @@ WHERE library_id = sqlc.arg(library_id) AND node_id = sqlc.arg(node_id) AND root
 -- name: RepointFile :exec
 -- A live file of a repointed root, at its new place: its modified time is forgotten, so the next
 -- scan reads it again and confirms it by its payload hash before it counts as there.
-UPDATE file SET node_id = sqlc.arg(node_id), path = sqlc.arg(path), reported_path_raw = sqlc.arg(reported_path_raw),
+UPDATE place SET node_id = sqlc.arg(node_id), path = sqlc.arg(path), reported_path_raw = sqlc.arg(reported_path_raw),
   modified_at = NULL
 WHERE id = sqlc.arg(id);
 

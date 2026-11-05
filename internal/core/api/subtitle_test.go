@@ -53,7 +53,8 @@ func (harness testHarness) shelveSidecar(t *testing.T) {
 	t.Helper()
 	librarytest.File(t, harness.database, librarytest.FileSpec{
 		ID: 10, LibraryID: 1, NodeID: 1, Path: "/media/Film (2002).es.srt", SizeBytes: 5,
-		PayloadHash: []byte{0x1e, 0x1f}, Filing: "attached", FilingReason: "subtitle", AttachedToFile: 2,
+		PayloadHash: []byte{0x1e, 0x1f}, Filing: "attached", FilingReason: "subtitle", SidecarKind: "subtitle",
+		AttachedToFile: 2,
 	})
 	librarytest.Stream(t, harness.database, librarytest.StreamSpec{
 		ID: 7, BytesFile: 10, VideoFile: 2, Kind: "subtitle", Codec: "subrip", ContainerLanguage: "es", Language: "es",

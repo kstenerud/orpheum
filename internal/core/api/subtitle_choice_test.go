@@ -43,7 +43,7 @@ func (harness testHarness) shelveEpisodes(t *testing.T) {
 	librarytest.Probe(t, harness.database, librarytest.ProbeSpec{FileID: 6, ProbeJSON: episodeProbe})
 	storetest.ExecRaw(t, harness.databasePath,
 		"UPDATE file SET payload_hash = X'0102' WHERE id = 2",
-		"UPDATE file SET reported_path_raw = CAST(path AS BLOB) WHERE id = 2",
+		"UPDATE place SET reported_path_raw = CAST(path AS BLOB) WHERE id = 2",
 		"INSERT INTO sequence_member (sequence_id, member_work, position) VALUES (20, 22, 10002), (20, 23, 10003)")
 	librarytest.Stream(t, harness.database, librarytest.StreamSpec{
 		ID: 50, BytesFile: 2, StreamIndex: 2, Kind: "subtitle", Codec: "subrip", Language: "en",

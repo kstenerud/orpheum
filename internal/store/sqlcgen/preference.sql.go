@@ -46,11 +46,11 @@ SELECT CAST(coalesce((
   WHERE sequence_member.member_work = version.work_id
   ORDER BY sequence_member.sequence_id LIMIT 1
 ), version.work_id) AS INTEGER) AS work_id
-FROM file
+FROM place AS own
 JOIN version ON version.id = (
-  SELECT file_filing.version_id FROM file_filing WHERE file_filing.file_id = file.id AND file_filing.version_id IS NOT NULL
+  SELECT file_filing.version_id FROM file_filing WHERE file_filing.file_id = own.id AND file_filing.version_id IS NOT NULL
   ORDER BY file_filing.library_kind = 'other', file_filing.library_kind LIMIT 1) AND version.removed_at IS NULL
-WHERE file.id = ?1 AND file.removed_at IS NULL
+WHERE own.id = ?1 AND own.removed_at IS NULL
 `
 
 // The work a live file is of (D230): the series its title is an episode of, or the title itself,

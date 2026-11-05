@@ -26,11 +26,12 @@ func (q *Queries) GetMaxFileID(ctx context.Context) (int64, error) {
 }
 
 const listFileSizesAndNodes = `-- name: ListFileSizesAndNodes :many
-SELECT id, node_id, size_bytes,
+SELECT file.id, own.node_id, file.size_bytes,
   CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
     AS duration_ms
 FROM file
-WHERE id IN (SELECT value FROM json_each(CAST(?1 AS TEXT))) AND removed_at IS NULL
+CROSS JOIN place AS own ON own.id = file.id AND own.removed_at IS NULL
+WHERE file.id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
 `
 
 type ListFileSizesAndNodesRow struct {
@@ -71,12 +72,13 @@ func (q *Queries) ListFileSizesAndNodes(ctx context.Context, fileIdsJson string)
 }
 
 const listFilesToReadThrough = `-- name: ListFilesToReadThrough :many
-SELECT f.id, f.node_id, f.reported_path_raw,
+SELECT f.id, own.node_id, own.reported_path_raw,
   CAST((SELECT 1 FROM video_timeline v WHERE v.payload_hash = f.payload_hash LIMIT 1) IS NOT NULL AS INTEGER)
     AS has_timeline
 FROM file f
-WHERE f.id > ?1 AND f.id <= ?2 AND f.removed_at IS NULL
-  AND f.filing = 'video' AND f.payload_hash IS NOT NULL
+CROSS JOIN place AS own ON own.id = f.id
+WHERE f.id > ?1 AND f.id <= ?2 AND own.removed_at IS NULL
+  AND own.filing = 'read' AND f.sidecar_kind IS NULL AND f.payload_hash IS NOT NULL
   AND EXISTS (SELECT 1 FROM file_probe WHERE file_probe.file_id = f.id)
   AND EXISTS (SELECT 1 FROM library_place WHERE library_place.place_id = f.id)
   AND (
