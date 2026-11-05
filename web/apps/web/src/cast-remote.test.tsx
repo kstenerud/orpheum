@@ -35,8 +35,8 @@ const cast = {
   castId: 9,
   isSender: true,
   fileId: 4,
-  titleId: 2,
-  titleName: "Metropolis",
+  itemId: 2,
+  itemName: "Metropolis",
   durationMs: 600_000,
   senderDeviceId: 1,
   senderName: "Pixel",
@@ -69,7 +69,7 @@ const sending = {
   receiverDeviceId: 2,
   receiverName: "Fire TV",
   fileId: 4,
-  titleName: "Metropolis",
+  itemName: "Metropolis",
   durationMs: 600_000,
   isAccepted: true,
 };
@@ -247,7 +247,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
   });
 
   it("says the receiver is ready with nothing playing, offering Stop casting alone (D364 §8)", async () => {
-    await casting({}, [], { ...sending, fileId: 0, titleName: "" });
+    await casting({}, [], { ...sending, fileId: 0, itemName: "" });
     const page = mounted!.container;
     expect(page.textContent).toContain("Ready on Fire TV.");
     expect(buttonNamed(page, "Play")).toBeUndefined();
@@ -258,7 +258,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     const { sockets } = await casting({ "GET /files/5/up-next": [200, {}] });
     await sockets.live.say({
       type: "sending",
-      sending: { ...sending, fileId: 5, titleName: "Cat" },
+      sending: { ...sending, fileId: 5, itemName: "Cat" },
     });
     expect(mounted!.container.querySelector("h2")?.textContent).toBe("Cat");
   });
@@ -332,7 +332,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     const { services, sockets } = await casting({ "GET /files/5/up-next": [200, {}] });
     await sockets.live.say({
       type: "sending",
-      sending: { ...sending, fileId: 5, titleName: "Cat" },
+      sending: { ...sending, fileId: 5, itemName: "Cat" },
     });
     await sockets.live.say({ type: "sending" });
     await sockets.session.say({ type: "ended", reason: "takenBack" });
@@ -463,7 +463,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
 
   it("offers the film's Up next, which moves the cast on (plans/up-next.md)", async () => {
     const heard: Heard[] = [];
-    const cat = { ...cast, fileId: 5, titleId: 3, titleName: "Cat", durationMs: 1_200_000 };
+    const cat = { ...cast, fileId: 5, itemId: 3, itemName: "Cat", durationMs: 1_200_000 };
     const { sockets } = await casting(
       {
         "GET /files/4/up-next": [
@@ -491,7 +491,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     expect(heard.some((each) => each.methodAndPath === "POST /me/casts/9/next")).toBe(true);
     await sockets.live.say({
       type: "sending",
-      sending: { ...sending, fileId: 5, titleName: "Cat" },
+      sending: { ...sending, fileId: 5, itemName: "Cat" },
     });
     expect(mounted!.container.querySelector("h2")?.textContent).toBe("Cat");
     expect(buttonWithText(mounted!.container, "Up next: S1E2 · Cat")).toBeUndefined();

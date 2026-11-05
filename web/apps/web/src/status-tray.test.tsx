@@ -356,11 +356,11 @@ it("turns Cast's sign blue while this device casts, naming the receiver and what
     receiverDeviceId: 2,
     receiverName: "Fire TV",
     fileId: 3,
-    titleName: "Metropolis",
+    itemName: "Metropolis",
     durationMs: 0,
     isAccepted: true,
   };
-  await server.say({ type: "sending", sending: { ...casting, fileId: 0, titleName: "" } });
+  await server.say({ type: "sending", sending: { ...casting, fileId: 0, itemName: "" } });
   expect(sign("Casting to Fire TV, ready")).toEqual({ isOn: true, href: null });
   await server.say({ type: "sending", sending: casting });
   expect(sign("Casting Metropolis to Fire TV")).toEqual({ isOn: true, href: null });

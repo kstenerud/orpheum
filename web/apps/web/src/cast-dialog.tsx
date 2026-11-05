@@ -86,7 +86,7 @@ function CastOn(props: {
         {sent.fileId === 0
           ? t("cast.readyOn", { name })
           : t("cast.playingFilmOn", {
-              film: sent.titleName === "" ? t("cast.aFilm") : sent.titleName,
+              film: sent.itemName === "" ? t("cast.aFilm") : sent.itemName,
               name,
             })}
       </h2>

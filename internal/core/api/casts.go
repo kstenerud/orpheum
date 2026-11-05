@@ -21,7 +21,7 @@ type StartCastInput struct {
 	AuthorizationHeader
 	Body struct {
 		ToDeviceID int64 `doc:"Another of one's own devices, connected now" json:"toDeviceId" minimum:"1"`
-		CastFilm
+		CastItem
 		// TogetherCredential is the Watch Together membership the asking page holds as a guest, whose
 		// part in the session the receiver takes, following the group (D371 §4); absent, the person's
 		// own part, the session they host first.
@@ -29,9 +29,9 @@ type StartCastInput struct {
 	}
 }
 
-// CastFilm is what a cast plays: a film from a position, or, with no fileId, nothing, its receiver
+// CastItem is what a cast plays: an item's file from a position, or, with no fileId, nothing, its receiver
 // ready for the next (D364 §5).
-type CastFilm struct {
+type CastItem struct {
 	FileID int64 `doc:"What to play; absent, nothing, the receiver ready for the next" json:"fileId,omitempty" minimum:"1" required:"false"` //nolint:lll // one struct tag
 	// PositionMs is where the sender stood; absent, the receiver starts where the person left the
 	// film.
@@ -47,8 +47,8 @@ type CastBody struct {
 	// IsAccepted is whether its receiver said Use, asked once (D364 §2).
 	IsAccepted           bool   `json:"isAccepted"`
 	FileID               int64  `doc:"What plays, 0 for nothing, the receiver ready (D364 §5)" json:"fileId"`
-	TitleID              int64  `doc:"The title the film is, 0 for none" json:"titleId"`
-	TitleName            string `json:"titleName"`
+	ItemID               int64  `doc:"The item the film is, 0 for none" json:"itemId"`
+	ItemName             string `json:"itemName"`
 	DurationMs           int64  `doc:"How long the film plays, 0 when unknown" json:"durationMs"`
 	SenderDeviceID       int64  `json:"senderDeviceId"`
 	SenderName           string `json:"senderName"`
@@ -155,7 +155,7 @@ func (server *Server) moveCastOn(ctx context.Context, input *MoveCastOnInput) (*
 		return nil, server.libraryError(ctx, "read what a cast plays", err)
 	}
 	moved, err := dependencies.Live.Play(principal.UserID, principal.DeviceID, cast.ID, live.Film{
-		FileID: next.FileID, TitleID: work.TitleID, TitleName: work.Name, DurationMs: work.DurationMs,
+		FileID: next.FileID, ItemID: work.TitleID, ItemName: work.Name, DurationMs: work.DurationMs,
 	}, nil)
 	if err != nil {
 		return nil, server.castRefused(ctx, principal, "moveOn", err, "castId", input.CastID)
@@ -199,7 +199,7 @@ func (server *Server) startCast(ctx context.Context, input *StartCastInput) (*St
 	cast := live.Cast{
 		ID: opened.SessionID, UserID: principal.UserID, SenderDeviceID: principal.DeviceID,
 		ReceiverDeviceID: input.Body.ToDeviceID, SenderName: senderName, ReceiverName: receiverName,
-		FileID: film.FileID, TitleID: film.TitleID, TitleName: film.TitleName, DurationMs: film.DurationMs,
+		FileID: film.FileID, ItemID: film.ItemID, ItemName: film.ItemName, DurationMs: film.DurationMs,
 		PositionMs: input.Body.PositionMs, SendersMembership: input.Body.TogetherCredential,
 	}
 	cast, left, err := dependencies.Live.Cast(cast, opened.ReceiverCredential)
@@ -232,14 +232,14 @@ func (server *Server) castFilmOf(
 	if err != nil {
 		return live.Film{}, server.libraryError(ctx, "read what a cast plays", err)
 	}
-	return live.Film{FileID: fileID, TitleID: work.TitleID, TitleName: work.Name, DurationMs: work.DurationMs}, nil
+	return live.Film{FileID: fileID, ItemID: work.TitleID, ItemName: work.Name, DurationMs: work.DurationMs}, nil
 }
 
 // PlayInCastInput plays a film on a cast's receiver, the asking device its sender or its receiver.
 type PlayInCastInput struct {
 	AuthorizationHeader
 	CastID int64 `minimum:"1" path:"id"`
-	Body   CastFilm
+	Body   CastItem
 }
 
 // playInCast plays a film on a cast's receiver, which is handed the cast again with it: whatever the
@@ -380,8 +380,8 @@ func (server *Server) endCast(ctx context.Context, input *EndCastInput) (*EndCas
 func castBodyOf(cast live.Cast, thisDeviceID int64, credential string) CastBody {
 	return CastBody{
 		CastID: cast.ID, IsSender: cast.SenderDeviceID == thisDeviceID, IsAccepted: cast.IsAccepted,
-		FileID:  cast.FileID,
-		TitleID: cast.TitleID, TitleName: cast.TitleName, DurationMs: cast.DurationMs,
+		FileID: cast.FileID,
+		ItemID: cast.ItemID, ItemName: cast.ItemName, DurationMs: cast.DurationMs,
 		SenderDeviceID: cast.SenderDeviceID, SenderName: cast.SenderName,
 		ReceiverDeviceID: cast.ReceiverDeviceID, ReceiverName: cast.ReceiverName, MembershipCredential: credential,
 	}

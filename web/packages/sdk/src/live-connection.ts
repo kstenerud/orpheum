@@ -23,7 +23,7 @@ export interface CastToReceive {
   /** What it plays; 0 for nothing, the receiver ready for the next video (D364 §5). */
   readonly fileId: number;
   /** The film's name, which the receiver asks whether to play (D358 §1); empty for none. */
-  readonly titleName: string;
+  readonly itemName: string;
   /** Where the sender stood, in ms; undefined to start where the person left the film. */
   readonly positionMs: number | undefined;
   readonly fromDeviceId: number;
@@ -48,7 +48,7 @@ export interface CastSending {
   readonly receiverName: string;
   /** What plays on the receiver; 0 for nothing, ready for the next video (D364 §5). */
   readonly fileId: number;
-  readonly titleName: string;
+  readonly itemName: string;
   /** How long it plays, in ms; 0 when unknown. */
   readonly durationMs: number;
   /** Whether the receiver said Use, asked once (D364 §2). */
@@ -148,7 +148,7 @@ function parseReceive(value: unknown): CastToReceive | undefined {
   const fromDeviceId = numberIn(record, "fromDeviceId");
   const credential = record["membershipCredential"];
   const name = record["fromDeviceName"];
-  const titleName = record["titleName"];
+  const itemName = record["itemName"];
   if (
     castId === undefined ||
     fileId === undefined ||
@@ -162,7 +162,7 @@ function parseReceive(value: unknown): CastToReceive | undefined {
     castId,
     membershipCredential: credential,
     fileId,
-    titleName: typeof titleName === "string" ? titleName : "",
+    itemName: typeof itemName === "string" ? itemName : "",
     positionMs: numberIn(record, "positionMs"),
     fromDeviceId,
     fromDeviceName: typeof name === "string" ? name : "",
@@ -192,13 +192,13 @@ function parseSending(value: unknown): CastSending | undefined {
     return undefined;
   }
   const receiverName = record["receiverName"];
-  const titleName = record["titleName"];
+  const itemName = record["itemName"];
   return {
     castId,
     receiverDeviceId,
     receiverName: typeof receiverName === "string" ? receiverName : "",
     fileId: numberIn(record, "fileId") ?? 0,
-    titleName: typeof titleName === "string" ? titleName : "",
+    itemName: typeof itemName === "string" ? itemName : "",
     durationMs: numberIn(record, "durationMs") ?? 0,
     isAccepted: record["isAccepted"] === true,
   };

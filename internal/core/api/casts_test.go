@@ -394,8 +394,8 @@ func TestCast_ADeclinedOrUnansweredCastTellsItsSenderWhy(t *testing.T) {
 		received := tvSocket.await(live.MessageReceive, func(each live.Outbound) bool {
 			return each.Receive.CastID == started.CastID
 		}).Receive
-		if received.TitleName != "Metropolis" {
-			t.Fatalf("the TV was handed the film named %q; want Metropolis, to ask with", received.TitleName)
+		if received.ItemName != "Metropolis" {
+			t.Fatalf("the TV was handed the film named %q; want Metropolis, to ask with", received.ItemName)
 		}
 		sender := harness.dialCast(t, started.MembershipCredential, together.RolePanel)
 		sender.awaitWelcome()
@@ -470,12 +470,12 @@ func TestCast_IsASessionInWhichEachFilmPlayedGoesToTheReceiver(t *testing.T) {
 	handed := sockets[1].await(live.MessageReceive, func(message live.Outbound) bool {
 		return message.Receive.FileID == 1
 	}).Receive
-	if handed.CastID != session.CastID || handed.TitleName != "Metropolis" || handed.PositionMs == nil ||
+	if handed.CastID != session.CastID || handed.ItemName != "Metropolis" || handed.PositionMs == nil ||
 		*handed.PositionMs != 7_000 {
 		t.Errorf("the TV was handed %+v; want the same cast, of Metropolis from 7 s", handed)
 	}
 	sockets[0].await(live.MessageSending, func(message live.Outbound) bool {
-		return message.Sending != nil && message.Sending.FileID == 1 && message.Sending.TitleName == "Metropolis"
+		return message.Sending != nil && message.Sending.FileID == 1 && message.Sending.ItemName == "Metropolis"
 	})
 	receiver := harness.dialCast(t, handed.Credential, together.RoleVideo)
 	receiver.awaitWelcome()

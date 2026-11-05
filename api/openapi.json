@@ -393,6 +393,14 @@
           "isSender": {
             "type": "boolean"
           },
+          "itemId": {
+            "description": "The item the film is, 0 for none",
+            "format": "int64",
+            "type": "integer"
+          },
+          "itemName": {
+            "type": "string"
+          },
           "membershipCredential": {
             "description": "What this device's session socket says hello with",
             "type": "string"
@@ -410,14 +418,6 @@
           },
           "senderName": {
             "type": "string"
-          },
-          "titleId": {
-            "description": "The title the film is, 0 for none",
-            "format": "int64",
-            "type": "integer"
-          },
-          "titleName": {
-            "type": "string"
           }
         },
         "required": [
@@ -425,8 +425,8 @@
           "isSender",
           "isAccepted",
           "fileId",
-          "titleId",
-          "titleName",
+          "itemId",
+          "itemName",
           "durationMs",
           "senderDeviceId",
           "senderName",
@@ -436,7 +436,7 @@
         ],
         "type": "object"
       },
-      "CastFilm": {
+      "CastItem": {
         "additionalProperties": false,
         "properties": {
           "fileId": {
@@ -4422,6 +4422,11 @@
             "format": "int64",
             "type": "integer"
           },
+          "itemId": {
+            "description": "Absent for a file filed as no item",
+            "format": "int64",
+            "type": "integer"
+          },
           "lastHeardAt": {
             "description": "Unix milliseconds",
             "format": "int64",
@@ -4451,11 +4456,6 @@
           },
           "startedAt": {
             "description": "Unix milliseconds",
-            "format": "int64",
-            "type": "integer"
-          },
-          "titleId": {
-            "description": "Absent for a file filed as no title",
             "format": "int64",
             "type": "integer"
           },
@@ -14141,7 +14141,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CastFilm"
+                "$ref": "#/components/schemas/CastItem"
               }
             }
           },

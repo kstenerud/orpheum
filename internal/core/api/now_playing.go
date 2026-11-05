@@ -19,7 +19,7 @@ type NowPlayingBody struct {
 	UserName   string `json:"userName"`
 	DeviceName string `doc:"Absent for a session with no device" json:"deviceName,omitempty"`
 	FileID     int64  `json:"fileId"`
-	TitleID    int64  `doc:"Absent for a file filed as no title" json:"titleId,omitempty"`
+	ItemID     int64  `doc:"Absent for a file filed as no item" json:"itemId,omitempty"`
 	Name       string `doc:"The title's name, or the file's path when it has none" json:"name"`
 	Delivery   string `doc:"direct or hls" json:"delivery"`
 	Profile    string `doc:"The prepared copy's profile; absent for direct play" json:"profile,omitempty"`
@@ -103,7 +103,7 @@ func (server *Server) nowPlayingBody(
 	if err != nil {
 		return body, server.libraryError(ctx, "read what a playback plays", err)
 	}
-	body.TitleID, body.Name = work.TitleID, work.Name
+	body.ItemID, body.Name = work.TitleID, work.Name
 	if body.Name == "" {
 		body.Name = work.Path
 	}
