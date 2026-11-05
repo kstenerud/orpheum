@@ -640,12 +640,12 @@ func (filer *libraryFiler) seasonsForUnplaced(ctx context.Context, provider Prov
 
 // listingFetchedAt is when a season's stored listing was fetched.
 func (filer *libraryFiler) listingFetchedAt(ctx context.Context, where seasonAtProvider) (int64, error) {
-	key := responseKey{where.seriesID, where.provider.Name(), seasonPart(where.season)}
+	key := responseKey{where.seriesID, where.provider.Name(), groupListingPart(where.season)}
 	if fetchedAt, held := filer.snap.fetchedAt[key]; held {
 		return fetchedAt, nil
 	}
 	listing := sqlcgen.GetProviderResponseFetchedAtParams{
-		ItemID: where.seriesID, Provider: where.provider.Name(), Part: seasonPart(where.season),
+		ItemID: where.seriesID, Provider: where.provider.Name(), Part: groupListingPart(where.season),
 	}
 	return filer.queries.GetProviderResponseFetchedAt(ctx, listing) //nolint:wrapcheck // isListingStale says which
 }

@@ -144,7 +144,7 @@ func (world *creditedShelf) creditPeople(queries *sqlcgen.Queries) error {
 		{"Gone", RoleCast, "Ghost Actor", "", 1},
 	} {
 		if err := queries.InsertCredit(world.t.Context(), sqlcgen.InsertCreditParams{
-			ItemID: world.films[credit.film], Role: credit.role, Ordinal: credit.ordinal,
+			ItemID: world.films[credit.film], Job: credit.role, Ordinal: credit.ordinal,
 			PersonID: world.people[credit.person], Character: ptr.NilIfZero(credit.character),
 		}); err != nil {
 			return err

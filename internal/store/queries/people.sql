@@ -8,24 +8,24 @@
 
 -- name: ListLibraryCredits :many
 -- The credits of the library's live items, each with its person, for the pass's snapshot.
-SELECT credit.item_id, credit.role, credit.ordinal, credit.character, credit.person_id, person.tmdb_id,
+SELECT credit.item_id, credit.job, credit.ordinal, credit.character, credit.person_id, person.tmdb_id,
   person.picture_ref, item_text.name
 FROM item
 CROSS JOIN credit ON credit.item_id = item.id
 CROSS JOIN person ON person.id = credit.person_id
 CROSS JOIN item_text ON item_text.item_id = person.id AND item_text.is_original = 1
 WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL
-ORDER BY credit.item_id, credit.role, credit.ordinal;
+ORDER BY credit.item_id, credit.job, credit.ordinal;
 
 -- name: ListItemCredits :many
--- One item's credits, each with its person, in billing order within each role.
-SELECT credit.item_id, credit.role, credit.ordinal, credit.character, credit.person_id, person.tmdb_id,
+-- One item's credits, each with its person, in billing order within each job.
+SELECT credit.item_id, credit.job, credit.ordinal, credit.character, credit.person_id, person.tmdb_id,
   person.picture_ref, item_text.name
 FROM credit
 CROSS JOIN person ON person.id = credit.person_id
 CROSS JOIN item_text ON item_text.item_id = person.id AND item_text.is_original = 1
 WHERE credit.item_id = sqlc.arg(item_id)
-ORDER BY credit.role, credit.ordinal;
+ORDER BY credit.job, credit.ordinal;
 
 -- name: ListLibraryItemGenres :many
 -- The genres of the library's live items, for the pass's snapshot.
@@ -49,8 +49,8 @@ ORDER BY item_genre.ordinal;
 DELETE FROM credit WHERE item_id = sqlc.arg(item_id);
 
 -- name: InsertCredit :exec
-INSERT INTO credit (item_id, role, ordinal, person_id, character)
-VALUES (sqlc.arg(item_id), sqlc.arg(role), sqlc.arg(ordinal), sqlc.arg(person_id), sqlc.arg(character));
+INSERT INTO credit (item_id, job, ordinal, person_id, character)
+VALUES (sqlc.arg(item_id), sqlc.arg(job), sqlc.arg(ordinal), sqlc.arg(person_id), sqlc.arg(character));
 
 -- name: DeleteItemGenres :exec
 -- The genres an item is in are derived (class C): an item's whose source changed are written again
@@ -112,11 +112,11 @@ WHERE person.id = sqlc.arg(person_id) AND EXISTS (
 -- name: ListPersonCreditsOn :many
 -- A person's credits on the items a list of them shows (GET /items?person=, D425 section 7): the
 -- list read what the caller reaches, so this reads only the credits of the items it names.
-SELECT credit.item_id, credit.role, credit.character
+SELECT credit.item_id, credit.job, credit.character
 FROM credit
 WHERE credit.person_id = sqlc.arg(person_id)
   AND credit.item_id IN (SELECT value FROM json_each(CAST(sqlc.arg(item_ids_json) AS TEXT)))
-ORDER BY credit.item_id, credit.role, credit.ordinal;
+ORDER BY credit.item_id, credit.job, credit.ordinal;
 
 -- name: ListGenresWithCounts :many
 -- Each genre with how many films, series or other videos of a kind the caller reaches are in it;

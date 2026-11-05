@@ -128,7 +128,7 @@ func TestChooser_AnOtherVideosDateIsCorrectedAndItIsNeverMatched(t *testing.T) {
 	if err := lib.chooser.SetOverride(t.Context(), titleID, "recorded_at", corrected, person); err != nil {
 		t.Fatal(err)
 	}
-	if other := lib.otherVideoOf(titleID); other.RecordedFrom != "person" ||
+	if other := lib.otherVideoOf(titleID); other.RecordedFrom != "user" ||
 		strconv.FormatInt(other.RecordedAt, 10) != corrected {
 		t.Errorf("corrected: %+v; want the person's date, said to be theirs", other)
 	}

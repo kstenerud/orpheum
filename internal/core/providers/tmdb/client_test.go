@@ -308,8 +308,8 @@ func TestParse_ASeriesNamesEachSeasonsPosterByItsSeason(t *testing.T) {
 	var got []named
 	for _, image := range series.Artwork {
 		season := int64(-1)
-		if image.SeasonNumber != nil {
-			season = *image.SeasonNumber
+		if image.GroupNumber != nil {
+			season = *image.GroupNumber
 		}
 		got = append(got, named{kind: image.Kind, ref: image.Ref, season: season})
 	}

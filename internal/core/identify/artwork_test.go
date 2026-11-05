@@ -84,7 +84,7 @@ func TestPass_ReportsASeriesSeasonsPostersByTheirSeasonOnEveryPass(t *testing.T)
 	lib := newTestLibrary(t, "series", "tmdb")
 	series := identify.Metadata{ID: "4807", Name: "Emberwing", Year: 2002, Artwork: []identify.ImageRef{
 		{Kind: library.ArtPoster, Ref: "/emberwing.jpg"},
-		{Kind: library.ArtPoster, SeasonNumber: new(int64(1)), Ref: "/season-1.jpg"},
+		{Kind: library.ArtPoster, GroupNumber: new(int64(1)), Ref: "/season-1.jpg"},
 	}}
 	lib.provider.Searches[identifytest.SearchKey("Emberwing", 0)] = []identify.Candidate{lib.provider.Add(series)}
 	lib.provider.Seasons["1437/1"] = []identify.Episode{{ID: "e1", Season: 1, Number: 1, Name: "Stillness"}}
@@ -102,8 +102,8 @@ func TestPass_ReportsASeriesSeasonsPostersByTheirSeasonOnEveryPass(t *testing.T)
 	for _, item := range report.NamedImages {
 		for _, ref := range item.Refs {
 			season := "own"
-			if ref.SeasonNumber != nil {
-				season = fmt.Sprint(*ref.SeasonNumber)
+			if ref.GroupNumber != nil {
+				season = fmt.Sprint(*ref.GroupNumber)
 			}
 			named = append(named, fmt.Sprintf("%d %s %s", item.ItemID, season, ref.Ref))
 		}

@@ -266,8 +266,8 @@ func TestTake_ASeasonsPosterIsOwedByItsSeasonApartFromItsSeriesOwn(t *testing.T)
 		Kind: library.ArtPoster, Source: "tmdb", SourceRef: new("/f.jpg"), SourceSha256: []byte{1},
 	})
 	own := Ref{Kind: library.ArtPoster, SourceRef: "/f.jpg"}
-	first := Ref{Kind: library.ArtPoster, SeasonNumber: new(int64(1)), SourceRef: "/f.jpg"}
-	specials := Ref{Kind: library.ArtPoster, SeasonNumber: new(int64(0)), SourceRef: "/s0.jpg"}
+	first := Ref{Kind: library.ArtPoster, GroupNumber: new(int64(1)), SourceRef: "/f.jpg"}
+	specials := Ref{Kind: library.ArtPoster, GroupNumber: new(int64(0)), SourceRef: "/s0.jpg"}
 	named := Found{Named: []ItemImages{{ItemID: bench.itemID, Source: "tmdb", Refs: []Ref{own, first, specials}}}}
 	bench.service.Take(t.Context(), named)
 	if got := seasonsOf(queuedRefs(t, queue)["tmdb"]); !slices.Equal(got, []string{"1 /f.jpg", "0 /s0.jpg"}) {
@@ -275,7 +275,7 @@ func TestTake_ASeasonsPosterIsOwedByItsSeasonApartFromItsSeriesOwn(t *testing.T)
 	}
 	// Season 1's poster is stored: only the specials' is owed.
 	bench.insert(t, sqlcgen.InsertArtworkParams{
-		Kind: library.ArtPoster, SeasonNumber: new(int64(1)), Source: "tmdb", SourceRef: new("/f.jpg"),
+		Kind: library.ArtPoster, GroupNumber: new(int64(1)), Source: "tmdb", SourceRef: new("/f.jpg"),
 		SourceSha256: []byte{1},
 	})
 	*queue = nil
@@ -294,7 +294,7 @@ func TestTake_ASeasonsPosterIsOwedWhereTheSeriesShowsAPosterBesideItsMedia(t *te
 	poster := LocalImage{ItemID: bench.itemID, Kind: library.ArtPoster, FileID: 40, SizeBytes: 1, ModifiedAtMs: 1}
 	named := []ItemImages{{ItemID: bench.itemID, Source: "tmdb", Refs: []Ref{
 		{Kind: library.ArtPoster, SourceRef: "/poster.jpg"},
-		{Kind: library.ArtPoster, SeasonNumber: new(int64(2)), SourceRef: "/s2.jpg"},
+		{Kind: library.ArtPoster, GroupNumber: new(int64(2)), SourceRef: "/s2.jpg"},
 	}}}
 	bench.service.Take(t.Context(), Found{
 		BesideTheMedia: &LocalImages{LibraryID: libraryID, Images: []LocalImage{poster}}, Named: named,
@@ -309,8 +309,8 @@ func seasonsOf(refs []Ref) []string {
 	var named []string
 	for _, ref := range refs {
 		season := "own"
-		if ref.SeasonNumber != nil {
-			season = strconv.FormatInt(*ref.SeasonNumber, 10)
+		if ref.GroupNumber != nil {
+			season = strconv.FormatInt(*ref.GroupNumber, 10)
 		}
 		named = append(named, season+" "+ref.SourceRef)
 	}

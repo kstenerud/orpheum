@@ -586,12 +586,12 @@ func TestService_ASeasonsPosterIsKeptAsItsSeasonsAndNeitherReplacesNorShowsAsIts
 		return nodeproto.ArtworkResult{Images: []nodeproto.ArtImage{{SizeName: nodeproto.PortraitS, WebP: ourWebP}}}
 	}
 	bench.handle(t, Ref{Kind: library.ArtPoster, SourceRef: "/f.jpg"})
-	bench.handle(t, Ref{Kind: library.ArtPoster, SeasonNumber: new(int64(1)), SourceRef: "/s1.jpg"})
+	bench.handle(t, Ref{Kind: library.ArtPoster, GroupNumber: new(int64(1)), SourceRef: "/s1.jpg"})
 	var live []string
 	for _, row := range bench.rows(t) {
 		season := "own"
-		if row.SeasonNumber != nil {
-			season = strconv.FormatInt(*row.SeasonNumber, 10)
+		if row.GroupNumber != nil {
+			season = strconv.FormatInt(*row.GroupNumber, 10)
 		}
 		live = append(live, season+" "+*row.SourceRef)
 	}
@@ -606,7 +606,7 @@ func TestService_ASeasonsPosterIsKeptAsItsSeasonsAndNeitherReplacesNorShowsAsIts
 		t.Errorf("shown %+v (%v); want the series' own poster alone", shown, err)
 	}
 	seasons, err := bench.database.Read().ListSeasonPosters(t.Context(), bench.itemID)
-	if err != nil || len(seasons) != 1 || seasons[0].SeasonNumber != 1 ||
+	if err != nil || len(seasons) != 1 || seasons[0].GroupNumber != 1 ||
 		!bytes.Equal(seasons[0].SourceSha256, Received([]byte("season 1")).sourceSha256()) {
 		t.Errorf("season posters %+v (%v); want season 1's", seasons, err)
 	}

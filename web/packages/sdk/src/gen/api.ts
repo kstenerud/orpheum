@@ -4360,10 +4360,10 @@ export interface components {
             /** @description Its file's name */
             fileName: string;
             /**
-             * @description Its container's recorded-time tag, a date in its file's or a folder's name, the file's own time, or a person's correction
+             * @description Its container's recorded-time tag, a date in its file's or a folder's name, the file's own time, or a user's correction
              * @enum {string}
              */
-            from: "tag" | "name" | "file" | "person";
+            from: "tag" | "name" | "file" | "user";
             /**
              * Format: int64
              * @description Unix milliseconds

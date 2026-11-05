@@ -76,7 +76,7 @@ func (browser *Browser) peopleOf(ctx context.Context, itemID int64) (TitlePeople
 			PersonID: credit.PersonID, Name: credit.Name, Character: ptr.ValueOrZero(credit.Character),
 			PictureRef: ptr.ValueOrZero(credit.PictureRef),
 		}
-		switch credit.Role {
+		switch credit.Job {
 		case RoleCast:
 			people.Cast = append(people.Cast, person)
 		case RoleDirector:
@@ -137,7 +137,7 @@ func (browser *Browser) CreditsOn(
 	credits := make(map[int64][]PersonCredit, len(itemIDs))
 	for _, row := range rows {
 		credits[row.ItemID] = append(credits[row.ItemID],
-			PersonCredit{Role: row.Role, Character: ptr.ValueOrZero(row.Character)})
+			PersonCredit{Role: row.Job, Character: ptr.ValueOrZero(row.Character)})
 	}
 	return credits, nil
 }

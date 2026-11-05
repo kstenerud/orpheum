@@ -22,7 +22,7 @@ func (lib *testLibrary) creditsOf(itemID int64) []string {
 	}
 	credits := []string{}
 	for _, row := range rows {
-		credits = append(credits, fmt.Sprintf("%s %d %s (%s)", row.Role, row.Ordinal, row.Name,
+		credits = append(credits, fmt.Sprintf("%s %d %s (%s)", row.Job, row.Ordinal, row.Name,
 			ptr.ValueOrZero(row.Character)))
 	}
 	return credits

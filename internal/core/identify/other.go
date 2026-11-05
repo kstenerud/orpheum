@@ -19,10 +19,10 @@ import (
 
 // Where an other video's recorded date came from (other_video.recorded_from; D349 §4).
 const (
-	recordedFromTag    = "tag"    // its container's recorded-time tag
-	recordedFromName   = "name"   // a date in its file's or a folder's name
-	recordedFromFile   = "file"   // the file's own modified time
-	recordedFromPerson = "person" // a person's correction, the override recorded_at
+	recordedFromTag  = "tag"  // its container's recorded-time tag
+	recordedFromName = "name" // a date in its file's or a folder's name
+	recordedFromFile = "file" // the file's own modified time
+	recordedFromUser = "user" // a user's correction, the override recorded_at
 )
 
 var (
@@ -238,7 +238,7 @@ func (filer *libraryFiler) resolveOtherVideo(
 		FileName: facts.fileName, FileNameKey: filer.sorter.KeyExact(facts.fileName),
 	}
 	if at, err := strconv.ParseInt(corrected, 10, 64); err == nil && at > 0 {
-		values.RecordedAt, values.RecordedFrom = at, recordedFromPerson
+		values.RecordedAt, values.RecordedFrom = at, recordedFromUser
 	}
 	if held, isHeld := filer.snap.otherVideos[titleID]; isHeld && isSameOtherVideo(held, values) {
 		return nil

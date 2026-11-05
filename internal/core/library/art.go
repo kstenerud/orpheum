@@ -254,8 +254,8 @@ func (browser *Browser) withSeasonPosters(ctx context.Context, seriesID int64, s
 	}
 	posterByNumber := make(map[int64]string, len(rows))
 	for _, row := range rows {
-		if _, alreadyHas := posterByNumber[row.SeasonNumber]; !alreadyHas {
-			posterByNumber[row.SeasonNumber] = hex.EncodeToString(row.SourceSha256)
+		if _, alreadyHas := posterByNumber[row.GroupNumber]; !alreadyHas {
+			posterByNumber[row.GroupNumber] = hex.EncodeToString(row.SourceSha256)
 		}
 	}
 	for index := range seasons {

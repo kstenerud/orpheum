@@ -98,7 +98,7 @@ func (q *Queries) GetTitleKind(ctx context.Context, id int64) (string, error) {
 }
 
 const insertArtwork = `-- name: InsertArtwork :one
-INSERT INTO artwork (item_id, kind, season_number, source, source_ref, source_sha256, refused_at, refusal,
+INSERT INTO artwork (item_id, kind, group_number, source, source_ref, source_sha256, refused_at, refusal,
   is_missing_at_source)
 VALUES (?1, ?2, ?3, ?4, ?5,
   ?6, ?7, ?8, ?9)
@@ -108,7 +108,7 @@ RETURNING id
 type InsertArtworkParams struct {
 	ItemID            int64
 	Kind              string
-	SeasonNumber      *int64
+	GroupNumber       *int64
 	Source            string
 	SourceRef         *string
 	SourceSha256      []byte
@@ -124,7 +124,7 @@ func (q *Queries) InsertArtwork(ctx context.Context, arg InsertArtworkParams) (i
 	row := q.db.QueryRowContext(ctx, insertArtwork,
 		arg.ItemID,
 		arg.Kind,
-		arg.SeasonNumber,
+		arg.GroupNumber,
 		arg.Source,
 		arg.SourceRef,
 		arg.SourceSha256,
@@ -408,7 +408,7 @@ WHERE artwork.source = ?1 AND artwork.removed_at IS NULL AND artwork.source_sha2
   AND NOT EXISTS (
     SELECT 1 FROM artwork earlier
     WHERE earlier.item_id = artwork.item_id AND earlier.kind = artwork.kind
-      AND earlier.season_number IS artwork.season_number AND earlier.source = artwork.source
+      AND earlier.group_number IS artwork.group_number AND earlier.source = artwork.source
       AND earlier.source_ref = artwork.source_ref AND earlier.source_sha256 IS NULL AND earlier.removed_at IS NOT NULL
   )
 ORDER BY artwork.item_id
@@ -482,12 +482,12 @@ func (q *Queries) ListItemsWithLiveUnchosenLocalArtwork(ctx context.Context, lib
 
 const listLiveArtwork = `-- name: ListLiveArtwork :many
 
-SELECT artwork.id, artwork.kind, artwork.season_number, artwork.source, artwork.source_ref, artwork.source_sha256,
+SELECT artwork.id, artwork.kind, artwork.group_number, artwork.source, artwork.source_ref, artwork.source_sha256,
   artwork.is_chosen, artwork.refused_at, artwork.is_missing_at_source,
   CAST(artwork.is_missing_at_source = 1 AND artwork.source_sha256 IS NULL AND NOT EXISTS (
     SELECT 1 FROM artwork earlier
     WHERE earlier.item_id = artwork.item_id AND earlier.kind = artwork.kind
-      AND earlier.season_number IS artwork.season_number AND earlier.source = artwork.source
+      AND earlier.group_number IS artwork.group_number AND earlier.source = artwork.source
       AND earlier.source_ref = artwork.source_ref AND earlier.source_sha256 IS NULL AND earlier.removed_at IS NOT NULL
   ) AS INTEGER) AS is_recheck_owed
 FROM artwork
@@ -498,7 +498,7 @@ ORDER BY artwork.kind, artwork.is_chosen DESC, artwork.id DESC
 type ListLiveArtworkRow struct {
 	ID                int64
 	Kind              string
-	SeasonNumber      *int64
+	GroupNumber       *int64
 	Source            string
 	SourceRef         *string
 	SourceSha256      []byte
@@ -511,7 +511,7 @@ type ListLiveArtworkRow struct {
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // An item's images (schema.md, artwork; D212): which it has, where each came from, and the hash
 // its sizes are stored under in cache/art/. A person's choice is is_chosen = 1 and stays.
-// An item's images, stored or refused, a series' seasons' among them (season_number, D379); a miss at
+// An item's images, stored or refused, a series' groups' among them (group_number, D379); a miss at
 // its source that is not yet looked at again, as ListItemsDueRecheck finds it, is one still to be
 // tried (D213 section 1).
 func (q *Queries) ListLiveArtwork(ctx context.Context, itemID int64) ([]ListLiveArtworkRow, error) {
@@ -526,7 +526,7 @@ func (q *Queries) ListLiveArtwork(ctx context.Context, itemID int64) ([]ListLive
 		if err := rows.Scan(
 			&i.ID,
 			&i.Kind,
-			&i.SeasonNumber,
+			&i.GroupNumber,
 			&i.Source,
 			&i.SourceRef,
 			&i.SourceSha256,
@@ -549,18 +549,18 @@ func (q *Queries) ListLiveArtwork(ctx context.Context, itemID int64) ([]ListLive
 }
 
 const listSeasonPosters = `-- name: ListSeasonPosters :many
-SELECT CAST(artwork.season_number AS INTEGER) AS season_number, artwork.source_sha256
+SELECT CAST(artwork.group_number AS INTEGER) AS group_number, artwork.source_sha256
 FROM artwork
 JOIN item ON item.id = artwork.item_id
 LEFT JOIN library ON library.id = item.filing_library_id
-WHERE artwork.item_id = ?1 AND artwork.kind = 'poster' AND artwork.season_number IS NOT NULL
+WHERE artwork.item_id = ?1 AND artwork.kind = 'poster' AND artwork.group_number IS NOT NULL
   AND artwork.removed_at IS NULL AND artwork.source_sha256 IS NOT NULL
-ORDER BY artwork.season_number, artwork.is_chosen DESC,
+ORDER BY artwork.group_number, artwork.is_chosen DESC,
   (artwork.source = 'local') = (COALESCE(library.metadata_source, '') != 'tmdb') DESC, artwork.id DESC
 `
 
 type ListSeasonPostersRow struct {
-	SeasonNumber int64
+	GroupNumber  int64
 	SourceSha256 []byte
 }
 
@@ -576,7 +576,7 @@ func (q *Queries) ListSeasonPosters(ctx context.Context, seriesID int64) ([]List
 	items := []ListSeasonPostersRow{}
 	for rows.Next() {
 		var i ListSeasonPostersRow
-		if err := rows.Scan(&i.SeasonNumber, &i.SourceSha256); err != nil {
+		if err := rows.Scan(&i.GroupNumber, &i.SourceSha256); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -596,7 +596,7 @@ FROM artwork
 JOIN item ON item.id = artwork.item_id
 LEFT JOIN library ON library.id = item.filing_library_id
 WHERE artwork.item_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
-  AND artwork.kind = ?2 AND artwork.season_number IS NULL AND artwork.removed_at IS NULL
+  AND artwork.kind = ?2 AND artwork.group_number IS NULL AND artwork.removed_at IS NULL
   AND artwork.source_sha256 IS NOT NULL
 ORDER BY artwork.item_id, artwork.source = 'frame', artwork.is_chosen DESC,
   (artwork.source = 'local') = (COALESCE(library.metadata_source, '') != 'tmdb') DESC, artwork.id DESC
@@ -711,18 +711,18 @@ func (q *Queries) RetireFrameStillsOfFile(ctx context.Context, arg RetireFrameSt
 
 const retireReplacedArtwork = `-- name: RetireReplacedArtwork :exec
 UPDATE artwork SET removed_at = ?1
-WHERE item_id = ?2 AND kind = ?3 AND season_number IS ?4
+WHERE item_id = ?2 AND kind = ?3 AND group_number IS ?4
   AND source = ?5
   AND is_chosen = 0 AND removed_at IS NULL AND id != ?6
 `
 
 type RetireReplacedArtworkParams struct {
-	RemovedAt    *int64
-	ItemID       int64
-	Kind         string
-	SeasonNumber *int64
-	Source       string
-	KeepID       int64
+	RemovedAt   *int64
+	ItemID      int64
+	Kind        string
+	GroupNumber *int64
+	Source      string
+	KeepID      int64
 }
 
 // A provider's image replaced by a newer one of the same season, or of none; a person's choice is
@@ -732,7 +732,7 @@ func (q *Queries) RetireReplacedArtwork(ctx context.Context, arg RetireReplacedA
 		arg.RemovedAt,
 		arg.ItemID,
 		arg.Kind,
-		arg.SeasonNumber,
+		arg.GroupNumber,
 		arg.Source,
 		arg.KeepID,
 	)
