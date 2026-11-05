@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import type { components } from "@orpheum/sdk";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -38,6 +39,9 @@ function useNewerVersion(): Update | undefined {
   return update.state === "loaded" && update.value?.latest !== undefined ? update.value : undefined;
 }
 
+/** What needs the admin, as the server counts and lists it. */
+type AttentionCounts = components["schemas"]["NeedsAttentionOutputBody"];
+
 /** The pages that have each kind of what needs the admin, with what fixes it. */
 function ToPages(): JSX.Element {
   const { t } = useTranslation();
@@ -47,6 +51,51 @@ function ToPages(): JSX.Element {
       <Link to={{ screen: "libraries" }}>{t("needsAttention.toLibraries")}</Link> ·{" "}
       <Link to={{ screen: "identify" }}>{t("needsAttention.toIdentify")}</Link>
     </p>
+  );
+}
+
+/**
+ * The series likely read wrongly (D306 §6) and the films without sound (the owner, 2026-11-02),
+ * each leading to its page; the server lists at most 100 of each, and how many more there are is
+ * said after them (D432 §4).
+ */
+function ProblemTitles(props: { readonly value: AttentionCounts }): JSX.Element {
+  const { t } = useTranslation();
+  const { value } = props;
+  const readWrongly = value.seriesReadWrongly ?? [];
+  const withoutSound = value.filmsWithoutSound ?? [];
+  return (
+    <>
+      {readWrongly.map((series) => (
+        <li key={`series-${String(series.seriesId)}`}>
+          <WarningIcon />{" "}
+          <Link to={{ screen: "series-page", collectionId: series.seriesId }}>{series.name}</Link>
+          {t("needsAttention.seriesReadWrongly", { count: series.unplacedCount })}
+        </li>
+      ))}
+      {value.seriesReadWronglyCount > readWrongly.length ? (
+        <li key="series-more">
+          <WarningIcon />{" "}
+          {t("needsAttention.moreSeriesReadWrongly", {
+            count: value.seriesReadWronglyCount - readWrongly.length,
+          })}
+        </li>
+      ) : null}
+      {withoutSound.map((film) => (
+        <li key={`film-${String(film.titleId)}`}>
+          <WarningIcon /> <Link to={{ screen: "title", itemId: film.titleId }}>{film.name}</Link>
+          {t("needsAttention.filmWithoutSound")}
+        </li>
+      ))}
+      {value.filmsWithoutSoundCount > withoutSound.length ? (
+        <li key="films-more">
+          <WarningIcon />{" "}
+          {t("needsAttention.moreFilmsWithoutSound", {
+            count: value.filmsWithoutSoundCount - withoutSound.length,
+          })}
+        </li>
+      ) : null}
+    </>
   );
 }
 
@@ -76,9 +125,7 @@ export function NeedsAttention(): JSX.Element {
             { count: value.unreadCount, key: "needsAttention.unreadPaths" },
             { count: value.matchCount, key: "needsAttention.waitingMatches" },
           ].filter((line) => line.count > 0);
-          const readWrongly = value.seriesReadWrongly ?? [];
-          const withoutSound = value.filmsWithoutSound ?? [];
-          return lines.length + readWrongly.length + withoutSound.length === 0 &&
+          return lines.length + value.seriesReadWronglyCount + value.filmsWithoutSoundCount === 0 &&
             newer === undefined ? (
             <p>{t("needsAttention.nothing")}</p>
           ) : (
@@ -89,22 +136,7 @@ export function NeedsAttention(): JSX.Element {
                   <WarningIcon /> {t(line.key, { count: line.count })}
                 </li>
               ))}
-              {readWrongly.map((series) => (
-                <li key={`series-${String(series.seriesId)}`}>
-                  <WarningIcon />{" "}
-                  <Link to={{ screen: "series-page", collectionId: series.seriesId }}>
-                    {series.name}
-                  </Link>
-                  {t("needsAttention.seriesReadWrongly", { count: series.unplacedCount })}
-                </li>
-              ))}
-              {withoutSound.map((film) => (
-                <li key={`film-${String(film.titleId)}`}>
-                  <WarningIcon />{" "}
-                  <Link to={{ screen: "title", itemId: film.titleId }}>{film.name}</Link>
-                  {t("needsAttention.filmWithoutSound")}
-                </li>
-              ))}
+              <ProblemTitles value={value} />
             </ul>
           );
         }}

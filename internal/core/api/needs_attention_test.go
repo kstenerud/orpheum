@@ -96,7 +96,8 @@ func TestNeedsAttention_TellsTheSeriesWhoseEpisodesWereLikelyReadWrongly(t *test
 	}
 	storetest.ExecRaw(t, harness.databasePath, statements...)
 	got := harness.do(t, http.MethodGet, "/needs-attention", admin, nil)
-	if !strings.Contains(got.body, `"seriesReadWrongly":[{"seriesId":20,"name":"Brass Arena","unplacedCount":5}]`) {
+	if !strings.Contains(got.body,
+		`"seriesReadWrongly":[{"seriesId":20,"name":"Brass Arena","unplacedCount":5}],"seriesReadWronglyCount":1`) {
 		t.Errorf("GET /needs-attention = %d %s; want Brass Arena's five unplaced episodes told", got.status, got.body)
 	}
 }
@@ -123,5 +124,35 @@ func TestNeedsAttention_ListsTheFilmsWhoseFileHasNoSound(t *testing.T) {
 	got := harness.do(t, http.MethodGet, "/needs-attention", admin, nil)
 	if !strings.Contains(got.body, `"filmsWithoutSound":[{"titleId":11,"name":"Mister 517"}]`) {
 		t.Errorf("GET /needs-attention = %d %s; want only Mister 517 listed as without sound", got.status, got.body)
+	}
+}
+
+// Needs attention lists at most 100 films without sound, and counts them all (D432 §4).
+func TestNeedsAttention_ListsAHundredAndCountsThemAll(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelve(t)
+	names := make([]string, 0, 101)
+	for index := range 101 {
+		id := int64(1000 + index)
+		librarytest.Title(t, harness.database, librarytest.TitleSpec{ID: id, Library: 1, Year: 1950, AddedAt: 3})
+		librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: id, TitleID: id, CreatedAt: 3})
+		librarytest.File(t, harness.database, librarytest.FileSpec{
+			ID: id, LibraryID: 1, NodeID: 1, Path: fmt.Sprintf("/m/Silent %d (1950).mp4", index), SizeBytes: 1000,
+			PayloadHash: []byte{byte(index), 0xf0}, Filing: "listed", VersionID: id,
+		})
+		librarytest.Stream(t, harness.database,
+			librarytest.StreamSpec{BytesFile: id, StreamIndex: 0, Kind: "video", Codec: "h264"})
+		names = append(names, fmt.Sprintf("(%d, 'und', 1, 'Silent %d', 'silent')", id, index))
+	}
+	storetest.ExecRaw(t, harness.databasePath,
+		"INSERT INTO item_text (item_id, language, is_original, name, search_alternates) VALUES "+
+			strings.Join(names, ", "))
+	var got api.NeedsAttentionOutput
+	harness.readJSON(t, "/needs-attention", admin, &got.Body)
+	if len(got.Body.FilmsWithoutSound) != 100 || got.Body.FilmsWithoutSoundCount != 101 {
+		t.Errorf("GET /needs-attention listed %d films without sound and counted %d; want 100 and 101",
+			len(got.Body.FilmsWithoutSound), got.Body.FilmsWithoutSoundCount)
 	}
 }

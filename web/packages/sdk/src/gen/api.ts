@@ -3767,10 +3767,14 @@ export interface components {
             diskCount: number;
             filmsWithoutSound: components["schemas"]["FilmWithoutSoundBody"][] | null;
             /** Format: int64 */
+            filmsWithoutSoundCount: number;
+            /** Format: int64 */
             matchCount: number;
             /** Format: int64 */
             rootCount: number;
             seriesReadWrongly: components["schemas"]["SeriesReadWronglyBody"][] | null;
+            /** Format: int64 */
+            seriesReadWronglyCount: number;
             /** Format: int64 */
             unreadCount: number;
             /** Format: int64 */

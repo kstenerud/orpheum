@@ -138,7 +138,15 @@ describe("SecurityUpdateNote", () => {
           "GET /libraries": [200, { libraries: [] }],
           "GET /needs-attention": [
             200,
-            { rootCount: 0, diskCount: 0, waitingRootCount: 0, unreadCount: 0, matchCount: 0 },
+            {
+              rootCount: 0,
+              diskCount: 0,
+              waitingRootCount: 0,
+              unreadCount: 0,
+              matchCount: 0,
+              seriesReadWronglyCount: 0,
+              filmsWithoutSoundCount: 0,
+            },
           ],
         }),
       ),

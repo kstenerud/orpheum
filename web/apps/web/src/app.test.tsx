@@ -71,7 +71,15 @@ async function noticeAfterSigningOut(answer: Answers[string]): Promise<string | 
       "GET /items": [200, { items: [], nextCursor: "" }],
       "GET /needs-attention": [
         200,
-        { rootCount: 0, diskCount: 0, waitingRootCount: 0, unreadCount: 0, matchCount: 0 },
+        {
+          rootCount: 0,
+          diskCount: 0,
+          waitingRootCount: 0,
+          unreadCount: 0,
+          matchCount: 0,
+          seriesReadWronglyCount: 0,
+          filmsWithoutSoundCount: 0,
+        },
       ],
       "GET /setup": [200, { isRequired: false }],
       "DELETE /session": answer,
@@ -151,7 +159,15 @@ describe("App", () => {
       "GET /items": [200, { items: [], nextCursor: "" }],
       "GET /needs-attention": [
         200,
-        { rootCount: 1, diskCount: 0, waitingRootCount: 0, unreadCount: 0, matchCount: 0 },
+        {
+          rootCount: 1,
+          diskCount: 0,
+          waitingRootCount: 0,
+          unreadCount: 0,
+          matchCount: 0,
+          seriesReadWronglyCount: 0,
+          filmsWithoutSoundCount: 0,
+        },
       ],
     };
     const moves = createPathMoves();
@@ -179,7 +195,15 @@ describe("App", () => {
       "GET /items": [200, { items: [], nextCursor: "" }],
       "GET /needs-attention": [
         200,
-        { rootCount: 1, diskCount: 0, waitingRootCount: 0, unreadCount: 0, matchCount: 0 },
+        {
+          rootCount: 1,
+          diskCount: 0,
+          waitingRootCount: 0,
+          unreadCount: 0,
+          matchCount: 0,
+          seriesReadWronglyCount: 0,
+          filmsWithoutSoundCount: 0,
+        },
       ],
     };
     const moves = createPathMoves();
@@ -209,7 +233,15 @@ describe("App", () => {
           "GET /items": [200, { items: [], nextCursor: "" }],
           "GET /needs-attention": [
             200,
-            { rootCount: 1, diskCount: 0, waitingRootCount: 0, unreadCount: 0, matchCount: 0 },
+            {
+              rootCount: 1,
+              diskCount: 0,
+              waitingRootCount: 0,
+              unreadCount: 0,
+              matchCount: 0,
+              seriesReadWronglyCount: 0,
+              filmsWithoutSoundCount: 0,
+            },
           ],
         },
         heard,
@@ -404,7 +436,15 @@ describe("App", () => {
         "GET /items": [200, { items: [], nextCursor: "" }],
         "GET /needs-attention": [
           200,
-          { rootCount: 0, diskCount: 0, waitingRootCount: 0, unreadCount: 0, matchCount: 0 },
+          {
+            rootCount: 0,
+            diskCount: 0,
+            waitingRootCount: 0,
+            unreadCount: 0,
+            matchCount: 0,
+            seriesReadWronglyCount: 0,
+            filmsWithoutSoundCount: 0,
+          },
         ],
         "GET /together/3": [
           200,

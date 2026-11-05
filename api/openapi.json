@@ -3999,10 +3999,15 @@
             "items": {
               "$ref": "#/components/schemas/FilmWithoutSoundBody"
             },
+            "maxItems": 100,
             "type": [
               "array",
               "null"
             ]
+          },
+          "filmsWithoutSoundCount": {
+            "format": "int64",
+            "type": "integer"
           },
           "matchCount": {
             "format": "int64",
@@ -4016,10 +4021,15 @@
             "items": {
               "$ref": "#/components/schemas/SeriesReadWronglyBody"
             },
+            "maxItems": 100,
             "type": [
               "array",
               "null"
             ]
+          },
+          "seriesReadWronglyCount": {
+            "format": "int64",
+            "type": "integer"
           },
           "unreadCount": {
             "format": "int64",
@@ -4037,7 +4047,9 @@
           "unreadCount",
           "matchCount",
           "seriesReadWrongly",
-          "filmsWithoutSound"
+          "seriesReadWronglyCount",
+          "filmsWithoutSound",
+          "filmsWithoutSoundCount"
         ],
         "type": "object"
       },
