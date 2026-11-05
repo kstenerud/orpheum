@@ -1792,6 +1792,10 @@ table back empty: a player measures its link again at its next play. The core th
 copy and reports ready. The rehearsal runs again on the newest backup just before the deploy, by
 `/yoloai/cache/d430-rehearsal/rehearse.sh` (lead's cache, not the repository).
 
+Nothing new deploys to nas.example until after 2026-11-06: it goes down that afternoon for the rest of
+the day (the owner, 2026-11-05). This batch goes to staging, and to production at the owner's go;
+nas.example or devnas.example takes it after that, at the owner's word.
+
 The owner's answers on API step C3 (2026-11-05): a season's episodes and search move to the `/items`
 cursor in this batch, with the same limits, search's carrying its rank and the id ("Unify now"); the
 Jobs list keeps its `job_view_max_jobs` cap ("Keep the cap"); backups, libraries, nodes, devices,
