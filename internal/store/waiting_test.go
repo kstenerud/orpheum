@@ -46,7 +46,9 @@ func TestCountWaitingForAPerson_CountsWhatTheListShows(t *testing.T) {
 		"INSERT INTO item (id, kind, added_at, identification_state, followed_source) VALUES "+
 			"(20, 'series', 1, 'ambiguous', NULL), (21, 'series', 1, 'unidentified', 'none')",
 		"INSERT INTO sequence (id, kind, created_by) VALUES (20, 'series', 'scanner'), (21, 'series', 'scanner')",
-		"INSERT INTO sequence_member (sequence_id, member_work) VALUES (20, 6), (21, 7)")
+		"INSERT INTO ordering (id, sequence_id, name, kind) VALUES (1, 20, 'aired', 'aired'), "+
+			"(2, 21, 'aired', 'aired')",
+		"INSERT INTO position (ordering_id, work_id, sort_order) VALUES (1, 6, 1), (2, 7, 1)")
 	count, err := database.Read().CountWaitingForAPerson(t.Context())
 	if err != nil || count != 4 {
 		t.Errorf("counted %d, %v; want 4: the ambiguous film, the film nothing was found for, and both series",

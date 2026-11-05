@@ -64,7 +64,6 @@ func (harness testHarness) shelve(t *testing.T) {
 		"INSERT INTO ordering (id, sequence_id, name, kind) VALUES (1, 20, 'aired', 'aired')",
 		storetest.Positions(
 			"(1, 21, 1, 1, 10001)"),
-		"INSERT INTO sequence_member (sequence_id, member_work, position) VALUES (20, 21, 10001)",
 		// Metropolis's poster is a person's choice over a newer one TMDB named; its backdrop was refused.
 		`INSERT INTO artwork (item_id, kind, source, source_ref, source_sha256, is_chosen, removed_at) VALUES
 		 (10, 'poster', 'user', NULL, X'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 1, NULL),

@@ -102,10 +102,10 @@ WHERE person.id = sqlc.arg(person_id) AND EXISTS (
         AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
           OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))))
     OR (sequence.kind = 'series' AND EXISTS (
-      SELECT 1 FROM sequence_member
-      CROSS JOIN version ON version.work_id = sequence_member.member_work
+      SELECT 1 FROM series_member
+      CROSS JOIN version ON version.work_id = series_member.member_work
       CROSS JOIN version_library ON version_library.version_id = version.id
-      WHERE sequence_member.sequence_id = sequence.id AND version.removed_at IS NULL
+      WHERE series_member.sequence_id = sequence.id AND version.removed_at IS NULL
         AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
           OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))))));
 
@@ -137,10 +137,10 @@ WHERE item.removed_at IS NULL
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))))
   OR (sequence.kind = 'series' AND EXISTS (
-    SELECT 1 FROM sequence_member
-    CROSS JOIN version ON version.work_id = sequence_member.member_work
+    SELECT 1 FROM series_member
+    CROSS JOIN version ON version.work_id = series_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE sequence_member.sequence_id = sequence.id AND version.removed_at IS NULL
+    WHERE series_member.sequence_id = sequence.id AND version.removed_at IS NULL
       AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT)))))))
 GROUP BY genre.id
@@ -171,9 +171,9 @@ WHERE item.removed_at IS NULL AND (work.kind IN ('movie', 'other') OR sequence.k
       WHERE work_watched.user_id = sqlc.arg(user_id) AND work_watched.work_id = work.id
         AND work_watched.watched_at IS NOT NULL))
     OR (sequence.id IS NOT NULL AND EXISTS (
-      SELECT 1 FROM sequence_member
-      CROSS JOIN item AS episode ON episode.id = sequence_member.member_work
-      WHERE sequence_member.sequence_id = sequence.id AND episode.removed_at IS NULL
+      SELECT 1 FROM series_member
+      CROSS JOIN item AS episode ON episode.id = series_member.member_work
+      WHERE series_member.sequence_id = sequence.id AND episode.removed_at IS NULL
         AND EXISTS (SELECT 1 FROM version WHERE version.work_id = episode.id AND version.removed_at IS NULL)
         AND NOT EXISTS (
           SELECT 1 FROM work_watched

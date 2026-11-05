@@ -41,10 +41,10 @@ func (q *Queries) DeletePreferencesOfUser(ctx context.Context, userID int64) err
 
 const getWorkOfFile = `-- name: GetWorkOfFile :one
 SELECT CAST(coalesce((
-  SELECT sequence_member.sequence_id FROM sequence_member
-  JOIN sequence ON sequence.id = sequence_member.sequence_id AND sequence.kind = 'series'
-  WHERE sequence_member.member_work = version.work_id
-  ORDER BY sequence_member.sequence_id LIMIT 1
+  SELECT series_member.sequence_id FROM series_member
+  JOIN sequence ON sequence.id = series_member.sequence_id AND sequence.kind = 'series'
+  WHERE series_member.member_work = version.work_id
+  ORDER BY series_member.sequence_id LIMIT 1
 ), version.work_id) AS INTEGER) AS work_id
 FROM place AS own
 JOIN version ON version.id = (

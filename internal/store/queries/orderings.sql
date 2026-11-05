@@ -26,10 +26,10 @@ ORDER BY id;
 -- A series' live episodes, each with its id at the provider it takes its values from: what places it
 -- in a provider's ordering, by the episode that ordering lists.
 SELECT work.id AS work_id, CAST(item.followed_source_id AS TEXT) AS followed_source_id
-FROM sequence_member
-JOIN work ON work.id = sequence_member.member_work
+FROM series_member
+JOIN work ON work.id = series_member.member_work
 JOIN item ON item.id = work.id AND item.removed_at IS NULL
-WHERE sequence_member.sequence_id = sqlc.arg(sequence_id) AND item.followed_source = sqlc.arg(provider)
+WHERE series_member.sequence_id = sqlc.arg(sequence_id) AND item.followed_source = sqlc.arg(provider)
   AND item.followed_source_id IS NOT NULL
 ORDER BY work.id;
 

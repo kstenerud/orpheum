@@ -148,10 +148,10 @@ SELECT CAST(EXISTS (
         AND (CAST(?2 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
     ) OR EXISTS (
-      SELECT 1 FROM sequence_member
-      CROSS JOIN version ON version.work_id = sequence_member.member_work
+      SELECT 1 FROM series_member
+      CROSS JOIN version ON version.work_id = series_member.member_work
       CROSS JOIN version_library ON version_library.version_id = version.id
-      WHERE sequence_member.sequence_id = item.id AND version.removed_at IS NULL
+      WHERE series_member.sequence_id = item.id AND version.removed_at IS NULL
         AND (CAST(?2 AS INTEGER) = 1
         OR version_library.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
     ))
@@ -183,10 +183,10 @@ SELECT artwork.source_sha256,
       SELECT 1 FROM version CROSS JOIN version_library ON version_library.version_id = version.id
       WHERE version.work_id = item.id AND version.removed_at IS NULL)
     OR EXISTS (
-      SELECT 1 FROM sequence_member
-      CROSS JOIN version ON version.work_id = sequence_member.member_work
+      SELECT 1 FROM series_member
+      CROSS JOIN version ON version.work_id = series_member.member_work
       CROSS JOIN version_library ON version_library.version_id = version.id
-      WHERE sequence_member.sequence_id = item.id AND version.removed_at IS NULL)
+      WHERE series_member.sequence_id = item.id AND version.removed_at IS NULL)
   ) THEN 1 ELSE 0 END) AS INTEGER) AS is_listed,
   CAST(MAX(COALESCE(artwork.removed_at, item.removed_at, 0)) AS INTEGER) AS gone_at
 FROM artwork
@@ -285,7 +285,7 @@ func (q *Queries) ListFirstEpisodes(ctx context.Context, seriesIDListJson string
 const listFrameStillCandidates = `-- name: ListFrameStillCandidates :many
 SELECT work.id AS work_id, work.kind AS work_kind,
   CAST(COALESCE((
-    SELECT member.sequence_id FROM sequence_member member
+    SELECT member.sequence_id FROM series_member member
     JOIN sequence ON sequence.id = member.sequence_id AND sequence.kind = 'series'
     WHERE member.member_work = work.id LIMIT 1
   ), 0) AS INTEGER) AS series_id,
@@ -336,7 +336,7 @@ WHERE item.filing_library_id = ?1 AND item.removed_at IS NULL
             AND provider_response.part = ''
         )))
     OR (work.kind = 'episode' AND EXISTS (
-      SELECT 1 FROM sequence_member member
+      SELECT 1 FROM series_member member
       JOIN item series ON series.id = member.sequence_id AND series.kind = 'series'
       WHERE member.member_work = work.id AND series.identification_state != 'ambiguous'
         AND NOT EXISTS (SELECT 1 FROM fetch_failure WHERE fetch_failure.item_id = series.id)

@@ -111,7 +111,6 @@ func TestPass_EpisodesAnOlderReadingSplitIntoSeriesOfTheirOwnComeTogether(t *tes
 			titles[second].WorkID),
 		split(`UPDATE position SET ordering_id = 9001, grp_id = (SELECT id FROM grp WHERE ordering_id = 9001)
 			WHERE work_id = %d`, titles[second].WorkID),
-		split(`UPDATE sequence_member SET sequence_id = 9001 WHERE member_work = %d`, titles[second].WorkID),
 		split(`UPDATE item_text SET name = 'Arkon Horizon S01E01' WHERE item_id = %d`, seriesID),
 	)
 	if seriesOf := lib.seriesOfEach(); seriesOf[titles[first].WorkID] == seriesOf[titles[second].WorkID] {

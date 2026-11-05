@@ -75,18 +75,18 @@ ORDER BY version.work_id;
 -- name: ListSeriesToAdopt :many
 -- The series some of whose episodes a library's pass files, whose filing library files none of them
 -- any more: they follow their episodes (D363 sections 5, 10).
-SELECT DISTINCT sequence_member.sequence_id
+SELECT DISTINCT series_member.sequence_id
 FROM item AS episode
-CROSS JOIN sequence_member ON sequence_member.member_work = episode.id
-CROSS JOIN item AS series ON series.id = sequence_member.sequence_id
+CROSS JOIN series_member ON series_member.member_work = episode.id
+CROSS JOIN item AS series ON series.id = series_member.sequence_id
 WHERE episode.filing_library_id = sqlc.arg(library_id) AND episode.removed_at IS NULL AND episode.kind IN ('movie', 'episode', 'extra', 'other')
   AND series.removed_at IS NULL AND series.kind = 'series' AND series.filing_library_id IS NOT sqlc.arg(library_id)
   AND NOT EXISTS (
-    SELECT 1 FROM sequence_member AS held
+    SELECT 1 FROM series_member AS held
     CROSS JOIN item AS sibling ON sibling.id = held.member_work
     WHERE held.sequence_id = series.id AND sibling.removed_at IS NULL
       AND sibling.filing_library_id = series.filing_library_id)
-ORDER BY sequence_member.sequence_id;
+ORDER BY series_member.sequence_id;
 
 -- name: SetItemsFilingLibrary :exec
 -- Items a library's pass adopts (ListWorksToAdopt, ListSeriesToAdopt): the ids are a JSON array.
@@ -136,10 +136,10 @@ WHERE version.work_id = ? AND version.removed_at IS NULL AND place.removed_at IS
 -- episodes' files any more (D363 section 10).
 SELECT sequence.id, item.filing_library_id, item.removed_at,
   CAST(item.removed_at IS NOT NULL OR NOT EXISTS (
-    SELECT 1 FROM sequence_member
-    CROSS JOIN version ON version.work_id = sequence_member.member_work
+    SELECT 1 FROM series_member
+    CROSS JOIN version ON version.work_id = series_member.member_work
     CROSS JOIN version_library ON version_library.version_id = version.id
-    WHERE sequence_member.sequence_id = sequence.id AND version.removed_at IS NULL
+    WHERE series_member.sequence_id = sequence.id AND version.removed_at IS NULL
       AND version_library.library_id = item.filing_library_id) AS INTEGER) AS is_filed_by_none
 FROM item_provider_id
 JOIN sequence ON sequence.id = item_provider_id.item_id AND sequence.kind = 'series'
@@ -147,12 +147,6 @@ JOIN item ON item.id = sequence.id
 WHERE item_provider_id.provider = ? AND item_provider_id.provider_id = ?
   AND (item.removed_at IS NULL OR item.merged_into IS NULL)
 ORDER BY item.removed_at IS NOT NULL, sequence.id;
-
--- name: MoveEpisodeToSeries :exec
--- An episode joins another series at the same place: its membership, and its place in the
--- aired order, which moves to the other series' own.
-UPDATE sequence_member SET sequence_id = sqlc.arg(to_series)
-WHERE sequence_id = sqlc.arg(from_series) AND member_work = sqlc.arg(work_id);
 
 -- name: MovePositionToOrdering :exec
 -- A position into another ordering, in its group of the same number there, which must be made first:
@@ -272,13 +266,6 @@ ORDER BY sequence.id;
 -- name: InsertSequence :exec
 INSERT INTO sequence (id, kind, created_by)
 VALUES (sqlc.arg(id), 'series', sqlc.arg(created_by));
-
--- name: UpsertSequenceMember :exec
-INSERT INTO sequence_member (sequence_id, member_work, position)
-VALUES (sqlc.arg(sequence_id), sqlc.arg(member_work), sqlc.arg(position))
-ON CONFLICT (sequence_id, member_work) DO UPDATE SET position = excluded.position
--- Only when it changes something (D303, DL9).
-WHERE (sequence_member.position) IS NOT (excluded.position);
 
 -- name: GetOrdering :one
 SELECT id FROM ordering WHERE sequence_id = ? AND name = ?;
@@ -464,14 +451,6 @@ CROSS JOIN library ON library.id = item.filing_library_id
 LEFT JOIN item_text ON item_text.item_id = sequence.id AND item_text.is_original = 1
 LEFT JOIN ordering ON ordering.sequence_id = sequence.id AND ordering.name = 'aired'
 WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND item.kind = 'series';
-
--- name: ListLibrarySeriesMembers :many
--- The titles in the library's live series, with their places.
-SELECT sequence_member.sequence_id, sequence_member.member_work, sequence_member.position
-FROM item
-JOIN sequence_member ON sequence_member.sequence_id = item.id
-WHERE item.filing_library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND item.kind = 'series'
-  AND sequence_member.member_work IS NOT NULL;
 
 -- name: ListLibrarySeriesEpisodePlaces :many
 -- ListSeriesEpisodePlaces for every live series of the library.

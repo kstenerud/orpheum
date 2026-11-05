@@ -96,7 +96,6 @@ INSERT INTO artwork (id, item_id, kind, source, source_ref, refused_at, refusal,
   VALUES (2, 1, 'backdrop', 'tmdb', '/gone.jpg', 1790000700000, 'no image there', 1);
 
 INSERT INTO sequence (id, kind, created_by) VALUES (3, 'series', 'scanner');
-INSERT INTO sequence_member (sequence_id, member_work, position) VALUES (3, 1, 1.0);
 INSERT INTO ordering (id, sequence_id, name, provider, kind) VALUES (1, 3, 'aired', 'tmdb', 'aired');
 INSERT INTO ordering (id, sequence_id, name, provider, kind, source_id, label, listed_count)
   VALUES (2, 3, 'tmdb:5e9077d2e640d600151f32bd', 'tmdb', 'dvd', '5e9077d2e640d600151f32bd', 'DVD Order', 23);

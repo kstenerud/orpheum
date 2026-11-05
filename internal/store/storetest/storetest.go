@@ -159,6 +159,17 @@ func Positions(rows string) string {
 		") AS placed LEFT JOIN grp ON grp.ordering_id = placed.column1 AND grp.number = placed.column3"
 }
 
+// Members is the statement ExecRaw runs to make titles a series' members: its aired order, made if
+// it has none, and a place in it in no season for each of rows, the values "(work_id, sort_order)"
+// (D426 section 6).
+func Members(seriesID int64, rows string) string {
+	return fmt.Sprintf("INSERT INTO ordering (sequence_id, name, kind) VALUES (%d, 'aired', 'aired') "+
+		"ON CONFLICT (sequence_id, name) DO NOTHING;\n"+
+		"INSERT INTO position (ordering_id, work_id, sort_order) SELECT ordering.id, member.column1, member.column2 "+
+		"FROM (VALUES %s) AS member JOIN ordering ON ordering.sequence_id = %d AND ordering.name = 'aired'",
+		seriesID, rows, seriesID)
+}
+
 // ExecRaw runs statements directly on the database file at path, bypassing the store, to build
 // states the store itself never produces: a file a newer release upgraded, a foreign file. It
 // waits for a lock as the store's own connections do: with none, a lock held for an instant just
