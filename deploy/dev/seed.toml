@@ -23,7 +23,7 @@ admin_note = "the remote partner"   # D246 §2: who it is for, the admin's alone
 # so dropping a file into .dev/media shows up at once; and the media never written to.
 [[library]]
 name = "Dev films"
-kind = "movies"
+kind = "movie"
 root_path = "{root}/.dev/media/movies"
 metadata_source = "nfo"
 change_detection = "watch"
@@ -32,7 +32,7 @@ roles = ["user"]                     # D243 §4: the partner's role reaches it; 
 
 [[library]]
 name = "Dev shows"
-kind = "shows"
+kind = "series"
 root_path = "{root}/.dev/media/shows"
 metadata_source = "nfo"
 change_detection = "watch"
