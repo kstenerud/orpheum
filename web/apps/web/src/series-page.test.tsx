@@ -9,7 +9,7 @@
 
 import "./i18n.ts";
 
-import { act, useState, type JSX, type ReactNode } from "react";
+import { act, useEffect, useState, type JSX, type ReactNode } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
@@ -60,11 +60,13 @@ let shown: Mounted | undefined;
  */
 let show: (() => void) | undefined;
 function ShownLater(props: { readonly children: ReactNode }): JSX.Element {
-  const [shownYet, setShownYet] = useState(false);
-  show = () => {
-    setShownYet(true);
-  };
-  return <>{shownYet ? props.children : null}</>;
+  const [isShown, setIsShown] = useState(false);
+  useEffect(() => {
+    show = () => {
+      setIsShown(true);
+    };
+  }, []);
+  return <>{isShown ? props.children : null}</>;
 }
 
 /** The Series list, standing in, and a series' page, letting episodes reached go as the app does. */
