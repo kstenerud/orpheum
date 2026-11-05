@@ -2037,3 +2037,14 @@ each showing what it showed before. These are left for the owner; each has a rec
    and `hosted-details.ts`'s `knownDetails` survive from one test to the next, as the title and
    series pages' did ("fix(web): each test's walk forgets the title and series pages an earlier walk remembered"). Each is reset through `resetOnEachTestMount`, with a test that
    fails without it.
+
+**The 11-07 to 11-09 batches passed check-pr (2026-11-05, at "test(web): the invitations' alignment test derives each issue time from its id"),** over base "fix(hwtest): find the films by GET /files?library=, page by page". Staging
+and nas.example wait for the owner's go. Found on the way and filed for the next batch:
+
+- **Other latest values kept in a passive effect** (the flake agent, "fix(web): a command is heard by the handler of the page as drawn"): `useCommands` heard a
+  command with the handler from before the last render; `useLatest` in `cast-receiver.tsx`, the
+  overlay's `stateRef`/`isMenuOpenRef` for picture taps, `popover.tsx`, `cast-dialog.tsx` and
+  `up-next.tsx` keep theirs the same way and could meet the same race. Nothing has shown them
+  failing; one shared helper would end the pattern.
+- **`title_found` is recomputed over all of a title's files on each filing** (file_filing's triggers),
+  quadratic in files per title: harmless at real sizes, seen building "test(api): a series' unplaced files are counted past the 5000 the read once stopped at"'s test. For code-debt.md.
