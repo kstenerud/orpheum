@@ -1780,6 +1780,18 @@ D426's schema rebuild rides in it (steps 0073–0080, each migrating in place). 
 deploy, the migration is rehearsed on a read-only copy of nas.example's database, with no export/import
 tool, and the steps stay appended: no fold this batch (D430, the owner, 2026-11-05).
 
+**Rehearsed (the lead, 2026-11-05, at "docs(plans): defer the API compatibility gate, with how to build it later")** on the persistent.db in nas.example's core backup of
+14:13 UTC, copied by reading the backup (nothing on nas.example changed). It was at schema 67, and 13 steps
+took it to 80 in 1.8 s, with the integrity and foreign key checks clean. Users, grants, devices,
+resume positions, watched marks and preferences come through row for row. Hidden items (none on
+nas.example), play events, play spans and places come through too, and a film's or series' language
+preferences take the scope `item`. Two counts fall, both as designed. `file` goes from 15,222 to
+15,218, because the four recorded copies (`copy_of`) join their originals and no watching named
+them. `link_memory`'s six rows go, because step 0070 moves telemetry out and step 0073 brings the
+table back empty: a player measures its link again at its next play. The core then starts on the
+copy and reports ready. The rehearsal runs again on the newest backup just before the deploy, by
+`/yoloai/cache/d430-rehearsal/rehearse.sh` (lead's cache, not the repository).
+
 The owner's answers on API step C3 (2026-11-05): a season's episodes and search move to the `/items`
 cursor in this batch, with the same limits, search's carrying its rank and the id ("Unify now"); the
 Jobs list keeps its `job_view_max_jobs` cap ("Keep the cap"); backups, libraries, nodes, devices,
