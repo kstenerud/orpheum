@@ -11,6 +11,7 @@ import {
   SoundOffsetControl,
   soundOffsetKeptAfterMs,
 } from "./sound-delay.tsx";
+import { newSoundPanel, SoundPanelContext } from "./sound-panel.ts";
 import { fire, mount, refusal, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
@@ -203,5 +204,35 @@ describe("this device's sound timing (the owner's TCL TV, 2026-10-24)", () => {
     expect(mounted.container.textContent).toContain("Sound on this device: 50 ms earlier");
     await letPass(soundOffsetKeptAfterMs);
     expect(heard).toEqual([]);
+  });
+
+  it("tells a cast's remote how it stands, and moves as the remote chooses, kept on the device (the owner, 2026-11-06)", async () => {
+    // "Put a control in ... cast so that I can adjust the sound timing", from the phone that casts.
+    const heard: Heard[] = [];
+    const services = servedBy({ "PUT /me/devices/5": [204, undefined] }, heard);
+    services.session.signIn("token", { deviceId: 5 });
+    const panel = newSoundPanel();
+    mounted = await mount(
+      withServices(
+        <SoundPanelContext value={panel}>
+          <SoundOffsetControl videoRef={createRef()} initialMs={0} />
+          <SoundOffsetControl videoRef={createRef()} initialMs={0} isInAList />
+        </SoundPanelContext>,
+        services,
+      ),
+    );
+    holdTheClock();
+    expect(panel.read()?.soundOffsetMs).toBe(0);
+    act(() => {
+      panel.choose({ kind: "soundOffset", ms: -200 });
+    });
+    expect(panel.read()?.soundOffsetMs).toBe(-200);
+    const shown = [...mounted.container.querySelectorAll("span")].map((each) => each.textContent);
+    expect(shown).toEqual([
+      "Sound on this device: 200 ms earlier",
+      "Sound on this device: 200 ms earlier",
+    ]);
+    await letPass(soundOffsetKeptAfterMs);
+    expect(heard).toEqual([{ methodAndPath: "PUT /me/devices/5", body: { soundOffsetMs: -200 } }]);
   });
 });

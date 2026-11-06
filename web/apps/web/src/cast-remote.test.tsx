@@ -246,6 +246,44 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     expect(page.querySelector<HTMLSelectElement>(".cast-remote__sound select")?.value).toBe("2");
   });
 
+  it("shows the receiver's sound timing, and moves it a step from there for a TV that plays its sound late (the owner, 2026-11-06)", async () => {
+    // "Put a control in ... cast so that I can adjust the sound timing".
+    const { sockets } = await casting({});
+    const page = mounted!.container;
+    const server = sockets.session;
+    const roster = (said: Readonly<Record<string, unknown>>): Record<string, unknown> => ({
+      type: "roster",
+      roster: [
+        {
+          id: 2,
+          name: "owner",
+          isHost: true,
+          devices: [
+            { id: 5, role: "panel" },
+            {
+              id: 7,
+              role: "video",
+              isLeader: true,
+              playback: { delivery: "direct", sound: said },
+            },
+          ],
+        },
+      ],
+    });
+    await server.say(roster({ isLevellingOn: false, audioTracks: [] }));
+    expect(page.textContent).not.toContain("Sound there");
+    await server.say(roster({ isLevellingOn: false, audioTracks: [], soundOffsetMs: -200 }));
+    expect(page.textContent).toContain("Sound there: 200 ms earlier");
+    await click(buttonWithText(page, "Sound 50 ms earlier"));
+    await server.say(roster({ isLevellingOn: false, audioTracks: [], soundOffsetMs: 0 }));
+    expect(page.textContent).toContain("Sound there: in step with the picture");
+    await click(buttonWithText(page, "Sound 50 ms later"));
+    expect(server.heard.filter((each) => each["type"] === "sound")).toEqual([
+      { v: 2, type: "sound", sound: { kind: "soundOffset", ms: -250 } },
+      { v: 2, type: "sound", sound: { kind: "soundOffset", ms: 50 } },
+    ]);
+  });
+
   it("says the receiver is ready with nothing playing, offering Stop casting alone (D364 §8)", async () => {
     await casting({}, [], { ...sending, fileId: 0, itemName: "" });
     const page = mounted!.container;

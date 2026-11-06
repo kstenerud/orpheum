@@ -51,6 +51,11 @@ export const enCast = {
       quality: "Quality {{rate}}",
       link: "Link about {{rate}}",
     },
+    soundOffset: {
+      inStep: "Sound there: in step with the picture",
+      laterBy: "Sound there: {{ms}} ms later",
+      earlierBy: "Sound there: {{ms}} ms earlier",
+    },
     readyOn: "Ready on {{name}}. What you play now plays there.",
     stop: "Stop casting",
     sendingOn: "Sending it to the device you cast to…",

@@ -72,7 +72,7 @@ describe("a Watch Together viewer's sound timing (the owner, 2026-11-06)", () =>
   it("starts from the offset kept with the device the viewer is signed in on, as the server gives a guest's playback none", async () => {
     const mounted = await groupFilm(7);
     await settleUntil(() =>
-      (mounted.container.textContent ?? "").includes("Sound on this device: 200 ms earlier"),
+      mounted.container.textContent.includes("Sound on this device: 200 ms earlier"),
     );
     expect(buttonWithText(mounted.container, "Sound 50 ms earlier")).toBeDefined();
     mounted.unmount();
@@ -81,7 +81,7 @@ describe("a Watch Together viewer's sound timing (the owner, 2026-11-06)", () =>
   it("starts in step for a viewer with no device of their own, who may still move it", async () => {
     const mounted = await groupFilm(undefined);
     await settleUntil(() =>
-      (mounted.container.textContent ?? "").includes("Sound on this device: in step"),
+      mounted.container.textContent.includes("Sound on this device: in step"),
     );
     await click(buttonWithText(mounted.container, "Sound 50 ms earlier"));
     expect(mounted.container.textContent).toContain("Sound on this device: 50 ms earlier");

@@ -226,14 +226,18 @@ describe("a film's sound between a player and its remote", () => {
     hear({ kind: "audioTrack", streamId: 5 });
     hear({ kind: "louder" });
     hear({ kind: "audioTrack" });
+    hear({ kind: "soundOffset", ms: -250 });
+    hear({ kind: "soundOffset" }); // the server omits a zero
     expect(heard).toEqual([
       { kind: "levelling", isOn: false },
       { kind: "audioTrack", streamId: 5 },
+      { kind: "soundOffset", ms: -250 },
+      { kind: "soundOffset", ms: 0 },
     ]);
     expect(connection.snapshot()).toBe(before);
     unsubscribe();
     hear({ kind: "boost", isOn: false });
-    expect(heard).toHaveLength(2);
+    expect(heard).toHaveLength(4);
   });
 
   it("tells its film's sound with how it plays it, as its page reads it", () => {

@@ -2,7 +2,8 @@
 
 /**
  * The Play page's sound controls as one panel a cast's remote reads and works (playback-sound.ts in
- * the SDK): the dialogue boost's switch, levelling's and the audio track's menu each say here how they
+ * the SDK): the dialogue boost's switch, levelling's, the audio track's menu and the sound's timing
+ * (the owner, 2026-11-06: "Put a control in ... cast") each say here how they
  * stand, which the receiver tells its session for the remote to show, and each carries out the
  * remote's choice of it as its own press, kept for the person as a press is. A Fire TV's own controls
  * are hidden while it is controlled, so its sound could only be changed after taking control back
@@ -20,7 +21,8 @@ type SoundPart =
       readonly kind: "audioTrack";
       readonly streamId: number | undefined;
       readonly tracks: readonly SoundTrack[];
-    };
+    }
+  | { readonly kind: "soundOffset"; readonly ms: number };
 
 /** The page's sound controls, as one panel. */
 export interface SoundPanel {
@@ -56,12 +58,12 @@ export function newSoundPanel(): SoundPanel & SoundPanelControls {
       }
       const boost = parts.get("boost");
       const levelling = parts.get("levelling");
-      const audio = parts.get("audioTrack");
+      const offset = parts.get("soundOffset");
       return {
         isBoostOn: boost?.kind === "boost" ? boost.isOn : undefined,
         isLevellingOn: levelling?.kind === "levelling" && levelling.isOn,
-        audioStreamId: audio?.kind === "audioTrack" ? audio.streamId : undefined,
-        audioTracks: audio?.kind === "audioTrack" ? audio.tracks : [],
+        ...audioOf(parts.get("audioTrack")),
+        soundOffsetMs: offset?.kind === "soundOffset" ? offset.ms : undefined,
       };
     },
     subscribe: (listener) => {
@@ -114,11 +116,12 @@ export function useSoundPart(
   const isOn = part !== undefined && "isOn" in part ? part.isOn : undefined;
   const streamId = part?.kind === "audioTrack" ? part.streamId : undefined;
   const tracks = part?.kind === "audioTrack" ? part.tracks : undefined;
+  const ms = part?.kind === "soundOffset" ? part.ms : undefined;
   useEffect(() => {
     if (kind !== undefined) {
-      panel?.show(partOf(kind, { isOn, streamId, tracks }));
+      panel?.show(partOf(kind, { isOn, streamId, tracks, ms }));
     }
-  }, [panel, kind, isOn, streamId, tracks]);
+  }, [panel, kind, isOn, streamId, tracks, ms]);
   useEffect(() => {
     if (panel === undefined || kind === undefined) {
       return undefined;
@@ -140,9 +143,25 @@ function partOf(
     readonly isOn: boolean | undefined;
     readonly streamId: number | undefined;
     readonly tracks: readonly SoundTrack[] | undefined;
+    readonly ms: number | undefined;
   },
 ): SoundPart {
-  return kind === "audioTrack"
-    ? { kind, streamId: fields.streamId, tracks: fields.tracks ?? [] }
-    : { kind, isOn: fields.isOn === true };
+  switch (kind) {
+    case "audioTrack":
+      return { kind, streamId: fields.streamId, tracks: fields.tracks ?? [] };
+    case "soundOffset":
+      return { kind, ms: fields.ms ?? 0 };
+    case "boost":
+    case "levelling":
+      return { kind, isOn: fields.isOn === true };
+  }
+}
+
+/** The audio track's part of the sound as the panel reads it: none where no menu is drawn. */
+function audioOf(
+  part: SoundPart | undefined,
+): Pick<PlaybackSound, "audioStreamId" | "audioTracks"> {
+  return part?.kind === "audioTrack"
+    ? { audioStreamId: part.streamId, audioTracks: part.tracks }
+    : { audioStreamId: undefined, audioTracks: [] };
 }
