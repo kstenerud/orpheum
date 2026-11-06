@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // A session's leader is the screen that is the film (D371 §1), chosen among its contenders alone:
@@ -108,7 +110,7 @@ func (current *session) takeRun(now time.Time, who *member, from *device, messag
 	case !message.Buffering && from.runSince.IsZero():
 		from.runSince = now.Truncate(time.Microsecond)
 		current.logger.Info("watch together: a device's run began",
-			append(current.deviceAttributes(who, from), logEvent, eventRunStarted,
+			append(current.deviceAttributes(who, from), slogx.EventKey, eventRunStarted,
 				"runSince", from.runSince.Format(runLayout))...)
 	}
 }
@@ -121,7 +123,7 @@ func (current *session) endRun(who *member, from *device, why string) {
 	}
 	from.runSince = time.Time{}
 	current.logger.Info("watch together: a device's run ended",
-		append(current.deviceAttributes(who, from), logEvent, eventRunEnded, "why", why)...)
+		append(current.deviceAttributes(who, from), slogx.EventKey, eventRunEnded, "why", why)...)
 }
 
 // isAheadInLine is whether one is ahead of other in line for the lead (D377 §2): one with a run before
@@ -243,7 +245,7 @@ func (current *session) lead(now time.Time, who *member, leading *device, why st
 		}
 	}
 	attributes := append(append([]any{
-		logEvent, eventLeaderChanged, sessionIDAttribute, current.id,
+		slogx.EventKey, eventLeaderChanged, sessionIDAttribute, current.id,
 		leaderDeviceIDAttribute, leading.id, "leaderMemberId", who.id, "why", why,
 		"leaderIsHost", who.isHost, "previousLeaderDeviceId", previous,
 	}, run...), extra...)
@@ -434,8 +436,8 @@ func (current *session) handOn(now time.Time, wasHost bool, because GoneBecause)
 	current.leaderID = 0
 	current.leadsBecause = ""
 	current.logger.Info("watch together: the session's leader changed", append([]any{
-		logEvent, eventLeaderChanged, sessionIDAttribute, current.id, leaderDeviceIDAttribute, 0, "why", leadLeaderGone,
-		"previousLeaderDeviceId", previous,
+		slogx.EventKey, eventLeaderChanged, sessionIDAttribute, current.id, leaderDeviceIDAttribute, 0,
+		"why", leadLeaderGone, "previousLeaderDeviceId", previous,
 	}, gone...)...)
 	return false
 }

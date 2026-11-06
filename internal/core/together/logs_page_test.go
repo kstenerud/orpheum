@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // A film played muted says whether its page had ever been pressed, the press that turned its sound on
@@ -35,14 +37,14 @@ func TestHub_LogsThePagesActivationAndThePressThatAnswered(t *testing.T) {
 		stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &note})
 	}
 	logged := stage.logs.String()
-	if muted := lineWith(t, logged, "playedMuted"); !strings.Contains(muted, `page="`+page+`"`) {
+	if muted := testutil.LineWith(t, logged, "playedMuted"); !strings.Contains(muted, `page="`+page+`"`) {
 		t.Errorf("the log does not say the page's activation as it played muted:\n%s", logged)
 	}
-	if sounded := lineWith(t, logged, "playedWithSound"); !strings.Contains(sounded, "positionMs=1131172") ||
+	if sounded := testutil.LineWith(t, logged, "playedWithSound"); !strings.Contains(sounded, "positionMs=1131172") ||
 		!strings.Contains(sounded, `page="hasBeenActive=true"`) {
 		t.Errorf("the log does not say the film played with sound, and the page's activation:\n%s", logged)
 	}
-	if unmuted := lineWith(t, logged, "unmutedTap"); !strings.Contains(unmuted, "by=key") {
+	if unmuted := testutil.LineWith(t, logged, "unmutedTap"); !strings.Contains(unmuted, "by=key") {
 		t.Errorf("the log does not say a key turned the sound on:\n%s", logged)
 	}
 	for _, want := range []string{"answer=refused by=\"\"", "answer=entered by=click", "answer=left by=\"\""} {
@@ -52,7 +54,8 @@ func TestHub_LogsThePagesActivationAndThePressThatAnswered(t *testing.T) {
 	}
 	// Which press took a cast's control back: a held OK on the Fire TV took it, and nothing said how
 	// (VQ122, 2026-10-29).
-	if taken := lineWith(t, logged, "takenBack"); !strings.Contains(taken, `by=select how="gapMs=450 upsBetween=0"`) {
+	taken := testutil.LineWith(t, logged, "takenBack")
+	if !strings.Contains(taken, `by=select how="gapMs=450 upsBetween=0"`) {
 		t.Errorf("the log does not say which press took the cast's control back:\n%s", logged)
 	}
 	for _, unknown := range []string{"elbow", "maybe", "positionMs=7 ", "nudge"} {
@@ -121,14 +124,14 @@ func TestHub_LogsAPageShownAgainItsSocketsAnswerAndAPlayRefused(t *testing.T) {
 		stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &note})
 	}
 	logged := stage.logs.String()
-	if shown := lineWith(t, logged, "shownAgain"); !strings.Contains(shown, "level=INFO") ||
+	if shown := testutil.LineWith(t, logged, "shownAgain"); !strings.Contains(shown, "level=INFO") ||
 		!strings.Contains(shown, "socket=alive roundTripMs=80") {
 		t.Errorf("the log does not say the socket answered in 80 ms:\n%s", logged)
 	}
 	if !strings.Contains(logged, "kind=reconnected offlineMs=2100 why=shown") {
 		t.Errorf("the log does not say it connected again as nothing answered once shown:\n%s", logged)
 	}
-	if refused := lineWith(t, logged, "playRefused"); !strings.Contains(refused, "refusal=AbortError") ||
+	if refused := testutil.LineWith(t, logged, "playRefused"); !strings.Contains(refused, "refusal=AbortError") ||
 		!strings.Contains(refused, "positionMs=2280010") || !strings.Contains(refused, `page="`+page+`"`) {
 		t.Errorf("the log does not say how the play was refused, where, and the page's activation:\n%s", logged)
 	}
@@ -181,7 +184,7 @@ func TestHub_LogsVoiceTurningOffAndWhy(t *testing.T) {
 		return Inbound{Type: MessageNote, Note: &PlayerNote{Kind: NoteVoiceOff, Why: why}}
 	}
 	stage.hub.Handle(t.Context(), device, off("left"))
-	if line := lineWith(t, stage.logs.String(), "voiceOff"); !strings.Contains(line, "level=INFO") ||
+	if line := testutil.LineWith(t, stage.logs.String(), "voiceOff"); !strings.Contains(line, "level=INFO") ||
 		!strings.Contains(line, "why=left") {
 		t.Errorf("the log does not say voice turned off, and why:\n%s", stage.logs.String())
 	}
@@ -307,7 +310,7 @@ func TestHub_LogsWhatPlayedAPlayerItsGroupHeld(t *testing.T) {
 		stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &note})
 	}
 	logged := stage.logs.String()
-	played := lineWith(t, logged, "playedWhileHeld")
+	played := testutil.LineWith(t, logged, "playedWhileHeld")
 	for _, want := range []string{"level=INFO", "groupState=Waiting", "by=autoplay", "positionMs=1607085"} {
 		if !strings.Contains(played, want) {
 			t.Errorf("the log of a play the group held lacks %s:\n%s", want, played)
@@ -366,7 +369,7 @@ func TestHub_LogsACatchUpsAim(t *testing.T) {
 		Kind: NoteSought, PositionMs: 50_000, ToMs: 72_000, Why: "catchUp", GroupAtMs: 60_000,
 		AheadForLoadMs: 12_000, AimedBy: "fill", LastLoadMs: 2400, LoadsFaster: 2.5,
 	}})
-	caughtUp := lineWith(t, stage.logs.String(), "followerCaughtUp")
+	caughtUp := testutil.LineWith(t, stage.logs.String(), "followerCaughtUp")
 	want := "toMs=72000 behindMs=10000 groupAtMs=60000 aheadForLoadMs=12000 aimedBy=fill " +
 		"lastLoadMs=2400 loadsFaster=2.5"
 	if !strings.Contains(caughtUp, want) {
