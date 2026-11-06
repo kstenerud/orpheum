@@ -1996,7 +1996,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Have a server refused as a copy ask its discovery again, once the other copy has stopped (D437 §3) */
+        /** Have a server refused as a copy ask its discovery again, the other copy stopped (D437 §3) */
         post: operations["askDiscoveryAgain"];
         delete?: never;
         options?: never;
