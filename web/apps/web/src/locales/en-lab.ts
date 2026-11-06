@@ -40,12 +40,9 @@ export const enLab = {
     sound: {
       heading: "Sound timing",
       explain:
-        "Press Start. Each second the square flashes a number and a beep sounds. Move the sound earlier or later until each beep comes with its flash. The timing is kept with this device for every film.",
-      levelled: "Played as your films are with Level loudness on.",
-      notLevelled: "Played as your films are with Level loudness off.",
-      clipLabel: "The test's beeps",
-      start: "Start",
-      stop: "Stop",
+        "The test clip plays as your films do. Each second the picture flashes and a beep sounds. In the player's menu, move the sound earlier or later until each beep comes with its flash. The timing is kept with this device for every film.",
+      play: "Play the test clip",
+      making: "The server is making the test clip. This page shows it once it is ready.",
     },
     throughput: {
       heading: "Throughput",

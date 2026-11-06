@@ -63,48 +63,6 @@ export function toneUrl(frequencyHz: number, amplitude?: number): string {
 }
 
 /** A blob URL of a WAV's bytes, for a media element; revoke it when done. */
-export function wavUrl(bytes: Uint8Array<ArrayBuffer>): string {
+function wavUrl(bytes: Uint8Array<ArrayBuffer>): string {
   return URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
-}
-
-/** One beep of a run: its pitch, when it starts and how long it lasts, in milliseconds. */
-export interface Beep {
-  readonly frequencyHz: number;
-  readonly atMs: number;
-  readonly lastsMs: number;
-}
-
-/**
- * How long a beep fades in and out, in milliseconds: long enough that its edges make no click, short
- * beside the beep, so its start is heard where it is. A justified constant.
- */
-export const beepFadeMs = 3;
-
-/**
- * The bytes of a WAV file lastingMs long, silent but for beeps: 16-bit mono PCM, each beep a sine
- * faded in and out over beepFadeMs.
- */
-export function beepsWav(
-  beeps: readonly Beep[],
-  options: {
-    readonly lastingMs: number;
-    readonly sampleRate?: number;
-    readonly amplitude?: number;
-  },
-): Uint8Array<ArrayBuffer> {
-  const sampleRate = options.sampleRate ?? 22_050;
-  const amplitude = options.amplitude ?? 0.3;
-  const perMs = sampleRate / 1000;
-  const samples = new Float32Array(Math.round(options.lastingMs * perMs));
-  const fade = beepFadeMs * perMs;
-  for (const beep of beeps) {
-    const from = Math.round(beep.atMs * perMs);
-    const length = Math.round(beep.lastsMs * perMs);
-    for (let index = 0; index < length && from + index < samples.length; index += 1) {
-      const edge = Math.min(1, index / fade, (length - 1 - index) / fade);
-      const wave = Math.sin((2 * Math.PI * beep.frequencyHz * index) / sampleRate);
-      samples[from + index] = wave * amplitude * Math.max(0, edge);
-    }
-  }
-  return pcmWav(samples, sampleRate);
 }
