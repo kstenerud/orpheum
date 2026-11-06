@@ -2236,3 +2236,24 @@ code-debt.md in its commit.
    connection is open.
 
 End: one check-pr with the 11-12 batch, staging. nas.example and devnas wait until memtest ends.
+
+## The 11-14 batch (the owner, 2026-11-06: "continue for the rest of the night with batches that don't require my input")
+
+Rows of code-debt.md whose fix the row names, as the 11-13 batch's; each fixed row leaves
+code-debt.md in its commit.
+
+1. **Where the video stands is read twice per `timeupdate`** (`player-controls.tsx`, `up-next.tsx`):
+   one reading both take.
+2. **A tab moved to WebRTC by `?transport=webrtc` does not say its path** (`transport-choice.ts`):
+   it tells `PathMoves.isOverWebrtc`, so a film page there no longer preloads twice.
+3. **The first page loads 691 KiB of script**: the admin and system screens and the lab's and
+   gallery's words load lazily, as `later-screens.tsx` does.
+4. **The subtitles' fetch-on-request flow has no package tests** (`internal/core/subtitles`): tests
+   with a fake Subtitler.
+5. **A learnt house network is written to `discovery.json` at every witnessing**
+   (`learnHouseNetwork`): only a new network, or a witnessing a day or more after the last kept.
+6. **`Matcher.Handle` reads `rematch` before every fetch**: skipped while no rescan runs, from an
+   in-memory count the rescans keep.
+7. **`internal/core/api/errors.go` is 427 lines**: split by error family.
+
+End: one check-pr, staging. nas.example and devnas wait until memtest ends.
