@@ -567,7 +567,13 @@ The web client: the browser and phone interface, served embedded by the core. MP
   type and sends it to the core's log through the SDK, showing the name the log keeps it by (the
   button test as it goes, below); the
   cast probe opens by its own load, the one page the core lets load Google's Cast SDK; the extend
-  probe's test film needs no sign-in. The input probe, the button test, lights a chip for each
+  probe's test film needs no sign-in. The sound timing test (`src/lab-sound.tsx`, the owner, 2026-11-06) has
+  no Send: what it finds is kept as the device's sound offset, by the control under a film. Its
+  beeps, a WAV made in the page (`src/lab-tone.ts`), play through a video element as a film's sound
+  does, levelled as the person's Level loudness says and moved by the device's offset through the
+  player's own gain and offset; its flash is drawn from the element's clock, held back by as much as
+  the player moves the sound earlier (`playerMovedSoundEvent`), which a film's chunks would carry
+  out and a file played whole cannot. The input probe, the button test, lights a chip for each
   button heard, whether as a key, a step back, a controller's button or stick or a Media Session
   action (`src/input-buttons.ts`), and fits a Fire TV's 960 × 540 in the shell unscrolled, a
   controller of unknown layout connected too (the owner, 2026-10-25); it has no Send: each press (a
@@ -597,7 +603,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/input-pads.test.ts`, `src/lab-events.test.ts`, `src/lab-input.browser.test.tsx`,
   `src/lab-buttons.test.ts`, `src/input-buttons.test.ts`, `src/router.test.ts`, `src/focus-engine.test.ts`,
   `src/lab-timing.test.ts`, `src/lab-keys.test.ts`,
-  `src/lab-extend-channel.test.ts`, `src/lab-tone.test.ts`; on devices, VQ55–VQ60 and VQ242.
+  `src/lab-extend-channel.test.ts`, `src/lab-tone.test.ts`, `src/lab-sound.test.tsx`,
+  `src/lab-sound-clip.test.ts`; on devices, VQ55–VQ60, VQ242 and VQ269.
 - **Every page is driven by a remote, a keyboard or a game controller**
   (controller-input-2026-10-25.md §6.1; the owner, 2026-10-25): one input layer
   (`src/input-commands.ts`, run around every screen by `src/input-layer.tsx`) turns a key (by its

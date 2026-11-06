@@ -88,7 +88,7 @@ describe("the device lab", () => {
   it("is at /lab: a menu of its probes, each a big link, the cast probe's opened by its own load", async () => {
     const markup = await screenAt("/lab");
     expect(markup).toContain('id="lab-heading">Device lab<');
-    for (const probe of ["device", "input", "remote", "extend", "throughput", "cast"]) {
+    for (const probe of ["device", "input", "sound", "remote", "extend", "throughput", "cast"]) {
       expect(markup).toContain(`href="/lab/${probe}"`);
     }
     // The UI gallery too, which is a pain to type on a TV (the owner, 2026-11-03).
@@ -100,12 +100,19 @@ describe("the device lab", () => {
   it("shows each probe at its own address, within the signed-in app", async () => {
     expect(await screenAt("/lab/device")).toContain('id="lab-device-heading"');
     expect(await screenAt("/lab/input")).toContain('id="lab-input-heading"');
+    expect(await screenAt("/lab/sound")).toContain('id="lab-sound-heading"');
     expect(await screenAt("/lab/remote")).toContain('id="lab-remote-heading"');
     expect(await screenAt("/lab/extend")).toContain('id="lab-extend-heading"');
     expect(await screenAt("/lab/throughput")).toContain('id="lab-throughput-heading"');
     expect(await screenAt("/lab/cast")).toContain('id="lab-cast-heading"');
     expect(await appAt("/lab/input")).toContain('class="app-shell"');
-    for (const path of ["/lab/input", "/lab/extend", "/lab/throughput", "/lab/cast"]) {
+    for (const path of [
+      "/lab/input",
+      "/lab/sound",
+      "/lab/extend",
+      "/lab/throughput",
+      "/lab/cast",
+    ]) {
       expect(await screenAt(path)).not.toMatch(/>lab\./u);
     }
   });

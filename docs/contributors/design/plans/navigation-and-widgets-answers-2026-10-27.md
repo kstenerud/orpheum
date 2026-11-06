@@ -2110,3 +2110,12 @@ and nas.example wait for the owner's go. Found on the way and filed for the next
   Built 2026-11-06 at the owner's word ("Put a control in watch together and cast"): a viewer has the
   control under the film, starting from the offset of the device it is signed in on ("feat(web): a sound timing control for Watch Together viewers"), and
   a cast's remote shows and moves the receiver's ("feat(web): the cast remote moves the receiver's sound timing").
+- **The built-in sound timing test, built 2026-11-06 at the owner's word** (VQ269): This device →
+  For testers → Sound timing test (`/lab/sound`, while Device tests are on), on any device however
+  it signed in. A flash and a rising beep each second, four in a loop (the owner's sync-clip design
+  of 2026-10-26); the beeps are a WAV made in the page and played through a video element, levelled
+  as the person's Level loudness says, so they take a film's path through Web Audio or straight out.
+  The device's sound offset control sits under it, so each press moves the beep and is kept with the
+  device for every film. An earlier move, which a film's chunks would make and a file played whole
+  cannot, holds the flash back by as much instead. Its Level loudness switch is the person's own.
+  Left for the owner: a film played as its own file still cannot take an earlier offset.

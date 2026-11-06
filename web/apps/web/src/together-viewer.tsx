@@ -47,7 +47,7 @@ import { useServices, useToken } from "./services.tsx";
 import { useLive } from "./live.tsx";
 import { SessionRemote } from "./session-remote.tsx";
 import { Loaded } from "./loaded.tsx";
-import { ViewerSoundOffsetControl } from "./sound-delay.tsx";
+import { DeviceSoundOffsetControl } from "./sound-delay.tsx";
 import { TogetherDebug } from "./together-debug.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { useNotesTheGroupsFilmShown } from "./playing-here.ts";
@@ -621,7 +621,7 @@ function GuestStalls(props: FilmParts): JSX.Element {
           cannotKeepUp={ladder.cannotKeepUp}
         />
       )}
-      <ViewerSoundOffsetControl videoRef={props.videoRef} />
+      <DeviceSoundOffsetControl videoRef={props.videoRef} />
     </>
   );
 }

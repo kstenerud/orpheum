@@ -17,6 +17,8 @@ export const enLab = {
       deviceWhat: "What this browser plays and which features it has",
       input: "Button test",
       inputWhat: "Press the buttons on your remote, keyboard or controller",
+      sound: "Sound timing",
+      soundWhat: "Set how much earlier or later this device plays a film's sound",
       remote: "Phone as remote",
       remoteWhat: "Keeps the screen on, the microphone and a call going for a whole film",
       extend: "Extend to the TV",
@@ -35,6 +37,16 @@ export const enLab = {
     yes: "yes",
     no: "no",
     unknown: "unknown",
+    sound: {
+      heading: "Sound timing",
+      explain:
+        "Press Start. Each second the square flashes a number and a beep sounds. Move the sound earlier or later until each beep comes with its flash. The timing is kept with this device for every film.",
+      levelled: "Played as your films are with Level loudness on.",
+      notLevelled: "Played as your films are with Level loudness off.",
+      clipLabel: "The test's beeps",
+      start: "Start",
+      stop: "Stop",
+    },
     throughput: {
       heading: "Throughput",
       explain:

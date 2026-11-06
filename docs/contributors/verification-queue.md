@@ -2662,3 +2662,15 @@ An item is ticked only by the person who did it, and only with what they saw.
   the core's log's "unplayable" for the device); (3) a later playback of the same film starts on the
   twin with no hiccup; (4) an H.264 film plays as before. (`web/packages/player/src/decode-recovery.ts`'s
   `recoverFromDecodingErrors`; `abr-decoding.test.ts`)
+- [ ] **VQ269** — the sound timing test finds a device's sound offset (the owner, 2026-11-06; the TCL
+  TV plays sound some 400 ms late with Level loudness on, 200 ms with it off). Its beeps are a WAV
+  made in the page, played through a video element and levelled as a film is, its flash drawn from
+  the element's clock; tests prove the picture follows the player's moves, but only a device's
+  speakers and screen show whether the beep and the flash meet as a film's sound and picture do. On
+  staging, with Device tests on, on the owner's TCL TV in TV Bro (signed in by QR code), open This
+  device → Sound timing test, press Start and move the sound until each beep comes with its flash,
+  once with Level loudness on and once off. Passes when: (1) the page is reached from This device on
+  the TV signed in by QR code; (2) the flash and the beep move together as the sound is moved earlier
+  and later; (3) a film played after it, with Level loudness as in the test, has its speech in step
+  with the lips; (4) on a computer's browser the two meet at 0, give or take 50 ms.
+  (`web/apps/web/src/lab-sound.tsx`)
