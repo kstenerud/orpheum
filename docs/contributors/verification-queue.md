@@ -2694,7 +2694,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   browser refused to start a film" line for either; (3) the Fire TV's Silk still starts a film at
   once, full screen, without a stall at the start.
   (`web/apps/web/src/start-refused.ts`, `web/apps/web/src/page-controls.tsx`)
-- [ ] **VQ271** — a film resumed partway on the TCL TV, with Level loudness on, starts (the owner,
+  - Run 2026-11-06, the owner, the TCL TV in TV Bro, staging: (1) and (2) passed, levelling on and
+    off. (3), the Fire TV's Silk, is not yet run.
+- [x] **VQ271** — a film resumed partway on the TCL TV, with Level loudness on, starts (the owner,
   2026-11-06: The Big Parade, resumed at about 28 minutes, never started with levelling on; with it
   off it played). VQ270's pause, which unlocks the video, was told to the server as the person's,
   paused at 0 before the resume moved the player, and a paused player is made only the half minute
@@ -2704,6 +2706,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   (one not played with levelling on before). Passes when the film starts by itself with sound within
   a few seconds, and the core's log shows no "planned no run of chunks: no player wants one" for its
   sound stream. (`web/apps/web/src/interest.ts`, `web/apps/web/src/start-refused.ts`)
+  - Run 2026-11-06, the owner, the TCL TV in TV Bro, staging: The Big Parade resumed partway and
+    started, Level loudness on and off.
 - [ ] **VQ272** — a film the browser refuses to start says so in the core's log, with the page's press
   and full screen at that moment. Only a device whose browser refuses shows it: no test browser here
   refuses a start the player asks for. Seen once already: the owner's TCL TV in TV Bro on staging,

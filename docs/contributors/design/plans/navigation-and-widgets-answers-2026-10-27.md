@@ -2136,6 +2136,10 @@ below âˆ’50 dBFS). The remote's buttons as the page hears them: the digits (`0`â
 `ChannelDown` (keyCode 33 and 34); TV Bro keeps select, the arrows and Back for its pointer, and the
 TV keeps the volume. The remote has no media keys.
 
+The round passed check-pr at "test(web): the device page shows the screen's high dynamic range and colours" (base "test(web): the invitations' alignment test derives each issue time from its id", 2026-11-06), after two fixes revert-red
+asked for: VQ272 for the refused start's note ("docs(web): a refused start's note in the core's log is checked on a device, VQ272"), and a test of the device page's HDR row
+("test(web): the device page shows the screen's high dynamic range and colours"). Not deployed to nas.example: that waits for the owner.
+
 ## The 11-10 batch (the owner, 2026-11-06: "go with B for that. Also the hidden system video")
 
 1. **Web Audio's lag, option (b)** (above, "Found on the owner's TCL TV"): where the device's kept
