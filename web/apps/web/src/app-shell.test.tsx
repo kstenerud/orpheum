@@ -225,6 +225,33 @@ describe("AppShell", () => {
     );
   });
 
+  it("marks Libraries under Manage on the screens beneath it: a library's own page, creating one, its files", async () => {
+    const drawnAt = (
+      currentScreen: "library" | "new-library" | "files" | "users",
+    ): Promise<string> =>
+      drawnWithMenuOpen(
+        <AppShell
+          isAdmin={true}
+          canHostWatchTogether={true}
+          currentScreen={currentScreen}
+          onSignOut={ignore}
+          signedInAs={{ name: "karl", deviceName: undefined }}
+        >
+          <p>screen</p>
+        </AppShell>,
+      );
+    for (const screen of ["library", "new-library", "files"] as const) {
+      const markup = await drawnAt(screen);
+      expect(markup).toMatch(
+        /<a href="\/libraries" class="list-box__option" aria-current="page">/u,
+      );
+      expect(markup).toContain('class="app-shell__menu app-shell__menu--current"');
+    }
+    expect(await drawnAt("users")).not.toMatch(
+      /<a href="\/libraries" class="list-box__option" aria-current="page">/u,
+    );
+  });
+
   it("offers the pages for development under their own heading only when asked to (the owner, 2026-10-17)", async () => {
     const markupWith = async (showsDeveloperPages: boolean): Promise<string> =>
       await drawnWithMenuOpen(
