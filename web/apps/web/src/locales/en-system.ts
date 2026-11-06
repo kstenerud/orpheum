@@ -221,6 +221,11 @@ export const enSystem = {
         other: "{{count}} for another reason",
       },
       heartbeat: "Last told the discovery its addresses at {{at}}.",
+      copyRefused:
+        "A copy of this server tried to start from {{from}} at {{at}}, and was refused: this one serves.",
+      stoodAside:
+        "Another copy of this server serves. This one stopped asking at {{at}} and serves only at home. Asking again takes over only once the other copy has stopped.",
+      askAgain: "Ask again",
       problem: "The last call to the discovery failed: {{problem}}",
       clientOrigin: "Links to this server open at {{origin}}.",
       homeAddressWaiting:

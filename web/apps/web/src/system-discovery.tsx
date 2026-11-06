@@ -50,6 +50,12 @@ export function SystemDiscovery(): JSX.Element {
   );
   const connecting = useConnecting(reload);
   const claiming = useClaim(reload);
+  const askAgain = (): void => {
+    connecting.runRequest(async () => {
+      throwIfRefused(await api.POST("/system/discovery/ask-again"));
+      reload();
+    });
+  };
   const leave = (): void => {
     connecting.runRequest(async (idempotencyKey) => {
       throwIfRefused(await api.DELETE("/system/discovery", idempotent(idempotencyKey)));
@@ -67,7 +73,13 @@ export function SystemDiscovery(): JSX.Element {
           value.issuer === "" ? (
             <Unconnected connecting={connecting} suggested={value.suggestedIssuer ?? ""} />
           ) : (
-            <StandingView standing={value} claiming={claiming} onLeave={leave} />
+            <StandingView
+              standing={value}
+              claiming={claiming}
+              isBusy={connecting.isBusy}
+              onAskAgain={askAgain}
+              onLeave={leave}
+            />
           )
         }
       />
@@ -282,6 +294,8 @@ function ConfirmIdentity(props: {
 function StandingView(props: {
   readonly standing: Standing;
   readonly claiming: Claiming;
+  readonly isBusy: boolean;
+  readonly onAskAgain: () => void;
   readonly onLeave: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -306,6 +320,7 @@ function StandingView(props: {
           })}
         </p>
       )}
+      <OneCopy standing={standing} isBusy={props.isBusy} onAskAgain={props.onAskAgain} />
       <Identity standing={standing} />
       {standing.problem === undefined ? null : (
         <p>{t("system.discovery.problem", { problem: standing.problem })}</p>
@@ -322,6 +337,44 @@ function StandingView(props: {
         confirmLabel={t("system.discovery.leaveConfirm")}
         onConfirm={props.onLeave}
       />
+    </>
+  );
+}
+
+/**
+ * One copy of the server serves (D437 §3, §4): this serving copy refused another that tried to start,
+ * from where and when; or this copy, refused as a copy of another that serves, stopped asking, with
+ * the button that has it ask again. A server older than these fields sends none: missing is neither.
+ */
+function OneCopy(props: {
+  readonly standing: Standing;
+  readonly isBusy: boolean;
+  readonly onAskAgain: () => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { standing } = props;
+  return (
+    <>
+      {standing.copyRefusedAt > 0 ? (
+        <p role="alert">
+          {t("system.discovery.copyRefused", {
+            from: standing.copyRefusedFrom ?? "",
+            at: dateTimeText(standing.copyRefusedAt, i18n.language),
+          })}
+        </p>
+      ) : null}
+      {standing.stoodAsideAt > 0 ? (
+        <>
+          <p role="alert">
+            {t("system.discovery.stoodAside", {
+              at: dateTimeText(standing.stoodAsideAt, i18n.language),
+            })}
+          </p>
+          <button type="button" disabled={props.isBusy} onClick={props.onAskAgain}>
+            {t("system.discovery.askAgain")}
+          </button>
+        </>
+      ) : null}
     </>
   );
 }

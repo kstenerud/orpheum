@@ -10,6 +10,7 @@ import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { Icon } from "./icon.tsx";
 import { IconButton } from "./icon-button.tsx";
 import { Link } from "./link.tsx";
+import { hasCopyWarning } from "./needs-attention.tsx";
 import { useLive } from "./live.tsx";
 import { dataOrThrow } from "./problem.ts";
 import { routeHref } from "./router.ts";
@@ -247,7 +248,8 @@ function NeedsAttentionSign(): JSX.Element | null {
       matchCount +
       seriesReadWronglyCount +
       filmsWithoutSoundCount ===
-    0
+      0 &&
+    !hasCopyWarning(counts.value)
   ) {
     return null;
   }

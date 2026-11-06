@@ -467,3 +467,52 @@ it("shows a claimed server's home address once its certificate is held, and befo
   expect(mounted.container.querySelector(".home-address svg, .home-address img")).not.toBeNull();
   expect(mounted.container.textContent).not.toContain("is being set up");
 });
+
+it("tells a refused copy that another serves, and asks again only while it stands aside (D437 §3)", async () => {
+  const heard: Heard[] = [];
+  const claimed = { ...pendingAtTheService, state: "claimed", claimCode: undefined };
+  const stoodAside = { ...claimed, stoodAsideAt: 1_790_000_000_000 };
+  const services = servedBy(
+    {
+      "GET /system/discovery": [
+        [200, stoodAside],
+        [200, claimed],
+      ],
+      "POST /system/discovery/ask-again": [204, undefined],
+    },
+    heard,
+  );
+  mounted = await mount(withServices(<SystemDiscovery />, services));
+  const container = mounted.container;
+  expect(container.textContent).toContain(
+    "Another copy of this server serves. This one stopped asking at",
+  );
+  await click(buttonWithText(container, "Ask again"));
+  expect(heard.map((each) => each.methodAndPath)).toEqual([
+    "GET /system/discovery",
+    "POST /system/discovery/ask-again",
+    "GET /system/discovery",
+  ]);
+  expect(container.textContent).not.toContain("Another copy of this server serves.");
+  expect(buttonWithText(container, "Ask again")).toBeUndefined();
+});
+
+it("tells the serving copy that a copy of it tried to start, from where, and was refused (D437 §4)", async () => {
+  const services = servedBy({
+    "GET /system/discovery": [
+      200,
+      {
+        ...pendingAtTheService,
+        state: "claimed",
+        claimCode: undefined,
+        copyRefusedAt: 1_790_000_000_000,
+        copyRefusedFrom: "203.0.113.9",
+      },
+    ],
+  });
+  mounted = await mount(withServices(<SystemDiscovery />, services));
+  expect(mounted.container.textContent).toContain(
+    "A copy of this server tried to start from 203.0.113.9 at",
+  );
+  expect(buttonWithText(mounted.container, "Ask again")).toBeUndefined();
+});
