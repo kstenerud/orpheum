@@ -286,6 +286,8 @@ describe("App", () => {
     const sign = mounted.container.querySelector(".status-tray__button--warning");
     expect(sign).not.toBeNull();
     await click(sign);
+    // The page's code loads later (later-screens.tsx): wait for it, not for one render.
+    await settleUntil(() => !mounted.container.textContent.includes("Loading…"));
     expect(mounted.container.textContent).toContain(
       "97 films and series need you to choose their match.",
     );
