@@ -81,7 +81,7 @@ export const soundLatencyChangeIgnoredMs = 40;
  * Audio 400 to 500 ms behind its picture; a Fire TV keeps 331 to 347 ms; a desktop tens of ms
  * (staging, 2026-11-06). 100 ms sits well above every desktop's and well below every Android TV's
  * seen, and ITU-R BT.1359-1 finds a lag first detectable at about 125 ms, which 100 ms of Web Audio
- * reaches with the element's own lag added. A justified constant, the owner's to confirm (D436).
+ * reaches with the element's own lag added. The owner confirmed it, 2026-11-06 (D436).
  */
 export const webAudioLateAboveMs = 100;
 

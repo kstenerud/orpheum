@@ -26570,8 +26570,9 @@ chunks of its sound to move, and it is where the lag was heard (the plan's findi
 playing its own file with levelling on").
 
 1. **The bound is 100 ms of kept Web Audio latency** (`webAudioLateAboveMs`, `@orpheum/player`'s
-   `gain.ts`), the device's own measure as `sound-latency.ts` keeps it. The owner's plan said "say
-   100 ms"; the number is the builder's, for the owner to confirm. The evidence: the TCL TV keeps
+   `gain.ts`), the device's own measure as `sound-latency.ts` keeps it. The lead's research of the
+   options suggested "say 100 ms", and the owner confirmed it (2026-11-06: "OK, 100ms is fine"). The
+   evidence: the TCL TV keeps
    336–426 ms and the Fire TV 331–347 ms, while desktop browsers keep tens of milliseconds; sound
    late by more than about 125 ms is noticed (ITU-R BT.1359-1), so 100 ms leaves every device seen
    on its side with room, and the Fire TV falls over it too.
