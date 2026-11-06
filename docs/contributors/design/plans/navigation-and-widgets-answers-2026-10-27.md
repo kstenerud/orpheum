@@ -2171,5 +2171,6 @@ stall, made sturdy on the core's side). End: one check-pr; staging and nas.examp
 - **Next batch (the owner, 2026-11-06, prod failed over to devnas while nas.example runs memtest86: "We
   should probably handle this case where two cores disagree over who should be running"):** build
   D437, slim: the ping answered by the core's health; a refused copy stops asking the discovery until
-  an admin says so; both copies warned under the top menu's exclamation icon. In the core and in
+  an admin says so; both copies warned under the top menu's exclamation icon; the last holder's
+  installation is let back in first, other installations waiting a few minutes (§5). In the core and in
   orpheum-connect. Split brain with no referee is accepted, not guarded.
