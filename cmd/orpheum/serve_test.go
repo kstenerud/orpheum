@@ -128,9 +128,9 @@ func testConfig(t *testing.T) (Config, string) {
 	root := t.TempDir()
 	dir := filepath.Join(root, "i")
 	// A Unix socket's path is at most 103 bytes, and t.TempDir's carries the test's name: the run
-	// directory is put outside the instance, as default-config's --run-dir puts it, at the shortest
-	// path there is.
-	instance, err := makeInstance(dir, kindCore, filepath.Join(root, "r"), "test")
+	// directory is put outside the instance, as default-config's --run-dir puts it, in a socket
+	// directory, whose path is short.
+	instance, err := makeInstance(dir, kindCore, filepath.Join(testutil.SocketDirectory(t), "r"), "test")
 	if err != nil {
 		t.Fatal(err)
 	}

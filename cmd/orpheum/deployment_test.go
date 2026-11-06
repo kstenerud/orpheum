@@ -13,6 +13,7 @@ import (
 	"github.com/BurntSushi/toml"
 
 	"github.com/kstenerud/orpheum/internal/deployment"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // fillValues fills in the values file a deployment began with.
@@ -38,7 +39,7 @@ func fillValues(t *testing.T, dir string) {
 
 func TestWriteDeployment_BeginsThenMakesTheInstancesOnceAndWritesTheFiles(t *testing.T) {
 	t.Parallel()
-	dir, runDir := t.TempDir(), filepath.Join(t.TempDir(), "run")
+	dir, runDir := t.TempDir(), filepath.Join(testutil.SocketDirectory(t), "run")
 	begun, err := writeDeployment(dir, runDir, deployment.Staging, "nas", runtimeOf("orpheum:v0.1.0"))
 	if err != nil {
 		t.Fatal(err)
@@ -84,7 +85,7 @@ func TestWriteDeployment_BeginsThenMakesTheInstancesOnceAndWritesTheFiles(t *tes
 
 func TestWriteDeployment_TheVPSStepIsATunnelsAndACoreWithNoNameIsReachedThroughItsDiscovery(t *testing.T) {
 	t.Parallel()
-	dir, runDir := t.TempDir(), filepath.Join(t.TempDir(), "run")
+	dir, runDir := t.TempDir(), filepath.Join(testutil.SocketDirectory(t), "run")
 	begun, err := writeDeployment(dir, runDir, deployment.Release, "nas", runtimeOf("orpheum:v0.1.0"))
 	if err != nil {
 		t.Fatal(err)
@@ -156,7 +157,7 @@ func TestParseWriteDeployment_SaysWhetherTheKernelLacksMPTCP(t *testing.T) {
 // the deployment's templates too, rather than run on its starting value with a warning at each start.
 func TestWriteDeployment_TheConfigsItWritesSetEveryKey(t *testing.T) {
 	t.Parallel()
-	dir, runDir := t.TempDir(), filepath.Join(t.TempDir(), "run")
+	dir, runDir := t.TempDir(), filepath.Join(testutil.SocketDirectory(t), "run")
 	if _, err := writeDeployment(dir, runDir, deployment.Release, "nas", runtimeOf("orpheum:v0.1.0")); err != nil {
 		t.Fatal(err)
 	}

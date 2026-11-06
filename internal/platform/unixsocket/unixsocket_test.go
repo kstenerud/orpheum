@@ -13,11 +13,12 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 func TestClient_ReachesTheSocketWhateverTheHost(t *testing.T) {
 	t.Parallel()
-	socket := filepath.Join(t.TempDir(), "s.sock")
+	socket := filepath.Join(testutil.SocketDirectory(t), "s.sock")
 	listener, err := (&net.ListenConfig{}).Listen(t.Context(), "unix", socket)
 	if err != nil {
 		t.Fatal(err)
@@ -52,7 +53,7 @@ func TestClient_ReachesTheSocketWhateverTheHost(t *testing.T) {
 // so it reaches a listener that started again with a new one (D331 §1).
 func TestRequireKey_ServesOnlyTheHolderOfTheKeyKeptBesideTheSocket(t *testing.T) {
 	t.Parallel()
-	socket := filepath.Join(t.TempDir(), "core.sock")
+	socket := filepath.Join(testutil.SocketDirectory(t), "core.sock")
 	listener, err := (&net.ListenConfig{}).Listen(t.Context(), "unix", socket)
 	if err != nil {
 		t.Fatal(err)

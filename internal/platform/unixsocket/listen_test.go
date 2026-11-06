@@ -8,11 +8,13 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 func TestListen_MakesAPrivateSocketAndReplacesAStaleOne(t *testing.T) {
 	t.Parallel()
-	directory := filepath.Join(t.TempDir(), "run")
+	directory := filepath.Join(testutil.SocketDirectory(t), "run")
 	listener, err := Listen(directory, "core.sock")
 	if err != nil {
 		t.Fatal(err)
@@ -53,7 +55,7 @@ func TestListen_MakesAPrivateSocketAndReplacesAStaleOne(t *testing.T) {
 
 func TestListen_RefusesToRemoveWhatIsNotASocket(t *testing.T) {
 	t.Parallel()
-	directory := t.TempDir()
+	directory := testutil.SocketDirectory(t)
 	path := filepath.Join(directory, "core.sock")
 	if err := os.WriteFile(path, []byte("somebody's file"), 0o600); err != nil {
 		t.Fatal(err)
