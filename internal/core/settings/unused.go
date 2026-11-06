@@ -58,6 +58,10 @@ func RetiredKeys() []RetiredKey {
 			Key: "together_run_up_ms", Release: afterBeta7,
 			Reason: "a Watch Together player runs up to no named start; it catches up to its leader (D371 §2)",
 		},
+		{
+			Key: "discovery_another_copy_check_every_seconds", Release: afterBeta7,
+			Reason: "a core refused as a copy asks no more until its admin asks again or it restarts (D437 §3)",
+		},
 	}
 }
 

@@ -81,11 +81,22 @@ type EnrolResponse struct {
 // SessionRequest opens a session: the core's id, the instance asking, and its signature over the
 // nonce for PurposeSession. InstanceID is random, made at each start of the core and never kept, so
 // a discovery tells a restarted core, or a copy of it, from the one it holds (D293 §1).
+//
+// InstallationID is the core's installation: random, made once and kept across its restarts in its
+// instance directory, never in a backup, so a copy restored on another machine is another
+// installation (D437 §5). A discovery remembers, for each core, the installation that last held its
+// realm, kept across the discovery's own restarts. That installation is admitted at once, as the
+// live instance is. Any other installation, while the last holder is not connected, is refused with
+// RefusalHolderAway until a window of a few minutes from when the last holder was last connected has
+// passed (longer than the core's longest wait between asks, discovery_retry_most_seconds, 300 s by
+// default); after the window the ping of D293 §1 decides. Absent from a core before D437, which the
+// discovery treats as an installation of its own, never the last holder.
 type SessionRequest struct {
-	CoreID     string `json:"coreId"`
-	InstanceID string `json:"instanceId"`
-	Nonce      string `json:"nonce"`
-	Signature  []byte `json:"signature"`
+	CoreID         string `json:"coreId"`
+	InstanceID     string `json:"instanceId"`
+	InstallationID string `json:"installationId,omitempty"`
+	Nonce          string `json:"nonce"`
+	Signature      []byte `json:"signature"`
 }
 
 // SessionResponse is the bearer token the core's other calls carry, for ExpiresIn seconds: a
@@ -98,9 +109,12 @@ type SessionResponse struct {
 
 // Refusal is the body of a refusal the core acts on rather than retrying as it would any failure:
 // Code says which, Message says it for the admin (the protocol's §2.2, §2.3; C4, C12).
+// RetryAfterSeconds, on RefusalHolderAway, is how many seconds the core waits before asking again:
+// until the last holder's window ends (D437 §5). Absent on any other refusal.
 type Refusal struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	Code              string `json:"code"`
+	Message           string `json:"message"`
+	RetryAfterSeconds int64  `json:"retryAfterSeconds,omitempty"`
 }
 
 // The refusals a core acts on.
@@ -109,8 +123,15 @@ const (
 	// and shows the code it is given.
 	RefusalEnrolAgain = "enrol_again"
 	// RefusalAnotherInstance is another instance of this core, still answering, holding the
-	// discovery's connection: this one is a copy, which says so and asks again later (D293 §1).
+	// discovery's connection: this one is a copy, which says so and stops asking, until its admin
+	// says to ask again or it restarts (D293 §1, D437 §3). The discovery sends the instance it kept a
+	// SignalCopyRefused on its signalling connection.
 	RefusalAnotherInstance = "another_instance"
+	// RefusalHolderAway is a session asked for by an installation other than the one that last held
+	// the core's realm, while that one is away and its window lasts (SessionRequest.InstallationID;
+	// D437 §5): the core waits Refusal.RetryAfterSeconds and asks again. Answered with 409, as
+	// RefusalAnotherInstance is.
+	RefusalHolderAway = "holder_away"
 	// RefusalNotClaimed is a call only a claimed core makes, from a core not yet claimed.
 	RefusalNotClaimed = "not_claimed"
 	// RefusalVersion is a call in a major the discovery does not serve, or with no version at all:
@@ -288,6 +309,12 @@ const (
 	// SignalRealm is a realm sign-in the discovery passes on, which the core answers by its tag or
 	// refuses (D297 §3).
 	SignalRealm = "realm"
+	// SignalCopyRefused is the discovery telling the instance it kept that it refused a copy of the
+	// core (RefusalAnotherInstance): Address is the address the copy asked from as the discovery saw
+	// it, an IP address with no port, and At when, in Unix milliseconds. Its OfferID is empty and the
+	// core sends no reply; a core before D437 ignores it, as it ignores any type it does not know
+	// (D437 §4).
+	SignalCopyRefused = "copy_refused"
 )
 
 // SignalMessage is one message on the signalling connection: an offer the discovery passes on, and
@@ -320,6 +347,10 @@ type SignalMessage struct {
 	// source (HouseNetworkOf), "2a0f:1000:1:2::/64"; none when it came over IPv4. The core learns it as
 	// a house network once the offer's connection proves itself from home (D356 §1, §2).
 	ClientNetwork string `json:"clientNetwork,omitempty"`
+	// Address and At are a SignalCopyRefused's: where the refused copy asked from, and when, Unix
+	// milliseconds.
+	Address string `json:"address,omitempty"`
+	At      int64  `json:"at,omitempty"`
 }
 
 // ACMEAccountRequest is the core's ACME account, as its CA named it, which the discovery's CAA at

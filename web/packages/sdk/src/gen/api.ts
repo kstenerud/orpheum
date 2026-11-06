@@ -1987,6 +1987,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system/discovery/ask-again": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Have a server refused as a copy ask its discovery again, once the other copy has stopped (D437 §3) */
+        post: operations["askDiscoveryAgain"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/discovery/claim": {
         parameters: {
             query?: never;
@@ -2868,6 +2885,13 @@ export interface components {
             claimExpiresAt: number;
             /** @description Where the discovery serves its client, which the server's links lead to */
             clientOrigin?: string;
+            /**
+             * Format: int64
+             * @description Unix milliseconds of that refusal; 0 while none
+             */
+            copyRefusedAt: number;
+            /** @description The address a copy of this server last tried to start from, refused because this one serves (D437 §4); empty while none has */
+            copyRefusedFrom?: string;
             /** @description The core API the discovery's address document names, which the server calls */
             coreApi?: string;
             coreId?: string;
@@ -2945,6 +2969,11 @@ export interface components {
              * @enum {string}
              */
             state?: "pending" | "claimed" | "grace" | "frozen" | "released" | "disabled";
+            /**
+             * Format: int64
+             * @description Unix milliseconds the discovery refused this server as a copy of another that serves, after which it asks no more until an admin asks again or it restarts (D437 §3); 0 while it asks
+             */
+            stoodAsideAt: number;
             /** @description The discovery an admin is offered first; empty when this build suggests none (D391 §7) */
             suggestedIssuer?: string;
             webrtcPaths: components["schemas"]["WebRTCPathBody"][] | null;
@@ -3837,6 +3866,9 @@ export interface components {
         };
         NeedsAttentionOutputBody: {
             /** Format: int64 */
+            copyRefusedAt: number;
+            copyRefusedFrom: string;
+            /** Format: int64 */
             diskCount: number;
             filmsWithoutSound: components["schemas"]["FilmWithoutSoundBody"][] | null;
             /** Format: int64 */
@@ -3848,6 +3880,8 @@ export interface components {
             seriesReadWrongly: components["schemas"]["SeriesReadWronglyBody"][] | null;
             /** Format: int64 */
             seriesReadWronglyCount: number;
+            /** Format: int64 */
+            stoodAsideAt: number;
             /** Format: int64 */
             unreadCount: number;
             /** Format: int64 */
@@ -10180,6 +10214,33 @@ export interface operations {
         };
     };
     leaveDiscovery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    askDiscoveryAgain: {
         parameters: {
             query?: never;
             header?: never;

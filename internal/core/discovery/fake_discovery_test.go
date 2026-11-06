@@ -59,8 +59,10 @@ type fakeDiscovery struct {
 	// instanceIDs are the instances that opened sessions, in turn; refusal, when set, refuses every
 	// session with its code, until the core enrols again; enrolCount is how many times it enrolled.
 	instanceIDs []string
-	refusal     *discoveryproto.Refusal
-	enrolCount  int
+	// installationIDs are the installations that asked for sessions, in turn (D437 §5).
+	installationIDs []string
+	refusal         *discoveryproto.Refusal
+	enrolCount      int
 	// txt are the certificate challenges' records the core had the discovery set, by name, and
 	// accounts the ACME accounts it reported, in turn.
 	txt      map[string]string
@@ -296,6 +298,7 @@ func (fake *fakeDiscovery) ServeHTTP(writer http.ResponseWriter, request *http.R
 			return
 		}
 		fake.instanceIDs = append(fake.instanceIDs, opened.InstanceID)
+		fake.installationIDs = append(fake.installationIDs, opened.InstallationID)
 		if fake.refusal != nil {
 			writer.WriteHeader(http.StatusConflict)
 			fake.answer(writer, fake.refusal)

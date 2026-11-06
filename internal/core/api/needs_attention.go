@@ -41,6 +41,13 @@ type NeedsAttentionOutput struct {
 		// At most 100 are listed; FilmsWithoutSoundCount is how many there are in all (D432 §4).
 		FilmsWithoutSound      []FilmWithoutSoundBody `maxItems:"100" json:"filmsWithoutSound"`
 		FilmsWithoutSoundCount int                    `json:"filmsWithoutSoundCount"`
+		// StoodAsideAt is when the discovery refused this server as a copy of another that serves, so
+		// that it asks no more until an admin asks again (D437 §3, §4); 0 while it asks.
+		StoodAsideAt int64 `json:"stoodAsideAt"`
+		// CopyRefusedFrom and CopyRefusedAt are where and when a copy of this server last tried to
+		// start, refused because this one serves (D437 §4); empty and 0 while none has.
+		CopyRefusedFrom string `json:"copyRefusedFrom"`
+		CopyRefusedAt   int64  `json:"copyRefusedAt"`
 	}
 }
 
@@ -86,6 +93,11 @@ func (server *Server) getNeedsAttention(
 		return nil, server.libraryError(ctx, "list what could not be read", err)
 	}
 	output := &NeedsAttentionOutput{}
+	if dependencies.Discovery != nil {
+		standing := discoveryStatusBody(dependencies.Discovery.Status())
+		output.Body.StoodAsideAt = standing.StoodAsideAt
+		output.Body.CopyRefusedFrom, output.Body.CopyRefusedAt = standing.CopyRefusedFrom, standing.CopyRefusedAt
+	}
 	for _, missing := range offline {
 		if missing.MountPath == "" {
 			output.Body.RootCount++

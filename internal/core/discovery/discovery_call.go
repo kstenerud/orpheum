@@ -46,7 +46,13 @@ func (service *Service) dropToken(token string) {
 
 // session is a bearer token for the discovery, opening a session when there is none or it ends soon:
 // one at a time, every caller sharing it (renewal).
+//
+// A core that stands aside, refused as a copy, asks for none: it is refused at once with ErrAnotherCopy
+// (D437 §3), whichever loop or call asks.
 func (service *Service) session(ctx context.Context) (string, error) {
+	if !service.Status().StoodAsideAt.IsZero() {
+		return "", ErrAnotherCopy
+	}
 	if token, isLive := service.liveToken(); isLive {
 		return token, nil
 	}
@@ -77,10 +83,15 @@ func (service *Service) openSession(ctx context.Context) (string, error) {
 	err = service.call(ctx, callOf{
 		base: status.BaseURL, method: http.MethodPost, path: discoveryproto.PathSession,
 		body: discoveryproto.SessionRequest{
-			CoreID: status.CoreID, InstanceID: service.instanceID, Nonce: nonce,
+			CoreID: status.CoreID, InstanceID: service.instanceID, InstallationID: service.parts.InstallationID,
+			Nonce:     nonce,
 			Signature: service.parts.Key.Sign(discoveryproto.PurposeSession, status.Identity, status.CoreID, nonce),
 		}, into: &opened,
 	})
+	if refused, isRefused := errors.AsType[*refusal](err); isRefused &&
+		refused.code == discoveryproto.RefusalAnotherInstance {
+		service.standAside(ctx)
+	}
 	if err != nil {
 		return "", err
 	}
@@ -109,9 +120,11 @@ func (service *Service) challenge(ctx context.Context, baseURL string) (string, 
 // errUnauthorised is a discovery refusing the core's session: a new one is opened.
 var errUnauthorised = errors.New("the discovery refused the core's session")
 
-// refusal is a refusal the discovery names, which the core acts on (discoveryproto.Refusal).
+// refusal is a refusal the discovery names, which the core acts on (discoveryproto.Refusal), and the
+// wait it names before asking again, on a discoveryproto.RefusalHolderAway.
 type refusal struct {
 	code, message string
+	retryAfter    time.Duration
 }
 
 func (refused *refusal) Error() string {
@@ -149,7 +162,7 @@ func (service *Service) call(ctx context.Context, call callOf) error {
 	}
 	response, err := service.parts.HTTP.Do(request)
 	if err != nil {
-		return fmt.Errorf("reach the discovery: %w", err)
+		return &unreachedError{err: err}
 	}
 	defer func() { _ = response.Body.Close() }() //nolint:errcheck // read, and closed
 	if deprecated := response.Header.Get(discoveryproto.DeprecatedHeader); deprecated != "" {
@@ -181,7 +194,9 @@ func failure(response *http.Response, answer []byte) error {
 	}
 	var named discoveryproto.Refusal
 	if json.Unmarshal(answer, &named) == nil && named.Code != "" {
-		return &refusal{code: named.Code, message: named.Message}
+		return &refusal{
+			code: named.Code, message: named.Message, retryAfter: time.Duration(named.RetryAfterSeconds) * time.Second,
+		}
 	}
 	return &statusError{
 		code: response.StatusCode, message: fmt.Sprintf("the discovery answered %s: %s", response.Status,
@@ -197,4 +212,27 @@ type statusError struct {
 
 func (answered *statusError) Error() string {
 	return answered.message
+}
+
+// unreachedError is a call that reached no discovery: the network, or the discovery's host, is down.
+type unreachedError struct {
+	err error
+}
+
+func (unreached *unreachedError) Error() string {
+	return "reach the discovery: " + unreached.err.Error()
+}
+
+func (unreached *unreachedError) Unwrap() error {
+	return unreached.err
+}
+
+// isUnreached is whether err is a call that reached no discovery: none answered, or a proxy in front
+// of it said it could not reach it. The step loop then looks for the network to come back (D437 §5).
+func isUnreached(err error) bool {
+	if unreached, isUnreached := errors.AsType[*unreachedError](err); isUnreached && unreached != nil {
+		return true
+	}
+	answered, isStatus := errors.AsType[*statusError](err)
+	return isStatus && isProxyUnreached(answered.code)
 }

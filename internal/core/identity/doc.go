@@ -11,6 +11,9 @@
 //   - A signature covers discovery/proof's message, "orpheum-discovery-v1:<purpose>:<nonce>", so one
 //     made to enrol cannot open a session, nor the reverse.
 //     TestSign_NamesItsPurposeSoOneCannotBeUsedForAnother.
+//   - The installation id, beside the key in installation-id, is made once and kept across restarts,
+//     and like the key is never in a backup (D437 §5). TestLoadOrMakeInstallation_MakesTheIDOnceAndKeepsIt;
+//     backup's TestWrite_LeavesEveryPrivateKeyOutUnlessAskedForTheKeys.
 //
 // # Read before changing
 //
@@ -20,4 +23,6 @@
 // # Where to change
 //
 //   - identity.go: the key, its file and its signatures.
+//   - installation.go: the installation id a discovery tells this installation's restarts from a
+//     copy's by (D437 §5).
 package identity

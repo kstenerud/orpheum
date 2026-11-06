@@ -73,7 +73,7 @@ func write(
 		} else if err != nil {
 			return Written{}, err
 		}
-		leftOut = nil
+		leftOut = neverBackedUp()
 	}
 	snapshotName := stem + ".snapshot.sqlite"
 	snapshotPath, err := directories.BackupPath(snapshotName)
@@ -101,7 +101,15 @@ func write(
 // serverKeys are the files a backup leaves out unless asked for them: the key that seals the secrets,
 // the core's identity key, and the certificates' and ACME account's private keys.
 func serverKeys() []string {
-	return append([]string{secrets.KeyFileName, identity.KeyFileName}, certificate.PrivateFileNames()...)
+	keys := append([]string{secrets.KeyFileName, identity.KeyFileName}, certificate.PrivateFileNames()...)
+	return append(keys, neverBackedUp()...)
+}
+
+// neverBackedUp are the files no backup holds, even one asked for the keys: the installation id, so a
+// copy restored on another machine is another installation, which its discovery admits only after the
+// last holder of the realm has had its window to come back (D437 §5).
+func neverBackedUp() []string {
+	return []string{identity.InstallationFileName}
 }
 
 // ErrNewerBackup is returned for a backup a newer release made that this binary cannot use.

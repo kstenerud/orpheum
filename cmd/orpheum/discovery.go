@@ -27,6 +27,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/together"
 	"github.com/kstenerud/orpheum/internal/core/turn"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/store"
 )
 
 // apiMajor is the API's major version, the one in api.Prefix, which the discovery passes on so it
@@ -44,8 +45,12 @@ func newDiscovery(
 	if err != nil {
 		return nil, err
 	}
+	installation, err := identity.LoadOrMakeInstallation(opened.directories, rand.Reader)
+	if err != nil {
+		return nil, err
+	}
 	parts := discoveryParts(config, opened, answerer, onClaimed, mapped, logger)
-	parts.Key = key
+	parts.Key, parts.InstallationID = key, installation
 	return discovery.New(parts)
 }
 
@@ -71,6 +76,21 @@ func discoveryParts(
 		TURN: relayForFound(newICEIssuer(config, opened, logger), logger), ProbeNonce: opened.reachability.ProbeNonce,
 		HasCertificate:          opened.certificates.hasDiscoveryCertificate,
 		ConfiguredHouseNetworks: config.Discovery.houseNetworks(),
+		Healthy:                 databaseHealth(opened.database),
+	}
+}
+
+// databaseHealth is the core's health as its discovery's ping needs it: the core holds its realm
+// only while it can read its database (D437 §2).
+func databaseHealth(database *store.Database) func(context.Context) error {
+	return func(ctx context.Context) error {
+		if database == nil {
+			return errors.New("the database is not open")
+		}
+		if _, err := database.SizeBytes(ctx); err != nil {
+			return fmt.Errorf("read the database: %w", err)
+		}
+		return nil
 	}
 }
 

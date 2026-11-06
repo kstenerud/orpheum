@@ -121,6 +121,7 @@ func (built *world) restart(t *testing.T) *Service {
 		Random:         unjittered{},
 		ProbeNonce:     func() (string, error) { return fmt.Sprintf("probe-%d", built.probeNonces.Add(1)), nil },
 		HasCertificate: built.hasCertificate.Load,
+		InstallationID: "installation-of-the-test",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -154,8 +155,7 @@ var startingPendingEvery = settings.StartingDuration(settings.DiscoveryPendingCh
 
 // The other waits, where no setting says.
 var (
-	endedEvery       = settings.StartingDuration(settings.DiscoveryEndedCheckEverySeconds)
-	anotherCopyEvery = settings.StartingDuration(settings.DiscoveryAnotherCopyCheckEverySeconds)
+	endedEvery = settings.StartingDuration(settings.DiscoveryEndedCheckEverySeconds)
 )
 
 // durations is a settings reader that answers every length of time with one, or with err.
@@ -202,7 +202,6 @@ func TestStep_EachStateWaitsAsItsOwnSettingSays(t *testing.T) {
 	waits := byKey{}
 	waits[settings.DiscoveryEndedCheckEverySeconds] = 7 * time.Minute
 	waits[settings.DiscoveryAddressCheckEverySeconds] = 11 * time.Second
-	waits[settings.DiscoveryAnotherCopyCheckEverySeconds] = 13 * time.Second
 	waits[settings.DiscoveryPendingCheckEverySeconds] = time.Second
 	alone := newWorld(t)
 	alone.service.parts.Settings = waits
@@ -228,8 +227,9 @@ func TestStep_EachStateWaitsAsItsOwnSettingSays(t *testing.T) {
 	}
 	copied.service.step(ctx)
 	copied.fake.refuse(discoveryproto.RefusalAnotherInstance)
-	if wait := copied.service.step(ctx); wait != 13*time.Second {
-		t.Errorf("a core refused as a copy waited %s; want the copy setting's 13 s", wait)
+	if wait := copied.service.step(ctx); wait != standingAsideWait {
+		t.Errorf("a core refused as a copy waited %s; want to stand aside, %s, asking no more", wait,
+			standingAsideWait)
 	}
 }
 
@@ -564,9 +564,10 @@ func (fake *fakeDiscovery) refuse(code string) {
 }
 
 // A core whose discovery refuses it as a copy of another instance, connected and still answering,
-// says so on its System page and asks again every few minutes; each run of the core names an
-// instance of its own (D293 §1).
-func TestStep_ACoreRefusedAsACopySaysSoAndAsksAgainLater(t *testing.T) {
+// says so on its System page and stands aside: it asks no more, until its admin asks again or it
+// restarts (D437 §3). Each run of the core names an instance of its own (D293 §1), and every session
+// names the installation (D437 §5).
+func TestStep_ACoreRefusedAsACopyStandsAsideUntilAskedAgainOrRestarted(t *testing.T) {
 	t.Parallel()
 	built := newWorld(t)
 	ctx := t.Context()
@@ -576,15 +577,72 @@ func TestStep_ACoreRefusedAsACopySaysSoAndAsksAgainLater(t *testing.T) {
 	built.service.step(ctx)
 	built.fake.refuse(discoveryproto.RefusalAnotherInstance)
 	// Its session refused, it opens another at once, which is refused as a copy.
-	if wait := built.service.step(ctx); wait != anotherCopyEvery ||
-		!strings.Contains(built.service.Status().Problem, ErrAnotherCopy.Error()) {
-		t.Errorf("a core refused as a copy waited %s with problem %q; want %s and that it is a copy", wait,
-			built.service.Status().Problem, anotherCopyEvery)
+	if wait := built.service.step(ctx); wait != standingAsideWait ||
+		!strings.Contains(built.service.Status().Problem, ErrAnotherCopy.Error()) ||
+		built.service.Status().StoodAsideAt.IsZero() {
+		t.Errorf("a core refused as a copy waited %s with status %+v; want to stand aside and say it is a copy",
+			wait, built.service.Status())
 	}
+	for range 3 {
+		built.service.step(ctx)
+	}
+	if _, err := built.service.session(ctx); !errors.Is(err, ErrAnotherCopy) {
+		t.Errorf("a core standing aside was given a session with %v; want ErrAnotherCopy", err)
+	}
+	if asked := len(built.fake.instanceIDs); asked != 2 {
+		t.Errorf("a core standing aside asked for %d sessions; want the 2 before it stood aside, and no more", asked)
+	}
+	built.service.AskAgain(ctx)
+	if !built.service.Status().StoodAsideAt.IsZero() {
+		t.Error("an admin asked again, and the core still stands aside")
+	}
+	built.service.step(ctx)
 	built.restart(t).step(ctx)
 	ids := built.fake.instanceIDs
-	if len(ids) != 3 || ids[0] == "" || ids[0] != ids[1] || ids[2] == ids[0] || ids[2] == "" {
-		t.Errorf("the sessions named instances %q; want one run's twice, then a restart's own", ids)
+	if len(ids) != 4 || ids[0] == "" || ids[0] != ids[1] || ids[2] != ids[0] || ids[3] == ids[0] || ids[3] == "" {
+		t.Errorf("the sessions named instances %q; want one run's thrice, asked again once, then a restart's own", ids)
+	}
+	wantTheInstallationEveryTime(t, built.fake.installationIDs)
+}
+
+// wantTheInstallationEveryTime fails the test unless every session named the test's installation.
+func wantTheInstallationEveryTime(t *testing.T, installations []string) {
+	t.Helper()
+	for _, installation := range installations {
+		if installation != "installation-of-the-test" {
+			t.Errorf("the sessions named installations %q; want the core's every time", installations)
+			return
+		}
+	}
+}
+
+// A core the discovery refuses while it waits for the realm's last holder asks again after the wait
+// the discovery names, not counted as a failure, and says why it waits (D437 §5).
+func TestStep_ACoreRefusedWhileTheHolderIsAwayAsksAgainWhenTheDiscoverySays(t *testing.T) {
+	t.Parallel()
+	built := newWorld(t)
+	ctx := t.Context()
+	if _, err := built.service.Connect(ctx, built.issuer, built.fake.chain.ID()); err != nil {
+		t.Fatal(err)
+	}
+	built.service.step(ctx)
+	built.fake.refuse(discoveryproto.RefusalHolderAway)
+	built.fake.mutex.Lock()
+	built.fake.refusal.RetryAfterSeconds = 170
+	built.fake.mutex.Unlock()
+	for range 2 {
+		if wait := built.service.step(ctx); wait != 170*time.Second ||
+			!strings.Contains(built.service.Status().Problem, ErrHolderAway.Error()) ||
+			!built.service.Status().StoodAsideAt.IsZero() {
+			t.Errorf("a core refused while the holder is away waited %s with status %+v; want 170 s, saying why",
+				wait, built.service.Status())
+		}
+	}
+	built.fake.mutex.Lock()
+	built.fake.refusal.RetryAfterSeconds = 0
+	built.fake.mutex.Unlock()
+	if wait := built.service.step(ctx); wait != holderAwayUnnamed {
+		t.Errorf("a refusal naming no wait was waited %s; want %s", wait, holderAwayUnnamed)
 	}
 }
 

@@ -370,7 +370,7 @@ func TestWrite_LeavesEveryPrivateKeyOutUnlessAskedForTheKeys(t *testing.T) {
 	t.Parallel()
 	original := newServer(t)
 	keys := append([]string{identity.KeyFileName}, certificate.PrivateFileNames()...)
-	for _, name := range append(keys, "tls-certificate.pem") {
+	for _, name := range append(keys, "tls-certificate.pem", identity.InstallationFileName) {
 		if err := original.directories.WritePersistentFile(name, []byte("PRIVATE "+name)); err != nil {
 			t.Fatal(err)
 		}
@@ -391,6 +391,7 @@ func TestWrite_LeavesEveryPrivateKeyOutUnlessAskedForTheKeys(t *testing.T) {
 	if !slices.Contains(names, "tls-certificate.pem") {
 		t.Errorf("a backup made without the keys lost the certificate itself: %v", names)
 	}
+	withoutNames := names
 	with, err := Write(t.Context(), original.database, original.directories, testTime.Add(time.Hour), true)
 	if err != nil {
 		t.Fatal(err)
@@ -401,6 +402,12 @@ func TestWrite_LeavesEveryPrivateKeyOutUnlessAskedForTheKeys(t *testing.T) {
 	for _, key := range append(keys, secrets.KeyFileName) {
 		if !slices.Contains(names, key) {
 			t.Errorf("a backup asked for the keys lacks %s: %v", key, names)
+		}
+	}
+	for _, kept := range [][]string{names, withoutNames} {
+		if slices.Contains(kept, identity.InstallationFileName) {
+			t.Errorf("a backup holds %s, so a copy restored elsewhere is the same installation (D437 §5): %v",
+				identity.InstallationFileName, kept)
 		}
 	}
 }

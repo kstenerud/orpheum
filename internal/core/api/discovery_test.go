@@ -167,6 +167,31 @@ func TestDiscovery_AnAdminConnectsSeesTheClaimCodeAndLeaves(t *testing.T) {
 	}
 }
 
+// Only an admin has a core refused as a copy ask its discovery again (D437 §3); a core that does not
+// stand aside is unchanged by it, and says it asks.
+func TestDiscovery_OnlyAnAdminHasTheCoreAskAgain(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	if _, err := harness.authService.CreateUser(t.Context(),
+		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
+		t.Fatal(err)
+	}
+	partner := harness.signIn(t, "partner", "partner-password")
+	wantError(t, harness.do(t, http.MethodPost, "/system/discovery/ask-again", partner, nil), http.StatusForbidden,
+		api.CodeForbidden)
+	if asked := harness.do(t, http.MethodPost, "/system/discovery/ask-again", admin, nil); asked.status !=
+		http.StatusNoContent {
+		t.Fatalf("POST /system/discovery/ask-again = %d %s", asked.status, asked.body)
+	}
+	var status api.DiscoveryStatusBody
+	got := harness.do(t, http.MethodGet, "/system/discovery", admin, nil)
+	if err := json.Unmarshal([]byte(got.body), &status); err != nil || status.StoodAsideAt != 0 ||
+		status.CopyRefusedFrom != "" || status.CopyRefusedAt != 0 {
+		t.Errorf("after asking again = %s; want a core that asks, and no copy refused", got.body)
+	}
+}
+
 // Connecting asks the admin's password, as a claim does: which discovery a core trusts is as weighty
 // (D391 §3). A wrong one is refused naming the field, and connects nothing.
 func TestDiscovery_ConnectingAsksTheAdminsPassword(t *testing.T) {

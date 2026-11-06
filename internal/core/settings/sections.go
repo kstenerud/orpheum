@@ -174,7 +174,6 @@ var sectionByKey = map[Key]Section{
 	CertificateDNSWaitSeconds:                      SectionRemoteAccess,
 	CertificateRenewBeforeDays:                     SectionRemoteAccess,
 	DiscoveryAddressCheckEverySeconds:              SectionRemoteAccess,
-	DiscoveryAnotherCopyCheckEverySeconds:          SectionRemoteAccess,
 	DiscoveryEndedCheckEverySeconds:                SectionRemoteAccess,
 	DiscoveryPendingCheckEverySeconds:              SectionRemoteAccess,
 	DiscoveryRetryFirstSeconds:                     SectionRemoteAccess,
