@@ -134,6 +134,16 @@ interface Destination {
   readonly icon?: (props: { readonly className: string }) => JSX.Element;
   /** Whether it opens the menu of the person's libraries rather than going to its route (LibrariesMenu). */
   readonly isLibrariesMenu?: boolean;
+  /**
+   * The screens beneath it, at which it is marked as the page shown too: Libraries under Manage
+   * over a library's own page, the page creating one and a library's files.
+   */
+  readonly beneath?: readonly Route["screen"][];
+}
+
+/** Whether a destination is where the person is: its own screen, or one of those beneath it. */
+function isAt(destination: Destination, screen: Route["screen"]): boolean {
+  return destination.route.screen === screen || (destination.beneath?.includes(screen) ?? false);
 }
 
 const destinations: readonly Destination[] = [
@@ -162,7 +172,13 @@ const destinations: readonly Destination[] = [
     isLibrariesMenu: true,
   },
   { route: { screen: "identify" }, labelKey: "identify", audience: "admin", group: "manage" },
-  { route: { screen: "libraries" }, labelKey: "libraries", audience: "admin", group: "manage" },
+  {
+    route: { screen: "libraries" },
+    labelKey: "libraries",
+    audience: "admin",
+    group: "manage",
+    beneath: ["library", "new-library", "files"],
+  },
   { route: { screen: "users" }, labelKey: "users", audience: "admin", group: "manage" },
   { route: { screen: "settings" }, labelKey: "settings", audience: "admin", group: "manage" },
   { route: { screen: "jobs" }, labelKey: "jobs", audience: "admin", group: "manage" },
@@ -226,12 +242,12 @@ export function AppShell(props: {
       <Place
         key={`${destination.group}-${destination.labelKey}`}
         destination={destination}
-        isCurrent={destination.route.screen === props.currentScreen}
+        isCurrent={isAt(destination, props.currentScreen)}
         isInMenu={group !== "watching"}
       />
     ));
   const isIn = (group: Destination["group"]): boolean =>
-    inGroup(group).some((destination) => destination.route.screen === props.currentScreen);
+    inGroup(group).some((destination) => isAt(destination, props.currentScreen));
   const bannerRef = useBannerHeight();
   return (
     <div className="app-shell">
