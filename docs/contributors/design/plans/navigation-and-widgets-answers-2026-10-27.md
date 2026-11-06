@@ -2193,3 +2193,10 @@ stall, made sturdy on the core's side). End: one check-pr; staging and nas.examp
 
 End: one check-pr in each repository, staging deployed (core and discovery); nas.example and the
 production discovery wait for the owner.
+
+**Done 2026-11-06.** Orpheum passed check-pr at "docs(decisions): the owner agrees D438's pairing, the core enrols its relay" (186 s, after a first run found two files
+whose revert broke nothing; "test: D437's database health and the retired another-copy check go red when reverted" adds their tests); orpheum-connect passed its check-pr and pins
+"fix(web): Ask again carries the click's idempotency key". Staging runs both: the core on staging host (`./staging quick`, 19:06 UTC) and the
+discovery, migrated to its step 13. Connect's steps were folded to a baseline at 10 for the window
+test: the owner checks that it suits the production discovery's schema before it is deployed there.
+nas.example and the production discovery wait for the owner.
