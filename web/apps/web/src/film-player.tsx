@@ -17,7 +17,13 @@ import {
   type PlayedLevel,
   type SoundChoiceCause,
 } from "@orpheum/player";
-import { healPageAudio, startGateOf, type CannotKeepUp, type PlaybackReport } from "@orpheum/sdk";
+import {
+  healPageAudio,
+  playerSwitchedQualityEvent,
+  startGateOf,
+  type CannotKeepUp,
+  type PlaybackReport,
+} from "@orpheum/sdk";
 import type { TFunction } from "i18next";
 import {
   useCallback,
@@ -640,20 +646,24 @@ function useShapedByTheTabsLink(): void {
 }
 
 /**
- * Follows playback in video: the quality playing, each second, and, at each stall, whether even its
+ * Follows playback in video: the quality playing, read as it starts and again at each switch the
+ * player tells of (playerSwitchedQualityEvent), never on a timer, which polled each second for what
+ * the event already says (efficiency audit, 2026-10-28); and, at each stall, whether even its
  * lowest quality is beyond the link (D247 §8). Returns the end of it.
  */
-function followChunkedPlayback(
+export function followChunkedPlayback(
   video: HTMLVideoElement,
-  playback: ChunkedPlayback,
+  playback: Pick<ChunkedPlayback, "playing" | "beyondTheLink">,
   tell: {
     readonly setPlaying: (playing: PlayedLevel | undefined) => void;
     readonly setCannotKeepUp: (cannotKeepUp: CannotKeepUp) => void;
   },
 ): () => void {
-  const looking = setInterval(() => {
+  const switched = (): void => {
     tell.setPlaying(playback.playing());
-  }, 1000);
+  };
+  switched();
+  video.addEventListener(playerSwitchedQualityEvent, switched);
   const stopWatching = watchStalls(video, () => {
     const beyond = playback.beyondTheLink();
     if (beyond !== undefined) {
@@ -661,7 +671,7 @@ function followChunkedPlayback(
     }
   });
   return () => {
-    clearInterval(looking);
+    video.removeEventListener(playerSwitchedQualityEvent, switched);
     stopWatching();
   };
 }
