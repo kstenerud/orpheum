@@ -1156,6 +1156,11 @@
           },
           "platform": {
             "type": "string"
+          },
+          "soundOffsetMs": {
+            "description": "How far the device moves its sound from its picture, in ms: later when positive",
+            "format": "int64",
+            "type": "integer"
           }
         },
         "required": [
@@ -1166,7 +1171,8 @@
           "lastUsedAt",
           "isSignedIn",
           "isByCode",
-          "isThisDevice"
+          "isThisDevice",
+          "soundOffsetMs"
         ],
         "type": "object"
       },

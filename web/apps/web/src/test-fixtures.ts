@@ -62,6 +62,7 @@ export function television(changes: Partial<Device> = {}): Device {
     isSignedIn: true,
     isByCode: false,
     isThisDevice: false,
+    soundOffsetMs: 0,
     ...changes,
   };
 }

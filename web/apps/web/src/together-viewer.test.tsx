@@ -174,7 +174,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     mounted.unmount();
   });
 
-  it("shows a viewer no choice of how this browser makes sound under the film (D336 §4)", async () => {
+  it("shows a viewer no choice of how this browser makes sound under the film (D336 §4), only its sound timing (the owner, 2026-11-06)", async () => {
     window.localStorage.setItem(
       "orpheum.together.viewer",
       JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
@@ -193,7 +193,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       group: { state: "Paused", positionMs: 0, rate: 1, fileId: 5 },
     });
     expect(mounted.container.querySelector("video")).not.toBeNull();
-    expect(mounted.container.textContent).not.toContain("Sound on this device");
+    expect(mounted.container.textContent).toContain("Sound on this device: in step");
     expect(buttonWithText(mounted.container, "Change")).toBeUndefined();
     mounted.unmount();
   });

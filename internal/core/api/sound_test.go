@@ -207,3 +207,33 @@ func TestPlayback_ADevicesSoundOffsetIsKeptAndComesWithItsPlaybacks(t *testing.T
 		}
 	}
 }
+
+// A Watch Together viewer's playback carries no offset, so its page reads the device's from the
+// person's list of devices (the owner, 2026-11-06: "Put a control in watch together").
+func TestDevices_ListEachDevicesSoundOffset(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	id := harness.thisDeviceID(t, user)
+	device := "/me/devices/" + strconv.FormatInt(id, 10)
+	set := harness.do(t, http.MethodPut, device, user, map[string]int64{"soundOffsetMs": -200})
+	if set.status != http.StatusNoContent {
+		t.Fatalf("PUT soundOffsetMs: %d", set.status)
+	}
+	answer := harness.do(t, http.MethodGet, "/me/devices", user, nil)
+	var listed struct {
+		Devices []struct {
+			ID            int64 `json:"id"`
+			SoundOffsetMs int64 `json:"soundOffsetMs"`
+		} `json:"devices"`
+	}
+	if err := json.Unmarshal([]byte(answer.body), &listed); err != nil || answer.status != http.StatusOK {
+		t.Fatalf("GET /me/devices = %d %s", answer.status, answer.body)
+	}
+	for _, each := range listed.Devices {
+		if each.ID == id && each.SoundOffsetMs == -200 {
+			return
+		}
+	}
+	t.Errorf("devices = %+v; want device %d at -200 ms", listed.Devices, id)
+}

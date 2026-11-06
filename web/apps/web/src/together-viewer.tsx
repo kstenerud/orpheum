@@ -27,7 +27,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
-import { secretFromHash } from "./accounts.ts";
+import { listMyDevices, secretFromHash } from "./accounts.ts";
 import logo from "./assets/orpheum-logo.svg";
 import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { pageThatPausesWhenHidden } from "./handheld.ts";
@@ -47,6 +47,7 @@ import { useServices, useToken } from "./services.tsx";
 import { useLive } from "./live.tsx";
 import { SessionRemote } from "./session-remote.tsx";
 import { Loaded } from "./loaded.tsx";
+import { SoundOffsetControl } from "./sound-delay.tsx";
 import { TogetherDebug } from "./together-debug.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { useNotesTheGroupsFilmShown } from "./playing-here.ts";
@@ -610,11 +611,42 @@ function useGuestFilm(): GuestFilm {
 function GuestStalls(props: FilmParts): JSX.Element {
   const film = useGuestFilm();
   const { ladder } = props;
-  return ladder === undefined ? (
-    <ReportsStalls {...film} videoRef={props.videoRef} readLinkKbps={props.readLinkKbps} />
-  ) : (
-    <TellsCannotKeepUp connection={film.following.connection} cannotKeepUp={ladder.cannotKeepUp} />
+  return (
+    <>
+      {ladder === undefined ? (
+        <ReportsStalls {...film} videoRef={props.videoRef} readLinkKbps={props.readLinkKbps} />
+      ) : (
+        <TellsCannotKeepUp
+          connection={film.following.connection}
+          cannotKeepUp={ladder.cannotKeepUp}
+        />
+      )}
+      <GuestSoundOffset videoRef={props.videoRef} />
+    </>
   );
+}
+
+/**
+ * The viewer's sound timing under the film (the owner, 2026-11-06: "Make it respect the sound
+ * offset. Put a control in watch together"): the server gives a guest's playback none, so a viewer
+ * signed in on this device starts from the offset kept with the device, and any other from in step.
+ */
+function GuestSoundOffset(props: {
+  readonly videoRef: RefObject<HTMLVideoElement | null>;
+}): JSX.Element {
+  return <SoundOffsetControl videoRef={props.videoRef} initialMs={useThisDeviceSoundOffsetMs()} />;
+}
+
+/** The sound offset kept with the device this tab is signed in on; 0 for none, or until read. */
+function useThisDeviceSoundOffsetMs(): number {
+  const { api, session } = useServices();
+  const deviceId = session.deviceId();
+  const [devices] = useResource(`together-my-devices/${String(deviceId)}`, async () =>
+    deviceId === undefined ? [] : listMyDevices(api),
+  );
+  return devices.state === "loaded"
+    ? (devices.value.find((each) => each.id === deviceId)?.soundOffsetMs ?? 0)
+    : 0;
 }
 
 /** Over the guest's film: the video following the group, and Tap for sound and Full screen. */

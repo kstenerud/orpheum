@@ -187,10 +187,21 @@ describe("this device's sound timing (the owner's TCL TV, 2026-10-24)", () => {
     await letPass(soundOffsetKeptAfterMs);
   });
 
-  it("is not offered to a viewer with no device to keep it", async () => {
+  it("is offered to a Watch Together viewer with no device, kept by its tab alone", async () => {
+    // The owner, 2026-11-06: "Put a control in watch together ... so that I can adjust the sound
+    // timing": a guest's tab has no device of its own to keep it on.
+    const heard: Heard[] = [];
     mounted = await mount(
-      withServices(<SoundOffsetControl videoRef={createRef()} initialMs={0} />, servedBy({})),
+      withServices(
+        <SoundOffsetControl videoRef={createRef()} initialMs={0} />,
+        servedBy({}, heard),
+      ),
     );
-    expect(mounted.container.textContent).not.toContain("Sound on this device");
+    holdTheClock();
+    expect(mounted.container.textContent).toContain("Sound on this device: in step");
+    press("Sound 50 ms earlier");
+    expect(mounted.container.textContent).toContain("Sound on this device: 50 ms earlier");
+    await letPass(soundOffsetKeptAfterMs);
+    expect(heard).toEqual([]);
   });
 });

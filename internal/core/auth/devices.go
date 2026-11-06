@@ -28,6 +28,8 @@ type Device struct {
 	// IsSignedIn is whether any of its sessions is still live, and IsByCode whether a code activated
 	// one of them (the device scope).
 	IsSignedIn, IsByCode bool
+	// SoundOffsetMs is how far it moves its sound from its picture, later when positive.
+	SoundOffsetMs int64
 }
 
 // Devices lists a person's devices, most recently used first.
@@ -48,6 +50,7 @@ func (service *Service) Devices(ctx context.Context, userID int64) ([]Device, er
 			ID: row.ID, Name: row.Name, Platform: row.Platform,
 			AddedAt:    time.UnixMilli(row.AddedAt),
 			LastUsedAt: time.UnixMilli(lastUsedAt), IsSignedIn: row.IsSignedIn == 1, IsByCode: row.IsByCode == 1,
+			SoundOffsetMs: row.SoundOffsetMs,
 		})
 	}
 	slices.SortStableFunc(devices, func(a, b Device) int {
