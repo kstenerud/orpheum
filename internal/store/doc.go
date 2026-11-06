@@ -18,6 +18,10 @@
 //   - The store knows tables, not who changes them; each table has one writing package, named in
 //     schema.md's "Who writes each table", and any other package asks it (architecture map F5).
 //     Enforced by TestArch_EachTableHasOneWritingPackage.
+//   - The system library, which holds the server's own videos, is in no list of libraries or
+//     anything drawn from them, and its name is outside the libraries' name space; the server finds
+//     it by its kind alone (D435 §1–3). Enforced by TestArch_TheSystemLibraryIsInNoListing and
+//     TestMigrate_Step0084LeavesTheSystemLibraryOutOfVersionLibrary.
 //   - Rows are closed and their errors checked. Enforced by sqlclosecheck and rowserrcheck.
 //   - Generated code in sqlcgen is never edited by hand. Enforced by make check-generated and the
 //     pre-edit hook.
