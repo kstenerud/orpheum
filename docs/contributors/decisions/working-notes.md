@@ -26679,7 +26679,8 @@ traffic is relayed by us.
 2. **One core, one relay** (the owner: "Let's just keep it as simple as we can. One core to one
    relay."). A relay serves one core: no accounts, no other households, no abuse handling of its own.
 3. **The core enrols its relay; the discovery only learns of it from the core** (the owner left this to
-   the lead, "Figure out what makes the most sense from a practicality and security standpoint"):
+   the lead, "Figure out what makes the most sense from a practicality and security standpoint"; and
+   agreed the lead's recommendation, 2026-11-06: "Agree with your pairing recommendation"):
    - **Pairing as a node pairs:** the relay, started from its image, shows a one-time code; an admin
      enters it on the core's System page; each keeps the other's public key. The relay then accepts a
      dial-out from that core's key alone, so it cannot be used to reach anything else (no open relay).
