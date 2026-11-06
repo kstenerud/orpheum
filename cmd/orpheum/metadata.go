@@ -177,7 +177,7 @@ func demoteUnwanted(
 		if err != nil {
 			if isSaid, lasting := failing.Fail(tickedAt); isSaid {
 				logger.WarnContext(ctx, "could not demote the jobs no one waits for; trying again",
-					append([]any{"err", err}, lasting...)...)
+					append([]any{"err", err, slogx.EventKey, "demoteFailed"}, lasting...)...)
 			}
 			continue
 		}

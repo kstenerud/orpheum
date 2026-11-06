@@ -30,6 +30,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/localtime"
 	"github.com/kstenerud/orpheum/internal/platform/pacing"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store"
 )
 
@@ -410,10 +411,13 @@ func seededSettings(
 		return nil, err
 	}
 	if len(seedReport.Inserted) > 0 {
-		logger.InfoContext(ctx, "wrote the starting value of settings that had none", "keys", seedReport.Inserted)
+		logger.InfoContext(ctx, "wrote the starting value of settings that had none",
+			slogx.EventKey, "settingsSeeded",
+			"keys", seedReport.Inserted)
 	}
 	if len(seedReport.Updated) > 0 {
 		logger.InfoContext(ctx, "this release changed the starting value of settings nobody had set; they follow it",
+			slogx.EventKey, "settingsStartsFollowed",
 			"keys", seedReport.Updated)
 	}
 	logUnusedSettings(ctx, seedReport.Unused, logger)

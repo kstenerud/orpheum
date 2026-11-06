@@ -43,18 +43,18 @@ func TestRunNode_TheNodeScansItsRootAndTheCoreHearsEveryRecord(t *testing.T) {
 	config, captured, nodeID, media := scanned.config, scanned.log, scanned.nodeID, scanned.media
 	log := captured.String()
 	for _, want := range []string{
-		`"msg":"said hello to the core"`,
-		`"msg":"a node said hello"`,
+		testutil.EventInJSON("helloSaid"),
+		testutil.EventInJSON("nodeHello"),
 		`"ffmpegVersion":"{\"format\"`,
 		// What the root is on: some device, of a kind, mounted at or above it (D240 §5).
 		`"devices":[{"key":`,
-		`"msg":"a node finished a scan"`,
+		testutil.EventInJSON("nodeScanFinished"),
 		`"listedCount":2,"examinedCount":1,"errorCount":0`,
 		// The node watches its watched library's folder for changes, the folder and the one in it, as
 		// the core names it (D272 §9, D359's amendment of 2026-10-27).
-		`"msg":"started watching a library folder for changes"`,
+		testutil.EventInJSON("folderWatchStarted"),
 		`"watchCount":2`,
-		`"msg":"identified a library"`,
+		testutil.EventInJSON("libraryIdentified"),
 	} {
 		if !strings.Contains(log, want) {
 			t.Errorf("the log lacks %s:\n%s", want, log)

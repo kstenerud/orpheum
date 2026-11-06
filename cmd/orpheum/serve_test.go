@@ -437,7 +437,7 @@ func TestServe_ComesUpReadyAndStopsCleanly(t *testing.T) {
 		t.Errorf("/health once ready = %d %s", health.status, health.body)
 	}
 	if logged := captured.String(); !strings.Contains(logged, `"msg":"migrating"`) ||
-		!strings.Contains(logged, "wrote the starting value of settings that had none") {
+		len(testutil.LinesWith(logged, "settingsSeeded")) == 0 {
 		t.Errorf("a cold start neither migrated from empty nor wrote the settings' starting values:\n%s", logged)
 	}
 	if !strings.Contains(captured.String(), `"setupCode"`) {

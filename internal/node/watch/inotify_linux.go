@@ -21,6 +21,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // watchedEvents are what a folder's watch reports: an entry made, removed, moved, written or changed,
@@ -177,7 +178,9 @@ func (kernel *kernelWatch) startFolder(ctx context.Context, folder string) {
 	}
 	kernel.isWatching[folder] = true
 	watcher.setState(ctx, nodeproto.RootWatch{RootPath: folder, IsWatching: true})
-	watcher.logger.InfoContext(ctx, "started watching a library folder for changes", "rootPath", folder,
+	watcher.logger.InfoContext(ctx, "started watching a library folder for changes",
+		slogx.EventKey, "folderWatchStarted",
+		"rootPath", folder,
 		"watchCount", kernel.watchCount(folder))
 }
 
