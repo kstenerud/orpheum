@@ -2313,3 +2313,10 @@ Two code-debt rows whose fix the row names:
    (`together/logs_test.go`'s `lineWith`).
 
 End: one check-pr, staging. nas.example and devnas wait until memtest ends.
+
+**Item 1 passed check-pr at "docs(architecture): the map names rowstest among the test packages"** (2026-11-06, 164 s; base "docs(plans): the 11-16 batch") and is on staging: the store's
+own tests build their rows through `internal/store/rowstest` (19937311). **Item 2 waits on the owner:**
+its five commits ("refactor(testutil): one log event key and one matcher for the whole tree"…"test(cmd): match the binary's log assertions by their event, not their English", the agent's branch `worktree-agent-a8564e2e5e2834868`) move ~110
+log assertions onto `slogx.EventKey` and `testutil.LineWith`, but the first carries a `Test-Weakened:`
+trailer the agent wrote (the gate counts a helper's check moved from `together/logs_test.go` to
+`testutil`; nothing is dropped), which rule 5 leaves to the owner's word.
