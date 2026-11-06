@@ -11,6 +11,7 @@ import (
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // The heartbeat's own candidates are the machine's global addresses, a private one marked as
@@ -93,7 +94,7 @@ func TestLogActivation_NamesWhoActivatedWhatForWhom(t *testing.T) {
 		ByUserID: 1, ForUserID: 2, DeviceName: "Living room TV", Platform: "Tizen", IsThroughService: true,
 	})
 	for _, want := range []string{
-		`"msg":"a device was activated by a code"`, `"byUser":1`, `"forUser":2`, `"device":"Living room TV"`,
+		testutil.EventInJSON("deviceActivatedByCode"), `"byUser":1`, `"forUser":2`, `"device":"Living room TV"`,
 		`"platform":"Tizen"`, `"throughService":true`,
 	} {
 		if !strings.Contains(logged.String(), want) {

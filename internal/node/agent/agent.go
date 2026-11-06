@@ -293,7 +293,7 @@ func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 	if err != nil {
 		return err
 	}
-	agent.logger.InfoContext(ctx, "said hello to the core", "nodeId", reply.NodeID)
+	agent.logger.InfoContext(ctx, "said hello to the core", slogx.EventKey, "helloSaid", "nodeId", reply.NodeID)
 	agent.evictUnfinished(ctx)
 	agent.work.setReaderLimits(reply.DeviceReaderLimits)
 	agent.takeTuning(ctx, reply.Tuning)

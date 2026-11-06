@@ -16,6 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/pathtree"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -56,7 +57,9 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 	if service.resultSink != nil {
 		service.resultSink.Interrupt(ctx, node.ID, hello.StartID)
 	}
-	service.logger.InfoContext(ctx, "a node said hello", "nodeName", hello.Name, "nodeId", node.ID,
+	service.logger.InfoContext(ctx, "a node said hello",
+		slogx.EventKey, "nodeHello",
+		"nodeName", hello.Name, "nodeId", node.ID,
 		"startId", hello.StartID, "build", hello.Build.String(), "ffmpegVersion", hello.FFmpegVersion,
 		"rootPaths", hello.RootPaths, "byteSocket", hello.ByteSocketPath,
 		"confinement", hello.Confinement, "capacity", hello.Capacity, "devices", hello.Devices)

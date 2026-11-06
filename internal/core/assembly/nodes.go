@@ -20,6 +20,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/resourceuse"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
 	"github.com/kstenerud/orpheum/internal/core/waits"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // Nodes are the node channel as the core's services ask it, nodes.Service or a test's fake: the work
@@ -118,7 +119,7 @@ func newIngester(services *Services, parts Parts) *library.Ingester {
 				"libraryId", libraryID, "err", err)
 			return
 		}
-		logger.InfoContext(ctx, "identified a library", "libraryId", libraryID,
+		logger.InfoContext(ctx, "identified a library", slogx.EventKey, "libraryIdentified", "libraryId", libraryID,
 			"listed", report.ListedCount, "extras", report.ExtraCount,
 			"unidentified", report.UnidentifiedCount, "awaitingMatch", len(report.AwaitingMatch))
 	})

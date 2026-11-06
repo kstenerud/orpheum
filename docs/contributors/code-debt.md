@@ -11,7 +11,6 @@ holes, [process-review-2026-10-26.md](design/research/process-review-2026-10-26.
 
 | Debt | The tax | The fix | Found |
 | --- | --- | --- | --- |
-| ~47 log assertions match English sentences outside `together` and the start/ready lines | rewording a message breaks tests | match by the `logEvent` key, as an earlier commit did for the rest | 2026-10-26 |
 | Revert-red cannot narrow a wiring change (`NewServer`, `assembly.Build`): every API test runs | each such probe costs the whole package | a recorded per-test coverage run, nightly or on demand (owner's call) | 2026-10-26 |
 | The locale probe trusts only literal keys; `en-settings.ts`' keys are built at run time | its probes run the whole related set (~34 s) | trust a template literal's fixed prefix | 2026-10-26 |
 | `scripts/check_revert_red.py` is at 796 of its 800 lines | the next change must split it first | move a part (the outcome reporting) to its own module | 2026-10-27 |

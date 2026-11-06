@@ -17,6 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 func TestServe_ServesPProfOnlyWhenTheSettingSaysSo(t *testing.T) {
@@ -54,7 +55,7 @@ func TestServe_SweepsUnmodifiedSettingsToTheirStartingValuesBeforeItIsReady(t *t
 	captured := newCapturedLog("ready")
 	server := startServing(t, config, captured, "ready", nil)
 	logged := captured.String()
-	sweep := strings.Index(logged, "this release changed the starting value of settings nobody had set")
+	sweep := strings.Index(logged, testutil.EventInJSON("settingsStartsFollowed"))
 	ready := strings.Index(logged, `"logEvent":"ready"`)
 	if sweep < 0 || ready < 0 || sweep > ready || !strings.Contains(logged[sweep:ready], "signin_failure_limit") ||
 		strings.Contains(logged[sweep:ready], "secret_last_chars_shown") {

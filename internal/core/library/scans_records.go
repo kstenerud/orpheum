@@ -11,6 +11,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
@@ -208,7 +209,9 @@ func (scans *Scans) complete(ctx context.Context, scan cachegen.Scan) error {
 	if counted, readErr := scans.cache.Read().GetScan(ctx, scan.ID); readErr == nil {
 		scan = counted
 	}
-	scans.logger.InfoContext(ctx, "a node finished a scan", "nodeId", scan.NodeID, "rootPath", scan.RootPath,
+	scans.logger.InfoContext(ctx, "a node finished a scan",
+		slogx.EventKey, "nodeScanFinished",
+		"nodeId", scan.NodeID, "rootPath", scan.RootPath,
 		"listedCount", scan.ListedCount, "examinedCount", scan.ExaminedCount, "errorCount", complete.ErrorCount,
 		"isStoppedByErrors", complete.IsStoppedByErrors)
 	return scans.endThenAgain(ctx, scan)

@@ -27,6 +27,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/together"
 	"github.com/kstenerud/orpheum/internal/core/turn"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store"
 )
 
@@ -359,7 +360,7 @@ func candidatesOf(addresses []net.Addr, port int) []discoveryproto.Candidate {
 // someone talked a person into activating is on the record (the device code audit's M4).
 func logActivation(logger *slog.Logger) func(context.Context, auth.Activation) {
 	return func(ctx context.Context, activated auth.Activation) {
-		logger.InfoContext(ctx, "a device was activated by a code",
+		logger.InfoContext(ctx, "a device was activated by a code", slogx.EventKey, "deviceActivatedByCode",
 			"byUser", activated.ByUserID, "forUser", activated.ForUserID, "device", activated.DeviceName,
 			"platform", activated.Platform, "throughService", activated.IsThroughService)
 	}

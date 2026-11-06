@@ -48,7 +48,7 @@ func TestDemoteUnwanted_SaysALastingFailureOnceAMinute(t *testing.T) {
 	}
 	stop()
 	testutil.Receive(t, done, "the loop's end")
-	if said := strings.Count(logged.String(), "could not demote"); said != 3 ||
+	if said := len(testutil.LinesWith(logged.String(), "demoteFailed")); said != 3 ||
 		!strings.Contains(logged.String(), "failureCount=25") {
 		t.Errorf("31 failed demotions 5 s apart logged %d times:\n%s\nwant 3, at 0, 60 and 120 s, the last "+
 			"counting 25", said, logged.String())
