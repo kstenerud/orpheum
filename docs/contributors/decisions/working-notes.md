@@ -26658,3 +26658,43 @@ restart (`discovery_another_copy_check_every_seconds` retired), the wait the hol
 names, a look every 15 s for the discovery while the network is down, and both warnings kept, logged
 and served on `/system/discovery` and `/needs-attention`. The web client's items under the
 exclamation icon and the System page's button are not built yet.
+
+## D438 — A household's own relay stays deferred until the beta's data asks for it; when built, one core pairs with one relay, enrolled by the core
+
+**Recorded** (2026-11-06), by the project owner, after the research
+[relay-costs-2026-11-06.md](../design/research/relay-costs-2026-11-06.md) (with its addendum on a
+forced low bitrate) and [watch-together-video-chat-2026-11-06.md](../design/research/watch-together-video-chat-2026-11-06.md).
+The owner proposed that a household may run its own relay, with Orpheum providing the package that
+makes it turnkey, working with the paid discovery, and a documented base for those who build their
+own: D71's relay mode, deferred by D193, made the household's rather than ours. It keeps D273: no
+traffic is relayed by us.
+
+1. **Deferred until the beta's data** (the owner: "The entire relay thing remains deferred until we
+   get some data during beta. It may transpire that people complain about not being able to reach
+   their home servers, in which case this feature will quickly become very important."). The data is
+   the beta's complaints, and the dead-end count of D314; whether the core also reports its paths'
+   counts (the relay report's open question 7) is the owner's to order.
+2. **One core, one relay** (the owner: "Let's just keep it as simple as we can. One core to one
+   relay."). A relay serves one core: no accounts, no other households, no abuse handling of its own.
+3. **The core enrols its relay; the discovery only learns of it from the core** (the owner left this to
+   the lead, "Figure out what makes the most sense from a practicality and security standpoint"):
+   - **Pairing as a node pairs:** the relay, started from its image, shows a one-time code; an admin
+     enters it on the core's System page; each keeps the other's public key. The relay then accepts a
+     dial-out from that core's key alone, so it cannot be used to reach anything else (no open relay).
+   - **The core tells its discovery the relay's address** as one more of its paths, signed under its
+     session as its links and locators are (discovery-core.md K7); the discovery hands it to clients
+     with the rest. The relay never holds a discovery account or key, so a relay lost or taken over
+     costs only its address, not the household's identity.
+   - **The relay terminates nothing:** clients' TLS and DTLS pass through to the core, whose
+     fingerprint the core signs (discovery-protocol.md §3.7), so the relay sees no content and cannot
+     pose as the core.
+   - **The core dials out to the relay** (D71): no port forwarding, and it works behind carrier-grade
+     NAT, the case nothing else solves.
+   - Why not the relay registering with the discovery: it would need its own credentials at the paid
+     service, a second thing to trust and revoke, and a way for the discovery to know which core it
+     belongs to, which only the core can vouch for.
+4. **Relayed playback is capped** (the owner: "I'm fine with a forced reduced bandwidth like what plex
+   does"), so one household's worst month stays near 1.3 TB, inside a small VPS's included traffic
+   (the relay report's addendum). The cap's numbers are set when it is built.
+
+**Status:** Deferred (2026-11-06), not built; the beta's data reopens it.
