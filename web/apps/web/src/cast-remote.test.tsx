@@ -352,6 +352,37 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     await click(buttonNamed(mounted.container, "Play"));
     expect(hosted.heard.at(-1)).toMatchObject({ type: "command", command: "play" });
     expect(castSession.heard.some((each) => each["type"] === "command")).toBe(false);
+    // The owner, 2026-11-06: "While I have watch together active, I no longer get any controls for
+    // sound offset in the cast dialog": the receiver says its sound in the session it leads.
+    await hosted.say({
+      type: "roster",
+      roster: [
+        {
+          id: 2,
+          name: "owner",
+          isHost: true,
+          devices: [
+            { id: 5, role: "panel" },
+            {
+              id: 7,
+              role: "video",
+              isLeader: true,
+              playback: {
+                delivery: "direct",
+                sound: { isLevellingOn: false, audioTracks: [], soundOffsetMs: -400 },
+              },
+            },
+          ],
+        },
+      ],
+    });
+    expect(mounted.container.textContent).toContain("Sound there: 400 ms earlier");
+    await click(buttonWithText(mounted.container, "Sound 50 ms earlier"));
+    expect(hosted.heard.at(-1)).toMatchObject({
+      type: "sound",
+      sound: { kind: "soundOffset", ms: -450 },
+    });
+    expect(castSession.heard.some((each) => each["type"] === "sound")).toBe(false);
   });
 
   // The owner, staging, 2026-10-30: after a Fire TV took control back, the page offered "Play here
