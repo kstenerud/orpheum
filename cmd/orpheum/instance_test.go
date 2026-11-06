@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // default-config makes a core's instance, every directory private, whose full config names every
@@ -14,7 +16,7 @@ import (
 // are set; and it never overwrites an instance (D242 §4).
 func TestDefaultConfig_MakesAnInstanceThatWaitsForItsRequiredKeysAndIsNeverOverwritten(t *testing.T) {
 	t.Parallel()
-	dir := filepath.Join(t.TempDir(), "o") // a socket's path is short: t.TempDir's carries the test's name
+	dir := filepath.Join(testutil.SocketDirectory(t), "o")
 	made := runCommand(t, "default-config", dir)
 	if made.status != exitSuccess || !strings.Contains(made.stdout, "made a core instance") {
 		t.Fatalf("default-config = %+v", made)
@@ -49,7 +51,7 @@ func TestDefaultConfig_MakesAnInstanceThatWaitsForItsRequiredKeysAndIsNeverOverw
 // (D242 §6).
 func TestInstance_EachKindRunsOnlyItsOwnKind(t *testing.T) {
 	t.Parallel()
-	nodeDir := filepath.Join(t.TempDir(), "n") // a socket's path is short: t.TempDir's carries the test's name
+	nodeDir := filepath.Join(testutil.SocketDirectory(t), "n")
 	if made := runCommand(t, "default-config", "--node", nodeDir); made.status != exitSuccess {
 		t.Fatalf("default-config --node = %+v", made)
 	}
@@ -114,7 +116,7 @@ func TestDefaultConfig_RefusesASocketPathTooLongAndTakesARunDirectoryElsewhere(t
 	if _, err := os.Stat(deep); !os.IsNotExist(err) {
 		t.Errorf("the refused default-config made %s: %v", deep, err)
 	}
-	runDir := filepath.Join(t.TempDir(), "r")
+	runDir := filepath.Join(testutil.SocketDirectory(t), "r")
 	if made := runCommand(t, "default-config", "--run-dir", runDir, deep); made.status != exitSuccess {
 		t.Fatalf("default-config --run-dir = %+v", made)
 	}

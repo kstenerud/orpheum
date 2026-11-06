@@ -198,7 +198,7 @@ func (core *fakeCore) receiveStatus(t *testing.T) http.HandlerFunc {
 // waits for the handlers to return, so none reports to a test that has ended (which panics).
 func (core *fakeCore) serve(t *testing.T, handler http.Handler) string {
 	t.Helper()
-	socket := filepath.Join(t.TempDir(), "c.sock")
+	socket := filepath.Join(testutil.SocketDirectory(t), "c.sock")
 	listener, err := (&net.ListenConfig{}).Listen(t.Context(), "unix", socket)
 	if err != nil {
 		t.Fatal(err)

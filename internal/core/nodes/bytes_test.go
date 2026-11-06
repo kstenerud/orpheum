@@ -17,6 +17,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // markedRoots notes each root made unavailable after its disk did not answer.
@@ -35,7 +36,7 @@ func (marked *markedRoots) MarkStalled(_ context.Context, _ int64, rootPath, _ s
 func TestByteSocketClient_ARootANodeSaysDoesNotAnswerIsMadeUnavailable(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Second)
-	socketDir := filepath.Join(t.TempDir(), "run")
+	socketDir := filepath.Join(testutil.SocketDirectory(t), "run")
 	reply := harness.hello(t, nodeproto.Hello{Name: "local", ByteSocketPath: filepath.Join(socketDir, "node.sock")})
 	listener, err := unixsocket.Listen(socketDir, "node.sock")
 	if err != nil {
@@ -147,7 +148,7 @@ func TestTakeHeld_TakesOnlyTheBytesThePostNamedForItsAttempt(t *testing.T) {
 func TestReadHeldResult_FetchesItFromTheNodesByteSocket(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Second)
-	socketDir := filepath.Join(t.TempDir(), "run")
+	socketDir := filepath.Join(testutil.SocketDirectory(t), "run")
 	// The core reads from the socket the node's hello names (D242 §7).
 	reply := harness.hello(t, nodeproto.Hello{Name: "local", ByteSocketPath: filepath.Join(socketDir, "node.sock")})
 	encoded, err := json.Marshal(nodeproto.Result{
@@ -187,7 +188,7 @@ func TestReadHeldResult_FetchesItFromTheNodesByteSocket(t *testing.T) {
 func TestListFolders_AsksTheNodesByteSocket(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Second)
-	socketDir := filepath.Join(t.TempDir(), "run")
+	socketDir := filepath.Join(testutil.SocketDirectory(t), "run")
 	reply := harness.hello(t, nodeproto.Hello{Name: "local", ByteSocketPath: filepath.Join(socketDir, "node.sock")})
 	listener, err := unixsocket.Listen(socketDir, "node.sock")
 	if err != nil {
@@ -223,7 +224,7 @@ func TestListFolders_AsksTheNodesByteSocket(t *testing.T) {
 func TestProbeRoot_AsksTheNodesByteSocket(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Second)
-	socketDir := filepath.Join(t.TempDir(), "run")
+	socketDir := filepath.Join(testutil.SocketDirectory(t), "run")
 	reply := harness.hello(t, nodeproto.Hello{Name: "local", ByteSocketPath: filepath.Join(socketDir, "node.sock")})
 	listener, err := unixsocket.Listen(socketDir, "node.sock")
 	if err != nil {

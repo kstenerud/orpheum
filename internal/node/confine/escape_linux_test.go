@@ -207,7 +207,7 @@ func TestEscape_AConfinedToolReadsAndWritesOnlyWhatItWasGivenAndOpensNoNetwork(t
 	}
 	output := t.TempDir()
 	access := confine.Access{Read: []string{source}, Write: []string{output}}
-	listening := listenUnix(t, filepath.Join(elsewhere, "core.sock"))
+	listening := listenUnix(t, filepath.Join(testutil.SocketDirectory(t), "core.sock"))
 	for _, check := range []struct {
 		what      string
 		arguments []string

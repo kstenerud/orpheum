@@ -8,6 +8,7 @@
 // with the pinned FFmpeg: test images, films and the M2 acceptance's 200-file fixture tree, each made
 // once and kept in the generated-media cache (media.go), so a later run gets it without FFmpeg. Receive is a
 // test's bounded wait on a channel, and Log a logger's output a test waits on for a line.
+// SocketDirectory is where a test's Unix sockets go.
 //
 // # Invariants
 //
@@ -32,6 +33,9 @@
 //   - Every generator here makes its media through the cache, in the user's cache directory:
 //     TestGenerateMedia_KeepsThePinnedFFmpegsMediaInTheUsersCacheDirectory,
 //     TestGenerateImage_IsMadeOnceOnItsStdoutAndKept, TestBuildFixtureTree_ClipsAreKeptAsGeneratedMedia.
+//   - A test's Unix sockets go in SocketDirectory's directory, directly in the temporary directory
+//     and removed when the test ends, never under t.TempDir, whose path leaves a socket a few bytes
+//     or none of its 108. TestSocketDirectory_IsShortWhateverTheTestIsCalledAndGoneWhenItEnds.
 //   - Only tests import this package, so nothing here — skipping, test variables, starting
 //     MKVToolNix — reaches a binary. Enforced by TestArch_TestSupportIsImportedOnlyByTests; that
 //     is why the depguard rule exec-only-in-execx and forbidigo's [exec] exempt it.
@@ -59,4 +63,5 @@
 //   - self.go: RunSelf, which runs the test binary again as a process of its own.
 //   - receive.go: Receive, the one way a test waits on a channel: bounded by ReceiveLimit, and
 //     failing with what it waited for and every goroutine's stack, so a wait cannot hang a run.
+//   - socket.go: SocketDirectory, the one place a test listens on a Unix socket in.
 package testutil

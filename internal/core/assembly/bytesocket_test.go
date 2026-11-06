@@ -25,6 +25,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // ignoringReports takes a node's parked destinations, and does nothing with them.
@@ -65,7 +66,7 @@ func newByteSocketBench(t *testing.T, answer http.HandlerFunc) byteSocketBench {
 		Destinations: ignoringReports{}, Logger: slog.New(slog.DiscardHandler),
 		PollHold: time.Second,
 	})
-	runDir := filepath.Join(t.TempDir(), "run")
+	runDir := filepath.Join(testutil.SocketDirectory(t), "run")
 	listener, err := unixsocket.Listen(runDir, benchSocketName)
 	if err != nil {
 		t.Fatal(err)
