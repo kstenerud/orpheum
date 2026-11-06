@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package nodestest gives the tests of packages whose jobs a node does Resolver, which hands a test
-// the answer its node's word resolves a job with. It is imported only by tests.
+// the answer its node's word resolves a job with, and NewExchanges, the one way a test outside
+// package nodes builds the nodes' exchanges. It is imported only by tests.
 //
 // # Invariants
 //
@@ -19,4 +20,5 @@
 // # Where to change
 //
 //   - resolver.go: Resolver.
+//   - exchanges.go: NewExchanges, and what it fills that a test leaves unset.
 package nodestest

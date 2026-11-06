@@ -5,7 +5,6 @@ package chunks
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -18,6 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
+	"github.com/kstenerud/orpheum/internal/core/nodes/nodestest"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -286,9 +286,8 @@ func chunksFixture(t *testing.T, queue Queue, node fakeNode) (*Service, *fakeRea
 	service := NewService(Parts{
 		Database: database, Cache: cache, Settings: seeded, Queue: queue, Nodes: node, Loudness: fakeLoudness{},
 		ReadThrough: reader, Logger: slog.New(slog.DiscardHandler), Clock: clockSource,
-		Exchanges: nodes.NewExchanges(nodes.ExchangeParts{
-			Sender: node, Rooms: node, Clock: clockSource, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
-			Cache: cache, Settings: seeded, MaxSilence: time.Hour,
+		Exchanges: nodestest.NewExchanges(t, nodes.ExchangeParts{
+			Sender: node, Rooms: node, Clock: clockSource, Cache: cache, Settings: seeded, MaxSilence: time.Hour,
 		}),
 	})
 	return service, reader

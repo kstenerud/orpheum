@@ -4,7 +4,6 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 	"log/slog"
 	"testing"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
+	"github.com/kstenerud/orpheum/internal/core/nodes/nodestest"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -80,10 +80,8 @@ func TestReportedProgressOf_IsWhereTheNodeHoldingAJobsWorkLastSaidItIs(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	exchanges := nodes.NewExchanges(nodes.ExchangeParts{
-		Clock: clocktest.NewFake(time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)), Random: rand.Reader,
-		Logger: slog.New(slog.DiscardHandler), Cache: cache, MaxSilence: time.Minute,
-		Settings: settingstest.Seeded(t, storetest.OpenMigrated(t)),
+	exchanges := nodestest.NewExchanges(t, nodes.ExchangeParts{
+		Clock: clocktest.NewFake(time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)), Cache: cache,
 	})
 	if err := exchanges.Load(t.Context()); err != nil {
 		t.Fatal(err)
@@ -157,9 +155,8 @@ func TestDemoteUnwanted_APlaysJobNoOneWaitsForFallsAndItsNodeIsTold(t *testing.T
 		t.Fatal(err)
 	}
 	told := toldSender{told: make(chan nodeproto.Command, 1)}
-	exchanges := nodes.NewExchanges(nodes.ExchangeParts{
-		Sender: told, Rooms: told, Clock: now, Random: rand.Reader, Logger: logger, Cache: cache, Settings: config,
-		MaxSilence: time.Hour,
+	exchanges := nodestest.NewExchanges(t, nodes.ExchangeParts{
+		Sender: told, Rooms: told, Clock: now, Logger: logger, Cache: cache, Settings: config, MaxSilence: time.Hour,
 	})
 	if err = exchanges.Load(t.Context()); err != nil {
 		t.Fatal(err)

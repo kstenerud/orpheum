@@ -4,9 +4,7 @@ package nodes_test
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
-	"log/slog"
 	"slices"
 	"strings"
 	"testing"
@@ -14,10 +12,9 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
-	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
+	"github.com/kstenerud/orpheum/internal/core/nodes/nodestest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
-	"github.com/kstenerud/orpheum/internal/store/storetest"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
@@ -134,10 +131,8 @@ func TestLoad_AnAttemptKeptThroughARestartIsResolvedByItsNodesWord(t *testing.T)
 	t.Parallel()
 	bench := newExchanges(t)
 	sent := bench.assign(t)
-	restarted := nodes.NewExchanges(nodes.ExchangeParts{
-		Sender: bench.sender, Rooms: bench.sender, Clock: bench.now, Random: rand.Reader,
-		Logger: slog.New(slog.DiscardHandler), Cache: bench.cache, MaxSilence: time.Minute,
-		Settings: settingstest.Seeded(t, storetest.OpenMigrated(t)),
+	restarted := nodestest.NewExchanges(t, nodes.ExchangeParts{
+		Sender: bench.sender, Rooms: bench.sender, Clock: bench.now, Cache: bench.cache,
 	})
 	if err := restarted.Load(t.Context()); err != nil {
 		t.Fatal(err)
@@ -166,10 +161,8 @@ func TestLoad_AnAttemptKeptThroughARestartKeepsTheStartOfItsNode(t *testing.T) {
 		kept[0].NodeStartID != "first start" || kept[1].NodeStartID != "first start" {
 		t.Fatalf("cache.db keeps %+v, %v; want each attempt with its node's start", kept, err)
 	}
-	restarted := nodes.NewExchanges(nodes.ExchangeParts{
-		Sender: bench.sender, Rooms: bench.sender, Clock: bench.now, Random: rand.Reader,
-		Logger: slog.New(slog.DiscardHandler), Cache: bench.cache, MaxSilence: time.Minute,
-		Settings: settingstest.Seeded(t, storetest.OpenMigrated(t)),
+	restarted := nodestest.NewExchanges(t, nodes.ExchangeParts{
+		Sender: bench.sender, Rooms: bench.sender, Clock: bench.now, Cache: bench.cache,
 	})
 	if err := restarted.Load(t.Context()); err != nil {
 		t.Fatal(err)

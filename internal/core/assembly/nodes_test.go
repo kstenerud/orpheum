@@ -4,7 +4,6 @@ package assembly
 
 import (
 	"context"
-	"crypto/rand"
 	"log/slog"
 	"slices"
 	"testing"
@@ -15,6 +14,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
+	"github.com/kstenerud/orpheum/internal/core/nodes/nodestest"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
@@ -126,10 +126,8 @@ func TestHoldSlowReadsForQuickPasses_ABackgroundReadThroughWaitsForTheScansQuick
 	t.Parallel()
 	now := clocktest.NewFake(time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC))
 	rooms := tankRooms{toldSender{told: make(chan nodeproto.Command, 1)}}
-	exchanges := nodes.NewExchanges(nodes.ExchangeParts{
-		Sender: rooms, Rooms: rooms, Clock: now, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
-		Cache: storetest.OpenCache(t), Settings: settingstest.Seeded(t, storetest.OpenMigrated(t)),
-		MaxSilence: time.Hour,
+	exchanges := nodestest.NewExchanges(t, nodes.ExchangeParts{
+		Sender: rooms, Rooms: rooms, Clock: now, MaxSilence: time.Hour,
 	})
 	holdSlowReadsForQuickPasses(exchanges, filmsOnQuickPass{})
 	video := nodeproto.BytesFile{RootPath: "/media", Path: []byte("films/F.mkv")}

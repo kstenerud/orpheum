@@ -5,7 +5,6 @@ package artwork
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -206,9 +205,8 @@ func newBench(t *testing.T, images fakeFetcher) *bench {
 	fakeClock := clocktest.NewFake(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
 	service := NewService(Parts{
 		Database: database, Queue: &jobstest.Queue{}, Nodes: node, ArtFiles: art,
-		Exchanges: nodes.NewExchanges(nodes.ExchangeParts{
-			Sender: node, Rooms: node, Clock: fakeClock, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
-			Cache: cache, Settings: config, MaxSilence: time.Minute,
+		Exchanges: nodestest.NewExchanges(t, nodes.ExchangeParts{
+			Sender: node, Rooms: node, Clock: fakeClock, Cache: cache, Settings: config,
 		}),
 		Cache:    cache,
 		Settings: config,
