@@ -123,6 +123,9 @@
 //     least recently witnessed, and they are kept in discovery.json, which a Leave removes (D356 §4).
 //     TestHouseNetworks_ANetworkUnwitnessedForThirtyDaysIsDropped,
 //     TestHouseNetworks_AFifthPushesOutTheLeastRecent, TestHouseNetworks_SurviveARestartAndGoWithALeave.
+//   - A network witnessed again is written to discovery.json only a day or more after the witnessing
+//     it holds (houseNetworkKeepEvery), not per connection from home; in memory every witnessing
+//     counts at once. TestHouseNetworks_AWitnessingAgainIsWrittenOnlyADayOn.
 //   - An offer through the discovery reaches rtcapi only by Answerer.AnswerRelayed, which checks it
 //     itself first (the security audit's A2): the interface names no other way. Review, until the
 //     owner adds its TestArch_ claim.

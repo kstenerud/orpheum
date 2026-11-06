@@ -236,3 +236,37 @@ func TestHouseNetworks_SurviveARestartAndGoWithALeave(t *testing.T) {
 		t.Errorf("enrolled again after leaving, the house networks are %+v; want none", networks)
 	}
 }
+
+// A network witnessed again is written to discovery.json only a day or more after the witnessing it
+// holds, not per connection from home; the heartbeat's order follows every witnessing at once (D356
+// section 4).
+func TestHouseNetworks_AWitnessingAgainIsWrittenOnlyADayOn(t *testing.T) {
+	t.Parallel()
+	built := claimedWorld(t)
+	witness := func(network string) {
+		built.service.learnHouseNetwork(t.Context(), offerFrom(network, ""), aDeviceAtHome)
+	}
+	witness("2a0f:1000:1:1::/64")
+	witness("2a0f:1000:1:2::/64")
+	written := built.files.writeCount(StateFileName)
+	built.clock.Advance(time.Hour)
+	witness("2a0f:1000:1:1::/64")
+	built.clock.Advance(time.Hour)
+	witness("2a0f:1000:1:1::/64")
+	if count := built.files.writeCount(StateFileName); count != written {
+		t.Errorf("two witnessings within a day wrote %d times; want none", count-written)
+	}
+	if networks := built.service.Status().HouseNetworks; len(networks) != 2 ||
+		networks[0].Network.String() != "2a0f:1000:1:1::/64" || !networks[0].WitnessedAt.Equal(built.clock.Now()) {
+		t.Errorf("the house networks are %+v; want the one witnessed again first, witnessed now", networks)
+	}
+	built.clock.Advance(houseNetworkKeepEvery - 2*time.Hour)
+	witness("2a0f:1000:1:1::/64")
+	if count := built.files.writeCount(StateFileName); count != written+1 {
+		t.Errorf("a witnessing a day on wrote %d times; want once", count-written)
+	}
+	if restarted := built.restart(t).Status().HouseNetworks; len(restarted) != 2 ||
+		!restarted[0].WitnessedAt.Equal(built.clock.Now()) {
+		t.Errorf("after a restart the house networks are %+v; want the day-on witnessing kept", restarted)
+	}
+}
