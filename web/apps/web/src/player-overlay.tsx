@@ -20,6 +20,7 @@ import { useIsVolumeSettable } from "./film-volume-slider.tsx";
 import type { FilmParts } from "./film-player.tsx";
 import { isThisHandheld } from "./handheld.ts";
 import { useCommands } from "./input-layer.tsx";
+import { useLatest } from "./latest.ts";
 import { OverlayUp, PlayUpwardContext } from "./play-up.tsx";
 import { answerPlayerCommand, seekBy, usePlayersControls } from "./player-commands.ts";
 import {
@@ -156,12 +157,8 @@ function useOverlay(
     isMenuOpen,
     ...refs,
   });
-  const stateRef = useRef(state);
-  const isMenuOpenRef = useRef(isMenuOpen);
-  useEffect(() => {
-    stateRef.current = state;
-    isMenuOpenRef.current = isMenuOpen;
-  });
+  const stateRef = useLatest(state);
+  const isMenuOpenRef = useLatest(isMenuOpen);
   const { onPictureTap, feedback } = useAnswersPictureTaps(refs.videoRef, () => {
     setState(afterPictureTap(stateRef.current));
     notePress();
@@ -484,10 +481,7 @@ function useMenuLeftAtFullScreenFocusesScrub(
   isMenuOpen: boolean,
   askFocusToScrub: () => void,
 ): void {
-  const toldRef = useRef({ isMenuOpen, askFocusToScrub });
-  useEffect(() => {
-    toldRef.current = { isMenuOpen, askFocusToScrub };
-  });
+  const toldRef = useLatest({ isMenuOpen, askFocusToScrub });
   useEffect(() => {
     const changed = (): void => {
       if (toldRef.current.isMenuOpen) {
@@ -498,7 +492,7 @@ function useMenuLeftAtFullScreenFocusesScrub(
     return () => {
       document.removeEventListener("fullscreenchange", changed);
     };
-  }, []);
+  }, [toldRef]);
 }
 
 /**

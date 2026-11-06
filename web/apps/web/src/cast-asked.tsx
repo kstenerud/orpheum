@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 
 import { acceptCast, castAnswerWithinMs, endCast } from "./cast.ts";
 import { askPageFullScreen, leaveFullScreenAsked } from "./film-fullscreen.ts";
+import { useLatest } from "./latest.ts";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { problemText } from "./problem.ts";
 import { useServices, useToken } from "./services.tsx";
@@ -76,10 +77,7 @@ function useUnansweredCastCloses(
   const token = useToken();
   const { snapshot } = useTogether({ credential: cast.membershipCredential, sessionToken: token });
   const isEnded = snapshot?.status === "ended";
-  const answeredRef = useRef(onAnswered);
-  useEffect(() => {
-    answeredRef.current = onAnswered;
-  });
+  const answeredRef = useLatest(onAnswered);
   useEffect(() => {
     playRef.current?.focus();
     const timer = setTimeout(() => {
@@ -89,12 +87,12 @@ function useUnansweredCastCloses(
     return () => {
       clearTimeout(timer);
     };
-  }, [api, cast.castId, playRef]);
+  }, [answeredRef, api, cast.castId, playRef]);
   useEffect(() => {
     if (isEnded) {
       answeredRef.current(undefined);
     }
-  }, [isEnded]);
+  }, [answeredRef, isEnded]);
 }
 
 /**

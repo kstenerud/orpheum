@@ -35,6 +35,7 @@ import { fillsWindowClass, isFullScreenLeaveAsked, setFillsWindow } from "./film
 import { commandOf, keyCodeOf } from "./input-buttons.ts";
 import { onCommand } from "./input-commands.ts";
 import { useSoundWorkedByTheRemote, useToldTheCastHowItPlays } from "./cast-receiver-sound.ts";
+import { useLatest } from "./latest.ts";
 import { useServices, useToken } from "./services.tsx";
 import { useLive } from "./live.tsx";
 import type { Navigation } from "./navigation.ts";
@@ -365,10 +366,7 @@ export function SoundAtAnyPress(props: {
   const { t } = useTranslation();
   const { video } = props;
   const muted = useMutedByTheBrowser(video);
-  const latestRef = useRef(props);
-  useEffect(() => {
-    latestRef.current = props;
-  });
+  const latestRef = useLatest(props);
   const { setIsMuted } = muted;
   const turnOn = useCallback(
     (by: Press): void => {
@@ -379,7 +377,7 @@ export function SoundAtAnyPress(props: {
       setIsMuted(false);
       soundOnAtTap(shown, connection, by);
     },
-    [setIsMuted],
+    [latestRef, setIsMuted],
   );
   useFirstPressTurnsSoundOn(muted.isMutedRef, turnOn);
   if (!muted.isMuted || video === null) {
@@ -540,15 +538,6 @@ function ControlledFrom(props: { readonly name: string }): JSX.Element | null {
       {t("cast.controlledFrom", { name: props.name })}
     </output>
   ) : null;
-}
-
-/** A ref that always holds value as of the last render, for listeners set up once. */
-function useLatest<T>(value: T): RefObject<T> {
-  const ref = useRef(value);
-  useEffect(() => {
-    ref.current = value;
-  });
-  return ref;
 }
 
 /** The press that took a cast's control back, as its note says it. */

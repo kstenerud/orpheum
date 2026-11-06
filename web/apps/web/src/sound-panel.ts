@@ -11,7 +11,8 @@
  */
 
 import type { PlaybackSound, SoundChoice, SoundTrack } from "@orpheum/sdk";
-import { createContext, use, useEffect, useRef } from "react";
+import { createContext, use, useEffect } from "react";
+import { useLatest } from "./latest.ts";
 
 /** One control's part of the sound, as it stands. */
 type SoundPart =
@@ -108,10 +109,7 @@ export function useSoundPart(
   onChosen: (choice: SoundChoice) => void,
 ): void {
   const panel = use(SoundPanelContext);
-  const chosenRef = useRef(onChosen);
-  useEffect(() => {
-    chosenRef.current = onChosen;
-  });
+  const chosenRef = useLatest(onChosen);
   const kind = part?.kind;
   const isOn = part !== undefined && "isOn" in part ? part.isOn : undefined;
   const streamId = part?.kind === "audioTrack" ? part.streamId : undefined;

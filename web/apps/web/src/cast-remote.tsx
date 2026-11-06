@@ -18,6 +18,7 @@ import { audioTrackLabel } from "./audio-tracks.tsx";
 import { tabStorage } from "./browser-storage.ts";
 import { endCastRetrying, listMyCasts, moveCastOn } from "./cast.ts";
 import { placeCode } from "./episode-place.ts";
+import { useLatest } from "./latest.ts";
 import { useLive } from "./live.tsx";
 import { homeTold } from "./notice.ts";
 import { rateText } from "./rate-text.ts";
@@ -190,11 +191,8 @@ function useTakesTheFilmOver(
   stoodRef: RefObject<ReopenAt | undefined>,
   playHere: (atMs: number, isPaused?: boolean) => void,
 ): void {
-  const playHereRef = useRef(playHere);
+  const playHereRef = useLatest(playHere);
   const hasTakenRef = useRef(false);
-  useEffect(() => {
-    playHereRef.current = playHere;
-  });
   useEffect(() => {
     if (over === undefined || !isTakenOver(over.reason) || hasTakenRef.current) {
       return;
@@ -206,7 +204,7 @@ function useTakesTheFilmOver(
     }
     const from = stoodRef.current ?? over;
     playHereRef.current(from.positionMs, from.isPaused);
-  }, [over, stoodRef]);
+  }, [over, playHereRef, stoodRef]);
 }
 
 /**

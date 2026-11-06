@@ -20,6 +20,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `not-into-another-package-by-path` (`web/.dependency-cruiser.cjs`).
 - **Server calls go through `@orpheum/sdk`.** `no-restricted-globals` (`fetch`,
   `WebSocket`, `EventSource`, `XMLHttpRequest`).
+- **A value kept for a listener or timer set up once is `useLatest`'s** (`src/latest.ts`), kept in
+  a layout effect so an event as soon as the page is drawn meets the drawn page's value: a passive
+  effect may run a while after the page shows, and a Fire TV's Back just after Up showed the player's
+  controls was heard by the handler of the controls still hidden (the overlay's browser test,
+  2026-11-05). `src/latest.test.tsx`.
 - **Every focusable element has an accessible name** (D188). `jsx-a11y-x` strict plus
   `control-has-associated-label`.
 - **No user-visible text written inline in JSX** (D51). `no-restricted-syntax` on `JSXText`,

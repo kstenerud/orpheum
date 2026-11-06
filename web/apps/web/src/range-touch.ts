@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, type RefObject } from "react";
+import { useLatest } from "./latest.ts";
 
 /** How far along a slider spanning rect a touch at clientX is: 0 at its start, 1 at its end. */
 export function fractionAlong(
@@ -24,10 +25,7 @@ export function useTouchAnywhere(
   valueAt: (clientX: number, rect: DOMRect) => number,
   onTouched: (value: number) => void,
 ): void {
-  const touchedRef = useRef({ valueAt, onTouched });
-  useEffect(() => {
-    touchedRef.current = { valueAt, onTouched };
-  });
+  const touchedRef = useLatest({ valueAt, onTouched });
   useEffect(() => {
     const input = inputRef.current;
     if (input === null) {

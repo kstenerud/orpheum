@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, type JSX, type ReactNode } fr
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "./icon.tsx";
+import { useLatest } from "./latest.ts";
 import { ListChips, useGenres, type ChipsKind, type Genre } from "./list-chips.tsx";
 import {
   clearedCriteria,
@@ -124,12 +125,8 @@ export function useListCriteria(
   const heldRef = useRef<ListCriteria | undefined>(undefined);
   const isOpenRef = useRef(false);
   const addressKey = criteriaKey(fromAddress);
-  const addressKeyRef = useRef(addressKey);
-  const writeRef = useRef(write);
-  useEffect(() => {
-    addressKeyRef.current = addressKey;
-    writeRef.current = write;
-  });
+  const addressKeyRef = useLatest(addressKey);
+  const writeRef = useLatest(write);
   // The address has what was held, or something else moved it: it is what the list shows again.
   useEffect(() => {
     if (!isOpenRef.current) {
@@ -137,31 +134,37 @@ export function useListCriteria(
       setHeld(undefined);
     }
   }, [addressKey]);
-  const change = useCallback((next: ListCriteria) => {
-    heldRef.current = next;
-    setHeld(next);
-    if (!isOpenRef.current) {
-      writeRef.current(next);
-    }
-  }, []);
-  const onOpenChange = useCallback((isOpen: boolean) => {
-    isOpenRef.current = isOpen;
-    setIsOpen(isOpen);
-    if (isOpen) {
-      setIsOpened(true);
-      return;
-    }
-    const now = heldRef.current;
-    if (now === undefined) {
-      return;
-    }
-    if (criteriaKey(now) === addressKeyRef.current) {
-      heldRef.current = undefined;
-      setHeld(undefined);
-      return;
-    }
-    writeRef.current(now);
-  }, []);
+  const change = useCallback(
+    (next: ListCriteria) => {
+      heldRef.current = next;
+      setHeld(next);
+      if (!isOpenRef.current) {
+        writeRef.current(next);
+      }
+    },
+    [writeRef],
+  );
+  const onOpenChange = useCallback(
+    (isOpen: boolean) => {
+      isOpenRef.current = isOpen;
+      setIsOpen(isOpen);
+      if (isOpen) {
+        setIsOpened(true);
+        return;
+      }
+      const now = heldRef.current;
+      if (now === undefined) {
+        return;
+      }
+      if (criteriaKey(now) === addressKeyRef.current) {
+        heldRef.current = undefined;
+        setHeld(undefined);
+        return;
+      }
+      writeRef.current(now);
+    },
+    [addressKeyRef, writeRef],
+  );
   const shown = held ?? fromAddress;
   const listed = useRestedText(shown, isOpen);
   const genres = useGenres(chipsKind, isOpened || shown.filters.genre !== undefined);
@@ -184,10 +187,7 @@ export const typingRestMs = 200;
  */
 function useRestedText(shown: ListCriteria, isTyping: boolean): ListCriteria {
   const [listed, setListed] = useState(shown);
-  const shownRef = useRef(shown);
-  useEffect(() => {
-    shownRef.current = shown;
-  });
+  const shownRef = useLatest(shown);
   const shownKey = criteriaKey(shown);
   const isTextAlone =
     isTyping &&
@@ -203,7 +203,7 @@ function useRestedText(shown: ListCriteria, isTyping: boolean): ListCriteria {
     return () => {
       clearTimeout(rest);
     };
-  }, [shownKey, isTextAlone]);
+  }, [shownKey, isTextAlone, shownRef]);
   return isTextAlone ? listed : shown;
 }
 

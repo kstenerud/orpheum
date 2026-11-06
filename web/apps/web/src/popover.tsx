@@ -17,6 +17,7 @@ import { listPlace, overOpenerPlace, type ScreenBox } from "./drop-down-place.ts
 import { caretOf } from "./focus-engine.ts";
 import { directionOfKey, keyCodeOf } from "./input-buttons.ts";
 import { useCommands } from "./input-layer.tsx";
+import { useLatest } from "./latest.ts";
 import { useModalLayer, type ModalLayerTold } from "./modal-layer.tsx";
 import { isPhoneWidth } from "./phone-width.ts";
 
@@ -416,10 +417,7 @@ export function Popover(props: PopoverProps): JSX.Element {
     isClosingRef.current = true;
     tellClosed();
   }, [tellClosed]);
-  const toldRef = useRef<ModalLayerTold>({ onClose });
-  useEffect(() => {
-    toldRef.current = { onClose };
-  });
+  const toldRef = useLatest<ModalLayerTold>({ onClose });
   useModalLayer(ref, toldRef);
   useChoiceCloses(ref, onClose);
   useFullScreenChangeCloses(onClose);
@@ -468,14 +466,14 @@ export function PopoverButton(props: {
   const [isOpen, setIsOpen] = useState(false);
   const openerRef = useRef<HTMLButtonElement>(null);
   const { onOpenChange } = props;
-  const onOpenChangeRef = useRef(onOpenChange);
-  useEffect(() => {
-    onOpenChangeRef.current = onOpenChange;
-  });
-  const setOpen = useCallback((isNowOpen: boolean) => {
-    setIsOpen(isNowOpen);
-    onOpenChangeRef.current?.(isNowOpen);
-  }, []);
+  const onOpenChangeRef = useLatest(onOpenChange);
+  const setOpen = useCallback(
+    (isNowOpen: boolean) => {
+      setIsOpen(isNowOpen);
+      onOpenChangeRef.current?.(isNowOpen);
+    },
+    [onOpenChangeRef],
+  );
   const close = useCallback(() => {
     setOpen(false);
   }, [setOpen]);

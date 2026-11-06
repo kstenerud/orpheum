@@ -2,11 +2,12 @@
 
 import "./modal-dialog.css";
 
-import { useEffect, useRef, type JSX, type ReactNode, type RefObject } from "react";
+import { useRef, type JSX, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import { dialogCloseAttribute } from "./focus-navigation.ts";
 import { IconButton } from "./icon-button.tsx";
+import { useLatest } from "./latest.ts";
 import { useModalLayer } from "./modal-layer.tsx";
 import { CloseIcon } from "./player-icons.tsx";
 
@@ -54,10 +55,7 @@ export function ModalDialog(props: ModalDialogProps): JSX.Element {
   const ref = useRef<HTMLDialogElement>(null);
   // The latest of what it is told, read as it closes: a page passes a new onClose at each render,
   // and opening the dialog again at each would reset its focus.
-  const toldRef = useRef(props);
-  useEffect(() => {
-    toldRef.current = props;
-  });
+  const toldRef = useLatest(props);
   useModalLayer(ref, toldRef);
   const classes = ["modal-dialog"];
   if (props.isWide === true) {
