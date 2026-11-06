@@ -81,6 +81,8 @@ type Dependencies struct {
 	Libraries *library.Admin
 	// Browser is what a person browses and searches.
 	Browser *library.Browser
+	// SystemVideos keeps the server's own videos, found by what they are (D435).
+	SystemVideos *library.SystemVideos
 	// Artwork serves the images titles show.
 	Artwork *artwork.Service
 	// Playback decides how a file plays and says where its bytes are.
@@ -240,6 +242,7 @@ func (server *Server) registerWhatPagesLog() {
 	server.registerClientProblems()
 	server.registerClientPaths()
 	server.registerLab()
+	server.registerSystemVideos()
 }
 
 // registerBrowsing registers a list's titles and a library browsed on its own (D349): films,

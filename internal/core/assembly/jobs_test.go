@@ -85,6 +85,7 @@ func TestRunners_EveryKindsWorkIsDerivedByASweepOrAskedForByAPlayAndItsOwnFailur
 		// the job view shows (D243 §6, §11).
 		isKeptByItsItem := !slices.Contains([]jobs.Kind{
 			jobs.KindReadThrough, jobs.KindBackup, jobs.KindRenewCertificate, jobs.KindHashWholeFile,
+			jobs.KindMakeSystemVideos,
 		}, runner.kind)
 		if isGivenUpKept := runner.recordFailure != nil; isGivenUpKept != isKeptByItsItem {
 			t.Errorf("%s keeps a job that gave up as its item's own failure: %v (D231 §4, §10; D244 §1)",

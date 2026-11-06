@@ -180,7 +180,7 @@ func (service *Service) RecordFailure(ctx context.Context, job jobs.Job, failure
 		}
 		keys = append(keys, fetchedKey(fetched.BodyGzip))
 	case jobs.KindFetchMetadata, jobs.KindMakeArtworkSizes, jobs.KindReadThrough, jobs.KindMakeChunks,
-		jobs.KindScan, jobs.KindExamine, jobs.KindBackup, jobs.KindRenewCertificate:
+		jobs.KindScan, jobs.KindExamine, jobs.KindBackup, jobs.KindRenewCertificate, jobs.KindMakeSystemVideos:
 		return fmt.Errorf("job %d: %s is not a subtitle's job", job.ID, job.Kind)
 	}
 	return service.finishSubtitles(ctx, keptAlike(keys, nodeproto.SubtitleText{Failure: "given up: " + failure}))

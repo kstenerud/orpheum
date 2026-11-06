@@ -257,6 +257,10 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		// A player's word on which quality of its own playback it wants, by the same token (D309): it
 		// answers nothing (TestInterest_ARunOfAQualityThePlayerLeftStops).
 		"setPlaybackWants",
+		// One of the server's own videos, in the hidden system library no one's reach names: any
+		// signed-in person may play it, and the system library alone is exempt
+		// (TestReachFile_ASystemVideoIsReachedByAnyoneAndNothingElseIs; D435 §6).
+		"getSystemVideo",
 	}
 	isAdminOnly := adminOnlyHandlers(t)
 	harness := newHarness(t)

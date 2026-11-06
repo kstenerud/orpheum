@@ -44,6 +44,7 @@ type nodeFacts interface {
 	chunks.Encoders
 	waits.Nodes
 	library.Nodes
+	library.SystemFolders
 	api.NodeReports
 	resourceuse.Nodes
 }
