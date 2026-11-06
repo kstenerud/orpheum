@@ -68,3 +68,19 @@ func (service *Service) WatchStatsOf(ctx context.Context, userID int64) (WatchSt
 	}
 	return stats, nil
 }
+
+// MoveHidesOf gives the title that stays each person's hiding of a merged title's progress, the later
+// where both were hidden, as the merge gives it the versions (D188): left on the tombstone, it would
+// no longer hide them. It writes through queries, the transaction of the merge (identify's
+// joinExisting and mergeEpisode).
+func MoveHidesOf(ctx context.Context, queries *sqlcgen.Queries, fromItem, toItem int64) error {
+	move := sqlcgen.MoveProgressHidesToItemParams{ToItem: toItem, FromItem: fromItem}
+	err := queries.MoveProgressHidesToItem(ctx, move)
+	if err == nil {
+		err = queries.DeleteProgressHidesOfItem(ctx, fromItem)
+	}
+	if err != nil {
+		return fmt.Errorf("move title %d's hidden progress to %d: %w", fromItem, toItem, err)
+	}
+	return nil
+}

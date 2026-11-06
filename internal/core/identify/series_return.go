@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -169,7 +170,7 @@ func (join seriesJoin) mergeEpisode(ctx context.Context, episode, kept int64) er
 	move := sqlcgen.MoveVersionsBetweenWorksParams{ToWork: kept, FromWork: episode}
 	err := join.queries.MoveVersionsBetweenWorks(ctx, move)
 	if err == nil {
-		err = moveProgressHides(ctx, join.queries, episode, kept)
+		err = playback.MoveHidesOf(ctx, join.queries, episode, kept)
 	}
 	if err == nil {
 		err = join.bringBack(ctx, kept)
