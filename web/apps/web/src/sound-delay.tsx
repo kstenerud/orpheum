@@ -20,7 +20,7 @@ import { useTranslation } from "react-i18next";
 
 import { listMyDevices, setMyDeviceSoundOffset } from "./accounts.ts";
 import { latestWrite } from "./latest-write.ts";
-import { Cluster } from "./layout.tsx";
+import { Cluster, Stack } from "./layout.tsx";
 import { problemText } from "./problem.ts";
 import { soundLatencyMemory } from "./sound-latency.ts";
 import { useSoundPart } from "./sound-panel.ts";
@@ -83,7 +83,7 @@ export function forgetSoundOffsetSetInThisTab(): void {
  * as this tab last set it, every control drawn showing the one value; it applies at once, and the
  * player counts Web Audio's own latency. A Watch Together viewer with no device of its own still
  * sets it, kept by the tab alone (the owner, 2026-11-06: "Put a control in watch together"). As an entry of ⁝'s list
- * (isInAList, player-menus.tsx), its parts are in a row that wraps to the pop-up's width.
+ * (isInAList, player-menus.tsx), its text is on a line of its own, its buttons in a row below.
  */
 export function SoundOffsetControl(props: {
   readonly videoRef: RefObject<HTMLVideoElement | null>;
@@ -113,9 +113,8 @@ export function SoundOffsetControl(props: {
     }
   };
   useMovedByTheRemote(props.isInAList === true ? undefined : offsetMs, setTo);
-  const parts = (
+  const buttons = (
     <>
-      <span>{timingText(t, offsetMs)}</span>{" "}
       <button
         type="button"
         onClick={() => {
@@ -132,17 +131,17 @@ export function SoundOffsetControl(props: {
       >
         {t("play.soundOffset.later", { ms: soundOffsetStepMs })}
       </button>
-      {isEarlierRefused ? (
-        <p className="play__reason">{t("play.soundOffset.cannotEarlier")}</p>
-      ) : null}
-      {failure === undefined ? null : (
-        <p className="play__reason">
-          {t("thisDevice.soundOffsetNotKept", { problem: problemText(t, failure.cause) })}
-        </p>
-      )}
     </>
   );
-  return <TimingRow isInAList={props.isInAList === true}>{parts}</TimingRow>;
+  return (
+    <TimingRow
+      isInAList={props.isInAList === true}
+      text={timingText(t, offsetMs)}
+      notes={<TimingNotes isEarlierRefused={isEarlierRefused} failure={failure} />}
+    >
+      {buttons}
+    </TimingRow>
+  );
 }
 
 /**
@@ -182,15 +181,28 @@ function useMovedByTheRemote(ms: number | undefined, setTo: (ms: number) => void
   });
 }
 
-/** The timing's parts under the video, or in a row that wraps as an entry of ⁝'s list. */
+/**
+ * The timing's parts under the video, or as an entry of ⁝'s list: there its text has a line of its
+ * own above the buttons, as its length changes with each press, and in one row with them it moved
+ * Earlier between the row and the next on the owner's TCL TV (2026-11-06).
+ */
 function TimingRow(props: {
   readonly isInAList: boolean;
+  readonly text: string;
+  readonly notes: ReactNode;
   readonly children: ReactNode;
 }): JSX.Element {
   return props.isInAList ? (
-    <Cluster space="2">{props.children}</Cluster>
+    <Stack space="1">
+      <span>{props.text}</span>
+      <Cluster space="2">{props.children}</Cluster>
+      {props.notes}
+    </Stack>
   ) : (
-    <div className="play__sound-delay">{props.children}</div>
+    <div className="play__sound-delay">
+      <span>{props.text}</span> {props.children}
+      {props.notes}
+    </div>
   );
 }
 
@@ -231,6 +243,27 @@ function useKeptOnDevice(): {
     [writes],
   );
   return { keep: writes.write, failure };
+}
+
+/** What the timing says beneath it: that the film cannot play its sound earlier, or a timing not kept. */
+function TimingNotes(props: {
+  readonly isEarlierRefused: boolean;
+  readonly failure: { readonly cause: unknown } | undefined;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { isEarlierRefused, failure } = props;
+  return (
+    <>
+      {isEarlierRefused ? (
+        <p className="play__reason">{t("play.soundOffset.cannotEarlier")}</p>
+      ) : null}
+      {failure === undefined ? null : (
+        <p className="play__reason">
+          {t("thisDevice.soundOffsetNotKept", { problem: problemText(t, failure.cause) })}
+        </p>
+      )}
+    </>
+  );
 }
 
 /** What the timing says: in step, or how much later or earlier the sound plays. */

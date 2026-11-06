@@ -106,6 +106,34 @@ describe("the overlay's pop-ups, laid out by a real browser", () => {
     expect(boxOf(offset).left - boxOf(earlier).right).toBeCloseTo(8, 0);
     expect(boxOf(later).left - boxOf(offset).right).toBeCloseTo(8, 0);
   });
+
+  it("keeps ⁝'s Sound earlier where it is as the timing's text changes (the owner's TCL TV, 2026-11-06)", async () => {
+    await page.viewport(960, 480);
+    mounted = await mount(
+      withServices(
+        <PlayerTracksContext value={subtitledTracks}>
+          <PlayerMenusContext value={ways}>
+            <PlayerMenus videoRef={createRef()} shown={["more"]} onOpenChange={() => undefined} />
+          </PlayerMenusContext>
+        </PlayerTracksContext>,
+      ),
+    );
+    await userEvent.click(page.getByRole("button", { name: "Settings" }));
+    const earlier = page.getByRole("button", { name: "Sound 50 ms earlier" }).element();
+    const text = [...document.querySelectorAll("dialog span")].find((each) =>
+      each.textContent.startsWith("Sound on this device"),
+    );
+    const before = boxOf(earlier);
+    expect(boxOf(text).bottom).toBeLessThanOrEqual(before.top + roundingPx);
+    for (const press of [1, 2, 3]) {
+      await userEvent.click(earlier);
+      await expect
+        .element(page.getByText(`Sound on this device: ${String(press * 50)} ms earlier`))
+        .toBeVisible();
+      expect(boxOf(earlier).top).toBeCloseTo(before.top, 0);
+      expect(boxOf(earlier).left).toBeCloseTo(before.left, 0);
+    }
+  });
 });
 
 // The owner, 2026-11-04: Sound track and Subtitles are two menus, not one panel, "each opens on its current
