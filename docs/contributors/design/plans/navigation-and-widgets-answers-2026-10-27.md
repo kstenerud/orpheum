@@ -2289,3 +2289,15 @@ gate are left.
    short socket directory.
 
 End: one check-pr, staging. nas.example and devnas wait until memtest ends.
+
+**Passed check-pr at "style(web): film-player-follow.test.ts carries its licence line"** (2026-11-06, 326 s; base "docs(plans): the 11-12 to 11-14 batches passed check-pr and are on staging"). On staging (`./staging quick`).
+Done: items 1 ("perf(web): the Play page hears its quality switches instead of polling them"), 3 ("fix(player): a chunk given up feeds hls.js's estimator from its first piece"), 4 ("fix(web): a page's move to another WebRTC transport tells its pairs"), 6 ("test(nodes): build the nodes' exchanges in tests through nodestest.NewExchanges"), 7 ("test(testutil): make tests' Unix sockets in a short directory, SocketDirectory"). Waiting on the
+owner, not built:
+- **Item 2:** input-pad-poll.ts already stops its frame loop with no listener, but the app-wide input
+  layer (`startInput` → `listenToPadHolds`) listens on every page, so it never stops. The owner's
+  choice: the pad stops driving some pages, or polls less often during playback.
+- **Item 3's other half** (a chunk with no bytes past its first piece timed from its ask) would undo
+  D382 §2, which makes it no sample on purpose; only an amended D382 builds it.
+- **Item 5:** api's `isDirectPath` counts a punched pair from a home address as home (admin rights,
+  D300 §3); rtcapi's `provenAtHome` takes direct pairs only (D356 §1). One judgement needs the owner
+  to say whether a punched pair from home is home.
