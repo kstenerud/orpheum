@@ -1928,6 +1928,9 @@ in the following batch."
 - **The schema allows it before the feature is built** (the owner, 2026-11-05). The expansion audit
   checks it, and fixes the schema while it is still greenfield (see that section's "Relocation").
 - **The model (D429, the owner, 2026-11-05, after a wargame):** paths stay absolute; a repoint is one operation, "folder X on node A is now folder Y on node B", which rewrites every stored path under X in one transaction, at any level, carrying every library over it. It may be slow: moves are rare (the owner).
+- **The spec (the owner, 2026-11-06):** [repoint-library.md](repoint-library.md), "The spec": a dry
+  run first, an audit record instead of a rollback, files not found left missing, and a target that
+  already holds known places refused.
 - **Seen during the devnas.example stand-in:** libraries are tied to their node. A moved database finds its
   libraries only if the new machine's node keeps the old node's name.
 

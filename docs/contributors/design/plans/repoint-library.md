@@ -4,8 +4,8 @@
 
 # Repointing a library
 
-- **Status:** QUESTIONS — 2026-11-05, the 11-07 batch's item 5. Built after the owner's answers,
-  with the devnas.example rehoming tests of 2026-11-06 as input.
+- **Status:** SPECIFIED — 2026-11-06, from the owner's answers and the owner's three decisions on the
+  wargame ("The spec" below). Built against it; what is not built yet is said there.
 - **Depends on:** [D429](../../decisions/working-notes.md#d429--a-library-moves-by-one-operation-folder-x-on-node-a-is-now-folder-y-on-node-b-over-absolute-paths)
   (the model), [relocation-audit-2026-11-05.md](../research/relocation-audit-2026-11-05.md) (what the
   schema allows), [visibility-at-scale-2026-11-05.md](../research/visibility-at-scale-2026-11-05.md)
@@ -115,3 +115,177 @@ The owner accepted the recommendations, with these changes and additions:
     resumes it.
 - **Wanted (the owner):** "more wargaming beyond this to look for holes in our plan." To be written in
   [design/research/repoint-wargame-2026-11-06-research.md](../research/repoint-wargame-2026-11-06-research.md).
+
+## The spec (the owner, 2026-11-06)
+
+The owner's three decisions on the [wargame](../research/repoint-wargame-2026-11-06-research.md),
+which override the research where they differ:
+
+1. **An audit record, not "reversible".** Each repoint is recorded: who, when, from, to, the nodes,
+   and the counts. Undoing one is another repoint, Y back to X; there is no rollback feature.
+2. **Files not found at the new place stay missing.** A repoint neither deletes nor merges them away;
+   the normal handling of a missing file applies (D241, D208).
+3. **A repoint never merges into what is already known at the target.** If the target already holds
+   known places, the repoint is refused, and the dry run shows the conflict, with counts and
+   examples, before the person confirms.
+
+### What the person states
+
+One operation (D429 §2): **folder X on node A is now folder Y on node B.** The person names node A by
+its name and X as a path; node B by its name and Y as a typed path (the owner's quick fix) or one
+chosen in the folder picker.
+
+- **Node A** is any live node, connected or not: a repoint is how a folder on a node that is down
+  (scenario 1) is pointed elsewhere.
+- **X** is matched by the bytes the node reported (`place.reported_path_raw`, D211), the spelling
+  `library_root.root_path` keeps (D107). It need not be a library's root: any folder at any level.
+- **Node B** must be connected, and **Y** must be beneath one of its configured roots (the owner,
+  2026-11-06; `libraryFolderOn`).
+- **Y the same as X on the same node** is refused: there is nothing to move.
+
+### The dry run, and what it shows
+
+`POST /repoints/preview` changes nothing and answers:
+
+- **What moves:** the places under X on node A, live and removed, counted apart, with up to five
+  examples, each old path beside its new one; every library root at or under X (live and retired),
+  each with its library and new path.
+- **What each library gains and loses:** for every library whose listing the move changes, how many
+  live files it lists now that it would not after, and the reverse. A library whose root is above X
+  loses the files; one whose root moves keeps them; one whose root holds Y gains them (the
+  research's §4.5). Roles reach libraries (D243), so this is also who can see them.
+- **Whether it crosses nodes.**
+- **Y on node B:** the folder's state as node B lists it (readable, missing, not answering), as the
+  folder picker shows it (D359 §2).
+- **Conflicts (decision 3):** every place on node B under Y, live or removed, and every library root
+  on node B at or under Y, that is not itself moving; counted, with up to five examples.
+- **Look-alikes:** places on node A whose text path (NFC) is under X but whose bytes are not (a
+  folder spelled in another normal form, the research's §4.10). They are a different folder on disk
+  and do not move; the count is shown so the person is not surprised.
+- **Refusals:** each reason the move would be refused, as codes the page words: nothing under X;
+  the same folder; Y not readable on node B; conflicts at Y; a library would hold a folder inside
+  another of its own folders (D363 §1, `ErrRootCovered`); a scan of a folder at, under or above X
+  on node A, or Y on node B, in progress.
+
+### The confirm
+
+`POST /repoints` takes the same four values. It runs the dry run's checks again inside its
+transaction and refuses with the same reasons (409) when any holds, so a page left open cannot move
+what the person did not see. The person confirms on the page after reading the dry run; the move
+button is not offered while it is refused.
+
+### The transaction
+
+One write transaction (D429 §2):
+
+1. **Places** under X on node A, live and removed, take node B and Y plus the rest of their path:
+   the bytes by prefix, the text recomputed from the new bytes (`PathText`). The path a file was
+   identified from (`file_filing.identified_from_path`) follows its place where it equals the
+   place's old path, so identification does not take it for a renamed file (D208 §1). A live place
+   is marked unconfirmed (step 0081), as the first version did, so the next scan of Y confirms each
+   by its read. Moved to another node, a place's device and inode are cleared: they name nothing
+   there.
+2. **Library roots** on node A at or under X, live and retired, take node B and Y plus the rest.
+3. **Two steps through a temporary prefix.** SQLite checks a UNIQUE index row by row, so moving
+   `/nest` to `/nest/sub` fails partway when written in one pass (visibility-at-scale §5). Every
+   moved place and root is first written under a prefix no real path has (it does not start with
+   `/`), then to its new path.
+4. **The scan state of the old folders is forgotten:** `root_state`, `root_scan`, `root_mount` and
+   `unavailable_place` rows of every root at or under X on node A, and every mount under X. It is
+   derived and rebuilt by the scan of Y; carried over, X's device facts would mislead the removal
+   checks at Y (D208 §3).
+5. **The audit record** is written (below).
+
+After it commits: the nodes are told their watched folders changed, the work parked on the old
+folders is cancelled, and a scan of each moved live library root at Y is asked for, or of the
+library folders that hold Y when no root moved.
+
+### The audit record (decision 1)
+
+A table `repoint` (step 0084, appended: production runs, CHECKPOINT 0048): its time, the account
+that did it, node A and X, node B and Y, and the counts moved: live places, removed places, roots.
+`GET /repoints` lists them, newest first. Undoing is another repoint from Y to X; the record names
+both.
+
+### Missing files (decision 2)
+
+A moved place not found at Y is not deleted or merged: the scan of Y finds it missing and handles it
+as any vanished file (D241, D208's removal checks). A moved live place stays unconfirmed until a scan
+reads it.
+
+### Conflicts (decision 3)
+
+Known at the target means a place row (live or removed) on node B under Y, or a library root row
+(live or retired) on node B at or under Y, that is not itself moving. Any one refuses the repoint;
+the dry run counts them and shows up to five. Nothing is merged; `MakeFileACopy`'s join is not used.
+
+### Nested and overlapping folders
+
+- **Y under X on one node** (`/nest` to `/nest/sub`): allowed. The places already under Y are under X
+  and move too (to `/nest/sub/sub/…`), as the disk says; the temporary prefix keeps the UNIQUE checks
+  from tripping.
+- **X under Y on one node** (`/nest/sub` to `/nest`): allowed when nothing else is known under Y;
+  otherwise a conflict.
+- **Libraries over X** (a root above X) keep their root and lose the files, unless Y is also under
+  them. **Libraries under X** move with it. **Within one library**, a moved root that lands at, under
+  or above another of its live roots on node B is refused (`ErrRootCovered`, D363 §1).
+
+### Raw and NFC prefixes
+
+X and Y are byte prefixes. A place's text path is recomputed from its new bytes, never edited as
+text, so the two stay in step (D429 §4). The look-alike count says what a byte prefix leaves behind.
+
+### Paths a prefix rewrite cannot reach
+
+- **cache.db `job.destination`** (`root:3:/media/films`): the work parked on each old root, and on
+  each mount under X, is cancelled; the sweeps derive it again for the new place (plan question 7).
+- **cache.db `scan.root_path`, `read_again_json`, `scan_batch.files_json`:** a repoint is refused
+  while a scan of a folder at, under or above X or Y is in progress (the research's §4.7), so no scan
+  holds the old paths when it commits.
+- **Free text that may quote a path** (`place.filing_reason`, `place.error_detail_json`,
+  `file_filing.filing_reason`, `file_nfo.body`, `person.picture_ref`): history, left as it is.
+
+### The API
+
+- `POST /repoints/preview`: body `{nodeName, path, newNodeName, newPath}`; the dry run.
+- `POST /repoints`: the same body; the move. 409 with the refusals when refused.
+- `GET /repoints`: the audit record.
+- `POST /libraries/{id}/roots/repoint` (one library's one root, the first version) goes: the folder
+  operation replaces it, one way to do the job (rule 11), and fixes the research's hole 3 (a nested
+  library's files not moving).
+
+All three are an admin's for now (open question 1).
+
+### The UI
+
+The library page's "This folder moved…" on a root opens the repoint dialog with node A and X filled
+in. In it the person chooses node B and Y (the places offered, the folder picker, or a typed path),
+presses **Check**, and reads the dry run: what moves, each library's gains and losses, Y's state, the
+conflicts with examples, the look-alikes. **Move** is offered only when nothing refuses it, as the
+dangerous action; **Keep it where it is** comes first and has focus (D421). After the move the dialog
+says what moved and that the scan of Y confirms each file.
+
+### Open for the owner
+
+Each is a question the three decisions leave; what is built picks the choice easiest to change.
+
+1. **Who holds the repoint privilege** (the owner's answer to question 8; the research's decision 2
+   and hole 11). There is no capability to stand beside: every library operation is the admin's,
+   and an admin edits roles. Built: the admin's, as before; the check is in one place to change.
+2. **What confirms a move before it commits** (D429 §3; the research's decision 5, hole 4), and
+   plan question 2's "refused when fewer than half are found". Counting the files found at Y needs a
+   listing of Y's files from node B, which the node does not offer outside a scan (it lists folders
+   only). Built: Y's folder state is checked; each moved file is confirmed after, by the scan's read
+   (`is_unconfirmed`), the full re-read the research's hole 4 names.
+3. **Is a conflict any known place under Y, or only one at a path the move would write?** Built: any
+   under Y (decision 3 read strictly), which refuses flattening `/a/b/c` into `/a/b` beside other
+   known files. Loosening it later is one query.
+4. **Removed places and retired roots at Y count as known**, so a target once scanned and emptied
+   refuses. Built: they count, the stricter reading.
+5. **Moves detected and then confirmed** (the owner's addition), **removals that look like a move
+   waiting** (the research's decision 4), **a backup as a second place** (its decision 3),
+   **adopting a replaced machine's node** (plan question 5), **a stable filesystem identity** (its
+   §4.11) and **what the dry run says per role** (its decision 7): not built; each is its own piece.
+6. **Where else the dialog opens:** the System page's Storage area "Move a folder…" (plan question 1)
+   for a folder that is no library's root. Built: the API takes any folder; the page's door is from
+   a library's root only.
