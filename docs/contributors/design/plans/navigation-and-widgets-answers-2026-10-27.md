@@ -2174,3 +2174,22 @@ stall, made sturdy on the core's side). End: one check-pr; staging and nas.examp
   an admin says so; both copies warned under the top menu's exclamation icon; the last holder's
   installation is let back in first, other installations waiting a few minutes (§5). In the core and in
   orpheum-connect. Split brain with no referee is accepted, not guarded.
+
+## The 11-11 batch (the owner, 2026-11-06: "memtest will run overnight, so you'll have a very long time to do more batches")
+
+1. **D437, built as decided**, in two steps, since orpheum-connect builds against this repository's
+   `discovery/discoveryproto` (its `replace ../orpheum`):
+   1. **The protocol and the core** (this repository): the session request carries the
+      installation id; a new refusal, the last holder's window, carries how long to wait; the
+      serving copy is told of a refused newcomer on its signalling connection; the ping answered by
+      the core's health; a refused copy stops asking until an admin asks again on the System page;
+      both warnings under the exclamation icon; the installation id kept in the instance directory,
+      never in a backup; asking at once when the network comes back.
+   2. **The discovery** (orpheum-connect): the last holder's installation kept in its database,
+      accepted at once; others wait the window (6 minutes, the owner to confirm), then the ping
+      decides; the serving copy told of the refused newcomer's address and time.
+2. **The repoint flow's UX** stays for the owner ("we'll need to look at that later"): not this
+   batch.
+
+End: one check-pr in each repository, staging deployed (core and discovery); nas.example and the
+production discovery wait for the owner.
