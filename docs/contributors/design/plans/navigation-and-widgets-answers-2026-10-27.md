@@ -2058,10 +2058,53 @@ and nas.example wait for the owner's go. Found on the way and filed for the next
   and output 240–330 ms. The browser never moves the picture to match, and the original file has no
   way to move the sound earlier. Proposed for the owner: level without Web Audio where it lags, and set
   the remaining offset with the built-in sound timing test (Diagnostics).
+  **Options researched 2026-11-06 (lead, the owner's "go ahead" to stop it lagging); nothing built,
+  for the owner to choose.** Where Web Audio is used now: `gainAfterVolume` (`gain.ts`) routes the
+  element only for a gain other than 0 dB. A ladder's sound is the server's mix and already carries
+  the film's levelling gain (D226 §4, "fix(chunks): a person without levelling hears the ladder's sound unlevelled, not undone through Web Audio"), and the boosted mix is made on the server (D222,
+  D336 §2), so a ladder playback with levelling on needs Web Audio only for a gain its sound was made
+  without (made before the film was measured). The lag comes from (1) a film playing its **own file**
+  (D336 §1) with levelling on, the clip's −11.6 dB; (2) a prepared copy with levelling off (left as
+  it is, the owner, 2026-10-25); (3) a positive sound offset, which is a Web Audio delay.
+  - **(a) Level on the server only.** Already so on the ladder. For an own file it means leaving
+    direct play whenever levelling wants a gain: every playback with levelling on goes to the ladder,
+    on every device, a remux of the picture and a sound made per film. Costs the server for devices
+    that have no lag; against D336 §1's least work. Not recommended on its own.
+  - **(b) Detect the lag and bypass Web Audio there.** The device already keeps its Web Audio latency
+    (`orpheum.sound.latencyMs`, `sound-latency.ts`): base + output, 336–426 ms on this TV, 331–347 ms
+    on a Fire TV, tens of ms on a desktop. Where it is above a bound (say 100 ms), levelling takes no
+    Web Audio: a **lowering** (most films against −23 LUFS, and this clip) is the element's own
+    volume, the slider's 100 mapped to the gain's factor; a **raise**, which the element cannot give,
+    moves an own-file playback to its ladder, whose sound carries it, by D336 §3's move as the boost
+    does (a cause beside `boostChosen`). A device that has never measured plays its first levelled
+    film through Web Audio once, as now, and learns. Cost: about a day's client work (`gain.ts`, the
+    volume control's mapping, which the cast receiver and Watch Together share), a little core work
+    for the move's cause, and tests; a decision amending D226 §4 ("the web player routes the sound
+    through Web Audio's gain").
+  - **(c) Better automatic compensation.** Built already for the ladder: its sound chunks move earlier
+    by the measured latency (`audio-shift.ts`), and the latency reported (base + output, about
+    420 ms) is close to the lag measured (400–500 ms), so it undercounts by 0–100 ms at most. It cannot
+    help an own file, whose sound cannot be moved earlier, which is the case measured.
+  - **Recommendation: (b)**, with the remaining element-path lag (about 200 ms on this TV, with no Web
+    Audio) set once per device by the sound timing test. It is not within an existing decision's
+    mechanism (it changes how D226 §4 applies the gain), so it waits on the owner.
 - **HEVC on the ladder fails to decode on this TV**: "Failed to execute 'appendBuffer' on
   'SourceBuffer': The HTMLMediaElement.error attribute is not null" (files 12286 and 12287, 06:56–07:05
   UTC). Sync HEVC Opus played twice, then failed on every try. Sync HEVC AAC never played. The playable
   formats should drop HEVC for this device, or the cause should be found.
+  **Built 2026-11-06 (lead's brief), within D266:** the element had failed to decode; hls.js rebuilt
+  its media source, and the player's one recovery (decode-recovery.ts) rebuilt it again at the same
+  quality, so the second failure ended the playback, H.264 qualities below it unused. hls.js's own
+  switch to another codec found none, the master playlist naming no CODECS. A second decoding error
+  within 30 s of the recovery now gives the quality up as unplayable here (D266), loading again below
+  it, and D266 §4 and D323 §2 then start the device's later playbacks of the film at its H.264 twin.
+  The cause on the TV is unverified (idiosyncrasies.md, "A TCL TV in TV Bro says it plays HEVC and fails
+  to decode it"); on the TV, VQ268. **For the owner:** D266 named two signs of a quality the device
+  cannot play (standing still, chunks not held); this adds a third, a decoding error a rebuild did not
+  mend. Say if it needs a decision of its own. Still open: the give-up is per film, so each other HEVC
+  film hiccups once on this TV (a recovery and a give-up, a few seconds). Dropping HEVC from the
+  device's playable formats after one such give-up (kept in the device's storage, as the sound latency
+  is) would stop that; it is a design choice, not built.
 - **Watch Together screens ignored the device's sound offset; cast receivers did not** (corrected,
   agent-failures A61): a receiver renders the Play page, so it applies the offset and has the control.
   Built 2026-11-06 at the owner's word ("Put a control in watch together and cast"): a viewer has the
