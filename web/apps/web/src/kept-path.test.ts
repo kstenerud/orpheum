@@ -394,6 +394,63 @@ describe("the kept path", () => {
     window.dispatchEvent(Object.assign(new Event("pagehide"), { persisted: false }));
     expect(left.isClosed).toBe(true);
   });
+
+  // A Chrome page at home whose LAN name answered and then failed moved to WebRTC, and no line said
+  // whether its LAN host pair worked (D354 §5, D300 §4; code debt, 2026-10-27).
+  it("tells the pairs of each WebRTC transport it moves to after the first path, once for each", async () => {
+    vi.useFakeTimers();
+    const home: Reached = {
+      kind: "direct",
+      origin: "https://192-168-1-2.core1.orpheum-core.com:8443",
+    };
+    // Every request fails, on the LAN name and over each transport: each moves the page on once.
+    const failing = (): Promise<Response> => Promise.reject(new TypeError("Failed to fetch"));
+    const pairsAsked = { a: 0, b: 0 };
+    const transportAsking = (which: "a" | "b"): RtcTransport => {
+      const peer = {
+        ...closingPeer(),
+        candidatePairs: () => {
+          pairsAsked[which]++;
+          return Promise.resolve([]);
+        },
+      };
+      const transport = new RtcTransport([peer]);
+      Object.defineProperty(transport, "fetch", { value: failing });
+      return transport;
+    };
+    const a: Reached = { kind: "webrtc", transport: transportAsking("a") };
+    const b: Reached = { kind: "webrtc", transport: transportAsking("b") };
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = failing;
+    const kept = keepPath(
+      {
+        first: home,
+        choice: {
+          browser: "chrome",
+          isLanNameUsed: true,
+          localNetwork: "granted",
+          directOffered: 1,
+          lanOffered: 1,
+          names: [{ name: home.origin, outcome: "answered" }],
+          reached: `direct ${home.origin}`,
+        },
+        // From the LAN name to a, from a to b, and from b to a again.
+        another: (failed) => Promise.resolve(failed === a ? b : a),
+        better: () => Promise.resolve(undefined),
+        onLocalNetworkGranted: () => () => undefined,
+        onLocalNetworkAsking: () => () => undefined,
+      },
+      { token: () => "a-token" },
+    );
+    kept.carried.catch(() => undefined);
+    for (let move = 0; move < 3; move++) {
+      await kept.fetch(new Request(`${home.origin}/api/v1/library`)).catch(() => undefined);
+    }
+    await vi.advanceTimersByTimeAsync(pairsSettleMs);
+    kept.close();
+    globalThis.fetch = realFetch;
+    expect(pairsAsked).toEqual({ a: 1, b: 1 });
+  });
 });
 
 /** A peer connection that only says whether it was closed. */

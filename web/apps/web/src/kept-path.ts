@@ -23,6 +23,7 @@ import {
   type FetchRequest,
   type MediaCredentials,
   type OpenTogetherSocket,
+  type RtcTransport,
 } from "@orpheum/sdk";
 
 import type { Reached, Reaching } from "./discovery-start.ts";
@@ -107,10 +108,32 @@ export const betterPathMostMs = 10 * 60_000;
 export const failuresBeforeGivingUp = 2;
 
 /**
+ * Tells the core's log how the page chose its path, over send's fetch, with the pairs of transport
+ * where it is WebRTC's (D354 §5): for the first path, and again for each WebRTC transport moved to
+ * later, once each, as a page whose LAN name failed moves to WebRTC (D300 §4) and nothing said
+ * whether its pairs worked (code debt, 2026-10-27). A failure to tell it is dropped: it is for the
+ * log alone. The choice is read when told, its race over (D414 §4).
+ */
+function choiceTeller(
+  send: () => FetchRequest,
+  session: { readonly token: () => string | undefined },
+  reaching: { readonly choice?: PathChoice },
+): (transport: RtcTransport | undefined) => void {
+  return (transport) => {
+    reportPathChoice(send(), {
+      token: session.token,
+      choice: () => reaching.choice,
+      transport,
+    }).catch(() => undefined);
+  };
+}
+
+/**
  * Keeps the paths reaching found, moving to another when the one in use fails and to a better one
  * when it answers later, as at home once Firefox's local-network prompt is allowed; media loads are
  * signed in with the session's token until setMediaCredentials says more. How the first path was
- * chosen, when reaching says, is told to the core's log over it once signed in (path-choice.ts).
+ * chosen, when reaching says, is told to the core's log over it once signed in (path-choice.ts), and
+ * again with the pairs of each WebRTC transport it moves to later, once for each.
  */
 export function keepPath(
   reaching: Omit<Reaching, "choice"> & { readonly choice?: PathChoice },
@@ -122,14 +145,18 @@ export function keepPath(
   let credentials = (): MediaCredentials => ({ token: session.token(), viewer: undefined });
   const moveListeners = new Set<(to: string) => void>();
   const used = transportsUsed(() => inUse);
+  const tellChoice = choiceTeller(() => keeper.fetch, session, reaching);
   const keeper = new PathKeeper<Reached>(reaching.first, {
     sendOn: (path) => sendingOn(path).send,
     another: reaching.another,
     onUse: (path) => {
-      used.add(path);
+      const isNewTransport = used.add(path);
       if (!isFirst) {
         // Never the first path's use, which the keeper tells as it is made, before looking is.
         looking.moved(inUse);
+        if (isNewTransport && path.kind === "webrtc") {
+          tellChoice(path.transport); // the first path's is told below
+        }
       }
       inUse = path;
       // eslint-disable-next-line no-console -- which path a tab's requests take is read in its console (D273 §7)
@@ -150,12 +177,7 @@ export function keepPath(
   // carried over per path would answer each load once for every path the page ever used.
   tellMediaCarriers((url) => carrierOn(inUse, url));
   const carried = carryMediaOver(keeper.fetch, () => credentials(), sendingOn(reaching.first).name);
-  // A failure to tell it is dropped: it is for the log alone. Read when told, its race over (D414 §4).
-  reportPathChoice(keeper.fetch, {
-    token: session.token,
-    choice: () => reaching.choice,
-    transport: reaching.first.kind === "webrtc" ? reaching.first.transport : undefined,
-  }).catch(() => undefined);
+  tellChoice(reaching.first.kind === "webrtc" ? reaching.first.transport : undefined);
   carried.catch(reportFailure);
   const looking = lookForBetterPaths(keeper, reaching, pathJudge(session));
   used.onClose(looking.stop);
@@ -241,8 +263,8 @@ function pathBack(inUse: () => Reached): PathBack {
 
 /** The WebRTC transports a page used, closed together. */
 interface TransportsUsed {
-  /** Keeps path's transport, when it is one, to close. */
-  readonly add: (path: Reached) => void;
+  /** Keeps path's transport, when it is one, to close; whether it is a transport not kept before. */
+  readonly add: (path: Reached) => boolean;
   /** Names what else closing does. */
   readonly onClose: (also: () => void) => void;
   /** Closes every transport kept, and does what onClose named. */
@@ -328,11 +350,13 @@ function transportsUsed(inUse: () => Reached): TransportsUsed {
   window.addEventListener("pagehide", onPageHide);
   return {
     add: (path) => {
-      if (path.kind === "webrtc" && !transports.has(path.transport)) {
+      const isNew = path.kind === "webrtc" && !transports.has(path.transport);
+      if (isNew) {
         transports.add(path.transport);
         refused.hear(path);
       }
       back.hear(path);
+      return isNew;
     },
     onClose: (named) => {
       also = named;
