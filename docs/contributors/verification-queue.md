@@ -2683,7 +2683,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   loudness on or off, so the film's sound is the late one; the test still cannot stand for a film,
   whose sound and picture take a path the page-drawn flash does not.
 
-- [ ] **VQ270** — a film opened on a television in an Android WebView starts by itself (the owner's
+- [x] **VQ270** — a film opened on a television in an Android WebView starts by itself (the owner's
   TCL TV in TV Bro, 2026-11-06: films opened paused, Level loudness on or off). Going full screen as
   the player opened used up the press, and the start gate's play about 3 s later was refused
   (`pressLive=false … fullScreen=true` in the core's log). The player now plays and at once pauses its
@@ -2696,6 +2696,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   (`web/apps/web/src/start-refused.ts`, `web/apps/web/src/page-controls.tsx`)
   - Run 2026-11-06, the owner, the TCL TV in TV Bro, staging: (1) and (2) passed, levelling on and
     off. (3), the Fire TV's Silk, is not yet run.
+  - Run 2026-11-06, the lead, the Fire TV Stick (AFTSSS) in Silk 138, staging, lead-tests: (3)
+    passed. Wings from its page's Play went full screen and played (`playingAfterMs=3507`), with
+    no stall and no refused start in the core's log.
 - [x] **VQ271** — a film resumed partway on the TCL TV, with Level loudness on, starts (the owner,
   2026-11-06: The Big Parade, resumed at about 28 minutes, never started with levelling on; with it
   off it played). VQ270's pause, which unlocks the video, was told to the server as the person's,
