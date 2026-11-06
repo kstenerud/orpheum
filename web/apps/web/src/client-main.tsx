@@ -32,6 +32,7 @@ import {
 import { removeLeftOverKeys } from "./client-keys.ts";
 import { storageIfAllowed, tabStorage } from "./browser-storage.ts";
 import { sendFailuresToCore } from "./failure-reports.ts";
+import { followPressesForRefusals } from "./start-refused.ts";
 import { LinkDebug } from "./link-debug.ts";
 import { loaderOf, loaderRefusal, type OrpheumLoader } from "./loader-interface.ts";
 import { createNavigation } from "./navigation.ts";
@@ -91,6 +92,8 @@ function mountApp(sessionGiven: Session, given: Reaches, mountedOn: Root): Api {
   checkSessionWhileShown(async () => await api.GET("/me"), session, document);
   api.use(pageUpdateWatch.middleware(reaches.ownScript));
   sendFailuresToCore(api, session, () => window.location.pathname);
+  // A film the browser will not start says how long ago the page's last press was (start-refused.ts).
+  followPressesForRefusals();
   // A screen's code gone with an update reloads the page into the newer client, once, said here.
   watchForNewerClient(newerClientOver(api, reaches.ownScript));
   reportReloadNote();
