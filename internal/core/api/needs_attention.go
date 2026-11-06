@@ -7,6 +7,8 @@ import (
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
+
+	"github.com/kstenerud/orpheum/internal/core/discovery"
 )
 
 // attentionListedAtMost bounds each list /needs-attention answers, so one library read badly makes
@@ -94,9 +96,7 @@ func (server *Server) getNeedsAttention(
 	}
 	output := &NeedsAttentionOutput{}
 	if dependencies.Discovery != nil {
-		standing := discoveryStatusBody(dependencies.Discovery.Status())
-		output.Body.StoodAsideAt = standing.StoodAsideAt
-		output.Body.CopyRefusedFrom, output.Body.CopyRefusedAt = standing.CopyRefusedFrom, standing.CopyRefusedAt
+		addOneCopyWarnings(output, dependencies.Discovery.Status())
 	}
 	for _, missing := range offline {
 		if missing.MountPath == "" {
@@ -134,4 +134,12 @@ func (server *Server) getNeedsAttention(
 			FilmWithoutSoundBody{TitleID: film.TitleID, Name: film.Name})
 	}
 	return output, nil
+}
+
+// addOneCopyWarnings puts the discovery's two warnings of D437 §4 into output, as the System page
+// shows them: this core refused as a copy of another that serves, and a copy of it refused.
+func addOneCopyWarnings(output *NeedsAttentionOutput, status discovery.Status) {
+	standing := discoveryStatusBody(status)
+	output.Body.StoodAsideAt = standing.StoodAsideAt
+	output.Body.CopyRefusedFrom, output.Body.CopyRefusedAt = standing.CopyRefusedFrom, standing.CopyRefusedAt
 }
