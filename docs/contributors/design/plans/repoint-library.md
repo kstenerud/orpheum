@@ -87,6 +87,12 @@ The owner accepted the recommendations, with these changes and additions:
     today.
   - **A repoint's new folder** may be any path the process can reach, except known system-only paths
     (`/bin`, `/usr/bin`, `/sys`, `/dev`, `/etc` and such).
+- **Where a repoint may point (the owner, 2026-11-06, settling the above):** the node runs in a
+  container given its roots read-only (`[media] roots`, `mediaOverride` in
+  `internal/deployment/write.go`), and confines every read beneath them (`internal/node/confine`). An
+  admin adds or removes access by editing the roots and restarting. So a repoint's new folder is
+  anywhere beneath a root of the target node; the machine's owner draws that line, and no list of
+  system paths is needed.
 - **Its own privilege (question 8, changed):** "Anyone who can manage libraries can change a
   library's root via the libraries page to anything within the already allowed roots, but the ability
   to repoint a root path is a stronger privilege with a threat model, equivalent with adding new root
