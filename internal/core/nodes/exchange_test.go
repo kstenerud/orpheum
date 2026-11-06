@@ -5,7 +5,6 @@ package nodes_test
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"errors"
 	"log/slog"
 	"slices"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
+	"github.com/kstenerud/orpheum/internal/core/nodes/nodestest"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
@@ -134,9 +134,9 @@ func newExchanges(t *testing.T) exchangeBench {
 	logger := slog.New(slog.NewJSONHandler(bench.logged, nil))
 	database := storetest.OpenMigrated(t)
 	bench.cache = storetest.OpenCache(t)
-	bench.exchanges = nodes.NewExchanges(nodes.ExchangeParts{
-		Sender: bench.sender, Rooms: bench.sender, Clock: bench.now, Random: rand.Reader, Logger: logger,
-		Cache: bench.cache, Settings: settingstest.Seeded(t, database), MaxSilence: time.Minute,
+	bench.exchanges = nodestest.NewExchanges(t, nodes.ExchangeParts{
+		Sender: bench.sender, Rooms: bench.sender, Clock: bench.now, Logger: logger, Cache: bench.cache,
+		Settings: settingstest.Seeded(t, database),
 	})
 	return bench
 }

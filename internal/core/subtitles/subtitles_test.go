@@ -4,9 +4,7 @@ package subtitles
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
-	"log/slog"
 	"sync"
 	"testing"
 	"time"
@@ -188,9 +186,8 @@ func newBench(t *testing.T) *bench {
 	config := settingstest.Seeded(t, database)
 	service := NewService(Parts{
 		Database: database, Queue: queue, Nodes: node,
-		Exchanges: nodes.NewExchanges(nodes.ExchangeParts{
-			Sender: node, Rooms: node, Clock: fakeClock, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
-			Cache: cache, Settings: config, MaxSilence: time.Minute,
+		Exchanges: nodestest.NewExchanges(t, nodes.ExchangeParts{
+			Sender: node, Rooms: node, Clock: fakeClock, Cache: cache, Settings: config,
 		}),
 		Clock: fakeClock, MaxSilence: time.Minute,
 	})
