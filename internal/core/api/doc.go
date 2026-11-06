@@ -256,7 +256,8 @@
 //     package's one mapper, which every handler calling it answers through: authError
 //     (server.go), playbackError (playback.go), libraryError (libraries.go), identifyError
 //     (identification.go), settingsError (settings.go) and secretError (secrets.go); a
-//     provider's rate limit by providerRateLimited (errors.go). A new refusal is a case there.
+//     provider's rate limit by providerRateLimited (errors_provider.go). A new refusal is a case
+//     there.
 //   - api/openapi.json is generated with `orpheum openapi`; regenerate it after any change here.
 //   - The error codes and hops live in errors.go, the one list of them. The OpenAPI document
 //     types code and failedHop as plain strings, so the SDK reads them as strings; it has no
