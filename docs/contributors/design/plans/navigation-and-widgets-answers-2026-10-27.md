@@ -2168,3 +2168,23 @@ stall, made sturdy on the core's side). End: one check-pr; staging and nas.examp
   inside one…", browse, "Choose this folder") only fills the "It is now at" box; nothing then says
   to press "Check what moves", and "Use the new place" appears only after it. A failover moves every
   folder of every library this way, one at a time.
+- **Next batch (the owner, 2026-11-06, prod failed over to devnas while nas.example runs memtest86: "We
+  should probably handle this case where two cores disagree over who should be running. The first
+  one wins"):** two copies of one core. The discovery already lets the first win (D293 §1;
+  orpheum-connect's `internal/signals`): a second instance opening a session is refused while the
+  first answers a ping, and the refused copy says so on its System page and asks again every few
+  minutes (`discovery.ErrAnotherCopy`, `settings.DiscoveryAnotherCopyCheckEverySeconds`). Two gaps
+  remain, both met by nas.example coming back while devnas serves:
+  1. **A refused copy still serves at home.** Its LAN listener, its sign-ins and its node keep
+     running, so a home device that remembers its address signs in to it and writes watch progress
+     and settings that the serving copy never sees.
+  2. **A refused copy takes over as soon as the first stops answering**, such as when devnas restarts
+     for a deploy, and then serves its own older state as if it were current.
+  To propose, for the owner's choice: a refused copy stops serving households (its listeners answer
+  only "another copy of this server is running", and its node starts no work), and it takes the
+  discovery back only on an admin's word on its System page, not on its own retry. A crash-restart in
+  place is unaffected: a restarted core's old connection no longer answers the ping, so it is
+  accepted without ever being refused. The proposal needs the refusal kept across restarts, in the
+  instance directory, because each run makes a new `instanceID` and a restarted refused copy would
+  otherwise look new. Evidence: orpheum-ops `production/failover-to-devnas.md`, "nas.example coming
+  back".
