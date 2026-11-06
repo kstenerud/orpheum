@@ -44,9 +44,7 @@ export function LabSound(): JSX.Element {
               </a>
             </p>
           ) : (
-            <p className="lab__small" role="status">
-              {t("lab.sound.making")}
-            </p>
+            <output className="lab__small">{t("lab.sound.making")}</output>
           )
         }
       />
