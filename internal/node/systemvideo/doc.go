@@ -14,7 +14,7 @@
 //     only-in-execx and TestArch_OnlyExecxImportsOsExec.
 //
 //   - FFmpeg reads nothing: its inputs are lavfi's generated sources, and it writes only the one file
-//     in the system folder, granted that folder alone. A video not of SystemVideos is refused
+//     in the system folder, granted that folder alone. A video not of All is refused
 //     without a run. Enforced by TestMake_FFmpegDrawsTheClipIntoTheSystemFolderAlone and
 //     TestMake_AVideoNotKnownIsRefusedWithoutARun.
 //
@@ -25,4 +25,10 @@
 //
 //   - D435: the server's own videos live in one hidden system library.
 //   - D26: every FFmpeg run is confined.
+//
+// # Where to change
+//
+//   - systemvideo.go: All names the videos, and recipes each one's FFmpeg arguments; a new video
+//     adds its purpose or codec to internal/nodeproto. The agent (internal/node/agent) runs Make for
+//     the make_system_videos command.
 package systemvideo

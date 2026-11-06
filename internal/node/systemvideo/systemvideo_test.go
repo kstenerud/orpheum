@@ -87,7 +87,7 @@ func TestMake_AVideoNotKnownIsRefusedWithoutARun(t *testing.T) {
 func TestMake_AVideoThereIsKeptAndARebuildMakesItAgain(t *testing.T) {
 	t.Parallel()
 	maker, fake := newMaker(t)
-	path := filepath.Join(maker.Folder(), soundTiming.FileName())
+	path := filepath.Join(maker.Folder(), FileName(soundTiming))
 	if err := os.WriteFile(path, []byte("made before"), 0o600); err != nil {
 		t.Fatal(err)
 	}
