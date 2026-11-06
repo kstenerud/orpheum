@@ -2,7 +2,11 @@
 
 package api
 
-import "context"
+import (
+	"context"
+
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
+)
 
 // EventContextBody is what was true of a player's page as it paused or moved, which says where the
 // pause or the move came from: the page hidden or its window unfocused, the person's own gesture, a
@@ -55,6 +59,7 @@ func eventContextAttributes(event EventBody) []any {
 func (server *Server) logPathMoves(ctx context.Context, reporter reporter, moves []PathMoveBody) {
 	for _, move := range moves {
 		server.logger.InfoContext(ctx, "a player's page moved to another path to the core",
-			append(reporter.logAttributes(), "to", move.To, "happenedMonoMs", move.HappenedMonoMs)...)
+			append(reporter.logAttributes(), slogx.EventKey, "pathMoved",
+				"to", move.To, "happenedMonoMs", move.HappenedMonoMs)...)
 	}
 }

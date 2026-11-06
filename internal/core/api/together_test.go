@@ -22,6 +22,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/together"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // socket is one device's session WebSocket, in a test.
@@ -210,7 +211,7 @@ func TestTogether_AHostPutsOnAFilmAndAViewerPlaysIt(t *testing.T) {
 	if playing.TitleName != "Metropolis" {
 		t.Errorf("the viewer's decision names %q; want Metropolis, the film on", playing.TitleName)
 	}
-	harness.logs.AwaitLine(t, `"msg":"a playback started"`, fmt.Sprintf(`"memberId":%d`, membership.Body.MemberID),
+	harness.logs.AwaitEvent(t, "playbackStarted", fmt.Sprintf(`"memberId":%d`, membership.Body.MemberID),
 		`"userAgent":"Go-http-client/1.1"`) // which browser, as an iPhone's player differs
 	if status := harness.viewerBytes(t, playing.URL, membership.Body.MembershipCredential); status != http.StatusOK {
 		t.Errorf("the viewer's bytes, by their cookie alone = %d, want 200", status)
@@ -421,7 +422,7 @@ func TestTogether_LogsADeviceConnecting(t *testing.T) {
 	harness.dialTogether(t, membership.Body.MembershipCredential).awaitWelcome()
 	ids := fmt.Sprintf(`"sessionId":%d,"memberId":%d`, opened.Body.SessionID, membership.Body.MemberID)
 	for line := range strings.Lines(harness.logs.String()) {
-		if strings.Contains(line, `"watch together: a device connected"`) && strings.Contains(line, ids) &&
+		if len(testutil.LinesWith(line, "deviceConnected")) != 0 && strings.Contains(line, ids) &&
 			strings.Contains(line, `"userAgent":"Go-http-client/1.1"`) &&
 			strings.Contains(line, `"client":"index-T3st.js"`) {
 			return
@@ -479,8 +480,8 @@ func TestTogether_ASilentDeviceIsClosedAndSaysWhy(t *testing.T) {
 	// under before it is written (coder/websocket closes the connection when a read's context ends).
 	harness.dialTogether(t, membership.Body.MembershipCredential)
 	member := fmt.Sprintf(`"memberId":%d`, membership.Body.MemberID)
-	harness.logs.AwaitLine(t, `"watch together: a device connected"`, member)
-	harness.logs.AwaitLine(t, `"watch together: a device disconnected"`,
+	harness.logs.AwaitEvent(t, "deviceConnected", member)
+	harness.logs.AwaitEvent(t, "deviceDisconnected",
 		member, "sent nothing for 50ms: ")
 }
 

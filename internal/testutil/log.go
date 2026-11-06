@@ -122,7 +122,7 @@ func LinesWith(logged, event string) []string {
 // linesWith is every line of logged whose event is event and that holds every one of parts. It
 // reads both of slogx's formats: event=value in text, "event":"value" in JSON.
 func linesWith(logged, event string, parts []string) []string {
-	text, json := slogx.EventKey+"="+event, `"`+slogx.EventKey+`":"`+event+`"`
+	text, json := slogx.EventKey+"="+event, EventInJSON(event)
 	var lines []string
 	for line := range strings.Lines(logged) {
 		trimmed := strings.TrimSuffix(line, "\n")
@@ -138,4 +138,10 @@ func linesWith(logged, event string, parts []string) []string {
 // holdsEvery says whether line holds every one of parts.
 func holdsEvery(line string, parts []string) bool {
 	return !slices.ContainsFunc(parts, func(part string) bool { return !strings.Contains(line, part) })
+}
+
+// EventInJSON is how a JSON log line says its event is event: for a test that checks a JSON log
+// holds each of a list of parts, the line's event among them.
+func EventInJSON(event string) string {
+	return `"` + slogx.EventKey + `":"` + event + `"`
 }

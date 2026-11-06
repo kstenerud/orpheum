@@ -22,6 +22,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/providers/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 const tagPlayback = "Playback"
@@ -328,7 +329,7 @@ func (server *Server) logPlaybackStarted(ctx context.Context, who []any, started
 	for _, each := range started.Decision.NotDirectReasons {
 		reasons = append(reasons, string(each))
 	}
-	server.logger.InfoContext(ctx, "a playback started", append(append(who,
+	server.logger.InfoContext(ctx, "a playback started", append(append(who, slogx.EventKey, "playbackStarted",
 		"delivery", deliveryOf(started), "decidedDelivery", string(started.Decision.Delivery),
 		"profile", string(started.Decision.Profile), "notDirectReasons", reasons),
 		append(ladderStart(started),
@@ -376,7 +377,8 @@ func startsOnLadderKbps(started playback.Started) int {
 
 // logPlaybackRefused says a playback was refused, with why.
 func (server *Server) logPlaybackRefused(ctx context.Context, who []any, err error) {
-	server.logger.InfoContext(ctx, "a playback was refused", append(who, "err", err)...)
+	server.logger.InfoContext(ctx, "a playback was refused",
+		append(who, slogx.EventKey, "playbackRefused", "err", err)...)
 }
 
 // startedOutput is a playback started, as the API says it.

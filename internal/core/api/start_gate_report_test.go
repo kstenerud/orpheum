@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // A start and a seek that waited for enough film loaded ahead before they played say so in their
@@ -64,8 +66,8 @@ func TestReport_DroppedFramesBeyondASmallShareAreLogged(t *testing.T) {
 	if answer := harness.report(t, user, playing, many); answer.status != http.StatusOK {
 		t.Fatalf("the report: %d %s", answer.status, answer.body)
 	}
-	want := `"msg":"a player dropped frames"`
-	if logged := harness.logs.String(); !strings.Contains(logged, want) ||
+	want := "framesDropped"
+	if logged := harness.logs.String(); len(testutil.LinesWith(logged, want)) == 0 ||
 		!strings.Contains(logged, `"positionMs":20000,"droppedFrames":31,"totalFrames":240`) {
 		t.Errorf("the log has no %s with where and how many:\n%s", want, logged)
 	}

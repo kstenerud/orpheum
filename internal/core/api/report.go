@@ -10,6 +10,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/playback"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // ReportInput is a player's report on one playback (cut-a §5, D165). ReportSeq numbers the playback's
@@ -410,12 +411,14 @@ func (server *Server) logReport(
 	for _, stall := range report.Stalls {
 		positions = append(positions, stall.PositionMs)
 	}
-	server.logger.InfoContext(ctx, "a player reported stalls", append(append(who, "stallPositionsMs", positions),
-		stallDiagnosis(stalls)...)...)
+	server.logger.InfoContext(ctx, "a player reported stalls",
+		append(append(who, slogx.EventKey, "stallsReported", "stallPositionsMs", positions),
+			stallDiagnosis(stalls)...)...)
 	if offer := answer.LowerQuality; offer != nil {
-		server.logger.InfoContext(ctx, "a stalling player was offered a lower quality", append(who,
-			"qualityKbps", offer.Quality.Kbps, "height", offer.Quality.Height,
-			"isBelowTheLowest", offer.IsBelowTheLowest, "isReady", answer.IsLowerQualityReady)...)
+		server.logger.InfoContext(ctx, "a stalling player was offered a lower quality",
+			append(who, slogx.EventKey, "lowerQualityOffered",
+				"qualityKbps", offer.Quality.Kbps, "height", offer.Quality.Height,
+				"isBelowTheLowest", offer.IsBelowTheLowest, "isReady", answer.IsLowerQualityReady)...)
 	}
 }
 
@@ -425,8 +428,9 @@ func (server *Server) logReport(
 // that").
 func (server *Server) logEvents(ctx context.Context, reporter reporter, events []EventBody) {
 	for _, event := range events {
-		server.logger.InfoContext(ctx, "a player's play state changed", append(append(reporter.logAttributes(),
-			"kind", event.Kind, "positionMs", event.PositionMs), eventContextAttributes(event)...)...)
+		server.logger.InfoContext(ctx, "a player's play state changed",
+			append(append(reporter.logAttributes(), slogx.EventKey, "playStateChanged",
+				"kind", event.Kind, "positionMs", event.PositionMs), eventContextAttributes(event)...)...)
 	}
 }
 
@@ -438,12 +442,15 @@ func (server *Server) logStartup(ctx context.Context, reporter reporter, startup
 	if startup == nil {
 		return
 	}
-	server.logger.InfoContext(ctx, "a playback started playing", append(append(reporter.logAttributes(),
-		"decidedAfterMs", startup.DecidedAfterMs, "firstDataAfterMs", startup.FirstDataAfterMs,
-		"playingAfterMs", startup.PlayingAfterMs, "linkKbps", linkKbps, "preloadSteps", startup.PreloadSteps),
-		startup.attributes()...)...)
+	server.logger.InfoContext(ctx, "a playback started playing",
+		append(append(reporter.logAttributes(), slogx.EventKey, "playbackPlaying",
+			"decidedAfterMs", startup.DecidedAfterMs, "firstDataAfterMs", startup.FirstDataAfterMs,
+			"playingAfterMs", startup.PlayingAfterMs, "linkKbps", linkKbps, "preloadSteps", startup.PreloadSteps),
+			startup.attributes()...)...)
 	if sound := startup.Sound; sound != nil {
-		server.logger.InfoContext(ctx, "a playback's sound", "userId", reporter.holder.UserID,
+		server.logger.InfoContext(ctx, "a playback's sound",
+			slogx.EventKey, "playbackSound",
+			"userId", reporter.holder.UserID,
 			"deviceId", reporter.deviceID, "isThroughWebAudio", sound.IsThroughWebAudio,
 			"baseLatencyMs", msOrNone(sound.BaseLatencyMs), "outputLatencyMs", msOrNone(sound.OutputLatencyMs),
 			"earlierMs", sound.EarlierMs, "delayMs", sound.DelayMs, "latencyCountedMs", sound.LatencyCountedMs,
@@ -466,6 +473,7 @@ func msOrNone(ms *int64) any {
 func (server *Server) logUnplayables(ctx context.Context, reporter reporter, unplayables []UnplayableBody) {
 	for _, unplayable := range unplayables {
 		server.logger.InfoContext(ctx, "a player found a quality its device cannot play",
+			slogx.EventKey, "qualityUnplayable",
 			"userId", reporter.holder.UserID, "deviceId", reporter.deviceID,
 			"viewerOfFileId", reporter.holder.OnlyFileID,
 			"qualityKbps", unplayable.QualityKbps, "positionMs", unplayable.PositionMs,
@@ -494,7 +502,8 @@ func (server *Server) logSeeks(ctx context.Context, reporter reporter, seeks []S
 			attributes = append(attributes, "linkSamples", seek.LinkSamples)
 		}
 		attributes = append(attributes, seek.attributes()...)
-		server.logger.InfoContext(ctx, "a player's seek was ready to play", attributes...)
+		server.logger.InfoContext(ctx, "a player's seek was ready to play",
+			append(attributes, slogx.EventKey, "seekReady")...)
 	}
 }
 
@@ -517,7 +526,8 @@ func (server *Server) logStandstills(
 		if still.DroppedFrames != nil {
 			attributes = append(attributes, "droppedFrames", *still.DroppedFrames)
 		}
-		server.logger.InfoContext(ctx, "a playing player's position stood still", attributes...)
+		server.logger.InfoContext(ctx, "a playing player's position stood still",
+			append(attributes, slogx.EventKey, "positionStoodStill")...)
 	}
 }
 
@@ -537,8 +547,9 @@ func (server *Server) logDroppedFrames(
 		float64(*droppedFrames) <= droppedFramesLoggedAbove*float64(*totalFrames) {
 		return
 	}
-	server.logger.InfoContext(ctx, "a player dropped frames", append(reporter.logAttributes(),
-		"positionMs", positionMs, "droppedFrames", *droppedFrames, "totalFrames", *totalFrames)...)
+	server.logger.InfoContext(ctx, "a player dropped frames",
+		append(reporter.logAttributes(), slogx.EventKey, "framesDropped",
+			"positionMs", positionMs, "droppedFrames", *droppedFrames, "totalFrames", *totalFrames)...)
 }
 
 // linkNoteMostRunes is how much of each of a report's notes on its link the log keeps: the player's

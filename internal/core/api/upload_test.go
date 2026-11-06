@@ -82,7 +82,7 @@ func TestUpload_APlaybackOverTheShareIsToldItsCeilingWithEachChunk(t *testing.T)
 		close(done)
 	}()
 	tick <- harness.clock.Now()
-	harness.logs.AwaitLine(t, `"msg":"a playback's quality was kept within the server's upload"`,
+	harness.logs.AwaitEvent(t, "qualityKeptWithinUpload",
 		`"toCeilingKbps":796`, `"shareKbps":850`)
 	cancel()
 	testutil.Receive(t, done, "the upload's keeping to stop")

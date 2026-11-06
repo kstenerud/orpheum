@@ -156,5 +156,5 @@ func TestTogether_ADeviceWhoseSignInCannotBeCheckedIsClosed(t *testing.T) {
 		t.Errorf("a device whose sign-in could not be checked read %+v, %v; want closed as the server's failure",
 			message, err)
 	}
-	harness.logs.AwaitLine(t, `"msg":"watch together: a device's sign-in could not be checked"`)
+	harness.logs.AwaitEvent(t, "signInUncheckable")
 }

@@ -183,10 +183,10 @@ func TestSession_ItsBeginningIsLoggedWithItsPathAndWhetherItAdministers(t *testi
 	t.Parallel()
 	harness := newHarness(t)
 	harness.createAdminAndSignIn(t)
-	harness.logs.AwaitLine(t, `"msg":"a session began"`, `"path":"direct from home","isAdmin":true`)
+	harness.logs.AwaitEvent(t, "sessionBegan", `"path":"direct from home","isAdmin":true`)
 	harness.server.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("192.168.1.0/24")})
 	harness.signIn(t, "owner", "owner-password")
-	harness.logs.AwaitLine(t, `"msg":"a session began"`, `"path":"direct from away","isAdmin":false`)
+	harness.logs.AwaitEvent(t, "sessionBegan", `"path":"direct from away","isAdmin":false`)
 }
 
 // An admin administers from away from home only when they set it so, from home, and a person who is

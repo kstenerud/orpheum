@@ -69,7 +69,7 @@ func TestRTCOffer_ASignedInClientReachesTheAPIOverDataChannels(t *testing.T) {
 	}
 	// It names the browser, whose page puts its user agent in each head, and the device: a playback over
 	// WebRTC said userAgent="" (local-path-2026-10-27.md §4 item 7).
-	harness.logs.AwaitLine(t, `"msg":"a playback started"`, `"over":"webrtc"`, `"userAgent":"`+firefox+`"`,
+	harness.logs.AwaitEvent(t, "playbackStarted", `"over":"webrtc"`, `"userAgent":"`+firefox+`"`,
 		fmt.Sprintf(`"deviceId":%d`, harness.thisDeviceID(t, token)))
 	anonymous := link.Do(rtcapi.RequestHead{Method: http.MethodGet, Path: api.Prefix + "/libraries"}, nil)
 	if anonymous.Head.Status != http.StatusUnauthorized {

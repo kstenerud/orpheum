@@ -248,16 +248,16 @@ func TestChunks_AChunkTheNodeHasNotMadeIsAskedForAndRelayedOnceItIs(t *testing.T
 	harness.checkOneRunQueued(t, grid.ID())
 	// The wait is logged: the chunk, its hold of three quarter-second waits, and the run queued for it,
 	// which had made none of its chunks when asked.
-	waited := `"msg":"waited for a chunk not made yet"`
+	const waited = "chunkWaited"
 	storeDir := `"storeDir":"1/chunks-q700k432p/` + harness.filmOnesStoreKey(t, "q700k432p", grid.ID()) + `"`
-	harness.logs.AwaitLine(t, waited, storeDir, `"wantedChunk":1,`, `"outcome":"served"`, `"heldMs":750,`,
+	harness.logs.AwaitEvent(t, waited, storeDir, `"wantedChunk":1,`, `"outcome":"served"`, `"heldMs":750,`,
 		`"isCovered":true`, `"runFirstChunk":1,`, `"runLastChunk":2,`, `"runMadeThrough":0`)
 	// One no run makes in the time a player waits is too early: the player asks again.
 	if late := harness.getBytePath(t, base+"q700k432p/00002.m4s", user, true, ""); late.status !=
 		http.StatusTooEarly || late.header.Get("Retry-After") != "1" {
 		t.Errorf("a chunk not made in time: %d %v, want 425 with Retry-After 1", late.status, late.header)
 	}
-	harness.logs.AwaitLine(t, waited, storeDir, `"wantedChunk":2,`, `"outcome":"askAgain"`, `"heldMs":20000,`,
+	harness.logs.AwaitEvent(t, waited, storeDir, `"wantedChunk":2,`, `"outcome":"askAgain"`, `"heldMs":20000,`,
 		`"runFirstChunk":1,`)
 	// A chunk the node has at once was not waited for, and says nothing.
 	if again := harness.getBytePath(t, base+"q700k432p/00001.m4s", user, true, ""); again.status != http.StatusOK {
@@ -288,7 +288,7 @@ func TestChunks_AChunkNotMadeIsAnsweredAtOnceByDefault(t *testing.T) {
 		t.Errorf("a chunk not made yet: %d %v, want 425 with Retry-After 1", early.status, early.header)
 	}
 	harness.checkOneRunQueued(t, grid.ID())
-	harness.logs.AwaitLine(t, `"msg":"waited for a chunk not made yet"`, `"wantedChunk":1,`,
+	harness.logs.AwaitEvent(t, "chunkWaited", `"wantedChunk":1,`,
 		`"outcome":"askAgain"`, `"heldMs":0,`, `"isSought":false,`)
 }
 
@@ -304,7 +304,7 @@ func TestChunks_APlayerSayingASeekTookItThereIsTakenAtItsWord(t *testing.T) {
 	if status := harness.getSought(t, base+"q700k432p/00001.m4s", user); status != http.StatusTooEarly {
 		t.Errorf("a chunk not made yet, asked for after a seek: %d, want 425", status)
 	}
-	harness.logs.AwaitLine(t, `"msg":"waited for a chunk not made yet"`, `"wantedChunk":1,`, `"isSought":true,`)
+	harness.logs.AwaitEvent(t, "chunkWaited", `"wantedChunk":1,`, `"isSought":true,`)
 }
 
 // A jump's picture is made with its sound: once the player has asked for a sound, the picture's
@@ -325,7 +325,7 @@ func TestChunks_AJumpsPictureStartsItsSoundThereToo(t *testing.T) {
 	if status := harness.getSought(t, base+"q700k432p/00001.m4s", user); status != http.StatusTooEarly {
 		t.Errorf("the jump's picture, not made yet: %d, want 425", status)
 	}
-	harness.logs.AwaitLine(t, `"msg":"queued a run of chunks"`, `"storeDir":"1/chunks-sound0-96k/`,
+	harness.logs.AwaitEvent(t, "chunkRunQueued", `"storeDir":"1/chunks-sound0-96k/`,
 		`"wantedChunk":1,`)
 }
 
@@ -355,7 +355,7 @@ func TestChunks_AFilmsOwnPictureGivenUpIsNotOfferedToThePlayersNextPlayback(t *t
 		"picture/stream.m3u8") {
 		t.Errorf("another player's master playlist lost the picture:\n%s", master.body)
 	}
-	harness.logs.AwaitLine(t, `"msg":"a player found a quality its device cannot play"`, `"isFilmsOwnPicture":true`)
+	harness.logs.AwaitEvent(t, "qualityUnplayable", `"isFilmsOwnPicture":true`)
 }
 
 // A page asking again because its player gave the film's own picture up starts at the twin, H.264 at

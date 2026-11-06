@@ -82,7 +82,9 @@ func (server *Server) serveTogetherSocket(writer http.ResponseWriter, request *h
 	signedIn, err := signedInBy(ctx, dependencies, hello.SessionToken)
 	if err != nil {
 		// Could not be checked: the server's failure, and the device comes again (the M4 closing audit).
-		server.logger.ErrorContext(ctx, "watch together: a device's sign-in could not be checked", "err", err)
+		server.logger.ErrorContext(ctx, "watch together: a device's sign-in could not be checked",
+			slogx.EventKey, "signInUncheckable",
+			"err", err)
 		_ = connection.closeWith(websocket.StatusInternalError, "try again") //nolint:errcheck // closing
 		return
 	}
@@ -107,7 +109,7 @@ func (server *Server) serveTogetherSocket(writer http.ResponseWriter, request *h
 		"role", string(hello.Role), "client", clientScriptOf(hello.Client),
 	}
 	server.logger.InfoContext(ctx, "watch together: a device connected",
-		append(device, slogx.UserAgent(request))...)
+		append(device, slogx.EventKey, "deviceConnected", slogx.UserAgent(request))...)
 	written := make(chan struct{})
 	go func() {
 		defer close(written)
@@ -119,7 +121,8 @@ func (server *Server) serveTogetherSocket(writer http.ResponseWriter, request *h
 		gone = together.GoneSilent
 	}
 	dependencies.Together.Detach(attachment, gone) // nothing is sent to it after this
-	server.logger.InfoContext(ctx, "watch together: a device disconnected", append(device, "why", ended.Error())...)
+	server.logger.InfoContext(ctx, "watch together: a device disconnected",
+		append(device, slogx.EventKey, "deviceDisconnected", "why", ended.Error())...)
 	close(outbox)
 	<-written
 }

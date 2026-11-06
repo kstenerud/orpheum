@@ -50,7 +50,7 @@ func TestLab_TheThroughputTestsBodyIsTheSizeAskedForAndLoggedAsSent(t *testing.T
 		t.Errorf("gzip shrank the body from %d to %d bytes: a link that compresses would time nothing", asked,
 			squeezed.Len())
 	}
-	harness.logs.AwaitLine(t, `"msg":"a throughput test's body was sent"`, `"leg":"relay"`, `"over":"http"`,
+	harness.logs.AwaitEvent(t, "throughputBodySent", `"leg":"relay"`, `"over":"http"`,
 		`"bytes":`+strconv.Itoa(asked), `"isWhole":true`, `"userId":1`)
 
 	for _, bounds := range []string{"1048575", "268435457"} {
@@ -76,6 +76,6 @@ func TestLab_AThroughputTestsFiguresAreLoggedUnderTheirOwnWords(t *testing.T) {
 	if answer.status != http.StatusOK {
 		t.Fatalf("POST /lab/results = %d %s", answer.status, answer.body)
 	}
-	harness.logs.AwaitLine(t, `"msg":"a throughput test ran"`, `"probe":"throughput"`,
+	harness.logs.AwaitEvent(t, "throughputTestRan", `"probe":"throughput"`,
 		`"result":{"transportMbps":41.5}`)
 }

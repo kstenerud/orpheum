@@ -14,6 +14,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // ChunksMasterInput asks for the master playlist of a playback's film cut into chunks.
@@ -271,7 +272,8 @@ func (server *Server) logChunkWait(
 		attributes = append(attributes, "runFirstChunk", wait.run.First, "runLastChunk", wait.run.Last,
 			"runMadeThrough", wait.run.MadeThrough)
 	}
-	server.logger.DebugContext(ctx, "waited for a chunk not made yet", attributes...)
+	server.logger.DebugContext(ctx, "waited for a chunk not made yet",
+		append(attributes, slogx.EventKey, "chunkWaited")...)
 }
 
 // chunksError maps the chunks' refusals to API errors, and the rest as playbackError does.

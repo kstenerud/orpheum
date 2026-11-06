@@ -30,7 +30,7 @@ func TestInterest_ARunOfAQualityThePlayerLeftStops(t *testing.T) {
 			t.Fatalf("%s's chunk 1, not made yet: %d %s; want 425", stream, answer.status, answer.body)
 		}
 	}
-	harness.logs.AwaitLine(t, `"msg":"stopped a run of chunks no player wants"`,
+	harness.logs.AwaitEvent(t, "unwantedChunkRunStopped",
 		`"storeDir":"1/chunks-q700k432p/`, `"firstChunk":1,`)
 
 	said := map[string]any{"pictureStream": "q400k360p", "positionMs": 10_000, "isPaused": true}
@@ -51,7 +51,7 @@ func TestInterest_ARunOfAQualityThePlayerLeftStops(t *testing.T) {
 		http.StatusNoContent {
 		t.Errorf("a leave for another film: %d %s; want 204", answer.status, answer.body)
 	}
-	harness.logs.AwaitLine(t, `"msg":"a player left its playback"`, `"reason":"replaced"`)
+	harness.logs.AwaitEvent(t, "playerLeft", `"reason":"replaced"`)
 }
 
 // A player paused where a seek took it wants the chunk it asks for there, though the chunk starts

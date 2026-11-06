@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 func TestFilePreferences_ASubtitleOffsetIsKeptPerPersonAndFileAndTheNextPlaybackStartsWithIt(t *testing.T) {
@@ -120,8 +121,8 @@ func TestPreferences_SwitchingTheSoundsLevellingIsLogged(t *testing.T) {
 	}
 	logged := harness.logs.String()
 	for _, want := range []string{
-		`"msg":"a person's levelling was switched"`, `"isLevellingOn":true`,
-		`"msg":"a person's dialogue boost was switched"`, `"isDialogueBoostOn":false`, `"deviceId":`,
+		testutil.EventInJSON("levellingSwitched"), `"isLevellingOn":true`,
+		testutil.EventInJSON("dialogueBoostSwitched"), `"isDialogueBoostOn":false`, `"deviceId":`,
 	} {
 		if !strings.Contains(logged, want) {
 			t.Errorf("the log has no %s:\n%s", want, logged)
