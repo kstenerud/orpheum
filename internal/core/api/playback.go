@@ -329,6 +329,7 @@ func (server *Server) logPlaybackStarted(ctx context.Context, who []any, started
 		"profile", string(started.Decision.Profile), "notDirectReasons", reasons),
 		append(ladderStart(started),
 			"resumePositionMs", started.ResumePositionMs, "isDialogueBoostOn", started.Preferences.IsDialogueBoostOn,
+			"isLevellingOn", started.Preferences.IsLevellingOn, "soundOffsetMs", started.SoundOffsetMs,
 			"startsOnLadderKbps", startsOnLadderKbps(started), "startsAtSteadiness", started.Steadiness,
 			"rememberedLinkKbps", started.RememberedLink.Kbps,
 			"rememberedLinkLogSpread", started.RememberedLink.LogSpread,

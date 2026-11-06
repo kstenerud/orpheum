@@ -156,6 +156,12 @@ func (server *Server) changeMyDevice(ctx context.Context, input *ChangeDeviceInp
 	}
 	if offsetMs := input.Body.SoundOffsetMs; err == nil && offsetMs != nil {
 		err = dependencies.Auth.SetSoundOffset(ctx, principal.UserID, input.DeviceID, *offsetMs)
+		if err == nil {
+			// The owner's sound tests on the TCL TV left no trace of where they settled, so each
+			// setting is said (2026-11-06: "The logs you receive ideally should be telling you this").
+			server.logger.InfoContext(ctx, "a device's sound offset was set", "userId", principal.UserID,
+				"deviceId", input.DeviceID, "soundOffsetMs", *offsetMs, "fromDeviceId", principal.DeviceID)
+		}
 	}
 	return server.deviceAnswer(ctx, "change a device", err)
 }
