@@ -43,14 +43,15 @@ type Result struct {
 	Refusal string `json:"refusal,omitempty"`
 	// Crashed says the node's own code failed running the work, a panic, with where: the work ended
 	// and the node went on. Nothing else in the result is set.
-	Crashed     string              `json:"crashed,omitempty"`
-	Subtitle    *SubtitleText       `json:"subtitle,omitempty"`
-	ReadThrough *ReadThroughResult  `json:"readThrough,omitempty"`
-	MakeChunks  *MakeChunksReport   `json:"makeChunks,omitempty"`
-	Artwork     *ArtworkBatchResult `json:"artwork,omitempty"`
-	Listing     *Listing            `json:"listing,omitempty"`
-	Examined    *Examined           `json:"examined,omitempty"`
-	WholeHash   *WholeHash          `json:"wholeHash,omitempty"`
+	Crashed      string              `json:"crashed,omitempty"`
+	Subtitle     *SubtitleText       `json:"subtitle,omitempty"`
+	ReadThrough  *ReadThroughResult  `json:"readThrough,omitempty"`
+	MakeChunks   *MakeChunksReport   `json:"makeChunks,omitempty"`
+	Artwork      *ArtworkBatchResult `json:"artwork,omitempty"`
+	Listing      *Listing            `json:"listing,omitempty"`
+	Examined     *Examined           `json:"examined,omitempty"`
+	WholeHash    *WholeHash          `json:"wholeHash,omitempty"`
+	SystemVideos *SystemVideosMade   `json:"systemVideos,omitempty"`
 }
 
 // Stall is what the node saw of the work it answered as stalled, whichever kind it is, or nil.

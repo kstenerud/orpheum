@@ -24,7 +24,7 @@ const QueryAfterCommandSeq = "afterCommandSeq"
 // records and results. It is raised with any change a node or core of another build would misread,
 // so the two refuse each other at hello instead (D233 §9). Core and node ship as one build today,
 // so the two match unless a node is updated apart from its core.
-const ProtocolVersion = 58
+const ProtocolVersion = 59
 
 // Hello is the first thing a node says, and it says it again after every reconnection.
 type Hello struct {
@@ -45,8 +45,11 @@ type Hello struct {
 	// the core reads its media bytes and the results it holds (cut-a §4, D242 §7).
 	ByteSocketPath string `json:"byteSocketPath"`
 	// RootPaths are the media roots configured on the node, never remotely (D107).
-	RootPaths     []string `json:"rootPaths"`
-	FFmpegVersion string   `json:"ffmpegVersion"`
+	RootPaths []string `json:"rootPaths"`
+	// SystemFolder is the folder of the node's own the server's system videos are made into (D435
+	// §4): one of RootPaths, in the node's persistent directory, never a media root's.
+	SystemFolder  string `json:"systemFolder,omitempty"`
+	FFmpegVersion string `json:"ffmpegVersion"`
 	// FFmpegSha256 is the SHA-256 of the ffmpeg binary, so the core can tell which build ran.
 	FFmpegSha256 string `json:"ffmpegSha256"`
 	// Capabilities are what the node found it can do (cut-a §4): remux and aac always, and the

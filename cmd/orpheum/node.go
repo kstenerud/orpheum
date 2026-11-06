@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -34,6 +35,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/readthrough"
 	"github.com/kstenerud/orpheum/internal/node/scan"
 	"github.com/kstenerud/orpheum/internal/node/subtitle"
+	"github.com/kstenerud/orpheum/internal/node/systemvideo"
 	"github.com/kstenerud/orpheum/internal/node/watch"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -132,7 +134,7 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 	if err != nil {
 		return err
 	}
-	roots, disks := openRoots(ctx, config.Node.RootPaths, logger)
+	roots, disks, systemFolder := openNodeRoots(ctx, config, logger)
 	defer func() {
 		for _, root := range roots {
 			if closeErr := root.Close(); closeErr != nil {
@@ -192,6 +194,7 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 		ThroughReader: readthrough.NewReader(runner, hello.Capacity.SlowestReadBytesPerSecond),
 		HeldResults:   heldResults, Hashes: hashes, Stuck: stuckOf(runner), SetStatusEvery: setStatusEvery,
 		Disks: disks, Films: runner, ReadSelfUse: selfuse.Read,
+		SystemVideoMaker: systemVideoMaker(runner, systemFolder),
 	}
 	workers.EndedWorkKept, workers.ReadStallWindow = workPacing(config)
 	workers.ReadStallWindow = cmp.Or(seams.readStallWindow, workers.ReadStallWindow)
@@ -405,6 +408,48 @@ func serveBytes(
 		_ = httpServer.Close() //nolint:errcheck // the listener is ours and closing it cannot fail usefully
 		serving.Wait()
 	}, listener.Addr().String(), nil
+}
+
+// openNodeRoots opens the configured media roots and the node's system folder, a root of the node's
+// own which the core scans as a library's (D435 §4), and says the system folder's path, or "" when it
+// could not be made.
+func openNodeRoots(
+	ctx context.Context, config Config, logger *slog.Logger,
+) ([]*confine.MediaRoot, *diskwatch.Gate, string) {
+	systemFolder := makeSystemFolder(ctx, config, logger)
+	rootPaths := config.Node.RootPaths
+	if systemFolder != "" {
+		rootPaths = append(slices.Clip(rootPaths), systemFolder)
+	}
+	roots, disks := openRoots(ctx, rootPaths, logger)
+	return roots, disks, systemFolder
+}
+
+// systemVideoMaker makes the system videos into the system folder, or is nil when there is none.
+func systemVideoMaker(runner *execx.Runner, systemFolder string) agent.SystemVideoMaker {
+	if systemFolder == "" {
+		return nil
+	}
+	return systemvideo.NewMaker(runner, systemFolder)
+}
+
+// makeSystemFolder makes the folder the server's own videos are made into, in the node's persistent
+// directory (D435 §4), if it is missing, and says its path; or "" when it cannot, a node that
+// then makes no system videos and says why when asked.
+func makeSystemFolder(ctx context.Context, config Config, logger *slog.Logger) string {
+	// Named with its links resolved, as the node names each root in its hello (confine.OpenMediaRoot).
+	path, err := "", os.MkdirAll(config.Instance.systemVideoDir(), 0o750)
+	if err == nil {
+		path, err = filepath.EvalSymlinks(config.Instance.systemVideoDir())
+	}
+	if err == nil {
+		path, err = filepath.Abs(path)
+	}
+	if err != nil {
+		logger.ErrorContext(ctx, "this node cannot make the server's own videos", "err", err)
+		return ""
+	}
+	return path
 }
 
 // openRoots opens each configured media root, and returns them with the gate every reading of them

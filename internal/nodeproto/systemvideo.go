@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+package nodeproto
+
+import "slices"
+
+// CommandMakeSystemVideos asks the node to make the server's own videos into its system folder
+// (Hello.SystemFolder), on their first use or for a rebuild (D435 §4, §7): each a short clip FFmpeg
+// draws from nothing, which the node then scans as any file.
+const CommandMakeSystemVideos CommandType = "make_system_videos"
+
+// SystemVideo is one of the server's own videos, named by what it is (D435 §6): what it is for, and
+// the codecs it is made in. The set is closed, the node knowing each one's recipe.
+type SystemVideo struct {
+	// Purpose is what the video is for: SystemVideoSoundTiming.
+	Purpose string `json:"purpose"`
+	// Codec is the video and audio codecs it is made in: SystemVideoH264AAC.
+	Codec string `json:"codec"`
+}
+
+// The system videos' purposes and codecs.
+const (
+	// SystemVideoSoundTiming is the device lab's sound timing clip (lab-sound-clip.ts): four seconds,
+	// a rising beep at the start of each, the picture flashing the second's number as it starts.
+	SystemVideoSoundTiming = "sound-timing"
+	// SystemVideoH264AAC is H.264 video and stereo AAC audio in MP4, which every client plays.
+	SystemVideoH264AAC = "h264-aac"
+)
+
+// SystemVideos are every system video a server has, in the order they are made.
+func SystemVideos() []SystemVideo {
+	return []SystemVideo{{Purpose: SystemVideoSoundTiming, Codec: SystemVideoH264AAC}}
+}
+
+// FileName is the video's file's name in the system folder: its purpose and codecs, so a video is
+// found by what it is.
+func (video SystemVideo) FileName() string {
+	return video.Purpose + "." + video.Codec + ".mp4"
+}
+
+// IsKnown is whether the video is one of SystemVideos.
+func (video SystemVideo) IsKnown() bool {
+	return slices.Contains(SystemVideos(), video)
+}
+
+// MakeSystemVideos names the videos to make. The node makes them into its own system folder, never a
+// folder the core names, so the command can write nowhere else.
+type MakeSystemVideos struct {
+	Videos []SystemVideo `json:"videos"`
+	// IsRebuild makes each again even when its file is there: a changed recipe or a damaged file
+	// (D435 §7). Otherwise a video whose file is there is kept.
+	IsRebuild bool `json:"isRebuild,omitempty"`
+}
+
+// SystemVideosMade is the node's answer: its system folder, and each video made or kept there, or why
+// one could not be made.
+type SystemVideosMade struct {
+	Folder string `json:"folder"`
+	// FileNames are the videos' files in the folder, made or kept, in the order asked.
+	FileNames []string `json:"fileNames,omitempty"`
+	// Failure says why a video could not be made: FFmpeg's or the platform's words. The videos made
+	// before it are kept.
+	Failure string `json:"failure,omitempty"`
+}

@@ -58,6 +58,8 @@ type Work struct {
 	Examine *Examine `json:"examine,omitempty"`
 	// HashWhole is set for CommandHashWhole.
 	HashWhole *HashWhole `json:"hashWhole,omitempty"`
+	// MakeSystemVideos is set for CommandMakeSystemVideos.
+	MakeSystemVideos *MakeSystemVideos `json:"makeSystemVideos,omitempty"`
 }
 
 // Commands is the long-poll's answer: the commands after the one the node named, possibly none
@@ -148,7 +150,8 @@ func (work Work) Slot() Slot {
 		return SlotEncode
 	case work.MakeChunks != nil:
 		return SlotRemux
-	case work.EncodeArtwork != nil:
+	case work.EncodeArtwork != nil, work.MakeSystemVideos != nil:
+		// The system videos are a few seconds' small encodes, made once, as an image's are.
 		return SlotArtwork
 	}
 	return ""
