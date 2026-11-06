@@ -210,3 +210,36 @@ func codeForStatus(status int) Code {
 	}
 	return CodeInvalidRequest
 }
+
+// problemDetail is the detail one code carries; the code comes from the detail's type, so an
+// error cannot carry another code's detail.
+type problemDetail interface {
+	problemCode() Code
+}
+
+// problemDetails are one of each detail type: the API document's form for each code with detail.
+func problemDetails() []problemDetail {
+	return []problemDetail{
+		SignedOutDetailBody{},
+		InvalidRequestDetailBody{},
+		RateLimitedDetailBody{},
+		QuotaExhaustedDetailBody{},
+		ProviderRefusalDetailBody{},
+		MediaUnreachableDetailBody{},
+		InAnotherSessionDetailBody{},
+	}
+}
+
+// InvalidRequestDetailBody is invalid_request's detail: each problem found in the request, by
+// where it is, never by the value submitted (D194 §5).
+type InvalidRequestDetailBody struct {
+	Problems []RequestProblemBody `json:"problems"`
+}
+
+func (InvalidRequestDetailBody) problemCode() Code { return CodeInvalidRequest }
+
+// RequestProblemBody is one problem in a request.
+type RequestProblemBody struct {
+	Location string `doc:"Where it is: a field such as body.name or query.cursor, or body when the body as a whole is wrong" json:"location"` //nolint:lll // one struct tag
+	Message  string `json:"message"`
+}
