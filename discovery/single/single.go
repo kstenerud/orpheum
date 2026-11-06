@@ -87,6 +87,9 @@ type Parts struct {
 	// Wait waits out a duration, or until ctx ends: how a realm sign-in that failed answers no sooner
 	// than one that the core refused (D297 §2). Nil waits by a timer; a test passes its own.
 	Wait func(ctx context.Context, wait time.Duration)
+	// HolderWindow is how long an installation other than the one that last held the core's realm
+	// waits for it to come back (D437 §5); zero is HolderWindowDefault.
+	HolderWindow time.Duration
 }
 
 // Discovery is a single-target discovery: its record in its store, and in memory its nonces, its
@@ -104,6 +107,13 @@ type Discovery struct {
 	signal   *Signal
 	// pingWait is how long a live instance has to answer: instancePingWait, shorter in the tests.
 	pingWait time.Duration
+	// started is when the discovery started, holderAdmitted when it last admitted an instance, and
+	// holderWindow how long another installation waits for the last holder (D437 §5): the last
+	// holder's absence is counted from the latest of these and its connection's closing, never from
+	// before the start, so after a restart of the discovery the last holder still gets its chance.
+	started        time.Time
+	holderAdmitted time.Time
+	holderWindow   time.Duration
 	// locateHashes are the core's links a client may locate it by, each with when it ends and how
 	// many uses it has left, and locators its devices' locators' hashes: the full sets the core last
 	// sent, which a restart forgets and the core sends again with its next session (the protocol's
@@ -122,6 +132,9 @@ func New(parts Parts) (*Discovery, error) {
 	if parts.Logger == nil {
 		parts.Logger = slog.New(slog.DiscardHandler)
 	}
+	if parts.HolderWindow == 0 {
+		parts.HolderWindow = HolderWindowDefault
+	}
 	nonces, err := proof.NewNonces(parts.Random)
 	if err != nil {
 		return nil, err
@@ -129,6 +142,7 @@ func New(parts Parts) (*Discovery, error) {
 	return &Discovery{
 		parts: parts, nonces: nonces, tokens: map[string]session{},
 		signal: NewSignal(parts.Logger, parts.Now), pingWait: instancePingWait,
+		started: parts.Now(), holderWindow: parts.HolderWindow,
 		locateHashes: map[string]locatable{}, locators: map[string]bool{}, bootstraps: map[string]bootstrap{},
 		openByHash: map[string]int{},
 	}, nil

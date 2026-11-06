@@ -27,6 +27,9 @@ type Core struct {
 	// Addresses is its last heartbeat, and LastSeenAt when it came (Unix ms); none before the first.
 	Addresses  *discoveryproto.AddressesRequest `json:"addresses,omitempty"`
 	LastSeenAt int64                            `json:"lastSeenAt,omitempty"`
+	// HolderInstallationID is the installation that last held its realm, admitted at once when it
+	// asks again; empty while none has, or the last was a core before D437 (D437 §5).
+	HolderInstallationID string `json:"holderInstallationId,omitempty"`
 }
 
 // Record is what a single-target discovery keeps: its core, or none.

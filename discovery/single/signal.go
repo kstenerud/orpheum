@@ -127,6 +127,26 @@ func (signal *Signal) take(instanceID string) *websocket.Conn {
 	return connection
 }
 
+// CopyRefused tells the instance holding the signalling connection that a copy of the core asked for
+// a session from address, an IP address with no port, when, and was refused because this one
+// answers (discoveryproto.SignalCopyRefused; D437 §4). The core sends no reply; with no connection,
+// it is ErrCoreNotConnected.
+func (signal *Signal) CopyRefused(ctx context.Context, address string, when time.Time) error {
+	signal.mutex.Lock()
+	connection := signal.current
+	signal.mutex.Unlock()
+	if connection == nil {
+		return ErrCoreNotConnected
+	}
+	message := discoveryproto.SignalMessage{
+		Type: discoveryproto.SignalCopyRefused, Address: address, At: when.UnixMilli(),
+	}
+	if err := wsjson.Write(ctx, connection, message); err != nil {
+		return fmt.Errorf("tell the core a copy was refused: %w", err)
+	}
+	return nil
+}
+
 // read hands each answer or refusal the core sends to the offer waiting on its id.
 func (signal *Signal) read(ctx context.Context, connection *websocket.Conn) {
 	for {

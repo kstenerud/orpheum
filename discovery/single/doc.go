@@ -31,6 +31,14 @@
 //     connection or does not answer a ping on it, and refused as a copy while it does (D293 §1).
 //     Enforced by TestSession_ASecondInstanceTakesThePlaceOfOneThatDoesNotAnswerAndIsRefusedWhileItDoes.
 //
+//   - The installation that last held the core's realm is kept in the record and admitted at once,
+//     its live instance replaced without a ping; another, while the holder holds no signalling
+//     connection, is refused holder_away until the window has passed from the holder's last
+//     connection, never counted from before the discovery's start; a copy refused because the live
+//     instance answers is told to that instance, with its address and when (D437 §4, §5). Enforced
+//     by TestSession_TheLastHolderIsAdmittedAtOnceAndAnotherWaitsItsWindow and
+//     TestSession_TheLastHolderOutlivesARestartAndItsWindowCountsFromIt.
+//
 //   - A session for a core it does not hold is refused saying to enrol again. Enforced by
 //     TestSession_ForACoreItDoesNotHoldSaysToEnrolAgain.
 //
