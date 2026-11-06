@@ -363,14 +363,14 @@ describe("a quality this device cannot play (D266)", () => {
 
   it("is given up at a hole hls.js cannot step over, and loaded again below it; never the lowest", () => {
     const { hls, choosing, loadsAgain, unplayable } = standingAt(5.6);
-    expect(choosing.canGiveUpAtAHole()).toBe(true);
-    choosing.giveUpAtAHole(5.6);
+    expect(choosing.canGiveUpLoading()).toBe(true);
+    choosing.giveUpLoading(5.6);
     expect(unplayable).toEqual([
       { qualityKbps: 36_208, positionMs: 5600, isFilmsOwnPicture: false },
     ]);
     expect(loadsAgain).toHaveLength(1);
     hls.loadLevel = hls.minAutoLevel;
-    expect(choosing.canGiveUpAtAHole()).toBe(false);
+    expect(choosing.canGiveUpLoading()).toBe(false);
   });
 
   it("is given up at once when the browser holds nothing of two of its chunks", () => {

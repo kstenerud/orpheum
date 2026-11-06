@@ -58,6 +58,7 @@ User-Agent (D263; the User-Agent is logged only).
 | On a Fire TV in Silk, holding OK on a cast's receiver took control back, as OK pressed twice. | [Silk on Fire TV sends a held OK's repeats as fresh presses, unmarked and with no key up](#silk-on-fire-tv-sends-a-held-oks-repeats-as-fresh-presses-unmarked-and-with-no-key-up) |
 | On a Fire TV in Silk, holding Up left the page for Silk's own address bar and menu. | [Silk on Fire TV takes a held Up for its own address bar and menu](#silk-on-fire-tv-takes-a-held-up-for-its-own-address-bar-and-menu) |
 | On a Fire TV in Silk, the remote's arrows moved a pointer and no arrow key reached the page; only play/pause did. | [Silk on Fire TV keeps the D-pad for its pointer unless its spatial navigation mode is on](#silk-on-fire-tv-keeps-the-d-pad-for-its-pointer-unless-its-spatial-navigation-mode-is-on) |
+| A TCL TV in TV Bro failed a film's HEVC picture: "Failed to execute 'appendBuffer' on 'SourceBuffer': The HTMLMediaElement.error attribute is not null". | [A TCL TV in TV Bro says it plays HEVC and fails to decode it](#a-tcl-tv-in-tv-bro-says-it-plays-hevc-and-fails-to-decode-it) |
 | A TCL TV in TV Bro plays every film's sound about half a second after its picture, whatever the codec; YouTube there is in time. | [A TCL TV in TV Bro plays a page's sound about half a second late, and the browser cannot tell](#a-tcl-tv-in-tv-bro-plays-a-pages-sound-about-half-a-second-late-and-the-browser-cannot-tell) |
 | A read-through over a share that dropped mid-film was answered as complete, its loudness that of part of the film. | [FFmpeg whose input read fails part way exits 0 with an answer made of what it read](#ffmpeg-whose-input-read-fails-part-way-exits-0-with-an-answer-made-of-what-it-read) |
 | A guest who opened her link from Telegram on an iPhone was told "This browser can't play from the server"; the same link in Safari played. | [An app's built-in browser on iOS runs no service worker](#an-apps-built-in-browser-on-ios-runs-no-service-worker) |
@@ -1107,6 +1108,42 @@ User-Agent (D263; the User-Agent is logged only).
   [WebAudio high latency on Android (40103372)](https://issues.chromium.org/issues/40103372) reports a
   total of about 330 ms on some Android devices; no report of a TV's sound lagging its element's
   clock in a WebView was found (searched 2026-10-24).
+
+### A TCL TV in TV Bro says it plays HEVC and fails to decode it
+
+- **Technology:** the owner's TCL TV ("Smart TV Pro", Android 14), TV Bro on its WebView (Chrome 156),
+  MSE through hls.js 1.7.3, a film's own HEVC picture copied into the ladder's top quality (`hvc1`).
+- **Symptom:** "Failed to execute 'appendBuffer' on 'SourceBuffer': The HTMLMediaElement.error
+  attribute is not null", and the playback failed. Sync HEVC Opus played twice, then failed on every
+  try; Sync HEVC AAC never played; the H.264 clips played. Earlier that morning a film's own HEVC
+  picture had played there (06:29 UTC). The browser lists HEVC among the formats it plays
+  (`isTypeSupported` on `hvc1.1.6.L120.90`), so the core offered the film's own picture.
+- **Cause:** unverified. The media element had failed to decode (its `error` set), and every append
+  after that throws; hls.js 1.7.3 reports it as `mediaSourceRequiresReset`, its error controller
+  makes it fatal and rebuilds the media source, and the next decode failed alike. The ladder's
+  master playlist names no CODECS (`internal/core/chunks/playlists.go`), so hls.js's own switch to a
+  quality of another codec finds none, every quality's codecs being the same empty set. Neither the
+  probe's level against the clips' nor the decoder's state (a hardware decoder still held by an
+  earlier playback would fit "twice, then never") was checked on the TV.
+- **What we do:** a second fatal decoding error within `decodingRecoveryWindowMs` (30 s) of the first
+  one's rebuild gives the quality up as one the device cannot play (D266), loading again below it,
+  where an H.264 quality is; at the lowest quality the playback fails as before. The film's own
+  picture given up is offered to none of the device's later playbacks of the film (D266 §4), which
+  start at its H.264 twin (D323 §2). (`recoverFromDecodingErrors`,
+  `web/packages/player/src/decode-recovery.ts`, given the playback's `Choosing` by `failOrLoadOn` in
+  `chunked.ts`.) Another HEVC film still tries HEVC first on the device, and gives it up the same way.
+- **Evidence:** [owner] staging, 2026-11-06, 06:56 to 07:05 UTC, files 12286 and 12287 (library 5,
+  "Sync tests"); test "a decoding error a rebuild did not mend" (`abr-decoding.test.ts`); on the TV, VQ268.
+  **[source]** hls.js 1.7.3, `buffer-controller.ts` (an append with `media.error` set becomes
+  `MEDIA_SOURCE_REQUIRES_RESET`) and `error-controller.ts` (`onErrorOut` makes it fatal and calls
+  `recoverMediaError`; `getLevelSwitchAction` seeks a quality of another `codecSet`). **[web]** the same
+  message on a Samsung TV, unresolved: [Samsung developer forum, "The problem of receiving detailed logs
+  from TV"](https://forum.developer.samsung.com/t/the-problem-of-receiving-detailed-logs-from-tv/29313);
+  hls.js [#5456](https://github.com/video-dev/hls.js/issues/5456), a decode error on Android Chrome
+  only, unresolved; [enable-chromium-hevc-hardware-decoding](https://github.com/StaZhu/enable-chromium-hevc-hardware-decoding):
+  Chromium on Android reports HEVC whenever the platform has a decoder, saying nothing of its
+  profile, level or free instances. No report of a TCL or MediaTek TV's WebView failing HEVC over MSE
+  was found (searched 2026-11-06).
 
 
 ### Android: echo cancellation puts the phone in a call, which turns the film down and takes the volume buttons

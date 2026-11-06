@@ -5,7 +5,11 @@ import { describe, expect, it } from "vitest";
 import { ErrorDetails, ErrorTypes, Events, type ErrorData } from "hls.js";
 
 import { isRecovered } from "./abr-controller.ts";
-import { decodingRecoveryWindowMs, recoverFromDecodingErrors } from "./decode-recovery.ts";
+import {
+  decodingRecoveryWindowMs,
+  recoverFromDecodingErrors,
+  type GivingUpQuality,
+} from "./decode-recovery.ts";
 import type { PlaybackFailure } from "./failure.ts";
 import { failOnFatal } from "./hls.ts";
 
@@ -38,7 +42,12 @@ function fatalError(
 function playbackRecoveringFromDecoding(
   positionS: number,
   nowMs: () => number,
-  start: { readonly hasEnoughToStart: boolean; readonly startPosition: number } = {
+  start: {
+    readonly hasEnoughToStart: boolean;
+    readonly startPosition: number;
+    /** The quality a second error gives up, a chunked playback's; none for a prepared copy's. */
+    readonly quality?: GivingUpQuality;
+  } = {
     hasEnoughToStart: true,
     startPosition: -1,
   },
@@ -79,12 +88,17 @@ function playbackRecoveringFromDecoding(
     startLoad: (at?: number) => calls.push(`startLoad ${String(at)}`),
     stopLoad: () => calls.push("stopLoad"),
     media: { currentTime: positionS },
-    ...start,
+    hasEnoughToStart: start.hasEnoughToStart,
+    startPosition: start.startPosition,
   } as unknown as Parameters<typeof recoverFromDecodingErrors>[0] &
     Parameters<typeof failOnFatal>[0];
   const notes: string[] = [];
   const failures: [PlaybackFailure, string | undefined][] = [];
-  recoverFromDecodingErrors(hls, { note: (note) => notes.push(note), nowMs });
+  recoverFromDecodingErrors(hls, {
+    note: (note) => notes.push(note),
+    nowMs,
+    quality: () => start.quality,
+  });
   failOnFatal(hls, (failure, whatFailed) => failures.push([failure, whatFailed]));
   return {
     trigger: (data) => {
@@ -137,6 +151,36 @@ describe("a fatal decoding error (hls.js's MEDIA_ERROR)", () => {
     trigger(fatalError(ErrorTypes.MEDIA_ERROR, "decode failed again"));
     expect(calls).toEqual(["recoverMediaError", "startLoad 12.5"]);
     expect(failures).toEqual([]);
+  });
+});
+
+// A TCL TV's browser (TV Bro) said it played HEVC and failed to decode the film's own HEVC picture at
+// every rebuild (the owner's test, staging, 2026-11-06).
+describe("a second fatal decoding error within the window, a lower quality there to load", () => {
+  it("gives the quality up, and the quality below has a recovery of its own", () => {
+    const clock = fakeClock();
+    const givenUpAt: number[] = [];
+    const quality: GivingUpQuality = {
+      canGiveUpLoading: () => givenUpAt.length === 0,
+      giveUpLoading: (positionS) => givenUpAt.push(positionS),
+    };
+    const { trigger, calls, notes, failures } = playbackRecoveringFromDecoding(12.5, clock.nowMs, {
+      hasEnoughToStart: true,
+      startPosition: -1,
+      quality,
+    });
+    trigger(fatalError(ErrorTypes.MEDIA_ERROR, "decode failed"));
+    clock.advance(1000);
+    const second = fatalError(ErrorTypes.MEDIA_ERROR, "decode failed again");
+    trigger(second);
+    expect([givenUpAt, failures, isRecovered(second)]).toEqual([[12.5], [], true]);
+    expect(notes.at(-1)).toMatch(
+      /^a decoding error 1000 ms after the last recovered gives its quality up as unplayable here/u,
+    );
+    calls.length = 0;
+    clock.advance(1000);
+    trigger(fatalError(ErrorTypes.MEDIA_ERROR, "decode failed below"));
+    expect([calls, failures]).toEqual([["recoverMediaError", "startLoad 12.5"], []]);
   });
 });
 

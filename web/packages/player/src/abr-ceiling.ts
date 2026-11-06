@@ -284,18 +284,21 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
   }
 
   /**
-   * Whether the quality loading, a hole in which hls.js could not step over, can be given up as
-   * unplayable here, a lower one there to load (D266): iPhone Safari kept 0.26 s of a well-formed
-   * first chunk of a series' own picture, 242 frames over 10 s, and hls.js, stepping over the hole
-   * and finding the playhead still, gave the playback up (the owner's group test, 2026-10-13).
+   * Whether the quality loading can be given up as unplayable here, a lower one there to load
+   * (D266), at a hole hls.js could not step over or at a decoding error a rebuild did not mend
+   * (decode-recovery.ts): it is not the lowest. iPhone Safari kept 0.26 s of a well-formed first
+   * chunk of a series' own picture, 242 frames over 10 s, and hls.js, stepping over the hole and
+   * finding the playhead still, gave the playback up (the owner's group test, 2026-10-13); a TCL TV's
+   * browser said it played HEVC and failed to decode the film's own HEVC picture at every rebuild
+   * (the owner's test, staging, 2026-11-06).
    */
-  canGiveUpAtAHole(): boolean {
+  canGiveUpLoading(): boolean {
     return this.#hls.loadLevel > this.#hls.minAutoLevel;
   }
 
-  /** Gives the quality loading up as unplayable here, at a hole it could not pass at positionS. */
-  giveUpAtAHole(positionS: number): void {
-    if (this.canGiveUpAtAHole()) {
+  /** Gives the quality loading up as unplayable here, loading again from positionS below it (canGiveUpLoading). */
+  giveUpLoading(positionS: number): void {
+    if (this.canGiveUpLoading()) {
       this.#giveUpUnplayable(this.#hls.loadLevel, positionS);
     }
   }
