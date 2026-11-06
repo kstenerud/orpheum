@@ -100,20 +100,15 @@ function RepointForm(props: {
   readonly onKeep: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { api } = useServices();
   const [browsed, setBrowsed] = useState<Place | undefined>(undefined);
   const offered = props.places.filter((place) => !isSamePlace(place, props.from));
   const choices = browsed === undefined ? offered : [...offered, browsed];
   const [chosenIndex, setChosenIndex] = useState(0);
-  const [checked, setChecked] = useState<Checked | undefined>(undefined);
   const chosen = choices[chosenIndex];
-  const report =
-    checked !== undefined && chosen !== undefined && isSamePlace(checked.to, chosen)
-      ? checked
-      : undefined;
+  const { report, check, forget } = useRepointCheck(props.from, chosen);
   const choose = (index: number): void => {
     setChosenIndex(index);
-    setChecked(undefined);
+    forget();
   };
   return (
     <>
@@ -122,19 +117,7 @@ function RepointForm(props: {
         chosenIndex={chosenIndex}
         canMove={report?.report !== undefined && (report.report.refusals ?? []).length === 0}
         onChoose={choose}
-        onCheck={() => {
-          if (chosen === undefined) {
-            return;
-          }
-          previewRepoint(api, props.from, chosen).then(
-            (answer) => {
-              setChecked({ to: chosen, report: answer });
-            },
-            (cause: unknown) => {
-              setChecked({ to: chosen, failure: problemText(t, cause) });
-            },
-          );
-        }}
+        onCheck={check}
         onConfirm={() => {
           if (chosen !== undefined) {
             props.onRepoint(chosen);
@@ -158,6 +141,47 @@ function RepointForm(props: {
       {report?.report === undefined ? null : <RepointReportView report={report.report} />}
     </>
   );
+}
+
+/**
+ * The dry run of moving from to chosen: check asks the server, its answer or failure kept for that
+ * place alone, so choosing another shows none until it is checked; forget drops it.
+ */
+function useRepointCheck(
+  from: Place,
+  chosen: Place | undefined,
+): {
+  readonly report: Checked | undefined;
+  readonly check: () => void;
+  readonly forget: () => void;
+} {
+  const { t } = useTranslation();
+  const { api } = useServices();
+  const [checked, setChecked] = useState<Checked | undefined>(undefined);
+  const report =
+    checked !== undefined && chosen !== undefined && isSamePlace(checked.to, chosen)
+      ? checked
+      : undefined;
+  const check = (): void => {
+    if (chosen === undefined) {
+      return;
+    }
+    previewRepoint(api, from, chosen).then(
+      (answer) => {
+        setChecked({ to: chosen, report: answer });
+      },
+      (cause: unknown) => {
+        setChecked({ to: chosen, failure: problemText(t, cause) });
+      },
+    );
+  };
+  return {
+    report,
+    check,
+    forget: () => {
+      setChecked(undefined);
+    },
+  };
 }
 
 /**
@@ -219,7 +243,7 @@ function RepointReportView(props: { readonly report: RepointReport }): JSX.Eleme
   const { t } = useTranslation();
   const { report } = props;
   return (
-    <div role="status">
+    <output>
       <p>
         {t("libraries.repointMoves", {
           live: report.livePlaceCount,
@@ -256,7 +280,7 @@ function RepointReportView(props: { readonly report: RepointReport }): JSX.Eleme
         <p>{t("libraries.repointLookAlikes", { count: report.lookAlikeCount })}</p>
       )}
       <RepointRefusals report={report} />
-    </div>
+    </output>
   );
 }
 
