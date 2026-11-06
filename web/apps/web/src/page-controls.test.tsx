@@ -471,7 +471,9 @@ describe("a television's player opening full screen (D338 §5)", () => {
         withServices(
           <PlayUpwardContext value={upward}>
             <div className="film-player__stage">
-              <video ref={videoRef} />
+              <video ref={videoRef}>
+                <track kind="captions" />
+              </video>
               <OverTheFilm {...film} shouldOpenFullScreen />
             </div>
           </PlayUpwardContext>,
