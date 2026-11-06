@@ -2650,7 +2650,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   (4) arrows and the overlay's controls work in full screen as before, and a dialog opened over the
   film (Watch Together's, a menu) shows over it. (`web/apps/web/src/film-fullscreen.ts`'s
   `fillTheScreen`; `play-next-full-screen.browser.test.tsx`)
-- [ ] **VQ268** — A TCL TV in TV Bro that cannot decode a film's own HEVC picture plays the film on
+- [x] **VQ268** — A TCL TV in TV Bro that cannot decode a film's own HEVC picture plays the film on
   H.264 instead of failing (the owner's test, staging, 2026-11-06: "Failed to execute 'appendBuffer'
   on 'SourceBuffer': The HTMLMediaElement.error attribute is not null" on Sync HEVC Opus and Sync HEVC
   AAC). A second fatal decoding error within 30 s of the first's rebuild now gives the quality up as
@@ -2662,6 +2662,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   the core's log's "unplayable" for the device); (3) a later playback of the same film starts on the
   twin with no hiccup; (4) an H.264 film plays as before. (`web/packages/player/src/decode-recovery.ts`'s
   `recoverFromDecodingErrors`; `abr-decoding.test.ts`)
+  — passed 2026-11-06 by the owner, staging at "fix(web): the repoint dialog's Check press carries a click's key": *"The HEVC files play fine on the TCL tv
+  now."*
 - [ ] **VQ269** — the sound timing test finds a device's sound offset (the owner, 2026-11-06; the TCL
   TV plays sound some 400 ms late with Level loudness on, 200 ms with it off). Its beeps are a WAV
   made in the page, played through a video element and levelled as a film is, its flash drawn from
@@ -2674,3 +2676,6 @@ An item is ticked only by the person who did it, and only with what they saw.
   and later; (3) a film played after it, with Level loudness as in the test, has its speech in step
   with the lips; (4) on a computer's browser the two meet at 0, give or take 50 ms.
   (`web/apps/web/src/lab-sound.tsx`)
+  Failed (3) 2026-11-06, the owner, staging at "fix(web): the repoint dialog's Check press carries a click's key": the test met at 0 ms on the TCL TV, but
+  the library's sync clips need 200 ms (*"2 bars into the orange"*). Its flash is drawn by the page,
+  so it misses the delay of the TV's video picture, which only a decoded film's frames carry.
