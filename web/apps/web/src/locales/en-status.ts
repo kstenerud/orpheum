@@ -32,6 +32,10 @@ export const enStatus = {
       ": its video has no sound track, so it plays in silence. The file may be a video-only download whose sound was never merged in.",
     moreSeriesReadWrongly: "And {{count}} more series whose file names may have been read wrongly.",
     moreFilmsWithoutSound: "And {{count}} more films with no sound track.",
+    copyRefused: "A copy of this server tried to start from {{from}} at {{at}}, and was refused.",
+    stoodAside:
+      "Another copy of this server serves. This one stopped asking and serves only at home. Asking again takes over only once the other copy has stopped.",
+    askAgainOnSystem: "Ask again on the System page",
     toSystem: "The System page",
     toLibraries: "The Libraries",
     toIdentify: "Needs a match",

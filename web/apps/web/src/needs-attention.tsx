@@ -4,7 +4,9 @@ import type { components } from "@orpheum/sdk";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { dateTimeText } from "./date-time-text.ts";
 import { arrivalMark } from "./focus-navigation.ts";
+import { i18n } from "./i18n.ts";
 import { Link } from "./link.tsx";
 import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
@@ -100,6 +102,40 @@ function ProblemTitles(props: { readonly value: AttentionCounts }): JSX.Element 
 }
 
 /**
+ * One copy of the server serves (D437 §4): this serving copy says a copy tried to start, from where and
+ * when, and was refused; a refused copy says another serves, leading to the System page, where the
+ * admin has it ask again. A server older than these fields sends none: missing is neither.
+ */
+function OneCopyItems(props: { readonly value: AttentionCounts }): JSX.Element {
+  const { t } = useTranslation();
+  const { value } = props;
+  return (
+    <>
+      {value.copyRefusedAt > 0 ? (
+        <li key="copy-refused">
+          <WarningIcon />{" "}
+          {t("needsAttention.copyRefused", {
+            from: value.copyRefusedFrom,
+            at: dateTimeText(value.copyRefusedAt, i18n.language),
+          })}
+        </li>
+      ) : null}
+      {value.stoodAsideAt > 0 ? (
+        <li key="stood-aside">
+          <WarningIcon /> {t("needsAttention.stoodAside")}{" "}
+          <Link to={{ screen: "system" }}>{t("needsAttention.askAgainOnSystem")}</Link>
+        </li>
+      ) : null}
+    </>
+  );
+}
+
+/** Whether a copy of this server was refused, or this one was (D437 §4). */
+export function hasCopyWarning(value: AttentionCounts): boolean {
+  return value.copyRefusedAt > 0 || value.stoodAsideAt > 0;
+}
+
+/**
  * Everything that needs the admin, in one place, which the status tray's warning sign leads to
  * (D280). A placeholder until it is designed: it counts what needs them and leads to the pages that
  * have each, the System page, the Libraries and Needs a match, and a newer version to How to update.
@@ -126,11 +162,13 @@ export function NeedsAttention(): JSX.Element {
             { count: value.matchCount, key: "needsAttention.waitingMatches" },
           ].filter((line) => line.count > 0);
           return lines.length + value.seriesReadWronglyCount + value.filmsWithoutSoundCount === 0 &&
-            newer === undefined ? (
+            newer === undefined &&
+            !hasCopyWarning(value) ? (
             <p>{t("needsAttention.nothing")}</p>
           ) : (
             <ul {...arrivalMark}>
               <UpdateItem newer={newer} />
+              <OneCopyItems value={value} />
               {lines.map((line) => (
                 <li key={line.key}>
                   <WarningIcon /> {t(line.key, { count: line.count })}

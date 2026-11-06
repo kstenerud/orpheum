@@ -46,6 +46,9 @@ const nothingWrong = {
   seriesReadWronglyCount: 0,
   filmsWithoutSound: [],
   filmsWithoutSoundCount: 0,
+  copyRefusedAt: 0,
+  copyRefusedFrom: "",
+  stoodAsideAt: 0,
 };
 const somethingWrong = { ...nothingWrong, waitingRootCount: 1, unreadCount: 2 };
 /** The server's word of updates where it knows of none, which Needs attention reads too. */
@@ -550,4 +553,60 @@ it("tells an admin of a newer version, leading to How to update, and says nothin
   );
   expect(mounted.container.querySelector('a[href="/update"]')).toBeNull();
   expect(mounted.container.textContent).toContain("Nothing needs your attention.");
+});
+
+it("tells the serving copy's admin that a copy of the server was refused, from where (D437 §4)", async () => {
+  const refused = {
+    ...nothingWrong,
+    copyRefusedAt: 1_790_000_000_000,
+    copyRefusedFrom: "203.0.113.9",
+  };
+  mounted = await mount(
+    withServices(
+      <StatusTray isAdmin canHostWatchTogether={false} />,
+      servedBy({ "GET /needs-attention": [200, refused] }),
+    ),
+  );
+  expect(
+    mounted.container.querySelector('[aria-label="Something needs your attention"]'),
+  ).not.toBeNull();
+  mounted.unmount();
+  mounted = await mount(
+    withServices(
+      <NeedsAttention />,
+      servedBy({ "GET /needs-attention": [200, refused], ...noUpdate }),
+    ),
+  );
+  const text = mounted.container.textContent;
+  expect(text).toContain("A copy of this server tried to start from 203.0.113.9 at");
+  expect(text).toContain("and was refused.");
+  expect(text).not.toContain("Nothing needs your attention.");
+});
+
+it("tells a refused copy's admin that another copy serves, leading to the System page to ask again (D437 §3, §4)", async () => {
+  const stoodAside = { ...nothingWrong, stoodAsideAt: 1_790_000_000_000 };
+  mounted = await mount(
+    withServices(
+      <StatusTray isAdmin canHostWatchTogether={false} />,
+      servedBy({ "GET /needs-attention": [200, stoodAside] }),
+    ),
+  );
+  expect(
+    mounted.container.querySelector('[aria-label="Something needs your attention"]'),
+  ).not.toBeNull();
+  mounted.unmount();
+  mounted = await mount(
+    withServices(
+      <NeedsAttention />,
+      servedBy({ "GET /needs-attention": [200, stoodAside], ...noUpdate }),
+    ),
+  );
+  const item = Array.from(mounted.container.querySelectorAll("li")).find((each) =>
+    each.textContent.includes("Another copy of this server serves."),
+  );
+  expect(item?.textContent).toContain(
+    "Asking again takes over only once the other copy has stopped.",
+  );
+  const toSystem = item?.querySelector('a[href="/system"]');
+  expect(toSystem?.textContent).toBe("Ask again on the System page");
 });

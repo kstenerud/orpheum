@@ -26656,8 +26656,10 @@ backed up), the signalling connection held only while the database reads (so the
 unanswered otherwise), the refused copy standing aside until `POST /system/discovery/ask-again` or a
 restart (`discovery_another_copy_check_every_seconds` retired), the wait the holder-away refusal
 names, a look every 15 s for the discovery while the network is down, and both warnings kept, logged
-and served on `/system/discovery` and `/needs-attention`. The web client's items under the
-exclamation icon and the System page's button are not built yet.
+and served on `/system/discovery` and `/needs-attention`. **The web client's side is built**
+(2026-11-06): both warnings under the exclamation icon, which shows for either, the refused copy's
+leading to the System page; and the System page's discovery section saying both, with an "Ask
+again" button only while the core stands aside.
 
 ## D438 — A household's own relay stays deferred until the beta's data asks for it; when built, one core pairs with one relay, enrolled by the core
 
