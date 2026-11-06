@@ -12,6 +12,7 @@ import {
   type Answer,
   type Heard,
 } from "./test-dom.tsx";
+import { soundLatencyKey } from "./sound-latency.ts";
 import { testServices } from "./test-services.tsx";
 import {
   isStartThePages,
@@ -114,6 +115,29 @@ describe("a playback asked for again because its player gave the film's own pict
     await watching.decide(7, playableFormats, { cause: "ownPictureGivenUp" });
     const asked = heard.filter((request) => request.methodAndPath === "POST /playback");
     expect(asked.map((request) => bodyField(request, "hasGivenUpOwnPicture"))).toEqual([
+      undefined,
+      true,
+    ]);
+  });
+});
+
+describe("a playback asked for on a device whose sound through Web Audio is late (D436)", () => {
+  afterEach(() => {
+    window.localStorage.removeItem(soundLatencyKey);
+  });
+
+  it("tells the core so, which a device never measured or on time does not", async () => {
+    const heard: Heard[] = [];
+    const { watching } = watchingServed(heard);
+    await watching.decide(7, playableFormats);
+    window.localStorage.setItem(soundLatencyKey, "12");
+    await watching.decide(7, playableFormats, { cause: "playPage" });
+    // The owner's TCL TV's latency, kept (staging, 2026-11-06).
+    window.localStorage.setItem(soundLatencyKey, "426");
+    await watching.decide(7, playableFormats, { cause: "playPage" });
+    const asked = heard.filter((request) => request.methodAndPath === "POST /playback");
+    expect(asked.map((request) => bodyField(request, "isWebAudioLate"))).toEqual([
+      undefined,
       undefined,
       true,
     ]);

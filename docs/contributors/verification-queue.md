@@ -2716,3 +2716,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   start (a WebView with autoplay needing a press, opened without one), the core's log has that line
   with the press's age (`lastPress=… ms ago`) after the page saw a press. (`web/apps/web/src/start-refused.ts`,
   `web/apps/web/src/film-player.tsx`, `web/apps/web/src/client-main.tsx`)
+- [ ] **VQ273** — on a device whose Web Audio is late (D436), levelling keeps the sound in step.
+  Only a device shows it: the lag is the device's own audio path, which no test browser has. On the
+  owner's TCL TV in TV Bro, staging, Level loudness on, its kept latency over 100 ms: a loud film
+  (one levelling lowers) plays its sound in step with the picture, and the volume bar shows the
+  volume chosen, not the lowered one; a quiet film (one levelling raises) starts on its ladder, the
+  core's log showing `levelling_raise`, and plays in step. Passes when both are in step to the eye
+  and the ear, as the device lab's clips are. (`web/packages/player/src/gain.ts`,
+  `web/apps/web/src/levelling.tsx`, `internal/core/playback/playback.go`)

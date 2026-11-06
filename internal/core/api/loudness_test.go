@@ -54,6 +54,30 @@ func TestLoudness_AFileIsMeasuredOnceAndPlaysAtTheLevel(t *testing.T) {
 		t.Errorf("played directly: %s, %+v; want raised 12.7 dB to -23 LUFS (D226 §3)",
 			direct.Delivery, direct.Levelling)
 	}
+	wantTheRaiseTheServersOnALateDevice(t, harness, user)
+}
+
+// wantTheRaiseTheServersOnALateDevice checks that user's film 1, measured to be raised, plays on its
+// ladder for a device whose Web Audio is late, and, once it cannot be cut, as it is (D436).
+func wantTheRaiseTheServersOnALateDevice(t *testing.T, harness testHarness, user string) {
+	t.Helper()
+	// On a device whose Web Audio is late, the raise is the server's, on the film's ladder (D436).
+	late := chrome(1)
+	late["isWebAudioLate"] = true
+	raised := harness.play(t, user, late)
+	if raised.Delivery != "hls" || !slices.Equal(raised.NotDirectReasons, []string{"levelling_raise"}) {
+		t.Errorf("played on a late device: %s, %v; want its ladder, for the raise (D436)",
+			raised.Delivery, raised.NotDirectReasons)
+	}
+	// A film with no ladder to take the raise, its length unknown so it cannot be cut, plays as it is,
+	// unraised, rather than refused as one that cannot be converted (D436 §3).
+	storetest.ExecRaw(t, harness.databasePath,
+		`UPDATE file_probe SET probe_json = json_remove(probe_json, '$.format.durationMs'), duration_ms = 0 `+
+			`WHERE file_id = 1`)
+	if uncut := harness.play(t, user, late); uncut.Delivery != "direct" || len(uncut.NotDirectReasons) != 0 {
+		t.Errorf("a film that cannot be cut, on a late device: %s, %v; want it played as it is",
+			uncut.Delivery, uncut.NotDirectReasons)
+	}
 }
 
 // A film converted is levelled as its track's stereo mix, the gain capped by the mix's peak, and its

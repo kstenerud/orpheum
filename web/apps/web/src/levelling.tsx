@@ -2,7 +2,13 @@
 
 import "./levelling.css";
 
-import { canSetVolume, gainAfterVolume, newAudioContext } from "@orpheum/player";
+import {
+  canSetVolume,
+  gainAfterVolume,
+  isWebAudioLate,
+  newAudioContext,
+  ownFileGainAfterVolume,
+} from "@orpheum/player";
 import type { components } from "@orpheum/sdk";
 import { useEffect, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
@@ -105,7 +111,7 @@ export function LevelSwitch(props: {
     onSwitched: () => undefined,
   });
   const heard = useMeasuredLevel(props.fileId, props.level, props.audioTrackIndex);
-  useLevelGain(heard.level, state.isOn, props.videoRef);
+  useLevelGain(heard.level, state.isOn, { videoRef: props.videoRef });
   return <LevellingControl level={heard.level} measuring={heard.measuring} state={state} />;
 }
 
@@ -159,20 +165,51 @@ export function useMeasuredLevel(
 
 /**
  * Applies levelling's gain after the volume, where the page may set the volume, as the switch, isOn,
- * stands: whoever holds the switch, drawn or not (D226 §4).
+ * stands: whoever holds the switch, drawn or not (D226 §4). A film playing its own file on a device
+ * whose Web Audio is late takes none (D436).
  */
 export function useLevelGain(
   level: SoundLevel,
   isOn: boolean,
-  videoRef: RefObject<HTMLVideoElement | null>,
+  played: { readonly videoRef: RefObject<HTMLVideoElement | null>; readonly isOwnFile?: boolean },
 ): void {
   const addedDb = addedGainDb(level, isOn);
+  const { videoRef, isOwnFile = false } = played;
   useEffect(() => {
     const video = videoRef.current;
     if (video !== null) {
-      gainAfterVolume(video, newAudioContext, soundLatencyMemory()).setDb(addedDb);
+      const gainOf = isOwnFile ? ownFileGainAfterVolume : gainAfterVolume;
+      gainOf(video, newAudioContext, soundLatencyMemory()).setDb(addedDb);
     }
-  }, [addedDb, videoRef]);
+  }, [addedDb, videoRef, isOwnFile]);
+}
+
+/** The files this page has asked to raise on their ladders, each once (useRaiseLeftToTheLadder). */
+const raisesAsked = new Set<number>();
+
+/**
+ * Asks for the film again, once, through askAgain, where levelling, on as the server keeps it, raises
+ * the sound playing, and this device's sound through Web Audio is too late to raise it by
+ * (isWebAudioLate): the ladder's sound, which the server makes with the gain, carries the raise, as
+ * the dialogue boost's move does (D436, D336 §3). A film the server answers with its own file again,
+ * having no ladder to give, is not asked for again. A device never measured levels through Web Audio
+ * and learns, and is not moved during the film it learns in.
+ */
+export function useRaiseLeftToTheLadder(
+  fileId: number,
+  level: SoundLevel,
+  asked: { readonly isLevellingKept: boolean; readonly askAgain: (() => void) | undefined },
+): void {
+  const { isLevellingKept, askAgain } = asked;
+  const isWanted =
+    isLevellingKept && addedGainDb(level, true) > 0 && isWebAudioLate(soundLatencyMemory());
+  useEffect(() => {
+    if (!isWanted || askAgain === undefined || raisesAsked.has(fileId)) {
+      return;
+    }
+    raisesAsked.add(fileId);
+    askAgain();
+  }, [isWanted, fileId, askAgain]);
 }
 
 /** Levelling's switch, held by whoever holds the choice, and the note saying what was done (D226 §5). */

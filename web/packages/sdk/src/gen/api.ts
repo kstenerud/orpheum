@@ -5024,11 +5024,13 @@ export interface components {
              * @description Why the page asked for this playback, for the log
              * @enum {string}
              */
-            cause?: "filmPage" | "playPage" | "warmUpStale" | "warmUpOffLadder" | "warmUpFailed" | "subtitleFetched" | "audioChosen" | "originalChosen" | "boostChosen" | "playbackGone" | "ownPictureGivenUp" | "mediaBack" | "castOver";
+            cause?: "filmPage" | "playPage" | "warmUpStale" | "warmUpOffLadder" | "warmUpFailed" | "subtitleFetched" | "audioChosen" | "originalChosen" | "boostChosen" | "raiseWanted" | "playbackGone" | "ownPictureGivenUp" | "mediaBack" | "castOver";
             /** Format: int64 */
             fileId: number;
             /** @description Whether the player gave the film's own picture up as unplayable here */
             hasGivenUpOwnPicture?: boolean;
+            /** @description Whether this device's sound through Web Audio plays later than D436's bound, so its player raises no sound itself */
+            isWebAudioLate?: boolean;
             /**
              * Format: int64
              * @description How many playbacks the page has asked for since it loaded, this one included
@@ -5054,7 +5056,7 @@ export interface components {
             fileBitRateKbps: number;
             levelling: components["schemas"]["LevellingBody"];
             mediaToken: string;
-            notDirectReasons: ("container" | "video_codec" | "audio_codec" | "bandwidth" | "dialogue_boost" | "audio_track" | "user_choice")[] | null;
+            notDirectReasons: ("container" | "video_codec" | "audio_codec" | "bandwidth" | "dialogue_boost" | "levelling_raise" | "audio_track" | "user_choice")[] | null;
             onLadder?: components["schemas"]["LadderBody"];
             plays?: components["schemas"]["PlaysBody"];
             preferences: components["schemas"]["PlaybackPreferencesBody"];

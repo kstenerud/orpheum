@@ -11,6 +11,7 @@
  * hears it.
  */
 
+import { heardVolumeOf, setHeardVolume } from "@orpheum/player";
 import { useEffect, type RefObject } from "react";
 
 import { leaveFullScreenAsked } from "./film-fullscreen.ts";
@@ -126,8 +127,12 @@ export function volumeAfter(volume: number, direction: -1 | 1): number {
  * on, as a player's volume key does. The element's own properties are what set its sound.
  */
 function stepVolume(video: HTMLVideoElement, direction: -1 | 1): boolean {
-  const sound = { volume: volumeAfter(video.volume, direction) };
-  Object.assign(video, direction === 1 ? { ...sound, muted: false } : sound);
+  // The volume the person set, not the element's, which a lowering by levelling is in (D436).
+  setHeardVolume(video, volumeAfter(heardVolumeOf(video), direction));
+  if (direction === 1) {
+    // eslint-disable-next-line no-param-reassign -- a step up turns the sound on, as a volume key does
+    video.muted = false;
+  }
   return true;
 }
 

@@ -63,12 +63,16 @@ type StartPlaybackInput struct {
 		// Cause and PageStarts are for the log alone: why the page asked, and how many playbacks it
 		// has asked for since it loaded, so a playback started again by itself says what started it
 		// (staging, 2026-10-14, where a phone's playback started over and nothing said why).
-		Cause      string `doc:"Why the page asked for this playback, for the log" enum:"filmPage,playPage,warmUpStale,warmUpOffLadder,warmUpFailed,subtitleFetched,audioChosen,originalChosen,boostChosen,playbackGone,ownPictureGivenUp,mediaBack,castOver" json:"cause,omitempty" required:"false"` //nolint:lll // one struct tag
-		PageStarts int    `doc:"How many playbacks the page has asked for since it loaded, this one included" json:"pageStarts,omitempty" minimum:"0" required:"false"`                                                                                                                                //nolint:lll // one struct tag
+		Cause      string `doc:"Why the page asked for this playback, for the log" enum:"filmPage,playPage,warmUpStale,warmUpOffLadder,warmUpFailed,subtitleFetched,audioChosen,originalChosen,boostChosen,raiseWanted,playbackGone,ownPictureGivenUp,mediaBack,castOver" json:"cause,omitempty" required:"false"` //nolint:lll // one struct tag
+		PageStarts int    `doc:"How many playbacks the page has asked for since it loaded, this one included" json:"pageStarts,omitempty" minimum:"0" required:"false"`                                                                                                                                            //nolint:lll // one struct tag
 		// HasGivenUpOwnPicture is the page's word that its player gave the film's own picture up as
 		// unplayable on this device (D266), so the playback starts at its twin (D323 §2); the core
 		// keeps it before it decides, whether or not the player's report reached it first.
 		HasGivenUpOwnPicture bool `doc:"Whether the player gave the film's own picture up as unplayable here" json:"hasGivenUpOwnPicture,omitempty" required:"false"` //nolint:lll // one struct tag
+		// IsWebAudioLate is the player's word that its device's sound through Web Audio plays later
+		// than D436's bound, so a sound levelling raises plays from the film's ladder, whose sound
+		// carries the raise; the player lowers a sound by the element's own volume (D436).
+		IsWebAudioLate bool `doc:"Whether this device's sound through Web Audio plays later than D436's bound, so its player raises no sound itself" json:"isWebAudioLate,omitempty" required:"false"` //nolint:lll // one struct tag
 		// StartsAtMs is for the log alone: where the page starts the playback when it asks again from
 		// where its video stood, which it does in place of the resume position answered, so a playback
 		// asked for again says where it went on from. A film whose audio track was changed three
@@ -92,7 +96,7 @@ type StartPlaybackOutputBody struct {
 	// player cannot decode it (h264); absent for one played as it is.
 	Profile string `enum:"remux,h264" json:"profile,omitempty"`
 	// NotDirectReasons say why it is not played directly, to show on screen (D188).
-	NotDirectReasons []string `enum:"container,video_codec,audio_codec,bandwidth,dialogue_boost,audio_track,user_choice" json:"notDirectReasons"` //nolint:lll // one struct tag
+	NotDirectReasons []string `enum:"container,video_codec,audio_codec,bandwidth,dialogue_boost,levelling_raise,audio_track,user_choice" json:"notDirectReasons"` //nolint:lll // one struct tag
 	// Subtitles are the file's text subtitle tracks, each extracted or on its way; a track's
 	// URLs answer 425 until it is (D217 §6).
 	Subtitles []SubtitleTrackBody `json:"subtitles"`
@@ -246,13 +250,13 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 		FileID: input.Body.FileID, DeviceID: principal.DeviceID,
 		PlayableFormats:   playableFormatsOf(input.Body.PlayableFormats),
 		PreferredDelivery: decide.Delivery(input.Body.PreferredDelivery), ClientAddress: input.clientAddress,
-		HasGivenUpOwnPicture: input.Body.HasGivenUpOwnPicture,
+		HasGivenUpOwnPicture: input.Body.HasGivenUpOwnPicture, IsWebAudioLate: input.Body.IsWebAudioLate,
 	}
 	started, err := dependencies.Playback.Start(ctx, playback.HolderOf(principal), request)
 	who := []any{
 		logKeyUserID, principal.UserID, logKeyDeviceID, principal.DeviceID, "fileId", input.Body.FileID,
 		logKeyUserAgent, input.userAgent, "over", input.over, "host", input.host, "clientAddress", input.clientAddress,
-		"cause", input.Body.Cause, "pageStarts", input.Body.PageStarts,
+		"cause", input.Body.Cause, "pageStarts", input.Body.PageStarts, "isWebAudioLate", input.Body.IsWebAudioLate,
 	}
 	if input.Body.StartsAtMs != nil {
 		who = append(who, "pageStartsAtMs", *input.Body.StartsAtMs)

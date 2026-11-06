@@ -51,7 +51,11 @@ const (
 	// ReasonAudioTrack is an audio track a person chose that is not the one the original starts with:
 	// a browser plays the original's first, and a film converted carries every track (D217 §3, D230).
 	ReasonAudioTrack Reason = "audio_track"
-	ReasonUserChoice Reason = "user_choice"
+	// ReasonLevellingRaise is a sound levelling raises, on a device whose player cannot raise it
+	// itself: its sound through Web Audio, the one way it raises, plays later than D436's bound, so
+	// the server's mix carries the raise (D436, D336 §3).
+	ReasonLevellingRaise Reason = "levelling_raise"
+	ReasonUserChoice     Reason = "user_choice"
 )
 
 // Input is everything the decision reads. It holds declared capabilities and the file's own
@@ -68,6 +72,10 @@ type Input struct {
 	// as it is wherever the playable formats say it can (D336 §1, §2). How the device makes sound
 	// plays no part (D336 §4).
 	IsDialogueBoostOn bool
+	// IsRaiseTheServers is whether the sound played as it is wants raising to its level, and the
+	// device asking cannot raise it itself: its sound through Web Audio, the one way its player
+	// raises, plays later than D436's bound. Its ladder's sound, made with the gain, carries the raise.
+	IsRaiseTheServers bool
 	// AudioStreamIndex is the stream index of the audio track a person chose (D230), or nil for the
 	// one a player starts with, MainAudio.
 	AudioStreamIndex *int
@@ -78,7 +86,7 @@ type Decision struct {
 	Delivery Delivery
 	Profile  Profile // empty for Direct
 	// NotDirectReasons lists every axis that stopped direct play: container, video, audio, bandwidth,
-	// boost, the chosen audio track, then a person's choice.
+	// boost, a raise the device leaves to the server, the chosen audio track, then a person's choice.
 	NotDirectReasons []Reason
 }
 
@@ -96,6 +104,9 @@ func Decide(input Input) Decision {
 	audio, hasAudio := playedAudio(input)
 	if input.IsDialogueBoostOn && hasAudio && audio.Audio.ChannelCount > 2 {
 		reasons = append(reasons, ReasonDialogueBoost)
+	}
+	if input.IsRaiseTheServers && hasAudio {
+		reasons = append(reasons, ReasonLevellingRaise)
 	}
 	if main, hasMain := MainAudio(input.Probe); hasAudio && hasMain && audio.StreamIndex != main.StreamIndex {
 		reasons = append(reasons, ReasonAudioTrack)

@@ -74,6 +74,63 @@ export const noSoundLatencyMemory: SoundLatencyMemory = {
  */
 export const soundLatencyChangeIgnoredMs = 40;
 
+/**
+ * The Web Audio latency, in ms, above which a device's levelling takes no Web Audio (D436): a
+ * lowering is the element's own volume, and a raise is left to the film's ladder, whose sound the
+ * server makes with the gain. The owner's TCL TV kept 336 to 426 ms and played its sound through Web
+ * Audio 400 to 500 ms behind its picture; a Fire TV keeps 331 to 347 ms; a desktop tens of ms
+ * (staging, 2026-11-06). 100 ms sits well above every desktop's and well below every Android TV's
+ * seen, and ITU-R BT.1359-1 finds a lag first detectable at about 125 ms, which 100 ms of Web Audio
+ * reaches with the element's own lag added. A justified constant, the owner's to confirm (D436).
+ */
+export const webAudioLateAboveMs = 100;
+
+/**
+ * Whether this device's sound through Web Audio plays later than webAudioLateAboveMs, as memory
+ * keeps its latency; a device that has never measured one is not, and levels its first film through
+ * Web Audio, as it learns the latency (D436).
+ */
+export function isWebAudioLate(memory: SoundLatencyMemory): boolean {
+  const ms = memory.recall();
+  return ms !== undefined && ms > webAudioLateAboveMs;
+}
+
+/**
+ * Each element whose levelling lowers its sound by its own volume (D436): the factor the volume the
+ * person set is multiplied by, 1 or less. An element absent plays at the volume set.
+ */
+const volumeFactorByElement = new WeakMap<HTMLMediaElement, number>();
+
+/**
+ * The volume the person set for element, 0 to 1: its own volume, less the lowering levelling puts in
+ * it where Web Audio is late (D436). Whatever reads the volume the person set reads this, not the
+ * element's, or it would take the lowering for the person's choice.
+ */
+export function heardVolumeOf(element: HTMLMediaElement): number {
+  const factor = volumeFactorByElement.get(element) ?? 1;
+  return Math.min(1, element.volume / factor);
+}
+
+/**
+ * Sets the volume the person chose for element, kept within 0 and 1: its own volume, with the
+ * lowering levelling puts in it where Web Audio is late (D436), so 1 is still the film at the level.
+ */
+export function setHeardVolume(element: HTMLMediaElement, volume: number): void {
+  const factor = volumeFactorByElement.get(element) ?? 1;
+  // eslint-disable-next-line no-param-reassign -- setting the element's volume is the function's job
+  element.volume = Math.min(1, Math.max(0, volume)) * factor;
+}
+
+/**
+ * Levels element by its own volume: by db where it lowers, and not at all where it raises, which the
+ * element cannot. The volume the person set stays as it was (D436).
+ */
+function levelByVolume(element: HTMLMediaElement, db: number): void {
+  const heard = heardVolumeOf(element);
+  volumeFactorByElement.set(element, Math.min(1, dbToGainFactor(db)));
+  setHeardVolume(element, heard);
+}
+
 /** The making of a browser's audio context, the default wherever one is made. */
 export function newAudioContext(): GainAudio {
   return new AudioContext();
@@ -387,19 +444,52 @@ function inMs(seconds: number | undefined): number | undefined {
  * played with, and one would hold the video with it, so until then the film plays as it is. Every
  * channel is kept, so a receiver still gets surround. A sound through Web Audio is moved earlier by
  * its latency, from the start by the one memory keeps for the device, until one is measured. Where
- * the page cannot set the element's volume, as on iOS, no gain is applied (canSetVolume).
+ * the page cannot set the element's volume, as on iOS, no gain is applied (canSetVolume). Where the
+ * latency memory keeps is above webAudioLateAboveMs and the element plays its film's own file
+ * (isOwnFile), no Web Audio is taken: a lowering is the element's own volume (heardVolumeOf), and a
+ * raise is not applied, the film's ladder's sound carrying it (D436). A chunked playback keeps Web
+ * Audio on every device, its sound's chunks moved earlier by the latency (audio-shift.ts), which an
+ * own file's sound cannot be. An element is levelled the way it first was for its life.
  */
 export function gainAfterVolume(
   element: HTMLMediaElement,
   createAudioContext: () => GainAudio = newAudioContext,
   memory: SoundLatencyMemory = noSoundLatencyMemory,
 ): Gain {
+  return gainOf(element, { createAudioContext, memory, isOwnFile: false });
+}
+
+/** The gain for element's sound where it plays its film's own file (gainAfterVolume, D436). */
+export function ownFileGainAfterVolume(
+  element: HTMLMediaElement,
+  createAudioContext: () => GainAudio = newAudioContext,
+  memory: SoundLatencyMemory = noSoundLatencyMemory,
+): Gain {
+  return gainOf(element, { createAudioContext, memory, isOwnFile: true });
+}
+
+/** The gain for element's sound, by gainAfterVolume's rules, isOwnFile saying what element plays. */
+function gainOf(
+  element: HTMLMediaElement,
+  how: {
+    readonly createAudioContext: () => GainAudio;
+    readonly memory: SoundLatencyMemory;
+    readonly isOwnFile: boolean;
+  },
+): Gain {
+  const { createAudioContext, memory, isOwnFile } = how;
   return {
     setDb: (db) => {
       const levelling = levellingByElement.get(element);
       if (levelling !== undefined) {
         levelling.setDb(db);
+      } else if (volumeFactorByElement.has(element)) {
+        levelByVolume(element, db);
       } else if (db !== 0 && canSetVolume(element)) {
+        if (isOwnFile && isWebAudioLate(memory)) {
+          levelByVolume(element, db);
+          return;
+        }
         levellingByElement.set(
           element,
           new ElementLevelling(element, { context: createAudioContext(), memory }, db),

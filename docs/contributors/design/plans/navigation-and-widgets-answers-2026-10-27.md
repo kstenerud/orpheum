@@ -2147,6 +2147,7 @@ asked for: VQ272 for the refused start's note ("docs(web): a refused start's not
    is the element's own volume; a raise moves an own-file playback to its ladder, a cause beside
    `boostChosen` in D336 §3's move. A device not yet measured plays its first levelled film through
    Web Audio once and learns. It amends D226 §4: the decision is written with the build.
+   **Built** (2026-11-06) as D436, the bound 100 ms (the owner to confirm); device check VQ273.
 2. **D435, the server's own videos in one hidden system library**, built as the decision says.
 
 Still the owner's to answer: which of the TCL remote's buttons (colours, channel, digits) control

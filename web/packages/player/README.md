@@ -235,6 +235,11 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   the element's life, with every channel kept. And where a page cannot set the volume, as on iOS,
   no gain is applied, since there Web Audio follows the silent switch (D226 §4): `gainAfterVolume`
   checks the element itself. `gain.test.ts`.
+- **A film playing its own file on a device whose kept Web Audio latency is over
+  `webAudioLateAboveMs` (100 ms) takes no Web Audio for levelling** (D436); a chunked playback keeps
+  Web Audio, its sound's chunks moved earlier instead: a lowering is the element's own volume, times the volume the person
+  chose, which `heardVolumeOf` and `setHeardVolume` read and set; a raise is left to the server's
+  ladder. A device not yet measured levels through Web Audio and learns. `gain-late.test.ts`.
 - **A sound through Web Audio is moved earlier by the latency its device remembers until one is
   measured, and a measured latency moves it again only when it differs from the one in effect by
   `soundLatencyChangeIgnoredMs` or more**, which is then kept in the memory the app hands in

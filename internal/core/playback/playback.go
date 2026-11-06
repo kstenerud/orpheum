@@ -154,6 +154,9 @@ type Request struct {
 	// HasGivenUpOwnPicture is the player's word that it gave the film's own picture up as unplayable
 	// on its device (D266): kept before the playback is decided, so it starts at the twin (D323 §2).
 	HasGivenUpOwnPicture bool
+	// IsWebAudioLate is the player's word that its device's sound through Web Audio plays later than
+	// D436's bound, so it raises no sound itself: a sound levelling raises is the ladder's (D436).
+	IsWebAudioLate bool
 }
 
 // Started is a playback: its media token and the decision.
@@ -245,7 +248,7 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 	if err != nil {
 		return Started{}, err
 	}
-	started := Started{SoundOffsetMs: offsetMs}
+	started := Started{SoundOffsetMs: offsetMs, FileBitRateBps: probe.Format.BitRateBps}
 	if started.Subtitles, err = service.subtitles.Want(ctx, holder.Reach, file.ID); err != nil {
 		return Started{}, err
 	}
@@ -253,13 +256,14 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 	if err != nil {
 		return Started{}, err
 	}
-	decision := decisionFor(request, probe, started)
-	started.Decision, started.FileBitRateBps = decision, probe.Format.BitRateBps
-	idle, err := service.tokenIdleExpiry(ctx)
+	// The starting sound's levelling is read before the decision, which a raise the device leaves to
+	// the server changes (D436).
+	err = service.startingPoint(ctx, userID, file, probe, &started)
 	if err != nil {
 		return Started{}, err
 	}
-	err = service.startingPoint(ctx, userID, file, probe, &started)
+	decision := decisionFor(request, probe, started)
+	idle, err := service.tokenIdleExpiry(ctx)
 	if err != nil {
 		return Started{}, err
 	}
@@ -279,6 +283,7 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 	if err != nil {
 		return Started{}, err
 	}
+	decision = playback.settleRaise(&started)
 	service.keepStart(&playback, started.OnLadder)
 	timing := service.timingNow()
 	link := speedKey{
@@ -512,13 +517,15 @@ func (service *Service) readIfStillReading(
 }
 
 // decisionFor is how a file plays for the client that asked, with the audio track the playback
-// starts with and the person's dialogue boost, which alone of how they hear it needs the sound made
-// (D336 §2).
+// starts with, the person's dialogue boost (D336 §2), and a raise levelling wants of the sound as it
+// is where the device's sound through Web Audio lags past D436's bound, so the player cannot make it.
 func decisionFor(request Request, probe nodeproto.Probe, started Started) decide.Decision {
 	input := decide.Input{
 		Probe: probe, PlayableFormats: request.PlayableFormats,
 		PreferredDelivery: request.PreferredDelivery,
 		IsDialogueBoostOn: started.Preferences.IsDialogueBoostOn,
+		IsRaiseTheServers: request.IsWebAudioLate && started.Preferences.IsLevellingOn &&
+			started.Levelling.IsMeasured && started.Levelling.GainDB > 0,
 	}
 	if started.StartingAudio != nil {
 		input.AudioStreamIndex = new(int(started.StartingAudio.StreamIndex))

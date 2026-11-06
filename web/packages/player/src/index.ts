@@ -18,10 +18,15 @@ export type { PlaybackDiagnosis } from "./diagnosis.ts";
 export {
   canSetVolume,
   gainAfterVolume,
+  ownFileGainAfterVolume,
+  heardVolumeOf,
+  isWebAudioLate,
   longestSoundOffsetMs,
   newAudioContext,
+  setHeardVolume,
   soundOffset,
   soundRouteOf,
+  webAudioLateAboveMs,
 } from "./gain.ts";
 export type { Gain, SoundLatencyMemory, SoundOffset, SoundRoute } from "./gain.ts";
 export { canMoveSoundEarlier, moveSoundEarlier, soundEarlierMsOf } from "./audio-shift.ts";
