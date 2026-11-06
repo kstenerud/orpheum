@@ -10,6 +10,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
 
@@ -109,7 +110,9 @@ func (service *Service) ensure(ctx context.Context, asked ensuring) error {
 	if isQueued {
 		// Which chunk started a run, and the film it spans, say whether a seek far ahead started one
 		// or waited on another (playback-in-practice.md §3).
-		service.logger.InfoContext(ctx, "queued a run of chunks", "storeDir", dir, "wantedChunk", wanted,
+		service.logger.InfoContext(ctx, "queued a run of chunks",
+			slogx.EventKey, "chunkRunQueued",
+			"storeDir", dir, "wantedChunk", wanted,
 			"firstChunk", first, "lastChunk", last, "firstChunkStartMs", film.grid.StartsMs[first],
 			"lastChunkEndMs", film.grid.endMs(last))
 	}

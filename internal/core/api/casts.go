@@ -13,6 +13,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/live"
 	"github.com/kstenerud/orpheum/internal/core/together"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // StartCastInput is a casting session from the asking device to another of the person's, connected
@@ -404,7 +405,8 @@ func (server *Server) castRefused(
 		"request", request, logKeyUserID, principal.UserID, "by", principal.DeviceID, "why", err.Error(),
 	}
 	attributes = append(attributes, about...)
-	server.logger.InfoContext(ctx, "cast: a request refused", attributes...)
+	server.logger.InfoContext(ctx, "cast: a request refused",
+		append(attributes, slogx.EventKey, "castRequestRefused")...)
 	return castError(err)
 }
 

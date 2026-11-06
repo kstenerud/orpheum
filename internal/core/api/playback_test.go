@@ -401,7 +401,7 @@ func TestPlayback_LogsEachStartAndRefusalButNeverTheToken(t *testing.T) {
 	asked := chrome(2)
 	asked["cause"], asked["pageStarts"], asked["startsAtMs"] = "subtitleFetched", 3, 166502
 	decided := harness.play(t, user, asked)
-	harness.logs.AwaitLine(t, `"msg":"a playback started"`, `"fileId":2`, `"delivery":"ladder"`,
+	harness.logs.AwaitEvent(t, "playbackStarted", `"fileId":2`, `"delivery":"ladder"`,
 		`"decidedDelivery":"hls"`, `"profile":"remux"`, `"notDirectReasons":["container","audio_codec"]`,
 		// what made the page ask, how many it asked for, and where it goes on from, not the resume
 		// position (staging, 2026-10-26)
@@ -416,7 +416,7 @@ func TestPlayback_LogsEachStartAndRefusalButNeverTheToken(t *testing.T) {
 		t.Errorf("the log holds the playback's token %q, or none was found in %q", token, decided.URL)
 	}
 	wantError(t, harness.do(t, http.MethodPost, "/playback", user, chrome(999)), http.StatusNotFound, api.CodeNotFound)
-	harness.logs.AwaitLine(t, `"msg":"a playback was refused"`, `"fileId":999`)
+	harness.logs.AwaitEvent(t, "playbackRefused", `"fileId":999`)
 }
 
 // A page that opens again a playback the server lost, as it restarted, says so, and the start is
@@ -429,7 +429,7 @@ func TestPlayback_APlaybackOpenedAgainAfterTheServerLostItSaysSo(t *testing.T) {
 	asked := chrome(2)
 	asked["cause"] = "playbackGone"
 	harness.play(t, user, asked)
-	harness.logs.AwaitLine(t, `"msg":"a playback started"`, `"fileId":2`, `"cause":"playbackGone"`)
+	harness.logs.AwaitEvent(t, "playbackStarted", `"fileId":2`, `"cause":"playbackGone"`)
 }
 
 func TestPlayback_AMediaAddressPlaysOnlyForItsSessionAndOnlyWhileInUse(t *testing.T) {
@@ -534,7 +534,7 @@ func TestPlayback_APlaybackAskedForOnceItsFilmIsBackSaysSo(t *testing.T) {
 	asked := chrome(2)
 	asked["cause"] = "mediaBack"
 	harness.play(t, user, asked)
-	harness.logs.AwaitLine(t, `"msg":"a playback started"`, `"fileId":2`, `"cause":"mediaBack"`)
+	harness.logs.AwaitEvent(t, "playbackStarted", `"fileId":2`, `"cause":"mediaBack"`)
 }
 
 // A cast's remote playing here from where its receiver stood asks saying so, and from where, which
@@ -549,6 +549,6 @@ func TestPlayback_APlayHereFromACastsEndSaysSoAndFromWhere(t *testing.T) {
 	asked["cause"] = "castOver"
 	asked["startsAtMs"] = 982680
 	harness.play(t, user, asked)
-	harness.logs.AwaitLine(t, `"msg":"a playback started"`, `"fileId":2`, `"cause":"castOver"`,
+	harness.logs.AwaitEvent(t, "playbackStarted", `"fileId":2`, `"cause":"castOver"`,
 		`"pageStartsAtMs":982680`)
 }

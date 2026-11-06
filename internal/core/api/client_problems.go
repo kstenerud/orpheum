@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
+
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // ClientProblemInput is a failure a page met, which it otherwise writes only to the browser's
@@ -52,9 +54,9 @@ func (server *Server) reportClientProblem(ctx context.Context, input *ClientProb
 		logKeyClientMessage, input.Body.Message, logKeyUserAgent, input.userAgent,
 	}
 	if input.Body.Level == clientNoteLevel {
-		server.logger.DebugContext(ctx, "a page noted", attributes...)
+		server.logger.DebugContext(ctx, "a page noted", append(attributes, slogx.EventKey, "pageNoted")...)
 	} else {
-		server.logger.InfoContext(ctx, "a page reported a failure", attributes...)
+		server.logger.InfoContext(ctx, "a page reported a failure", append(attributes, slogx.EventKey, "pageFailed")...)
 	}
 	return &struct{}{}, nil
 }
@@ -138,6 +140,7 @@ func (server *Server) reportClientPath(ctx context.Context, input *ClientPathInp
 		}
 		attributes = append(attributes, "selectedPair", selected, "otherPairs", strings.Join(others, "; "))
 	}
-	server.logger.InfoContext(ctx, "a page chose its path to the core", attributes...)
+	server.logger.InfoContext(ctx, "a page chose its path to the core",
+		append(attributes, slogx.EventKey, "pagePathChosen")...)
 	return &struct{}{}, nil
 }

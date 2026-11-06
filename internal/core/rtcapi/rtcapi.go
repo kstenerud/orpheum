@@ -19,6 +19,7 @@ import (
 	"github.com/pion/webrtc/v4"
 
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // MaxMessageBytes is the most a message on a channel holds, which every browser carries.
@@ -499,7 +500,9 @@ func (server *Server) holdWithinItsSourcesShare(connection *webrtc.PeerConnectio
 		return
 	}
 	verdict.decide(Verdict{Held: true})
-	server.logger.Info("rtcapi: a connection is held", "connection", name, "network", source.String(),
+	server.logger.Info("rtcapi: a connection is held",
+		slogx.EventKey, "connectionHeld",
+		"connection", name, "network", source.String(),
 		"networkHeld", len(ofSource), "networkHolds", namesOf(ofSource))
 }
 

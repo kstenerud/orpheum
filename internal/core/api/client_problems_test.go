@@ -19,7 +19,7 @@ func TestClientProblems_ALoggedFailureSaysWhoseAndWhereAndIsBounded(t *testing.T
 	if answer.status != http.StatusNoContent {
 		t.Fatalf("POST /client-problems = %d %s", answer.status, answer.body)
 	}
-	harness.logs.AwaitLine(t, `"msg":"a page reported a failure"`, `"userId":1`, `"page":"/play/17"`,
+	harness.logs.AwaitEvent(t, "pageFailed", `"userId":1`, `"page":"/play/17"`,
 		`"message":"TypeError: a request failed"`)
 	answer = harness.do(t, http.MethodPost, "/client-problems", "", problem)
 	if answer.status != http.StatusUnauthorized {
@@ -42,7 +42,7 @@ func TestClientProblems_APagesNoteIsLoggedAtTheDebugLevel(t *testing.T) {
 	if answer := harness.do(t, http.MethodPost, "/client-problems", user, note); answer.status != http.StatusNoContent {
 		t.Fatalf("POST /client-problems = %d %s", answer.status, answer.body)
 	}
-	harness.logs.AwaitLine(t, `"level":"DEBUG"`, `"msg":"a page noted"`, `"userId":1`,
+	harness.logs.AwaitEvent(t, "pageNoted", `"level":"DEBUG"`, `"userId":1`,
 		`"message":"a form's OK on a checkbox: keydown Enter/13"`)
 	note["level"] = "error"
 	if answer := harness.do(t, http.MethodPost, "/client-problems", user, note); answer.status !=
@@ -79,7 +79,7 @@ func TestClientPaths_APagesChoiceOfPathIsLoggedWithItsReasonsAndItsPairs(t *test
 	if answer.status != http.StatusNoContent {
 		t.Fatalf("POST /client-paths = %d %s", answer.status, answer.body)
 	}
-	harness.logs.AwaitLine(t, `"msg":"a page chose its path to the core"`, `"userId":1`, `"browser":"firefox"`,
+	harness.logs.AwaitEvent(t, "pagePathChosen", `"userId":1`, `"browser":"firefox"`,
 		`"isLanNameUsed":false`, `"localNetwork":"denied"`, `"directOffered":1`, `"lanOffered":1`,
 		`"names":"https://192-168-1-199.k7xq2.example:8443 left out: the browser refuses LAN names"`,
 		`"reached":"webrtc"`,

@@ -5,7 +5,6 @@ package playback
 import (
 	"context"
 	"log/slog"
-	"strings"
 	"testing"
 	"time"
 
@@ -88,9 +87,9 @@ func TestWatchUpload_LogsTheNeedBesideTheFilmsShareWhileAnyonePlays(t *testing.T
 		cancel()
 		testutil.Receive(t, done, "the watch to stop")
 	}
-	logs.AwaitLine(t, `"msg":"the server's upload"`, `"playbacks":1`, `"needKbps":9000`, `"sentKbps":0`,
+	logs.AwaitEvent(t, "uploadMeasured", `"playbacks":1`, `"needKbps":9000`, `"sentKbps":0`,
 		`"uploadMbps":10`, `"filmsShareKbps":8500`, `"isOverShare":true`)
-	if count := strings.Count(logs.String(), `"msg":"the server's upload"`); count != 1 {
+	if count := len(testutil.LinesWith(logs.String(), "uploadMeasured")); count != 1 {
 		t.Errorf("the upload was logged %d times; want once, while someone played", count)
 	}
 }

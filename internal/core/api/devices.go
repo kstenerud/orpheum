@@ -8,6 +8,8 @@ import (
 	"slices"
 
 	"github.com/danielgtaylor/huma/v2"
+
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // DeviceBody is one of a person's devices (D218 §4).
@@ -159,7 +161,9 @@ func (server *Server) changeMyDevice(ctx context.Context, input *ChangeDeviceInp
 		if err == nil {
 			// The owner's sound tests on the TCL TV left no trace of where they settled, so each
 			// setting is said (2026-11-06: "The logs you receive ideally should be telling you this").
-			server.logger.InfoContext(ctx, "a device's sound offset was set", "userId", principal.UserID,
+			server.logger.InfoContext(ctx, "a device's sound offset was set",
+				slogx.EventKey, "soundOffsetSet",
+				"userId", principal.UserID,
 				"deviceId", input.DeviceID, "soundOffsetMs", *offsetMs, "fromDeviceId", principal.DeviceID)
 		}
 	}

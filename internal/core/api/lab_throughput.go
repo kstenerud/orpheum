@@ -11,6 +11,8 @@ import (
 	"strconv"
 
 	"github.com/danielgtaylor/huma/v2"
+
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // labThroughputPieceBytes is how much of the body is written at a time: a data channel message's
@@ -65,7 +67,9 @@ func (server *Server) getLabThroughput(ctx context.Context, input *LabThroughput
 		startedAt := dependencies.Clock.Now()
 		sent, writeErr := writeThroughputBody(stream.BodyWriter(), input.Bytes)
 		elapsed := dependencies.Clock.Now().Sub(startedAt)
-		server.logger.InfoContext(ctx, "a throughput test's body was sent", "leg", input.Leg,
+		server.logger.InfoContext(ctx, "a throughput test's body was sent",
+			slogx.EventKey, "throughputBodySent",
+			"leg", input.Leg,
 			"over", input.over, "host", input.host, "bytes", sent, "isWhole", writeErr == nil,
 			"elapsedMs", elapsed.Milliseconds(), "megabitsPerSecond", megabitsPerSecond(sent, elapsed.Seconds()),
 			logKeyUserID, principal.UserID, logKeyDeviceID, principal.DeviceID, logKeyUserAgent, input.userAgent)

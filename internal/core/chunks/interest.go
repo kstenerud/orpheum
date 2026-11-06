@@ -12,6 +12,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // Interest is what one player wants of a film's chunks: one stream, from a position, and, once it
@@ -79,7 +80,8 @@ func (service *Service) StopUnwanted(ctx context.Context, fileID int64) error {
 		if err != nil {
 			return err
 		}
-		service.logger.InfoContext(ctx, "stopped a run of chunks no player wants", stopped.attributes(cancelled)...)
+		service.logger.InfoContext(ctx, "stopped a run of chunks no player wants",
+			append(stopped.attributes(cancelled), slogx.EventKey, "unwantedChunkRunStopped")...)
 		for _, jump := range stopped.jumps {
 			service.logger.DebugContext(ctx, "stopped a run of chunks for a player that jumped away from it",
 				append([]any{"storeDir", stopped.dir, "firstChunk", stopped.First}, jump.attributes()...)...)

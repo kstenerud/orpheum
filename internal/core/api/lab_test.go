@@ -34,7 +34,7 @@ func TestLab_AResultIsLoggedAsOneLineNamedByItsIDAndIsBounded(t *testing.T) {
 	if err := json.Unmarshal([]byte(answer.body), &named); err != nil || len(named.ID) != api.LabResultIDLength {
 		t.Fatalf("the answer %s names no result (%v)", answer.body, err)
 	}
-	harness.logs.AwaitLine(t, `"msg":"a lab page sent its results"`, `"labResultId":"`+named.ID+`"`,
+	harness.logs.AwaitEvent(t, "labResultsSent", `"labResultId":"`+named.ID+`"`,
 		`"probe":"device"`, `"userId":1`,
 		`"result":{"hasMediaSource":true,"screen":{"height":1080,"width":1920}}`)
 
@@ -132,21 +132,21 @@ func TestLab_TheButtonTestsEventsAreLoggedALineEachAndBounded(t *testing.T) {
 	if answer.status != http.StatusNoContent {
 		t.Fatalf("POST /lab/input-events = %d %s", answer.status, answer.body)
 	}
-	harness.logs.AwaitLine(t, `"msg":"a button test started"`, `"labRun":"K3J9QW2A"`,
+	harness.logs.AwaitEvent(t, "buttonTestStarted", `"labRun":"K3J9QW2A"`,
 		`"viewport":"960x540"`, `"devicePixelRatio":2`, `"mode":"geometric"`, `"hasMediaSession":true`,
 		`"userId":1`, `"userAgent":`)
-	harness.logs.AwaitLine(t, `"msg":"a button test heard a press"`, `"labRun":"K3J9QW2A"`,
+	harness.logs.AwaitEvent(t, "buttonTestPress", `"labRun":"K3J9QW2A"`,
 		`"seq":0,"atMs":5310,"kind":"key","button":"select","mode":"geometric","key":"Enter",`+
 			`"code":"NumpadEnter","keyCode":13`,
 		`"isRepeat":false`, `"userId":1`, `"deviceId":`)
-	harness.logs.AwaitLine(t, `"msg":"a button test measured a move"`, `"seq":1`, `"kind":"move"`,
+	harness.logs.AwaitEvent(t, "buttonTestMoved", `"seq":1`, `"kind":"move"`,
 		`"latencyMs":66`)
-	harness.logs.AwaitLine(t, `"msg":"a button test heard a press"`, `"seq":2`, `"kind":"gamepad"`,
+	harness.logs.AwaitEvent(t, "buttonTestPress", `"seq":2`, `"kind":"gamepad"`,
 		`"padId":"Xbox Wireless Controller"`, `"padIndex":0`, `"padButton":1`)
-	harness.logs.AwaitLine(t, `"msg":"a button test heard a press"`, `"seq":3`, `"kind":"media"`,
+	harness.logs.AwaitEvent(t, "buttonTestPress", `"seq":3`, `"kind":"media"`,
 		`"action":"play"`)
-	harness.logs.AwaitLine(t, `"msg":"a button test heard a press"`, `"seq":4`, `"kind":"back"`)
-	harness.logs.AwaitLine(t, `"msg":"a button test changed who moves focus"`, `"seq":5`, `"kind":"mode"`,
+	harness.logs.AwaitEvent(t, "buttonTestPress", `"seq":4`, `"kind":"back"`)
+	harness.logs.AwaitEvent(t, "buttonTestModeChanged", `"seq":5`, `"kind":"mode"`,
 		`"mode":"browser"`)
 
 	answer = harness.do(t, http.MethodPost, "/lab/input-events", "", sent)
@@ -237,30 +237,30 @@ func TestLab_TheButtonTestsFieldFullScreenAndControllerEventsAreLoggedFlat(t *te
 	if answer.status != http.StatusNoContent {
 		t.Fatalf("POST /lab/input-events = %d %s", answer.status, answer.body)
 	}
-	harness.logs.AwaitLine(t, `"msg":"a button test started"`, `"hasFullscreen":true`,
+	harness.logs.AwaitEvent(t, "buttonTestStarted", `"hasFullscreen":true`,
 		`"hasCaptureStream":false`)
-	harness.logs.AwaitLine(t, `"msg":"a button test heard a press"`, `"seq":0`, `"inField":true`)
-	harness.logs.AwaitLine(t, `"msg":"a button test's text field changed"`, `"seq":1`, `"kind":"fieldIn"`)
-	harness.logs.AwaitLine(t, `"msg":"a button test's text field changed"`, `"seq":2`,
+	harness.logs.AwaitEvent(t, "buttonTestPress", `"seq":0`, `"inField":true`)
+	harness.logs.AwaitEvent(t, "buttonTestFieldChanged", `"seq":1`, `"kind":"fieldIn"`)
+	harness.logs.AwaitEvent(t, "buttonTestFieldChanged", `"seq":2`,
 		`"inputType":"insertText"`, `"valueLength":3`)
-	harness.logs.AwaitLine(t, `"msg":"a button test's text field changed"`, `"seq":3`,
+	harness.logs.AwaitEvent(t, "buttonTestFieldChanged", `"seq":3`,
 		`"kind":"compositionEnd"`, `"valueLength":4`)
-	harness.logs.AwaitLine(t, `"msg":"a button test's visual viewport resized"`, `"seq":4`,
+	harness.logs.AwaitEvent(t, "buttonTestViewportResized", `"seq":4`,
 		`"width":960,"height":270`)
-	harness.logs.AwaitLine(t, `"msg":"a button test's full screen changed"`, `"seq":5`,
+	harness.logs.AwaitEvent(t, "buttonTestFullScreenChanged", `"seq":5`,
 		`"kind":"fullscreenEnter"`, `"fullscreenTarget":"container"`)
-	harness.logs.AwaitLine(t, `"msg":"a button test's full screen changed"`, `"seq":6`,
+	harness.logs.AwaitEvent(t, "buttonTestFullScreenChanged", `"seq":6`,
 		`"fullscreenTarget":"video"`, `"errorName":"NotAllowedError"`)
-	harness.logs.AwaitLine(t, `"msg":"a button test read a controller"`, `"seq":7`,
+	harness.logs.AwaitEvent(t, "buttonTestControllerRead", `"seq":7`,
 		`"padId":"057e-2009-Pro Controller","padMapping":"standard","padLayout":"nintendo","okButton":"right"`)
-	harness.logs.AwaitLine(t, `"msg":"a button test heard a press"`, `"seq":8`, `"kind":"stick"`,
+	harness.logs.AwaitEvent(t, "buttonTestPress", `"seq":8`, `"kind":"stick"`,
 		`"button":"up"`, `"axisIndex":1`, `"axisValue":-0.75`)
-	harness.logs.AwaitLine(t, `"msg":"a button test heard a press"`, `"seq":9`, `"inFullscreen":true`)
-	harness.logs.AwaitLine(t, `"msg":"a button test heard a press"`, `"seq":10`,
+	harness.logs.AwaitEvent(t, "buttonTestPress", `"seq":9`, `"inFullscreen":true`)
+	harness.logs.AwaitEvent(t, "buttonTestPress", `"seq":10`,
 		`"padButtonName":"faceRight"`, `"padLayout":"nintendo"`)
-	harness.logs.AwaitLine(t, `"msg":"a button test read a controller"`, `"seq":11`, `"kind":"okChoice"`,
+	harness.logs.AwaitEvent(t, "buttonTestControllerRead", `"seq":11`, `"kind":"okChoice"`,
 		`"okButton":"right"`)
-	harness.logs.AwaitLine(t, `"msg":"a button test heard a controller's axis"`, `"seq":12`,
+	harness.logs.AwaitEvent(t, "buttonTestAxis", `"seq":12`,
 		`"axisIndex":9`, `"axisValue":1`)
 
 	// One event of kind carrying field's value, at the run's start.
@@ -308,10 +308,10 @@ func TestLab_TheButtonTestsKeyModifiersAndContextMenuAreLogged(t *testing.T) {
 	if answer.status != http.StatusNoContent {
 		t.Fatalf("POST /lab/input-events = %d %s", answer.status, answer.body)
 	}
-	harness.logs.AwaitLine(t, `"msg":"a button test heard a press"`, `"seq":0`, `"key":"+"`,
+	harness.logs.AwaitEvent(t, "buttonTestPress", `"seq":0`, `"key":"+"`,
 		`"location":3`, `"shiftKey":true,"ctrlKey":true,"altKey":true,"metaKey":true,"altGraph":true`,
 		`"isComposing":true`)
-	harness.logs.AwaitLine(t, `"msg":"a button test heard a context menu"`, `"seq":1`,
+	harness.logs.AwaitEvent(t, "buttonTestContextMenu", `"seq":1`,
 		`"kind":"contextmenu"`, `"inFullscreen":true`)
 
 	key := func(field string, value any) map[string]any {
@@ -346,6 +346,6 @@ func TestLab_TheButtonTestsVolumeAndTrackKeysAreTaken(t *testing.T) {
 		if answer.status != http.StatusNoContent {
 			t.Fatalf("POST /lab/input-events with %s = %d %s", button, answer.status, answer.body)
 		}
-		harness.logs.AwaitLine(t, `"msg":"a button test heard a press"`, `"button":"`+button+`"`)
+		harness.logs.AwaitEvent(t, "buttonTestPress", `"button":"`+button+`"`)
 	}
 }

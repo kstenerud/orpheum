@@ -11,6 +11,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // stallReport is a report of seq that says the player stalled at positionMs on a link of 2 Mb/s.
@@ -73,11 +74,11 @@ func TestReport_AFirstStallIsAnsweredWithTheLowerQualityItStartedAndSoIsEveryRep
 	// (staging, 2026-10-06).
 	logged := harness.logs.String()
 	for _, want := range []string{
-		`"msg":"a player reported stalls"`, `"stallPositionsMs":[12000]`,
+		testutil.EventInJSON("stallsReported"), `"stallPositionsMs":[12000]`,
 		`"stallReadyStates":[1]`, `"stallsPaused":[true]`, `"stallVideoBuffered":["306.80-317.06"]`,
 		`"stallAudioBuffered":["296.40-317.23"]`, `"stallLastErrors":["bufferStalledError: stalled"]`,
 		`"stallSteps":["level 2; frag 2/31 loading; frag 2/31 aborted"]`,
-		`"msg":"a stalling player was offered a lower quality"`, `"qualityKbps":1200`, `"isReady":false`,
+		testutil.EventInJSON("lowerQualityOffered"), `"qualityKbps":1200`, `"isReady":false`,
 	} {
 		if !strings.Contains(logged, want) {
 			t.Errorf("the stall and the offer were not logged as they happened, %s missing:\n%s", want, logged)
@@ -146,9 +147,10 @@ func TestReport_HowLongAPlaybackTookToStartIsLogged(t *testing.T) {
 	}
 	logged := harness.logs.String()
 	for _, want := range []string{
-		`"msg":"a playback started playing"`, `"decidedAfterMs":180`, `"firstDataAfterMs":2400`,
+		testutil.EventInJSON("playbackPlaying"), `"decidedAfterMs":180`, `"firstDataAfterMs":2400`,
 		`"playingAfterMs":3100`, `"linkKbps":2500`, `"preloadSteps":"level 4; frag 4/0 loaded; level 0"`,
-		`"msg":"a playback's sound"`, `"isThroughWebAudio":true`, `"baseLatencyMs":10`, `"outputLatencyMs":"none"`,
+		testutil.EventInJSON("playbackSound"), `"isThroughWebAudio":true`, `"baseLatencyMs":10`,
+		`"outputLatencyMs":"none"`,
 		`"earlierMs":250`, `"delayMs":40`, `"latencyCountedMs":90`,
 		`"codecs":"video avc1.64001f; audio mp4a.40.2"`, `"mapping":"initPTS main 0.000"`,
 	} {
@@ -179,7 +181,7 @@ func TestReport_HowLongASeekTookToPlayAgainIsLogged(t *testing.T) {
 	}
 	logged := harness.logs.String()
 	for _, want := range []string{
-		`"msg":"a player's seek was ready to play"`, `"fromPositionMs":2759000`, `"toPositionMs":1461000`,
+		testutil.EventInJSON("seekReady"), `"fromPositionMs":2759000`, `"toPositionMs":1461000`,
 		`"readyAfterMs":6900`, `"isPaused":false`, `"linkKbps":10400`, `"pictureAfterMs":1300`,
 		`"soundAfterMs":4900`, `"steps":"ceiling 4 to 0: link 900 kb/s, 0.0 s ahead; level 0"`,
 	} {
@@ -264,7 +266,7 @@ func TestReport_APlayerStandingStillIsLoggedWithWhatItsVideoShowed(t *testing.T)
 	}
 	logged := harness.logs.String()
 	for _, want := range []string{
-		`"msg":"a playing player's position stood still"`, `"forMs":5000`, `"readyState":4`,
+		testutil.EventInJSON("positionStoodStill"), `"forMs":5000`, `"readyState":4`,
 		`"networkState":1`, `"buffered":"0.00-31.20"`, `"videoWidth":0`, `"decodedFrames":0`,
 		`"isPageHidden":false`,
 	} {
@@ -303,7 +305,7 @@ func TestReport_EachChangeOfAPlayersPlayStateIsLoggedOnce(t *testing.T) {
 			t.Errorf("the log has %s %d times; want once:\n%s", want, count, logged)
 		}
 	}
-	if !strings.Contains(logged, `"msg":"a player's play state changed"`) {
+	if len(testutil.LinesWith(logged, "playStateChanged")) == 0 {
 		t.Errorf("the log names no change of play state:\n%s", logged)
 	}
 }
@@ -347,7 +349,7 @@ func TestReport_EachQualityAPlayerCannotPlayIsLogged(t *testing.T) {
 		t.Fatalf("the report: %d %s", answer.status, answer.body)
 	}
 	logged := harness.logs.String()
-	if !strings.Contains(logged, `"msg":"a player found a quality its device cannot play"`) ||
+	if len(testutil.LinesWith(logged, "qualityUnplayable")) == 0 ||
 		!strings.Contains(logged, `"qualityKbps":36208`) || !strings.Contains(logged, `"positionMs":420500`) ||
 		!strings.Contains(logged, `"readyState":1`) || !strings.Contains(logged, `"isPaused":true`) ||
 		!strings.Contains(logged, `"videoBuffered":"416.29-499.62"`) ||
@@ -395,7 +397,7 @@ func TestReport_APausesContextAndThePagesPathMovesAreLogged(t *testing.T) {
 		`"audioBuffered":"8.000-12.000"`, `"kind":"seeked","positionMs":9251`, `"skippedBy":"hole"`,
 		`"kind":"seeked","positionMs":4000`, `"soughtBy":"seekBack-media"`,
 		`"kind":"started","positionMs":9300`, `"startedAfter":"waiting","stoodMs":180`,
-		`"msg":"a player's page moved to another path to the core"`, `"to":"WebRTC","happenedMonoMs":989500`,
+		testutil.EventInJSON("pathMoved"), `"to":"WebRTC","happenedMonoMs":989500`,
 	} {
 		if !strings.Contains(logged, want) {
 			t.Errorf("the log has no %s:\n%s", want, logged)

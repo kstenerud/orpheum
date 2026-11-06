@@ -12,6 +12,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // SetupInput creates the first admin with the code from the log.
@@ -300,7 +301,9 @@ func (server *Server) newSessionOutput(
 		return nil, err
 	}
 	// Which path a session began on says why its page offers admin or not, with no digging.
-	server.logger.InfoContext(ctx, "a session began", "userId", principal.UserID, "deviceId", principal.DeviceID,
+	server.logger.InfoContext(ctx, "a session began",
+		slogx.EventKey, "sessionBegan",
+		"userId", principal.UserID, "deviceId", principal.DeviceID,
 		"path", pathOf(ctx), "isAdmin", body.IsAdmin)
 	output := &SessionOutput{SetCookie: mediaCookies(issued.Token, isOverTLS)}
 	output.Body.Token, output.Body.DeviceSecret, output.Body.User = issued.Token, issued.DeviceSecret, body

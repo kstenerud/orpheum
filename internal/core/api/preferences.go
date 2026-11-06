@@ -10,6 +10,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/preferences"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // PlaybackPreferencesBody are the choices a person's playback of one file starts with: the file's
@@ -172,7 +173,9 @@ func (server *Server) setMyPreferences(ctx context.Context, input *SetMyPreferen
 		if err := dependencies.Preferences.SetDialogueBoost(ctx, principal.UserID, *isOn); err != nil {
 			return nil, server.playbackError(ctx, "keep a person's dialogue boost", err)
 		}
-		server.logger.InfoContext(ctx, "a person's dialogue boost was switched", "userId", principal.UserID,
+		server.logger.InfoContext(ctx, "a person's dialogue boost was switched",
+			slogx.EventKey, "dialogueBoostSwitched",
+			"userId", principal.UserID,
 			"deviceId", principal.DeviceID, "isDialogueBoostOn", *isOn)
 	}
 	if isOn := input.Body.IsLevellingOn; isOn != nil {
@@ -181,7 +184,9 @@ func (server *Server) setMyPreferences(ctx context.Context, input *SetMyPreferen
 		}
 		// A switch made during a film changes its sound's route (D226 §4), and the playback's own line
 		// said only how it started (the owner's TCL TV, 2026-11-06).
-		server.logger.InfoContext(ctx, "a person's levelling was switched", "userId", principal.UserID,
+		server.logger.InfoContext(ctx, "a person's levelling was switched",
+			slogx.EventKey, "levellingSwitched",
+			"userId", principal.UserID,
 			"deviceId", principal.DeviceID, "isLevellingOn", *isOn)
 	}
 	if isOn := input.Body.IsAutoplayOn; isOn != nil {

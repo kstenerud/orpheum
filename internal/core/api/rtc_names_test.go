@@ -49,5 +49,5 @@ func TestRTCOffer_NamesAConnectionByTheSignInOfItsRequests(t *testing.T) {
 	// The next connection from the same network logs the ones it already holds, the first by its sign-in.
 	// Both are on the loopback, one network: a machine's other addresses would make them two.
 	rtcapitest.Connect(t, answer, rtcapitest.OnLoopback())
-	rtcLogs.AwaitLine(t, `"msg":"rtcapi: a connection is held"`, `"networkHeld":2`, `(user `, ` device `)
+	rtcLogs.AwaitEvent(t, "connectionHeld", `"networkHeld":2`, `(user `, ` device `)
 }

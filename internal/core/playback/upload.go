@@ -13,6 +13,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // askedWithin is how lately a playback of chunks must have asked for a stream for it to need the
@@ -111,7 +112,7 @@ func (service *Service) WatchUpload(ctx context.Context, tick <-chan time.Time, 
 			logger.WarnContext(ctx, "could not read the server's upload", "err", err)
 		}
 		shareKbps := service.uploadTuningOf(ctx, logger).shareKbps(uploadMbps)
-		logger.InfoContext(ctx, "the server's upload", "playbacks", upload.Playbacks,
+		logger.InfoContext(ctx, "the server's upload", slogx.EventKey, "uploadMeasured", "playbacks", upload.Playbacks,
 			"needKbps", upload.NeedKbps, "sentKbps", upload.SentKbps, "uploadMbps", uploadMbps,
 			"filmsShareKbps", shareKbps, "isOverShare", shareKbps > 0 && upload.NeedKbps > shareKbps)
 	}
@@ -189,7 +190,7 @@ func (service *Service) KeepUnderShare(ctx context.Context, tick <-chan time.Tim
 		changes, isOverAtLowest := service.lookAtUpload(control, shareKbps, tuning)
 		for _, change := range changes {
 			logger.InfoContext(ctx, "a playback's quality was kept within the server's upload",
-				append(change.logAttributes(), "shareKbps", shareKbps)...)
+				append(change.logAttributes(), slogx.EventKey, "qualityKeptWithinUpload", "shareKbps", shareKbps)...)
 		}
 		if isOverAtLowest && !wasOverAtLowest {
 			logger.WarnContext(ctx, "the server's upload cannot carry its players at their lowest qualities",

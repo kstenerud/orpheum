@@ -9,6 +9,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/playback"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // LeaveInput is a player's word that it left the page of the playback its token names, the film's
@@ -41,7 +42,7 @@ func (server *Server) leavePlayback(ctx context.Context, input *LeaveInput) (*st
 	if err := reporter.dependencies.Playback.Leave(ctx, input.Token, reporter.holder, gone); err != nil {
 		return nil, server.playbackError(ctx, "let go of a playback's work", err)
 	}
-	server.logger.InfoContext(ctx, "a player left its playback", "reason", input.Reason,
+	server.logger.InfoContext(ctx, "a player left its playback", slogx.EventKey, "playerLeft", "reason", input.Reason,
 		"userId", reporter.holder.UserID, "deviceId", reporter.deviceID, "viewerOfFileId", reporter.holder.OnlyFileID)
 	return &struct{}{}, nil
 }

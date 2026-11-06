@@ -204,6 +204,6 @@ func TestPlayback_AChunkedPlayLogsItsLadderTheQualityAndTheSoundItStartsOn(t *te
 	if started := harness.play(t, user, chrome(1)); started.OnLadder == nil || started.Delivery != "direct" {
 		t.Fatalf("film 1 starts %+v; want it decided direct and started on its ladder", started)
 	}
-	harness.logs.AwaitLine(t, `"msg":"a playback started"`, `"fileId":1`, `"delivery":"ladder"`,
+	harness.logs.AwaitEvent(t, "playbackStarted", `"fileId":1`, `"delivery":"ladder"`,
 		`"decidedDelivery":"direct"`, `"ladderQuality":"picture"`, `"ladderSound":"sound0-own"`)
 }

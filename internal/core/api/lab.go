@@ -13,6 +13,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // labResultBytesAtMost bounds a lab page's results: a device report or a probe's log of a few
@@ -116,10 +117,12 @@ func (server *Server) reportLabResult(ctx context.Context, input *LabResultInput
 	}
 	if input.Body.Probe == labThroughputProbe {
 		// Its own words, so the lead finds a device's figures by them (webrtc-throughput-2026-10-28.md).
-		server.logger.InfoContext(ctx, "a throughput test ran", attributes...)
+		server.logger.InfoContext(ctx, "a throughput test ran",
+			append(attributes, slogx.EventKey, "throughputTestRan")...)
 		return output, nil
 	}
-	server.logger.InfoContext(ctx, "a lab page sent its results", attributes...)
+	server.logger.InfoContext(ctx, "a lab page sent its results",
+		append(attributes, slogx.EventKey, "labResultsSent")...)
 	return output, nil
 }
 
@@ -206,7 +209,7 @@ func (server *Server) reportLabInputEvents(ctx context.Context, input *LabInputE
 	}
 	run := input.Body.Run
 	if start := input.Body.Start; start != nil {
-		server.logger.InfoContext(ctx, "a button test started", "labRun", run,
+		server.logger.InfoContext(ctx, "a button test started", slogx.EventKey, "buttonTestStarted", "labRun", run,
 			"viewport", fmt.Sprintf("%dx%d", start.ViewportWidth, start.ViewportHeight),
 			"devicePixelRatio", start.DevicePixelRatio, "mode", start.Mode,
 			"hasMediaSession", start.HasMediaSession, "hasFullscreen", start.HasFullscreen,
@@ -226,23 +229,32 @@ func (server *Server) logLabInputEvent(ctx context.Context, run string, event La
 	attributes := labInputEventAttributes(run, event, principal)
 	switch event.Kind {
 	case "move":
-		server.logger.InfoContext(ctx, "a button test measured a move", attributes...)
+		server.logger.InfoContext(ctx, "a button test measured a move",
+			append(attributes, slogx.EventKey, "buttonTestMoved")...)
 	case "mode":
-		server.logger.InfoContext(ctx, "a button test changed who moves focus", attributes...)
+		server.logger.InfoContext(ctx, "a button test changed who moves focus",
+			append(attributes, slogx.EventKey, "buttonTestModeChanged")...)
 	case "fieldIn", "fieldOut", "fieldInput", "compositionStart", "compositionEnd":
-		server.logger.InfoContext(ctx, "a button test's text field changed", attributes...)
+		server.logger.InfoContext(ctx, "a button test's text field changed",
+			append(attributes, slogx.EventKey, "buttonTestFieldChanged")...)
 	case "viewport":
-		server.logger.InfoContext(ctx, "a button test's visual viewport resized", attributes...)
+		server.logger.InfoContext(ctx, "a button test's visual viewport resized",
+			append(attributes, slogx.EventKey, "buttonTestViewportResized")...)
 	case "fullscreenEnter", "fullscreenExit", "fullscreenRefused", "fullscreenExitAsked":
-		server.logger.InfoContext(ctx, "a button test's full screen changed", attributes...)
+		server.logger.InfoContext(ctx, "a button test's full screen changed",
+			append(attributes, slogx.EventKey, "buttonTestFullScreenChanged")...)
 	case "pad", "okChoice":
-		server.logger.InfoContext(ctx, "a button test read a controller", attributes...)
+		server.logger.InfoContext(ctx, "a button test read a controller",
+			append(attributes, slogx.EventKey, "buttonTestControllerRead")...)
 	case "axis":
-		server.logger.InfoContext(ctx, "a button test heard a controller's axis", attributes...)
+		server.logger.InfoContext(ctx, "a button test heard a controller's axis",
+			append(attributes, slogx.EventKey, "buttonTestAxis")...)
 	case "contextmenu":
-		server.logger.InfoContext(ctx, "a button test heard a context menu", attributes...)
+		server.logger.InfoContext(ctx, "a button test heard a context menu",
+			append(attributes, slogx.EventKey, "buttonTestContextMenu")...)
 	default:
-		server.logger.InfoContext(ctx, "a button test heard a press", attributes...)
+		server.logger.InfoContext(ctx, "a button test heard a press",
+			append(attributes, slogx.EventKey, "buttonTestPress")...)
 	}
 }
 
