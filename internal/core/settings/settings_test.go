@@ -742,3 +742,19 @@ func TestRead_RunsNoStatementAndSeesEachWriteAtOnce(t *testing.T) {
 		t.Errorf("read after a reset = %d, %v; want its starting 5", limit, err)
 	}
 }
+
+// A row of the check D437 retired reads as retired by D437, not as a typo, so an admin upgrading
+// sees why their old value no longer acts (D437 §3).
+func TestUnused_TheAnotherCopyCheckReadsAsRetiredByD437(t *testing.T) {
+	t.Parallel()
+	service, _ := newSeededService(t)
+	storetest.ExecRaw(t, service.database.Path(),
+		"INSERT INTO setting (key, value_json, set_at) VALUES ('discovery_another_copy_check_every_seconds', '60', 1)")
+	unused, err := service.Unused(t.Context())
+	if err != nil || len(unused) != 1 {
+		t.Fatalf("Unused = %v, %v; want the one row", unused, err)
+	}
+	if retired := unused[0].Retired; retired == nil || !strings.Contains(retired.Reason, "D437") {
+		t.Errorf("the retired check reads as %+v, want retired by D437", retired)
+	}
+}
