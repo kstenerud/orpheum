@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import { pressOf } from "./cast-asked.tsx";
 import { ConvenienceArea, type OfferPiece } from "./convenience-area.tsx";
 import { fillTheScreen, toggleFullScreen } from "./film-fullscreen.ts";
+import { keepThePressForTheStart } from "./start-refused.ts";
 import type { FilmParts } from "./film-player.tsx";
 import { useIsFullScreen } from "./full-screen-button.tsx";
 import { useCommands } from "./input-layer.tsx";
@@ -237,12 +238,15 @@ function usePressesOnTheFilm(videoRef: RefObject<HTMLVideoElement | null>, isOn:
 
 /**
  * Puts the stage the film's video is in full screen as the player opens, where it is asked to (a
- * television's player); where the browser refuses, it fills the window (fillTheScreen).
+ * television's player), the video first keeping the press for its start (keepThePressForTheStart);
+ * where the browser refuses, it fills the window (fillTheScreen).
  */
 function useFullscreenStage(videoRef: RefObject<HTMLVideoElement | null>, isAsked: boolean): void {
   useEffect(() => {
-    const stage = videoRef.current?.closest(".film-player__stage");
-    if (isAsked && stage instanceof HTMLElement) {
+    const video = videoRef.current;
+    const stage = video?.closest(".film-player__stage");
+    if (isAsked && video !== null && stage instanceof HTMLElement) {
+      keepThePressForTheStart(video);
       fillTheScreen(stage, document);
     }
   }, [videoRef, isAsked]);

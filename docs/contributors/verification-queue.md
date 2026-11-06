@@ -2682,3 +2682,15 @@ An item is ticked only by the person who did it, and only with what they saw.
   Corrected the same day (A62): the sync clips settle with the sound 300 ms *earlier*, Level
   loudness on or off, so the film's sound is the late one; the test still cannot stand for a film,
   whose sound and picture take a path the page-drawn flash does not.
+
+- [ ] **VQ270** — a film opened on a television in an Android WebView starts by itself (the owner's
+  TCL TV in TV Bro, 2026-11-06: films opened paused, Level loudness on or off). Going full screen as
+  the player opened used up the press, and the start gate's play about 3 s later was refused
+  (`pressLive=false … fullScreen=true` in the core's log). The player now plays and at once pauses its
+  video under the press, before asking for full screen, which unlocks the video in Chromium; a test
+  proves the order, but only the WebView shows that the unlock lasts. On staging, on the TCL TV in TV
+  Bro, open a film's page and press Play, once with Level loudness on and once off. Passes when:
+  (1) the film goes full screen and starts by itself each time; (2) the core's log has no "the
+  browser refused to start a film" line for either; (3) the Fire TV's Silk still starts a film at
+  once, full screen, without a stall at the start.
+  (`web/apps/web/src/start-refused.ts`, `web/apps/web/src/page-controls.tsx`)

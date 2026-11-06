@@ -437,3 +437,49 @@ describe("Left and Right on the bar's timeline (D369 §2)", () => {
     expect(answerPlayerCommand(video, "right")).toBe(true);
   });
 });
+
+describe("a television's player opening full screen (D338 §5)", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+    vi.restoreAllMocks();
+  });
+
+  // The owner's TCL TV went full screen as the player opened, which used up the press, and the start
+  // gate's play 3 s later was refused (staging, 2026-11-06).
+  it("plays its video, and pauses it, under the press before full screen uses the press up", async () => {
+    const steps: string[] = [];
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(() => {
+      steps.push("play");
+      return Promise.resolve();
+    });
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {
+      steps.push("pause");
+    });
+    Object.defineProperty(HTMLElement.prototype, "requestFullscreen", {
+      configurable: true,
+      value: () => {
+        steps.push("fullScreen");
+        return Promise.resolve();
+      },
+    });
+    const videoRef = createRef<HTMLVideoElement>();
+    const film = { videoRef, readLinkKbps: () => undefined, failure: undefined };
+    try {
+      mounted = await mount(
+        withServices(
+          <PlayUpwardContext value={upward}>
+            <div className="film-player__stage">
+              <video ref={videoRef} />
+              <OverTheFilm {...film} shouldOpenFullScreen />
+            </div>
+          </PlayUpwardContext>,
+        ),
+      );
+      expect(steps).toEqual(["play", "pause", "fullScreen"]);
+    } finally {
+      Reflect.deleteProperty(HTMLElement.prototype, "requestFullscreen");
+    }
+  });
+});
