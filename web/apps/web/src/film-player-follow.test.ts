@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0
+
 // @vitest-environment happy-dom
 import type { PlayedLevel } from "@orpheum/player";
 import { playerSwitchedQualityEvent } from "@orpheum/sdk";
