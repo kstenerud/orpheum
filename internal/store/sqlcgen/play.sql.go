@@ -74,6 +74,15 @@ func (q *Queries) DeletePlaySpansOfUser(ctx context.Context, userID int64) error
 	return err
 }
 
+const deleteProgressHidesOfItem = `-- name: DeleteProgressHidesOfItem :exec
+DELETE FROM item_hidden WHERE item_id = ?1 AND user_id IN (SELECT id FROM user)
+`
+
+func (q *Queries) DeleteProgressHidesOfItem(ctx context.Context, itemID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteProgressHidesOfItem, itemID)
+	return err
+}
+
 const deleteProgressHidesOfUser = `-- name: DeleteProgressHidesOfUser :exec
 DELETE FROM item_hidden WHERE user_id = ?1
 `
@@ -801,6 +810,30 @@ type MovePlaySpansToFileParams struct {
 
 func (q *Queries) MovePlaySpansToFile(ctx context.Context, arg MovePlaySpansToFileParams) error {
 	_, err := q.db.ExecContext(ctx, movePlaySpansToFile, arg.ToFile, arg.FromFile)
+	return err
+}
+
+const moveProgressHidesToItem = `-- name: MoveProgressHidesToItem :exec
+
+INSERT INTO item_hidden (user_id, item_id, hidden_at)
+SELECT hidden.user_id, ?1, hidden.hidden_at
+FROM user CROSS JOIN item_hidden AS hidden ON hidden.user_id = user.id AND hidden.item_id = ?2
+WHERE true
+ON CONFLICT (user_id, item_id) DO UPDATE SET hidden_at = excluded.hidden_at
+WHERE excluded.hidden_at > item_hidden.hidden_at
+`
+
+type MoveProgressHidesToItemParams struct {
+	ToItem   int64
+	FromItem int64
+}
+
+// A title merged into another (D173) gives it each person's hiding, as it gives its versions, the
+// later where both were hidden. Each is found by person, a household's handful, and its key: no
+// index of item_hidden leads with the item.
+// Only when it changes something (D303, DL9): the merged title's hiding was the later.
+func (q *Queries) MoveProgressHidesToItem(ctx context.Context, arg MoveProgressHidesToItemParams) error {
+	_, err := q.db.ExecContext(ctx, moveProgressHidesToItem, arg.ToItem, arg.FromItem)
 	return err
 }
 

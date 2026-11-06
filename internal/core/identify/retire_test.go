@@ -15,6 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
+	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
 // noWork is a job queue with nothing to cancel.
@@ -188,6 +189,44 @@ func TestMatch_ADeletedLibrarysSeriesMatchedAgainElsewhereComesBack(t *testing.T
 	lib.scanAll(orbitoramaFiles[0], orbitoramaFiles[1], added)
 	if got := lib.titlesByPath()[orbitoramaFiles[1]].WorkID; got != later || !lib.isLive(later) {
 		t.Errorf("S02E11, reappearing later, is title %d (live %v), want %d brought back", got, lib.isLive(got), later)
+	}
+}
+
+// An episode merged into the one at its place in a series that comes back gives it a person's hiding
+// of its progress, as it gives its versions (D188, D173).
+func TestMatch_AnEpisodeMergedIntoASeriesThatComesBackTakesAPersonsHiddenProgressWithIt(t *testing.T) {
+	t.Parallel()
+	lib := orbitoramaLibrary(t)
+	lib.scanAll(orbitoramaFiles...)
+	if outcome, err := lib.matcher.Match(t.Context(), lib.onlySeries().ID); err != nil ||
+		outcome != identify.OutcomeMatched {
+		t.Fatalf("Match(series) = %s, %v", outcome, err)
+	}
+	kept := lib.titlesByPath()[orbitoramaFiles[0]].WorkID
+	lib.deleteAndStartAnother("series", "tmdb")
+	lib.scanAll(orbitoramaFiles[0])
+	merged := lib.titlesByPath()[orbitoramaFiles[0]].WorkID
+	if merged == kept {
+		t.Fatal("S02E10 is the old episode before any match; the test proves nothing")
+	}
+	person := storetest.InsertUser(t, lib.database, "alice", "admin")
+	err := lib.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+		hide := sqlcgen.HideProgressParams{UserID: person, ItemID: merged, HiddenAt: 7}
+		return queries.HideProgress(t.Context(), hide)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if outcome, matchErr := lib.matcher.Match(t.Context(), lib.onlySeries().ID); matchErr != nil ||
+		outcome != identify.OutcomeMatched {
+		t.Fatalf("Match(series) = %s, %v", outcome, matchErr)
+	}
+	if got := lib.titlesByPath()[orbitoramaFiles[0]].WorkID; got != kept {
+		t.Fatalf("S02E10 is title %d after the match, want %d brought back", got, kept)
+	}
+	got := storetest.QueryRaw(t, lib.database.Path(), "SELECT user_id, item_id, hidden_at FROM item_hidden")
+	if want := []string{fmt.Sprintf("%d|%d|7", person, kept)}; !slices.Equal(got, want) {
+		t.Errorf("item_hidden after the merge = %v, want %v: the hiding moved to the episode that stays", got, want)
 	}
 }
 

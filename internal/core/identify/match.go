@@ -465,6 +465,10 @@ func joinExisting(
 		if err != nil {
 			return 0, fmt.Errorf("join title %d to %d: %w", title.ID, row.ID, err)
 		}
+		err = moveProgressHides(ctx, queries, title.ID, row.ID)
+		if err != nil {
+			return 0, err
+		}
 		err = queries.MergeItem(ctx, sqlcgen.MergeItemParams{MergedInto: &row.ID, RemovedAt: &now, ID: title.ID})
 		if err != nil {
 			return 0, fmt.Errorf("merge title %d into %d: %w", title.ID, row.ID, err)
@@ -477,6 +481,20 @@ func joinExisting(
 		return 0, fmt.Errorf("record %s %s: %w", provider, id, err)
 	}
 	return title.ID, nil
+}
+
+// moveProgressHides gives the title that stays each person's hiding of a merged title's progress, as
+// its versions go there (D188): left on the tombstone, it would no longer hide them.
+func moveProgressHides(ctx context.Context, queries *sqlcgen.Queries, fromItem, toItem int64) error {
+	move := sqlcgen.MoveProgressHidesToItemParams{ToItem: toItem, FromItem: fromItem}
+	err := queries.MoveProgressHidesToItem(ctx, move)
+	if err == nil {
+		err = queries.DeleteProgressHidesOfItem(ctx, fromItem)
+	}
+	if err != nil {
+		return fmt.Errorf("move title %d's hidden progress to %d: %w", fromItem, toItem, err)
+	}
+	return nil
 }
 
 // markAmbiguous keeps the search results and marks the title for the chooser (D172).

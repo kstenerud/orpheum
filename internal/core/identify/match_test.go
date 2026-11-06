@@ -4,6 +4,7 @@ package identify_test
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"testing"
 
@@ -463,6 +464,34 @@ func TestMatch_ASecondTitleForTheSameWorkJoinsTheFirst(t *testing.T) {
 	lib.scan(videoRecord("Metropolis {tmdb-9019}.mkv"), videoRecord("other/Metropolis (1995).mkv"))
 	if files := lib.titlesByPath(); files["other/Metropolis (1995).mkv"].WorkID != first.WorkID {
 		t.Error("another pass split the joined title")
+	}
+}
+
+// A title merged into another gives it a person's hiding of its progress, as it gives its versions:
+// left on the tombstone, the hidden film's progress would show again (D188, D173).
+func TestMatch_ATitleJoiningAnotherTakesAPersonsHiddenProgressWithIt(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movie", "tmdb")
+	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(heat)}
+	lib.scan(videoRecord("Metropolis {tmdb-9019}.mkv"), videoRecord("other/Metropolis (1995).mkv"))
+	lib.matchFileTitle("Metropolis {tmdb-9019}.mkv")
+	merged := lib.titlesByPath()["other/Metropolis (1995).mkv"].WorkID
+	person := storetest.InsertUser(t, lib.database, "alice", "admin")
+	err := lib.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+		hide := sqlcgen.HideProgressParams{UserID: person, ItemID: merged, HiddenAt: 7}
+		return queries.HideProgress(t.Context(), hide)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	lib.matchFileTitle("other/Metropolis (1995).mkv")
+	kept := lib.titlesByPath()["Metropolis {tmdb-9019}.mkv"].WorkID
+	if kept == merged {
+		t.Fatalf("the second title %d was kept; want it merged into the first", merged)
+	}
+	got := storetest.QueryRaw(t, lib.database.Path(), "SELECT user_id, item_id, hidden_at FROM item_hidden")
+	if want := []string{fmt.Sprintf("%d|%d|7", person, kept)}; !slices.Equal(got, want) {
+		t.Errorf("item_hidden after the merge = %v, want %v: the hiding moved to the title that stays", got, want)
 	}
 }
 
