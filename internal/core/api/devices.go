@@ -20,6 +20,9 @@ type DeviceBody struct {
 	IsSignedIn   bool   `json:"isSignedIn"`
 	IsByCode     bool   `doc:"A code activated it: it neither administers nor changes the account" json:"isByCode"` //nolint:lll // one struct tag
 	IsThisDevice bool   `doc:"The device asking" json:"isThisDevice"`
+	// SoundOffsetMs is how far the device moves its sound from its picture: a Watch Together viewer
+	// signed in on it starts from it, as the server gives a guest's playback none.
+	SoundOffsetMs int64 `doc:"How far the device moves its sound from its picture, in ms: later when positive" json:"soundOffsetMs"` //nolint:lll // one struct tag
 	// IsInYourWatchTogether is whether the device is in the Watch Together session the asker is in,
 	// which is never a cast target (D384 §3); told of the asker's own devices alone.
 	IsInYourWatchTogether bool `doc:"In the Watch Together session you are in, so never a cast target (D384 §3)" json:"isInYourWatchTogether,omitempty" required:"false"` //nolint:lll // one struct tag
@@ -118,7 +121,7 @@ func (server *Server) devicesOf(ctx context.Context, dependencies *Dependencies,
 			ID: device.ID, Name: device.Name, Platform: device.Platform,
 			AddedAt:    device.AddedAt.UnixMilli(),
 			LastUsedAt: device.LastUsedAt.UnixMilli(), IsSignedIn: device.IsSignedIn, IsByCode: device.IsByCode,
-			IsThisDevice: device.ID == thisDeviceID,
+			IsThisDevice: device.ID == thisDeviceID, SoundOffsetMs: device.SoundOffsetMs,
 		})
 	}
 	return output, nil

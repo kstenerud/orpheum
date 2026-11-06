@@ -2763,6 +2763,11 @@ export interface components {
             lastUsedAt: number;
             name: string;
             platform: string;
+            /**
+             * Format: int64
+             * @description How far the device moves its sound from its picture, in ms: later when positive
+             */
+            soundOffsetMs: number;
         };
         DeviceReaderLimitInputBody: {
             deviceKey: string;

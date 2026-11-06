@@ -79,7 +79,8 @@ export function forgetSoundOffsetSetInThisTab(): void {
  * streamed film's sound chunks forward, which a film playing its own file cannot, and says so. It is
  * the device's own, kept by the core with the device and given with each playback (initialMs), or
  * as this tab last set it, every control drawn showing the one value; it applies at once, and the
- * player counts Web Audio's own latency. A viewer with no device keeps none. As an entry of ⁝'s list
+ * player counts Web Audio's own latency. A Watch Together viewer with no device of its own still
+ * sets it, kept by the tab alone (the owner, 2026-11-06: "Put a control in watch together"). As an entry of ⁝'s list
  * (isInAList, player-menus.tsx), its parts are in a row that wraps to the pop-up's width.
  */
 export function SoundOffsetControl(props: {
@@ -100,15 +101,14 @@ export function SoundOffsetControl(props: {
     }
   }, [offsetMs, props.videoRef]);
   const deviceId = session.deviceId();
-  if (deviceId === undefined) {
-    return null;
-  }
   const move = (byMs: number): void => {
     const next = Math.min(Math.max(offsetMs + byMs, -longestSoundOffsetMs), longestSoundOffsetMs);
     setTabMs(next);
     const video = props.videoRef.current;
     setIsEarlierRefused(next < 0 && video !== null && !canMoveSoundEarlier(video));
-    keep({ deviceId, ms: next });
+    if (deviceId !== undefined) {
+      keep({ deviceId, ms: next });
+    }
   };
   const parts = (
     <>
