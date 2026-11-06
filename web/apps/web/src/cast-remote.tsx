@@ -326,7 +326,6 @@ function RemoteOf(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const { sent, hosted } = props;
-  const { snapshot, connection } = props.cast;
   if (sent.fileId === 0) {
     return <p id="cast-remote-heading">{t("cast.readyOn", { name: sent.receiverName })}</p>;
   }
