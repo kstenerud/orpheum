@@ -125,11 +125,12 @@ func TestAdmin_LibrariesMayOverlapAndWithinOneAFolderBeneathAnotherAddsNothing(t
 // A folder a repoint moves to may be inside a configured root, inside the folder it moves from, which
 // covers nothing once it has moved, and inside another library's folder (D241 §6, D359 §3, D363 §1);
 // not inside or above another folder of its own library.
-func TestRepointRoot_MovesAFolderToAFolderInsideAConfiguredRoot(t *testing.T) {
+func TestRepoint_MovesAFolderToAFolderInsideAConfiguredRoot(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
 	nodes := &fakeNodes{id: world.nodeID, roots: []string{"/media"}}
 	admin := NewAdmin(world.database, world.clock, nodes, nodes, retirementOf(&fakeWork{}))
+	admin.ListFoldersThrough(readableFolders())
 	if _, err := admin.Create(t.Context(), showsRequest("local", "/media/shows")); err != nil {
 		t.Fatal(err)
 	}
@@ -141,22 +142,34 @@ func TestRepointRoot_MovesAFolderToAFolderInsideAConfiguredRoot(t *testing.T) {
 	if err := admin.AddRoot(t.Context(), libraryID, "local", "/media/more"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := admin.RepointRoot(t.Context(), Repoint{
-		LibraryID: libraryID, NodeName: "local", Path: root, NewNodeName: "local", NewPath: "/media/more/films",
-	}); !errors.Is(err, ErrRootCovered) {
-		t.Errorf("a repoint into another of its library's folders: %v, want ErrRootCovered", err)
+	_, err := admin.Repoint(t.Context(), localMove(root, "/media/more/films"), 1)
+	if refusals := refusalsOf(err); !slices.Contains(refusals, RefusedLibraryWouldNest) {
+		t.Errorf("a repoint into another of its library's folders: %v, want libraryWouldNest", err)
 	}
-	if _, err := admin.RepointRoot(t.Context(), Repoint{
-		LibraryID: libraryID, NodeName: "local", Path: root, NewNodeName: "local", NewPath: "/media/films/all",
-	}); err != nil {
+	if _, err := admin.Repoint(t.Context(), localMove(root, "/media/films/all"), 1); err != nil {
 		t.Errorf("a repoint into a folder inside the one it moves from: %v, want it moved", err)
 	}
-	if _, err := admin.RepointRoot(t.Context(), Repoint{
-		LibraryID: libraryID, NodeName: "local", Path: "/media/films/all", NewNodeName: "local",
-		NewPath: "/media/shows/films",
-	}); err != nil {
+	if _, err := admin.Repoint(t.Context(), localMove("/media/films/all", "/media/shows/films"), 1); err != nil {
 		t.Errorf("a repoint into Shows' folder: %v, want it moved: libraries may overlap", err)
 	}
+}
+
+// localMove is a repoint of a folder to another on the one node, "local".
+func localMove(from, to string) FolderMove {
+	return FolderMove{NodeName: "local", Path: from, NewNodeName: "local", NewPath: to}
+}
+
+// readableFolders is a node that lists every folder asked of it as readable and empty.
+func readableFolders() *fakeFolders {
+	return &fakeFolders{listing: nodeproto.FolderListing{State: nodeproto.ProbeReadable, Folders: []string{}}}
+}
+
+// refusalsOf is the reasons a repoint was refused, or none for any other error.
+func refusalsOf(err error) []RepointRefusal {
+	if refused, ok := errors.AsType[*RefusedError](err); ok {
+		return refused.Preview.Refusals
+	}
+	return nil
 }
 
 // fakeFolders lists a node's folders as its byte socket would, or waits as a share that has gone away
@@ -224,6 +237,7 @@ func TestScanSchedule_ANodeWatchesTheFoldersOfItsWatchedLibrariesAndEachChangeIs
 	world := newHarness(t) // Films, over /media/films, which watches nothing
 	nodes := &fakeNodes{id: world.nodeID, roots: []string{"/media"}}
 	admin := NewAdmin(world.database, world.clock, nodes, nodes, retirementOf(&fakeWork{}))
+	admin.ListFoldersThrough(readableFolders())
 	schedule := NewScanSchedule(world.database, &scheduledRequests{}, world.settings, world.clock,
 		slog.New(slog.DiscardHandler))
 	watched := func(t *testing.T, want ...string) {
@@ -266,10 +280,7 @@ func TestScanSchedule_ANodeWatchesTheFoldersOfItsWatchedLibrariesAndEachChangeIs
 			return admin.AddRoot(ctx, shows, "local", "/media/video/anime")
 		}, []string{"/media/video/anime", "/media/video/shows"}},
 		{"a folder moved", func() error {
-			_, repointErr := admin.RepointRoot(ctx, Repoint{
-				LibraryID: shows, NodeName: "local", Path: "/media/video/anime", NewNodeName: "local",
-				NewPath: "/media/anime",
-			})
+			_, repointErr := admin.Repoint(ctx, localMove("/media/video/anime", "/media/anime"), 1)
 			return repointErr
 		}, []string{"/media/anime", "/media/video/shows"}},
 		{"a folder retired", func() error {

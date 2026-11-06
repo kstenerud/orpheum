@@ -572,7 +572,7 @@ function useFolderActions(
     },
     repoint: (root, to) => {
       act(async (idempotencyKey) => {
-        const movedFileCount = await repointRoot(api, { libraryId, root, to }, idempotencyKey);
+        const movedFileCount = await repointRoot(api, { root, to }, idempotencyKey);
         setNote(t("libraries.repointed", { count: movedFileCount }));
         reload();
       });
@@ -645,16 +645,15 @@ async function sendRootAnswer(
   );
 }
 
-/** Says a library's root moved to another place, and how many files went with it (D241 §6). */
+/** Says a library's folder moved to another place, and how many files went with it (D429 §2). */
 async function repointRoot(
   api: Api,
-  move: { readonly libraryId: number; readonly root: Root; readonly to: Place },
+  move: { readonly root: Root; readonly to: Place },
   idempotencyKey: string,
 ): Promise<number> {
-  const { libraryId, root, to } = move;
+  const { root, to } = move;
   const moved = dataOrThrow(
-    await api.POST("/libraries/{id}/roots/repoint", {
-      params: { path: { id: libraryId } },
+    await api.POST("/repoints", {
       body: {
         nodeName: root.nodeName,
         path: root.rootPath,
@@ -664,7 +663,7 @@ async function repointRoot(
       ...idempotent(idempotencyKey),
     }),
   );
-  return moved.movedFileCount;
+  return moved.livePlaceCount;
 }
 
 /** Adds a folder to a library, which the server scans (D359 §3). */

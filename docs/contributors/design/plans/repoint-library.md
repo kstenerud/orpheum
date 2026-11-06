@@ -1,5 +1,5 @@
 > **ABOUTME:** Repointing a library (D429): what exists, what D429 settles, and the questions the
-> owner answers before it is built. Read before touching `library.RepointRoot`,
+> owner answers; built 2026-11-06 except where marked. Read before touching `library.Repoint`,
 > `repoint-root.tsx` or enrolment.
 
 # Repointing a library
@@ -13,9 +13,11 @@
 
 ## What exists
 
-- **`library.RepointRoot`** (`internal/core/library/move.go`, D241 §6), served as
-  `POST /libraries/{id}/roots/repoint` and drawn by `repoint-root.tsx` from the library's page. It
-  moves **one library's one root** and the live places under it, to the same or another node.
+- **Before 2026-11-06, `library.RepointRoot`** (D241 §6), served as
+  `POST /libraries/{id}/roots/repoint` and drawn by `repoint-root.tsx` from the library's page,
+  moved **one library's one root** and the live places under it, to the same or another node. It is
+  replaced by `library.Repoint` and `library.PreviewRepoint` (`internal/core/library/repoint.go`),
+  served as `POST /repoints` and `POST /repoints/preview`, built to the spec below.
 - **What D429 asks beyond it:** the operation is on a folder, not a library ("folder X on node A is
   now folder Y on node B"). It rewrites every place, every library root at or under X, and every
   other stored path under X, in one transaction, so it carries every library that covers the folder.
@@ -194,7 +196,7 @@ One write transaction (D429 §2):
    `unavailable_place` rows of every root at or under X on node A, and every mount under X. It is
    derived and rebuilt by the scan of Y; carried over, X's device facts would mislead the removal
    checks at Y (D208 §3).
-5. **The audit record** is written (below).
+5. **The audit record** is written (below; for now a log line, after the commit).
 
 After it commits: the nodes are told their watched folders changed, the work parked on the old
 folders is cancelled, and a scan of each moved live library root at Y is asked for, or of the
@@ -206,6 +208,27 @@ A table `repoint` (step 0084, appended: production runs, CHECKPOINT 0048): its t
 that did it, node A and X, node B and Y, and the counts moved: live places, removed places, roots.
 `GET /repoints` lists them, newest first. Undoing is another repoint from Y to X; the record names
 both.
+
+**Not built yet (2026-11-06):** a migration step needs its golden schema
+(`internal/store/testdata/golden/`), a gate file, so the step waits for the owner's
+`Gate-Changed:` (open question 7). Until then each repoint logs `repointed a folder` at info with
+the same fields: `byUserId`, `nodeName`, `path`, `newNodeName`, `newPath`, `livePlaceCount`,
+`removedPlaceCount`, `rootCount`. The proposed step:
+
+```sql
+CREATE TABLE repoint (
+  id INTEGER PRIMARY KEY,
+  repointed_at INTEGER NOT NULL,
+  by_user_id INTEGER REFERENCES user(id) ON DELETE SET NULL,
+  node_id INTEGER NOT NULL REFERENCES node(id),
+  path TEXT NOT NULL,
+  new_node_id INTEGER NOT NULL REFERENCES node(id),
+  new_path TEXT NOT NULL,
+  live_place_count INTEGER NOT NULL,
+  removed_place_count INTEGER NOT NULL,
+  root_count INTEGER NOT NULL
+) STRICT;
+```
 
 ### Missing files (decision 2)
 
@@ -249,19 +272,19 @@ text, so the two stay in step (D429 §4). The look-alike count says what a byte 
 
 - `POST /repoints/preview`: body `{nodeName, path, newNodeName, newPath}`; the dry run.
 - `POST /repoints`: the same body; the move. 409 with the refusals when refused.
-- `GET /repoints`: the audit record.
+- `GET /repoints`: the audit record (not built: it waits for the table, open question 7).
 - `POST /libraries/{id}/roots/repoint` (one library's one root, the first version) goes: the folder
   operation replaces it, one way to do the job (rule 11), and fixes the research's hole 3 (a nested
   library's files not moving).
 
-All three are an admin's for now (open question 1).
+All are an admin's for now (open question 1).
 
 ### The UI
 
 The library page's "This folder moved…" on a root opens the repoint dialog with node A and X filled
-in. In it the person chooses node B and Y (the places offered, the folder picker, or a typed path),
-presses **Check**, and reads the dry run: what moves, each library's gains and losses, Y's state, the
-conflicts with examples, the look-alikes. **Move** is offered only when nothing refuses it, as the
+in. In it the person chooses node B and Y (the places offered or the folder picker; a typed path is
+not built), presses **Check what moves**, and reads the dry run: what moves, each library's gains and losses, Y's state, the
+conflicts with examples, the look-alikes. **Use the new place** is offered only when nothing refuses it, as the
 dangerous action; **Keep it where it is** comes first and has focus (D421). After the move the dialog
 says what moved and that the scan of Y confirms each file.
 
@@ -289,3 +312,6 @@ Each is a question the three decisions leave; what is built picks the choice eas
 6. **Where else the dialog opens:** the System page's Storage area "Move a folder…" (plan question 1)
    for a folder that is no library's root. Built: the API takes any folder; the page's door is from
    a library's root only.
+7. **The audit table** (decision 1): its step and golden schema are gate files, so they need the
+   owner's `Gate-Changed:` trailer. Built: the log line above; the table, and `GET /repoints`, when
+   the owner adds or approves the step.

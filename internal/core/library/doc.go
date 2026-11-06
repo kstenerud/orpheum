@@ -213,11 +213,20 @@
 //     TestBytesFileOf_NamesAFileUnderARootOfSlash.
 //
 //   - One file that cannot be read now is gone on the admin's word, a tombstone keeping its history;
-//     one that can be read is refused (D241 §5). A root that moved is repointed: it and its live
-//     files take the new path with their history, their modified times forgotten so the next scan,
-//     asked for at once, reads each again and confirms it by its payload hash (D241 §6).
+//     one that can be read is refused (D241 §5). A folder that moved is repointed (D429 §2): every
+//     place at or under it, live and removed, and every library folder at or under it, take the new
+//     path with their history in one transaction, through a prefix no real path has so the unique
+//     index never meets a path not yet moved; each live place is unconfirmed, so the scan asked for
+//     at once reads it again and confirms it by its payload hash; the old folders' scan state is
+//     forgotten. It never merges into what is known at the new folder, and is refused, as its dry
+//     run says, for that, a library folder that would nest in its own, a new folder its node cannot
+//     read, or a scan in progress of either (repoint-library.md, "The spec").
 //     TestRetireFile_AFileThatCannotBeReadIsGoneOnTheAdminsWord,
-//     TestRepointRoot_ARootThatMovedTakesItsFilesAndHistoryToTheNewPath (internal/core/api).
+//     TestRepoint_AFolderThatMovedTakesItsFilesAndHistoryToTheNewPath (internal/core/api),
+//     TestRepoint_MovesEveryPlaceLiveAndRemovedAndForgetsTheOldFoldersState,
+//     TestRepoint_AFolderMovedInsideItselfGoesAsideFirst,
+//     TestRepoint_RefusesANewFolderWhereFilesAreAlreadyKnown,
+//     TestRepoint_RefusesWhatTheDryRunSaysIsRefused.
 //
 //   - A sidecar is filed as attached to the video it belongs to, and an NFO's bytes are stored as
 //     identification's input (D182). TestIngest_ASidecarIsAttachedToTheVideoItBelongsTo.
@@ -367,7 +376,7 @@
 //     TestAdmin_CreatesALibraryOverTheNodesRootsAndScansIt,
 //     TestAdmin_ALibraryFolderIsAConfiguredRootOrAFolderInsideOneByACleanPath,
 //     TestAdmin_LibrariesMayOverlapAndWithinOneAFolderBeneathAnotherAddsNothing,
-//     TestRepointRoot_MovesAFolderToAFolderInsideAConfiguredRoot. A folder inside a configured root is
+//     TestRepoint_MovesAFolderToAFolderInsideAConfiguredRoot. A folder inside a configured root is
 //     listed and told of its watcher's notices as the root's own was (D359 §4), and shown with its own
 //     watch, never its configured root's. TestAdmin_AFolderInsideAConfiguredRootIsListedWithItsOwnWatch,
 //     TestScanSchedule_AWatchersNoticeUnderARootScansTheLibraryFoldersInsideItThatItTouches.

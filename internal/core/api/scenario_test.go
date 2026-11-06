@@ -470,9 +470,10 @@ func TestRetireFile_AFileThatCannotBeReadIsGoneOnTheAdminsWord(t *testing.T) {
 	harness.checkHistoryKept(t)
 }
 
-// A root that moved is repointed: it and its files take the new path, the same files with their
-// history, and a scan of the new place is asked for, which confirms each (D241 §6).
-func TestRepointRoot_ARootThatMovedTakesItsFilesAndHistoryToTheNewPath(t *testing.T) {
+// A folder that moved is repointed: a dry run says what would move and changes nothing, then it and
+// its files take the new path, the same files with their history, and a scan of the new place is asked
+// for, which confirms each (D429 §2; repoint-library.md, "The spec").
+func TestRepoint_AFolderThatMovedTakesItsFilesAndHistoryToTheNewPath(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
@@ -480,13 +481,23 @@ func TestRepointRoot_ARootThatMovedTakesItsFilesAndHistoryToTheNewPath(t *testin
 	harness.watchedFilm2(t)
 	harness.nodes.roots = []string{"/media", "/mnt/media"}
 	move := map[string]string{"nodeName": "local", "path": "/media", "newNodeName": "local", "newPath": "/elsewhere"}
-	wantError(t, harness.do(t, http.MethodPost, "/libraries/1/roots/repoint", admin, move),
+	wantError(t, harness.do(t, http.MethodPost, "/repoints", admin, move),
 		http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 	move["newPath"] = "/mnt/media"
-	moved := harness.do(t, http.MethodPost, "/libraries/1/roots/repoint", admin, move)
-	if moved.status != http.StatusOK || !strings.Contains(moved.body, `"movedFileCount":3`) {
+	preview := harness.do(t, http.MethodPost, "/repoints/preview", admin, move)
+	if preview.status != http.StatusOK || !strings.Contains(preview.body, `"livePlaceCount":3`) ||
+		!strings.Contains(preview.body, `"refusals":[]`) {
+		t.Fatalf("the dry run = %d %s; want the root's three files, nothing refused", preview.status, preview.body)
+	}
+	if unmoved, err := harness.database.Read().GetPlayableFile(t.Context(), 2); err != nil ||
+		string(unmoved.ReportedPathRaw) != "/media/Film (2002).mkv" {
+		t.Errorf("file 2 after the dry run = %q, %v; want it where it was", unmoved.ReportedPathRaw, err)
+	}
+	moved := harness.do(t, http.MethodPost, "/repoints", admin, move)
+	if moved.status != http.StatusOK || !strings.Contains(moved.body, `"livePlaceCount":3`) {
 		t.Fatalf("the repoint = %d %s; want the root's three files moved", moved.status, moved.body)
 	}
+	wantError(t, harness.do(t, http.MethodPost, "/repoints", admin, move), http.StatusConflict, api.CodeConflict)
 	file, err := harness.database.Read().GetPlayableFile(t.Context(), 2)
 	if err != nil || string(file.ReportedPathRaw) != "/mnt/media/Film (2002).mkv" {
 		t.Errorf("file 2 after the repoint = %q, %v; want it at /mnt/media/Film (2002).mkv", file.ReportedPathRaw, err)

@@ -73,6 +73,26 @@ export const enLibraries = {
     repointTo: "It is now at",
     repointConsequence:
       "Its files move there with what was watched; the next scan reads each again to make sure it is the same.",
+    repointCheck: "Check what moves",
+    repointMoves:
+      "{{live}} files and folders move there, with the history of {{removed}} removed ones.",
+    repointExample: "{{path}} becomes {{newPath}}",
+    repointRootMoves: "{{library}}'s folder {{path}} becomes {{newPath}}",
+    repointLibraryChange: "{{library}} lists {{gains}} more and {{loses}} fewer",
+    repointCrossNode: "They move to another node, which reads each one again.",
+    repointLookAlikes:
+      "{{count}} more are in a folder spelled alike in another way, which is another folder; they stay.",
+    repointRefused: "It cannot move:",
+    repointRefusedNothingToMove: "nothing is known in this folder.",
+    repointRefusedSameFolder: "it is already there.",
+    repointRefusedTargetNotReadable: "the new place cannot be read now.",
+    repointRefusedTargetHoldsKnown:
+      "files are already known at the new place, and a move never merges into them.",
+    repointRefusedLibraryWouldNest:
+      "a library would have one of its folders inside another of its own.",
+    repointRefusedScanInProgress: "a scan of one of the folders is under way; try when it ends.",
+    repointRefusedOther: "the server refused it.",
+    repointConflicts: "Already known at the new place, {{count}} in all, among them:",
     repointConfirm: "Use the new place",
     repointKeep: "Keep it where it is",
     repointed: "Now at the new place, with {{count}} files. A scan of it is under way.",

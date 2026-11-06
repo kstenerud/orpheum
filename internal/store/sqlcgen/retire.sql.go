@@ -46,7 +46,7 @@ type ForgetRootStateParams struct {
 	RootPath string
 }
 
-// A repointed root's state at its old place: its scans, its facts and the disks mounted inside it.
+// A retired root's state: its scans, its facts and the disks mounted inside it.
 func (q *Queries) ForgetRootState(ctx context.Context, arg ForgetRootStateParams) error {
 	_, err := q.db.ExecContext(ctx, forgetRootState, arg.NodeID, arg.RootPath)
 	return err
@@ -336,32 +336,6 @@ func (q *Queries) RemoveNode(ctx context.Context, arg RemoveNodeParams) (int64, 
 	return result.RowsAffected()
 }
 
-const repointFile = `-- name: RepointFile :exec
-UPDATE place SET node_id = ?1, path = ?2, reported_path_raw = ?3,
-  is_unconfirmed = 1
-WHERE id = ?4
-`
-
-type RepointFileParams struct {
-	NodeID          int64
-	Path            string
-	ReportedPathRaw []byte
-	ID              int64
-}
-
-// A live file of a repointed root, at its new place: it is unconfirmed, so the next scan reads it
-// again and confirms it by its payload hash before it counts as there. Its modified time is kept,
-// which leaves its items' found times as they are (D432 section 6).
-func (q *Queries) RepointFile(ctx context.Context, arg RepointFileParams) error {
-	_, err := q.db.ExecContext(ctx, repointFile,
-		arg.NodeID,
-		arg.Path,
-		arg.ReportedPathRaw,
-		arg.ID,
-	)
-	return err
-}
-
 const repointFileFilings = `-- name: RepointFileFilings :exec
 UPDATE file_filing SET identified_from_path = ?1
 WHERE file_filing.file_id = (SELECT place.file_id FROM place WHERE place.id = ?2)
@@ -373,41 +347,12 @@ type RepointFileFilingsParams struct {
 	ID   int64
 }
 
-// The path a live file of a repointed root was identified from, where it was identified at this
-// place, at the place's new path (run before RepointFile moves the place): identification sees a
-// path that differs as a file moved, and identifies it again (D208 section 1).
+// The path a file of a repointed folder was identified from, where it was identified at this place,
+// at the place's new path (run before MovePlace moves the place): identification sees a path that
+// differs as a file moved, and identifies it again (D208 section 1).
 func (q *Queries) RepointFileFilings(ctx context.Context, arg RepointFileFilingsParams) error {
 	_, err := q.db.ExecContext(ctx, repointFileFilings, arg.Path, arg.ID)
 	return err
-}
-
-const repointLibraryRoot = `-- name: RepointLibraryRoot :execrows
-UPDATE library_root SET node_id = ?1, root_path = ?2
-WHERE library_id = ?3 AND node_id = ?4 AND root_path = ?5
-  AND retired_at IS NULL
-`
-
-type RepointLibraryRootParams struct {
-	NewNodeID   int64
-	NewRootPath string
-	LibraryID   int64
-	NodeID      int64
-	RootPath    string
-}
-
-// A library root an admin says is now at another path, on the same or another node (D241 section 6).
-func (q *Queries) RepointLibraryRoot(ctx context.Context, arg RepointLibraryRootParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, repointLibraryRoot,
-		arg.NewNodeID,
-		arg.NewRootPath,
-		arg.LibraryID,
-		arg.NodeID,
-		arg.RootPath,
-	)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
 }
 
 const retireLibraryRoot = `-- name: RetireLibraryRoot :execrows
