@@ -21,6 +21,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/certificate"
+	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/node/agent"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -699,10 +700,13 @@ func loggingReaderWrites(ctx context.Context, logger *slog.Logger) func(file, ca
 	}
 }
 
-// migrateOptions are the runner's choices from the file.
-func (config *Config) migrateOptions(snapshotDirectory string, beforeStep func(step, total int)) store.MigrateOptions {
+// migrateOptions are the runner's choices from the file, its snapshots in the backup directory.
+func (config *Config) migrateOptions(
+	directories *instancedir.Directories, beforeStep func(step, total int),
+) store.MigrateOptions {
 	return store.MigrateOptions{
-		SnapshotDirectory: snapshotDirectory, OnBeforeStep: beforeStep,
+		SnapshotDirectory: directories.BackupDirectory(), RemoveSnapshotFile: directories.RemoveBackupFile,
+		OnBeforeStep:              beforeStep,
 		FreeSpaceDatabaseMultiple: config.Database.MigrateFreeSpaceDBMultiple,
 	}
 }

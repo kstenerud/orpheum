@@ -363,7 +363,7 @@ func openAndMigrate(
 	if err != nil {
 		return nil, err
 	}
-	err = database.Migrate(ctx, config.migrateOptions(directories.BackupDirectory(), beforeStep))
+	err = database.Migrate(ctx, config.migrateOptions(directories, beforeStep))
 	if err != nil {
 		return nil, errors.Join(err, database.Close())
 	}
