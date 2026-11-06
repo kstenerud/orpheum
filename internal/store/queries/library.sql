@@ -131,10 +131,6 @@ WHERE system_library.kind = 'system'
 ORDER BY library_root.root_path
 LIMIT 1;
 
--- name: InsertSystemLibrary :exec
--- Marks a library as the server's system library: one per server, by its kind (D435 section 1).
-INSERT INTO system_library (kind, library_id) VALUES ('system', sqlc.arg(library_id));
-
 -- name: ListSystemVideos :many
 -- The system library's videos: each live place its folder covers, by path (D435 section 7).
 SELECT library_place.file_id, library_place.path, library_place.node_id, file.size_bytes
@@ -143,12 +139,3 @@ JOIN library_place ON library_place.library_id = system_library.library_id
 JOIN file ON file.id = library_place.file_id
 WHERE system_library.kind = 'system'
 ORDER BY library_place.path;
-
--- name: IsFileInSystemLibrary :one
--- Whether the system library covers a live place of a file: one a feature plays for whoever asked
--- for it by what it is (D435 section 6).
-SELECT CAST(EXISTS (
-  SELECT 1 FROM system_library
-  JOIN library_place ON library_place.library_id = system_library.library_id
-  WHERE library_place.file_id = CAST(sqlc.arg(file_id) AS INTEGER)
-) AS INTEGER) AS is_system;
