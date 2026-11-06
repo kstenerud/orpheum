@@ -79,6 +79,32 @@ describe("what the home page loads before it draws (the audit of 2026-10-25, W1)
   });
 });
 
+describe("what the first page loads before it draws (the efficiency audit of 2026-10-28, finding 10)", () => {
+  it("is no admin's or System screen, nor the lab's or the gallery's words: they load with their screens", () => {
+    const loadedBy = loadedAtStart();
+    expect(loadedBy.has("./later-screens.tsx")).toBe(true);
+    const later = [
+      "./identify.tsx",
+      "./jobs.tsx",
+      "./system.tsx",
+      "./update-page.tsx",
+      "./needs-attention.tsx",
+      "./users.tsx",
+      "./user.tsx",
+      "./libraries.tsx",
+      "./library-manage.tsx",
+      "./create-library.tsx",
+      "./files.tsx",
+      "./settings.tsx",
+      "./locales/en-lab.ts",
+      "./locales/en-gallery.ts",
+    ];
+    expect(
+      later.filter((path) => loadedBy.has(path)).map((path) => chainTo(loadedBy, path)),
+    ).toEqual([]);
+  });
+});
+
 // The test-regime audit of 2026-10-31 (R4): test-dom.tsx imported later-screens.tsx for its reset,
 // which made every test that mounts anything "related" to every screen, half the suite rerun by
 // revert-red for one changed screen. A helper reaches a screen's code only as the test itself does

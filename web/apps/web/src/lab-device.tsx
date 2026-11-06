@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./lab-words.ts";
+
 import type { TFunction } from "i18next";
 import {
   browserDeviceFacts,

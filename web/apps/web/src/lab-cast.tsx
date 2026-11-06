@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./lab-words.ts";
+
 import type { Api, components, PlayableFormats } from "@orpheum/sdk";
 import { failureText } from "@orpheum/sdk";
 import { useCallback, useEffect, useState, type JSX } from "react";

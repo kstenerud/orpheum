@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 import { camelKey } from "../catalogue-key.ts";
 import { sectionOrder } from "../server-settings.tsx";
 import { en } from "./en.ts";
+import { enGallery } from "./en-gallery.ts";
+import { enLab } from "./en-lab.ts";
 
 /** Every source file of the app, as text, tests left out. */
 // Untyped at the call: vitest keeps no cached transform of a file holding "import.meta.glob(", whose
@@ -24,6 +26,20 @@ function keysAskedFor(source: string): string[] {
   return [...source.matchAll(/\bt\(\s*"([^"]+)"/gu)].flatMap((match) =>
     match[1] === undefined ? [] : [match[1]],
   );
+}
+
+/** The words a module adds as it loads, never with the first page, by the import that adds them. */
+const laterWords: Record<string, object> = {
+  "./lab-words.ts": enLab,
+  "./gallery-words.ts": enGallery,
+};
+
+/** The catalogue a source file's keys are read from: the first page's, and the words it brings. */
+function catalogueOf(source: string): object {
+  const brought = Object.entries(laterWords).filter(([path]) =>
+    source.includes(`import "${path}";`),
+  );
+  return brought.reduce<object>((catalogue, [, words]) => ({ ...catalogue, ...words }), en);
 }
 
 /** Whether the catalogue has text at a dotted key. */
@@ -125,7 +141,7 @@ describe("the English catalogue", () => {
   it("has text for every key the app asks for by name, so none shows as its key (D51)", () => {
     const missing = Object.entries(sources).flatMap(([file, source]) =>
       keysAskedFor(source)
-        .filter((key) => !hasText(en, key))
+        .filter((key) => !hasText(catalogueOf(source), key))
         .map((key) => `${file}: ${key}`),
     );
     expect(Object.keys(sources).length).toBeGreaterThan(20);

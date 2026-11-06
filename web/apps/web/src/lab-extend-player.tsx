@@ -2,6 +2,8 @@
 
 import "./lab.css";
 
+import "./lab-words.ts";
+
 import { useEffect, useRef, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 

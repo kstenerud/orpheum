@@ -6,42 +6,44 @@ import { useTranslation } from "react-i18next";
 
 import { ReloadWhenOutdated } from "./reload-when-outdated.tsx";
 import { About } from "./about.tsx";
-import { HowToUpdate } from "./update-page.tsx";
 import { Account } from "./account.tsx";
 import { AppShell } from "./app-shell.tsx";
 import { tabStorage } from "./browser-storage.ts";
 import { Browse } from "./browse.tsx";
 import { CreditedPerson } from "./credits.tsx";
 import { Home } from "./home.tsx";
-import { NeedsAttention } from "./needs-attention.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
 import { InputLayer } from "./input-layer.tsx";
 import { LiveProvider } from "./live.tsx";
 import { CastSignOverTheFilmContext } from "./cast-sign-over-the-film.tsx";
 import { castSignOverTheFilm } from "./status-tray.tsx";
 import { useEpisodesReachedLetGoOnGoing } from "./episode-reached.ts";
-import { Files } from "./files.tsx";
-import { Identify } from "./identify.tsx";
-import { Jobs } from "./jobs.tsx";
 import {
   CastReady,
+  CreateLibraryPage,
+  Files,
+  HowToUpdate,
+  Identify,
+  Jobs,
   Lab,
   LabExtendPlayer,
+  Libraries,
+  LibraryPage,
+  NeedsAttention,
   Play,
   Series,
   Settings,
+  System,
   Title,
   TogetherViewer,
   UiGallery,
+  UserPage,
+  Users,
 } from "./later-screens.tsx";
 import { DeviceTestsOfferedContext } from "./lab-offered.ts";
-import { CreateLibraryPage } from "./create-library.tsx";
 import { DebugToolsContext, type DebugToolsChoice } from "./debug-tools.tsx";
-import { Libraries } from "./libraries.tsx";
-import { LibraryPage } from "./library-manage.tsx";
 import { LibraryBrowse } from "./library-browse.tsx";
 import { chipsOf } from "./list-filters.ts";
-import { Users } from "./users.tsx";
 import {
   BackgroundChangesContext,
   backgroundChangeWaits,
@@ -50,7 +52,6 @@ import {
   type Poller,
 } from "./polling.ts";
 import { ApiProblem, dataOrThrow, throwIfRefused } from "./problem.ts";
-import { UserPage } from "./user.tsx";
 import { CastingLeft, TogetherLeft } from "./old-addresses.tsx";
 import { Register } from "./register.tsx";
 import type { Route } from "./router.ts";
@@ -58,7 +59,6 @@ import type { Session } from "./session.ts";
 import { InterestSaidEveryContext } from "./page-interest.ts";
 import { usePathMoveCount, useRoute, useServices, useToken } from "./services.tsx";
 import { SignIn } from "./sign-in.tsx";
-import { System } from "./system.tsx";
 import { ThisDevice } from "./this-device.tsx";
 import { haveBackMySessions } from "./together-mine.ts";
 import { useMembership } from "./together-membership.ts";
