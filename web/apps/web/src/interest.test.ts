@@ -3,6 +3,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { leavePlayback, sayInterestOf, sendInterest, type SaidInterest } from "./interest.ts";
+import { keepThePressForTheStart } from "./start-refused.ts";
 import { failOnUnexpectedRequests, servedBy, type Heard } from "./test-dom.tsx";
 
 // This file never mounts, so it owns the check unmount() would otherwise do for it (finding 2,
@@ -44,6 +45,25 @@ describe("what a player says it wants (D309)", () => {
       { positionMs: 600_000, isPaused: true },
       { positionMs: 600_000, isPaused: false },
     ]);
+  });
+
+  it("says nothing of the pause that keeps the press for the start, but the next is the person's", () => {
+    const video = fakeVideo();
+    Object.assign(video, {
+      paused: true,
+      play: () => Promise.reject(new DOMException("paused", "AbortError")),
+      pause: () => {
+        video.fire("pause");
+      },
+    });
+    const said: SaidInterest[] = [];
+    const stop = sayInterestOf(video, (interest) => said.push(interest));
+    keepThePressForTheStart(video);
+    video.currentTime = 1668;
+    video.fire("pause");
+    stop();
+    // The Big Parade on the owner's TCL TV said it paused at 0, and its resume's sound was never made.
+    expect(said).toEqual([{ positionMs: 1_668_000, isPaused: true }]);
   });
 
   it("is sent for its playback, and a leave says why", async () => {
