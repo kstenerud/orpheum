@@ -51,8 +51,8 @@ export function SystemDiscovery(): JSX.Element {
   const connecting = useConnecting(reload);
   const claiming = useClaim(reload);
   const askAgain = (): void => {
-    connecting.runRequest(async () => {
-      throwIfRefused(await api.POST("/system/discovery/ask-again"));
+    connecting.runRequest(async (idempotencyKey) => {
+      throwIfRefused(await api.POST("/system/discovery/ask-again", idempotent(idempotencyKey)));
       reload();
     });
   };
