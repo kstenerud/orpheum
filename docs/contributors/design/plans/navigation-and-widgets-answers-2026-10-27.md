@@ -2122,3 +2122,31 @@ and nas.example wait for the owner's go. Found on the way and filed for the next
   device for every film. An earlier move, which a film's chunks would make and a file played whole
   cannot, holds the flash back by as much instead. Its Level loudness switch is the person's own.
   Left for the owner: a film played as its own file still cannot take an earlier offset.
+
+## The TCL TV round (2026-11-06), closed
+
+Built over "test(web): the invitations' alignment test derives each issue time from its id" on the owner's TCL TV in TV Bro (staging): the HEVC give-up ("fix(player): a decoding error a rebuild did not mend gives its quality up", VQ268
+passed), the sound timing test and the cast and Watch Together timing controls, repointing a folder
+("feat(library): repoint any folder, checked by a dry run first (D429 §2)"), the paused start ("fix(web): a television's film keeps the press for its start before going full screen", VQ270) and the resume with Level loudness on that it broke
+("fix(web): the pause that keeps a television's press is not told to the server as the person's", VQ271; both passed on the TV), and the device report's HDR and surround codecs
+("feat(web): the device report asks of DTS, TrueHD, AC-4 and Dolby Vision, and of the screen's HDR"). The owner's checks on the TV: Home and back resumes; 24p pans are smooth; the picture is
+clear at 1080p (no 4K film to judge); Wings's silent start is the film's own (its first 30 s
+below −50 dBFS). The remote's buttons as the page hears them: the digits (`0`–`9`), the colours
+(`ColorF0Red`, `ColorF1Green`, `ColorF2Yellow`, `ColorF3Blue`, keyCode 0) and `ChannelUp` and
+`ChannelDown` (keyCode 33 and 34); TV Bro keeps select, the arrows and Back for its pointer, and the
+TV keeps the volume. The remote has no media keys.
+
+## The 11-10 batch (the owner, 2026-11-06: "go with B for that. Also the hidden system video")
+
+1. **Web Audio's lag, option (b)** (above, "Found on the owner's TCL TV"): where the device's kept
+   Web Audio latency (`sound-latency.ts`) is above a bound, levelling takes no Web Audio. A lowering
+   is the element's own volume; a raise moves an own-file playback to its ladder, a cause beside
+   `boostChosen` in D336 §3's move. A device not yet measured plays its first levelled film through
+   Web Audio once and learns. It amends D226 §4: the decision is written with the build.
+2. **D435, the server's own videos in one hidden system library**, built as the decision says.
+
+Still the owner's to answer: which of the TCL remote's buttons (colours, channel, digits) control
+playback; D266's third give-up sign as its own decision or not; giving HEVC up device-wide after one
+give-up; the repoint spec's questions 1–7; `isTelevision` not knowing "Smart TV Pro"; and the core
+planning for a paused player whose chunk asks run far past its position (the cause of VQ271's
+stall, made sturdy on the core's side). End: one check-pr; staging and nas.example wait for the owner.
