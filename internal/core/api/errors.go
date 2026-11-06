@@ -3,16 +3,10 @@
 package api
 
 import (
-	"context"
 	"errors"
 	"net/http"
-	"reflect"
 
 	"github.com/danielgtaylor/huma/v2"
-
-	"github.com/kstenerud/orpheum/internal/core/jobs"
-	"github.com/kstenerud/orpheum/internal/core/library"
-	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
 
 // Code is the one error enumeration the server and the SDK share (cut-a §5.2).
@@ -95,195 +89,6 @@ type ProblemBody struct {
 	FailedHop Hop           `json:"failedHop,omitempty"`
 }
 
-// problemDetail is the detail one code carries; the code comes from the detail's type, so an
-// error cannot carry another code's detail.
-type problemDetail interface {
-	problemCode() Code
-}
-
-// problemDetails are one of each detail type: the API document's form for each code with detail.
-func problemDetails() []problemDetail {
-	return []problemDetail{
-		SignedOutDetailBody{},
-		InvalidRequestDetailBody{},
-		RateLimitedDetailBody{},
-		QuotaExhaustedDetailBody{},
-		ProviderRefusalDetailBody{},
-		MediaUnreachableDetailBody{},
-		InAnotherSessionDetailBody{},
-	}
-}
-
-// InAnotherSessionDetailBody is in_another_session's detail: whose the other session is, for the
-// question "Leave ‹session› to join this one?" (D372 §8).
-type InAnotherSessionDetailBody struct {
-	HostName string `doc:"The other session's host" json:"hostName"`
-	IsHost   bool   `doc:"Whether the other session is the person's own" json:"isHost"`
-}
-
-func (InAnotherSessionDetailBody) problemCode() Code { return CodeInAnotherSession }
-
-// MediaUnreachableDetailBody is media_unreachable's detail: why the file cannot be read now, on
-// which machine, the folder or disk missing, and since when (D241 §4).
-type MediaUnreachableDetailBody struct {
-	Reason   string `enum:"node_away,root_missing,disk_missing,still_reading" json:"reason"`
-	NodeName string `doc:"The machine that holds the file" json:"nodeName"`
-	Path     string `doc:"The folder or disk missing on it; absent for a machine away" json:"path,omitempty"`
-	// UnavailableAt is when it became unavailable, in Unix milliseconds; absent when not known.
-	UnavailableAt int64 `json:"unavailableAt,omitempty"`
-}
-
-func (MediaUnreachableDetailBody) problemCode() Code { return CodeMediaUnreachable }
-
-// mediaUnreachable is a play refused because its file cannot be read now, its node named by
-// nodeName (D241 §4).
-func mediaUnreachable(unreadable *library.UnreadableError, nodeName func(nodeID int64) string) error {
-	detail := MediaUnreachableDetailBody(*unavailableBody(&unreadable.Unreadable, nodeName))
-	return newDetailedError(http.StatusServiceUnavailable, "this file cannot be read now: "+unreadable.Error(), detail)
-}
-
-// SignedOutDetailBody is auth_required's detail: why there is no session, so a client can tell
-// the person (cut-a §5.2).
-type SignedOutDetailBody struct {
-	Reason string `enum:"session_ended,session_expired,no_session" json:"reason"`
-}
-
-func (SignedOutDetailBody) problemCode() Code { return CodeAuthRequired }
-
-// InvalidRequestDetailBody is invalid_request's detail: each problem found in the request, by
-// where it is, never by the value submitted (D194 §5).
-type InvalidRequestDetailBody struct {
-	Problems []RequestProblemBody `json:"problems"`
-}
-
-func (InvalidRequestDetailBody) problemCode() Code { return CodeInvalidRequest }
-
-// RequestProblemBody is one problem in a request.
-type RequestProblemBody struct {
-	Location string `doc:"Where it is: a field such as body.name or query.cursor, or body when the body as a whole is wrong" json:"location"` //nolint:lll // one struct tag
-	Message  string `json:"message"`
-}
-
-// RateLimitedDetailBody is rate_limited's detail when a provider asks us to wait.
-type RateLimitedDetailBody struct {
-	RetryAfterMs int64 `doc:"How long the provider asks us to wait" json:"retryAfterMs"`
-}
-
-func (RateLimitedDetailBody) problemCode() Code { return CodeRateLimited }
-
-// QuotaExhaustedDetailBody is quota_exhausted's detail: when the provider's count starts again.
-type QuotaExhaustedDetailBody struct {
-	DownloadsResetAt int64 `doc:"Unix milliseconds" json:"downloadsResetAt"`
-}
-
-func (QuotaExhaustedDetailBody) problemCode() Code { return CodeQuotaExhausted }
-
-// ProviderRefusalDetailBody is provider_error's detail: why, in the provider's terms, one of
-// providerReasons, which the document enumerates so a client can have words for each.
-type ProviderRefusalDetailBody struct {
-	Reason ProviderReason `json:"reason"`
-	// NotAnsweringAt and NextCheckAt are, for a provider not answering, since when, and when it is next
-	// looked at, in Unix milliseconds; absent when not known (D231 §12).
-	NotAnsweringAt int64 `json:"notAnsweringAt,omitempty"`
-	NextCheckAt    int64 `json:"nextCheckAt,omitempty"`
-}
-
-// ProviderReason is why an outside provider refused, as provider_error's detail says it.
-type ProviderReason string
-
-// The reasons a provider refuses.
-const (
-	ReasonNoKey         ProviderReason = "no_key"
-	ReasonKeyRefused    ProviderReason = "key_refused"
-	ReasonNoLogin       ProviderReason = "no_login"
-	ReasonLoginRefused  ProviderReason = "login_refused"
-	ReasonNotConfigured ProviderReason = "not_configured"
-	ReasonUnavailable   ProviderReason = "unavailable"
-	// ReasonUnreadable is what the provider sent, which could not be read: a fetched subtitle its
-	// node could not convert (D224 §5).
-	ReasonUnreadable ProviderReason = "unreadable"
-)
-
-// providerReasons is every ProviderReason: the one list, which the document enumerates.
-func providerReasons() []ProviderReason {
-	return []ProviderReason{
-		ReasonNoKey, ReasonKeyRefused, ReasonNoLogin, ReasonLoginRefused, ReasonNotConfigured, ReasonUnavailable,
-		ReasonUnreadable,
-	}
-}
-
-// Schema is a ProviderReason in the API document: a string, one of providerReasons.
-func (ProviderReason) Schema(huma.Registry) *huma.Schema {
-	reasons := providerReasons()
-	enum := make([]any, 0, len(reasons))
-	for _, reason := range reasons {
-		enum = append(enum, string(reason))
-	}
-	return &huma.Schema{Type: huma.TypeString, Enum: enum}
-}
-
-func (ProviderRefusalDetailBody) problemCode() Code { return CodeProviderError }
-
-// problemBodySchemaName is ProblemBody's name among the document's schemas.
-const problemBodySchemaName = "ProblemBody"
-
-// Schema is ProblemBody's schema: one form per code with detail, typed by its detail's struct, and
-// one for every other code, which carries none. It is registered once under its own name, so the
-// SDK names it, and referred to from where it is used.
-func (ProblemBody) Schema(registry huma.Registry) *huma.Schema {
-	if _, isRegistered := registry.Map()[problemBodySchemaName]; !isRegistered {
-		detailed := map[Code]bool{}
-		details := problemDetails()
-		forms := make([]*huma.Schema, 0, len(details)+1)
-		for _, detail := range details {
-			detailed[detail.problemCode()] = true
-			forms = append(forms, problemForm([]Code{detail.problemCode()},
-				registry.Schema(reflect.TypeOf(detail), true, "")))
-		}
-		var plain []Code
-		for _, code := range codes() {
-			if !detailed[code] {
-				plain = append(plain, code)
-			}
-		}
-		forms = append(forms, problemForm(plain, nil))
-		registry.Map()[problemBodySchemaName] = &huma.Schema{
-			Description: "An error: a person is shown words chosen by its code, never its message (cut-a §5.2)",
-			OneOf:       forms,
-		}
-	}
-	return &huma.Schema{Ref: schemaRefPrefix + problemBodySchemaName}
-}
-
-// schemaRefPrefix is where the document's schemas are, as huma's default configuration puts them.
-const schemaRefPrefix = "#/components/schemas/"
-
-// problemForm is one form of ProblemBody: its codes, and the detail they carry, if any.
-func problemForm(formCodes []Code, detail *huma.Schema) *huma.Schema {
-	names := make([]any, 0, len(formCodes))
-	for _, code := range formCodes {
-		names = append(names, string(code))
-	}
-	properties := map[string]*huma.Schema{
-		"code": {
-			Type: huma.TypeString, Enum: names,
-			Extensions: map[string]any{extensibleEnum: names},
-		},
-		"message": {Type: huma.TypeString, Description: "For developers, in English"},
-		"failedHop": {
-			Type: huma.TypeString, Enum: []any{string(HopNode), string(HopProvider)},
-			Description: "The leg of the request that failed, for reachability errors",
-		},
-	}
-	if detail != nil {
-		properties["detail"] = detail
-	}
-	return &huma.Schema{
-		Type: huma.TypeObject, Properties: properties, Required: []string{"code", "message"},
-		AdditionalProperties: false,
-	}
-}
-
 // Error is an API error with its HTTP status. Handlers return it; huma writes its body.
 type Error struct {
 	status int
@@ -347,15 +152,6 @@ func invalidRequestAt(status int, location, message string) *Error {
 	})
 }
 
-// providerRateLimited is a provider asking us to wait, as every endpoint that calls one answers
-// it: rate_limited, the wait in detail.retryAfterMs, and the provider as the failing leg.
-func providerRateLimited(limited *outbound.RateLimitedError) *Error {
-	failure := newDetailedError(http.StatusServiceUnavailable, limited.Provider+" asks us to wait",
-		RateLimitedDetailBody{RetryAfterMs: limited.RetryAfter.Milliseconds()})
-	failure.ErrorBody.Error.FailedHop = HopProvider
-	return failure
-}
-
 // UseErrorShape makes huma's own errors — a malformed body, an unknown route's method, a panic
 // it recovered — leave in the same shape as ours. The huma package keeps its error constructor
 // in a package variable, so the composition root calls this once, before serving. It never echoes the
@@ -413,35 +209,4 @@ func codeForStatus(status int) Code {
 		return CodeInternal
 	}
 	return CodeInvalidRequest
-}
-
-// providerNotAnswering is an outside provider, at destination, not answering: since when, and when
-// it is next looked at, as its provider service says (D231 §12).
-func (server *Server) providerNotAnswering(ctx context.Context, destination jobs.Destination, message string) error {
-	detail := ProviderRefusalDetailBody{Reason: ReasonUnavailable}
-	if dependencies := server.dependencies.Load(); dependencies != nil {
-		for _, provider := range dependencies.Providers {
-			state := provider.State(ctx)
-			parked := state.Parked
-			if state.Destination != destination || parked == nil {
-				continue
-			}
-			detail.NotAnsweringAt = parked.Since.UnixMilli()
-			if !parked.NextProbeAt.IsZero() {
-				detail.NextCheckAt = parked.NextProbeAt.UnixMilli()
-			}
-		}
-	}
-	failure := newDetailedError(http.StatusServiceUnavailable, message, detail)
-	failure.ErrorBody.Error.FailedHop = HopProvider
-	return failure
-}
-
-// providerRefusal is a provider's refusal as the API says it: provider_error, why in
-// detail.reason in the provider's terms, and the provider as the failing leg (cut-a §5.2),
-// whichever provider.
-func providerRefusal(reason ProviderReason, message string) error {
-	failure := newDetailedError(http.StatusServiceUnavailable, message, ProviderRefusalDetailBody{Reason: reason})
-	failure.ErrorBody.Error.FailedHop = HopProvider
-	return failure
 }
