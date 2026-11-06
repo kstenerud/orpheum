@@ -5,6 +5,8 @@ package together
 import (
 	"context"
 	"time"
+
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // StartingSnapSeeksBeyond is how far a seek must jump to be snapped to a keyframe (D285 §1) before a
@@ -193,7 +195,7 @@ func (current *session) followLeader(ctx context.Context, now time.Time, who *me
 		stepped := position - current.positionAt(now)
 		current.group.position, current.group.at = position, now
 		current.logger.DebugContext(ctx, "watch together: the group follows its leader",
-			append(current.deviceAttributes(who, from), logEvent, eventFollowedLeader,
+			append(current.deviceAttributes(who, from), slogx.EventKey, eventFollowedLeader,
 				positionMsAttribute, position.Milliseconds(), "steppedMs", stepped.Milliseconds())...)
 	case state == GroupPlaying && !current.isOnlyContender(from):
 		// no one's stall is waited for while another plays the film (D373 §1, D374 §3), nor the
@@ -225,7 +227,7 @@ func (current *session) leaderCatchesUp(
 	position := current.reportedPosition(from, message)
 	current.group.position, current.group.at = position, now
 	current.logger.InfoContext(ctx, "watch together: the leader caught up to its group after its stall",
-		append(current.deviceAttributes(who, from), logEvent, eventLeaderCaughtUp, "offGroupMs", offMs,
+		append(current.deviceAttributes(who, from), slogx.EventKey, eventLeaderCaughtUp, "offGroupMs", offMs,
 			"catchingUpMs", catchingUpFor.Milliseconds(), positionMsAttribute, position.Milliseconds())...)
 }
 
@@ -242,7 +244,7 @@ func (current *session) takeStall(ctx context.Context, now time.Time, who *membe
 		from.stalledSince = now
 	case !message.Buffering && !from.stalledSince.IsZero():
 		isLeader := from.id == current.leaderID
-		attributes := append(current.deviceAttributes(who, from), logEvent, eventStallNotWaitedFor,
+		attributes := append(current.deviceAttributes(who, from), slogx.EventKey, eventStallNotWaitedFor,
 			"isLeader", isLeader, "stalledMs", now.Sub(from.stalledSince).Milliseconds(),
 			positionMsAttribute, message.PositionMs)
 		if isLeader {
@@ -319,7 +321,7 @@ func (current *session) endStalls() {
 // 2026-10-06, where a group that would not play could only be guessed at).
 func (current *session) logChange(now time.Time) {
 	attributes := []any{
-		logEvent, eventGroupChanged,
+		slogx.EventKey, eventGroupChanged,
 		sessionIDAttribute, current.id, "state", string(current.group.state), "event", string(current.group.event),
 		"byMemberId", current.group.byMember, "fileId", current.group.fileID,
 		positionMsAttribute, current.positionAt(now).Milliseconds(), leaderDeviceIDAttribute, current.leaderID,

@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // report is attachment's state: where its player, which has the session's film, is, whether it
@@ -119,7 +121,8 @@ func TestHub_TheGroupIsWhereItsLeaderIsAndAFollowersStallChangesNothing(t *testi
 		t.Errorf("the leader plays again at 10.3 s: the group at %d ms, %+v; want it playing on at 12.22 s, "+
 			"untold, for the leader to catch up to (D374)", at, hostBox.last(MessageGroup).Group)
 	}
-	if line := lineWith(t, stage.logs.String(), eventFollowedLeader); !strings.Contains(line, "steppedMs=-780") {
+	line := testutil.LineWith(t, stage.logs.String(), eventFollowedLeader)
+	if !strings.Contains(line, "steppedMs=-780") {
 		t.Errorf("the group's first step to its leader logged as %q; want steppedMs=-780", line)
 	}
 }

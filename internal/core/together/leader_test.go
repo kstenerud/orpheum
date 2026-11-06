@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // guestsStage is a stage with film 7 playing, the host's player leading and guests' players following,
@@ -255,7 +257,7 @@ func TestHub_ALeaderStalledPastItsGracePassesTheLeadAndTheGroupPlaysOn(t *testin
 		t.Errorf("the stalled leader's passing logged as %q; want why, whose and how long", line)
 	}
 	stage.report(t, stalledGuest, 15_000, true, false)
-	if line := lineWith(t, stage.logs.String(), eventStallNotWaitedFor); !strings.Contains(line,
+	if line := testutil.LineWith(t, stage.logs.String(), eventStallNotWaitedFor); !strings.Contains(line,
 		fmt.Sprintf("deviceId=%d logEvent=stallNotWaitedFor isLeader=false stalledMs=3000", stalledGuest.DeviceID)) {
 		t.Errorf("the guest's stall logged as %q; want who stalled, and for how long, the group playing on", line)
 	}
@@ -286,14 +288,14 @@ func TestHub_ALeadersStallWithinItsGraceKeepsTheLead(t *testing.T) {
 		t.Errorf("the group is at %d ms as its leader plays again at 11 s; want 13.999 s, playing on, "+
 			"not stepped back to the leader (D374)", at)
 	}
-	if line := lineWith(t, stage.logs.String(), eventStallNotWaitedFor); !strings.Contains(line,
+	if line := testutil.LineWith(t, stage.logs.String(), eventStallNotWaitedFor); !strings.Contains(line,
 		"isLeader=true stalledMs=2999 positionMs=11000 catchesUp=true behindGroupMs=2979") {
 		t.Errorf("the leader's stall logged as %q; want it catching up, 2.979 s behind", line)
 	}
 	stage.hub.Handle(t.Context(), stage.host, Inbound{Type: MessageNote, Note: &PlayerNote{
 		Kind: NoteSought, PositionMs: 11_000, ToMs: 14_500, Why: "catchUp",
 	}})
-	if line := lineWith(t, stage.logs.String(), eventFollowerCaughtUp); !strings.Contains(line,
+	if line := testutil.LineWith(t, stage.logs.String(), eventFollowerCaughtUp); !strings.Contains(line,
 		"isLeaderCatchingUp=true") {
 		t.Errorf("the leader's catch-up seek logged as %q; want it said, the leader catching up", line)
 	}
@@ -308,7 +310,7 @@ func TestHub_ALeadersStallWithinItsGraceKeepsTheLead(t *testing.T) {
 	if at := stage.groupPositionMs(stage.opened.SessionID); at != 14_120 {
 		t.Errorf("the group is at %d ms as its leader plays in step at 14.1 s; want 14.12 s, the leader's", at)
 	}
-	if line := lineWith(t, stage.logs.String(), eventLeaderCaughtUp); !strings.Contains(line,
+	if line := testutil.LineWith(t, stage.logs.String(), eventLeaderCaughtUp); !strings.Contains(line,
 		"offGroupMs=120 catchingUpMs=1") {
 		t.Errorf("the leader's catch-up logged as %q; want how far off and after how long", line)
 	}

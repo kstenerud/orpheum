@@ -8,6 +8,8 @@
 // with the pinned FFmpeg: test images, films and the M2 acceptance's 200-file fixture tree, each made
 // once and kept in the generated-media cache (media.go), so a later run gets it without FFmpeg. Receive is a
 // test's bounded wait on a channel, and Log a logger's output a test waits on for a line.
+// A test finds a log line by its event (slogx.EventKey) with LineWith, LinesWith and
+// Log.AwaitEvent, not by its message's English, so rewording a message breaks no test.
 // SocketDirectory is where a test's Unix sockets go.
 //
 // # Invariants

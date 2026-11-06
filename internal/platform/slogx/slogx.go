@@ -9,6 +9,12 @@ import (
 	"net/http"
 )
 
+// EventKey is the attribute key of a log line's event: a short camelCase name, stable while the
+// message's English is reworded, that a test matches the line by (testutil.LineWith,
+// testutil.Log.AwaitEvent) instead of by its sentence (test architecture review, 2026-10-26,
+// finding 12). One key for the whole tree.
+const EventKey = "logEvent"
+
 // Format is how a logger renders each record.
 type Format string
 

@@ -6,15 +6,11 @@ import (
 	"cmp"
 	"context"
 	"time"
+
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
-// logEvent is the attribute key every log line in this file and in logChange (group.go) carries
-// alongside its message: a stable name a test matches, so rewording the message does not break the
-// match (test architecture review, 2026-10-26, finding 12). It is not current.group.event (what
-// changed the group), a different attribute already named "event".
-const logEvent = "logEvent"
-
-// logEvent's values, one per log line that carries it.
+// slogx.EventKey's values, one per log line that carries it.
 const (
 	eventPlayerChanged     = "playerChanged"
 	eventPlayerNoted       = "playerNoted"
@@ -64,7 +60,7 @@ func (current *session) logPlayer(ctx context.Context, now time.Time, who *membe
 		return
 	}
 	attributes := append(current.deviceAttributes(who, from),
-		logEvent, eventPlayerChanged, "playing", message.Playing, "buffering", message.Buffering,
+		slogx.EventKey, eventPlayerChanged, "playing", message.Playing, "buffering", message.Buffering,
 		positionMsAttribute, message.PositionMs,
 		"behindGroupMs", current.positionAt(now).Milliseconds()-message.PositionMs)
 	if !from.playerChangedAt.IsZero() {
@@ -91,7 +87,8 @@ func (current *session) logNote(ctx context.Context, now time.Time, who *member,
 	if current.logCatchUp(ctx, now, who, from, note) || current.logAtInfo(ctx, who, from, note) {
 		return
 	}
-	attributes := append(current.deviceAttributes(who, from), logEvent, eventPlayerNoted, "kind", string(note.Kind))
+	attributes := append(current.deviceAttributes(who, from), slogx.EventKey, eventPlayerNoted,
+		"kind", string(note.Kind))
 	for _, field := range []struct {
 		name  string
 		value int64
@@ -143,7 +140,7 @@ func (current *session) logCatchUp(
 		(from.id == current.leaderID && !isLeaderCatchingUp) {
 		return false
 	}
-	attributes := append(current.deviceAttributes(who, from), logEvent, eventFollowerCaughtUp,
+	attributes := append(current.deviceAttributes(who, from), slogx.EventKey, eventFollowerCaughtUp,
 		leaderDeviceIDAttribute, current.leaderID, positionMsAttribute, note.PositionMs)
 	if isLeaderCatchingUp {
 		attributes = append(attributes, "isLeaderCatchingUp", true)
@@ -168,7 +165,7 @@ func (current *session) logCatchUp(
 // seven seconds after its remote paused it, and nothing said where those seconds went (the owner,
 // 2026-10-28). A change the group has since moved on from has no time kept: only its number is said.
 func (current *session) logFollowed(ctx context.Context, now time.Time, who *member, from *device, note *PlayerNote) {
-	attributes := append(current.deviceAttributes(who, from), logEvent, eventGroupFollowed,
+	attributes := append(current.deviceAttributes(who, from), slogx.EventKey, eventGroupFollowed,
 		"seq", note.Seq, "heldMs", note.HeldMs, "heldBy", note.Why)
 	if note.Seq == current.group.seq {
 		attributes = append(attributes, "event", string(current.group.event),
@@ -188,43 +185,44 @@ func (current *session) logAtInfo(ctx context.Context, who *member, from *device
 		return true
 	case NoteVoiceCall:
 		current.logger.InfoContext(ctx, "watch together: a voice call took a step",
-			append(current.deviceAttributes(who, from), logEvent, eventVoiceCallStep,
+			append(current.deviceAttributes(who, from), slogx.EventKey, eventVoiceCallStep,
 				"partnerDeviceId", note.PartnerDeviceID, "step", note.Why)...)
 		return true
 	case NotePonged:
 		current.logger.InfoContext(ctx, "watch together: a player's pong said where the group is",
-			append(current.deviceAttributes(who, from), logEvent, eventPongResidual, "roundTripMs", note.RoundTripMs,
-				"aheadOfExpectedMs", note.AheadOfExpectedMs, "placing", note.Why)...)
+			append(current.deviceAttributes(who, from), slogx.EventKey, eventPongResidual,
+				"roundTripMs", note.RoundTripMs, "aheadOfExpectedMs", note.AheadOfExpectedMs, "placing", note.Why)...)
 		return true
 	case NoteVoiceOff:
 		current.logger.InfoContext(ctx, "watch together: voice turned off",
-			append(current.deviceAttributes(who, from), logEvent, eventVoiceOff, "why", note.Why)...)
+			append(current.deviceAttributes(who, from), slogx.EventKey, eventVoiceOff, "why", note.Why)...)
 		return true
 	case NoteVoiceTalk:
 		current.logger.InfoContext(ctx, "watch together: a person's microphone changed",
-			append(current.deviceAttributes(who, from), logEvent, eventMicrophoneChanged, "microphone", note.Why)...)
+			append(current.deviceAttributes(who, from), slogx.EventKey, eventMicrophoneChanged,
+				"microphone", note.Why)...)
 		return true
 	case NoteLoadHeld:
 		current.logger.InfoContext(ctx, "watch together: a ready player's loading changed while its group waits",
-			append(current.deviceAttributes(who, from), logEvent, eventLoadHeldChanged, "loading", note.Why)...)
+			append(current.deviceAttributes(who, from), slogx.EventKey, eventLoadHeldChanged, "loading", note.Why)...)
 		return true
 	case NoteCorrectsBySeeks:
 		current.logger.InfoContext(ctx, "watch together: a player corrects by seeks alone",
-			append(current.deviceAttributes(who, from), logEvent, eventCorrectsBySeeks,
+			append(current.deviceAttributes(who, from), slogx.EventKey, eventCorrectsBySeeks,
 				"returnCostMs", note.ReturnCostMs)...)
 		return true
 	case NoteOwnMarkExpired:
 		current.logger.InfoContext(ctx, "watch together: a player's own move fired no event; its mark was given up",
-			append(current.deviceAttributes(who, from), logEvent, eventOwnMarkExpired, "move", note.Why)...)
+			append(current.deviceAttributes(who, from), slogx.EventKey, eventOwnMarkExpired, "move", note.Why)...)
 		return true
 	case NoteLeaderCommand:
 		current.logger.InfoContext(ctx, "watch together: a leading player sent a command",
-			append(current.deviceAttributes(who, from), logEvent, eventLeaderCommand,
+			append(current.deviceAttributes(who, from), slogx.EventKey, eventLeaderCommand,
 				"command", note.Why, "recentEvents", note.RecentEvents)...)
 		return true
 	case NoteDiagnosis:
 		current.logger.InfoContext(ctx, "watch together: a device's player said what it holds",
-			append(current.deviceAttributes(who, from), logEvent, eventPlayerDiagnosis,
+			append(current.deviceAttributes(who, from), slogx.EventKey, eventPlayerDiagnosis,
 				"why", note.Why, positionMsAttribute, note.PositionMs,
 				"readyState", note.ReadyState, "videoBuffered", note.VideoBuffered,
 				"audioBuffered", note.AudioBuffered, "lastError", note.LastError,
@@ -253,7 +251,7 @@ func (current *session) logAtInfo(ctx context.Context, who *member, from *device
 // the stall before it was counted; a Firefox held its group's wait for good, its film loaded, and
 // nothing said why (the owner's casts, staging, 2026-10-28).
 func (current *session) logBuffering(ctx context.Context, who *member, from *device, note *PlayerNote) {
-	attributes := append(current.deviceAttributes(who, from), logEvent, eventPlayerBuffering,
+	attributes := append(current.deviceAttributes(who, from), slogx.EventKey, eventPlayerBuffering,
 		"groupState", string(current.group.state),
 		"why", note.Why, positionMsAttribute, note.PositionMs, "readyState", note.ReadyState,
 		"rate", note.Rate, "loadedAheadMs", note.LoadedAheadMs)
@@ -271,7 +269,7 @@ func (current *session) logBuffering(ctx context.Context, who *member, from *dev
 // when or by how much the move changed (the owner's cast, staging, 2026-10-28); its later casts moved
 // back to its latency from a latency read too early, and no line said so (the same, 07:47 to 07:51).
 func (current *session) logSoundMoved(ctx context.Context, who *member, from *device, note *PlayerNote) {
-	attributes := append(current.deviceAttributes(who, from), logEvent, eventSoundMoved,
+	attributes := append(current.deviceAttributes(who, from), slogx.EventKey, eventSoundMoved,
 		"earlierFromMs", note.EarlierFromMs, "earlierMs", note.EarlierMs, "why", note.Why,
 		"flushed", note.IsFlushed, "fromWhy", cmp.Or(note.FromWhy, "none"))
 	if note.LatencyMs > 0 {
@@ -296,39 +294,40 @@ func (current *session) logSound(ctx context.Context, who *member, from *device,
 	case NotePlayedMuted:
 		current.logger.InfoContext(ctx,
 			"watch together: the browser would not play the film with sound; it plays muted",
-			append(attributes, logEvent, eventPlayedMuted, positionMsAttribute, note.PositionMs, "page", note.Page)...)
+			append(attributes, slogx.EventKey, eventPlayedMuted, positionMsAttribute, note.PositionMs,
+				"page", note.Page)...)
 	case NoteUnmuted:
 		current.logger.InfoContext(ctx, "watch together: a press turned a muted player's sound on",
-			append(attributes, logEvent, eventUnmutedTap, positionMsAttribute, note.PositionMs,
+			append(attributes, slogx.EventKey, eventUnmutedTap, positionMsAttribute, note.PositionMs,
 				"why", note.Why, "by", note.By, "soundState", note.SoundState)...)
 	case NotePlayedWithSound:
 		current.logger.InfoContext(ctx, "watch together: the browser played the film with sound",
-			append(attributes, logEvent, eventPlayedWithSound, positionMsAttribute, note.PositionMs,
+			append(attributes, slogx.EventKey, eventPlayedWithSound, positionMsAttribute, note.PositionMs,
 				"page", note.Page)...)
 	case NotePlayedWhileHeld:
 		// What played a player its group held, and the group's state then: a Fire TV's cast started
 		// with a play, a pause and a play, and its log said only that it played (the owner's Marrowgate
 		// Family, staging, 2026-10-28).
 		current.logger.InfoContext(ctx, "watch together: a player played while its group held it; it is paused",
-			append(attributes, logEvent, eventPlayedWhileHeld, "groupState", string(current.group.state),
+			append(attributes, slogx.EventKey, eventPlayedWhileHeld, "groupState", string(current.group.state),
 				"by", note.Why, positionMsAttribute, note.PositionMs)...)
 	case NoteFullScreen:
 		current.logger.InfoContext(ctx, "watch together: a player's full screen was entered, refused or left",
-			append(attributes, logEvent, eventFullScreen, "answer", note.Why, "by", note.By)...)
+			append(attributes, slogx.EventKey, eventFullScreen, "answer", note.Why, "by", note.By)...)
 	case NoteTakenBack:
 		current.logger.InfoContext(ctx, "watch together: a cast's receiver took its control back",
-			append(attributes, logEvent, eventTakenBack, "by", note.By, "how", note.How)...)
+			append(attributes, slogx.EventKey, eventTakenBack, "by", note.By, "how", note.How)...)
 	case NoteContinueAsked:
 		current.logger.InfoContext(ctx, "watch together: a guest's page asked for a tap to continue",
-			append(attributes, logEvent, eventContinueAsked, "navigation", note.Why, "page", note.Page)...)
+			append(attributes, slogx.EventKey, eventContinueAsked, "navigation", note.Why, "page", note.Page)...)
 	case NoteShownAgain:
 		current.logger.InfoContext(ctx, "watch together: a device's page was shown again and its socket answered",
-			append(attributes, logEvent, eventShownAgain, "socket", note.Why, "roundTripMs", note.RoundTripMs)...)
+			append(attributes, slogx.EventKey, eventShownAgain, "socket", note.Why, "roundTripMs", note.RoundTripMs)...)
 	case NotePlayRefused:
 		current.logger.InfoContext(ctx,
 			"watch together: the browser refused a player's play as its page was shown again; it offers a tap",
-			append(attributes, logEvent, eventPlayRefused, "refusal", note.Why, positionMsAttribute, note.PositionMs,
-				"page", note.Page)...)
+			append(attributes, slogx.EventKey, eventPlayRefused, "refusal", note.Why,
+				positionMsAttribute, note.PositionMs, "page", note.Page)...)
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NoteVoiceStats,
 		NoteVoiceCall, NoteVoiceOff, NoteVoiceTalk, NotePonged, NoteOwnMarkExpired, NoteCorrectsBySeeks,
 		NoteLoadHeld, NoteDiagnosis, NoteLeaderCommand, NoteGroupFollowed, NoteBuffering,
@@ -341,7 +340,7 @@ func (current *session) logSound(ctx context.Context, who *member, from *device,
 // (the acceptance's congested run, 2026-10-06; D262 §1).
 func (current *session) logVoice(ctx context.Context, who *member, from *device, voice VoiceStats) {
 	attributes := append(current.deviceAttributes(who, from),
-		logEvent, eventVoiceMeasured, "partnerDeviceId", voice.PartnerDeviceID, "roundTripMs", voice.RoundTripMs,
+		slogx.EventKey, eventVoiceMeasured, "partnerDeviceId", voice.PartnerDeviceID, "roundTripMs", voice.RoundTripMs,
 		"jitterBufferMs", voice.JitterBufferMs, "jitterBufferTargetMs", voice.JitterBufferTargetMs,
 		"concealedShare", voice.ConcealedShare, "packetsLost", voice.PacketsLost, "packetsLate", voice.PacketsLate,
 		"fecPackets", voice.FECPackets, "path", voice.Path, "receivedLevel", voice.ReceivedLevel,

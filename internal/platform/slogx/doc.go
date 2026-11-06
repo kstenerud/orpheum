@@ -7,6 +7,9 @@
 // Secrets never reach a log as text: secrets.Value implements slog.LogValuer and logs as
 // "[redacted]" (D194 §5). Bug reports built from logs pseudonymise rather than redact (D74).
 //
+// A line a test looks for carries its event under EventKey, a short camelCase name the test matches
+// (internal/testutil's LineWith and Log.AwaitEvent) while the message's English is free to change.
+//
 // # Invariants
 //
 //   - No package uses the log package, logrus, zap or zerolog. Enforced by the depguard rule
