@@ -28,7 +28,10 @@ func makeSystemVideos(job int64) nodeproto.Command {
 	return nodeproto.Command{CommandSeq: 1, JobID: job, Work: nodeproto.Work{
 		Type: nodeproto.CommandMakeSystemVideos, MakeSystemVideos: &nodeproto.MakeSystemVideos{
 			Videos: []nodeproto.SystemVideo{
-				{Purpose: nodeproto.SystemVideoSoundTiming, Codec: nodeproto.SystemVideoH264AAC},
+				{
+					Purpose: nodeproto.SystemVideoSoundTiming, Codec: nodeproto.SystemVideoH264AAC,
+					FileName: "sound-timing.h264-aac.mp4",
+				},
 			},
 		},
 	}}

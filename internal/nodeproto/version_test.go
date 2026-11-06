@@ -136,7 +136,7 @@ var wireShapeByVersion = map[int]string{
 	58: "dd453ea27a54757ab75591462b3cac99f25a045aafa6ac87140584c703d4e945",
 	// 59 adds the make-system-videos command and its result, and the hello's system folder (D435 §4): a
 	// node of 58 would refuse the command and make no folder.
-	59: "e1ca4bbc89c6ff98c409b4a682c5cd3ef7b3f0dc116cd6386547c4b0b3990a2b",
+	59: "f43ac68fa5d5f37a923adf5e01654a3ecdf97fc5da8f6431b05af5c69e5027f3",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

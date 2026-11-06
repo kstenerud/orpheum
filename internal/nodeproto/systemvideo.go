@@ -14,6 +14,9 @@ type SystemVideo struct {
 	Purpose string `json:"purpose"`
 	// Codec is the video and audio codecs it is made in: SystemVideoH264AAC.
 	Codec string `json:"codec"`
+	// FileName is its file's name in the system folder, which the core chooses, so it finds the file a
+	// scan reports by what it is: a bare name, never a path.
+	FileName string `json:"fileName"`
 }
 
 // The system videos' purposes and codecs.

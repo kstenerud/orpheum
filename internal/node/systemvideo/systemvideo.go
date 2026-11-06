@@ -45,18 +45,22 @@ func (maker *Maker) Make(ctx context.Context, command nodeproto.MakeSystemVideos
 			made.Failure = err.Error()
 			return made
 		}
-		made.FileNames = append(made.FileNames, FileName(video))
+		made.FileNames = append(made.FileNames, video.FileName)
 	}
 	return made
 }
 
 // makeOne makes one video, or keeps its file when it is there and this is not a rebuild.
 func (maker *Maker) makeOne(ctx context.Context, video nodeproto.SystemVideo, isRebuild bool) error {
-	recipe, ok := recipes()[video]
+	recipe, ok := recipes()[kind{purpose: video.Purpose, codec: video.Codec}]
 	if !ok {
 		return fmt.Errorf("no recipe for the system video %s/%s", video.Purpose, video.Codec)
 	}
-	path := filepath.Join(maker.folder, FileName(video))
+	if !isBareName(video.FileName) {
+		return fmt.Errorf("the system video %s/%s's file name %q is not a bare name", video.Purpose, video.Codec,
+			video.FileName)
+	}
+	path := filepath.Join(maker.folder, video.FileName)
 	if !isRebuild {
 		_, err := os.Stat(path)
 		if err == nil {
@@ -71,27 +75,27 @@ func (maker *Maker) makeOne(ctx context.Context, video nodeproto.SystemVideo, is
 	err := maker.runner.RunStreaming(ctx, execx.FFmpeg, confine.Access{Write: []string{maker.folder}}, arguments,
 		io.Discard)
 	if err != nil {
-		return fmt.Errorf("make %s: %w", FileName(video), err)
+		return fmt.Errorf("make %s: %w", video.FileName, err)
 	}
 	return nil
 }
 
-// All are every system video a server has, in the order they are made.
-func All() []nodeproto.SystemVideo {
-	return []nodeproto.SystemVideo{{Purpose: nodeproto.SystemVideoSoundTiming, Codec: nodeproto.SystemVideoH264AAC}}
+// isBareName is whether name names a file in the folder itself: no path, and not the folder or its
+// parent.
+func isBareName(name string) bool {
+	return name != "" && name != "." && name != ".." && filepath.Base(name) == name
 }
 
-// FileName is a video's file's name in the system folder: its purpose and codecs, so a video is found
-// by what it is.
-func FileName(video nodeproto.SystemVideo) string {
-	return video.Purpose + "." + video.Codec + ".mp4"
+// kind is a system video's purpose and codecs, which name its recipe.
+type kind struct {
+	purpose, codec string
 }
 
 // recipes are each system video's FFmpeg arguments, its inputs to its output's format: every input a
 // lavfi source, so FFmpeg reads nothing.
-func recipes() map[nodeproto.SystemVideo][]string {
-	return map[nodeproto.SystemVideo][]string{
-		{Purpose: nodeproto.SystemVideoSoundTiming, Codec: nodeproto.SystemVideoH264AAC}: soundTimingH264AAC(),
+func recipes() map[kind][]string {
+	return map[kind][]string{
+		{purpose: nodeproto.SystemVideoSoundTiming, codec: nodeproto.SystemVideoH264AAC}: soundTimingH264AAC(),
 	}
 }
 

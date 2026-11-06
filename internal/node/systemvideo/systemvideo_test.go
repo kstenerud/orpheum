@@ -14,7 +14,10 @@ import (
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
-var soundTiming = nodeproto.SystemVideo{Purpose: nodeproto.SystemVideoSoundTiming, Codec: nodeproto.SystemVideoH264AAC}
+var soundTiming = nodeproto.SystemVideo{
+	Purpose: nodeproto.SystemVideoSoundTiming, Codec: nodeproto.SystemVideoH264AAC,
+	FileName: "sound-timing.h264-aac.mp4",
+}
 
 // newMaker is a maker over the fake FFmpeg, which writes "clip" to the file it is asked to make.
 func newMaker(t *testing.T) (*Maker, testutil.FakeFFmpeg) {
@@ -74,7 +77,7 @@ func TestMake_AVideoNotKnownIsRefusedWithoutARun(t *testing.T) {
 	t.Parallel()
 	maker, fake := newMaker(t)
 	made := maker.Make(t.Context(), nodeproto.MakeSystemVideos{Videos: []nodeproto.SystemVideo{
-		{Purpose: nodeproto.SystemVideoSoundTiming, Codec: "vp9-opus"},
+		{Purpose: nodeproto.SystemVideoSoundTiming, Codec: "vp9-opus", FileName: "sound-timing.vp9-opus.mp4"},
 	}})
 	if !strings.Contains(made.Failure, "no recipe") || len(made.FileNames) != 0 {
 		t.Errorf("made %+v; want an unknown video refused", made)
@@ -87,7 +90,7 @@ func TestMake_AVideoNotKnownIsRefusedWithoutARun(t *testing.T) {
 func TestMake_AVideoThereIsKeptAndARebuildMakesItAgain(t *testing.T) {
 	t.Parallel()
 	maker, fake := newMaker(t)
-	path := filepath.Join(maker.Folder(), FileName(soundTiming))
+	path := filepath.Join(maker.Folder(), soundTiming.FileName)
 	if err := os.WriteFile(path, []byte("made before"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -116,5 +119,21 @@ func TestMake_AFailedRunSaysWhy(t *testing.T) {
 		nodeproto.MakeSystemVideos{Videos: []nodeproto.SystemVideo{soundTiming}})
 	if !strings.Contains(made.Failure, "libx264") || len(made.FileNames) != 0 {
 		t.Errorf("made %+v; want FFmpeg's words, and no file", made)
+	}
+}
+
+func TestMake_AFileNameThatIsAPathIsRefusedWithoutARun(t *testing.T) {
+	t.Parallel()
+	maker, fake := newMaker(t)
+	for _, name := range []string{"../escape.mp4", "a/b.mp4", "", ".", ".."} {
+		video := soundTiming
+		video.FileName = name
+		made := maker.Make(t.Context(), nodeproto.MakeSystemVideos{Videos: []nodeproto.SystemVideo{video}})
+		if !strings.Contains(made.Failure, "not a bare name") {
+			t.Errorf("the file name %q made %+v; want it refused", name, made)
+		}
+	}
+	if calls := fake.Calls(t); len(calls) != 0 {
+		t.Errorf("FFmpeg ran %d times; want none for a file name that is a path", len(calls))
 	}
 }
