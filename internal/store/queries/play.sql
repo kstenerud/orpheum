@@ -113,6 +113,22 @@ WHERE (item_hidden.hidden_at) IS NOT (excluded.hidden_at);
 -- name: UnhideProgress :exec
 DELETE FROM item_hidden WHERE user_id = sqlc.arg(user_id) AND item_id = sqlc.arg(item_id);
 
+-- A title merged into another (D173) gives it each person's hiding, as it gives its versions, the
+-- later where both were hidden. Each is found by person, a household's handful, and its key: no
+-- index of item_hidden leads with the item.
+
+-- name: MoveProgressHidesToItem :exec
+INSERT INTO item_hidden (user_id, item_id, hidden_at)
+SELECT hidden.user_id, sqlc.arg(to_item), hidden.hidden_at
+FROM user CROSS JOIN item_hidden AS hidden ON hidden.user_id = user.id AND hidden.item_id = sqlc.arg(from_item)
+WHERE true
+ON CONFLICT (user_id, item_id) DO UPDATE SET hidden_at = excluded.hidden_at
+-- Only when it changes something (D303, DL9): the merged title's hiding was the later.
+WHERE excluded.hidden_at > item_hidden.hidden_at;
+
+-- name: DeleteProgressHidesOfItem :exec
+DELETE FROM item_hidden WHERE item_id = sqlc.arg(item_id) AND user_id IN (SELECT id FROM user);
+
 -- A removed person's own watching goes with them (D173 section 4.6).
 
 -- name: DeletePlaySpansOfUser :exec
