@@ -16847,7 +16847,7 @@
             "session": []
           }
         ],
-        "summary": "Have a server refused as a copy ask its discovery again, once the other copy has stopped (D437 §3)",
+        "summary": "Have a server refused as a copy ask its discovery again, the other copy stopped (D437 §3)",
         "tags": [
           "Running it"
         ],
