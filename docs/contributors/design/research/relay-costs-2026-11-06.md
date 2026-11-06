@@ -522,7 +522,7 @@ of 2 Mb/s per relayed stream (0.9 GB an hour; Plex's relay has long been capped 
 
 | Households | Capped, all relayed | Hetzner Cloud (20 TB a server, + 10% spares, floor 2) | per household | Cloudflare TURN | per household |
 | --- | --- | --- | --- | --- | --- |
-| 100 | 3.8 TB | 2 × €5.99 = €11.98 | €0.12 | $0 (inside the free 1 TB? no: (3,780 − 1,000) × 0.05 = $139) | $1.39 |
+| 100 | 3.8 TB | 2 × €5.99 = €11.98 | €0.12 | (3,780 − 1,000) × 0.05 = $139 | $1.39 |
 | 1,000 | 37.8 TB | 2 + 1 = 3 × €5.99 = €17.97 | €0.018 | (37,800 − 1,000) × 0.05 = $1,840 | $1.84 |
 | 10,000 | 378 TB | 19 + 2 = 21 × €5.99 = €125.79 | €0.013 | (378,000 − 1,000) × 0.05 = $18,850 | $1.89 |
 
