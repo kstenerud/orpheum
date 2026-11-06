@@ -53,7 +53,7 @@ async function mountDialog(
   moves: Place[],
   heard: Heard[] = [],
 ): Promise<Mounted> {
-  return mount(
+  return await mount(
     withServices(
       <RepointDialog
         from={{ nodeName: "devnas", path: "/media/films" }}
