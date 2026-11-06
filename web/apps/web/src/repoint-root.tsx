@@ -10,6 +10,7 @@ import { FolderBrowser, type Place } from "./folder-picker.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { dataOrThrow, problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
+import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 
 export type { Place } from "./folder-picker.tsx";
 
@@ -34,10 +35,14 @@ function isSamePlace(a: Place, b: Place): boolean {
   return a.nodeName === b.nodeName && a.path === b.path;
 }
 
-/** Asks the server what saying from moved to to would do, changing nothing (D429 §2). */
+/**
+ * Asks the server what saying from moved to to would do, changing nothing (D429 §2); a press of
+ * Check, keyed as every click's request is (D244 §4).
+ */
 async function previewRepoint(api: Api, from: Place, to: Place): Promise<RepointReport> {
   return dataOrThrow(
     await api.POST("/repoints/preview", {
+      ...idempotent(newIdempotencyKey()),
       body: {
         nodeName: from.nodeName,
         path: from.path,
