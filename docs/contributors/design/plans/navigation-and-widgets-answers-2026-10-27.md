@@ -2198,5 +2198,6 @@ production discovery wait for the owner.
 whose revert broke nothing; "test: D437's database health and the retired another-copy check go red when reverted" adds their tests); orpheum-connect passed its check-pr and pins
 "fix(web): Ask again carries the click's idempotency key". Staging runs both: the core on staging host (`./staging quick`, 19:06 UTC) and the
 discovery, migrated to its step 13. Connect's steps were folded to a baseline at 10 for the window
-test: the owner checks that it suits the production discovery's schema before it is deployed there.
+test; the production discovery (connect-production-9cbe6f0) is at step 11, past the baseline, so it
+steps on to 13 as staging did.
 nas.example and the production discovery wait for the owner.
