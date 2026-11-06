@@ -139,7 +139,8 @@
 //
 // # Where to change
 //
-//   - discovery.go: connecting and the loop; discovery_call.go: sessions and the signed call they
+//   - discovery.go: connecting and the loop; reach.go: the loop's look whether an unreached discovery
+//     answers again (D437 §5); discovery_call.go: sessions and the signed call they
 //     carry; renewal.go: one session renewal at a time; signal.go: the signalling connection;
 //     document.go: enrolment, the chain followed and the address document looked for hourly;
 //     trustfile.go: the trust state kept; release.go: the publisher root and the release record;
