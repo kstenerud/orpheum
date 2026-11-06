@@ -45,7 +45,7 @@ func (maker *Maker) Make(ctx context.Context, command nodeproto.MakeSystemVideos
 			made.Failure = err.Error()
 			return made
 		}
-		made.FileNames = append(made.FileNames, video.FileName())
+		made.FileNames = append(made.FileNames, FileName(video))
 	}
 	return made
 }
@@ -56,7 +56,7 @@ func (maker *Maker) makeOne(ctx context.Context, video nodeproto.SystemVideo, is
 	if !ok {
 		return fmt.Errorf("no recipe for the system video %s/%s", video.Purpose, video.Codec)
 	}
-	path := filepath.Join(maker.folder, video.FileName())
+	path := filepath.Join(maker.folder, FileName(video))
 	if !isRebuild {
 		_, err := os.Stat(path)
 		if err == nil {
@@ -71,9 +71,20 @@ func (maker *Maker) makeOne(ctx context.Context, video nodeproto.SystemVideo, is
 	err := maker.runner.RunStreaming(ctx, execx.FFmpeg, confine.Access{Write: []string{maker.folder}}, arguments,
 		io.Discard)
 	if err != nil {
-		return fmt.Errorf("make %s: %w", video.FileName(), err)
+		return fmt.Errorf("make %s: %w", FileName(video), err)
 	}
 	return nil
+}
+
+// All are every system video a server has, in the order they are made.
+func All() []nodeproto.SystemVideo {
+	return []nodeproto.SystemVideo{{Purpose: nodeproto.SystemVideoSoundTiming, Codec: nodeproto.SystemVideoH264AAC}}
+}
+
+// FileName is a video's file's name in the system folder: its purpose and codecs, so a video is found
+// by what it is.
+func FileName(video nodeproto.SystemVideo) string {
+	return video.Purpose + "." + video.Codec + ".mp4"
 }
 
 // recipes are each system video's FFmpeg arguments, its inputs to its output's format: every input a

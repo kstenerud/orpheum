@@ -16,7 +16,7 @@ type fakeSystemVideoMaker struct{}
 func (fakeSystemVideoMaker) Make(_ context.Context, command nodeproto.MakeSystemVideos) nodeproto.SystemVideosMade {
 	made := nodeproto.SystemVideosMade{Folder: "/node/system-videos"}
 	for _, video := range command.Videos {
-		made.FileNames = append(made.FileNames, video.FileName())
+		made.FileNames = append(made.FileNames, video.Purpose+"."+video.Codec+".mp4")
 	}
 	return made
 }
@@ -27,7 +27,9 @@ func (fakeSystemVideoMaker) Folder() string { return "/node/system-videos" }
 func makeSystemVideos(job int64) nodeproto.Command {
 	return nodeproto.Command{CommandSeq: 1, JobID: job, Work: nodeproto.Work{
 		Type: nodeproto.CommandMakeSystemVideos, MakeSystemVideos: &nodeproto.MakeSystemVideos{
-			Videos: nodeproto.SystemVideos(),
+			Videos: []nodeproto.SystemVideo{
+				{Purpose: nodeproto.SystemVideoSoundTiming, Codec: nodeproto.SystemVideoH264AAC},
+			},
 		},
 	}}
 }

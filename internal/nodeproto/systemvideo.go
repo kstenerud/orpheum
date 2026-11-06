@@ -2,8 +2,6 @@
 
 package nodeproto
 
-import "slices"
-
 // CommandMakeSystemVideos asks the node to make the server's own videos into its system folder
 // (Hello.SystemFolder), on their first use or for a rebuild (D435 §4, §7): each a short clip FFmpeg
 // draws from nothing, which the node then scans as any file.
@@ -26,22 +24,6 @@ const (
 	// SystemVideoH264AAC is H.264 video and stereo AAC audio in MP4, which every client plays.
 	SystemVideoH264AAC = "h264-aac"
 )
-
-// SystemVideos are every system video a server has, in the order they are made.
-func SystemVideos() []SystemVideo {
-	return []SystemVideo{{Purpose: SystemVideoSoundTiming, Codec: SystemVideoH264AAC}}
-}
-
-// FileName is the video's file's name in the system folder: its purpose and codecs, so a video is
-// found by what it is.
-func (video SystemVideo) FileName() string {
-	return video.Purpose + "." + video.Codec + ".mp4"
-}
-
-// IsKnown is whether the video is one of SystemVideos.
-func (video SystemVideo) IsKnown() bool {
-	return slices.Contains(SystemVideos(), video)
-}
 
 // MakeSystemVideos names the videos to make. The node makes them into its own system folder, never a
 // folder the core names, so the command can write nowhere else.
