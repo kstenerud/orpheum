@@ -114,4 +114,4 @@ The owner accepted the recommendations, with these changes and additions:
   - `scan_batch.files_json` holds the files a running scan has yet to examine, so a restarted core
     resumes it.
 - **Wanted (the owner):** "more wargaming beyond this to look for holes in our plan." To be written in
-  `design/research/repoint-wargame-2026-11-06-research.md`.
+  [design/research/repoint-wargame-2026-11-06-research.md](../research/repoint-wargame-2026-11-06-research.md).
