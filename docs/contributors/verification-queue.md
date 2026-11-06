@@ -2739,3 +2739,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   Bro, open the device lab's sound timing page once VQ274 passes. Passes when the clip plays through
   the player as a film does, and each beep is heard with its flash, adjusting the player's sound
   offset if it must, the offset that lines them up noted here. (`internal/core/api/systemvideos.go`)
+- [ ] **VQ276** — a tab moved to WebRTC by `?transport=webrtc` on the core's own origin tells its
+  path, so its film page starts no preload (D260 §3's revision of 2026-10-28). The tests pass the
+  move its path moves by hand; only the page's own start (`client-main.tsx`) hands it the page's.
+  On staging, open the core's own address with `?transport=webrtc`, signed in, wait until the console
+  says the media moved to WebRTC, then open a film's page. Passes when the page's elements show no
+  hidden video and the core's log shows no chunk loaded twice when Play is pressed.
+  (`web/apps/web/src/client-main.tsx`, `web/apps/web/src/transport-choice.ts`)
