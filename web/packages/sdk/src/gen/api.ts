@@ -1058,23 +1058,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/libraries/{id}/roots/repoint": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Say a root moved: it and its files take the new path with their history, and a scan confirms each (D241 §6) */
-        post: operations["repointLibraryRoot"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/libraries/{id}/roots/retire": {
         parameters: {
             query?: never;
@@ -1736,6 +1719,40 @@ export interface paths {
         put?: never;
         /** What a link is for, without using it: an invitation or a registration link */
         post: operations["getLinkKind"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/repoints": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Say a folder moved: everything known under it takes the new path with its history, and a scan confirms each file (D429) */
+        post: operations["repoint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/repoints/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** What saying a folder moved would do, and why it would be refused; changes nothing (D429) */
+        post: operations["previewRepoint"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4360,16 +4377,77 @@ export interface components {
         };
         RepointedOutputBody: {
             /** Format: int64 */
-            movedFileCount: number;
+            livePlaceCount: number;
+            /** Format: int64 */
+            removedPlaceCount: number;
+            /** Format: int64 */
+            rootCount: number;
         };
         RepointInputBody: {
             /** @description The node it is on now: the same, or another */
             newNodeName: string;
             /** @description Where it is now: one of that node's configured roots, or a folder inside one */
             newPath: string;
-            /** @description The root's node */
+            /** @description The node the folder was on */
             nodeName: string;
-            /** @description The root's path */
+            /** @description The folder, by a clean absolute path: any folder, at any level */
+            path: string;
+        };
+        RepointLibraryBody: {
+            /** Format: int64 */
+            gainsCount: number;
+            /** Format: int64 */
+            libraryId: number;
+            libraryName: string;
+            /** Format: int64 */
+            losesCount: number;
+        };
+        RepointMovedPathBody: {
+            newPath: string;
+            path: string;
+        };
+        RepointPreviewOutputBody: {
+            /**
+             * Format: int64
+             * @description Places and library folders already known under the new folder, which refuse the move
+             */
+            conflictCount: number;
+            conflictExamples: string[] | null;
+            /** @description A few of the places that move */
+            examples: components["schemas"]["RepointMovedPathBody"][] | null;
+            isCrossNode: boolean;
+            /** @description Each library that would list files it does not now, or stop listing some */
+            libraries: components["schemas"]["RepointLibraryBody"][] | null;
+            /** Format: int64 */
+            livePlaceCount: number;
+            /**
+             * Format: int64
+             * @description Places spelled like the folder in another Unicode form: another folder on disk, which stays
+             */
+            lookAlikeCount: number;
+            /** @description nothingToMove, sameFolder, targetNotReadable, targetHoldsKnown, libraryWouldNest, scanInProgress */
+            refusals: string[] | null;
+            /**
+             * Format: int64
+             * @description Places of files already removed, which move to keep their history
+             */
+            removedPlaceCount: number;
+            /** @description The library folders at or under the folder, which move with it */
+            roots: components["schemas"]["RepointRootBody"][] | null;
+            /** @description Why the new folder could not be listed, in the node's words */
+            targetFailure?: string;
+            /** @description The folders in the new folder, as its node lists them */
+            targetFolders: string[] | null;
+            /** @enum {string} */
+            targetState: "readable" | "notAnswering" | "missing" | "failed";
+        };
+        RepointRootBody: {
+            /** @description Whether the folder is in use; a retired one moves too */
+            isLive: boolean;
+            /** Format: int64 */
+            libraryId: number;
+            libraryName: string;
+            newPath: string;
             path: string;
         };
         ReportInputBody: {
@@ -7982,41 +8060,6 @@ export interface operations {
             };
         };
     };
-    repointLibraryRoot: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RepointInputBody"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RepointedOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
     retireLibraryRoot: {
         parameters: {
             query?: never;
@@ -9368,6 +9411,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LinkKindOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    repoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RepointInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepointedOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    previewRepoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RepointInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepointPreviewOutputBody"];
                 };
             };
             /** @description Error */

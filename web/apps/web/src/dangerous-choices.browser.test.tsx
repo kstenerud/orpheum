@@ -13,8 +13,24 @@ import { describe, expect, it } from "vitest";
 
 import { ConfirmDialog } from "./confirm-button.tsx";
 import { RepointDialog } from "./repoint-root.tsx";
-import { mount } from "./test-dom.tsx";
+import { buttonWithText, click, mount, servedBy, settleAnswers } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
+
+/** A dry run of a repoint that would move two files and refuses nothing. */
+const cleanReport = {
+  livePlaceCount: 2,
+  removedPlaceCount: 0,
+  examples: [],
+  roots: [],
+  libraries: [],
+  isCrossNode: false,
+  targetState: "readable",
+  targetFolders: [],
+  conflictCount: 0,
+  conflictExamples: [],
+  lookAlikeCount: 0,
+  refusals: [],
+};
 
 /** The choices of the open dialog's row, by what they say, its Close apart. */
 function choicesShown(): (string | null)[] {
@@ -58,13 +74,18 @@ describe("a dialog asking before a dangerous action (D421)", () => {
           onRepoint={() => undefined}
           onClose={() => undefined}
         />,
+        servedBy({ "POST /repoints/preview": [[200, cleanReport]] }),
       ),
     );
-    const row = choicesShown();
-    expect(row.indexOf("Keep it where it is")).toBeLessThan(row.indexOf("Use the new place"));
     await expect.poll(() => document.activeElement?.textContent).toBe("Keep it where it is");
     await aFrame();
     expect(document.activeElement?.textContent).toBe("Keep it where it is");
+    expect(choicesShown()).not.toContain("Use the new place");
+    await click(buttonWithText(document.body, "Check what moves"));
+    await settleAnswers();
+    const row = choicesShown();
+    expect(row.indexOf("Keep it where it is")).toBeGreaterThanOrEqual(0);
+    expect(row.indexOf("Keep it where it is")).toBeLessThan(row.indexOf("Use the new place"));
     mounted.unmount();
   });
 });

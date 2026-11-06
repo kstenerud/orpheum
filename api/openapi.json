@@ -5699,12 +5699,12 @@
             "type": "string"
           },
           "nodeName": {
-            "description": "The root's node",
+            "description": "The node the folder was on",
             "minLength": 1,
             "type": "string"
           },
           "path": {
-            "description": "The root's path",
+            "description": "The folder, by a clean absolute path: any folder, at any level",
             "minLength": 1,
             "type": "string"
           }
@@ -5717,15 +5717,208 @@
         ],
         "type": "object"
       },
-      "RepointedOutputBody": {
+      "RepointLibraryBody": {
         "properties": {
-          "movedFileCount": {
+          "gainsCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "libraryId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "libraryName": {
+            "type": "string"
+          },
+          "losesCount": {
             "format": "int64",
             "type": "integer"
           }
         },
         "required": [
-          "movedFileCount"
+          "libraryId",
+          "libraryName",
+          "losesCount",
+          "gainsCount"
+        ],
+        "type": "object"
+      },
+      "RepointMovedPathBody": {
+        "properties": {
+          "newPath": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "newPath"
+        ],
+        "type": "object"
+      },
+      "RepointPreviewOutputBody": {
+        "properties": {
+          "conflictCount": {
+            "description": "Places and library folders already known under the new folder, which refuse the move",
+            "format": "int64",
+            "type": "integer"
+          },
+          "conflictExamples": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "examples": {
+            "description": "A few of the places that move",
+            "items": {
+              "$ref": "#/components/schemas/RepointMovedPathBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "isCrossNode": {
+            "type": "boolean"
+          },
+          "libraries": {
+            "description": "Each library that would list files it does not now, or stop listing some",
+            "items": {
+              "$ref": "#/components/schemas/RepointLibraryBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "livePlaceCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "lookAlikeCount": {
+            "description": "Places spelled like the folder in another Unicode form: another folder on disk, which stays",
+            "format": "int64",
+            "type": "integer"
+          },
+          "refusals": {
+            "description": "nothingToMove, sameFolder, targetNotReadable, targetHoldsKnown, libraryWouldNest, scanInProgress",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "removedPlaceCount": {
+            "description": "Places of files already removed, which move to keep their history",
+            "format": "int64",
+            "type": "integer"
+          },
+          "roots": {
+            "description": "The library folders at or under the folder, which move with it",
+            "items": {
+              "$ref": "#/components/schemas/RepointRootBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "targetFailure": {
+            "description": "Why the new folder could not be listed, in the node's words",
+            "type": "string"
+          },
+          "targetFolders": {
+            "description": "The folders in the new folder, as its node lists them",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "targetState": {
+            "enum": [
+              "readable",
+              "notAnswering",
+              "missing",
+              "failed"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "livePlaceCount",
+          "removedPlaceCount",
+          "examples",
+          "roots",
+          "libraries",
+          "isCrossNode",
+          "targetState",
+          "targetFolders",
+          "conflictCount",
+          "conflictExamples",
+          "lookAlikeCount",
+          "refusals"
+        ],
+        "type": "object"
+      },
+      "RepointRootBody": {
+        "properties": {
+          "isLive": {
+            "description": "Whether the folder is in use; a retired one moves too",
+            "type": "boolean"
+          },
+          "libraryId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "libraryName": {
+            "type": "string"
+          },
+          "newPath": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "libraryId",
+          "libraryName",
+          "path",
+          "newPath",
+          "isLive"
+        ],
+        "type": "object"
+      },
+      "RepointedOutputBody": {
+        "properties": {
+          "livePlaceCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "removedPlaceCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "rootCount": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "livePlaceCount",
+          "removedPlaceCount",
+          "rootCount"
         ],
         "type": "object"
       },
@@ -13574,64 +13767,6 @@
         "x-orpheum-capability": "admin"
       }
     },
-    "/libraries/{id}/roots/repoint": {
-      "post": {
-        "operationId": "repointLibraryRoot",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": "integer"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RepointInputBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RepointedOutputBody"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "security": [
-          {
-            "session": []
-          }
-        ],
-        "summary": "Say a root moved: it and its files take the new path with their history, and a scan confirms each (D241 §6)",
-        "tags": [
-          "Libraries"
-        ],
-        "x-orpheum-capability": "admin"
-      }
-    },
     "/libraries/{id}/roots/retire": {
       "post": {
         "operationId": "retireLibraryRoot",
@@ -15570,6 +15705,100 @@
           "Users"
         ],
         "x-orpheum-capability": "none"
+      }
+    },
+    "/repoints": {
+      "post": {
+        "operationId": "repoint",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RepointInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepointedOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Say a folder moved: everything known under it takes the new path with its history, and a scan confirms each file (D429)",
+        "tags": [
+          "Libraries"
+        ],
+        "x-orpheum-capability": "admin"
+      }
+    },
+    "/repoints/preview": {
+      "post": {
+        "operationId": "previewRepoint",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RepointInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepointPreviewOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "What saying a folder moved would do, and why it would be refused; changes nothing (D429)",
+        "tags": [
+          "Libraries"
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/roles": {

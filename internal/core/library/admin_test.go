@@ -18,10 +18,12 @@ import (
 	"github.com/kstenerud/orpheum/internal/store"
 )
 
-// fakeNodes is the node channel with one connected node, "local", that named its roots.
+// fakeNodes is the node channel with one connected node, "local", that named its roots, and any others.
 type fakeNodes struct {
 	id    int64
 	roots []string
+	// others are other connected nodes by name, each with roots, and what was asked to scan on them.
+	others map[string]*fakeNodes
 	// scanned are the roots a person asked to scan.
 	scanned []string
 	// scopes are the folders a person asked to scan, as root:folder.
@@ -77,6 +79,9 @@ func (work *fakeWork) CancelRetired(_ context.Context, retired jobs.RetiredWork)
 }
 
 func (nodes *fakeNodes) ConnectedNodeRoots(_ context.Context, name string) (int64, []string, bool) {
+	if other, isOther := nodes.others[name]; isOther {
+		return other.id, other.roots, true
+	}
 	if name != "local" {
 		return 0, nil, false
 	}
@@ -87,7 +92,12 @@ func (nodes *fakeNodes) InProgress(context.Context) (map[ScanRoot]ScanProgress, 
 	return nodes.scanning, nil
 }
 
-func (nodes *fakeNodes) Request(_ context.Context, nodeID int64, root string, priority int64) error {
+func (nodes *fakeNodes) Request(ctx context.Context, nodeID int64, root string, priority int64) error {
+	for _, other := range nodes.others {
+		if other.id == nodeID {
+			return other.Request(ctx, nodeID, root, priority)
+		}
+	}
 	if nodeID == nodes.id && priority == jobs.PriorityPersonsRequest {
 		nodes.scanned = append(nodes.scanned, root)
 	}

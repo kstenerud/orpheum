@@ -52,6 +52,22 @@ function askedPaths(heard: readonly Heard[]): string[] {
     .map((each) => new URLSearchParams(each.query).get("path") ?? "");
 }
 
+/** A dry run of a repoint that would move two files and refuses nothing. */
+const cleanReport = {
+  livePlaceCount: 2,
+  removedPlaceCount: 0,
+  examples: [],
+  roots: [],
+  libraries: [],
+  isCrossNode: false,
+  targetState: "readable",
+  targetFolders: [],
+  conflictCount: 0,
+  conflictExamples: [],
+  lookAlikeCount: 0,
+  refusals: [],
+};
+
 const starts: readonly Place[] = [{ nodeName: "nas", path: "/tank/media" }];
 
 describe("choosing a library folder (D359)", () => {
@@ -263,13 +279,14 @@ describe("choosing a library folder (D359)", () => {
     expect(added).toEqual([{ nodeName: "nas", path: "/tank/media/anime" }]);
   });
 
-  it("moves a folder to one chosen inside a root, once confirmed (D241 §6, D359 §3)", async () => {
+  it("moves a folder to one chosen inside a root, once checked and confirmed (D429 §2, D359 §3)", async () => {
     const moves: Place[] = [];
     const services = servedBy({
       "GET /nodes/nas/folders": [
         readable("/tank/media", ["films"]),
         readable("/tank/media/films", []),
       ],
+      "POST /repoints/preview": [[200, cleanReport]],
     });
     mounted = await mount(
       withServices(
@@ -294,6 +311,8 @@ describe("choosing a library folder (D359)", () => {
     expect(options).toEqual(["nas: /tank/media", "nas: /tank/media/films"]);
     await choose(mounted.container.querySelector("select"), "1");
     expect(moves).toEqual([]);
+    await click(buttonWithText(mounted.container, "Check what moves"));
+    await settleAnswers();
     await click(buttonWithText(mounted.container, "Use the new place"));
     expect(moves).toEqual([{ nodeName: "nas", path: "/tank/media/films" }]);
   });

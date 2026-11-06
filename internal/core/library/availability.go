@@ -84,6 +84,21 @@ func forgetRootPlaces(ctx context.Context, queries *sqlcgen.Queries, nodeID int6
 	return nil
 }
 
+// forgetPlacesAtOrUnder forgets the availability of every place at or under a repointed folder, or of
+// a root inside it (path and its text range, as library.PathRange gives it): the scan of the new place
+// finds it again.
+func forgetPlacesAtOrUnder(
+	ctx context.Context, queries *sqlcgen.Queries, nodeID int64, folder, after, before string,
+) error {
+	err := queries.ForgetUnavailablePlacesAtOrUnder(ctx, sqlcgen.ForgetUnavailablePlacesAtOrUnderParams{
+		NodeID: nodeID, RootPath: folder, After: after, Before: before,
+	})
+	if err != nil {
+		return fmt.Errorf("forget the availability of the places under %s on node %d: %w", folder, nodeID, err)
+	}
+	return nil
+}
+
 // isPlaceUnavailable is whether a place cannot be read now.
 func isPlaceUnavailable(ctx context.Context, queries *sqlcgen.Queries, nodeID int64, path string) (bool, error) {
 	_, err := store.OrNotFound(queries.GetUnavailablePlaceSince(ctx, sqlcgen.GetUnavailablePlaceSinceParams{

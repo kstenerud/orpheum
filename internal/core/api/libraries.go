@@ -250,6 +250,7 @@ func (server *Server) registerLibraries() {
 	server.registerLibraryRetirements(tags)
 	server.registerRescans()
 	server.registerLibraryFolders()
+	server.registerRepoints()
 }
 
 // registerLibraryRetirements registers what removes or moves a library's roots, files and nodes.
@@ -271,12 +272,6 @@ func (server *Server) registerLibraryRetirements(tags []string) {
 		Summary:    "Retire a root for good: its files become tombstones and their work is cancelled (D231 §7)",
 		Extensions: callableBy(capabilityAdmin),
 	}, server.retireLibraryRoot)
-	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "repointLibraryRoot", Method: http.MethodPost, Path: "/libraries/{id}/roots/repoint",
-		Tags:       tags,
-		Summary:    "Say a root moved: it and its files take the new path with their history, and a scan confirms each (D241 §6)", //nolint:lll // one summary
-		Extensions: callableBy(capabilityAdmin),
-	}, server.repointLibraryRoot)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "retireFile", Method: http.MethodPost, Path: "/files/{id}/retire", Tags: tags,
 		Summary:    "Retire one file that cannot be read now: it becomes a tombstone, its history kept (D241 §5)",
@@ -487,46 +482,6 @@ func (server *Server) retireLibraryRoot(ctx context.Context, input *RootActionIn
 		return nil, server.libraryError(ctx, "retire a root", err)
 	}
 	return retiredOutput(retired), nil
-}
-
-// RepointInput names a root of a library, by node and path, and where it is now.
-type RepointInput struct {
-	AuthorizationHeader
-	ID   int64 `path:"id"`
-	Body struct {
-		NodeName    string `doc:"The root's node" json:"nodeName" minLength:"1"`
-		Path        string `doc:"The root's path" json:"path" minLength:"1"`
-		NewNodeName string `doc:"The node it is on now: the same, or another" json:"newNodeName" minLength:"1"`
-		NewPath     string `doc:"Where it is now: one of that node's configured roots, or a folder inside one" json:"newPath" minLength:"1"` //nolint:lll // one struct tag
-	}
-}
-
-// RepointedOutput says how many files a repoint moved.
-type RepointedOutput struct {
-	Body struct {
-		// MovedFileCount is how many live files took the new path; the next scan confirms each.
-		MovedFileCount int `json:"movedFileCount"`
-	}
-}
-
-func (server *Server) repointLibraryRoot(ctx context.Context, input *RepointInput) (*RepointedOutput, error) {
-	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
-	if err != nil {
-		return nil, err
-	}
-	repointed, err := dependencies.Libraries.RepointRoot(ctx, library.Repoint{
-		LibraryID: input.ID, NodeName: input.Body.NodeName, Path: input.Body.Path,
-		NewNodeName: input.Body.NewNodeName, NewPath: input.Body.NewPath,
-	})
-	if errors.Is(err, library.ErrNotANodeRoot) || errors.Is(err, library.ErrRootCovered) {
-		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "body.newPath", err.Error())
-	}
-	if err != nil {
-		return nil, server.libraryError(ctx, "repoint a root", err)
-	}
-	output := &RepointedOutput{}
-	output.Body.MovedFileCount = repointed.MovedFileCount
-	return output, nil
 }
 
 func (server *Server) retireFile(ctx context.Context, input *ItemInput) (*RetiredOutput, error) {
