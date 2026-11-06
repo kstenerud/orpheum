@@ -148,7 +148,12 @@ describe("the This device page", () => {
     };
     expect((await drawnWith(true))?.textContent).toBe("Device tests");
     expect(mounted?.container.textContent).toContain("For testers");
+    // The sound timing test sets this device's sound offset: a link of its own (the owner, 2026-11-06).
+    expect(mounted?.container.querySelector('a[href="/lab/sound"]')?.textContent).toBe(
+      "Sound timing test",
+    );
     expect(await drawnWith(false)).toBeNull();
+    expect(mounted?.container.querySelector('a[href="/lab/sound"]')).toBeNull();
     expect(mounted?.container.textContent).not.toContain("For testers");
     expect(await drawnWith(undefined)).toBeNull();
   });

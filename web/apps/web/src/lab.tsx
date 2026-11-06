@@ -10,6 +10,7 @@ import { LabDevice } from "./lab-device.tsx";
 import { LabExtend } from "./lab-extend.tsx";
 import { LabInput } from "./lab-input.tsx";
 import { LabRemote } from "./lab-remote.tsx";
+import { LabSound } from "./lab-sound.tsx";
 import { LabThroughput } from "./lab-throughput.tsx";
 import { Link } from "./link.tsx";
 import { DeviceTestsOfferedContext } from "./lab-offered.ts";
@@ -17,7 +18,8 @@ import { routeHref, type LabPage } from "./router.ts";
 
 /**
  * The device lab (plans/tv-device-tests.md): a menu of probes, each run on a device to settle how
- * casting, extending, a phone's remote and a TV's controller input are built, and a way to the UI
+ * casting, extending, a phone's remote and a TV's controller input are built, the sound timing test,
+ * which finds and keeps the device's sound offset, and a way to the UI
  * gallery, to see the toolkit's widgets on the device. Reached at /lab, a
  * few presses on a TV's remote, or by Device tests in the menu. Only while the server offers the
  * tests (should_offer_device_tests): off, every page says so in place of its probe, and nothing
@@ -47,6 +49,8 @@ function LabProbe(props: { readonly probe: LabPage | undefined }): JSX.Element {
       return <LabDevice />;
     case "input":
       return <LabInput />;
+    case "sound":
+      return <LabSound />;
     case "remote":
       return <LabRemote />;
     case "extend":
@@ -67,7 +71,14 @@ function LabProbe(props: { readonly probe: LabPage | undefined }): JSX.Element {
  */
 function LabMenu(): JSX.Element {
   const { t } = useTranslation();
-  const inPlace: readonly LabPage[] = ["device", "input", "remote", "extend", "throughput"];
+  const inPlace: readonly LabPage[] = [
+    "device",
+    "input",
+    "sound",
+    "remote",
+    "extend",
+    "throughput",
+  ];
   return (
     <section className="lab" aria-labelledby="lab-heading">
       <h1 id="lab-heading">{t("lab.heading")}</h1>

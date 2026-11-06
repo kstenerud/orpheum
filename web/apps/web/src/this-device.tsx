@@ -51,7 +51,8 @@ function ControllerChoice(): JSX.Element {
 /**
  * The device lab's tests, while the server offers them (DeviceTestsOfferedContext): a test is of the
  * device in hand, so they are this page's, not the menu's, which they crowded for everyone else
- * (ui-audit-2026-11-04.md Q8, the owner's answer: "For testers").
+ * (ui-audit-2026-11-04.md Q8, the owner's answer: "For testers"). The sound timing test is a link
+ * of its own, as it sets this device's sound offset (the owner, 2026-11-06).
  */
 function DeviceTests(): JSX.Element | null {
   const { t } = useTranslation();
@@ -63,6 +64,11 @@ function DeviceTests(): JSX.Element | null {
       <h2>{t("thisDevice.deviceTests.heading")}</h2>
       <p>
         <Link to={{ screen: "lab" }}>{t("thisDevice.deviceTests.open")}</Link>
+      </p>
+      <p>
+        <Link to={{ screen: "lab", probe: "sound" }}>
+          {t("thisDevice.deviceTests.soundTiming")}
+        </Link>
       </p>
     </>
   );

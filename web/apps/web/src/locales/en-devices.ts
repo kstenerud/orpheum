@@ -16,6 +16,7 @@ export const enDevices = {
     deviceTests: {
       heading: "For testers",
       open: "Device tests",
+      soundTiming: "Sound timing test",
     },
     controller: {
       heading: "Game controller",

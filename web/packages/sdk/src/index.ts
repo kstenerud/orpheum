@@ -294,6 +294,7 @@ export {
   playerMovedItselfEvent,
   playerMovedSoundEvent,
   playerSwitchedQualityEvent,
+  soundMovedOf,
 } from "./together-player-events.ts";
 export { PlaybackTold } from "./together-leader.ts";
 export type {

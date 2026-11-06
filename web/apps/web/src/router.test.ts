@@ -48,6 +48,7 @@ describe("parseRoute and routeHref", () => {
       { screen: "lab" },
       { screen: "lab", probe: "device" },
       { screen: "lab", probe: "input" },
+      { screen: "lab", probe: "sound" },
       { screen: "lab", probe: "remote" },
       { screen: "lab", probe: "extend" },
       { screen: "lab", probe: "cast" },
