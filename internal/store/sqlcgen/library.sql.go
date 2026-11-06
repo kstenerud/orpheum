@@ -197,33 +197,6 @@ func (q *Queries) InsertLibraryRoot(ctx context.Context, arg InsertLibraryRootPa
 	return err
 }
 
-const insertSystemLibrary = `-- name: InsertSystemLibrary :exec
-INSERT INTO system_library (kind, library_id) VALUES ('system', ?1)
-`
-
-// Marks a library as the server's system library: one per server, by its kind (D435 section 1).
-func (q *Queries) InsertSystemLibrary(ctx context.Context, libraryID int64) error {
-	_, err := q.db.ExecContext(ctx, insertSystemLibrary, libraryID)
-	return err
-}
-
-const isFileInSystemLibrary = `-- name: IsFileInSystemLibrary :one
-SELECT CAST(EXISTS (
-  SELECT 1 FROM system_library
-  JOIN library_place ON library_place.library_id = system_library.library_id
-  WHERE library_place.file_id = CAST(?1 AS INTEGER)
-) AS INTEGER) AS is_system
-`
-
-// Whether the system library covers a live place of a file: one a feature plays for whoever asked
-// for it by what it is (D435 section 6).
-func (q *Queries) IsFileInSystemLibrary(ctx context.Context, fileID int64) (int64, error) {
-	row := q.db.QueryRowContext(ctx, isFileInSystemLibrary, fileID)
-	var is_system int64
-	err := row.Scan(&is_system)
-	return is_system, err
-}
-
 const listCheckedRoots = `-- name: ListCheckedRoots :many
 SELECT DISTINCT library_root.node_id, library_root.root_path, library.change_detection,
   library.check_every_hours, root_state.last_scan_at
