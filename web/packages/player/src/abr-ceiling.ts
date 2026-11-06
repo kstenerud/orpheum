@@ -385,7 +385,10 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
    * arriving is a sample of the link, hls.js's estimator fed it too, and lowers the ceiling to that
    * quality; one stuck is no sample, and lowers the ceiling while starting only as far as the
    * estimate then carries, as a stall does (bandwidth-sampling-2026-10-29.md P3): a stuck transport
-   * is not a slow link, and a lower quality's chunk travels it no better.
+   * is not a slow link, and a lower quality's chunk travels it no better. hls.js's estimator takes
+   * the sample's own time, from its first piece, as a loaded chunk's is from its first byte
+   * (arrivalMs): timed from its ask, the wait for its first byte counted, a chunk long answered read
+   * the link slower than its bytes came (code debt, 2026-10-27).
    */
   #giveUp(judged: JudgedChunk<Chunk>): void {
     const { chunk } = judged;
@@ -395,7 +398,7 @@ export class QualityCeiling<Chunk extends FollowedChunk> {
     const nowMs = this.#options.monotonicMs();
     const sample = givenUpSample({ ...judged, level: chunk.level });
     if (sample !== undefined) {
-      this.#link.measureGivenUp(sample.firstByteMs + sample.arrivedMs, sample.bytes);
+      this.#link.measureGivenUp(sample.arrivedMs, sample.bytes);
       this.sample(sample);
     }
     const chosen = this.#givenUpLevel(chunk.level);
