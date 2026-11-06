@@ -2704,3 +2704,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   (one not played with levelling on before). Passes when the film starts by itself with sound within
   a few seconds, and the core's log shows no "planned no run of chunks: no player wants one" for its
   sound stream. (`web/apps/web/src/interest.ts`, `web/apps/web/src/start-refused.ts`)
+- [ ] **VQ272** — a film the browser refuses to start says so in the core's log, with the page's press
+  and full screen at that moment. Only a device whose browser refuses shows it: no test browser here
+  refuses a start the player asks for. Seen once already: the owner's TCL TV in TV Bro on staging,
+  2026-11-06, before VQ270's fix, logged "the browser refused to start a film (NotAllowedError …);
+  pressLive=false … fullScreen=true", which found that cause. Passes when, on a device that refuses a
+  start (a WebView with autoplay needing a press, opened without one), the core's log has that line
+  with the press's age (`lastPress=… ms ago`) after the page saw a press. (`web/apps/web/src/start-refused.ts`,
+  `web/apps/web/src/film-player.tsx`, `web/apps/web/src/client-main.tsx`)

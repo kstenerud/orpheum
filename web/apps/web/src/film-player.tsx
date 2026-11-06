@@ -363,7 +363,7 @@ function showControls(
  * the browser plays at canplay, and a Fire TV's cast, resumed with 1.4 s loaded, ran dry and stalled
  * (the owner, 2026-10-28). It loads ahead meanwhile, as an autoplaying video does. A play the
  * browser refuses for want of a press leaves it paused, as it left an autoplaying one, and tells the
- * core's log (noteIfStartRefused); a session
+ * core's log (noteIfStartRefused, VQ272); a session
  * this video leads plays it its own way, muted if it must (together-follow.ts).
  */
 function useStartsWithEnoughAhead(
