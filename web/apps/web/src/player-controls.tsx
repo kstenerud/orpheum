@@ -2,6 +2,7 @@
 
 import "./player-controls.css";
 
+import { heardVolumeOf, setHeardVolume } from "@orpheum/player";
 import {
   useCallback,
   useEffect,
@@ -445,7 +446,8 @@ function useVideoSound(videoRef: RefObject<HTMLVideoElement | null>): PlayerSoun
       return undefined;
     }
     const read = (): void => {
-      setHeard({ volume: video.volume, isMuted: video.muted });
+      // The volume the person set, not the element's, which a lowering by levelling is in (D436).
+      setHeard({ volume: heardVolumeOf(video), isMuted: video.muted });
     };
     // Read at each change: a video starts at full volume, unmuted (film-player.tsx).
     video.addEventListener("volumechange", read);
@@ -459,7 +461,7 @@ function useVideoSound(videoRef: RefObject<HTMLVideoElement | null>): PlayerSoun
     setVolume: (volume) => {
       const video = videoRef.current;
       if (video !== null) {
-        video.volume = Math.min(1, Math.max(0, volume));
+        setHeardVolume(video, volume);
       }
     },
     setMuted: (isMuted) => {

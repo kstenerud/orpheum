@@ -26554,3 +26554,40 @@ should show them and offer a rebuild."
    for a changed recipe or a damaged file.
 
 **Status:** Decided 2026-11-06.
+
+## D436 — A film playing its own file takes no Web Audio for levelling on a device whose Web Audio is late: a lowering is the element's volume, a raise is the server's
+
+**Decided** (2026-11-06), by the project owner, on the owner's TCL TV, whose levelled films played
+their sound 400–500 ms behind the picture while the device lab's clips, levelled by no Web Audio,
+played in step: of the options (a) leave it to the person's sound offset, (b) take no Web Audio
+where it is late, and (c) always level on the server, "go with B for that". It amends D226 §4, where
+the player applied every gain after its volume through Web Audio, and adds a cause to D336 §3's move.
+
+It is for a film playing its own file alone. A chunked playback, from the film's ladder, keeps Web
+Audio on every device: its sound's own chunks are moved earlier by the latency the device remembers
+(`audio-shift.ts`, the Fire TV, 2026-10-28), which compensates the lag already; an own file has no
+chunks of its sound to move, and it is where the lag was heard (the plan's finding, (1) "a film
+playing its own file with levelling on").
+
+1. **The bound is 100 ms of kept Web Audio latency** (`webAudioLateAboveMs`, `@orpheum/player`'s
+   `gain.ts`), the device's own measure as `sound-latency.ts` keeps it. The owner's plan said "say
+   100 ms"; the number is the builder's, for the owner to confirm. The evidence: the TCL TV keeps
+   336–426 ms and the Fire TV 331–347 ms, while desktop browsers keep tens of milliseconds; sound
+   late by more than about 125 ms is noticed (ITU-R BT.1359-1), so 100 ms leaves every device seen
+   on its side with room, and the Fire TV falls over it too.
+2. **Over the bound, an own file's lowering is the element's own volume.** The player multiplies the person's
+   volume by the gain, and every page that shows or steps the volume (the bar, the slider, + and −,
+   the tab's film volume) reads and sets the volume the person chose, not the element's, so the
+   lowering is never taken for the person's choice.
+3. **Over the bound, an own file's raise is the server's.** An element's volume cannot pass 1, so the client
+   says `isWebAudioLate` with each start, and the core decides a film it would play as its own file, whose levelling raises it,
+   onto its ladder, for the reason `levelling_raise`, whose sound carries the gain (D226 §4, D368
+   §1). A film measured or levelling turned on mid-film moves to its ladder by D336 §3's move, the
+   cause `raiseWanted` beside `boostChosen`, once per film on a page. A film with no ladder plays as
+   its own file, unraised, rather than refused.
+4. **A device not yet measured levels through Web Audio**, and so measures it: its first levelled
+   film learns the latency, and every film after follows the bound.
+5. **A sound offset that delays the sound still uses Web Audio**, as before; it is the person's own
+   correction and is unchanged here.
+
+**Status:** Decided 2026-11-06. Device check: VQ273.

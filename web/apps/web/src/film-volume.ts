@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { heardVolumeOf, setHeardVolume } from "@orpheum/player";
 import { useSyncExternalStore } from "react";
 
 /**
@@ -43,11 +44,11 @@ export function useFilmVolume(): number {
  */
 export function followFilmVolume(video: HTMLVideoElement): () => void {
   const apply = (): void => {
-    // eslint-disable-next-line no-param-reassign -- following the tab's volume is the function's job
-    video.volume = tabFilmVolume;
+    setHeardVolume(video, tabFilmVolume);
   };
   const taken = (): void => {
-    setFilmVolume(video.volume);
+    // The volume the person set, not the element's, which a lowering by levelling is in (D436).
+    setFilmVolume(heardVolumeOf(video));
   };
   apply();
   const unsubscribe = subscribe(apply);

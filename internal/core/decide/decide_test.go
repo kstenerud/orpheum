@@ -242,6 +242,24 @@ func TestDecide_TheBoostPreparesOnlyASourceWithACentre(t *testing.T) {
 	}
 }
 
+// A sound levelling raises, on a device whose sound through Web Audio lags past D436's bound, is the
+// server's to raise: the film leaves its own file for its ladder, whose sound carries the gain; a
+// film with no sound has nothing to raise (D436, D336 §3).
+func TestDecide_ARaiseTheDeviceCannotMakeIsTheServers(t *testing.T) {
+	t.Parallel()
+	mp4 := probeOf("mp4", videoStream("h264", "High", "yuv420p", ""), audioStream("aac", "LC", 2))
+	got := decide.Decide(decide.Input{Probe: mp4, PlayableFormats: browser, IsRaiseTheServers: true})
+	raise := []decide.Reason{decide.ReasonLevellingRaise}
+	if got.Profile != decide.Remux || !slices.Equal(got.NotDirectReasons, raise) {
+		t.Errorf("a raise the device leaves to the server: %+v, want remux for levelling_raise", got)
+	}
+	silent := probeOf("mp4", videoStream("h264", "High", "yuv420p", ""))
+	got = decide.Decide(decide.Input{Probe: silent, PlayableFormats: browser, IsRaiseTheServers: true})
+	if got.Delivery != decide.Direct {
+		t.Errorf("a film with no sound: %+v, want direct: there is nothing to raise", got)
+	}
+}
+
 func TestDecide_APersonsChoiceWins(t *testing.T) {
 	t.Parallel()
 	mkv := probeOf("matroska", videoStream("h264", "High", "yuv420p", ""), audioStream("truehd", "", 8))

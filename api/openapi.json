@@ -7595,6 +7595,7 @@
               "audioChosen",
               "originalChosen",
               "boostChosen",
+              "raiseWanted",
               "playbackGone",
               "ownPictureGivenUp",
               "mediaBack",
@@ -7609,6 +7610,10 @@
           },
           "hasGivenUpOwnPicture": {
             "description": "Whether the player gave the film's own picture up as unplayable here",
+            "type": "boolean"
+          },
+          "isWebAudioLate": {
+            "description": "Whether this device's sound through Web Audio plays later than D436's bound, so its player raises no sound itself",
             "type": "boolean"
           },
           "pageStarts": {
@@ -7677,6 +7682,7 @@
                 "audio_codec",
                 "bandwidth",
                 "dialogue_boost",
+                "levelling_raise",
                 "audio_track",
                 "user_choice"
               ],

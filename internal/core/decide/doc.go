@@ -51,6 +51,10 @@
 //     a sound of more than two channels converts it, for dialogue_boost; a stereo sound has no centre
 //     to raise (D336 §1, §2). Enforced by TestDecide_TheBoostPreparesOnlyASourceWithACentre.
 //
+//   - A sound levelling raises, on a device whose sound through Web Audio lags past D436's bound,
+//     is converted for levelling_raise: its ladder's sound carries the raise (D436). Enforced by
+//     TestDecide_ARaiseTheDeviceCannotMakeIsTheServers.
+//
 //   - Every switch over a codec, container or reason names every value; a new codec breaks each
 //     switch that does not handle it. Enforced by exhaustive (default-signifies-exhaustive:
 //     false).

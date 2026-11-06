@@ -9,7 +9,15 @@
  * menu that opens only when asked, or a receiver that draws none, needs (D407 §8).
  */
 
-import { createContext, use, useMemo, type JSX, type ReactNode, type RefObject } from "react";
+import {
+  createContext,
+  use,
+  useMemo,
+  useState,
+  type JSX,
+  type ReactNode,
+  type RefObject,
+} from "react";
 
 import { useAudioChoice, type AudioChoice, type AudioTrack } from "./audio-tracks.tsx";
 import type { FilmParts } from "./film-player.tsx";
@@ -22,10 +30,15 @@ import {
   useOwnTrackChoice,
 } from "./ladder-sound.ts";
 import type { FileWait } from "./file-waits.ts";
-import { useLevelGain, useMeasuredLevel, type SoundLevel } from "./levelling.tsx";
+import {
+  useLevelGain,
+  useMeasuredLevel,
+  useRaiseLeftToTheLadder,
+  type SoundLevel,
+} from "./levelling.tsx";
 import { useOwnChoice, type OwnChoiceState, type OwnChoiceWays } from "./sound.tsx";
 import { useSubtitleChoice, type SubtitleChoice } from "./subtitles.tsx";
-import type { PlaybackDecision } from "./watching.ts";
+import { playsOwnFile, type PlaybackDecision } from "./watching.ts";
 
 /** The film's tracks and sound as they stand, and the ways to change them. */
 export interface PlayerTracks {
@@ -63,6 +76,11 @@ export interface FilmTracks {
   readonly onAudioChosen: (track: AudioTrack, isBoostOn: boolean) => void;
   /** The boost: how it starts and what its switching does, and whether the sound offers it. */
   readonly boost: OwnChoiceWays & { readonly isOffered: boolean };
+  /**
+   * Asks for the film again, onto its ladder, where levelling raises its sound and the device's Web
+   * Audio is too late to (D436); undefined where the sound playing is the ladder's already.
+   */
+  readonly onRaiseLeftToTheLadder?: () => void;
   readonly children: ReactNode;
 }
 
@@ -87,13 +105,20 @@ export function PlayerTracksProvider(props: FilmTracks): JSX.Element {
       props.onAudioChosen(track, boost.isOn);
     },
   });
+  // Levelling as the server keeps it, which a playback asked for again is decided by.
+  const [isLevellingKept, setIsLevellingKept] = useState(decision.preferences.isLevellingOn);
   const levelling = useOwnChoice("isLevellingOn", {
     isInitiallyOn: decision.preferences.isLevellingOn,
     onSwitched: () => undefined,
+    onKept: setIsLevellingKept,
   });
   const playing = audio.tracks.find((track) => track.streamId === audio.chosenStreamId);
   const { level, measuring } = useMeasuredLevel(fileId, props.level, playing?.audioTrackIndex);
-  useLevelGain(level, levelling.isOn, videoRef);
+  useLevelGain(level, levelling.isOn, { videoRef, isOwnFile: playsOwnFile(decision) });
+  useRaiseLeftToTheLadder(fileId, level, {
+    isLevellingKept,
+    askAgain: props.onRaiseLeftToTheLadder,
+  });
   const { isOffered } = props.boost;
   const tracks = useMemo(
     () => ({ subtitles, audio, levelling, level, measuring, boost: isOffered ? boost : undefined }),
@@ -121,7 +146,11 @@ interface FilmOf {
  */
 export function OwnFileTracks(
   props: FilmOf & {
-    readonly askAgain: { readonly audio: () => void; readonly boost: () => void };
+    readonly askAgain: {
+      readonly audio: () => void;
+      readonly boost: () => void;
+      readonly raise: () => void;
+    };
   },
 ): JSX.Element {
   const { decision, askAgain } = props;
@@ -144,6 +173,7 @@ export function OwnFileTracks(
         onAudioChosen(track);
       }}
       boost={boost}
+      onRaiseLeftToTheLadder={askAgain.raise}
     />
   );
 }

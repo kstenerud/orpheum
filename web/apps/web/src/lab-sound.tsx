@@ -91,7 +91,7 @@ function SoundTimingClip(props: { readonly isLevelled: boolean }): JSX.Element {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   useClipSound(videoRef);
-  useLevelGain(testLevel, props.isLevelled, videoRef);
+  useLevelGain(testLevel, props.isLevelled, { videoRef });
   useDrawnPicture(videoRef, panelRef);
   return (
     <>

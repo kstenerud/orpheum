@@ -51,7 +51,7 @@ import { useServices } from "./services.tsx";
 import { noteIfStartRefused } from "./start-refused.ts";
 import { playingPicture, TracksNote, type PlayingSound } from "./tracks-note.tsx";
 import { monotonicMs } from "./use-together.ts";
-import { isStartThePages, type PlaybackDecision } from "./watching.ts";
+import { isStartThePages, playsOwnFile, type PlaybackDecision } from "./watching.ts";
 import type { SoundLevel } from "./levelling.tsx";
 
 /**
@@ -144,9 +144,7 @@ export function deliveryOf(
   decision: PlaybackDecision,
   moved: MovedDown | undefined,
 ): PlaybackReport["delivery"] {
-  return decision.delivery === "direct" && decision.onLadder === undefined && moved === undefined
-    ? "direct"
-    : "converted";
+  return playsOwnFile(decision) && moved === undefined ? "direct" : "converted";
 }
 
 /**

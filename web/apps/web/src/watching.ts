@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { diagnosisOf, playChunked } from "@orpheum/player";
+import { diagnosisOf, isWebAudioLate, playChunked } from "@orpheum/player";
 import type { Api, components, PlayableFormats } from "@orpheum/sdk";
 
 import { browserStorage } from "./browser-storage.ts";
@@ -8,10 +8,16 @@ import { startOn, type LadderOffer } from "./moving-down.ts";
 import { noteDecisionTimes } from "./play-state-video-events.ts";
 import { leavePlayback } from "./interest.ts";
 import { dataOrThrow } from "./problem.ts";
+import { soundLatencyMemory } from "./sound-latency.ts";
 import { monotonicMs } from "./use-together.ts";
 
 /** The server's decision on how a file plays here (cut-a §6). */
 export type PlaybackDecision = components["schemas"]["StartPlaybackOutputBody"];
+
+/** Whether decision plays the film's own file, as it is, rather than chunks of its ladder. */
+export function playsOwnFile(decision: PlaybackDecision): boolean {
+  return decision.delivery === "direct" && decision.onLadder === undefined;
+}
 
 /**
  * Why a page asks the server for a playback, for the server's log alone: a phone's playback started
@@ -50,6 +56,9 @@ export async function requestPlayback(
         pageStarts: pageStarts.count,
         // Its player gave the film's own picture up, which the core keeps before it decides (D323 §2).
         ...(asked.cause === "ownPictureGivenUp" ? { hasGivenUpOwnPicture: true } : {}),
+        // This device's sound through Web Audio plays too late to raise a sound by: a raise levelling
+        // wants is its ladder's sound's (D436).
+        ...(isWebAudioLate(soundLatencyMemory()) ? { isWebAudioLate: true } : {}),
         // The person chose the film's own file over its ladder.
         ...(asked.cause === "originalChosen" ? { preferredDelivery: "direct" as const } : {}),
         ...(asked.startsAtMs === undefined ? {} : { startsAtMs: Math.round(asked.startsAtMs) }),

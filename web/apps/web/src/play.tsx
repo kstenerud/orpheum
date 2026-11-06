@@ -74,7 +74,7 @@ import {
   useSequenceCommands,
   useUpNextOffered,
 } from "./up-next.tsx";
-import type { PlaybackDecision } from "./watching.ts";
+import { playsOwnFile, type PlaybackDecision } from "./watching.ts";
 
 /** What PlayView is given: the file, its decision, and its ways to ask again. */
 interface PlayViewProps {
@@ -123,7 +123,7 @@ export function PlayView(props: PlayViewProps): JSX.Element {
     setIsBare(true);
   }, []);
   const { decision } = props;
-  const isOwnFile = decision.delivery === "direct" && decision.onLadder === undefined;
+  const isOwnFile = playsOwnFile(decision);
   if (isBare && isOwnFile) {
     return (
       <BarePlayer
@@ -517,6 +517,7 @@ function PlayTracksOfPage(props: FilmParts & { readonly children: ReactNode }): 
     const askAgain = {
       audio: decideAgainFor(asked, "audioChosen"),
       boost: decideAgainFor(asked, "boostChosen"),
+      raise: decideAgainFor(asked, "raiseWanted"),
     };
     return (
       <OwnFileTracks {...film} askAgain={askAgain}>
