@@ -212,14 +212,14 @@ class OrpheumAbrController extends AbrController {
       data.details !== ErrorDetails.BUFFER_SEEK_OVER_HOLE ||
       !data.fatal ||
       media === null ||
-      !choosing.canGiveUpAtAHole()
+      !choosing.canGiveUpLoading()
     ) {
       return;
     }
     recoverFrom(data);
     const positionS = resumePositionOf(this.hls);
     setTimeout(() => {
-      choosing.giveUpAtAHole(positionS);
+      choosing.giveUpLoading(positionS);
       this.hls.startLoad(positionS);
     }, 0);
   }

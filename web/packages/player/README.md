@@ -138,7 +138,12 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   (`resumePositionOf`; `recoverMediaError`, `loadAgainFrom`, which also recovers a hole it cannot step over, D266) and
   the error marked recovered, so failOnFatal passes it by (`recoverFromDecodingErrors`,
   `src/decode-recovery.ts`); a second one within `decodingRecoveryWindowMs` (30 s) of the last
-  recovery is not recovered again, and fails as today, since the rebuild did not mend it, and
+  recovery, the rebuild not having mended it, gives a chunked playback's quality loading up as one
+  the device cannot play (D266, `canGiveUpLoading`, `giveUpLoading`), loading again below it, which
+  has a recovery of its own: a TCL TV's browser said it played HEVC and failed to decode the film's
+  own HEVC picture at every rebuild, each playback failing though H.264 qualities were below it (the
+  owner's test, staging, 2026-11-06; `abr-decoding.test.ts`, VQ268). At the lowest quality, or a prepared
+  copy's, it is not recovered again, and fails as today, and
   v1.7.3's guide no longer recommends `hls.swapAudioCodec()` first ("should no longer be required
   and is not recommended"). MUX_ERROR is left to fail as today too: the guide's own sample code has
   no case for it either. Each attempt and its outcome is noted (the owner, 2026-10-29).

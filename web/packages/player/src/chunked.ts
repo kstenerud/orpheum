@@ -617,11 +617,11 @@ export function choosingOptionsOf(
 
 /**
  * Tells onFailed when the playback cannot go on (failOnFatal), what failed with it, and asks a load
- * that failed again instead (loadOnAfterFailures), recovers once from a fatal decoding error
- * (recoverFromDecodingErrors) or steps over a chunk the core cannot make (skipChunksNotMade), each
+ * that failed again instead (loadOnAfterFailures), recovers once from a fatal decoding error and
+ * gives its quality up at a second (recoverFromDecodingErrors) or steps over a chunk the core cannot make (skipChunksNotMade), each
  * heard first, so failOnFatal passes it by. Returns the stopping.
  */
-function failOrLoadOn(
+export function failOrLoadOn(
   hls: Hls,
   video: HTMLVideoElement,
   by: { readonly abr: OrpheumAbr; readonly onFailed: PlaybackFailed },
@@ -636,6 +636,7 @@ function failOrLoadOn(
   const stopRecoveringDecoding = recoverFromDecodingErrors(hls, {
     note: linkNoter(video),
     carrierOf: mediaCarrierOf,
+    quality: abr.choosing,
   });
   const stopSkipping = skipChunksNotMade(hls, video, linkNoter(video));
   failOnFatal(hls, onFailed, mediaCarrierOf);

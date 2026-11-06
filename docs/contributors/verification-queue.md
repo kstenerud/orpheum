@@ -2650,3 +2650,15 @@ An item is ticked only by the person who did it, and only with what they saw.
   (4) arrows and the overlay's controls work in full screen as before, and a dialog opened over the
   film (Watch Together's, a menu) shows over it. (`web/apps/web/src/film-fullscreen.ts`'s
   `fillTheScreen`; `play-next-full-screen.browser.test.tsx`)
+- [ ] **VQ268** — A TCL TV in TV Bro that cannot decode a film's own HEVC picture plays the film on
+  H.264 instead of failing (the owner's test, staging, 2026-11-06: "Failed to execute 'appendBuffer'
+  on 'SourceBuffer': The HTMLMediaElement.error attribute is not null" on Sync HEVC Opus and Sync HEVC
+  AAC). A second fatal decoding error within 30 s of the first's rebuild now gives the quality up as
+  one the device cannot play (D266), and the core starts the film's next playback on the device at its
+  H.264 twin (D266 §4, D323 §2). Tests drive hls.js's error by hand; only the TV's decoder shows that it
+  fails as the error said. On the TCL TV in TV Bro, play Sync HEVC AAC and Sync HEVC Opus (staging
+  library 5) from the start, several times each. Passes when: (1) no playback ends at the error; (2)
+  within a few seconds of starting, the film plays on, its quality an H.264 one (the stats overlay, or
+  the core's log's "unplayable" for the device); (3) a later playback of the same film starts on the
+  twin with no hiccup; (4) an H.264 film plays as before. (`web/packages/player/src/decode-recovery.ts`'s
+  `recoverFromDecodingErrors`; `abr-decoding.test.ts`)
