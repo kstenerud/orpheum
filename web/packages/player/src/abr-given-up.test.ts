@@ -30,3 +30,19 @@ describe("a chunk given up chooses by the link's estimate (D382 §1)", () => {
     expect(chosen.choosing.nextLevel()).toBe(carried);
   });
 });
+
+describe("hls.js's estimator takes a chunk given up as its bytes arrived", () => {
+  it("times one whose bytes were arriving from its first piece, never the wait for its first byte", () => {
+    const chosen = fireTvPlaying();
+    // Its head at 487 ms, its first piece at 500 ms, then 375000 bytes in the 1500 ms to the give-up.
+    topChunkOnItsWay(chosen, { pieceAtMs: 500, afterBytes: 375_000 });
+    expect(chosen.fedToHls).toEqual([[1500, 375_000]]);
+  });
+
+  it("feeds it nothing of one none of whose bytes after its first piece arrived (D382 §2)", () => {
+    const chosen = fireTvPlaying();
+    topChunkOnItsWay(chosen, { pieceAtMs: 500, afterBytes: 0 });
+    expect(chosen.givenUp).toHaveLength(1);
+    expect(chosen.fedToHls).toEqual([]);
+  });
+});
