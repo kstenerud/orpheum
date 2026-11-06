@@ -26,6 +26,10 @@ type MigrateOptions struct {
 	// SnapshotDirectory receives pre-migrate-vN.sqlite before the first pending step, and keeps
 	// it after success (D181).
 	SnapshotDirectory string
+	// RemoveSnapshotFile removes the file of the plain name from SnapshotDirectory, a file already
+	// gone being no error: a snapshot found unusable, or a copy refused or cut short. The store
+	// removes no file itself (D144); the caller's instancedir does (RemoveBackupFile).
+	RemoveSnapshotFile func(name string) error
 	// OnBeforeStep, if set, is called before each pending step with its position and the number
 	// pending, so /health can say "migrating: step 3 of 7" before the step starts.
 	OnBeforeStep func(stepPosition, pendingCount int)
@@ -173,7 +177,9 @@ func snapshotName(fromVersion int) string {
 
 // snapshotBeforeMigrating writes pre-migrate-vN.sqlite with VACUUM INTO, one per from-version so
 // a restart loop cannot fill the disk, and returns its path. A file with no schema has nothing
-// to keep, so it gets none.
+// to keep, so it gets none. A file of the name found there is the way back only if it is whole and
+// of this version; any other is a copy a stop cut short, removed and written again (D181). A copy
+// refused or cut short is removed, whatever ended it, as backup.write removes its own.
 func (database *Database) snapshotBeforeMigrating(
 	ctx context.Context, fromVersion int, options MigrateOptions,
 ) (string, error) {
@@ -184,13 +190,18 @@ func (database *Database) snapshotBeforeMigrating(
 	if directory == "" {
 		return "", errors.New("migrate: no snapshot directory to write the pre-migration snapshot into")
 	}
-	path := filepath.Join(directory, snapshotName(fromVersion))
-	_, err := os.Stat(path)
+	name := snapshotName(fromVersion)
+	path := filepath.Join(directory, name)
+	found, err := checkFoundSnapshot(ctx, path, fromVersion)
 	switch {
-	case err == nil:
+	case found == snapshotUsable:
 		return path, nil
-	case !errors.Is(err, os.ErrNotExist):
-		return "", fmt.Errorf("check for snapshot %s: %w", path, err)
+	case found == snapshotUnusable:
+		if removeErr := options.removeSnapshot(name); removeErr != nil {
+			return "", fmt.Errorf("remove the snapshot found unusable (%w): %w", err, removeErr)
+		}
+	case err != nil:
+		return "", err
 	}
 	err = database.requireSpaceToMigrate(ctx, directory, options.FreeSpaceDatabaseMultiple)
 	if err != nil {
@@ -198,9 +209,56 @@ func (database *Database) snapshotBeforeMigrating(
 	}
 	err = database.BackupInto(ctx, path)
 	if err != nil {
-		return "", fmt.Errorf("snapshot before migrating: %w", err)
+		err = fmt.Errorf("snapshot before migrating: %w", err)
+		if !errors.Is(err, ErrCopyExists) {
+			err = errors.Join(err, options.removeSnapshot(name))
+		}
+		return "", err
 	}
 	return path, nil
+}
+
+// foundSnapshot is what checkFoundSnapshot found under a snapshot's name.
+type foundSnapshot int
+
+const (
+	snapshotAbsent   foundSnapshot = iota // no file, or one that could not be judged: the error says
+	snapshotUsable                        // ours, of the version, whole
+	snapshotUnusable                      // any other file: the error says why
+)
+
+// checkFoundSnapshot judges a file at path as the way back from fromVersion: ours, of that version,
+// and whole by SQLite's integrity check. A check a stop cut short judges nothing.
+func checkFoundSnapshot(ctx context.Context, path string, fromVersion int) (foundSnapshot, error) {
+	_, err := os.Lstat(path)
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		return snapshotAbsent, nil
+	case err != nil:
+		return snapshotAbsent, fmt.Errorf("check for snapshot %s: %w", path, err)
+	}
+	inspected, err := InspectBackup(ctx, path)
+	if err == nil && inspected.State.Version != fromVersion {
+		err = fmt.Errorf("snapshot %s is of version %d, not %d", path, inspected.State.Version, fromVersion)
+	}
+	if err == nil {
+		err = checkCopy(ctx, path)
+	}
+	switch {
+	case err == nil:
+		return snapshotUsable, nil
+	case ctx.Err() != nil:
+		return snapshotAbsent, fmt.Errorf("check snapshot %s: %w", path, errors.Join(err, ctx.Err()))
+	}
+	return snapshotUnusable, err
+}
+
+// removeSnapshot removes the snapshot file name through the caller's RemoveSnapshotFile.
+func (options MigrateOptions) removeSnapshot(name string) error {
+	if options.RemoveSnapshotFile == nil {
+		return fmt.Errorf("migrate: nothing to remove the snapshot %s with (MigrateOptions.RemoveSnapshotFile)", name)
+	}
+	return options.RemoveSnapshotFile(name)
 }
 
 // requireSpaceToMigrate refuses, with the numbers, when the snapshot plus a rebuild's worst case

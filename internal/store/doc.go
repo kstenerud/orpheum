@@ -99,6 +99,10 @@
 //     the snapshot. Enforced by TestMigrate_RefusesANewerDatabaseAndNamesTheSnapshot.
 //   - The pre-migration snapshot survives success. Enforced by
 //     TestMigrate_KeepsTheSnapshotAfterSuccess.
+//   - A snapshot found under its name is trusted only whole and of the version; any other, and a
+//     copy refused or cut short, is removed through the caller's RemoveSnapshotFile: the store
+//     removes no file itself (D144). Enforced by TestMigrate_RemovesASnapshotFoundDamagedBeforeTrustingIt,
+//     TestMigrate_RemovesASnapshotItsCheckRefused.
 //   - A committed step is never edited, renamed or deleted; until migrations are live, the
 //     baseline is the exception, rewritten by each fold (D228). Enforced by the pre-edit hook and
 //     TestSteps_MatchTheCommittedChecksums.
