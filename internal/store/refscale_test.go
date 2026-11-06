@@ -465,6 +465,7 @@ func rebuildStep(t *testing.T, database *Database, table string, version int) St
 func fullScansAllowed() map[string]string {
 	return map[string]string{
 		"ListLibraries":                 "a household has a handful of libraries",
+		"ListRootsOfNodeWithRetired":    "a household has a handful of library folders, retired ones too",
 		"ListRoles":                     "a household has a handful of roles; the admin lists them (D243 section 4)",
 		"ListRoleLibraries":             "a role reaches a handful of libraries; the admin lists them (D243 section 4)",
 		"ListProviderMatchedLibraryIDs": "a household has a handful of libraries; the first-match sweep lists them",

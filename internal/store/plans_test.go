@@ -210,10 +210,9 @@ func wholeReadsAllowed() map[string]string {
 		"ListLiveRootPathsOnNode":    few + "roots; a scan's request finds the root it runs under",
 		"ListLiveRootsOfNode":        few + "roots; retiring a node reads them",
 		"ListRootsOfNodeWithRetired": few + "roots, live and retired; a repoint's dry run and the repoint read them",
-		// A repoint, which an admin asks for when a folder moved, rarely, reads these once for its dry
-		// run and once for the move: removed places too, which no index of place covers by path, and
-		// an index for so rare a read would cost every scan's writes (repoint-library.md).
-		"ListPlacesUnder":           "every place, live and removed, once per repoint and its dry run",
+		// A repoint, which an admin asks for when a folder moved, rarely, counts these once for its dry
+		// run: places by their text, which no index of place covers, and an index for so rare a read
+		// would cost every scan's writes (repoint-library.md). Its list of places is read by index.
 		"CountLookAlikePlacesUnder": "every place, once per repoint's dry run, for the folders spelled in another form",
 		"ListCheckedRoots":          few + "roots; the scan schedule reads each one's last scan every 15 minutes",
 		"ListUnavailablePlaces": few + "roots and disks in them; the unavailable ones' sweep reads them " +

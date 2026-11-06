@@ -5,13 +5,20 @@
 -- name: ListPlacesUnder :many
 -- Every place on a node at or under a folder, live and removed (the folder's own, a folder a scan
 -- found, and library.PathRange's range of bytes; D211): what a repoint of the folder moves, or what is
--- already known at its target.
-SELECT id, file_id, path, reported_path_raw, removed_at
-FROM place
-WHERE node_id = sqlc.arg(node_id)
-  AND (reported_path_raw = CAST(sqlc.arg(folder) AS BLOB)
-    OR (reported_path_raw > CAST(sqlc.arg(after) AS BLOB) AND reported_path_raw < CAST(sqlc.arg(before) AS BLOB)))
-ORDER BY reported_path_raw;
+-- already known at its target. The live ones are read through place_live_path and the removed ones
+-- through place_removed_at: one query over both read the whole table (sql.md section 11).
+SELECT live.id, live.file_id, live.path, live.reported_path_raw, live.removed_at
+FROM place AS live
+WHERE live.node_id = sqlc.arg(node_id) AND live.removed_at IS NULL
+  AND (live.reported_path_raw = CAST(sqlc.arg(folder) AS BLOB)
+    OR (live.reported_path_raw > CAST(sqlc.arg(after) AS BLOB) AND live.reported_path_raw < CAST(sqlc.arg(before) AS BLOB)))
+UNION ALL
+SELECT gone.id, gone.file_id, gone.path, gone.reported_path_raw, gone.removed_at
+FROM place AS gone
+WHERE gone.removed_at IS NOT NULL AND gone.node_id = sqlc.arg(node_id)
+  AND (gone.reported_path_raw = CAST(sqlc.arg(folder) AS BLOB)
+    OR (gone.reported_path_raw > CAST(sqlc.arg(after) AS BLOB) AND gone.reported_path_raw < CAST(sqlc.arg(before) AS BLOB)))
+ORDER BY 4;
 
 -- name: CountLookAlikePlacesUnder :one
 -- The places on a node whose text (NFC) is under a folder but whose bytes are not: a folder spelled
