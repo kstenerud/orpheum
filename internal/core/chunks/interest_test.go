@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // wanting is what film 1's players want, as the playbacks would say it (InterestsBy), changed as a
@@ -380,9 +381,9 @@ func TestStopUnwanted_SaysWhatThePlayersOfTheStreamWant(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, line := range []string{
-		`"msg":"stopped a run of chunks no player wants"`,
+		testutil.EventInJSON("unwantedChunkRunStopped"),
 		`"streamInterests":["stopped at 30000 ms, keeping to 60000 ms"]`,
-		`"msg":"planned no run of chunks: no player wants one from there"`, `"wantedChunk":40`,
+		testutil.EventInJSON("noRunPlanned"), `"wantedChunk":40`,
 	} {
 		if !strings.Contains(logs.String(), line) {
 			t.Errorf("the log lacks %s:\n%s", line, logs.String())
@@ -419,8 +420,8 @@ func TestStopUnwanted_SaysWhereEachStreamOfTheFilmIsWanted(t *testing.T) {
 	film := `"filmInterests":["` + picture.Name() + `: stopped at 30000 ms, keeping to 60000 ms","` +
 		sound.Name() + `: playing from 20000 ms"]`
 	for _, msg := range []string{
-		`"msg":"stopped a run of chunks no player wants"`,
-		`"msg":"planned no run of chunks: no player wants one from there"`,
+		testutil.EventInJSON("unwantedChunkRunStopped"),
+		testutil.EventInJSON("noRunPlanned"),
 	} {
 		if !strings.Contains(logs.String(), msg) || strings.Count(logs.String(), film) != 2 {
 			t.Errorf("the log lacks %s with %s:\n%s", msg, film, logs.String())

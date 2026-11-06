@@ -4,7 +4,6 @@ package rtcapi
 
 import (
 	"log/slog"
-	"strings"
 	"testing"
 	"time"
 
@@ -14,7 +13,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
-const lingeringWarning = "rtcapi: a response's channel stayed open long after the core's last byte for it"
+const lingeringWarning = "channelLingered"
 
 // watchFor is a watch on a channel with no stream yet, timed by fake, logging to log.
 func watchFor(fake *clocktest.Fake, log *testutil.Log) *answerWatch {
@@ -39,7 +38,7 @@ func TestAnswerWatch_LogsAChannelOnlyOnceItLingeredPastTheCoresLastByte(t *testi
 	failed.finished(false) // its end could not be handed over: the cut short warning says so
 	fake.Advance(time.Minute)
 	failed.closed()
-	if strings.Contains(log.String(), lingeringWarning) {
+	if len(testutil.LinesWith(log.String(), lingeringWarning)) != 0 {
 		t.Fatalf("logged a channel closed in time, or one whose end was not handed over: %s", log.String())
 	}
 	late := watchFor(fake, log)
@@ -51,8 +50,8 @@ func TestAnswerWatch_LogsAChannelOnlyOnceItLingeredPastTheCoresLastByte(t *testi
 	fake.Advance(time.Minute)
 	late.closed()
 	stuck.closed()
-	log.AwaitLine(t, lingeringWarning, "path=/api/v1/playback", "isHandedOverWhole=true", "openAfterFinishMs=60000")
-	log.AwaitLine(t, lingeringWarning, "path=/api/v1/chunk", "isHandedOverWhole=false", "drainWaitMs=60000")
+	log.AwaitEvent(t, lingeringWarning, "path=/api/v1/playback", "isHandedOverWhole=true", "openAfterFinishMs=60000")
+	log.AwaitEvent(t, lingeringWarning, "path=/api/v1/chunk", "isHandedOverWhole=false", "drainWaitMs=60000")
 }
 
 // A channel opened on a stream another channel of its connection closed says how soon after, so a

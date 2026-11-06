@@ -17,9 +17,11 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // rescanScans is the library admin as a rescan asks it: the scans it asked for, and whether a scan
@@ -380,10 +382,10 @@ func TestRescan_LogsEachChangedMatchAndTheRunsTotals(t *testing.T) {
 	rescan.run()
 	titleID := lib.titlesByPath()[crowdFile].WorkID
 	for _, want := range []string{
-		`msg="a rescan matched an item to another work" itemId=` + strconv.FormatInt(titleID, 10) +
+		slogx.EventKey + `=rescanRematched itemId=` + strconv.FormatInt(titleID, 10) +
 			` before=32 beforeName="The Crowd" after=31 afterName=Crowd settledBy="the name and the year"` +
 			` isGuess=false`,
-		`msg="a rescan ended" libraryId=` + strconv.FormatInt(lib.libraryID, 10) + ` itemId=0 itemCount=1` +
+		slogx.EventKey + `=rescanEnded libraryId=` + strconv.FormatInt(lib.libraryID, 10) + ` itemId=0 itemCount=1` +
 			` changedCount=1 unchangedCount=0 leftAloneCount=0 unsettledCount=0 failedCount=0`,
 	} {
 		if !strings.Contains(logged.String(), want) {
@@ -462,7 +464,7 @@ func TestRescan_ALibraryThatKeepsChangingIsLoggedWithTheWriteThatChangesIt(t *te
 		t.Fatalf("Advance: %v", err)
 	}
 	for _, want := range []string{
-		`msg="a rescan waits for its library to stop changing" libraryId=` + strconv.FormatInt(lib.libraryID, 10),
+		slogx.EventKey + `=rescanWaiting libraryId=` + strconv.FormatInt(lib.libraryID, 10),
 		`the write its last read would make: name title ` + strconv.FormatInt(titleID, 10),
 	} {
 		if !strings.Contains(logged.String(), want) {
@@ -580,7 +582,7 @@ func TestRescan_AFullRescanReadsItsFilesAgainAndAsksAgainForMissingImages(t *tes
 	if id, _ := lib.followed(crowdFile); id != "31" {
 		t.Errorf("the film follows %s after the full rescan; want 31, matched again as a rescan does", id)
 	}
-	if !strings.Contains(logged.String(), `"msg":"a rescan ended"`) || !strings.Contains(logged.String(),
+	if len(testutil.LinesWith(logged.String(), "rescanEnded")) == 0 || !strings.Contains(logged.String(),
 		`"isFull":true`) {
 		t.Errorf("the log does not say a full rescan ended:\n%s", logged.String())
 	}

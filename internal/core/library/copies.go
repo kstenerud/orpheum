@@ -16,6 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -243,7 +244,8 @@ func (copies *Copies) settle(
 		}
 		if !isSame(sha256, other) {
 			copies.parts.Logger.InfoContext(ctx, "a file found at a second place has the payload of one found "+
-				"before, and other bytes: they stay two files", "fileId", candidate.ID,
+				"before, and other bytes: they stay two files", slogx.EventKey, "copiesKeptApart",
+				"fileId", candidate.ID,
 				"firstFileId", candidate.FirstID, "nodeId", candidate.NodeID, "firstNodeId", candidate.FirstNodeID,
 				"path", PathText(candidate.ReportedPathRaw), "firstPath", PathText(candidate.FirstReportedPathRaw))
 			continue
@@ -275,7 +277,7 @@ func (copies *Copies) confirm(ctx context.Context, copyID, fileID int64) error {
 		return fmt.Errorf("make file %d a copy of file %d: %w", copyID, fileID, err)
 	}
 	copies.parts.Logger.InfoContext(ctx, "a file found at a second place is byte for byte one found before: "+
-		"one file at two places from now on", "copyId", copyID, "fileId", fileID)
+		"one file at two places from now on", slogx.EventKey, "copiesMerged", "copyId", copyID, "fileId", fileID)
 	if copies.parts.Work != nil {
 		work := jobs.RetiredWork{FileIDs: []int64{copyID}, StreamIDs: streamIDs}
 		if _, err := copies.parts.Work.CancelRetired(ctx, work); err != nil {

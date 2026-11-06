@@ -17,6 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // copiesBench is a film found at two places of one library, its first place (file first) found before
@@ -193,7 +194,7 @@ func TestCopies_AFileFoundAtASecondPlaceWithTheSameBytesIsOneFileAtTwoPlaces(t *
 	if len(bench.work.cancelled) != 1 || !slices.Equal(bench.work.cancelled[0].FileIDs, []int64{bench.second}) {
 		t.Errorf("work cancelled %+v; want the copy's", bench.work.cancelled)
 	}
-	if !strings.Contains(bench.logs.String(), "one file at two places from now on") {
+	if len(testutil.LinesWith(bench.logs.String(), "copiesMerged")) == 0 {
 		t.Errorf("the log does not say the copy was merged:\n%s", bench.logs.String())
 	}
 	if owed := bench.sweep(); len(owed) != 0 {
@@ -216,7 +217,7 @@ func TestCopies_AFileWithTheSamePayloadAndOtherBytesStaysAFileOfItsOwn(t *testin
 		t.Errorf("a difference moved %v, retired %v and cancelled %+v; want nothing", bench.folds, bench.retired,
 			bench.work.cancelled)
 	}
-	if !strings.Contains(bench.logs.String(), "and other bytes: they stay two files") {
+	if len(testutil.LinesWith(bench.logs.String(), "copiesKeptApart")) == 0 {
 		t.Errorf("the log does not say the two differ:\n%s", bench.logs.String())
 	}
 	if owed := bench.sweep(); len(owed) != 0 {
@@ -267,7 +268,7 @@ func TestRemovePlace_AFilesFirstPlaceGoingLeavesItAtItsCopysPlace(t *testing.T) 
 	if !slices.Equal(attached, []string{itoa(bench.first)}) {
 		t.Errorf("the subtitle beside the copy is attached to %v; want the file", attached)
 	}
-	if !strings.Contains(bench.logs.String(), "it is at its copy's place from now on") {
+	if len(testutil.LinesWith(bench.logs.String(), "placeMovedToCopy")) == 0 {
 		t.Errorf("the log does not say the file moved:\n%s", bench.logs.String())
 	}
 }

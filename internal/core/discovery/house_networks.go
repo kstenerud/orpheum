@@ -10,6 +10,7 @@ import (
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // HouseNetworkKeptFor is how long a learnt house network is kept after a device last witnessed it
@@ -144,6 +145,7 @@ func (service *Service) learnHouseNetwork(
 	service.mutex.Unlock()
 	agrees, offered := offerAgreesWith(offer.SDP, network)
 	service.parts.Logger.InfoContext(ctx, "discovery: a device proven at home witnessed the house's network (D356)",
+		slogx.EventKey, "houseNetworkWitnessed",
 		"network", network.String(), "isNew", isNew, "device", proven.Device.String(), "path", string(proven.Path),
 		"offerAgrees", agrees, "offerNetworks", offered)
 	if !isDue {

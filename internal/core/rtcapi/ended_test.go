@@ -31,7 +31,7 @@ func TestEnded_AConnectionLogsItsSCTPFiguresAsItEnds(t *testing.T) {
 	link.Do(rtcapi.RequestHead{Method: http.MethodGet, Path: "/big"}, nil)
 	fake.Advance(90 * time.Second)
 	link.Close()
-	line := log.AwaitLine(t, `msg="rtc connection ended"`, "connection=", "path=direct_ipv4",
+	line := log.AwaitEvent(t, "connectionEnded", "connection=", "path=direct_ipv4",
 		`cause="the browser closed it"`, "durationMs=90000",
 		"bytesReceived=", "rwndBytes=", "mtu=1191")
 	for name, least := range map[string]int{"bytesSent": 5 << 20, "cwndBytes": 1191, "srttMs": 0} {
@@ -57,5 +57,5 @@ func TestEnded_AConnectionTheCoreClosesAsItStopsSaysSo(t *testing.T) {
 	if err := server.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
 	}
-	log.AwaitLine(t, `msg="rtc connection ended"`, `cause="the core stopped"`)
+	log.AwaitEvent(t, "connectionEnded", `cause="the core stopped"`)
 }

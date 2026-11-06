@@ -25,6 +25,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/build"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // The server's library admin service names as many of a held-back scan's removals as its setting
@@ -63,7 +64,7 @@ func TestWarnSignInLimitFull_WarnsThatSignInsAreRefused(t *testing.T) {
 	var logged bytes.Buffer
 	warnSignInLimitFull(t.Context(), slog.New(slog.NewJSONHandler(&logged, nil)))()
 	if !strings.Contains(logged.String(), `"level":"WARN"`) ||
-		!strings.Contains(logged.String(), "the failed-sign-in limit is full") {
+		len(testutil.LinesWith(logged.String(), "signInLimitFull")) == 0 {
 		t.Errorf("logged %s; want a warning that the limit is full", logged.String())
 	}
 }

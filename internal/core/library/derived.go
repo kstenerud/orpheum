@@ -16,6 +16,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -530,7 +531,9 @@ func (ingester *Ingester) finishCorrections(ctx context.Context, key scanKey, co
 			differed = append(differed, change.String())
 		}
 		ingester.logger.InfoContext(ctx, "a file read again differs from what was kept of it; what that touched "+
-			"is thrown out", "fileId", correction.fileID, "differed", differed, "thrownOut", dropped)
+			"is thrown out",
+			slogx.EventKey, "readAgainDiffers",
+			"fileId", correction.fileID, "differed", differed, "thrownOut", dropped)
 	}
 }
 
@@ -542,6 +545,7 @@ func (ingester *Ingester) logCorrectionTotals(ctx context.Context, nodeID int64,
 		return
 	}
 	ingester.logger.InfoContext(ctx, "a scan compared the files it read again with what was kept",
+		slogx.EventKey, "readAgainCompared",
 		"nodeId", nodeID, "rootPath", scan.root, "scopePath", scan.scope, "isReadingAgain", scan.isReadingAgain,
 		"comparedCount", totals.comparedCount, "correctedCount", totals.correctedCount,
 		"thrownOutCount", totals.droppedCount, "chunksCheckedCount", totals.chunksCheckedCount,
@@ -571,7 +575,9 @@ func (ingester *Ingester) noteChunksChecked(ctx context.Context, scan *scanState
 	}
 	if droppedCount > 0 {
 		ingester.logger.WarnContext(ctx, "chunks of a file read again were missing or damaged; they are dropped and "+
-			"made again when asked for", "fileId", checked.FileID, "checkedCount", checked.CheckedCount,
+			"made again when asked for",
+			slogx.EventKey, "readAgainChunksDropped",
+			"fileId", checked.FileID, "checkedCount", checked.CheckedCount,
 			"droppedCount", droppedCount, "dropped", dropped)
 	}
 }

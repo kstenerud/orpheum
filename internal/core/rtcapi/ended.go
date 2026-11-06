@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/pion/webrtc/v4"
+
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // endedMessage is the line each connection that connected logs as it ends, with its SCTP figures: so
@@ -92,7 +94,7 @@ func (server *Server) logEnded(connection *webrtc.PeerConnection, held *heldConn
 	if sctp := connection.SCTP(); sctp != nil {
 		fields = append(fields, sctpFigures(sctp.Stats())...)
 	}
-	server.logger.Info(endedMessage, fields...)
+	server.logger.Info(endedMessage, append(fields, slogx.EventKey, "connectionEnded")...)
 }
 
 // endWithItsSCTP has a connection end as its SCTP does, its figures still there: the end line is

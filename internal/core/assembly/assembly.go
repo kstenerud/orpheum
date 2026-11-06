@@ -37,6 +37,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/platform/selfuse"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store"
 )
 
@@ -247,7 +248,8 @@ func buildAccounts(ctx context.Context, parts Parts) api.Dependencies {
 func warnSignInLimitFull(ctx context.Context, logger *slog.Logger) func() {
 	return func() {
 		logger.WarnContext(ctx, "the failed-sign-in limit is full, so sign-ins from places with no recent failure "+
-			"are refused until its counts age out: many networks are failing sign-ins at once")
+			"are refused until its counts age out: many networks are failing sign-ins at once",
+			slogx.EventKey, "signInLimitFull")
 	}
 }
 

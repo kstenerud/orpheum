@@ -14,6 +14,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/localtime"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -460,7 +461,9 @@ func DurationOrStarting(ctx context.Context, reader DurationReader, key Key, log
 	length, err := reader.Duration(ctx, key)
 	if err != nil {
 		length = StartingDuration(key)
-		logger.WarnContext(ctx, "could not read a setting; going on at its starting value", "key", string(key),
+		logger.WarnContext(ctx, "could not read a setting; going on at its starting value",
+			slogx.EventKey, "settingUnread",
+			"key", string(key),
 			"startingValue", length.String(), "err", err)
 	}
 	return length

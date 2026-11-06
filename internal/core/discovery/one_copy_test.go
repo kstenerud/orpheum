@@ -155,7 +155,7 @@ func TestSignal_TheServingCoreSaysACopyWasRefused(t *testing.T) {
 	built.fake.signals <- discoveryproto.SignalMessage{
 		Type: discoveryproto.SignalCopyRefused, Address: "203.0.113.7", At: refusedAt.UnixMilli(),
 	}
-	line := log.AwaitLine(t, "a copy of this server tried to start")
+	line := log.AwaitEvent(t, "copyRefused")
 	status := built.service.Status()
 	if status.CopyRefusedFrom != "203.0.113.7" || !status.CopyRefusedAt.Equal(refusedAt) ||
 		!strings.Contains(line, "203.0.113.7") {

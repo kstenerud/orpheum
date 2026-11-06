@@ -12,6 +12,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // jumpStage is film 1's picture played from chunk 1, its run from there, 1 through 30, on its way:
@@ -203,7 +204,7 @@ func TestStopUnwanted_SaysTheNumbersAJumpWasJudgedBy(t *testing.T) {
 	stage.makes(1, 2, time.Second)
 	stage.jumpsTo(t, 9)
 	for _, line := range []string{
-		`"msg":"stopped a run of chunks for a player that jumped away from it"`, `"makingChunk":3`,
+		testutil.EventInJSON("chunkRunJumpedAway"), `"makingChunk":3`,
 		`"neededChunk":9`, `"gapMs":60000`, `"encoderSpeed":10`, `"startupMs":5000`, `"thresholdMs":50000`,
 		`"isMeasured":true`,
 	} {

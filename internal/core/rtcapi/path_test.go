@@ -27,7 +27,7 @@ func TestAnswer_CountsThePathEachConnectionTook(t *testing.T) {
 	server := rtcapi.New(t.Context(), echo, slog.New(slog.NewTextHandler(log, nil)))
 	t.Cleanup(func() { _ = server.Close() }) //nolint:errcheck // the test is over
 	rtcapitest.Connect(t, server.Answer, rtcapitest.OverIPv4()).Do(rtcapi.RequestHead{Method: "GET", Path: "/"}, nil)
-	log.AwaitLine(t, "webrtc: a client's connection", "path=direct_ipv4", "connectMs=")
+	log.AwaitEvent(t, "clientConnected", "path=direct_ipv4", "connectMs=")
 	if counts := server.PathCounts(); counts[rtcapi.PathDirectIPv4] != 1 || len(counts) != 1 {
 		t.Errorf("the paths counted are %v; want one direct over IPv4", counts)
 	}

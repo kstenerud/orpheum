@@ -405,7 +405,7 @@ func TestScans_AListingGoingToItsNodeSaysHowLongItWaited(t *testing.T) {
 	if err := bench.scans.HandleScan(ctx, bench.jobs.last(t, jobs.KindScan)); err != nil {
 		t.Fatal(err)
 	}
-	logged.AwaitLine(t, "a scan's listing goes to its node", "rootPath="+root, "waitedMs=90000")
+	logged.AwaitEvent(t, "scanListingSent", "rootPath="+root, "waitedMs=90000")
 }
 
 // unavailableRootBench is a scan bench whose root was read whole and is then unavailable, with no

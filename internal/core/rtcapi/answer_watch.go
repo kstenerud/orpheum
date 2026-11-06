@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/pion/webrtc/v4"
+
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // answerLingersAfter is how long a channel may stay open after the core's last byte for its response
@@ -111,7 +113,7 @@ func (watch *answerWatch) closed() {
 		return
 	}
 	watch.logger.Warn("rtcapi: a response's channel stayed open long after the core's last byte for it",
-		watch.logged(now, isHandedOver)...)
+		append(watch.logged(now, isHandedOver), slogx.EventKey, "channelLingered")...)
 }
 
 // logged is the warning's fields. The caller holds the mutex.

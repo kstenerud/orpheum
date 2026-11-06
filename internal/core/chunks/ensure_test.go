@@ -22,6 +22,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue/jobqueuetest"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // ensured is Ensure of film 1's stream at chunk wanted, failing the test on an error.
@@ -146,7 +147,7 @@ func TestEnsure_ARunQueuedIsLoggedWithItsChunksAndTheChunkThatAskedForIt(t *test
 	// Chunk 3 starts at 30 s; the run ends with chunk 32, which ends at 330 s.
 	line := logs.String()
 	for _, part := range []string{
-		`"level":"INFO"`, `"msg":"queued a run of chunks"`,
+		`"level":"INFO"`, testutil.EventInJSON("chunkRunQueued"),
 		`"storeDir":"` + testStoreDir(t, service, picture, mustGrid(t, service).ID()) + `"`, `"wantedChunk":3,`,
 		`"firstChunk":3,`, `"lastChunk":32,`, `"firstChunkStartMs":30000,`, `"lastChunkEndMs":330000`,
 	} {

@@ -14,6 +14,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/identify/identifytest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // D365: a film's candidates are ranked by how their runtimes fit its files, then by year, then by
@@ -384,11 +385,12 @@ func TestMatch_AFilmsChoiceAmongItsCandidatesIsLogged(t *testing.T) {
 	lib.matchFileTitle(crowdRelease)
 	itemID := strconv.FormatInt(lib.titlesByPath()[crowdRelease].WorkID, 10)
 	for _, want := range []string{
-		`msg="a film's candidate" itemId=` + itemID +
+		slogx.EventKey + `=filmCandidate itemId=` + itemID +
 			` candidate=1020910 year=2023 runtimeMs=5520000 votes=20 fit=fits`,
-		`msg="a film's candidate" itemId=` + itemID +
+		slogx.EventKey + `=filmCandidate itemId=` + itemID +
 			` candidate=1120937 year=2022 runtimeMs=5280000 votes=30 fit=edition`,
-		`msg="a film's candidates settled" itemId=` + itemID + ` year=2022 fileLengthsMs=[5527264] taken=1020910` +
+		slogx.EventKey + `=filmCandidatesSettled itemId=` + itemID + ` year=2022 fileLengthsMs=[5527264]` +
+			` taken=1020910` +
 			` isGuess=true`,
 	} {
 		if !strings.Contains(logged.String(), want) {

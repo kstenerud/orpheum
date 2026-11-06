@@ -22,6 +22,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/localtime"
 	"github.com/kstenerud/orpheum/internal/platform/querytally"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 func newService(t *testing.T) (*Service, int64) {
@@ -703,7 +704,7 @@ func TestDurationOrStarting_IsTheSettingOrItsStart(t *testing.T) {
 	if wait := DurationOrStarting(t.Context(), failingReader{}, key, logger); wait != start {
 		t.Errorf("a failing read: %s; want the starting %s", wait, start)
 	}
-	if !strings.Contains(logged.String(), "going on at its starting value") {
+	if len(testutil.LinesWith(logged.String(), "settingUnread")) == 0 {
 		t.Errorf("a failing read was not logged: %q", logged.String())
 	}
 	if wait := DurationOrStarting(t.Context(), nil, key, logger); wait != start {

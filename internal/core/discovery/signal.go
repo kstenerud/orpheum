@@ -18,6 +18,7 @@ import (
 	"github.com/kstenerud/orpheum/discovery/proof"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 	"github.com/kstenerud/orpheum/internal/platform/backoff"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // signalCheckEvery is how often the signalling loop looks whether the core is claimed and so should
@@ -151,6 +152,7 @@ func (service *Service) holdSignalling(ctx context.Context, baseURL string, lost
 		service.parts.Logger.InfoContext(ctx, "discovery: the signalling connection is open")
 	} else {
 		service.parts.Logger.InfoContext(ctx, "discovery: the signalling connection is open again",
+			slogx.EventKey, "signallingReopened",
 			"lostMs", service.parts.Clock.Now().Sub(lost.since).Milliseconds(), "dials", lost.dials)
 	}
 	pinging, stopPinging := context.WithCancel(ctx)
@@ -247,7 +249,7 @@ func (service *Service) copyRefused(ctx context.Context, said discoveryproto.Sig
 	service.status.CopyRefusedFrom, service.status.CopyRefusedAt = said.Address, refusedAt
 	service.mutex.Unlock()
 	service.parts.Logger.WarnContext(ctx, "discovery: a copy of this server tried to start and was refused, "+
-		"since this one serves", "from", said.Address, "at", refusedAt)
+		"since this one serves", slogx.EventKey, "copyRefused", "from", said.Address, "at", refusedAt)
 }
 
 // keepAlive pings connection every pingEvery, jittered, until ctx ends: a ping not answered within
