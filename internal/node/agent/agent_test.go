@@ -43,6 +43,7 @@ type fakeCore struct {
 	subtitles    chan nodeproto.Result
 	readThroughs chan nodeproto.Result
 	wholeHashes  chan nodeproto.Result
+	systemVideos chan nodeproto.Result
 	chunkRuns    chan nodeproto.Result
 	crashes      chan nodeproto.Result
 	refusals     chan nodeproto.Result
@@ -103,8 +104,8 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		artwork:  make(chan nodeproto.Result, 4),
 		progress: make(chan nodeproto.Progress, 64), refusedPosts: make(chan struct{}, 1),
 		subtitles: make(chan nodeproto.Result, 4), readThroughs: make(chan nodeproto.Result, 4),
-		wholeHashes: make(chan nodeproto.Result, 4),
-		chunkRuns:   make(chan nodeproto.Result, 16), crashes: make(chan nodeproto.Result, 4),
+		wholeHashes: make(chan nodeproto.Result, 4), systemVideos: make(chan nodeproto.Result, 4),
+		chunkRuns: make(chan nodeproto.Result, 16), crashes: make(chan nodeproto.Result, 4),
 		refusals: make(chan nodeproto.Result, 4), held: make(chan nodeproto.Result, 4),
 		scans: make(chan nodeproto.Result, 4), changes: make(chan nodeproto.Changed, 4),
 		stopped: make(chan struct{}), endSession: make(chan struct{}), helloHeard: make(chan struct{}, 8),
@@ -237,6 +238,7 @@ const (
 	subtitleResult    resultKind = "subtitle"
 	readThroughResult resultKind = "read-through"
 	wholeHashResult   resultKind = "whole-hash"
+	systemVideoResult resultKind = "system-videos"
 	chunksResult      resultKind = "chunks"
 	// A listing and an examining, a scan's work, share one channel.
 	scanResult resultKind = "scan"
@@ -255,9 +257,9 @@ func kindOf(result nodeproto.Result) (resultKind, bool) {
 	for kind, isSet := range map[resultKind]bool{
 		artworkResult:  result.Artwork != nil,
 		subtitleResult: result.Subtitle != nil, readThroughResult: result.ReadThrough != nil,
-		wholeHashResult: result.WholeHash != nil,
-		chunksResult:    result.MakeChunks != nil,
-		refusalResult:   result.Refusal != "", heldResult: result.Held != nil, crashedResult: result.Crashed != "",
+		wholeHashResult: result.WholeHash != nil, systemVideoResult: result.SystemVideos != nil,
+		chunksResult:  result.MakeChunks != nil,
+		refusalResult: result.Refusal != "", heldResult: result.Held != nil, crashedResult: result.Crashed != "",
 		scanResult: result.Listing != nil || result.Examined != nil,
 	} {
 		if isSet {
@@ -299,8 +301,8 @@ func (core *fakeCore) receiveResult(t *testing.T) http.HandlerFunc {
 		into := map[resultKind]chan nodeproto.Result{
 			artworkResult:  core.artwork,
 			subtitleResult: core.subtitles, readThroughResult: core.readThroughs, refusalResult: core.refusals,
-			wholeHashResult: core.wholeHashes,
-			chunksResult:    core.chunkRuns, crashedResult: core.crashes,
+			wholeHashResult: core.wholeHashes, systemVideoResult: core.systemVideos,
+			chunksResult: core.chunkRuns, crashedResult: core.crashes,
 			heldResult: core.held, scanResult: core.scans,
 		}[kind]
 		if !handOn(core, into, result) {

@@ -65,6 +65,9 @@ type Workers struct {
 	Subtitler Subtitler
 	// ThroughReader is nil on a node that does not read videos through.
 	ThroughReader ThroughReader
+	// SystemVideoMaker makes the server's own videos into the node's system folder (D435 §4); nil on
+	// a node that has no system folder, which answers each ask with why.
+	SystemVideoMaker SystemVideoMaker
 	// ChunkMaker is nil on a node that does not make chunks.
 	ChunkMaker ChunkMaker
 	// PreparedShelf keeps the prepared directory within its budget; nil on a node that has none.
@@ -211,6 +214,9 @@ func New(
 	}
 	byPath := make(map[string]*confine.MediaRoot, len(roots))
 	hello.ProtocolVersion = nodeproto.ProtocolVersion
+	if workers.SystemVideoMaker != nil {
+		hello.SystemFolder = workers.SystemVideoMaker.Folder()
+	}
 	hello.RootPaths = make([]string, 0, len(roots))
 	for _, root := range roots {
 		byPath[root.Path()] = root
@@ -515,8 +521,20 @@ func (agent *Agent) workFor(
 		return agent.listWork(nodeCtx, nodeID, held, *command.List), true
 	case command.Type == nodeproto.CommandExamine && command.Examine != nil:
 		return agent.examineWork(nodeCtx, nodeID, held, *command.Examine), true
+	}
+	return agent.fileWorkFor(nodeCtx, nodeID, held, command)
+}
+
+// fileWorkFor is workFor for the work that reads a file whole or makes one: a whole-file hash and the
+// system videos.
+func (agent *Agent) fileWorkFor(
+	nodeCtx context.Context, nodeID int64, held attempt, command nodeproto.Command,
+) (heldWork, bool) {
+	switch {
 	case command.Type == nodeproto.CommandHashWhole && command.HashWhole != nil:
 		return agent.hashWholeWork(nodeCtx, nodeID, held, *command.HashWhole), true
+	case command.Type == nodeproto.CommandMakeSystemVideos && command.MakeSystemVideos != nil:
+		return agent.systemVideosWork(nodeCtx, nodeID, held, *command.MakeSystemVideos), true
 	}
 	return heldWork{}, false
 }

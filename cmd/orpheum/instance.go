@@ -77,6 +77,12 @@ func (instance Instance) preparedDir() string {
 	return filepath.Join(instance.CacheDir, "prepared")
 }
 
+// systemVideoDir is where a node instance makes the server's own videos (D435 §4): persistent, as a
+// library's files are, so a restart does not make them again.
+func (instance Instance) systemVideoDir() string {
+	return filepath.Join(instance.PersistentDir, "system-videos")
+}
+
 // loadInstance reads the top-level config of the instance directory dir and checks it is of kind.
 func loadInstance(dir string, kind instanceKind) (Instance, error) {
 	if !filepath.IsAbs(dir) {
