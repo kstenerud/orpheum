@@ -502,3 +502,36 @@ a day. At 100 households this is the owner's own time, and costs more than the s
 - No figure for remote viewing from home media servers; §2.2's profiles are assumptions.
 - Hetzner Cloud's per-server sustained throughput, Scaleway's egress terms and OVH's current
   fair-use terms were not confirmed from the providers' own pages.
+
+## Addendum (2026-11-06): with a forced low bitrate, at 100, 1,000 and 10,000 households
+
+The owner, 2026-11-06: "I'd want to do whatever we can to keep costs down should we implement this.
+The question is whether this is tenable at 100 households, 1000 households, 10000 households... I'm
+fine with a forced reduced bandwidth like what plex does, but I worry that if we allow this at scale,
+we'll be forced to raise prices to plex's level."
+
+A cap on the relayed bitrate bounds the cost per household, whatever the household does. At a cap
+of 2 Mb/s per relayed stream (0.9 GB an hour; Plex's relay has long been capped at about 1–2 Mb/s
+[lead's recollection, unverified this session]) and 4 Mb/s per household in all:
+
+- **The worst single household**, relaying at its whole cap all month: 4 Mb/s × 2,592,000 s ÷ 8 =
+  1,296 GB, €1.30 at Hetzner Cloud's €1/TB overage, $65 at Cloudflare's $0.05/GB.
+- **The mixed population (§2), all relayed, capped:** low 10 h × 0.9 = 9 GB, typical 40 × 0.9 = 36 GB,
+  heavy 210 × 0.9 = 189 GB; 0.5 × 9 + 0.4 × 36 + 0.1 × 189 = **37.8 GB a month**, against 163.35
+  uncapped (−77%). At 10% relayed, 3.8 GB.
+
+| Households | Capped, all relayed | Hetzner Cloud (20 TB a server, + 10% spares, floor 2) | per household | Cloudflare TURN | per household |
+| --- | --- | --- | --- | --- | --- |
+| 100 | 3.8 TB | 2 × €5.99 = €11.98 | €0.12 | $0 (inside the free 1 TB? no: (3,780 − 1,000) × 0.05 = $139) | $1.39 |
+| 1,000 | 37.8 TB | 2 + 1 = 3 × €5.99 = €17.97 | €0.018 | (37,800 − 1,000) × 0.05 = $1,840 | $1.84 |
+| 10,000 | 378 TB | 19 + 2 = 21 × €5.99 = €125.79 | €0.013 | (378,000 − 1,000) × 0.05 = $18,850 | $1.89 |
+
+**Reading:** with relays the project runs on included-traffic hosting, the bytes cost cents per
+household at every scale, and even the worst household stays near €1; bandwidth would not force the
+price up. A metered relay (Cloudflare, the hyperscalers, Twilio) costs about $1.90 per household
+fully relayed even capped, most of a $3 price, so it suits only a bootstrap. What does grow with
+scale is the work: abuse handling, the conduit's legal duties (§5), and watching a fleet (21 small
+servers at 10,000 households, or 8 dedicated AX41s: a peak of 4 × 37.8 GB × 8 ÷ 2,592,000 s = 0.47
+Mb/s per household, 4.7 Gb/s in all, ÷ 0.7 = 7 + 1 spare = €472, €0.05 per household). Unverified
+and to measure before relying on it: a Hetzner Cloud server's sustained throughput, and its
+included 20 TB staying as it is.
