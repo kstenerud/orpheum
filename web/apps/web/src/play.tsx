@@ -31,6 +31,7 @@ import type { LadderOffer } from "./moving-down.ts";
 import { usePlayState } from "./play-state.ts";
 import { usePlayerCommands } from "./player-commands.ts";
 import { fillTheScreen, keepFillingTheWindow } from "./film-fullscreen.ts";
+import { keepThePressForTheStart } from "./start-refused.ts";
 import { isBrowserFullscreen, isTelevision, thisBrowserWindow } from "./tv-device.ts";
 import { useFullScreenLeftAsBack } from "./input-layer.tsx";
 import { useServices } from "./services.tsx";
@@ -286,7 +287,8 @@ function useFullscreenAsTheBrowserIs(video: HTMLVideoElement | null): void {
   useEffect(() => {
     const stage = video?.closest(".film-player__stage");
     const isAsked = !isTelevision(navigator.userAgent) && isBrowserFullscreen(thisBrowserWindow());
-    if (isAsked && stage instanceof HTMLElement) {
+    if (isAsked && video !== null && stage instanceof HTMLElement) {
+      keepThePressForTheStart(video);
       fillTheScreen(stage, document);
     }
   }, [video]);

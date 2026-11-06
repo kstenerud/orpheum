@@ -71,3 +71,21 @@ export function noteIfStartRefused(cause: unknown): void {
     noteForTheLog(startRefusedNote(cause, pageAtRefusal()));
   }
 }
+
+/**
+ * Lets the video start later on the press that opened it, before full screen uses the press up: the
+ * owner's TCL TV, in TV Bro (an Android WebView), went full screen as the player opened, and the start
+ * gate's play, about 3 s later once enough was loaded, was refused (pressLive=false, staging,
+ * 2026-11-06), Level loudness on or off. A video played once during a press is unlocked for good in
+ * Chromium, so it is played and at once paused while the press is live, before anything is loaded:
+ * not the play paused and played again the start gate avoids, which costs a refill on Silk.
+ */
+export function keepThePressForTheStart(video: HTMLVideoElement): void {
+  const activation = "userActivation" in navigator ? navigator.userActivation : undefined;
+  if (!video.paused || activation?.isActive === false) {
+    return;
+  }
+  // The pause right after rejects the play with AbortError: the unlock is all it was for.
+  video.play().catch(() => undefined);
+  video.pause();
+}
