@@ -56,14 +56,20 @@
 //     TestSubtitleCandidates_AreFoundByTheWorksIDsAndTheFilesHashWithTheDownloadsLeft,
 //     TestSubtitleCandidates_ForAnEpisodeAskByTheSeriesAndItsPlace,
 //     TestSubtitleCandidates_APersonWhoIsNotAnAdminListsAndFetchesThem,
-//     TestFetchSubtitle_KeepsItChoosesItAndItPlaysOnceTheNodeConvertsIt (internal/core/api).
+//     TestFetchSubtitle_KeepsItChoosesItAndItPlaysOnceTheNodeConvertsIt (internal/core/api), and in
+//     this package TestSubtitleCandidates_AnUnidentifiedFileIsSearchedByItsHashWithAMatchFirst,
+//     TestSubtitleCandidates_AFileWithNothingToSearchBySaysSo,
+//     TestFetch_KeepsWhatItsNodeConvertedAndDoesNotDownloadItAgain,
+//     TestFetchesUnderway_HoldOneFetchOfASubtitleAtATime and TestRecord_KeepsEachAnswerWhereItsSourceSays.
 //
 //   - A fetched subtitle is converted by the video's node while the person waits, by the conversion
 //     job at play priority, the one way a node is asked for work (D238), and kept only once
 //     converted: nothing unparsed becomes a choice, one the node cannot read or did not convert
 //     within the silence limit is kept nowhere, and a node that is away is found before a download
 //     is spent (D224 §5). TestFetchSubtitle_OnlyASubtitleItsNodeConvertedIsKeptAndChosen,
-//     TestFetchSubtitle_OneItsNodeDidNotConvertInTimeIsKeptNowhere (internal/core/api).
+//     TestFetchSubtitle_OneItsNodeDidNotConvertInTimeIsKeptNowhere (internal/core/api), and in this
+//     package TestFetch_OneItsNodeCouldNotReadIsKeptNowhere, TestFetch_OneItsNodeDidNotConvertInTimeIsKeptNowhere,
+//     TestFetch_ANodeThatIsAwayIsFoundBeforeADownloadIsSpent and TestKeptTexts_TellEveryoneWaitingForTheirTextOnly.
 //
 //   - The text of a video's own subtitle track is thrown out once the facts of its probe it was made
 //     from changed, in the ingest's write that keeps the new probe (ForgetText;
