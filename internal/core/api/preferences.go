@@ -172,11 +172,17 @@ func (server *Server) setMyPreferences(ctx context.Context, input *SetMyPreferen
 		if err := dependencies.Preferences.SetDialogueBoost(ctx, principal.UserID, *isOn); err != nil {
 			return nil, server.playbackError(ctx, "keep a person's dialogue boost", err)
 		}
+		server.logger.InfoContext(ctx, "a person's dialogue boost was switched", "userId", principal.UserID,
+			"deviceId", principal.DeviceID, "isDialogueBoostOn", *isOn)
 	}
 	if isOn := input.Body.IsLevellingOn; isOn != nil {
 		if err := dependencies.Preferences.SetLevelling(ctx, principal.UserID, *isOn); err != nil {
 			return nil, server.playbackError(ctx, "keep whether a person's loudness is levelled", err)
 		}
+		// A switch made during a film changes its sound's route (D226 §4), and the playback's own line
+		// said only how it started (the owner's TCL TV, 2026-11-06).
+		server.logger.InfoContext(ctx, "a person's levelling was switched", "userId", principal.UserID,
+			"deviceId", principal.DeviceID, "isLevellingOn", *isOn)
 	}
 	if isOn := input.Body.IsAutoplayOn; isOn != nil {
 		if err := dependencies.Preferences.SetAutoplay(ctx, principal.UserID, *isOn); err != nil {

@@ -148,6 +148,18 @@ class ElementLevelling {
   }
 
   /**
+   * How the sound is moved now: the delay Web Audio holds it back by and the latency counted toward
+   * the wanted offset, in milliseconds (applyOffset).
+   */
+  applied(): { readonly delayMs: number; readonly latencyCountedMs: number } {
+    const delaySeconds = this.delayNode?.delayTime.value ?? 0;
+    return {
+      delayMs: Math.round(delaySeconds * 1000),
+      latencyCountedMs: Math.round(this.latencyInEffectMs),
+    };
+  }
+
+  /**
    * Moves the sound by ms from its picture, later when positive and earlier when negative, counting
    * what Web Audio's own latency already delays it by (soundOffset).
    */
@@ -323,6 +335,14 @@ export interface SoundRoute {
   readonly isThroughWebAudio: boolean;
   readonly baseLatencyMs?: number;
   readonly outputLatencyMs?: number;
+  /**
+   * Through Web Audio, how long its delay holds the sound back and the latency the player counted
+   * toward the device's sound offset, in milliseconds, each absent for none: the owner's TCL TV heard films' timing change
+   * from one run to the next with Level loudness on, and the log said only the latencies
+   * (2026-11-06).
+   */
+  readonly delayMs?: number;
+  readonly latencyCountedMs?: number;
 }
 
 /** How element's sound reaches the speakers now (SoundRoute). */
@@ -338,6 +358,19 @@ export function soundRouteOf(element: HTMLMediaElement): SoundRoute {
     isThroughWebAudio: true,
     ...(base === undefined ? {} : { baseLatencyMs: base }),
     ...(output === undefined ? {} : { outputLatencyMs: output }),
+    ...movedOnly(levelling.applied()),
+  };
+}
+
+/** A route's delay and counted latency, each only where it moves the sound. */
+function movedOnly(applied: {
+  readonly delayMs: number;
+  readonly latencyCountedMs: number;
+}): Pick<SoundRoute, "delayMs" | "latencyCountedMs"> {
+  const { delayMs, latencyCountedMs } = applied;
+  return {
+    ...(delayMs === 0 ? {} : { delayMs }),
+    ...(latencyCountedMs === 0 ? {} : { latencyCountedMs }),
   };
 }
 

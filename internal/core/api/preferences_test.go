@@ -4,6 +4,7 @@ package api_test
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
@@ -102,5 +103,28 @@ func TestPreferences_ShowDebugToolsIsOffUntilThePersonTurnsItOnAndFollowsThem(t 
 	set(false)
 	if showsDebugTools(owner) {
 		t.Error("turned off again: debug tools shown; want hidden")
+	}
+}
+
+// Switching Level loudness or the dialogue boost is logged with the device that switched it, as a
+// switch made during a film changes its sound's route and the playback's own line says only how it
+// started (the owner's TCL TV, 2026-11-06).
+func TestPreferences_SwitchingTheSoundsLevellingIsLogged(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	owner := harness.createAdminAndSignIn(t)
+	answer := harness.do(t, http.MethodPut, "/me/preferences", owner,
+		map[string]bool{"isLevellingOn": true, "isDialogueBoostOn": false})
+	if answer.status != http.StatusNoContent {
+		t.Fatalf("PUT the sound's switches: %d %s", answer.status, answer.body)
+	}
+	logged := harness.logs.String()
+	for _, want := range []string{
+		`"msg":"a person's levelling was switched"`, `"isLevellingOn":true`,
+		`"msg":"a person's dialogue boost was switched"`, `"isDialogueBoostOn":false`, `"deviceId":`,
+	} {
+		if !strings.Contains(logged, want) {
+			t.Errorf("the log has no %s:\n%s", want, logged)
+		}
 	}
 }

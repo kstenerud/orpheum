@@ -5094,7 +5094,13 @@ export interface components {
             /** Format: int64 */
             baseLatencyMs?: number;
             codecs?: string;
+            /** Format: int64 */
+            delayMs?: number;
+            /** Format: int64 */
+            earlierMs?: number;
             isThroughWebAudio?: boolean;
+            /** Format: int64 */
+            latencyCountedMs?: number;
             mapping?: string;
             /** Format: int64 */
             outputLatencyMs?: number;
