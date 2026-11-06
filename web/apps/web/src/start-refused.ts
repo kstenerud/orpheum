@@ -51,9 +51,11 @@ export function followPressesForRefusals(): void {
 
 /** The page as it stands now, for startRefusedNote. */
 export function pageAtRefusal(): PageAtRefusal {
+  // Typed as always there, it is absent before Chromium 72 and in older WebViews.
+  const activation = "userActivation" in navigator ? navigator.userActivation : undefined;
   return {
-    isPressLive: navigator.userActivation?.isActive,
-    hasBeenPressed: navigator.userActivation?.hasBeenActive,
+    isPressLive: activation?.isActive,
+    hasBeenPressed: activation?.hasBeenActive,
     isFullScreen: document.fullscreenElement !== null,
     sincePressMs:
       lastPressAtMs === undefined ? undefined : Math.round(performance.now() - lastPressAtMs),
