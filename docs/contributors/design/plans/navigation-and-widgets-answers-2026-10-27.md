@@ -2201,3 +2201,17 @@ discovery, migrated to its step 13. Connect's steps were folded to a baseline at
 test; the production discovery (connect-production-9cbe6f0) is at step 11, past the baseline, so it
 steps on to 13 as staging did.
 nas.example and the production discovery wait for the owner.
+
+## The 11-12 batch (the owner, 2026-11-06: "no deploying to nas or devnas until memtest is finished tomorrow. Meanwhile, do more batches")
+
+What is specified or filed, with no design left to the owner:
+
+1. **One way to keep a latest value** (filed after the 11-09 batch, the flake agent's "fix(web): a command is heard by the handler of the page as drawn"):
+   `useLatest` in `cast-receiver.tsx`, the overlay's `stateRef`/`isMenuOpenRef`, `popover.tsx`,
+   `cast-dialog.tsx` and `up-next.tsx` keep theirs in a passive effect, the race "fix(web): a command is heard by the handler of the page as drawn" fixed in
+   `useCommands`. One shared hook keeps it in a layout effect, and each of them uses it (rule 11).
+2. **`title_found` recomputed over all a title's files on each filing** goes into code-debt.md.
+3. **VQ270's third check, the Fire TV's Silk** (a device of the lead's): a film still starts at once,
+   full screen, without a stall at the start.
+
+End: one check-pr, staging. nas.example and devnas wait until memtest ends (the owner, 2026-11-06).
