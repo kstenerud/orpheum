@@ -2148,7 +2148,12 @@ asked for: VQ272 for the refused start's note ("docs(web): a refused start's not
    `boostChosen` in D336 §3's move. A device not yet measured plays its first levelled film through
    Web Audio once and learns. It amends D226 §4: the decision is written with the build.
    **Built** (2026-11-06) as D436, the bound 100 ms (the owner to confirm); device check VQ273.
-2. **D435, the server's own videos in one hidden system library**, built as the decision says.
+2. **D435, the server's own videos in one hidden system library**, built as the decision says. **Built**
+   (2026-11-06); device checks VQ274 (the real FFmpeg makes them) and VQ275 (the TCL plays the clip).
+
+**Passed check-pr at "test(node): a node serves its system folder beside its media"** (2026-11-06, base "test(web): the device page shows the screen's high dynamic range and colours"). The owner's word (2026-11-06): deploy
+to nas.example once it passes, then rehearse the failover to devnas (orpheum-ops
+`production/failover-to-devnas.md`).
 
 Still the owner's to answer: which of the TCL remote's buttons (colours, channel, digits) control
 playback; D266's third give-up sign as its own decision or not; giving HEVC up device-wide after one
