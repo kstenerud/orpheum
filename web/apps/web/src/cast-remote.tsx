@@ -10,6 +10,7 @@ import {
   type PlaybackSound,
   type TogetherSnapshot,
 } from "@orpheum/sdk";
+import { longestSoundOffsetMs } from "@orpheum/player";
 import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -23,6 +24,7 @@ import { rateText } from "./rate-text.ts";
 import type { ReopenAt } from "./reopen.ts";
 import { useServices, useToken } from "./services.tsx";
 import { SessionRemote, usePositionNow } from "./session-remote.tsx";
+import { soundOffsetStepMs } from "./sound-delay.tsx";
 import { useMembership } from "./together-membership.ts";
 import { useUpNext } from "./up-next.tsx";
 import { useResource } from "./use-resource.ts";
@@ -453,7 +455,55 @@ function ReceiverSound(props: {
           </select>
         </label>
       )}
+      <RemoteSoundOffset ms={sound.soundOffsetMs} connection={connection} />
     </div>
+  );
+}
+
+/**
+ * The receiver's sound timing on the remote, for a TV that plays its sound late (the owner,
+ * 2026-11-06: "Put a control in watch together and cast so that I can adjust the sound timing"):
+ * as the receiver said it stands, each press moving it a step from there, which the receiver keeps
+ * with its device as its own press. Nothing where the receiver offers no timing (undefined).
+ */
+function RemoteSoundOffset(props: {
+  readonly ms: number | undefined;
+  readonly connection: CarriesSoundChoices;
+}): JSX.Element | null {
+  const { t } = useTranslation();
+  const { ms, connection } = props;
+  if (ms === undefined) {
+    return null;
+  }
+  const move = (byMs: number): void => {
+    const next = Math.min(Math.max(ms + byMs, -longestSoundOffsetMs), longestSoundOffsetMs);
+    connection.chooseSound({ kind: "soundOffset", ms: next });
+  };
+  let shown = t("cast.soundOffset.inStep");
+  if (ms !== 0) {
+    shown =
+      ms > 0 ? t("cast.soundOffset.laterBy", { ms }) : t("cast.soundOffset.earlierBy", { ms: -ms });
+  }
+  return (
+    <p className="play__sound-delay">
+      <span>{shown}</span>{" "}
+      <button
+        type="button"
+        onClick={() => {
+          move(-soundOffsetStepMs);
+        }}
+      >
+        {t("play.soundOffset.earlier", { ms: soundOffsetStepMs })}
+      </button>{" "}
+      <button
+        type="button"
+        onClick={() => {
+          move(soundOffsetStepMs);
+        }}
+      >
+        {t("play.soundOffset.later", { ms: soundOffsetStepMs })}
+      </button>
+    </p>
   );
 }
 

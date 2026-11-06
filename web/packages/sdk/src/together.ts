@@ -416,6 +416,7 @@ function playbackSoundIn(value: unknown): PlaybackSound | undefined {
   const boost = fields["isBoostOn"];
   const streamId = fields["audioStreamId"];
   const tracks = Array.isArray(fields["audioTracks"]) ? fields["audioTracks"] : [];
+  const offset = fields["soundOffsetMs"];
   return {
     isBoostOn: typeof boost === "boolean" ? boost : undefined,
     isLevellingOn: fields["isLevellingOn"] === true,
@@ -424,6 +425,7 @@ function playbackSoundIn(value: unknown): PlaybackSound | undefined {
       const track = soundTrackIn(each);
       return track === undefined ? [] : [track];
     }),
+    soundOffsetMs: typeof offset === "number" ? offset : undefined,
   };
 }
 
@@ -443,6 +445,11 @@ function soundChoiceIn(value: unknown): SoundChoice | undefined {
       return typeof streamId === "number" && streamId > 0
         ? { kind: "audioTrack", streamId }
         : undefined;
+    }
+    case "soundOffset": {
+      const ms = fields["ms"];
+      // The server omits a zero.
+      return { kind: "soundOffset", ms: typeof ms === "number" ? ms : 0 };
     }
     default:
       return undefined;

@@ -334,6 +334,7 @@ func TestCast_TheRemoteChoosesTheReceiversSound(t *testing.T) {
 		{Kind: SoundBoost, IsOn: true},
 		{Kind: SoundLevelling},
 		{Kind: SoundAudioTrack, StreamID: 3},
+		{Kind: SoundOffset, Ms: -200}, // the owner, 2026-11-06: "Put a control in ... cast"
 	} {
 		stage.hub.Handle(t.Context(), remote, Inbound{Type: MessageSound, Sound: &choice})
 		relayed := playerBox.last(MessageSound)
@@ -347,14 +348,17 @@ func TestCast_TheRemoteChoosesTheReceiversSound(t *testing.T) {
 	if count := remoteBox.count(MessageSound); count != 0 {
 		t.Errorf("the remote was told %d of its own choices; want none", count)
 	}
-	for _, refused := range []*SoundChoice{nil, {Kind: "louder"}, {Kind: SoundAudioTrack}} {
+	refusedChoices := []*SoundChoice{
+		nil, {Kind: "louder"}, {Kind: SoundAudioTrack}, {Kind: SoundOffset, Ms: 2050}, {Kind: SoundOffset, Ms: -2050},
+	}
+	for _, refused := range refusedChoices {
 		stage.hub.Handle(t.Context(), remote, Inbound{Type: MessageSound, Sound: refused})
 	}
-	if count := playerBox.count(MessageSound); count != 3 {
-		t.Errorf("the player was told %d sound choices; want the 3 a remote may make", count)
+	if count := playerBox.count(MessageSound); count != 4 {
+		t.Errorf("the player was told %d sound choices; want the 4 a remote may make", count)
 	}
-	if count := remoteBox.count(MessageRejected); count != 3 {
-		t.Errorf("the remote's unknown choices were refused %d times; want 3", count)
+	if count := remoteBox.count(MessageRejected); count != len(refusedChoices) {
+		t.Errorf("the remote's unknown choices were refused %d times; want %d", count, len(refusedChoices))
 	}
 }
 
@@ -380,8 +384,9 @@ func TestHub_TheRosterSaysHowEachPlayersFilmSounds(t *testing.T) {
 		return nil
 	}
 	isOn := true
+	earlier, pastTheBound := int64(-200), int64(2050)
 	sound := PlaybackSound{
-		IsBoostOn: &isOn, IsLevellingOn: true, AudioStreamID: 2,
+		IsBoostOn: &isOn, IsLevellingOn: true, AudioStreamID: 2, SoundOffsetMs: &earlier,
 		AudioTracks: []SoundTrack{
 			{StreamID: 1, Language: "en", Kind: "plain"},
 			{StreamID: 2, Language: "de", ContainerTitle: "Director", Kind: "commentary"},
@@ -403,5 +408,12 @@ func TestHub_TheRosterSaysHowEachPlayersFilmSounds(t *testing.T) {
 	})
 	if got := soundInRoster(); got == nil || !reflect.DeepEqual(*got, sound) {
 		t.Errorf("after a track of a kind no player says, the receiver sounds %+v; want the last known", got)
+	}
+	stage.hub.Handle(t.Context(), receiver, Inbound{
+		Type: MessageState, Playing: true, FileID: 12,
+		Playback: &Playback{Delivery: DeliveryConverted, Sound: &PlaybackSound{SoundOffsetMs: &pastTheBound}},
+	})
+	if got := soundInRoster(); got == nil || !reflect.DeepEqual(*got, sound) {
+		t.Errorf("after a sound offset past the bound, the receiver sounds %+v; want the last known", got)
 	}
 }

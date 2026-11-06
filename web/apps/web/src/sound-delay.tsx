@@ -18,12 +18,14 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
-import { setMyDeviceSoundOffset } from "./accounts.ts";
+import { listMyDevices, setMyDeviceSoundOffset } from "./accounts.ts";
 import { latestWrite } from "./latest-write.ts";
 import { Cluster } from "./layout.tsx";
 import { problemText } from "./problem.ts";
 import { soundLatencyMemory } from "./sound-latency.ts";
+import { useSoundPart } from "./sound-panel.ts";
 import { useServices } from "./services.tsx";
+import { useResource } from "./use-resource.ts";
 
 /** How much each press moves the sound, in milliseconds. */
 export const soundOffsetStepMs = 50;
@@ -101,8 +103,8 @@ export function SoundOffsetControl(props: {
     }
   }, [offsetMs, props.videoRef]);
   const deviceId = session.deviceId();
-  const move = (byMs: number): void => {
-    const next = Math.min(Math.max(offsetMs + byMs, -longestSoundOffsetMs), longestSoundOffsetMs);
+  const setTo = (wanted: number): void => {
+    const next = Math.min(Math.max(wanted, -longestSoundOffsetMs), longestSoundOffsetMs);
     setTabMs(next);
     const video = props.videoRef.current;
     setIsEarlierRefused(next < 0 && video !== null && !canMoveSoundEarlier(video));
@@ -110,13 +112,14 @@ export function SoundOffsetControl(props: {
       keep({ deviceId, ms: next });
     }
   };
+  useMovedByTheRemote(props.isInAList === true ? undefined : offsetMs, setTo);
   const parts = (
     <>
       <span>{timingText(t, offsetMs)}</span>{" "}
       <button
         type="button"
         onClick={() => {
-          move(-soundOffsetStepMs);
+          setTo(offsetMs - soundOffsetStepMs);
         }}
       >
         {t("play.soundOffset.earlier", { ms: soundOffsetStepMs })}
@@ -124,7 +127,7 @@ export function SoundOffsetControl(props: {
       <button
         type="button"
         onClick={() => {
-          move(soundOffsetStepMs);
+          setTo(offsetMs + soundOffsetStepMs);
         }}
       >
         {t("play.soundOffset.later", { ms: soundOffsetStepMs })}
@@ -140,6 +143,43 @@ export function SoundOffsetControl(props: {
     </>
   );
   return <TimingRow isInAList={props.isInAList === true}>{parts}</TimingRow>;
+}
+
+/**
+ * A Watch Together viewer's sound timing under the film (the owner, 2026-11-06: "Make it respect the
+ * sound offset. Put a control in watch together"): the server gives a guest's playback none, so a
+ * viewer signed in on this device starts from the offset kept with the device, and any other from in
+ * step.
+ */
+export function ViewerSoundOffsetControl(props: {
+  readonly videoRef: RefObject<HTMLVideoElement | null>;
+}): JSX.Element | null {
+  return <SoundOffsetControl videoRef={props.videoRef} initialMs={useThisDeviceSoundOffsetMs()} />;
+}
+
+/** The sound offset kept with the device this tab is signed in on; 0 for none, or until read. */
+function useThisDeviceSoundOffsetMs(): number {
+  const { api, session } = useServices();
+  const deviceId = session.deviceId();
+  const [devices] = useResource(`my-devices-sound/${String(deviceId)}`, async () =>
+    deviceId === undefined ? [] : await listMyDevices(api),
+  );
+  return devices.state === "loaded"
+    ? (devices.value.find((each) => each.id === deviceId)?.soundOffsetMs ?? 0)
+    : 0;
+}
+
+/**
+ * Has a cast's remote move the timing too, as the control's own press (sound-panel.ts): the control
+ * under the video says how it stands, ms, and ⁝'s copy, which comes and goes, says nothing
+ * (undefined).
+ */
+function useMovedByTheRemote(ms: number | undefined, setTo: (ms: number) => void): void {
+  useSoundPart(ms === undefined ? undefined : { kind: "soundOffset", ms }, (choice) => {
+    if (choice.kind === "soundOffset") {
+      setTo(choice.ms);
+    }
+  });
 }
 
 /** The timing's parts under the video, or in a row that wraps as an entry of ⁝'s list. */
