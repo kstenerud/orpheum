@@ -29,6 +29,12 @@ const (
 	// devices that play it to carry out as their own press (SoundChoice); the server relays it to
 	// those devices, under the same name, and keeps nothing of it.
 	MessageSound MessageType = "sound"
+	// MessagePlayback is how a device plays the film and how it sounds (Playback), said alone (D434): a
+	// cast's receiver says it in the cast's session while it leads its person's Watch Together
+	// session as their player, so the cast's remote works the receiver in the cast's session alone,
+	// whatever else the receiver is in (the owner, 2026-11-06: "It shouldn't be watch together's
+	// business at all which TV has what offset or playback characteristics").
+	MessagePlayback MessageType = "playback"
 )
 
 // The messages the server sends.

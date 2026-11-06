@@ -26496,3 +26496,30 @@ offered no way back to it, the panel holding their Leave.
   closes it as they leave (D433)" in web/apps/web/src/together-over-the-film.test.tsx
 
 **Status:** Built 2026-11-05.
+
+## D434 — A cast's remote works its receiver in the cast's session alone, whatever else the receiver plays in
+
+**Decided** (2026-11-06), by the project owner, after the cast dialog lost its sound controls while
+Watch Together ran: "Shouldn't the cast dialog be the one that's controlling the sound offset for the
+tv it's casting to, regardless of whether watch together is running or not? It shouldn't be watch
+together's business at all which TV has what offset or playback characteristics." Then "yes go
+ahead". Amends D364 §11.
+
+1. **How the receiver plays and sounds is said in the cast's session, always** (D371 §4's delivery,
+   quality and link; its dialogue boost, levelling, audio track and sound timing): where it leads the
+   cast's, with its state; while its person hosts Watch Together and it leads that session as their
+   player (D364 §11), as a panel in the cast's saying its playback alone (`playback`, a new message).
+2. **The remote's sound choices go to the receiver in the cast's session,** and the server relays them
+   there to the receiver whatever its part. Watch Together's session carries only what its group needs:
+   what plays, play, pause and the position.
+3. **The remote reads the receiver's playback from the cast's session alone,** never from Watch
+   Together's, so the group's leader, another member's device among them, is never shown as the TV.
+
+**Proven by:**
+- 1: "tells the cast's session how it sounds, and hears its remote there, while it leads Watch
+  Together" in web/apps/web/src/cast-receiver-sound.test.tsx; "says its playback alone, with no
+  player, as asked (the owner, 2026-11-06)" in web/packages/sdk/src/together-connection-leader.test.ts;
+  `TestCast_TheRemoteWorksTheReceiverInTheCastWhileItLeadsWatchTogether` in
+  internal/core/together/cast_test.go.
+- 2, 3: "works the session this tab hosts while Watch Together is on too, its receiver the host's
+  player (D364 §11)" in web/apps/web/src/cast-remote.test.tsx.

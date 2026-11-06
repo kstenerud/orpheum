@@ -236,6 +236,7 @@ export type {
   Press,
   RelaysVoiceSignals,
   TellsCannotKeepUp,
+  TellsPlaybackAlone,
   TellsStanding,
   TogetherConnection,
   TogetherSnapshot,
@@ -294,6 +295,7 @@ export {
   playerMovedSoundEvent,
   playerSwitchedQualityEvent,
 } from "./together-player-events.ts";
+export { PlaybackTold } from "./together-leader.ts";
 export type {
   ChunkLoaded,
   LoadingHold,

@@ -315,6 +315,22 @@ function endOf(cast: {
 type WorkedSession = Pick<ReturnType<typeof useTogether>, "snapshot" | "connection">;
 
 /**
+ * How the receiver plays, as it says in the cast's session: there it leads, or, while its person
+ * hosts Watch Together and it leads that session instead, it is the one device besides this remote,
+ * a panel saying its playback alone (D364 §11).
+ */
+function receiverPlaybackIn(snapshot: TogetherSnapshot | undefined): PlaybackReport | undefined {
+  if (snapshot === undefined) {
+    return undefined;
+  }
+  const devices = snapshot.roster.flatMap((member) => member.devices);
+  const receiver =
+    leaderOf(snapshot) ??
+    devices.find((each) => each.id !== snapshot.deviceId && each.playback !== undefined);
+  return receiver?.playback;
+}
+
+/**
  * What the remote shows of what plays on the receiver: the receiver ready with nothing playing (§5),
  * or the film and its controls, which, while the person hosts Watch Together, work that session
  * (hosted), the receiver its host's player (D364 §11), the cast's own playing nothing.
@@ -330,15 +346,16 @@ function RemoteOf(props: {
     return <p id="cast-remote-heading">{t("cast.readyOn", { name: sent.receiverName })}</p>;
   }
   const worked = hosted ?? props.cast;
-  // The receiver plays in the session it leads, the hosted one while its person hosts (D364 §11):
-  // how it plays and sounds is said there, and its sound is chosen there.
-  const playback = worked.snapshot === undefined ? undefined : leaderOf(worked.snapshot)?.playback;
+  // How the receiver plays and sounds is said in the cast's session, and its sound chosen there,
+  // whatever else it plays in (the owner, 2026-11-06: "It shouldn't be watch together's business at
+  // all which TV has what offset or playback characteristics").
+  const playback = receiverPlaybackIn(props.cast.snapshot);
   return (
     <>
       <h2 id="cast-remote-heading">{sent.itemName === "" ? t("cast.aFilm") : sent.itemName}</h2>
       <p>{t("cast.playingOn", { name: sent.receiverName })}</p>
       <ReceiverPlayback playback={playback} />
-      <ReceiverSound sound={playback?.sound} connection={worked.connection} />
+      <ReceiverSound sound={playback?.sound} connection={props.cast.connection} />
       <SessionRemote
         snapshot={worked.snapshot}
         connection={worked.connection}
