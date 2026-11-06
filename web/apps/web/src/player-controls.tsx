@@ -3,16 +3,7 @@
 import "./player-controls.css";
 
 import { heardVolumeOf, setHeardVolume } from "@orpheum/player";
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type JSX,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import { useEffect, useState, type JSX, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import { FullScreenButton } from "./full-screen-button.tsx";
@@ -31,6 +22,7 @@ import {
 } from "./player-icons.tsx";
 import { askedByOf, seekAheadOf, seekAimedEvent, seekStepMs } from "./seek-ahead.ts";
 import { Timeline } from "./timeline.tsx";
+import { useVideoStanding, type StandingTaken, type VideoStanding } from "./video-standing.ts";
 import { VolumeRange } from "./volume-range.tsx";
 
 /**
@@ -392,48 +384,51 @@ const standingEvents = [
   seekAimedEvent,
 ];
 
+/** The events at which a shown bar reads where the film stands: its hidden ones and each timeupdate. */
+const shownStandingEvents = [...standingEvents, "timeupdate"];
+
+/** The bar's standing from the video's reading: where it stands is a seek's place while one is chosen. */
+function barStandingOf(standing: VideoStanding, video: HTMLVideoElement): Standing {
+  return {
+    atMs: seekAheadOf(video).shownMs(standing.atMs),
+    durationMs: standing.durationMs,
+    isPaused: standing.isPaused,
+  };
+}
+
+function isSameStanding(one: Standing, other: Standing): boolean {
+  return (
+    one.atMs === other.atMs &&
+    one.durationMs === other.durationMs &&
+    one.isPaused === other.isPaused
+  );
+}
+
+/** The bar's taking of the video's reading while it shows, read at once as it shows. */
+const shownTaking: StandingTaken<Standing> = {
+  take: barStandingOf,
+  isSame: isSameStanding,
+  initial: { atMs: 0, durationMs: 0, isPaused: true },
+  isReadAtOnce: true,
+};
+
+/** The bar's taking while it is hidden: at its own events alone. */
+const hiddenTaking: StandingTaken<Standing> = { ...shownTaking, isReadAtOnce: false };
+
 /**
- * Where the film stands, its length, and whether it is paused, as the video says them: read at its
- * own events, and at each timeupdate, four a second, only while the bar shows (not isHidden); where
- * the film stands is a seek's place while it is chosen and on its way, until a seeked says it landed
- * (seekAheadOf). A bar
+ * Where the film stands, its length, and whether it is paused, as the video says them, from the one
+ * reading every hearer of the video takes (useVideoStanding): read at its own events, and at each
+ * timeupdate, four a second, only while the bar shows (not isHidden); where the film stands is a
+ * seek's place while it is chosen and on its way, until a seeked says it landed (seekAheadOf). A bar
  * hidden over a playing film rendered again at every timeupdate for the film's length, 1 ms each on a
  * Fire TV (the efficiency audit's finding 7); shown again, it reads where the film stands at once.
  */
 function useStanding(videoRef: RefObject<HTMLVideoElement | null>, isHidden: boolean): Standing {
-  const standRef = useRef<Standing>({ atMs: 0, durationMs: 0, isPaused: true });
-  const subscribe = useCallback(
-    (changed: () => void) => {
-      const video = videoRef.current;
-      if (video === null) {
-        return () => undefined;
-      }
-      const ahead = seekAheadOf(video);
-      const heard = (): void => {
-        standRef.current = {
-          atMs: ahead.shownMs(video.currentTime * 1000),
-          durationMs: Number.isFinite(video.duration) ? video.duration * 1000 : 0,
-          isPaused: video.paused,
-        };
-        changed();
-      };
-      const events = isHidden ? standingEvents : [...standingEvents, "timeupdate"];
-      for (const each of events) {
-        video.addEventListener(each, heard);
-      }
-      if (!isHidden) {
-        heard();
-      }
-      return () => {
-        for (const each of events) {
-          video.removeEventListener(each, heard);
-        }
-      };
-    },
-    [videoRef, isHidden],
+  return useVideoStanding(
+    videoRef,
+    isHidden ? standingEvents : shownStandingEvents,
+    isHidden ? hiddenTaking : shownTaking,
   );
-  const read = useCallback(() => standRef.current, []);
-  return useSyncExternalStore(subscribe, read, read);
 }
 
 /** The video's sound, read at its volumechange, set on the video itself. */

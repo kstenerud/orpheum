@@ -11,6 +11,7 @@ import type { OfferPlace } from "./convenience-area.tsx";
 import type { Command } from "./input-buttons.ts";
 import { commandEventName } from "./input-commands.ts";
 import { mount, servedBy, settleUntil, type Heard, type Mounted } from "./test-dom.tsx";
+import { PlayerControls, useVideoSource } from "./player-controls.tsx";
 import { forgetAutoplays, stillWatchingAfterAutoplays } from "./still-watching.tsx";
 import { testServices, withServices } from "./test-services.tsx";
 import {
@@ -278,6 +279,29 @@ describe("the Up next offer over the film", () => {
       vi.advanceTimersByTime(ms);
     });
   }
+
+  it("takes where the film stands from the bar's one reading: one timeupdate listener for both", async () => {
+    const added = vi.spyOn(video, "addEventListener");
+    const videoRef = createRef<HTMLVideoElement>();
+    Reflect.set(videoRef, "current", video);
+    function BarAndOffer(): JSX.Element {
+      const source = useVideoSource(videoRef);
+      return (
+        <div data-at-ms={source.atMs}>
+          <PlayerControls source={source} controls={["play"]} />
+          <UpNextOffer upNext={bag} isAutoplayOn videoRef={videoRef} onPlay={() => undefined} />
+        </div>
+      );
+    }
+    mounted = await mount(withServices(<BarAndOffer />));
+    video.stand(1185);
+    const timeupdates = added.mock.calls.filter(([event]) => event === "timeupdate");
+    expect(timeupdates).toHaveLength(1);
+    expect(mounted.container.querySelector("[data-at-ms]")?.getAttribute("data-at-ms")).toBe(
+      "1185000",
+    );
+    expect(mounted.container.textContent).toContain("Up next: S1E3 · Bag");
+  });
 
   it("offers the next episode near the end, counts down at the end with autoplay, and plays it", async () => {
     const page = await offer(true);

@@ -36,6 +36,7 @@ import {
 import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useResource } from "./use-resource.ts";
+import { useVideoStanding, type StandingTaken, type VideoStanding } from "./video-standing.ts";
 
 /**
  * How long before the film's end the offer shows, in ms, where nothing says where its credits start
@@ -568,36 +569,28 @@ function useCountdown(isCounting: boolean, onPlay: () => void): number {
   return secondsLeft;
 }
 
+/** The events at which the offer reads where the film stands. */
+const endingEvents = ["loadedmetadata", "durationchange", "timeupdate", "seeked", "play", "ended"];
+
+function endingOf(standing: VideoStanding): Ending {
+  return { atMs: standing.atMs, durationMs: standing.durationMs, hasEnded: standing.hasEnded };
+}
+
+/** The offer's taking of the video's reading: drawn again only when it means something new. */
+const endingTaking: StandingTaken<Ending> = {
+  take: endingOf,
+  isSame: isSameEnding,
+  initial: { atMs: 0, durationMs: 0, hasEnded: false },
+  isReadAtOnce: false,
+};
+
 /**
- * Where the film stands for the offer, as the video says it at its own events: a video that plays
- * says so within a timeupdate's quarter second.
+ * Where the film stands for the offer, as the video says it at its own events, from the one reading
+ * every hearer of the video takes (useVideoStanding), the bar's too: a video that plays says so
+ * within a timeupdate's quarter second.
  */
 function useEnding(videoRef: RefObject<HTMLVideoElement | null>): Ending {
-  const [ending, setEnding] = useState<Ending>({ atMs: 0, durationMs: 0, hasEnded: false });
-  useEffect(() => {
-    const video = videoRef.current;
-    if (video === null) {
-      return undefined;
-    }
-    const heard = (): void => {
-      const next = {
-        atMs: video.currentTime * 1000,
-        durationMs: Number.isFinite(video.duration) ? video.duration * 1000 : 0,
-        hasEnded: video.ended,
-      };
-      setEnding((current) => (isSameEnding(current, next) ? current : next));
-    };
-    const events = ["loadedmetadata", "durationchange", "timeupdate", "seeked", "play", "ended"];
-    for (const each of events) {
-      video.addEventListener(each, heard);
-    }
-    return () => {
-      for (const each of events) {
-        video.removeEventListener(each, heard);
-      }
-    };
-  }, [videoRef]);
-  return ending;
+  return useVideoStanding(videoRef, endingEvents, endingTaking);
 }
 
 /** Whether two readings mean the same to the offer: within a second, the same end. */
