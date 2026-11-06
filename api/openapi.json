@@ -7822,8 +7822,26 @@
             "maxLength": 200,
             "type": "string"
           },
+          "delayMs": {
+            "format": "int64",
+            "maximum": 2000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "earlierMs": {
+            "format": "int64",
+            "maximum": 2000,
+            "minimum": 0,
+            "type": "integer"
+          },
           "isThroughWebAudio": {
             "type": "boolean"
+          },
+          "latencyCountedMs": {
+            "format": "int64",
+            "maximum": 10000,
+            "minimum": 0,
+            "type": "integer"
           },
           "mapping": {
             "maxLength": 300,

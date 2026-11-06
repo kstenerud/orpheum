@@ -86,6 +86,14 @@ export function moveSoundEarlier(
   element.dispatchEvent(new CustomEvent(playerMovedSoundEvent, { detail: moved }));
 }
 
+/**
+ * How much earlier element's sound is moved now, in milliseconds: its chunked playback's shift, or
+ * the move wanted for the next one; 0 for none.
+ */
+export function soundEarlierMsOf(element: HTMLMediaElement): number {
+  return shiftByElement.get(element)?.earlierMs() ?? wantedByElement.get(element) ?? 0;
+}
+
 /** A move as it is told: from and to, whether it threw the sound away, and its cause. */
 function soundMoved(
   move: {

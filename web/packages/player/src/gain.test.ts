@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { SoundShift } from "./audio-shift.ts";
+import { SoundShift, soundEarlierMsOf } from "./audio-shift.ts";
 import {
   canSetVolume,
   gainAfterVolume,
@@ -228,6 +228,20 @@ describe("a move of the sound from its picture (the owner's TCL TV, 2026-10-24)"
     soundOffset(routed, audio.create).setMs(300);
     expect(routedShift.earlierMs).toBe(124);
     expect(audio.delays).toEqual([]);
+  });
+
+  it("says how it moves the sound, for the playback's log (the owner's TCL TV, 2026-11-06)", async () => {
+    const video = document.createElement("video");
+    const audio = delayingAudio({ baseLatency: 0.096, outputLatency: 0.328 });
+    const offset = soundOffset(video, audio.create);
+    offset.setMs(600);
+    await settled();
+    video.dispatchEvent(new Event("playing"));
+    expect(soundRouteOf(video)).toMatchObject({ delayMs: 176, latencyCountedMs: 424 });
+    expect(soundEarlierMsOf(video)).toBe(0);
+    offset.setMs(100);
+    expect(soundRouteOf(video).delayMs).toBeUndefined();
+    expect(soundEarlierMsOf(video)).toBe(324);
   });
 
   it("leaves a sound not delayed as the element plays it", async () => {

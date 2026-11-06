@@ -201,8 +201,14 @@ type StartupSoundBody struct {
 	// when the sound is not through Web Audio or the browser does not say.
 	BaseLatencyMs   *int64 `json:"baseLatencyMs,omitempty"   minimum:"0" required:"false"`
 	OutputLatencyMs *int64 `json:"outputLatencyMs,omitempty" minimum:"0" required:"false"`
-	Codecs          string `json:"codecs,omitempty"          maxLength:"200" required:"false"`
-	Mapping         string `json:"mapping,omitempty"         maxLength:"300" required:"false"`
+	// EarlierMs is how much earlier the player moves the sound's chunks; DelayMs, how long Web Audio
+	// holds it back; LatencyCountedMs, Web Audio's latency it counted toward the device's sound offset
+	// (the owner's TCL TV, 2026-11-06: the timing changed between runs with Level loudness on).
+	EarlierMs        int64  `json:"earlierMs,omitempty"        maximum:"2000" minimum:"0" required:"false"`
+	DelayMs          int64  `json:"delayMs,omitempty"          maximum:"2000" minimum:"0" required:"false"`
+	LatencyCountedMs int64  `json:"latencyCountedMs,omitempty" maximum:"10000" minimum:"0" required:"false"`
+	Codecs           string `json:"codecs,omitempty"          maxLength:"200" required:"false"`
+	Mapping          string `json:"mapping,omitempty"         maxLength:"300" required:"false"`
 }
 
 // StallBody is one stall: a wait for data, while the player played, where it was; and the video's
@@ -440,6 +446,7 @@ func (server *Server) logStartup(ctx context.Context, reporter reporter, startup
 		server.logger.InfoContext(ctx, "a playback's sound", "userId", reporter.holder.UserID,
 			"deviceId", reporter.deviceID, "isThroughWebAudio", sound.IsThroughWebAudio,
 			"baseLatencyMs", msOrNone(sound.BaseLatencyMs), "outputLatencyMs", msOrNone(sound.OutputLatencyMs),
+			"earlierMs", sound.EarlierMs, "delayMs", sound.DelayMs, "latencyCountedMs", sound.LatencyCountedMs,
 			"codecs", sound.Codecs,
 			"mapping", sound.Mapping)
 	}

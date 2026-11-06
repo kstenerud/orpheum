@@ -137,7 +137,7 @@ func TestReport_HowLongAPlaybackTookToStartIsLogged(t *testing.T) {
 		"decidedAfterMs": 180, "firstDataAfterMs": 2400, "playingAfterMs": 3100,
 		"preloadSteps": "level 4; frag 4/0 loaded; level 0",
 		"sound": map[string]any{
-			"isThroughWebAudio": true, "baseLatencyMs": 10,
+			"isThroughWebAudio": true, "baseLatencyMs": 10, "earlierMs": 250, "delayMs": 40, "latencyCountedMs": 90,
 			"codecs": "video avc1.64001f; audio mp4a.40.2", "mapping": "initPTS main 0.000",
 		},
 	}
@@ -149,6 +149,7 @@ func TestReport_HowLongAPlaybackTookToStartIsLogged(t *testing.T) {
 		`"msg":"a playback started playing"`, `"decidedAfterMs":180`, `"firstDataAfterMs":2400`,
 		`"playingAfterMs":3100`, `"linkKbps":2500`, `"preloadSteps":"level 4; frag 4/0 loaded; level 0"`,
 		`"msg":"a playback's sound"`, `"isThroughWebAudio":true`, `"baseLatencyMs":10`, `"outputLatencyMs":"none"`,
+		`"earlierMs":250`, `"delayMs":40`, `"latencyCountedMs":90`,
 		`"codecs":"video avc1.64001f; audio mp4a.40.2"`, `"mapping":"initPTS main 0.000"`,
 	} {
 		if !strings.Contains(logged, want) {
