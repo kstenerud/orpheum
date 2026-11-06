@@ -151,12 +151,13 @@ function mountOnOwnOrigin(): void {
   const routed = new SwitchableFetch();
   let openTogetherSocket = browserTogetherSocket(window.location.origin);
   const session = createSession(storageIfAllowed(() => window.localStorage));
+  const pathMoves = createPathMoves();
   const api = mountApp(
     session,
     {
       fetch: routed.fetch,
       openTogetherSocket: (listeners) => openTogetherSocket(listeners),
-      pathMoves: createPathMoves(),
+      pathMoves,
       ownScript: ownScriptOf(document),
       onPathBack: onBrowserOnline,
     },
@@ -176,6 +177,7 @@ function mountOnOwnOrigin(): void {
         switchTogetherSocket: (open) => {
           openTogetherSocket = open;
         },
+        pathMoves,
       },
       reportFailure,
     );

@@ -109,21 +109,33 @@ export interface PathMoves {
   readonly subscribe: (listener: () => void) => () => void;
   /**
    * Whether the page's media go over WebRTC now, where the service worker builds every load's
-   * answer and the browser's HTTP cache keeps none (the efficiency audit's finding 1); false where
-   * nothing says, on the core's own origin and under an older loader.
+   * answer and the browser's HTTP cache keeps none (the efficiency audit's finding 1): under a loader
+   * as it says, false under an older one; on the core's own origin once a tab moved by
+   * `?transport=webrtc` carried them over.
    */
   readonly isOverWebrtc: () => boolean;
 }
 
-/** A count of path moves, and the move to tell of: what client-main.tsx keeps, and tests move by hand. */
-export function createPathMoves(): PathMoves & { readonly moved: (to?: string) => void } {
+/**
+ * A count of path moves, and the move to tell of: what client-main.tsx keeps, and tests move by hand;
+ * and, on the core's own origin, the mark that the page's media are carried over WebRTC now
+ * (carriedOverWebrtc), which a tab moved by `?transport=webrtc` sets (transport-choice.ts).
+ */
+export function createPathMoves(): PathMoves & {
+  readonly moved: (to?: string) => void;
+  readonly carriedOverWebrtc: () => void;
+} {
   let count = 0;
   let last: string | undefined;
+  let isOverWebrtc = false;
   const listeners = new Set<() => void>();
   return {
     count: () => count,
     to: () => last,
-    isOverWebrtc: () => false,
+    isOverWebrtc: () => isOverWebrtc,
+    carriedOverWebrtc: () => {
+      isOverWebrtc = true;
+    },
     subscribe: (listener) => {
       listeners.add(listener);
       return () => {
