@@ -15,6 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
@@ -243,6 +244,7 @@ func (rescans *Rescans) Advance(ctx context.Context) (int, error) {
 			said, err = rescans.matcher.pass.filesSayOf(ctx, rescan.LibraryID)
 			if errors.Is(err, errLibraryKeptChanging) {
 				rescans.matcher.logger.InfoContext(ctx, "a rescan waits for its library to stop changing",
+					slogx.EventKey, "rescanWaiting",
 					"libraryId", rescan.LibraryID, "cause", err)
 				continue
 			}
@@ -431,7 +433,9 @@ func (matcher *Matcher) handleRematch(ctx context.Context, itemID int64, row cac
 func (matcher *Matcher) logRematch(ctx context.Context, itemID int64, result rematched) {
 	switch result.outcome {
 	case rematchChanged:
-		matcher.logger.InfoContext(ctx, "a rescan matched an item to another work", "itemId", itemID,
+		matcher.logger.InfoContext(ctx, "a rescan matched an item to another work",
+			slogx.EventKey, "rescanRematched",
+			"itemId", itemID,
 			"before", result.before, "beforeName", result.beforeName, "after", result.after,
 			"afterName", result.afterName, "settledBy", result.settledBy, "isGuess", result.isGuess)
 	case rematchUnsettled:
@@ -509,7 +513,8 @@ func (matcher *Matcher) endRescanIfDone(ctx context.Context, rescanID int64) err
 		return fmt.Errorf("end rescan %d: %w", rescanID, err)
 	}
 	if isEnded {
-		matcher.logger.InfoContext(ctx, "a rescan ended", rescanTotals(ended)...)
+		matcher.logger.InfoContext(ctx, "a rescan ended",
+			append([]any{slogx.EventKey, "rescanEnded"}, rescanTotals(ended)...)...)
 		if ended.IsFull != 0 {
 			matcher.pass.OwePass(ended.LibraryID) // which queues the images asked for again (D392 §4)
 		}

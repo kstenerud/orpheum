@@ -13,6 +13,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/pathtree"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -70,7 +71,9 @@ func (admin *Admin) Folders(ctx context.Context, nodeName, path string) (nodepro
 			listing = nodeproto.FolderListing{Path: path, State: nodeproto.ProbeNotAnswering, Failure: err.Error()}
 		}
 	}
-	admin.log().DebugContext(ctx, "listed the folders in a folder on a node", "nodeName", nodeName,
+	admin.log().DebugContext(ctx, "listed the folders in a folder on a node",
+		slogx.EventKey, "foldersListed",
+		"nodeName", nodeName,
 		"nodeId", nodeID, "path", path, "state", listing.State, "folderCount", len(listing.Folders),
 		"tookMs", admin.clock.Now().Sub(startedAt).Milliseconds(), "failure", listing.Failure)
 	return listing, nil
@@ -172,6 +175,7 @@ func (admin *Admin) libraryFolderOn(ctx context.Context, nodeName, path string) 
 	}
 	if _, isHeld := pathtree.DeepestHolding(path, roots); !isHeld {
 		admin.log().WarnContext(ctx, "refused a library folder that no configured root of its node holds",
+			slogx.EventKey, "folderOutsideRoots",
 			"nodeName", nodeName, "path", path, "rootPaths", roots)
 		return 0, fmt.Errorf("%s on node %q: %w; it names %v", path, nodeName, ErrNotANodeRoot, roots)
 	}
@@ -196,7 +200,9 @@ func (admin *Admin) refuseCovered(
 			continue
 		}
 		if pathtree.IsAtOrUnder(path, root.RootPath) {
-			admin.log().WarnContext(ctx, "refused a library folder its library covers already", "nodeName", nodeName,
+			admin.log().WarnContext(ctx, "refused a library folder its library covers already",
+				slogx.EventKey, "folderCovered",
+				"nodeName", nodeName,
 				"path", path, "coveredBy", root.RootPath, "libraryId", root.LibraryID)
 			return nil, fmt.Errorf("%s on node %q: %w: library %d has %s", path, nodeName, ErrRootCovered,
 				root.LibraryID, root.RootPath)
@@ -215,6 +221,7 @@ func (admin *Admin) outermostOfNew(ctx context.Context, nodeName string, folders
 	for _, folder := range folders {
 		if !slices.Contains(kept, folder) {
 			admin.log().InfoContext(ctx, "a new library's folder beneath another of its folders adds nothing",
+				slogx.EventKey, "folderNested",
 				"nodeName", nodeName, "path", folder)
 		}
 	}

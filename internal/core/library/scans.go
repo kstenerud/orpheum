@@ -19,6 +19,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
@@ -466,7 +467,9 @@ func (scans *Scans) HandleScan(ctx context.Context, job jobs.Job) error {
 	}
 	// With how long it waited in the core's queue: where the minute a root took to come back went was
 	// not in the log (staging, 2026-10-21).
-	scans.logger.InfoContext(ctx, "a scan's listing goes to its node", "nodeId", scan.NodeID, "rootPath",
+	scans.logger.InfoContext(ctx, "a scan's listing goes to its node",
+		slogx.EventKey, "scanListingSent",
+		"nodeId", scan.NodeID, "rootPath",
 		scan.RootPath, "scopePath", scan.ScopePath, "jobId", job.ID, "attempt", job.AttemptNumber,
 		"waitedMs", scans.clock.Now().UnixMilli()-scan.StartedAt, "readAgain", ptr.ValueOrZero(scan.ReadAgainJSON))
 	return scans.assigner.Assign(ctx, scan.NodeID, job, nodeproto.Command{Work: nodeproto.Work{

@@ -47,7 +47,7 @@ func TestRecordPath_NamesBothEndsOfThePairByTypeAndAddress(t *testing.T) {
 	server := watchedServer(t, log, clocktest.NewFake(time.Unix(1_800_000_000, 0)))
 	server.recordPath(PathPunchedIPv4, pairOf(webrtc.ICECandidateTypeSrflx, "203.0.113.9:40001",
 		webrtc.ICECandidateTypePrflx, "198.51.100.4:5000"), 600*time.Millisecond)
-	log.AwaitLine(t, "webrtc: a client's connection", "path=punched_ipv4", "remote=198.51.100.4:5000",
+	log.AwaitEvent(t, "clientConnected", "path=punched_ipv4", "remote=198.51.100.4:5000",
 		"remoteType=prflx", "local=203.0.113.9:40001", "localType=srflx", "connectMs=600")
 }
 

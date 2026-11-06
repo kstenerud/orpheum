@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/pion/webrtc/v4"
+
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // Path is how a client's connection reaches the core, as the candidate pair it selected says
@@ -105,10 +107,10 @@ func (server *Server) recordPath(path Path, pair *webrtc.ICECandidatePair, took 
 	}
 	if path == PathHairpinnedIPv4 {
 		server.logger.Warn("webrtc: a client's connection went out to the NAT both ends share and back (D354)",
-			attributes...)
+			append(attributes, slogx.EventKey, "clientConnectionHairpinned")...)
 		return
 	}
-	server.logger.Info("webrtc: a client's connection", attributes...)
+	server.logger.Info("webrtc: a client's connection", append(attributes, slogx.EventKey, "clientConnected")...)
 }
 
 // endOf is one end of pair as "address:port", the core's when isLocal; "" for none.

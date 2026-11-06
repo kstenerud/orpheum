@@ -84,7 +84,9 @@ func (service *Service) StopUnwanted(ctx context.Context, fileID int64) error {
 			append(stopped.attributes(cancelled), slogx.EventKey, "unwantedChunkRunStopped")...)
 		for _, jump := range stopped.jumps {
 			service.logger.DebugContext(ctx, "stopped a run of chunks for a player that jumped away from it",
-				append([]any{"storeDir", stopped.dir, "firstChunk", stopped.First}, jump.attributes()...)...)
+				append([]any{
+					"storeDir", stopped.dir, "firstChunk", stopped.First, slogx.EventKey, "chunkRunJumpedAway",
+				}, jump.attributes()...)...)
 		}
 	}
 	return nil

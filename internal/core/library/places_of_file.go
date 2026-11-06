@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -51,7 +52,9 @@ func removePlace(
 	if err != nil {
 		return false, fmt.Errorf("move file %d to its copy %d's place: %w", placeID, heir.ID, err)
 	}
-	logger.InfoContext(ctx, "a file's first place went; it is at its copy's place from now on", "fileId", placeID,
+	logger.InfoContext(ctx, "a file's first place went; it is at its copy's place from now on",
+		slogx.EventKey, "placeMovedToCopy",
+		"fileId", placeID,
 		"copyId", heir.ID, "nodeId", heir.NodeID, "path", heir.Path)
 	return false, nil
 }

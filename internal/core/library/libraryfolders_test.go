@@ -32,7 +32,7 @@ func TestAdmin_ALibraryFolderIsAConfiguredRootOrAFolderInsideOneByACleanPath(t *
 			t.Errorf("a new library over %s: %v, want ErrNotANodeRoot (D107)", outside, err)
 		}
 	}
-	logged.AwaitLine(t, "refused a library folder that no configured root of its node holds", "path=/media/../etc")
+	logged.AwaitEvent(t, "folderOutsideRoots", "path=/media/../etc")
 	if len(nodes.scanned) != 0 {
 		t.Errorf("refused requests asked for scans of %v", nodes.scanned)
 	}
@@ -93,7 +93,7 @@ func TestAdmin_LibrariesMayOverlapAndWithinOneAFolderBeneathAnotherAddsNothing(t
 	if createErr != nil {
 		t.Fatal(createErr)
 	}
-	logged.AwaitLine(t, "a new library's folder beneath another of its folders adds nothing",
+	logged.AwaitEvent(t, "folderNested",
 		"path=/media/video/shows/Dark")
 	if err := admin.AddRoot(t.Context(), shows, "local", "/media/video/anime/Aegis"); err != nil {
 		t.Fatal(err)
@@ -105,7 +105,7 @@ func TestAdmin_LibrariesMayOverlapAndWithinOneAFolderBeneathAnotherAddsNothing(t
 			t.Errorf("adding %s: %v, want %v", path, err, want)
 		}
 	}
-	logged.AwaitLine(t, "refused a library folder its library covers already", "path=/media/video/shows/Dark")
+	logged.AwaitEvent(t, "folderCovered", "path=/media/video/shows/Dark")
 	if err := admin.AddRoot(t.Context(), shows, "local", "/media/video/anime"); err != nil {
 		t.Fatal(err)
 	}
@@ -207,7 +207,7 @@ func TestAdmin_ListsANodesFoldersInsideItsRootsWithinTheWait(t *testing.T) {
 	if listErr != nil || !slices.Equal(listing.Folders, []string{"movies", "shows"}) {
 		t.Errorf("the folders in /media/video: %+v, %v", listing, listErr)
 	}
-	logged.AwaitLine(t, "listed the folders in a folder on a node", "nodeName=local", "path=/media/video",
+	logged.AwaitEvent(t, "foldersListed", "nodeName=local", "path=/media/video",
 		"folderCount=2", "tookMs=")
 	for _, outside := range []string{"/etc", "/media/../etc"} {
 		if _, err := admin.Folders(t.Context(), "local", outside); !errors.Is(err, ErrNotANodeRoot) {
@@ -220,7 +220,7 @@ func TestAdmin_ListsANodesFoldersInsideItsRootsWithinTheWait(t *testing.T) {
 	if !slices.Equal(folders.asked, []string{"/media/video"}) {
 		t.Errorf("the node was asked for %v; want only the folder inside its root", folders.asked)
 	}
-	logged.AwaitLine(t, "refused a library folder that no configured root of its node holds", "path=/etc")
+	logged.AwaitEvent(t, "folderOutsideRoots", "path=/etc")
 	folders.isGone = true
 	admin.folderListingWait = time.Millisecond // the fake waits until the wait ends it
 	gone, err := admin.Folders(t.Context(), "local", "/media/video")

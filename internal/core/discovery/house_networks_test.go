@@ -82,7 +82,7 @@ func TestHouseNetworks_ADirectConnectionFromTheHouseTeachesItsOffersNetwork(t *t
 	if reply.Type != discoveryproto.SignalAnswer {
 		t.Fatalf("the offer was answered %+v", reply)
 	}
-	log.AwaitLine(t, "a device proven at home witnessed the house's network", "network=2a0f:1000:1:2::/64",
+	log.AwaitEvent(t, "houseNetworkWitnessed", "network=2a0f:1000:1:2::/64",
 		"isNew=true", "device=192.168.1.30", "path=direct_ipv4", "offerAgrees=yes")
 	networks := built.service.Status().HouseNetworks
 	if len(networks) != 1 || networks[0].Network.String() != "2a0f:1000:1:2::/64" ||
@@ -92,9 +92,10 @@ func TestHouseNetworks_ADirectConnectionFromTheHouseTeachesItsOffersNetwork(t *t
 	}
 	// An offer whose own address is in another network is learnt all the same, and the log says so.
 	built.service.learnHouseNetwork(t.Context(), offerFrom("2a0f:1000:1:2::/64", "2a0f:3000:5:6::1"), aDeviceAtHome)
-	log.AwaitLine(t, "network=2a0f:1000:1:2::/64", "isNew=false", "offerAgrees=no", "offerNetworks=[2a0f:3000:5:6::/64]")
+	log.AwaitEvent(t, "houseNetworkWitnessed", "network=2a0f:1000:1:2::/64", "isNew=false",
+		"offerAgrees=no", "offerNetworks=[2a0f:3000:5:6::/64]")
 	built.service.learnHouseNetwork(t.Context(), offerFrom("2a0f:1000:1:2::/64", ""), aDeviceAtHome)
-	log.AwaitLine(t, "network=2a0f:1000:1:2::/64", "isNew=false", "offerAgrees=unknown")
+	log.AwaitEvent(t, "houseNetworkWitnessed", "network=2a0f:1000:1:2::/64", "isNew=false", "offerAgrees=unknown")
 }
 
 // An offer that came over IPv4, or with anything but a public IPv6 /64, teaches nothing, however its

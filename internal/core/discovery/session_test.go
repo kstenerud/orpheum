@@ -231,7 +231,7 @@ func TestSignal_ADiscoveryRestartedBehindALinkLeftOpenIsFoundAgainAndAnswered(t 
 		discoveryproto.SignalAnswer || answered.OfferID != "after-restart" {
 		t.Errorf("the restarted discovery's offer was answered %+v; want its answer", answered)
 	}
-	if text := logged.String(); !strings.Contains(text, `msg="discovery: the signalling connection is open again"`) ||
+	if text := logged.String(); len(testutil.LinesWith(text, "signallingReopened")) == 0 ||
 		!strings.Contains(text, "lostMs=") || !strings.Contains(text, "dials=1") {
 		t.Errorf("the log says\n%s\nwant the connection open again, how long it was lost and after how many dials",
 			text)

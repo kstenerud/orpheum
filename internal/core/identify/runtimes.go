@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // A film's candidates' runtimes, read to fit them to its files (D365 §4), and the log of how they
@@ -129,10 +131,14 @@ func (matcher *Matcher) logFilmSettled(
 		return
 	}
 	for _, candidate := range rankFilms(query, admitted, fit.lengths) {
-		matcher.logger.InfoContext(ctx, "a film's candidate", "itemId", titleID, "candidate", candidate.ID,
+		matcher.logger.InfoContext(ctx, "a film's candidate",
+			slogx.EventKey, "filmCandidate",
+			"itemId", titleID, "candidate", candidate.ID,
 			"year", candidate.Year, "runtimeMs", candidate.RuntimeMs, "votes", candidate.Votes,
 			"fit", fitOf(candidate, fit.lengths).String())
 	}
-	matcher.logger.InfoContext(ctx, "a film's candidates settled", "itemId", titleID, "year", query.Year,
+	matcher.logger.InfoContext(ctx, "a film's candidates settled",
+		slogx.EventKey, "filmCandidatesSettled",
+		"itemId", titleID, "year", query.Year,
 		"fileLengthsMs", lengthsInMs(fit.lengths), "taken", settled.chosen.ID, "isGuess", settled.how == byGuess)
 }

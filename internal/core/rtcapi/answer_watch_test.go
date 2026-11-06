@@ -34,7 +34,7 @@ func TestChannel_AChannelHeldOpenLongAfterItsAnswerIsLoggedByItsStream(t *testin
 	}
 	fake.Advance(time.Minute)
 	held.Close()
-	log.AwaitLine(t, "rtcapi: a response's channel stayed open long after the core's last byte for it",
+	log.AwaitEvent(t, "channelLingered",
 		"stream="+strconv.Itoa(held.Stream()), "label=request", "path=/api/v1/playback", "isHandedOverWhole=true",
 		"bufferedAtFinish=", "bufferedAtClose=", "openAfterFinishMs=60000")
 }

@@ -28,8 +28,8 @@
 //     TestChannel_AChannelHeldOpenLongAfterItsAnswerIsLoggedByItsStream,
 //     TestAnswerWatch_LogsAChannelOnlyOnceItLingeredPastTheCoresLastByte,
 //     TestHeld_SaysHowSoonAStreamWasUsedAgain.
-//   - Each connection that connected logs one line as it ends, "rtc connection ended", read before
-//     pion drops its SCTP association: its connection, path, why it ended (the browser closed it,
+//   - Each connection that connected logs one line as it ends, "rtc connection ended" (event connectionEnded),
+//     read before pion drops its SCTP association: its connection, path, why it ended (the browser closed it,
 //     ICE failed as the browser stopped answering, or the core closed it, stopped or turned it away),
 //     how long it lived since it connected,
 //     and SCTP's bytes sent and received, congestion window, smoothed round trip, receiver window and

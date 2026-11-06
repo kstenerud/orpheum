@@ -16,6 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // takeListingReadingAgain is takeListing for a scan that reads readAgain again.
@@ -199,10 +200,10 @@ func TestScans_AFileReadAgainThrowsOutOnlyWhatItsChangedFactsTouch(t *testing.T)
 	}
 	lines := logged.String()
 	for _, said := range []string{
-		`"msg":"a file read again differs from what was kept of it; what that touched is thrown out"`,
+		testutil.EventInJSON("readAgainDiffers"),
 		`stream 0.video.needsRetiming: none → true`, `stream 2.audio.channelCount: 6 → 8`,
 		`"thrownOut":["a sound's loudness (stream 2)","the picture's chunks","a sound's chunks (stream 2)"]`,
-		`"msg":"a scan compared the files it read again with what was kept"`, `"comparedCount":1`,
+		testutil.EventInJSON("readAgainCompared"), `"comparedCount":1`,
 		`"correctedCount":1`, `"thrownOutCount":3`,
 	} {
 		if !strings.Contains(lines, said) {
@@ -360,9 +361,9 @@ func TestScans_AFullRescanHasItsNodeCheckTheChunksOfEachVideoItReadsAgain(t *tes
 	})
 	lines := logged.String()
 	for _, said := range []string{
-		`"level":"WARN"`, `"msg":"chunks of a file read again were missing or damaged; they are dropped and made ` +
-			`again when asked for"`, `"droppedCount":13`, `1/chunks-picture/0123456789abcdef/00003.m4s: truncated`,
-		`"msg":"a scan compared the files it read again with what was kept"`, `"chunksCheckedCount":40`,
+		`"level":"WARN"`, testutil.EventInJSON("readAgainChunksDropped"),
+		`"droppedCount":13`, `1/chunks-picture/0123456789abcdef/00003.m4s: truncated`,
+		testutil.EventInJSON("readAgainCompared"), `"chunksCheckedCount":40`,
 		`"chunksDroppedCount":13`,
 	} {
 		if !strings.Contains(lines, said) {

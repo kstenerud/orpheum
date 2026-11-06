@@ -142,7 +142,9 @@ func (service *Service) logUnwantedAsk(ctx context.Context, dir string, stream S
 	if err != nil {
 		keptAhead = 0 // the log says the positions all the same
 	}
-	service.logger.DebugContext(ctx, "planned no run of chunks: no player wants one from there", "storeDir", dir,
+	service.logger.DebugContext(ctx, "planned no run of chunks: no player wants one from there",
+		slogx.EventKey, "noRunPlanned",
+		"storeDir", dir,
 		"wantedChunk", wanted, "streamInterests", describeInterests(stream.Name(), interests, keptAhead.Milliseconds()),
 		"filmInterests", describeFilmInterests(interests, keptAhead.Milliseconds()))
 }
