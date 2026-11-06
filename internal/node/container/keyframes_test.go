@@ -147,6 +147,18 @@ func TestKeyframesMs_AnMP4sSyncSampleBeforeItsEditsStartIsAtTheStart(t *testing.
 	}
 }
 
+// An edit that starts the media between two pictures, as a film copied from 0.1 s in has, shows the
+// first picture it keeps at 0, as FFmpeg does, not the edit's start: at 1800 ticks, the picture
+// shown at 2048 is the film's start, and sample 6 at 3584 is at 120 ms, not 139 (ffprobe on such a
+// copy, 2026-11-06: 1875 ms where the edit's start put 1899).
+func TestKeyframesMs_AnMP4sEditBetweenPicturesStartsAtTheFirstPictureItKeeps(t *testing.T) {
+	t.Parallel()
+	got, err := keyframesOf(t, mp4FileEditedFrom(1800, fullBox("stss", 2, 1, 6)), 1)
+	if err != nil || !slices.Equal(got, []int64{0, 120}) {
+		t.Errorf("the picture's keyframes = %v, %v; want 0 and 120 ms", got, err)
+	}
+}
+
 // A file with no index of its keyframes says so: Matroska without cues, an MP4 without a
 // sync-sample table, and anything else.
 func TestKeyframesMs_AFileWithNoIndexSaysSo(t *testing.T) {

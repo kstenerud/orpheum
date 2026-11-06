@@ -345,8 +345,9 @@ func path(data []byte, kinds ...string) ([]byte, bool) {
 }
 
 // trakKeyframesMs are a picture trak's sync samples' times: each one's decode time from stts, plus
-// its composition offset from ctts, less the edit list's media start, in its media's timescale; one
-// before the edit's start counts at it when no other is (StartingKeyframes).
+// its composition offset from ctts, less where the edit list's first picture is shown (shownStart),
+// in its media's timescale; one before the edit's start counts at it when no other is
+// (StartingKeyframes).
 func trakKeyframesMs(trak []byte) ([]int64, error) {
 	handler, hasHandler := path(trak, "mdia", "hdlr")
 	if !hasHandler || len(handler) < 12 || string(handler[8:12]) != "vide" {
@@ -375,13 +376,16 @@ func trakKeyframesMs(trak []byte) ([]int64, error) {
 	if hasOffsets {
 		offsets = compositionOffsets(offsetTable, syncSamples)
 	}
-	start := editMediaStart(trak)
+	start, shift, err := shownStart(timeTable, offsetTable, hasOffsets, editMediaStart(trak))
+	if err != nil {
+		return nil, err
+	}
 	keyframes := make([]int64, 0, len(syncSamples))
 	hasKeyframeBeforeStart := false
 	for index := range syncSamples {
 		shown := decodeTimes[index] - start
 		if hasOffsets {
-			shown += offsets[index]
+			shown += offsets[index] + shift
 		}
 		if shown >= 0 {
 			keyframes = append(keyframes, shown*1000/timescale)
@@ -391,6 +395,92 @@ func trakKeyframesMs(trak []byte) ([]int64, error) {
 	}
 	slices.Sort(keyframes)
 	return StartingKeyframes(slices.Compact(keyframes), hasKeyframeBeforeStart), nil
+}
+
+// shownStart is the composition time FFmpeg shows at 0 under an edit starting the media at
+// editStart: not the edit's start, which can fall between pictures, as a film copied from 0.1 s in
+// puts it, but the earliest picture it keeps, at or after it (libavformat's mov_fix_index makes the
+// first pts zero). When the first picture it keeps in decode order is decoded later still, its decode
+// time is. Composition times include the ctts shift, as FFmpeg's do (dtsShift), which it returns too.
+func shownStart(stts, ctts []byte, hasOffsets bool, editStart int64) (start, shift int64, err error) {
+	durations, err := runsOf(stts)
+	if err != nil {
+		return 0, 0, err
+	}
+	var offsets []run
+	if hasOffsets {
+		if offsets, err = runsOf(ctts); err != nil {
+			return 0, 0, err
+		}
+		shift = dtsShift(ctts)
+	}
+	earliest, firstDecoded, isFound := int64(0), int64(0), false
+	eachStretch(durations, offsets, func(decodedAt, count, duration, offset int64) {
+		shownAt := decodedAt + offset + shift
+		skipped := samplesShownBefore(editStart, shownAt, count, duration)
+		if skipped >= count {
+			return
+		}
+		kept := shownAt + skipped*duration
+		if !isFound {
+			firstDecoded, earliest, isFound = decodedAt+skipped*duration, kept, true
+		}
+		earliest = min(earliest, kept)
+	})
+	if !isFound {
+		return editStart, shift, nil
+	}
+	return max(earliest, firstDecoded), shift, nil
+}
+
+// samplesShownBefore is how many of a stretch of count samples, each duration ticks after the last
+// and the first shown at shownAt, are shown before editStart.
+func samplesShownBefore(editStart, shownAt, count, duration int64) int64 {
+	switch {
+	case shownAt >= editStart:
+		return 0
+	case duration <= 0:
+		return count
+	default:
+		return min(count, (editStart-shownAt+duration-1)/duration)
+	}
+}
+
+// eachStretch calls visit for each stretch of samples whose stts duration and ctts offset are each
+// the same, in decode order, with the first's decode time; with no offsets, each offset is 0.
+func eachStretch(durations, offsets []run, visit func(decodedAt, count, duration, offset int64)) {
+	var decodedAt, offsetUsed int64
+	offsetIndex := 0
+	for _, entry := range durations {
+		for left := entry.count; left > 0; {
+			for offsetIndex < len(offsets) && offsetUsed >= offsets[offsetIndex].count {
+				offsetIndex, offsetUsed = offsetIndex+1, 0
+			}
+			count, offset := left, int64(0)
+			if offsetIndex < len(offsets) {
+				count = min(count, offsets[offsetIndex].count-offsetUsed)
+				offset = offsets[offsetIndex].value
+			}
+			visit(decodedAt, count, entry.value, offset)
+			decodedAt += count * entry.value
+			left -= count
+			offsetUsed += count
+		}
+	}
+}
+
+// dtsShift is how far FFmpeg moves composition times so that none is before its decode time: the
+// largest negative offset of a version 1 ctts, made positive; 0 for any other.
+func dtsShift(ctts []byte) int64 {
+	runs, err := runsOf(ctts)
+	if err != nil {
+		return 0
+	}
+	var shift int64
+	for _, entry := range runs {
+		shift = max(shift, -entry.value)
+	}
+	return shift
 }
 
 // mediaTimescale is a trak's media timescale, from its mdhd.

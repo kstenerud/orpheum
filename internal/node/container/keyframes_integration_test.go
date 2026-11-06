@@ -19,7 +19,8 @@ import (
 
 // The keyframes read from a file's index are the ones ffprobe shows, to the millisecond, for files
 // the pinned FFmpeg and mkvmerge make: an MP4 with B-frames, whose keyframes are shown after they
-// are decoded, under an edit, and Matroska from FFmpeg and from mkvmerge (D259 §2).
+// are decoded, under an edit, the same copied from 0.1 s in, its edit between two pictures, and
+// Matroska from FFmpeg and from mkvmerge (D259 §2).
 func TestKeyframesMs_AreTheKeyframesFFprobeShowsInRealFiles(t *testing.T) {
 	t.Parallel()
 	tools := testutil.RequireMKVToolNix(t)
@@ -41,8 +42,10 @@ func TestKeyframesMs_AreTheKeyframesFFprobeShowsInRealFiles(t *testing.T) {
 	testutil.GenerateMedia(t, inTest("film.mp4"), "-f", "lavfi", "-i", "testsrc2=size=320x180:rate=24:duration=12",
 		"-c:v", "libx264", "-preset", "ultrafast", "-bf", "2", "-g", "48", "-keyint_min", "48")
 	testutil.GenerateMedia(t, inTest("ffmpeg.mkv"), "-i", "file:"+inTest("film.mp4"), "-c", "copy")
+	// Copied from 0.1 s in, its edit starts the media between two pictures, after the first keyframe.
+	testutil.GenerateMedia(t, inTest("cut.mp4"), "-ss", "0.1", "-i", "file:"+inTest("film.mp4"), "-c", "copy")
 	tools.Run(t, "mkvmerge", "-q", "-o", inTest("mkvmerge.mkv"), inTest("film.mp4"))
-	for _, name := range []string{"film.mp4", "ffmpeg.mkv", "mkvmerge.mkv"} {
+	for _, name := range []string{"film.mp4", "cut.mp4", "ffmpeg.mkv", "mkvmerge.mkv"} {
 		shown := run(execx.FFprobe, "-select_streams", "v:0", "-skip_frame", "nokey", "-show_entries", "frame=pts_time",
 			"-of", "csv=p=0", "file:"+inTest(name))
 		var want []int64
@@ -52,6 +55,11 @@ func TestKeyframesMs_AreTheKeyframesFFprobeShowsInRealFiles(t *testing.T) {
 				t.Fatalf("%s: ffprobe said %q", name, line)
 			}
 			want = append(want, int64(math.Floor(seconds*1000+0.5)))
+		}
+		if name == "cut.mp4" && len(want) > 0 && want[0] > 0 {
+			// ffprobe leaves out the keyframe before the edit's start, which it discards; the index
+			// counts it at the start (StartingKeyframes).
+			want = append([]int64{0}, want...)
 		}
 		got := keyframesOfFile(t, inTest(name))
 		if len(got) != len(want) || len(want) < 5 {
