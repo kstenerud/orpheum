@@ -76,3 +76,36 @@ Each has the lead's recommendation first.
 To note while testing: which folder moved, and on which node; whether the new machine's node kept its
 name; how the move was done today (shown at the old path, or repointed); what was found missing; and
 anything that had to be done by hand. Those answer questions 3, 5 and 6 from use.
+
+## The owner's answers (2026-11-06)
+
+The owner accepted the recommendations, with these changes and additions:
+
+- **Typing a path (the owner):** "As a quick fix I'd like a text entry path that I can fill in
+  manually." The folder picker is to be redesigned later. Two rules for what a typed path may be:
+  - **A library's root** (the libraries page) must be a valid path inside the allowed roots, as
+    today.
+  - **A repoint's new folder** may be any path the process can reach, except known system-only paths
+    (`/bin`, `/usr/bin`, `/sys`, `/dev`, `/etc` and such).
+- **Its own privilege (question 8, changed):** "Anyone who can manage libraries can change a
+  library's root via the libraries page to anything within the already allowed roots, but the ability
+  to repoint a root path is a stronger privilege with a threat model, equivalent with adding new root
+  paths, and can affect multiple libraries, so it needs its own privilege."
+- **Detected, then confirmed (new):** when a directory inside a root is renamed or moved, the system
+  detects it and asks the admin whether that is what happened, rather than waiting for a manual
+  repoint. The owner's scenarios, with roots `/tank/media` and `/mnt/caspar/video`, and libraries
+  movies1 `/tank/media/video/movies`, movies2 `/tank/media/video/movies/disney` and movies3
+  `/mnt/caspar/video/movies`:
+  1. Caspar goes down; `/mnt/balthasar/movies`, a backup of caspar's movies, is mounted.
+  2. `/tank/media/video/movies/disney` moves to `/tank/media/video/kids-movies/disney`.
+  3. `/tank/media` moves to `/tank/large-files/media`.
+- **Question 7 asked back:** what path data cache.db holds, and why. Answered: three kinds of
+  in-flight work state, all of it rebuilt by the next scan or retry (cache.db is rebuildable by
+  definition):
+  - `job.destination` names what a parked job waits on, such as `root:3:/media/films`, so a down
+    folder parks its jobs instead of failing them;
+  - `scan.root_path` and `read_again_json` name a scan in progress and what it reads again;
+  - `scan_batch.files_json` holds the files a running scan has yet to examine, so a restarted core
+    resumes it.
+- **Wanted (the owner):** "more wargaming beyond this to look for holes in our plan." To be written in
+  `design/research/repoint-wargame-2026-11-06-research.md`.
