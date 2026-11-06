@@ -26637,11 +26637,11 @@ asked again every few minutes, and so took over whenever the first stopped answe
    start, from which address, and when, and was refused; the dormant copy says why it is dormant and
    how to wake it (§5). Each also goes to the log.
 
-**Open, for the build:** copies on one home network while the discovery cannot be reached (the
-house's internet or the discovery is down) have no referee, and both serve the house. The lead's
-candidates: a core restored or started from another machine's instance serves no household until it
-has held a session once (§6 already gives this for a dormant copy); and copies finding each other on
-the home network. A home without internet must still play.
+**Accepted, not guarded (the owner, 2026-11-06):** copies on one home network while the discovery
+cannot be reached have no referee, and both serve the house, each keeping its own history. "I'm not
+going to worry too much about split brain. The fallout in the narrow cases where it happens is lost
+history, which isn't the end of the world in an unlikely case." The same holds for a device that
+reaches a copy by a home address it remembers.
 
 **Not protected until built:** production's nas.example on its return from the 2026-11-06 memory test; the
 owner watches it by hand (orpheum-ops `production/failover-to-devnas.md`, "nas.example coming back").
