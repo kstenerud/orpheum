@@ -559,3 +559,31 @@ func TestOpenRoots_KeysTheGateByTheDisksMountedInsideARoot(t *testing.T) {
 		t.Error("/proc reads as free; want it held")
 	}
 }
+
+// A node makes its system folder in its persistent directory and serves it as a root beside its
+// media, so the core can scan the server's own videos as a library's (D435 §4).
+func TestOpenNodeRoots_ServesTheSystemFolderBesideTheMedia(t *testing.T) {
+	t.Parallel()
+	media, persistent := t.TempDir(), t.TempDir()
+	config := Config{Node: NodeConfig{RootPaths: []string{media}}, Instance: Instance{PersistentDir: persistent}}
+	roots, _, systemFolder := openNodeRoots(t.Context(), config, slog.New(slog.DiscardHandler))
+	t.Cleanup(func() {
+		for _, root := range roots {
+			_ = root.Close() //nolint:errcheck // read-only
+		}
+	})
+	want, err := filepath.EvalSymlinks(filepath.Join(persistent, "system-videos"))
+	if err != nil {
+		t.Fatalf("the system folder was not made: %v", err)
+	}
+	if systemFolder != want {
+		t.Errorf("the system folder is %q; want %q", systemFolder, want)
+	}
+	served := make([]string, 0, len(roots))
+	for _, root := range roots {
+		served = append(served, root.Path())
+	}
+	if !slices.Contains(served, want) || len(served) != 2 {
+		t.Errorf("the node serves %q; want its media and its system folder %q", served, want)
+	}
+}
