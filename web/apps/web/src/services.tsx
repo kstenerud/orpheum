@@ -8,6 +8,7 @@ import type { OrpheumLoader } from "./loader-interface.ts";
 import type { Navigation } from "./navigation.ts";
 import type { Route } from "./router.ts";
 import type { Session } from "./session.ts";
+import type { LiveOpenMark } from "./signed-out-watch.ts";
 
 /**
  * What every screen reaches the world through: the API, the session, navigation, what this browser
@@ -93,6 +94,11 @@ export interface Services {
    * undefined where nothing shapes the page's link, as in a test that gives none.
    */
   readonly linkDebug?: LinkDebug | undefined;
+  /**
+   * Marked with whether the page's live connection is open, so the session's minute check rests
+   * while it is (signed-out-watch.ts); undefined where nothing checks, as in a test that gives none.
+   */
+  readonly liveOpen?: Pick<LiveOpenMark, "mark"> | undefined;
 }
 
 /** How many times the page's requests moved path, and who is told of each move. */

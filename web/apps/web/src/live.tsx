@@ -99,6 +99,7 @@ export function LiveProvider(props: { readonly children: ReactNode }): JSX.Eleme
   const { navigation, api } = useServices();
   const { connection, snapshot } = usePageLiveConnection();
   useChecksTheSessionWhenRefused(snapshot?.isRefused === true, api);
+  useMarksTheLiveOpen(snapshot?.isConnected === true);
   const received = useReceiving(connection, navigation);
   const isInDoubt = useLeavesACastNoOneControls(snapshot?.isReceiveKnown === true, received);
   const live = useLiveOf(snapshot, received, isInDoubt);
@@ -238,6 +239,20 @@ function useChecksTheSessionWhenRefused(isRefused: boolean, api: Api): void {
       api.GET("/me").catch(() => undefined); // a failure is the next check's, or the next press's
     }
   }, [isRefused, api]);
+}
+
+/**
+ * Marks whether the live connection is open (Services.liveOpen), so the session's minute check rests
+ * while it is and asks again once it is not, or the provider is gone (signed-out-watch.ts).
+ */
+function useMarksTheLiveOpen(isConnected: boolean): void {
+  const { liveOpen } = useServices();
+  useEffect(() => {
+    liveOpen?.mark(isConnected);
+    return () => {
+      liveOpen?.mark(false);
+    };
+  }, [isConnected, liveOpen]);
 }
 
 /** Whether the page's tab is in front: shown, not behind another tab or a minimised window. */
