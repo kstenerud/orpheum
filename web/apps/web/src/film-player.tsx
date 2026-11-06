@@ -17,13 +17,7 @@ import {
   type PlayedLevel,
   type SoundChoiceCause,
 } from "@orpheum/player";
-import {
-  healPageAudio,
-  noteForTheLog,
-  startGateOf,
-  type CannotKeepUp,
-  type PlaybackReport,
-} from "@orpheum/sdk";
+import { healPageAudio, startGateOf, type CannotKeepUp, type PlaybackReport } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
 import {
   useCallback,
@@ -54,7 +48,7 @@ import { rateText } from "./rate-text.ts";
 import type { ReopenAt } from "./reopen.ts";
 import { usePlaybackFailure } from "./playback-failure.ts";
 import { useServices } from "./services.tsx";
-import { pageAtRefusal, startRefusedNote } from "./start-refused.ts";
+import { noteIfStartRefused } from "./start-refused.ts";
 import { playingPicture, TracksNote, type PlayingSound } from "./tracks-note.tsx";
 import { monotonicMs } from "./use-together.ts";
 import { isStartThePages, type PlaybackDecision } from "./watching.ts";
@@ -369,7 +363,7 @@ function showControls(
  * the browser plays at canplay, and a Fire TV's cast, resumed with 1.4 s loaded, ran dry and stalled
  * (the owner, 2026-10-28). It loads ahead meanwhile, as an autoplaying video does. A play the
  * browser refuses for want of a press leaves it paused, as it left an autoplaying one, and tells the
- * core's log (startRefusedNote); a session
+ * core's log (noteIfStartRefused); a session
  * this video leads plays it its own way, muted if it must (together-follow.ts).
  */
 function useStartsWithEnoughAhead(
@@ -384,12 +378,8 @@ function useStartsWithEnoughAhead(
     const gate = startGateOf(video);
     const start = (): void => {
       gate.play(() => {
-        video.play().catch((cause: unknown) => {
-          // A refusal leaves it paused for the person's press; the core's log says which rule refused.
-          if (cause instanceof DOMException && cause.name === "NotAllowedError") {
-            noteForTheLog(startRefusedNote(cause, pageAtRefusal()));
-          }
-        });
+        // A refusal leaves it paused for the person's press.
+        video.play().catch(noteIfStartRefused);
       });
     };
     video.preload = "auto";

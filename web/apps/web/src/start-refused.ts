@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { noteForTheLog } from "@orpheum/sdk";
+
 /** What startRefusedNote reads of the page as the browser refused its film's start. */
 export interface PageAtRefusal {
   /** Whether a press is still fresh enough to let a video play (navigator.userActivation). */
@@ -56,4 +58,14 @@ export function pageAtRefusal(): PageAtRefusal {
     sincePressMs:
       lastPressAtMs === undefined ? undefined : Math.round(performance.now() - lastPressAtMs),
   };
+}
+
+/**
+ * Tells the core's log of a film's start the browser refused (startRefusedNote), with the page as it
+ * stands; any other failure of play() is the playback's own to report.
+ */
+export function noteIfStartRefused(cause: unknown): void {
+  if (cause instanceof DOMException && cause.name === "NotAllowedError") {
+    noteForTheLog(startRefusedNote(cause, pageAtRefusal()));
+  }
 }
