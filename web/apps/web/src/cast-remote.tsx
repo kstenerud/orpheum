@@ -331,13 +331,15 @@ function RemoteOf(props: {
     return <p id="cast-remote-heading">{t("cast.readyOn", { name: sent.receiverName })}</p>;
   }
   const worked = hosted ?? props.cast;
-  const playback = snapshot === undefined ? undefined : leaderOf(snapshot)?.playback;
+  // The receiver plays in the session it leads, the hosted one while its person hosts (D364 §11):
+  // how it plays and sounds is said there, and its sound is chosen there.
+  const playback = worked.snapshot === undefined ? undefined : leaderOf(worked.snapshot)?.playback;
   return (
     <>
       <h2 id="cast-remote-heading">{sent.itemName === "" ? t("cast.aFilm") : sent.itemName}</h2>
       <p>{t("cast.playingOn", { name: sent.receiverName })}</p>
       <ReceiverPlayback playback={playback} />
-      <ReceiverSound sound={playback?.sound} connection={connection} />
+      <ReceiverSound sound={playback?.sound} connection={worked.connection} />
       <SessionRemote
         snapshot={worked.snapshot}
         connection={worked.connection}
