@@ -2237,6 +2237,10 @@ code-debt.md in its commit.
 
 End: one check-pr with the 11-12 batch, staging. nas.example and devnas wait until memtest ends.
 
+**Passed check-pr with 11-12 and 11-14 at "refactor(discovery): the reach probe has its own file"** (2026-11-06; an earlier pass at "fix(container): an MP4 edit between pictures starts at the first one it keeps" did not
+count: `make check` had not run first, and its archtests then found 11-13's second writer of
+`item_hidden`, fixed in "fix(playback): a merged title's hidden progress is moved by playback, its one writer"). On staging (`./staging quick`, 2026-11-06).
+
 ## The 11-14 batch (the owner, 2026-11-06: "continue for the rest of the night with batches that don't require my input")
 
 Rows of code-debt.md whose fix the row names, as the 11-13 batch's; each fixed row leaves
@@ -2257,6 +2261,11 @@ code-debt.md in its commit.
 7. **`internal/core/api/errors.go` is 427 lines**: split by error family.
 
 End: one check-pr, staging. nas.example and devnas wait until memtest ends.
+
+**Passed check-pr at "refactor(discovery): the reach probe has its own file"** (2026-11-06, 662 s), after four fixes: app.test waits for the
+lazily loaded page ("test(web): the warning sign's test waits for the page it opens to load"), the invalid_request detail back in errors.go ("refactor(api): the invalid_request detail stays in errors.go"), the
+subtitles test's forwarding goroutine bounded ("test(subtitles): the conversion's forwarding goroutine ends with the test"), and discovery.go split at reach.go
+("refactor(discovery): the reach probe has its own file"). On staging (`./staging quick`, 2026-11-06).
 
 ## The 11-15 batch (the owner, 2026-11-06: "If you run out of things do to, do some rounds to reduce the technical debt")
 
