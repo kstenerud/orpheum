@@ -200,6 +200,12 @@ func TestPlayback_ADevicesSoundOffsetIsKeptAndComesWithItsPlaybacks(t *testing.T
 		if got := offsetOf(); got != kept {
 			t.Errorf("after the device set %d ms: %d ms", kept, got)
 		}
+		// each setting and each playback's offset are in the log, for a device's test to be read
+		// there (the owner, 2026-11-06)
+		harness.logs.AwaitLine(t, `"msg":"a device's sound offset was set"`,
+			`"soundOffsetMs":`+strconv.FormatInt(kept, 10))
+		harness.logs.AwaitLine(t, `"msg":"a playback started"`, `"isLevellingOn":`,
+			`"soundOffsetMs":`+strconv.FormatInt(kept, 10))
 	}
 	for _, refused := range []int64{-2050, 2050} {
 		if status := setOffset(refused); status < 400 || status >= 500 {
