@@ -2301,3 +2301,15 @@ owner, not built:
 - **Item 5:** api's `isDirectPath` counts a punched pair from a home address as home (admin rights,
   D300 §3); rtcapi's `provenAtHome` takes direct pairs only (D356 §1). One judgement needs the owner
   to say whether a punched pair from home is home.
+
+## The 11-16 batch (the owner, 2026-11-06: "If you run out of things do to, do some rounds to reduce the technical debt")
+
+Two code-debt rows whose fix the row names:
+
+1. **The store's own tests build their rows** (code-debt: "`internal/store`'s own tests insert raw
+   SQL"): a store-internal builder set beside `storetest`, and the 8 files moved onto it.
+2. **Log assertions match by key** (code-debt: "~47 log assertions match English sentences"): each
+   matched line carries a `logEvent` key, and its test matches the key, as `together` does
+   (`together/logs_test.go`'s `lineWith`).
+
+End: one check-pr, staging. nas.example and devnas wait until memtest ends.
