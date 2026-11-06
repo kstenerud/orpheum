@@ -3,6 +3,7 @@
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { idempotent } from "./idempotent.ts";
 import { byteSizeText } from "./number-text.ts";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
@@ -21,8 +22,8 @@ export function SystemVideos(): JSX.Element {
   );
   const { isBusy, problem, runRequest } = useRequest((cause) => problemText(t, cause));
   const rebuild = (): void => {
-    runRequest(async () => {
-      throwIfRefused(await api.POST("/system/videos/rebuild"));
+    runRequest(async (idempotencyKey) => {
+      throwIfRefused(await api.POST("/system/videos/rebuild", idempotent(idempotencyKey)));
       reload();
     });
   };
