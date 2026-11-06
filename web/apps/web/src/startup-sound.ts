@@ -2,6 +2,7 @@
 
 import { codecsOf, diagnosisOf, soundEarlierMsOf, soundRouteOf } from "@orpheum/player";
 import type { components } from "@orpheum/sdk";
+import type { SoundRoute } from "@orpheum/player";
 
 /**
  * How the video's sound reaches the speakers as it starts playing: through Web Audio or not, the
@@ -16,13 +17,20 @@ export function soundOf(video: HTMLVideoElement): components["schemas"]["Startup
   const mapping = diagnosisOf(video)?.mapping ?? "";
   const earlierMs = soundEarlierMsOf(video);
   return {
+    ...routeOf(route),
+    ...(earlierMs === 0 ? {} : { earlierMs }),
+    ...(codecs === "" ? {} : { codecs: codecs.slice(0, 200) }),
+    ...(mapping === "" ? {} : { mapping: mapping.slice(0, 300) }),
+  };
+}
+
+/** A route's parts of the report, each only where the route has it. */
+function routeOf(route: SoundRoute): components["schemas"]["StartupSoundBody"] {
+  return {
     ...(route.isThroughWebAudio ? { isThroughWebAudio: true } : {}),
     ...(route.baseLatencyMs === undefined ? {} : { baseLatencyMs: route.baseLatencyMs }),
     ...(route.outputLatencyMs === undefined ? {} : { outputLatencyMs: route.outputLatencyMs }),
-    ...(earlierMs === 0 ? {} : { earlierMs }),
     ...(route.delayMs === undefined ? {} : { delayMs: route.delayMs }),
     ...(route.latencyCountedMs === undefined ? {} : { latencyCountedMs: route.latencyCountedMs }),
-    ...(codecs === "" ? {} : { codecs: codecs.slice(0, 200) }),
-    ...(mapping === "" ? {} : { mapping: mapping.slice(0, 300) }),
   };
 }
