@@ -26649,4 +26649,12 @@ owner watches it by hand (orpheum-ops `production/failover-to-devnas.md`, "nas.e
 **Status:** Decided 2026-11-06. Builds in the core (the health ping answer, the refused copy's stop
 and its System page action, both warnings, the installation id, asking at once when the network comes
 back) and in orpheum-connect's discovery (telling the serving copy the refused newcomer's address and
-time; the last holder's installation, kept; the window).
+time; the last holder's installation, kept; the window). **The core's side is built** (2026-11-06):
+the protocol (`installationId` on a session, the `holder_away` refusal with `retryAfterSeconds`, the
+`copy_refused` signal; discovery-protocol.md §2.3), the installation id (`installation-id`, never
+backed up), the signalling connection held only while the database reads (so the ping goes
+unanswered otherwise), the refused copy standing aside until `POST /system/discovery/ask-again` or a
+restart (`discovery_another_copy_check_every_seconds` retired), the wait the holder-away refusal
+names, a look every 15 s for the discovery while the network is down, and both warnings kept, logged
+and served on `/system/discovery` and `/needs-attention`. The web client's items under the
+exclamation icon and the System page's button are not built yet.

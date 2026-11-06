@@ -62,12 +62,15 @@ type DiscoveryStatusBody struct {
 	DeadEndCauses      []DeadEndCauseBody   `json:"deadEndCauses"`
 	Probe              []DiscoveryProbeBody `json:"probe"`
 	LastHeartbeatAt    int64                `doc:"Unix milliseconds; 0 before the first" json:"lastHeartbeatAt"`
-	Problem            string               `doc:"Why the last call to the discovery failed; empty when it did not" json:"problem,omitempty"`                                                                                         //nolint:lll // one struct tag
-	DeprecatedUntil    string               `doc:"When the discovery stops speaking this core's protocol, when it said so" json:"deprecatedUntil,omitempty"`                                                                          //nolint:lll // one struct tag
-	ClientOrigin       string               `doc:"Where the discovery serves its client, which the server's links lead to" json:"clientOrigin,omitempty"`                                                                             //nolint:lll // one struct tag
-	HomeAddresses      []string             `doc:"The server's addresses at home, which reach it directly in the house (D292 §6); none until the discovery publishes it" json:"homeAddresses"`                                        //nolint:lll // one struct tag
-	IsHomeAddressReady bool                 `doc:"Whether the certificate the home addresses need is held: until it is, a browser at home reaches the server the long way, which gives no admin (D297 §6)" json:"isHomeAddressReady"` //nolint:lll // one struct tag
-	Fingerprint        string               `doc:"The identity key's fingerprint as a person reads it, in safe32 groups; links carry the same digest" json:"fingerprint"`                                                             //nolint:lll // one struct tag
+	Problem            string               `doc:"Why the last call to the discovery failed; empty when it did not" json:"problem,omitempty"`                                                                                                                 //nolint:lll // one struct tag
+	StoodAsideAt       int64                `doc:"Unix milliseconds the discovery refused this server as a copy of another that serves, after which it asks no more until an admin asks again or it restarts (D437 §3); 0 while it asks" json:"stoodAsideAt"` //nolint:lll // one struct tag
+	CopyRefusedFrom    string               `doc:"The address a copy of this server last tried to start from, refused because this one serves (D437 §4); empty while none has" json:"copyRefusedFrom,omitempty"`                                              //nolint:lll // one struct tag
+	CopyRefusedAt      int64                `doc:"Unix milliseconds of that refusal; 0 while none" json:"copyRefusedAt"`                                                                                                                                      //nolint:lll // one struct tag
+	DeprecatedUntil    string               `doc:"When the discovery stops speaking this core's protocol, when it said so" json:"deprecatedUntil,omitempty"`                                                                                                  //nolint:lll // one struct tag
+	ClientOrigin       string               `doc:"Where the discovery serves its client, which the server's links lead to" json:"clientOrigin,omitempty"`                                                                                                     //nolint:lll // one struct tag
+	HomeAddresses      []string             `doc:"The server's addresses at home, which reach it directly in the house (D292 §6); none until the discovery publishes it" json:"homeAddresses"`                                                                //nolint:lll // one struct tag
+	IsHomeAddressReady bool                 `doc:"Whether the certificate the home addresses need is held: until it is, a browser at home reaches the server the long way, which gives no admin (D297 §6)" json:"isHomeAddressReady"`                         //nolint:lll // one struct tag
+	Fingerprint        string               `doc:"The identity key's fingerprint as a person reads it, in safe32 groups; links carry the same digest" json:"fingerprint"`                                                                                     //nolint:lll // one struct tag
 	PortMapping        PortMappingBody      `json:"portMapping"`
 	// WebRTCPaths are how many WebRTC connections took each path since the core started (D274 §3).
 	WebRTCPaths []WebRTCPathBody `json:"webrtcPaths"`
@@ -197,6 +200,12 @@ func (server *Server) registerDiscovery() {
 		Summary:    "Take the core out of its discovery (D273)",
 		Extensions: callableBy(capabilityAdmin),
 	}, server.leaveDiscovery)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "askDiscoveryAgain", Method: http.MethodPost, Path: discoveryPath + "/ask-again",
+		Tags: []string{tagRunningIt}, DefaultStatus: http.StatusNoContent,
+		Summary:    "Have a server refused as a copy ask its discovery again, the other copy stopped (D437 §3)",
+		Extensions: callableBy(capabilityAdmin),
+	}, server.askDiscoveryAgain)
 	server.registerUpdate()
 }
 
@@ -337,6 +346,15 @@ func (server *Server) leaveDiscovery(ctx context.Context, input *AuthorizationHe
 	return &struct{}{}, nil
 }
 
+func (server *Server) askDiscoveryAgain(ctx context.Context, input *AuthorizationHeader) (*struct{}, error) {
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	dependencies.Discovery.AskAgain(ctx)
+	return &struct{}{}, nil
+}
+
 // failingLeg is a discovery that did not answer, or answered what does not hold, as the API refuses it.
 func failingLeg(err error) error {
 	failure := newDetailedError(http.StatusBadGateway, err.Error(),
@@ -362,6 +380,12 @@ func discoveryStatusBody(status discovery.Status) DiscoveryStatusBody {
 	}
 	if !status.RemovedAt.IsZero() {
 		body.RemovedAt = status.RemovedAt.UnixMilli()
+	}
+	if !status.StoodAsideAt.IsZero() {
+		body.StoodAsideAt = status.StoodAsideAt.UnixMilli()
+	}
+	if !status.CopyRefusedAt.IsZero() {
+		body.CopyRefusedFrom, body.CopyRefusedAt = status.CopyRefusedFrom, status.CopyRefusedAt.UnixMilli()
 	}
 	if !status.ClaimExpiresAt.IsZero() {
 		body.ClaimExpiresAt = status.ClaimExpiresAt.UnixMilli()

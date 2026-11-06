@@ -271,6 +271,18 @@ no signature on every request.
   turn off remote access here*, which forgets `discovery.json` on that machine, not a re-key, which
   would move the household to the copy (U2-12) [I]. Built in `single` and the core, but for the
   advice on the System page.
+- **One copy serves** (D437, amending D293 §1). A refused copy stops asking: it asks again only when
+  its admin says so on the System page, or when it restarts. The core holds its signalling
+  connection, and so answers the ping, only while its own health check passes. The discovery tells
+  the instance it kept of each copy it refused, on the signalling connection: `{"type":
+  "copy_refused", "offerId": "", "address": "<ip>", "at": <unix ms>}`, which needs no reply. The
+  session request carries **`installationId`**, made once and kept across restarts, never in a
+  backup; the discovery remembers the installation that last held the realm, admits it at once, and
+  refuses any other while the last holder is away and its window of a few minutes lasts:
+  `409 {"code": "holder_away", "message": …, "retryAfterSeconds": n}`, after which the core asks
+  again. The core asks at once when its network comes back, rather than at its next backed-off try.
+  Built in the core (2026-11-06); the discovery's side is orpheum-connect's, and `single` admits by
+  the ping alone.
 - **Expiry as a duration** (`expiresIn`, seconds), counted on the core's monotonic clock, so a core
   whose clock is wrong neither renews on every step nor sends expired tokens (C11). Built
   (2026-10-13), counted from before the core asked.

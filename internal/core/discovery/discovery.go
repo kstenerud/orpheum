@@ -119,6 +119,14 @@ type Parts struct {
 	// (discovery.house_ipv6_networks), sent in each heartbeat as configured, for a house whose devices
 	// make no direct pair to teach them (D356 §6). One that is no house network is never sent.
 	ConfiguredHouseNetworks []netip.Prefix
+	// InstallationID is the core's installation, kept across its restarts and never in a backup
+	// (identity.LoadOrMakeInstallation), sent with each session asked for, so the discovery admits the
+	// installation that last held the realm at once (D437 §5). Empty sends none.
+	InstallationID string
+	// Healthy is the core's own health check, which must pass for the core to hold its signalling
+	// connection and so answer the discovery's ping: a core whose database or disk has failed does
+	// not hold the realm against a real failover (D437 §2). Nil is always healthy.
+	Healthy func(ctx context.Context) error
 }
 
 // retryJitter is how far a retry's wait may move either way.
@@ -153,6 +161,9 @@ type Service struct {
 	parts      Parts
 	wake       chan struct{}
 	claimedNow chan struct{} // wakes the signalling loop when the core is newly claimed
+	// reachedAgain wakes the signalling loop when the discovery answers again after the network
+	// failed, so it dials at once rather than at its next backed-off try (D437 §5).
+	reachedAgain chan struct{}
 	// instanceID is this run's, made at its start and never kept, so the discovery tells a restart
 	// or a copy from the instance it holds (D293 §1).
 	instanceID string
@@ -176,8 +187,11 @@ type Service struct {
 	token          string
 	tokenExpiresAt time.Time
 	lastSent       []discoveryproto.Candidate
-	// failures is how many calls of the step loop failed in a row, which its next wait doubles by.
-	failures int64
+	// failures is how many calls of the step loop failed in a row, which its next wait doubles by;
+	// isUnreachable whether the last of them did not reach the discovery, so the loop's wait looks
+	// for the network to come back (D437 §5).
+	failures      int64
+	isUnreachable bool
 	// sentLinks and sentLocators are what the discovery was last told it may find the core by, and
 	// sentUnder the session's token it was told under: a new session, a discovery that may have
 	// forgotten, is told again.
@@ -253,7 +267,8 @@ var ErrNotEnrolled = errors.New("the core is enrolled with no discovery")
 // New returns the service, carrying on with the discovery the core was enrolled with, if any.
 func New(parts Parts) (*Service, error) {
 	service := &Service{
-		parts: parts, wake: make(chan struct{}, 1), claimedNow: make(chan struct{}, 1), instanceID: rand.Text(),
+		parts: parts, wake: make(chan struct{}, 1), claimedNow: make(chan struct{}, 1),
+		reachedAgain: make(chan struct{}, 1), instanceID: rand.Text(),
 	}
 	contents, err := parts.Files.ReadPersistentFile(StateFileName)
 	switch {
@@ -442,17 +457,94 @@ func (service *Service) Run(ctx context.Context) {
 	defer signalling.Wait()
 	signalling.Go(func() { service.signal(ctx) })
 	for {
-		wait := service.step(ctx)
-		timer := service.parts.Clock.NewTimer(wait)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
+		if !service.waitForNextStep(ctx, service.step(ctx)) {
 			return
-		case <-service.wake:
-			timer.Stop()
-		case <-timer.C():
 		}
 	}
+}
+
+// reachProbeEvery is how often the step loop, waiting out a backoff after the discovery could not
+// be reached, looks whether it can be again: the last holder of the realm asks at once when its
+// network comes back, not up to discovery_retry_most_seconds later, and so does not miss its window
+// (D437 §5). A look is one small call the discovery answers without a session.
+const reachProbeEvery = 15 * time.Second
+
+// waitForNextStep waits wait, or until the loop is woken, saying false when ctx ends. While the last
+// failure did not reach the discovery, it looks every reachProbeEvery whether the discovery answers
+// again, and ends the wait at once when it does.
+func (service *Service) waitForNextStep(ctx context.Context, wait time.Duration) bool {
+	timer := service.parts.Clock.NewTimer(wait)
+	defer timer.Stop()
+	for {
+		var probe clock.Timer
+		var probed <-chan time.Time
+		if service.isWaitingForTheNetwork() {
+			probe = service.parts.Clock.NewTimer(reachProbeEvery)
+			probed = probe.C()
+		}
+		select {
+		case <-ctx.Done():
+			return false
+		case <-service.wake:
+			return true
+		case <-timer.C():
+			return true
+		case <-probed:
+			if service.reachesAgain(ctx) {
+				return true
+			}
+		}
+		if probe != nil {
+			probe.Stop()
+		}
+	}
+}
+
+// isWaitingForTheNetwork is whether the step loop's last failure did not reach the discovery.
+func (service *Service) isWaitingForTheNetwork() bool {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	return service.isUnreachable && service.status.BaseURL != ""
+}
+
+// reachProbeTimeout bounds one look whether the discovery answers again.
+const reachProbeTimeout = 10 * time.Second
+
+// reachesAgain looks whether the discovery answers again: any answer it gives itself, a refusal of
+// the unsigned call among them, but not a proxy's saying it cannot reach it (502, 503, 504). When it
+// does, the signalling loop is woken too, and it is logged.
+func (service *Service) reachesAgain(ctx context.Context) bool {
+	looking, cancel := context.WithTimeout(ctx, reachProbeTimeout)
+	defer cancel()
+	request, err := http.NewRequestWithContext(looking, http.MethodGet,
+		service.Status().BaseURL+discoveryproto.PathStatus, http.NoBody)
+	if err != nil {
+		return false
+	}
+	request.Header.Set(discoveryproto.ProtocolHeader, discoveryproto.ProtocolVersion)
+	response, err := service.parts.HTTP.Do(request)
+	if err != nil {
+		return false
+	}
+	_ = response.Body.Close() //nolint:errcheck // only its status is read
+	if isProxyUnreached(response.StatusCode) {
+		return false
+	}
+	service.mutex.Lock()
+	service.isUnreachable = false
+	service.mutex.Unlock()
+	service.parts.Logger.InfoContext(ctx, "discovery: the discovery answers again; asking at once")
+	select {
+	case service.reachedAgain <- struct{}{}:
+	default:
+	}
+	return true
+}
+
+// isProxyUnreached is a status a proxy in front of the discovery answers when it cannot reach it.
+func isProxyUnreached(code int) bool {
+	return code == http.StatusBadGateway || code == http.StatusServiceUnavailable ||
+		code == http.StatusGatewayTimeout
 }
 
 // nudge has the loop look again now.
@@ -468,6 +560,9 @@ func (service *Service) step(ctx context.Context) time.Duration {
 	status := service.Status()
 	if status.BaseURL == "" {
 		return service.wait(ctx, settings.DiscoveryEndedCheckEverySeconds)
+	}
+	if !status.StoodAsideAt.IsZero() {
+		return standingAsideWait
 	}
 	_, err := service.session(ctx)
 	var refused *refusal
@@ -499,9 +594,44 @@ func (service *Service) step(ctx context.Context) time.Duration {
 }
 
 // ErrAnotherCopy is the discovery refusing this core because another instance of it, a copy, is
-// connected and still answers: what the admin is told.
-var ErrAnotherCopy = errors.New("another copy of this server is connected to the discovery; this one stays " +
-	"off it, and asks again every few minutes")
+// connected and still answers: what the admin is told. This one stops asking (D437 §3).
+var ErrAnotherCopy = errors.New("another copy of this server serves at the discovery; this one stopped " +
+	"asking for it, and serves only at home until an admin asks again or it restarts. Asking again " +
+	"takes the discovery only once the other copy has stopped")
+
+// ErrHolderAway is the discovery waiting for the installation that last held the core's realm to come
+// back, before it admits this one (D437 §5): what the admin is told while the core waits to ask again.
+var ErrHolderAway = errors.New("the discovery waits a few minutes for the copy of this server that last " +
+	"served to come back; this one asks again then")
+
+// standingAsideWait is the step loop's wait while the core stands aside, refused as a copy: it asks
+// nothing, so it only waits to be woken by an admin asking again (D437 §3).
+const standingAsideWait = 24 * time.Hour
+
+// holderAwayFirst and holderAwayMost bound the wait a discovery names for the last holder's window:
+// a wait of none, or of more than an hour, is taken as the bound (D437 §5).
+const (
+	holderAwayFirst = time.Second
+	holderAwayMost  = time.Hour
+)
+
+// holderAwayUnnamed is the wait on a holder-away refusal naming none, though the protocol says it names one.
+const holderAwayUnnamed = time.Minute
+
+// AskAgain has a core that stood aside, refused as a copy, ask its discovery again now: what its
+// admin does on the System page once the other copy has stopped (D437 §3). A core that does not stand
+// aside is unchanged.
+func (service *Service) AskAgain(ctx context.Context) Status {
+	service.mutex.Lock()
+	wasAside := !service.status.StoodAsideAt.IsZero()
+	service.status.StoodAsideAt = time.Time{}
+	service.mutex.Unlock()
+	if wasAside {
+		service.parts.Logger.InfoContext(ctx, "discovery: an admin asked to ask the discovery again")
+		service.nudge()
+	}
+	return service.Status()
+}
 
 // wait is the setting key's length of time: how long the loop waits before its next look, or its
 // starting value when it cannot be read (each setting's description says when it applies).
@@ -544,7 +674,7 @@ func (service *Service) askStatus(ctx context.Context, status Status) time.Durat
 	if answered.RemovedAt != 0 {
 		service.status.RemovedAt = time.UnixMilli(answered.RemovedAt)
 	}
-	service.failures = 0
+	service.failures, service.isUnreachable = 0, false
 	service.status.ClaimCode, service.status.ClaimExpiresAt = answered.ClaimCode, time.Time{}
 	service.status.ICEServers = answered.ICEServers
 	if answered.ClaimCode != "" {
@@ -663,14 +793,18 @@ func (service *Service) heartbeat(ctx context.Context, status Status) time.Durat
 	return service.wait(ctx, settings.DiscoveryAddressCheckEverySeconds)
 }
 
-// failed records why a call failed, and returns the wait before trying again. A session refused
-// because another copy of the core holds the discovery is no ordinary failure: it says so, and asks
-// again in a few minutes, however it came (D293 §1).
+// failed records why a call failed, and returns the wait before trying again. Two refusals of a
+// session are no ordinary failure, however they came: another copy of the core serves, and this one
+// stands aside, asking no more until an admin asks again or it restarts (D437 §3); or the discovery
+// waits for the last holder of the realm, and this one asks again when it says (D437 §5).
 func (service *Service) failed(ctx context.Context, what string, err error) time.Duration {
-	var refused *refusal
-	isCopy := errors.As(err, &refused) && refused.code == discoveryproto.RefusalAnotherInstance
-	if isCopy {
-		what, err = "open a session", ErrAnotherCopy
+	if refused, isRefused := errors.AsType[*refusal](err); isRefused {
+		switch refused.code {
+		case discoveryproto.RefusalAnotherInstance:
+			return service.standAside(ctx)
+		case discoveryproto.RefusalHolderAway:
+			return service.waitForTheHolder(ctx, refused.retryAfter)
+		}
 	}
 	problem := what + ": " + err.Error()
 	service.mutex.Lock()
@@ -680,17 +814,51 @@ func (service *Service) failed(ctx context.Context, what string, err error) time
 		service.token = ""
 	}
 	failures := service.failures
-	if !isCopy {
-		service.failures++
-	}
+	service.failures++
+	service.isUnreachable = isUnreached(err)
 	service.mutex.Unlock()
 	if isNew {
 		service.parts.Logger.WarnContext(ctx, "discovery: a call failed; trying again", "what", what, "err", err)
 	}
-	if isCopy {
-		return service.wait(ctx, settings.DiscoveryAnotherCopyCheckEverySeconds)
-	}
 	return service.retryWait(ctx, failures)
+}
+
+// standAside is the core refused as a copy of another that serves: it says so, to its admins and the
+// log, and asks no more (D437 §3, §4).
+func (service *Service) standAside(ctx context.Context) time.Duration {
+	service.mutex.Lock()
+	wasAside := !service.status.StoodAsideAt.IsZero()
+	service.status.Problem = "open a session: " + ErrAnotherCopy.Error()
+	if !wasAside {
+		service.status.StoodAsideAt = service.parts.Clock.Now()
+	}
+	service.token, service.isUnreachable = "", false
+	service.mutex.Unlock()
+	if wasAside {
+		return standingAsideWait
+	}
+	service.parts.Logger.WarnContext(ctx, "discovery: another copy of this server serves at the discovery; "+
+		"this one stops asking until an admin asks again or it restarts, and serves only at home")
+	return standingAsideWait
+}
+
+// waitForTheHolder is the core refused while the discovery waits for the last holder of the realm:
+// it says so, and asks again after the wait the discovery named (D437 §5).
+func (service *Service) waitForTheHolder(ctx context.Context, retryAfter time.Duration) time.Duration {
+	wait := min(max(retryAfter, holderAwayFirst), holderAwayMost)
+	if retryAfter <= 0 {
+		wait = holderAwayUnnamed
+	}
+	problem := "open a session: " + ErrHolderAway.Error()
+	service.mutex.Lock()
+	isNew := service.status.Problem != problem
+	service.status.Problem, service.isUnreachable = problem, false
+	service.mutex.Unlock()
+	if isNew {
+		service.parts.Logger.WarnContext(ctx, "discovery: the discovery waits for the copy that last served; "+
+			"asking again later", "waitMs", wait.Milliseconds())
+	}
+	return wait
 }
 
 // retryWait is the wait after a failure that followed earlier ones in a row, as many as earlier

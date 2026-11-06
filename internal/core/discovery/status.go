@@ -42,6 +42,15 @@ type Status struct {
 	LastHeartbeatAt time.Time
 	// Problem is why the last call failed, empty when it did not.
 	Problem string
+	// StoodAsideAt is when the discovery refused this core as a copy of another that serves, after
+	// which it stopped asking, until its admin asks again (Service.AskAgain) or it restarts; zero while
+	// it asks (D437 §3).
+	StoodAsideAt time.Time
+	// CopyRefusedFrom is the address a copy of this core last asked the discovery from, and
+	// CopyRefusedAt when, the discovery having refused it because this one serves; empty while none
+	// has in this run (D437 §4).
+	CopyRefusedFrom string
+	CopyRefusedAt   time.Time
 	// DeprecatedUntil is the date the discovery stops answering this protocol, when it said so.
 	DeprecatedUntil string
 	// ICEServers are the STUN servers the discovery names for the core's WebRTC candidates.

@@ -26,6 +26,18 @@
 //     TestRelease_ARecordChangingAReleasedDigestIsRefusedAndSaid,
 //     TestRelease_AnAutomaticInstallWaitsADayFromFirstSight,
 //     TestRelease_ABuildWithNoPublisherRootChecksNothingAndSaysSo.
+//   - A core refused as a copy of another that serves stands aside: it asks for no session, until an
+//     admin asks again (Service.AskAgain) or it restarts; every session names the installation, and a
+//     refusal while the last holder is away waits as long as the discovery says (D437 §3, §5).
+//     TestStep_ACoreRefusedAsACopyStandsAsideUntilAskedAgainOrRestarted,
+//     TestStep_ACoreRefusedWhileTheHolderIsAwayAsksAgainWhenTheDiscoverySays.
+//   - Backing off after reaching no discovery, the core looks every reachProbeEvery whether it
+//     answers again, and asks at once when it does (D437 §5).
+//     TestRun_ACoreWhoseNetworkComesBackAsksAtOnce.
+//   - The core holds its signalling connection, and so answers the discovery's ping, only while its
+//     health check passes (D437 §2). TestSignal_AnUnhealthyCoreHoldsNoSignallingConnection.
+//   - The serving core keeps and logs where and when a copy of it was refused (D437 §4).
+//     TestSignal_TheServingCoreSaysACopyWasRefused.
 //   - An issuer is an https origin, or http only on this machine; anything else asks nothing.
 //     TestConnect_RefusesAnIssuerThatIsNotAnHTTPSOrigin.
 //   - The core API, client origin and loader origin are the issuer's signed document's and no

@@ -28,7 +28,8 @@
 //     TestRestore_TakesTheDatabaseSnapshotKeptBeforeAMigration, Enforced by TestRestore_KeepsTheDatabaseItReplaces,
 //     TestRestore_RefusesWhileTheServerRuns and TestMakePlan_LeavesNothingBehind.
 //   - A backup holds ciphertext only, and the server's keys (secret.key, the identity key, the
-//     certificates' and ACME account's private keys) only when asked for; restoring without them
+//     certificates' and ACME account's private keys) only when asked for, and the installation id
+//     never, so a copy restored on another machine is another installation (D437 §5); restoring without them
 //     marks secrets as needing re-entry and loses nothing else. Enforced by
 //     TestWrite_LeavesEveryPrivateKeyOutUnlessAskedForTheKeys, TestWrite_RefusesToIncludeAKeyThereIsNot,
 //     TestRestore_WithoutTheKeyMarksSecretsNeedingReentryAndLosesNothingElse and

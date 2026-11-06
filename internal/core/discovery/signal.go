@@ -52,7 +52,7 @@ func (service *Service) signal(ctx context.Context) {
 	lost := &lostSignalling{}
 	for ctx.Err() == nil {
 		wait, isClaimed := signalCheckEvery, false
-		if status := service.Status(); service.parts.Answerer != nil &&
+		if status := service.Status(); service.parts.Answerer != nil && status.StoodAsideAt.IsZero() &&
 			(status.State == discoveryproto.StateClaimed || status.State == discoveryproto.StateGrace) {
 			wasOpen, err := service.holdSignalling(ctx, status.BaseURL, lost)
 			if ctx.Err() != nil {
@@ -74,10 +74,22 @@ func (service *Service) signal(ctx context.Context) {
 }
 
 // waitToLookAgain waits before the loop's next look, saying false when ctx ends. A claimed core's
-// wait is a dial's backoff; an unclaimed core's ends early when it is newly claimed.
+// wait is a dial's backoff, which ends early when the step loop finds the discovery answering again
+// (D437 §5); an unclaimed core's ends early when it is newly claimed.
 func (service *Service) waitToLookAgain(ctx context.Context, wait time.Duration, isClaimed bool) bool {
 	if isClaimed {
-		return service.parts.Clock.Sleep(ctx, wait) == nil
+		sleeping, stop := context.WithCancel(ctx)
+		defer stop()
+		go func() {
+			select {
+			case <-service.reachedAgain:
+				stop()
+			case <-sleeping.Done():
+			}
+		}()
+		// Ending early is the point; ctx says whether to go on.
+		_ = service.parts.Clock.Sleep(sleeping, wait) //nolint:errcheck // as above
+		return ctx.Err() == nil
 	}
 	timer := service.parts.Clock.NewTimer(wait)
 	defer timer.Stop()
@@ -115,6 +127,9 @@ type lostSignalling struct {
 // A connection open again after one ended says so, how long it was lost and after how many dials.
 func (service *Service) holdSignalling(ctx context.Context, baseURL string, lost *lostSignalling) (bool, error) {
 	lost.dials++
+	if err := service.healthy(ctx); err != nil {
+		return false, err
+	}
 	token, err := service.session(ctx)
 	if err != nil {
 		return false, err
@@ -141,6 +156,7 @@ func (service *Service) holdSignalling(ctx context.Context, baseURL string, lost
 	pinging, stopPinging := context.WithCancel(ctx)
 	defer stopPinging()
 	go service.keepAlive(pinging, connection)
+	go service.watchHealth(pinging, connection)
 	var answering sync.WaitGroup
 	defer answering.Wait()
 	slots := make(chan struct{}, answersAtOnce)
@@ -148,6 +164,10 @@ func (service *Service) holdSignalling(ctx context.Context, baseURL string, lost
 		var offer discoveryproto.SignalMessage
 		if err := wsjson.Read(ctx, connection, &offer); err != nil {
 			return true, fmt.Errorf("read an offer: %w", err)
+		}
+		if offer.Type == discoveryproto.SignalCopyRefused {
+			service.copyRefused(ctx, offer)
+			continue
 		}
 		if offer.Type != discoveryproto.SignalOffer && offer.Type != discoveryproto.SignalRealm {
 			continue
@@ -183,6 +203,51 @@ func (service *Service) answerSignal(
 			"offerId", offer.OfferID, "err", err)
 		_ = connection.CloseNow() //nolint:errcheck // closing what may be closed
 	}
+}
+
+// healthCheckEvery is how often the core checks its own health while it holds the signalling
+// connection: within it of the check failing, the connection is closed, and the discovery's ping of
+// it goes unanswered (D437 §2).
+const healthCheckEvery = 10 * time.Second
+
+// healthy is the core's own health check (Parts.Healthy), which must pass for it to hold the
+// signalling connection, and so to answer the discovery's ping: a core whose database or disk has
+// failed holds no realm against a copy that could serve it (D437 §2).
+func (service *Service) healthy(ctx context.Context) error {
+	if service.parts.Healthy == nil {
+		return nil
+	}
+	if err := service.parts.Healthy(ctx); err != nil {
+		return fmt.Errorf("the core's health check fails, so it holds no signalling connection: %w", err)
+	}
+	return nil
+}
+
+// watchHealth checks the core's health every healthCheckEvery until ctx ends, and closes connection
+// once the check fails, which ends the signalling until the check passes again.
+func (service *Service) watchHealth(ctx context.Context, connection *websocket.Conn) {
+	for service.waitToPing(ctx, healthCheckEvery) {
+		if err := service.healthy(ctx); err != nil {
+			service.parts.Logger.WarnContext(ctx, "discovery: the core is not healthy; closing the signalling "+
+				"connection, so the discovery's ping goes unanswered", "err", err)
+			_ = connection.CloseNow() //nolint:errcheck // the reader ends with it
+			return
+		}
+	}
+}
+
+// copyRefused keeps and logs what the discovery says of a copy of this core it refused because this
+// one serves: where it asked from, and when (D437 §4).
+func (service *Service) copyRefused(ctx context.Context, said discoveryproto.SignalMessage) {
+	refusedAt := service.parts.Clock.Now()
+	if said.At > 0 {
+		refusedAt = time.UnixMilli(said.At)
+	}
+	service.mutex.Lock()
+	service.status.CopyRefusedFrom, service.status.CopyRefusedAt = said.Address, refusedAt
+	service.mutex.Unlock()
+	service.parts.Logger.WarnContext(ctx, "discovery: a copy of this server tried to start and was refused, "+
+		"since this one serves", "from", said.Address, "at", refusedAt)
 }
 
 // keepAlive pings connection every pingEvery, jittered, until ctx ends: a ping not answered within

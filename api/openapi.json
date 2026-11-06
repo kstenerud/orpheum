@@ -1265,6 +1265,15 @@
             "description": "Where the discovery serves its client, which the server's links lead to",
             "type": "string"
           },
+          "copyRefusedAt": {
+            "description": "Unix milliseconds of that refusal; 0 while none",
+            "format": "int64",
+            "type": "integer"
+          },
+          "copyRefusedFrom": {
+            "description": "The address a copy of this server last tried to start from, refused because this one serves (D437 §4); empty while none has",
+            "type": "string"
+          },
           "coreApi": {
             "description": "The core API the discovery's address document names, which the server calls",
             "type": "string"
@@ -1432,6 +1441,11 @@
             ],
             "type": "string"
           },
+          "stoodAsideAt": {
+            "description": "Unix milliseconds the discovery refused this server as a copy of another that serves, after which it asks no more until an admin asks again or it restarts (D437 §3); 0 while it asks",
+            "format": "int64",
+            "type": "integer"
+          },
           "suggestedIssuer": {
             "description": "The discovery an admin is offered first; empty when this build suggests none (D391 §7)",
             "type": "string"
@@ -1462,6 +1476,8 @@
           "deadEndCauses",
           "probe",
           "lastHeartbeatAt",
+          "stoodAsideAt",
+          "copyRefusedAt",
           "homeAddresses",
           "isHomeAddressReady",
           "fingerprint",
@@ -3999,6 +4015,13 @@
       },
       "NeedsAttentionOutputBody": {
         "properties": {
+          "copyRefusedAt": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "copyRefusedFrom": {
+            "type": "string"
+          },
           "diskCount": {
             "format": "int64",
             "type": "integer"
@@ -4039,6 +4062,10 @@
             "format": "int64",
             "type": "integer"
           },
+          "stoodAsideAt": {
+            "format": "int64",
+            "type": "integer"
+          },
           "unreadCount": {
             "format": "int64",
             "type": "integer"
@@ -4057,7 +4084,10 @@
           "seriesReadWrongly",
           "seriesReadWronglyCount",
           "filmsWithoutSound",
-          "filmsWithoutSoundCount"
+          "filmsWithoutSoundCount",
+          "stoodAsideAt",
+          "copyRefusedFrom",
+          "copyRefusedAt"
         ],
         "type": "object"
       },
@@ -16788,6 +16818,36 @@
           }
         ],
         "summary": "Enrol the core with a discovery, which answers with the code its owner claims it by (D273)",
+        "tags": [
+          "Running it"
+        ],
+        "x-orpheum-capability": "admin"
+      }
+    },
+    "/system/discovery/ask-again": {
+      "post": {
+        "operationId": "askDiscoveryAgain",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Have a server refused as a copy ask its discovery again, once the other copy has stopped (D437 §3)",
         "tags": [
           "Running it"
         ],

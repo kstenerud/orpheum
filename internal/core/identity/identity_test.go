@@ -47,6 +47,28 @@ func TestLoadOrMake_MakesTheKeyOnceAndKeepsIt(t *testing.T) {
 	}
 }
 
+// The installation id is made once and read back on every later start, unlike the instance id each
+// run makes; a file holding none is refused, not replaced (D437 §5).
+func TestLoadOrMakeInstallation_MakesTheIDOnceAndKeepsIt(t *testing.T) {
+	t.Parallel()
+	files := memoryFiles{}
+	first, err := LoadOrMakeInstallation(files, rand.Reader)
+	if err != nil || len(first) != 40 {
+		t.Fatalf("the first start's installation id is %q (%v); want 40 hex digits", first, err)
+	}
+	again, err := LoadOrMakeInstallation(files, rand.Reader)
+	if err != nil || again != first {
+		t.Errorf("the second start's installation id is %q (%v); want the one kept, %q", again, err, first)
+	}
+	if other, otherErr := LoadOrMakeInstallation(memoryFiles{}, rand.Reader); otherErr != nil || other == first {
+		t.Error("another instance directory made the same installation id")
+	}
+	files[InstallationFileName] = []byte("\n")
+	if _, err = LoadOrMakeInstallation(files, rand.Reader); err == nil {
+		t.Error("a file holding no installation id was taken; want it refused")
+	}
+}
+
 func TestSign_NamesItsPurposeSoOneCannotBeUsedForAnother(t *testing.T) {
 	t.Parallel()
 	key, err := GenerateKey(rand.Reader)
