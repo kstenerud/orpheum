@@ -2186,7 +2186,7 @@ stall, made sturdy on the core's side). End: one check-pr; staging and nas.examp
       both warnings under the exclamation icon; the installation id kept in the instance directory,
       never in a backup; asking at once when the network comes back.
    2. **The discovery** (orpheum-connect): the last holder's installation kept in its database,
-      accepted at once; others wait the window (6 minutes, the owner to confirm), then the ping
+      accepted at once; others wait the window (6 minutes, the owner confirmed 2026-11-06), then the ping
       decides; the serving copy told of the refused newcomer's address and time.
 2. **The repoint flow's UX** stays for the owner ("we'll need to look at that later"): not this
    batch.
