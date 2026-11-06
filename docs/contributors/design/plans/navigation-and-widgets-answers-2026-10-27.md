@@ -2048,3 +2048,19 @@ and nas.example wait for the owner's go. Found on the way and filed for the next
   failing; one shared helper would end the pattern.
 - **`title_found` is recomputed over all of a title's files on each filing** (file_filing's triggers),
   quadratic in files per title: harmless at real sizes, seen building "test(api): a series' unplaced files are counted past the 5000 the read once stopped at"'s test. For code-debt.md.
+
+**Found on the owner's TCL TV in Berlin (TV Bro, staging, 2026-11-06), filed for the next batch:**
+
+- **Web Audio puts the sound 400–500 ms behind the picture on this TV.** With a ruler clip (staging
+  library 5, "Sync tests"), sound sent through Web Audio was 600–700 ms late in every format (H.264 or
+  HEVC, AAC or Opus). Level loudness sends it there: −11.6 dB on the clip. With Level loudness off and
+  the page reloaded, the direct H.264 AAC file played 200 ms late. The audio context reports base 96 ms
+  and output 240–330 ms. The browser never moves the picture to match, and the original file has no
+  way to move the sound earlier. Proposed for the owner: level without Web Audio where it lags, and set
+  the remaining offset with the built-in sound timing test (Diagnostics).
+- **HEVC on the ladder fails to decode on this TV**: "Failed to execute 'appendBuffer' on
+  'SourceBuffer': The HTMLMediaElement.error attribute is not null" (files 12286 and 12287, 06:56–07:05
+  UTC). Sync HEVC Opus played twice, then failed on every try. Sync HEVC AAC never played. The playable
+  formats should drop HEVC for this device, or the cause should be found.
+- **Watch Together screens and cast receivers ignore the device's sound offset**: `SoundOffsetControl`
+  is mounted only in play.tsx, bare-player.tsx and player-menus.tsx.
