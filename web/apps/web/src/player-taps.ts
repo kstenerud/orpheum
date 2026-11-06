@@ -4,6 +4,7 @@
 
 import { useEffect, useRef, useState, type RefObject } from "react";
 
+import { useLatest } from "./latest.ts";
 import {
   doubleTapSeekMs,
   doubleTapSeekTo,
@@ -107,12 +108,8 @@ export interface TouchAnswers {
  * not heard twice. A mouse's click stays as it was.
  */
 export function useOpensAtThePointer(open: () => void, touch?: TouchAnswers): void {
-  const openRef = useRef(open);
-  const touchRef = useRef(touch);
-  useEffect(() => {
-    openRef.current = open;
-    touchRef.current = touch;
-  });
+  const openRef = useLatest(open);
+  const touchRef = useLatest(touch);
   useEffect(() => {
     const reader = new PointerReader(
       () => {
@@ -253,10 +250,7 @@ export function useAnswersPictureTaps(
   readonly feedback: SeekFeedback | undefined;
 } {
   const [feedback, noteSeek] = useSeekFeedback();
-  const toggleRef = useRef(toggle);
-  useEffect(() => {
-    toggleRef.current = toggle;
-  });
+  const toggleRef = useLatest(toggle);
   const runRef = useRef<TapRun | undefined>(undefined);
   const waitRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(

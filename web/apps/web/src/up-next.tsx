@@ -22,6 +22,7 @@ import type { FilmParts, FilmPiece } from "./film-player.tsx";
 import { IconButton } from "./icon-button.tsx";
 import type { MediaTracks } from "./input-commands.ts";
 import { useCommands } from "./input-layer.tsx";
+import { useLatest } from "./latest.ts";
 import { OverTheFilm, PageControls } from "./page-controls.tsx";
 import type { SequenceMoves } from "./player-controls.tsx";
 import { CloseIcon } from "./player-icons.tsx";
@@ -546,10 +547,7 @@ function useCountdown(isCounting: boolean, onPlay: () => void): number {
     setWasCounting(isCounting);
     setSecondsLeft(allSeconds);
   }
-  const onPlayRef = useRef(onPlay);
-  useEffect(() => {
-    onPlayRef.current = onPlay;
-  });
+  const onPlayRef = useLatest(onPlay);
   useEffect(() => {
     if (!isCounting) {
       return undefined;
@@ -566,7 +564,7 @@ function useCountdown(isCounting: boolean, onPlay: () => void): number {
     return () => {
       clearInterval(timer);
     };
-  }, [isCounting, allSeconds]);
+  }, [isCounting, allSeconds, onPlayRef]);
   return secondsLeft;
 }
 

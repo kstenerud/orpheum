@@ -13,9 +13,10 @@
  */
 
 import { seekTo } from "@orpheum/player";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { onCommandRelease, type CommandHold } from "./input-commands.ts";
+import { useLatest } from "./latest.ts";
 
 /**
  * How far a seek moves, in milliseconds: the usual step of a TV's player, the app having had no
@@ -330,10 +331,7 @@ export function seekAheadOf(video: HTMLVideoElement): SeekAhead {
  * as the place shown changes, stopped as the remote goes; the latest seek is made each time.
  */
 export function useSeekAhead(seek: (atMs: number) => void): SeekAhead {
-  const seekRef = useRef(seek);
-  useEffect(() => {
-    seekRef.current = seek;
-  });
+  const seekRef = useLatest(seek);
   const [, setChanges] = useState(0);
   const [ahead] = useState(
     () =>

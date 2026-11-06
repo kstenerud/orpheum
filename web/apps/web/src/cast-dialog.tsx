@@ -3,11 +3,12 @@
 import "./cast.css";
 
 import type { CastSending } from "@orpheum/sdk";
-import { useEffect, useRef, useState, type JSX } from "react";
+import { useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { CastTargets } from "./cast-to.tsx";
 import { endCastRetrying } from "./cast.ts";
+import { useLatest } from "./latest.ts";
 import { useLive } from "./live.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { isTheGroupsFilmShown, positionPlayedHere } from "./playing-here.ts";
@@ -52,15 +53,12 @@ export function CastDialog(props: { readonly onClose: () => void }): JSX.Element
  */
 function useClosesOnceTaken(takenCastId: number | undefined, onClose: () => void): void {
   const [openedWith] = useState(takenCastId);
-  const closeRef = useRef(onClose);
-  useEffect(() => {
-    closeRef.current = onClose;
-  });
+  const closeRef = useLatest(onClose);
   useEffect(() => {
     if (takenCastId !== undefined && takenCastId !== openedWith) {
       closeRef.current();
     }
-  }, [takenCastId, openedWith]);
+  }, [takenCastId, openedWith, closeRef]);
 }
 
 /**

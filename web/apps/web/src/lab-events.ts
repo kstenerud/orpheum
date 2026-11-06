@@ -10,8 +10,9 @@
 
 import type { Api, components } from "@orpheum/sdk";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
+import { useLatest } from "./latest.ts";
 import { throwIfRefused } from "./problem.ts";
 
 /** One event as the server logs it. */
@@ -162,10 +163,7 @@ export function useInputEvents(
       onSending: setSending,
     }),
   );
-  const modeRef = useRef(mode);
-  useEffect(() => {
-    modeRef.current = mode;
-  }, [mode]);
+  const modeRef = useLatest(mode);
   useEffect(() => {
     const onVisibility = (): void => {
       if (document.visibilityState === "hidden") {

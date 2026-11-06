@@ -20,6 +20,7 @@ import {
   type CastFilm,
 } from "./cast.ts";
 import { dateTimeText } from "./date-time-text.ts";
+import { useLatest } from "./latest.ts";
 import { useLive } from "./live.tsx";
 import { problemText } from "./problem.ts";
 import { useServices, useToken } from "./services.tsx";
@@ -180,10 +181,7 @@ function AwaitingAnswer(props: {
     }
   }, [isTaken, endReason, isLost, name, t, settle]);
   const unansweredText = t("cast.answered.unanswered", { name });
-  const unansweredRef = useRef(unansweredText);
-  useEffect(() => {
-    unansweredRef.current = unansweredText;
-  });
+  const unansweredRef = useLatest(unansweredText);
   useEffect(() => {
     const timer = setTimeout(() => {
       if (settle(unansweredRef.current)) {
@@ -194,7 +192,7 @@ function AwaitingAnswer(props: {
     return () => {
       clearTimeout(timer);
     };
-  }, [api, cast.castId, settle]);
+  }, [api, cast.castId, settle, unansweredRef]);
   return (
     <AskingWithCancel
       castId={cast.castId}
@@ -258,21 +256,21 @@ function AskingWithCancel(props: {
  * undefined for taken, which says nothing; true the first time, false after.
  */
 function useSettlesOnce(onNotTaken: (said: string) => void): (said: string | undefined) => boolean {
-  const toldRef = useRef(onNotTaken);
+  const toldRef = useLatest(onNotTaken);
   const isSettledRef = useRef(false);
-  useEffect(() => {
-    toldRef.current = onNotTaken;
-  });
-  return useCallback((said: string | undefined) => {
-    if (isSettledRef.current) {
-      return false;
-    }
-    isSettledRef.current = true;
-    if (said !== undefined) {
-      toldRef.current(said);
-    }
-    return true;
-  }, []);
+  return useCallback(
+    (said: string | undefined) => {
+      if (isSettledRef.current) {
+        return false;
+      }
+      isSettledRef.current = true;
+      if (said !== undefined) {
+        toldRef.current(said);
+      }
+      return true;
+    },
+    [toldRef],
+  );
 }
 
 /** Whether a cast the live connection said this device sends (isSent) no longer is. */
@@ -560,10 +558,7 @@ function useSendsOn(
   const { fileId, atMs } = film;
   const castId = where.kind === "sending" ? where.castId : undefined;
   const sentRef = useRef<number | undefined>(undefined);
-  const waysRef = useRef(ways);
-  useEffect(() => {
-    waysRef.current = ways;
-  });
+  const waysRef = useLatest(ways);
   useEffect(() => {
     if (castId === undefined || sentRef.current === castId) {
       return;
@@ -577,7 +572,7 @@ function useSendsOn(
         waysRef.current.onFailed(atMs);
       },
     );
-  }, [api, castId, fileId, atMs]);
+  }, [api, castId, fileId, atMs, waysRef]);
   const isRemote = where.kind === "remote";
   useEffect(() => {
     if (isRemote) {

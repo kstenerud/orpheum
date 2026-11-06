@@ -10,7 +10,6 @@ import {
   createContext,
   use,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   type JSX,
@@ -33,6 +32,7 @@ import {
   type Input,
   type MediaTracks,
 } from "./input-commands.ts";
+import { useLatest } from "./latest.ts";
 import type { Navigation } from "./navigation.ts";
 import { routeHref, type Route } from "./router.ts";
 import { useServices } from "./services.tsx";
@@ -283,22 +283,20 @@ function RunningInputLayer(props: { readonly children: ReactNode }): JSX.Element
 export function useBackTarget(up: Route): void {
   const told = use(InputContext);
   const href = routeHref(up);
-  const upRef = useRef(up);
-  useEffect(() => {
-    upRef.current = up;
-  });
+  const upRef = useLatest(up);
   useEffect(() => {
     if (told === undefined) {
       return undefined;
     }
     const { backUpRef } = told;
-    backUpRef.current = upRef.current;
+    const mine = upRef.current;
+    backUpRef.current = mine;
     return () => {
-      if (backUpRef.current === upRef.current) {
+      if (backUpRef.current === mine) {
         backUpRef.current = undefined;
       }
     };
-  }, [told, href]);
+  }, [told, href, upRef]);
 }
 
 /**
@@ -364,20 +362,16 @@ export function useMediaSeeks(tracks: MediaTracks = {}): void {
 /**
  * Hears the commands offered at target (an element's ref, or the document) while mounted, the latest
  * handler each time; capture hears them before what has focus does. The latest is the drawn page's
- * from the moment it is drawn, as the page's layout effects run: a passive effect may run a while
- * after the page shows, and a Fire TV's Back that soon after Up showed the player's controls was
- * answered by the handler of the controls still hidden, leaving the film (the overlay's browser test,
- * 2026-11-05).
+ * from the moment it is drawn (useLatest): a Fire TV's Back that soon after Up showed the player's
+ * controls was answered by the handler of the controls still hidden, leaving the film (the overlay's
+ * browser test, 2026-11-05).
  */
 export function useCommands(
   target: RefObject<Element | null> | "document",
   handler: (detail: CommandDetail, event: Event) => void,
   options: { readonly isCapture?: boolean } = {},
 ): void {
-  const handlerRef = useRef(handler);
-  useLayoutEffect(() => {
-    handlerRef.current = handler;
-  });
+  const handlerRef = useLatest(handler);
   const isCapture = options.isCapture === true;
   useEffect(() => {
     const element = target === "document" ? document : target.current;
@@ -391,7 +385,7 @@ export function useCommands(
       },
       { isCapture },
     );
-  }, [target, isCapture]);
+  }, [target, isCapture, handlerRef]);
 }
 
 /**
