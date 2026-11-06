@@ -26592,3 +26592,60 @@ playing its own file with levelling on").
    correction and is unchanged here.
 
 **Status:** Decided 2026-11-06. Device check: VQ273.
+
+## D437 — One copy of a core serves: a refused copy goes dormant until an admin wakes it, a takeover is counted, and only a restart in place or an admin claims
+
+**Decided** (2026-11-06), by the project owner, after production failed over to devnas while nas.example
+ran a memory test, and nas.example, switched off with its core still up, would have started a second copy
+of production on its next boot. The owner proposed that the discovery pings the existing core and
+refuses the newcomer when it answers, warns both, and that the newcomer dies or goes dormant ("does
+this approach make sense? Any holes in it?"); the lead recommended dormant and named the holes; the
+owner agreed ("yes") and placed the warning. It amends D293 §1, where a refused copy said so and
+asked again every few minutes, and so took over whenever the first stopped answering.
+
+1. **The first copy keeps the realm.** When a newcomer opens a session for a core whose connection
+   the discovery holds, the discovery pings that connection, as D293 §1 does; an answer, and the
+   newcomer is refused.
+2. **The answer is the core's health, not only its process.** A core answers the ping only while its
+   own health check passes, so a core whose database or disk has failed no longer holds the realm
+   against a real failover.
+3. **A refused copy goes dormant; it does not exit.** Exiting would loop: production runs with
+   `restart: unless-stopped`, and every restart would be a new instance, refused again, with its
+   warning in a log nobody reads. Dormant, the core stays up and does nothing a serving copy does: it
+   serves no household (at home or through the discovery; its pages say only that another copy of
+   this server is running, and where), its node starts no scan, preparation or write to the media,
+   and it writes no backup (a backup is named by its time, so a dormant copy's would look newest and
+   be the one the next failover restores). It never asks the discovery again on its own.
+4. **Dormancy outlasts a restart.** It is kept in the instance directory, because each run makes a new
+   `instanceID`; a dormant copy restarted is still dormant.
+5. **An admin wakes a dormant copy**, on its own page at its home address, which says what to do
+   first (stop the other copy; restore the other copy's latest backup here, or what it did since is
+   lost) and refuses while the discovery still hears the other copy answer.
+6. **Only a restart in place or an admin claims the realm.** A core that held the realm and restarts
+   (a deploy, a crash) is accepted as now, once its old connection no longer answers. A core restored
+   from a backup, or started from another machine's instance, is dormant from its first start until an
+   admin wakes it: a backup machine started by mistake does nothing, and a failover is one deliberate
+   step more.
+7. **A takeover is counted (fencing).** The discovery keeps, per core, a number raised by each
+   newcomer it accepts in place of another, and each core keeps the number it was accepted with. A
+   core whose number is below the discovery's was replaced, so it goes dormant when it next reaches the
+   discovery, even when the copy that replaced it has since gone quiet: a network blip that let a
+   stray copy in cannot later hand the realm back to an older copy, and back again. Waking a fenced
+   copy (§5) says how its data compares with the copy that replaced it.
+8. **Both are warned, under the top menu's exclamation icon** (the needs-attention menu,
+   `needs-attention.tsx`), shown to admins: the serving copy says that a copy of this server tried to
+   start, from which address, and when, and was refused; the dormant copy says why it is dormant and
+   how to wake it (§5). Each also goes to the log.
+
+**Open, for the build:** copies on one home network while the discovery cannot be reached (the
+house's internet or the discovery is down) have no referee, and both serve the house. The lead's
+candidates: a core restored or started from another machine's instance serves no household until it
+has held a session once (§6 already gives this for a dormant copy); and copies finding each other on
+the home network. A home without internet must still play.
+
+**Not protected until built:** production's nas.example on its return from the 2026-11-06 memory test; the
+owner watches it by hand (orpheum-ops `production/failover-to-devnas.md`, "nas.example coming back").
+
+**Status:** Decided 2026-11-06. Builds in the core (dormancy, its pages and warnings, the health ping
+answer, the kept number) and in orpheum-connect's discovery (the takeover number, the refusal naming
+the newcomer's address to the serving copy).
