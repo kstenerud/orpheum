@@ -63,27 +63,55 @@ export interface CheckedPage {
 }
 
 /**
+ * Whether the page's live connection is open now, which its provider (live.tsx) marks: while it is,
+ * the server tells it a sign-in that ended and its refusal asks (useChecksTheSessionWhenRefused), so
+ * the minute's check rests (the efficiency audit of 2026-10-28, finding 4).
+ */
+export interface LiveOpenMark {
+  readonly isOpen: () => boolean;
+  /** Marks the live connection open or not. */
+  readonly mark: (isOpen: boolean) => void;
+}
+
+/** A mark of the live connection, not open until marked. */
+export function createLiveOpenMark(): LiveOpenMark {
+  let isOpen = false;
+  return {
+    isOpen: () => isOpen,
+    mark: (isNowOpen) => {
+      isOpen = isNowOpen;
+    },
+  };
+}
+
+/**
  * Asks the server whether the session still works as the page is shown again and every
- * sessionCheckEveryMs while it is visible, so a device removed elsewhere goes to sign in at once, the
- * answer's 401 handled by watchForSignOut: one removed from another device showed it was signed out
- * only at its person's next click (the owner's VQ7 run, 2026-10-12). Asks nothing while signed out.
- * Returns the stopping.
+ * sessionCheckEveryMs while it is visible and its live connection is not open (told.isLiveOpen), so a
+ * device removed elsewhere goes to sign in at once, the answer's 401 handled by watchForSignOut: one
+ * removed from another device showed it was signed out only at its person's next click (the owner's
+ * VQ7 run, 2026-10-12). Shown again it asks whether the live connection is open or not, which may
+ * have died unheard while hidden. Asks nothing while signed out. Returns the stopping.
  */
 export function checkSessionWhileShown(
   check: () => Promise<unknown>,
-  session: Pick<Session, "token">,
+  told: Pick<Session, "token"> & { readonly isLiveOpen: () => boolean },
   page: CheckedPage,
 ): () => void {
   const ask = (): void => {
-    if (session.token() !== undefined && page.visibilityState === "visible") {
+    if (told.token() !== undefined && page.visibilityState === "visible") {
       check().catch(() => undefined); // a failure is the next check's, or the next click's
     }
   };
   const onVisibility = (): void => {
     ask();
   };
+  const onMinute = (): void => {
+    if (!told.isLiveOpen()) {
+      ask();
+    }
+  };
   page.addEventListener("visibilitychange", onVisibility);
-  const timer = setInterval(ask, sessionCheckEveryMs);
+  const timer = setInterval(onMinute, sessionCheckEveryMs);
   return () => {
     clearInterval(timer);
     page.removeEventListener("visibilitychange", onVisibility);

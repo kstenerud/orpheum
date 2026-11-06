@@ -6,6 +6,7 @@ import { createNavigation, type Navigation, type Place } from "./navigation.ts";
 import type { Route } from "./router.ts";
 import {
   checkSessionWhileShown,
+  createLiveOpenMark,
   sessionCheckEveryMs,
   signingOutWithNoneHeld,
   watchForSignOut,
@@ -198,7 +199,7 @@ describe("a session checked while its page is shown", () => {
         checks += 1;
         await Promise.resolve();
       },
-      { token: () => token },
+      { token: () => token, isLiveOpen: () => false },
       page,
     );
     vi.advanceTimersByTime(sessionCheckEveryMs);
@@ -209,6 +210,33 @@ describe("a session checked while its page is shown", () => {
     page.show("visible");
     expect(checks).toBe(2);
     token = undefined;
+    vi.advanceTimersByTime(sessionCheckEveryMs);
+    expect(checks).toBe(2);
+    stop();
+    vi.useRealTimers();
+  });
+
+  it("rests the minute's check while the live connection is open, which says a sign-in ended itself, and asks as the page is shown again", () => {
+    vi.useFakeTimers();
+    let checks = 0;
+    const page = new FakePage();
+    const liveOpen = createLiveOpenMark();
+    const stop = checkSessionWhileShown(
+      async () => {
+        checks += 1;
+        await Promise.resolve();
+      },
+      { token: () => "token", isLiveOpen: liveOpen.isOpen },
+      page,
+    );
+    liveOpen.mark(true);
+    vi.advanceTimersByTime(3 * sessionCheckEveryMs);
+    expect(checks).toBe(0);
+    // Shown again, it asks still: the live connection may have died unheard while hidden.
+    page.show("visible");
+    expect(checks).toBe(1);
+    // The live connection down, the minute's check asks again, so a sign-out is still heard.
+    liveOpen.mark(false);
     vi.advanceTimersByTime(sessionCheckEveryMs);
     expect(checks).toBe(2);
     stop();

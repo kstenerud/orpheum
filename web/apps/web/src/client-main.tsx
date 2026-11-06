@@ -43,6 +43,7 @@ import { createPathMoves, ServicesContext } from "./services.tsx";
 import { createSession, type Session } from "./session.ts";
 import {
   checkSessionWhileShown,
+  createLiveOpenMark,
   signingOutWithNoneHeld,
   watchForSignOut,
 } from "./signed-out-watch.ts";
@@ -88,8 +89,14 @@ function mountApp(sessionGiven: Session, given: Reaches, mountedOn: Root): Api {
   const reaches = linkDebug.shape(given);
   const api = createApi({ getToken: session.token, fetch: reaches.fetch });
   api.use(watchForSignOut(session, navigation));
-  // A device removed elsewhere goes to sign in as soon as its page is looked at, not at its next click.
-  checkSessionWhileShown(async () => await api.GET("/me"), session, document);
+  // A device removed elsewhere goes to sign in as soon as its page is looked at, not at its next click;
+  // while the live connection is open, it says so itself, and the minute's check rests.
+  const liveOpen = createLiveOpenMark();
+  checkSessionWhileShown(
+    async () => await api.GET("/me"),
+    { token: session.token, isLiveOpen: liveOpen.isOpen },
+    document,
+  );
   api.use(pageUpdateWatch.middleware(reaches.ownScript));
   sendFailuresToCore(api, session, () => window.location.pathname);
   // A film the browser will not start says how long ago the page's last press was (start-refused.ts,
@@ -124,6 +131,7 @@ function mountApp(sessionGiven: Session, given: Reaches, mountedOn: Root): Api {
     onLocalNetworkAsking: reaches.onLocalNetworkAsking,
     onPathBack: reaches.onPathBack,
     linkDebug,
+    liveOpen,
   };
   mountedOn.render(
     <StrictMode>
