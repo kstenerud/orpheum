@@ -2160,3 +2160,11 @@ playback; D266's third give-up sign as its own decision or not; giving HEVC up d
 give-up; the repoint spec's questions 1–7; `isTelevision` not knowing "Smart TV Pro"; and the core
 planning for a paused player whose chunk asks run far past its position (the cause of VQ271's
 stall, made sturdy on the core's side). End: one check-pr; staging and nas.example wait for the owner.
+
+- **Next batch (the owner, 2026-11-06, the failover rehearsal on devnas: "The UX in this flow is
+  terrible. We'll need to look at that later"):** moving a library's folder to another node. The
+  repoint sits on the library's own page, behind each folder's "…" ("This folder moved…"), where the
+  owner did not find it. In its dialog, choosing a folder inside a node's root ("Choose a folder
+  inside one…", browse, "Choose this folder") only fills the "It is now at" box; nothing then says
+  to press "Check what moves", and "Use the new place" appears only after it. A failover moves every
+  folder of every library this way, one at a time.
