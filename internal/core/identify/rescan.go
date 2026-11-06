@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"maps"
 	"slices"
+	"sync"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
@@ -176,6 +177,12 @@ func (matcher *Matcher) readWork(ctx context.Context, itemID int64) (target, err
 // start records a rescan of a scope, a library or one film or series in it, unless one of that
 // scope runs, and says whether it did.
 func (rescans *Rescans) start(ctx context.Context, libraryID int64, itemID *int64, kind RescanKind) (bool, error) {
+	count := &rescans.matcher.rescans
+	count.mutex.Lock()
+	defer count.mutex.Unlock()
+	if err := rescans.matcher.countRescansLocked(ctx); err != nil {
+		return false, err
+	}
 	isStarted := false
 	err := rescans.matcher.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		_, insertErr := store.OrNotFound(queries.InsertRescan(ctx, cachegen.InsertRescanParams{
@@ -195,6 +202,7 @@ func (rescans *Rescans) start(ctx context.Context, libraryID int64, itemID *int6
 		return false, fmt.Errorf("record library %d's rescan: %w", libraryID, err)
 	}
 	if isStarted {
+		count.running++
 		rescans.matcher.logger.InfoContext(ctx, "a rescan was asked for", "libraryId", libraryID,
 			"itemId", ptr.ValueOrZero(itemID), "isFull", kind == FullRescan)
 	}
@@ -380,6 +388,9 @@ func (rescans *Rescans) Progress(ctx context.Context) (map[int64]RescanProgress,
 
 // pendingRematch is what an item's files say it is, when a rescan waits to match it again.
 func (matcher *Matcher) pendingRematch(ctx context.Context, itemID int64) (cachegen.GetRematchRow, bool, error) {
+	if isRunning, err := matcher.isRescanRunning(ctx); err != nil || !isRunning {
+		return cachegen.GetRematchRow{}, false, err
+	}
 	row, err := store.OrNotFound(matcher.cache.Read().GetRematch(ctx, itemID))
 	if errors.Is(err, store.ErrNotFound) {
 		return cachegen.GetRematchRow{}, false, nil
@@ -467,6 +478,11 @@ func (matcher *Matcher) endRematch(ctx context.Context, itemID, rescanID int64, 
 func (matcher *Matcher) endRescanIfDone(ctx context.Context, rescanID int64) error {
 	var ended cachegen.Rescan
 	isEnded := false
+	matcher.rescans.mutex.Lock()
+	if err := matcher.countRescansLocked(ctx); err != nil {
+		matcher.rescans.mutex.Unlock()
+		return err
+	}
 	err := matcher.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		rescan, err := store.OrNotFound(queries.GetRescan(ctx, rescanID))
 		if errors.Is(err, store.ErrNotFound) {
@@ -485,6 +501,10 @@ func (matcher *Matcher) endRescanIfDone(ctx context.Context, rescanID int64) err
 		ended, isEnded = rescan, true
 		return queries.DeleteRescan(ctx, rescanID)
 	})
+	if err == nil && isEnded {
+		matcher.rescans.running--
+	}
+	matcher.rescans.mutex.Unlock()
 	if err != nil {
 		return fmt.Errorf("end rescan %d: %w", rescanID, err)
 	}
@@ -513,4 +533,40 @@ func boolInt(value bool) int64 {
 		return 1
 	}
 	return 0
+}
+
+// rescanCount is how many rescans cache.db keeps, so a fetch reads its item's rematch only while one
+// runs: a rematch is kept only with its rescan (D357). It is counted from cache.db when first needed,
+// which finds the rescans a restart left running, and then kept by start and endRescanIfDone, the only
+// writers of a rescan, which change it under mutex with their writes, so a count is never short of
+// what cache.db holds.
+type rescanCount struct {
+	mutex sync.Mutex
+	// running is the rescans kept, once isCounted; guarded by mutex.
+	running   int64
+	isCounted bool
+}
+
+// countRescansLocked counts the rescans cache.db keeps, unless they were counted. The caller holds
+// matcher.rescans.mutex.
+func (matcher *Matcher) countRescansLocked(ctx context.Context) error {
+	if matcher.rescans.isCounted {
+		return nil
+	}
+	running, err := matcher.cache.Read().ListRescans(ctx)
+	if err != nil {
+		return fmt.Errorf("count the rescans: %w", err)
+	}
+	matcher.rescans.running, matcher.rescans.isCounted = int64(len(running)), true
+	return nil
+}
+
+// isRescanRunning is whether cache.db keeps a rescan, which a rematch waits on.
+func (matcher *Matcher) isRescanRunning(ctx context.Context) (bool, error) {
+	matcher.rescans.mutex.Lock()
+	defer matcher.rescans.mutex.Unlock()
+	if err := matcher.countRescansLocked(ctx); err != nil {
+		return false, err
+	}
+	return matcher.rescans.running > 0, nil
 }
