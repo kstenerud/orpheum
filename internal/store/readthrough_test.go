@@ -3,11 +3,13 @@
 package store_test
 
 import (
+	"cmp"
 	"errors"
 	"slices"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/store"
+	"github.com/kstenerud/orpheum/internal/store/rowstest"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -24,35 +26,20 @@ func TestListFilesToReadThrough_ListsTheLiveVideosThatLackLoudnessOrATimeline(t 
 	// 4 has a picture alone; 5 is removed; 6 was skipped; 7 has both; 8 has a timeline and no sound; 9
 	// has a timeline read from its index, and no sound; 10 lacks both, under no library's folder.
 	storetest.ExecRaw(t, database.Path(),
-		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
-		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
-		 VALUES (1, 'Films', 'movie', 'nfo', 'manual', 0, 1)`,
-		"INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/m')",
-		`INSERT INTO file (id, size_bytes, payload_hash) VALUES
-		 (1, 10, X'01'), (2, 10, X'02'), (3, 10, X'03'), (4, 10, X'04'), (5, 10, X'05'),
-		 (6, 10, X'06'), (7, 10, X'07'), (8, 10, X'08'), (9, 10, X'09'), (10, 10, X'0a')`,
-		`INSERT INTO place (id, file_id, node_id, path, reported_path_raw, filing, removed_at,
-		 first_seen_at, last_seen_at) VALUES
-		 (1, 1, 1, '/m/1.mkv', CAST('/m/1.mkv' AS BLOB), 'read', NULL, 1, 1),
-		 (2, 2, 1, '/m/2.mkv', CAST('/m/2.mkv' AS BLOB), 'read', NULL, 1, 1),
-		 (3, 3, 1, '/m/3.mkv', CAST('/m/3.mkv' AS BLOB), 'read', NULL, 1, 1),
-		 (4, 4, 1, '/m/4.mkv', CAST('/m/4.mkv' AS BLOB), 'read', NULL, 1, 1),
-		 (5, 5, 1, '/m/5.mkv', CAST('/m/5.mkv' AS BLOB), 'read', 9, 1, 1),
-		 (6, 6, 1, '/m/6.mkv', CAST('/m/6.mkv' AS BLOB), 'skipped', NULL, 1, 1),
-		 (7, 7, 1, '/m/7.mkv', CAST('/m/7.mkv' AS BLOB), 'read', NULL, 1, 1),
-		 (8, 8, 1, '/m/8.mkv', CAST('/m/8.mkv' AS BLOB), 'read', NULL, 1, 1),
-		 (9, 9, 1, '/m/9.mkv', CAST('/m/9.mkv' AS BLOB), 'read', NULL, 1, 1),
-		 (10, 10, 1, '/x/10.mkv', CAST('/x/10.mkv' AS BLOB), 'read', NULL, 1, 1)`,
-		"UPDATE place SET reported_path_raw = CAST(path AS BLOB)",
-		`INSERT INTO file_probe (file_id, probe_json) SELECT id, '{}' FROM file`,
-		`INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, disposition_flags) VALUES
-		 (1, 1, 0, 'video', 'h264', 0), (1, 1, 1, 'audio', 'aac', 0),
-		 (2, 2, 0, 'video', 'h264', 0), (2, 2, 1, 'audio', 'aac', 0),
-		 (3, 3, 0, 'video', 'mjpeg', 1024), (3, 3, 1, 'audio', 'aac', 0),
-		 (4, 4, 0, 'video', 'h264', 1),
-		 (5, 5, 0, 'video', 'h264', 0), (6, 6, 0, 'video', 'h264', 0),
-		 (7, 7, 0, 'video', 'h264', 0), (7, 7, 1, 'audio', 'aac', 0), (8, 8, 0, 'video', 'h264', 0),
-		 (9, 9, 0, 'video', 'h264', 0), (10, 10, 0, 'video', 'h264', 0), (10, 10, 1, 'audio', 'aac', 0)`,
+		rowstest.Node(rowstest.NodeSpec{ID: 1, Name: "local"}),
+		rowstest.Library(rowstest.LibrarySpec{ID: 1, NodeID: 1}),
+		readThroughFile(readThrough{id: 1, path: "/m/1.mkv", hasSound: true}),
+		readThroughFile(readThrough{id: 2, path: "/m/2.mkv", hasSound: true}),
+		readThroughFile(readThrough{
+			id: 3, path: "/m/3.mkv", videoCodec: "mjpeg", videoDisposition: 1024, hasSound: true,
+		}),
+		readThroughFile(readThrough{id: 4, path: "/m/4.mkv", videoDisposition: 1}),
+		readThroughFile(readThrough{id: 5, path: "/m/5.mkv", removedAt: 9}),
+		readThroughFile(readThrough{id: 6, path: "/m/6.mkv", filing: "skipped"}),
+		readThroughFile(readThrough{id: 7, path: "/m/7.mkv", hasSound: true}),
+		readThroughFile(readThrough{id: 8, path: "/m/8.mkv"}),
+		readThroughFile(readThrough{id: 9, path: "/m/9.mkv"}),
+		readThroughFile(readThrough{id: 10, path: "/x/10.mkv", hasSound: true}),
 		`INSERT INTO loudness (payload_hash, stream_index, measured_mix, integrated_lufs, measured_at)
 		 VALUES (X'02', 1, 'stereo', -20, 1), (X'03', 1, 'stereo', -20, 1), (X'07', 1, 'stereo', -20, 1)`,
 		`INSERT INTO video_timeline (payload_hash, video_stream_index, keyframes_ms_json, bytes_in_each_second_json,
@@ -75,6 +62,38 @@ func TestListFilesToReadThrough_ListsTheLiveVideosThatLackLoudnessOrATimeline(t 
 		limited[0].ID != 2 {
 		t.Errorf("the ids after 1 through 2: %+v, %v; want file 2 alone", limited, err)
 	}
+}
+
+// readThrough is a probed video under library 1's folder, of ten bytes whose hash is its id, with a
+// picture at stream 0 and, if it has sound, AAC at stream 1.
+type readThrough struct {
+	id               byte // its file's, and its payload hash's one byte
+	path             string
+	filing           string // its place's; "": read
+	removedAt        int64  // 0: live
+	videoCodec       string // "": H.264
+	videoDisposition int64
+	hasSound         bool
+}
+
+// readThroughFile inserts the file, its place, its probe and its streams.
+func readThroughFile(file readThrough) string {
+	id := int64(file.id)
+	video := rowstest.Join(
+		rowstest.File(rowstest.FileSpec{
+			ID: id, SizeBytes: 10, PayloadHash: []byte{file.id}, NodeID: 1, Path: file.path,
+			Filing: file.filing, RemovedAt: file.removedAt,
+		}),
+		rowstest.Probe(rowstest.ProbeSpec{FileID: id}),
+		rowstest.Stream(rowstest.StreamSpec{
+			BytesFile: id, Kind: "video", Codec: cmp.Or(file.videoCodec, "h264"),
+			DispositionFlags: file.videoDisposition,
+		}))
+	if !file.hasSound {
+		return video
+	}
+	return rowstest.Join(video,
+		rowstest.Stream(rowstest.StreamSpec{BytesFile: id, StreamIndex: 1, Kind: "audio", Codec: "aac"}))
 }
 
 // TestVideoTimeline_IsKeptByItsBytesAndPictureAndAReadAgainReplacesIt checks video_timeline: a
@@ -131,16 +150,11 @@ func TestVideoTimeline_AFailedReadAfterTheIndexIsKeptAsItsReadFailure(t *testing
 	t.Parallel()
 	database := storetest.OpenMigrated(t)
 	storetest.ExecRaw(t, database.Path(),
-		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
-		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
-		 VALUES (1, 'Films', 'movie', 'nfo', 'manual', 0, 1)`,
-		"INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/m')",
-		`INSERT INTO file (id, size_bytes, payload_hash) VALUES (1, 10, X'0c')`,
-		`INSERT INTO place (id, file_id, node_id, path, reported_path_raw, filing,
-		 first_seen_at, last_seen_at) VALUES (1, 1, 1, '/m/1.mkv', CAST('/m/1.mkv' AS BLOB), 'read', 1, 1)`,
-		`INSERT INTO file_probe (file_id, probe_json) VALUES (1, '{}')`,
-		`INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, disposition_flags)
-		 VALUES (1, 1, 0, 'video', 'h264', 0)`)
+		rowstest.Node(rowstest.NodeSpec{ID: 1, Name: "local"}),
+		rowstest.Library(rowstest.LibrarySpec{ID: 1, NodeID: 1}),
+		rowstest.File(rowstest.FileSpec{ID: 1, SizeBytes: 10, PayloadHash: []byte{0x0c}, NodeID: 1, Path: "/m/1.mkv"}),
+		rowstest.Probe(rowstest.ProbeSpec{FileID: 1}),
+		rowstest.Stream(rowstest.StreamSpec{BytesFile: 1, Kind: "video", Codec: "h264"}))
 	failure := "Invalid data found"
 	upsert := func(row sqlcgen.UpsertVideoTimelineParams) sqlcgen.VideoTimeline {
 		t.Helper()

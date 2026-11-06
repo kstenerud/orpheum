@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/store/rowstest"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -19,21 +20,21 @@ func TestArch_TheSystemLibraryIsInNoListing(t *testing.T) {
 	t.Parallel()
 	database := openMigrated(t)
 	execRaw(t, database,
-		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'nas', 1)",
-		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at) VALUES
-		 (1, 'Clips', 'other', 'nfo', 'manual', 0, 1), (2, 'System', 'other', 'nfo', 'manual', 0, 1)`,
-		`INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/media'), (2, 1, '/own')`,
+		rowstest.Node(rowstest.NodeSpec{ID: 1}),
+		rowstest.Library(rowstest.LibrarySpec{ID: 1, Name: "Clips", Kind: "other", NodeID: 1, RootPath: "/media"}),
+		rowstest.Library(rowstest.LibrarySpec{ID: 2, Name: "System", Kind: "other", NodeID: 1, RootPath: "/own"}),
 		"INSERT INTO system_library (kind, library_id) VALUES ('system', 2)",
-		"INSERT INTO item (id, kind, identification_state, added_at) VALUES (20, 'other', 'identified', 1)",
-		"INSERT INTO item (id, kind, identification_state, added_at) VALUES (21, 'other', 'identified', 1)",
-		"INSERT INTO work (id, kind) VALUES (20, 'other'), (21, 'other')",
-		"INSERT INTO version (id, work_id, created_at) VALUES (30, 20, 1), (31, 21, 1)",
-		"INSERT INTO file (id, size_bytes) VALUES (10, 100), (11, 200)",
-		`INSERT INTO place (id, file_id, node_id, path, reported_path_raw, filing, first_seen_at, last_seen_at) VALUES
-		 (10, 10, 1, '/media/a.mkv', CAST('/media/a.mkv' AS BLOB), 'read', 1, 1),
-		 (11, 11, 1, '/own/sound-timing.h264-aac.mp4', CAST('/own/sound-timing.h264-aac.mp4' AS BLOB), 'read', 1, 1)`,
-		`INSERT INTO file_filing (file_id, library_kind, filing, version_id) VALUES
-		 (10, 'other', 'listed', 30), (11, 'other', 'listed', 31)`)
+		rowstest.Title(rowstest.ItemSpec{ID: 20, Kind: "other"}),
+		rowstest.Title(rowstest.ItemSpec{ID: 21, Kind: "other"}),
+		rowstest.Version(rowstest.VersionSpec{ID: 30, TitleID: 20}),
+		rowstest.Version(rowstest.VersionSpec{ID: 31, TitleID: 21}),
+		rowstest.File(rowstest.FileSpec{
+			ID: 10, SizeBytes: 100, NodeID: 1, Path: "/media/a.mkv", LibraryKind: "other", VersionID: 30,
+		}),
+		rowstest.File(rowstest.FileSpec{
+			ID: 11, SizeBytes: 200, NodeID: 1, Path: "/own/sound-timing.h264-aac.mp4", LibraryKind: "other",
+			VersionID: 31,
+		}))
 	queries := database.Read()
 
 	libraries, err := queries.ListLibraries(t.Context())

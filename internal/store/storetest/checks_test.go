@@ -11,6 +11,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/platform/waiting"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
+	"github.com/kstenerud/orpheum/internal/store/rowstest"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -65,17 +66,11 @@ func TestOpenMigrated_FailsATestThatBreaksAnInvariant(t *testing.T) {
 	recording := &recordingTB{TB: t}
 	database := storetest.OpenMigrated(recording)
 	storetest.ExecRaw(t, database.Path(),
-		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'nas', 1)",
-		"INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at) "+
-			"VALUES (1, 'Films', 'movie', 'nfo', 'manual', 0, 1)",
-		"INSERT INTO item (id, kind, added_at, removed_at, identification_state) "+
-			"VALUES (7, 'movie', 1, 2, 'unidentified')",
-		"INSERT INTO work (id, kind) VALUES (7, 'movie')",
-		"INSERT INTO version (id, work_id, created_at) VALUES (5, 7, 1)",
-		"INSERT INTO file (id) VALUES (1)",
-		"INSERT INTO place (id, file_id, node_id, path, reported_path_raw, filing, first_seen_at, last_seen_at) "+
-			"VALUES (1, 1, 1, '/m/f.mkv', CAST('/m/f.mkv' AS BLOB), 'read', 1, 1)",
-		"INSERT INTO file_filing (file_id, library_kind, filing, version_id) VALUES (1, 'movie', 'listed', 5)")
+		rowstest.Node(rowstest.NodeSpec{ID: 1}),
+		rowstest.Library(rowstest.LibrarySpec{ID: 1}),
+		rowstest.Title(rowstest.ItemSpec{ID: 7, RemovedAt: 2, IdentificationState: "unidentified"}),
+		rowstest.Version(rowstest.VersionSpec{ID: 5, TitleID: 7}),
+		rowstest.File(rowstest.FileSpec{ID: 1, NodeID: 1, Path: "/m/f.mkv", LibraryKind: "movie", VersionID: 5}))
 	for _, cleanup := range slices.Backward(recording.cleanups) {
 		cleanup()
 	}

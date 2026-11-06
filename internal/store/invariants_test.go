@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/kstenerud/orpheum/internal/store/rowstest"
 )
 
 // A migrated, empty database keeps every invariant, and each one invariants.sql names is read.
@@ -28,25 +30,19 @@ func TestCheckInvariants_NamesEachThatDoesNotHold(t *testing.T) {
 	database := openMigrated(t)
 	execRaw(t, database,
 		"PRAGMA foreign_keys = OFF",
-		"INSERT INTO item (id, kind, added_at, removed_at, identification_state) "+
-			"VALUES (7, 'movie', 1, 2, 'unidentified')",
-		"INSERT INTO work (id, kind) VALUES (7, 'movie')",
-		"INSERT INTO version (id, work_id, created_at) VALUES (5, 7, 1)",
-		"INSERT INTO file (id) VALUES (1)",
-		"INSERT INTO place (id, file_id, node_id, path, reported_path_raw, filing, first_seen_at, last_seen_at) "+
-			"VALUES (1, 1, 1, '/m/f.mkv', CAST('/m/f.mkv' AS BLOB), 'read', 1, 1)",
-		"INSERT INTO file_filing (file_id, library_kind, filing, version_id) VALUES (1, 'movie', 'listed', 5)",
+		rowstest.Title(rowstest.ItemSpec{ID: 7, RemovedAt: 2, IdentificationState: "unidentified"}),
+		rowstest.Version(rowstest.VersionSpec{ID: 5, TitleID: 7}),
+		rowstest.File(rowstest.FileSpec{ID: 1, NodeID: 1, Path: "/m/f.mkv", LibraryKind: "movie", VersionID: 5}),
 		"PRAGMA foreign_keys = ON",
 		"PRAGMA foreign_keys = OFF",
-		"INSERT INTO item (id, kind, filing_library_id, added_at, identification_state) "+
-			"VALUES (8, 'movie', 999, 1, 'identified')",
+		rowstest.Item(rowstest.ItemSpec{ID: 8, LibraryID: 999}),
 		"PRAGMA foreign_keys = ON",
 		"INSERT INTO item_fts (rowid, name, search_alternates, overview) VALUES (42, 'ghost', 'ghost', '')",
-		"INSERT INTO item (id, kind, added_at, identification_state) VALUES (9, 'series', 1, 'identified')",
-		"INSERT INTO \"sequence\" (id, kind, created_by) VALUES (9, 'series', 'scanner')",
-		"INSERT INTO ordering (id, sequence_id, name) VALUES (1, 9, 'aired'), (2, 9, 'tmdb:dvd')",
+		rowstest.Series(rowstest.ItemSpec{ID: 9, IdentificationState: "identified"}),
+		rowstest.Ordering(rowstest.OrderingSpec{ID: 1, SeriesID: 9}),
+		rowstest.Ordering(rowstest.OrderingSpec{ID: 2, SeriesID: 9, Name: "tmdb:dvd"}),
 		"INSERT INTO grp (id, ordering_id, number) VALUES (1, 2, 1)",
-		"INSERT INTO position (ordering_id, work_id, grp_id, sort_order) VALUES (1, 7, 1, 1)",
+		rowstest.Position(rowstest.PositionSpec{OrderingID: 1, TitleID: 7, GroupID: 1, SortOrder: 1}),
 	)
 	violations, err := database.CheckInvariants(t.Context())
 	if err != nil {

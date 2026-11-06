@@ -11,7 +11,6 @@ holes, [process-review-2026-10-26.md](design/research/process-review-2026-10-26.
 
 | Debt | The tax | The fix | Found |
 | --- | --- | --- | --- |
-| `internal/store`'s own tests insert raw SQL (8 files), since they cannot import `librarytest`'s builders | a schema change still edits them by hand | a store-internal builder set beside `storetest` | 2026-10-26, fixture builders |
 | ~47 log assertions match English sentences outside `together` and the start/ready lines | rewording a message breaks tests | match by the `logEvent` key, as an earlier commit did for the rest | 2026-10-26 |
 | Revert-red cannot narrow a wiring change (`NewServer`, `assembly.Build`): every API test runs | each such probe costs the whole package | a recorded per-test coverage run, nightly or on demand (owner's call) | 2026-10-26 |
 | The locale probe trusts only literal keys; `en-settings.ts`' keys are built at run time | its probes run the whole related set (~34 s) | trust a template literal's fixed prefix | 2026-10-26 |

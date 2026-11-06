@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/store/rowstest"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -16,20 +17,17 @@ func TestFilePlace_AFileIsListedAndPlayedAtAPlaceWhoseIDIsNotItsOwn(t *testing.T
 	t.Parallel()
 	database := openMigrated(t)
 	execRaw(t, database,
-		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
-		 VALUES (1, 'Films', 'movie', 'nfo', 'manual', 0, 1)`,
-		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'nas', 1)",
-		"INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/m')",
-		`INSERT INTO item (id, kind, filing_library_id, added_at, identification_state)
-		 VALUES (1, 'movie', 1, 1, 'identified')`,
-		"INSERT INTO work (id, kind) VALUES (1, 'movie')",
-		"INSERT INTO version (id, work_id, created_at) VALUES (1, 1, 1)",
-		"INSERT INTO file (id, size_bytes) VALUES (1, 5)",
-		`INSERT INTO place (id, file_id, node_id, path, reported_path_raw, modified_at, filing, first_seen_at,
-		 last_seen_at, removed_at) VALUES
-		 (1, 1, 1, '/m/a.mkv', CAST('/m/a.mkv' AS BLOB), 30, 'read', 100, 100, 300),
-		 (7, 1, 1, '/m/b.mkv', CAST('/m/b.mkv' AS BLOB), 40, 'read', 200, 200, NULL)`,
-		"INSERT INTO file_filing (file_id, library_kind, filing, version_id) VALUES (1, 'movie', 'listed', 1)")
+		rowstest.Node(rowstest.NodeSpec{ID: 1}),
+		rowstest.Library(rowstest.LibrarySpec{ID: 1, NodeID: 1}),
+		rowstest.Title(rowstest.ItemSpec{ID: 1, LibraryID: 1}),
+		rowstest.Version(rowstest.VersionSpec{ID: 1, TitleID: 1}),
+		rowstest.File(rowstest.FileSpec{
+			ID: 1, SizeBytes: 5, NodeID: 1, Path: "/m/a.mkv", ModifiedAt: 30, FirstSeenAt: 100, RemovedAt: 300,
+			LibraryKind: "movie", VersionID: 1,
+		}),
+		rowstest.Place(rowstest.PlaceSpec{
+			ID: 7, FileID: 1, NodeID: 1, Path: "/m/b.mkv", ModifiedAt: 40, FirstSeenAt: 200,
+		}))
 	ctx := t.Context()
 	queries := database.Read()
 	params := sqlcgen.ListWorkFilesParams{WorkID: 1, IsEveryLibrary: 1, LibraryIdsJSON: "[]"}
