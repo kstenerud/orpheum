@@ -26619,6 +26619,24 @@ answering, as it does for a deploy.
    serves, and that asking again takes the realm only once that copy has stopped. Each also goes to
    the log.
 
+5. **The last holder has a grace period** (the owner, 2026-11-06: "if internet comes back and both
+   come asking to be the official core, we don't end up with a race"; agreed with the lead's three
+   conditions). When the house's internet or the discovery itself comes back, both copies ask at
+   once, and without it whichever asked first would win, and by §3 the real one, refused, would stop
+   asking.
+   - **The discovery remembers the installation that last held each core's realm**, in its database,
+     so a restart or deploy of the discovery does not forget it.
+   - **An installation id, kept across the core's restarts**, beside the per-run `instanceID`, in
+     the instance directory and **never in a backup** (as `identity.key` is not): a copy restored on
+     another machine is another installation. The last holder's installation is accepted at once,
+     which also lets a deploy's restart in without waiting out a ping.
+   - **Any other installation waits a window of a few minutes**, longer than the core's longest wait
+     between asks (`discovery_retry_most_seconds`, 300 s by default), for the last holder to come
+     back; then the ping of §1 decides as now. A newcomer refused because the last holder came back
+     stops asking (§3). A real failover waits the window: a deliberate step, so it costs little.
+   - **A core asks at once when its network comes back**, not at its next backed-off try, so the last
+     holder is not the one that misses the window.
+
 **Accepted, not guarded (the owner, 2026-11-06):** copies on one home network while the discovery
 cannot be reached have no referee, and both serve the house, each keeping its own history. "I'm not
 going to worry too much about split brain. The fallout in the narrow cases where it happens is lost
@@ -26629,5 +26647,6 @@ reaches a copy by a home address it remembers.
 owner watches it by hand (orpheum-ops `production/failover-to-devnas.md`, "nas.example coming back").
 
 **Status:** Decided 2026-11-06. Builds in the core (the health ping answer, the refused copy's stop
-and its System page action, both warnings) and in orpheum-connect's discovery (telling the serving
-copy the refused newcomer's address and time).
+and its System page action, both warnings, the installation id, asking at once when the network comes
+back) and in orpheum-connect's discovery (telling the serving copy the refused newcomer's address and
+time; the last holder's installation, kept; the window).
