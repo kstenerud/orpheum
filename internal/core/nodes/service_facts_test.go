@@ -58,6 +58,18 @@ func TestConnectedNodeRoots_AreWhatTheNodesLastHelloNamed(t *testing.T) {
 	}
 }
 
+// A node's system folder is where its last hello said, and only a node that named one has one (D435 §4).
+func TestConnectedSystemFolders_AreWhatTheNodesLastHelloNamed(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Second)
+	harness.hello(t, nodeproto.Hello{Name: "other"})
+	reply := harness.hello(t, nodeproto.Hello{Name: "local", SystemFolder: "/var/lib/orpheum/system-videos"})
+	want := []SystemFolder{{NodeID: reply.NodeID, NodeName: "local", Path: "/var/lib/orpheum/system-videos"}}
+	if got := harness.service.ConnectedSystemFolders(t.Context()); !slices.Equal(got, want) {
+		t.Errorf("the system folders = %+v; want only local's, as its hello named it", got)
+	}
+}
+
 // The answer to a result is the node's acknowledgement (D234 §5): a result the sink could not record
 // is refused, and the node sends it again; one it cannot take as it is, as the node's mistake.
 func TestResult_IsAcknowledgedOnlyOnceTheSinkRecordedIt(t *testing.T) {

@@ -28,6 +28,7 @@ const everyKind = [
   "backup",
   "renew_certificate",
   "hash_whole_file",
+  "make_system_videos",
 ] as const satisfies readonly Job["kind"][];
 
 /** True only when everyKind names every kind: a kind left out makes this fail to compile. */

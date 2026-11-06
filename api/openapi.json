@@ -2914,7 +2914,8 @@
               "examine",
               "backup",
               "renew_certificate",
-              "hash_whole_file"
+              "hash_whole_file",
+              "make_system_videos"
             ],
             "type": "string",
             "x-extensible-enum": [
@@ -2928,7 +2929,8 @@
               "examine",
               "backup",
               "renew_certificate",
-              "hash_whole_file"
+              "hash_whole_file",
+              "make_system_videos"
             ]
           },
           "lastFailure": {
@@ -8309,6 +8311,73 @@
           "waiting",
           "unread",
           "queue"
+        ],
+        "type": "object"
+      },
+      "SystemVideoBody": {
+        "properties": {
+          "codec": {
+            "description": "The video and audio codecs it is in",
+            "type": "string"
+          },
+          "fileId": {
+            "description": "The file to play through startPlayback; 0 while it is not ready",
+            "format": "int64",
+            "type": "integer"
+          },
+          "fileName": {
+            "description": "Its file's name in the system folder",
+            "type": "string"
+          },
+          "isReady": {
+            "description": "Whether it is made and found; false while it is being made",
+            "type": "boolean"
+          },
+          "purpose": {
+            "description": "What the video is for",
+            "type": "string"
+          },
+          "sizeBytes": {
+            "description": "The file's size; 0 while it is not ready",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "purpose",
+          "codec",
+          "fileName",
+          "isReady",
+          "fileId",
+          "sizeBytes"
+        ],
+        "type": "object"
+      },
+      "SystemVideosOutputBody": {
+        "properties": {
+          "folder": {
+            "description": "That folder",
+            "type": "string"
+          },
+          "nodeName": {
+            "description": "The node whose system folder holds them",
+            "type": "string"
+          },
+          "videos": {
+            "description": "Each of the server's own videos",
+            "items": {
+              "$ref": "#/components/schemas/SystemVideoBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "nodeName",
+          "folder",
+          "videos"
         ],
         "type": "object"
       },
@@ -16550,6 +16619,71 @@
         "x-orpheum-capability": "admin"
       }
     },
+    "/system-videos/{purpose}/{codec}": {
+      "get": {
+        "operationId": "getSystemVideo",
+        "parameters": [
+          {
+            "description": "What the video is for",
+            "in": "path",
+            "name": "purpose",
+            "required": true,
+            "schema": {
+              "description": "What the video is for",
+              "enum": [
+                "sound-timing"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "The video and audio codecs it is in",
+            "in": "path",
+            "name": "codec",
+            "required": true,
+            "schema": {
+              "description": "The video and audio codecs it is in",
+              "enum": [
+                "h264-aac"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemVideoBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "One of the server's own videos, by what it is, made on its first use (D435)",
+        "tags": [
+          "Playback"
+        ],
+        "x-orpheum-capability": "signedIn"
+      }
+    },
     "/system/discovery": {
       "delete": {
         "operationId": "leaveDiscovery",
@@ -16859,6 +16993,73 @@
           }
         ],
         "summary": "What the server knows of an update: a security fix its version lacks, or a newer release",
+        "tags": [
+          "Running it"
+        ],
+        "x-orpheum-capability": "admin"
+      }
+    },
+    "/system/videos": {
+      "get": {
+        "operationId": "listSystemVideos",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemVideosOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "The server's own videos and the node that holds them, for the debug view (D435 §7)",
+        "tags": [
+          "Running it"
+        ],
+        "x-orpheum-capability": "admin"
+      }
+    },
+    "/system/videos/rebuild": {
+      "post": {
+        "operationId": "rebuildSystemVideos",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Make the server's own videos again, over the files there (D435 §7)",
         "tags": [
           "Running it"
         ],

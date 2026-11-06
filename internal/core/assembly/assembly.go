@@ -145,6 +145,8 @@ type Services struct {
 	scanSchedule *library.ScanSchedule
 	// copies confirms the files found at a second place that are copies of one found before (D363 §2).
 	copies *library.Copies
+	// systemVideos keeps the server's own videos in the hidden system library (D435).
+	systemVideos *library.SystemVideos
 	// backups makes the backups, scheduled and asked for, and prunes them (D243 §11).
 	backups *backup.Service
 	// providerServices are each outside host's provider service, which every call to it asks
@@ -193,6 +195,11 @@ func Build(ctx context.Context, parts Parts) (*Services, error) {
 	dependencies := &services.API
 	dependencies.Chooser, dependencies.Refresher = services.chooser, services.refresher
 	dependencies.Libraries = services.libraryAdmin(parts)
+	services.systemVideos = library.NewSystemVideos(library.SystemVideosParts{
+		Database: parts.Database, Clock: parts.Clock, Admin: dependencies.Libraries, Folders: services.nodes,
+		Jobs: services.Queue, Assigner: services.Exchanges, Scans: services.Scans, Logger: parts.Logger,
+	})
+	dependencies.SystemVideos = services.systemVideos
 	services.rescans = identify.NewRescans(services.matcher, services.Queue, dependencies.Libraries)
 	services.rescans.OnRequested(func() { services.Queue.RequestSweeps(sweepRescans) })
 	dependencies.Rescans = services.rescans

@@ -3,6 +3,7 @@
 package nodes
 
 import (
+	"cmp"
 	"context"
 	"slices"
 	"time"
@@ -141,6 +142,29 @@ func (service *Service) ConnectedNodeRoots(ctx context.Context, name string) (in
 		}
 	}
 	return 0, nil, false
+}
+
+// SystemFolder is a connected node's system folder, where it makes the server's own videos (D435 §4).
+type SystemFolder struct {
+	NodeID   int64
+	NodeName string
+	Path     string
+}
+
+// ConnectedSystemFolders are the system folders of the connected nodes that have one, as their last
+// hello said, by node id: where the system library may live.
+func (service *Service) ConnectedSystemFolders(ctx context.Context) []SystemFolder {
+	silentAfter := service.silentAfter(ctx)
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	var folders []SystemFolder
+	for id, node := range service.nodesHeardSinceStart {
+		if node.hello.SystemFolder != "" && service.isConnectedLocked(node, silentAfter) {
+			folders = append(folders, SystemFolder{NodeID: id, NodeName: node.name, Path: node.hello.SystemFolder})
+		}
+	}
+	slices.SortFunc(folders, func(a, b SystemFolder) int { return cmp.Compare(a.NodeID, b.NodeID) })
+	return folders
 }
 
 // markRootsNotAnswering makes each library root whose disk a node's status newly says is not

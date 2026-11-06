@@ -12,7 +12,8 @@ import (
 
 // ReachFile is nil when a library reach reaches covers a place of the file, and ErrNoFile otherwise,
 // as for a file that does not exist: a library a person may not reach, and a place none they reach
-// covers, is absent from every answer (D243 §4, D363 §8).
+// covers, is absent from every answer (D243 §4, D363 §8); but a file of the system library, which any
+// signed-in person may play (D435 §6).
 func ReachFile(ctx context.Context, queries *sqlcgen.Queries, reach auth.Reach, fileID int64) error {
 	if reach.IsEveryLibrary() {
 		return nil
@@ -24,7 +25,16 @@ func ReachFile(ctx context.Context, queries *sqlcgen.Queries, reach auth.Reach, 
 	if err != nil {
 		return fmt.Errorf("read who reaches file %d: %w", fileID, err)
 	}
-	if isReached == 0 {
+	if isReached != 0 {
+		return nil
+	}
+	// The one exemption: a file of the system library is the server's own, which a feature plays for
+	// any signed-in person who asked for it by what it is (D435 §6). No role reaches that library.
+	isSystem, err := queries.IsFileInSystemLibrary(ctx, fileID)
+	if err != nil {
+		return fmt.Errorf("read whether file %d is the server's own: %w", fileID, err)
+	}
+	if isSystem == 0 {
 		return fmt.Errorf("file %d: %w", fileID, ErrNoFile)
 	}
 	return nil

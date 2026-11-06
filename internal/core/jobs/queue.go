@@ -54,6 +54,10 @@ const (
 	// to confirm a file found at a second place is a copy of one found before it; its target is the file
 	// (D363 §2).
 	KindHashWholeFile Kind = "hash_whole_file"
+	// KindMakeSystemVideos makes the server's own videos on the system library's node and then scans
+	// its folder; it names no target, the system library being one per server, and its arguments say
+	// whether it is a rebuild (D435 §4, §7).
+	KindMakeSystemVideos Kind = "make_system_videos"
 )
 
 // Kinds are every kind of job, as the job view documents them: the one list, which the API's
@@ -62,6 +66,7 @@ func Kinds() []Kind {
 	return []Kind{
 		KindFetchMetadata, KindMakeArtworkSizes, KindExtractSubtitle, KindConvertFetchedSubtitle,
 		KindReadThrough, KindMakeChunks, KindScan, KindExamine, KindBackup, KindRenewCertificate, KindHashWholeFile,
+		KindMakeSystemVideos,
 	}
 }
 
@@ -79,7 +84,7 @@ var ErrNotOneTarget = errors.New("a job works on one target, and a backup on non
 // isWholeServer is whether a kind works on the whole server and names no target: a backup and the
 // certificate's renewal, one of each at a time.
 func isWholeServer(kind Kind) bool {
-	return kind == KindBackup || kind == KindRenewCertificate
+	return kind == KindBackup || kind == KindRenewCertificate || kind == KindMakeSystemVideos
 }
 
 // requireOneTarget refuses a target that names no target or several, but for a backup, which

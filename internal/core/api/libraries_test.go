@@ -32,8 +32,10 @@ import (
 // fakeNodes is the node channel: node 1, "local", connected once connectNode is called, with the
 // roots it named.
 type fakeNodes struct {
-	roots  []string
-	queued []nodeproto.Command
+	roots []string
+	// systemFolder is node 1's system folder, as its hello named it; empty for none (D435 §4).
+	systemFolder string
+	queued       []nodeproto.Command
 	// scanned are the roots whose scan was asked for.
 	scanned []string
 	// readAgain are what the scans asked for read again, as root:path.
@@ -177,6 +179,14 @@ func (nodes *fakeNodes) ConnectedNodeRoots(_ context.Context, name string) (int6
 		return 0, nil, false
 	}
 	return 1, nodes.roots, true
+}
+
+// ConnectedSystemFolders is node 1's system folder, while it is connected and named one.
+func (nodes *fakeNodes) ConnectedSystemFolders(context.Context) []corenodes.SystemFolder {
+	if nodes.roots == nil || nodes.systemFolder == "" {
+		return nil
+	}
+	return []corenodes.SystemFolder{{NodeID: 1, NodeName: "local", Path: nodes.systemFolder}}
 }
 
 // Facts are what node 1 said: its hello, and a status once it said anything a status carries.

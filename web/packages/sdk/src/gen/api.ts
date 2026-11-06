@@ -1951,6 +1951,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system-videos/{purpose}/{codec}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One of the server's own videos, by what it is, made on its first use (D435) */
+        get: operations["getSystemVideo"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/discovery": {
         parameters: {
             query?: never;
@@ -2049,6 +2066,40 @@ export interface paths {
         get: operations["getSystemUpdate"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/videos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The server's own videos and the node that holds them, for the debug view (D435 §7) */
+        get: operations["listSystemVideos"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/videos/rebuild": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Make the server's own videos again, over the files there (D435 §7) */
+        post: operations["rebuildSystemVideos"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3401,7 +3452,7 @@ export interface components {
             /** Format: int64 */
             itemId?: number;
             /** @enum {string} */
-            kind: "fetch_metadata" | "make_artwork_sizes" | "extract_subtitle" | "convert_fetched_subtitle" | "read_through" | "make_chunks" | "scan" | "examine" | "backup" | "renew_certificate" | "hash_whole_file";
+            kind: "fetch_metadata" | "make_artwork_sizes" | "extract_subtitle" | "convert_fetched_subtitle" | "read_through" | "make_chunks" | "scan" | "examine" | "backup" | "renew_certificate" | "hash_whole_file" | "make_system_videos";
             lastFailure?: string;
             /** @enum {string} */
             onNode?: "waiting" | "running" | "paused";
@@ -5248,6 +5299,34 @@ export interface components {
             server: components["schemas"]["ServerBody"];
             unread: components["schemas"]["UnreadBody"][] | null;
             waiting: components["schemas"]["WaitingBody"][] | null;
+        };
+        SystemVideoBody: {
+            /** @description The video and audio codecs it is in */
+            codec: string;
+            /**
+             * Format: int64
+             * @description The file to play through startPlayback; 0 while it is not ready
+             */
+            fileId: number;
+            /** @description Its file's name in the system folder */
+            fileName: string;
+            /** @description Whether it is made and found; false while it is being made */
+            isReady: boolean;
+            /** @description What the video is for */
+            purpose: string;
+            /**
+             * Format: int64
+             * @description The file's size; 0 while it is not ready
+             */
+            sizeBytes: number;
+        };
+        SystemVideosOutputBody: {
+            /** @description That folder */
+            folder: string;
+            /** @description The node whose system folder holds them */
+            nodeName: string;
+            /** @description Each of the server's own videos */
+            videos: components["schemas"]["SystemVideoBody"][] | null;
         };
         TilesInterestInputBody: {
             /** @description The items whose tiles are in view */
@@ -10004,6 +10083,40 @@ export interface operations {
             };
         };
     };
+    getSystemVideo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The video and audio codecs it is in */
+                codec: "h264-aac";
+                /** @description What the video is for */
+                purpose: "sound-timing";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemVideoBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getDiscovery: {
         parameters: {
             query?: never;
@@ -10234,6 +10347,62 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["UpdateBody"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listSystemVideos: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemVideosOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    rebuildSystemVideos: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

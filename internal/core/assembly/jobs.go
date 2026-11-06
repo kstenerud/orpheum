@@ -108,6 +108,12 @@ func (services *Services) runners(artworkRetrySchedule []time.Duration) jobRunne
 			[]string{sweepCopies},
 			services.copies.Assignee,
 		},
+		{
+			// A make that gave up keeps nothing: the next use of a video not there asks again (D435 §5).
+			jobs.KindMakeSystemVideos, services.systemVideos.HandleMakeSystemVideos, nil, nil, 1,
+			derivedByAPlay(),
+			services.systemVideos.Assignee,
+		},
 		{jobs.KindBackup, services.backups.HandleBackup, nil, nil, 1, []string{sweepScheduledBackup}, nil},
 		{jobs.KindRenewCertificate, services.renewCertificate, nil, nil, 1, []string{sweepCertificate}, nil},
 	}

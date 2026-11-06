@@ -52,6 +52,7 @@ export const enStatus = {
       backup: "Backing up",
       renewCertificate: "Renewing the server's certificate",
       hashWholeFile: "Comparing a file with its likely copy",
+      makeSystemVideos: "Making the server's own videos",
     },
     state: {
       queued: "Waiting",

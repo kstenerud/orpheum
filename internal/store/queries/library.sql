@@ -119,6 +119,19 @@ WHERE place.removed_at IS NULL AND place.id > sqlc.arg(after_id)
 ORDER BY place.id
 LIMIT sqlc.arg(max_rows);
 
+-- name: InsertSystemLibrary :exec
+-- Marks a library as the server's system library: one per server, by its kind (D435 section 1).
+INSERT INTO system_library (kind, library_id) VALUES ('system', sqlc.arg(library_id));
+
+-- name: IsFileInSystemLibrary :one
+-- Whether the system library covers a live place of a file: one a feature plays for any signed-in
+-- person who asked for it by what it is (D435 section 6).
+SELECT CAST(EXISTS (
+  SELECT 1 FROM system_library
+  JOIN library_place ON library_place.library_id = system_library.library_id
+  WHERE library_place.file_id = CAST(sqlc.arg(file_id) AS INTEGER)
+) AS INTEGER) AS is_system;
+
 -- name: GetSystemLibrary :one
 -- The server's system library, found by its kind (D435 section 1), with its live folder and that
 -- folder's node; NULL folder while it has none.
@@ -132,10 +145,12 @@ ORDER BY library_root.root_path
 LIMIT 1;
 
 -- name: ListSystemVideos :many
--- The system library's videos: each live place its folder covers, by path (D435 section 7).
+-- The system library's videos: each live place its folder covers that a scan confirmed, by path; a
+-- place a repoint moved is not one until the videos are made there and scanned (D435 sections 5, 7).
 SELECT library_place.file_id, library_place.path, library_place.node_id, file.size_bytes
 FROM system_library
 JOIN library_place ON library_place.library_id = system_library.library_id
+JOIN place ON place.id = library_place.place_id AND place.is_unconfirmed = 0
 JOIN file ON file.id = library_place.file_id
 WHERE system_library.kind = 'system'
 ORDER BY library_place.path;
