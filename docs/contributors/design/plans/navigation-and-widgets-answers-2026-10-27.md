@@ -2170,8 +2170,6 @@ stall, made sturdy on the core's side). End: one check-pr; staging and nas.examp
   folder of every library this way, one at a time.
 - **Next batch (the owner, 2026-11-06, prod failed over to devnas while nas.example runs memtest86: "We
   should probably handle this case where two cores disagree over who should be running"):** build
-  D437: a refused copy goes dormant (no households, no node work, no backups, no retry) until an admin
-  wakes it; dormancy kept across restarts; only a restart in place or an admin claims the realm; a
-  takeover number in the discovery fences older copies; the ping answered by the core's health; both
-  copies warned under the top menu's exclamation icon. In the core and in orpheum-connect. Split brain with no
-  referee is accepted, not guarded (D437).
+  D437, slim: the ping answered by the core's health; a refused copy stops asking the discovery until
+  an admin says so; both copies warned under the top menu's exclamation icon. In the core and in
+  orpheum-connect. Split brain with no referee is accepted, not guarded.

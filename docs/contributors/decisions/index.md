@@ -442,7 +442,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D434](working-notes.md#d434--a-casts-remote-works-its-receiver-in-the-casts-session-alone-whatever-else-the-receiver-plays-in) A cast's remote works its receiver in the cast's session alone, whatever else the receiver plays in
 - [D435](working-notes.md#d435--the-servers-own-videos-live-in-one-hidden-system-library-found-by-its-kind-made-on-first-use) The server's own videos live in one hidden system library, found by its kind, made on first use
 - [D436](working-notes.md#d436--a-film-playing-its-own-file-takes-no-web-audio-for-levelling-on-a-device-whose-web-audio-is-late-a-lowering-is-the-elements-volume-a-raise-is-the-servers) A film playing its own file takes no Web Audio for levelling on a device whose Web Audio is late: a lowering is the element's volume, a raise is the server's
-- [D437](working-notes.md#d437--one-copy-of-a-core-serves-a-refused-copy-goes-dormant-until-an-admin-wakes-it-a-takeover-is-counted-and-only-a-restart-in-place-or-an-admin-claims) One copy of a core serves: a refused copy goes dormant until an admin wakes it, a takeover is counted, and only a restart in place or an admin claims
+- [D437](working-notes.md#d437--one-copy-of-a-core-serves-a-refused-copy-stops-asking-until-an-admin-says-so-and-both-are-warned-under-the-exclamation-icon) One copy of a core serves: a refused copy stops asking until an admin says so, and both are warned under the exclamation icon
 
 ## Archived
 
