@@ -132,6 +132,14 @@ export const enSystem = {
       idle: "idle",
       running: "{{kind}} × {{count}}",
     },
+    videos: {
+      heading: "The server's own videos",
+      where: "Kept on {{node}} in {{folder}}.",
+      nowhere: "Not made yet: the first use makes them on a connected node.",
+      ready: "{{name}}: made, {{size}}",
+      notReady: "{{name}}: not made yet",
+      rebuild: "Make them again",
+    },
     unusedSettings: {
       heading: "Settings this release does not read",
       what: "These were left by an earlier release, or mistyped. The server ignores them, so deleting one changes nothing it does.",

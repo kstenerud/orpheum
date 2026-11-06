@@ -60,7 +60,7 @@ describe("the sound timing test (D435 §6)", () => {
       ),
     );
     const page = mounted;
-    await settleUntil(() => page.container.querySelector("[role=status]") !== null);
+    await settleUntil(() => page.container.querySelector("output") !== null);
     expect(page.container.querySelector("a.lab__button")).toBeNull();
     await act(async () => {
       for (const ask of asks) {

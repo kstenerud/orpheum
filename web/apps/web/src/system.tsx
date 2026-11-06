@@ -6,6 +6,8 @@ import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { BusyGroup } from "./busy-group.tsx";
+import { DebugTool } from "./debug-tools.tsx";
+import { SystemVideos } from "./system-videos.tsx";
 import { useRequest } from "./use-request.ts";
 import { idempotent } from "./idempotent.ts";
 import { camelKey } from "./catalogue-key.ts";
@@ -85,6 +87,9 @@ export function System(): JSX.Element {
       <SystemFilingReports />
       <SystemReachability />
       <SystemDiscovery />
+      <DebugTool>
+        <SystemVideos />
+      </DebugTool>
     </>
   );
 }
