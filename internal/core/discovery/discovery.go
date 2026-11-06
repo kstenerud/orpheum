@@ -202,6 +202,9 @@ type Service struct {
 	// first, and sentHouseNetworks the house networks the last heartbeat carried (D356).
 	learnt            []HouseNetwork
 	sentHouseNetworks []discoveryproto.HouseNetwork
+	// keptWitnessings are when discovery.json last kept each learnt network witnessed
+	// (learnHouseNetwork writes again only a day on, houseNetworkKeepEvery).
+	keptWitnessings map[netip.Prefix]time.Time
 	// release is what the discovery last said of releases newer than this one; releaseAskedAt when
 	// the core last asked, and releaseWait how long after it asks again (checkRelease).
 	release        Release
@@ -295,6 +298,7 @@ func New(parts Parts) (*Service, error) {
 	service.status.DocumentProblem = problem
 	service.held = opened
 	service.learnt = learntOf(state.HouseNetworks)
+	service.keptWitnessings = witnessingsOf(service.learnt)
 	publisherErr := service.loadPublisher()
 	return service, publisherErr
 }
@@ -443,7 +447,7 @@ func (service *Service) Leave(ctx context.Context) error {
 	}
 	service.mutex.Lock()
 	service.status, service.token, service.lastSent = Status{}, "", nil
-	service.learnt, service.sentHouseNetworks = nil, nil
+	service.learnt, service.sentHouseNetworks, service.keptWitnessings = nil, nil, nil
 	service.held, service.documentCheckedAt = held{}, time.Time{}
 	service.mutex.Unlock()
 	service.parts.Logger.InfoContext(ctx, "discovery: left", "issuer", status.Issuer)
@@ -686,6 +690,7 @@ func (service *Service) keep() error {
 		Identity: service.held.chain.ID(), CoreID: service.status.CoreID, Zone: service.status.Zone,
 		HouseNetworks: keptHouseNetworksOf(service.learnt),
 	}
+	witnessings := witnessingsOf(service.learnt)
 	service.mutex.Unlock()
 	encoded, err := json.Marshal(state)
 	if err != nil {
@@ -694,6 +699,9 @@ func (service *Service) keep() error {
 	if err = service.parts.Files.WritePersistentFile(StateFileName, encoded); err != nil {
 		return fmt.Errorf("keep %s: %w", StateFileName, err)
 	}
+	service.mutex.Lock()
+	service.keptWitnessings = witnessings
+	service.mutex.Unlock()
 	return nil
 }
 

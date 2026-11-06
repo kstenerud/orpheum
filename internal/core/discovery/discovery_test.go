@@ -35,6 +35,15 @@ import (
 type memoryFiles struct {
 	mutex sync.Mutex
 	files map[string][]byte
+	// writes counts the writes of each file.
+	writes map[string]int
+}
+
+// writeCount is how often name was written.
+func (files *memoryFiles) writeCount(name string) int {
+	files.mutex.Lock()
+	defer files.mutex.Unlock()
+	return files.writes[name]
 }
 
 func (files *memoryFiles) ReadPersistentFile(name string) ([]byte, error) {
@@ -51,6 +60,10 @@ func (files *memoryFiles) WritePersistentFile(name string, contents []byte) erro
 	files.mutex.Lock()
 	defer files.mutex.Unlock()
 	files.files[name] = contents
+	if files.writes == nil {
+		files.writes = map[string]int{}
+	}
+	files.writes[name]++
 	return nil
 }
 

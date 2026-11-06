@@ -17,6 +17,13 @@ import (
 // once it is reused. A constant, not a setting (the owner, 2026-10-27, D356 Q3).
 const HouseNetworkKeptFor = 30 * 24 * time.Hour
 
+// houseNetworkKeepEvery is how long after the witnessing discovery.json last kept for a learnt network
+// a witnessing again is written there: one written per connection from home is a write per
+// connection, and a day is nothing beside HouseNetworkKeptFor. In memory each witnessing counts at
+// once, so only a restart can see a network up to this much older than it is, and drop it that much
+// sooner.
+const houseNetworkKeepEvery = 24 * time.Hour
+
 // HouseNetwork is one of the house's public IPv6 /64s, as the core tells its discovery and its admin
 // sees it: how it was had (discoveryproto.HouseNetworkLearnt or HouseNetworkConfigured), and for a
 // learnt one the device in the house that last witnessed it, by its address there, and when (D356 §3,
@@ -105,9 +112,10 @@ func heartbeatHouseNetworks(networks []HouseNetwork) []discoveryproto.HouseNetwo
 
 // learnHouseNetwork keeps the network an offer came from, as its discovery saw it, as a house
 // network, its connection having proven itself from home (D356 §1): witnessed now, by proven's
-// device. A network already kept is witnessed again; a new one pushes out the least recently
-// witnessed past discoveryproto.MaxHouseNetworks, is kept in discovery.json, and sends a heartbeat at
-// once. An offer that came over IPv4, or with anything but a house network, teaches nothing. The log
+// device. A network already kept is witnessed again, and kept in discovery.json once
+// houseNetworkKeepEvery has passed since the witnessing it holds; a new one pushes out the least
+// recently witnessed past discoveryproto.MaxHouseNetworks, is kept in discovery.json, and sends a
+// heartbeat at once. An offer that came over IPv4, or with anything but a house network, teaches nothing. The log
 // says whether the device's own IPv6 addresses in its offer agree with the network, without acting on
 // it (the owner, 2026-10-27, D356 Q5).
 func (service *Service) learnHouseNetwork(
@@ -131,11 +139,16 @@ func (service *Service) learnHouseNetwork(
 	service.learnt[index].Device, service.learnt[index].WitnessedAt = proven.Device, now
 	sortMostRecentFirst(service.learnt)
 	service.learnt = service.learnt[:min(len(service.learnt), discoveryproto.MaxHouseNetworks)]
+	keptAt, isKept := service.keptWitnessings[network]
+	isDue := isNew || !isKept || now.Sub(keptAt) >= houseNetworkKeepEvery
 	service.mutex.Unlock()
 	agrees, offered := offerAgreesWith(offer.SDP, network)
 	service.parts.Logger.InfoContext(ctx, "discovery: a device proven at home witnessed the house's network (D356)",
 		"network", network.String(), "isNew", isNew, "device", proven.Device.String(), "path", string(proven.Path),
 		"offerAgrees", agrees, "offerNetworks", offered)
+	if !isDue {
+		return
+	}
 	if keepErr := service.keepHouseNetworks(); keepErr != nil {
 		service.parts.Logger.WarnContext(ctx, "discovery: could not keep the house's networks", "err", keepErr)
 	}
@@ -163,6 +176,16 @@ func offerAgreesWith(sdp string, network netip.Prefix) (string, []string) {
 		}
 	}
 	return agrees, offered
+}
+
+// witnessingsOf are when each of learnt was last witnessed, by network: what discovery.json holds once
+// it is written with them.
+func witnessingsOf(learnt []HouseNetwork) map[netip.Prefix]time.Time {
+	witnessings := make(map[netip.Prefix]time.Time, len(learnt))
+	for _, each := range learnt {
+		witnessings[each.Network] = each.WitnessedAt
+	}
+	return witnessings
 }
 
 // keepHouseNetworks writes discovery.json with the house networks learnt now, beside what it held.
