@@ -2694,3 +2694,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   browser refused to start a film" line for either; (3) the Fire TV's Silk still starts a film at
   once, full screen, without a stall at the start.
   (`web/apps/web/src/start-refused.ts`, `web/apps/web/src/page-controls.tsx`)
+- [ ] **VQ271** — a film resumed partway on the TCL TV, with Level loudness on, starts (the owner,
+  2026-11-06: The Big Parade, resumed at about 28 minutes, never started with levelling on; with it
+  off it played). VQ270's pause, which unlocks the video, was told to the server as the person's,
+  paused at 0 before the resume moved the player, and a paused player is made only the half minute
+  after where it paused: the levelled sound at 28 minutes was never made (`stopped at 0 ms` in the
+  core's log, its chunks answered 425). That pause is no longer told. On staging, on the TCL TV in TV
+  Bro, with Level loudness on, resume a film partway whose levelled sound has not been made there
+  (one not played with levelling on before). Passes when the film starts by itself with sound within
+  a few seconds, and the core's log shows no "planned no run of chunks: no player wants one" for its
+  sound stream. (`web/apps/web/src/interest.ts`, `web/apps/web/src/start-refused.ts`)

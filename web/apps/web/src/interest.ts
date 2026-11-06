@@ -2,6 +2,8 @@
 
 import type { Api } from "@orpheum/sdk";
 
+import { isPressKeepersPause } from "./start-refused.ts";
+
 /**
  * What a player says it wants of its film's chunks (D309): where it plays from, and whether it is
  * paused. Its quality and its sound the server reads off the chunks it asks for, the first of a new
@@ -29,8 +31,9 @@ export function sayInterestOf(
   const at = (): number => Math.round(video.currentTime * 1000);
   const listeners: Record<string, () => void> = {
     pause: () => {
-      // The end pauses the video too: nothing is left ahead to keep.
-      if (!video.ended) {
+      // The end pauses the video too: nothing is left ahead to keep. The pause that keeps the
+      // press for the start is not the person's.
+      if (!isPressKeepersPause(video) && !video.ended) {
         say({ positionMs: at(), isPaused: true });
       }
     },
