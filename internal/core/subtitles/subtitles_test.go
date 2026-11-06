@@ -44,6 +44,9 @@ type fakeQueue struct {
 	requests []jobs.Request
 	// keptWanted counts, by kind and target, how often a play asked to keep a job wanted.
 	keptWanted map[jobs.Target]int
+	// onEnqueue, when set before the service runs, is told each job asked for, after it is listed, as
+	// a runner taking it from the queue would be: a fetch's test runs the conversion it queued so.
+	onEnqueue func(jobs.Request)
 }
 
 func newFakeQueue() *fakeQueue { return &fakeQueue{keptWanted: map[jobs.Target]int{}} }
@@ -53,8 +56,11 @@ func newFakeQueue() *fakeQueue { return &fakeQueue{keptWanted: map[jobs.Target]i
 // the real queue's merge of a repeat request into the open job, only record the asking.
 func (queue *fakeQueue) Enqueue(_ context.Context, job jobs.Request) (bool, error) {
 	queue.mutex.Lock()
-	defer queue.mutex.Unlock()
 	queue.requests = append(queue.requests, job)
+	queue.mutex.Unlock()
+	if queue.onEnqueue != nil {
+		queue.onEnqueue(job)
+	}
 	return true, nil
 }
 
@@ -190,6 +196,7 @@ func newBench(t *testing.T) *bench {
 	})
 	resolver := nodestest.NewResolver()
 	service.exchanges.Handle(jobs.KindExtractSubtitle, service.Assignee(resolver.Of(nil)))
+	service.exchanges.Handle(jobs.KindConvertFetchedSubtitle, service.Assignee(resolver.Of(nil)))
 	node.service = service
 	return &bench{
 		service: service, database: database, node: node, queue: queue, clock: fakeClock, resolver: resolver,
