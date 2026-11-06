@@ -49,6 +49,19 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A62 — Explained the TCL TV's sound timing backwards: picture late, when the sound was (2026-11-06)
+
+- **What happened:** the sound timing test met at 0 on the owner's TCL TV while the library's sync
+  clips needed 200 ms. The lead told the owner the TV's video frames reach the screen 200 ms behind
+  the sound, so the sound must be held back, and wrote the same into VQ269 ("docs(verification): VQ268 passed on the TCL TV; VQ269 fails, its drawn flash missing the video's delay"). The owner's
+  next test, which the new log lines recorded ("fix(api): say each device's sound offset setting, and each playback's offset and levelling"), set the sound 300 ms *earlier*: the sound
+  is the late one, as VQ269's own opening already said ("plays sound some 400 ms late"). The lead
+  read "200ms offset" as later without asking which way, and built a mechanism on the guess. That
+  the page-drawn test cannot stand for a film holds either way; which path lags is not known.
+- **Caught by:** the owner's next measurement, read in the log.
+- **Gate:** none. The logs now carry each offset set and each playback's offset and levelling, so a
+  direction is read, not guessed.
+
 ### A61 — Told the owner a TV signed in as admin was a Watch Together screen, and that cast ignores the sound offset (2026-11-06)
 
 - **What happened:** the owner, on the TCL TV in Berlin, could not reach the sound timing test.

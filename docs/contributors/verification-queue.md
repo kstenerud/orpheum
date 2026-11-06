@@ -2679,3 +2679,6 @@ An item is ticked only by the person who did it, and only with what they saw.
   Failed (3) 2026-11-06, the owner, staging at "fix(web): the repoint dialog's Check press carries a click's key": the test met at 0 ms on the TCL TV, but
   the library's sync clips need 200 ms (*"2 bars into the orange"*). Its flash is drawn by the page,
   so it misses the delay of the TV's video picture, which only a decoded film's frames carry.
+  Corrected the same day (A62): the sync clips settle with the sound 300 ms *earlier*, Level
+  loudness on or off, so the film's sound is the late one; the test still cannot stand for a film,
+  whose sound and picture take a path the page-drawn flash does not.
