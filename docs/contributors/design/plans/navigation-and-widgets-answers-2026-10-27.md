@@ -2257,3 +2257,26 @@ code-debt.md in its commit.
 7. **`internal/core/api/errors.go` is 427 lines**: split by error family.
 
 End: one check-pr, staging. nas.example and devnas wait until memtest ends.
+
+## The 11-15 batch (the owner, 2026-11-06: "If you run out of things do to, do some rounds to reduce the technical debt")
+
+Rows of code-debt.md whose fix the row names, as the 11-13 and 11-14 batches'; each fixed row leaves
+code-debt.md in its commit. Rows that are the owner's call, need a measurement first or change a
+gate are left.
+
+1. **The Play page polls the quality playing every second** (`film-player.tsx`): it listens to
+   `playerSwitchedQualityEvent` instead.
+2. **A game controller connected polls the Gamepad API each animation frame**
+   (`input-pad-poll.ts`): only while a page listens for it.
+3. **A chunk given up on its way is sampled from its ask** (`measureGivenUp`): from its first byte
+   where any arrived.
+4. **A later move to WebRTC tells the core nothing of that connection's pairs**
+   (`reportPathChoice`): the pairs of each transport the keeper moves to are told, once per
+   transport.
+5. **"The client's end is in the house" is judged twice** (`isHomeOverWebRTC` in `api`,
+   `provenAtHome` in `rtcapi`): one judgement in `rtcapi`, kept on the connection.
+6. **`NewExchanges` is built by hand in 8 test files**: one helper.
+7. **Tests make Unix sockets under `t.TempDir()`, near the path limit**: one helper that makes a
+   short socket directory.
+
+End: one check-pr, staging. nas.example and devnas wait until memtest ends.
