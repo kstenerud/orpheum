@@ -2215,3 +2215,24 @@ What is specified or filed, with no design left to the owner:
    full screen, without a stall at the start.
 
 End: one check-pr, staging. nas.example and devnas wait until memtest ends (the owner, 2026-11-06).
+
+## The 11-13 batch (the owner, 2026-11-06: "continue for the rest of the night with batches that don't require my input")
+
+Rows of code-debt.md whose fix the row names, no design left to the owner; each fixed row leaves
+code-debt.md in its commit.
+
+1. **A migration's pre-snapshot trusts a leftover file of its name** (`store/migrate.go`,
+   `snapshotBeforeMigrating`): removed on any failure and checked before it is trusted, as
+   `backup.write` does (D181).
+2. **A folder retired from a library cannot be added to it again** (`AddRoot`, D359 §3): the retired
+   row comes back, its scan asked for.
+3. **A hidden film's progress comes back after a rescan merges it** (`joinExisting`): `progress_hide`
+   rows move with the merge, as the versions do.
+4. **An MP4 index puts a keyframe under an edit a picture late** (`container.trakKeyframesMs`): agree
+   with ffprobe.
+5. **Manage › Libraries is marked current only at `/libraries`** (`app-shell.tsx`): a destination
+   names the screens beneath it.
+6. **Every page asks `GET /me` every 60 s** (`signed-out-watch.ts`): the poll rests while the live
+   connection is open.
+
+End: one check-pr with the 11-12 batch, staging. nas.example and devnas wait until memtest ends.
