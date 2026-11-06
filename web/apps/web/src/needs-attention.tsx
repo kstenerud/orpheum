@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { dateTimeText } from "./date-time-text.ts";
 import { arrivalMark } from "./focus-navigation.ts";
 import { i18n } from "./i18n.ts";
+import { hasCopyWarning } from "./copy-warning.ts";
 import { Link } from "./link.tsx";
 import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
@@ -128,11 +129,6 @@ function OneCopyItems(props: { readonly value: AttentionCounts }): JSX.Element {
       ) : null}
     </>
   );
-}
-
-/** Whether a copy of this server was refused, or this one was (D437 §4). */
-export function hasCopyWarning(value: AttentionCounts): boolean {
-  return value.copyRefusedAt > 0 || value.stoodAsideAt > 0;
 }
 
 /**

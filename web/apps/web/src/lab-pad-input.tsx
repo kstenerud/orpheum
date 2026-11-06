@@ -7,6 +7,8 @@
  * The app's navigation moves focus by a pad's arrows and presses by its OK, as on every page.
  */
 
+import "./lab-words.ts";
+
 import { useEffect, useMemo, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 

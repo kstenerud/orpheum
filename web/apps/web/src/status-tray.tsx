@@ -10,7 +10,7 @@ import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { Icon } from "./icon.tsx";
 import { IconButton } from "./icon-button.tsx";
 import { Link } from "./link.tsx";
-import { hasCopyWarning } from "./needs-attention.tsx";
+import { hasCopyWarning } from "./copy-warning.ts";
 import { useLive } from "./live.tsx";
 import { dataOrThrow } from "./problem.ts";
 import { routeHref } from "./router.ts";

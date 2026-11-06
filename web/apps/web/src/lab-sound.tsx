@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./lab-words.ts";
+
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 

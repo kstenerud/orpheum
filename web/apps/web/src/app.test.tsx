@@ -5,6 +5,7 @@ import "./i18n.ts";
 
 import { readyAheadOf, setReadyAheadPercent, tellNextChunkLoadMs } from "@orpheum/sdk";
 import { renderToStaticMarkup } from "react-dom/server";
+import { prerender } from "react-dom/static";
 import { describe, expect, it } from "vitest";
 
 import { act } from "react";
@@ -95,6 +96,16 @@ async function noticeAfterSigningOut(answer: Answers[string]): Promise<string | 
   return isSignedOut ? notice : "still signed in";
 }
 
+/**
+ * The markup of the app at path, signed in, once every screen's code it shows has loaded: an
+ * admin's screen, among others, loads its code as it is first shown (later-screens.tsx), "Loading…"
+ * in a first render's place.
+ */
+async function markupAt(path: string): Promise<string> {
+  const { prelude } = await prerender(withServices(<App />, testServices("token", path)));
+  return await new Response(prelude).text();
+}
+
 describe("App", () => {
   it("asks to sign in until there is a session", () => {
     const markup = renderToStaticMarkup(withServices(<App />, testServices()));
@@ -108,39 +119,33 @@ describe("App", () => {
     expect(markup).toContain("not endorsed or certified by TMDB");
   });
 
-  it("shows the screen each address names", () => {
-    const films = renderToStaticMarkup(withServices(<App />, testServices("token", "/films")));
+  it("shows the screen each address names", async () => {
+    const films = await markupAt("/films");
     // One name for each place (ui-audit-2026-11-04.md Q7): the heading says what the banner does.
     expect(films).toContain('id="browse-heading">Films<');
-    const series = renderToStaticMarkup(withServices(<App />, testServices("token", "/series")));
+    const series = await markupAt("/series");
     expect(series).toContain('id="browse-heading">Series<');
     // Its bar needs the libraries list first (for the chooser, the sort and the view it offers),
     // so it shows Loading… here, as the System page does; library-browse.test.tsx mounts it
     // asynchronously and finds its Sort and filter once that answers.
-    const browse = renderToStaticMarkup(withServices(<App />, testServices("token", "/browse")));
+    const browse = await markupAt("/browse");
     expect(browse).toContain("Loading…");
-    const libraries = renderToStaticMarkup(
-      withServices(<App />, testServices("token", "/libraries")),
-    );
+    const libraries = await markupAt("/libraries");
     expect(libraries).toContain('id="libraries-heading"');
-    const files = renderToStaticMarkup(
-      withServices(<App />, testServices("token", "/libraries/3/files")),
-    );
+    const files = await markupAt("/libraries/3/files");
     expect(files).toContain('id="files-heading"');
-    const identify = renderToStaticMarkup(
-      withServices(<App />, testServices("token", "/identify")),
-    );
+    const identify = await markupAt("/identify");
     expect(identify).toContain('id="identify-heading"');
-    const jobs = renderToStaticMarkup(withServices(<App />, testServices("token", "/jobs")));
+    const jobs = await markupAt("/jobs");
     expect(jobs).toContain('id="jobs-heading"');
-    const system = renderToStaticMarkup(withServices(<App />, testServices("token", "/system")));
+    const system = await markupAt("/system");
     expect(system).toContain("Loading…");
     expect(system).not.toContain("There is nothing at this address.");
   });
 
-  it("shows a library's own page and creating one, each at an address of its own (D361)", () => {
+  it("shows a library's own page and creating one, each at an address of its own (D361)", async () => {
     for (const path of ["/libraries/3", "/libraries/new"]) {
-      const markup = renderToStaticMarkup(withServices(<App />, testServices("token", path)));
+      const markup = await markupAt(path);
       expect(markup).toContain('class="up-trail"');
       expect(markup).not.toContain("There is nothing at this address.");
     }

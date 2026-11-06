@@ -2,6 +2,8 @@
 
 import "./ui-gallery.css";
 
+import "./gallery-words.ts";
+
 import { useRef, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 

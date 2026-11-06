@@ -6,6 +6,8 @@
  * page is asked for, which a TV's Menu key may be (plans/player-overlay.md §4).
  */
 
+import "./lab-words.ts";
+
 import { useEffect, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 

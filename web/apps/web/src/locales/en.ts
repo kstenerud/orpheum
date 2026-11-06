@@ -8,8 +8,6 @@ import { enPeople } from "./en-people.ts";
 import { enPlay } from "./en-play.ts";
 import { enSettingLabels } from "./en-setting-labels.ts";
 import { enSettingsCatalogue } from "./en-settings.ts";
-import { enGallery } from "./en-gallery.ts";
-import { enLab } from "./en-lab.ts";
 import { enStatus } from "./en-status.ts";
 import { enSystem } from "./en-system.ts";
 import { enTogether } from "./en-together.ts";
@@ -23,7 +21,8 @@ import { enFind } from "./en-find.ts";
 
 /**
  * The English catalogue, bundled as the offline floor (D51). Other languages are served by the
- * server once translations exist. Keys name what the text is for, never what it says.
+ * server once translations exist. Keys name what the text is for, never what it says. The lab's and
+ * the gallery's words come with their screens' code (lab-words.ts, gallery-words.ts), not here.
  */
 export const en = {
   ...enTogether,
@@ -34,11 +33,9 @@ export const en = {
   ...enLibraries,
   ...enPeople,
   ...enStatus,
-  ...enGallery,
   ...enWarning,
   ...enWatched,
   ...enOrderings,
-  ...enLab,
   ...enNavigation,
   ...enSystem,
   ...enUpdate,
