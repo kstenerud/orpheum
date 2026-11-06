@@ -107,7 +107,7 @@ func TestAgent_AListingOfARootHoldingAStuckReadingIsAnsweredStalledAtOnce(t *tes
 		listed.Listing.Stall.Condition != nodeproto.ConditionWaitingOnDisk || len(listed.Listing.Records) != 0 {
 		t.Errorf("the listing of a root holding a stuck reading = %+v; want it stalled on its disk, unlisted", listed)
 	}
-	logged.AwaitLine(t, "a job was not tried: its root is still waiting on its disk", "jobId=1")
+	logged.AwaitEvent(t, "jobNotTriedRootWaiting", "jobId=1")
 }
 
 // A disk whose space does not measure leaves the status sent, saying the disk is not answering,

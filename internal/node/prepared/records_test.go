@@ -18,6 +18,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/platform/readonly"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // recordedShelf is a shelf over a fresh directory, logging to logs, with testStore opened and its init
@@ -225,7 +226,7 @@ func TestOpenChecked_DropsAStoreMadeBeforeItsFilesWereRecordedAtItsFirstUse(t *t
 		t.Errorf("a store that cannot be checked was left at its first use: %v", err)
 	}
 	if logged := logs.String(); !strings.Contains(logged, "level=WARN") ||
-		!strings.Contains(logged, "dropped a store of chunks whose chunks are not recorded") ||
+		len(testutil.LinesWith(logged, "unrecordedStoreDropped")) == 0 ||
 		!strings.Contains(logged, "fileId=8") || !strings.Contains(logged, "fileCount=2") {
 		t.Errorf("the store dropped logged %q", logged)
 	}

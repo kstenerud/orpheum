@@ -43,8 +43,8 @@ func TestAgent_ListsARootAndExaminesTheFilesTheCoreAsksFor(t *testing.T) {
 		}) {
 		t.Errorf("job 1's answer = %+v, want a listing naming Arkon.mkv", listed)
 	}
-	logged.AwaitLine(t, "a listing started", "jobId=1", "waitedMs=")
-	logged.AwaitLine(t, "a listing ended", "jobId=1", "recordCount=", "tookMs=")
+	logged.AwaitEvent(t, "listingStarted", "jobId=1", "waitedMs=")
+	logged.AwaitEvent(t, "listingEnded", "jobId=1", "recordCount=", "tookMs=")
 	core.commands <- nodeproto.Command{CommandSeq: 2, JobID: 2, Work: nodeproto.Work{
 		Type: nodeproto.CommandExamine, Examine: &nodeproto.Examine{
 			RootPath: root.Path(),

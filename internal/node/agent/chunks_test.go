@@ -230,12 +230,12 @@ func TestAgent_ARunOfChunksIsLoggedWithTheFilmItMadeAndHowFast(t *testing.T) {
 	// Three chunks of two seconds each in 1.8 s: 3.3 times real time.
 	core.sendMakeChunks(1, run("1/chunks-picture/0123456789abcdef"))
 	receiveChunksReport(t, core)
-	checkLogLine(t, logs.AwaitLine(t, `"msg":"a run of chunks finished"`), `"level":"INFO"`, `"jobId":1,`,
+	checkLogLine(t, logs.AwaitEvent(t, "chunkRunFinished"), `"level":"INFO"`, `"jobId":1,`,
 		`"storeDir":"1/chunks-picture/0123456789abcdef"`, `"firstChunk":4,`, `"lastChunk":6,`, `"chunksMade":3,`,
 		`"filmMadeMs":6000,`, `"wallTimeMs":1800,`, `"speed":3.3,`, `"firstChunkAfterMs":600`)
 	core.sendMakeChunks(2, run("1/chunks-failing/0123456789abcdef"))
 	receiveChunksReport(t, core)
-	checkLogLine(t, logs.AwaitLine(t, `"msg":"a run of chunks did not finish"`), `"level":"WARN"`,
+	checkLogLine(t, logs.AwaitEvent(t, "chunkRunFailed"), `"level":"WARN"`,
 		`"jobId":2,`, `"lastChunk":4,`, `"why":"ffmpeg: Invalid data`, `"chunksMade":1,`, `"filmMadeMs":2000,`,
 		`"wallTimeMs":600,`, `"speed":3.3,`, `"firstChunkAfterMs":600`)
 	core.sendMakeChunks(3, run("1/chunks-waiting/0123456789abcdef"))
@@ -246,7 +246,7 @@ func TestAgent_ARunOfChunksIsLoggedWithTheFilmItMadeAndHowFast(t *testing.T) {
 		}
 	}
 	core.commands <- nodeproto.Command{CommandSeq: 4, JobID: 3, Work: nodeproto.Work{Type: nodeproto.CommandCancel}}
-	checkLogLine(t, logs.AwaitLine(t, `"msg":"a run of chunks was cancelled"`), `"jobId":3,`,
+	checkLogLine(t, logs.AwaitEvent(t, "chunkRunCancelled"), `"jobId":3,`,
 		`"storeDir":"1/chunks-waiting/0123456789abcdef"`, `"lastChunk":4,`, `"chunksMade":1,`,
 		`"filmMadeMs":2000,`, `"wallTimeMs":600,`, `"firstChunkAfterMs":600`)
 }

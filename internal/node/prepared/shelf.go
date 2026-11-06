@@ -17,6 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/diskspace"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // Budget is what the prepared directory may hold (D217 §5).
@@ -247,6 +248,7 @@ func (shelf *Shelf) logKeptWatched(ctx context.Context, spared []string, usage U
 		return
 	}
 	shelf.logger.WarnContext(ctx, "kept prepared runs being watched though the directory or its disk needs room",
+		slogx.EventKey, "watchedRunsKept",
 		"watched", spared, "usedMiB", usage.UsedBytes>>20, "budgetMiB", usage.BudgetBytes>>20,
 		"diskUsedPercent", usage.DiskUsedPercent, "diskUsedLimitPercent", usage.DiskUsedLimitPercent,
 		"diskFreeMiB", usage.DiskAvailableBytes>>20, "diskMinFreeMiB", usage.DiskMinFreeBytes>>20)
