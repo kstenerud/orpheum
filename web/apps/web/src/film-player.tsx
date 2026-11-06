@@ -646,10 +646,9 @@ function useShapedByTheTabsLink(): void {
 }
 
 /**
- * Follows playback in video: the quality playing, read as it starts and again at each switch the
- * player tells of (playerSwitchedQualityEvent), never on a timer, which polled each second for what
- * the event already says (efficiency audit, 2026-10-28); and, at each stall, whether even its
- * lowest quality is beyond the link (D247 §8). Returns the end of it.
+ * Follows playback in video: the quality playing, read as it starts and at each switch the player
+ * tells (playerSwitchedQualityEvent), never on a timer (efficiency audit, 2026-10-28); and, at each
+ * stall, whether even its lowest quality is beyond the link (D247 §8). Returns the end of it.
  */
 export function followChunkedPlayback(
   video: HTMLVideoElement,
