@@ -92,7 +92,8 @@ function mountApp(sessionGiven: Session, given: Reaches, mountedOn: Root): Api {
   checkSessionWhileShown(async () => await api.GET("/me"), session, document);
   api.use(pageUpdateWatch.middleware(reaches.ownScript));
   sendFailuresToCore(api, session, () => window.location.pathname);
-  // A film the browser will not start says how long ago the page's last press was (start-refused.ts).
+  // A film the browser will not start says how long ago the page's last press was (start-refused.ts,
+  // VQ272).
   followPressesForRefusals();
   // A screen's code gone with an update reloads the page into the newer client, once, said here.
   watchForNewerClient(newerClientOver(api, reaches.ownScript));
