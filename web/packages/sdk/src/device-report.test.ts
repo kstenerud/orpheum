@@ -8,6 +8,7 @@ import {
   fireTvHintOf,
   labCodecs,
   labFeatureNames,
+  mediaQueryAnswer,
   type DeviceFacts,
   type LabFeature,
 } from "./device-report.ts";
@@ -80,6 +81,40 @@ describe("a device's capability report", () => {
     expect(report.screen).toEqual({ width: 1920, height: 1080, colorDepth: 24 });
     // As JSON the lab endpoint takes: nothing is lost going through it.
     expect(JSON.parse(JSON.stringify(report))).toMatchObject({ devicePixelRatio: 2 });
+  });
+});
+
+describe("a screen's media queries", () => {
+  it("answer the first value that matches, and nothing where none does (the owner's TCL TV, 2026-11-06)", () => {
+    const hdrVideo = (query: string): boolean =>
+      query === "(video-dynamic-range: high)" || query === "(color-gamut: p3)";
+    expect(mediaQueryAnswer(hdrVideo, "video-dynamic-range", ["high", "standard"])).toBe("high");
+    expect(mediaQueryAnswer(hdrVideo, "color-gamut", ["rec2020", "p3", "srgb"])).toBe("p3");
+    expect(mediaQueryAnswer(hdrVideo, "dynamic-range", ["high", "standard"])).toBeUndefined();
+    const throws = (): boolean => {
+      throw new TypeError("no matchMedia");
+    };
+    expect(mediaQueryAnswer(throws, "dynamic-range", ["high", "standard"])).toBeUndefined();
+  });
+
+  it("go into the report as the page read them", () => {
+    const display = {
+      dynamicRange: "standard",
+      videoDynamicRange: "high",
+      colorGamut: "p3",
+    } as const;
+    const facts = factsWith([], {
+      isTypeSupported: undefined,
+      managedIsTypeSupported: undefined,
+      canPlayType: () => "",
+    });
+    expect(deviceReportFrom({ ...facts, display }).display).toEqual(display);
+  });
+
+  it("include DTS and TrueHD among the codecs asked", () => {
+    expect(labCodecs.map(([name]) => name)).toEqual(
+      expect.arrayContaining(["DTS", "DTS-HD", "DTS:X", "Dolby TrueHD", "AC-4", "Dolby Vision 5"]),
+    );
   });
 });
 

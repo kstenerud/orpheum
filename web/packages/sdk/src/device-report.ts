@@ -30,8 +30,9 @@ export interface CodecAnswer {
 
 /**
  * The codecs the lab asks about, each in fMP4 as our ladder carries it: H.264 at the profiles and
- * levels a TV's decoder is rated by, HEVC, AV1 and VP9 at 8 and 10 bits, and every audio codec a
- * film's own track may be in.
+ * levels a TV's decoder is rated by, HEVC, Dolby Vision, AV1 and VP9 at 8 and 10 bits, and every
+ * audio codec a film's own track may be in, DTS and TrueHD among them: whether a television plays a
+ * film's surround track as it is (the owner's TCL TV, 2026-11-06).
  */
 export const labCodecs: readonly (readonly [name: string, type: string])[] = [
   ["H.264 Baseline 3.0", 'video/mp4; codecs="avc1.42E01E"'],
@@ -42,6 +43,7 @@ export const labCodecs: readonly (readonly [name: string, type: string])[] = [
   ["HEVC Main 3.1", 'video/mp4; codecs="hvc1.1.6.L93.B0"'],
   ["HEVC Main 4.0", 'video/mp4; codecs="hvc1.1.6.L120.90"'],
   ["HEVC Main 10 5.1", 'video/mp4; codecs="hvc1.2.4.L153.B0"'],
+  ["Dolby Vision 5", 'video/mp4; codecs="dvh1.05.06"'],
   ["AV1 Main 8-bit", 'video/mp4; codecs="av01.0.08M.08"'],
   ["AV1 Main 10-bit", 'video/mp4; codecs="av01.0.08M.10"'],
   ["VP9 Profile 0", 'video/mp4; codecs="vp09.00.40.08"'],
@@ -51,6 +53,11 @@ export const labCodecs: readonly (readonly [name: string, type: string])[] = [
   ["HE-AAC v2", 'audio/mp4; codecs="mp4a.40.29"'],
   ["AC-3", 'audio/mp4; codecs="ac-3"'],
   ["E-AC-3", 'audio/mp4; codecs="ec-3"'],
+  ["AC-4", 'audio/mp4; codecs="ac-4"'],
+  ["DTS", 'audio/mp4; codecs="dtsc"'],
+  ["DTS-HD", 'audio/mp4; codecs="dtsh"'],
+  ["DTS:X", 'audio/mp4; codecs="dtsx"'],
+  ["Dolby TrueHD", 'audio/mp4; codecs="mlpa"'],
   ["Opus", 'audio/mp4; codecs="opus"'],
   ["FLAC", 'audio/mp4; codecs="flac"'],
 ];
@@ -131,6 +138,17 @@ export const labFeatureNames = [
 /** One of the APIs the report names. */
 export type LabFeature = (typeof labFeatureNames)[number];
 
+/**
+ * What the page's media queries say of its screen: whether it shows high dynamic range, for the page
+ * and for video (a television's video plane may while its page does not), and its widest colour
+ * gamut; each undefined where the browser answers neither value, as one without the query does.
+ */
+export interface DisplayFacts {
+  readonly dynamicRange: "high" | "standard" | undefined;
+  readonly videoDynamicRange: "high" | "standard" | undefined;
+  readonly colorGamut: "rec2020" | "p3" | "srgb" | undefined;
+}
+
 /** What the report is assembled from, read off the page by browserDeviceFacts. */
 export interface DeviceFacts {
   readonly userAgent: string;
@@ -147,6 +165,7 @@ export interface DeviceFacts {
     readonly availTop: number;
   };
   readonly devicePixelRatio: number;
+  readonly display?: DisplayFacts;
   readonly features: Readonly<Record<LabFeature, boolean>>;
   readonly codecs: CodecProbe;
 }
@@ -168,6 +187,7 @@ export interface DeviceReport {
     readonly availTop: number;
   };
   readonly devicePixelRatio: number;
+  readonly display?: DisplayFacts;
   /** The names of the APIs the page has, then those it lacks. */
   readonly has: readonly LabFeature[];
   readonly lacks: readonly LabFeature[];
@@ -193,6 +213,7 @@ export function deviceReportFrom(facts: DeviceFacts): DeviceReport {
     ...(facts.window === undefined ? {} : { window: facts.window }),
     ...(facts.placement === undefined ? {} : { placement: facts.placement }),
     devicePixelRatio: facts.devicePixelRatio,
+    ...(facts.display === undefined ? {} : { display: facts.display }),
     has: labFeatureNames.filter((name) => facts.features[name]),
     lacks: labFeatureNames.filter((name) => !facts.features[name]),
     codecs: codecAnswersFrom(facts.codecs),
@@ -215,6 +236,28 @@ function isTypeSupportedOf(name: string): ((type: string) => boolean) | undefine
   return typeof ask === "function"
     ? (type: string): boolean => Reflect.apply(ask, source, [type]) === true
     : undefined;
+}
+
+/** The first of values the media query feature matches, as (feature: value); undefined for none. */
+export function mediaQueryAnswer<T extends string>(
+  matches: (query: string) => boolean,
+  feature: string,
+  values: readonly T[],
+): T | undefined {
+  return values.find((value) => answerOf(() => matches(`(${feature}: ${value})`), false));
+}
+
+/** What the page's media queries say of its screen. */
+function displayFacts(): DisplayFacts {
+  const matches = (query: string): boolean => globalThis.matchMedia(query).matches;
+  return {
+    dynamicRange: mediaQueryAnswer(matches, "dynamic-range", ["high", "standard"] as const),
+    videoDynamicRange: mediaQueryAnswer(matches, "video-dynamic-range", [
+      "high",
+      "standard",
+    ] as const),
+    colorGamut: mediaQueryAnswer(matches, "color-gamut", ["rec2020", "p3", "srgb"] as const),
+  };
 }
 
 /** The facts of the page this runs in. */
@@ -256,6 +299,7 @@ export function browserDeviceFacts(): DeviceFacts {
       availTop: Number(Reflect.get(globalThis.screen, "availTop") ?? 0),
     },
     devicePixelRatio: globalThis.devicePixelRatio,
+    display: displayFacts(),
     features,
     codecs: {
       isTypeSupported: isTypeSupportedOf("MediaSource"),
