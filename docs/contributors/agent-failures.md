@@ -49,6 +49,22 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A61 — Told the owner a TV signed in as admin was a Watch Together screen, and that cast ignores the sound offset (2026-11-06)
+
+- **What happened:** the owner, on the TCL TV in Berlin, could not reach the sound timing test.
+  The lead said the TV was a Watch Together screen with no menu; it was signed in normally as
+  admin by device code (the QR code), and the menu said only that managing needs a local
+  connection. The lead then filed in the plan that cast receivers ignore the device's sound
+  offset, from a search that found `SoundOffsetControl` mounted only in play.tsx, bare-player.tsx
+  and player-menus.tsx. The cast receiver renders the Play page (play.tsx, `PlaysAlong` →
+  `CastReceiver`), so it applies the offset and has the control in ⁝ and under the film. Both
+  beliefs came from where a file name pointed, not from following the render path or asking how
+  the owner had signed in.
+- **Caught by:** the owner, for the first ("No, I'm logged into the TV normally, as admin"); the
+  lead, for the second, on reading cast-receiver.tsx while building the cast remote's control.
+- **Gate:** none. The plan note is corrected; what the remote lacked, a way to move the receiver's
+  timing, is built ("feat(web): the cast remote moves the receiver's sound timing").
+
 ### A60 — Proposed a gate change for a lint "gap" that was a gate never run (2026-11-05)
 
 - **What happened:** check-pr's full web lint failed on a test the lead had just committed (a

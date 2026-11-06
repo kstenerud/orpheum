@@ -2062,5 +2062,8 @@ and nas.example wait for the owner's go. Found on the way and filed for the next
   'SourceBuffer': The HTMLMediaElement.error attribute is not null" (files 12286 and 12287, 06:56–07:05
   UTC). Sync HEVC Opus played twice, then failed on every try. Sync HEVC AAC never played. The playable
   formats should drop HEVC for this device, or the cause should be found.
-- **Watch Together screens and cast receivers ignore the device's sound offset**: `SoundOffsetControl`
-  is mounted only in play.tsx, bare-player.tsx and player-menus.tsx.
+- **Watch Together screens ignored the device's sound offset; cast receivers did not** (corrected,
+  agent-failures A61): a receiver renders the Play page, so it applies the offset and has the control.
+  Built 2026-11-06 at the owner's word ("Put a control in watch together and cast"): a viewer has the
+  control under the film, starting from the offset of the device it is signed in on ("feat(web): a sound timing control for Watch Together viewers"), and
+  a cast's remote shows and moves the receiver's ("feat(web): the cast remote moves the receiver's sound timing").
