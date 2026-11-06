@@ -349,6 +349,9 @@
 //     press while one runs over the same scope, or over the library a film is in, adds nothing
 //     (D357 §5). Its matches are the fetch_metadata jobs of its items, whichever runs reading the
 //     rematch, queued by the rescans' sweep. TestRescan_ASecondPressWhileOneRunsAddsNothing.
+//     A fetch reads its item's rematch only while a rescan runs, counted in memory from cache.db at
+//     first need and then by the rescans' start and end, so a restart counts those it finds.
+//     TestRescan_AFetchReadsNoRematchWhileNoRescanRuns, TestRescan_ARescanFoundAtStartIsReadByItsFetches.
 //
 //   - Each match a rescan changes is logged with the item, its old match, its new one and the rule
 //     that settled it, and each rescan's totals when it ends (D357 §6).

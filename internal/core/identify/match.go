@@ -36,6 +36,9 @@ type Matcher struct {
 	// imageRetrier asks for an item's missing images again: the artwork service, set by the
 	// server's wiring.
 	imageRetrier ImageRetrier
+	// rescans counts the rescans kept in cache.db, so a fetch reads its item's rematch only while
+	// one runs (D357).
+	rescans rescanCount
 }
 
 // NewMatcher returns the matcher. It reaches the providers through the pass, which re-derives a

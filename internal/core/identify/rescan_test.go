@@ -5,6 +5,7 @@ package identify_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"log/slog"
 	"slices"
 	"strconv"
@@ -16,6 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
+	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -604,5 +606,76 @@ func TestRescan_AFullRescanOfOneFilmReadsItsFilesAgain(t *testing.T) {
 	if !slices.Equal(images.itemIDs, []int64{titleID}) || len(rescan.scans.worksReadAgain) != 1 {
 		t.Errorf("images asked for again of %v, works read again %v; want the full rescan's alone", images.itemIDs,
 			rescan.scans.worksReadAgain)
+	}
+}
+
+// D357: a fetch reads its item's rematch in cache.db only while a rescan runs, which a rematch is kept
+// with: one planted behind the matcher's back while it counts none running is not read, and the fetch
+// matches as an ordinary one.
+func TestRescan_AFetchReadsNoRematchWhileNoRescanRuns(t *testing.T) {
+	t.Parallel()
+	lib := crowdAsBeforeTheFix(t)
+	rescan := lib.rescanning()
+	titleID := lib.titlesByPath()[crowdFile].WorkID
+	fetch := func() {
+		t.Helper()
+		err := rescan.matcher.Handle(t.Context(),
+			jobs.Job{Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: titleID}})
+		if err != nil {
+			t.Fatalf("the fetch: %v", err)
+		}
+	}
+	fetch()
+	err := lib.cache.Write(t.Context(), func(queries *cachegen.Queries) error {
+		rescanID, err := queries.InsertRescan(t.Context(), cachegen.InsertRescanParams{
+			LibraryID: lib.libraryID, RequestedAt: 1,
+		})
+		if err != nil {
+			return fmt.Errorf("plant a rescan: %w", err)
+		}
+		_, err = queries.InsertRematch(t.Context(), cachegen.InsertRematchParams{
+			ItemID: titleID, RescanID: rescanID, Name: "Crowd", Year: 2022, IdsJSON: "{}",
+		})
+		if err != nil {
+			return fmt.Errorf("plant its rematch: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fetch()
+	if _, err := lib.cache.Read().GetRematch(t.Context(), titleID); err != nil {
+		t.Errorf("the planted rematch: %v; want it unread and so still kept", err)
+	}
+	if id, _ := lib.followed(crowdFile); id != "32" {
+		t.Errorf("the film follows %s; want 32, matched as an ordinary fetch", id)
+	}
+}
+
+// D357: a rescan a restart finds in cache.db is counted running, so the fetches it queued before the
+// restart read their rematches and match again.
+func TestRescan_ARescanFoundAtStartIsReadByItsFetches(t *testing.T) {
+	t.Parallel()
+	lib := crowdAsBeforeTheFix(t)
+	before := lib.rescanning()
+	before.library()
+	if _, err := before.rescans.Advance(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if len(before.queue.open) == 0 {
+		t.Fatal("the rescan queued no fetch")
+	}
+	restarted := lib.rescanning()
+	for _, job := range before.queue.open {
+		err := restarted.matcher.Handle(t.Context(),
+			jobs.Job{Kind: job.Kind, Target: job.Target, ArgsJSON: job.ArgsJSON})
+		if err != nil {
+			t.Fatalf("the fetch of item %d: %v", job.ItemID, err)
+		}
+	}
+	lib.runOwedPasses()
+	if id, _ := lib.followed(crowdFile); id != "31" {
+		t.Errorf("after the restart the film follows %s; want 31, matched again by the rescan", id)
 	}
 }
