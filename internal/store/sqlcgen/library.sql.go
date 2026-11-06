@@ -54,7 +54,7 @@ func (q *Queries) CountLibraryFilings(ctx context.Context, libraryID int64) ([]C
 const getLibrary = `-- name: GetLibrary :one
 SELECT id, name, kind, metadata_source, change_detection, check_every_hours, is_writable, created_at
 FROM library
-WHERE id = ?1 AND removed_at IS NULL
+WHERE id = ?1 AND removed_at IS NULL AND id NOT IN (SELECT library_id FROM system_library)
 `
 
 type GetLibraryRow struct {
@@ -68,6 +68,7 @@ type GetLibraryRow struct {
 	CreatedAt       int64
 }
 
+// A live library a person may see, change or give: the system library is no page's (D435 section 1).
 func (q *Queries) GetLibrary(ctx context.Context, id int64) (GetLibraryRow, error) {
 	row := q.db.QueryRowContext(ctx, getLibrary, id)
 	var i GetLibraryRow
@@ -87,7 +88,7 @@ func (q *Queries) GetLibrary(ctx context.Context, id int64) (GetLibraryRow, erro
 const getLiveLibraryByName = `-- name: GetLiveLibraryByName :one
 SELECT id, name, kind
 FROM library
-WHERE name = ? AND removed_at IS NULL
+WHERE name = ? AND removed_at IS NULL AND id NOT IN (SELECT library_id FROM system_library)
 ORDER BY id
 LIMIT 1
 `
@@ -98,10 +99,43 @@ type GetLiveLibraryByNameRow struct {
 	Kind string
 }
 
+// A visible library's name: the system library's is outside the libraries' name space (D435 section 3).
 func (q *Queries) GetLiveLibraryByName(ctx context.Context, name string) (GetLiveLibraryByNameRow, error) {
 	row := q.db.QueryRowContext(ctx, getLiveLibraryByName, name)
 	var i GetLiveLibraryByNameRow
 	err := row.Scan(&i.ID, &i.Name, &i.Kind)
+	return i, err
+}
+
+const getSystemLibrary = `-- name: GetSystemLibrary :one
+SELECT library.id, library_root.node_id, library_root.root_path, node.name AS node_name
+FROM system_library
+JOIN library ON library.id = system_library.library_id
+LEFT JOIN library_root ON library_root.library_id = library.id AND library_root.retired_at IS NULL
+LEFT JOIN node ON node.id = library_root.node_id
+WHERE system_library.kind = 'system'
+ORDER BY library_root.root_path
+LIMIT 1
+`
+
+type GetSystemLibraryRow struct {
+	ID       int64
+	NodeID   *int64
+	RootPath *string
+	NodeName *string
+}
+
+// The server's system library, found by its kind (D435 section 1), with its live folder and that
+// folder's node; NULL folder while it has none.
+func (q *Queries) GetSystemLibrary(ctx context.Context) (GetSystemLibraryRow, error) {
+	row := q.db.QueryRowContext(ctx, getSystemLibrary)
+	var i GetSystemLibraryRow
+	err := row.Scan(
+		&i.ID,
+		&i.NodeID,
+		&i.RootPath,
+		&i.NodeName,
+	)
 	return i, err
 }
 
@@ -161,6 +195,33 @@ type InsertLibraryRootParams struct {
 func (q *Queries) InsertLibraryRoot(ctx context.Context, arg InsertLibraryRootParams) error {
 	_, err := q.db.ExecContext(ctx, insertLibraryRoot, arg.LibraryID, arg.NodeID, arg.Path)
 	return err
+}
+
+const insertSystemLibrary = `-- name: InsertSystemLibrary :exec
+INSERT INTO system_library (kind, library_id) VALUES ('system', ?1)
+`
+
+// Marks a library as the server's system library: one per server, by its kind (D435 section 1).
+func (q *Queries) InsertSystemLibrary(ctx context.Context, libraryID int64) error {
+	_, err := q.db.ExecContext(ctx, insertSystemLibrary, libraryID)
+	return err
+}
+
+const isFileInSystemLibrary = `-- name: IsFileInSystemLibrary :one
+SELECT CAST(EXISTS (
+  SELECT 1 FROM system_library
+  JOIN library_place ON library_place.library_id = system_library.library_id
+  WHERE library_place.file_id = CAST(?1 AS INTEGER)
+) AS INTEGER) AS is_system
+`
+
+// Whether the system library covers a live place of a file: one a feature plays for whoever asked
+// for it by what it is (D435 section 6).
+func (q *Queries) IsFileInSystemLibrary(ctx context.Context, fileID int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, isFileInSystemLibrary, fileID)
+	var is_system int64
+	err := row.Scan(&is_system)
+	return is_system, err
 }
 
 const listCheckedRoots = `-- name: ListCheckedRoots :many
@@ -297,7 +358,7 @@ func (q *Queries) ListFilesPage(ctx context.Context, arg ListFilesPageParams) ([
 const listLibraries = `-- name: ListLibraries :many
 SELECT id, name, kind, metadata_source, change_detection, check_every_hours, is_writable, created_at
 FROM library
-WHERE removed_at IS NULL
+WHERE removed_at IS NULL AND id NOT IN (SELECT library_id FROM system_library)
 ORDER BY name, id
 `
 
@@ -312,6 +373,7 @@ type ListLibrariesRow struct {
 	CreatedAt       int64
 }
 
+// Every live library a person may see: never the system library (D435 section 2).
 func (q *Queries) ListLibraries(ctx context.Context) ([]ListLibrariesRow, error) {
 	rows, err := q.db.QueryContext(ctx, listLibraries)
 	if err != nil {
@@ -397,6 +459,51 @@ func (q *Queries) ListLibraryRootStates(ctx context.Context, libraryID int64) ([
 			&i.LastScanOutcome,
 			&i.LastScanAt,
 			&i.WithheldReason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSystemVideos = `-- name: ListSystemVideos :many
+SELECT library_place.file_id, library_place.path, library_place.node_id, file.size_bytes
+FROM system_library
+JOIN library_place ON library_place.library_id = system_library.library_id
+JOIN file ON file.id = library_place.file_id
+WHERE system_library.kind = 'system'
+ORDER BY library_place.path
+`
+
+type ListSystemVideosRow struct {
+	FileID    *int64
+	Path      string
+	NodeID    int64
+	SizeBytes *int64
+}
+
+// The system library's videos: each live place its folder covers, by path (D435 section 7).
+func (q *Queries) ListSystemVideos(ctx context.Context) ([]ListSystemVideosRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSystemVideos)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSystemVideosRow{}
+	for rows.Next() {
+		var i ListSystemVideosRow
+		if err := rows.Scan(
+			&i.FileID,
+			&i.Path,
+			&i.NodeID,
+			&i.SizeBytes,
 		); err != nil {
 			return nil, err
 		}

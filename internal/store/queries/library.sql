@@ -19,22 +19,25 @@ ON CONFLICT (library_id, node_id, root_path) DO UPDATE SET retired_at = NULL
 WHERE library_root.retired_at IS NOT NULL;
 
 -- name: GetLiveLibraryByName :one
+-- A visible library's name: the system library's is outside the libraries' name space (D435 section 3).
 SELECT id, name, kind
 FROM library
-WHERE name = ? AND removed_at IS NULL
+WHERE name = ? AND removed_at IS NULL AND id NOT IN (SELECT library_id FROM system_library)
 ORDER BY id
 LIMIT 1;
 
 -- name: ListLibraries :many
+-- Every live library a person may see: never the system library (D435 section 2).
 SELECT id, name, kind, metadata_source, change_detection, check_every_hours, is_writable, created_at
 FROM library
-WHERE removed_at IS NULL
+WHERE removed_at IS NULL AND id NOT IN (SELECT library_id FROM system_library)
 ORDER BY name, id;
 
 -- name: GetLibrary :one
+-- A live library a person may see, change or give: the system library is no page's (D435 section 1).
 SELECT id, name, kind, metadata_source, change_detection, check_every_hours, is_writable, created_at
 FROM library
-WHERE id = sqlc.arg(id) AND removed_at IS NULL;
+WHERE id = sqlc.arg(id) AND removed_at IS NULL AND id NOT IN (SELECT library_id FROM system_library);
 
 -- name: ListLibraryRootStates :many
 -- A library's roots with their node, the root of the scan that reads each, the outermost live library
@@ -115,3 +118,37 @@ WHERE place.removed_at IS NULL AND place.id > sqlc.arg(after_id)
     = sqlc.narg(filing) OR sqlc.narg(filing) IS NULL)
 ORDER BY place.id
 LIMIT sqlc.arg(max_rows);
+
+-- name: GetSystemLibrary :one
+-- The server's system library, found by its kind (D435 section 1), with its live folder and that
+-- folder's node; NULL folder while it has none.
+SELECT library.id, library_root.node_id, library_root.root_path, node.name AS node_name
+FROM system_library
+JOIN library ON library.id = system_library.library_id
+LEFT JOIN library_root ON library_root.library_id = library.id AND library_root.retired_at IS NULL
+LEFT JOIN node ON node.id = library_root.node_id
+WHERE system_library.kind = 'system'
+ORDER BY library_root.root_path
+LIMIT 1;
+
+-- name: InsertSystemLibrary :exec
+-- Marks a library as the server's system library: one per server, by its kind (D435 section 1).
+INSERT INTO system_library (kind, library_id) VALUES ('system', sqlc.arg(library_id));
+
+-- name: ListSystemVideos :many
+-- The system library's videos: each live place its folder covers, by path (D435 section 7).
+SELECT library_place.file_id, library_place.path, library_place.node_id, file.size_bytes
+FROM system_library
+JOIN library_place ON library_place.library_id = system_library.library_id
+JOIN file ON file.id = library_place.file_id
+WHERE system_library.kind = 'system'
+ORDER BY library_place.path;
+
+-- name: IsFileInSystemLibrary :one
+-- Whether the system library covers a live place of a file: one a feature plays for whoever asked
+-- for it by what it is (D435 section 6).
+SELECT CAST(EXISTS (
+  SELECT 1 FROM system_library
+  JOIN library_place ON library_place.library_id = system_library.library_id
+  WHERE library_place.file_id = CAST(sqlc.arg(file_id) AS INTEGER)
+) AS INTEGER) AS is_system;

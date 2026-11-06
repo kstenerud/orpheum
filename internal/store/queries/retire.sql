@@ -25,7 +25,8 @@ ORDER BY library_root.library_id, library_root.root_path;
 
 -- name: RemoveLibrary :execrows
 -- A library deleted by an admin (D231 section 7).
-UPDATE library SET revision = revision + 1, removed_at = sqlc.arg(removed_at) WHERE id = sqlc.arg(id) AND removed_at IS NULL;
+UPDATE library SET revision = revision + 1, removed_at = sqlc.arg(removed_at) WHERE id = sqlc.arg(id) AND removed_at IS NULL
+  AND id NOT IN (SELECT library_id FROM system_library);
 
 -- name: ListStreamIDsOfFiles :many
 -- The streams of files a retire tombstoned, whose extraction jobs it cancels; the ids are a JSON

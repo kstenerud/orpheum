@@ -395,6 +395,8 @@ func weakSearchesAllowed() map[string]string {
 		snapshot = "the identification pass's snapshot"
 	)
 	return map[string]string{
+		"ListSystemVideos": library + "the system library's folder, which holds only the few videos the " +
+			"server made for itself (D435)",
 		"DeleteDevicesOfRemovedUser": person + "the check that no play names a device deleted, whose plays " +
 			"removing the person deleted first (D305)",
 		"ListLiveFilesUnder": library + "a scan's comparison and its removals, of the places under its " +
