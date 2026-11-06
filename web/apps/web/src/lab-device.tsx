@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import type { TFunction } from "i18next";
 import {
   browserDeviceFacts,
   countAudioOutputs,
@@ -132,10 +133,22 @@ function DeviceFactsList(props: { readonly report: DeviceReport }): JSX.Element 
           height: String(report.viewport.height),
         })}
       </dd>
+      <dt>{t("lab.device.display")}</dt>
+      <dd>{displayText(t, report)}</dd>
       <dt>{t("lab.device.nativeHls")}</dt>
       <dd>{yesNo(t, Object.keys(report.nativeHls).length > 0)}</dd>
     </dl>
   );
+}
+
+/** What the screen's media queries said: high dynamic range for the page and video, and colours. */
+function displayText(t: TFunction, report: DeviceReport): string {
+  const said = (answer: string | undefined): string => answer ?? t("lab.device.unanswered");
+  return t("lab.device.displayAnswer", {
+    page: said(report.display?.dynamicRange),
+    video: said(report.display?.videoDynamicRange),
+    gamut: said(report.display?.colorGamut),
+  });
 }
 
 /** What MSE, ManagedMediaSource and the element say of each codec. */
