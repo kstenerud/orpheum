@@ -90,7 +90,13 @@ func newFetchBench(t *testing.T) *fetchBench {
 		nextJobID++
 		job := jobs.Job{ID: nextJobID, Kind: request.Kind, Target: request.Target, Priority: request.Priority}
 		answer := bench.resolver.Start(t, bench.service.HandleConvertFetchedSubtitle, job)
-		go func() { fetch.converted <- <-answer }()
+		go func() {
+			select {
+			case err := <-answer:
+				fetch.converted <- err
+			case <-t.Context().Done():
+			}
+		}()
 	}
 	return fetch
 }
