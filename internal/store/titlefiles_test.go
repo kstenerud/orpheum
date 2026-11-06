@@ -6,6 +6,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/store/rowstest"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -17,20 +18,17 @@ func TestTitleFiles_EveryQueryLeavesOutARemovedVersion(t *testing.T) {
 	database := storetest.OpenMigrated(t)
 	// Title 10 has version 1, live, and version 2, removed; each has one live file.
 	storetest.ExecRaw(t, database.Path(),
-		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
-		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
-		 VALUES (1, 'Films', 'movie', 'nfo', 'manual', 0, 1)`,
-		"INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/m')",
-		"INSERT INTO item (id, kind, filing_library_id, added_at, identification_state) "+
-			"VALUES (10, 'movie', 1, 1, 'identified')",
-		"INSERT INTO work (id, kind) VALUES (10, 'movie')",
-		"INSERT INTO version (id, work_id, created_at, removed_at) VALUES (1, 10, 1, NULL), (2, 10, 1, 5)",
-		`INSERT INTO file (id, size_bytes) VALUES (1, 10), (2, 10)`,
-		`INSERT INTO place (id, file_id, node_id, path, reported_path_raw, filing, first_seen_at, last_seen_at)
-		 VALUES (1, 1, 1, '/m/kept.mkv', CAST('/m/kept.mkv' AS BLOB), 'read', 1, 1),
-		        (2, 2, 1, '/m/removed.mkv', CAST('/m/removed.mkv' AS BLOB), 'read', 1, 1)`,
-		`INSERT INTO file_filing (file_id, library_kind, filing, version_id)
-		 VALUES (1, 'movie', 'listed', 1), (2, 'movie', 'listed', 2)`)
+		rowstest.Node(rowstest.NodeSpec{ID: 1, Name: "local"}),
+		rowstest.Library(rowstest.LibrarySpec{ID: 1, NodeID: 1}),
+		rowstest.Title(rowstest.ItemSpec{ID: 10, LibraryID: 1}),
+		rowstest.Version(rowstest.VersionSpec{ID: 1, TitleID: 10}),
+		rowstest.Version(rowstest.VersionSpec{ID: 2, TitleID: 10, RemovedAt: 5}),
+		rowstest.File(rowstest.FileSpec{
+			ID: 1, SizeBytes: 10, NodeID: 1, Path: "/m/kept.mkv", LibraryKind: "movie", VersionID: 1,
+		}),
+		rowstest.File(rowstest.FileSpec{
+			ID: 2, SizeBytes: 10, NodeID: 1, Path: "/m/removed.mkv", LibraryKind: "movie", VersionID: 2,
+		}))
 	queries := database.Read()
 	ctx := t.Context()
 

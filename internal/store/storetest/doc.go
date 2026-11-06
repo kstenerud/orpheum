@@ -31,4 +31,7 @@
 //     tests open and migrate with (OpenOptions, MigrateOptions), ExecRaw, QueryRaw and the
 //     connection a test's calls on one file share, and helpers that seed rows every caller needs
 //     (InsertUser).
+//   - The catalog's rows a test inside internal/store builds are not built here: package store's
+//     own tests cannot import storetest, which imports store, so the builders are
+//     internal/store/rowstest's, whose SQL a test runs with ExecRaw or its own execRaw.
 package storetest
