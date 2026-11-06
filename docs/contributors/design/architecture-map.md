@@ -113,6 +113,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/node/readthrough` | R3 | — (its mix filters are `internal/node/encode`'s, loudness.go; was `internal/node/loudness` until 2026-10-05) |
 | `internal/node/scan` | R2 | — |
 | `internal/node/subtitle` | R3 | — |
+| `internal/node/systemvideo` | R3 | — (makes the server's own videos into the node's system folder, D435 §4) |
 | `internal/node/watch` | R2 (change detection, D27) | — (notices what changed under each root for the core to scan, D272 §9) |
 | `internal/nodeproto` | R8 | — |
 | `discovery/discoveryproto` | R1 (the wire between a core and its discovery, D273) | — (public: the closed service imports it, D275 §1) |
@@ -191,6 +192,7 @@ package writes each table is schema.md's [owners table](plans/schema.md#who-writ
 | play_position, play_event, play_span, purged_watching, item_hidden, work_watched, preference | persistent.db | T1 | yes | — |
 | field_override, group_text, extra_relation (asserted) | persistent.db | T1 | yes | identify writes group_text, a provider's episode group's part names (step 0079 keys it by grp) |
 | library, library_root | persistent.db | T1 (the admin's) | yes | — |
+| system_library | persistent.db | T1 (the server's own, D435) | yes | — |
 | item, work, sequence, version, item_provider_id, ordering, grp, position | persistent.db | T1 identity + TO/T2 resolved columns | yes | ⚑ mixed tiers per column (work, sequence: O/F/A) |
 | file, place | persistent.db | T1 identity columns + TO | yes | ⚑ mixed; one writer since 2026-09-30 (§1); since step 0078 `file` is the payload and `place` where it was seen, a copy a place holding the file found before it (D426 §4) |
 | file_filing | persistent.db | T1 identity (the version, a person's match) + TO | yes | how each kind of library files a video, one row a kind (D363 §5, §6) |

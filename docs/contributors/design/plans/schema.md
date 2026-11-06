@@ -1436,6 +1436,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `item_text` | persistent.db | `internal/core/identify` | |
 | `library` | persistent.db | `internal/core/library` | |
 | `library_root` | persistent.db | `internal/core/library` | |
+| `system_library` | persistent.db | `internal/core/library` | the server's own videos' library, found by its kind (D435) |
 | `link_memory` | persistent.db | `internal/core/playback` | what each player last said of its link on each network, kept across restarts (D257 §1, D352 Q2; `speeds.go`) |
 | `loudness` | persistent.db | `internal/core/readthrough` | the read-through that measures it; `internal/core/loudness` reads it for the gains |
 | `node` | persistent.db | `internal/core/nodes` | |
