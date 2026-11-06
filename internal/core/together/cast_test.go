@@ -362,6 +362,41 @@ func TestCast_TheRemoteChoosesTheReceiversSound(t *testing.T) {
 	}
 }
 
+// While its person hosts Watch Together, a cast's receiver leads that session and is only a panel in
+// the cast's (D364 §11); it says its playback there alone, and its remote's sound choices reach it
+// there (the owner, 2026-11-06: "It shouldn't be watch together's business at all which TV has what
+// offset or playback characteristics").
+func TestCast_TheRemoteWorksTheReceiverInTheCastWhileItLeadsWatchTogether(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	cast, err := stage.hub.OpenCast(stage.owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	receiver, receiverBox := stage.attach(t, cast.ReceiverCredential, RolePanel)
+	remote, remoteBox := stage.attach(t, cast.SenderCredential, RolePanel)
+	earlier := int64(-400)
+	said := &Playback{Delivery: DeliveryConverted, QualityKbps: 4000, Sound: &PlaybackSound{SoundOffsetMs: &earlier}}
+	stage.hub.Handle(t.Context(), receiver, Inbound{Type: MessagePlayback, Playback: said})
+	var shown *Playback
+	for _, each := range remoteBox.last(MessageRoster).Roster {
+		for _, attached := range each.Devices {
+			if attached.ID == receiver.DeviceID {
+				shown = attached.Playback
+			}
+		}
+	}
+	if shown == nil || shown.QualityKbps != 4000 || shown.Sound == nil || shown.Sound.SoundOffsetMs == nil ||
+		*shown.Sound.SoundOffsetMs != earlier {
+		t.Errorf("the remote's roster shows the receiver playing %+v; want %+v", shown, said)
+	}
+	choice := SoundChoice{Kind: SoundOffset, Ms: -450}
+	stage.hub.Handle(t.Context(), remote, Inbound{Type: MessageSound, Sound: &choice})
+	if relayed := receiverBox.last(MessageSound); relayed.Sound == nil || *relayed.Sound != choice {
+		t.Errorf("the receiver was relayed %+v; want %+v", relayed.Sound, choice)
+	}
+}
+
 // A player's state may say how its film sounds, which the roster shows its remote; a sound past the
 // bounds, or of a kind no player says, is not taken, the last known kept.
 func TestHub_TheRosterSaysHowEachPlayersFilmSounds(t *testing.T) {

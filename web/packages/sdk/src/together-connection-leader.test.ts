@@ -240,6 +240,45 @@ describe("a film's sound between a player and its remote", () => {
     expect(heard).toHaveLength(4);
   });
 
+  it("says its playback alone, with no player, as asked (the owner, 2026-11-06)", () => {
+    // A cast's receiver says it in the cast's session while it leads Watch Together: "It shouldn't
+    // be watch together's business at all which TV has what offset or playback characteristics".
+    const { connection, socket } = welcomed([]);
+    let offsetMs = -400;
+    connection.setPlayback(() => ({
+      delivery: "converted",
+      qualityKbps: 4000.4,
+      sound: { isLevellingOn: true, audioTracks: [], soundOffsetMs: offsetMs },
+    }));
+    offsetMs = -450;
+    connection.reportPlayback();
+    const said = (): unknown[] => socket.sent.filter((each) => each["type"] === "playback");
+    expect(said()).toEqual([
+      {
+        v: 2,
+        type: "playback",
+        playback: {
+          delivery: "converted",
+          qualityKbps: 4000,
+          sound: { isLevellingOn: true, audioTracks: [], soundOffsetMs: -400 },
+        },
+      },
+      {
+        v: 2,
+        type: "playback",
+        playback: {
+          delivery: "converted",
+          qualityKbps: 4000,
+          sound: { isLevellingOn: true, audioTracks: [], soundOffsetMs: -450 },
+        },
+      },
+    ]);
+    expect(socket.sent.some((each) => each["type"] === "state")).toBe(false);
+    connection.setPlayback(undefined);
+    connection.reportPlayback();
+    expect(said()).toHaveLength(2);
+  });
+
   it("tells its film's sound with how it plays it, as its page reads it", () => {
     let now: PlaybackSound | undefined = sound;
     const told = new PlaybackTold("converted", () => now);

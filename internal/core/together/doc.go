@@ -122,7 +122,10 @@
 //   - A member's choice of their film's sound made on a device of theirs (MessageSound), a cast's
 //     remote, is relayed to their own other devices that play it, which carry it out as their own
 //     press, and to no one else's; one no remote may make is refused. The server keeps nothing of
-//     it. Enforced by TestCast_TheRemoteChoosesTheReceiversSound.
+//     it. In a cast it reaches the receiver whatever its part, and the receiver may say its playback
+//     alone (MessagePlayback), so the remote works it in the cast's session while it leads its
+//     person's Watch Together session. Enforced by TestCast_TheRemoteChoosesTheReceiversSound and
+//     TestCast_TheRemoteWorksTheReceiverInTheCastWhileItLeadsWatchTogether.
 //   - A guest plays and pauses, and changes the position, only as their link allows; what plays,
 //     stopping it and its rate are the host's alone; each link starts with the last one's rights
 //     (D271 §4). Stopping leaves nothing on; a seek made against a group another seek has changed

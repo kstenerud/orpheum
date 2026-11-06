@@ -123,4 +123,57 @@ describe("the receiver's sound, worked by its remote (sound-panel.ts)", () => {
     expect(chosenTrack).toHaveBeenCalledWith(tracks[1]);
     expect(lastSound()).toMatchObject({ isBoostOn: true, audioStreamId: 2 });
   });
+
+  // The owner, 2026-11-06: "It shouldn't be watch together's business at all which TV has what offset
+  // or playback characteristics": while its person hosts Watch Together it leads that session (D364
+  // §11), and still says how it sounds in the cast's, and is worked there.
+  it("tells the cast's session how it sounds, and hears its remote there, while it leads Watch Together", async () => {
+    const services = servedBy({ "PUT /me/preferences": [204, undefined] }, [], "token");
+    const sockets = { cast: fakeTogetherServer(), hosted: fakeTogetherServer() };
+    let opened = 0;
+    const video = document.createElement("video");
+    document.body.append(video);
+    const boosted = vi.fn();
+    mounted = await mount(
+      withServices(
+        <SoundPanelContext value={newSoundPanel()}>
+          <CastReceiver
+            receiving={{ cast: { ...cast, togetherCredential: "hosted" }, onLeave: vi.fn() }}
+            fileId={4}
+            video={video}
+            startPositionMs={0}
+            delivery="converted"
+          />
+          <BoostSwitch isInitiallyOn={false} onSwitched={boosted} />
+        </SoundPanelContext>,
+        {
+          ...services,
+          openTogetherSocket: (listeners) => {
+            opened += 1;
+            return opened === 1
+              ? sockets.cast.openSocket(listeners)
+              : sockets.hosted.openSocket(listeners);
+          },
+        },
+      ),
+    );
+    await sockets.cast.accept();
+    await sockets.hosted.accept();
+    await sockets.cast.say(welcome);
+    await sockets.hosted.say({ ...welcome, sessionId: 3 });
+    const toldTheCast = (): unknown =>
+      sockets.cast.heard.filter((each) => each["type"] === "playback").at(-1)?.["playback"];
+    expect(toldTheCast()).toMatchObject({ delivery: "converted", sound: { isBoostOn: false } });
+    await sockets.cast.say({
+      type: "sound",
+      fromDeviceId: 5,
+      sound: { kind: "boost", isOn: true },
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(boosted).toHaveBeenCalledWith(true);
+    expect(toldTheCast()).toMatchObject({ sound: { isBoostOn: true } });
+    expect(sockets.cast.heard.some((each) => each["type"] === "state")).toBe(false);
+  });
 });

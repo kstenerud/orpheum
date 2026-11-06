@@ -2,6 +2,11 @@
 
 package together
 
+import (
+	"context"
+	"time"
+)
+
 // Playback is how a device's player plays the film, as it says in its state: the delivery, "direct"
 // for the file as it is or "converted" for its ladder, the quality it plays in kb/s, and the link it
 // estimated as it chose that quality, in kb/s, each 0 while unknown. The owner: "The controller side
@@ -134,4 +139,44 @@ const (
 func (playback Playback) isKnown() bool {
 	return (playback.Delivery == DeliveryDirect || playback.Delivery == DeliveryConverted) &&
 		playback.QualityKbps >= 0 && playback.LinkKbps >= 0 && playback.Sound.isKnown()
+}
+
+// takeAside takes what a device says that moves no one's place: a note logged, its standing, a sound
+// chosen for its person's player, or how it plays said alone, as a cast's receiver says it in the
+// cast's session while it leads its person's Watch Together session (D434 §1).
+func (current *session) takeAside(ctx context.Context, now time.Time, who *member, from *device, message Inbound) {
+	switch message.Type {
+	case MessageNote:
+		current.logNote(ctx, now, who, from, message.Note)
+	case MessageStanding:
+		current.takeStanding(ctx, who, from, message.Standing)
+	case MessageSound:
+		current.relaySound(ctx, who, from, message.Sound)
+	case MessagePlayback:
+		from.takeState(message)
+		current.sendRosterIfChanged()
+	case MessageHello, MessagePing, MessageState, MessageCommand, MessageSuspend, MessageResume,
+		MessageRTC, MessageWelcome, MessagePong, MessageGroup, MessageRoster, MessageRejected, MessageEnded:
+		// Handle takes these itself, never here.
+	}
+}
+
+// relaySound passes a member's choice of their film's sound to their own other devices that play
+// it, which carry it out as their own press; in a cast, to its receiver from its remote, whatever its
+// part there, as the receiver that leads its person's Watch Together session is only a panel in the
+// cast's (D364 §11); another member's devices are never told, and a choice no remote may make is
+// refused.
+func (current *session) relaySound(ctx context.Context, who *member, from *device, choice *SoundChoice) {
+	if !choice.isKnown() {
+		from.send(Outbound{V: ProtocolVersion, Type: MessageRejected, Code: codeInvalid})
+		return
+	}
+	current.logger.InfoContext(ctx, "watch together: a remote chose its film's sound",
+		append(current.deviceAttributes(who, from),
+			"kind", string(choice.Kind), "isOn", choice.IsOn, "streamId", choice.StreamID, "ms", choice.Ms)...)
+	for _, each := range who.devices {
+		if each.id != from.id && (each.role.plays() || current.isCast) {
+			each.send(Outbound{V: ProtocolVersion, Type: MessageSound, FromDeviceID: from.id, Sound: choice})
+		}
+	}
 }

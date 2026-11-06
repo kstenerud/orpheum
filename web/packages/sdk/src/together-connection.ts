@@ -22,6 +22,7 @@ import {
   parseTogetherMessage,
   togetherProtocolVersion,
   type CannotKeepUp,
+  type PlaybackReport,
   type Standing,
   type TogetherServerMessage,
   type TogetherSocket,
@@ -147,6 +148,20 @@ export interface CarriesSoundChoices {
 }
 
 /**
+ * A connection that can say how its device plays the film and how it sounds alone, with no player
+ * state: a cast's receiver says it in the cast's session while it leads its person's Watch Together
+ * session as their player and is only a panel in the cast's (D364 §11), so the cast's remote works
+ * it there whatever else it is in (the owner, 2026-11-06: "It shouldn't be watch together's business
+ * at all which TV has what offset or playback characteristics").
+ */
+export interface TellsPlaybackAlone {
+  /** Names where the playback is read from, or that there is none to say (undefined). */
+  readonly setPlayback: (read: (() => PlaybackReport | undefined) | undefined) => void;
+  /** Says the playback as read now: on every change of it, and again at each welcome. */
+  readonly reportPlayback: () => void;
+}
+
+/**
  * A connection that can tell the group its player cannot keep up (D247 §8): apart from
  * TogetherConnection, which a group's follower needs, as only the page that plays the chunked
  * quality knows.
@@ -184,7 +199,8 @@ class SessionConnection
     TellsCannotKeepUp,
     TellsStanding,
     RelaysVoiceSignals,
-    CarriesSoundChoices
+    CarriesSoundChoices,
+    TellsPlaybackAlone
 {
   readonly #options: TogetherConnectionOptions;
   readonly #listeners = new Set<() => void>();
@@ -195,6 +211,7 @@ class SessionConnection
   #attempt = 0;
   #socket: TogetherSocket | undefined;
   #readPlayer: (() => PlayerState) | undefined;
+  #readPlayback: (() => PlaybackReport | undefined) | undefined;
   #cannotKeepUp: CannotKeepUp | undefined;
   #standing: Standing = "";
   #timers: ReturnType<typeof setInterval>[] = [];
@@ -249,6 +266,18 @@ class SessionConnection
     if (standing !== this.#standing) {
       this.#standing = standing;
       this.#send({ type: "standing", standing });
+    }
+  };
+
+  readonly setPlayback = (read: (() => PlaybackReport | undefined) | undefined): void => {
+    this.#readPlayback = read;
+    this.reportPlayback();
+  };
+
+  readonly reportPlayback = (): void => {
+    const playback = this.#readPlayback?.();
+    if (playback !== undefined) {
+      this.#send({ type: "playback", playback: wholePlayback(playback) });
     }
   };
 
@@ -503,6 +532,7 @@ class SessionConnection
     this.#attempt = 0;
     this.#ping();
     this.reportState();
+    this.reportPlayback();
     // A new connection is a new device to the server, which knows nothing of what the page waits on.
     if (this.#standing !== "") {
       this.#send({ type: "standing", standing: this.#standing });
@@ -638,6 +668,7 @@ export function createTogetherConnection(
   TellsCannotKeepUp &
   TellsStanding &
   RelaysVoiceSignals &
-  CarriesSoundChoices {
+  CarriesSoundChoices &
+  TellsPlaybackAlone {
   return new SessionConnection(options);
 }

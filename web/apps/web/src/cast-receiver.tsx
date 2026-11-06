@@ -34,6 +34,7 @@ import { endCast, moveCastOn, playInCast } from "./cast.ts";
 import { fillsWindowClass, isFullScreenLeaveAsked, setFillsWindow } from "./film-fullscreen.ts";
 import { commandOf, keyCodeOf } from "./input-buttons.ts";
 import { onCommand } from "./input-commands.ts";
+import { useSoundWorkedByTheRemote, useToldTheCastHowItPlays } from "./cast-receiver-sound.ts";
 import { useServices, useToken } from "./services.tsx";
 import { useLive } from "./live.tsx";
 import type { Navigation } from "./navigation.ts";
@@ -41,7 +42,7 @@ import { showNotice } from "./notice.ts";
 import { answerPlayerCommand } from "./player-commands.ts";
 import { HostPlaysTogether, useLeadingPlayer } from "./together-host.tsx";
 import { onTheFilmsStage } from "./together-over-the-film.tsx";
-import { SoundPanelContext, type SoundPanel } from "./sound-panel.ts";
+import { SoundPanelContext } from "./sound-panel.ts";
 import { isTelevision } from "./tv-device.ts";
 import { useTogether } from "./use-together.ts";
 
@@ -156,7 +157,7 @@ export function CastReceiver(props: {
   const { video, fileId } = props;
   // The page's sound controls, which the remote shows and works (sound-panel.ts).
   const soundPanel = use(SoundPanelContext);
-  const { connection, isWelcomed, snapshot } = useReceiversSessions(cast);
+  const { connection, isWelcomed, snapshot, castConnection } = useReceiversSessions(cast);
   useLeadingPlayer({
     connection,
     isWelcomed,
@@ -167,7 +168,13 @@ export function CastReceiver(props: {
     delivery: props.delivery,
     readSound: soundPanel?.read,
   });
-  useSoundWorkedByTheRemote(connection, soundPanel);
+  useSoundWorkedByTheRemote({ cast: castConnection, led: connection, panel: soundPanel });
+  useToldTheCastHowItPlays({
+    cast: castConnection === connection ? undefined : castConnection,
+    video,
+    delivery: props.delivery,
+    panel: soundPanel,
+  });
   useFillsTheWindow(video);
   useToldHowItStarted({ connection, isWelcomed, video, answer: props.receiving.answer });
   useEndsAsTheCastDoes(snapshot?.status === "ended" ? snapshot.endReason : undefined, onLeave);
@@ -199,38 +206,16 @@ export function CastReceiver(props: {
 }
 
 /**
- * Has the remote work the page's sound controls: each choice it sends carried out by the control it
- * is of, as that control's own press, and each change of how the controls stand told the session at
- * once, for the remote to show (sound-panel.ts). A Fire TV's own controls are hidden while it is
- * controlled, so its sound could only be changed after taking control back (the owner, VQ116's run).
- */
-function useSoundWorkedByTheRemote(
-  connection: (TogetherConnection & CarriesSoundChoices) | undefined,
-  panel: SoundPanel | undefined,
-): void {
-  useEffect(() => {
-    if (connection === undefined || panel === undefined) {
-      return undefined;
-    }
-    const unsubscribe = connection.subscribeToSoundChoices(panel.choose);
-    const unwatch = panel.subscribe(connection.reportState);
-    return () => {
-      unsubscribe();
-      unwatch();
-    };
-  }, [connection, panel]);
-}
-
-/**
  * The sessions a cast's receiver is in: the cast's own, which says how it ends, and the one its video
  * leads, the cast's or, while its person hosts Watch Together, that session, as their player (D364
  * §11), the cast's then joined as a panel, playing nothing. Gives the led session's connection and
- * whether it is welcomed, and the cast's own snapshot.
+ * whether it is welcomed, and the cast's own snapshot and connection, which its remote works.
  */
 function useReceiversSessions(cast: CastToReceive): {
   readonly connection: (TogetherConnection & CarriesSoundChoices) | undefined;
   readonly isWelcomed: boolean;
   readonly snapshot: TogetherSnapshot | undefined;
+  readonly castConnection: Parameters<typeof useSoundWorkedByTheRemote>[0]["cast"];
 } {
   const token = useToken();
   // A guest's part is followed from the ready page (cast-ready.tsx); a film of the cast's own leads it.
@@ -246,6 +231,7 @@ function useReceiversSessions(cast: CastToReceive): {
     connection: led.connection,
     isWelcomed: led.snapshot?.status === "connected",
     snapshot: castSession.snapshot,
+    castConnection: castSession.connection,
   };
 }
 

@@ -7,6 +7,7 @@ import {
   type DeviceRole,
   type Standing,
   type TellsCannotKeepUp,
+  type TellsPlaybackAlone,
   type TellsStanding,
   type TogetherConnection,
   type TogetherSnapshot,
@@ -44,7 +45,12 @@ export interface TogetherDevice {
  */
 export function useTogether(device: TogetherDevice): {
   readonly connection:
-    (TogetherConnection & TellsCannotKeepUp & TellsStanding & CarriesSoundChoices) | undefined;
+    | (TogetherConnection &
+        TellsCannotKeepUp &
+        TellsStanding &
+        CarriesSoundChoices &
+        TellsPlaybackAlone)
+    | undefined;
   readonly snapshot: TogetherSnapshot | undefined;
 } {
   const { openTogetherSocket, onPathBack } = useServices();
