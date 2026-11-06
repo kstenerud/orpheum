@@ -11,6 +11,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/prepared"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // ChunkMaker makes a run of chunks of one stream of a film, telling onChunk each as it is in its
@@ -36,13 +37,16 @@ func (agent *Agent) chunksWork(
 		}, agent.chunksRunFigures(command, report, times)...)
 		switch {
 		case jobCtx.Err() != nil && ctx.Err() == nil:
-			agent.logger.InfoContext(ctx, "a run of chunks was cancelled", run...)
+			agent.logger.InfoContext(ctx, "a run of chunks was cancelled",
+				append(run, slogx.EventKey, "chunkRunCancelled")...)
 			return
 		case report.State == nodeproto.RunDone:
-			agent.logger.InfoContext(ctx, "a run of chunks finished", run...)
+			agent.logger.InfoContext(ctx, "a run of chunks finished",
+				append(run, slogx.EventKey, "chunkRunFinished")...)
 		default:
-			agent.logger.WarnContext(ctx, "a run of chunks did not finish", append(run,
-				"state", report.State, "why", report.Failure+report.Refusal+stallDetail(report.Stall))...)
+			agent.logger.WarnContext(ctx, "a run of chunks did not finish",
+				append(run, slogx.EventKey, "chunkRunFailed",
+					"state", report.State, "why", report.Failure+report.Refusal+stallDetail(report.Stall))...)
 		}
 		agent.postResult(ctx, nodeID, "a run of chunks", held.named(nodeproto.Result{MakeChunks: &report}))
 		agent.evict(ctx)

@@ -14,6 +14,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/bounded"
 	"github.com/kstenerud/orpheum/internal/platform/readonly"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // Subtitler makes a subtitle's ASS and WebVTT; subtitle.Extractor is the real one.
@@ -65,6 +66,7 @@ func (agent *Agent) answeringWork(ctx context.Context, nodeID int64, job answeri
 		if stuck, isStuck := agent.diskGate.IsStuck(job.reading, job.reading); isStuck && job.stalledAnswer != nil {
 			// Its root holds a reading that has not returned: this one would only wait beside it.
 			agent.logger.InfoContext(ctx, "a job was not tried: its root is still waiting on its disk",
+				slogx.EventKey, "jobNotTriedRootWaiting",
 				"jobKind", job.jobKind, "jobId", job.jobID, "rootPath", job.reading, "waitingOn", stuck.Path,
 				"stuckSince", stuck.Since)
 			agent.postResult(ctx, nodeID, job.jobKind, job.named(job.stalledAnswer(nodeproto.Stall{

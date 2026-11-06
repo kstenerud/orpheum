@@ -27,6 +27,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/diskspace"
 	"github.com/kstenerud/orpheum/internal/platform/selfuse"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
 )
 
@@ -397,7 +398,9 @@ func (agent *Agent) takeAnswersSettings(ctx context.Context, answer nodeproto.Co
 	for _, tier := range answer.StoreTiers {
 		byTier[tier]++
 	}
-	agent.logger.InfoContext(ctx, "kept the chunk stores by the core's players", "inUse", byTier[nodeproto.KeepInUse],
+	agent.logger.InfoContext(ctx, "kept the chunk stores by the core's players",
+		slogx.EventKey, "chunkStoresKept",
+		"inUse", byTier[nodeproto.KeepInUse],
 		"likely", byTier[nodeproto.KeepLikely], "maybe", byTier[nodeproto.KeepMaybe])
 	agent.storeTiers = answer.StoreTiers
 }

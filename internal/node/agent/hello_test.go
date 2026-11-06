@@ -54,7 +54,7 @@ func TestAgent_KeepsTheChunkStoresByTheTiersThePollSays(t *testing.T) {
 		t.Errorf("the shelf's tiers = %v; want the poll's", shelf.tiers)
 	}
 	// Said as it changes, once: the poll answers every half minute.
-	if lines := strings.Count(logged.String(), "kept the chunk stores"); lines != 1 ||
+	if lines := len(testutil.LinesWith(logged.String(), "chunkStoresKept")); lines != 1 ||
 		!strings.Contains(logged.String(), "inUse=1") {
 		t.Errorf("the log = %q; want the change said once, with one store in use", logged.String())
 	}

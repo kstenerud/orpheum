@@ -11,6 +11,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/scan"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // errNotGiven is a root path no root the node was given holds (D107).
@@ -54,10 +55,14 @@ func (agent *Agent) listWork(ctx context.Context, nodeID int64, held attempt, co
 		attempt: held, jobKind: "a listing", reading: agent.gateRootOf(command.RootPath),
 		makeAnswer: func(jobCtx context.Context) (nodeproto.Result, string) {
 			startedAt := agent.clock.Now()
-			agent.logger.InfoContext(ctx, "a listing started", "jobId", held.jobID, "rootPath", command.RootPath,
+			agent.logger.InfoContext(ctx, "a listing started",
+				slogx.EventKey, "listingStarted",
+				"jobId", held.jobID, "rootPath", command.RootPath,
 				"path", command.Path, "waitedMs", startedAt.Sub(heldAt).Milliseconds())
 			listing := agent.runList(jobCtx, command)
-			agent.logger.InfoContext(ctx, "a listing ended", "jobId", held.jobID, "rootPath", command.RootPath,
+			agent.logger.InfoContext(ctx, "a listing ended",
+				slogx.EventKey, "listingEnded",
+				"jobId", held.jobID, "rootPath", command.RootPath,
 				"recordCount", len(listing.Records), "tookMs", agent.clock.Now().Sub(startedAt).Milliseconds(),
 				"refusal", listing.Refusal)
 			return nodeproto.Result{Listing: &listing}, listing.Refusal

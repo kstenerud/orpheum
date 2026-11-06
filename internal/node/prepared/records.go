@@ -19,6 +19,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/readonly"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // Each file a store holds but its manifest, its init and each chunk, has a record beside it, its size
@@ -139,7 +140,9 @@ func (shelf *Shelf) dropUnrecordedStore(ctx context.Context, storeDir string) er
 	}
 	fileID, stream := storeNamed(storeDir)
 	shelf.logger.WarnContext(ctx, "dropped a store of chunks whose chunks are not recorded, made before they were "+
-		"or never finished: it cannot be checked, and is made again when asked for", "fileId", fileID,
+		"or never finished: it cannot be checked, and is made again when asked for",
+		slogx.EventKey, "unrecordedStoreDropped",
+		"fileId", fileID,
 		"stream", stream, "storeDir", storeDir, "fileCount", len(names))
 	return nil
 }
