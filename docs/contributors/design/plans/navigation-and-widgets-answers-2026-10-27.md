@@ -2320,3 +2320,9 @@ its five commits ("refactor(testutil): one log event key and one matcher for the
 log assertions onto `slogx.EventKey` and `testutil.LineWith`, but the first carries a `Test-Weakened:`
 trailer the agent wrote (the gate counts a helper's check moved from `together/logs_test.go` to
 `testutil`; nothing is dropped), which rule 5 leaves to the owner's word.
+
+**The owner's yes (2026-11-07):** item 2 merged ("refactor(testutil): one log event key and one matcher for the whole tree"…"test(cmd): match the binary's log assertions by their event, not their English"; the row reworded to
+`capturedLog`'s ~12 waits, "docs(code-debt): cmd/orpheum's capturedLog waits stay as a row"). With it, a fix the owner found on staging: starting the sound
+test answered 500, the playback's start reading the name of the system library, which no page shows
+("fix(library): a system video starts playing, naming no library"; the owner: it must play for anyone, to diagnose a far household's TV). Passed check-pr at
+"docs(code-debt): cmd/orpheum's capturedLog waits stay as a row" (211 s) and on staging.
