@@ -318,7 +318,11 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     await server.say(roster({}));
     expect(page.querySelector(".cast-remote__film-level")).toBeNull();
     await server.say(roster({ channels: [{ channel: "film", level: 0.6 }] }));
-    expect(page.textContent).toContain("The film's volume there, under the TV's own");
+    expect(page.querySelector(".cast-remote__film-level")?.getAttribute("title")).toBe(
+      "The film's volume there, under the TV's own",
+    );
+    // The film's slider leads the remote's one row, as 🔈's does over the film (D440 §2).
+    expect(page.querySelector(".volume-row > .cast-remote__film-level")).not.toBeNull();
     expect(slider()?.value).toBe("60");
 
     await enter(slider(), "25");

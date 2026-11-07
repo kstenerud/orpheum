@@ -33,7 +33,7 @@ import { soundOffsetStepMs } from "./sound-delay.tsx";
 import { useMembership } from "./together-membership.ts";
 import { TogetherOnTheRemote } from "./together-on-the-remote.tsx";
 import { useUpNext } from "./up-next.tsx";
-import { useVolumeRow, VolumeRow } from "./volume-row.tsx";
+import { FilmSlider } from "./volume-row.tsx";
 import { useResource } from "./use-resource.ts";
 import { useTogether } from "./use-together.ts";
 
@@ -141,7 +141,14 @@ function Remote(props: {
   return (
     <>
       <RemoteOf sent={sent} cast={{ snapshot, connection }} hosted={hosted} />
-      <TogetherOnTheRemote hostedSnapshot={hosted?.snapshot} />
+      <TogetherOnTheRemote
+        hostedSnapshot={hosted?.snapshot}
+        filmSlider={
+          sent.fileId === 0
+            ? undefined
+            : receiverFilmSlider(receiverPlaybackIn(snapshot)?.sound, connection)
+        }
+      />
       <button type="button" onClick={stop}>
         {t("cast.stop")}
       </button>
@@ -363,7 +370,6 @@ function RemoteOf(props: {
       <p>{t("cast.playingOn", { name: sent.receiverName })}</p>
       <ReceiverPlayback playback={playback} />
       <ReceiverSound sound={playback?.sound} connection={props.cast.connection} />
-      <ReceiverFilmLevel sound={playback?.sound} connection={props.cast.connection} />
       <ReceiverPicture picture={playback?.picture} connection={props.cast.connection} />
       <RemoteBar sent={sent} worked={worked} />
       <RemoteUpNext sent={sent} />
@@ -553,16 +559,16 @@ function RemoteSoundOffset(props: {
  * the receiver said them, and as moved here until it says them again; each move sent to the
  * receiver, which carries it out. Nothing while the receiver says no film channel.
  */
-function ReceiverFilmLevel(props: {
-  readonly sound: PlaybackSound | undefined;
-  readonly connection: CarriesSoundChoices | undefined;
-}): JSX.Element | null {
+function receiverFilmSlider(
+  sound: PlaybackSound | undefined,
+  connection: CarriesSoundChoices | undefined,
+): JSX.Element | undefined {
   // The film's is the only channel a player says so far (SoundChannel).
-  const film = props.sound?.channels?.[0];
-  if (film === undefined || props.connection === undefined) {
-    return null;
+  const film = sound?.channels?.[0];
+  if (film === undefined || connection === undefined) {
+    return undefined;
   }
-  return <RemoteFilmLevel film={film} connection={props.connection} />;
+  return <RemoteFilmLevel film={film} connection={connection} />;
 }
 
 /** A channel as chosen on the remote (next), and as the receiver said it when it was (said). */
@@ -571,7 +577,7 @@ interface ChosenChannel {
   readonly next: SoundChannel;
 }
 
-/** The film's channel on the receiver as the row's film slider and mute work it (ReceiverFilmLevel). */
+/** The film's channel on the receiver as the row's film slider and mute work it (receiverFilmSlider). */
 function RemoteFilmLevel(props: {
   readonly film: SoundChannel;
   readonly connection: CarriesSoundChoices;
@@ -605,11 +611,9 @@ function RemoteFilmLevel(props: {
       choose({ isMuted });
     },
   };
-  const row = useVolumeRow(sound, undefined);
   return (
-    <div className="cast-remote__film-level">
-      <p>{t("cast.filmLevel")}</p>
-      <VolumeRow sound={sound} voice={undefined} row={row} />
+    <div className="cast-remote__film-level" title={t("cast.filmLevel")}>
+      <FilmSlider sound={sound} isFocused={false} isFocusable />
     </div>
   );
 }

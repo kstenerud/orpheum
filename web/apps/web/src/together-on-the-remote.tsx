@@ -21,8 +21,8 @@ function noOverlay(): void {
 
 /**
  * Watch Together on the cast's remote, the control centre while casting, the phone showing no film
- * (D440 §5): as over the film (§2, §3, §6), the slider row, the film's slider first (filmSlider, the
- * receiver's own, which the remote draws: until then the row holds the people's alone), then each
+ * (D440 §5): as over the film (§2, §3, §6), the slider row, the film's slider first (filmSlider, its
+ * level on the receiver, which the cast's remote draws: cast-remote.tsx's receiverFilmSlider), then each
  * other person's in the session; Talk beside it; and Watch Together's one button, tuned to the role,
  * the session's panel moved into the dialog it opens: the guest's Leave, the host's people, grants and
  * End. With no session, the button alone, to one who may start one (CanStartTogetherContext), the
