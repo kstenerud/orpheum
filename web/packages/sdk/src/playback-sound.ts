@@ -18,11 +18,24 @@ export interface SoundTrack {
 }
 
 /**
+ * One sound a player mixes, as a cast's remote shows and sets it (D440 §2, §5): its level, apart from
+ * the TV's own volume, and whether it is muted. The film's alone so far, its level the film's volume
+ * from 0 to 1 as the player's own slider sets it; a session's voices are to follow as channels of
+ * their own.
+ */
+export interface SoundChannel {
+  readonly channel: "film";
+  readonly level: number;
+  readonly isMuted: boolean;
+}
+
+/**
  * How a player's film sounds and what of it its person may choose, as its page offers: the dialogue
  * boost, undefined where the film has no boosted mix to switch to (D222, D336); levelling (D226);
  * the audio track playing, among the file's own (D230 §5); how far the device moves its sound from
  * its picture, later when positive, undefined where its page offers no such move (the owner,
- * 2026-11-06: "Put a control in watch together and cast").
+ * 2026-11-06: "Put a control in watch together and cast"); the levels of the sounds it mixes
+ * (channels), none where its page does not say them.
  */
 export interface PlaybackSound {
   readonly isBoostOn?: boolean | undefined;
@@ -30,6 +43,7 @@ export interface PlaybackSound {
   readonly audioStreamId?: number | undefined;
   readonly audioTracks: readonly SoundTrack[];
   readonly soundOffsetMs?: number | undefined;
+  readonly channels?: readonly SoundChannel[] | undefined;
 }
 
 /** One choice of how a film sounds, made on a remote for its person's player to carry out. */
@@ -37,7 +51,8 @@ export type SoundChoice =
   | { readonly kind: "boost"; readonly isOn: boolean }
   | { readonly kind: "levelling"; readonly isOn: boolean }
   | { readonly kind: "audioTrack"; readonly streamId: number }
-  | { readonly kind: "soundOffset"; readonly ms: number };
+  | { readonly kind: "soundOffset"; readonly ms: number }
+  | ({ readonly kind: "channel" } & SoundChannel);
 
 /**
  * A sound as a player sends it: the server takes isBoostOn's absence for no boost to switch, and
@@ -50,5 +65,8 @@ export function wireSound(sound: PlaybackSound): PlaybackSound {
     ...(sound.audioStreamId === undefined ? {} : { audioStreamId: sound.audioStreamId }),
     audioTracks: sound.audioTracks,
     ...(sound.soundOffsetMs === undefined ? {} : { soundOffsetMs: sound.soundOffsetMs }),
+    ...(sound.channels === undefined || sound.channels.length === 0
+      ? {}
+      : { channels: sound.channels }),
   };
 }

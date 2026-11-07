@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { apiPrefix } from "./client.ts";
-import type { PlaybackSound, SoundChoice, SoundTrack } from "./playback-sound.ts";
+import type { PlaybackSound, SoundChannel, SoundChoice, SoundTrack } from "./playback-sound.ts";
 
 /** The version of the session WebSocket's messages, every message's v (cut-a §5.1). */
 export const togetherProtocolVersion = 2;
@@ -417,6 +417,13 @@ function playbackSoundIn(value: unknown): PlaybackSound | undefined {
   const streamId = fields["audioStreamId"];
   const tracks = Array.isArray(fields["audioTracks"]) ? fields["audioTracks"] : [];
   const offset = fields["soundOffsetMs"];
+  const channels = (Array.isArray(fields["channels"]) ? fields["channels"] : []).flatMap(
+    (each: unknown) => {
+      const channelFields = recordOf(each);
+      const channel = channelFields === undefined ? undefined : soundChannelIn(channelFields);
+      return channel === undefined ? [] : [channel];
+    },
+  );
   return {
     isBoostOn: typeof boost === "boolean" ? boost : undefined,
     isLevellingOn: fields["isLevellingOn"] === true,
@@ -426,7 +433,25 @@ function playbackSoundIn(value: unknown): PlaybackSound | undefined {
       return track === undefined ? [] : [track];
     }),
     soundOffsetMs: typeof offset === "number" ? offset : undefined,
+    ...(channels.length === 0 ? {} : { channels }),
   };
+}
+
+/** A channel as a roster or a choice says it, or undefined where it names none a player mixes. */
+function soundChannelIn(fields: Readonly<Record<string, unknown>>): SoundChannel | undefined {
+  const level = fields["level"];
+  // The server omits a zero level and false.
+  const shown = typeof level === "number" ? level : 0;
+  return fields["channel"] === "film" && shown >= 0 && shown <= 1
+    ? { channel: "film", level: shown, isMuted: fields["isMuted"] === true }
+    : undefined;
+}
+
+/** A choice of the audio track, or undefined where it names no stream. */
+function audioTrackChoiceIn(streamId: unknown): SoundChoice | undefined {
+  return typeof streamId === "number" && streamId > 0
+    ? { kind: "audioTrack", streamId }
+    : undefined;
 }
 
 /** A sound message's choice, or undefined where it is none a player carries out. */
@@ -440,16 +465,16 @@ function soundChoiceIn(value: unknown): SoundChoice | undefined {
       return { kind: "boost", isOn: fields["isOn"] === true };
     case "levelling":
       return { kind: "levelling", isOn: fields["isOn"] === true };
-    case "audioTrack": {
-      const streamId = fields["streamId"];
-      return typeof streamId === "number" && streamId > 0
-        ? { kind: "audioTrack", streamId }
-        : undefined;
-    }
+    case "audioTrack":
+      return audioTrackChoiceIn(fields["streamId"]);
     case "soundOffset": {
       const ms = fields["ms"];
       // The server omits a zero.
       return { kind: "soundOffset", ms: typeof ms === "number" ? ms : 0 };
+    }
+    case "channel": {
+      const channel = soundChannelIn(fields);
+      return channel === undefined ? undefined : { kind: "channel", ...channel };
     }
     default:
       return undefined;

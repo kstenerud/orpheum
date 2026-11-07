@@ -51,6 +51,7 @@ export const enCast = {
       quality: "Quality {{rate}}",
       link: "Link about {{rate}}",
     },
+    filmLevel: "The film's volume there, under the TV's own",
     soundOffset: {
       inStep: "Sound there: in step with the picture",
       laterBy: "Sound there: {{ms}} ms later",

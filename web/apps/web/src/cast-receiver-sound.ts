@@ -8,9 +8,10 @@ import {
   type TellsPlaybackAlone,
   type TogetherConnection,
 } from "@orpheum/sdk";
-import { useEffect } from "react";
+import { heardVolumeOf, setHeardVolume } from "@orpheum/player";
+import { useEffect, useState } from "react";
 
-import type { SoundPanel } from "./sound-panel.ts";
+import { useSoundPart, type SoundPanel } from "./sound-panel.ts";
 
 /**
  * Has the remote work the page's sound controls: each choice it sends in the cast's session carried
@@ -40,6 +41,38 @@ export function useSoundWorkedByTheRemote(sessions: {
       unwatch();
     };
   }, [cast, led, panel]);
+}
+
+/**
+ * Has the remote set the film's level and mute on the receiver (D440 §2, §5): the film's volume as
+ * the player's own slider sets it, and its mute, as the video says them at each volumechange, told
+ * to the remote through the page's sound panel; a choice of them carried out on the video. They are
+ * the film's channel, apart from the TV's own volume; they last for the session and are not saved.
+ */
+export function useFilmChannelWorkedByTheRemote(video: HTMLVideoElement | null): void {
+  const [heard, setHeard] = useState<{ readonly level: number; readonly isMuted: boolean }>();
+  useEffect(() => {
+    if (video === null) {
+      return undefined;
+    }
+    const read = (): void => {
+      // The volume the person set, not the element's, which a lowering by levelling is in (D436).
+      setHeard({ level: heardVolumeOf(video), isMuted: video.muted });
+    };
+    read();
+    video.addEventListener("volumechange", read);
+    return () => {
+      video.removeEventListener("volumechange", read);
+    };
+  }, [video]);
+  useSoundPart(heard === undefined ? undefined : { kind: "channel", ...heard }, (choice) => {
+    if (choice.kind !== "channel" || video === null) {
+      return;
+    }
+    setHeardVolume(video, choice.level);
+    // eslint-disable-next-line no-param-reassign -- muting the film is setting its video's muted
+    video.muted = choice.isMuted;
+  });
 }
 
 /**

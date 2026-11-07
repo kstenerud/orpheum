@@ -2762,3 +2762,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   and not on the Fire TV or the phone, as levels show only where there is mixing (the owner,
   2026-11-07). (`web/apps/web/src/volume-row.tsx`, `web/apps/web/src/player-menus.tsx`,
   `web/apps/web/src/together-voice.tsx`)
+- [ ] **VQ278** — the film's level and mute on a cast's receiver are set from the phone (D440 §2,
+  §5). Cast a film from the Pixel 3a to the Fire TV, its sound playing. Passes when the phone's cast
+  page shows "The film's volume there, under the TV's own" with the film's slider at the TV's
+  film volume; dragging it down lowers the film's sound on the TV audibly, the TV's own volume (its
+  remote's buttons) untouched; Mute on the phone silences the film on the TV, and dragging the slider
+  up turns it back on at the level dragged to, the film playing on throughout (a Chromium browser may
+  pause a video unmuted by no press of its own: if the Fire TV pauses, record it in idiosyncrasies.md);
+  and pressing Back on the TV to take control back, then casting again, starts at full volume, as the
+  levels last for the session and are not saved. (`web/apps/web/src/cast-remote.tsx`,
+  `web/apps/web/src/cast-receiver-sound.ts`, `internal/core/together/playback.go`)

@@ -47,6 +47,14 @@
   align-items: center;
 }
 
+/* The film's level and mute on the receiver: its word, then 🔈's row (volume-row.css), D440 §2. */
+.cast-remote__film-level {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  align-items: flex-start;
+}
+
 /* The list of devices to cast to (cast-to.tsx). */
 .cast-to__devices {
   display: grid;

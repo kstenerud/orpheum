@@ -3,8 +3,8 @@
 /**
  * The Play page's sound controls as one panel a cast's remote reads and works (playback-sound.ts in
  * the SDK): the dialogue boost's switch, levelling's, the audio track's menu and the sound's timing
- * (the owner, 2026-11-06: "Put a control in ... cast") each say here how they
- * stand, which the receiver tells its session for the remote to show, and each carries out the
+ * (the owner, 2026-11-06: "Put a control in ... cast") and the film's level and mute on a cast's
+ * receiver (D440 §2) each say here how they stand, which the receiver tells its session for the remote to show, and each carries out the
  * remote's choice of it as its own press, kept for the person as a press is. A Fire TV's own controls
  * are hidden while it is controlled, so its sound could only be changed after taking control back
  * (the owner, VQ116's run).
@@ -23,7 +23,9 @@ type SoundPart =
       readonly streamId: number | undefined;
       readonly tracks: readonly SoundTrack[];
     }
-  | { readonly kind: "soundOffset"; readonly ms: number };
+  | { readonly kind: "soundOffset"; readonly ms: number }
+  /** The film's channel: its level from 0 to 1, and whether it is muted (D440 §2). */
+  | { readonly kind: "channel"; readonly level: number; readonly isMuted: boolean };
 
 /** The page's sound controls, as one panel. */
 export interface SoundPanel {
@@ -60,11 +62,15 @@ export function newSoundPanel(): SoundPanel & SoundPanelControls {
       const boost = parts.get("boost");
       const levelling = parts.get("levelling");
       const offset = parts.get("soundOffset");
+      const film = parts.get("channel");
       return {
         isBoostOn: boost?.kind === "boost" ? boost.isOn : undefined,
         isLevellingOn: levelling?.kind === "levelling" && levelling.isOn,
         ...audioOf(parts.get("audioTrack")),
         soundOffsetMs: offset?.kind === "soundOffset" ? offset.ms : undefined,
+        ...(film?.kind === "channel"
+          ? { channels: [{ channel: "film", level: film.level, isMuted: film.isMuted }] }
+          : {}),
       };
     },
     subscribe: (listener) => {
@@ -111,15 +117,12 @@ export function useSoundPart(
   const panel = use(SoundPanelContext);
   const chosenRef = useLatest(onChosen);
   const kind = part?.kind;
-  const isOn = part !== undefined && "isOn" in part ? part.isOn : undefined;
-  const streamId = part?.kind === "audioTrack" ? part.streamId : undefined;
-  const tracks = part?.kind === "audioTrack" ? part.tracks : undefined;
-  const ms = part?.kind === "soundOffset" ? part.ms : undefined;
+  const { isOn, streamId, tracks, ms, level, isMuted } = fieldsOf(part);
   useEffect(() => {
     if (kind !== undefined) {
-      panel?.show(partOf(kind, { isOn, streamId, tracks, ms }));
+      panel?.show(partOf(kind, { isOn, streamId, tracks, ms, level, isMuted }));
     }
-  }, [panel, kind, isOn, streamId, tracks, ms]);
+  }, [panel, kind, isOn, streamId, tracks, ms, level, isMuted]);
   useEffect(() => {
     if (panel === undefined || kind === undefined) {
       return undefined;
@@ -134,21 +137,51 @@ export function useSoundPart(
   }, [panel, kind]);
 }
 
-/** A part from its fields, as useSoundPart keeps them apart for its effect's dependencies. */
-function partOf(
-  kind: SoundPart["kind"],
-  fields: {
-    readonly isOn: boolean | undefined;
-    readonly streamId: number | undefined;
-    readonly tracks: readonly SoundTrack[] | undefined;
-    readonly ms: number | undefined;
-  },
-): SoundPart {
+/** A part's fields apart, as useSoundPart keeps them for its effect's dependencies. */
+interface PartFields {
+  readonly isOn: boolean | undefined;
+  readonly streamId: number | undefined;
+  readonly tracks: readonly SoundTrack[] | undefined;
+  readonly ms: number | undefined;
+  readonly level: number | undefined;
+  readonly isMuted: boolean | undefined;
+}
+
+const noFields: PartFields = {
+  isOn: undefined,
+  streamId: undefined,
+  tracks: undefined,
+  ms: undefined,
+  level: undefined,
+  isMuted: undefined,
+};
+
+/** A part's fields, each undefined where it is not of that part's kind. */
+function fieldsOf(part: SoundPart | undefined): PartFields {
+  switch (part?.kind) {
+    case undefined:
+      return noFields;
+    case "boost":
+    case "levelling":
+      return { ...noFields, isOn: part.isOn };
+    case "audioTrack":
+      return { ...noFields, streamId: part.streamId, tracks: part.tracks };
+    case "soundOffset":
+      return { ...noFields, ms: part.ms };
+    case "channel":
+      return { ...noFields, level: part.level, isMuted: part.isMuted };
+  }
+}
+
+/** A part from its fields (fieldsOf). */
+function partOf(kind: SoundPart["kind"], fields: PartFields): SoundPart {
   switch (kind) {
     case "audioTrack":
       return { kind, streamId: fields.streamId, tracks: fields.tracks ?? [] };
     case "soundOffset":
       return { kind, ms: fields.ms ?? 0 };
+    case "channel":
+      return { kind, level: fields.level ?? 1, isMuted: fields.isMuted === true };
     case "boost":
     case "levelling":
       return { kind, isOn: fields.isOn === true };
