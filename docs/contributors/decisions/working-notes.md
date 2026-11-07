@@ -26718,3 +26718,35 @@ safe?" for the 11-15 batch's item 5. Amends D300 §3, which counted any pair but
    instead of judging the path itself. A change to what counts as home is made there alone.
 
 **Status:** Decided (2026-11-07).
+
+## D440 — Playback redesigned: one overlay holds a row of volume sliders, the microphone, one Cast control and one Watch Together button; casting moves control to the phone, and voices may play on the TV
+
+**Decided** (2026-11-07), by the project owner ("go ahead"), approving every item of
+[`playback-redesign-2026-11-07.md`](../design/plans/playback-redesign-2026-11-07.md), the design of
+the dialogue the owner opened that day. Amends D422 §1 and D423 §1 and D433 (the signs over the film),
+and D281 §5 (where the volumes are reached).
+
+1. **Nothing stays over the film** (plan §1): every control, the microphone's state included, shows
+   only while the overlay is up, and nothing pops up during play.
+2. **One volume control, a row of sliders** (plan §2): the film's, then one per person in the
+   session, each in the person's colour with their first letter (two where they collide) and the
+   full name on focus. Each sets its sound wherever it plays; on a TV, each channel's level sits
+   under the TV's own volume and is not saved. Alone, the film's slider only. The row shows on every
+   device: Left and Right move between sliders and Up and Down set one on a remote; touch drags.
+3. **The microphone in the overlay** (plan §3), as today's button, on devices with a microphone.
+4. **One Cast control** (plan §4) listing the targets this device can reach: Orpheum's own
+   receivers now, Chromecast and AirPlay later with the subset each carries. A guest who joined by
+   link has it too.
+5. **Casting moves control to the phone** (plan §5): a cast started from full screen leaves it for
+   the cast controls page, which shows only the controls that work, the slider row, the microphone,
+   the Watch Together controls in a session, and stop casting. It gains the TV's channel volumes and
+   mute, subtitles, choosing a quality and ⏮. D385 and D434 stand.
+6. **One Watch Together button** (plan §6), tuned to the role (D246, D271 unchanged), shown with no
+   session too, so a session starts from full screen.
+7. **Voices on the TV, optional** (plan §7): "Play voices on the TV" on the cast controls page, off
+   by default, offered only on receivers that pass a film-and-voice test; never AirPlay. Picture on
+   the TV with sound on the phone is parked.
+8. **Built in four batches** (plan §9): the overlay; the cast controls page; voices on the TV;
+   Chromecast, then AirPlay.
+
+**Status:** Decided (2026-11-07).
