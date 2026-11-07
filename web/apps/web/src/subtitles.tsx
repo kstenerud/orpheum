@@ -2,14 +2,16 @@
 
 import "./subtitles.css";
 
+import type { TFunction } from "i18next";
 import { drawSubtitles, type CaptionSource, type SubtitleLayer } from "@orpheum/player";
 import { textWhenReady, type Api, type components } from "@orpheum/sdk";
-import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import { languageName } from "./language-name.ts";
 import { Cluster } from "./layout.tsx";
 import { signedTenthsText } from "./number-text.ts";
+import { useSubtitlesShownToARemote } from "./picture-panel.ts";
 import { problemText, throwIfRefused } from "./problem.ts";
 import { ActionChooser, currentLabelOf, type ActionChoice } from "./route-chooser.tsx";
 import { useServices } from "./services.tsx";
@@ -195,6 +197,7 @@ export function useSubtitleChoice(props: SubtitleChoiceWays): SubtitleChoice {
 export function SubtitleControls(props: { readonly choice: SubtitleChoice }): JSX.Element | null {
   const { t } = useTranslation();
   const { tracks, offsetMs, shiftOffset, failure } = props.choice;
+  useChoiceWorkedByARemote(props.choice);
   if (tracks.length === 0) {
     return null;
   }
@@ -209,6 +212,24 @@ export function SubtitleControls(props: { readonly choice: SubtitleChoice }): JS
   );
 }
 
+/**
+ * Has a cast's remote show the subtitle tracks, each named as the menu names it, and the one
+ * showing, and choose among them, a choice there made by choose as one here is (picture-panel.ts,
+ * D440 §5).
+ */
+function useChoiceWorkedByARemote(choice: SubtitleChoice): void {
+  const { t, i18n } = useTranslation();
+  const { tracks, chosenTrackKey, choose } = choice;
+  const options = useMemo(() => {
+    const labelOf = labellerOf(t, i18n.language);
+    return tracks.flatMap((track) => {
+      const key = trackKey(track);
+      return key === undefined ? [] : [{ key, label: labelOf(track) }];
+    });
+  }, [tracks, t, i18n.language]);
+  useSubtitlesShownToARemote(chosenTrackKey, options, choose);
+}
+
 /** What draws a track: its ASS, and its WebVTT named as the menu names it, for fullscreen (D254). */
 function drawnTrackOf(track: SubtitleTrack, label: string): DrawnTrack {
   return { assUrl: track.assUrl, vttUrl: track.vttUrl, language: track.language, label };
@@ -220,13 +241,18 @@ type DrawnTrack = CaptionSource & { readonly assUrl: string };
 /** A track's name in the menu, in the viewer's language. */
 export function useTrackLabel(): (track: SubtitleTrack) => string {
   const { t, i18n } = useTranslation();
+  return labellerOf(t, i18n.language);
+}
+
+/** Names a track as the menu does, in language, by t's words. */
+function labellerOf(t: TFunction, language: string): (track: SubtitleTrack) => string {
   const words = {
     unknownLanguage: t("play.subtitles.unknownLanguage"),
     forced: t("play.subtitles.forced"),
     hearingImpaired: t("play.subtitles.hearingImpaired"),
     fetched: t("play.subtitles.fetched"),
   };
-  return (track) => trackLabel(track, i18n.language, words);
+  return (track) => trackLabel(track, language, words);
 }
 
 /**

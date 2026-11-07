@@ -17,6 +17,7 @@ import { useTranslation } from "react-i18next";
 
 import { audioTrackLabel } from "./audio-tracks.tsx";
 import { tabStorage } from "./browser-storage.ts";
+import { ReceiverPicture, useRemotePrevious } from "./cast-remote-choices.tsx";
 import { endCastRetrying, listMyCasts, moveCastOn } from "./cast.ts";
 import { placeCode } from "./episode-place.ts";
 import type { PlayerSound } from "./player-controls.tsx";
@@ -358,13 +359,27 @@ function RemoteOf(props: {
       <ReceiverPlayback playback={playback} />
       <ReceiverSound sound={playback?.sound} connection={props.cast.connection} />
       <ReceiverFilmLevel sound={playback?.sound} connection={props.cast.connection} />
-      <SessionRemote
-        snapshot={worked.snapshot}
-        connection={worked.connection}
-        durationMs={sent.durationMs}
-      />
+      <ReceiverPicture picture={playback?.picture} connection={props.cast.connection} />
+      <RemoteBar sent={sent} worked={worked} />
       <RemoteUpNext sent={sent} />
     </>
+  );
+}
+
+/** The remote's bar, ⏮ leading it (useRemotePrevious, D440 §5). */
+function RemoteBar(props: {
+  readonly sent: CastSending;
+  readonly worked: WorkedSession;
+}): JSX.Element {
+  const { sent, worked } = props;
+  const moves = useRemotePrevious(sent);
+  return (
+    <SessionRemote
+      snapshot={worked.snapshot}
+      connection={worked.connection}
+      durationMs={sent.durationMs}
+      moves={moves}
+    />
   );
 }
 

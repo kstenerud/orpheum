@@ -2772,3 +2772,18 @@ An item is ticked only by the person who did it, and only with what they saw.
   and pressing Back on the TV to take control back, then casting again, starts at full volume, as the
   levels last for the session and are not saved. (`web/apps/web/src/cast-remote.tsx`,
   `web/apps/web/src/cast-receiver-sound.ts`, `internal/core/together/playback.go`)
+- [ ] **VQ279** — a cast's remote chooses the receiver's subtitles, on a Fire TV from the Pixel, on
+  staging. Cast a film with two subtitle tracks to the Fire TV and open the remote on the Pixel.
+  Passes when the remote's Subtitles menu lists Off and both tracks, named as the TV's own menu names
+  them, showing the one the TV shows; choosing a track shows it on the TV within a second or two and
+  the remote's menu then shows it; Off takes the subtitles off the TV (D440 §5).
+  (`web/apps/web/src/cast-remote-choices.tsx`, `web/apps/web/src/picture-panel.ts`)
+- [ ] **VQ280** — a cast's remote plays the receiver's original, on a Fire TV from the Pixel, on
+  staging, Show debug tools on. Cast a converted film to the Fire TV. Passes when the remote offers
+  Play the original file, and pressing it has the TV play the file as it is, the remote's playback
+  line then saying so; with Show debug tools off the remote offers no such button (D440 §5, D418 §4).
+  (`web/apps/web/src/cast-remote-choices.tsx`)
+- [ ] **VQ281** — a cast's remote's ⏮ plays the episode before, on a Fire TV from the Pixel, on
+  staging. Cast the second episode of a season to the Fire TV. Passes when the remote's bar shows ⏮
+  first, and pressing it has the TV play the first episode, the remote following it; cast a film or
+  a first episode, and no ⏮ shows (D440 §5). (`web/apps/web/src/cast-remote-choices.tsx`)

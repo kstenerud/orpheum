@@ -12,7 +12,7 @@ import type { TFunction } from "i18next";
 import { useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { PlayerControls, type PlayerSource } from "./player-controls.tsx";
+import { PlayerControls, type PlayerSource, type SequenceMoves } from "./player-controls.tsx";
 import { useSeekAhead, type SeekAhead } from "./seek-ahead.ts";
 import { monotonicMs } from "./use-together.ts";
 
@@ -26,13 +26,16 @@ const tickEveryMs = 1000;
  * player's own (D369 §1): play and pause, its steps back and forward and its timeline, a drag along
  * the timeline and steps in a row sent as one seek once they have rested (scrubPauseWindowMs), as a
  * leading player's drag is one seek, the timeline showing its place meanwhile and until the film
- * is there (seek-ahead.ts).
+ * is there (seek-ahead.ts). Where it is given a previous (moves), ⏮ leads the bar, as the player's
+ * does (a cast's remote, D440 §5).
  */
 export function SessionRemote(props: {
   readonly snapshot: TogetherSnapshot | undefined;
   readonly connection: TogetherConnection | undefined;
   /** How long the film lasts, in ms; 0 while not known. */
   readonly durationMs: number;
+  /** What ⏮ plays, where the remote offers it. */
+  readonly moves?: SequenceMoves | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
   const positionMs = usePositionNow(props.snapshot);
@@ -51,7 +54,8 @@ export function SessionRemote(props: {
       </output>
       <PlayerControls
         source={remoteSource({ ...props, positionMs, ahead })}
-        controls={["play", "steps", "timeline"]}
+        controls={["previous", "play", "steps", "timeline"]}
+        moves={props.moves}
       />
     </>
   );

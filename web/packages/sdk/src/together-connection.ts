@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { wirePictureChoice, type PictureChoice } from "./playback-picture.ts";
 import type { SoundChoice } from "./playback-sound.ts";
 import { unreachedRetryMs } from "./rtc-reopen.ts";
 import { ShownCheck } from "./shown-check.ts";
@@ -136,6 +137,18 @@ export interface RelaysVoiceSignals {
 }
 
 /**
+ * A connection that carries a person's choices of what their film shows, its subtitles and its own
+ * file (playback-picture.ts), from a cast's remote to their devices that play it, which carry each
+ * out as their own press, as it carries the sound's (CarriesSoundChoices; D440 §5).
+ */
+export interface CarriesPictureChoices {
+  /** Sends choice to the person's devices that play the film; dropped while not connected. */
+  readonly choosePicture: (choice: PictureChoice) => void;
+  /** Calls listener with each choice made on another of the person's devices; returns the unsubscribing. */
+  readonly subscribeToPictureChoices: (listener: (choice: PictureChoice) => void) => () => void;
+}
+
+/**
  * A connection that carries a person's choices of their film's sound from a device of theirs with no
  * player, a cast's remote, to their devices that play it, which carry each out as their own press
  * (playback-sound.ts); the server relays them to the person's own devices alone.
@@ -200,12 +213,14 @@ class SessionConnection
     TellsStanding,
     RelaysVoiceSignals,
     CarriesSoundChoices,
+    CarriesPictureChoices,
     TellsPlaybackAlone
 {
   readonly #options: TogetherConnectionOptions;
   readonly #listeners = new Set<() => void>();
   readonly #voiceSignalListeners = new Set<(fromDeviceId: number, signal: VoiceSignal) => void>();
   readonly #soundChoiceListeners = new Set<(choice: SoundChoice) => void>();
+  readonly #pictureChoiceListeners = new Set<(choice: PictureChoice) => void>();
   #snapshot = startingSnapshot;
   #seq = 0;
   #attempt = 0;
@@ -337,6 +352,17 @@ class SessionConnection
   readonly subscribeToSoundChoices = (listener: (choice: SoundChoice) => void): (() => void) => {
     this.#soundChoiceListeners.add(listener);
     return () => this.#soundChoiceListeners.delete(listener);
+  };
+
+  readonly choosePicture = (choice: PictureChoice): void => {
+    this.#send({ type: "picture", picture: wirePictureChoice(choice) });
+  };
+
+  readonly subscribeToPictureChoices = (
+    listener: (choice: PictureChoice) => void,
+  ): (() => void) => {
+    this.#pictureChoiceListeners.add(listener);
+    return () => this.#pictureChoiceListeners.delete(listener);
   };
 
   readonly subscribeToVoiceSignals = (
@@ -592,6 +618,12 @@ class SessionConnection
       }
       return true;
     }
+    if (message.type === "picture") {
+      for (const listener of this.#pictureChoiceListeners) {
+        listener(message.choice);
+      }
+      return true;
+    }
     return false;
   }
 
@@ -669,6 +701,7 @@ export function createTogetherConnection(
   TellsStanding &
   RelaysVoiceSignals &
   CarriesSoundChoices &
+  CarriesPictureChoices &
   TellsPlaybackAlone {
   return new SessionConnection(options);
 }

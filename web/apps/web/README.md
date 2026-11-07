@@ -241,7 +241,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   while controlled, so its sound could be changed only after taking control back, the owner, VQ116's
   run); and the film's level and mute on the receiver, on 🔈's row of sliders, apart from the TV's
   own volume, for the session and not saved (D440 §2, §5; `useFilmChannelWorkedByTheRemote`,
-  `src/cast-remote.test.tsx`, `src/cast-receiver-sound.test.tsx`, VQ278). It fills the window and
+  `src/cast-remote.test.tsx`, `src/cast-receiver-sound.test.tsx`, VQ278); and what it shows, its subtitles, Off and each track named as its own menu names it, and
+  the original, a debug tool as on the player, each choice carried out by the receiver's own control
+  as its press (`src/picture-panel.ts`, `src/cast-receiver-picture.test.tsx`,
+  `src/cast-remote-choices.test.tsx`; D440 §5). The remote's bar leads with ⏮ where an episode plays
+  before the film, handed to the receiver as Up next is (D440 §5; VQ279–281). It fills the window and
   shows a television's player controls, which a mouse's move, a click or a tap opens as well as a
   remote's keys, a mouse's click on its video pausing or playing it as on an ordinary page, and a
   fading *Controlled from* line; its controls, media keys and seeks stay its own. Back (a Fire TV's

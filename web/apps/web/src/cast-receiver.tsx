@@ -48,6 +48,7 @@ import { answerPlayerCommand } from "./player-commands.ts";
 import { HostPlaysTogether, useLeadingPlayer } from "./together-host.tsx";
 import { onTheFilmsStage } from "./together-over-the-film.tsx";
 import { SoundPanelContext } from "./sound-panel.ts";
+import { usePictureWorkedByTheRemote } from "./cast-receiver-picture.ts";
 import { isTelevision } from "./tv-device.ts";
 import { useTogether } from "./use-together.ts";
 
@@ -160,9 +161,9 @@ export function CastReceiver(props: {
   const { api } = useServices();
   const { cast, onLeave } = props.receiving;
   const { video, fileId } = props;
-  // The page's sound controls, which the remote shows and works (sound-panel.ts).
-  const soundPanel = use(SoundPanelContext);
+  const soundPanel = use(SoundPanelContext); // its sound controls, the remote's too (sound-panel.ts)
   const { connection, isWelcomed, snapshot, castConnection } = useReceiversSessions(cast);
+  const picturePanel = usePictureWorkedByTheRemote({ cast: castConnection, led: connection });
   useLeadingPlayer({
     connection,
     isWelcomed,
@@ -172,6 +173,7 @@ export function CastReceiver(props: {
     putOnAtMs: cast.positionMs,
     delivery: props.delivery,
     readSound: soundPanel?.read,
+    readPicture: picturePanel?.read,
   });
   useSoundWorkedByTheRemote({ cast: castConnection, led: connection, panel: soundPanel });
   useFilmChannelWorkedByTheRemote(video);
@@ -221,7 +223,7 @@ function useReceiversSessions(cast: CastToReceive): {
   readonly connection: (TogetherConnection & CarriesSoundChoices) | undefined;
   readonly isWelcomed: boolean;
   readonly snapshot: TogetherSnapshot | undefined;
-  readonly castConnection: Parameters<typeof useSoundWorkedByTheRemote>[0]["cast"];
+  readonly castConnection: ReturnType<typeof useTogether>["connection"];
 } {
   const token = useToken();
   // A guest's part is followed from the ready page (cast-ready.tsx); a film of the cast's own leads it.

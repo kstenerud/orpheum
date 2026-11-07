@@ -30,6 +30,10 @@ const (
 	// devices that play it to carry out as their own press (SoundChoice); the server relays it to
 	// those devices, under the same name, and keeps nothing of it.
 	MessageSound MessageType = "sound"
+	// MessagePicture is a person's choice of what their film shows, its subtitles or its own file in
+	// place of its ladder, made on a cast's remote for their devices that play it to carry out as
+	// their own press (PictureChoice, D440 §5); relayed as a sound's is, and nothing of it kept.
+	MessagePicture MessageType = "picture"
 	// MessagePlayback is how a device plays the film and how it sounds (Playback), said alone (D434): a
 	// cast's receiver says it in the cast's session while it leads its person's Watch Together
 	// session as their player, so the cast's remote works the receiver in the cast's session alone,
@@ -464,6 +468,8 @@ type Inbound struct {
 	Note *PlayerNote `json:"note,omitempty"`
 	// Sound is a sound message's choice.
 	Sound *SoundChoice `json:"sound,omitempty"`
+	// Picture is a picture message's choice.
+	Picture *PictureChoice `json:"picture,omitempty"`
 	// ToDeviceID, SDP and Candidate are an rtc message's: voice signalling relayed to another
 	// member's device.
 	ToDeviceID int64  `json:"toDeviceId,omitempty"`
@@ -503,6 +509,8 @@ type Outbound struct {
 	Reason string `json:"reason,omitempty"`
 	// Sound is a sound message's choice, relayed from FromDeviceID.
 	Sound *SoundChoice `json:"sound,omitempty"`
+	// Picture is a picture message's choice, relayed from FromDeviceID.
+	Picture *PictureChoice `json:"picture,omitempty"`
 	// Tuning is welcome's: how the device follows the group, from the settings (D250 §1).
 	Tuning *Tuning `json:"tuning,omitempty"`
 	// encoded is a broadcast's JSON, made by the first device's writer and shared by the rest: a

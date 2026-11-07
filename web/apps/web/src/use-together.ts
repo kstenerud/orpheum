@@ -3,6 +3,7 @@
 import {
   createTogetherConnection,
   type CannotKeepUp,
+  type CarriesPictureChoices,
   type CarriesSoundChoices,
   type DeviceRole,
   type Standing,
@@ -49,6 +50,7 @@ export function useTogether(device: TogetherDevice): {
         TellsCannotKeepUp &
         TellsStanding &
         CarriesSoundChoices &
+        CarriesPictureChoices &
         TellsPlaybackAlone)
     | undefined;
   readonly snapshot: TogetherSnapshot | undefined;

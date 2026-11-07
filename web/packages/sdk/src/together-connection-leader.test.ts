@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
+import type { PictureChoice, PlaybackPicture } from "./playback-picture.ts";
 import type { PlaybackSound, SoundChoice } from "./playback-sound.ts";
 import { createTogetherConnection } from "./together-connection.ts";
 import { PlaybackTold } from "./together-leader.ts";
@@ -305,6 +306,95 @@ describe("a film's sound between a player and its remote", () => {
     let now: PlaybackSound | undefined = sound;
     const told = new PlaybackTold("converted", () => now);
     expect(told.report()).toEqual({ delivery: "converted", sound });
+    now = undefined;
+    expect(told.report()).toEqual({ delivery: "converted" });
+  });
+});
+
+// A cast's remote shows the receiver's subtitles and its offer of the original, and chooses them
+// (D440 §5), as it does its sound.
+describe("what a film shows, between a player and its remote", () => {
+  const picture: PlaybackPicture = {
+    subtitleKey: "f7",
+    subtitles: [
+      { key: "s3", label: "English" },
+      { key: "f7", label: "Deutsch" },
+    ],
+    canPlayOriginal: true,
+  };
+
+  it("reads what each player says it shows, and tells the session its own", () => {
+    const { connection, socket } = welcomed([
+      {
+        id: 7,
+        name: "Karl",
+        devices: [
+          { id: 12, role: "video", isLeader: true, playback: { delivery: "converted", picture } },
+          {
+            id: 13,
+            role: "video",
+            playback: { delivery: "direct", picture: { subtitles: [{ key: "", label: "x" }] } },
+          },
+          { id: 14, role: "video", playback: { delivery: "direct" } },
+        ],
+      },
+    ]);
+    const pictures = (connection.snapshot().roster[0]?.devices ?? []).map(
+      (device) => device.playback?.picture,
+    );
+    expect(pictures).toEqual([
+      picture,
+      { subtitleKey: undefined, subtitles: [], canPlayOriginal: false },
+      undefined,
+    ]);
+    connection.setPlayback(() => ({
+      delivery: "converted",
+      picture: { subtitles: picture.subtitles, canPlayOriginal: false },
+    }));
+    connection.reportPlayback();
+    const told = socket.sent.at(-1)?.["playback"] as { picture?: Record<string, unknown> };
+    expect(told.picture).toEqual({ subtitles: picture.subtitles, canPlayOriginal: false });
+  });
+
+  it("sends a remote's choice, and hands a choice made on another device to its listeners", () => {
+    const { connection, socket } = welcomed([]);
+    const heard: PictureChoice[] = [];
+    const unsubscribe = connection.subscribeToPictureChoices((choice) => {
+      heard.push(choice);
+    });
+    connection.choosePicture({ kind: "subtitles", key: "s3" });
+    connection.choosePicture({ kind: "subtitles", key: undefined });
+    connection.choosePicture({ kind: "original" });
+    expect(socket.sent.filter((each) => each["type"] === "picture")).toEqual([
+      { v: 2, type: "picture", picture: { kind: "subtitles", key: "s3" } },
+      { v: 2, type: "picture", picture: { kind: "subtitles" } },
+      { v: 2, type: "picture", picture: { kind: "original" } },
+    ]);
+    const before = connection.snapshot();
+    const hear = (sent: unknown): void => {
+      socket
+        .listeners()
+        .onMessage(JSON.stringify({ v: 2, type: "picture", fromDeviceId: 3, picture: sent }));
+    };
+    hear({ kind: "subtitles", key: "f7" });
+    hear({ kind: "subtitles" }); // the server omits the key of subtitles off
+    hear({ kind: "zoom" });
+    hear({ kind: "original" });
+    expect(heard).toEqual([
+      { kind: "subtitles", key: "f7" },
+      { kind: "subtitles", key: undefined },
+      { kind: "original" },
+    ]);
+    expect(connection.snapshot()).toBe(before);
+    unsubscribe();
+    hear({ kind: "original" });
+    expect(heard).toHaveLength(3);
+  });
+
+  it("tells what its film shows with how it plays it, as its page reads it", () => {
+    let now: PlaybackPicture | undefined = picture;
+    const told = new PlaybackTold("converted", undefined, () => now);
+    expect(told.report()).toEqual({ delivery: "converted", picture });
     now = undefined;
     expect(told.report()).toEqual({ delivery: "converted" });
   });
