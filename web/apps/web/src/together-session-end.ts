@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { homeTold } from "./notice.ts";
 import { useServices } from "./services.tsx";
-import { haveBackMySessions } from "./together-mine.ts";
+import { haveBackMySessions, noteHostedElsewhere } from "./together-mine.ts";
 import {
   forgetEndedHere,
   forgetMembership,
@@ -88,7 +88,9 @@ export function noteEndingHere(sessionId: number, isEnding: boolean): void {
  * connections heard it first (D389 §1, the owner: "when a watch together session ends, ALL
  * associated devices go back home (including the host)"): its membership forgotten, and the page
  * home, its film played on alone no more; told why there, unless this tab ended it (noteEndingHere).
- * Once: a session that is no longer this tab's to host is left as it is.
+ * Moved to another device of theirs, it is noted as hosted there, so Watch Together offers to move
+ * it back rather than to start another, which would end it (D442 §2). Once: a session that is no
+ * longer this tab's to host is left as it is.
  */
 export function useHostsSessionOver(): (sessionId: number, reason: TogetherEndReason) => void {
   const { t } = useTranslation();
@@ -99,6 +101,9 @@ export function useHostsSessionOver(): (sessionId: number, reason: TogetherEndRe
         return;
       }
       forgetMembership(tabStorage(), "host");
+      if (reason === "movedAway") {
+        noteHostedElsewhere({ sessionId, deviceName: undefined });
+      }
       if (endingHere.delete(sessionId)) {
         navigation.replace({ screen: "home" });
         return;
@@ -113,6 +118,9 @@ export function useHostsSessionOver(): (sessionId: number, reason: TogetherEndRe
 function hostsOverNotice(reason: TogetherEndReason): string {
   if (reason === "hostEnded") {
     return "together.overNotice.endedElsewhere"; // on another of their devices, or one started there
+  }
+  if (reason === "movedAway") {
+    return "together.overNotice.movedElsewhere"; // to another of their devices (D442 §2)
   }
   return reason === "idle" ? "together.overNotice.idle" : "together.overNotice.gone";
 }

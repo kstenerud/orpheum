@@ -7,10 +7,13 @@ import { useTranslation } from "react-i18next";
 
 import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { ModalDialog } from "./modal-dialog.tsx";
+import { problemText } from "./problem.ts";
 import { useServices, useToken } from "./services.tsx";
 import { useMembership } from "./together-membership.ts";
+import { moveHostingHere, useHostedElsewhere, type HostedElsewhere } from "./together-mine.ts";
 import { useSessionEnd } from "./together-session-end.ts";
 import type { Membership } from "./together-storage.ts";
+import { useRequest } from "./use-request.ts";
 import { useTogether } from "./use-together.ts";
 import { WatchTogetherControls } from "./watch-together.tsx";
 
@@ -21,8 +24,9 @@ import { WatchTogetherControls } from "./watch-together.tsx";
  * through"): for one who may host, starting a session and running it, what plays with the way back
  * to its film's Play page and Stop for everyone, voice and the volumes, the people and Invite, and
  * ending it (watch-together.tsx), which closes the dialog, nothing opening it again (D385's Also); for
- * a signed-in guest, the way back to the group's film. The sign over the playing film opens the same
- * dialog, the session's panel moved in under its controls (D433).
+ * a signed-in guest, the way back to the group's film; for a host whose session is on another of
+ * their devices, where it is, and Move it here (D442 §2). The sign over the playing film opens the
+ * same dialog, the session's panel moved in under its controls (D433).
  */
 export function TogetherDialog(props: {
   readonly onClose: () => void;
@@ -39,6 +43,8 @@ export function TogetherDialog(props: {
   const viewing = useMembership(browserStorage, "viewer");
   const hasPanel = props.panelPlace !== undefined;
   const isGuest = viewing !== undefined && !isHosting;
+  const elsewhere = useHostedElsewhere();
+  const isElsewhere = elsewhere !== undefined && !isHosting && !isGuest;
   return (
     <ModalDialog label={t("watchTogether.heading")} onClose={props.onClose}>
       <section className="watch-together" aria-labelledby="watch-together-heading">
@@ -46,7 +52,8 @@ export function TogetherDialog(props: {
         {isGuest && !hasPanel ? (
           <GuestsSession membership={viewing} onEnded={props.onClose} />
         ) : null}
-        {isGuest ? null : (
+        {isElsewhere ? <OnElsewhere elsewhere={elsewhere} /> : null}
+        {isGuest || isElsewhere ? null : (
           <WatchTogetherControls
             onEnded={props.onClose}
             panelPlace={isHosting ? props.panelPlace : undefined}
@@ -104,5 +111,39 @@ function GuestsSession(props: {
     >
       {t("watchTogether.backToTheFilm")}
     </button>
+  );
+}
+
+/**
+ * The session the person hosts on another of their devices, in Watch Together's dialog: that it is
+ * on, there, and Move it here, which makes this tab its host's one device, the other told it moved
+ * (D442 §2). Starting another is not offered: it would end this one (D372 §8).
+ */
+function OnElsewhere(props: { readonly elsewhere: HostedElsewhere }): JSX.Element {
+  const { t } = useTranslation();
+  const { api } = useServices();
+  const { isBusy, problem, runRequest } = useRequest((cause) => problemText(t, cause));
+  const { sessionId, deviceName } = props.elsewhere;
+  return (
+    <>
+      <p>
+        {deviceName === undefined
+          ? t("watchTogether.onElsewhere")
+          : t("watchTogether.onElsewhereNamed", { device: deviceName })}
+      </p>
+      <button
+        type="button"
+        className="watch-together__start"
+        disabled={isBusy}
+        onClick={() => {
+          runRequest(async (idempotencyKey) => {
+            await moveHostingHere(api, sessionId, idempotencyKey);
+          });
+        }}
+      >
+        {t("watchTogether.moveHere")}
+      </button>
+      {problem === undefined ? null : <p role="alert">{problem}</p>}
+    </>
   );
 }

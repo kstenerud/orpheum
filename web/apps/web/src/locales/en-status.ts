@@ -10,6 +10,7 @@ export const enStatus = {
     tray: "What is on",
     together: "Watch Together",
     togetherOn: "Watch Together is on: its controls",
+    togetherElsewhere: "Watch Together is on, on another of your devices",
     cast: "Cast to a device",
     castingReady: "Casting to {{name}}, ready",
     castingFilm: "Casting {{film}} to {{name}}",

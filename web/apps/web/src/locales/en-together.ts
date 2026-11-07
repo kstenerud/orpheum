@@ -121,6 +121,8 @@ export const enTogether = {
       notThere: "The Watch Together session is no longer there.",
       // Said to the host's other pages as they end the session on one (D389 §1).
       endedElsewhere: "The Watch Together session was ended on another of your devices.",
+      // Said to the host's page as they move the session to another of their devices (D442 §2).
+      movedElsewhere: "You moved the Watch Together session to another of your devices.",
       takenBack: "Control was taken back, so the Watch Together session ended here.",
       replaced: "Another device took over the Watch Together session.",
       stopped: "Casting stopped, so the Watch Together session ended here.",
@@ -151,6 +153,10 @@ export const enTogether = {
       "This browser cannot keep in step with a group, so it cannot host one. On an iPhone or iPad, update to iOS 17.1 or later.",
     mayNotHost: "Your role may not host Watch Together. An administrator can change that.",
     over: "That session is over.",
+    // The session the person hosts on another of their devices (D442).
+    onElsewhere: "Your session is on, on another of your devices.",
+    onElsewhereNamed: "Your session is on, on {{device}}.",
+    moveHere: "Move it here",
     onExplain:
       "Your session is on. Browse and play as usual: whatever you play plays on everyone's screen, and goes on while you browse. When you stop it, their screens go black.",
     nothingPlays: "Nothing is playing",
