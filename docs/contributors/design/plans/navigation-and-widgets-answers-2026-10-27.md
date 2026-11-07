@@ -2472,3 +2472,67 @@ HTTPS receiver URL staging can give the Cast console; (b) the start of real supp
 our Cast control through Chrome's Cast picker, our receiver handed the cast as a browser receiver
 is (B-10, D88, D135, D434). Anything needing the owner (the console, the device's serial, Google's
 sender script beyond the lab page as a dependency) is written down, not guessed.
+
+## Chromecast test steps for the owner (2026-11-08)
+
+What is built (worktree commits on the lead's branch): our receiver at `/cast/` can now also
+become a **cast target**: asked from the lab, it pairs as one of your devices by D288's pairing
+(its code carried over the Cast channel, the check code compared by you), keeps that session on
+the Chromecast, connects as a device, and so is listed in the Cast control of every page beside
+your other devices. A cast handed to it plays as a browser receiver plays one (D434: it accepts,
+joins the cast's session by its credential, plays the session's film and follows its play, pause
+and position), so the remote page works it. Listing it through Chrome's own Cast picker on the
+main pages is **not** built: it needs your two calls below.
+
+**Once, in Google's Cast Developer Console** (cast.google.com/publish, US$5 once):
+
+1. Add New Application → Custom Receiver. Name: Orpheum (staging). Receiver application URL:
+   **`https://orpheum.dev/cast/`** (checked live 2026-11-07: Cloudflare's public certificate; the
+   receiver's CSP allows Google's CAF and the core's names). Save; note the **app id** (8
+   characters).
+2. Add New Device: the Chromecast's serial (Google Home app → the device → Settings → Device
+   information, or the sticker), description "staging". Registration takes up to 15 minutes.
+3. Reboot the Chromecast after the device shows Ready (unplug it). An unpublished app runs only
+   on a registered device.
+
+**On the Mac, in Chrome** (the sender SDK is Chrome's; Safari and Firefox cannot cast):
+
+1. Open **`https://orpheum.dev/lab/cast`**, signed in as yourself. "Ready to cast" shows.
+2. Type the app id under Our receiver; tick Send this device's sign-in. Press Cast to our
+   receiver and choose the Chromecast. Passes: the TV shows our receiver's page, and Ask for its
+   report logs what the Chromecast plays (VQ58).
+3. Choose a film, press Play the film on it. Passes: it plays on the TV from away, through the
+   discovery (VQ286); Pause or play on it works.
+4. Press **Make it a cast target**. The page enters the Chromecast's pairing code itself; the TV then notes a
+   check code, and this page shows
+   "Check code: …". Press The TV shows the same only when they match. Passes: the page says
+   "‹name› is a cast target" and the TV says it is ready.
+5. Leave the lab's cast running (Stop casting closes our app on the Chromecast). In another tab,
+   open a film, press Cast in the top icons and choose the Chromecast. Passes: the film plays on
+   the TV, this tab shows the cast's controls, and play, pause and a seek on the remote move the
+   TV within a few seconds; Stop casting ends it (VQ287).
+6. Relaunch: Stop casting in the lab, cast to our receiver again, press Make it a cast target.
+   Passes: no new pairing (the kept session is used) and it is ready at once.
+
+Report the lab's log (Stop casting and send gives its short name) for any step that fails.
+
+**Owner calls this needs** (nothing below is done):
+
+- **Chrome's Cast picker on every page.** Listing the Chromecast in the main Cast dialog without
+  the lab means loading Google's sender script (`https://www.gstatic.com/cv/js/sender/v1/cast_sender.js`)
+  on the main app's pages: (1) Google's script as a dependency (it runs in our page's origin,
+  under our session; today only `/lab/cast` loads it); (2) the CSP gate change in both servers:
+  in the core, `internal/core/webclient/webclient.go` serves `castSenderLabPolicy` (script-src
+  and connect-src with `https://www.gstatic.com`) for `lab/cast` alone, and would serve it for
+  every client page; in Connect, `internal/webclient/webclient.go`'s `clientPolicyOf` adds
+  `castSDKOrigin` for the lab's page alone, and would add it for all, with the tests that pin it
+  to the lab (the core's `TestHandler_OnlyTheCastPagesMayLoadGooglesCastSDK`, and Connect's
+  test of the sender on the lab's probe alone) changed to match.
+  Without it the Chromecast is still a target once paired, listed as your device.
+- **The Chromecast's sign-in route.** D337 left casting to a device that is not signed in for
+  later; this pairs it as your device (D288) over the Cast channel. Confirm, or name another
+  route, before it leaves the lab.
+- **Unknown until the device:** whether the core takes the paired device's requests over a WebRTC
+  transport opened under the sender's session (from away); on the core's own name it reaches the
+  core directly. A cast is taken at once, without D358's Use question; the receiver follows only
+  the film, play, pause and position (no sound or subtitle choices yet).

@@ -2821,3 +2821,18 @@ An item is ticked only by the person who did it, and only with what they saw.
   window with Full screen and Tap for sound over it, not Android's bare video. Then press our Full
   screen at the film's corner: the same, and pressing it again leaves full screen.
   (`web/apps/web/src/film-fullscreen.ts`, `web/apps/web/src/together-viewer.tsx`)
+- [ ] **VQ286** — Our Cast receiver plays from away and becomes a cast target (the owner,
+  2026-11-07: "initial chromecast support"; the steps: plans/navigation-and-widgets-answers-2026-10-27.md,
+  "Chromecast test steps for the owner"). With the app registered at `https://orpheum.dev/cast/`
+  and the Chromecast as its test device, from `https://orpheum.dev/lab/cast` in Chrome on the Mac:
+  cast to our receiver, play a film on it with the sign-in sent (it plays from away, through the
+  discovery, extending VQ58), then press Make it a cast target. Passes when the TV notes the check
+  code this page shows, and after The TV shows the same both say it is a
+  cast target; cast to our receiver again later and it is ready without pairing again.
+  (`web/apps/cast-receiver/src/device.ts`, `web/apps/cast-receiver/src/lab.ts`,
+  `web/apps/web/src/lab-cast-target.tsx`)
+- [ ] **VQ287** — A cast to the Chromecast plays and its remote works it (D434). After VQ286, the
+  lab's cast left running, open a film in another tab on the Mac, press Cast and choose the
+  Chromecast. Passes when the film plays on the TV, the tab shows the cast's controls, play, pause
+  and a seek there move the TV within a few seconds, and Stop casting stops it.
+  (`web/apps/cast-receiver/src/device.ts`)
