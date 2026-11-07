@@ -353,6 +353,26 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     ]);
   });
 
+  it("leaves full screen as it shows, a cast started from the film full screen showing its controls on the page (D440 §5)", async () => {
+    // The Play page's player put the whole page full screen, which outlives the player.
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      get: () => document.documentElement,
+    });
+    const exitFullscreen = vi.fn(() => Promise.resolve());
+    Object.defineProperty(document, "exitFullscreen", {
+      configurable: true,
+      value: exitFullscreen,
+    });
+    try {
+      await casting({});
+      expect(exitFullscreen).toHaveBeenCalledOnce();
+    } finally {
+      Reflect.deleteProperty(document, "fullscreenElement");
+      Reflect.deleteProperty(document, "exitFullscreen");
+    }
+  });
+
   it("says the receiver is ready with nothing playing, offering Stop casting alone (D364 §8)", async () => {
     await casting({}, [], { ...sending, fileId: 0, itemName: "" });
     const page = mounted!.container;

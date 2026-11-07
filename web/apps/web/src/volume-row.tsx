@@ -2,7 +2,7 @@
 
 import "./volume-row.css";
 
-import { useState, type JSX } from "react";
+import { useEffect, useRef, useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { VolumeButtonsNote } from "./film-volume-slider.tsx";
@@ -166,24 +166,98 @@ export function VolumeRow(props: {
               person={person}
               letters={letters[index] ?? "?"}
               isFocused={row.focusedAt === index + 1}
+              isFocusable={false}
             />
           ))}
     </div>
   );
 }
 
-/** A person's slider in the row: their name above it while focused, their colour and letters under it. */
+/**
+ * The slider row on the cast's remote, the control centre while casting (D440 §5): first the film's
+ * slider, which sets its level on the receiver (filmSlider, the receiver's volume, drawn by the
+ * remote; nothing until it is given), then each other person's in the Watch Together session, as
+ * 🔈's row draws them (VolumeRow). Not a pop-up but part of the page, so each slider takes the
+ * browser's focus as any control does, a finger or a mouse dragging it; the one focused shows the
+ * person's name above it. Nothing where it would hold no slider: no session's voices and no film
+ * slider given.
+ */
+export function RemoteVolumeRow(props: {
+  readonly filmSlider?: ReactNode;
+  readonly voice: VoiceInUse | undefined;
+}): JSX.Element | null {
+  const { voice, filmSlider } = props;
+  const [focusedId, setFocusedId] = useState<number | undefined>(undefined);
+  const people = voice === undefined ? [] : peopleOf(voice.snapshot);
+  if (filmSlider === undefined && people.length === 0) {
+    return null;
+  }
+  const letters = lettersOf(people.map((person) => person.name));
+  return (
+    <div className="volume-row volume-row--on-the-page">
+      {filmSlider}
+      {voice === undefined
+        ? null
+        : people.map((person, index) => (
+            <PersonSlider
+              key={person.memberId}
+              voice={voice}
+              person={person}
+              letters={letters[index] ?? "?"}
+              isFocused={focusedId === person.memberId}
+              isFocusable
+              onFocusChange={(isFocused) => {
+                setFocusedId((now) => {
+                  if (isFocused) {
+                    return person.memberId;
+                  }
+                  return now === person.memberId ? undefined : now;
+                });
+              }}
+            />
+          ))}
+    </div>
+  );
+}
+
+/**
+ * A person's slider in a row: their name above it while focused, their colour and letters under it.
+ * Where isFocusable, its slider takes the browser's focus, told onFocusChange.
+ */
 function PersonSlider(props: {
   readonly voice: VoiceInUse;
   readonly person: VoicePerson;
   readonly letters: string;
   readonly isFocused: boolean;
+  readonly isFocusable: boolean;
+  readonly onFocusChange?: ((isFocused: boolean) => void) | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { voice, person } = props;
+  const { voice, person, onFocusChange } = props;
   const label = t("together.voice.personVolume", { name: person.name });
+  const sliderRef = useRef<HTMLDivElement>(null);
+  // The slider's focus, heard as it bubbles from the range inside.
+  useEffect(() => {
+    const slider = sliderRef.current;
+    if (slider === null || onFocusChange === undefined) {
+      return undefined;
+    }
+    const focused = (): void => {
+      onFocusChange(true);
+    };
+    const blurred = (): void => {
+      onFocusChange(false);
+    };
+    slider.addEventListener("focusin", focused);
+    slider.addEventListener("focusout", blurred);
+    return () => {
+      slider.removeEventListener("focusin", focused);
+      slider.removeEventListener("focusout", blurred);
+    };
+  }, [onFocusChange]);
   return (
     <div
+      ref={sliderRef}
       className="volume-row__slider volume-row__person"
       data-volume-slider=""
       data-colour={personColourOf(person.memberId)}
@@ -199,7 +273,7 @@ function PersonSlider(props: {
         memberId={person.memberId}
         label={label}
         isUpright
-        isFocusable={false}
+        isFocusable={props.isFocusable}
       />
       <span className="volume-row__mark volume-row__letters" aria-hidden="true">
         {props.letters}

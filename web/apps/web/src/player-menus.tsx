@@ -30,7 +30,7 @@ import { BoostBox } from "./sound.tsx";
 import { SoundOffsetControl } from "./sound-delay.tsx";
 import { FindSubtitles } from "./subtitle-search.tsx";
 import { OffsetControl, useSubtitleChoices, type SubtitleChoice } from "./subtitles.tsx";
-import { TalkOverTheFilm, useSessionVoice } from "./together-voice.tsx";
+import { SessionTalk, useSessionVoice } from "./together-voice.tsx";
 import { useVolumeRow, VolumeRow } from "./volume-row.tsx";
 
 /**
@@ -58,7 +58,7 @@ type OpenMenu = "volume" | "subtitles" | "audio" | "more" | "find" | "testers";
 /**
  * The full-screen overlay's menus, in row 2's trailing group before full screen (D407 §1, §8): 🔈,
  * the row of volume sliders, where the overlay shows it (D407 §10, D440 §2); Talk beside it in a
- * Watch Together session, on a device with a microphone (TalkOverTheFilm, D440 §3); Subtitles, Off, the film's
+ * Watch Together session, on a device with a microphone (SessionTalk, D440 §3); Subtitles, Off, the film's
  * subtitle tracks and Find subtitles; Sound track, the audio tracks, where there are more than one; ⁝
  * (Settings), the rest of what lies under the film outside full screen. Subtitles and Sound track are two
  * menus, each a button of its own, not one panel (the owner, 2026-11-04), and each opens on its
@@ -102,7 +102,7 @@ export function PlayerMenus(props: {
       {props.shown.includes("sound") && sound !== undefined ? (
         <VolumeMenu sound={sound} onOpenChange={toldOf("volume")} />
       ) : null}
-      <TalkOverTheFilm />
+      <SessionTalk isOverVideo />
       {tracks === undefined ? null : (
         <TrackMenus
           tracks={tracks}

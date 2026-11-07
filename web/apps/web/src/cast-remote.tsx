@@ -20,6 +20,7 @@ import { tabStorage } from "./browser-storage.ts";
 import { ReceiverPicture, useRemotePrevious } from "./cast-remote-choices.tsx";
 import { endCastRetrying, listMyCasts, moveCastOn } from "./cast.ts";
 import { placeCode } from "./episode-place.ts";
+import { useLeavesFullScreen } from "./film-fullscreen.ts";
 import type { PlayerSound } from "./player-controls.tsx";
 import { useLatest } from "./latest.ts";
 import { useLive } from "./live.tsx";
@@ -30,6 +31,7 @@ import { useServices, useToken } from "./services.tsx";
 import { SessionRemote, usePositionNow } from "./session-remote.tsx";
 import { soundOffsetStepMs } from "./sound-delay.tsx";
 import { useMembership } from "./together-membership.ts";
+import { TogetherOnTheRemote } from "./together-on-the-remote.tsx";
 import { useUpNext } from "./up-next.tsx";
 import { useVolumeRow, VolumeRow } from "./volume-row.tsx";
 import { useResource } from "./use-resource.ts";
@@ -49,7 +51,8 @@ export type PlaysHereFrom = (atMs: number | undefined, isPaused?: boolean) => vo
  * receiver gone do, the page then playing it from where the receiver last stood, playing or paused as
  * it was (D385 §2, §3); a cast the server no longer knows sends the page home, saying so in a pop-up
  * (D386 §2). Where the cast plays another film than the page's by then, the film comes back on that
- * film's Play page, in this one's place.
+ * film's Play page, in this one's place. A cast started from full screen leaves it: the remote is a
+ * page, the control centre while casting, not a film (D440 §5).
  */
 export function CastRemote(props: {
   readonly castId: number;
@@ -57,6 +60,7 @@ export function CastRemote(props: {
   readonly fileId: number;
   readonly onPlayHere: PlaysHereFrom;
 }): JSX.Element | null {
+  useLeavesFullScreen();
   const sent = useHeldCast(props.castId);
   if (sent === undefined) {
     return null;
@@ -137,6 +141,7 @@ function Remote(props: {
   return (
     <>
       <RemoteOf sent={sent} cast={{ snapshot, connection }} hosted={hosted} />
+      <TogetherOnTheRemote hostedSnapshot={hosted?.snapshot} />
       <button type="button" onClick={stop}>
         {t("cast.stop")}
       </button>

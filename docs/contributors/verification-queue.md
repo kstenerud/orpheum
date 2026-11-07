@@ -2787,3 +2787,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   staging. Cast the second episode of a season to the Fire TV. Passes when the remote's bar shows ⏮
   first, and pressing it has the TV play the first episode, the remote following it; cast a film or
   a first episode, and no ⏮ shows (D440 §5). (`web/apps/web/src/cast-remote-choices.tsx`)
+- [ ] **VQ282** — a cast started from full screen leaves full screen for the cast's controls page,
+  and that page carries Watch Together, the voices playing on across the change (D440 §5, §6, §8).
+  The tests stub the Fullscreen API and a session's voice in a DOM without one. On staging, on a
+  phone, host a session with the Fire TV's browser joined as a guest and the laptop joined, Talk on;
+  play a film full screen on the phone and cast it to the Chromecast from the overlay. Passes when
+  the phone leaves full screen and shows the cast's controls; the people's sliders (the laptop's and
+  the Fire TV's person, each with their letter and colour) sit on the page and change their voices'
+  loudness; Talk sits beside Watch Together's button and the laptop still hears the phone's voice,
+  unbroken by the change; the button opens the dialog with the people and End, and no volume slider
+  in it. Then on the laptop, as the guest, cast the film: its page shows the same row and button,
+  the button's dialog holding Leave and no volume. Then, the session ended, on the phone the cast's
+  controls show Watch Together's button alone. (`web/apps/web/src/together-on-the-remote.tsx`,
+  `web/apps/web/src/cast-remote.tsx`, `web/apps/web/src/film-fullscreen.ts`)

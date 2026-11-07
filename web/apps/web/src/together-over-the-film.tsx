@@ -24,6 +24,7 @@ import { signMark, TogetherIcon } from "./sign-mark.tsx";
 import { TogetherDialog } from "./together-dialog-code.tsx";
 import { CanStartTogetherContext } from "./together-can-start.ts";
 import { useMembership } from "./together-membership.ts";
+import { PanelInTheDialogContext } from "./together-panel-place.tsx";
 
 /**
  * Watch Together over the playing film (D423): the film fills the window over the page (D418 §1), so
@@ -58,9 +59,15 @@ function currentDialogBody(): HTMLElement | null {
 
 /**
  * A session's panel: drawn where it stands, and moved into the dialog the sign over the film opens
- * while that is open. Its children are drawn once, into a box of their own, which is what moves.
+ * while that is open. Its children are drawn once, into a box of their own, which is what moves, and
+ * are told whether it is in the dialog (PanelInTheDialogContext). Where isHomeHidden, as on the
+ * cast's remote, whose Watch Together button holds the rest (D440 §5, §6), it shows only in the
+ * dialog: on its page it stays drawn, unseen, so what it holds goes on.
  */
-export function TogetherPanel(props: { readonly children: ReactNode }): JSX.Element {
+export function TogetherPanel(props: {
+  readonly children: ReactNode;
+  readonly isHomeHidden?: boolean | undefined;
+}): JSX.Element {
   const [box] = useState(() => document.createElement("div"));
   const homeRef = useRef<HTMLDivElement>(null);
   const target = useSyncExternalStore(subscribe, currentDialogBody, currentDialogBody);
@@ -76,8 +83,11 @@ export function TogetherPanel(props: { readonly children: ReactNode }): JSX.Elem
     (target ?? homeRef.current)?.append(box);
   }, [target, box]);
   return (
-    <div ref={homeRef} className="together-panel">
-      {createPortal(props.children, box)}
+    <div ref={homeRef} className="together-panel" hidden={props.isHomeHidden === true}>
+      {createPortal(
+        <PanelInTheDialogContext value={target !== null}>{props.children}</PanelInTheDialogContext>,
+        box,
+      )}
     </div>
   );
 }
@@ -94,6 +104,18 @@ export function TogetherPanel(props: { readonly children: ReactNode }): JSX.Elem
  * open, onOpenChange holds the overlay shown and gives the dialog its presses, as the menus do.
  */
 export function TogetherSignOverTheFilm(props: {
+  readonly onOpenChange: (isOpen: boolean) => void;
+}): JSX.Element {
+  return <TogetherButton isOverVideo onOpenChange={props.onOpenChange} />;
+}
+
+/**
+ * Watch Together's one button (D440 §6), over the film (TogetherSignOverTheFilm) or on the cast's
+ * remote (together-on-the-remote.tsx), as TogetherSignOverTheFilm says: the session's panel moved
+ * into the dialog it opens, or, with no session, the start to one who may host.
+ */
+export function TogetherButton(props: {
+  readonly isOverVideo: boolean;
   readonly onOpenChange: (isOpen: boolean) => void;
 }): JSX.Element | null {
   const { t } = useTranslation();
@@ -130,12 +152,12 @@ export function TogetherSignOverTheFilm(props: {
     return null;
   }
   return (
-    <span className="player-overlay__together">
+    <span className={props.isOverVideo ? "player-overlay__together" : "together-button"}>
       <IconButton
         label={t(isOn ? "status.togetherOn" : "status.together")}
         icon={<TogetherIcon />}
         mark={signMark(isOn)}
-        isOverVideo
+        isOverVideo={props.isOverVideo}
         onClick={() => {
           openOrClose(true);
         }}
