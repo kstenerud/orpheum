@@ -2449,3 +2449,7 @@ own (a decision amending D442 §2); (4) Esc and leaving full screen never end a 
 ending it stays with the device that cast; (5) a receiver out of full screen shows a sign in the top
 icons that it is cast to, by which device; (6) a receiver's Cast dialog does not list the device
 casting to it, and the server refuses the cast back.
+7. **The owner, 2026-11-07:** "When casting, the controlling device should show a similar set of
+   controls to the fullscreen controls rather than its own sprawling set of controls." The cast
+   controls page (D440, the 11-19 batch) is to take the full-screen overlay's set and layout; to be
+   recorded as a decision amending D440 where it says otherwise.
