@@ -2355,3 +2355,18 @@ nothing reports it to the core yet.
   rv20 decode errors ("early B-frame", "Impossibly sized packet"), so RealMedia demuxing is the first
   suspect: compare the streams' start times and the audio's first timestamps against what the
   prepared copy carries.
+
+## The 11-18 batch: the playback redesign's overlay (the owner, 2026-11-07: "go ahead", D440)
+
+D440 §8's first step, from playback-redesign-2026-11-07.md: nothing stays over the film (§1); the
+slider row, which shows a level only where sound mixes (§2; the owner, 2026-11-07: "Only audio levels
+when mixing. With desktop, everything is by definition mixing."); Talk in the overlay on a device
+with a microphone (§3); the Watch Together sign shown with no session to a person who may host
+(§6). End: one check-pr, staging.
+
+**Passed check-pr at "docs(web): the player's step up or down names where its step is kept"** (2026-11-07). On staging (`./staging quick`). The shell
+(app-shell.tsx) gives its screen who may start a session, as its tray already does; the volume step
+lives in volume-step.ts so the home page does not load the player. Owed by the owner: VQ277.
+
+- **Left for batch 2:** the host's session panel over the film still shows a volume per person; it
+  moves to the cast controls page (D440 §5), with Cast for link-only guests (§4).
