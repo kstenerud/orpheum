@@ -12,12 +12,11 @@ import {
   markPlayersControls,
   playerControlsAttribute,
   usePlayerCommands,
-  volumeAfter,
-  volumeStep,
 } from "./player-commands.ts";
 import { seekRestMs, seekStepMs } from "./seek-ahead.ts";
 import { mount } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
+import { volumeAfter, volumeStep } from "./volume-step.ts";
 
 /** A video with its own controls in the page, standing at atS of a film durationS long. */
 function videoAt(atS: number, durationS = 600): HTMLVideoElement {
