@@ -250,6 +250,38 @@ func TestRegistry_ADeviceReceivingACastIsNoOnesTargetUntilItEnds(t *testing.T) {
 	castToTheTV(t, registry, 3, laptop)
 }
 
+// A device casting to another may not be cast to by it, nor by a device it casts to through others:
+// the cast back would close a loop, each device both remote and receiver of the other (the owner's
+// 11-20 batch, finding 6: the receiver's Cast to the Mac casting to it left each believing it cast to
+// the other). A cast elsewhere goes on, and the receiver still casts to a third device.
+func TestRegistry_ACastBackToADeviceCastingHereIsRefused(t *testing.T) {
+	t.Parallel()
+	registry := NewRegistry(minted(), newClock())
+	phoneBox := &inbox{}
+	registry.Connect(owner, phone, inFront, phoneBox.send)
+	registry.Connect(owner, television, inFront, (&inbox{}).send)
+	registry.Connect(owner, laptop, inFront, (&inbox{}).send)
+	castToTheTV(t, registry, 1, phone)
+	_, _, err := registry.Cast(Cast{ID: 2, UserID: owner, SenderDeviceID: television, ReceiverDeviceID: phone}, "b")
+	if !errors.Is(err, ErrCastingHere) {
+		t.Errorf("the TV's cast back to the phone casting to it: %v; want ErrCastingHere", err)
+	}
+	if phoneBox.count(MessageReceive) != 0 {
+		t.Error("the phone was handed the cast back")
+	}
+	if _, _, err = registry.Cast(
+		Cast{ID: 3, UserID: owner, SenderDeviceID: television, ReceiverDeviceID: laptop}, "c"); err != nil {
+		t.Fatalf("the TV casting on to the laptop: %v", err)
+	}
+	_, _, err = registry.Cast(Cast{ID: 4, UserID: owner, SenderDeviceID: laptop, ReceiverDeviceID: phone}, "d")
+	if !errors.Is(err, ErrCastingHere) {
+		t.Errorf("the laptop's cast to the phone, which casts to it through the TV: %v; want ErrCastingHere", err)
+	}
+	if casts := registry.CastsOf(owner, television); len(casts) != 2 {
+		t.Errorf("the TV holds %+v; want the phone's cast and its own to the laptop", casts)
+	}
+}
+
 // A sender casting to another device leaves the receiver it controlled, whose cast it returns for its
 // session to be ended (D337 §6: each sender controls one receiver).
 func TestRegistry_ASenderCastingElsewhereLeavesTheReceiverItControlled(t *testing.T) {

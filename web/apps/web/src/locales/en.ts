@@ -106,6 +106,8 @@ export const en = {
     conflict: "That clashes with something that already exists.",
     stale: "Someone changed this meanwhile. Reload and try again.",
     receivingACast: "That device is showing another cast. Cast to it once that cast ends.",
+    castingHere:
+      "That device is casting to this one, so this one cannot cast to it. Stop that cast on it first.",
     rateLimited: "Too many attempts. Wait a minute, then try again.",
     quotaExhausted: "Today's allowance for this is used up. Try again tomorrow.",
     providerError: "An outside service did not answer properly. Try again later.",

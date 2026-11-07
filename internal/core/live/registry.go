@@ -25,6 +25,10 @@ var (
 	// ErrReceiving is a cast to a device that receives a cast now, which no device may take over
 	// until that cast ends (D386 §1).
 	ErrReceiving = errors.New("that device is showing another cast")
+	// ErrCastingHere is a cast to a device that casts, directly or through the devices it casts to,
+	// to the asking one: the cast back would close a loop, each device both remote and receiver of the
+	// other (the owner's 11-20 batch, finding 6).
+	ErrCastingHere = errors.New("that device casts to this one")
 )
 
 // Credential mints another credential for a cast's session, for a receiver loaded again: the hub's
@@ -268,9 +272,10 @@ func (registry *Registry) Connected(userID int64) []int64 {
 // came to the front last (D338 §2), and telling the sender's pages it sends it, and the person's
 // connections that the receiver receives now. The receiver must be another of the person's devices,
 // connected now, with a tab in front, that receives no cast: one that does is no device's target
-// until its cast ends, the same sender's included (D386 §1). The cast its sender controlled before,
-// if any, ends (D337 §6: each sender controls one receiver), returned in left for its session to be
-// ended, its receiver told it was stopped.
+// until its cast ends, the same sender's included (D386 §1); nor may it cast, directly or through
+// the devices it casts to, to the sender, which would close a loop (ErrCastingHere). The cast its
+// sender controlled before, if any, ends (D337 §6: each sender controls one receiver), returned in
+// left for its session to be ended, its receiver told it was stopped.
 func (registry *Registry) Cast(cast Cast, receiverCredential string) (started Cast, left []Cast, err error) {
 	if cast.ReceiverDeviceID == cast.SenderDeviceID {
 		return Cast{}, nil, ErrToItself
@@ -283,6 +288,9 @@ func (registry *Registry) Cast(cast Cast, receiverCredential string) (started Ca
 	}
 	if owner.casts[cast.ReceiverDeviceID] != nil {
 		return Cast{}, nil, ErrReceiving
+	}
+	if owner.castsTo(cast.ReceiverDeviceID, cast.SenderDeviceID) {
+		return Cast{}, nil, ErrCastingHere
 	}
 	front := owner.frontOf(cast.ReceiverDeviceID)
 	if front == nil {
@@ -532,16 +540,15 @@ func (owner *person) castByEither(castID, deviceID int64) *heldCast {
 
 // sendingMessage is the sending message of the cast deviceID sends, without one when it sends none.
 func (owner *person) sendingMessage(deviceID int64) Outbound {
-	for _, held := range owner.casts {
-		if held.SenderDeviceID == deviceID {
-			return Outbound{Type: MessageSending, Sending: &Sending{
-				CastID: held.ID, ReceiverDeviceID: held.ReceiverDeviceID, ReceiverName: held.ReceiverName,
-				FileID: held.FileID, ItemName: held.ItemName, TitleName: held.ItemName, DurationMs: held.DurationMs,
-				IsAccepted: held.IsAccepted,
-			}}
-		}
+	held := owner.sentBy(deviceID)
+	if held == nil {
+		return Outbound{Type: MessageSending}
 	}
-	return Outbound{Type: MessageSending}
+	return Outbound{Type: MessageSending, Sending: &Sending{
+		CastID: held.ID, ReceiverDeviceID: held.ReceiverDeviceID, ReceiverName: held.ReceiverName,
+		FileID: held.FileID, ItemName: held.ItemName, TitleName: held.ItemName, DurationMs: held.DurationMs,
+		IsAccepted: held.IsAccepted,
+	}}
 }
 
 // tellSending tells every connection of deviceID the cast it sends now, or that it sends none.
@@ -552,6 +559,33 @@ func (owner *person) tellSending(deviceID int64) {
 			each.send(message)
 		}
 	}
+}
+
+// castsTo is whether from casts to to, directly or through the devices it casts to: each device
+// sends one cast at most (D337 §6), so the casts from it form one chain, followed no further than
+// there are casts.
+func (owner *person) castsTo(from, to int64) bool {
+	for range len(owner.casts) {
+		next := owner.sentBy(from)
+		if next == nil {
+			return false
+		}
+		if next.ReceiverDeviceID == to {
+			return true
+		}
+		from = next.ReceiverDeviceID
+	}
+	return false
+}
+
+// sentBy is the cast deviceID sends, or nil for none.
+func (owner *person) sentBy(deviceID int64) *heldCast {
+	for _, held := range owner.casts {
+		if held.SenderDeviceID == deviceID {
+			return held
+		}
+	}
+	return nil
 }
 
 // isConnected is whether any connection of deviceID is open.

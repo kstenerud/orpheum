@@ -48,7 +48,10 @@ const (
 	// CodeReceivingACast is a cast to a device that receives another cast now, which no device may
 	// take over until that cast ends (D386 §1).
 	CodeReceivingACast Code = "receiving_a_cast"
-	CodeInternal       Code = "internal"
+	// CodeCastingHere is a cast to a device that casts to the asking one, directly or through the
+	// devices it casts to: the cast back would close a loop (live.ErrCastingHere).
+	CodeCastingHere Code = "casting_here"
+	CodeInternal    Code = "internal"
 )
 
 // codes are every Code, in the order above: the one list the API document's ProblemBody names.
@@ -58,7 +61,7 @@ func codes() []Code {
 		CodeSetupRequired, CodeAuthRequired, CodeForbidden, CodeNotFound, CodeInvalidRequest, CodeConflict,
 		CodeStale, CodeRateLimited, CodeQuotaExhausted, CodeProviderError, CodeNodeSilent, CodeFileUnavailable,
 		CodeMediaUnreachable, CodePreparing, CodePrepareFailed, CodeCannotConvert, CodeNoRoomToMake, CodePlaybackGone,
-		CodeMigrating, CodeInAnotherSession, CodeReceivingACast, CodeInternal,
+		CodeMigrating, CodeInAnotherSession, CodeReceivingACast, CodeCastingHere, CodeInternal,
 	}
 }
 

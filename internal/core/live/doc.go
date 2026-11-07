@@ -19,10 +19,13 @@
 //   - A cast goes only to another of the asker's own devices that is connected now (D337 §1, §2);
 //     each sender controls one receiver, a cast elsewhere leaving the one it controlled (D337 §6).
 //     A device receiving a cast is no device's target until that cast ends, its own sender's
-//     included, and the person's connections are told which devices receive (D386 §1). Enforced by
+//     included, and the person's connections are told which devices receive (D386 §1). A device
+//     that casts to the sender, directly or through the devices it casts to, is not its target: the
+//     cast back would close a loop (ErrCastingHere). Enforced by
 //     TestRegistry_ACastGoesOnlyToAnotherConnectedDeviceOfTheSamePerson,
-//     TestRegistry_ASenderCastingElsewhereLeavesTheReceiverItControlled and
-//     TestRegistry_ADeviceReceivingACastIsNoOnesTargetUntilItEnds.
+//     TestRegistry_ASenderCastingElsewhereLeavesTheReceiverItControlled,
+//     TestRegistry_ADeviceReceivingACastIsNoOnesTargetUntilItEnds and
+//     TestRegistry_ACastBackToADeviceCastingHereIsRefused.
 //   - The hand-off reaches one connection of the receiver, its tab in front, the one that came to the
 //     front last; a device with none in front is refused, and the person's connections are told which
 //     devices have one (D338 §2). A connection in front once none holds the cast, loaded again or come
