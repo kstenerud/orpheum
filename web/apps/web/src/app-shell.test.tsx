@@ -3,7 +3,7 @@
 // @vitest-environment happy-dom
 import "./i18n.ts";
 
-import { act, type JSX } from "react";
+import { act, use, type JSX } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
@@ -13,6 +13,7 @@ import { localNetworkNoteDismissedKey } from "./local-network-note.tsx";
 import { createNavigation } from "./navigation.ts";
 import { buttonNamed, buttonWithText, click, fire, mount, settleUntil } from "./test-dom.tsx";
 import { fakePlace, testServices, withServices } from "./test-services.tsx";
+import { CanStartTogetherContext } from "./together-can-start.ts";
 
 const ignore = (): void => undefined;
 
@@ -28,7 +29,31 @@ async function drawnWithMenuOpen(shell: JSX.Element): Promise<string> {
   return markup;
 }
 
+/** Draws what a screen is told of starting Watch Together, as the sign over the film reads it. */
+function CanStartProbe(): JSX.Element {
+  return <output data-can-start={String(use(CanStartTogetherContext))} />;
+}
+
 describe("AppShell", () => {
+  it("tells its screen whether the person may start Watch Together, as its tray offers it (D440 §6)", () => {
+    for (const canHostWatchTogether of [true, false]) {
+      const markup = renderToStaticMarkup(
+        withServices(
+          <AppShell
+            isAdmin={false}
+            canHostWatchTogether={canHostWatchTogether}
+            currentScreen="films"
+            onSignOut={ignore}
+            signedInAs={{ name: "partner", deviceName: undefined }}
+          >
+            <CanStartProbe />
+          </AppShell>,
+        ),
+      );
+      expect(markup).toContain(`data-can-start="${String(canHostWatchTogether)}"`);
+    }
+  });
+
   it("renders a banner with the product name and the menu, and one main landmark", async () => {
     const shell = (
       <AppShell
