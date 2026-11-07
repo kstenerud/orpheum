@@ -369,6 +369,7 @@ export async function expectTalkRingMoves(page: Page): Promise<void> {
   }
   await expect(async () => {
     const level = await page
+      .getByRole("region", { name: "Voice" })
       .locator(".together-voice__talk")
       .evaluate((button: HTMLElement) => Number(button.style.getPropertyValue("--level")));
     expect(level).toBeGreaterThan(0);
