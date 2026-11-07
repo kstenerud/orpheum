@@ -2369,4 +2369,6 @@ with a microphone (§3); the Watch Together sign shown with no session to a pers
 lives in volume-step.ts so the home page does not load the player. Owed by the owner: VQ277.
 
 - **Left for batch 2:** the host's session panel over the film still shows a volume per person; it
-  moves to the cast controls page (D440 §5), with Cast for link-only guests (§4).
+  moves to the cast controls page (D440 §5). Cast for guests needs nothing new: a signed-in guest
+  has it already, and a guest by link alone has nothing to cast to until Chromecast and AirPlay
+  (the owner, 2026-11-07; playback-redesign-2026-11-07.md §4).
