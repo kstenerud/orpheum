@@ -36,7 +36,6 @@ var (
 	FilmReadingFinding   = filmReadingFinding
 	HairpinFinding       = hairpinFinding
 	HardwareFinding      = hardwareFinding
-	IsDirectPath         = isDirectPath
 	NodeBuildFinding     = nodeBuildFinding
 	OperationsIn         = operationsIn
 	ProblemDetails       = problemDetails

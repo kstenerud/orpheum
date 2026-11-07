@@ -3,7 +3,6 @@
 package rtcapi
 
 import (
-	"context"
 	"net/netip"
 	"slices"
 	"sync/atomic"
@@ -73,17 +72,4 @@ func (held *heldNetworks) held() []netip.Prefix {
 		return *networks
 	}
 	return nil
-}
-
-// ownNetworksKey is the context key of the core's own IPv6 networks on a request's connection.
-type ownNetworksKey struct{}
-
-// OwnIPv6NetworksOf are the /64s of the core's own public IPv6 addresses on the WebRTC connection a
-// request came over: a client address in one is in the house (D297 §6). None for any other request.
-func OwnIPv6NetworksOf(ctx context.Context) []netip.Prefix {
-	networks, isMarked := ctx.Value(ownNetworksKey{}).([]netip.Prefix)
-	if !isMarked {
-		return nil
-	}
-	return networks
 }

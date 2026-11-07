@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"net/netip"
 	"net/url"
 	"runtime/debug"
 	"strings"
@@ -63,12 +62,10 @@ type ResponseHead struct {
 type servedChannel struct {
 	deadline time.Duration
 	ended    func()
-	// path is the path the channel's connection selected, which the request's context carries
-	// (PathOf); nil carries none.
-	path func() Path
-	// ownNetworks are the core's own public IPv6 networks on the channel's connection, which the
-	// request's context carries (OwnIPv6NetworksOf); nil carries none.
-	ownNetworks func() []netip.Prefix
+	// fromHome is whether the channel's connection's selected pair reaches the core directly from the
+	// house (provenAtHome), which the request's context carries (IsDirectlyFromHome); nil carries
+	// false.
+	fromHome func() bool
 	// held is the channel's connection's record, which counts its requests and learns whose it is
 	// (NoteClient); nil keeps none.
 	held *heldConnection
@@ -118,11 +115,8 @@ func serveChannel(
 			return
 		}
 		overWebRTC := context.WithValue(ctx, overWebRTCKey{}, true)
-		if served.path != nil {
-			overWebRTC = context.WithValue(overWebRTC, pathKey{}, served.path())
-		}
-		if served.ownNetworks != nil {
-			overWebRTC = context.WithValue(overWebRTC, ownNetworksKey{}, served.ownNetworks())
+		if served.fromHome != nil {
+			overWebRTC = context.WithValue(overWebRTC, fromHomeKey{}, served.fromHome())
 		}
 		overWebRTC = withHeld(overWebRTC, served.held)
 		request, err := reader.request(overWebRTC, remote())
@@ -204,19 +198,6 @@ func (reader *requestReader) take(message webrtc.DataChannelMessage) {
 func (reader *requestReader) end(failed error) {
 	reader.failed, reader.isDone = failed, true
 	close(reader.done)
-}
-
-// pathKey is the context key of the path a request's WebRTC connection selected.
-type pathKey struct{}
-
-// PathOf is the path the WebRTC connection a request came over selected, as the core's own end of
-// it says: what decides whether the request is from home (D300 §3); PathFailed for any other request.
-func PathOf(ctx context.Context) Path {
-	path, isMarked := ctx.Value(pathKey{}).(Path)
-	if !isMarked {
-		return PathFailed
-	}
-	return path
 }
 
 // overWebRTCKey marks a request's context as one a data channel carried.

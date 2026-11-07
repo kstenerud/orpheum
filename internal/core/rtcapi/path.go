@@ -151,15 +151,6 @@ func (server *Server) PathCounts() map[Path]int {
 	return maps.Clone(server.paths)
 }
 
-// selectedPath is the path a connected connection's selected pair takes.
-func selectedPath(connection *webrtc.PeerConnection) Path {
-	pair := selectedPair(connection)
-	if pair == nil {
-		return PathFailed
-	}
-	return pathOf(pair.Local, pair.Remote)
-}
-
 // selectedPair is a connection's selected candidate pair, nil before it has one.
 func selectedPair(connection *webrtc.PeerConnection) *webrtc.ICECandidatePair {
 	sctp := connection.SCTP()

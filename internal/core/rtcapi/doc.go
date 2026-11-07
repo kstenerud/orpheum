@@ -68,16 +68,17 @@
 //     home, until a direct connection from a home network, or for HairpinWarningLasts after the last
 //     (D354). TestHairpinWarning_StandsUntilADirectConnectionFromTheHouse,
 //     TestHairpinWarning_LapsesAWeekAfterTheLastHairpin.
-//   - A request over WebRTC carries the core's own public IPv6 /64s on its connection, from its host
-//     and STUN-found candidates alone, never a private, link-local, relayed or client address (D297
-//     §6). TestOwnIPv6Networks_AreThePublicIPv6CandidatesOfTheCoresOwnEnd.
 //   - A connection a discovery's offer made is told to its answerer as proven at home (AnswerRelayed's
-//     onProvenAtHome) only when its selected pair is direct, the core's end a host candidate, and the
-//     client's end in the home networks or the core's own public IPv6 networks; a relayed, punched or
-//     hairpinned one, or a direct one from anywhere else, never is (D356 §1, D354 §4).
+//     onProvenAtHome), and a request over any connection is marked from home (IsDirectlyFromHome),
+//     only when its selected pair is direct, the core's end a host candidate, and the client's end in
+//     the home networks or the core's own public IPv6 networks, its host and STUN-found candidates' /64s
+//     (D297 §6); a relayed, punched or hairpinned one, or a direct one from anywhere else, never is
+//     (D356 §1, D354 §4, D439). It is one judgement, provenAtHome's, which api reads and does not make
+//     (D439 §2); a request's is made on the pair and the home networks as it finds them.
+//     TestOwnIPv6Networks_AreThePublicIPv6CandidatesOfTheCoresOwnEnd,
 //     TestProvenAtHome_ADirectConnectionFromTheHouseProvesItself,
 //     TestProvenAtHome_ARelayedPunchedOrHairpinnedConnectionProvesNothing,
-//     TestAnswerRelayed_TellsAConnectionProvenAtHome.
+//     TestAnswerRelayed_TellsAConnectionProvenAtHome, TestIsDirectlyFromHome_OnlyADirectPairFromTheHouseIs.
 //   - A core taking WebRTC at home gathers its host candidates on one UDP port and answers with the
 //     house's address at it, so a device in the house reaches it directly (D300 §1).
 //     TestListenLAN_AnswersWithTheHousesAddressAtItsPort.
