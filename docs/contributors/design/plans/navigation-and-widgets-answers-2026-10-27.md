@@ -2396,3 +2396,11 @@ VQ278–282.
   - Talk appears twice in the host's session dialog: beside the button and in the voice controls.
   - Unmuting from the phone may pause the film on a Chromium TV (VQ278 watches for it). The remote
     follows volume changes made on the TV. Slider moves are not throttled.
+- **Folded in (the owner's test on staging, 2026-11-07):** starting a session from the film remounted
+  the whole page (fixed, "fix(web): starting a session from the film no longer remounts the page"); the dialog over the film read as two dialogs, offered Back and
+  Stop on the film's own page, and showed the debug list mid-dialog (fixed, "fix(web): Watch Together's dialog over the film reads as one dialog"). A session
+  hosted on the Mac was handed to the phone as it opened Orpheum (D267 §2), so both hosted it and Cast
+  left the phone out (D384 §3). **The owner's answer:** a hosted session stays on the device that
+  started it, surviving a reload there; the person's other devices do not host it: their Watch
+  Together button says it is on, on that device, and offers to move it here; Cast lists them as any
+  other device. To build in this batch, recorded as a decision amending D267 §2.
