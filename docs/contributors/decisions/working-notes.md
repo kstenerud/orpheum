@@ -26701,3 +26701,20 @@ traffic is relayed by us.
    (the relay report's addendum). The cap's numbers are set when it is built.
 
 **Status:** Deferred (2026-11-06), not built; the beta's data reopens it.
+
+## D439 — Only a direct pair from home is home: a punched pair is judged as from away, once, in rtcapi
+
+**Decided** (2026-11-07), by the project owner ("Decision 4: Agreed"), on the lead's answer to "is it
+safe?" for the 11-15 batch's item 5. Amends D300 §3, which counted any pair but a relayed one.
+
+1. **A WebRTC request is from home only when the pair carrying it is direct** (`PathDirectIPv4`,
+   `PathDirectIPv6`) and its client's end is in a home network or the core's own IPv6 networks. A
+   punched pair is not, whatever its address: a punched IPv4 address is a NAT's public one, which a
+   carrier's NAT shares among many households, so it proves nothing (as D354 §4 found for a hairpin).
+   A punched IPv6 address is the device's own and would be safe, but a pair inside the house is
+   direct, so the rare punched one from home is given up for one rule that matches rtcapi's: such a
+   page is offered no admin over WebRTC, like any other page from away.
+2. **One judgement, in rtcapi** (`provenAtHome`, D356 §1), kept with the connection; `api` reads it
+   instead of judging the path itself. A change to what counts as home is made there alone.
+
+**Status:** Decided (2026-11-07).
