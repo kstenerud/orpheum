@@ -30,6 +30,13 @@ session (`.claude/hooks/pre_bash.py` runs it through this).
 - **A hold has a lease** (LEASE_SECONDS by kind, or `--lease`). The wrapper ends its command at the
   lease's end and says so; a run waiting behind a holder past its lease (one whose wrapper was killed
   outright) ends the holder's group, when it can see it, and otherwise names what holds the lock.
+- **A run started any other way holds it too** (the owner, 2026-11-07: "make each of the direct
+  methods of invoking tests ... invoke a common script that checks the lock"). `--for-pid PID` takes a
+  hold that lasts while process PID lives and returns once it is held, the hold going on in the
+  background (hold_for); a second asking for the same PID joins it. `go test` reaches it through
+  `scripts/go_test_exec`, the `-exec` that `make setup` adds to GOFLAGS, for the `go` command's PID
+  (its packages' binaries share one hold); vitest and Playwright through `web/e2e/test-lock.ts`, their
+  global setup, for their own.
 - **The queue is visible.** Each waiting run registers itself (WAITING) and each finished hold records
   its length (HOLDS), so `expected_wait` can say how long a run arriving now would wait; the shell
   hook refuses a command that would spend its timeout waiting, rather than letting the tool kill it.
@@ -213,6 +220,90 @@ def _alive(pid: int) -> bool:
     except PermissionError:
         return True
     return True
+
+
+def _running(pid: int) -> bool:
+    """Whether process pid runs: alive and not a zombie waiting for its parent to read its end."""
+    if not _alive(pid):
+        return False
+    try:
+        stat = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8")
+    except OSError:
+        return True
+    return stat.rpartition(")")[2].split()[:1] != ["Z"]
+
+
+def _hold_marker(pid: int, root: Path | None) -> Path:
+    """Where the hold for process pid says who keeps it: one per process, in this PID namespace."""
+    namespace = "".join(c for c in pid_namespace() if c.isdigit())
+    return common_dir(root) / f"gate-for-{namespace}-{pid}"
+
+
+def _read_hold(marker: Path) -> tuple[str, int] | None:
+    """The hold's state ("asking" or "held") and the process keeping it, None when there is none."""
+    try:
+        state, _, keeper = marker.read_text(encoding="utf-8").strip().partition(" ")
+        return state, int(keeper)
+    except (OSError, ValueError):
+        return None
+
+
+def hold_for(pid: int, kind: str = "test", root: Path | None = None) -> int | None:
+    """Holds the lock while process pid runs, returning once it is held: the wrapper keeping the hold,
+    when this call started it (ending that wrapper lets the lock go at once), None when it joined a
+    hold already kept for pid, or the lock is held already (GATE_LOCK_HELD). The hold is a run_holding
+    of await_exit in the background, so it waits, queues and keeps its lease as any run does."""
+    if os.environ.get(GATE_LOCK_HELD) == "1":
+        return None
+    marker = _hold_marker(pid, root)
+    while True:
+        try:
+            created = os.open(marker, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+        except FileExistsError:
+            said = _read_hold(marker)
+            if said is not None and _running(said[1]):
+                if said[0] == "held":
+                    return None
+                time.sleep(0.05)
+                continue
+            marker.unlink(missing_ok=True)  # its keeper is gone: a hold that ended without its marker
+            continue
+        with os.fdopen(created, "w", encoding="utf-8") as handle:
+            handle.write(f"asking {os.getpid()}\n")
+        if (said := holder(root)) is not None:
+            print(f"Another test run holds this repository's lock ({said or 'unnamed'}); waiting for it to "
+                  "finish.", file=sys.stderr, flush=True)
+        # Its output goes nowhere: a test binary's pipes, given to a keeper that outlives the binary,
+        # would keep `go test` reading them until the keeper ends, and the keeper waits for `go test`.
+        script = str(Path(__file__).resolve())
+        keeper = subprocess.Popen([sys.executable, script, "--as", kind, sys.executable, script, "--await-exit",
+                                   str(pid), str(marker)], cwd=root, stdin=subprocess.DEVNULL,
+                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        while (said := _read_hold(marker)) is None or said[0] != "held":
+            if keeper.poll() is not None:
+                marker.unlink(missing_ok=True)
+                raise RuntimeError(f"gate lock: the hold for process {pid} ended before it was held")
+            time.sleep(0.05)
+        return keeper.pid
+
+
+def await_exit(pid: int, marker: Path) -> int:
+    """The command of a hold_for: says the hold is held, by its wrapper, then waits for process pid to
+    end, and removes the hold's marker as it ends, however it is ended."""
+    def ended(signum, _frame):
+        sys.exit(128 + signum)
+
+    for signum in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        signal.signal(signum, ended)
+    try:
+        written = marker.with_name(marker.name + ".new")
+        written.write_text(f"held {os.getppid()}\n", encoding="utf-8")
+        os.replace(written, marker)
+        while _running(pid):
+            time.sleep(0.2)
+    finally:
+        marker.unlink(missing_ok=True)
+    return 0
 
 
 def waiting(root: Path | None = None) -> list[dict[str, Any]]:
@@ -475,6 +566,8 @@ def main(argv: list[str]) -> int:
             return 1
         print(said)
         return 0
+    if argv[:1] == ["--await-exit"] and len(argv) == 3:
+        return await_exit(int(argv[1]), Path(argv[2]))
     kind, lease = GATE, None
     while argv[:1] in (["--as"], ["--lease"]) and len(argv) >= 2:
         if argv[0] == "--as":
@@ -482,8 +575,13 @@ def main(argv: list[str]) -> int:
         else:
             lease = float(argv[1])
         argv = argv[2:]
+    if argv[:1] == ["--for-pid"] and len(argv) == 2:
+        keeper = hold_for(int(argv[1]), kind if kind != GATE else "test")
+        print(keeper or "", flush=True)
+        return 0
     if not argv:
-        print("usage: gate_lock.py [--as KIND] [--lease SECONDS] <command...> | --held", file=sys.stderr)
+        print("usage: gate_lock.py [--as KIND] [--lease SECONDS] <command...> | --for-pid PID | --held",
+              file=sys.stderr)
         return 2
     return run_holding(argv, kind, lease)
 

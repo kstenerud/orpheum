@@ -4,6 +4,7 @@
 import fcntl
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -240,6 +241,85 @@ class Wiring(unittest.TestCase):
             if "scripts/check_revert_red.py" in line and line.startswith("\t"):
                 self.assertIn("$(GATE_LOCK)", line, line)
         self.assertIn("gate_lock.holding(", (SCRIPTS / "check_pr_snapshot.py").read_text())
+
+
+class ARunStartedAnyWayHoldsIt(unittest.TestCase):
+    """The owner, 2026-11-07: every direct way of running tests (go, npm, npx, an editor) takes the lock
+    through one script: gate_lock.py --for-pid, which go_test_exec and web/e2e/test-lock.ts call."""
+
+    def process(self, root: Path) -> tuple[subprocess.Popen[str], Path]:
+        """A process standing for a run (the go command, vitest), and the file whose touch ends it."""
+        release = root / "release"
+        run = subprocess.Popen(["sh", "-c", f"i=0; while [ ! -e {release} ] && [ $i -lt 1500 ]; do sleep 0.02; "
+                                f"i=$((i+1)); done"])
+        self.addCleanup(run.kill)
+        return run, release
+
+    def test_a_hold_for_a_process_lasts_while_it_runs_and_a_second_asking_joins_it(self):
+        root = repository(self)
+        run, release = self.process(root)
+        first = run_lock(root, "--for-pid", str(run.pid))
+        said, _ = first.communicate(timeout=30)
+        self.assertEqual(first.returncode, 0, said)
+        keeper = int(said.strip())
+        self.addCleanup(lambda: alive(keeper) and os.kill(keeper, 9))
+        self.assertEqual(gate_lock.holder_kind(gate_lock.holder(root)), "test", "held as a test run")
+        second = run_lock(root, "--for-pid", str(run.pid))
+        joined, _ = second.communicate(timeout=10)
+        self.assertEqual((second.returncode, joined.strip()), (0, ""), "the second joined the first's hold")
+        other = run_lock(root, "true")
+        self.assertIn("waiting for it to finish", other.stdout.readline(), "another run waits behind the hold")
+        release.touch()
+        run.wait(timeout=30)
+        self.assertEqual(other.wait(timeout=30), 0)
+        other.stdout.close()
+        until(lambda: gate_lock.holder(root) is None)
+        self.assertEqual(list(root.glob(".git/gate-for-*")), [], "the hold's marker went with it")
+
+    def test_ending_the_keeper_lets_the_lock_go_while_the_process_runs_on(self):
+        root = repository(self)
+        run, _release = self.process(root)
+        first = run_lock(root, "--for-pid", str(run.pid))
+        said, _ = first.communicate(timeout=30)
+        os.kill(int(said.strip()), signal.SIGTERM)
+        until(lambda: gate_lock.holder(root) is None)
+        self.assertIsNone(run.poll(), "the process itself runs on")
+
+    def test_go_test_exec_holds_the_lock_for_a_test_binary_alone(self):
+        root = repository(self)
+        (root / "scripts").mkdir()
+        shutil.copy(SCRIPTS / "gate_lock.py", root / "scripts" / "gate_lock.py")
+        report = f"{sys.executable} {SCRIPTS / 'gate_lock.py'} --held || echo none"
+        for name in ("pkg.test", "program"):
+            binary = root / name
+            binary.write_text(f"#!/bin/sh\n{report}\n")
+            binary.chmod(0o755)
+        env = {k: v for k, v in os.environ.items() if k != gate_lock.GATE_LOCK_HELD} | HERMETIC
+
+        def through_exec(name: str) -> str:
+            # sh stands for the go command: the wrapper's parent, whose life the hold lasts.
+            return subprocess.run(["sh", "-c", f"{SCRIPTS / 'go_test_exec'} ./{name}; true"], cwd=root, env=env,
+                                  capture_output=True, text=True, timeout=60, check=True).stdout
+
+        self.assertRegex(through_exec("pkg.test"), r"^test pid \d+", "a test binary runs holding the lock")
+        until(lambda: gate_lock.holder(root) is None)  # the hold ends with its go command
+        self.assertEqual(through_exec("program").strip(), "none", "go run's programs take nothing")
+        until(lambda: gate_lock.holder(root) is None)
+        held = subprocess.run([SCRIPTS / "go_test_exec", "./pkg.test"], cwd=root, capture_output=True, text=True,
+                              env=env | {gate_lock.GATE_LOCK_HELD: "1"}, timeout=30, check=True).stdout
+        self.assertEqual(held.strip(), "none", "a run that holds the lock already passes straight on")
+
+    def test_the_web_runners_take_the_lock_in_their_global_setup(self):
+        web = SCRIPTS.parent / "web"
+        for config in ("vitest.config.ts", "vitest.browser.config.ts"):
+            self.assertIn('globalSetup: ["./e2e/test-lock.ts"]', (web / config).read_text(), config)
+        self.assertIn('globalSetup: ["./test-lock.ts", ', (web / "e2e" / "playwright.config.ts").read_text())
+        self.assertIn('"--for-pid"', (web / "e2e" / "test-lock.ts").read_text())
+
+    def test_make_setup_points_go_test_at_the_lock(self):
+        makefile = (SCRIPTS.parent / "Makefile").read_text()
+        self.assertRegex(makefile, r"\nsetup: [^\n]*\bgo-test-lock\b")
+        self.assertIn("-exec=$(CURDIR)/scripts/go_test_exec", makefile)
 
 
 if __name__ == "__main__":

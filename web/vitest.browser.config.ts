@@ -24,6 +24,8 @@ export default defineConfig({
     include: ["{packages,apps}/*/src/**/*.browser.test.{ts,tsx}"],
     allowOnly: false,
     passWithNoTests: false,
+    // The repository's test lock, taken however the run was started (e2e/test-lock.ts).
+    globalSetup: ["./e2e/test-lock.ts"],
     // A walk presses keys through the browser one round trip at a time: 3 to 4 s alone, past 15 s on
     // a machine other gates load (test-weight.md §26). Its polls wait as long as it may need.
     testTimeout: 30_000,
