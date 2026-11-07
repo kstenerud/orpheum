@@ -112,7 +112,7 @@ function leaveFullscreen(): boolean {
 }
 
 /**
- * Moves video's volume a step towards direction (volumeAfter); a step up turns a muted film's sound
+ * Moves video's volume a step towards direction (volumeAfter, volume-step.ts); a step up turns a muted film's sound
  * on, as a player's volume key does. The element's own properties are what set its sound.
  */
 function stepVolume(video: HTMLVideoElement, direction: -1 | 1): boolean {
