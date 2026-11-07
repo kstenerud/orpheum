@@ -24,7 +24,7 @@ import { signMark, TogetherIcon } from "./sign-mark.tsx";
 import { TogetherDialog } from "./together-dialog-code.tsx";
 import { CanStartTogetherContext } from "./together-can-start.ts";
 import { useMembership } from "./together-membership.ts";
-import { useHostedElsewhere } from "./together-mine.ts";
+import { useHostedElsewhereHere } from "./together-mine.ts";
 import { PanelInTheDialogContext } from "./together-panel-place.tsx";
 
 /**
@@ -112,6 +112,25 @@ export function TogetherSignOverTheFilm(props: {
 }
 
 /**
+ * What Watch Together's button offers with no session here: the start, to one who may host, or the
+ * session the person hosts on another device, said to be on there and offered to move here (D442 §2),
+ * never the start then, which would end it. A device receiving a cast offers neither: it plays the
+ * cast's session, not one of its own (PlaysAlong, D88).
+ */
+function useWhatTheButtonOffers(canStart: boolean): {
+  readonly showsStart: boolean;
+  readonly showsElsewhere: boolean;
+} {
+  const isHosting = useMembership(tabStorage, "host") !== undefined;
+  const isViewing = useMembership(browserStorage, "viewer") !== undefined;
+  const isReceiving = useLive().receiving !== undefined;
+  const elsewhere = useHostedElsewhereHere();
+  const isFree = !isHosting && !isViewing && !isReceiving;
+  const showsElsewhere = isFree && elsewhere !== undefined;
+  return { showsStart: canStart && isFree && !showsElsewhere, showsElsewhere };
+}
+
+/**
  * Watch Together's one button (D440 §6), over the film (TogetherSignOverTheFilm) or on the cast's
  * remote (together-on-the-remote.tsx), as TogetherSignOverTheFilm says: the session's panel moved
  * into the dialog it opens, or, with no session, the start to one who may host.
@@ -123,15 +142,7 @@ export function TogetherButton(props: {
   const { t } = useTranslation();
   const isOn = useSyncExternalStore(subscribe, hasPanel, hasPanel);
   const canStart = use(CanStartTogetherContext);
-  const isHosting = useMembership(tabStorage, "host") !== undefined;
-  const isViewing = useMembership(browserStorage, "viewer") !== undefined;
-  // A device receiving a cast plays the cast's session, not one of its own (PlaysAlong, D88).
-  const isReceiving = useLive().receiving !== undefined;
-  // The session the person hosts on another device: said to be on, there, and offered to move here
-  // (D442 §2), never to start another, which would end it.
-  const showsElsewhere =
-    useHostedElsewhere() !== undefined && !isHosting && !isViewing && !isReceiving;
-  const showsStart = canStart && !isHosting && !isViewing && !isReceiving && !showsElsewhere;
+  const { showsStart, showsElsewhere } = useWhatTheButtonOffers(canStart);
   const [isOpen, setIsOpen] = useState(false);
   const { onOpenChange } = props;
   const openOrClose = useCallback(
