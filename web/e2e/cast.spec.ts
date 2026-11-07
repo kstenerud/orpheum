@@ -116,7 +116,7 @@ async function castFromOneToTheOther(
 }
 
 test(
-  "a person casts to another of their devices, controls it, plays a second film there with no question, and takes control back",
+  "a person casts to another of their devices, controls it, plays a second film there with no question, and the receiver's Escape ends nothing",
   // Timed: the receiver pauses within pausedWithinMs of its remote's Pause.
   { tag: [oneBrowserTag, timingTag] },
   async ({ browser }) => {
@@ -163,17 +163,15 @@ test(
         timeout: 10_000,
       });
 
-      // Control taken back ends the cast: the receiver goes home, and the sender plays the film
-      // itself from where the receiver stood, playing as it was, offering nothing (D385 §1, §2).
-      const playAddress = sender.url();
+      // Escape on the receiver ends nothing: the film plays on there, the cast still the sender's to
+      // end (the owner, 2026-11-07, the 11-20 batch's answer 4).
+      const receiverAddress = receiver.url();
       await receiver.keyboard.press("Escape");
-      await expect.poll(() => new URL(receiver.url()).pathname, { timeout: 10_000 }).toBe("/");
-      await expect(receiver.locator("video")).toHaveCount(0);
-      await expect(castSign(sender)).not.toHaveClass(/icon-button--running/u, { timeout: 10_000 });
-      await expect.poll(async () => await isPlaying(sender), { timeout: 30_000 }).toBe(true);
-      await expect(sender.getByRole("button", { name: /^Play here from / })).toHaveCount(0);
-      await expect(sender.getByText(/took control back/u)).toHaveCount(0);
-      expect(sender.url()).toBe(playAddress);
+      await receiver.waitForTimeout(1_000); // the end it once caused came within this
+      expect(receiver.url()).toBe(receiverAddress);
+      await expect.poll(async () => await isPlaying(receiver), { timeout: 10_000 }).toBe(true);
+      await expect(castSign(sender)).toHaveClass(/icon-button--running/u);
+      await expect(sender.getByText(/^Playing on /u)).toBeVisible();
     });
   },
 );

@@ -19,7 +19,7 @@ export const enCast = {
     castingHere:
       "{{name}} is casting to this device, so this device cannot cast to it. Stop that cast on {{name}} first.",
     none: "None of your other devices has Orpheum open now. Open it on the device you want to watch on, signed in as you, and it shows here.",
-    controlledFrom: "Controlled from {{name}} · Back, or OK twice, to take control here",
+    controlledFrom: "Controlled from {{name}}",
     asked: {
       question: "{{device}} wants to use this device for playback",
       use: "Use",

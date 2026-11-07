@@ -53,44 +53,57 @@ describe("the receiver's controlled mode at a step through the history", () => {
     }
   });
 
-  /** A receiver's controlled mode, and what it was told of leaving. */
-  async function controlled(services: Services): Promise<ReturnType<typeof vi.fn>> {
-    const onLeave = vi.fn();
-    mounted = await mount(
-      withServices(<ControlledMode fromName="Pixel" onTakeBack={onLeave} />, services),
-    );
-    return onLeave;
+  /** A receiver's controlled mode over services. */
+  async function controlled(services: Services): Promise<void> {
+    mounted = await mount(withServices(<ControlledMode fromName="Pixel" />, services));
   }
 
-  it("leaves at a Fire TV's Back, a step back from the entry it keeps", async () => {
+  /** How many held entries the history stands above the page's own. */
+  function heldDepth(place: Place): unknown {
+    const state: unknown = place.history.state;
+    return typeof state === "object" && state !== null
+      ? Reflect.get(state, "heldDepth")
+      : undefined;
+  }
+
+  // The owner, 2026-11-07 (the 11-20 batch, answer 4): nothing on the receiver ends the cast.
+  it("stays on its page at a Fire TV's Back, each step taking an entry it holds again", async () => {
     const browser = browserLike("/play/3");
     const pushed = vi.spyOn(browser.services.navigation, "go");
-    const onLeave = await controlled(browser.services);
-    expect(pushed).toHaveBeenCalledWith({ screen: "play", fileId: 3 });
+    await controlled(browser.services);
     act(() => {
-      browser.place.history.back();
       browser.settle();
     });
-    expect(onLeave).toHaveBeenCalledOnce();
+    expect(heldDepth(browser.place)).toBe(1);
+    for (const step of ["the first Back", "the second"]) {
+      act(() => {
+        browser.place.history.back();
+        browser.settle();
+      });
+      expect(browser.services.navigation.route(), step).toEqual({ screen: "play", fileId: 3 });
+      expect(heldDepth(browser.place), step).toBe(1);
+    }
+    expect(pushed).not.toHaveBeenCalled();
   });
 
   // Staging, 2026-10-30: the Fire TV gave a cast's control back 16 ms after its Use, the step
   // closing the Use question heard as the person's Back (D384).
-  it("keeps control through the step the Use question's close makes, and leaves at the Back after", async () => {
+  it("stays on its page through the step the Use question's close makes, and at the Back after", async () => {
     const browser = browserLike("/play/3");
     const releaseQuestion = browser.services.navigation.holdBack(() => undefined);
     browser.settle();
     releaseQuestion(); // Use pressed: the question's held entry is stepped off, a step still to come
-    const onLeave = await controlled(browser.services);
+    await controlled(browser.services);
     act(() => {
       browser.settle();
     });
-    expect(onLeave).not.toHaveBeenCalled();
     expect(browser.services.navigation.route()).toEqual({ screen: "play", fileId: 3 });
+    expect(heldDepth(browser.place)).toBe(1);
     act(() => {
       browser.place.history.back();
       browser.settle();
     });
-    expect(onLeave).toHaveBeenCalledOnce();
+    expect(browser.services.navigation.route()).toEqual({ screen: "play", fileId: 3 });
+    expect(heldDepth(browser.place)).toBe(1);
   });
 });

@@ -100,6 +100,13 @@
   color: var(--color-on-video);
 }
 
+/* The ready page's ⤢, at the screen's corner, as the player's sits in its overlay. */
+.cast-ready__full-screen {
+  position: absolute;
+  inset-block-end: var(--space-4);
+  inset-inline-end: var(--space-4);
+}
+
 .cast-ready__line {
   margin: 0;
   color: var(--color-muted);

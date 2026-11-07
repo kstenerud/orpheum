@@ -189,9 +189,8 @@ const leavingAsked = new WeakSet<Document>();
 
 /**
  * Leaves full screen at the page's own asking, which isFullScreenLeaveAsked says until the browser's
- * next fullscreenchange has been heard: a cast's receiver takes control back where the browser leaves
- * full screen unasked (a Fire TV's Back, Escape; cast-receiver.tsx), and its own leaving, Stop
- * casting or the film's end, is not that.
+ * next fullscreenchange has been heard: an input layer offers Back where the browser leaves full
+ * screen unasked (a Fire TV's Back, Escape; input-layer.tsx), and the page's own leaving is not that.
  */
 export function leaveFullScreenAsked(page: Document): void {
   leavingAsked.add(page);

@@ -6,20 +6,14 @@ import "./i18n.ts";
 import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  CastReceiver,
-  castNoteShownMs,
-  ControlledMode,
-  doublePressWithinMs,
-  moveOnOrReady,
-} from "./cast-receiver.tsx";
+import { CastReceiver, castNoteShownMs, ControlledMode, moveOnOrReady } from "./cast-receiver.tsx";
 import { playedMutedEvent } from "@orpheum/sdk";
 
 import { leaveFullScreen, type CastAnswer } from "./cast-asked.tsx";
 import { fillsWindowClass, followFillsWindow } from "./film-fullscreen.ts";
 import { onCommand } from "./input-commands.ts";
 import { currentNotice, dismissNotice } from "./notice.ts";
-import { mount, refusal, servedBy, unanswered, type Heard, type Mounted } from "./test-dom.tsx";
+import { mount, refusal, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
 import { hideTheDocument, playingVideo } from "./test-hidden.ts";
 import { testServices, withServices } from "./test-services.tsx";
 import { fakeTogetherServer, type FakeTogetherServer } from "./test-together.ts";
@@ -44,82 +38,81 @@ function tap(): void {
   });
 }
 
-describe("the receiver's controlled mode (D338 §6)", () => {
+describe("the receiver's controlled mode (D338 §6; the owner, 2026-11-07)", () => {
   let mounted: Mounted | undefined;
   afterEach(() => {
     mounted?.unmount();
     mounted = undefined;
     vi.useRealTimers();
+    Reflect.deleteProperty(document, "fullscreenElement");
+    Reflect.deleteProperty(document, "exitFullscreen");
   });
 
-  /** A receiver's controlled mode, and what it was told of leaving. */
-  async function controlled(
-    services = testServices("token", "/play/3"),
-  ): Promise<{ readonly mounted: Mounted; readonly onLeave: ReturnType<typeof vi.fn> }> {
-    const onLeave = vi.fn();
-    mounted = await mount(
-      withServices(<ControlledMode fromName="Pixel" onTakeBack={onLeave} />, services),
-    );
-    return { mounted, onLeave };
+  /** A receiver's controlled mode, over services. */
+  async function controlled(services = testServices("token", "/play/3")): Promise<Mounted> {
+    mounted = await mount(withServices(<ControlledMode fromName="Pixel" />, services));
+    return mounted;
   }
 
-  it("says who controls it and how to leave, and lets the line fade", async () => {
+  it("says who controls it, and lets the line fade", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
     const shown = await controlled();
-    expect(shown.mounted.container.textContent).toContain(
-      "Controlled from Pixel · Back, or OK twice, to take control here",
-    );
+    expect(shown.container.textContent).toContain("Controlled from Pixel");
+    expect(shown.container.textContent).not.toContain("take control here");
     act(() => {
       vi.advanceTimersByTime(castNoteShownMs);
     });
-    expect(shown.mounted.container.textContent).not.toContain("Controlled from Pixel");
+    expect(shown.container.textContent).not.toContain("Controlled from Pixel");
   });
 
-  it("leaves at Back, before anything else on the page hears it", async () => {
-    const { onLeave } = await controlled();
+  it("keeps Back for itself out of full screen, before anything else on the page hears it, staying on its page", async () => {
+    const services = testServices("token", "/play/3");
+    await controlled(services);
     const heard = vi.fn();
     const stop = onCommand(document, heard, { isCapture: true });
     const back = press("Escape");
     stop();
-    expect(onLeave).toHaveBeenCalledOnce();
     expect(back.defaultPrevented).toBe(true);
     expect(heard).not.toHaveBeenCalled();
+    expect(services.navigation.route()).toEqual({ screen: "play", fileId: 3 });
   });
 
-  it("leaves at OK pressed twice within the window, and leaves one OK to the player", async () => {
-    vi.useFakeTimers({ toFake: ["performance"] });
-    const { onLeave } = await controlled();
+  it("leaves full screen at Back where the page is in it, as the page's own asking", async () => {
+    await controlled();
+    const exitFullscreen = vi.fn(() => Promise.resolve());
+    Object.defineProperty(document, "fullscreenElement", {
+      value: document.documentElement,
+      configurable: true,
+    });
+    Object.defineProperty(document, "exitFullscreen", {
+      value: exitFullscreen,
+      configurable: true,
+    });
+    expect(press("Escape").defaultPrevented).toBe(true);
+    expect(exitFullscreen).toHaveBeenCalledOnce();
+  });
+
+  it("leaves OK, pressed once or twice, and every other key to the player", async () => {
+    await controlled();
     const heard = vi.fn();
     const stop = onCommand(document, heard, { isCapture: true });
-    press("Enter");
-    vi.advanceTimersByTime(doublePressWithinMs + 1);
-    press("Enter");
-    expect(onLeave).not.toHaveBeenCalled();
-    expect(heard).toHaveBeenCalledTimes(2); // each the player's own
-    vi.advanceTimersByTime(doublePressWithinMs - 1);
-    const second = press("Enter");
-    stop();
-    expect(onLeave).toHaveBeenCalledOnce();
-    expect(second.defaultPrevented).toBe(true);
-  });
-
-  it("leaves every other key to the player", async () => {
-    const { onLeave } = await controlled();
     for (const [key, keyCode] of [
+      ["Enter", 13],
+      ["Enter", 13],
       ["MediaPlayPause", 179],
       ["ArrowRight", 39],
       ["ArrowUp", 38],
     ] as const) {
       expect(press(key, keyCode).defaultPrevented).toBe(false);
     }
-    expect(onLeave).not.toHaveBeenCalled();
+    stop();
+    expect(heard).toHaveBeenCalledTimes(5);
   });
 
   // A click on the receiver's video did nothing in Chrome, its video having a television's controls
   // and none of the browser's (the owner, 2026-10-27).
-  it("pauses or plays at a mouse's click on the video, which a double click undoes as it leaves", async () => {
-    vi.useFakeTimers({ toFake: ["performance"] });
-    const { onLeave } = await controlled();
+  it("pauses or plays at a mouse's click on the video, a tap opening the controls alone", async () => {
+    await controlled();
     const video = document.createElement("video");
     document.body.append(video);
     let isPaused = false;
@@ -140,39 +133,11 @@ describe("the receiver's controlled mode (D338 §6)", () => {
     };
     clickWith("mouse");
     expect(isPaused).toBe(true);
-    vi.advanceTimersByTime(doublePressWithinMs + 1);
     clickWith("touch"); // a tap opens the controls alone, as on an ordinary page on a phone
     expect(isPaused).toBe(true);
-    vi.advanceTimersByTime(doublePressWithinMs + 1);
     clickWith("mouse");
     expect(isPaused).toBe(false);
-    vi.advanceTimersByTime(doublePressWithinMs + 1);
-    clickWith("mouse");
-    expect(isPaused).toBe(true);
-    expect(onLeave).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(doublePressWithinMs - 1);
-    clickWith("mouse");
-    expect(isPaused).toBe(false); // playing on, as before the double click
-    expect(onLeave).toHaveBeenCalledOnce();
     video.remove();
-  });
-
-  it("leaves at a tap twice, counting no click a key made nor the click following OK", async () => {
-    vi.useFakeTimers({ toFake: ["performance"] });
-    const { onLeave } = await controlled();
-    act(() => {
-      document.body.click(); // a key's click: no count
-    });
-    tap();
-    vi.advanceTimersByTime(doublePressWithinMs + 1);
-    press("Enter");
-    tap(); // OK's own click, the same press
-    vi.advanceTimersByTime(doublePressWithinMs + 1);
-    tap();
-    expect(onLeave).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(doublePressWithinMs - 1);
-    tap();
-    expect(onLeave).toHaveBeenCalledOnce();
   });
 });
 
@@ -320,26 +285,23 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
     expect(onLeave).toHaveBeenCalledOnce();
   });
 
-  // The owner, staging, 2026-10-30: a Fire TV that took control back played on, and the sender's
-  // "Play here from" rose on its own whatever the TV then did.
-  it("ends the cast as its control is taken back here, and goes home once it has ended, the film as it stood until then (D385 §1)", async () => {
-    const { server, video, heard, onLeave } = await receiver({
-      "POST /me/casts/9/end": [unanswered],
-    });
+  // The owner, 2026-11-07 (the 11-20 batch, answer 4): Escape and leaving full screen never end a
+  // cast; ending it stays with the device that cast.
+  it("ends nothing at Escape, OK twice or a tap twice here, the film playing on", async () => {
+    const { server, video, heard, onLeave } = await receiver();
     const isPaused = playingVideo(video, 61);
     await server.say(welcome);
     press("Escape");
+    press("Enter", 13);
+    press("Enter", 13);
+    tap();
+    tap();
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    expect(heard.find((each) => each.methodAndPath === "POST /me/casts/9/end")?.body).toEqual({
-      reason: "takenBack",
-    });
-    // Until the end reaches the sender, which takes the film over from where it stands (D385 §2).
+    expect(heard.filter((each) => each.methodAndPath === "POST /me/casts/9/end")).toEqual([]);
     expect(onLeave).not.toHaveBeenCalled();
     expect(isPaused()).toBe(false);
-    await server.say({ type: "ended", reason: "takenBack" });
-    expect(onLeave).toHaveBeenCalledOnce();
   });
 
   it("goes home, its receiving over, when its cast ended unseen with no one controlling it (D384 §1)", async () => {
@@ -573,8 +535,8 @@ describe("a receiver's sound and full screen as its cast starts (D358 §2, §5)"
     expect(video.muted).toBe(false);
     expect(stage.querySelector(".cast-receiver__sound-on")).toBeNull();
     expect(notesOf(server, "unmuted")[0]).toMatchObject({ kind: "unmuted", by: "key" });
-    vi.advanceTimersByTime(doublePressWithinMs - 1);
-    press("Enter"); // the first OK of a double: the one that turned the sound on is not counted
+    vi.advanceTimersByTime(1000);
+    press("Enter"); // the next OK is the player's own
     stop();
     expect(onLeave).not.toHaveBeenCalled();
     expect(heard).toHaveBeenCalledOnce();
@@ -611,14 +573,14 @@ describe("a receiver's sound and full screen as its cast starts (D358 §2, §5)"
     }
   });
 
-  it("leaves Back to leave controlled mode, the sound still off", async () => {
+  it("takes no Back for the press that turns the sound on, which stays off, the cast going on", async () => {
     const { video, onLeave } = await started();
     refuseSound(video);
     press("Escape");
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    expect(onLeave).toHaveBeenCalledOnce();
+    expect(onLeave).not.toHaveBeenCalled();
     expect(video.muted).toBe(true);
   });
 
@@ -645,7 +607,7 @@ describe("a receiver's sound and full screen as its cast starts (D358 §2, §5)"
   });
 });
 
-describe("a receiver's full screen left by the browser, not the page (D338 §6)", () => {
+describe("a receiver's full screen left, which never ends its cast (the owner, 2026-11-07)", () => {
   let mounted: Mounted | undefined;
   afterEach(() => {
     mounted?.unmount();
@@ -709,26 +671,21 @@ describe("a receiver's full screen left by the browser, not the page (D338 §6)"
       );
   }
 
-  it("takes control back at once when a Fire TV's Back or Escape leaves full screen, telling the log", async () => {
-    // In full screen a Fire TV's first Back only left full screen; a second took control back (the
-    // owner, 2026-10-27).
-    const { server, heard, onLeave } = await receiving();
+  it("keeps its cast when a Fire TV's Back or Escape leaves full screen", async () => {
+    const { heard, onLeave } = await receiving();
     isFullScreen(false);
     await fullScreenChanged();
-    expect(onLeave).toHaveBeenCalledOnce();
-    expect(heard.filter((each) => each.methodAndPath === "POST /me/casts/9/end")).toEqual([
-      { methodAndPath: "POST /me/casts/9/end", body: { reason: "takenBack" } },
-    ]);
-    expect(fullScreenNotes(server)).toEqual([{ kind: "fullScreen", why: "left" }]);
+    expect(onLeave).not.toHaveBeenCalled();
+    expect(heard.filter((each) => each.methodAndPath === "POST /me/casts/9/end")).toEqual([]);
   });
 
-  it("takes control back once where Escape reaches the page as well as leaving full screen", async () => {
+  it("keeps its cast where Escape reaches the page as well as leaving full screen", async () => {
     const { heard, onLeave } = await receiving();
     press("Escape");
     isFullScreen(false);
     await fullScreenChanged();
-    expect(onLeave).toHaveBeenCalledOnce();
-    expect(heard.filter((each) => each.methodAndPath === "POST /me/casts/9/end")).toHaveLength(1);
+    expect(onLeave).not.toHaveBeenCalled();
+    expect(heard.filter((each) => each.methodAndPath === "POST /me/casts/9/end")).toEqual([]);
   });
 
   it("keeps control where full screen ended as the page took its element away, the next video opening (D364 §3)", async () => {
@@ -755,12 +712,11 @@ describe("a receiver's full screen left by the browser, not the page (D338 §6)"
     await fullScreenChanged();
     expect(onLeave).not.toHaveBeenCalled();
     expect(fullScreenNotes(server)).toEqual([]);
-    // Only that one leaving was the page's.
+    // Nor a leaving after it, the page's or not.
     isFullScreen(true);
     await fullScreenChanged();
-    expect(onLeave).not.toHaveBeenCalled();
     isFullScreen(false);
     await fullScreenChanged();
-    expect(onLeave).toHaveBeenCalledOnce();
+    expect(onLeave).not.toHaveBeenCalled();
   });
 });

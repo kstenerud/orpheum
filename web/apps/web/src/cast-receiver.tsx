@@ -30,8 +30,8 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { pressOf, type CastAnswer } from "./cast-asked.tsx";
-import { endCast, moveCastOn, playInCast } from "./cast.ts";
-import { fillsWindowClass, isFullScreenLeaveAsked, setFillsWindow } from "./film-fullscreen.ts";
+import { moveCastOn, playInCast } from "./cast.ts";
+import { fillsWindowClass, leaveFullScreenAsked, setFillsWindow } from "./film-fullscreen.ts";
 import { commandOf, keyCodeOf } from "./input-buttons.ts";
 import { onCommand } from "./input-commands.ts";
 import {
@@ -167,9 +167,8 @@ function useReadyAtTheEnd(at: {
  * controls and media keys go on working, and every change of theirs reaches the remote as the
  * session's. While its person hosts Watch Together, its video leads that session instead, as their
  * player, so what they play plays for the group, the cast's session told only how it ends (D364 §11).
- * Back, or OK twice, takes control back, which ends the cast as every other end does: the receiver
- * goes home, and the sender plays the film on from where it stood (D385 §1, §2, amending D338 §6).
- * Every end, stopped by the remote among them, sends it home (D384 §1); at the film's end it
+ * Nothing pressed here ends the cast, nor does leaving full screen: the device that cast ends it
+ * (ControlledMode). Every end, stopped by the remote among them, sends it home (D384 §1); at the film's end it
  * plays the next episode as the sender would (Up next, plans/up-next.md), and where none plays next
  * it waits ready for the next video (D364 §5).
  */
@@ -212,15 +211,10 @@ export function CastReceiver(props: {
   useToldHowItStarted({ connection, isWelcomed, video, answer: props.receiving.answer });
   useEndsAsTheCastDoes(snapshot?.status === "ended" ? snapshot.endReason : undefined, onLeave);
   useReadyAtTheEnd({ api, receiving: props.receiving, video, hasNext: props.hasNext === true });
-  const takeBack = useTakingBackEnds(cast.castId, onLeave);
   return (
     <>
       <SoundAtAnyPress video={video} connection={connection} />
-      <ControlledMode
-        fromName={cast.fromDeviceName}
-        onTakeBack={takeBack}
-        connection={connection}
-      />
+      <ControlledMode fromName={cast.fromDeviceName} />
     </>
   );
 }
@@ -275,32 +269,6 @@ export function useEndsAsTheCastDoes(
       showNotice(t("cast.over.lost")); // after onLeave's way home, the screen it stays on
     }
   }, [endReason, onLeave, t]);
-}
-
-/**
- * Taking control back on the receiver: the cast ended as takenBack, and the receiver home once the
- * server has answered (D385 §1), or as its session says the cast ended, whichever comes first. The
- * film plays on here until then, untouched: its sender takes over from where it stood, playing or
- * paused as it was (D385 §2), so nothing here may change how it stands, and the session holds it as
- * the receiver left it until the end has reached its sender.
- */
-function useTakingBackEnds(castId: number, onLeave: () => void): () => void {
-  const { api } = useServices();
-  const isShownRef = useRef(true);
-  useEffect(() => {
-    isShownRef.current = true;
-    return () => {
-      isShownRef.current = false; // gone home already, its session having said the cast ended
-    };
-  }, []);
-  return useCallback(() => {
-    const leave = (): void => {
-      if (isShownRef.current) {
-        onLeave();
-      }
-    };
-    endCast(api, castId, "takenBack").then(leave, leave);
-  }, [api, castId, onLeave]);
 }
 
 /** Has the video's stage fill the window while it receives, by layout, as no press asked (§4). */
@@ -374,9 +342,9 @@ function useToldHowItStarted(started: {
  * §5): it refused the film's sound, though Play was pressed (a policy, or a browser that wants its
  * press on the video itself). A line over the film says so ("Press OK to turn the sound on" on a
  * television), and the first press answers it: any key but those that are no press to a browser
- * (Escape, a modifier, a shortcut) or that leave (Back), and a click or a tap anywhere. That press
- * does nothing else, so OK neither pauses the film nor counts towards the double OK that leaves
- * controlled mode, nor does a click OK makes after it (samePressWithinMs).
+ * (Escape, a modifier, a shortcut) or Back, which leaves full screen, and a click or a tap anywhere.
+ * That press does nothing else, so OK does not pause the film, nor does a click OK makes after it
+ * (samePressWithinMs).
  */
 export function SoundAtAnyPress(props: {
   readonly video: HTMLVideoElement | null;
@@ -479,7 +447,7 @@ function useFirstPressTurnsSoundOn(
 /**
  * Whether a key press is one that turns no sound on: Escape and a modifier, which no browser counts
  * as a press that lets a page play sound (the HTML standard's activation-triggering input events), a
- * shortcut, and Back, which leaves controlled mode as it always does.
+ * shortcut, and Back, which leaves full screen as it always does (ControlledMode).
  */
 function isNoSoundPress(event: KeyboardEvent): boolean {
   if (event.ctrlKey || event.altKey || event.metaKey || modifierKeys.has(event.key)) {
@@ -502,13 +470,6 @@ function soundOnText(t: TFunction): string {
 }
 
 /**
- * How close together two presses of OK, or two taps, must come to leave controlled mode, in
- * milliseconds: the double-click time desktop systems default to (Windows' 500 ms), which a person
- * pressing twice on purpose stays well within. A justified constant.
- */
-export const doublePressWithinMs = 500;
-
-/**
  * How soon after an OK a click is the same press, in milliseconds: a TV browser may follow OK's key
  * with the click it makes on what has focus, which is not a second press. A justified constant, well
  * under any two presses a hand makes.
@@ -516,23 +477,18 @@ export const doublePressWithinMs = 500;
 const samePressWithinMs = 100;
 
 /**
- * The receiver's way out of controlled mode (D338 §6): Back, a remote's (a Fire TV's is a history
- * step, never a key: the page keeps an entry of its own to step back to) or a key's, and OK pressed
- * twice, or a tap twice, within doublePressWithinMs, leave it, a held OK's repeats no second press;
- * one press of OK, a tap and every other key are the receiver's own controls'. Full screen left by the browser, not by the page, leaves it
- * too, told to the log: in full screen a Fire TV's Back only leaves full screen, never reaching the
- * page, and a desktop's Escape does the same, each meant as leaving (the owner, 2026-10-27: Back took
- * two presses). A "Controlled from" line, which fades after castNoteShownMs, says who controls it and
- * how to leave.
+ * The receiver's controlled mode: a "Controlled from" line, which fades after castNoteShownMs, says
+ * who controls it. Nothing pressed here ends the cast, and neither does leaving full screen, a film
+ * playing or not: ending it stays with the device that cast (the owner, 2026-11-07, the 11-20
+ * batch's answer 4, amending D385 §1 and D338 §6, by which Back, Escape, OK twice and full screen
+ * left took control back: Escape on a receiver with nothing playing ended the cast). Back leaves full
+ * screen where the page is in it, as a Fire TV's Back and a desktop's Escape do there unheard, and is
+ * the receiver's own otherwise, so it stays on its page; a click on the video pauses or plays it.
  */
-export function ControlledMode(props: {
-  readonly fromName: string;
-  readonly onTakeBack: () => void;
-  /** The cast's session, told that the browser left full screen unasked. */
-  readonly connection?: Pick<TogetherConnection, "note"> | undefined;
-}): JSX.Element {
+export function ControlledMode(props: { readonly fromName: string }): JSX.Element {
   const { navigation } = useServices();
-  useLeavingPresses(navigation, props.onTakeBack, props.connection);
+  useBackStaysHere(navigation);
+  useClicksPauseOrPlay();
   return (
     <div className="cast-receiver">
       <ControlledFrom name={props.fromName} />
@@ -540,7 +496,7 @@ export function ControlledMode(props: {
   );
 }
 
-/** "Controlled from" the sender, and how to leave, which fades and goes after castNoteShownMs. */
+/** "Controlled from" the sender, which fades and goes after castNoteShownMs. */
 function ControlledFrom(props: { readonly name: string }): JSX.Element | null {
   const { t } = useTranslation();
   const [isShown, setIsShown] = useState(true);
@@ -559,229 +515,78 @@ function ControlledFrom(props: { readonly name: string }): JSX.Element | null {
   ) : null;
 }
 
-/** The press that took a cast's control back, as its note says it. */
-type TakenBackBy = "back" | "select" | "tap" | "historyBack";
-
-/** Takes control back once, telling the cast's session by which press (and how, for OK) first. */
-function takingBackOnce(
-  connectionRef: RefObject<Pick<TogetherConnection, "note"> | undefined>,
-  takeBackRef: RefObject<() => void>,
-): (by: TakenBackBy, how?: string) => void {
-  let hasLeft = false; // a held key's presses would each note it
-  return (by, how = "") => {
-    if (hasLeft) {
-      return;
-    }
-    hasLeft = true;
-    connectionRef.current?.note({ kind: "takenBack", by, ...(how === "" ? {} : { how }) });
-    takeBackRef.current();
-  };
-}
-
 /**
- * What the keys did between two presses of OK, for the log: the gap between them and how many keys
- * went up between them, which says whether a browser repeats a held OK as fresh presses (VQ122).
+ * Keeps Back on the receiver's page: Back as a command, heard before anything else on the page,
+ * leaves full screen where the page is in it and otherwise does nothing, where the Play page's would
+ * leave the page; and a Fire TV's Back, a step of the history and never a key (idiosyncrasies.md),
+ * steps off an entry held over the page (holdBack), held again each time, never off the page.
  */
-function selectGaps(target: Window): {
-  readonly heard: (now: number) => void;
-  readonly how: (now: number) => string;
-  /** Whether a key went up since the last OK: a held OK's repeats have none between them. */
-  readonly isUpSince: () => boolean;
-  readonly stop: () => void;
-} {
-  let previousAt = Number.NEGATIVE_INFINITY;
-  let upsSince = 0;
-  const keyUp = (): void => {
-    upsSince += 1;
-  };
-  target.addEventListener("keyup", keyUp, true);
-  return {
-    heard: (now) => {
-      previousAt = now;
-      upsSince = 0;
-    },
-    how: (now) => `gapMs=${String(Math.round(now - previousAt))} upsBetween=${String(upsSince)}`,
-    isUpSince: () => upsSince > 0,
-    stop: () => {
-      target.removeEventListener("keyup", keyUp, true);
-    },
-  };
-}
-
-/**
- * Hears taps on the page: a first pauses or plays the video (pauseOrPlayAtAClick), a second within
- * doublePressWithinMs undoes it and leaves. A click a key made (detail 0), or one following OK as the
- * same press, is not a tap. Returns the stopping.
- */
-function listenForTaps(
-  presses: { readonly lastSelectAt: number },
-  isSecondPress: (now: number) => boolean,
-  leave: () => void,
-): () => void {
-  let pausedOrPlayedByFirst: HTMLVideoElement | undefined;
-  const onClick = (event: MouseEvent): void => {
-    const now = performance.now();
-    if (event.detail === 0 || now - presses.lastSelectAt <= samePressWithinMs) {
-      return;
-    }
-    if (!isSecondPress(now)) {
-      pausedOrPlayedByFirst = pauseOrPlayAtAClick(event);
-      return;
-    }
-    undoPauseOrPlay(pausedOrPlayedByFirst);
-    event.preventDefault();
-    event.stopPropagation();
-    leave();
-  };
-  window.addEventListener("click", onClick, true);
-  return () => {
-    window.removeEventListener("click", onClick, true);
-  };
-}
-
-/**
- * Hears the presses that leave controlled mode: Back as a command, before anything else on the page
- * hears it, or as the person's step back from the receiver's own history entry, kept as it starts,
- * never a step the app makes itself (navigation's onPersonsStep, D384); OK or a tap
- * twice within doublePressWithinMs, the second press taken from the page (a held OK's repeats no
- * second press: Android's first comes 400-500 ms after the press, inside the window,
- * starts-chunks-remote-2026-10-29.md §3.3); and full screen left
- * unasked (useFullScreenLeftLeaves). Control is taken back once, however many of them come. A
- * mouse's click on the video pauses or plays it (pauseOrPlayAtAClick), which a second click making
- * it a double undoes, the film going on as it was.
- */
-function useLeavingPresses(
-  navigation: Navigation,
-  onTakeBack: () => void,
-  connection: Pick<TogetherConnection, "note"> | undefined,
-): void {
-  const takeBackRef = useOnce(onTakeBack);
-  useFullScreenLeftLeaves(takeBackRef, connection);
-  const connectionRef = useLatest(connection);
+function useBackStaysHere(navigation: Navigation): void {
   useEffect(() => {
-    // Which press took control back goes to the log: a held OK on the Fire TV took it, and the log
-    // said only that the cast ended (VQ122, 2026-10-29).
-    const leave = takingBackOnce(connectionRef, takeBackRef);
-    const gaps = selectGaps(window);
-    const presses = {
-      lastPressAt: Number.NEGATIVE_INFINITY,
-      lastSelectAt: Number.NEGATIVE_INFINITY,
-    };
-    const isSecondPress = (now: number): boolean => {
-      const isSecond = now - presses.lastPressAt <= doublePressWithinMs;
-      presses.lastPressAt = isSecond ? Number.NEGATIVE_INFINITY : now;
-      return isSecond;
-    };
     const stopCommands = onCommand(
       window,
       (detail, event) => {
-        const now = performance.now();
-        const isSelect = detail.command === "select";
-        // Silk on a Fire TV sends a held OK's repeats as presses of their own, unmarked and with no key
-        // up between them (VQ122: gapMs=433 upsBetween=0, then every ~35 ms): a second OK counts only
-        // with a key up since the first.
-        const isSecondOk =
-          isSelect && detail.hold !== "continue" && isSecondPress(now) && gaps.isUpSince();
-        if (detail.command === "back" || isSecondOk) {
-          event.preventDefault();
-          leave(isSelect ? "select" : "back", isSelect ? gaps.how(now) : "");
+        if (detail.command !== "back") {
+          return;
         }
-        if (isSelect) {
-          presses.lastSelectAt = now;
-          gaps.heard(now);
+        event.preventDefault();
+        if (document.fullscreenElement instanceof Element) {
+          leaveFullScreenAsked(document);
         }
       },
       { isCapture: true },
     );
-    const stopTaps = listenForTaps(presses, isSecondPress, () => {
-      leave("tap");
-    });
-    navigation.go(navigation.route());
-    // The person's own step alone: the step closing the Use question, which the page may be shown
-    // before, took control back 16 ms after Use (staging, 2026-10-30; D384).
-    const stopSteps = navigation.onPersonsStep(() => {
-      leave("historyBack");
-    });
+    let release = (): void => undefined;
+    const hold = (): void => {
+      release = navigation.holdBack(hold);
+    };
+    hold();
     return () => {
       stopCommands();
-      stopTaps();
-      gaps.stop();
-      stopSteps();
+      release();
     };
-  }, [navigation, takeBackRef, connectionRef]);
+  }, [navigation]);
+}
+
+/**
+ * Pauses or plays the video a mouse's click lands on (pauseOrPlayAtAClick); a click a key made
+ * (detail 0), or one following OK as the same press, is the player's OK, not a click.
+ */
+function useClicksPauseOrPlay(): void {
+  useEffect(() => {
+    let lastSelectAt = Number.NEGATIVE_INFINITY;
+    const stopCommands = onCommand(
+      window,
+      (detail) => {
+        if (detail.command === "select") {
+          lastSelectAt = performance.now();
+        }
+      },
+      { isCapture: true },
+    );
+    const onClick = (event: MouseEvent): void => {
+      if (event.detail === 0 || performance.now() - lastSelectAt <= samePressWithinMs) {
+        return;
+      }
+      pauseOrPlayAtAClick(event);
+    };
+    window.addEventListener("click", onClick, true);
+    return () => {
+      stopCommands();
+      window.removeEventListener("click", onClick, true);
+    };
+  }, []);
 }
 
 /**
  * Pauses or plays the video a mouse's click lands on, as a click on an ordinary page's video does,
  * whose browser controls answer it; the receiver's video has a television's controls instead (D338
  * §5), and a video with no browser controls does nothing at a click (the owner, Chrome, 2026-10-27).
- * A tap opens the controls alone, as an ordinary page's on a phone does. Returns the video it paused
- * or played, if any.
+ * A tap opens the controls alone, as an ordinary page's on a phone does.
  */
-function pauseOrPlayAtAClick(event: MouseEvent): HTMLVideoElement | undefined {
+function pauseOrPlayAtAClick(event: MouseEvent): void {
   const { target } = event;
-  if (!(target instanceof HTMLVideoElement) || pressOf(event) !== "click") {
-    return undefined;
+  if (target instanceof HTMLVideoElement && pressOf(event) === "click") {
+    answerPlayerCommand(target, "playPause");
   }
-  answerPlayerCommand(target, "playPause");
-  return target;
-}
-
-/**
- * Undoes the pause or play a double click's first click made (pauseOrPlayAtAClick), so the double
- * click that takes control back leaves the film as it was, for its sender to take over so (D385 §2).
- */
-function undoPauseOrPlay(video: HTMLVideoElement | undefined): void {
-  if (video !== undefined) {
-    answerPlayerCommand(video, "playPause");
-  }
-}
-
-/** What calls once the latest given call, however often it is called itself. */
-function useOnce(call: () => void): RefObject<() => void> {
-  const hasCalledRef = useRef(false);
-  const onceRef = useRef(call);
-  useEffect(() => {
-    onceRef.current = () => {
-      if (!hasCalledRef.current) {
-        hasCalledRef.current = true;
-        call();
-      }
-    };
-  });
-  return onceRef;
-}
-
-/**
- * Takes control back where the browser leaves full screen and the page did not ask it to
- * (isFullScreenLeaveAsked): a Fire TV's Back in full screen, which Silk keeps from the page, and a desktop's
- * Escape. The log is told first, as the press that asked for full screen was (D358 §2). Full screen
- * left because the page took its element away, the last video's stage as the next one opens (D364
- * §3), is no one's leaving: the receiver took control back as the second film of a session started
- * (the cast test, 2026-10-27).
- */
-function useFullScreenLeftLeaves(
-  takeBackRef: RefObject<() => void>,
-  connection: Pick<TogetherConnection, "note"> | undefined,
-): void {
-  const connectionRef = useLatest(connection);
-  useEffect(() => {
-    let shown = document.fullscreenElement;
-    const changed = (): void => {
-      const wasShown = shown;
-      shown = document.fullscreenElement;
-      if (shown instanceof Element || isFullScreenLeaveAsked(document)) {
-        return;
-      }
-      if (wasShown instanceof Element && !wasShown.isConnected) {
-        return; // the page took it away
-      }
-      connectionRef.current?.note({ kind: "fullScreen", why: "left" });
-      takeBackRef.current();
-    };
-    document.addEventListener("fullscreenchange", changed);
-    return () => {
-      document.removeEventListener("fullscreenchange", changed);
-    };
-  }, [takeBackRef, connectionRef]);
 }

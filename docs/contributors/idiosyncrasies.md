@@ -1010,9 +1010,8 @@ User-Agent (D263; the User-Agent is logged only).
   the press and then about every 35 ms, with no `keyup` between them; Chromium marks a held key's
   repeats `repeat: true`. Seen in the receiver's `takenBack` note: `by=select how="gapMs=433
   upsBetween=0"`, then `gapMs=42`, `38`, `30`, `31` (the owner's Fire TV, staging, 2026-10-29).
-- **What we do:** a second OK takes control back only with a key up heard since the first
-  (`selectGaps` in `web/apps/web/src/cast-receiver.tsx`); a real double press always has one.
-  The input layer's key driver (`createKeyHolds` in `web/apps/web/src/input-commands.ts`, the
+- **What we do:** no press on a receiver takes control back any more (the owner, 2026-11-07, the
+  11-20 batch's answer 4), so the receiver's own guard (`selectGaps`) is gone. The input layer's key driver (`createKeyHolds` in `web/apps/web/src/input-commands.ts`, the
   owner, 2026-11-04) takes a held key's every keydown before its keyup as its repeat, marked or not,
   so pages read a command's hold (`CommandHold`), never `repeat`; a keydown over a second after the
   key's last starts a new hold, so a lost key up cannot make every later press a repeat.
@@ -1488,11 +1487,11 @@ User-Agent (D263; the User-Agent is logged only).
   browser answers Escape the same way (Chrome hands a page Escape only under the Keyboard Lock API,
   the person then holding Escape to leave). The page hears only `fullscreenchange`, with
   `document.fullscreenElement` null.
-- **What we do:** a receiver takes full screen left unasked for leaving controlled mode, as Back
-  does (D338 §6), and tells the log `logEvent=fullScreen answer=left`. Its own leaving, Stop casting
-  or the film's end, and the player's Back, go through `leaveFullScreenAsked`
-  (`film-fullscreen.ts`), which marks the change as the page's until the browser's
-  `fullscreenchange` (`useFullScreenLeftLeaves`, `cast-receiver.tsx`). VQ77.
+- **What we do:** full screen left, asked or not, never ends a receiver's cast (the owner,
+  2026-11-07, the 11-20 batch's answer 4, amending D338 §6: with nothing playing, Escape was the only
+  way out of full screen, and it ended the cast). The receiver's ready page has its own ⤢ to leave
+  full screen and go back into it (`cast-ready.tsx`), as the player's overlay has while a film plays;
+  the page's own leaving goes through `leaveFullScreenAsked` (`film-fullscreen.ts`). VQ77.
 - **Evidence:** [owner] staging 2026-10-27. **[web]** [firetv-key-bridge](https://github.com/xkazm04/firetv-key-bridge)
   (Silk on Fire OS 8 passes the page Play/Pause alone, never Back);
   [itch.io#1721](https://github.com/itchio/itch.io/issues/1721) (Escape in full screen is the

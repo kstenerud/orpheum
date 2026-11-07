@@ -4,11 +4,19 @@
 import "./i18n.ts";
 
 import { act } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CastReady } from "./cast-ready.tsx";
 import { LiveProvider } from "./live.tsx";
-import { buttonWithText, click, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import {
+  buttonNamed,
+  buttonWithText,
+  click,
+  mount,
+  servedBy,
+  type Heard,
+  type Mounted,
+} from "./test-dom.tsx";
 import { directDecision } from "./test-fixtures.ts";
 import { withServices } from "./test-services.tsx";
 import { liveAndSession } from "./test-together.ts";
@@ -103,17 +111,44 @@ describe("a cast's receiver between videos (D364 §5, §9, §10)", () => {
     expect(sockets.session.heard[0]).toMatchObject({ credential: "cast", role: "panel" });
   });
 
-  it("takes control back at Back, ending the session and going to its home page (D364 §9)", async () => {
+  // The owner, 2026-11-07 (the 11-20 batch, finding and answer 4): with nothing playing only Escape
+  // left full screen, and it ended the cast; neither leaving full screen nor any press here ends it.
+  it("leaves full screen by its ⤢ and goes back into it, ending nothing, nor at Escape or full screen left", async () => {
     const heard: Heard[] = [];
     const { services } = await readyPage(heard);
-    press("Escape");
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 0));
+    const exitFullscreen = vi.fn(() => Promise.resolve());
+    const requestFullscreen = vi.fn(() => Promise.resolve());
+    let shown: Element | null = document.documentElement;
+    Object.defineProperty(document, "fullscreenElement", { get: () => shown, configurable: true });
+    Object.defineProperty(document, "exitFullscreen", {
+      value: exitFullscreen,
+      configurable: true,
     });
-    expect(heard.find((each) => each.methodAndPath === "POST /me/casts/5/end")?.body).toEqual({
-      reason: "takenBack",
-    });
-    expect(services.navigation.route()).toEqual({ screen: "home" });
+    document.documentElement.requestFullscreen = requestFullscreen;
+    try {
+      act(() => {
+        document.dispatchEvent(new Event("fullscreenchange"));
+      });
+      await click(buttonNamed(document.body, "Leave full screen"));
+      expect(exitFullscreen).toHaveBeenCalledOnce();
+      shown = null;
+      act(() => {
+        document.dispatchEvent(new Event("fullscreenchange"));
+      });
+      press("Escape");
+      await click(buttonNamed(document.body, "Full screen"));
+      expect(requestFullscreen).toHaveBeenCalledOnce();
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+      expect(heard.filter((each) => each.methodAndPath === "POST /me/casts/5/end")).toEqual([]);
+      expect(services.navigation.route()).not.toEqual({ screen: "home" });
+      expect(mounted?.container.textContent).toContain("Ready, controlled from Pixel");
+    } finally {
+      Reflect.deleteProperty(document, "fullscreenElement");
+      Reflect.deleteProperty(document, "exitFullscreen");
+      Reflect.deleteProperty(document.documentElement, "requestFullscreen");
+    }
   });
 
   it("goes to its home page as the sender stops casting (D384 §1)", async () => {
