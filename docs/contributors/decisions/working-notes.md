@@ -26766,3 +26766,24 @@ panel is not drawn and a device receiving a cast see none.
   web/apps/web/src/together-over-the-film.test.tsx
 
 **Status:** Decided (2026-11-07).
+
+## D441 — The core's host candidates on its LAN port are one address of each family, the house's in place of the container's IPv4 one
+
+**Decided** (2026-11-07), by the project owner ("go ahead"), on the cause found from a capture on
+nas.example: the ThinkPad's Firefox 158 never signed in to orpheum.cc. Amends D300 §1 ("add that address
+… to every answer as a host candidate").
+
+1. **The core gathers one host candidate of each family on its LAN port**, an address that is
+   neither loopback nor link-local where there is one. pion's mux, listening on every address, named
+   them all (in production the container's `172.18.0.2`, its ULA and its link-local IPv6 address), and
+   every candidate of a family read the one socket pion keeps for a connection and family: a check
+   reaching it was credited to whichever candidate read it first. The core's pairs disagreed (the
+   same remote port succeeded from the link-local address and failed from the ULA), the core, the
+   DTLS client, never chose a pair, and no DTLS packet was sent. A browser connecting over IPv6 alone
+   and checking rarely, Firefox on the ThinkPad, failed every time; Chromium, over IPv4 and checking
+   often, got through by chance.
+2. **The house's address replaces the container's IPv4 host candidate** instead of standing beside
+   it on the same socket, for the same reason. Nothing outside the container's network reaches its
+   own address.
+3. **Enforced by** `TestListenAddressPerFamily_IsOneOfEachFamilyNeitherLoopbackNorLinkLocal` and
+   `TestListenLAN_AnswersWithTheHousesAddressAtItsPort`; confirmed on the device by VQ283.

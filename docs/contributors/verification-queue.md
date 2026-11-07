@@ -2800,3 +2800,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   the button's dialog holding Leave and no volume. Then, the session ended, on the phone the cast's
   controls show Watch Together's button alone. (`web/apps/web/src/together-on-the-remote.tsx`,
   `web/apps/web/src/cast-remote.tsx`, `web/apps/web/src/film-fullscreen.ts`)
+
+- [ ] **VQ283** — Firefox on the ThinkPad (Linux Mint, Firefox 158, wired) signs in to orpheum.cc
+  after the deploy, five times in a row, with its WebRTC settings at their defaults (D441). Before,
+  every attempt ended "can't reach the server from this network". Then Chromium on it and Firefox on
+  the Mac still sign in. (`internal/core/rtcapi/rtcapi.go`)

@@ -80,8 +80,11 @@
 //     TestProvenAtHome_ARelayedPunchedOrHairpinnedConnectionProvesNothing,
 //     TestAnswerRelayed_TellsAConnectionProvenAtHome, TestIsDirectlyFromHome_OnlyADirectPairFromTheHouseIs.
 //   - A core taking WebRTC at home gathers its host candidates on one UDP port and answers with the
-//     house's address at it, so a device in the house reaches it directly (D300 §1).
-//     TestListenLAN_AnswersWithTheHousesAddressAtItsPort.
+//     house's address at it, so a device in the house reaches it directly (D300 §1); its host
+//     candidates there are one address of each family, the house's in place of its own IPv4 one, for
+//     pion's mux gives every candidate of a family one socket (D441).
+//     TestListenLAN_AnswersWithTheHousesAddressAtItsPort,
+//     TestListenAddressPerFamily_IsOneOfEachFamilyNeitherLoopbackNorLinkLocal.
 //   - Only an offer is answered, and none past the most connections the core holds at once:
 //     DefaultMaxConnections until SetMaxConnections names another (the config's
 //     webrtc.max_connections, D348). TestAnswer_RefusesWhatIsNotAnOfferAndPastTheLimit,

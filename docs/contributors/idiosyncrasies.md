@@ -44,6 +44,7 @@ User-Agent (D263; the User-Agent is logged only).
 | A subtitle search said "Something went wrong on the server" with an OpenSubtitles login set. | [OpenSubtitles answers a wrong login with 400, not 401](#opensubtitles-answers-a-wrong-login-with-400-not-401) |
 | A film cast to Chrome or a Fire TV played muted, with no way to turn the sound on by remote, and out of full screen. | [A cast receiver is started by a message, so the browser gives it neither sound nor full screen](#a-cast-receiver-is-started-by-a-message-so-the-browser-gives-it-neither-sound-nor-full-screen) |
 | A page said "The server could not be reached" after 40 s with the core there; its report said only "TypeError: Failed to fetch". | [A Response made from a stream that fails reads as "Failed to fetch" or an AbortError, never the stream's own error](#a-response-made-from-a-stream-that-fails-reads-as-failed-to-fetch-or-an-aborterror-never-the-streams-own-error) |
+| Firefox on a Linux laptop never signed in to the production core ("can't reach the server from this network"); Chromium on it did. | [pion's UDP mux on every address gives several host candidates one socket, and a connection never chooses a pair](#pions-udp-mux-on-every-address-gives-several-host-candidates-one-socket-and-a-connection-never-chooses-a-pair) |
 | A dialog closed on Escape left focus on the page's start, not on the button that opened it. | [A modal dialog removed from the page while open gives focus back to nothing](#a-modal-dialog-removed-from-the-page-while-open-gives-focus-back-to-nothing) |
 | A name typed in a list's Sort and filter, then Escape, left the pop-up open and the name cleared. | [Escape in a search field with text clears it, and does not close the dialog around it](#escape-in-a-search-field-with-text-clears-it-and-does-not-close-the-dialog-around-it) |
 | Opening a drop-down mid-page scrolled the page up to its top first; closing it scrolled back to the button, not to where the page was. | [A modal dialog given position relative is laid out at the page's top, not the screen's](#a-modal-dialog-given-position-relative-is-laid-out-at-the-pages-top-not-the-screens) |
@@ -2376,6 +2377,29 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   `checkRelayedOffer`; `TestCheckRelayedOffer_TakesTheSameFingerprintInEveryMediaSection`).
 - **Evidence:** **[measured]** the browser tier, 2026-11-01: `through-discovery*.spec.ts` failed in
   Chromium alone with the m-line, passed with it reverted, and passes with the check changed.
+
+### pion's UDP mux on every address gives several host candidates one socket, and a connection never chooses a pair
+
+- **Symptom:** Firefox 158 on a Linux laptop never signed in to the production core: "can't reach the
+  server from this network", while Chromium on the same laptop did. A capture on the NAS showed STUN
+  checks succeed both ways over IPv6 and no DTLS packet at all; the core closed the connection as "did
+  not connect in time", its pair list showing the same remote port succeeded from one local address and
+  failed from another.
+- **Cause:** [source] pion ice v4.4.7's `UDPMuxDefault`, listening on an unspecified address, names
+  every local address (`GetListenAddresses`, without the agent's IP filter), and
+  `gatherCandidatesLocalUDPMux` makes a host candidate at each, plus every address-rewrite one, all
+  taking the one `udpMuxedConn` the mux keeps per ufrag and family (`GetConn`). Each candidate runs its
+  own read loop on it, so a check is credited to whichever reads first. The core, answering and so the
+  DTLS client, never had a coherent pair to start DTLS on. pion warns that a `UDPMuxDefault` should
+  not listen on an unspecified address (`NewMultiUDPMuxFromPort` instead); no report of the race
+  itself was found (searched 2026-11-07).
+- **What we do:** the mux is wrapped to name one address of each family, neither loopback nor
+  link-local where there is one, and the house's address replaces the container's IPv4 one (D441).
+  `internal/core/rtcapi/rtcapi.go` (`onePerFamily`, `ListenLAN`).
+- **Evidence:** D441; VQ283. **[web]** [pion/ice multiplexing
+  guide](https://www.mintlify.com/pion/ice/guides/multiplexing) (wildcard binding: use
+  `NewMultiUDPMuxFromPort`).
+
 
 ### Chromium ends a connection with DTLS close_notify and no SCTP ABORT, and pion then closes the whole peer connection
 
