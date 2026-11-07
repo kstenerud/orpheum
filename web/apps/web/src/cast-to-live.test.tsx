@@ -57,7 +57,7 @@ describe("the device list as the live connection says what is open", () => {
   });
 
   it("lists a device signed in while the list is open, as it connects (the owner, staging, 2026-11-07)", async () => {
-    const routes: Parameters<typeof servedBy>[0] = {
+    const routes: Record<string, Parameters<typeof servedBy>[0][string]> = {
       "GET /me/devices": [200, { devices: [device(1, "Mac", true)] }],
     };
     const services = servedBy(routes, [], "token");
