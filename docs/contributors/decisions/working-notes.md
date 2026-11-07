@@ -26749,4 +26749,17 @@ and D281 §5 (where the volumes are reached).
 8. **Built in four batches** (plan §9): the overlay; the cast controls page; voices on the TV;
    Chromecast, then AirPlay.
 
+Built so (§6): with no session, the button over the film shows to a person whose role may host
+(`canHostWatchTogether`, the tray's own test), who is in no session and whose device receives no
+cast; it opens the tray's dialog over the film, whose start is the tray's, and stays open as the new
+session's panel moves in, the host's then. A guest by link, a role that may not host, a member whose
+panel is not drawn and a device receiving a cast see none.
+
+**Proven by:**
+- 6: "shows the sign over the film with no session, white, to one who may start a session, and to
+  no one else (D440 §6)", "starts a session from the sign over the film, as the tray does, the dialog
+  staying open over the film as the host's, the new panel moved in (D440 §6)" and "offers no session
+  to start over the film while this device receives a cast, whose session it plays (D440 §6)" in
+  web/apps/web/src/together-over-the-film.test.tsx
+
 **Status:** Decided (2026-11-07).

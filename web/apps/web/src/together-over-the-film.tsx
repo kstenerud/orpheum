@@ -4,6 +4,7 @@ import "./together-over-the-film.css";
 
 import type { TogetherSnapshot } from "@orpheum/sdk";
 import {
+  use,
   useCallback,
   useEffect,
   useRef,
@@ -15,10 +16,14 @@ import {
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 
+import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { IconButton } from "./icon-button.tsx";
+import { useLive } from "./live.tsx";
 import { LaterScreen } from "./screen-load.tsx";
 import { signMark, TogetherIcon } from "./sign-mark.tsx";
 import { TogetherDialog } from "./together-dialog-code.tsx";
+import { CanStartTogetherContext } from "./together-can-start.ts";
+import { useMembership } from "./together-membership.ts";
 
 /**
  * Watch Together over the playing film (D423): the film fills the window over the page (D418 §1), so
@@ -78,17 +83,27 @@ export function TogetherPanel(props: { readonly children: ReactNode }): JSX.Elem
 }
 
 /**
- * Watch Together's sign over the film, in the player's top row, shown while a session's panel is
- * drawn, blue as the tray's is while its session is on; it opens Watch Together's dialog, the one the
+ * Watch Together's sign over the film, in the player's top row. While a session's panel is drawn it
+ * is blue, as the tray's is while its session is on, and opens Watch Together's dialog, the one the
  * tray's sign opens, over the film, which plays on, with the panel moved in under its controls
- * (D433). Ending or leaving the session there closes it, as the tray's does. While it is open,
- * onOpenChange holds the overlay shown and gives the dialog its presses, as the menus do.
+ * (D433): the host's controls with End, or the guest's Leave. With no session it shows, white, to one
+ * who may start one (CanStartTogetherContext), and opens the same dialog, whose start is the tray's,
+ * so a session starts from full screen; the new session's panel is moved in as it is drawn, and the
+ * dialog is then the host's (D440 §6). A member of a session whose panel is not drawn here is offered
+ * nothing, as before. Ending or leaving the session there closes it, as the tray's does. While it is
+ * open, onOpenChange holds the overlay shown and gives the dialog its presses, as the menus do.
  */
 export function TogetherSignOverTheFilm(props: {
   readonly onOpenChange: (isOpen: boolean) => void;
 }): JSX.Element | null {
   const { t } = useTranslation();
-  const isShown = useSyncExternalStore(subscribe, hasPanel, hasPanel);
+  const isOn = useSyncExternalStore(subscribe, hasPanel, hasPanel);
+  const canStart = use(CanStartTogetherContext);
+  const isHosting = useMembership(tabStorage, "host") !== undefined;
+  const isViewing = useMembership(browserStorage, "viewer") !== undefined;
+  // A device receiving a cast plays the cast's session, not one of its own (PlaysAlong, D88).
+  const isReceiving = useLive().receiving !== undefined;
+  const showsStart = canStart && !isHosting && !isViewing && !isReceiving;
   const [isOpen, setIsOpen] = useState(false);
   const { onOpenChange } = props;
   const openOrClose = useCallback(
@@ -110,15 +125,16 @@ export function TogetherSignOverTheFilm(props: {
     [],
   );
   useClosedAsThePanelGoes(isOpen, openOrClose);
-  if (!isShown) {
+  // Open, it stays while the session it started is had back and its panel drawn.
+  if (!isOn && !showsStart && !isOpen) {
     return null;
   }
   return (
     <span className="player-overlay__together">
       <IconButton
-        label={t("status.togetherOn")}
+        label={t(isOn ? "status.togetherOn" : "status.together")}
         icon={<TogetherIcon />}
-        mark={signMark(true)}
+        mark={signMark(isOn)}
         isOverVideo
         onClick={() => {
           openOrClose(true);
@@ -137,7 +153,8 @@ export function TogetherSignOverTheFilm(props: {
 
 /**
  * Closes the dialog over the film as the session's panel goes while it is open, its session left or
- * ended (D433 §3): the dialog goes with the sign, and the overlay is told so.
+ * ended (D433 §3): the dialog goes with the sign, and the overlay is told so. Opened with no session
+ * to start one (D440 §6), it waits: only a panel drawn while it is open going closes it.
  */
 function useClosedAsThePanelGoes(isOpen: boolean, openOrClose: (isNowOpen: boolean) => void): void {
   useEffect(() => {
@@ -145,11 +162,14 @@ function useClosedAsThePanelGoes(isOpen: boolean, openOrClose: (isNowOpen: boole
       return undefined;
     }
     let isClosed = false;
+    let wasPanelDrawn = hasPanel();
     return subscribe(() => {
-      if (!isClosed && !hasPanel()) {
+      const isPanelDrawn = hasPanel();
+      if (!isClosed && wasPanelDrawn && !isPanelDrawn) {
         isClosed = true;
         openOrClose(false);
       }
+      wasPanelDrawn = isPanelDrawn;
     });
   }, [isOpen, openOrClose]);
 }
