@@ -176,6 +176,31 @@ describe("a signed-in guest in a Watch Together session (D372 §9, D384 §2)", (
     mounted.unmount();
   });
 
+  it("leaves from the tray's dialog, Leave beside Back to the film: home, told so, the membership forgotten, the dialog closed (the owner's 11-20 finding 2, 2026-11-07)", async () => {
+    const { services, sockets, heard } = signedInGuest("/about", {
+      "POST /together/leave": [204, undefined],
+    });
+    const mounted = await mount(withServices(<App />, services));
+    await sockets.live.accept();
+    const sign = '.status-tray button[aria-label="Watch Together is on: its controls"]';
+    await settleUntil(() => mounted.container.querySelector(sign) !== null);
+    await click(mounted.container.querySelector(sign));
+    await settleUntil(() => sockets.session.openedCount() > 0);
+    await sockets.session.acceptEach();
+    await sockets.session.say({
+      ...welcome,
+      group: { state: "Playing", positionMs: 0, rate: 1, fileId: 5 },
+    });
+    expect(buttonWithText(mounted.container, "Back to the film")).toBeDefined();
+    await click(buttonWithText(mounted.container, "Leave"));
+    await settleUntil(() => services.navigation.route().screen === "home");
+    expect(heard.map((each) => each.methodAndPath)).toContain("POST /together/leave");
+    expect(currentNotice()?.text).toBe("You left the Watch Together session.");
+    expect(window.localStorage.getItem("orpheum.together.viewer")).toBeNull();
+    expect(mounted.container.querySelector('dialog[aria-label="Watch Together"]')).toBeNull();
+    mounted.unmount();
+  });
+
   it("ends a session the server no longer has from the tray's dialog: home, told so, the membership forgotten, the dialog closed (the owner's S23, 2026-10-30)", async () => {
     const { services, sockets } = signedInGuest("/about");
     const mounted = await mount(withServices(<App />, services));

@@ -9,6 +9,7 @@ import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { problemText } from "./problem.ts";
 import { useServices, useToken } from "./services.tsx";
+import { LeaveButton } from "./together-leave.tsx";
 import { useMembership } from "./together-membership.ts";
 import { moveHostingHere, useHostedElsewhereHere, type HostedElsewhere } from "./together-mine.ts";
 import { useSessionEnd } from "./together-session-end.ts";
@@ -24,7 +25,7 @@ import { WatchTogetherControls } from "./watch-together.tsx";
  * through"): for one who may host, starting a session and running it, what plays with the way back
  * to its film's Play page and Stop for everyone, voice and the volumes, the people and Invite, and
  * ending it (watch-together.tsx), which closes the dialog, nothing opening it again (D385's Also); for
- * a signed-in guest, the way back to the group's film; for a host whose session is on another of
+ * a signed-in guest, the way back to the group's film and Leave; for a host whose session is on another of
  * their devices, where it is, and Move it here (D442 §2). The sign over the playing film opens the
  * same dialog, the session's panel moved in under its controls (D433).
  */
@@ -69,7 +70,9 @@ export function TogetherDialog(props: {
 /**
  * A signed-in guest's session, in Watch Together's dialog: the way back to the group's film, whose
  * Play page is theirs in the session (voice, their volume and Leave under it), or that nothing plays
- * yet. Read by a panel of the session while the dialog is open, which plays nothing. A session the
+ * yet, with Leave beside it, the viewer page's own, so a device whose Play page is out of reach (as
+ * under Android's own full screen) still leaves (the owner's 11-20 finding 2, 2026-11-07); left, the
+ * session ends here as any end does. Read by a panel of the session while the dialog is open, which plays nothing. A session the
  * server no longer has (lost with a restart, or ended unseen) ends here as any end does: the
  * membership forgotten, the page home and told so, the dialog closed (the owner's S23, staging,
  * 2026-10-30: the sign stayed blue and the dialog said "Loading…" for good).
@@ -98,19 +101,36 @@ function GuestsSession(props: {
     return <p>{t("common.loading")}</p>;
   }
   const fileId = snapshot.group?.fileId ?? 0;
+  const leave = (
+    <LeaveButton
+      membership={props.membership}
+      onLeft={(reason) => {
+        onEnded();
+        over.end(reason);
+      }}
+    />
+  );
   if (fileId === 0) {
-    return <p>{t("watchTogether.nothingPlays")}</p>;
+    return (
+      <>
+        <p>{t("watchTogether.nothingPlays")}</p>
+        {leave}
+      </>
+    );
   }
   return (
-    <button
-      type="button"
-      className="title__play"
-      onClick={() => {
-        navigation.go({ screen: "play", fileId });
-      }}
-    >
-      {t("watchTogether.backToTheFilm")}
-    </button>
+    <div className="together-plays__buttons">
+      <button
+        type="button"
+        className="title__play"
+        onClick={() => {
+          navigation.go({ screen: "play", fileId });
+        }}
+      >
+        {t("watchTogether.backToTheFilm")}
+      </button>
+      {leave}
+    </div>
   );
 }
 
