@@ -24,8 +24,9 @@ const (
 	// MessageStanding is what a device's page waits on before its film can play (Standing): shown
 	// to everyone in the roster, it changes nothing of whom the group waits for (D246 §6).
 	MessageStanding MessageType = "standing"
-	// MessageSound is a person's choice of how their film sounds, its dialogue boost, its levelling
-	// or its audio track, made on a device of theirs with no player, a cast's remote, for their
+	// MessageSound is a person's choice of how their film sounds, its dialogue boost, its levelling,
+	// its audio track, its timing or a channel's level and mute (D440 §2), made on a device of theirs
+	// with no player, a cast's remote, for their
 	// devices that play it to carry out as their own press (SoundChoice); the server relays it to
 	// those devices, under the same name, and keeps nothing of it.
 	MessageSound MessageType = "sound"
