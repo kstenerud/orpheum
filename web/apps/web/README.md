@@ -201,6 +201,12 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/together-viewer.test.tsx`, `src/together-guest-play.test.tsx`, `src/together-viewer-shell.test.tsx`,
   `src/together-viewer-over.test.tsx`,
   `src/notice-note.test.tsx`.
+- **The session a person hosts stays on the device that started it** (D442, amending D267 §2;
+  `src/together-mine.ts`): a reload there keeps hosting by the tab's membership; the person's
+  other devices keep none, and their Watch Together sign and dialog say the session is on, on the
+  device the server names (or on another of their devices), offering Move it here, never Start a
+  session over it. Moving it makes this tab the host and sends the old device home, told it moved.
+  `src/together-mine.test.ts`, `src/together-over-the-film.test.tsx`, `src/together-voice.test.tsx`.
 - **A host's command is never held for a reconnect, and never dropped unsaid:**
   `TogetherConnection.command` says whether it went, and Stop the film (`src/together-plays.tsx`)
   and the remote's buttons (`src/session-remote.tsx`) wait, saying the connection reconnects, while

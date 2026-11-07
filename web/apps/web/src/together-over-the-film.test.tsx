@@ -22,6 +22,7 @@ import { withServices } from "./test-services.tsx";
 import { liveAndSession } from "./test-together.ts";
 import { CanStartTogetherContext } from "./together-can-start.ts";
 import { useMembership } from "./together-membership.ts";
+import { noteHostedElsewhere } from "./together-mine.ts";
 import { TogetherPanel, TogetherSignOverTheFilm } from "./together-over-the-film.tsx";
 
 let mounted: Mounted | undefined;
@@ -31,6 +32,7 @@ afterEach(() => {
   mounted = undefined;
   window.sessionStorage.clear();
   window.localStorage.clear();
+  noteHostedElsewhere(undefined);
 });
 
 const signLabel = "Watch Together is on: its controls";
@@ -352,4 +354,48 @@ it("offers no session to start over the film while this device receives a cast, 
   await click(buttonWithText(document.body, "Use"));
   await settleUntil(() => startSign() === null);
   expect(sign()).toBeNull();
+});
+
+const elsewhereLabel = "Watch Together is on, on another of your devices";
+
+function elsewhereSign(): HTMLButtonElement | null {
+  return document.querySelector<HTMLButtonElement>(
+    `.player-overlay button[aria-label="${elsewhereLabel}"]`,
+  );
+}
+
+it("says over the film that the session the person hosts is on another device, by its name, and moves it here, this tab its host then (D442 §2)", async () => {
+  const heard: Heard[] = [];
+  const services = servedBy(
+    {
+      "POST /together/3/host-here": [200, { sessionId: 3, membershipCredential: "moved-here" }],
+      "GET /together/3": [200, hostedSession],
+    },
+    heard,
+    "token",
+  );
+  services.navigation.go({ screen: "play", fileId: 9 });
+  noteHostedElsewhere({ sessionId: 3, deviceName: "the Mac" });
+  mounted = await mount(withServices(<PlayerToStartFrom canStart />, services));
+  await settleUntil(() => elsewhereSign() !== null);
+  expect(startSign()).toBeNull();
+  await act(async () => {
+    elsewhereSign()?.click();
+    await Promise.resolve();
+  });
+  await settleUntil(() => buttonWithText(document.body, "Move it here") !== undefined);
+  const dialog = document.querySelector<HTMLDialogElement>(".player-overlay dialog[open]");
+  if (dialog === null) {
+    throw new Error("no dialog over the film");
+  }
+  expect(dialog.textContent).toContain("Your session is on, on the Mac.");
+  // Starting another would end the one on the Mac (D372 §8): it is not offered.
+  expect(buttonWithText(dialog, "Start a session")).toBeUndefined();
+  await click(buttonWithText(dialog, "Move it here"));
+  expect(heard.map((each) => each.methodAndPath)).toContain("POST /together/3/host-here");
+  await settleUntil(() => buttonWithText(dialog, "End the session") !== undefined);
+  expect(window.sessionStorage.getItem("orpheum.together.host")).toContain("moved-here");
+  await settleUntil(() => dialog.querySelector(".hosts-panel") !== null);
+  expect(sign()?.classList.contains("icon-button--running")).toBe(true);
+  expect(elsewhereSign()).toBeNull();
 });

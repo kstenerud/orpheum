@@ -24,6 +24,7 @@ import { signMark, TogetherIcon } from "./sign-mark.tsx";
 import { TogetherDialog } from "./together-dialog-code.tsx";
 import { CanStartTogetherContext } from "./together-can-start.ts";
 import { useMembership } from "./together-membership.ts";
+import { useHostedElsewhere } from "./together-mine.ts";
 import { PanelInTheDialogContext } from "./together-panel-place.tsx";
 
 /**
@@ -99,8 +100,9 @@ export function TogetherPanel(props: {
  * (D433): the host's controls with End, or the guest's Leave. With no session it shows, white, to one
  * who may start one (CanStartTogetherContext), and opens the same dialog, whose start is the tray's,
  * so a session starts from full screen; the new session's panel is moved in as it is drawn, and the
- * dialog is then the host's (D440 §6). A member of a session whose panel is not drawn here is offered
- * nothing, as before. Ending or leaving the session there closes it, as the tray's does. While it is
+ * dialog is then the host's (D440 §6). A host whose session is on another of their devices is told
+ * so, and the dialog offers to move it here (D442 §2). A member of a session whose panel is not drawn
+ * here is offered nothing, as before. Ending or leaving the session there closes it, as the tray's does. While it is
  * open, onOpenChange holds the overlay shown and gives the dialog its presses, as the menus do.
  */
 export function TogetherSignOverTheFilm(props: {
@@ -125,7 +127,11 @@ export function TogetherButton(props: {
   const isViewing = useMembership(browserStorage, "viewer") !== undefined;
   // A device receiving a cast plays the cast's session, not one of its own (PlaysAlong, D88).
   const isReceiving = useLive().receiving !== undefined;
-  const showsStart = canStart && !isHosting && !isViewing && !isReceiving;
+  // The session the person hosts on another device: said to be on, there, and offered to move here
+  // (D442 §2), never to start another, which would end it.
+  const showsElsewhere =
+    useHostedElsewhere() !== undefined && !isHosting && !isViewing && !isReceiving;
+  const showsStart = canStart && !isHosting && !isViewing && !isReceiving && !showsElsewhere;
   const [isOpen, setIsOpen] = useState(false);
   const { onOpenChange } = props;
   const openOrClose = useCallback(
@@ -148,13 +154,13 @@ export function TogetherButton(props: {
   );
   useClosedAsThePanelGoes(isOpen, openOrClose);
   // Open, it stays while the session it started is had back and its panel drawn.
-  if (!isOn && !showsStart && !isOpen) {
+  if (!isOn && !showsStart && !showsElsewhere && !isOpen) {
     return null;
   }
   return (
     <span className={props.isOverVideo ? "player-overlay__together" : "together-button"}>
       <IconButton
-        label={t(isOn ? "status.togetherOn" : "status.together")}
+        label={t(buttonLabel(isOn, showsElsewhere))}
         icon={<TogetherIcon />}
         mark={signMark(isOn)}
         isOverVideo={props.isOverVideo}
@@ -171,6 +177,14 @@ export function TogetherButton(props: {
       ) : null}
     </span>
   );
+}
+
+/** What the button says: the session on here, on another device of the host's, or none. */
+function buttonLabel(isOn: boolean, isElsewhere: boolean): string {
+  if (isOn) {
+    return "status.togetherOn";
+  }
+  return isElsewhere ? "status.togetherElsewhere" : "status.together";
 }
 
 /**

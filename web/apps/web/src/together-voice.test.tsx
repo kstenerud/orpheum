@@ -20,6 +20,7 @@ import { buttonWithText, click, enter, mount, servedBy, type Heard } from "./tes
 import { withServices } from "./test-services.tsx";
 import { fakeTogetherServer, type FakeTogetherServer } from "./test-together.ts";
 import { HostPlaysTogether } from "./together-host.tsx";
+import { noteHostedElsewhere, readHostedElsewhere } from "./together-mine.ts";
 import { TogetherViewer } from "./together-viewer.tsx";
 import {
   HostVoiceProvider,
@@ -478,6 +479,19 @@ describe("the host's page as the session it hosts ends (D389 §1)", () => {
     expect(services.navigation.route()).toEqual({ screen: "home" });
     expect(window.sessionStorage.getItem("orpheum.together.host")).toBeNull();
     expect(noticeShown()).toBe("The Watch Together session was ended on another of your devices.");
+  });
+
+  it("goes home, told, as the session is moved to another of the host's devices, noted as hosted there so no new one is offered over it (D442 §2)", async () => {
+    const { services, server } = await hostingOnAPlayPage();
+    await server.say({ type: "ended", reason: "movedAway" });
+    expect(services.navigation.route()).toEqual({ screen: "home" });
+    expect(window.sessionStorage.getItem("orpheum.together.host")).toBeNull();
+    expect(noticeShown()).toBe("You moved the Watch Together session to another of your devices.");
+    expect(readHostedElsewhere()).toEqual({
+      sessionId: hostMembership.sessionId,
+      deviceName: undefined,
+    });
+    noteHostedElsewhere(undefined);
   });
 
   it("goes home, told, as the server no longer knows the session", async () => {
