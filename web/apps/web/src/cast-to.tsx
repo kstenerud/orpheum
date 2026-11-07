@@ -46,14 +46,8 @@ import { watchingOf } from "./watching.ts";
 export function CastTargets(props: { readonly film: () => CastFilm | undefined }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const {
-    isConnected,
-    connectedDeviceIds,
-    inFrontDeviceIds,
-    receivingDeviceIds,
-    sending,
-    receiving,
-  } = useLive();
+  const { isConnected, connectedDeviceIds, inFrontDeviceIds, receivingDeviceIds, sending } =
+    useLive();
   const [devices] = useResource(`cast-to/${connectedDeviceIds.join(",")}`, async () =>
     otherDevicesOpen(await listMyDevices(api), connectedDeviceIds),
   );
@@ -98,7 +92,6 @@ export function CastTargets(props: { readonly film: () => CastFilm | undefined }
         {isConnected ? null : <output>{t("together.reconnecting")}</output>}
         <Targets
           devices={devices}
-          castingHereId={receiving?.fromDeviceId}
           isStale={!isConnected}
           states={{ inFrontDeviceIds, receivingDeviceIds }}
           onCast={castTo}
@@ -308,11 +301,12 @@ interface TargetStates {
   readonly receivingDeviceIds: readonly number[];
 }
 
-/** The devices to cast to as they are read: Loaded's words while loading or failed. */
+/**
+ * The devices to cast to as they are read: Loaded's words while loading or failed. The device casting
+ * to this one, if any, is not listed: a cast back would close a loop.
+ */
 function Targets(props: {
   readonly devices: Resource<Device[]>;
-  /** The device casting to this one, if any, which is not listed: a cast back would close a loop. */
-  readonly castingHereId: number | undefined;
   readonly states: TargetStates;
   /** The live connection is down, so the devices are as last told: none is offered. */
   readonly isStale: boolean;
@@ -320,13 +314,14 @@ function Targets(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const { devices } = props;
+  const castingHereId = useLive().receiving?.fromDeviceId;
   if (devices.state === "loading") {
     return <p>{t("common.loading")}</p>;
   }
   if (devices.state === "failed") {
     return <p role="alert">{problemText(t, devices.cause)}</p>;
   }
-  const targets = devices.value.filter((device) => device.id !== props.castingHereId);
+  const targets = devices.value.filter((device) => device.id !== castingHereId);
   return targets.length === 0 ? (
     <p>{t("cast.none")}</p>
   ) : (
