@@ -7,6 +7,7 @@ import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { chooseOk } from "./controller-choice.ts";
+import { padPollEveryMs } from "./input-pad-poll.ts";
 import { LabInput } from "./lab-input.tsx";
 import {
   bodyField,
@@ -71,12 +72,12 @@ function fakePad(id: string, mapping = "standard"): FakePad {
 /** The pads navigator.getGamepads gives: a browser with the Gamepad API, none connected yet. */
 let connected: FakePad[] = [];
 
-/** How far the test's clock moves for one of the page's frames, in ms. */
-const frameMs = 16;
+/** How far the test's clock moves for one of the page's polls of its pads, in ms. */
+const frameMs = padPollEveryMs;
 
 /**
- * Runs the page's next frame, in which it polls its pads once. The frames and the time the poll
- * reads are the test's (beforeEach fakes them), so a stick or button is held for the frames the test
+ * Runs the page's clock to its next poll of its pads. The timers and the time the poll reads are
+ * the test's (beforeEach fakes them), so a stick or button is held for the frames the test
  * runs while holding it, however slowly a loaded machine runs the test: held in real time, a press
  * waited on past the 400 ms a held arrow takes to repeat walked focus off the tiles (2026-11-01).
  */
@@ -119,7 +120,7 @@ describe("the button test's controllers", () => {
     // The OK a test chose is kept in the browser, as the person's is: each test starts with none.
     chooseOk("automatic");
     connected = [];
-    vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame", "performance"] });
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "performance"] });
     Object.defineProperty(navigator, "getGamepads", {
       configurable: true,
       value: () => connected,
@@ -255,6 +256,18 @@ describe("the button test's controllers", () => {
     ]);
     await settleUntil(() => document.activeElement?.classList.contains("lab__tile") === true);
     expect(document.activeElement?.classList.contains("lab__tile")).toBe(true);
+  });
+
+  // "Also measure" (the owner, 2026-11-07, setting the poll at 15 a second).
+  it("shows how often it polls the pads, 15 times a second, and the time each poll takes", async () => {
+    const heard: Heard[] = [];
+    mounted = await mountTest(heard);
+    await connect(fakePad("045e-02e0-8Bitdo SN30 Pro"));
+    expect(mounted.container.textContent).not.toContain("times a second");
+    for (let polled = 1; polled <= 1000 / padPollEveryMs + 1; polled += 1) {
+      await aFrame();
+    }
+    expect(mounted.container.textContent).toContain("polled 15 times a second, 0 µs each");
   });
 
   it("presses what has focus by its layout's OK, as Enter does", async () => {
