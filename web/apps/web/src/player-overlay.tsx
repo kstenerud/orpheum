@@ -16,7 +16,6 @@ import { useTranslation } from "react-i18next";
 
 import { CastSignOverTheFilmContext } from "./cast-sign-over-the-film.tsx";
 import { ConvenienceArea, type OfferPiece } from "./convenience-area.tsx";
-import { useIsVolumeSettable } from "./film-volume-slider.tsx";
 import type { FilmParts } from "./film-player.tsx";
 import { isThisHandheld } from "./handheld.ts";
 import { useCommands } from "./input-layer.tsx";
@@ -356,13 +355,11 @@ export function useControlsShown(
   isTv: boolean,
   moves: SequenceMoves | undefined,
 ): readonly OverlayControl[] {
-  const isVolumeSettable = useIsVolumeSettable();
   const tracks = use(PlayerTracksContext);
   const upward = use(PlayUpwardContext);
   return controlsShown({
     isTelevision: isTv,
     isTouch: isThisHandheld(),
-    isVolumeSettable,
     audioTrackCount: tracks?.audio.tracks.length ?? 0,
     hasPrevious: moves?.previous !== undefined,
     hasNext: moves?.next !== undefined,

@@ -215,14 +215,16 @@ function RelinkButton(props: PeopleActions & { readonly member: SessionMember })
 }
 
 /**
- * What the host does with one member (D281 §5): how loud their voice plays, the link they joined
- * by to show again, which brings them back on the browser that joined (D267 §5), a new link (§4),
+ * What the host does with one member (D281 §5): how loud their voice plays, but over the film, whose
+ * overlay's 🔈 holds each person's volume (D440 §2, amending D281 §5), the link they joined by to
+ * show again, which brings them back on the browser that joined (D267 §5), a new link (§4),
  * or removing them.
  */
 function PersonDialog(
   props: PeopleActions & {
     readonly member: SessionMember;
     readonly joinedBy: SessionLink | undefined;
+    readonly isOverTheFilm: boolean;
     readonly onClose: () => void;
   },
 ): JSX.Element {
@@ -236,7 +238,7 @@ function PersonDialog(
         {member.hostNote ?? ""}
         {joinedBy === undefined ? null : `, ${rightsText(t, joinedBy.rights)}`}
       </p>
-      {voice === undefined ? null : (
+      {voice === undefined || props.isOverTheFilm ? null : (
         <PersonVoiceVolume {...voice} memberId={member.id} name={member.name} />
       )}
       <p>{t("watchTogether.relinkExplain", { name: member.name })}</p>
@@ -382,6 +384,8 @@ export function SessionPeople(
     readonly details: SessionDetails;
     /** The session's roster as the host's connection knows it; undefined until it does. */
     readonly roster?: readonly RosterMember[] | undefined;
+    /** Whether the film plays under them, its overlay's 🔈 holding each person's volume (D440 §2). */
+    readonly isOverTheFilm?: boolean | undefined;
   },
 ): JSX.Element {
   const { t } = useTranslation();
@@ -422,6 +426,7 @@ export function SessionPeople(
           {...actions}
           member={openMember}
           joinedBy={allLinks.find((link) => link.usedByMemberId === openMember.id)}
+          isOverTheFilm={props.isOverTheFilm === true}
           onClose={close}
         />
       )}

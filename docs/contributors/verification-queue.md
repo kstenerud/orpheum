@@ -2746,3 +2746,17 @@ An item is ticked only by the person who did it, and only with what they saw.
   says the media moved to WebRTC, then open a film's page. Passes when the page's elements show no
   hidden video and the core's log shows no chunk loaded twice when Play is pressed.
   (`web/apps/web/src/client-main.tsx`, `web/apps/web/src/transport-choice.ts`)
+- [ ] **VQ277** — the overlay's 🔈 opens one row of sliders, the film's and each other person's, and
+  Talk sits beside it, on each kind of device in a Watch Together session (D440 §2, §3). The tests
+  draw the row and step it with commands in a DOM without layout, sound or a microphone. On staging,
+  start a session with three people (the host on a laptop, the Fire TV and a phone joined), play a
+  film full screen on each. Passes when, on each: 🔈 shows and opens the film's slider, marked by a
+  film icon, then one slider per other person, each with their letter and their own colour, the
+  same colour for a person on every device; on the Fire TV, Left and Right move the ring along the
+  row with the focused person's name above, Up and Down change that voice's loudness audibly and
+  nothing else, and Left from the film's slider or Right from the last closes it; on the phone, a
+  drag moves each slider (an iPhone shows the volume buttons' note in the film's place, the people's
+  sliders still working); Talk shows beside 🔈 on the laptop and the phone and not on the Fire TV,
+  and turns the microphone on and off; and the host's dialog for a person, opened over the film,
+  has no volume slider. (`web/apps/web/src/volume-row.tsx`, `web/apps/web/src/player-menus.tsx`,
+  `web/apps/web/src/together-voice.tsx`)

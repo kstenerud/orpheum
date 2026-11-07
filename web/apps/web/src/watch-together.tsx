@@ -302,6 +302,17 @@ function usePanelConnection(membership: Membership): ReturnType<typeof useTogeth
   return useTogether({ credential: membership.credential, sessionToken: token, role: "panel" });
 }
 
+/** Talk, each person's voice volume and the film's volume, for the host (D281 §4, §5). */
+function HostSound(): JSX.Element {
+  const voice = useHostVoice();
+  return (
+    <>
+      {voice === undefined ? null : <VoiceControls {...voice} />}
+      <FilmVolumeSlider />
+    </>
+  );
+}
+
 /**
  * A session as its host runs it, in Watch Together's dialog (D281 §5, D364 §15, D384 §2): what plays,
  * the way back to it and Stop for everyone, voice and each person's volume, the film's volume, the
@@ -315,7 +326,6 @@ function SessionView(props: {
   readonly onEnded: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const voice = useHostVoice();
   const session = usePanelConnection(props.membership);
   const [dialog, setDialog] = useState<SessionDialog>(undefined);
   const { isBusy, problem, runRequest } = useRequest((cause) =>
@@ -329,8 +339,7 @@ function SessionView(props: {
     <div className="watch-together__controls">
       <p>{t("watchTogether.onExplain")}</p>
       <TogetherPlays session={session} details={props.details} onChanged={props.onChanged} />
-      {voice === undefined || props.hasPanel ? null : <VoiceControls {...voice} />}
-      {props.hasPanel ? null : <FilmVolumeSlider />}
+      {props.hasPanel ? null : <HostSound />}
       {problem === undefined ? null : <p role="alert">{problem}</p>}
       <BusyGroup isBusy={isBusy}>
         <div className="watch-together__people-head">
@@ -347,6 +356,7 @@ function SessionView(props: {
         <SessionPeople
           details={props.details}
           roster={session.snapshot?.roster}
+          isOverTheFilm={props.hasPanel}
           run={runRequest}
           onChanged={props.onChanged}
           onIssued={showIssued}

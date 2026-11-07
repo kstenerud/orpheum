@@ -71,6 +71,16 @@
   /* The Talk button's level ring, the status blue (--color-status) seen through. */
   --color-status-ring: rgb(124 200 255 / 35%);
   --color-qr-background: #ffffff;
+  /* Each person's colour in Watch Together, their slider's in the overlay's row (D440 §2), a small
+     fixed palette told apart on the dark ground and from the status blue and the coral accent;
+     dark letters on each. */
+  --color-person-1: #f6c445;
+  --color-person-2: #8be28b;
+  --color-person-3: #c79bff;
+  --color-person-4: #ff9ec7;
+  --color-person-5: #5fd4cf;
+  --color-person-6: #ffb26b;
+  --color-on-person: #111111;
   --shadow-raised: 0 2px 8px rgb(0 0 0 / 45%);
   --shadow-card-hover: 0 6px 18px rgb(0 0 0 / 55%);
 

@@ -26,6 +26,7 @@ import { keepMembership } from "./together-storage.ts";
 import { filmVolume, setFilmVolume } from "./film-volume.ts";
 import { HostVoiceProvider } from "./together-voice.tsx";
 import { TogetherDialog } from "./together-dialog.tsx";
+import { WatchTogetherControls } from "./watch-together.tsx";
 
 /** Watch Together's dialog, open over the page, as the tray's sign opens it (D384 §2). */
 function WatchTogether(): JSX.Element {
@@ -409,6 +410,34 @@ describe("the host's Watch Together dialog (D246 §3, §5; D384 §2)", () => {
     );
     expect(mounted.container.querySelector(".watch-together__dialog")).toBeNull();
     setFilmVolume(1);
+    mounted.unmount();
+  });
+
+  it("drops each person's voice volume from their dialog over the film, whose 🔈 holds it (D440 §2)", async () => {
+    hostSession();
+    const gran = { id: 2, name: "Gran", hostNote: "Grandma", isHost: false };
+    const services = servedBy(
+      {
+        "GET /together/3": [
+          200,
+          { sessionId: 3, nextRights: allRights, links: [], members: [karl, gran] },
+        ],
+      },
+      [],
+      "token",
+    );
+    const mounted = await mount(
+      withServices(
+        <HostVoiceProvider membership={{ sessionId: 3, credential: "host-credential" }}>
+          <WatchTogetherControls onEnded={() => undefined} hasPanel />
+        </HostVoiceProvider>,
+        services,
+      ),
+    );
+    await click(rowStarting(mounted.container, "Gran (Grandma)"));
+    const dialog = mounted.container.querySelector<HTMLElement>('dialog[aria-label="Gran"]');
+    expect(dialog?.textContent).toContain("Gran");
+    expect(dialog?.textContent).not.toContain("Gran's voice");
     mounted.unmount();
   });
 
