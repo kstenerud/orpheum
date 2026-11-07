@@ -2423,3 +2423,21 @@ VQ278–282.
   owner: VQ284. Points for the owner: a new tab on the starting device counts as another device
   (membership is per tab); Move it here while casting cuts the receiver off too; the old device goes
   home rather than staying on its page.
+- **Deployed to nas.example** at GitHub's 3e864b96d (the same tree as "docs(vq): VQ284 passes: a hosted session stays on its device") on the owner's go
+  ("pushed. Deploy it to nas.example"), 2026-11-07. The batch is done; VQ283 and VQ284 passed.
+
+## The 11-20 batch: the owner's three-device session on orpheum.cc (2026-11-07)
+
+The owner, on prod at 3e864b96d: Firefox on the Mac hosting a session and casting to Firefox on
+Linux, with Firefox on Android in the session. Reported:
+
+1. **Android, full screen:** Android's own full screen, with none of our controls.
+2. **Android, the Watch Together dialog** offers only "Back to film": the device cannot leave the
+   session.
+3. **The device cast to** offered no way to take over the session (D442 §2's Move it here); the
+   owner started a new session there instead, which ended the other.
+4. **A receiver with nothing playing** cannot leave full screen except by Esc, which ends the
+   session. With something playing it can.
+5. **A receiver out of full screen** shows nothing in the top icons saying it is being cast to.
+6. **The receiver's Cast dialog lists the Mac casting to it** as a target; choosing it leaves each
+   side believing it casts to the other.
