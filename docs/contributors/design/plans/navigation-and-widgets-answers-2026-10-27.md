@@ -2372,3 +2372,27 @@ lives in volume-step.ts so the home page does not load the player. Owed by the o
   moves to the cast controls page (D440 §5). Cast for guests needs nothing new: a signed-in guest
   has it already, and a guest by link alone has nothing to cast to until Chromecast and AirPlay
   (the owner, 2026-11-07; playback-redesign-2026-11-07.md §4).
+
+## The 11-19 batch: the cast controls page (the owner, 2026-11-07: "go ahead", D440)
+
+D440 §8's second step, from playback-redesign-2026-11-07.md §5 and §9: the cast page sets the TV's
+film level and mute through a channel choice that batch 3's voices will reuse (VQ278); it chooses
+subtitles, Play original and ⏮ through a new `picture` message, each carried out by the TV's own
+control (VQ279–281); it carries Watch Together, with one row of sliders (the film first, then each
+person), Talk and the Watch Together button; a cast started from full screen leaves full screen; the
+per-person volumes leave the session panel over the film (amends D281 §5) (VQ282). End: one
+check-pr, staging.
+
+**Passed check-pr at "fix(web): the cast's remote draws one row of sliders, the film's first"** (2026-11-07). On staging (`./staging quick`). Owed by the owner:
+VQ278–282.
+
+- **Open, for the owner:**
+  - Quality: the player has no quality menu, only Play original (a debug tool), so the remote
+    mirrors only that. A real choice of quality needs a design.
+  - ⏮ goes only to the previous episode, as the player's does; D440 says "restart or previous",
+    and a restart is not built.
+  - A guest who casts (together-viewer.tsx) gets play, seek and Watch Together on the cast page,
+    but no subtitles, sound choice or film level.
+  - Talk appears twice in the host's session dialog: beside the button and in the voice controls.
+  - Unmuting from the phone may pause the film on a Chromium TV (VQ278 watches for it). The remote
+    follows volume changes made on the TV. Slider moves are not throttled.
