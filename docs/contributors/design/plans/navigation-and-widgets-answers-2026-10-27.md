@@ -2347,3 +2347,11 @@ End: one check-pr, staging. nas.example and devnas wait until memtest ends.
 quick`). Item 2 is "perf(web): poll game controllers 15 times a second, and show the polls' cost": a held seek by a controller now counts its travel up to the release, so
 the 66 ms polls cost it nothing; the polls' cost shows on the button test's controller line alone, and
 nothing reports it to the core yet.
+
+- **Next batch (the owner, 2026-11-07):** "some .rm files end up with their sound out of sync by maybe
+  200-300ms. For example video 14983." On production that is file 14983 (place 14983, node 1), a
+  RealMedia file of 2004 under `/tank/media/p/`, 57.7 MB. Not yet probed: the node image carries no
+  ffprobe to run by hand. Another RealMedia file on production (item 5362) fails its still with
+  rv20 decode errors ("early B-frame", "Impossibly sized packet"), so RealMedia demuxing is the first
+  suspect: compare the streams' start times and the audio's first timestamps against what the
+  prepared copy carries.
