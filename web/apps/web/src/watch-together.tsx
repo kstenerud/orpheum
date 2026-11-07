@@ -2,7 +2,7 @@
 
 import "./watch-together.css";
 
-import { useEffect, useState, type JSX } from "react";
+import { useEffect, useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { tabStorage } from "./browser-storage.ts";
@@ -41,8 +41,11 @@ import { TogetherPlays } from "./together-plays.tsx";
  */
 export function WatchTogetherControls(props: {
   readonly onEnded: () => void;
-  /** Whether the session's panel shows under these, holding Talk and the volumes (D433 §2). */
-  readonly hasPanel?: boolean;
+  /**
+   * Where the session's panel is moved, under what plays, in the dialog over the film: it holds Talk
+   * and the volumes, which these then leave to it (D433 §2); nothing from the tray.
+   */
+  readonly panelPlace?: ReactNode;
 }): JSX.Element {
   const { t } = useTranslation();
   // Started here, or had back from the server on another of the host's devices (D267 §2).
@@ -66,7 +69,7 @@ export function WatchTogetherControls(props: {
         <HostedSession
           key={membership.sessionId}
           membership={membership}
-          hasPanel={props.hasPanel ?? false}
+          panelPlace={props.panelPlace}
           onOver={() => {
             setIsOver(true);
             over(membership.sessionId, "gone");
@@ -137,7 +140,7 @@ function isSessionOver(cause: unknown): boolean {
  */
 function HostedSession(props: {
   readonly membership: Membership;
-  readonly hasPanel: boolean;
+  readonly panelPlace: ReactNode;
   readonly onOver: () => void;
   readonly onEnded: () => void;
 }): JSX.Element | null {
@@ -167,7 +170,7 @@ function HostedSession(props: {
       render={(value) => (
         <SessionView
           membership={props.membership}
-          hasPanel={props.hasPanel}
+          panelPlace={props.panelPlace}
           details={value}
           onChanged={reload}
           onEnded={props.onEnded}
@@ -320,7 +323,7 @@ function HostSound(): JSX.Element {
  */
 function SessionView(props: {
   readonly membership: Membership;
-  readonly hasPanel: boolean; // as WatchTogetherControls's
+  readonly panelPlace: ReactNode; // as WatchTogetherControls's
   readonly details: SessionDetails;
   readonly onChanged: () => void;
   readonly onEnded: () => void;
@@ -339,7 +342,7 @@ function SessionView(props: {
     <div className="watch-together__controls">
       <p>{t("watchTogether.onExplain")}</p>
       <TogetherPlays session={session} details={props.details} onChanged={props.onChanged} />
-      {props.hasPanel ? null : <HostSound />}
+      {props.panelPlace ?? <HostSound />}
       {problem === undefined ? null : <p role="alert">{problem}</p>}
       <BusyGroup isBusy={isBusy}>
         <div className="watch-together__people-head">
@@ -356,12 +359,11 @@ function SessionView(props: {
         <SessionPeople
           details={props.details}
           roster={session.snapshot?.roster}
-          isOverTheFilm={props.hasPanel}
+          isOverTheFilm={props.panelPlace !== undefined}
           run={runRequest}
           onChanged={props.onChanged}
           onIssued={showIssued}
         />
-        <TogetherDebug snapshot={session.snapshot} />
         <SessionDialogs
           dialog={dialog}
           details={props.details}
@@ -374,6 +376,7 @@ function SessionView(props: {
         />
         <EndSession sessionId={props.details.sessionId} run={runRequest} onEnded={props.onEnded} />
       </BusyGroup>
+      <TogetherDebug snapshot={session.snapshot} />
     </div>
   );
 }

@@ -692,7 +692,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   film plays under it (D440 §2, amending D281 §5). Talk sits beside 🔈 in a session on a device with
   a microphone (`SessionTalk`, `src/has-microphone.ts`, D440 §3). The per-person volumes and the
   film's leave the session's panel while it is in Watch Together's dialog, the row carrying them
-  (`VolumesOutsideTheRow`, `src/together-panel-place.tsx`, D440 §8 amending D281 §5); the panel at
+  (`OnlyOnThePanelsPage`, `src/together-panel-place.tsx`, D440 §8 amending D281 §5); the panel at
   home, where no row is drawn, and the tray's dialog keep them. `src/volume-row.test.tsx`,
   `src/has-microphone.test.ts`, `src/together-over-the-film.test.tsx`. A television's player opens full screen. Outside full
   screen, on every device, nothing lies over the film (D407 §9, `src/page-controls.tsx`): the

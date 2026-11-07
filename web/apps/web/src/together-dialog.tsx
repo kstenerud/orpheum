@@ -27,7 +27,7 @@ import { WatchTogetherControls } from "./watch-together.tsx";
 export function TogetherDialog(props: {
   readonly onClose: () => void;
   /**
-   * Where the session's panel is moved, under the controls, when the sign over the playing film
+   * Where the session's panel is moved, under what plays, when the sign over the playing film
    * opens the dialog (D433 §2, together-over-the-film.tsx); nothing from the tray. With it, the panel
    * holds Talk and the volumes, which the host's controls then leave to it, and the guest's Leave; a
    * guest, at the group's film already, is offered no way back to it.
@@ -46,8 +46,14 @@ export function TogetherDialog(props: {
         {isGuest && !hasPanel ? (
           <GuestsSession membership={viewing} onEnded={props.onClose} />
         ) : null}
-        {isGuest ? null : <WatchTogetherControls onEnded={props.onClose} hasPanel={hasPanel} />}
-        {props.panelPlace}
+        {isGuest ? null : (
+          <WatchTogetherControls
+            onEnded={props.onClose}
+            panelPlace={isHosting ? props.panelPlace : undefined}
+          />
+        )}
+        {/* The host's panel stands under what plays, among the controls; any other at the foot. */}
+        {isHosting ? null : props.panelPlace}
       </section>
     </ModalDialog>
   );

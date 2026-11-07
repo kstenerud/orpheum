@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { endCast } from "./cast.ts";
 import { Link } from "./link.tsx";
 import { useLive } from "./live.tsx";
-import { useServices } from "./services.tsx";
+import { useRoute, useServices } from "./services.tsx";
 import type { SessionDetails } from "./together-people.tsx";
 import type { useTogether } from "./use-together.ts";
 
@@ -50,7 +50,11 @@ export function TogetherPlays(props: {
   );
 }
 
-/** The group's film: its name, the way back to it, and Stop for everyone. */
+/**
+ * The group's film: its name, the way back to it, and Stop for everyone; on that film's own Play page,
+ * its name alone, the film and its pause right there (the owner, staging, 2026-11-07: "Back to the
+ * film is useless when already on the video page", "You can just pause").
+ */
 function FilmPlaying(props: {
   readonly fileId: number;
   readonly details: SessionDetails;
@@ -61,9 +65,14 @@ function FilmPlaying(props: {
   const { t } = useTranslation();
   const { connection, details, status } = props;
   const isUp = status === "connected";
+  const route = useRoute();
+  const heading = <h2 id="together-plays-heading">{details.titleName ?? t("cast.aFilm")}</h2>;
+  if (route.screen === "play" && route.fileId === props.fileId) {
+    return heading;
+  }
   return (
     <>
-      <h2 id="together-plays-heading">{details.titleName ?? t("cast.aFilm")}</h2>
+      {heading}
       <div className="together-plays__buttons">
         {/* The page's one primary action, styled as the title page's Play: the host and guests come
             back to watching here by it (the owner missed it as a plain link, 2026-10-29). */}

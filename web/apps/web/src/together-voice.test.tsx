@@ -543,7 +543,7 @@ describe("the host's voice as a session starts", () => {
     await click(buttonWithText(mounted.container, "Start"));
     await server.accept();
     const page = buttonWithText(mounted.container, "pressed 1");
-    expect(page.getAttribute("data-voice")).toBe("had");
+    expect(page?.getAttribute("data-voice")).toBe("had");
     mounted.unmount();
   });
 });

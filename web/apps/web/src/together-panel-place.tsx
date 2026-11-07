@@ -11,11 +11,13 @@ import { createContext, use, type JSX, type ReactNode } from "react";
 export const PanelInTheDialogContext = createContext(false);
 
 /**
- * Volumes a session's panel holds, the film's or the people's: drawn while the panel is on its page,
- * left out while it is in Watch Together's dialog, where the slider row carries the same levels and
- * the dialog would only repeat them (D440 §8, amending D281 §5). Where the row does not show, on a
- * phone or a TV with nothing to mix, there are no levels for the person to set (D440 §2).
+ * What a session's panel shows only while it is on its page, left out while it is in Watch Together's
+ * dialog: the volumes, the film's or the people's, which the slider row beside the dialog's button
+ * carries (D440 §8, amending D281 §5; where the row does not show, on a phone or a TV with nothing to
+ * mix, there are no levels for the person to set, D440 §2); and the host's line that the session is
+ * on, which the dialog's controls above it already say (the owner, staging, 2026-11-07: "another
+ * copy of the dialog below the first").
  */
-export function VolumesOutsideTheRow(props: { readonly children: ReactNode }): JSX.Element | null {
+export function OnlyOnThePanelsPage(props: { readonly children: ReactNode }): JSX.Element | null {
   return use(PanelInTheDialogContext) ? null : <>{props.children}</>;
 }

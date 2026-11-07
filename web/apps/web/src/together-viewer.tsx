@@ -65,7 +65,7 @@ import {
 } from "./together-viewer-tap.tsx";
 import { ComingAndGoing, TogetherPanel } from "./together-over-the-film.tsx";
 import { TogetherOnTheRemote, useIsCastingTheGroupsFilm } from "./together-on-the-remote.tsx";
-import { VolumesOutsideTheRow } from "./together-panel-place.tsx";
+import { OnlyOnThePanelsPage } from "./together-panel-place.tsx";
 import { SessionVoiceContext, useVoice, VoiceControls } from "./together-voice.tsx";
 import {
   forgetEndedHere,
@@ -351,9 +351,9 @@ function ViewerSession(props: {
           <TogetherDebug snapshot={snapshot} />
           {/* The voices' tap is asked for over the stage, with the film's (ViewingArea). */}
           <VoiceControls {...voice} tap={{ ...voice.tap, isWaiting: false }} />
-          <VolumesOutsideTheRow>
+          <OnlyOnThePanelsPage>
             <VolumeSlider volume={volume} onChange={setVolume} />
-          </VolumesOutsideTheRow>
+          </OnlyOnThePanelsPage>
           <LeaveButton membership={props.membership} onLeft={onOver} />
         </TogetherPanel>
       </ViewerPage>

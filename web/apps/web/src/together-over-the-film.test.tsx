@@ -176,7 +176,7 @@ it("moves the session's panel, its state kept, into the dialog the sign opens ov
   expect(opens).toEqual([true, false]);
 });
 
-it("opens the tray's Watch Together dialog over the film, the host's controls with End, the panel under them, which holds Talk and the volumes (D433 §1, §2)", async () => {
+it("opens the tray's Watch Together dialog over the film, the host's controls with End, the panel under what plays, which holds Talk and the volumes (D433 §1, §2)", async () => {
   mounted = await mount(
     withServices(<Player hasPanel onOpenChange={() => undefined} />, hosting()),
   );
@@ -190,9 +190,15 @@ it("opens the tray's Watch Together dialog over the film, the host's controls wi
   if (controls === null || panel === null) {
     throw new Error("the dialog lacks the host's controls or the panel");
   }
-  // The panel under the controls, not among them.
-  expect(controls.contains(panel)).toBe(false);
-  expect(controls.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+  // The panel under what plays, above the people, End and the debug fold: it stood after them all,
+  // a second dialog under the first (the owner, staging, 2026-11-07).
+  const plays = controls.querySelector(".together-plays");
+  const people = controls.querySelector(".watch-together__people-head");
+  if (plays === null || people === null) {
+    throw new Error("the controls lack what plays or the people");
+  }
+  expect(plays.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+  expect(people.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_PRECEDING).not.toBe(0);
   // The panel's are Talk and the volumes: the controls draw no second film volume.
   const volumes = [...controls.querySelectorAll("label")].filter((label) =>
     label.textContent.startsWith("Film volume"),
