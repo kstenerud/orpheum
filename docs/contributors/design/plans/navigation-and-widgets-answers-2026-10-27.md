@@ -2453,3 +2453,9 @@ casting to it, and the server refuses the cast back.
    controls to the fullscreen controls rather than its own sprawling set of controls." The cast
    controls page (D440, the 11-19 batch) is to take the full-screen overlay's set and layout; to be
    recorded as a decision amending D440 where it says otherwise.
+   **The owner's answers (2026-11-07), to what the change would lose:** how the receiver plays (as it
+   is or converted, the quality, the link's speed) goes in ⁝ ("yes, add it to the ... menu"), and
+   the same read-out is in ⁝ when playing locally too ("This should be available in local fullscreen
+   as well since it's useful"). Carried over as the lead proposed: "Playing on ‹TV›" and the film's
+   name as a sign, "Ready on ‹TV›" while nothing plays, Up Next at an episode's end, Stop casting in
+   the Cast control; the bare player and Start over (⏮ covers it) left out of the remote's ⁝.
