@@ -4,7 +4,8 @@ import "./ui-gallery.css";
 
 import "./gallery-words.ts";
 
-import { useRef, type JSX } from "react";
+import { startingTuning, type TogetherVoice, type VoicePartner } from "@orpheum/sdk";
+import { useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { MenuIcon } from "./app-shell.tsx";
@@ -42,7 +43,7 @@ import { TogetherIcon } from "./sign-mark.tsx";
 import { CastIcon } from "./status-tray.tsx";
 import { StillReadingIcon } from "./still-reading.tsx";
 import { Timeline } from "./timeline.tsx";
-import { MicrophoneIcon } from "./together-voice.tsx";
+import { MicrophoneIcon, SessionVoiceContext, type VoiceInUse } from "./together-voice.tsx";
 import { UncertainMatchIcon } from "./uncertain-match.tsx";
 import type { Upward } from "./upward.ts";
 import { WarningIcon } from "./warning-sign.tsx";
@@ -477,35 +478,79 @@ const galleryUpward: Upward = {
  * with 🔈, Subtitles, Sound track and ⁝, each opening its own pop-up. The overlay's showing, hiding
  * and presses are PlayerOverlay's, not drawn here.
  */
+/** The others in the gallery's Watch Together session, two of whose names start alike (D440 §2). */
+const galleryPartners: readonly VoicePartner[] = [
+  { deviceId: 11, memberId: 2, name: "Gran", state: "connected" },
+  { deviceId: 12, memberId: 3, name: "Gail", state: "connected" },
+  { deviceId: 13, memberId: 4, name: "Dan", state: "connected" },
+];
+
+/**
+ * A Watch Together session's voice for the gallery's overlay: its people, whose volumes its 🔈 row
+ * sets here alone, heard by no one; voice off, so Talk shows where the device has a microphone.
+ */
+function useGalleryVoice(): VoiceInUse {
+  const [partnerGains, setPartnerGains] = useState<Readonly<Record<number, number>>>({});
+  const snapshot = {
+    status: "off" as const,
+    failure: undefined,
+    browserReason: undefined,
+    isHearing: true,
+    isMuted: false,
+    partnerGains,
+    isConnected: true,
+    partners: galleryPartners,
+    tuning: startingTuning,
+  };
+  const nothing = (): void => undefined;
+  const voice: TogetherVoice = {
+    snapshot: () => snapshot,
+    subscribe: () => nothing,
+    hear: nothing,
+    start: () => Promise.resolve(),
+    stop: nothing,
+    leave: nothing,
+    setMuted: nothing,
+    setPartnerGain: (memberId, gain) => {
+      setPartnerGains((gains) => ({ ...gains, [memberId]: gain }));
+    },
+    readMicrophoneLevel: () => 0,
+  };
+  return { voice, snapshot, tap: { isWaiting: false, play: nothing } };
+}
+
 function GalleryOverlayRows(): JSX.Element {
+  const voice = useGalleryVoice();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const playRef = useRef<HTMLButtonElement | null>(null);
   const scrubRef = useRef<HTMLInputElement | null>(null);
   const buttonsRef = useRef<HTMLDivElement | null>(null);
   const areaRef = useRef<HTMLDivElement | null>(null);
   return (
-    <PlayUpwardContext value={galleryUpward}>
-      <PlayerTracksContext value={galleryTracks}>
-        <div className="ui-gallery__film">
-          <div className="player-overlay" data-shown="full">
-            <OverlayRows
-              source={galleryFilm}
-              isTv={false}
-              refs={{ playRef, scrubRef, buttonsRef, videoRef }}
-              convenience={{
-                film: { videoRef, readLinkKbps: () => undefined, failure: undefined },
-                offer: undefined,
-                hasOffer: false,
-                isOverlayFull: true,
-                onOffered: () => undefined,
-                areaRef,
-              }}
-              moves={undefined}
-              onMenuOpenChange={() => undefined}
-            />
+    <SessionVoiceContext value={voice}>
+      <PlayUpwardContext value={galleryUpward}>
+        <PlayerTracksContext value={galleryTracks}>
+          <div className="ui-gallery__film">
+            <div className="player-overlay" data-shown="full">
+              <OverlayRows
+                source={galleryFilm}
+                isTv={false}
+                refs={{ playRef, scrubRef, buttonsRef, videoRef }}
+                convenience={{
+                  film: { videoRef, readLinkKbps: () => undefined, failure: undefined },
+                  offer: undefined,
+                  hasOffer: false,
+                  isOverlayFull: true,
+                  onOffered: () => undefined,
+                  areaRef,
+                }}
+                moves={undefined}
+                onMenuOpenChange={() => undefined}
+              />
+            </div>
           </div>
-        </div>
-      </PlayerTracksContext>
-    </PlayUpwardContext>
+        </PlayerTracksContext>
+      </PlayUpwardContext>
+    </SessionVoiceContext>
   );
 }

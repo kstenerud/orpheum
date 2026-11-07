@@ -53,6 +53,16 @@
   box-shadow: 0 0 0 calc(var(--level, 0) * 0.65rem) var(--color-status-ring);
 }
 
+/* Among the overlay's buttons (D440 §3): an icon button's size and its ground over the film while
+   off; blue as ever while on. */
+.together-voice__talk--over-video {
+  width: var(--size-control);
+  height: var(--size-control);
+  border: none;
+  background: var(--color-video-control);
+  color: var(--color-on-video);
+}
+
 .together-voice__talk[data-starting] {
   animation: together-voice-opening 1s ease-in-out infinite;
 }

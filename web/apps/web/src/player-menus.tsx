@@ -20,9 +20,8 @@ import { ListEntry, ListOption } from "./list-box.tsx";
 import { LevellingControl } from "./levelling.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { PlayOriginal } from "./play-original.tsx";
-import { keepsOpenAttribute, PopoverButton, type OneControl } from "./popover.tsx";
-import { volumeAfter } from "./player-commands.ts";
-import { muteClass, SoundControls, type PlayerSound } from "./player-controls.tsx";
+import { keepsOpenAttribute, PopoverButton } from "./popover.tsx";
+import { muteClass, type PlayerSound } from "./player-controls.tsx";
 import { AudioIcon, MutedIcon, SettingsIcon, SoundIcon, SubtitlesIcon } from "./player-icons.tsx";
 import type { OverlayControl } from "./player-overlay-state.ts";
 import { PlayerTracksContext, type PlayerTracks } from "./player-tracks.tsx";
@@ -31,6 +30,8 @@ import { BoostBox } from "./sound.tsx";
 import { SoundOffsetControl } from "./sound-delay.tsx";
 import { FindSubtitles } from "./subtitle-search.tsx";
 import { OffsetControl, useSubtitleChoices, type SubtitleChoice } from "./subtitles.tsx";
+import { TalkOverTheFilm, useSessionVoice } from "./together-voice.tsx";
+import { useVolumeRow, VolumeRow } from "./volume-row.tsx";
 
 /**
  * What the page playing gives the overlay's menus beside the film's tracks (PlayerTracksContext):
@@ -56,7 +57,8 @@ type OpenMenu = "volume" | "subtitles" | "audio" | "more" | "find" | "testers";
 
 /**
  * The full-screen overlay's menus, in row 2's trailing group before full screen (D407 §1, §8): 🔈,
- * the volume upright and mute, where the overlay shows it (D407 §10); Subtitles, Off, the film's
+ * the row of volume sliders, where the overlay shows it (D407 §10, D440 §2); Talk beside it in a
+ * Watch Together session, on a device with a microphone (TalkOverTheFilm, D440 §3); Subtitles, Off, the film's
  * subtitle tracks and Find subtitles; Sound track, the audio tracks, where there are more than one; ⁝
  * (Settings), the rest of what lies under the film outside full screen. Subtitles and Sound track are two
  * menus, each a button of its own, not one panel (the owner, 2026-11-04), and each opens on its
@@ -100,6 +102,7 @@ export function PlayerMenus(props: {
       {props.shown.includes("sound") && sound !== undefined ? (
         <VolumeMenu sound={sound} onOpenChange={toldOf("volume")} />
       ) : null}
+      <TalkOverTheFilm />
       {tracks === undefined ? null : (
         <TrackMenus
           tracks={tracks}
@@ -163,23 +166,28 @@ function TrackMenus(props: {
 }
 
 /**
- * 🔈 (D407 §10, Q11): a pop-up with the volume upright and mute, both keeping it open
- * (keepsOpenAttribute), as + and − move the volume from anywhere (player-commands.ts). A pop-up of
- * its own, not a list: as wide as its slider (the owner, 2026-11-02: "The volume control popup is
- * far too wide"; D408 §2). It grows out of its button: its mute, a speaker as 🔈 is, laid over 🔈,
- * the slider above it, where there is room above (the owner, 2026-11-03: "the speaker icon inside
- * the slider ends up physically at a similar location to the button it spawned from"; Popover's
- * partOverOpener). Focus opens on that mute, where 🔈 was, as the browser's modal gives it, and stays
- * there: the pop-up is one control (OneControl), Up and Down stepping the volume as + and − do, OK
- * closing it (the owner, 2026-11-03: "it should behave as a single component"); the slider takes a
- * pointer alone, and the mute a press.
+ * 🔈 (D407 §10, Q11, D440 §2): a pop-up with the row of volume sliders (VolumeRow), the film's first,
+ * upright with its mute, then, in a Watch Together session, each other person's, all keeping it open
+ * (keepsOpenAttribute), as + and − move the film's volume from anywhere (player-commands.ts). A
+ * pop-up of its own, not a list: as wide as its sliders (the owner, 2026-11-02: "The volume control
+ * popup is far too wide"; D408 §2). It grows out of its button: the film's mute, a speaker as 🔈 is,
+ * laid over 🔈, the slider above it, where there is room above (the owner, 2026-11-03: "the speaker
+ * icon inside the slider ends up physically at a similar location to the button it spawned from";
+ * Popover's partOverOpener). Focus opens on that mute, where 🔈 was, as the browser's modal gives it:
+ * the row is one control (OneControl), Up and Down stepping the focused slider, the film's as + and −
+ * do, Left and Right moving focus along the row and closing it past either end, OK closing it (the
+ * owner, 2026-11-03: "it should behave as a single component"); the sliders take a pointer or a
+ * finger, and the mute a press. Each opening starts on the film's.
  */
 function VolumeMenu(props: {
   readonly sound: PlayerSound;
   readonly onOpenChange: (isOpen: boolean) => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { sound } = props;
+  const { sound, onOpenChange } = props;
+  const voice = useSessionVoice();
+  const row = useVolumeRow(sound, voice);
+  const { setFocusedAt } = row;
   const isSilent = sound.isMuted || sound.volume === 0;
   return (
     <PopoverButton
@@ -189,32 +197,19 @@ function VolumeMenu(props: {
       openerNaming={{ "aria-label": t("playerControls.volume") }}
       isFromItsTop
       partOverOpener={`.${muteClass}`}
-      oneControl={volumeStepping(sound)}
-      onOpenChange={props.onOpenChange}
+      oneControl={row.oneControl}
+      onOpenChange={(isOpen) => {
+        if (isOpen) {
+          setFocusedAt(0);
+        }
+        onOpenChange(isOpen);
+      }}
     >
       <div {...{ [keepsOpenAttribute]: "" }}>
-        <SoundControls sound={sound} isOverVideo={false} isUpright isRangeFocusable={false} />
+        <VolumeRow sound={sound} voice={voice} row={row} />
       </div>
     </PopoverButton>
   );
-}
-
-/**
- * Up and Down in 🔈's pop-up: a step of the volume each (volumeAfter), Up turning a muted film's
- * sound on, as + and − do (player-commands.ts).
- */
-function volumeStepping(sound: PlayerSound): OneControl {
-  return {
-    up: () => {
-      sound.setVolume(volumeAfter(sound.volume, 1));
-      if (sound.isMuted) {
-        sound.setMuted(false);
-      }
-    },
-    down: () => {
-      sound.setVolume(volumeAfter(sound.volume, -1));
-    },
-  };
 }
 
 /** The menu open after menu tells it opened or closed, now open before. */

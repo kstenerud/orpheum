@@ -350,6 +350,12 @@ function useChoiceCloses(ref: RefObject<HTMLElement | null>, close: () => void):
 export interface OneControl {
   readonly up: () => void;
   readonly down: () => void;
+  /**
+   * Where it is a row of controls, as 🔈's row of sliders is (D440 §2): moves to the one before
+   * (-1) or after (1) at Left and Right, and says whether there was one to move to; at the row's
+   * end, as in a pop-up of one control, Left and Right close it. Undefined for one control alone.
+   */
+  readonly across?: ((direction: -1 | 1) => boolean) | undefined;
 }
 
 /** What a pop-up is told. */
@@ -370,22 +376,37 @@ function isInTextField(): boolean {
   return focused !== null && caretOf(focused) !== undefined;
 }
 
+/** Left or Right in a pop-up (isTakenInPopUp): the caret's in a text field, a step along a row, else closing it. */
+function isAcrossTaken(
+  direction: -1 | 1,
+  oneControl: OneControl | undefined,
+  onClose: () => void,
+): boolean {
+  if (isInTextField()) {
+    return false;
+  }
+  if (oneControl?.across?.(direction) !== true) {
+    onClose();
+  }
+  return true;
+}
+
 /**
  * What a command does in a pop-up, closed by onClose: Left and Right close it, but from a text field,
  * a list's Sort and filter's name (listing-tools.tsx), where they are the caret's and, at its value's
  * edge, go where they would in a dialog's field, to nothing beside it in a column, not closing it; in
- * one that is one control, Up and Down step it and OK closes it. Whether it took the command.
+ * one that is one control, Up and Down step it and OK closes it, and in a row of them Left and Right
+ * move along it before they close it at its end. Whether it took the command.
  */
 function isTakenInPopUp(
   command: string,
   oneControl: OneControl | undefined,
   onClose: () => void,
 ): boolean {
-  const isAcross = command === "left" || command === "right";
-  if (isAcross && isInTextField()) {
-    return false;
+  if (command === "left" || command === "right") {
+    return isAcrossTaken(command === "left" ? -1 : 1, oneControl, onClose);
   }
-  if (isAcross || (oneControl !== undefined && command === "select")) {
+  if (oneControl !== undefined && command === "select") {
     onClose();
     return true;
   }

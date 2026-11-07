@@ -667,7 +667,17 @@ The web client: the browser and phone interface, served embedded by the core. MP
   commands (`data-focus-arrows-are-commands`), and the buttons, ⏮ ⏪ ▶ ⏩ ⏭ and 🔈 💬 🎧 ⁝ ⤢, with
   the subtitle, audio and more menus (`src/player-menus.tsx`, D407 §8); a press of play that plays or
   Down from the buttons puts focus on the video so the overlay hides (D407 §6), and + and − show the
-  volume they leave a moment (D407 §10). A television's player opens full screen. Outside full
+  volume they leave a moment (D407 §10). 🔈 shows on every device and opens one row of sliders
+  (`src/volume-row.tsx`, D440 §2): the film's, marked by a film icon, or where the page cannot set
+  the film's volume (an iPhone) the word that the phone's buttons do in its place; then, in a Watch
+  Together session (`SessionVoiceContext`), one per other person, the same per-person gain the
+  session's controls set (`PersonVoiceRange`, D281 §4), carrying their letters (two where first
+  letters collide) and a colour of `--color-person-1`…`6` by their member id, the focused one their
+  name above it; Left and Right move along it and close it past either end, Up and Down step the
+  focused slider, a finger drags each. The host's dialog for a person drops their volume while the
+  film plays under it (D440 §2, amending D281 §5). Talk sits beside 🔈 in a session on a device with
+  a microphone (`TalkOverTheFilm`, `src/has-microphone.ts`, D440 §3). `src/volume-row.test.tsx`,
+  `src/has-microphone.test.ts`. A television's player opens full screen. Outside full
   screen, on every device, nothing lies over the film (D407 §9, `src/page-controls.tsx`): the
   controls are under it, never hidden, the timeline, the same buttons but the menus, which stay under
   them on the page, and the offers as ordinary buttons after a television's ‹; Down on the video goes

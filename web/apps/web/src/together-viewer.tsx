@@ -64,7 +64,7 @@ import {
   type KeptVideo,
 } from "./together-viewer-tap.tsx";
 import { ComingAndGoing, TogetherPanel } from "./together-over-the-film.tsx";
-import { useVoice, VoiceControls } from "./together-voice.tsx";
+import { SessionVoiceContext, useVoice, VoiceControls } from "./together-voice.tsx";
 import {
   forgetEndedHere,
   forgetMembership,
@@ -327,29 +327,32 @@ function ViewerSession(props: {
       />
     );
   }
+  // The player's overlay reaches the people's volumes and Talk from it (D440 §2, §3).
   return (
-    <ViewerPage className="together-viewer" inShellClassName="together-viewer--in-shell">
-      {/* In the shell, its banner shows the logo. */}
-      {isInShell ? null : <img className="together-viewer__logo" src={logo} alt={productName} />}
-      <h1 className="together-viewer__heading">{t("together.viewerHeading")}</h1>
-      <ViewingArea
-        kept={kept}
-        isVoiceWaiting={voice.tap.isWaiting}
-        credential={props.membership.credential}
-        connection={connection}
-        snapshot={snapshot}
-        volume={volume}
-      />
-      <ComingAndGoing snapshot={snapshot} video={kept.video} />
-      <TogetherPanel>
-        <TogetherNews snapshot={snapshot} />
-        <TogetherDebug snapshot={snapshot} />
-        {/* The voices' tap is asked for over the stage, with the film's (ViewingArea). */}
-        <VoiceControls {...voice} tap={{ ...voice.tap, isWaiting: false }} />
-        <VolumeSlider volume={volume} onChange={setVolume} />
-        <LeaveButton membership={props.membership} onLeft={onOver} />
-      </TogetherPanel>
-    </ViewerPage>
+    <SessionVoiceContext value={voice}>
+      <ViewerPage className="together-viewer" inShellClassName="together-viewer--in-shell">
+        {/* In the shell, its banner shows the logo. */}
+        {isInShell ? null : <img className="together-viewer__logo" src={logo} alt={productName} />}
+        <h1 className="together-viewer__heading">{t("together.viewerHeading")}</h1>
+        <ViewingArea
+          kept={kept}
+          isVoiceWaiting={voice.tap.isWaiting}
+          credential={props.membership.credential}
+          connection={connection}
+          snapshot={snapshot}
+          volume={volume}
+        />
+        <ComingAndGoing snapshot={snapshot} video={kept.video} />
+        <TogetherPanel>
+          <TogetherNews snapshot={snapshot} />
+          <TogetherDebug snapshot={snapshot} />
+          {/* The voices' tap is asked for over the stage, with the film's (ViewingArea). */}
+          <VoiceControls {...voice} tap={{ ...voice.tap, isWaiting: false }} />
+          <VolumeSlider volume={volume} onChange={setVolume} />
+          <LeaveButton membership={props.membership} onLeft={onOver} />
+        </TogetherPanel>
+      </ViewerPage>
+    </SessionVoiceContext>
   );
 }
 

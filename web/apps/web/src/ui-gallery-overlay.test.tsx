@@ -60,3 +60,13 @@ it("shows the player's real overlay rows over a film, each of whose menus opens 
   expect(await popUpOf("Subtitles: Off")).toEqual(["Off", "English", "French"]);
   expect(await popUpOf("Sound track: English")).toEqual(["English", "English · commentary"]);
 });
+
+it("opens 🔈's row of sliders in its session: the film's, then each person's letters (D440 §2)", async () => {
+  mounted = await mount(withServices(<UiGallery />));
+  await popUpOf("Volume");
+  const letters = [...galleryOverlay().querySelectorAll("dialog[open] .volume-row__letters")].map(
+    (mark) => mark.textContent,
+  );
+  expect(letters).toEqual(["Gr", "Ga", "D"]);
+  expect(galleryOverlay().querySelectorAll("dialog[open] input[type=range]")).toHaveLength(4);
+});

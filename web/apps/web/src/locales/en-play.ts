@@ -39,6 +39,7 @@ export const enPlay = {
     seekedForward: "+{{seconds}}",
     seekedBack: "−{{seconds}}",
     volume: "Volume",
+    filmVolume: "The film's volume",
     volumeLevel: "Volume {{percent}} %",
     fullScreen: "Full screen",
     leaveFullScreen: "Leave full screen",

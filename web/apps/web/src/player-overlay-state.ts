@@ -356,7 +356,6 @@ export type OverlayControl =
 export interface ControlsContext {
   readonly isTelevision: boolean;
   readonly isTouch: boolean;
-  readonly isVolumeSettable: boolean;
   readonly audioTrackCount: number;
   readonly hasPrevious: boolean;
   readonly hasNext: boolean;
@@ -366,9 +365,11 @@ export interface ControlsContext {
 
 /**
  * Which controls the overlay shows (D407 §2; plans/player-overlay.md §2.6): previous and next only
- * within a sequence; the sound not on a television or a touch screen, and only where the page can
- * set the volume; the audio tracks only where there are more than one; Up everywhere but a cast's
- * receiver; the rest always.
+ * within a sequence; the audio tracks only where there are more than one; Up everywhere but a cast's
+ * receiver; the rest always. The sound, 🔈's row of sliders, shows on every device, a television and
+ * a touch screen too, and where the page cannot set the film's volume, as a Watch Together
+ * session's voices are set there all the same (D440 §2); but a cast's receiver shows it only as
+ * before, on a computer with no touch screen, its remote holding its sound (D440 §5).
  */
 export function controlsShown(context: ControlsContext): readonly OverlayControl[] {
   const shows: Record<OverlayControl, boolean> = {
@@ -378,7 +379,7 @@ export function controlsShown(context: ControlsContext): readonly OverlayControl
     play: true,
     seekForward: true,
     next: context.hasNext,
-    sound: !context.isTelevision && !context.isTouch && context.isVolumeSettable,
+    sound: !context.isReceiver || (!context.isTelevision && !context.isTouch),
     // A cast's receiver draws no menus (D407 §12): the remote holds its choices.
     subtitles: !context.isReceiver,
     audio: context.audioTrackCount > 1 && !context.isReceiver,

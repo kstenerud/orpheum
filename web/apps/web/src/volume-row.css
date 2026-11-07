@@ -1,0 +1,106 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* 🔈's row of sliders (volume-row.tsx, D440 §2): the film's, then each person's, side by side, each
+   upright, its mark at its foot level with the film's mute, a name line above them all. */
+.volume-row {
+  display: flex;
+  gap: var(--space-1);
+  align-items: flex-end;
+}
+
+.volume-row__slider {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  border-radius: var(--radius-control);
+}
+
+/* The film's own slider and mute keep their look; its mark sits above them. */
+.volume-row__film .player-controls__sound--upright {
+  padding-block-start: 0;
+}
+
+.volume-row__film .film-volume__buttons {
+  max-width: 8rem;
+  margin: 0;
+  font-size: var(--font-size-small);
+  text-align: center;
+}
+
+.volume-row__mark {
+  display: inline-grid;
+  place-items: center;
+  width: var(--size-control);
+  height: var(--size-control);
+  color: var(--color-muted);
+}
+
+.volume-row__film-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.volume-row__person {
+  padding: var(--space-2) var(--space-1);
+}
+
+.volume-row__person .volume-range {
+  width: var(--size-control);
+}
+
+/* A person's colour and letters, at the foot of their slider, as the film's mute is at its. */
+.volume-row__letters {
+  border-radius: 50%;
+  background: var(--person-colour);
+  color: var(--color-on-person);
+  font-weight: var(--font-weight-strong);
+  transform: scale(0.8);
+}
+
+/* Their slider's track in their colour too. */
+.volume-row__person .volume-range {
+  accent-color: var(--person-colour);
+}
+
+/* The focused person's full name, above their slider, over its neighbours' empty name lines. */
+.volume-row__name {
+  min-height: calc(var(--font-size-small) * var(--line-height-body));
+  font-size: var(--font-size-small);
+  white-space: nowrap;
+}
+
+/* The browser's focus stays on the film's mute (volume-row.tsx): its ring shows while the film's
+   slider is the one Up and Down move, and a person's ring while theirs is. */
+.volume-row__film:not([data-focused]) .player-controls__mute button:focus-visible {
+  outline: none;
+}
+
+.volume-row__person[data-focused] {
+  outline: var(--focus-ring-width) solid var(--person-colour);
+}
+
+.volume-row__person[data-colour="1"] {
+  --person-colour: var(--color-person-1);
+}
+
+.volume-row__person[data-colour="2"] {
+  --person-colour: var(--color-person-2);
+}
+
+.volume-row__person[data-colour="3"] {
+  --person-colour: var(--color-person-3);
+}
+
+.volume-row__person[data-colour="4"] {
+  --person-colour: var(--color-person-4);
+}
+
+.volume-row__person[data-colour="5"] {
+  --person-colour: var(--color-person-5);
+}
+
+.volume-row__person[data-colour="6"] {
+  --person-colour: var(--color-person-6);
+}

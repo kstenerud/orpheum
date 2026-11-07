@@ -27,8 +27,10 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { ownScriptOf } from "./app-update.ts";
+import { useHasMicrophone } from "./has-microphone.ts";
 import { Icon } from "./icon.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
+import { volumeAfter } from "./player-commands.ts";
 import { dataOrThrow } from "./problem.ts";
 import { useServices, useToken } from "./services.tsx";
 import { useHostsSessionOver } from "./together-session-end.ts";
@@ -131,6 +133,18 @@ export function useHostVoice(): VoiceInUse | undefined {
   return use(HostVoiceContext);
 }
 
+/**
+ * This page's voice in the Watch Together session it is in, the host's (HostVoiceProvider) or a
+ * guest's (together-viewer.tsx): what the player's overlay reaches the people's volumes and Talk
+ * from (D440 §2, §3); undefined outside a session.
+ */
+export const SessionVoiceContext = createContext<VoiceInUse | undefined>(undefined);
+
+/** This page's voice in its session (SessionVoiceContext); undefined outside one. */
+export function useSessionVoice(): VoiceInUse | undefined {
+  return use(SessionVoiceContext);
+}
+
 /** Keeps the host's voice while this tab hosts membership, for every screen under it. */
 export function HostVoiceProvider(props: {
   readonly membership: Membership | undefined;
@@ -149,7 +163,11 @@ function HostVoiceOf(props: {
 }): JSX.Element {
   const voice = useVoice(props.membership, useToken());
   useHostLeavesAsTheSessionEnds(props.membership.sessionId, voice.snapshot.endReason);
-  return <HostVoiceContext value={voice}>{props.children}</HostVoiceContext>;
+  return (
+    <HostVoiceContext value={voice}>
+      <SessionVoiceContext value={voice}>{props.children}</SessionVoiceContext>
+    </HostVoiceContext>
+  );
 }
 
 /**
@@ -286,6 +304,8 @@ function TalkToggle(
   props: VoiceInUse & {
     /** Whether the first press warns that only headphones carry the film and voice together. */
     readonly shouldWarnFirst: boolean;
+    /** Whether it is drawn over the film, among the overlay's buttons (D440 §3). */
+    readonly isOverVideo?: boolean | undefined;
   },
 ): JSX.Element {
   const { t } = useTranslation();
@@ -301,7 +321,11 @@ function TalkToggle(
       <button
         ref={ref}
         type="button"
-        className="together-voice__talk"
+        className={
+          props.isOverVideo === true
+            ? "together-voice__talk together-voice__talk--over-video"
+            : "together-voice__talk"
+        }
         aria-pressed={isTalking}
         aria-label={name}
         title={name}
@@ -331,21 +355,76 @@ function TalkToggle(
   );
 }
 
+/** A person in the session whose voice this page hears, by their member, whatever their devices. */
+export interface VoicePerson {
+  readonly memberId: number;
+  readonly name: string;
+}
+
+/** Each other person in the session, once whatever their devices, in the roster's order. */
+export function peopleOf(snapshot: Pick<VoiceSnapshot, "partners">): readonly VoicePerson[] {
+  const people = new Map(snapshot.partners.map((each) => [each.memberId, each.name]));
+  return [...people].map(([memberId, name]) => ({ memberId, name }));
+}
+
+/** How loud memberId's voice plays now, 1 as it came for one not set (D281 §4). */
+export function partnerGainOf(
+  snapshot: Pick<VoiceSnapshot, "partnerGains">,
+  memberId: number,
+): number {
+  return snapshot.partnerGains[memberId] ?? 1;
+}
+
+/**
+ * A person's voice's gain a step towards direction, as a remote's Up and Down move it in the
+ * overlay's row (D440 §2): the film's volume step (volumeAfter), over the voice's span to
+ * partnerGainMost.
+ */
+export function partnerGainAfter(gain: number, direction: -1 | 1): number {
+  return volumeAfter(gain / partnerGainMost, direction) * partnerGainMost;
+}
+
+/**
+ * The slider of one person's voice, from silent to partnerGainMost (D281 §4): the one way it is set,
+ * beside its name in the Watch Together controls (PersonVoiceVolume) and upright in the overlay's
+ * row (volume-row.tsx).
+ */
+export function PersonVoiceRange(
+  props: VoiceInUse & {
+    readonly memberId: number;
+    readonly label?: string | undefined;
+    readonly isUpright?: boolean | undefined;
+    readonly isFocusable?: boolean | undefined;
+  },
+): JSX.Element {
+  const { voice, memberId } = props;
+  return (
+    <VolumeRange
+      value={partnerGainOf(props.snapshot, memberId)}
+      most={partnerGainMost}
+      {...(props.label === undefined ? {} : { label: props.label })}
+      isUpright={props.isUpright}
+      isFocusable={props.isFocusable}
+      onChange={(value) => {
+        voice.setPartnerGain(memberId, value);
+      }}
+    />
+  );
+}
+
 /** How loud one person's voice plays, apart from the film's volume and everyone else's (D281 §4). */
 export function PersonVoiceVolume(
   props: VoiceInUse & { readonly memberId: number; readonly name: string },
 ): JSX.Element {
   const { t } = useTranslation();
-  const gain = props.snapshot.partnerGains[props.memberId] ?? 1;
   return (
     <label className="together-voice__partner">
       {t("together.voice.personVolume", { name: props.name })}{" "}
-      <VolumeRange
-        value={gain}
-        most={partnerGainMost}
-        onChange={(value) => {
-          props.voice.setPartnerGain(props.memberId, value);
-        }}
+      <PersonVoiceRange
+        voice={props.voice}
+        snapshot={props.snapshot}
+        tap={props.tap}
+        memberId={props.memberId}
       />
     </label>
   );
@@ -354,14 +433,14 @@ export function PersonVoiceVolume(
 /** Each other person's voice volume, one per person whatever their devices. */
 export function VoiceVolumes(props: VoiceInUse): JSX.Element | null {
   const { t } = useTranslation();
-  const people = new Map(props.snapshot.partners.map((each) => [each.memberId, each.name]));
-  if (people.size === 0) {
+  const people = peopleOf(props.snapshot);
+  if (people.length === 0) {
     return null;
   }
   return (
     <fieldset className="together-voice__volumes">
       <legend>{t("together.voice.volumes")}</legend>
-      {[...people].map(([memberId, name]) => (
+      {people.map(({ memberId, name }) => (
         <PersonVoiceVolume key={memberId} {...props} memberId={memberId} name={name} />
       ))}
     </fieldset>
@@ -429,5 +508,29 @@ export function VoiceControls(props: VoiceInUse): JSX.Element {
       <VoiceVolumes voice={voice} snapshot={snapshot} tap={props.tap} />
       <p className="together-voice__hint">{t("together.voice.headphones")}</p>
     </section>
+  );
+}
+
+/**
+ * Talk among the overlay's buttons, beside 🔈, while this page is in a Watch Together session (D440
+ * §3): the one toggle (D281 §7), blue with its ring following one's voice while on, grey and struck
+ * through while off; that is the whole sign of its state. It shows only where the device has a
+ * microphone (useHasMicrophone), so not on a television playing alone, and, while on, until it is
+ * turned off. It is in the overlay, so it shows only while the overlay does (D440 §1).
+ */
+export function TalkOverTheFilm(): JSX.Element | null {
+  const voice = useSessionVoice();
+  const hasMicrophone = useHasMicrophone();
+  if (voice === undefined || (!hasMicrophone && voice.snapshot.status !== "on")) {
+    return null;
+  }
+  return (
+    <TalkToggle
+      voice={voice.voice}
+      snapshot={voice.snapshot}
+      tap={voice.tap}
+      shouldWarnFirst={movesSoundToTheEarpiece()}
+      isOverVideo
+    />
   );
 }
