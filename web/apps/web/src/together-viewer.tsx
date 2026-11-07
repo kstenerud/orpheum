@@ -32,7 +32,7 @@ import logo from "./assets/orpheum-logo.svg";
 import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { pageThatPausesWhenHidden } from "./handheld.ts";
 import { JoinForm, NoLink } from "./together-join.tsx";
-import { enterVideoFullScreen } from "./film-fullscreen.ts";
+import { keepFullScreenOnTheStage, toggleFullScreen } from "./film-fullscreen.ts";
 import { EmptyStage, FilmPlayer, type FilmParts, type MovedDown } from "./film-player.tsx";
 import type { PlaybackDecision } from "./watching.ts";
 import type { LadderOffer } from "./moving-down.ts";
@@ -636,11 +636,26 @@ function GuestStalls(props: FilmParts): JSX.Element {
   );
 }
 
-/** Over the guest's film: the video following the group, and Tap for sound and Full screen. */
+/**
+ * Over the guest's film: the video following the group, and Tap for sound and Full screen, which stays
+ * the stage's.
+ */
 function FollowingGroup(props: FilmParts): JSX.Element {
   const { fileId, following, isVoiceWaiting } = useGuestFilm();
   const muted = useFollowing(props.videoRef, fileId, following);
+  useFullScreenOnTheStage(props.videoRef);
   return <FilmButtons {...muted} isVoiceWaiting={isVoiceWaiting} videoRef={props.videoRef} />;
+}
+
+/**
+ * Keeps full screen on the stage, the film's pieces over it, where the browser's own controls put the
+ * video itself full screen (keepFullScreenOnTheStage).
+ */
+function useFullScreenOnTheStage(videoRef: RefObject<HTMLVideoElement | null>): void {
+  useEffect(() => {
+    const video = videoRef.current;
+    return video === null ? undefined : keepFullScreenOnTheStage(video, document);
+  }, [videoRef]);
 }
 
 /** A ladder's word that even its lowest quality cannot keep up, told the group (D247 §8). */
@@ -691,14 +706,10 @@ function useMovingDown(
   }, [lowerQuality, onLowerQuality]);
 }
 
-/**
- * Whether the film plays muted, the browser having refused its sound, and the tap that turns it on;
- * and whether the viewer has the player's own controls, which their link's rights give (D271 §4).
- */
+/** Whether the film plays muted, the browser having refused its sound, and the tap that turns it on. */
 interface MutedFilm {
   readonly isMuted: boolean;
   readonly turnSoundOn: () => void;
-  readonly hasControls: boolean;
 }
 
 /**
@@ -761,13 +772,14 @@ function useFollowing(
       document.removeEventListener("click", turnSoundOn, true);
     };
   }, [isMuted, turnSoundOn]);
-  return { isMuted, turnSoundOn, hasControls: canPlayPause || canSeek };
+  return { isMuted, turnSoundOn };
 }
 
 /**
  * Over a film the browser would only play muted, or while the voices wait for a tap, the tap that
  * turns the sound back on, small, at the film's top (the voices' is the page's, playWaitingAtTaps);
- * and for a viewer without the player's own controls, Full screen, which every viewer has.
+ * and Full screen, which every viewer has: the stage's, which holds these over the film, never the
+ * video's, which would show the film alone (the owner, Firefox on Android, 2026-11-07).
  */
 function FilmButtons(
   props: MutedFilm & {
@@ -783,17 +795,15 @@ function FilmButtons(
           {t("together.soundBack")}
         </button>
       ) : null}
-      {props.hasControls ? null : (
-        <button
-          type="button"
-          className="together-viewer__fullscreen"
-          onClick={() => {
-            enterVideoFullScreen(props.videoRef.current);
-          }}
-        >
-          {t("together.fullscreen")}
-        </button>
-      )}
+      <button
+        type="button"
+        className="together-viewer__fullscreen"
+        onClick={() => {
+          toggleFullScreen(props.videoRef.current?.closest(".film-player__stage"), document);
+        }}
+      >
+        {t("together.fullscreen")}
+      </button>
     </>
   );
 }

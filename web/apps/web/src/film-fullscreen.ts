@@ -134,18 +134,32 @@ function hasOwnFullScreen(video: HTMLVideoElement): video is HTMLVideoElement & 
 }
 
 /**
- * Shows a video full screen from a press: by the standard way where the browser has it, else in the
- * iPhone's own player (WebKit bug 206854). Watch Together's viewer, whose film has no player bar.
+ * Moves full screen from the video to its player's stage wherever the browser puts the video itself
+ * full screen: the browser's own controls on the video (Watch Together's guest with the rights to
+ * play or seek, D271 §4) have a full-screen button of their own, which asks for the video, and a
+ * video full screen shows nothing of the page over it (the owner, Firefox on Android, 2026-11-07:
+ * Android's own full screen, none of our controls). The video's is left and the stage asked for
+ * (fillTheScreen), filling the window where the browser refuses, the press that asked having been
+ * spent on the video's. An iPhone's own player is no full screen of the page's (WebKit bug 206854)
+ * and is left alone. Returns the stopping.
  */
-export function enterVideoFullScreen(video: HTMLVideoElement | null): void {
-  if (video === null) {
-    return;
-  }
-  if (typeof video.requestFullscreen === "function") {
-    void video.requestFullscreen().catch(() => undefined);
-  } else if (hasOwnFullScreen(video)) {
-    video.webkitEnterFullscreen();
-  }
+export function keepFullScreenOnTheStage(video: HTMLVideoElement, page: Document): () => void {
+  const changed = (): void => {
+    const stage = video.closest(".film-player__stage");
+    if (page.fullscreenElement !== video || !(stage instanceof HTMLElement)) {
+      return;
+    }
+    page.exitFullscreen().then(
+      () => {
+        fillTheScreen(stage, page);
+      },
+      () => undefined,
+    );
+  };
+  page.addEventListener("fullscreenchange", changed);
+  return () => {
+    page.removeEventListener("fullscreenchange", changed);
+  };
 }
 
 /** The pages that asked for themselves full screen, until the browser answers (askPageFullScreen). */

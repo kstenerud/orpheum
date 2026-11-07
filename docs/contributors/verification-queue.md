@@ -2812,3 +2812,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   name›" with Move it here. Reload the Mac: it still hosts. Press Move it here on the phone: the
   phone hosts, and the Mac goes home saying the session moved to another of your devices.
   (`web/apps/web/src/together-mine.ts`, `internal/core/together/memberships.go`)
+- [ ] **VQ285** — A Watch Together guest's full screen keeps our pieces over the film on Firefox for
+  Android (the owner, 2026-11-07, the 11-20 batch's finding 1). The tests stub the Fullscreen API;
+  only the device says whether Firefox for Android grants the stage's request made after leaving
+  the video's own full screen, or fills the window instead. On staging, host a session on the Mac
+  and join it on the Android phone in Firefox, signed in, as a member who may play and pause. Press
+  the video's own controls' full-screen button: passes when the film ends full screen or filling the
+  window with Full screen and Tap for sound over it, not Android's bare video. Then press our Full
+  screen at the film's corner: the same, and pressing it again leaves full screen.
+  (`web/apps/web/src/film-fullscreen.ts`, `web/apps/web/src/together-viewer.tsx`)

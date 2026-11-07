@@ -92,6 +92,7 @@ User-Agent (D263; the User-Agent is logged only).
 | IPhone Safari's native HLS cannot be routed through Web Audio, so it cannot be given a gain | [iPhone Safari's native HLS cannot be routed through Web Audio, so it cannot be given a gain](#iphone-safaris-native-hls-cannot-be-routed-through-web-audio-so-it-cannot-be-given-a-gain) |
 | Voice goes silent after getUserMedia. | [iOS suspends the AudioContext as the microphone opens](#ios-suspends-the-audiocontext-as-the-microphone-opens) |
 | Subtitles drawn by JASSUB over the video vanished in fullscreen ("they stop showing when I switch to full screen mode"). | [iPhone video fullscreen is not the Fullscreen API, and it leaves page overlays behind](#iphone-video-fullscreen-is-not-the-fullscreen-api-and-it-leaves-page-overlays-behind) |
+| A Watch Together guest on Firefox for Android pressed full screen and got Android's own full screen, none of our controls. | [A video's own controls put the video itself full screen, and Firefox cannot hide that button](#a-videos-own-controls-put-the-video-itself-full-screen-and-firefox-cannot-hide-that-button) |
 | Safari's native HLS starts on the first variant listed, whatever start hint is given | [Safari's native HLS starts on the first variant listed, whatever start hint is given](#safaris-native-hls-starts-on-the-first-variant-listed-whatever-start-hint-is-given) |
 | The film page's hidden warm-up player loads nothing on iPhone. | [iPhone Safari loads nothing for a media element until the user has tapped it](#iphone-safari-loads-nothing-for-a-media-element-until-the-user-has-tapped-it) |
 | A Watch Together guest's iPhone shows one still after another, with no sound. | [iPhone Safari refuses a film's sound that no recent tap started, and a tap long before does not count](#iphone-safari-refuses-a-films-sound-that-no-recent-tap-started-and-a-tap-long-before-does-not-count) |
@@ -799,6 +800,23 @@ User-Agent (D263; the User-Agent is logged only).
   in iOS 17.2": NEW, where a WebKit engineer notes the iOS Fullscreen API was disabled again from Safari 17.2
   beta 3 (all checked 2026-10-08).
 
+
+### A video's own controls put the video itself full screen, and Firefox cannot hide that button
+
+- **Technology:** the browser's own `<video controls>` in Firefox (Android and desktop) and Chromium.
+- **Symptom:** a Watch Together guest on Firefox for Android, with the rights to play and seek and so
+  the browser's own controls, pressed full screen and got Android's own full screen with none of our
+  controls (the owner, 2026-11-07).
+- **Cause:** the controls' full-screen button asks for the video element itself, and an element full
+  screen shows only itself and its descendants: nothing the page draws over the video is inside it.
+  Chromium hides the button with `controlsList="nofullscreen"`; Firefox has no `controlsList`.
+- **What we do:** the guest's page listens for `fullscreenchange`, and where the video itself is the
+  full-screen element it leaves that full screen and asks for the stage's, filling the window where
+  the browser refuses (`keepFullScreenOnTheStage`, `web/apps/web/src/film-fullscreen.ts`); our own
+  Full screen asks for the stage from the start. VQ285.
+- **Evidence:** [MDN, `HTMLMediaElement.controlsList`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/controlsList):
+  not supported in Firefox; the [Fullscreen API standard](https://fullscreen.spec.whatwg.org/)
+  renders the fullscreen element and its descendants alone in the top layer.
 
 ### Safari's native HLS starts on the first variant listed, whatever start hint is given
 

@@ -51,7 +51,7 @@
   min-height: 60dvh;
 }
 
-/* A viewer without the player's own controls still has full screen, at the film's corner. */
+/* Every viewer's full screen, the stage's, at the film's corner. */
 .together-viewer__fullscreen {
   position: absolute;
   inset-block-end: var(--space-2);
