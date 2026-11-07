@@ -21,6 +21,12 @@ what the Cast device can do and plays our ladder; the receiver of M6 (D245) grow
   discovery** (its own names, else WebRTC, as the web client reaches it: `src/reach.ts`, the 11-05
   batch's item 10), signed in by what its sender hands it, and answers only the lab's requests on
   `urn:x-cast:org.orpheum.lab`. `src/lab.test.ts`.
+- **Becomes a cast target only as a device of its sender's person, by D288's pairing**: asked by the
+  lab's sender, it pairs (its code carried over the lab's namespace, the check codes shown on both
+  screens for the person to compare), keeps that session in its own storage, connects as a device
+  (D337), takes a cast handed to it at once and plays in the cast's session (D434): the session's
+  film, play, pause and position. Its sockets go the way its requests go, by the core's name or over
+  WebRTC (`src/reach.ts`). `src/device.test.ts`; only a device shows the whole: VQ286, VQ287.
 - **Runs on Chromium 90**, the 3rd-generation Chromecast's: the build lowers syntax to it
   (`vite.config.ts`'s target) and `src/old-engine.ts`, imported first, fills the methods the bundle
   calls that it lacks. `src/old-engine.test.ts`, `src/main.test.ts`; only a device shows the whole: VQ58.
@@ -36,5 +42,6 @@ what the Cast device can do and plays our ladder; the receiver of M6 (D245) grow
 ## Where to change
 
 - The entry point: `src/main.ts`. CAF, reached without types: `src/caf.ts`. The lab's session (the
-  report, the film, the memory, the log on screen): `src/lab.ts`.
+  report, the film, the memory, the log on screen): `src/lab.ts`. The receiver as a cast target (its
+  pairing, its live connection, the cast it follows): `src/device.ts`.
 - The CAF receiver SDK script tag: `index.html`.

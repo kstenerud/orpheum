@@ -3,6 +3,7 @@
 import { playChunked, watchStalls, type ChunkedPlayback } from "@orpheum/player";
 import {
   browserDeviceFacts,
+  createApi,
   deviceReportFrom,
   failureText,
   testLoopback,
@@ -11,7 +12,8 @@ import {
   type LoopbackResult,
 } from "@orpheum/sdk";
 
-import { reachCore, reachOf, type Reach, type Reached } from "./reach.ts";
+import { CastDevice, keepSession, keptSessionOf, pairThisDevice } from "./device.ts";
+import { reachCore, reachedAt, reachOf, type Reach, type Reached } from "./reach.ts";
 
 /**
  * The lab receiver's spike (plans/tv-device-tests.md; casting-2026-10-25.md §5.2 step 2, review §4):
@@ -65,10 +67,14 @@ export function memoryOf(memory: unknown, atS: number): MemorySample | undefined
     : { atS, usedMb: used, totalMb: total, limitMb: limit };
 }
 
-/** What a sender asks of the receiver: its report, a film to play, or to pause or play on. */
+/**
+ * What a sender asks of the receiver: its report, a film to play, to pause or play on, or to become a
+ * cast target, a device of the sender's person (device.ts), reaching the sender's core by reach.
+ */
 export type LabRequest =
   | { readonly type: "report" }
   | { readonly type: "toggle" }
+  | { readonly type: "device"; readonly reach: Reach | undefined }
   | {
       readonly type: "play";
       readonly path: string;
@@ -87,14 +93,22 @@ export function labRequestOf(message: unknown): LabRequest | undefined {
   if (type === "report" || type === "toggle") {
     return { type };
   }
+  if (type === "device") {
+    return { type, reach: reachOf(Reflect.get(message, "reach")) };
+  }
+  return type === "play" ? playRequestOf(message) : undefined;
+}
+
+/** A sender's play as a request, or undefined where it names no path on a core. */
+function playRequestOf(message: object): LabRequest | undefined {
   const path: unknown = Reflect.get(message, "path");
   const startAtBps: unknown = Reflect.get(message, "startAtBps");
   const authorization: unknown = Reflect.get(message, "authorization");
-  if (type !== "play" || typeof path !== "string" || !path.startsWith("/")) {
+  if (typeof path !== "string" || !path.startsWith("/")) {
     return undefined;
   }
   return {
-    type,
+    type: "play",
     path,
     startAtBps: typeof startAtBps === "number" ? startAtBps : 0,
     authorization: typeof authorization === "string" ? authorization : undefined,
@@ -113,6 +127,8 @@ export class LabReceiver {
   private reached: Reached | undefined;
   /** Each play asked, counted, so a play whose core is reached after a later one was asked yields. */
   private plays = 0;
+  /** The receiver as a cast target, while it is one: its stopping. */
+  private stopDevice: (() => void) | undefined;
 
   constructor(
     private readonly screen: HTMLElement,
@@ -155,6 +171,14 @@ export class LabReceiver {
       this.toggle();
       return;
     }
+    if (request.type === "device") {
+      this.stopDevice?.();
+      this.stopDevice = undefined;
+      this.becomeDevice(request.reach).catch((cause: unknown) => {
+        this.note(`could not become a cast target: ${failureText(cause)}`);
+      });
+      return;
+    }
     this.play(request);
   }
 
@@ -189,6 +213,64 @@ export class LabReceiver {
       memory: this.memory,
       log: this.lines,
     });
+  }
+
+  /**
+   * Becomes a cast target: reaches the sender's core (under its own kept session where it has one),
+   * pairs as a device where it has none, the code and check code told to the senders, then connects
+   * as a device (device.ts).
+   */
+  private async becomeDevice(reach: Reach | undefined): Promise<void> {
+    const storage = globalThis.localStorage;
+    let session = keptSessionOf(storage);
+    const note = (line: string): void => {
+      this.note(line);
+    };
+    let reached: Reached;
+    try {
+      reached =
+        reach === undefined
+          ? reachedAt(globalThis.location.origin)
+          : await reachCore(session === undefined ? reach : { ...reach, ...session }, note);
+    } catch (cause) {
+      // Its kept session may be what failed (the device removed): pair afresh at the next ask.
+      keepSession(storage, undefined);
+      throw cause;
+    }
+    const api = createApi({ getToken: () => session?.token, fetch: reached.fetch });
+    if (session === undefined) {
+      this.note("pairing as a device of the sender's person");
+      session = await pairThisDevice(api, {
+        tellCode: (code) => {
+          this.send({ type: "pairing", code });
+        },
+        showCheckCode: (checkCode) => {
+          this.note(`check code ${checkCode}: confirm on the sender where it shows the same`);
+          this.send({ type: "checkCode", checkCode });
+        },
+        waitMs: async (ms) => {
+          await new Promise((resolve) => setTimeout(resolve, ms));
+        },
+      });
+      keepSession(storage, session);
+      this.note("paired");
+    }
+    const device = new CastDevice({
+      api,
+      token: session.token,
+      reached,
+      video: this.video,
+      note,
+      onRefused: () => {
+        keepSession(storage, undefined);
+      },
+    });
+    const stop = device.start();
+    this.stopDevice = () => {
+      stop();
+      reached.close();
+    };
+    this.send({ type: "device", isReady: true });
   }
 
   private toggle(): void {
