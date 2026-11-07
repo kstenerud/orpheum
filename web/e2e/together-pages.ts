@@ -315,12 +315,16 @@ export function expectVoiceMeasureWithinBounds(
  */
 async function turnVoiceOn(page: Page): Promise<void> {
   await openPanelOverTheFilm(page);
+  // The panel's own Talk: the overlay draws one beside 🔈 too (D440 §3).
+  const voice = page.getByRole("region", { name: "Voice" });
   await expect(async () => {
-    const talk = page.getByRole("button", { name: "Talk" });
+    const talk = voice.getByRole("button", { name: "Talk" });
     if (await talk.isVisible()) {
       await talk.click();
     }
-    await expect(page.getByRole("button", { name: "Stop talking" })).toBeVisible({ timeout: 2000 });
+    await expect(voice.getByRole("button", { name: "Stop talking" })).toBeVisible({
+      timeout: 2000,
+    });
   }).toPass({ timeout: 30_000 });
 }
 
