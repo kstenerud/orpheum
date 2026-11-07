@@ -675,6 +675,7 @@ describe("the media keys' next and previous on a Play page, in a computer's brow
       setActionHandler(action, handler);
     });
     await page.viewport(1280, 800);
+    const heard: string[] = [];
     const services = walkServices(
       {
         ...filmToPlay,
@@ -693,13 +694,21 @@ describe("the media keys' next and previous on a Play page, in a computer's brow
         },
       },
       "/play/1030",
+      heard,
     );
     walking = await mountApp(services);
     const video = await theFailedVideo();
     expect(registered.has("nexttrack")).toBe(false);
-    // What plays next is asked for once the film has played (up-next.tsx).
+    // What plays next is asked for once the film has played (up-next.tsx). Its listener comes in an
+    // effect after the video is drawn, which a loaded machine can put after a single "playing" (make
+    // check, 2026-11-07), so the film says it plays until Up next asks.
     Object.defineProperty(video, "paused", { configurable: true, get: () => false });
-    video.dispatchEvent(new Event("playing"));
+    await expect
+      .poll(() => {
+        video.dispatchEvent(new Event("playing"));
+        return heard.includes("GET /files/1030/up-next");
+      })
+      .toBe(true);
     await expect.poll(() => registered.has("nexttrack")).toBe(true);
     expect(registered.has("previoustrack")).toBe(false);
     // The browser keeps a media key the test's driver presses from the page (no keydown reaches it,
