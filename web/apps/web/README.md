@@ -60,7 +60,12 @@ The web client: the browser and phone interface, served embedded by the core. MP
   page has shown and the browser is idle (`src/tray-dialog-code.tsx`, through `screen-load.tsx`'s
   `preloadableScreen`), so a first press opens it at once, never "Loading…" in the sign's place
   (the owner, 2026-11-03; VQ254). `src/status-tray.test.tsx`, `src/app-shell.test.tsx`, `src/app.test.tsx`,
-  `src/ui-gallery.test.tsx`, `src/player-widgets.browser.test.tsx`.
+  `src/ui-gallery.test.tsx`, `src/player-widgets.browser.test.tsx`. Over a film in full screen,
+  which hides the tray, Watch Together's sign is in the overlay's top row and opens the same dialog
+  over the film (`src/together-over-the-film.tsx`, D433): blue while a session's panel is drawn,
+  which moves in under the controls, and, with no session, white to a person who may host and is
+  not receiving a cast, so a session starts from full screen and the dialog stays open as the
+  host's (D440 §6). `src/together-over-the-film.test.tsx`.
 - **Every page's freezes of a second or more are told to the core's log** (`src/page-freezes.ts`,
   started once in `client-main.tsx`), found the one way the player finds a playback's (the SDK's
   `watchFreezes`, which loads no player: the browser's long tasks, else a timer's lateness on a shown page), with the

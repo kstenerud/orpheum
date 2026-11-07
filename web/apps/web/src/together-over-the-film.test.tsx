@@ -16,7 +16,12 @@ import {
   type Heard,
   type Mounted,
 } from "./test-dom.tsx";
+import { tabStorage } from "./browser-storage.ts";
+import { LiveProvider } from "./live.tsx";
 import { withServices } from "./test-services.tsx";
+import { liveAndSession } from "./test-together.ts";
+import { CanStartTogetherContext } from "./together-can-start.ts";
+import { useMembership } from "./together-membership.ts";
 import { TogetherPanel, TogetherSignOverTheFilm } from "./together-over-the-film.tsx";
 
 let mounted: Mounted | undefined;
@@ -228,5 +233,117 @@ it("opens the guest's dialog over the film with the panel and no way back to the
   await click(buttonWithText(dialog, "Leave"));
   await settleUntil(() => document.querySelector("dialog[open]") === null);
   expect(opens).toEqual([true, false]);
+  expect(sign()).toBeNull();
+});
+
+const startLabel = "Watch Together";
+
+/**
+ * A Play page whose panel is drawn while this tab hosts, as the host's player draws it
+ * (HostPlaysTogether), its overlay told whether the person may start a session.
+ */
+function PlayerToStartFrom(props: { readonly canStart: boolean }): JSX.Element {
+  const isHosting = useMembership(tabStorage, "host") !== undefined;
+  return (
+    <CanStartTogetherContext value={props.canStart}>
+      <div className="page">
+        {isHosting ? (
+          <TogetherPanel>
+            <p className="hosts-panel">The host's panel</p>
+          </TogetherPanel>
+        ) : null}
+      </div>
+      <div className="player-overlay">
+        <TogetherSignOverTheFilm onOpenChange={() => undefined} />
+      </div>
+    </CanStartTogetherContext>
+  );
+}
+
+function startSign(): HTMLButtonElement | null {
+  return document.querySelector<HTMLButtonElement>(
+    `.player-overlay button[aria-label="${startLabel}"]`,
+  );
+}
+
+it("shows the sign over the film with no session, white, to one who may start a session, and to no one else (D440 §6)", async () => {
+  mounted = await mount(withServices(<PlayerToStartFrom canStart />));
+  await settleUntil(() => startSign() !== null);
+  expect(startSign()?.classList.contains("icon-button--over-video")).toBe(true);
+  expect(startSign()?.classList.contains("icon-button--running")).toBe(false);
+  mounted.unmount();
+  // A role that may not host, or a guest by link, whose page tells nothing: no sign.
+  mounted = await mount(withServices(<PlayerToStartFrom canStart={false} />));
+  expect(startSign()).toBeNull();
+  expect(sign()).toBeNull();
+  mounted.unmount();
+  // A guest of a session whose panel is not drawn here is offered no second session, as before.
+  mounted = await mount(withServices(<PlayerToStartFrom canStart />, guesting()));
+  expect(startSign()).toBeNull();
+  expect(sign()).toBeNull();
+});
+
+it("starts a session from the sign over the film, as the tray does, the dialog staying open over the film as the host's, the new panel moved in (D440 §6)", async () => {
+  const heard: Heard[] = [];
+  const services = servedBy(
+    {
+      "POST /together": [
+        200,
+        { sessionId: 3, membershipCredential: "host-credential", isNew: true },
+      ],
+      "GET /together/3": [200, hostedSession],
+    },
+    heard,
+    "token",
+  );
+  services.navigation.go({ screen: "play", fileId: 9 });
+  mounted = await mount(withServices(<PlayerToStartFrom canStart />, services));
+  await settleUntil(() => startSign() !== null);
+  await act(async () => {
+    startSign()?.click();
+    await Promise.resolve();
+  });
+  await settleUntil(() => buttonWithText(document.body, "Start a session") !== undefined);
+  const dialog = document.querySelector<HTMLDialogElement>(".player-overlay dialog[open]");
+  if (dialog === null) {
+    throw new Error("no dialog over the film");
+  }
+  expect(dialog.getAttribute("aria-label")).toBe("Watch Together");
+  await click(buttonWithText(dialog, "Start a session"));
+  expect(heard.map((each) => each.methodAndPath)).toContain("POST /together");
+  await settleUntil(() => buttonWithText(dialog, "End the session") !== undefined);
+  // The dialog stayed open, and the session's panel is in it, under the host's controls.
+  await settleUntil(() => dialog.querySelector(".hosts-panel") !== null);
+  expect(dialog.open).toBe(true);
+  expect(document.querySelector(".page .hosts-panel")).toBeNull();
+  expect(sign()?.classList.contains("icon-button--running")).toBe(true);
+  expect(startSign()).toBeNull();
+});
+
+it("offers no session to start over the film while this device receives a cast, whose session it plays (D440 §6)", async () => {
+  const services = servedBy({ "POST /me/casts/5/accept": [200, { castId: 5 }] }, [], "token");
+  const sockets = liveAndSession();
+  mounted = await mount(
+    withServices(
+      <LiveProvider>
+        <PlayerToStartFrom canStart />
+      </LiveProvider>,
+      { ...services, openTogetherSocket: sockets.openSocket },
+    ),
+  );
+  await sockets.live.accept();
+  await settleUntil(() => startSign() !== null);
+  await sockets.live.say({
+    type: "receive",
+    receive: {
+      castId: 5,
+      membershipCredential: "cast",
+      fileId: 0,
+      fromDeviceId: 2,
+      fromDeviceName: "Pixel",
+    },
+  });
+  await click(buttonWithText(document.body, "Use"));
+  await settleUntil(() => startSign() === null);
   expect(sign()).toBeNull();
 });
