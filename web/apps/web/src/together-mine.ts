@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { Api } from "@orpheum/sdk";
+import type { Api, CastToReceive } from "@orpheum/sdk";
 import { useSyncExternalStore } from "react";
 
 import { browserStorage, tabStorage } from "./browser-storage.ts";
+import { endCast, type CastEnded } from "./cast.ts";
 import { idempotent } from "./idempotent.ts";
+import { useLive } from "./live.tsx";
 import { ApiProblem, dataOrThrow } from "./problem.ts";
 import { useMembership } from "./together-membership.ts";
 import { forgetMembership, keepMembership, readMembership } from "./together-storage.ts";
@@ -63,15 +65,50 @@ export function useHostedElsewhereHere(): HostedElsewhere | undefined {
 }
 
 /**
+ * The cast this device receives of the session the person hosts, which it plays as their player,
+ * leading it (D364 §11): what Watch Together then offers to move here (D443). Undefined while it
+ * receives none, or a guest's part, which follows the group.
+ */
+export function useHostedCastHere(): CastToReceive | undefined {
+  const { receiving } = useLive();
+  return receiving?.togetherCredential === undefined || receiving.isTogetherFollower === true
+    ? undefined
+    : receiving;
+}
+
+/**
+ * Moves the session the person hosts, cast to this device as their player, here (D443, amending D442
+ * §2): the cast ends first, as movedHere, and this device leaves it (onCastEnded), and only
+ * then is the session moved (moveHostingHere), as moving it cuts off every other credential of the
+ * host's, the cast's part among them: its sender is told its cast ended and that the session moved,
+ * never that it ended. Where the cast stood as it ended, for this device to play on from there;
+ * undefined where nothing moved: the person hosts no session now, or the server had it no more.
+ */
+export async function moveCastHostingHere(
+  api: Api,
+  cast: { readonly castId: number; readonly onCastEnded: () => void },
+  idempotencyKey: string,
+): Promise<CastEnded | undefined> {
+  const { sessions } = dataOrThrow(await api.GET("/me/together"));
+  const hosted = (sessions ?? []).find((each) => each.isHost);
+  if (hosted === undefined) {
+    return undefined;
+  }
+  const stood = await endCast(api, cast.castId, "movedHere");
+  cast.onCastEnded();
+  return (await moveHostingHere(api, hosted.sessionId, idempotencyKey)) ? stood : undefined;
+}
+
+/**
  * Moves the session the person hosts on another device to this tab, which hosts it from then on, the
- * other device told it moved (D442 §2). One the server no longer has, or that is no longer theirs, is
- * forgotten, so a new one may start.
+ * other device told it moved (D442 §2), and says whether it did. One the server no longer has, or
+ * that is no longer theirs, is forgotten, so a new one may start.
  */
 export async function moveHostingHere(
   api: Api,
   sessionId: number,
   idempotencyKey: string,
-): Promise<void> {
+): Promise<boolean> {
   try {
     const moved = dataOrThrow(
       await api.POST("/together/{id}/host-here", {
@@ -84,10 +121,11 @@ export async function moveHostingHere(
       credential: moved.membershipCredential,
     });
     noteHostedElsewhere(undefined);
+    return true;
   } catch (cause) {
     if (cause instanceof ApiProblem && (cause.code === "not_found" || cause.code === "forbidden")) {
       noteHostedElsewhere(undefined);
-      return;
+      return false;
     }
     throw cause;
   }

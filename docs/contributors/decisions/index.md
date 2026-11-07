@@ -447,7 +447,8 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D439](working-notes.md#d439--only-a-direct-pair-from-home-is-home-a-punched-pair-is-judged-as-from-away-once-in-rtcapi) Only a direct pair from home is home: a punched pair is judged as from away, once, in rtcapi
 - [D440](working-notes.md#d440--playback-redesigned-one-overlay-holds-a-row-of-volume-sliders-the-microphone-one-cast-control-and-one-watch-together-button-casting-moves-control-to-the-phone-and-voices-may-play-on-the-tv) Playback redesigned: one overlay holds a row of volume sliders, the microphone, one Cast control and one Watch Together button; casting moves control to the phone, and voices may play on the TV
 - [D441](working-notes.md#d441--the-cores-host-candidates-on-its-lan-port-are-one-address-of-each-family-the-houses-in-place-of-the-containers-ipv4-one) The core's host candidates on its LAN port are one address of each family, the house's in place of the container's IPv4 one
-- [D442](working-notes.md#d442--the-session-a-person-hosts-stays-on-the-device-that-started-it-their-other-devices-say-where-it-is-and-may-move-it-here) The session a person hosts stays on the device that started it; their other devices say where it is and may move it here
+- [D442](working-notes.md#d442--the-session-a-person-hosts-stays-on-the-device-that-started-it-their-other-devices-say-where-it-is-and-may-move-it-here) The session a person hosts stays on the device that started it; their other devices say where it is and may move it here — *revisited by D443*
+- [D443](working-notes.md#d443--the-device-the-session-a-person-hosts-is-cast-to-offers-to-move-it-here-which-ends-the-cast-first-and-makes-it-the-host) The device the session a person hosts is cast to offers to move it here, which ends the cast first and makes it the host
 
 ## Archived
 

@@ -399,3 +399,77 @@ it("says over the film that the session the person hosts is on another device, b
   expect(sign()?.classList.contains("icon-button--running")).toBe(true);
   expect(elsewhereSign()).toBeNull();
 });
+
+const castHereLabel = "Watch Together is on, cast to this device";
+
+it("says over the film on the device the host's session is cast to that it is cast here, and moves it here: the cast ended first, then the session moved, the film played on here from where the cast stood (D443)", async () => {
+  const heard: Heard[] = [];
+  const services = servedBy(
+    {
+      "POST /me/casts/5/accept": [200, { castId: 5 }],
+      "GET /me/together": [
+        200,
+        { sessions: [{ sessionId: 3, memberId: 1, isHost: true, hostDeviceName: "the Mac" }] },
+      ],
+      "POST /me/casts/5/end": [200, { positionMs: 61_000, isPlaying: false }],
+      "POST /together/3/host-here": [200, { sessionId: 3, membershipCredential: "moved-here" }],
+      "GET /together/3": [200, hostedSession],
+    },
+    heard,
+    "token",
+  );
+  const sockets = liveAndSession();
+  mounted = await mount(
+    withServices(
+      <LiveProvider>
+        <PlayerToStartFrom canStart />
+      </LiveProvider>,
+      { ...services, openTogetherSocket: sockets.openSocket },
+    ),
+  );
+  await sockets.live.accept();
+  await sockets.live.say({
+    type: "receive",
+    receive: {
+      castId: 5,
+      membershipCredential: "cast",
+      fileId: 9,
+      itemName: "A film",
+      fromDeviceId: 2,
+      fromDeviceName: "the Mac",
+      togetherCredential: "host-part",
+    },
+  });
+  await click(buttonWithText(document.body, "Use"));
+  const castHereSign = (): HTMLButtonElement | null =>
+    document.querySelector<HTMLButtonElement>(
+      `.player-overlay button[aria-label="${castHereLabel}"]`,
+    );
+  await settleUntil(() => castHereSign() !== null);
+  expect(startSign()).toBeNull();
+  await act(async () => {
+    castHereSign()?.click();
+    await Promise.resolve();
+  });
+  await settleUntil(() => buttonWithText(document.body, "Move it here") !== undefined);
+  const dialog = document.querySelector<HTMLDialogElement>(".player-overlay dialog[open]");
+  expect(dialog?.textContent).toContain("Your session is cast here from the Mac.");
+  await click(buttonWithText(document.body, "Move it here"));
+  await settleUntil(() => window.sessionStorage.getItem("orpheum.together.host") !== null);
+  // The cast ends before the session moves, whose move cuts off the cast's part among the host's.
+  const asked = heard
+    .map((each) => each.methodAndPath)
+    .filter((each) => each === "POST /me/casts/5/end" || each === "POST /together/3/host-here");
+  expect(asked).toEqual(["POST /me/casts/5/end", "POST /together/3/host-here"]);
+  expect(heard.find((each) => each.methodAndPath === "POST /me/casts/5/end")?.body).toEqual({
+    reason: "movedHere",
+  });
+  expect(window.sessionStorage.getItem("orpheum.together.host")).toContain("moved-here");
+  await settleUntil(() => services.navigation.route().screen === "play");
+  expect(services.navigation.route()).toEqual({
+    screen: "play",
+    fileId: 9,
+    atMs: 61_000,
+    isPaused: true,
+  });
+});
