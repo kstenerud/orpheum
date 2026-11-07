@@ -529,10 +529,16 @@ function Reach(props: { readonly standing: Standing }): JSX.Element {
 }
 
 /** The words of the dead-end causes a discovery reports (D398 §3), any other word counted as other. */
-type DeadEndCauseWord = "noIpv6" | "unknown" | "none" | "other";
+type DeadEndCauseWord = "noIpv6" | "secureUnfinished" | "unknown" | "none" | "other";
 
 /** The order the causes are told in when as common: the one the admin can act on first. */
-const deadEndCauseWords: readonly DeadEndCauseWord[] = ["noIpv6", "unknown", "none", "other"];
+const deadEndCauseWords: readonly DeadEndCauseWord[] = [
+  "noIpv6",
+  "secureUnfinished",
+  "unknown",
+  "none",
+  "other",
+];
 
 /** The word cause is shown by: its own when the page knows it, else other. */
 function deadEndCauseWordOf(cause: string): DeadEndCauseWord {
@@ -544,6 +550,8 @@ function deadEndCauseText(t: TFunction, word: DeadEndCauseWord, count: number): 
   switch (word) {
     case "noIpv6":
       return t("system.discovery.deadEndCause.noIpv6", { count });
+    case "secureUnfinished":
+      return t("system.discovery.deadEndCause.secureUnfinished", { count });
     case "unknown":
       return t("system.discovery.deadEndCause.unknown", { count });
     case "none":

@@ -397,6 +397,27 @@ func TestDeadEnd_LogsWhyAsThePageJudgedItAndCountsAnOldBody(t *testing.T) {
 	}
 }
 
+// A page whose WebRTC connection's ICE got through and whose secure connection never completed says
+// so as its cause, which the core's log shows as it came, not as another reason (the owner's Firefox
+// 158, 2026-11-07).
+func TestDeadEnd_LogsASecureConnectionThatNeverCompletedAsItsCause(t *testing.T) {
+	t.Parallel()
+	built := newClientStage(t)
+	var nothing struct{}
+	why := discoveryproto.DeadEndRequest{
+		PathsRequest: discoveryproto.PathsRequest{Locator: aLocator},
+		IPv6:         discoveryproto.HasIPv6Yes, Cause: discoveryproto.DeadEndCauseSecureUnfinished,
+		Tried: []discoveryproto.DeadEndTry{{Kind: discoveryproto.PathKindWebRTC, Ended: "failed"}},
+	}
+	if status, code := built.ask(t, discoveryproto.PathDeadEnd, why, &nothing); status != http.StatusNoContent {
+		t.Fatalf("a dead end with its reason answered %d %q", status, code)
+	}
+	line := built.logs.AwaitLine(t, "a client found no way to the core")
+	if !strings.Contains(line, "cause=secureUnfinished") {
+		t.Errorf("the dead end's log line %q lacks cause=secureUnfinished", line)
+	}
+}
+
 // An owner's own discovery refuses no client version: its floor, read with GET, names none (D308 §6).
 func TestClientFloor_AnOwnersDiscoveryRefusesNoVersion(t *testing.T) {
 	t.Parallel()

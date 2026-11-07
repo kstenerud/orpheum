@@ -114,7 +114,8 @@ type WebRTCPathBody struct {
 
 // DeadEndCauseBody is how many of the last week's dead ends had one cause, in the discovery's word
 // for it: noIpv6 (the page said its network seemed to have no IPv6 and the server no IPv4 way in),
-// unknown (it could not tell), none (a page from before causes were reported) or any other word the
+// secureUnfinished (its WebRTC connection's ICE got through and its secure connection never
+// completed), unknown (it could not tell), none (a page from before causes were reported) or any other word the
 // discovery sends, which the page shows as another cause.
 type DeadEndCauseBody struct {
 	Cause string `json:"cause"`

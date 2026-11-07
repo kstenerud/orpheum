@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import { deadEndReasonOf } from "./dead-end-reason.ts";
-import type { Target } from "@orpheum/sdk";
+import { RtcUnconnected, type Target } from "@orpheum/sdk";
 
 const lan = "https://lan.k7xq2.zone.example";
 const v6 = "https://v6.k7xq2.zone.example";
@@ -45,6 +45,27 @@ describe("why a page reached its core by no way (D398)", () => {
       ],
       cause: "noIpv6",
     });
+  });
+
+  // The owner's Firefox 158 (2026-11-07): ICE got through, DTLS never began; no network's want.
+  it("names a WebRTC connection whose ICE got through and whose secure connection never completed", () => {
+    const raced = [{ url: v6, outcome: failedAtOnce }];
+    const stalled = new RtcUnconnected(
+      { ice: "connected", connection: "connecting" },
+      "did not connect in time",
+    );
+    expect(deadEndReasonOf(targetOf([v6], [], "ipv4"), raced, undefined, stalled)).toEqual({
+      ipv6: "no",
+      tried: [
+        { kind: "ipv6", ended: "unreachable" },
+        { kind: "webrtc", ended: "failed" },
+      ],
+      cause: "secureUnfinished",
+    });
+    const neverThrough = new RtcUnconnected({ ice: "failed", connection: "failed" }, "failed");
+    expect(deadEndReasonOf(targetOf([], [], "ipv4"), [], undefined, neverThrough).cause).toBe(
+      "unknown",
+    );
   });
 
   it("cannot tell when an IPv6 name only went unanswered, or none was tried", () => {

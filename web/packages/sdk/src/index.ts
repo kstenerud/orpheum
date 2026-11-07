@@ -49,7 +49,13 @@ export {
 } from "./rtc-loopback.ts";
 export type { Loopback, LoopbackResult } from "./rtc-loopback.ts";
 export { browserFetch, textWhenReady, whenReady } from "./ready.ts";
-export { connectRtc, isTurnedAway, TurnedAway } from "./rtc-connect.ts";
+export {
+  connectRtc,
+  isSecureUnfinished,
+  isTurnedAway,
+  RtcUnconnected,
+  TurnedAway,
+} from "./rtc-connect.ts";
 export { connectThrough, provingOf, signallerOf, targetOfSession } from "./core-target.ts";
 export type { HeldSession, KeptCore, Target } from "./core-target.ts";
 export { isUnreached, reaching, unreachedRetryMs } from "./rtc-reopen.ts";

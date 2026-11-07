@@ -262,6 +262,9 @@ describe("a page at a discovery with realms leaves nothing kept in the way (the 
     await enter(page.querySelector('input[type="password"]'), "a password");
     await click(buttonWithText(page, "Sign in"));
     await settleUntil(() => page.textContent.includes("Copy what happened"));
+    // On the page, below its form, not after a page a screen tall (the owner, 2026-11-07).
+    const onPage = page.querySelector("main.credentials-form");
+    expect(onPage?.contains(buttonWithText(page, "Copy what happened") ?? null)).toBe(true);
     const happened = page.querySelector(".what-happened pre")?.textContent ?? "";
     expect(happened).toContain("Server: k7xq2");
     expect(happened).toContain("Addresses tried: https://v4.k7xq2.zone.example");

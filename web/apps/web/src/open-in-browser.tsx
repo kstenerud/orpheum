@@ -7,7 +7,7 @@
  * that "this browser" could not play, and got in when she tried Safari herself (2026-11-02).
  */
 
-import { useState, type JSX } from "react";
+import { useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { copyToClipboard } from "./clipboard.ts";
@@ -77,6 +77,8 @@ export function OpenInBrowser(props: {
   readonly address?: string;
   readonly userAgent?: string;
   readonly copy?: (text: string) => Promise<void>;
+  /** What comes below the page's form, as what happened to copy (CredentialsForm's after). */
+  readonly after?: ReactNode;
 }): JSX.Element {
   const { t } = useTranslation();
   const [copied, setCopied] = useState<"copied" | "refused" | undefined>(undefined);
@@ -85,7 +87,11 @@ export function OpenInBrowser(props: {
   const place = browserPlaceOf(props.userAgent ?? globalThis.navigator.userAgent);
   if (!place.isInApp) {
     return (
-      <CredentialsForm heading={t("discovery.noWorker.heading")} onSubmit={() => undefined}>
+      <CredentialsForm
+        heading={t("discovery.noWorker.heading")}
+        onSubmit={() => undefined}
+        after={props.after}
+      >
         <output>{t("discovery.noWorker.text")}</output>
       </CredentialsForm>
     );
@@ -95,6 +101,7 @@ export function OpenInBrowser(props: {
     <CredentialsForm
       heading={t("discovery.noWorker.inApp.heading", { browser })}
       onSubmit={() => undefined}
+      after={props.after}
     >
       <output>
         {place.app === undefined

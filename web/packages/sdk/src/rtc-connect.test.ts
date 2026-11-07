@@ -3,19 +3,23 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  connected,
   connectRtc,
   connectTimeoutMs,
   gatherAfterReflexiveMs,
   gatherForRelayMs,
   gathered,
   hasRelayServer,
+  isSecureUnfinished,
   isTurnedAway,
   offerWith,
+  RtcUnconnected,
   slowConnection,
   slowConnectMs,
   TurnedAway,
   verdictOf,
   verdictWaitMs,
+  type ConnectingPeer,
   type GatheringPeer,
 } from "./rtc-connect.ts";
 import type { ChannelLike, ChannelListener } from "./rtc-request.ts";
@@ -298,5 +302,98 @@ describe("the steps of a WebRTC connection", () => {
       "WebRTC: the core answered",
       "WebRTC: failed: the answer does not fit the offer",
     ]);
+  });
+});
+
+/**
+ * A peer connection whose states the test sets, its stats holding one candidate pair that the
+ * transport selected, from the browser's host candidate to the core's, or none.
+ */
+class StalledPeer implements ConnectingPeer {
+  connectionState: RTCPeerConnectionState = "connecting";
+  iceConnectionState: RTCIceConnectionState = "checking";
+  hasPair = false;
+  readonly #listeners: (() => void)[] = [];
+  addEventListener(_type: "connectionstatechange", listener: () => void): void {
+    this.#listeners.push(listener);
+  }
+  moves(connection: RTCPeerConnectionState): void {
+    this.connectionState = connection;
+    this.#listeners.forEach((listener) => {
+      listener();
+    });
+  }
+  getStats(): Promise<RTCStatsReport> {
+    const entries = this.hasPair
+      ? [
+          { id: "t", type: "transport", selectedCandidatePairId: "p" },
+          { id: "p", type: "candidate-pair", localCandidateId: "l", remoteCandidateId: "r" },
+          {
+            id: "l",
+            type: "candidate",
+            candidateType: "host",
+            protocol: "udp",
+            address: "a.local",
+          },
+          {
+            id: "r",
+            type: "candidate",
+            candidateType: "host",
+            protocol: "udp",
+            address: "192.0.2.1",
+          },
+        ]
+      : [];
+    const report = new Map(entries.map((entry) => [entry.id, entry]));
+    return Promise.resolve(report as unknown as RTCStatsReport);
+  }
+}
+
+describe("a WebRTC connection that never connects", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  // The owner's Firefox 158 (2026-11-07): ICE checks succeeded both ways and no DTLS packet came;
+  // the page said only "did not connect in time", which the dead end read as a network with no way.
+  it("says how far it got: ICE through, the secure connection not, and the pair's kinds, no address", async () => {
+    vi.useFakeTimers();
+    const peer = new StalledPeer();
+    peer.iceConnectionState = "connected";
+    peer.hasPair = true;
+    const failure = connected(peer).catch((problem: unknown) => problem);
+    await vi.advanceTimersByTimeAsync(connectTimeoutMs);
+    const problem = await failure;
+    expect(problem).toBeInstanceOf(RtcUnconnected);
+    expect(problem instanceof Error ? problem.message : "").toBe(
+      "the WebRTC connection did not connect in time (ICE connected, connection connecting, pair host to host (udp))",
+    );
+    expect(isSecureUnfinished(problem)).toBe(true);
+    expect(isSecureUnfinished(new Error("reaching failed", { cause: problem }))).toBe(true);
+    expect(isSecureUnfinished(new AggregateError([new Error("no"), problem]))).toBe(true);
+  });
+
+  it("whose ICE never got through is no secure connection left unfinished", async () => {
+    vi.useFakeTimers();
+    const peer = new StalledPeer();
+    const failure = connected(peer).catch((problem: unknown) => problem);
+    peer.iceConnectionState = "failed";
+    peer.moves("failed");
+    await vi.advanceTimersByTimeAsync(0);
+    const problem = await failure;
+    expect(problem instanceof Error ? problem.message : "").toBe(
+      "the WebRTC connection failed (ICE failed, connection failed, no pair selected)",
+    );
+    expect(isSecureUnfinished(problem)).toBe(false);
+    expect(isSecureUnfinished(new Error("the WebRTC connection did not connect in time"))).toBe(
+      false,
+    );
+  });
+
+  it("connects as its connection does", async () => {
+    const peer = new StalledPeer();
+    const connecting = connected(peer);
+    peer.moves("connected");
+    await expect(connecting).resolves.toBeUndefined();
   });
 });

@@ -8,6 +8,7 @@
 
 import { reportFailure } from "./problem.ts";
 import { channelOf, type ChannelLike } from "./rtc-request.ts";
+import { candidatePairsOf } from "./rtc-pairs.ts";
 import { peerOf } from "./rtc-peer.ts";
 import { clientConnections, RtcTransport, type PeerLike } from "./rtc-transport.ts";
 import { noteStep } from "./steps.ts";
@@ -324,19 +325,124 @@ export function gathered(peer: GatheringPeer, willRelay = false): Promise<void> 
   });
 }
 
-/** Resolves once peer is connected; rejects when it fails or takes over connectTimeoutMs. */
-function connected(peer: RTCPeerConnection): Promise<void> {
+/**
+ * How far a WebRTC connection that never connected got, as the browser tells it: its ICE state, its
+ * connection's state, which the DTLS handshake moves to connected once ICE has a pair, and the kinds
+ * of the pair ICE selected ("host to host (udp)"), when it selected one. No address: what happened
+ * carries it to whoever runs the server (the owner's Firefox 158, 2026-11-07, whose ICE checks
+ * succeeded and whose DTLS never began, said only that it did not connect in time; D441).
+ */
+export interface RtcStage {
+  readonly ice: string;
+  readonly connection: string;
+  readonly pair?: string | undefined;
+}
+
+/** A WebRTC connection that failed or timed out before it connected, with how far it got. */
+export class RtcUnconnected extends Error {
+  constructor(
+    readonly stage: RtcStage,
+    why: string,
+  ) {
+    super(`the WebRTC connection ${why} (${stageText(stage)})`);
+    this.name = "RtcUnconnected";
+  }
+}
+
+/** A stage in words: "ICE connected, connection connecting, pair host to host (udp)". */
+function stageText(stage: RtcStage): string {
+  const pair = stage.pair === undefined ? "no pair selected" : `pair ${stage.pair}`;
+  return `ICE ${stage.ice}, connection ${stage.connection}, ${pair}`;
+}
+
+/**
+ * Whether problem, or a cause or an alternative behind it, is a WebRTC connection whose ICE found a
+ * way to the core and whose secure connection over it (DTLS) never completed: its ICE connected or
+ * completed, or a pair selected, and the connection never connected. The network reached the core
+ * there, and the page says so, not that this network cannot reach it (D398 §3).
+ */
+export function isSecureUnfinished(problem: unknown, depth = 0): boolean {
+  if (!(problem instanceof Error) || depth > 8) {
+    return false;
+  }
+  if (problem instanceof RtcUnconnected) {
+    const { ice, connection, pair } = problem.stage;
+    const isIceThrough = ice === "connected" || ice === "completed" || pair !== undefined;
+    return isIceThrough && connection !== "connected";
+  }
+  const alternatives: readonly unknown[] =
+    problem instanceof AggregateError ? Array.from<unknown>(problem.errors) : [];
+  return [problem.cause, ...alternatives].some((each) => isSecureUnfinished(each, depth + 1));
+}
+
+/** What connected needs of a peer connection: the browser's, or a test's. */
+export interface ConnectingPeer {
+  readonly connectionState: RTCPeerConnectionState;
+  readonly iceConnectionState: RTCIceConnectionState;
+  addEventListener(type: "connectionstatechange", listener: () => void): void;
+  getStats(): Promise<RTCStatsReport>;
+}
+
+/**
+ * How long the stage of a connection that did not connect waits for the browser's stats before it
+ * is told without its pair: they come within a few milliseconds, and the page must not hang on them.
+ */
+const stageStatsWaitMs = 500;
+
+/** The kinds of the pair peer's ICE selected, or undefined where it selected none or says nothing. */
+async function selectedPairOf(peer: ConnectingPeer): Promise<string | undefined> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<undefined>((resolve) => {
+    timer = setTimeout(resolve, stageStatsWaitMs);
+  });
+  try {
+    const stats = await Promise.race([peer.getStats(), late]);
+    const selected = candidatePairsOf(stats?.values() ?? []).find((pair) => pair.isSelected);
+    if (selected === undefined) {
+      return undefined;
+    }
+    const [browserType = "unknown", protocol = "unknown"] = selected.browser.split(" ");
+    const [coreType = "unknown"] = selected.core.split(" ");
+    return `${browserType} to ${coreType} (${protocol})`;
+  } catch {
+    return undefined;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** The stage peer reached, failing or timing out for why, as an RtcUnconnected. */
+async function unconnectedOf(peer: ConnectingPeer, why: string): Promise<RtcUnconnected> {
+  const ice = peer.iceConnectionState;
+  const connection = peer.connectionState;
+  return new RtcUnconnected({ ice, connection, pair: await selectedPairOf(peer) }, why);
+}
+
+/**
+ * Resolves once peer is connected; rejects with how far it got (RtcUnconnected) when it fails or
+ * takes over connectTimeoutMs.
+ */
+export function connected(peer: ConnectingPeer): Promise<void> {
   return new Promise((resolve, reject) => {
+    let isSettled = false;
+    const fail = (why: string): void => {
+      isSettled = true;
+      clearTimeout(timer);
+      void unconnectedOf(peer, why).then(reject);
+    };
     const timer = setTimeout(() => {
-      reject(new Error("the WebRTC connection did not connect in time"));
+      fail("did not connect in time");
     }, connectTimeoutMs);
     const settle = (): void => {
+      if (isSettled) {
+        return;
+      }
       if (peer.connectionState === "connected") {
+        isSettled = true;
         clearTimeout(timer);
         resolve();
       } else if (peer.connectionState === "failed" || peer.connectionState === "closed") {
-        clearTimeout(timer);
-        reject(new Error(`the WebRTC connection ${peer.connectionState}`));
+        fail(peer.connectionState);
       }
     };
     peer.addEventListener("connectionstatechange", settle);

@@ -192,6 +192,11 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   one with video, and with the small one dropped the core's packets above about 80 Mb/s before its
   data channels read them (idiosyncrasies.md; D397). The core answers it and sends nothing on it.
   `src/rtc-connect.test.ts`.
+- **A WebRTC connection that never connects says how far it got** (`RtcUnconnected`): its ICE
+  state, its connection's state and the kinds of the pair ICE selected, from `getStats`, never an
+  address; `isSecureUnfinished` reads one whose ICE got through and whose secure connection (DTLS)
+  never completed, which a page says as that, not as a network with no way to the core (the
+  owner's Firefox 158, 2026-11-07; D441). `src/rtc-connect.test.ts`.
 - **A WebRTC transport connects again within a bound once the network is back, in every browser**:
   a connection is gone when its connection's or its ICE's state is `failed` or `closed`, its
   signalling `closed`, or either state `disconnected` for `disconnectedGraceMs`, judged at each of

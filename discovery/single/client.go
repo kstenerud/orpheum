@@ -263,7 +263,7 @@ func deadEndWord(word string) string {
 	case "":
 		return "none"
 	case discoveryproto.HasIPv6Yes, discoveryproto.HasIPv6No, discoveryproto.HasIPv6Unknown,
-		discoveryproto.DeadEndCauseNoIPv6,
+		discoveryproto.DeadEndCauseNoIPv6, discoveryproto.DeadEndCauseSecureUnfinished,
 		discoveryproto.PathKindLAN, discoveryproto.PathKindIPv6, discoveryproto.PathKindIPv4,
 		discoveryproto.PathKindWebRTC, "direct",
 		"answered", "refused", "noAnswer", "unreachable", "notWaited", "failed":

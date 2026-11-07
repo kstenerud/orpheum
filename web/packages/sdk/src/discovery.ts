@@ -723,8 +723,12 @@ export async function pathsOf(client: DiscoveryClient, held: Held): Promise<Loca
  */
 export type HasIpv6 = "yes" | "no" | "unknown";
 
-/** The cause a dead end's page names to its person (D398 §3): no IPv6 here and no IPv4 way in, or unknown. */
-export type DeadEndCause = "noIpv6" | "unknown";
+/**
+ * The cause a dead end's page names to its person (D398 §3): no IPv6 here and no IPv4 way in; a
+ * WebRTC connection whose ICE got through and whose secure connection never completed, which this
+ * network did not stop (isSecureUnfinished; the owner's Firefox 158, 2026-11-07); or unknown.
+ */
+export type DeadEndCause = "noIpv6" | "secureUnfinished" | "unknown";
 
 /**
  * Why nothing reached the core, as the page judged it, told the discovery with the dead end (D398 §2):
