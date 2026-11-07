@@ -173,12 +173,19 @@ func (hub *Hub) Join(secret, name string, person *Person, leaving Leaving) (Join
 }
 
 // moveTo hands the member's place to whoever joined by a new link for it, as name: every device
-// they came in on is told and cut off, and none of their credentials admits anything more.
+// they came in on is told and cut off (cutOff).
 func (each *member) moveTo(name string, person *Person) {
+	each.cutOff()
+	each.name, each.person = name, person
+}
+
+// cutOff tells every device the member is on that their place moved away, and lets go of them: none
+// of their credentials admits anything more. A guest's place taken by a new link (moveTo), or the
+// host's session moved to another device of theirs (HostHere).
+func (each *member) cutOff() {
 	for _, attached := range each.devices {
 		attached.send(Outbound{V: ProtocolVersion, Type: MessageEnded, Reason: "movedAway"})
 	}
-	each.name, each.person = name, person
 	each.devices = map[int64]*device{}
 	each.credentials = nil
 }

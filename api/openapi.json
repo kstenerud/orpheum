@@ -3969,6 +3969,10 @@
       },
       "MyTogetherBody": {
         "properties": {
+          "hostDeviceName": {
+            "description": "The name of your device the session you host is on now, where it is on one",
+            "type": "string"
+          },
           "isHost": {
             "type": "boolean"
           },
@@ -3981,6 +3985,7 @@
             "type": "integer"
           },
           "membershipCredential": {
+            "description": "This device's credential for a session you joined; none for the one you host, which stays on its device (D442 §1)",
             "type": "string"
           },
           "sessionId": {
@@ -3991,8 +3996,7 @@
         "required": [
           "sessionId",
           "memberId",
-          "isHost",
-          "membershipCredential"
+          "isHost"
         ],
         "type": "object"
       },
@@ -17414,6 +17418,55 @@
           }
         ],
         "summary": "The session's links and members, with your notes (host)",
+        "tags": [
+          "Watch Together"
+        ],
+        "x-orpheum-capability": "signedIn"
+      }
+    },
+    "/together/{id}/host-here": {
+      "post": {
+        "operationId": "hostTogetherHere",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTogetherOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Move the session you host to this device, which becomes your one device: the others are told it moved and cut off (host; D442 §2)",
         "tags": [
           "Watch Together"
         ],
