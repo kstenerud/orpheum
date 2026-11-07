@@ -2441,3 +2441,11 @@ Linux, with Firefox on Android in the session. Reported:
 5. **A receiver out of full screen** shows nothing in the top icons saying it is being cast to.
 6. **The receiver's Cast dialog lists the Mac casting to it** as a target; choosing it leaves each
    side believing it casts to the other.
+
+**The owner's answers ("Agreed", 2026-11-07), to the lead's proposals:** (1) our controls stay in
+full screen on Android; (2) a device that is not the host gets Leave beside Back to film; (3) a
+device being cast to offers Move it here, which ends the cast and makes it the host, playing on its
+own (a decision amending D442 §2); (4) Esc and leaving full screen never end a cast, playing or not;
+ending it stays with the device that cast; (5) a receiver out of full screen shows a sign in the top
+icons that it is cast to, by which device; (6) a receiver's Cast dialog does not list the device
+casting to it, and the server refuses the cast back.
