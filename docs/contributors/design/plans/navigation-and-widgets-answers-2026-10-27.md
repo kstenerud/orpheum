@@ -2342,3 +2342,8 @@ test answered 500, the playback's start reading the name of the system library, 
    the user's own GOFLAGS: Go reads no setting from a repository) ("feat(gate): a test run started any way takes the test lock", `Gate-Changed:`).
 
 End: one check-pr, staging. nas.example and devnas wait until memtest ends.
+
+**Passed check-pr at "perf(web): poll game controllers 15 times a second, and show the polls' cost"** (2026-11-07, 338 s, over its 300 s budget). On staging (`./staging
+quick`). Item 2 is "perf(web): poll game controllers 15 times a second, and show the polls' cost": a held seek by a controller now counts its travel up to the release, so
+the 66 ms polls cost it nothing; the polls' cost shows on the button test's controller line alone, and
+nothing reports it to the core yet.
