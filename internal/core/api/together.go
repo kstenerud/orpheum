@@ -244,6 +244,12 @@ func (server *Server) registerTogether() {
 		DefaultStatus: http.StatusNoContent, Summary: "End the session for everyone (host)",
 		Extensions: callableBy(capabilitySignedIn),
 	}, server.endTogether)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "hostTogetherHere", Method: http.MethodPost, Path: "/together/{id}/host-here", Tags: tags,
+		Summary: "Move the session you host to this device, which becomes your one device: the others " +
+			"are told it moved and cut off (host; D442 §2)",
+		Extensions: callableBy(capabilitySignedIn),
+	}, server.hostTogetherHere)
 	server.registerTogetherMembers(tags)
 }
 
@@ -592,6 +598,24 @@ func (server *Server) endTogether(ctx context.Context, input *TogetherInput) (*s
 	}
 	server.logger.InfoContext(ctx, "watch together: the host ended the session", "sessionId", input.SessionID)
 	return &struct{}{}, nil
+}
+
+// hostTogetherHere moves the session the signed-in person hosts to the device that asks, and is its
+// new credential (D442 §2).
+func (server *Server) hostTogetherHere(ctx context.Context, input *TogetherInput) (*OpenTogetherOutput, error) {
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	credential, err := dependencies.Together.HostHere(input.SessionID, principal.UserID)
+	if err != nil {
+		return nil, server.togetherError(ctx, "move a session here", err)
+	}
+	server.logger.InfoContext(ctx, "watch together: the host moved the session to another device",
+		"sessionId", input.SessionID, "hostUserId", principal.UserID, "deviceId", principal.DeviceID)
+	output := &OpenTogetherOutput{}
+	output.Body.SessionID, output.Body.MembershipCredential = input.SessionID, credential
+	return output, nil
 }
 
 // togetherError maps Watch Together's refusals to the API's errors.

@@ -185,11 +185,16 @@
 //     uploadFull, and their membership still admits them (D286 §5). Enforced by
 //     TestHub_SendAwayNewestTellsTheNewestPlayerAndKeepsTheirMembership and
 //     TestHub_SendAwayNewestSendsNoHost.
-//   - A signed-in person's sessions follow them to any device, each device with a credential of
-//     its own that cuts off no other, a member keeping the newest few (D267 §2, §3). Enforced by
+//   - A session a signed-in person joined follows them to any device, each device with a credential
+//     of its own that cuts off no other, a member keeping the newest few (D267 §2, §3). Enforced by
 //     TestMine_IsEverySessionAPersonIsInAsHostOrSignedInMember,
 //     TestMine_HavingTheSessionBackOnOneDeviceCutsOffNoOther, TestMine_KeepsAMembersNewestCredentials
 //     and, through the API, TestTogether_ASessionFollowsWhoeverJoinedSignedIn.
+//   - The session a person hosts stays on the device that started it: their other devices are told
+//     which devices it is on and given no credential; moved to one (HostHere), that device is the
+//     host's one, every other told it moved away and cut off (D442, amending D267 §2). Enforced by
+//     TestMine_TheHostsSessionStaysOnTheDeviceThatStartedIt, TestHostHere_MakesTheAskingDeviceTheHostsOne
+//     and, through the API, TestTogether_TheHostsOtherDeviceIsToldWhereTheSessionIsAndMovesItHere.
 //   - The host puts on only a film their role reaches (D243 §4), and a viewer plays only what is on,
 //     while they are in. Enforced by TestHub_TheHostChangesWhatPlaysOnlyToAFilmTheyMayPlay,
 //     TestHub_AViewerPlaysWhatTheSessionPlaysWhileTheyAreIn and, through the API,
@@ -242,7 +247,8 @@
 //   - D191: the session behaves as if nobody has an account.
 //   - D264, D268 §1: a pong carries where the group is, by which a follower places it.
 //   - D267: a membership kept by the browser that joined or a signed-in person's account, on
-//     several devices at once.
+//     several devices at once; its §2 amended by D442: the session a person hosts stays on the
+//     device that started it until they move it to another.
 //   - D268: drift corrected as the device measures it, and the notes that say how a follower
 //     follows; its §3, the group's named start, gone with D371.
 //   - D346: a link admits for an hour, and a session idle for six hours is ended.

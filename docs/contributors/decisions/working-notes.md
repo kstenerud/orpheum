@@ -18978,6 +18978,8 @@ done (the User-Agent is logged only).
 
 > **Revised by [D399](#d399--the-people-page-is-three-buttons-over-three-sections-dialogs-make-things-rows-lead-to-pages-and-a-roles-changes-save-at-once)** (2026-11-01): §5 as applied to invitations: a waiting invitation's links show in its dialog, and "Send another link" is gone.
 
+> **§2 amended by [D442](#d442--the-session-a-person-hosts-stays-on-the-device-that-started-it-their-other-devices-say-where-it-is-and-may-move-it-here)** (2026-11-07): the session a person hosts no longer follows them; it stays on the device that started it, and their other devices say where it is and may move it here.
+
 **Decided** (2026-10-08), by the project owner, after testing with two guests on iPhones: *"(a)
 agreed"*; on several devices, *"whatever makes this easier in future"* for voice and controls on a
 phone with playback on a TV, the host avoiding playing in two places for now; *"(c) Yes let's make
@@ -26787,3 +26789,31 @@ nas.example: the ThinkPad's Firefox 158 never signed in to orpheum.cc. Amends D3
    own address.
 3. **Enforced by** `TestListenAddressPerFamily_IsOneOfEachFamilyNeitherLoopbackNorLinkLocal` and
    `TestListenLAN_AnswersWithTheHousesAddressAtItsPort`; confirmed on the device by VQ283.
+
+## D442 — The session a person hosts stays on the device that started it; their other devices say where it is and may move it here
+
+**Decided** (2026-11-07), by the project owner: *"a hosted session stays on the device that started
+it"*, surviving a reload there; the person's other devices do not host it. Amends
+[D267](#d267--a-watch-together-membership-is-kept-by-the-browser-that-joined-or-by-the-account-of-whoever-is-signed-in-and-one-member-may-be-on-several-devices)
+§2 ("the host is one already. Any device they are signed in on has the session back") for the host.
+
+1. **The host's session is had back only where it started.** Asking which sessions a person is in
+   (`/me/together`) names the one they host, with the device it is on, but gives no host credential:
+   the starting tab keeps its own, so a reload there hosts on, and no other device can attach as the
+   host. A guest's session still follows them, a credential per device (D267 §2–§3). Minting no host
+   credential also ends the eviction of the starting device's credential after sixteen askings.
+2. **Their other devices say where it is and offer to move it here.** The Watch Together sign and
+   dialog say "Your session is on, on ‹device›" when the server knows the device's name, otherwise
+   "on another of your devices", and offer Move it here in place of Start a session. Moving it
+   (`POST /together/{id}/host-here`) gives the asking device a host credential, cuts off the host's
+   every other device and credential, and tells each, as `ended` with the reason `movedAway`; that
+   device goes home, told the session moved to another of their devices.
+3. **Cast lists those devices like any other** (D384 §3 excludes only a device in the session): with
+   no host credential, they never attach to it.
+
+**Proven by:** `TestMine_TheHostsSessionStaysOnTheDeviceThatStartedIt`,
+`TestHostHere_MakesTheAskingDeviceTheHostsOne`,
+`TestTogether_TheHostsOtherDeviceIsToldWhereTheSessionIsAndMovesItHere`, and the web's
+`together-mine.test.ts`, `together-over-the-film.test.tsx` and `together-voice.test.tsx`.
+
+**Status:** decided.

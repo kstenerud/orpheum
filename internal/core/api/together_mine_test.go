@@ -158,3 +158,38 @@ func TestTogether_ADeviceWhoseSignInCannotBeCheckedIsClosed(t *testing.T) {
 	}
 	harness.logs.AwaitEvent(t, "signInUncheckable")
 }
+
+// The session a person hosts stays on the device that started it: their other device asking is told
+// it is on, on that device by name, with no credential, and moves it here; the device it was on is
+// told it moved away. Only its host moves it (D442 §1, §2).
+func TestTogether_TheHostsOtherDeviceIsToldWhereTheSessionIsAndMovesItHere(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	if _, err := harness.authService.CreateUser(t.Context(),
+		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
+		t.Fatal(err)
+	}
+	partner := harness.signIn(t, "partner", "partner-password")
+	opened := harness.openTogether(t, admin)
+	laptop := harness.dialTogetherSignedIn(t, opened.Body.MembershipCredential, admin)
+	laptop.awaitWelcome()
+	hosted := harness.mine(t, admin).Body.Sessions
+	if len(hosted) != 1 || !hosted[0].IsHost || hosted[0].MembershipCredential != "" ||
+		hosted[0].HostDeviceName != testDevice.Name {
+		t.Errorf("the host's sessions are %+v; want theirs, on %q, with no credential", hosted, testDevice.Name)
+	}
+	path := fmt.Sprintf("/together/%d/host-here", opened.Body.SessionID)
+	if refused := harness.do(t, http.MethodPost, path, partner, nil); refused.status != http.StatusForbidden {
+		t.Errorf("someone else moving the session = %d %s; want 403", refused.status, refused.body)
+	}
+	moved := harness.do(t, http.MethodPost, path, admin, nil)
+	var here api.OpenTogetherOutput
+	if err := json.Unmarshal([]byte(moved.body), &here.Body); err != nil || moved.status != http.StatusOK ||
+		here.Body.SessionID != opened.Body.SessionID || here.Body.MembershipCredential == "" {
+		t.Fatalf("POST %s = %d %s; want the session and a credential for this device", path, moved.status, moved.body)
+	}
+	if reason := laptop.awaitEnded(); reason != "movedAway" {
+		t.Errorf("the device the session was on was told %q; want movedAway", reason)
+	}
+}

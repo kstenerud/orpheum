@@ -2158,6 +2158,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/together/{id}/host-here": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Move the session you host to this device, which becomes your one device: the others are told it moved and cut off (host; D442 §2) */
+        post: operations["hostTogetherHere"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/together/{id}/ice": {
         parameters: {
             query?: never;
@@ -3852,12 +3869,15 @@ export interface components {
             leftOutOfHomeLibraryIds: number[] | null;
         };
         MyTogetherBody: {
+            /** @description The name of your device the session you host is on now, where it is on one */
+            hostDeviceName?: string;
             isHost: boolean;
             /** @description What this device finds the server by through a discovery; the host's has none */
             locator?: string;
             /** Format: int64 */
             memberId: number;
-            membershipCredential: string;
+            /** @description This device's credential for a session you joined; none for the one you host, which stays on its device (D442 §1) */
+            membershipCredential?: string;
             /** Format: int64 */
             sessionId: number;
         };
@@ -10553,6 +10573,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    hostTogetherHere: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenTogetherOutputBody"];
+                };
             };
             /** @description Error */
             default: {
