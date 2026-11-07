@@ -318,6 +318,14 @@ The web client: the browser and phone interface, served embedded by the core. MP
   refuses the key the device remembered for it (its offer's proof does not hold, as once the device
   was removed) is no dead end either: what the device held is forgotten and its person signs in
   again, at the discovery's realm sign-in, which says why, and what happened names the refusal.
+  A dead end names the cause the page knows (D398 §3): a WebRTC connection whose ICE got through
+  and whose secure connection never completed (the SDK's `isSecureUnfinished`) is said as that, with
+  another browser to try, never as a network that cannot reach the server (the owner's Firefox 158,
+  2026-11-07, where Chromium worked; D441), and its cause reaches the discovery as
+  `secureUnfinished`. Every page whose words say to copy what happened shows Copy what happened on
+  the page itself, below its form (`CredentialsForm`'s `after`): after the page, it fell below a page
+  a screen tall, out of sight. `discovery-gate.test.tsx`, `discovery-gate-realms.test.tsx`,
+  `dead-end-reason.test.ts`, `system-discovery.test.tsx`.
   Every WebRTC
   transport a page used is closed with its path, when its hand-off fails, and when the page leaves
   for good. `discovery-gate.test.tsx`, `kept-path.test.ts`, `loader-pages.test.tsx`,

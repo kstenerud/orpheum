@@ -21,7 +21,15 @@ import {
   type KeptCore,
   type Target,
 } from "@orpheum/sdk";
-import { useEffect, useMemo, useRef, useState, type JSX, type RefObject } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type JSX,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { useTranslation } from "react-i18next";
 
 import { CopyWhatHappened, whatHappened } from "./what-happened.tsx";
@@ -152,12 +160,19 @@ const realmProblems: Partial<Record<Phase, RealmProblem>> = {
   realmKeyRefused: "keyRefused",
 };
 
+/** The realm sign-in's words for a dead end, by the cause the page knows (D398 §3). */
+const unreachedBy: Record<DeadEndCause, RealmProblem> = {
+  noIpv6: "unreachedNoIpv6",
+  secureUnfinished: "unreachedSecure",
+  unknown: "unreached",
+};
+
 /**
  * What the realm sign-in says in phase: a dead end whose cause the page knows names it (D398 §3).
  */
 function realmProblemOf(phase: Phase, cause: DeadEndCause): RealmProblem | undefined {
   const problem = realmProblems[phase];
-  return problem === "unreached" && cause === "noIpv6" ? "unreachedNoIpv6" : problem;
+  return problem === "unreached" ? unreachedBy[cause] : problem;
 }
 
 /**
@@ -264,7 +279,7 @@ async function reachFound(
     if (heldBack !== undefined) {
       return heldBack;
     }
-    const reason = deadEndReasonOf(target, raced.heard(), raced.probed());
+    const reason = deadEndReasonOf(target, raced.heard(), raced.probed(), problem);
     parts.onDeadEnd?.(deadEndOf(core.coreId, target, problem), reason.cause);
     await reportDeadEnd(parts.client, target.held, reason);
     return "realmUnreached";
@@ -374,7 +389,7 @@ async function reach(
     const reason =
       target === undefined
         ? unknownDeadEnd
-        : deadEndReasonOf(target, raced.heard(), raced.probed());
+        : deadEndReasonOf(target, raced.heard(), raced.probed(), problem);
     parts.onDeadEnd?.(deadEndOf(core.coreId, target, problem), reason.cause);
     // The core was reached and refused what this device holds: no dead end, its network not to blame.
     if (isKeyRefused(problem)) {
@@ -458,18 +473,18 @@ export function DiscoveryGate(props: {
   useReachingAtOnce(start, parts, reachThen);
   const shownHappened =
     phasesTellingWhatHappened.has(phase) && !isRealmSending ? happened : undefined;
+  // On the page, below its form: after it, it fell below a page a screen tall (the owner, 2026-11-07).
+  const after = <CopyWhatHappened text={shownHappened} copy={copyToClipboard} />;
   if (phase === "realm" || realmProblems[phase] !== undefined || isRealmSending) {
     return (
-      <>
-        <RealmGate
-          parts={parts}
-          problem={realmProblemOf(phase, cause)}
-          reachingRef={reachingRef}
-          onSending={setIsRealmSending}
-          onEnded={setPhase}
-        />
-        <CopyWhatHappened text={shownHappened} copy={copyToClipboard} />
-      </>
+      <RealmGate
+        parts={parts}
+        problem={realmProblemOf(phase, cause)}
+        reachingRef={reachingRef}
+        onSending={setIsRealmSending}
+        onEnded={setPhase}
+        after={after}
+      />
     );
   }
   if (start.kind === "link" && phase === "waiting") {
@@ -485,14 +500,12 @@ export function DiscoveryGate(props: {
     );
   }
   return (
-    <>
-      <GateMessage
-        phase={start.kind === "none" ? "none" : phase}
-        cause={cause}
-        onRetry={reachAgain}
-      />
-      <CopyWhatHappened text={shownHappened} copy={copyToClipboard} />
-    </>
+    <GateMessage
+      phase={start.kind === "none" ? "none" : phase}
+      cause={cause}
+      onRetry={reachAgain}
+      after={after}
+    />
   );
 }
 
@@ -607,6 +620,7 @@ function RealmGate(props: {
   readonly reachingRef: RefObject<boolean>;
   readonly onSending: (isSending: boolean) => void;
   readonly onEnded: (phase: Phase) => void;
+  readonly after: ReactNode;
 }): JSX.Element {
   const { parts, reachingRef } = props;
   const [isSending, setIsSending] = useState(false);
@@ -650,6 +664,7 @@ function RealmGate(props: {
       isSending={isSending}
       problem={props.problem}
       onUseCode={parts.onUseCode}
+      after={props.after}
       onSubmit={(typed) => {
         rememberRealm(
           parts.realmStorage,
@@ -765,11 +780,17 @@ function Offline(props: { readonly onRetry: () => void }): JSX.Element {
   );
 }
 
-/** A page of the gate that says how it stands, and, for a device turned away, tries again. */
+/**
+ * A page of the gate that says how it stands, and, for a device turned away, tries again; after
+ * comes below its form (CredentialsForm's after). A dead end says the cause the page knows (D398 §3):
+ * a secure connection that never completed was no network's failure, and its page says so and to try
+ * another browser (the owner's Firefox 158, 2026-11-07, where Chromium on the same laptop worked).
+ */
 function GateMessage(props: {
   readonly phase: Phase | "none";
   readonly cause: DeadEndCause;
   readonly onRetry: () => void;
+  readonly after: ReactNode;
 }): JSX.Element {
   const { t } = useTranslation();
   if (props.phase === "turnedAway") {
@@ -779,7 +800,7 @@ function GateMessage(props: {
     return <Offline onRetry={props.onRetry} />;
   }
   if (props.phase === "noWorker") {
-    return <OpenInBrowser />;
+    return <OpenInBrowser after={props.after} />;
   }
   if (props.phase === "connecting" || props.phase === "waiting") {
     return (
@@ -788,13 +809,30 @@ function GateMessage(props: {
       </CredentialsForm>
     );
   }
+  if (props.phase === "deadEnd" && props.cause !== "unknown") {
+    const words = deadEndWords[props.cause];
+    return (
+      <CredentialsForm heading={t(words.heading)} onSubmit={() => undefined} after={props.after}>
+        <output>{t(words.text)}</output>
+      </CredentialsForm>
+    );
+  }
   return (
-    <CredentialsForm heading={t(`discovery.${props.phase}.heading`)} onSubmit={() => undefined}>
-      <output>
-        {props.phase === "deadEnd" && props.cause === "noIpv6"
-          ? t("discovery.deadEnd.noIpv6")
-          : t(`discovery.${props.phase}.text`)}
-      </output>
+    <CredentialsForm
+      heading={t(`discovery.${props.phase}.heading`)}
+      onSubmit={() => undefined}
+      after={props.after}
+    >
+      <output>{t(`discovery.${props.phase}.text`)}</output>
     </CredentialsForm>
   );
 }
+
+/** A dead end's heading and words, by the cause the page knows (D398 §3). */
+const deadEndWords = {
+  noIpv6: { heading: "discovery.deadEnd.heading", text: "discovery.deadEnd.noIpv6" },
+  secureUnfinished: {
+    heading: "discovery.deadEnd.secure.heading",
+    text: "discovery.deadEnd.secure.text",
+  },
+} as const;

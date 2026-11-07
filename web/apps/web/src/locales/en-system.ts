@@ -216,6 +216,8 @@ export const enSystem = {
       deadEndCause: {
         noIpv6:
           "{{count}} on a network that seemed to have no IPv6, while this server had no IPv4 way in",
+        secureUnfinished:
+          "{{count}} where the server answered but the secure connection never completed in the device's browser",
         unknown: "{{count}} where the device couldn't tell why",
         none: "{{count}} from a device too old to say why",
         other: "{{count}} for another reason",

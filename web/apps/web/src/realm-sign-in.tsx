@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { useState, type JSX } from "react";
+import { useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -14,10 +14,18 @@ import {
 /**
  * What a realm sign-in says went wrong: a part wrong, said as one as the discovery does; the server
  * found but not reached from this network, and when this network has no IPv6 for a server with no
- * IPv4 way in, said so (D398 §3); or a server this device reached before not reached now.
+ * IPv4 way in, or this browser's secure connection to it never completed, said so (D398 §3); or a
+ * server this device reached before not reached now.
  */
 export type RealmProblem =
-  "wrong" | "unreached" | "unreachedNoIpv6" | "turnedAway" | "offline" | "again" | "keyRefused";
+  | "wrong"
+  | "unreached"
+  | "unreachedNoIpv6"
+  | "unreachedSecure"
+  | "turnedAway"
+  | "offline"
+  | "again"
+  | "keyRefused";
 
 export interface RealmCredentials {
   readonly realm: string;
@@ -34,6 +42,8 @@ interface RealmSignInProps {
   readonly onSubmit: (typed: RealmCredentials) => void;
   /** Offers a code instead, for a device no one types a password on: a television (D293 §2). */
   readonly onUseCode?: (() => void) | undefined;
+  /** What comes below the form, as what happened to copy (CredentialsForm's after). */
+  readonly after?: ReactNode;
 }
 
 /**
@@ -53,6 +63,7 @@ export function RealmSignIn(props: RealmSignInProps): JSX.Element {
       onSubmit={() => {
         props.onSubmit({ realm, name, password, isRemembered });
       }}
+      after={props.after}
     >
       <PlainField
         label={t("discovery.realm.realm")}

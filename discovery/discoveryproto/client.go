@@ -152,11 +152,14 @@ const (
 	HasIPv6Unknown = "unknown"
 )
 
-// The DeadEndCause values: the page said this network has no IPv6 and the core no IPv4 way in, or
-// gave its general words (D398 §3).
+// The DeadEndCause values: the page said this network has no IPv6 and the core no IPv4 way in; that
+// its WebRTC connection's ICE got through and its secure connection (DTLS) never completed, which is
+// no network's failure (the owner's Firefox 158, 2026-11-07; D441); or gave its general words
+// (D398 §3).
 const (
-	DeadEndCauseNoIPv6  = "noIpv6"
-	DeadEndCauseUnknown = "unknown"
+	DeadEndCauseNoIPv6           = "noIpv6"
+	DeadEndCauseSecureUnfinished = "secureUnfinished"
+	DeadEndCauseUnknown          = "unknown"
 )
 
 // MaxDeadEndTries is the most ways a dead end's report is read for: a page tries its core's few

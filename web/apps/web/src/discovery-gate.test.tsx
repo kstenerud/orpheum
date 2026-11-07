@@ -11,6 +11,7 @@ import {
   realmKey,
   realmPerson,
   realmTag,
+  RtcUnconnected,
   sessionOfferKey,
   stepsSoFar,
   type HeldSession,
@@ -167,6 +168,33 @@ describe("the gate a discovery's page opens on", () => {
     expect(heard.at(-1)).toBe(
       `/dead-end {"bootstrapToken":"a-bootstrap-token","ipv6":"unknown","tried":[{"kind":"webrtc","ended":"failed"}],"cause":"unknown"}`,
     );
+  });
+
+  // The owner's Firefox 158 on a ThinkPad (2026-11-07; D441): ICE got through, DTLS never began, and
+  // the page said this network could not reach the server, telling its person to copy what happened
+  // by a button that sat below a page a screen tall, out of sight.
+  it("says a secure connection that never completed as that, with what to try, and what happened on the page", async () => {
+    vi.stubGlobal("RTCPeerConnection", StalledAfterIce);
+    const heard: string[] = [];
+    const located = { coreId: "k7xq2", bootstrapToken: "a-bootstrap-token", iceServers: [] };
+    const fetched = discovery({ "/locate": [200, located], "/dead-end": [204, {}] }, heard);
+    try {
+      mounted = await mount(<DiscoveryGate start={linkStart} parts={partsOf(fetched)} />);
+      await click(buttonWithText(mounted.container, "Connect"));
+      const page = mounted.container;
+      await settleUntil(() => heard.at(-1)?.startsWith("/dead-end") === true);
+      expect(page.textContent).toContain("This browser couldn't finish connecting to the server");
+      expect(page.textContent).toContain("try a different browser on this device");
+      expect(page.textContent).not.toContain("Can't reach the server from this network");
+      expect(heard.at(-1)).toContain(`"cause":"secureUnfinished"`);
+      const onPage = page.querySelector("main.credentials-form");
+      expect(onPage?.contains(buttonWithText(page, "Copy what happened") ?? null)).toBe(true);
+      expect(onPage?.querySelector(".what-happened pre")?.textContent).toContain(
+        "ICE connected, connection connecting, pair host to host (udp)",
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   /**
@@ -698,4 +726,18 @@ async function reachedWithNoWorker(): Promise<{
   mounted = await mount(<DiscoveryGate start={linkStart} parts={parts} />);
   await click(buttonWithText(mounted.container, "Connect"));
   return { container: mounted.container, heard, isTried: () => isTried };
+}
+
+/**
+ * A browser's peer connection that got as far as the owner's Firefox 158 did (2026-11-07): its ICE
+ * through on a host pair, its secure connection never completed. Its failure is thrown as it is made,
+ * standing in for the signed answer the connection would need to get that far.
+ */
+class StalledAfterIce {
+  constructor() {
+    throw new RtcUnconnected(
+      { ice: "connected", connection: "connecting", pair: "host to host (udp)" },
+      "did not connect in time",
+    );
+  }
 }

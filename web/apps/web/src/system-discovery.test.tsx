@@ -311,6 +311,27 @@ it("tells the week's dead ends by the cause each device judged, beside their cou
   expect(text).not.toContain("made up");
 });
 
+// The owner's Firefox 158 (2026-11-07): its secure connection never completed, and its dead end
+// would have read as one where the device couldn't tell why.
+it("tells a dead end whose secure connection never completed as that", async () => {
+  const services = servedBy({
+    "GET /system/discovery": [
+      200,
+      {
+        ...none,
+        issuer: "https://discovery.example.com",
+        state: "claimed",
+        deadEndsLastWeek: 1,
+        deadEndCauses: [{ cause: "secureUnfinished", count: 1 }],
+      },
+    ],
+  });
+  mounted = await mount(withServices(<SystemDiscovery />, services));
+  expect(mounted.container.textContent).toContain(
+    "Why, as each device judged it: 1 where the server answered but the secure connection never completed in the device's browser.",
+  );
+});
+
 it("tells the dead ends' count alone when the discovery keeps no causes", async () => {
   const services = servedBy({
     "GET /system/discovery": [

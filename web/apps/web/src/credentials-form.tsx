@@ -12,11 +12,15 @@ import { productName } from "./product-name.ts";
 /**
  * The page every way in is: signing in, registering, a device code. The product's mark above one
  * form, headed, in the middle of the page, so the three look the same and share one set of styles.
+ * after, where given, comes below the form on the same page, as what happened to copy at a dead end:
+ * put after the page instead, it fell below a page a screen tall, and the owner's ThinkPad, told to
+ * copy what happened, showed no way to (2026-11-07).
  */
 export function CredentialsForm(props: {
   readonly heading: string;
   readonly onSubmit: () => void;
   readonly children: ReactNode;
+  readonly after?: ReactNode;
 }): JSX.Element {
   return (
     <main className="credentials-form">
@@ -29,6 +33,7 @@ export function CredentialsForm(props: {
         <h1>{props.heading}</h1>
         {props.children}
       </form>
+      {props.after}
     </main>
   );
 }

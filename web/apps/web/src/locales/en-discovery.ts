@@ -60,6 +60,10 @@ export const enDiscovery = {
       text: "Try your phone's mobile data, or another Wi-Fi. A VPN or a travel eSIM often can't reach a home server: turn it off, or use the phone's own mobile data. If it keeps happening, copy what happened and send it to the person who sent you this link.",
       noIpv6:
         "This network seems to have no IPv6, and your server has no IPv4 way in yet, so it can't be reached from here. Many mobile networks, travel eSIMs and VPNs have no IPv6. Try a Wi-Fi, or turn the VPN off. If it keeps happening, copy what happened and send it to the person who sent you this link.",
+      secure: {
+        heading: "This browser couldn't finish connecting to the server",
+        text: "The server answered, but the secure connection to it never completed in this browser. That can happen in one browser and not in another: try a different browser on this device, such as Chrome or Edge. If it keeps happening, copy what happened and send it to the person who sent you this link.",
+      },
     },
     noWorker: {
       heading: "This browser can't play from the server",
@@ -93,6 +97,8 @@ export const enDiscovery = {
         "Your server was found, but can't be reached from this network right now. A VPN or a travel eSIM often can't reach a home server: turn it off, or try the phone's own mobile data or another Wi-Fi. If it keeps happening, copy what happened and send it to whoever runs your server.",
       unreachedNoIpv6:
         "Your server was found, but this network seems to have no IPv6, and your server has no IPv4 way in yet, so it can't be reached from here. Many mobile networks, travel eSIMs and VPNs have no IPv6. Try a Wi-Fi, or turn the VPN off. If it keeps happening, copy what happened and send it to whoever runs your server.",
+      unreachedSecure:
+        "Your server was found and answered, but the secure connection to it never completed in this browser. That can happen in one browser and not in another: try a different browser on this device, such as Chrome or Edge. If it keeps happening, copy what happened and send it to whoever runs your server.",
       turnedAway:
         "This server is turning this device away: too many Orpheum pages are open on your network. Close some and try again.",
       offline:
