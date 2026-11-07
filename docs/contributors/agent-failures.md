@@ -49,6 +49,18 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A63 — Asked the owner three Watch Together questions the decisions already answer (2026-11-07)
+
+- **What happened:** in the playback redesign's dialogue, the lead asked whether a guest may pause
+  and seek, whether a guest may add people, and whether a host may hand the session on. The owner:
+  "We've already covered these questions. The host gives permissions for pause and seek. Guests
+  can't add others. A host only leaves by ending the session." D271 (guests pause and seek unless
+  the host withholds it) and D246 (what a person may do is their role's) settle the first two, and
+  ending is the host's only way out.
+- **Caught by:** the owner.
+- **Gate:** none can check it. Before asking the owner a question in an area, grep the decision
+  index for that area's decisions and read the matching ones (AGENTS.md "Start here" step 3).
+
 ### A62 — Explained the TCL TV's sound timing backwards: picture late, when the sound was (2026-11-06)
 
 - **What happened:** the sound timing test met at 0 on the owner's TCL TV while the library's sync
