@@ -239,7 +239,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   the receiver, whose own choice carries it out as its press would, drawn or not (`src/player-tracks.tsx`), kept for the person, the
   remote showing what the receiver says after (`src/sound-panel.ts`; a Fire TV's controls are hidden
   while controlled, so its sound could be changed only after taking control back, the owner, VQ116's
-  run). It fills the window and
+  run); and the film's level and mute on the receiver, on 🔈's row of sliders, apart from the TV's
+  own volume, for the session and not saved (D440 §2, §5; `useFilmChannelWorkedByTheRemote`,
+  `src/cast-remote.test.tsx`, `src/cast-receiver-sound.test.tsx`, VQ278). It fills the window and
   shows a television's player controls, which a mouse's move, a click or a tap opens as well as a
   remote's keys, a mouse's click on its video pausing or playing it as on an ordinary page, and a
   fading *Controlled from* line; its controls, media keys and seeks stay its own. Back (a Fire TV's

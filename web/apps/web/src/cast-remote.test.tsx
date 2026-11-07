@@ -18,6 +18,7 @@ import {
   buttonWithText,
   choose,
   click,
+  enter,
   mount,
   playbackCauses,
   refusal,
@@ -281,6 +282,74 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     expect(server.heard.filter((each) => each["type"] === "sound")).toEqual([
       { v: 2, type: "sound", sound: { kind: "soundOffset", ms: -250 } },
       { v: 2, type: "sound", sound: { kind: "soundOffset", ms: 50 } },
+    ]);
+  });
+
+  it("shows the film's level and mute on the receiver on the row of sliders, and sends the person's moves of them (D440 §2, §5)", async () => {
+    const { sockets } = await casting({});
+    const page = mounted!.container;
+    const server = sockets.session;
+    const roster = (said: Readonly<Record<string, unknown>>): Record<string, unknown> => ({
+      type: "roster",
+      roster: [
+        {
+          id: 2,
+          name: "owner",
+          isHost: true,
+          devices: [
+            { id: 5, role: "panel" },
+            {
+              id: 7,
+              role: "video",
+              isLeader: true,
+              playback: {
+                delivery: "direct",
+                sound: { isLevellingOn: false, audioTracks: [], ...said },
+              },
+            },
+          ],
+        },
+      ],
+    });
+    const slider = (): HTMLInputElement | null =>
+      page.querySelector<HTMLInputElement>(
+        ".cast-remote__film-level [data-volume-slider] input[type=range]",
+      );
+    await server.say(roster({}));
+    expect(page.querySelector(".cast-remote__film-level")).toBeNull();
+    await server.say(roster({ channels: [{ channel: "film", level: 0.6 }] }));
+    expect(page.textContent).toContain("The film's volume there, under the TV's own");
+    expect(slider()?.value).toBe("60");
+
+    await enter(slider(), "25");
+    expect(slider()?.value).toBe("25"); // as moved here, until the receiver says
+    await click(buttonNamed(page, "Mute"));
+    expect(slider()?.value).toBe("0");
+    // The receiver says it is muted; a drag turns its sound on with the level.
+    await server.say(roster({ channels: [{ channel: "film", level: 0.25, isMuted: true }] }));
+    expect(buttonNamed(page, "Sound on")).toBeDefined();
+    await enter(slider(), "40");
+    expect(server.heard.filter((each) => each["type"] === "sound")).toEqual([
+      {
+        v: 2,
+        type: "sound",
+        sound: { kind: "channel", channel: "film", level: 0.25, isMuted: false },
+      },
+      {
+        v: 2,
+        type: "sound",
+        sound: { kind: "channel", channel: "film", level: 0.25, isMuted: true },
+      },
+      {
+        v: 2,
+        type: "sound",
+        sound: { kind: "channel", channel: "film", level: 0.4, isMuted: true },
+      },
+      {
+        v: 2,
+        type: "sound",
+        sound: { kind: "channel", channel: "film", level: 0.4, isMuted: false },
+      },
     ]);
   });
 

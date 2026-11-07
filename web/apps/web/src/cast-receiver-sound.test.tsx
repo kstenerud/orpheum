@@ -100,6 +100,7 @@ describe("the receiver's sound, worked by its remote (sound-panel.ts)", () => {
         { streamId: 1, language: "en", kind: "plain" },
         { streamId: 2, language: "fr", kind: "plain" },
       ],
+      channels: [{ channel: "film", level: 1, isMuted: false }],
     });
 
     await server.say({ type: "sound", fromDeviceId: 5, sound: { kind: "boost", isOn: true } });
@@ -122,6 +123,58 @@ describe("the receiver's sound, worked by its remote (sound-panel.ts)", () => {
     });
     expect(chosenTrack).toHaveBeenCalledWith(tracks[1]);
     expect(lastSound()).toMatchObject({ isBoostOn: true, audioStreamId: 2 });
+  });
+
+  // D440 §2, §5: the film's level and mute on the TV, set from the phone, apart from the TV's own
+  // volume, for the session alone.
+  it("sets the film's level and mute as its remote chooses, and tells its remote where they stand", async () => {
+    const services = servedBy({}, [], "token");
+    const server = fakeTogetherServer();
+    const video = document.createElement("video");
+    document.body.append(video);
+    mounted = await mount(
+      withServices(
+        <SoundPanelContext value={newSoundPanel()}>
+          <CastReceiver
+            receiving={{ cast, onLeave: vi.fn() }}
+            fileId={4}
+            video={video}
+            startPositionMs={0}
+            delivery="converted"
+          />
+        </SoundPanelContext>,
+        { ...services, openTogetherSocket: server.openSocket },
+      ),
+    );
+    await server.accept();
+    await server.say(welcome);
+    const lastChannels = (): unknown =>
+      (
+        server.heard.filter((each) => each["type"] === "state").at(-1)?.["playback"] as
+          { sound?: { channels?: unknown } } | undefined
+      )?.sound?.channels;
+    expect(lastChannels()).toEqual([{ channel: "film", level: 1, isMuted: false }]);
+
+    await server.say({
+      type: "sound",
+      fromDeviceId: 5,
+      sound: { kind: "channel", channel: "film", level: 0.35, isMuted: true },
+    });
+    await act(async () => {
+      video.dispatchEvent(new Event("volumechange")); // as a browser does; happy-dom does not
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(video.volume).toBeCloseTo(0.35);
+    expect(video.muted).toBe(true);
+    expect(lastChannels()).toEqual([{ channel: "film", level: 0.35, isMuted: true }]);
+
+    // A change made on the TV itself is told too.
+    await act(async () => {
+      video.muted = false;
+      video.dispatchEvent(new Event("volumechange"));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(lastChannels()).toEqual([{ channel: "film", level: 0.35, isMuted: false }]);
   });
 
   // The owner, 2026-11-06: "It shouldn't be watch together's business at all which TV has what offset

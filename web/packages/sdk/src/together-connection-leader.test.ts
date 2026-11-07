@@ -164,6 +164,7 @@ describe("a film's sound between a player and its remote", () => {
       { streamId: 1, language: "en", kind: "plain" },
       { streamId: 2, language: "de", containerTitle: "Director", kind: "commentary" },
     ],
+    channels: [{ channel: "film", level: 0.4, isMuted: true }], // D440 §2
   };
 
   it("reads how each player says its film sounds, and tells the session its own", () => {
@@ -176,7 +177,14 @@ describe("a film's sound between a player and its remote", () => {
           {
             id: 13,
             role: "video",
-            playback: { delivery: "direct", sound: { audioTracks: [{ streamId: 4, kind: "x" }] } },
+            playback: {
+              delivery: "direct",
+              sound: {
+                audioTracks: [{ streamId: 4, kind: "x" }],
+                // The server omits a zero level; a channel no player mixes is none.
+                channels: [{ channel: "film" }, { channel: "voices", level: 0.5 }],
+              },
+            },
           },
         ],
       },
@@ -187,6 +195,7 @@ describe("a film's sound between a player and its remote", () => {
       isLevellingOn: false,
       audioStreamId: undefined,
       audioTracks: [{ streamId: 4, language: "", kind: "plain" }],
+      channels: [{ channel: "film", level: 0, isMuted: false }],
     });
     connection.setPlayer(() => ({
       fileId: 7,
@@ -201,6 +210,7 @@ describe("a film's sound between a player and its remote", () => {
       isLevellingOn: true,
       audioStreamId: 2,
       audioTracks: sound.audioTracks,
+      channels: sound.channels,
     });
   });
 
@@ -212,9 +222,15 @@ describe("a film's sound between a player and its remote", () => {
     });
     connection.chooseSound({ kind: "boost", isOn: true });
     connection.chooseSound({ kind: "audioTrack", streamId: 2 });
+    connection.chooseSound({ kind: "channel", channel: "film", level: 0.3, isMuted: false });
     expect(socket.sent.filter((each) => each["type"] === "sound")).toEqual([
       { v: 2, type: "sound", sound: { kind: "boost", isOn: true } },
       { v: 2, type: "sound", sound: { kind: "audioTrack", streamId: 2 } },
+      {
+        v: 2,
+        type: "sound",
+        sound: { kind: "channel", channel: "film", level: 0.3, isMuted: false },
+      },
     ]);
     const before = connection.snapshot();
     const hear = (sent: unknown): void => {
@@ -228,16 +244,22 @@ describe("a film's sound between a player and its remote", () => {
     hear({ kind: "audioTrack" });
     hear({ kind: "soundOffset", ms: -250 });
     hear({ kind: "soundOffset" }); // the server omits a zero
+    hear({ kind: "channel", channel: "film", level: 0.6 });
+    hear({ kind: "channel", channel: "film", isMuted: true }); // the server omits a zero level
+    hear({ kind: "channel", channel: "voices", level: 0.5 });
+    hear({ kind: "channel", channel: "film", level: 2 });
     expect(heard).toEqual([
       { kind: "levelling", isOn: false },
       { kind: "audioTrack", streamId: 5 },
       { kind: "soundOffset", ms: -250 },
       { kind: "soundOffset", ms: 0 },
+      { kind: "channel", channel: "film", level: 0.6, isMuted: false },
+      { kind: "channel", channel: "film", level: 0, isMuted: true },
     ]);
     expect(connection.snapshot()).toBe(before);
     unsubscribe();
     hear({ kind: "boost", isOn: false });
-    expect(heard).toHaveLength(4);
+    expect(heard).toHaveLength(6);
   });
 
   it("says its playback alone, with no player, as asked (the owner, 2026-11-06)", () => {

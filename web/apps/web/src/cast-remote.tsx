@@ -8,6 +8,7 @@ import {
   type CastSending,
   type PlaybackReport,
   type PlaybackSound,
+  type SoundChannel,
   type TogetherSnapshot,
 } from "@orpheum/sdk";
 import { longestSoundOffsetMs } from "@orpheum/player";
@@ -18,6 +19,7 @@ import { audioTrackLabel } from "./audio-tracks.tsx";
 import { tabStorage } from "./browser-storage.ts";
 import { endCastRetrying, listMyCasts, moveCastOn } from "./cast.ts";
 import { placeCode } from "./episode-place.ts";
+import type { PlayerSound } from "./player-controls.tsx";
 import { useLatest } from "./latest.ts";
 import { useLive } from "./live.tsx";
 import { homeTold } from "./notice.ts";
@@ -28,6 +30,7 @@ import { SessionRemote, usePositionNow } from "./session-remote.tsx";
 import { soundOffsetStepMs } from "./sound-delay.tsx";
 import { useMembership } from "./together-membership.ts";
 import { useUpNext } from "./up-next.tsx";
+import { useVolumeRow, VolumeRow } from "./volume-row.tsx";
 import { useResource } from "./use-resource.ts";
 import { useTogether } from "./use-together.ts";
 
@@ -354,6 +357,7 @@ function RemoteOf(props: {
       <p>{t("cast.playingOn", { name: sent.receiverName })}</p>
       <ReceiverPlayback playback={playback} />
       <ReceiverSound sound={playback?.sound} connection={props.cast.connection} />
+      <ReceiverFilmLevel sound={playback?.sound} connection={props.cast.connection} />
       <SessionRemote
         snapshot={worked.snapshot}
         connection={worked.connection}
@@ -520,6 +524,73 @@ function RemoteSoundOffset(props: {
         {t("play.soundOffset.later", { ms: soundOffsetStepMs })}
       </button>
     </p>
+  );
+}
+
+/**
+ * The film's level and mute on the receiver (D440 §2, §5), on 🔈's row of sliders (volume-row.tsx):
+ * the film's channel there, apart from the TV's own volume, lasting for the session, not saved. As
+ * the receiver said them, and as moved here until it says them again; each move sent to the
+ * receiver, which carries it out. Nothing while the receiver says no film channel.
+ */
+function ReceiverFilmLevel(props: {
+  readonly sound: PlaybackSound | undefined;
+  readonly connection: CarriesSoundChoices | undefined;
+}): JSX.Element | null {
+  // The film's is the only channel a player says so far (SoundChannel).
+  const film = props.sound?.channels?.[0];
+  if (film === undefined || props.connection === undefined) {
+    return null;
+  }
+  return <RemoteFilmLevel film={film} connection={props.connection} />;
+}
+
+/** A channel as chosen on the remote (next), and as the receiver said it when it was (said). */
+interface ChosenChannel {
+  readonly said: SoundChannel;
+  readonly next: SoundChannel;
+}
+
+/** The film's channel on the receiver as the row's film slider and mute work it (ReceiverFilmLevel). */
+function RemoteFilmLevel(props: {
+  readonly film: SoundChannel;
+  readonly connection: CarriesSoundChoices;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { film, connection } = props;
+  // What was chosen here, with what the receiver said when it was: shown until the receiver says
+  // anything else. The ref is read by a move made in the same press as another (a drag up from
+  // muted sets the level, then sound on), before the render that shows the first.
+  const [chosen, setChosen] = useState<ChosenChannel>();
+  const chosenRef = useRef<ChosenChannel | undefined>(undefined);
+  const isStill = (made: ChosenChannel | undefined): made is ChosenChannel =>
+    made?.said.level === film.level && made.said.isMuted === film.isMuted;
+  const shown = isStill(chosen) ? chosen.next : film;
+  const choose = (change: Partial<Pick<SoundChannel, "level" | "isMuted">>): void => {
+    const latest = chosenRef.current;
+    const next = { ...(isStill(latest) ? latest.next : film), ...change };
+    const made = { said: film, next };
+    chosenRef.current = made;
+    setChosen(made);
+    connection.chooseSound({ kind: "channel", ...next });
+  };
+  const sound: PlayerSound = {
+    volume: shown.level,
+    isMuted: shown.isMuted,
+    canSetVolume: true,
+    setVolume: (level) => {
+      choose({ level });
+    },
+    setMuted: (isMuted) => {
+      choose({ isMuted });
+    },
+  };
+  const row = useVolumeRow(sound, undefined);
+  return (
+    <div className="cast-remote__film-level">
+      <p>{t("cast.filmLevel")}</p>
+      <VolumeRow sound={sound} voice={undefined} row={row} />
+    </div>
   );
 }
 

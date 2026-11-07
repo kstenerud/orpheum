@@ -54,7 +54,8 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   once in step, the group never stepping back for it (D374, `LeaderCatchUp`); and it tells its
   session how it plays the film, its delivery, the quality it began and the link it chose it on, for
   a cast's remote to show (D371 §4), and, where its page reads it (`readSound`), how its film sounds:
-  the dialogue boost, levelling and the audio track among the file's own (`PlaybackSound`), which the
+  the dialogue boost, levelling, the audio track among the file's own and each channel's level and
+  mute, the film's alone so far (D440 §2) (`PlaybackSound`), which the
   remote changes by `chooseSound`, the server relaying each choice to the person's own devices that
   play (`subscribeToSoundChoices`). Its person's own moves are commands, as any player's. A follower
   whose session another device leads follows the group as above. `src/together-leader.test.ts`,

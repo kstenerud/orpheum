@@ -34,7 +34,11 @@ import { endCast, moveCastOn, playInCast } from "./cast.ts";
 import { fillsWindowClass, isFullScreenLeaveAsked, setFillsWindow } from "./film-fullscreen.ts";
 import { commandOf, keyCodeOf } from "./input-buttons.ts";
 import { onCommand } from "./input-commands.ts";
-import { useSoundWorkedByTheRemote, useToldTheCastHowItPlays } from "./cast-receiver-sound.ts";
+import {
+  useFilmChannelWorkedByTheRemote,
+  useSoundWorkedByTheRemote,
+  useToldTheCastHowItPlays,
+} from "./cast-receiver-sound.ts";
 import { useLatest } from "./latest.ts";
 import { useServices, useToken } from "./services.tsx";
 import { useLive } from "./live.tsx";
@@ -170,6 +174,7 @@ export function CastReceiver(props: {
     readSound: soundPanel?.read,
   });
   useSoundWorkedByTheRemote({ cast: castConnection, led: connection, panel: soundPanel });
+  useFilmChannelWorkedByTheRemote(video);
   useToldTheCastHowItPlays({
     cast: castConnection === connection ? undefined : castConnection,
     video,
