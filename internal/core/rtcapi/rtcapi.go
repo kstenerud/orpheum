@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -217,15 +218,17 @@ func New(ctx context.Context, handler http.Handler, logger *slog.Logger) *Server
 
 // ListenLAN has every connection gather its host candidates on one UDP port, which the deployment
 // publishes at the house's addresses, lanIPs, on the same port, and offer those addresses at it as
-// host candidates too: a core in a container, whose own addresses nothing at home reaches, is reached
-// by a device in the house directly, not out through the VPS and back (D300 §1). It is called once,
-// before the first offer.
+// its IPv4 host candidates in place of its own: a core in a container, whose own addresses nothing at
+// home reaches, is reached by a device in the house directly, not out through the VPS and back (D300
+// §1). Its host candidates on the port are one address of each family (onePerFamily), and the
+// house's in place of the container's IPv4 one, not beside it (D441). It is called once, before the
+// first offer.
 func (server *Server) ListenLAN(port int, lanIPs []netip.Addr) error {
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: port})
 	if err != nil {
 		return fmt.Errorf("listen for WebRTC on UDP port %d: %w", port, err)
 	}
-	mux := webrtc.NewICEUDPMux(nil, pacedPacketConn{PacketConn: conn, pacer: server.pacer})
+	mux := onePerFamily{webrtc.NewICEUDPMux(nil, pacedPacketConn{PacketConn: conn, pacer: server.pacer})}
 	external := make([]string, 0, len(lanIPs))
 	for _, address := range lanIPs {
 		external = append(external, address.Unmap().String())
@@ -234,7 +237,7 @@ func (server *Server) ListenLAN(port int, lanIPs []netip.Addr) error {
 		engine.SetICEUDPMux(mux)
 		ruleErr := engine.SetICEAddressRewriteRules(webrtc.ICEAddressRewriteRule{
 			External: external, AsCandidateType: webrtc.ICECandidateTypeHost,
-			Mode: webrtc.ICEAddressRewriteAppend, Networks: []webrtc.NetworkType{webrtc.NetworkTypeUDP4},
+			Mode: webrtc.ICEAddressRewriteReplace, Networks: []webrtc.NetworkType{webrtc.NetworkTypeUDP4},
 		})
 		return engine, ruleErr
 	}
@@ -252,6 +255,59 @@ func (server *Server) ListenLAN(port int, lanIPs []netip.Addr) error {
 	server.lanPort, server.lanIPs = port, slices.Clone(lanIPs)
 	server.mutex.Unlock()
 	return nil
+}
+
+// udpMux is pion's ICE UDP mux, as webrtc.NewICEUDPMux returns it and SettingEngine.SetICEUDPMux
+// takes it.
+type udpMux interface {
+	io.Closer
+	GetConn(ufrag string, addr net.Addr) (net.PacketConn, error)
+	RemoveConnByUfrag(ufrag string)
+	GetListenAddresses() []net.Addr
+}
+
+// onePerFamily is a mux that names one listening address of each family. Listening on every address,
+// pion's mux names them all, and ICE gathers a host candidate at each, every one of a family reading
+// the one socket pion's mux keeps for a connection and family: a check reaching the socket was
+// credited to whichever candidate read it first, so a connection's pairs never agreed and the core,
+// the DTLS client, never started DTLS. Firefox, connecting over IPv6 alone and checking rarely, did
+// not connect at all (idiosyncrasies.md, D441).
+type onePerFamily struct{ udpMux }
+
+// GetListenAddresses is one of the mux's addresses of each family, as listenAddressPerFamily picks it.
+func (mux onePerFamily) GetListenAddresses() []net.Addr {
+	return listenAddressPerFamily(mux.udpMux.GetListenAddresses())
+}
+
+// listenAddressPerFamily is, of each family in addresses, the first that is neither loopback nor
+// link-local, or failing that the first that is not loopback: ICE gathers no host candidate on the
+// loopback, and a link-local address reaches only the link the core's container is on.
+func listenAddressPerFamily(addresses []net.Addr) []net.Addr {
+	rank := func(ip net.IP) int {
+		switch {
+		case ip.IsLoopback():
+			return 2
+		case ip.IsLinkLocalUnicast():
+			return 1
+		default:
+			return 0
+		}
+	}
+	best := map[bool]int{}
+	picked := map[bool]net.Addr{}
+	for _, address := range addresses {
+		udp, isUDP := address.(*net.UDPAddr)
+		if !isUDP || rank(udp.IP) == 2 {
+			continue
+		}
+		isIPv4 := udp.IP.To4() != nil
+		if current, seen := best[isIPv4]; !seen || rank(udp.IP) < current {
+			best[isIPv4], picked[isIPv4] = rank(udp.IP), address
+		}
+	}
+	return slices.DeleteFunc([]net.Addr{picked[true], picked[false]}, func(address net.Addr) bool {
+		return address == nil
+	})
 }
 
 // relayedSettings are a relayed connection's: every connection's, checking only the remote

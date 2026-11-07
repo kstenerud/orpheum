@@ -8,6 +8,8 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -75,6 +77,29 @@ func TestListenLAN_AnswersWithTheHousesAddressAtItsPort(t *testing.T) {
 	if want := fmt.Sprintf(" 192.0.2.55 %d typ host", port); !strings.Contains(answer.SDP, want) {
 		t.Errorf("the answer holds no candidate %q:\n%s", want, answer.SDP)
 	}
+	ipv4, ipv6 := hostCandidatesAt(answer.SDP, port)
+	if !slices.Equal(ipv4, []string{"192.0.2.55"}) || len(ipv6) > 1 {
+		t.Errorf("the answer's host candidates at port %d are %v and %v; want the house's address alone and at "+
+			"most one IPv6 address (D441):\n%s", port, ipv4, ipv6, answer.SDP)
+	}
+}
+
+// hostCandidatesAt is the addresses of sdp's host candidates at port, IPv4 and IPv6, each once: pion
+// names each candidate for both components.
+func hostCandidatesAt(sdp string, port int) (ipv4, ipv6 []string) {
+	for line := range strings.Lines(sdp) {
+		fields := strings.Fields(strings.TrimPrefix(line, "a="))
+		if len(fields) < 8 || !strings.HasPrefix(fields[0], "candidate:") || fields[1] != "1" || fields[7] != "host" ||
+			fields[5] != strconv.Itoa(port) {
+			continue
+		}
+		if address, err := netip.ParseAddr(fields[4]); err == nil && address.Is4() {
+			ipv4 = append(ipv4, fields[4])
+		} else {
+			ipv6 = append(ipv6, fields[4])
+		}
+	}
+	return ipv4, ipv6
 }
 
 // An offer through a discovery never makes the core check an address of its own networks, its home
