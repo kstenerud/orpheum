@@ -27,12 +27,36 @@ type Playback struct {
 // control back (the owner, VQ116's run). SoundOffsetMs is how far the device moves its sound from
 // its picture, later when positive, which a remote moves for a TV that plays one of them late (the
 // owner, 2026-11-06: "Put a control in watch together and cast"); nil where its page offers none.
+// Channels are the levels of the sounds it mixes, each set from a cast's remote apart from the TV's
+// own volume (D440 §2): the film's alone so far.
 type PlaybackSound struct {
-	IsBoostOn     *bool        `json:"isBoostOn,omitempty"`
-	IsLevellingOn bool         `json:"isLevellingOn,omitempty"`
-	AudioStreamID int64        `json:"audioStreamId,omitempty"`
-	AudioTracks   []SoundTrack `json:"audioTracks,omitempty"`
-	SoundOffsetMs *int64       `json:"soundOffsetMs,omitempty"`
+	IsBoostOn     *bool          `json:"isBoostOn,omitempty"`
+	IsLevellingOn bool           `json:"isLevellingOn,omitempty"`
+	AudioStreamID int64          `json:"audioStreamId,omitempty"`
+	AudioTracks   []SoundTrack   `json:"audioTracks,omitempty"`
+	SoundOffsetMs *int64         `json:"soundOffsetMs,omitempty"`
+	Channels      []SoundChannel `json:"channels,omitempty"`
+}
+
+// SoundChannel is one sound a player mixes, its level and whether it is muted, as a cast's remote
+// shows and sets it (D440 §2, §5): the film's (ChannelFilm), its level the film's volume from 0 to
+// 1 as the player's own slider sets it.
+type SoundChannel struct {
+	Channel string  `json:"channel"`
+	Level   float64 `json:"level,omitempty"`
+	IsMuted bool    `json:"isMuted,omitempty"`
+}
+
+// ChannelFilm is the film's own sound among a player's channels.
+const ChannelFilm = "film"
+
+// soundChannelsMost is the most channels a player may say: the film and a session's voices, far
+// past any session's.
+const soundChannelsMost = 16
+
+// isKnown is whether a channel is one a player mixes, at a level within its bounds.
+func (channel SoundChannel) isKnown() bool {
+	return channel.Channel == ChannelFilm && channel.Level >= 0 && channel.Level <= 1
 }
 
 // SoundTrack is one of a file's own audio tracks as a remote names it: its stream, its language
@@ -70,6 +94,14 @@ func (sound *PlaybackSound) isKnown() bool {
 	if sound.SoundOffsetMs != nil && !isSoundOffset(*sound.SoundOffsetMs) {
 		return false
 	}
+	if len(sound.Channels) > soundChannelsMost {
+		return false
+	}
+	for _, channel := range sound.Channels {
+		if !channel.isKnown() {
+			return false
+		}
+	}
 	for _, track := range sound.AudioTracks {
 		switch track.Kind {
 		case "", soundTrackKindPlain, soundTrackCommentary, soundTrackDescribed:
@@ -97,6 +129,9 @@ const (
 	SoundAudioTrack SoundChoiceKind = "audioTrack"
 	// SoundOffset moves the device's sound from its picture (Ms).
 	SoundOffset SoundChoiceKind = "soundOffset"
+	// SoundChannelLevel sets one channel's level and mute on the player (Channel, Level, IsMuted),
+	// for the session alone, apart from the TV's own volume (D440 §2).
+	SoundChannelLevel SoundChoiceKind = "channel"
 )
 
 // SoundChoice is one choice of how a film sounds, made on a remote for the person's player.
@@ -105,9 +140,13 @@ type SoundChoice struct {
 	IsOn     bool            `json:"isOn,omitempty"`
 	StreamID int64           `json:"streamId,omitempty"`
 	Ms       int64           `json:"ms,omitempty"`
+	Channel  string          `json:"channel,omitempty"`
+	Level    float64         `json:"level,omitempty"`
+	IsMuted  bool            `json:"isMuted,omitempty"`
 }
 
-// isKnown is whether a choice is one a remote may make: a known kind, a track by a stream.
+// isKnown is whether a choice is one a remote may make: a known kind, a track by a stream, a
+// channel the player mixes at a level within its bounds.
 func (choice *SoundChoice) isKnown() bool {
 	if choice == nil {
 		return false
@@ -119,6 +158,8 @@ func (choice *SoundChoice) isKnown() bool {
 		return choice.StreamID > 0
 	case SoundOffset:
 		return isSoundOffset(choice.Ms)
+	case SoundChannelLevel:
+		return SoundChannel{Channel: choice.Channel, Level: choice.Level, IsMuted: choice.IsMuted}.isKnown()
 	}
 	return false
 }
@@ -173,7 +214,8 @@ func (current *session) relaySound(ctx context.Context, who *member, from *devic
 	}
 	current.logger.InfoContext(ctx, "watch together: a remote chose its film's sound",
 		append(current.deviceAttributes(who, from),
-			"kind", string(choice.Kind), "isOn", choice.IsOn, "streamId", choice.StreamID, "ms", choice.Ms)...)
+			"kind", string(choice.Kind), "isOn", choice.IsOn, "streamId", choice.StreamID, "ms", choice.Ms,
+			"channel", choice.Channel, "level", choice.Level, "isMuted", choice.IsMuted)...)
 	for _, each := range who.devices {
 		if each.id != from.id && (each.role.plays() || current.isCast) {
 			each.send(Outbound{V: ProtocolVersion, Type: MessageSound, FromDeviceID: from.id, Sound: choice})

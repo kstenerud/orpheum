@@ -318,7 +318,8 @@ func TestCast_AHostsGuestDeviceCastsAsTheirGuest(t *testing.T) {
 	}
 }
 
-// A remote's choice of its film's sound, the dialogue boost, levelling or the audio track, reaches the
+// A remote's choice of its film's sound, the dialogue boost, levelling, the audio track, its timing or
+// the film's level and mute on the receiver (D440 §2), reaches the
 // person's own devices that play the film, a cast's receiver, which carries it out as its own press;
 // it reaches no other member's, nor the remote itself, and a choice no remote may make is refused. A
 // Fire TV's own controls are hidden while it is controlled, so its sound could only be changed after
@@ -335,6 +336,8 @@ func TestCast_TheRemoteChoosesTheReceiversSound(t *testing.T) {
 		{Kind: SoundLevelling},
 		{Kind: SoundAudioTrack, StreamID: 3},
 		{Kind: SoundOffset, Ms: -200}, // the owner, 2026-11-06: "Put a control in ... cast"
+		{Kind: SoundChannelLevel, Channel: ChannelFilm, Level: 0.4},
+		{Kind: SoundChannelLevel, Channel: ChannelFilm, Level: 1, IsMuted: true},
 	} {
 		stage.hub.Handle(t.Context(), remote, Inbound{Type: MessageSound, Sound: &choice})
 		relayed := playerBox.last(MessageSound)
@@ -349,13 +352,21 @@ func TestCast_TheRemoteChoosesTheReceiversSound(t *testing.T) {
 		t.Errorf("the remote was told %d of its own choices; want none", count)
 	}
 	refusedChoices := []*SoundChoice{
-		nil, {Kind: "louder"}, {Kind: SoundAudioTrack}, {Kind: SoundOffset, Ms: 2050}, {Kind: SoundOffset, Ms: -2050},
+		nil,
+		{Kind: "louder"},
+		{Kind: SoundAudioTrack},
+		{Kind: SoundOffset, Ms: 2050},
+		{Kind: SoundOffset, Ms: -2050},
+		{Kind: SoundChannelLevel, Level: 0.5},
+		{Kind: SoundChannelLevel, Channel: "voices", Level: 0.5},
+		{Kind: SoundChannelLevel, Channel: ChannelFilm, Level: 1.5},
+		{Kind: SoundChannelLevel, Channel: ChannelFilm, Level: -0.1},
 	}
 	for _, refused := range refusedChoices {
 		stage.hub.Handle(t.Context(), remote, Inbound{Type: MessageSound, Sound: refused})
 	}
-	if count := playerBox.count(MessageSound); count != 4 {
-		t.Errorf("the player was told %d sound choices; want the 4 a remote may make", count)
+	if count := playerBox.count(MessageSound); count != 6 {
+		t.Errorf("the player was told %d sound choices; want the 6 a remote may make", count)
 	}
 	if count := remoteBox.count(MessageRejected); count != len(refusedChoices) {
 		t.Errorf("the remote's unknown choices were refused %d times; want %d", count, len(refusedChoices))
@@ -426,6 +437,7 @@ func TestHub_TheRosterSaysHowEachPlayersFilmSounds(t *testing.T) {
 			{StreamID: 1, Language: "en", Kind: "plain"},
 			{StreamID: 2, Language: "de", ContainerTitle: "Director", Kind: "commentary"},
 		},
+		Channels: []SoundChannel{{Channel: ChannelFilm, Level: 0.35, IsMuted: true}},
 	}
 	stage.command(t, receiver, CommandChangeItem, 12)
 	stage.hub.Handle(t.Context(), receiver, Inbound{
@@ -435,20 +447,19 @@ func TestHub_TheRosterSaysHowEachPlayersFilmSounds(t *testing.T) {
 	if got := soundInRoster(); got == nil || !reflect.DeepEqual(*got, sound) {
 		t.Fatalf("the remote's roster says the receiver sounds %+v; want %+v", got, sound)
 	}
-	stage.hub.Handle(t.Context(), receiver, Inbound{
-		Type: MessageState, Playing: true, FileID: 12,
-		Playback: &Playback{Delivery: DeliveryConverted, Sound: &PlaybackSound{
-			AudioTracks: []SoundTrack{{StreamID: 1, Kind: "whispered"}},
-		}},
-	})
-	if got := soundInRoster(); got == nil || !reflect.DeepEqual(*got, sound) {
-		t.Errorf("after a track of a kind no player says, the receiver sounds %+v; want the last known", got)
+	refused := map[string]PlaybackSound{
+		"a track of a kind no player says": {AudioTracks: []SoundTrack{{StreamID: 1, Kind: "whispered"}}},
+		"a sound offset past the bound":    {SoundOffsetMs: &pastTheBound},
+		"a film louder than full":          {Channels: []SoundChannel{{Channel: ChannelFilm, Level: 1.2}}},
+		"a channel no player mixes":        {Channels: []SoundChannel{{Channel: "louder", Level: 0.5}}},
 	}
-	stage.hub.Handle(t.Context(), receiver, Inbound{
-		Type: MessageState, Playing: true, FileID: 12,
-		Playback: &Playback{Delivery: DeliveryConverted, Sound: &PlaybackSound{SoundOffsetMs: &pastTheBound}},
-	})
-	if got := soundInRoster(); got == nil || !reflect.DeepEqual(*got, sound) {
-		t.Errorf("after a sound offset past the bound, the receiver sounds %+v; want the last known", got)
+	for name, each := range refused {
+		stage.hub.Handle(t.Context(), receiver, Inbound{
+			Type: MessageState, Playing: true, FileID: 12,
+			Playback: &Playback{Delivery: DeliveryConverted, Sound: &each},
+		})
+		if got := soundInRoster(); got == nil || !reflect.DeepEqual(*got, sound) {
+			t.Errorf("after %s, the receiver sounds %+v; want the last known", name, got)
+		}
 	}
 }
