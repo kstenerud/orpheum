@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import {
+  browserTogetherSocket,
   connectThrough,
   directFetch,
   failureText,
   firstDirectPath,
+  rtcTogetherSocket,
   targetOfSession,
   type FetchRequest,
+  type OpenTogetherSocket,
 } from "@orpheum/sdk";
 
 /**
@@ -57,10 +60,23 @@ export function reachOf(value: unknown): Reach | undefined {
   return { clientApi, coreId, fingerprint, token, locator };
 }
 
-/** The receiver's way to its core: the fetch its requests go by, and its ending. */
+/**
+ * The receiver's way to its core: the fetch its requests go by, the sockets its live and cast
+ * connections open on the same path (as the web client's kept-path.ts opens them), and its ending.
+ */
 export interface Reached {
   readonly fetch: FetchRequest;
+  readonly openSocket: OpenTogetherSocket;
   readonly close: () => void;
+}
+
+/** The core at origin, reached by its name: the page's own core where it is served by one. */
+export function reachedAt(origin: string): Reached {
+  return {
+    fetch: directFetch(origin),
+    openSocket: browserTogetherSocket(origin),
+    close: () => undefined,
+  };
 }
 
 /**
@@ -84,7 +100,7 @@ export async function reachCore(reach: Reach, note: (line: string) => void): Pro
   });
   if (origin !== undefined) {
     note(`reached the core at ${origin}`);
-    return { fetch: directFetch(origin), close: () => undefined };
+    return reachedAt(origin);
   }
   note("no direct name answered; connecting over WebRTC through the discovery");
   try {
@@ -92,6 +108,7 @@ export async function reachCore(reach: Reach, note: (line: string) => void): Pro
     note("connected over WebRTC");
     return {
       fetch: transport.fetch,
+      openSocket: rtcTogetherSocket(() => transport.openChannel()),
       close: () => {
         transport.close();
       },

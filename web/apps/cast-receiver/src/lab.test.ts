@@ -54,6 +54,18 @@ describe("the lab receiver's requests", () => {
     ).toMatchObject({ reach: undefined });
   });
 
+  it("ask it to become a cast target, reaching the sender's core by its reach where it sends one", () => {
+    const reach = {
+      clientApi: "https://api.discovery.example",
+      coreId: "k7xq2",
+      fingerprint: "SHA256:abc",
+      token: "session-token",
+      locator: "loc-1",
+    };
+    expect(labRequestOf({ type: "device", reach })).toEqual({ type: "device", reach });
+    expect(labRequestOf({ type: "device" })).toEqual({ type: "device", reach: undefined });
+  });
+
   it("never play an address on another host, nor anything unknown", () => {
     expect(
       labRequestOf({ type: "play", path: "https://elsewhere.example/master.m3u8" }),
