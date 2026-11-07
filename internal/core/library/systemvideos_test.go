@@ -12,6 +12,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	corenodes "github.com/kstenerud/orpheum/internal/core/nodes"
+	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -95,12 +96,12 @@ func (world *systemVideosWorld) makeVideos(nodeID int64, folder string) {
 }
 
 // scanSystemFolder is the scan of the system folder on node nodeID finding the clip.
-func (world *systemVideosWorld) scanSystemFolder(nodeID int64, folder string) {
+func (world *systemVideosWorld) scanSystemFolder(nodeID int64) {
 	world.t.Helper()
-	facts := nodeproto.ScanBegin{RootPath: folder, FilesystemDevice: 8}
+	facts := nodeproto.ScanBegin{RootPath: systemFolder, FilesystemDevice: 8}
 	clip := observedRecord("sound-timing.h264-aac.mp4", "clip")
 	records := librarytest.Scan(facts, []nodeproto.ScanRecord{clip}, true)
-	if err := world.ingester.IngestScan(world.t.Context(), nodeID, folder, records); err != nil {
+	if err := world.ingester.IngestScan(world.t.Context(), nodeID, systemFolder, records); err != nil {
 		world.t.Fatal(err)
 	}
 }
@@ -143,7 +144,7 @@ func TestSystemVideos_TheFirstUseMakesTheLibraryAndTheNodeMakesTheVideos(t *test
 	}
 	world.makeVideos(world.nodeID, systemFolder)
 	world.requireMadeOnLocal()
-	world.scanSystemFolder(world.nodeID, systemFolder)
+	world.scanSystemFolder(world.nodeID)
 	state, err = world.videos.Find(ctx, nodeproto.SystemVideoSoundTiming, nodeproto.SystemVideoH264AAC)
 	if err != nil || state.FileID == 0 || state.Video.FileName != "sound-timing.h264-aac.mp4" {
 		t.Errorf("the use after the scan = %+v, %v; want the clip's file", state, err)
@@ -184,7 +185,7 @@ func TestSystemVideos_ANodeGoneMovesTheLibraryToAnother(t *testing.T) {
 		t.Fatal(err)
 	}
 	world.makeVideos(world.nodeID, systemFolder)
-	world.scanSystemFolder(world.nodeID, systemFolder)
+	world.scanSystemFolder(world.nodeID)
 	const otherFolder = "/srv/orpheum/system-videos"
 	otherID := librarytest.Node(t, world.database, "other")
 	world.nodes.others = map[string]*fakeNodes{"other": {id: otherID, roots: []string{otherFolder}}}
@@ -214,7 +215,7 @@ func TestReachFile_ASystemVideoIsReachedByAnyoneAndNothingElseIs(t *testing.T) {
 		t.Fatal(err)
 	}
 	world.makeVideos(world.nodeID, systemFolder)
-	world.scanSystemFolder(world.nodeID, systemFolder)
+	world.scanSystemFolder(world.nodeID)
 	world.scan([]nodeproto.ScanRecord{observedRecord("Arkon (1979)/Arkon.mkv", "arkon")}, true)
 	clip := world.liveFilesByPath()[systemFolder+"/sound-timing.h264-aac.mp4"]
 	film := world.liveFilesByPath()[root+"/Arkon (1979)/Arkon.mkv"]
@@ -227,5 +228,30 @@ func TestReachFile_ASystemVideoIsReachedByAnyoneAndNothingElseIs(t *testing.T) {
 	}
 	if err := ReachFile(ctx, world.database.Read(), none, film.ID); !errors.Is(err, ErrNoFile) {
 		t.Errorf("a film of a library the person does not reach = %v; want it refused as absent", err)
+	}
+}
+
+// A system video is what a playback plays with no library named: the system library is no page's
+// (D435 §1), so the Play page's trail goes nowhere for it, and starting it is no error. An admin
+// reaches every library, the system one among them.
+func TestWorkOfFile_ASystemVideoNamesNoLibrary(t *testing.T) {
+	t.Parallel()
+	world := newSystemVideosWorld(t)
+	ctx := t.Context()
+	if _, err := world.videos.Find(ctx, nodeproto.SystemVideoSoundTiming, nodeproto.SystemVideoH264AAC); err != nil {
+		t.Fatal(err)
+	}
+	world.makeVideos(world.nodeID, systemFolder)
+	world.scanSystemFolder(world.nodeID)
+	clip := world.liveFilesByPath()[systemFolder+"/sound-timing.h264-aac.mp4"]
+	if clip.ID == 0 {
+		t.Fatalf("files %+v; want the clip scanned", world.liveFilesByPath())
+	}
+	config := settingstest.Seeded(t, world.database)
+	for _, reach := range []auth.Reach{auth.EveryLibrary(), auth.LibrariesOnly()} {
+		work, err := NewBrowser(world.database, config).WorkOfFile(ctx, reach, clip.ID)
+		if err != nil || work.LibraryID != 0 || work.LibraryName != "" {
+			t.Errorf("the clip's work = %+v, %v; want it with no library", work, err)
+		}
 	}
 }
