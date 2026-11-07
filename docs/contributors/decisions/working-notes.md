@@ -26792,6 +26792,8 @@ nas.example: the ThinkPad's Firefox 158 never signed in to orpheum.cc. Amends D3
 
 ## D442 — The session a person hosts stays on the device that started it; their other devices say where it is and may move it here
 
+> **§2 amended by [D443](#d443--the-device-the-session-a-person-hosts-is-cast-to-offers-to-move-it-here-which-ends-the-cast-first-and-makes-it-the-host)** (2026-11-07): the device the session is cast to offers Move it here too, which ends the cast first and then moves the session, the device that cast told its cast ended and the session moved.
+
 **Decided** (2026-11-07), by the project owner: *"a hosted session stays on the device that started
 it"*, surviving a reload there; the person's other devices do not host it. Amends
 [D267](#d267--a-watch-together-membership-is-kept-by-the-browser-that-joined-or-by-the-account-of-whoever-is-signed-in-and-one-member-may-be-on-several-devices)
@@ -26815,5 +26817,38 @@ it"*, surviving a reload there; the person's other devices do not host it. Amend
 `TestHostHere_MakesTheAskingDeviceTheHostsOne`,
 `TestTogether_TheHostsOtherDeviceIsToldWhereTheSessionIsAndMovesItHere`, and the web's
 `together-mine.test.ts`, `together-over-the-film.test.tsx` and `together-voice.test.tsx`.
+
+**Status:** decided.
+
+## D443 — The device the session a person hosts is cast to offers to move it here, which ends the cast first and makes it the host
+
+**Decided** (2026-11-07), by the project owner, answering the 11-20 batch's finding 3 ("Agreed"): *"a
+device being cast to offers Move it here, which ends the cast and makes it the host, playing on its
+own"*. The owner, casting from Firefox on the Mac to Firefox on Linux, found no way to take the
+session over on the device cast to, and started a new session there, which ended the other. Amends
+[D442](#d442--the-session-a-person-hosts-stays-on-the-device-that-started-it-their-other-devices-say-where-it-is-and-may-move-it-here)
+§2, whose Move it here a device receiving a cast did not offer (it offered no start either, playing
+the cast's session, D88).
+
+1. **The device cast to says so and offers Move it here.** While a device receives the cast of the
+   session its person hosts, as their player (D364 §11; not a guest's part, D371 §4), Watch
+   Together's sign over the film and its dialog say "Your session is cast here from ‹device›" and
+   offer Move it here; never Start a session, which would end it (D372 §8).
+2. **The cast ends first, then the session moves.** Moving it ends the cast with the new reason
+   `movedHere` (`POST /me/casts/{id}/end`), the receiver leaving it, and only then asks
+   `POST /together/{id}/host-here`, whose cutting off of the host's every other credential takes the
+   cast's part with the sending device's. The other order would cut the receiver's part while the
+   cast still ran, its remote left on a page gone home.
+3. **The device that cast learns its cast ended and the session moved, never that it ended.** Its
+   remote, told `movedHere`, goes home with no word and does not play the film on itself, as it does
+   for a cast taken back (D385 §2); the session's move, told to its tab as `movedAway`, says at home
+   that the session moved to another of their devices and offers to move it back (D442 §2).
+4. **The device cast to plays on its own.** It becomes the session's host and opens the film's Play
+   page where the cast stood as it ended, paused if it was, leading the session as any host's Play
+   page does. The server's change is the end reason alone.
+
+**Proven by:** `TestCast_AHostsReceiverEndsTheCastAndMovesTheSessionHere`, and the web's
+`together-over-the-film.test.tsx` (the receiver's Move it here, the cast ended before the move) and
+`cast-remote.test.tsx` (the remote told `movedHere` goes home with no word).
 
 **Status:** decided.

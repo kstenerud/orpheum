@@ -596,6 +596,14 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     expect(currentNotice()).toBeUndefined();
   });
 
+  it("goes home with no word, never playing the film here, as its receiver ends the cast to move the session here, whose move says so (D443)", async () => {
+    const { services, sockets, onPlayHere } = await casting({});
+    await sockets.session.say({ type: "ended", reason: "movedHere" });
+    expect(services.navigation.route()).toEqual({ screen: "home" });
+    expect(onPlayHere).not.toHaveBeenCalled();
+    expect(currentNotice()).toBeUndefined();
+  });
+
   it("goes home, saying so, where the server lists the cast no more", async () => {
     const services = servedBy(
       { "GET /me/casts": [200, { casts: [] }], "GET /files/4/up-next": [200, {}] },
