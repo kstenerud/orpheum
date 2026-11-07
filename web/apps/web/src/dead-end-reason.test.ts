@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { deadEndReasonOf } from "./dead-end-reason.ts";
+import { deadEndReasonOf, deadEndReasonWith } from "./dead-end-reason.ts";
 import { RtcUnconnected, type Target } from "@orpheum/sdk";
 
 const lan = "https://lan.k7xq2.zone.example";
@@ -54,7 +54,7 @@ describe("why a page reached its core by no way (D398)", () => {
       { ice: "connected", connection: "connecting" },
       "did not connect in time",
     );
-    expect(deadEndReasonOf(targetOf([v6], [], "ipv4"), raced, undefined, stalled)).toEqual({
+    expect(deadEndReasonWith(deadEndReasonOf(targetOf([v6], [], "ipv4"), raced), stalled)).toEqual({
       ipv6: "no",
       tried: [
         { kind: "ipv6", ended: "unreachable" },
@@ -63,9 +63,9 @@ describe("why a page reached its core by no way (D398)", () => {
       cause: "secureUnfinished",
     });
     const neverThrough = new RtcUnconnected({ ice: "failed", connection: "failed" }, "failed");
-    expect(deadEndReasonOf(targetOf([], [], "ipv4"), [], undefined, neverThrough).cause).toBe(
-      "unknown",
-    );
+    expect(
+      deadEndReasonWith(deadEndReasonOf(targetOf([], [], "ipv4"), []), neverThrough).cause,
+    ).toBe("unknown");
   });
 
   it("cannot tell when an IPv6 name only went unanswered, or none was tried", () => {

@@ -68,18 +68,21 @@ function ownBrowserOf(isApple: boolean, isAndroid: boolean): OwnBrowser {
   return isAndroid ? "chrome" : "other";
 }
 
-/**
- * The page saying to open the link in the phone's own browser, naming the app it opened in where the
- * browser tells, with the link to copy and paste there; a copy the app refuses leaves the link shown
- * to select. A browser not inside an app, as a private window, is told to use an ordinary window.
- */
-export function OpenInBrowser(props: {
+/** What the page saying to open the link in the phone's own browser is given. */
+interface OpenInBrowserProps {
   readonly address?: string;
   readonly userAgent?: string;
   readonly copy?: (text: string) => Promise<void>;
   /** What comes below the page's form, as what happened to copy (CredentialsForm's after). */
   readonly after?: ReactNode;
-}): JSX.Element {
+}
+
+/**
+ * The page saying to open the link in the phone's own browser, naming the app it opened in where the
+ * browser tells, with the link to copy and paste there; a copy the app refuses leaves the link shown
+ * to select. A browser not inside an app, as a private window, is told to use an ordinary window.
+ */
+export function OpenInBrowser(props: OpenInBrowserProps): JSX.Element {
   const { t } = useTranslation();
   const [copied, setCopied] = useState<"copied" | "refused" | undefined>(undefined);
   const address = props.address ?? globalThis.location.href;

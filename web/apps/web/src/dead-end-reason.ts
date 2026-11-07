@@ -59,15 +59,12 @@ function hasIpv6Of(target: Target, tried: readonly Tried[], probed: HasIpv6 | un
  * Why nothing reached target, from what came of each name raced (reachCore's tellRaced): undefined
  * when the race was never decided. WebRTC is counted tried, and failed, once no name answered. probed
  * is what the discovery's IPv6 probe judged (tellIpv6Probe), undefined when it named none or the probe
- * has not ended. problem is what the reach failed with: a WebRTC connection whose ICE got through and
- * whose secure connection never completed is that cause, whatever the names did, for this network
- * reached the core (the owner's Firefox 158, 2026-11-07, told its network could not reach it).
+ * has not ended.
  */
 export function deadEndReasonOf(
   target: Target,
   raced: readonly DirectOutcome[] | undefined,
   probed?: HasIpv6,
-  problem?: unknown,
 ): DeadEndReason {
   const named = (raced ?? []).map((each): Tried => ({
     kind: kindOf(target, each.url),
@@ -77,10 +74,17 @@ export function deadEndReasonOf(
   const tried = isWebrtcTried ? [...named, { kind: "webrtc", ended: "failed" }] : named;
   const ipv6 = hasIpv6Of(target, tried, probed);
   const hasIpv4Way = (target.families?.ipv4Urls.length ?? 0) > 0;
-  if (isSecureUnfinished(problem)) {
-    return { ipv6, tried, cause: "secureUnfinished" };
-  }
   return { ipv6, tried, cause: ipv6 === "no" && !hasIpv4Way ? "noIpv6" : "unknown" };
+}
+
+/**
+ * A dead end's reason with what the reach failed with (problem) weighed in: a WebRTC connection whose
+ * ICE got through and whose secure connection never completed is that cause, whatever the names did,
+ * for this network reached the core (the owner's Firefox 158, 2026-11-07, told its network could not
+ * reach it).
+ */
+export function deadEndReasonWith(reason: DeadEndReason, problem: unknown): DeadEndReason {
+  return isSecureUnfinished(problem) ? { ...reason, cause: "secureUnfinished" } : reason;
 }
 
 /** The reason of a dead end the page knows nothing of: the discovery itself not reached. */
