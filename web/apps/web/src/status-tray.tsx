@@ -2,7 +2,8 @@
 
 import "./status-tray.css";
 
-import type { CastSending } from "@orpheum/sdk";
+import type { CastSending, CastToReceive } from "@orpheum/sdk";
+import type { TFunction } from "i18next";
 import { useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -29,7 +30,8 @@ import { usePrefetchedHostedDetails } from "./hosted-details.ts";
  * The status tray at the banner's end (D280), on every screen. Watch Together's and Cast's icons are
  * always in it, the entry points to both, each opening its dialog over the page (D384 §2), white while their function is off and blue, pulsing
  * gently, while it is on (D364 §12, §13); Watch Together's is shown to a person who may host it, and
- * to a signed-in guest in a session (§14). For an admin, the warning sign leads to what needs them,
+ * to a signed-in guest in a session (§14). Cast's is on too on a device being cast to, saying from
+ * which device (the owner's 11-20 batch, finding 5). For an admin, the warning sign leads to what needs them,
  * when anything does; it alone is yellow (D278).
  */
 export function StatusTray(props: {
@@ -40,7 +42,7 @@ export function StatusTray(props: {
   const { t } = useTranslation();
   const isHosting = useMembership(tabStorage, "host") !== undefined;
   const isViewing = useMembership(browserStorage, "viewer") !== undefined;
-  const { sending } = useLive();
+  const { sending, receiving } = useLive();
   useClosesTheDialogAsThePageMoves();
   useLoadsTrayDialogsAhead();
   return (
@@ -49,7 +51,7 @@ export function StatusTray(props: {
       {props.canHostWatchTogether || isHosting || isViewing ? (
         <TogetherSign isHosting={isHosting} isViewing={isViewing} />
       ) : null}
-      <CastSign sending={sending} />
+      <CastSign sending={sending} receiving={receiving} />
     </section>
   );
 }
@@ -107,13 +109,18 @@ function TogetherSign(props: {
 
 /**
  * Cast's sign (D364 §13, D384 §2): it opens Cast's dialog over the page, to choose a device or stop,
- * and never moves the page; blue while a cast is on, named by its receiver and what plays.
+ * and never moves the page; blue while a cast is on, named by its receiver and what plays, or, on the
+ * device cast to, by the device casting.
  */
-function CastSign(props: { readonly sending: CastSending | undefined }): JSX.Element {
+function CastSign(props: {
+  readonly sending: CastSending | undefined;
+  readonly receiving: CastToReceive | undefined;
+}): JSX.Element {
   return (
     <>
       <CastSignButton
         sending={props.sending}
+        receiving={props.receiving}
         isOverVideo={false}
         onOpen={() => {
           openTrayDialog("cast");
@@ -133,7 +140,7 @@ function CastSign(props: { readonly sending: CastSending | undefined }): JSX.Ele
 export function CastSignOverTheFilm(props: {
   readonly onOpenChange: (isOpen: boolean) => void;
 }): JSX.Element {
-  const { sending } = useLive();
+  const { sending, receiving } = useLive();
   const [isOpen, setIsOpen] = useState(false);
   const { onOpenChange } = props;
   const openOrClose = (isNowOpen: boolean): void => {
@@ -144,6 +151,7 @@ export function CastSignOverTheFilm(props: {
     <span className="player-overlay__cast">
       <CastSignButton
         sending={sending}
+        receiving={receiving}
         isOverVideo
         onOpen={() => {
           openOrClose(true);
@@ -165,30 +173,47 @@ export function castSignOverTheFilm(onOpenChange: (isOpen: boolean) => void): JS
   return <CastSignOverTheFilm onOpenChange={onOpenChange} />;
 }
 
-/** Cast's sign itself: Cast to a device, or, blue, what plays on which device while a cast is on. */
+/**
+ * Cast's sign itself: Cast to a device, or, blue, what plays on which device while this one casts, or
+ * which device casts to this one while it receives (a device that does both says what it casts).
+ */
 function CastSignButton(props: {
   readonly sending: CastSending | undefined;
+  readonly receiving: CastToReceive | undefined;
   readonly isOverVideo: boolean;
   readonly onOpen: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { sending } = props;
-  const label =
-    sending === undefined
-      ? t("status.cast")
-      : t(sending.fileId === 0 ? "status.castingReady" : "status.castingFilm", {
-          name: sending.receiverName,
-          film: sending.itemName,
-        });
+  const { sending, receiving } = props;
   return (
     <IconButton
-      label={label}
+      label={castSignLabel(t, sending, receiving)}
       icon={<CastIcon />}
-      mark={signMark(sending !== undefined)}
+      mark={signMark(sending !== undefined || receiving !== undefined)}
       isOverVideo={props.isOverVideo}
       onClick={props.onOpen}
     />
   );
+}
+
+/** What Cast's sign says: what this device casts, else which device casts to it, else Cast to a device. */
+function castSignLabel(
+  t: TFunction,
+  sending: CastSending | undefined,
+  receiving: CastToReceive | undefined,
+): string {
+  if (sending !== undefined) {
+    return t(sending.fileId === 0 ? "status.castingReady" : "status.castingFilm", {
+      name: sending.receiverName,
+      film: sending.itemName,
+    });
+  }
+  if (receiving === undefined) {
+    return t("status.cast");
+  }
+  return receiving.fromDeviceName === ""
+    ? t("status.castFromAnother")
+    : t("status.castFrom", { name: receiving.fromDeviceName });
 }
 
 /** Cast's dialog, its code loaded apart (tray-dialog-code.tsx). */
