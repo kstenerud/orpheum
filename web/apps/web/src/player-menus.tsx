@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { seekTo } from "@orpheum/player";
+import type { PlaybackReport } from "@orpheum/sdk";
 import {
   createContext,
   use,
@@ -16,6 +17,7 @@ import { useTranslation } from "react-i18next";
 import { useAudioChoices, type AudioChoice } from "./audio-tracks.tsx";
 import { DropDown } from "./drop-down.tsx";
 import { ForTestersContext, ForTestersShown } from "./for-testers.tsx";
+import { HowItPlays } from "./how-it-plays.tsx";
 import { ListEntry, ListOption } from "./list-box.tsx";
 import { LevellingControl } from "./levelling.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
@@ -35,12 +37,14 @@ import { useVolumeRow, VolumeRow } from "./volume-row.tsx";
 
 /**
  * What the page playing gives the overlay's menus beside the film's tracks (PlayerTracksContext):
- * the file, the device's sound timing it started with, and what follows a subtitle fetched, the
- * original chosen and the bare player asked for (the last two where they are offered).
+ * the file, the device's sound timing it started with, how the film plays here (⁝'s How it plays,
+ * D444), and what follows a subtitle fetched, the original chosen and the bare player asked for
+ * (the last two where they are offered).
  */
 export interface PlayerMenusWays {
   readonly fileId: number;
   readonly soundOffsetMs: number;
+  readonly playback?: PlaybackReport | undefined;
   readonly onSubtitleFetched: () => void;
   readonly onOriginalChosen?: (() => void) | undefined;
   readonly onBare?: (() => void) | undefined;
@@ -179,9 +183,11 @@ function TrackMenus(props: {
  * owner, 2026-11-03: "it should behave as a single component"); the sliders take a pointer or a
  * finger, and the mute a press. Each opening starts on the film's.
  */
-function VolumeMenu(props: {
+export function VolumeMenu(props: {
   readonly sound: PlayerSound;
   readonly onOpenChange: (isOpen: boolean) => void;
+  /** What the film's slider is said to set, where not the film's volume here (VolumeRow). */
+  readonly filmTitle?: string | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
   const { sound, onOpenChange } = props;
@@ -206,7 +212,7 @@ function VolumeMenu(props: {
       }}
     >
       <div {...{ [keepsOpenAttribute]: "" }}>
-        <VolumeRow sound={sound} voice={voice} row={row} />
+        <VolumeRow sound={sound} voice={voice} row={row} filmTitle={props.filmTitle} />
       </div>
     </PopoverButton>
   );
@@ -259,15 +265,11 @@ function SubtitlesMenu(props: {
     onFind === undefined
       ? []
       : [{ key: "find", label: t("play.findSubtitles.open"), isCurrent: false, onChoose: onFind }];
-  const options = [...trackChoices, ...find];
   return (
-    <ActionChooser
-      fieldLabel={t("play.subtitles.label")}
+    <SubtitlesMenuOf
+      options={[...trackChoices, ...find]}
       current={currentLabelOf(trackChoices)}
-      openerIcon={<SubtitlesIcon />}
-      isOverVideo
       onOpenChange={props.onOpenChange}
-      options={options}
     />
   );
 }
@@ -281,16 +283,50 @@ function AudioMenuOverTheFilm(props: {
   readonly choice: AudioChoice;
   readonly onOpenChange: (isOpen: boolean) => void;
 }): JSX.Element {
-  const { t } = useTranslation();
   const options = useAudioChoices(props.choice);
+  return <SoundTrackMenuOf options={options} onOpenChange={props.onOpenChange} />;
+}
+
+/**
+ * Sound track's menu over options, the film's audio tracks: the player's (AudioMenuOverTheFilm), or
+ * the receiver's on the cast's remote (D444).
+ */
+export function SoundTrackMenuOf(props: {
+  readonly options: readonly ActionChoice[];
+  readonly onOpenChange: (isOpen: boolean) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
   return (
     <ActionChooser
       fieldLabel={t("play.audio.menu")}
-      current={currentLabelOf(options)}
+      current={currentLabelOf(props.options)}
       openerIcon={<AudioIcon />}
       isOverVideo
       onOpenChange={props.onOpenChange}
-      options={options}
+      options={props.options}
+    />
+  );
+}
+
+/**
+ * Subtitles' menu over options, Off and the film's subtitle tracks: the player's (SubtitlesMenu, with
+ * Find subtitles after them), or the receiver's on the cast's remote (D444).
+ */
+export function SubtitlesMenuOf(props: {
+  readonly options: readonly ActionChoice[];
+  /** What the menu is named by, the choice showing: "Subtitles: Off". */
+  readonly current: string;
+  readonly onOpenChange: (isOpen: boolean) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <ActionChooser
+      fieldLabel={t("play.subtitles.label")}
+      current={props.current}
+      openerIcon={<SubtitlesIcon />}
+      isOverVideo
+      onOpenChange={props.onOpenChange}
+      options={props.options}
     />
   );
 }
@@ -298,7 +334,8 @@ function AudioMenuOverTheFilm(props: {
 /**
  * ⁝ (D407 §8, Q8): Start over, the subtitles' offset, the device's sound timing, levelling, the
  * dialogue boost, the original (its quality entry, D418 §4) and the bare player where they are
- * offered, and For testers where the player gives it (item 9 of ui-audit-2026-11-04.md). Its
+ * offered, How it plays (D444), and For testers where the player gives it (item 9 of
+ * ui-audit-2026-11-04.md). Its
  * steppers' presses keep it open (ListEntry's isKeptOpen); its other buttons close it, as a choice
  * does.
  */
@@ -313,14 +350,7 @@ function MoreMenu(props: {
   const { tracks, ways, videoRef } = props;
   const { subtitles, boost } = tracks;
   return (
-    <DropDown
-      label={t("playerControls.settings")}
-      opener={<SettingsIcon />}
-      openerClassName="icon-button icon-button--over-video"
-      openerNaming={{ "aria-label": t("playerControls.settings") }}
-      isFromItsTop
-      onOpenChange={props.onOpenChange}
-    >
+    <MoreMenuOf onOpenChange={props.onOpenChange}>
       <ListOption
         onChoose={() => {
           startOver(videoRef);
@@ -353,9 +383,33 @@ function MoreMenu(props: {
         </ListEntry>
       )}
       <MoreOfThePage ways={ways} />
+      <HowItPlays playback={ways?.playback} />
       {props.onTesters === undefined ? null : (
         <ListOption onChoose={props.onTesters}>{t("play.forTesters.open")}</ListOption>
       )}
+    </MoreMenuOf>
+  );
+}
+
+/**
+ * ⁝'s pop-up (Settings) over its places (children): the player's (MoreMenu), or the cast's remote's
+ * over the receiver's (D444).
+ */
+export function MoreMenuOf(props: {
+  readonly onOpenChange: (isOpen: boolean) => void;
+  readonly children: ReactNode;
+}): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <DropDown
+      label={t("playerControls.settings")}
+      opener={<SettingsIcon />}
+      openerClassName="icon-button icon-button--over-video"
+      openerNaming={{ "aria-label": t("playerControls.settings") }}
+      isFromItsTop
+      onOpenChange={props.onOpenChange}
+    >
+      {props.children}
     </DropDown>
   );
 }
@@ -384,7 +438,7 @@ function MoreOfThePage(props: { readonly ways: PlayerMenusWays | undefined }): J
  * Later beside what they move, in one row that wraps (the stepper's isInAList), not each a whole
  * place as a menu's choice is (D407 §8), set in as the choices' text is.
  */
-function KeptOpen(props: { readonly children: ReactNode }): JSX.Element {
+export function KeptOpen(props: { readonly children: ReactNode }): JSX.Element {
   return (
     <ListEntry isKeptOpen isInsetAsChoices>
       {props.children}

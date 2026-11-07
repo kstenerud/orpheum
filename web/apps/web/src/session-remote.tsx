@@ -38,13 +38,8 @@ export function SessionRemote(props: {
   readonly moves?: SequenceMoves | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
-  const positionMs = usePositionNow(props.snapshot);
-  const { connection, durationMs } = props;
+  const source = useRemoteSource(props);
   const status = props.snapshot?.status;
-  const ahead = useSeekAhead((atMs) => {
-    const most = durationMs > 0 ? durationMs : Number.POSITIVE_INFINITY;
-    connection?.command({ command: "seek", positionMs: Math.min(Math.max(0, atMs), most) });
-  });
   return (
     <>
       <output>
@@ -53,12 +48,31 @@ export function SessionRemote(props: {
           : stateText(t, props.snapshot?.group?.state)}
       </output>
       <PlayerControls
-        source={remoteSource({ ...props, positionMs, ahead })}
+        source={source}
         controls={["previous", "play", "steps", "timeline"]}
         moves={props.moves}
       />
     </>
   );
+}
+
+/**
+ * A session's film as a remote's bar plays it (remoteSource), from what the session says and the
+ * clock: SessionRemote's, and the cast's remote's laid out as the full-screen overlay (D444).
+ */
+export function useRemoteSource(remote: {
+  readonly snapshot: TogetherSnapshot | undefined;
+  readonly connection: TogetherConnection | undefined;
+  /** How long the film lasts, in ms; 0 while not known. */
+  readonly durationMs: number;
+}): PlayerSource {
+  const positionMs = usePositionNow(remote.snapshot);
+  const { connection, durationMs } = remote;
+  const ahead = useSeekAhead((atMs) => {
+    const most = durationMs > 0 ? durationMs : Number.POSITIVE_INFINITY;
+    connection?.command({ command: "seek", positionMs: Math.min(Math.max(0, atMs), most) });
+  });
+  return remoteSource({ ...remote, positionMs, ahead });
 }
 
 /** Where the session's film is now, moved on each second while it plays; undefined while unknown. */

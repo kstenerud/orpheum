@@ -150,6 +150,22 @@ describe("the overlay's menus (D407 §8)", () => {
     expect(shown).toContain("Level");
   });
 
+  it("says under ⁝ how the film plays here, read-only: as it is or converted, quality and link (D444)", async () => {
+    mounted = await mount(
+      withServices(
+        <PlayerTracksContext value={tracksNoting({ subtitles: [], audio: [] })}>
+          <PlayerMenusContext
+            value={{ ...ways, playback: { delivery: "converted", qualityKbps: 4200 } }}
+          >
+            <PlayerMenus videoRef={createRef()} shown={everyMenu} onOpenChange={() => undefined} />
+          </PlayerMenusContext>
+        </PlayerTracksContext>,
+      ),
+    );
+    await opened(mounted, "Settings");
+    expect(places(mounted)).toContain("Plays it converted · Quality 4.2 Mb/s");
+  });
+
   it("tells the overlay a menu is open, and Find subtitles' dialog after it, until it closes", async () => {
     const told: boolean[] = [];
     const on = await drawn(tracksNoting({ subtitles: [], audio: [] }), told);

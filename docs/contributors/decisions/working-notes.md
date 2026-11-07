@@ -26767,6 +26767,9 @@ panel is not drawn and a device receiving a cast see none.
   to start over the film while this device receives a cast, whose session it plays (D440 §6)" in
   web/apps/web/src/together-over-the-film.test.tsx
 
+> **§5 amended by [D444](#d444--the-cast-controls-page-is-the-full-screen-overlays-set-and-layout-and-how-it-plays-is-a-read-only-entry-of-its-settings-menu)** (2026-11-07): the cast controls page shows the full-screen
+> overlay's set and layout, Stop casting in the Cast control, and How it plays read-only in ⁝.
+
 **Status:** Decided (2026-11-07).
 
 ## D441 — The core's host candidates on its LAN port are one address of each family, the house's in place of the container's IPv4 one
@@ -26850,5 +26853,33 @@ the cast's session, D88).
 **Proven by:** `TestCast_AHostsReceiverEndsTheCastAndMovesTheSessionHere`, and the web's
 `together-over-the-film.test.tsx` (the receiver's Move it here, the cast ended before the move) and
 `cast-remote.test.tsx` (the remote told `movedHere` goes home with no word).
+## D444 — The cast controls page is the full-screen overlay's set and layout, and How it plays is a read-only entry of its settings menu
+
+**Decided** (2026-11-07), by the project owner, in the answers to item 7 of the 11-20 batch
+([`navigation-and-widgets-answers-2026-10-27.md`](../design/plans/navigation-and-widgets-answers-2026-10-27.md)).
+Amends D440 §5 (what the cast controls page shows).
+
+1. **The cast controls page shows the full-screen overlay's set and layout,** built from the
+   overlay's own pieces (rule 11): its three rows, the bar's play or pause, steps and ⏮ with the
+   timeline; 🔈, its row of sliders, the film's first (the film's level on the receiver, under the
+   TV's own volume); Talk in a session; Subtitles and Sound track as the receiver offers them; and ⁝
+   with the receiver's sound timing, levelling, the dialogue boost and the original. Every choice is
+   sent to the receiver as before (D434).
+2. **Stop casting lives in the Cast control,** the sign in the top row whose dialog holds it, as
+   everywhere else; the page has no Stop of its own.
+3. **The page's sign says "‹film› · Playing on ‹TV›",** or "Ready on ‹TV›" while nothing plays.
+   **Up next shows only at an episode's end,** as over the film.
+4. **The remote's ⁝ leaves out the bare player and Start over;** ⏮ on the bar covers the start.
+5. **How it plays** (as it is or converted, the quality, the link) is a read-only entry of ⁝, on the
+   remote from what the receiver says, and in local full screen from this device's own player (the
+   owner: "This should be available in local fullscreen as well since it's useful").
+
+**Proven by:** "lays out the full-screen overlay's rows, its bar and menus, the film's name a sign,
+and leaves out the bare player and Start over (D444)", "holds the tray's Cast sign in its top row,
+whose dialog holds Stop casting, and no Stop of its own (D444)", "offers the film's Up next at its
+end alone, as over the film, which moves the cast on (plans/up-next.md, D444)" and "shows how the
+receiver plays the film in ⁝'s How it plays …" in web/apps/web/src/cast-remote.test.tsx; "says under
+⁝ how the film plays here, read-only …" in web/apps/web/src/player-menus.test.tsx; and
+web/apps/web/src/how-it-plays.test.tsx.
 
 **Status:** decided.

@@ -4,36 +4,29 @@ import "./cast.css";
 
 import {
   leaderOf,
-  type CarriesSoundChoices,
   type CastSending,
   type PlaybackReport,
-  type PlaybackSound,
-  type SoundChannel,
   type TogetherSnapshot,
 } from "@orpheum/sdk";
-import { longestSoundOffsetMs } from "@orpheum/player";
 import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
-import { audioTrackLabel } from "./audio-tracks.tsx";
 import { tabStorage } from "./browser-storage.ts";
-import { ReceiverPicture, useRemotePrevious } from "./cast-remote-choices.tsx";
-import { endCastRetrying, listMyCasts, moveCastOn } from "./cast.ts";
+import { noOverlay, RemoteMenus, useRemotePrevious } from "./cast-remote-choices.tsx";
+import { listMyCasts, moveCastOn } from "./cast.ts";
 import { placeCode } from "./episode-place.ts";
 import { useLeavesFullScreen } from "./film-fullscreen.ts";
-import type { PlayerSound } from "./player-controls.tsx";
+import type { PlayerControl, PlayerSource } from "./player-controls.tsx";
+import { OverlayRowsOf, SignsOverTheFilm } from "./player-overlay.tsx";
 import { useLatest } from "./latest.ts";
 import { useLive } from "./live.tsx";
 import { homeTold } from "./notice.ts";
-import { rateText } from "./rate-text.ts";
 import type { ReopenAt } from "./reopen.ts";
 import { useServices, useToken } from "./services.tsx";
-import { SessionRemote, usePositionNow } from "./session-remote.tsx";
-import { soundOffsetStepMs } from "./sound-delay.tsx";
+import { usePositionNow, useRemoteSource } from "./session-remote.tsx";
 import { useMembership } from "./together-membership.ts";
-import { TogetherOnTheRemote } from "./together-on-the-remote.tsx";
-import { useUpNext } from "./up-next.tsx";
-import { FilmSlider } from "./volume-row.tsx";
+import { TogetherBehindTheRemote } from "./together-on-the-remote.tsx";
+import { offerState, useUpNext } from "./up-next.tsx";
 import { useResource } from "./use-resource.ts";
 import { useTogether } from "./use-together.ts";
 
@@ -52,7 +45,8 @@ export type PlaysHereFrom = (atMs: number | undefined, isPaused?: boolean) => vo
  * it was (D385 §2, §3); a cast the server no longer knows sends the page home, saying so in a pop-up
  * (D386 §2). Where the cast plays another film than the page's by then, the film comes back on that
  * film's Play page, in this one's place. A cast started from full screen leaves it: the remote is a
- * page, the control centre while casting, not a film (D440 §5).
+ * page, the control centre while casting, not a film (D440 §5), laid out as the full-screen overlay
+ * is, with its set of controls (D444).
  */
 export function CastRemote(props: {
   readonly castId: number;
@@ -117,19 +111,19 @@ function usePlaysHere(
 /**
  * The remote of one cast (D364 §8): it holds no player and loads no film; what it shows is what the
  * live connection says plays on the receiver, and where, as the cast's session says, moved on by the
- * clock between. With a video playing: its title, the controls, Up next and Stop casting, the one
- * way to bring the film back here (D388); with none, "Ready on ‹Device›" and Stop casting. Stopped, its
- * control taken back on the receiver, or the receiver gone, the film plays here again at once (D384
- * §2, D385 §2, §3); lost, the server knowing it no more, the page goes home (D386 §2).
+ * clock between. With a video playing: the full-screen overlay's rows, its title as a sign, the
+ * controls and Up next at the episode's end; with none, "Ready on ‹Device›" (D444). Stop casting, the
+ * one way to bring the film back here (D388), is in the Cast sign's dialog, as everywhere (D444).
+ * Stopped, its control taken back on the receiver, or the receiver gone, the film plays here again at
+ * once (D384 §2, D385 §2, §3); lost, the server knowing it no more, the page goes home (D386 §2).
  */
 function Remote(props: {
   readonly sent: CastSending;
   readonly pageFileId: number;
   readonly onPlayHere: PlaysHereFrom;
 }): JSX.Element | null {
-  const { t } = useTranslation();
   const { sent } = props;
-  const { connection, snapshot, over, stop } = useCastSession(sent.castId);
+  const { connection, snapshot, over } = useCastSession(sent.castId);
   const hosted = useHostedPanel();
   const stoodRef = useWhereItStood(hosted?.snapshot ?? snapshot);
   const playHere = usePlaysHere(sent, props.pageFileId, props.onPlayHere);
@@ -141,24 +135,14 @@ function Remote(props: {
   return (
     <>
       <RemoteOf sent={sent} cast={{ snapshot, connection }} hosted={hosted} />
-      <TogetherOnTheRemote
-        hostedSnapshot={hosted?.snapshot}
-        filmSlider={
-          sent.fileId === 0
-            ? undefined
-            : receiverFilmSlider(receiverPlaybackIn(snapshot)?.sound, connection)
-        }
-      />
-      <button type="button" onClick={stop}>
-        {t("cast.stop")}
-      </button>
+      <TogetherBehindTheRemote hostedSnapshot={hosted?.snapshot} />
     </>
   );
 }
 
 /**
- * The ends of a cast after which the film plays here again at once: Stop casting, here or elsewhere
- * (D384 §2); control taken back on the receiver (D385 §2); the receiver gone, its connection lost
+ * The ends of a cast after which the film plays here again at once: Stop casting, in Cast's dialog
+ * (D384 §2, D444); control taken back on the receiver (D385 §2); the receiver gone, its connection lost
  * for ReceiverGoneAfter (D385 §3, D364 §6).
  */
 const takenOverAt: ReadonlySet<string> = new Set(["stopped", "takenBack", "receiverGone"]);
@@ -255,14 +239,13 @@ interface CastEnd extends ReopenAt {
 
 /**
  * The cast castId's session, joined as this device's remote by a credential read from the server for
- * it: what it says, how it ended once it has (stopped here, ended elsewhere, or no longer the
- * server's), and Stop casting, which ends it.
+ * it: what it says, and how it ended once it has (ended, as by Stop casting in Cast's dialog, or no
+ * longer the server's).
  */
 function useCastSession(castId: number): {
   readonly connection: ReturnType<typeof useTogether>["connection"];
   readonly snapshot: ReturnType<typeof useTogether>["snapshot"];
   readonly over: CastEnd | undefined;
-  readonly stop: () => void;
 } {
   const { api } = useServices();
   const token = useToken();
@@ -277,50 +260,29 @@ function useCastSession(castId: number): {
     role: "panel",
   });
   const positionMs = usePositionNow(snapshot);
-  const [stoppedAtMs, setStoppedAtMs] = useState<number | undefined>(undefined);
   const endReason = snapshot?.status === "ended" ? snapshot.endReason : undefined;
   const isGone = casts.state === "loaded" && own === undefined;
-  // Tried once more where the first try fails: a connection that has just dropped fails it, and the
-  // next goes on its replacement (the owner, 2026-11-03: the phone played the film itself while the
-  // laptop went on with the cast).
-  const stop = (): void => {
-    const atMs = positionMs ?? 0;
-    endCastRetrying(api, castId, "stopped").then(
-      (ended) => {
-        setStoppedAtMs(ended?.positionMs ?? atMs);
-      },
-      () => {
-        setStoppedAtMs(atMs);
-      },
-    );
-  };
   return {
     connection,
     snapshot,
     over: endOf({
-      stoppedAtMs,
       endReason,
       isGone,
       stood: { positionMs: positionMs ?? 0, isPaused: snapshot?.group?.state === "Paused" },
     }),
-    stop,
   };
 }
 
 /**
- * How a cast ended, from Stop here, its session's end, or its absence, and where it stood (stood, as
- * its session says it now); undefined while it lasts.
+ * How a cast ended, from its session's end or its absence, and where it stood (stood, as its session
+ * says it now); undefined while it lasts.
  */
 function endOf(cast: {
-  readonly stoppedAtMs: number | undefined;
   readonly endReason: string | undefined;
   readonly isGone: boolean;
   readonly stood: ReopenAt;
 }): CastEnd | undefined {
-  const { stoppedAtMs, endReason, isGone, stood } = cast;
-  if (stoppedAtMs !== undefined) {
-    return { reason: "stopped", positionMs: stoppedAtMs, isPaused: false };
-  }
+  const { endReason, isGone, stood } = cast;
   if (endReason === undefined && !isGone) {
     return undefined;
   }
@@ -347,9 +309,13 @@ function receiverPlaybackIn(snapshot: TogetherSnapshot | undefined): PlaybackRep
 }
 
 /**
- * What the remote shows of what plays on the receiver: the receiver ready with nothing playing (§5),
- * or the film and its controls, which, while the person hosts Watch Together, work that session
- * (hosted), the receiver its host's player (D364 §11), the cast's own playing nothing.
+ * What the remote shows of what plays on the receiver, laid out as the full-screen overlay is
+ * (D444, amending D440 §5): the receiver ready with nothing playing, "Ready on ‹TV›" alone (§5); or
+ * the overlay's rows, its top the sign "‹film› · Playing on ‹TV›", Up next only at the episode's end
+ * as over the film (upNextLeadMs) and the signs over the film, the Cast sign's dialog holding Stop
+ * casting; the timeline; the bar with ⏮ (useRemotePrevious) and the overlay's menus over the
+ * receiver (RemoteMenus). The bar and timeline work, while the person hosts Watch Together, that
+ * session (hosted), the receiver its host's player (D364 §11), the cast's own playing nothing.
  */
 function RemoteOf(props: {
   readonly sent: CastSending;
@@ -357,42 +323,81 @@ function RemoteOf(props: {
   readonly hosted: WorkedSession | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { sent, hosted } = props;
+  const { sent } = props;
   if (sent.fileId === 0) {
-    return <p id="cast-remote-heading">{t("cast.readyOn", { name: sent.receiverName })}</p>;
+    return (
+      <div className="player-overlay cast-remote__overlay" data-shown="full">
+        <div className="player-overlay__row player-overlay__top">
+          <p id="cast-remote-heading" className="cast-remote__sign">
+            {t("cast.readyOn", { name: sent.receiverName })}
+          </p>
+          <SignsOverTheFilm onOpenChange={noOverlay} />
+        </div>
+      </div>
+    );
   }
+  return <RemotePlaying {...props} />;
+}
+
+/** The remote's rows while a film plays on the receiver (RemoteOf). */
+function RemotePlaying(props: {
+  readonly sent: CastSending;
+  readonly cast: WorkedSession;
+  readonly hosted: WorkedSession | undefined;
+}): JSX.Element {
+  const { sent, hosted } = props;
   const worked = hosted ?? props.cast;
+  const source = useRemoteSource({ ...worked, durationMs: sent.durationMs });
+  const moves = useRemotePrevious(sent);
   // How the receiver plays and sounds is said in the cast's session, and its sound chosen there,
   // whatever else it plays in (the owner, 2026-11-06: "It shouldn't be watch together's business at
   // all which TV has what offset or playback characteristics").
   const playback = receiverPlaybackIn(props.cast.snapshot);
   return (
-    <>
-      <h2 id="cast-remote-heading">{sent.itemName === "" ? t("cast.aFilm") : sent.itemName}</h2>
-      <p>{t("cast.playingOn", { name: sent.receiverName })}</p>
-      <ReceiverPlayback playback={playback} />
-      <ReceiverSound sound={playback?.sound} connection={props.cast.connection} />
-      <ReceiverPicture picture={playback?.picture} connection={props.cast.connection} />
-      <RemoteBar sent={sent} worked={worked} />
-      <RemoteUpNext sent={sent} />
-    </>
+    <div className="player-overlay cast-remote__overlay" data-shown="full">
+      <OverlayRowsOf
+        top={<RemoteTop sent={sent} source={source} />}
+        source={source}
+        controls={remoteControls}
+        moves={moves}
+        menus={<RemoteMenus playback={playback} connection={props.cast.connection} />}
+        isOverTheFilm={false}
+      />
+    </div>
   );
 }
 
-/** The remote's bar, ⏮ leading it (useRemotePrevious, D440 §5). */
-function RemoteBar(props: {
+/** The remote's bar: the overlay's, ⏮ leading it where there is a previous (D440 §5). */
+const remoteControls: readonly PlayerControl[] = ["previous", "steps", "play"];
+
+/**
+ * The remote's top row, as the overlay's over the film: the film's sign, Up next at its end, and
+ * the signs over the film (the Cast sign, Watch Together's).
+ */
+function RemoteTop(props: {
   readonly sent: CastSending;
-  readonly worked: WorkedSession;
+  readonly source: PlayerSource;
 }): JSX.Element {
-  const { sent, worked } = props;
-  const moves = useRemotePrevious(sent);
+  const { t } = useTranslation();
+  const { sent, source } = props;
+  const isAtTheEnd = offerState(
+    { atMs: source.atMs, durationMs: source.durationMs, hasEnded: false },
+    { isDismissed: false, isCancelled: false },
+    false,
+  ).isNearTheEnd;
   return (
-    <SessionRemote
-      snapshot={worked.snapshot}
-      connection={worked.connection}
-      durationMs={sent.durationMs}
-      moves={moves}
-    />
+    <>
+      <div className="cast-remote__sign">
+        <h2 id="cast-remote-heading">{sent.itemName === "" ? t("cast.aFilm") : sent.itemName}</h2>
+        <p>{t("cast.playingOn", { name: sent.receiverName })}</p>
+      </div>
+      {isAtTheEnd ? (
+        <div className="convenience-area">
+          <RemoteUpNext sent={sent} />
+        </div>
+      ) : null}
+      <SignsOverTheFilm onOpenChange={noOverlay} />
+    </>
   );
 }
 
@@ -409,241 +414,6 @@ function useHostedPanel(): WorkedSession | undefined {
     role: "panel",
   });
   return hosting === undefined ? undefined : hosted;
-}
-
-/**
- * How the receiver plays the film, as its state comes back to the remote (D371 §4): the file as it
- * is or converted, the quality it plays and the link it chose it on. The owner: "The controller side
- * should get information about playback, such as the transcoding and bandwidth choices". Nothing
- * while the receiver has said nothing.
- */
-function ReceiverPlayback(props: {
-  readonly playback: PlaybackReport | undefined;
-}): JSX.Element | null {
-  const { t } = useTranslation();
-  const { playback } = props;
-  if (playback === undefined) {
-    return null;
-  }
-  const { qualityKbps, linkKbps } = playback;
-  return (
-    <p className="cast-remote__playback">
-      {[
-        t(`cast.playback.${playback.delivery}`),
-        qualityKbps === undefined
-          ? undefined
-          : t("cast.playback.quality", { rate: rateText(qualityKbps) }),
-        linkKbps === undefined ? undefined : t("cast.playback.link", { rate: rateText(linkKbps) }),
-      ]
-        .filter((each) => each !== undefined)
-        .join(" · ")}
-    </p>
-  );
-}
-
-/**
- * The receiver's sound, as it says it, and the remote's way to change it: the dialogue boost where
- * its film has a boosted mix, levelling, and the audio track where the file has more than one, each
- * choice sent to the receiver, which carries it out as its own press and says how it sounds after.
- * A Fire TV's own controls are hidden while it is controlled, so its sound could only be changed
- * after taking control back (the owner, VQ116's run). Nothing while the receiver has said nothing.
- */
-function ReceiverSound(props: {
-  readonly sound: PlaybackSound | undefined;
-  readonly connection: CarriesSoundChoices | undefined;
-}): JSX.Element | null {
-  const { t, i18n } = useTranslation();
-  const { sound, connection } = props;
-  if (sound === undefined || connection === undefined) {
-    return null;
-  }
-  const words = {
-    unknownLanguage: t("play.audio.unknownLanguage"),
-    commentary: t("play.audio.commentary"),
-    described: t("play.audio.described"),
-  };
-  return (
-    <div className="cast-remote__sound">
-      {sound.isBoostOn === undefined ? null : (
-        <RemoteSwitch
-          key={`boost-${String(sound.isBoostOn)}`}
-          label={t("play.boost")}
-          isOn={sound.isBoostOn}
-          onSwitched={(isOn) => {
-            connection.chooseSound({ kind: "boost", isOn });
-          }}
-        />
-      )}
-      <RemoteSwitch
-        key={`levelling-${String(sound.isLevellingOn)}`}
-        label={t("play.level.switch")}
-        isOn={sound.isLevellingOn}
-        onSwitched={(isOn) => {
-          connection.chooseSound({ kind: "levelling", isOn });
-        }}
-      />
-      {sound.audioTracks.length < 2 ? null : (
-        <label className="audio-tracks">
-          {t("play.audio.label")}{" "}
-          <select
-            key={`audio-${String(sound.audioStreamId)}`}
-            defaultValue={sound.audioStreamId ?? ""}
-            onChange={(event) => {
-              connection.chooseSound({
-                kind: "audioTrack",
-                streamId: Number(event.currentTarget.value),
-              });
-            }}
-          >
-            {sound.audioTracks.map((track) => (
-              <option key={track.streamId} value={track.streamId}>
-                {audioTrackLabel(track, i18n.language, words)}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
-      <RemoteSoundOffset ms={sound.soundOffsetMs} connection={connection} />
-    </div>
-  );
-}
-
-/**
- * The receiver's sound timing on the remote, for a TV that plays its sound late (the owner,
- * 2026-11-06: "Put a control in watch together and cast so that I can adjust the sound timing"):
- * as the receiver said it stands, each press moving it a step from there, which the receiver keeps
- * with its device as its own press. Nothing where the receiver offers no timing (undefined).
- */
-function RemoteSoundOffset(props: {
-  readonly ms: number | undefined;
-  readonly connection: CarriesSoundChoices;
-}): JSX.Element | null {
-  const { t } = useTranslation();
-  const { ms, connection } = props;
-  if (ms === undefined) {
-    return null;
-  }
-  const move = (byMs: number): void => {
-    const next = Math.min(Math.max(ms + byMs, -longestSoundOffsetMs), longestSoundOffsetMs);
-    connection.chooseSound({ kind: "soundOffset", ms: next });
-  };
-  let shown = t("cast.soundOffset.inStep");
-  if (ms !== 0) {
-    shown =
-      ms > 0 ? t("cast.soundOffset.laterBy", { ms }) : t("cast.soundOffset.earlierBy", { ms: -ms });
-  }
-  return (
-    <p className="play__sound-delay">
-      <span>{shown}</span>{" "}
-      <button
-        type="button"
-        onClick={() => {
-          move(-soundOffsetStepMs);
-        }}
-      >
-        {t("play.soundOffset.earlier", { ms: soundOffsetStepMs })}
-      </button>{" "}
-      <button
-        type="button"
-        onClick={() => {
-          move(soundOffsetStepMs);
-        }}
-      >
-        {t("play.soundOffset.later", { ms: soundOffsetStepMs })}
-      </button>
-    </p>
-  );
-}
-
-/**
- * The film's level and mute on the receiver (D440 §2, §5), on 🔈's row of sliders (volume-row.tsx):
- * the film's channel there, apart from the TV's own volume, lasting for the session, not saved. As
- * the receiver said them, and as moved here until it says them again; each move sent to the
- * receiver, which carries it out. Nothing while the receiver says no film channel.
- */
-function receiverFilmSlider(
-  sound: PlaybackSound | undefined,
-  connection: CarriesSoundChoices | undefined,
-): JSX.Element | undefined {
-  // The film's is the only channel a player says so far (SoundChannel).
-  const film = sound?.channels?.[0];
-  if (film === undefined || connection === undefined) {
-    return undefined;
-  }
-  return <RemoteFilmLevel film={film} connection={connection} />;
-}
-
-/** A channel as chosen on the remote (next), and as the receiver said it when it was (said). */
-interface ChosenChannel {
-  readonly said: SoundChannel;
-  readonly next: SoundChannel;
-}
-
-/** The film's channel on the receiver as the row's film slider and mute work it (receiverFilmSlider). */
-function RemoteFilmLevel(props: {
-  readonly film: SoundChannel;
-  readonly connection: CarriesSoundChoices;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const { film, connection } = props;
-  // What was chosen here, with what the receiver said when it was: shown until the receiver says
-  // anything else. The ref is read by a move made in the same press as another (a drag up from
-  // muted sets the level, then sound on), before the render that shows the first.
-  const [chosen, setChosen] = useState<ChosenChannel>();
-  const chosenRef = useRef<ChosenChannel | undefined>(undefined);
-  const isStill = (made: ChosenChannel | undefined): made is ChosenChannel =>
-    made?.said.level === film.level && made.said.isMuted === film.isMuted;
-  const shown = isStill(chosen) ? chosen.next : film;
-  const choose = (change: Partial<Pick<SoundChannel, "level" | "isMuted">>): void => {
-    const latest = chosenRef.current;
-    const next = { ...(isStill(latest) ? latest.next : film), ...change };
-    const made = { said: film, next };
-    chosenRef.current = made;
-    setChosen(made);
-    connection.chooseSound({ kind: "channel", ...next });
-  };
-  const sound: PlayerSound = {
-    volume: shown.level,
-    isMuted: shown.isMuted,
-    canSetVolume: true,
-    setVolume: (level) => {
-      choose({ level });
-    },
-    setMuted: (isMuted) => {
-      choose({ isMuted });
-    },
-  };
-  return (
-    <div className="cast-remote__film-level" title={t("cast.filmLevel")}>
-      <FilmSlider sound={sound} isFocused={false} isFocusable />
-    </div>
-  );
-}
-
-/**
- * One of the receiver's switches on the remote: as the receiver said it stands, and as pressed here
- * until the receiver says again (its key changes with what it says).
- */
-function RemoteSwitch(props: {
-  readonly label: string;
-  readonly isOn: boolean;
-  readonly onSwitched: (isOn: boolean) => void;
-}): JSX.Element {
-  const [isOn, setIsOn] = useState(props.isOn);
-  return (
-    <label className="sound__switch">
-      <input
-        type="checkbox"
-        checked={isOn}
-        onChange={(event) => {
-          const isNowOn = event.currentTarget.checked;
-          setIsOn(isNowOn);
-          props.onSwitched(isNowOn);
-        }}
-      />
-      {props.label}
-    </label>
-  );
 }
 
 /**

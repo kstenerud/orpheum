@@ -11,7 +11,6 @@ import { LiveProvider } from "./live.tsx";
 import {
   buttonNamed,
   buttonWithText,
-  choose,
   click,
   mount,
   servedBy,
@@ -115,28 +114,35 @@ describe("the cast's remote choosing what the receiver shows, and its ⏮ (D440 
     return sockets;
   }
 
-  it("shows the receiver's subtitles as it says them, and sends the person's choice of them to the receiver", async () => {
+  it("shows the receiver's subtitles in the overlay's Subtitles menu as it says them, and sends the person's choice of them to the receiver (D444)", async () => {
     const { session } = await casting({});
     const page = mounted!.container;
-    expect(page.querySelector(".cast-remote__picture")).toBeNull();
+    const opener = (): Element | undefined =>
+      [...page.querySelectorAll("button[aria-haspopup]")].find(
+        (button) => button.getAttribute("aria-label")?.startsWith("Subtitles") === true,
+      );
+    const choice = (text: string): Element | undefined =>
+      [...page.querySelectorAll("dialog .list-box button")].find(
+        (button) => button.textContent === text,
+      );
+    await session.say(shows({ subtitles: [] }));
+    expect(opener()).toBeUndefined();
     const subtitles = [
       { key: "s5", label: "English" },
       { key: "s7", label: "French" },
     ];
     await session.say(shows({ subtitles }));
-    const select = (): HTMLSelectElement | null =>
-      page.querySelector<HTMLSelectElement>(".cast-remote__picture select");
-    expect([...(select()?.options ?? [])].map((option) => option.textContent)).toEqual([
-      "Off",
-      "English",
-      "French",
-    ]);
-    expect(select()?.value).toBe("");
+    expect(opener()?.getAttribute("aria-label")).toBe("Subtitles: Off");
+    await click(opener());
+    expect([...page.querySelectorAll("dialog .list-box button")].map((b) => b.textContent)).toEqual(
+      ["Off", "English", "French"],
+    );
 
-    await choose(select(), "s7");
+    await click(choice("French"));
     await session.say(shows({ subtitles, subtitleKey: "s7" })); // the receiver says it shows it
-    expect(select()?.value).toBe("s7");
-    await choose(select(), "");
+    expect(opener()?.getAttribute("aria-label")).toBe("Subtitles: French");
+    await click(opener());
+    await click(choice("Off"));
     expect(session.heard.filter((each) => each["type"] === "picture")).toEqual([
       { v: 2, type: "picture", picture: { kind: "subtitles", key: "s7" } },
       { v: 2, type: "picture", picture: { kind: "subtitles" } },
@@ -153,6 +159,11 @@ describe("the cast's remote choosing what the receiver shows, and its ⏮ (D440 
     await session.say(shows({ canPlayOriginal: false }));
     expect(buttonWithText(mounted!.container, "Play the original file")).toBeUndefined();
     await session.say(shows({ canPlayOriginal: true }));
+    // In ⁝, as the player's (D444).
+    const settings = [...mounted!.container.querySelectorAll("button[aria-haspopup]")].find(
+      (button) => button.getAttribute("aria-label") === "Settings",
+    );
+    await click(settings);
     await click(buttonWithText(mounted!.container, "Play the original file"));
     expect(session.heard.filter((each) => each["type"] === "picture")).toEqual([
       { v: 2, type: "picture", picture: { kind: "original" } },

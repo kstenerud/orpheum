@@ -182,11 +182,11 @@ function useMovedByTheRemote(ms: number | undefined, setTo: (ms: number) => void
 }
 
 /**
- * The timing's parts under the video, or as an entry of ⁝'s list: there its text has a line of its
+ * The timing's parts under the video, or as an entry of ⁝'s list (the cast remote's too, D444): there its text has a line of its
  * own above the buttons, as its length changes with each press, and in one row with them it moved
  * Earlier between the row and the next on the owner's TCL TV (2026-11-06).
  */
-function TimingRow(props: {
+export function TimingRow(props: {
   readonly isInAList: boolean;
   readonly text: string;
   readonly notes: ReactNode;
