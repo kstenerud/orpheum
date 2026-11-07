@@ -2459,3 +2459,9 @@ casting to it, and the server refuses the cast back.
    as well since it's useful"). Carried over as the lead proposed: "Playing on ‹TV›" and the film's
    name as a sign, "Ready on ‹TV›" while nothing plays, Up Next at an episode's end, Stop casting in
    the Cast control; the bare player and Start over (⏮ covers it) left out of the remote's ⁝.
+
+**The owner, 2026-11-07, going to bed:** "make batches with whatever you can do on your own." The
+lead's order: finish the 11-20 batch (items 1–7), then the filed "Next batch" items that need no
+design call (the dead end's missing "Copy what happened"; WebRTC failures read as "couldn't tell
+why"; a message for a browser whose WebRTC fails), each batch through check-pr and onto staging,
+never nas.example.
