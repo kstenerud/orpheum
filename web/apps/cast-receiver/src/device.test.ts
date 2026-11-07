@@ -172,7 +172,6 @@ describe("the receiver's own core, reached by its name", () => {
     vi.stubGlobal(
       "WebSocket",
       class {
-        static readonly OPEN = 1;
         constructor(address: URL) {
           opened.push(address.href);
         }

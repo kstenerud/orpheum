@@ -278,6 +278,15 @@ export const enLab = {
       askReport: "Ask for its report",
       playOnOurs: "Play the film on it",
       toggleOurs: "Pause or play on it",
+      target: "Our receiver as a cast target",
+      targetExplain:
+        "Signs the Chromecast in as one of your devices, once, so it is listed in the Cast control of every page. The TV shows a check code; confirm here only when this page shows the same.",
+      makeTarget: "Make it a cast target",
+      checkCode: "Check code: {{checkCode}}. Does the TV show the same?",
+      codesMatch: "The TV shows the same",
+      codesDiffer: "It differs",
+      targetReady:
+        "{{name}} is a cast target: open a film, press Cast in the top icons and choose it. Leave this page's cast running: Stop casting here closes the Chromecast's app.",
       stop: "Stop casting and send",
       log: "What happened",
     },

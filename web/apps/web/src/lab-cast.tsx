@@ -16,6 +16,7 @@ import {
   loadCastSender,
   type CastSession,
 } from "./lab-cast-sdk.ts";
+import { CastTargetPart } from "./lab-cast-target.tsx";
 import { sendLabResult, useLabSending, type Sending } from "./lab-send.ts";
 import { dataOrThrow } from "./problem.ts";
 import { useServices, type ThroughDiscovery } from "./services.tsx";
@@ -420,6 +421,19 @@ export function signInOf(
     : { authorization, reach: { ...throughDiscovery, token, locator } };
 }
 
+/**
+ * What asks our receiver to become a cast target (lab-cast-target.tsx): under a discovery's loader,
+ * how it reaches this page's core from away, which it pairs through (signInOf's reach); on the core's
+ * own origin nothing, the receiver pairing with the core that served it.
+ */
+export function castTargetRequest(
+  session: { readonly token: () => string | undefined; readonly locator: () => string | undefined },
+  throughDiscovery: ThroughDiscovery | undefined,
+): Readonly<Record<string, unknown>> {
+  const { reach } = signInOf(true, session, throughDiscovery);
+  return reach === undefined ? { type: "device" } : { type: "device", reach };
+}
+
 /** What the probe's buttons do, and what they found. */
 interface CastSteps {
   readonly sdk: SdkState;
@@ -502,7 +516,7 @@ function useCastSteps(url: string, startAtBps: number): CastSteps {
  */
 export function LabCast(): JSX.Element {
   const { t } = useTranslation();
-  const { api } = useServices();
+  const { api, session, throughDiscovery } = useServices();
   const films = useFilms(api);
   const [playback, setPlayback] = useState<ReceiverPlayback>({ url: "", startAtBps: 0 });
   const { url } = playback;
@@ -539,6 +553,11 @@ export function LabCast(): JSX.Element {
         onAsk={steps.askReport}
         onPlay={steps.playOnOurs}
         onToggle={steps.toggleOurs}
+      />
+      <CastTargetPart
+        cast={cast}
+        request={castTargetRequest(session, throughDiscovery)}
+        log={steps.log}
       />
       <CastEnd
         isCasting={cast !== undefined}
