@@ -2404,3 +2404,9 @@ VQ278–282.
   started it, surviving a reload there; the person's other devices do not host it: their Watch
   Together button says it is on, on that device, and offers to move it here; Cast lists them as any
   other device. To build in this batch, recorded as a decision amending D267 §2.
+- **Folded in (the owner's report, 2026-11-07): Firefox 158 on the ThinkPad could not sign in to
+  orpheum.cc** ("can't reach the server from this network"); Chromium on it and Firefox on the Mac
+  could. A capture on nas.example (the owner's consent; its tools removed after) showed checks succeed
+  over IPv6 and no DTLS: pion's UDP mux gave every host candidate of a family one socket, so the
+  core's pairs disagreed and it never started DTLS. Fixed at "fix(rtcapi): one host candidate of each family on the LAN port" (D441, amending D300 §1; the
+  idiosyncrasies entry; VQ283). Reaches nas.example with the batch, on the owner's go.
