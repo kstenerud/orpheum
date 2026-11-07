@@ -26731,8 +26731,11 @@ and D281 §5 (where the volumes are reached).
 2. **One volume control, a row of sliders** (plan §2): the film's, then one per person in the
    session, each in the person's colour with their first letter (two where they collide) and the
    full name on focus. Each sets its sound wherever it plays; on a TV, each channel's level sits
-   under the TV's own volume and is not saved. Alone, the film's slider only. The row shows on every
-   device: Left and Right move between sliders and Up and Down set one on a remote; touch drags.
+   under the TV's own volume and is not saved. Alone, the film's slider only. Levels show only where
+   there is mixing to do (the owner, 2026-11-07: "Only audio levels when mixing. With desktop,
+   everything is by definition mixing."): always on a computer; on a TV, a phone or a tablet, whose
+   own buttons set the volume, only while a session's voices play with the film. Left and Right move
+   between sliders and Up and Down set one on a remote; touch drags.
 3. **The microphone in the overlay** (plan §3), as today's button, on devices with a microphone.
 4. **One Cast control** (plan §4) listing the targets this device can reach: Orpheum's own
    receivers now, Chromecast and AirPlay later with the subset each carries. A guest who joined by

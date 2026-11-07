@@ -667,7 +667,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   commands (`data-focus-arrows-are-commands`), and the buttons, ⏮ ⏪ ▶ ⏩ ⏭ and 🔈 💬 🎧 ⁝ ⤢, with
   the subtitle, audio and more menus (`src/player-menus.tsx`, D407 §8); a press of play that plays or
   Down from the buttons puts focus on the video so the overlay hides (D407 §6), and + and − show the
-  volume they leave a moment (D407 §10). 🔈 shows on every device and opens one row of sliders
+  volume they leave a moment (D407 §10). 🔈 shows where there is mixing to do (`controlsShown`'s
+  `hasVoicesToMix`): always on a computer with no touch screen, and on a television, a touch screen
+  or where the page cannot set the volume only while a session's voices play with the film; it opens one row of sliders
   (`src/volume-row.tsx`, D440 §2): the film's, marked by a film icon, or where the page cannot set
   the film's volume (an iPhone) the word that the phone's buttons do in its place; then, in a Watch
   Together session (`SessionVoiceContext`), one per other person, the same per-person gain the

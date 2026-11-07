@@ -33,10 +33,11 @@ then one per person in the Watch Together session.
   channel's level on the receiver, independent of the TV's master volume, so neither drowns the
   other. They last for the session and are not saved.
 - **Alone (proposed):** with no session, the control is the film's slider alone, as today's.
-- **On a TV, a touch screen and a phone (proposed):** today the film's volume control is hidden on
-  TVs and touch screens, leaving the device's buttons. The row shows on every device. With a remote
-  or game controller, Left and Right move between sliders and Up and Down move the focused one; on
-  touch, each slider is dragged.
+- **Only where there is mixing (the owner, 2026-11-07):** "Only audio levels when mixing. With
+  desktop, everything is by definition mixing." The row shows always on a computer; on a TV, a phone
+  or a tablet, whose own buttons set the volume, only while a session's voices play with the film.
+  With a remote or game controller, Left and Right move between sliders and Up and Down move the
+  focused one; on touch, each slider is dragged.
 
 Today's per-person volumes (D281 §4: silent to four times as loud) and the film's volume carry over;
 what changes is where they are reached.
