@@ -143,6 +143,7 @@ export const enLab = {
         standard: "{{layout}} layout, OK is {{ok}}",
         unknown: "layout unknown",
         noStandard: "This controller has no standard layout",
+        pollRate: "polled {{perSecond}} times a second, {{eachUs}} µs each",
         layout: {
           xbox: "Xbox",
           playstation: "PlayStation",

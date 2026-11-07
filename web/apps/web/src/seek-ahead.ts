@@ -121,10 +121,17 @@ export class SeekAhead {
   /** When the seek to the aim was made; undefined while it waits for the presses to rest. */
   #madeAtMs: number | undefined;
   /**
-   * The press held down, a key's or a controller's, while it is: when it went down, which way, and
-   * when its last press or repeat moved the place shown.
+   * The press held down, a key's or a controller's, while it is: when it went down, which way, the
+   * film's length, and when its last press or repeat moved the place shown.
    */
-  #held: { readonly fromMs: number; readonly direction: -1 | 1; lastAtMs: number } | undefined;
+  #held:
+    | {
+        readonly fromMs: number;
+        readonly direction: -1 | 1;
+        readonly mostMs: number;
+        lastAtMs: number;
+      }
+    | undefined;
   #timer: ReturnType<typeof setTimeout> | undefined;
   #stopHearingReleases: (() => void) | undefined;
 
@@ -196,7 +203,8 @@ export class SeekAhead {
         heldTravelMs(held.lastAtMs - held.fromMs, mostMs);
       held.lastAtMs = nowMs;
     } else {
-      this.#held = hold === undefined ? undefined : { fromMs: nowMs, direction, lastAtMs: nowMs };
+      this.#held =
+        hold === undefined ? undefined : { fromMs: nowMs, direction, mostMs, lastAtMs: nowMs };
     }
     const baseMs = this.shownMs(fromMs);
     const toMs = Math.min(Math.max(baseMs + direction * moveMs, 0), mostMs);
@@ -243,15 +251,44 @@ export class SeekAhead {
     this.#ways.seek(aimMs, this.#askedBy);
   }
 
-  /** Waits for the hold's release (onCommandRelease) to rest seekRestMs. */
+  /**
+   * Moves the place shown by the time a controller's hold was held since its last repeat, at its
+   * release: its repeats come at the first poll after their time, 15 polls a second (the owner,
+   * 2026-11-07), and its last repeat can be an interval and a poll before its release, which at the
+   * fastest seek lost up to 2 min of a held seek (input-holds.test.tsx). A key's repeats come as the
+   * device sends them, and its release moves nothing more.
+   */
+  #travelToRelease(): void {
+    const held = this.#held;
+    const aimMs = this.#aimMs;
+    if (held === undefined || aimMs === undefined || this.#madeAtMs !== undefined) {
+      return;
+    }
+    const nowMs = this.#now();
+    const moveMs =
+      heldTravelMs(nowMs - held.fromMs, held.mostMs) -
+      heldTravelMs(held.lastAtMs - held.fromMs, held.mostMs);
+    if (moveMs > 0) {
+      this.#aimMs = Math.min(Math.max(aimMs + held.direction * moveMs, 0), held.mostMs);
+      this.#ways.changed();
+    }
+  }
+
+  /**
+   * Waits for the hold's release (onCommandRelease), a controller's moving the place shown by its
+   * time since its last repeat, then rests seekRestMs.
+   */
   #hearRelease(): void {
     const releases = this.#ways.releases;
     if (releases === undefined || this.#stopHearingReleases !== undefined) {
       return;
     }
-    this.#stopHearingReleases = onCommandRelease(releases, () => {
+    this.#stopHearingReleases = onCommandRelease(releases, (release) => {
       this.#stopHearingReleases?.();
       this.#stopHearingReleases = undefined;
+      if (release.source === "pad") {
+        this.#travelToRelease();
+      }
       this.#held = undefined;
       if (this.#aimMs !== undefined && this.#madeAtMs === undefined) {
         clearTimeout(this.#timer);

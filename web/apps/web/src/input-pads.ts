@@ -181,6 +181,18 @@ export function stickDirectionOf(x: number, y: number): Direction | undefined {
 export const stickRepeatFirstMs = 400;
 export const stickRepeatEachMs = 100;
 
+/**
+ * When a repeat due at dueAtMs, made at nowMs, is next due: stickRepeatEachMs after it was due, not
+ * after the poll that made it, so polls padPollEveryMs apart (input-pad-poll.ts) repeat a hold each
+ * stickRepeatEachMs on average, as its time held says, not each second poll (the owner, 2026-11-07).
+ * A hold the poll could not read for longer, a page in the background, picks up stickRepeatEachMs
+ * from now rather than catching up at every poll.
+ */
+function nextRepeatAtMs(dueAtMs: number, nowMs: number): number {
+  const nextAtMs = dueAtMs + stickRepeatEachMs;
+  return nextAtMs > nowMs ? nextAtMs : nowMs + stickRepeatEachMs;
+}
+
 /** A stick's repeating: the direction it is held, and when it next moves focus. */
 export interface StickHold {
   readonly direction: Direction | undefined;
@@ -207,7 +219,10 @@ export function stickStep(
     return { hold: { direction, nextAtMs: nowMs + stickRepeatFirstMs }, shouldMove: true };
   }
   if (nowMs >= hold.nextAtMs) {
-    return { hold: { direction, nextAtMs: nowMs + stickRepeatEachMs }, shouldMove: true };
+    return {
+      hold: { direction, nextAtMs: nextRepeatAtMs(hold.nextAtMs, nowMs) },
+      shouldMove: true,
+    };
   }
   return { hold, shouldMove: false };
 }
@@ -225,7 +240,7 @@ export function buttonRepeatStep(
     return { nextAtMs: nowMs + stickRepeatFirstMs, shouldRepeat: false };
   }
   if (nowMs >= nextAtMs) {
-    return { nextAtMs: nowMs + stickRepeatEachMs, shouldRepeat: true };
+    return { nextAtMs: nextRepeatAtMs(nextAtMs, nowMs), shouldRepeat: true };
   }
   return { nextAtMs, shouldRepeat: false };
 }

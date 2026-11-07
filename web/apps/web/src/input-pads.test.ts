@@ -19,6 +19,7 @@ import {
   type PadLayout,
   type StickHold,
 } from "./input-pads.ts";
+import { padPollEveryMs } from "./input-pad-poll.ts";
 
 /**
  * Pads' ids as browsers give them. Verified: quoted from a published capture (Enichan's gist of
@@ -189,6 +190,68 @@ describe("a held button's repeating", () => {
       stickRepeatFirstMs + 2 * stickRepeatEachMs,
       stickRepeatFirstMs + 3 * stickRepeatEachMs,
     ]);
+  });
+});
+
+describe("a hold's repeating, read padPollEveryMs apart", () => {
+  /** How long the hold is read, in ms: past its first wait, by a poll short of one more repeat. */
+  const heldMs = 1400;
+
+  /** The times each repeat is due within heldMs: after the first wait, then each interval. */
+  const dueMs = Array.from(
+    { length: Math.floor((heldMs - stickRepeatFirstMs) / stickRepeatEachMs) + 1 },
+    (_, at) => stickRepeatFirstMs + at * stickRepeatEachMs,
+  );
+
+  /** The polls' times, padPollEveryMs apart, up to the last before the next repeat is due. */
+  const pollsMs = Array.from(
+    { length: Math.floor((heldMs + stickRepeatEachMs - 1) / padPollEveryMs) + 1 },
+    (_, at) => at * padPollEveryMs,
+  ).filter((nowMs) => nowMs < heldMs + stickRepeatEachMs);
+
+  /** Each repeat is made at the first poll at or after its time. */
+  function expectOnTime(repeatsMs: readonly number[]): void {
+    expect(repeatsMs).toHaveLength(dueMs.length);
+    for (const [at, due] of dueMs.entries()) {
+      expect(repeatsMs[at]).toBeGreaterThanOrEqual(due);
+      expect(repeatsMs[at]).toBeLessThan(due + padPollEveryMs);
+    }
+  }
+
+  // The owner's 15 polls a second (2026-11-07): a repeat due between two polls is made at the
+  // second, and the next is due an interval after the first was, so a hold repeats by the time held,
+  // not every second poll (133 ms).
+  it("repeats a held stick as often as its time held says, each within one poll of its time", () => {
+    const repeatsMs: number[] = [];
+    let hold: StickHold = stickAtRest;
+    for (const nowMs of pollsMs) {
+      const step = stickStep(hold, "down", nowMs);
+      if (step.shouldMove && hold.direction !== undefined) {
+        repeatsMs.push(nowMs);
+      }
+      hold = step.hold;
+    }
+    expectOnTime(repeatsMs);
+  });
+
+  it("repeats a held seek button as often as its time held says, each within one poll of its time", () => {
+    const repeatsMs: number[] = [];
+    let nextAtMs: number | undefined;
+    for (const nowMs of pollsMs) {
+      const step = buttonRepeatStep(nextAtMs, nowMs);
+      nextAtMs = step.nextAtMs;
+      if (step.shouldRepeat) {
+        repeatsMs.push(nowMs);
+      }
+    }
+    expectOnTime(repeatsMs);
+  });
+
+  it("picks a hold read again after a long gap up from then, not by a repeat at every poll", () => {
+    expect(buttonRepeatStep(stickRepeatFirstMs, 2000)).toEqual({
+      nextAtMs: 2000 + stickRepeatEachMs,
+      shouldRepeat: true,
+    });
   });
 });
 

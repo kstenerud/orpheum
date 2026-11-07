@@ -10,6 +10,7 @@ import {
   startInput,
   type Input,
 } from "./input-commands.ts";
+import { padPollEveryMs } from "./input-pad-poll.ts";
 import { answerPlayerCommand } from "./player-commands.ts";
 import { seekRestMs, seekStepMs } from "./seek-ahead.ts";
 
@@ -36,10 +37,10 @@ function padAtRest(): FakePad {
   };
 }
 
-/** How far the test's clock moves for one of the page's frames, in ms. */
-const frameMs = 16;
+/** How far the test's clock moves for one of the page's polls of its pads, in ms. */
+const frameMs = padPollEveryMs;
 
-/** Runs the page's frames for ms, in each of which it polls its pads once. */
+/** Runs the page's clock for ms, in which it polls its pads each padPollEveryMs. */
 function frames(ms: number): void {
   vi.advanceTimersByTime(ms);
 }
@@ -79,13 +80,7 @@ describe("holds, told alike by every device's driver", () => {
   beforeEach(() => {
     pads = [];
     vi.useFakeTimers({
-      toFake: [
-        "requestAnimationFrame",
-        "cancelAnimationFrame",
-        "performance",
-        "setTimeout",
-        "clearTimeout",
-      ],
+      toFake: ["performance", "setTimeout", "clearTimeout", "setInterval", "clearInterval"],
     });
     Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => pads });
     input = startInput({ goBack: () => false, isNavigating: () => false });
@@ -99,7 +94,7 @@ describe("holds, told alike by every device's driver", () => {
     document.body.replaceChildren();
   });
 
-  /** Connects pad: the page is told, and polls it from the next frame. */
+  /** Connects pad: the page is told, and polls it from padPollEveryMs on. */
   function connect(pad: FakePad): void {
     pads = [pad];
     globalThis.dispatchEvent(new Event("gamepadconnected"));
@@ -238,8 +233,9 @@ describe("holds, told alike by every device's driver", () => {
     expect(seeksS).toEqual([]); // not before its release has rested
     frames(2 * frameMs);
     // A 2-hour film held 6 s: 2 s at 72 s a second (1%), 2 s at 216 s (3%), 2 s at 576 s (8%), less
-    // the time after its last repeat, under 150 ms at 16 ms frames; by its 50-odd repeats, 10 s each,
-    // it would be about 500 s.
+    // the time its press and release were read late, under 150 ms at 66 ms polls (its travel since
+    // its last repeat is added at its release); by its 50-odd repeats, 10 s each, it would be about
+    // 500 s.
     const heldS = (seekStepMs + 2 * 72_000 + 2 * 216_000 + 2 * 576_000) / 1000;
     expect(seeksS).toHaveLength(1);
     expect(seeksS[0]).toBeGreaterThan(heldS - 0.15 * 576);

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 /**
- * The controllers connected, polled each frame only while one is (controller-input-2026-10-25.md
- * §6.1 item 5), once for every listener: the app's input layer, which turns them into commands, and
+ * The controllers connected, polled padPollEveryMs apart only while one is and someone listens
+ * (controller-input-2026-10-25.md §6.1 item 5), once for every listener: the app's input layer, which turns them into commands, and
  * the device lab's button test, which logs them. Each pad is read by input-pads.ts for its layout and
  * by the OK the person chose (controller-choice.ts); each button told as it goes down and as it goes
  * up, a standard pad's left stick as a direction as it leans past half way, its stick or D-pad as an
@@ -93,7 +93,7 @@ export interface PadHandlers {
    * button up, or its pad gone.
    */
   readonly onArrowUp: (direction: Direction) => void;
-  /** The pads as read this frame. */
+  /** The pads as read this poll. */
   readonly onRead: (pads: readonly PadState[]) => void;
 }
 
@@ -129,7 +129,7 @@ function stickDirectionOfAxis(axis: number, lean: -1 | 1): Direction {
   return lean > 0 ? "down" : "up";
 }
 
-/** What the poll keeps of a pad between frames. */
+/** What the poll keeps of a pad between polls. */
 interface PadMemory {
   readonly id: string;
   readonly pressed: readonly number[];
@@ -141,8 +141,8 @@ interface PadMemory {
   readonly pad: PadState;
 }
 
-/** A pad read this frame, beside what the poll kept of it from the last. */
-interface PadFrame {
+/** A pad read this poll, beside what the poll kept of it from the last. */
+interface PadPolled {
   readonly pad: PadState;
   readonly before: PadMemory | undefined;
   readonly nowMs: number;
@@ -161,8 +161,8 @@ function buttonPressOf(pad: PadState, button: number): PadButtonPress {
   };
 }
 
-/** Tells handlers each of the pad's buttons that went down, then each that went up, since the last frame. */
-function tellButtons({ pad, before }: PadFrame, handlers: PadHandlers): void {
+/** Tells handlers each of the pad's buttons that went down, then each that went up, since the last poll. */
+function tellButtons({ pad, before }: PadPolled, handlers: PadHandlers): void {
   const pressedBefore = before?.pressed ?? [];
   for (const button of pad.pressed.filter((each) => !pressedBefore.includes(each))) {
     handlers.onPress(buttonPressOf(pad, button));
@@ -173,10 +173,10 @@ function tellButtons({ pad, before }: PadFrame, handlers: PadHandlers): void {
 }
 
 /**
- * Tells handlers each axis whose lean changed since the last frame: a pad with no standard mapping's
+ * Tells handlers each axis whose lean changed since the last poll: a pad with no standard mapping's
  * every axis, either way; a standard pad's left stick as it leans out. The leans, to keep.
  */
-function tellAxes({ pad, before }: PadFrame, handlers: PadHandlers): number[] {
+function tellAxes({ pad, before }: PadPolled, handlers: PadHandlers): number[] {
   const leans = pad.axes.map((value) => axisLean(value));
   for (const [axis, lean] of leans.entries()) {
     const value = pad.axes[axis] ?? 0;
@@ -195,11 +195,11 @@ function tellAxes({ pad, before }: PadFrame, handlers: PadHandlers): number[] {
 }
 
 /**
- * A standard pad's seek buttons held after this frame, each with when it next repeats: told to
+ * A standard pad's seek buttons held after this poll, each with when it next repeats: told to
  * handlers at each repeat. A button not held, or a pad not standard, is kept no more.
  */
 function nextRepeats(
-  { pad, before, nowMs }: PadFrame,
+  { pad, before, nowMs }: PadPolled,
   handlers: PadHandlers,
 ): ReadonlyMap<number, number> {
   const repeats = new Map<number, number>();
@@ -217,10 +217,10 @@ function nextRepeats(
 }
 
 /**
- * A standard pad's arrow's hold after this frame, its left stick's or else its D-pad's: told to
+ * A standard pad's arrow's hold after this poll, its left stick's or else its D-pad's: told to
  * handlers as it is let go, and as it moves, a repeat where it was held that way already.
  */
-function nextHold({ pad, before, nowMs }: PadFrame, handlers: PadHandlers): StickHold {
+function nextHold({ pad, before, nowMs }: PadPolled, handlers: PadHandlers): StickHold {
   const hold = before?.hold ?? stickAtRest;
   if (!pad.isStandard) {
     return hold;
@@ -249,20 +249,20 @@ function tellArrow(
   }
 }
 
-/** Tells handlers what changed on the frame's pad since the last; what to keep for the next. */
-function tellChanges(frame: PadFrame, handlers: PadHandlers): PadMemory {
-  if (frame.before?.id !== frame.pad.id) {
-    handlers.onSeen(frame.pad);
+/** Tells handlers what changed on the polled pad since the last; what to keep for the next. */
+function tellChanges(polled: PadPolled, handlers: PadHandlers): PadMemory {
+  if (polled.before?.id !== polled.pad.id) {
+    handlers.onSeen(polled.pad);
   }
-  tellButtons(frame, handlers);
-  const leans = tellAxes(frame, handlers);
-  const hold = nextHold(frame, handlers);
-  const repeats = nextRepeats(frame, handlers);
-  return { id: frame.pad.id, pressed: frame.pad.pressed, leans, hold, repeats, pad: frame.pad };
+  tellButtons(polled, handlers);
+  const leans = tellAxes(polled, handlers);
+  const hold = nextHold(polled, handlers);
+  const repeats = nextRepeats(polled, handlers);
+  return { id: polled.pad.id, pressed: polled.pad.pressed, leans, hold, repeats, pad: polled.pad };
 }
 
 /**
- * Lets go the arrow and the seek buttons of each pad gone since the last frame where they were held,
+ * Lets go the arrow and the seek buttons of each pad gone since the last poll where they were held,
  * telling their release: a controller unplugged or asleep with its stick or trigger held leaves no
  * hold on.
  */
@@ -287,11 +287,38 @@ const listeners: Partial<PadHandlers>[] = [];
 /** The listeners not yet told of the pads seen before they came. */
 const toGreet = new Set<Partial<PadHandlers>>();
 
-/** What the poll keeps of each pad between frames, by its index. */
+/** What the poll keeps of each pad between polls, by its index. */
 const memories = new Map<number, PadMemory>();
 
-/** The frame the next poll is asked for, while one is. */
-let frame: number | undefined;
+/**
+ * How long the poll waits between reads of the pads, in milliseconds: about 15 a second, not each
+ * animation frame, which cost a main-thread frame each vsync on every page while a controller was
+ * connected (web-client-efficiency-audit-2026-10-28.md). "Poll 15x per second and we'll see if
+ * people complain. Also measure" (the owner, 2026-11-07): padPollCost measures it. A press shorter
+ * than this may go unread; a hold's repeats keep their times, which are measured, not counted in
+ * polls (input-pads.ts).
+ */
+export const padPollEveryMs = Math.floor(1000 / 15);
+
+/** The timer polling the pads, while one is. */
+let polling: ReturnType<typeof setInterval> | undefined;
+
+/** What the polls have cost on this page: how many, and the main thread's time in them. */
+export interface PadPollCost {
+  readonly polls: number;
+  readonly spentMs: number;
+}
+
+/** The polls' cost so far, added to by each poll. */
+let cost: PadPollCost = { polls: 0, spentMs: 0 };
+
+/**
+ * The polls' cost on this page so far, for a page to show (the button test, lab-pad-input.tsx): the
+ * owner asked it measured (2026-11-07). Read twice, the difference is a span's.
+ */
+export function padPollCost(): PadPollCost {
+  return cost;
+}
 
 /** The handlers telling every listener, the newest first. */
 const everyListener: PadHandlers = {
@@ -337,7 +364,7 @@ const everyListener: PadHandlers = {
   },
 };
 
-/** Tells each listener new since the last frame of the pads seen before it came. */
+/** Tells each listener new since the last poll of the pads seen before it came. */
 function greet(pads: readonly PadState[]): void {
   for (const listener of toGreet) {
     for (const pad of pads.filter((each) => memories.get(each.index)?.id === each.id)) {
@@ -347,29 +374,41 @@ function greet(pads: readonly PadState[]): void {
   toGreet.clear();
 }
 
-/** One frame's poll: what changed told, and the next asked for while a pad is connected. */
-function poll(nowMs: number): void {
-  frame = undefined;
+/** Stops polling the pads, where it does. */
+function stopPolling(): void {
+  if (polling !== undefined) {
+    clearInterval(polling);
+    polling = undefined;
+  }
+}
+
+/**
+ * One poll: what changed told and its time added to the cost; polling stopped once no pad is
+ * connected or no one listens.
+ */
+function poll(): void {
+  const nowMs = performance.now();
   const read = readPads(chosenOkButton());
   greet(read);
   letGoneGo(read, everyListener);
   for (const pad of read) {
-    const padFrame = { pad, before: memories.get(pad.index), nowMs };
-    memories.set(pad.index, tellChanges(padFrame, everyListener));
+    const polled = { pad, before: memories.get(pad.index), nowMs };
+    memories.set(pad.index, tellChanges(polled, everyListener));
   }
   everyListener.onRead(read);
-  if (read.length > 0 && listeners.length > 0) {
-    frame = requestAnimationFrame(poll);
+  cost = { polls: cost.polls + 1, spentMs: cost.spentMs + (performance.now() - nowMs) };
+  if (read.length === 0 || listeners.length === 0) {
+    stopPolling();
   }
 }
 
-/** Polls from the next frame, unless it already does. */
+/** Polls padPollEveryMs from now and each padPollEveryMs on, unless it already does. */
 function pollSoon(): void {
-  frame ??= requestAnimationFrame(poll);
+  polling ??= setInterval(poll, padPollEveryMs);
 }
 
 /**
- * Tells listener what the pads do, polling them each frame while one is connected; returns the
+ * Tells listener what the pads do, polling them padPollEveryMs apart while one is connected; returns the
  * stopping. A pad the page already knows is announced no more: a browser fires gamepadconnected once
  * a document, so a page opened again within the app reads the pads there are (the owner, Firefox on
  * a Mac, 2026-10-25: back and in again, the controller was heard no more). Nothing where the browser
@@ -399,10 +438,7 @@ export function listenToPads(listener: Partial<PadHandlers>): () => void {
     }
     globalThis.removeEventListener("gamepadconnected", pollSoon);
     globalThis.removeEventListener("gamepaddisconnected", pollSoon);
-    if (frame !== undefined) {
-      cancelAnimationFrame(frame);
-      frame = undefined;
-    }
+    stopPolling();
     memories.clear();
   };
 }

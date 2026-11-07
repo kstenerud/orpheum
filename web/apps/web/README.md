@@ -597,7 +597,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   shows the first pad's name, mapping and the layout its id says (`src/input-pads.ts`: by vendor, else
   by name; Nintendo's OK is the right face button, Xbox's and PlayStation's the bottom one), offers
   the choice of OK, kept as the This device page keeps it, and sends a pad with no standard
-  mapping's buttons as numbers and its axes as they cross half way (`src/lab-pad-input.tsx`, H8);
+  mapping's buttons as numbers and its axes as they cross half way, and says how often the pads are
+  polled and the time each poll takes (`padPollCost`; `src/lab-pad-input.tsx`, H8);
   the app's navigation moves by a standard pad there as on every page, and the test keeps Back
   rather than going back by it. Each key goes with the modifiers held (AltGr by
   `getModifierState`), its place on the keyboard and whether an input method composed it, shown in
@@ -614,7 +615,10 @@ The web client: the browser and phone interface, served embedded by the core. MP
   (controller-input-2026-10-25.md §6.1; the owner, 2026-10-25): one input layer
   (`src/input-commands.ts`, run around every screen by `src/input-layer.tsx`) turns a key (by its
   `key`, then the platforms' keyCodes), a controller's buttons, D-pad and left stick
-  (`src/input-pad-poll.ts`, its OK by its make or as chosen on This device) and the browser's media
+  (`src/input-pad-poll.ts`, its OK by its make or as chosen on This device, polled 15 times a second
+  by a timer, never each frame, only while a pad is connected and someone listens: "Poll 15x per
+  second and we'll see if people complain", the owner, 2026-11-07; a hold's repeats keep their times
+  between polls, `src/input-pad-poll.test.ts`) and the browser's media
   seeking into commands; pages hear commands, never keys, and single-letter shortcuts have none.
   Each device's driver tells a command's hold alike (`CommandHold`, the owner, 2026-11-04): started
   at its press, continued at each repeat, marked or not (Silk's are not, VQ122), a stick's and a
@@ -799,7 +803,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   commands, and what a command no one answers does), `input-layer.tsx` (the layer around every
   screen: Back's target, focus kept on history entries, `useCommands` for a component),
   `input-pads.ts` (a controller's layout and stick), `input-pad-poll.ts` (the pads polled once for
-  every listener), `controller-choice.ts` (the OK chosen on This device), `focus-engine.ts` (where an
+  every listener, 15 times a second, and the polls' cost), `controller-choice.ts` (the OK chosen on This device), `focus-engine.ts` (where an
   arrow moves focus, within containers), `focus-navigation.ts` (moving, starting, scrolling,
   pressing) and `focus-memory.ts` (what each container and history entry remembers).
 - The device lab (plans/tv-device-tests.md): `lab.tsx` (its menu), `lab-frame.tsx` (a probe's
