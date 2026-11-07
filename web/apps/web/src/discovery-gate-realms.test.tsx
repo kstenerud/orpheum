@@ -14,7 +14,8 @@ import {
 } from "@orpheum/sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { DiscoveryGate, offlineRetryAfterMs, type GateParts } from "./discovery-gate.tsx";
+import { DiscoveryGate, type GateParts } from "./discovery-gate.tsx";
+import { offlineRetryAfterMs } from "./discovery-gate-message.tsx";
 import { whenSignedOut } from "./discovery-start.ts";
 import { buttonWithText, click, enter, mount, settleUntil, type Mounted } from "./test-dom.tsx";
 
