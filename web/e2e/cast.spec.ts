@@ -159,9 +159,12 @@ test(
       // The remote has joined its session again, which says how the receiver plays: "Playing on"
       // comes first, from the live connection, and a cast ended as the remote said hello was
       // only "over" to it, the server knowing the session no more (check-pr, 2026-10-29).
+      // How it plays is a read-only entry of the remote's ⁝ (D444).
+      await sender.locator(".cast-remote").getByRole("button", { name: "Settings" }).click();
       await expect(sender.getByText(/^Plays (the file as it is|it converted)/u)).toBeVisible({
         timeout: 10_000,
       });
+      await sender.keyboard.press("Escape");
 
       // Escape on the receiver ends nothing: the film plays on there, the cast still the sender's to
       // end (the owner, 2026-11-07, the 11-20 batch's answer 4).
@@ -194,14 +197,18 @@ test(
         await expect(receiving).toHaveCount(1, { timeout: 10_000 });
         await expect(receiving.getByRole("button")).toBeDisabled();
 
-        // The remote brings the film back by Stop casting alone (D388).
-        const remote = sender.locator(".cast-remote");
-        await expect(remote.getByRole("button", { name: "Stop casting" })).toBeVisible();
+        // The remote brings the film back by Stop casting alone (D388), in its Cast sign's dialog
+        // (D444).
         await expect(
           sender.getByRole("button", { name: "Play on this device instead" }),
         ).toHaveCount(0);
         const playAddress = sender.url();
-        await remote.getByRole("button", { name: "Stop casting" }).click();
+        await castSign(sender).click();
+        const stop = sender
+          .getByRole("dialog", { name: "Cast" })
+          .getByRole("button", { name: "Stop casting" });
+        await expect(stop).toBeVisible();
+        await stop.click();
         await expect(castSign(sender)).not.toHaveClass(/icon-button--running/u, {
           timeout: 10_000,
         });
