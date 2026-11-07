@@ -62,7 +62,11 @@ can.
   receivers on every device; Chromecast only where the browser can cast to it; AirPlay only in
   Safari on Apple devices. Today only Orpheum's own casting is built (Chromecast is a lab spike,
   AirPlay has no code), so until then the list holds Orpheum's receivers alone.
-- **Proposed:** a guest who joined by link gets the Cast control too (today they have none).
+- **A guest (the owner, 2026-11-07):** "A watch together guest can be signed in, in which case they
+  get a cast icon. Otherwise there's nothing for them to cast to, so they only get airplay or
+  chromecast targets (if available)". A signed-in guest's page is a screen in the shell (D372 §9),
+  which gives the overlay its Cast control, so they have it already; a guest by link alone gets one
+  only with Chromecast or AirPlay (step 4 of §9).
 
 ## 5. Casting: the phone becomes the control centre
 
