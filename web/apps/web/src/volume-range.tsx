@@ -4,7 +4,7 @@ import "./volume-range.css";
 
 import { useRef, type JSX } from "react";
 
-import { fractionAlong, useTouchAnywhere } from "./range-touch.ts";
+import { fractionAlong, useTouchAnywhere, type TouchPoint } from "./range-touch.ts";
 
 /** How finely a volume moves: a hundredth of the volume as it came. */
 const stepsPerUnit = 100;
@@ -22,6 +22,21 @@ export function volumeAt(
 }
 
 /**
+ * The volume, from 0 to most, a touch at point sets on an upright slider spanning rect, full at its
+ * top: where the finger is up it, in hundredths. A finger drags the overlay's row of sliders up and
+ * down (D440 §2), as a mouse does.
+ */
+export function uprightVolumeAt(
+  point: Pick<TouchPoint, "clientY">,
+  rect: { readonly top: number; readonly height: number },
+  most: number,
+): number {
+  // Up the slider is a span from its bottom, read as a span from its left would be.
+  const fromBottom = rect.top + rect.height - point.clientY;
+  return volumeAt(fromBottom, { left: 0, width: rect.height }, most);
+}
+
+/**
  * A volume slider, from 0 to most, 1 as it came, named by label where no label element wraps it. A
  * touch anywhere on it sets the volume where the finger is and follows it (useTouchAnywhere): Safari
  * on an iPhone moves a slider only by a touch that starts on its thumb. A film's timeline is the
@@ -32,7 +47,10 @@ export function VolumeRange(props: {
   readonly most: number;
   readonly onChange: (value: number) => void;
   readonly label?: string;
-  /** Whether it stands upright, full at its top, as the overlay's 🔈 pop-up holds it (D407 §10). */
+  /**
+   * Whether it stands upright, full at its top, as the overlay's 🔈 pop-up holds it (D407 §10), a
+   * finger dragging it up and down.
+   */
   readonly isUpright?: boolean | undefined;
   /**
    * Whether focus can come to it, by Tab or an arrow: not in 🔈's pop-up, one control whose Up and
@@ -42,12 +60,18 @@ export function VolumeRange(props: {
 }): JSX.Element {
   const { most, onChange } = props;
   const inputRef = useRef<HTMLInputElement>(null);
-  useTouchAnywhere(inputRef, (clientX, rect) => volumeAt(clientX, rect, most), onChange);
+  const isUpright = props.isUpright === true;
+  useTouchAnywhere(
+    inputRef,
+    (clientX, rect, point) =>
+      isUpright ? uprightVolumeAt(point, rect, most) : volumeAt(clientX, rect, most),
+    onChange,
+  );
   return (
     <input
       ref={inputRef}
       type="range"
-      className={props.isUpright === true ? "volume-range volume-range--upright" : "volume-range"}
+      className={isUpright ? "volume-range volume-range--upright" : "volume-range"}
       aria-label={props.label}
       {...(props.isFocusable === false ? { tabIndex: -1 } : {})}
       min={0}
