@@ -410,6 +410,39 @@ it("turns Cast's sign blue while this device casts, naming the receiver and what
   expect(sign("Cast to a device")).toEqual({ isOn: false, href: null });
 });
 
+// The owner's 11-20 batch, finding 5: Firefox on Linux, cast to and out of full screen, showed
+// nothing in the tray saying so.
+it("turns Cast's sign blue on a device being cast to, naming the device that casts, or another of the person's where its name is not known", async () => {
+  const server = fakeTogetherServer();
+  const services = {
+    ...servedBy({ "POST /me/casts/5/accept": [200, { castId: 5 }] }, [], "token"),
+    openTogetherSocket: server.openSocket,
+  };
+  mounted = await mount(
+    withServices(
+      <LiveProvider>
+        <StatusTray isAdmin={false} canHostWatchTogether={false} />
+      </LiveProvider>,
+      services,
+    ),
+  );
+  await server.accept();
+  const handed = {
+    castId: 5,
+    membershipCredential: "cast",
+    fileId: 0,
+    itemName: "",
+    fromDeviceId: 2,
+    fromDeviceName: "Mac",
+  };
+  await server.say({ type: "receive", receive: handed });
+  expect(sign("Cast to a device")).toEqual({ isOn: false, href: null }); // asked, not yet receiving
+  await click(buttonWithText(mounted.container, "Use"));
+  expect(sign("Cast from Mac")).toEqual({ isOn: true, href: null });
+  await server.say({ type: "receive", receive: { ...handed, fileId: 3, fromDeviceName: "" } });
+  expect(sign("Cast from another of your devices")).toEqual({ isOn: true, href: null });
+});
+
 it("shows an admin the yellow sign when something needs them, leading to the page of it, and not otherwise", async () => {
   mounted = await mount(
     withServices(

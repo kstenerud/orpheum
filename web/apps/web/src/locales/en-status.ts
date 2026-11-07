@@ -14,6 +14,8 @@ export const enStatus = {
     cast: "Cast to a device",
     castingReady: "Casting to {{name}}, ready",
     castingFilm: "Casting {{film}} to {{name}}",
+    castFrom: "Cast from {{name}}",
+    castFromAnother: "Cast from another of your devices",
     close: "Close",
     needsAttention: "Something needs your attention",
   },
