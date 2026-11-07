@@ -34,7 +34,12 @@ import { useTranslation } from "react-i18next";
 
 import { CopyWhatHappened, whatHappened } from "./what-happened.tsx";
 import { GateMessage, type Phase } from "./discovery-gate-message.tsx";
-import { deadEndReasonOf, racedHeard, unknownDeadEnd } from "./dead-end-reason.ts";
+import {
+  deadEndReasonOf,
+  deadEndReasonWith,
+  racedHeard,
+  unknownDeadEnd,
+} from "./dead-end-reason.ts";
 
 import { RealmSignIn, type RealmCredentials, type RealmProblem } from "./realm-sign-in.tsx";
 
@@ -262,7 +267,10 @@ async function reachFound(
     if (heldBack !== undefined) {
       return heldBack;
     }
-    const reason = deadEndReasonOf(target, raced.heard(), raced.probed(), problem);
+    const reason = deadEndReasonWith(
+      deadEndReasonOf(target, raced.heard(), raced.probed()),
+      problem,
+    );
     parts.onDeadEnd?.(deadEndOf(core.coreId, target, problem), reason.cause);
     await reportDeadEnd(parts.client, target.held, reason);
     return "realmUnreached";
@@ -372,7 +380,7 @@ async function reach(
     const reason =
       target === undefined
         ? unknownDeadEnd
-        : deadEndReasonOf(target, raced.heard(), raced.probed(), problem);
+        : deadEndReasonWith(deadEndReasonOf(target, raced.heard(), raced.probed()), problem);
     parts.onDeadEnd?.(deadEndOf(core.coreId, target, problem), reason.cause);
     // The core was reached and refused what this device holds: no dead end, its network not to blame.
     if (isKeyRefused(problem)) {

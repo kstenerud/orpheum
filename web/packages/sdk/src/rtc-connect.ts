@@ -397,7 +397,9 @@ async function selectedPairOf(peer: ConnectingPeer): Promise<string | undefined>
   });
   try {
     const stats = await Promise.race([peer.getStats(), late]);
-    const selected = candidatePairsOf(stats?.values() ?? []).find((pair) => pair.isSelected);
+    const selected = candidatePairsOf(stats?.values() ?? []).find(
+      (pair) => pair.isSelected === true,
+    );
     if (selected === undefined) {
       return undefined;
     }

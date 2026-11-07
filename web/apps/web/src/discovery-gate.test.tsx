@@ -733,11 +733,9 @@ async function reachedWithNoWorker(): Promise<{
  * through on a host pair, its secure connection never completed. Its failure is thrown as it is made,
  * standing in for the signed answer the connection would need to get that far.
  */
-class StalledAfterIce {
-  constructor() {
-    throw new RtcUnconnected(
-      { ice: "connected", connection: "connecting", pair: "host to host (udp)" },
-      "did not connect in time",
-    );
-  }
+function StalledAfterIce(): never {
+  throw new RtcUnconnected(
+    { ice: "connected", connection: "connecting", pair: "host to host (udp)" },
+    "did not connect in time",
+  );
 }
