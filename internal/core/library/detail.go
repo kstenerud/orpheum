@@ -504,11 +504,18 @@ func (browser *Browser) WorkOfFile(ctx context.Context, reach auth.Reach, fileID
 			break
 		}
 	}
-	if work.LibraryID != 0 {
-		library, err := queries.GetLibrary(ctx, work.LibraryID)
-		if err != nil {
-			return FileWork{}, fmt.Errorf("read the name of library %d: %w", work.LibraryID, err)
-		}
+	if work.LibraryID == 0 {
+		return work, nil
+	}
+	// GetLibrary reads only a library a page shows: the system library is none (D435 §1), so its
+	// file, a system video, plays with no library named and no trail to one.
+	library, err := store.OrNotFound(queries.GetLibrary(ctx, work.LibraryID))
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		work.LibraryID = 0
+	case err != nil:
+		return FileWork{}, fmt.Errorf("read the name of library %d: %w", work.LibraryID, err)
+	default:
 		work.LibraryName = library.Name
 	}
 	return work, nil
