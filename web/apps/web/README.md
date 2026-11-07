@@ -254,13 +254,15 @@ The web client: the browser and phone interface, served embedded by the core. MP
   before the film, handed to the receiver as Up next is (D440 §5; VQ279–281). It fills the window and
   shows a television's player controls, which a mouse's move, a click or a tap opens as well as a
   remote's keys, a mouse's click on its video pausing or playing it as on an ordinary page, and a
-  fading *Controlled from* line; its controls, media keys and seeks stay its own. Back (a Fire TV's
-  history step too, the person's alone: never a step the app makes itself, as the Use question's
-  close, navigation's `onPersonsStep`, D384, `src/cast-receiver-steps.test.tsx`; and full screen left by the browser, not the page, told to the log), or OK or a
-  click or tap twice within 500 ms, a held OK's key repeats no second press, takes control back, which
-  ends the cast like any other end (D385 §1, amending D338 §6), the film left as it stands until the
-  end has reached the sender. **A cast that ends sends its receiver home** (D384 §1): control taken
-  back there, Stop casting on the sender, the session's end, its controller gone (its receiver gone
+  fading *Controlled from* line; its controls, media keys and seeks stay its own. **Nothing on the
+  receiver ends its cast**, a film playing or not: not Back or Escape, which leave full screen where
+  it is in it and otherwise keep it on its page (a Fire TV's Back, a history step, takes an entry it
+  holds over the page again each time, `src/cast-receiver-steps.test.tsx`), not OK or a tap twice,
+  not full screen left; ending it stays with the device that cast (the owner, 2026-11-07, the 11-20
+  batch's answer 4, amending D385 §1 and D338 §6; `src/cast-receiver.test.tsx`,
+  `src/cast-ready.test.tsx`). Its ready page, nothing playing, has a ⤢ that leaves full screen and
+  goes back into it. **A cast that ends sends its receiver home** (D384 §1): Stop casting on the
+  sender, the session's end, its controller gone (its receiver gone
   too long), in the page's place, out of full screen; a Play page of the cast's that Back reaches after shows its
   title's page, never playing (D383 §1). A page loaded again while its tab received a cast (a reload,
   a deploy) holds its film until the server says whether it hands the cast again (the live
