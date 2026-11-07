@@ -110,6 +110,16 @@ describe("the original file, chosen over the ladder (web-client.md: playback is 
   });
 });
 
+describe("the player's How it plays (D444)", () => {
+  it("says in ⁝ that a film on its ladder plays converted, from this page's own player", async () => {
+    mounted = await onItsLadder(false);
+    await fire(moreButton(mounted), new MouseEvent("click", { bubbles: true }));
+    expect(menuOpen(mounted).querySelector(".how-it-plays")?.textContent).toMatch(
+      /^Plays it converted/u,
+    );
+  });
+});
+
 /** The player's ⁝ (player-menus.tsx). */
 function moreButton(on: Mounted): Element | null {
   return on.container.querySelector('button[aria-label="Settings"]');

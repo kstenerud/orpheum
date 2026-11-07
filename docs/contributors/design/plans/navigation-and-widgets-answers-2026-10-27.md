@@ -2475,7 +2475,7 @@ sender script beyond the lab page as a dependency) is written down, not guessed.
 
 ## Chromecast test steps for the owner (2026-11-08)
 
-What is built (worktree commits on the lead's branch): our receiver at `/cast/` can now also
+What is built (on main since "docs(cast): the Chromecast test steps for the owner, VQ286 and VQ287", on staging): our receiver at `/cast/` can now also
 become a **cast target**: asked from the lab, it pairs as one of your devices by D288's pairing
 (its code carried over the Cast channel, the check code compared by you), keeps that session on
 the Chromecast, connects as a device, and so is listed in the Cast control of every page beside
@@ -2536,3 +2536,49 @@ Report the lab's log (Stop casting and send gives its short name) for any step t
   transport opened under the sender's session (from away); on the core's own name it reaches the
   core directly. A cast is taken at once, without D358's Use question; the receiver follows only
   the film, play, pause and position (no sound or subtitle choices yet).
+
+## The overnight batches, for the morning (2026-11-08)
+
+On main and passed by check-pr, then put on staging with `./staging quick` (nothing went to nas.example):
+
+- **The 11-20 batch, items 1–7.** (1) our controls stay in a guest's full screen on Android
+  ("fix(web): a Watch Together guest's full screen keeps the page's pieces over the film"); (2) Leave beside Back to film in the tray's Watch Together dialog ("fix(web): a guest leaves from the tray's Watch Together dialog"); (3) the
+  device cast to offers Move it here, ending the cast first (D443, "feat(together): the device a hosted session is cast to moves it here"); (4) no press on a
+  receiver ends a cast, and leaving full screen only leaves it (D445, "fix(web): no press or full screen left on a cast's receiver ends the cast"); (5) a receiver
+  shows a blue Cast sign, "Cast from ‹device›"; (6) a receiver's Cast dialog leaves out the device
+  casting to it, and the server refuses a cast back, 409 `casting_here` (25302022–"refactor(web): the Cast list reads the device casting here itself"); (7)
+  the cast remote is the full-screen overlay's rows and menus, How it plays in ⁝ there and in
+  local full screen (D444, "feat(cast): the cast's remote is the full-screen overlay's rows and menus, How it plays in ⁝").
+- **The dead end and WebRTC messages** ("fix(web): a secure connection that never completed is said as that, and what happened is on the page" and two refactors). Copy what happened sat just
+  below the screen's bottom; it is now inside every gate page that names it. A WebRTC connection
+  the server answered but whose secure connection never completed (Firefox 158) is said as that,
+  "This browser couldn't finish connecting to the server", suggesting another browser such as
+  Chrome or Edge; it is a new dead-end cause, `secureUnfinished`, and what is copied says how far
+  the connection got.
+- **Chromecast, first support** ("feat(cast-receiver): the lab's receiver becomes a cast target, a device of its sender's person"–"docs(cast): the Chromecast test steps for the owner, VQ286 and VQ287"): the steps above.
+
+**For the owner to test:** VQ285 (Android full screen, the Pixel or your phone), VQ286 and VQ287
+(the Chromecast, steps above); and by hand on staging items 2–7 above, the three-device session
+you reported them from.
+
+**Questions for the owner:**
+
+1. Wording: "Cast from ‹device›" on a receiver's sign; the refusal of a cast back; the error's
+   name `casting_here`; the secure-connection page naming Chrome and Edge.
+2. Test-Weakened sign-offs: D442's together-mine tests; item 1's removed cast-receiver-held-ok test
+   and inverted take-back tests; item 7's two removed tests of the remote's own Stop and its retry
+   (the Cast dialog's tests still cover both).
+3. A receiver can no longer end a cast at all (item 4, by your answer): confirm that is wanted.
+4. The ⤢ button on a receiver's ready page is new UI (item 4's way out of full screen).
+5. D443's risks: the receiver may name itself as the host's device; a Move it here whose host-here
+   call fails after the cast has ended leaves no session. Also: a new tab on the starting device
+   counts as another device, and Move it here while casting cuts off the receiver.
+6. Item 7: should the guest's casting page get the same layout? With no film sound but voices, the
+   remote shows no 🔈 at all. The voice tap and the hidden Watch Together panel now sit inside the
+   black 16:9 box. Opening one of the remote's menus does not yet close another.
+7. The secure-connection cause: orpheum-connect is not changed, so it counts it as "other" until
+   it is; it wins over "no IPv6" (the network did reach the server): right? Should the WebRTC entry
+   in the tried list say how far it got too? A real Firefox 158 check as a VQ?
+8. Chromecast: the two calls above (Google's sender script on every page; the pairing route).
+9. Two Firefox browser tests (modal-dialog, poster-row) failed once under load with three agents
+   testing at once and pass alone; noted, not changed.
