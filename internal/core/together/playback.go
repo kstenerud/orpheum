@@ -18,6 +18,9 @@ type Playback struct {
 	// Sound is how the player's film sounds, the choices its page offers, which a cast's remote shows
 	// and changes (SoundChoice); nil where the player does not say.
 	Sound *PlaybackSound `json:"sound,omitempty"`
+	// Picture is what the player shows that its page offers to choose, its subtitles and the
+	// original, which a cast's remote shows and changes (PictureChoice); nil where it does not say.
+	Picture *PlaybackPicture `json:"picture,omitempty"`
 }
 
 // PlaybackSound is how a player's film sounds and what its person may choose of it, as its page
@@ -179,7 +182,8 @@ const (
 // quality or link.
 func (playback Playback) isKnown() bool {
 	return (playback.Delivery == DeliveryDirect || playback.Delivery == DeliveryConverted) &&
-		playback.QualityKbps >= 0 && playback.LinkKbps >= 0 && playback.Sound.isKnown()
+		playback.QualityKbps >= 0 && playback.LinkKbps >= 0 && playback.Sound.isKnown() &&
+		playback.Picture.isKnown()
 }
 
 // takeAside takes what a device says that moves no one's place: a note logged, its standing, a sound
@@ -193,6 +197,8 @@ func (current *session) takeAside(ctx context.Context, now time.Time, who *membe
 		current.takeStanding(ctx, who, from, message.Standing)
 	case MessageSound:
 		current.relaySound(ctx, who, from, message.Sound)
+	case MessagePicture:
+		current.relayPicture(ctx, who, from, message.Picture)
 	case MessagePlayback:
 		from.takeState(message)
 		current.sendRosterIfChanged()
@@ -216,9 +222,19 @@ func (current *session) relaySound(ctx context.Context, who *member, from *devic
 		append(current.deviceAttributes(who, from),
 			"kind", string(choice.Kind), "isOn", choice.IsOn, "streamId", choice.StreamID, "ms", choice.Ms,
 			"channel", choice.Channel, "level", choice.Level, "isMuted", choice.IsMuted)...)
+	current.relayToOwnPlayers(who, from, Outbound{
+		V: ProtocolVersion, Type: MessageSound, FromDeviceID: from.id, Sound: choice,
+	})
+}
+
+// relayToOwnPlayers sends a remote's choice, relayed, to its member's other devices that play the
+// film: in a cast, to its receiver from its remote, whatever its part there, as the receiver that
+// leads its person's Watch Together session is only a panel in the cast's (D364 §11); another
+// member's devices are never told.
+func (current *session) relayToOwnPlayers(who *member, from *device, relayed Outbound) {
 	for _, each := range who.devices {
 		if each.id != from.id && (each.role.plays() || current.isCast) {
-			each.send(Outbound{V: ProtocolVersion, Type: MessageSound, FromDeviceID: from.id, Sound: choice})
+			each.send(relayed)
 		}
 	}
 }

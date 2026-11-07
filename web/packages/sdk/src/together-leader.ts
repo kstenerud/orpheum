@@ -12,6 +12,7 @@
  */
 
 import type { StartGate } from "./start-gate.ts";
+import type { PlaybackPicture } from "./playback-picture.ts";
 import type { PlaybackSound } from "./playback-sound.ts";
 import type { GroupView, PlaybackReport, SyncTuning } from "./together.ts";
 import type { TogetherConnection } from "./together-connection.ts";
@@ -271,15 +272,21 @@ export function isCaughtUp(media: FollowedMedia, expectedMs: number, tuning: Syn
 export class PlaybackTold {
   readonly #delivery: PlaybackReport["delivery"] | undefined;
   readonly #readSound: (() => PlaybackSound | undefined) | undefined;
+  readonly #readPicture: (() => PlaybackPicture | undefined) | undefined;
   #quality: QualitySwitched | undefined = undefined;
 
-  /** readSound says how the film sounds now, for its remote to show and change; absent, nothing. */
+  /**
+   * readSound says how the film sounds now, and readPicture what it shows that may be chosen, for
+   * its remote to show and change; each absent, nothing.
+   */
   constructor(
     delivery: PlaybackReport["delivery"] | undefined,
     readSound?: () => PlaybackSound | undefined,
+    readPicture?: () => PlaybackPicture | undefined,
   ) {
     this.#delivery = delivery;
     this.#readSound = readSound;
+    this.#readPicture = readPicture;
   }
 
   /** Keeps the quality a playerSwitchedQualityEvent says its player began; whether it said one. */
@@ -293,6 +300,7 @@ export class PlaybackTold {
   report(): PlaybackReport | undefined {
     const quality = this.#quality;
     const sound = this.#readSound?.();
+    const picture = this.#readPicture?.();
     return this.#delivery === undefined
       ? undefined
       : {
@@ -302,6 +310,7 @@ export class PlaybackTold {
             ? {}
             : { linkKbps: quality.linkEstimateKbps }),
           ...(sound === undefined ? {} : { sound }),
+          ...(picture === undefined ? {} : { picture }),
         };
   }
 }

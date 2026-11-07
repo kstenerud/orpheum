@@ -226,8 +226,10 @@ export type {
   LiveConnection,
   LiveSnapshot,
 } from "./live-connection.ts";
+export type { PictureChoice, PlaybackPicture, SubtitleOption } from "./playback-picture.ts";
 export type { PlaybackSound, SoundChannel, SoundChoice, SoundTrack } from "./playback-sound.ts";
 export type {
+  CarriesPictureChoices,
   CarriesSoundChoices,
   ConnectionStatus,
   GroupCommand,

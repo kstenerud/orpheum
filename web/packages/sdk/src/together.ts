@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { apiPrefix } from "./client.ts";
+import type { PictureChoice, PlaybackPicture, SubtitleOption } from "./playback-picture.ts";
 import type { PlaybackSound, SoundChannel, SoundChoice, SoundTrack } from "./playback-sound.ts";
 
 /** The version of the session WebSocket's messages, every message's v (cut-a §5.1). */
@@ -111,6 +112,8 @@ export interface PlaybackReport {
   readonly linkKbps?: number | undefined;
   /** How its film sounds and what of it may be chosen; undefined where it does not say. */
   readonly sound?: PlaybackSound | undefined;
+  /** What its film shows that may be chosen, subtitles and the original; undefined where unsaid. */
+  readonly picture?: PlaybackPicture | undefined;
 }
 
 /** One device of a member in the roster, and its health. */
@@ -263,7 +266,8 @@ export type TogetherServerMessage =
     }
   | { readonly type: "ended"; readonly reason: TogetherEndReason }
   | { readonly type: "rtc"; readonly fromDeviceId: number; readonly signal: VoiceSignal }
-  | { readonly type: "sound"; readonly fromDeviceId: number; readonly choice: SoundChoice };
+  | { readonly type: "sound"; readonly fromDeviceId: number; readonly choice: SoundChoice }
+  | { readonly type: "picture"; readonly fromDeviceId: number; readonly choice: PictureChoice };
 
 /**
  * One piece of voice signalling between two devices, which the server relays without reading
@@ -385,7 +389,48 @@ function playbackIn(value: unknown): PlaybackReport | undefined {
     qualityKbps: kbps("qualityKbps"),
     linkKbps: kbps("linkKbps"),
     sound: playbackSoundIn(fields["sound"]),
+    ...pictureIn(fields["picture"]),
   };
+}
+
+/** A roster device's picture, as a field to spread into its playback; none where it says none. */
+function pictureIn(value: unknown): { readonly picture?: PlaybackPicture } {
+  const fields = recordOf(value);
+  if (fields === undefined) {
+    return {};
+  }
+  const key = fields["subtitleKey"];
+  const subtitles = Array.isArray(fields["subtitles"]) ? fields["subtitles"] : [];
+  return {
+    picture: {
+      subtitleKey: typeof key === "string" && key !== "" ? key : undefined,
+      subtitles: subtitles.flatMap((each: unknown): SubtitleOption[] => {
+        const option = recordOf(each);
+        const optionKey = option?.["key"];
+        const label = option?.["label"];
+        return typeof optionKey === "string" && optionKey !== "" && typeof label === "string"
+          ? [{ key: optionKey, label }]
+          : [];
+      }),
+      canPlayOriginal: fields["canPlayOriginal"] === true,
+    },
+  };
+}
+
+/** A picture message's choice, or undefined where it is none a player carries out. */
+function pictureChoiceIn(value: unknown): PictureChoice | undefined {
+  const fields = recordOf(value);
+  switch (fields?.["kind"]) {
+    case "subtitles": {
+      const key = fields["key"];
+      // The server omits the key of subtitles turned off.
+      return { kind: "subtitles", key: typeof key === "string" && key !== "" ? key : undefined };
+    }
+    case "original":
+      return { kind: "original" };
+    default:
+      return undefined;
+  }
 }
 
 const trackKinds: readonly SoundTrack["kind"][] = ["plain", "commentary", "described"];
@@ -614,6 +659,16 @@ function parseSoundChosen(
     : { type: "sound", fromDeviceId: numberIn(record, "fromDeviceId"), choice };
 }
 
+/** A picture message: a choice made on another of the person's devices, for this one's player. */
+function parsePictureChosen(
+  record: Readonly<Record<string, unknown>>,
+): TogetherServerMessage | undefined {
+  const choice = pictureChoiceIn(record["picture"]);
+  return choice === undefined
+    ? undefined
+    : { type: "picture", fromDeviceId: numberIn(record, "fromDeviceId"), choice };
+}
+
 /** One message the server sent, as text, parsed; undefined for one not understood or not used. */
 export function parseTogetherMessage(text: string): TogetherServerMessage | undefined {
   let parsed: unknown;
@@ -641,6 +696,8 @@ export function parseTogetherMessage(text: string): TogetherServerMessage | unde
       return parseRtc(record);
     case "sound":
       return parseSoundChosen(record);
+    case "picture":
+      return parsePictureChosen(record);
     default:
       return parseFollowed(record, parseGroup(record["group"]));
   }

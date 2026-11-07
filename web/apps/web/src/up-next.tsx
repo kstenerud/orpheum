@@ -93,6 +93,11 @@ export function useUpNext(fileId: number, isAsked = true): UpNext | undefined {
   return useAroundFile(fileId, isAsked)?.upNext;
 }
 
+/** What plays before fileId, undefined while unknown and where nothing does. */
+export function usePrevious(fileId: number): Previous | undefined {
+  return useAroundFile(fileId, true)?.previous;
+}
+
 /**
  * Whether video has played fileId: true from its first playing, or a timeupdate while it plays,
  * for a video already playing when it is handed over.

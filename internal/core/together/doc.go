@@ -127,6 +127,11 @@
 //     alone (MessagePlayback), so the remote works it in the cast's session while it leads its
 //     person's Watch Together session. Enforced by TestCast_TheRemoteChoosesTheReceiversSound and
 //     TestCast_TheRemoteWorksTheReceiverInTheCastWhileItLeadsWatchTogether.
+//   - A player's playback may say what it shows that its person may choose, its subtitles and the
+//     original, and its person's choice of them on a cast's remote (MessagePicture) is relayed as a
+//     sound's is, to their own other devices that play it, and to no one else's; a picture or a
+//     choice past the bounds is refused (D440 §5). Enforced by
+//     TestCast_TheRemoteChoosesTheReceiversPicture and TestHub_TheRosterSaysWhatEachPlayerShows.
 //   - A guest plays and pauses, and changes the position, only as their link allows; what plays,
 //     stopping it and its rate are the host's alone; each link starts with the last one's rights
 //     (D271 §4). Stopping leaves nothing on; a seek made against a group another seek has changed

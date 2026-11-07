@@ -5,6 +5,7 @@
  * follows by. Kept apart from the follower (together-follow.ts), which reads them.
  */
 
+import type { PlaybackPicture } from "./playback-picture.ts";
 import type { PlaybackSound } from "./playback-sound.ts";
 import type { PlaybackReport, PlaybackRights } from "./together.ts";
 import type { ShownPage } from "./shown-page.ts";
@@ -68,6 +69,11 @@ export interface FollowOptions {
    * it (playback-sound.ts); absent where nothing is to be said.
    */
   readonly readSound?: (() => PlaybackSound | undefined) | undefined;
+  /**
+   * What the player's film shows that may be chosen, its subtitles and the original, for the same
+   * roster (playback-picture.ts); absent where nothing is to be said.
+   */
+  readonly readPicture?: (() => PlaybackPicture | undefined) | undefined;
 }
 
 /** The events a following player tells the group of, and is moved by. */

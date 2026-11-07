@@ -9,8 +9,9 @@ import {
   type TogetherConnection,
 } from "@orpheum/sdk";
 import { heardVolumeOf, setHeardVolume } from "@orpheum/player";
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 
+import { PicturePanelContext } from "./picture-panel.ts";
 import { useSoundPart, type SoundPanel } from "./sound-panel.ts";
 
 /**
@@ -89,11 +90,13 @@ export function useToldTheCastHowItPlays(told: {
   readonly panel: SoundPanel | undefined;
 }): void {
   const { cast, video, delivery, panel } = told;
+  // What the film shows that may be chosen (picture-panel.ts, D440 §5), told with how it plays.
+  const readPicture = use(PicturePanelContext)?.read;
   useEffect(() => {
     if (cast === undefined || video === null) {
       return undefined;
     }
-    const playback = new PlaybackTold(delivery, panel?.read);
+    const playback = new PlaybackTold(delivery, panel?.read, readPicture);
     const heardQuality = (event: Event): void => {
       if (playback.heard(event)) {
         cast.reportPlayback();
@@ -105,5 +108,5 @@ export function useToldTheCastHowItPlays(told: {
       video.removeEventListener(playerSwitchedQualityEvent, heardQuality);
       cast.setPlayback(undefined);
     };
-  }, [cast, video, delivery, panel]);
+  }, [cast, video, delivery, panel, readPicture]);
 }

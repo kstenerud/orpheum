@@ -7,6 +7,7 @@ import {
   soundOnAtTap,
   type CannotKeepUp,
   type PlaybackReport,
+  type PlaybackPicture,
   type PlaybackSound,
   type TogetherConnection,
   type TogetherEndReason,
@@ -86,6 +87,8 @@ interface LeadingPlayer {
   readonly delivery?: PlaybackReport["delivery"] | undefined;
   /** How the film sounds now, which the session is told for a cast's remote (sound-panel.ts). */
   readonly readSound?: (() => PlaybackSound | undefined) | undefined;
+  /** What the film shows that may be chosen, which the session is told for a cast's remote (picture-panel.ts). */
+  readonly readPicture?: (() => PlaybackPicture | undefined) | undefined;
 }
 
 /**
@@ -96,8 +99,8 @@ interface LeadingPlayer {
  * the film plays at the tab's volume (D281 §5).
  */
 export function useLeadingPlayer(leading: LeadingPlayer): void {
-  const { connection, isWelcomed, fileId, video, startPositionMs, putOnAtMs, delivery, readSound } =
-    leading;
+  const { connection, isWelcomed, fileId, video, startPositionMs, putOnAtMs, delivery } = leading;
+  const { readSound, readPicture } = leading;
   // The session it put its film on for: each it comes to lead, once (a cast's receiver taking its
   // host's part in a Watch Together session started while it played, D364 §11).
   const putOnForRef = useRef<TogetherConnection | undefined>(undefined);
@@ -122,8 +125,9 @@ export function useLeadingPlayer(leading: LeadingPlayer): void {
             page: pageThatPausesWhenHidden(),
             delivery,
             readSound,
+            readPicture,
           }),
-    [connection, fileId, video, delivery, readSound],
+    [connection, fileId, video, delivery, readSound, readPicture],
   );
   useEffect(() => (video === null ? undefined : followFilmVolume(video)), [video]);
 }

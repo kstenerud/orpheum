@@ -253,7 +253,7 @@ func (each *device) takeState(message Inbound) {
 			each.playback = message.Playback
 		}
 	case MessageHello, MessagePing, MessageCommand, MessageRTC, MessageNote, MessageStanding, MessageSound,
-		MessageWelcome, MessagePong, MessageGroup,
+		MessagePicture, MessageWelcome, MessagePong, MessageGroup,
 		MessageRoster, MessageRejected, MessageEnded:
 	}
 }
@@ -594,7 +594,7 @@ func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbou
 		handled.command(now, sender, from, message)
 	case MessageRTC:
 		handled.relay(from, message)
-	case MessageNote, MessageStanding, MessageSound, MessagePlayback:
+	case MessageNote, MessageStanding, MessageSound, MessagePicture, MessagePlayback:
 		handled.takeAside(ctx, now, sender, from, message)
 	case MessageHello, MessageWelcome, MessagePong, MessageGroup, MessageRoster, MessageRejected, MessageEnded:
 		from.send(Outbound{V: ProtocolVersion, Type: MessageRejected, Code: codeInvalid})

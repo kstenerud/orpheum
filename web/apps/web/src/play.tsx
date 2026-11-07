@@ -53,6 +53,11 @@ import { LadderTracks, OwnFileTracks, usePlayerTracks } from "./player-tracks.ts
 import { LinkDebugTools } from "./link-debug-tools.tsx";
 import { useIsFullScreen } from "./full-screen-button.tsx";
 import { PlayerMenusContext, StartOver, type PlayerMenusWays } from "./player-menus.tsx";
+import {
+  newPicturePanel,
+  PicturePanelContext,
+  useOriginalOfferedToARemote,
+} from "./picture-panel.ts";
 import { newSoundPanel, SoundPanelContext } from "./sound-panel.ts";
 import { Loaded } from "./title.tsx";
 import { PlaysAlong, useReceiving, type Receiving } from "./cast-receiver.tsx";
@@ -119,6 +124,8 @@ export function PlayView(props: PlayViewProps): JSX.Element {
   const [isBare, setIsBare] = useState(false);
   // The sound controls under the film, as one panel a cast's remote shows and works.
   const [soundPanel] = useState(newSoundPanel);
+  // What the film shows that its person may choose, as one panel a cast's remote shows and works.
+  const [picturePanel] = useState(newPicturePanel);
   const onBare = useCallback(() => {
     setIsBare(true);
   }, []);
@@ -138,7 +145,9 @@ export function PlayView(props: PlayViewProps): JSX.Element {
   }
   return (
     <SoundPanelContext value={soundPanel}>
-      <PlayerView {...props} onBare={isOwnFile ? onBare : undefined} />
+      <PicturePanelContext value={picturePanel}>
+        <PlayerView {...props} onBare={isOwnFile ? onBare : undefined} />
+      </PicturePanelContext>
     </SoundPanelContext>
   );
 }
@@ -609,7 +618,10 @@ function LadderUnder(
       onCannotKeepUp(undefined);
     };
   }, [ladder.cannotKeepUp, onCannotKeepUp]);
-  return <PlayOriginal onChosen={decideAgainFor(props, "originalChosen")} />;
+  const playOriginal = decideAgainFor(props, "originalChosen");
+  // A cast's remote offers the original too, carried out here as this offer's press (D440 §5).
+  useOriginalOfferedToARemote(playOriginal);
+  return <PlayOriginal onChosen={playOriginal} />;
 }
 
 /**
