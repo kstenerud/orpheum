@@ -356,6 +356,9 @@ export type OverlayControl =
 export interface ControlsContext {
   readonly isTelevision: boolean;
   readonly isTouch: boolean;
+  readonly isVolumeSettable: boolean;
+  /** Whether a Watch Together session's voices play here with the film, so there is a mix to set. */
+  readonly hasVoicesToMix: boolean;
   readonly audioTrackCount: number;
   readonly hasPrevious: boolean;
   readonly hasNext: boolean;
@@ -366,10 +369,11 @@ export interface ControlsContext {
 /**
  * Which controls the overlay shows (D407 §2; plans/player-overlay.md §2.6): previous and next only
  * within a sequence; the audio tracks only where there are more than one; Up everywhere but a cast's
- * receiver; the rest always. The sound, 🔈's row of sliders, shows on every device, a television and
- * a touch screen too, and where the page cannot set the film's volume, as a Watch Together
- * session's voices are set there all the same (D440 §2); but a cast's receiver shows it only as
- * before, on a computer with no touch screen, its remote holding its sound (D440 §5).
+ * receiver; the rest always. The sound, 🔈's row of sliders, shows on a computer with no touch
+ * screen where the page can set the volume, as before; on a television and a touch screen, whose own
+ * buttons set the volume, and where the page cannot set it, only while there is a mix to set, a Watch
+ * Together session's voices with the film (the owner, 2026-11-07, on D440 §2); never for that on a
+ * cast's receiver, whose remote holds its sound (D440 §5).
  */
 export function controlsShown(context: ControlsContext): readonly OverlayControl[] {
   const shows: Record<OverlayControl, boolean> = {
@@ -379,7 +383,9 @@ export function controlsShown(context: ControlsContext): readonly OverlayControl
     play: true,
     seekForward: true,
     next: context.hasNext,
-    sound: !context.isReceiver || (!context.isTelevision && !context.isTouch),
+    sound:
+      (!context.isTelevision && !context.isTouch && context.isVolumeSettable) ||
+      (context.hasVoicesToMix && !context.isReceiver),
     // A cast's receiver draws no menus (D407 §12): the remote holds its choices.
     subtitles: !context.isReceiver,
     audio: context.audioTrackCount > 1 && !context.isReceiver,

@@ -2758,5 +2758,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   drag moves each slider (an iPhone shows the volume buttons' note in the film's place, the people's
   sliders still working); Talk shows beside 🔈 on the laptop and the phone and not on the Fire TV,
   and turns the microphone on and off; and the host's dialog for a person, opened over the film,
-  has no volume slider. (`web/apps/web/src/volume-row.tsx`, `web/apps/web/src/player-menus.tsx`,
+  has no volume slider. Then, the session ended, play a film alone on each: 🔈 shows on the laptop
+  and not on the Fire TV or the phone, as levels show only where there is mixing (the owner,
+  2026-11-07). (`web/apps/web/src/volume-row.tsx`, `web/apps/web/src/player-menus.tsx`,
   `web/apps/web/src/together-voice.tsx`)

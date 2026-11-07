@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next";
 
 import { CastSignOverTheFilmContext } from "./cast-sign-over-the-film.tsx";
 import { ConvenienceArea, type OfferPiece } from "./convenience-area.tsx";
+import { useIsVolumeSettable } from "./film-volume-slider.tsx";
 import type { FilmParts } from "./film-player.tsx";
 import { isThisHandheld } from "./handheld.ts";
 import { useCommands } from "./input-layer.tsx";
@@ -48,6 +49,7 @@ import { useAnswersPictureTaps, useOpensAtThePointer, type SeekFeedback } from "
 import { PlayerTracksContext } from "./player-tracks.tsx";
 import { Timeline } from "./timeline.tsx";
 import { TogetherSignOverTheFilm } from "./together-over-the-film.tsx";
+import { peopleOf, useSessionVoice } from "./together-voice.tsx";
 import { isTelevision } from "./tv-device.ts";
 
 /**
@@ -357,9 +359,13 @@ export function useControlsShown(
 ): readonly OverlayControl[] {
   const tracks = use(PlayerTracksContext);
   const upward = use(PlayUpwardContext);
+  const isVolumeSettable = useIsVolumeSettable();
+  const voice = useSessionVoice();
   return controlsShown({
     isTelevision: isTv,
     isTouch: isThisHandheld(),
+    isVolumeSettable,
+    hasVoicesToMix: voice !== undefined && peopleOf(voice.snapshot).length > 0,
     audioTrackCount: tracks?.audio.tracks.length ?? 0,
     hasPrevious: moves?.previous !== undefined,
     hasNext: moves?.next !== undefined,

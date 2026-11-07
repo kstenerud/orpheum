@@ -334,6 +334,8 @@ describe("which controls show (D407 §2)", () => {
   const computer: ControlsContext = {
     isTelevision: false,
     isTouch: false,
+    isVolumeSettable: true,
+    hasVoicesToMix: false,
     audioTrackCount: 1,
     hasPrevious: false,
     hasNext: false,
@@ -353,19 +355,29 @@ describe("which controls show (D407 §2)", () => {
     ]);
   });
 
-  it("shows the sound on a television and a touch screen too (D440 §2)", () => {
+  it("shows no sound on a television, a touch screen or where the page cannot set the volume, alone", () => {
     for (const context of [
       { ...computer, isTelevision: true },
       { ...computer, isTouch: true },
-      { ...computer, isTelevision: true, isTouch: true },
+      { ...computer, isVolumeSettable: false },
     ]) {
-      expect(controlsShown(context)).toContain("sound");
+      expect(controlsShown(context)).not.toContain("sound");
       expect(controlsShown(context)).toContain("fullScreen");
     }
   });
 
+  it("shows the sound everywhere while a session's voices mix with the film (the owner, 2026-11-07)", () => {
+    for (const context of [
+      { ...computer, isTelevision: true },
+      { ...computer, isTouch: true },
+      { ...computer, isVolumeSettable: false },
+    ]) {
+      expect(controlsShown({ ...context, hasVoicesToMix: true })).toContain("sound");
+    }
+  });
+
   it("shows a cast's receiver's sound on a computer alone, its remote holding it elsewhere", () => {
-    const receiver = { ...computer, isReceiver: true };
+    const receiver = { ...computer, isReceiver: true, hasVoicesToMix: true };
     expect(controlsShown(receiver)).toContain("sound");
     expect(controlsShown({ ...receiver, isTelevision: true })).not.toContain("sound");
     expect(controlsShown({ ...receiver, isTouch: true })).not.toContain("sound");
