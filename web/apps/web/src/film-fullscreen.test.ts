@@ -5,10 +5,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   askPageFullScreen,
-  enterVideoFullScreen,
   fillsWindowClass,
   fillTheScreen,
   fullscreenAnswerWithinMs,
+  keepFullScreenOnTheStage,
   toggleFullScreen,
 } from "./film-fullscreen.ts";
 
@@ -130,7 +130,50 @@ describe("a film full screen on an iPhone, which has no element full screen (Web
 
   it("puts Watch Together's film in iOS's own player too", () => {
     const { stage, entered } = stageWithoutElementFullScreen();
-    enterVideoFullScreen(stage.querySelector("video"));
+    // Its Full screen, as the Play page's, asks for the stage its video is in (keepFullScreenOnTheStage).
+    toggleFullScreen(stage.querySelector("video")?.closest("div"), document);
     expect(entered()).toBe(1);
+  });
+});
+
+describe("a video the browser's own controls put full screen (the owner, Firefox on Android, 2026-11-07)", () => {
+  it("leaves the video's full screen for its stage's, where the page's controls show", async () => {
+    const stage = document.createElement("div");
+    stage.className = "film-player__stage";
+    const video = document.createElement("video");
+    stage.append(video);
+    document.body.append(stage);
+    let shown: Element | null = video;
+    const asked: string[] = [];
+    Object.defineProperty(document, "fullscreenElement", { configurable: true, get: () => shown });
+    Object.defineProperty(document, "exitFullscreen", {
+      configurable: true,
+      value: () => {
+        asked.push("leave the video's");
+        shown = null;
+        return Promise.resolve();
+      },
+    });
+    stage.requestFullscreen = (): Promise<void> => {
+      asked.push("the stage's");
+      shown = stage;
+      return Promise.resolve();
+    };
+    const stop = keepFullScreenOnTheStage(video, document);
+    try {
+      document.dispatchEvent(new Event("fullscreenchange"));
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(asked).toEqual(["leave the video's", "the stage's"]);
+      // The stage's own full screen is left as it is.
+      document.dispatchEvent(new Event("fullscreenchange"));
+      await Promise.resolve();
+      expect(asked).toEqual(["leave the video's", "the stage's"]);
+    } finally {
+      stop();
+      stage.remove();
+      Reflect.deleteProperty(document, "fullscreenElement");
+      Reflect.deleteProperty(document, "exitFullscreen");
+    }
   });
 });

@@ -308,18 +308,25 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       shown.push(
         `controls: ${String(video?.controls)}, full screen: ${String(fullscreen !== undefined)}`,
       );
-      if (video !== null && fullscreen !== undefined) {
-        const requestFullscreen = vi.fn(() => Promise.resolve());
-        video.requestFullscreen = requestFullscreen;
+      const stage = video?.closest(".film-player__stage");
+      if (video !== null && stage instanceof HTMLElement && fullscreen !== undefined) {
+        // The stage goes full screen, Full screen and Tap for sound over the film with it, never
+        // the video alone (the owner, Firefox on Android, 2026-11-07).
+        const askedOfVideo = vi.fn(() => Promise.resolve());
+        const askedOfStage = vi.fn(() => Promise.resolve());
+        video.requestFullscreen = askedOfVideo;
+        stage.requestFullscreen = askedOfStage;
         await click(fullscreen);
-        expect(requestFullscreen).toHaveBeenCalled();
+        expect(askedOfStage).toHaveBeenCalled();
+        expect(askedOfVideo).not.toHaveBeenCalled();
       }
       mounted.unmount();
     }
-    // Watching only, the player's own controls would offer what the group undoes: full screen alone.
+    // Watching only, the player's own controls would offer what the group undoes; full screen is
+    // every viewer's, outside the video's own controls.
     expect(shown).toEqual([
       "controls: false, full screen: true",
-      "controls: true, full screen: false",
+      "controls: true, full screen: true",
     ]);
   });
 
