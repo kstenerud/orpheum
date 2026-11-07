@@ -33,6 +33,7 @@ import { phoneWidthQuery } from "./phone-width.ts";
 import { productName } from "./product-name.ts";
 import type { Route } from "./router.ts";
 import { useRoute } from "./services.tsx";
+import { CanStartTogetherContext } from "./together-can-start.ts";
 
 /** The logo, the way home, underlined while home is the page (the owner, 2026-10-25). */
 /** The laurel alone, which the page's favicon is, served beside the client (index.html). */
@@ -271,7 +272,12 @@ export function AppShell(props: {
           </BannerEnd>
         </nav>
       </header>
-      <ShellMain isAdmin={props.isAdmin}>{props.children}</ShellMain>
+      <ShellMain isAdmin={props.isAdmin}>
+        {/* The sign over the film offers a session to start only to these, as the tray does (D440 §6). */}
+        <CanStartTogetherContext value={props.canHostWatchTogether}>
+          {props.children}
+        </CanStartTogetherContext>
+      </ShellMain>
     </div>
   );
 }

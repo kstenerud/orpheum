@@ -60,7 +60,6 @@ import { InterestSaidEveryContext } from "./page-interest.ts";
 import { usePathMoveCount, useRoute, useServices, useToken } from "./services.tsx";
 import { SignIn } from "./sign-in.tsx";
 import { ThisDevice } from "./this-device.tsx";
-import { CanStartTogetherContext } from "./together-can-start.ts";
 import { haveBackMySessions } from "./together-mine.ts";
 import { useMembership } from "./together-membership.ts";
 import { HostVoiceProvider } from "./together-voice.tsx";
@@ -162,8 +161,6 @@ function SignedIn(): JSX.Element {
     signOutHere(api, session);
   };
   const isAdmin = me.state === "loaded" && me.value.isAdmin;
-  // The tray's Watch Together and the sign over the film offer a session to start only to these.
-  const canHostWatchTogether = me.state === "loaded" && me.value.canHostWatchTogether;
   const debugTools = useDebugToolsOf(me, readMeAgain);
   const clientSettings = useClientSettings();
   const poller = useServersPoller(clientSettings);
@@ -185,7 +182,7 @@ function SignedIn(): JSX.Element {
                 <InterestSaidEveryContext value={clientSettings?.interestSaidEverySeconds ?? 15}>
                   <AppShell
                     isAdmin={isAdmin}
-                    canHostWatchTogether={canHostWatchTogether}
+                    canHostWatchTogether={me.state === "loaded" && me.value.canHostWatchTogether}
                     signedInAs={
                       me.state === "loaded"
                         ? { name: me.value.name, deviceName: me.value.device?.name }
@@ -199,9 +196,7 @@ function SignedIn(): JSX.Element {
                     onSignOut={signOut}
                   >
                     <DeviceTestsOfferedContext value={clientSettings?.shouldOfferDeviceTests}>
-                      <CanStartTogetherContext value={canHostWatchTogether}>
-                        <Screen route={route} />
-                      </CanStartTogetherContext>
+                      <Screen route={route} />
                     </DeviceTestsOfferedContext>
                   </AppShell>
                 </InterestSaidEveryContext>
