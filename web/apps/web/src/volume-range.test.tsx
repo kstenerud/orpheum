@@ -4,12 +4,15 @@
 import { describe, expect, it } from "vitest";
 
 import { fire, mount } from "./test-dom.tsx";
-import { VolumeRange, volumeAt } from "./volume-range.tsx";
+import { uprightVolumeAt, VolumeRange, volumeAt } from "./volume-range.tsx";
 
-/** A touch event at clientX, as Safari on an iPhone sends: the test DOM has no Touch to make one with. */
-function touchAt(type: "touchstart" | "touchmove", clientX: number): Event {
+/**
+ * A touch event at clientX and clientY, as Safari on an iPhone sends: the test DOM has no Touch to
+ * make one with.
+ */
+function touchAt(type: "touchstart" | "touchmove", clientX: number, clientY = 0): Event {
   const event = new Event(type, { bubbles: true, cancelable: true });
-  Object.defineProperty(event, "touches", { value: [{ clientX }] });
+  Object.defineProperty(event, "touches", { value: [{ clientX, clientY }] });
   return event;
 }
 
@@ -36,6 +39,30 @@ describe("a volume slider (the owner's iPhone, 2026-10-12)", () => {
     await fire(slider, touchAt("touchmove", 300));
     expect(set).toEqual([0.5, 3]);
     expect(start.defaultPrevented).toBe(true); // the page does not scroll under the finger
+    unmount();
+  });
+});
+
+describe("an upright volume slider, the overlay's row (D440 §2)", () => {
+  it("reads a touch as the volume where the finger is up it, full at its top", () => {
+    const rect = { top: 100, height: 200 };
+    expect(uprightVolumeAt({ clientY: 300 }, rect, 1)).toBe(0);
+    expect(uprightVolumeAt({ clientY: 100 }, rect, 1)).toBe(1);
+    expect(uprightVolumeAt({ clientY: 150 }, rect, 4)).toBe(3);
+    expect(uprightVolumeAt({ clientY: 20 }, rect, 1)).toBe(1);
+    expect(uprightVolumeAt({ clientY: 500 }, rect, 1)).toBe(0);
+  });
+
+  it("follows a finger dragged up and down it, whatever its side to side", async () => {
+    const set: number[] = [];
+    const { container, unmount } = await mount(
+      <VolumeRange value={1} most={4} isUpright onChange={(value) => set.push(value)} />,
+    );
+    const slider = container.querySelector("input");
+    slider!.getBoundingClientRect = () => new DOMRect(0, 0, 44, 400);
+    await fire(slider, touchAt("touchstart", 20, 300));
+    await fire(slider, touchAt("touchmove", 20, 100));
+    expect(set).toEqual([1, 3]);
     unmount();
   });
 });
