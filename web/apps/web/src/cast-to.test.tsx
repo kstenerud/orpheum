@@ -418,6 +418,51 @@ describe("setting a cast up (D364 §1, §2; D337 §2)", () => {
     );
   });
 
+  // The owner's 11-20 batch, finding 6: the receiver's Cast listed the Mac casting to it, and casting
+  // back left each believing it cast to the other.
+  it("does not list the device casting to this one, and a cast back to one casting here through others is refused with its name", async () => {
+    const services = servedBy(
+      {
+        "GET /me/devices": [
+          200,
+          { devices: [device(1, "Linux", true), device(2, "Mac"), device(3, "Pixel")] },
+        ],
+        "POST /me/casts/5/accept": [200, { castId: 5 }],
+        "POST /me/casts": refusal(409, "casting_here"),
+      },
+      [],
+      "token",
+    );
+    const server = fakeTogetherServer();
+    mounted = await mount(
+      withServices(
+        <LiveProvider>
+          <CastTargets film={() => undefined} />
+        </LiveProvider>,
+        { ...services, openTogetherSocket: server.openSocket },
+      ),
+    );
+    await server.accept();
+    await server.say({ type: "devices", deviceIds: [1, 2, 3], inFrontDeviceIds: [1, 2, 3] });
+    expect(buttonWithText(mounted.container, "Mac")).toBeDefined();
+    await server.say({
+      type: "receive",
+      receive: {
+        castId: 5,
+        membershipCredential: "cast",
+        fileId: 0,
+        fromDeviceId: 2,
+        fromDeviceName: "Mac",
+      },
+    });
+    await pressUse(mounted.container);
+    expect(buttonWithText(mounted.container, "Mac")).toBeUndefined();
+    await click(buttonWithText(mounted.container, "Pixel"));
+    expect(mounted.container.querySelector("[role=alert]")?.textContent).toBe(
+      "Pixel is casting to this device, so this device cannot cast to it. Stop that cast on Pixel first.",
+    );
+  });
+
   it("says in its hello and as the tab moves whether its tab is in front (D338 §2)", async () => {
     const services = servedBy({}, [], "token");
     const server = fakeTogetherServer();

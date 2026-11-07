@@ -16,6 +16,8 @@ export const enCast = {
       "{{name}} has no Orpheum tab in front. Bring an Orpheum tab to the front on it, then cast again.",
     showingAnother: "Showing another cast: unavailable until it ends",
     receivingAnother: "{{name}} is showing another cast. Cast to it once that cast ends.",
+    castingHere:
+      "{{name}} is casting to this device, so this device cannot cast to it. Stop that cast on {{name}} first.",
     none: "None of your other devices has Orpheum open now. Open it on the device you want to watch on, signed in as you, and it shows here.",
     controlledFrom: "Controlled from {{name}} · Back, or OK twice, to take control here",
     asked: {

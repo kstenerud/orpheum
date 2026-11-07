@@ -355,6 +355,27 @@ func TestCast_ADeviceReceivingIsNoOnesTargetUntilItTakesControlBack(t *testing.T
 	startedCast(t, harness.startCast(t, laptopToken, television, 5_000))
 }
 
+// A receiver's cast back to the device casting to it is refused, casting_here, and the cast goes on:
+// each device is not left believing it casts to the other (the owner's 11-20 batch, finding 6).
+func TestCast_AReceiversCastBackToItsSenderIsRefused(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	phoneToken := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	tvToken := harness.signIn(t, "owner", "owner-password")
+	television := harness.thisDevice(t, tvToken)
+	phone := harness.thisDevice(t, phoneToken)
+	harness.dialLive(t, phoneToken).awaitDevices(phone)
+	harness.dialLive(t, tvToken).awaitDevices(phone, television)
+	first := startedCast(t, harness.startCast(t, phoneToken, television, 0))
+	wantError(t, harness.startCast(t, tvToken, phone, 0), http.StatusConflict, api.CodeCastingHere)
+	listed := harness.do(t, http.MethodGet, "/me/casts", phoneToken, nil)
+	if !strings.Contains(listed.body, fmt.Sprintf(`"castId":%d`, first.CastID)) ||
+		strings.Count(listed.body, `"castId"`) != 1 {
+		t.Errorf("the phone's casts = %s; want its cast to the TV alone, going on", listed.body)
+	}
+}
+
 // A remote whose hello reaches its cast just after the receiver took control back is told why, as
 // one attached then was, before its socket closes as for no session: it says the receiver took it
 // back, not only that the cast is over (the browser tier, 2026-10-29).

@@ -181,7 +181,8 @@ func (server *Server) moveCastOn(ctx context.Context, input *MoveCastOnInput) (*
 // is handed it on its live connection: a session of one in Watch Together's hub, which the receiver
 // leads and the sender commands (D88, D337), playing the video given, if any, and every one the
 // person plays after it until it ends (D364). A device that receives a cast is no device's target
-// until that cast ends, receiving_a_cast (D386 §1); the cast the sender controlled before ends, as
+// until that cast ends, receiving_a_cast (D386 §1), and one that casts to the asker, directly or
+// through others, is not its target, casting_here; the cast the sender controlled before ends, as
 // stopped (D337 §6).
 func (server *Server) startCast(ctx context.Context, input *StartCastInput) (*StartCastOutput, error) {
 	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
@@ -417,6 +418,8 @@ func castError(err error) error {
 		return newError(http.StatusConflict, CodeConflict, err.Error())
 	case errors.Is(err, live.ErrReceiving):
 		return newError(http.StatusConflict, CodeReceivingACast, err.Error())
+	case errors.Is(err, live.ErrCastingHere):
+		return newError(http.StatusConflict, CodeCastingHere, err.Error())
 	case errors.Is(err, live.ErrToItself):
 		return invalidRequestAt(http.StatusUnprocessableEntity, "body.toDeviceId", err.Error())
 	}

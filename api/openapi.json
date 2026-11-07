@@ -5301,6 +5301,7 @@
                   "playback_gone",
                   "migrating",
                   "receiving_a_cast",
+                  "casting_here",
                   "internal"
                 ],
                 "type": "string",
@@ -5319,6 +5320,7 @@
                   "playback_gone",
                   "migrating",
                   "receiving_a_cast",
+                  "casting_here",
                   "internal"
                 ]
               },

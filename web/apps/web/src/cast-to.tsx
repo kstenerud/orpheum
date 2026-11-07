@@ -39,13 +39,21 @@ import { watchingOf } from "./watching.ts";
  * this page is not waiting on, the dialog closed while it asked, shows asking too, to be cancelled
  * (AskingWithCancel). A device with no Orpheum tab in front says so, and a cast to it is refused
  * with what to do (D338 §2). A device receiving a cast is shown unavailable, and a cast to it,
- * raced, is refused with its name (D386 §1).
+ * raced, is refused with its name (D386 §1). The device casting to this one is not listed, and a cast
+ * back to one casting here through others is refused with its name (casting_here; the owner's 11-20
+ * batch, finding 6).
  */
 export function CastTargets(props: { readonly film: () => CastFilm | undefined }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const { isConnected, connectedDeviceIds, inFrontDeviceIds, receivingDeviceIds, sending } =
-    useLive();
+  const {
+    isConnected,
+    connectedDeviceIds,
+    inFrontDeviceIds,
+    receivingDeviceIds,
+    sending,
+    receiving,
+  } = useLive();
   const [devices] = useResource(`cast-to/${connectedDeviceIds.join(",")}`, async () =>
     otherDevicesOpen(await listMyDevices(api), connectedDeviceIds),
   );
@@ -62,6 +70,7 @@ export function CastTargets(props: { readonly film: () => CastFilm | undefined }
     problemText(t, cause, {
       conflict: t("cast.notInFront", { name: chosenNameRef.current }),
       receivingACast: t("cast.receivingAnother", { name: chosenNameRef.current }),
+      castingHere: t("cast.castingHere", { name: chosenNameRef.current }),
     }),
   );
   const castTo = (device: Device): void => {
@@ -89,6 +98,7 @@ export function CastTargets(props: { readonly film: () => CastFilm | undefined }
         {isConnected ? null : <output>{t("together.reconnecting")}</output>}
         <Targets
           devices={devices}
+          castingHereId={receiving?.fromDeviceId}
           isStale={!isConnected}
           states={{ inFrontDeviceIds, receivingDeviceIds }}
           onCast={castTo}
@@ -301,6 +311,8 @@ interface TargetStates {
 /** The devices to cast to as they are read: Loaded's words while loading or failed. */
 function Targets(props: {
   readonly devices: Resource<Device[]>;
+  /** The device casting to this one, if any, which is not listed: a cast back would close a loop. */
+  readonly castingHereId: number | undefined;
   readonly states: TargetStates;
   /** The live connection is down, so the devices are as last told: none is offered. */
   readonly isStale: boolean;
@@ -314,11 +326,12 @@ function Targets(props: {
   if (devices.state === "failed") {
     return <p role="alert">{problemText(t, devices.cause)}</p>;
   }
-  return devices.value.length === 0 ? (
+  const targets = devices.value.filter((device) => device.id !== props.castingHereId);
+  return targets.length === 0 ? (
     <p>{t("cast.none")}</p>
   ) : (
     <TargetList
-      devices={devices.value}
+      devices={targets}
       states={props.states}
       isStale={props.isStale}
       onCast={props.onCast}
