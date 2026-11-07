@@ -111,15 +111,19 @@ describe("the host's player in a session (D246 §5)", () => {
       roster: [{ ...karl, devices: [{ id: 9, role: "video" }] }],
     });
     expect(mounted.container.querySelector(".together-panel .film-volume input")).not.toBeNull();
+    const hostLine = "this plays for everyone in your session";
+    expect(mounted.container.querySelector(".together-panel")?.textContent).toContain(hostLine);
     await click(
       mounted.container.querySelector('button[aria-label="Watch Together is on: its controls"]'),
     );
     await settleUntil(
       () =>
-        document.querySelector("dialog[open]")?.textContent.includes("Watch Together is on") ===
-        true,
+        document.querySelector("dialog[open]")?.textContent.includes("End the session") === true,
     );
     expect(document.querySelector("dialog[open] .film-volume")).toBeNull();
+    // Nor the host's line that the session is on, which the controls above say: it read as a
+    // second dialog under the first (the owner, staging, 2026-11-07).
+    expect(document.querySelector("dialog[open]")?.textContent).not.toContain(hostLine);
     mounted.unmount();
   });
 

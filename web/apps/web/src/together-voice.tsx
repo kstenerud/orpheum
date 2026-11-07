@@ -33,7 +33,7 @@ import { ModalDialog } from "./modal-dialog.tsx";
 import { volumeAfter } from "./volume-step.ts";
 import { dataOrThrow } from "./problem.ts";
 import { useServices, useToken } from "./services.tsx";
-import { VolumesOutsideTheRow } from "./together-panel-place.tsx";
+import { OnlyOnThePanelsPage } from "./together-panel-place.tsx";
 import { useHostsSessionOver } from "./together-session-end.ts";
 import { membershipHeaders, type Membership } from "./together-storage.ts";
 import { monotonicMs } from "./use-together.ts";
@@ -532,9 +532,9 @@ export function VoiceControls(props: VoiceInUse): JSX.Element {
         <output className="together-voice__talking">{t("together.voice.talking")}</output>
       ) : null}
       {snapshot.status === "starting" ? <output>{t("together.voice.starting")}</output> : null}
-      <VolumesOutsideTheRow>
+      <OnlyOnThePanelsPage>
         <VoiceVolumes voice={voice} snapshot={snapshot} tap={props.tap} />
-      </VolumesOutsideTheRow>
+      </OnlyOnThePanelsPage>
       <p className="together-voice__hint">{t("together.voice.headphones")}</p>
     </section>
   );

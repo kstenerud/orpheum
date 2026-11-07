@@ -429,7 +429,7 @@ describe("the host's Watch Together dialog (D246 §3, §5; D384 §2)", () => {
     const mounted = await mount(
       withServices(
         <HostVoiceProvider membership={{ sessionId: 3, credential: "host-credential" }}>
-          <WatchTogetherControls onEnded={() => undefined} hasPanel />
+          <WatchTogetherControls onEnded={() => undefined} panelPlace={<div />} />
         </HostVoiceProvider>,
         services,
       ),
@@ -469,7 +469,7 @@ describe("what plays, in the host's Watch Together dialog (D364 §13, §15; D384
   async function sessionPage(
     heard: Heard[],
     sessionId: number,
-    showsDebugTools = false,
+    shown: { readonly showsDebugTools?: boolean; readonly isOnTheFilmsPage?: boolean } = {},
   ): Promise<{
     readonly mounted: Awaited<ReturnType<typeof mount>>;
     readonly services: ReturnType<typeof servedBy>;
@@ -498,6 +498,10 @@ describe("what plays, in the host's Watch Together dialog (D364 §13, §15; D384
       heard,
       "token",
     );
+    const { showsDebugTools = false, isOnTheFilmsPage = false } = shown;
+    if (isOnTheFilmsPage) {
+      services.navigation.go({ screen: "play", fileId: 4 });
+    }
     const sockets = liveAndSession();
     const mounted = await mount(
       withServices(
@@ -542,6 +546,14 @@ describe("what plays, in the host's Watch Together dialog (D364 §13, §15; D384
     mounted.unmount();
   });
 
+  it("offers neither the way back nor Stop on the film's own Play page, its pause right there (the owner, 2026-11-07)", async () => {
+    const { mounted } = await sessionPage([], 36, { isOnTheFilmsPage: true });
+    expect(mounted.container.querySelector("#together-plays-heading")?.textContent).toBe("Metropolis");
+    expect(mounted.container.querySelector('a[href="/play/4"]')).toBeNull();
+    expect(buttonWithText(mounted.container, "Stop the film for everyone")).toBeUndefined();
+    mounted.unmount();
+  });
+
   it("holds Stop off, saying it reconnects, while the session's connection is down", async () => {
     const { mounted, sockets } = await sessionPage([], 35);
     await sockets.session.drop();
@@ -571,7 +583,7 @@ describe("what plays, in the host's Watch Together dialog (D364 §13, §15; D384
     await hidden.sockets.session.say(leading);
     expect(hidden.mounted.container.textContent).not.toContain("▶ leading");
     hidden.mounted.unmount();
-    const { mounted, sockets } = await sessionPage([], 34, true);
+    const { mounted, sockets } = await sessionPage([], 34, { showsDebugTools: true });
     await sockets.session.say(leading);
     const lines = [...mounted.container.querySelectorAll(".together-debug li, .together-debug p")];
     expect(lines.map((line) => line.textContent)).toEqual([
@@ -579,6 +591,14 @@ describe("what plays, in the host's Watch Together dialog (D364 §13, §15; D384
       "Karl: device 9 (video) · ▶ leading",
       "Paused · leader device 9 (Karl) · why putOn · this device 7",
     ]);
+    // Folded, at the foot, under End (the owner, 2026-11-07).
+    const fold = mounted.container.querySelector<HTMLDetailsElement>("details.together-debug-fold");
+    expect(fold?.open).toBe(false);
+    const end = buttonWithText(mounted.container, "End the session");
+    if (fold === null || end === undefined) {
+      throw new Error("no debug fold, or no End");
+    }
+    expect(end.compareDocumentPosition(fold) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
     mounted.unmount();
   });
 

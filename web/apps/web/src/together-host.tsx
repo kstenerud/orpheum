@@ -25,7 +25,7 @@ import type { Membership } from "./together-storage.ts";
 import { followFilmVolume } from "./film-volume.ts";
 import { FilmVolumeSlider } from "./film-volume-slider.tsx";
 import { ComingAndGoing, onTheFilmsStage, TogetherPanel } from "./together-over-the-film.tsx";
-import { VolumesOutsideTheRow } from "./together-panel-place.tsx";
+import { OnlyOnThePanelsPage } from "./together-panel-place.tsx";
 import { useHostVoice, VoiceControls } from "./together-voice.tsx";
 import { monotonicMs, useTogether, useToldCannotKeepUp } from "./use-together.ts";
 
@@ -190,12 +190,14 @@ function HostLeading(
       {onTheFilmsStage(video, <SoundOn video={video} connection={connection} />)}
       <ComingAndGoing snapshot={snapshot} video={video} />
       <TogetherPanel>
-        <p>{t("together.hostPlaying")}</p>
+        <OnlyOnThePanelsPage>
+          <p>{t("together.hostPlaying")}</p>
+        </OnlyOnThePanelsPage>
         <TogetherNews snapshot={snapshot} />
         {hostVoice === undefined ? null : <VoiceControls {...hostVoice} />}
-        <VolumesOutsideTheRow>
+        <OnlyOnThePanelsPage>
           <FilmVolumeSlider />
-        </VolumesOutsideTheRow>
+        </OnlyOnThePanelsPage>
       </TogetherPanel>
     </div>
   );

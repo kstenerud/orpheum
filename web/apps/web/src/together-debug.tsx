@@ -16,9 +16,16 @@ import { DebugTool } from "./debug-tools.tsx";
 export function TogetherDebug(props: {
   readonly snapshot: TogetherSnapshot | undefined;
 }): JSX.Element {
+  const { t } = useTranslation();
+  // Folded, at the dialog's foot: a tester's, not the host's (the owner, staging, 2026-11-07).
   return (
     <DebugTool>
-      {props.snapshot === undefined ? null : <SessionDevices snapshot={props.snapshot} />}
+      {props.snapshot === undefined ? null : (
+        <details className="together-debug-fold">
+          <summary>{t("together.debug.heading")}</summary>
+          <SessionDevices snapshot={props.snapshot} />
+        </details>
+      )}
     </DebugTool>
   );
 }
