@@ -420,13 +420,15 @@ describe("a television's player overlay, by a remote's keys, in a Fire TV's Silk
     await press("{ArrowDown}");
     expect(document.activeElement?.getAttribute("aria-label")).toBe("Back 10 s");
     const walked: (string | null | undefined)[] = [];
-    for (let step = 0; step < 6; step += 1) {
+    for (let step = 0; step < 7; step += 1) {
       await press("{ArrowRight}");
       walked.push(document.activeElement?.getAttribute("aria-label"));
     }
+    // A television shows the volume's row too (D440 §2).
     expect(walked).toEqual([
       "Play",
       "Forward 10 s",
+      "Volume",
       "Subtitles: Off",
       "Sound track: English",
       "Settings",
