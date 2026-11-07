@@ -1,0 +1,16 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* Watch Together on the cast's remote (together-on-the-remote.tsx, D440 §5): the slider row, then
+   Talk and Watch Together's button side by side. */
+.together-on-the-remote {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.together-on-the-remote__buttons {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}

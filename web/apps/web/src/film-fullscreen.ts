@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { useEffect } from "react";
+
 /** The class that has a player's stage fill the browser's window where full screen was refused. */
 export const fillsWindowClass = "film-player__stage--fills-window";
 
@@ -187,6 +189,20 @@ export function leaveFullScreenAsked(page: Document): void {
     page.removeEventListener("fullscreenchange", forget);
     forget();
   });
+}
+
+/**
+ * Leaves full screen, at the page's own asking, as the component calling it is drawn: the cast's
+ * remote, a page and no film, which a cast started from full screen leaves it for (D440 §5). The Play
+ * page's player puts the whole page full screen (fillTheScreen, keepFillingTheWindow), which outlives
+ * the player the remote takes the place of, so the remote would show full screen unless left.
+ */
+export function useLeavesFullScreen(): void {
+  useEffect(() => {
+    if (document.fullscreenElement instanceof Element) {
+      leaveFullScreenAsked(document);
+    }
+  }, []);
 }
 
 /** Whether the full screen being left now is one the page asked to leave (leaveFullScreenAsked). */

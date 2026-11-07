@@ -83,6 +83,63 @@ describe("a signed-in guest's Play page of the group's film while their device c
     expect(states.some((each) => each["fileId"] === 5)).toBe(true);
     mounted.unmount();
   });
+
+  it("carries Watch Together on the cast's controls, its panel in the button's dialog with Leave and no volume, not on the page (D440 §5, §6, §8)", async () => {
+    const services = servedBy(
+      {
+        "POST /together/playback": [200, directDecision({ titleName: "Metropolis" })],
+        "GET /me/together": [200, { sessions: [] }],
+      },
+      [],
+      "token",
+    );
+    const sockets = liveAndSession(2);
+    const mounted = await mount(
+      withServices(
+        <LiveProvider>
+          <GroupFilmPage {...viewer} />
+        </LiveProvider>,
+        { ...services, openTogetherSocket: sockets.openSocket },
+      ),
+    );
+    await click(buttonWithText(mounted.container, "Tap to continue"));
+    await sockets.live.accept();
+    await sockets.session.acceptEach();
+    await sockets.session.say(welcome);
+    const playing = { state: "Playing", positionMs: 70_000, rate: 1, fileId: 5 };
+    await sockets.session.say({ type: "group", seq: 2, group: playing });
+    const panel = mounted.container.querySelector(".together-panel");
+    expect(panel?.hasAttribute("hidden")).toBe(false);
+    await sockets.live.say({
+      type: "sending",
+      sending: {
+        castId: 9,
+        receiverDeviceId: 2,
+        receiverName: "Fire TV",
+        fileId: 0,
+        isAccepted: true,
+      },
+    });
+    const stage = mounted.container.querySelector(".together-viewer__viewing");
+    const button = stage?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Watch Together is on: its controls"]',
+    );
+    if (button === null || button === undefined) {
+      throw new Error("no Watch Together button on the cast's controls");
+    }
+    // The panel's Leave and volume no longer show on the page: the button holds them.
+    expect(mounted.container.querySelector(".together-panel")?.hasAttribute("hidden")).toBe(true);
+    await click(button);
+    const leave = (): HTMLButtonElement | undefined => {
+      const dialog = document.querySelector<HTMLDialogElement>("dialog[open]");
+      return dialog === null ? undefined : buttonWithText(dialog, "Leave");
+    };
+    await settleUntil(() => leave() !== undefined);
+    const dialog = document.querySelector<HTMLDialogElement>("dialog[open]");
+    // The film plays on the receiver, whose volume is the remote's: the page's own has no part.
+    expect(dialog?.querySelector("input[type=range]")).toBeNull();
+    mounted.unmount();
+  });
 });
 
 describe("a cast from over a guest's Play page of the group's film (D371 §4, VQ193)", () => {

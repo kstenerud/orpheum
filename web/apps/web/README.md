@@ -265,7 +265,12 @@ The web client: the browser and phone interface, served embedded by the core. MP
   sent on or taken by a cast started over it, shows in its video's place the cast's remote
   (`src/cast-remote.tsx`), which holds no player: with a film playing, *Playing on ‹Device›*, its
   controls (`src/session-remote.tsx`), working the session the tab hosts while Watch Together is on
-  too, Up next and Stop casting, the one way to bring the film back (D388); with
+  too, Up next and Stop casting, the one way to bring the film back (D388), and Watch Together
+  (`src/together-on-the-remote.tsx`, D440 §5, §6): in a session the row of the other people's
+  sliders, Talk and Watch Together's button, its dialog the session's panel tuned to the role (the
+  guest's Leave; the host's people, grants and End), the voice the page's and so unbroken as the page
+  turns to the remote; with no session the button alone, to one who may start one; a cast started
+  from full screen leaves it (`useLeavesFullScreen`); with
   none, *Ready on ‹Device›* and Stop casting. Stopped, here or from Cast's dialog, its control taken
   back on the receiver, or the receiver gone (D364 §6), the film plays on the same page again, asked
   for with cause castOver and that start: stopped, from where the server says the receiver stood,
@@ -279,7 +284,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/cast-asked.test.tsx`, `src/cast-receiver.test.tsx`, `src/cast-receiver-sound.test.tsx`,
   `src/cast-ready.test.tsx`,
   `src/cast-receiving-mark.test.ts`, `src/cast-remote.test.tsx`, `src/player-overlay.test.tsx`,
-  `src/watching.test.ts`, `src/together-viewer-cast.test.tsx`; on devices, VQ64–VQ66, VQ68, VQ71, VQ76,
+  `src/watching.test.ts`, `src/together-viewer-cast.test.tsx`, `src/together-on-the-remote.test.tsx`;
+  on devices, VQ282, VQ64–VQ66, VQ68, VQ71, VQ76,
   VQ77, VQ90, VQ99, VQ101 and VQ103.
 - **Voice starts only from Talk**, the press the microphone needs, on the viewer's page and with
   the host's player; then mute, Leave voice and the partner's volume, apart from the film's; a
@@ -684,8 +690,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   name above it; Left and Right move along it and close it past either end, Up and Down step the
   focused slider, a finger drags each. The host's dialog for a person drops their volume while the
   film plays under it (D440 §2, amending D281 §5). Talk sits beside 🔈 in a session on a device with
-  a microphone (`TalkOverTheFilm`, `src/has-microphone.ts`, D440 §3). `src/volume-row.test.tsx`,
-  `src/has-microphone.test.ts`. A television's player opens full screen. Outside full
+  a microphone (`SessionTalk`, `src/has-microphone.ts`, D440 §3). The per-person volumes and the
+  film's leave the session's panel while it is in Watch Together's dialog, the row carrying them
+  (`VolumesOutsideTheRow`, `src/together-panel-place.tsx`, D440 §8 amending D281 §5); the panel at
+  home, where no row is drawn, and the tray's dialog keep them. `src/volume-row.test.tsx`,
+  `src/has-microphone.test.ts`, `src/together-over-the-film.test.tsx`. A television's player opens full screen. Outside full
   screen, on every device, nothing lies over the film (D407 §9, `src/page-controls.tsx`): the
   controls are under it, never hidden, the timeline, the same buttons but the menus, which stay under
   them on the page, and the offers as ordinary buttons after a television's ‹; Down on the video goes

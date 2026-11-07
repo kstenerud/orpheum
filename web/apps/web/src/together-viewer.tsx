@@ -64,6 +64,8 @@ import {
   type KeptVideo,
 } from "./together-viewer-tap.tsx";
 import { ComingAndGoing, TogetherPanel } from "./together-over-the-film.tsx";
+import { TogetherOnTheRemote, useIsCastingTheGroupsFilm } from "./together-on-the-remote.tsx";
+import { VolumesOutsideTheRow } from "./together-panel-place.tsx";
 import { SessionVoiceContext, useVoice, VoiceControls } from "./together-voice.tsx";
 import {
   forgetEndedHere,
@@ -317,6 +319,7 @@ function ViewerSession(props: {
   useOverWhenEnded(snapshot, onOver);
   useFollowsTheGroupsFilm(snapshot, props.onGroupFilm);
   useToldStanding(isConnected ? connection : undefined, standingOf(kept));
+  const isCasting = useIsCastingTheGroupsFilm(snapshot);
   if (!kept.hasHadATap) {
     // As a page of its own: nothing of the session plays or shows under it (the owner, 2026-10-13).
     return (
@@ -343,12 +346,14 @@ function ViewerSession(props: {
           volume={volume}
         />
         <ComingAndGoing snapshot={snapshot} video={kept.video} />
-        <TogetherPanel>
+        <TogetherPanel isHomeHidden={isCasting}>
           <TogetherNews snapshot={snapshot} />
           <TogetherDebug snapshot={snapshot} />
           {/* The voices' tap is asked for over the stage, with the film's (ViewingArea). */}
           <VoiceControls {...voice} tap={{ ...voice.tap, isWaiting: false }} />
-          <VolumeSlider volume={volume} onChange={setVolume} />
+          <VolumesOutsideTheRow>
+            <VolumeSlider volume={volume} onChange={setVolume} />
+          </VolumesOutsideTheRow>
           <LeaveButton membership={props.membership} onLeft={onOver} />
         </TogetherPanel>
       </ViewerPage>
@@ -442,16 +447,18 @@ function ViewingArea(props: {
   const { sending } = useLive();
   const fileId = props.snapshot?.group?.fileId ?? 0;
   const { connection } = props;
-  const isCasting = sending?.isAccepted === true && fileId !== 0;
+  const isCasting = useIsCastingTheGroupsFilm(props.snapshot);
   useEffect(
     () => (isCasting && connection !== undefined ? tellsNoFilmHere(connection) : undefined),
     [isCasting, connection],
   );
-  if (isCasting) {
+  if (isCasting && sending !== undefined) {
+    // The cast's controls, Watch Together's among them, the phone the control centre (D440 §5).
     return (
       <section className="together-viewer__viewing" aria-label={t("together.stage")}>
         <p>{t("cast.playingOn", { name: sending.receiverName })}</p>
         <SessionRemote snapshot={props.snapshot} connection={connection} durationMs={0} />
+        <TogetherOnTheRemote />
       </section>
     );
   }

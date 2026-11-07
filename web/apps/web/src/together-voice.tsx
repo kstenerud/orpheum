@@ -33,6 +33,7 @@ import { ModalDialog } from "./modal-dialog.tsx";
 import { volumeAfter } from "./volume-step.ts";
 import { dataOrThrow } from "./problem.ts";
 import { useServices, useToken } from "./services.tsx";
+import { VolumesOutsideTheRow } from "./together-panel-place.tsx";
 import { useHostsSessionOver } from "./together-session-end.ts";
 import { membershipHeaders, type Membership } from "./together-storage.ts";
 import { monotonicMs } from "./use-together.ts";
@@ -505,7 +506,9 @@ export function VoiceControls(props: VoiceInUse): JSX.Element {
         <output className="together-voice__talking">{t("together.voice.talking")}</output>
       ) : null}
       {snapshot.status === "starting" ? <output>{t("together.voice.starting")}</output> : null}
-      <VoiceVolumes voice={voice} snapshot={snapshot} tap={props.tap} />
+      <VolumesOutsideTheRow>
+        <VoiceVolumes voice={voice} snapshot={snapshot} tap={props.tap} />
+      </VolumesOutsideTheRow>
       <p className="together-voice__hint">{t("together.voice.headphones")}</p>
     </section>
   );
@@ -516,9 +519,11 @@ export function VoiceControls(props: VoiceInUse): JSX.Element {
  * §3): the one toggle (D281 §7), blue with its ring following one's voice while on, grey and struck
  * through while off; that is the whole sign of its state. It shows only where the device has a
  * microphone (useHasMicrophone), so not on a television playing alone, and, while on, until it is
- * turned off. It is in the overlay, so it shows only while the overlay does (D440 §1).
+ * turned off. It is in the overlay, so it shows only while the overlay does (D440 §1). On the cast's
+ * remote, the control centre while casting (D440 §5), it is the same toggle, drawn on the page
+ * (isOverVideo false, together-on-the-remote.tsx).
  */
-export function TalkOverTheFilm(): JSX.Element | null {
+export function SessionTalk(props: { readonly isOverVideo: boolean }): JSX.Element | null {
   const voice = useSessionVoice();
   const hasMicrophone = useHasMicrophone();
   if (voice === undefined || (!hasMicrophone && voice.snapshot.status !== "on")) {
@@ -530,7 +535,7 @@ export function TalkOverTheFilm(): JSX.Element | null {
       snapshot={voice.snapshot}
       tap={voice.tap}
       shouldWarnFirst={movesSoundToTheEarpiece()}
-      isOverVideo
+      isOverVideo={props.isOverVideo}
     />
   );
 }

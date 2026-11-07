@@ -9,12 +9,13 @@ import { playedMutedEvent } from "@orpheum/sdk";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PlayView } from "./play.tsx";
-import { buttonWithText, click, mount, servedBy } from "./test-dom.tsx";
+import { buttonWithText, click, mount, servedBy, settleUntil } from "./test-dom.tsx";
 import { directDecision } from "./test-fixtures.ts";
 import { withServices } from "./test-services.tsx";
 import { currentNotice, dismissNotice } from "./notice.ts";
 import { fakeTogetherServer } from "./test-together.ts";
 import { HostPlaysTogether } from "./together-host.tsx";
+import { TogetherButton } from "./together-over-the-film.tsx";
 
 const karl = { id: 1, name: "Karl", isHost: true };
 
@@ -78,6 +79,48 @@ describe("the host's player in a session (D246 §5)", () => {
     mounted.unmount();
     // Leaving the player stops nothing for the group: Stop, or another film, does (D246 §5 withdrawn).
     expect(server.heard.filter((message) => message["command"] === "stop")).toEqual([]);
+  });
+
+  it("leaves the film's volume out of the panel in Watch Together's dialog over the film, the slider row carrying it (D440 §8)", async () => {
+    hostSession();
+    const server = fakeTogetherServer();
+    const services = {
+      ...servedBy(
+        { "GET /together/3": [200, { sessionId: 3, nextRights: {}, links: [], members: [karl] }] },
+        [],
+        "token",
+      ),
+      openTogetherSocket: server.openSocket,
+    };
+    const mounted = await mount(
+      withServices(
+        <>
+          <TogetherButton isOverVideo onOpenChange={() => undefined} />
+          <HostPlaysTogether fileId={5} video={null} startPositionMs={0} cannotKeepUp={undefined} />
+        </>,
+        services,
+      ),
+    );
+    await server.accept();
+    await server.say({
+      type: "welcome",
+      seq: 1,
+      memberId: 1,
+      isHost: true,
+      group: { state: "Idle", positionMs: 0, rate: 1, fileId: 0 },
+      roster: [{ ...karl, devices: [{ id: 9, role: "video" }] }],
+    });
+    expect(mounted.container.querySelector(".together-panel .film-volume input")).not.toBeNull();
+    await click(
+      mounted.container.querySelector('button[aria-label="Watch Together is on: its controls"]'),
+    );
+    await settleUntil(
+      () =>
+        document.querySelector("dialog[open]")?.textContent.includes("Watch Together is on") ===
+        true,
+    );
+    expect(document.querySelector("dialog[open] .film-volume")).toBeNull();
+    mounted.unmount();
   });
 
   it("goes home, told, as the session ends while its film plays here, the film played on alone no more (D389 §1)", async () => {
