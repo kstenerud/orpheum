@@ -2,7 +2,8 @@
 
 import { describe, expect, it } from "vitest";
 
-import { signInOf } from "./lab-cast.tsx";
+import { pairingCodeOf } from "./lab-cast-target.tsx";
+import { castTargetRequest, signInOf } from "./lab-cast.tsx";
 
 const session = { token: () => "a-token", locator: () => "a-locator" };
 const throughDiscovery = {
@@ -28,5 +29,27 @@ describe("what a play sent to the lab's receiver signs in by", () => {
       authorization: "Bearer a-token",
       reach: { ...throughDiscovery, token: "a-token", locator: "a-locator" },
     });
+  });
+});
+
+describe("what asks the lab's receiver to become a cast target", () => {
+  it("carries the way to the core from away under a discovery's loader, which it pairs through", () => {
+    expect(castTargetRequest(session, throughDiscovery)).toEqual({
+      type: "device",
+      reach: { ...throughDiscovery, token: "a-token", locator: "a-locator" },
+    });
+  });
+
+  it("carries nothing on the core's own origin, where the receiver pairs with the core that served it", () => {
+    expect(castTargetRequest(session, undefined)).toEqual({ type: "device" });
+  });
+});
+
+describe("the lab receiver's pairing code", () => {
+  it("is read from its pairing message alone", () => {
+    expect(pairingCodeOf({ type: "pairing", code: "abcd-efgh" })).toBe("abcd-efgh");
+    expect(pairingCodeOf({ type: "pairing", code: "" })).toBeUndefined();
+    expect(pairingCodeOf({ type: "checkCode", checkCode: "42-17" })).toBeUndefined();
+    expect(pairingCodeOf("pairing")).toBeUndefined();
   });
 });
