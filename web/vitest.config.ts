@@ -69,6 +69,8 @@ export default defineConfig({
     // (e2e/vitest-timings.ts), which none were from the projects' split on 2026-10-26 to the
     // caching audit (caching-audit-2026-10-28.md, finding 11).
     passWithNoTests: false,
+    // The repository's test lock, taken however the run was started (e2e/test-lock.ts).
+    globalSetup: ["./e2e/test-lock.ts"],
     reporters: ["default", new VitestTimings({ suite: "vitest" })],
     projects: [
       {

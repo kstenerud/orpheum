@@ -30,7 +30,8 @@ export default defineConfig({
   testIgnore: "acceptance.spec.ts",
   // Traces and screenshots of a failure, beside the dev loop's state and ignored by git.
   outputDir: "../../.dev/browser-results",
-  globalSetup: "./server.ts",
+  // The repository's test lock first, taken however the run was started (test-lock.ts).
+  globalSetup: ["./test-lock.ts", "./server.ts"],
   // Workers side by side, each with a server of its own (browser-map.ts), a spec's tests in turn on
   // one; a timed test's pass, one, as a time measured beside other work measures the work.
   workers: isTimingPass ? 1 : sideBySide,

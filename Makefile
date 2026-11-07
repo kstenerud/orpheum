@@ -780,7 +780,19 @@ tools: ## Fetch the pinned golangci-lint and sqlc into .tools/ (make check does 
 	@$(PYTHON) scripts/fetch_tools.py
 
 .PHONY: setup
-setup: hooks web-deps browsers ## Set up a clone: git hooks, web dependencies, the browsers (check, spot, dev and check-pr do their parts)
+setup: hooks go-test-lock web-deps browsers ## Set up a clone: git hooks, go test's lock, web dependencies, the browsers (check, spot, dev and check-pr do their parts)
+
+# `go test` typed anywhere takes the repository's test lock (the owner, 2026-11-07): Go reads no
+# setting from a repository, so the -exec that takes it goes into this user's own GOFLAGS (go env -w),
+# beside what is there. It runs every Go program of every project through scripts/go_test_exec,
+# which passes all but this repository's test binaries straight on; a checkout moved runs this again.
+# The gates' own runs set GOFLAGS themselves, and hold the lock already.
+.PHONY: go-test-lock
+go-test-lock: ## Make `go test` typed anywhere take the repository's test lock (adds -exec to your GOFLAGS)
+	@flag='-exec=$(CURDIR)/scripts/go_test_exec'; current="$$(env -u GOFLAGS go env GOFLAGS)"; \
+	  case " $$current " in *" $$flag "*) ;; \
+	  *) env -u GOFLAGS go env -w GOFLAGS="$$(echo $$current $$flag)" && \
+	     echo "go-test-lock: go test now takes the test lock (GOFLAGS: $$(env -u GOFLAGS go env GOFLAGS))";; esac
 
 # The git hooks, which a clone or a rebuilt sandbox lacks until set: without them a commit ran no gate,
 # and the pre-bash hook refused every commit until `make setup` was found (2026-10-23). The gates and

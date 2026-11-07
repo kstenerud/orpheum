@@ -1,0 +1,19 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# ABOUTME: go test's -exec (make setup adds it to GOFLAGS): runs a test binary of this repository
+# ABOUTME: holding the test lock, one hold for all the binaries of one go command; anything else as is.
+#
+# The owner, 2026-11-07: every way of running tests takes the lock (scripts/gate_lock.py). The `go`
+# command runs each package's test binary through this, from that package's folder, as its child.
+case "$1" in
+  *.test) ;;
+  *) exec "$@" ;;
+esac
+if [ "${ORPHEUM_GATE_LOCK_HELD:-}" != 1 ]; then
+  top=$(git rev-parse --show-toplevel 2>/dev/null) || exec "$@"
+  [ -f "$top/scripts/gate_lock.py" ] || exec "$@"
+  python3 "$top/scripts/gate_lock.py" --for-pid "$PPID" >/dev/null || exit 1
+  ORPHEUM_GATE_LOCK_HELD=1
+  export ORPHEUM_GATE_LOCK_HELD
+fi
+exec "$@"

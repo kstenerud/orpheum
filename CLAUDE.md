@@ -45,7 +45,10 @@ the `AGENTS.md` convention read the same rules. Only Claude-specific mechanics b
 - **One test run at a time** (the owner, 2026-11-04): `make check`, `make spot`, check-pr, revert-red,
   the background probe and a test command typed in a session (`go test`, `vitest`, `npm test`,
   `playwright`, …, which `pre_bash.py` runs through `scripts/gate_lock.py`, in its own shell, so a `cd`
-  in it does not carry) hold one lock shared by every worktree. A run that finds it held says what holds
+  in it does not carry) hold one lock shared by every worktree; a test run started any other way (a script, an editor, `npx`, the
+  owner's terminal) takes it too, through `scripts/gate_lock.py --for-pid`: vitest and Playwright in their
+  global setup (`web/e2e/test-lock.ts`), `go test` through the `-exec` `make setup` adds to GOFLAGS
+  (`scripts/go_test_exec`). A run that finds it held says what holds
   it and waits; `python3 scripts/gate_lock.py --held` prints the holder. The command holds the lock too,
   so a killed wrapper cannot let its tests run on outside it, and ending the wrapper ends the command's
   whole process group. Each kind of run has a lease (a hung run is ended at it). A foreground command

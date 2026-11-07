@@ -10,6 +10,7 @@
     "vitest.config.ts",
     "vitest.browser.config.ts",
     "e2e/browsers.ts",
+    "e2e/test-lock.ts",
     "e2e/vitest-timings.ts",
     "e2e/test-timings.ts"
   ]
