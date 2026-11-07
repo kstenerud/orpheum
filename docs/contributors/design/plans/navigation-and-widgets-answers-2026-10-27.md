@@ -2326,3 +2326,19 @@ trailer the agent wrote (the gate counts a helper's check moved from `together/l
 test answered 500, the playback's start reading the name of the system library, which no page shows
 ("fix(library): a system video starts playing, naming no library"; the owner: it must play for anyone, to diagnose a far household's TV). Passed check-pr at
 "docs(code-debt): cmd/orpheum's capturedLog waits stay as a row" (211 s) and on staging.
+
+## The 11-17 batch (the owner, 2026-11-07: the 11-15 batch's open items answered, and the test lock)
+
+1. **Decision 4, D439:** a punched pair is from away; one home judgement, in rtcapi ("fix(core): only a direct pair from home is home, judged once in rtcapi"; its
+   `Test-Weakened:` trailer covers api's two tests of the removed functions, whose cases moved to
+   rtcapi with the punched ones now away).
+2. **Decision 2:** a controller is polled 15 times a second, not every frame (the owner: "Poll 15x per
+   second and we'll see if people complain. Also measure.").
+3. **Decision 3:** agreed: D382 §2 stands, a chunk with no bytes past its first piece is no sample. The
+   row was closed by "fix(player): a chunk given up feeds hls.js's estimator from its first piece"; nothing to build.
+4. **The test lock for any run** (the owner: "make each of the direct methods of invoking tests ...
+   invoke a common script that checks the lock"): `gate_lock.py --for-pid`, called by vitest's and
+   Playwright's global setup and by `go test`'s `-exec` (`make setup` → `go-test-lock`, which writes
+   the user's own GOFLAGS: Go reads no setting from a repository) ("feat(gate): a test run started any way takes the test lock", `Gate-Changed:`).
+
+End: one check-pr, staging. nas.example and devnas wait until memtest ends.
