@@ -6,6 +6,7 @@ import { useSyncExternalStore } from "react";
 import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { idempotent } from "./idempotent.ts";
 import { ApiProblem, dataOrThrow } from "./problem.ts";
+import { useMembership } from "./together-membership.ts";
 import { forgetMembership, keepMembership, readMembership } from "./together-storage.ts";
 
 /**
@@ -47,6 +48,18 @@ export function readHostedElsewhere(): HostedElsewhere | undefined {
 /** The session the person hosts on another device, re-rendering as it is learned or goes. */
 export function useHostedElsewhere(): HostedElsewhere | undefined {
   return useSyncExternalStore(subscribeToElsewhere, readHostedElsewhere, readHostedElsewhere);
+}
+
+/**
+ * The session the person hosts on another device, as useHostedElsewhere has it, while this tab
+ * neither hosts a session nor is a guest in one: what Watch Together then says, and offers to move
+ * here (D442 §2).
+ */
+export function useHostedElsewhereHere(): HostedElsewhere | undefined {
+  const elsewhere = useHostedElsewhere();
+  const isHosting = useMembership(tabStorage, "host") !== undefined;
+  const isViewing = useMembership(browserStorage, "viewer") !== undefined;
+  return isHosting || isViewing ? undefined : elsewhere;
 }
 
 /**

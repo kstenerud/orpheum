@@ -10,7 +10,7 @@ import { ModalDialog } from "./modal-dialog.tsx";
 import { problemText } from "./problem.ts";
 import { useServices, useToken } from "./services.tsx";
 import { useMembership } from "./together-membership.ts";
-import { moveHostingHere, useHostedElsewhere, type HostedElsewhere } from "./together-mine.ts";
+import { moveHostingHere, useHostedElsewhereHere, type HostedElsewhere } from "./together-mine.ts";
 import { useSessionEnd } from "./together-session-end.ts";
 import type { Membership } from "./together-storage.ts";
 import { useRequest } from "./use-request.ts";
@@ -43,8 +43,8 @@ export function TogetherDialog(props: {
   const viewing = useMembership(browserStorage, "viewer");
   const hasPanel = props.panelPlace !== undefined;
   const isGuest = viewing !== undefined && !isHosting;
-  const elsewhere = useHostedElsewhere();
-  const isElsewhere = elsewhere !== undefined && !isHosting && !isGuest;
+  const elsewhere = useHostedElsewhereHere();
+  const isElsewhere = elsewhere !== undefined;
   return (
     <ModalDialog label={t("watchTogether.heading")} onClose={props.onClose}>
       <section className="watch-together" aria-labelledby="watch-together-heading">
