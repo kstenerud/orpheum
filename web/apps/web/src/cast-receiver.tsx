@@ -136,6 +136,31 @@ export interface Receiving {
 }
 
 /**
+ * At a film's end with no episode after it, the receiver waits ready for the next video (D364 §5);
+ * with one, its Up next moves the cast on, or waits ready, as the person's autoplay says.
+ */
+function useReadyAtTheEnd(at: {
+  readonly api: ReturnType<typeof useServices>["api"];
+  readonly receiving: Receiving;
+  readonly video: HTMLVideoElement | null;
+  readonly hasNext: boolean;
+}): void {
+  const { api, receiving, video, hasNext } = at;
+  useEffect(() => {
+    if (hasNext) {
+      return undefined;
+    }
+    const atTheEnd = (): void => {
+      readyForTheNext(api, receiving);
+    };
+    video?.addEventListener("ended", atTheEnd);
+    return () => {
+      video?.removeEventListener("ended", atTheEnd);
+    };
+  }, [api, receiving, video, hasNext]);
+}
+
+/**
  * The receiver of a cast (D337 §3–§7, D338; plans/cast-to-device.md §4, §6): its video leads the
  * cast's session of one, from where the sender stood, filling the window, with a television's player
  * controls over it (the Play page's composition) and a "Controlled from" line that fades; its own
@@ -186,20 +211,7 @@ export function CastReceiver(props: {
   useFillsTheWindow(video);
   useToldHowItStarted({ connection, isWelcomed, video, answer: props.receiving.answer });
   useEndsAsTheCastDoes(snapshot?.status === "ended" ? snapshot.endReason : undefined, onLeave);
-  const hasNext = props.hasNext === true;
-  const { receiving } = props;
-  useEffect(() => {
-    if (hasNext) {
-      return undefined; // its Up next moves the cast on, or waits ready, as the person's autoplay says
-    }
-    const atTheEnd = (): void => {
-      readyForTheNext(api, receiving);
-    };
-    video?.addEventListener("ended", atTheEnd);
-    return () => {
-      video?.removeEventListener("ended", atTheEnd);
-    };
-  }, [api, receiving, video, hasNext]);
+  useReadyAtTheEnd({ api, receiving: props.receiving, video, hasNext: props.hasNext === true });
   const takeBack = useTakingBackEnds(cast.castId, onLeave);
   return (
     <>

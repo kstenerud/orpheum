@@ -141,22 +141,11 @@ export function VolumeRow(props: {
   readonly voice: VoiceInUse | undefined;
   readonly row: VolumeRowState;
 }): JSX.Element {
-  const { t } = useTranslation();
   const { sound, voice, row } = props;
   const letters = lettersOf(row.people.map((person) => person.name));
   return (
     <div className="volume-row">
-      <div
-        className="volume-row__slider volume-row__film"
-        data-volume-slider=""
-        data-focused={row.focusedAt === 0 ? "" : undefined}
-      >
-        <span className="volume-row__mark" title={t("playerControls.filmVolume")}>
-          <FilmIcon />
-        </span>
-        <SoundControls sound={sound} isOverVideo={false} isUpright isRangeFocusable={false} />
-        {sound.canSetVolume ? null : <VolumeButtonsNote />}
-      </div>
+      <FilmSlider sound={sound} isFocused={row.focusedAt === 0} isFocusable={false} />
       {voice === undefined
         ? null
         : row.people.map((person, index) => (
@@ -175,8 +164,8 @@ export function VolumeRow(props: {
 
 /**
  * The slider row on the cast's remote, the control centre while casting (D440 §5): first the film's
- * slider, which sets its level on the receiver (filmSlider, the receiver's volume, drawn by the
- * remote; nothing until it is given), then each other person's in the Watch Together session, as
+ * slider, which sets its level on the receiver (filmSlider, the film's channel on the
+ * receiver, drawn by the remote: cast-remote.tsx's receiverFilmSlider), then each other person's in the Watch Together session, as
  * 🔈's row draws them (VolumeRow). Not a pop-up but part of the page, so each slider takes the
  * browser's focus as any control does, a finger or a mouse dragging it; the one focused shows the
  * person's name above it. Nothing where it would hold no slider: no session's voices and no film
@@ -216,6 +205,38 @@ export function RemoteVolumeRow(props: {
               }}
             />
           ))}
+    </div>
+  );
+}
+
+/**
+ * The film's slider in a row, marked by a film icon, mute under it, upright (SoundControls), or,
+ * where the page cannot set the film's volume, the word that the phone's buttons do. Focusable where
+ * the row is part of a page (RemoteVolumeRow); over the film, the row marks it focused instead.
+ */
+export function FilmSlider(props: {
+  readonly sound: PlayerSound;
+  readonly isFocused: boolean;
+  readonly isFocusable: boolean;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { sound } = props;
+  return (
+    <div
+      className="volume-row__slider volume-row__film"
+      data-volume-slider=""
+      data-focused={props.isFocused ? "" : undefined}
+    >
+      <span className="volume-row__mark" title={t("playerControls.filmVolume")}>
+        <FilmIcon />
+      </span>
+      <SoundControls
+        sound={sound}
+        isOverVideo={false}
+        isUpright
+        isRangeFocusable={props.isFocusable}
+      />
+      {sound.canSetVolume ? null : <VolumeButtonsNote />}
     </div>
   );
 }
