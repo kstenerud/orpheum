@@ -2410,3 +2410,8 @@ VQ278–282.
   over IPv6 and no DTLS: pion's UDP mux gave every host candidate of a family one socket, so the
   core's pairs disagreed and it never started DTLS. Fixed at "fix(rtcapi): one host candidate of each family on the LAN port" (D441, amending D300 §1; the
   idiosyncrasies entry; VQ283). Reaches nas.example with the batch, on the owner's go.
+- **Passed check-pr at "docs(plans): the 11-19 batch folds in the ThinkPad's Firefox sign-in fix"** (2026-11-07), the owner having tested the fix on staging from the
+  ThinkPad; **deployed to nas.example** at GitHub's 57f34e2d (the same tree) on the owner's go ("go
+  ahead with the deployment"). Seconds after the core started, the ThinkPad connected over direct
+  IPv6 in 82 ms. Owed by the owner: VQ283. Still to build in this batch: a hosted session stays on
+  its device.
