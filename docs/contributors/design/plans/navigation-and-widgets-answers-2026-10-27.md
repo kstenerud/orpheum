@@ -2415,3 +2415,11 @@ VQ278–282.
   ahead with the deployment"). Seconds after the core started, the ThinkPad connected over direct
   IPv6 in 82 ms. Owed by the owner: VQ283. Still to build in this batch: a hosted session stays on
   its device.
+- **Built: a hosted session stays on its device** (D442, amending D267 §2; "feat(together): the session a person hosts stays on the device that started it", "feat(web): another device says where the hosted session is and moves it here",
+  "refactor(web): Watch Together's offers with no session here in one hook each"). /me/together gives no host credential: the starting tab hosts on across a reload; the
+  person's other devices say "Your session is on, on ‹device›" and offer Move it here
+  (`POST /together/{id}/host-here`), which cuts off the old device, told it moved. Cast lists those
+  devices as any other. **The batch passed check-pr at "refactor(web): Watch Together's offers with no session here in one hook each"** and is on staging. Owed by the
+  owner: VQ284. Points for the owner: a new tab on the starting device counts as another device
+  (membership is per tab); Move it here while casting cuts the receiver off too; the old device goes
+  home rather than staying on its page.
