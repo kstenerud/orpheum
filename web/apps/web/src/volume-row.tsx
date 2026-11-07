@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 
 import { VolumeButtonsNote } from "./film-volume-slider.tsx";
 import { Icon } from "./icon.tsx";
-import { volumeAfter } from "./player-commands.ts";
+import { volumeAfter } from "./volume-step.ts";
 import { SoundControls, type PlayerSound } from "./player-controls.tsx";
 import type { OneControl } from "./popover.tsx";
 import {

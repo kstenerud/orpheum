@@ -30,7 +30,7 @@ import { ownScriptOf } from "./app-update.ts";
 import { useHasMicrophone } from "./has-microphone.ts";
 import { Icon } from "./icon.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
-import { volumeAfter } from "./player-commands.ts";
+import { volumeAfter } from "./volume-step.ts";
 import { dataOrThrow } from "./problem.ts";
 import { useServices, useToken } from "./services.tsx";
 import { useHostsSessionOver } from "./together-session-end.ts";
