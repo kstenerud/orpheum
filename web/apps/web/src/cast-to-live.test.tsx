@@ -25,7 +25,7 @@ function device(id: number, name: string, isThisDevice = false): Record<string, 
   };
 }
 
-describe("the device list while the live connection is down", () => {
+describe("the device list as the live connection says what is open", () => {
   let mounted: Mounted | undefined;
   afterEach(() => {
     mounted?.unmount();
@@ -54,5 +54,27 @@ describe("the device list while the live connection is down", () => {
     await server.drop();
     expect(buttonWithText(mounted.container, "Fire TV")?.disabled).toBe(true);
     expect(mounted.container.textContent).toContain("Reconnecting…");
+  });
+
+  it("lists a device signed in while the list is open, as it connects (the owner, staging, 2026-11-07)", async () => {
+    const routes: Parameters<typeof servedBy>[0] = {
+      "GET /me/devices": [200, { devices: [device(1, "Mac", true)] }],
+    };
+    const services = servedBy(routes, [], "token");
+    const server = fakeTogetherServer();
+    mounted = await mount(
+      withServices(
+        <LiveProvider>
+          <CastTargets film={() => undefined} />
+        </LiveProvider>,
+        { ...services, openTogetherSocket: server.openSocket },
+      ),
+    );
+    await server.accept();
+    await server.say({ type: "devices", deviceIds: [1] });
+    expect(mounted.container.textContent).toContain("None of your other devices");
+    routes["GET /me/devices"] = [200, { devices: [device(1, "Mac", true), device(2, "Phone")] }];
+    await server.say({ type: "devices", deviceIds: [1, 2], inFrontDeviceIds: [2] });
+    expect(mounted.container.textContent).toContain("Phone");
   });
 });
