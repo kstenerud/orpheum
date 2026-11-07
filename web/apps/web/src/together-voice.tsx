@@ -146,29 +146,55 @@ export function useSessionVoice(): VoiceInUse | undefined {
   return use(SessionVoiceContext);
 }
 
-/** Keeps the host's voice while this tab hosts membership, for every screen under it. */
+/**
+ * Keeps the host's voice while this tab hosts membership, for every screen under it. The screens sit
+ * under the same elements with a session or none, so starting one remounts nothing: a film playing
+ * as its host started a session from its overlay played again from its start, the dialog closed
+ * (the owner, staging, 2026-11-07). The voice is held beside them (HostVoiceOf) and handed in.
+ */
 export function HostVoiceProvider(props: {
   readonly membership: Membership | undefined;
   readonly children: ReactNode;
 }): JSX.Element {
-  return props.membership === undefined ? (
-    <>{props.children}</>
-  ) : (
-    <HostVoiceOf membership={props.membership}>{props.children}</HostVoiceOf>
+  const [held, setHeld] = useState<VoiceInUse | undefined>(undefined);
+  const { membership } = props;
+  const voice = membership === undefined ? undefined : held;
+  return (
+    <>
+      {membership === undefined ? null : (
+        <HostVoiceOf key={membership.sessionId} membership={membership} onVoice={setHeld} />
+      )}
+      <HostVoiceContext value={voice}>
+        <SessionVoiceContext value={voice}>{props.children}</SessionVoiceContext>
+      </HostVoiceContext>
+    </>
   );
 }
 
+/** The host's voice in membership's session, told onVoice as it changes and undefined as it goes. */
 function HostVoiceOf(props: {
   readonly membership: Membership;
-  readonly children: ReactNode;
-}): JSX.Element {
-  const voice = useVoice(props.membership, useToken());
-  useHostLeavesAsTheSessionEnds(props.membership.sessionId, voice.snapshot.endReason);
-  return (
-    <HostVoiceContext value={voice}>
-      <SessionVoiceContext value={voice}>{props.children}</SessionVoiceContext>
-    </HostVoiceContext>
+  readonly onVoice: (voice: VoiceInUse | undefined) => void;
+}): null {
+  const inUse = useVoice(props.membership, useToken());
+  useHostLeavesAsTheSessionEnds(props.membership.sessionId, inUse.snapshot.endReason);
+  const { voice, snapshot, tap } = inUse;
+  const { isWaiting, play } = tap;
+  const told = useMemo(
+    () => ({ voice, snapshot, tap: { isWaiting, play } }),
+    [voice, snapshot, isWaiting, play],
   );
+  const { onVoice } = props;
+  useEffect(() => {
+    onVoice(told);
+  }, [onVoice, told]);
+  useEffect(
+    () => () => {
+      onVoice(undefined);
+    },
+    [onVoice],
+  );
+  return null;
 }
 
 /**

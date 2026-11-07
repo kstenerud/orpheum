@@ -12,7 +12,7 @@ import {
   type VoiceCallSetup,
   type VoiceMicrophone,
 } from "@orpheum/sdk";
-import { act, type JSX } from "react";
+import { act, useState, type JSX } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { currentNotice, dismissNotice } from "./notice.ts";
@@ -26,6 +26,7 @@ import {
   movesSoundToTheEarpiece,
   talkRingEveryMs,
   talkRingOf,
+  useHostVoice,
   useVoice,
   VoiceControls,
 } from "./together-voice.tsx";
@@ -494,5 +495,55 @@ describe("the host's page as the session it hosts ends (D389 §1)", () => {
     expect(noticeShown()).toBe(
       "The Watch Together session was closed because nothing had happened in it for hours.",
     );
+  });
+});
+
+describe("the host's voice as a session starts", () => {
+  /** A page under the voice: a count it keeps, and whether it has the host's voice. */
+  function APage(): JSX.Element {
+    const [count, setCount] = useState(0);
+    const voice = useHostVoice();
+    return (
+      <button
+        type="button"
+        data-voice={voice === undefined ? "none" : "had"}
+        onClick={() => {
+          setCount(count + 1);
+        }}
+      >
+        {`pressed ${String(count)}`}
+      </button>
+    );
+  }
+
+  /** The tab, hosting nothing until Start. */
+  function TheTab(): JSX.Element {
+    const [hosts, setHosts] = useState<{ sessionId: number; credential: string } | undefined>();
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => {
+            setHosts({ sessionId: 1, credential: "host-credential" });
+          }}
+        >
+          Start
+        </button>
+        <HostVoiceProvider membership={hosts}>
+          <APage />
+        </HostVoiceProvider>
+      </>
+    );
+  }
+
+  it("leaves the page under it as it was: a film playing went on, not started again (the owner, 2026-11-07)", async () => {
+    const { services, server } = voiceServices(fakeDevices());
+    const mounted = await mount(withServices(<TheTab />, services));
+    await click(buttonWithText(mounted.container, "pressed 0"));
+    await click(buttonWithText(mounted.container, "Start"));
+    await server.accept();
+    const page = buttonWithText(mounted.container, "pressed 1");
+    expect(page.getAttribute("data-voice")).toBe("had");
+    mounted.unmount();
   });
 });
