@@ -427,7 +427,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D419](working-notes.md#d419--homes-hide-sits-in-a-strip-above-its-card-your-account-places-its-leftover-sections-focus-after-hide-goes-to-the-next-card) Home's Hide sits in a strip above its card; Your account places its leftover sections; focus after Hide goes to the next card
 - [D420](working-notes.md#d420--a-title-page-with-nothing-to-play-and-no--arrives-on-the-words-saying-why) A title page with nothing to play and no "…" arrives on the words saying why
 - [D421](working-notes.md#d421--a-dialogs-safe-choice-comes-first-and-is-where-focus-arrives-where-every-choice-is-dangerous-none-is) A dialog's safe choice comes first and is where focus arrives; where every choice is dangerous, none is
-- [D422](working-notes.md#d422--casts-sign-shows-over-the-playing-film-too-watch-together-stays-in-the-tray) Cast's sign shows over the playing film too; Watch Together stays in the tray — *revisited by D423*
+- [D422](working-notes.md#d422--casts-sign-shows-over-the-playing-film-too-watch-together-stays-in-the-tray) Cast's sign shows over the playing film too; Watch Together stays in the tray — *revisited by D423, D440*
 - [D423](working-notes.md#d423--watch-togethers-sign-shows-over-the-playing-film-and-opens-its-sessions-panel-there) Watch Together's sign shows over the playing film, and opens its session's panel there — *revisited by D433*
 - [D424](working-notes.md#d424--a-failed-quick-tier-stops-check-pr-before-its-long-ones) A failed quick tier stops check-pr before its long ones
 - [D425](working-notes.md#d425--d416s-rename-corrected-by-review-two-interests-one-release-of-aliases-the-loader-frozen-no-mixed-callers-declared-as-security) D416's rename, corrected by review: two interests, one release of aliases, the loader frozen, no `mixed`, callers declared as security — *revisited by D432*
@@ -445,6 +445,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D437](working-notes.md#d437--one-copy-of-a-core-serves-a-refused-copy-stops-asking-until-an-admin-says-so-and-both-are-warned-under-the-exclamation-icon) One copy of a core serves: a refused copy stops asking until an admin says so, and both are warned under the exclamation icon
 - [D438](working-notes.md#d438--a-households-own-relay-stays-deferred-until-the-betas-data-asks-for-it-when-built-one-core-pairs-with-one-relay-enrolled-by-the-core) A household's own relay stays deferred until the beta's data asks for it; when built, one core pairs with one relay, enrolled by the core
 - [D439](working-notes.md#d439--only-a-direct-pair-from-home-is-home-a-punched-pair-is-judged-as-from-away-once-in-rtcapi) Only a direct pair from home is home: a punched pair is judged as from away, once, in rtcapi
+- [D440](working-notes.md#d440--playback-redesigned-one-overlay-holds-a-row-of-volume-sliders-the-microphone-one-cast-control-and-one-watch-together-button-casting-moves-control-to-the-phone-and-voices-may-play-on-the-tv) Playback redesigned: one overlay holds a row of volume sliders, the microphone, one Cast control and one Watch Together button; casting moves control to the phone, and voices may play on the TV
 
 ## Archived
 

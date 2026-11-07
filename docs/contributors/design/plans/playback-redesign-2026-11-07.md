@@ -3,7 +3,7 @@
 The owner opened this design round on 2026-11-07: in full screen, Cast and Watch Together are hard to
 reach, and leaving full screen to reach them is cumbersome, so they become situational controls of
 the full-screen view. This file is the design agreed in the dialogue that followed, written for the
-owner's approval before any building. **Agreed** marks the owner's words in the dialogue;
+owner's approval before any building, and approved whole on 2026-11-07 as D440. **Agreed** marks the owner's words in the dialogue;
 **Proposed** marks the lead's filling-in, for the owner to confirm or change.
 
 Groundwork:
