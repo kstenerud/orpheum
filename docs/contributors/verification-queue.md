@@ -2806,3 +2806,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   played a video for awhile"; Chromium on it played on across the deploy) after the deploy, five times in a row, with its WebRTC settings at their defaults (D441). Before,
   every attempt ended "can't reach the server from this network". Then Chromium on it and Firefox on
   the Mac still sign in. (`internal/core/rtcapi/rtcapi.go`)
+- [ ] **VQ284** — A hosted session stays on its device (D442). Start a session on the Mac, then open
+  orpheum.dev on the phone, signed in as the same person: the phone does not host it, Cast on the Mac
+  lists the phone, and the phone's Watch Together button says "Your session is on, on ‹the Mac's
+  name›" with Move it here. Reload the Mac: it still hosts. Press Move it here on the phone: the
+  phone hosts, and the Mac goes home saying the session moved to another of your devices.
+  (`web/apps/web/src/together-mine.ts`, `internal/core/together/memberships.go`)
