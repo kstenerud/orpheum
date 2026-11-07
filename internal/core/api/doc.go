@@ -81,17 +81,14 @@
 //     F-6). Enforced by TestMediaCookie_ALoadFromAnotherSitesPageIsNotSignedInByIt and
 //     TestMediaCookie_OverTLSItIsHostOnlyAndThePlainNameNoLongerCounts.
 //   - An admin administers only from the house's network: at home a sign-in from any origin carries
-//     the whole role, directly or over a WebRTC connection whose selected pair reaches the core from
-//     the house with no relay between, as the core's own end of the pair says, the house's IPv6 /64
-//     being the core's own public IPv6 address's on that connection
-//     (TestIsHomeOverWebRTC_CountsTheCoresOwnIPv6NetworkAsTheHouses); from any other network,
-//     over WebRTC too, it carries a person's (D297 §6, D300 §3, revising D294 §1, §4), unless the admin
-//     set administering from away to always, from home (D302).
+//     the whole role, directly or over a WebRTC connection whose selected pair is direct and reaches
+//     the core from the house, which rtcapi alone judges (rtcapi.IsDirectlyFromHome, D439); from any
+//     other network, over WebRTC too, it carries a person's (D297 §6, D300 §3, revising D294 §1, §4),
+//     unless the admin set administering from away to always, from home (D302).
 //     TestAdmin_AdministersFromAwayOnlyByTheirOwnSettingSetFromHome. Enforced by
-//     TestSignIn_AnAdminAdministersFromAnyOrigin,
-//     TestAdmin_AdministersOnlyFromTheHousesNetworkDirectlyOrOverWebRTCFromIt and
-//     TestIsDirectPath_CountsNoRelayedOrFailedPath. A hairpinned pair is never from home, its client's
-//     address a NAT's that many households may share (D354 §4). Nor is a house network the discovery is
+//     TestSignIn_AnAdminAdministersFromAnyOrigin and
+//     TestAdmin_AdministersOnlyFromTheHousesNetworkDirectlyOrOverWebRTCFromIt. A punched, hairpinned
+//     or relayed pair is never from home (D439 §1, D354 §4). Nor is a house network the discovery is
 //     told, which only places the LAN name among its paths (D356 §7).
 //     TestMarkingHome_AHouseNetworkGrantsNoAdmin.
 //   - The System page is told the house's IPv6 networks, how each was had, and for a learnt one by

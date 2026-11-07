@@ -406,10 +406,9 @@ func (server *Server) open(api *webrtc.API, onProvenAtHome func(ProvenAtHome)) (
 		remote := func() string { return remoteAddress(connection) }
 		serveChannel(server.ctx, server.handler, channel, remote, server.logger, servedChannel{
 			deadline: server.bounds.requestDeadline, ended: func() { inFlight.Add(-1) },
-			path:        func() Path { return selectedPath(connection) },
-			ownNetworks: own.held,
-			held:        held,
-			now:         server.clock.Now, answerLingers: server.bounds.answerLingers,
+			fromHome: func() bool { return server.isDirectlyFromHome(selectedPair(connection), own.held()) },
+			held:     held,
+			now:      server.clock.Now, answerLingers: server.bounds.answerLingers,
 		})
 	})
 	return connection, nil

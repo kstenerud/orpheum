@@ -3,6 +3,7 @@
 package rtcapi
 
 import (
+	"context"
 	"net"
 	"net/netip"
 	"slices"
@@ -51,4 +52,26 @@ func (server *Server) tellIfProvenAtHome(
 	if proven, isProven := server.provenAtHome(pair, own); isProven {
 		onProvenAtHome(proven)
 	}
+}
+
+// isDirectlyFromHome is whether a request over a connection whose selected pair is pair, with own the
+// core's own public IPv6 networks on it, is from home: provenAtHome's judgement, made on the pair and
+// the home networks as each request finds them, so a change to either counts from the next request
+// (D439 §2).
+func (server *Server) isDirectlyFromHome(pair *webrtc.ICECandidatePair, own []netip.Prefix) bool {
+	_, isProven := server.provenAtHome(pair, own)
+	return isProven
+}
+
+// fromHomeKey is the context key of whether a request's WebRTC connection reaches the core directly
+// from the house.
+type fromHomeKey struct{}
+
+// IsDirectlyFromHome is whether the request whose context ctx is came over a WebRTC connection whose
+// selected pair is direct, the core's end an address of its own, and whose client's end is in the home
+// networks or the core's own public IPv6 networks on it (D300 §3, D439 §1). A punched, hairpinned or
+// relayed pair never is, whatever its address; false for any request not over WebRTC.
+func IsDirectlyFromHome(ctx context.Context) bool {
+	isHome, isMarked := ctx.Value(fromHomeKey{}).(bool)
+	return isMarked && isHome
 }

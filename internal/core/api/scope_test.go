@@ -68,6 +68,7 @@ func TestAdmin_AdministersOnlyFromTheHousesNetworkDirectlyOrOverWebRTCFromIt(t *
 	// Home is this machine: the pair may reach the core over any of its addresses, loopback or an
 	// interface's, whichever ICE settles on first (it chose the container's own address under load).
 	harness.server.SetHomeNetworks(machineNetworks(t))
+	rtc.SetHomeNetworks(machineNetworks(t)) // as the binary names them to both (cmd/orpheum)
 	admin := harness.createAdminAndSignIn(t)
 	//nolint:contextcheck // the harness's requests carry the test's context
 	link := rtcapitest.Connect(t, func(_ context.Context, offer rtcapi.Description) (rtcapi.Description, error) {
@@ -93,6 +94,7 @@ func TestAdmin_AdministersOnlyFromTheHousesNetworkDirectlyOrOverWebRTCFromIt(t *
 		t.Error("an admin's /me over WebRTC from home says they do not administer")
 	}
 	harness.server.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("192.168.1.0/24")})
+	rtc.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("192.168.1.0/24")})
 	users := ask("/users?limit=500")
 	if users.Head.Status != http.StatusForbidden || !strings.Contains(string(users.Body), "own network") {
 		t.Errorf("an admin's GET /users over WebRTC from away = %d %s; want 403, administering only at home",
@@ -117,21 +119,6 @@ func isAdminOver(t *testing.T, asked rtcapitest.Reply) bool {
 		t.Fatalf("an admin's /me over WebRTC = %d %s; want their role", asked.Head.Status, asked.Body)
 	}
 	return me.IsAdmin
-}
-
-// A relayed WebRTC pair never counts as home, whatever address its relay has: only a pair with no
-// relay between reaches the core from the house (D300 §3).
-func TestIsDirectPath_CountsNoRelayedOrFailedPath(t *testing.T) {
-	t.Parallel()
-	for path, want := range map[rtcapi.Path]bool{
-		rtcapi.PathDirectIPv4: true, rtcapi.PathDirectIPv6: true, rtcapi.PathPunchedIPv4: true,
-		rtcapi.PathPunchedIPv6: true, rtcapi.PathRelayed: false, rtcapi.PathFailed: false,
-		rtcapi.PathHairpinnedIPv4: false,
-	} {
-		if got := api.IsDirectPath(path); got != want {
-			t.Errorf("isDirectPath(%s) = %t; want %t", path, got, want)
-		}
-	}
 }
 
 // A device a code activated watches and hosts but may not change the account's security: its

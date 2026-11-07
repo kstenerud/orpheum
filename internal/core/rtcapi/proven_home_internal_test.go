@@ -3,6 +3,7 @@
 package rtcapi
 
 import (
+	"context"
 	"net/netip"
 	"testing"
 	"time"
@@ -68,5 +69,48 @@ func TestProvenAtHome_ARelayedPunchedOrHairpinnedConnectionProvesNothing(t *test
 		if proven := told(server, pair, own); len(proven) != 0 {
 			t.Errorf("a %s connection told %+v; want nothing", name, proven)
 		}
+	}
+}
+
+// A request over WebRTC is from home only over a direct pair from a home network or the core's own
+// IPv6 network: a punched pair is not, even from a home address or the house's /64, nor is a relayed
+// or hairpinned one, and none at all is not (D439 §1). The home networks are read as each request
+// finds them, so an admin's change counts from the next (D439 §2).
+func TestIsDirectlyFromHome_OnlyADirectPairFromTheHouseIs(t *testing.T) {
+	t.Parallel()
+	server := watchedServer(t, &testutil.Log{}, clocktest.NewFake(time.Unix(1_800_000_000, 0)))
+	own := []netip.Prefix{netip.MustParsePrefix("2a0f:1000:1:2::/64")}
+	direct := pairOf(webrtc.ICECandidateTypeHost, "192.168.1.199:8443",
+		webrtc.ICECandidateTypePrflx, "192.168.1.30:5000")
+	for name, each := range map[string]struct {
+		pair *webrtc.ICECandidatePair
+		want bool
+	}{
+		"direct from a home network": {direct, true},
+		"direct from the house's IPv6 network": {pairOf(webrtc.ICECandidateTypeHost, "[2a0f:1000:1:2::5]:8443",
+			webrtc.ICECandidateTypeHost, "[2a0f:1000:1:2::30]:5000"), true},
+		"punched from a home address": {pairOf(webrtc.ICECandidateTypeSrflx, "11.22.33.144:40001",
+			webrtc.ICECandidateTypePrflx, "192.168.1.30:5000"), false},
+		"punched from the house's IPv6 network": {pairOf(webrtc.ICECandidateTypeSrflx, "[2a0f:1000:1:2::5]:40001",
+			webrtc.ICECandidateTypePrflx, "[2a0f:1000:1:2::30]:5000"), false},
+		"relayed from a home address": {pairOf(webrtc.ICECandidateTypeRelay, "198.51.100.4:3478",
+			webrtc.ICECandidateTypePrflx, "192.168.1.30:5000"), false},
+		"hairpinned": {pairOf(webrtc.ICECandidateTypeSrflx, "11.22.33.144:40001",
+			webrtc.ICECandidateTypeSrflx, "11.22.33.144:51234"), false},
+		"none": {nil, false},
+	} {
+		if got := server.isDirectlyFromHome(each.pair, own); got != each.want {
+			t.Errorf("a request over a pair %s is from home: %t; want %t", name, got, each.want)
+		}
+	}
+	server.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")})
+	if server.isDirectlyFromHome(direct, own) {
+		t.Error("after the home networks changed, a direct pair from the old one is from home; want away")
+	}
+	if IsDirectlyFromHome(t.Context()) {
+		t.Error("a request not over WebRTC is directly from home; want not")
+	}
+	if !IsDirectlyFromHome(context.WithValue(t.Context(), fromHomeKey{}, true)) {
+		t.Error("a request marked from home is not; want it")
 	}
 }
