@@ -2465,3 +2465,10 @@ lead's order: finish the 11-20 batch (items 1–7), then the filed "Next batch" 
 design call (the dead end's missing "Copy what happened"; WebRTC failures read as "couldn't tell
 why"; a message for a browser whose WebRTC fails), each batch through check-pr and onto staging,
 never nas.example.
+**The owner, 2026-11-07, later:** "if there's time to add some initial chromecast support, we can do
+testing tomorrow since I now have a chromecast device." The lead's plan: after the 11-20 batch, (a)
+bring the lab spike (`/cast/`, `/lab/cast`, VQ58; tv-device-tests.md §3) up to date and find the
+HTTPS receiver URL staging can give the Cast console; (b) the start of real support, a Chromecast in
+our Cast control through Chrome's Cast picker, our receiver handed the cast as a browser receiver
+is (B-10, D88, D135, D434). Anything needing the owner (the console, the device's serial, Google's
+sender script beyond the lab page as a dependency) is written down, not guessed.
