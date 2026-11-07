@@ -32,7 +32,7 @@ import logo from "./assets/orpheum-logo.svg";
 import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { pageThatPausesWhenHidden } from "./handheld.ts";
 import { JoinForm, NoLink } from "./together-join.tsx";
-import { keepFullScreenOnTheStage, toggleFullScreen } from "./film-fullscreen.ts";
+import { toggleFullScreen, useFullScreenOnTheStage } from "./film-fullscreen.ts";
 import { EmptyStage, FilmPlayer, type FilmParts, type MovedDown } from "./film-player.tsx";
 import type { PlaybackDecision } from "./watching.ts";
 import type { LadderOffer } from "./moving-down.ts";
@@ -645,17 +645,6 @@ function FollowingGroup(props: FilmParts): JSX.Element {
   const muted = useFollowing(props.videoRef, fileId, following);
   useFullScreenOnTheStage(props.videoRef);
   return <FilmButtons {...muted} isVoiceWaiting={isVoiceWaiting} videoRef={props.videoRef} />;
-}
-
-/**
- * Keeps full screen on the stage, the film's pieces over it, where the browser's own controls put the
- * video itself full screen (keepFullScreenOnTheStage).
- */
-function useFullScreenOnTheStage(videoRef: RefObject<HTMLVideoElement | null>): void {
-  useEffect(() => {
-    const video = videoRef.current;
-    return video === null ? undefined : keepFullScreenOnTheStage(video, document);
-  }, [videoRef]);
 }
 
 /** A ladder's word that even its lowest quality cannot keep up, told the group (D247 §8). */

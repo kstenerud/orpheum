@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { useEffect } from "react";
+import { useEffect, type RefObject } from "react";
 
 /** The class that has a player's stage fill the browser's window where full screen was refused. */
 export const fillsWindowClass = "film-player__stage--fills-window";
@@ -160,6 +160,17 @@ export function keepFullScreenOnTheStage(video: HTMLVideoElement, page: Document
   return () => {
     page.removeEventListener("fullscreenchange", changed);
   };
+}
+
+/**
+ * Keeps full screen on the stage, the film's pieces over it, where the browser's own controls put the
+ * video itself full screen (keepFullScreenOnTheStage).
+ */
+export function useFullScreenOnTheStage(videoRef: RefObject<HTMLVideoElement | null>): void {
+  useEffect(() => {
+    const video = videoRef.current;
+    return video === null ? undefined : keepFullScreenOnTheStage(video, document);
+  }, [videoRef]);
 }
 
 /** The pages that asked for themselves full screen, until the browser answers (askPageFullScreen). */
