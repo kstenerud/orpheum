@@ -21852,6 +21852,8 @@ realm in 3.5 s.
 
 ## D338 — A cast goes to the device's tab in front, its receiver keeps a television's controls and leaves by Back or a double OK, and Stop casting returns it to the page it was on
 
+> **Revised by [D445](#d445--no-press-on-a-receiver-ends-a-cast-leaving-full-screen-only-leaves-full-screen)** (2026-11-07): no press on a receiver ends a cast; leaving full screen only leaves full screen.
+
 **Decided** (2026-10-26), by the project owner, after trying the first build of
 [D337](#d337--casting-starts-with-a-persons-own-signed-in-devices-one-chosen-from-those-connected-now-plays-the-film-the-one-that-cast-becomes-its-remote-and-either-may-take-control-back) ([cast-to-device.md](../design/plans/cast-to-device.md) §11). **Amends** D337 §3,
 §4 and the §11 assumptions it was built on; keeps D337 §1, §2, §5–§8, and
@@ -24795,6 +24797,8 @@ TestCast_AReceiverTakesTheGuestsPartTheSendingPageHolds; on devices, VQ193.
 
 ## D385 — A receiver that takes control back ends the cast: it goes home, and the sender plays on from where it stood
 
+> **Revised by [D445](#d445--no-press-on-a-receiver-ends-a-cast-leaving-full-screen-only-leaves-full-screen)** (2026-11-07): no press on a receiver ends a cast; leaving full screen only leaves full screen.
+
 **Decided** (2026-10-30), by the project owner, amending D338 (settled 2026-10-27: a receiver taking
 control back stays on the video) and D384 §1. On staging, after a Fire TV took control back, the
 sender's page offered "Play here from ‹time›", its time rising on its own whatever the TV then did:
@@ -26883,3 +26887,20 @@ receiver plays the film in ⁝'s How it plays …" in web/apps/web/src/cast-remo
 web/apps/web/src/how-it-plays.test.tsx.
 
 **Status:** decided.
+## D445 — No press on a receiver ends a cast; leaving full screen only leaves full screen
+
+**Decided** (2026-11-07), by the project owner ("Agreed", to the lead's proposal, the 11-20 batch's
+answer 4), after a receiver with nothing playing could leave full screen only by Esc, which ended the
+cast. Amends D338 §6 (a receiver leaves by Back or a double OK) and D385 §1 (a receiver that takes
+control back ends the cast).
+
+1. **Esc, Back, a double OK, a double tap and leaving full screen never end a cast** on its receiver,
+   playing or not. In full screen Back leaves full screen; out of it, Back does nothing, and a Fire
+   TV's Back step leaves the page where it is. Ending a cast stays with the device that cast (its Cast
+   control's Stop casting).
+2. **The ready page, nothing playing, has a full screen button** (⤢) to leave and re-enter full
+   screen, as the player's does.
+3. **A receiver takes the session over by Move it here** (D443), not by taking control back.
+
+Built in "fix(web): no press or full screen left on a cast's receiver ends the cast" (`web/apps/web/src/cast-receiver.tsx`, `cast-ready.tsx`); tests:
+`cast-receiver.test.tsx`, `cast-receiver-steps.test.tsx`, `cast-ready.test.tsx`, `e2e/cast.spec.ts`.
