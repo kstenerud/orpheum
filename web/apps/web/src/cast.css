@@ -32,25 +32,25 @@
   }
 }
 
-/* A cast's sender, its remote (cast-remote.tsx). */
+/* A cast's sender, its remote (cast-remote.tsx): where the film would be, the full-screen overlay's
+   rows over it (D444), as over a film that is not drawn here. */
 .cast-remote {
-  display: grid;
-  gap: var(--space-3);
-  max-width: 40rem;
+  position: relative;
+  aspect-ratio: 16 / 9;
+  max-height: 80vh;
+  background: var(--color-video-background);
+  color: var(--color-on-video);
 }
 
-/* The receiver's sound on its remote (cast-remote.tsx): its switches and its track, in a row. */
-.cast-remote__sound {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  align-items: center;
+/* "‹film› · Playing on ‹TV›", or "Ready on ‹TV›": the remote's sign, first in the overlay's top row. */
+.cast-remote__sign {
+  flex: 1;
+  margin: 0;
 }
 
-/* The film's level and mute on the receiver, the first slider of the remote's row (volume-row.css,
-   D440 §2): the row lays out its slider as any other. */
-.cast-remote__film-level {
-  display: contents;
+.cast-remote__sign h2,
+.cast-remote__sign p {
+  margin: 0;
 }
 
 /* The list of devices to cast to (cast-to.tsx). */

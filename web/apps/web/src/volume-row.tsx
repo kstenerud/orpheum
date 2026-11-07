@@ -2,7 +2,7 @@
 
 import "./volume-row.css";
 
-import { useEffect, useRef, useState, type JSX, type ReactNode } from "react";
+import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { VolumeButtonsNote } from "./film-volume-slider.tsx";
@@ -140,12 +140,19 @@ export function VolumeRow(props: {
   readonly sound: PlayerSound;
   readonly voice: VoiceInUse | undefined;
   readonly row: VolumeRowState;
+  /** What the film's mark says of its slider, where not the film's volume here (FilmSlider). */
+  readonly filmTitle?: string | undefined;
 }): JSX.Element {
   const { sound, voice, row } = props;
   const letters = lettersOf(row.people.map((person) => person.name));
   return (
     <div className="volume-row">
-      <FilmSlider sound={sound} isFocused={row.focusedAt === 0} isFocusable={false} />
+      <FilmSlider
+        sound={sound}
+        title={props.filmTitle}
+        isFocused={row.focusedAt === 0}
+        isFocusable={false}
+      />
       {voice === undefined
         ? null
         : row.people.map((person, index) => (
@@ -163,28 +170,24 @@ export function VolumeRow(props: {
 }
 
 /**
- * The slider row on the cast's remote, the control centre while casting (D440 §5): first the film's
- * slider, which sets its level on the receiver (filmSlider, the film's channel on the
- * receiver, drawn by the remote: cast-remote.tsx's receiverFilmSlider), then each other person's in the Watch Together session, as
- * 🔈's row draws them (VolumeRow). Not a pop-up but part of the page, so each slider takes the
- * browser's focus as any control does, a finger or a mouse dragging it; the one focused shows the
- * person's name above it. Nothing where it would hold no slider: no session's voices and no film
- * slider given.
+ * The slider row on a Watch Together guest's page while it casts the group's film (D440 §5): each
+ * other person's in the session, as 🔈's row draws them (VolumeRow). The cast's own remote has the
+ * overlay's 🔈 instead, the film's level on the receiver first (D444). Not a pop-up but part of the
+ * page, so each slider takes the browser's focus as any control does, a finger or a mouse dragging
+ * it; the one focused shows the person's name above it. Nothing where the session has no voices.
  */
 export function RemoteVolumeRow(props: {
-  readonly filmSlider?: ReactNode;
   readonly voice: VoiceInUse | undefined;
 }): JSX.Element | null {
-  const { voice, filmSlider } = props;
+  const { voice } = props;
   const [focusedId, setFocusedId] = useState<number | undefined>(undefined);
   const people = voice === undefined ? [] : peopleOf(voice.snapshot);
-  if (filmSlider === undefined && people.length === 0) {
+  if (people.length === 0) {
     return null;
   }
   const letters = lettersOf(people.map((person) => person.name));
   return (
     <div className="volume-row volume-row--on-the-page">
-      {filmSlider}
       {voice === undefined
         ? null
         : people.map((person, index) => (
@@ -212,10 +215,13 @@ export function RemoteVolumeRow(props: {
 /**
  * The film's slider in a row, marked by a film icon, mute under it, upright (SoundControls), or,
  * where the page cannot set the film's volume, the word that the phone's buttons do. Focusable where
- * the row is part of a page (RemoteVolumeRow); over the film, the row marks it focused instead.
+ * the row is part of a page; over the film, the row marks it focused instead. Its mark says what it
+ * sets (title): the film's volume, or, on the cast's remote, the film's level on the receiver under
+ * the TV's own (D440 §5, D444).
  */
-export function FilmSlider(props: {
+function FilmSlider(props: {
   readonly sound: PlayerSound;
+  readonly title?: string | undefined;
   readonly isFocused: boolean;
   readonly isFocusable: boolean;
 }): JSX.Element {
@@ -227,7 +233,7 @@ export function FilmSlider(props: {
       data-volume-slider=""
       data-focused={props.isFocused ? "" : undefined}
     >
-      <span className="volume-row__mark" title={t("playerControls.filmVolume")}>
+      <span className="volume-row__mark" title={props.title ?? t("playerControls.filmVolume")}>
         <FilmIcon />
       </span>
       <SoundControls

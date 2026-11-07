@@ -53,6 +53,7 @@ import { LadderTracks, OwnFileTracks, usePlayerTracks } from "./player-tracks.ts
 import { LinkDebugTools } from "./link-debug-tools.tsx";
 import { useIsFullScreen } from "./full-screen-button.tsx";
 import { PlayerMenusContext, StartOver, type PlayerMenusWays } from "./player-menus.tsx";
+import { usePlaybackHere } from "./how-it-plays.tsx";
 import {
   newPicturePanel,
   PicturePanelContext,
@@ -547,14 +548,21 @@ function PlayTracksOfPage(props: FilmParts & { readonly children: ReactNode }): 
   );
 }
 
-/** Gives the overlay's menus the page's ways (menusWaysOf), around children. */
+/**
+ * Gives the overlay's menus the page's ways (menusWaysOf), around children, with how the film plays
+ * here for ⁝'s How it plays (D444): converted on its ladder, else its file as it is (deliveryOf).
+ */
 function MenusOfPage(props: {
   readonly asked: PlayProps & { readonly videoRef: RefObject<HTMLVideoElement | null> };
   readonly isOnLadder: boolean;
   readonly children: ReactNode;
 }): JSX.Element {
   const { asked, isOnLadder } = props;
-  const ways = useMemo(() => menusWaysOf(asked, isOnLadder), [asked, isOnLadder]);
+  const playback = usePlaybackHere(asked.videoRef, isOnLadder ? "converted" : "direct");
+  const ways = useMemo(
+    () => ({ ...menusWaysOf(asked, isOnLadder), playback }),
+    [asked, isOnLadder, playback],
+  );
   return <PlayerMenusContext value={ways}>{props.children}</PlayerMenusContext>;
 }
 

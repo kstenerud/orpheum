@@ -271,15 +271,19 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/cast-ready.test.tsx`, `src/cast-to.test.tsx`; on a device, VQ189 and VQ190.
   **The page cast from stays where it is** (D384 §2): a Play page whose film goes to the receiver,
   sent on or taken by a cast started over it, shows in its video's place the cast's remote
-  (`src/cast-remote.tsx`), which holds no player: with a film playing, *Playing on ‹Device›*, its
-  controls (`src/session-remote.tsx`), working the session the tab hosts while Watch Together is on
-  too, Up next and Stop casting, the one way to bring the film back (D388), and Watch Together
-  (`src/together-on-the-remote.tsx`, D440 §5, §6): in a session the row of the other people's
-  sliders, Talk and Watch Together's button, its dialog the session's panel tuned to the role (the
-  guest's Leave; the host's people, grants and End), the voice the page's and so unbroken as the page
-  turns to the remote; with no session the button alone, to one who may start one; a cast started
-  from full screen leaves it (`useLeavesFullScreen`); with
-  none, *Ready on ‹Device›* and Stop casting. Stopped, here or from Cast's dialog, its control taken
+  (`src/cast-remote.tsx`), which holds no player and is laid out as the full-screen overlay, from
+  its own pieces (D444, amending D440 §5; `OverlayRowsOf`, `src/cast-remote-choices.tsx`'s
+  `RemoteMenus`): with a film playing, the sign *‹film› · Playing on ‹Device›*, Up next only at the
+  episode's end, the signs over the film (Watch Together's, and Cast's, whose dialog holds Stop
+  casting, the one way to bring the film back, D388: the page has no Stop of its own); the timeline
+  and the bar (`useRemoteSource`, `src/session-remote.tsx`), working the session the tab hosts while
+  Watch Together is on too; 🔈, Talk, Subtitles, Sound track and ⁝ over the receiver's, ⁝ with no
+  bare player and no Start over, and How it plays read-only (`src/how-it-plays.tsx`, which the
+  player's own ⁝ shows of this device's playback too). Watch Together's dialog is the session's
+  panel tuned to the role (the guest's Leave; the host's people, grants and End,
+  `TogetherBehindTheRemote`), the voice the page's and so unbroken as the page turns to the remote;
+  a cast started from full screen leaves it (`useLeavesFullScreen`); with none, the sign *Ready on
+  ‹Device›*. Stopped from Cast's dialog, its control taken
   back on the receiver, or the receiver gone (D364 §6), the film plays on the same page again, asked
   for with cause castOver and that start: stopped, from where the server says the receiver stood,
   playing; taken back or gone, from where the receiver last stood while it led the session the remote

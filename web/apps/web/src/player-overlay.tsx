@@ -10,6 +10,7 @@ import {
   useState,
   type ComponentProps,
   type JSX,
+  type ReactNode,
   type RefObject,
 } from "react";
 import { useTranslation } from "react-i18next";
@@ -272,8 +273,11 @@ interface OverlayRefs {
   readonly convenienceRef: RefObject<HTMLDivElement | null>;
 }
 
-/** The tray's signs over the film, last in the top row: Watch Together's, then Cast's (D422, D423). */
-function SignsOverTheFilm(props: {
+/**
+ * The tray's signs over the film, last in the top row: Watch Together's, then Cast's (D422, D423);
+ * on the cast's remote's too (D444), whose Cast sign's dialog holds Stop casting.
+ */
+export function SignsOverTheFilm(props: {
   readonly onOpenChange: (isOpen: boolean) => void;
 }): JSX.Element {
   const castSign = use(CastSignOverTheFilmContext);
@@ -307,19 +311,57 @@ export function OverlayRows({
   readonly moves: SequenceMoves | undefined;
   readonly onMenuOpenChange: (isOpen: boolean) => void;
 }): JSX.Element {
-  const { t } = useTranslation();
-  const { playRef, scrubRef, buttonsRef, videoRef } = refs;
   const shown = useControlsShown(isTv, moves);
-  const menus = { videoRef, shown, sound: source.sound, onOpenChange: onMenuOpenChange };
+  const menus = { videoRef: refs.videoRef, shown, sound: source.sound };
+  return (
+    <OverlayRowsOf
+      top={
+        <>
+          <OverlayUp />
+          <ConvenienceArea
+            {...convenience}
+            leftMs={source.durationMs === 0 ? undefined : source.durationMs - source.atMs}
+          />
+          <SignsOverTheFilm onOpenChange={onMenuOpenChange} />
+        </>
+      }
+      source={source}
+      refs={refs}
+      controls={barControlsOf(shown)}
+      moves={moves}
+      menus={<PlayerMenus {...menus} onOpenChange={onMenuOpenChange} />}
+      isOverTheFilm
+    />
+  );
+}
+
+/** The rows' parts held by no ref, as on the cast's remote, which has no overlay to work them. */
+const noRefs: Partial<Pick<OverlayRefs, "playRef" | "scrubRef" | "buttonsRef" | "videoRef">> = {};
+
+/**
+ * The overlay's three rows as laid out (D407 §1), whatever fills them: the top row's pieces (top);
+ * the scrub bar over source; the buttons, the bar's controls (controls) with previous and next where
+ * moves has them, and the menus' openers. The overlay's (OverlayRows), and the cast's remote's, which
+ * takes the overlay's set and layout for its film on the receiver (D444): over the film
+ * (isOverTheFilm) the scrub bar's arrows are the overlay's commands, on the remote's page the
+ * slider's own.
+ */
+export function OverlayRowsOf(props: {
+  readonly top: ReactNode;
+  readonly source: PlayerSource;
+  readonly refs?: Partial<Pick<OverlayRefs, "playRef" | "scrubRef" | "buttonsRef" | "videoRef">>;
+  readonly controls: readonly PlayerControl[];
+  readonly moves: SequenceMoves | undefined;
+  readonly menus: ReactNode;
+  readonly isOverTheFilm: boolean;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { source } = props;
+  const { playRef, scrubRef, buttonsRef, videoRef } = props.refs ?? noRefs;
   return (
     <>
       <div className="player-overlay__row player-overlay__top" data-focus-container="">
-        <OverlayUp />
-        <ConvenienceArea
-          {...convenience}
-          leftMs={source.durationMs === 0 ? undefined : source.durationMs - source.atMs}
-        />
-        <SignsOverTheFilm onOpenChange={onMenuOpenChange} />
+        {props.top}
       </div>
       <div className="player-overlay__row player-overlay__scrub" data-focus-container="">
         <Timeline
@@ -328,7 +370,7 @@ export function OverlayRows({
           atMs={source.atMs}
           durationMs={source.durationMs}
           isDisabled={!source.isReady}
-          hasArrowsAsCommands
+          hasArrowsAsCommands={props.isOverTheFilm}
           onSeek={source.seekTo}
         />
       </div>
@@ -339,12 +381,12 @@ export function OverlayRows({
       >
         <PlayerControls
           source={source}
-          controls={barControlsOf(shown)}
+          controls={props.controls}
           isOverVideo
           isOverlayRow
           playRef={playRef}
-          moves={moves}
-          menus={<PlayerMenus {...menus} />}
+          moves={props.moves}
+          menus={props.menus}
           videoRef={videoRef}
         />
       </div>
