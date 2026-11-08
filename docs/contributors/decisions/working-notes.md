@@ -27074,9 +27074,35 @@ setup code is" (§3); `TestOMVCompose_EachMediaFolderIsMountedAtItsOwnPathAndAnU
 `TestCatalogue_TheCasaOSComposeIsTheOMVOnesWithCasaOSsFolders` (§5). The compose files were checked
 with `docker compose config`; not yet run on a NAS.
 
-## D450 — Reserved: an unconfined node accepted in the server's pages, and updates announced
+## D450 — An unconfined node accepted in the server's pages, and updates announced
 
-**Reserved** (2026-11-08) for D448 §6–7's branch; the branch replaces this entry with the decision.
+Carries out D448 §6–7 (audit items P7, P11). Amends D112's refusal to start without confinement and
+D273 §5's `confinement_policy = "require"`.
+
+1. **A node on a kernel without Landlock or seccomp starts locked.** It reads no media and runs no
+   FFmpeg. It enrols by posting what it lacks to the core (`/node/v1/locked`, protocol 60), and posts it
+   again each tick. The System page shows it as locked, with the risk in plain words and **Run
+   without confinement…**, which takes a confirmation. The acceptance is an admin's, from home
+   (requireAdmin). It is per node: a row of `node_unconfined_leave` (migration 0085) with who gave it
+   and when, logged as `unconfinedLeaveGiven`. The core answers the next report with
+   `mayRunUnconfined`. The node then says hello with `isUnconfinedByLeave`, and the System page names
+   who accepted the risk and when. **Withdraw** deletes the row and is logged as
+   `unconfinedLeaveWithdrawn`. It answers the node's waiting poll at once. The node stops, starting
+   nothing more, and comes back locked when restarted. With Landlock and seccomp in force nothing
+   changes. `confinement_policy = "report"` still runs unconfined without asking. A missing MPTCP is
+   not detected: the compose file's sysctl fails when the container is created, before Orpheum runs,
+   so the image cannot say so. The setup-problems page covers it.
+2. **Updates announced.** The compose file's images follow `latest`, which the release workflow
+   already publishes beside each version's tag. `ORPHEUM_TAG` pins a version. The System page has an
+   Updates section from the existing `GET /system/update`, which uses discovery's signed release
+   record and no new outbound source. It says when a newer version is available and how to update.
+   With the compose file, that is OpenMediaVault's Pull then Up, or `docker compose pull && docker
+   compose up -d`. With the install script, it is the command, as on the How to update page. The core
+   does not know which way it was installed, so both are shown.
+
+**Status:** built (2026-11-08). Open for the owner: whether the leave should be per node, as built,
+or one for the household; and whether the core should learn its install route, so it can show only
+the steps that apply.
 
 ## D451 — Reserved: remote access approved from the account
 

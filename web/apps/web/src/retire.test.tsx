@@ -192,6 +192,7 @@ it("the System page says since when each folder and disk is offline, and retires
       "GET /system/resource-use": [200, { summaries: [], hours: [] }],
       "GET /config/unused": [200, { unusedSettings: [] }],
       "GET /system/discovery": noDiscovery,
+      "GET /system/update": [200, { version: "dev", checkedAt: 0 }],
       "GET /now-playing": [200, { playbacks: [] }],
       "GET /filing-reports": [200, { reports: [] }],
       "GET /system": [

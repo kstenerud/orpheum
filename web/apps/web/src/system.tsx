@@ -24,6 +24,7 @@ import { SystemResourceUse } from "./system-resource-use.tsx";
 import { SystemUnusedSettings } from "./system-unused-settings.tsx";
 import { SystemFilingReports } from "./filing-report.tsx";
 import { SystemDiscovery } from "./system-discovery.tsx";
+import { UpdateSystem } from "./update-page.tsx";
 import { SystemReachability } from "./system-reachability.tsx";
 import { NodeDevices, NodeWorkView, QueueHealth } from "./system-work.tsx";
 import { DownDestinations, OutsideServices } from "./system-outside.tsx";
@@ -81,6 +82,7 @@ export function System(): JSX.Element {
           )}
         />
       </BusyGroup>
+      <UpdateSystem />
       <NowPlaying />
       <SystemResourceUse />
       <SystemBackups />
