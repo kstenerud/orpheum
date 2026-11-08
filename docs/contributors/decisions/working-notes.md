@@ -26981,3 +26981,59 @@ the configs its first start wrote.
 §5. Run once by hand on Docker 2026-11-08 from a runtime image with this binary: the three containers
 came up, the core and node healthy, the data owned by the given user, the setup code in the core's
 log, and a restart left the deployment as it was.
+
+## D448 — A server installs and finds its parts with as little skill as possible: the deployment audit's proposals, adopted
+
+**Decided** (2026-11-08), by the project owner, on the lead's independent audit of deployment and
+discovery (the owner: *"I want the user to need as little technical skill as possible (without
+sacrificing security). Do an independent audit of how we do things, and how we could do things
+better."*; on its proposals: *"I like all of those proposals. Let's get everything in place and also
+test the most fundamental parts such that the happy path at least works."*). The audit is summarised
+in [deployment-ease-2026-11-08.md](../design/plans/deployment-ease-2026-11-08.md). Revisits D447 and
+D438, and records a limit on D127.
+
+1. **No typed address at home** (D449): the core learns its address at home and the house's network
+   from the first admin's setup request, which the setup code already guards, and learns them again,
+   guarded by a fresh code, when they change. Amends D447 §1–2 and D297 §6's source of home networks.
+2. **The settings are applied at every start** (D449): a compose-file server writes its configs from
+   its command line and the image's templates at each start, as `write-deployment` does on each
+   install (D272 §7). Answers D447's open question.
+3. **The server's own machine has its port in the compose file** (D449), as the install script's
+   deployment has (D334 §4).
+4. **The setup code is written where people look** (D450): also to a file in the data folder, and
+   the first-run page says where to find it.
+5. **More media folders without editing the file** (D450), with the folders' names on the host shown.
+6. **A kernel without Landlock is the admin's choice in the server's pages** (D450), not an edit of
+   a file: the node starts locked and does no media work until an admin accepts the risk, logged.
+7. **Updates are announced** (D450): the compose file follows a release channel and the server says
+   when a newer release is out.
+8. **Catalogue entries** (D450): the compose file packaged for the catalogues of NAS and Docker
+   panels; submitting them is the owner's.
+9. **Remote access is approved from the account, not by a pasted key** (D451): the core's System
+   page opens the account's claim page, the account owner approves, and the admin at home allows,
+   as the paid service's spec §3.11 "Claiming from the core" describes. Amends D310 §5, D298 §5,
+   D334 §3.
+10. **The relay stays the household's, and is not built now** (the owner: *"Hosted relay remains only
+    a possible future idea. We do household relay that supports both self hosted and paid discovery.
+    Note that we don't need to actually implement this yet."*). D438 stands, with this added: the
+    household's relay works with the owner's own discovery as with the paid one, the core telling
+    either of it. A relay run by us is recorded as an idea only.
+11. **Nodes and cores share a local network** (the owner: *"Remote node is also only a possible future
+    enhancement. For the foreseeable future we only support nodes and cores on the local network."*).
+    D127's remote node, and joining one by a code, are a possible later enhancement, not planned.
+
+**Status:** decided (2026-11-08). D449–D451 carry it out, the small items first (the owner: *"lay
+the groundwork for everything, get the easy stuff done today [...] and then we do the heavy stuff over
+the next few days"*).
+
+## D449 — Reserved: the address at home learned, and the settings applied at every start
+
+**Reserved** (2026-11-08) for D448 §1–3's branch; the branch replaces this entry with the decision.
+
+## D450 — Reserved: the setup code, media folders, an unconfined node, updates and catalogues
+
+**Reserved** (2026-11-08) for D448 §4–8's branch; the branch replaces this entry with the decision.
+
+## D451 — Reserved: remote access approved from the account
+
+**Reserved** (2026-11-08) for D448 §9's branch; the branch replaces this entry with the decision.
