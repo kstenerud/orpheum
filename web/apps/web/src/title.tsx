@@ -13,6 +13,7 @@ import type { TFunction } from "i18next";
 import { camelKey } from "./catalogue-key.ts";
 import { TitlePeople } from "./credits.tsx";
 import { languageName } from "./language-name.ts";
+import { channelsText } from "./tracks-note.tsx";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { ConfirmButton } from "./confirm-button.tsx";
 import { dataOrThrow, throwIfRefused } from "./problem.ts";
@@ -346,7 +347,8 @@ function TitleFacts(props: { readonly title: TitleDetail }): JSX.Element {
 
 /**
  * The sound of the file a title's Play plays, its first version's first file: its first audio
- * stream's codec and channels, "TRUEHD · 8 channels"; undefined where it has none.
+ * stream's codec and channels as the player's own sound line names them, "TRUEHD · 7.1", "AAC · mono";
+ * undefined where it has none.
  */
 function soundOf(t: TFunction, title: TitleDetail): string | undefined {
   const streams = title.versions?.[0]?.files?.[0]?.streams ?? [];
@@ -357,7 +359,7 @@ function soundOf(t: TFunction, title: TitleDetail): string | undefined {
   const name = (audio.codec ?? "").toUpperCase();
   return audio.channelCount === undefined
     ? name
-    : t("title.factSound", { codec: name, count: audio.channelCount });
+    : t("title.factSound", { codec: name, channels: channelsText(t, audio.channelCount) });
 }
 
 /**

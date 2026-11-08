@@ -389,7 +389,7 @@ export const en = {
     nextEpisode: "Next episode",
     chooseVersion: "Versions",
     playVersion: "Play version {{index}}",
-    factSound: "{{codec}} · {{count}} channels",
+    factSound: "{{codec}} · {{channels}}",
     synopsisMore: "More",
     synopsisLess: "Less",
     episodeCode: "S{{season}}E{{number}}",
