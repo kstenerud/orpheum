@@ -49,7 +49,7 @@
           "name": "ORPHEUM_TAG",
           "label": "Version",
           "description": "The version to run",
-          "default": "v0.3.0-beta.7"
+          "default": "latest"
         },
         {
           "name": "APPUSER_PUID",
