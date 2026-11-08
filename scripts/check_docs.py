@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Documentation integrity gate: links and anchors resolve, every decision is defined
 # ABOUTME: once, a decision link lands on its decision, and live docs never cite an archived one;
-# ABOUTME: a decision is never recorded with a Status that says it is already built.
+# ABOUTME: a decision is never recorded with a Status that says it is already built, and no
+# ABOUTME: document cites a commit of this repository by its hash.
 """Check the Markdown tree's links and decision citations. Exit 1 on any failure.
 
 Run from anywhere: ``python3 scripts/check_docs.py``; ``--write-index`` first regenerates
@@ -34,6 +35,9 @@ repo-hygiene gates this follows:
    code. `make check` compares the working tree's log with HEAD's; with ``--base <ref>``
    (`make check-decision-status`, part of `make check-pr`) each commit on the branch is
    compared with its parent, and nothing else is checked.
+7. **A commit is cited by its subject, not its hash.** A hash that names a commit of this
+   repository changes when `yoloai apply` replays the commit and again in any rewrite, so it is
+   wrong everywhere but where it was written (agent-failures A64; ``commit_hashes.py``).
 
 Deliberately not checked: external URLs (the network is not a gate), and bare ``Dn``
 mentions *resolving* (they are checked only against the archive list and the maximum).
@@ -46,6 +50,8 @@ import subprocess
 import sys
 import unicodedata
 from pathlib import Path
+
+from commit_hashes import candidates, cited_commits, subject_of
 
 ROOT = Path(__file__).resolve().parent.parent
 DECISIONS = "docs/contributors/decisions/"
@@ -323,6 +329,25 @@ def check(files: list[str], texts: dict[str, str]) -> list[str]:
                     errors.append(
                         f"{rel}:{no}: links archived D{am.group(1)} as [{text}]; cite its successor "
                         f"({successors.get(int(am.group(1)))}) instead"
+                    )
+    errors += cited_hash_errors(files, texts)
+    return errors
+
+
+def cited_hash_errors(files: list[str], texts: dict[str, str]) -> list[str]:
+    """Check 7: a document cites a commit by its subject, not its hash, which changes when the
+    commit leaves the sandbox (agent-failures A64)."""
+    found = set(cited_commits("\n".join(texts[rel] for rel in files)))
+    errors: list[str] = []
+    if not found:
+        return errors
+    for rel in files:
+        for no, line in enumerate(texts[rel].split("\n"), 1):
+            for token in candidates(line):
+                if token in found:
+                    errors.append(
+                        f"{rel}:{no}: cites commit {token} by its hash, which `yoloai apply` and any "
+                        f'rewrite change; cite its subject instead: "{subject_of(token)}"'
                     )
     return errors
 
