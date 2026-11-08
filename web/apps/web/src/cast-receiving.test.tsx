@@ -3,13 +3,14 @@
 
 import "./i18n.ts";
 
-import { act, type JSX } from "react";
+import { act, createRef, type JSX } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { tabStorage } from "./browser-storage.ts";
 import { useReceiving } from "./cast-receiver.tsx";
 import { castReceivingKey } from "./cast-receiving-mark.ts";
 import { LiveProvider, useLive } from "./live.tsx";
+import { PlayerOverlay } from "./player-overlay.tsx";
 import { buttonWithText, click, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
 import { createNavigation } from "./navigation.ts";
 import { fakePlace, withServices } from "./test-services.tsx";
@@ -98,6 +99,30 @@ describe("the page's live connection, receiving (D364 §2, §3, §5; D337 §4)",
     expect(heard.map((each) => each.methodAndPath)).toContain("POST /me/casts/5/accept");
     expect(mounted.container.textContent).toContain("receiving cast 5");
     expect(services.navigation.route()).toEqual({ screen: "play", fileId: 7 });
+  });
+
+  it("heads its player's overlay with Stop casting here, which a device playing its own film has not (D446 §3)", async () => {
+    const services = servedBy({ "POST /me/casts/5/accept": [200, { castId: 5 }] }, [], "token");
+    const sockets = liveAndSession();
+    const videoRef = createRef<HTMLVideoElement>();
+    Reflect.set(videoRef, "current", document.createElement("video"));
+    mounted = await mount(
+      withServices(
+        <LiveProvider>
+          <div className="film-player__stage">
+            <PlayerOverlay videoRef={videoRef} readLinkKbps={() => undefined} failure={undefined} />
+          </div>
+        </LiveProvider>,
+        { ...services, openTogetherSocket: sockets.openSocket },
+      ),
+    );
+    const overlay = (): HTMLElement =>
+      mounted?.container.querySelector<HTMLElement>(".player-overlay") ?? document.body;
+    expect(buttonWithText(overlay(), "Stop casting here")).toBeUndefined();
+    await sockets.live.accept();
+    await sockets.live.say({ type: "receive", receive: handed });
+    await pressUse(mounted.container);
+    expect(buttonWithText(overlay(), "Stop casting here")).toBeDefined();
   });
 
   it("goes full screen and ready between videos, then plays the next with no question (D364 §3, §5)", async () => {

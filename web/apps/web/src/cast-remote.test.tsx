@@ -513,10 +513,27 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     }
   });
 
-  it("plays the film here again as the cast is stopped, from Cast's dialog (D384 §2, D444)", async () => {
+  it("opens the film here paused, where the receiver had it paused, as the cast is stopped from Cast's dialog (D446 §2)", async () => {
     const { sockets, onPlayHere } = await casting({});
     await sockets.session.say({ type: "ended", reason: "stopped" });
-    expect(onPlayHere).toHaveBeenCalledWith(61_000, false);
+    expect(onPlayHere).toHaveBeenCalledWith(61_000, true);
+  });
+
+  it("plays the film here on, where the receiver played it, as the cast is stopped from Cast's dialog (D446 §2)", async () => {
+    const { sockets, onPlayHere } = await casting({});
+    const playing = { state: "Playing", positionMs: 61_000, rate: 1, fileId: 4 };
+    await sockets.session.say({ type: "group", seq: 4, group: { ...playing, event: "played" } });
+    await sockets.session.say({ type: "ended", reason: "stopped" });
+    expect(onPlayHere).toHaveBeenCalledOnce();
+    expect(onPlayHere.mock.calls[0]?.[1]).toBe(false);
+  });
+
+  it("goes home, playing nothing here, as a cast with nothing on is stopped (D446 §2)", async () => {
+    const { services, sockets, onPlayHere } = await casting({});
+    await sockets.live.say({ type: "sending", sending: { ...sending, fileId: 0 } });
+    await sockets.session.say({ type: "ended", reason: "stopped" });
+    expect(services.navigation.route()).toEqual({ screen: "home" });
+    expect(onPlayHere).not.toHaveBeenCalled();
   });
 
   it("goes home, saying in a pop-up there that the server no longer knows the cast, as its session is gone (D386 §2)", async () => {

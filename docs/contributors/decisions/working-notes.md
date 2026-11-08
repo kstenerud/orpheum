@@ -26926,3 +26926,10 @@ and D445 §1 (ending a cast stays with the device that cast).
 5. **A receiver gone for two minutes** (D364 §6) ends the cast as Stop casting here does.
 
 **Status:** decided.
+
+**Proven by:** "ends the cast by its own Stop casting here, as taken back, going home as the cast
+ends" and "has focus arrive on its ⤢, never on Stop casting here at its top" (`cast-ready.test.tsx`);
+"heads its player's overlay with Stop casting here, which a device playing its own film has not"
+(`cast-receiving.test.tsx`); the sender's three takings-on in `cast-remote.test.tsx`;
+`TestCast_AnEndedCastLeavesTheWatchTogetherSessionGoingOn`; the end-to-end "a receiver ends the
+cast by its own Stop casting here"; on a television, VQ288.

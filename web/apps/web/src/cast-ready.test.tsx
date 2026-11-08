@@ -157,6 +157,25 @@ describe("a cast's receiver between videos (D364 §5, §9, §10)", () => {
     expect(services.navigation.route()).toEqual({ screen: "home" });
   });
 
+  it("ends the cast by its own Stop casting here, as taken back, going home as the cast ends (D446 §1)", async () => {
+    const heard: Heard[] = [];
+    const { services, sockets } = await readyPage(heard);
+    await click(buttonWithText(document.body, "Stop casting here"));
+    const ended = heard.filter((each) => each.methodAndPath === "POST /me/casts/5/end");
+    expect(ended.map((each) => each.body)).toEqual([{ reason: "takenBack" }]);
+    await sockets.session.say({ type: "ended", reason: "takenBack" });
+    expect(services.navigation.route()).toEqual({ screen: "home" });
+  });
+
+  it("has focus arrive on its ⤢, never on Stop casting here at its top (D446 §3)", async () => {
+    await readyPage([]);
+    const stop = buttonWithText(document.body, "Stop casting here");
+    expect(stop?.closest("[data-focus-start]")).toBeNull();
+    expect(stop?.hasAttribute("data-dangerous-action")).toBe(true);
+    const arrival = document.body.querySelector('[data-focus-start="arrival"]');
+    expect(arrival?.contains(buttonNamed(document.body, "Full screen") ?? null)).toBe(true);
+  });
+
   it("says it is not being cast to without a cast waiting ready", async () => {
     mounted = await mount(withServices(<CastReady />, servedBy({})));
     expect(mounted.container.textContent).toContain("This device is not being cast to.");
