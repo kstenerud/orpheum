@@ -9,12 +9,12 @@ export const enPeople = {
   setUp: {
     heading: "Set up this server",
     explain:
-      "This server has no admin yet. Enter the setup code from its log (or run `orpheum setup-code` on it), and choose the first admin's name and password.",
+      "This server has no admin yet. Enter its setup code, and choose the first admin's name and password. The code is in SETUP-CODE.txt in the server's data folder (appdata/orpheum), and in its container's log: on OpenMediaVault, Services > Compose > Containers, orpheum-core, Logs; elsewhere, docker logs orpheum-core.",
     code: "Setup code",
     submit: "Create the admin",
     back: "Back",
     wrongCode:
-      "That setup code is wrong. It is in the server's log, or run `orpheum setup-code` on it.",
+      "That setup code is wrong. It is in SETUP-CODE.txt in the server's data folder, and in its container's log (docker logs orpheum-core).",
     alreadySetUp: "This server already has an admin. Go back and sign in.",
   },
   people: {

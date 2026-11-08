@@ -6,14 +6,18 @@
 // the tunnel's config and the core's and the node's full configs. `orpheum write-deployment` runs
 // it inside the runtime image, so installing needs the image and Docker alone; staging and release
 // are written the same way, so the one path stays tested. A server installed from one compose file
-// (deploy/omv/compose.yaml, D447) has its first start, `orpheum start`, write the values file and the
-// instances' configs alone, by BeginWith and WriteConfigs, which Write writes them with too.
+// (deploy/omv/compose.yaml, D447) has each start, `orpheum start`, write the values file and the
+// instances' configs alone from its command line (D449 §1), by WriteStartValues and WriteConfigs,
+// which Write writes them with too.
 //
 // # Invariants
 //
 //   - Every file but the values file and the keys is written again each time, from the values and
 //     this binary's templates, so a new image brings its own (D272 §7); the values file and the
 //     keys are made once and never overwritten. TestWrite_RewritesTheFilesAndKeepsTheValuesAndKeys.
+//     A compose file's start writes the values file too, each time, from its command line, its header
+//     saying the compose file is where a change goes (D449 §1).
+//     TestWriteStartValues_IsWrittenEachTimeSayingTheComposeFileRules.
 //   - Nothing is written while the values file lacks a value or holds a wrong one, and each problem
 //     names its key. TestValues_ProblemsNameEachKeyThatLacksAValue.
 //   - A value reaches a TOML config quoted, and a template naming a value it was not given is an

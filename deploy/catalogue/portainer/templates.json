@@ -1,0 +1,110 @@
+{
+  "version": "3",
+  "templates": [
+    {
+      "id": 1,
+      "type": 3,
+      "title": "Orpheum",
+      "description": "A self-hosted video media server: your films and series in any browser and on TVs, at home and away",
+      "note": "Set the data folder, the media folder and this machine's address at home. Once it is up, open http://&lt;that address&gt;:8440 and enter the one-time setup code: it is in SETUP-CODE.txt in the data folder's orpheum folder, and in the orpheum-core container's log. <a href=\"https://github.com/kstenerud/orpheum/blob/main/docs/users/install.md\">The install guide</a> says more.",
+      "categories": ["multimedia"],
+      "platform": "linux",
+      "logo": "https://raw.githubusercontent.com/kstenerud/orpheum/main/web/apps/web/public/icon-192.png",
+      "repository": {
+        "url": "https://github.com/kstenerud/orpheum",
+        "stackfile": "deploy/omv/compose.yaml"
+      },
+      "env": [
+        {
+          "name": "PATH_TO_APPDATA",
+          "label": "Data folder",
+          "description": "The folder that holds each app's data; Orpheum keeps its own in orpheum/ there"
+        },
+        {
+          "name": "ORPHEUM_MEDIA",
+          "label": "Media folder",
+          "description": "The folder that holds your films and series, as this machine names it"
+        },
+        {
+          "name": "ORPHEUM_LAN_ADDRESS",
+          "label": "Address at home",
+          "description": "This machine's address on your home network, 192.168.1.20; keep it fixed with a reservation in the router"
+        },
+        {
+          "name": "ORPHEUM_MEDIA_2",
+          "label": "Second media folder",
+          "description": "Optional: another folder of films or series"
+        },
+        {
+          "name": "ORPHEUM_MEDIA_3",
+          "label": "Third media folder",
+          "description": "Optional: another folder of films or series"
+        },
+        {
+          "name": "ORPHEUM_MEDIA_4",
+          "label": "Fourth media folder",
+          "description": "Optional: another folder of films or series"
+        },
+        {
+          "name": "ORPHEUM_TAG",
+          "label": "Version",
+          "description": "The version to run",
+          "default": "v0.3.0-beta.7"
+        },
+        {
+          "name": "APPUSER_PUID",
+          "label": "User ID",
+          "description": "Who the server runs as and owns its data",
+          "default": "1000"
+        },
+        {
+          "name": "APPUSER_PGID",
+          "label": "Group ID",
+          "description": "The group the server runs as and owns its data",
+          "default": "100"
+        },
+        {
+          "name": "TIME_ZONE_VALUE",
+          "label": "Time zone",
+          "description": "The time zone, Europe/Berlin",
+          "default": "Etc/UTC"
+        },
+        {
+          "name": "ORPHEUM_HTTP_PORT",
+          "label": "HTTP port",
+          "description": "The port a browser at home opens it on",
+          "default": "8440"
+        },
+        {
+          "name": "ORPHEUM_HTTPS_PORT",
+          "label": "HTTPS and WebRTC port",
+          "description": "The port devices at home reach it on over HTTPS, and over WebRTC (UDP)",
+          "default": "8444"
+        },
+        {
+          "name": "ORPHEUM_THIS_MACHINE_PORT",
+          "label": "This machine's port",
+          "description": "The port a browser on this machine alone opens it on, as at home: the way in when admin is refused elsewhere",
+          "default": "8441"
+        },
+        {
+          "name": "ORPHEUM_ROUTER",
+          "label": "Router",
+          "description": "Optional: your router's address, 192.168.1.1, which the server asks to forward the HTTPS port"
+        },
+        {
+          "name": "ORPHEUM_NAME",
+          "label": "Node name",
+          "description": "The name the media node goes by in the server's pages",
+          "default": "orpheum"
+        },
+        {
+          "name": "ORPHEUM_IPV6_SUBNET",
+          "label": "IPv6 subnet",
+          "description": "The private IPv6 /64 of its network, if the default is taken",
+          "default": "fd77:5e:0:ffff::/64"
+        }
+      ]
+    }
+  ]
+}

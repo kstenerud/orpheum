@@ -33,9 +33,8 @@ func TestFirstStart_WritesTheDeploymentFromItsFlagsWhenThereIsNone(t *testing.T)
 	dir, runDir := t.TempDir(), filepath.Join(testutil.SocketDirectory(t), "run")
 	options := startOptionsFrom(t, "--lan-address", "192.168.1.20", "--lan-https-port", "8444",
 		"--lan-webrtc-port", "8444", "--router", "192.168.1.1")
-	isWritten, err := firstStart(dir, runDir, "openmediavault", options)
-	if err != nil || !isWritten {
-		t.Fatalf("a first start in an empty directory = %v, %v; want the deployment written", isWritten, err)
+	if err := startDeployment(dir, runDir, "openmediavault", options); err != nil {
+		t.Fatalf("a first start in an empty directory = %v; want the deployment written", err)
 	}
 	text, err := os.ReadFile(filepath.Join(dir, deployment.ValuesFile))
 	if err != nil {
@@ -78,42 +77,77 @@ func writtenConfig(t *testing.T, dir string, kind instanceKind) (map[string]map[
 	return config, made
 }
 
-func TestFirstStart_LeavesADeploymentThereAlreadyAsItIs(t *testing.T) {
+// Every start writes the values file and the configs again from its flags (D449 §1): a port or a
+// folder changed in the compose file takes at the next start, and a hand edit of a config is lost,
+// while the instances, the database among them, are kept.
+func TestStart_WritesTheConfigsAgainFromTheFlagsAtEveryStart(t *testing.T) {
 	t.Parallel()
 	dir, runDir := t.TempDir(), filepath.Join(testutil.SocketDirectory(t), "run")
-	if _, err := firstStart(dir, runDir, "nas", startOptionsFrom(t, "--lan-address", "192.168.1.20")); err != nil {
+	if err := startDeployment(dir, runDir, "nas", startOptionsFrom(t, "--lan-address", "192.168.1.20")); err != nil {
 		t.Fatal(err)
 	}
-	paths := []string{
-		filepath.Join(dir, deployment.ValuesFile),
-		filepath.Join(dir, "core", "persistent", "config.toml"),
-		filepath.Join(dir, "node", "persistent", "config.toml"),
+	kept := filepath.Join(dir, "core", "persistent", "persistent.db")
+	if err := os.WriteFile(kept, []byte("the household's library"), 0o600); err != nil {
+		t.Fatal(err)
 	}
-	for _, path := range paths {
-		if err := os.WriteFile(path, []byte("# the household's own\n"), 0o600); err != nil {
-			t.Fatal(err)
-		}
+	coreConfigPath := filepath.Join(dir, "core", "persistent", "config.toml")
+	if err := os.WriteFile(coreConfigPath, []byte("# edited by hand\n"), 0o600); err != nil {
+		t.Fatal(err)
 	}
-	isWritten, err := firstStart(dir, runDir, "nas", startOptionsFrom(t, "--lan-address", "10.0.0.9"))
-	if err != nil || isWritten {
-		t.Errorf("a start over a deployment = %v, %v; want it left, nothing written", isWritten, err)
+	err := startDeployment(dir, runDir, "nas", startOptionsFrom(t, "--lan-address", "192.168.1.30",
+		"--lan-https-port", "9444", "--media", "/srv/films", "--this-machine-port", "8451"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	for _, path := range paths {
-		if text, readErr := os.ReadFile(path); readErr != nil || string(text) != "# the household's own\n" {
-			t.Errorf("%s after a later start = %q, %v; want it untouched: the files rule after the first start",
-				path, text, readErr)
-		}
+	coreConfig, _ := writtenConfig(t, filepath.Join(dir, "core"), kindCore)
+	lan := coreConfig["discovery"]["lan_addresses"]
+	if !slices.Equal(anyStrings(t, lan), []string{"192.168.1.30:9444"}) {
+		t.Errorf("the core's lan_addresses after a start with new flags = %v; want the new address and port", lan)
+	}
+	if listen := coreConfig["server"]["this_machine_listen"]; listen != "0.0.0.0:8451" {
+		t.Errorf("the core's this_machine_listen = %v; want the new port, the same inside", listen)
+	}
+	nodeConfig, _ := writtenConfig(t, filepath.Join(dir, "node"), kindNode)
+	if roots := anyStrings(t, nodeConfig["node"]["root_paths"]); !slices.Equal(roots, []string{"/srv/films"}) {
+		t.Errorf("the node's root_paths after a start with a new folder = %v; want it", roots)
+	}
+	text, err := os.ReadFile(filepath.Join(dir, deployment.ValuesFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if values, parseErr := deployment.ParseValues(string(text), "nas"); parseErr != nil ||
+		values.LAN.Address != "192.168.1.30" || !strings.Contains(string(text), "compose file") {
+		t.Errorf("the values file after the second start = %v, %q; want the new address, and a header that sends "+
+			"a change to the compose file", parseErr, text)
+	}
+	if held, readErr := os.ReadFile(kept); readErr != nil || string(held) != "the household's library" {
+		t.Errorf("the core's database after a later start = %q, %v; want it kept", held, readErr)
+	}
+}
+
+// A compose file passes each optional media folder, set or not; one not set comes empty and is no
+// folder, and a folder is named as the path the node mounts it at, cleaned (D449 §4).
+func TestStart_AnEmptyMediaFolderIsNoneAndEachIsCleaned(t *testing.T) {
+	t.Parallel()
+	options := startOptionsFrom(t, "--lan-address", "192.168.1.20", "--media", "/srv/films/",
+		"--media", "", "--media", " /srv/shows ", "--media", "")
+	if !slices.Equal(options.media, []string{"/srv/films", "/srv/shows"}) {
+		t.Errorf("the media from the compose file's folders = %q; want the two set, cleaned, and no empty one",
+			options.media)
+	}
+	if none := startOptionsFrom(t, "--lan-address", "192.168.1.20", "--media", ""); !slices.Equal(
+		none.media, []string{startMedia}) {
+		t.Errorf("the media with every folder empty = %q; want %s", none.media, startMedia)
 	}
 }
 
 func TestFirstStart_RefusesToWriteWithoutTheAddressAtHome(t *testing.T) {
 	t.Parallel()
 	dir, runDir := t.TempDir(), filepath.Join(testutil.SocketDirectory(t), "run")
-	isWritten, err := firstStart(dir, runDir, "nas", startOptionsFrom(t))
-	if !errors.Is(err, errNoLANAddress) || isWritten ||
-		!strings.Contains(err.Error(), "ORPHEUM_LAN_ADDRESS") {
-		t.Errorf("a first start without --lan-address = %v, %v; want it refused, naming the flag and the "+
-			"compose file's variable", isWritten, err)
+	err := startDeployment(dir, runDir, "nas", startOptionsFrom(t))
+	if !errors.Is(err, errNoLANAddress) || !strings.Contains(err.Error(), "ORPHEUM_LAN_ADDRESS") {
+		t.Errorf("a first start without --lan-address = %v; want it refused, naming the flag and the "+
+			"compose file's variable", err)
 	}
 	if entries, readErr := os.ReadDir(dir); readErr != nil || len(entries) != 0 {
 		t.Errorf("the directory after a refused first start holds %v (%v); want nothing written", entries, readErr)
@@ -127,10 +161,12 @@ func TestFirstStart_ACutShortStartIsWrittenAgainKeepingItsInstances(t *testing.T
 	if err := makeMissingInstances(dir, runDir); err != nil {
 		t.Fatal(err)
 	}
-	isWritten, err := firstStart(dir, runDir, "nas", startOptionsFrom(t, "--lan-address", "192.168.1.30"))
-	if err != nil || !isWritten {
-		t.Errorf("a start with the instances made but no values file = %v, %v; want the configs written again "+
-			"over the instances kept", isWritten, err)
+	if err := startDeployment(dir, runDir, "nas", startOptionsFrom(t, "--lan-address", "192.168.1.30")); err != nil {
+		t.Errorf("a start with the instances made but no values file = %v; want the configs written again "+
+			"over the instances kept", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, deployment.ValuesFile)); err != nil {
+		t.Errorf("the values file after a start over a cut-short one: %v; want it written", err)
 	}
 }
 

@@ -1,22 +1,28 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Orpheum from one compose file (D447): paste it into OpenMediaVault's Services > Compose > Files, or
-# put it in a folder of its own beside a .env file on any machine with Docker, and start it. The core's
-# first start writes the deployment into ${PATH_TO_APPDATA}/orpheum from the variables below, which
-# compose fills into its command line (a release reads no environment but TZ, D204); after that the
-# files there rule. docs/users/install.md says how, step by step.
+# put it in a folder of its own beside a .env file on any machine with Docker, and start it. The core
+# writes the deployment into ${PATH_TO_APPDATA}/orpheum at every start from the variables below, which
+# compose fills into its command line (a release reads no environment but TZ, D204): change one here
+# and start it again (D449). docs/users/install.md says how, step by step. Until the first admin is
+# made, the setup code is in SETUP-CODE.txt in that folder, and in orpheum-core's log.
 #
 # Needed:
 #   PATH_TO_APPDATA       the folder that holds each app's data: OpenMediaVault's global.env sets it
-#   ORPHEUM_MEDIA         the folder that holds your films and series, as this machine names it
+#   ORPHEUM_MEDIA         the folder that holds your films and series, as this machine names it; the
+#                         server shows it by that name
 #   ORPHEUM_LAN_ADDRESS   this machine's address on your home network, 192.168.1.20
 # Optional:
 #   ORPHEUM_TAG           the version to run
+#   ORPHEUM_MEDIA_2, ORPHEUM_MEDIA_3, ORPHEUM_MEDIA_4  more media folders, as this machine names them;
+#                         one not set is none
 #   APPUSER_PUID, APPUSER_PGID  who the server runs as and owns its data: global.env sets them
 #   TIME_ZONE_VALUE       the time zone, Europe/Berlin: global.env sets it
 #   ORPHEUM_HTTP_PORT     the port a browser at home opens it on, http://<address>:8440
 #   ORPHEUM_HTTPS_PORT    the port devices at home reach it on over HTTPS, and over WebRTC (UDP), by the
 #                         name its discovery gives this machine; 8444, as OpenMediaVault's own web UI
 #                         may take 8443
+#   ORPHEUM_THIS_MACHINE_PORT  the port a browser on this machine alone opens it on, as at home,
+#                         http://127.0.0.1:8441: the way in when admin is refused elsewhere (D334 §4)
 #   ORPHEUM_ROUTER        your router's address, 192.168.1.1, which the server asks to forward the HTTPS
 #                         port so devices away from home reach it; none maps nothing
 #   ORPHEUM_NAME          the name the media node goes by in the server's pages
@@ -34,7 +40,8 @@ services:
     image: ghcr.io/kstenerud/orpheum:${ORPHEUM_TAG:-v0.3.0-beta.7}
     user: "0:0"
     entrypoint: ["/bin/sh", "-c"]
-    command: ["mkdir -p /appdata/node /appdata/run && chown ${APPUSER_PUID:-1000}:${APPUSER_PGID:-100} /appdata /appdata/node /appdata/run"]
+    # empty/ stands in for a media folder not set (ORPHEUM_MEDIA_2 to _4): a bind needs a source.
+    command: ["mkdir -p /appdata/node /appdata/run /appdata/empty && chown ${APPUSER_PUID:-1000}:${APPUSER_PGID:-100} /appdata /appdata/node /appdata/run"]
     network_mode: none
     sysctls:
       net.mptcp.enabled: "0"
@@ -46,7 +53,7 @@ services:
     restart: "no"
 
   # The server: the API, the web client, HTTPS at home by its LAN name, WebRTC. It writes the
-  # deployment the first time, its own instance and the node's. Port 443 is bound inside its own
+  # deployment at every start, its own instance and the node's the first time. Port 443 is bound inside its own
   # network by the core, as a user: the sysctl, which is this network's own, lets it.
   orpheum-core:
     container_name: orpheum-core
@@ -61,10 +68,19 @@ services:
       - ${ORPHEUM_HTTPS_PORT:-8444}
       - --lan-webrtc-port
       - ${ORPHEUM_HTTPS_PORT:-8444}
+      - --this-machine-port
+      - ${ORPHEUM_THIS_MACHINE_PORT:-8441}
       - --router
       - ${ORPHEUM_ROUTER:-}
+      # Each media folder by the path the node mounts it at, its own; one not set comes empty, no folder.
       - --media
-      - /media
+      - ${ORPHEUM_MEDIA:?set ORPHEUM_MEDIA to the folder that holds your films and series}
+      - --media
+      - ${ORPHEUM_MEDIA_2:-}
+      - --media
+      - ${ORPHEUM_MEDIA_3:-}
+      - --media
+      - ${ORPHEUM_MEDIA_4:-}
     environment:
       TZ: ${TIME_ZONE_VALUE:-Etc/UTC}
     cap_drop: [ALL]
@@ -77,6 +93,8 @@ services:
       - ${PATH_TO_APPDATA:?}/orpheum/run:/run/orpheum
     ports:
       - "${ORPHEUM_HTTP_PORT:-8440}:8440"
+      # A browser on this machine alone, as from home (D334 §4): its loopback, the same port inside.
+      - "127.0.0.1:${ORPHEUM_THIS_MACHINE_PORT:-8441}:${ORPHEUM_THIS_MACHINE_PORT:-8441}"
       - "${ORPHEUM_HTTPS_PORT:-8444}:443"
       # WebRTC from devices at home, on the same port inside, which the core offers them (D300).
       - "${ORPHEUM_HTTPS_PORT:-8444}:${ORPHEUM_HTTPS_PORT:-8444}/udp"
@@ -110,8 +128,12 @@ services:
     volumes:
       - ${PATH_TO_APPDATA:?}/orpheum/node:/var/lib/orpheum/node
       - ${PATH_TO_APPDATA:?}/orpheum/run:/run/orpheum
-      # More media folders go under /media, each a line: - /srv/dev-disk-by-uuid-.../Shows:/media/Shows:ro
-      - ${ORPHEUM_MEDIA:?set ORPHEUM_MEDIA to the folder that holds your films and series}:/media:ro
+      # Each media folder at its own path, so the server shows the name this machine gives it. One not
+      # set mounts the empty folder where nothing looks; the core's command skips it (D449 §4).
+      - ${ORPHEUM_MEDIA:?set ORPHEUM_MEDIA to the folder that holds your films and series}:${ORPHEUM_MEDIA}:ro
+      - ${ORPHEUM_MEDIA_2:-${PATH_TO_APPDATA}/orpheum/empty}:${ORPHEUM_MEDIA_2:-/unset/2}:ro
+      - ${ORPHEUM_MEDIA_3:-${PATH_TO_APPDATA}/orpheum/empty}:${ORPHEUM_MEDIA_3:-/unset/3}:ro
+      - ${ORPHEUM_MEDIA_4:-${PATH_TO_APPDATA}/orpheum/empty}:${ORPHEUM_MEDIA_4:-/unset/4}:ro
     # A GPU for hardware encoding (Intel Quick Sync, AMD): uncomment both, with RENDER_GID the render
     # group's number on this machine (ls -n /dev/dri/renderD128 shows it, often 105 or 106).
     # devices:

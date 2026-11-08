@@ -171,6 +171,21 @@ describe("setting up a server no one can sign in to yet (A29, A31)", () => {
 });
 
 describe("a server that needs setting up", () => {
+  it("says where its setup code is: the data folder's file, and the container's log (D449 §3)", async () => {
+    const mounted = await mount(
+      withServices(<SignIn />, servedBy({ "GET /setup": [200, { isRequired: true }] })),
+    );
+    for (const place of [
+      "SETUP-CODE.txt",
+      "appdata/orpheum",
+      "Services > Compose > Containers",
+      "docker logs orpheum-core",
+    ]) {
+      expect(mounted.container.textContent).toContain(place);
+    }
+    mounted.unmount();
+  });
+
   it("opens on setting it up, with no sign-in tried first (A31)", async () => {
     const heard: Heard[] = [];
     const mounted = await mount(

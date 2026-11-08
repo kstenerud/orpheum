@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log/slog"
 	"maps"
 	"net"
@@ -237,11 +238,29 @@ func serveOn(
 	node func(ctx context.Context) error,
 ) runningServer {
 	t.Helper()
+	return serveWithOn(t, listener, config, captured, awaited, serveAlongside{node: node})
+}
+
+// serveAlongside is what a test's server runs beside: the node, if any, and the file a compose file's
+// start shows the setup code in (D449 §3), if any.
+type serveAlongside struct {
+	node          func(ctx context.Context) error
+	setupCodeFile string
+}
+
+// serveWithOn is serveOn with alongside's node and setup code's file.
+func serveWithOn(
+	t *testing.T, listener net.Listener, config Config, captured capturedLog, awaited string,
+	alongside serveAlongside,
+) runningServer {
+	t.Helper()
+	node, setupCodeFile := alongside.node, alongside.setupCodeFile
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
 	go func() {
 		outside := wiring{
 			tmdbBaseURL: unreachableURL, tmdbImagesBaseURL: unreachableURL, openSubtitlesBaseURL: unreachableURL,
+			setupCodeFile: setupCodeFile,
 		}
 		done <- serve(ctx, config, ConfigReport{}, listener, outside, captured.logger)
 	}()
@@ -540,5 +559,42 @@ func TestServe_ReportsAFailedStartInsteadOfExiting(t *testing.T) {
 	}
 	if err := server.stop(); err == nil {
 		t.Error("serve returned nil after a failed start; the exit status must say it failed")
+	}
+}
+
+// A compose file's server also shows the setup code in a file of the data folder, its user's alone,
+// saying where it goes, while no admin exists, and removes the file once the first admin is made
+// (D449 §3).
+func TestServe_ShowsTheSetupCodeInTheDataFolderUntilTheFirstAdmin(t *testing.T) {
+	t.Parallel()
+	config, path := testConfig(t)
+	shown := filepath.Join(t.TempDir(), setupCodeFile)
+	listener, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	seedPersistentDatabase(t, config)
+	server := serveWithOn(t, listener, config, newCapturedLog("ready"), "ready", serveAlongside{setupCodeFile: shown})
+	info, err := os.Stat(shown)
+	if err != nil {
+		t.Fatalf("a server with no admin shows no setup code in the data folder: %v", err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Errorf("the setup code's file has mode %v; want 0600, its user's alone", info.Mode().Perm())
+	}
+	text, err := os.ReadFile(shown)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := strings.TrimSpace(runCommand(t, "setup-code", "--instance", path).stdout)
+	if code == "" || !strings.HasPrefix(string(text), code+"\n") || !strings.Contains(string(text), "browser at home") {
+		t.Errorf("the setup code's file says %q; want the code %q first, then where it is entered", text, code)
+	}
+	setUpOwner(t, server, path, "owner")
+	if _, err = os.Stat(shown); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("the setup code's file after the first admin is made: %v; want it removed", err)
+	}
+	if err = server.stop(); err != nil {
+		t.Error(err)
 	}
 }
