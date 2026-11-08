@@ -200,7 +200,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D192](working-notes.md#d192--built-in-a-private-repository-tested-at-home-released-through-public-betas-standards-follow-the-final-stack) Built in a private repository, tested at home, released through public betas; standards follow the final stack
 - [D193](working-notes.md#d193--the-audits-proposals-are-accepted-the-node-does-all-media-work-prepare-is-the-one-path-besides-direct-play-the-machinery-is-cut-and-cut-as-design-freezes) The audit's proposals are accepted: the node does all media work, "prepare" is the one path besides direct play, the machinery is cut, and Cut A's design freezes — *revisited by D247, D260, D330, D344, D438*
 - [D194](working-notes.md#d194--secrets-our-users-passwords-are-hashed-third-party-secrets-are-sealed-with-a-key-that-never-enters-the-database-and-nothing-reads-a-secret-back-out) Secrets: our users' passwords are hashed, third-party secrets are sealed with a key that never enters the database, and nothing reads a secret back out — *revisited by D198, D224*
-- [D195](working-notes.md#d195--orpheum-is-the-provisional-name) "Orpheum" is the provisional name
+- [D195](working-notes.md#d195--orpheum-is-the-provisional-name) "Orpheum" is the provisional name — *revisited by D453*
 - [D196](working-notes.md#d196--the-standards-are-written-every-rule-names-its-enforcement-and-the-gates-run-by-themselves-before-the-first-line-of-feature-code) The standards are written, every rule names its enforcement, and the gates run by themselves before the first line of feature code
 - [D197](working-notes.md#d197--a-development-loop-with-opinionated-printed-settings-and-makefile-targets-for-the-common-debugging-jobs) A development loop with opinionated, printed settings, and Makefile targets for the common debugging jobs — *revisited by D200*
 - [D198](working-notes.md#d198--m1s-four-open-points-secretkey-lives-in-the-state-directory-cachedb-waits-for-m2-the-agent-makes-a-golden-the-owner-approves-and-m1s-api-is-setup-sessions-settings-and-secrets) M1's four open points: `secret.key` lives in the state directory, `cache.db` waits for M2, the agent makes a golden the owner approves, and M1's API is setup, sessions, settings and secrets
@@ -458,6 +458,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D450](working-notes.md#d450--an-unconfined-node-accepted-in-the-servers-pages-and-updates-announced) An unconfined node accepted in the server's pages, and updates announced
 - [D451](working-notes.md#d451--reserved-remote-access-approved-from-the-account) Reserved: remote access approved from the account
 - [D452](working-notes.md#d452--reserved-the-address-at-home-learned-at-setup) Reserved: the address at home learned at setup
+- [D453](working-notes.md#d453--orpheum-is-the-name-no-longer-provisional) "Orpheum" is the name, no longer provisional
 
 ## Archived
 

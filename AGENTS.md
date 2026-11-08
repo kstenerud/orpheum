@@ -1,6 +1,6 @@
 # AGENTS.md
 
-**Orpheum** (provisional name, D195) is a self-hosted video media server: a Go server with a
+**Orpheum** (D195, D453) is a self-hosted video media server: a Go server with a
 media node, and a TypeScript/React web client and cast receiver. Its first release, for two
 people, was **Cut A**, which shipped (the owner, 2026-10-21); the work now is a closed beta. This
 file is the contract for every agent changing the code. `CLAUDE.md`
