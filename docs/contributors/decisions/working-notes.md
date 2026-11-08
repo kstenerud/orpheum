@@ -26925,6 +26925,11 @@ and D445 §1 (ending a cast stays with the device that cast).
    for a session its person hosts.
 5. **A receiver gone for two minutes** (D364 §6) ends the cast as Stop casting here does.
 
+§4 built in "feat(cast)!: a receiver no longer moves the session its person hosts here (D446 §4)" (the receiver shows no Watch Together sign for the session cast to it, and the
+cast end reason `movedHere` is gone); tests: `TestCast_AReceiverCannotEndTheCastToTakeItOver`, and
+"shows no Watch Together sign over the film on the device the session its person hosts is cast to …"
+in `web/apps/web/src/together-over-the-film.test.tsx`.
+
 **Status:** decided.
 
 **Proven by:** "ends the cast by its own Stop casting here, as taken back, going home as the cast
