@@ -5,11 +5,12 @@ import { useTranslation } from "react-i18next";
 
 import { browserStorage } from "./browser-storage.ts";
 import { Link } from "./link.tsx";
-import { isSnoozed, snooze, useUpdate } from "./update.ts";
+import { composeUpdateCommand, isSnoozed, snooze, useUpdate, type Update } from "./update.ts";
 
 /**
  * The banner above every page while the server's version has a security fix pending, for its admins
- * alone (security-updates.md Part B): what the fix is, the command that installs it and the way to
+ * alone (security-updates.md Part B): what the fix is, the command that installs it (the compose
+ * file's for a server run from one, D450 §2) and the way to
  * the How to update page. It cannot be dismissed while the fix is pending; Snooze for a day hides it
  * in this browser for a day, kept in its storage, which a browser that refuses storage keeps for the
  * page's life alone. A newer release with no security fix is no banner: the settings page says it.
@@ -36,11 +37,7 @@ export function SecurityUpdateNote(props: { readonly isAdmin: boolean }): JSX.El
     <output className="app-shell__note app-shell__note--security">
       {t("update.banner", { version: fix.fixedIn, summary: fix.summary.replace(/\.$/u, "") })}{" "}
       <Link to={{ screen: "update" }}>{t("update.updateNow")}</Link>
-      {update.value?.command === undefined ? null : (
-        <span className="app-shell__note-command">
-          {t("update.runOnServer")} <code>{update.value.command}</code>
-        </span>
-      )}
+      {update.value === undefined ? null : <NoteCommand update={update.value} />}
       <button
         type="button"
         onClick={() => {
@@ -51,5 +48,21 @@ export function SecurityUpdateNote(props: { readonly isAdmin: boolean }): JSX.El
         {t("update.snooze")}
       </button>
     </output>
+  );
+}
+
+/** The command that installs the fix: the compose file's for a server run from one (D450 §2). */
+function NoteCommand(props: { readonly update: Update }): JSX.Element | null {
+  const { t } = useTranslation();
+  const { update } = props;
+  if (update.command === undefined) {
+    return null;
+  }
+  const isCompose = update.installRoute === "compose";
+  return (
+    <span className="app-shell__note-command">
+      {t(isCompose ? "update.composeDocker" : "update.runOnServer")}{" "}
+      <code>{isCompose ? composeUpdateCommand : update.command}</code>
+    </span>
   );
 }

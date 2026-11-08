@@ -27111,6 +27111,10 @@ D273 §5's `confinement_policy = "require"`.
    which the install script runs, and `compose` from `orpheum start`, which a compose file runs at
    every start. `GET /system/update` says it as `installRoute`, and the System page and How to update
    show only that way's steps. A config without it (written by hand, or the dev loop's) shows both.
+   Asked whether the security banner should give only that way's command too, and whether the steps
+   should drop their *"If you installed…"* once only one way shows, the owner answered *"yes to
+   both"* (2026-11-08): the banner gives a compose-file server `docker compose pull && docker compose
+   up -d`, and the *"If…"* lines show only while both ways do.
 
 **Status:** built (2026-11-08). The owner answered on 2026-11-08: the leave stays per node (*"2:
 follow your advice"*), and the core learns its install route (*"3: yes"*).
