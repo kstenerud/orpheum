@@ -8,12 +8,14 @@ import { useTranslation } from "react-i18next";
 
 import { ControlledMode, useEndsAsTheCastDoes } from "./cast-receiver.tsx";
 import { askPageFullScreen, leaveFullScreenAsked } from "./film-fullscreen.ts";
+import { arrivalMark } from "./focus-navigation.ts";
 import { useIsFullScreen } from "./full-screen-button.tsx";
 import { IconButton } from "./icon-button.tsx";
 import { Link } from "./link.tsx";
 import { useLive } from "./live.tsx";
 import { FullScreenIcon, LeaveFullScreenIcon } from "./player-icons.tsx";
 import { useToken } from "./services.tsx";
+import { StopCastingHere } from "./stop-casting-here.tsx";
 import { FollowsTheGroupHere } from "./together-viewer.tsx";
 import { useTogether } from "./use-together.ts";
 import { useWarmsPlay } from "./warm-play.ts";
@@ -22,9 +24,9 @@ import { useWarmsPlay } from "./warm-play.ts";
  * A cast's receiver between videos (D364 §5): full screen, "Ready, controlled from ‹Device›", so the
  * next video the person plays starts full screen and with sound, with no press here. Its ⤢ leaves
  * full screen and goes back into it, as the player's does while a film plays, and leaving full
- * screen, by ⤢, Back or Escape, ends nothing: the device that cast ends the cast (the owner,
- * 2026-11-07, the 11-20 batch's answer 4; ControlledMode), which goes to this device's home page, as
- * every end does (D384 §1). A guest's cast,
+ * screen, by ⤢, Back or Escape, ends nothing (D445; ControlledMode): Stop casting here, at its top,
+ * or the device that cast ends the cast (D446 §1), which goes to this device's home page, as every
+ * end does (D384 §1). A guest's cast,
  * handed their part in the Watch Together session they are in, follows that session's film here, just
  * another follower, as the guest's own device did (D371 §4). Without a cast waiting ready, as a page
  * loaded again before it is handed its cast again, it says so.
@@ -63,6 +65,7 @@ function ReadyFor(props: { readonly cast: CastToReceive }): JSX.Element {
   const { togetherCredential } = cast;
   return (
     <div className="cast-ready">
+      <StopCastingHere />
       {togetherCredential !== undefined && cast.isTogetherFollower === true ? (
         <FollowsTheGroupHere credential={togetherCredential} />
       ) : (
@@ -78,13 +81,13 @@ function ReadyFor(props: { readonly cast: CastToReceive }): JSX.Element {
  * The ready page's ⤢: in full screen it leaves, as the page's own asking; out of it, it puts the
  * page back, which the next video's player keeps (askPageFullScreen, D364 §3, §5). A receiver with
  * nothing playing could leave full screen only by Escape, which ended its cast (the owner,
- * 2026-11-07).
+ * 2026-11-07). Focus arrives on it, never on Stop casting here above (D446 §3).
  */
 function ReadyFullScreen(): JSX.Element {
   const { t } = useTranslation();
   const isFullScreen = useIsFullScreen();
   return (
-    <div className="cast-ready__full-screen">
+    <div className="cast-ready__full-screen" {...arrivalMark}>
       <IconButton
         isOverVideo
         label={isFullScreen ? t("playerControls.leaveFullScreen") : t("playerControls.fullScreen")}

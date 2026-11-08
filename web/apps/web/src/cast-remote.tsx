@@ -39,10 +39,9 @@ export type PlaysHereFrom = (atMs: number | undefined, isPaused?: boolean) => vo
 /**
  * The Play page's video area while its device casts (D384 §2, D364 §8): the page keeps its place, and
  * where its video was it shows the remote of the cast castId, "Playing on ‹device›" with its
- * controls, which work the receiver. Stop casting, here or in Cast's dialog, brings the film back to
- * the page at the receiver's position (onPlayHere), as control taken back on the receiver and the
- * receiver gone do, the page then playing it from where the receiver last stood, playing or paused as
- * it was (D385 §2, §3); a cast the server no longer knows sends the page home, saying so in a pop-up
+ * controls, which work the receiver. Stop casting, in Cast's dialog or on the receiver, brings the
+ * film back to the page (onPlayHere), as the receiver gone does, from where the receiver last stood,
+ * playing or paused as it was, and with nothing on there sends the page home (D446 §2, §5); a cast the server no longer knows sends the page home, saying so in a pop-up
  * (D386 §2). Where the cast plays another film than the page's by then, the film comes back on that
  * film's Play page, in this one's place. A cast started from full screen leaves it: the remote is a
  * page, the control centre while casting, not a film (D440 §5), laid out as the full-screen overlay
@@ -82,8 +81,8 @@ function useHeldCast(castId: number): CastSending | undefined {
 
 /**
  * Plays the film of the cast's last word here again, from atMs, paused there where isPaused: on the
- * page shown where it is the page's film, or nothing played on the receiver (onPlayHere); else on
- * that film's Play page, in this one's place.
+ * page shown where it is the page's film (onPlayHere); else on that film's Play page, in this one's
+ * place. Nothing played on the receiver, the page goes home (D446 §2).
  */
 function usePlaysHere(
   sent: CastSending,
@@ -93,7 +92,7 @@ function usePlaysHere(
   const { navigation } = useServices();
   return (atMs, isPaused = false) => {
     if (sent.fileId === 0) {
-      onPlayHere(undefined);
+      navigation.replace({ screen: "home" }); // nothing was on: nothing to take on (D446 §2)
     } else if (sent.fileId === pageFileId) {
       onPlayHere(atMs, isPaused);
     } else {
@@ -114,8 +113,8 @@ function usePlaysHere(
  * clock between. With a video playing: the full-screen overlay's rows, its title as a sign, the
  * controls and Up next at the episode's end; with none, "Ready on ‹Device›" (D444). Stop casting, the
  * one way to bring the film back here (D388), is in the Cast sign's dialog, as everywhere (D444).
- * Stopped, its control taken back on the receiver, or the receiver gone, the film plays here again at
- * once (D384 §2, D385 §2, §3); lost, the server knowing it no more, the page goes home (D386 §2).
+ * Stopped here or on the receiver, or the receiver gone, the film plays here again at once, as the
+ * receiver left it, or the page goes home where nothing was on (D446 §2); lost, the server knowing it no more, the page goes home (D386 §2).
  */
 function Remote(props: {
   readonly sent: CastSending;
@@ -141,9 +140,9 @@ function Remote(props: {
 }
 
 /**
- * The ends of a cast after which the film plays here again at once: Stop casting, in Cast's dialog
- * (D384 §2, D444); control taken back on the receiver (D385 §2); the receiver gone, its connection lost
- * for ReceiverGoneAfter (D385 §3, D364 §6).
+ * The ends of a cast after which the film plays here again at once, as the receiver left it (D446
+ * §2): Stop casting, in Cast's dialog (D444); Stop casting here, on the receiver (takenBack, D446 §3);
+ * the receiver gone, its connection lost for ReceiverGoneAfter (D446 §5, D364 §6).
  */
 const takenOverAt: ReadonlySet<string> = new Set(["stopped", "takenBack", "receiverGone"]);
 
@@ -182,11 +181,10 @@ function useGoesHomeAsTheCastIsLost(over: CastEnd | undefined): void {
 }
 
 /**
- * Plays the film here again, once, as its cast ends by one of takenOverAt: stopped, from where the
- * server said it stood as it ended, playing (D384 §2); its control taken back on the receiver, or the
- * receiver gone, from where the receiver last stood, playing or paused as it was (D385 §2, §3), this
- * device then the one playing and controlling it; where no device was heard leading, from where the
- * cast stood as it ended.
+ * Plays the film here again, once, as its cast ends by one of takenOverAt, stopped here, stopped on
+ * the receiver or the receiver gone: from where the receiver last stood, playing or paused as it was,
+ * this device then the one playing and controlling it (D446 §2, §5); where no device was heard
+ * leading, from where the cast stood as it ended.
  */
 function useTakesTheFilmOver(
   over: CastEnd | undefined,
@@ -200,10 +198,6 @@ function useTakesTheFilmOver(
       return;
     }
     hasTakenRef.current = true;
-    if (over.reason === "stopped") {
-      playHereRef.current(over.positionMs); // playing, as Stop casting always has (D384 §2)
-      return;
-    }
     const from = stoodRef.current ?? over;
     playHereRef.current(from.positionMs, from.isPaused);
   }, [over, playHereRef, stoodRef]);

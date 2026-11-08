@@ -61,6 +61,7 @@ export const enCast = {
     },
     readyOn: "Ready on {{name}}. What you play now plays there.",
     stop: "Stop casting",
+    stopHere: "Stop casting here",
     sendingOn: "Sending it to the device you cast to…",
     over: {
       lost: "The cast ended: the server no longer knows it.",

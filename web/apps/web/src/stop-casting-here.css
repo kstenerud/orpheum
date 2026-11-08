@@ -1,0 +1,19 @@
+/* A receiver's Stop casting here (stop-casting-here.tsx, D446 §3): a large button over the film's
+   black, read across a room; first in the overlay's top row, and at the top of the ready page. */
+.stop-casting-here__button {
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--color-video-card);
+  color: var(--color-on-video);
+  font-size: var(--font-size-h2);
+}
+
+.cast-ready > .stop-casting-here {
+  position: absolute;
+  inset-block-start: var(--space-4);
+  inset-inline: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}

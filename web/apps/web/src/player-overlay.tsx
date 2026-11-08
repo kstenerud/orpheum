@@ -48,6 +48,7 @@ import {
 } from "./player-overlay-state.ts";
 import { useAnswersPictureTaps, useOpensAtThePointer, type SeekFeedback } from "./player-taps.ts";
 import { PlayerTracksContext } from "./player-tracks.tsx";
+import { StopCastingHere } from "./stop-casting-here.tsx";
 import { Timeline } from "./timeline.tsx";
 import { TogetherSignOverTheFilm } from "./together-over-the-film.tsx";
 import { peopleOf, useSessionVoice } from "./together-voice.tsx";
@@ -317,6 +318,7 @@ export function OverlayRows({
     <OverlayRowsOf
       top={
         <>
+          <StopCastingHere />
           <OverlayUp />
           <ConvenienceArea
             {...convenience}
