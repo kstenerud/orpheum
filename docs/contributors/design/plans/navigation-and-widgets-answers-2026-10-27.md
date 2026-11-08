@@ -2588,3 +2588,9 @@ you reported them from.
   shows the actual contents for playback)." An admin reaches a library's settings (its folders, and
   so the repoint the failover needs) from the library they are browsing, by its gear; others never
   see the entry.
+- **Next batch (the owner, 2026-11-08, testing VQ288 on the Fire TV):** "When I cast to the TV from
+  a paused playback, it starts playback on the TV. It should maintain the paused status of the
+  caster." A cast started from a paused film opens on the receiver paused at the same place; one
+  started from a playing film plays. Today the cast's start carries only the position
+  (`cast-to.tsx`, the cast's start in `internal/core/api/casts.go`), so the receiver always plays.
+  Mind the 11-06 finding that a TV opening a film paused in full screen ate the first press.
