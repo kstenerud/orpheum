@@ -10,6 +10,7 @@
   color: var(--color-muted);
 }
 
+/* An admin's way to the library's settings, set apart below the choices (VQ290). */
 .library-configure__manage {
   margin-block-start: var(--space-4);
 }

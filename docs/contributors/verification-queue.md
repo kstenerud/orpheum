@@ -2849,3 +2849,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   showing, a single Play on the phone's remote (and, separately, a single OK on the TV) plays it,
   with sound or the "Press OK to turn the sound on" note as any cast start gives; and the playing
   cast plays at once as before. (`web/apps/web/src/together-host.tsx`, `putOn`)
+- [ ] **VQ290** — An admin reaches a library's settings from its gear (the owner, 2026-11-08). On
+  staging as admin, open a library's contents and press its gear: passes when "Manage this library"
+  stands below the dialog's choices with a clear space above it, not crowded against them, and
+  pressing it opens that library's settings; signed in as a member who is not an admin, the gear's
+  dialog has no such entry. (`web/apps/web/src/library-configure.tsx`, `library-configure.css`)
