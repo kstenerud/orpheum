@@ -17,10 +17,11 @@ import { readMembership } from "./together-storage.ts";
 export type Cast = components["schemas"]["CastBody"];
 
 /**
- * Why a device ends a cast: control taken back on the receiver, Stop casting on the sender; or, asked
- * whether to take it, the receiver's Not now or no answer (D358 §3, §4).
+ * Why a device ends a cast: Stop casting here on the receiver, Stop casting on the sender; or, asked
+ * whether to take it, the receiver's Not now or no answer (D358 §3, §4, D446 §1). The server's own
+ * list, so no reason it refuses is sent.
  */
-export type CastEnd = "takenBack" | "stopped" | "declined" | "unanswered";
+export type CastEnd = components["schemas"]["EndCastInputBody"]["reason"];
 
 /**
  * How long a receiver asks whether to take a cast before it takes no answer as no, in milliseconds
