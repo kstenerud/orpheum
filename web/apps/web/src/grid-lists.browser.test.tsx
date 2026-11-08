@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 /**
- * The three lists that moved onto the grid list (8c0f3ab1; the owner, 2026-11-05: "a grid UI widget
+ * The three lists that moved onto the grid list (the owner, 2026-11-05: "a grid UI widget
  * for alignment"), as a real browser lays them out: a title's cast, needs a match and the waiting
  * invitations. Each is drawn with rows whose earlier cells differ in width, and each column must
  * start at the same x in every row; the cast, which flows several entries to a line, gives every entry

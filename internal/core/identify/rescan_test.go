@@ -446,7 +446,7 @@ func TestRescan_ALibraryWithAnEpisodePlacedByItsNameIsMatchedAgain(t *testing.T)
 }
 
 // A rescan whose library changes each time its files are read waits for it, and its log names the
-// write that keeps it changing: a stuck rescan said only that it waited, for hours ("fix(identify): an episode its name placed is marked a guess once, not every pass"). Here
+// write that keeps it changing: a stuck rescan said only that it waited, for hours. Here
 // the film's sort key is taken away after each pass, so each read would write it again.
 func TestRescan_ALibraryThatKeepsChangingIsLoggedWithTheWriteThatChangesIt(t *testing.T) {
 	t.Parallel()
