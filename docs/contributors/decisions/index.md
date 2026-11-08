@@ -453,10 +453,11 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D445](working-notes.md#d445--no-press-on-a-receiver-ends-a-cast-leaving-full-screen-only-leaves-full-screen) No press on a receiver ends a cast; leaving full screen only leaves full screen
 - [D446](working-notes.md#d446--a-receiver-is-passive-and-ends-a-cast-only-by-its-own-stop-casting-here-the-sender-takes-on-the-state-it-left) A receiver is passive and ends a cast only by its own Stop casting here; the sender takes on the state it left
 - [D447](working-notes.md#d447--a-server-is-installed-from-one-compose-file-its-first-start-writing-the-deployment-from-its-command-line) A server is installed from one compose file, its first start writing the deployment from its command line — *revisited by D448*
-- [D448](working-notes.md#d448--a-server-installs-and-finds-its-parts-with-as-little-skill-as-possible-the-deployment-audits-proposals-adopted) A server installs and finds its parts with as little skill as possible: the deployment audit's proposals, adopted — *revisited by D449, D451*
-- [D449](working-notes.md#d449--reserved-the-address-at-home-learned-and-the-settings-applied-at-every-start) Reserved: the address at home learned, and the settings applied at every start
-- [D450](working-notes.md#d450--reserved-the-setup-code-media-folders-an-unconfined-node-updates-and-catalogues) Reserved: the setup code, media folders, an unconfined node, updates and catalogues
+- [D448](working-notes.md#d448--a-server-installs-and-finds-its-parts-with-as-little-skill-as-possible-the-deployment-audits-proposals-adopted) A server installs and finds its parts with as little skill as possible: the deployment audit's proposals, adopted — *revisited by D449, D452*
+- [D449](working-notes.md#d449--reserved-the-compose-files-server-settings-at-every-start-its-machines-port-the-setup-codes-file-media-folders-and-catalogues) Reserved: the compose file's server: settings at every start, its machine's port, the setup code's file, media folders and catalogues
+- [D450](working-notes.md#d450--reserved-an-unconfined-node-accepted-in-the-servers-pages-and-updates-announced) Reserved: an unconfined node accepted in the server's pages, and updates announced
 - [D451](working-notes.md#d451--reserved-remote-access-approved-from-the-account) Reserved: remote access approved from the account
+- [D452](working-notes.md#d452--reserved-the-address-at-home-learned-at-setup) Reserved: the address at home learned at setup
 
 ## Archived
 
