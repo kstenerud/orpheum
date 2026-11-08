@@ -27104,6 +27104,11 @@ D273 §5's `confinement_policy = "require"`.
 or one for the household; and whether the core should learn its install route, so it can show only
 the steps that apply.
 
+**Proven by:**
+- 1: `TestRunNode_StartsLockedWithoutLandlockUntilAnAdminLetsItRunUnconfined`,
+  `TestLocked_ANodeIsHeldUntilAnAdminLetsItRunUnconfined`, `TestMigrate_Step0085KeepsOneUnconfinedLeavePerNodeWithWhoGaveIt`, web/apps/web/src/node-unconfined.test.tsx
+- 2: web/apps/web/src/security-update-note.test.tsx
+
 ## D451 — Reserved: remote access approved from the account
 
 **Reserved** (2026-11-08) for D448 §9's branch; the branch replaces this entry with the decision.

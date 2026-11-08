@@ -1440,6 +1440,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `link_memory` | persistent.db | `internal/core/playback` | what each player last said of its link on each network, kept across restarts (D257 §1, D352 Q2; `speeds.go`) |
 | `loudness` | persistent.db | `internal/core/readthrough` | the read-through that measures it; `internal/core/loudness` reads it for the gains |
 | `node` | persistent.db | `internal/core/nodes` | |
+| `node_unconfined_leave` | persistent.db | `internal/core/nodes` | an admin's leave for a node without Landlock or seccomp to run unconfined, who gave it and when (D450 §1) |
 | `ordering` | persistent.db | `internal/core/identify` | |
 | `other_video` | persistent.db | `internal/core/identify` | |
 | `person` | persistent.db | `internal/core/identify` | the pass, as a credit first names each, and renames them as TMDB does (step 0067) |
