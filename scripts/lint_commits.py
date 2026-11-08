@@ -24,6 +24,8 @@ import subprocess
 import sys
 from dataclasses import dataclass
 
+from commit_hashes import cited_commits, subject_of
+
 # The type set, from yoloAI's settled convention, with Conventional Commits' `style` for a change
 # of formatting alone, which `check_revert_red.py` already exempted (the owner, 2026-10-05).
 # `check_revert_red.py` reads the same types: feat/fix/perf owe a red-on-revert, the rest do not.
@@ -42,6 +44,9 @@ SUBJECT_RE = re.compile(rf"^({'|'.join(TYPES)})(\([a-z0-9.\-/,]+\))?(!)?: (.+)$"
 REVERT_RE = re.compile(r'^Revert "')
 
 TRAILER_RE = re.compile(r"^Co-Authored-By:\s*(.+?)\s*<", re.IGNORECASE | re.MULTILINE)
+
+# The line `git revert` writes, which names the reverted commit by hash; git wrote it, not us.
+REVERTS_LINE_RE = re.compile(r"^This reverts commit [0-9a-f]+\.?$", re.MULTILINE)
 
 # Trailers and tool noise are not a body.
 NOISE_RE = re.compile(
@@ -140,6 +145,19 @@ def check_trailers(c: Commit) -> list[Problem]:
     return out
 
 
+def check_hashes(c: Commit) -> list[Problem]:
+    """A commit is cited by its subject: its hash changes when it leaves the sandbox (A64)."""
+    text = REVERTS_LINE_RE.sub("", f"{c.subject}\n{c.body}")
+    return [
+        Problem(
+            c.sha, c.subject, "commit-hash",
+            f"cites commit {token} by its hash, which `yoloai apply` and any rewrite change; "
+            f'cite its subject instead: "{subject_of(token)}"',
+        )
+        for token in cited_commits(text)
+    ]
+
+
 def read_commits(base: str, head: str) -> list[Commit]:
     sep, rec = "\x1f", "\x1e"
     out = subprocess.run(
@@ -172,6 +190,7 @@ def lint(commits: list[Commit]) -> list[Problem]:
         problems.extend(check_subject(c))
         problems.extend(check_body(c))
         problems.extend(check_trailers(c))
+        problems.extend(check_hashes(c))
     return problems
 
 

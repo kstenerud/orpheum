@@ -94,8 +94,9 @@ done. *Standards: makefile.md §4.*
 13. **Commits:** subject `type(scope): summary` (`feat`, `fix`, `docs`, `test`, `refactor`,
     `build`, `ci`, `chore`, `perf`, `style` for formatting alone; `!` marks a break); `feat`/`fix`/`refactor`/`perf` carry a
     prose body saying what was wrong and why this fixes it; AI work ends with
-    `Co-Authored-By: <exact model> <noreply@anthropic.com>`. *commit-msg hook;
-    `make lint-commits`.*
+    `Co-Authored-By: <exact model> <noreply@anthropic.com>`. Cite a commit by its subject, never
+    its hash: `yoloai apply` gives every commit a new one (agent-failures A64). *commit-msg hook;
+    `make lint-commits`; `make check-docs`.*
 14. **Multi-commit work goes on a `work/<topic>` branch**, merged to `main` when done and then
     deleted. A migration's branch is `release-vX.Y.Z` (standards: sql.md). In a yoloAI sandbox,
     commit on the checked-out branch instead: the owner takes the commits out with
