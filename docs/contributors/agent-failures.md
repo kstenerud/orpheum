@@ -49,6 +49,21 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A64 — Cited commit hashes as if they lasted, when every commit leaves the sandbox under a new one (2026-11-08)
+
+- **What happened:** handing over the filtered public repository, the lead warned that hashes
+  quoted in the docs "won't match the public repo", as if they matched today. They never match
+  outside the sandbox: `yoloai apply` replays each commit with `git am`, which gives it a new
+  committer date and so a new hash. 443 commit messages and 165 distinct hashes in the tree's
+  Markdown cite sandbox commits that the owner's repository does not have. The belief came from
+  habit: inside one repository a hash is the most exact reference there is, and nothing in the
+  sandbox showed that the commits are re-made when they leave it.
+- **Caught by:** the owner: "wouldn't the hashes be out of date from the start, considering every
+  commit pulled out of yoloai would get a different hash?"
+- **Gate:** none yet. Proposed to the owner: cite a commit by its subject (or the decision it
+  carries), not its hash, and a check in `lint-commits` and `check-docs` that refuses a bare
+  commit hash.
+
 ### A63 — Asked the owner three Watch Together questions the decisions already answer (2026-11-07)
 
 - **What happened:** in the playback redesign's dialogue, the lead asked whether a guest may pause
