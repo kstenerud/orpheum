@@ -34,11 +34,14 @@
 //   - The node role, node.go, imports nothing from internal/core or internal/store, as the node's
 //     own packages do not (D33); what both roles need is in internal/platform. Enforced by the
 //     depguard rule node-role-boundary.
-//   - start writes a deployment from its flags only where none is, needs --lan-address to, and
-//     leaves one already there as it is: after the first start the files rule (D447). Enforced by
-//     TestFirstStart_WritesTheDeploymentFromItsFlagsWhenThereIsNone,
-//     TestFirstStart_LeavesADeploymentThereAlreadyAsItIs and
+//   - start writes the deployment's configs and values file from its flags at every start, the
+//     values file last, making the instances only where missing, and needs --lan-address to
+//     (D447, D449 §1). Enforced by TestFirstStart_WritesTheDeploymentFromItsFlagsWhenThereIsNone,
+//     TestStart_WritesTheConfigsAgainFromTheFlagsAtEveryStart and
 //     TestFirstStart_RefusesToWriteWithoutTheAddressAtHome.
+//   - While no admin exists, the core started by start keeps the setup code in SETUP-CODE.txt in
+//     the deployment, mode 0600, and removes it with the first admin (D449 §3). Enforced by
+//     TestServe_ShowsTheSetupCodeInTheDataFolderUntilTheFirstAdmin.
 //   - Only this package prints. Enforced by the forbidigo rule tagged [print].
 //   - A planned subcommand that is not built yet exits 2 and says so; it never exits 0.
 //     Enforced by TestDispatch_PlannedSubcommandsAreNotImplementedYet in main_test.go.

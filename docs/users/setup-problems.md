@@ -201,7 +201,7 @@ Compose stops before anything starts: the file needs that value. In OpenMediaVau
 file's **Environment** (`ORPHEUM_MEDIA`, `ORPHEUM_LAN_ADDRESS`) or check the global environment file
 (`PATH_TO_APPDATA`); elsewhere, in the `.env` file beside `compose.yaml`.
 
-### The core's log says "--lan-address is needed the first time"
+### The core's log says "--lan-address is needed"
 
 The core was started without the machine's address at home, which its container cannot see and
 which decides where an admin may administer from. Set `ORPHEUM_LAN_ADDRESS` to the machine's
@@ -212,8 +212,8 @@ again. A wrong address is refused the same way, naming `lan.address`.
 
 Another service has the port: OpenMediaVault's own web interface takes 80 (and 443), or 8443 once
 moved as omv-extras' guide moves it; another app may have 8440 or 8444. Set `ORPHEUM_HTTP_PORT` or
-`ORPHEUM_HTTPS_PORT` to a free port. For the HTTPS port, also delete `appdata/orpheum/values.toml`
-before the next **Up**, so the server tells devices the new port ([install.md](install.md)).
+`ORPHEUM_HTTPS_PORT` to a free port, then **Up** again: every start takes the new value (D449). If
+`127.0.0.1:8441` is the one taken, set `ORPHEUM_THIS_MACHINE_PORT`.
 
 ### `orpheum-folders` exited with an error, or the core's log says "permission denied" under /var/lib/orpheum
 
@@ -223,15 +223,30 @@ It fails where the app data lies on a filesystem that refuses a change of owner,
 share (NFS, SMB). Put `PATH_TO_APPDATA` on a local disk, or make `appdata/orpheum` and its `node`
 and `run` folders yourself, owned by that user.
 
-### The core's log says the setup code, but it has scrolled away
+### Where is the setup code? The core's log has scrolled away
 
-The core writes it again at every start until the first admin is made: restart `orpheum-core`, or
-run `docker exec orpheum-core orpheum setup-code --instance /var/lib/orpheum/core`.
+Until the first admin is made, it is in `SETUP-CODE.txt` in `appdata/orpheum` (D449), readable by
+the app user (`APPUSER_PUID`) alone. The core also writes it to its log at every start: restart
+`orpheum-core`, or run `docker exec orpheum-core orpheum setup-code --instance /var/lib/orpheum/core`.
+
+### Admin is refused: "only from the home network"
+
+The server counts a browser as at home by its address; through a VPN, or from another network of
+yours, it does not. Open it on the machine itself at `http://127.0.0.1:8441`
+(`ORPHEUM_THIS_MACHINE_PORT`), which only the machine can reach and the server counts as home
+(D334 §4); from another computer, `ssh -L 8441:127.0.0.1:8441 <the machine>` first.
+
+### I changed a variable and nothing changed
+
+Each start writes the settings from the variables (D449), but a compose tool applies a changed
+variable only when it recreates the containers: **Up** again (`docker compose up -d`), not a restart.
+An edit to `appdata/orpheum/values.toml` is lost at the next start; change the variable instead.
 
 ### A library's folder is "not found", or the node's log says "permission denied" reading a film
 
-Inside the containers the media folder is `/media`: a library names `/media/Films`, not
-`/srv/dev-disk-by-uuid-…/Media/Films`. If the path is right, the app user cannot read it: in
+Inside the containers each media folder keeps the machine's own name: a library names
+`/srv/dev-disk-by-uuid-…/Media/Films`. An install from before D449 had its folder at `/media`;
+repoint such a library to the machine's name. If the path is right, the app user cannot read it: in
 OpenMediaVault, **Storage > Shared Folders**, the media folder, **Permissions**: give the user
 `APPUSER_PUID` names read access (the folder's ACL too, if it has one).
 

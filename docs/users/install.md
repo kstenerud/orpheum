@@ -8,8 +8,8 @@ and series on folders that machine can read.
 There are two ways to install it:
 
 - **One compose file** ([below](#one-compose-file)): paste it into OpenMediaVault, Portainer or
-  any compose tool, or put it in a folder, fill in three values, and start it. Its first start
-  writes the server's settings from those values (D447); nothing runs on the machine itself.
+  any compose tool, or put it in a folder, fill in three values, and start it. Every start
+  writes the server's settings from those values (D447, D449); nothing runs on the machine itself.
 - **The install script** ([the other route](#the-install-script)): one command at a terminal,
   which finds the machine's address, starts the server and asks for the first admin there.
 
@@ -25,27 +25,25 @@ the first three are needed, and compose refuses to start without them.
 | `PATH_TO_APPDATA` | the folder that holds each app's data; Orpheum keeps its own in `orpheum/` there | needed |
 | `ORPHEUM_MEDIA` | the folder that holds your films and series, as the machine names it | needed |
 | `ORPHEUM_LAN_ADDRESS` | the machine's address on your home network, `192.168.1.20`; keep it fixed with a reservation in your router | needed |
+| `ORPHEUM_MEDIA_2`, `ORPHEUM_MEDIA_3`, `ORPHEUM_MEDIA_4` | more folders of films and series, as the machine names them | none |
 | `ORPHEUM_TAG` | the version to run | the file's |
 | `APPUSER_PUID`, `APPUSER_PGID` | the user and group the server runs as, which own its data and must be able to read the media | 1000, 100 |
 | `TIME_ZONE_VALUE` | the server's time zone, `Europe/Berlin` | UTC |
 | `ORPHEUM_HTTP_PORT` | the port a browser at home opens it on: `http://<address>:8440` | 8440 |
 | `ORPHEUM_HTTPS_PORT` | the port devices at home reach it on over HTTPS, and over WebRTC (UDP) | 8444 |
+| `ORPHEUM_THIS_MACHINE_PORT` | the port a browser on the machine itself opens it on, `http://127.0.0.1:8441`, as from home ([admin refused](#the-first-admin)) | 8441 |
 | `ORPHEUM_ROUTER` | your router's address, `192.168.1.1`, which the server asks to forward the HTTPS port so devices away from home reach it | none |
 | `ORPHEUM_NAME` | the name the media node goes by in the server's pages | orpheum |
 | `ORPHEUM_IPV6_SUBNET` | the private IPv6 /64 of the server's network, if another network on the machine has its default | `fd77:5e:0:ffff::/64` |
 | `RENDER_GID` | the render group's number, for a GPU ([hardware encoding](#hardware-encoding)) | — |
 
-Inside the containers your media folder is **`/media`**: a library's folder is `/media/Films`, not
-the machine's own path. More folders go under it, each a line of its own in the node's `volumes`:
-`- /srv/disk2/Shows:/media/Shows:ro`.
+Each media folder keeps the machine's own name inside the containers: with
+`ORPHEUM_MEDIA=/srv/media`, a library's folder is `/srv/media/Films`. A folder not set is none, and
+the server does not show it.
 
-On the first start the core writes its settings into `PATH_TO_APPDATA/orpheum` from these values.
-After that the files there rule and the values are not read again, so changing
-`ORPHEUM_LAN_ADDRESS` alone changes nothing. To have the server take the values again, delete
-`PATH_TO_APPDATA/orpheum/values.toml` and restart it: its settings are written again from the
-values, and its database, people, libraries and keys are kept. A port is the exception: the port
-mappings are compose's own, so `ORPHEUM_HTTP_PORT` takes effect at the next start; for
-`ORPHEUM_HTTPS_PORT`, delete `values.toml` too, as the server tells devices that port.
+At every start the core writes its settings into `PATH_TO_APPDATA/orpheum` from these values, so to
+change one, change the variable and start it again (D449): its database, people, libraries and keys
+are kept. `values.toml` there is written from the variables each time, so an edit to it is lost.
 
 ### On any machine with Docker
 
@@ -117,9 +115,11 @@ the groups it is given. Without a GPU, films that need preparing are encoded in 
 
 ## The first admin
 
-On its first start, and on every start until someone is made admin, the core writes a one-time
-**setup code** to its log, in a line that begins `no one can sign in yet` and ends
-`setupCode=xxxx-xxxx-xxxx`:
+On its first start, and on every start until someone is made admin, the core makes a one-time
+**setup code**. It is in the file **`SETUP-CODE.txt`** in `PATH_TO_APPDATA/orpheum` (on
+OpenMediaVault, the `appdata` shared folder's `orpheum` folder), readable by the app user alone and
+removed once the first admin is made. It is also in the core's log, in a line that begins
+`no one can sign in yet` and ends `setupCode=xxxx-xxxx-xxxx`:
 
 - OpenMediaVault: **Services > Compose > Containers**, `orpheum-core`, **Logs**.
 - Elsewhere: `docker logs orpheum-core 2>&1 | grep setupCode`.
@@ -129,7 +129,19 @@ Then open `http://<ORPHEUM_LAN_ADDRESS>:8440` in a browser **on your home networ
 code, a name and a password. That person is the admin. An admin can administer only from the home
 network, the one `ORPHEUM_LAN_ADDRESS` is on.
 
-Next, make a library: its folder is under `/media` ([above](#one-compose-file)).
+If the server refuses admin because it does not count your browser as at home (a VPN, a second
+network), open it on the machine itself instead: `http://127.0.0.1:8441` (`ORPHEUM_THIS_MACHINE_PORT`)
+is published on the machine's own loopback alone, and the server counts it as home (D334 §4). From
+another computer, `ssh -L 8441:127.0.0.1:8441 <the machine>` and open the same address there.
+
+Next, make a library: its folder is one of your media folders, by the machine's own name
+([above](#one-compose-file)).
+
+## From a catalogue
+
+[`deploy/catalogue/`](../../deploy/catalogue/README.md) holds the same compose file packaged for
+Portainer's app templates and CasaOS's app store. They ask the same values; the address at home must
+still be given.
 
 ## From away from home (optional)
 

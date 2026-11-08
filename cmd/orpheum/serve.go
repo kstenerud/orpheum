@@ -163,6 +163,10 @@ type wiring struct {
 	// logLevel is the level the log is written at, which the log_level setting changes while the core
 	// runs (D347); nil, a test's, is left as it is.
 	logLevel *slog.LevelVar
+	// setupCodeFile is where the setup code is also written while no admin exists, for a person who
+	// looks in the data folder: a compose file's start names its deployment's (D449 §3); empty writes
+	// none.
+	setupCodeFile string
 }
 
 // openedServices is what openAndWire opened and serve must close, and what serve runs: the core's
@@ -272,8 +276,9 @@ func wireCore(
 	}
 	core, err := assembly.Build(ctx, assembly.Parts{
 		Database: opened.database, Cache: opened.cache, Directories: opened.directories, Settings: opened.settings,
-		SecretKey: secretKey, SetupCodes: runSetupCodes{directories: opened.directories},
-		Clock: config.servicesClock(), Random: rand.Reader, Logger: logger, Build: thisBuild(),
+		SecretKey:  secretKey,
+		SetupCodes: runSetupCodes{directories: opened.directories, shownFile: outside.setupCodeFile},
+		Clock:      config.servicesClock(), Random: rand.Reader, Logger: logger, Build: thisBuild(),
 		TMDBBaseURL: outside.tmdbBaseURL, TMDBImagesBaseURL: outside.tmdbImagesBaseURL,
 		OpenSubtitlesBaseURL: outside.openSubtitlesBaseURL,
 	})
@@ -281,7 +286,8 @@ func wireCore(
 		return opened, api.Dependencies{}, err
 	}
 	opened = opened.with(core)
-	if setupErr := ensureSetupCode(ctx, core.API.Auth, core.API.SetupCodes, logger); setupErr != nil {
+	codes := runSetupCodes{directories: opened.directories, shownFile: outside.setupCodeFile}
+	if setupErr := ensureSetupCode(ctx, core.API.Auth, codes, logger); setupErr != nil {
 		return opened, api.Dependencies{}, setupErr
 	}
 	if opened, err = openReachedFromOutside(ctx, config, opened, outside, server.RTC(), logger); err != nil {
@@ -442,19 +448,25 @@ func logUnusedSettings(ctx context.Context, unused []settings.UnusedSetting, log
 
 // ensureSetupCode makes sure a server with no users has a setup code, which it logs at every start
 // until the first admin is made, saying where it goes: the log is all a NAS's panel shows of a server
-// installed from a compose file (D447), with no terminal to run `orpheum setup-code` at.
+// installed from a compose file (D447), with no terminal to run `orpheum setup-code` at. It also
+// writes the code to the data folder's file, when there is one, where a person browsing it looks
+// (D449 §3).
 func ensureSetupCode(
-	ctx context.Context, authService *auth.Service, codes auth.SetupCodes, logger *slog.Logger,
+	ctx context.Context, authService *auth.Service, codes runSetupCodes, logger *slog.Logger,
 ) error {
 	code, err := authService.EnsureSetupCode(ctx, codes)
 	if err != nil {
 		return err
 	}
-	if code != "" {
-		logger.WarnContext(ctx, "no one can sign in yet: open Orpheum in a browser at home, "+
-			"http://<this machine's address>:<its HTTP port>, and make the first admin there with this one-time "+
-			"setup code (POST /api/v1/setup); `orpheum setup-code` prints it again", "setupCode", code)
+	if code == "" {
+		return nil
 	}
+	if showErr := codes.show(code); showErr != nil {
+		return showErr
+	}
+	logger.WarnContext(ctx, "no one can sign in yet: open Orpheum in a browser at home, "+
+		"http://<this machine's address>:<its HTTP port>, and make the first admin there with this one-time "+
+		"setup code (POST /api/v1/setup); `orpheum setup-code` prints it again", "setupCode", code)
 	return nil
 }
 
@@ -480,9 +492,12 @@ func loadOrCreateSecretKey(directories *instancedir.Directories, logger *slog.Lo
 	return key, nil
 }
 
-// runSetupCodes keeps the setup code in the instance's run directory, mode 0600 (D242 §3).
+// runSetupCodes keeps the setup code in the instance's run directory, mode 0600 (D242 §3), and, when
+// shownFile is named, shows it there too while no admin exists, for a person who looks in the data
+// folder rather than the log (D449 §3).
 type runSetupCodes struct {
 	directories *instancedir.Directories
+	shownFile   string
 }
 
 func (codes runSetupCodes) Read() (string, error) {
@@ -497,8 +512,27 @@ func (codes runSetupCodes) Write(code string) error {
 	return codes.directories.WriteRunFile(auth.SetupCodeFileName, []byte(code))
 }
 
+// Remove removes the code, and the file showing it, once the first admin is made.
 func (codes runSetupCodes) Remove() error {
-	return codes.directories.RemoveRunFile(auth.SetupCodeFileName)
+	if err := codes.directories.RemoveRunFile(auth.SetupCodeFileName); err != nil {
+		return err
+	}
+	if codes.shownFile == "" {
+		return nil
+	}
+	return instancedir.RemoveFileBeside(codes.shownFile)
+}
+
+// show writes code to shownFile, readable by the server's user alone, as its run-directory copy is,
+// with a line saying where it goes; with no shownFile it writes nothing.
+func (codes runSetupCodes) show(code string) error {
+	if codes.shownFile == "" {
+		return nil
+	}
+	text := code + "\n\nOrpheum's one-time setup code. Open Orpheum in a browser at home, " +
+		"http://<this machine's address>:8440, and enter it on the first page to make the first admin; " +
+		"this file is removed once you have.\n"
+	return instancedir.WriteFileBeside(codes.shownFile, []byte(text))
 }
 
 // mountDebug serves pprof on the API's mux when the should_serve_debug_pprof setting says so, and only on a

@@ -189,6 +189,12 @@ func dispatch(
 // commandCore runs the core. Its nodes are services of their own (`orpheum node`), which dial its
 // socket: the core starts none (D233 §2, D235 §4).
 func commandCore(ctx context.Context, call invocation) int {
+	return runCore(ctx, call, "")
+}
+
+// runCore runs the core of the instance --instance names, also writing the setup code into
+// setupCodeFile, when named, while no admin exists, for a person who looks in the data folder (D449 §3).
+func runCore(ctx context.Context, call invocation, setupCodeFile string) int {
 	config, configReport, err := call.loadConfigFromFlags("core", kindCore, nil)
 	if err != nil {
 		return call.fail(err)
@@ -207,6 +213,7 @@ func commandCore(ctx context.Context, call invocation) int {
 		return call.fail(err)
 	}
 	outside := releaseWiringFor(opened, machineZone(systemZoneSources(call.lookupEnv)))
+	outside.setupCodeFile = setupCodeFile
 	if err = serve(ctx, config, configReport, listener, outside, logger); err != nil {
 		return exitFailure
 	}

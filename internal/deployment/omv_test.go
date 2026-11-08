@@ -62,7 +62,8 @@ func TestOMVCompose_KeepsTheDeploymentsGuardsAndStartsFromItsCommandLine(t *test
 	for _, want := range []string{
 		"      - start\n      - --lan-address\n      - ${ORPHEUM_LAN_ADDRESS:?",
 		`command: ["node", "--instance", "/var/lib/orpheum/node"]`,
-		":/media:ro",
+		"      - ${ORPHEUM_MEDIA:?set ORPHEUM_MEDIA to the folder that holds your films and series}:" +
+			"${ORPHEUM_MEDIA}:ro\n",
 		"condition: service_healthy",
 	} {
 		if !strings.Contains(text, want) {
@@ -92,5 +93,50 @@ func TestOMVCompose_TheInstallPageNamesEveryVariableItReads(t *testing.T) {
 		if !strings.Contains(string(page), "`"+name+"`") {
 			t.Errorf("%s reads %s, which %s does not name", omvComposeFile, name, installPage)
 		}
+	}
+}
+
+// Each media folder is mounted at its own path, so the library picker shows the name this machine
+// gives it, and passed to start; one of the optional folders not set mounts the empty placeholder,
+// so compose still has a bind's source, and comes to start empty, so it is no folder (D449 §4).
+func TestOMVCompose_EachMediaFolderIsMountedAtItsOwnPathAndAnUnsetOneIsNone(t *testing.T) {
+	t.Parallel()
+	text := omvCompose(t)
+	if !strings.Contains(text, "      - --media\n      - ${ORPHEUM_MEDIA:?") {
+		t.Errorf("%s does not pass ORPHEUM_MEDIA to start as a --media", omvComposeFile)
+	}
+	if !strings.Contains(text, "mkdir -p /appdata/node /appdata/run /appdata/empty ") {
+		t.Errorf("%s: orpheum-folders does not make empty/, the unset folders' source", omvComposeFile)
+	}
+	for _, name := range []string{"ORPHEUM_MEDIA_2", "ORPHEUM_MEDIA_3", "ORPHEUM_MEDIA_4"} {
+		suffix := name[len(name)-1:]
+		for _, want := range []string{
+			"      - --media\n      - ${" + name + ":-}\n",
+			"      - ${" + name + ":-${PATH_TO_APPDATA}/orpheum/empty}:${" + name + ":-/unset/" + suffix + "}:ro\n",
+		} {
+			if !strings.Contains(text, want) {
+				t.Errorf("%s does not say %q: %s mounted at its own path, or the empty folder where nothing "+
+					"looks, and passed to start empty when not set", omvComposeFile, want, name)
+			}
+		}
+	}
+}
+
+// The server's own machine reaches the core on a port published on its loopback alone, which start
+// is told, so the core counts a request on it as from home (D449 §2, D334 §4).
+func TestOMVCompose_ThisMachinesPortIsOnTheLoopbackAndToldToStart(t *testing.T) {
+	t.Parallel()
+	text := omvCompose(t)
+	for _, want := range []string{
+		`      - "127.0.0.1:${ORPHEUM_THIS_MACHINE_PORT:-8441}:${ORPHEUM_THIS_MACHINE_PORT:-8441}"`,
+		"      - --this-machine-port\n      - ${ORPHEUM_THIS_MACHINE_PORT:-8441}\n",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("%s does not say %q", omvComposeFile, want)
+		}
+	}
+	if strings.Count(text, "ORPHEUM_THIS_MACHINE_PORT") != 3 {
+		t.Errorf("%s names ORPHEUM_THIS_MACHINE_PORT %d times; want only its loopback port and start's flag",
+			omvComposeFile, strings.Count(text, "ORPHEUM_THIS_MACHINE_PORT"))
 	}
 }

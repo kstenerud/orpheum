@@ -162,6 +162,18 @@ func (directories *Directories) RemoveRunFile(name string) error {
 	return removeFileIn(directories.runDirectory, name)
 }
 
+// WriteFileBeside replaces the file at path atomically, mode 0600, as WriteRunFile does: for a file the
+// core keeps outside its instance, the setup code's copy in the deployment directory (D449 §3).
+func WriteFileBeside(path string, contents []byte) error {
+	return writeFileIn(filepath.Dir(path), filepath.Base(path), contents)
+}
+
+// RemoveFileBeside removes the file at path, which WriteFileBeside wrote; a file already gone is not
+// an error.
+func RemoveFileBeside(path string) error {
+	return removeFileIn(filepath.Dir(path), filepath.Base(path))
+}
+
 // readFileIn reads the plain name in directory.
 func readFileIn(directory, name string) (contents []byte, err error) {
 	if nameErr := checkPlainFileName(name); nameErr != nil {

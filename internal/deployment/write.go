@@ -122,18 +122,11 @@ func nvidiaCapabilities() []string { return []string{"gpu", "compute", "video", 
 // tunnel's key pair. It returns the tunnel's public key, for the VPS. It refuses a directory that
 // already holds a values file.
 func Begin(dir string, kind Kind) (string, error) {
-	return BeginWith(dir, StartingValues(kind))
-}
-
-// BeginWith starts a deployment in dir as Begin does, its values file written from values: those a
-// first start's command line gave (D447), or a new deployment's starting values. Its node's name is
-// left to the machine's host name, as a values file begins.
-func BeginWith(dir string, values Values) (string, error) {
 	path := filepath.Join(dir, ValuesFile)
 	if _, err := os.Stat(path); err == nil {
 		return "", fmt.Errorf("%s already holds a values file", dir)
 	}
-	text, err := render("values.toml", values)
+	text, err := render("values.toml", StartingValues(kind))
 	if err != nil {
 		return "", err
 	}
@@ -141,6 +134,34 @@ func BeginWith(dir string, values Values) (string, error) {
 		return "", fmt.Errorf("write the values file: %w", err)
 	}
 	return ensureKeys(dir)
+}
+
+// startValuesHeader is the header of a values file a compose file's start writes (D449 §1), in place
+// of the template's, which tells the owner to edit the file.
+const startValuesHeader = `# The deployment's values (D449): ` + "`orpheum start`" + ` writes this file at every start
+# from the compose file's variables, which compose fills into its command line, and the core's and the node's
+# configs from it and this image's templates. An edit here is lost at the next start: change the
+# variable in the compose file (or the .env beside it) and start it again.
+`
+
+// WriteStartValues writes dir's values file from values, over the one there, as a compose file's
+// start does each time (D449 §1), its header saying that the compose file is where a change goes. The
+// tunnel's key pair is made the first time, as Begin makes it.
+func WriteStartValues(dir string, values Values) error {
+	text, err := render("values.toml", values)
+	if err != nil {
+		return err
+	}
+	_, body, isSplit := strings.Cut(text, "\n\n")
+	if !isSplit {
+		return errors.New("the values file's template has no header")
+	}
+	contents := []byte(startValuesHeader + "\n" + body)
+	if writeErr := writeFile(filepath.Join(dir, ValuesFile), contents, publicFileMode); writeErr != nil {
+		return writeErr
+	}
+	_, err = ensureKeys(dir)
+	return err
 }
 
 // Write writes a deployment's files into dir from its values and its runtime: the compose file,

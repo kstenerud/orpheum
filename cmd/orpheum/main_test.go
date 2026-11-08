@@ -73,7 +73,7 @@ func TestDispatch_BuiltSubcommandsNeedTheirInstance(t *testing.T) {
 		// start's instance is its deployment's, at a fixed path; what it needs the first time is the
 		// address at home.
 		if planned.name == "start" {
-			want = "--lan-address is needed the first time"
+			want = "--lan-address is needed: this machine's address"
 		}
 		t.Run(planned.name, func(t *testing.T) {
 			t.Parallel()
