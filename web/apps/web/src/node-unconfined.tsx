@@ -17,50 +17,35 @@ type SystemNode = components["schemas"]["SystemNodeBody"];
 /**
  * A machine whose kernel lacks part of FFmpeg's sandbox, which waits locked (D450 §1): the risk in
  * plain words, and an admin's explicit leave to run it without the sandbox; and, once given, who gave
- * it and when, and withdrawing it.
+ * it and when. The leave is not taken back: an admin who no longer wants the machine to run stops it
+ * (the owner, 2026-11-08).
  */
 export function NodeUnconfinedLeave(props: {
   readonly node: SystemNode;
-  /** The leave was given or withdrawn: read the report again. */
+  /** The leave was given: read the report again. */
   readonly onChanged?: (() => void) | undefined;
 }): JSX.Element | null {
   const { t } = useTranslation();
   const { api } = useServices();
   const { node } = props;
   const { isBusy, problem, runRequest } = useRequest((cause) => problemText(t, cause));
-  const change = (isGiving: boolean): void => {
+  const allow = (): void => {
     runRequest(async () => {
-      const request = { params: { path: { name: node.name } } };
       throwIfRefused(
-        isGiving
-          ? await api.PUT("/nodes/{name}/unconfined", request)
-          : await api.DELETE("/nodes/{name}/unconfined", request),
+        await api.PUT("/nodes/{name}/unconfined", { params: { path: { name: node.name } } }),
       );
       props.onChanged?.();
     });
   };
-  const alert = problem === undefined ? null : <p role="alert">{problem}</p>;
   const leave = node.unconfinedLeave;
   if (leave !== undefined) {
     return (
-      <div>
-        <p role="alert">
-          {t("system.unconfined.given", {
-            by: leave.acceptedBy,
-            at: dateTimeText(leave.acceptedAt, i18n.language),
-          })}
-        </p>
-        <button
-          type="button"
-          disabled={isBusy}
-          onClick={() => {
-            change(false);
-          }}
-        >
-          {t("system.unconfined.withdraw")}
-        </button>
-        {alert}
-      </div>
+      <p role="alert">
+        {t("system.unconfined.given", {
+          by: leave.acceptedBy,
+          at: dateTimeText(leave.acceptedAt, i18n.language),
+        })}
+      </p>
     );
   }
   if (node.connection !== "locked") {
@@ -70,10 +55,8 @@ export function NodeUnconfinedLeave(props: {
     <LockedNode
       node={node}
       isBusy={isBusy}
-      alert={alert}
-      onAllow={() => {
-        change(true);
-      }}
+      alert={problem === undefined ? null : <p role="alert">{problem}</p>}
+      onAllow={allow}
     />
   );
 }

@@ -97,8 +97,7 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 	writeJSON(writer, nodeproto.HelloReply{
 		NodeID:             node.ID,
 		DeviceReaderLimits: limits, Tuning: service.tuning(ctx),
-		WatchFolders:     service.watchFoldersNow(ctx, node.ID),
-		MayRunUnconfined: service.mayRunUnconfined(ctx, node.ID),
+		WatchFolders: service.watchFoldersNow(ctx, node.ID),
 	})
 }
 

@@ -141,6 +141,9 @@ var wireShapeByVersion = map[int]string{
 	// an admin's leave, and the leave in the hello's reply and each poll's answer (D450 §1): a node of
 	// 59 would not stop when the leave is withdrawn. The shape counts the locked report from 60 on.
 	60: "ee59c7a94510cedd2a4f6b3d33b2a733518f07dc71fa76476c8b7b05e6f941b1",
+	// 61 drops the leave from the hello's reply and each poll's answer, as an admin no longer withdraws
+	// it (D450 §1, amended): a node of 60 would read no leave and stop.
+	61: "8d4aa604c792c11d073f5234e99b37eb716ce36a6540e05eb552a61eb00d4583",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

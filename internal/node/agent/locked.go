@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -16,11 +15,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
 )
-
-// ErrUnconfinedLeaveWithdrawn stops a node running without confinement by an admin's leave once the
-// core no longer gives it (D450 §1): its service manager starts it again, locked.
-var ErrUnconfinedLeaveWithdrawn = errors.New("an admin withdrew this node's leave to run without the " +
-	"confinement its kernel lacks; it stops, and starts locked again (D450 §1)")
 
 // WaitForLeave is a locked node's loop (D450 §1): it reads no media and runs no FFmpeg, and posts
 // report to the core at once and then each tick, until the core answers that an admin lets it run
@@ -59,13 +53,4 @@ func (agent *Agent) postLocked(ctx context.Context, report nodeproto.LockedRepor
 	var reply nodeproto.LockedReply
 	err = agent.exchange(ctx, http.MethodPost, nodeproto.PathLocked, 0, bytes.NewReader(encoded), &reply)
 	return reply, err
-}
-
-// leaveWithdrawn is ErrUnconfinedLeaveWithdrawn when this node runs unconfined by an admin's leave and
-// the core's answer no longer gives it; nil otherwise (D450 §1).
-func (agent *Agent) leaveWithdrawn(mayRunUnconfined bool) error {
-	if agent.hello.IsUnconfinedByLeave && !mayRunUnconfined {
-		return ErrUnconfinedLeaveWithdrawn
-	}
-	return nil
 }

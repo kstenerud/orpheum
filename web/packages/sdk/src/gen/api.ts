@@ -1481,8 +1481,7 @@ export interface paths {
         /** Let a node whose kernel lacks confinement run FFmpeg without it, accepting the risk; recorded with who and when (D450) */
         put: operations["allowUnconfinedNode"];
         post?: never;
-        /** Withdraw a node's leave to run without confinement: it stops and waits locked (D450) */
-        delete: operations["withdrawUnconfinedNode"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -9103,36 +9102,6 @@ export interface operations {
         };
     };
     allowUnconfinedNode: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The node's configured name */
-                name: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    withdrawUnconfinedNode: {
         parameters: {
             query?: never;
             header?: never;

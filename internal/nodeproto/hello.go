@@ -27,7 +27,7 @@ const QueryAfterCommandSeq = "afterCommandSeq"
 // records and results. It is raised with any change a node or core of another build would misread,
 // so the two refuse each other at hello instead (D233 §9). Core and node ship as one build today,
 // so the two match unless a node is updated apart from its core.
-const ProtocolVersion = 60
+const ProtocolVersion = 61
 
 // Hello is the first thing a node says, and it says it again after every reconnection.
 type Hello struct {
@@ -61,8 +61,8 @@ type Hello struct {
 	// Confinement is what the node got, per mechanism (D112).
 	Confinement []Confinement `json:"confinement"`
 	// IsUnconfinedByLeave is a node that requires confinement, lacks a mechanism, and runs without it
-	// because an admin let it (D450 §1): it stops when the core's answer no longer lets it
-	// (HelloReply.MayRunUnconfined, Commands.MayRunUnconfined), and starts locked again.
+	// because an admin let it (D450 §1). The leave stands: an admin who no longer wants the node to run
+	// stops it.
 	IsUnconfinedByLeave bool `json:"isUnconfinedByLeave,omitempty"`
 	UID                 int  `json:"uid"`
 	GID                 int  `json:"gid"`
@@ -158,9 +158,6 @@ type HelloReply struct {
 	// and refuses one no configured root holds (D107). Nil, from a core that says none, leaves the
 	// node's last; empty watches nothing.
 	WatchFolders []string `json:"watchFolders"`
-	// MayRunUnconfined is whether an admin lets this node run FFmpeg without the confinement its kernel
-	// lacks (D450 §1); a node running by that leave (Hello.IsUnconfinedByLeave) stops without it.
-	MayRunUnconfined bool `json:"mayRunUnconfined"`
 }
 
 // LockedReport is what a locked node says, each tick, in place of a hello (D450 §1): a node whose

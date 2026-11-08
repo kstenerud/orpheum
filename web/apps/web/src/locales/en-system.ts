@@ -70,10 +70,9 @@ export const enSystem = {
       risk: "FFmpeg reads every film this machine serves. A film made to attack FFmpeg could, without the sandbox, read or change anything this machine's Orpheum user can. The safe fix is the kernel's: see Setting up a server: problems seen, and their fixes. If you cannot fix it and trust every file in your libraries, you can run it without the sandbox.",
       allow: "Run without confinement…",
       consequence:
-        "This machine then runs FFmpeg without the parts of its sandbox listed above, until you withdraw it. Your name and the time are recorded.",
+        "This machine then runs FFmpeg without the parts of its sandbox listed above. Your name and the time are recorded. To stop it, stop the machine.",
       allowConfirm: "Accept the risk and run it",
       given: "Runs without confinement: {{by}} accepted the risk on {{at}}.",
-      withdraw: "Withdraw, and lock it again",
     },
     needsUpdate:
       "The media machine needs updating: it runs another version of Orpheum than the server, and its work waits until it is updated.",
