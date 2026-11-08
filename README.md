@@ -1,103 +1,120 @@
 # Orpheum
 
-*(Provisional name — [D195](docs/contributors/decisions/working-notes.md).)*
+A self-hosted media server for **video**: your films and series, on your own hardware, played in
+a browser, on a television or cast to one, with no company between you and your files.
 
-A personal media server for **video**, on your hardware, without a company between you and your
-files.
+> **Status: closed beta.** Orpheum runs every day in its owner's home, beside a staging server
+> that every change reaches first, but it is not ready for general use: expect rough edges, missing features and
+> breaking changes. *(The name is provisional, [D195](docs/contributors/decisions/working-notes.md).)*
 
-**Status: ready to build.** The repository holds the research, the design, the build contract
-for the first release ([`cut-a.md`](docs/contributors/design/plans/cut-a.md)), the standards, and
-the code skeleton with every gate in place. Feature code starts at milestone M1. To build, read
-[`AGENTS.md`](AGENTS.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md), then run `make check`.
+**Built with AI.** Nearly every line of this repository (the Go server, the React clients, the
+container builds, the deployment, the gates that check them, and the documentation) was
+written by Claude agents, directed and reviewed by one engineer. How that was made to work
+reliably is told in **[How Orpheum was built](docs/how-it-was-built.md)**.
 
-Start at **[`docs/contributors/design/overview.md`](docs/contributors/design/overview.md)**,
-**[`docs/ROADMAP.md`](docs/ROADMAP.md)** for the implementation plan, or
-**[`docs/FEATURES.md`](docs/FEATURES.md)** for every feature we know of, ranked — including
-what we have declined and what would make each one possible again.
+## What it does
+
+- **Plays what you have, the way it is.** Direct play is the default: the server hands over the
+  original bytes when the device can play them. The client, not a server-side device database,
+  decides what it can play, by asking its own decoder.
+- **Transcodes when it must,** in chunks prepared ahead of the viewer, on the GPU when there is
+  one (Intel Quick Sync, VA-API, NVIDIA NVENC), on the CPU when there is not.
+- **Subtitles that work:** extracted at scan time with their embedded fonts and rendered with
+  libass, so styled anime subtitles look as their authors meant; missing ones fetched from
+  OpenSubtitles.
+- **Watch Together:** a session that keeps several people's players in step, at home or across
+  the internet.
+- **Casting** to Chromecast and Google TV with its own receiver app, and a television interface
+  driven by a remote.
+- **Libraries** scanned from your folders, matched against TMDB for posters and details, with
+  episode orderings, resume points and per-user watch state.
+- **Remote access without opening ports:** browsers away from home reach the server over WebRTC,
+  introduced by a small discovery service; nothing in the middle can read the stream.
+- **Your files stay yours:** media is mounted read-only, the database is a rebuildable index, and
+  everything that cannot be re-derived is backed up automatically.
+- **Accounts and invitations** for the household, with each person's own watch state and settings.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph home["Your server (Docker)"]
+    core["Core (Go)<br/>API, accounts, libraries,<br/>decisions, live sessions"]
+    node["Media node (Go)<br/>scans, probes, FFmpeg,<br/>reads every file"]
+    db[("SQLite")]
+    media[/"Your media<br/>(read-only)"/]
+    core <--> db
+    core <-->|jobs and chunks| node
+    node --> media
+  end
+  web["Web client<br/>(React, TypeScript)"]
+  tv["Cast receiver<br/>(Chromecast, Google TV)"]
+  disc["Discovery<br/>(introduces remote browsers)"]
+  web <-->|HTTPS at home,<br/>WebRTC away| core
+  tv <--> core
+  web -.-> disc
+  core -.-> disc
+```
+
+The **core** never opens a media file and never runs FFmpeg; the **media node** does both, inside
+a sandbox, because media files are hostile input. Package by package, with what each owns and the
+tests that keep it so: [`docs/contributors/design/architecture-map.md`](docs/contributors/design/architecture-map.md).
+
+| Part | Stack |
+| --- | --- |
+| Server and media node | Go, SQLite (sqlc, append-only migrations), FFmpeg, Landlock confinement |
+| Clients | TypeScript, React, Vite, hls.js, libass (WebAssembly), Vitest, Playwright |
+| Remote access | WebRTC (pion), a hosted discovery service, TURN |
+| Operations | Docker images, GitHub Actions, a staging server, automatic backups |
+| Engineering gates | Python checks, golangci-lint, ESLint, architecture tests, revert-red |
+
+## Install
+
+Orpheum runs on any Linux machine with Docker, including NAS systems such as OpenMediaVault. See
+**[docs/users/install.md](docs/users/install.md)**, and
+[setup-problems.md](docs/users/setup-problems.md) when something goes wrong.
+
+To develop it, you need only Docker: `./dev make dev` builds the development image and starts a
+server with a demo library ([CONTRIBUTING.md](CONTRIBUTING.md)).
+
+## By the numbers
+
+| | |
+| --- | --- |
+| Built | 7 weeks, from 2026-09-17, about 3,700 commits |
+| Code | about 276,000 lines of Go and 186,000 of TypeScript, tests included |
+| Tests | about 2,700 Go tests, 2,700 web tests, 670 tests of the gates themselves |
+| Decisions | 446, each recorded with its reasoning ([index](docs/contributors/decisions/index.md)) |
 
 ## What it is for
 
 A player for media you have the right to use. It does not provide, locate or download content,
-and it does not remove copy protection. You are responsible for complying with copyright law where
-you live, including when you share access with others. *(Draft wording, pending legal review — see
-[D187](docs/contributors/decisions/working-notes.md).)*
+and it does not remove copy protection. You are responsible for complying with copyright law
+where you live, including when you share access with others.
 
 ## The promise
 
-Product commitments, not aspirations:
-
-- **No telemetry.** Off by default; opt-in only if ever added.
-- **No storefront.** No ads, no upsell, no recommendations for content you don't own.
-- **We won't move your furniture.** A layout change is opt-in and the previous one stays
-  reachable for at least a release — and **every client build is published as a directly
-  installable file, with old versions kept up**, so a bad update is something you can back out
-  of rather than something you petition your television's manufacturer about. The loudest
-  topic on Plex's own forum in the past year is *"Vote to roll back to Plex Classic!"* with
-  1,124 likes; the second-loudest thing their Fire TV users needed was instructions for
-  installing last month's app. See [D108](docs/contributors/decisions/working-notes.md).
-- **Your files stay yours.** Media is read-only by default — and **running that way
-  permanently is a supported choice**, not a cautious setting: you get the whole product minus
-  deleting and minus writing sidecars. If you do grant write access, **deleting moves to a
-  trash you can undo from**, and nothing empties it but you. The database is a rebuildable
-  index, never the authority. Your data survives us two ways, and they do different jobs: an
-  **automatic backup** of everything that cannot be re-derived — watch state, preferences,
-  rules, shares — which is on by default and restores anywhere; and, if you grant a writable
-  path, **sidecar files beside your media** carrying your metadata corrections in **NFO**, the format any
-  other media server can read. The first protects you from a dead disk. The second protects you
-  from *us*. Per-user state stays out of the sidecars deliberately — the media tree is shared,
-  and nobody else in the house needs to see what you watched. **We read the `.nfo` files you
-  already have, and we write them back** — so arriving from Kodi keeps the corrections you
-  already made, and leaving for Kodi keeps the ones you made here. See
-  [D98](docs/contributors/decisions/working-notes.md) and
-  [D141](docs/contributors/decisions/working-notes.md).
-- **We would only ever charge for things that genuinely require another machine.** Everything
-  that can run on your own hardware does, free, forever — and no feature that works locally
-  will ever be moved behind a payment.
-
-That last one replaces a flat "no accounts ever", which turned out not to survive contact with
-reality: two machines behind different NATs cannot find each other without a third party, and a
-home server cannot get a warning-free HTTPS certificate without one either. Where that is true
-we say so, we let you run the third party yourself, and we never paywall anything that was
-working without it. See [D25](docs/contributors/decisions/working-notes.md).
-
-Concretely, for the one thing that does need another machine: **the relay is a mode of this same
-binary**, and a €5 VPS running it carries roughly 2,200 film-hours a month at 10 Mbps, uncapped
-— about five times the bitrate of Plex's paid relay. If we ever host one, it runs that identical
-binary and **holds no data**, so leaving takes an afternoon and migrates nothing. There is no
-free hosted tier, because a free tier whose cost scales with usage is the exact trap that made
-Plex claw remote access back from its own users — and because here the free path is not
-crippled, it is better. See [D71](docs/contributors/decisions/working-notes.md) and
-[D72](docs/contributors/decisions/working-notes.md).
-
-## What makes it different
-
-- **The client decides what to play.** No server-side device-capability database. The server
-  advertises every rendition it can produce — including the untouched original — and the client
-  picks, because the client is the only party that can ask its own decoder what it will
-  actually accept.
-- **Direct play is the default** — for most files the server hands over the bytes and gets out
-  of the way. Transcoding is an optional add-on component for the files that need it, not
-  something baked into the core.
-- **Subtitles actually work.** Extracted at scan time with their embedded fonts, rendered with
-  libass everywhere.
+- **No telemetry, no storefront, no ads.**
+- **Your files stay yours:** read-only by default, a trash you can undo from if you grant write
+  access, and an automatic backup of everything that cannot be re-derived
+  ([D98](docs/contributors/decisions/working-notes.md), [D141](docs/contributors/decisions/working-notes.md)).
+- **Nothing that runs on your own hardware will ever be put behind a payment.** Only what
+  genuinely needs another machine, such as introducing remote browsers, could ever cost money,
+  and you can run that part yourself ([D25](docs/contributors/decisions/working-notes.md)).
 
 ## Licence
 
-**Server, media node and relay: AGPLv3. Clients and the shared SDK: MPL-2.0.** Both intended.
-The AGPL is the GPL with one clause added: whoever runs a modified Orpheum as a service for
-others offers those users its source, so improvements come back. Running it unmodified asks
-nothing of you ([D275](docs/contributors/decisions/working-notes.md)). The split is deliberate: a
-GPL-family application cannot be distributed through the Apple App Store (VLC was pulled in
-January 2011 and came back in July 2013 only after relicensing), so a single project-wide licence
-would have meant no iPhone, iPad or Apple TV client at all. MPL's copyleft is per-file, so the
-client code stays open and the app ships. Swiftfin and Streamyfin made the same choice against a
-GPL Jellyfin server. See [D80](docs/contributors/decisions/working-notes.md).
+**Server, media node and relay: AGPLv3. Clients and the shared SDK: MPL-2.0.** The split is
+deliberate: a GPL-family application cannot be distributed through Apple's App Store, so the
+clients are MPL-2.0, whose copyleft is per file
+([D80](docs/contributors/decisions/working-notes.md), [D275](docs/contributors/decisions/working-notes.md)).
+Contributions are accepted under the [CLA](CLA.md).
 
-Provider API keys are always supplied by you, never shipped in the binary — better for your
-privacy, your rate limits, and everyone's licensing.
+## Documentation
 
-## Docs
-
-[`docs/`](docs/) — organised by role. Contributors start
-[here](docs/contributors/README.md); the evidence behind every decision is in
-[`docs/contributors/design/research/`](docs/contributors/design/research/).
+- [`docs/how-it-was-built.md`](docs/how-it-was-built.md): the AI-driven process, and the files
+  that show it.
+- [`AGENTS.md`](AGENTS.md): the contract every agent changing the code follows.
+- [`docs/contributors/`](docs/contributors/README.md): design, decisions, standards and principles.
+- [`docs/FEATURES.md`](docs/FEATURES.md): every feature considered, ranked, including the declined
+  ones and why.
