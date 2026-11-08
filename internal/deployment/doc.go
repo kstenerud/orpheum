@@ -5,7 +5,9 @@
 // compose file, the .env file it reads, the override giving the node this machine's media and GPU,
 // the tunnel's config and the core's and the node's full configs. `orpheum write-deployment` runs
 // it inside the runtime image, so installing needs the image and Docker alone; staging and release
-// are written the same way, so the one path stays tested.
+// are written the same way, so the one path stays tested. A server installed from one compose file
+// (deploy/omv/compose.yaml, D447) has its first start, `orpheum start`, write the values file and the
+// instances' configs alone, by BeginWith and WriteConfigs, which Write writes them with too.
 //
 // # Invariants
 //
@@ -45,13 +47,18 @@
 //   - The node's root is read-only and its /tmp a tmpfs mounted noexec, nosuid and nodev, so what an
 //     exploited FFmpeg writes outside the node's volumes can be neither run nor loaded; the node and
 //     FFmpeg write nothing outside them (noexec step 1). TestCompose_TheNodesRootIsReadOnlyAndItsTmpRunsNothing.
+//   - The pasted compose file keeps every service's MPTCP off and the node's root unwritable, and
+//     the install page names every variable it reads.
+//     TestOMVCompose_KeepsTheDeploymentsGuardsAndStartsFromItsCommandLine,
+//     TestOMVCompose_TheInstallPageNamesEveryVariableItReads.
 //   - Keys and the configs naming one are readable by their owner alone.
 //     TestWrite_RewritesTheFilesAndKeepsTheValuesAndKeys.
 //
 // # Read before changing
 //
 //   - D249: the deployment, its three services and the tunnel in a container; D314: the
-//     deployment with no tunnel, two services, that a household installs.
+//     deployment with no tunnel, two services, that a household installs; D447: installed from one
+//     compose file, its first start writing it.
 //   - D272: release on the production NAS, the image's own setup, the build re-rendering (§7), one shared
 //     tunnel key (§8), which D292 §7 revises: a peer and addresses per deployment.
 //   - deploy/staging/README.md and deploy/release/README.md: how a person runs it.

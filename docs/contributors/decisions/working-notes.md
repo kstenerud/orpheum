@@ -26936,3 +26936,48 @@ ends" and "has focus arrive on its ⤢, never on Stop casting here at its top" (
 cast by its own Stop casting here"; `TestCast_AReceiverCannotEndTheCastToTakeItOver` and "shows no
 Watch Together sign over the film on the device the session its person hosts is cast to …"
 (`together-over-the-film.test.tsx`) for §4; on a television, VQ288.
+
+## D447 — A server is installed from one compose file, its first start writing the deployment from its command line
+
+**Decided** (2026-11-08), by the project owner, on the public release's install
+([public-release-2026-11-08.md](../design/plans/public-release-2026-11-08.md)): *OpenMediaVault's
+settings are "given on first start, so that one pasted compose file installs it. D204 stands (a
+release reads no environment but TZ): compose substitutes its variables into the command line, which
+the binary reads."* It revisits D314 (a household installs with the install script, which writes the
+deployment on the machine) and keeps D272 §3's deployment directory and D204.
+
+1. **One compose file installs a server**, on OpenMediaVault (its compose plugin) or any rootful
+   Docker host, with no script run on the machine: `deploy/omv/compose.yaml`. Its variables are the
+   data folder, the media folder and the machine's address at home, and optionally the version, the
+   user, the time zone, the ports and the router. The install script stays as the other route.
+2. **`orpheum start` is the first start.** It runs the core of the deployment mounted at
+   `/var/lib/orpheum`; when that holds no `values.toml`, it first writes the deployment from its
+   flags (`--lan-address`, required, `--media`, `--lan-https-port`, `--lan-webrtc-port`, `--router`):
+   the values file, the core's and the node's instances and their configs, by the code
+   `write-deployment` writes them with. The values file is written last, so a start cut short is
+   written again. After the first start the files rule and the flags are not read; deleting
+   `values.toml` has the next start write the configs again from the flags, keeping the instances.
+3. **The node's instance is written by the core's first start**, into the node's folder, which the
+   node's container alone mounts with the run directory; the node starts once the core is healthy.
+4. **The data's folders are given to the server's user by a one-shot container** (`orpheum-folders`,
+   root with only CHOWN and DAC_OVERRIDE) before the server starts: Docker makes a missing bind
+   folder as root, and the server runs as `APPUSER_PUID`, never root. The image runs as any user, as
+   staging already shows.
+5. **The setup code reaches the container's log** at every start until the first admin is made,
+   saying where to use it: the log is all a NAS's panel shows.
+6. **The compose file maps HTTPS to 8444 by default**, as OpenMediaVault's own web interface may take
+   8443; Orpheum's own defaults are unchanged.
+
+**Status:** decided. Left for the owner: the multi-architecture image (`.github/`, a gate), and
+whether a later start should write the configs again from `values.toml`, as `write-deployment` does
+on each install so a new image brings its templates (D272 §7); today a compose-file server keeps
+the configs its first start wrote.
+
+**Proven by:** `TestFirstStart_WritesTheDeploymentFromItsFlagsWhenThereIsNone`,
+`TestFirstStart_LeavesADeploymentThereAlreadyAsItIs`, `TestFirstStart_RefusesToWriteWithoutTheAddressAtHome`,
+`TestFirstStart_ACutShortStartIsWrittenAgainKeepingItsInstances`;
+`TestOMVCompose_KeepsTheDeploymentsGuardsAndStartsFromItsCommandLine`,
+`TestOMVCompose_TheInstallPageNamesEveryVariableItReads`; `TestServe_ComesUpReadyAndStopsCleanly` for
+§5. Run once by hand on Docker 2026-11-08 from a runtime image with this binary: the three containers
+came up, the core and node healthy, the data owned by the given user, the setup code in the core's
+log, and a restart left the deployment as it was.
