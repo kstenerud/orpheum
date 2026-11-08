@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import { Link } from "./link.tsx";
 import { Loaded } from "./loaded.tsx";
-import { useUpdate, type Update } from "./update.ts";
+import { composeUpdateCommand, useUpdate, type Update } from "./update.ts";
 
 /**
  * How to update, for an admin (security-updates.md Part B): the version the server runs, the newer
@@ -36,8 +36,6 @@ export function HowToUpdateView(props: {
   if (update === undefined) {
     return null;
   }
-  const isScriptRoute = update.command !== undefined && update.installRoute !== "compose";
-  const isComposeRoute = update.command !== undefined && update.installRoute !== "script";
   return (
     <>
       <UpdateStanding update={update} />
@@ -49,26 +47,45 @@ export function HowToUpdateView(props: {
           })}
         </p>
       )}
-      {isScriptRoute ? (
-        <ol>
-          <li>{t("update.step1")}</li>
-          <li>
-            {t("update.step2")}
-            <pre>
-              <code>{update.command}</code>
-            </pre>
-          </li>
-          <li>{t("update.step3")}</li>
-        </ol>
-      ) : null}
-      {isComposeRoute ? <ComposeSteps /> : null}
+      {update.command === undefined ? null : (
+        <RouteSteps command={update.command} installRoute={update.installRoute} />
+      )}
       {update.digest === undefined ? null : <p>{t("update.digest", { digest: update.digest })}</p>}
     </>
   );
 }
 
-/** The command that pulls the release the compose file follows and starts it (D450 §2). */
-const composeUpdateCommand = "docker compose pull && docker compose up -d";
+/**
+ * The steps of the way the server was installed; both ways', each saying which it is for, while the
+ * server does not know (D450 §2).
+ */
+function RouteSteps(props: {
+  readonly command: string;
+  readonly installRoute: Update["installRoute"];
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { command, installRoute } = props;
+  const isRouteUnknown = installRoute === undefined;
+  return (
+    <>
+      {isRouteUnknown ? <p>{t("update.scriptIf")}</p> : null}
+      {installRoute === "compose" ? null : (
+        <ol>
+          <li>{t("update.step1")}</li>
+          <li>
+            {t("update.step2")}
+            <pre>
+              <code>{command}</code>
+            </pre>
+          </li>
+          <li>{t("update.step3")}</li>
+        </ol>
+      )}
+      {isRouteUnknown ? <p>{t("update.composeIf")}</p> : null}
+      {installRoute === "script" ? null : <ComposeSteps />}
+    </>
+  );
+}
 
 /**
  * How a server run from the compose file updates (D450 §2): its images follow the latest release, so

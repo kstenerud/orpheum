@@ -78,6 +78,16 @@ describe("SecurityUpdateNote", () => {
     expect(buttonWithText(mounted.container, "Snooze for a day")).toBeDefined();
   });
 
+  it("gives a server run from its compose file the compose file's command (D450 §2)", async () => {
+    mounted = await mountNote(true, { ...pending, installRoute: "compose" });
+    const text = mounted.container.textContent;
+    expect(text).toContain(banner);
+    expect(mounted.container.querySelector("code")?.textContent).toBe(
+      "docker compose pull && docker compose up -d",
+    );
+    expect(text).not.toContain(command);
+  });
+
   it("shows anyone but an admin nothing, and asks the server nothing for them", async () => {
     const heard: Heard[] = [];
     mounted = await mountNote(false, pending, heard);
@@ -174,6 +184,7 @@ describe("How to update", () => {
     mounted = await mount(withServices(<HowToUpdateView update={pending} />));
     const text = mounted.container.textContent;
     expect(text).toContain("press Pull, then Up.");
+    expect(text).toContain("If you run the server from its compose file");
     const commands = [...mounted.container.querySelectorAll("pre code")].map(
       (each) => each.textContent,
     );
@@ -190,6 +201,7 @@ describe("How to update", () => {
     ]);
     expect(byCompose.textContent).toContain("press Pull, then Up.");
     expect(byCompose.textContent).not.toContain("with its install script");
+    expect(byCompose.textContent).not.toContain("If you run the server from its compose file");
     mounted.unmount();
     mounted = await mount(
       withServices(<HowToUpdateView update={{ ...pending, installRoute: "script" }} />),
@@ -198,7 +210,10 @@ describe("How to update", () => {
     expect([...byScript.querySelectorAll("pre code")].map((each) => each.textContent)).toEqual([
       command,
     ]);
-    expect(byScript.textContent).toContain("with its install script");
+    expect(byScript.textContent).toContain("Open a terminal on the machine the server runs on");
+    expect(byScript.textContent).not.toContain(
+      "If you installed the server with its install script",
+    );
     expect(byScript.textContent).not.toContain("press Pull, then Up.");
   });
 

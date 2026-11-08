@@ -14,6 +14,9 @@ export type Update = components["schemas"]["UpdateBody"];
  * The storage key holding until when, and for which fix, this browser's admin snoozed the security
  * banner (client-keys.ts): "<until, Unix ms> <fixedIn>".
  */
+/** The command that pulls the release a compose-file server follows and starts it (D450 §2). */
+export const composeUpdateCommand = "docker compose pull && docker compose up -d";
+
 export const securityUpdateSnoozeKey = "orpheum.securityUpdate.snoozed";
 
 /** How long a snooze hides the banner: a day (security-updates.md Part B). */
