@@ -156,8 +156,6 @@ export const enTogether = {
     // The session the person hosts on another of their devices (D442).
     onElsewhere: "Your session is on, on another of your devices.",
     onElsewhereNamed: "Your session is on, on {{device}}.",
-    // Said on the device the session is cast to, as its host's player (D443).
-    castHere: "Your session is cast here from {{device}}.",
     moveHere: "Move it here",
     onExplain:
       "Your session is on. Browse and play as usual: whatever you play plays on everyone's screen, and goes on while you browse. When you stop it, their screens go black.",

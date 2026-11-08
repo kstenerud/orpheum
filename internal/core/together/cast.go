@@ -34,9 +34,6 @@ const (
 	// CastSessionEnded is the end of the Watch Together session the receiver took its person's part
 	// in (D389 §1): the cast ends with it.
 	CastSessionEnded = "sessionEnded"
-	// CastMovedHere is the receiver's Move it here (D443): the cast ends first, then the session its
-	// person hosts moves to the receiver (HostHere), its sender told the session moved away.
-	CastMovedHere = "movedHere"
 )
 
 // endedCastKept is how long a cast's end is kept for a device of it that says hello after it: a

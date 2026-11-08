@@ -2,7 +2,6 @@
 
 import "./watch-together.css";
 
-import type { CastToReceive } from "@orpheum/sdk";
 import { useEffect, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -12,14 +11,7 @@ import { problemText } from "./problem.ts";
 import { useServices, useToken } from "./services.tsx";
 import { LeaveButton } from "./together-leave.tsx";
 import { useMembership } from "./together-membership.ts";
-import { useLive } from "./live.tsx";
-import {
-  moveCastHostingHere,
-  moveHostingHere,
-  useHostedCastHere,
-  useHostedElsewhereHere,
-  type HostedElsewhere,
-} from "./together-mine.ts";
+import { moveHostingHere, useHostedElsewhereHere, type HostedElsewhere } from "./together-mine.ts";
 import { useSessionEnd } from "./together-session-end.ts";
 import type { Membership } from "./together-storage.ts";
 import { useRequest } from "./use-request.ts";
@@ -34,8 +26,8 @@ import { WatchTogetherControls } from "./watch-together.tsx";
  * to its film's Play page and Stop for everyone, voice and the volumes, the people and Invite, and
  * ending it (watch-together.tsx), which closes the dialog, nothing opening it again (D385's Also); for
  * a signed-in guest, the way back to the group's film and Leave; for a host whose session is on another of
- * their devices, where it is, and Move it here (D442 §2); for the device it is cast to, that it is
- * cast here, and Move it here, which ends the cast (D443). The sign over the playing film opens the
+ * their devices, where it is, and Move it here (D442 §2), which a device receiving its cast never
+ * offers (D446 §4). The sign over the playing film opens the
  * same dialog, the session's panel moved in under its controls (D433).
  */
 export function TogetherDialog(props: {
@@ -53,9 +45,8 @@ export function TogetherDialog(props: {
   const viewing = useMembership(browserStorage, "viewer");
   const hasPanel = props.panelPlace !== undefined;
   const isGuest = viewing !== undefined && !isHosting;
-  const castHere = useHostedCastHere();
   const elsewhere = useHostedElsewhereHere();
-  const isElsewhere = elsewhere !== undefined || castHere !== undefined;
+  const isElsewhere = elsewhere !== undefined;
   return (
     <ModalDialog label={t("watchTogether.heading")} onClose={props.onClose}>
       <section className="watch-together" aria-labelledby="watch-together-heading">
@@ -63,7 +54,7 @@ export function TogetherDialog(props: {
         {isGuest && !hasPanel ? (
           <GuestsSession membership={viewing} onEnded={props.onClose} />
         ) : null}
-        <HostedNotHere castHere={castHere} elsewhere={elsewhere} />
+        {elsewhere === undefined ? null : <OnElsewhere elsewhere={elsewhere} />}
         {isGuest || isElsewhere ? null : (
           <WatchTogetherControls
             onEnded={props.onClose}
@@ -75,27 +66,6 @@ export function TogetherDialog(props: {
       </section>
     </ModalDialog>
   );
-}
-
-/**
- * The session the person hosts, where this tab does not host it: cast here (OnCastHere, D443), or on
- * another of their devices (OnElsewhere, D442 §2); nothing where it is neither.
- */
-function HostedNotHere(props: {
-  readonly castHere: CastToReceive | undefined;
-  readonly elsewhere: HostedElsewhere | undefined;
-}): JSX.Element | null {
-  const { castHere, elsewhere } = props;
-  if (castHere !== undefined) {
-    return (
-      <OnCastHere
-        castId={castHere.castId}
-        fileId={castHere.fileId}
-        from={castHere.fromDeviceName}
-      />
-    );
-  }
-  return elsewhere === undefined ? null : <OnElsewhere elsewhere={elsewhere} />;
 }
 
 /**
@@ -189,55 +159,6 @@ function OnElsewhere(props: { readonly elsewhere: HostedElsewhere }): JSX.Elemen
         onClick={() => {
           runRequest(async (idempotencyKey) => {
             await moveHostingHere(api, sessionId, idempotencyKey);
-          });
-        }}
-      >
-        {t("watchTogether.moveHere")}
-      </button>
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
-    </>
-  );
-}
-
-/**
- * The session the person hosts, cast to this device from another of theirs, in Watch Together's
- * dialog: that it is cast here, and Move it here (D443, amending D442 §2), which ends the cast and
- * makes this tab the session's host, the film then playing here on its own, from where the cast stood,
- * paused if it was. The cast ends before the session moves (moveCastHostingHere), so the device that
- * cast is told its cast ended and the session moved, never that the session ended.
- */
-function OnCastHere(props: {
-  readonly castId: number;
-  readonly fileId: number;
-  readonly from: string;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const { api, navigation } = useServices();
-  const { leaveReceiving } = useLive();
-  const { isBusy, problem, runRequest } = useRequest((cause) => problemText(t, cause));
-  const { castId, fileId } = props;
-  return (
-    <>
-      <p>{t("watchTogether.castHere", { device: props.from })}</p>
-      <button
-        type="button"
-        className="watch-together__start"
-        disabled={isBusy}
-        onClick={() => {
-          runRequest(async (idempotencyKey) => {
-            const stood = await moveCastHostingHere(
-              api,
-              { castId, onCastEnded: leaveReceiving },
-              idempotencyKey,
-            );
-            if (stood !== undefined && fileId !== 0) {
-              navigation.go({
-                screen: "play",
-                fileId,
-                atMs: stood.positionMs,
-                ...(stood.isPlaying ? {} : { isPaused: true as const }),
-              });
-            }
           });
         }}
       >

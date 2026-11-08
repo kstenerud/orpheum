@@ -164,16 +164,14 @@ export type TogetherEndReason =
    * A cast's ends (D337): its receiver took control back, its remote stopped it, or its receiver
    * was gone for two minutes (D364 §6); or, asked whether to play it, the receiver said Not now or
    * nothing for a minute (D358 §3, §4). No cast replaces another (D386 §1). Or the Watch Together
-   * session its receiver took its person's part in ended, and the cast with it (D389 §1). Or its
-   * receiver moved the session its person hosts there, ending the cast first (D443).
+   * session its receiver took its person's part in ended, and the cast with it (D389 §1).
    */
   | "takenBack"
   | "stopped"
   | "receiverGone"
   | "declined"
   | "unanswered"
-  | "sessionEnded"
-  | "movedHere";
+  | "sessionEnded";
 
 /** How a device follows its group, as the server's settings said when it was welcomed (D250 §1). */
 export interface SyncTuning {
@@ -554,7 +552,6 @@ const endReasons: readonly TogetherEndReason[] = [
   "declined",
   "unanswered",
   "sessionEnded",
-  "movedHere",
 ];
 
 /** A welcome's tuning, each value the starting one where it says none. */

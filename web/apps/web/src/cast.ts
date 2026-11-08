@@ -18,10 +18,9 @@ export type Cast = components["schemas"]["CastBody"];
 
 /**
  * Why a device ends a cast: control taken back on the receiver, Stop casting on the sender; or, asked
- * whether to take it, the receiver's Not now or no answer (D358 §3, §4); or the receiver's Move it
- * here, taking over the session its person hosts (D443).
+ * whether to take it, the receiver's Not now or no answer (D358 §3, §4).
  */
-export type CastEnd = "takenBack" | "stopped" | "declined" | "unanswered" | "movedHere";
+export type CastEnd = "takenBack" | "stopped" | "declined" | "unanswered";
 
 /**
  * How long a receiver asks whether to take a cast before it takes no answer as no, in milliseconds

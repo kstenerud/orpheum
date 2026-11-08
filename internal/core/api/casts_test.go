@@ -544,11 +544,10 @@ func TestCast_AHostsReceiverIsHandedTheirWatchTogetherSession(t *testing.T) {
 	}
 }
 
-// A receiver of the host's cast moves their session here (D443, amending D442 §2): the cast ends
-// first, as movedHere, its remote told so while the phone still hosts the session; then host-here
-// gives the TV the host's credential, and the phone hosting it is told the session moved away, not
-// that it ended.
-func TestCast_AHostsReceiverEndsTheCastAndMovesTheSessionHere(t *testing.T) {
+// No receiver takes the cast over (D446 §4, amending D443): its end refuses the reason movedHere,
+// which moved the session its person hosts to the receiver, and the cast goes on, its remote told
+// nothing.
+func TestCast_AReceiverCannotEndTheCastToTakeItOver(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	phoneToken := harness.createAdminAndSignIn(t)
@@ -556,32 +555,16 @@ func TestCast_AHostsReceiverEndsTheCastAndMovesTheSessionHere(t *testing.T) {
 	tv := harness.thisDevice(t, tvToken)
 	tvSocket := harness.dialLive(t, tvToken)
 	tvSocket.awaitDevices(tv)
-	hosted := harness.openTogether(t, phoneToken)
-	phoneHost := harness.dialTogetherSignedIn(t, hosted.Body.MembershipCredential, phoneToken)
-	phoneHost.awaitWelcome()
+	harness.openTogether(t, phoneToken)
 	cast := startedCast(t, harness.do(t, http.MethodPost, "/me/casts", phoneToken, map[string]any{"toDeviceId": tv}))
-	phoneRemote := harness.dialCast(t, cast.MembershipCredential, together.RolePanel)
-	phoneRemote.awaitWelcome()
 	ended := harness.do(t, http.MethodPost, fmt.Sprintf("/me/casts/%d/end", cast.CastID), tvToken,
 		map[string]string{"reason": "movedHere"})
-	if ended.status != http.StatusOK {
-		t.Fatalf("the TV ending the cast to move the session here = %d %s", ended.status, ended.body)
-	}
-	if reason := phoneRemote.awaitEnded(); reason != together.CastMovedHere {
-		t.Errorf("the phone's remote was told %q, want %q", reason, together.CastMovedHere)
-	}
-	path := fmt.Sprintf("/together/%d/host-here", hosted.Body.SessionID)
-	moved := harness.do(t, http.MethodPost, path, tvToken, nil)
-	var here api.OpenTogetherOutput
-	if err := json.Unmarshal([]byte(moved.body), &here.Body); err != nil || moved.status != http.StatusOK {
-		t.Fatalf("POST %s from the TV = %d %s; want a credential for it", path, moved.status, moved.body)
-	}
-	if reason := phoneHost.awaitEnded(); reason != "movedAway" {
-		t.Errorf("the phone hosting the session was told %q; want movedAway", reason)
-	}
-	player := harness.dialTogetherSignedIn(t, here.Body.MembershipCredential, tvToken)
-	if welcome := player.awaitWelcome(); !welcome.IsHost || welcome.SessionID != hosted.Body.SessionID {
-		t.Errorf("the TV's welcome = %+v; want the host's, in session %d", welcome, hosted.Body.SessionID)
+	wantError(t, ended, http.StatusUnprocessableEntity, api.CodeInvalidRequest)
+	stopped := harness.do(t, http.MethodPost, fmt.Sprintf("/me/casts/%d/end", cast.CastID), phoneToken,
+		map[string]string{"reason": "stopped"})
+	if stopped.status != http.StatusOK {
+		t.Errorf("the phone's Stop casting after the refused movedHere = %d %s; want the cast on",
+			stopped.status, stopped.body)
 	}
 }
 

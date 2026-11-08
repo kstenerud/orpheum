@@ -3015,10 +3015,10 @@ export interface components {
         };
         EndCastInputBody: {
             /**
-             * @description takenBack on the receiver, stopped on the remote, declined or unanswered as the receiver was asked (D358), movedHere as the receiver takes the session its person hosts over (D443)
+             * @description takenBack on the receiver, stopped on the remote, declined or unanswered as the receiver was asked (D358); no receiver takes the cast over (D446 §4)
              * @enum {string}
              */
-            reason: "takenBack" | "stopped" | "declined" | "unanswered" | "movedHere";
+            reason: "takenBack" | "stopped" | "declined" | "unanswered";
         };
         EndCastOutputBody: {
             isPlaying: boolean;

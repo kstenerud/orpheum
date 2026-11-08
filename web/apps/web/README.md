@@ -206,6 +206,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   other devices keep none, and their Watch Together sign and dialog say the session is on, on the
   device the server names (or on another of their devices), offering Move it here, never Start a
   session over it. Moving it makes this tab the host and sends the old device home, told it moved.
+  A device receiving the session's cast offers neither: a receiver is passive and takes no cast
+  over (D446 §4); its home offers Move it here once the cast ends.
   `src/together-mine.test.ts`, `src/together-over-the-film.test.tsx`, `src/together-voice.test.tsx`.
 - **A host's command is never held for a reconnect, and never dropped unsaid:**
   `TogetherConnection.command` says whether it went, and Stop the film (`src/together-plays.tsx`)

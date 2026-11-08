@@ -157,15 +157,13 @@ function isTakenOver(reason: string): boolean {
  * restart, saying so in a pop-up there (the shared notice, notice-note.tsx). The owner: "For extreme
  * edge cases like this, it's usually best to just go home" (D386 §2). A cast ended with the Watch
  * Together session it took a part in (sessionEnded, D389 §1) is a normal end, and goes home with no
- * word: the session's own end tells this page of it, as it takes it home too. So is a cast its
- * receiver ended to move the session this person hosts there (movedHere, D443): the session goes on
- * there, and its move, told to this tab as movedAway, says so at home.
+ * word: the session's own end tells this page of it, as it takes it home too.
  */
 function useGoesHomeAsTheCastIsLost(over: CastEnd | undefined): void {
   const { t } = useTranslation();
   const { navigation } = useServices();
   const isLost = over !== undefined && !isTakenOver(over.reason);
-  const isSessionsEnd = over?.reason === "sessionEnded" || over?.reason === "movedHere";
+  const isSessionsEnd = over?.reason === "sessionEnded";
   const hasGoneRef = useRef(false);
   useEffect(() => {
     if (!isLost || hasGoneRef.current) {

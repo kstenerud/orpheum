@@ -24,7 +24,7 @@ import { signMark, TogetherIcon } from "./sign-mark.tsx";
 import { TogetherDialog } from "./together-dialog-code.tsx";
 import { CanStartTogetherContext } from "./together-can-start.ts";
 import { useMembership } from "./together-membership.ts";
-import { useHostedCastHere, useHostedElsewhereHere } from "./together-mine.ts";
+import { useHostedElsewhereHere } from "./together-mine.ts";
 import { PanelInTheDialogContext } from "./together-panel-place.tsx";
 
 /**
@@ -101,8 +101,8 @@ export function TogetherPanel(props: {
  * who may start one (CanStartTogetherContext), and opens the same dialog, whose start is the tray's,
  * so a session starts from full screen; the new session's panel is moved in as it is drawn, and the
  * dialog is then the host's (D440 §6). A host whose session is on another of their devices is told
- * so, and the dialog offers to move it here (D442 §2), as is the device it is cast to (D443). A member of a session whose panel is not drawn
- * here is offered nothing, as before. Ending or leaving the session there closes it, as the tray's does. While it is
+ * so, and the dialog offers to move it here (D442 §2). A member of a session whose panel is not drawn
+ * here is offered nothing, as before, nor is a device receiving a cast, which is passive (D446 §4). Ending or leaving the session there closes it, as the tray's does. While it is
  * open, onOpenChange holds the overlay shown and gives the dialog its presses, as the menus do.
  */
 export function TogetherSignOverTheFilm(props: {
@@ -115,22 +115,20 @@ export function TogetherSignOverTheFilm(props: {
  * What Watch Together's button offers with no session here: the start, to one who may host, or the
  * session the person hosts on another device, said to be on there and offered to move here (D442 §2),
  * never the start then, which would end it. A device receiving a cast offers no start: it plays the
- * cast's session, not one of its own (PlaysAlong, D88); receiving the cast of the session its person
- * hosts, as their player, it says so and offers to move it here (isCastHere, D443).
+ * cast's session, not one of its own (PlaysAlong, D88), nor a move here, even of the session its
+ * person hosts: a receiver is passive, and takes no cast over (D446 §4).
  */
 function useWhatTheButtonOffers(canStart: boolean): {
   readonly showsStart: boolean;
   readonly showsElsewhere: boolean;
-  readonly isCastHere: boolean;
 } {
   const isHosting = useMembership(tabStorage, "host") !== undefined;
   const isViewing = useMembership(browserStorage, "viewer") !== undefined;
   const isReceiving = useLive().receiving !== undefined;
-  const isCastHere = useHostedCastHere() !== undefined;
   const elsewhere = useHostedElsewhereHere();
   const isFree = !isHosting && !isViewing && !isReceiving;
-  const showsElsewhere = (isFree && elsewhere !== undefined) || isCastHere;
-  return { showsStart: canStart && isFree && !showsElsewhere, showsElsewhere, isCastHere };
+  const showsElsewhere = isFree && elsewhere !== undefined;
+  return { showsStart: canStart && isFree && !showsElsewhere, showsElsewhere };
 }
 
 /**
@@ -145,7 +143,7 @@ export function TogetherButton(props: {
   const { t } = useTranslation();
   const isOn = useSyncExternalStore(subscribe, hasPanel, hasPanel);
   const canStart = use(CanStartTogetherContext);
-  const { showsStart, showsElsewhere, isCastHere } = useWhatTheButtonOffers(canStart);
+  const { showsStart, showsElsewhere } = useWhatTheButtonOffers(canStart);
   const [isOpen, setIsOpen] = useState(false);
   const { onOpenChange } = props;
   const openOrClose = useCallback(
@@ -174,9 +172,7 @@ export function TogetherButton(props: {
   return (
     <span className={props.isOverVideo ? "player-overlay__together" : "together-button"}>
       <IconButton
-        label={t(
-          isCastHere && !isOn ? "status.togetherCastHere" : buttonLabel(isOn, showsElsewhere),
-        )}
+        label={t(buttonLabel(isOn, showsElsewhere))}
         icon={<TogetherIcon />}
         mark={signMark(isOn)}
         isOverVideo={props.isOverVideo}
