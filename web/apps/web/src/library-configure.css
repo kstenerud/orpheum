@@ -9,3 +9,7 @@
   margin: var(--space-1) 0 0;
   color: var(--color-muted);
 }
+
+.library-configure__manage {
+  margin-block-start: var(--space-4);
+}

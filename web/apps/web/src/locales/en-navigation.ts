@@ -20,6 +20,7 @@ export const enNavigation = {
     showOnHomeText:
       "Home shows what you are watching and what is new from this library. Off, it adds nothing to Home and stays here.",
     yoursAlone: "These are your own choices; no one else's pages change.",
+    manage: "Manage this library",
     close: "Close",
   },
   /** A chooser's or the menu's open list (drop-down.tsx). */
