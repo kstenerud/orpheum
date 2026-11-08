@@ -203,6 +203,7 @@ package writes each table is schema.md's [owners table](plans/schema.md#who-writ
 | root_scan, root_mount, stream | persistent.db | TO | yes | — |
 | unavailable_place | persistent.db | TO | yes | availability kept per place, one writer (D328) |
 | node | persistent.db | T1 (enrolment) | yes | — (its status is kept in memory alone since D303's step 0049) |
+| node_unconfined_leave | persistent.db | T1 (an admin's leave for a node to run without Landlock or seccomp; D450 §1) | yes | — |
 | device_reader_limit | persistent.db | T1 (the admin's, D240 §5) | yes | — |
 | refresh_request, fetch_failure | persistent.db | T1 (a person's ask) / TO (a fetch's own failure, D231 §4) | yes | facts that were job rows (F1, step 0029) |
 | guessed_match | persistent.db | TO (the matcher's guess, cleared by a person's choice, D301) | yes | — |
