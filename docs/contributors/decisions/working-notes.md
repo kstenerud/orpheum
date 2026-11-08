@@ -26992,7 +26992,7 @@ test the most fundamental parts such that the happy path at least works."*). The
 in [deployment-ease-2026-11-08.md](../design/plans/deployment-ease-2026-11-08.md). Revisits D447 and
 D438, and records a limit on D127.
 
-1. **No typed address at home** (D449): the core learns its address at home and the house's network
+1. **No typed address at home** (D452): the core learns its address at home and the house's network
    from the first admin's setup request, which the setup code already guards, and learns them again,
    guarded by a fresh code, when they change. Amends D447 §1–2 and D297 §6's source of home networks.
 2. **The settings are applied at every start** (D449): a compose-file server writes its configs from
@@ -27000,14 +27000,14 @@ D438, and records a limit on D127.
    install (D272 §7). Answers D447's open question.
 3. **The server's own machine has its port in the compose file** (D449), as the install script's
    deployment has (D334 §4).
-4. **The setup code is written where people look** (D450): also to a file in the data folder, and
+4. **The setup code is written where people look** (D449): also to a file in the data folder, and
    the first-run page says where to find it.
-5. **More media folders without editing the file** (D450), with the folders' names on the host shown.
+5. **More media folders without editing the file** (D449), with the folders' names on the host shown.
 6. **A kernel without Landlock is the admin's choice in the server's pages** (D450), not an edit of
    a file: the node starts locked and does no media work until an admin accepts the risk, logged.
 7. **Updates are announced** (D450): the compose file follows a release channel and the server says
    when a newer release is out.
-8. **Catalogue entries** (D450): the compose file packaged for the catalogues of NAS and Docker
+8. **Catalogue entries** (D449): the compose file packaged for the catalogues of NAS and Docker
    panels; submitting them is the owner's.
 9. **Remote access is approved from the account, not by a pasted key** (D451): the core's System
    page opens the account's claim page, the account owner approves, and the admin at home allows,
@@ -27022,18 +27022,22 @@ D438, and records a limit on D127.
     enhancement. For the foreseeable future we only support nodes and cores on the local network."*).
     D127's remote node, and joining one by a code, are a possible later enhancement, not planned.
 
-**Status:** decided (2026-11-08). D449–D451 carry it out, the small items first (the owner: *"lay
+**Status:** decided (2026-11-08). D449–D452 carry it out, the small items first (the owner: *"lay
 the groundwork for everything, get the easy stuff done today [...] and then we do the heavy stuff over
 the next few days"*).
 
-## D449 — Reserved: the address at home learned, and the settings applied at every start
+## D449 — Reserved: the compose file's server: settings at every start, its machine's port, the setup code's file, media folders and catalogues
 
-**Reserved** (2026-11-08) for D448 §1–3's branch; the branch replaces this entry with the decision.
+**Reserved** (2026-11-08) for D448 §2–5 and §8's branch; the branch replaces this entry with the decision.
 
-## D450 — Reserved: the setup code, media folders, an unconfined node, updates and catalogues
+## D450 — Reserved: an unconfined node accepted in the server's pages, and updates announced
 
-**Reserved** (2026-11-08) for D448 §4–8's branch; the branch replaces this entry with the decision.
+**Reserved** (2026-11-08) for D448 §6–7's branch; the branch replaces this entry with the decision.
 
 ## D451 — Reserved: remote access approved from the account
 
 **Reserved** (2026-11-08) for D448 §9's branch; the branch replaces this entry with the decision.
+
+## D452 — Reserved: the address at home learned at setup
+
+**Reserved** (2026-11-08) for D448 §1's branch; the branch replaces this entry with the decision.

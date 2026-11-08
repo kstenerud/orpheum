@@ -27,12 +27,12 @@ days"*.
 | --- | --- | --- | --- |
 | The settings applied at every start | 2 | D449 | first: 2026-11-08 |
 | The server's own machine's port in the compose file | 3 | D449 | first |
-| The setup code in a file, the first-run page saying where | 4 | D450 | first |
-| More media folders by variable, host names shown | 5 | D450 | first |
+| The setup code in a file, the first-run page saying where | 4 | D449 | first |
+| More media folders by variable, host names shown | 5 | D449 | first |
 | No Landlock: the node locked until an admin accepts, in the UI | 6 | D450 | first |
 | A release channel and an update notice | 7 | D450 | first |
-| Catalogue entries (submission is the owner's) | 8 | D450 | first |
-| The address at home learned at setup, learned again with a fresh code | 1 | D449 | then: the next days |
+| Catalogue entries (submission is the owner's) | 8 | D449 | first |
+| The address at home learned at setup, learned again with a fresh code | 1 | D452 | then: the next days |
 | Remote access approved from the account (both repositories) | 9 | D451 | then |
 
 **Not built, recorded:** the household's relay, for the owner's own discovery and the paid one
@@ -43,7 +43,7 @@ days"*.
 First stage, on Docker from the image built from this branch: paste `deploy/omv/compose.yaml` with
 its folders and address set, start it, read the setup code from the data folder, make the admin from
 another machine on the network, see the node join and a library scan
-its folder; restart and see the settings re-applied. After D449's address learning, the same with no address
+its folder; restart and see the settings re-applied. After D452's address learning, the same with no address
 typed anywhere; after D451, connect the server to staging's discovery
 by approval.
 
