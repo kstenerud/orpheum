@@ -254,6 +254,9 @@ class Wiring(unittest.TestCase):
                          r"\$\(PR_CODE_RED_STEP\) \$\(PR_SERIAL_STEP\) \$\(PR_LAST_STEP\)")
         # Revert-red in two parts, the code's cheap runs after the medium tier and every browser run
         # last, each re-run on its own failed files (the owner, 2026-10-15, 2026-10-17).
+        # A file's licence line and length are the branch's too: a new stylesheet without its SPDX line
+        # passed check-pr (the owner, 2026-11-08: "make it run the check").
+        self.assertRegex(self.MAKEFILE, r"(?m)^PR_FAST_STEPS := .*\bcheck-source\b")
         self.assertRegex(self.MAKEFILE, r"(?m)^PR_CODE_RED_STEP := check-revert-red-code$")
         self.assertRegex(self.MAKEFILE, r"(?m)^PR_LAST_STEP := check-revert-red-browser$")
         self.assertRegex(self.MAKEFILE, r"--last \$\(PR_CODE_RED_STEP\) --last \$\(PR_LAST_STEP\)")
