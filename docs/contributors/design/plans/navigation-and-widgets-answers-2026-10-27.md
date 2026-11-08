@@ -2594,3 +2594,7 @@ you reported them from.
   started from a playing film plays. Today the cast's start carries only the position
   (`cast-to.tsx`, the cast's start in `internal/core/api/casts.go`), so the receiver always plays.
   Mind the 11-06 finding that a TV opening a film paused in full screen ate the first press.
+  The owner's condition (2026-11-08): "We'll only keep it if it doesn't require a second press on
+  the cast-to device." Their idea to weigh: open the receiver on a tiny looping video of the paused
+  frame. First find why the 11-06 paused start lost its press (the receiver's key handling, which
+  is ours), since a player paused with its still showing may need no stand-in.
