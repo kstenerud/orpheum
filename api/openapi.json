@@ -7595,6 +7595,10 @@
             "minimum": 1,
             "type": "integer"
           },
+          "isPaused": {
+            "description": "Whether the receiver opens the film paused at positionMs, as the sender had it",
+            "type": "boolean"
+          },
           "positionMs": {
             "description": "Where to start, in ms; absent, where the person left the film",
             "format": "int64",

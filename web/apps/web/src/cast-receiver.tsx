@@ -195,6 +195,7 @@ export function CastReceiver(props: {
     video,
     startPositionMs: props.startPositionMs,
     putOnAtMs: cast.positionMs,
+    isPutOnPaused: cast.isPaused === true && cast.positionMs !== undefined,
     delivery: props.delivery,
     readSound: soundPanel?.read,
     readPicture: picturePanel?.read,

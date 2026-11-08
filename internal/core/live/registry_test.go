@@ -184,17 +184,17 @@ func TestRegistry_ACastGoesOnlyToAnotherConnectedDeviceOfTheSamePerson(t *testin
 	position := int64(61_000)
 	_, left, err := registry.Cast(Cast{
 		ID: 7, UserID: owner, SenderDeviceID: phone, ReceiverDeviceID: television, SenderName: "Pixel", FileID: 3,
-		PositionMs: &position,
+		PositionMs: &position, IsPaused: true,
 	}, "secret")
 	if err != nil || len(left) != 0 {
 		t.Fatalf("the cast to the TV: %v, leaving %v", err, left)
 	}
 	received, isTold := tvBox.last(MessageReceive)
 	if !isTold || *received.Receive != (Receive{
-		CastID: 7, Credential: "secret", FileID: 3, PositionMs: &position, FromDeviceID: phone,
+		CastID: 7, Credential: "secret", FileID: 3, PositionMs: &position, IsPaused: true, FromDeviceID: phone,
 		FromDeviceName: "Pixel",
 	}) {
-		t.Errorf("the TV was handed %+v (%v)", received.Receive, isTold)
+		t.Errorf("the TV was handed %+v (%v); want it paused at 61 s, as the phone had it", received.Receive, isTold)
 	}
 	if casts := registry.CastsOf(owner, phone); len(casts) != 1 || casts[0].ID != 7 {
 		t.Errorf("the phone's casts are %+v, want 7", casts)
@@ -353,6 +353,7 @@ func TestRegistry_ACastMovesOnToTheNextFilmAndItsReceiverIsHandedIt(t *testing.T
 	from := int64(61_000)
 	cast := Cast{
 		ID: 5, UserID: owner, SenderDeviceID: phone, ReceiverDeviceID: television, FileID: 1, PositionMs: &from,
+		IsPaused: true,
 	}
 	if _, _, err := registry.Cast(cast, "a"); err != nil {
 		t.Fatal(err)
@@ -370,10 +371,10 @@ func TestRegistry_ACastMovesOnToTheNextFilmAndItsReceiverIsHandedIt(t *testing.T
 	}
 	received, isTold := receiver.last(MessageReceive)
 	want := "true 2 &{CastID:5 Credential:again-1 FileID:2 ItemName:Cat TitleName:Cat " +
-		"PositionMs:<nil> FromDeviceID:10 " +
+		"PositionMs:<nil> IsPaused:false FromDeviceID:10 " +
 		"FromDeviceName: IsAccepted:false TogetherCredential: IsTogetherFollower:false}"
 	if got := fmt.Sprintf("%v %d %+v", isTold, receiver.count(MessageReceive), received.Receive); got != want {
-		t.Errorf("the receiver was handed %s; want cast 5 again, of file 2, Cat, by a new credential", got)
+		t.Errorf("the receiver was handed %s; want cast 5 again, of file 2, Cat, playing, by a new credential", got)
 	}
 	if listed := registry.CastsOf(owner, phone); len(listed) != 1 || listed[0].FileID != 2 {
 		t.Errorf("the sender's casts = %+v; want the one, now of file 2", listed)

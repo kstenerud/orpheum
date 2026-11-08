@@ -45,6 +45,8 @@ export type CastEnded = components["schemas"]["EndCastOutputBody"];
 export interface CastFilm {
   readonly fileId: number;
   readonly positionMs?: number | undefined;
+  /** Whether it stands paused here, so a cast started from it opens it paused (the owner, 2026-11-08). */
+  readonly isPaused?: boolean | undefined;
 }
 
 /** A film's fields in a cast request: none for nothing, the receiver ready (D364 §5). */
@@ -78,6 +80,7 @@ export async function startCast(
       body: {
         toDeviceId,
         ...filmFields(film),
+        ...(film?.isPaused === true ? { isPaused: true } : {}),
         ...(guests === undefined ? {} : { togetherCredential: guests.credential }),
       },
       ...idempotent(newIdempotencyKey()),

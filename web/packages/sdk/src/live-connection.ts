@@ -26,6 +26,8 @@ export interface CastToReceive {
   readonly itemName: string;
   /** Where the sender stood, in ms; undefined to start where the person left the film. */
   readonly positionMs: number | undefined;
+  /** Whether it opens the film paused at positionMs, as the sender had it (the owner, 2026-11-08). */
+  readonly isPaused?: boolean;
   readonly fromDeviceId: number;
   readonly fromDeviceName: string;
   /**
@@ -147,8 +149,6 @@ function parseReceive(value: unknown): CastToReceive | undefined {
   const fileId = numberIn(record, "fileId");
   const fromDeviceId = numberIn(record, "fromDeviceId");
   const credential = record["membershipCredential"];
-  const name = record["fromDeviceName"];
-  const itemName = record["itemName"];
   if (
     castId === undefined ||
     fileId === undefined ||
@@ -162,13 +162,20 @@ function parseReceive(value: unknown): CastToReceive | undefined {
     castId,
     membershipCredential: credential,
     fileId,
-    itemName: typeof itemName === "string" ? itemName : "",
+    itemName: stringIn(record, "itemName"),
     positionMs: numberIn(record, "positionMs"),
+    ...(record["isPaused"] === true ? { isPaused: true } : {}),
     fromDeviceId,
-    fromDeviceName: typeof name === "string" ? name : "",
+    fromDeviceName: stringIn(record, "fromDeviceName"),
     togetherCredential: nonEmptyStringIn(record, "togetherCredential"),
     ...(record["isTogetherFollower"] === true ? { isTogetherFollower: true } : {}),
   };
+}
+
+/** A record's string field, or "" where it is none. */
+function stringIn(record: Readonly<Record<string, unknown>>, name: string): string {
+  const value = record[name];
+  return typeof value === "string" ? value : "";
 }
 
 /** A record's non-empty string field, or undefined. */
@@ -192,13 +199,12 @@ function parseSending(value: unknown): CastSending | undefined {
     return undefined;
   }
   const receiverName = record["receiverName"];
-  const itemName = record["itemName"];
   return {
     castId,
     receiverDeviceId,
     receiverName: typeof receiverName === "string" ? receiverName : "",
     fileId: numberIn(record, "fileId") ?? 0,
-    itemName: typeof itemName === "string" ? itemName : "",
+    itemName: stringIn(record, "itemName"),
     durationMs: numberIn(record, "durationMs") ?? 0,
     isAccepted: record["isAccepted"] === true,
   };

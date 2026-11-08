@@ -86,7 +86,9 @@ type Receive struct {
 	TitleName string `json:"titleName"`
 	// PositionMs is where the sender stood; absent, the receiver starts where the person left the
 	// film, as a cast from a title's page does.
-	PositionMs     *int64 `json:"positionMs,omitempty"`
+	PositionMs *int64 `json:"positionMs,omitempty"`
+	// IsPaused is whether the receiver opens the film paused at PositionMs, as the sender had it.
+	IsPaused       bool   `json:"isPaused,omitempty"`
 	FromDeviceID   int64  `json:"fromDeviceId"`
 	FromDeviceName string `json:"fromDeviceName"`
 	// IsAccepted is whether the receiver said Use to the cast already, asked once (D364 §2).

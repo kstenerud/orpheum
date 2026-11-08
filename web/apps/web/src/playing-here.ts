@@ -10,29 +10,34 @@ import { useEffect } from "react";
 interface PlayedHere {
   readonly fileId: number;
   readonly positionMs: () => number;
+  /** Whether it stands paused: a cast started from it opens it paused (the owner, 2026-11-08). */
+  readonly isPaused: () => boolean;
 }
 
 let played: PlayedHere | undefined;
 
 /**
  * Notes, while the calling Play page plays fileId on this device (isOwn), where it stands, by
- * positionMs, asked as it is needed; as the page goes, the position it was left at stays.
+ * positionMs, and whether it is paused, by isPaused, asked as they are needed; as the page goes, the
+ * position it was left at stays, and whether it was paused there.
  */
 export function useNotesPlayingHere(
   isOwn: boolean,
   fileId: number,
-  positionMs: () => number,
+  stands: { readonly positionMs: () => number; readonly isPaused: () => boolean },
 ): void {
+  const { positionMs, isPaused } = stands;
   useEffect(() => {
     if (!isOwn) {
       return undefined;
     }
-    played = { fileId, positionMs };
+    played = { fileId, positionMs, isPaused };
     return () => {
       const leftAtMs = positionMs();
-      played = { fileId, positionMs: () => leftAtMs };
+      const wasPaused = isPaused();
+      played = { fileId, positionMs: () => leftAtMs, isPaused: () => wasPaused };
     };
-  }, [isOwn, fileId, positionMs]);
+  }, [isOwn, fileId, positionMs, isPaused]);
 }
 
 /** How many pages of this tab show a Watch Together guest's group's film (GroupFilmPage). */
@@ -62,4 +67,9 @@ export function isTheGroupsFilmShown(): boolean {
 /** Where this tab played fileId last, in ms; undefined where it was not the film it played last. */
 export function positionPlayedHere(fileId: number): number | undefined {
   return played?.fileId === fileId ? played.positionMs() : undefined;
+}
+
+/** Whether fileId stands paused where this tab played it last; false where it was not the last. */
+export function isPausedHere(fileId: number): boolean {
+  return played?.fileId === fileId && played.isPaused();
 }
