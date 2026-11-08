@@ -440,7 +440,9 @@ func logUnusedSettings(ctx context.Context, unused []settings.UnusedSetting, log
 	}
 }
 
-// ensureSetupCode makes sure a server with no users has a setup code, which it logs.
+// ensureSetupCode makes sure a server with no users has a setup code, which it logs at every start
+// until the first admin is made, saying where it goes: the log is all a NAS's panel shows of a server
+// installed from a compose file (D447), with no terminal to run `orpheum setup-code` at.
 func ensureSetupCode(
 	ctx context.Context, authService *auth.Service, codes auth.SetupCodes, logger *slog.Logger,
 ) error {
@@ -449,8 +451,9 @@ func ensureSetupCode(
 		return err
 	}
 	if code != "" {
-		logger.WarnContext(ctx, "no one can sign in yet: create the first admin with this one-time setup code, "+
-			"at POST /api/v1/setup; `orpheum setup-code` prints it again", "setupCode", code)
+		logger.WarnContext(ctx, "no one can sign in yet: open Orpheum in a browser at home, "+
+			"http://<this machine's address>:<its HTTP port>, and make the first admin there with this one-time "+
+			"setup code (POST /api/v1/setup); `orpheum setup-code` prints it again", "setupCode", code)
 	}
 	return nil
 }

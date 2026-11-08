@@ -85,6 +85,11 @@ func plannedSubcommands() []subcommand {
 				"(D314)",
 			implementation: commandInstallScript,
 		},
+		{
+			name: "start", summary: "run a deployment's core, writing the deployment from these flags the first " +
+				"time: one compose file installs a server (D447)",
+			implementation: commandStart,
+		},
 		{name: "migrate", summary: "migrate the database without starting the server", implementation: commandMigrate},
 		{name: "backup", summary: "write a backup of the database", implementation: commandBackup},
 		{name: "restore", summary: "restore a backup, with the server stopped", implementation: commandRestore},
