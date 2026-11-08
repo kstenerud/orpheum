@@ -12,7 +12,7 @@ import { CastRemote } from "./cast-remote.tsx";
 import { CastSignOverTheFilmContext } from "./cast-sign-over-the-film.tsx";
 import { LiveProvider } from "./live.tsx";
 import { currentNotice, dismissNotice } from "./notice.ts";
-import { Play } from "./play.tsx";
+import { firstAskOf, Play } from "./play.tsx";
 import {
   bodyField,
   buttonNamed,
@@ -677,6 +677,33 @@ describe("playing here from where a cast stood (§9 Q5)", () => {
   it("waits paused there where the receiver had the film paused as its sender took it over, and plays at once where it played (D385 §2)", async () => {
     expect(await playsOf(<Play fileId={2} atMs={982_680} isPaused />)).toBe(0);
     expect(await playsOf(<Play fileId={2} atMs={982_680} />)).toBeGreaterThan(0);
+  });
+
+  it("opens a cast received paused there where its sender had the film paused, and playing where it played (the owner, 2026-11-08)", () => {
+    const cast = {
+      castId: 9,
+      membershipCredential: "receiver",
+      fileId: 2,
+      itemName: "Metropolis",
+      positionMs: 61_000,
+      fromDeviceId: 1,
+      fromDeviceName: "Pixel",
+    };
+    const nothingGiven = { atMs: undefined, round: 0 };
+    const receiving = (isPaused?: boolean) => ({
+      cast: isPaused === undefined ? cast : { ...cast, isPaused },
+      onLeave: () => undefined,
+    });
+    expect(firstAskOf(receiving(true), nothingGiven)).toEqual({
+      cause: "playPage",
+      atMs: 61_000,
+      isPaused: true,
+    });
+    expect(firstAskOf(receiving(), nothingGiven)).toEqual({
+      cause: "playPage",
+      atMs: 61_000,
+      isPaused: false,
+    });
   });
 
   it("waits paused there from its address, as on another film's page the cast had moved on to (D385 §2)", async () => {

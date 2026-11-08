@@ -5111,6 +5111,8 @@ export interface components {
              * @description What to play; absent, nothing, the receiver ready for the next
              */
             fileId?: number;
+            /** @description Whether the receiver opens the film paused at positionMs, as the sender had it */
+            isPaused?: boolean;
             /**
              * Format: int64
              * @description Where to start, in ms; absent, where the person left the film

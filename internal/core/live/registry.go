@@ -73,6 +73,9 @@ type Cast struct {
 	DurationMs int64
 	// PositionMs is where the sender stood, or nil to start where the person left the film.
 	PositionMs *int64
+	// IsPaused is whether the receiver opens the film paused at PositionMs, as the sender had it as the
+	// cast started (the owner, 2026-11-08); a film played in the cast after it plays.
+	IsPaused bool
 	// IsAccepted is whether the receiver said Use to the session, asked once (D364 §2).
 	IsAccepted bool
 	// SendersMembership is the Watch Together membership credential the sender's page holds as a
@@ -371,7 +374,7 @@ func (registry *Registry) Play(userID, deviceID, castID int64, film Film, positi
 	}
 	held.FileID, held.ItemID, held.ItemName, held.DurationMs = film.FileID, film.ItemID, film.ItemName,
 		film.DurationMs
-	held.PositionMs = positionMs
+	held.PositionMs, held.IsPaused = positionMs, false
 	if holder := owner.connections[held.heldBy]; holder != nil {
 		registry.handOff(held, holder)
 	}
@@ -519,7 +522,8 @@ func (registry *Registry) receiveOf(held *heldCast, credential string) *Receive 
 	cast := held.Cast
 	return &Receive{
 		CastID: cast.ID, Credential: credential, FileID: cast.FileID, ItemName: cast.ItemName, TitleName: cast.ItemName,
-		PositionMs: cast.PositionMs, FromDeviceID: cast.SenderDeviceID, FromDeviceName: cast.SenderName,
+		PositionMs: cast.PositionMs, IsPaused: cast.IsPaused,
+		FromDeviceID: cast.SenderDeviceID, FromDeviceName: cast.SenderName,
 		IsAccepted: cast.IsAccepted, TogetherCredential: partCredential,
 		IsTogetherFollower: partCredential != "" && !isHost,
 	}

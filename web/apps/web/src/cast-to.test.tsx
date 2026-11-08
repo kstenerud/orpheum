@@ -119,6 +119,36 @@ describe("setting a cast up (D364 §1, §2; D337 §2)", () => {
     expect(sockets.session.heard[0]).toMatchObject({ credential: "sender", role: "panel" });
   });
 
+  it("starts a session with the film paused where it stood paused here (the owner, 2026-11-08)", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "GET /me/devices": [200, { devices: [device(1, "Laptop", true), device(2, "Fire TV")] }],
+        "POST /me/casts": [201, { castId: 9, isSender: true, membershipCredential: "sender" }],
+      },
+      heard,
+      "token",
+    );
+    const sockets = liveAndSession();
+    mounted = await mount(
+      withServices(
+        <LiveProvider>
+          <CastTargets film={() => ({ ...playingHere(), isPaused: true })} />
+        </LiveProvider>,
+        { ...services, openTogetherSocket: sockets.openSocket },
+      ),
+    );
+    await sockets.live.accept();
+    await sockets.live.say({ type: "devices", deviceIds: [1, 2] });
+    await click(buttonWithText(mounted.container, "Fire TV"));
+    expect(heard.find((each) => each.methodAndPath === "POST /me/casts")?.body).toEqual({
+      toDeviceId: 2,
+      fileId: 4,
+      positionMs: 61_000,
+      isPaused: true,
+    });
+  });
+
   it("starts a session with nothing playing where no film was playing here (D364 §1)", async () => {
     const heard: Heard[] = [];
     const services = servedBy(

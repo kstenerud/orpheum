@@ -2587,7 +2587,7 @@ you reported them from.
   'manage this library' should be an option via the gear icon in the library page (the one that
   shows the actual contents for playback)." An admin reaches a library's settings (its folders, and
   so the repoint the failover needs) from the library they are browsing, by its gear; others never
-  see the entry.
+  see the entry. **Built** ("feat(web): Manage this library under a library's gear, for admins"): "Manage this library" in the gear's dialog, for admins.
 - **Next batch (the owner, 2026-11-08, testing VQ288 on the Fire TV):** "When I cast to the TV from
   a paused playback, it starts playback on the TV. It should maintain the paused status of the
   caster." A cast started from a paused film opens on the receiver paused at the same place; one
@@ -2598,3 +2598,10 @@ you reported them from.
   the cast-to device." Their idea to weigh: open the receiver on a tiny looping video of the paused
   frame. First find why the 11-06 paused start lost its press (the receiver's key handling, which
   is ours), since a player paused with its still showing may need no stand-in.
+  **Found and built (2026-11-08):** the 11-06 lost press was the TV's own Play page, whose full
+  screen spent the press before `play()` (fixed by VQ270's `keepThePressForTheStart`). A cast
+  receiver gets no press at its start: it leads its session, and the remote's Play reaches its
+  `play()` by the same muted-if-refused path every cast start already takes, so a paused start adds
+  no press and needs no stand-in video. The sender sends `isPaused` with the cast's start; the
+  server hands it on in the receive; the receiver opens paused at the place and puts the film on
+  its session paused. On the Fire TV: VQ289.

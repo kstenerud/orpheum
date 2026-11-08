@@ -147,6 +147,36 @@ describe("a page's live connection (D337 §2)", () => {
     expect(connection.snapshot().receive).toBeUndefined();
   });
 
+  it("hands on a cast started from a film paused as paused, and nothing else as paused (the owner, 2026-11-08)", () => {
+    const sockets = fakeSockets();
+    const connection = createLiveConnection({
+      sessionToken: "session",
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    sockets.opened[0]!.onOpen();
+    const handed = (isPaused: unknown): unknown => {
+      sockets.opened[0]!.onMessage(
+        JSON.stringify({
+          type: "receive",
+          receive: {
+            castId: 7,
+            membershipCredential: "cast",
+            fileId: 3,
+            positionMs: 61_000,
+            fromDeviceId: 2,
+            isPaused,
+          },
+        }),
+      );
+      return connection.snapshot().receive?.isPaused;
+    };
+    expect(handed(true)).toBe(true);
+    expect(handed(false)).toBeUndefined();
+    expect(handed("yes")).toBeUndefined();
+  });
+
   it("knows nothing was handed on connecting once the ping after the devices is answered (D383 §2)", () => {
     const sockets = fakeSockets();
     const connection = createLiveConnection({

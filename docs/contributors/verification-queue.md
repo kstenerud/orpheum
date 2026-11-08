@@ -2842,3 +2842,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   Passes when Stop casting here is never lit before an Up, the TV goes home each time, and the phone
   opens the film paused where it stood, plays on from there, or goes home with nothing on.
   (`web/apps/web/src/stop-casting-here.tsx`)
+- [ ] **VQ289** — A cast started from a paused film opens paused on the Fire TV, and one press plays
+  it (the owner, 2026-11-08: "We'll only keep it if it doesn't require a second press on the
+  cast-to device"). On the phone, pause a film mid-way and cast it to the Fire TV; then cast one
+  playing. Passes when the paused cast opens on the TV paused at the phone's place with its picture
+  showing, a single Play on the phone's remote (and, separately, a single OK on the TV) plays it,
+  with sound or the "Press OK to turn the sound on" note as any cast start gives; and the playing
+  cast plays at once as before. (`web/apps/web/src/together-host.tsx`, `putOn`)

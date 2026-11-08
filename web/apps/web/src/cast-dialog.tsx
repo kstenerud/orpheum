@@ -7,11 +7,11 @@ import { useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { CastTargets } from "./cast-to.tsx";
-import { endCastRetrying } from "./cast.ts";
+import { endCastRetrying, type CastFilm } from "./cast.ts";
 import { useLatest } from "./latest.ts";
 import { useLive } from "./live.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
-import { isTheGroupsFilmShown, positionPlayedHere } from "./playing-here.ts";
+import { isPausedHere, isTheGroupsFilmShown, positionPlayedHere } from "./playing-here.ts";
 import { problemText } from "./problem.ts";
 import { useRoute, useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
@@ -29,10 +29,10 @@ export function CastDialog(props: { readonly onClose: () => void }): JSX.Element
   const route = useRoute();
   const { sending, isSendingKnown } = useLive();
   const fileId = route.screen === "play" ? route.fileId : undefined;
-  const film = (): { fileId: number; positionMs: number | undefined } | undefined =>
+  const film = (): CastFilm | undefined =>
     fileId === undefined || isTheGroupsFilmShown()
       ? undefined
-      : { fileId, positionMs: positionPlayedHere(fileId) };
+      : { fileId, positionMs: positionPlayedHere(fileId), isPaused: isPausedHere(fileId) };
   const taken = sending?.isAccepted === true ? sending : undefined;
   useClosesOnceTaken(taken?.castId, props.onClose);
   return (

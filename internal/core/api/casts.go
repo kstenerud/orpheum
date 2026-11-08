@@ -23,6 +23,9 @@ type StartCastInput struct {
 	Body struct {
 		ToDeviceID int64 `doc:"Another of one's own devices, connected now" json:"toDeviceId" minimum:"1"`
 		CastItem
+		// IsPaused is whether the sender's film stood paused, so the receiver opens it paused at
+		// positionMs, waiting for a play (the owner, 2026-11-08).
+		IsPaused bool `doc:"Whether the receiver opens the film paused at positionMs, as the sender had it" json:"isPaused,omitempty" required:"false"` //nolint:lll // one struct tag
 		// TogetherCredential is the Watch Together membership the asking page holds as a guest, whose
 		// part in the session the receiver takes, following the group (D371 §4); absent, the person's
 		// own part, the session they host first.
@@ -208,7 +211,8 @@ func (server *Server) startCast(ctx context.Context, input *StartCastInput) (*St
 		ID: opened.SessionID, UserID: principal.UserID, SenderDeviceID: principal.DeviceID,
 		ReceiverDeviceID: input.Body.ToDeviceID, SenderName: senderName, ReceiverName: receiverName,
 		FileID: film.FileID, ItemID: film.ItemID, ItemName: film.ItemName, DurationMs: film.DurationMs,
-		PositionMs: input.Body.PositionMs, SendersMembership: input.Body.TogetherCredential,
+		PositionMs: input.Body.PositionMs, IsPaused: input.Body.IsPaused,
+		SendersMembership: input.Body.TogetherCredential,
 	}
 	cast, left, err := dependencies.Live.Cast(cast, opened.ReceiverCredential)
 	if err != nil {

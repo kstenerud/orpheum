@@ -384,7 +384,8 @@ function useNotesWhereItPlays(
     () => positionToMoveFrom(video, startPositionMs),
     [video, startPositionMs],
   );
-  useNotesPlayingHere(isOwn, fileId, positionNow);
+  const isPausedNow = useCallback(() => video?.paused === true, [video]);
+  useNotesPlayingHere(isOwn, fileId, { positionMs: positionNow, isPaused: isPausedNow });
 }
 
 /**
@@ -707,10 +708,15 @@ function PlayHere(props: { readonly fileId: number; readonly from: PlayedHereFro
  * receiver stood (a Play here mid-film played from 0:00, staging 2026-10-27), paused there where the
  * receiver had it paused (D385 §2); else nowhere given.
  */
-function firstAskOf(receiving: Receiving | undefined, from: PlayedHereFrom): FirstAsk | undefined {
+export function firstAskOf(
+  receiving: Receiving | undefined,
+  from: PlayedHereFrom,
+): FirstAsk | undefined {
   if (receiving !== undefined) {
-    const { positionMs } = receiving.cast;
-    return positionMs === undefined ? undefined : { cause: "playPage", atMs: positionMs };
+    const { positionMs, isPaused } = receiving.cast;
+    return positionMs === undefined
+      ? undefined
+      : { cause: "playPage", atMs: positionMs, isPaused: isPaused === true };
   }
   const { atMs, isPaused } = from;
   return atMs === undefined ? undefined : { cause: "castOver", atMs, isPaused: isPaused === true };

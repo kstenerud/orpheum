@@ -84,6 +84,8 @@ interface LeadingPlayer {
   readonly startPositionMs: number;
   /** Where the film is put on from whatever the video says: where a cast's sender stood. */
   readonly putOnAtMs?: number | undefined;
+  /** Whether the first session is told the film waits paused at putOnAtMs: a cast's sender had it so. */
+  readonly isPutOnPaused?: boolean | undefined;
   /** How the film is given to the player, which the session is told (D371 §4). */
   readonly delivery?: PlaybackReport["delivery"] | undefined;
   /** How the film sounds now, which the session is told for a cast's remote (sound-panel.ts). */
@@ -101,7 +103,7 @@ interface LeadingPlayer {
  */
 export function useLeadingPlayer(leading: LeadingPlayer): void {
   const { connection, isWelcomed, fileId, video, startPositionMs, putOnAtMs, delivery } = leading;
-  const { readSound, readPicture } = leading;
+  const { readSound, readPicture, isPutOnPaused } = leading;
   // The session it put its film on for: each it comes to lead, once (a cast's receiver taking its
   // host's part in a Watch Together session started while it played, D364 §11).
   const putOnForRef = useRef<TogetherConnection | undefined>(undefined);
@@ -112,9 +114,9 @@ export function useLeadingPlayer(leading: LeadingPlayer): void {
     const isFirst = putOnForRef.current === undefined;
     putOnForRef.current = connection;
     if (connection.snapshot().group?.fileId !== fileId) {
-      putOn(connection, { fileId, video, startPositionMs, putOnAtMs }, isFirst);
+      putOn(connection, { fileId, video, startPositionMs, putOnAtMs, isPutOnPaused }, isFirst);
     }
-  }, [connection, isWelcomed, fileId, video, startPositionMs, putOnAtMs]);
+  }, [connection, isWelcomed, fileId, video, startPositionMs, putOnAtMs, isPutOnPaused]);
   useEffect(
     () =>
       video === null || connection === undefined
@@ -135,12 +137,14 @@ export function useLeadingPlayer(leading: LeadingPlayer): void {
 
 /**
  * Puts the leading player's film on for the session connection: the first session it leads from
- * putOnAtMs, else where the video stands, else where the film starts; a session it is led on into
- * later, the same film playing on, from where the video stands, and paused if it is.
+ * putOnAtMs, else where the video stands, else where the film starts, paused there where
+ * isPutOnPaused (a cast started from a film paused, the owner, 2026-11-08: "It should maintain the
+ * paused status of the caster"); a session it is led on into later, the same film playing on, from
+ * where the video stands, and paused if it is.
  */
 function putOn(
   connection: TogetherConnection,
-  film: Pick<LeadingPlayer, "fileId" | "video" | "startPositionMs" | "putOnAtMs">,
+  film: Pick<LeadingPlayer, "fileId" | "video" | "startPositionMs" | "putOnAtMs" | "isPutOnPaused">,
   isFirst: boolean,
 ): void {
   const { fileId, video, startPositionMs, putOnAtMs } = film;
@@ -149,7 +153,7 @@ function putOn(
     ? (putOnAtMs ?? standsAtMs ?? startPositionMs)
     : (standsAtMs ?? putOnAtMs ?? startPositionMs);
   connection.command({ command: "changeItem", fileId, positionMs });
-  if (!isFirst && video?.paused === true) {
+  if (isFirst ? film.isPutOnPaused === true : video?.paused === true) {
     connection.command({ command: "pause" });
   }
 }

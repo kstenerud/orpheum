@@ -7,7 +7,7 @@ import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CastReceiver, castNoteShownMs, ControlledMode, moveOnOrReady } from "./cast-receiver.tsx";
-import { playedMutedEvent } from "@orpheum/sdk";
+import { playedMutedEvent, type CastToReceive } from "@orpheum/sdk";
 
 import { leaveFullScreen, type CastAnswer } from "./cast-asked.tsx";
 import { fillsWindowClass, followFillsWindow } from "./film-fullscreen.ts";
@@ -173,10 +173,11 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
     document.body.replaceChildren();
   });
 
-  /** A receiver of cast leading video, served by answers, and what it was told of its end. */
+  /** A receiver of received leading video, served by answers, and what it was told of its end. */
   async function receiver(
     answers: Parameters<typeof servedBy>[0] = {},
     hasNext = false,
+    received: CastToReceive = cast,
   ): Promise<{
     readonly server: FakeTogetherServer;
     readonly video: HTMLVideoElement;
@@ -193,7 +194,7 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
     mounted = await mount(
       withServices(
         <CastReceiver
-          receiving={{ cast, onLeave }}
+          receiving={{ cast: received, onLeave }}
           fileId={4}
           video={video}
           startPositionMs={0}
@@ -223,6 +224,24 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
         positionMs: 61_000,
       }),
     );
+  });
+
+  it("leads its session paused where the sender stood, as a cast started from a film paused (the owner, 2026-11-08)", async () => {
+    const { server } = await receiver({}, false, { ...cast, isPaused: true });
+    await server.say(welcome);
+    const commands = server.heard.filter((message) => message["type"] === "command");
+    expect(commands).toEqual([
+      expect.objectContaining({ command: "changeItem", fileId: 4, positionMs: 61_000 }),
+      expect.objectContaining({ command: "pause" }),
+    ]);
+  });
+
+  it("puts a cast started from a film playing on playing, with no pause", async () => {
+    const { server } = await receiver();
+    await server.say(welcome);
+    expect(server.heard.filter((message) => message["type"] === "command")).toEqual([
+      expect.objectContaining({ command: "changeItem", fileId: 4, positionMs: 61_000 }),
+    ]);
   });
 
   it("pauses at once as its remote pauses, though its page is hidden, telling the log it followed at once (the owner, 2026-10-28)", async () => {

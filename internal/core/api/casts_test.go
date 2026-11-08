@@ -211,6 +211,27 @@ func TestLive_ARemovedDeviceIsToldItsSignInEnded(t *testing.T) {
 	tvSocket.await(live.MessageSignedOut, func(live.Outbound) bool { return true })
 }
 
+// A cast started from a film paused hands its receiver the film paused there, so the TV opens it
+// paused, waiting for a play (the owner, 2026-11-08).
+func TestCast_AFilmCastPausedOpensPausedOnItsReceiver(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	phoneToken := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	tvToken := harness.signIn(t, "owner", "owner-password")
+	tv := harness.thisDevice(t, tvToken)
+	tvSocket := harness.dialLive(t, tvToken)
+	tvSocket.awaitDevices(tv)
+	started := startedCast(t, harness.do(t, http.MethodPost, "/me/casts", phoneToken,
+		map[string]any{"toDeviceId": tv, "fileId": 1, "positionMs": 61_000, "isPaused": true}))
+	received := tvSocket.await(live.MessageReceive, func(each live.Outbound) bool {
+		return each.Receive.CastID == started.CastID
+	}).Receive
+	if !received.IsPaused || received.PositionMs == nil || *received.PositionMs != 61_000 {
+		t.Errorf("the TV was handed %+v; want file 1 paused at 61 s", received)
+	}
+}
+
 // A device casts only to another of its person's devices connected now; the receiver is handed the
 // cast on its live socket and leads its session of one, and the sender commands it (D337 §1, §2, §5).
 func TestCast_ADeviceCastsOnlyToAnotherOfItsPersonsConnectedNow(t *testing.T) {
