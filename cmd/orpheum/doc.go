@@ -28,9 +28,10 @@
 //   - Every time the server formats is UTC, whatever TZ says (D204). Enforced by
 //     TestUseUTC_TimesAreUTCWhateverTZSays.
 //   - core starts no node, and node runs the node's loop on its own: a node's work is its own, which a
-//     core restart does not touch (D233 §2). The node refuses to run while
-//     node.confinement_policy is "require" and a confinement mechanism is not in force (D112).
-//     Enforced by TestRunNode_RefusesToRunUnconfinedWhenConfinementIsRequired.
+//     core restart does not touch (D233 §2). While node.confinement_policy is "require" and a
+//     confinement mechanism is not in force, the node starts locked: it reports to the core and runs
+//     no FFmpeg and reads no media until an admin lets it run unconfined (D112, D450 §1).
+//     Enforced by TestRunNode_StartsLockedWithoutLandlockUntilAnAdminLetsItRunUnconfined.
 //   - The node role, node.go, imports nothing from internal/core or internal/store, as the node's
 //     own packages do not (D33); what both roles need is in internal/platform. Enforced by the
 //     depguard rule node-role-boundary.

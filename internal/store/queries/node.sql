@@ -36,3 +36,21 @@ DELETE FROM device_reader_limit WHERE node_id = sqlc.arg(node_id) AND device_key
 -- name: ListDeviceReaderLimits :many
 -- The reader limits an admin set for a node's devices.
 SELECT device_key, reader_limit FROM device_reader_limit WHERE node_id = sqlc.arg(node_id) ORDER BY device_key;
+
+-- name: AcceptUnconfinedNode :execrows
+-- An admin lets a node run FFmpeg without a confinement mechanism its kernel lacks (D450 section 1);
+-- one already accepted keeps who accepted it first, and when.
+INSERT INTO node_unconfined_leave (node_id, accepted_by_user_id, accepted_at)
+VALUES (sqlc.arg(node_id), sqlc.arg(accepted_by_user_id), sqlc.arg(accepted_at))
+ON CONFLICT (node_id) DO NOTHING;
+
+-- name: WithdrawUnconfinedNode :execrows
+-- An admin takes back a node's leave to run unconfined: it starts locked again (D450 section 1).
+DELETE FROM node_unconfined_leave WHERE node_id = sqlc.arg(node_id);
+
+-- name: GetUnconfinedLeave :one
+-- Who let a node run unconfined, and when, for its polls and the System page (D450 section 1).
+SELECT node_unconfined_leave.accepted_at, user.name AS accepted_by
+FROM node_unconfined_leave
+JOIN user ON user.id = node_unconfined_leave.accepted_by_user_id
+WHERE node_unconfined_leave.node_id = sqlc.arg(node_id);

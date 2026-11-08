@@ -34,7 +34,10 @@ type connectedNode struct {
 	// areWatchedFoldersChanged is whether the library folders it watches may have changed since a poll
 	// last answered it: the next answers at once, naming them (WatchedFoldersChanged).
 	areWatchedFoldersChanged bool
-	lastHeard                time.Time
+	// isLeaveChanged is whether an admin withdrew its leave to run unconfined since a poll last answered
+	// it: the next answers at once, so a node running by it stops (D450 §1).
+	isLeaveChanged bool
+	lastHeard      time.Time
 	// openPollCount is how many long-polls for its commands are open: while one is, it is
 	// connected however long ago it last spoke.
 	openPollCount int
@@ -56,6 +59,9 @@ const (
 	// NeedsUpdate is a node whose last hello spoke another version of the node protocol than the
 	// core's, so it was refused (D233 §9).
 	NeedsUpdate Connection = "needs_update"
+	// Locked is a node whose kernel lacks confinement its config requires, which reports and waits,
+	// running no FFmpeg, until an admin lets it run unconfined (D450 §1).
+	Locked Connection = "locked"
 )
 
 // NodeConnection is whether a node is connected and when it was last heard; zero when it has
@@ -66,9 +72,12 @@ func (service *Service) NodeConnection(ctx context.Context, nodeID int64) (Conne
 	defer service.mutex.Unlock()
 	node, found := service.nodesHeardSinceStart[nodeID]
 	_, needsUpdate := service.protocolByNodeID[nodeID]
+	locked, isLocked := service.lockedByNodeID[nodeID]
 	switch {
 	case needsUpdate:
 		return NeedsUpdate, time.Time{}
+	case isLocked && !found:
+		return Locked, locked.lastHeard
 	case !found:
 		return AwaitingHello, time.Time{}
 	case service.isConnectedLocked(node, silentAfter):

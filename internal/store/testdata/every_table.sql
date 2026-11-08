@@ -19,6 +19,7 @@ INSERT INTO user (id, name, role_id, password_hash, admin_note, created_at)
   VALUES (1, 'owner', 1, CAST('$argon2id$v=19$m=65536,t=3,p=4$c2FsdA$aGFzaA' AS BLOB), NULL, 1790000000000),
          (2, 'partner', 2, NULL, 'Anna, from the bus station', 1790000000000);
 INSERT INTO role_library (role_id, library_id, may_rebroadcast) VALUES (2, 1, 0);
+INSERT INTO node_unconfined_leave (node_id, accepted_by_user_id, accepted_at) VALUES (1, 1, 1790000200000);
 INSERT INTO device (id, user_id, name, platform, added_at, last_signed_in_at)
   VALUES (1, 2, 'Living room TV', 'webos', 1790000000000, 1790000100000);
 

@@ -52,6 +52,9 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 		return
 	}
 	service.connect(node.ID, hello)
+	service.mutex.Lock()
+	delete(service.lockedByNodeID, node.ID)
+	service.mutex.Unlock()
 	// The work given to another start of the node is lost with it, whether or not the core heard
 	// that start: each attempt keeps the start it was given to (D238 §3).
 	if service.resultSink != nil {
@@ -94,7 +97,8 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 	writeJSON(writer, nodeproto.HelloReply{
 		NodeID:             node.ID,
 		DeviceReaderLimits: limits, Tuning: service.tuning(ctx),
-		WatchFolders: service.watchFoldersNow(ctx, node.ID),
+		WatchFolders:     service.watchFoldersNow(ctx, node.ID),
+		MayRunUnconfined: service.mayRunUnconfined(ctx, node.ID),
 	})
 }
 
@@ -247,6 +251,7 @@ func (service *Service) RemoveNode(ctx context.Context, nodeID int64) error {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
 	delete(service.nodesHeardSinceStart, nodeID)
+	delete(service.lockedByNodeID, nodeID)
 	return nil
 }
 

@@ -32,6 +32,21 @@ type NodeReports interface {
 	// SetReaderLimit sets how many may read one of a node's devices at once, or, nil, gives it back
 	// to its kind's setting (D240 §5).
 	SetReaderLimit(ctx context.Context, nodeName, deviceKey string, limit *int) error
+	UnconfinedLeaves
+}
+
+// UnconfinedLeaves are the locked nodes and an admin's leave for each to run unconfined: nodes.Service
+// (D450 §1).
+type UnconfinedLeaves interface {
+	// LockedConfinement is what a locked node said it lacks; false for one not locked (D450 §1).
+	LockedConfinement(nodeID int64) ([]nodeproto.Confinement, time.Time, bool)
+	// UnconfinedLeave is an admin's leave for a node to run without the confinement its kernel lacks;
+	// false when there is none (D450 §1).
+	UnconfinedLeave(ctx context.Context, nodeID int64) (nodes.UnconfinedLeave, bool, error)
+	// AcceptUnconfined and WithdrawUnconfined give and take back that leave, recording and logging who
+	// and when; nodes.ErrNoNode for a name no live node has.
+	AcceptUnconfined(ctx context.Context, nodeName string, userID int64) error
+	WithdrawUnconfined(ctx context.Context, nodeName string, userID int64) error
 }
 
 // NodeWork is what the core saw of the work it gave each node: nodes.Exchanges.
@@ -210,9 +225,10 @@ type SystemNodeBody struct {
 	Name string `json:"name"`
 	// Connection is connected (polling for its commands, or heard within
 	// node_silent_after_seconds), silent (heard since the server started, not lately),
-	// awaiting_hello (not heard since the server started) or needs_update (it speaks another version
-	// of the node protocol than the server, so its work waits, D233 §9).
-	Connection  string `enum:"connected,silent,awaiting_hello,needs_update" json:"connection"`
+	// awaiting_hello (not heard since the server started), needs_update (it speaks another version
+	// of the node protocol than the server, so its work waits, D233 §9) or locked (its kernel lacks
+	// confinement its config requires, so it runs no FFmpeg until an admin lets it, D450 §1).
+	Connection  string `enum:"connected,silent,awaiting_hello,needs_update,locked" json:"connection"`
 	IsConnected bool   `doc:"Whether its connection is connected" json:"isConnected"`
 	// LastHeardAt is when it last spoke since the server started, in Unix milliseconds.
 	LastHeardAt *int64 `json:"lastHeardAt,omitempty"`
@@ -224,8 +240,12 @@ type SystemNodeBody struct {
 	FFmpegSha256   string     `json:"ffmpegSha256,omitempty"`
 	UID            int        `doc:"The user the node runs as" json:"uid"`
 	GID            int        `json:"gid"`
-	// Confinement is how its FFmpeg runs are confined, per mechanism (D112).
+	// Confinement is how its FFmpeg runs are confined, per mechanism (D112); a locked node's, what it
+	// would get.
 	Confinement []ConfinementBody `json:"confinement"`
+	// UnconfinedLeave is an admin's leave for it to run FFmpeg without the confinement its kernel lacks,
+	// absent when none was given (D450 §1).
+	UnconfinedLeave *UnconfinedLeaveBody `json:"unconfinedLeave,omitempty"`
 	// Hardware is what it found for hardware encoding; absent while it is not connected.
 	Hardware *HardwareBody `json:"hardware,omitempty"`
 	// PreparedUsage is what its prepared directory holds against its budget (D217 §5).
@@ -326,6 +346,7 @@ func (server *Server) registerSystem() {
 		Extensions: callableBy(capabilityAdmin),
 	}, server.clearReaderLimit)
 	server.registerResourceUse()
+	server.registerUnconfined()
 }
 
 // DeviceReaderLimitInput sets one of a node's devices' reader limit.
@@ -458,6 +479,21 @@ func (server *Server) systemNode(
 	body.Connection, body.IsConnected = string(connection), connection == nodes.Connected
 	if !lastHeard.IsZero() {
 		body.LastHeardAt = new(lastHeard.UnixMilli())
+	}
+	leave, isGiven, err := dependencies.NodeReports.UnconfinedLeave(ctx, node.ID)
+	if err != nil {
+		return body, server.logInternalError(ctx, "read a node's leave to run unconfined", err)
+	}
+	if isGiven {
+		body.UnconfinedLeave = &UnconfinedLeaveBody{
+			AcceptedBy: leave.AcceptedBy, AcceptedAt: leave.AcceptedAt.UnixMilli(),
+		}
+	}
+	// A locked node says only what it lacks: what it was before is not what it is (D450 §1).
+	if lacking, _, isLocked := dependencies.NodeReports.LockedConfinement(node.ID); isLocked &&
+		connection == nodes.Locked {
+		body.Confinement = confinementBodies(lacking)
+		return body, nil
 	}
 	facts, found := dependencies.NodeReports.Facts(node.Name)
 	if !found {

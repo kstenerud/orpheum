@@ -1470,6 +1470,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/nodes/{name}/unconfined": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Let a node whose kernel lacks confinement run FFmpeg without it, accepting the risk; recorded with who and when (D450) */
+        put: operations["allowUnconfinedNode"];
+        post?: never;
+        /** Withdraw a node's leave to run without confinement: it stops and waits locked (D450) */
+        delete: operations["withdrawUnconfinedNode"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/now-playing": {
         parameters: {
             query?: never;
@@ -5321,7 +5339,7 @@ export interface components {
             build?: components["schemas"]["BuildBody"];
             confinement: components["schemas"]["ConfinementBody"][] | null;
             /** @enum {string} */
-            connection: "connected" | "silent" | "awaiting_hello" | "needs_update";
+            connection: "connected" | "silent" | "awaiting_hello" | "needs_update" | "locked";
             devices: components["schemas"]["NodeDeviceBody"][] | null;
             disks: components["schemas"]["DiskBody"][] | null;
             ffmpegSha256?: string;
@@ -5343,6 +5361,7 @@ export interface components {
              * @description The user the node runs as
              */
             uid: number;
+            unconfinedLeave?: components["schemas"]["UnconfinedLeaveBody"];
             work?: components["schemas"]["NodeWorkBody"];
         };
         SystemOutputBody: {
@@ -5554,6 +5573,11 @@ export interface components {
             reason: "node_away" | "root_missing" | "disk_missing" | "still_reading";
             /** Format: int64 */
             unavailableAt?: number;
+        };
+        UnconfinedLeaveBody: {
+            /** Format: int64 */
+            acceptedAt: number;
+            acceptedBy: string;
         };
         UnplayableBody: {
             audioBuffered?: string;
@@ -9066,6 +9090,66 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["RetiredOutputBody"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    allowUnconfinedNode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The node's configured name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    withdrawUnconfinedNode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The node's configured name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

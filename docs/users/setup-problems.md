@@ -122,12 +122,14 @@ processor.
 - **To check that it worked:** the server's System page names the media node's encoder, "NVIDIA
   NVENC".
 
-## The media node keeps restarting, or System says it is not answering
+## System says the media node is locked
 
-Its log (`docker compose logs orpheum-node`, in the server's directory) says
-`node.confinement_policy is "require", and not every mechanism is in force`. The node runs FFmpeg
-on every film it reads, and a crafted file can attack FFmpeg, so a release node runs it only inside
-Landlock and seccomp, and does not start without them (since 2026-10-20; before, it ran and warned).
+The node runs FFmpeg on every film it reads, and a crafted file can attack FFmpeg, so a release node
+runs it only inside Landlock and seccomp. On a kernel without one of them the node starts locked: it
+connects to the server, and the System page says what is missing, but it reads no films and runs
+no FFmpeg (since 2026-11-08; from 2026-10-20 it did not start at all, and before that it ran and
+warned). Its log (`docker compose logs orpheum-node`, in the server's directory) says
+`node.confinement_policy is "require", and not every mechanism is in force`.
 
 - **Landlock missing:** the host's kernel must list it. On the host (on Proxmox, the host's shell,
   not the container's), `cat /sys/kernel/security/lsm` must include `landlock`; if it does not, add
@@ -135,8 +137,10 @@ Landlock and seccomp, and does not start without them (since 2026-10-20; before,
   (`GRUB_CMDLINE_LINUX` in `/etc/default/grub`, then `update-grub` and a restart), or use a newer
   kernel.
 - **seccomp missing:** the kernel was built without `CONFIG_SECCOMP_FILTER`; use one with it.
-- **If you cannot fix the kernel** and accept the risk, set `confinement_policy = "report"` under
-  `[node]` in the node's config: it then runs FFmpeg unconfined, and the System page warns.
+- **If you cannot fix the kernel** and accept the risk, an admin, at home, presses **Run without
+  confinement** on the System page. The node then starts its work unconfined, the System page says
+  who allowed it and when, and **Withdraw** locks it again. (Setting `confinement_policy = "report"`
+  under `[node]` in the node's config does the same for good, without asking.)
 
 ## Films on a NAS stop playing when the NAS is off, or System warns "mounted to wait for its server for good"
 

@@ -67,6 +67,11 @@ type fakeCore struct {
 	watchFolders []string
 	// tokenlessJobIDs are the jobs whose commands it sends naming no attempt, as no core does.
 	tokenlessJobIDs map[int64]bool
+	// mayRunUnconfined is the leave the reply to a hello and each poll's answer say (D450 §1). Guarded
+	// by mutex.
+	mayRunUnconfined bool
+	// lockedReports are the reports a locked node posts; the reply says mayRunUnconfined.
+	lockedReports chan nodeproto.LockedReport
 }
 
 // sendsTokenless has the core send job's commands naming no attempt.
@@ -97,6 +102,23 @@ func handOn[T any](core *fakeCore, into chan<- T, value T) bool {
 	}
 }
 
+// receiveLocked hands a locked node's report on and answers with whether it may run unconfined.
+func (core *fakeCore) receiveLocked(t *testing.T) http.HandlerFunc {
+	t.Helper()
+	return func(writer http.ResponseWriter, request *http.Request) {
+		var report nodeproto.LockedReport
+		if err := json.NewDecoder(request.Body).Decode(&report); isMalformed(err) {
+			t.Error(err)
+		}
+		core.mutex.Lock()
+		reply := nodeproto.LockedReply{MayRunUnconfined: core.mayRunUnconfined}
+		core.mutex.Unlock()
+		if handOn(core, core.lockedReports, report) {
+			_ = json.NewEncoder(writer).Encode(reply) //nolint:errcheck // a node that went away has no use for it
+		}
+	}
+}
+
 func startFakeCore(t *testing.T) (*fakeCore, string) {
 	t.Helper()
 	core := &fakeCore{
@@ -109,6 +131,7 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		refusals: make(chan nodeproto.Result, 4), held: make(chan nodeproto.Result, 4),
 		scans: make(chan nodeproto.Result, 4), changes: make(chan nodeproto.Changed, 4),
 		stopped: make(chan struct{}), endSession: make(chan struct{}), helloHeard: make(chan struct{}, 8),
+		lockedReports: make(chan nodeproto.LockedReport, 4),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST "+nodeproto.PathHello, func(writer http.ResponseWriter, request *http.Request) {
@@ -118,7 +141,7 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		}
 		core.mutex.Lock()
 		core.hellos = append(core.hellos, hello)
-		statusEvery, watchFolders := core.statusEverySeconds, core.watchFolders
+		statusEvery, watchFolders, mayRunUnconfined := core.statusEverySeconds, core.watchFolders, core.mayRunUnconfined
 		core.mutex.Unlock()
 		select {
 		case core.helloHeard <- struct{}{}:
@@ -126,6 +149,7 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		}
 		if err := json.NewEncoder(writer).Encode(nodeproto.HelloReply{
 			NodeID: 7, Tuning: nodeproto.Tuning{StatusEverySeconds: statusEvery}, WatchFolders: watchFolders,
+			MayRunUnconfined: mayRunUnconfined,
 		}); err != nil {
 			t.Error(err)
 		}
@@ -137,11 +161,14 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 			// test named another.
 			core.mutex.Lock()
 			isTokenless, watchFolders := core.tokenlessJobIDs[command.JobID], core.watchFolders
+			mayRunUnconfined := core.mayRunUnconfined
 			core.mutex.Unlock()
 			if command.AttemptToken == "" && !isTokenless {
 				command.AttemptToken = tokenOf(command.JobID)
 			}
-			answer := nodeproto.Commands{Commands: []nodeproto.Command{command}, WatchFolders: watchFolders}
+			answer := nodeproto.Commands{
+				Commands: []nodeproto.Command{command}, WatchFolders: watchFolders, MayRunUnconfined: mayRunUnconfined,
+			}
 			if err := json.NewEncoder(writer).Encode(answer); err != nil {
 				t.Error(err)
 			}
@@ -151,6 +178,7 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		case <-core.stopped:
 		}
 	})
+	mux.HandleFunc("POST "+nodeproto.PathLocked, core.receiveLocked(t))
 	mux.HandleFunc("POST "+nodeproto.PathStatus, core.receiveStatus(t))
 	mux.HandleFunc("POST "+nodeproto.PathResult, core.receiveResult(t))
 	mux.HandleFunc("POST "+nodeproto.PathProgress, core.receiveProgress(t))

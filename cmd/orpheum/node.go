@@ -44,6 +44,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/randbytes"
 	"github.com/kstenerud/orpheum/internal/platform/readonly"
 	"github.com/kstenerud/orpheum/internal/platform/selfuse"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
 )
 
@@ -53,10 +54,6 @@ const coreSocketName = "core.sock"
 // nodeSocketName is the node's byte socket's name in its instance's run directory, from which the
 // core reads media bytes (cut-a §4, D193 §1); the node's hello says where it is (D242 §7).
 const nodeSocketName = "node.sock"
-
-// errConfinementRequired refuses to run FFmpeg without every confinement mechanism in force.
-var errConfinementRequired = errors.New("node.confinement_policy is \"require\", and not every mechanism is in " +
-	"force; fix what is missing, or set it to \"report\" to run with what there is and say so (D112)")
 
 // commandNode runs a media node: the child `run` starts, or a node on its own.
 func commandNode(ctx context.Context, call invocation) int {
@@ -104,17 +101,18 @@ type nodeSeams struct {
 }
 
 // checkConfinement is what the machine can confine FFmpeg with (D112): each mechanism missing is
-// logged with its remedy, and refuses the node's start when the config requires them all.
+// logged with its remedy. It is locked when the config requires them all and one is missing: the
+// node then waits for an admin's leave before it reads media or runs FFmpeg (D450 §1).
 func checkConfinement(
 	ctx context.Context, config Config, logger *slog.Logger, seams nodeSeams,
-) ([]confine.State, error) {
+) (confinement []confine.State, isLocked bool) {
 	probeConfinement := confine.MechanismStates
 	if seams.mechanismStates != nil {
 		probeConfinement = seams.mechanismStates
 	}
-	confinement := probeConfinement()
+	confinement = probeConfinement()
 	if confine.IsConfined(confinement) {
-		return confinement, nil
+		return confinement, false
 	}
 	for _, state := range confinement {
 		if !state.IsInForce {
@@ -122,17 +120,30 @@ func checkConfinement(
 				"reason", state.Reason, "remedy", state.Remedy)
 		}
 	}
-	if config.Node.ConfinementPolicy == "require" {
-		return nil, errConfinementRequired
+	return confinement, config.Node.ConfinementPolicy == "require"
+}
+
+// waitWhileLocked holds a node whose confinement is incomplete, under "require", reporting what it
+// lacks each tick until an admin lets it run unconfined; false when it is stopped first (D450 §1).
+func waitWhileLocked(
+	ctx context.Context, config Config, confinement []confine.State, tick <-chan time.Time, logger *slog.Logger,
+) bool {
+	logger.ErrorContext(ctx, "node.confinement_policy is \"require\", and not every mechanism is in force: "+
+		"this node reads no media and runs no FFmpeg until an admin lets it run without them on the "+
+		"System page; fix what is missing to run confined (D112, D450 §1)", slogx.EventKey, "nodeLocked")
+	report := nodeproto.LockedReport{
+		Name: config.Node.Name, Build: thisBuild(), Confinement: confinementReport(confinement),
 	}
-	return confinement, nil
+	return agent.WaitForLeave(ctx, config.Node.CoreSocket, report, tick, logger)
 }
 
 // runNodeWith is runNode with a test's seams.
 func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams nodeSeams) error {
-	confinement, err := checkConfinement(ctx, config, logger, seams)
-	if err != nil {
-		return err
+	ticker, setStatusEvery := statusTicker(seams)
+	defer ticker.Stop()
+	confinement, isLocked := checkConfinement(ctx, config, logger, seams)
+	if isLocked && !waitWhileLocked(ctx, config, confinement, ticker.C, logger) {
+		return nil
 	}
 	roots, disks, systemFolder := openNodeRoots(ctx, config, logger)
 	defer func() {
@@ -155,7 +166,7 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 		return err
 	}
 	detected := detectCapabilities(ctx, runner, confinement, logger)
-	hello, err := describeNode(ctx, config, runner, detected)
+	hello, err := describeNode(ctx, config, runner, detected, isLocked)
 	if err != nil {
 		return err
 	}
@@ -179,8 +190,6 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 	}
 	defer stopBytes()
 	hello.ByteSocketPath = byteSocketPath
-	ticker, setStatusEvery := statusTicker(seams)
-	defer ticker.Stop()
 	// An image's probe and each of its encodes are one FFmpeg run over one untrusted input each,
 	// bounded as a file's probe is.
 	deriver := artwork.NewDeriver(runner, time.Duration(config.Node.ProbeTimeoutSeconds)*time.Second)
@@ -536,7 +545,7 @@ func newStartID(random io.Reader) (string, error) {
 // describeNode is the hello: who the node is, which FFmpeg it runs, what it can do and what
 // confinement it has.
 func describeNode(
-	ctx context.Context, config Config, runner *execx.Runner, detected nodeCapabilities,
+	ctx context.Context, config Config, runner *execx.Runner, detected nodeCapabilities, isUnconfinedByLeave bool,
 ) (nodeproto.Hello, error) {
 	// ffprobe -version prints a few kilobytes of build options; a mebibyte bounds a broken binary.
 	output, err := runner.Run(ctx, execx.FFprobe, confine.Access{}, []string{"-version"}, 1<<20)
@@ -565,6 +574,8 @@ func describeNode(
 		GID:           os.Getegid(),
 		Hardware:      hardwareReport(detected),
 		Capacity:      capacityOf(config),
+		// A locked node that starts has an admin's leave to run unconfined (D450 §1).
+		IsUnconfinedByLeave: isUnconfinedByLeave,
 	}, nil
 }
 

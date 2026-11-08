@@ -222,9 +222,10 @@ it("the System page says a machine that stopped answering is silent, and when it
     stuck: [],
   });
   expect(silent).toContain("Not answering. Last heard from at");
-  // Where to look when it stops as it starts: a kernel without Landlock or seccomp (N2).
+  // Where to look when it stops as it starts (N2); a kernel without Landlock or seccomp locks it
+  // instead, shown by NodeUnconfinedLeave (D450 §1).
   expect(silent).toContain(
-    "A machine whose kernel lacks Landlock or seccomp does not start its node",
+    "If it stops each time it starts, its log says why. See Setting up a server: problems seen",
   );
   expect(silent).not.toContain("FFmpeg runs");
   mounted?.unmount();

@@ -351,7 +351,8 @@ func nodeConfigKeys() []configKey {
 		{
 			tableNode, "confinement_policy", `"report"`,
 			`"report" runs FFmpeg with what confinement the kernel offers and says what is missing; "require" ` +
-				`refuses to run it unconfined (D273 §5)`,
+				`starts a node that lacks a mechanism locked, running no FFmpeg until an admin lets it run ` +
+				`unconfined on the System page (D273 §5, D450 §1)`,
 		},
 		{tableNode, "probe_timeout_seconds", "60", "seconds ffprobe gets for one file before it is stopped"},
 		{

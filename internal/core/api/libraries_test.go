@@ -71,6 +71,11 @@ type fakeNodes struct {
 	devices []corenodes.DeviceState
 	// readerLimitsSet are the reader limits set, by "node/device"; a cleared one is 0.
 	readerLimitsSet map[string]int
+	// lockedConfinement, when set, is node 1 started locked, lacking it (D450 §1).
+	lockedConfinement []nodeproto.Confinement
+	// leave is node 1's leave to run unconfined, nil for none; leaveChangedBy who gave or took it back.
+	leave          *corenodes.UnconfinedLeave
+	leaveChangedBy []int64
 	// database is where a retired node is removed, at clock's time.
 	database *store.Database
 	clock    clock.Clock
@@ -127,7 +132,39 @@ func (nodes *fakeNodes) NodeConnection(_ context.Context, nodeID int64) (corenod
 	if nodes.isAway.Load() {
 		return corenodes.Silent, fakeNodeLastHeard
 	}
+	if nodes.lockedConfinement != nil {
+		return corenodes.Locked, fakeNodeLastHeard
+	}
 	return corenodes.Connected, fakeNodeLastHeard
+}
+
+func (nodes *fakeNodes) LockedConfinement(nodeID int64) ([]nodeproto.Confinement, time.Time, bool) {
+	return nodes.lockedConfinement, fakeNodeLastHeard, nodeID == 1 && nodes.lockedConfinement != nil
+}
+
+func (nodes *fakeNodes) UnconfinedLeave(_ context.Context, nodeID int64) (corenodes.UnconfinedLeave, bool, error) {
+	if nodeID != 1 || nodes.leave == nil {
+		return corenodes.UnconfinedLeave{}, false, nil
+	}
+	return *nodes.leave, true, nil
+}
+
+func (nodes *fakeNodes) AcceptUnconfined(_ context.Context, nodeName string, userID int64) error {
+	if nodeName != "local" {
+		return corenodes.ErrNoNode
+	}
+	nodes.leave = &corenodes.UnconfinedLeave{AcceptedBy: "admin", AcceptedAt: fakeNodeLastHeard}
+	nodes.leaveChangedBy = append(nodes.leaveChangedBy, userID)
+	return nil
+}
+
+func (nodes *fakeNodes) WithdrawUnconfined(_ context.Context, nodeName string, userID int64) error {
+	if nodeName != "local" {
+		return corenodes.ErrNoNode
+	}
+	nodes.leave = nil
+	nodes.leaveChangedBy = append(nodes.leaveChangedBy, userID)
+	return nil
 }
 
 // fakeNodeLastHeard is when the fake node last spoke.

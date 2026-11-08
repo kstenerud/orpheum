@@ -311,26 +311,6 @@ func openDatabase(t *testing.T, config Config) *store.Database {
 // its status every second (nodeSeams.statusEvery).
 var fakeFFmpegSeams = nodeSeams{isUnconfined: true, statusEvery: time.Second}
 
-func TestRunNode_RefusesToRunUnconfinedWhenConfinementIsRequired(t *testing.T) {
-	t.Parallel()
-	config, _ := testConfig(t)
-	config.Node.ConfinementPolicy = "require"
-	captured := newCapturedLog()
-	withoutLandlock := nodeSeams{isUnconfined: true, statusEvery: time.Second, mechanismStates: func() []confine.State {
-		return []confine.State{
-			{Mechanism: confine.MechanismLandlock, Reason: "not enabled at boot", Remedy: "add lsm=landlock"},
-			{Mechanism: confine.MechanismSeccomp, IsInForce: true},
-		}
-	}}
-	err := runNodeWith(t.Context(), config, captured.logger, withoutLandlock)
-	if err == nil || !strings.Contains(err.Error(), "not every mechanism is in force") {
-		t.Errorf("runNode = %v, want a refusal saying a mechanism is not in force", err)
-	}
-	if logged := captured.String(); !strings.Contains(logged, "add lsm=landlock") {
-		t.Errorf("the log = %s, want the missing mechanism's remedy", logged)
-	}
-}
-
 // The byte socket serves its roots to the holder of the key it keeps beside itself, as the core
 // dials it, and nothing to a process of the same user without it: a GPU run may open a Unix socket
 // (D331 §1).

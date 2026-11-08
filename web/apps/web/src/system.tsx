@@ -16,6 +16,7 @@ import { dateTimeText } from "./date-time-text.ts";
 import { i18n } from "./i18n.ts";
 import { NodeConfinementView } from "./node-confinement.tsx";
 import { NodeStuckView } from "./node-stuck.tsx";
+import { NodeUnconfinedLeave } from "./node-unconfined.tsx";
 import { NowPlaying } from "./now-playing.tsx";
 import { SystemBackups } from "./system-backups.tsx";
 import { SystemContents, type ContentsEntry } from "./system-contents.tsx";
@@ -140,6 +141,7 @@ export function SystemView(props: {
         <NodeFacts
           key={node.name}
           node={node}
+          onChanged={props.onChanged}
           onRetire={() => {
             props.onRetireNode(node.name);
           }}
@@ -378,6 +380,7 @@ function OfflineStorage(props: { readonly offline: readonly Offline[] }): JSX.El
 function NodeFacts(props: {
   readonly node: SystemNode;
   readonly onRetire: () => void;
+  readonly onChanged?: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { node } = props;
@@ -405,12 +408,13 @@ function NodeFacts(props: {
           <NodeDevices nodeName={node.name} devices={node.devices ?? []} />
           <NodeStuckView stuck={node.stuck ?? []} />
         </>
-      ) : (
+      ) : node.connection === "locked" ? null : (
         <>
           <p>{notConnectedText(t, node, i18n.language)}</p>
           <p>{t("system.notConnectedHint")}</p>
         </>
       )}
+      <NodeUnconfinedLeave node={node} onChanged={props.onChanged} />
       <ConfirmButton
         label={t("system.retireNode")}
         consequence={t("system.retireNodeConsequence")}
