@@ -2605,3 +2605,14 @@ you reported them from.
   no press and needs no stand-in video. The sender sends `isPaused` with the cast's start; the
   server hands it on in the receive; the receiver opens paused at the place and puts the film on
   its session paused. On the Fire TV: VQ289.
+
+## From the compose file's happy path (2026-11-08), next batch
+
+- **SETUP-CODE.txt names the wrong port when the compose file maps another.** In the Docker-in-Docker
+  run of `deploy/omv/compose.yaml` (D447, D449 §3) with `ORPHEUM_HTTP_PORT=28440`, the file
+  `orpheum start` writes in the deployment's directory told the person to open port 8440, the port
+  inside the container, which the host did not publish. Everything else on the path held: the file
+  was 0600, a wrong code answered 403 and the right one 201 and removed the file, the node connected
+  with Landlock and seccomp in force, both libraries scanned, and `/system/update` answered
+  `installRoute: "compose"`. The fix: the compose file hands the published port to `orpheum start`
+  (an environment variable it already sees), and the file names that one. Found by the lead.
