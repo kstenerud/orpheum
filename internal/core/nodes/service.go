@@ -106,6 +106,9 @@ type Service struct {
 	// protocolByNodeID is the protocol version each node that needs updating last said hello in:
 	// another than this core's, so it was refused (D233 §9). Guarded by mutex.
 	protocolByNodeID map[int64]int
+	// lockedByNodeID is each node that started locked and has not said hello since (D450 §1). Guarded by
+	// mutex.
+	lockedByNodeID map[int64]lockedNode
 }
 
 // HeldResultReader fetches a result a node holds, too large to post, from its byte socket:
@@ -166,6 +169,7 @@ func NewService(parts ServiceParts) *Service {
 		database: parts.Database, clock: parts.Clock, settings: parts.Settings,
 		destinations: parts.Destinations, logger: parts.Logger, pollHold: parts.PollHold,
 		nodesHeardSinceStart: map[int64]*connectedNode{}, protocolByNodeID: map[int64]int{},
+		lockedByNodeID: map[int64]lockedNode{},
 	}
 }
 
@@ -178,6 +182,7 @@ func (service *Service) Handler() http.Handler {
 	mux.HandleFunc("POST "+nodeproto.PathResult, service.takeResult)
 	mux.HandleFunc("POST "+nodeproto.PathProgress, service.takeProgress)
 	mux.HandleFunc("POST "+nodeproto.PathChanged, service.takeChanged)
+	mux.HandleFunc("POST "+nodeproto.PathLocked, service.takeLocked)
 	return mux
 }
 

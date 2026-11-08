@@ -8176,7 +8176,8 @@
               "connected",
               "silent",
               "awaiting_hello",
-              "needs_update"
+              "needs_update",
+              "locked"
             ],
             "type": "string"
           },
@@ -8244,6 +8245,9 @@
             "description": "The user the node runs as",
             "format": "int64",
             "type": "integer"
+          },
+          "unconfinedLeave": {
+            "$ref": "#/components/schemas/UnconfinedLeaveBody"
           },
           "work": {
             "$ref": "#/components/schemas/NodeWorkBody"
@@ -8897,6 +8901,22 @@
         "required": [
           "reason",
           "nodeName"
+        ],
+        "type": "object"
+      },
+      "UnconfinedLeaveBody": {
+        "properties": {
+          "acceptedAt": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "acceptedBy": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "acceptedBy",
+          "acceptedAt"
         ],
         "type": "object"
       },
@@ -15122,6 +15142,90 @@
         "summary": "Retire a node for good: its roots are retired and its work is cancelled (D231 §7)",
         "tags": [
           "Libraries"
+        ],
+        "x-orpheum-capability": "admin"
+      }
+    },
+    "/nodes/{name}/unconfined": {
+      "delete": {
+        "operationId": "withdrawUnconfinedNode",
+        "parameters": [
+          {
+            "description": "The node's configured name",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "The node's configured name",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Withdraw a node's leave to run without confinement: it stops and waits locked (D450)",
+        "tags": [
+          "Running it"
+        ],
+        "x-orpheum-capability": "admin"
+      },
+      "put": {
+        "operationId": "allowUnconfinedNode",
+        "parameters": [
+          {
+            "description": "The node's configured name",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "The node's configured name",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Let a node whose kernel lacks confinement run FFmpeg without it, accepting the risk; recorded with who and when (D450)",
+        "tags": [
+          "Running it"
         ],
         "x-orpheum-capability": "admin"
       }

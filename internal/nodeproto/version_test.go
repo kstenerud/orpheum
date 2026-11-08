@@ -137,6 +137,10 @@ var wireShapeByVersion = map[int]string{
 	// 59 adds the make-system-videos command and its result, and the hello's system folder (D435 §4): a
 	// node of 58 would refuse the command and make no folder.
 	59: "f43ac68fa5d5f37a923adf5e01654a3ecdf97fc5da8f6431b05af5c69e5027f3",
+	// 60 adds the locked node's report and its reply, the hello's word that the node runs unconfined by
+	// an admin's leave, and the leave in the hello's reply and each poll's answer (D450 §1): a node of
+	// 59 would not stop when the leave is withdrawn. The shape counts the locked report from 60 on.
+	60: "ee59c7a94510cedd2a4f6b3d33b2a733518f07dc71fa76476c8b7b05e6f941b1",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this
@@ -159,6 +163,7 @@ func wireShape() string {
 		reflect.TypeFor[Hello](), reflect.TypeFor[HelloReply](), reflect.TypeFor[Commands](),
 		reflect.TypeFor[Result](), reflect.TypeFor[Progress](), reflect.TypeFor[Status](), reflect.TypeFor[Changed](),
 		reflect.TypeFor[PlaceProbe](), reflect.TypeFor[FolderListing](),
+		reflect.TypeFor[LockedReport](), reflect.TypeFor[LockedReply](),
 	} {
 		fields = append(fields, fieldsOf(message, seen)...)
 	}

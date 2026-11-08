@@ -14,6 +14,10 @@
 //     (D215 §3). TestAgent_ReadsAnImageBesideTheMediaOnlyUnderItsRoots.
 //   - The node posts its status every tick, for the core to reconcile with what it gave the node
 //     (D234 §6). TestAgent_SaysHelloAndPostsItsStatusEachTick.
+//   - A locked node reports what it lacks each tick and says no hello until the core lets it run
+//     unconfined; a node running by that leave stops, starting nothing more, once an answer no longer
+//     gives it (D450 §1). TestWaitForLeave_ReportsEachTickUntilTheCoreLetsItRunUnconfined,
+//     TestAgent_ANodeRunningByLeaveStopsWhenTheLeaveIsWithdrawn.
 //   - A job's background work reads the device its file is on, and runs only with a reader of it
 //     free, its limit the core's, one when the core named none; a paused run holds its slot but no
 //     reader. Play-driven work never waits for another's there, nor for its slot (D240 §6).

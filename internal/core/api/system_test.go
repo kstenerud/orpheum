@@ -254,7 +254,8 @@ func TestSystemNode_TheDocumentNamesEveryConnectionANodeCanHave(t *testing.T) {
 	named := document.Components.Schemas["SystemNodeBody"].Properties["connection"].Enum
 	slices.Sort(named)
 	every := []string{
-		string(corenodes.AwaitingHello), string(corenodes.Connected), string(corenodes.NeedsUpdate),
+		string(corenodes.AwaitingHello), string(corenodes.Connected), string(corenodes.Locked),
+		string(corenodes.NeedsUpdate),
 		string(corenodes.Silent),
 	}
 	if !slices.Equal(named, every) {

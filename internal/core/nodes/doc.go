@@ -17,6 +17,11 @@
 //     status names is that root's: scanned at the hello, unavailable when the root is not named or its
 //     disk is not answering, and scanned again when the disk answers (D359 §4).
 //     TestHello_TheLibraryFoldersInsideARootItNamesAreItsAsTheRootsOwnWere.
+//   - A locked node is enrolled by its report and shown locked until its hello; an admin's leave to run
+//     it unconfined is in the database with who gave it and when, in each hello's reply and poll's
+//     answer, and its withdrawal answers a waiting poll at once (D450 §1).
+//     TestLocked_ANodeIsHeldUntilAnAdminLetsItRunUnconfined,
+//     TestLocked_AWithdrawnLeaveAnswersTheWaitingPollAtOnce.
 //   - The folders in a folder on a node are asked of its byte socket, outside every queue (D359 §2).
 //     TestListFolders_AsksTheNodesByteSocket.
 //   - What a node's machine can do is its config's, told in its hello: after each hello the

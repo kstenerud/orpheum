@@ -14,6 +14,9 @@ const (
 	PathCommands = "/node/v1/commands"
 	// PathStatus is where the node posts its Status, each tick.
 	PathStatus = "/node/v1/status"
+	// PathLocked is where a locked node posts its LockedReport, each tick, until the core lets it run
+	// unconfined (D450 §1).
+	PathLocked = "/node/v1/locked"
 )
 
 // QueryAfterCommandSeq is the commands long-poll's parameter: the sequence number of the last command
@@ -24,7 +27,7 @@ const QueryAfterCommandSeq = "afterCommandSeq"
 // records and results. It is raised with any change a node or core of another build would misread,
 // so the two refuse each other at hello instead (D233 §9). Core and node ship as one build today,
 // so the two match unless a node is updated apart from its core.
-const ProtocolVersion = 59
+const ProtocolVersion = 60
 
 // Hello is the first thing a node says, and it says it again after every reconnection.
 type Hello struct {
@@ -57,8 +60,12 @@ type Hello struct {
 	Capabilities []string `json:"capabilities"`
 	// Confinement is what the node got, per mechanism (D112).
 	Confinement []Confinement `json:"confinement"`
-	UID         int           `json:"uid"`
-	GID         int           `json:"gid"`
+	// IsUnconfinedByLeave is a node that requires confinement, lacks a mechanism, and runs without it
+	// because an admin let it (D450 §1): it stops when the core's answer no longer lets it
+	// (HelloReply.MayRunUnconfined, Commands.MayRunUnconfined), and starts locked again.
+	IsUnconfinedByLeave bool `json:"isUnconfinedByLeave,omitempty"`
+	UID                 int  `json:"uid"`
+	GID                 int  `json:"gid"`
 	// Hardware is what the node found for hardware encoding (D225 §3).
 	Hardware Hardware `json:"hardware"`
 	// Capacity is how much work the node takes on at once, and how fast it reads, from its config.
@@ -151,6 +158,31 @@ type HelloReply struct {
 	// and refuses one no configured root holds (D107). Nil, from a core that says none, leaves the
 	// node's last; empty watches nothing.
 	WatchFolders []string `json:"watchFolders"`
+	// MayRunUnconfined is whether an admin lets this node run FFmpeg without the confinement its kernel
+	// lacks (D450 §1); a node running by that leave (Hello.IsUnconfinedByLeave) stops without it.
+	MayRunUnconfined bool `json:"mayRunUnconfined"`
+}
+
+// LockedReport is what a locked node says, each tick, in place of a hello (D450 §1): a node whose
+// config requires confinement, on a kernel that lacks a mechanism of it, reads no media and runs no
+// FFmpeg until an admin lets it run without it. It says who it is and what it lacks, so the System page
+// can show the admin the risk.
+type LockedReport struct {
+	// ProtocolVersion is the version of this protocol the node speaks, as a hello's.
+	ProtocolVersion int `json:"protocolVersion"`
+	// Name is the node's configured name, by which the core enrols it, as a hello's (D207).
+	Name string `json:"name"`
+	// Build is what the node's binary was built from (D225).
+	Build build.Provenance `json:"build"`
+	// Confinement is what the node would get, per mechanism (D112): at least one not in force.
+	Confinement []Confinement `json:"confinement"`
+}
+
+// LockedReply is the core's answer to a LockedReport.
+type LockedReply struct {
+	// MayRunUnconfined is whether an admin lets the node run without the mechanisms it lacks: once it
+	// does, the node starts its media work and says hello (D450 §1).
+	MayRunUnconfined bool `json:"mayRunUnconfined"`
 }
 
 // Tuning is how a node behaves where the core's settings decide, sent in the hello's reply and each

@@ -9,6 +9,28 @@ import (
 	"context"
 )
 
+const acceptUnconfinedNode = `-- name: AcceptUnconfinedNode :execrows
+INSERT INTO node_unconfined_leave (node_id, accepted_by_user_id, accepted_at)
+VALUES (?1, ?2, ?3)
+ON CONFLICT (node_id) DO NOTHING
+`
+
+type AcceptUnconfinedNodeParams struct {
+	NodeID           int64
+	AcceptedByUserID int64
+	AcceptedAt       int64
+}
+
+// An admin lets a node run FFmpeg without a confinement mechanism its kernel lacks (D450 section 1);
+// one already accepted keeps who accepted it first, and when.
+func (q *Queries) AcceptUnconfinedNode(ctx context.Context, arg AcceptUnconfinedNodeParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, acceptUnconfinedNode, arg.NodeID, arg.AcceptedByUserID, arg.AcceptedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const clearDeviceReaderLimit = `-- name: ClearDeviceReaderLimit :exec
 DELETE FROM device_reader_limit WHERE node_id = ?1 AND device_key = ?2
 `
@@ -45,6 +67,26 @@ func (q *Queries) GetLiveNodeByName(ctx context.Context, name string) (GetLiveNo
 	row := q.db.QueryRowContext(ctx, getLiveNodeByName, name)
 	var i GetLiveNodeByNameRow
 	err := row.Scan(&i.ID, &i.Name, &i.EnrolledAt)
+	return i, err
+}
+
+const getUnconfinedLeave = `-- name: GetUnconfinedLeave :one
+SELECT node_unconfined_leave.accepted_at, user.name AS accepted_by
+FROM node_unconfined_leave
+JOIN user ON user.id = node_unconfined_leave.accepted_by_user_id
+WHERE node_unconfined_leave.node_id = ?1
+`
+
+type GetUnconfinedLeaveRow struct {
+	AcceptedAt int64
+	AcceptedBy string
+}
+
+// Who let a node run unconfined, and when, for its polls and the System page (D450 section 1).
+func (q *Queries) GetUnconfinedLeave(ctx context.Context, nodeID int64) (GetUnconfinedLeaveRow, error) {
+	row := q.db.QueryRowContext(ctx, getUnconfinedLeave, nodeID)
+	var i GetUnconfinedLeaveRow
+	err := row.Scan(&i.AcceptedAt, &i.AcceptedBy)
 	return i, err
 }
 
@@ -161,4 +203,17 @@ func (q *Queries) SetDeviceReaderLimit(ctx context.Context, arg SetDeviceReaderL
 		arg.SetAt,
 	)
 	return err
+}
+
+const withdrawUnconfinedNode = `-- name: WithdrawUnconfinedNode :execrows
+DELETE FROM node_unconfined_leave WHERE node_id = ?1
+`
+
+// An admin takes back a node's leave to run unconfined: it starts locked again (D450 section 1).
+func (q *Queries) WithdrawUnconfinedNode(ctx context.Context, nodeID int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, withdrawUnconfinedNode, nodeID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
