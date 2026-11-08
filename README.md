@@ -12,6 +12,18 @@ container builds, the deployment, the gates that check them, and the documentati
 written by Claude agents, directed and reviewed by one engineer. How that was made to work
 reliably is told in **[How Orpheum was built](docs/how-it-was-built.md)**.
 
+![The films library: posters and details matched from TMDB](docs/screenshots/films.jpg)
+
+<table><tr>
+<td><img src="docs/screenshots/home.jpg" alt="Home: new films and series"></td>
+<td><img src="docs/screenshots/title.jpg" alt="A film's page: art, facts, cast and Play"></td>
+</tr></table>
+
+<sub>Screenshots from the development server's demo library: short generated clips named for
+public-domain and Creative Commons films, with posters and details from
+<a href="https://www.themoviedb.org/">TMDB</a>. This product uses the TMDB API but is not
+endorsed or certified by TMDB.</sub>
+
 ## What it does
 
 - **Plays what you have, the way it is.** Direct play is the default: the server hands over the
