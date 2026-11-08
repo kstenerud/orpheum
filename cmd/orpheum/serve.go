@@ -426,7 +426,7 @@ func seededSettings(
 
 // logUnusedSettings logs each setting row this release does not read, left for a person to delete
 // (D202). A key a release retired, which says when and why, is expected and logged as information; a
-// key no release used, most likely a typo, is a warning (nas.example warned of seven retired keys at every
+// key no release used, most likely a typo, is a warning (the production NAS warned of seven retired keys at every
 // start, 2026-11-01).
 func logUnusedSettings(ctx context.Context, unused []settings.UnusedSetting, logger *slog.Logger) {
 	for _, setting := range unused {

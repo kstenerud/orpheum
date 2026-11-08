@@ -120,7 +120,7 @@ type Workers struct {
 // defaultOpenStallWindow is how long the node waits for a file it is to read to open: a disk asleep
 // spins up within it, and a disk whose network share's host is gone never answers, where a person
 // waiting to play was left with a spinning player until the core's half hour without movement
-// (staging, 2026-10-21, nas.example's NFS share down).
+// (staging, 2026-10-21, the production NAS's NFS share down).
 const defaultOpenStallWindow = 30 * time.Second
 
 // defaultReadStallWindow is the least time a reading in the node's own process may go without

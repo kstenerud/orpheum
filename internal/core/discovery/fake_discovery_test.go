@@ -333,9 +333,9 @@ func (fake *fakeDiscovery) serveSigned(writer http.ResponseWriter, request *http
 		fake.read(request, &heartbeat)
 		fake.heartbeats = append(fake.heartbeats, heartbeat)
 		fake.answer(writer, discoveryproto.AddressesResponse{
-			Published: []string{"2a02-8070-0-0-0-0-0-1." + fakeCoreID + ".orpheum-core.example"},
+			Published: []string{"2a0f-5000-0-0-0-0-0-1." + fakeCoreID + ".orpheum-core.example"},
 			Probe: []discoveryproto.ProbeResult{{
-				Address: "2a0f:1000::1", Port: 443,
+				Address: "2a0f:5000::1", Port: 443,
 				Kind: discoveryproto.ProbeHTTPS, Result: discoveryproto.ProbeReached,
 			}},
 			ReachableFrom: discoveryproto.ReachableIPv6, DeadEndsLastWeek: 4,

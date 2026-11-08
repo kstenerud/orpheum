@@ -204,10 +204,10 @@ if [ -f "$dir/.env" ]; then
 fi
 
 # pruneImages removes every image of this one's repository but this one and the one the deployment
-# ran before, once the server is up: each update left its image behind, and nas.example had some fifteen
+# ran before, once the server is up: each update left its image behind, and the production NAS had some fifteen
 # (2026-10-23). An image a container still uses is refused by Docker and stays. Only an update
 # prunes: a first install ran nothing before, and another deployment's image to go back to, which no
-# container uses, would go with the rest (the hardware test's scratch install removed nas.example's,
+# container uses, would go with the rest (the hardware test's scratch install removed the production NAS's,
 # 2026-10-23). An image named by its digest has no repository to list, and prunes nothing.
 pruneImages() {
 	[ -n "$previousID" ] || return 0
@@ -336,7 +336,7 @@ fi
 
 say "waiting for the server to start"
 # The code that makes the first admin, as soon as the server answers; a server that has its admin
-# already says so, and is not waited on for the code it will never give (nas.example, 2026-10-19: every
+# already says so, and is not waited on for the code it will never give (the production NAS, 2026-10-19: every
 # update sat out the whole two minutes).
 setupCode=""
 isUp=false

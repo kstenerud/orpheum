@@ -213,7 +213,7 @@ func (server *Server) relayed(
 
 // unreachableFilm is why a chunk not made yet will not be: its film's root unavailable, its node
 // away or its disk not answering, so the player is told now, not "being prepared" for as long as it
-// asks (D241 §7; staging, 2026-10-21, nas.example off). Nil when its film can be read.
+// asks (D241 §7; staging, 2026-10-21, the production NAS off). Nil when its film can be read.
 func (server *Server) unreachableFilm(ctx context.Context, dependencies *Dependencies, fileID int64) error {
 	unreadable, err := dependencies.Playback.Unreadable(ctx, fileID)
 	if err != nil {

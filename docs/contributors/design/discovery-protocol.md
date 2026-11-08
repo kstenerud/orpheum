@@ -303,7 +303,7 @@ with ±20% jitter, and at once when an address or mapping changes:
 {
   "orpheumVersion": "0.4.0", "apiMajor": 1,
   "candidates": [
-    {"address": "2a0f:1000:…:1", "port": 443,   "source": "interface"},
+    {"address": "2001:db8:…:1", "port": 443,   "source": "interface"},
     {"address": "203.0.113.7",   "port": 51234, "source": "mapped", "method": "pcp"},
     {"address": "198.51.100.9",  "port": 443,   "source": "configured"},
     {"address": "192.168.1.20",  "port": 443,   "source": "interface", "scope": "lan"}
@@ -357,7 +357,7 @@ the signalling connection.
   coherence §1.3; N11).
 - `lan` addresses are published unprobed; they matter only at home (§3.2).
 - `houseNetworks` (D356 §3; built 2026-10-27): the house's public IPv6 /64s, at most four, the most
-  recently witnessed first, each `{"network": "2a0f:1000:…::/64", "source": "learnt" | "configured"}`.
+  recently witnessed first, each `{"network": "2001:db8:…::/64", "source": "learnt" | "configured"}`.
   A `learnt` one is the network an offer came from (`clientNetwork`, §2.5) whose connection the core
   proved direct from home (D300 §3), kept 30 days after it was last witnessed; a `configured` one the
   admin named (`discovery.house_ipv6_networks`). A network newly learnt sends a heartbeat at once.
@@ -527,8 +527,8 @@ out, so it says little of clients behind their own NATs.
 The heartbeat's answer carries the result, each probe as fields, not free text (C16):
 
 ```json
-{"published": ["2a02-8070-0-0-0-0-0-1.k7x…q2.<zone>", "203-0-113-7.k7x…q2.<zone>:51234"],
- "probe": [{"address": "2a0f:1000::1", "port": 443, "kind": "https", "result": "reached"},
+{"published": ["2001-db8-0-0-0-0-0-1.k7x…q2.<zone>", "203-0-113-7.k7x…q2.<zone>:51234"],
+ "probe": [{"address": "2001:db8::1", "port": 443, "kind": "https", "result": "reached"},
            {"address": "198.51.100.9", "port": 443, "kind": "https", "result": "refused"}],
  "reachableFrom": "ipv6"}
 ```
@@ -560,7 +560,7 @@ page, which shows the causes beside the count and the count alone when there are
   are signed as any record is].
 - **Names encode addresses** (Plex's shape): `<address>.<coreId>.<zone>`, the IPv4 address dashed
   (`192-168-1-20`) or the IPv6 address as eight dashed groups, lowercase, no zero padding and no
-  compression (`2a02-8070-0-0-0-0-0-1`), so one address has one name and no label holds `--` (C15).
+  compression (`2001-db8-0-0-0-0-0-1`), so one address has one name and no label holds `--` (C15).
   The encoding is one function in `discoveryproto`, with test vectors, which the paid service,
   `single` and the client share (C15; built, `discoveryproto.AddressLabel`; the core sends its
   candidates as addresses, and the discovery names them). A port other
@@ -770,7 +770,7 @@ code.
   and the core logs who did it for whom (A11, code K10) [I]. **The code must change:** every pairing
   issues the whole role (`auth.go`, `issueSession`).
 - **Paid: in the closed beta, sealed by HPKE** (D293 §2, revising D292 §3's deferral). Built
-  2026-10-20 (b0.md Phase E item 4; the owner, after nas.example's Activate a device named the core's
+  2026-10-20 (b0.md Phase E item 4; the owner, after the production NAS's Activate a device named the core's
   client origin, which no TV remote types); the design:
   - the page names no core, so the **service issues the code**; the core of the signed-in person who
     enters it claims it from the service. The service limits asking for codes per source site and
@@ -819,10 +819,10 @@ code.
 
 ```json
 {"coreId": "k7x…q2", "apiMajor": 1,
- "state": "online", "clientPrefix": "2a0f:3000:…::/64",
+ "state": "online", "clientPrefix": "3fff:598:…::/64",
  "paths": [
    {"kind": "lan",    "url": "https://192-168-1-20.k7x…q2.<zone>"},
-   {"kind": "ipv6",   "url": "https://2a02-8070-0-0-0-0-0-1.k7x…q2.<zone>"},
+   {"kind": "ipv6",   "url": "https://2001-db8-0-0-0-0-0-1.k7x…q2.<zone>"},
    {"kind": "ipv4",   "url": "https://203-0-113-7.k7x…q2.<zone>:51234"},
    {"kind": "webrtc", "offer": "/client/v1/cores/k7x…q2/offer"}],
  "iceServers": [{"urls": ["stun:stun.<zone>:3478"]},

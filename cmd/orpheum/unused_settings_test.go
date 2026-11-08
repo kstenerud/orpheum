@@ -12,7 +12,7 @@ import (
 )
 
 // A row a release retired is expected and logged as information, so a server does not warn of it at
-// every start; a row no release read, most likely a typo, is still a warning (nas.example, 2026-11-01).
+// every start; a row no release read, most likely a typo, is still a warning (the production NAS, 2026-11-01).
 func TestLogUnusedSettings_WarnsOnlyOfARowNoReleaseRead(t *testing.T) {
 	t.Parallel()
 	var logged bytes.Buffer

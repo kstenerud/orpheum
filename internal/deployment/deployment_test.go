@@ -669,7 +669,7 @@ func TestWrite_TheCoreSendsItsDiscoveryTheVPSsAddresses(t *testing.T) {
 	t.Parallel()
 	dir := begun(t, Staging)
 	values := filledValues(t, Staging)
-	values.VPS.PublicIPv6 = "2a0f:4000:1c16:2684::3"
+	values.VPS.PublicIPv6 = "2a0f:2000:1c16:2684::3"
 	if problems := values.Problems(); len(problems) != 0 {
 		t.Fatalf("the values have problems: %v", problems)
 	}
@@ -677,7 +677,7 @@ func TestWrite_TheCoreSendsItsDiscoveryTheVPSsAddresses(t *testing.T) {
 		t.Fatal(err)
 	}
 	discovery := decodeTOML(t, filepath.Join(dir, coreConfig))["discovery"]
-	want := []any{values.VPS.PublicIPv4 + ":443", "[2a0f:4000:1c16:2684::3]:443"}
+	want := []any{values.VPS.PublicIPv4 + ":443", "[2a0f:2000:1c16:2684::3]:443"}
 	if got := discovery["configured_addresses"]; fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Errorf("the core's discovery.configured_addresses are %v; want %v", got, want)
 	}

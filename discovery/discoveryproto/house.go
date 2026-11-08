@@ -23,7 +23,7 @@ const (
 	HouseNetworkConfigured = "configured"
 )
 
-// HouseNetwork is one of the house's public IPv6 /64s, "2a0f:1000:1:2::/64", as a core's heartbeat
+// HouseNetwork is one of the house's public IPv6 /64s, "2a0f:5000:1:2::/64", as a core's heartbeat
 // tells its discovery, and how the core had it: HouseNetworkLearnt or HouseNetworkConfigured. A
 // discovery judges a device at home when it asks from one (D356 §5).
 type HouseNetwork struct {

@@ -21,6 +21,10 @@ Docs for building and changing this project.
 | Record an improvement you spotted, or plan a code-fixing batch | [`code-debt.md`](code-debt.md) |
 | Run the project as the lead agent (agents, gates, staging, the owner's rules) | [`lead.md`](lead.md) |
 
+Some operations material lives in private companion repositories (ops, the hosted discovery
+service, security keys); references to orpheum-ops, orpheum-connect and orpheum-security point
+there.
+
 ## The directories
 
 - **`design/`** — the shaping cluster: the overview, `research/` (evidence), `plans/`

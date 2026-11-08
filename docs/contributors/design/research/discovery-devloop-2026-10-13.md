@@ -496,7 +496,7 @@ Gate changes (G) and dependencies (Dep) are marked. Each has a recommendation.
 - The gate's records: `.git/gate-logs/check-pr-verbose.log` and `check-verbose.log` (2026-10-13),
   `.git/revert-red/last-timings`, `/yoloai/cache/check*.log`, `checkpr*.log`, `staging13.log`;
   Earlier commits.
-- The service's `docs/spec.md` (draft 5) and `docs/plans/service.md`, in `/home/karl/orpheum-discovery`.
+- The service's `docs/spec.md` (draft 5) and `docs/plans/service.md`, in the private `orpheum-discovery` repository.
 - Measured in this sandbox, 2026-10-13: builds and tests in `./dev`; namespaces on the host.
 - Pebble, `github.com/letsencrypt/pebble` at `1fcb30c`: `README.md`, `acme/common.go`, `va/va.go`,
   `wfe/wfe.go`, `cmd/pebble-challtestsrv/README.md`, `test/config/pebble-config.json`.

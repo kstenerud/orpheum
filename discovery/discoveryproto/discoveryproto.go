@@ -344,7 +344,7 @@ type SignalMessage struct {
 	Ask    string `json:"ask,omitempty"`
 	Tag    string `json:"tag,omitempty"`
 	// ClientNetwork is, on an offer, the network the client's offer came from as the discovery saw its
-	// source (HouseNetworkOf), "2a0f:1000:1:2::/64"; none when it came over IPv4. The core learns it as
+	// source (HouseNetworkOf), "2a0f:5000:1:2::/64"; none when it came over IPv4. The core learns it as
 	// a house network once the offer's connection proves itself from home (D356 §1, §2).
 	ClientNetwork string `json:"clientNetwork,omitempty"`
 	// Address and At are a SignalCopyRefused's: where the refused copy asked from, and when, Unix

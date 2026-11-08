@@ -40,7 +40,7 @@ INSERT INTO file (id, library_id, node_id, path, reported_path_raw, size_bytes, 
   CAST('/tank/media/video/shows/Show/Season 01/Show - S01E01.mkv' AS BLOB), 100, 50, X'0B', 'listed',
   NULL, 11, 1, '/tank/media/video/shows/Show/Season 01/Show - S01E01.mkv', NULL, NULL, 100, 100, NULL)`
 
-// productionAt0059 fills a database at step 0059 as nas.example's stands (D363 §12): a films library over
+// productionAt0059 fills a database at step 0059 as the production NAS's stands (D363 §12): a films library over
 // /tank/media/video/movies and a series library over /tank/media/video/shows on one node, a library
 // deleted before, a film with its NFO and an extra, a series' episode, a file not identified yet, one
 // skipped, one that could not be read, a removed file that was watched, and a person's watching,

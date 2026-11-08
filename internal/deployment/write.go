@@ -78,7 +78,7 @@ const defaultOutsideIPv6Subnet = "fd77:5e::/64"
 // OutsideIPv6Subnet is the private IPv6 subnet of a deployment's outside network: a /64 of
 // fd77:5e::/48 chosen by the hash of its directory, so two deployments on one machine, as a test
 // kit's beside production or staging beside a release (deploy/release/README.md §6), each create
-// their own network. Every one used fd77:5e::/64 before, and a second could not start (nas.example,
+// their own network. Every one used fd77:5e::/64 before, and a second could not start (the production NAS,
 // 2026-10-23). Nothing outside the machine sees it: Docker translates it on the way out.
 func OutsideIPv6Subnet(directory string) string {
 	if directory == "" {

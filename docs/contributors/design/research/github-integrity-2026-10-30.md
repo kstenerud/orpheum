@@ -41,7 +41,7 @@ builds) narrows the window or makes an attack visible; that signature is what st
 | 4 | **FFmpeg** (`scripts/fetch_ffmpeg.py`) | ffmpeg-fdproxy's release, built on GitHub runners (`release.yml`, `build.yml`), downloaded from GitHub releases. **Pinned by SHA-256** per platform, taken from the release's asset digests at pin time. | A *later* swap of the asset is refused (good). A build that was already tampered with on the runner when it was pinned is accepted. The macOS binary is jellyfin's own release, the same trust in another project's GitHub. |
 | 5 | **jellyfin-ffmpeg source** (`ffmpeg-fdproxy/checkout.sh`) | Cloned from GitHub at the tag `JELLYFIN_TAG` names, not at a commit. Jellyfin's builder fetches its own toolchain. | An upstream tag moved, or a hostile GitHub serving other contents for it, changes what is built, unnoticed. |
 | 6 | **Actions in Orpheum's workflows** | `actions/checkout@v4`, `actions/cache@v4` (and `restore`/`save`): **by tag**. ffmpeg-fdproxy pins its actions by full SHA already. | The tj-actions incident (March 2025) moved an Action's tags to a malicious commit across 23,000 repositories. `release-image` runs `checkout@v4` in a job holding `packages: write`. |
-| 7 | **nas.example's build from a tag** (`deploy/release/build.sh`, `make deploy`) | `git clone`/`git fetch --tags`/`git pull` from GitHub, then builds and runs what it got. Tags and commits are unsigned. | Rewritten history or a moved tag is built and deployed on production. |
+| 7 | **The production NAS's build from a tag** (`deploy/release/build.sh`, `make deploy`) | `git clone`/`git fetch --tags`/`git pull` from GitHub, then builds and runs what it got. Tags and commits are unsigned. | Rewritten history or a moved tag is built and deployed on production. |
 | 8 | **Commits** | Unsigned (`git log --show-signature`: no signatures; no `user.signingkey`, no `commit.gpgsign`). The author is a string anyone can write. | Nothing distinguishes the owner's commits from an attacker's on GitHub. |
 | 9 | **The owner's GitHub account** | Owns all five repositories and the GHCR package; pushing a `v*` tag publishes an image. Collaborators, SSH keys, PATs, OAuth apps, 2FA method, rulesets: *owner to check*. | An account takeover reaches items 1–7 without GitHub itself being hostile. |
 | 10 | **Go modules** | Fetched through `proxy.golang.org`, checked against `go.sum` and the checksum database `sum.golang.org`, a transparency log not run by GitHub. | Existing versions hold. A new version first fetched at a bump is trusted on first sight; D220's audit covers it. |
@@ -136,7 +136,7 @@ builds whatever GitHub hands it), 4–5 (FFmpeg built where it cannot be checked
    from GitHub** (protects: production building rewritten source; makes the owner's releases
    recognisable). Owner: `ssh-keygen -t ed25519-sk` on a FIDO key (one per key, both listed), git
    config `gpg.format=ssh`, `user.signingkey`, `tag.gpgSign=true`; tags are made on the owner's
-   machine, which already pushes them. The `allowed_signers` file is committed *and* kept on nas.example
+   machine, which already pushes them. The `allowed_signers` file is committed *and* kept on the production NAS
    and prod-api outside the clone, so a rewritten repository cannot change it. Then (a gate and
    script change, the owner's) `deploy/release/build.sh` runs `git verify-tag` against that file
    before checking a tag out. Signing every commit is optional: the sandbox's commits are applied
@@ -165,9 +165,9 @@ builds whatever GitHub hands it), 4–5 (FFmpeg built where it cannot be checked
    Cost: a design decision, perhaps a day of building, and one signing step per release that the
    owner does by touching the key.
 5. **Push to a second remote and compare** (protects: detects rewritten history or deleted repos;
-   keeps a copy GitHub cannot erase). A bare repository on nas.example or the owner's NAS (and later
+   keeps a copy GitHub cannot erase). A bare repository on the production NAS or the owner's NAS (and later
    Codeberg), pushed together with GitHub; a small script compares `git ls-remote` of both against
-   the local refs and says when they differ. nas.example then clones from the owner's own mirror.
+   the local refs and says when they differ. The production NAS then clones from the owner's own mirror.
    Minutes to set up; the owner's machines.
 
 ### Before the public release
@@ -180,11 +180,11 @@ builds whatever GitHub hands it), 4–5 (FFmpeg built where it cannot be checked
    runner, or a compromised owner machine, either alone). Debian packages from
    `snapshot.debian.org` at a pinned date, `SOURCE_DATE_EPOCH` and BuildKit's timestamp rewriting,
    no build-time network outside pinned hashes. Then the GitHub-built image and one built on
-   gpuhost must have the same digest before the owner signs it (step 4): the Tor model with two
+   the GPU test machine must have the same digest before the owner signs it (step 4): the Tor model with two
    builders. If it cannot be made reproducible soon, build the published image on the owner's
    machine and push it, so GitHub only stores bytes the signature covers.
 8. **The same for FFmpeg**: check jellyfin out by commit, not tag (record the commit beside
-   `JELLYFIN_TAG`); rebuild a release once on gpuhost (`make remote-build` exists) and compare the
+   `JELLYFIN_TAG`); rebuild a release once on the GPU test machine (`make remote-build` exists) and compare the
    tarball's hash with the release's before pinning it. If jellyfin's builder is not reproducible,
    the fallback is to build the release off GitHub and upload it, and pin that.
 9. **Fold this into D220's supply-chain audit**: the same release checklist pins dependencies, signs

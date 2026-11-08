@@ -21,7 +21,7 @@ load-bearing claim below was checked again at its primary source or in the code.
 earlier rounds were right, this report says so in a line and cites the check; where they were wrong
 or incomplete, it says what is true. Findings about the paid service itself (its providers,
 accounts, operations) are in the service's repository:
-`/home/karl/orpheum-discovery/docs/research/audit3-security-2026-10-13.md` ("the service report").
+`orpheum-discovery/docs/research/audit3-security-2026-10-13.md` ("the service report").
 
 **Markers.** **[V]** checked at the source named, fetched 2026-10-13 and cached under
 `/yoloai/cache/discovery-audit3/` (subdirectories `acme/`, `infra/`, `browser/`, `webrtc/`, `dns/`,
@@ -290,7 +290,7 @@ certificate by HTTP-01 from any CA: phishing under the zone, CT alarms on demand
 token.
 
 **Verified.**
-- `media.orpheum-app.com` resolves to the VPS, `11.22.44.139`; `orpheum-app.com` and `media.`
+- `media.orpheum-app.com` resolves to the VPS, `198.51.100.139`; `orpheum-app.com` and `media.`
   have **no CAA** and no DS **[V, `dns/dig-2026-10-13-audit3.txt`]**.
 - The VPS forwards only TCP 443 and 3478 into the tunnel (`deploy/vps/orpheum.nft`); port 80 and
   every other port reach the VPS itself.

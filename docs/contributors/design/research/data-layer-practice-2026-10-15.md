@@ -5,7 +5,7 @@
 
 # A data layer that stays fast: research, 2026-10-15
 
-The [database access audit](database-access-audit-2026-10-15.md) found nas.example's requests waiting
+The [database access audit](database-access-audit-2026-10-15.md) found the production NAS's requests waiting
 3–47 s behind an identification pass that held SQLite's one writer for 25–30 s. Its eight
 findings are each an instance of a general mistake, and the project had no written principles
 for data-layer design that would have caught them: [sql.md](../../standards/sql.md) covers
@@ -404,7 +404,7 @@ The audit's fixes stand, with these refinements:
 - **Not recommended:** a driver switch; `BEGIN CONCURRENT`/`wal2`; locks that block reads during
   writes; longer busy timeouts, which turn fast errors into slow ones.
 
-The owner allows a fresh database on staging and nas.example where that gives the better design
+The owner allows a fresh database on staging and the production NAS where that gives the better design
 (2026-10-15). That makes it natural to redesign `sort_key`, the FTS triggers, the fingerprints
 and session storage as a new baseline, rather than as steps on top of version 36.
 

@@ -18,7 +18,7 @@ import (
 
 // An API request a page waits on longer than a second is logged with its path and time, so a slow
 // page says which request made it so; a quick one, a file's bytes and a socket are not (the owner's
-// nas.example, 2026-10-15).
+// the production NAS, 2026-10-15).
 func TestLoggingSlow_NamesEveryAPIRequestThatTookOverASecond(t *testing.T) {
 	t.Parallel()
 	logs := &testutil.Log{}
@@ -85,7 +85,7 @@ func TestLoggingSlow_NamesTheStatementsASlowRequestRan(t *testing.T) {
 }
 
 // An API response of more than a mebibyte is logged with its path and size, however quickly it
-// came; a small one, and a file's bytes, large by nature, are not (the owner's nas.example, 2026-10-16:
+// came; a small one, and a file's bytes, large by nature, are not (the owner's production NAS, 2026-10-16:
 // a series' page of 5.3 MB that nothing named).
 func TestLoggingSlow_NamesEveryAPIResponseOverAMebibyte(t *testing.T) {
 	t.Parallel()

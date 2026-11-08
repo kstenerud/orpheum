@@ -12,7 +12,7 @@ import (
 )
 
 // A player that moves to another quality stops the run of the one it left: one player wants one
-// quality at a time (D309 §1, §2). On nas.example two runs of 720p left from before the player moved to
+// quality at a time (D309 §1, §2). On the production NAS two runs of 720p left from before the player moved to
 // 360p went on, one measured slow, and the 360p run it needed was evicted in their place (the owner's
 // Arkons, 2026-10-17). Its word that it paused, by its own token, is taken; another's is refused.
 func TestInterest_ARunOfAQualityThePlayerLeftStops(t *testing.T) {

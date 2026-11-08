@@ -79,7 +79,7 @@ func TestOpenAndMigrateOrStartOver_SetsAsideADatabaseItCannotBringForwardOnlyWhe
 }
 
 // The database the serving core opens logs a write that held the writer over a second, naming who
-// wrote and for how long: what a slow request that writes waited behind (the owner's nas.example,
+// wrote and for how long: what a slow request that writes waited behind (the owner's production NAS,
 // 2026-10-15).
 func TestOpenAndMigrateOrStartOver_LogsASlowWrite(t *testing.T) {
 	t.Parallel()

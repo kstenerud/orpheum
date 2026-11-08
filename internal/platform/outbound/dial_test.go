@@ -40,7 +40,7 @@ func (network *fakeNetwork) dial(_ context.Context, _, address string) (net.Conn
 
 // A host with both families is dialled over IPv6 first, and over IPv4 at once when IPv6 fails or the
 // host has none; an address given as such is dialled as it is. From a private IPv6 address Go put IPv4
-// first, and a core in Docker reached the paid service over the house's shared IPv4 (nas.example,
+// first, and a core in Docker reached the paid service over the house's shared IPv4 (the production NAS,
 // 2026-10-20).
 func TestIPv6First_DialsIPv6FirstAndIPv4WhenItFails(t *testing.T) {
 	t.Parallel()

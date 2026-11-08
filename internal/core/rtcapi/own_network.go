@@ -19,7 +19,7 @@ const ownIPv6Bits = 64
 // outside, through the core's own STUN servers alone (cmd/orpheum's iceServersFor; the Plex-chain
 // review's L3). The house's IPv6 network, which the house's IPv4 network alone named in
 // server.home_networks leaves out, and which a provider's new prefix moves; read from each
-// connection, it is always the current one (nas.example, 2026-10-19: the owner's Mac reached the core
+// connection, it is always the current one (the production NAS, 2026-10-19: the owner's Mac reached the core
 // over IPv6 from the same /64 and was refused admin).
 func ownIPv6Networks(report webrtc.StatsReport) []netip.Prefix {
 	var networks []netip.Prefix

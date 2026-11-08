@@ -157,7 +157,7 @@ func TestStopUnwanted_APlayerOnMadeChunksWantsTheRunThatMakesWhatFollowsThem(t *
 
 // A run of a quality its player left goes the moment the player says so, whatever its speed: the
 // node had two 720p runs left from before the player moved to 360p, one measured slow, and the 360p
-// run the player needed was evicted in their place (the owner's Arkons on nas.example, 2026-10-17). One
+// run the player needed was evicted in their place (the owner's Arkons on the production NAS, 2026-10-17). One
 // player wants one quality at a time (D309 §1, §2).
 func TestStopUnwanted_ARunOfAQualityItsPlayerLeftStops(t *testing.T) {
 	t.Parallel()

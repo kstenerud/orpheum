@@ -200,8 +200,8 @@ it("says where a claimed server is reached from, and warns of the discovery's de
           mappings: [
             {
               method: "upnp",
-              internal: "[2a0f:1000:1::20]:443",
-              external: "[2a0f:1000:1::20]:443",
+              internal: "[2a0f:5000:1::20]:443",
+              external: "[2a0f:5000:1::20]:443",
               expiresAt: 0,
             },
           ],
@@ -231,7 +231,7 @@ it("says where a claimed server is reached from, and warns of the discovery's de
   expect(text).toContain(
     "fingerprint is k7xq-2m4p-9tbd-hc3w-0vze-8gnr-5sya-j6kf-1qmw-p4dt-xb7c-re2h-9n0g",
   );
-  expect(text).toContain("[2a0f:1000:1::20]:443 reaches [2a0f:1000:1::20]:443, by UPnP.");
+  expect(text).toContain("[2a0f:5000:1::20]:443 reaches [2a0f:5000:1::20]:443, by UPnP.");
   expect(text).toContain("pcp: the router at 192.168.1.1:5351 did not answer");
   expect(text).toContain("through the router's NAT over IPv4: 3");
   expect(text).toContain("failed to connect: 1");
@@ -251,7 +251,7 @@ it("lists the house's IPv6 networks the discovery recognises devices at home by 
         state: "claimed",
         houseNetworks: [
           {
-            network: "2a0f:1000:1:2::/64",
+            network: "2a0f:5000:1:2::/64",
             source: "learnt",
             device: "192.168.1.30",
             witnessedAt,
@@ -264,7 +264,7 @@ it("lists the house's IPv6 networks the discovery recognises devices at home by 
   mounted = await mount(withServices(<SystemDiscovery />, services));
   const text = mounted.container.textContent;
   expect(text).toContain("recognises devices at home by your home's IPv6 networks");
-  expect(text).toContain("2a0f:1000:1:2::/64, learnt from the device at 192.168.1.30");
+  expect(text).toContain("2a0f:5000:1:2::/64, learnt from the device at 192.168.1.30");
   expect(text).toContain("2a0f:3000:9:8::/64, named in the config. It goes stale");
 });
 

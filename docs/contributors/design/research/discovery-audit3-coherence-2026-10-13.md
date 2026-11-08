@@ -190,7 +190,7 @@ No decision after D291 takes audit 2's design findings; its code findings were f
 ### 3.1 What the plan does
 
 The critical path (discovery-core.md:435-437) is K1 → K2 → K3 (with K7, K8b) → W4b.4 → W2e, W2d,
-W2f → W2c → W4c → the service's P6, P7, P10 → staging → nas.example → an outside household → the
+W2f → W2c → W4c → the service's P6, P7, P10 → staging → the production NAS → an outside household → the
 invited ones, with lanes C, D and E beside it. Counting the plan's own steps: sixteen K-steps, six
 W4b steps, four W2 steps, W4c, W5, and thirteen service parts. Nothing runs end to end until W4c,
 which comes after almost all of Lane B; the first real network test is "end to end on the owner's
@@ -229,7 +229,7 @@ Then in order: (1) K1 + W4b.7; (2) the core's skeleton steps and `single`'s clie
 W4b.4) beside each other; (3) the browser-tier test through `single` (W4b.6), which is the first
 time all public parts meet and runs in CI forever after; (4) the web client's skeleton steps;
 (5) the same test against the paid service's handlers; (6) the staging deployment of §5.3 with the
-owner's phone on mobile data and a friend's network; (7) nas.example joins it while keeping the VPS
+owner's phone on mobile data and a friend's network; (7) the production NAS joins it while keeping the VPS
 route; (8) only then the thickening, in the order the skeleton's failures show.
 
 **What must be real from the first day:** the zone and its DNS provider's computed answers (the

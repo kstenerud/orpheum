@@ -320,7 +320,7 @@ func TestHandleMakeChunks_APictureWhoseBFramesCarryNoDisplayTimesIsReTimed(t *te
 // A store whose runs FFmpeg failed at the same chunk twice is not asked of its node again: the
 // player asking is told the film cannot be made, and why is logged once; a single failure is tried
 // again. A sound whose every run failed alike was queued again every 4.4 s for as long as its player
-// waited (file 15102 on nas.example, 2026-10-27).
+// waited (file 15102 on the production NAS, 2026-10-27).
 func TestEnsure_AChunkWhoseRunsFailedTwiceIsNotMadeAgain(t *testing.T) {
 	t.Parallel()
 	fixture := runsOnAFakeNode(t)
@@ -364,7 +364,7 @@ func TestEnsure_AChunkWhoseRunsFailedTwiceIsNotMadeAgain(t *testing.T) {
 }
 
 // A RealMedia film's cook is interleaved in super-blocks, which FFmpeg loses the one of a seek lands
-// in, and the run says so; its RealAudio 14.4, not interleaved, is not (file 15102 on nas.example,
+// in, and the run says so; its RealAudio 14.4, not interleaved, is not (file 15102 on the production NAS,
 // 2026-10-27; idiosyncrasies.md).
 func TestHandleMakeChunks_ARealMediaSoundInterleavedInSuperBlocksIsSaidToBe(t *testing.T) {
 	t.Parallel()

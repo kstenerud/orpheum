@@ -16,7 +16,7 @@ nothing else in the repository was changed. Claims marked **(measured)** were me
 Node 22.23 (V8) for JavaScript and Go for the server's encoding. Firefox's engine will differ in
 its constants, not in the shape of the growth. Claims marked **(from memory)** are from practice
 and were not re-read for this review; check them before acting on them. **Verify** marks what I
-could not settle here. No browser was profiled, and nothing was run against nas.example.*
+could not settle here. No browser was profiled, and nothing was run against the production NAS.*
 
 Inputs read:
 - [data-delivery-and-caching-2026-10-16.md](data-delivery-and-caching-2026-10-16.md) (the "first
@@ -463,7 +463,7 @@ paging on the server is right.
 - **The catalogue variant is a response that grows with the library on purpose.** Under a filing
   it changes on every poll, so it needs D166's journal to be cheap. A filing bug like this one,
   aimed at films, would have made it hundreds of megabytes: item ids reached 1,244,212 on
-  nas.example.
+  the production NAS.
 
 **My recommendation.** Shape responses to **the viewport and the navigation, not to the page**.
 1. **Resources stay the unit**, each bounded (MD1).
@@ -483,14 +483,14 @@ version" and with building compound endpoints now.
 
 ## 7. Plan
 
-**First, for the owner on nas.example. These are client changes, independent of the data layer, and
+**First, for the owner on the production NAS. These are client changes, independent of the data layer, and
 small.**
 1. **F1.** Make `bySeason` linear and memoise it on the response. Its revert-red test groups
    100,000 episodes within the test's timeout, which the quadratic misses by minutes.
 2. **Window or cap the episode list** (MD1, client half). Its test mounts a 100,000-episode season
    and counts the rows mounted.
 3. **DD12's heartbeat and MD9's large-response log**, so the next stall names itself.
-4. **When the D303 baseline reaches nas.example, its fresh database drops the 80,246 rows** (D303 §2).
+4. **When the D303 baseline reaches the production NAS, its fresh database drops the 80,246 rows** (D303 §2).
    Ship 1–3 anyway: the next bug will find another array.
 
 **In the D303/D304 data-layer work, now.**

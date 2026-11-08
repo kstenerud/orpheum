@@ -8,7 +8,7 @@ import "strings"
 // outside the store that wrote, and why (D303, DL10). The databases storetest opens fail the test
 // whose reading request writes through any other, and the server logs any other as a warning; these
 // it logs at debug, since a play's GET writes through them on purpose. One list serves both, so the
-// server never warns of a write its tests allow (nas.example's log, 2026-10-23).
+// server never warns of a write its tests allow (the production NAS's log, 2026-10-23).
 func ReaderWriteAllowed(caller string) (why string, isAllowed bool) {
 	why, isAllowed = readerWritesAllowed()[caller[strings.LastIndex(caller, "/")+1:]]
 	return why, isAllowed

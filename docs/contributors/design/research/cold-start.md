@@ -428,7 +428,7 @@ would have said it.
 
 ## 8. Not confirmed, and what would confirm it
 
-- Where Orpheum's reported minute actually goes: needs item 1's log on staging/devnas, cold and warm.
+- Where Orpheum's reported minute actually goes: needs item 1's log on staging/devnas.example, cold and warm.
 - NAS cold-read and spin-up times on the owner's hardware: time `t3b` with the disk asleep.
 - How often Matroska Cues list every video keyframe (mkvmerge vs. other muxers), i.e. whether
   index-derived grids match the read-through's: compare both on the sample library.

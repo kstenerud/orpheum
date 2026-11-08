@@ -33,7 +33,7 @@ type DiscoveryConfig struct {
 	// its tunnel's, which nothing at home reaches; there the deployment names its addresses (the owner,
 	// 2026-10-14).
 	SendInterfaceAddresses bool `toml:"send_interface_addresses"`
-	// HouseIPv6Networks are the house's public IPv6 networks, "2a0f:1000:1:2::/64", sent to the
+	// HouseIPv6Networks are the house's public IPv6 networks, "2a0f:5000:1:2::/64", sent to the
 	// discovery as configured house networks so it recognises the house's devices, for a house whose
 	// devices cannot make the direct WebRTC pair the core learns them from; they go stale when the
 	// provider moves the prefix (D356 §6).
@@ -66,7 +66,7 @@ func discoveryConfigKeys() []configKey {
 		},
 		{
 			tableDiscovery, "house_ipv6_networks", "[]",
-			"the house's public IPv6 /64s, \"2a0f:1000:1:2::/64\", for a house whose devices cannot reach the " +
+			"the house's public IPv6 /64s, \"2a0f:5000:1:2::/64\", for a house whose devices cannot reach the " +
 				"core directly over WebRTC to teach them; the discovery recognises devices at home by them. " +
 				"Stale when the provider moves the prefix (D356 §6)",
 		},
@@ -241,7 +241,7 @@ func (discovery DiscoveryConfig) check() error {
 	for _, named := range discovery.HouseIPv6Networks {
 		if network, err := netip.ParsePrefix(named); err != nil || !discoveryproto.IsHouseNetwork(network) {
 			return fmt.Errorf("discovery.house_ipv6_networks %q: want a public IPv6 /64 of the house's, "+
-				`"2a0f:1000:1:2::/64"`, named)
+				`"2a0f:5000:1:2::/64"`, named)
 		}
 	}
 	if err := discovery.checkRouter(); err != nil {

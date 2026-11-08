@@ -132,7 +132,7 @@ func TestCore_ACoreEnrolsIsClaimedAndSendsItsAddresses(t *testing.T) {
 		Files: &memoryFiles{files: map[string][]byte{}}, Key: key, HTTP: &http.Client{}, Clock: coreClock,
 		Logger: slog.New(slog.NewTextHandler(logs, nil)), Version: "v0.2.0", APIMajor: 1,
 		Candidates: func() []discoveryproto.Candidate {
-			return []discoveryproto.Candidate{{Address: "2a0f:1000::1", Port: 443, Source: "interface"}}
+			return []discoveryproto.Candidate{{Address: "2a0f:5000::1", Port: 443, Source: "interface"}}
 		},
 		Answerer: answering{}, OnClaimed: func(context.Context) {}, Random: rand.Reader,
 		Settings: quickRetries{},

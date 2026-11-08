@@ -16,8 +16,8 @@
 
 **The premise has moved.** The request speaks of the greenfield deploy as the last cheap point.
 D430 dropped the fold and the regeneration: steps 0073–0083 migrate in place, staging has already
-run them, and nas.example takes them with `batch-2026-11-05-api`. So every schema change from here on is
-an appended step 0084+, before the deploy or after it. Two things are still cheaper before nas.example
+run them, and the production NAS takes them with `batch-2026-11-05-api`. So every schema change from here on is
+an appended step 0084+, before the deploy or after it. Two things are still cheaper before the production NAS
 and production take this batch:
 
 - **API breaks.** No outside client exists yet. The compatibility check starts once the API lands,

@@ -170,7 +170,7 @@ export class Choosing<Chunk extends FollowedChunk> {
    * The core answered a chunk of picture on its way with 425, being made: it is judged from when it
    * is made, not from when it was first asked for. Judged from then, a film's first play after the
    * core's start gave its own picture up for the lowest quality within two seconds, nothing having
-   * arrived yet, and measured the link at a byte in two seconds, so it stayed there (the owner's film on nas.example, the owner's Firefox, 2026-10-20). A lower quality is made from the film too, and
+   * arrived yet, and measured the link at a byte in two seconds, so it stayed there (the owner's film on the production NAS, the owner's Firefox, 2026-10-20). A lower quality is made from the film too, and
    * slower than the copy of its own picture, so giving one up for it never brings a chunk sooner.
    */
   beingMade(chunk: Chunk): void {

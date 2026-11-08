@@ -171,7 +171,7 @@ type UnreadableError struct {
 }
 
 // Error says since when only when that is known: a node not heard since the core started has no time,
-// which read "since 0001-01-01T00:00:00Z" (nas.example, 2026-10-18).
+// which read "since 0001-01-01T00:00:00Z" (the production NAS, 2026-10-18).
 func (unreadable *UnreadableError) Error() string {
 	text := fmt.Sprintf("node %d's file cannot be read: %s %s", unreadable.NodeID, unreadable.Reason,
 		cmp.Or(unreadable.Path, "-"))

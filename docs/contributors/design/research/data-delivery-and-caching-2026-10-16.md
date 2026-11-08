@@ -1,6 +1,6 @@
 > **ABOUTME:** How data reaches the web client today, measured from the code: every request each
 > main screen makes, in order, what it costs and what is cached; the likely causes of Firefox's
-> "This page is slowing down Firefox" on nas.example and how to confirm each; what practitioners say
+> "This page is slowing down Firefox" on the production NAS and how to confirm each; what practitioners say
 > about client caches, HTTP caching, push, per-screen ("page-shaped") fetches, batching,
 > prefetching, windowing, compression and images; what the core should keep in memory; proposed
 > principles DD1–DD13 with what would enforce each; findings in order of impact; and the owner's
@@ -9,7 +9,7 @@
 
 # Data delivery and caching: research, 2026-10-16
 
-The owner, after Firefox on nas.example showed *"This page is slowing down Firefox. To speed up your
+The owner, after Firefox on the production NAS showed *"This page is slowing down Firefox. To speed up your
 browser, stop this page."*:
 
 > *"We have multiple tiers of 'data access speed' … from the client's perspective (which affects
@@ -25,7 +25,7 @@ This round read the web client (`web/apps/web`, `web/packages/sdk`, `web/package
 core's API and its caches, and, online, the sources listed at the end: Firefox's own source for
 its hang warning, the HTTP caching RFCs and their practitioners, the client-cache libraries'
 authors, the "backend for frontend" and screen-shaped-API literature, and what Jellyfin, Plex and
-Navidrome do. Nothing was run against nas.example, and no browser was profiled: **every cost below
+Navidrome do. Nothing was run against the production NAS, and no browser was profiled: **every cost below
 is computed from the code or measured on a synthetic payload, and says so; none was measured in a
 browser.** Section 2 says how to measure each.
 
@@ -90,7 +90,7 @@ applies to any third. §5's DD2 proposes converging on one.
   (`internal/core/api/destinations.go:42-57`) and builds a collation sorter
   (`internal/core/library/browse.go:226-236`). No query result is cached.
 - **The queries are cheap.** performance-targets.md measured a 50-film poster grid at 0.84 ms,
-  Continue Watching at 0.055 ms and a detail page at 0.050 ms. nas.example's 3–47 s waits were
+  Continue Watching at 0.055 ms and a detail page at 0.050 ms. The production NAS's 3–47 s waits were
   requests queued behind the writer, because authentication wrote; D303 (DL10) removes that. A
   `/titles` page runs about seven statements: the session and its idle-expiry setting, the sort
   locale, the list, the posters, the files' locations and the node names
@@ -187,7 +187,7 @@ toward the same task.
 
 No code path was found that obviously runs for ten seconds. These are the places where one
 synchronous task grows with the library or with how far a person scrolled, ranked by how
-plausibly they reach ten seconds on nas.example's library.
+plausibly they reach ten seconds on the production NAS's library.
 
 1. **A long list re-rendered whole when a poll finds a change.**
    - **What happens:** `usePages` replaces the whole merged list (`use-pages.ts:130-136`). `BrowseView` then re-renders every `PosterGrid` item: a `Link`, a `Poster` with its own `useTranslation`, a `StatusTray`, and a `t()` call for the year (`browse.tsx:38-74`, `poster.tsx:10-29`). Each comparison also stringifies the whole list twice (`use-pages.ts:73`).
@@ -210,7 +210,7 @@ plausibly they reach ten seconds on nas.example's library.
 
 ### 2.3 How to confirm, in order of effort
 
-- **Catch it in the act on nas.example.** Use profiler.firefox.com's "Web Developer" preset: Ctrl+Shift+1 starts it, Ctrl+Shift+2 captures. Then reproduce: the films grid scrolled deep while a scan or identification runs; Needs a match; Files. The capture names the function holding the main thread. Its responsiveness track marks the long events in red.
+- **Catch it in the act on the production NAS.** Use profiler.firefox.com's "Web Developer" preset: Ctrl+Shift+1 starts it, Ctrl+Shift+2 captures. Then reproduce: the films grid scrolled deep while a scan or identification runs; Needs a match; Files. The capture names the function holding the main thread. Its responsiveness track marks the long events in red.
 - **Know which screen it was without asking.** A main-thread heartbeat (`setTimeout` or `MessageChannel` every 250 ms, logging gaps over 1 s with the route and the list lengths shown) can be reported through the existing `sendFailuresToCore` path (`main.tsx:79`).
   - **Firefox has no other way to observe it from the page:** it implements neither the Long Tasks API nor Long Animation Frames (MDN compatibility data: both Chrome-only), and a heartbeat works in both browsers.
   - This is DD12, and the owner's standing rule that "digging means missing logs".
@@ -511,7 +511,7 @@ the library's catalogue, shaped like the data rather than the page.
 ## 4. Server-side tiers: what the core should keep in memory
 
 **SQLite is not the slow tier here.** The queries take well under a millisecond
-(performance-targets.md). nas.example's waits were requests queued behind one writer, which D303
+(performance-targets.md). The production NAS's waits were requests queued behind one writer, which D303
 removes, and SQLite's page cache plus the OS cache already hold the hot pages. **A cache of
 query results would save fractions of a millisecond and add a staleness risk.** Principles §11
 and §14 say when that trade is worth it: when the value is expensive to derive, cheap to keep,

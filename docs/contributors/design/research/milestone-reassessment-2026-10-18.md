@@ -8,7 +8,7 @@
 ## Why now
 
 M0–M4 are built, and so is a track no milestone names: the paid discovery, the loader that runs
-the core's own client, realms, the WebRTC transport, live on nas.example since 2026-10-17 (D273–D309).
+the core's own client, realms, the WebRTC transport, live on the production NAS since 2026-10-17 (D273–D309).
 Against the field ([feature-standing-2026-10-18.md](feature-standing-2026-10-18.md)) Orpheum leads
 on remote access, Watch Together with voice and adaptive quality, and is behind on the TV, the time
 between episodes, profiles, the title page and some picture formats. The owner, 2026-10-18: "We
@@ -221,7 +221,7 @@ Found while taking stock; to fix once the milestones are decided, as one change:
   as port forwarding then IPv6 then a tunnel (replaced by D273, D274), and presents a playback
   survey as done first that was never run.
 - **Status lines behind the code:** client-from-core.md (D308 is live), release.md (R8 says not
-  started; nas.example runs v0.2.0-nas.10), webrtc-transport.md (W2d is built),
+  started; the production NAS runs v0.2.0-nas.10), webrtc-transport.md (W2d is built),
   discovery-core.md (its header says not started), discovery-mode.md, m4.md (still in progress),
   remote-access.md (superseded).
 - **Contradictions:** "Get this ready" is M5 in m5.md and M6 in cut-a and D245; m5.md's handed-on

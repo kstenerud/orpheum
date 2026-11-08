@@ -46,9 +46,9 @@ TV remote's timings.
 
 | # | Group | Why first | Effort |
 | --- | --- | --- | --- |
-| 1 | **Starting and stalling** (§1): 15 s before a slow start is offered a lower quality, 10 s / 150% before resuming, 6 s before a quality is given up as unplayable | Every playback meets it; a wrong value is a stall or a long black screen. The research we have says abandonment starts after about 2 s of start delay | 1 day: read the start and stall reports already in staging's and nas.example's logs, then 2–3 shaped-link runs on the Fire TV |
+| 1 | **Starting and stalling** (§1): 15 s before a slow start is offered a lower quality, 10 s / 150% before resuming, 6 s before a quality is given up as unplayable | Every playback meets it; a wrong value is a stall or a long black screen. The research we have says abandonment starts after about 2 s of start delay | 1 day: read the start and stall reports already in staging's and the production NAS's logs, then 2–3 shaped-link runs on the Fire TV |
 | 2 | **Sharing the upload** (§2): eleven controller values, six of them marked "best guess" in their own plan | Every viewer away from home on a household with a thin upload (the owner's own DS-Lite line). A wrong value lowers everyone's picture, or sends a Watch Together member away after 20 s | 2–3 days: a shaped-upload simulation with three players, plus half a day reading how Plex and Jellyfin share a remote-streaming cap |
-| 3 | **The quality ladder and the encoder** (§3): rungs from Apple's spec "to be tuned on the owner's films", never tuned; x264 `veryfast` measured for speed only | Every encoded playback. Apple's rates assume a good encoder; at `veryfast` the same rate may look worse | 1–2 days: VMAF of each rung at two presets on five of the owner's films, on gpuhost |
+| 3 | **The quality ladder and the encoder** (§3): rungs from Apple's spec "to be tuned on the owner's films", never tuned; x264 `veryfast` measured for speed only | Every encoded playback. Apple's rates assume a good encoder; at `veryfast` the same rate may look worse | 1–2 days: VMAF of each rung at two presets on five of the owner's films, on the GPU test machine |
 | 4 | **The chunk length behind other values** (§4): the setting starts at 2 s, real chunks are 4–10 s, and several comments reason from "the ten-second grid" | Cheap to check, and five values are derived from it | 2 hours: read the grids in the database and list the chunk lengths |
 | 5 | **TV remote timings** (§5): the held-seek acceleration, a gamepad's repeat, the receiver's double press, "Still watching?" | Every TV user, every evening. A wrong value is an overshoot, a missed or an accidental exit | 1 day: the lab's input page on the Fire TV and the TCL for repeat cadence and double-press gaps (15 minutes of the owner at the TV), plus the platform guidelines already looked up here |
 
@@ -86,7 +86,7 @@ These decide how long a person looks at a spinner, and whether a stall repeats.
    research cites abandonment from about 2 s of start delay (slow-links.md §6, Krishnan and
    Sitaraman IMC'12), and Media3 starts after 1 s of buffer. A person on a slow link waits 15 s
    of black before anything changes, and again after each seek. *Settle:* read start-to-play times
-   from the player reports in staging's and nas.example's logs; the share of starts over 5, 10 and
+   from the player reports in staging's and the production NAS's logs; the share of starts over 5, 10 and
    15 s says whether a shorter wait would have helped, and how often it would offer a lower
    quality that was not needed.
 2. **`refillAheadMs` = 10 s** (`web/packages/sdk/src/together-media.ts:18`) and
@@ -108,7 +108,7 @@ These decide how long a person looks at a spinner, and whether a stall repeats.
 4. **`play_ladder_wait_ms` = 2000** (registry). How long a film not cut yet waits for its
    keyframes before it is cut on time. *Backing:* MEASURED-ONCE, "four times the slowest index read
    measured, an MP4's on the owner's NAS". *Settle:* log index-read times across the library on
-   nas.example; set it from the 95th percentile, not one file.
+   the production NAS; set it from the 95th percentile, not one file.
 5. **`preloadAheadS` = 10** (`web/apps/web/src/watching.ts:84`). How far a film page's hidden
    player loads. *Backing:* MEASURED-ONCE (one phone, 2026-10-07). Low risk.
 6. **`mediaBackWaitSeconds` 20, `mediaBackAskAgainMs` 2 s, `mediaBackAfterFailureMs` 10 s**
@@ -156,7 +156,7 @@ bitrate limit share a cap between streams.
     visibly worse, and Quick Sync needs 10–25% more rate than x264 for the same quality
     (slow-links.md §4). *Settle:* VMAF of each rung at `veryfast` and `medium`, x264 and Quick
     Sync, on five of the owner's films of different kinds (dark, grain, animation, sport, talk), on
-    gpuhost. A rung under VMAF 80 at its height is too low a rate for that encoder.
+    the GPU test machine. A rung under VMAF 80 at its height is too low a rate for that encoder.
 13. **`chunk_sound_kbps` = 96** (registry). MEASURED-ONCE (the airplane link) and inside Apple's
     range for stereo AAC. Low risk; a listening check of one dialogue-heavy film would close it.
 14. **`loudness_max_raise_db` = 20** (registry). How far a quiet film's sound is raised. SWAG:
@@ -176,7 +176,7 @@ bitrate limit share a cap between streams.
     `readyAheadMs` 10 s, and `measuresFromBytesAtLeast` ("the lowest quality's 10 s chunk is about
     500 KB"). If a film's chunks are 4 s, a 10 s preload is two or three chunks, and the 128 KiB
     floor drops most low-quality samples. *Settle:* list the chunk lengths of every grid in
-    nas.example's database (an SQL read, two hours), and check each derived value against the spread.
+    the production NAS's database (an SQL read, two hours), and check each derived value against the spread.
 
 ### 5. TV remote and on-screen timing
 
@@ -487,7 +487,7 @@ and name.
 | disconnectedGraceMs | sdk rtc-transport.ts:40 | 5 s | S | |
 | replace backoff 1 s → 30 s | sdk rtc-transport.ts:43 | | D | |
 | idleClosesAfterMs, growWhenEachCarries | sdk rtc-transport.ts:197,204 | 30 s, 2 | M | staging, 2026-10-25 |
-| betterPath 30 s → 10 min, failuresBeforeGivingUp 2 | web kept-path.ts:85-95 | | M | Firefox on nas.example |
+| betterPath 30 s → 10 min, failuresBeforeGivingUp 2 | web kept-path.ts:85-95 | | M | Firefox on the production NAS |
 | screen_refresh_first/longest/failed_wait_seconds | registry | 2, 30, 5 | S | owner, D237 |
 | askAnswersWithinMs | web polling.ts:75 | 60 s | D | twice D237's longest |
 | discovery_pending_check_every_seconds | registry | 2 | M | owner, 2026-10-20 |

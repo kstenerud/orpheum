@@ -58,7 +58,7 @@ export const closingHoldsMs = 5000;
  * until its body ends and the core has closed its end, as long as the core counts it. Released when
  * the client merely began closing it, the next request's channel reached the core before the close
  * did, past its 16, and each refusal freed room for another, the queue draining as broken posters
- * (nas.example, 2026-10-19: eighteen refusals in two milliseconds).
+ * (the production NAS, 2026-10-19: eighteen refusals in two milliseconds).
  */
 export function countedChannel(
   channel: ChannelLike,

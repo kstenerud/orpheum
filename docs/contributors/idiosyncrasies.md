@@ -179,7 +179,7 @@ User-Agent (D263; the User-Agent is logged only).
 | A pipe placed where a media file was held a byte request and its goroutine forever. | [Opening a named pipe read-only blocks until a writer appears](#opening-a-named-pipe-read-only-blocks-until-a-writer-appears) |
 | `landlock_create_ruleset(...) → -1, errno 95` in an ordinary container. | [Whether Landlock is available depends on the kernel's boot configuration, and the errno says why](#whether-landlock-is-available-depends-on-the-kernels-boot-configuration-and-the-errno-says-why) |
 | X32 syscalls share AUDIT_ARCH_X86_64, so a seccomp denylist can be bypassed | [x32 syscalls share AUDIT_ARCH_X86_64, so a seccomp denylist can be bypassed](#x32-syscalls-share-audit_arch_x86_64-so-a-seccomp-denylist-can-be-bypassed) |
-| The owner's USB SSD on devnas read as spinning. | [The kernel's `rotational` flag is wrong behind a USB bridge](#the-kernels-rotational-flag-is-wrong-behind-a-usb-bridge) |
+| The owner's USB SSD on the development NAS read as spinning. | [The kernel's `rotational` flag is wrong behind a USB bridge](#the-kernels-rotational-flag-is-wrong-behind-a-usb-bridge) |
 | Btrfs and ZFS mounts do not name a block device | [btrfs and ZFS mounts do not name a block device](#btrfs-and-zfs-mounts-do-not-name-a-block-device) |
 | A UDP socket bound to every address replies from the routing table's choice of source | [A UDP socket bound to every address replies from the routing table's choice of source](#a-udp-socket-bound-to-every-address-replies-from-the-routing-tables-choice-of-source) |
 | Unix socket paths are limited to 108 bytes on Linux and 104 on macOS | [Unix socket paths are limited to 108 bytes on Linux and 104 on macOS](#unix-socket-paths-are-limited-to-108-bytes-on-linux-and-104-on-macos) |
@@ -335,13 +335,13 @@ User-Agent (D263; the User-Agent is logged only).
   its 30 s look for a better path found the LAN name answering, and every request after, a film's
   chunks too, went there without one failing. Unconfirmed: the connection opened before the worker
   controlled the page is the one that fails, and a new one does not. The film did not stall.
-- **Not only a burst:** on nas.example (2026-10-18), a host's Firefox on macOS moved from the LAN name to WebRTC
+- **Not only a burst:** on the production NAS (2026-10-18), a host's Firefox on macOS moved from the LAN name to WebRTC
   and back 171 times in a 53-minute Watch Together session, 3 to 5 times a minute from start to end: the
   look for a better path found the LAN name answering each time, and its next request failed. The film
   did not stall, but a request failed at each move. The look for a better path now waits twice as long
   after each move away from a failed path, from 30 s up to 10 minutes, and as at first once the browser
   is back online (`betterPathFirstMs` in `web/apps/web/src/kept-path.ts`).
-- **The look proved less than the requests need** (staging and nas.example, 2026-10-20, the owner's
+- **The look proved less than the requests need** (staging and the production NAS, 2026-10-20, the owner's
   Firefox, a private window and a normal one): the look's health check, a bare GET, passed at the LAN
   name, and the requests after it failed there with "CORS request did not succeed"; a fresh tab moved
   to the LAN name and back off it several times in its first minute. A better path is now moved to only
@@ -366,14 +366,14 @@ User-Agent (D263; the User-Agent is logged only).
   leaves it out of its look for a better path until it is granted, then looks at once; one denied is
   never tried (`web/apps/web/src/local-network.ts`).
 - **So Firefox never uses the LAN name** (the owner's choice, 2026-10-20). With the prompt raised
-  only at home and allowed, on nas.example, the page moved to the LAN name and its API requests went
+  only at home and allowed, on the production NAS, the page moved to the LAN name and its API requests went
   through, and the film's chunks, which the service worker fetches, failed there at once, as on every
   test before. Allowing it bought the person a prompt and nothing else, so in Firefox the page treats
   the permission as refused: it never tries the LAN name and never prompts, and WebRTC carries
   everything, a direct pair in the house (`usesLanName` in `web/apps/web/src/local-network.ts`). The
   browser is named because nothing can be tested for in advance; re-check when Mozilla bug 1594177's
   fault is fixed.
-- **Evidence:** nas.example's and staging's logs, 2026-10-15, Firefox 157 on macOS; [Mozilla bug
+- **Evidence:** the production NAS's and staging's logs, 2026-10-15, Firefox 157 on macOS; [Mozilla bug
   2059274](https://bugzilla.mozilla.org/show_bug.cgi?id=2059274) on when Firefox asks;
   undoing a block: the site's permissions in the address bar, or `about:preferences#privacy`'s
   permission settings.
@@ -959,7 +959,7 @@ User-Agent (D263; the User-Agent is logged only).
   Long Tasks API times. The same loop run from a task of the page's own is reported.
 - **What we do:** a test of freeze reporting runs its loop as a task of the page:
   `setTimeout(() => { const t = Date.now(); while (Date.now() - t < 2000) {} }, 0)` (VQ198).
-- **Evidence:** [owner] 2026-11-01, nas.example, Chrome 156 on the Mac: VQ198's console loop, and nothing
+- **Evidence:** [owner] 2026-11-01, the production NAS, Chrome 156 on the Mac: VQ198's console loop, and nothing
   logged. [repro] headless Chromium (Playwright), 2026-11-01: `page.evaluate` of a 1.5 s loop (the
   console's way, `Runtime.evaluate`) gave no entry; the same loop in a `setTimeout` gave one of
   1500 ms.
@@ -2534,7 +2534,7 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **Symptom:** a RealMedia film with RealVideo 4 and cook stereo sound never started in Chrome: the
   player waited on sound chunk 0 (425) while the node failed every run of it, "raw 00000.mp4 holds
   0 to 1818 ms of the run, not its chunk's 0 to 3236 ms", and the core queued it again every 4.4 s
-  (file 15102 on nas.example, 2026-10-27). Where no cut fell in the hole, the run passed and its sound was
+  (file 15102 on the production NAS, 2026-10-27). Where no cut fell in the hole, the run passed and its sound was
   silently moved earlier by what was lost.
 - **Cause:** RealMedia carries cook (and ATRAC3, SIPR and RealAudio 28.8) interleaved in
   super-blocks of about two seconds: each packet holds a slice of each of the block's frames, so the
@@ -2555,7 +2555,7 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **Evidence:** **[measured]** FFmpeg 8.1.2 (fdproxy) on FFmpeg's own cook samples (fetched for
   diagnosis, never committed): `-ss 0` on a 44.1 kHz stereo cook film with 1.857 s blocks decoded
   0.08 to 1.85 s and then 3.715 s on, and its sound run listed `00000.mp4,0.000000,1.818250` against
-  a cut at 3.236 s, the error seen on nas.example; read without `-ss` it listed `0.000000,3.238934`.
+  a cut at 3.236 s, the error seen on the production NAS; read without `-ss` it listed `0.000000,3.238934`.
   Seeking two seconds before 16.6, 20 and 24 s, its decode from there was offset and unlike a
   decode from the start; six seconds before, every one matched. A film the test writes, RealVideo 2.0
   with RealAudio 28.8 interleaved as cook is (the pinned FFmpeg encodes no interleaved RealAudio),
@@ -2894,7 +2894,7 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   Quick Sync run fails, confined or not, with `Error creating a MFX session: -9`.
 - **What we do:** VAAPI (D332), tried after Quick Sync, encodes on those through Intel's VA driver,
   which the image carries; the System page shows Quick Sync's trial failed and VAAPI's worked.
-- **Evidence:** a staging host (Iris Plus 640, Kaby Lake) and a ThinkPad T450 (HD 5500, Broadwell, Gen 8),
+- **Evidence:** the staging host (Iris Plus 640, Kaby Lake) and a ThinkPad T450 (HD 5500, Broadwell, Gen 8),
   2026-10-23, in a container of the release image's GPU packages: Quick Sync exit 171 with that
   message; `h264_vaapi` worked confined and through fdproxy, its frames the unconfined run's. It
   is Debian's non-free `intel-media-va-driver-non-free` that offers H.264 encoding on Broadwell; the
@@ -3205,7 +3205,7 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 
 ### The kernel's `rotational` flag is wrong behind a USB bridge
 
-- **Symptom:** the owner's USB SSD on devnas read as spinning.
+- **Symptom:** the owner's USB SSD on the development NAS read as spinning.
 - **What we do:** prefer udev's `ID_ATA_ROTATION_RATE_RPM`, and treat a "spinning" disk behind USB as unknown.
   `internal/node/hardware/storage.go:210-230`.
 - **Evidence:** D240 §5; [owner] VQ17, 2026-10-03.
@@ -3288,10 +3288,10 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   stale handle or timeout, what a `soft` mount returns, is the same stall. The node reads the mount
   options and the System page warns of a hard NFS share, or notes a virtiofs, 9p or FUSE one whose
   share it cannot see (`shareFinding`); docs/users/setup-problems.md says to mount it `soft`.
-- **Evidence:** staging, 2026-10-21: nas.example went down with its NFS export mounted `hard` on the VM
+- **Evidence:** staging, 2026-10-21: the production NAS went down with its NFS export mounted `hard` on the VM
   and passed into the sandbox by virtiofs; a chunk run's open of a film blocked, the node's status
   blocked on statfs, and after SIGQUIT the node stayed a zombie with 103 threads in the share, which
-  `docker` could neither stop nor replace until nas.example came back. **[web]**
+  `docker` could neither stop nor replace until the production NAS came back. **[web]**
   [nfs(5)](https://man7.org/linux/man-pages/man5/nfs.5.html) as above: `hard` retries "indefinitely".
   Through virtiofs the wait is a FUSE request to virtiofsd on the host, itself stuck on the hard
   mount, so the NFS client's `TASK_KILLABLE` (see "A process in uninterruptible disk wait ignores
@@ -3329,7 +3329,7 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   client marks its requests so a soft request already sent does not time out while the connection
   counts as up, so v4 reads hang through an outage where v3's fail.
 - **What we do:** the media share is mounted NFSv3 soft (docs/users/setup-problems.md).
-- **Evidence:** **[staging]** 2026-10-21, the VM host's mount of nas.example. **[web]**
+- **Evidence:** **[staging]** 2026-10-21, the VM host's mount of the production NAS. **[web]**
   [nfs-client-recovery-2026-10-21.md](design/research/nfs-client-recovery-2026-10-21.md) §6.
 
 ### On a network share, `stat` may answer from cache after the server is gone; `statfs` never does
@@ -3352,14 +3352,14 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 
 ### Docker hands an NVIDIA card over by a CDI device or by its `nvidia` driver, and `--gpus all` may ask for neither
 
-- **Symptom:** on gpuhost (rootless Docker 29.9.2, a CDI spec from `nvidia-ctk cdi generate`, no
+- **Symptom:** on the GPU test machine (rootless Docker 29.9.2, a CDI spec from `nvidia-ctk cdi generate`, no
   toolkit hook), `docker run --gpus all` failed with "AMD CDI spec not found", and `--gpus
   driver=nvidia` and compose's `driver: nvidia` reservation with "could not select device driver
   "nvidia""; `--device nvidia.com/gpu=all` worked, in `docker run` and in compose's `devices`.
 - **What we do:** the install script tries the CDI device, then the `nvidia` driver, on the image
   itself, and writes whichever worked (D333; `internal/deployment/templates/install.sh`
   `nvidiaAccess`).
-- **Evidence:** measured on gpuhost, 2026-10-23. Docker registers its `nvidia` device driver only
+- **Evidence:** measured on the GPU test machine, 2026-10-23. Docker registers its `nvidia` device driver only
   when `nvidia-container-runtime-hook` is on the daemon's path, which the toolkit's full package
   installs; with no driver named, Docker 29 also tries AMD's CDI devices.
 
@@ -3371,7 +3371,7 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   `nvidia-ctk cdi generate` and `nvidia-smi` failed with "Driver/library version mismatch".
 - **What we do:** the install script's trial catches it and installs without the card, saying so;
   `docs/users/setup-problems.md` says to restart after a driver update and make the spec again.
-- **Evidence:** gpuhost, 2026-10-23: unattended upgrades replaced the 580.178 driver's libraries with
+- **Evidence:** the GPU test machine, 2026-10-23: unattended upgrades replaced the 580.178 driver's libraries with
   580.196 at 10:57 while its kernel module stayed 580.178 until a restart. The toolkit 1.18 and later
   regenerates its own spec (`nvidia-cdi-refresh`); one made by hand does not.
 
@@ -3385,7 +3385,7 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   `daemon.json` turns the userland proxy off, and if not gives the fix in order: `br_netfilter`
   loaded by root, then `"userland-proxy": false`, then the daemon restarted
   (`docs/users/setup-problems.md`). Verifying it is VQ54.
-- **Evidence:** gpuhost, 2026-10-23 (Docker 29.9.2 rootless, RootlessKit 3.3.0, builtin port driver).
+- **Evidence:** the GPU test machine, 2026-10-23 (Docker 29.9.2 rootless, RootlessKit 3.3.0, builtin port driver).
   With the proxy off and no `br_netfilter`, the daemon would not start: "cannot restrict
   inter-container communication or run without the userland proxy: stat
   /proc/sys/net/bridge/bridge-nf-call-iptables". **[web]** RootlessKit 3.0 keeps the source address
@@ -3404,7 +3404,7 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   maps to one of the user's subordinate IDs, not to the user who owns the directory.
 - **What we do:** where `docker info` names `rootless` among its security options, the script runs
   write-deployment as `0:0`, which is the user on the host, and the services run so.
-- **Evidence:** gpuhost, 2026-10-23 (Docker 29.9.2 rootless).
+- **Evidence:** the GPU test machine, 2026-10-23 (Docker 29.9.2 rootless).
 
 
 ### A container sharing another's network loses it when that container restarts alone
@@ -3545,7 +3545,7 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **What we do:** the install script names the case and its fix (`ipv6Report` in
   `internal/deployment/templates/install.sh`, `test_an_ipv6_address_with_no_route_out_while_forwarding_is_named_with_its_fix`);
   `docs/users/setup-problems.md` says it for households.
-- **Evidence:** **[owner]** nas.example's Proxmox container, 2026-10-19: `forwarding = 1`,
+- **Evidence:** **[owner]** the production NAS's Proxmox container, 2026-10-19: `forwarding = 1`,
   `accept_ra = 1`, a `/128` address and no default route; `accept_ra = 2` brought `default via
   fe80::… proto ra`. **[doc]** the kernel's `ip-sysctl` documentation: `accept_ra` 1 accepts
   advertisements "if forwarding is disabled", 2 "overrule forwarding behaviour".
@@ -3558,7 +3558,7 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   static address); left unset, it has none.
 - **What we do:** the install script says "a public IPv6 address: no" and how to set it;
   `docs/users/setup-problems.md`.
-- **Evidence:** **[owner]** nas.example, CT 102, 2026-10-19. **[doc]** `pct` manual, `--net[n]`'s `ip6`.
+- **Evidence:** **[owner]** the production NAS, CT 102, 2026-10-19. **[doc]** `pct` manual, `--net[n]`'s `ip6`.
 
 ### Taking an LXC container's interface down and up loses its IPv4 default route
 
@@ -3568,7 +3568,7 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **Cause:** the kernel drops a link's routes when it goes down, and a static route is set again
   only by what configured it, at the container's start; nothing re-adds it on link up.
 - **What we do:** `docs/users/setup-problems.md` says to restart the container instead.
-- **Evidence:** **[owner]** nas.example, 2026-10-19; `pct reboot` restored both routes.
+- **Evidence:** **[owner]** the production NAS, 2026-10-19; `pct reboot` restored both routes.
 
 ### GitHub's image registry, `ghcr.io`, has no IPv6 address
 
@@ -3578,7 +3578,7 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   `pkg-containers.githubusercontent.com`, has IPv6. An install or update needs IPv4.
 - **What we do:** `docs/users/setup-problems.md`.
 - **Evidence:** **[measured]** `getent ahostsv6` here, 2026-10-19: none for `ghcr.io` or
-  `github.com`, `2606:50c0:8000::154` for the blob host. **[owner]** nas.example, 2026-10-19.
+  `github.com`, `2606:50c0:8000::154` for the blob host. **[owner]** the production NAS, 2026-10-19.
 
 ### A travel eSIM's data leaves through its operator's gateway, over IPv4 alone
 
@@ -3589,8 +3589,8 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   the same.
 - **What we do:** nothing can: without a relay the pair cannot meet (D314 §4), and the failure is
   counted; `docs/users/setup-problems.md` tells a household what to try.
-- **Evidence:** **[owner]** 2026-10-19: candidates `srflx 11.22.55.141` alone, against nas.example's
-  `srflx 11.22.33.144` (DS-Lite's AFTR), every pair failed.
+- **Evidence:** **[owner]** 2026-10-19: candidates `srflx 198.51.100.41` alone, against the production NAS's
+  `srflx 203.0.113.10` (DS-Lite's AFTR), every pair failed.
 
 ---
 

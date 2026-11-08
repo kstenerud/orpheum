@@ -1,6 +1,6 @@
 > **ABOUTME:** Research behind three groups of guessed values from the SWAG audit: how long a slow
 > start waits before it counts as a stall and how much a player loads before it plays on (group 1);
-> the real chunk lengths in staging's and nas.example's databases, and the values that reason from a
+> the real chunk lengths in staging's and the production NAS's databases, and the values that reason from a
 > "ten-second grid" (group 4); the TV remote's timings (group 5); plus "Still watching?" and the 3 s
 > wait for a direct path. Per value: current, evidence, recommendation, confidence, a test.
 > Proposes, decides nothing. 2026-10-29.
@@ -15,10 +15,10 @@
   §4, [bandwidth-sampling-2026-10-29.md](bandwidth-sampling-2026-10-29.md) and
   [forward-buffer-2026-10-29.md](forward-buffer-2026-10-29.md). Their sources are not repeated.
 - **Data read here, read-only:** staging's database (`.staging/core/persistent/persistent.db`,
-  `?mode=ro`) and nas.example's (`/srv/orpheum/core/persistent/persistent.db`, `?mode=ro` from a
-  `nice -n 19` Python on nas.example, only ids and numbers sent back); staging's logs from 2026-10-24 to
-  today (`.staging/logs`, 133 files); nas.example's core log since its last restart (2026-10-27). No
-  video is named; nas.example's library 3 is counted, never listed.
+  `?mode=ro`) and the production NAS's (`/srv/orpheum/core/persistent/persistent.db`, `?mode=ro` from a
+  `nice -n 19` Python on the production NAS, only ids and numbers sent back); staging's logs from 2026-10-24 to
+  today (`.staging/logs`, 133 files); the production NAS's core log since its last restart (2026-10-27). No
+  video is named; the production NAS's library 3 is counted, never listed.
 - **Cache:** `/yoloai/cache/research-groups-1-4-5/` (the export and analysis scripts, the
   exported grids as `data/*.jsonl.gz`, `web-notes.md` with every web source, the Kodi, Media3 and
   Android sources fetched).
@@ -69,7 +69,7 @@ Sitaraman's 2 s. They measure different things. The 2 s is when people start to 
 that has not started (in data dominated by short clips, median play 35 s). The 15 s is when a
 start that has not played is *treated as a stall*, which lowers the bitrate ceiling. Conviva counts
 an exit before start as abandonment only after 8–10 s of waiting, and calls a start under 10 s
-good. Our starts on staging take 2.5 s at the median and 7.7 s at the 90th percentile. On nas.example,
+good. Our starts on staging take 2.5 s at the median and 7.7 s at the 90th percentile. On the production NAS,
 0.3 s and 0.8 s. So 15 s is late, and 2 s would fire on most of staging's starts; 8 s sits at
 the industry's own line. *[M], [1P]*
 
@@ -87,8 +87,8 @@ how the file plays to playing, so a film page's preload counts time before Play 
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Staging, starts | 254 | 2.5 s | 4.2 s | 7.7 s | 10.1 s | 55 s | 61% | 17% | 6% | 3% |
 | Staging, seeks while playing | 145 | 0.6 s | 2.4 s | 3.5 s | 4.8 s | 10.3 s | 29% | 4% | 1% | 0% |
-| nas.example, starts | 12 | 0.3 s | 0.5 s | 0.8 s | 2.4 s | 2.4 s | 8% | 0% | 0% | 0% |
-| nas.example, seeks while playing | 11 | 0.02 s | 2.2 s | 2.2 s | 2.9 s | 2.9 s | 27% | 0% | 0% | 0% |
+| The production NAS, starts | 12 | 0.3 s | 0.5 s | 0.8 s | 2.4 s | 2.4 s | 8% | 0% | 0% | 0% |
+| The production NAS, seeks while playing | 11 | 0.02 s | 2.2 s | 2.2 s | 2.9 s | 2.9 s | 27% | 0% | 0% | 0% |
 
 Staging is the owner's test bench: Fire TV over a hairpinned router path, shaped tests, and
 debugging, so it is the pessimistic case. The Fire TV (device 33) started at 3.4 s median, 10.2 s
@@ -206,7 +206,7 @@ how long its next chunk takes.
 - **`standsStillReportAfterMs` 5 s:** only a report; keep.
 - **`play_ladder_wait_ms` 2 s:** nothing logs index-read times, and no `noGridYet` start appears on
   staging (224 ladder starts, 0 without a grid): read-throughs reach almost every file first
-  (nas.example: 5563 grids of 5719 timelines). Keep, add a log line for the read's time. *[M]*
+  (the production NAS: 5563 grids of 5719 timelines). Keep, add a log line for the read's time. *[M]*
 - **`mediaBack…` waits, `askReadyEveryMs`, `reopenAtMostEveryMs`:** no evidence either way here;
   leave until the next outage's log.
 
@@ -219,7 +219,7 @@ how long its next chunk takes.
 Every picture's keyframes (`video_timeline.keyframes_ms_json`) cut by `GridOf`
 (`internal/core/chunks/grid.go`) at the setting in force, 2 s on both servers.
 
-| | Staging | nas.example |
+| | Staging | The production NAS |
 | --- | --- | --- |
 | Files with a grid | 5141 | 5563 |
 | Chunks | 2.58 million | 2.86 million |
@@ -233,7 +233,7 @@ Every picture's keyframes (`video_timeline.keyframes_ms_json`) cut by `GridOf`
 
 The peaks at 10.0 and 10.4 s are encoders' default keyframe spacing: 240 and 250 frames at
 23.976 fps. A film from such a file is cut at its keyframes, whatever the setting says. The longest
-chunks, minutes long, are files whose timeline has almost no keyframes; 69 on nas.example, most in
+chunks, minutes long, are files whose timeline has almost no keyframes; 69 on the production NAS, most in
 library 3. Library 3's files have a median chunk of 8.3 s; libraries 1 and 2, 4.0 s.
 
 **Chunks under the setting.** `GridOf` starts the next chunk at the first keyframe at or after
@@ -381,10 +381,10 @@ the second's press**; double taps under 40 ms ignored.
 - **Why it exists.** A direct path is better than WebRTC: at home, the LAN name keeps admin and the
   house's speed (D300 §4). The discovery offers the LAN name only to a device that seems to be at
   home (D290 §2, D356), which already avoids most of the cost away from home.
-- **What it costs today** *[M]*. Staging's 208 and nas.example's 4 path choices since 2026-10-24 offered
+- **What it costs today** *[M]*. Staging's 208 and the production NAS's 4 path choices since 2026-10-24 offered
   no public name. On staging the LAN name was offered to 65 pages, left out of the race for 63
   (permission prompt pending, denied, or a Firefox that fails such requests) and answered for 2; on
-  nas.example it was offered to all 4 and left out of each. So the wait is rare today. It
+  the production NAS it was offered to all 4 and left out of each. So the wait is rare today. It
   grows once public names are offered, and whenever the discovery judges "at home" wrongly. The log
   line says what came of each name but not how long each took, so the cost cannot be read.
 - **A better rule.** Happy Eyeballs (RFC 8305) solved the same race between two paths: start the
@@ -413,7 +413,7 @@ the second's press**; double taps under 40 ms ignored.
   starts. The proposal in 1.1 makes the log say which, and the next read can set the number.
 - **Any study of scrubbing speed.** None was found. The players' own choices (Leanback 1%, Media3
   5% per press, Kodi's steps, Apple's 2–4×) are the evidence.
-- **nas.example's logs** cover two days. Its starts and seeks were fast (0.3 s median).
+- **The production NAS's logs** cover two days. Its starts and seeks were fast (0.3 s median).
 
 ## Sources
 

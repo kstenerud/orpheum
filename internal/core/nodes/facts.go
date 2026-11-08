@@ -170,7 +170,7 @@ func (service *Service) ConnectedSystemFolders(ctx context.Context) []SystemFold
 // markRootsNotAnswering makes each library root whose disk a node's status newly says is not
 // answering unavailable, as work stalled on it would: with nothing reading it, nothing else noticed,
 // and its films were listed as playable until someone pressed play and waited (the owner's test,
-// 2026-10-21, nas.example off). A root its previous status said so of already was.
+// 2026-10-21, the production NAS off). A root its previous status said so of already was.
 func (service *Service) markRootsNotAnswering(
 	ctx context.Context, nodeID int64, previous, status *nodeproto.Status,
 ) {

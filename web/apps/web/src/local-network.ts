@@ -48,7 +48,7 @@ function browserPermissions(): PermissionsByName | undefined {
  * Whether the page uses the core's LAN name in a browser of userAgent: never in Firefox, whose Local
  * Network Access fails the film's chunks a service worker fetches from it even once allowed, so the
  * prompt bought nothing; WebRTC reaches the core directly in the house instead (the owner's choice,
- * 2026-10-20, after three tests on staging and nas.example). No feature tells it, so the browser is named.
+ * 2026-10-20, after three tests on staging and the production NAS). No feature tells it, so the browser is named.
  */
 export function usesLanName(userAgent: string): boolean {
   return !/\bFirefox\//u.test(userAgent);

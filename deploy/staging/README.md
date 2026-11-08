@@ -30,12 +30,12 @@ compose file, the configs and the tunnel's config into `.staging/` from your val
 
 Since 2026-11-01, staging runs on the staging host rather than beside `./dev` (`orpheum-ops/machines.md`),
 so the gate has the development machine's processors to itself. Today it has no tunnel or VPS: it
-is reached at home on `http://192.168.1.16:8440`, and from outside through its discovery.
+is reached at home on `http://staging.example:8440`, and from outside through its discovery.
 `.staging/remote.toml` names the machine:
 
 ```toml
-host = "orpheum@192.168.1.16"              # ssh's destination; the user is in the docker group
-identity = "~/.ssh/stagehost"                     # ssh's key
+host = "orpheum@staging.example"            # ssh's destination; the user is in the docker group
+identity = "~/.ssh/<staging key>"                       # ssh's key
 directory = "/home/orpheum/orpheum-staging"  # staging's directory there, as .staging/ is here
 ```
 
@@ -70,12 +70,12 @@ the next section lists, with the media at the paths the values file names: the s
    tunnel there: `systemctl restart wg-quick@wg0`.
 3. Fill in `.staging/values.toml`: the contact address; the VPS's endpoint, its address and
    WireGuard port, IPv4 (`"203.0.113.7:51820"`) where the machine has only IPv4 or reaches the VPS
-   through DS-Lite's shared IPv4, or IPv6 in brackets (`"[2a0f:4000:…::1]:51820"`); its public IPv4
+   through DS-Lite's shared IPv4, or IPv6 in brackets (`"[3fff:4f8:…::1]:51820"`); its public IPv4
    address, for the voice relay; its WireGuard public key (`cat /etc/wireguard/public` on the
    VPS); and the media directories, for example `roots = ["/mnt/tank/media/video/movies"]`. The
    tunnel's MTU follows the endpoint: 1380 over IPv4, which leaves room for DS-Lite, and 1420 over
    IPv6; `mtu` in the file overrides it. Beside another deployment on the same VPS, such as
-   nas.example's, give staging its own `tunnel_ipv4` and `tunnel_ipv6` (`deploy/release/README.md` §6).
+   the production NAS's, give staging its own `tunnel_ipv4` and `tunnel_ipv6` (`deploy/release/README.md` §6).
 4. `./staging` again. It renders the configs, starts the three services and waits until they are
    healthy, then prints the address on the house's network.
 5. `./staging setup-code` prints the one-time code. `http://devnas.example:8440` opens on **Set up this

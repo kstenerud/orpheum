@@ -52,7 +52,7 @@
 //
 //   - D249: the deployment, its three services and the tunnel in a container; D314: the
 //     deployment with no tunnel, two services, that a household installs.
-//   - D272: release on nas.example, the image's own setup, the build re-rendering (§7), one shared
+//   - D272: release on the production NAS, the image's own setup, the build re-rendering (§7), one shared
 //     tunnel key (§8), which D292 §7 revises: a peer and addresses per deployment.
 //   - deploy/staging/README.md and deploy/release/README.md: how a person runs it.
 //

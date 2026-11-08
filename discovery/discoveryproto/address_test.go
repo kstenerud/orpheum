@@ -13,7 +13,7 @@ import (
 func TestIsPublic_CarrierNATDSLiteAndDocumentationAreNeverPublic(t *testing.T) {
 	t.Parallel()
 	for address, want := range map[string]bool{
-		"8.8.8.8": true, "11.22.44.139": true, "2a0f:1000::1": true, "2a0f:4000:1c16:2684::1": true,
+		"8.8.8.8": true, "11.22.44.139": true, "2a0f:5000::1": true, "2a0f:2000:1c16:2684::1": true,
 		"::ffff:8.8.8.8": true,
 		"100.64.0.1":     false, "100.127.255.254": false, // carrier NAT
 		"192.0.0.2": false, // DS-Lite's B4
@@ -36,9 +36,9 @@ func TestAddressLabel_OneAddressOneLabelAndNoDoubleDash(t *testing.T) {
 		"192.168.1.20":         "192-168-1-20",
 		"203.0.113.7":          "203-0-113-7",
 		"::ffff:203.0.113.7":   "203-0-113-7",
-		"2a0f:1000::1":         "2a02-8070-0-0-0-0-0-1",
-		"2A0F:1000:0:0::1":     "2a02-8070-0-0-0-0-0-1",
-		"2a0f:1000:00ab::1":    "2a02-8070-ab-0-0-0-0-1",
+		"2a0f:5000::1":         "2a0f-5000-0-0-0-0-0-1",
+		"2A0F:5000:0:0::1":     "2a0f-5000-0-0-0-0-0-1",
+		"2a0f:5000:00ab::1":    "2a0f-5000-ab-0-0-0-0-1",
 		"::1":                  "0-0-0-0-0-0-0-1",
 		"2001:db8::8a2e:370:1": "2001-db8-0-0-0-8a2e-370-1",
 	} {

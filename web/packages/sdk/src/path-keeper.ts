@@ -33,7 +33,7 @@ export function isNetworkFailure(problem: unknown): boolean {
 /**
  * Sends on send, a failure saying which request failed on which path, so the page's report of it
  * names them: a bare "NetworkError when attempting to fetch resource." said neither (the owner's
- * nas.example log, 2026-10-15). A network failure stays a TypeError, so isNetworkFailure still knows it.
+ * the production NAS log, 2026-10-15). A network failure stays a TypeError, so isNetworkFailure still knows it.
  */
 export function namingFailures(send: FetchRequest, pathName: string): FetchRequest {
   return async (request) => {

@@ -71,12 +71,12 @@ output once the owner's full enumeration arrives.
 
 | Host | Role |
 | --- | --- |
-| **devnas** — F2-422, J3455, 8 GB | the low-end **server floor**: QSV decodes HEVC 10-bit, encodes HEVC 8-bit only, no AV1 |
+| **The development NAS** — F2-422, J3455, 8 GB | the low-end **server floor**: QSV decodes HEVC 10-bit, encodes HEVC 8-bit only, no AV1 |
 | **nas** — F4-424, N95, Proxmox | VMs: CI runner, distro install matrix |
 | **nuc13** — NUC 13 Pro, 64 GB, Proxmox | VMs: **the remote-household simulator**, a Windows VM when wanted |
-| **gpuhost** — RTX 3090 24 GB, Mint 22.3 | NVENC conformance; the 12-session limit |
+| **The GPU test machine** — RTX 3090 24 GB, Mint 22.3 | NVENC conformance; the 12-session limit |
 | **MacBook Air M4** | Safari; `mediastreamvalidator`/`hlsreport`; Apple builds; the Chrome sender for Cast |
-| **stagehost** | the owner's desktop — **not a lab host**; its browsers are clients |
+| **The staging host** | the owner's desktop — **not a lab host**; its browsers are clients |
 
 **Network.**
 - **Zyxel XGS1250-12:** an isolated lab VLAN and a separate management VLAN; port mirroring

@@ -125,7 +125,7 @@ The owner takes commits out with `yoloai apply` (`git am`); branches do not trav
   one.
 - **The discovery's loader and sign-in page come from connect's build:** after changing
   `loader-*.tsx` or sign-in/discovery web code, run connect's `deploy/staging/up.sh`.
-- **nas.example** is the owner's stable demo: updated only for major changes, built untagged from main,
+- **The production NAS** is the owner's stable demo: updated only for major changes, built untagged from main,
   at the owner's go. No release tags until the owner asks.
 
 ## 6. Working with the owner
@@ -175,12 +175,12 @@ The owner takes commits out with `yoloai apply` (`git am`); branches do not trav
 ## 8. Hazards
 
 - **Never touch `/tank/media`** (stat, ls, find, ffprobe): a hard NFS mount that froze the whole turn
-  when nas.example was away (2026-10-21). Judge the share by staging's node.
+  when the production NAS was away (2026-10-21). Judge the share by staging's node.
 - **Never change the sandbox machine** (packages, fonts, global configuration): a system font broke
   the browser tests for a day (2026-10-26).
 - **No `pgrep -f` waits or kills:** it matches its own shell. Use `ps aux | grep "[x]"` and a separate
   kill.
-- **nas.example's third library (id 3) is private:** never write a title, name or path from it anywhere;
+- **The production NAS's third library (id 3) is private:** never write a title, name or path from it anywhere;
   file ids only, logs redacted.
 - **After `git stash` under a running dev loop, restart Vite** (it served stale modules, a white
   screen).

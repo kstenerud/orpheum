@@ -262,8 +262,8 @@ habit, and showed context (the app and the place) to make the one prompt count *
 number-matching page; Microsoft "additional context"]**.
 
 **Fix.** One decision, on the core. The claim page says "Adding *Stenerud home* to
-kstenerud@gmail.com. Finish on your server's page." and returns there. The System page shows the
-address in full: "kstenerud@gmail.com wants to hold this server. Allow?". Show the waiting approval
+owner@example.com. Finish on your server's page." and returns there. The System page shows the
+address in full: "owner@example.com wants to hold this server. Allow?". Show the waiting approval
 in the admin's yellow-sign tray too (D280), in case the tab was closed. Keep *This isn't me, release*
 in *Details*, not beside *Allow*.
 

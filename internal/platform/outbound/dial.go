@@ -27,7 +27,7 @@ type (
 // 6724, which puts IPv4 first from a machine whose only IPv6 address is a private one, as a core in
 // Docker's IPv6 network is: its requests reached the paid service over the house's shared DS-Lite
 // IPv4, never as the house's own IPv6 address, which the service judges a device at home by
-// (nas.example, 2026-10-20). Docker translates the private address to the house's on the way out.
+// (the production NAS, 2026-10-20). Docker translates the private address to the house's on the way out.
 //
 //go:noinline // one closure, whose code TestNewClient_DialsThroughIPv6First recognises
 func ipv6First(lookup lookupFunc, dial dialFunc) dialFunc {

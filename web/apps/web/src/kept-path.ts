@@ -93,7 +93,7 @@ function socketOn(path: Reached): OpenTogetherSocket {
  * betterPathMostMs. Firefox fails a LAN name's requests once the page's service worker controls it,
  * yet answers its look for a better path: a host's page moved to the LAN name and back off it 171
  * times in a 53-minute session, a request failing at each (the owner's Watch Together session on
- * nas.example, 2026-10-18).
+ * the production NAS, 2026-10-18).
  */
 export const betterPathFirstMs = 30_000;
 export const betterPathMostMs = 10 * 60_000;
@@ -372,7 +372,7 @@ function transportsUsed(inUse: () => Reached): TransportsUsed {
  * header, which needs the CORS preflight a bare health check never makes. Firefox's Local Network
  * Access answers the bare check at a LAN name and then fails every request the page makes there, so a
  * page moved by the check alone went to the LAN name and back off it at each look, losing a request
- * each time and a film's posters with them (staging and nas.example, 2026-10-20; idiosyncrasies.md).
+ * each time and a film's posters with them (staging and the production NAS, 2026-10-20; idiosyncrasies.md).
  */
 async function carriesRequests(
   path: Reached,

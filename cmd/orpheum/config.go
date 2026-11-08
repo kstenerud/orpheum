@@ -281,7 +281,7 @@ func serverConfigKeys() []configKey {
 		{
 			tableServer, "host_names", "[]",
 			"public names the house reaches this listener by; it always answers its IP addresses and names " +
-				"public DNS never answers (nas, nas.example, nas.local), and refuses others against DNS rebinding",
+				"public DNS never answers (nas, server.lan, nas.local), and refuses others against DNS rebinding",
 		},
 		{tableServer, "shutdown_grace_seconds", "10", "seconds in-flight requests get to finish when the server stops"},
 		{
@@ -672,7 +672,7 @@ func (config *Config) servicesClock() clock.Clock {
 
 // loggingSlowWrites logs each database write that waited for the writer, or held it, past
 // store.SlowWriteAfter, and the write that held the writer when it asked: what a slow request
-// that writes waited behind (the owner's nas.example, 2026-10-15; D303, DL17).
+// that writes waited behind (the owner's production NAS, 2026-10-15; D303, DL17).
 func loggingSlowWrites(ctx context.Context, logger *slog.Logger) func(store.SlowWrite) {
 	return func(write store.SlowWrite) {
 		attributes := []any{

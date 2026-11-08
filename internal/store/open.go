@@ -86,7 +86,7 @@ type OpenOptions struct {
 	MinimumReaders int
 	// Clock and OnSlowWrite, both set, are told each write that waited for the one writer, or held
 	// it, longer than SlowWriteAfter: a request that writes waits behind it, and the log names it
-	// (the owner's nas.example, 2026-10-15: /me took 12 s and removing a device 27 s). Either nil
+	// (the owner's production NAS, 2026-10-15: /me took 12 s and removing a device 27 s). Either nil
 	// times nothing.
 	Clock       clock.Clock
 	OnSlowWrite func(SlowWrite)

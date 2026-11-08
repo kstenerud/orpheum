@@ -25,7 +25,7 @@ const candidatesIn = (sdp: string): string[] =>
 describe("an offer through a discovery", () => {
   it("drops the candidates no core outside the client's network could use", () => {
     const reachable = [
-      candidate("2a0f:1000:1::5", "udp", "host"),
+      candidate("2a0f:5000:1::5", "udp", "host"),
       candidate("203.0.113.9", "udp", "srflx"),
       candidate("198.51.100.4", "udp", "relay"),
     ];
@@ -50,7 +50,7 @@ describe("an offer through a discovery", () => {
 
   it("keeps at most the discovery's limit, relayed and UDP ones first, as a phone on Wi-Fi offers more", () => {
     const hosts = Array.from({ length: 8 }, (_, index) =>
-      candidate(`2a0f:1000:1::${String(index + 1)}`, index % 2 === 0 ? "udp" : "tcp", "host"),
+      candidate(`2a0f:5000:1::${String(index + 1)}`, index % 2 === 0 ? "udp" : "tcp", "host"),
     );
     const relays = [
       candidate("198.51.100.4", "udp", "relay"),

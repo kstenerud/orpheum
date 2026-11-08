@@ -180,7 +180,7 @@ the line) or spread thinly over clients (hotels and UK mobile: a relay for every
 
 **Numbers recorded so far:** none in the repository's documents. The handoff notes record that
 D398's stored causes shipped to Connect on 2026-11-03; no week of production counts is written
-down, and this report did not query production. With two households on prod (nas.example and the
+down, and this report did not query production. With two households on prod (the production NAS and the
 owner's own), the count says little until the beta grows.
 
 ## 2. Traffic per household
@@ -262,7 +262,7 @@ The task mentioned Scaleway; the project is on **Hetzner** [repo: `orpheum-ops/m
 - `prod-api`, the production discovery (`connectd`), a Hetzner Cloud VPS in Nuremberg behind a
   Cloudflare Tunnel, inbound TCP 22 only (`orpheum-ops/production/README.md` §2.1, "about €4–8 a
   month").
-- The **edge VPS**, `edge-ubuntu-1gb-nbg1-1`, which forwards `media.orpheum-app.com` to nas.example
+- The **edge VPS**, `edge-ubuntu-1gb-nbg1-1`, which forwards `media.orpheum-app.com` to the production NAS
   over WireGuard and carries staging's STUN. It already relays the owner's own household's
   content: it is a household's own relay in D214 §2's sense, not a service's.
 

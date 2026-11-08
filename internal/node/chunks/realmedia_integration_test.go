@@ -26,7 +26,7 @@ import (
 // A RealMedia film's sound interleaved in super-blocks, as cook is, is whole and at its times in
 // every run: FFmpeg's demuxer loses the super-block a seek lands in, so a run from the film's start
 // told to seek there lost its first, and one led in two seconds early the one its seek landed in,
-// each run's sound moved earlier by what it lost (file 15102 on nas.example, 2026-10-27, whose sound
+// each run's sound moved earlier by what it lost (file 15102 on the production NAS, 2026-10-27, whose sound
 // never started; idiosyncrasies.md). Two runs' chunks join into one sound, from its priming to the
 // film's end.
 func TestMake_AnInterleavedRealMediaSoundIsWholeAndAtItsTimesInEveryRun(t *testing.T) {

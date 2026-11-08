@@ -83,12 +83,12 @@ func TestCheckRelayedOffer_TakesTheSameFingerprintInEveryMediaSection(t *testing
 // holds: an offer cannot make the core send ICE checks into its LAN (the security audit's A2).
 func TestIsFromOutside_RefusesEveryAddressOfTheCoresOwnNetworks(t *testing.T) {
 	t.Parallel()
-	own := func() []netip.Prefix { return []netip.Prefix{netip.MustParsePrefix("2a0f:1000:1:2::/64")} }
+	own := func() []netip.Prefix { return []netip.Prefix{netip.MustParsePrefix("2a0f:5000:1:2::/64")} }
 	for address, want := range map[string]bool{
-		"203.0.113.7": true, "2a0f:1000:9:9::1": true,
+		"203.0.113.7": true, "2a0f:5000:9:9::1": true,
 		"127.0.0.1": false, "::1": false, "169.254.1.1": false, "fe80::1": false, "10.0.0.2": false,
 		"192.168.1.20": false, "172.16.0.1": false, "fd00::1": false, "100.64.0.1": false,
-		"224.0.0.251": false, "0.0.0.0": false, "2a0f:1000:1:2::99": false, "::ffff:192.168.1.20": false,
+		"224.0.0.251": false, "0.0.0.0": false, "2a0f:5000:1:2::99": false, "::ffff:192.168.1.20": false,
 	} {
 		if got := rtcapi.IsFromOutside(net.ParseIP(address), own); got != want {
 			t.Errorf("IsFromOutside(%s) = %t; want %t", address, got, want)
@@ -151,12 +151,12 @@ func answerRelayedBy(server *rtcapi.Server) rtcapitest.Answerer {
 // link-local or IPv4 one, nor an mDNS name, and each once (D356, Q5).
 func TestOfferedIPv6Addresses_AreTheOffersPublicIPv6Candidates(t *testing.T) {
 	t.Parallel()
-	sdp := offerOf(sha256Fingerprint, candidate("2a0f:1000:1:2::9"), candidate("2a0f:1000:1:2::9"),
+	sdp := offerOf(sha256Fingerprint, candidate("2a0f:5000:1:2::9"), candidate("2a0f:5000:1:2::9"),
 		"a=candidate:2 1 udp 1686052607 2a0f:3000:5:6::1 50001 typ srflx raddr :: rport 0",
 		candidate("fd77::1"), candidate("fe80::1"), candidate("11.22.33.144"),
 		candidate("0a1b2c3d-1111-2222-3333-444455556666.local"))
 	got := rtcapi.OfferedIPv6Addresses(sdp)
-	if len(got) != 2 || got[0].String() != "2a0f:1000:1:2::9" || got[1].String() != "2a0f:3000:5:6::1" {
+	if len(got) != 2 || got[0].String() != "2a0f:5000:1:2::9" || got[1].String() != "2a0f:3000:5:6::1" {
 		t.Errorf("the offer's public IPv6 addresses are %v; want its two public IPv6 candidates, once each", got)
 	}
 }

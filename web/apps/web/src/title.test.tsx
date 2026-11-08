@@ -328,7 +328,11 @@ describe("Title", () => {
           {
             "GET /items/11": [
               200,
-              { ...heat, id: 11, unavailable: { reason: "node_away" as const, nodeName: "devnas" } },
+              {
+                ...heat,
+                id: 11,
+                unavailable: { reason: "node_away" as const, nodeName: "devnas" },
+              },
             ],
             "PUT /interest/page": [204, null],
             "DELETE /interest/page": [204, null],
@@ -405,7 +409,10 @@ describe("Title", () => {
     const services = servedBy(
       {
         "GET /items/15": [
-          [200, { ...title, unavailable: { reason: "still_reading" as const, nodeName: "devnas" } }],
+          [
+            200,
+            { ...title, unavailable: { reason: "still_reading" as const, nodeName: "devnas" } },
+          ],
           unanswered,
           [200, title],
         ],

@@ -4,7 +4,7 @@
 
 # Inventory of the unbuilt and the queued (2026-10-27)
 
-- **Status:** PLANNED — written 2026-10-27 at HEAD an earlier commit, after the overlap batch reached nas.example.
+- **Status:** PLANNED — written 2026-10-27 at HEAD an earlier commit, after the overlap batch reached the production NAS.
   The owner: *"Once the overlap batch is done I'll want an inventory of unimplemented features so I
   can decide"*, and *"Give me everything queued alongside the inventory when the time comes and I'll
   decide what happens when."* Nothing here is scheduled until the owner says so; the "next batch"
@@ -67,7 +67,7 @@ Bugs that hurt use come first:
 1. **Rows 1 and 2 of the next batch** (C-1, C-2): a film that exists at another place fails to
    play, and a library folder that is gone still says "complete". Both seen on staging by the owner.
 2. **The top rung's sound** (A-1): a chunked play at the top quality re-encodes sound it could copy
-   (nas.example's Chrome play heard "AAC stereo 96 kb/s, transcoded from AAC stereo"), and a 5.1 film
+   (the production NAS's Chrome play heard "AAC stereo 96 kb/s, transcoded from AAC stereo"), and a 5.1 film
    loses its channels where the device could play them.
 3. **A changed audio track restarts making chunks from 0:00** (H-12): the person waits longer after
    choosing a track or the boost, and the node encodes minutes nobody watches. Small; the owner's
@@ -95,7 +95,7 @@ Then the most valuable unbuilt features:
 
 | # | Item | What it is | Source | State | Size | Depends on / blocks |
 | --- | --- | --- | --- | --- | --- | --- |
-| A-1 | **Top rung's own sound** (NB) | On the best quality the film's own sound is copied, 5.1 where the device plays it, instead of being re-encoded to 96 kb/s stereo; lower rungs stay stereo; one sound group per quality; and the play line stops saying `delivery=direct` on a chunked play | standing orders (owner, 2026-10-27, nas.example's Chrome play) | queued | M | a test of a quality switch's sound blip on devices |
+| A-1 | **Top rung's own sound** (NB) | On the best quality the film's own sound is copied, 5.1 where the device plays it, instead of being re-encoded to 96 kb/s stereo; lower rungs stay stereo; one sound group per quality; and the play line stops saying `delivery=direct` on a chunked play | standing orders (owner, 2026-10-27, the production NAS's Chrome play) | queued | M | a test of a quality switch's sound blip on devices |
 | A-2 | **Our own player controls on computers** (NB) | The player draws its own controls (play, timeline, volume, tracks, full screen) instead of Chrome's, reachable by arrows; also gives subtitles their style in full screen ([D254](../../decisions/working-notes.md#d254--in-the-browsers-own-fullscreen-the-chosen-subtitle-track-is-shown-as-the-browsers-captions)'s "a fullscreen of our own", left for later) | standing orders (owner chose); [ui-widgets-audit](../research/ui-widgets-audit-2026-10-27.md) §4.2 | queued | M–L | the widget set's player steps (D-9); shares its control bar with B-1's remote |
 | A-3 | **Night mode** | Narrowing the loudness range (quiet dialogue, loud explosions) beside the dialogue boost | [D336 §2](../../decisions/working-notes.md#d336--a-films-sound-plays-as-it-is-unless-the-device-cannot-play-it-or-the-person-asks-for-a-feature-that-needs-it-made-no-one-is-asked-how-their-device-makes-sound), [audio-presentation.md](audio-presentation.md); closed-beta B3 | decided | M | — |
 | A-4 | **Next Up on Home** | A Home row of each series' next episode to watch (the series page already shows its own) | closed-beta B1; [play-state.md](play-state.md) | decided | S–M | — |
@@ -159,7 +159,7 @@ Then the most valuable unbuilt features:
 | C-14 | **Disc folders and multi-part films** | A disc's folder (VIDEO_TS, BDMV), an encrypted image, and `cd1`/`cd2` films (images are built) | [D306](../../decisions/working-notes.md#d306--the-scanner-is-tested-on-names-of-our-own-places-an-unnumbered-episode-by-a-guessed-title-match-and-keeps-watching-by-title-and-edition), [D350](../../decisions/working-notes.md#d350--a-disc-image-plays-its-main-title-read-by-the-node-from-the-images-own-structure-and-served-to-ffmpeg-through-fdproxy) §5 | decided (later) | M | the owner kept them out of the beta unless asked |
 | C-15 | **Rescan to find missing media** | The core matches missing files by name across a node's roots, confirmed by hash | [D241](../../decisions/working-notes.md#d241--what-goes-missing-stays-listed-as-unavailable-until-an-admin-says-it-is-gone-and-a-play-of-it-fails-at-once) §8 ("later") | decided (later) | M | — |
 | C-16 | **"Identified incorrectly" shows the file and folder names** | The correction view names the file and its folder, which may hold clues | the owner, 2026-10-20 (lead's notes) | queued | S | — |
-| C-17 | Device checks: copies and the nas.example step | D363's copies on staging (VQ81, mostly passed; its two bugs are C-1, C-2); production's step 0060 with Continue Watching kept (VQ82) | [D363](../../decisions/working-notes.md#d363--libraries-may-overlap-a-file-is-found-once-at-every-place-it-is-and-each-list-shows-an-item-once-however-a-person-reaches-it) | device | — | — |
+| C-17 | Device checks: copies and the production NAS step | D363's copies on staging (VQ81, mostly passed; its two bugs are C-1, C-2); production's step 0060 with Continue Watching kept (VQ82) | [D363](../../decisions/working-notes.md#d363--libraries-may-overlap-a-file-is-found-once-at-every-place-it-is-and-each-list-shows-an-item-once-however-a-person-reaches-it) | device | — | — |
 | C-18 | Device check: the Libraries page on a TV | The Libraries page by a Fire TV's remote (VQ72) | [D349](../../decisions/working-notes.md#d349--libraries-are-browsed-on-a-page-of-their-own-which-replaces-search-a-kind-other-holds-the-videos-that-are-never-identified-films-and-series-gather-every-library-of-theirs-but-those-a-person-leaves-out) | device | — | — |
 
 ## 5. Navigation and UI widgets
@@ -213,7 +213,7 @@ Then the most valuable unbuilt features:
 | F-5 | **An uncertain match's page shows the candidates** | The warning page of an uncertain match lists the candidates and why one was taken ([D365](../../decisions/working-notes.md#d365--among-a-films-candidates-the-one-whose-runtime-fits-the-file-is-preferred-a-year-either-side-of-the-names-then-the-most-voted) logs it) | screens report Q5 | question | S | D-5 |
 
 The hardware playback matrix the owner asked for on 2026-10-23 is done: every machine's row passed
-on 2026-10-24, nas.example's Quick Sync and the Mac's arm64 included (`deploy/hwtest/README.md`), and
+on 2026-10-24, the production NAS's Quick Sync and the Mac's arm64 included (`deploy/hwtest/README.md`), and
 VQ53 is ticked.
 
 ## 8. Infrastructure, process and gates
@@ -230,7 +230,7 @@ VQ53 is ticked.
 | G-8 | **A `.deb`, and Mac or Windows development** | Deferred, not refused | [D235](../../decisions/working-notes.md#d235--development-and-deployment-run-in-containers-one-image-family-one-command-each-built-by-goreleaser) | decided (later) | M | — |
 | G-9 | **Per-test coverage for wiring changes** | A recorded coverage run so revert-red can narrow a change to `NewServer` or `assembly.Build` (nightly or on demand: the owner's call) | code-debt (H-5) | debt | M | the owner's choice |
 | G-10 | **Litestream for connect.db** | Continuous off-site backup of the paid service's database | audit-2026-10-25 R5; service.md P11 | decided | S–M | a dependency and credentials (the owner) |
-| G-11 | Device checks: confinement and hardware on devnas | VQ9 (Landlock escape tests), VQ10 (Quick Sync), VQ16 and VQ17 (the dev image and disk facts) all name devnas, now retired | verification-queue.md | device | — | retarget to nas.example or the amd box, or drop (§13) |
+| G-11 | Device checks: confinement and hardware on the development NAS | VQ9 (Landlock escape tests), VQ10 (Quick Sync), VQ16 and VQ17 (the dev image and disk facts) all name the development NAS, now retired | verification-queue.md | device | — | retarget to the production NAS or the amd box, or drop (§13) |
 | G-12 | Device check: OpenSubtitles on request | VQ11, search and fetch a subtitle on the dev loop | verification-queue.md | device | — | — |
 | G-13 | Device checks: TV lab runs | Fire TV sound and WebRTC (VQ55), the phone remote's endurance (VQ56), extending to a TV from Windows (VQ57), our Cast receiver (VQ58) | tv-device-tests.md | device | — | B-10 waits on VQ58 |
 | G-14 | **An optimisation sweep** | Once most features are in; first loads after a deploy pay one-off costs | the owner's *Later* (2026-10-18) | decided (later) | M–L | — |
@@ -360,7 +360,7 @@ Listed once above; here is what folds into what, and which records disagree with
     and core findings (S1–S5, C3–C6); its one leftover, the three ad-hoc settings caches, is in G-3.
 13. **The subfolder picker** handed on from M4 to m5: built as [D359](../../decisions/working-notes.md#d359--a-librarys-folder-is-any-folder-beneath-one-of-its-nodes-configured-roots-chosen-by-browsing-the-nodes-folders).
 14. **Device checks for retired or moved things:** VQ13 (its prepared half), VQ14, VQ15 and VQ18
-    test the whole-film prepare [D344](../../decisions/working-notes.md#d344--the-whole-film-prepare-is-retired-every-playback-the-device-cannot-play-as-it-is-plays-from-its-ladder-cut-on-time-where-its-keyframes-cannot-be-had) retired; VQ9, VQ10, VQ16 and VQ17 name devnas, retired; VQ19
+    test the whole-film prepare [D344](../../decisions/working-notes.md#d344--the-whole-film-prepare-is-retired-every-playback-the-device-cannot-play-as-it-is-plays-from-its-ladder-cut-on-time-where-its-keyframes-cannot-be-had) retired; VQ9, VQ10, VQ16 and VQ17 name the development NAS, retired; VQ19
     and VQ47 test the VPS tunnel, optional since [D314](../../decisions/working-notes.md#d314--a-core-is-installed-from-a-public-image-on-any-machine-that-runs-docker-with-the-hardware-it-needs-and-with-no-tunnel-a-connection-that-needs-a-relay-fails-and-is-counted). Each wants retargeting or dropping.
 15. **One remote, one control bar:** the widget audit's player set (D-9 steps 1–3), our own controls
     (A-2), D364's remote (B-1) and Watch Together's remote (B-4) are one piece of work in four

@@ -3337,7 +3337,7 @@ export interface components {
         HouseNetworkBody: {
             /** @description A learnt network's: the address in the house of the device that last witnessed it */
             device?: string;
-            /** @description A public IPv6 /64, "2a0f:1000:1:2::/64" */
+            /** @description A public IPv6 /64, "2a0f:5000:1:2::/64" */
             network: string;
             /**
              * @description Learnt from a device that reached the server directly at home, or named in the config

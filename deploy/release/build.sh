@@ -38,7 +38,7 @@ usage() {
 
 # install runs the install script over the directory with the image named, which is this machine's
 # own: nothing is pulled. Then the build cache no build has used for a week goes: each build left its
-# layers there, 6.4 GB on nas.example after a few days of deploys (2026-10-23), while what the next build
+# layers there, 6.4 GB on the production NAS after a few days of deploys (2026-10-23), while what the next build
 # reuses stays. The install script removes the older images themselves.
 install() {
 	sh "$(dirname "$0")/../../internal/deployment/templates/install.sh" --no-pull --image "$image" --dir "$dir" "$@"

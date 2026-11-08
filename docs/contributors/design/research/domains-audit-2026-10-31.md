@@ -36,7 +36,7 @@ hyphen, and one brand domain that the app, the account pages and the mail all li
    saved (`discovery.json`) and every core binary has it compiled in (`discovery.ServiceURL`), and
    on the brand site it only enlarges the set of hosts that share cookies and the passkeys' relying
    party. Keep `api.orpheum-app.com` (§1.6). This removes a whole class of migration work (cores,
-   the install template, nas.example's state) from the move.
+   the install template, the production NAS's state) from the move.
 2. **Staging must leave production's site.** Today `app-staging.`, `api-staging.` and
    `account-staging.orpheum-app.com` are the *same site* as production's account pages; carried
    over as `*-staging.orpheum.cc` it would stay so. Code built in the sandbox can then toss cookies
@@ -185,7 +185,7 @@ and a core's own passkeys (D294 §3) are the core's own names.
 - **Machines hold it, not people.** Every enrolled core keeps its discovery's base URL in its state
   file (`discovery.json`), and the default is compiled in (`internal/core/discovery`
   `ServiceURL = "https://api.orpheum-app.com/core/v1"`) **[V, code]**. Moving it means rewriting
-  nas.example's state, changing the binary, the install template and the docs, and a WebSocket
+  the production NAS's state, changing the binary, the install template and the docs, and a WebSocket
   signalling client does not follow a 301 the way a page does [I]. Keeping it removes all of that
   from the move.
 - **It is the most exposed parser** (offers and addresses from every core on the internet, D292 §4);
@@ -201,7 +201,7 @@ and a core's own passkeys (D294 §3) are the core's own names.
   do not.
 
 `orpheum-app.com` then is not "just redirects": its apex, `app.` and `account.` redirect; `api.`
-serves. Its only other host, `media.orpheum-app.com`, still resolves (to `11.22.44.139`)
+serves. Its only other host, `media.orpheum-app.com`, still resolves (to `198.51.100.139`)
 **[V, dig]**; a core-held certificate on the API's site is what D292 §1 moved cores away from, so it
 should be retired as the replace-media plan intends. With `account.` gone from `orpheum-app.com`,
 nothing on that site holds a cookie any more.
@@ -458,7 +458,7 @@ Each step stands alone and can stop there.
 5. **Production's app and account on `orpheum.cc`:** tunnel routes for the apex, `www.` and
    `account.`; `connectd`'s `-client-origin`, `-account-origin`, `-mail-from` and RP ID; the
    cores learn the new loader origin from `GET /status` with no core release (D293 §4, D308) [I:
-   confirm nas.example's CORS follows it]. The install template's text changes in Orpheum's next
+   confirm the production NAS's CORS follows it]. The install template's text changes in Orpheum's next
    release; `ServiceURL` does not.
 6. **Mail on `orpheum.cc`:** DKIM, SPF, DMARC `p=none` with reports; invitations tested at Gmail,
    Outlook and GMX; then `quarantine`, then `reject`.

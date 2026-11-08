@@ -250,8 +250,8 @@ func TestSignal_AnOfferCarriesItsSourcesIPv6NetworkAndNoIPv4(t *testing.T) {
 	}
 	under := "an offer under " + link.LocatorHash(aLocator)
 	for source, want := range map[string]string{
-		"[2a0f:1000:1:2:aaaa:bbbb:cccc:dddd]:51234": under + " from 2a0f:1000:1:2::/64",
-		"11.22.33.144:51234":                       under,
+		"[2a0f:5000:1:2:aaaa:bbbb:cccc:dddd]:51234": under + " from 2a0f:5000:1:2::/64",
+		"11.22.33.144:51234":                        under,
 		"[fd77::5]:51234":                           under,
 	} {
 		var sent bytes.Buffer

@@ -14,7 +14,7 @@
 //     TestNewClient_FollowsARedirectOnlyWithinItsOrigin.
 //   - It dials a host's IPv6 addresses first, IPv4 after 300 ms or at once when IPv6 fails: Go puts
 //     IPv4 first from a private IPv6 address, as a core in Docker has, and the paid service saw the
-//     house's shared IPv4, never its own IPv6 (nas.example, 2026-10-20).
+//     house's shared IPv4, never its own IPv6 (the production NAS, 2026-10-20).
 //     TestIPv6First_DialsIPv6FirstAndIPv4WhenItFails, TestNewClient_DialsThroughIPv6First.
 //   - It refuses a chain through eMudhra's eight compromised intermediate CAs, as the Go it is built
 //     with does from 1.26.10 (CVE-2026-111943): Go checks no revocation, and the system's store

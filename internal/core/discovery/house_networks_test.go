@@ -77,25 +77,25 @@ func TestHouseNetworks_ADirectConnectionFromTheHouseTeachesItsOffersNetwork(t *t
 		cancel()
 		testutil.Receive(t, done, "the signalling loop to end")
 	})
-	built.fake.signals <- offerFrom("2a0f:1000:1:2::/64", "2a0f:1000:1:2::77")
+	built.fake.signals <- offerFrom("2a0f:5000:1:2::/64", "2a0f:5000:1:2::77")
 	reply := testutil.Receive(t, built.fake.replies, "the core's answer")
 	if reply.Type != discoveryproto.SignalAnswer {
 		t.Fatalf("the offer was answered %+v", reply)
 	}
-	log.AwaitEvent(t, "houseNetworkWitnessed", "network=2a0f:1000:1:2::/64",
+	log.AwaitEvent(t, "houseNetworkWitnessed", "network=2a0f:5000:1:2::/64",
 		"isNew=true", "device=192.168.1.30", "path=direct_ipv4", "offerAgrees=yes")
 	networks := built.service.Status().HouseNetworks
-	if len(networks) != 1 || networks[0].Network.String() != "2a0f:1000:1:2::/64" ||
+	if len(networks) != 1 || networks[0].Network.String() != "2a0f:5000:1:2::/64" ||
 		networks[0].Source != discoveryproto.HouseNetworkLearnt || networks[0].Device != aDeviceAtHome.Device ||
 		!networks[0].WitnessedAt.Equal(built.clock.Now()) {
 		t.Errorf("the house networks are %+v; want the offer's, learnt from 192.168.1.30 now", networks)
 	}
 	// An offer whose own address is in another network is learnt all the same, and the log says so.
-	built.service.learnHouseNetwork(t.Context(), offerFrom("2a0f:1000:1:2::/64", "2a0f:3000:5:6::1"), aDeviceAtHome)
-	log.AwaitEvent(t, "houseNetworkWitnessed", "network=2a0f:1000:1:2::/64", "isNew=false",
+	built.service.learnHouseNetwork(t.Context(), offerFrom("2a0f:5000:1:2::/64", "2a0f:3000:5:6::1"), aDeviceAtHome)
+	log.AwaitEvent(t, "houseNetworkWitnessed", "network=2a0f:5000:1:2::/64", "isNew=false",
 		"offerAgrees=no", "offerNetworks=[2a0f:3000:5:6::/64]")
-	built.service.learnHouseNetwork(t.Context(), offerFrom("2a0f:1000:1:2::/64", ""), aDeviceAtHome)
-	log.AwaitEvent(t, "houseNetworkWitnessed", "network=2a0f:1000:1:2::/64", "isNew=false", "offerAgrees=unknown")
+	built.service.learnHouseNetwork(t.Context(), offerFrom("2a0f:5000:1:2::/64", ""), aDeviceAtHome)
+	log.AwaitEvent(t, "houseNetworkWitnessed", "network=2a0f:5000:1:2::/64", "isNew=false", "offerAgrees=unknown")
 }
 
 // An offer that came over IPv4, or with anything but a public IPv6 /64, teaches nothing, however its
@@ -103,7 +103,7 @@ func TestHouseNetworks_ADirectConnectionFromTheHouseTeachesItsOffersNetwork(t *t
 func TestHouseNetworks_AnOfferFromNoIPv6NetworkTeachesNothing(t *testing.T) {
 	t.Parallel()
 	built := claimedWorld(t)
-	for _, network := range []string{"", "11.22.33.0/24", "2a0f:1000::/32", "fd77:1:2:3::/64", "not a network"} {
+	for _, network := range []string{"", "11.22.33.0/24", "2a0f:5000::/32", "fd77:1:2:3::/64", "not a network"} {
 		built.service.learnHouseNetwork(t.Context(), offerFrom(network, ""), aDeviceAtHome)
 	}
 	if networks := built.service.Status().HouseNetworks; len(networks) != 0 {
@@ -121,7 +121,7 @@ func TestHouseNetworks_ANewNetworkSendsAHeartbeatAtOnce(t *testing.T) {
 	case <-built.service.wake: // the enrolment's own wake, which no loop took
 	default:
 	}
-	built.service.learnHouseNetwork(t.Context(), offerFrom("2a0f:1000:1:2::/64", ""), aDeviceAtHome)
+	built.service.learnHouseNetwork(t.Context(), offerFrom("2a0f:5000:1:2::/64", ""), aDeviceAtHome)
 	select {
 	case <-built.service.wake:
 	default:
@@ -131,10 +131,10 @@ func TestHouseNetworks_ANewNetworkSendsAHeartbeatAtOnce(t *testing.T) {
 	if count := heartbeatCount(built); count != before+1 {
 		t.Fatalf("%d heartbeats after learning; want one more than %d, at once", count, before)
 	}
-	if sent := sentHouseNetworks(t, built); !slices.Equal(sent, []string{"2a0f:1000:1:2::/64 learnt"}) {
+	if sent := sentHouseNetworks(t, built); !slices.Equal(sent, []string{"2a0f:5000:1:2::/64 learnt"}) {
 		t.Errorf("the heartbeat carried %v; want the learnt network", sent)
 	}
-	built.service.learnHouseNetwork(t.Context(), offerFrom("2a0f:1000:1:2::/64", ""), aDeviceAtHome)
+	built.service.learnHouseNetwork(t.Context(), offerFrom("2a0f:5000:1:2::/64", ""), aDeviceAtHome)
 	select {
 	case <-built.service.wake:
 		t.Error("a network witnessed again woke the loop")
@@ -152,15 +152,15 @@ func TestHeartbeat_CarriesTheHouseNetworksMostRecentFirst(t *testing.T) {
 	t.Parallel()
 	built := claimedWorld(t)
 	built.service.parts.ConfiguredHouseNetworks = []netip.Prefix{
-		netip.MustParsePrefix("2a0f:3000:9:8::/64"), netip.MustParsePrefix("2a0f:1000:1:1::/64"),
-		netip.MustParsePrefix("10.0.0.0/8"), netip.MustParsePrefix("2a0f:1000::/32"),
+		netip.MustParsePrefix("2a0f:3000:9:8::/64"), netip.MustParsePrefix("2a0f:5000:1:1::/64"),
+		netip.MustParsePrefix("10.0.0.0/8"), netip.MustParsePrefix("2a0f:5000::/32"),
 	}
-	for _, network := range []string{"2a0f:1000:1:1::/64", "2a0f:1000:1:2::/64", "2a0f:1000:1:1::/64"} {
+	for _, network := range []string{"2a0f:5000:1:1::/64", "2a0f:5000:1:2::/64", "2a0f:5000:1:1::/64"} {
 		built.service.learnHouseNetwork(t.Context(), offerFrom(network, ""), aDeviceAtHome)
 		built.clock.Advance(time.Hour)
 	}
 	built.service.step(t.Context())
-	want := []string{"2a0f:1000:1:1::/64 learnt", "2a0f:1000:1:2::/64 learnt", "2a0f:3000:9:8::/64 configured"}
+	want := []string{"2a0f:5000:1:1::/64 learnt", "2a0f:5000:1:2::/64 learnt", "2a0f:3000:9:8::/64 configured"}
 	if sent := sentHouseNetworks(t, built); !slices.Equal(sent, want) {
 		t.Errorf("the heartbeat carried %v; want %v", sent, want)
 	}
@@ -171,16 +171,16 @@ func TestHeartbeat_CarriesTheHouseNetworksMostRecentFirst(t *testing.T) {
 func TestHouseNetworks_ANetworkUnwitnessedForThirtyDaysIsDropped(t *testing.T) {
 	t.Parallel()
 	built := claimedWorld(t)
-	built.service.learnHouseNetwork(t.Context(), offerFrom("2a0f:1000:1:1::/64", ""), aDeviceAtHome)
+	built.service.learnHouseNetwork(t.Context(), offerFrom("2a0f:5000:1:1::/64", ""), aDeviceAtHome)
 	built.clock.Advance(HouseNetworkKeptFor / 2)
-	built.service.learnHouseNetwork(t.Context(), offerFrom("2a0f:1000:1:2::/64", ""), aDeviceAtHome)
+	built.service.learnHouseNetwork(t.Context(), offerFrom("2a0f:5000:1:2::/64", ""), aDeviceAtHome)
 	built.clock.Advance(HouseNetworkKeptFor / 2)
 	if networks := built.service.Status().HouseNetworks; len(networks) != 2 {
 		t.Fatalf("thirty days after the first was witnessed, the house networks are %+v; want both", networks)
 	}
 	built.clock.Advance(time.Minute)
 	built.service.step(t.Context())
-	if sent := sentHouseNetworks(t, built); !slices.Equal(sent, []string{"2a0f:1000:1:2::/64 learnt"}) {
+	if sent := sentHouseNetworks(t, built); !slices.Equal(sent, []string{"2a0f:5000:1:2::/64 learnt"}) {
 		t.Errorf("past thirty days the heartbeat carried %v; want the first dropped", sent)
 	}
 }
@@ -190,8 +190,8 @@ func TestHouseNetworks_AFifthPushesOutTheLeastRecent(t *testing.T) {
 	t.Parallel()
 	built := claimedWorld(t)
 	for _, network := range []string{
-		"2a0f:1000:1:1::/64", "2a0f:1000:1:2::/64", "2a0f:1000:1:3::/64", "2a0f:1000:1:4::/64",
-		"2a0f:1000:1:1::/64", "2a0f:1000:1:5::/64",
+		"2a0f:5000:1:1::/64", "2a0f:5000:1:2::/64", "2a0f:5000:1:3::/64", "2a0f:5000:1:4::/64",
+		"2a0f:5000:1:1::/64", "2a0f:5000:1:5::/64",
 	} {
 		built.service.learnHouseNetwork(t.Context(), offerFrom(network, ""), aDeviceAtHome)
 		built.clock.Advance(time.Minute)
@@ -200,7 +200,7 @@ func TestHouseNetworks_AFifthPushesOutTheLeastRecent(t *testing.T) {
 	for _, each := range built.service.Status().HouseNetworks {
 		kept = append(kept, each.Network.String())
 	}
-	want := []string{"2a0f:1000:1:5::/64", "2a0f:1000:1:1::/64", "2a0f:1000:1:4::/64", "2a0f:1000:1:3::/64"}
+	want := []string{"2a0f:5000:1:5::/64", "2a0f:5000:1:1::/64", "2a0f:5000:1:4::/64", "2a0f:5000:1:3::/64"}
 	if !slices.Equal(kept, want) {
 		t.Errorf("the house networks are %v; want %v, the second pushed out", kept, want)
 	}
@@ -211,9 +211,9 @@ func TestHouseNetworks_AFifthPushesOutTheLeastRecent(t *testing.T) {
 func TestHouseNetworks_SurviveARestartAndGoWithALeave(t *testing.T) {
 	t.Parallel()
 	built := claimedWorld(t)
-	built.service.learnHouseNetwork(t.Context(), offerFrom("2a0f:1000:1:2::/64", ""), aDeviceAtHome)
+	built.service.learnHouseNetwork(t.Context(), offerFrom("2a0f:5000:1:2::/64", ""), aDeviceAtHome)
 	restarted := built.restart(t).Status().HouseNetworks
-	if len(restarted) != 1 || restarted[0].Network.String() != "2a0f:1000:1:2::/64" ||
+	if len(restarted) != 1 || restarted[0].Network.String() != "2a0f:5000:1:2::/64" ||
 		restarted[0].Device != aDeviceAtHome.Device || !restarted[0].WitnessedAt.Equal(built.clock.Now()) {
 		t.Fatalf("after a restart the house networks are %+v; want the one learnt, by its device and when", restarted)
 	}
@@ -247,22 +247,22 @@ func TestHouseNetworks_AWitnessingAgainIsWrittenOnlyADayOn(t *testing.T) {
 	witness := func(network string) {
 		built.service.learnHouseNetwork(t.Context(), offerFrom(network, ""), aDeviceAtHome)
 	}
-	witness("2a0f:1000:1:1::/64")
-	witness("2a0f:1000:1:2::/64")
+	witness("2a0f:5000:1:1::/64")
+	witness("2a0f:5000:1:2::/64")
 	written := built.files.writeCount(StateFileName)
 	built.clock.Advance(time.Hour)
-	witness("2a0f:1000:1:1::/64")
+	witness("2a0f:5000:1:1::/64")
 	built.clock.Advance(time.Hour)
-	witness("2a0f:1000:1:1::/64")
+	witness("2a0f:5000:1:1::/64")
 	if count := built.files.writeCount(StateFileName); count != written {
 		t.Errorf("two witnessings within a day wrote %d times; want none", count-written)
 	}
 	if networks := built.service.Status().HouseNetworks; len(networks) != 2 ||
-		networks[0].Network.String() != "2a0f:1000:1:1::/64" || !networks[0].WitnessedAt.Equal(built.clock.Now()) {
+		networks[0].Network.String() != "2a0f:5000:1:1::/64" || !networks[0].WitnessedAt.Equal(built.clock.Now()) {
 		t.Errorf("the house networks are %+v; want the one witnessed again first, witnessed now", networks)
 	}
 	built.clock.Advance(houseNetworkKeepEvery - 2*time.Hour)
-	witness("2a0f:1000:1:1::/64")
+	witness("2a0f:5000:1:1::/64")
 	if count := built.files.writeCount(StateFileName); count != written+1 {
 		t.Errorf("a witnessing a day on wrote %d times; want once", count-written)
 	}

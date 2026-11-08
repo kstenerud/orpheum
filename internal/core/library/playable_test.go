@@ -28,7 +28,7 @@ func TestBytesFileOf_NamesAFileUnderARootOfSlash(t *testing.T) {
 }
 
 // A file that cannot be read says since when only when that is known: a node not heard since the
-// core started has no time, which read "since 0001-01-01T00:00:00Z" (nas.example, 2026-10-18).
+// core started has no time, which read "since 0001-01-01T00:00:00Z" (the production NAS, 2026-10-18).
 func TestUnreadableError_SaysSinceWhenOnlyWhenKnown(t *testing.T) {
 	t.Parallel()
 	away := library.UnreadableError{Unreadable: library.Unreadable{Reason: library.NodeAway, NodeID: 1}}

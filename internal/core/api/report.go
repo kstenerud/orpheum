@@ -86,7 +86,7 @@ type SeekBody struct {
 	SoundAfterMs   *int64 `json:"soundAfterMs,omitempty"   minimum:"0" required:"false"`
 	// Steps are the player's last steps when the seek was ready, its quality's choices among them,
 	// each with why: a player that dropped to 360p after a jump on a 77 Mb/s link said nothing of
-	// why (the owner's Firefox on nas.example, 2026-10-20).
+	// why (the owner's Firefox on the production NAS, 2026-10-20).
 	Steps string `json:"steps,omitempty" maxLength:"400" required:"false"`
 	// LinkSamples are the link's last samples when the seek was ready (LinkSamplesBody).
 	LinkSamples string `json:"linkSamples,omitempty" maxLength:"300" required:"false"`

@@ -591,7 +591,7 @@ function DeadEndCauses(props: {
 /**
  * The server's home address once its certificate is held; before then, that it comes within a few
  * minutes, and that until it does admin through the discovery's page at home waits too (D297 §6:
- * the owner, after nas.example's claim, 2026-10-19, met a person's view with nothing saying why).
+ * the owner, after the production NAS's claim, 2026-10-19, met a person's view with nothing saying why).
  */
 function HomeAddressOf(props: { readonly standing: Standing }): JSX.Element | null {
   const { t } = useTranslation();

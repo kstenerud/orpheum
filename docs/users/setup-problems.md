@@ -1,7 +1,7 @@
 # Setting up a server: problems seen, and their fixes
 
 What went wrong when a server was set up as a household sets one up, and what fixed it. Each entry
-starts with what you see. They come from real installs (the first, nas.example, on 2026-10-19), and
+starts with what you see. They come from real installs (the first, the production NAS, on 2026-10-19), and
 grow with each one.
 
 Commands marked **as root** run on the machine the server is installed on, or, in a Proxmox

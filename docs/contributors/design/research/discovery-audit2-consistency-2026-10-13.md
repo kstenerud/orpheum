@@ -5,7 +5,7 @@
 **Read:** `design/discovery-protocol.md`; D72, D214, D218, D221, D243, D246, D267, D273, D274, D275,
 D288, D289, D290, D291; the paid spec (`/yoloai/files/discovery-service-spec.md`, draft 5); plans
 `discovery-core.md`, `discovery-mode.md`, `webrtc-transport.md` and
-`/home/karl/orpheum-discovery/docs/plans/service.md`; the four first-round reports; the code in
+`orpheum-discovery/docs/plans/service.md`; the four first-round reports; the code in
 `discovery/`, `internal/core/discovery/`, `internal/core/portmap/`, `internal/core/certificate/`,
 `internal/core/auth/pairing.go`, `internal/core/backup/`, `internal/core/instancedir/`,
 `internal/core/rtcapi/`, `web/packages/sdk/src/rtc-transport.ts`, at an earlier commit.
@@ -178,8 +178,8 @@ Protocol §3.1 places it under the paid tier. D288 §4 signs the device in "as t
 differently for the core's own codes. Owner's question.
 
 **X16. `service.md` contradicts its own location.**
-- It sits uncommitted in `/home/karl/orpheum-discovery/docs/plans/`. It says it is "planned here,
-  in Orpheum" and that "`/home/karl/orpheum-discovery` holds an empty repository".
+- It sits uncommitted in `orpheum-discovery/docs/plans/`. It says it is "planned here,
+  in Orpheum" and that "`orpheum-discovery` holds an empty repository".
 - Its relative links (`../discovery-protocol.md`, `discovery-core.md`, `discovery-mode.md`,
   `webrtc-transport.md`, `../research/beta-inventory-…`) all break there.
 - Its Q5 asks where it should live, yet it has already moved.

@@ -10,7 +10,7 @@ import (
 
 // ErrCannotBeMade is a chunk whose runs FFmpeg failed on the source, at the same chunk, as often as
 // runFailuresToGiveUp: another run would fail the same way, so a player asking for it is told the
-// film cannot play rather than asked to ask again for as long as it waits (file 15102 on nas.example,
+// film cannot play rather than asked to ask again for as long as it waits (file 15102 on the production NAS,
 // 2026-10-27, its sound queued again every 4.4 s for as long as its player waited).
 var ErrCannotBeMade = errors.New("FFmpeg failed on the film at this chunk each time it was made")
 

@@ -75,7 +75,7 @@ func TestServedCertificates_ServesEachNameTheCertificateForIt(t *testing.T) {
 	}
 	for serverName, want := range map[string]string{
 		"media.orpheum-app.com":                       "media.orpheum-app.com",
-		"2a02-8070-0-0-0-0-0-1.k7xq2.orpheum-app.com": discoveryName,
+		"2a0f-5000-0-0-0-0-0-1.k7xq2.orpheum-app.com": discoveryName,
 		"192-168-1-20.K7XQ2.orpheum-app.com":          discoveryName,
 		"a.b.k7xq2.orpheum-app.com":                   "media.orpheum-app.com",
 		"k7xq2.orpheum-app.com":                       "media.orpheum-app.com",
@@ -98,7 +98,7 @@ func TestServedCertificates_TheDiscoverysIsServedOnlyForItsNames(t *testing.T) {
 	if err := served.HandleRenew(t.Context(), jobs.Job{Kind: jobs.KindRenewCertificate}); err != nil {
 		t.Fatal(err)
 	}
-	if got := servedName(t, served, "2a02-8070-0-0-0-0-0-1.k7xq2.orpheum-app.com"); got != discoveryName {
+	if got := servedName(t, served, "2a0f-5000-0-0-0-0-0-1.k7xq2.orpheum-app.com"); got != discoveryName {
 		t.Errorf("for the core's name the certificate served is %s's; want %s's", got, discoveryName)
 	}
 	for _, serverName := range []string{"", "k7xq2.orpheum-app.com", "media.orpheum-app.com", "192.0.2.7"} {
