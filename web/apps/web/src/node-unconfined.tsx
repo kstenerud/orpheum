@@ -30,11 +30,11 @@ export function NodeUnconfinedLeave(props: {
   const { isBusy, problem, runRequest } = useRequest((cause) => problemText(t, cause));
   const change = (isGiving: boolean): void => {
     runRequest(async () => {
-      const params = { params: { path: { name: node.name } } };
+      const request = { params: { path: { name: node.name } } };
       throwIfRefused(
         isGiving
-          ? await api.PUT("/nodes/{name}/unconfined", params)
-          : await api.DELETE("/nodes/{name}/unconfined", params),
+          ? await api.PUT("/nodes/{name}/unconfined", request)
+          : await api.DELETE("/nodes/{name}/unconfined", request),
       );
       props.onChanged?.();
     });
@@ -67,20 +67,38 @@ export function NodeUnconfinedLeave(props: {
     return null;
   }
   return (
+    <LockedNode
+      node={node}
+      isBusy={isBusy}
+      alert={alert}
+      onAllow={() => {
+        change(true);
+      }}
+    />
+  );
+}
+
+/** A locked machine: what it lacks, the risk, and the leave to run it unconfined, confirmed first. */
+function LockedNode(props: {
+  readonly node: SystemNode;
+  readonly isBusy: boolean;
+  readonly alert: JSX.Element | null;
+  readonly onAllow: () => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  return (
     <div>
       <p role="alert">{t("system.unconfined.locked")}</p>
-      <NodeConfinementView node={node} />
+      <NodeConfinementView node={props.node} />
       <p>{t("system.unconfined.risk")}</p>
       <ConfirmButton
         label={t("system.unconfined.allow")}
-        isDisabled={isBusy}
+        isDisabled={props.isBusy}
         consequence={t("system.unconfined.consequence")}
         confirmLabel={t("system.unconfined.allowConfirm")}
-        onConfirm={() => {
-          change(true);
-        }}
+        onConfirm={props.onAllow}
       />
-      {alert}
+      {props.alert}
     </div>
   );
 }
