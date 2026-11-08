@@ -443,6 +443,12 @@ func TestServe_ComesUpReadyAndStopsCleanly(t *testing.T) {
 	if !strings.Contains(captured.String(), `"setupCode"`) {
 		t.Errorf("a server with no users logs no setup code:\n%s", captured)
 	}
+	for line := range strings.Lines(captured.String()) {
+		if strings.Contains(line, `"setupCode"`) && !strings.Contains(line, "open Orpheum in a browser at home") {
+			t.Errorf("the setup code's line does not say where it goes, for a person who sees only the "+
+				"container's log (D447):\n%s", line)
+		}
+	}
 	if err := server.stop(); err != nil {
 		t.Errorf("serve returned %v after a clean stop, want nil", err)
 	}

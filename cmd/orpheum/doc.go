@@ -4,6 +4,8 @@
 // (core, node) or the operation (migrate, backup, restore, doctor, setup-code, reset-admin, openapi,
 // version, and dev in dev builds). The core and each node are services of their own, `orpheum core` and
 // `orpheum node`, which the runtime starts and restarts (D233 §2, D235 §4); the core starts no node.
+// `orpheum start` is the core of a deployment installed from one compose file, which writes the
+// deployment from its flags the first time (D447).
 //
 // This is the composition root. It is the only package that reads argv, the environment or the
 // process's standard streams, and the only one that exits; it builds the logger and the clock, opens
@@ -32,6 +34,11 @@
 //   - The node role, node.go, imports nothing from internal/core or internal/store, as the node's
 //     own packages do not (D33); what both roles need is in internal/platform. Enforced by the
 //     depguard rule node-role-boundary.
+//   - start writes a deployment from its flags only where none is, needs --lan-address to, and
+//     leaves one already there as it is: after the first start the files rule (D447). Enforced by
+//     TestFirstStart_WritesTheDeploymentFromItsFlagsWhenThereIsNone,
+//     TestFirstStart_LeavesADeploymentThereAlreadyAsItIs and
+//     TestFirstStart_RefusesToWriteWithoutTheAddressAtHome.
 //   - Only this package prints. Enforced by the forbidigo rule tagged [print].
 //   - A planned subcommand that is not built yet exits 2 and says so; it never exits 0.
 //     Enforced by TestDispatch_PlannedSubcommandsAreNotImplementedYet in main_test.go.
@@ -70,6 +77,7 @@
 //     operations.go: default-config, migrate, backup, restore, setup-code and openapi.
 //     reset_admin.go: reset-admin, the operator's way back in (D294), terminal_linux.go its
 //     password read without echo.
+//     deployment.go: write-deployment and install-script; start.go: start, the first start (D447).
 //     doctor.go: doctor, the one list of what to fix. dev_seed.go: orpheum dev seed, in dev
 //     builds only.
 //   - serve.go's openAndWire and wireCore: what is opened, seeded and read for the assembly, and what
