@@ -284,9 +284,7 @@ RESOLVE_BASE = $(PYTHON) scripts/branch_base.py $(if $(BASE),--base '$(BASE)')
 # tiers, minutes spent behind a lint error found in one (D424, 2026-11-05). The piecework re-run,
 # check-pr-failed, still stops at a failed tier. Each
 # step runs through pr-step-<step>, which records whether it passed and on what commit
-# (scripts/check_pr_steps.py), so `make check-pr-failed` can re-run only what failed. check-source is
-# among the fast steps: a new file without its licence line passed check-pr once (the owner,
-# 2026-11-08: "make it run the check").
+# (scripts/check_pr_steps.py), so `make check-pr-failed` can re-run only what failed.
 PR_FAST_STEPS := check-test-weakening check-decision-status lint-commits check-source
 PR_MEDIUM_STEPS := test-integration web-lint-full
 PR_SLOW_STEPS := test-browser
