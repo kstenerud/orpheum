@@ -158,6 +158,19 @@ def check_hashes(c: Commit) -> list[Problem]:
     ]
 
 
+SESSION_LINE_RE = re.compile(r"^Claude-Session:", re.MULTILINE)
+
+
+def check_session_line(c: Commit) -> list[Problem]:
+    """No commit names the Claude Code session that wrote it: the link is private and the
+    history is public (the owner, 2026-11-08)."""
+    if not SESSION_LINE_RE.search(c.body):
+        return []
+    return [Problem(c.sha, c.subject, "session-line",
+                    "carries a Claude-Session: line; the history is public and the session is not. "
+                    "Drop the line (Co-Authored-By stays, rule 13)")]
+
+
 def read_commits(base: str, head: str) -> list[Commit]:
     sep, rec = "\x1f", "\x1e"
     out = subprocess.run(
@@ -191,6 +204,7 @@ def lint(commits: list[Commit]) -> list[Problem]:
         problems.extend(check_body(c))
         problems.extend(check_trailers(c))
         problems.extend(check_hashes(c))
+        problems.extend(check_session_line(c))
     return problems
 
 
