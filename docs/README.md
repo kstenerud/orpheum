@@ -9,7 +9,7 @@ Docs are organised by **role** — the layer you are operating in. Pick your tie
 
 The project is in a **closed beta**: its first release shipped on 2026-10-21 and runs in its
 owner's home. How it was built, by AI agents under one engineer's direction, is in
-[`how-it-was-built.md`](how-it-was-built.md).
+[`contributors/how-it-is-built.md`](contributors/how-it-is-built.md).
 
 Start at [`contributors/design/overview.md`](contributors/design/overview.md) for the
 product-altitude picture, and
