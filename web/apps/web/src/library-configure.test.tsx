@@ -17,6 +17,7 @@ import {
   type Mounted,
 } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
+import { IsAdminContext } from "./warning-sign.tsx";
 
 type LibraryBody = components["schemas"]["LibraryBody"];
 
@@ -49,11 +50,17 @@ const preferences = {
   leftOutOfHomeLibraryIds: [3],
 };
 
-/** A library's Configure, opened, over a stand-in server that hears what is sent. */
-async function configured(of: LibraryBody, heard: Heard[] = []): Promise<HTMLElement> {
+/** A library's Configure, opened, over a stand-in server that hears what is sent; an admin's if isAdmin. */
+async function configured(
+  of: LibraryBody,
+  heard: Heard[] = [],
+  isAdmin = false,
+): Promise<HTMLElement> {
   mounted = await mount(
     withServices(
-      <LibraryConfigure library={of} />,
+      <IsAdminContext value={isAdmin}>
+        <LibraryConfigure library={of} />
+      </IsAdminContext>,
       servedBy(
         {
           "GET /me/preferences": [200, preferences],
@@ -130,6 +137,17 @@ describe("a library's Configure (the owner, 2026-10-27; D349 §8, D366 §5)", ()
     await click(boxes[1]);
     await settleUntil(() => puts(heard).length > 0);
     expect(puts(heard)).toEqual([{ leftOutOfHomeLibraryIds: [3, 1] }]);
+  });
+
+  it("leads an admin to the library's own page, to manage it, and offers no one else the way (the owner, 2026-11-08)", async () => {
+    const admins = await configured(library(7, "Films", "movie"), [], true);
+    const manage = admins.querySelector<HTMLAnchorElement>("dialog a");
+    expect(manage?.textContent).toBe("Manage this library");
+    expect(manage?.getAttribute("href")).toBe("/libraries/7");
+    mounted?.unmount();
+    const someones = await configured(library(7, "Films", "movie"));
+    expect(someones.querySelector("dialog a")).toBeNull();
+    expect(someones.textContent).not.toContain("Manage this library");
   });
 
   it("closes on a remote's Back, and by its Close, the cross every dialog has", async () => {

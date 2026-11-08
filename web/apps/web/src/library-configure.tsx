@@ -4,15 +4,17 @@ import "./library-configure.css";
 
 import type { components } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
-import { useCallback, useState, type JSX } from "react";
+import { use, useCallback, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { IconButton } from "./icon-button.tsx";
+import { Link } from "./link.tsx";
 import { GearIcon } from "./listing-tools.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useResource } from "./use-resource.ts";
+import { IsAdminContext } from "./warning-sign.tsx";
 
 /** A library, as the server sends it. */
 type LibraryBody = components["schemas"]["LibraryBody"];
@@ -29,7 +31,10 @@ type LeaveOutField = "leftOutLibraryIds" | "leftOutOfHomeLibraryIds";
  * they are made. Show in Films, or in Series (D349 §8, the owner: *"The user can exclude a library from
  * that aggregated view"*), a library of films or of series alone: on, Films or Series gathers it; off, its
  * titles show only on the Libraries page. Show on Home (D366 §5, *"It's a choice each person makes"*):
- * on, Home's rows draw from it; off, it adds nothing to Home. Escape or a remote's Back closes it.
+ * on, Home's rows draw from it; off, it adds nothing to Home. An admin's has Manage this library too,
+ * leading to the library's own page, its folders and scans (the owner, 2026-11-08: "'manage this
+ * library' should be an option via the gear icon in the library page"); no one else sees it. Escape
+ * or a remote's Back closes it.
  */
 export function LibraryConfigure(props: { readonly library: LibraryBody }): JSX.Element {
   const { t } = useTranslation();
@@ -53,9 +58,26 @@ export function LibraryConfigure(props: { readonly library: LibraryBody }): JSX.
           onClose={close}
         >
           <LibraryChoices library={props.library} />
+          <ManageThisLibrary libraryId={props.library.id} />
         </ModalDialog>
       ) : null}
     </>
+  );
+}
+
+/** An admin's way from the dialog to the library's own page, where it is managed (D361); else nothing. */
+function ManageThisLibrary(props: { readonly libraryId: number }): JSX.Element | null {
+  const { t } = useTranslation();
+  const isAdmin = use(IsAdminContext);
+  if (!isAdmin) {
+    return null;
+  }
+  return (
+    <p className="library-configure__manage">
+      <Link to={{ screen: "library", libraryId: props.libraryId }}>
+        {t("libraryConfigure.manage")}
+      </Link>
+    </p>
   );
 }
 
