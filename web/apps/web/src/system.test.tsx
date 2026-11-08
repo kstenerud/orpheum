@@ -113,6 +113,7 @@ async function shown(node: SystemNode): Promise<string> {
         "GET /config/unused": [200, { unusedSettings: [] }],
         "GET /filing-reports": [200, { reports: [] }],
         "GET /system/discovery": noDiscovery,
+        "GET /system/update": [200, { version: "dev", checkedAt: 0 }],
         "GET /now-playing": [200, { playbacks: [] }],
       }),
     ),
@@ -279,6 +280,7 @@ it("the System page says what is not answering, and each outside service's limit
         "GET /config/unused": [200, { unusedSettings: [] }],
         "GET /filing-reports": [200, { reports: [] }],
         "GET /system/discovery": noDiscovery,
+        "GET /system/update": [200, { version: "dev", checkedAt: 0 }],
         "GET /now-playing": [200, { playbacks: [] }],
         "GET /system": [
           200,
@@ -339,6 +341,7 @@ it("the System page says when the public name's certificate expires, or that the
           "GET /config/unused": [200, { unusedSettings: [] }],
           "GET /filing-reports": [200, { reports: [] }],
           "GET /system/discovery": noDiscovery,
+          "GET /system/update": [200, { version: "dev", checkedAt: 0 }],
           "GET /now-playing": [200, { playbacks: [] }],
         }),
       ),

@@ -79,6 +79,7 @@ describe("the server's own videos on the System page (D435 §7)", () => {
           "GET /config/unused": [200, { unusedSettings: [] }],
           "GET /filing-reports": [200, { reports: [] }],
           "GET /system/discovery": [500, { title: "down" }],
+          "GET /system/update": [200, { version: "dev", checkedAt: 0 }],
           "GET /now-playing": [200, { playbacks: [] }],
           "GET /system/reachability": [500, { title: "down" }],
           "GET /system/videos": [200, made],

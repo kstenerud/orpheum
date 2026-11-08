@@ -10,7 +10,8 @@ import { useUpdate, type Update } from "./update.ts";
 /**
  * How to update, for an admin (security-updates.md Part B): the version the server runs, the newer
  * one and the security fix it lacks when there are, and the steps, the command among them: the
- * release's own install script, run again over the deployment, which keeps everything (D314).
+ * release's own install script, run again over the deployment, which keeps everything (D314); and,
+ * for a server run from the compose file, which follows the latest release, pulling it (D450 §2).
  */
 export function HowToUpdate(): JSX.Element {
   const { t } = useTranslation();
@@ -55,8 +56,52 @@ export function HowToUpdateView(props: {
           <li>{t("update.step3")}</li>
         </ol>
       )}
+      {update.command === undefined ? null : <ComposeSteps />}
       {update.digest === undefined ? null : <p>{t("update.digest", { digest: update.digest })}</p>}
     </>
+  );
+}
+
+/** The command that pulls the release the compose file follows and starts it (D450 §2). */
+const composeUpdateCommand = "docker compose pull && docker compose up -d";
+
+/**
+ * How a server run from the compose file updates (D450 §2): its images follow the latest release, so
+ * pulling them and starting again takes the new one, in OpenMediaVault's Compose page or at a prompt.
+ */
+function ComposeSteps(): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <>
+      <p>{t("update.composeIntro")}</p>
+      <ul>
+        <li>{t("update.composeOMV")}</li>
+        <li>
+          {t("update.composeDocker")}
+          <pre>
+            <code>{composeUpdateCommand}</code>
+          </pre>
+        </li>
+      </ul>
+    </>
+  );
+}
+
+/**
+ * The System page's Updates section (D450 §2): the version the server runs and a newer one, with how
+ * to update it. Shown once read, and not at all while it is not.
+ */
+export function UpdateSystem(): JSX.Element | null {
+  const { t } = useTranslation();
+  const update = useUpdate(true);
+  if (update.state !== "loaded" || update.value === undefined) {
+    return null;
+  }
+  return (
+    <section aria-labelledby="system-update">
+      <h2 id="system-update">{t("update.settingsHeading")}</h2>
+      <HowToUpdateView update={update.value} />
+    </section>
   );
 }
 

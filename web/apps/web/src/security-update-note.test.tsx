@@ -17,7 +17,7 @@ import {
   type Mounted,
 } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
-import { HowToUpdateView, UpdateSettings } from "./update-page.tsx";
+import { HowToUpdateView, UpdateSettings, UpdateSystem } from "./update-page.tsx";
 import { securityUpdateSnoozeKey, snoozeLastsMs, type Update } from "./update.ts";
 
 let mounted: Mounted | undefined;
@@ -166,7 +166,18 @@ describe("How to update", () => {
       "Your version lacks a security fix, which v0.3.2 has: A sign-in could be guessed.",
     );
     expect(mounted.container.querySelector("pre code")?.textContent).toBe(command);
+    expect(text).toContain("If you installed the server with its install script");
     expect(text).toContain(pending.digest);
+  });
+
+  it("gives a compose-file server's way too: OpenMediaVault's Pull then Up, or docker compose (D450 §2)", async () => {
+    mounted = await mount(withServices(<HowToUpdateView update={pending} />));
+    const text = mounted.container.textContent;
+    expect(text).toContain("press Pull, then Up.");
+    const commands = [...mounted.container.querySelectorAll("pre code")].map(
+      (each) => each.textContent,
+    );
+    expect(commands).toEqual([command, "docker compose pull && docker compose up -d"]);
   });
 
   it("says the server runs the latest, with no command", async () => {
@@ -190,5 +201,17 @@ describe("UpdateSettings", () => {
     await settleUntil(() => shown.container.textContent.includes("v0.3.3 is available."));
     expect(shown.container.textContent).toContain("This server runs v0.3.2.");
     expect(shown.container.querySelector('a[href="/update"]')?.textContent).toBe("How to update");
+  });
+});
+
+describe("UpdateSystem", () => {
+  it("says on the System page that a newer version is available, and how to update (D450 §2)", async () => {
+    mounted = await mount(
+      withServices(<UpdateSystem />, servedBy({ "GET /system/update": [200, pending] })),
+    );
+    const shown = mounted;
+    await settleUntil(() => shown.container.textContent.includes("v0.3.3 is available."));
+    expect(shown.container.querySelector("h2")?.textContent).toBe("Updates");
+    expect(shown.container.textContent).toContain("docker compose pull && docker compose up -d");
   });
 });

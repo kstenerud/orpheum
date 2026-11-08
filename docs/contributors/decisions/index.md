@@ -117,7 +117,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D109](working-notes.md#d109--five-corpus-tiers-and-nobody-has-to-download-media-to-run-the-suite) Five corpus tiers, and nobody has to download media to run the suite — *revisited by D190*
 - [D110](working-notes.md#d110--every-threshold-gate-compares-against-a-frozen-baseline-and-the-assertion-is-chosen-per-test) Every threshold gate compares against a frozen baseline, and the assertion is chosen per test
 - [D111](working-notes.md#d111--assumptions-is-a-test-directory) `assumptions/` is a test directory
-- [D112](working-notes.md#d112--the-node-probes-its-confinement-and-reports-it-the-escape-test-asserts-what-is-in-force) The node probes its confinement and reports it; the escape test asserts what is in force — *revisited by D190, D273*
+- [D112](working-notes.md#d112--the-node-probes-its-confinement-and-reports-it-the-escape-test-asserts-what-is-in-force) The node probes its confinement and reports it; the escape test asserts what is in force — *revisited by D190, D273, D450*
 - [D113](working-notes.md#d113--a-target-is-a-percentile-at-a-stated-concurrency-at-two-library-sizes-against-a-frozen-baseline) A target is a percentile at a stated concurrency, at two library sizes, against a frozen baseline
 - [D114](working-notes.md#d114--a-pass-costs-what-it-costs-because-of-one-thing-whether-it-decodes-video) A pass costs what it costs because of one thing: whether it decodes video — *revisited by D148, D162, D184*
 - [D115](working-notes.md#d115--intro-detection-is-fingerprint-first-and-chromaprint-needs-a-stereo-downmix-or-it-fails-outright) Intro detection is fingerprint-first, and chromaprint needs a stereo downmix or it fails outright
@@ -455,7 +455,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D447](working-notes.md#d447--a-server-is-installed-from-one-compose-file-its-first-start-writing-the-deployment-from-its-command-line) A server is installed from one compose file, its first start writing the deployment from its command line — *revisited by D448, D449*
 - [D448](working-notes.md#d448--a-server-installs-and-finds-its-parts-with-as-little-skill-as-possible-the-deployment-audits-proposals-adopted) A server installs and finds its parts with as little skill as possible: the deployment audit's proposals, adopted — *revisited by D449, D452*
 - [D449](working-notes.md#d449--the-compose-files-server-settings-at-every-start-its-machines-port-the-setup-codes-file-media-folders-and-catalogues) The compose file's server: settings at every start, its machine's port, the setup code's file, media folders and catalogues
-- [D450](working-notes.md#d450--reserved-an-unconfined-node-accepted-in-the-servers-pages-and-updates-announced) Reserved: an unconfined node accepted in the server's pages, and updates announced
+- [D450](working-notes.md#d450--an-unconfined-node-accepted-in-the-servers-pages-and-updates-announced) An unconfined node accepted in the server's pages, and updates announced
 - [D451](working-notes.md#d451--reserved-remote-access-approved-from-the-account) Reserved: remote access approved from the account
 - [D452](working-notes.md#d452--reserved-the-address-at-home-learned-at-setup) Reserved: the address at home learned at setup
 
