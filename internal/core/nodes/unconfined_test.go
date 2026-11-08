@@ -69,6 +69,9 @@ func TestLocked_ANodeIsHeldUntilAnAdminLetsItRunUnconfined(t *testing.T) {
 	if connection, _ := harness.service.NodeConnection(t.Context(), nodeID); connection != Connected {
 		t.Errorf("the node's connection after its hello = %s; want connected", connection)
 	}
+	if _, _, isLocked := harness.service.LockedConfinement(nodeID); isLocked {
+		t.Error("the node is still locked after its hello; want its locked report forgotten")
+	}
 	if err = harness.service.AcceptUnconfined(t.Context(), "elsewhere", adminID); !errors.Is(err, ErrNoNode) {
 		t.Errorf("a leave for a node there is not = %v; want ErrNoNode", err)
 	}
@@ -97,5 +100,27 @@ func TestLocked_AReportInAnotherProtocolIsRefused(t *testing.T) {
 	}
 	if _, status := harness.postLocked(t, nodeproto.LockedReport{}); status != http.StatusBadRequest {
 		t.Errorf("a report naming no node answered %d; want 400", status)
+	}
+}
+
+// A retired node's locked report goes with it, so nothing shows it locked afterwards (D450 §1).
+func TestLocked_ARetiredNodeIsNoLongerLocked(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Hour)
+	lacking := []nodeproto.Confinement{{Mechanism: "landlock", CauseCode: "disabled_at_boot"}}
+	if _, status := harness.postLocked(t, nodeproto.LockedReport{Name: "nas", Confinement: lacking}); status !=
+		http.StatusOK {
+		t.Fatalf("the report answered %d; want 200", status)
+	}
+	nodeID, err := Enrol(t.Context(), harness.database, harness.clock, "nas")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertShownLocked(t, harness.service, nodeID)
+	if err = harness.service.RemoveNode(t.Context(), nodeID); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, isLocked := harness.service.LockedConfinement(nodeID); isLocked {
+		t.Error("the retired node is still locked; want its locked report gone with it")
 	}
 }
