@@ -382,7 +382,7 @@ function OfflineStorage(props: { readonly offline: readonly Offline[] }): JSX.El
 function NodeFacts(props: {
   readonly node: SystemNode;
   readonly onRetire: () => void;
-  readonly onChanged?: () => void;
+  readonly onChanged?: (() => void) | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
   const { node } = props;

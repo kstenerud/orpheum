@@ -22,7 +22,7 @@ type SystemNode = components["schemas"]["SystemNodeBody"];
 export function NodeUnconfinedLeave(props: {
   readonly node: SystemNode;
   /** The leave was given or withdrawn: read the report again. */
-  readonly onChanged?: () => void;
+  readonly onChanged?: (() => void) | undefined;
 }): JSX.Element | null {
   const { t } = useTranslation();
   const { api } = useServices();
