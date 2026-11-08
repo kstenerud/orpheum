@@ -187,3 +187,71 @@ pipes.
 Raise the limit on the host (a container shares its host's): add
 `fs.pipe-user-pages-soft = 65536` (256 MiB) to `/etc/sysctl.d/90-orpheum-pipes.conf`, then run
 `sysctl --system`. The node logs this once per start.
+
+## Installed from the one compose file, or on OpenMediaVault
+
+These are for a server installed from [`deploy/omv/compose.yaml`](../../deploy/omv/compose.yaml)
+([install.md](install.md)). Its containers are `orpheum-core`, `orpheum-node` and `orpheum-folders`;
+in OpenMediaVault their logs are under **Services > Compose > Containers**, elsewhere
+`docker logs <name>`.
+
+### Up says "required variable ORPHEUM_LAN_ADDRESS is missing a value" (or `PATH_TO_APPDATA`, `ORPHEUM_MEDIA`)
+
+Compose stops before anything starts: the file needs that value. In OpenMediaVault, put it in the
+file's **Environment** (`ORPHEUM_MEDIA`, `ORPHEUM_LAN_ADDRESS`) or check the global environment file
+(`PATH_TO_APPDATA`); elsewhere, in the `.env` file beside `compose.yaml`.
+
+### The core's log says "--lan-address is needed the first time"
+
+The core was started without the machine's address at home, which its container cannot see and
+which decides where an admin may administer from. Set `ORPHEUM_LAN_ADDRESS` to the machine's
+address on the home network (`192.168.1.20`, not `127.0.0.1` nor a public address), then **Up**
+again. A wrong address is refused the same way, naming `lan.address`.
+
+### Up says a port "is already allocated", or the page opens OpenMediaVault instead
+
+Another service has the port: OpenMediaVault's own web interface takes 80 (and 443), or 8443 once
+moved as omv-extras' guide moves it; another app may have 8440 or 8444. Set `ORPHEUM_HTTP_PORT` or
+`ORPHEUM_HTTPS_PORT` to a free port. For the HTTPS port, also delete `appdata/orpheum/values.toml`
+before the next **Up**, so the server tells devices the new port ([install.md](install.md)).
+
+### `orpheum-folders` exited with an error, or the core's log says "permission denied" under /var/lib/orpheum
+
+`orpheum-folders` makes `appdata/orpheum` and gives it to `APPUSER_PUID`:`APPUSER_PGID` before the
+server starts; the server never runs as root, so it cannot write a folder Docker made for root.
+It fails where the app data lies on a filesystem that refuses a change of owner, such as a network
+share (NFS, SMB). Put `PATH_TO_APPDATA` on a local disk, or make `appdata/orpheum` and its `node`
+and `run` folders yourself, owned by that user.
+
+### The core's log says the setup code, but it has scrolled away
+
+The core writes it again at every start until the first admin is made: restart `orpheum-core`, or
+run `docker exec orpheum-core orpheum setup-code --instance /var/lib/orpheum/core`.
+
+### A library's folder is "not found", or the node's log says "permission denied" reading a film
+
+Inside the containers the media folder is `/media`: a library names `/media/Films`, not
+`/srv/dev-disk-by-uuid-…/Media/Films`. If the path is right, the app user cannot read it: in
+OpenMediaVault, **Storage > Shared Folders**, the media folder, **Permissions**: give the user
+`APPUSER_PUID` names read access (the folder's ACL too, if it has one).
+
+### Up fails with "sysctl net.mptcp.enabled is not allowed", or "open /proc/sys/net/mptcp/enabled: no such file"
+
+The machine's kernel has no MPTCP, as some single-board computers' kernels have not. Each service
+of the file turns MPTCP off in its own network (CVE-2026-98432), which a kernel without it refuses.
+Delete each `net.mptcp.enabled: "0"` line, and any `sysctls:` left with nothing under it; such a
+kernel has nothing for the flaw to reach.
+
+### Up fails creating the network, with an IPv6 error
+
+The file gives the server's network a private IPv6 range, so it reaches the internet over IPv6 as
+over IPv4. An old Docker Engine (before 27) makes IPv6 networks only with IPv6 on in its own
+settings: update Docker (OpenMediaVault's **Services > Compose > Settings** reinstalls it). If the
+error says the range overlaps another network, set `ORPHEUM_IPV6_SUBNET` to another `/64` in
+`fd00::/8`, `fd77:5e:0:fffe::/64`.
+
+### The GPU is not used: films are encoded in software
+
+The node needs `/dev/dri` and the render group's number ([install.md](install.md#hardware-encoding)):
+uncomment `devices` and `group_add` in the node's part of the file and set `RENDER_GID`, then **Up**.
+The System page names the node's encoder once it uses the GPU.

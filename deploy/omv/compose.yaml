@@ -1,0 +1,137 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Orpheum from one compose file (D447): paste it into OpenMediaVault's Services > Compose > Files, or
+# put it in a folder of its own beside a .env file on any machine with Docker, and start it. The core's
+# first start writes the deployment into ${PATH_TO_APPDATA}/orpheum from the variables below, which
+# compose fills into its command line (a release reads no environment but TZ, D204); after that the
+# files there rule. docs/users/install.md says how, step by step.
+#
+# Needed:
+#   PATH_TO_APPDATA       the folder that holds each app's data: OpenMediaVault's global.env sets it
+#   ORPHEUM_MEDIA         the folder that holds your films and series, as this machine names it
+#   ORPHEUM_LAN_ADDRESS   this machine's address on your home network, 192.168.1.20
+# Optional:
+#   ORPHEUM_TAG           the version to run
+#   APPUSER_PUID, APPUSER_PGID  who the server runs as and owns its data: global.env sets them
+#   TIME_ZONE_VALUE       the time zone, Europe/Berlin: global.env sets it
+#   ORPHEUM_HTTP_PORT     the port a browser at home opens it on, http://<address>:8440
+#   ORPHEUM_HTTPS_PORT    the port devices at home reach it on over HTTPS, and over WebRTC (UDP), by the
+#                         name its discovery gives this machine; 8444, as OpenMediaVault's own web UI
+#                         may take 8443
+#   ORPHEUM_ROUTER        your router's address, 192.168.1.1, which the server asks to forward the HTTPS
+#                         port so devices away from home reach it; none maps nothing
+#   ORPHEUM_NAME          the name the media node goes by in the server's pages
+#   ORPHEUM_IPV6_SUBNET   the private IPv6 /64 of its network, if fd77:5e:0:ffff::/64 is taken
+#   RENDER_GID            the render group's number, with the GPU lines below uncommented
+#
+# Each service turns MPTCP off in its network (CVE-2026-98432): the setting is each network's own, so
+# the host's does not reach it. A kernel with no MPTCP refuses it: delete those two lines there.
+
+services:
+  # Makes the data's folders and gives them to the user the server runs as, once, before it starts:
+  # Docker makes a missing folder as root, which the server, never root, could not write.
+  orpheum-folders:
+    container_name: orpheum-folders
+    image: ghcr.io/kstenerud/orpheum:${ORPHEUM_TAG:-v0.3.0-beta.7}
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["mkdir -p /appdata/node /appdata/run && chown ${APPUSER_PUID:-1000}:${APPUSER_PGID:-100} /appdata /appdata/node /appdata/run"]
+    network_mode: none
+    sysctls:
+      net.mptcp.enabled: "0"
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE]
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - ${PATH_TO_APPDATA:?set PATH_TO_APPDATA to the folder that holds each app's data}/orpheum:/appdata
+    restart: "no"
+
+  # The server: the API, the web client, HTTPS at home by its LAN name, WebRTC. It writes the
+  # deployment the first time, its own instance and the node's. Port 443 is bound inside its own
+  # network by the core, as a user: the sysctl, which is this network's own, lets it.
+  orpheum-core:
+    container_name: orpheum-core
+    image: ghcr.io/kstenerud/orpheum:${ORPHEUM_TAG:-v0.3.0-beta.7}
+    user: "${APPUSER_PUID:-1000}:${APPUSER_PGID:-100}"
+    hostname: ${ORPHEUM_NAME:-orpheum}
+    command:
+      - start
+      - --lan-address
+      - ${ORPHEUM_LAN_ADDRESS:?set ORPHEUM_LAN_ADDRESS to this machine's address on your home network}
+      - --lan-https-port
+      - ${ORPHEUM_HTTPS_PORT:-8444}
+      - --lan-webrtc-port
+      - ${ORPHEUM_HTTPS_PORT:-8444}
+      - --router
+      - ${ORPHEUM_ROUTER:-}
+      - --media
+      - /media
+    environment:
+      TZ: ${TIME_ZONE_VALUE:-Etc/UTC}
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: "0"
+      net.mptcp.enabled: "0"
+    volumes:
+      - ${PATH_TO_APPDATA:?}/orpheum:/var/lib/orpheum
+      - ${PATH_TO_APPDATA:?}/orpheum/run:/run/orpheum
+    ports:
+      - "${ORPHEUM_HTTP_PORT:-8440}:8440"
+      - "${ORPHEUM_HTTPS_PORT:-8444}:443"
+      # WebRTC from devices at home, on the same port inside, which the core offers them (D300).
+      - "${ORPHEUM_HTTPS_PORT:-8444}:${ORPHEUM_HTTPS_PORT:-8444}/udp"
+    networks: [outside]
+    depends_on:
+      orpheum-folders:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      # /api/v1/health answers while the server starts, migrates or is degraded, and says which.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8440 && printf 'GET /api/v1/health HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q ' 200 ' <&3"]
+      interval: 10s
+      start_period: 60s
+
+  # The media node (D233 §2): every file read and FFmpeg run, confined (D193 §7). It sees the media,
+  # read-only, its own instance, which the core's first start wrote, and the sockets in run/ it reaches
+  # the core by; it has no network. Its root is read-only and /tmp a tmpfs nothing runs from (noexec).
+  orpheum-node:
+    container_name: orpheum-node
+    image: ghcr.io/kstenerud/orpheum:${ORPHEUM_TAG:-v0.3.0-beta.7}
+    user: "${APPUSER_PUID:-1000}:${APPUSER_PGID:-100}"
+    command: ["node", "--instance", "/var/lib/orpheum/node"]
+    network_mode: none
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+    sysctls:
+      net.mptcp.enabled: "0"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - ${PATH_TO_APPDATA:?}/orpheum/node:/var/lib/orpheum/node
+      - ${PATH_TO_APPDATA:?}/orpheum/run:/run/orpheum
+      # More media folders go under /media, each a line: - /srv/dev-disk-by-uuid-.../Shows:/media/Shows:ro
+      - ${ORPHEUM_MEDIA:?set ORPHEUM_MEDIA to the folder that holds your films and series}:/media:ro
+    # A GPU for hardware encoding (Intel Quick Sync, AMD): uncomment both, with RENDER_GID the render
+    # group's number on this machine (ls -n /dev/dri/renderD128 shows it, often 105 or 106).
+    # devices:
+    #   - /dev/dri:/dev/dri
+    # group_add:
+    #   - "${RENDER_GID}"
+    depends_on:
+      orpheum-core:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "test", "-S", "/run/orpheum/node/node.sock"]
+      interval: 10s
+      start_period: 30s
+
+networks:
+  # IPv6 from a private range, translated on the way out as IPv4 is, so the core's WebRTC finds its
+  # public address in both families through its discovery's STUN.
+  outside:
+    enable_ipv6: true
+    ipam:
+      config:
+        - subnet: ${ORPHEUM_IPV6_SUBNET:-fd77:5e:0:ffff::/64}
