@@ -96,7 +96,7 @@ func (pass *Pass) filesSayOf(ctx context.Context, libraryID int64) (map[int64]fi
 		}
 	}
 	// The refused write names the statement and the item (a stuck rescan logged only that it waited,
-	// for hours: one MarkGuessedMatch a pass, "fix(identify): an episode its name placed is marked a guess once, not every pass").
+	// for hours: one MarkGuessedMatch a pass).
 	return nil, fmt.Errorf("library %d: %w; the write its last read would make: %w", libraryID,
 		errLibraryKeptChanging, refused)
 }
