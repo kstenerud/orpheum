@@ -6,7 +6,7 @@ import "./i18n.ts";
 import { afterEach, expect, it } from "vitest";
 
 import { System, type SystemNode, type SystemReport } from "./system.tsx";
-import { click, mount, servedBy, type Mounted } from "./test-dom.tsx";
+import { click, mount, servedBy, settleUntil, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 /** The backups section's answer when there are none (D242 §5). */
@@ -102,7 +102,10 @@ function report(node: SystemNode): SystemReport {
   };
 }
 
-async function shown(node: SystemNode): Promise<string> {
+async function shown(
+  node: SystemNode,
+  update: object = { version: "dev", checkedAt: 0 },
+): Promise<string> {
   mounted = await mount(
     withServices(
       <System />,
@@ -113,7 +116,7 @@ async function shown(node: SystemNode): Promise<string> {
         "GET /config/unused": [200, { unusedSettings: [] }],
         "GET /filing-reports": [200, { reports: [] }],
         "GET /system/discovery": noDiscovery,
-        "GET /system/update": [200, { version: "dev", checkedAt: 0 }],
+        "GET /system/update": [200, update],
         "GET /now-playing": [200, { playbacks: [] }],
       }),
     ),
@@ -243,6 +246,43 @@ it("the System page says a machine that stopped answering is silent, and when it
     stuck: [],
   });
   expect(awaiting).toContain("Not heard from since the server started.");
+});
+
+it("the System page shows a locked machine's leave to run unconfined, not that it is not connected (D450 §1)", async () => {
+  const locked = await shown({
+    name: "nas",
+    connection: "locked",
+    isConnected: false,
+    isServersBuild: false,
+    uid: 0,
+    gid: 0,
+    confinement: [{ mechanism: "landlock", isInForce: false, causeCode: "disabled_at_boot" }],
+    disks: [],
+    devices: [],
+    stuck: [],
+  });
+  expect(locked).toContain("This machine is locked");
+  expect(locked).toContain("Run without confinement…");
+  expect(locked).not.toContain("If it stops each time it starts, its log says why.");
+});
+
+it("the System page says a newer release is available and how to take it (D450 §2)", async () => {
+  await shown(connected, {
+    version: "v0.3.1",
+    latest: "v0.3.3",
+    command: "docker run --rm ghcr.io/kstenerud/orpheum:v0.3.3 install-script | sh",
+    installRoute: "compose",
+    checkedAt: 1_793_000_000_000,
+  });
+  const shownPage = mounted;
+  await settleUntil(
+    () => shownPage?.container.textContent.includes("v0.3.3 is available.") ?? false,
+  );
+  const headings = [...(shownPage?.container.querySelectorAll("h2") ?? [])].map(
+    (each) => each.textContent,
+  );
+  expect(headings).toContain("Updates");
+  expect(shownPage?.container.textContent).toContain("docker compose pull && docker compose up -d");
 });
 
 it("the System page says a machine on another version of Orpheum needs updating (D233 §9)", async () => {
