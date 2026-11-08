@@ -71,6 +71,32 @@ describe("TitleView", () => {
     expect(markup).toContain("/m/Metropolis (1995).mkv");
   });
 
+  it("names its sound's channels as the player does: mono, not 1 channels (the demo library, 2026-11-08)", () => {
+    // The title's facts said "AAC · 1 channels" for a mono file: it counted channels itself,
+    // rather than through the player's sound line, which names mono, stereo, 5.1 and 7.1.
+    const withSound = (channelCount: number): TitleDetail => ({
+      ...heat,
+      versions: [
+        {
+          id: 1,
+          files: [
+            {
+              id: 1,
+              path: "/m/a.mkv",
+              streams: [{ id: 2, kind: "audio", codec: "aac", channelCount }],
+            },
+          ],
+        },
+      ],
+    });
+    expect(renderToStaticMarkup(withServices(<TitleView title={withSound(1)} />))).toContain(
+      "<span>AAC · mono</span>",
+    );
+    expect(renderToStaticMarkup(withServices(<TitleView title={withSound(8)} />))).toContain(
+      "<span>AAC · 7.1</span>",
+    );
+  });
+
   it("shows no broken banner or still art not made yet, through the posters' own way (the owner, 2026-10-26)", async () => {
     // The title page drew its backdrop and an episode's still as plain images, so art not made
     // yet, or never made, showed as a broken image across the top of the page (staging answered
@@ -690,7 +716,7 @@ describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
   it("says its facts on one line: year, length and the sound its Play plays", () => {
     const markup = renderToStaticMarkup(withServices(<TitleView title={heat} />));
     expect(markup).toContain(
-      '<p class="title-head__facts"><span>1995</span><span>170 min</span><span>TRUEHD · 8 channels</span></p>',
+      '<p class="title-head__facts"><span>1995</span><span>170 min</span><span>TRUEHD · 7.1</span></p>',
     );
   });
 

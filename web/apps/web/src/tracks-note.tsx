@@ -46,7 +46,7 @@ export function codecName(codec: string): string {
 }
 
 /** A count of channels as a person reads it: mono, stereo, 5.1, 7.1, or so many channels. */
-function channelsText(t: TFunction, count: number): string {
+export function channelsText(t: TFunction, count: number): string {
   const named: Readonly<Record<number, string>> = {
     1: "mono",
     2: "stereo",
