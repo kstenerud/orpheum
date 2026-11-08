@@ -47,6 +47,7 @@ from __future__ import annotations
 import contextlib
 import datetime
 import fcntl
+import io
 import json
 import os
 import signal
@@ -175,10 +176,24 @@ def mark(lock: IO[str], kind: str, lease: float | None = None, group: int | None
         said += f", its lease until {_clock(started + lease)} UTC"
     if group is not None:
         record["group"] = group
-    lock.seek(0)
-    lock.truncate()
-    lock.write(f"{said}\n{json.dumps(record)}\n")
-    lock.flush()
+    # Written over the old record, then cut to length: a reader never finds the file empty while it is
+    # held (2026-11-08: CI read the holder between a truncate and its write, and saw no kind). The lock
+    # is opened to append, which would put every write at the end, so appending is off while it writes.
+    try:
+        fd: int | None = lock.fileno()
+    except (OSError, ValueError, io.UnsupportedOperation):
+        fd = None
+    flags = fcntl.fcntl(fd, fcntl.F_GETFL) if fd is not None else 0
+    if fd is not None:
+        fcntl.fcntl(fd, fcntl.F_SETFL, flags & ~os.O_APPEND)
+    try:
+        lock.seek(0)
+        lock.write(f"{said}\n{json.dumps(record)}\n")
+        lock.truncate()
+        lock.flush()
+    finally:
+        if fd is not None:
+            fcntl.fcntl(fd, fcntl.F_SETFL, flags)
 
 
 def try_take(lock: IO[str]) -> bool:
