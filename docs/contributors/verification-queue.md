@@ -2836,7 +2836,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   Chromecast. Passes when the film plays on the TV, the tab shows the cast's controls, play, pause
   and a seek there move the TV within a few seconds, and Stop casting stops it.
   (`web/apps/cast-receiver/src/device.ts`)
-- [ ] **VQ288** — A Fire TV ends a cast by its own Stop casting here (D446). Cast a film from a
+- [x] **VQ288** — A Fire TV ends a cast by its own Stop casting here (D446) (the owner, 2026-11-08, on staging at "chore(together): the removed CastMovedHere named as changing no behaviour": "VQ288 passes on the Fire TV"). Cast a film from a
   phone to the Fire TV, pause it there, then on the TV's remote press Up until Stop casting here is
   lit and press it; do it again with the film playing, and once on the ready page with nothing on.
   Passes when Stop casting here is never lit before an Up, the TV goes home each time, and the phone
