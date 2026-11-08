@@ -1,10 +1,9 @@
-# How Orpheum was built
+# How Orpheum is built
 
-Orpheum was built in seven weeks, from 2026-09-17, by Claude agents directed by one engineer, the
-**owner**. Almost every commit in the history carries a `Co-Authored-By: Claude` trailer. The
-owner set direction, made the design decisions, tested on real devices and reviewed; the agents
-researched, designed within those decisions, wrote the code, tests, deployment and
-documentation, and ran the operations.
+Orpheum is built by Claude agents directed by an engineer. Almost every commit in the history
+carries a `Co-Authored-By: Claude` trailer. The project owner sets direction, makes the design
+decisions, tests on real devices and reviews; the agents research, design within those decisions,
+wrire the code, tests, deployment and documentation, and run the operations.
 
 Writing code quickly is the part AI already does well. Keeping it correct as it grows to
 hundreds of thousands of lines, across sessions that each start with no memory of the last, is

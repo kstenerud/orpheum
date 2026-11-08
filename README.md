@@ -1,16 +1,18 @@
 # Orpheum
 
-A self-hosted media server for **video**: your films and series, on your own hardware, played in
-a browser, on a television or cast to one, with no company between you and your files.
+A self-hosted media server for your own films and series.
+
+- Your own hardware.
+- Your own videos.
+- Play from anywhere.
+
+----
 
 > **Status: closed beta.** Orpheum runs every day in its owner's home, beside a staging server
 > that every change reaches first, but it is not ready for general use: expect rough edges, missing features and
-> breaking changes. *(The name is provisional, [D195](docs/contributors/decisions/working-notes.md).)*
+> breaking changes.
 
-**Built with AI.** Nearly every line of this repository (the Go server, the React clients, the
-container builds, the deployment, the gates that check them, and the documentation) was
-written by Claude agents, directed and reviewed by one engineer. How that was made to work
-reliably is told in **[How Orpheum was built](docs/how-it-was-built.md)**.
+----
 
 ![The films library: posters and details matched from TMDB](docs/screenshots/films.jpg)
 
@@ -24,27 +26,19 @@ public-domain and Creative Commons films, with posters and details from
 <a href="https://www.themoviedb.org/">TMDB</a>. This product uses the TMDB API but is not
 endorsed or certified by TMDB.</sub>
 
-## What it does
+## Features
 
-- **Plays what you have, the way it is.** Direct play is the default: the server hands over the
-  original bytes when the device can play them. The client, not a server-side device database,
-  decides what it can play, by asking its own decoder.
-- **Transcodes when it must,** in chunks prepared ahead of the viewer, on the GPU when there is
-  one (Intel Quick Sync, VA-API, NVIDIA NVENC), on the CPU when there is not.
-- **Subtitles that work:** extracted at scan time with their embedded fonts and rendered with
-  libass, so styled anime subtitles look as their authors meant; missing ones fetched from
-  OpenSubtitles.
-- **Watch Together:** a session that keeps several people's players in step, at home or across
-  the internet.
-- **Casting** to Chromecast and Google TV with its own receiver app, and a television interface
-  driven by a remote.
-- **Libraries** scanned from your folders, matched against TMDB for posters and details, with
-  episode orderings, resume points and per-user watch state.
-- **Remote access without opening ports:** browsers away from home reach the server over WebRTC,
-  introduced by a small discovery service; nothing in the middle can read the stream.
-- **Your files stay yours:** media is mounted read-only, the database is a rebuildable index, and
-  everything that cannot be re-derived is backed up automatically.
-- **Accounts and invitations** for the household, with each person's own watch state and settings.
+- **Watch from anywhere.** No need to open ports. No VPN required.
+- **Hardware transcoding.** Intel Quick Sync, VA-API, NVIDIA NVENC, or via CPU when a GPU is unavailable.
+- **Subtitles that work.** Embedded or fetched, with full font and placement support.
+- **Watch Together.** Multiple people can watch a film together from anywhere in the world, and optionally chat voice.
+- **Casting.** Send playback video to other devices like TVs, optionally using your phone as a remote.
+- **Dialogue boost and loudness leveling.** Now you can hear what people are saying, and not get blasted when switching to another film.
+- **Posters & artwork.** Matches your media with TMDB for posters and details, and episode orderings.
+- **Safety first.** Every part that takes in data from files or from 3rd party sites is isolated, sandboxed, and cannot write.
+- **Accounts and invitations.** As many as you want, with each person's own watch state and settings.
+- **Easy deployment.** It's a single go binary, with quick deployment available via Docker.
+- **Your data stays yours.** Rebuildable database. Metadata can be written back as NFO files.
 
 ## Architecture
 
@@ -89,44 +83,23 @@ Orpheum runs on any Linux machine with Docker, including NAS systems such as Ope
 To develop it, you need only Docker: `./dev make dev` builds the development image and starts a
 server with a demo library ([CONTRIBUTING.md](CONTRIBUTING.md)).
 
-## By the numbers
+## What it's for
 
-| | |
-| --- | --- |
-| Built | 7 weeks, from 2026-09-17, about 3,700 commits |
-| Code | about 276,000 lines of Go and 186,000 of TypeScript, tests included |
-| Tests | about 2,700 Go tests, 2,700 web tests, 670 tests of the gates themselves |
-| Decisions | 446, each recorded with its reasoning ([index](docs/contributors/decisions/index.md)) |
-
-## What it is for
-
-A player for media you have the right to use. It does not provide, locate or download content,
-and it does not remove copy protection. You are responsible for complying with copyright law
+Orpheum is a player for media you have the right to use. It does not provide, locate or download content,
+and it does not bypass copy protection. You are responsible for complying with copyright law
 where you live, including when you share access with others.
 
 ## The promise
 
-- **No telemetry, no storefront, no ads.**
-- **Your files stay yours:** read-only by default, a trash you can undo from if you grant write
-  access, and an automatic backup of everything that cannot be re-derived
-  ([D98](docs/contributors/decisions/working-notes.md), [D141](docs/contributors/decisions/working-notes.md)).
-- **Nothing that runs on your own hardware will ever be put behind a payment.** Only what
-  genuinely needs another machine, such as introducing remote browsers, could ever cost money,
-  and you can run that part yourself ([D25](docs/contributors/decisions/working-notes.md)).
+- **No telemetry.**
+- **No storefront.**
+- **No restrictions.**
+- **No paywall.**
+- **No ads.**
 
 ## Licence
 
 **Server, media node and relay: AGPLv3. Clients and the shared SDK: MPL-2.0.** The split is
 deliberate: a GPL-family application cannot be distributed through Apple's App Store, so the
 clients are MPL-2.0, whose copyleft is per file
-([D80](docs/contributors/decisions/working-notes.md), [D275](docs/contributors/decisions/working-notes.md)).
 Contributions are accepted under the [CLA](CLA.md).
-
-## Documentation
-
-- [`docs/how-it-was-built.md`](docs/how-it-was-built.md): the AI-driven process, and the files
-  that show it.
-- [`AGENTS.md`](AGENTS.md): the contract every agent changing the code follows.
-- [`docs/contributors/`](docs/contributors/README.md): design, decisions, standards and principles.
-- [`docs/FEATURES.md`](docs/FEATURES.md): every feature considered, ranked, including the declined
-  ones and why.
