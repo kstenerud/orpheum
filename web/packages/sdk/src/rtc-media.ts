@@ -414,7 +414,7 @@ class BodyRelay {
     this.isOver = true;
     // A body its load's abort has failed already rejects its cancel with the abort's reason; there is
     // nothing left to stop, and left unhandled it reached the console as an uncaught AbortError (the
-    // owner, nas.example, 2026-11-01).
+    // owner, the production NAS, 2026-11-01).
     this.reader.cancel().catch(() => undefined);
   }
 

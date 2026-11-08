@@ -81,7 +81,7 @@ counted:
 
 - **Planned:** SQLite behind `internal/store` (D31), with queries written as each feature needed
   them, and the first scan ordered so a library is browsable early (D118).
-- **What happened:** on nas.example, requests waited 3–47 s behind an identification pass that held
+- **What happened:** on the production NAS, requests waited 3–47 s behind an identification pass that held
   SQLite's one writer for 25–30 s. An access audit, a practice survey and an independent DBA's
   audit led to D303: written principles (short writes that re-check what they decided, a revision
   on rows people edit), a fresh baseline at 0048 with every table STRICT, committed statistics and
@@ -105,7 +105,7 @@ counted:
   them. D273 and D274 replaced the tunnel with discovery and WebRTC first; D275–D309 followed:
   the core's side of the protocol, the public `discovery/` packages, the WebRTC transport, device
   codes, realms (D297, D298) and the loader with each core's own client (D308), beside release
-  mode on nas.example (D272). nas.example has been reached through the production service since 2026-10-15. M4's
+  mode on the production NAS (D272). The production NAS has been reached through the production service since 2026-10-15. M4's
   last acceptance run (VQ24) was left open meanwhile.
 - **Why the plan missed it:** Cut A was for two people, and a beta for other households was not
   in its scope; the owner's priority changed once Cut A's core worked.
@@ -757,8 +757,8 @@ counted:
 
 ### P12 — An acceptance item needs hardware the development machine is not (M1, 2026-09-24) · environment
 
-- **Planned:** "argon2id takes ≤ 500 ms on devnas" as M1 acceptance.
-- **What happened:** development moved to a VM (P1); devnas was not at hand, and the item is
+- **Planned:** "argon2id takes ≤ 500 ms on devnas.example" as M1 acceptance.
+- **What happened:** development moved to a VM (P1); the development NAS was not at hand, and the item is
   queued as VQ1 while M1 is otherwise done.
 - **Why the plan missed it:** acceptance was written against the machine the plan expected to
   develop on.
@@ -879,7 +879,7 @@ counted:
 
 ### P1 — Development moved to a VM and a sandbox (M1, 2026-09-24) · environment
 
-- **Planned:** development on devnas with a copied corpus (cut-a §2).
+- **Planned:** development on the development NAS with a copied corpus (cut-a §2).
 - **What happened:** development moved to a Proxmox VM running a yoloAI sandbox: no GitHub access
   from the agent, commits leave by `yoloai apply`, tools installed outside PATH, ports forwarded
   through the sandbox.

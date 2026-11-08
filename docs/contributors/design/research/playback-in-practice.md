@@ -379,9 +379,9 @@ owner ([D246](../../decisions/working-notes.md#d246--what-a-person-may-do-is-the
 | 18 | **Try native HLS on her iPhone once, as an A/B test against the same quality, not as a switch.** Native must `play()` before seeking, or wait for `loadeddata`. | experiment; adopting it would amend D247 §3 and §10 | Apple, Jellyfin, Mux, Video.js choose native; Shaka, Bitmovin MMS; video.js PR #9239 (§1) |
 | 19 | **Keep one `<video>` element across quality changes**, handle `NotAllowedError` from `play()` by asking for a tap, and keep hls.js ≥ 1.7.1. | fix, no decision | WebKit gesture rules; #7984, #7697 (§1) |
 | 20 | **Test the copied picture's `-ss` rounding** on a keyframe that rounds down; seek to the midpoint between keyframes as Kyoo does. | fix, needs a test | `timeline.go:114`, `arguments.go:86`, `maker.go:273-281` (§3) |
-| 21 | **Verify QSV chunks start with an IDR exactly at the grid**, with ffprobe on devnas. | verification | Jellyfin `EncodingHelper.cs:2012-2070` (§3) |
+| 21 | **Verify QSV chunks start with an IDR exactly at the grid**, with ffprobe on the development NAS. | verification | Jellyfin `EncodingHelper.cs:2012-2070` (§3) |
 | 22 | **Ask her to test once with Private Relay off for the site**, to learn how much of 2.4–3 Mbit/s was the relay. Key nothing on the client's IP. | experiment | Trevisan et al.; Foliovision (§4) |
-| 23 | Lower priority: x264 `faster`/`fast` at ≤480p once devnas's CPU budget is measured; an I-frame playlist (native scrubbing only); an audio-only rung, the owner's call against D247 §8. | tuning / design | §3 |
+| 23 | Lower priority: x264 `faster`/`fast` at ≤480p once the development NAS's CPU budget is measured; an I-frame playlist (native scrubbing only); an audio-only rung, the owner's call against D247 §8. | tuning / design | §3 |
 
 ## 6. Not confirmed
 
@@ -404,6 +404,6 @@ owner ([D246](../../decisions/working-notes.md#d246--what-a-person-may-do-is-the
   feature.
 - Plex's hold time and segment length (the 8 s and 10 s figures are third-party); Emby's
   `BySegmentRequest`.
-- x264 throughput at 480p on devnas, and whether Jellyfin's QSV caution still applies with
+- x264 throughput at 480p on the development NAS, and whether Jellyfin's QSV caution still applies with
   `-forced_idr 1`.
 - Whether hls.js switches cleanly between unaligned fragments.

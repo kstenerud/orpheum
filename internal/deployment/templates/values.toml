@@ -20,7 +20,7 @@ contact = ""
 [vps]
 # Where the tunnel dials the VPS: its address and WireGuard port. Either family works:
 #   IPv4: "203.0.113.7:51820", from a machine with IPv4 only, or through DS-Lite's shared IPv4;
-#   IPv6: "[2a0f:4000:1c1c:1234::1]:51820", in brackets, where the machine has IPv6 (DS-Lite's is
+#   IPv6: "[2a0f:2000:1c1c:1234::1]:51820", in brackets, where the machine has IPv6 (DS-Lite's is
 #         native).
 endpoint = ""
 # The VPS's public IPv4 address: browsers reach the voice relay there (D243 §8).

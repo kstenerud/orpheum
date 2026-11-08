@@ -95,7 +95,7 @@ func (schedule *ScanSchedule) QueueDue(ctx context.Context) (int, error) {
 // scan ended unavailable_root_rescan_seconds ago or less. It says how many it brought back or asked
 // for (D233 §10, D327 §3, D328). A stall asked for a scan at once, and nothing asked again once the
 // share came back, so its films stayed unavailable until a restart of the node happened to (staging,
-// 2026-10-21, nas.example off).
+// 2026-10-21, the production NAS off).
 func (schedule *ScanSchedule) RescanUnavailable(ctx context.Context) (int, error) {
 	places, err := schedule.database.Read().ListUnavailablePlaces(ctx)
 	if err != nil {

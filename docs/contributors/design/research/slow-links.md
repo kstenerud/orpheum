@@ -60,7 +60,7 @@ Five findings, each detailed below:
 - *(inferred)* The house is DS-Lite with native IPv6 (no public IPv4), and the router is the
   tailnet node. A direct path over IPv6, or a peer relay, may lift the ceiling more than any
   bitrate change. This is the cheapest thing to try first. **Checked 2026-10-05:** the owner's
-  path was direct (`pong … via 11.22.33.144:7853 in 413ms`), so the relay was not the cause.
+  path was direct (`pong … via 203.0.113.10:7853 in 413ms`), so the relay was not the cause.
 
 ## 2. Measuring the link
 
@@ -327,7 +327,7 @@ Stalls cost far more than a softer picture.
   it has nothing to do; lower variants in the same master playlist would let it act today.
 - **The prepare job is the encoder.** It already writes fMP4 HLS segments while the film plays,
   into a playlist that grows. At Quick Sync's speed, a low rung can be written ahead of the viewer, which is close to
-  Kyoo's model without per-request encoders *(inferred; it must be measured on devnas)*.
+  Kyoo's model without per-request encoders *(inferred; it must be measured on the development NAS)*.
 - **The variants must share the source's keyframe grid**, as transcoding.md §(b) and D86 already
   require; the `remux` rung's segments are cut on the source's own keyframes, so the encoded
   rungs must force IDRs at those times.

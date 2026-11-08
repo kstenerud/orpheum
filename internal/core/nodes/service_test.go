@@ -207,7 +207,7 @@ func TestHello_EnrolsANodeByNameOnceAndQueuesAScanOfEachRootALibraryCovers(t *te
 
 // A status saying a library root's disk is not answering makes the root unavailable, once while
 // it says so: with nothing reading it, nothing else noticed, and its films were listed as playable
-// (the owner's test, 2026-10-21, nas.example off). A disk failing otherwise, and a directory no library
+// (the owner's test, 2026-10-21, the production NAS off). A disk failing otherwise, and a directory no library
 // covers, are left alone.
 func TestStatus_ARootWhoseDiskIsNotAnsweringIsMadeUnavailableOnce(t *testing.T) {
 	t.Parallel()

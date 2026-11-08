@@ -126,7 +126,7 @@ D181 is the policy and [migrations.md](../design/plans/migrations.md) the mechan
 - **Until migrations are live, a baseline and one step** ([D228](../decisions/working-notes.md#d228--until-migrations-are-live-librarydbs-schema-is-a-baseline-and-one-step-and-a-schema-change-folds-the-last-step-into-the-baseline)): `NNNN_baseline.sql` builds a
   new database at its version, and a schema change folds the last step into it and adds the
   change as the one step after it. **Once production runs, a sliding window**
-  ([D272](../decisions/working-notes.md#d272--production-runs-on-naslan-from-an-image-it-builds-and-migrations-keep-every-step-since-the-version-it-last-ran)
+  ([D272](../decisions/working-notes.md#d272--production-runs-on-the-production-nas-from-an-image-it-builds-and-migrations-keep-every-step-since-the-version-it-last-ran)
   §5, §6): `internal/store/migrations/CHECKPOINT` holds the version production last ran, the
   baseline stays at it, frozen, and a schema change appends a step; when the owner says
   production has migrated, they move the checkpoint and the steps up to it fold into the
@@ -205,7 +205,7 @@ D181 is the policy and [migrations.md](../design/plans/migrations.md) the mechan
   refused with a message (D31). **Enforced by:** `Open()`'s checks and their tests
   (`TestVerifyPragmas_RefusesAConnectionWithoutThem`, `TestOpen_RefusesAFileThatIsNotOurs`); the
   network-filesystem refusal is `instancedir`'s (`TestRefuseNetworkFilesystemType_RefusesNetworkFilesystems`).
-- The choice between modernc and ncruces is made by benchmark on devnas and does not block M1
+- The choice between modernc and ncruces is made by benchmark on the development NAS and does not block M1
   (audit §5); both take this DSN form.
 
 ## 8. Connections: one writer, a pool of readers
@@ -278,7 +278,7 @@ page budget ([performance-targets.md](../design/plans/performance-targets.md)).
 
 ## 13. Data-layer principles (D303)
 
-Adopted after nas.example's requests waited 3–47 s behind a 25–30 s write transaction. The evidence
+Adopted after the production NAS's requests waited 3–47 s behind a 25–30 s write transaction. The evidence
 and the reasoning are the [access audit](../design/research/database-access-audit-2026-10-15.md),
 the [practice research](../design/research/data-layer-practice-2026-10-15.md) (DL1–DL17) and the
 [independent DBA's audit](../design/research/data-layer-independent-audit-2026-10-15.md) (M1–M13,

@@ -11,7 +11,7 @@
   discovery protocol"*); phases C1–C5 are built. Steps K1–K18 below were written 2026-10-13 from
   [discovery-protocol.md](../discovery-protocol.md) and revised the same day for D292 and D293.
   [Phase 1](#phase-1--the-security-floor) and [Phase 2](#phase-2--the-thin-path-end-to-end-on-staging)
-  are built (2026-10-13 and 2026-10-14), and nas.example has been reached through the production
+  are built (2026-10-13 and 2026-10-14), and the production NAS has been reached through the production
   service since 2026-10-15, so Phase 4 has begun with the owner's own household. Each step's own
   mark says what of it is built: K2, K17 and K18 but for credentials per core (which D308 met,
   [client-from-core.md](client-from-core.md)); K1, K3a, K7 and K10 in part; K4's `configured` and
@@ -689,7 +689,7 @@ the conformance suite `discovery/discoverytest`; then the staging deployment.
 
 **Orpheum's deployment, for staging** (D292 §7; infrastructure §3): the WireGuard tunnel's
 addresses chosen per deployment, so the staging core (`10.77.0.3`, its own key) runs beside
-nas.example (`10.77.0.2`, unchanged), revising D272 §8's one shared key; `deploy/vps/` for several
+the production NAS (`10.77.0.2`, unchanged), revising D272 §8's one shared key; `deploy/vps/` for several
 peers, forwards matched by destination address, a forward chain with policy drop and SSH over the
 tunnel only; the staging core reconfigured with no `domain`, the staging discovery entered under
 *use my own*, and its Cloudflare token deleted. The edge VPS becomes the staging server once
@@ -716,7 +716,7 @@ public until we've tested all of the components together"*): the service on its 
 `prod-api` and `prod-probe` (D292 §3); the legacy Cloudflare token revoked before the first
 production name (A5), and staging's token for `orpheum-core.com` revoked before the first production
 core enrols, staging's households having moved to `orpheum-test.com` (D296, revising D293 §3); then the owner's staging core as the first household, then
-nas.example, moved off `media.orpheum-app.com` before that certificate's renewal (about 2027-01-04,
+the production NAS, moved off `media.orpheum-app.com` before that certificate's renewal (about 2027-01-04,
 infrastructure §4), then one outside household, then the invited ones.
 
 ### Deferred, after the beta

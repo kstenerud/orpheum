@@ -1,4 +1,4 @@
-# Release: Orpheum on nas.example, from a tag
+# Release: Orpheum on the production NAS, from a tag
 
 Release is the deployment staging is (`deploy/staging/README.md`): the same runtime image and the
 same three services, written by the image's own `orpheum write-deployment`. What differs is where
@@ -6,7 +6,7 @@ the image comes from, a version tag of this repository built on the machine itse
 core does with a database it cannot migrate: release refuses it and says why; it never starts over
 (D249, D272).
 
-It runs on nas.example (D272 §1): a Proxmox VE host on Debian trixie, with Orpheum in an LXC container,
+It runs on the production NAS (D272 §1): a Proxmox VE host on Debian trixie, with Orpheum in an LXC container,
 the media bind-mounted into it and the Intel N95's render node passed through. Commands below say
 where they run: **host** is the Proxmox host, **container** the LXC container.
 
@@ -75,7 +75,7 @@ As the Orpheum user in the container, with `/srv/orpheum` owned by it:
 3. Fill in `values.toml`: the values marked "fill in" are staging's (`.staging/values.toml` in the
    sandbox), and `[media] roots`: the folders the node may read, a library's folders chosen
    beneath them by browsing on the Libraries page (D359). One root over all the media is enough:
-   nas.example's is `["/tank/media/video"]`, everything its container mounts. Leave out `[node] name` and the node is named after the
+   the production NAS's is `["/tank/media/video"]`, everything its container mounts. Leave out `[node] name` and the node is named after the
    container. `[lan] address` is this machine's address at home, which `build.sh` fills in; check it,
    and keep it fixed with a reservation in the router. It is required: its network is the only one an
    admin administers from. A core with a discovery has it named there, so
@@ -84,7 +84,7 @@ As the Orpheum user in the container, with `/srv/orpheum` owned by it:
    out of public DNS answers (OpenWrt's and the FRITZ!Box's "rebind protection") needs
    `orpheum-core.com` as an exception.
 4. Run the same `build.sh` again. It writes the compose file and the configs.
-5. **Swap the public name to nas.example** (§6), then `docker compose up -d` in `/srv/orpheum`.
+5. **Swap the public name to the production NAS** (§6), then `docker compose up -d` in `/srv/orpheum`.
 6. `docker compose exec orpheum-core orpheum setup-code --instance /var/lib/orpheum/core` prints
    the one-time code. Open `http://<container>:8440`: a server with no admin opens on **Set up this
    server**, which takes the code and the first admin's name and password, and signs in. Then add
@@ -93,12 +93,12 @@ As the Orpheum user in the container, with `/srv/orpheum` owned by it:
    certificate follows. Enter `tmdb_api_key` too: without it nothing is identified.
 8. In Settings, answer `server_upload_mbps` (the house's upload the films may use, D286 §5) and the
    time zone.
-9. Tell the agent which schema version nas.example runs (the core's log says it at start), so it
+9. Tell the agent which schema version the production NAS runs (the core's log says it at start), so it
    commits `internal/store/migrations/CHECKPOINT` (D272 §6).
 
 ## 3a. Install without a tag (the weekend fallback)
 
-Until there is a version tag, nas.example can run the image staging runs, copied over rather than built:
+Until there is a version tag, the production NAS can run the image staging runs, copied over rather than built:
 
 1. Ask the agent for the fallback. It saves staging's image (`docker save`, about 140 MB),
    staging's `values.toml` and the tunnel's keys into the sandbox's shared files. Take them with
@@ -136,7 +136,7 @@ too. `--keep-images` on the install script keeps them all.
 
 The build runs the new image's `write-deployment`, so the compose file and the configs are the new
 version's (D272 §7); `values.toml` and the keys are never touched. The core migrates the database
-at start, through every step since the version nas.example last ran (D272 §5), and keeps a snapshot
+at start, through every step since the version the production NAS last ran (D272 §5), and keeps a snapshot
 taken before migrating. When it has, tell the agent the version, so the checkpoint moves.
 
 ### Starting over, once
@@ -167,7 +167,7 @@ unless the newer one declared it compatible, and its refusal names the snapshot 
 migration (D181): stop the deployment, put the snapshot in place of `core/persistent/persistent.db`,
 and start it again. What happened since the snapshot is lost.
 
-## 6. Staging and nas.example on one VPS
+## 6. Staging and the production NAS on one VPS
 
 Each deployment is its own peer on the VPS: its own key, and its own tunnel addresses, the values
 file's `vps.tunnel_ipv4` and `vps.tunnel_ipv6` (10.77.0.2 and fd77::2 when it names none). Given
@@ -177,10 +177,10 @@ destination address, both run at once (D292 §7); the owner's VPS is set up so b
 Two deployments with the same addresses still exclude each other, as before D292 (D272 §2, §8):
 the VPS forwards to whichever end dialled last, so only one may run its tunnel at a time.
 
-- To nas.example: the agent stops staging with `./staging down`, which removes its containers. Only
+- To the production NAS: the agent stops staging with `./staging down`, which removes its containers. Only
   stopping the sandbox is not enough: staging's containers start again whenever the sandbox's
-  Docker does, and would take the tunnel back. Then `docker compose up -d` on nas.example.
-- To staging: `docker compose down` on nas.example; then the agent runs `./staging`.
+  Docker does, and would take the tunnel back. Then `docker compose up -d` on the production NAS.
+- To staging: `docker compose down` on the production NAS; then the agent runs `./staging`.
 
 `wg show` on the VPS shows each peer's handshake; ends sharing a key come from the house's one
 address and cannot be told apart there, so ask each with `docker compose exec orpheum-tunnel wg show

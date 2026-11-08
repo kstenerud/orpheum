@@ -11,7 +11,7 @@ import (
 )
 
 // Every deployment's network had fd77:5e::/64, so a second one on a machine, a test kit's beside
-// production, could not create its own (nas.example, 2026-10-23).
+// production, could not create its own (the production NAS, 2026-10-23).
 func TestWrite_EachDeploymentsNetworkHasASubnetOfItsOwn(t *testing.T) {
 	t.Parallel()
 	subnetOf := func(directory string) string {

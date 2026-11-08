@@ -39,13 +39,13 @@ func TestDiscoveryStatusBody_CarriesTheHouseNetworks(t *testing.T) {
 	witnessed := time.UnixMilli(1_800_000_000_000)
 	body := discoveryStatusBody(discovery.Status{HouseNetworks: []discovery.HouseNetwork{
 		{
-			Network: netip.MustParsePrefix("2a0f:1000:1:2::/64"), Source: discoveryproto.HouseNetworkLearnt,
+			Network: netip.MustParsePrefix("2a0f:5000:1:2::/64"), Source: discoveryproto.HouseNetworkLearnt,
 			Device: netip.MustParseAddr("192.168.1.30"), WitnessedAt: witnessed,
 		},
 		{Network: netip.MustParsePrefix("2a0f:3000:9:8::/64"), Source: discoveryproto.HouseNetworkConfigured},
 	}})
 	want := []HouseNetworkBody{
-		{Network: "2a0f:1000:1:2::/64", Source: "learnt", Device: "192.168.1.30", WitnessedAt: 1_800_000_000_000},
+		{Network: "2a0f:5000:1:2::/64", Source: "learnt", Device: "192.168.1.30", WitnessedAt: 1_800_000_000_000},
 		{Network: "2a0f:3000:9:8::/64", Source: "configured"},
 	}
 	if !slices.Equal(body.HouseNetworks, want) {
@@ -83,7 +83,7 @@ func TestMarkingHome_AHouseNetworkGrantsNoAdmin(t *testing.T) {
 		marked = isFromHome(request.Context())
 	}))
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody)
-	request.RemoteAddr = "[2a0f:1000:1:2::30]:40000" // in the house network the discovery was told
+	request.RemoteAddr = "[2a0f:5000:1:2::30]:40000" // in the house network the discovery was told
 	handler.ServeHTTP(httptest.NewRecorder(), request)
 	if marked {
 		t.Error("a request from the house's learnt IPv6 network is from home; want away")

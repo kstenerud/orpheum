@@ -23,12 +23,12 @@ An item is ticked only by the person who did it, and only with what they saw.
 
 ## Items
 
-- [x] **VQ1** — On devnas (J3455), run
+- [x] **VQ1** — On the development NAS (J3455), run
   `go test -run '^$' -bench HashPassword -benchtime 10x ./internal/core/auth` and read
   `BenchmarkHashPassword_DefaultParameters`. Passes at 500 ms/op or less
   ([D194](decisions/working-notes.md#d194--secrets-our-users-passwords-are-hashed-third-party-secrets-are-sealed-with-a-key-that-never-enters-the-database-and-nothing-reads-a-secret-back-out)
   §2); above it, the memory cost comes down to OWASP's 46 MiB, t = 1. For reference, an
-  i3-N305 VM measured 50 ms. (M1) — done 2026-10-12 by the owner on devnas, two runs:
+  i3-N305 VM measured 50 ms. (M1) — done 2026-10-12 by the owner on the development NAS, two runs:
   `BenchmarkHashPassword_DefaultParameters-4 10 109870320 ns/op` and `10 118155167 ns/op`, 110 and
   118 ms, within the 500 ms; the parameters stay.
 - [x] **VQ2** — In Firefox on the dev loop, play a prepared film or episode with sound in its
@@ -90,13 +90,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   the owner, on an Android phone: *"Everything works as expected. when I select sound bar, I
   still see the dialogue boost button, and it boosts the channel"*; the receiver step was
   corrected to that (A11), and the owner kept the switch: *"Yes we keep the switch"*.
-- [ ] **VQ9** — On devnas, with Landlock switched on at boot (`cat /sys/kernel/security/lsm` lists
+- [ ] **VQ9** — On the development NAS, with Landlock switched on at boot (`cat /sys/kernel/security/lsm` lists
   `landlock`), run `go test ./internal/node/confine/ -run TestEscape -v` from the tree: both
   escape tests pass, and neither is skipped. Then start the node there and open **System**:
-  it says FFmpeg runs in its sandbox on devnas, and doctor's confinement
-  finding is ok. M3's acceptance asks for the escape test green on devnas (cut-a §8, D112).
+  it says FFmpeg runs in its sandbox on the development NAS, and doctor's confinement
+  finding is ok. M3's acceptance asks for the escape test green on the development NAS (cut-a §8, D112).
   (`internal/node/confine/`)
-- [ ] **VQ10** — On devnas, start the node and open **System**, as admin. Under the machine,
+- [ ] **VQ10** — On the development NAS, start the node and open **System**, as admin. Under the machine,
   **Hardware encoding** says video is encoded on the GPU with Intel Quick Sync; **What it sees**
   lists `/dev/dri/renderD128` with its driver (i915 or xe) and says the server may open it; the
   Quick Sync trial worked, and doctor's hardware finding is OK. Play a film whose video the
@@ -151,11 +151,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   `mediastreamvalidator master.m3u8` in it. Passes when it reports no errors (cut-a §8, M3's
   acceptance: `mediastreamvalidator` passes on a prepared rendition).
   (`internal/node/prepare/arguments.go`, retired with the prepare, D344)
-- [ ] **VQ16** — On devnas (Debian trixie), as your own user: install Docker Engine from Docker's
+- [ ] **VQ16** — On the development NAS (Debian trixie), as your own user: install Docker Engine from Docker's
   Debian repository and add yourself to the `docker` group, clone the repository, and run `./dev
   make check`. Passes when the first run builds the development image (`deploy/Containerfile`)
   without an error and the gate passes inside it. Then run `ORPHEUM_DEV_PUBLISH=0.0.0.0 ./dev make
-  dev` and open `http://<devnas's LAN address>:5173` from another machine's browser: passes when the
+  dev` and open `http://<devnas.example's LAN address>:5173` from another machine's browser: passes when the
   dev library appears and a title plays. Also check that nothing but the clone changed on the host:
   `docker volume ls` shows the `orpheum-dev-*` volumes, and no Go, Node or FFmpeg was installed
   outside Docker. The launcher and the image were written in a sandbox without a container engine
@@ -163,7 +163,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   ([D235](decisions/working-notes.md#d235--development-and-deployment-run-in-containers-one-image-family-one-command-each-built-by-goreleaser)
   §3). (`./dev`, `deploy/Containerfile`)
 
-- [ ] **VQ17** — On devnas, after `./dev --stop` and `ORPHEUM_DEV_PUBLISH=0.0.0.0 ./dev make dev`
+- [ ] **VQ17** — On the development NAS, after `./dev --stop` and `ORPHEUM_DEV_PUBLISH=0.0.0.0 ./dev make dev`
   with `ORPHEUM_DEV_MEDIA` on `/tank`: the core's log line `a node said hello` lists its
   `devices`. Passes when the media root's device is `zfs:tank`, its `disks` are the pool's data
   disks, and its `kind` is `spinning` (or `ssd` when every disk of the pool is one), and the
@@ -421,37 +421,37 @@ An item is ticked only by the person who did it, and only with what they saw.
   — colour done 2026-10-17 by the owner, against staging at an earlier commit: *"Color looks right now."*
   — sizes done 2026-10-17 by the owner, against staging at an earlier commit: *"ok, size looks good now"*
 
-- [x] **VQ43** — On nas.example, from a device at home that has IPv6 (the owner's Mac): sign in at
+- [x] **VQ43** — On the production NAS, from a device at home that has IPv6 (the owner's Mac): sign in at
   `app.orpheum-app.com`, and once the core's log says the connection took `path=direct_ipv6` (or
   `punched_ipv6`) from the house's `/64`, the side menu's admin places show and **Libraries** lists
   the libraries and lets one be made. A connection's own public IPv6 candidate, which only a
   machine with public IPv6 gathers, is what marks its requests as from home, and no test machine
   here has one (the owner's Mac, 2026-10-19: admin menu shown, Libraries refused).
   (`internal/core/rtcapi/own_network.go`, `internal/core/api/home_network.go`)
-  — done 2026-10-19 by the owner, on nas.example built from main at an earlier commit, the Mac over
+  — done 2026-10-19 by the owner, on the production NAS built from main at an earlier commit, the Mac over
   `path=direct_ipv6` from the house's /64: *"I can add libraries, and am watching them update, so
   admin is fully functional"*
 
-- [x] **VQ44** — On nas.example, built with the home address: the account page shows **Your server at
+- [x] **VQ44** — On the production NAS, built with the home address: the account page shows **Your server at
   home** with a link and a QR code, and the link opens the server at home; System → Remote access
   shows the same address. `/me` reads the address from the live discovery, which only a claimed
   server with its certificate has, and no test machine here is one. (The away-from-home menu's
   line is the page's own, held by app-shell.test.tsx.)
   (`internal/core/api/session.go`, `cmd/orpheum/certificates.go`)
-  — done 2026-10-20 by the owner, on nas.example built from main at an earlier commit: *"the URL and QR code
+  — done 2026-10-20 by the owner, on the production NAS built from main at an earlier commit: *"the URL and QR code
   now show up in both places"*; *"When I clicked the link, it brought me to the login page for the
   server. I entered my name and pw and it showed me the films list"*
 
-- [x] **VQ45** — On nas.example (an Intel GPU, its render node passed through), on the image built
+- [x] **VQ45** — On the production NAS (an Intel GPU, its render node passed through), on the image built
   with Intel's runtime: System → Hardware encoding says **Intel Quick Sync** works, and a film
   prepared then is encoded with `h264_qsv` (the node's log). The portable FFmpeg loads
   `libmfx-gen.so.1.2` and the iHD driver from the system, which only a machine with an Intel GPU
   can try; without a GPU the sandbox shows the same `-9` with the packages and without.
   (`deploy/Containerfile`)
-  — done 2026-10-20 by the owner, on nas.example built from main at an earlier commit: *"quick sync worked. I
+  — done 2026-10-20 by the owner, on the production NAS built from main at an earlier commit: *"quick sync worked. I
   can also play films no problem."*
 
-- [x] **VQ46** — With orpheum-connect repackaged from main and nas.example built from main: on a TV's
+- [x] **VQ46** — With orpheum-connect repackaged from main and the production NAS built from main: on a TV's
   browser (or any browser with no household), open `app.orpheum-app.com`, choose **Get a code**;
   on the phone, Your account → Activate a device names `app.orpheum-app.com`; enter the TV's code
   there; both screens show the same check code; **Yes, they match** opens the films on the TV, and
@@ -459,7 +459,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   to a key only that browser made, which no test here runs end to end.
   (`web/apps/web/src/loader-device-code.tsx`, `internal/core/auth/devicecodes.go`, orpheum-connect
   `internal/devicecodes/`)
-  — done 2026-10-20 by the owner, prod-api repackaged and nas.example built from main at an earlier commit
+  — done 2026-10-20 by the owner, prod-api repackaged and the production NAS built from main at an earlier commit
   (an admin's code-activated device first reached no library, fixed there): *"I have access to the
   libraries and can play videos through a device code linked browser now."*
 
@@ -472,7 +472,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   namespace (a dummy wg0, 2026-10-20) is no real WireGuard tunnel with the VPS keeping sources.
   (`deploy/staging/tunnel.sh`)
 
-- [ ] **VQ48** — With orpheum-connect repackaged from main and nas.example built from main (D321): on a
+- [ ] **VQ48** — With orpheum-connect repackaged from main and the production NAS built from main (D321): on a
   TV's browser (or any browser with no household) at `app.orpheum-app.com`, choose **Get a code**;
   the TV shows a QR code beside its code.
   1. Scan it with a phone signed in to realm `karlnas` by password: the phone opens Activate a
@@ -525,7 +525,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   encode confined as a prepare is (`orpheum __confined-exec` with `usesGpu`) gives frames identical
   to the same encode run unconfined. CUDA's start meets a real driver only here (D331).
   (`internal/node/confine/landlock_linux.go`, `seccomp_linux.go`, `shim_linux.go`)
-  — done 2026-10-22 by Claude on gpuhost.example (RTX 3090, driver 580.178.04, kernel 6.14), the shim
+  — done 2026-10-22 by Claude on the GPU test machine (RTX 3090, driver 580.178.04, kernel 6.14), the shim
   built from this change and jellyfin-ffmpeg 8.1.2-5 with the ffstreamer patches: h264_nvenc and
   hevc_nvenc trials exited 0; a 10 s h264_nvenc encode of film.mkv, confined, gave a framemd5
   identical to the unconfined run's; the same run without GPU access still failed (exit 171). The
@@ -544,7 +544,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   main, with `confinement_policy = "require"`, in a container of the release image's GPU
   packages, chose `h264_vaapi` (usable: h264_vaapi, x264); Quick Sync's and NVENC's trials failed.
   Seen in the node's log, not on a System page, since no core ran; the page's rendering of a VAAPI
-  node is tested (`system.test.tsx`). The same kit on a staging host (Iris Plus 640, Kaby Lake, Gen 9.5)
+  node is tested (`system.test.tsx`). The same kit on the staging host (Iris Plus 640, Kaby Lake, Gen 9.5)
   found Quick Sync failing in the release image ("Error creating a MFX session: -9") and VAAPI
   working: confined and streamed encodes decoded to the unconfined frames, keyframes where asked.
 - [x] **VQ53** — On a machine with an NVIDIA card, its driver and the NVIDIA Container Toolkit under
@@ -553,10 +553,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   gpu, compute, video and utility capabilities, and the node's log says it chose `h264_nvenc`.
   Docker's nvidia device driver meets a real toolkit only here (D333 §1).
   (`internal/deployment/templates/install.sh`, `internal/deployment/write.go`) The CDI route was
-  verified 2026-10-23 by Claude on gpuhost.example (RTX 3090, driver 580.178.04, rootless Docker 29.9.2,
+  verified 2026-10-23 by Claude on the GPU test machine (RTX 3090, driver 580.178.04, rootless Docker 29.9.2,
   a spec from `nvidia-ctk cdi generate`): the install chose CDI, and the node, confined under
   `require`, chose `h264_nvenc`.
-  — done 2026-10-23 by Claude on gpuhost.example, rootful Docker 29.9.2 with the toolkit 1.20 from
+  — done 2026-10-23 by Claude on the GPU test machine, rootful Docker 29.9.2 with the toolkit 1.20 from
   NVIDIA's apt repository, by `deploy/hwtest/hwtest.sh`: the toolkit wrote its own CDI spec, so the
   install chose CDI (8 of 8 films played, only `h264_nvenc` run); with the node's override switched
   by hand to the `nvidia` driver's reservation and the node recreated, it chose `h264_nvenc` again
@@ -569,7 +569,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   a sign-in from another machine at home logs `path="direct from home"` and may administer. Only a
   real rootless daemon shows whose address the core sees.
   (`internal/deployment/templates/install.sh`, `docs/users/setup-problems.md`)
-  — done 2026-10-23 by Claude on gpuhost.example (rootless Docker 29.9.2, RootlessKit 3.3.0, the owner's
+  — done 2026-10-23 by Claude on the GPU test machine (rootless Docker 29.9.2, RootlessKit 3.3.0, the owner's
   `modprobe br_netfilter`), the install script and image from "fix(deployment): the install script names rootless Docker's hidden addresses and their fix": with the proxy on, the
   script reported it hid each address and, the module loaded, gave only the `daemon.json` step; a
   sign-in from the sandbox (192.168.1.199) logged `path="direct from away"` and `GET /users` was
@@ -889,11 +889,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   renamed away the admin's play read the copy (206; runs moved to the copy's place, logged), and the
   original's library folder made to vanish scanned as `unreadable`, nothing removed. Still owed: the
   owner's unplugged disk.
-- [x] **VQ82** — On nas.example, when the owner next deploys, step 0060 carries production from 0059.
+- [x] **VQ82** — On the production NAS, when the owner next deploys, step 0060 carries production from 0059.
   Passes when the migration completes (no `D363 removes the mixed kind` refusal), every film and
   series is listed as before, the libraries keep their folders, and each person's Continue Watching
   and watched marks are as they were. (`internal/store/migrations/0060_…`)
-  Passed 2026-10-27 (the owner, nas.example at an earlier commit): Continue Watching looks the same as before.
+  Passed 2026-10-27 (the owner, the production NAS at an earlier commit): Continue Watching looks the same as before.
 - [x] **VQ83** — On staging and on the Fire TV stick, D366: on the Libraries page of a films library,
   the sort chooser offers *Name, A–Z* and *Z–A*, *Newest* and *Oldest released*, *Newest* and *Oldest
   added*, each reachable by the remote. Passes when *Name, Z–A* lists Z first, its address keeps
@@ -909,7 +909,7 @@ An item is ticked only by the person who did it, and only with what they saw.
 - [x] **VQ84** — VQ79's last part: sign the Fire TV stick in as a new device (sign out first, or from a
   fresh Silk profile). Passes when *Your devices* names it "Silk on Fire TV"; a device signed in before
   keeps its name until renamed. (`web/apps/web/src/device.ts`, `tv-device.ts`)
-  Failed 2026-10-27 (the owner, nas.example): signed out and in again on the Fire TV, it is still listed as
+  Failed 2026-10-27 (the owner, the production NAS): signed out and in again on the Fire TV, it is still listed as
   "Chrome on Android". It signed in through the discovery's page over WebRTC, whose logged user agent is
   empty: the name likely comes from the discovery's sign-in, not device.ts. Fixed in this batch.
   Found 2026-10-27 (the lead's agent): the name is device.ts's alone, but the device is made by the
@@ -954,7 +954,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   iPhone has no element full screen; the full-screen button (and a double tap) now opens iOS's own
   player, with the chosen subtitles shown in it, and Done there returns to the Play page where the
   film was. The same in Watch Together's viewer. (`film-fullscreen.ts`)
-- [x] **VQ86** — D368, on nas.example or staging, in Chrome on the Mac at home: play a 5.1 film (AAC or
+- [x] **VQ86** — D368, on the production NAS or staging, in Chrome on the Mac at home: play a 5.1 film (AAC or
   E-AC-3) and a stereo one. Passes when each starts at the top on its own sound (the tracks note says
   "E-AC-3 5.1 (original)" or "AAC stereo (original)", and the core's `a playback started` line says
   `delivery=ladder`, `ladderQuality=picture`, `ladderSound=sound0-own`); a forced step down to a lower
@@ -1012,7 +1012,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   devices* from Chrome on the desktop as lead-tests left its film within about a second, by a link
   straight to that sign-in, with nothing pressed (the page's own events: only the app's home, then
   the sign-in's address).
-- [ ] **VQ88** — On nas.example in Chrome, play file 15102 (RealMedia, RealVideo 4 with cook sound) from
+- [ ] **VQ88** — On the production NAS in Chrome, play file 15102 (RealMedia, RealVideo 4 with cook sound) from
   its start, then seek to about the middle and near the end. Passes when it plays with sound from the
   start, in step with the picture, and after each seek; the node's log shows no "a run of chunks did
   not finish" for its sound, and the core's no run of it queued again every few seconds.
@@ -1236,11 +1236,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   `internal/core/together/group.go`, `hub.go`, `player_log.go`)
 - [ ] **VQ100** — a device whose key its core no longer has lands on the sign-in, not the dead end, on
   production (app.orpheum-app.com, after connect is repackaged with this client). Passes when, the
-  Fire TV (Silk) signed in to nas.example by its realm and then removed on the Devices page from another
+  Fire TV (Silk) signed in to the production NAS by its realm and then removed on the Devices page from another
   device: (1) opening app.orpheum-app.com on the Fire TV ends at the realm sign-in saying "This device
   needs to sign in again", never "Can't reach the server from this network"; (2) its "Copy what
   happened" text names "the offer's proof does not hold"; (3) signing in by the realm there reaches
-  nas.example and plays; (4) nas.example's log has the one `an offer's proof does not hold; refused` line
+  the production NAS and plays; (4) the production NAS's log has the one `an offer's proof does not hold; refused` line
   and the discovery counts no dead end for it. Before the fix the Fire TV showed the network dead end
   after its device was removed (the owner, 2026-10-28, 09:25). (`web/apps/web/src/discovery-gate.tsx`,
   `loader-at-client-origin.tsx`, `loader-at-loader-origin.tsx`; `web/packages/sdk/src/discovery.ts`)
@@ -1347,7 +1347,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   its guests told it ended, and the core's log says `a person left a session for another`.
   (`internal/core/together/places.go`; `web/apps/web/src/together-join.tsx`)
   **Passed 2026-10-28 (the owner, on staging):** all three; the core's log has the `in_another_session`
-  refusals (a host's own and "you are in dan's … session") and `a person left a session for another`
+  refusals (a host's own and "you are in tester's … session") and `a person left a session for another`
   for a host and for a guest.
 - [x] **VQ110** — a player alone or leading starts, and plays on after a seek, only once what it
   loaded outlasts its next chunk's load, and its dropped frames reach the log (the owner, 2026-10-28),
@@ -1669,10 +1669,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   **Passed 2026-10-29 (the owner, staging):** Mac Wi-Fi off ~1 min with Chrome and Firefox in the session: both reconnected within a second
   of each other at 19:09:50 once it returned (with VQ131's run).
 - [x] **VQ131** — a Watch Together guest who was signed in before joining by the host's link reaches
-  the server again after a lost connection, on staging. On the Mac, Firefox signed in as dan at the
+  the server again after a lost connection, on staging. On the Mac, Firefox signed in as tester at the
   household through staging's discovery (the core's log says `over=webrtc` for it), and Chrome as the
   admin hosting a Watch Together session; the host makes a link, and Firefox opens it and joins
-  (`someone joined by a link … name=dan isSignedIn=true`). Play a film. Turn the Mac's Wi-Fi off for
+  (`someone joined by a link … name=tester isSignedIn=true`). Play a film. Turn the Mac's Wi-Fi off for
   a minute, then on. Passes when Firefox makes a new WebRTC connection within about 15 s of the Wi-Fi
   returning (its "a WebRTC connection to the core is back after … ms with none" line), its session
   socket reconnects and it catches up with the group, and connectd's log has no "the offer's proof
@@ -1698,7 +1698,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   and from the other device of the same person after its next read of who they are (a reload).
   (`internal/core/preferences`, `internal/core/api/session.go`, `internal/core/together/leader.go`;
   `web/apps/web/src/debug-tools.tsx`, `together-debug.tsx`, `app.tsx`)
-  **Passed 2026-10-29 (the owner, staging):** Show debug tools turned on for admin and dan; the leader view marked the leader and this device,
+  **Passed 2026-10-29 (the owner, staging):** Show debug tools turned on for admin and tester; the leader view marked the leader and this device,
   the marks moved as the lead passed, and turning it off hid the view (the owner).
 - [x] **VQ133** — a Watch Together follower's page offline for a minute neither overflows its stack
   nor comes back a minute ahead, on staging. With the Mac's Chrome following in a Watch Together
@@ -1745,7 +1745,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   no error. A guest joined by link alone, not signed in, whose page is reloaded after the restart, is
   told the session is over, not that the address has no invitation.
   (`web/apps/web/src/together-viewer.tsx`, `together-storage.ts`)
-  **Passed 2026-10-29 (the owner, staging, core restarted 21:04:25):** Firefox (dan) went Home with "The
+  **Passed 2026-10-29 (the owner, staging, core restarted 21:04:25):** Firefox (tester) went Home with "The
   Watch Together session is over."; Chrome (admin, host) played on alone, its Watch Together sign white.
 - [x] **VQ137** — a page open across a deploy loads a screen it had not opened, on staging. On the
   Mac, in Chrome through staging's discovery, open the home page, and open no film's page; deploy
@@ -1822,11 +1822,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   S23 from the Mac right after the unlock finds it among the devices. (`web/packages/sdk/src/live-connection.ts`,
   `shown-check.ts`, `shown-page.ts`)
 - [x] **VQ172** — a Watch Together guest away from the session's page (D372 §9–§10), on staging.
-  (1) Signed in as dan on the Mac's Firefox, join Chrome's session by a link. Passes when the guest's
+  (1) Signed in as tester on the Mac's Firefox, join Chrome's session by a link. Passes when the guest's
   page has the banner: the tray (Cast and Watch Together's blue sign), the menu with Your account
   (Show debug tools reachable there, and a cast from the tray, unblocking VQ103). (2) With a film
   playing for the group, go home in Firefox and play another film: it plays for Firefox alone, the
-  host's page lists dan ", away" and Chrome's "Here:" says "dan (away)"; press the tray's Watch
+  host's page lists tester ", away" and Chrome's "Here:" says "tester (away)"; press the tray's Watch
   Together sign: Firefox is back on the session's page, catches up to the shared film and plays in
   step. (3) A guest by link alone (the S23's Chrome, not signed in): close the tab, open the same link
   again in that browser: back as the same member, no join asked; open it in another browser (Samsung
@@ -1843,7 +1843,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   the "…"; the page shows no "Identified incorrectly", "Rescan this" or "Report filed wrongly" of its
   own. The "…" opens a list with "Identified incorrectly", which opens one dialog in the list's place
   (no list left behind it) offering Rescan, Enter manually and Report this; one click outside it is
-  back on the page. (2) A series with more than one ordering (as dan): its "…" holds Order, whose
+  back on the page. (2) A series with more than one ordering (as tester): its "…" holds Order, whose
   dialog changes the ordering and closes. (3) On the Fire TV (Silk), the same film page by the
   remote: arrows reach the "…", OK opens it on "Identified incorrectly", OK opens its dialog, the
   arrows reach Enter manually and the works it finds, and Back closes it with focus on the "…".
@@ -1898,7 +1898,7 @@ An item is ticked only by the person who did it, and only with what they saw.
 - [x] **VQ181** — the banner's Libraries icon as a menu of the person's libraries, on staging.
   (1) On the Mac's Chrome as admin (several libraries): the Libraries icon opens a list of the
   libraries by name, "All libraries" last, the one shown marked; choosing one opens its page, whose
-  top has no library chooser (its view and sort choosers stay) and names the library. As dan, with
+  top has no library chooser (its view and sort choosers stay) and names the library. As tester, with
   access to one library only (or a household of one library), the icon goes straight to its page, no
   menu. (2) On the Fire TV (Silk), by the remote: OK on the icon opens the menu from its top; Down
   walks the libraries, the list scrolling within its height where they are more than the screen
@@ -1983,12 +1983,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   the S23's film stops and its page goes home, in the shell (the top bar shown), with the
   session-ended notice, and reloading the S23 then shows its home page, no film starting (the core's
   log shows no `a playback started … deviceId=<the S23's>` after `the host ended the session`). Run
-  it twice: once with the S23 signed in as a person of its own (s23), once as the host's own person
+  it twice: once with the S23 signed in as a person of its own (tester2), once as the host's own person
   (admin) on its second device. (2) Cast a film from the Mac's Chrome to the Fire TV: passes when
   the remote on the Play page offers Stop casting and no "Play on this device instead", and Stop
   casting sends the TV home and plays the film on Chrome from where the TV stood.
   (`web/apps/web/src/together-guest-play.tsx`, `cast-remote.tsx`)
-  **Passed 2026-10-30 (the owner, staging), part (1):** the S23 as s23 and as admin went home, told, and stayed home on reload; part (2) (Stop casting alone) is checked with VQ193.
+  **Passed 2026-10-30 (the owner, staging), part (1):** the S23 as tester2 and as admin went home, told, and stayed home on reload; part (2) (Stop casting alone) is checked with VQ193.
 - [x] **VQ193** — a Watch Together guest who joins lands on the group's film, and a guest's cast
   follows the group (D364 §11, D371 §4, D384 §2), on staging. (1) The Mac's Chrome starts a session
   with nothing on; the S23, signed in, joins by its link: passes when the S23 shows its own page
@@ -2003,14 +2003,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   session's leader changed` naming the TV), the S23's page says "Playing on Fire TV" with the group's controls; pause, play and a jump
   from the S23 and from Chrome each move the TV with the group; Stop casting sends the TV home and
   the S23 plays the film again on its page. Run (2) twice: once with the S23 signed in as a person of
-  its own (s23), once as the host's own person (admin). (3) With the S23 casting the group's film to
+  its own (tester2), once as the host's own person (admin). (3) With the S23 casting the group's film to
   the Fire TV, end the session from Chrome's dialog: passes when the S23 goes home, told; the TV goes
   home; and Chrome, the host, goes home too, with no notice; the core's log has `cast: a cast ended …
   reason=sessionEnded` for it (D389 §1).
   (`web/apps/web/src/together-viewer.tsx`, `cast-dialog.tsx`, `internal/core/together/cast.go`,
   `internal/core/assembly/assembly.go`, `together-session-end.ts`)
 - [ ] **VQ194** — the first visit after a deploy says nothing of developer tools: after
-  the next nas.example deploy, open the production page in Firefox on the Mac (the owner's, where it was
+  the next the production NAS deploy, open the production page in Firefox on the Mac (the owner's, where it was
   seen on 2026-10-31) without reloading first, DevTools closed. Passes when no "Developer tools are
   bypassing the service worker" line shows, or one shows for a moment and goes as the new worker
   takes over, and posters load. With DevTools' "Bypass for network" ticked and the page reloaded,
@@ -2028,12 +2028,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   --digest sha256:<64 hex> --security "a test fix"` after a first run for the core's own tag), and
   restart the core. Passes when, signed in as the admin on the Mac's Chrome, every page shows "A
   security update is available (<tag>): a test fix." with the command and Update now leading to How
-  to update; Snooze for a day hides it and a reload keeps it hidden; signed in as dan on Firefox,
+  to update; Snooze for a day hides it and a reload keeps it hidden; signed in as tester on Firefox,
   no banner shows; the settings page's Updates row names the newer version. Needs the paid
   service's `POST /release` (or Orpheum's own discovery) to serve the record, which the connect
   repository owes. (`web/apps/web/src/security-update-note.tsx`, `internal/core/discovery/release.go`)
 - [ ] **VQ196** — a GPU encodes under the node's read-only root (noexec step 1): deploy the next
-  image to nas.example (Quick Sync) and run `deploy/hwtest/hwtest.sh <image> --expect h264_qsv` on the
+  image to the production NAS (Quick Sync) and run `deploy/hwtest/hwtest.sh <image> --expect h264_qsv` on the
   amd box (`--expect h264_vaapi`). Passes when each run plays all its films with the expected
   encoder, the node's log has no "read-only file system" line, and `docker compose exec orpheum-node
   cat /proc/mounts` shows `/` `ro` and `/tmp` `noexec`. The sandbox has no GPU, so only software
@@ -2055,7 +2055,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   (a few tenths more is fine); run it three times within five seconds: one more line comes about five
   seconds after the first, saying `1 more since`. Then on the Fire TV, the next time its focus seems
   stuck, the log says whether its page froze and on which screen.
-  **The Mac part passed (the owner, nas.example, Chrome 156, 2026-11-01):** the core logged the freeze at
+  **The Mac part passed (the owner, the production NAS, Chrome 156, 2026-11-01):** the core logged the freeze at
   13:39:30 and 13:39:37, then `1 more since, the longest 2.0 s` at 13:39:42, five seconds after; and
   again on staging (19:36:10, then `2 more since` at 19:36:14). The Fire TV part is still owed.
   (`web/apps/web/src/page-freezes.ts`, `client-main.tsx`; `web/packages/player/src/main-thread.ts`)
@@ -2277,13 +2277,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   key's, it says "the release record's signature does not hold" and pulls nothing (`docker images`
   unchanged). (`cmd/discovery-sign/bootstrap.sh`)
 - [ ] **VQ221** — the watcher tells the owner of a signature it did not make (the audit's F4), on
-  nas.example. Run `go run ./cmd/discovery-watch --expected ~/ledger/expected --place <staging's issuer>`
+  the production NAS. Run `go run ./cmd/discovery-watch --expected ~/ledger/expected --place <staging's issuer>`
   after VQ210: it says every signature is the owner's. Then publish, by hand, a root statement or
   address document signed by a test key outside the ledger at one place. Passes when the next run
   exits non-zero naming that file, the key's fingerprint and its counter, and its timer's alert reaches
   the owner's phone. (`cmd/discovery-watch`)
 - [ ] **VQ234** — Firefox's page is live again soon after the network on a core's own address, with
-  no `online` event to tell it, on nas.example. On the Mac, Firefox on nas.example's direct HTTPS name, in a
+  no `online` event to tell it, on the production NAS. On the Mac, Firefox on the production NAS's direct HTTPS name, in a
   Watch Together session, then again with `?transport=webrtc` in direct mode (no discovery). Turn the
   Wi-Fi off for 20 s, then on. Passes when, each time, the page is live again within about 5 s of the
   Wi-Fi returning: the session shows connected and a pause by the other device reaches it (its
@@ -2291,9 +2291,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   "the offer reached no server". (`web/apps/web/src/transport-choice.ts`,
   `web/packages/sdk/src/together-connection.ts`, `live-connection.ts`, `rtc-reopen.ts`)
 - [ ] **VQ235** — a page on a network without IPv6 says so when it cannot reach its core (D398 §3).
-  Deploy nas.example's core with this build, and its discovery with it (connect, once it logs the reason,
+  Deploy the production NAS's core with this build, and its discovery with it (connect, once it logs the reason,
   D398 §2). On a phone on mobile data with no IPv6 (or on a Wi-Fi whose router has IPv6 turned off),
-  open a nas.example invitation's link, and sign in by the realm. Passes when each dead end's page says "This network seems to have no IPv6, and your server
+  open the production NAS invitation's link, and sign in by the realm. Passes when each dead end's page says "This network seems to have no IPv6, and your server
   has no IPv4 way in yet, …" (the realm's opening "Your server was found, but"), the discovery's log
   has "a client found no way to the core" with `ipv6=no cause=noIpv6`, the ways tried and
   `seenOver=ipv4`, and no address; then the same link on a Wi-Fi with IPv6 reaches the core, or shows

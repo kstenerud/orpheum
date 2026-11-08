@@ -339,7 +339,7 @@ function keepCodecs(hls: DiagnosedHls, diagnosis: Kept): void {
 /**
  * What keeps one of the player's own choices of quality, with why, in video's diagnosis: its last
  * choicesKept, after its steps, which a dozen chunks' loads pushed out before a seek's report was sent
- * (the owner's Firefox on nas.example, 2026-10-20); nothing for a video not diagnosed. Timed by
+ * (the owner's Firefox on the production NAS, 2026-10-20); nothing for a video not diagnosed. Timed by
  * monotonicMs where given, each choice says how long before the report it was made ("chose 502 s
  * ago ceiling 0 to 1: stepped up"): kept apart from the steps, a choice minutes old read as the
  * seek's own, a step up made 501 s before a seek taken for its cause (the owner's Chrome, staging,

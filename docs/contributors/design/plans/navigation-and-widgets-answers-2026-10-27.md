@@ -187,14 +187,14 @@ The owner agreed every other answer and recommendation above (2026-10-27).
 ## Reaching production from outside (the owner, 2026-10-28)
 
 - **Next batch (the owner: "It's fine for now"):** a phone in Australia, on mobile data, opening an
-  invitation to nas.example was told it could not reach the network; on Wi-Fi it got in. Production has no
+  invitation to the production NAS was told it could not reach the network; on Wi-Fi it got in. Production has no
   IPv4 way in from outside: its config has no tunnel (`domain = ""`), so no relay either (D314 §4), and
-  the home is DS-Lite, so a network without IPv6 cannot reach it. Two items: (1) put nas.example on the edge
+  the home is DS-Lite, so a network without IPv6 cannot reach it. Two items: (1) put the production NAS on the edge
   VPS's tunnel (orpheum-ops edge runbook; peer 10.77.0.2 was kept for it; the VPS step is the owner's,
-  over his laptop's WireGuard), after this batch's nas.example deploy; (2) a page that cannot reach its core
+  over his laptop's WireGuard), after this batch's the production NAS deploy; (2) a page that cannot reach its core
   reports why to the discovery (its network, whether it has IPv6, the ways tried) so the failure is seen
   on prod-api, and tells the person in words ("this network has no IPv6, and the server has no IPv4 way
-  in yet"). Nothing reached nas.example's log from the failed attempt; the core cannot log what never arrives.
+  in yet"). Nothing reached the production NAS's log from the failed attempt; the core cannot log what never arrives.
 
 ## A black blip at the start of a film on the Fire TV (the owner, 2026-10-28)
 
@@ -374,13 +374,13 @@ had leaned on.
   folded into this batch.
 - **Sharing the upload and the ladder** (research/upload-and-ladder-2026-10-29.md): the "slow" line at
   110%, the crowding controller's step at 20 s, sending a member away only after 60 s and only past the
-  whole upload, the presets (x264 `faster`, Quick Sync `medium` after a speed check on nas.example, NVENC
-  `p6`); the simulation and the VMAF plan on gpuhost. The owner's answers (2026-10-29): (1) yes, the
+  whole upload, the presets (x264 `faster`, Quick Sync `medium` after a speed check on the production NAS, NVENC
+  `p6`); the simulation and the VMAF plan on the GPU test machine. The owner's answers (2026-10-29): (1) yes, the
   house's other traffic gets some sharing priority, and may send a Watch Together member away; (2) no
   fixed reserve (the admin sets the upload Orpheum uses), but detect contention on the line and give way
   for a while, as a setting that can be turned off; (3) yes, a TV keeps its quality ahead of a phone when
   lowering; (4) Quick Sync's settings were all accidental: choose by picture quality and UX (the report's
-  `medium` after the speed check on nas.example).
+  `medium` after the speed check on the production NAS).
 - **Climbing back after a recovered link** (VQ86's run, 2026-10-29): one quality a minute after drops;
   with clean samples after a throttle is lifted, climb as far as they agree (D352 §3 allows it).
 - **"Play the original file" as a debug tool** (the owner, 2026-10-29: "I'm not even sure I want to
@@ -475,12 +475,12 @@ had leaned on.
 
 ## Security (the owner, 2026-10-30)
 
-- **Done:** pion/stun v3.1.5 (the TURN relay's remote panic), on staging and nas.example; check-vulns first
+- **Done:** pion/stun v3.1.5 (the TURN relay's remote panic), on staging and the production NAS; check-vulns first
   in check-pr and the nightly run; every Action pinned by commit (research/security-pins-2026-10-30.md,
   research/github-integrity-2026-10-30.md).
 - **This batch, the owner's part first:** signed tags (github-integrity recommendation 3). The owner
   makes an SSH signing key on a FIDO hardware key (`ssh-keygen -t ed25519-sk`), with a second key as a
-  spare; then the lead adds `allowed_signers` on nas.example and prod-api, outside the clone, and
+  spare; then the lead adds `allowed_signers` on the production NAS and prod-api, outside the clone, and
   `deploy/release/build.sh` runs `git verify-tag` before it builds.
 - **This batch, to the owner for a yes:** the audit's "in the batch" bumps: Vite 8.3.5, vitest 5.0.5,
   happy-dom 21, x/net v0.62.0, Node 22.23.4, a fresh Debian digest, a lockfile refresh, FFmpeg 8.1.3
@@ -488,18 +488,18 @@ had leaned on.
 - **Before the public release:** each release's image digest signed with the owner's key and published
   off GitHub, with a bootstrap install on orpheum-app.com that checks it and pulls by digest (the owner
   to choose ssh-keygen or cosign, and whether the household install command changes; recommendation 4);
-  a second remote the owner controls, compared with GitHub's refs, which nas.example clones from
-  (recommendation 5); the connect package signed; the image and FFmpeg reproducible, rebuilt on gpuhost
+  a second remote the owner controls, compared with GitHub's refs, which the production NAS clones from
+  (recommendation 5); the connect package signed; the image and FFmpeg reproducible, rebuilt on the GPU test machine
   before signing. The account's own hardening (hardware keys as the only 2FA, old keys and tokens
   pruned, no force-pushes, `v*` tags for the owner alone) is the owner's to do in GitHub's settings.
 - **Done (2026-10-30): CVE-2026-98432** (a Linux TCP use-after-free that Go's default MPTCP listeners
   expose to remote code execution; golang-announce): `godebug multipathtcp=0` in Orpheum's and
-  connect's go.mod, tested (`TestSockets_UseNoMultipathTCP`), on staging and nas.example; the prod connect
+  connect's go.mod, tested (`TestSockets_UseNoMultipathTCP`), on staging and the production NAS; the prod connect
   package `connect-production-6f0ec54-276ef290.run` waits for the owner. The fix proper is the hosts'
-  kernels: nas.example's Proxmox host (7.0.14-25-pve), prod-api, the edge VPS, the owner's to update. The
+  kernels: the production NAS's Proxmox host (7.0.14-25-pve), prod-api, the edge VPS, the owner's to update. The
   Docker daemon's own embedded DNS listens with MPTCP too (seen in staging's container).
 - **Once in beta (the owner, 2026-10-30):** a way to ship a security fix in hours while a batch is
-  half built: a fix branch from what production runs (nas.example's commit, the last connect package), its
+  half built: a fix branch from what production runs (the production NAS's commit, the last connect package), its
   own narrow gate (the fix's tests, check-vulns, the build), deployed, then merged into the batch.
   Tonight's pion/stun and MPTCP fixes were made on main with the batch's other work in it.
 - **If the restart-order fault comes back (the owner agreed 2026-10-30):** the core's link to connectd now
@@ -514,14 +514,14 @@ had leaned on.
 ## The week's security report (research/security-week-2026-10-30.md), next batch (the owner agreed 2026-10-31)
 
 - **Done (the owner, 2026-10-31):** `net.mptcp.enabled=0` in `/etc/sysctl.d/` on prod-api, the edge,
-  nas.example's Proxmox host and LXC 102, all rebooted; the connect package with connect's own
+  the production NAS's Proxmox host and LXC 102, all rebooted; the connect package with connect's own
   `godebug multipathtcp=0` (`connect-production-eb6c283-e39602fe.run`) on prod-api.
 - **MPTCP off in every container (report §1).** `sysctls: {net.mptcp.enabled: "0"}` on every service
   of `internal/deployment/templates/compose*.yaml` and connect's compose files, with a test that the
   rendered compose carries it: the setting is per network namespace, and a household's kernel is not
   ours to patch.
 - **The SSH keys a sandbox holds work only from the sandbox VM (report §2a), the owner's:**
-  `from="192.168.1.199"` on the nas.example and gpuhost keys' `authorized_keys` lines. A hook refusing
+  `from="192.168.1.199"` on the production NAS and the GPU test machine keys' `authorized_keys` lines. A hook refusing
   commands that print keys (§2b) is not wanted: the keys' reach is the defence.
 - **Claude Code is not pinned (the owner, 2026-10-31):** new versions bring better models and are taken
   as they come.
@@ -559,7 +559,7 @@ had leaned on.
 - **Deferred until the repository is public (the owner, 2026-10-31):** the environment `release`'s
   required reviewer and the `v*` tag ruleset. A private repository on GitHub's free plan offers
   neither; until then the environment `release` holds no publish.
-- **The owner's, on the machines:** `from="192.168.1.199"` on the nas.example and gpuhost keys'
+- **The owner's, on the machines:** `from="192.168.1.199"` on the production NAS and the GPU test machine keys'
   `authorized_keys` lines (report §2a).
 - **The DevTools-bypass note asks the browser for a new worker first (next batch; A53, VQ194 failed).**
   Nothing in the client calls `registration.update()`: Firefox checks for a new worker only at a
@@ -572,7 +572,7 @@ had leaned on.
   of design/plans/security-updates.md (the release record, written by the release workflow, and the
   admins' banner); Part C, the opted-in timer, once signing exists.
 - **noexec (the owner, 2026-10-31, yes), next batch:** step 1 (the node's root read-only, `/tmp` a
-  noexec tmpfs) first; step 2 (noexec volumes for `./node` and `./run`) once tried on nas.example.
+  noexec tmpfs) first; step 2 (noexec volumes for `./node` and `./run`) once tried on the production NAS.
   **Step 1 built for the 11-01 batch:** both compose templates give the node `read_only: true` and
   `/tmp` a tmpfs `rw,noexec,nosuid,nodev,size=64m` (TestCompose_TheNodesRootIsReadOnlyAndItsTmpRunsNothing).
   Nothing needed moving: the node writes only its instance (`./node`) and its socket (`./run`), and
@@ -583,13 +583,13 @@ had leaned on.
   its encoder check named `libx264` against the node's `x264`, a naming mismatch, and no film failed),
   the node's log with no read-only error; a write to `/` failed
   read-only and a file in `/tmp` would not run. A GPU's driver under the read-only root (QSV on
-  nas.example, VAAPI on the amd box) is VQ196.
+  the production NAS, VAAPI on the amd box) is VQ196.
 - **noexec, as looked into (report §5):** Landlock's EXECUTE right governs
   `execve` alone, never a `dlopen`'s `mmap(PROT_EXEC)`, and confines FFmpeg's runs, not the node. A
   noexec mount blocks both, for every process in the container. Proposed: (1) the node's root
   `read_only: true` with `/tmp` a tmpfs `noexec,nosuid,nodev`, which any Docker takes; (2) `./node` and
   `./run` as local-driver volumes `o: bind,noexec,nosuid,nodev`, Linux hosts alone (a plain bind
-  mount cannot take noexec; Docker Desktop and OrbStack may not), tried on nas.example's LXC first; (3) a
+  mount cannot take noexec; Docker Desktop and OrbStack may not), tried on the production NAS's LXC first; (3) a
   deployment test that the options are there. FFmpeg, its libraries and drivers load from the image's
   read-only paths, so nothing is expected to break.
 
@@ -612,10 +612,10 @@ had leaned on.
 
 - **Who am I signed in as: folded into the 2026-10-30 batch at the owner's word ("so that it's
   easier for me to test").** "There's nothing anywhere to tell me who I'm logged in as. We should at
-  least have this on the account page" (the owner, Mac Firefox as dan, VQ181). The account page now
+  least have this on the account page" (the owner, Mac Firefox as tester, VQ181). The account page now
   says "Signed in as ‹name›" under its heading. The menu's top line already holds the bare name, in
   small grey type, and went unnoticed; whether it should say "Signed in as" too is the owner's.
-- **VQ181's one-library case has no account to show it.** Every staging person (dan, s23,
+- **VQ181's one-library case has no account to show it.** Every staging person (tester, tester2,
   lead-tests) has four libraries and admin five, so "the icon goes straight to its page" was
   checked by its tests only; a device check needs a role with one library.
 - **The decoder's own limit (D382's sequel; the owner, 2026-10-30).** File 5664 (HEVC, 15.6 Mb/s) on
@@ -729,7 +729,7 @@ had leaned on.
   `orpheum-client.com` stay (no one types them; their separation is the isolation). A TV types
   `orpheum.cc`. Owed: the owner's Cloudflare zones, tunnel hostnames and HSTS preload; connect's
   production configuration, the panel's pages and passkeys' relying party; Orpheum's install
-  template's discovery address and nas.example's core configuration. **Superseded by D390** (the outside
+  template's discovery address and the production NAS's core configuration. **Superseded by D390** (the outside
   audit, the owner's yes): the API stays on `orpheum-app.com` and staging moves to `orpheum.dev`.
 - **Built (11-01 batch): Firefox's recovery (5ae59ff9, VQ197)** — desktop Firefox fires no `online`
   (Mozilla bug 654579), and the transport cut its backoff short only on that; an offer that reaches no
@@ -1027,7 +1027,7 @@ the shared-files copy and is merged into it, while staging's software keys stay 
 the genesis statements from `~/orpheum-security`'s ledger pasted into `suggested.go` (the discovery and
 the publisher); D390's move above, staging first; then the deploy order (the published directory on the
 production host, `-published=/published` in production's compose file, `orpheum.cc` pointed at
-connect, connect, then nas.example).
+connect, connect, then the production NAS).
 
 **Left, small (from the agents' notes):** `TestServe_ThisMachinesPortAdministersWhereTheHousesPortDoesNot` can collide on a
 port when runs overlap; `test-key` leaves its temporary directory (it says where; removing it would need forbidigo's delete rule to allow it, principles §2); the first release in a record
@@ -1040,8 +1040,8 @@ directory; the test retries on a taken port. Still open: the first release's sec
 
 **Done (2026-11-01):** check-pr passed on "refactor(web): reportReloadForNewerClient is reportReloadNote"; connect re-pinned to it (connect an earlier commit, up.sh's
 tests an earlier commit); production serves `orpheum.cc` and `account.orpheum.cc` with the ceremony's published
-chain; nas.example runs "refactor(web): reportReloadForNewerClient is reportReloadNote"'s tree, re-enrolled with `orpheum.cc`, realm `karls` (`karl` is refused:
-D298 §2 wants 5 to 32 characters). Each household member signs in once with a password on nas.example itself,
+chain; the production NAS runs "refactor(web): reportReloadForNewerClient is reportReloadNote"'s tree, re-enrolled with `orpheum.cc`, realm `karls` (`karl` is refused:
+D298 §2 wants 5 to 32 characters). Each household member signs in once with a password on the production NAS itself,
 which makes the core's key for the renamed realm; until then the realm's sign-in at `orpheum.cc` is
 refused.
 
@@ -1058,9 +1058,9 @@ refused.
 - **`e2e/discovery.spec.ts:92` flaked once**: "route.fulfill: Fetch response has been disposed".
 - **An empty Home tells an admin to add a library** (seen on staging before its libraries were made). **Done already** in the 11-02 batch ("feat(web): an empty Home says how it fills", "an empty Home says how it fills"), found 2026-11-01.
 - **The core logged HeadlessChrome as `browser=safari`.**
-- **nas.example logs warnings for setting rows nothing reads** (`prepare_progress_every_seconds`,
+- **The production NAS logs warnings for setting rows nothing reads** (`prepare_progress_every_seconds`,
   `scan_*_extensions`, `together_*`, …): remove the rows or the warning.
-- **An AbortError goes uncaught in the page** (the owner's console, nas.example, Chrome on the Mac,
+- **An AbortError goes uncaught in the page** (the owner's console, the production NAS, Chrome on the Mac,
   2026-11-01): `Uncaught (in promise) AbortError: signal is aborted without reason at MessagePort`
   in transport-choice's bundle, four times, after a film page's warm-up was dropped. A cancelled
   request's promise is left unhandled; find which and catch the abort.
@@ -1073,7 +1073,7 @@ refused.
   address. VQ235 passes on a connect discovery only after that. For the owner: whether connect also
   stores the reason (a migration), whether the System page's count shows causes, and an IPv6-only
   probe name so the page can tell "no IPv6" from "IPv6 got no answer" on more networks.
-- **orpheum-ops' README §6a names an old core ID**: nas.example's core on production is
+- **orpheum-ops' README §6a names an old core ID**: the production NAS's core on production is
   `f3k5n8g0ktf2f8bjrd6rs6v6qt` (`c2zd1gwvgx1wmp3hsx7b77y81b` is a stale core of 10-15).
 - **`sw.browser.test.ts` hangs under load** (make check, 2026-11-01): "carries the load of a page of the release before" timed out at its 5 s `hungAfterMs` with the machine's load average at about 24 (two agents building). Alone it passes in 0.7 s. Look at why a loaded machine stretches one relayed load past 5 s before widening anything (rule 5).
 - **A seek's playback stops again 1 s after it starts** (the owner, Chrome on staging, Nosferatu at 29:04, 2026-11-01 14:29 UTC). After the timeline seek, the film started at 1744.0 s once one chunk was loaded (1742.1–1748.9 s), played 1.2 s, then waited 2.1 s with 3.7 s still loaded ahead. The seek's steps show "video flushed from 0.00; audio flushed from 0.00" and "ceiling 0 to 1: stepped up" at the same moment. Likely cause, not yet confirmed: the step up after the seek switched at once, flushing everything, including the chunk that had just started playing. The fix to check: a step up never flushes what is playing.
@@ -1083,7 +1083,7 @@ refused.
 - **A rescan that keeps reading its library as changing says nothing of why** (the stuck rescan, fixed in "fix(identify): an episode its name placed is marked a guess once, not every pass", 2026-11-01: one `MarkGuessedMatch` upsert per pass kept library 2's rescan waiting for hours, logging only "a rescan waits for its library to stop changing"). `filesSayOf` could keep the refused write's error from inside its closure and attach it to `errLibraryKeptChanging`, so the log names the statement and title. No fixture library keeps writing now, so its test needs a seam. *Built (11-05 batch):* the log's `cause` names the refused write (`TestRescan_ALibraryThatKeepsChangingIsLoggedWithTheWriteThatChangesIt`).
 - **A confirmed by-name episode placement is marked a guess again** (the same agent, a question under D307 §2). Confirming one clears its `guessed_match` row, but the next pass places the episode by its name again and marks it a guess again. The owner to say whether a confirmation should stick. **The owner, 2026-11-01: "Agreed on D307"** to the lead's proposal: a confirmation sticks; a pass that places the episode at the place confirmed leaves it unmarked, and only a new place is a new guess (as D172 keeps a confirmed film). Next batch, recorded as a decision amending D307 §2.
 - **Titles beginning with "The" are filed under T** (the owner, 2026-11-01: "feels weird"; research the same day, from forum and SDK sources). Plex, Jellyfin and Emby skip leading articles in sorting by default, and Kodi has an option. All keep the full title on screen, and each has a per-title sort name. Their article lists are global, mostly English (Plex adds das, der, el, la). Here the sort key is the raw name (`internal/core/identify/text.go:34`, `internal/core/textindex/sortkey.go`), and the letter rail follows the key (`internal/core/library/letters.go`). The NFO's `<sorttitle>` is parsed (`nfo.go`) but never used. `names.go`'s `isArticle`/`withoutArticle` serve only matching. `data-timeliness.md:458` already plans a rail that skips articles, but no decision records it. Proposal for a decision refining D47: key the name without its leading article, from a list per sort locale (en the/a/an; de der/die/das/ein/eine; fr le/la/les/l'/un/une; es el/la/los/las/un/una); an NFO `<sorttitle>` wins; the shown title is unchanged; a name that is only an article stays whole; every `sort_key` row is rebuilt through `rekeyName`. **The owner, 2026-11-01: "Agreed on sorting"**: build it next batch, recorded as a decision refining D47.
-- **An episode in Continue Watching had no poster** (the owner, Dimmerhold's first episode on nas.example, 2026-11-01). Fixed in "fix(library): an episode in Continue Watching shows its series' poster": its series' poster. To deploy with the next batch.
+- **An episode in Continue Watching had no poster** (the owner, Dimmerhold's first episode on the production NAS, 2026-11-01). Fixed in "fix(library): an episode in Continue Watching shows its series' poster": its series' poster. To deploy with the next batch.
 
 ## The 11-02 batch (the owner agreed 2026-11-01): networking, and the beta made solid
 
@@ -1112,7 +1112,7 @@ The owner's device checks run alongside, in the order of `/yoloai/files/testing-
 6. **Playback's start:** the remembered link kept across a deploy; the player choosing its first rung
    before loading anything (the Fire TV's black blip). **Found done (2026-11-01):** both were built before this
    batch was written: the core keeps each device's link in the store (`link_memory`, "feat(player,playback): the link a device remembers is a prior of its estimate, and the core keeps it across restarts"), and
-   nas.example's held device 2's link of 23.6 h before through the 11-01 restart; its three
+   the production NAS's held device 2's link of 23.6 h before through the 11-01 restart; its three
    `rememberedLinkKbps=0` starts since were devices 31, 33 and 34 at their first playback, new devices
    after the realm change. The first rung by the remembered link is D381 (35822125), VQ176 ticked.
 7. **The production deploy's small items** (the section above): HeadlessChrome's browser name, the
@@ -1139,16 +1139,16 @@ average-bitrate rung, inventory features.
 
 **The owner's question (2026-11-01):** "I don't understand why this requires me to open a tunnel on
 the vps. The vps is the paid discovery server, and we can't be opening tunnels to every customer's
-cores." Answered: the edge VPS (`11.22.44.139`, orpheum-ops `edge/`) is not the discovery server
-(prod-api, `178.84…`); it is the owner's own forwarder for nas.example, whose DS-Lite line has no IPv4 way
+cores." Answered: the edge VPS (`198.51.100.139`, orpheum-ops `edge/`) is not the discovery server
+(prod-api, `178.84…`); it is the owner's own forwarder for the production NAS, whose DS-Lite line has no IPv4 way
 in. No customer's core gets a tunnel (D314: a connection that needs a relay fails, and is counted);
-item 5 is the counting. Whether nas.example uses the edge again is the owner's own choice, not product work.
+item 5 is the counting. Whether the production NAS uses the edge again is the owner's own choice, not product work.
 
 **The owner's idea (2026-11-01), to be designed later, not the 11-02 batch:** a household may run its
 own proxy on its own VPS, which the discovery then names as a way to its core: the service still
 carries no one's traffic (D314), but a household behind DS-Lite or CGNAT can give its core an IPv4
-way in. nas.example's edge VPS (orpheum-ops `edge/`) is the test bed when it is designed. nas.example's own
-use of the edge waits until then (the owner: "We'll hold off on nas.example's edge server for now").
+way in. The production NAS's edge VPS (orpheum-ops `edge/`) is the test bed when it is designed. The production NAS's own
+use of the edge waits until then (the owner: "We'll hold off on the production NAS's edge server for now").
 
 ## The 11-03 batch (the owner agreed 2026-11-01): playback you feel, small visible things, the beta's setup
 
@@ -1175,14 +1175,14 @@ recommendations"). The owner holds off on the testing plan's sound steps until t
 9. **Connect's up.sh checks `published/` as the `connect` user** (orpheum-connect). **Done already** in connect an earlier commit (found 2026-11-01).
 10. **A renamed realm's one password sign-in** is said where it is needed, or made unneeded. It cannot be made unneeded: the key comes from the password, which the core keeps only as a hash (D297 §3). It is now said in up.sh's `realm` usage and orpheum-ops' README §6a (connect an earlier commit), and in `docs/users/setup-problems.md` for the household.
 
-End: one check-pr, the owner's go, nas.example. Quick visible fixes go to staging for the owner as they
+End: one check-pr, the owner's go, the production NAS. Quick visible fixes go to staging for the owner as they
 land. **Not this batch:** connect's side of D398 (at its next pin), the gate items, the ops and logging
 items above.
 
 ## The 11-04 batch (the owner, 2026-11-01): from VQ201 and the night's testing
 
 The owner, 2026-11-01, going to bed: "Maybe you should finish this batch and start another one
-overnight", with VQ201 passed and these comments. No nas.example release is wanted soon.
+overnight", with VQ201 passed and these comments. No the production NAS release is wanted soon.
 
 1. **A redeemed invitation leaves the People page** (the owner: "When an invitation is redeemed, it
    should be removed from the people page"). Its account is in Accounts already.
@@ -1193,7 +1193,7 @@ overnight", with VQ201 passed and these comments. No nas.example release is want
    Monkeys "shows 'Play S0E0'. It should always start at season 1, leaving the specials optional").
    Built in "fix(library): a series nobody has started plays season 1 first, its specials optional": a special is Next Up only while its person is partway through it, and finishing
    one does not move their place.
-4. **Quillwick S2E4's sound is out of sync, on staging and on nas.example** (the owner, 2026-11-01).
+4. **Quillwick S2E4's sound is out of sync, on staging and on the production NAS** (the owner, 2026-11-01).
    Folded in as seriously hurting use. The file is `Quillwick/Quillwick - 2x4 - Money.avi`: XviD
    with packed B-frames (most video packets carry no pts) and CBR MP3 in AVI, both starting at 0 and
    both lasting 1797 s by their own counts. Not yet known: the offset's size, whether it grows, and
@@ -1302,9 +1302,9 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
     FFmpeg's copy begun at a keyframe crushed the times of the pictures shown before it
     (idiosyncrasies.md, "A copy begun at an open GOP's keyframe…"); a copied picture's run is now
     led in from the chunk before, as a sound's is (`MakeChunks.LeadInMs`, protocol 58).
-15. **A Watch Together guest in Berlin could not reach nas.example** (the owner, 2026-11-02; a test of how
-    voice and playback fare on her very bad home connection). nas.example's core log, 14:24–14:26 UTC:
-    - **This batch:** from her IPv6 network (`2a0f:5000:8119:5200::/56`, likely her Wi-Fi) the page
+15. **A Watch Together guest in Berlin could not reach the production NAS** (the owner, 2026-11-02; a test of how
+    voice and playback fare on her very bad home connection). The production NAS's core log, 14:24–14:26 UTC:
+    - **This batch:** from her IPv6 network (`3fff:2455:8119:5200::/56`, likely her Wi-Fi) the page
       connected twice by a punched IPv6 path (363 and 463 ms), the core held each, and each closed
       about 100 ms later with no request and no sign-in. The path works; the page dropped it. **Not yet
       found.** A first guess, a browser with no service worker (Firefox's private window), was
@@ -1343,7 +1343,7 @@ End: one check-pr. Quick visible fixes go to staging for the owner as they land.
       background, frozen before its "hidden" note went out; a network gap of her bad connection
       fits too. The core's "rtc connection ended" names no cause; one that did (ICE failed, the
       browser closed it) would tell these apart. *Built (11-05 batch):* the line's `cause`.
-    - From her IPv4-only network (`194.213.108.4`, likely LTE, no IPv6 candidate) every pair failed
+    - From her IPv4-only network (`198.51.100.108`, likely LTE, no IPv6 candidate) every pair failed
       with nothing sent or received: the house is DS-Lite with no IPv4 way in and the beta has no relay
       (as "Reaching production from outside" above).
     - **Next batch:** the core's port mapping asks Docker's bridge gateway (`pcp: the router at
@@ -1458,7 +1458,7 @@ happens would narrow it.
 connect-production-9cbe6f0-d35c68e1 to the "docs(orders): the 11-05 batch, a beta that holds up for other households" build (16:52 UTC). The home page came up and
 the page chose the core's LAN name (`over=http`), but none of its media reached the core: the
 playlist of the film it played answered 404 three times, as orpheum.cc itself answers that path,
-and nas.example's core logged no request for it; each poster of the Movies library said "No poster",
+and the production NAS's core logged no request for it; each poster of the Movies library said "No poster",
 as orpheum.cc answers an image path with its page. So the service worker the page ran did not
 carry its media loads to the core, and they went to the client origin. After the owner closed the
 tab and opened it again, it played and showed its posters. A tab opened across a change of the
@@ -1561,11 +1561,11 @@ noexec step 2; the ceremony's address defaults; a security-fix branch process fo
 
 **Not this batch:** the arrows' search on the TV (item 13); the gallery's pop-ups and player bar,
 the scrub bar's time, `ModalDialog`'s `className` (one review with the owner); exact cut times for
-a re-timed copy (the margin stays for now). End: one check-pr, the owner's go, nas.example.
+a re-timed copy (the margin stays for now). End: one check-pr, the owner's go, the production NAS.
 
 ## The 11-06 batch (the owner agreed 2026-11-04, "yes that sounds good"): playback holds up, and the UI audit's research
 
-After the 11-05 batch (deployed to nas.example 2026-11-04). Bugs a beta household would feel, and the
+After the 11-05 batch (deployed to the production NAS 2026-11-04). Bugs a beta household would feel, and the
 research for the UI revamp. The owner changed item 7 the same day: *"it might be time to do a full
 UI audit since the majority of the UI-affecting functionality is now in place. We'll do only a
 research run in this batch … The actual UI revamp will be done next batch."*
@@ -1578,8 +1578,8 @@ research run in this batch … The actual UI revamp will be done next batch."*
    a video is rarely interesting anyway."* The 3 Hearthstead MKVs are another shape (no picture
    before 2 s; their sound is led in already) and stay as they are. Their stored keyframe lists are
    read again only once forgotten: on staging the 17 rows were deleted by hand (2026-11-04); on
-   nas.example, the only deployed system, they are deleted by hand at its deploy (the owner, 2026-11-04:
-   "clear them by hand. nas.example is the only deployed system"), not by a migration step. The owner saw
+   the production NAS, the only deployed system, they are deleted by hand at its deploy (the owner, 2026-11-04:
+   "clear them by hand. The production NAS is the only deployed system"), not by a migration step. The owner saw
    both films play from their start in Firefox on a Mac (VQ259).
 2. **A run's last chunk past its boundary** (11-05's "still filed"). *Built 2026-11-04
    ("fix(chunks): a chunk listed ending past its bound by more than a few frames is refused"):* a chunk listed ending more than 250 ms past its bound is refused, the run's last
@@ -1649,7 +1649,7 @@ research run in this batch … The actual UI revamp will be done next batch."*
 **Not this batch:** the UI review with the owner (the scrub bar's time, the gallery's pop-ups per
 widget and its real player rows, `ModalDialog`'s `className`), folded into the revamp; the
 Diagnostics page (D341); AirPlay, recorded in [airplay.md](airplay.md), its spike scheduled by the
-owner. End: one check-pr, the owner's go, nas.example.
+owner. End: one check-pr, the owner's go, the production NAS.
 
 ## The UI revamp's first wave (the owner, 2026-11-04: "start the UI revamp batch")
 
@@ -1696,7 +1696,7 @@ asks for a quick fix, is folded in (the owner, 2026-11-04).
     the UI review's items (the scrub bar's time, the gallery's pop-ups per widget and its real
     player rows, `ModalDialog`'s `className`).
 
-End: one check-pr, the owner's go, nas.example.
+End: one check-pr, the owner's go, the production NAS.
 
 **Changed after the wave began (the owner, 2026-11-04, D417):** the list's search, chips and sort
 become one pop-up of filters that narrows the posters of that list only; the grouped search across
@@ -1776,15 +1776,15 @@ deploy." The whole API renamed in place per D416 and the route table of
 and pairing included where a better shape exists, Connect changed with it; then staging and
 production. The API's compatibility check starts once it lands.
 
-D426's schema rebuild rides in it (steps 0073–0080, each migrating in place). Before the nas.example
-deploy, the migration is rehearsed on a read-only copy of nas.example's database, with no export/import
+D426's schema rebuild rides in it (steps 0073–0080, each migrating in place). Before the production NAS
+deploy, the migration is rehearsed on a read-only copy of the production NAS's database, with no export/import
 tool, and the steps stay appended: no fold this batch (D430, the owner, 2026-11-05).
 
-**Rehearsed (the lead, 2026-11-05, at "docs(plans): defer the API compatibility gate, with how to build it later")** on the persistent.db in nas.example's core backup of
-14:13 UTC, copied by reading the backup (nothing on nas.example changed). It was at schema 67, and 13 steps
+**Rehearsed (the lead, 2026-11-05, at "docs(plans): defer the API compatibility gate, with how to build it later")** on the persistent.db in the production NAS's core backup of
+14:13 UTC, copied by reading the backup (nothing on the production NAS changed). It was at schema 67, and 13 steps
 took it to 80 in 1.8 s, with the integrity and foreign key checks clean. Users, grants, devices,
 resume positions, watched marks and preferences come through row for row. Hidden items (none on
-nas.example), play events, play spans and places come through too, and a film's or series' language
+the production NAS), play events, play spans and places come through too, and a film's or series' language
 preferences take the scope `item`. Two counts fall, both as designed. `file` goes from 15,222 to
 15,218, because the four recorded copies (`copy_of`) join their originals and no watching named
 them. `link_memory`'s six rows go, because step 0070 moves telemetry out and step 0073 brings the
@@ -1792,9 +1792,9 @@ table back empty: a player measures its link again at its next play. The core th
 copy and reports ready. The rehearsal runs again on the newest backup just before the deploy, by
 `/yoloai/cache/d430-rehearsal/rehearse.sh` (lead's cache, not the repository).
 
-Nothing new deploys to nas.example until after 2026-11-06: it goes down that afternoon for the rest of
+Nothing new deploys to the production NAS until after 2026-11-06: it goes down that afternoon for the rest of
 the day (the owner, 2026-11-05). This batch goes to staging, and to production at the owner's go;
-nas.example or devnas.example takes it after that, at the owner's word.
+the production NAS or the development NAS takes it after that, at the owner's word.
 
 The owner's answers on API step C3 (2026-11-05): a season's episodes and search move to the `/items`
 cursor in this batch, with the same limits, search's carrying its rank and the id ("Unify now"); the
@@ -1826,7 +1826,7 @@ When the owner asks for it, the gate as tried and dropped that day:
 
 **Where the batch ends (the owner, 2026-11-05: "Tag that commit so that we don't lose it"):** tag
 `batch-2026-11-05-api` on "test(web): one note on the menu walks' wait, keeping the file at 800 lines". check-pr passed at "fix(hwtest): find the films by GET /files?library=, page by page"; the two commits after it change a
-test only. Staging runs it, migrated 67 → 83 with every person's row kept. nas.example gets this tag
+test only. Staging runs it, migrated 67 → 83 with every person's row kept. The production NAS gets this tag
 after 2026-11-06 at the owner's word, not main, which goes on with the next batch. Main may go
 instead if it has passed its own check-pr and been tried on staging.
 
@@ -1864,7 +1864,7 @@ Not started; the owner orders them after D416. Check each against
 
 The owner: "When playing any episode of Quillwick from the start, it looks like the initial keyframe
 is missing - the screen starts off grey and only the dynamic changes in the video are shown." Seen on
-nas.example, the day after the 11-05 batch's deploy. A grey picture that fills in only where things move is
+the production NAS, the day after the 11-05 batch's deploy. A grey picture that fills in only where things move is
 a decoder starting without its keyframe: the first chunk begins on a non-key frame. Look first at the
 11-06 batch's "a film's first seconds" work and the 37 keyframe rows cleared at that deploy (first
 keyframe ≥ 500 ms): whether Quillwick's files start on a late keyframe or open GOP, and whether chunk
@@ -1905,13 +1905,13 @@ not properly planned for."
   Where it does not, the change goes in before the greenfield deploy.
 - **Its findings:** each says what change it proposes now, and what churn that change saves later.
 - **Timing (the lead's proposal):** run it once the API and schema rounds are built, but before
-  check-pr and the deploy. The batch's deploy regenerates the database on nas.example (greenfield,
+  check-pr and the deploy. The batch's deploy regenerates the database on the production NAS (greenfield,
   D426). That is the last point where a schema change costs nothing. After it, every change is
   an appended migration.
 
 ## Repointing a library (the owner, 2026-11-05), the batch after the API and schema batch
 
-The owner, while moving the media off nas.example for its memory tests (a copy on devnas.example at
+The owner, while moving the media off the production NAS for its memory tests (a copy on the development NAS at
 `/aitank/mediabackup/video`): "this will likely become a use case: Relocating where a library lives.
 We should have the ability to repoint a library. … once the API and DB work is done I want to do this
 in the following batch."
@@ -1931,7 +1931,7 @@ in the following batch."
 - **The spec (the owner, 2026-11-06):** [repoint-library.md](repoint-library.md), "The spec": a dry
   run first, an audit record instead of a rollback, files not found left missing, and a target that
   already holds known places refused.
-- **Seen during the devnas.example stand-in:** libraries are tied to their node. A moved database finds its
+- **Seen during the development NAS stand-in:** libraries are tied to their node. A moved database finds its
   libraries only if the new machine's node keeps the old node's name.
 
 **Measured for it** ([visibility-at-scale-2026-11-05.md](../research/visibility-at-scale-2026-11-05.md)):
@@ -1945,9 +1945,9 @@ prefix rewrite cannot reach, for the expansion audit (D429 §4): cache.db `job.d
 
 ## The 11-07 batch (the owner agreed 2026-11-05, "yes go ahead")
 
-After the API batch, tagged `batch-2026-11-05-api`. Built on main while nas.example waits for that tag.
+After the API batch, tagged `batch-2026-11-05-api`. Built on main while the production NAS waits for that tag.
 
-1. **Quillwick starts grey** (above): a regression on nas.example. Bisect over the 11-05 batch's
+1. **Quillwick starts grey** (above): a regression on the production NAS. Bisect over the 11-05 batch's
    first-seconds work and the cleared keyframe rows first.
 2. **Watch Together over the film opens the tray's dialog** (D433): End, Leave and what it tells,
    with the session's panel under them.
@@ -1955,16 +1955,16 @@ After the API batch, tagged `batch-2026-11-05-api`. Built on main while nas.exam
 4. **The cast list's dead click area** ("UI issues the owner saw", item 1's bug only): a browser
    test presses each entry's centre.
 5. **Repointing a library, its design questions** ([repoint-library.md](repoint-library.md)): written for the owner,
-   with the devnas.example rehoming tests of 2026-11-06 as input; built after the owner's answers.
+   with the development NAS rehoming tests of 2026-11-06 as input; built after the owner's answers.
 6. **/needs-attention's true totals:** its counts stop at 500 films and 5000 files (D432).
 
 Held for the batch after: the shared grid widget (the cast list, needs-a-match, accounts, roles), and
-the System and account pages. End: one check-pr, the owner's go, staging; nas.example at the owner's word.
+the System and account pages. End: one check-pr, the owner's go, staging; the production NAS at the owner's word.
 
 **Progress (2026-11-05, evening):** items 2, 3, 4 and 6 are on main ("feat(web): Watch Together's sign over the film opens the tray's dialog (D433)" with "fix(web): Watch Together's dialog loads apart from Cast's, ending an import cycle", "fix(web): Next and Previous episode keep full screen"
 VQ267, "fix(web): the title's backdrop no longer takes the clicks of the cast under it", "fix(api): /needs-attention counts are true totals, not where the reads stopped"); item 5 is written and waits on the owner's answers. Item 1: no commit
 found at fault (the agent's bisect over the node's recent work); the episodes have no stored keyframes
-on nas.example either, so they are encoded with no seek. nas.example's stored first chunk of three episodes
+on the production NAS either, so they are encoded with no seek. The production NAS's stored first chunk of three episodes
 (read-only) opens on a keyframe at 9.92 s, which is right: every stream's timeline starts the film
 at 10 s (`TimelineOffsetMs`), less the two frames a picture decodes before it shows. So the node's
 chunks look sound, and the next look is the player, on the device that showed the grey (not yet
@@ -1998,7 +1998,7 @@ The owner's questions wait for the morning; this batch holds what is specified o
 4. **A Firefox browser test's page shows an earlier test's details** ("Next batch" above): find the
    cache the setup does not reset, and reset it.
 
-End: one check-pr; staging and nas.example wait for the owner.
+End: one check-pr; staging and the production NAS wait for the owner.
 
 ## The grid widget: the owner's questions
 
@@ -2034,7 +2034,7 @@ each showing what it showed before. These are left for the owner; each has a rec
 1. **The expansion audit of the API and database** (the owner's, above), research only: its
    findings go to `design/research/expansion-audit-2026-11-05-research.md` for the owner, each with
    the change it proposes and the churn it saves. Nothing is built from it before the owner reads it;
-   it runs now because nas.example's greenfield deploy (tag `batch-2026-11-05-api`) is the last point
+   it runs now because the production NAS's greenfield deploy (tag `batch-2026-11-05-api`) is the last point
    where a schema change costs nothing.
 2. **Two page caches no test resets** (the cache agent, 2026-11-05): `episode-reached.ts`'s `reached`
    and `hosted-details.ts`'s `knownDetails` survive from one test to the next, as the title and
@@ -2042,7 +2042,7 @@ each showing what it showed before. These are left for the owner; each has a rec
    fails without it.
 
 **The 11-07 to 11-09 batches passed check-pr (2026-11-05, at "test(web): the invitations' alignment test derives each issue time from its id"),** over base "fix(hwtest): find the films by GET /files?library=, page by page". Staging
-and nas.example wait for the owner's go. Found on the way and filed for the next batch:
+and the production NAS wait for the owner's go. Found on the way and filed for the next batch:
 
 - **Other latest values kept in a passive effect** (the flake agent, "fix(web): a command is heard by the handler of the page as drawn"): `useCommands` heard a
   command with the handler from before the last render; `useLatest` in `cast-receiver.tsx`, the
@@ -2138,7 +2138,7 @@ TV keeps the volume. The remote has no media keys.
 
 The round passed check-pr at "test(web): the device page shows the screen's high dynamic range and colours" (base "test(web): the invitations' alignment test derives each issue time from its id", 2026-11-06), after two fixes revert-red
 asked for: VQ272 for the refused start's note ("docs(web): a refused start's note in the core's log is checked on a device, VQ272"), and a test of the device page's HDR row
-("test(web): the device page shows the screen's high dynamic range and colours"). Not deployed to nas.example: that waits for the owner.
+("test(web): the device page shows the screen's high dynamic range and colours"). Not deployed to the production NAS: that waits for the owner.
 
 ## The 11-10 batch (the owner, 2026-11-06: "go with B for that. Also the hidden system video")
 
@@ -2152,23 +2152,23 @@ asked for: VQ272 for the refused start's note ("docs(web): a refused start's not
    (2026-11-06); device checks VQ274 (the real FFmpeg makes them) and VQ275 (the TCL plays the clip).
 
 **Passed check-pr at "test(node): a node serves its system folder beside its media"** (2026-11-06, base "test(web): the device page shows the screen's high dynamic range and colours"). The owner's word (2026-11-06): deploy
-to nas.example once it passes, then rehearse the failover to devnas (orpheum-ops
-`production/failover-to-devnas.md`).
+to the production NAS once it passes, then rehearse the failover to the development NAS (orpheum-ops
+`production/`).
 
 Still the owner's to answer: which of the TCL remote's buttons (colours, channel, digits) control
 playback; D266's third give-up sign as its own decision or not; giving HEVC up device-wide after one
 give-up; the repoint spec's questions 1–7; `isTelevision` not knowing "Smart TV Pro"; and the core
 planning for a paused player whose chunk asks run far past its position (the cause of VQ271's
-stall, made sturdy on the core's side). End: one check-pr; staging and nas.example wait for the owner.
+stall, made sturdy on the core's side). End: one check-pr; staging and the production NAS wait for the owner.
 
-- **Next batch (the owner, 2026-11-06, the failover rehearsal on devnas: "The UX in this flow is
+- **Next batch (the owner, 2026-11-06, the failover rehearsal on the development NAS: "The UX in this flow is
   terrible. We'll need to look at that later"):** moving a library's folder to another node. The
   repoint sits on the library's own page, behind each folder's "…" ("This folder moved…"), where the
   owner did not find it. In its dialog, choosing a folder inside a node's root ("Choose a folder
   inside one…", browse, "Choose this folder") only fills the "It is now at" box; nothing then says
   to press "Check what moves", and "Use the new place" appears only after it. A failover moves every
   folder of every library this way, one at a time.
-- **Next batch (the owner, 2026-11-06, prod failed over to devnas while nas.example runs memtest86: "We
+- **Next batch (the owner, 2026-11-06, prod failed over to the development NAS while the production NAS runs memtest86: "We
   should probably handle this case where two cores disagree over who should be running"):** build
   D437, slim: the ping answered by the core's health; a refused copy stops asking the discovery until
   an admin says so; both copies warned under the top menu's exclamation icon; the last holder's
@@ -2191,18 +2191,18 @@ stall, made sturdy on the core's side). End: one check-pr; staging and nas.examp
 2. **The repoint flow's UX** stays for the owner ("we'll need to look at that later"): not this
    batch.
 
-End: one check-pr in each repository, staging deployed (core and discovery); nas.example and the
+End: one check-pr in each repository, staging deployed (core and discovery); the production NAS and the
 production discovery wait for the owner.
 
 **Done 2026-11-06.** Orpheum passed check-pr at "docs(decisions): the owner agrees D438's pairing, the core enrols its relay" (186 s, after a first run found two files
 whose revert broke nothing; "test: D437's database health and the retired another-copy check go red when reverted" adds their tests); orpheum-connect passed its check-pr and pins
-"fix(web): Ask again carries the click's idempotency key". Staging runs both: the core on staging host (`./staging quick`, 19:06 UTC) and the
+"fix(web): Ask again carries the click's idempotency key". Staging runs both: the core on the staging host (`./staging quick`, 19:06 UTC) and the
 discovery, migrated to its step 13. Connect's steps were folded to a baseline at 10 for the window
 test; the production discovery (connect-production-9cbe6f0) is at step 11, past the baseline, so it
 steps on to 13 as staging did.
-nas.example and the production discovery wait for the owner.
+The production NAS and the production discovery wait for the owner.
 
-## The 11-12 batch (the owner, 2026-11-06: "no deploying to nas or devnas until memtest is finished tomorrow. Meanwhile, do more batches")
+## The 11-12 batch (the owner, 2026-11-06: "no deploying to nas or the development NAS until memtest is finished tomorrow. Meanwhile, do more batches")
 
 What is specified or filed, with no design left to the owner:
 
@@ -2214,7 +2214,7 @@ What is specified or filed, with no design left to the owner:
 3. **VQ270's third check, the Fire TV's Silk** (a device of the lead's): a film still starts at once,
    full screen, without a stall at the start.
 
-End: one check-pr, staging. nas.example and devnas wait until memtest ends (the owner, 2026-11-06).
+End: one check-pr, staging. The production NAS and the development NAS wait until memtest ends (the owner, 2026-11-06).
 
 ## The 11-13 batch (the owner, 2026-11-06: "continue for the rest of the night with batches that don't require my input")
 
@@ -2235,7 +2235,7 @@ code-debt.md in its commit.
 6. **Every page asks `GET /me` every 60 s** (`signed-out-watch.ts`): the poll rests while the live
    connection is open.
 
-End: one check-pr with the 11-12 batch, staging. nas.example and devnas wait until memtest ends.
+End: one check-pr with the 11-12 batch, staging. The production NAS and the development NAS wait until memtest ends.
 
 **Passed check-pr with 11-12 and 11-14 at "refactor(discovery): the reach probe has its own file"** (2026-11-06; an earlier pass at "fix(container): an MP4 edit between pictures starts at the first one it keeps" did not
 count: `make check` had not run first, and its archtests then found 11-13's second writer of
@@ -2260,7 +2260,7 @@ code-debt.md in its commit.
    in-memory count the rescans keep.
 7. **`internal/core/api/errors.go` is 427 lines**: split by error family.
 
-End: one check-pr, staging. nas.example and devnas wait until memtest ends.
+End: one check-pr, staging. The production NAS and the development NAS wait until memtest ends.
 
 **Passed check-pr at "refactor(discovery): the reach probe has its own file"** (2026-11-06, 662 s), after four fixes: app.test waits for the
 lazily loaded page ("test(web): the warning sign's test waits for the page it opens to load"), the invalid_request detail back in errors.go ("refactor(api): the invalid_request detail stays in errors.go"), the
@@ -2288,7 +2288,7 @@ gate are left.
 7. **Tests make Unix sockets under `t.TempDir()`, near the path limit**: one helper that makes a
    short socket directory.
 
-End: one check-pr, staging. nas.example and devnas wait until memtest ends.
+End: one check-pr, staging. The production NAS and the development NAS wait until memtest ends.
 
 **Passed check-pr at "style(web): film-player-follow.test.ts carries its licence line"** (2026-11-06, 326 s; base "docs(plans): the 11-12 to 11-14 batches passed check-pr and are on staging"). On staging (`./staging quick`).
 Done: items 1 ("perf(web): the Play page hears its quality switches instead of polling them"), 3 ("fix(player): a chunk given up feeds hls.js's estimator from its first piece"), 4 ("fix(web): a page's move to another WebRTC transport tells its pairs"), 6 ("test(nodes): build the nodes' exchanges in tests through nodestest.NewExchanges"), 7 ("test(testutil): make tests' Unix sockets in a short directory, SocketDirectory"). Waiting on the
@@ -2312,7 +2312,7 @@ Two code-debt rows whose fix the row names:
    matched line carries a `logEvent` key, and its test matches the key, as `together` does
    (`together/logs_test.go`'s `lineWith`).
 
-End: one check-pr, staging. nas.example and devnas wait until memtest ends.
+End: one check-pr, staging. The production NAS and the development NAS wait until memtest ends.
 
 **Item 1 passed check-pr at "docs(architecture): the map names rowstest among the test packages"** (2026-11-06, 164 s; base "docs(plans): the 11-16 batch") and is on staging: the store's
 own tests build their rows through `internal/store/rowstest` (19937311). **Item 2 waits on the owner:**
@@ -2341,7 +2341,7 @@ test answered 500, the playback's start reading the name of the system library, 
    Playwright's global setup and by `go test`'s `-exec` (`make setup` → `go-test-lock`, which writes
    the user's own GOFLAGS: Go reads no setting from a repository) ("feat(gate): a test run started any way takes the test lock", `Gate-Changed:`).
 
-End: one check-pr, staging. nas.example and devnas wait until memtest ends.
+End: one check-pr, staging. The production NAS and the development NAS wait until memtest ends.
 
 **Passed check-pr at "perf(web): poll game controllers 15 times a second, and show the polls' cost"** (2026-11-07, 338 s, over its 300 s budget). On staging (`./staging
 quick`). Item 2 is "perf(web): poll game controllers 15 times a second, and show the polls' cost": a held seek by a controller now counts its travel up to the release, so
@@ -2406,12 +2406,12 @@ VQ278–282.
   other device. To build in this batch, recorded as a decision amending D267 §2.
 - **Folded in (the owner's report, 2026-11-07): Firefox 158 on the ThinkPad could not sign in to
   orpheum.cc** ("can't reach the server from this network"); Chromium on it and Firefox on the Mac
-  could. A capture on nas.example (the owner's consent; its tools removed after) showed checks succeed
+  could. A capture on the production NAS (the owner's consent; its tools removed after) showed checks succeed
   over IPv6 and no DTLS: pion's UDP mux gave every host candidate of a family one socket, so the
   core's pairs disagreed and it never started DTLS. Fixed at "fix(rtcapi): one host candidate of each family on the LAN port" (D441, amending D300 §1; the
-  idiosyncrasies entry; VQ283). Reaches nas.example with the batch, on the owner's go.
+  idiosyncrasies entry; VQ283). Reaches the production NAS with the batch, on the owner's go.
 - **Passed check-pr at "docs(plans): the 11-19 batch folds in the ThinkPad's Firefox sign-in fix"** (2026-11-07), the owner having tested the fix on staging from the
-  ThinkPad; **deployed to nas.example** at GitHub's 57f34e2d (the same tree) on the owner's go ("go
+  ThinkPad; **deployed to the production NAS** at GitHub's 57f34e2d (the same tree) on the owner's go ("go
   ahead with the deployment"). Seconds after the core started, the ThinkPad connected over direct
   IPv6 in 82 ms. Owed by the owner: VQ283. Still to build in this batch: a hosted session stays on
   its device.
@@ -2423,7 +2423,7 @@ VQ278–282.
   owner: VQ284. Points for the owner: a new tab on the starting device counts as another device
   (membership is per tab); Move it here while casting cuts the receiver off too; the old device goes
   home rather than staying on its page.
-- **Deployed to nas.example** at GitHub's 3e864b96d (the same tree as "docs(vq): VQ284 passes: a hosted session stays on its device") on the owner's go
+- **Deployed to the production NAS** at GitHub's 3e864b96d (the same tree as "docs(vq): VQ284 passes: a hosted session stays on its device") on the owner's go
   ("pushed. Deploy it to nas.example"), 2026-11-07. The batch is done; VQ283 and VQ284 passed.
 
 ## The 11-20 batch: the owner's three-device session on orpheum.cc (2026-11-07)
@@ -2464,7 +2464,7 @@ casting to it, and the server refuses the cast back.
 lead's order: finish the 11-20 batch (items 1–7), then the filed "Next batch" items that need no
 design call (the dead end's missing "Copy what happened"; WebRTC failures read as "couldn't tell
 why"; a message for a browser whose WebRTC fails), each batch through check-pr and onto staging,
-never nas.example.
+never the production NAS.
 **The owner, 2026-11-07, later:** "if there's time to add some initial chromecast support, we can do
 testing tomorrow since I now have a chromecast device." The lead's plan: after the 11-20 batch, (a)
 bring the lab spike (`/cast/`, `/lab/cast`, VQ58; tv-device-tests.md §3) up to date and find the
@@ -2539,7 +2539,7 @@ Report the lab's log (Stop casting and send gives its short name) for any step t
 
 ## The overnight batches, for the morning (2026-11-08)
 
-On main and passed by check-pr, then put on staging with `./staging quick` (nothing went to nas.example):
+On main and passed by check-pr, then put on staging with `./staging quick` (nothing went to the production NAS):
 
 - **The 11-20 batch, items 1–7.** (1) our controls stay in a guest's full screen on Android
   ("fix(web): a Watch Together guest's full screen keeps the page's pieces over the film"); (2) Leave beside Back to film in the tray's Watch Together dialog ("fix(web): a guest leaves from the tray's Watch Together dialog"); (3) the
@@ -2583,7 +2583,7 @@ you reported them from.
 9. Two Firefox browser tests (modal-dialog, poster-row) failed once under load with three agents
    testing at once and pass alone; noted, not changed.
 
-- **Next batch (the owner, 2026-11-08, during the failover to devnas):** "When logged in as admin,
+- **Next batch (the owner, 2026-11-08, during the failover to the development NAS):** "When logged in as admin,
   'manage this library' should be an option via the gear icon in the library page (the one that
   shows the actual contents for playback)." An admin reaches a library's settings (its folders, and
   so the repoint the failover needs) from the library they are browsing, by its gear; others never

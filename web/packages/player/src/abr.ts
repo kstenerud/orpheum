@@ -171,7 +171,7 @@ export class Choosing<Chunk extends FollowedChunk> {
    * is made, not from when it was first asked for. Judged from then, a film's first play after the
    * core's start gave its own picture up for the lowest quality within two seconds, nothing having
    * arrived yet, and measured the link at a byte in two seconds, so it stayed there (A Man Called
-   * Otto on nas.example, the owner's Firefox, 2026-10-20). A lower quality is made from the film too, and
+   * Otto on the production NAS, the owner's Firefox, 2026-10-20). A lower quality is made from the film too, and
    * slower than the copy of its own picture, so giving one up for it never brings a chunk sooner.
    */
   beingMade(chunk: Chunk): void {

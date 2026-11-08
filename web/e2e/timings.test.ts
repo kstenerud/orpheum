@@ -46,7 +46,7 @@ describe("the browser tier's timings (the owner, 2026-10-20)", () => {
     const test = {
       title: "a guest joins",
       parent: { project: () => ({ name: "firefox" }) },
-      location: { file: "/home/karl/orpheum/web/e2e/together.spec.ts", line: 70 },
+      location: { file: "/checkout/web/e2e/together.spec.ts", line: 70 },
     } as unknown as TestCase;
     const result = {
       status: "passed",

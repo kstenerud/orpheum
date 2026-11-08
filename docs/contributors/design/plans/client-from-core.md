@@ -5,7 +5,7 @@
 # Each core's client, behind a loader (D308)
 
 - **Status:** BUILT — begun 2026-10-17 on the owner's word (*"agreed. Proceed."*), and built the
-  same day: §3's four steps, live on nas.example since 2026-10-17 (`v0.2.0-nas.9`), with
+  same day: §3's four steps, live on the production NAS since 2026-10-17 (`v0.2.0-nas.9`), with
   `prod-api` repackaged and `app.orpheum-app.com` serving the loader. Two follow-ups came the same
   night: the loader at `app.` never tries the LAN, and Forget asks first.
 - **Depends on:** D308, D273, D292, D293, D297; [discovery-core.md](discovery-core.md);
@@ -207,4 +207,4 @@ At Cloudflare:
 1. The core: §2.1 1–3, each with its tests. Nothing yet uses them.
 2. The loader and the client's adapter, against `dev discovery` (§2.2, §2.4).
 3. The discovery (§2.3), then staging through the new domain, once the owner's records exist.
-4. Production: `prod-api` repackaged, nas.example updated. Every session starts again (D308 §5).
+4. Production: `prod-api` repackaged, the production NAS updated. Every session starts again (D308 §5).

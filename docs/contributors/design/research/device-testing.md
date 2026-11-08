@@ -188,7 +188,7 @@ Corrections to [test-hardware.md](test-hardware.md), from primary sources unless
   10-bit and VP9, with no AV1 encode.
 - **The NUC13** is one of the NUC 13 Pro parts, i3-1315U to i7-1370P [V]. Its media engine is
   the same generation as the F4-424's.
-- **The staging host with 64 GB is unexplained.** Every staging host variant documents a maximum of 32 GB
+- **The staging host with 64 GB is unexplained.** Every the staging host variant documents a maximum of 32 GB
   (Kaby Lake) or 8 GB (Gemini Lake) [V]. Identify it with `dmidecode`.
 - **The RTX 3090 has 24 GB** [V].
   - NVDEC decodes AV1.

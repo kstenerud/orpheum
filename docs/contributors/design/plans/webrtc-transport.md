@@ -8,7 +8,7 @@
 - **Status:** IN-PROGRESS — begun 2026-10-09 on the owner's word (*"Ok let's add webrtc"*). W1,
   W2a, W2b, W3 and W4a are built. W2c–W2f, W4c, W5 and W6 were revised 2026-10-13 to
   [discovery-protocol.md](../discovery-protocol.md) as D290, D291 and D292 left it. Since then the
-  thin path is built and live (2026-10-14, on nas.example through the production service since
+  thin path is built and live (2026-10-14, on the production NAS through the production service since
   2026-10-15): W2c's thin form, W2d but for ICE restart, W2f's offer proofs and answer
   checks, W4c's client at a discovery, since 2026-10-17 behind D308's loader
   ([client-from-core.md](client-from-core.md)), and W5's browser test. Left: ICE restart

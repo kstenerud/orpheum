@@ -3,7 +3,7 @@
 > quality ladder and encoder presets. What Plex, Jellyfin, Emby, Channels DVR, Apple, Netflix,
 > YouTube, Bitmovin, Mux and the research on players sharing a bottleneck say; a recommended value,
 > a confidence and a test for each; a simulation and shaped-upload test plan; and a VMAF
-> measurement plan to run later on gpuhost. Proposals only. 2026-10-29.
+> measurement plan to run later on the GPU test machine. Proposals only. 2026-10-29.
 
 # Sharing the upload, and the ladder and its encoder
 
@@ -70,17 +70,17 @@ encoder:
 2. **Quick Sync runs at its fastest, lowest-quality setting by accident.** `QualityArguments`
    overrides the codec, the pixel format and the extra flags for Quick Sync but keeps
    `-preset veryfast`. For `h264_qsv` that is target usage 7, which Intel describes as "fastest
-   setting, biggest quality drop". This is nas.example's encoder, so production plays every encoded
+   setting, biggest quality drop". This is the production NAS's encoder, so production plays every encoded
    picture at TU7. Quick Sync also already needs 10–25% more rate than x264 for the same quality
    (slow-links.md §4). **Recommend `medium` (TU4)**, after a speed check on the N305.
 3. **NVENC `p4`:** NVIDIA advises high-quality tuning and the slower presets for video on demand.
-   **Recommend `p6`**, measured on gpuhost's own NVENC.
+   **Recommend `p6`**, measured on the GPU test machine's own NVENC.
 4. **The peak (1.5×) and buffer (2×)** sit within Apple's limit (a VOD peak "no more than 200% of
    the average"). Ozer found 200% constrained VBR the best of what he tested, but with two passes.
    **Keep them**, and add one row at 2×/2× to the measurement.
 
 Rung changes wait for the measurement in §7: VMAF for each rung at `veryfast`, `faster` and
-`medium` on five films (dark, grain, animation, sport, talk), plus NVENC p4 and p6, on gpuhost,
+`medium` on five films (dark, grain, animation, sport, talk), plus NVENC p4 and p6, on the GPU test machine,
 with the exact commands. A second, optional phase finds each film's best picture height at each
 rate (the convex hull, as Netflix's per-title encoding does) to settle whether 1200k belongs at
 480p or 540p, and whether the software ladder needs Apple's 4500k@720p.
@@ -252,8 +252,8 @@ rates, which only the measurement in §7 answers.
 | Value | Now | Evidence | Recommended | Confidence | Test |
 | --- | --- | --- | --- | --- | --- |
 | x264 preset | `veryfast` | Ozer, NAB 2025, 24 files, 1080p, about VMAF 95 target. Bit rate to match `veryslow`: veryfast 151%, faster 123%, fast 122%, medium 112%; time as a share of `veryslow`'s: 16%, 19%, 26%, 31%. So `faster` saves about 19% of the bits for about 1.2× the time; `medium` saves 26% for about 1.9×. D285 §3: a 720p 10 s chunk took 4.5–5.8 s at any preset, on a 10-bit AV1 source whose *decoding* dominated; an H.264 source leaves the encode dominant | **`faster`**; `medium` if §7 shows the weakest software node keeps a 720p run at 1.5× real time or better with two runs at once | moderate (the numbers are 1080p near VMAF 95; at our lower rates the gap is usually wider, which favours the change) | §7 phase A |
-| Quick Sync preset | `veryfast` (TU7) **by accident** | `QualityArguments` sets the preset once for x264 and overrides it only for NVENC. Intel: veryfast is TU7, *"fastest setting, biggest quality drop"*, and medium is TU4. Quick Sync needs 10–25% more rate than x264 already (goughlui.com, 2023). No published VMAF per target usage | **`medium` (TU4)**, if the N305 keeps two 1080p runs at 4× real time or better | moderate | §7 phase C, on nas.example with the owner's OK |
-| NVENC preset | `p4` | NVIDIA: video on demand → high-quality tuning; P1 is the fastest and P7 the best. Blogs put NVENC p7 5–10% behind x264 medium *(secondary)* | **`p6`** | low (few households have NVENC) | §7 phase A on gpuhost |
+| Quick Sync preset | `veryfast` (TU7) **by accident** | `QualityArguments` sets the preset once for x264 and overrides it only for NVENC. Intel: veryfast is TU7, *"fastest setting, biggest quality drop"*, and medium is TU4. Quick Sync needs 10–25% more rate than x264 already (goughlui.com, 2023). No published VMAF per target usage | **`medium` (TU4)**, if the N305 keeps two 1080p runs at 4× real time or better | moderate | §7 phase C, on the production NAS with the owner's OK |
+| NVENC preset | `p4` | NVIDIA: video on demand → high-quality tuning; P1 is the fastest and P7 the best. Blogs put NVENC p7 5–10% behind x264 medium *(secondary)* | **`p6`** | low (few households have NVENC) | §7 phase A on the GPU test machine |
 | VAAPI | no preset | `h264_vaapi` takes `-compression_level`; untested | Leave; measure on the AMD test host if VAAPI households appear | — | — |
 | Peak, buffer | `-maxrate` 1.5×, `-bufsize` 2× | Apple 1.30: a VOD peak of at most 200%. Ozer: 200% constrained 2-pass VBR was best, and CBR (1×) had poor low frames. Ours is one pass. A lower peak keeps chunk sizes even on thin links, which the upload accounting assumes | **Keep**, and measure one 2×/2× row | moderate | §7 phase A, extra row |
 | Rate control | one-pass ABR (`-b:v`) | Capped CRF saves bits on easy content (Ozer), and the need accounting would then overcount, which errs safe. Two-pass is impossible a minute ahead | Leave; an optional capped-CRF row in §7 shows the size of the gain | low | §7 phase A, optional |
@@ -322,17 +322,17 @@ sudo ip netns exec core ping -i 0.2 "$PEER" > call-rtt.log      # the call's lat
 | T4 | Setting lowered to 1.5 Mbit/s mid-film | Qualities fall, merge, reach their lowest; the warning; whether and when the newest member is sent away |
 | T5 | T3 with the recommended values (§2) | The same measures, against T3 |
 
-## 7. Measurement plan: VMAF on gpuhost (run later)
+## 7. Measurement plan: VMAF on the GPU test machine (run later)
 
-**Do not run while the owner tests on staging.** gpuhost is a separate machine, but its wake and
-copies pass through the NAS. The x264 and NVENC phases run on gpuhost; the Quick Sync phase runs on
-nas.example (production), only with the owner's OK and while nobody watches.
+**Do not run while the owner tests on staging.** The GPU test machine is a separate machine, but its wake and
+copies pass through the NAS. The x264 and NVENC phases run on the GPU test machine; the Quick Sync phase runs on
+the production NAS (production), only with the owner's OK and while nobody watches.
 
 ### 7.0 Setup
 
 ```sh
-NV3090_WAKE_VIA=prod-nas ../orpheum-ops/gpuhost/wake.sh      # it sleeps when idle
-ssh -i ~/.ssh/gpuhost orpheum@gpuhost.example
+# wake the GPU test machine first: it sleeps when idle (orpheum-ops holds the script)
+ssh orpheum@gpu.example
 # Encode with the node's own FFmpeg (the pinned build), so the encoders are production's:
 FF=/path/to/node/ffmpeg
 "$FF" -hide_banner -encoders | grep -E 'libx264|h264_nvenc'
@@ -411,7 +411,7 @@ syntax changed between libvmaf 1 and 2. From each JSON, keep the mean, the harmo
 average rate (`ffprobe … format=bit_rate`) and its time.
 
 **Cost:** 5 films × (15 x264 + 12 NVENC + 4 extra) = 155 encodes of 120 s, and as many scorings of
-about 2,900 frames. That is roughly 2–3 hours on gpuhost, unattended.
+about 2,900 frames. That is roughly 2–3 hours on the GPU test machine, unattended.
 
 ### 7.3 Phase B (optional): the best height at each rate
 
@@ -419,12 +419,12 @@ At the preset chosen in phase A, for each film: heights {360, 432, 480, 540, 720
 {400, 700, 1100, 1600, 2000, 3000, 4500} kbit/s, 42 encodes. For each rate, the height with the
 highest VMAF is the film's convex hull (Netflix's per-title method). About 3 hours.
 
-### 7.4 Phase C: Quick Sync on nas.example (owner's OK, nobody watching)
+### 7.4 Phase C: Quick Sync on the production NAS (owner's OK, nobody watching)
 
 The same five references (copied by file id), the hardware ladder, `-c:v h264_qsv -preset
 {veryfast,medium} -pix_fmt nv12 -forced_idr 1`, with production's other arguments. Record the
 speed of two runs at once (two 1080p encodes in parallel), which is what decides whether `medium`
-fits. Score on gpuhost.
+fits. Score on the GPU test machine.
 
 ### 7.5 How the results decide
 

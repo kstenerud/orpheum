@@ -82,7 +82,7 @@ scan or playback, a machine replaced, scale) are in §4 with what each needs.
 - **Every read goes through `confine.Holding`**: the listing (`agent/listing.go`), the byte server,
   named files and the watcher refuse a path no configured root holds. A library folder is any clean
   path under a configured root (D359 §1), and `libraryFolderOn` refuses anything else in the core.
-- **Containers.** nas.example's node is an LXC that gets `/tank/media/video` read-only at the same path
+- **Containers.** The production NAS's node is an LXC that gets `/tank/media/video` read-only at the same path
   through `mp0`, and its roots are everything the container mounts (deploy/release/README.md).
   Staging's is a Docker container with no network and the media read-only (deploy/staging/README.md).
   The generated compose file mounts each root read-only at its own path (`internal/deployment/write.go`
@@ -143,7 +143,7 @@ preserved them (`rsync -a` and `cp -a` do, plain `cp` does not) **(general, not 
 2. The admin mounts the backup on the host. The node does not see it: in a container it is not
    mounted in; outside one it is under no configured root, so `confine.Holding` refuses it.
 3. To use it today the operator must declare `/mnt/balthasar` (or `/mnt/balthasar/movies`) as a root
-   on the node (and, on nas.example, add a mount point to the LXC), restart the node, and then either
+   on the node (and, on the production NAS, add a mount point to the LXC), restart the node, and then either
    repoint movies3 to it or add it as a second folder of movies3.
    - **Repoint:** live places move, all marked unconfirmed; the scan reads every file again. Files
      whose payload matches are confirmed. Files the backup lacks are not listed, so the complete scan
@@ -245,7 +245,7 @@ library root and every place. Detection has a strong, cheap signal: the hello's 
 one gone and one new, and a listing of the new root finds the stored inodes with their sizes and
 times. It can propose the move the moment the node says hello.
 
-**What it cannot do.** It cannot spare the operator the node's config edit (and on nas.example, the LXC's
+**What it cannot do.** It cannot spare the operator the node's config edit (and on the production NAS, the LXC's
 mount point). In a container there is a cheaper route the docs should name: change the host side of
 the bind mount and keep the path inside the container, so Orpheum sees no move at all (the root's
 device may change, and a scan that would remove nothing completes on a new device:
@@ -441,7 +441,7 @@ Each says what goes wrong, how likely, what the plan should add, and the cost.
   confirmation is not: with `is_unconfirmed` on every moved place, a full read (hole 4). Detection's
   listing of a configured root is one `stat` per entry, minutes on spinning disks with cold metadata
   **(estimate, not measured)**.
-- **Likely:** certain for nas.example's size.
+- **Likely:** certain for the production NAS's size.
 - **Add:** decision 5; detection triggered (§6.2), never periodic over everything; a directory-only
   first pass when directory inodes are kept.
 - **Cost:** see §6.
@@ -460,7 +460,7 @@ Each says what goes wrong, how likely, what the plan should add, and the cost.
   libraries go unavailable. Question 5's adoption is the answer; the expansion audit's finding 1
   (nodes addressed by name in the API, `RepointInputBody` taking `nodeName`) should be settled first
   so an adopted or renamed node keeps its URLs.
-- **Likely:** the devnas.example case.
+- **Likely:** the development NAS case.
 - **Add:** adoption before the folder move; detection does not try to match across nodes.
 - **Cost:** as the relocation audit §4 says.
 
@@ -491,7 +491,7 @@ what's a sane mount point and what's not?"
 The roots are values.toml's `[media] roots`. `mediaOverride` (`internal/deployment/write.go`) mounts
 each read-only into the node's container at its own path, and `confine.MediaRoot` confines every read
 beneath them. Adding or removing a root is: edit values.toml, re-run `build.sh`, `docker compose up -d`,
-and on nas.example an LXC `mp` line. A newly mounted filesystem is used by declaring it as a root; that is
+and on the production NAS an LXC `mp` line. A newly mounted filesystem is used by declaring it as a root; that is
 the sane-mount-point test, and it is made on the machine (D107 §2).
 
 **Dropped, one line each:** the node's `/proc/self/mountinfo`, because inside the container it shows
@@ -594,5 +594,5 @@ node; those stay manual repoints (and cross-node revival).
   `MediaRoot`), `internal/node/scan`, `internal/node/watch`, `internal/node/hash`;
   `cmd/orpheum/node.go` (`openRootsThrough`); `internal/core/api/access.go`, `libraries.go`;
   `internal/core/auth/roles.go`; deploy/release/README.md, deploy/staging/README.md.
-- Not consulted: the devnas.example rehoming tests' notes of 2026-11-06, which the plan names as input for
+- Not consulted: the development NAS rehoming tests' notes of 2026-11-06, which the plan names as input for
   questions 3, 5 and 6.

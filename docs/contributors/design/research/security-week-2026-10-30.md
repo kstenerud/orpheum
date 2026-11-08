@@ -275,7 +275,7 @@ host or a design is the owner's decision. None assumes a new dependency.
   - Households will run our compose files on their own VPS kernels.
 - **Proposal:**
   1. Run `sysctl -w net.mptcp.enabled=0`, persisted in `/etc/sysctl.d/`, on prod-api, the edge and
-     the nas.example Proxmox host. Then restart Docker and each service.
+     the production NAS Proxmox host. Then restart Docker and each service.
   2. Add `sysctls: {net.mptcp.enabled: "0"}` to every service in
      `internal/deployment/templates/compose*.yaml` and connect's compose files. That carries the fix
      to households, whose kernels we do not control.
@@ -296,13 +296,13 @@ host or a design is the owner's decision. None assumes a new dependency.
   - D296: staging's DNS token is confined to orpheum-test.com.
   - Every agent starts in the repository, never in Downloads.
 - **Gaps:**
-  - This sandbox holds `~/.ssh/nas_lan` (production) and `~/.ssh/gpuhost`. Any session, or a prompt
+  - This sandbox holds SSH keys to production and to a test machine. Any session, or a prompt
     injection from a fetched web page, can read them.
   - Whatever a command prints lands in the model request and in the session transcripts under
     `~/.claude/projects`.
   - Nothing refuses `cat ~/.ssh/*`, `printenv`, or `gh auth token`.
 - **Proposal:**
-  - **Server side:** restrict the nas.example and gpuhost keys with `from="<sandbox VM address>"` (and
+  - **Server side:** restrict those keys to the sandbox's own address (and
     `restrict` where a forced command suffices) in `authorized_keys`. A stolen key then does not
     work from elsewhere.
   - **Sandbox image:** set `git config --global core.fsmonitor false` (GitSpawn's interim fix).
@@ -385,7 +385,7 @@ host or a design is the owner's decision. None assumes a new dependency.
 - **Cost:** half a day.
 
 **6. Owner housekeeping from this week.**
-- Update nas.example's Proxmox host: pve-manager ≥ 9.2.24 for the termproxy PSA, and the kernel.
+- Update the production NAS's Proxmox host: pve-manager ≥ 9.2.24 for the termproxy PSA, and the kernel.
 - Don't open links while logged in to the Proxmox UI as `root@pam`.
 - Rotate any credential ever pasted into an agent session.
 
@@ -396,7 +396,7 @@ host or a design is the owner's decision. None assumes a new dependency.
   break-ins, which landed on servers that had not updated. That is the dominant way home servers
   fall.
 - **Covered:** the plan's "security release path" (fix branch → narrow gate → deploy in hours).
-- **Gap:** that path reaches nas.example and prod-api only. There is no update notice, no
+- **Gap:** that path reaches the production NAS and prod-api only. There is no update notice, no
   minimum-version policy and no auto-update for households (no such mechanism exists in
   `internal/` or `web/`).
 - **Proposal (design is the owner's):**
@@ -422,7 +422,7 @@ host or a design is the owner's decision. None assumes a new dependency.
 
 **9. A standing check of what production runs.**
 - **Covered:** check-vulns runs in check-pr and nightly on `main`.
-- **Gap:** production runs older commits (nas.example's commit and the last connect package), which
+- **Gap:** production runs older commits (the production NAS's commit and the last connect package), which
   `main`'s check does not cover.
 - **Proposal:** a daily govulncheck and `npm audit` on those commits, plus a watch on the kernel
   for Ubuntu and Proxmox. The owner is told the same day when something reachable appears.
@@ -470,7 +470,7 @@ the internet is that kind of code:
 **What it means for patch cadence:**
 - A batch rhythm (days to weeks, one check-pr per batch) is right for features, wrong for these
   components.
-- A reachable, internet-facing advisory should reach prod-api, the edge and nas.example within
+- A reachable, internet-facing advisory should reach prod-api, the edge and the production NAS within
   24–72 hours, through the security release path the owner approved tonight.
 - It should reach households through item 7, which does not yet exist.
 - The VPS kernels need an owner on duty: unattended upgrades and a reboot policy, because

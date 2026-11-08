@@ -74,7 +74,7 @@ P57): the core's side of the discovery protocol ([discovery-core.md](contributor
 WebRTC transport ([webrtc-transport.md](contributors/design/plans/webrtc-transport.md)), device codes
 ([D288](contributors/decisions/working-notes.md)), realms ([D297](contributors/decisions/working-notes.md), [D298](contributors/decisions/working-notes.md)), the loader
 ([client-from-core.md](contributors/design/plans/client-from-core.md)) and release mode ([release.md](contributors/design/plans/release.md),
-[D272](contributors/decisions/working-notes.md)). nas.example has run release mode since 2026-10-13, reached through the production
+[D272](contributors/decisions/working-notes.md)). The production NAS has run release mode since 2026-10-13, reached through the production
 service since 2026-10-15.
 
 **After the closed beta** ([closed-beta.md](contributors/design/plans/closed-beta.md), "After the closed beta"; D313 §7):

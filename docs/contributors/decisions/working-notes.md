@@ -14992,7 +14992,7 @@ Nobody publishes how they test watch-party sync, so it is designed here:
 ### 6. The lab, from the shelf
 
 **Hosts.**
-- **devnas (F2-422, J3455, 8 GB):** the low-end server floor. It must run the server, and its
+- **The development NAS (F2-422, J3455, 8 GB):** the low-end server floor. It must run the server, and its
   QSV decodes HEVC 10-bit but encodes HEVC 8-bit only and does no AV1.
 - **nas (F4-424, N95) and nuc13 (NUC 13 Pro), both Proxmox:** they host the VMs:
   - the CI runner
@@ -15000,9 +15000,9 @@ Nobody publishes how they test watch-party sync, so it is designed here:
     `100.64.0.0/10` WAN address
   - distro VMs for the install matrix
   - a Windows VM when it is wanted
-- **gpuhost:** NVENC encoder conformance and the 12-session limit.
+- **The GPU test machine:** NVENC encoder conformance and the 12-session limit.
 - **MacBook:** Safari, Apple's HLS validators, Apple builds, and the Chrome sender for Cast.
-- **stagehost is the owner's desktop and is not a lab host.** Its browsers are clients like any other.
+- **The staging host is the owner's desktop and is not a lab host.** Its browsers are clients like any other.
 
 **Network.**
 - The Zyxel carries an **isolated lab VLAN** and a separate management VLAN.
@@ -15184,7 +15184,7 @@ That is one research round, and its output is `standards/` plus any principles a
 
 **Decided** (2026-09-23), by the project owner, answering
 [audit-2026-09-23.md](../design/research/audit-2026-09-23.md) §9: *"P1: yes. P2: yes. P3: yes.
-P4: yes. P5: I have a bunch of domains already that I can use. P7: yes. P8: devnas doesn't have
+P4: yes. P5: I have a bunch of domains already that I can use. P7: yes. P8: the development NAS doesn't have
 direct access to the media files (they're on nas). But for testing I could copy a corpus
 across. P9: yes."* P6 was answered differently in
 [D191](#d191--watch-together-behaves-as-if-nobody-has-an-account-a-signed-in-participants-viewing-is-also-recorded-as-their-own).
@@ -15340,10 +15340,10 @@ Measured by the owner (`/sys/kernel/security/lsm`):
 | --- | --- | --- | --- |
 | **nas** (F4-424, N95, Quick Sync) | Proxmox | **off** | **the library is here** |
 | nuc13 | Proxmox | off | — |
-| **devnas** (F2-422, J3455, Quick Sync) | Debian trixie | **on** | none |
-| gpuhost | Mint | on | — |
+| **The development NAS** (F2-422, J3455, Quick Sync) | Debian trixie | **on** | none |
+| The GPU test machine | Mint | on | — |
 
-- **Development runs on devnas, with a corpus copied across.** It has Landlock and Quick Sync, it
+- **Development runs on the development NAS, with a corpus copied across.** It has Landlock and Quick Sync, it
   is the low-end reference host of D190, and a copied corpus is also what the tests want.
 - **The Cut A deployment belongs on nas, beside the library.** A node reads files, and a node
   that reads them over the network brings back NFS change detection and its attribute caches,
@@ -15426,7 +15426,7 @@ present the secret to someone else.**
 - **argon2id** from `golang.org/x/crypto/argon2`, with **RFC 9106's second recommended
   parameters**: 64 MiB, t = 3, p = 4. The hash is stored as a PHC string, so the parameters
   travel with it and can change later.
-- **Measured:** 41 ms on an i3-1315U (`/yoloai/cache/bench/argon/`). The J3455 in devnas is
+- **Measured:** 41 ms on an i3-1315U (`/yoloai/cache/bench/argon/`). The J3455 in the development NAS is
   several times slower, so M1 measures it there with a ceiling of **500 ms**; above that, the
   memory cost comes down to OWASP's 46 MiB, t = 1.
 - **A login under older parameters is re-hashed** on success.
@@ -15782,7 +15782,7 @@ failed for every core package that uses the store.
   reason beside it, and walks the real import graph so any other route to `os/exec` still fails
   and is named. The change is to the test only.
 - **Not chosen.** Switching to `ncruces/go-sqlite3`, which reaches no `os/exec`, would add about
-  ten modules to the allowlist, and the driver benchmark on devnas
+  ten modules to the allowlist, and the driver benchmark on the development NAS
   ([standards/sql.md](../standards/sql.md) §7) has not run. Checking direct imports only would
   duplicate depguard and stop catching a real indirect exec.
 
@@ -17065,7 +17065,7 @@ version 19.
 
 ## D228 — Until migrations are live, library.db's schema is a baseline and one step, and a schema change folds the last step into the baseline
 
-> **Revised by [D272](#d272--production-runs-on-naslan-from-an-image-it-builds-and-migrations-keep-every-step-since-the-version-it-last-ran)** (2026-10-09): once production runs, the steps since the version nas.example last ran are all kept, and they fold into the baseline when the owner says nas.example has migrated; this replaces §3's one step behind, and stands in for §6 until the public beta.
+> **Revised by [D272](#d272--production-runs-on-the-production-nas-from-an-image-it-builds-and-migrations-keep-every-step-since-the-version-it-last-ran)** (2026-10-09): once production runs, the steps since the version the production NAS last ran are all kept, and they fold into the baseline when the owner says the production NAS has migrated; this replaces §3's one step behind, and stands in for §6 until the public beta.
 
 **Decided** (2026-09-29), by the project owner. **Suspends, until migrations are live,
 [D181](#d181--the-migration-policy-two-integers-our-own-small-runner-a-snapshot-that-outlives-success-refuse-what-we-cannot-read-and-re-derive-rather-than-transform) §2's *"every step kept, forever"*
@@ -17477,7 +17477,7 @@ the System page since 2026-10-04 (D244 §2).
 unit" deployment and the core's supervision of a node child (D43's thin supervisor, D207's execx
 start), which D233 §2 and D234 already ended.
 
-1. **Why.** The owner wants a development environment on devnas (Debian trixie) that does not
+1. **Why.** The owner wants a development environment on the development NAS (Debian trixie) that does not
    *"pollute the operating system with a bunch of stuff since it's supposed to just be a NAS"*, that
    does not accrete dependencies that make it *"harder to replicate on other machines"*, and
    end-user deployments that are *"easy to use"*: *"Ideally dev env setup, deployment packaging,
@@ -17518,7 +17518,7 @@ start), which D233 §2 and D234 already ended.
 
 ## D236 — A scan shows itself and its count, a second request waits for it, and what it finds is playable before it ends
 
-**Decided** (2026-10-01), by the project owner, after trying the dev loop on devnas: *"there's no
+**Decided** (2026-10-01), by the project owner, after trying the dev loop on the development NAS: *"there's no
 way to know from the UI that a library is currently scanning, so I ended up queuing multiple scan
 requests"*, and *"it would be good to get rolling updates as the scan progresses, so that I can
 start playing the already scanned movies while it's still scanning."*
@@ -17544,7 +17544,7 @@ it is in, then *"Scanning… 312 files found, 12 of 40 new or changed read"*.
 
 ## D237 — A screen showing what the server changes in the background asks again, backing off while nothing changes, to 30 s
 
-**Decided** (2026-10-02), by the project owner, watching a scan of the films on devnas fill the
+**Decided** (2026-10-02), by the project owner, watching a scan of the films on the development NAS fill the
 library while the films list stayed as it was when opened: *"poll the server with a backoff when
 nothing new is forthcoming, max 30s. This should be the general pattern for any pages that would
 benefit from updated info."*
@@ -17676,7 +17676,7 @@ most of the smarts in the core."* Then, on the proposal below: *"yes, all of tha
    cannot tell. Detection follows a pool, array or volume to its member disks and reads each disk's
    `rotational` flag, spinning if any data disk spins, or the drive's rotation rate where udev read
    one; a disk behind USB whose flag says it spins is unknown, since most bridges hide the drive and
-   the kernel guesses (the owner's USB SSD on devnas, 2026-10-03): an md array or LVM volume through
+   the kernel guesses (the owner's USB SSD on the development NAS, 2026-10-03): an md array or LVM volume through
    `/sys/block/<device>/slaves`, btrfs through `/sys/fs/btrfs`, a ZFS dataset through the mount
    table to its pool and udev's database to the pool's disks, which the node's container reads
    from the host's `/run/udev`, mounted read-only (the owner, 2026-10-02: *"Are you sure we can't
@@ -18233,7 +18233,7 @@ paused often; in the group it played a frame and froze, over and over.
 
 ## D248 — Lost work never counts against a film, a crash in one job ends only that job, and a person's play tries again whatever failed before
 
-**Decided** (2026-10-05 and 06), by the project owner, after films on devnas were marked failed
+**Decided** (2026-10-05 and 06), by the project owner, after films on the development NAS were marked failed
 for good because the dev loop restarted the node while it read them through ("the tool failed on
 two attempts in a row: node 1 does not hold read_through job 12"), and the owner asked whether
 FFmpeg could crash the node and have other crashes blamed on the film.
@@ -18266,12 +18266,12 @@ FFmpeg could crash the node and have other crashes blamed on the film.
 
 ## D249 — Three ways to run: dev as it is, staging from the checkout beside it, and release from a tagged image; the tunnel is a container of the deployment's own
 
-> **Built out by [D272](#d272--production-runs-on-naslan-from-an-image-it-builds-and-migrations-keep-every-step-since-the-version-it-last-ran)** (2026-10-09): release mode runs on nas.example from an image built there, set up by the image's own command; the name swaps between staging and nas.example.
+> **Built out by [D272](#d272--production-runs-on-the-production-nas-from-an-image-it-builds-and-migrations-keep-every-step-since-the-version-it-last-ran)** (2026-10-09): release mode runs on the production NAS from an image built there, set up by the image's own command; the name swaps between staging and the production NAS.
 
 **Decided** (2026-10-06), by the project owner, setting up the VPS of D243 §7 and finding the
 deployment it fronts unbuilt: *"Yes. I want to test deployment. Ideally we'd have dev mode, staging
 mode (which I'll test as soon as it's ready), and release mode. There are no real users yet, and
-won't be until I give the go ahead."* Then, on the proposal: staging beside dev on devnas, starting
+won't be until I give the go ahead."* Then, on the proposal: staging beside dev on the development NAS, starting
 fresh when the schema changed, built from the checkout; release designed now and built later; and
 *"Should wireguard be done on my host, or is it better inside of the container?"*, answered: in a
 container. It builds D235 §2 and §4, and revises D243 §7's core end of the tunnel.
@@ -18293,7 +18293,7 @@ container. It builds D235 §2 and §4, and revises D243 §7's core end of the tu
      on a port published to the house's network, for the LAN.
    - `orpheum-node`: the media read-only and `/dev/dri`; the core's socket on a volume both share
      (D235 §4).
-3. **Staging is built from the checkout, beside dev.** One command on devnas, `./staging`, builds the
+3. **Staging is built from the checkout, beside dev.** One command on the development NAS, `./staging`, builds the
    binary in the development image, builds the runtime image from it, and starts or restarts the
    compose stack; after `yoloai apply`, it is run again. Its data is a directory of its own, apart
    from `.dev/`, and its ports never clash with dev's (8432, 5173). Its configs are rendered on
@@ -18311,14 +18311,14 @@ container. It builds D235 §2 and §4, and revises D243 §7's core end of the tu
    go-ahead for real users; until then there are none.
 
 **Amended** (2026-10-06, the same day), by the project owner, once Watch Together had kept up on
-devnas: *"what if we just made media.orpheum-app.com point to you for now during early development
+the development NAS: *"what if we just made media.orpheum-app.com point to you for now during early development
 and left staging.orpheum-app.com for later?"* Until there is a staging server, the staging stack
 runs in the agent's sandbox, the VPS's one peer, behind `media.orpheum-app.com`, so a change is
-tried on the real name without the owner applying it first; devnas leaves the tunnel. One VPS
+tried on the real name without the owner applying it first; the development NAS leaves the tunnel. One VPS
 address can front only one machine's TURN, so a second name waits for a second address or VPS. The
 agent does the first-run setup and sets the DNS token, which the owner hands over through the
 sandbox's shared files and the agent deletes once set; the admin's password goes back the same way.
-§3's "beside dev on devnas" holds for running staging on a machine of the owner's later.
+§3's "beside dev on devnas.example" holds for running staging on a machine of the owner's later.
 
 **Status:** Decided 2026-10-06; staging built the same day (deploy/staging, ./staging), release later.
 
@@ -19189,20 +19189,20 @@ with five guests, two of whom asked why they could not pause: *"I think we need 
 
 **Status:** Decided 2026-10-09. §4 built 2026-10-11: a checkbox each in the invite, the server's check of each command, and a guest's player that offers the controls its link gives and full screen always.
 
-## D272 — Production runs on nas.example from an image it builds, and migrations keep every step since the version it last ran
+## D272 — Production runs on the production NAS from an image it builds, and migrations keep every step since the version it last ran
 
 **Decided** (2026-10-09), by the project owner, before M5: *"at some point I'll want to actually use
 this software to watch TV and movies with my gf, so before we begin the new dev cycle style on m5,
 I want to make sure the production deployment procedure for the core and nodes is simple and
 painless (which it will have to be anyway once I open up the first public beta)."* Then: *"I'd want
-to run it on nas.example, since that's where the files are. While it's just me and my gf, I don't mind
-swapping between media.orpheum-app.com pointing things to your staging server or nas.example."* And:
+to run it on the production NAS, since that's where the files are. While it's just me and my gf, I don't mind
+swapping between media.orpheum-app.com pointing things to your staging server or the production NAS."* And:
 *"Once I start using this for real, we'll need to support migrations in a sliding window: keep
 migration fully intact from the last checkpoint until I say that I've migrated nas, then make that
 the new checkpoint. I don't mind if nas has to build the image itself, so whatever's easiest."* It
 builds D249 §5's release mode and revises D228 §3 and §6.
 
-1. **Production runs on nas.example**, where the media is: a Proxmox VE host on Debian trixie, with the
+1. **Production runs on the production NAS**, where the media is: a Proxmox VE host on Debian trixie, with the
    core and its node on one machine (there are no remote nodes yet), in an LXC container (the
    owner: *"I'll go with lxc"*), so the media is bind-mounted and the kernel is the host's.
    Landlock is switched on in the host's kernel, since the node runs no FFmpeg unconfined (D112).
@@ -19212,7 +19212,7 @@ builds D249 §5's release mode and revises D228 §3 and §6.
      should be able to monitor the fs ... for catching new file additions"*): D27's native
      filesystem watching, built for production, with the periodic scan kept beneath it, as D27
      asks, since a watcher fails silently.
-2. **`media.orpheum-app.com` is swapped** between staging, in the agent's sandbox, and nas.example
+2. **`media.orpheum-app.com` is swapped** between staging, in the agent's sandbox, and the production NAS
    while the owner and one other person are the only users: one VPS address fronts one machine's
    voice relay (D249).
 3. **Release mode is built before M5's live iteration**, as D249 §5 designed it: the same runtime
@@ -19222,26 +19222,26 @@ builds D249 §5's release mode and revises D228 §3 and §6.
    `docker compose up -d`; updating is a new image, then `docker compose up -d`. The tunnel is
    optional, for a host reached without the VPS. Staging is set up the same way, so the one path
    stays tested.
-4. **The image is built on nas.example** from a tagged checkout, by one command. Publishing it to a
+4. **The image is built on the production NAS** from a tagged checkout, by one command. Publishing it to a
    registry waits for the public beta (D235 §5).
-5. **Migrations keep a sliding window.** The checkpoint is the schema version nas.example last ran.
+5. **Migrations keep a sliding window.** The checkpoint is the schema version the production NAS last ran.
    Every step after it is kept as committed and never edited; a schema change appends a step. When
-   the owner says nas.example has migrated to a version, the steps up to it fold into the baseline,
+   the owner says the production NAS has migrated to a version, the steps up to it fold into the baseline,
    which becomes the new checkpoint. This revises D228 §3's rule of one step behind, and stands
    in for D228 §6's going live until the public beta, when every step is kept for good (D181).
    D228 §5's standing approval for a fold's goldens holds at each new checkpoint.
 
 **Added** (2026-10-09, the same day), by the project owner, choosing among the build's options:
 
-6. **The checkpoint is a file**, `internal/store/migrations/CHECKPOINT`, holding the version nas.example
+6. **The checkpoint is a file**, `internal/store/migrations/CHECKPOINT`, holding the version the production NAS
    last ran. A test holds the baseline at that version, so no fold happens before the owner moves
-   it; it is a gate file, moved with the owner's `Gate-Changed:`. It is committed when nas.example
+   it; it is a gate file, moved with the owner's `Gate-Changed:`. It is committed when the production NAS
    first runs.
 7. **The build re-renders.** The one build command of §4 builds the tag's image and then runs that
    image's setup over the deployment's directory, which renders the compose file and the configs
    from the image's templates and the values file and points them at the new image; then
    `docker compose up -d`. Going back is the same with an older tag.
-8. **Staging and nas.example share one tunnel key pair**, so the VPS is never touched by a swap: a swap
+8. **Staging and the production NAS share one tunnel key pair**, so the VPS is never touched by a swap: a swap
    stops one deployment's tunnel and starts the other's. Only one may run its tunnel at a time.
 9. **A change the watcher sees is a scoped scan, after a quiet spell.** The node tells the core which
    directory changed once events under it have stopped for a while, so a copy in progress settles
@@ -19400,7 +19400,7 @@ D273 §7's methods; it revisits nothing D273 decided.
      becomes optional, and later goes: self-hosting becomes one VPS running one `orpheum
      discovery`.
 6. **The paid discovery service's development starts** in its own repository,
-   `/home/karl/orpheum-discovery`, closed-source (D273 §2), from the spec in the shared files; the
+   `orpheum-discovery`, closed-source (D273 §2), from the spec in the shared files; the
    agent works on both and keeps the protocol in step.
 
 **Status:** Decided 2026-10-10; §5–§6 added 2026-10-11.
@@ -20071,7 +20071,7 @@ took its 28 recommendations (*"agreed on the rest of the stuff"*) and changed tw
 6. **Every household is told its core's home address** (link and QR), replacing D291 §6's last good
    LAN address, which an HTTPS page could not call.
 7. **The edge VPS gains a Floating IPv4 and a WireGuard peer per deployment**, so staging runs beside
-   nas.example (revises D272 §8's one shared key), and becomes the staging server once `media.` retires.
+   the production NAS (revises D272 §8's one shared key), and becomes the staging server once `media.` retires.
 8. **Repositories:** `orpheum-connect` (the paid service, renamed from `orpheum-discovery`),
    `orpheum-ops` and `orpheum-site`, all private.
 9. **The development loop:** check-pr back under its budget first; the service imports Orpheum by
@@ -20145,7 +20145,7 @@ the self-hosted discovery's questions (`discovery-mode.md`).
 
 **Decided** (2026-10-13), by the project owner, answering whether admin should come only from the
 core's own network (D292 §4's second point; the security audit's A1), which in a container would
-have ended admin on nas.example: *"Compromising a home server isn't the end of the world during beta.
+have ended admin on the production NAS: *"Compromising a home server isn't the end of the world during beta.
 The owner is deploying on his own homelab."*
 
 1. **Admin works from anywhere.** No rule ties an admin session to the core's own network; D292
@@ -20202,7 +20202,7 @@ video library."*
    have certificates issued for its names. While staging's cores lived under
    `staging.orpheum-core.com`, the sandbox's token could have rewritten production's households'
    records and taken certificates for them. D293 §3 answered that by moving staging's writes behind
-   production's zone writer once the first production core enrolled; nas.example is about to be that
+   production's zone writer once the first production core enrolled; the production NAS is about to be that
    core, and that route put production code on staging's path and days of security work before it.
 2. **Staging's households live in `orpheum-test.com`**, a registered domain of their own, at
    Cloudflare beside `orpheum-core.com` and set up as it is: DNSSEC on, Universal SSL off, the apex
@@ -20264,7 +20264,7 @@ D294 §1 and §4.
    request over WebRTC, whose source the core cannot know, does not. Revises D294 §1 and §4 (*"keep
    it restricted to LAN-only for now"*); passkeys for admin away from home come later, as D294 §3
    has them.
-7. **Staging and nas.example are two households of production's discovery**, the realms `staging` and
+7. **Staging and the production NAS are two households of production's discovery**, the realms `staging` and
    `nas`, so one site reaches either and the realm says which (the owner: *"can't we just set up two
    realms now: staging and nas? Basically treat them as two hosts"*). The staging core enrols as any
    household does: its credential reaches only its own records, so D296's rule holds. `app-staging.`
@@ -20364,7 +20364,7 @@ a device at home could reach over WebRTC, so a page at home went out through the
 ## D301 — An unsettled match takes the oldest candidate, the most voted within a year, and an admin corrects it from the title's page
 
 **Decided** (2026-10-15), by the project owner, revising D172 §3's "anything else is not guessed".
-nas.example's "Needs a match" held about 85 titles, many the owner saw as obvious (*"Some are indeed
+The production NAS's "Needs a match" held about 85 titles, many the owner saw as obvious (*"Some are indeed
 ambiguous, but others (like [a film] with an identified year of 1992) should be pretty obvious. I
 think that when something has no date and there are multiple versions available, we should choose
 the oldest one by default, and then offer a 'this is identified incorrectly' button on the details
@@ -20408,7 +20408,7 @@ Later we can add another enum to it: only with passkey."*
 
 ## D303 — The data layer is rebuilt to written principles: short writes that re-check what they decided, a fresh baseline, committed statistics, hourly backups
 
-**Decided** (2026-10-15), by the project owner, after nas.example's requests waited 3–47 s behind an
+**Decided** (2026-10-15), by the project owner, after the production NAS's requests waited 3–47 s behind an
 identification pass that held SQLite's one writer for 25–30 s. The evidence is three research
 documents: the [access audit](../design/research/database-access-audit-2026-10-15.md), the
 [practice research](../design/research/data-layer-practice-2026-10-15.md) (principles DL1–DL17),
@@ -20445,7 +20445,7 @@ independent audit's amendments and additions, *"Agreed"*.
      growing table; a stated protocol between `persistent.db` and `cache.db`.
 2. **No migration: the current database is discarded** (*"Agreed on not doing a migration for
    this step. We toss out the current db."*). The redesign is a fresh baseline; staging and
-   nas.example start empty and scan and match again. This ends D272 §5's window for this change.
+   the production NAS start empty and scan and match again. This ends D272 §5's window for this change.
 3. **Planner statistics are committed** (DL15): a `sqlite_stat1` generated from the reference
    library, loaded into every database, with a test that fails when it is stale. Nothing runs
    `ANALYZE` or `PRAGMA optimize`; plans are tested over several library shapes.
@@ -20639,7 +20639,7 @@ between a core and its discovery stable but says nothing of the one between a cl
    password, asks the core for a code of one use and a short life bound to the device, keeps
    nothing, and the client's origin exchanges the code for its own session.
 5. **No sessions are carried over.** The owner: *"The only deployments so far are your staging, and
-   nas.example. Both are expendable, and nobody but you and me have logged into either."*
+   the production NAS. Both are expendable, and nobody but you and me have logged into either."*
 
 6. **The owner's answers to the rest** (2026-10-17):
    - The domain is **`orpheum-client.com`** (*"I'll use orpheum-client.com"*), and staging's client
@@ -20690,7 +20690,7 @@ between a core and its discovery stable but says nothing of the one between a cl
 
 > **§1 amended by [D355](#d355--a-playbacks-picture-and-sound-are-each-wanted-from-a-position-of-their-own-moved-by-their-own-asks-and-together-by-a-seek-a-pause-a-resume-and-the-start)** (2026-10-27): a playback's picture and sound are each wanted from a position of their own, moved by their own asks; its word, a seek, a pause, a resume and its start move both.
 
-**Decided** (2026-10-17), by the project owner, after a film on nas.example stopped for minutes after a
+**Decided** (2026-10-17), by the project owner, after a film on the production NAS stopped for minutes after a
 small seek. The node was making four runs: two of 720p, left from before the player moved to 360p,
 and two of 360p. One 720p run measured just under 1.1x, so the newest run, a 360p one 3.5 s old that
 the player needed, was evicted (D250 §6). Every rule that chose it guessed: a run was in use when a
@@ -21575,7 +21575,7 @@ main chose `h264_vaapi` (VQ52).
 
 ## D333 — The container is given an NVIDIA card's GPU when Docker can hand it over
 
-**Decided** (2026-10-23), by the project owner (*"do the rest as well before we deploy to nas.example,
+**Decided** (2026-10-23), by the project owner (*"do the rest as well before we deploy to the production NAS,
 including #7"*, #7 being NVIDIA in the release container). An install gives the node the machine's
 `/dev/dri` and its render group, which is all an Intel or AMD card needs, since the image carries
 their VA drivers ([D332](#d332--the-node-encodes-on-an-amd-card-through-vaapi-tried-after-quick-sync-and-nvenc)
@@ -21602,7 +21602,7 @@ install.
 driver, on the image, only where `/dev/nvidiactl` exists (`nvidiaAccess`), passes
 `--nvidia cdi|driver` to write-deployment, and reports either way; the override names
 `nvidia.com/gpu=all` or reserves the `nvidia` driver with the four capabilities
-(`mediaOverride`). On gpuhost (rootless Docker, CDI) the node chose `h264_nvenc` confined. The
+(`mediaOverride`). On the GPU test machine (rootless Docker, CDI) the node chose `h264_nvenc` confined. The
 driver's route waits on VQ53.
 
 ## D337 — Casting starts with a person's own signed-in devices: one chosen from those connected now plays the film, the one that cast becomes its remote, and either may take control back
@@ -22845,7 +22845,7 @@ TestAtHomeBy_NamesWhatJudgedTheDeviceAtHome and
 TestWarnIfHomeUnrecognisable_LogsACoreOverASharedIPv4OnceWhileItStaysSo.
 
 **Build note** (2026-10-27): the core, `discovery/discoveryproto`, `discovery/single` and the System
-page are done here, and the paid service's side in orpheum-connect; not yet on staging or nas.example.
+page are done here, and the paid service's side in orpheum-connect; not yet on staging or the production NAS.
 
 **Status:** Decided 2026-10-27.
 
@@ -23308,7 +23308,7 @@ second file, shown twice
     progress stays with the file, and a library covering it again finds it as it was.
 11. **Items stay members of collections** ([D160](#d160--there-is-no-series-concept-a-sequence-is-what-a-collection-produces-and-next-up-is-a-query-over-any-of-them)),
     whatever libraries cover them.
-12. **The migration carries production's database** (nas.example's, at step 0059) to the new model: each
+12. **The migration carries production's database** (the production NAS's, at step 0059) to the new model: each
     file's library becomes a coverage of its place, and nothing a person did is lost.
 
 **Proven by:**
@@ -23747,7 +23747,7 @@ edge; it keeps the ring's room there too (VQ97).
 
 ## D368 — On a film's ladder, the top quality plays the film's own sound, copied; the lower qualities keep the light stereo track
 
-**Decided** (2026-10-27), by the project owner. A film played at home in Chrome on the Mac from nas.example,
+**Decided** (2026-10-27), by the project owner. A film played at home in Chrome on the Mac from the production NAS,
 at the top of its ladder (its own picture, copied), showed its sound as "AAC stereo, 96 kb/s
 (transcoded from AAC stereo)": every quality of a film cut into chunks shares one sound track made at
 `chunk_sound_kbps`
@@ -25016,7 +25016,7 @@ changing terms, being retired, etc)?"; "I have 3 yubikeys that I'll use, and als
 functionality for convenience."
 
 1. **Greenfield.** No redirects or kept links for the old names, no farewell update for the old
-   loader, no adoption without an admin: nas.example and staging connect again.
+   loader, no adoption without an admin: the production NAS and staging connect again.
 2. **A discovery's identity is a key set; its names are locations.** The paid service's root is three
    keys, one on each of the owner's YubiKeys (`ed25519-sk`, else `ecdsa-sk`, signing SSH signatures by
    `ssh-keygen -Y sign`), none copyable. **Any one of the three signs anything**, the root set's own
@@ -26134,7 +26134,7 @@ Your account).
 such a page with no arrival: a person's page with nothing to play whose "…" offers nothing (one
 version, one ordering, no admin's choices, since D418 §5 took File details out of it).
 
-1. **Such a page arrives on its notes, the words saying why it cannot play** (as "on devnas, which is
+1. **Such a page arrives on its notes, the words saying why it cannot play** (as "on the development NAS, which is
    away"): focus rests on the words, OK there does nothing, a screen reader reads why, and one
    press reaches the actions row and its Mark as watched. The notes are a stop for focus on such a
    page alone. Where the notes say nothing either, the head marks no arrival, as D418 §7 left it.
@@ -26297,12 +26297,12 @@ Each point corrects a fact the plan had wrong or keeps to the owner's stated int
 
 **Decided** (2026-11-05), by the owner, on a greenfield audit of the schema at step 0068. From the
 owner: "If we've got to do a schema migration, let's do an audit of the schema as well. This is
-another case where greenfield is fine since I can just regenerate the db on nas.example." Of the
+another case where greenfield is fine since I can just regenerate the db on the production NAS." Of the
 audit's eleven findings the owner chose all of them, the `file`/`place` split included, in this
 batch. **Amends** D416 §12 (the batch is the API rename alone), D160 and schema.md's "no season
 table", and D272 §5 for this one fold: production's database is regenerated, not migrated.
 
-1. **One new baseline replaces steps 0048–0068.** nas.example's and staging's databases are made anew.
+1. **One new baseline replaces steps 0048–0068.** The production NAS's and staging's databases are made anew.
 2. **An item's kind lives on `item`**, in D416's singular words (movie, series, episode, extra,
    other, person; album, artist and track later), with the columns every kind shares: year,
    released date, the source it follows, identification state, when it was found. The subtypes
@@ -26364,7 +26364,7 @@ scope is `'item'`: the preference attaches to the item a person set it on, in D4
 
 ## D429 — A library moves by one operation, "folder X on node A is now folder Y on node B", over absolute paths
 
-**Decided** (2026-11-05), by the owner, while the media was being copied to devnas.example for nas.example's
+**Decided** (2026-11-05), by the owner, while the media was being copied to the development NAS for the production NAS's
 memory tests. The owner first proposed storing a library's paths relative to the library ("then when
 you change the library location, only 1 record needs to change"), then asked for it to be wargamed:
 "This would marry items to libraries, and so if a library gets deleted, what happens?" The wargame:
@@ -26397,17 +26397,17 @@ of the world if it takes awhile to do when it happens."
 **Status:** Decided 2026-11-05. The audit's check is in D416's batch; the repoint feature is the batch
 after it.
 
-## D430 — People's state carries over by the migration itself, rehearsed on a copy of nas.example's database; no export/import tool
+## D430 — People's state carries over by the migration itself, rehearsed on a copy of the production NAS's database; no export/import tool
 
 **Decided** (2026-11-05), by the owner, amending D426 §1, §10 and §11. D426 §11 planned a one-off export from the
 old schema and an import into the new one, because the rebuild was to be greenfield. Every step D416's
-batch added (0073–0080) migrates in place instead, keeping every row, so nas.example's database upgrades
+batch added (0073–0080) migrates in place instead, keeping every row, so the production NAS's database upgrades
 itself when the new core starts. Asked whether to still build the tool, the owner chose to rehearse
 the migration instead.
 
 1. **No export/import tool is built.** The steps' own tests (`migrate_00NN_test.go`) prove each one
    keeps what it moves; the rehearsal proves it on real data.
-2. **Before the deploy, the migration is rehearsed on a copy of nas.example's database**, taken read-only
+2. **Before the deploy, the migration is rehearsed on a copy of the production NAS's database**, taken read-only
    (SQLite's backup, not a copy of a live file). The copy is migrated by the new build, and the
    rehearsal checks that users, passkeys, watched state, resume positions, hidden items and
    preferences come through, counted before and after, and that the core starts on it.
@@ -26418,7 +26418,7 @@ the migration instead.
    WITHOUT ROWID, dropping defaults that served only ALTER TABLE) are made as steps too. Once every
    database has migrated, the owner may move the checkpoint and fold at any time.
 
-**Status:** Decided 2026-11-05; D416's batch rehearses before its nas.example deploy.
+**Status:** Decided 2026-11-05; D416's batch rehearses before its production NAS deploy.
 
 ## D431 — Which library shows an item stays computed, not stored
 
@@ -26601,8 +26601,8 @@ playing its own file with levelling on").
 
 ## D437 — One copy of a core serves: a refused copy stops asking until an admin says so, and both are warned under the exclamation icon
 
-**Decided** (2026-11-06), by the project owner, after production failed over to devnas while nas.example
-ran a memory test, and nas.example, switched off with its core still up, would have started a second copy
+**Decided** (2026-11-06), by the project owner, after production failed over to the development NAS while the production NAS
+ran a memory test, and the production NAS, switched off with its core still up, would have started a second copy
 of production on its next boot. The owner proposed that the discovery pings the existing core and
 refuses the newcomer when it answers, and that both are warned; the lead named the holes, the owner
 accepted split brain where it is unlikely (below), and chose the slim form ("yes, slim it down") over
@@ -26649,8 +26649,8 @@ going to worry too much about split brain. The fallout in the narrow cases where
 history, which isn't the end of the world in an unlikely case." The same holds for a device that
 reaches a copy by a home address it remembers.
 
-**Not protected until built:** production's nas.example on its return from the 2026-11-06 memory test; the
-owner watches it by hand (orpheum-ops `production/failover-to-devnas.md`, "nas.example coming back").
+**Not protected until built:** production's the production NAS on its return from the 2026-11-06 memory test; the
+owner watches it by hand (orpheum-ops `production/`, "the production NAS coming back").
 
 **Status:** Decided 2026-11-06. Builds in the core (the health ping answer, the refused copy's stop
 and its System page action, both warnings, the installation id, asking at once when the network comes
@@ -26779,7 +26779,7 @@ panel is not drawn and a device receiving a cast see none.
 ## D441 — The core's host candidates on its LAN port are one address of each family, the house's in place of the container's IPv4 one
 
 **Decided** (2026-11-07), by the project owner ("go ahead"), on the cause found from a capture on
-nas.example: the ThinkPad's Firefox 158 never signed in to orpheum.cc. Amends D300 §1 ("add that address
+the production NAS: the ThinkPad's Firefox 158 never signed in to orpheum.cc. Amends D300 §1 ("add that address
 … to every answer as a host candidate").
 
 1. **The core gathers one host candidate of each family on its LAN port**, an address that is

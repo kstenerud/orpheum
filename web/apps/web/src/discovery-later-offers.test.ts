@@ -15,7 +15,7 @@ import { holdingAt } from "./loader-at-client-origin.tsx";
 import { createSession, type Session } from "./session.ts";
 import { keepMembership, membershipText } from "./together-storage.ts";
 
-// The owner's Firefox, signed in as dan, opened the host's Watch Together link through staging's
+// The owner's Firefox, signed in as tester, opened the host's Watch Together link through staging's
 // discovery: its offers were proven by the link's key, and after the join spent the link every offer
 // was refused, the page held the same session as before, so nothing changed for latest; once the
 // Wi-Fi went and came back, the page never connected again (2026-10-29).

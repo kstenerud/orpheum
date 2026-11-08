@@ -115,7 +115,7 @@ func newWorld(t *testing.T) *world {
 	built := &world{
 		files: &memoryFiles{files: map[string][]byte{}}, key: key, fake: fake, issuer: server.URL,
 		clock:      clocktest.NewFake(time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC)),
-		candidates: []discoveryproto.Candidate{{Address: "2a0f:1000::1", Port: 443, Source: "interface"}},
+		candidates: []discoveryproto.Candidate{{Address: "2a0f:5000::1", Port: 443, Source: "interface"}},
 		version:    "v0.1.0",
 	}
 	built.service = built.restart(t)

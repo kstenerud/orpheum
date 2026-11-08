@@ -442,7 +442,7 @@ describe("the service worker under a loader (D308 §6)", () => {
     expect(await (await load(worker, "/households", { by: "p", mode: "navigate" }))?.text()).toBe(
       "the loader",
     );
-    // An update is opened at once, not on the visit after (nas.example, 2026-10-19).
+    // An update is opened at once, not on the visit after (the production NAS, 2026-10-19).
     expect(await (await load(worker, "/", { by: "p", mode: "navigate" }))?.text()).toBe(
       "the loader, updated",
     );

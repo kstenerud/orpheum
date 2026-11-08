@@ -182,7 +182,7 @@ nothing here. Two cheap measures, both consistent with one-key signing:
   banner and manual update are not held. A recovery statement during the hold removes the signer and
   cancels the install.
 - **A watcher that tells the owner of every signature**: every signed object is public by design; a
-  small job on the owner's machine (nas.example) fetches the root chain, address document and release
+  small job on the owner's machine (the production NAS) fetches the root chain, address document and release
   record from every location every 15 minutes, compares each against the owner's own ledger of what the
   signing tool produced (§3.7), and alerts the owner's phone on anything it did not produce. This is
   Certificate Transparency's and Sigstore's monitor idea at the scale of one owner. With it, the
@@ -642,7 +642,7 @@ A Go program beside `cmd/release-record` (one more under `cmd/`, run by the owne
 payload from a typed edit (add key, remove key, new release, re-sign), prints the payload and its
 difference from the current one, asks for confirmation, runs `ssh-keygen -Y sign -n <namespace> -f
 <stub>` (one touch, one PIN), verifies the result with the same code the core uses, appends payload and
-signature to the owner's ledger (a private git repository on nas.example), and writes the files to publish.
+signature to the owner's ledger (a private git repository on the production NAS), and writes the files to publish.
 The release workflow produces the unsigned record; the owner signs it on the Mac after checking the
 digest (github-integrity rec. 7's second build, when it exists). The owner should check, on a second
 machine, that the published bytes read as intended before they go out: a token has no screen.
@@ -698,7 +698,7 @@ On the Mac, offline for steps 5–8 if practical; an hour.
 9. **Compute the ids** (`od1-…`, `op1-…`) and put the genesis statements and ids in Orpheum's one Go
    file (D391 §7); commit with the fingerprints in the message.
 10. **Publish** the chains, the first address document and the first record at every location; start
-    the watcher on nas.example with the ledger.
+    the watcher on the production NAS with the ledger.
 11. **Distribute**: `e1` carried, `e2` at home, `r1` to the bank, `r2` to its own site (a relative's, or
     a second deposit box), each with its fingerprint card and a one-page instruction ("what this key is
     for, how to use it, whom to call"), for the person who might one day need to act for the owner.

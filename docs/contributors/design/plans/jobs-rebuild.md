@@ -394,7 +394,7 @@ refusal, the full disk.
 
 *4b.1 built 2026-10-02:* the node holds its work in memory, each job starting once a slot of its
 kind is free, the highest priority first (the command carries its job's), and beside its scans
-rather than behind them, which settles 4d's devnas finding for prepares; a cancel drops a job that
+rather than behind them, which settles 4d's the development NAS finding for prepares; a cancel drops a job that
 waits. Every hello names its start (`startId`); a hello from another start ends the waits of the
 jobs on that node at once, the tool's failure (`jobs.MarkInterrupted`), and the target's on a
 second in a row. Node protocol 2.
@@ -524,14 +524,14 @@ scan as the node's walk.
 
 What the earlier 4d and 4e found still holds:
 
-- *Seen on devnas (2026-10-02):* a prepare a person asked for waited behind a 55-second scan of 329
+- *Seen on the development NAS (2026-10-02):* a prepare a person asked for waited behind a 55-second scan of 329
   films. Since 4b the node runs scans apart from the work it holds, so a prepare no longer queues
   behind one; they still share the disk, which 4d.2's pausing settles.
 - Since 4c.1 nothing bounds what the core hands a node: a runner gives every due job of its kind at
   once, so a loudness sweep puts all of a library's measurements in the node's memory, where the
   24-hour limit and a restart's interruption reach all of them. 4d.3 bounds it.
 - A node's hello asks for no scan of a root no library covers. *Built 2026-10-02, ahead of 4e:*
-  after a fresh start on devnas the films page stayed empty for two minutes while that root was read
+  after a fresh start on the development NAS the films page stayed empty for two minutes while that root was read
   ahead of the dev library's own. The owner: *"Just because a potential root is available to
   orpheum does not mean it should scan it. Only when a path is added to a library and its type
   (film, show, home video, etc) is defined should it be scanned."*
@@ -546,7 +546,7 @@ What the earlier 4d and 4e found still holds:
 - **4d.1 Devices.** The node finds the device of each root and of each mount inside one, and what
   kind it is (spinning, SSD, network, or unknown), following a pool, array or volume to its member
   disks (D240 §5): ZFS through the host's `/run/udev`, mounted read-only into the node's container,
-  checked on devnas as a verification item since no ZFS is here. Its hello lists them. Each device's concurrency limit is a core setting per node and device, starting from
+  checked on the development NAS as a verification item since no ZFS is here. Its hello lists them. Each device's concurrency limit is a core setting per node and device, starting from
   the kind: one for spinning or unknown, several for SSD; the core gives the node its limits in the
   hello's reply and again when one changes.
   *4d.1 built 2026-10-02:* the node finds the devices of its roots and prepared directory at each
@@ -555,7 +555,7 @@ What the earlier 4d and 4e found still holds:
   them; `./dev` mounts the host's `/run/udev` read-only. Sending them again when a setting changes comes
   with 4d.2, where the node first uses them. *Since 2026-10-03:* an admin sets a device's limit
   over its kind's (`device_reader_limit`, migration 0030; `PUT /nodes/device-reader-limit`), and
-  the System page lists each node's devices with theirs; its controls come with Phase 6. ZFS on devnas is VQ17. Node protocol 11.
+  the System page lists each node's devices with theirs; its controls come with Phase 6. ZFS on the development NAS is VQ17. Node protocol 11.
 - **4d.2 The node enforces and yields.** Every command names the device it reads. The node runs at
   most a device's limit of readers on it, beside the CPU and GPU slots (cut-a §5.3). Play-driven
   work arriving for a device pauses the background work reading it: an FFmpeg's process group

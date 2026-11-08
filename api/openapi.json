@@ -2504,7 +2504,7 @@
             "type": "string"
           },
           "network": {
-            "description": "A public IPv6 /64, \"2a0f:1000:1:2::/64\"",
+            "description": "A public IPv6 /64, \"2a0f:5000:1:2::/64\"",
             "type": "string"
           },
           "source": {

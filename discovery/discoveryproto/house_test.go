@@ -19,12 +19,12 @@ func learnt(network string) discoveryproto.HouseNetwork {
 func TestInHouseNetworks_ADeviceInAPublicSlash64IsAtHome(t *testing.T) {
 	t.Parallel()
 	networks := []discoveryproto.HouseNetwork{
-		learnt("2a0f:1000:1:2::/64"),
+		learnt("2a0f:5000:1:2::/64"),
 		{Network: "2a0f:3000:9:8::/64", Source: discoveryproto.HouseNetworkConfigured},
 	}
 	for client, want := range map[string]bool{
-		"2a0f:1000:1:2:aaaa:bbbb:cccc:dddd": true, "2a0f:3000:9:8::1": true,
-		"2a0f:1000:1:3::1": false, "2a0f:1000:1:2::1%eth0": true, "11.22.33.144": false,
+		"2a0f:5000:1:2:aaaa:bbbb:cccc:dddd": true, "2a0f:3000:9:8::1": true,
+		"2a0f:5000:1:3::1": false, "2a0f:5000:1:2::1%eth0": true, "11.22.33.144": false,
 		"::ffff:11.22.33.144": false,
 	} {
 		if got := discoveryproto.IsInHouseNetworks(netip.MustParseAddr(client), networks); got != want {
@@ -39,13 +39,13 @@ func TestInHouseNetworks_ADeviceInAPublicSlash64IsAtHome(t *testing.T) {
 func TestInHouseNetworks_AShorterPrivateOrIPv4NetworkCountsForNothing(t *testing.T) {
 	t.Parallel()
 	for network, client := range map[string]string{
-		"2a0f:1000::/32":         "2a0f:1000:1:2::1",
-		"2a0f:1000:1:2::/96":     "2a0f:1000:1:2::1",
-		"fd77:1:2:3::/64":        "fd77:1:2:3::1",
-		"2001:db8:1:2::/64":      "2001:db8:1:2::1",
+		"2a0f:5000::/32":        "2a0f:5000:1:2::1",
+		"2a0f:5000:1:2::/96":    "2a0f:5000:1:2::1",
+		"fd77:1:2:3::/64":       "fd77:1:2:3::1",
+		"2001:db8:1:2::/64":     "2001:db8:1:2::1",
 		"11.22.33.0/24":         "11.22.33.144",
-		"2a0f:1000:1:2::9/64":    "2a0f:1000:1:2::1",
-		"not a network":          "2a0f:1000:1:2::1",
+		"2a0f:5000:1:2::9/64":   "2a0f:5000:1:2::1",
+		"not a network":         "2a0f:5000:1:2::1",
 		"::ffff:11.22.33.0/120": "::ffff:11.22.33.144",
 	} {
 		if discoveryproto.IsInHouseNetworks(netip.MustParseAddr(client),
@@ -54,13 +54,13 @@ func TestInHouseNetworks_AShorterPrivateOrIPv4NetworkCountsForNothing(t *testing
 		}
 	}
 	fifth := []discoveryproto.HouseNetwork{
-		learnt("2a0f:1000:1:1::/64"), learnt("2a0f:1000:1:2::/64"), learnt("2a0f:1000:1:3::/64"),
-		learnt("2a0f:1000:1:4::/64"), learnt("2a0f:1000:1:5::/64"),
+		learnt("2a0f:5000:1:1::/64"), learnt("2a0f:5000:1:2::/64"), learnt("2a0f:5000:1:3::/64"),
+		learnt("2a0f:5000:1:4::/64"), learnt("2a0f:5000:1:5::/64"),
 	}
-	if discoveryproto.IsInHouseNetworks(netip.MustParseAddr("2a0f:1000:1:5::1"), fifth) {
+	if discoveryproto.IsInHouseNetworks(netip.MustParseAddr("2a0f:5000:1:5::1"), fifth) {
 		t.Error("a device in the fifth house network is at home; want only the first four counted")
 	}
-	if !discoveryproto.IsInHouseNetworks(netip.MustParseAddr("2a0f:1000:1:4::1"), fifth) {
+	if !discoveryproto.IsInHouseNetworks(netip.MustParseAddr("2a0f:5000:1:4::1"), fifth) {
 		t.Error("a device in the fourth house network is not at home")
 	}
 }
@@ -70,7 +70,7 @@ func TestInHouseNetworks_AShorterPrivateOrIPv4NetworkCountsForNothing(t *testing
 func TestHouseNetworkOf_IsAPublicIPv6SourcesSlash64AndNothingElse(t *testing.T) {
 	t.Parallel()
 	for source, want := range map[string]string{
-		"2a0f:1000:1:2:aaaa:bbbb:cccc:dddd": "2a0f:1000:1:2::/64", "11.22.33.144": "",
+		"2a0f:5000:1:2:aaaa:bbbb:cccc:dddd": "2a0f:5000:1:2::/64", "11.22.33.144": "",
 		"::ffff:11.22.33.144": "", "fd77::1": "", "2001:db8::1": "", "fe80::1%eth0": "", "::1": "",
 	} {
 		network, isNetwork := discoveryproto.HouseNetworkOf(netip.MustParseAddr(source))

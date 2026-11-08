@@ -1,6 +1,6 @@
 > **ABOUTME:** The core's half of the discovery infrastructure plan of 2026-10-13: what a
 > self-hoster's core needs to use the paid service or their own discovery (network, names, values),
-> and the Orpheum changes the plan asks for so staging and nas.example run at once behind one VPS.
+> and the Orpheum changes the plan asks for so staging and the production NAS run at once behind one VPS.
 
 # Discovery infrastructure: what the core needs, and what Orpheum must change (2026-10-13)
 
@@ -25,7 +25,7 @@ repository.
   WebSocket to `api.orpheum-app.com`, outbound UDP to the service's STUN servers, outbound HTTPS to
   Let's Encrypt, and UDP for WebRTC. No domain, no DNS provider, no Cloudflare token, no VPS.
 - **The plan asks four things of Orpheum:** the tunnel's address chosen per deployment, so staging and
-  nas.example run at once with their own keys (revises D272 §8); `deploy/vps/` updated for forwards matched
+  the production NAS run at once with their own keys (revises D272 §8); `deploy/vps/` updated for forwards matched
   by destination address, a filter chain and several peers (audit2 I14, I1); `configured` candidates
   (K4) and the owner's TURN entry, which the staging core's VPS path needs; and, only as a fallback
   the plan does not recommend, DNS-01 through a CNAME.
@@ -74,14 +74,14 @@ From the protocol and [discovery-mode.md](../plans/discovery-mode.md), for the V
 
 ### Change 1 — the tunnel's address per deployment (revises D272 §8)
 
-**Today:** staging and nas.example share one key pair, so only one runs its tunnel, and
+**Today:** staging and the production NAS share one key pair, so only one runs its tunnel, and
 `media.orpheum-app.com` is swapped between them (D272 §2, §8). The tunnel's addresses are fixed:
 `10.77.0.2` and `fd77::2` in `deploy/staging/tunnel.sh` **[V]**, and the VPS's peer names them.
 
 **Wanted** (the owner: a second WireGuard peer and key and separate names, so both run at once): the
 values file's `[vps]` gains the deployment's tunnel addresses, defaulting to today's, which the
 tunnel script, its compose environment and the rendered `wg0.conf` take. The plan gives the staging
-core `10.77.0.3`/`fd77::3` on its own key, nas.example keeping `10.77.0.2` and its key, untouched.
+core `10.77.0.3`/`fd77::3` on its own key, the production NAS keeping `10.77.0.2` and its key, untouched.
 
 **Touches** [I]: `internal/deployment/templates/` (values, compose, `wg0.conf`), `deploy/staging/tunnel.sh`,
 `write-deployment`'s values checks, `deploy/staging/README.md`, `deploy/release/README.md` §3 step 1
@@ -126,21 +126,21 @@ If the legacy name `media.orpheum-app.com` had to outlive the revocation of its 
 plan §2.8), the core could follow a CNAME at `_acme-challenge.<name>` and write the TXT at its target,
 in a throwaway zone its token reaches, as many ACME clients do. Today `internal/core/providers/cloudflare`
 writes the TXT at `_acme-challenge.<name>` in the zone that holds the name and follows no CNAME
-(`zoneOf`) **[V]**. The plan prefers retiring the legacy name by moving nas.example onto the paid
+(`zoneOf`) **[V]**. The plan prefers retiring the legacy name by moving the production NAS onto the paid
 service, and a separate domain as the fallback, so this stays unbuilt.
 
 ## 4. Dates that bind Orpheum's side
 
-- **`media.orpheum-app.com`'s certificate** on nas.example was issued 2026-10-13 and expires 2027-01-11
+- **`media.orpheum-app.com`'s certificate** on the production NAS was issued 2026-10-13 and expires 2027-01-11
   **[V, Cert Spotter]**; the core, renewing 30 days before expiry as built (protocol §2.7), first tries
   about 2026-12-12. Once the owner revokes the token (the plan's step 29), renewals fail and the name
   works until 2027-01-11.
-- **nas.example joining the paid service** (the paid spec's M-S7 order) is therefore due by about
+- **The production NAS joining the paid service** (the paid spec's M-S7 order) is therefore due by about
   2027-01-04, or the fallback domain is set up before then.
 
 ## 5. For the owner
 
-1. **Record the revision of D272 §2 and §8** (separate keys and names for staging and nas.example, no more
+1. **Record the revision of D272 §2 and §8** (separate keys and names for staging and the production NAS, no more
    swapping) before change 1 is built. *Recommended:* yes, as the owner asked.
 2. **Change 2's public guide advising a dedicated domain** for an own discovery or core. *Recommended:*
    yes (audit2 I1).

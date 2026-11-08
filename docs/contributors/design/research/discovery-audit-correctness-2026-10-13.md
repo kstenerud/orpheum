@@ -563,7 +563,7 @@ it, since `*.<coreId>.<zone>` matches exactly one label. Plex uses the same sche
   `-` gives `2001-db8--20`: a doubled hyphen, and a trailing hyphen for an address ending in `::`.
   Labels with `--` in positions 3–4 are reserved (RFC 5891 §4.2.3.1), and strict IDNA processing
   rejects them **[I]**.
-- *Canonical form.* Decide lowercase, no leading zeros (`2a02-8070-0-0-0-0-0-1`) or zero-padded, so
+- *Canonical form.* Decide lowercase, no leading zeros (`2001-db8-0-0-0-0-0-1`) or zero-padded, so
   one address has one name.
 - *Zones and scopes.* Link-local addresses (with a zone id) are excluded by the code (good); ULA
   addresses are classed `lan` and would be named; IPv4-mapped addresses are unmapped first (good).

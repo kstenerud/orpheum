@@ -43,7 +43,7 @@ crowded its connections. **[1P]** for each line. The split of that one chunk's t
 and arriving was not logged, which is why the fix logs it (§1.5).
 
 The path is not the house's network, though the owner was at home: every play is
-`over=webrtc clientAddress=11.22.33.144`, the carrier's address, so the browser reaches staging
+`over=webrtc clientAddress=203.0.113.10`, the carrier's address, so the browser reaches staging
 through the punched WebRTC path (the owner's DS-Lite line), and 11–14 Mb/s is that path's, not a
 LAN's.
 

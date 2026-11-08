@@ -26,7 +26,7 @@
 # use. Debian packages are verified by apt's signed archive, not pinned by version.
 
 # debian:trixie-slim, the multi-arch index digest read from Docker Hub on 2026-10-30 (its openssl,
-# pcre2 and liblzma security updates; research/security-pins-2026-10-30.md). Trixie is what devnas ran.
+# pcre2 and liblzma security updates; research/security-pins-2026-10-30.md). Trixie is what the development NAS ran.
 ARG DEBIAN_IMAGE=debian:trixie-slim@sha256:f6b08b09a05725f9431502d3b5714f5c4576e82c1a84fa1debe0c24a7e0c3ec4
 
 # ---------------------------------------------------------------------------------------------
@@ -176,7 +176,7 @@ RUN --mount=type=cache,target=/root/.npm \
 FROM base AS runtime
 # wireguard-tools and iproute2: orpheum-tunnel, the core's end of the tunnel to the VPS (D249 §2).
 # On amd64, Intel's GPU runtime and VA driver, which the portable FFmpeg loads from the system for
-# Quick Sync; without them every QSV encode fails with "Error creating a MFX session: -9" (nas.example,
+# Quick Sync; without them every QSV encode fails with "Error creating a MFX session: -9" (the production NAS,
 # 2026-10-20). The non-free driver is the one with every encoder the GPU has (the owner,
 # 2026-10-20). Mesa's VA drivers, for an AMD card's encodes through VAAPI (D332); they bring LLVM,
 # about 100 MB.

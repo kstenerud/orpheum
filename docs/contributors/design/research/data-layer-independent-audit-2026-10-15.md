@@ -13,7 +13,7 @@ v1.59.0 exposes SQLite's online backup API (`conn.NewBackup`, `Backup.Step(n)`),
 
 *2026-10-15. Written from the position of a long-serving DBA and data architect who was not
 involved in the design. Everything here was read from the repository at an earlier commit or measured in
-a scratch directory; nothing in `/home/karl/orpheum` was changed. Claims marked **(measured)** were
+a scratch directory; nothing in the checkout was changed. Claims marked **(measured)** were
 reproduced here on CPython's SQLite 3.46.1 (the behaviour concerned is the same in 3.53). Claims
 marked **(from memory)** are from long practice and literature I did not re-read for this report;
 check them before acting on them. "Verify" marks a point I could not settle here.*
@@ -241,7 +241,7 @@ Conditions:
   CLI. State this and test it (from memory; verify the drift threshold in the 3.53 docs).
 - **Commit `sqlite_stat1` only, and delete `sqlite_stat4`.** Its samples are data-specific and
   hard to fix by hand.
-- **Test plans over several data shapes**: film-heavy, series-heavy (the nas.example shape), tiny,
+- **Test plans over several data shapes**: film-heavy, series-heavy (the production NAS shape), tiny,
   and 100k files. With fixed statistics, the risk moves from "the planner guesses" to "our guess
   is wrong for this household".
 - **Use the hints you already use.** `CROSS JOIN` ordering is already used in `browse.sql`, and

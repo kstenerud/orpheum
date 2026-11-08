@@ -354,7 +354,7 @@ func TestStep_AsksByNATPMPWhenTheRouterSpeaksOnlyIt(t *testing.T) {
 func TestStep_OpensByUPnPForIPv4AndIPv6AndReleaseClosesThem(t *testing.T) {
 	t.Parallel()
 	router := startRouter(t, "")
-	ipv6 := netip.MustParseAddr("2a0f:1000:1::20")
+	ipv6 := netip.MustParseAddr("2a0f:5000:1::20")
 	service, _, _ := startService(t, router, ipv6)
 	service.step(t.Context())
 	report := service.Report()
@@ -390,8 +390,8 @@ func TestStep_OpensByUPnPForIPv4AndIPv6AndReleaseClosesThem(t *testing.T) {
 func TestGatewayOf_ReadsTheDefaultRoutesGateway(t *testing.T) {
 	t.Parallel()
 	table := "Iface\tDestination\tGateway \tFlags\tRefCnt\tUse\tMetric\tMask\t\tMTU\tWindow\tIRTT\n" +
-		"eth0\t006FA8C0\t00000000\t0001\t0\t0\t0\t00FFFFFF\t0\t0\t0\n" +
-		"eth0\t00000000\t016FA8C0\t0003\t0\t0\t0\t00000000\t0\t0\t0\n"
+		"eth0\t0001A8C0\t00000000\t0001\t0\t0\t0\t00FFFFFF\t0\t0\t0\n" +
+		"eth0\t00000000\t0101A8C0\t0003\t0\t0\t0\t00000000\t0\t0\t0\n"
 	if gateway, err := GatewayOf(table); err != nil || gateway != netip.MustParseAddr("192.168.1.1") {
 		t.Errorf("gatewayOf = %v, %v; want 192.168.1.1", gateway, err)
 	}

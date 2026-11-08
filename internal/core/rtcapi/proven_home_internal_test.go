@@ -27,16 +27,16 @@ func told(server *Server, pair *webrtc.ICECandidatePair, own []netip.Prefix) []P
 func TestProvenAtHome_ADirectConnectionFromTheHouseProvesItself(t *testing.T) {
 	t.Parallel()
 	server := watchedServer(t, &testutil.Log{}, clocktest.NewFake(time.Unix(1_800_000_000, 0)))
-	own := []netip.Prefix{netip.MustParsePrefix("2a0f:1000:1:2::/64")}
+	own := []netip.Prefix{netip.MustParsePrefix("2a0f:5000:1:2::/64")}
 	overIPv4 := told(server, pairOf(webrtc.ICECandidateTypeHost, "192.168.1.199:8443",
 		webrtc.ICECandidateTypePrflx, "192.168.1.30:5000"), nil)
 	if len(overIPv4) != 1 || overIPv4[0].Path != PathDirectIPv4 || overIPv4[0].Device.String() != "192.168.1.30" {
 		t.Errorf("a direct pair from 192.168.1.30, in the home network, told %+v; want it proven from there",
 			overIPv4)
 	}
-	overIPv6 := told(server, pairOf(webrtc.ICECandidateTypeHost, "[2a0f:1000:1:2::5]:8443",
-		webrtc.ICECandidateTypeHost, "[2a0f:1000:1:2::30]:5000"), own)
-	if len(overIPv6) != 1 || overIPv6[0].Path != PathDirectIPv6 || overIPv6[0].Device.String() != "2a0f:1000:1:2::30" {
+	overIPv6 := told(server, pairOf(webrtc.ICECandidateTypeHost, "[2a0f:5000:1:2::5]:8443",
+		webrtc.ICECandidateTypeHost, "[2a0f:5000:1:2::30]:5000"), own)
+	if len(overIPv6) != 1 || overIPv6[0].Path != PathDirectIPv6 || overIPv6[0].Device.String() != "2a0f:5000:1:2::30" {
 		t.Errorf("a direct pair from the core's own IPv6 network told %+v; want it proven from there", overIPv6)
 	}
 	server.tellIfProvenAtHome(pairOf(webrtc.ICECandidateTypeHost, "192.168.1.199:8443",
@@ -48,7 +48,7 @@ func TestProvenAtHome_ADirectConnectionFromTheHouseProvesItself(t *testing.T) {
 func TestProvenAtHome_ARelayedPunchedOrHairpinnedConnectionProvesNothing(t *testing.T) {
 	t.Parallel()
 	server := watchedServer(t, &testutil.Log{}, clocktest.NewFake(time.Unix(1_800_000_000, 0)))
-	own := []netip.Prefix{netip.MustParsePrefix("2a0f:1000:1:2::/64")}
+	own := []netip.Prefix{netip.MustParsePrefix("2a0f:5000:1:2::/64")}
 	for name, pair := range map[string]*webrtc.ICECandidatePair{
 		"relayed": pairOf(webrtc.ICECandidateTypeRelay, "198.51.100.4:3478",
 			webrtc.ICECandidateTypePrflx, "192.168.1.30:5000"),
@@ -56,8 +56,8 @@ func TestProvenAtHome_ARelayedPunchedOrHairpinnedConnectionProvesNothing(t *test
 			webrtc.ICECandidateTypeRelay, "192.168.1.30:5000"),
 		"punched": pairOf(webrtc.ICECandidateTypeSrflx, "11.22.33.144:40001",
 			webrtc.ICECandidateTypePrflx, "192.168.1.30:5000"),
-		"punched over IPv6": pairOf(webrtc.ICECandidateTypeSrflx, "[2a0f:1000:1:2::5]:40001",
-			webrtc.ICECandidateTypePrflx, "[2a0f:1000:1:2::30]:5000"),
+		"punched over IPv6": pairOf(webrtc.ICECandidateTypeSrflx, "[2a0f:5000:1:2::5]:40001",
+			webrtc.ICECandidateTypePrflx, "[2a0f:5000:1:2::30]:5000"),
 		"hairpinned": pairOf(webrtc.ICECandidateTypeSrflx, "11.22.33.144:40001",
 			webrtc.ICECandidateTypeSrflx, "11.22.33.144:51234"),
 		"direct from away": pairOf(webrtc.ICECandidateTypeHost, "192.168.1.199:8443",
@@ -79,7 +79,7 @@ func TestProvenAtHome_ARelayedPunchedOrHairpinnedConnectionProvesNothing(t *test
 func TestIsDirectlyFromHome_OnlyADirectPairFromTheHouseIs(t *testing.T) {
 	t.Parallel()
 	server := watchedServer(t, &testutil.Log{}, clocktest.NewFake(time.Unix(1_800_000_000, 0)))
-	own := []netip.Prefix{netip.MustParsePrefix("2a0f:1000:1:2::/64")}
+	own := []netip.Prefix{netip.MustParsePrefix("2a0f:5000:1:2::/64")}
 	direct := pairOf(webrtc.ICECandidateTypeHost, "192.168.1.199:8443",
 		webrtc.ICECandidateTypePrflx, "192.168.1.30:5000")
 	for name, each := range map[string]struct {
@@ -87,12 +87,12 @@ func TestIsDirectlyFromHome_OnlyADirectPairFromTheHouseIs(t *testing.T) {
 		want bool
 	}{
 		"direct from a home network": {direct, true},
-		"direct from the house's IPv6 network": {pairOf(webrtc.ICECandidateTypeHost, "[2a0f:1000:1:2::5]:8443",
-			webrtc.ICECandidateTypeHost, "[2a0f:1000:1:2::30]:5000"), true},
+		"direct from the house's IPv6 network": {pairOf(webrtc.ICECandidateTypeHost, "[2a0f:5000:1:2::5]:8443",
+			webrtc.ICECandidateTypeHost, "[2a0f:5000:1:2::30]:5000"), true},
 		"punched from a home address": {pairOf(webrtc.ICECandidateTypeSrflx, "11.22.33.144:40001",
 			webrtc.ICECandidateTypePrflx, "192.168.1.30:5000"), false},
-		"punched from the house's IPv6 network": {pairOf(webrtc.ICECandidateTypeSrflx, "[2a0f:1000:1:2::5]:40001",
-			webrtc.ICECandidateTypePrflx, "[2a0f:1000:1:2::30]:5000"), false},
+		"punched from the house's IPv6 network": {pairOf(webrtc.ICECandidateTypeSrflx, "[2a0f:5000:1:2::5]:40001",
+			webrtc.ICECandidateTypePrflx, "[2a0f:5000:1:2::30]:5000"), false},
 		"relayed from a home address": {pairOf(webrtc.ICECandidateTypeRelay, "198.51.100.4:3478",
 			webrtc.ICECandidateTypePrflx, "192.168.1.30:5000"), false},
 		"hairpinned": {pairOf(webrtc.ICECandidateTypeSrflx, "11.22.33.144:40001",

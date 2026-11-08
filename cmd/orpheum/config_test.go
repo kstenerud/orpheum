@@ -331,17 +331,17 @@ func TestDiscoveryConfig_LANAddressesArePrivateAndSentBesideThePublic(t *testing
 // is sent as configured; a wider, private, IPv4 or unmasked network, and a fifth, are refused (D356 §6).
 func TestDiscoveryConfig_HouseIPv6NetworksArePublicSlash64s(t *testing.T) {
 	t.Parallel()
-	discovery := DiscoveryConfig{HouseIPv6Networks: []string{"2a0f:1000:1:2::/64", "2a0f:3000:9:8::/64"}}
+	discovery := DiscoveryConfig{HouseIPv6Networks: []string{"2a0f:5000:1:2::/64", "2a0f:3000:9:8::/64"}}
 	if err := discovery.check(); err != nil {
 		t.Fatal(err)
 	}
 	got := discovery.houseNetworks()
-	if len(got) != 2 || got[0].String() != "2a0f:1000:1:2::/64" || got[1].String() != "2a0f:3000:9:8::/64" {
+	if len(got) != 2 || got[0].String() != "2a0f:5000:1:2::/64" || got[1].String() != "2a0f:3000:9:8::/64" {
 		t.Errorf("the house networks are %v; want both named", got)
 	}
 	for _, refused := range []string{
-		"2a0f:1000::/32", "fd77:1:2:3::/64", "2001:db8:1:2::/64", "11.22.33.0/24", "2a0f:1000:1:2::9/64",
-		"2a0f:1000:1:2::1",
+		"2a0f:5000::/32", "fd77:1:2:3::/64", "2001:db8:1:2::/64", "11.22.33.0/24", "2a0f:5000:1:2::9/64",
+		"2a0f:5000:1:2::1",
 	} {
 		discovery.HouseIPv6Networks = []string{refused}
 		if discovery.check() == nil {
@@ -349,7 +349,7 @@ func TestDiscoveryConfig_HouseIPv6NetworksArePublicSlash64s(t *testing.T) {
 		}
 	}
 	discovery.HouseIPv6Networks = []string{
-		"2a0f:1000:1:1::/64", "2a0f:1000:1:2::/64", "2a0f:1000:1:3::/64", "2a0f:1000:1:4::/64", "2a0f:1000:1:5::/64",
+		"2a0f:5000:1:1::/64", "2a0f:5000:1:2::/64", "2a0f:5000:1:3::/64", "2a0f:5000:1:4::/64", "2a0f:5000:1:5::/64",
 	}
 	if discovery.check() == nil {
 		t.Error("five house networks were taken; a discovery counts four")
@@ -361,7 +361,7 @@ func TestDiscoveryConfig_HouseIPv6NetworksArePublicSlash64s(t *testing.T) {
 func TestDiscoveryConfig_ConfiguredAddressesArePublicAndSentAsConfigured(t *testing.T) {
 	t.Parallel()
 	discovery := DiscoveryConfig{
-		ConfiguredAddresses: []string{"11.22.44.146:443", "[2a0f:4000:1c16:2684::3]:8443"},
+		ConfiguredAddresses: []string{"11.22.44.146:443", "[2a0f:2000:1c16:2684::3]:8443"},
 	}
 	if err := discovery.check(); err != nil {
 		t.Fatal(err)
@@ -473,7 +473,7 @@ func TestServerConfig_StartsOnNoHomeNetworkAProxyOrTunnelSpeaksFrom(t *testing.T
 }
 
 // A play's GET queues the chunks it plays on purpose, which the store's tests allow; the server
-// warned of it on every play (nas.example, 2026-10-23). Only a write no reading request may make warns.
+// warned of it on every play (the production NAS, 2026-10-23). Only a write no reading request may make warns.
 func TestLoggingReaderWrites_WarnsOnlyOfAWriteNoReadingRequestMayMake(t *testing.T) {
 	t.Parallel()
 	var logged bytes.Buffer

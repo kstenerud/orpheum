@@ -1,13 +1,13 @@
-> **ABOUTME:** An audit of how the core uses SQLite, made after nas.example's requests waited 3–47 s
+> **ABOUTME:** An audit of how the core uses SQLite, made after the production NAS's requests waited 3–47 s
 > behind the identification pass: what holds the one writer, why, the query plans of every
 > sqlc query on a library of 7,500 files, and the fixes in order of what they buy.
 
 # Database access audit, 2026-10-15
 
-## What nas.example showed
+## What the production NAS showed
 
 `v0.2.0-nas.6` logs every write that waits for persistent.db's writer, or holds it, for over a
-second. In ten minutes on nas.example, two callers held it, again and again:
+second. In ten minutes on the production NAS, two callers held it, again and again:
 
 | Holder | Held | How often |
 | --- | --- | --- |
@@ -25,7 +25,7 @@ A throwaway test filed a synthetic library of 1,500 films and 150 series of 40 e
 files) and timed the pass under the CPU profiler; the database was then saved and every one of
 the 297 sqlc queries run through `EXPLAIN QUERY PLAN`, with the suspicious ones timed with
 CPython's SQLite (C; our pure-Go driver is several times slower). The library's titles are
-unmatched, so the provider-data paths of a matched library are lighter here than on nas.example.
+unmatched, so the provider-data paths of a matched library are lighter here than on the production NAS.
 
 The pass took **15 s** a run on this sandbox, all of it inside one write transaction, the
 RefreshSortAndSearchKeys after it included.
@@ -40,7 +40,7 @@ library by name and useless for finding one item's key. Nothing else indexes it.
 - `DeleteItemSortKeys` (`WHERE item_id = ? AND locale = ?`) reads every key in the locale, and
   the pass runs it for every item it names: O(items²). About 5 s of the 15 s pass.
 - `ListNamesWithSortAndSearchKeys` left-joins `sort_key` on `item_id`, again a scan of the
-  locale per item: O(items²). All of RefreshSortAndSearchKeys' 3–4 s on nas.example.
+  locale per item: O(items²). All of RefreshSortAndSearchKeys' 3–4 s on the production NAS.
 - `CountItemsMissingSortKey`, the same shape.
 
 On the saved database an index `sort_key(item_id, locale)` took the list from **2,893 ms to
@@ -55,7 +55,7 @@ it.
 Every pass, for every item: `UpsertOriginalText` (an `ON CONFLICT DO UPDATE` with no "only if
 different"), then delete and insert its sort key, then `UpdateTitleResolved`. A no-op update
 still writes the row, and `item_text`'s update trigger deletes and re-inserts the row in both
-full-text indexes, the trigram one included: four FTS writes per item, every 30 s on nas.example.
+full-text indexes, the trigram one included: four FTS writes per item, every 30 s on the production NAS.
 On a library that has not changed, a pass should write nothing.
 
 ### 3. One write transaction holds the whole library
@@ -71,7 +71,7 @@ one job hold it for seconds is the defect, not the size of the library.
 `recordSeriesAndRederive` (a series' match, its refresh, a season listing stored) and
 `keepGoneCopy` call `IdentifyLibrary` inline, and the pass's after-hook queues the next fetches.
 So one series costs one full pass per fetch: O(series × library). After an upgrade that asks
-the providers again, nas.example works through its series one 30 s pass at a time, for hours. A
+the providers again, the production NAS works through its series one 30 s pass at a time, for hours. A
 fetch should ask for a pass (the `identification passes` sweep exists for this) and many
 fetches should share one.
 
@@ -94,7 +94,7 @@ the removed files' payload hash.
 `WaitingForAPerson` (the Needs-attention count and the tray's warning) fetches every
 unidentified title, thousands of episodes among them, into Go to count the few that are not
 episodes. `ListTitlesByIdentification` scans `title` (no index on `identification_state`). It
-took 1.6 s on nas.example while the pass ran. It should be one `COUNT` over an index.
+took 1.6 s on the production NAS while the pass ran. It should be one `COUNT` over an index.
 
 ### 8. The planner never gets statistics
 

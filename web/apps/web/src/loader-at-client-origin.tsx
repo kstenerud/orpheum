@@ -289,7 +289,7 @@ export function loaderOver(
  * the request carries an idempotency key (D244 §4): sent again on another path after its answer was
  * lost, the core answers the session it gave the first time. Without one, Firefox's Local Network
  * Access, which lets a LAN name's request reach the core and then drops its answer, left the code
- * spent and the page on the core's own sign-in (the owner's nas.example sign-in, 2026-10-20).
+ * spent and the page on the core's own sign-in (the owner's production NAS sign-in, 2026-10-20).
  */
 export async function redeem(send: FetchRequest, session: Session, code: string): Promise<void> {
   const api = createApi({ getToken: () => undefined, fetch: send });

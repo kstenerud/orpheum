@@ -628,7 +628,7 @@ Each step names what it must show. Steps 0a, 0b and 1 need the owner's TCL.
     app does not help, and the offset is the fix on every path.
 - **Step 1: react-native-tvos + Expo + react-native-video v6, plain HTTP.** (2–3 days, rough)
   - An Expo SDK 58 app with `EXPO_TV=1`, sideloaded by `adb`. Sign in with a token pasted in,
-    then play the ladder from nas.example.
+    then play the ladder from the production NAS.
   - Check: separate audio renditions and the `-raw` sound are chosen; video steps through the
     ladder; A/V offset on the sync-test clip; and [tv-client.md](../plans/tv-client.md)'s number, D-pad
     press to selection moved, on a poster grid on the TCL and on the oldest Fire TV stick

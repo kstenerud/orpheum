@@ -72,7 +72,7 @@ At the end it prints what is left to do by hand:
 - take the keys where they live: carried, at home, at the bank, at the second site;
 - commit the records folder.
 
-Then start the watcher on nas.example, every 15 minutes:
+Then start the watcher on the production NAS, every 15 minutes:
 `go run ./cmd/discovery-watch --expected ~/orpheum-security/ledger/expected --place https://<each place>`.
 It checks every place serves exactly what you signed, and a non-zero exit is an alert.
 

@@ -61,7 +61,7 @@ func IsPublic(address netip.Addr) bool {
 
 // AddressLabel is an address as one label of a name, `<label>.<coreId>.<zone>` (the protocol's
 // §2.7; C15): an IPv4 address dashed (192-168-1-20), an IPv6 address as its eight groups dashed,
-// lowercase, without zero padding or compression (2a02-8070-0-0-0-0-0-1), so one address has one
+// lowercase, without zero padding or compression (2a0f-5000-0-0-0-0-0-1), so one address has one
 // label and no label holds "--". It is false for an address no label is made for: one with a zone,
 // or none at all.
 func AddressLabel(address netip.Addr) (string, bool) {

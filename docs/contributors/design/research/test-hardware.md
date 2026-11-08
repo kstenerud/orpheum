@@ -14,7 +14,7 @@ Written **2026-09-18** against a stated inventory. Feeds
 > - **The Apple TV is the Apple TV HD (A1625)**, which decodes **HEVC SDR 1080p30** as well as
 >   H.264, so it is not the H.264-only client described here. It is frozen at tvOS 26.6.
 > - **The F2-422 is Apollo Lake** (J3455), not Gemini Lake.
-> - **The staging host reportedly has 64 GB**, more than any staging host documents, so identify it.
+> - **The staging host reportedly has 64 GB**, more than any the staging host documents, so identify it.
 > - **The Ryzen box runs Mint, with a 24 GB RTX 3090.**
 > - **The Fire TV ladder starts at 2018**, has a 1080p HDR rung, and its newest sticks may run
 >   Vega OS.
@@ -29,7 +29,7 @@ Written **2026-09-18** against a stated inventory. Feeds
 | --- | --- | --- |
 | MacBook Air M4, 32 GB | Apple client + arm64 server + Safari/AVPlayer | VideoToolbox: H.264 + HEVC encode; AV1 **decode** only |
 | Ryzen 5 3600 + RTX 3090, 32 GB, Debian | Beefy server; NVENC/NVDEC | NVENC (Ampere): H.264 + HEVC incl. 10-bit; **no AV1 encode**; NVDEC AV1 decode |
-| staging host, 32 GB, Ubuntu | Old Intel; the QSV floor | QSV (Kaby Lake): H.264 + HEVC encode; no AV1 |
+| The staging host, 32 GB, Ubuntu | Old Intel; the QSV floor | QSV (Kaby Lake): H.264 + HEVC encode; no AV1 |
 | NUC13, 64 GB, Proxmox | Modern Intel; VM lab | QSV (Raptor Lake, Xe-LP): H.264 + HEVC; AV1 **decode**; no AV1 encode |
 | TerraMaster F4-424, 32 GB, Proxmox | Realistic NAS; VM lab | QSV (Alder Lake-N): H.264 + HEVC; AV1 decode; no AV1 encode |
 | TerraMaster F2-422, 8 GB, Debian | **The low-end server target** | QSV (Gemini Lake-class): H.264, HEVC 8-bit; no AV1 |

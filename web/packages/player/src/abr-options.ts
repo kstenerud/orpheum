@@ -88,7 +88,7 @@ export interface ChoosingOptions {
   /**
    * Told each change of the ceiling it chooses under, and why, for the diagnosis's steps: a player
    * that dropped from the twin to 360p after a jump on a 77 Mb/s link said nothing of why (the owner's
-   * Firefox on nas.example, 2026-10-20).
+   * Firefox on the production NAS, 2026-10-20).
    */
   readonly noteStep?: (step: string) => void;
   /**

@@ -633,7 +633,7 @@ func (service *Service) sessionPrincipal(
 	isDeviceScoped := grant.Scope == grantScopeDevice
 	capabilities := sessionCapabilities(user.Capabilities, isDeviceScoped)
 	// The role's reach, not the session's: a device scope takes away administering, never the
-	// libraries an admin's role reaches by it (D292 §4; nas.example's TV, 2026-10-20, saw none).
+	// libraries an admin's role reaches by it (D292 §4; the production NAS's TV, 2026-10-20, saw none).
 	reach, err := reachOfRole(ctx, queries, user.RoleID, strings.Split(user.Capabilities, ","))
 	if err != nil {
 		return Principal{}, err

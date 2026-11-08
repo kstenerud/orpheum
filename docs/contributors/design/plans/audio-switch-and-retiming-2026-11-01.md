@@ -153,7 +153,7 @@ display times from the picture order count (POC) in the slice headers.
   itself. Measured on a flattened 30 s clip: 716 of 720 frames out, the losses at the film's start.
   They are not the failure the owner saw.
 - Our FFmpeg fork patches only the fdproxy protocol and fftools' input errors
-  (`/home/karl/ffmpeg-fdproxy/patches`): nothing about timestamps.
+  (`ffmpeg-fdproxy/patches`): nothing about timestamps.
 
 ### 2.2 (a) Can FFmpeg give each frame's POC without decoding? Yes: the `dts2pts` filter
 

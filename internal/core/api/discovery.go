@@ -82,7 +82,7 @@ type DiscoveryStatusBody struct {
 // HouseNetworkBody is one of the house's public IPv6 /64s, as the core tells its discovery: how it
 // was had, and for a learnt one the device in the house that last witnessed it, and when (D356 §10).
 type HouseNetworkBody struct {
-	Network     string `doc:"A public IPv6 /64, \"2a0f:1000:1:2::/64\"" json:"network"`
+	Network     string `doc:"A public IPv6 /64, \"2a0f:5000:1:2::/64\"" json:"network"`
 	Source      string `doc:"Learnt from a device that reached the server directly at home, or named in the config" enum:"learnt,configured" json:"source"` //nolint:lll // one struct tag
 	Device      string `doc:"A learnt network's: the address in the house of the device that last witnessed it" json:"device,omitempty"`                    //nolint:lll // one struct tag
 	WitnessedAt int64  `doc:"Unix milliseconds a device last witnessed a learnt network; 0 for a configured one" json:"witnessedAt"`                        //nolint:lll // one struct tag

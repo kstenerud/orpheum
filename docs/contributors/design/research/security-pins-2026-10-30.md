@@ -36,7 +36,7 @@
 
 - **Vite 8.3.0 → 8.3.5**, if the dev loop runs with `DEV_LISTEN` (Vite then binds the LAN,
   `scripts/dev.py` `web_host`): GHSA-rq7h-w75r-8gcw and GHSA-vfpm-58rq-9qcg let a LAN host read
-  files outside `server.fs.allow`, and the sandbox holds SSH keys to nas.example and the test hosts.
+  files outside `server.fs.allow`, and the sandbox holds SSH keys to the production NAS and the test hosts.
 - **Mailpit `v1.27` → v1.30.4 or later** (staging only), if staging's Cloudflare tunnel routes a
   hostname to it: 12 advisories, including cross-site WebSocket hijacking that reads every mail
   (invitation links) and unauthenticated crashes. Its compose service publishes no port, so on the

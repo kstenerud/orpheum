@@ -150,7 +150,7 @@ dedicated to testing (the owner, 2026-11-03), so the spike uses them without ask
   the store, the node's including its FFmpeg runs, since they share its cgroup; outside a cgroup, the
   process's own `/proc/self` figures. The Diagnostics page (D341) shows them beside what was
   happening (plays, transcodes, scans), so a figure can be tied to its load. Until it is built, the
-  lead samples staging's two containers on stagehost from the sandbox the same way
+  lead samples staging's two containers on the staging host from the sandbox the same way
   (`/yoloai/files/resource-usage/staging.csv`; the script is in the lead's cache). The first figures
   (2026-11-03, staging idle, 56 minutes after a start): core 9% of one core on average, 82 MiB held,
   363 MiB peak; node 2% of one core, 11 MiB held, 2.5 GiB of page cache from reading media, which

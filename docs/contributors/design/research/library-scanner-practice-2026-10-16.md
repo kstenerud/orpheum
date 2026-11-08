@@ -28,7 +28,7 @@ failed a library's whole pass, and that some passes were not idempotent.
 default branch. The parser in [filename.go](../../../../internal/core/identify/filename.go) was
 copied, unchanged except for its package name and three constants, into a scratch module outside
 the repository, and fed 1,871 names extracted from the competitors' tests (section 5). Issue
-trackers and forums were searched online (section 2). **Nothing here was run against nas.example,
+trackers and forums were searched online (section 2). **Nothing here was run against the production NAS,
 and no competitor was installed or run**: what a competitor does is read from its code or its
 documentation, and says which.
 

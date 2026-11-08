@@ -21,8 +21,8 @@
 Staging runs on another machine when .staging/remote.toml names it (the staging host since 2026-11-01, so
 the gate has this machine's processors to itself):
 
-    host = "orpheum@192.168.1.16"          # ssh's destination; the user must be in the docker group
-    identity = "~/.ssh/stagehost"                  # ssh's key, if not its default
+    host = "orpheum@staging.example"        # ssh's destination; the user must be in the docker group
+    identity = "~/.ssh/<staging key>"               # ssh's key, if not its default
     directory = "/home/orpheum/orpheum-staging"  # staging's directory there, as .staging/ is here
 
 The image is built here and sent with `docker save | ssh docker load`; write-deployment and compose

@@ -405,7 +405,7 @@ func TestChunks_AnEvictedQualityIsRefusedWithItsOwnStatusAndCode(t *testing.T) {
 }
 
 // A chunk whose runs FFmpeg failed on the same way each time is answered 422 cannot_convert, which
-// the player does not ask again after, not 425 for as long as it waits (file 15102 on nas.example,
+// the player does not ask again after, not 425 for as long as it waits (file 15102 on the production NAS,
 // 2026-10-27); FFmpeg's word, which may name the film, stays in the core's log.
 func TestChunks_AChunkThatCannotBeMadeIsRefusedForGood(t *testing.T) {
 	t.Parallel()
@@ -475,7 +475,7 @@ func (harness testHarness) checkOneRunQueued(t *testing.T, gridID string) {
 
 // A chunk not made yet of a film whose root has become unavailable, its disk not answering or its
 // node away, is answered media_unreachable at once, saying why, rather than "being prepared" for as
-// long as the player asks: no run will make it (D241 §7; staging, 2026-10-21, nas.example off).
+// long as the player asks: no run will make it (D241 §7; staging, 2026-10-21, the production NAS off).
 func TestChunks_AnUnmadeChunkOfAFilmWhoseRootIsUnavailableIsUnreachable(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)

@@ -439,7 +439,7 @@ async function fetchedForClient(
  * The loader's page as the origin answers it now, or as kept when the origin fails: another core's
  * cookies, set for the whole site, can make every load to it fail, and the kept page still opens
  * (D308 §7). Kept first, the visit after an update ran the page before it, which for a household
- * whose server had gone said "This link no longer finds its server" until a reload (nas.example,
+ * whose server had gone said "This link no longer finds its server" until a reload (the production NAS,
  * 2026-10-19); the owner took the wait of one load on opening instead. Its files, named by their
  * content, come as kept, the origin asked for them again behind.
  */

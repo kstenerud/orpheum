@@ -113,7 +113,7 @@ func TestSweeping_RunsEverySweepAtOnceThenEachOnItsTimerAndWhenAskedOrADestinati
 	jobs.queue.Unpark(t.Context(), "host")
 	expect("when a destination came back", "hourly", "daily")
 	// A busy destination with room again lost no work: its jobs waited in the queue. Sweeping on
-	// every slot a node freed ran every library's identification pass every few seconds (nas.example,
+	// every slot a node freed ran every library's identification pass every few seconds (the production NAS,
 	// 2026-10-23).
 	jobs.queue.Park(t.Context(), jobqueue.Parking{
 		Destination: "host", Reason: "busy", AwaitsSignal: true, IsBackPressure: true,

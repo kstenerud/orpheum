@@ -11,12 +11,12 @@ import (
 )
 
 // slowRequestAfter is how long an API request may take before its log says so: a page waits on
-// it, and a person notices a second (the owner's nas.example, 2026-10-15: a person's page took 5 to 10
+// it, and a person notices a second (the owner's production NAS, 2026-10-15: a person's page took 5 to 10
 // seconds, and nothing said which request).
 const slowRequestAfter = time.Second
 
 // largeResponseAfter is how many bytes an API response may hold before its log says so: a page
-// draws what it is sent, and nothing grows without bound but by a fault (the owner's nas.example,
+// draws what it is sent, and nothing grows without bound but by a fault (the owner's production NAS,
 // 2026-10-16: a series' page of 5.3 MB, 80,269 episodes, that nothing named;
 // design/research/data-delivery-independent-review-2026-10-16.md's MD1).
 const largeResponseAfter = 1 << 20

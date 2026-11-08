@@ -153,7 +153,7 @@ func (service *Service) logUnwantedAsk(ctx context.Context, dir string, stream S
 // made nor on its way (ErrNoRoomToMake, D250 §6), and plans no run (runTracker.plan): only a player
 // its eviction left without its chunks is told why it stops. Refusing every ask, a chunk made and
 // served was answered 500, and a player whose quality another run was making at 2.5x playback asked
-// for it every two seconds for minutes (the owner's film on nas.example, 2026-10-17). For a player's
+// for it every two seconds for minutes (the owner's film on the production NAS, 2026-10-17). For a player's
 // ask, isAsked, it returns what its interest wants, which the run planned for it must be; every run
 // for the server's own start, or where nothing says.
 func (service *Service) ask(

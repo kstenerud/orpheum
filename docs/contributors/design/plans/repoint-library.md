@@ -54,7 +54,7 @@ Each has the lead's recommendation first.
    - **(Recommended)** No fallback: after the move, X is not read. D429's single rewrite, nothing to
      keep in step, and "missing" says what is wrong.
    - Or X is kept as a fallback place until it is gone.
-5. **A machine replaced** (the devnas.example case: the database moved, the new machine's node has another
+5. **A machine replaced** (the development NAS case: the database moved, the new machine's node has another
    name).
    - **(Recommended)** Its own small operation beside the move: an admin adopts a new node's hello
      onto an old node ("this machine is now nas"), keeping the node id and so every row. Paths that
@@ -73,7 +73,7 @@ Each has the lead's recommendation first.
    - **(Recommended)** The capability that manages libraries, as `RepointRoot` has today.
    - Or the server's owner only.
 
-## From tomorrow's devnas.example tests (2026-11-06)
+## From tomorrow's the development NAS tests (2026-11-06)
 
 To note while testing: which folder moved, and on which node; whether the new machine's node kept its
 name; how the move was done today (shown at the old path, or repointed); what was found missing; and

@@ -1,5 +1,5 @@
 > **ABOUTME:** Why the owner's playback on staging on 2026-10-26, from a laptop in the house, went
-> over WebRTC through the carrier's shared IPv4 address (11.22.33.144) instead of over the house's
+> over WebRTC through the carrier's shared IPv4 address (203.0.113.10) instead of over the house's
 > network; which code chose it and why; what the logs could not say; and the fix options. Read before
 > changing how a page at home finds its core, or before judging staging's playback as "local".
 
@@ -7,11 +7,11 @@
 
 - **Date:** 2026-10-27. Asked by the owner after a film's playback reports of 2026-10-26
   (`/yoloai/files/bug-report-*.log`), where every playback logged
-  `over=webrtc clientAddress=11.22.33.144`.
+  `over=webrtc clientAddress=203.0.113.10`.
 - **Method:** read-only. The client's path code, the core's WebRTC and discovery configuration,
   staging's rendered config (`.staging/core/persistent/config.toml`, `.staging/values.toml`), the
   core's logs (`docker logs` and `.staging/logs/`, 2026-10-24 to 2026-10-26), connectd's log, and
-  staging's `device` table (read-only). Nothing was changed, restarted or redeployed. nas.example could
+  staging's `device` table (read-only). Nothing was changed, restarted or redeployed. The production NAS could
   not be compared: its SSH key is not in this sandbox.
 - **Labels:** **[L]** seen in a log or the database; **[C]** read in the code or config;
   **[M]** from the agent's memory notes, not re-verified here; **[W]** from the web; **[I]**
@@ -40,10 +40,10 @@ them is enough to rule out a path in the house:
    2026-10-23 **[M]**. The laptop's checks to 192.168.1.199:8443/udp never reach the core, so ICE
    settles on the next pair that works: server-reflexive to server-reflexive over IPv4, both ends
    behind the same DS-Lite shared address. **Every one of 1,478 connections** in staging's logs
-   since 2026-10-24 from 11.22.33.144 took `path=punched_ipv4`, and **none** took `direct_ipv4`
+   since 2026-10-24 from 203.0.113.10 took `path=punched_ipv4`, and **none** took `direct_ipv4`
    **[L]**.
 3. **The discovery would not offer the LAN name anyway, even to Chrome.** connectd logged, for this
-   core, `client=2a0f:2000:4753:8afc::/64 coreFrom=11.22.33.144/32 isAtHome=false` **[L]**. The
+   core, `client=3fff:10:4753:8afc::/64 coreFrom=203.0.113.10/32 isAtHome=false` **[L]**. The
    laptop asks over native IPv6, but the core's heartbeat comes over IPv4: the sandbox container has
    no IPv6 (`eth0` holds only 172.17.0.2) **[L]**. The discovery's `isAtHome`
    (`orpheum-connect/internal/clients/athome.go`) matches a household by a shared public IPv6 /64,
@@ -54,7 +54,7 @@ them is enough to rule out a path in the house:
 **The bytes did not pass through app-staging or the edge VPS.** app-staging served the page, and
 api-staging (through Cloudflare Tunnel) carried the signalling. The media went peer to peer over a
 punched IPv4 pair, not a relay (`relayed` would say so). The core's public IPv4, which its heartbeat
-comes from, is the same 11.22.33.144 that the laptop's packets arrive from **[L]**. So the pair
+comes from, is the same 203.0.113.10 that the laptop's packets arrive from **[L]**. So the pair
 leaves the house over the DSL line and is **hairpinned back by the carrier's NAT** (the DS-Lite
 AFTR, which RFC 6333 allows to hairpin between B4s **[W]**). That means up the 43.7 Mbit/s uplink
 and back down **[M: owner-home-network]**. The core then judges the request as not from home,
@@ -96,21 +96,21 @@ discovery protocol's §3.2–§3.3:
    Firefox that is nothing, so the page stays on WebRTC.
 6. **Home, as the core sees it.** A request over WebRTC is from home only when the selected pair is
    not relayed and its client end is in `home_networks` (D300 §3; staging has
-   `home_networks = ["192.168.1.0/24", …]`). A punched pair from 11.22.33.144 is not.
+   `home_networks = ["192.168.1.0/24", …]`). A punched pair from 203.0.113.10 is not.
 
 ## 3. The 2026-10-26 session, step by step (question 2)
 
 | Step | What happened | Evidence |
 | --- | --- | --- |
 | Browser | Firefox on Linux, device 29 (user 1) | `device` table: `29, 'Firefox on Linux', 'web'` **[L]**; Firefox/158 user agents on staging on 2026-10-25 **[L]** |
-| Paths offered | The discovery judged the laptop away from home, so no LAN name was offered | connectd 13:16Z: `client=2a0f:2000:4753:8afc::/64 coreFrom=11.22.33.144/32 isAtHome=false` **[L]**; the evening's requests are past connectd's retained log, and nothing changed in between **[I]** |
+| Paths offered | The discovery judged the laptop away from home, so no LAN name was offered | connectd 13:16Z: `client=3fff:10:4753:8afc::/64 coreFrom=203.0.113.10/32 isAtHome=false` **[L]**; the evening's requests are past connectd's retained log, and nothing changed in between **[I]** |
 | LAN name tried? | No. Firefox never tries it, and here none was offered | `usesLanName`, `raced()` **[C]** |
 | Direct probe failed? | No direct probe was made. No LNA prompt, no mixed content, no certificate or timeout was involved | as above **[C]** |
 | Core knows a LAN address? | Yes: `192.168.1.199:8443`, offered both as a discovery LAN name and as a WebRTC host candidate | `config.toml` **[C]** |
-| WebRTC pair | `punched_ipv4 remote=11.22.33.144:<port>`, connectMs about 540–680 | the 2026-10-26 logs, lines 37, 47, 98 and others **[L]** |
+| WebRTC pair | `punched_ipv4 remote=203.0.113.10:<port>`, connectMs about 540–680 | the 2026-10-26 logs, lines 37, 47, 98 and others **[L]** |
 | Why not the host pair | UDP 8443 is not published from the VM into the sandbox | yoloAI's TCP-only `--port` flags; memory "no UDP published" **[M]**; 0 `direct_*` paths in all logs since 2026-10-24 **[L]** |
 | Why not IPv6 | The core has no global IPv6 in the sandbox: `eth0` is IPv4 only, and the staging bridge has only the ULA `fd77:5e::/64` | `ip -br addr` **[L]** |
-| Seen as local? | No. `clientAddress=11.22.33.144`, and the pair is not a direct one into `home_networks` | D300 §3 **[C]**; staging uses "administer from away" so that the admin still works (orpheum-ops staging README §4) |
+| Seen as local? | No. `clientAddress=203.0.113.10`, and the pair is not a direct one into `home_networks` | D300 §3 **[C]**; staging uses "administer from away" so that the admin still works (orpheum-ops staging README §4) |
 
 **Not verified directly:** that the VM drops UDP 8443. The proof would be on the VM:
 `docker port <sandbox>` or `ss -ulnp | grep 8443` shows no UDP mapping, or a `tcpdump udp port
@@ -139,7 +139,7 @@ Settling this took a database read, two services' logs and the sandbox's interfa
    That one line would have read "LAN host pair failed: the UDP port is unreachable".
 3. **The core's end of the pair, by type and address**, in `webrtc: a client's connection`. Today
    it logs only the path class and the remote address. Adding `localType` and `localAddress` would
-   have shown srflx with 11.22.33.144 on both ends, which is a hairpin.
+   have shown srflx with 203.0.113.10 on both ends, which is a hairpin.
 4. **A named hairpin.** When the core's server-reflexive address equals the client's public
    address, the pair goes out to the carrier and back. It deserves its own path name (say
    `hairpinned_ipv4`) in the counts the System page lists (D274 §3), not a quiet `punched_ipv4`.

@@ -381,7 +381,7 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 ### A39 — Read the owner's own cable pulls in a NAS's log as a failing network card (2026-10-21)
 
 - **What happened:** diagnosing an NFS share that hung during the dead-share tests, the agent read
-  nas.example's `dmesg`, a run of r8169 "Link is Down … Link is Up" lines, as the RTL8125's known link
+  the production NAS's `dmesg`, a run of r8169 "Link is Down … Link is Up" lines, as the RTL8125's known link
   drops, called it "the cause", tied the day's earlier outages to it and recommended turning off EEE,
   ASPM or the in-kernel driver. The drops were the owner unplugging the cable for those same tests,
   earlier that afternoon. The false belief came from a log read without wall-clock times
@@ -456,7 +456,7 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ### A34 — Read a clock-sync pong as a player saying it was in step (2026-10-18)
 
-- **What happened:** reading nas.example's log of a Watch Together session whose guest did not play at
+- **What happened:** reading the production NAS's log of a Watch Together session whose guest did not play at
   the start, the agent told the owner her player "said it was in step" for two minutes with no film
   loaded, from `a player's pong said where the group is … aheadOfExpectedMs=0 placing=placed`, and
   proposed a fix to stop a player claiming to be in step before it had a film. The pong says how
@@ -486,13 +486,13 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 ### A32 — Named the sandbox's VM after a retired machine (2026-10-14)
 
 - **What happened:** explaining what a core in a container can see, the agent called
-  `192.168.1.199` "devnas" and built its account on that: staging in the sandbox on devnas, devnas's
-  LAN address two layers out. devnas runs nothing now; `192.168.1.199` is the VM holding the
+  `192.168.1.199` "devnas" and built its account on that: staging in the sandbox on the development NAS, the development NAS's
+  LAN address two layers out. The development NAS runs nothing now; `192.168.1.199` is the VM holding the
   sandbox, as the owner had said earlier in the session. The false belief came from older notes and
-  READMEs that name devnas as the development host, repeated without checking them against what the
+  READMEs that name the development NAS as the development host, repeated without checking them against what the
   owner had said that day.
-- **Caught by:** the owner: *"devnas is no longer running anything... All that runs now is
-  192.168.1.199 (the VM containing your sandbox), and nas.example."*
+- **Caught by:** the owner: *"The development NAS is no longer running anything... All that runs now is
+  192.168.1.199 (the VM containing your sandbox), and the production NAS."*
 - **Gate:** none; machines are named in no file a gate reads. The agent's notes now list what runs
   where, and the lesson is A30's: what exists is checked against the owner's latest word.
 
