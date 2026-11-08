@@ -26968,10 +26968,9 @@ deployment on the machine) and keeps D272 §3's deployment directory and D204.
 6. **The compose file maps HTTPS to 8444 by default**, as OpenMediaVault's own web interface may take
    8443; Orpheum's own defaults are unchanged.
 
-**Status:** decided. Left for the owner: the multi-architecture image (`.github/`, a gate), and
-whether a later start should write the configs again from `values.toml`, as `write-deployment` does
-on each install so a new image brings its templates (D272 §7); today a compose-file server keeps
-the configs its first start wrote.
+**Status:** decided; §2's "after the first start the files rule" revisited by D449, which writes
+the deployment at every start. Left for the owner: the multi-architecture image (`.github/`, a
+gate). The question of writing the configs again at a later start is answered by D449 §1.
 
 **Proven by:** `TestFirstStart_WritesTheDeploymentFromItsFlagsWhenThereIsNone`,
 `TestFirstStart_LeavesADeploymentThereAlreadyAsItIs`, `TestFirstStart_RefusesToWriteWithoutTheAddressAtHome`,
@@ -27026,9 +27025,54 @@ D438, and records a limit on D127.
 the groundwork for everything, get the easy stuff done today [...] and then we do the heavy stuff over
 the next few days"*).
 
-## D449 — Reserved: the compose file's server: settings at every start, its machine's port, the setup code's file, media folders and catalogues
+## D449 — The compose file's server: settings at every start, its machine's port, the setup code's file, media folders and catalogues
 
-**Reserved** (2026-11-08) for D448 §2–5 and §8's branch; the branch replaces this entry with the decision.
+**Decided** (2026-11-08), by the project owner, in D448 §2–5 and §8; built by the lead's agent.
+Revisits D447 §2 (the files rule after the first start) and keeps D204 (a release reads no
+environment but TZ: compose still fills the command line) and D272 §3's deployment directory.
+
+1. **`orpheum start` writes the deployment at every start**: the core's and node's configs from its
+   flags and the image's templates, then the values file, last, so a start cut short is written
+   again. The instances (database, keys, people) are made only when missing and kept. The values
+   file's header says it is written from the compose file and that an edit belongs there, as it is
+   lost at the next start. A changed variable takes effect at the next **Up**, and a new image brings
+   its templates, as `write-deployment` does on each install (D272 §7).
+2. **This machine's port is in the compose file**: `ORPHEUM_THIS_MACHINE_PORT` (8441, beside 8440
+   and 8444 without clashing) is published on `127.0.0.1` alone and given to start as
+   `--this-machine-port`, which the core's config already treats as this machine's port, counted as
+   home (D334 §4). install.md names it as the way in when admin is refused.
+3. **The setup code is written where people look**: while no admin exists, each start writes
+   `SETUP-CODE.txt` into the deployment directory (the data folder's `orpheum/`), mode 0600 for the
+   server's user, holding the code and a line saying where to enter it; making the first admin
+   removes it, with the run directory's `setup-code` it mirrors, held the same way. The log line
+   stays. The first-run page says where the code is: that file, the container's log (OpenMediaVault's
+   **Services > Compose > Containers**), or `docker logs orpheum-core`.
+4. **Up to four media folders, by their names on the host**: `ORPHEUM_MEDIA` and the optional
+   `ORPHEUM_MEDIA_2` to `_4` are each mounted read-only at their own path in the node and given to
+   start as a `--media`, so the library picker shows the host's names, as the install script's
+   deployment already mounts them. One not set mounts an empty placeholder folder at `/unset/<n>`,
+   which compose needs as a bind's source, and comes to start empty, which skips it: it is no root.
+   A D447 install's libraries under `/media` need a repoint (setup-problems.md says so).
+5. **Catalogue entries** under `deploy/catalogue/`: a Portainer app template (format 3, a Compose
+   stack of `deploy/omv/compose.yaml` from the repository, asking each of its variables with its
+   defaults) and a CasaOS compose (the same services with CasaOS's folders and user, and `x-casaos`
+   metadata), with a README on how each is submitted, OpenMediaVault's examples and TrueNAS's
+   community apps included. Submitting is the owner's. The CasaOS entry asks for the address at home
+   until D452; TrueNAS's is not built, as its apps are forms and templates, not compose files.
+
+**Status:** decided. Left for the owner: submitting the entries; whether the "the setup code is
+wrong" problem the API answers (internal/core/api) should name the file too.
+
+**Proven by:** `TestStart_WritesTheConfigsAgainFromTheFlagsAtEveryStart`,
+`TestFirstStart_ACutShortStartIsWrittenAgainKeepingItsInstances`,
+`TestWriteStartValues_IsWrittenEachTimeSayingTheComposeFileRules` (§1);
+`TestOMVCompose_ThisMachinesPortIsOnTheLoopbackAndToldToStart` (§2);
+`TestServe_ShowsTheSetupCodeInTheDataFolderUntilTheFirstAdmin` and the web client's "says where its
+setup code is" (§3); `TestOMVCompose_EachMediaFolderIsMountedAtItsOwnPathAndAnUnsetOneIsNone`,
+`TestStart_AnEmptyMediaFolderIsNoneAndEachIsCleaned` (§4);
+`TestCatalogue_ThePortainerTemplateAsksForEveryVariableTheComposeFileReads`,
+`TestCatalogue_TheCasaOSComposeIsTheOMVOnesWithCasaOSsFolders` (§5). The compose files were checked
+with `docker compose config`; not yet run on a NAS.
 
 ## D450 — Reserved: an unconfined node accepted in the server's pages, and updates announced
 
