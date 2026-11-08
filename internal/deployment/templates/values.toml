@@ -38,7 +38,7 @@ public_key = ""
 
 [media]
 # The media directories the node serves, read-only, at the same paths inside it. Fill in.
-roots = []
+roots = {{toml .Media.Roots}}
 
 [node]
 # The name the media node goes by: the machine list in the new-library form shows it. Left out, it
@@ -48,12 +48,12 @@ roots = []
 [http]
 # Where the house's network reaches the deployment over plain HTTP: http://<this machine>:8440. "0.0.0.0"
 # is every interface; "127.0.0.1" only this machine.
-publish = "0.0.0.0"
-port = 8440
+publish = {{toml .HTTP.Publish}}
+port = {{.HTTP.Port}}
 # Where a browser on this machine itself reaches the deployment, as from home: http://localhost:8441,
 # published on this machine's loopback alone. Opened at port's address instead, Docker hands the
 # request to the server from its own network, which is not home, and admin is refused (D334 §4).
-this_machine_port = 8441
+this_machine_port = {{.HTTP.ThisMachinePort}}
 
 [lan]
 # This machine's address on the house's network, which the server's container cannot see: the
@@ -61,13 +61,13 @@ this_machine_port = 8441
 # through the VPS and back, the way the microphone needs, and its network is the only one an admin
 # administers from. Keep the address fixed with a reservation in the router. Fill in; build.sh and
 # the install script fill it in from this machine when they can tell it.
-address = ""
+address = {{toml .LAN.Address}}
 # The port HTTPS is published on at that address.
-https_port = 8443
+https_port = {{.LAN.HTTPSPort}}
 # The UDP port WebRTC is published on at that address, so a device at home reaches the server in the
 # house over WebRTC too (D300).
-webrtc_port = 8443
+webrtc_port = {{.LAN.WebRTCPort}}
 # This machine's router on the house's network, "192.168.1.1", which the server asks to forward its
 # HTTPS port so devices away from home reach it (port mapping, which the System page reports). The
 # install script fills it in from this machine when it can tell it; empty maps nothing.
-router = ""
+router = {{toml .LAN.Router}}

@@ -114,10 +114,11 @@ const thisMachinePortDefault = 8441
 // lanHTTPSPortDefault is the port HTTPS is published on at home unless the values file names another.
 const lanHTTPSPortDefault = 8443
 
-// ParseValues reads a values file; a value it leaves out is its starting value, and the node's name
-// is hostName.
-func ParseValues(text, hostName string) (Values, error) {
-	values := Values{}
+// StartingValues are a new deployment's values, of kind: every value a values file may leave out at
+// its starting value, and nothing filled in. The values file a deployment begins with (Begin) is
+// written from them; the first start (D447) fills in what its command line gives.
+func StartingValues(kind Kind) Values {
+	values := Values{Deployment: kind}
 	values.HTTP.Publish = "0.0.0.0"
 	values.HTTP.Port = 8440
 	values.HTTP.ThisMachinePort = thisMachinePortDefault
@@ -125,6 +126,13 @@ func ParseValues(text, hostName string) (Values, error) {
 	values.LAN.WebRTCPort = lanHTTPSPortDefault
 	values.VPS.TunnelIPv4 = firstTunnelIPv4
 	values.VPS.TunnelIPv6 = firstTunnelIPv6
+	return values
+}
+
+// ParseValues reads a values file; a value it leaves out is its starting value, and the node's name
+// is hostName.
+func ParseValues(text, hostName string) (Values, error) {
+	values := StartingValues("") // the file names its kind
 	if _, err := toml.Decode(text, &values); err != nil {
 		return Values{}, fmt.Errorf("the values file: %w", err)
 	}

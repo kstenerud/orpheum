@@ -122,11 +122,18 @@ func nvidiaCapabilities() []string { return []string{"gpu", "compute", "video", 
 // tunnel's key pair. It returns the tunnel's public key, for the VPS. It refuses a directory that
 // already holds a values file.
 func Begin(dir string, kind Kind) (string, error) {
+	return BeginWith(dir, StartingValues(kind))
+}
+
+// BeginWith starts a deployment in dir as Begin does, its values file written from values: those a
+// first start's command line gave (D447), or a new deployment's starting values. Its node's name is
+// left to the machine's host name, as a values file begins.
+func BeginWith(dir string, values Values) (string, error) {
 	path := filepath.Join(dir, ValuesFile)
 	if _, err := os.Stat(path); err == nil {
 		return "", fmt.Errorf("%s already holds a values file", dir)
 	}
-	text, err := render("values.toml", struct{ Deployment Kind }{kind})
+	text, err := render("values.toml", values)
 	if err != nil {
 		return "", err
 	}
@@ -141,20 +148,12 @@ func Begin(dir string, kind Kind) (string, error) {
 // and the core's and the node's full configs, whose instances must already exist. It overwrites
 // each, so they always follow the values file and this binary's templates (D272 §7).
 func Write(dir string, values Values, runtime Runtime) error {
-	if err := values.Check(); err != nil {
+	if err := WriteConfigs(dir, values); err != nil {
 		return err
 	}
-	data := renderData{Values: values, IsStaging: values.Deployment == Staging}
 	composeTemplate := directComposeTemplate
-	files := []renderedFile{{coreConfig, "core.toml", privateFileMode}, {nodeConfig, "node.toml", privateFileMode}}
 	if values.HasTunnel() {
-		privateKey, err := tunnelPrivateKey(dir)
-		if err != nil {
-			return err
-		}
-		data.PrivateKey = privateKey
 		composeTemplate = composeFile
-		files = append(files, renderedFile{tunnelConfig, "wg0.conf", privateFileMode})
 	}
 	compose, err := templates.ReadFile("templates/" + composeTemplate)
 	if err != nil {
@@ -162,15 +161,6 @@ func Write(dir string, values Values, runtime Runtime) error {
 	}
 	if runtime.KernelLacksMultipathTCP {
 		compose = withoutMultipathTCP(compose)
-	}
-	for _, file := range files {
-		text, renderErr := render(file.template, data)
-		if renderErr != nil {
-			return renderErr
-		}
-		if writeErr := writeFile(filepath.Join(dir, file.name), []byte(text), file.mode); writeErr != nil {
-			return writeErr
-		}
 	}
 	override, err := mediaOverride(values.Media.Roots, runtime.RenderGID, runtime.NVIDIA)
 	if err != nil {
@@ -182,6 +172,36 @@ func Write(dir string, values Values, runtime Runtime) error {
 		environmentFile: []byte(environment(values, runtime)),
 	} {
 		if writeErr := writeFile(filepath.Join(dir, name), contents, publicFileMode); writeErr != nil {
+			return writeErr
+		}
+	}
+	return nil
+}
+
+// WriteConfigs writes the configs of a deployment's instances into dir from its values: the core's
+// and the node's, and the tunnel's when it has one. The instances must already exist. Write writes
+// them so, beside the compose files; a first start (D447), whose compose file is the household's own,
+// writes them alone.
+func WriteConfigs(dir string, values Values) error {
+	if err := values.Check(); err != nil {
+		return err
+	}
+	data := renderData{Values: values, IsStaging: values.Deployment == Staging}
+	files := []renderedFile{{coreConfig, "core.toml", privateFileMode}, {nodeConfig, "node.toml", privateFileMode}}
+	if values.HasTunnel() {
+		privateKey, err := tunnelPrivateKey(dir)
+		if err != nil {
+			return err
+		}
+		data.PrivateKey = privateKey
+		files = append(files, renderedFile{tunnelConfig, "wg0.conf", privateFileMode})
+	}
+	for _, file := range files {
+		text, err := render(file.template, data)
+		if err != nil {
+			return err
+		}
+		if writeErr := writeFile(filepath.Join(dir, file.name), []byte(text), file.mode); writeErr != nil {
 			return writeErr
 		}
 	}
