@@ -80,7 +80,8 @@ func TestMatch_AFilmWhoseNameSaysAndForItsAmpersandIsFoundByIt(t *testing.T) {
 		ID: "480500", Name: "Blind & Ugly", OriginalName: "Blind & Hässlich", Year: 2017,
 	})
 	lib.provider.Searches[identifytest.SearchKey("Blind & Ugly", 2017)] = []identify.Candidate{film}
-	const rel = "Pale.and.Kind.2017.GERMAN.1080p.WEBRip.x265-OSPREY/Pale.and.Kind.2017.GERMAN.1080p.WEBRip.x265-OSPREY.mp4"
+	const release = "Pale.and.Kind.2017.GERMAN.1080p.WEBRip.x265-OSPREY"
+	const rel = release + "/" + release + ".mp4"
 	lib.scan(videoRecord(rel))
 	if outcome := lib.matchFileTitle(rel); outcome != identify.OutcomeMatched {
 		t.Fatalf("outcome %s; want matched by the name's ampersand", outcome)

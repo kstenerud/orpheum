@@ -295,8 +295,8 @@ func TestMatch_AYearOffOrASubtitleStillFindsTheOneWork(t *testing.T) {
 	}
 	files := map[string]identify.Outcome{
 		"Hollow Violet 1997 REMASTERED JAPANESE 1080p BluRay H264 AAC-OSPREY.mkv": identify.OutcomeMatched,
-		"Wild.Rex.2.The.Dust.Road.1981.1080p.BluRay.H264.AAC-THISTLE.mp4":     identify.OutcomeMatched,
-		"Grace.And.Folly.2005.1080p.BluRay.x264.anoXmous_.mp4":                 identify.OutcomeMatched,
+		"Wild.Rex.2.The.Dust.Road.1981.1080p.BluRay.H264.AAC-THISTLE.mp4":      identify.OutcomeMatched,
+		"Grace.And.Folly.2005.1080p.BluRay.x264.anoXmous_.mp4":                    identify.OutcomeMatched,
 		"Arkons (1986).mkv":  identify.OutcomeAmbiguous,
 		"Kestrel (2014).mkv": identify.OutcomeAmbiguous,
 	}
