@@ -27133,3 +27133,13 @@ follow your advice"*), and the core learns its install route (*"3: yes"*).
 ## D452 — Reserved: the address at home learned at setup
 
 **Reserved** (2026-11-08) for D448 §1's branch; the branch replaces this entry with the decision.
+
+## D453 — "Orpheum" is the name, no longer provisional
+
+**Decided** (2026-11-08), by the project owner, as the repository went public: *"I'll be sticking
+with the name Orpheum."* Amends [D195](#d195--orpheum-is-the-provisional-name).
+
+- **The name is Orpheum**, publicly "Orpheum Media Server", as D195 set it. It is no longer
+  provisional: the places D195 lists keep it, and nothing waits on a rename.
+- **D195's trademark clearance stays due** before any store listing or the paid relay. It is now a
+  check on a name already in public use, not the step that makes the name final.
