@@ -204,16 +204,3 @@ func (q *Queries) SetDeviceReaderLimit(ctx context.Context, arg SetDeviceReaderL
 	)
 	return err
 }
-
-const withdrawUnconfinedNode = `-- name: WithdrawUnconfinedNode :execrows
-DELETE FROM node_unconfined_leave WHERE node_id = ?1
-`
-
-// An admin takes back a node's leave to run unconfined: it starts locked again (D450 section 1).
-func (q *Queries) WithdrawUnconfinedNode(ctx context.Context, nodeID int64) (int64, error) {
-	result, err := q.db.ExecContext(ctx, withdrawUnconfinedNode, nodeID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
-}

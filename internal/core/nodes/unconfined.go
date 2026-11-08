@@ -76,17 +76,6 @@ func (service *Service) takeLocked(writer http.ResponseWriter, request *http.Req
 	writeJSON(writer, nodeproto.LockedReply{MayRunUnconfined: isAllowed})
 }
 
-// mayRunUnconfined is whether an admin lets a node run unconfined now, for a hello's reply and each
-// poll's answer; false, which stops a node running by the leave, when it cannot be read.
-func (service *Service) mayRunUnconfined(ctx context.Context, nodeID int64) bool {
-	_, isAllowed, err := service.UnconfinedLeave(ctx, nodeID)
-	if err != nil {
-		service.logger.WarnContext(ctx, "could not read a node's leave to run unconfined; the answer withholds it",
-			"nodeId", nodeID, "err", err)
-	}
-	return isAllowed
-}
-
 // UnconfinedLeave is the admin's leave for a node to run without the confinement its kernel lacks;
 // false when there is none (D450 §1).
 func (service *Service) UnconfinedLeave(ctx context.Context, nodeID int64) (UnconfinedLeave, bool, error) {
@@ -129,30 +118,6 @@ func (service *Service) AcceptUnconfined(ctx context.Context, nodeName string, u
 	return nil
 }
 
-// WithdrawUnconfined withdraws an admin's leave for the node called nodeName to run unconfined, and logs
-// who and when (D450 §1): the node's waiting poll is answered at once, and the node stops and starts
-// locked again.
-func (service *Service) WithdrawUnconfined(ctx context.Context, nodeName string, userID int64) error {
-	nodeID, err := service.changeLeave(ctx, nodeName, func(queries *sqlcgen.Queries, nodeID int64) error {
-		_, err := queries.WithdrawUnconfinedNode(ctx, nodeID)
-		return err
-	})
-	if err != nil {
-		return fmt.Errorf("withdraw node %s's leave to run unconfined: %w", nodeName, err)
-	}
-	service.mutex.Lock()
-	if node, found := service.nodesHeardSinceStart[nodeID]; found {
-		node.isLeaveChanged = true
-		close(node.wake)
-		node.wake = make(chan struct{})
-	}
-	service.mutex.Unlock()
-	service.logger.WarnContext(ctx, "an admin withdrew a node's leave to run without confinement",
-		slogx.EventKey, "unconfinedLeaveWithdrawn", "nodeName", nodeName, "nodeId", nodeID, "userId", userID,
-		"at", service.clock.Now())
-	return nil
-}
-
 // changeLeave runs change on the live node called nodeName, ErrNoNode when there is none.
 func (service *Service) changeLeave(
 	ctx context.Context, nodeName string, change func(*sqlcgen.Queries, int64) error,
@@ -170,18 +135,4 @@ func (service *Service) changeLeave(
 		return change(queries, nodeID)
 	})
 	return nodeID, err
-}
-
-// takeLeaveChanged is whether a node's leave to run unconfined was withdrawn since a poll last answered
-// it, which it forgets.
-func (service *Service) takeLeaveChanged(nodeID int64) bool {
-	service.mutex.Lock()
-	defer service.mutex.Unlock()
-	node, found := service.nodesHeardSinceStart[nodeID]
-	if !found {
-		return false
-	}
-	isChanged := node.isLeaveChanged
-	node.isLeaveChanged = false
-	return isChanged
 }

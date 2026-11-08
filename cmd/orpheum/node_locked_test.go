@@ -106,7 +106,7 @@ func serveLockedCore(t *testing.T, socket string) *lockedCore {
 		case core.hellos <- hello:
 		default:
 		}
-		reply := nodeproto.HelloReply{NodeID: 1, MayRunUnconfined: core.mayRunUnconfined.Load()}
+		reply := nodeproto.HelloReply{NodeID: 1}
 		_ = json.NewEncoder(writer).Encode(reply) //nolint:errcheck // the node says if not
 	})
 	mux.HandleFunc("GET "+nodeproto.PathCommands, func(_ http.ResponseWriter, request *http.Request) {

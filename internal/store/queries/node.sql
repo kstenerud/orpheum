@@ -44,10 +44,6 @@ INSERT INTO node_unconfined_leave (node_id, accepted_by_user_id, accepted_at)
 VALUES (sqlc.arg(node_id), sqlc.arg(accepted_by_user_id), sqlc.arg(accepted_at))
 ON CONFLICT (node_id) DO NOTHING;
 
--- name: WithdrawUnconfinedNode :execrows
--- An admin takes back a node's leave to run unconfined: it starts locked again (D450 section 1).
-DELETE FROM node_unconfined_leave WHERE node_id = sqlc.arg(node_id);
-
 -- name: GetUnconfinedLeave :one
 -- Who let a node run unconfined, and when, for its polls and the System page (D450 section 1).
 SELECT node_unconfined_leave.accepted_at, user.name AS accepted_by

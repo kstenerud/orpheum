@@ -14,7 +14,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
-	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // postLocked posts a locked node's report, in this build's protocol unless it names one.
@@ -38,8 +37,8 @@ func (harness *fixture) postLocked(t *testing.T, report nodeproto.LockedReport) 
 }
 
 // A locked node is enrolled by its report and shown locked with what it lacks, held until an admin
-// lets it run unconfined; the leave, with who gave it and when, is then in its report's reply and its
-// hello's, and its hello makes it connected (D450 §1).
+// lets it run unconfined; the leave, with who gave it and when, is then in its report's reply, and its
+// hello makes it connected (D450 §1).
 func TestLocked_ANodeIsHeldUntilAnAdminLetsItRunUnconfined(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Hour)
@@ -66,10 +65,7 @@ func TestLocked_ANodeIsHeldUntilAnAdminLetsItRunUnconfined(t *testing.T) {
 	if reply, _ = harness.postLocked(t, nodeproto.LockedReport{Name: "nas"}); !reply.MayRunUnconfined {
 		t.Error("the report after the leave was given answered without it; want it")
 	}
-	hello := harness.hello(t, nodeproto.Hello{Name: "nas", IsUnconfinedByLeave: true})
-	if !hello.MayRunUnconfined {
-		t.Error("the hello's reply does not give the leave; want it")
-	}
+	harness.hello(t, nodeproto.Hello{Name: "nas", IsUnconfinedByLeave: true})
 	if connection, _ := harness.service.NodeConnection(t.Context(), nodeID); connection != Connected {
 		t.Errorf("the node's connection after its hello = %s; want connected", connection)
 	}
@@ -88,33 +84,6 @@ func assertShownLocked(t *testing.T, service *Service, nodeID int64) {
 	}
 	if got, _, isLocked := service.LockedConfinement(nodeID); !isLocked || len(got) != 1 {
 		t.Errorf("the node's locked confinement = %+v, %t; want what it reported", got, isLocked)
-	}
-}
-
-// A withdrawn leave answers the node's waiting poll at once, without it, so the node stops (D450 §1).
-func TestLocked_AWithdrawnLeaveAnswersTheWaitingPollAtOnce(t *testing.T) {
-	t.Parallel()
-	harness := newFixture(t, time.Hour)
-	settingstest.Set(t, harness.settings, settings.ShouldScanOnNodeHello, "false")
-	adminID := storetest.InsertUser(t, harness.database, "karl", "admin")
-	harness.postLocked(t, nodeproto.LockedReport{Name: "nas"})
-	if err := harness.service.AcceptUnconfined(t.Context(), "nas", adminID); err != nil {
-		t.Fatal(err)
-	}
-	reply := harness.hello(t, nodeproto.Hello{Name: "nas", IsUnconfinedByLeave: true})
-	got := make(chan nodeproto.Commands)
-	go func() {
-		commands, _ := harness.poll(t, reply.NodeID, 0)
-		got <- commands
-	}()
-	if err := harness.service.WithdrawUnconfined(t.Context(), "nas", adminID); err != nil {
-		t.Fatal(err)
-	}
-	if answer := testutil.Receive(t, got, "the waiting poll's answer"); answer.MayRunUnconfined {
-		t.Errorf("the poll answered %+v after the withdrawal; want no leave", answer)
-	}
-	if _, isGiven, err := harness.service.UnconfinedLeave(t.Context(), reply.NodeID); err != nil || isGiven {
-		t.Errorf("the leave after its withdrawal is given = %t, %v; want none", isGiven, err)
 	}
 }
 

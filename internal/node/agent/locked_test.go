@@ -4,15 +4,11 @@ package agent
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"testing"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/node/confine"
-	"github.com/kstenerud/orpheum/internal/node/nodetest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
-	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
@@ -61,60 +57,5 @@ func TestWaitForLeave_IsFalseWhenTheNodeIsStopped(t *testing.T) {
 	cancel()
 	if testutil.Receive(t, allowed, "the wait to end") {
 		t.Error("WaitForLeave = true after the node stopped; want false")
-	}
-}
-
-// A node running unconfined by an admin's leave stops, with no work started, once a poll's answer no
-// longer gives it; a node not running by it ignores the leave (D450 §1).
-func TestAgent_ANodeRunningByLeaveStopsWhenTheLeaveIsWithdrawn(t *testing.T) {
-	t.Parallel()
-	for _, test := range []struct {
-		name          string
-		isByLeave     bool
-		wantWithdrawn bool
-	}{
-		{name: "by leave", isByLeave: true, wantWithdrawn: true},
-		{name: "confined", isByLeave: false, wantWithdrawn: false},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			core, socket := startFakeCore(t)
-			core.mayRunUnconfined = true
-			hello := nodeproto.Hello{Name: "local", Capacity: testCapacity, IsUnconfinedByLeave: test.isByLeave}
-			node := New(socket, hello, []*confine.MediaRoot{nodetest.OpenMediaRoot(t, t.TempDir())},
-				Workers{Scanner: fakeScanner{}, Artworker: fakeArtworker{}},
-				clocktest.NewFake(time.Date(2026, 11, 8, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
-			ctx, cancel := context.WithCancel(t.Context())
-			defer cancel()
-			finished := make(chan error, 1)
-			go func() { finished <- node.Run(ctx, make(chan time.Time)) }()
-			testutil.Receive(t, core.helloHeard, "the hello")
-			core.mutex.Lock()
-			core.mayRunUnconfined = false
-			core.mutex.Unlock()
-			core.commands <- nodeproto.Command{
-				CommandSeq: 1, JobID: 12,
-				Work: nodeproto.Work{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: oneImage(&nodeproto.Artwork{
-					SourceImage: []byte("abc"), Shape: nodeproto.ShapePortrait,
-					SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},
-				})},
-			}
-			if !test.wantWithdrawn {
-				testutil.Receive(t, core.artwork, "the artwork's answer")
-				cancel()
-				if err := testutil.Receive(t, finished, "the run to end"); err != nil {
-					t.Errorf("Run = %v; want nil, a confined node ignoring the leave", err)
-				}
-				return
-			}
-			if err := testutil.Receive(t, finished, "the run to end"); !errors.Is(err, ErrUnconfinedLeaveWithdrawn) {
-				t.Errorf("Run = %v; want ErrUnconfinedLeaveWithdrawn", err)
-			}
-			select {
-			case result := <-core.artwork:
-				t.Errorf("the node answered %+v after its leave was withdrawn; want no work started", result)
-			default:
-			}
-		})
 	}
 }

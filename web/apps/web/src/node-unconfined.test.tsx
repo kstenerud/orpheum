@@ -57,8 +57,7 @@ it("shows a locked machine's risk, and an admin's explicit leave to run it uncon
   expect(changes).toBe(1);
 });
 
-it("says who let a machine run unconfined and when, and withdraws it (D450 §1)", async () => {
-  const heard: Heard[] = [];
+it("says who let a machine run unconfined and when (D450 §1)", async () => {
   mounted = await mount(
     withServices(
       <NodeUnconfinedLeave
@@ -69,13 +68,12 @@ it("says who let a machine run unconfined and when, and withdraws it (D450 §1)"
           unconfinedLeave: { acceptedBy: "karl", acceptedAt: 1_790_000_000_000 },
         }}
       />,
-      servedBy({ "DELETE /nodes/nas/unconfined": [204, null] }, heard),
+      servedBy({}),
     ),
   );
-  const container = mounted.container;
-  expect(container.textContent).toContain("Runs without confinement: karl accepted the risk on");
-  await click(buttonWithText(container, "Withdraw, and lock it again"));
-  expect(heard.map((each) => each.methodAndPath)).toEqual(["DELETE /nodes/nas/unconfined"]);
+  expect(mounted.container.textContent).toContain(
+    "Runs without confinement: karl accepted the risk on",
+  );
 });
 
 it("shows nothing for a machine that is neither locked nor let run unconfined", async () => {

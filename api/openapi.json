@@ -15147,47 +15147,6 @@
       }
     },
     "/nodes/{name}/unconfined": {
-      "delete": {
-        "operationId": "withdrawUnconfinedNode",
-        "parameters": [
-          {
-            "description": "The node's configured name",
-            "in": "path",
-            "name": "name",
-            "required": true,
-            "schema": {
-              "description": "The node's configured name",
-              "minLength": 1,
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "security": [
-          {
-            "session": []
-          }
-        ],
-        "summary": "Withdraw a node's leave to run without confinement: it stops and waits locked (D450)",
-        "tags": [
-          "Running it"
-        ],
-        "x-orpheum-capability": "admin"
-      },
       "put": {
         "operationId": "allowUnconfinedNode",
         "parameters": [

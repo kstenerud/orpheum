@@ -42,7 +42,6 @@ func (service *Service) serveCommands(writer http.ResponseWriter, request *http.
 		writeJSON(writer, nodeproto.Commands{
 			Commands: pending, DeviceReaderLimits: limits, StoreTiers: service.storeTiersNow(ctx, nodeID),
 			Tuning: service.tuning(ctx), WatchFolders: service.watchFoldersNow(ctx, nodeID),
-			MayRunUnconfined: service.mayRunUnconfined(ctx, nodeID),
 		})
 	}
 	for {
@@ -50,9 +49,7 @@ func (service *Service) serveCommands(writer http.ResponseWriter, request *http.
 		// The folders it watches changed: it is answered at once, so a folder added is watched, and one
 		// retired is not, within a poll's round trip, not its hold.
 		areWatchedFoldersChanged := service.takeWatchedFoldersChanged(nodeID)
-		// Its leave to run unconfined was withdrawn: it is answered at once, so it stops (D450 §1).
-		isLeaveChanged := service.takeLeaveChanged(nodeID)
-		if len(pending) > 0 || areWatchedFoldersChanged || isLeaveChanged {
+		if len(pending) > 0 || areWatchedFoldersChanged {
 			answer(request.Context(), append([]nodeproto.Command{}, pending...))
 			return
 		}

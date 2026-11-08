@@ -27086,12 +27086,16 @@ D273 §5's `confinement_policy = "require"`.
    (requireAdmin). It is per node: a row of `node_unconfined_leave` (migration 0085) with who gave it
    and when, logged as `unconfinedLeaveGiven`. The core answers the next report with
    `mayRunUnconfined`. The node then says hello with `isUnconfinedByLeave`, and the System page names
-   who accepted the risk and when. **Withdraw** deletes the row and is logged as
-   `unconfinedLeaveWithdrawn`. It answers the node's waiting poll at once. The node stops, starting
-   nothing more, and comes back locked when restarted. With Landlock and seccomp in force nothing
+   who accepted the risk and when. With Landlock and seccomp in force nothing
    changes. `confinement_policy = "report"` still runs unconfined without asking. A missing MPTCP is
    not detected: the compose file's sysctl fails when the container is created, before Orpheum runs,
    so the image cannot say so. The setup-problems page covers it.
+
+   *Amended 2026-11-08, by the owner: there is no **Withdraw*** (*"I'm wondering what the utility of
+   "withdraw" is? If they don't want the node to run after all, they can just stop the node."*). The
+   leave, once given, stands; an admin who no longer wants the node to run stops it. The hello's reply
+   and each poll's answer no longer carry the leave (protocol 61), and the core has no route to take it
+   back. The leave stays per node.
 2. **Updates announced.** The compose file's images follow `latest`, which the release workflow
    already publishes beside each version's tag. `ORPHEUM_TAG` pins a version. The System page has an
    Updates section from the existing `GET /system/update`, which uses discovery's signed release
@@ -27100,9 +27104,8 @@ D273 §5's `confinement_policy = "require"`.
    compose up -d`. With the install script, it is the command, as on the How to update page. The core
    does not know which way it was installed, so both are shown.
 
-**Status:** built (2026-11-08). Open for the owner: whether the leave should be per node, as built,
-or one for the household; and whether the core should learn its install route, so it can show only
-the steps that apply.
+**Status:** built (2026-11-08). The owner answered on 2026-11-08: the leave stays per node (*"2:
+follow your advice"*), and the core learns its install route (*"3: yes"*).
 
 **Proven by:**
 - 1: `TestRunNode_StartsLockedWithoutLandlockUntilAnAdminLetsItRunUnconfined`,

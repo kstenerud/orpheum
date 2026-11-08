@@ -67,8 +67,7 @@ type fakeCore struct {
 	watchFolders []string
 	// tokenlessJobIDs are the jobs whose commands it sends naming no attempt, as no core does.
 	tokenlessJobIDs map[int64]bool
-	// mayRunUnconfined is the leave the reply to a hello and each poll's answer say (D450 §1). Guarded
-	// by mutex.
+	// mayRunUnconfined is the leave a locked report's reply says (D450 §1). Guarded by mutex.
 	mayRunUnconfined bool
 	// lockedReports are the reports a locked node posts; the reply says mayRunUnconfined.
 	lockedReports chan nodeproto.LockedReport
@@ -141,7 +140,7 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		}
 		core.mutex.Lock()
 		core.hellos = append(core.hellos, hello)
-		statusEvery, watchFolders, mayRunUnconfined := core.statusEverySeconds, core.watchFolders, core.mayRunUnconfined
+		statusEvery, watchFolders := core.statusEverySeconds, core.watchFolders
 		core.mutex.Unlock()
 		select {
 		case core.helloHeard <- struct{}{}:
@@ -149,7 +148,6 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		}
 		if err := json.NewEncoder(writer).Encode(nodeproto.HelloReply{
 			NodeID: 7, Tuning: nodeproto.Tuning{StatusEverySeconds: statusEvery}, WatchFolders: watchFolders,
-			MayRunUnconfined: mayRunUnconfined,
 		}); err != nil {
 			t.Error(err)
 		}
@@ -161,13 +159,12 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 			// test named another.
 			core.mutex.Lock()
 			isTokenless, watchFolders := core.tokenlessJobIDs[command.JobID], core.watchFolders
-			mayRunUnconfined := core.mayRunUnconfined
 			core.mutex.Unlock()
 			if command.AttemptToken == "" && !isTokenless {
 				command.AttemptToken = tokenOf(command.JobID)
 			}
 			answer := nodeproto.Commands{
-				Commands: []nodeproto.Command{command}, WatchFolders: watchFolders, MayRunUnconfined: mayRunUnconfined,
+				Commands: []nodeproto.Command{command}, WatchFolders: watchFolders,
 			}
 			if err := json.NewEncoder(writer).Encode(answer); err != nil {
 				t.Error(err)

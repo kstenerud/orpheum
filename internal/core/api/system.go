@@ -43,10 +43,9 @@ type UnconfinedLeaves interface {
 	// UnconfinedLeave is an admin's leave for a node to run without the confinement its kernel lacks;
 	// false when there is none (D450 §1).
 	UnconfinedLeave(ctx context.Context, nodeID int64) (nodes.UnconfinedLeave, bool, error)
-	// AcceptUnconfined and WithdrawUnconfined give and take back that leave, recording and logging who
-	// and when; nodes.ErrNoNode for a name no live node has.
+	// AcceptUnconfined gives that leave, recording and logging who and when; nodes.ErrNoNode for a name
+	// no live node has. It is not taken back: an admin who no longer wants the node to run stops it.
 	AcceptUnconfined(ctx context.Context, nodeName string, userID int64) error
-	WithdrawUnconfined(ctx context.Context, nodeName string, userID int64) error
 }
 
 // NodeWork is what the core saw of the work it gave each node: nodes.Exchanges.

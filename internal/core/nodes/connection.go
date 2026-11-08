@@ -34,10 +34,7 @@ type connectedNode struct {
 	// areWatchedFoldersChanged is whether the library folders it watches may have changed since a poll
 	// last answered it: the next answers at once, naming them (WatchedFoldersChanged).
 	areWatchedFoldersChanged bool
-	// isLeaveChanged is whether an admin withdrew its leave to run unconfined since a poll last answered
-	// it: the next answers at once, so a node running by it stops (D450 §1).
-	isLeaveChanged bool
-	lastHeard      time.Time
+	lastHeard                time.Time
 	// openPollCount is how many long-polls for its commands are open: while one is, it is
 	// connected however long ago it last spoke.
 	openPollCount int

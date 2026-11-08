@@ -79,10 +79,6 @@ type Commands struct {
 	// WatchFolders are the library folders on the node its watcher watches, as the core's libraries
 	// stand now (HelloReply.WatchFolders): the core answers a waiting poll at once when they change.
 	WatchFolders []string `json:"watchFolders"`
-	// MayRunUnconfined is whether an admin lets the node run without the confinement its kernel lacks,
-	// as the database says now (HelloReply.MayRunUnconfined): a withdrawal answers a waiting poll at
-	// once (D450 §1).
-	MayRunUnconfined bool `json:"mayRunUnconfined"`
 }
 
 // MediaFile is the file of the node's media a command reads, and whether it reads one: the device it

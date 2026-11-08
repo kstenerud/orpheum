@@ -12,8 +12,8 @@ import (
 )
 
 // The System page shows a locked node as locked, with what its kernel lacks; an admin's leave to run it
-// unconfined is given and withdrawn in the admin's name, and shown with who gave it and when (D450 §1).
-func TestUnconfined_AnAdminLetsALockedNodeRunAndWithdrawsIt(t *testing.T) {
+// unconfined is given in the admin's name, and shown with who gave it and when (D450 §1).
+func TestUnconfined_AnAdminLetsALockedNodeRun(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
@@ -35,13 +35,8 @@ func TestUnconfined_AnAdminLetsALockedNodeRunAndWithdrawsIt(t *testing.T) {
 	if !strings.Contains(got.body, `"unconfinedLeave":{"acceptedBy":"admin","acceptedAt":`) {
 		t.Errorf("GET /system after the leave = %s; want who gave it and when", got.body)
 	}
-	if answer := harness.do(t, http.MethodDelete, "/nodes/local/unconfined", admin, nil); answer.status !=
-		http.StatusNoContent || harness.nodes.leave != nil {
-		t.Errorf("DELETE /nodes/local/unconfined = %d %s, leave %+v; want 204 and none", answer.status, answer.body,
-			harness.nodes.leave)
-	}
-	if by := harness.nodes.leaveChangedBy; len(by) != 2 || by[0] == 0 || by[0] != by[1] {
-		t.Errorf("the leave was changed by users %v; want the signed-in admin's, twice", by)
+	if by := harness.nodes.leaveGivenBy; len(by) != 1 || by[0] == 0 {
+		t.Errorf("the leave was given by users %v; want the signed-in admin's", by)
 	}
 	wantError(t, harness.do(t, http.MethodPut, "/nodes/attic/unconfined", admin, nil),
 		http.StatusNotFound, api.CodeNotFound)

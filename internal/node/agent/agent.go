@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -274,9 +273,6 @@ func (agent *Agent) Run(ctx context.Context, tick <-chan time.Time) error {
 		if ctx.Err() != nil {
 			return nil //nolint:nilerr // a session always fails when the node is told to stop
 		}
-		if errors.Is(err, ErrUnconfinedLeaveWithdrawn) {
-			return err
-		}
 		agent.logger.WarnContext(ctx, "lost the core; saying hello again at the next tick", "err", err)
 		select {
 		case <-ctx.Done():
@@ -295,9 +291,6 @@ func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 	hello := agent.helloNow(ctx)
 	reply, err := agent.sayHello(ctx, hello)
 	if err != nil {
-		return err
-	}
-	if err := agent.leaveWithdrawn(reply.MayRunUnconfined); err != nil {
 		return err
 	}
 	agent.logger.InfoContext(ctx, "said hello to the core", slogx.EventKey, "helloSaid", "nodeId", reply.NodeID)
@@ -431,9 +424,6 @@ func (agent *Agent) pollCommands(ctx, nodeCtx context.Context, nodeID int64) err
 		path := nodeproto.PathCommands + "?" + nodeproto.QueryAfterCommandSeq + "=" +
 			strconv.FormatInt(lastTakenCommandSeq, 10)
 		if err := agent.exchange(ctx, http.MethodGet, path, nodeID, http.NoBody, &answer); err != nil {
-			return err
-		}
-		if err := agent.leaveWithdrawn(answer.MayRunUnconfined); err != nil {
 			return err
 		}
 		agent.takeAnswersSettings(ctx, answer)
