@@ -2582,3 +2582,9 @@ you reported them from.
 8. Chromecast: the two calls above (Google's sender script on every page; the pairing route).
 9. Two Firefox browser tests (modal-dialog, poster-row) failed once under load with three agents
    testing at once and pass alone; noted, not changed.
+
+- **Next batch (the owner, 2026-11-08, during the failover to devnas):** "When logged in as admin,
+  'manage this library' should be an option via the gear icon in the library page (the one that
+  shows the actual contents for playback)." An admin reaches a library's settings (its folders, and
+  so the repoint the failover needs) from the library they are browsing, by its gear; others never
+  see the entry.
