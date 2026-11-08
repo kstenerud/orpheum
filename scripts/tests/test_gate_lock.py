@@ -144,6 +144,34 @@ def until(condition, seconds: float = 30) -> None:
         time.sleep(0.05)
 
 
+class MarkingNeverEmptiesTheRecord(unittest.TestCase):
+    def test_a_reader_between_any_two_steps_of_a_rewrite_finds_a_holder(self):
+        """2026-11-08: run_holding re-marks the lock once its command starts; a reader that came between
+        the old truncate and the write found the file empty, and so no kind."""
+        import io
+
+        seen: list[str] = []
+
+        class Watched(io.StringIO):
+            def write(self, text: str) -> int:
+                written = super().write(text)
+                seen.append(self.getvalue())
+                return written
+
+            def truncate(self, size: int | None = None) -> int:
+                cut = super().truncate(size)
+                seen.append(self.getvalue())
+                return cut
+
+        lock = Watched()
+        gate_lock.mark(lock, "test", lease=600, group=12345, started=1000.0)
+        seen.clear()
+        gate_lock.mark(lock, "spot")
+        self.assertTrue(seen)
+        for state in seen:
+            self.assertEqual(state.split()[:1], ["spot"], f"a reader would see {state!r}")
+
+
 class TheLockGoesWithTheRun(unittest.TestCase):
     """The lock's wargaming, 2026-11-04: a wrapper killed by the Bash tool's timeout let the lock go while
     the tests it ran went on outside it, loading the machine beside the next run."""
