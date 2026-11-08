@@ -35,6 +35,9 @@ type UpdateBody struct {
 	CheckedAt int64            `doc:"Unix milliseconds a signed release record was last read; 0 before one has" json:"checkedAt"`                                                              //nolint:lll // one struct tag
 	StaleAt   int64            `doc:"Unix milliseconds the release record held expired, since when the server cannot confirm it knows of every fix; 0 while current" json:"staleAt,omitempty"` //nolint:lll // one struct tag
 	Problem   string           `doc:"What the last reading of the release record found wrong, for the admin" json:"problem,omitempty"`                                                         //nolint:lll // one struct tag
+	// InstallRoute is how the server was installed, so the page shows only that way's steps to update
+	// (D450 §2).
+	InstallRoute string `doc:"How the server was installed: script (the install script) or compose (a compose file); absent when unknown, when both ways' steps apply" enum:"script,compose" json:"installRoute,omitempty"` //nolint:lll // one struct tag
 }
 
 // UpdateOutput is GET /system/update's answer.
@@ -56,10 +59,12 @@ func (server *Server) getSystemUpdate(ctx context.Context, input *AuthorizationH
 	if err != nil {
 		return nil, err
 	}
-	if dependencies.Releases == nil {
-		return &UpdateOutput{Body: UpdateBody{Version: dependencies.Version}}, nil
+	body := UpdateBody{Version: dependencies.Version}
+	if dependencies.Releases != nil {
+		body = updateBody(dependencies.Releases.Release(), dependencies.PublishedImage)
 	}
-	return &UpdateOutput{Body: updateBody(dependencies.Releases.Release(), dependencies.PublishedImage)}, nil
+	body.InstallRoute = dependencies.InstallRoute
+	return &UpdateOutput{Body: body}, nil
 }
 
 // updateBody is known as the API sends it, its command the install script of the release to go to

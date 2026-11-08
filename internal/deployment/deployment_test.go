@@ -588,6 +588,27 @@ func TestWrite_TheCoreAsksTheRouterTheValuesName(t *testing.T) {
 	}
 }
 
+// The core's config says how the deployment was installed: the install script's Write says script,
+// and a compose file's start names compose to WriteConfigs, so the System page shows only that way's
+// steps to update (D450 §2).
+func TestWriteConfigs_TheCoreSaysHowTheDeploymentWasInstalled(t *testing.T) {
+	t.Parallel()
+	dir := begun(t, Staging)
+	values := filledValues(t, Staging)
+	if err := Write(dir, values, runtime); err != nil {
+		t.Fatal(err)
+	}
+	if got := decodeTOML(t, filepath.Join(dir, coreConfig))["server"]["install_route"]; got != "script" {
+		t.Errorf("written by the install script's Write, the core's server.install_route is %v; want script", got)
+	}
+	if err := WriteConfigs(dir, values, ByComposeFile); err != nil {
+		t.Fatal(err)
+	}
+	if got := decodeTOML(t, filepath.Join(dir, coreConfig))["server"]["install_route"]; got != "compose" {
+		t.Errorf("written for a compose file's start, the core's server.install_route is %v; want compose", got)
+	}
+}
+
 // The machine's address at home, which the core's container cannot see, goes to the core with the
 // port HTTPS is published on there, for its discovery to name for devices at home; none is sent when
 // the values file names none, and an address that is not the house's is a problem the values name

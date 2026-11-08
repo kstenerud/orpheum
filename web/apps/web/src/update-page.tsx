@@ -24,7 +24,10 @@ export function HowToUpdate(): JSX.Element {
   );
 }
 
-/** The How to update page's content for what the server knows. */
+/**
+ * The How to update page's content for what the server knows: the steps of the way the server was
+ * installed, and both ways' when it does not know (D450 §2).
+ */
 export function HowToUpdateView(props: {
   readonly update: Update | undefined;
 }): JSX.Element | null {
@@ -33,6 +36,8 @@ export function HowToUpdateView(props: {
   if (update === undefined) {
     return null;
   }
+  const isScriptRoute = update.command !== undefined && update.installRoute !== "compose";
+  const isComposeRoute = update.command !== undefined && update.installRoute !== "script";
   return (
     <>
       <UpdateStanding update={update} />
@@ -44,7 +49,7 @@ export function HowToUpdateView(props: {
           })}
         </p>
       )}
-      {update.command === undefined ? null : (
+      {isScriptRoute ? (
         <ol>
           <li>{t("update.step1")}</li>
           <li>
@@ -55,8 +60,8 @@ export function HowToUpdateView(props: {
           </li>
           <li>{t("update.step3")}</li>
         </ol>
-      )}
-      {update.command === undefined ? null : <ComposeSteps />}
+      ) : null}
+      {isComposeRoute ? <ComposeSteps /> : null}
       {update.digest === undefined ? null : <p>{t("update.digest", { digest: update.digest })}</p>}
     </>
   );

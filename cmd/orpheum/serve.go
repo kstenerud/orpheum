@@ -298,7 +298,7 @@ func wireCore(
 	dependencies.Discovery, dependencies.PortMapping = opened.discovery, opened.portMapping
 	// What the discovery's release record says of this version, for the admins (security-updates.md).
 	dependencies.Releases, dependencies.Version = opened.discovery, thisBuild().Version
-	dependencies.PublishedImage = publishedImage
+	dependencies.PublishedImage, dependencies.InstallRoute = publishedImage, config.Server.InstallRoute
 	dependencies.Reachability, dependencies.Relay = opened.reachability, newICEIssuer(config, opened, logger)
 	dependencies.System = api.System{
 		Build: thisBuild(), StartedAt: clock.System{}.Now(),

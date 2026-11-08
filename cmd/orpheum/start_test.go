@@ -55,6 +55,10 @@ func TestFirstStart_WritesTheDeploymentFromItsFlagsWhenThereIsNone(t *testing.T)
 	if !slices.Equal(anyStrings(t, lan), []string{"192.168.1.20:8444"}) {
 		t.Errorf("the core's lan_addresses = %v; want the flags' address and HTTPS port", lan)
 	}
+	if route := coreConfig["server"]["install_route"]; route != "compose" {
+		t.Errorf("the core config says it was installed by %v; want a compose file's route, compose, so the "+
+			"System page shows only its steps to update (D450 §2)", route)
+	}
 	nodeConfig, node := writtenConfig(t, filepath.Join(dir, "node"), kindNode)
 	if nodeConfig["node"]["name"] != "openmediavault" || node.RunDir != filepath.Join(runDir, "node") ||
 		!slices.Equal(anyStrings(t, nodeConfig["node"]["root_paths"]), []string{startMedia}) {
