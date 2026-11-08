@@ -11,7 +11,7 @@ services:
   # Docker makes a missing folder as root, which the server, never root, could not write.
   orpheum-folders:
     container_name: orpheum-folders
-    image: ghcr.io/kstenerud/orpheum:${ORPHEUM_TAG:-v0.3.0-beta.7}
+    image: ghcr.io/kstenerud/orpheum:${ORPHEUM_TAG:-latest}
     user: "0:0"
     entrypoint: ["/bin/sh", "-c"]
     # empty/ stands in for a media folder not set (ORPHEUM_MEDIA_2 to _4): a bind needs a source.
@@ -31,7 +31,7 @@ services:
   # network by the core, as a user: the sysctl, which is this network's own, lets it.
   orpheum-core:
     container_name: orpheum-core
-    image: ghcr.io/kstenerud/orpheum:${ORPHEUM_TAG:-v0.3.0-beta.7}
+    image: ghcr.io/kstenerud/orpheum:${ORPHEUM_TAG:-latest}
     user: "${PUID:-1000}:${PGID:-100}"
     hostname: ${ORPHEUM_NAME:-orpheum}
     command:
@@ -88,7 +88,7 @@ services:
   # the core by; it has no network. Its root is read-only and /tmp a tmpfs nothing runs from (noexec).
   orpheum-node:
     container_name: orpheum-node
-    image: ghcr.io/kstenerud/orpheum:${ORPHEUM_TAG:-v0.3.0-beta.7}
+    image: ghcr.io/kstenerud/orpheum:${ORPHEUM_TAG:-latest}
     user: "${PUID:-1000}:${PGID:-100}"
     command: ["node", "--instance", "/var/lib/orpheum/node"]
     network_mode: none
