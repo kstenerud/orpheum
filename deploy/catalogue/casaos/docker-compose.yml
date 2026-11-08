@@ -135,6 +135,7 @@ networks:
 x-casaos:
   architectures:
     - amd64
+    - arm64
   main: orpheum-core
   author: Karl Stenerud
   developer: Karl Stenerud
