@@ -389,7 +389,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D381](working-notes.md#d381--the-player-chooses-the-quality-it-starts-on-by-the-rule-it-plays-by) The player chooses the quality it starts on, by the rule it plays by
 - [D382](working-notes.md#d382--a-given-up-chunk-lowers-quality-only-as-far-as-the-links-estimate-carries-and-a-busy-page-or-a-first-piece-measures-nothing) A given-up chunk lowers quality only as far as the link's estimate carries, and a busy page or a first piece measures nothing
 - [D383](working-notes.md#d383--back-or-forward-never-starts-a-film-and-a-receiver-with-no-controller-goes-to-the-films-page) Back or Forward never starts a film, and a receiver with no controller goes to the film's page — *revisited by D384*
-- [D384](working-notes.md#d384--a-cast-that-ends-sends-its-receiver-home-and-the-page-cast-from-stays-the-page-it-was) A cast that ends sends its receiver home, and the page cast from stays the page it was — *revisited by D422*
+- [D384](working-notes.md#d384--a-cast-that-ends-sends-its-receiver-home-and-the-page-cast-from-stays-the-page-it-was) A cast that ends sends its receiver home, and the page cast from stays the page it was — *revisited by D422, D446*
 - [D385](working-notes.md#d385--a-receiver-that-takes-control-back-ends-the-cast-it-goes-home-and-the-sender-plays-on-from-where-it-stood) A receiver that takes control back ends the cast: it goes home, and the sender plays on from where it stood — *revisited by D386, D445*
 - [D386](working-notes.md#d386--a-device-receiving-a-cast-is-no-one-elses-cast-target-and-a-cast-the-server-no-longer-knows-sends-its-page-home) A device receiving a cast is no one else's cast target, and a cast the server no longer knows sends its page home
 - [D387](working-notes.md#d387--a-paused-players-ask-for-a-chunk-where-a-seek-took-it-moves-where-it-wants-from) A paused player's ask for a chunk where a seek took it moves where it wants from
@@ -451,6 +451,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D443](working-notes.md#d443--the-device-the-session-a-person-hosts-is-cast-to-offers-to-move-it-here-which-ends-the-cast-first-and-makes-it-the-host) The device the session a person hosts is cast to offers to move it here, which ends the cast first and makes it the host
 - [D444](working-notes.md#d444--the-cast-controls-page-is-the-full-screen-overlays-set-and-layout-and-how-it-plays-is-a-read-only-entry-of-its-settings-menu) The cast controls page is the full-screen overlay's set and layout, and How it plays is a read-only entry of its settings menu
 - [D445](working-notes.md#d445--no-press-on-a-receiver-ends-a-cast-leaving-full-screen-only-leaves-full-screen) No press on a receiver ends a cast; leaving full screen only leaves full screen
+- [D446](working-notes.md#d446--a-receiver-is-passive-and-ends-a-cast-only-by-its-own-stop-casting-here-the-sender-takes-on-the-state-it-left) A receiver is passive and ends a cast only by its own Stop casting here; the sender takes on the state it left
 
 ## Archived
 
