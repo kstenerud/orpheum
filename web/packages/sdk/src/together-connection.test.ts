@@ -477,6 +477,17 @@ describe("reading the server's messages", () => {
     expect(parseTogetherMessage("not json")).toBeUndefined();
     expect(parseTogetherMessage('{"type":"rtc","sdp":"x"}')).toBeUndefined();
   });
+
+  it("reads a cast's end by its reason, and the gone movedHere, which no receiver now sends, as gone (D446 §4)", () => {
+    expect(parseTogetherMessage('{"type":"ended","reason":"takenBack"}')).toEqual({
+      type: "ended",
+      reason: "takenBack",
+    });
+    expect(parseTogetherMessage('{"type":"ended","reason":"movedHere"}')).toEqual({
+      type: "ended",
+      reason: "gone",
+    });
+  });
 });
 
 describe("voice signalling on the session socket (D193 §4)", () => {
