@@ -29,4 +29,6 @@ also wants installation as painless as possible, and Orpheum to install on OpenM
    OpenMediaVault section.
 4. **A multi-architecture image** (amd64 and arm64): a change to `.github/`, a gate, so it waits
    for the owner's `Gate-Changed:`.
+   **Built 2026-11-08** on the owner's word ("do it now"): each architecture on its own native
+   runner, joined under the tag and `:latest`; first published with `v0.3.1` (VQ291).
 5. **The filtered public clone,** scanned, handed to the owner to push.

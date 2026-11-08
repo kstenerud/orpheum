@@ -10,6 +10,7 @@
 - **First public release:** `v0.3.0`, 2026-11-08, when the repository went public: the image
   `ghcr.io/kstenerud/orpheum:v0.3.0` and `:latest` (amd64), published by `release-image.yml` and
   public. The earlier tags, releases and packages were deleted with the old history.
+  From the next tag the image is amd64 and arm64 under one name (VQ291).
 - **Depends on:** D249, D272 (and its §6–§9, the owner's choices for the build), D27, D240,
   D228, [scanner.md](scanner.md).
 
