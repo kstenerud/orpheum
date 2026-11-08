@@ -60,9 +60,10 @@ rests on, so the claim can be checked against them; a total goes stale with the 
   sandbox showed that the commits are re-made when they leave it.
 - **Caught by:** the owner: "wouldn't the hashes be out of date from the start, considering every
   commit pulled out of yoloai would get a different hash?"
-- **Gate:** none yet. Proposed to the owner: cite a commit by its subject (or the decision it
-  carries), not its hash, and a check in `lint-commits` and `check-docs` that refuses a bare
-  commit hash.
+- **Gate:** `lint_commits.py` and `check_docs.py` refuse a hash that names a commit of this
+  repository and give its subject to cite instead (`commit_hashes.py`, the owner: "all of that",
+  2026-11-08). The docs' 210 such citations became subjects. A hash that no longer resolves (a
+  commit rebased away) cannot be caught or mapped, and stays.
 
 ### A63 — Asked the owner three Watch Together questions the decisions already answer (2026-11-07)
 
