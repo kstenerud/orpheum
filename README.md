@@ -40,6 +40,29 @@ endorsed or certified by TMDB.</sub>
 - **Easy deployment.** It's a single go binary, with quick deployment available via Docker.
 - **Your data stays yours.** Rebuildable database. Metadata can be written back as NFO files.
 
+## What it's for
+
+Orpheum is a player for media you have the right to use. It does not provide, locate or download content,
+and it does not bypass copy protection. You are responsible for complying with copyright law
+where you live, including when you share access with others.
+
+## The promise
+
+- **No telemetry.**
+- **No storefront.**
+- **No restrictions.**
+- **No paywall.**
+- **No ads.**
+
+## Install
+
+Orpheum runs on any Linux machine with Docker, including NAS systems such as OpenMediaVault. See
+**[docs/users/install.md](docs/users/install.md)**, and
+[setup-problems.md](docs/users/setup-problems.md) when something goes wrong.
+
+To develop it, you need only Docker: `./dev make dev` builds the development image and starts a
+server with a demo library ([CONTRIBUTING.md](CONTRIBUTING.md)).
+
 ## Architecture
 
 ```mermaid
@@ -73,29 +96,6 @@ tests that keep it so: [`docs/contributors/design/architecture-map.md`](docs/con
 | Remote access | WebRTC (pion), a hosted discovery service, TURN |
 | Operations | Docker images, GitHub Actions, a staging server, automatic backups |
 | Engineering gates | Python checks, golangci-lint, ESLint, architecture tests, revert-red |
-
-## Install
-
-Orpheum runs on any Linux machine with Docker, including NAS systems such as OpenMediaVault. See
-**[docs/users/install.md](docs/users/install.md)**, and
-[setup-problems.md](docs/users/setup-problems.md) when something goes wrong.
-
-To develop it, you need only Docker: `./dev make dev` builds the development image and starts a
-server with a demo library ([CONTRIBUTING.md](CONTRIBUTING.md)).
-
-## What it's for
-
-Orpheum is a player for media you have the right to use. It does not provide, locate or download content,
-and it does not bypass copy protection. You are responsible for complying with copyright law
-where you live, including when you share access with others.
-
-## The promise
-
-- **No telemetry.**
-- **No storefront.**
-- **No restrictions.**
-- **No paywall.**
-- **No ads.**
 
 ## Licence
 
