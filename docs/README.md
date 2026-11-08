@@ -4,12 +4,12 @@ Docs are organised by **role** — the layer you are operating in. Pick your tie
 
 | Tier | Start here |
 | --- | --- |
-| **Users** — running the server | [`users/setup-problems.md`](users/setup-problems.md): problems seen setting up a server, and their fixes; [`users/discovery-signing.md`](users/discovery-signing.md): a discovery's owner signing with YubiKeys; `GUIDE.md` is not written yet |
+| **Users** — running the server | [`users/install.md`](users/install.md): installing it; [`users/setup-problems.md`](users/setup-problems.md): problems seen setting up a server, and their fixes; [`users/discovery-signing.md`](users/discovery-signing.md): a discovery's owner signing with YubiKeys; `GUIDE.md` is not written yet |
 | **Contributors** — building the thing | [`contributors/`](contributors/) |
 
-The project is **pre-implementation**. Nothing has been built. Everything currently in this
-tree is research and design: what exists in this space, why it fails its users, and what we
-intend to do differently.
+The project is in a **closed beta**: its first release shipped on 2026-10-21 and runs in its
+owner's home. How it was built, by AI agents under one engineer's direction, is in
+[`how-it-was-built.md`](how-it-was-built.md).
 
 Start at [`contributors/design/overview.md`](contributors/design/overview.md) for the
 product-altitude picture, and

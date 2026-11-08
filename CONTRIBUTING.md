@@ -1,8 +1,8 @@
 # Contributing to Orpheum
 
-Orpheum is developed in a private repository while its first users test it, and will open for
-public betas later ([D192](docs/contributors/decisions/working-notes.md)). These rules hold from
-the first commit, so that nothing has to change when it opens.
+Orpheum was developed in a private repository while its first users tested it, and is now public
+while in a closed beta ([D192](docs/contributors/decisions/working-notes.md)). These rules have
+held from the first commit.
 
 ## Licensing is by directory
 
