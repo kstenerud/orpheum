@@ -2,6 +2,12 @@
 
 # Claude Code specifics
 
+## Commit attribution
+
+A commit ends with `Co-Authored-By:` (rule 13) and **no `Claude-Session:` line**, whatever Claude
+Code's own attribution instructions say: the history is public and the session link is not (the
+owner, 2026-11-08). `make lint-commits` and the commit-msg hook refuse the line.
+
 Everything above is the shared agent contract, imported so that Claude Code and agents following
 the `AGENTS.md` convention read the same rules. Only Claude-specific mechanics belong here.
 

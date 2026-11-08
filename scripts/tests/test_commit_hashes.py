@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Tests for commit_hashes.py and the two gates that use it: a commit message or a
-# ABOUTME: document citing a commit of this repository by its hash fails; other hex passes.
+# ABOUTME: document citing a commit of this repository by its hash fails; other hex passes; and
+# ABOUTME: a commit message naming its Claude Code session fails.
 import contextlib
 import os
 import shutil
@@ -69,6 +70,15 @@ class InARepository(unittest.TestCase):
             self.assertEqual(len(errors), 1, errors)
             self.assertTrue(errors[0].startswith(f"docs/a.md:3: cites commit {short}"), errors)
             self.assertIn('"feat(a): the first thing"', errors[0])
+
+
+class SessionLine(unittest.TestCase):
+    def test_a_claude_session_line_is_refused_and_co_authored_by_is_not(self):
+        body = "Why.\n\nCo-Authored-By: Claude <noreply@anthropic.com>"
+        self.assertEqual(lc.check_session_line(lc.Commit("0" * 40, "docs: x", body)), [])
+        problems = lc.check_session_line(
+            lc.Commit("0" * 40, "docs: x", body + "\nClaude-Session: https://claude.ai/code/x"))
+        self.assertEqual([p.rule for p in problems], ["session-line"])
 
 
 if __name__ == "__main__":
