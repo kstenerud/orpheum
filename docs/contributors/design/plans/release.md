@@ -7,6 +7,9 @@
 - **Status:** BUILT — begun 2026-10-09 on the owner's word (*"Yes start building release
   mode"*). R1 to R7 are built, and R8 is done: the production NAS has run release mode since 2026-10-13
   (`v0.1.0-nas.1`), and `v0.2.0-nas.x` since 2026-10-14; it runs `v0.2.0-nas.11` now.
+- **First public release:** `v0.3.0`, 2026-11-08, when the repository went public: the image
+  `ghcr.io/kstenerud/orpheum:v0.3.0` and `:latest` (amd64), published by `release-image.yml` and
+  public. The earlier tags, releases and packages were deleted with the old history.
 - **Depends on:** D249, D272 (and its §6–§9, the owner's choices for the build), D27, D240,
   D228, [scanner.md](scanner.md).
 
