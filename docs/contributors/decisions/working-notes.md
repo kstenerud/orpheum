@@ -26904,3 +26904,25 @@ control back ends the cast).
 
 Built in "fix(web): no press or full screen left on a cast's receiver ends the cast" (`web/apps/web/src/cast-receiver.tsx`, `cast-ready.tsx`); tests:
 `cast-receiver.test.tsx`, `cast-receiver-steps.test.tsx`, `cast-ready.test.tsx`, `e2e/cast.spec.ts`.
+## D446 — A receiver is passive and ends a cast only by its own Stop casting here; the sender takes on the state it left
+
+**Decided** (2026-11-08), by the project owner ("yes", to the lead's summary of the owner's own rules),
+after D445 left a receiver no way at all to end a cast. Amends D384 §2 (Stop casting always plays on
+the sender), D385 (a receiver ends a cast by taking control back), D443 (Move it here on the receiver)
+and D445 §1 (ending a cast stays with the device that cast).
+
+1. **A receiver is passive.** It plays what its sender sends it, or waits blank on its ready page.
+   Only two things end that: the sender's Stop casting, and the receiver's own **Stop casting here**.
+2. **Either way the receiver goes home** (D384 §1), and the sender takes on the state the receiver
+   left: playing, it plays on from there; paused, it opens the film there, paused; nothing on, it goes
+   home. In Watch Together the sender goes on in the session: a host's Play page leads it from where
+   the receiver stood, a guest's page follows the group from where it is. The session does not end.
+3. **Stop casting here** heads the receiver's ready page and its player's overlay, the first row, reached
+   by Up; focus never starts on it, so no press made for something else ends the cast.
+4. **No receiver takes the cast over.** D443's Move it here leaves the receiver (the owner: voice chat
+   in Watch Together makes taking over risky; "It's easy enough from the castee side to 'stop casting to
+   here', then navigate to do whatever you want"). The receiver's home then offers D442's Move it here
+   for a session its person hosts.
+5. **A receiver gone for two minutes** (D364 §6) ends the cast as Stop casting here does.
+
+**Status:** decided.
