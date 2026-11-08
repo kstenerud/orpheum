@@ -81,3 +81,35 @@ func TestUpdate_AnAdminIsToldTheFixPendingAndTheCommandThatInstallsIt(t *testing
 	wantError(t, harness.do(t, http.MethodGet, "/system/update", harness.signIn(t, "partner", "partner-password"), nil),
 		http.StatusForbidden, api.CodeForbidden)
 }
+
+// The answer says how the server was installed, as its config says, so the page shows only that
+// way's steps to update; a server that does not know says nothing, and the page shows both (D450 §2).
+func TestUpdate_SaysHowTheServerWasInstalled(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	dependencies, err := harness.server.ReadyDependencies()
+	if err != nil {
+		t.Fatal(err)
+	}
+	read := func() api.UpdateBody {
+		t.Helper()
+		got := harness.do(t, http.MethodGet, "/system/update", admin, nil)
+		var body api.UpdateBody
+		if err := json.Unmarshal([]byte(got.body), &body); err != nil || got.status != http.StatusOK {
+			t.Fatalf("GET /system/update = %d %s", got.status, got.body)
+		}
+		return body
+	}
+	if unknown := read(); unknown.InstallRoute != "" {
+		t.Errorf("a server that does not know its route: installRoute %q; want none", unknown.InstallRoute)
+	}
+	dependencies.InstallRoute = "compose"
+	if told := read(); told.InstallRoute != "compose" {
+		t.Errorf("knowing no release: installRoute %q; want compose", told.InstallRoute)
+	}
+	dependencies.Releases = &knownRelease{known: discovery.Release{Version: "v0.3.1", Latest: "v0.3.3"}}
+	if told := read(); told.InstallRoute != "compose" {
+		t.Errorf("knowing a newer release: installRoute %q; want compose", told.InstallRoute)
+	}
+}

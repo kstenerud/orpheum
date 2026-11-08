@@ -156,6 +156,10 @@ func TestLoadConfig_RefusesNamingTheKey(t *testing.T) {
 				`acme_directory = "https://`, `acme_directory = "http://`).Replace(core),
 			"https.acme_directory",
 		},
+		"an install route neither the script's nor a compose file's": {
+			kindCore, strings.Replace(core, `install_route = ""`, `install_route = "helm"`, 1),
+			"server.install_route",
+		},
 		"not TOML at all":  {kindCore, "server = [", "config"},
 		"a wrong key type": {kindCore, "[server]\nlisten = 8432\n", "listen"},
 	}
@@ -176,6 +180,7 @@ shutdown_grace_seconds = 10
 host_names = []
 home_networks = ["127.0.0.0/8", "::1/128"]
 this_machine_listen = ""
+install_route = ""
 
 [https]
 domain = ""

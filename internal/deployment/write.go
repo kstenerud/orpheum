@@ -169,7 +169,7 @@ func WriteStartValues(dir string, values Values) error {
 // and the core's and the node's full configs, whose instances must already exist. It overwrites
 // each, so they always follow the values file and this binary's templates (D272 §7).
 func Write(dir string, values Values, runtime Runtime) error {
-	if err := WriteConfigs(dir, values); err != nil {
+	if err := WriteConfigs(dir, values, ByInstallScript); err != nil {
 		return err
 	}
 	composeTemplate := directComposeTemplate
@@ -202,12 +202,12 @@ func Write(dir string, values Values, runtime Runtime) error {
 // WriteConfigs writes the configs of a deployment's instances into dir from its values: the core's
 // and the node's, and the tunnel's when it has one. The instances must already exist. Write writes
 // them so, beside the compose files; a first start (D447), whose compose file is the household's own,
-// writes them alone.
-func WriteConfigs(dir string, values Values) error {
+// writes them alone. The core's names route, how the deployment was installed (D450 §2).
+func WriteConfigs(dir string, values Values, route InstallRoute) error {
 	if err := values.Check(); err != nil {
 		return err
 	}
-	data := renderData{Values: values, IsStaging: values.Deployment == Staging}
+	data := renderData{Values: values, IsStaging: values.Deployment == Staging, InstallRoute: string(route)}
 	files := []renderedFile{{coreConfig, "core.toml", privateFileMode}, {nodeConfig, "node.toml", privateFileMode}}
 	if values.HasTunnel() {
 		privateKey, err := tunnelPrivateKey(dir)
@@ -285,6 +285,8 @@ type renderData struct {
 	Values     Values
 	IsStaging  bool
 	PrivateKey string
+	// InstallRoute is how the deployment was installed, for the core's config (D450 §2).
+	InstallRoute string
 }
 
 // render renders the named template; a value it names that data lacks is an error, not a blank.

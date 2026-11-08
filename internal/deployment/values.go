@@ -107,6 +107,20 @@ type Values struct {
 	} `toml:"lan"`
 }
 
+// InstallRoute is how a deployment was installed, which its core's config names so that the System
+// page shows only that route's steps to update (D450 §2, amended 2026-11-08).
+type InstallRoute string
+
+// The routes a deployment is installed by.
+const (
+	// ByInstallScript is the install script, `orpheum write-deployment` (D272, D314): it updates by
+	// running the new release's install script.
+	ByInstallScript InstallRoute = "script"
+	// ByComposeFile is a compose file whose every start is `orpheum start` (D447, D449): it updates by
+	// pulling the images it follows and starting again.
+	ByComposeFile InstallRoute = "compose"
+)
+
 // thisMachinePortDefault is the port a browser on this machine reaches the core on, as home, unless the
 // values file names another (D334 §4).
 const thisMachinePortDefault = 8441

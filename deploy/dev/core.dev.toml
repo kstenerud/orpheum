@@ -21,6 +21,8 @@ host_names = []
 home_networks = ["127.0.0.0/8", "::1/128", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7"]
 # The dev loop serves loopback alone, so it needs no port of its own for this machine (D334 §4).
 this_machine_listen = ""
+# The dev loop was installed by neither route, so the System page shows both ways to update (D450 §2).
+install_route = ""
 
 # No public name in the dev loop: it serves plain HTTP on loopback (D243 §6 is the deployment's).
 [https]

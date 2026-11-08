@@ -146,7 +146,7 @@ func startDeployment(dir, runDir, hostName string, options startOptions) error {
 	}
 	written := values
 	written.Node.Name = hostName
-	if err := deployment.WriteConfigs(dir, written); err != nil {
+	if err := deployment.WriteConfigs(dir, written, deployment.ByComposeFile); err != nil {
 		return err
 	}
 	return deployment.WriteStartValues(dir, values)

@@ -9089,6 +9089,14 @@
             "description": "The newest release's image digest, sha256:..., for the admin to check",
             "type": "string"
           },
+          "installRoute": {
+            "description": "How the server was installed: script (the install script) or compose (a compose file); absent when unknown, when both ways' steps apply",
+            "enum": [
+              "script",
+              "compose"
+            ],
+            "type": "string"
+          },
           "latest": {
             "description": "The newest release, when it is newer than this server's; empty when it runs the latest or knows of none",
             "type": "string"

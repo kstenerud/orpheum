@@ -27104,13 +27104,23 @@ D273 §5's `confinement_policy = "require"`.
    compose up -d`. With the install script, it is the command, as on the How to update page. The core
    does not know which way it was installed, so both are shown.
 
+   *§2 amended 2026-11-08, by the owner: the core learns how it was installed* (asked *"Should the
+   core learn how it was installed (the install script or a compose file), so the page shows only the
+   update steps that apply?"*, the owner answered *"3: yes"*). The deployment writes it into the
+   core's config at deployment time, `server.install_route`: `script` from `orpheum write-deployment`,
+   which the install script runs, and `compose` from `orpheum start`, which a compose file runs at
+   every start. `GET /system/update` says it as `installRoute`, and the System page and How to update
+   show only that way's steps. A config without it (written by hand, or the dev loop's) shows both.
+
 **Status:** built (2026-11-08). The owner answered on 2026-11-08: the leave stays per node (*"2:
 follow your advice"*), and the core learns its install route (*"3: yes"*).
 
 **Proven by:**
 - 1: `TestRunNode_StartsLockedWithoutLandlockUntilAnAdminLetsItRunUnconfined`,
   `TestLocked_ANodeIsHeldUntilAnAdminLetsItRunUnconfined`, `TestMigrate_Step0085KeepsOneUnconfinedLeavePerNodeWithWhoGaveIt`, web/apps/web/src/node-unconfined.test.tsx
-- 2: web/apps/web/src/security-update-note.test.tsx
+- 2: web/apps/web/src/security-update-note.test.tsx, `TestUpdate_SaysHowTheServerWasInstalled`,
+  `TestWriteConfigs_TheCoreSaysHowTheDeploymentWasInstalled`,
+  `TestFirstStart_WritesTheDeploymentFromItsFlagsWhenThereIsNone`
 
 ## D451 — Reserved: remote access approved from the account
 

@@ -23,6 +23,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/certificate"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
+	"github.com/kstenerud/orpheum/internal/deployment"
 	"github.com/kstenerud/orpheum/internal/node/agent"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
@@ -77,6 +78,10 @@ type ServerConfig struct {
 	// deployment publishes on that machine's loopback: a request on it is from home, though Docker
 	// hands it the core from its gateway (D334 §4). Empty serves none.
 	ThisMachineListen string `toml:"this_machine_listen"`
+	// InstallRoute is how the server was installed: deployment.ByInstallScript or ByComposeFile, as
+	// the deployment writes it, or empty when unknown (a config written by hand). The System page
+	// shows only that route's steps to update, and both when unknown (D450 §2).
+	InstallRoute string `toml:"install_route"`
 }
 
 // thisMachinePort is the port ThisMachineListen names, 0 for none; check refused one that names none.
@@ -288,6 +293,12 @@ func serverConfigKeys() []configKey {
 			tableServer, "this_machine_listen", `""`,
 			"plain HTTP for a browser on this machine alone, published on its loopback: a request on it is from " +
 				"home (D334 §4); empty serves none",
+		},
+		{
+			tableServer, "install_route", `""`,
+			"how the server was installed, \"script\" (the install script) or \"compose\" (a compose file), " +
+				"which the deployment writes: the System page shows only that way's steps to update; empty " +
+				"shows both (D450 §2)",
 		},
 		{
 			tableServer, "home_networks",
@@ -551,6 +562,12 @@ func (server ServerConfig) check() error {
 	var problems []error
 	if _, _, err := net.SplitHostPort(server.Listen); err != nil {
 		problems = append(problems, fmt.Errorf("server.listen %q: want host:port", server.Listen))
+	}
+	switch deployment.InstallRoute(server.InstallRoute) {
+	case "", deployment.ByInstallScript, deployment.ByComposeFile:
+	default:
+		problems = append(problems, fmt.Errorf("server.install_route %q: want %q, %q or empty",
+			server.InstallRoute, deployment.ByInstallScript, deployment.ByComposeFile))
 	}
 	if server.ThisMachineListen != "" && server.thisMachinePort() == 0 {
 		problems = append(problems, fmt.Errorf("server.this_machine_listen %q: want host:port, or empty",

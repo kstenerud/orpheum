@@ -142,6 +142,7 @@ shutdown_grace_seconds = 10
 host_names = []
 home_networks = ["127.0.0.0/8", "::1/128"]
 this_machine_listen = ""
+install_route = ""
 
 [https]
 domain = ""

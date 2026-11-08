@@ -24,6 +24,9 @@ host_names = []
 # Where an admin administers from, reaching the server directly: the house's network alone, never the
 # tunnel's (D297 §6).
 home_networks = {{toml .Values.HomeNetworks}}
+# How this server was installed, the install script or a compose file: the System page shows only that
+# way's steps to update (D450 §2).
+install_route = {{toml .InstallRoute}}
 
 [https]
 domain = {{toml .Values.Domain}}

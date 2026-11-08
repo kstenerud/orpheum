@@ -18,6 +18,9 @@
 //     A compose file's start writes the values file too, each time, from its command line, its header
 //     saying the compose file is where a change goes (D449 §1).
 //     TestWriteStartValues_IsWrittenEachTimeSayingTheComposeFileRules.
+//   - The core's config names how the deployment was installed, the install script (Write) or a
+//     compose file's start (WriteConfigs given ByComposeFile), so the System page shows only that
+//     way's steps to update (D450 §2). TestWriteConfigs_TheCoreSaysHowTheDeploymentWasInstalled.
 //   - Nothing is written while the values file lacks a value or holds a wrong one, and each problem
 //     names its key. TestValues_ProblemsNameEachKeyThatLacksAValue.
 //   - A value reaches a TOML config quoted, and a template naming a value it was not given is an

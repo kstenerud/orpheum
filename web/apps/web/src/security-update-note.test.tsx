@@ -180,6 +180,28 @@ describe("How to update", () => {
     expect(commands).toEqual([command, "docker compose pull && docker compose up -d"]);
   });
 
+  it("gives only the way the server was installed, when it knows it (D450 §2)", async () => {
+    mounted = await mount(
+      withServices(<HowToUpdateView update={{ ...pending, installRoute: "compose" }} />),
+    );
+    const byCompose = mounted.container;
+    expect([...byCompose.querySelectorAll("pre code")].map((each) => each.textContent)).toEqual([
+      "docker compose pull && docker compose up -d",
+    ]);
+    expect(byCompose.textContent).toContain("press Pull, then Up.");
+    expect(byCompose.textContent).not.toContain("with its install script");
+    mounted.unmount();
+    mounted = await mount(
+      withServices(<HowToUpdateView update={{ ...pending, installRoute: "script" }} />),
+    );
+    const byScript = mounted.container;
+    expect([...byScript.querySelectorAll("pre code")].map((each) => each.textContent)).toEqual([
+      command,
+    ]);
+    expect(byScript.textContent).toContain("with its install script");
+    expect(byScript.textContent).not.toContain("press Pull, then Up.");
+  });
+
   it("says the server runs the latest, with no command", async () => {
     mounted = await mount(
       withServices(
