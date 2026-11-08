@@ -410,7 +410,8 @@ function NodeFacts(props: {
           <NodeDevices nodeName={node.name} devices={node.devices ?? []} />
           <NodeStuckView stuck={node.stuck ?? []} />
         </>
-      ) : node.connection === "locked" ? null : (
+      ) : null}
+      {node.isConnected || node.connection === "locked" ? null : (
         <>
           <p>{notConnectedText(t, node, i18n.language)}</p>
           <p>{t("system.notConnectedHint")}</p>
