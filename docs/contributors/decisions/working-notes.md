@@ -27334,15 +27334,17 @@ official channels."*
 being strict everywhere; it's not much more processing in the grand scheme of things."* and *"We
 should allow unknown fields so that we can run newer clients against older servers so long as the
 new one only extends things. The web client's threat model is nowhere near as serious as the
-server's, so I'm fine with weaker JSON constraints there. gate change is fine."*
+server's, so I'm fine with weaker JSON constraints there. gate change is fine."* Amended the same
+day, on a key that names a field in another case: *"is there any reason to allow case-insensitive
+key matching? It's only going to be machines talking to machines, and case errors only happen with
+human input."*
 
 The rules are the security rules of the owner's BONJSON specification
 (https://github.com/kstenerud/bonjson/blob/main/bonjson.md#security-rules, its "Secure Compliance"
 and "Resource Limits" onward), applied to JSON text:
 
-1. **A duplicate object key is refused.** Keys are compared after NFC normalization and Unicode
-   case folding, because encoding/json matches a key to a field ignoring case: `{"name":1,"NAME":2}`
-   fills one field twice, the last winning.
+1. **A duplicate object key is refused.** Keys are compared after NFC normalization: two keys that
+   are one text in two forms are one key said twice.
 2. **Invalid UTF-8 is refused,** in the raw bytes and in what a `\u` escape produces (a lone
    surrogate), where encoding/json silently puts U+FFFD in its place.
 3. **NUL (U+0000, `\u0000` too) is refused** in every string, key or value.
@@ -27354,6 +27356,14 @@ and "Resource Limits" onward), applied to JSON text:
    BONJSON's.
 6. **An unknown field stays allowed,** everywhere: a newer client that only extends a message works
    against an older server.
+8. **A key matches a struct field in its own case only.** encoding/json fills a field from a key
+   that names it in any case, so `{"name":1,"NAME":2}` would fill one field twice. A key that names
+   a field of the type being decoded only when case is ignored is refused, naming the key and the
+   field, rather than ignored, which would drop the field silently; a key that names no field in any
+   case is an unknown field (6). What is free-form keeps its keys as sent: a map's keys, and
+   anything an interface, a `json.RawMessage` or a type that decodes itself takes. With matching
+   exact, case folding has no part in the duplicate rule (1): in a map, `name` and `NAME` are two
+   keys.
 7. **Scope:** all the Go code that ships. The web client (TypeScript) is out of it, and test files
    may keep encoding/json.
 
