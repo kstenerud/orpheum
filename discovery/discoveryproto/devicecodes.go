@@ -42,9 +42,9 @@ const (
 // asked for from one place, too many claims by one core (failed, or claimed and unfinished), and a
 // device asking how its code stands faster than it may, which asks again later.
 const (
-	RefusalTooManyCodes  = "too_many_codes"
-	RefusalTooManyClaims = "too_many_claims"
-	RefusalSlowDown      = "slow_down"
+	RefusalTooManyCodes  = "tooManyCodes"
+	RefusalTooManyClaims = "tooManyClaims"
+	RefusalSlowDown      = "slowDown"
 )
 
 // ErrTooManyClaims is the discovery refusing a core's claim with RefusalTooManyClaims: the person
@@ -124,7 +124,7 @@ type DeviceCodeClaimRequest struct {
 // DeviceCodeClaimResponse is the device's public key and platform, as it asked with them, and how
 // many seconds ago it asked, which the person entering the code is shown: a code asked for long
 // before is more likely one someone sent them (the device code audit's M3). A code no device waits
-// with, or one another core claimed, is not_found.
+// with, or one another core claimed, is notFound.
 //
 // It carries the device's commitment, and once the device revealed it, its nonce (D321).
 type DeviceCodeClaimResponse struct {

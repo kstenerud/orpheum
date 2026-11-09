@@ -183,7 +183,7 @@ export async function deviceCodeState(
   try {
     answer = await postToDiscovery({ ...client, path: "/device-codes/state", body: { secret } });
   } catch (error) {
-    if (error instanceof TooMany && error.code === "slow_down") {
+    if (error instanceof TooMany && error.code === "slowDown") {
       return { state: "slowDown" };
     }
     throw error;

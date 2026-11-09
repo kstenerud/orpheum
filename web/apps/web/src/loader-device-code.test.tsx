@@ -104,7 +104,7 @@ function partsAnswering(answers: unknown[]): {
             answer.state === "slowDownIsAnsweredBy429"
           ) {
             return Promise.resolve(
-              Response.json({ code: "slow_down", message: "m" }, { status: 429 }),
+              Response.json({ code: "slowDown", message: "m" }, { status: 429 }),
             );
           }
           return Promise.resolve(Response.json(answer));

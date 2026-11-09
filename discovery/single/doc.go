@@ -33,7 +33,7 @@
 //
 //   - The installation that last held the core's realm is kept in the record and admitted at once,
 //     its live instance replaced without a ping; another, while the holder holds no signalling
-//     connection, is refused holder_away until the window has passed from the holder's last
+//     connection, is refused holderAway until the window has passed from the holder's last
 //     connection, never counted from before the discovery's start; a copy refused because the live
 //     instance answers is told to that instance, with its address and when (D437 §4, §5). Enforced
 //     by TestSession_TheLastHolderIsAdmittedAtOnceAndAnotherWaitsItsWindow and
@@ -66,7 +66,7 @@
 //
 //   - A client finds the claimed core only by what the core registered: a link's hash, by its use
 //     policy and its life, which gives a bootstrap token of five minutes, never renewed; or a
-//     device's locator. Anything else is not_found, without saying why.
+//     device's locator. Anything else is notFound, without saying why.
 //     TestLocate_ALinksHashFindsTheCoresPathsAndABootstrapTokenAndNothingElseDoes,
 //     TestLocate_ALinkOfOneUseLocatesOnceAndAnyLinkNoLongerOnceItEnds,
 //     TestPaths_ALocatorOrALiveBootstrapTokenFindsTheCoreAndSaysHowItStands.

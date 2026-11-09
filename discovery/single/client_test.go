@@ -107,7 +107,7 @@ func TestLocate_ALinksHashFindsTheCoresPathsAndABootstrapTokenAndNothingElseDoes
 	for _, hash := range []string{link.LocateHash("a secret it never registered"), everyUseSecret} {
 		if status, code := built.ask(t, discoveryproto.PathLocate, discoveryproto.LocateRequest{Hash: hash},
 			&located); status != http.StatusNotFound || code != discoveryproto.RefusalNotFound {
-			t.Errorf("locating by %q answered %d %q; want not_found", hash, status, code)
+			t.Errorf("locating by %q answered %d %q; want notFound", hash, status, code)
 		}
 	}
 }
@@ -121,12 +121,12 @@ func TestLocate_ALinkOfOneUseLocatesOnceAndAnyLinkNoLongerOnceItEnds(t *testing.
 		t.Fatalf("the first use answered %d", status)
 	}
 	if status, code := built.ask(t, discoveryproto.PathLocate, asked, &located); status != http.StatusNotFound {
-		t.Errorf("a second use of a one-use link answered %d %q; want not_found", status, code)
+		t.Errorf("a second use of a one-use link answered %d %q; want notFound", status, code)
 	}
 	built.advance(time.Hour)
 	every := discoveryproto.LocateRequest{Hash: link.LocateHash(everyUseSecret)}
 	if status, code := built.ask(t, discoveryproto.PathLocate, every, &located); status != http.StatusNotFound {
-		t.Errorf("a link past its life answered %d %q; want not_found", status, code)
+		t.Errorf("a link past its life answered %d %q; want notFound", status, code)
 	}
 }
 
@@ -160,7 +160,7 @@ func TestPaths_ALocatorOrALiveBootstrapTokenFindsTheCoreAndSaysHowItStands(t *te
 		"a locator never registered": {Locator: "another"}, "nothing": {},
 	} {
 		if status, code := built.ask(t, discoveryproto.PathPaths, asked, &paths); status != http.StatusNotFound {
-			t.Errorf("paths by %s answered %d %q; want not_found", name, status, code)
+			t.Errorf("paths by %s answered %d %q; want notFound", name, status, code)
 		}
 	}
 }
@@ -336,7 +336,7 @@ func TestDeadEnd_IsCountedForTheCoresWeekAndToldInTheHeartbeatsAnswer(t *testing
 	}
 	if status, _ := built.ask(t, discoveryproto.PathDeadEnd, byLocator("another"),
 		&nothing); status != http.StatusNotFound {
-		t.Errorf("a dead end by a locator never registered answered %d; want not_found, uncounted", status)
+		t.Errorf("a dead end by a locator never registered answered %d; want notFound, uncounted", status)
 	}
 	heartbeat := func() int {
 		t.Helper()

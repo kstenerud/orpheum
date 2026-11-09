@@ -48,7 +48,7 @@ async function asADiscoverysPage(page: Page): Promise<string[]> {
       status: 404,
       contentType: "application/json",
       headers: { "access-control-allow-origin": "*", "access-control-allow-headers": "*" },
-      body: JSON.stringify({ code: "not_found" }),
+      body: JSON.stringify({ code: "notFound" }),
     });
   });
   return asked;

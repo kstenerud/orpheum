@@ -121,25 +121,25 @@ type Refusal struct {
 const (
 	// RefusalEnrolAgain is a discovery that holds no core of this id and key: the core enrols again
 	// and shows the code it is given.
-	RefusalEnrolAgain = "enrol_again"
+	RefusalEnrolAgain = "enrolAgain"
 	// RefusalAnotherInstance is another instance of this core, still answering, holding the
 	// discovery's connection: this one is a copy, which says so and stops asking, until its admin
 	// says to ask again or it restarts (D293 §1, D437 §3). The discovery sends the instance it kept a
 	// SignalCopyRefused on its signalling connection.
-	RefusalAnotherInstance = "another_instance"
+	RefusalAnotherInstance = "anotherInstance"
 	// RefusalHolderAway is a session asked for by an installation other than the one that last held
 	// the core's realm, while that one is away and its window lasts (SessionRequest.InstallationID;
 	// D437 §5): the core waits Refusal.RetryAfterSeconds and asks again. Answered with 409, as
 	// RefusalAnotherInstance is.
-	RefusalHolderAway = "holder_away"
+	RefusalHolderAway = "holderAway"
 	// RefusalNotClaimed is a call only a claimed core makes, from a core not yet claimed.
-	RefusalNotClaimed = "not_claimed"
+	RefusalNotClaimed = "notClaimed"
 	// RefusalVersion is a call in a major the discovery does not serve, or with no version at all:
 	// its message names the versions it serves (the protocol's §5).
-	RefusalVersion = "unsupported_version"
+	RefusalVersion = "unsupportedVersion"
 	// RefusalWrongKey is a claim whose key is none the discovery holds live: mistyped, spent,
 	// expired, or the account's tries spent for now (the protocol's §2.2).
-	RefusalWrongKey = "wrong_key"
+	RefusalWrongKey = "wrongKey"
 )
 
 // ClaimRequest is a pending core's claim by its household's key, as its admin typed it; the
@@ -265,11 +265,11 @@ const (
 	// ProbeRefused is nothing answering at the address and port.
 	ProbeRefused = "refused"
 	// ProbeTimedOut is no answer in the probe's time.
-	ProbeTimedOut = "timed_out"
+	ProbeTimedOut = "timedOut"
 	// ProbeTLS is a server that answered without a certificate for the candidate's name.
 	ProbeTLS = "tls"
 	// ProbeWrongCore is a server with a certificate for the name that did not answer the core's nonce.
-	ProbeWrongCore = "wrong_core"
+	ProbeWrongCore = "wrongCore"
 )
 
 // Where a core can be reached from, named by what the probe found to work (the protocol's §2.6; C10).
@@ -314,7 +314,7 @@ const (
 	// it, an IP address with no port, and At when, in Unix milliseconds. Its OfferID is empty and the
 	// core sends no reply; a core before D437 ignores it, as it ignores any type it does not know
 	// (D437 §4).
-	SignalCopyRefused = "copy_refused"
+	SignalCopyRefused = "copyRefused"
 )
 
 // SignalMessage is one message on the signalling connection: an offer the discovery passes on, and
