@@ -55,8 +55,8 @@ The sign-in worked; the phone and the server found no way to each other. Common 
   data or on Wi-Fi, with any VPN off; `test-ipv6.com` on the phone shows whether it has IPv6.
 - **The server has no IPv6 route out**: the two entries above.
 
-Each such failure is counted on the server's **System → Discovery** page ("Times in the last week
-a client found no way to reach this server").
+Each such failure is counted in the **Remote access** section of the server's **System** page
+("Times in the last week a device found no way to reach this server").
 
 ## Signing in by realm says "The realm, name or password is wrong" just after the realm was given or changed
 
@@ -241,7 +241,8 @@ and `run` folders yourself, owned by that user.
 ### Where is the setup code? The core's log has scrolled away
 
 Until the first admin is made, it is in `SETUP-CODE.txt` in `appdata/orpheum` (D449), readable by
-the app user (`APPUSER_PUID`) alone. The core also writes it to its log at every start: restart
+the app user (`APPUSER_PUID`) alone: on OpenMediaVault, where that user is not the one you browse
+the shared folders as, the log is the way. The core also writes it to its log at every start: restart
 `orpheum-core`, or run `docker exec orpheum-core orpheum setup-code --instance /var/lib/orpheum/core`.
 
 ### Admin is refused: "only from the home network"

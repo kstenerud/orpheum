@@ -11,18 +11,32 @@ VAAPI is amd64 only; an ARM board encodes in software.
 
 There are two ways to install it:
 
-- **One compose file** ([below](#one-compose-file)): paste it into OpenMediaVault, Portainer or
-  any compose tool, or put it in a folder, fill in three values, and start it. Every start
+- **One compose file** ([below](#one-compose-file)): paste it into OpenMediaVault, a Synology's
+  Container Manager, Portainer or any compose tool, or put it in a folder, fill in a few values, and
+  start it. Every start
   writes the server's settings from those values (D447, D449); nothing runs on the machine itself.
 - **The install script** ([the other route](#the-install-script)): one command at a terminal,
   which finds the machine's address, starts the server and asks for the first admin there.
 
 Something went wrong? [setup-problems.md](setup-problems.md) lists what has, and the fixes.
 
+If you were invited to the Orpheum service (orpheum.cc), which lets your household watch from
+anywhere, the whole way is:
+
+1. Open the invitation link and make your account there, choosing your realm
+   ([your account](#your-account-at-orpheumcc)). You can do this at any point before step 5.
+2. Install the server, on [OpenMediaVault](#openmediavault), a [Synology](#synology) or
+   [any machine with Docker](#on-any-machine-with-docker).
+3. Make yourself its [first admin](#the-first-admin), with the setup code.
+4. Add a [library](#your-first-library) of your films or series.
+5. [Connect the server to your account](#connect-it-to-your-account), with a key from your account's
+   page.
+6. [Watch](#watching), at home or away.
+
 ## One compose file
 
 The file is [`deploy/omv/compose.yaml`](../../deploy/omv/compose.yaml). It reads these variables;
-the first three are needed, and compose refuses to start without them.
+the first two are needed, and compose refuses to start without them.
 
 | Variable | What it is | Unless set |
 | --- | --- | --- |
@@ -30,7 +44,7 @@ the first three are needed, and compose refuses to start without them.
 | `ORPHEUM_MEDIA` | the folder that holds your films and series, as the machine names it: one that does not exist stops the start, naming it | needed |
 | `ORPHEUM_LAN_ADDRESS` | the machine's address on your home network, `192.168.1.20`: not needed, as the server learns it from the first browser at home, and the setup page asks if it cannot tell; keep it fixed with a reservation in your router | optional |
 | `ORPHEUM_MEDIA_2`, `ORPHEUM_MEDIA_3`, `ORPHEUM_MEDIA_4` | more folders of films and series, as the machine names them | none |
-| `ORPHEUM_TAG` | the version to run | the file's |
+| `ORPHEUM_TAG` | the version to run, such as `v0.3.3` | `latest`: each new release, when you pull it |
 | `APPUSER_PUID`, `APPUSER_PGID` | the user and group the server runs as, which own its data and must be able to read the media | 1000, 100 |
 | `TIME_ZONE_VALUE` | the server's time zone, `Europe/Berlin` | UTC |
 | `ORPHEUM_HTTP_PORT` | the port a browser at home opens it on: `http://<address>:8440` | 8440 |
@@ -47,6 +61,9 @@ the server does not show it.
 At every start the core writes its settings into `PATH_TO_APPDATA/orpheum` from these values, so to
 change one, change the variable and start it again (D449): its database, people, libraries and keys
 are kept. `values.toml` there is written from the variables each time, so an edit to it is lost.
+
+To get the file: open [`deploy/omv/compose.yaml`](../../deploy/omv/compose.yaml) on GitHub and press
+**Copy raw file** (two overlapping squares, at the top right of the file); it is then ready to paste.
 
 ### On any machine with Docker
 
@@ -74,12 +91,25 @@ plugin's settings (**Services > Compose > Settings**, Docker's status *Installed
 1. **Shared folders.** In **Storage > Shared Folders** you have, or make, a folder for your media
    (`Media`) and one for app data (`appdata`), as omv-extras' guide sets up. Each lies on a disk at
    a path like `/srv/dev-disk-by-uuid-1234abcd-…/Media`: the **Absolute Path** column shows it
-   (switch it on from the column menu if it is hidden).
+   (switch it on from the column menu if it is hidden). To make one, **+ (Create)**, give it its
+   name and the disk, and **Save**. After each change OpenMediaVault shows a yellow bar asking to
+   apply it: press its tick (**Apply**), or the change does not take.
 2. **The global environment.** In **Services > Compose > Files**, **Edit global environment file**
    should already set `PATH_TO_APPDATA` (the appdata folder's absolute path), `APPUSER_PUID` and
    `APPUSER_PGID` (the user apps run as, `appuser` in the guide) and `TIME_ZONE_VALUE`. Orpheum
-   uses these as every app does. The app user needs read access to the media folder: **Storage >
-   Shared Folders > Media > Permissions**, *Read-only* or *Read/Write* for that user.
+   uses these as every app does. If yours is empty, add them, with your own path and numbers:
+
+   ```sh
+   PATH_TO_APPDATA=/srv/dev-disk-by-uuid-1234abcd-…/appdata
+   APPUSER_PUID=1000
+   APPUSER_PGID=100
+   TIME_ZONE_VALUE=Europe/Berlin
+   ```
+
+   The user's number is its **UID** in **Users > Users** (switch the column on if it is hidden),
+   and 100 is the group `users`, which OpenMediaVault puts every user in. The app user needs read
+   access to the media folder: **Storage > Shared Folders**, select `Media`, **Permissions**,
+   *Read-only* or *Read/Write* for that user, **Save**.
 3. **The port.** OpenMediaVault's own web interface takes port 80, and 443 when its HTTPS is on;
    omv-extras' guide moves it to 8443 to free them. Orpheum takes none of these: its plain page is
    on 8440 and its HTTPS on 8444. If something else has either, set `ORPHEUM_HTTP_PORT` or
@@ -91,14 +121,14 @@ plugin's settings (**Services > Compose > Settings**, Docker's status *Installed
    ORPHEUM_MEDIA=/srv/dev-disk-by-uuid-1234abcd-…/Media
    ```
 
-   The address is the one OpenMediaVault's **Dashboard** shows under its network, or **Network >
-   Interfaces**. **Save**.
+   with the media folder's own **Absolute Path** from step 1, capitals included. **Save**.
 5. **Start it.** Select the `orpheum` file and press **Up**. The first time it pulls the image, so
    give it a minute. Three containers appear in **Services > Compose > Containers**:
    `orpheum-folders`, which prepares the data folder and stops (*exited* is right), then
    `orpheum-core` and `orpheum-node`, both *healthy* once up.
-6. Make the [first admin](#the-first-admin), reading the log from **Services > Compose >
-   Containers**: select `orpheum-core`, then **Logs**.
+6. Make the [first admin](#the-first-admin), reading the setup code from the log: **Services >
+   Compose > Containers**, select `orpheum-core`, then **Logs**. (The code's file in `appdata` is
+   readable by the app user alone, so the log is the easier way here.)
 
 To update, change `ORPHEUM_TAG` in the file's **Environment** (or leave it and take the file's
 newer version), then **Pull** and **Up**. To stop it, **Down**; its data stays in
@@ -143,7 +173,10 @@ the sandbox still holds.
    1. Turn on SSH: **Control Panel → Terminal & SNMP**, tick **Enable SSH service**, **Apply**.
    2. On your computer, open a terminal (Windows: **PowerShell**; Mac: **Terminal**) and type
       `ssh <your user>@<the Synology's address>`, such as `ssh anna@192.168.1.30`, then the password
-      you sign in to DSM with.
+      you sign in to DSM with. The address is the one in your browser's address bar when you use
+      DSM, without the `:5000` after it. The user must be an administrator, as the one you set the
+      Synology up with is. The first time, it asks whether to trust the machine: type `yes`. The
+      password does not show as you type it.
    3. Type `id` and press Enter. It shows something like:
 
       ```
@@ -157,20 +190,37 @@ the sandbox still holds.
 
    This user must be able to read the media folder: **Control Panel → Shared Folder**, select it,
    **Edit → Permissions**, and *Read only* or *Read/Write* for that user.
-4. **The project.** **Container Manager → Project → Create**: name it `orpheum`, give it a new folder
-   inside the data folder (`/volume1/docker/orpheum-project`), and paste
-   [`deploy/omv/compose.yaml`](../../deploy/omv/compose.yaml) as the file.
-5. **Its settings.** Beside that file, in the project's folder, put a file named `.env` holding your
-   own values from steps 1–3 (make it on your computer and upload it with **File Station**):
+4. **Its settings.** In **File Station**, make a folder for the project inside the data folder
+   (**Create → Create folder**), `orpheum-project`, so `/volume1/docker/orpheum-project`. Put in it a
+   file named `.env` holding your own values from steps 1–3:
 
    ```
    PATH_TO_APPDATA=<the data folder from step 2>
    ORPHEUM_MEDIA=<the media folder from step 1>
    APPUSER_PUID=<the uid from step 3>
    APPUSER_PGID=<the gid from step 3>
+   TIME_ZONE_VALUE=Europe/Berlin
    ```
 
-6. Build and start it, then follow [the first admin](#the-first-admin).
+   such as `PATH_TO_APPDATA=/volume1/docker`, with your own time zone. Write it on your computer
+   in a plain text editor (Windows: **Notepad**; Mac: **TextEdit**, then **Format → Make Plain
+   Text**) and save it as `env.txt`. Upload it into `orpheum-project` (**Upload**), then
+   right-click it, **Rename**, and name it `.env`, with the dot and nothing after. It must be there
+   before step 5, which starts the server.
+5. **The project.** **Container Manager → Project → Create**: name it `orpheum`; for **Path**, choose
+   the `orpheum-project` folder; for **Source**, **Create docker-compose.yml**, and paste
+   [the compose file](#one-compose-file) into the box. **Next** past the web portal page, and on the
+   last page leave **Start the project once it is created** ticked, then **Done**. The first time it
+   pulls the image, so give it a few minutes. In **Container Manager → Container**, `orpheum-folders`
+   has stopped (that is right: it only prepares the data folder), and `orpheum-core` and
+   `orpheum-node` are running.
+6. Make the [first admin](#the-first-admin). The setup code is in the log: **Container Manager →
+   Container**, select `orpheum-core`, **Details**, then the **Log** tab. It is also in
+   `SETUP-CODE.txt` in the data folder's `orpheum` folder (`/volume1/docker/orpheum`), which File
+   Station can download for you to open.
+
+If DSM's firewall is on (**Control Panel → Security → Firewall**), allow ports 8440 and 8444 (TCP,
+and 8444 UDP too), or the server's page does not open from your other devices.
 
 Other Synology models whose DSM runs an older Linux than 5.13 lack Landlock too, and the System page
 says so the same way.
@@ -190,25 +240,41 @@ the groups it is given. Without a GPU, films that need preparing are encoded in 
 On its first start, and on every start until someone is made admin, the core makes a one-time
 **setup code**. It is in the file **`SETUP-CODE.txt`** in `PATH_TO_APPDATA/orpheum` (on
 OpenMediaVault, the `appdata` shared folder's `orpheum` folder), readable by the app user alone and
-removed once the first admin is made. It is also in the core's log, in a line that begins
-`no one can sign in yet` and ends `setupCode=xxxx-xxxx-xxxx`:
+removed once the first admin is made. It is also in the core's log, in a line that says
+`no one can sign in yet` and ends `setupCode=` and the code, three groups of four letters and
+digits such as `7kqm-2xhp-9rtw`:
 
 - OpenMediaVault: **Services > Compose > Containers**, `orpheum-core`, **Logs**.
+- Synology: **Container Manager → Container**, `orpheum-core`, **Details**, **Log**.
 - Elsewhere: `docker logs orpheum-core 2>&1 | grep setupCode`.
 - Or ask for it: `docker exec orpheum-core orpheum setup-code --instance /var/lib/orpheum/core`.
 
+No file and no such line, and no one made admin yet? Restart `orpheum-core`: each start writes both
+again until an admin exists. If they are gone because the admin was made, sign in as that admin.
+
 Then open `http://<the machine's address>:8440` (or the port `ORPHEUM_HTTP_PORT` names, which the
-file and the log line give) in a browser **on your home network**, and give the code, a name and a
-password. That person is the admin. An admin can administer only from the home
-network; the server learns the machine's address there from this first browser.
+file and the log line give) in a browser **on your home network**. The machine's address is the one
+in your browser's address bar when you open the NAS's own page, without the port after it: open
+that page at `192.168.1.30:5000`, and Orpheum is at `http://192.168.1.30:8440`. The page that
+opens, **Set up this server**, asks the **Setup code**, a name and a password: these are the name
+and password you sign in to Orpheum with, your own, not the NAS's. If it also asks for this
+server's address in the house, give the same address. **Create the admin**: you are the admin. An
+admin can administer only from the home network; the server learns the machine's address there
+from this first browser.
 
 If the server refuses admin because it does not count your browser as at home (a VPN, a second
 network), open it on the machine itself instead: `http://127.0.0.1:8441` (`ORPHEUM_THIS_MACHINE_PORT`)
 is published on the machine's own loopback alone, and the server counts it as home (D334 §4). From
 another computer, `ssh -L 8441:127.0.0.1:8441 <the machine>` and open the same address there.
 
-Next, make a library: its folder is one of your media folders, by the machine's own name
-([above](#one-compose-file)).
+### Your first library
+
+In the menu, under **Manage**, open **Libraries**, then **Create a library**. Give it a **Name**,
+choose **What it holds** (**Films** or **Series**: a library holds one kind, so films and series
+are a library each), and under **Folders this library reads** tick your media folder, which shows
+by the machine's own name ([above](#one-compose-file)); if your films and series are in folders
+inside it, press **Choose a folder inside one…** and pick that folder. **Create and scan**: the
+films appear as the scan finds them.
 
 ## From a catalogue
 
@@ -219,12 +285,49 @@ learned, as above.
 ## From away from home (optional)
 
 At home, devices reach the server directly. To reach it from away, the server is paired with your
-Orpheum account's hosted discovery, from the discovery section of the server's **System** page,
-as an admin at home. Devices away from home then sign in at the discovery's page with your realm, and
+Orpheum account at orpheum.cc, from the **Remote access** section of the server's **System** page,
+as an admin at home. Devices away from home then sign in at orpheum.cc with your realm, and
 reach the server over WebRTC, with no port to open. Setting `ORPHEUM_ROUTER` lets the server ask
 the router to forward its HTTPS port, which helps where the router allows it. There is no relay:
 a device that can meet the server only through one does not connect, and the System page counts
 each time.
+
+### Your account at orpheum.cc
+
+1. Open the invitation link you were sent, which opens `account.orpheum.cc`. **Make your Orpheum
+   account** asks your e-mail address, a password of at least 15 characters (this account's own,
+   not the server's), and **Choose your realm**: the name your household signs in to your server by, 5 to 32 letters and digits, with
+   hyphens between them, such as `annanas`. It is yours alone and cannot be changed, so choose it
+   with care. **Make my account**.
+2. Open the link in the e-mail it sends you, within 24 hours (**Send a new link** on your account's
+   page sends another). An account not verified within 7 days is deleted.
+
+### Connect it to your account
+
+With the server installed and you its admin, on a computer at home:
+
+1. **A key.** Sign in to your account at `https://account.orpheum.cc`, where the invitation took
+   you. Under **Your server**, it asks your orpheum.cc password again; then press **Make a key**. The key shows on the page, with the time it works
+   until. Leave the page open.
+2. **Connect.** In Orpheum, at `http://<the machine's address>:8440`, open the menu, under **Manage**,
+   **System**, and find **Remote access**. **The discovery's name** already says `orpheum.cc`: type
+   **Your password**, the one you sign in to Orpheum with, and press **Connect**. It says *Connected
+   to the Orpheum service* and *Waiting to be claimed.* (Your account's page calls this place
+   **System → Discovery**.)
+3. **Claim it.** Under **Your account's key**, type or paste the key from step 1, and your Orpheum
+   password again, and press **Claim**. It says *Claimed: clients can find this server.* and
+   names your realm; your account's page says your server was enrolled. If the key is refused, make
+   a new one and try again.
+
+### Watching
+
+- **At home**, open `http://<the machine's address>:8440`.
+- **Anywhere**, open `https://orpheum.cc` and sign in with your **Realm**, your **Name** and your
+  **Password** on the server. This works for you once the claim is done.
+
+To add someone, in the menu under **Manage**, **Users**, **Invite someone** makes a link for them.
+Each person signs in once at home, or through their own link, before signing in by the realm
+works for them ([why](setup-problems.md#signing-in-by-realm-says-the-realm-name-or-password-is-wrong-just-after-the-realm-was-given-or-changed)).
 
 ## The install script
 
