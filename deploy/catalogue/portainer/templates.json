@@ -6,7 +6,7 @@
       "type": 3,
       "title": "Orpheum",
       "description": "A self-hosted video media server: your films and series in any browser and on TVs, at home and away",
-      "note": "Set the data folder, the media folder and this machine's address at home. Once it is up, open http://&lt;that address&gt;:8440 and enter the one-time setup code: it is in SETUP-CODE.txt in the data folder's orpheum folder, and in the orpheum-core container's log. <a href=\"https://github.com/kstenerud/orpheum/blob/main/docs/users/install.md\">The install guide</a> says more.",
+      "note": "Set the data folder and the media folder. Once it is up, open http://&lt;this machine's address&gt;:8440 from home and enter the one-time setup code: it is in SETUP-CODE.txt in the data folder's orpheum folder, and in the orpheum-core container's log. <a href=\"https://github.com/kstenerud/orpheum/blob/main/docs/users/install.md\">The install guide</a> says more.",
       "categories": ["multimedia"],
       "platform": "linux",
       "logo": "https://raw.githubusercontent.com/kstenerud/orpheum/main/web/apps/web/public/icon-192.png",
@@ -28,7 +28,7 @@
         {
           "name": "ORPHEUM_LAN_ADDRESS",
           "label": "Address at home",
-          "description": "This machine's address on your home network, 192.168.1.20; keep it fixed with a reservation in the router"
+          "description": "Optional: this machine's address on your home network, 192.168.1.20; learned from the first browser at home when not set"
         },
         {
           "name": "ORPHEUM_MEDIA_2",
@@ -97,12 +97,6 @@
           "label": "Node name",
           "description": "The name the media node goes by in the server's pages",
           "default": "orpheum"
-        },
-        {
-          "name": "ORPHEUM_IPV6_SUBNET",
-          "label": "IPv6 subnet",
-          "description": "The private IPv6 /64 of its network, if the default is taken",
-          "default": "fd77:5e:0:ffff::/64"
         }
       ]
     }

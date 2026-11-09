@@ -28,7 +28,7 @@ the first three are needed, and compose refuses to start without them.
 | --- | --- | --- |
 | `PATH_TO_APPDATA` | the folder that holds each app's data; Orpheum keeps its own in `orpheum/` there | needed |
 | `ORPHEUM_MEDIA` | the folder that holds your films and series, as the machine names it | needed |
-| `ORPHEUM_LAN_ADDRESS` | the machine's address on your home network, `192.168.1.20`; keep it fixed with a reservation in your router | needed |
+| `ORPHEUM_LAN_ADDRESS` | the machine's address on your home network, `192.168.1.20`: not needed, as the server learns it from the first browser at home, and the setup page asks if it cannot tell; keep it fixed with a reservation in your router | optional |
 | `ORPHEUM_MEDIA_2`, `ORPHEUM_MEDIA_3`, `ORPHEUM_MEDIA_4` | more folders of films and series, as the machine names them | none |
 | `ORPHEUM_TAG` | the version to run | the file's |
 | `APPUSER_PUID`, `APPUSER_PGID` | the user and group the server runs as, which own its data and must be able to read the media | 1000, 100 |
@@ -57,7 +57,6 @@ are kept. `values.toml` there is written from the variables each time, so an edi
    ```sh
    PATH_TO_APPDATA=/srv/appdata
    ORPHEUM_MEDIA=/srv/media
-   ORPHEUM_LAN_ADDRESS=192.168.1.20
    APPUSER_PUID=1000
    APPUSER_PGID=1000
    TIME_ZONE_VALUE=Europe/Berlin
@@ -91,7 +90,6 @@ plugin's settings (**Services > Compose > Settings**, Docker's status *Installed
 
    ```sh
    ORPHEUM_MEDIA=/srv/dev-disk-by-uuid-1234abcd-…/Media
-   ORPHEUM_LAN_ADDRESS=192.168.1.20
    ```
 
    The address is the one OpenMediaVault's **Dashboard** shows under its network, or **Network >
@@ -106,6 +104,31 @@ plugin's settings (**Services > Compose > Settings**, Docker's status *Installed
 To update, change `ORPHEUM_TAG` in the file's **Environment** (or leave it and take the file's
 newer version), then **Pull** and **Up**. To stop it, **Down**; its data stays in
 `appdata/orpheum`.
+
+### Synology
+
+On DSM 7.2 or newer with Container Manager:
+
+1. Make a folder for the server's data, `/volume1/docker`, in **File Station**.
+2. **Container Manager → Project → Create**: name it `orpheum`, its path a folder of its own, and
+   paste [`deploy/omv/compose.yaml`](../../deploy/omv/compose.yaml) as the file.
+3. Give it a `.env` beside the file:
+
+   ```
+   PATH_TO_APPDATA=/volume1/docker
+   ORPHEUM_MEDIA=/volume1/video
+   APPUSER_PUID=1026
+   APPUSER_PGID=100
+   ```
+
+   `APPUSER_PUID` is your user's number, which `id` prints over SSH (the first user is usually
+   1026); 100 is the `users` group.
+4. Build and start it, then follow [the first admin](#the-first-admin).
+
+Synology's older kernels lack Landlock: the server runs, and the System page says which kernel
+brings it. The DS218 (not the DS218+) has no official Container Manager; a community script installs
+Docker on such models, which this project neither tests nor vouches for. An ARM board cannot
+re-encode video in real time: it plays what the device can play as it is.
 
 ### Hardware encoding
 
@@ -129,9 +152,9 @@ removed once the first admin is made. It is also in the core's log, in a line th
 - Elsewhere: `docker logs orpheum-core 2>&1 | grep setupCode`.
 - Or ask for it: `docker exec orpheum-core orpheum setup-code --instance /var/lib/orpheum/core`.
 
-Then open `http://<ORPHEUM_LAN_ADDRESS>:8440` in a browser **on your home network**, and give the
+Then open `http://<the machine's address>:8440` in a browser **on your home network**, and give the
 code, a name and a password. That person is the admin. An admin can administer only from the home
-network, the one `ORPHEUM_LAN_ADDRESS` is on.
+network; the server learns the machine's address there from this first browser.
 
 If the server refuses admin because it does not count your browser as at home (a VPN, a second
 network), open it on the machine itself instead: `http://127.0.0.1:8441` (`ORPHEUM_THIS_MACHINE_PORT`)
@@ -144,8 +167,8 @@ Next, make a library: its folder is one of your media folders, by the machine's 
 ## From a catalogue
 
 [`deploy/catalogue/`](../../deploy/catalogue/README.md) holds the same compose file packaged for
-Portainer's app templates and CasaOS's app store. They ask the same values; the address at home must
-still be given.
+Portainer's app templates and CasaOS's app store. They ask the same values; the address at home is
+learned, as above.
 
 ## From away from home (optional)
 

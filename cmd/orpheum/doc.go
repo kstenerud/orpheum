@@ -39,10 +39,12 @@
 //     own packages do not (D33); what both roles need is in internal/platform. Enforced by the
 //     depguard rule node-role-boundary.
 //   - start writes the deployment's configs and values file from its flags at every start, the
-//     values file last, making the instances only where missing, and needs --lan-address to
-//     (D447, D449 §1). Enforced by TestFirstStart_WritesTheDeploymentFromItsFlagsWhenThereIsNone,
-//     TestStart_WritesTheConfigsAgainFromTheFlagsAtEveryStart and
-//     TestFirstStart_RefusesToWriteWithoutTheAddressAtHome.
+//     values file last, making the instances only where missing, and nothing outside the
+//     deployment's directory; an empty --lan-address is learned once the core runs (D447, D449 §1,
+//     D452 §5). Enforced by TestFirstStart_WritesTheDeploymentFromItsFlagsWhenThereIsNone,
+//     TestStart_WritesTheConfigsAgainFromTheFlagsAtEveryStart,
+//     TestFirstStart_WritesTheDeploymentWithoutTheAddressAtHome and
+//     TestFirstStart_RefusesWithoutTheDeploymentsDirectory.
 //   - While no admin exists, the core started by start keeps the setup code in SETUP-CODE.txt in
 //     the deployment, mode 0600, and removes it with the first admin (D449 §3). Enforced by
 //     TestServe_ShowsTheSetupCodeInTheDataFolderUntilTheFirstAdmin.

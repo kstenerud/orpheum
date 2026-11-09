@@ -25,8 +25,9 @@ const startMedia = "/media"
 const setupCodeFile = "SETUP-CODE.txt"
 
 // startUsage says how a compose file runs the core of a deployment it starts on its own (D447, D449).
-const startUsage = `usage: orpheum start --lan-address <address> [--media <folder>]... [--lan-https-port <port>]
-                     [--lan-webrtc-port <port>] [--this-machine-port <port>] [--router <address>]
+const startUsage = `usage: orpheum start [--lan-address <address>] [--media <folder>]... [--http-port <port>]
+                     [--lan-https-port <port>] [--lan-webrtc-port <port>] [--this-machine-port <port>]
+                     [--router <address>]
 
 Runs the core of a deployment whose directory is mounted at ` + deploymentMount + ` and its run/ at
 ` + deploymentRun + `, as one compose file starts it (deploy/omv/compose.yaml). At every start it writes the
@@ -35,13 +36,15 @@ the instances the first time and keeping them, the database and everything else 
 flag in the compose file and start again. While no admin exists, the setup code is also in
 ` + setupCodeFile + ` in the directory.
 
-  --lan-address        this machine's address on the house's network, 192.168.1.20 (needed)
+  --lan-address        this machine's address on the house's network, 192.168.1.20; learned from the first
+                       browser at home when empty (D452 §5)
   --media              a media folder as the node sees it (` + startMedia + ` unless named); repeat for more,
                        an empty one is skipped
-  --lan-https-port     the port HTTPS is published on at that address (8443 unless named)
-  --lan-webrtc-port    the UDP port WebRTC is published on there, the same inside (8443 unless named)
-  --this-machine-port  the port published on this machine's loopback alone, the same inside, a browser on
-                       which is at home (8441 unless named)
+  --http-port          the port the core takes plain HTTP on from the house's network (8440 unless named)
+  --lan-https-port     the port it serves HTTPS on there (8443 unless named)
+  --lan-webrtc-port    the UDP port it takes WebRTC on there (8443 unless named)
+  --this-machine-port  the port it takes on this machine's loopback alone, a browser on which is at home
+                       (8441 unless named)
   --router             the house's router, which port mapping asks to forward the HTTPS port; none maps nothing
 `
 
@@ -50,6 +53,7 @@ flag in the compose file and start again. While no admin exists, the setup code 
 type startOptions struct {
 	lanAddress      string
 	media           []string
+	httpPort        int
 	httpsPort       int
 	webrtcPort      int
 	thisMachinePort int
@@ -95,6 +99,7 @@ func parseStart(arguments []string, stderr io.Writer) (startOptions, bool) {
 		}
 		return nil
 	})
+	flags.IntVar(&options.httpPort, "http-port", defaults.HTTP.Port, "the port plain HTTP is taken on")
 	flags.IntVar(&options.httpsPort, "lan-https-port", defaults.LAN.HTTPSPort, "the port HTTPS is published on")
 	flags.IntVar(&options.webrtcPort, "lan-webrtc-port", defaults.LAN.WebRTCPort, "the UDP port WebRTC is published on")
 	flags.IntVar(&options.thisMachinePort, "this-machine-port", defaults.HTTP.ThisMachinePort,
@@ -115,12 +120,10 @@ func parseStart(arguments []string, stderr io.Writer) (startOptions, bool) {
 	return options, true
 }
 
-// errNoLANAddress is a start's refusal when it is not told this machine's address at home, which its
-// container cannot see, and which the house's network, the one an admin administers from, is found
-// by.
-var errNoLANAddress = errors.New("--lan-address is needed: this machine's address on the " +
-	"house's network, 192.168.1.20, which the server's container cannot see (in the compose file, " +
-	"ORPHEUM_LAN_ADDRESS); keep it fixed with a reservation in the router")
+// errNoDeployment is a start's refusal when the deployment's directory is not there: the compose file
+// mounts the data folder's orpheum/ there, and start makes nothing outside it.
+var errNoDeployment = errors.New("the deployment's directory is not there; the compose file mounts the data " +
+	"folder's orpheum folder at it")
 
 // startDeployment writes the deployment in dir, its instances' run directories in runDir, from
 // options, at every start (D449 §1): the instances the first time, kept after, and the core's and the
@@ -128,10 +131,11 @@ var errNoLANAddress = errors.New("--lan-address is needed: this machine's addres
 // `write-deployment` writes them on each install (D272 §7). The values file is written last, so it
 // never says what the configs do not.
 func startDeployment(dir, runDir, hostName string, options startOptions) error {
-	if options.lanAddress == "" {
-		return errNoLANAddress
+	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+		return fmt.Errorf("%w: %s", errNoDeployment, dir)
 	}
 	values := deployment.StartingValues(deployment.Release)
+	values.HTTP.Port = options.httpPort
 	values.Media.Roots = options.media
 	values.LAN.Address = options.lanAddress
 	values.LAN.HTTPSPort = options.httpsPort

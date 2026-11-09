@@ -5,7 +5,6 @@ package deployment
 import (
 	"fmt"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -28,8 +27,8 @@ func TestWrite_TheCoreAdministersOnlyFromTheHousesNetwork(t *testing.T) {
 	if got := fmt.Sprint(values.HomeNetworks()); got != "[127.0.0.0/8 ::1/128]" {
 		t.Errorf("with no address at home the home networks are %v; want the loopback alone", got)
 	}
-	if err := Write(dir, values, runtime); err == nil || !strings.Contains(err.Error(), "lan.address") {
-		t.Errorf("writing with no address at home = %v; want it refused, naming lan.address", err)
+	if err := Write(dir, values, runtime); err != nil {
+		t.Errorf("writing with no address at home = %v; want it written, as it is learned (D452 §5)", err)
 	}
 }
 

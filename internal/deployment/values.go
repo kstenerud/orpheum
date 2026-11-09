@@ -133,7 +133,7 @@ const lanHTTPSPortDefault = 8443
 // written from them; the first start (D447) fills in what its command line gives.
 func StartingValues(kind Kind) Values {
 	values := Values{Deployment: kind}
-	values.HTTP.Publish = "0.0.0.0"
+	values.HTTP.Publish = everyAddress
 	values.HTTP.Port = 8440
 	values.HTTP.ThisMachinePort = thisMachinePortDefault
 	values.LAN.HTTPSPort = lanHTTPSPortDefault
@@ -182,9 +182,11 @@ func (values Values) TunnelMTU() int {
 	return mtuOverIPv4
 }
 
-// httpsPort is the port the core serves HTTPS on (templates/core.toml's https.listen), which the VPS
-// forwards.
+// httpsPort is the port the core serves HTTPS on with a tunnel (HTTPSListen), which the VPS forwards.
 const httpsPort = "443"
+
+// plainPortInside is the port the core takes plain HTTP on in a network of its own, with a tunnel.
+const plainPortInside = "8440"
 
 // ConfiguredAddresses are the VPS's public addresses on the HTTPS port, which the core sends its
 // discovery as configured candidates: the VPS forwards them through the tunnel (the protocol's §2.4;
@@ -209,13 +211,52 @@ func (values Values) LANAddresses() []string {
 	return []string{net.JoinHostPort(values.LAN.Address, strconv.Itoa(values.LAN.HTTPSPort))}
 }
 
-// WebRTCUDPPort is the UDP port the core takes WebRTC on, published at the house's address on the
-// same port (D300 §1); 0, none, when the values file names no address at home.
-func (values Values) WebRTCUDPPort() int {
-	if values.LAN.Address == "" {
-		return 0
+// WebRTCUDPPort is the UDP port the core takes WebRTC on, the same at the house's address (D300 §1):
+// always the port, as an address at home not named is learned once the core runs (D452 §5).
+func (values Values) WebRTCUDPPort() int { return values.LAN.WebRTCPort }
+
+// everyAddress is http.publish's "every address of this machine".
+const everyAddress = "0.0.0.0"
+
+// listenHost is the host the core's listeners at home take with no tunnel, when it shares this
+// machine's network (D454 §5): http.publish's address, or none, every address of both families, for
+// "0.0.0.0".
+func (values Values) listenHost() string {
+	if values.HTTP.Publish == everyAddress {
+		return ""
 	}
-	return values.LAN.WebRTCPort
+	return values.HTTP.Publish
+}
+
+// PlainListen is where the core takes plain HTTP from the house's network (server.listen): with a
+// tunnel, port 8440 in its own network, which the compose file publishes at http.publish and
+// http.port; with none, http.publish and http.port themselves, on this machine's network (D454 §5).
+func (values Values) PlainListen() string {
+	if values.HasTunnel() {
+		return everyAddress + ":" + plainPortInside
+	}
+	return net.JoinHostPort(values.listenHost(), strconv.Itoa(values.HTTP.Port))
+}
+
+// ThisMachineListen is where the core takes plain HTTP from a browser on this machine alone
+// (server.this_machine_listen): with a tunnel, every address of its own network, which the compose
+// file publishes on this machine's loopback; with none, that loopback itself (D334 §4, D454 §5).
+func (values Values) ThisMachineListen() string {
+	host := everyAddress
+	if !values.HasTunnel() {
+		host = "127.0.0.1"
+	}
+	return net.JoinHostPort(host, strconv.Itoa(values.HTTP.ThisMachinePort))
+}
+
+// HTTPSListen is where the core serves HTTPS (https.listen): with a tunnel, port 443 in its own
+// network, which the VPS forwards to and the compose file publishes at lan.https_port; with none,
+// lan.https_port on this machine's network (D454 §5).
+func (values Values) HTTPSListen() string {
+	if values.HasTunnel() {
+		return ":" + httpsPort
+	}
+	return net.JoinHostPort(values.listenHost(), strconv.Itoa(values.LAN.HTTPSPort))
 }
 
 // homeNetworkBits are how much of the LAN address names the house's network: a home router's /24,
@@ -375,11 +416,12 @@ func (values Values) httpProblems() []string {
 // lanProblems is what [lan] holds wrongly.
 func (values Values) lanProblems() []string {
 	var problems []string
-	// Required: the house's network is where an admin administers from, and nothing else names it
-	// (the Plex-chain review's L1).
-	if address, err := netip.ParseAddr(values.LAN.Address); err != nil || !address.Unmap().IsPrivate() {
-		problems = append(problems, fmt.Sprintf("lan.address %q: fill in this machine's address on the house's "+
-			`network, "192.168.1.20"`, values.LAN.Address))
+	// Optional: an address not named is learned once the core runs (D452 §5); one named is this
+	// machine's on the house's network, which is private.
+	if address, err := netip.ParseAddr(values.LAN.Address); values.LAN.Address != "" &&
+		(err != nil || !address.Unmap().IsPrivate()) {
+		problems = append(problems, fmt.Sprintf("lan.address %q: want this machine's address on the house's "+
+			`network, "192.168.1.20", or nothing`, values.LAN.Address))
 	}
 	if port := values.LAN.HTTPSPort; port == devServerPort || port == devVitePort || port == values.HTTP.Port ||
 		port < 1 || port > 65535 {

@@ -2,8 +2,8 @@
 # Orpheum for CasaOS and ZimaOS's app store (D449 §5): deploy/omv/compose.yaml with CasaOS's folders
 # and user (/DATA/AppData, /DATA/Media, $PUID, $PGID, $TZ) in place of OpenMediaVault's, and the store's
 # x-casaos block at the end. Keep it in step with that file: TestCatalogue_TheCasaOSComposeIsTheOMVOnes
-# fails on any other difference. A catalogue cannot ask for this machine's address at home, so
-# ORPHEUM_LAN_ADDRESS must be set before installing (the tip says so) until D452 learns it at setup.
+# fails on any other difference. This machine's address at home is learned from the first browser
+# there (D452 §5); ORPHEUM_LAN_ADDRESS names it instead.
 name: orpheum
 
 services:
@@ -17,8 +17,6 @@ services:
     # empty/ stands in for a media folder not set (ORPHEUM_MEDIA_2 to _4): a bind needs a source.
     command: ["mkdir -p /appdata/node /appdata/run /appdata/empty && chown ${PUID:-1000}:${PGID:-100} /appdata /appdata/node /appdata/run"]
     network_mode: none
-    sysctls:
-      net.mptcp.enabled: "0"
     cap_drop: [ALL]
     cap_add: [CHOWN, DAC_OVERRIDE]
     security_opt: ["no-new-privileges:true"]
@@ -27,8 +25,9 @@ services:
     restart: "no"
 
   # The server: the API, the web client, HTTPS at home by its LAN name, WebRTC. It writes the
-  # deployment at every start, its own instance and the node's the first time. Port 443 is bound inside its own
-  # network by the core, as a user: the sysctl, which is this network's own, lets it.
+  # deployment at every start, its own instance and the node's the first time. It shares this
+  # machine's network (D454 §5), so it sees the house's addresses and takes its ports itself: plain
+  # HTTP, HTTPS and WebRTC (UDP) at home, and this machine's port on its loopback alone.
   orpheum-core:
     container_name: orpheum-core
     image: ghcr.io/kstenerud/orpheum:${ORPHEUM_TAG:-latest}
@@ -36,8 +35,11 @@ services:
     hostname: ${ORPHEUM_NAME:-orpheum}
     command:
       - start
+      # Learned from the first browser at home when not set (D452 §5).
       - --lan-address
       - ${ORPHEUM_LAN_ADDRESS:-}
+      - --http-port
+      - ${ORPHEUM_HTTP_PORT:-8440}
       - --lan-https-port
       - ${ORPHEUM_HTTPS_PORT:-8444}
       - --lan-webrtc-port
@@ -59,27 +61,18 @@ services:
       TZ: ${TZ:-Etc/UTC}
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
-    sysctls:
-      net.ipv4.ip_unprivileged_port_start: "0"
-      net.mptcp.enabled: "0"
+    network_mode: host
     volumes:
       - /DATA/AppData/orpheum:/var/lib/orpheum
       - /DATA/AppData/orpheum/run:/run/orpheum
-    ports:
-      - "${ORPHEUM_HTTP_PORT:-8440}:8440"
-      # A browser on this machine alone, as from home (D334 §4): its loopback, the same port inside.
-      - "127.0.0.1:${ORPHEUM_THIS_MACHINE_PORT:-8441}:${ORPHEUM_THIS_MACHINE_PORT:-8441}"
-      - "${ORPHEUM_HTTPS_PORT:-8444}:443"
-      # WebRTC from devices at home, on the same port inside, which the core offers them (D300).
-      - "${ORPHEUM_HTTPS_PORT:-8444}:${ORPHEUM_HTTPS_PORT:-8444}/udp"
-    networks: [outside]
     depends_on:
       orpheum-folders:
         condition: service_completed_successfully
     restart: unless-stopped
     healthcheck:
       # /api/v1/health answers while the server starts, migrates or is degraded, and says which.
-      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8440 && printf 'GET /api/v1/health HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q ' 200 ' <&3"]
+      # Asked on this machine's loopback, where the core takes the port a browser here opens.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/${ORPHEUM_THIS_MACHINE_PORT:-8441} && printf 'GET /api/v1/health HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q ' 200 ' <&3"]
       interval: 10s
       start_period: 60s
 
@@ -95,8 +88,6 @@ services:
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,nodev,size=64m
-    sysctls:
-      net.mptcp.enabled: "0"
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     volumes:
@@ -123,15 +114,6 @@ services:
       interval: 10s
       start_period: 30s
 
-networks:
-  # IPv6 from a private range, translated on the way out as IPv4 is, so the core's WebRTC finds its
-  # public address in both families through its discovery's STUN.
-  outside:
-    enable_ipv6: true
-    ipam:
-      config:
-        - subnet: ${ORPHEUM_IPV6_SUBNET:-fd77:5e:0:ffff::/64}
-
 x-casaos:
   architectures:
     - amd64
@@ -154,7 +136,7 @@ x-casaos:
   tips:
     before_install:
       en_US: |
-        Set ORPHEUM_LAN_ADDRESS to this machine's address on your home network (192.168.1.20), and
-        ORPHEUM_MEDIA to the folder of your films and series if it is not /DATA/Media. Once started,
-        open the server at http://<that address>:8440 and enter the one-time setup code: it is in
+        Set ORPHEUM_MEDIA to the folder of your films and series if it is not /DATA/Media. Once
+        started, open the server at http://<this machine's address>:8440 from home and enter the
+        one-time setup code: it is in
         /DATA/AppData/orpheum/SETUP-CODE.txt, and in the orpheum-core container's log.

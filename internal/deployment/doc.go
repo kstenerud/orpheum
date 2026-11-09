@@ -36,7 +36,7 @@
 //   - A values file naming no VPS writes a deployment with no tunnel (D314 §3): the core
 //     publishes its own ports, serves no relay, and asks for nothing but the media and the address
 //     at home; a tunnel half described is a problem, not no tunnel.
-//     TestWrite_ACoreWithNoTunnelPublishesItsOwnPortsAndServesNoRelay,
+//     TestWrite_ACoreWithNoTunnelTakesItsOwnPortsAndServesNoRelay,
 //     TestValues_ATunnelHalfDescribedIsAProblemNotNoTunnel.
 //   - The address at home is required, and its /24 is the only home network an admin administers
 //     from: no private range stands in for it (the Plex-chain review's L1).
@@ -47,14 +47,17 @@
 //   - Each deployment's outside network has a private IPv6 /64 of its own, chosen by its directory,
 //     so two on one machine both start; one whose directory is not known keeps fd77:5e::/64.
 //     TestWrite_EachDeploymentsNetworkHasASubnetOfItsOwn.
-//   - Every service with a network of its own turns MPTCP off in it (CVE-2026-98432), since the
-//     setting is each network's and the household's kernel is not ours; one sharing another's
-//     network shares one that has it off. TestCompose_EveryServiceWithANetworkOfItsOwnTurnsMPTCPOff,
-//     TestCompose_AServiceSharingANetworkSharesOneWithMPTCPOff.
+//   - A household's compose file names no kernel setting or feature (no sysctl, no IPv6 network),
+//     which Docker refuses on a kernel without it, and the tunnel's names no MPTCP (D454 §2, §4).
+//     TestCompose_AHouseholdsFileAsksTheKernelForNothing.
+//   - With no tunnel the core shares this machine's network and takes its ports itself, this
+//     machine's on its loopback; with one, it listens in its own network on 8440 and 443, published
+//     (D454 §5). TestCompose_AHouseholdsCoreSharesThisMachinesNetwork,
+//     TestWrite_ACoreWithNoTunnelTakesItsOwnPortsAndServesNoRelay.
 //   - The node's root is read-only and its /tmp a tmpfs mounted noexec, nosuid and nodev, so what an
 //     exploited FFmpeg writes outside the node's volumes can be neither run nor loaded; the node and
 //     FFmpeg write nothing outside them (noexec step 1). TestCompose_TheNodesRootIsReadOnlyAndItsTmpRunsNothing.
-//   - The pasted compose file keeps every service's MPTCP off and the node's root unwritable, and
+//   - The pasted compose file keeps the node's root unwritable, and
 //     the install page names every variable it reads.
 //     TestOMVCompose_KeepsTheDeploymentsGuardsAndStartsFromItsCommandLine,
 //     TestOMVCompose_TheInstallPageNamesEveryVariableItReads.

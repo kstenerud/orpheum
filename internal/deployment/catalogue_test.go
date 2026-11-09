@@ -110,8 +110,6 @@ func casaOSRenamed(text string) string {
 		{`\$\{APPUSER_PGID:-`, "${PGID:-"},
 		{`\$\{TIME_ZONE_VALUE:-`, "${TZ:-"},
 		{`\$\{ORPHEUM_MEDIA(:\?[^}]*)?\}`, "${ORPHEUM_MEDIA:-/DATA/Media}"},
-		// A catalogue cannot ask for the address; start says what is missing when it is not set.
-		{`\$\{ORPHEUM_LAN_ADDRESS:\?[^}]*\}`, "${ORPHEUM_LAN_ADDRESS:-}"},
 	} {
 		text = regexp.MustCompile(rename.pattern).ReplaceAllLiteralString(text, rename.replacement)
 	}

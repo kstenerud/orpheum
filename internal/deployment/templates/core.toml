@@ -4,18 +4,19 @@
 # file and write the deployment again. It holds only what must exist before the database opens
 # (D182 §3, D200); everything else is a setting, changed in the web client.
 #
-#   - plain HTTP on :8440 for the house's network; HTTPS on :443 for devices at home by its LAN
-#     name; with a tunnel, HTTPS and TURN for everyone else through the VPS (D243 §6-§8), and with
+#   - plain HTTP for the house's network; HTTPS for devices at home by its LAN name: with no tunnel
+#     on this machine's network, whose ports they are (D454 §5), and with one in the core's own
+#     network, on 8440 and 443, published; with a tunnel, HTTPS and TURN for everyone else through the VPS (D243 §6-§8), and with
 #     none, no relay: the core is reached through its discovery over WebRTC (D314 §3, §4).
 #   - a database it cannot bring forward: staging sets it aside and starts again (D249 §4);
 #     release refuses, as D181 does.
 #   - logs as text, because a person reads them with `docker compose logs`; staging's at debug.
 
 [server]
-listen = "0.0.0.0:8440"
-# Plain HTTP for a browser on this machine alone, which the deployment publishes on its loopback: a
-# request on it is from home (D334 §4).
-this_machine_listen = "0.0.0.0:{{.Values.HTTP.ThisMachinePort}}"
+listen = {{toml .Values.PlainListen}}
+# Plain HTTP for a browser on this machine alone, on its loopback: a request on it is from home
+# (D334 §4).
+this_machine_listen = {{toml .Values.ThisMachineListen}}
 read_header_timeout_seconds = 10
 shutdown_grace_seconds = 10
 # Names the house reaches the plain listener by, beside its addresses and local names; the HTTPS
@@ -33,7 +34,7 @@ install_route = {{toml .InstallRoute}}
 [https]
 domain = {{toml .Values.Domain}}
 contact = {{toml .Values.Contact}}
-listen = ":443"
+listen = {{toml .Values.HTTPSListen}}
 # Production, as the phones that test staging trust only its certificates; Let's Encrypt's staging
 # directory spends no quota, for a server no real browser opens (D261 §5).
 acme_directory = "https://acme-v02.api.letsencrypt.org/directory"
@@ -66,8 +67,7 @@ router = {{toml .Values.LAN.Router}}
 
 [webrtc]
 # The UDP port WebRTC is taken on, published at this machine's address at home on the same port, which
-# the core offers devices at home so they reach it in the house, not through the VPS; 0 with no address
-# at home (D300).
+# the core offers devices at home so they reach it in the house, not through the VPS (D300).
 udp_port = {{.Values.WebRTCUDPPort}}
 # The STUN servers the core finds its public addresses through: its own, never its discovery's, since
 # an IPv6 address one finds names the house's network, which administers (the Plex-chain review's L3).

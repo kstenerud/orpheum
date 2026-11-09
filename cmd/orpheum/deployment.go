@@ -69,13 +69,6 @@ func commandWriteDeployment(_ context.Context, call invocation) int {
 // runtime it is written with, this machine's own beside what the install script found. It is false
 // once it has written to stderr what was wrong.
 func parseWriteDeployment(arguments []string, stderr io.Writer) (deployment.Kind, deployment.Runtime, bool) {
-	return parseWriteDeploymentOn(arguments, stderr, multipathTCPSetting)
-}
-
-// parseWriteDeploymentOn is parseWriteDeployment on a kernel whose MPTCP switch is at mptcpSetting.
-func parseWriteDeploymentOn(arguments []string, stderr io.Writer, mptcpSetting string) (
-	deployment.Kind, deployment.Runtime, bool,
-) {
 	flags := flag.NewFlagSet("orpheum write-deployment", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	image := flags.String("image", "", "the runtime image the services run, as the .env file names it")
@@ -95,18 +88,8 @@ func parseWriteDeploymentOn(arguments []string, stderr io.Writer, mptcpSetting s
 	}
 	return deployment.Kind(*kind), deployment.Runtime{
 		Image: *image, UID: os.Getuid(), GID: os.Getgid(), RenderGID: renderGroup(renderNode), NVIDIA: nvidia,
-		Directory: *directory, KernelLacksMultipathTCP: !hasSetting(mptcpSetting),
+		Directory: *directory,
 	}, true
-}
-
-// multipathTCPSetting is the kernel's MPTCP switch, which a kernel without MPTCP has not: seen from
-// write-deployment's container, as the deployment's containers will see it.
-const multipathTCPSetting = "/proc/sys/net/mptcp/enabled"
-
-// hasSetting says whether the kernel setting at path exists.
-func hasSetting(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
 }
 
 // deploymentMessage is what write-deployment says it did: begun, with what to fill in, or written.

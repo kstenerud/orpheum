@@ -135,7 +135,7 @@ func serveLockedCore(t *testing.T, socket string) *lockedCore {
 // any node whose config requires every mechanism (D454 §3).
 func TestCheckConfinement_AKernelWithoutAMechanismRunsWithoutItButOneWhereItFailsIsLocked(t *testing.T) {
 	t.Parallel()
-	inForce := confine.State{Mechanism: confine.MechanismSeccomp, IsInForce: true}
+	isInForce := confine.State{Mechanism: confine.MechanismSeccomp, IsInForce: true}
 	tooOld := confine.State{
 		Mechanism: confine.MechanismLandlock, CauseCode: confine.CauseKernelWithout, Remedy: "a kernel of 5.13",
 	}
@@ -147,12 +147,12 @@ func TestCheckConfinement_AKernelWithoutAMechanismRunsWithoutItButOneWhereItFail
 		states   []confine.State
 		isLocked bool
 	}{
-		{policyAvailable, []confine.State{tooOld, inForce}, false},
-		{policyAvailable, []confine.State{notAtBoot, inForce}, false},
-		{policyAvailable, []confine.State{blocked, inForce}, true},
+		{policyAvailable, []confine.State{tooOld, isInForce}, false},
+		{policyAvailable, []confine.State{notAtBoot, isInForce}, false},
+		{policyAvailable, []confine.State{blocked, isInForce}, true},
 		{policyAvailable, []confine.State{tooOld, unexplained}, true},
-		{policyRequire, []confine.State{tooOld, inForce}, true},
-		{policyReport, []confine.State{blocked, inForce}, false},
+		{policyRequire, []confine.State{tooOld, isInForce}, true},
+		{policyReport, []confine.State{blocked, isInForce}, false},
 	} {
 		config, _ := testConfig(t)
 		config.Node.ConfinementPolicy = want.policy
@@ -167,7 +167,7 @@ func TestCheckConfinement_AKernelWithoutAMechanismRunsWithoutItButOneWhereItFail
 	config.Node.ConfinementPolicy = policyAvailable
 	captured := newCapturedLog()
 	checkConfinement(t.Context(), config, captured.logger,
-		nodeSeams{mechanismStates: func() []confine.State { return []confine.State{tooOld, inForce} }})
+		nodeSeams{mechanismStates: func() []confine.State { return []confine.State{tooOld, isInForce} }})
 	if logged := captured.String(); !strings.Contains(logged, "a kernel of 5.13") {
 		t.Errorf("the log = %s; want the missing mechanism and the kernel that brings it", logged)
 	}

@@ -125,18 +125,21 @@ processor.
 ## System says the media node is locked
 
 The node runs FFmpeg on every film it reads, and a crafted file can attack FFmpeg, so a release node
-runs it only inside Landlock and seccomp. On a kernel without one of them the node starts locked: it
-connects to the server, and the System page says what is missing, but it reads no films and runs
-no FFmpeg (since 2026-11-08; from 2026-10-20 it did not start at all, and before that it ran and
-warned). Its log (`docker compose logs orpheum-node`, in the server's directory) says
-`node.confinement_policy is "require", and not every mechanism is in force`.
+runs it inside Landlock and seccomp. On a kernel without one of them the node runs without it, and
+the System page says, calmly, which kernel brings it (D454 §3, since 2026-11-09). It starts locked
+only when the kernel has a mechanism but putting it in force failed, which a container runtime's
+own policy usually causes: it connects to the server, and the System page says what failed, but it
+reads no films and runs no FFmpeg. Its log (`docker compose logs orpheum-node`, in the server's
+directory) says `confinement is not in force; the node is locked` with the node's policy.
 
-- **Landlock missing:** the host's kernel must list it. On the host (on Proxmox, the host's shell,
+- **Landlock not listed** (the note, not a lock): the host's kernel must list it. On the host (on Proxmox, the host's shell,
   not the container's), `cat /sys/kernel/security/lsm` must include `landlock`; if it does not, add
   `lsm=landlock,` before the list `cat /proc/cmdline` shows, in the kernel's command line
   (`GRUB_CMDLINE_LINUX` in `/etc/default/grub`, then `update-grub` and a restart), or use a newer
   kernel.
 - **seccomp missing:** the kernel was built without `CONFIG_SECCOMP_FILTER`; use one with it.
+- **Blocked by the runtime** (a lock): the container runtime refused it, as an AppArmor or seccomp
+  profile of its own may; run the node with the compose file's own settings.
 - **If you cannot fix the kernel** and accept the risk, an admin, at home, presses **Run without
   confinement** on the System page. The node then starts its work unconfined, the System page says
   who allowed it and when, and **Withdraw** locks it again. (Setting `confinement_policy = "report"`
@@ -199,18 +202,18 @@ These are for a server installed from [`deploy/omv/compose.yaml`](../../deploy/o
 in OpenMediaVault their logs are under **Services > Compose > Containers**, elsewhere
 `docker logs <name>`.
 
-### Up says "required variable ORPHEUM_LAN_ADDRESS is missing a value" (or `PATH_TO_APPDATA`, `ORPHEUM_MEDIA`)
+### Up says "required variable PATH_TO_APPDATA is missing a value" (or `ORPHEUM_MEDIA`)
 
 Compose stops before anything starts: the file needs that value. In OpenMediaVault, put it in the
-file's **Environment** (`ORPHEUM_MEDIA`, `ORPHEUM_LAN_ADDRESS`) or check the global environment file
-(`PATH_TO_APPDATA`); elsewhere, in the `.env` file beside `compose.yaml`.
+file's **Environment** (`ORPHEUM_MEDIA`) or check the global environment file (`PATH_TO_APPDATA`);
+elsewhere, in the `.env` file beside `compose.yaml`. (Before 2026-11-09 it needed
+`ORPHEUM_LAN_ADDRESS` too; the server now learns the address, D452 §5.)
 
-### The core's log says "--lan-address is needed"
+### The core's log names `lan.address`
 
-The core was started without the machine's address at home, which its container cannot see and
-which decides where an admin may administer from. Set `ORPHEUM_LAN_ADDRESS` to the machine's
-address on the home network (`192.168.1.20`, not `127.0.0.1` nor a public address), then **Up**
-again. A wrong address is refused the same way, naming `lan.address`.
+`ORPHEUM_LAN_ADDRESS` is set, but not to an address on the home network: give the machine's
+(`192.168.1.20`, not `127.0.0.1` nor a public address), or leave it empty for the server to learn,
+then **Up** again.
 
 ### Up says a port "is already allocated", or the page opens OpenMediaVault instead
 

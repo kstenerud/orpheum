@@ -4,8 +4,8 @@ package deployment
 
 import (
 	"io/fs"
+	"os"
 	"path"
-	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -13,13 +13,13 @@ import (
 )
 
 // composeService is what one service of a compose file says of its network, the network_mode it
-// names, if any, and whether its sysctls turn MPTCP off; and of its filesystem, whether its root is
+// names, if any, and whether it publishes ports; and of its filesystem, whether its root is
 // read-only and the tmpfs mounts it names ("/tmp:rw,noexec,...").
 type composeService struct {
-	networkMode string
-	isMPTCPOff  bool
-	isReadOnly  bool
-	tmpfs       []string
+	networkMode  string
+	isPublishing bool
+	isReadOnly   bool
+	tmpfs        []string
 }
 
 var composeServiceName = regexp.MustCompile(`^([a-z0-9_-]+):$`)
@@ -62,137 +62,84 @@ func (service *composeService) readKey(trimmed string) {
 		service.networkMode = strings.Trim(strings.TrimSpace(mode), `"'`)
 	}
 	service.isReadOnly = service.isReadOnly || trimmed == "read_only: true"
+	service.isPublishing = service.isPublishing || trimmed == "ports:" || strings.HasPrefix(trimmed, "networks:")
 }
 
-// readUnder reads a line under one of a service's keys, its line trimmed: a sysctl or a tmpfs.
+// readUnder reads a line under one of a service's keys, its line trimmed: a tmpfs.
 func (service *composeService) readUnder(key, trimmed string) {
-	switch {
-	case key == "sysctls:" && trimmed == `net.mptcp.enabled: "0"`:
-		service.isMPTCPOff = true
-	case key == "tmpfs:" && strings.HasPrefix(trimmed, "- "):
+	if key == "tmpfs:" && strings.HasPrefix(trimmed, "- ") {
 		service.tmpfs = append(service.tmpfs, strings.Trim(strings.TrimPrefix(trimmed, "- "), `"'`))
 	}
 }
 
-// sharesANetwork reports whether a network_mode puts a service in a network not its own: another
-// service's or container's, or the host's. Docker refuses a net.* sysctl there.
-func sharesANetwork(networkMode string) bool {
-	return networkMode == "host" || strings.HasPrefix(networkMode, "service:") ||
-		strings.HasPrefix(networkMode, "container:")
+// householdComposeFiles are the compose files a household runs, each by the path the test reads it
+// at: the one pasted into a NAS's panel, the catalogues' and the install script's with no tunnel.
+var householdComposeFiles = []string{
+	"../../deploy/omv/compose.yaml", "../../deploy/catalogue/casaos/docker-compose.yml",
+	"templates/compose-direct.yaml",
 }
 
-// CVE-2026-98432 is reached through MPTCP listeners, and net.mptcp.enabled is each network
-// namespace's own, so the host's setting does not reach a container: each service with a network of
-// its own (network_mode none included, which is a namespace of its own) turns it off, and one that
-// shares another's network has that one's setting and may not set it (Docker refuses).
-func TestCompose_EveryServiceWithANetworkOfItsOwnTurnsMPTCPOff(t *testing.T) {
-	t.Parallel()
-	names, err := fs.Glob(templates, "templates/compose*.yaml")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(names) < 2 {
-		t.Fatalf("compose templates %v; want compose.yaml and compose-direct.yaml at least", names)
-	}
-	for _, name := range names {
-		text, readErr := templates.ReadFile(name)
-		if readErr != nil {
-			t.Fatal(readErr)
-		}
-		services := composeServices(string(text))
-		if len(services) == 0 {
-			t.Errorf("%s: no services read", path.Base(name))
-		}
-		for service, said := range services {
-			switch {
-			case sharesANetwork(said.networkMode) && said.isMPTCPOff:
-				t.Errorf("%s: %s shares the network %q and sets net.mptcp.enabled, which Docker refuses",
-					path.Base(name), service, said.networkMode)
-			case !sharesANetwork(said.networkMode) && !said.isMPTCPOff:
-				t.Errorf("%s: %s has a network of its own and does not set net.mptcp.enabled to \"0\"",
-					path.Base(name), service)
-			}
-		}
-	}
-}
-
-// A service that shares another service's network runs under that one's setting, as the core in
-// compose.yaml runs under the tunnel's, so the service it shares with must turn MPTCP off.
-func TestCompose_AServiceSharingANetworkSharesOneWithMPTCPOff(t *testing.T) {
-	t.Parallel()
-	names, err := fs.Glob(templates, "templates/compose*.yaml")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, name := range names {
-		text, readErr := templates.ReadFile(name)
-		if readErr != nil {
-			t.Fatal(readErr)
-		}
-		services := composeServices(string(text))
-		for service, said := range services {
-			shared, isService := strings.CutPrefix(said.networkMode, "service:")
-			if !isService {
-				continue
-			}
-			if owner, ok := services[shared]; !ok || !owner.isMPTCPOff {
-				t.Errorf("%s: %s shares %s's network, which does not turn MPTCP off", path.Base(name), service, shared)
-			}
-		}
-	}
-}
-
-// A kernel with no MPTCP has no net.mptcp.enabled, and Docker refuses to start a container naming a
-// setting its kernel has not; such a kernel has no MPTCP listener for the CVE to reach. Its compose
-// file sets none, and leaves no sysctls key with nothing under it, while a service's other sysctls
-// stay (the agent's report, 2026-10-31).
-func TestCompose_AKernelWithNoMPTCPGetsAComposeFileThatDoesNotNameIt(t *testing.T) {
-	t.Parallel()
-	for _, name := range []string{"templates/compose.yaml", "templates/compose-direct.yaml"} {
+// householdCompose is a household's compose file by its path in householdComposeFiles.
+func householdCompose(t *testing.T, name string) string {
+	t.Helper()
+	if path.Dir(name) == "templates" {
 		text, err := templates.ReadFile(name)
 		if err != nil {
 			t.Fatal(err)
 		}
-		without := string(withoutMultipathTCP(text))
-		if strings.Contains(without, "net.mptcp.enabled") {
-			t.Errorf("%s: still names net.mptcp.enabled for a kernel without it", path.Base(name))
-		}
-		lines := strings.Split(without, "\n")
-		for index, line := range lines {
-			if strings.TrimSpace(line) == "sysctls:" &&
-				(index+1 >= len(lines) || indent(lines[index+1]) <= indent(line)) {
-				t.Errorf("%s: a sysctls key with nothing under it, at line %d", path.Base(name), index+1)
-			}
-		}
-		kept := strings.Join(lines, "\n")
-		for line := range strings.SplitSeq(string(text), "\n") {
-			trimmed := strings.TrimSpace(line)
-			if trimmed != multipathTCPSysctl && trimmed != "sysctls:" && !strings.Contains(kept, line) {
-				t.Errorf("%s: removed %q, which is not MPTCP's", path.Base(name), line)
-			}
-		}
+		return string(text)
 	}
-	text, err := templates.ReadFile("templates/compose.yaml")
+	text, err := os.ReadFile(name)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(withoutMultipathTCP(text)), "net.ipv4.ip_unprivileged_port_start") {
-		t.Error("compose.yaml: the tunnel's other sysctl went with MPTCP's")
+	return string(text)
+}
+
+// A household's kernel is not ours: a compose file naming a kernel setting or feature the kernel has
+// not is refused by Docker, and the server does not start (D454 §2). No household compose file names
+// one, and the tunnel's, which the owner's deployments run, names no MPTCP (D454 §4).
+func TestCompose_AHouseholdsFileAsksTheKernelForNothing(t *testing.T) {
+	t.Parallel()
+	for _, name := range householdComposeFiles {
+		text := householdCompose(t, name)
+		for line := range strings.SplitSeq(text, "\n") {
+			trimmed := strings.TrimSpace(line)
+			if strings.HasPrefix(trimmed, "#") {
+				continue
+			}
+			for _, refused := range []string{"net.mptcp", "ip_unprivileged_port_start", "enable_ipv6", "sysctls:"} {
+				if strings.Contains(trimmed, refused) {
+					t.Errorf("%s names %s: %q", name, refused, trimmed)
+				}
+			}
+		}
+	}
+	tunnel, err := templates.ReadFile("templates/compose.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(tunnel), "net.mptcp") {
+		t.Error("compose.yaml names net.mptcp")
 	}
 }
 
-// Write asks for MPTCP off on a kernel that has it, and names none on one that has not.
-func TestWrite_TheComposeFileTurnsMPTCPOffWhereTheKernelHasIt(t *testing.T) {
+// With no tunnel the core shares this machine's network, publishing nothing, so it sees the house's
+// addresses and takes its ports itself; the node keeps no network (D454 §5).
+func TestCompose_AHouseholdsCoreSharesThisMachinesNetwork(t *testing.T) {
 	t.Parallel()
-	for _, lacks := range []bool{false, true} {
-		dir := begun(t, Release)
-		kernel := runtime
-		kernel.KernelLacksMultipathTCP = lacks
-		if err := Write(dir, filledValues(t, Release), kernel); err != nil {
-			t.Fatal(err)
+	for _, name := range householdComposeFiles {
+		services := composeServices(householdCompose(t, name))
+		core, node := services["orpheum-core"], services["orpheum-node"]
+		if core == nil || node == nil {
+			t.Fatalf("%s: services %v; want orpheum-core and orpheum-node", name, services)
 		}
-		if names := strings.Contains(readFile(t, filepath.Join(dir, composeFile)), multipathTCPSysctl); names == lacks {
-			t.Errorf("a kernel lacking MPTCP %v: the compose file names it %v", lacks, names)
+		if core.networkMode != "host" || core.isPublishing {
+			t.Errorf("%s: the core's network_mode %q, publishing ports or naming networks %v; want host, neither",
+				name, core.networkMode, core.isPublishing)
+		}
+		if node.networkMode != "none" {
+			t.Errorf("%s: the node's network_mode %q; want none", name, node.networkMode)
 		}
 	}
 }
@@ -205,6 +152,9 @@ func TestCompose_TheNodesRootIsReadOnlyAndItsTmpRunsNothing(t *testing.T) {
 	names, err := fs.Glob(templates, "templates/compose*.yaml")
 	if err != nil {
 		t.Fatal(err)
+	}
+	if len(names) < 2 {
+		t.Fatalf("compose templates %v; want compose.yaml and compose-direct.yaml at least", names)
 	}
 	for _, name := range names {
 		text, readErr := templates.ReadFile(name)

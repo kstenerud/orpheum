@@ -37,9 +37,9 @@ func omvCompose(t *testing.T) string {
 	return strings.Join(kept, "\n")
 }
 
-// The pasted compose file keeps every service's MPTCP off and the node's root unwritable, as the
-// compose files a deployment is written from do, and its core is the first start, given the address
-// at home and the media where the node finds them.
+// The pasted compose file keeps the node's root unwritable, as the compose files a deployment is
+// written from do, and its core is the first start, given the address at home, which may be empty
+// (D452 §5), and the media where the node finds them.
 func TestOMVCompose_KeepsTheDeploymentsGuardsAndStartsFromItsCommandLine(t *testing.T) {
 	t.Parallel()
 	text := omvCompose(t)
@@ -49,18 +49,13 @@ func TestOMVCompose_KeepsTheDeploymentsGuardsAndStartsFromItsCommandLine(t *test
 			t.Fatalf("%s: no %s service; services %v", omvComposeFile, name, services)
 		}
 	}
-	for name, said := range services {
-		if !sharesANetwork(said.networkMode) && !said.isMPTCPOff {
-			t.Errorf("%s: %s has a network of its own and does not set net.mptcp.enabled to \"0\"",
-				omvComposeFile, name)
-		}
-	}
 	if node := services["orpheum-node"]; !node.isReadOnly || !slices.ContainsFunc(node.tmpfs, isTmpThatRunsNothing) {
 		t.Errorf("%s: the node's root is read-only %v, its tmpfs %v; want read-only, and /tmp running nothing",
 			omvComposeFile, node.isReadOnly, node.tmpfs)
 	}
 	for _, want := range []string{
-		"      - start\n      - --lan-address\n      - ${ORPHEUM_LAN_ADDRESS:?",
+		"      - --lan-address\n      - ${ORPHEUM_LAN_ADDRESS:-}\n",
+		"      - --http-port\n      - ${ORPHEUM_HTTP_PORT:-8440}\n",
 		`command: ["node", "--instance", "/var/lib/orpheum/node"]`,
 		"      - ${ORPHEUM_MEDIA:?set ORPHEUM_MEDIA to the folder that holds your films and series}:" +
 			"${ORPHEUM_MEDIA}:ro\n",
@@ -84,7 +79,7 @@ func TestOMVCompose_TheInstallPageNamesEveryVariableItReads(t *testing.T) {
 	for _, match := range composeVariable.FindAllStringSubmatch(omvCompose(t), -1) {
 		needed[match[1]] = needed[match[1]] || match[2] == ":?"
 	}
-	for _, name := range []string{"PATH_TO_APPDATA", "ORPHEUM_MEDIA", "ORPHEUM_LAN_ADDRESS"} {
+	for _, name := range []string{"PATH_TO_APPDATA", "ORPHEUM_MEDIA"} {
 		if !needed[name] {
 			t.Errorf("%s does not need %s (${%s:?...})", omvComposeFile, name, name)
 		}
@@ -122,21 +117,22 @@ func TestOMVCompose_EachMediaFolderIsMountedAtItsOwnPathAndAnUnsetOneIsNone(t *t
 	}
 }
 
-// The server's own machine reaches the core on a port published on its loopback alone, which start
-// is told, so the core counts a request on it as from home (D449 §2, D334 §4).
+// The server's own machine reaches the core on a port on its loopback alone, which start is told and
+// the core takes there itself, sharing this machine's network (D454 §5), so it counts a request on it
+// as from home (D449 §2, D334 §4); the health check asks it there.
 func TestOMVCompose_ThisMachinesPortIsOnTheLoopbackAndToldToStart(t *testing.T) {
 	t.Parallel()
 	text := omvCompose(t)
 	for _, want := range []string{
-		`      - "127.0.0.1:${ORPHEUM_THIS_MACHINE_PORT:-8441}:${ORPHEUM_THIS_MACHINE_PORT:-8441}"`,
+		"exec 3<>/dev/tcp/127.0.0.1/${ORPHEUM_THIS_MACHINE_PORT:-8441} && ",
 		"      - --this-machine-port\n      - ${ORPHEUM_THIS_MACHINE_PORT:-8441}\n",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("%s does not say %q", omvComposeFile, want)
 		}
 	}
-	if strings.Count(text, "ORPHEUM_THIS_MACHINE_PORT") != 3 {
-		t.Errorf("%s names ORPHEUM_THIS_MACHINE_PORT %d times; want only its loopback port and start's flag",
+	if strings.Count(text, "ORPHEUM_THIS_MACHINE_PORT") != 2+strings.Count(text, "#   ORPHEUM_THIS_MACHINE_PORT") {
+		t.Errorf("%s names ORPHEUM_THIS_MACHINE_PORT %d times; want only start's flag and the health check",
 			omvComposeFile, strings.Count(text, "ORPHEUM_THIS_MACHINE_PORT"))
 	}
 }

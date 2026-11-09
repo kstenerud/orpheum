@@ -108,8 +108,8 @@ func TestStart_WritesTheConfigsAgainFromTheFlagsAtEveryStart(t *testing.T) {
 	if !slices.Equal(anyStrings(t, lan), []string{"192.168.1.30:9444"}) {
 		t.Errorf("the core's lan_addresses after a start with new flags = %v; want the new address and port", lan)
 	}
-	if listen := coreConfig["server"]["this_machine_listen"]; listen != "0.0.0.0:8451" {
-		t.Errorf("the core's this_machine_listen = %v; want the new port, the same inside", listen)
+	if listen := coreConfig["server"]["this_machine_listen"]; listen != "127.0.0.1:8451" {
+		t.Errorf("the core's this_machine_listen = %v; want the new port on this machine's loopback", listen)
 	}
 	nodeConfig, _ := writtenConfig(t, filepath.Join(dir, "node"), kindNode)
 	if roots := anyStrings(t, nodeConfig["node"]["root_paths"]); !slices.Equal(roots, []string{"/srv/films"}) {
@@ -145,19 +145,6 @@ func TestStart_AnEmptyMediaFolderIsNoneAndEachIsCleaned(t *testing.T) {
 	}
 }
 
-func TestFirstStart_RefusesToWriteWithoutTheAddressAtHome(t *testing.T) {
-	t.Parallel()
-	dir, runDir := t.TempDir(), filepath.Join(testutil.SocketDirectory(t), "run")
-	err := startDeployment(dir, runDir, "nas", startOptionsFrom(t))
-	if !errors.Is(err, errNoLANAddress) || !strings.Contains(err.Error(), "ORPHEUM_LAN_ADDRESS") {
-		t.Errorf("a first start without --lan-address = %v; want it refused, naming the flag and the "+
-			"compose file's variable", err)
-	}
-	if entries, readErr := os.ReadDir(dir); readErr != nil || len(entries) != 0 {
-		t.Errorf("the directory after a refused first start holds %v (%v); want nothing written", entries, readErr)
-	}
-}
-
 func TestFirstStart_ACutShortStartIsWrittenAgainKeepingItsInstances(t *testing.T) {
 	t.Parallel()
 	dir, runDir := t.TempDir(), filepath.Join(testutil.SocketDirectory(t), "run")
@@ -190,4 +177,48 @@ func anyStrings(t *testing.T, value any) []string {
 		texts = append(texts, text)
 	}
 	return texts
+}
+
+// The address at home is learned once the core runs when the compose file names none (D452 §5), so
+// a first start writes the deployment without it, with WebRTC's port all the same; the core takes the
+// flags' ports on this machine's network, and this machine's on its loopback (D454 §5).
+func TestFirstStart_WritesTheDeploymentWithoutTheAddressAtHome(t *testing.T) {
+	t.Parallel()
+	dir, runDir := t.TempDir(), filepath.Join(testutil.SocketDirectory(t), "run")
+	options := startOptionsFrom(t, "--lan-address", "", "--http-port", "8450", "--lan-https-port", "8444",
+		"--lan-webrtc-port", "8444", "--this-machine-port", "8451")
+	if err := startDeployment(dir, runDir, "nas", options); err != nil {
+		t.Fatalf("a first start without an address at home = %v; want the deployment written", err)
+	}
+	coreConfig, _ := writtenConfig(t, filepath.Join(dir, "core"), kindCore)
+	for _, want := range []struct {
+		table, key string
+		value      any
+	}{
+		{"server", "listen", ":8450"},
+		{"server", "this_machine_listen", "127.0.0.1:8451"},
+		{"https", "listen", ":8444"},
+		{"webrtc", "udp_port", int64(8444)},
+	} {
+		if got := coreConfig[want.table][want.key]; got != want.value {
+			t.Errorf("the core's %s.%s = %#v; want %#v", want.table, want.key, got, want.value)
+		}
+	}
+	if lan := anyStrings(t, coreConfig["discovery"]["lan_addresses"]); len(lan) != 0 {
+		t.Errorf("the core's lan_addresses = %v; want none until the address is learned", lan)
+	}
+}
+
+// A start makes nothing outside the deployment's directory, which the compose file mounts: with none
+// there, it refuses.
+func TestFirstStart_RefusesWithoutTheDeploymentsDirectory(t *testing.T) {
+	t.Parallel()
+	missing := filepath.Join(t.TempDir(), "not-mounted")
+	err := startDeployment(missing, filepath.Join(testutil.SocketDirectory(t), "run"), "nas", startOptionsFrom(t))
+	if !errors.Is(err, errNoDeployment) {
+		t.Errorf("a start with no deployment directory = %v; want it refused", err)
+	}
+	if _, statErr := os.Stat(missing); !errors.Is(statErr, os.ErrNotExist) {
+		t.Errorf("the missing directory after a refused start: %v; want it still missing", statErr)
+	}
 }
