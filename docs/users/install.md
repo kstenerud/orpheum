@@ -114,11 +114,25 @@ folder after the volume it is on and the name you gave it, so read your own befo
    or `/volume2/Media`. Write it down exactly, capitals included.
 2. **A folder for the server's data.** In **File Station**, make a shared folder for apps if you have
    none (`docker` is usual), and read its **Location** the same way, such as `/volume1/docker`.
-3. **Your user's number.** Turn on SSH in **Control Panel → Terminal & SNMP**, sign in with
-   `ssh <your user>@<the Synology's address>`, and run `id`. It prints `uid=1026(<your user>)
-   gid=100(users) …`: the number after `uid=` and the one after `gid=`. This user must be able to read
-   the media folder (**Control Panel → Shared Folder → Edit → Permissions**). Turn SSH off again
-   after if you like.
+3. **Your user's numbers.** The server runs as your own Synology user, so it needs that user's two
+   numbers, its uid and its gid:
+   1. Turn on SSH: **Control Panel → Terminal & SNMP**, tick **Enable SSH service**, **Apply**.
+   2. On your computer, open a terminal (Windows: **PowerShell**; Mac: **Terminal**) and type
+      `ssh <your user>@<the Synology's address>`, such as `ssh anna@192.168.1.30`, then the password
+      you sign in to DSM with.
+   3. Type `id` and press Enter. It shows something like:
+
+      ```
+      uid=1026(<your user>) gid=100(users) groups=100(users),101(administrators)
+      ```
+
+      The number after `uid=` is the uid, here `1026`; the number after `gid=` is the gid, here `100`.
+      On most Synologys they are exactly these, 1026 and 100, for the first user made, but use the
+      ones yours shows.
+   4. Type `exit`. You may turn SSH off again.
+
+   This user must be able to read the media folder: **Control Panel → Shared Folder**, select it,
+   **Edit → Permissions**, and *Read only* or *Read/Write* for that user.
 4. **The project.** **Container Manager → Project → Create**: name it `orpheum`, give it a new folder
    inside the data folder (`/volume1/docker/orpheum-project`), and paste
    [`deploy/omv/compose.yaml`](../../deploy/omv/compose.yaml) as the file.
