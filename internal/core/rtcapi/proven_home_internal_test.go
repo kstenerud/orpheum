@@ -10,6 +10,7 @@ import (
 
 	"github.com/pion/webrtc/v4"
 
+	"github.com/kstenerud/orpheum/internal/core/home"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
@@ -41,6 +42,27 @@ func TestProvenAtHome_ADirectConnectionFromTheHouseProvesItself(t *testing.T) {
 	}
 	server.tellIfProvenAtHome(pairOf(webrtc.ICECandidateTypeHost, "192.168.1.199:8443",
 		webrtc.ICECandidateTypePrflx, "192.168.1.30:5000"), nil, nil) // telling no one does nothing
+}
+
+// A connection is judged by the rule api judges a direct request by (D452 §1): a direct pair from any
+// private network proves itself from home, one from Docker's bridge, a network of the core's own
+// interfaces, does not.
+func TestProvenAtHome_ADirectPairIsJudgedByTheSharedRule(t *testing.T) {
+	t.Parallel()
+	server := watchedServer(t, &testutil.Log{}, clocktest.NewFake(time.Unix(1_800_000_000, 0)))
+	server.SetHome(home.NewRule(home.Networks{
+		PrivateIsHome: true, Interfaces: []netip.Prefix{netip.MustParsePrefix("172.17.0.0/16")},
+	}))
+	fromAnotherNetwork := told(server, pairOf(webrtc.ICECandidateTypeHost, "192.168.1.199:8443",
+		webrtc.ICECandidateTypePrflx, "10.20.0.30:5000"), nil)
+	if len(fromAnotherNetwork) != 1 || fromAnotherNetwork[0].Device.String() != "10.20.0.30" {
+		t.Errorf("a direct pair from 10.20.0.30, a private network, told %+v; want it proven from there",
+			fromAnotherNetwork)
+	}
+	if fromDocker := told(server, pairOf(webrtc.ICECandidateTypeHost, "172.17.0.2:8443",
+		webrtc.ICECandidateTypePrflx, "172.17.0.1:5000"), nil); len(fromDocker) != 0 {
+		t.Errorf("a direct pair from Docker's gateway told %+v; want nothing", fromDocker)
+	}
 }
 
 // A relayed, punched or hairpinned connection, a direct one from away, and none at all prove nothing:
@@ -103,7 +125,7 @@ func TestIsDirectlyFromHome_OnlyADirectPairFromTheHouseIs(t *testing.T) {
 			t.Errorf("a request over a pair %s is from home: %t; want %t", name, got, each.want)
 		}
 	}
-	server.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")})
+	server.SetHome(home.Listed(netip.MustParsePrefix("10.0.0.0/8")))
 	if server.isDirectlyFromHome(direct, own) {
 		t.Error("after the home networks changed, a direct pair from the old one is from home; want away")
 	}

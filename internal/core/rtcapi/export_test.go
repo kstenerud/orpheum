@@ -6,6 +6,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/home"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
 
@@ -66,7 +67,7 @@ func ConnectionCount(server *Server) int {
 
 // CheckRelayedOffer is checkRelayedOffer as a release takes an offer: only addresses from outside.
 func CheckRelayedOffer(sdp string) (string, error) {
-	return checkRelayedOffer(sdp, func(ip net.IP) bool { return isFromOutside(ip, interfacePrefixes) })
+	return checkRelayedOffer(sdp, func(ip net.IP) bool { return isFromOutside(ip, home.InterfaceNetworks) })
 }
 
 // IsFromOutside is isFromOutside.

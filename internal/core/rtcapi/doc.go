@@ -71,10 +71,14 @@
 //   - A connection a discovery's offer made is told to its answerer as proven at home (AnswerRelayed's
 //     onProvenAtHome), and a request over any connection is marked from home (IsDirectlyFromHome),
 //     only when its selected pair is direct, the core's end a host candidate, and the client's end in
-//     the home networks or the core's own public IPv6 networks, its host and STUN-found candidates' /64s
+//     the home rule (SetHome: internal/core/home's, the one api judges a direct request by, D452 §1) or
+//     the core's own public IPv6 networks, its host and STUN-found candidates' /64s
 //     (D297 §6); a relayed, punched or hairpinned one, or a direct one from anywhere else, never is
 //     (D356 §1, D354 §4, D439). It is one judgement, provenAtHome's, which api reads and does not make
-//     (D439 §2); a request's is made on the pair and the home networks as it finds them.
+//     (D439 §2); a request's is made on the pair and the home rule as it finds them. The own networks
+//     the last connection to connect found are kept (OwnIPv6Networks), which the home rule counts for
+//     a direct request too (D452 §2).
+//     TestProvenAtHome_ADirectPairIsJudgedByTheSharedRule,
 //     TestOwnIPv6Networks_AreThePublicIPv6CandidatesOfTheCoresOwnEnd,
 //     TestProvenAtHome_ADirectConnectionFromTheHouseProvesItself,
 //     TestProvenAtHome_ARelayedPunchedOrHairpinnedConnectionProvesNothing,

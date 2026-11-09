@@ -179,6 +179,8 @@ read_header_timeout_seconds = 10
 shutdown_grace_seconds = 10
 host_names = []
 home_networks = ["127.0.0.0/8", "::1/128"]
+home_is_private = false
+not_home_networks = []
 this_machine_listen = ""
 install_route = ""
 
@@ -401,6 +403,42 @@ func TestServerConfig_HomeNetworksAreNetworks(t *testing.T) {
 	server.HomeNetworks = []string{"192.168.1.7"}
 	if err := server.check(); err == nil || !strings.Contains(err.Error(), "server.home_networks") {
 		t.Errorf("an address alone = %v; want refused by server.home_networks", err)
+	}
+}
+
+// The networks never home are networks too; anything else is refused by name (D452 §1).
+func TestServerConfig_NotHomeNetworksAreNetworks(t *testing.T) {
+	t.Parallel()
+	server := ServerConfig{
+		Listen: "0.0.0.0:8440", ReadHeaderTimeoutSeconds: 10, ShutdownGraceSeconds: 10,
+		NotHomeNetworks: []string{"10.77.0.1/24", "fd77::/64"},
+	}
+	if err := server.check(); err != nil {
+		t.Fatal(err)
+	}
+	if got := fmt.Sprint(server.notHomeNetworks()); got != "[10.77.0.0/24 fd77::/64]" {
+		t.Errorf("the networks never home read as %s; want each network, masked", got)
+	}
+	server.NotHomeNetworks = []string{"10.77.0.1"}
+	if err := server.check(); err == nil || !strings.Contains(err.Error(), "server.not_home_networks") {
+		t.Errorf("an address alone = %v; want refused by server.not_home_networks", err)
+	}
+}
+
+// home_is_private counts a private network as home but those not_home_networks names; a config naming
+// neither key keeps its home_networks alone, as before D452 §1.
+func TestHomeRuleOf_CountsPrivateNetworksOnlyWhenTheConfigSays(t *testing.T) {
+	t.Parallel()
+	var config Config
+	config.Server.HomeNetworks = []string{"192.168.1.0/24"}
+	isHome := func(address string) bool { return homeRuleOf(config).Contains(netip.MustParseAddr(address)) }
+	if !isHome("192.168.1.20") || isHome("192.168.7.20") || isHome("10.77.0.3") {
+		t.Error("with neither key, home is not home_networks alone")
+	}
+	config.Server.HomeIsPrivate = true
+	config.Server.NotHomeNetworks = []string{"10.77.0.0/24"}
+	if !isHome("192.168.1.20") || !isHome("192.168.7.20") || isHome("10.77.0.3") || isHome("203.0.113.9") {
+		t.Error("with home_is_private, home is not every private network but not_home_networks'")
 	}
 }
 

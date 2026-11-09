@@ -542,32 +542,6 @@ func TestNewKeyPair_IsAClampedX25519PairAsWgMakesOne(t *testing.T) {
 	}
 }
 
-// The house's network, the LAN address's /24, is where the deployed core's admin administers from,
-// never the tunnel's 10.77.0.0/24 (D297 §6). With no LAN address no network is home, and the values
-// name the address as a problem: a private range in its place took in Docker's networks, through which
-// a port published by docker-proxy comes from the internet (the Plex-chain review's L1). The core's own
-// loopback is home too, which only a command run in its container reaches (D334 §2, §3).
-func TestWrite_TheCoreAdministersOnlyFromTheHousesNetwork(t *testing.T) {
-	t.Parallel()
-	dir := begun(t, Staging)
-	values := filledValues(t, Staging)
-	values.LAN.Address = "192.168.1.199"
-	if err := Write(dir, values, runtime); err != nil {
-		t.Fatal(err)
-	}
-	got := fmt.Sprint(decodeTOML(t, filepath.Join(dir, coreConfig))["server"]["home_networks"])
-	if got != "[192.168.1.0/24 127.0.0.0/8 ::1/128]" {
-		t.Errorf("the core's server.home_networks are %s; want the house's /24 and the loopback alone", got)
-	}
-	values.LAN.Address = ""
-	if got := values.HomeNetworks(); len(got) != 0 {
-		t.Errorf("with no address at home the home networks are %v; want none", got)
-	}
-	if err := Write(dir, values, runtime); err == nil || !strings.Contains(err.Error(), "lan.address") {
-		t.Errorf("writing with no address at home = %v; want it refused, naming lan.address", err)
-	}
-}
-
 // The machine's router at home, which the core's container cannot see, goes to the core for its port
 // mapping to ask, not Docker's bridge (item 15 of the owner's comments of 2026-11-02); one that is not
 // a router at home is a problem the values name.

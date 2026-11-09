@@ -144,28 +144,3 @@ func isFromOutside(ip net.IP, ownPrefixes func() []netip.Prefix) bool {
 	}
 	return true
 }
-
-// interfacePrefixes are the networks the core's interfaces are on: a client in one of them is on
-// the core's LAN, which its own path serves.
-func interfacePrefixes() []netip.Prefix {
-	addresses, err := net.InterfaceAddrs()
-	if err != nil {
-		return nil
-	}
-	prefixes := make([]netip.Prefix, 0, len(addresses))
-	for _, each := range addresses {
-		network, isNetwork := each.(*net.IPNet)
-		if !isNetwork {
-			continue
-		}
-		address, isAddress := netip.AddrFromSlice(network.IP)
-		ones, bits := network.Mask.Size()
-		if address = address.Unmap(); address.Is4() && bits == 128 {
-			ones -= 96
-		}
-		if isAddress {
-			prefixes = append(prefixes, netip.PrefixFrom(address, ones).Masked())
-		}
-	}
-	return prefixes
-}

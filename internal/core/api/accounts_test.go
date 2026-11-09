@@ -14,6 +14,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/home"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -317,7 +318,7 @@ func TestPairing_AnAdminActivatesADeviceForSomeoneElseAndOnlyAnAdmin(t *testing.
 	wantError(t, harness.do(t, http.MethodPost, "/pairings/code", admin,
 		map[string]any{"code": pairing.Body.Code, "deviceName": "TV", "userId": other}),
 		http.StatusForbidden, api.CodeForbidden)
-	harness.server.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("192.168.1.0/24")})
+	harness.server.SetHome(home.Listed(netip.MustParsePrefix("192.168.1.0/24")))
 	wantError(t, harness.do(t, http.MethodPost, "/pairings/code", admin,
 		map[string]any{"code": pairing.Body.Code, "deviceName": "TV", "userId": made}),
 		http.StatusForbidden, api.CodeForbidden)

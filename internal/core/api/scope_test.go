@@ -16,6 +16,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/home"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi/rtcapitest"
 )
@@ -67,8 +68,8 @@ func TestAdmin_AdministersOnlyFromTheHousesNetworkDirectlyOrOverWebRTCFromIt(t *
 	harness.server.SetRTC(rtc)
 	// Home is this machine: the pair may reach the core over any of its addresses, loopback or an
 	// interface's, whichever ICE settles on first (it chose the container's own address under load).
-	harness.server.SetHomeNetworks(machineNetworks(t))
-	rtc.SetHomeNetworks(machineNetworks(t)) // as the binary names them to both (cmd/orpheum)
+	harness.server.SetHome(home.Listed(machineNetworks(t)...))
+	rtc.SetHome(home.Listed(machineNetworks(t)...)) // as the binary names them to both (cmd/orpheum)
 	admin := harness.createAdminAndSignIn(t)
 	//nolint:contextcheck // the harness's requests carry the test's context
 	link := rtcapitest.Connect(t, func(_ context.Context, offer rtcapi.Description) (rtcapi.Description, error) {
@@ -93,8 +94,8 @@ func TestAdmin_AdministersOnlyFromTheHousesNetworkDirectlyOrOverWebRTCFromIt(t *
 	if !isAdminOver(t, ask("/me")) {
 		t.Error("an admin's /me over WebRTC from home says they do not administer")
 	}
-	harness.server.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("192.168.1.0/24")})
-	rtc.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("192.168.1.0/24")})
+	harness.server.SetHome(home.Listed(netip.MustParsePrefix("192.168.1.0/24")))
+	rtc.SetHome(home.Listed(netip.MustParsePrefix("192.168.1.0/24")))
 	users := ask("/users?limit=500")
 	if users.Head.Status != http.StatusForbidden || !strings.Contains(string(users.Body), "own network") {
 		t.Errorf("an admin's GET /users over WebRTC from away = %d %s; want 403, administering only at home",
@@ -171,7 +172,7 @@ func TestSession_ItsBeginningIsLoggedWithItsPathAndWhetherItAdministers(t *testi
 	harness := newHarness(t)
 	harness.createAdminAndSignIn(t)
 	harness.logs.AwaitEvent(t, "sessionBegan", `"path":"direct from home","isAdmin":true`)
-	harness.server.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("192.168.1.0/24")})
+	harness.server.SetHome(home.Listed(netip.MustParsePrefix("192.168.1.0/24")))
 	harness.signIn(t, "owner", "owner-password")
 	harness.logs.AwaitEvent(t, "sessionBegan", `"path":"direct from away","isAdmin":false`)
 }
@@ -182,7 +183,7 @@ func TestAdmin_AdministersFromAwayOnlyByTheirOwnSettingSetFromHome(t *testing.T)
 	t.Parallel()
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
-	home := []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")}
+	atHome := []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")}
 	away := []netip.Prefix{netip.MustParsePrefix("192.168.1.0/24")}
 	setAway := func(token, value string) response {
 		return harness.do(t, http.MethodPut, "/me/admin-away", token, map[string]any{"adminAway": value})
@@ -190,14 +191,14 @@ func TestAdmin_AdministersFromAwayOnlyByTheirOwnSettingSetFromHome(t *testing.T)
 	if me := harness.do(t, http.MethodGet, "/me", admin, nil); !strings.Contains(me.body, `"adminAway":"never"`) {
 		t.Errorf("an admin's /me = %s; want never, the default", me.body)
 	}
-	harness.server.SetHomeNetworks(away)
+	harness.server.SetHome(home.Listed(away...))
 	wantError(t, harness.do(t, http.MethodGet, "/users?limit=500", admin, nil), http.StatusForbidden, api.CodeForbidden)
 	wantError(t, setAway(admin, "always"), http.StatusForbidden, api.CodeForbidden)
-	harness.server.SetHomeNetworks(home)
+	harness.server.SetHome(home.Listed(atHome...))
 	if set := setAway(admin, "always"); set.status != http.StatusNoContent {
 		t.Fatalf("setting always from home = %d %s", set.status, set.body)
 	}
-	harness.server.SetHomeNetworks(away)
+	harness.server.SetHome(home.Listed(away...))
 	if users := harness.do(t, http.MethodGet, "/users?limit=500", admin, nil); users.status != http.StatusOK {
 		t.Errorf("an admin set to always, from away: GET /users = %d %s; want 200", users.status, users.body)
 	}
@@ -206,7 +207,7 @@ func TestAdmin_AdministersFromAwayOnlyByTheirOwnSettingSetFromHome(t *testing.T)
 	}
 	// From away they may not turn it off either: it is set at home alone.
 	wantError(t, setAway(admin, "never"), http.StatusForbidden, api.CodeForbidden)
-	harness.server.SetHomeNetworks(home)
+	harness.server.SetHome(home.Listed(atHome...))
 	if _, err := harness.authService.CreateUser(t.Context(),
 		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
 		t.Fatal(err)

@@ -8,22 +8,21 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
-	"slices"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/home"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 )
 
 // homeKey is the context key of whether a request came from one of the house's networks.
 type homeKey struct{}
 
-// SetHomeNetworks names the networks an admin administers from: a request from one carries an admin's
-// rights, made directly to the core; over WebRTC, rtcapi judges it by its own home networks
-// (rtcapi.IsDirectlyFromHome, D439). One from anywhere else does not (D297 §6). None named, no
-// request administers.
-func (server *Server) SetHomeNetworks(networks []netip.Prefix) {
-	held := slices.Clone(networks)
-	server.homeNetworks.Store(&held)
+// SetHome names the rule of where an admin administers from: a request made directly to the core from
+// an address it holds carries an admin's rights; over WebRTC, rtcapi judges it, by the same rule
+// (rtcapi.IsDirectlyFromHome, D439). One from anywhere else does not (D297 §6, D452 §1, §2). With no
+// rule, no request administers.
+func (server *Server) SetHome(rule *home.Rule) {
+	server.homeRule.Store(rule)
 }
 
 // SetThisMachinePort names the port only the server's own machine reaches: the deployment publishes it
@@ -58,20 +57,6 @@ func (server *Server) markingHome(next http.Handler) http.Handler {
 	})
 }
 
-// isInAny is whether remote, a "host:port", is in one of networks.
-func isInAny(remote string, networks []netip.Prefix) bool {
-	host, _, err := net.SplitHostPort(remote)
-	if err != nil {
-		host = remote
-	}
-	address, err := netip.ParseAddr(host)
-	if err != nil {
-		return false
-	}
-	address = address.Unmap().WithZone("")
-	return slices.ContainsFunc(networks, func(network netip.Prefix) bool { return network.Contains(address) })
-}
-
 // isOnThisMachinesPort is whether request came in on the port only the server's own machine reaches.
 func (server *Server) isOnThisMachinesPort(request *http.Request) bool {
 	port := server.thisMachinePort.Load()
@@ -83,13 +68,14 @@ func (server *Server) isOnThisMachinesPort(request *http.Request) bool {
 	return err == nil && int32(address.Port()) == port
 }
 
-// isHomeAddress is whether remote, a request's "host:port", is in one of the home networks.
+// isHomeAddress is whether remote, a request's "host:port", is home by the rule SetHome named.
 func (server *Server) isHomeAddress(remote string) bool {
-	networks := server.homeNetworks.Load()
-	if networks == nil {
-		return false
+	host, _, err := net.SplitHostPort(remote)
+	if err != nil {
+		host = remote
 	}
-	return isInAny(remote, *networks)
+	address, err := netip.ParseAddr(host)
+	return err == nil && server.homeRule.Load().Contains(address)
 }
 
 // isFromHome is whether the request whose context ctx is came from a home network.

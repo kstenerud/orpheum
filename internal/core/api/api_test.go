@@ -26,6 +26,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/backup"
 	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/discovery"
+	"github.com/kstenerud/orpheum/internal/core/home"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/identify/identifytest"
 	"github.com/kstenerud/orpheum/internal/core/identity"
@@ -229,7 +230,7 @@ func newHarness(t *testing.T) testHarness {
 	}}
 	server.Ready(dependencies)
 	// The tests' requests come from this machine, which is home: an admin's administer (D297 §6).
-	server.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")})
+	server.SetHome(home.Listed(netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")))
 	served := httptest.NewServer(server.Handler())
 	t.Cleanup(served.Close)
 	return testHarness{

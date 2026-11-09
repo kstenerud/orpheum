@@ -15,6 +15,7 @@ import (
 
 	"github.com/pion/webrtc/v4"
 
+	"github.com/kstenerud/orpheum/internal/core/home"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
@@ -108,7 +109,7 @@ func hostCandidatesAt(sdp string, port int) (ipv4, ipv6 []string) {
 func TestRelayed_AnswersAHomeAddressOnlyAsTheSourceOfItsOwnCheck(t *testing.T) {
 	t.Parallel()
 	server := rtcapi.New(t.Context(), http.NotFoundHandler(), slog.New(slog.DiscardHandler))
-	server.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("192.168.1.0/24")})
+	server.SetHome(home.Listed(netip.MustParsePrefix("192.168.1.0/24")))
 	checked, err := rtcapi.CheckRelayedOffer(offerOf(sha256Fingerprint, candidate("203.0.113.1"),
 		candidate("192.168.1.20"), candidate("10.0.0.7")))
 	if err != nil {

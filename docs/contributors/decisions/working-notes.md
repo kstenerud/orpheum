@@ -27182,7 +27182,20 @@ to confirm a changed address (needless once the address grants nothing); trustin
 address because it was proven home over IPv4 (a VPN or mobile data would bring its network in; only
 the core's own /64 is trusted).
 
-**Status:** decided (2026-11-09); its build is under way.
+**Status:** decided (2026-11-09); its build is under way, §3–5 not built yet.
+§1 and §2 are (2026-11-09): `internal/core/home`, the one rule api and rtcapi judge home by, and
+`server.home_is_private` and `server.not_home_networks`, which a deployment writes.
+
+**Proven by:**
+- 1: `TestRule_APrivateSourceIsHome`, `TestRule_DockersBridgeNetworkIsNotHomeNorItsGateway`,
+  `TestRule_TheTunnelsNetworksAreNotHome`, `TestRule_CarrierGradeNATIsNotHome`,
+  `TestRule_APublicAddressIsNotHome`, `TestRule_AnInterfaceNetworkHoldingTheAddressAtHomeStaysHome`,
+  `TestRule_LoopbackStaysHome`, `TestRule_WithoutPrivateItIsTheListedNetworksAlone`,
+  `TestHomeRuleOf_CountsPrivateNetworksOnlyWhenTheConfigSays`,
+  `TestServerConfig_NotHomeNetworksAreNetworks`,
+  `TestWrite_TheCoreCountsEveryPrivateNetworkButTheTunnelsAsHome`,
+  `TestProvenAtHome_ADirectPairIsJudgedByTheSharedRule`, `TestMarkingHome_ThisMachinesPortIsHome`
+- 2: `TestRule_TheCoresOwnIPv6NetworkIsHome`, `TestMarkingHome_ADirectRequestIsHomeByTheSharedRule`
 
 ## D453 — "Orpheum" is the name, no longer provisional
 
