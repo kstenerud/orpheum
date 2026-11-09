@@ -69,6 +69,18 @@ func (service *Service) EncodesOnAGPU(nodeID int64) bool {
 	return isGPUEncoder(node.hello.Hardware.ChosenEncoder)
 }
 
+// EncodeSpeedPercent is how fast the node's chosen encoder made the lowest quality at its start, in
+// percent of real time, as its last hello said (D457); zero when its trial measured none or it has
+// not said hello since the core started.
+func (service *Service) EncodeSpeedPercent(nodeID int64) int {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	if node, found := service.nodesHeardSinceStart[nodeID]; found {
+		return node.hello.Hardware.EncodeSpeedPercent
+	}
+	return 0
+}
+
 // isGPUEncoder is whether a node's chosen encoder is a GPU's: not software's, and named.
 func isGPUEncoder(chosen string) bool {
 	return chosen != "" && chosen != nodeproto.EncoderX264

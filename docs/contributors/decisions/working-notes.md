@@ -27400,3 +27400,50 @@ the answer rather than being cleaned. Both are reported to the owner, not loosen
   `TestUnmarshal_AcceptsKeysInTheirFieldsCaseAndFreeFormKeysInAnyCase`,
   `TestUnmarshal_FollowsEncodingJSONsChoiceBetweenFieldsClaimingOneName`,
   `TestRequestBody_AKeyNamingAFieldInAnotherCaseIsRefused`
+
+
+## D457 — A machine too slow to convert in time offers only what plays without an encode, and says so
+
+**Decided** (2026-11-09), by the project owner, of the first Synology beta tester's DS218 (four
+Cortex-A53 cores, no hardware encoder Orpheum uses): *"put that in now because otherwise he won't
+know what's going on"*: a machine that cannot encode in time says so, rather than a playback that
+stalls over and over with no word why. It is what work-scheduling.md §10.4 planned for software
+that cannot run in real time: say so plainly.
+
+1. **The node measures its encoder's speed when it starts.** After the encoder trials choose one
+   (cut-a §6, D332), the node encodes ten seconds of a generated 1080p picture (`testsrc2`) at the
+   lowest quality of the default ladder, 400 kb/s at 360 lines, with the chosen encoder and its
+   confinement, and keeps FFmpeg's own `speed=` as a percent of real time. A trial cut short by its
+   one-minute bound keeps the speed it had reached; one that reported none is unmeasured (zero). The
+   hello carries it (`Hardware.EncodeSpeedPercent`, protocol 62).
+2. **The line is `chunk_run_slowest_speed_percent`** (110 by default), the speed every run of
+   chunks is already held to (D250 §6): a node whose measure is below it is too slow to encode. A
+   node unmeasured is not, so a trial that failed takes nothing away.
+3. **A film on a node too slow to encode offers no encoded picture.** Its ladder offers only its
+   own picture copied, which a player that decodes it plays with its sound as before; no twin and
+   no lower quality. A player that would need one, as it cannot decode the picture or the film's
+   picture cannot be copied (it is cut on time), is refused: `chunks.ErrTooSlowToEncode`, then
+   `playback.ErrTooSlowToConvert`, answered as 422 `tooSlowToConvert`, which the player says as
+   *"This server can't convert this film fast enough to play it here."* A film a device plays as it
+   is plays as before. The read that finds a film's keyframes still starts, after which its picture
+   can be copied.
+4. **The System page says it beside the node's encoders:** the speed measured, and when too slow,
+   a warning that films on that machine play only on devices that play them as they are.
+
+What it does not measure: the trial decodes a generated picture, not a real film, so it leaves out
+the cost of decoding the source, and a test pattern may encode faster than a film; the measure is
+the node's at its start, alone, not under the load of other runs. A machine near the line may pass
+the trial and still stall on a heavy film; the stall's own handling (D247) then applies as before.
+
+**Status:** decided (2026-11-09); the device check is VQ293.
+
+**Proven by:**
+- 1: `TestMeasureSpeed_IsFFmpegsLastSpeedEncodingTheLowestQuality`,
+  `TestMeasureSpeed_ATrialCutShortGivesTheSpeedItReachedAndOneThatSaidNoneFails`,
+  `TestHardwareReport_IsTheDevicesEachTrialTheEncoderChosenAndItsSpeed`,
+  `TestEncodeSpeedPercent_IsTheLastHellosMeasure`
+- 2, 3: `TestStartOnLadder_ANodeTooSlowToEncodeOffersOnlyThePictureCopied`,
+  `TestStartPlayback_AFilmOnAMachineTooSlowToConvertItIsRefusedAndStartsOnlyItsKeyframesRead`, and
+  in the web client "a play on a server too slow to convert it (D457)" (`problem.test.ts`)
+- 4: `TestSystem_ShowsTheServersFactsEachNodesAndDoctorsFindings`, and in the web client "the System
+  page warns when a machine is too slow to convert a film as it plays (D457)" (`system.test.tsx`)

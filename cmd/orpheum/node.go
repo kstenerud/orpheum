@@ -514,11 +514,14 @@ func openRootsThrough(
 }
 
 // nodeCapabilities are what the node found it has: its confinement, per mechanism, the encoder
-// trials that chose its encoder, the GPU devices it sees (D225 §3), and whether its FFmpeg reads
-// each film through the node (D330).
+// trials that chose its encoder, how fast that encoder makes the lowest quality (D457), the GPU
+// devices it sees (D225 §3), and whether its FFmpeg reads each film through the node (D330).
 type nodeCapabilities struct {
-	confinement           []confine.State
-	encoderChoice         encode.Choice
+	confinement   []confine.State
+	encoderChoice encode.Choice
+	// encodeSpeedPercent is the chosen encoder's speed on the lowest quality, in percent of real
+	// time; zero when its trial measured none.
+	encodeSpeedPercent    int
 	gpus                  []nodeproto.GPU
 	readsFilmsThroughNode bool
 }
@@ -528,10 +531,28 @@ type nodeCapabilities struct {
 func detectCapabilities(
 	ctx context.Context, runner *execx.Runner, confinement []confine.State, logger *slog.Logger,
 ) nodeCapabilities {
+	encoderChoice := chooseEncoder(ctx, runner, logger)
 	return nodeCapabilities{
-		confinement: confinement, encoderChoice: chooseEncoder(ctx, runner, logger), gpus: hardware.GPUs(),
+		confinement: confinement, encoderChoice: encoderChoice,
+		encodeSpeedPercent: measureEncodeSpeed(ctx, runner, encoderChoice.Chosen, logger), gpus: hardware.GPUs(),
 		readsFilmsThroughNode: streamFilmsIfAble(ctx, runner, logger),
 	}
+}
+
+// measureEncodeSpeed is how fast the chosen encoder makes the lowest quality here, in percent of
+// real time, for the core to judge whether this node can encode for a player at all (D457); zero,
+// logged, when its trial measured none.
+func measureEncodeSpeed(
+	ctx context.Context, runner *execx.Runner, chosen encode.Encoder, logger *slog.Logger,
+) int {
+	percent, err := encode.MeasureSpeed(ctx, runner, chosen)
+	if err != nil {
+		logger.WarnContext(ctx, "this node could not measure how fast it encodes", "chosenEncoder", chosen, "err", err)
+		return 0
+	}
+	logger.InfoContext(ctx, "this node measured how fast it encodes the lowest quality",
+		"chosenEncoder", chosen, "realTimePercent", percent)
+	return percent
 }
 
 // newScanner lists under the roots and examines their files, probing each video with runner, which
@@ -628,7 +649,8 @@ func streamFilmsIfAble(ctx context.Context, runner *execx.Runner, logger *slog.L
 }
 
 // hardwareReport is the hello's account of hardware encoding: the devices, each trial and the
-// encoder chosen (D225 §3); and whether FFmpeg reads films through the node (D330).
+// encoder chosen (D225 §3), and its speed on the lowest quality (D457); and whether FFmpeg reads
+// films through the node (D330).
 func hardwareReport(detected nodeCapabilities) nodeproto.Hardware {
 	trials := make([]nodeproto.EncoderTrial, 0, len(detected.encoderChoice.Trials))
 	for _, trial := range detected.encoderChoice.Trials {
@@ -636,7 +658,7 @@ func hardwareReport(detected nodeCapabilities) nodeproto.Hardware {
 	}
 	return nodeproto.Hardware{
 		GPUs: detected.gpus, Trials: trials, ChosenEncoder: string(detected.encoderChoice.Chosen),
-		ReadsFilmsThroughNode: detected.readsFilmsThroughNode,
+		EncodeSpeedPercent: detected.encodeSpeedPercent, ReadsFilmsThroughNode: detected.readsFilmsThroughNode,
 	}
 }
 

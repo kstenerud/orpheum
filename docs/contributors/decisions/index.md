@@ -462,6 +462,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D454](working-notes.md#d454--a-missing-kernel-feature-degrades-and-is-named-it-never-stops-a-server-that-can-play) A missing kernel feature degrades and is named; it never stops a server that can play
 - [D455](working-notes.md#d455--the-closed-beta-runs-on-official-releases-and-orpheumcc-alone) The closed beta runs on official releases and orpheum.cc alone
 - [D456](working-notes.md#d456--every-json-document-the-go-code-reads-is-decoded-strictly) Every JSON document the Go code reads is decoded strictly
+- [D457](working-notes.md#d457--a-machine-too-slow-to-convert-in-time-offers-only-what-plays-without-an-encode-and-says-so) A machine too slow to convert in time offers only what plays without an encode, and says so
 
 ## Archived
 

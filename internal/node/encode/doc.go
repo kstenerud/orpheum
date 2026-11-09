@@ -22,6 +22,12 @@
 //     TestChooseEncoder_EachTrialSaysWhyItFailedInFFmpegsWords and
 //     TestChooseEncoder_AnAMDCardEncodesThroughVAAPIAfterQuickSyncAndNVENC.
 //
+//   - The node's encode speed is FFmpeg's own speed for the chosen encoder making the lowest quality,
+//     400 kb/s at 360 lines, from a generated 1080p picture, in percent of real time: the last it said,
+//     though the trial was cut short, and none when it said none (D457). Enforced by
+//     TestMeasureSpeed_IsFFmpegsLastSpeedEncodingTheLowestQuality and
+//     TestMeasureSpeed_ATrialCutShortGivesTheSpeedItReachedAndOneThatSaidNoneFails.
+//
 //   - A quality is 8-bit H.264 with keyframes where its chunks start and nowhere else, IDR pictures
 //     on every encoder. Enforced by TestQualityArguments_OnVAAPIScaleThenUploadWithTheChunksKeyframes
 //     and TestQualityArguments_ForcedKeyframesAreIDRsOnQuickSyncAndNVENC.

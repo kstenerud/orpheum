@@ -414,22 +414,22 @@ func TestCapabilityNames_AreRemuxAACAndTheEncodersTheNodeFound(t *testing.T) {
 	}
 }
 
-func TestHardwareReport_IsTheDevicesEachTrialAndTheEncoderChosen(t *testing.T) {
+func TestHardwareReport_IsTheDevicesEachTrialTheEncoderChosenAndItsSpeed(t *testing.T) {
 	t.Parallel()
 	found := nodeCapabilities{
 		encoderChoice: encode.Choice{Chosen: encode.EncoderNVENC, Trials: []encode.Trial{
 			{Encoder: encode.EncoderQuickSync, Failure: "no render node"}, {Encoder: encode.EncoderNVENC},
 		}},
-		gpus: []nodeproto.GPU{{DevicePath: "/dev/nvidia0", Driver: "nvidia"}},
+		encodeSpeedPercent: 1200, gpus: []nodeproto.GPU{{DevicePath: "/dev/nvidia0", Driver: "nvidia"}},
 	}
 	got := hardwareReport(found)
 	want := nodeproto.Hardware{
-		GPUs: found.gpus, ChosenEncoder: "h264_nvenc",
+		GPUs: found.gpus, ChosenEncoder: "h264_nvenc", EncodeSpeedPercent: 1200,
 		Trials: []nodeproto.EncoderTrial{{Encoder: "h264_qsv", Failure: "no render node"}, {Encoder: "h264_nvenc"}},
 	}
 	if got.ChosenEncoder != want.ChosenEncoder || !slices.Equal(got.Trials, want.Trials) || !slices.Equal(got.GPUs,
-		want.GPUs) {
-		t.Errorf("the hello's hardware = %+v, want %+v (D225 §3)", got, want)
+		want.GPUs) || got.EncodeSpeedPercent != want.EncodeSpeedPercent {
+		t.Errorf("the hello's hardware = %+v, want %+v (D225 §3, D457)", got, want)
 	}
 }
 

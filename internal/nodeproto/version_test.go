@@ -144,6 +144,9 @@ var wireShapeByVersion = map[int]string{
 	// 61 drops the leave from the hello's reply and each poll's answer, as an admin no longer withdraws
 	// it (D450 §1, amended): a node of 60 would read no leave and stop.
 	61: "8d4aa604c792c11d073f5234e99b37eb716ce36a6540e05eb552a61eb00d4583",
+	// 62 adds the hello's speed of the chosen encoder on the lowest quality (D457): a core of 61 would
+	// not know a node too slow to convert.
+	62: "691c0f5dc2df05870ba16badbd323dea0f96cb7cc855decf46920e827bba7d58",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

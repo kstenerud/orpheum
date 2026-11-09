@@ -2875,3 +2875,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   Quality lowered by hand) does: stalls, a lower quality, or stops with a reason. Simulated on amd64
   under a seccomp filter answering ENOSYS to every call added after 4.4, where it all passed
   (2026-11-09). (`internal/platform/selfuse`, `docs/users/install.md`)
+- [ ] **VQ293** — A machine too slow to convert says so, rather than stalling (the owner,
+  2026-11-09, "put that in now because otherwise he won't know what's going on"; D457). On the
+  DS218 of VQ292, with the release after v0.3.3, open the System page: passes when the node's
+  Hardware encoding section says it converts video at some percent of the speed it plays, below
+  110, with the warning that it is too slow to convert a film while it plays; the node's log at
+  start has "this node measured how fast it encodes the lowest quality" with that percent, and the start
+  took no more than a minute longer than before. Then play a film the browser plays as it is: it
+  plays as before. Then play one that needs converting (HEVC in a browser without it): passes when
+  the player says "This server can't convert this film fast enough to play it here" at once, with
+  no stall and no encode running on the System page. Note the percent measured, and whether a film
+  whose picture the browser plays but whose container it does not (an MKV of H.264) plays with its
+  picture copied. (`internal/node/encode/speed.go`, `internal/core/chunks/offer.go`,
+  `web/apps/web/src/system.tsx`)
