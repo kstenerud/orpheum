@@ -15,6 +15,10 @@ also wants installation as painless as possible, and Orpheum to install on OpenM
   it. D204 stands (a release reads no environment but TZ): compose substitutes its variables into
   the command line, which the binary reads.
 - **Test account names** in the docs are replaced with generic ones.
+- **Production keeps its cadence** (the owner, 2026-11-09): direct deploys to the production NAS,
+  not versioned releases. The public repository serves as evidence for contract work while the
+  project gets off the ground. The published images are not a release schedule, nobody installs it
+  yet, and the beta stays closed until the paid discovery side is ready for external users.
 
 ## The work
 
