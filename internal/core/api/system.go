@@ -310,6 +310,13 @@ type HardwareBody struct {
 	Trials []EncoderTrialBody `json:"trials"`
 	// ChosenEncoder is what its encodes use.
 	ChosenEncoder string `enum:"h264_qsv,h264_nvenc,h264_vaapi,x264" json:"chosenEncoder"`
+	// EncodeSpeedPercent is how fast the chosen encoder made the lowest quality at the node's start,
+	// in percent of real time; absent when its trial measured none (D457).
+	EncodeSpeedPercent *int `json:"encodeSpeedPercent,omitempty"`
+	// IsTooSlowToConvert is whether that is below chunk_run_slowest_speed_percent, so the node's films
+	// play only as they are or with their own picture copied, and a device that needs one converted
+	// is refused (D457).
+	IsTooSlowToConvert bool `json:"isTooSlowToConvert"`
 }
 
 // GPUBody is one GPU device a node found.
@@ -509,6 +516,12 @@ func (server *Server) systemNode(
 		return body, nil
 	}
 	fillNodeFacts(&body, facts, dependencies.System.Build)
+	if body.Hardware != nil && dependencies.Chunks != nil {
+		body.Hardware.IsTooSlowToConvert, err = dependencies.Chunks.IsTooSlowToEncode(ctx, facts.NodeID)
+		if err != nil {
+			return body, server.logInternalError(ctx, "judge a node's encode speed", err)
+		}
+	}
 	if body.Work != nil && dependencies.NodeWork != nil {
 		body.Work.BrokenInvariantCount = dependencies.NodeWork.BrokenInvariants(facts.NodeID)
 	}
@@ -638,6 +651,9 @@ func confinementBodies(reported []nodeproto.Confinement) []ConfinementBody {
 
 func hardwareBody(hardware nodeproto.Hardware) *HardwareBody {
 	body := &HardwareBody{GPUs: []GPUBody{}, Trials: []EncoderTrialBody{}, ChosenEncoder: hardware.ChosenEncoder}
+	if hardware.EncodeSpeedPercent > 0 {
+		body.EncodeSpeedPercent = new(hardware.EncodeSpeedPercent)
+	}
 	for _, gpu := range hardware.GPUs {
 		body.GPUs = append(body.GPUs, GPUBody{
 			DevicePath: gpu.DevicePath, Driver: gpu.Driver,

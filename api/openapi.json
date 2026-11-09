@@ -2430,6 +2430,10 @@
             ],
             "type": "string"
           },
+          "encodeSpeedPercent": {
+            "format": "int64",
+            "type": "integer"
+          },
           "gpus": {
             "items": {
               "$ref": "#/components/schemas/GPUBody"
@@ -2438,6 +2442,9 @@
               "array",
               "null"
             ]
+          },
+          "isTooSlowToConvert": {
+            "type": "boolean"
           },
           "trials": {
             "items": {
@@ -2452,7 +2459,8 @@
         "required": [
           "gpus",
           "trials",
-          "chosenEncoder"
+          "chosenEncoder",
+          "isTooSlowToConvert"
         ],
         "type": "object"
       },
@@ -5458,6 +5466,7 @@
                   "preparing",
                   "prepareFailed",
                   "cannotConvert",
+                  "tooSlowToConvert",
                   "noRoomToMake",
                   "playbackGone",
                   "migrating",
@@ -5477,6 +5486,7 @@
                   "preparing",
                   "prepareFailed",
                   "cannotConvert",
+                  "tooSlowToConvert",
                   "noRoomToMake",
                   "playbackGone",
                   "migrating",

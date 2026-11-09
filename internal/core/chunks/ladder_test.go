@@ -3,6 +3,7 @@
 package chunks
 
 import (
+	"errors"
 	"slices"
 	"testing"
 
@@ -112,6 +113,8 @@ type onAGPU bool
 
 func (gpu onAGPU) EncodesOnAGPU(int64) bool { return bool(gpu) }
 
+func (onAGPU) EncodeSpeedPercent(int64) int { return 0 }
+
 // A film whose node encodes on a GPU is cut at chunk_qualities_hardware's qualities, one encoding in
 // software at chunk_qualities' (D323 §3).
 func TestOffered_TheLadderFollowsTheFilmsNodesEncoder(t *testing.T) {
@@ -170,5 +173,63 @@ func TestOffered_BelowTheTwinTheQualitiesStepDownFromItsRate(t *testing.T) {
 	want := []string{"q3300k1080p", "q3000k720p", "q2000k540p", "q1200k480p", "q700k432p", "q400k360p"}
 	if !slices.Equal(named, want) {
 		t.Errorf("an HEVC film's player that cannot decode it is offered %v; want %v", named, want)
+	}
+}
+
+// encodesAt says every node encodes on its processor, the lowest quality at this percent of real
+// time; zero is unmeasured.
+type encodesAt int
+
+func (encodesAt) EncodesOnAGPU(int64) bool { return false }
+
+func (speed encodesAt) EncodeSpeedPercent(int64) int { return int(speed) }
+
+// A film whose node encodes the lowest quality slower than chunk_run_slowest_speed_percent offers
+// only its own picture, copied, so a player that decodes it plays it with no encode, and one that
+// cannot is refused as too slow (D457): converted, it would stall over and over. A node fast enough,
+// or one whose speed is not known, offers its whole ladder; the setting is the line.
+func TestStartOnLadder_ANodeTooSlowToEncodeOffersOnlyThePictureCopied(t *testing.T) {
+	t.Parallel()
+	fixture := func(speed encodesAt) *Service {
+		service, _ := chunksFixture(t, newFakeQueue(), fakeNode{})
+		service.encoders = speed
+		return service
+	}
+	offeredBy := func(service *Service) []string {
+		offered, err := service.Offered(t.Context(), Playback{FileID: 1, IsSourcePictureDecodable: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var named []string
+		for _, picture := range offered.Pictures {
+			named = append(named, picture.Name())
+		}
+		return named
+	}
+	slow := fixture(60)
+	if got := offeredBy(slow); !slices.Equal(got, []string{"picture"}) {
+		t.Errorf("a node encoding at 60%% offers %v; want only the film's picture, copied", got)
+	}
+	if offer := startedOnLadder(t, slow, 0, true); offer.StreamName != "picture" {
+		t.Errorf("on a node too slow, a player that decodes the picture starts at %+v; want it copied", offer)
+	}
+	if _, err := slow.StartOnLadder(t.Context(), Playback{FileID: 1, HasStartingAudio: true}, 95_000,
+		0); !errors.Is(err, ErrTooSlowToEncode) {
+		t.Errorf("on a node too slow, a player that cannot decode the picture starts with %v; want "+
+			"ErrTooSlowToEncode", err)
+	}
+	for _, speed := range []encodesAt{0, 110, 400} {
+		if got := offeredBy(fixture(speed)); len(got) != 6 {
+			t.Errorf("a node encoding at %d%% offers %v; want its picture and every quality", speed, got)
+		}
+	}
+	lowered := fixture(105)
+	seeded, isSeeded := lowered.settings.(*settings.Service)
+	if !isSeeded {
+		t.Fatalf("the fixture's settings are a %T", lowered.settings)
+	}
+	settingstest.Set(t, seeded, settings.ChunkRunSlowestSpeedPercent, "100")
+	if got := offeredBy(lowered); len(got) != 6 {
+		t.Errorf("with chunk_run_slowest_speed_percent at 100, a node at 105%% offers %v; want every quality", got)
 	}
 }

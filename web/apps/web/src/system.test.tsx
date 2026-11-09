@@ -63,6 +63,7 @@ const connected: SystemNode = {
       { encoder: "h264_nvenc", failure: "Cannot load libcuda.so.1" },
     ],
     chosenEncoder: "h264_qsv",
+    isTooSlowToConvert: false,
   },
   disks: [{ path: "/media", totalBytes: 4_000_000_000_000, availableBytes: 1_500_000_000_000 }],
   devices: [],
@@ -167,6 +168,7 @@ it("the System page names a machine that encodes on an AMD card through VAAPI (D
         { encoder: "h264_vaapi" },
       ],
       chosenEncoder: "h264_vaapi",
+      isTooSlowToConvert: false,
     },
   });
   expect(text).toContain(
@@ -184,11 +186,42 @@ it("the System page warns when a machine has a GPU but encodes on the processor"
       ],
       trials: [{ encoder: "h264_qsv", failure: "Failed to initialise VAAPI" }],
       chosenEncoder: "x264",
+      isTooSlowToConvert: false,
     },
   });
   expect(text).toContain("This machine has a GPU, but no hardware encoder works on it");
   expect(text).toContain("Orpheum on this machine may not open it: permission denied");
   // The GPU's, and none for the sandbox's part the kernel lacks, which is a note (D454 §1).
+  expect(mounted?.container.querySelectorAll('[role="alert"]').length).toBe(1);
+});
+
+it("the System page says how fast a machine converts (D457)", async () => {
+  const fast = await shown({
+    ...connected,
+    hardware: {
+      trials: [],
+      chosenEncoder: "x264",
+      encodeSpeedPercent: 450,
+      isTooSlowToConvert: false,
+    },
+  });
+  expect(fast).toContain("It converts video at 450% of the speed it plays.");
+  expect(fast).not.toContain("too slow to convert");
+});
+
+it("the System page warns when a machine is too slow to convert a film as it plays (D457)", async () => {
+  const slow = await shown({
+    ...connected,
+    hardware: {
+      trials: [],
+      chosenEncoder: "x264",
+      encodeSpeedPercent: 60,
+      isTooSlowToConvert: true,
+    },
+  });
+  expect(slow).toContain("It converts video at 60% of the speed it plays.");
+  expect(slow).toContain("That is too slow to convert a film while it plays");
+  expect(slow).toContain("told this server can't convert it fast enough");
   expect(mounted?.container.querySelectorAll('[role="alert"]').length).toBe(1);
 });
 

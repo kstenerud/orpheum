@@ -126,3 +126,12 @@ describe("a play of a file that cannot be converted (D344 §5)", () => {
     expect(text).not.toContain("a note for developers");
   });
 });
+
+describe("a play on a server too slow to convert it (D457)", () => {
+  it("says the server can't convert it fast enough to play here, never the server's message", () => {
+    const refusal = new ApiProblem({ code: "tooSlowToConvert", message: "a note for developers" });
+    const text = problemText(t, refusal);
+    expect(text).toContain("can't convert this film fast enough to play it here");
+    expect(text).not.toContain("a note for developers");
+  });
+});

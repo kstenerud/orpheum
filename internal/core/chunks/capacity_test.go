@@ -243,6 +243,8 @@ type gpuEncoders struct{}
 
 func (gpuEncoders) EncodesOnAGPU(nodeID int64) bool { return nodeID == 1 }
 
+func (gpuEncoders) EncodeSpeedPercent(int64) int { return 0 }
+
 // A run players want of a quality, encoded in software, that falls behind playback holds its node
 // back for a speed window: the node's other work is stopped, and no run is evicted while the node
 // settles. With nothing stopped, a run is evicted as before; on a GPU nothing is held back (D324 §5).
