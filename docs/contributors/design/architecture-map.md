@@ -127,6 +127,7 @@ is the evidence. The first column names each package by its path; the check read
 | `discovery/trust/trusttest` | — (tests only: hardware and plain keys, and a chain they sign) | — (public, so the closed service's tests use it too) |
 | `discovery/addressdoc` | R1 (a discovery's signed address document at its issuer's well-known path, and opening it for exactly that issuer, D391 §3) | — (public: the closed service serves the same document, D275 §1) |
 | `internal/platform/outbound`, `internal/platform/bounded` | R1 support | — |
+| `internal/platform/strictjson` | R1 support (every JSON document the Go code reads, decoded strictly, D456) | — (its twin, `discovery/internal/strictjson`, serves the public discovery packages) |
 | `internal/platform/unixsocket` | R8 support | — (dialling and, since 2026-09-30, listening, for both roles) |
 | `internal/platform/jobqueue` | R8 support | — (the generic job queue of D231 §2, since the jobs rebuild's Phase 1; it knows no kind, target or destination, and its storage is `internal/store`'s `JobStorage` on cache.db, so either role could use it) |
 | `internal/platform/langtag` | R2 (normalise on entry) | — |
