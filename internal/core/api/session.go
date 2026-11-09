@@ -292,7 +292,7 @@ func (server *Server) setup(ctx context.Context, input *SetupInput) (*UserOutput
 	var addressAtHome netip.Addr
 	if input.Body.AddressAtHome != "" {
 		if addressAtHome, err = netip.ParseAddr(input.Body.AddressAtHome); err != nil || !home.IsAtHome(addressAtHome) {
-			return nil, newError(http.StatusBadRequest, CodeInvalidRequest, home.ErrNotAtHome.Error())
+			return nil, invalidRequestAt(http.StatusBadRequest, "body.addressAtHome", home.ErrNotAtHome.Error())
 		}
 	}
 	admin := auth.NewUser{Name: input.Body.Name, Password: input.Body.Password}
