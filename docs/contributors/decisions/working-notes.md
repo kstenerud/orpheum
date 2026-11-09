@@ -27252,7 +27252,10 @@ fitting the compose file to a Synology DS218 (DSM 7, kernel 4.4, Docker 24). Ame
 **Rejected:** IPv6 off by default with an opt-in for Docker 27 (a household's connections from away
 over IPv6 lost by default); keeping the bridge network and asking an old Docker's owner to edit the
 file (the tinkering this removes); a privileged helper setting sysctls in the core's namespace
-(Docker mounts `/proc/sys` read-only, and it is more to trust).
+(Docker mounts `/proc/sys` read-only, and it is more to trust); turning MPTCP on where the kernel has the fix (it
+buys a household nothing: the streams are HLS over one TCP connection, or WebRTC over UDP, between
+devices on one network or one path from away, so there is no second path to add; the owner asked,
+2026-11-09).
 
 **Status:** §2–5 built (2026-11-09), with D452 §5: the compose files ask no address and name no
 kernel feature, the household's core runs on the host's network, and a kernel without Landlock or
