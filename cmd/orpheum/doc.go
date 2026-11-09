@@ -64,6 +64,9 @@
 //   - A secret appears in no API response, log, doctor output, backup or database file except as
 //     ciphertext (D194 §5). Enforced by TestCanary_ASecretAppearsNowhereButAsCiphertext, seen to
 //     fail against a planted leak.
+//   - The discovery's heartbeat sends the machine's public addresses and, of its private ones, the
+//     address at home alone, never a container bridge's gateway (D452 §3). Enforced by
+//     TestPublicOrAtHome_SendsNoPrivateAddressButTheAddressAtHome.
 //
 // # Read before changing
 //
