@@ -54,3 +54,23 @@ func TestTeachingPorts_AreThePlainAndHTTPSPorts(t *testing.T) {
 		t.Errorf("the teaching ports are %v; want %v", got, want)
 	}
 }
+
+// A core sharing the host's network learns only an address one of its interfaces holds, so a device
+// at home naming another private address in its Host does not repoint the server (D452 §3).
+func TestKeepAddressAtHome_ACoreOnTheHostsNetworkLearnsNoAddressItDoesNotHold(t *testing.T) {
+	t.Parallel()
+	database := storetest.OpenMigrated(t)
+	opened := openedServices{database: database, settings: settingstest.Seeded(t, database)}
+	var config Config
+	config.Server.AddressAtHomeFromDefaultRoute = true
+	server, _ := newAPIServer(config, slog.New(slog.DiscardHandler))
+	keeper, err := keepAddressAtHome(t.Context(), config, server, opened, slog.New(slog.DiscardHandler))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// No machine running the tests holds this one: it is the last host of a /8 no lab hands out.
+	keeper.Learn(t.Context(), netip.MustParseAddr("10.255.255.254"), "a guest's phone")
+	if got := keeper.Known(); got.Origin == home.OriginLearned {
+		t.Errorf("on the host's network, an address no interface holds was learned: %+v", got)
+	}
+}

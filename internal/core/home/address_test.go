@@ -266,6 +266,36 @@ func TestHomeAddress_ACoreOnTheHostsNetworkGuessesTheDefaultRoutesAddressUntilOn
 	}
 }
 
+// A core sharing the host's network learns only an address one of its interfaces holds: the Host a
+// request names is the device's to write, and a device at home naming another private address does
+// not repoint the server; an admin's set is not held to it (D452 §3).
+func TestHomeAddress_ACoreOnTheHostsNetworkLearnsOnlyAnAddressItHolds(t *testing.T) {
+	t.Parallel()
+	interfaces := func() []home.Interface {
+		return []home.Interface{
+			{Name: "lo", Addresses: []netip.Addr{netip.MustParseAddr("127.0.0.1")}},
+			{Name: "eth0", Addresses: []netip.Addr{netip.MustParseAddr("192.168.1.20")}},
+		}
+	}
+	database := storetest.OpenMigrated(t)
+	adminID := storetest.InsertUser(t, database, "owner", "admin")
+	running := keeperOver(t, database, home.AddressParts{Interfaces: interfaces, LearnsOnlyHeld: true})
+	running.Learn(t.Context(), netip.MustParseAddr("192.168.1.66"), "a guest's phone")
+	if got := running.Known(); got.Address.IsValid() {
+		t.Fatalf("after a request named an address no interface holds, the address at home is %+v; want none", got)
+	}
+	running.Learn(t.Context(), netip.MustParseAddr("192.168.1.20"), "Firefox on Linux")
+	if got := running.Known(); got.Address != netip.MustParseAddr("192.168.1.20") || got.Origin != home.OriginLearned {
+		t.Fatalf("after a request named eth0's address, the address at home is %+v; want it learned", got)
+	}
+	if err := running.Set(t.Context(), netip.MustParseAddr("192.168.1.30"), adminID); err != nil {
+		t.Fatalf("an admin's set of an address no interface holds = %v; want it kept", err)
+	}
+	if got := running.Known(); got.Address != netip.MustParseAddr("192.168.1.30") {
+		t.Errorf("after an admin's set, the address at home is %+v; want 192.168.1.30", got)
+	}
+}
+
 // A core in a container's own network guesses nothing: its default route is Docker's bridge, and
 // taking it would make the internet, arriving from that bridge, home (D452 §3).
 func TestHomeAddress_ACoreInAContainersNetworkGuessesNothing(t *testing.T) {

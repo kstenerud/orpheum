@@ -36,7 +36,7 @@ func keepAddressAtHome(
 		parts.Configured = configured[0]
 	}
 	if config.Server.AddressAtHomeFromDefaultRoute {
-		parts.DefaultRoute = defaultRouteAddress
+		parts.DefaultRoute, parts.LearnsOnlyHeld = defaultRouteAddress, true
 	}
 	keeper, err := home.NewAddressAtHome(ctx, parts)
 	if err != nil {

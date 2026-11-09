@@ -27191,7 +27191,9 @@ offered while the config names the address), or at setup, and handed live to the
 WebRTC's host candidate and the discovery's heartbeat. A core sharing the host's network (no tunnel,
 D454 §5; `server.address_at_home_from_default_route`) takes the default route's interface's address
 until one is learned or set, else the house's network, one of its own interfaces', is not home and no
-browser could teach it. §1 and §2 are (2026-11-09): `internal/core/home`, the one rule api and rtcapi judge home by, and
+browser could teach it. Such a core learns only an address one of its interfaces holds: a request's Host is the
+device's to write, and a guest's phone naming another private address would repoint the host candidates
+and the heartbeat (the owner, 2026-11-09). An admin's set is not held to it. §1 and §2 are (2026-11-09): `internal/core/home`, the one rule api and rtcapi judge home by, and
 `server.not_home_networks`, which a deployment writes. Amended (2026-11-09), the owner: *"We don't need
 to preserve old configs. I'm the only user on prod."*: `server.home_is_private` is gone, private is always
 home, and `server.home_networks` only adds networks, under the same exceptions; loopback is built in.
@@ -27211,6 +27213,7 @@ home, and `server.home_networks` only adds networks, under the same exceptions; 
   `TestHomeAddress_TheSettingsPageChangesItLive`,
   `TestHomeAddress_ACoreOnTheHostsNetworkGuessesTheDefaultRoutesAddressUntilOneIsLearned`,
   `TestHomeAddress_ACoreInAContainersNetworkGuessesNothing`,
+  `TestHomeAddress_ACoreOnTheHostsNetworkLearnsOnlyAnAddressItHolds`,
   `TestDefaultRouteAddress_IsTheDefaultRoutesInterfacesPrivateIPv4AddressButNoContainers`,
   `TestMarkingHome_ARequestFromHomeNamingTheServersAddressTeachesIt`,
   `TestKeepAddressAtHome_TheConfiguredAddressWinsElseTheLearnedOneReachesTheRule`,
