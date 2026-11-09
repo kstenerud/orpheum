@@ -4462,7 +4462,7 @@ export interface components {
             /** Format: int64 */
             notAnsweringAt?: number;
             /** @enum {string} */
-            reason: "no_key" | "key_refused" | "no_login" | "login_refused" | "not_configured" | "unavailable" | "unreadable";
+            reason: "noKey" | "keyRefused" | "noLogin" | "loginRefused" | "notConfigured" | "unavailable" | "unreadable";
         };
         PutOverrideInputBody: {
             /** @description The value; year, runtimeMs and recordedAt (an other video's, Unix milliseconds) are whole numbers */
@@ -7117,7 +7117,7 @@ export interface operations {
                 person?: number;
                 /** @description Only the items whose name matches it, in any script (D48): a film, other video or series by its own name, never by an episode's or an extra's; every other criterion applies as without it. A query that matches nothing, or with nothing an index can match (only spaces, or only punctuation in a longer query), lists nothing. The items come from the first 10000 names it matches, the best first */
                 query?: string;
-                /** @description name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode. recorded: newest recorded first, and file_name: by the files' names, other videos only. released: newest first by a film's release date or a series' first air date, those with none last, films and series only */
+                /** @description name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode. recorded: newest recorded first, and fileName: by the files' names, other videos only. released: newest first by a film's release date or a series' first air date, those with none last, films and series only */
                 sort?: "name" | "added" | "recorded" | "fileName" | "released";
                 /** @description Only the titles the person has not watched: a series while one of its episodes with a file is not */
                 unwatched?: boolean;

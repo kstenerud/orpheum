@@ -88,7 +88,7 @@ func (server *Server) getResourceUse(ctx context.Context, input *AuthorizationHe
 		body := ResourceUseHourBody{
 			ResourceUseProcess: processBody(hour.Process), Start: hour.Start.UnixMilli(),
 			HeldBytes: hour.HeldBytes, CacheBytes: hour.CacheBytes, PeakBytes: hour.PeakBytes,
-			Plays: hour.Plays, Running: hour.Running,
+			Plays: hour.Plays, Running: saidKeys(hour.Running),
 		}
 		if hour.HasCPU {
 			body.CPUPercent, body.BusiestCPUPercent = &hour.CPUPercent, &hour.BusiestCPUPercent

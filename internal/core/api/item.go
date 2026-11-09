@@ -193,7 +193,7 @@ func (server *Server) titleBody(
 	body.Extras = make([]ExtraBody, 0, len(detail.Extras))
 	for _, extra := range detail.Extras {
 		body.Extras = append(body.Extras, ExtraBody{
-			ID: extra.ExtraWork, ExtraType: extra.ExtraType, Name: ptr.ValueOrZero(extra.Name),
+			ID: extra.ExtraWork, ExtraType: saidValue(extra.ExtraType), Name: ptr.ValueOrZero(extra.Name),
 		})
 	}
 	body.Art = artBody(detail.Art)

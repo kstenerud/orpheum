@@ -43,9 +43,7 @@ describe("a setting's row", () => {
           problems={new Map()}
           onSave={ignore}
           onRemove={ignore}
-          secrets={[
-            { name: "tmdb_api_key", description: "TMDB", isSet: false, needsReentry: false },
-          ]}
+          secrets={[{ name: "tmdbApiKey", description: "TMDB", isSet: false, needsReentry: false }]}
         />,
       ),
     );

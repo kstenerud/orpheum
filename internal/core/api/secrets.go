@@ -77,7 +77,7 @@ func (server *Server) secretsListed(ctx context.Context, secretStore *secrets.St
 			continue
 		}
 		output.Body.Secrets = append(output.Body.Secrets, SecretBody{
-			Name: string(status.Name), Description: definition.Description, IsSet: status.IsSet,
+			Name: saidValue(string(status.Name)), Description: definition.Description, IsSet: status.IsSet,
 			LastChars:   status.LastChars,
 			SetByUserID: status.SetByUserID, SetAt: status.SetAt, NeedsReentry: status.NeedsReentry,
 		})
@@ -121,10 +121,10 @@ func (server *Server) setSecret(ctx context.Context, input *PutSecretInput) (*st
 	if err != nil {
 		return nil, err
 	}
-	if refusal := refuseMadeByServer(secrets.Name(input.Name)); refusal != nil {
+	if refusal := refuseMadeByServer(secrets.Name(keptValue(input.Name))); refusal != nil {
 		return nil, refusal
 	}
-	err = dependencies.Secrets.Set(ctx, secrets.Name(input.Name), value, &principal.UserID)
+	err = dependencies.Secrets.Set(ctx, secrets.Name(keptValue(input.Name)), value, &principal.UserID)
 	return &struct{}{}, server.secretError(ctx, "set a secret", err)
 }
 
@@ -134,9 +134,9 @@ func (server *Server) removeSecret(ctx context.Context, input *SecretNameInput) 
 	if err != nil {
 		return nil, err
 	}
-	if refusal := refuseMadeByServer(secrets.Name(input.Name)); refusal != nil {
+	if refusal := refuseMadeByServer(secrets.Name(keptValue(input.Name))); refusal != nil {
 		return nil, refusal
 	}
-	err = dependencies.Secrets.Clear(ctx, secrets.Name(input.Name))
+	err = dependencies.Secrets.Clear(ctx, secrets.Name(keptValue(input.Name)))
 	return &struct{}{}, server.secretError(ctx, "clear a secret", err)
 }

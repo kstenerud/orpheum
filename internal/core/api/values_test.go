@@ -21,3 +21,17 @@ func TestValues_TheAPISaysAStoredValueInCamelCaseAndKeepsWhatItTakesAsStored(t *
 		}
 	}
 }
+
+func TestValues_TheAPISaysCountsByAStoredValueKeyedInCamelCase(t *testing.T) {
+	t.Parallel()
+	got := saidKeys(map[string]int{"read_through": 2, "make_chunks": 1, "scan": 3})
+	want := map[string]int{"readThrough": 2, "makeChunks": 1, "scan": 3}
+	if len(got) != len(want) {
+		t.Fatalf("saidKeys = %v; want %v", got, want)
+	}
+	for key, count := range want {
+		if got[key] != count {
+			t.Errorf("saidKeys = %v; want %v", got, want)
+		}
+	}
+}

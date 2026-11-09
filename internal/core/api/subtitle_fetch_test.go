@@ -206,8 +206,8 @@ func TestSubtitleCandidates_SayWhyInTheProvidersTerms(t *testing.T) {
 	harness.shelveFilms(t)
 	harness.identifyFilm(t)
 	for failure, want := range map[error]string{
-		opensubtitles.ErrNoLogin:      `"reason":"no_login"`,
-		opensubtitles.ErrLoginRefused: `"reason":"login_refused"`,
+		opensubtitles.ErrNoLogin:      `"reason":"noLogin"`,
+		opensubtitles.ErrLoginRefused: `"reason":"loginRefused"`,
 		fmt.Errorf("opensubtitles: %w: status 503", outbound.ErrUnavailable): `"reason":"unavailable"`,
 		&providers.QuotaSpentError{ResetAt: resetAt}:                         `"downloadsResetAt":1790661600000`,
 		&outbound.RateLimitedError{Provider: "OpenSubtitles", RetryAfter: 2 * time.Second}: `"message":` +
@@ -270,7 +270,7 @@ func TestFetchSubtitle_OnlyASubtitleItsNodeConvertedIsKeptAndChosen(t *testing.T
 	unreadable := fetch()
 	if unreadable.status != http.StatusServiceUnavailable ||
 		!strings.Contains(unreadable.body, `"reason":"unreadable"`) {
-		t.Errorf("a subtitle the node cannot read: %d %s, want provider_error unreadable", unreadable.status,
+		t.Errorf("a subtitle the node cannot read: %d %s, want providerError unreadable", unreadable.status,
 			unreadable.body)
 	}
 	kept, err := harness.database.Read().ListFetchedSubtitlesOfVideo(t.Context(), 2)

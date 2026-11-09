@@ -69,19 +69,19 @@ describe("settings", () => {
       withServices(
         <SecretsView
           search=""
-          problems={new Map([["tmdb_api_key", "Refused."]])}
+          problems={new Map([["tmdbApiKey", "Refused."]])}
           onSave={ignore}
           onRemove={ignore}
           secrets={[
             {
-              name: "tmdb_api_key",
+              name: "tmdbApiKey",
               description: "TMDB's API key",
               isSet: true,
               lastChars: "a1b2",
               needsReentry: false,
             },
             {
-              name: "opensubtitles_password",
+              name: "opensubtitlesPassword",
               description: "OpenSubtitles",
               isSet: false,
               needsReentry: true,
@@ -96,10 +96,10 @@ describe("settings", () => {
     expect(markup).toContain('type="password"');
     expect(markup).toContain('role="alert">Refused.</p>');
     // Only a secret that is set has a bin to press.
-    expect(markup).toMatch(/<button[^>]*aria-label="Remove tmdb_api_key"/u);
-    expect(markup).not.toMatch(/<button[^>]*disabled=""[^>]*aria-label="Remove tmdb_api_key"/u);
+    expect(markup).toMatch(/<button[^>]*aria-label="Remove tmdbApiKey"/u);
+    expect(markup).not.toMatch(/<button[^>]*disabled=""[^>]*aria-label="Remove tmdbApiKey"/u);
     expect(markup).toMatch(
-      /<button[^>]*disabled=""[^>]*aria-label="Remove opensubtitles_password"/u,
+      /<button[^>]*disabled=""[^>]*aria-label="Remove opensubtitlesPassword"/u,
     );
     // The tooltip says what the bin does, or why it cannot: the row names the secret.
     expect(markup).toContain('data-tip="Remove it"');
@@ -177,10 +177,10 @@ describe("settings", () => {
 
   it("opens what a setting is for as a dialog: the short words, then more only where there is more", async () => {
     mounted = await mount(
-      withServices(<AboutButton name="dns_provider_token" description="Short." />),
+      withServices(<AboutButton name="dnsProviderToken" description="Short." />),
     );
     await click(
-      mounted.container.querySelector('button[aria-label="What dns_provider_token is for"]'),
+      mounted.container.querySelector('button[aria-label="What dnsProviderToken is for"]'),
     );
     const said = [...mounted.container.querySelectorAll("dialog p")].map(
       (paragraph) => paragraph.textContent,
@@ -190,7 +190,7 @@ describe("settings", () => {
     expect(said).toHaveLength(2);
     mounted.unmount();
     mounted = await mount(
-      withServices(<AboutButton name="opensubtitles_username" description="Short." />),
+      withServices(<AboutButton name="opensubtitlesUsername" description="Short." />),
     );
     await click(mounted.container.querySelector("button"));
     expect(mounted.container.querySelectorAll("dialog p")).toHaveLength(1);
