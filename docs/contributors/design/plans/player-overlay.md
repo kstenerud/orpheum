@@ -42,6 +42,7 @@ Each stays under 800 lines, with functions of at most 60 lines and complexity at
   - Each reports whether it is open, so the timer can hold.
 - **`convenience-area.tsx`** (new): a slot over the film showing one of Up next, Still watching or, later, Skip intro.
   - With nothing on offer and the overlay full, it shows `EndsAt`, moved from `tv-controls.tsx:180–221`.
+  - Shown without the rest of the overlay (alone, or through the scrub bar and the pause sign), it sits in the film's top-right corner, clear of the action, and is back at row 0's end only while all of the overlay shows (the owner, 2026-11-09: in row 0 it stood a third of the way up the film, over Brindlewood's closing skits).
   - Below the video, the same offers are drawn among the controls.
 - **`player-icons.tsx`**: adds `PreviousIcon`, `NextIcon`, `SubtitlesIcon`, `AudioIcon`, `MoreIcon` and `BackIcon` (for ‹), drawn through `Icon` and never as glyph text.
 - **`full-screen-button.tsx`**: exports `useIsFullScreen`, widened to "the stage is full screen or fills the window" (`fillsWindowClass`, `film-fullscreen.ts`). It decides which layout applies.

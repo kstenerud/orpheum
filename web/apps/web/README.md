@@ -492,9 +492,13 @@ The web client: the browser and phone interface, served embedded by the core. MP
   the end screen, a button a mouse, a remote's OK or a controller presses; with autoplay on (the
   person's own switch, on until turned off, on their account) it counts `upNextCountdownMs` (10 s)
   down from the end and plays it; any press stops the count, Back, Escape or its × dismisses it; it
-  takes focus as the film ends, and a television's overlay leaves OK on it to it. A film, the last
+  takes focus as the film ends, and a television's overlay leaves OK on it to it. Over the film
+  without the rest of the overlay (alone, or through a seek's scrub bar and the pause sign) it sits
+  in the film's top-right corner, clear of the action, at row 0's end only while all of the overlay
+  shows (the owner, 2026-11-09). A film, the last
   episode and one that cannot be read now offer nothing. `src/up-next.test.tsx`,
-  `src/autoplay-setting.test.tsx`, `src/player-overlay.test.tsx`; on devices, VQ67.
+  `src/autoplay-setting.test.tsx`, `src/player-overlay.test.tsx`, `src/up-next-place.browser.test.tsx`;
+  on devices, VQ67.
 - **A run of autoplays asks before it goes on, and a host's moves their group** (D339): after
   `stillWatchingAfterAutoplays` (3) episodes autoplayed in a row with no press on the page, the next
   film's end shows *Still watching?*, Continue (focused) or Stop (leaves the film), and counts
