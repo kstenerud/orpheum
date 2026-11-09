@@ -25,7 +25,7 @@ export interface SkippedStretch {
   readonly toMs: number;
   /**
    * Whether the film cannot go on past it: stepping over would pass skipsAtMostMs or the film's
-   * end, and the playback ends (cannot_make).
+   * end, and the playback ends (cannotMake).
    */
   readonly isWhereItStops?: boolean;
 }
@@ -68,14 +68,14 @@ export function skippedStretchOf(event: Event): SkippedStretch | undefined {
 }
 
 /**
- * Steps over each picture chunk the core answers with 422, cannot_convert (cannotMakeStatus), at
+ * Steps over each picture chunk the core answers with 422, cannotConvert (cannotMakeStatus), at
  * once: the core cannot make it in any quality, and hls.js is kept from trying another
  * (abr-controller.ts's keepTheQualityAtNotMade), a fault of the file being no reason to step down (the owner,
  * 2026-11-03). Its loading is stopped and the error marked recovered, so failOnFatal, told after,
  * passes it by; the film plays what it has up to the chunk; there it is moved into the next chunk and
  * loaded on from there, and the video is sent a playerSkippedEvent. A chunk after it that fails too
  * lengthens the same stretch. A stretch that would pass skipsAtMostMs, or the film's end, fails
- * (cannot_make), the video sent a playerSkippedEvent that says so (isWhereItStops). A seek of the
+ * (cannotMake), the video sent a playerSkippedEvent that says so (isWhereItStops). A seek of the
  * person's before the move is theirs: loading goes on from where they went. Returns the stopping.
  */
 export function skipChunksNotMade(

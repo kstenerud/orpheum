@@ -160,7 +160,7 @@ describe("a chunk the core cannot make (toolkit.md item 12)", () => {
     }
     expect(failures).toEqual([]);
     cannotMake(hls, 1152);
-    expect(failures).toEqual(["cannot_make"]);
+    expect(failures).toEqual(["cannotMake"]);
     expect(skipped.slice(-2)).toEqual([
       { fromMs: 2_530_000, toMs: 2_649_600 },
       { fromMs: 2_530_000, toMs: 2_651_900, isWhereItStops: true },
@@ -171,7 +171,7 @@ describe("a chunk the core cannot make (toolkit.md item 12)", () => {
     const video = new FilmVideo(2529.9, 2532.3);
     const { hls, failures, skipped } = skipping(video);
     cannotMake(hls, 1100);
-    expect(failures).toEqual(["cannot_make"]);
+    expect(failures).toEqual(["cannotMake"]);
     expect(skipped).toEqual([{ fromMs: 2_530_000, toMs: 2_532_300, isWhereItStops: true }]);
   });
 
@@ -198,7 +198,7 @@ describe("a chunk the core cannot make (toolkit.md item 12)", () => {
     const video = new FilmVideo(2529.9, 2532.3);
     const { hls, failures, skipped } = skipping(video);
     cannotMake(hls, 1100, { level: 1 });
-    expect(failures).toEqual(["cannot_make"]);
+    expect(failures).toEqual(["cannotMake"]);
     expect(skipped).toEqual([{ fromMs: 2_530_000, toMs: 2_532_300, isWhereItStops: true }]);
   });
 

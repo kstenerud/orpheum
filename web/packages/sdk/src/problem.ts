@@ -76,13 +76,13 @@ function problemOf(errorBody: { error: ProblemBody } | undefined): Error {
 
 /**
  * The codes this client gives an error answer that is not in the server's shape, which the server
- * never sends: something between the client and the server answered instead. not_answering is a
+ * never sends: something between the client and the server answered instead. notAnswering is a
  * gateway's 502, 503 or 504, which a proxy in front of a server that is down or restarting
- * answers (Vite's dev proxy among them); unreadable_answer is any other, which nothing expected
+ * answers (Vite's dev proxy among them); unreadableAnswer is any other, which nothing expected
  * sends, so its words are the general ones and the console says what came.
  */
-export const notAnsweringCode = "not_answering";
-export const unreadableAnswerCode = "unreadable_answer";
+export const notAnsweringCode = "notAnswering";
+export const unreadableAnswerCode = "unreadableAnswer";
 
 /** The problem for an error answer with status that is not in the server's shape. */
 export function foreignAnswerProblem(status: number): UnknownProblemBody {

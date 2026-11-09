@@ -26,7 +26,7 @@ describe("opening a lost playback again", () => {
       waited.push(ms);
       return Promise.resolve();
     };
-    const failures: Error[] = [new TypeError("Failed to fetch"), refused("not_answering")];
+    const failures: Error[] = [new TypeError("Failed to fetch"), refused("notAnswering")];
     const answered = await askUntilAnswered(() => {
       const failure = failures.shift();
       return failure === undefined ? Promise.resolve("opened") : Promise.reject(failure);

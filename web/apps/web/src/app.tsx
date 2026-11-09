@@ -439,7 +439,7 @@ function signOutHere(api: Api, session: Session): void {
           session.signOut();
           return;
         }
-        session.signOutBecause("sign_out_unheard");
+        session.signOutBecause("signOutUnheard");
       },
     );
 }

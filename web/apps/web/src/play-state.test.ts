@@ -123,7 +123,7 @@ describe("play state", () => {
     const busy = await sendingFailsWith(refusal(503, "migrating"));
     expect(busy instanceof ApiProblem && !(busy instanceof ReportRefused)).toBe(true);
     // A gateway's answer while the server restarts behind it.
-    const restarting = await sendingFailsWith(refusal(502, "not_answering"));
+    const restarting = await sendingFailsWith(refusal(502, "notAnswering"));
     expect(restarting instanceof ApiProblem && !(restarting instanceof ReportRefused)).toBe(true);
     expect(await sendingFailsWith(unreachable)).toBeInstanceOf(TypeError);
   });
@@ -236,7 +236,7 @@ describe("play state", () => {
           {
             "POST /playback": [
               [200, directDecision({ mediaToken: "lost" })],
-              refusal(502, "not_answering"), // the server still starting
+              refusal(502, "notAnswering"), // the server still starting
               [200, directDecision({ mediaToken: "again" })],
             ],
             "POST /playback/lost/report": refusal(404, "playbackGone"),

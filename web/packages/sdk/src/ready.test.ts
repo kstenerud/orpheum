@@ -63,7 +63,7 @@ describe("waiting for a prepared rendition", () => {
       sleep: () => Promise.resolve(),
     }).catch((cause: unknown) => cause);
     // The server's own 500 is in its shape: one that is not came from something in front of it.
-    expect(shapeless instanceof ApiProblem ? shapeless.code : "").toBe("unreadable_answer");
+    expect(shapeless instanceof ApiProblem ? shapeless.code : "").toBe("unreadableAnswer");
   });
 
   it("gives up after its attempts", async () => {

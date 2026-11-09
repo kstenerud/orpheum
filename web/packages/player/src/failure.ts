@@ -8,7 +8,7 @@ import Hls, { type ErrorData } from "hls.js";
  */
 export type PlaybackFailure =
   /** The page has neither MSE nor the element's own HLS. */
-  | "hls_unsupported"
+  | "hlsUnsupported"
   /** Loading stopped before it was done. */
   | "aborted"
   /** The media could not be fetched. */
@@ -21,12 +21,12 @@ export type PlaybackFailure =
    * The server has no room to make this quality as fast as it plays: its run was evicted for the
    * other films its machine makes (D250 §6), which the core says with its own status, 429.
    */
-  | "too_busy"
+  | "tooBusy"
   /**
    * The server failed on a part of the film the same way each time it tried to make it, which the
-   * core says with its own status, 422 (cannot_convert); asking again fails the same way.
+   * core says with its own status, 422 (cannotConvert); asking again fails the same way.
    */
-  | "cannot_make"
+  | "cannotMake"
   /** It failed and said nothing more we know. */
   | "unknown";
 
@@ -38,13 +38,13 @@ export type PlaybackFailed = (failure: PlaybackFailure, whatFailed?: string) => 
 
 /** Every playback failure, for a caller that must have words for each. */
 export const playbackFailures: readonly PlaybackFailure[] = [
-  "hls_unsupported",
+  "hlsUnsupported",
   "aborted",
   "network",
   "decode",
   "unsupported",
-  "too_busy",
-  "cannot_make",
+  "tooBusy",
+  "cannotMake",
   "unknown",
 ];
 
@@ -66,7 +66,7 @@ export const noRoomToMakeStatus = 429;
 
 /**
  * HTTP's 422: on a chunk's path, the core's word that FFmpeg failed on the film at this chunk each
- * time it was made (cannot_convert), which asking again does not change. Taken for a load that only
+ * time it was made (cannotConvert), which asking again does not change. Taken for a load that only
  * stopped, it was asked for every two seconds, the film standing black with no word (The Gold Rush,
  * staging, 2026-11-03; toolkit.md item 12).
  */
@@ -105,9 +105,9 @@ export function isLoadStopped(data: Pick<ErrorData, "type" | "fatal" | "response
 /** A load's failure by the core's answer: its own 429 and 422 say why; any other, the network. */
 function networkFailure(code: number | undefined): PlaybackFailure {
   if (code === noRoomToMakeStatus) {
-    return "too_busy";
+    return "tooBusy";
   }
-  return code === cannotMakeStatus ? "cannot_make" : "network";
+  return code === cannotMakeStatus ? "cannotMake" : "network";
 }
 
 /** A fatal hls.js error as a failure, by its type, and a load's by the core's answer. */
