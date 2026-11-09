@@ -28,6 +28,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/backoff"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 )
 
@@ -173,6 +174,11 @@ type Service struct {
 	connecting sync.Mutex
 	// renewal opens one session at a time, for every caller.
 	renewal renewal
+	// stepping is held through each step of the loop and through a Leave, so the two take turns: a
+	// Leave waits for the step under way and then takes out whatever the core holds, a core that step
+	// enrolled again included, and a step that comes while a Leave is under way does nothing, so the
+	// admin's own Leave never enrols the core again (the owner, 2026-11-09).
+	stepping sync.Mutex
 
 	mutex sync.Mutex
 	// Guarded by mutex:
@@ -428,8 +434,15 @@ func (service *Service) enrol(ctx context.Context, opened held) (Status, error) 
 }
 
 // Leave takes the core out of its discovery: it says so to the discovery, which may fail without
-// keeping it in, and forgets it.
+// keeping it in, and forgets it. It waits for a step under way, which may be enrolling the core again,
+// and takes out what that step left.
 func (service *Service) Leave(ctx context.Context) error {
+	if !service.stepping.TryLock() {
+		service.parts.Logger.InfoContext(ctx, "discovery: leaving once the step under way ends",
+			slogx.EventKey, "leaveWaitsForStep")
+		service.stepping.Lock()
+	}
+	defer service.stepping.Unlock()
 	status := service.Status()
 	if status.BaseURL == "" {
 		return nil
@@ -476,8 +489,13 @@ func (service *Service) nudge() {
 	}
 }
 
-// step does what the core's state calls for now, and returns how long to wait before the next.
+// step does what the core's state calls for now, and returns how long to wait before the next. One
+// that comes while a Leave is under way does nothing: the core is leaving its discovery.
 func (service *Service) step(ctx context.Context) time.Duration {
+	if !service.stepping.TryLock() {
+		return service.wait(ctx, settings.DiscoveryEndedCheckEverySeconds)
+	}
+	defer service.stepping.Unlock()
 	status := service.Status()
 	if status.BaseURL == "" {
 		return service.wait(ctx, settings.DiscoveryEndedCheckEverySeconds)

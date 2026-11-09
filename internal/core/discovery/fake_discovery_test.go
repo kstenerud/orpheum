@@ -63,6 +63,8 @@ type fakeDiscovery struct {
 	installationIDs []string
 	refusal         *discoveryproto.Refusal
 	enrolCount      int
+	// pauses are the routes whose next call is held until the test releases it (pause).
+	pauses map[string]paused
 	// txt are the certificate challenges' records the core had the discovery set, by name, and
 	// accounts the ACME accounts it reported, in turn.
 	txt      map[string]string
@@ -250,7 +252,46 @@ func signRecord(t *testing.T, record release.Record, id string, key trusttest.Ke
 	return trusttest.Sign(t, trust.NamespaceRelease, payload, key)
 }
 
+// paused holds the next call to a route until released, before the discovery takes it: a call in
+// flight while the test does something else.
+type paused struct {
+	arrived  chan struct{}
+	released chan struct{}
+	// release lets the call go on; the test's end does too, so a test that fails first does not
+	// leave the call holding the fake's server open.
+	release func()
+}
+
+// pause holds the next call to route ("POST /enrol") until the returned pause is released.
+func (fake *fakeDiscovery) pause(t *testing.T, route string) paused {
+	t.Helper()
+	fake.mutex.Lock()
+	defer fake.mutex.Unlock()
+	released := make(chan struct{})
+	held := paused{
+		arrived: make(chan struct{}), released: released, release: sync.OnceFunc(func() { close(released) }),
+	}
+	t.Cleanup(held.release)
+	if fake.pauses == nil {
+		fake.pauses = map[string]paused{}
+	}
+	fake.pauses[route] = held
+	return held
+}
+
 func (fake *fakeDiscovery) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+	fake.mutex.Lock()
+	held, isPaused := fake.pauses[request.Method+" "+request.URL.Path]
+	delete(fake.pauses, request.Method+" "+request.URL.Path)
+	fake.mutex.Unlock()
+	if isPaused {
+		close(held.arrived)
+		<-held.released
+	}
+	fake.serveHTTP(writer, request)
+}
+
+func (fake *fakeDiscovery) serveHTTP(writer http.ResponseWriter, request *http.Request) {
 	if request.URL.Path == discoveryproto.PathSignal {
 		fake.serveSignal(writer, request)
 		return
@@ -342,7 +383,10 @@ func (fake *fakeDiscovery) serveSigned(writer http.ResponseWriter, request *http
 			DeadEndCausesLastWeek: map[string]int{discoveryproto.DeadEndCauseNoIPv6: 3, "none": 1},
 		})
 	case "DELETE /core":
+		// The discovery no longer holds the core: a session it asks for is refused as one to enrol again.
 		fake.isLeft = true
+		fake.refusal = &discoveryproto.Refusal{Code: discoveryproto.RefusalEnrolAgain, Message: "enrol again"}
+		fake.tokens = map[string]bool{}
 	case "PUT /locate-hashes":
 		var sent discoveryproto.LocateHashesRequest
 		fake.read(request, &sent)

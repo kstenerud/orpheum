@@ -102,6 +102,10 @@
 //     believed (D393 §2).
 //     TestRelease_ARecordNoRootKeySignedIsNotBelieved.
 //   - Leaving tells the discovery and forgets it. TestLeave_TellsTheDiscoveryAndForgetsIt.
+//   - A Leave and a step take turns: a Leave waits for a step under way and then takes out what it
+//     enrolled, and a step that comes during a Leave does nothing, so leaving never leaves the core
+//     enrolled (the rehearsal of a household install, 2026-11-09).
+//     TestLeave_WhileAStepIsInFlightLeavesNoEnrolment, TestStep_DuringALeaveDoesNothing.
 //   - A claimed core answers each offer the discovery passes on, under its id, and refuses one past
 //     rtcapi's limit saying why. TestSignal_AClaimedCoreAnswersTheOffersItsDiscoveryPassesOn.
 //   - Every signature to the discovery is bound to its identity and the core, and every answer is
