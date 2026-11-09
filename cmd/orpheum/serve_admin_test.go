@@ -26,17 +26,17 @@ func TestServe_ServesPProfOnlyWhenTheSettingSaysSo(t *testing.T) {
 	server := startServing(t, config, newCapturedLog("ready"), "ready", nil)
 	pprofURL := strings.TrimSuffix(server.baseURL, api.Prefix) + "/debug/pprof/"
 	if off := requestAPI(t, http.MethodGet, pprofURL, "", nil); off.status != http.StatusNotFound {
-		t.Errorf("with should_serve_debug_pprof at its starting value, /debug/pprof/ = %d, want 404", off.status)
+		t.Errorf("with shouldServeDebugPprof at its starting value, /debug/pprof/ = %d, want 404", off.status)
 	}
 	if err := server.stop(); err != nil {
 		t.Fatal(err)
 	}
 	storetest.ExecRaw(t, filepath.Join(config.Instance.PersistentDir, "persistent.db"),
-		"UPDATE setting SET value_json = 'true', is_modified = 1 WHERE key = 'should_serve_debug_pprof'")
+		"UPDATE setting SET value_json = 'true', is_modified = 1 WHERE key = 'shouldServeDebugPprof'")
 	restarted := startServing(t, config, newCapturedLog("ready"), "ready", nil)
 	pprofURL = strings.TrimSuffix(restarted.baseURL, api.Prefix) + "/debug/pprof/"
 	if on := requestAPI(t, http.MethodGet, pprofURL, "", nil); on.status != http.StatusOK {
-		t.Errorf("with should_serve_debug_pprof on and a loopback listener, /debug/pprof/ = %d, want 200", on.status)
+		t.Errorf("with shouldServeDebugPprof on and a loopback listener, /debug/pprof/ = %d, want 200", on.status)
 	}
 }
 
@@ -50,15 +50,15 @@ func TestServe_SweepsUnmodifiedSettingsToTheirStartingValuesBeforeItIsReady(t *t
 	// As a database looks after an upgrade that changed two starting values: one row nobody
 	// touched still holds the old value; the other was set by a person.
 	storetest.ExecRaw(t, filepath.Join(config.Instance.PersistentDir, "persistent.db"),
-		"UPDATE setting SET value_json = '7', is_modified = 0 WHERE key = 'signin_failure_limit'",
-		"UPDATE setting SET value_json = '6', is_modified = 1 WHERE key = 'secret_last_chars_shown'")
+		"UPDATE setting SET value_json = '7', is_modified = 0 WHERE key = 'signinFailureLimit'",
+		"UPDATE setting SET value_json = '6', is_modified = 1 WHERE key = 'secretLastCharsShown'")
 	captured := newCapturedLog("ready")
 	server := startServing(t, config, captured, "ready", nil)
 	logged := captured.String()
 	sweep := strings.Index(logged, testutil.EventInJSON("settingsStartsFollowed"))
 	ready := strings.Index(logged, `"logEvent":"ready"`)
-	if sweep < 0 || ready < 0 || sweep > ready || !strings.Contains(logged[sweep:ready], "signin_failure_limit") ||
-		strings.Contains(logged[sweep:ready], "secret_last_chars_shown") {
+	if sweep < 0 || ready < 0 || sweep > ready || !strings.Contains(logged[sweep:ready], "signinFailureLimit") ||
+		strings.Contains(logged[sweep:ready], "secretLastCharsShown") {
 		t.Errorf("the sweep was not logged before ready, or touched the setting a person set:\n%s", logged)
 	}
 	if err := server.stop(); err != nil {

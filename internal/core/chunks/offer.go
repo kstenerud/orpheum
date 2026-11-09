@@ -18,7 +18,7 @@ import (
 )
 
 // ErrNoStream is a stream a playback is not offered, or a file its store does not have: a quality
-// not in chunk_qualities or not below the film's own, a sound of a track the film does not have,
+// not in chunkQualities or not below the film's own, a sound of a track the film does not have,
 // the picture copied to a player that cannot decode it, or a name of no store's file.
 var ErrNoStream = errors.New("no such stream of chunks")
 
@@ -95,7 +95,7 @@ const qualityPeakPerAverage = 1.5
 type offer struct {
 	pictures []Stream
 	sounds   []Sound
-	// soundKbps is chunk_sound_kbps: the bit rate of every sound the server makes.
+	// soundKbps is chunkSoundKbps: the bit rate of every sound the server makes.
 	soundKbps int
 	// isUnlevelled is whether the film's loudness is not measured yet, or its person plays without
 	// levelling: its sounds are offered unlevelled (Stream.IsUnlevelled); and isMeasured whether its
@@ -127,7 +127,7 @@ func (offered offer) has(stream Stream) bool {
 // offerOf is what the film offers the playback (chunks.md §3): its picture copied, unless the
 // player cannot decode it, when its twin, H.264 at its own height, takes its place (D323 §1); then each
 // quality of the ladder below the film's own picture, in bit rate and in height, where each is known,
-// the ladder chunk_qualities_hardware where the film's node encodes on a GPU, else chunk_qualities
+// the ladder chunkQualitiesHardware where the film's node encodes on a GPU, else chunkQualities
 // (D323 §3); and every sound of its tracks (SoundsOf), unlevelled while the film's loudness is not
 // measured (D259 §2), each track the player plays as it is copied on the picture copied (D368 §1),
 // but a track whose copy FFmpeg failed on twice at one chunk (hasGivenUp), which plays the sound the
@@ -141,7 +141,7 @@ func (service *Service) offerOf(ctx context.Context, film cutFilm, playback Play
 	}
 	soundKbps, err := service.settings.Int(ctx, settings.ChunkSoundKbps)
 	if err != nil {
-		return offer{}, fmt.Errorf("read chunk_sound_kbps: %w", err)
+		return offer{}, fmt.Errorf("read chunkSoundKbps: %w", err)
 	}
 	levels, err := service.loudness.Levels(ctx, film.file.PayloadHash)
 	if err != nil {
@@ -211,8 +211,8 @@ func twinOf(film cutFilm) Stream {
 	}}
 }
 
-// ladderOf are the qualities the film may be cut at: chunk_qualities_hardware where its node encodes
-// on a GPU, chunk_qualities where it does not (D323 §3).
+// ladderOf are the qualities the film may be cut at: chunkQualitiesHardware where its node encodes
+// on a GPU, chunkQualities where it does not (D323 §3).
 func (service *Service) ladderOf(ctx context.Context, film cutFilm) ([]qualities.Quality, error) {
 	key := settings.ChunkQualities
 	if service.encoders != nil && service.encoders.EncodesOnAGPU(film.file.NodeID) {
@@ -230,7 +230,7 @@ func (service *Service) ladderOf(ctx context.Context, film cutFilm) ([]qualities
 }
 
 // IsTooSlowToEncode is whether the node encodes even the lowest quality slower than playback: its
-// trial at its start measured it below chunk_run_slowest_speed_percent of real time, the speed every
+// trial at its start measured it below chunkRunSlowestSpeedPercent of real time, the speed every
 // run is held to (D250 §6, D457). A node whose trial measured nothing, or that has not said hello, is
 // not judged so.
 func (service *Service) IsTooSlowToEncode(ctx context.Context, nodeID int64) (bool, error) {
@@ -250,7 +250,7 @@ func (service *Service) IsTooSlowToEncode(ctx context.Context, nodeID int64) (bo
 
 // onlyQuality is the one quality a film cut on time is offered when none is below its own picture,
 // as a picture of low bit rate has none: the highest no taller than it, else the lowest, so its
-// playback has a picture (D269 §1). The qualities are chunk_qualities, highest first.
+// playback has a picture (D269 §1). The qualities are chunkQualities, highest first.
 func onlyQuality(all []qualities.Quality, height int) qualities.Quality {
 	for _, quality := range all {
 		if height <= 0 || quality.Height <= height {

@@ -31,5 +31,5 @@ WHERE (link_memory.steadiness, link_memory.steadiness_at)
   IS NOT (excluded.steadiness, excluded.steadiness_at);
 
 -- name: DeleteLinkMemoriesSaidBefore :exec
--- Forgets every link said nothing of since a time: those no longer fresh (link_speed_fresh_hours).
+-- Forgets every link said nothing of since a time: those no longer fresh (linkSpeedFreshHours).
 DELETE FROM link_memory WHERE said_at < ?;

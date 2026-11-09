@@ -118,7 +118,7 @@ func wakeOwedPasses(pass *identify.Pass, sweeps sweepRequester) {
 	pass.OnPassOwed(func() { sweeps.RequestSweeps(sweepOwedPasses) })
 }
 
-// keepSortAndSearchKeysCurrent keeps every sort key in the sort_locale setting's locale, and every name's
+// keepSortAndSearchKeysCurrent keeps every sort key in the sortLocale setting's locale, and every name's
 // fold for search, what this build derives: now, for a change made while the server was stopped,
 // a release's new starting value or a build that collates or folds otherwise, and whenever a
 // person changes the locale (D47, D48; agent-failures A4).

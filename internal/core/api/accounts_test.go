@@ -478,7 +478,7 @@ func TestPeople_ARemovedPersonsSettingsStayAndWhoSetThemIsForgotten(t *testing.T
 	storetest.ExecRaw(t, harness.databasePath,
 		`INSERT INTO field_override (item_id, field, language, override_value, origin, set_by_user_id, set_at)
 		 VALUES (10, 'name', '', 'Metropolis', 'typed', 2, 1)`,
-		"UPDATE setting SET set_by_user_id = 2 WHERE key = 'sort_locale'",
+		"UPDATE setting SET set_by_user_id = 2 WHERE key = 'sortLocale'",
 		`INSERT INTO secret (scope, user_id, name, key_id, nonce, ciphertext, last_chars, set_by_user_id, set_at)
 		 VALUES ('server', NULL, 'tmdb_api_key', 1, X'02', X'03', 'abcd', 2, 1)`)
 	if removed := harness.do(t, http.MethodDelete, "/users/2", admin, nil); removed.status != http.StatusNoContent {
@@ -486,7 +486,7 @@ func TestPeople_ARemovedPersonsSettingsStayAndWhoSetThemIsForgotten(t *testing.T
 	}
 	//nolint:gosec // G101: a key's name in a query, not a key
 	for table, kept := range map[string]string{
-		"field_override": "item_id = 10", "setting": "key = 'sort_locale'", "secret": "name = 'tmdb_api_key'",
+		"field_override": "item_id = 10", "setting": "key = 'sortLocale'", "secret": "name = 'tmdb_api_key'",
 	} {
 		got := storetest.QueryRaw(t, harness.databasePath, fmt.Sprintf(
 			"SELECT (SELECT count(*) FROM %[1]s WHERE %[2]s) || '|' || "+

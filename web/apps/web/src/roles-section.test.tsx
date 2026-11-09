@@ -29,7 +29,7 @@ afterEach(() => {
 });
 
 const roles = {
-  capabilities: ["administer", "edit_metadata", "host_watch_together"],
+  capabilities: ["administer", "editMetadata", "hostWatchTogether"],
   roles: [
     {
       id: 1,
@@ -44,7 +44,7 @@ const roles = {
       id: 2,
       name: "user",
       isBuiltin: true,
-      capabilities: ["host_watch_together"],
+      capabilities: ["hostWatchTogether"],
       isEveryLibrary: false,
       libraries: [{ libraryId: 1 }, { libraryId: 2 }],
       holderCount: 1,
@@ -217,7 +217,7 @@ it("makes a role with the capabilities and libraries ticked in the same dialog (
   expect(changesTo(heard, "POST /roles")).toEqual([]);
   await submit(dialog?.querySelector("form"));
   expect(changesTo(heard, "POST /roles")).toEqual([
-    { name: "pals", capabilities: ["edit_metadata"], libraries: [{ libraryId: 2 }] },
+    { name: "pals", capabilities: ["editMetadata"], libraries: [{ libraryId: 2 }] },
   ]);
   expect(mounted.container.querySelector("dialog")).toBeNull();
 });
@@ -257,7 +257,7 @@ it("saves each change to a role's libraries at once, with no Save button (D243 Â
   );
   await click(privateBox?.querySelector("input"));
   expect(changesTo(heard, "PUT /roles/2")).toEqual([
-    { name: "user", capabilities: ["host_watch_together"], libraries: [{ libraryId: 1 }] },
+    { name: "user", capabilities: ["hostWatchTogether"], libraries: [{ libraryId: 1 }] },
   ]);
 });
 
@@ -269,7 +269,7 @@ it("saves a capability ticked at once, and a rename once the name is left (D399)
   );
   await click(editMetadata?.querySelector("input"));
   expect(changesTo(heard, "PUT /roles/3")).toEqual([
-    { name: "friends", capabilities: ["edit_metadata"], libraries: [] },
+    { name: "friends", capabilities: ["editMetadata"], libraries: [] },
   ]);
   const name = mounted.container.querySelector("input:not([type=checkbox])");
   await enter(name, "pals");

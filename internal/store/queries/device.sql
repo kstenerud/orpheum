@@ -37,12 +37,12 @@ UPDATE device SET removed_at = sqlc.arg(removed_at) WHERE id = sqlc.arg(id);
 -- A removed device's sessions and its device secret: it is neither signed in nor resumed again.
 UPDATE "grant" SET revoked_at = sqlc.arg(revoked_at)
 WHERE device_id = sqlc.arg(device_id) AND revoked_at IS NULL
-  AND (kind = 'session' OR (kind = 'issued_secret' AND scope = 'device_secret'));
+  AND (kind = 'session' OR (kind = 'issued_secret' AND scope = 'deviceSecret'));
 
 -- name: RevokeDeviceSecretsOfDevice :exec
 -- The device secrets a device held before a sign-in issued it a new one (the third audit's A8).
 UPDATE "grant" SET revoked_at = sqlc.arg(revoked_at)
-WHERE device_id = sqlc.arg(device_id) AND kind = 'issued_secret' AND scope = 'device_secret'
+WHERE device_id = sqlc.arg(device_id) AND kind = 'issued_secret' AND scope = 'deviceSecret'
   AND revoked_at IS NULL;
 
 -- name: GetLiveDeviceOfUser :one

@@ -83,12 +83,12 @@ const passedOverPanel = "panel"
 // the leader is gone for the lead (D373 §2). A justified constant, as the session socket's
 // silenceLimit is, not a setting: two other values fix it rather than anyone's taste. A quality
 // switch's or a short refill's stall waits on one chunk, two seconds of film
-// (hls_segment_length_seconds' starting value), which a link that carries the film loads in less
+// (hlsSegmentLengthSeconds' starting value), which a link that carries the film loads in less
 // than the two seconds it plays for; and a stalled leader tells its state each second
 // (checkDriftEveryMs, web/packages/sdk/src/together-follow-options.ts), so the core sees a stall up
 // to a second late. Three seconds outlasts both, so such a stall never hands the lead back and forth.
 // It is also no longer than a follower's drift before it seeks rather than nudges
-// (together_seek_drift_beyond_ms' starting value): a leader that plays again within the grace is no
+// (togetherSeekDriftBeyondMs' starting value): a leader that plays again within the grace is no
 // further behind its group than a follower nudges across as it catches up (D374).
 const stalledLeaderGrace = 3 * time.Second
 
@@ -377,7 +377,7 @@ func (current *session) takeLeadInStep(now time.Time, who *member, from *device,
 
 // inStep is how far a device's state says its player is off the group, and whether that is in
 // step: ready, playing as the group plays or held as it stands, within the drift a follower leaves
-// alone (together_drift_left_alone_ms, D250 §1), the follower's own threshold for needing no
+// alone (togetherDriftLeftAloneMs, D250 §1), the follower's own threshold for needing no
 // correction.
 func (current *session) inStep(now time.Time, from *device, message Inbound) (int64, bool) {
 	if current.group.fileID == 0 || message.IsBuffering || !from.hasBeenReady ||

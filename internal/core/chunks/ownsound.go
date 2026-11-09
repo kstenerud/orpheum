@@ -11,7 +11,7 @@ import (
 
 // The top of a film's ladder, its own picture copied, plays its own sound copied, every channel,
 // where its player plays that as it is; its lower qualities play the light stereo track made at
-// chunk_sound_kbps, and the made mixes of a track played copied are made as loud as it is (D368).
+// chunkSoundKbps, and the made mixes of a track played copied are made as loud as it is (D368).
 
 // unknownOwnSoundKbpsPerChannel is the rate a copied sound is taken to have, for each of its
 // channels, where its probe says none, as a Matroska's often does not: what its master playlist adds
@@ -42,7 +42,7 @@ func (offered offer) isCopied(audioTrackIndex int) bool {
 	return slices.Contains(offered.copied, audioTrackIndex)
 }
 
-// madeSound is the stream of one of the film's sounds as the server makes it, at chunk_sound_kbps: as
+// madeSound is the stream of one of the film's sounds as the server makes it, at chunkSoundKbps: as
 // loud as the track's own sound where the top plays that copied and the film's loudness was measured,
 // whether its person levels or not, so a player stepping off the top hears no change of level and
 // takes nothing back out through Web Audio (D368 §1, D226 §4); else unlevelled while the loudness is
@@ -161,7 +161,7 @@ func (film cutFilm) soundKbpsOf(stream Stream) int {
 }
 
 // soundKbpsWith is the rate of the sound picture plays, the default of its audio group, which
-// its master playlist adds to its own: chunk_sound_kbps for a film with no sound, as for any made.
+// its master playlist adds to its own: chunkSoundKbps for a film with no sound, as for any made.
 func (film cutFilm) soundKbpsWith(offered offer, playback Playback, picture Stream) int {
 	if !playback.HasStartingAudio {
 		return offered.soundKbps

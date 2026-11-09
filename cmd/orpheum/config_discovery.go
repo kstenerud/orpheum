@@ -98,7 +98,7 @@ func webRTCConfigKeys() []configKey {
 			tableWebRTC, "max_connections", strconv.Itoa(rtcapi.DefaultMaxConnections),
 			"the most WebRTC connections the core holds at once, of every network: a client opens up to four, " +
 				"so 64 holds 16 remote devices, Watch Together guests among them; an offer past it is refused " +
-				"(D348). Each network's share is the webrtc_connections_per_network setting",
+				"(D348). Each network's share is the webrtcConnectionsPerNetwork setting",
 		},
 	}
 }

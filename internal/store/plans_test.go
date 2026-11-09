@@ -218,7 +218,7 @@ func wholeReadsAllowed() map[string]string {
 		"CountLookAlikePlacesUnder": "every place, once per repoint's dry run, for the folders spelled in another form",
 		"ListCheckedRoots":          few + "roots; the scan schedule reads each one's last scan every 15 minutes",
 		"ListUnavailablePlaces": few + "roots and disks in them; the unavailable ones' sweep reads them " +
-			"every unavailable_root_rescan_seconds (D328)",
+			"every unavailableRootRescanSeconds (D328)",
 		"ListOfflinePlaces": few + "roots and disks in them; the System page lists those offline (D328)",
 		"ListWithheldRoots": few + "roots; the System page lists those whose scans wait for the admin",
 		"GetLiveNodeByName": few + "nodes",

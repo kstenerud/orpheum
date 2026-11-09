@@ -12,7 +12,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
-// startingFinishedAfterPercent is finished_after_percent's starting value, which a test's seeded
+// startingFinishedAfterPercent is finishedAfterPercent's starting value, which a test's seeded
 // settings hold: a position past it of a known length finishes the file.
 const startingFinishedAfterPercent = 90
 
@@ -26,7 +26,7 @@ type WatchSpec struct {
 }
 
 // Watch puts a person at a position in a file as a play report of it leaves them (D370 §1): the
-// position, whatever was stored, and, once it is past finished_after_percent's starting 90% of the
+// position, whatever was stored, and, once it is past finishedAfterPercent's starting 90% of the
 // file's known length, the titles the file is filed as watched from ReadAt, through the store's own
 // MarkWatchedByPlay. A later position short of it leaves them watched, as a rewatch does.
 func Watch(t *testing.T, database *store.Database, spec WatchSpec) {

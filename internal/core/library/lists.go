@@ -50,7 +50,7 @@ func (list eitherWay[ForwardParams, ReversedParams, ForwardRow, ReversedRow]) re
 	return read, err
 }
 
-// listFilmsOrSeriesByName is films or series in the sort_locale's order (D47), A to Z or Z to A.
+// listFilmsOrSeriesByName is films or series in the sortLocale's order (D47), A to Z or Z to A.
 func (browser *Browser) listFilmsOrSeriesByName(
 	ctx context.Context, kind string, query ListQuery, after listPosition,
 ) ([]keyedEntry, error) {

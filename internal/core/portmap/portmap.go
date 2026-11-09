@@ -33,8 +33,8 @@ const checkEvery = time.Minute
 
 // How long each mapping is asked for (renewed at half of what the router grants), how long the loop
 // waits to ask again when no router took one, and how often one the router made for good is asked
-// for again, in case the router restarted and forgot it, are settings: port_mapping_lease_seconds,
-// port_mapping_retry_seconds and port_mapping_permanent_renew_seconds (the constants sweep,
+// for again, in case the router restarted and forgot it, are settings: portMappingLeaseSeconds,
+// portMappingRetrySeconds and portMappingPermanentRenewSeconds (the constants sweep,
 // 2026-10-20), read at each use (wait).
 
 // releaseWait bounds the removal of the mappings when the core stops.
@@ -52,7 +52,7 @@ type Parts struct {
 	// Port is the core's HTTPS port, the one opened: internal and, where the router agrees,
 	// external.
 	Port int
-	// IsWanted is whether the mappings should exist now: should_map_ports on, and a discovery
+	// IsWanted is whether the mappings should exist now: shouldMapPorts on, and a discovery
 	// publishing the core (D273 §7).
 	IsWanted func(ctx context.Context) bool
 	// Gateway is the router asked: the one the deployment names, or the default route's (GatewayOf

@@ -23,7 +23,7 @@ import (
 )
 
 // propagationWaitOf is how long a DNS-01 challenge's record is given to reach the name's servers:
-// certificate_dns_wait_seconds as reader holds it, read at each challenge; nil, no wait, for a wiring
+// certificateDnsWaitSeconds as reader holds it, read at each challenge; nil, no wait, for a wiring
 // that waits for none, a test's fake DNS (D243 §6).
 func propagationWaitOf(
 	waitsForDNS bool, reader settings.DurationReader, logger *slog.Logger,

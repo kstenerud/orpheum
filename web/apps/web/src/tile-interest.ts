@@ -52,7 +52,7 @@ export function useTilesInView(ids: readonly number[], listWatchAt?: WatchAt): W
 
 /**
  * Says the server's work for the pictures of itemIds' tiles comes first while they are in view (D362
- * §4, D324): once they settle, again every interest_said_every_seconds while the tab is visible, and
+ * §4, D324): once they settle, again every interestSaidEverySeconds while the tab is visible, and
  * that none is shown when the list goes, the tab hides or the page unloads, the request kept alive
  * past the page. Tiles scrolled to replace those said before.
  */

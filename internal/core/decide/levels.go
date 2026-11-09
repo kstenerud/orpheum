@@ -10,8 +10,8 @@ import (
 
 // peakCeilingDBTP is the highest true peak a gain may bring a sound to (D226 §3): fixed, not a
 // setting, because above it a sound clips when it is decoded or resampled. The level a sound is
-// brought towards and the most it is raised are the settings loudness_target_lufs and
-// loudness_max_raise_db.
+// brought towards and the most it is raised are the settings loudnessTargetLufs and
+// loudnessMaxRaiseDb.
 const peakCeilingDBTP = -1.0
 
 // streamKindAudio is an audio track's kind, as a probe names it.

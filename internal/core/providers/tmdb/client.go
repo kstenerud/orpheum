@@ -53,8 +53,8 @@ func New(httpClient *http.Client, baseURL string, keys Keys, provider *providers
 }
 
 // APIService is TMDB's API as a provider service: its destination tmdb-api, the rate we keep to
-// with it and background work's share of it (tmdb_requests_per_second,
-// tmdb_background_rate_share_percent), and its key, whose absence or refusal parks it until the
+// with it and background work's share of it (tmdbRequestsPerSecond,
+// tmdbBackgroundRateSharePercent), and its key, whose absence or refusal parks it until the
 // key changes (D231 §5).
 func APIService(
 	health providers.Health, clockSource clock.Clock, settingsReader providers.Settings,

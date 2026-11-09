@@ -237,7 +237,7 @@ func TestChunks_AChunkTheNodeHasNotMadeIsAskedForAndRelayedOnceItIs(t *testing.T
 	harness.nodeBytes.files[store+"00001.m4s"] = "chunk one"
 	harness.nodeBytes.asksBeforeFound = map[string]int{store + "00001.m4s": 3}
 	harness.nodeBytes.mutex.Unlock()
-	harness.setSetting(t, "chunk_hold_ms", "20000") // a hold, where one is set
+	harness.setSetting(t, "chunkHoldMs", "20000") // a hold, where one is set
 	chunk := harness.getBytePath(t, base+"q700k432p/00001.m4s", user, true, "")
 	if chunk.status != http.StatusOK || chunk.body != "chunk one" ||
 		chunk.header.Get("Content-Type") != "video/iso.segment" ||

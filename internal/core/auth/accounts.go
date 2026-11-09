@@ -93,7 +93,7 @@ func (service *Service) IssueRegistrationInvitation(ctx context.Context, userID 
 	}
 	life, err := service.settings.Duration(ctx, settings.RegistrationInvitationLifeDays)
 	if err != nil {
-		return IssuedSecret{}, fmt.Errorf("read registration_invitation_life_days: %w", err)
+		return IssuedSecret{}, fmt.Errorf("read registrationInvitationLifeDays: %w", err)
 	}
 	kept, err := service.keepOfLink(secret)
 	if err != nil {

@@ -15,7 +15,7 @@
 
 ## 1. What the owner gives: the upload
 
-- **A setting, `server_upload_mbps`**, shown on the settings page with a question while unset
+- **A setting, `serverUploadMbps`**, shown on the settings page with a question while unset
   (D200): *"How fast can this server send, in Mbit/s? Your connection's upload speed, or as much of
   it as you want Orpheum to use."* Unset, nothing in this plan acts: no ceilings, no one removed.
 - **A button to measure it** by a speed test site is left for later (the owner, D286 §5).
@@ -123,7 +123,7 @@ address is on the server's network is left out of it (the owner, 2026-10-12). Op
 
 | Step | What | Test |
 | --- | --- | --- |
-| U1 | The setting and its question; each playback's need from its chunk requests, the total, and the bytes sent, logged every 20 s while anyone plays | BUILT 2026-10-12: `server_upload_mbps`, `internal/core/playback/upload.go`, the API's `countedMedia`; the log line "the server's upload" |
+| U1 | The setting and its question; each playback's need from its chunk requests, the total, and the bytes sent, logged every 20 s while anyone plays | BUILT 2026-10-12: `serverUploadMbps`, `internal/core/playback/upload.go`, the API's `countedMedia`; the log line "the server's upload" |
 | U2 | The ceiling: kept per playback, sent as `Orpheum-Ceiling-Kbps` on every chunk, obeyed by the player's controller | BUILT 2026-10-12: `CeilingHeader`, `Choosing.obeyServer`, `chunks.Service.Ladder` |
 | U3 | Lowering and raising (§4), as a pure function of the playbacks, their needs and the share, and the 5 s watch that applies it | BUILT 2026-10-12: `internal/core/playback/lowering.go`, `KeepUnderShare` every 5 s |
 | U4 | D286 §4: a node too slow lowers onto a quality already made before evicting | BUILT 2026-10-12: `chunks.Service.MovePlayersBy`, `playback.Service.MoveOffStream`, a ceiling of 2 minutes |

@@ -210,7 +210,7 @@ func TestScanSchedule_AWatchersNoticeUnderARootScansTheLibraryFoldersInsideItTha
 }
 
 // A library root that is unavailable, its disk or share not answering, is scanned again once
-// unavailable_root_rescan_seconds have passed since its last scan, until one reads it; one scanned
+// unavailableRootRescanSeconds have passed since its last scan, until one reads it; one scanned
 // lately, one being scanned and one available are not; and it goes before the queue's own scans,
 // one of which held the disk's one reader for a minute (D233 §10; staging, 2026-10-21).
 func TestScanSchedule_ScansAnUnavailableRootAgainUntilOneReadsIt(t *testing.T) {

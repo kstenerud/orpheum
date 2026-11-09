@@ -10,7 +10,7 @@
 // # Invariants
 //
 //   - A session shows one page at a time; a look not said again within
-//     interest_lapses_after_seconds lapses, and the latest begun is first. A series' season's page
+//     interestLapsesAfterSeconds lapses, and the latest begun is first. A series' season's page
 //     is a page of its own. Enforced by TestRegister_KeepsEachSessionsPageTheLatestFirstUntilItLapses
 //     and TestRegister_ASeasonsPageIsALookOfItsOwn.
 //   - What is played is raised at a play's priority, what is looked at below it the latest
@@ -33,7 +33,7 @@
 //     TestMembersAhead_StartAtThePersonsPlaceInTheOrdering and
 //     TestMembersOf_ReadThePersonsPositionsAgainstTheThresholds; the series' page says the same
 //     episode by TestBrowse_ASeriesSaysItsPersonsNextEpisode in internal/core/api.
-//   - A look at a series' season raises the series and series_episodes_ahead of that season's
+//   - A look at a series' season raises the series and seriesEpisodesAhead of that season's
 //     episodes, from its person's place among them, the same way; else, its last finished or none
 //     watched, from its first (D324 §3, the owner, 2026-10-24). Enforced by
 //     TestMembersAheadInGroup_StartAtThePersonsPlaceInTheGroup in internal/core/library and

@@ -10,7 +10,7 @@ import "time"
 // membership at once (End).
 
 // StartingLinkLifetime and StartingIdleEnd are a link's lifetime and a session's idle end before the
-// settings', together_link_lifetime_minutes and together_idle_session_end_hours, are first read
+// settings', together_link_lifetime_minutes and togetherIdleSessionEndHours, are first read
 // (EndStale): their starting values, copies which internal/core/api's
 // TestTogether_TheStartingWaitsAreTheSettingsStarts holds equal (D346).
 const (

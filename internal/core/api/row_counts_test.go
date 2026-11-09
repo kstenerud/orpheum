@@ -32,13 +32,13 @@ func TestRowCounts_ContinueWatchingAndTheJobViewListAsManyAsTheirSettingsSay(t *
 			t.Fatal(err)
 		}
 	}
-	harness.setSetting(t, "continue_watching_max_works", "1")
-	harness.setSetting(t, "job_view_max_jobs", "2")
+	harness.setSetting(t, "continueWatchingMaxWorks", "1")
+	harness.setSetting(t, "jobViewMaxJobs", "2")
 
 	if rows := harness.continueWatching(t, admin); len(rows) != 1 || rows[0].ID != 10 {
-		t.Errorf("Continue Watching at continue_watching_max_works 1: %v, want only Metropolis, the latest", rowsOf(rows))
+		t.Errorf("Continue Watching at continueWatchingMaxWorks 1: %v, want only Metropolis, the latest", rowsOf(rows))
 	}
 	if listed := harness.listedJobs(t, admin); len(listed) != 2 {
-		t.Errorf("the job view at job_view_max_jobs 2 lists %d jobs, want 2", len(listed))
+		t.Errorf("the job view at jobViewMaxJobs 2 lists %d jobs, want 2", len(listed))
 	}
 }

@@ -3,7 +3,7 @@
 package nodeproto
 
 // The chunk lengths a film may be cut at, and the one the node makes when a command asks for none
-// within them: the bounds and starting value of the core's setting hls_segment_length_seconds,
+// within them: the bounds and starting value of the core's setting hlsSegmentLengthSeconds,
 // defined once here for the core's registry and the node. Past ten seconds, switching to the
 // dialogue boost's mix, which waits for the next chunk, takes too long (D217 §3).
 const (

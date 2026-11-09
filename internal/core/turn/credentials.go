@@ -148,7 +148,7 @@ type Issuer struct {
 	STUN    func() []string
 	Secrets Secrets
 	// Settings are the server's settings, read for how long a member's credentials last:
-	// voice_relay_credential_hours, a day to start, longer than any evening's film, a membership that
+	// voiceRelayCredentialHours, a day to start, longer than any evening's film, a membership that
 	// ends first ending them with it (D243 §8); nil uses the starting value.
 	Settings settings.DurationReader
 	Logger   *slog.Logger

@@ -40,11 +40,11 @@ func (config startingSettings) Int(_ context.Context, key settings.Key) (int64, 
 	if key == settings.BackupsKeptDaily {
 		return cmp.Or(config.daily, 7), nil
 	}
-	return cmp.Or(config.weekly, 4), nil // backups_kept_weekly
+	return cmp.Or(config.weekly, 4), nil // backupsKeptWeekly
 }
 
 func (config startingSettings) Duration(context.Context, settings.Key) (time.Duration, error) {
-	return time.Duration(max(config.every, 1)) * time.Hour, nil // backup_every_hours
+	return time.Duration(max(config.every, 1)) * time.Hour, nil // backupEveryHours
 }
 
 // scheduleBench is a backup service over an empty instance holding files, its clock at now, and
@@ -137,8 +137,8 @@ func TestQueueScheduled_SkipsABackupWhenNothingChangedSinceTheLast(t *testing.T)
 	}
 }
 
-// Pruning thins forty days of hourly backups to the newest backups_kept_hourly, then the newest of
-// each day back to backups_kept_daily days, and of each week back to backups_kept_weekly weeks, and
+// Pruning thins forty days of hourly backups to the newest backupsKeptHourly, then the newest of
+// each day back to backupsKeptDaily days, and of each week back to backupsKeptWeekly weeks, and
 // never prunes the copies kept before a restore or a migration (D305 §2).
 func TestPrune_ThinsToTheNewestHourlyThenOneADayThenOneAWeek(t *testing.T) {
 	t.Parallel()

@@ -40,7 +40,7 @@ func TestBuild_EveryThingDerivedFromAProbeCanBeThrownOut(t *testing.T) {
 }
 
 // The server's read-through logs how long each read of a file's index took, for whether
-// play_ladder_wait_ms outlasts it: the server's logger reaches it (D414 §5).
+// playLadderWaitMs outlasts it: the server's logger reaches it (D414 §5).
 func TestBuild_TheReadThroughLogsAnIndexReadsTime(t *testing.T) {
 	t.Parallel()
 	parts := testParts(t)

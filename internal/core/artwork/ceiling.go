@@ -17,9 +17,9 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
 
-// The ceiling's workings (D212 §6, §7): a sweep evicts down to artwork_cache_sweep_to_percent of the
+// The ceiling's workings (D212 §6, §7): a sweep evicts down to artworkCacheSweepToPercent of the
 // ceiling, so it does not run again at the next write, and the recommended ceiling is what is never
-// evicted, plus artwork_cache_recommended_headroom_percent.
+// evicted, plus artworkCacheRecommendedHeadroomPercent.
 const (
 	day              = 24 * time.Hour
 	cannotMakeSuffix = ".none"
@@ -152,7 +152,7 @@ func (service *Service) SweepWakes() <-chan struct{} {
 func (service *Service) ceilingBytes(ctx context.Context) (int64, error) {
 	gibs, err := service.parts.Settings.Int(ctx, settings.ArtworkCacheCeilingGiB)
 	if err != nil {
-		return 0, fmt.Errorf("read artwork_cache_ceiling_gib: %w", err)
+		return 0, fmt.Errorf("read artworkCacheCeilingGib: %w", err)
 	}
 	return gibs * diskspace.BytesPerGiB, nil
 }
@@ -191,7 +191,7 @@ func (service *Service) Sweep(ctx context.Context) (Pressure, error) {
 	}
 	grace, err := service.parts.Settings.Duration(ctx, settings.RemovedItemArtworkKeptDays)
 	if err != nil {
-		return Pressure{}, fmt.Errorf("read removed_item_artwork_kept_days: %w", err)
+		return Pressure{}, fmt.Errorf("read removedItemArtworkKeptDays: %w", err)
 	}
 	sweepToPercent, err := service.parts.Settings.Int(ctx, settings.ArtworkCacheSweepToPercent)
 	if err != nil {

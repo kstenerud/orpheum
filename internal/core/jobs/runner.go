@@ -12,7 +12,7 @@ import (
 
 // Handler runs one job. A nil error finishes it; Park waits for its destination and MarkStalled
 // tries it again, neither costing an attempt; MarkPermanent fails it; any other error retries it
-// with jittered back-off until job_attempt_limit. A panic is recovered and counted as a stall is
+// with jittered back-off until jobAttemptLimit. A panic is recovered and counted as a stall is
 // (D233 §6).
 type Handler func(ctx context.Context, job Job) error
 

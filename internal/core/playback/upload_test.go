@@ -13,7 +13,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
-// uploadSettings answers server_upload_mbps, or that it is unanswered, and every other setting with
+// uploadSettings answers serverUploadMbps, or that it is unanswered, and every other setting with
 // its starting value.
 type uploadSettings struct{ mbps int64 }
 

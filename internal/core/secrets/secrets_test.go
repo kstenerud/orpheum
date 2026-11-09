@@ -266,7 +266,7 @@ func TestStore_ShowsLastCharsOnlyForAnAPIKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	if lastChars := findStatus(t, statuses, TMDBAPIKey).LastChars; lastChars != "YZ" {
-		t.Errorf("with secret_last_chars_shown 2, the last characters = %q, want the last two", lastChars)
+		t.Errorf("with secretLastCharsShown 2, the last characters = %q, want the last two", lastChars)
 	}
 	if lastChars := findStatus(t, statuses, OpenSubtitlesPassword).LastChars; lastChars != "" {
 		t.Errorf("password last characters = %q, want none", lastChars)

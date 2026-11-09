@@ -16,7 +16,7 @@ type sessionUseFlusher interface {
 }
 
 // writeSessionUses writes the sessions' remembered uses every
-// session_last_used_write_interval_seconds, read afresh each time, until ctx ends, and once more
+// sessionLastUsedWriteIntervalSeconds, read afresh each time, until ctx ends, and once more
 // then, before the databases close: a request only remembers its session's use, and this writes it
 // (D303 §4, DL10).
 func writeSessionUses(ctx context.Context, uses sessionUseFlusher, config settingReader, logger *slog.Logger) {

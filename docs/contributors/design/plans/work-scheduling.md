@@ -454,7 +454,7 @@ then.
 
 ### 10.2 The uplink's capacity is measured, not configured
 
-- `server_upload_mbps` stays, as a ceiling an admin may set. When it is unset, as it is today by
+- `serverUploadMbps` stays, as a ceiling an admin may set. When it is unset, as it is today by
   default, the core estimates the capacity:
   - the most bytes per second it has sent to remote players when they reported no stall;
   - the remote players' reported link speeds;
@@ -509,7 +509,7 @@ times. In this design:
 ### 11.2 The provider service gains tiers
 
 - Its buckets are shared by tier. Interactive and Attended calls come first, then Background, which
-  is held to `tmdb_background_rate_share_percent` (kept).
+  is held to `tmdbBackgroundRateSharePercent` (kept).
 - A daily quota keeps its Attended reserve (§7.5).
 - Parking and probing stay as D231 has them.
 

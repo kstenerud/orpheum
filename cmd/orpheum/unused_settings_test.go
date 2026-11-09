@@ -16,9 +16,9 @@ import (
 func TestLogUnusedSettings_WarnsOnlyOfARowNoReleaseRead(t *testing.T) {
 	t.Parallel()
 	var logged bytes.Buffer
-	retired := settings.RetiredKey{Key: "scan_video_extensions", Release: "0.3.0", Reason: "moved to the library"}
+	retired := settings.RetiredKey{Key: "scanVideoExtensions", Release: "0.3.0", Reason: "moved to the library"}
 	logUnusedSettings(t.Context(), []settings.UnusedSetting{
-		{Key: "scan_video_extensions", ValueJSON: "[]", Retired: &retired},
+		{Key: "scanVideoExtensions", ValueJSON: "[]", Retired: &retired},
 		{Key: "scan_vidoe_extensions", ValueJSON: "[]"},
 	}, slog.New(slog.NewJSONHandler(&logged, nil)))
 	lines := strings.Split(strings.TrimSpace(logged.String()), "\n")

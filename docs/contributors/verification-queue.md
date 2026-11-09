@@ -219,13 +219,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   allows. Its nudges are VQ27's, no longer this item's: since D268 §2 an iPhone whose returns to the group's rate cost it more than the drift
   left alone stops nudging and corrects by seeks alone, so it may log no `"nudged"` note after its
   first minute. If the sound skips at each nudge before then, set
-  **should_together_nudge_keep_pitch** to off on the Settings page, join again, and say whether the
+  **shouldTogetherNudgeKeepPitch** to off on the Settings page, join again, and say whether the
   skips stop. Only a real iPhone shows whether
   Safari's still position just after a change, and its switch of pitch keeping, are answered
   (D250 §7; safari-versions.md §3, §4). (`web/packages/sdk/src/together-follow.ts`)
 - [ ] **VQ23** — The host on an Android phone with headphones plays a film in a session against
-  staging in **Chrome** and presses **Talk**, with **should_together_voice_cancel_echo** off and
-  **should_together_voice_browser_level_microphone** set on (it starts off). Passes when the film stays at
+  staging in **Chrome** and presses **Talk**, with **shouldTogetherVoiceCancelEcho** off and
+  **shouldTogetherVoiceBrowserLevelMicrophone** set on (it starts off). Passes when the film stays at
   its usual loudness, the phone's volume buttons still change it while voice is on, and the other
   person hears the host clearly over their film with their Partner slider at 100%. Firefox on
   Android failed this (the owner's test, 2026-10-07: the volume buttons stopped working), which is
@@ -244,7 +244,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   drawn ones when fullscreen ends. Only a real phone shows that its fullscreen player draws a
   page's text track (D254). (`web/packages/player/src/fullscreen-captions.ts`)
 - [ ] **VQ26** — Against staging, two people in a session, one on an Android phone in Firefox with
-  `should_together_voice_browser_level_microphone` off, the other on an iPhone on its own speaker: before
+  `shouldTogetherVoiceBrowserLevelMicrophone` off, the other on an iPhone on its own speaker: before
   Talk, the iPhone shows the earpiece warning; both press Talk and speak for 20 s at a normal
   distance. Passes when each hears the other clearly at the partner volume's 100%, the log's
   `a voice call measured` lines show `receivedLevel` near 0.1 on both sides, and the Android
@@ -350,7 +350,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   screens (D287).
   (`web/packages/player/src/wake.ts`, `web/apps/web/src/film-player.tsx`,
   `web/packages/sdk/src/together-follow.ts`)
-- [ ] **VQ36** — Against staging, `server_upload_mbps` set low on purpose (3 or 4): a Watch
+- [ ] **VQ36** — Against staging, `serverUploadMbps` set low on purpose (3 or 4): a Watch
   Together group of a computer and two phones plays and jumps. Passes when the core's log shows the
   qualities lowered one at a time (`a playback's quality was kept within the server's upload`), each
   player then loading at or under its ceiling with no stall, two players of one film sharing a
@@ -360,7 +360,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   owner's link and devices show whether the steps are right (D286 §4, §5).
   (`internal/core/playback/lowering.go`, `upload.go`, `web/packages/player/src/abr.ts`,
   `web/apps/web/src/together-viewer.tsx`)
-- [ ] **VQ37** — Against staging, `server_upload_mbps` at your real upload: a Watch Together group
+- [ ] **VQ37** — Against staging, `serverUploadMbps` at your real upload: a Watch Together group
   of two phones outside the house plays while someone in the house starts a video call or a large
   upload. Passes when, within about half a minute, the core's log says "the films' share of the
   server's upload changed with the house's other traffic" with `isCrowded=true`, the phones' qualities
@@ -861,7 +861,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   path`); an other library over the same folder gave the file an other video of its own (5421).
 - [ ] **VQ81** — On staging, D363's copies: copy a film byte for byte to a second folder that a second
   films library covers, and scan it. Passes when, after the copies' sweep (the pass after the scan, or
-  within `read_through_sweep_every_hours`), the core log says `one file at two places from now on`, the
+  within `readThroughSweepEveryHours`), the core log says `one file at two places from now on`, the
   film is listed once, the doctor's "files found at more than one place" names both paths, a person
   whose role reaches only the second library sees and plays the film (from the copy), and, the first
   folder's disk unplugged, a person reaching both still plays it, from the copy. A re-encode put

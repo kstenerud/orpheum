@@ -135,7 +135,7 @@ export function abortReason(signal: AbortSignal): Error {
 /**
  * How long a request over WebRTC may hear nothing while it waits on the core, a justified constant:
  * a request with no body waiting for its head, or a reader waiting for the next of a body; longer
- * than the core holds a chunk being made at most (chunk_hold_ms, 30 s). Unbounded, a chunk whose
+ * than the core holds a chunk being made at most (chunkHoldMs, 30 s). Unbounded, a chunk whose
  * body stopped after 19 bytes, and every request after it on the same connection, waited for good:
  * the owner's Chrome, throttled until its film stalled and unthrottled, never loaded again
  * (staging, 2026-10-29). A request with a body waits for its head unbounded while its body is on its

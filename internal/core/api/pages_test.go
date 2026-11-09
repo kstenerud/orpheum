@@ -112,7 +112,7 @@ func TestPages_EachListThatCanGrowIsPagedByItsCursor(t *testing.T) {
 	}
 }
 
-// The job view's pages end at the newest job_view_max_jobs, however small its pages: the setting
+// The job view's pages end at the newest jobViewMaxJobs, however small its pages: the setting
 // says how far back it reaches, the cursor only how it is cut.
 func TestPages_TheJobViewsPagesEndAtItsMaxJobs(t *testing.T) {
 	t.Parallel()
@@ -124,10 +124,10 @@ func TestPages_TheJobViewsPagesEndAtItsMaxJobs(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	harness.setSetting(t, "job_view_max_jobs", "3")
+	harness.setSetting(t, "jobViewMaxJobs", "3")
 	pages := harness.walkPages(t, admin, "/jobs", "jobs", "id", 2)
 	if len(pages) != 2 || len(pages[0]) != 2 || len(pages[1]) != 1 {
-		t.Errorf("GET /jobs by 2 at job_view_max_jobs 3: %q; want two pages, of 2 and of 1, and no cursor after", pages)
+		t.Errorf("GET /jobs by 2 at jobViewMaxJobs 3: %q; want two pages, of 2 and of 1, and no cursor after", pages)
 	}
 }
 

@@ -223,7 +223,7 @@ function useDebugToolsOf(
 
 /**
  * Has every player of the page wait, before it plays, by the server's margin on its next chunk's
- * load, once read (ready_ahead_of_next_chunk_percent; the SDK's ready-ahead.ts).
+ * load, once read (readyAheadOfNextChunkPercent; the SDK's ready-ahead.ts).
  */
 function useReadyAheadOfTheServer(
   read: components["schemas"]["ClientSettingsBody"] | undefined,

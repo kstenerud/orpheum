@@ -65,7 +65,7 @@ export interface KeepingUp {
   readonly filmPictureKbps: number;
   /**
    * The share of a link's measured speed a quality may take, in percent, as the offer says, by which
-   * the server chose the lower quality (link_share_for_quality_percent, D247 §6); the player's
+   * the server chose the lower quality (linkShareForQualityPercent, D247 §6); the player's
    * starting share when 0.
    */
   readonly linkSharePercent: number;

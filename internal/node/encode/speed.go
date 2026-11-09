@@ -14,7 +14,7 @@ import (
 )
 
 // The speed trial encodes ten seconds of a generated 1080p picture, a film's usual size, scaled to
-// the lowest quality chunk_qualities offers by default, 400k@360p: as fast as anything this node
+// the lowest quality chunkQualities offers by default, 400k@360p: as fast as anything this node
 // would encode for a player (D457).
 const (
 	speedTrialKbps   = 400

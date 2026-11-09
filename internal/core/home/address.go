@@ -65,8 +65,8 @@ type Interface struct {
 // AddressParts are what an AddressAtHome is made of.
 type AddressParts struct {
 	Rule *Rule
-	// Settings keeps the address at home, as the settings address_at_home and
-	// address_at_home_learned_from.
+	// Settings keeps the address at home, as the settings addressAtHome and
+	// addressAtHomeLearnedFrom.
 	Settings *settings.Service
 	// Database names the admin who set the address.
 	Database *store.Database

@@ -39,7 +39,7 @@ func TestSystem_ShowsTheServersFactsEachNodesAndDoctorsFindings(t *testing.T) {
 			{Encoder: "h264_qsv"}, {Encoder: "h264_nvenc", Failure: "Cannot load libcuda.so.1"},
 		},
 		ChosenEncoder: "h264_qsv",
-		// Slower than chunk_run_slowest_speed_percent's 110: too slow to convert a film (D457).
+		// Slower than chunkRunSlowestSpeedPercent's 110: too slow to convert a film (D457).
 		EncodeSpeedPercent: 60,
 	}
 	harness.nodes.build = harnessServerBuild
@@ -341,7 +341,7 @@ func TestSystem_ShowsTheQueuesHealth(t *testing.T) {
 	}
 }
 
-// The System page counts a kind's failed jobs back as far as job_health_window_hours says, a day to
+// The System page counts a kind's failed jobs back as far as jobHealthWindowHours says, a day to
 // start (D233 §8; the constants sweep, 2026-10-20).
 func TestSystem_CountsFailedJobsBackAsFarAsTheSettingSays(t *testing.T) {
 	t.Parallel()

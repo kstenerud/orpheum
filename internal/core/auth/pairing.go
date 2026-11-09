@@ -26,8 +26,8 @@ const (
 	// a code shown on a screen can be taken by someone else (D218 §3).
 	pairingLife = 10 * time.Minute
 	// How many pairings wait at once: a bound on memory. Past it, or past
-	// pairing_codes_per_network_most not yet entered from one network (clientnet: an IPv6 /64 or an
-	// IPv4 address) or pairing_codes_per_site_most from one site (an IPv6 /48, which holds many
+	// pairingCodesPerNetworkMost not yet entered from one network (clientnet: an IPv6 /64 or an
+	// IPv4 address) or pairingCodesPerSiteMost from one site (an IPv6 /48, which holds many
 	// networks; the second audit's K5), a new one is refused, never an older one dropped: the oldest
 	// giving way let a stranger push out a television's code before it was typed (the security
 	// audit's S13, 2026-10-13; D288 §6).

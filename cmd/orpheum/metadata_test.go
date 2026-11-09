@@ -37,7 +37,7 @@ func TestLengthOrStarting_IsTheSettingOrElseItsStartingValue(t *testing.T) {
 	settingstest.Set(t, config, settings.ReadThroughSweepEveryHours, "3")
 	logger := slog.New(slog.DiscardHandler)
 	if got := lengthOrStarting(t.Context(), config, settings.ReadThroughSweepEveryHours, logger); got != 3*time.Hour {
-		t.Errorf("read_through_sweep_every_hours at 3: a wait of %v, want 3h", got)
+		t.Errorf("readThroughSweepEveryHours at 3: a wait of %v, want 3h", got)
 	}
 	for _, check := range []struct {
 		key  settings.Key
@@ -58,10 +58,10 @@ func TestDemoteUnwantedEvery_IsAtMostHalfTheShortestPlayPriorityKept(t *testing.
 	t.Parallel()
 	kept, isDefined := settings.Lookup(settings.PlayPriorityKeptSeconds)
 	if !isDefined {
-		t.Fatal("play_priority_kept_seconds is not a setting")
+		t.Fatal("playPriorityKeptSeconds is not a setting")
 	}
 	if shortest := time.Duration(kept.Minimum) * kept.Unit; demoteUnwantedEvery > shortest/2 {
-		t.Errorf("demoteUnwantedEvery is %v, against play_priority_kept_seconds' shortest, %v; want at most "+
+		t.Errorf("demoteUnwantedEvery is %v, against playPriorityKeptSeconds' shortest, %v; want at most "+
 			"half of it", demoteUnwantedEvery, shortest)
 	}
 }

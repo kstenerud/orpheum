@@ -188,7 +188,7 @@ type Started struct {
 	// Decision says.
 	OnLadder *chunks.Offer
 	// NotOnLadderBecause is why a playback does not start on its film's ladder, for the log:
-	// "noGridYet" (its keyframes not read within play_ladder_wait_ms, of a film its device plays as it
+	// "noGridYet" (its keyframes not read within playLadderWaitMs, of a film its device plays as it
 	// is; one it cannot is cut on time, D344 §2), "cannotBeCut",
 	// "noQualityOffered", "tooSlowToEncode" (its node encodes too slowly for any picture its player
 	// plays, D457) or "noLadder"; empty when it does. A film played as its decision says, with
@@ -198,7 +198,7 @@ type Started struct {
 	// playback on the request's network ended at, relaxed by the time since (D352 Q2); 0 for none.
 	Steadiness int
 	// RememberedLink is the link its player last measured on the request's network, within
-	// link_speed_fresh_hours (D257 §1), which the server chose its starting quality by and its player
+	// linkSpeedFreshHours (D257 §1), which the server chose its starting quality by and its player
 	// takes into its estimate as a prior (bandwidth-sampling-2026-10-29.md P2); zero for none.
 	RememberedLink RememberedLink
 	// Tracks are what the playback may play and what the file holds, which its player names.
@@ -406,12 +406,12 @@ func startingLevelling(levels decide.Levels, probe nodeproto.Probe, starting *Au
 }
 
 // ladderLookEvery is how often a playback of a film not cut yet looks again for its keyframes,
-// while it waits for them for play_ladder_wait_ms (D260 §1).
+// while it waits for them for playLadderWaitMs (D260 §1).
 const ladderLookEvery = 100 * time.Millisecond
 
 // startOnLadder starts a playback on its film's ladder from positionMs (D260): at the top, or, with
 // its player's link on the request's network remembered, where that link calls for (D257 §1). A
-// film with no grid yet is waited for, up to play_ladder_wait_ms, while its timeline is read, then cut
+// film with no grid yet is waited for, up to playLadderWaitMs, while its timeline is read, then cut
 // on time where its device cannot play it as it is (D344 §2), else nil, playing as it is; one that
 // cannot be cut, or offers no picture, is nil at once. A nil
 // offer comes with why, for the log. A person who chose the original file plays it, never the ladder

@@ -39,7 +39,7 @@ const streamPlaylistName = "stream.m3u8"
 
 // chunkAskEvery is how often a request held for a chunk its node has not made asks the node again
 // (chunks.md §3): under a tenth of a chunk, so a chunk is relayed soon after it is made. How long it
-// is held is chunk_hold_ms, by default not at all: hls.js counts a hold as the chunk's download,
+// is held is chunkHoldMs, by default not at all: hls.js counts a hold as the chunk's download,
 // and on a held chunk took a link of megabits for one of kilobits (D250 §5).
 const chunkAskEvery = 250 * time.Millisecond
 
@@ -152,7 +152,7 @@ var errNotMadeYet = errors.New("the node has not made it yet")
 
 // relayChunkFile relays a store's init or chunk from its node. One the node has not made is asked
 // for (chunks.Service.Want), and the node asked again every chunkAskEvery until it has it, for up to
-// chunk_hold_ms, after which the player is told to ask again (425). It is asked for again on each
+// chunkHoldMs, after which the player is told to ask again (425). It is asked for again on each
 // look: a run asked for while another of its store waits queued, after a seek, is folded into that
 // one, which makes other chunks, and only a later ask queues it once that one has started. A file
 // the node served is known made. Neither ever changes once made, so it is cached for a day. A file
@@ -234,7 +234,7 @@ type chunkWait struct {
 }
 
 // How a wait for a file not made yet ended: relayed once made; the player told to ask again after
-// chunk_hold_ms (425); the player gone before either; or failed.
+// chunkHoldMs (425); the player gone before either; or failed.
 const (
 	chunkWaitServed     = "served"
 	chunkWaitAskAgain   = "askAgain"

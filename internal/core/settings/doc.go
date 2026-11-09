@@ -61,7 +61,7 @@
 //   - D201: modified is a person's mark; unmodified rows follow a changed starting value.
 //   - D202: missing rows heal; unused rows are listed and deleted by a person, never automatically.
 //   - D183: an opinion must be visible where it acts (amended by D200).
-//   - D184: the defaults audit; should_check_for_updates is asked, not assumed.
+//   - D184: the defaults audit; shouldCheckForUpdates is asked, not assumed.
 //   - D194 §3: why secrets have their own table.
 //   - docs/contributors/design/plans/schema.md.
 //

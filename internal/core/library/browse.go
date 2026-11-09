@@ -157,7 +157,7 @@ type ListQuery struct {
 	Order  string
 	Cursor string
 	// From is a name a list by name or by file name starts at, its first title sorted at or after it
-	// in the sort_locale, in place of its first page: the alphabet rail's letter. Only with no Cursor.
+	// in the sortLocale, in place of its first page: the alphabet rail's letter. Only with no Cursor.
 	From  string
 	Limit int64
 	// Reach is the libraries listed: the caller's, narrowed to one library or less those they left
@@ -449,11 +449,11 @@ func keyFloat64(key []byte) (float64, bool) {
 	return value, !math.IsNaN(value)
 }
 
-// sorter is the sorter of the sort_locale lists sort in (D47).
+// sorter is the sorter of the sortLocale lists sort in (D47).
 func (browser *Browser) sorter(ctx context.Context) (*textindex.Sorter, error) {
 	locale, err := browser.settings.String(ctx, settings.SortLocale)
 	if err != nil {
-		return nil, fmt.Errorf("read sort_locale: %w", err)
+		return nil, fmt.Errorf("read sortLocale: %w", err)
 	}
 	return textindex.NewSorter(locale)
 }

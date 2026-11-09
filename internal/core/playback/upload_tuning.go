@@ -14,7 +14,7 @@ import (
 // look (the upload_* settings: D286 §4, §5; plans/upload-budget.md §4c; the constants sweep,
 // 2026-10-20). One controller: its values are tuned together.
 type uploadTuning struct {
-	// filmsSharePercent is how much of server_upload_mbps the films may use.
+	// filmsSharePercent is how much of serverUploadMbps the films may use.
 	filmsSharePercent int64
 	// A player is slow when its link carries less than slowUnderPercent of what its quality needs, and
 	// the house's upload crowded when slowPlayersAtLeast are slow at once.

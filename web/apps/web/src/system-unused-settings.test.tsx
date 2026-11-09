@@ -17,10 +17,10 @@ afterEach(() => {
 });
 
 const retired = {
-  key: "resume_min_percent",
+  key: "resumeMinPercent",
   value: 12,
   retiredIn: "v0.3.0",
-  retiredReason: "renamed in_progress_after_percent",
+  retiredReason: "renamed inProgressAfterPercent",
 };
 const typo = { key: "reader_limt", value: 3 };
 
@@ -32,27 +32,27 @@ it("lists the settings this release does not read with why, and deletes one only
         [200, { unusedSettings: [retired, typo] }],
         [200, { unusedSettings: [typo] }],
       ],
-      "DELETE /config/unused/resume_min_percent": [204, undefined],
+      "DELETE /config/unused/resumeMinPercent": [204, undefined],
     },
     heard,
   );
   mounted = await mount(withServices(<SystemUnusedSettings />, services));
   const container = mounted.container;
   expect(container.textContent).toContain(
-    "resume_min_percent = 12: retired in v0.3.0, renamed in_progress_after_percent",
+    "resumeMinPercent = 12: retired in v0.3.0, renamed inProgressAfterPercent",
   );
   expect(container.textContent).toContain(
     "reader_limt = 3: no release has read it, so probably a typo",
   );
-  await click(container.querySelector('button[aria-label="Delete resume_min_percent"]'));
+  await click(container.querySelector('button[aria-label="Delete resumeMinPercent"]'));
   expect(heard.some((each) => each.methodAndPath.startsWith("DELETE"))).toBe(false);
   await click(buttonWithText(container, "Delete it"));
   expect(
     heard
       .filter((each) => each.methodAndPath.startsWith("DELETE"))
       .map((each) => each.methodAndPath),
-  ).toEqual(["DELETE /config/unused/resume_min_percent"]);
-  expect(container.textContent).not.toContain("resume_min_percent");
+  ).toEqual(["DELETE /config/unused/resumeMinPercent"]);
+  expect(container.textContent).not.toContain("resumeMinPercent");
   expect(container.textContent).toContain("reader_limt");
 });
 

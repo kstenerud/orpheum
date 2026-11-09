@@ -56,7 +56,7 @@ type Service struct {
 
 	mutex          sync.Mutex
 	reactionsByKey map[Key][]func(context.Context) error // guarded by mutex
-	// machineZone is the machine's own time zone, the server's while time_zone is empty (D246 §7).
+	// machineZone is the machine's own time zone, the server's while timeZone is empty (D246 §7).
 	machineZone localtime.Zone // guarded by mutex
 
 	stored storedValues
@@ -113,7 +113,7 @@ func (service *Service) readStoredLocked(ctx context.Context) error {
 	return nil
 }
 
-// UseMachineZone is the machine's own time zone, which the server's is while time_zone is empty:
+// UseMachineZone is the machine's own time zone, which the server's is while timeZone is empty:
 // read once by cmd/orpheum, the one reader of the environment (D204, D246 §7).
 func (service *Service) UseMachineZone(zone localtime.Zone) {
 	service.mutex.Lock()
@@ -429,7 +429,7 @@ func compactJSON(value json.RawMessage) string {
 	return buffer.String()
 }
 
-// Zone is the server's time zone: the time_zone setting's, or the machine's own while the admin
+// Zone is the server's time zone: the timeZone setting's, or the machine's own while the admin
 // has chosen none (D246 §7).
 func (service *Service) Zone(ctx context.Context) (localtime.Zone, error) {
 	name, err := service.String(ctx, TimeZone)

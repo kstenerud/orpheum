@@ -140,7 +140,7 @@ func TestSeed_WritesEveryStartingValueAndNeverOverwrites(t *testing.T) {
 			t.Errorf("a seeded setting reads as changed: %+v", entry)
 		}
 	}
-	if err = service.Set(ctx, jsonByKey("signin_failure_limit", "9"), &owner, false); err != nil {
+	if err = service.Set(ctx, jsonByKey("signinFailureLimit", "9"), &owner, false); err != nil {
 		t.Fatal(err)
 	}
 	assertSeedKeepsTheLimitAt(t, service, 9)
@@ -175,7 +175,7 @@ func TestList_SaysWhatWasChangedAndShowsOnlyTheImportantOnesWhenAsked(t *testing
 		ShouldCheckForUpdates); string(entry.Value) != "null" || entry.Definition.Question == "" {
 		t.Errorf("an unanswered question: %+v, want null and the question", entry)
 	}
-	answers := jsonByKey("should_check_for_updates", "false", "sort_locale", ` "sv" `)
+	answers := jsonByKey("shouldCheckForUpdates", "false", "sortLocale", ` "sv" `)
 	err = service.Set(ctx, answers, &owner, true)
 	if err != nil {
 		t.Fatal(err)
@@ -196,7 +196,7 @@ func TestList_SaysWhatWasChangedAndShowsOnlyTheImportantOnesWhenAsked(t *testing
 
 func TestRegistry_ALengthOfTimeHasTheUnitItsKeySpells(t *testing.T) {
 	t.Parallel()
-	unitBySuffix := map[string]time.Duration{"_seconds": time.Second, "_hours": time.Hour, "_days": 24 * time.Hour}
+	unitBySuffix := map[string]time.Duration{"Seconds": time.Second, "Hours": time.Hour, "Days": 24 * time.Hour}
 	lengths := 0
 	for _, definition := range Registry() {
 		key := string(definition.Key)
@@ -256,7 +256,7 @@ func TestStartingDuration_IsTheRegistrysStartingValueInItsUnit(t *testing.T) {
 		{RemovedItemArtworkKeptDays, 30 * 24 * time.Hour},
 		{ArtworkWebPQuality, 0},    // no length of time
 		{ShouldCheckForUpdates, 0}, // a question
-		{"no_such_setting_seconds", 0},
+		{"noSuchSettingSeconds", 0},
 	} {
 		if got := StartingDuration(check.key); got != check.want {
 			t.Errorf("StartingDuration(%s) = %v, want %v", check.key, got, check.want)
@@ -293,18 +293,18 @@ func TestSet_RefusesAndChangesNothing(t *testing.T) {
 		want          error
 	}{
 		{"an unknown key", jsonByKey("transcode_quality", "1"), false, ErrUnknownSetting},
-		{"a string for a bool", jsonByKey("should_check_for_updates", `"yes"`), false, ErrInvalidValue},
-		{"null, which only reset writes", jsonByKey("should_check_for_updates", "null"), false, ErrInvalidValue},
-		{"not JSON", jsonByKey("should_check_for_updates", `yes`), false, ErrInvalidValue},
-		{"below the minimum", jsonByKey("signin_failure_limit", "0"), false, ErrInvalidValue},
-		{"above the maximum", jsonByKey("secret_last_chars_shown", "9"), false, ErrInvalidValue},
-		{"a fraction", jsonByKey("signin_failure_limit", "2.5"), false, ErrInvalidValue},
+		{"a string for a bool", jsonByKey("shouldCheckForUpdates", `"yes"`), false, ErrInvalidValue},
+		{"null, which only reset writes", jsonByKey("shouldCheckForUpdates", "null"), false, ErrInvalidValue},
+		{"not JSON", jsonByKey("shouldCheckForUpdates", `yes`), false, ErrInvalidValue},
+		{"below the minimum", jsonByKey("signinFailureLimit", "0"), false, ErrInvalidValue},
+		{"above the maximum", jsonByKey("secretLastCharsShown", "9"), false, ErrInvalidValue},
+		{"a fraction", jsonByKey("signinFailureLimit", "2.5"), false, ErrInvalidValue},
 		// A node posts every third of it, at least a second (the constants sweep, 2026-10-21).
-		{"a node silence under three seconds", jsonByKey("node_silent_after_seconds", "2"), false, ErrInvalidValue},
-		{"one not important, among the important", jsonByKey("signin_failure_limit", "3"), true, ErrNotImportant},
+		{"a node silence under three seconds", jsonByKey("nodeSilentAfterSeconds", "2"), false, ErrInvalidValue},
+		{"one not important, among the important", jsonByKey("signinFailureLimit", "3"), true, ErrNotImportant},
 		{
 			"one bad among good",
-			jsonByKey("should_scan_on_node_hello", "true", "should_check_for_updates", "1"), false, ErrInvalidValue,
+			jsonByKey("shouldScanOnNodeHello", "true", "shouldCheckForUpdates", "1"), false, ErrInvalidValue,
 		},
 	}
 	for _, tc := range cases {
@@ -327,7 +327,7 @@ func TestReset_WritesTheStartingValueBack(t *testing.T) {
 	t.Parallel()
 	service, owner := newSeededService(t)
 	ctx := t.Context()
-	changes := jsonByKey("signin_failure_limit", "9", "should_check_for_updates", "true")
+	changes := jsonByKey("signinFailureLimit", "9", "shouldCheckForUpdates", "true")
 	if err := service.Set(ctx, changes, &owner, false); err != nil {
 		t.Fatal(err)
 	}
@@ -361,7 +361,7 @@ func TestRead_HealsARemovedSettingAndSaysSo(t *testing.T) {
 		t.Fatal(err)
 	}
 	storetest.ExecRaw(t, database.Path(),
-		"DELETE FROM setting WHERE key IN ('signin_failure_limit', 'backup_age_warning_hours')")
+		"DELETE FROM setting WHERE key IN ('signinFailureLimit', 'backupAgeWarningHours')")
 	if limit, err := service.Int(ctx, SignInFailureLimit); err != nil || limit != 5 {
 		t.Errorf("reading a removed setting = %d, %v; want its starting value, written back", limit, err)
 	}
@@ -373,7 +373,7 @@ func TestRead_HealsARemovedSettingAndSaysSo(t *testing.T) {
 		t.Errorf("after the reads healed them, Seed inserted %v, %v; want nothing: the rows are back",
 			report.Inserted, err)
 	}
-	for _, key := range []string{"key=signin_failure_limit", "key=backup_age_warning_hours"} {
+	for _, key := range []string{"key=signinFailureLimit", "key=backupAgeWarningHours"} {
 		if !strings.Contains(logged.String(), key) {
 			t.Errorf("the heal of %s was not logged:\n%s", key, logged.String())
 		}
@@ -387,15 +387,15 @@ func TestUnused_ARenamedKeysRowSaysWhatItIsNow(t *testing.T) {
 	service, _ := newSeededService(t)
 	ctx := t.Context()
 	storetest.ExecRaw(t, service.database.Path(),
-		"INSERT INTO setting (key, value_json, set_at) VALUES ('resume_min_percent', '12', 1)")
+		"INSERT INTO setting (key, value_json, set_at) VALUES ('resumeMinPercent', '12', 1)")
 	unused, err := service.Unused(ctx)
 	if err != nil || len(unused) != 1 || unused[0].Retired == nil ||
-		unused[0].Retired.Reason != "renamed in_progress_after_percent" {
-		t.Fatalf("Unused = %+v, %v; want resume_min_percent retired as renamed in_progress_after_percent",
+		unused[0].Retired.Reason != "renamed inProgressAfterPercent" {
+		t.Fatalf("Unused = %+v, %v; want resumeMinPercent retired as renamed inProgressAfterPercent",
 			unused, err)
 	}
 	if percent, err := service.Int(ctx, InProgressAfterPercent); err != nil || percent != 5 {
-		t.Errorf("in_progress_after_percent = %d, %v; want its starting 5, the old value not carried", percent,
+		t.Errorf("inProgressAfterPercent = %d, %v; want its starting 5, the old value not carried", percent,
 			err)
 	}
 }
@@ -424,7 +424,7 @@ func TestUnused_ListsRowsNothingReadsAndDeletesOnlyThem(t *testing.T) {
 	if want := "old_key=1|signin_falure_limit=3"; strings.Join(found, "|") != want {
 		t.Errorf("Unused = %v, want %s", found, want)
 	}
-	if err = service.DeleteUnused(ctx, "signin_failure_limit"); !errors.Is(err, ErrInUse) {
+	if err = service.DeleteUnused(ctx, "signinFailureLimit"); !errors.Is(err, ErrInUse) {
 		t.Errorf("deleting a setting in use: %v, want ErrInUse", err)
 	}
 	if err = service.DeleteUnused(ctx, "signin_falure_limit"); err != nil {
@@ -457,7 +457,7 @@ func TestSet_MarksModifiedEvenAtTheStartingValueAndResetClearsIt(t *testing.T) {
 	t.Parallel()
 	service, owner := newSeededService(t)
 	ctx := t.Context()
-	if err := service.Set(ctx, jsonByKey("signin_failure_limit", "5"), &owner, false); err != nil {
+	if err := service.Set(ctx, jsonByKey("signinFailureLimit", "5"), &owner, false); err != nil {
 		t.Fatal(err)
 	}
 	entries, err := service.List(ctx, false)
@@ -486,8 +486,8 @@ func TestSeed_MovesOnlyUnmodifiedSettingsToAChangedStartingValue(t *testing.T) {
 	// As a database from an older release looks when this release changed both starting values:
 	// one row still has the old starting value, unmodified; the other was set by a person.
 	storetest.ExecRaw(t, service.database.Path(),
-		"UPDATE setting SET value_json = '7', is_modified = 0 WHERE key = 'signin_failure_limit'",
-		"UPDATE setting SET value_json = '6', is_modified = 1 WHERE key = 'secret_last_chars_shown'")
+		"UPDATE setting SET value_json = '7', is_modified = 0 WHERE key = 'signinFailureLimit'",
+		"UPDATE setting SET value_json = '6', is_modified = 1 WHERE key = 'secretLastCharsShown'")
 	report, err := service.Seed(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -546,7 +546,7 @@ func TestSet_TheSortLocaleTakesAnyWellFormedBCP47Tag(t *testing.T) {
 		err := service.Set(t.Context(), map[string]json.RawMessage{string(SortLocale): json.RawMessage(value)},
 			nil, false)
 		if (isAccepted && err != nil) || (!isAccepted && !errors.Is(err, ErrInvalidValue)) {
-			t.Errorf("sort_locale %s: %v; want accepted %t", value, err, isAccepted)
+			t.Errorf("sortLocale %s: %v; want accepted %t", value, err, isAccepted)
 		}
 	}
 }
@@ -631,14 +631,14 @@ func TestZone_IsTheMachinesUntilOneIsChosenAndAMisspeltOneIsRefused(t *testing.T
 	for _, refused := range []string{`"Europe/Berln"`, `"Local"`, `"../etc/passwd"`} {
 		err := service.Set(ctx, jsonByKey(string(TimeZone), refused), &owner, true)
 		if !errors.Is(err, ErrInvalidValue) {
-			t.Errorf("time_zone %s: %v; want it refused", refused, err)
+			t.Errorf("timeZone %s: %v; want it refused", refused, err)
 		}
 	}
 	if err := service.Set(ctx, jsonByKey(string(TimeZone), `"Europe/Berlin"`), &owner, true); err != nil {
 		t.Fatal(err)
 	}
 	if zone, err := service.Zone(ctx); err != nil || zone.Name() != "Europe/Berlin" {
-		t.Errorf("time_zone Europe/Berlin = %v (%v)", zone.Name(), err)
+		t.Errorf("timeZone Europe/Berlin = %v (%v)", zone.Name(), err)
 	}
 }
 
@@ -648,7 +648,7 @@ func TestUnused_TheRemoteCeilingsRowSaysItWasRetiredAndWhy(t *testing.T) {
 	t.Parallel()
 	service, _ := newSeededService(t)
 	storetest.ExecRaw(t, service.database.Path(),
-		"INSERT INTO setting (key, value_json, set_at) VALUES ('remote_bit_rate_ceiling_kbps', '10000', 1)")
+		"INSERT INTO setting (key, value_json, set_at) VALUES ('remoteBitRateCeilingKbps', '10000', 1)")
 	unused, err := service.Unused(t.Context())
 	if err != nil || len(unused) != 1 {
 		t.Fatalf("Unused = %v, %v; want the ceiling's row", unused, err)
@@ -658,7 +658,7 @@ func TestUnused_TheRemoteCeilingsRowSaysItWasRetiredAndWhy(t *testing.T) {
 	}
 }
 
-// chunk_qualities is checked by the function internal/core/chunks reads it with, so a value the
+// chunkQualities is checked by the function internal/core/chunks reads it with, so a value the
 // settings take is one the chunks can read (AGENTS.md rule 11).
 func TestChunkQualities_IsCheckedByTheParserThatReadsIt(t *testing.T) {
 	t.Parallel()
@@ -669,12 +669,12 @@ func TestChunkQualities_IsCheckedByTheParserThatReadsIt(t *testing.T) {
 		err := service.Set(t.Context(), map[string]json.RawMessage{string(ChunkQualities): json.RawMessage(value)},
 			nil, false)
 		if (isAccepted && err != nil) || (!isAccepted && !errors.Is(err, ErrInvalidValue)) {
-			t.Errorf("chunk_qualities %s: %v; want accepted %t", value, err, isAccepted)
+			t.Errorf("chunkQualities %s: %v; want accepted %t", value, err, isAccepted)
 		}
 	}
 	text, err := service.String(t.Context(), ChunkQualities)
 	if err != nil || text != "4000k@1080p,800k@360p" {
-		t.Errorf("chunk_qualities reads %q, %v; want the value set", text, err)
+		t.Errorf("chunkQualities reads %q, %v; want the value set", text, err)
 	}
 }
 
@@ -750,7 +750,7 @@ func TestUnused_TheAnotherCopyCheckReadsAsRetiredByD437(t *testing.T) {
 	t.Parallel()
 	service, _ := newSeededService(t)
 	storetest.ExecRaw(t, service.database.Path(),
-		"INSERT INTO setting (key, value_json, set_at) VALUES ('discovery_another_copy_check_every_seconds', '60', 1)")
+		"INSERT INTO setting (key, value_json, set_at) VALUES ('discoveryAnotherCopyCheckEverySeconds', '60', 1)")
 	unused, err := service.Unused(t.Context())
 	if err != nil || len(unused) != 1 {
 		t.Fatalf("Unused = %v, %v; want the one row", unused, err)

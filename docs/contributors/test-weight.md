@@ -36,7 +36,7 @@ start.
 
 The first reading (2026-10-20) found each claim waiting about 10 s on the core's constant
 `pendingEvery`, mechanism 1 below in the browser tier: it became the setting
-`discovery_pending_check_every_seconds`, which the tier sets to 1 s.
+`discoveryPendingCheckEverySeconds`, which the tier sets to 1 s.
 
 ## The mechanisms
 

@@ -38,11 +38,11 @@ func NewService(parts Parts) *Service {
 func (service *Service) aim(ctx context.Context) (decide.LoudnessAim, error) {
 	target, err := service.settings.Int(ctx, settings.LoudnessTargetLUFS)
 	if err != nil {
-		return decide.LoudnessAim{}, fmt.Errorf("read loudness_target_lufs: %w", err)
+		return decide.LoudnessAim{}, fmt.Errorf("read loudnessTargetLufs: %w", err)
 	}
 	maxRaise, err := service.settings.Int(ctx, settings.LoudnessMaxRaiseDB)
 	if err != nil {
-		return decide.LoudnessAim{}, fmt.Errorf("read loudness_max_raise_db: %w", err)
+		return decide.LoudnessAim{}, fmt.Errorf("read loudnessMaxRaiseDb: %w", err)
 	}
 	return decide.LoudnessAim{TargetLUFS: float64(target), MaxRaiseDB: float64(maxRaise)}, nil
 }

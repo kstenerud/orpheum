@@ -73,7 +73,7 @@ func TestUpload_APlaybackOverTheShareIsToldItsCeilingWithEachChunk(t *testing.T)
 		t.Fatalf("a chunk, the upload unanswered: %d, ceiling %q; want none", first.status,
 			first.header.Get(api.CeilingHeader))
 	}
-	harness.setSetting(t, "server_upload_mbps", "1") // a share of 850 kbit/s
+	harness.setSetting(t, "serverUploadMbps", "1") // a share of 850 kbit/s
 	ctx, cancel := context.WithCancel(t.Context())
 	tick, done := make(chan time.Time), make(chan struct{})
 	logger := slog.New(slog.NewJSONHandler(harness.logs, nil))
@@ -102,7 +102,7 @@ func TestUpload_EachStartTakesWhatIsLeftOfTheShare(t *testing.T) {
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
 	harness.keepFilmOnesTimeline(t)
-	harness.setSetting(t, "server_upload_mbps", "3")
+	harness.setSetting(t, "serverUploadMbps", "3")
 	first, second := harness.play(t, user, chrome(1)), harness.play(t, user, chrome(1))
 	if first.OnLadder == nil || second.OnLadder == nil {
 		t.Fatalf("the starts = %+v, %+v; want both on the ladder", first, second)
@@ -126,7 +126,7 @@ func TestUpload_AGuestStartsWithinItsPartOfTheShare(t *testing.T) {
 	admin := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
 	harness.keepFilmOnesTimeline(t)
-	harness.setSetting(t, "server_upload_mbps", "3")
+	harness.setSetting(t, "serverUploadMbps", "3")
 	opened := harness.openTogether(t, admin)
 	membership := harness.joinByLink(t, admin, opened.Body.SessionID, "my partner", "Anna")
 	host := harness.dialTogether(t, opened.Body.MembershipCredential)

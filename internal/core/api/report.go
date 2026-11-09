@@ -292,7 +292,7 @@ type LadderBody struct {
 	// against once the quality is ready (D253 §2); 0 when not known.
 	FilmPictureKbps int64 `json:"filmPictureKbps"`
 	// LinkSharePercent is the share of a measured link a quality may take, by which the server chose
-	// this one and the player chooses its own: link_share_for_quality_percent (D247 §6).
+	// this one and the player chooses its own: linkShareForQualityPercent (D247 §6).
 	LinkSharePercent int64 `json:"linkSharePercent"`
 	// Steadiness is the steadiness level the player starts at (D352 §3): the one its last playback on
 	// this network ended at, relaxed by the time since; 0 for none remembered (D352 Q2).
@@ -306,7 +306,7 @@ type LadderBody struct {
 	// RememberedLinkSpread is the spread of the natural logs of the samples RememberedLinkKbps rested
 	// on, absent where its player said none, and RememberedLinkSamples how many of the playback's own
 	// samples it counts as in its player's estimate: two while under an hour old, less in step with
-	// its age after, none at link_speed_fresh_hours (bandwidth-sampling-2026-10-29.md P2). Each absent
+	// its age after, none at linkSpeedFreshHours (bandwidth-sampling-2026-10-29.md P2). Each absent
 	// with RememberedLinkKbps.
 	RememberedLinkSpread  *float64 `json:"rememberedLinkSpread,omitempty"  minimum:"0" required:"false"`
 	RememberedLinkSamples *float64 `json:"rememberedLinkSamples,omitempty" minimum:"0" required:"false"`

@@ -51,7 +51,7 @@ bare (D292 §4's "K13–K15" are code K13–K15, `single`'s takeover flaws).
 | C2 | `discovery/discoveryproto` and `internal/core/discovery`: connect (challenge, enrol, claim code), poll the status until claimed, sessions, the heartbeat every 5 minutes with the core's candidates; `discovery.json` in the persistent directory; `GET/POST/DELETE /system/discovery` for an admin; the System page's Discovery section | BUILT 2026-10-09; its candidates are the machine's interface addresses (`cmd/orpheum/discovery.go`) and the mapped ones (C5); `configured` candidates and TURN are not sent |
 | C3 | The signalling connection: offers answered by `rtcapi`, with no check of their own; reconnects | BUILT 2026-10-09; one offer at a time, a flat 30 s between dials, no ping. Every offer is answered unchecked, so no core may hold a signalling connection until K3a (D292 §4; A2) |
 | C4 | Certificates through the discovery: a wildcard `*.<coreId>.<zone>` by DNS-01, the discovery setting the TXT record (`PUT/DELETE /acme-challenge`), kept as `discovery-tls-*.pem`, served for every name under it | BUILT 2026-10-09; renews 30 days before expiry, waits a fixed 30 s for the record, serves it for any server name (A10) |
-| C5 | Port mapping: PCP → NAT-PMP → UPnP IGD for IPv4, UPnP IGD 2 pinholes for IPv6 (`internal/core/portmap`), `should_map_ports` on by default, only while the discovery publishes the core | BUILT 2026-10-10, on the standard library alone. TCP only already; asks for the core's own HTTPS port as the external one |
+| C5 | Port mapping: PCP → NAT-PMP → UPnP IGD for IPv4, UPnP IGD 2 pinholes for IPv6 (`internal/core/portmap`), `shouldMapPorts` on by default, only while the discovery publishes the core | BUILT 2026-10-10, on the standard library alone. TCP only already; asks for the core's own HTTPS port as the external one |
 
 ## The remaining steps
 
@@ -382,9 +382,9 @@ day, which is the discovery's.
 ### K9 — Certificates
 
 - **Changes.** `internal/core/certificate`: renewal at two-thirds of the lifetime, replacing
-  `renewBefore`'s fixed 30 days (§2.7, C1; the setting `certificate_renew_before_days` since the
+  `renewBefore`'s fixed 30 days (§2.7, C1; the setting `certificateRenewBeforeDays` since the
   constants sweep, 2026-10-20); the TXT record checked to resolve before the CA is asked, in place
-  of the fixed 30 s (`certificate_dns_wait_seconds` since then), by `golang.org/x/net/dns/dnsmessage` (direct by D292 §9); the
+  of the fixed 30 s (`certificateDnsWaitSeconds` since then), by `golang.org/x/net/dns/dnsmessage` (direct by D292 §9); the
   record cleared by its path (K1); after leaving, the discovery's certificate no longer served
   (C16); the core's ACME account URI reported to the discovery for CAA, and reported again whenever
   the core makes a new account (a restore leaves the account key out), before it orders (§2.7; G2).

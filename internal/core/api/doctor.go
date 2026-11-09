@@ -213,7 +213,7 @@ func artworkFinding(dependencies *Dependencies) FindingBody {
 		finding.Detail = fmt.Sprintf("the libraries need %.1f GiB of artwork to be shown at once, more than the "+
 			"%d GiB ceiling; artwork beyond it is fetched again when it is opened, which is slower",
 			float64(pressure.RequiredBytes)/diskspace.BytesPerGiB, pressure.CeilingBytes/diskspace.BytesPerGiB)
-		finding.Action = fmt.Sprintf("set artwork_cache_ceiling_gib to at least %d",
+		finding.Action = fmt.Sprintf("set artworkCacheCeilingGib to at least %d",
 			pressure.RecommendedBytes/diskspace.BytesPerGiB)
 	}
 	return finding

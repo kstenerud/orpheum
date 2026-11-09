@@ -179,7 +179,7 @@ func (q *Queries) RenameDevice(ctx context.Context, arg RenameDeviceParams) erro
 const revokeCredentialsOfDevice = `-- name: RevokeCredentialsOfDevice :exec
 UPDATE "grant" SET revoked_at = ?1
 WHERE device_id = ?2 AND revoked_at IS NULL
-  AND (kind = 'session' OR (kind = 'issued_secret' AND scope = 'device_secret'))
+  AND (kind = 'session' OR (kind = 'issued_secret' AND scope = 'deviceSecret'))
 `
 
 type RevokeCredentialsOfDeviceParams struct {
@@ -195,7 +195,7 @@ func (q *Queries) RevokeCredentialsOfDevice(ctx context.Context, arg RevokeCrede
 
 const revokeDeviceSecretsOfDevice = `-- name: RevokeDeviceSecretsOfDevice :exec
 UPDATE "grant" SET revoked_at = ?1
-WHERE device_id = ?2 AND kind = 'issued_secret' AND scope = 'device_secret'
+WHERE device_id = ?2 AND kind = 'issued_secret' AND scope = 'deviceSecret'
   AND revoked_at IS NULL
 `
 

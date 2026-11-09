@@ -41,11 +41,11 @@ func (service *Service) Handle(ctx context.Context, job jobs.Job) error {
 	}
 	maxSourcePixels, err := service.parts.Settings.Int(ctx, settings.ArtworkMaxSourcePixels)
 	if err != nil {
-		return fmt.Errorf("read artwork_max_source_pixels: %w", err)
+		return fmt.Errorf("read artworkMaxSourcePixels: %w", err)
 	}
 	quality, err := service.parts.Settings.Int(ctx, settings.ArtworkWebPQuality)
 	if err != nil {
-		return fmt.Errorf("read artwork_webp_quality: %w", err)
+		return fmt.Errorf("read artworkWebpQuality: %w", err)
 	}
 	for index := range images {
 		images[index].MaxSourcePixels, images[index].WebPQuality = maxSourcePixels, int(quality)

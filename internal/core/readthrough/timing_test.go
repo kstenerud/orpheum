@@ -66,7 +66,7 @@ func TestTimeRead_AFullReadTellsItsBytesAndHowLongItRan(t *testing.T) {
 	}
 }
 
-// An index read's time is logged, from when its node said it ran, for whether play_ladder_wait_ms
+// An index read's time is logged, from when its node said it ran, for whether playLadderWaitMs
 // outlasts it; a full read's is not, and the timings are told it instead (D414 §5).
 func TestTimeRead_AnIndexReadLogsHowLongItTook(t *testing.T) {
 	t.Parallel()

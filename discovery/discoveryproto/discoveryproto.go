@@ -88,7 +88,7 @@ type EnrolResponse struct {
 // realm, kept across the discovery's own restarts. That installation is admitted at once, as the
 // live instance is. Any other installation, while the last holder is not connected, is refused with
 // RefusalHolderAway until a window of a few minutes from when the last holder was last connected has
-// passed (longer than the core's longest wait between asks, discovery_retry_most_seconds, 300 s by
+// passed (longer than the core's longest wait between asks, discoveryRetryMostSeconds, 300 s by
 // default); after the window the ping of D293 §1 decides. Absent from a core before D437, which the
 // discovery treats as an installation of its own, never the last holder.
 type SessionRequest struct {

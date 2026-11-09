@@ -104,7 +104,7 @@ the household raises the ceiling in two places and forgets the third, which fail
 
 | Part of a role | What | Vocabulary |
 | --- | --- | --- |
-| **Capabilities** | a closed set of verbs — `administer`, `delete_media`, `download`, `host_watch_together`, `edit_metadata`, `remote_access` | the enum, and it stays short |
+| **Capabilities** | a closed set of verbs — `administer`, `deleteMedia`, `download`, `hostWatchTogether`, `editMetadata`, `remoteAccess` | the enum, and it stays short |
 | **Visibility** | **one** predicate | [D75](../../decisions/working-notes.md)'s language over its field registry |
 | **Defaults** | preference seeds for a new member | [D24](../../decisions/working-notes.md)'s axes |
 
@@ -125,7 +125,7 @@ and [D84](../../decisions/working-notes.md): both were *"a grantee plus a predic
 become *"a role's predicate"*, evaluated once for every member. The UI need not say "role" for
 a one-off share.
 
-**`host_watch_together` is the capability worth noticing.** A guest is authenticated by
+**`hostWatchTogether` is the capability worth noticing.** A guest is authenticated by
 possession of a URL and nothing else; that is acceptable when an adult chose to share it, and
 is a child handing strangers a route into the library otherwise. The hole
 [D125](../../decisions/working-notes.md) accepts deliberately is only safe if **who may open

@@ -72,8 +72,8 @@ func TestPark_TheProbeBackoffIsTheSettings(t *testing.T) {
 		jobs.queue.Park(t.Context(), parking)
 		state, _ := jobs.queue.DestinationState(DestinationTMDBAPI)
 		if state.NextProbeAt.Sub(jobs.clock.Now()) != want {
-			t.Errorf("probe %d is due in %v, want %v: destination_first_probe_delay_seconds doubling to "+
-				"destination_longest_probe_delay_seconds", index+1, state.NextProbeAt.Sub(jobs.clock.Now()), want)
+			t.Errorf("probe %d is due in %v, want %v: destinationFirstProbeDelaySeconds doubling to "+
+				"destinationLongestProbeDelaySeconds", index+1, state.NextProbeAt.Sub(jobs.clock.Now()), want)
 		}
 	}
 }

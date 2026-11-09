@@ -16,7 +16,7 @@ import (
 )
 
 // recentPositionsReadPerWork is how many of a person's most recent positions Continue Watching is
-// chosen from, for each work it may show (continue_watching_max_works): enough for its rows once
+// chosen from, for each work it may show (continueWatchingMaxWorks): enough for its rows once
 // finished and barely started files are passed over.
 const recentPositionsReadPerWork = 10
 
@@ -36,8 +36,8 @@ type InProgress struct {
 }
 
 // ContinueWatching is what the person stopped in the middle of (play-state.md): each work once,
-// most recent watching first, at its most recent position that is past in_progress_after_percent and not
-// past finished_after_percent of its file's length. A file of unknown length counts at any
+// most recent watching first, at its most recent position that is past inProgressAfterPercent and not
+// past finishedAfterPercent of its file's length. A file of unknown length counts at any
 // position. A work hidden since its last watching is left out (D188), and a position watched before
 // its work was last marked by hand does not count (D370 §4); extras never appear (D162). A work its
 // person watched before, rewatched, says so (D370 §1).
@@ -48,7 +48,7 @@ func (browser *Browser) ContinueWatching(ctx context.Context, userID int64, reac
 	}
 	maxWorks, err := browser.settings.Int(ctx, settings.ContinueWatchingMaxWorks)
 	if err != nil {
-		return nil, fmt.Errorf("read continue_watching_max_works: %w", err)
+		return nil, fmt.Errorf("read continueWatchingMaxWorks: %w", err)
 	}
 	isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
 	rows, err := browser.database.Read().ListRecentPlayPositions(ctx, sqlcgen.ListRecentPlayPositionsParams{
@@ -160,7 +160,7 @@ func (browser *Browser) withSeriesPosters(ctx context.Context, rows []InProgress
 	return nil
 }
 
-// ResumeThresholds are in_progress_after_percent and finished_after_percent: where in a file a position
+// ResumeThresholds are inProgressAfterPercent and finishedAfterPercent: where in a file a position
 // counts as partway through it (play-state.md). Continue Watching and a playback's starting point
 // both read them here.
 type ResumeThresholds struct {
@@ -176,11 +176,11 @@ type IntSettings interface {
 func ReadResumeThresholds(ctx context.Context, config IntSettings) (ResumeThresholds, error) {
 	minimum, err := config.Int(ctx, settings.InProgressAfterPercent)
 	if err != nil {
-		return ResumeThresholds{}, fmt.Errorf("read in_progress_after_percent: %w", err)
+		return ResumeThresholds{}, fmt.Errorf("read inProgressAfterPercent: %w", err)
 	}
 	finished, err := config.Int(ctx, settings.FinishedAfterPercent)
 	if err != nil {
-		return ResumeThresholds{}, fmt.Errorf("read finished_after_percent: %w", err)
+		return ResumeThresholds{}, fmt.Errorf("read finishedAfterPercent: %w", err)
 	}
 	return ResumeThresholds{inProgressAfterPercent: minimum, finishedAfterPercent: finished}, nil
 }

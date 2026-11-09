@@ -90,7 +90,7 @@ func kbpsOver(bytes int64, span time.Duration) int64 {
 }
 
 // WatchUpload logs, at each tick while anyone plays, what the server's players need of its upload
-// beside what it sent them and the share of server_upload_mbps its films may use: whether the setting
+// beside what it sent them and the share of serverUploadMbps its films may use: whether the setting
 // is right, and how near the server is to lowering its players' qualities (D286 §5), shows in the log
 // before anything acts on it.
 func (service *Service) WatchUpload(ctx context.Context, tick <-chan time.Time, logger *slog.Logger) {
@@ -118,7 +118,7 @@ func (service *Service) WatchUpload(ctx context.Context, tick <-chan time.Time, 
 	}
 }
 
-// uploadMbps is server_upload_mbps, zero while it is unanswered.
+// uploadMbps is serverUploadMbps, zero while it is unanswered.
 func (service *Service) uploadMbps(ctx context.Context) (int64, error) {
 	mbps, err := service.settings.Int(ctx, settings.ServerUploadMbps)
 	if errors.Is(err, settings.ErrUnanswered) {
@@ -163,10 +163,10 @@ func (resort *lastResort) isDue(isOverAtLowest bool, now time.Time, tuning uploa
 }
 
 // KeepUnderShare looks at each tick at what the server's players need of its upload, and lowers or
-// raises their qualities to keep it under the films' share of server_upload_mbps (D286 §5), telling
+// raises their qualities to keep it under the films' share of serverUploadMbps (D286 §5), telling
 // each player with its next chunk (CeilingOf). Unanswered, it lifts every ceiling. Each change is
 // logged, and the need still over the share with every quality at its lowest, once each time it
-// comes to be; staying so for upload_send_away_after_seconds, the newest member is sent away
+// comes to be; staying so for uploadSendAwayAfterSeconds, the newest member is sent away
 // (SendAwayBy). Its tuning, and the playbacks' timing (playbackTiming), are read at each look.
 func (service *Service) KeepUnderShare(ctx context.Context, tick <-chan time.Time, logger *slog.Logger) {
 	control := &uploadControl{}
@@ -319,7 +319,7 @@ type GroupPlayers func(hostUserID int64) int
 func (service *Service) GroupPlayersBy(players GroupPlayers) { service.groupPlayers = players }
 
 // startAtMostKbps is the most a playback of fileID starting now for holder may take of the films'
-// share of server_upload_mbps (D286 §5): what is left of it, and in a Watch Together group of more
+// share of serverUploadMbps (D286 §5): what is left of it, and in a Watch Together group of more
 // than one player, at most an even part of what the playbacks of other films leave, so every player
 // a film put on starts for at once starts within its part, whichever asks first; at least 1 kbit/s, so
 // a start past it takes the lowest quality; zero, no bound, while the setting is unanswered.

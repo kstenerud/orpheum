@@ -21,7 +21,7 @@ func (share *recordedShare) SetConnectionsPerNetwork(limit int) {
 }
 
 // TestKeepWebRTCShareCurrent_GivesTheSettingNowAndAtEachChange: the owner's network was turned away
-// past a fixed share (staging, 2026-10-25), which is now webrtc_connections_per_network, read at start
+// past a fixed share (staging, 2026-10-25), which is now webrtcConnectionsPerNetwork, read at start
 // and again whenever an admin changes it.
 func TestKeepWebRTCShareCurrent_GivesTheSettingNowAndAtEachChange(t *testing.T) {
 	database := storetest.OpenMigrated(t)

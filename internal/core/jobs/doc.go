@@ -13,7 +13,7 @@
 //
 // # Invariants
 //
-//   - A job a person asks for to play is wanted for play_priority_kept_seconds from the last ask; past it,
+//   - A job a person asks for to play is wanted for playPriorityKeptSeconds from the last ask; past it,
 //     it falls to the shown-interest rung, above the background (D324), and one given to a node says
 //     so, for its node to be told (D234 §3, S87).
 //     TestDemoteUnwanted_APlaysJobFallsToTheShownInterestRungOnceNoOneWaits.
@@ -45,7 +45,7 @@
 //     TestRun_SeveralRunnersOfOneKindRunItsJobsAtOnceEachOnce.
 //   - A queued job wakes a runner of its own kind at once; no other kind's runner takes its
 //     wake-up, so it never waits for the next tick. TestRun_AQueuedJobWakesARunnerOfItsOwnKindAtOnce.
-//   - A failure retries with doubling back-off up to job_attempt_limit, then fails.
+//   - A failure retries with doubling back-off up to jobAttemptLimit, then fails.
 //     TestRunDue_RetriesAFailureWithDoublingBackoffThenFails. The doubling stops at a day, so a
 //     job that keeps failing retries daily until the limit, and never overflows whatever the
 //     limit allows. TestRunDue_TheBackoffStopsAtADayThenRetriesDailyUntilTheLimit,

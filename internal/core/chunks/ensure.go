@@ -25,9 +25,9 @@ type runArgs struct {
 }
 
 // Ensure makes sure a player asking for chunk wanted of a film's stream will have it and the chunks
-// after it: of those that start within chunk_lookahead_seconds of film from it, the first neither made
+// after it: of those that start within chunkLookaheadSeconds of film from it, the first neither made
 // nor on its way starts a run, at play priority on the film's node, through the earliest of
-// chunk_run_span_seconds of film, the chunk before the next made or on its way, and the film's last
+// chunkRunSpanSeconds of film, the chunk before the next made or on its way, and the film's last
 // chunk (D247 §10: a minute ahead, Kyoo's look-ahead, about what hls.js buffers; five minutes a run,
 // so a seek starts encoding where the player is and FFmpeg starts about every five minutes). A run is never
 // queued over chunks a run will make. Each store is the target of its own runs' jobs, so the runs of

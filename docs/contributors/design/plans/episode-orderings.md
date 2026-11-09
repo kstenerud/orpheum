@@ -220,7 +220,7 @@ local data, unidentified, saying so — D209 §2's rule with a different listing
 - **The list of a series' groups** comes with the series' own record (append `episode_groups`
   to the series fetch, §2.1): no new request, and no request at all for a series already
   fetched. A series fetched before this lands has no list; it gains one at its next refresh,
-  rolling (D213 §3, at most `tmdb_refresh_after_days`, 180 days) or a person's (D213 §2). The
+  rolling (D213 §3, at most `tmdbRefreshAfterDays`, 180 days) or a person's (D213 §2). The
   selector's "Look for other orders" is that refresh (§7 Q5).
 - **A group's contents are fetched when it is first needed**: a person chooses it, or an admin
   makes it the files' order. That is a first fetch on a person's act, inside D170. Stored as

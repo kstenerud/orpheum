@@ -93,12 +93,12 @@ func (service *Service) Request(ctx context.Context, includesKey bool) error {
 }
 
 // QueueScheduled asks for the scheduled backup when it is due, and says how many it asked for: one
-// when the newest backup is backup_every_hours old and the database has changed since the last
+// when the newest backup is backupEveryHours old and the database has changed since the last
 // backup this server made, or there is none; none otherwise (D305 §2). A sweep calls it.
 func (service *Service) QueueScheduled(ctx context.Context) (int, error) {
 	every, err := service.settings.Duration(ctx, settings.BackupEveryHours)
 	if err != nil {
-		return 0, fmt.Errorf("read backup_every_hours: %w", err)
+		return 0, fmt.Errorf("read backupEveryHours: %w", err)
 	}
 	files, err := service.directories.ListBackups()
 	if err != nil {
@@ -144,8 +144,8 @@ type thinning struct {
 	hourly, daily, weekly int64
 }
 
-// prune thins the backups to backups_kept_hourly of the newest, then the newest of each of the
-// backups_kept_daily days and the backups_kept_weekly weeks, in UTC, its names' time; the copies kept
+// prune thins the backups to backupsKeptHourly of the newest, then the newest of each of the
+// backupsKeptDaily days and the backupsKeptWeekly weeks, in UTC, its names' time; the copies kept
 // before a restore or a migration are not backups the server made, and are never pruned (D305 §2).
 func (service *Service) prune(ctx context.Context) error {
 	var keeps thinning

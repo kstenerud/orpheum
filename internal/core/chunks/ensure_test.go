@@ -56,7 +56,7 @@ func TestEnsure_QueuesOneRunFromTheChunkThroughFiveMinutesOfFilmAtPlayPriority(t
 	}
 }
 
-// A run's span is chunk_run_span_seconds as Ensure finds it, not as the tracker started (the
+// A run's span is chunkRunSpanSeconds as Ensure finds it, not as the tracker started (the
 // constants sweep, 2026-10-20): at a minute, a run from chunk 3, at 30 s, ends with chunk 8, at 80 s.
 func TestEnsure_ARunSpansTheSettingsLength(t *testing.T) {
 	t.Parallel()

@@ -193,7 +193,7 @@ func childOf(parent, directory string) (string, bool) {
 }
 
 // sortPlaced orders a folder's videos as asked: newest recorded first, by name or file name in the
-// sort_locale, or newest added first.
+// sortLocale, or newest added first.
 func (browser *Browser) sortPlaced(ctx context.Context, videos []placedVideo, sort string) error {
 	var sorter *textindex.Sorter
 	if sort == SortName {

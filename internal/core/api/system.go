@@ -231,7 +231,7 @@ type DatabaseBody struct {
 type SystemNodeBody struct {
 	Name string `json:"name"`
 	// Connection is connected (polling for its commands, or heard within
-	// node_silent_after_seconds), silent (heard since the server started, not lately),
+	// nodeSilentAfterSeconds), silent (heard since the server started, not lately),
 	// awaiting_hello (not heard since the server started), needs_update (it speaks another version
 	// of the node protocol than the server, so its work waits, D233 §9) or locked (its kernel lacks
 	// confinement its config requires, so it runs no FFmpeg until an admin lets it, D450 §1).
@@ -313,7 +313,7 @@ type HardwareBody struct {
 	// EncodeSpeedPercent is how fast the chosen encoder made the lowest quality at the node's start,
 	// in percent of real time; absent when its trial measured none (D457).
 	EncodeSpeedPercent *int `json:"encodeSpeedPercent,omitempty"`
-	// IsTooSlowToConvert is whether that is below chunk_run_slowest_speed_percent, so the node's films
+	// IsTooSlowToConvert is whether that is below chunkRunSlowestSpeedPercent, so the node's films
 	// play only as they are or with their own picture copied, and a device that needs one converted
 	// is refused (D457).
 	IsTooSlowToConvert bool `json:"isTooSlowToConvert"`

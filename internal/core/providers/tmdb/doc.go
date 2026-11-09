@@ -33,9 +33,9 @@
 //     TestImageFetcher_TurnsTheImageServersRefusalsIntoTheErrorsTheAPIsAre,
 //     TestImageFetcher_A503IsTheHostDownAndA500TheImagesOwnFailure and
 //     TestImageFetcher_AnAnswerThatIsNotAnImageIsTheHostFailing.
-//   - Every call asks its host's provider service first, which keeps to tmdb_requests_per_second
+//   - Every call asks its host's provider service first, which keeps to tmdbRequestsPerSecond
 //     (starting at TMDB's documented 40) with background work below
-//     tmdb_background_rate_share_percent of it, and sends nothing to a parked host but a person's
+//     tmdbBackgroundRateSharePercent of it, and sends nothing to a parked host but a person's
 //     call, which is its probe (D231 §5, §6).
 //     TestGet_AsksTMDBsProviderFirstAndSendsNothingToAParkedHostForTheBackground.
 //   - A series' record is fetched with its episode groups appended, so their list costs no request

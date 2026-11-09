@@ -125,7 +125,7 @@ func (service *Service) RestoreWatched(ctx context.Context, userID int64, states
 }
 
 // keepWatchedByPlay makes the titles a played file is filed as watched by its person, at watchedAt,
-// when the report played it to its finish: to its end, or past finished_after_percent of a known
+// when the report played it to its finish: to its end, or past finishedAfterPercent of a known
 // length (D370 §1). A report of unattended watching makes nothing watched; nor does a position in a
 // file of unknown length, which only its end does.
 func (service *Service) keepWatchedByPlay(

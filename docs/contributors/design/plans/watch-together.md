@@ -53,7 +53,7 @@ is a player's position, buffering, play, pause, seek and rate
   ([D252](../../decisions/working-notes.md#d252--m4s-acceptance-shapes-each-clients-network-with-the-kernels-netem-in-a-run-of-its-own-at-the-milestones-end)
   §5). The host may withdraw a link: it admits no one from then on, and a person who already
   joined by it stays. **An invitation is short-term**
-  ([D346](../../decisions/working-notes.md#d346--a-watch-together-invitation-is-short-term-a-link-admits-for-an-hour-ending-the-session-ends-every-link-and-membership-and-a-session-idle-for-six-hours-is-ended)): a link admits for `together_link_lifetime_seconds`
+  ([D346](../../decisions/working-notes.md#d346--a-watch-together-invitation-is-short-term-a-link-admits-for-an-hour-ending-the-session-ends-every-link-and-membership-and-a-session-idle-for-six-hours-is-ended)): a link admits for `togetherLinkLifetimeSeconds`
   (an hour) from when it was made, then no one, and the host's list says until when; whoever joined
   in time stays. A guest whose link no longer works is told invitations are short-lived and to ask
   for another.
@@ -87,7 +87,7 @@ is a player's position, buffering, play, pause, seek and rate
   deferred (D246 §4, D261 §3). An anonymous viewer accrues nothing.
 - **A session lives in the server's memory.** A host has one; reopening the host's page gives it
   back. A restart ends every session. Ending it ends every link and membership at once. **A session
-  idle for `together_idle_session_end_hours` (6) is ended** as the host's end would, each device told
+  idle for `togetherIdleSessionEndHours` (6) is ended** as the host's end would, each device told
   `idle` (D346): idle is no group playing to an attached player and nothing a member does (a
   command, a join, a leave, a link made or withdrawn, a member removed, the host opening it); a
   page's own reports, pings, reconnects and voice signalling are not a member's doing.
@@ -138,7 +138,7 @@ hears the group play and is nudged or sought into step with the leader.
 connection is a follower's alone: the group plays on, and that player catches up to the leader by
 itself. **Catching up** is a jump ahead of the
 group to wait there, paused and loading: far enough that, at the speed it measured itself
-loading, it has `together_catch_up_buffer_percent` (80%) of what it loads ahead filled when the
+loading, it has `togetherCatchUpBufferPercent` (80%) of what it loads ahead filled when the
 group arrives, and at most a minute ahead (D250 §4). Catching up never starts an encode; the
 player fills from the run already making its quality (D250 §5).
 
@@ -155,21 +155,21 @@ noted with where it said the group is against where it was expected. Then, check
 
 | Drift | Correction | Setting, default |
 | --- | --- | --- |
-| up to 150 ms | none | `together_drift_left_alone_ms`, 150 (D261 §1) |
-| up to 3 s | play up to 10% faster or slower than the group for about a second, repeated | `together_nudge_most_percent`, 10 |
-| beyond 3 s | seek to the group | `together_seek_drift_beyond_ms`, 3000 |
+| up to 150 ms | none | `togetherDriftLeftAloneMs`, 150 (D261 §1) |
+| up to 3 s | play up to 10% faster or slower than the group for about a second, repeated | `togetherNudgeMostPercent`, 10 |
+| beyond 3 s | seek to the group | `togetherSeekDriftBeyondMs`, 3000 |
 
 **A player corrects as its device measures it** (D268 §2). Each player learns what its rate going
 back to the group's costs it, about 220 ms on an iPhone (WebKit 163433), and nudges on past the
 group by that much. Once two returns have cost it more than the drift left alone, it stops nudging
-and corrects by seeks alone: beyond `together_seek_only_drift_left_alone_ms` (400 ms), a small seek
+and corrects by seeks alone: beyond `togetherSeekOnlyDriftLeftAloneMs` (400 ms), a small seek
 past the group by what its seeks have learned to lose. A pair with such a player is held to 500 ms
 apart 95% of the time; D243 §9's 200 ms holds for players that nudge. It is never chosen by the
 browser's name.
 
-A player's position is not read for drift for `together_settle_after_change_ms` (300 ms) after it
+A player's position is not read for drift for `togetherSettleAfterChangeMs` (300 ms) after it
 starts playing, seeks or changes rate, since Safari's stands still for a moment then. A nudge keeps
-the sound's pitch (`should_together_nudge_keep_pitch`). Every value is a setting sent to each device
+the sound's pitch (`shouldTogetherNudgeKeepPitch`). Every value is a setting sent to each device
 in its welcome, so it is tuned while testing without a new client. No sync tuning is shown to the
 people watching.
 
@@ -235,7 +235,7 @@ it has no reference for. **Headphones on at least one side are the supported set
 ([D63](../../decisions/working-notes.md#d63--voice-chat-is-webrtc-and-headphones-are-the-supported-configuration)),
 and the voice controls say so. Content-referenced echo cancellation was deleted (D193 §4). The
 browser's echo cancellation, gain control and noise suppression on the microphone are settings,
-off by default (`should_together_voice_cancel_echo`, `should_together_voice_browser_level_microphone`):
+off by default (`shouldTogetherVoiceCancelEcho`, `shouldTogetherVoiceBrowserLevelMicrophone`):
 on Android they made a call of it, turning the film down and taking the volume buttons.
 
 **Voice is held to its bounds on every link the acceptance emulates**, the congested one too

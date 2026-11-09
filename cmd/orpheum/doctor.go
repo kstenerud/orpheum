@@ -257,7 +257,7 @@ func checkBackups(directories *instancedir.Directories, now time.Time, oldBackup
 			age := now.Sub(file.ModifiedAt).Round(time.Hour)
 			if oldBackupAge == nil {
 				return finding{api.VerdictOK, fmt.Sprintf("the newest backup, %s, is %s old; not judged without the "+
-					"backup_age_warning_hours setting", file.Name, age), ""}
+					"backupAgeWarningHours setting", file.Name, age), ""}
 			}
 			if age > *oldBackupAge {
 				return finding{

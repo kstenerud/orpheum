@@ -5,9 +5,9 @@
 // chunks.md). It holds the grid, a film's chunk boundaries: on its main picture's keyframes, from
 // the file's own index or a read-through kept in persistent.db (internal/core/readthrough), each
 // chunk starting at the first keyframe at or after the next multiple of
-// hls_segment_length_seconds, so a chunk may be shorter or longer than that (D259 §1); or, for a
+// hlsSegmentLengthSeconds, so a chunk may be shorter or longer than that (D259 §1); or, for a
 // file with no index not yet read through, on time, at each multiple (D269 §1). It holds too the
-// streams a film is cut into, its picture copied, a quality of chunk_qualities or a sound, each a
+// streams a film is cut into, its picture copied, a quality of chunkQualities or a sound, each a
 // store on the film's node; the playlists a playback is offered; the make_chunks job, a run of one
 // store's chunks given to the node; and, in memory, each store's chunks known made and its runs on
 // their way. A film plays from its chunks from the start (D260).
@@ -16,17 +16,17 @@
 //
 //   - A playback starts on its film's ladder at the top, the film's own picture where its player
 //     decodes it, its twin, H.264 at its own height, where it does not (D323 §1), or, with its link
-//     remembered, at the highest picture within link_share_for_quality_percent of it, the lowest when none is
+//     remembered, at the highest picture within linkShareForQualityPercent of it, the lowest when none is
 //     (D260 §2). Enforced by TestStartOnLadder_StartsAtTheFilmsOwnPictureWithNoLinkRemembered,
 //     TestStartOnLadder_StartsAtTheHighestPictureTheRememberedLinkCarries and
 //     TestStartOnLadder_APlayerThatCannotDecodeThePictureStartsAtItsTwin.
 //
 //   - The qualities below the top step down from the twin's rate where it plays, not the original's,
-//     and are chunk_qualities_hardware's where the film's node encodes on a GPU (D323 §1, §3).
+//     and are chunkQualitiesHardware's where the film's node encodes on a GPU (D323 §1, §3).
 //     Enforced by TestOffered_BelowTheTwinTheQualitiesStepDownFromItsRate and
 //     TestOffered_TheLadderFollowsTheFilmsNodesEncoder.
 //
-//   - A film whose node encodes the lowest quality slower than chunk_run_slowest_speed_percent
+//   - A film whose node encodes the lowest quality slower than chunkRunSlowestSpeedPercent
 //     offers only its own picture, copied; a player that cannot decode it is ErrTooSlowToEncode
 //     (D457). A node whose speed is not known offers its whole ladder. Enforced by
 //     TestStartOnLadder_ANodeTooSlowToEncodeOffersOnlyThePictureCopied.
@@ -116,7 +116,7 @@
 //   - The top of a ladder, the film's own picture copied, plays in an audio group of its own each
 //     track its player plays as it is (Playback.OwnSoundTracks) copied, "sound<track>-own", its
 //     channels said, and every other sound as the lower qualities do, the light stereo track at
-//     chunk_sound_kbps; every group lists its sounds in one order, one name to a place. A track played
+//     chunkSoundKbps; every group lists its sounds in one order, one name to a place. A track played
 //     copied has its mixes made as loud as it ("-ownlevel") once the film's loudness was measured,
 //     levelling or not, and a start on it carries no gain for the player to take back out; a sound
 //     copied is offered only of such a track (D368 §1–§4). Enforced by
@@ -173,7 +173,7 @@
 //     run is wanted, judged by the interests in its own stream alone, by one playing from a chunk it
 //     has not passed, starting within the minute of film after
 //     the first chunk not made from there, or by one stopped, paused or gone from its page, whose
-//     chunk_kept_ahead_seconds ahead it is still making (§7); never by one that jumped away from it
+//     chunkKeptAheadSeconds ahead it is still making (§7); never by one that jumped away from it
 //     (§2, D353): the first chunk it needs not made is so far past the one the run makes next that
 //     waiting, the gap over the run's speed, costs more than its store's last run took to make its
 //     first chunk; 24 s of film, Jellyfin's rule, while either is unmeasured; never two chunks or
@@ -205,7 +205,7 @@
 //     TestInterest_ARunOfAQualityThePlayerLeftStops (internal/core/api).
 //
 //   - Every run on a node stays faster than playback (D250 §6): when one of two or more measures
-//     below chunk_run_slowest_speed_percent of it over chunk_run_speed_window_seconds, one is cancelled: the oldest no
+//     below chunkRunSlowestSpeedPercent of it over chunkRunSpeedWindowSeconds, one is cancelled: the oldest no
 //     player wants, its store refusing no one, so a player that comes to its chunks later starts a
 //     run of its own; or else the newest, its players moved down a quality (MovePlayersBy, D309 §6)
 //     and its store not evicted, by
@@ -213,7 +213,7 @@
 //     the lowest, evicted, its store refusing its players with ErrNoRoomToMake until a stall asks for
 //     it again: the chunks it was to make, not those made or another of its runs is making, and it
 //     starts no run, by TestEnsure_AnEvictedStoreGivesWhatIsMadeOrOnItsWayAndStartsNoRun. The node is
-//     then left chunk_run_speed_window_seconds to settle. Enforced by
+//     then left chunkRunSpeedWindowSeconds to settle. Enforced by
 //     TestKeepRunsFast_EvictsTheNewestWhenEveryRunIsInUse,
 //     TestKeepRunsFast_CancelsTheOldestRunNoOneIsPlayingFromRefusingNoOne,
 //     TestKeepRunsFast_EvictsARunASeekLeftThoughItsQualityIsStillPlayed and
@@ -267,5 +267,5 @@
 //   - files.go: a store's file a player asks for. ensure.go and runs.go: the runs a player's asks
 //     queue, and the chunks known made. job.go: the make_chunks job. interest.go: which runs the
 //     players want; jump.go: when a player jumped away from a run (D353).
-//   - qualities/: the setting chunk_qualities, read and checked by one function.
+//   - qualities/: the setting chunkQualities, read and checked by one function.
 package chunks

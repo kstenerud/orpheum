@@ -450,10 +450,10 @@ func TestTogether_ADeviceIsWelcomedWithTheSettingsDriftNumbers(t *testing.T) {
 	}
 	changed := harness.do(t, http.MethodPut, "/config", admin,
 		map[string]any{"valuesByKey": map[string]any{
-			"together_drift_left_alone_ms": 750, "together_settle_after_change_ms": 400,
-			"together_seek_only_drift_left_alone_ms": 600,
-			"should_together_nudge_keep_pitch":       false, "should_together_voice_cancel_echo": true,
-			"should_together_voice_browser_level_microphone": true,
+			"togetherDriftLeftAloneMs": 750, "togetherSettleAfterChangeMs": 400,
+			"togetherSeekOnlyDriftLeftAloneMs": 600,
+			"shouldTogetherNudgeKeepPitch":     false, "shouldTogetherVoiceCancelEcho": true,
+			"shouldTogetherVoiceBrowserLevelMicrophone": true,
 		}})
 	if changed.status != http.StatusOK {
 		t.Fatalf("PUT /config = %d %s", changed.status, changed.body)

@@ -131,7 +131,7 @@ func TestBrowse_FilmsInTheLocalesOrderAPageAtATime(t *testing.T) {
 	}
 }
 
-// A list by name from a name starts at the first title sorted at or after it, in the sort_locale,
+// A list by name from a name starts at the first title sorted at or after it, in the sortLocale,
 // a letter of the alphabet rail's at the first title it begins (the owner, 2026-10-25); its next
 // cursor goes on from there, and a name after every title is an empty page.
 func TestBrowse_FilmsFromANameStartAtTheFirstSortedAtOrAfterIt(t *testing.T) {

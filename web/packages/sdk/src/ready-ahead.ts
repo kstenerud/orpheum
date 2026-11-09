@@ -41,7 +41,7 @@ export interface NextChunkLoad {
 
 /**
  * The margin on the next chunk's expected load time a player waits to have loaded ahead, in
- * percent: ready_ahead_of_next_chunk_percent's starting value, which the page sets from the
+ * percent: readyAheadOfNextChunkPercent's starting value, which the page sets from the
  * server's (setReadyAheadPercent); a page with no client settings, a guest's, keeps this.
  */
 export const readyAheadOfNextChunkPercent = 150;
@@ -49,7 +49,7 @@ export const readyAheadOfNextChunkPercent = 150;
 /** The margin in force on this page, in percent. */
 let marginPercent = readyAheadOfNextChunkPercent;
 
-/** Sets the margin from the server's setting, ready_ahead_of_next_chunk_percent; none below 100. */
+/** Sets the margin from the server's setting, readyAheadOfNextChunkPercent; none below 100. */
 export function setReadyAheadPercent(percent: number): void {
   if (Number.isFinite(percent) && percent >= 100) {
     marginPercent = percent;

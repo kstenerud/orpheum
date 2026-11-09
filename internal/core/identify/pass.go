@@ -101,7 +101,7 @@ func NewPass(
 func (pass *Pass) sorter(ctx context.Context) (*textindex.Sorter, error) {
 	locale, err := pass.settings.String(ctx, settings.SortLocale)
 	if err != nil {
-		return nil, fmt.Errorf("read sort_locale: %w", err)
+		return nil, fmt.Errorf("read sortLocale: %w", err)
 	}
 	sorter, err := textindex.NewSorter(locale)
 	if err != nil {

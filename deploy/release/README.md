@@ -91,7 +91,7 @@ As the Orpheum user in the container, with `/srv/orpheum` owned by it:
    the libraries.
 7. In Settings, under Keys and passwords, enter the Cloudflare token as `dns_provider_token`; the
    certificate follows. Enter `tmdb_api_key` too: without it nothing is identified.
-8. In Settings, answer `server_upload_mbps` (the house's upload the films may use, D286 §5) and the
+8. In Settings, answer `serverUploadMbps` (the house's upload the films may use, D286 §5) and the
    time zone.
 9. Tell the agent which schema version the production NAS runs (the core's log says it at start), so it
    commits `internal/store/migrations/CHECKPOINT` (D272 §6).
@@ -202,7 +202,7 @@ wg0 latest-handshakes`. Each keeps its own database, libraries and certificate.
   folders than the kernel lets one user watch. On the host, raise it
   (`sysctl fs.inotify.max_user_watches=1048576`, and the same line in
   `/etc/sysctl.d/orpheum.conf`), then restart the node. Meanwhile the library's periodic scan
-  (`watched_library_scan_every_hours`) finds what changes.
+  (`watchedLibraryScanEveryHours`) finds what changes.
 - **No one can administer** (a forgotten password, or an admin account someone else took): on
   the container, as `orpheum`, in `/srv/orpheum`,
   `docker compose exec -it orpheum-core orpheum reset-admin --instance /var/lib/orpheum/core --name <you>`

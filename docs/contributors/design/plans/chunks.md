@@ -14,11 +14,11 @@
 ## 1. The words
 
 - **The grid** is a film's chunk boundaries, in its own time: the source picture's first keyframe,
-  then the first keyframe at or after each multiple of `hls_segment_length_seconds` (D259 §1), so
+  then the first keyframe at or after each multiple of `hlsSegmentLengthSeconds` (D259 §1), so
   a stretch cut alone agrees with the whole film's grid. Chunk *n* runs from
   `grid[n]` to `grid[n+1]`; the last ends at the film's end.
 - **A stream** is one thing cut on the grid: the **copied picture** (the original's, unchanged),
-  a **quality** (the picture encoded to H.264 at one of the `chunk_qualities`), or a **sound** (one
+  a **quality** (the picture encoded to H.264 at one of the `chunkQualities`), or a **sound** (one
   audio track's standard or boosted stereo mix, as prepare makes them).
 - **A store** is one stream of one film on one grid, in the node's prepared directory:
   `<file_id>/chunks-<stream>/<grid_id>/`, holding `init.mp4` and `<n>.m4s`, five digits or more. `grid_id` is a hash
@@ -55,10 +55,10 @@
   (`video_timeline`; making them again reads the whole file, F1), made by the `read_through` sweep
   in the background as loudness is, so a film's grid is there before anyone stalls; a film without
   one is read through at play-now priority at a player's first stall.
-- **The qualities** are the setting `chunk_qualities`, a list such as
+- **The qualities** are the setting `chunkQualities`, a list such as
   `3000k@720p,2000k@540p,1200k@480p,700k@432p,400k@360p` (D247 §6): each a bit rate and a picture
   height, highest first. A quality's peak is capped at 1.5× its bit rate. The sound is stereo AAC
-  at the setting `chunk_sound_kbps` (96), every picture's playlist bandwidth counting it.
+  at the setting `chunkSoundKbps` (96), every picture's playlist bandwidth counting it.
 - **The master playlist**, at `/bytes/media/chunks/<token>/master.m3u8`, lists the copied picture
   when the client plays the source's codec, then every quality below the source's own bit rate,
   each with its sound group: every audio track's standard and boosted mixes, as prepare carries
@@ -67,7 +67,7 @@
   of that store that will reach it soon (its last chunk made is before it, and within about 60 s
   of film), or queues one from it at play-now priority, and answers 425 with `Retry-After` at once
   (D250 §5): a player counts a held request as the chunk's download, and took its link for slower.
-  A hold, asking the node again each quarter second, is the setting `chunk_hold_ms` (0); the
+  A hold, asking the node again each quarter second, is the setting `chunkHoldMs` (0); the
   player asks again every second or two for over a minute and a half.
 - **A run goes on while a player wants it** (D309, which replaced D250 §5's distances). Each player
   wants one picture and its sound from a position: said by it (`PUT /playback/{token}/interest`, as
@@ -77,7 +77,7 @@
   its minute ahead. A player's ask stops the film's runs no one wants, before its own is queued.
 - **Every run stays faster than playback** (D250 §6). The core measures each run's speed from its
   progress, over 20 s. When one of a node's two or more runs falls below
-  `chunk_run_slowest_speed_percent` (110) of playback, it cancels one: the oldest no player wants,
+  `chunkRunSlowestSpeedPercent` (110) of playback, it cancels one: the oldest no player wants,
   or, when players want every one, the newest, whose players move down a quality (D309 §6); only
   when one is at the lowest is the run evicted. Its job is cancelled, and its store
   answers its players 429 for what no run makes, `no_room_to_make`, which the player does not retry and words as the
@@ -117,9 +117,9 @@
    chunk's time is its time in the film plus `chunks.TimelineOffsetMs`, 10 s: a sound's priming
    comes before the film's start and a picture's first decode before its keyframe is shown, and a
    chunk's time cannot be negative.*
-3. The core's playlists, chunk requests and runs, and the `chunk_qualities` setting.
+3. The core's playlists, chunk requests and runs, and the `chunkQualities` setting.
    *Built 2026-10-05: `internal/core/chunks` (`Stream`, named `picture`, `q<kbps>k<height>p` and
-   `sound<track>-<kbps>k` or `sound<track>-boost-<kbps>k`, so a changed `chunk_sound_kbps` makes a
+   `sound<track>-<kbps>k` or `sound<track>-boost-<kbps>k`, so a changed `chunkSoundKbps` makes a
    store of its own; `Grid.ID`, the first 16 hex characters of the SHA-256 of
    the grid; `StoreDir`; `MasterPlaylist`, `MediaPlaylist`, `StoreFileOf`; `Ensure`, with
    `lookaheadMs` 60 s and `runSpanMs` 5 min; the `make_chunks` job, `HandleMakeChunks` and its
@@ -140,7 +140,7 @@ whose read-through failed could never be offered a lower quality. The owner agre
 in this order, each a revision of D247 §10 written before it is built:
 
 1. **A local rule for the grid.** A chunk starts at the first keyframe at or after each multiple
-   of `hls_segment_length_seconds`, so each boundary depends only on the keyframes near it: any
+   of `hlsSegmentLengthSeconds`, so each boundary depends only on the keyframes near it: any
    stretch of the film can be cut on its own and agrees with the whole film's grid. The greedy
    merge from the film's start does not. *Built 2026-10-07: `GridOf`.*
 2. **The keyframes from the file's own index**: an MP4's sync-sample table, a Matroska file's

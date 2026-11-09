@@ -10,7 +10,7 @@ import (
 
 // MoveOffStream moves every playback of fileID whose player wants streamName, a quality its node
 // cannot make as fast as it plays, onto the quality below it on its ladder, for
-// chunk_cpu_ceiling_kept_seconds (D309
+// chunkCpuCeilingKeptSeconds (D309
 // §6, D286 §4): a run of a lower quality costs the node less, where the run evicted stopped its
 // players. It says whether there were any and every one moved; when one is already at the lowest,
 // none is, and the run is evicted, its players told why they stop.

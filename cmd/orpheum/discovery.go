@@ -264,7 +264,7 @@ func stunServersFor(ownSTUN []string, named []discoveryproto.ICEServer) []string
 }
 
 // newPortMapping keeps the core's HTTPS port open at the home router while its discovery publishes
-// it and should_map_ports is on (D273 §7).
+// it and shouldMapPorts is on (D273 §7).
 func newPortMapping(
 	config Config, opened openedServices, standing func() discovery.Status, logger *slog.Logger,
 ) (*portmap.Service, error) {
@@ -285,7 +285,7 @@ func portMappingParts(
 			}
 			isOn, err := opened.settings.Bool(ctx, settings.ShouldMapPorts)
 			if err != nil {
-				logger.WarnContext(ctx, "port mapping: could not read should_map_ports; not mapping", "err", err)
+				logger.WarnContext(ctx, "port mapping: could not read shouldMapPorts; not mapping", "err", err)
 			}
 			return isOn
 		},

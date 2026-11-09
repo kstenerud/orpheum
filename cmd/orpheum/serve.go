@@ -157,13 +157,13 @@ type wiring struct {
 	openSubtitlesBaseURL string
 	// cloudflareBaseURL is the DNS provider's API (cloudflare.BaseURL, or a fake).
 	cloudflareBaseURL string
-	// waitsForDNS is whether a challenge's record is given certificate_dns_wait_seconds to reach the
+	// waitsForDNS is whether a challenge's record is given certificateDnsWaitSeconds to reach the
 	// name's servers before the CA looks (D243 §6): a test's fake DNS needs none.
 	waitsForDNS bool
 	// machineZone is the machine's own time zone, the server's until the admin chooses one
 	// (D246 §7); a test's is UTC.
 	machineZone localtime.Zone
-	// logLevel is the level the log is written at, which the log_level setting changes while the core
+	// logLevel is the level the log is written at, which the logLevel setting changes while the core
 	// runs (D347); nil, a test's, is left as it is.
 	logLevel *slog.LevelVar
 	// setupCodeShown is where the setup code is also written while no admin exists, for a person who
@@ -560,7 +560,7 @@ func (codes runSetupCodes) whereToOpen() string {
 	return "http://<this machine's address>:" + strconv.Itoa(codes.shown.httpPort)
 }
 
-// mountDebug serves pprof on the API's mux when the should_serve_debug_pprof setting says so, and only on a
+// mountDebug serves pprof on the API's mux when the shouldServeDebugPprof setting says so, and only on a
 // loopback listener (cut-a §2a, D91). It reads the settings once, at start. Metrics are a setting
 // too and not built yet; the log says so.
 func mountDebug(
@@ -589,7 +589,7 @@ func mountDebug(
 	}
 	if shouldServeMetrics && isLoopbackListen {
 		logger.WarnContext(ctx,
-			"should_serve_debug_metrics is set, but /metrics is not built yet; nothing is served there")
+			"shouldServeDebugMetrics is set, but /metrics is not built yet; nothing is served there")
 	}
 	return nil
 }
@@ -647,7 +647,7 @@ func webRTCOf(
 }
 
 // keepWebRTCShareCurrent gives the WebRTC server its network's share of connections from its setting
-// (webrtc_connections_per_network, the owner, 2026-10-25), now and at each change; one that cannot
+// (webrtcConnectionsPerNetwork, the owner, 2026-10-25), now and at each change; one that cannot
 // be read leaves the share as it was, and says so.
 func keepWebRTCShareCurrent(
 	ctx context.Context, rtc connectionShare, settingsService *settings.Service, logger *slog.Logger,

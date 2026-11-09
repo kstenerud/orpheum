@@ -137,7 +137,7 @@
 //   - A provider's rate limit leaves the same way whichever provider it is and whatever asked it:
 //     rate_limited, naming the provider, with detail.retryAfterMs and failedHop provider (cut-a
 //     §5.2). TestIdentification_AProvidersRateLimitSaysWhichAndHowLongAsSubtitlesDo.
-//   - A person with edit_metadata may refresh a title or series whenever they like (D213 §2).
+//   - A person with editMetadata may refresh a title or series whenever they like (D213 §2).
 //     TestIdentification_APersonMayRefreshATitleWheneverTheyLike.
 //   - /health answers before the database is ready, and the rest answers "migrating" until then.
 //     Enforced by TestHealth_AnswersBeforeTheDatabaseIsReady.
@@ -147,7 +147,7 @@
 //     TestConfig_ShowsEverySettingAndTheFileAndResets, TestConfig_ListsAndDeletesOnlyUnusedRows,
 //     TestConfig_FiltersToWhatDiffersFromTheStartingValue
 //     and TestSettings_OnlyAnAdminChangesTheServersAndABadValueChangesNothing.
-//   - Any signed-in user sees which titles and series are ambiguous; only a role with edit_metadata sees
+//   - Any signed-in user sees which titles and series are ambiguous; only a role with editMetadata sees
 //     candidates, chooses a match or sets an override. Enforced by
 //     TestIdentification_OnlyARoleThatEditsMetadataMayChange.
 //   - An admin creates a library only over roots its node configured, lists roots and filings,
@@ -182,7 +182,7 @@
 //     labResultBytesAtMost bytes, and logged at info as one line under the name it answers with, the
 //     result whole inside it, for the device tests to be read from the log (plans/tv-device-tests.md).
 //     Enforced by TestLab_AResultIsLoggedAsOneLineNamedByItsIDAndIsBounded. While the admin has the
-//     device tests off (should_offer_device_tests, its start), it is refused as notFound, and
+//     device tests off (shouldOfferDeviceTests, its start), it is refused as notFound, and
 //     /client-settings says whether they are offered. Enforced by
 //     TestLab_ResultsAreRefusedAndTheTestsNotOfferedUntilTheAdminTurnsThemOn.
 //   - The throughput test's body (GET /lab/throughput) is the 1 to 256 MiB asked for, of bytes no

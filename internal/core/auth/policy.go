@@ -88,7 +88,7 @@ func (service *Service) failureStretchOf(ctx context.Context) (failureStretch, e
 	return failureStretch{network: network, everywhere: everywhere, pace: pace}, nil
 }
 
-// answerFailureAt waits until signin_failure_answer_seconds after began; a setting that cannot be read
+// answerFailureAt waits until signinFailureAnswerSeconds after began; a setting that cannot be read
 // waits nothing, the failure being told all the same.
 func (service *Service) answerFailureAt(ctx context.Context, began time.Time) {
 	answer, err := service.settings.Duration(ctx, settings.SignInFailureAnswerSeconds)

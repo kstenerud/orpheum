@@ -12,9 +12,9 @@ import (
 )
 
 // maintainArtworkCache holds the artwork cache to its ceiling until ctx ends (D212 §6): a sweep
-// when the server starts, every artwork_cache_sweep_every_hours, and whenever a write takes it past
+// when the server starts, every artworkCacheSweepEveryHours, and whenever a write takes it past
 // the ceiling; and when each image was served is written every
-// artwork_served_at_flush_every_seconds and when it stops. Each wait is read afresh when it ends.
+// artworkServedAtFlushEverySeconds and when it stops. Each wait is read afresh when it ends.
 func maintainArtworkCache(ctx context.Context, service *artwork.Service, config settingReader, logger *slog.Logger) {
 	sweep := func() {
 		if _, err := service.Sweep(ctx); err != nil && ctx.Err() == nil {

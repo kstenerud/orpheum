@@ -47,7 +47,7 @@ func (retry answerRetry) waitAfter(tries int64) time.Duration {
 // defaultAnswerRetry tries a result again after a second, doubling to every 30 s: a core that did not
 // take one is restarting or busy, which a second outlasts the most of the time, and 30 s keeps a
 // core that is down for long from being asked more than twice a minute, well inside the silence
-// limit (node_silent_after_seconds) its status ticks keep the node alive against. Internal bounds;
+// limit (nodeSilentAfterSeconds) its status ticks keep the node alive against. Internal bounds;
 // the result is kept until taken, so they decide only how soon, never whether.
 func defaultAnswerRetry() answerRetry {
 	return answerRetry{firstWait: time.Second, longestWait: 30 * time.Second, random: rand.Reader}

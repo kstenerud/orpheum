@@ -10,7 +10,7 @@
 //   - The core never reaches os/exec, and starts no process. Enforced by the depguard rule
 //     core-boundary and TestArch_CoreNeverExecs.
 //   - A node is enrolled once per name (D207), and its hello asks for a scan of each of its roots a
-//     library covers, and no other, when should_scan_on_node_hello says so: a folder is scanned only
+//     library covers, and no other, when shouldScanOnNodeHello says so: a folder is scanned only
 //     once it is in a library, which says what kind of thing it holds (the owner, 2026-10-02).
 //     TestHello_EnrolsANodeByNameOnceAndQueuesAScanOfEachRootALibraryCovers,
 //     TestHello_ScansNothingWhenTheSettingSaysNot. A library folder inside a root the hello or the
@@ -29,7 +29,7 @@
 //   - Each status a node posts is taken as it arrives: the node is heard, and its last status kept;
 //     one that is not a status is refused. TestStatus_TheLastIsKeptAndTheNodeHeard,
 //     TestStatus_ABodyThatIsNotAStatusIsRefused.
-//   - A node silent for node_silent_after_seconds is reported as silent; restarting a node that
+//   - A node silent for nodeSilentAfterSeconds is reported as silent; restarting a node that
 //     hangs or exits is its service manager's (D234 §4).
 //     TestNodeConnection_IsConnectedWhileItPollsOrWasHeardLatelyAndSilentOtherwise.
 //   - A node's word on how a job ended, bounded, is one Result posted to one path, whichever the
@@ -62,7 +62,7 @@
 //     TestService_ACancelledJobTellsTheNodeToStopItByItsID.
 //   - A job whose work a node does is given to it, not waited for (D234 §7): Assign keeps its attempt,
 //     by token, with its job, kind, work and the start of its node (D238 §3), in cache.db, and is
-//     the handler's answer, the job assigned until assigned_job_limit_hours; the command is sent
+//     the handler's answer, the job assigned until assignedJobLimitHours; the command is sent
 //     once the job is recorded assigned.
 //     A job whose time ran out tells its node to stop the work, and its attempt is forgotten
 //     (Overdue, G4, D244 §6). TestExchange_AJobWhoseTimeRanOutTellsTheNodeToStop.
@@ -114,7 +114,7 @@
 //   - A command carries its job's priority, by which the node orders what waits (D234 §3).
 //     TestExchange_PlayPriorityWorkIsSentPlayDrivenAndBackgroundWorkIsNot.
 //   - The core gives a node only as many jobs of a slot as it runs at once, and as many reading a
-//     device as may read it, each with node_jobs_beyond_free_slots more; work beyond waits, parked at no
+//     device as may read it, each with nodeJobsBeyondFreeSlots more; work beyond waits, parked at no
 //     cost on the slot or device that is full, brought back when one of the node's jobs there ends
 //     or the node says hello (D240 §5); play-driven work is never held back for its device's
 //     readers, the node pausing background work for it (D240 §6).
@@ -172,7 +172,7 @@
 //   - A node's last hello and last status are kept whole, for the System page (D225): its
 //     hardware, disks and prepared directory. TestFacts_KeepTheHellosHardwareAndTheLastStatussDisks.
 //   - A node is connected while a long-poll for its commands is open or it was heard within
-//     node_silent_after_seconds, silent after, and awaiting its hello until it says one since the
+//     nodeSilentAfterSeconds, silent after, and awaiting its hello until it says one since the
 //     core started (D231 §11). TestNodeConnection_IsConnectedWhileItPollsOrWasHeardLatelyAndSilentOtherwise.
 //   - Work is sent with Send, which parks its job on a node that is not connected and sends
 //     nothing; a wait for an answer that runs out parks the job when the node went away, and is

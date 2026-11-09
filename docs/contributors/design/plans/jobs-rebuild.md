@@ -43,7 +43,7 @@ D231 §2, §8, §10; D233 §6 (panic recovery, claim-time attempt check).
   asks for the images again if either did, but a match and a refresh never fold into each other,
   since a refresh fetches only what is stored and a match fetches a new season's listing; that
   case keeps the queued job's arguments, as before, until §3's facts.
-- Back-off: `job_first_retry_delay_seconds` doubling, `job_attempt_limit`, ±10% jitter on every
+- Back-off: `jobFirstRetryDelaySeconds` doubling, `jobAttemptLimit`, ±10% jitter on every
   wait the queue computes (back-off, a kind's own schedule, a hold, a tool's retry), none past a
   day. Snooze (`jobqueue.Snooze`) and `RetryAtError` wait at no cost of an attempt, and a repeat
   request does not bring them forward (cache.db's new `is_snoozed`).
@@ -99,7 +99,7 @@ D231 §5, §6, §11 (the node table's truth), §12 (the job view's words); repla
   answers `Park` when its destination is down: the job returns at no cost of an attempt, kept with
   it, and a claim passes over every parked destination whose probe is not due. One job at a time
   probes it, on a jittered back-off from 30 s doubling to an hour (the settings
-  `destination_first_probe_delay_seconds` and `destination_longest_probe_delay_seconds`, read
+  `destinationFirstProbeDelaySeconds` and `destinationLongestProbeDelaySeconds`, read
   through the queue's `ProbePolicy`), or at the time a 429 named; a
   failed probe costs nothing, a failure that is not the probe's changes nothing, and a probe that
   succeeds unparks it and wakes every runner. A destination only a signal brings back
@@ -118,13 +118,13 @@ D231 §5, §6, §11 (the node table's truth), §12 (the job view's words); repla
   owning its health (its destination's state in the queue), the rate we keep to (a token bucket on
   our clock), its quota and reset (from OpenSubtitles' replies), and its credentials' state. Its
   limits are settings, read at each request, each with where its starting value came from
-  (`settings.Definition.StartSource`, new): `tmdb_requests_per_second` 40 (the upper range TMDB's
+  (`settings.Definition.StartSource`, new): `tmdbRequestsPerSecond` 40 (the upper range TMDB's
   developer documentation names; the image server keeps to it apart, and documents only 20
-  connections at once), `tmdb_background_rate_share_percent` 80 (the owner's choice),
-  `opensubtitles_downloads_reserved_for_people_percent` 25 (the owner's choice of a percentage of
+  connections at once), `tmdbBackgroundRateSharePercent` 80 (the owner's choice),
+  `opensubtitlesDownloadsReservedForPeoplePercent` 25 (the owner's choice of a percentage of
   the day's allowance, rounded up to whole downloads: 5 of a free account's 20, 250 of a VIP's 1000;
   the allowance comes from OpenSubtitles' login and account replies), and
-  `opensubtitles_requests_per_second` 5 (its best practices). A caller's importance comes from its
+  `opensubtitlesRequestsPerSecond` 5 (its best practices). A caller's importance comes from its
   context: a job's priority (`providers.JobImportance`), and outside a job, someone waiting. Within
   a job, the service answers a host down, asking
   to wait or refusing its credentials as the job's parking, which the queue records; outside one, a
@@ -133,7 +133,7 @@ D231 §5, §6, §11 (the node table's truth), §12 (the job view's words); repla
   OpenSubtitles' to `providers/opensubtitles`; `clock.Clock` gained `Sleep`, so a wait for our own
   rate is testable.
 - The node table (`internal/core/nodes`) says connected (a long-poll open, or heard within
-  node_silent_after_seconds), silent, or awaiting its hello. Work is sent with `Send`, which parks the
+  nodeSilentAfterSeconds), silent, or awaiting its hello. Work is sent with `Send`, which parks the
   job on a node that is not connected; a wait for an answer that runs out parks it when the node
   went away (`Unanswered`). A hello unparks the node and `any-node`; a status with room unparks its
   prepared directory, on which the node's new `noRoom` refusal code parks prepares. A job reading a
@@ -455,7 +455,7 @@ changed since the scan is named (`changed`) and said apart, tried again as befor
    what cannot be made.
 3. The node's status lists the attempts it holds, with their state, and the tokens whose results
    are not yet acknowledged. The core reconciles its assigned jobs with that list at each status, not
-   by asking: there is no separate question. A node silent past `node_silent_after_seconds` parks
+   by asking: there is no separate question. A node silent past `nodeSilentAfterSeconds` parks
    its assigned work, as now.
 4. Reconciling, judging only commands the node has taken: held and assigned is adopted, progress
    resuming (S82); assigned and not held, the node restarted, is interrupted, the tool's failure;
@@ -469,7 +469,7 @@ changed since the scan is named (`changed`) and said apart, tried again as befor
    those whose source is still that file, which rebuilds the index after a `cache.db` discard, and
    its reply names the renditions it keeps; the node evicts the rest, and a run directory with no
    manifest, never one being written.
-7. `assigned_job_limit_hours` (a setting, 24) is the backstop past which an assigned job fails; a
+7. `assignedJobLimitHours` (a setting, 24) is the backstop past which an assigned job fails; a
    prepare's failure marks its rendition failed (G8).
 8. The steps: **4c.1** tokens on rows, handlers that assign, results that resolve, the limit;
    **4c.2** artwork as one assigned command; **4c.3** the held list in the status and the reconciliation;
@@ -479,7 +479,7 @@ changed since the scan is named (`changed`) and said apart, tried again as befor
 (`Exchanges.Assign`), their attempts kept in `cache.db`'s `node_attempt` (version 24) and taken back
 at start (`Load`); the node's word resolves each by its kind's `Assignee`; a silence past the limit
 (`Watch`) or a restart is unanswered, the node told to stop; a cancel tells the node and the kind
-(`Queue.OnCancel`); `assigned_job_limit_hours` (24) is the backstop. Only artwork still waits (4c.2).
+(`Queue.OnCancel`); `assignedJobLimitHours` (24) is the backstop. Only artwork still waits (4c.2).
 A node's work is sent once its job is recorded assigned (`AssignThen`), so a quick answer finds it.
 
 *4c.2 built 2026-10-02:* an artwork job fetches what its images need, then gives every image it
@@ -551,7 +551,7 @@ What the earlier 4d and 4e found still holds:
   hello's reply and again when one changes.
   *4d.1 built 2026-10-02:* the node finds the devices of its roots and prepared directory at each
   hello (`hardware.Devices`) and lists them; the core's reply gives each the reader limit of its
-  kind's setting (`reader_limit_spinning_disk` 1, `_ssd` 4, `_network_share` 2, `_unknown_disk` 1) and logs
+  kind's setting (`readerLimitSpinningDisk` 1, `_ssd` 4, `_network_share` 2, `_unknown_disk` 1) and logs
   them; `./dev` mounts the host's `/run/udev` read-only. Sending them again when a setting changes comes
   with 4d.2, where the node first uses them. *Since 2026-10-03:* an admin sets a device's limit
   over its kind's (`device_reader_limit`, migration 0030; `PUT /nodes/device-reader-limit`), and
@@ -572,11 +572,11 @@ What the earlier 4d and 4e found still holds:
   since 4c.1. Each poll's answer carries the reader limits as the settings say then. Slots are not
   taken from a running job: only readers. Node protocol 12.
 - **4d.3 The core schedules.** The core hands a node only what its limits can start now, plus one
-  more of each (`node_jobs_beyond_free_slots`, 1), by global priority; a job beyond it waits, parked:
+  more of each (`nodeJobsBeyondFreeSlots`, 1), by global priority; a job beyond it waits, parked:
   *"Waiting for a free slot on <node>"*, back when one of that node's attempts of its device or
   slot ends. One runner per kind; `runnerPool` and the hello's prepare slots go.
   *4d.3 built 2026-10-02:* `Exchanges.Assign` gives a node only as many jobs of a slot as it runs,
-  and as many reading a device as may read it, each with `node_jobs_beyond_free_slots` (1) more; work
+  and as many reading a device as may read it, each with `nodeJobsBeyondFreeSlots` (1) more; work
   beyond parks at no cost on the slot or device that is full (`SlotDestination`,
   `ReaderDestination`, *"Waiting for a free slot on node …"*), back when one of the node's jobs
   there ends or it says hello. The slots are `nodeproto.Slot`, the node's and the core's one list.
@@ -589,7 +589,7 @@ What the earlier 4d and 4e found still holds:
   background priority, in the core's queue and on the node, where it pauses nothing.
 - Closes S87, S88.
 
-*4d.4 built 2026-10-02:* a job a person asks for to play is wanted for `play_priority_kept_seconds` (600)
+*4d.4 built 2026-10-02:* a job a person asks for to play is wanted for `playPriorityKeptSeconds` (600)
 from the last ask: a play's request, and each request a player makes for a rendition still being
 prepared (`KeepWanted`, `cache.db`'s `wanted_until`, version 25). Every 30 seconds the jobs past it
 fall to background priority (`DemoteUnwanted`), and the node holding one is told
@@ -619,7 +619,7 @@ built.*
 waiting between files while it is paused for play (node protocol 14, then 15 without the scan
 command, the scan's records on the report, or the status's activity). A scan is a `scan` job, which
 lists the root, compares the listing by the library's rules (`scan_video_extensions`,
-`scan_subtitle_extensions`; *since 2026-10-27, constants in the core's code, D360*) and queues `examine` jobs of `scan_videos_per_examine_batch` videos of one
+`scan_subtitle_extensions`; *since 2026-10-27, constants in the core's code, D360*) and queues `examine` jobs of `scanVideosPerExamineBatch` videos of one
 folder each; it completes, applying its removals, after the last, and one asked for meanwhile runs
 once more after it (D236 §3). `cache.db`'s `scan` and `scan_batch` hold a scan in progress (version
 26); a scan whose listing the core had taken when it stopped starts again. The node's
@@ -787,7 +787,7 @@ D231 §12; D233 §8; D241; F2.
   confirms each; the title page and the library screen offer them to an admin.
 - 6d: providerError's unavailable detail carries since and nextCheckAt; a
   refresh's answer says what it waits for while TMDB is down; jobs that ended longer ago than
-  `finished_jobs_kept_days` (30) are forgotten hourly; `useRequest` counts down a host's wait and asks
+  `finishedJobsKeptDays` (30) are forgotten hourly; `useRequest` counts down a host's wait and asks
   again, says it is still waiting past two seconds, and calls the try after a host was not answering
   its check (`RequestWait`), used by the subtitle search and the match chooser; the System page lists
   what is not answering and each outside service.
@@ -809,7 +809,7 @@ D231 §12; D233 §8; D241; F2.
   the failure's words say its kind for the admin's job view. The scenarios this rebuild closed hold by
   the tests their statuses name, most of them below the scenario tier, rather than by a
   `TestScenario_*` of their own each.
-- A job failed by `assigned_job_limit_hours` does not tell its node to stop (G4's remainder).
+- A job failed by `assignedJobLimitHours` does not tell its node to stop (G4's remainder).
 - A player whose fetch fails is told why at once, while the browser plays what it holds, rather than
   only when the picture stops; and a failure the server says was passing leaves the player's own words
   rather than trying again on its own (the owner allowed the order; the retry is left).

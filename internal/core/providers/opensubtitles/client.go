@@ -66,8 +66,8 @@ var (
 )
 
 // Service is OpenSubtitles as a provider service: its destination, the rate we keep to with it
-// (opensubtitles_requests_per_second), its day of downloads with a percent of them held back for
-// people (opensubtitles_downloads_reserved_for_people_percent), and its login's state.
+// (opensubtitlesRequestsPerSecond), its day of downloads with a percent of them held back for
+// people (opensubtitlesDownloadsReservedForPeoplePercent), and its login's state.
 func Service(
 	health providers.Health, clockSource clock.Clock, settingsReader providers.Settings,
 ) *providers.Service {

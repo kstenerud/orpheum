@@ -68,7 +68,7 @@ func TestRoles_AnInviteeReachesOnlyTheirRolesLibraries(t *testing.T) {
 	harness.shelveFilms(t) // library 1, Films
 	harness.identifyFilm(t)
 	made := harness.do(t, http.MethodPost, "/roles", admin, map[string]any{
-		"name": "friends", "capabilities": []string{"host_watch_together"},
+		"name": "friends", "capabilities": []string{"hostWatchTogether"},
 		"libraries": []map[string]any{{"libraryId": 1, "mayRebroadcast": true}},
 	})
 	if made.status != http.StatusCreated {

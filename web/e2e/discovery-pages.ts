@@ -109,7 +109,7 @@ export function signedIn(token: string): Record<string, string> {
 
 /** Connects the core to the discovery as its admin does, and claims it in the operator's place. */
 /** The setting for how often a pending core asks whether it is claimed, as the core names it. */
-const pendingCheckSetting = "discovery_pending_check_every_seconds";
+const pendingCheckSetting = "discoveryPendingCheckEverySeconds";
 
 export async function connectAndClaim(
   api: APIRequestContext,

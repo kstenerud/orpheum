@@ -280,7 +280,7 @@ func TestStep_MapsByPCPRenewsAtHalfItsLifetimeAndRemovesIt(t *testing.T) {
 	}
 }
 
-// leaseSettings answers port_mapping_lease_seconds with its seconds and every other with its start.
+// leaseSettings answers portMappingLeaseSeconds with its seconds and every other with its start.
 type leaseSettings struct{ seconds int64 }
 
 func (lease leaseSettings) Duration(_ context.Context, key settings.Key) (time.Duration, error) {

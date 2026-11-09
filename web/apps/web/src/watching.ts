@@ -71,7 +71,7 @@ export async function requestPlayback(
 
 /**
  * How long a film page's decision may wait for its Play page before a new one is asked for: half
- * the least media_token_idle_expiry_hours can be, an hour, so its token is never idled out by the
+ * the least mediaTokenIdleExpiryHours can be, an hour, so its token is never idled out by the
  * time it plays.
  */
 export const warmUpKeptMs = 30 * 60_000;

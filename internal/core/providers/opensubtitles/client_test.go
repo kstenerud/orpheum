@@ -520,7 +520,7 @@ func TestDownload_ALinkThatFailsIsRetriedWhileItWorksAndSpendsNoSecondDownload(t
 
 func TestDownload_BackgroundNeverSpendsTheDownloadsHeldBackForPeopleAndAsksNothing(t *testing.T) {
 	t.Parallel()
-	// The login says a free account's 20 a day; opensubtitles_downloads_reserved_for_people_percent
+	// The login says a free account's 20 a day; opensubtitlesDownloadsReservedForPeoplePercent
 	// starts at 25: 5 held back.
 	const heldBack = 5
 	fake, client, _ := newProvider(t, fakeKeys{"owner", "right"})

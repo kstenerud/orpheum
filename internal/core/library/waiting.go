@@ -13,7 +13,7 @@ import (
 )
 
 // AdminSettings are the settings the admin service reads: how many of a held-back scan's removals
-// are named, scan_withheld_removals_named.
+// are named, scanWithheldRemovalsNamed.
 type AdminSettings interface {
 	Int(ctx context.Context, key settings.Key) (int64, error)
 }
@@ -22,7 +22,7 @@ type AdminSettings interface {
 // value. Set once, before the server serves.
 func (admin *Admin) UseSettings(reader AdminSettings) { admin.settings = reader }
 
-// namedRemovals is how many of a held-back scan's removals are named: scan_withheld_removals_named,
+// namedRemovals is how many of a held-back scan's removals are named: scanWithheldRemovalsNamed,
 // enough to recognise a season or a folder, few enough to read at a glance; the rest are counted (the
 // constants sweep, 2026-10-20).
 func (admin *Admin) namedRemovals(ctx context.Context) (int, error) {
@@ -46,7 +46,7 @@ type WaitingRemovals struct {
 	Reason      string
 	Since       time.Time
 	FileCount   int
-	// FirstPaths are the first scan_withheld_removals_named of the files, by path.
+	// FirstPaths are the first scanWithheldRemovalsNamed of the files, by path.
 	FirstPaths []string
 }
 

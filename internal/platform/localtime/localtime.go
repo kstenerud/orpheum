@@ -14,7 +14,7 @@ import (
 // ErrNotAZone is a name that is not a time zone the server knows.
 var ErrNotAZone = errors.New("not a time zone name, such as Europe/Berlin or UTC")
 
-// Zone is a time zone the admin named: the server's own (the time_zone setting, D246 §7). It is
+// Zone is a time zone the admin named: the server's own (the timeZone setting, D246 §7). It is
 // the one way into wall-clock time; everything else is UTC.
 type Zone struct {
 	location *time.Location

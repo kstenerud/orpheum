@@ -242,7 +242,7 @@ change_detection = "watch"
 is_writable = false
 
 [settings]
-should_check_for_updates = false
+shouldCheckForUpdates = false
 `;
 }
 

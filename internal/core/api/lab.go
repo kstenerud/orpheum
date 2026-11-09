@@ -30,7 +30,7 @@ const labResultIDLength = 8
 // LabResultInput is what one of the lab pages measured on a device (plans/tv-device-tests.md): a
 // device's capabilities, a phone's endurance, extending, casting or the cast receiver's
 // own report. Signed in only, taken only while the admin offers the device tests
-// (should_offer_device_tests, the owner, 2026-10-25), bounded, and only logged, as a page's failure
+// (shouldOfferDeviceTests, the owner, 2026-10-25), bounded, and only logged, as a page's failure
 // is (ClientProblemInput): a TV's or a Chromecast's console is read by no one.
 type LabResultInput struct {
 	AuthorizationHeader
@@ -72,7 +72,7 @@ func (server *Server) registerLab() {
 const labThroughputProbe = "throughput"
 
 // requireDeviceTests signs the caller in and refuses them while the admin has the device tests
-// off (should_offer_device_tests): every lab endpoint's one gate.
+// off (shouldOfferDeviceTests): every lab endpoint's one gate.
 func (server *Server) requireDeviceTests(ctx context.Context, authorization string) (auth.Principal, error) {
 	_, principal, err := server.deviceTestsCaller(ctx, authorization)
 	return principal, err

@@ -15,7 +15,7 @@ import (
 
 // How a run of chunks is watched to stay faster than playback, or the players waiting on it never
 // catch up: the owner, "Live transcoding only works when it's faster than playback" (D250 §6).
-// The window a run's speed is measured over is chunk_run_speed_window_seconds (chunkTiming); a run must
+// The window a run's speed is measured over is chunkRunSpeedWindowSeconds (chunkTiming); a run must
 // have been sampled over half of it to be judged.
 
 // ErrNoRoomToMake is a store whose run was evicted to keep its node's other runs faster than
@@ -160,10 +160,10 @@ func (tracker *runTracker) unevict(dir string) {
 }
 
 // keepRunsFast keeps the runs nodeID is making faster than playback (D250 §6): when one of two or
-// more measures slower than chunk_run_slowest_speed_percent of it, one run is cancelled: the oldest no
+// more measures slower than chunkRunSlowestSpeedPercent of it, one run is cancelled: the oldest no
 // player wants, its store refusing no one; or, when players want every one, the newest, its players
 // moved down a quality (D309 §6), or, when one cannot move, evicted, and its players told why their
-// playback stops. After any the node's runs are left chunk_run_speed_window_seconds to settle.
+// playback stops. After any the node's runs are left chunkRunSpeedWindowSeconds to settle.
 func (service *Service) keepRunsFast(ctx context.Context, nodeID int64) error {
 	now := service.clock.Now()
 	timing := service.refreshChunkTiming(ctx)

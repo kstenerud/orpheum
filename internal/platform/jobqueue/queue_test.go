@@ -296,7 +296,7 @@ func TestRunDue_NoJitterTakesAWaitPastADay(t *testing.T) {
 	}
 }
 
-// The longest retry delay is the policy's, job_longest_retry_delay_hours (the constants sweep,
+// The longest retry delay is the policy's, jobLongestRetryDelayHours (the constants sweep,
 // 2026-10-20): at two hours, a retry scheduled for a day waits two hours.
 func TestRunDue_NoRetryWaitsPastThePolicysLongest(t *testing.T) {
 	t.Parallel()

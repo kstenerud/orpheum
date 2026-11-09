@@ -10,7 +10,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
-// A credential that ended more than ended_credentials_kept_days ago is deleted, with what names it;
+// A credential that ended more than endedCredentialsKeptDays ago is deleted, with what names it;
 // one that ended since, and every live one, stays (D304 §6).
 func TestPurgeEndedCredentials_DeletesThoseEndedPastTheirKeeping(t *testing.T) {
 	t.Parallel()

@@ -13,7 +13,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
-// The log is written at the level log_level names as soon as an admin sets it, with no restart, and
+// The log is written at the level logLevel names as soon as an admin sets it, with no restart, and
 // at the config file's level while it says "file", its start (D347).
 func TestKeepLogLevelCurrent_TheLogFollowsItsSettingAtOnce(t *testing.T) {
 	t.Parallel()
@@ -61,7 +61,7 @@ func TestLeveledLogger_WritesAtTheLevelItHandsBack(t *testing.T) {
 	}
 }
 
-// A core started with a debug log.level in its file logs at debug until log_level names another:
+// A core started with a debug log.level in its file logs at debug until logLevel names another:
 // mountDiagnostics reads the file's level for "file" (D347).
 func TestMountDiagnostics_TheFilesLevelHoldsUntilTheSettingNamesAnother(t *testing.T) {
 	t.Parallel()
@@ -80,7 +80,7 @@ func TestMountDiagnostics_TheFilesLevelHoldsUntilTheSettingNamesAnother(t *testi
 	}
 }
 
-// A release's run hands the serve its opened log's level, which the log_level setting then moves: wired
+// A release's run hands the serve its opened log's level, which the logLevel setting then moves: wired
 // to another, an admin's change of the setting reached nothing the log wrote at (D347).
 func TestReleaseWiringFor_HandsTheServeTheLevelItsLogWritesAt(t *testing.T) {
 	opened := processLog{level: &slog.LevelVar{}}

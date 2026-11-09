@@ -34,7 +34,7 @@ var ErrNotQualities = errors.New("not a list of qualities, highest first, such a
 // qualityPattern is one quality as the setting writes it: 1200k@480p.
 var qualityPattern = regexp.MustCompile(`^([1-9]\d{0,5})k@([1-9]\d{0,4})p$`)
 
-// Parse reads a list of qualities as the setting chunk_qualities holds it: comma-separated
+// Parse reads a list of qualities as the setting chunkQualities holds it: comma-separated
 // <kbps>k@<height>p, highest first, such as 3000k@720p,2000k@540p. It is the one check of the
 // setting's value and the one reading of it: anything not of that shape, out of bounds, written
 // twice or not highest first by both bit rate and height fails with ErrNotQualities.

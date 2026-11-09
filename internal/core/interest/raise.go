@@ -312,7 +312,7 @@ func (raiser *Raiser) Run(ctx context.Context, tick <-chan time.Time) {
 // withMembersAhead is interested with what a look at a series raises, each member and its live
 // files, and the titles whose reads it asks for: on the series' own page, its person's Next Up
 // alone, as that episode's own page raises it (the owner, 2026-10-25), and its read; on a season's,
-// series_episodes_ahead of that season's from their place in it, and the read of all its members.
+// seriesEpisodesAhead of that season's from their place in it, and the read of all its members.
 // The members whose stills the page shows have their own work raised, not their files', as a
 // title's page raises its artwork: on the series' page each season's still (SeasonStillMembers), on
 // a season's every one of its episodes'.

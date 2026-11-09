@@ -16,7 +16,7 @@ import (
 )
 
 // Interest is what one player wants of a film's chunks: one stream, from a position, and, once it
-// stopped, paused or gone from its page, only chunk_kept_ahead_seconds after it (D309 §1, §7). A
+// stopped, paused or gone from its page, only chunkKeptAheadSeconds after it (D309 §1, §7). A
 // player wants its picture and its sound, each an interest; a stall's offer is another, the quality
 // made ready for it (D247 §2).
 type Interest struct {
@@ -24,7 +24,7 @@ type Interest struct {
 	StreamName string
 	// PositionMs is where in the film the player wants it from.
 	PositionMs int64
-	// IsStopped is whether the player paused or left its page, and wants only chunk_kept_ahead_seconds
+	// IsStopped is whether the player paused or left its page, and wants only chunkKeptAheadSeconds
 	// of film after PositionMs made.
 	IsStopped bool
 }

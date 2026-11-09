@@ -141,7 +141,7 @@ func TestReach_AnEditorReachesOnlyTheLibrariesTheirRoleLists(t *testing.T) {
 	harness.shelveFilms(t)
 	harness.identifyFilm(t)
 	made := harness.do(t, http.MethodPost, "/roles", admin, map[string]any{
-		"name": "editors", "capabilities": []string{"edit_metadata"}, "libraries": []any{},
+		"name": "editors", "capabilities": []string{"editMetadata"}, "libraries": []any{},
 	})
 	if made.status != http.StatusCreated {
 		t.Fatalf("POST /roles = %d %s", made.status, made.body)

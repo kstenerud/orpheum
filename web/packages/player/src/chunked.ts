@@ -65,7 +65,7 @@ import { stepUpHeadroom } from "./step-up.ts";
 
 /**
  * How long a chunk may take to begin arriving: longer than the core holds a request for one a run
- * is still making, at most 30 s (chunk_hold_ms; by default it does not), so a chunk on its way is
+ * is still making, at most 30 s (chunkHoldMs; by default it does not), so a chunk on its way is
  * waited for, not given up on (D247 §10).
  */
 export const chunkFirstByteWaitMs = 30_000;
@@ -700,7 +700,7 @@ export function playChunked(
     readonly startAtBps: number;
     /**
      * The share of a measured link, in percent, a quality may take, as the playback's offer says
-     * (link_share_for_quality_percent); the starting 70% when absent or 0.
+     * (linkShareForQualityPercent); the starting 70% when absent or 0.
      */
     readonly linkSharePercent?: number | undefined;
     /**

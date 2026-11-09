@@ -22,44 +22,44 @@ type RetiredKey struct {
 func RetiredKeys() []RetiredKey {
 	return []RetiredKey{
 		{
-			Key: "remote_bit_rate_ceiling_kbps", Release: "M4",
+			Key: "remoteBitRateCeilingKbps", Release: "M4",
 			Reason: "nothing knows where a client is; a slow link shows itself by its stalls (D247 §11)",
 		},
-		renamed("resume_min_percent", InProgressAfterPercent),
-		renamed("spinning_disk_reader_limit", ReaderLimitSpinningDisk),
-		renamed("ssd_reader_limit", ReaderLimitSSD),
-		renamed("network_share_reader_limit", ReaderLimitNetworkShare),
-		renamed("unknown_disk_reader_limit", ReaderLimitUnknownDisk),
+		renamed("resumeMinPercent", InProgressAfterPercent),
+		renamed("spinningDiskReaderLimit", ReaderLimitSpinningDisk),
+		renamed("ssdReaderLimit", ReaderLimitSSD),
+		renamed("networkShareReaderLimit", ReaderLimitNetworkShare),
+		renamed("unknownDiskReaderLimit", ReaderLimitUnknownDisk),
 		{
-			Key: "system_page_recent_prepares_per_node", Release: afterBeta7,
+			Key: "systemPageRecentPreparesPerNode", Release: afterBeta7,
 			Reason: "the whole-film prepare is retired: there are no prepares to list (D344)",
 		},
 		{
-			Key: "prepare_progress_every_seconds", Release: afterBeta7,
+			Key: "prepareProgressEverySeconds", Release: afterBeta7,
 			Reason: "renamed " + string(NodeProgressEverySeconds) + ": the whole-film prepare is retired (D344)",
 		},
 		{
-			Key: "scan_video_extensions", Release: afterBeta7,
+			Key: "scanVideoExtensions", Release: afterBeta7,
 			Reason: "the extensions a scan reads as videos are the code's, each container proven to play (D360)",
 		},
 		{
-			Key: "scan_subtitle_extensions", Release: afterBeta7,
+			Key: "scanSubtitleExtensions", Release: afterBeta7,
 			Reason: "the extensions a scan reads as subtitles are the code's, the formats the node converts (D360)",
 		},
 		{
-			Key: "together_sync_wait_seconds", Release: afterBeta7,
+			Key: "togetherSyncWaitSeconds", Release: afterBeta7,
 			Reason: "a Watch Together group waits for no one but its leader, which nothing holds (D371 §2)",
 		},
 		{
-			Key: "together_start_lead_ms", Release: afterBeta7,
+			Key: "togetherStartLeadMs", Release: afterBeta7,
 			Reason: "a Watch Together group plays at once as its leader plays, and the others catch up (D371 §2, §6)",
 		},
 		{
-			Key: "together_run_up_ms", Release: afterBeta7,
+			Key: "togetherRunUpMs", Release: afterBeta7,
 			Reason: "a Watch Together player runs up to no named start; it catches up to its leader (D371 §2)",
 		},
 		{
-			Key: "discovery_another_copy_check_every_seconds", Release: afterBeta7,
+			Key: "discoveryAnotherCopyCheckEverySeconds", Release: afterBeta7,
 			Reason: "a core refused as a copy asks no more until its admin asks again or it restarts (D437 §3)",
 		},
 	}

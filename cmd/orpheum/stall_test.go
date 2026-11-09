@@ -57,7 +57,7 @@ type ladderPlaying struct {
 }
 
 // A film whose node encodes on a GPU, as the fake FFmpeg's every trial says it does, is cut at
-// chunk_qualities_hardware's qualities, and its start names the pictures its ladder offers, the
+// chunkQualitiesHardware's qualities, and its start names the pictures its ladder offers, the
 // film's own first, by stream (D323 §3; the tracks the player names, the owner, 2026-10-20).
 func TestPlayback_AGPUNodesFilmIsCutAtTheHardwareLadderAndItsStartNamesItsPictures(t *testing.T) {
 	t.Parallel()
@@ -68,7 +68,7 @@ func TestPlayback_AGPUNodesFilmIsCutAtTheHardwareLadderAndItsStartNamesItsPictur
 		t.Errorf("the start's pictures = %+v; want the ladder's, the film's own first, by stream", pictures)
 	}
 	changed := requestAPI(t, http.MethodPut, server.baseURL+"/config", token, map[string]any{
-		"valuesByKey": map[string]any{"chunk_qualities_hardware": "1600k@600p"},
+		"valuesByKey": map[string]any{"chunkQualitiesHardware": "1600k@600p"},
 	})
 	if changed.status != http.StatusOK && changed.status != http.StatusNoContent {
 		t.Fatalf("PUT /config = %d %s", changed.status, changed.body)
@@ -77,7 +77,7 @@ func TestPlayback_AGPUNodesFilmIsCutAtTheHardwareLadderAndItsStartNamesItsPictur
 		token, nil)
 	if master.status != http.StatusOK || !strings.Contains(master.body, "q1600k600p/stream.m3u8") ||
 		strings.Contains(master.body, "q2000k540p") {
-		t.Errorf("the master playlist = %d:\n%s\nwant chunk_qualities_hardware's 1600k@600p alone below the film's own",
+		t.Errorf("the master playlist = %d:\n%s\nwant chunkQualitiesHardware's 1600k@600p alone below the film's own",
 			master.status, master.body)
 	}
 }

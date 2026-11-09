@@ -12,11 +12,11 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-// The share of a link's measured speed a quality may take is link_share_for_quality_percent: the rest
+// The share of a link's measured speed a quality may take is linkShareForQualityPercent: the rest
 // is the sound's, a peak's and the link's own variation (D247 §6; slow-links.md §2, players' 0.7). The
 // web client's player chooses by the same share, read from the client settings.
 
-// linkSharePercent is link_share_for_quality_percent.
+// linkSharePercent is linkShareForQualityPercent.
 func (service *Service) linkSharePercent(ctx context.Context) (int64, error) {
 	percent, err := service.settings.Int(ctx, settings.LinkShareForQualityPercent)
 	if err != nil {
@@ -58,7 +58,7 @@ type Offer struct {
 	SoundStreamName string
 	FromMs          int64
 	// LinkSharePercent is the share of a measured link the quality was chosen within,
-	// link_share_for_quality_percent, which the player chooses its own qualities by (D247 §6).
+	// linkShareForQualityPercent, which the player chooses its own qualities by (D247 §6).
 	LinkSharePercent int64
 	// IsOnTime is whether the film was cut on time for it, which its playback keeps to its end (D269
 	// §3): its file has no index, or its keyframes could not be had in time or at all (D344 §2).

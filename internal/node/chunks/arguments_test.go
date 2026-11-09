@@ -243,7 +243,7 @@ func TestArguments_StartASoundAChunkEarlyAndCutItAtTheBounds(t *testing.T) {
 			"track 1's boosted mix", mapped, mix)
 	}
 	if rate := valueOf(arguments, "-b:a"); rate != "96k" {
-		t.Errorf("the sound is encoded at %s; want the run's 96k (chunk_sound_kbps)", rate)
+		t.Errorf("the sound is encoded at %s; want the run's 96k (chunkSoundKbps)", rate)
 	}
 }
 

@@ -21,7 +21,7 @@ type Disposition string
 const (
 	// Playing is a player playing, or about to: the zero value, as it starts.
 	Playing Disposition = ""
-	// Paused is a player paused: likely to play again. Its runs finish chunk_kept_ahead_seconds ahead.
+	// Paused is a player paused: likely to play again. Its runs finish chunkKeptAheadSeconds ahead.
 	Paused Disposition = "paused"
 	// Left is a player that left its page, playing nothing else: maybe back. Its runs finish as a
 	// paused player's do.
@@ -105,7 +105,7 @@ func (service *Service) stopUnwanted(ctx context.Context, fileID int64) error {
 // InterestsIn is every interest the playbacks of fileID hold now (chunks.Interests): each one's
 // picture and sound, each from its own position (D355), stopped once its player paused or left,
 // and the lower quality and sound a stall made ready for it (D247 §2); none once its player went to
-// another film, or fell silent while playing for chunk_interest_lapses_after_seconds (D309 §3).
+// another film, or fell silent while playing for chunkInterestLapsesAfterSeconds (D309 §3).
 func (service *Service) InterestsIn(fileID int64) []chunks.Interest {
 	now := service.clock.Now()
 	lapsesAfter := service.timingNow().interestLapsesAfter

@@ -25,7 +25,7 @@ func mountDiagnostics(
 	return mountDebug(ctx, mux, config, settingsService, logger)
 }
 
-// keepLogLevelCurrent writes the log at the level the log_level setting names, now and at each
+// keepLogLevelCurrent writes the log at the level the logLevel setting names, now and at each
 // change, with no restart (D347): its "file" is fileLevel, the config file's log.level. A value that
 // cannot be read leaves the level as it was, and says so. A nil level, a test's, is left alone.
 func keepLogLevelCurrent(

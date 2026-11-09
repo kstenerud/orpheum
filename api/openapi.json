@@ -4350,7 +4350,7 @@
       "NodeBody": {
         "properties": {
           "isConnected": {
-            "description": "Whether it is connected now: polling for its commands, or heard within node_silent_after_seconds",
+            "description": "Whether it is connected now: polling for its commands, or heard within nodeSilentAfterSeconds",
             "type": "boolean"
           },
           "name": {
@@ -5129,7 +5129,7 @@
             "type": "integer"
           },
           "isWanted": {
-            "description": "Whether the core is asking: should_map_ports on and a discovery publishing it",
+            "description": "Whether the core is asking: shouldMapPorts on and a discovery publishing it",
             "type": "boolean"
           },
           "mappings": {
@@ -6849,7 +6849,7 @@
             "type": "boolean"
           },
           "lastChars": {
-            "description": "An API key's last characters, secret_last_chars_shown of them",
+            "description": "An API key's last characters, secretLastCharsShown of them",
             "type": "string"
           },
           "name": {
@@ -11531,7 +11531,7 @@
             "session": []
           }
         ],
-        "summary": "Say this session shows a film's or series' page, or a series' season's, which raises its work, again every interest_said_every_seconds while it does (D324)",
+        "summary": "Say this session shows a film's or series' page, or a series' season's, which raises its work, again every interestSaidEverySeconds while it does (D324)",
         "tags": [
           "Browse"
         ],
@@ -11599,7 +11599,7 @@
             "session": []
           }
         ],
-        "summary": "Say this session shows the tiles of these films, series and videos in view, which raises the work of their pictures, again every interest_said_every_seconds while it does (D362, D324)",
+        "summary": "Say this session shows the tiles of these films, series and videos in view, which raises the work of their pictures, again every interestSaidEverySeconds while it does (D362, D324)",
         "tags": [
           "Browse"
         ],

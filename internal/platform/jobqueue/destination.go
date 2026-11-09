@@ -65,7 +65,7 @@ type ProbePolicy interface {
 // The probe back-off a queue given no ProbePolicy keeps, and one whose policy cannot be read falls
 // back to: 30 s doubling to an hour, D231 §6's. They are fixed here, not settings: this package
 // knows none, and a program sets its own back-off through ProbePolicy (Orpheum's are
-// destination_first_probe_delay_seconds and destination_longest_probe_delay_seconds).
+// destinationFirstProbeDelaySeconds and destinationLongestProbeDelaySeconds).
 const (
 	FirstProbeDelay   = 30 * time.Second
 	LongestProbeDelay = time.Hour
