@@ -20,6 +20,7 @@ host_names = []
 # Where an admin administers from beside every private network and loopback, always home (D452 §1).
 home_networks = []
 not_home_networks = []
+address_at_home_from_default_route = false
 # The dev loop serves loopback alone, so it needs no port of its own for this machine (D334 §4).
 this_machine_listen = ""
 # The dev loop was installed by neither route, so the System page shows both ways to update (D450 §2).

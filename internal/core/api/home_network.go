@@ -46,13 +46,15 @@ func (server *Server) thisMachineHint() string {
 
 // markingHome notes in each request's context whether it came from a home network, or through the
 // port only the server's own machine reaches; for a request over WebRTC, rtcapi's judgement of its
-// connection's pair, which counts a direct pair from home alone (D439).
+// connection's pair, which counts a direct pair from home alone (D439). A direct request from home
+// teaches the address at home on the way (D452 §3).
 func (server *Server) markingHome(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		isHome := server.isHomeAddress(request.RemoteAddr) || server.isOnThisMachinesPort(request)
 		if rtcapi.IsOverWebRTC(request.Context()) {
 			isHome = rtcapi.IsDirectlyFromHome(request.Context())
 		}
+		server.learnAddressAtHome(request, isHome)
 		next.ServeHTTP(writer, request.WithContext(context.WithValue(request.Context(), homeKey{}, isHome)))
 	})
 }
@@ -106,4 +108,9 @@ func pathOf(ctx context.Context) string {
 // decides it, from where the request came and the person's stored setting; nothing a page sends.
 func administersHere(ctx context.Context, principal auth.Principal) bool {
 	return principal.IsAdmin() && (isFromHome(ctx) || principal.AdministersFromAway())
+}
+
+// Home is the rule SetHome named; nil for none.
+func (server *Server) Home() *home.Rule {
+	return server.homeRule.Load()
 }

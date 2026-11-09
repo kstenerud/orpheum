@@ -11,6 +11,8 @@ export const enPeople = {
     explain:
       "This server has no admin yet. Enter its setup code, and choose the first admin's name and password. The code is in SETUP-CODE.txt in the server's data folder (appdata/orpheum), and in its container's log: on OpenMediaVault, Services > Compose > Containers, orpheum-core, Logs; elsewhere, docker logs orpheum-core.",
     code: "Setup code",
+    addressAtHome:
+      "This server's address in the house (its IP address, which devices at home reach it at)",
     submit: "Create the admin",
     back: "Back",
     wrongCode:

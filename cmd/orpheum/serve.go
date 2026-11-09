@@ -181,6 +181,8 @@ type openedServices struct {
 	cache       *store.Cache
 	settings    *settings.Service
 	secrets     *secrets.Store
+	// addressAtHome is the server's address at home, learned, set or configured (D452 §3, §4).
+	addressAtHome *home.AddressAtHome
 	// core is the core's services, assembled.
 	core *assembly.Services
 	// queue is the one job queue, which the certificates' renewals are queued on.
@@ -265,6 +267,9 @@ func wireCore(
 ) (openedServices, api.Dependencies, error) {
 	var err error
 	if opened.settings, err = seededSettings(ctx, opened.database, outside.machineZone, logger); err != nil {
+		return opened, api.Dependencies{}, err
+	}
+	if opened.addressAtHome, err = keepAddressAtHome(ctx, config, server, opened, logger); err != nil {
 		return opened, api.Dependencies{}, err
 	}
 	secretKey, err := loadOrCreateSecretKey(opened.directories, logger)

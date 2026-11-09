@@ -12,7 +12,6 @@ import (
 	"net/netip"
 	"os"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/pion/webrtc/v4"
@@ -66,7 +65,7 @@ func discoveryParts(
 		Clock:  clock.System{},
 		Logger: logger, Version: thisBuild().Version, APIMajor: apiMajor, Suggested: discovery.Suggested(),
 		Publisher:  discovery.Publisher(),
-		Candidates: heartbeatCandidates(config, mapped.Candidates),
+		Candidates: heartbeatCandidates(config, mapped.Candidates, opened.addressAtHome.Address),
 		Answerer:   answerer, OnClaimed: onClaimed,
 		Random: rand.Reader,
 		Links:  linksOf(opened.auth, opened.together), OfferKey: offerKeyOf(opened.auth, opened.together),
@@ -96,12 +95,22 @@ func databaseHealth(database *store.Database) func(context.Context) error {
 }
 
 // heartbeatCandidates is what the core may be reached at, read afresh for each heartbeat: the machine's own
-// addresses, the router's mappings, and the addresses the config names (the protocol's §2.4).
-func heartbeatCandidates(config Config, mapped func() []discoveryproto.Candidate) func() []discoveryproto.Candidate {
+// addresses, the router's mappings, and the addresses the config names (the protocol's §2.4); in a
+// container that sees none of the machine's addresses and is told none at home, the address at home
+// as it is now, learned or set, at the HTTPS port (D452 §3).
+func heartbeatCandidates(
+	config Config, mapped func() []discoveryproto.Candidate, atHome func() netip.Addr,
+) func() []discoveryproto.Candidate {
 	return func() []discoveryproto.Candidate {
 		var candidates []discoveryproto.Candidate
 		if config.Discovery.SendInterfaceAddresses {
 			candidates = interfaceCandidates(httpsPort(config))
+		} else if address := atHome(); len(config.Discovery.LANAddresses) == 0 && address.IsValid() &&
+			httpsPort(config) != 0 {
+			candidates = append(candidates, discoveryproto.Candidate{
+				Address: address.String(), Port: httpsPort(config), Source: discoveryproto.SourceConfigured,
+				Scope: discoveryproto.ScopeLAN,
+			})
 		}
 		return append(append(candidates, mapped()...), config.Discovery.configuredCandidates()...)
 	}
@@ -306,15 +315,7 @@ func defaultGateway() (netip.Addr, error) {
 // httpsPort is the port a client reaches the core on through its discovery, whose names are served
 // over HTTPS: https.listen's; zero when it names none.
 func httpsPort(config Config) int {
-	_, port, err := net.SplitHostPort(config.HTTPS.Listen)
-	if err != nil {
-		return 0
-	}
-	number, err := strconv.Atoi(port)
-	if err != nil {
-		return 0
-	}
-	return number
+	return portOf(config.HTTPS.Listen)
 }
 
 // interfaceCandidates are the machine's own addresses at port: each public one (discoveryproto.IsPublic),

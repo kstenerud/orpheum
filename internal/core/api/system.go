@@ -170,6 +170,8 @@ type ServerBody struct {
 	// IsMultipathTCPOn says the machine's kernel has MPTCP on. Orpheum opens no MPTCP socket, so it is
 	// a note on what the machine's other programs may open, not a fault of the server's (D454 §4).
 	IsMultipathTCPOn bool `json:"isMultipathTcpOn"`
+	// AddressAtHome is the server's address in the house, which devices at home reach it at (D452 §3).
+	AddressAtHome AddressAtHomeBody `json:"addressAtHome"`
 }
 
 // BuildBody is what a binary was built from (D225).
@@ -338,6 +340,7 @@ func (server *Server) registerSystem() {
 		Summary:    "Every fact about the server and each node, with doctor's findings: the System page (D225)",
 		Extensions: callableBy(capabilityAdmin),
 	}, server.getSystem)
+	server.registerAddressAtHome()
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "setReaderLimit", Method: http.MethodPut, Path: "/nodes/{name}/reader-limit",
 		Tags: []string{tagRunningIt}, DefaultStatus: http.StatusNoContent,
@@ -414,6 +417,7 @@ func (server *Server) getSystem(ctx context.Context, input *AuthorizationHeader)
 	if err != nil {
 		return nil, server.logInternalError(ctx, "measure the databases", err)
 	}
+	output.Body.Server.AddressAtHome = server.addressAtHomeBody()
 	output.Body.Findings, err = server.collectFindings(ctx, dependencies)
 	if err != nil {
 		return nil, err

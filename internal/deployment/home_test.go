@@ -52,3 +52,32 @@ func TestWrite_TheCoreCountsEveryPrivateNetworkButTheTunnelsAsHome(t *testing.T)
 		t.Errorf("with no tunnel the networks never home are %#v; want an empty list", got)
 	}
 }
+
+// With no tunnel the core shares the machine's network (D454 §5): it guesses its address at home from
+// the default route's interface, else the house's network, one of its own interfaces', is not home and
+// no browser at home could teach it, and sends the machine's addresses. Behind a tunnel its default
+// route is its container's bridge, which would make the internet home, so it guesses none (D452 §3).
+func TestWrite_OnlyACoreWithNoTunnelGuessesItsAddressAtHomeFromTheDefaultRoute(t *testing.T) {
+	t.Parallel()
+	dir := begun(t, Staging)
+	values := filledValues(t, Staging)
+	if err := Write(dir, values, runtime); err != nil {
+		t.Fatal(err)
+	}
+	config := decodeTOML(t, filepath.Join(dir, coreConfig))
+	if fromRoute, sends := config["server"]["address_at_home_from_default_route"],
+		config["discovery"]["send_interface_addresses"]; fromRoute != any(false) || sends != any(false) {
+		t.Errorf("behind a tunnel, the core guesses from the default route: %v, sends its interfaces: %v; want neither",
+			config["server"]["address_at_home_from_default_route"], config["discovery"]["send_interface_addresses"])
+	}
+	values.VPS.Endpoint, values.VPS.PublicIPv4, values.VPS.PublicIPv6, values.VPS.PublicKey = "", "", "", ""
+	if err := Write(dir, values, runtime); err != nil {
+		t.Fatal(err)
+	}
+	config = decodeTOML(t, filepath.Join(dir, coreConfig))
+	if fromRoute, sends := config["server"]["address_at_home_from_default_route"],
+		config["discovery"]["send_interface_addresses"]; fromRoute != any(true) || sends != any(true) {
+		t.Errorf("with no tunnel, the core guesses from the default route: %v, sends its interfaces: %v; want both",
+			config["server"]["address_at_home_from_default_route"], config["discovery"]["send_interface_addresses"])
+	}
+}

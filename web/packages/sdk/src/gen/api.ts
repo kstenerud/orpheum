@@ -1985,6 +1985,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system/address-at-home": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set the server's address in the house, which devices at home reach it at (D452 §4) */
+        put: operations["setAddressAtHome"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/discovery": {
         parameters: {
             query?: never;
@@ -2520,6 +2537,18 @@ export interface components {
             nodeName: string;
             /** @description One of the node's configured roots, or a folder inside one */
             path: string;
+        };
+        AddressAtHomeBody: {
+            address: string;
+            /**
+             * Format: int64
+             * @description Unix milliseconds; absent when configured, guessed or none
+             */
+            at?: number;
+            learnedFrom?: string;
+            /** @enum {string} */
+            origin: "configured" | "learned" | "set" | "guessed" | "";
+            setByName?: string;
         };
         AdminAwayInputBody: {
             /** @enum {string} */
@@ -4957,6 +4986,7 @@ export interface components {
             unplacedCount: number;
         };
         ServerBody: {
+            addressAtHome: components["schemas"]["AddressAtHomeBody"];
             build: components["schemas"]["BuildBody"];
             certificate?: components["schemas"]["CertificateBody"];
             databases: components["schemas"]["DatabaseBody"][] | null;
@@ -4980,6 +5010,9 @@ export interface components {
             locator: string;
             token: string;
             user: components["schemas"]["UserBody"];
+        };
+        SetAddressAtHomeInputBody: {
+            address: string;
         };
         SetFilePreferencesInputBody: {
             audioChoice?: components["schemas"]["AudioChoiceBody"];
@@ -5029,12 +5062,15 @@ export interface components {
             settings: components["schemas"]["SettingBody"][] | null;
         };
         SetupInputBody: {
+            addressAtHome?: string;
             name: string;
             password: string;
             /** @description The one-time code the server logged at start */
             setupCode: string;
         };
         SetupOutputBody: {
+            addressAtHome?: string;
+            isAddressAtHomeKnown?: boolean;
             /** @description No one can sign in until the first admin is made with the setup code */
             isRequired: boolean;
         };
@@ -10220,6 +10256,37 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SystemVideoBody"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setAddressAtHome: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetAddressAtHomeInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

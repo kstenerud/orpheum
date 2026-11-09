@@ -94,6 +94,39 @@
         ],
         "type": "object"
       },
+      "AddressAtHomeBody": {
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "at": {
+            "description": "Unix milliseconds; absent when configured, guessed or none",
+            "format": "int64",
+            "type": "integer"
+          },
+          "learnedFrom": {
+            "type": "string"
+          },
+          "origin": {
+            "enum": [
+              "configured",
+              "learned",
+              "set",
+              "guessed",
+              ""
+            ],
+            "type": "string"
+          },
+          "setByName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "address",
+          "origin"
+        ],
+        "type": "object"
+      },
       "AdminAwayInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -7028,6 +7061,9 @@
       },
       "ServerBody": {
         "properties": {
+          "addressAtHome": {
+            "$ref": "#/components/schemas/AddressAtHomeBody"
+          },
           "build": {
             "$ref": "#/components/schemas/BuildBody"
           },
@@ -7074,7 +7110,8 @@
           "startedAt",
           "disks",
           "databases",
-          "isMultipathTcpOn"
+          "isMultipathTcpOn",
+          "addressAtHome"
         ],
         "type": "object"
       },
@@ -7120,6 +7157,20 @@
           "deviceSecret",
           "locator",
           "user"
+        ],
+        "type": "object"
+      },
+      "SetAddressAtHomeInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "maxLength": 15,
+            "minLength": 7,
+            "type": "string"
+          }
+        },
+        "required": [
+          "address"
         ],
         "type": "object"
       },
@@ -7297,6 +7348,10 @@
       "SetupInputBody": {
         "additionalProperties": false,
         "properties": {
+          "addressAtHome": {
+            "maxLength": 15,
+            "type": "string"
+          },
           "name": {
             "minLength": 1,
             "type": "string"
@@ -7320,6 +7375,12 @@
       },
       "SetupOutputBody": {
         "properties": {
+          "addressAtHome": {
+            "type": "string"
+          },
+          "isAddressAtHomeKnown": {
+            "type": "boolean"
+          },
           "isRequired": {
             "description": "No one can sign in until the first admin is made with the setup code",
             "type": "boolean"
@@ -16797,6 +16858,46 @@
           "Playback"
         ],
         "x-orpheum-capability": "signedIn"
+      }
+    },
+    "/system/address-at-home": {
+      "put": {
+        "operationId": "setAddressAtHome",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetAddressAtHomeInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Set the server's address in the house, which devices at home reach it at (D452 §4)",
+        "tags": [
+          "Running it"
+        ],
+        "x-orpheum-capability": "admin"
       }
     },
     "/system/discovery": {

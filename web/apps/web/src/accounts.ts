@@ -162,9 +162,21 @@ export async function signInThisDevice(
   session.signIn(token, { deviceId: user.device?.id, deviceSecret, locator });
 }
 
-/** Whether the server still needs its first admin, asked before anyone signs in. */
-export async function isSetupRequired(api: Api): Promise<boolean> {
-  return dataOrThrow(await api.GET("/setup")).isRequired;
+/**
+ * Whether the server still needs its first admin, asked before anyone signs in, and, while it does,
+ * its address in the house as it knows or guesses it, to a page at home (D452 §4).
+ */
+export async function setupNeeded(api: Api): Promise<{
+  readonly isRequired: boolean;
+  readonly addressAtHome: string;
+  readonly isAddressAtHomeKnown: boolean;
+}> {
+  const setup = dataOrThrow(await api.GET("/setup"));
+  return {
+    isRequired: setup.isRequired,
+    addressAtHome: setup.addressAtHome ?? "",
+    isAddressAtHomeKnown: setup.isAddressAtHomeKnown ?? false,
+  };
 }
 
 /**
@@ -173,10 +185,18 @@ export async function isSetupRequired(api: Api): Promise<boolean> {
  */
 export async function completeSetup(
   api: Api,
-  first: { readonly setupCode: string; readonly name: string; readonly password: string },
+  first: {
+    readonly setupCode: string;
+    readonly name: string;
+    readonly password: string;
+    readonly addressAtHome?: string;
+  },
   idempotencyKey: string,
 ): Promise<void> {
-  dataOrThrow(await api.POST("/setup", { body: { ...first }, ...idempotent(idempotencyKey) }));
+  const { addressAtHome, ...rest } = first;
+  const body =
+    addressAtHome === undefined || addressAtHome === "" ? rest : { ...rest, addressAtHome };
+  dataOrThrow(await api.POST("/setup", { body, ...idempotent(idempotencyKey) }));
 }
 
 /**
