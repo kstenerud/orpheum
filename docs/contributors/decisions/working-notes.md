@@ -27383,12 +27383,20 @@ provider's text where it enters, a NUL included (`TestRequests_TextOpenSubtitles
 where rule 3 would refuse the whole answer; a TMDB answer is read strictly, so there a NUL now refuses
 the answer rather than being cleaned. Both are reported to the owner, not loosened.
 
-**Proven by:** `TestUnmarshal_RefusesWhatEachRuleRefuses`,
-`TestUnmarshal_RefusesAKeyNamingAFieldOnlyInAnotherCase`,
-`TestUnmarshal_AcceptsKeysInTheirFieldsCaseAndFreeFormKeysInAnyCase`,
-`TestUnmarshal_HoldsEachLimitAtItAndRefusesPastIt`, `TestUnmarshal_AnUnknownFieldIsAccepted`,
-`TestUnmarshal_DecodesADocumentAsEncodingJSONDoes`,
-`TestStrictjson_IsInternalPlatformStrictjsonByteForByte`; at the boundaries,
-`TestRequestBody_AKeySaidTwiceIsRefused`, `TestRequestBody_AKeyNamingAFieldInAnotherCaseIsRefused`,
-`TestStatus_AKeySaidTwiceIsRefused` (a node's message), `TestCall_AnAnswerWithAKeySaidTwiceIsRefused`
-(the discovery's answer), `TestSearch_AReplyWithAKeySaidTwiceIsRefused` (TMDB).
+**Proven by:**
+- 1: `TestUnmarshal_RefusesWhatEachRuleRefuses`, `TestUnmarshal_AcceptsWhatTheRulesAllow`
+- 2: `TestUnmarshal_RefusesWhatEachRuleRefuses`
+- 3: `TestUnmarshal_RefusesWhatEachRuleRefuses`
+- 4: `TestUnmarshal_RefusesWhatEachRuleRefuses`,
+  `TestDecode_RefusesASecondValueThatEncodingJSONsDecoderLeftUnread`
+- 5: `TestUnmarshal_HoldsEachLimitAtItAndRefusesPastIt`, `TestLimits_AreBONJSONsRecommendedDefaults`,
+  `TestCheck_RefusesADocumentPastItsBound`
+- 6: `TestUnmarshal_AnUnknownFieldIsAccepted`, `TestUnmarshal_DecodesADocumentAsEncodingJSONDoes`
+- 7: `TestRequestBody_AKeySaidTwiceIsRefused` (an API body), `TestStatus_AKeySaidTwiceIsRefused` (a
+  node's message), `TestCall_AnAnswerWithAKeySaidTwiceIsRefused` (the discovery's answer),
+  `TestSearch_AReplyWithAKeySaidTwiceIsRefused` (TMDB),
+  `TestStrictjson_IsInternalPlatformStrictjsonByteForByte` (the discovery packages' twin)
+- 8: `TestUnmarshal_RefusesAKeyNamingAFieldOnlyInAnotherCase`,
+  `TestUnmarshal_AcceptsKeysInTheirFieldsCaseAndFreeFormKeysInAnyCase`,
+  `TestUnmarshal_FollowsEncodingJSONsChoiceBetweenFieldsClaimingOneName`,
+  `TestRequestBody_AKeyNamingAFieldInAnotherCaseIsRefused`
