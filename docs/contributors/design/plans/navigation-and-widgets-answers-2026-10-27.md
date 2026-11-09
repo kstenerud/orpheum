@@ -2631,3 +2631,30 @@ account, signed in at orpheum.dev and played a film. Found by the lead:
 - **The core published Docker's bridge gateways as home addresses.** Beside the address at home
   (172.17.0.2 in the sandbox), its published names included 172.18.0.1, 172.19.0.1 and 172.20.0.1, so a
   NAS running Docker would publish each of its bridges. Only the address at home should be published.
+
+## Wire names made consistent before v0.3.3 (the owner, 2026-11-09)
+
+A read of every JSON key the Go code sends found the keys camelCase throughout (tagliatelle), and five
+places where one kind of thing is named two ways. The owner chose the fixes ("Yes go with the picks
+above") and they land before v0.3.3 is tagged: once a tester runs a release, a renamed field is one an
+older peer quietly ignores (the strict decoding allows unknown fields), so each rename would need a period of both.
+
+- **item, not title.** The owner: "We switched from title to item before so that we'd be forward
+  compatible with some future plans, so those fields were probably missed in the revamp." The routes
+  are `/items/{id}` and casts, jobs and now playing send `itemId`; Next Up, plays, watched and films
+  without sound still send `titleId`, and the item endpoint answers a `TitleBody`.
+- **film, not movie.** Every key says film (`filmMs`, `filmOfExtra`, `filmsWithoutSound`); the `kind`
+  values say `"movie"`.
+- **Value strings are camelCase**, as the keys are: snake (`file_name`, `slow_links`, `direct_ipv4`,
+  `node_away`, the job kinds) and kebab (`network-filesystem`, `watch-limit`, `sound-timing`) values
+  change. FFmpeg's encoder names (`h264_qsv`) and the codec ladders' names (`h264-aac`, `hevc-hdr10`)
+  stay, as other tools' identifiers.
+- **A true-or-false field starts with is, has or can**, as 131 do: `playing`, `buffering`, `behind`,
+  `pageHidden` and `held` take it. The verb forms (`showsDebugTools`, `remembersPlace`, `usesGpu`) and
+  the browser's own `ctrlKey` and kin stay.
+- **A duration names its unit**: the discovery protocol's `expiresIn` (seconds) becomes
+  `expiresInSeconds`. The discovery's state file's `namedAt`, a date string where every other time is
+  Unix milliseconds, follows the rest.
+
+The web client's HTTP types are generated and follow; the together and live messages' hand-written
+types change with them.
