@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { createApi } from "@orpheum/sdk";
+import { createApi, togetherProtocolVersion } from "@orpheum/sdk";
 import type { JSX, ReactNode } from "react";
 
 import { InputLayer } from "./input-layer.tsx";
@@ -163,7 +163,7 @@ export function testServices(
     // page plays at once rather than after sendingKnownWithinMs, 3 s a test: a test of Watch Together
     // or of casting passes its own stand-in server.
     openTogetherSocket: (listeners) => {
-      listeners.onMessage(JSON.stringify({ v: 3, type: "sending" }));
+      listeners.onMessage(JSON.stringify({ v: togetherProtocolVersion, type: "sending" }));
       return { send: () => undefined, close: () => undefined };
     },
     canFollowAGroup: () => true,

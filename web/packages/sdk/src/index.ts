@@ -204,6 +204,7 @@ export {
   noRight,
   parseTogetherMessage,
   startingTuning,
+  togetherProtocolVersion,
 } from "./together.ts";
 export type {
   CannotKeepUp,

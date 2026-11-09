@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { OpenTogetherSocket } from "@orpheum/sdk";
+import { togetherProtocolVersion, type OpenTogetherSocket } from "@orpheum/sdk";
 import { act } from "react";
 
 /**
@@ -107,7 +107,7 @@ export function fakeTogetherServer(): FakeTogetherServer {
     drop: () => closeWith(last(), 1006),
     say: (message) =>
       served(() => {
-        device().onMessage(JSON.stringify({ v: 3, ...message }));
+        device().onMessage(JSON.stringify({ v: togetherProtocolVersion, ...message }));
       }),
   };
 }
