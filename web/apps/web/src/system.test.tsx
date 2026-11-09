@@ -342,7 +342,7 @@ it("the System page says a machine on another version of Orpheum needs updating 
 
 it("the System page says what is not answering, and each outside service's limits and state (D231 §5, §12)", async () => {
   const down = {
-    destination: "tmdb-api",
+    destination: "tmdbApi",
     name: "TMDB",
     reason: "unreachable",
     downAt: 1_790_000_000_000,
@@ -368,7 +368,7 @@ it("the System page says what is not answering, and each outside service's limit
             providers: [
               {
                 name: "TMDB",
-                destination: "tmdb-api",
+                destination: "tmdbApi",
                 ratePerSecond: 40,
                 backgroundRatePerSecond: 32,
                 credentials: "accepted",

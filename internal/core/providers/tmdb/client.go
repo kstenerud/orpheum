@@ -52,7 +52,7 @@ func New(httpClient *http.Client, baseURL string, keys Keys, provider *providers
 	return &Client{http: httpClient, baseURL: strings.TrimSuffix(baseURL, "/"), keys: keys, provider: provider}
 }
 
-// APIService is TMDB's API as a provider service: its destination tmdb-api, the rate we keep to
+// APIService is TMDB's API as a provider service: its destination tmdbApi, the rate we keep to
 // with it and background work's share of it (tmdbRequestsPerSecond,
 // tmdbBackgroundRateSharePercent), and its key, whose absence or refusal parks it until the
 // key changes (D231 §5).
@@ -75,7 +75,7 @@ func APIService(
 	}, health, clockSource)
 }
 
-// ImagesService is TMDB's image server as a provider service: its destination tmdb-images, and the
+// ImagesService is TMDB's image server as a provider service: its destination tmdbImages, and the
 // rate we keep to with it, the same settings as its API's, each host keeping to them apart (it
 // documents only 20 connections at once, and we fetch one image at a time). It needs no key.
 func ImagesService(

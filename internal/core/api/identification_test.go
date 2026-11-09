@@ -307,7 +307,7 @@ func TestIdentification_ARefreshWhileTMDBIsDownSaysWhatItWaitsFor(t *testing.T) 
 	}
 	harness.queue.Park(t.Context(), jobs.Parking{Destination: jobs.DestinationTMDBAPI, Reason: "unreachable"})
 	refreshed := harness.do(t, http.MethodPost, "/items/10/refresh", admin, nil)
-	want := fmt.Sprintf(`"waitingFor":{"destination":"tmdb-api","name":"TMDB","reason":"unreachable","downAt":%d`,
+	want := fmt.Sprintf(`"waitingFor":{"destination":"tmdbApi","name":"TMDB","reason":"unreachable","downAt":%d`,
 		harness.clock.Now().UnixMilli())
 	if refreshed.status != http.StatusAccepted || !strings.Contains(refreshed.body, want) {
 		t.Errorf("a refresh while TMDB is down = %d %s; want %s", refreshed.status, refreshed.body, want)

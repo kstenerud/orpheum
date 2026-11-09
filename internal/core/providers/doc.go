@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package providers is the outside hosts as services (D231 §5, the owner 2026-09-30): each host
-// the server calls, TMDB's API (tmdb-api), TMDB's image server (tmdb-images) and OpenSubtitles,
+// the server calls, TMDB's API (tmdbApi), TMDB's image server (tmdbImages) and OpenSubtitles,
 // is one Service that owns its health, the request rate we keep to, its quota remaining and when
 // it resets, and its credentials' state. A caller says how much its request matters, someone
 // waiting, a person's request or background work, and asks; the service answers now, at a time,

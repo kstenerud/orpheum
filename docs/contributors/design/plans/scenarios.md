@@ -379,7 +379,7 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
     queued again**.
   - In the morning 200 films are "unidentified". On the identify page they look exactly like
     films awaiting their first match. The only fix is the Refresh button, 200 times.
-- **Design:** D231. The first down-class failure parks `tmdb-api`, and one jittered probe runs
+- **Design:** D231. The first down-class failure parks `tmdbApi`, and one jittered probe runs
   from 30 s up to about 1 h. Nothing spends an attempt, and the queue resumes in priority order.
   - Under Q5, even a lost job is derived again, from `identification_state = unidentified` with
     no answer recorded.
@@ -558,7 +558,7 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
 - **Design:** D231 keeps `RetryAtError`, but does not say whether "blocked" becomes a
   destination state that is parked until the key changes and shown on the System page.
 - **Status:** **holds** (`TestScenario_S73_ARefusedKeyParksUntilTheKeyChanges`, 2026-09-30): a missing
-  or refused key parks `tmdb-api` until the secret changes; TMDB is asked once, the System page says
+  or refused key parks `tmdbApi` until the secret changes; TMDB is asked once, the System page says
   the key was refused, and the fetches resume at no cost when it is changed.
 
 ### S74 — A file is replaced (new payload hash) while its prepare, loudness or subtitle job is queued
