@@ -67,19 +67,19 @@ sed -i.bak \
 sh "$dir.install.sh" --no-pull --image "$image" --dir "$dir" >"$dir.install.log" 2>&1 || true
 grep "^orpheum:   " "$dir.install.log" >&2 || true
 
-gateway=$(docker network inspect "${COMPOSE_PROJECT_NAME}_outside" \
-	--format '{{range .IPAM.Config}}{{.Gateway}} {{end}}' | tr ' ' '\n' | grep -m1 '\.')
-sed -i.bak "s|^home_networks = \[\(.*\)\]|home_networks = [\1, \"$gateway/32\"]|" "$dir/core/persistent/config.toml"
-(cd "$dir" && docker compose restart orpheum-core >/dev/null 2>&1)
+# The test administers through this machine's own port, which is home (D334 §4): the house's port
+# arrives from Docker's gateway, one of the core's own interface networks, never home (D452 §1), and a
+# network home_networks lists is under the same exceptions.
+core="http://127.0.0.1:$((port + 1))/api/v1"
 tries=0
-until curl -sf "http://127.0.0.1:$port/api/v1/setup" >/dev/null 2>&1; do
+until curl -sf "$core/setup" >/dev/null 2>&1; do
 	tries=$((tries + 1))
 	[ "$tries" -lt 60 ] || { say "the core did not answer"; (cd "$dir" && docker compose logs --tail 30) >&2; exit 1; }
 	sleep 2
 done
 
 status=0
-python3 "$here/hwplay.py" --dir "$dir" --media "$media" --core "http://127.0.0.1:$port/api/v1" \
+python3 "$here/hwplay.py" --dir "$dir" --media "$media" --core "$core" \
 	${expect:+--expect "$expect"} || status=$?
 if $keep; then
 	say "kept: $dir (COMPOSE_PROJECT_NAME=hwtest)"

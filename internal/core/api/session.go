@@ -7,10 +7,12 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"net/netip"
 
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/home"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
@@ -21,6 +23,9 @@ type SetupInput struct {
 		SetupCode string `doc:"The one-time code the server logged at start" json:"setupCode" minLength:"1"`
 		Name      string `json:"name"                                         minLength:"1"`
 		Password  string `json:"password"                                     minLength:"1"`
+		// AddressAtHome is the server's private IPv4 address in the house, which devices at home reach
+		// it at, kept as the admin's setting of it; absent leaves it to be learned (D452 §4).
+		AddressAtHome string `json:"addressAtHome,omitempty" maxLength:"15"`
 	}
 }
 
@@ -230,12 +235,19 @@ func (server *Server) freshLocator(ctx context.Context, input *MeInput) (*Locato
 type SetupOutput struct {
 	Body struct {
 		IsRequired bool `doc:"No one can sign in until the first admin is made with the setup code" json:"isRequired"`
+		// AddressAtHome is the server's address in the house as known, else its guess, for the setup
+		// page to offer: only while setup is required, to a request from home (D452 §4).
+		AddressAtHome string `json:"addressAtHome,omitempty"`
+		// IsAddressAtHomeKnown is whether AddressAtHome is known (configured, learned or set), not a
+		// guess the admin confirms.
+		IsAddressAtHomeKnown bool `json:"isAddressAtHomeKnown,omitempty"`
 	}
 }
 
 // getSetup says whether the server needs its first admin, asked before anyone signs in: the sign-in
-// page then opens on setting it up (agent-failures A31). It says nothing more, and the setup code
-// still guards the setup itself.
+// page then opens on setting it up (agent-failures A31). It says nothing more, but, while setup is
+// required and to a request from home, the address at home it knows or guesses (D452 §4); the setup
+// code still guards the setup itself.
 func (server *Server) getSetup(ctx context.Context, _ *struct{}) (*SetupOutput, error) {
 	dependencies, err := server.readyDependencies()
 	if err != nil {
@@ -247,7 +259,29 @@ func (server *Server) getSetup(ctx context.Context, _ *struct{}) (*SetupOutput, 
 	}
 	output := &SetupOutput{}
 	output.Body.IsRequired = count == 0
+	if output.Body.IsRequired {
+		output.Body.AddressAtHome, output.Body.IsAddressAtHomeKnown = server.setupAddressAtHome(ctx)
+	}
 	return output, nil
+}
+
+// setupAddressAtHome is the address at home the setup page offers to the request whose context ctx
+// is, and whether it is known rather than guessed: the one known, else the guess; none to a request
+// from away, to which a private address is no help and should not be told (D452 §4).
+func (server *Server) setupAddressAtHome(ctx context.Context) (string, bool) {
+	keeper := server.keeper()
+	if keeper == nil || !isFromHome(ctx) {
+		return "", false
+	}
+	known := keeper.Known()
+	address := known.Address
+	if !address.IsValid() {
+		address = keeper.Guess()
+	}
+	if !address.IsValid() {
+		return "", false
+	}
+	return address.String(), known.Address.IsValid() && known.Origin != home.OriginGuessed
 }
 
 func (server *Server) setup(ctx context.Context, input *SetupInput) (*UserOutput, error) {
@@ -255,12 +289,23 @@ func (server *Server) setup(ctx context.Context, input *SetupInput) (*UserOutput
 	if err != nil {
 		return nil, err
 	}
+	var addressAtHome netip.Addr
+	if input.Body.AddressAtHome != "" {
+		if addressAtHome, err = netip.ParseAddr(input.Body.AddressAtHome); err != nil || !home.IsAtHome(addressAtHome) {
+			return nil, newError(http.StatusBadRequest, CodeInvalidRequest, home.ErrNotAtHome.Error())
+		}
+	}
 	admin := auth.NewUser{Name: input.Body.Name, Password: input.Body.Password}
 	id, err := dependencies.Auth.CompleteSetup(ctx, dependencies.SetupCodes, input.Body.SetupCode, admin)
 	if err != nil {
 		return nil, server.authError(ctx, "complete setup", err)
 	}
 	server.logger.InfoContext(ctx, "first admin created", "userId", id)
+	if keeper := server.keeper(); keeper != nil && addressAtHome.IsValid() {
+		if err := keeper.Set(ctx, addressAtHome, id); err != nil && !errors.Is(err, home.ErrConfigured) {
+			server.logger.ErrorContext(ctx, "the address at home given at setup was not kept", "err", err)
+		}
+	}
 	return &UserOutput{Body: UserBody{
 		ID: id, Name: admin.Name, Role: string(auth.RoleAdmin), IsAdmin: true, CanManageAccount: true,
 	}}, nil

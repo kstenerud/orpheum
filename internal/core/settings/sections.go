@@ -197,4 +197,6 @@ var sectionByKey = map[Key]Section{
 	ShouldServeDebugPProf:                          SectionDiagnostics,
 	ShouldShowDeveloperPages:                       SectionDiagnostics,
 	ShouldOfferDeviceTests:                         SectionDiagnostics,
+	AddressAtHome:                                  SectionRemoteAccess,
+	AddressAtHomeLearnedFrom:                       SectionRemoteAccess,
 }

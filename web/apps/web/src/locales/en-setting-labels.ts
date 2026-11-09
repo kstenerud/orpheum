@@ -14,6 +14,8 @@ export const enSettingLabels = {
     tmdbApiKey: "TMDB API key",
   },
   labels: {
+    addressAtHome: "Address in the home",
+    addressAtHomeLearnedFrom: "Address in the home learned from",
     unavailableRootRescanSeconds: "Retry an unreachable folder every (seconds)",
     seriesEpisodesAhead: "Episodes prepared ahead on a series' page",
     interestSaidEverySeconds: "An open page says it is open every (seconds)",

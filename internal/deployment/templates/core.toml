@@ -27,6 +27,10 @@ host_names = []
 # home_networks adds others, a VPN's say, under the same exceptions.
 home_networks = []
 not_home_networks = {{toml .Values.NotHomeNetworks}}
+# With no tunnel the core shares this machine's network (D454 §5), and takes the address of the
+# interface carrying the default route as its address at home until a browser at home teaches it or
+# an admin sets it; behind a tunnel its default route is its container's bridge, so it guesses none.
+address_at_home_from_default_route = {{not .Values.HasTunnel}}
 # How this server was installed, the install script or a compose file: the System page shows only that
 # way's steps to update (D450 §2).
 install_route = {{toml .InstallRoute}}
@@ -53,9 +57,10 @@ configured_addresses = {{toml .Values.ConfiguredAddresses}}
 # This machine's address at home and its published HTTPS port, which the core's container cannot see:
 # sent to a discovery to name for devices at home.
 lan_addresses = {{toml .Values.LANAddresses}}
-# In its container the core sees only the container's network and its tunnel, which nothing at home
-# reaches: it sends none of them, only the addresses above.
-send_interface_addresses = false
+# Behind a tunnel the core's container sees only its own network and the tunnel, which nothing at home
+# reaches: it sends none of them, only the addresses above. With no tunnel it shares this machine's
+# network, and sends the machine's own addresses.
+send_interface_addresses = {{not .Values.HasTunnel}}
 # The house's public IPv6 /64s, for a house whose devices cannot reach the core directly over WebRTC,
 # which teaches the core them by itself: the discovery recognises the house's devices by them. Stale
 # when the provider moves the prefix.

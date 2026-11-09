@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import { ApiProblem } from "@orpheum/sdk";
 
-import { isSetupRequired, signInThisDevice } from "./accounts.ts";
+import { setupNeeded, signInThisDevice } from "./accounts.ts";
 import { CodeSignIn } from "./code-sign-in.tsx";
 import {
   CredentialsField,
@@ -97,14 +97,26 @@ async function needsSetUp(signingIn: Promise<void>): Promise<boolean> {
  */
 export function SignIn(): JSX.Element {
   const { api } = useServices();
-  const [setup] = useResource("setup", () => isSetupRequired(api));
-  const isRequired = setup.state === "loaded" && setup.value;
+  const [setup] = useResource("setup", () => setupNeeded(api));
+  const isRequired = setup.state === "loaded" && setup.value.isRequired;
+  // The address at home to offer: none when it is known, which then needs no asking (D452 §4).
+  const offered =
+    setup.state === "loaded" && !setup.value.isAddressAtHomeKnown ? setup.value.addressAtHome : "";
   // Keyed by the answer, so a server that turns out to need setting up opens on it.
-  return <SignInScreen key={String(isRequired)} showsSetUpFirst={isRequired} />;
+  return (
+    <SignInScreen
+      key={String(isRequired)}
+      showsSetUpFirst={isRequired}
+      offeredAddressAtHome={offered}
+    />
+  );
 }
 
 /** The sign-in form, sent to the server, and the session kept on success; or setting up, or a code. */
-function SignInScreen(props: { readonly showsSetUpFirst: boolean }): JSX.Element {
+function SignInScreen(props: {
+  readonly showsSetUpFirst: boolean;
+  readonly offeredAddressAtHome: string;
+}): JSX.Element {
   const { t } = useTranslation();
   const { api, session } = useServices();
   const [name, setName] = useState("");
@@ -131,7 +143,11 @@ function SignInScreen(props: { readonly showsSetUpFirst: boolean }): JSX.Element
       setIsUsingCode(false);
       setIsSettingUp(false);
     };
-    return isSettingUp ? <SetUp onBack={back} /> : <CodeSignIn onBack={back} />;
+    return isSettingUp ? (
+      <SetUp onBack={back} offeredAddressAtHome={props.offeredAddressAtHome} />
+    ) : (
+      <CodeSignIn onBack={back} />
+    );
   }
   const submit = (): void => {
     runRequest(async (idempotencyKey) => {

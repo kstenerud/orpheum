@@ -147,7 +147,7 @@ func TestHeartbeatCandidates_SendTheConfiguredAddressesBesideTheMapped(t *testin
 	config.Discovery.ConfiguredAddresses = []string{"11.22.44.146:443"}
 	mapped := discoveryproto.Candidate{Address: "203.0.113.9", Port: 51234, Source: discoveryproto.SourceMapped}
 	mappings := func() []discoveryproto.Candidate { return []discoveryproto.Candidate{mapped} }
-	got := heartbeatCandidates(config, mappings)()
+	got := heartbeatCandidates(config, mappings, noAddress)()
 	if !slices.Contains(got, mapped) || !slices.Contains(got, discoveryproto.Candidate{
 		Address: "11.22.44.146", Port: 443, Source: discoveryproto.SourceConfigured,
 	}) {
@@ -163,13 +163,14 @@ func TestHeartbeatCandidates_InAContainerSendNoInterfaceAddresses(t *testing.T) 
 	config.HTTPS.Listen = ":443"
 	config.Discovery.ConfiguredAddresses = []string{"11.22.44.146:443"}
 	none := func() []discoveryproto.Candidate { return nil }
-	got := heartbeatCandidates(config, none)()
+	got := heartbeatCandidates(config, none, noAddress)()
 	want := []discoveryproto.Candidate{{Address: "11.22.44.146", Port: 443, Source: discoveryproto.SourceConfigured}}
 	if !slices.Equal(got, want) {
 		t.Errorf("a core told to send no interface addresses sends %+v; want the configured one alone", got)
 	}
 	config.Discovery.SendInterfaceAddresses = true
-	if withInterfaces := heartbeatCandidates(config, none)(); len(withInterfaces) != len(interfaceCandidates(443))+1 {
+	withInterfaces := heartbeatCandidates(config, none, noAddress)()
+	if len(withInterfaces) != len(interfaceCandidates(443))+1 {
 		t.Errorf("a core told to send them sends %+v; want its interfaces' beside the configured", withInterfaces)
 	}
 }
@@ -312,5 +313,34 @@ func TestDiscoveryParts_AHandOffsCodeProvesOffersForItsPerson(t *testing.T) {
 	keys := parts.HandOffOfferKeys(proof.RealmPerson("karlnas", "karl"))
 	if len(keys) != 1 || !bytes.Equal(keys[0], proof.HandOffOfferKey(code)) {
 		t.Errorf("karl's hand-off keys through the parts are %d; want his live code's", len(keys))
+	}
+}
+
+// noAddress is an address at home not known.
+func noAddress() netip.Addr { return netip.Addr{} }
+
+// A core in a container told no LAN address sends the address at home it learned or was set, at its
+// HTTPS port, read afresh at each heartbeat, so devices at home reach it in the house (D452 §3); one
+// told a LAN address sends that alone.
+func TestHeartbeatCandidates_SendTheAddressAtHomeWhenNoneIsConfigured(t *testing.T) {
+	t.Parallel()
+	var config Config
+	config.HTTPS.Listen = ":8443"
+	none := func() []discoveryproto.Candidate { return nil }
+	var atHome netip.Addr
+	candidates := heartbeatCandidates(config, none, func() netip.Addr { return atHome })
+	if got := candidates(); len(got) != 0 {
+		t.Errorf("with no address at home, the heartbeat sends %+v; want nothing", got)
+	}
+	atHome = netip.MustParseAddr("192.168.1.20")
+	want := discoveryproto.Candidate{
+		Address: "192.168.1.20", Port: 8443, Source: discoveryproto.SourceConfigured, Scope: discoveryproto.ScopeLAN,
+	}
+	if got := candidates(); !slices.Equal(got, []discoveryproto.Candidate{want}) {
+		t.Errorf("once learned, the heartbeat sends %+v; want the address at home at the HTTPS port", got)
+	}
+	config.Discovery.LANAddresses = []string{"192.168.1.5:8443"}
+	if got := heartbeatCandidates(config, none, func() netip.Addr { return atHome })(); slices.Contains(got, want) {
+		t.Errorf("with a LAN address configured, the heartbeat sends %+v; want the configured one alone", got)
 	}
 }

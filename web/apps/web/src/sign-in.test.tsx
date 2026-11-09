@@ -154,6 +154,48 @@ describe("setting up a server no one can sign in to yet (A29, A31)", () => {
     mounted.unmount();
   });
 
+  it("offers the server's guess at its address in the house, and sends the one confirmed (D452 §4)", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "GET /setup": [200, { isRequired: true, addressAtHome: "192.168.1.20" }],
+        "POST /setup": [201, { id: 1, name: "owner", role: "admin" }],
+        "POST /session": [201, { token: "admin-token", deviceSecret: "s", user: {} }],
+      },
+      heard,
+    );
+    const mounted = await mount(withServices(<SignIn />, services));
+    const address = mounted.container.querySelector<HTMLInputElement>(
+      'input[name="addressAtHome"]',
+    );
+    expect(address?.value).toBe("192.168.1.20");
+    await enter(mounted.container.querySelector('input[name="setupCode"]'), "gh3k-c5vq-hhvh");
+    await enter(mounted.container.querySelector('input[name="name"]'), "owner");
+    await enter(mounted.container.querySelector('input[type="password"]'), "a password");
+    await enter(address, "192.168.1.25");
+    await submit(mounted.container.querySelector("form"));
+    expect(heard.find((each) => each.methodAndPath === "POST /setup")?.body).toEqual({
+      setupCode: "gh3k-c5vq-hhvh",
+      name: "owner",
+      password: "a password",
+      addressAtHome: "192.168.1.25",
+    });
+    mounted.unmount();
+    const known = await mount(
+      withServices(
+        <SignIn />,
+        servedBy({
+          "GET /setup": [
+            200,
+            { isRequired: true, addressAtHome: "192.168.1.20", isAddressAtHomeKnown: true },
+          ],
+        }),
+      ),
+    );
+    expect(known.container.querySelector('input[name="addressAtHome"]')).toBeNull();
+    known.unmount();
+  });
+
   it("says when the setup code is wrong, and goes back to sign-in", async () => {
     const services = servedBy({
       "GET /setup": setUpAlready,

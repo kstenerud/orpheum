@@ -170,6 +170,9 @@ type Server struct {
 	// thisMachinePort is the port only the server's own machine reaches, 0 for none
 	// (SetThisMachinePort; D334 §4).
 	thisMachinePort atomic.Int32
+	// addressAtHome is the address at home a request teaches, and the ports that teach it
+	// (SetAddressAtHome; D452 §3, §4); none until named.
+	addressAtHome atomic.Pointer[addressAtHome]
 	// rtc answers WebRTC offers; nil takes none (SetRTC).
 	rtc *rtcapi.Server
 	// answers are the answers kept for repeats of an Idempotency-Key (D244 §4).

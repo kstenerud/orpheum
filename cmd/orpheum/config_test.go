@@ -180,6 +180,7 @@ shutdown_grace_seconds = 10
 host_names = []
 home_networks = ["127.0.0.0/8", "::1/128"]
 not_home_networks = []
+address_at_home_from_default_route = false
 this_machine_listen = ""
 install_route = ""
 

@@ -118,6 +118,8 @@ const (
 	ChunkKeptLeftSeconds                      Key = "chunk_kept_left_seconds"
 	ChunkKeptMaybeSeconds                     Key = "chunk_kept_maybe_seconds"
 	PlayLadderWaitMs                          Key = "play_ladder_wait_ms"
+	AddressAtHome                             Key = "address_at_home"
+	AddressAtHomeLearnedFrom                  Key = "address_at_home_learned_from"
 )
 
 // Kind is a setting value's JSON type.
@@ -259,7 +261,7 @@ func buildRegistry() []Definition {
 		togetherSweepDefinitions(), portMappingDefinitions(), certificateDefinitions(),
 		artworkCacheDefinitions(), libraryAdminDefinitions(), linkShareDefinitions(),
 		nodeTuningDefinitions(), interestDefinitions(), offeredPagesDefinitions(), loggingDefinitions(),
-		togetherLifetimeDefinitions(), startDefinitions(),
+		togetherLifetimeDefinitions(), startDefinitions(), addressAtHomeDefinitions(),
 	)...)
 }
 

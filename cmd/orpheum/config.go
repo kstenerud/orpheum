@@ -80,6 +80,13 @@ type ServerConfig struct {
 	// NotHomeNetworks are private networks never home: the tunnel's, through which the internet
 	// arrives (D452 §1).
 	NotHomeNetworks []string `toml:"not_home_networks"`
+	// AddressAtHomeFromDefaultRoute is whether the core shares the host's network, as a deployment
+	// with no tunnel runs it (D454 §5), and so takes the address of the interface carrying the default
+	// route as the address at home until one is learned or set: without it the house's network, one of
+	// its own interfaces', is not home, and no browser at home could teach the address. In a container's
+	// own network the default route is Docker's bridge, and taking it would make the internet home
+	// (D452 §3).
+	AddressAtHomeFromDefaultRoute bool `toml:"address_at_home_from_default_route"`
 	// ThisMachineListen is plain HTTP for a browser on the server's own machine alone, which the
 	// deployment publishes on that machine's loopback: a request on it is from home, though Docker
 	// hands it the core from its gateway (D334 §4). Empty serves none.
@@ -92,15 +99,7 @@ type ServerConfig struct {
 
 // thisMachinePort is the port ThisMachineListen names, 0 for none; check refused one that names none.
 func (server ServerConfig) thisMachinePort() int {
-	_, port, err := net.SplitHostPort(server.ThisMachineListen)
-	if err != nil {
-		return 0
-	}
-	number, err := strconv.Atoi(port)
-	if err != nil {
-		return 0
-	}
-	return number
+	return portOf(server.ThisMachineListen)
 }
 
 // lanHostNames are the names the plain-HTTP listener answers beside the ones it always does: the
@@ -305,6 +304,12 @@ func serverConfigKeys() []configKey {
 		{
 			tableServer, "not_home_networks", "[]",
 			"private networks never home: a tunnel's, through which the internet arrives (D452)",
+		},
+		{
+			tableServer, "address_at_home_from_default_route", "false",
+			"whether the server shares the machine's network, and so takes the address of the interface " +
+				"carrying the default route as its address at home until one is learned or set; never in a " +
+				"container's own network, whose default route is Docker's bridge (D452 §3)",
 		},
 	}
 }

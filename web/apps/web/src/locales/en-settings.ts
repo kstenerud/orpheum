@@ -174,6 +174,10 @@ export const enSettingsCatalogue = {
       "A watched library notices changes as they happen, but watching can miss one without knowing, for instance across a restart. A full scan this often finds anything missed.",
   },
   descriptions: {
+    addressAtHome:
+      "The server's address in your home, which devices there reach it at directly. It is learned from a device at home that opens the server by its address, or set on the System page; empty until then.",
+    addressAtHomeLearnedFrom:
+      "The device the address in your home was learned from. Empty when an admin set it.",
     unavailableRootRescanSeconds:
       "How often a library folder that can't be reached, its disk or network share not answering, is scanned again, which brings it back once it answers.",
     seriesEpisodesAhead:
