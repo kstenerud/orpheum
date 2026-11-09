@@ -41,6 +41,17 @@ func (harness testHarness) dialTogether(t *testing.T, credential string) socket 
 // device, signed in by sessionToken, or to nothing where it is "".
 func (harness testHarness) dialTogetherSignedIn(t *testing.T, credential, sessionToken string) socket {
 	t.Helper()
+	opened := harness.dialSocket(t)
+	opened.send(together.Inbound{
+		V: together.ProtocolVersion, Type: together.MessageHello, Channel: "together", Credential: credential,
+		Role: together.RoleVideo, Client: "index-T3st.js", SessionToken: sessionToken,
+	})
+	return opened
+}
+
+// dialSocket opens a device's socket, which has said nothing yet.
+func (harness testHarness) dialSocket(t *testing.T) socket {
+	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 	address := "ws" + strings.TrimPrefix(harness.httpServer.URL, "http") + api.SocketPath
@@ -49,12 +60,7 @@ func (harness testHarness) dialTogetherSignedIn(t *testing.T, credential, sessio
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = connection.CloseNow() }) //nolint:errcheck // closing what may be closed
-	opened := socket{t: t, connection: connection}
-	opened.send(together.Inbound{
-		V: together.ProtocolVersion, Type: together.MessageHello, Channel: "together", Credential: credential,
-		Role: together.RoleVideo, Client: "index-T3st.js", SessionToken: sessionToken,
-	})
-	return opened
+	return socket{t: t, connection: connection}
 }
 
 // send sends one message.

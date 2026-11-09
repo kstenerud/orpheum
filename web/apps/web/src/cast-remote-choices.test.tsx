@@ -144,8 +144,8 @@ describe("the cast's remote choosing what the receiver shows, and its ⏮ (D440 
     await click(opener());
     await click(choice("Off"));
     expect(session.heard.filter((each) => each["type"] === "picture")).toEqual([
-      { v: 2, type: "picture", picture: { kind: "subtitles", key: "s7" } },
-      { v: 2, type: "picture", picture: { kind: "subtitles" } },
+      { v: 3, type: "picture", picture: { kind: "subtitles", key: "s7" } },
+      { v: 3, type: "picture", picture: { kind: "subtitles" } },
     ]);
   });
 
@@ -166,7 +166,7 @@ describe("the cast's remote choosing what the receiver shows, and its ⏮ (D440 
     await click(settings);
     await click(buttonWithText(mounted!.container, "Play the original file"));
     expect(session.heard.filter((each) => each["type"] === "picture")).toEqual([
-      { v: 2, type: "picture", picture: { kind: "original" } },
+      { v: 3, type: "picture", picture: { kind: "original" } },
     ]);
   });
 

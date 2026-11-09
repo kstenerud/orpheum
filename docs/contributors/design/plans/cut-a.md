@@ -337,6 +337,18 @@ state and its rules are [watch-together.md](watch-together.md)'s; this is their 
 is **no clock synchronisation** ([D66](../../decisions/working-notes.md)): positions are sent with
 the sender's monotonic time, and round trips are measured with `ping`.
 
+`v` is the protocol's version, 3 (Go's `together.ProtocolVersion`, the SDK's
+`togetherProtocolVersion`, held equal by `TestTogether_TheCoreAndTheClientSpeakVersion3`); it
+goes up with any change to what a message means, as 3 said a group's state in camelCase (D459).
+**The core checks it on every message**: one of another version is answered `rejected`, code
+`versionMismatch`, and nothing in it is acted on; a hello of another version attaches the device
+to nothing, and the socket is closed after the refusal (1008). The web client, so refused, takes
+the connection for ended (`versionMismatch`) and reloads its page once in the tab, for the client
+the core serves, which speaks the core's version; refused again after that reload, it does not
+reload again, and says "This page is older than the server; reload it." where the session's other
+ends are said. A connection welcomed clears the tab's mark. The Cast receiver
+(`web/apps/cast-receiver`) ends its cast on it and does not reload.
+
 | Direction | `type` | Fields |
 | --- | --- | --- |
 | client → | `hello` | `credential` (the membership's), `sessionToken` (a signed-in person's, optional: the membership becomes theirs; D267 §2), `role` (`video`, the video viewer; `panel`, the control panel with voice; `both`: D338 §4), `canSetRate` — within 10 s of opening |
@@ -350,7 +362,7 @@ the sender's monotonic time, and round trips are measured with `ping`.
 | → client | `pong` | the echoed `tMono`, and `seq` and `group` as the server has them as it answers, by which a follower places the group (D264) |
 | → client | `group` | `seq`, `group`: `state` (`idle`, `waiting`, `paused`, `playing`), `positionMs`, `rate`, `fileId`, and the `event` with the `byMemberId` whose command caused it (named events, D188): a code a client words, `played`, `paused`, `seeked` (with `seekedFromMs`), `changedRate`, `changedItem`, `stopped`, `everyoneReady` or `continuedWithout` (a member's player catching up alone while the group plays on: it never stops for one member, D250 §2); and, for a group that starts `playing` at a sync point's end, `startsInMs`: how long after the message was sent it starts moving from `positionMs`, what is left of `together_start_lead_ms` (D268 §3) |
 | → client | `roster` | `roster`: members (`id`, `name` each chose, `isHost`) and their devices (`id`, `role`, `isBuffering`, `suspended`, `rttMs`, `cannotKeepUp`); never the host's notes |
-| → client | `rejected` | `basedOnSeq`, `code` (§5.2: `forbidden`, `stale`, `invalidRequest`, `notFound`) |
+| → client | `rejected` | `basedOnSeq`, `code` (§5.2: `forbidden`, `stale`, `invalidRequest`, `notFound`; `versionMismatch` for a message of another `v`) |
 | → client | `rtc` | `fromDeviceId`, and the relayed signalling |
 | → client | `ended` | `reason` (`hostEnded`, `ejected`, `left`); the socket closes after it |
 

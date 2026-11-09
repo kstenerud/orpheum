@@ -47,7 +47,7 @@ function fakeSockets(): FakeSockets {
 }
 
 const welcome = {
-  v: 2,
+  v: 3,
   type: "welcome",
   seq: 4,
   sessionId: 1,
@@ -82,7 +82,7 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     sockets.opened[0]!.onMessage(JSON.stringify(welcome));
     sockets.opened[0]!.onMessage(
       JSON.stringify({
-        v: 2,
+        v: 3,
         type: "roster",
         roster: [
           {
@@ -117,7 +117,7 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     sockets.opened[0]!.onMessage(JSON.stringify({ ...welcome, isHost: true }));
     sockets.opened[0]!.onMessage(
       JSON.stringify({
-        v: 2,
+        v: 3,
         type: "group",
         seq: 6,
         group: { ...welcome.group, state: "playing" },
@@ -127,7 +127,7 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
       true,
     );
     expect(sockets.sent.at(-1)).toEqual({
-      v: 2,
+      v: 3,
       type: "command",
       command: "changeItem",
       fileId: 5,
@@ -188,7 +188,7 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     sockets.opened[0]!.onOpen();
     sockets.opened[0]!.onMessage(JSON.stringify(welcome)); // its first ping goes out
     vi.advanceTimersByTime(pingEveryMs); // the second, the first unanswered
-    sockets.opened[0]!.onMessage(JSON.stringify({ v: 2, type: "pong", tMono: 1000 }));
+    sockets.opened[0]!.onMessage(JSON.stringify({ v: 3, type: "pong", tMono: 1000 }));
     vi.advanceTimersByTime(pingEveryMs * deadAfterUnansweredPings);
     expect(connection.snapshot().status).toBe("connected"); // heard from since: two unanswered
     vi.advanceTimersByTime(pingEveryMs);
@@ -223,7 +223,7 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
       returnCostMs: 220,
     });
     expect(sockets.sent.at(-1)).toEqual({
-      v: 2,
+      v: 3,
       type: "note",
       note: { kind: "nudged", positionMs: 1235, driftMs: 80, rate: 1.05, returnCostMs: 220 },
     });
@@ -250,7 +250,7 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     connection.open();
     moved.opened[0]!.onOpen();
     moved.opened[0]!.onMessage(JSON.stringify(welcome));
-    moved.opened[0]!.onMessage(JSON.stringify({ v: 2, type: "ended", reason: "movedAway" }));
+    moved.opened[0]!.onMessage(JSON.stringify({ v: 3, type: "ended", reason: "movedAway" }));
     moved.opened[0]!.onClose(1000);
     vi.advanceTimersByTime(longestReconnectWaitMs);
     expect(connection.snapshot()).toMatchObject({ status: "ended", endReason: "movedAway" });
@@ -267,7 +267,7 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     endedConnection.open();
     ended.opened[0]!.onOpen();
     ended.opened[0]!.onMessage(JSON.stringify(welcome));
-    ended.opened[0]!.onMessage(JSON.stringify({ v: 2, type: "ended", reason: "ejected" }));
+    ended.opened[0]!.onMessage(JSON.stringify({ v: 3, type: "ended", reason: "ejected" }));
     ended.opened[0]!.onClose(1000);
     vi.advanceTimersByTime(longestReconnectWaitMs);
     expect(endedConnection.snapshot()).toMatchObject({ status: "ended", endReason: "ejected" });
@@ -296,7 +296,7 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     });
     lateConnection.open();
     late.opened[0]!.onOpen();
-    late.opened[0]!.onMessage(JSON.stringify({ v: 2, type: "ended", reason: "takenBack" }));
+    late.opened[0]!.onMessage(JSON.stringify({ v: 3, type: "ended", reason: "takenBack" }));
     late.opened[0]!.onClose(1008);
     vi.advanceTimersByTime(longestReconnectWaitMs);
     expect(lateConnection.snapshot()).toMatchObject({ status: "ended", endReason: "takenBack" });

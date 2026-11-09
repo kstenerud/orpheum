@@ -102,6 +102,8 @@ export const enTogether = {
       left: "You left the session. You can close this page.",
       gone: "This session is over. You can close this page.",
       uploadFull: "The host's connection can't carry everyone right now.",
+      // Refused for its protocol version again after reloading for it once (cut-a §5.1).
+      versionMismatch: "This page is older than the server; reload it.",
       takenBack: "Control was taken back. You can close this page.",
       replaced: "Another device took over. You can close this page.",
       stopped: "Casting stopped. You can close this page.",
@@ -117,6 +119,7 @@ export const enTogether = {
       movedAway: "You joined the Watch Together session on another device, so it ended here.",
       left: "You left the Watch Together session.",
       gone: "The Watch Together session is over.",
+      versionMismatch: "This page is older than the server; reload it.",
       // A signed-in guest's session gone without a word to their page: a restart of the server.
       notThere: "The Watch Together session is no longer there.",
       // Said to the host's other pages as they end the session on one (D389 §1).

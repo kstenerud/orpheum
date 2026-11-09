@@ -128,6 +128,48 @@ async function newerClientWhy(client: NewerClient, reason: string): Promise<stri
   return undefined;
 }
 
+/** The tab's key marking that the page reloaded once for the core refusing its Watch Together version. */
+const reloadedForVersionKey = "orpheum.together.reloadedForVersion";
+
+/**
+ * Reloads the page, once in the tab, as the core refuses its Watch Together messages for their
+ * version (versionMismatch, cut-a §5.1): the page is older than the core it talks to, left open
+ * across an update, and a reload fetches the client that speaks the core's version. Whether it did:
+ * refused again after that reload, or where the tab keeps nothing (a private window, which would
+ * reload for ever), it does not, and the page says it is older than the server where the
+ * connection's other ends are said. A connection welcomed clears the mark (forgetProtocolVersionReload),
+ * so a later update reloads again.
+ */
+export function reloadsForProtocolVersion(
+  storage: StringStorage = tabStorage(),
+  reload: () => void = reloadForNewerClient,
+): boolean {
+  if (storage.getItem(reloadedForVersionKey) !== null) {
+    return false;
+  }
+  storage.setItem(reloadedForVersionKey, "1");
+  if (storage.getItem(reloadedForVersionKey) === null) {
+    return false; // kept nothing: a reload would find no mark, and reload again
+  }
+  leaveReloadNote(
+    storage,
+    "the page reloaded, once: the core refused its Watch Together messages for their protocol version",
+  );
+  reload();
+  return true;
+}
+
+/** Forgets that the page reloaded for its Watch Together version, its connection welcomed. */
+export function forgetProtocolVersionReload(storage: StringStorage = tabStorage()): void {
+  storage.removeItem(reloadedForVersionKey);
+}
+
+/** Loads the page again, for the client the core serves now. */
+function reloadForNewerClient(): void {
+  pageUpdateWatch.beforeReload();
+  window.location.reload();
+}
+
 /**
  * Tells the core's log, once, what the page before this one reloaded for, if it did: for a newer
  * client, or for its part's code that did not load (part-load.ts).

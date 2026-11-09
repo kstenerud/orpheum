@@ -29,6 +29,8 @@ const (
 	codeStale     = "stale"
 	codeInvalid   = "invalidRequest"
 	codeNotFound  = "notFound"
+	// A message of a version other than ProtocolVersion (VersionRefusal).
+	codeVersionMismatch = "versionMismatch"
 )
 
 var (

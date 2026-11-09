@@ -35,7 +35,7 @@ const monotonicMs = (): number => 1000;
 
 /** A welcome of member 7's device 9, its session paused. */
 const welcome = {
-  v: 2,
+  v: 3,
   type: "welcome",
   seq: 4,
   sessionId: 1,

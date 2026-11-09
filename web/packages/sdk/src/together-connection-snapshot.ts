@@ -8,6 +8,7 @@ import {
   noRight,
   startingTuning,
   togetherProtocolVersion,
+  versionMismatchCode,
   type DeviceRole,
   type GroupView,
   type OpenTogetherSocket,
@@ -280,11 +281,7 @@ export function afterMessage(
     case "roster":
       return { ...current, roster: message.roster };
     case "rejected":
-      return {
-        ...current,
-        lastRejectionCode: message.code,
-        answersHeard: current.answersHeard + 1,
-      };
+      return afterRejected(current, message.code);
     case "pong":
       return afterPong(current, message, nowMs);
     case "ended":
@@ -295,6 +292,21 @@ export function afterMessage(
       // voice signalling and sound and picture choices go to their listeners, changing nothing here
       return current;
   }
+}
+
+/**
+ * What is known after the server refused something, by its code: refused for its version, the page
+ * speaks another protocol than the core, nothing it says is heard, and the connection is over.
+ */
+function afterRejected(current: TogetherSnapshot, code: string): TogetherSnapshot {
+  const answered = {
+    ...current,
+    lastRejectionCode: code,
+    answersHeard: current.answersHeard + 1,
+  };
+  return code === versionMismatchCode
+    ? { ...answered, status: "ended", endReason: "versionMismatch" }
+    : answered;
 }
 
 /** The seq of the group as a message tells it, or undefined when it tells none. */

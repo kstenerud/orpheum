@@ -52,8 +52,21 @@ const (
 	MessageEnded    MessageType = "ended"
 )
 
-// ProtocolVersion is the version of the messages, every message's v (cut-a §5.1).
-const ProtocolVersion = 2
+// ProtocolVersion is the version of the messages, every message's v (cut-a §5.1). A device whose
+// message says another is refused it whole (VersionRefusal), its page older or newer than the core's.
+const ProtocolVersion = 3
+
+// VersionRefusal is what a device's message of version v is answered with when v is not
+// ProtocolVersion, and whether it is refused: a rejected message, code versionMismatch, and nothing
+// in it acted on, since a field may say another thing in another version (a group's state was
+// "Idle" in 2 and is "idle" in 3). A page left open across an update reloads on it, and comes back
+// with the client the core serves (cut-a §5.1).
+func VersionRefusal(v int) (Outbound, bool) {
+	if v == ProtocolVersion {
+		return Outbound{}, false
+	}
+	return Outbound{V: ProtocolVersion, Type: MessageRejected, Code: codeVersionMismatch}, true
+}
 
 // DeviceRole is the part of a member a device fulfils (D120, D338 §4): a member is the person, one
 // member however many of their devices are connected, and each device is attached in a role. There

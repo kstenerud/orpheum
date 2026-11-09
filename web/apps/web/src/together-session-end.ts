@@ -48,6 +48,15 @@ export function useSessionEnd(
           setEndReason(reason);
           return;
         }
+        if (reason === "versionMismatch") {
+          // Not over: this page is older than the server, and a reload comes back to the session.
+          if (isSignedIn) {
+            homeTold(navigation, t("together.overNotice.versionMismatch"));
+            return;
+          }
+          setEndReason(reason);
+          return;
+        }
         forgetMembership(browserStorage(), "viewer");
         if (isSignedIn) {
           homeTold(navigation, t(`together.overNotice.${reason}`));
@@ -100,6 +109,11 @@ export function useHostsSessionOver(): (sessionId: number, reason: TogetherEndRe
       if (readMembership(tabStorage(), "host")?.sessionId !== sessionId) {
         return;
       }
+      if (reason === "versionMismatch") {
+        // Not over: this page is older than the server, and a reload comes back to the session.
+        homeTold(navigation, t(hostsOverNotice(reason)));
+        return;
+      }
       forgetMembership(tabStorage(), "host");
       if (reason === "movedAway") {
         noteHostedElsewhere({ sessionId, deviceName: undefined });
@@ -121,6 +135,9 @@ function hostsOverNotice(reason: TogetherEndReason): string {
   }
   if (reason === "movedAway") {
     return "together.overNotice.movedElsewhere"; // to another of their devices (D442 §2)
+  }
+  if (reason === "versionMismatch") {
+    return "together.overNotice.versionMismatch"; // refused again after a reload (cut-a §5.1)
   }
   return reason === "idle" ? "together.overNotice.idle" : "together.overNotice.gone";
 }

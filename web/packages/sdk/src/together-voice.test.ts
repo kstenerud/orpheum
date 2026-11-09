@@ -65,7 +65,7 @@ function fakeServer(): FakeServer {
       };
     },
     tell: (message) => {
-      sockets.at(-1)!.onMessage(JSON.stringify({ v: 2, ...message }));
+      sockets.at(-1)!.onMessage(JSON.stringify({ v: 3, ...message }));
     },
     signalsSent: () =>
       sent
@@ -309,7 +309,7 @@ describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
     expect(server.sockets).toHaveLength(1); // Talk makes no second device
     server.sockets[0]!.onOpen();
     expect(server.sent[0]).toEqual({
-      v: 2,
+      v: 3,
       type: "hello",
       channel: "together",
       credential: "membership",

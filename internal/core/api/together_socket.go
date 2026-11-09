@@ -116,7 +116,8 @@ func (server *Server) serveTogetherSocket(writer http.ResponseWriter, request *h
 		defer close(written)
 		writeOutbox(ctx, connection, outbox, cancel)
 	}()
-	ended := readInto(ctx, connection, dependencies.Together, attachment, time.Duration(server.togetherSilence.Load()))
+	ended := readInto(ctx, connection, dependencies.Together, attachment, send,
+		time.Duration(server.togetherSilence.Load()))
 	gone := together.GoneClosed
 	if errors.Is(ended, errSilent) {
 		gone = together.GoneSilent
@@ -221,12 +222,35 @@ func (server *Server) sessionHello(
 		server.serveLiveSocket(ctx, connection, dependencies, first, request)
 		return together.Inbound{}, false
 	}
+	if v, hasVersion := versionOf(first); hasVersion {
+		if refusal, isRefused := together.VersionRefusal(v); isRefused {
+			// A page of another client: refused before its hello is read, as its fields may mean other
+			// things, and attached to nothing; its page reloads for the client the core serves.
+			server.logger.InfoContext(ctx, "watch together: a device spoke another version of the protocol",
+				slogx.EventKey, "versionMismatch", "v", v, "want", together.ProtocolVersion)
+			_ = connection.writeJSON(ctx, refusal) //nolint:errcheck // closing after it either way
+			// Closed as a first message that is no hello is (1008).
+			_ = connection.closeWith(websocket.StatusPolicyViolation, "version mismatch") //nolint:errcheck // closing
+			return together.Inbound{}, false
+		}
+	}
 	hello, err := togetherHelloOf(first)
 	if err != nil {
 		_ = connection.closeWith(websocket.StatusPolicyViolation, "say hello first") //nolint:errcheck // closing
 		return hello, false
 	}
 	return hello, true
+}
+
+// versionOf is the version a message says it is, 0 where it says none; false for no JSON object.
+func versionOf(message json.RawMessage) (int, bool) {
+	var versioned struct {
+		V int `json:"v"`
+	}
+	if err := strictjson.Unmarshal(message, &versioned); err != nil {
+		return 0, false
+	}
+	return versioned.V, true
 }
 
 // readFirst reads a device's first message, within helloWait: a session's hello, or a live one.
@@ -261,10 +285,11 @@ func togetherHelloOf(first json.RawMessage) (together.Inbound, error) {
 
 // readInto hands each message the device sends to the hub, until the socket or ctx ends or the
 // device sends nothing for silence, and says why it ended: the close the device sent, the
-// connection lost, its silence, or the server closing it.
+// connection lost, its silence, or the server closing it. A message of another version than the
+// core's is answered by send with its refusal, and goes no further (together.VersionRefusal).
 func readInto(
 	ctx context.Context, connection togetherSocket, hub *together.Hub, attachment together.Attachment,
-	silence time.Duration,
+	send together.Sender, silence time.Duration,
 ) error {
 	for {
 		var message together.Inbound
@@ -277,6 +302,10 @@ func readInto(
 		}
 		if err != nil {
 			return err
+		}
+		if refusal, isRefused := together.VersionRefusal(message.V); isRefused {
+			send(refusal) // acting on nothing in it
+			continue
 		}
 		hub.Handle(ctx, attachment, message)
 	}

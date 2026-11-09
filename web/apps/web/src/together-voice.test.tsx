@@ -185,7 +185,7 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice; 
     expect(mounted.container.textContent).toContain("Use headphones");
     await server.accept();
     expect(server.heard[0]).toEqual({
-      v: 2,
+      v: 3,
       type: "hello",
       channel: "together",
       credential: "viewer-credential",
