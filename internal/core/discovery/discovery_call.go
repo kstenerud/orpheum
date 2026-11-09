@@ -97,7 +97,7 @@ func (service *Service) openSession(ctx context.Context) (string, error) {
 		return "", err
 	}
 	service.mutex.Lock()
-	service.token, service.tokenExpiresAt = opened.Token, asked.Add(time.Duration(opened.ExpiresIn)*time.Second)
+	service.token, service.tokenExpiresAt = opened.Token, asked.Add(time.Duration(opened.ExpiresInSeconds)*time.Second)
 	service.mutex.Unlock()
 	return opened.Token, nil
 }

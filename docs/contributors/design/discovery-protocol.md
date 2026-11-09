@@ -254,7 +254,7 @@ codes; N2 [I]), and only a claimed core gets names and a certificate (S13).
 ### 2.3 Session — built
 
 `POST /challenge` → `{nonce}`; `POST /session {coreId, instanceId, nonce, signature}` →
-`{token, expiresIn}`, an opaque bearer token for one hour, hashed at rest. Every other call sends
+`{token, expiresInSeconds}`, an opaque bearer token for one hour, hashed at rest. Every other call sends
 `Authorization: Bearer …`, never a token in a URL (D154 §2). No mTLS, which complicates proxies, and
 no signature on every request.
 
@@ -283,7 +283,7 @@ no signature on every request.
   again. The core asks at once when its network comes back, rather than at its next backed-off try.
   Built in the core (2026-11-06); the discovery's side is orpheum-connect's, and `single` admits by
   the ping alone.
-- **Expiry as a duration** (`expiresIn`, seconds), counted on the core's monotonic clock, so a core
+- **Expiry as a duration** (`expiresInSeconds`), counted on the core's monotonic clock, so a core
   whose clock is wrong neither renews on every step nor sends expired tokens (C11). Built
   (2026-10-13), counted from before the core asked.
 - **Renewal.** The core renews five minutes before expiry, and **at once, once, on any 401** from
@@ -1069,7 +1069,7 @@ the core must act on (enrol again, another instance running) carries a code of i
 | --- | --- | --- |
 | `POST /challenge` | public key → nonce, for enrolling or a session; rate-limited | yes |
 | `POST /enrol` | public key + signed nonce → `coreId`, claim code, expiry; idempotent per key | yes |
-| `POST /session` | `coreId` + `instanceId` + signed nonce → token bound to the core, `expiresIn` (1 h) | yes |
+| `POST /session` | `coreId` + `instanceId` + signed nonce → token bound to the core, `expiresInSeconds` (1 h) | yes |
 | `GET /status` | claimed?, account state, zone, protocol support, `iceServers`, the client origin (`clientOrigin`, §3.4) and the loader's (`loaderOrigin`, D308), messages for the admin | yes, but for the account state |
 | `PUT /addresses` | candidates, the owner's TURN → published names, probe results, `reachableFrom`, last week's failed connections (§3.6); the heartbeat's fallback | yes |
 | `GET /signal` (WebSocket) | offers (with proofs) in, answers (signed over the SDP) out; the heartbeat; pings | yes, without checks, signatures, heartbeat or pings |

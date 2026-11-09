@@ -95,7 +95,7 @@ leaving below; the instance is bound through the live instance a token was opene
 
 Then the rest of the revised protocol:
 
-- **Sessions**: `expiresIn`; one live `instanceId` per core (protocol §2.3, D290 §18, C4). **A
+- **Sessions**: `expiresInSeconds`; one live `instanceId` per core (protocol §2.3, D290 §18, C4). **A
   second instance pings the first** (D293 §1): `single` pings the old instance on its signalling
   connection and waits about 10 seconds; no answer, or no connection, and the newcomer replaces it;
   an answer, and the newcomer is refused by the named error. The token map pruned of expired tokens

@@ -47,7 +47,7 @@ func enrollingDiscovery(t *testing.T) (*httptest.Server, string) {
 		case discoveryproto.PathEnrol:
 			answer = discoveryproto.EnrolResponse{CoreID: "k7xq2", ClaimCode: "WXYZ-2345", ClaimExpiresAt: 1}
 		case discoveryproto.PathSession:
-			answer = discoveryproto.SessionResponse{Token: "a-token", ExpiresIn: 3600}
+			answer = discoveryproto.SessionResponse{Token: "a-token", ExpiresInSeconds: 3600}
 		case discoveryproto.PathStatus:
 			answer = discoveryproto.StatusResponse{State: discoveryproto.StatePending}
 			if claimed.Load() {

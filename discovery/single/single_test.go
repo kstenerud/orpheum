@@ -752,8 +752,10 @@ func TestLinks_AClaimedCoresFullSetsReplaceTheLast(t *testing.T) {
 	signer, coreID := built.claimed(t)
 	token := built.session(t, signer, coreID)
 	for _, sent := range []discoveryproto.LocateHashesRequest{
-		{Hashes: []discoveryproto.LocateHash{{Hash: "first", ExpiresIn: 60}, {Hash: "second", ExpiresIn: 60}}},
-		{Hashes: []discoveryproto.LocateHash{{Hash: "second", ExpiresIn: 120}}},
+		{Hashes: []discoveryproto.LocateHash{
+			{Hash: "first", ExpiresInSeconds: 60}, {Hash: "second", ExpiresInSeconds: 60},
+		}},
+		{Hashes: []discoveryproto.LocateHash{{Hash: "second", ExpiresInSeconds: 120}}},
 	} {
 		status := built.call(t, http.MethodPut, discoveryproto.PathLocateHashes, token, sent, nil)
 		if status != http.StatusNoContent {

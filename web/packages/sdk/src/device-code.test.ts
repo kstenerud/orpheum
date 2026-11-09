@@ -135,7 +135,7 @@ describe("a device code at the service", () => {
   it("is asked for with the key's public half, and stands as the service says, anything else ended", async () => {
     const asked: { path: string; body: unknown }[] = [];
     const answers: unknown[] = [
-      { code: "abcd-efgh", secret: "s", expiresIn: 600 },
+      { code: "abcd-efgh", secret: "s", expiresInSeconds: 600 },
       { state: "entered", coreId: "k7xq2", realm: "nas" },
       { state: "entered", coreId: "k7xq2", realm: "nas", coreNonce: "EBESExQVFhcYGRobHB0eHw" },
       { state: "activated", sealed: "x", bootstrapToken: "b", coreId: "k7xq2", realm: "nas" },

@@ -131,7 +131,7 @@ function partsAnswering(answers: unknown[]): {
 describe("a television's sign-in by a code from the discovery's service (D293 §2)", () => {
   it("shows its code and QR code, reveals its nonce once typed, shows the committed check code, and goes on with the hand-off", async () => {
     const service = partsAnswering([
-      { code: "abcd-efgh", secret: "s", expiresIn: 600 },
+      { code: "abcd-efgh", secret: "s", expiresInSeconds: 600 },
       { state: "waiting" },
       { state: "entered", coreId: "k7xq2", realm: "nas", coreNonce: fixture.coreNonce },
       {},
@@ -198,7 +198,7 @@ describe("a television's sign-in by a code from the discovery's service (D293 §
 
   it("shows no check code and reveals nothing when its QR code was scanned (D321)", async () => {
     const service = partsAnswering([
-      { code: "abcd-efgh", secret: "s", expiresIn: 600 },
+      { code: "abcd-efgh", secret: "s", expiresInSeconds: 600 },
       { state: "entered", coreId: "k7xq2", realm: "nas" },
     ]);
     mounted = await mount(<DeviceCodeSignIn parts={service.parts} onBack={() => undefined} />);
@@ -219,7 +219,10 @@ describe("a television's sign-in by a code from the discovery's service (D293 §
       coreId: "k7xq2",
       realm: "nas",
     };
-    const refused = partsAnswering([{ code: "abcd-efgh", secret: "s", expiresIn: 600 }, activated]);
+    const refused = partsAnswering([
+      { code: "abcd-efgh", secret: "s", expiresInSeconds: 600 },
+      activated,
+    ]);
     mounted = await mount(<DeviceCodeSignIn parts={refused.parts} onBack={() => undefined} />);
     await settleUntil(() => mounted?.container.textContent.includes("abcd-efgh") === true);
     refused.release();
@@ -232,7 +235,7 @@ describe("a television's sign-in by a code from the discovery's service (D293 §
     // A core that claimed the code sealing an outcome naming another (a service's or a claimer's
     // forgery) is refused before anything is asked.
     const forged = partsAnswering([
-      { code: "abcd-efgh", secret: "s", expiresIn: 600 },
+      { code: "abcd-efgh", secret: "s", expiresInSeconds: 600 },
       { ...activated, coreId: "m3dz9" },
     ]);
     mounted = await mount(<DeviceCodeSignIn parts={forged.parts} onBack={() => undefined} />);
@@ -246,9 +249,9 @@ describe("a television's sign-in by a code from the discovery's service (D293 §
 
   it("asks for a new code when the last one ended, and says so", async () => {
     const service = partsAnswering([
-      { code: "abcd-efgh", secret: "s", expiresIn: 600 },
+      { code: "abcd-efgh", secret: "s", expiresInSeconds: 600 },
       { state: "ended" },
-      { code: "wxyz-0123", secret: "t", expiresIn: 600 },
+      { code: "wxyz-0123", secret: "t", expiresInSeconds: 600 },
     ]);
     mounted = await mount(<DeviceCodeSignIn parts={service.parts} onBack={() => undefined} />);
     const page = mounted.container;

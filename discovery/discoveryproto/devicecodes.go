@@ -77,9 +77,9 @@ type DeviceCodeRequest struct {
 // DeviceCodeResponse is a device's code, "xxxx-xxxx" in safe32, the secret by which it alone asks how
 // the code stands, and how many seconds the code works for.
 type DeviceCodeResponse struct {
-	Code      string `json:"code"`
-	Secret    string `json:"secret"`
-	ExpiresIn int    `json:"expiresIn"`
+	Code             string `json:"code"`
+	Secret           string `json:"secret"`
+	ExpiresInSeconds int    `json:"expiresInSeconds"`
 }
 
 // DeviceCodeStateRequest is a device asking how its code stands, by the secret its code came with.
