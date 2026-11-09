@@ -2713,3 +2713,18 @@ Overnight, nothing to production; staging only. Then a round from code-debt.md, 
    up-next.css and D407 §1 already place the offer at the end of the overlay's top row, so what the
    owner sees is a fault to find, not a new place; a browser test checks the card's box sits in the
    top-right corner and covers little of the middle.
+
+**Item 3, the Synology rehearsal (the lead, 2026-11-09):** running the arm64 image as a container
+needs qemu registered in binfmt_misc, which is the host kernel's and so the owner's machine: not done.
+Instead, checked without it:
+- The release builds the arm64 image natively but never runs it. Under qemu in user mode, v0.3.3's
+  arm64 `orpheum version` answers `v0.3.3`, and its FFmpeg 8.1.3 encodes a test clip with libx264.
+- A DS218's kernel 4.4 has no Landlock: `landlock_create_ruleset` answers ENOSYS (or EPERM where an
+  older Docker's seccomp profile blocks it), and the node runs and says so, `confinement_policy`
+  starting at `report` (D273 §5). Seccomp filters load on 4.4. `SECCOMP_RET_KILL_PROCESS` is newer
+  (4.14); an older kernel kills only the thread, and only on a foreign architecture's system call.
+- Nothing else in internal/, cmd/ or pkg/ calls a system call newer than 4.4.
+- Minor: a 4.4 kernel behind an older Docker gets the EPERM remedy, "upgrade the container runtime",
+  although the kernel would also need upgrading for Landlock. Filed here, not changed.
+- Left to the tester: the real kernel, Container Manager from the community script, and the speed of
+  software transcoding on the RTD1296's four Cortex-A53 cores (expect direct play to be the good case).
