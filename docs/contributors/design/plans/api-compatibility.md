@@ -53,7 +53,7 @@ else's* compatibility surface too, against clients we do not control and cannot 
   `internal/core/api/open_responses.go`). A schema both a request and a response use stays
   closed, as the request needs.
 - **A list names its kinds** ([D432](../../decisions/working-notes.md) §1). A filter over kinds
-  takes each by name (`kind=movie,series,other`), never a word for "every kind", so a kind a
+  takes each by name (`kind=film,series,other`), never a word for "every kind", so a kind a
   later server adds reaches no client that did not ask for it.
 - **Removal needs a window.** Measured in releases, announced in the OpenAPI document and in a
   `Deprecation` / `Sunset` response header **while the endpoint still works**. Removal without a

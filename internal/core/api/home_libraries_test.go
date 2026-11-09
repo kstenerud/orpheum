@@ -19,7 +19,7 @@ func (harness testHarness) homeRows(t *testing.T, token string) string {
 	for _, row := range harness.continueWatching(t, token) {
 		watching = append(watching, fmt.Sprint(row.ID))
 	}
-	films, _ := harness.titleNames(t, "/items?kind=movie&sort=added&limit=10&home=true", token)
+	films, _ := harness.titleNames(t, "/items?kind=film&sort=added&limit=10&home=true", token)
 	return fmt.Sprintf("watching %v, films %v", watching, films)
 }
 
@@ -58,7 +58,7 @@ func TestHome_ALibraryLeftOutOfHomeAddsNothingToItsRows(t *testing.T) {
 	if got, want := harness.homeRows(t, admin), "watching [40], films []"; got != want {
 		t.Errorf("Home with library 1 left out = %s; want %s", got, want)
 	}
-	if names, _ := harness.titleNames(t, "/items?kind=movie&sort=name&limit=5", admin); fmt.Sprint(names) != "[Metropolis]" {
+	if names, _ := harness.titleNames(t, "/items?kind=film&sort=name&limit=5", admin); fmt.Sprint(names) != "[Metropolis]" {
 		t.Errorf("Films with library 1 left out of Home = %v; want Metropolis, still there", names)
 	}
 
@@ -79,6 +79,6 @@ func TestHome_ALibraryLeftOutOfHomeAddsNothingToItsRows(t *testing.T) {
 	if got, want := harness.homeRows(t, admin), "watching [40 10], films [Metropolis]"; got != want {
 		t.Errorf("Home with Metropolis's libraries left out of Films alone = %s; want %s", got, want)
 	}
-	wantInvalidAt(t, harness.do(t, http.MethodGet, "/items?kind=movie&sort=added&limit=5&home=true&library=1",
+	wantInvalidAt(t, harness.do(t, http.MethodGet, "/items?kind=film&sort=added&limit=5&home=true&library=1",
 		admin, nil), http.StatusUnprocessableEntity, "query.home")
 }

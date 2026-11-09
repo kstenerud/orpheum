@@ -50,7 +50,7 @@ export type Entry =
   components["schemas"]["TitleEntryBody"] | components["schemas"]["SeriesEntryBody"];
 
 /** Which list: films or series. */
-export type BrowseKind = "movie" | "series";
+export type BrowseKind = "film" | "series";
 
 /** The sorts Films and Series offer, the first their default (D366 §1). */
 const browseSorts = ["name", "released", "added"] as const;
@@ -194,7 +194,7 @@ function useBrowseCriteria(kind: BrowseKind, state: ListState): ShownCriteria {
     kind,
     (next) => {
       navigation.replace({
-        screen: kind === "movie" ? "films" : "series",
+        screen: kind === "film" ? "films" : "series",
         ...listStateOf(next),
       });
     },
@@ -224,7 +224,7 @@ export function Browse(props: {
     <section className="browse browse__layout" aria-labelledby="browse-heading">
       <div ref={listRef}>
         <div className="browse__bar">
-          <h1 id="browse-heading">{t(props.kind === "movie" ? "nav.films" : "nav.series")}</h1>
+          <h1 id="browse-heading">{t(props.kind === "film" ? "nav.films" : "nav.series")}</h1>
           {/* Its tools on the bar's line after its name, so Up from the list's first row meets them,
               whichever poster it leaves, and Up again the banner (the owner, 2026-11-04: Up goes to
               the list's tools before the banner). */}

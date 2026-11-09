@@ -41,7 +41,7 @@ export function Home(): JSX.Element {
       </h1>
       <NoLibrariesYet />
       <ContinueWatching />
-      <NewestRow kind="movie" />
+      <NewestRow kind="film" />
       <NewestRow kind="series" />
     </section>
   );
@@ -90,10 +90,10 @@ export function NewestRow(props: { readonly kind: BrowseKind }): JSX.Element | n
   return (
     <section className="home__row" aria-labelledby={headingId}>
       <div className="home__row-heading">
-        <h2 id={headingId}>{t(kind === "movie" ? "home.newestFilms" : "home.newestSeries")}</h2>
+        <h2 id={headingId}>{t(kind === "film" ? "home.newestFilms" : "home.newestSeries")}</h2>
         <Link
           to={newestListRoute(kind)}
-          label={t(kind === "movie" ? "home.seeAllFilms" : "home.seeAllSeries")}
+          label={t(kind === "film" ? "home.seeAllFilms" : "home.seeAllSeries")}
         >
           {t("home.seeAll")}
         </Link>
@@ -112,5 +112,5 @@ export function NewestRow(props: { readonly kind: BrowseKind }): JSX.Element | n
  * which runs newest first, the row's own order, past the row's newestShown.
  */
 export function newestListRoute(kind: BrowseKind): Route {
-  return { screen: kind === "movie" ? "films" : "series", sort: "added" };
+  return { screen: kind === "film" ? "films" : "series", sort: "added" };
 }

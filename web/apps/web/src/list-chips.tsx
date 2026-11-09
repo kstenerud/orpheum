@@ -14,7 +14,7 @@ import { useServices } from "./services.tsx";
 export type Genre = components["schemas"]["GenreBody"];
 
 /** The kinds of list that have genres to choose among: films and series. */
-export type ChipsKind = "movie" | "series";
+export type ChipsKind = "film" | "series";
 
 /**
  * The genres GET /genres names for a list's kind, asked for once wanted (isWanted): the list's pop-up

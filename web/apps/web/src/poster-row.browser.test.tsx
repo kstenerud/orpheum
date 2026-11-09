@@ -24,7 +24,7 @@ function film(id: number): Entry {
   return {
     id,
     name: `Film ${String(id)}`,
-    kind: "movie",
+    kind: "film",
     identificationState: "identified",
     addedAt: id,
   };
@@ -39,7 +39,7 @@ async function rowOf(count: number): Promise<Mounted> {
       <div style={{ width: "600px" }}>
         <PosterRow>
           {films.map((entry) => (
-            <EntryPoster key={entry.id} kind="movie" entry={entry} />
+            <EntryPoster key={entry.id} kind="film" entry={entry} />
           ))}
         </PosterRow>
         <div className="elsewhere" style={{ height: "100px" }} />

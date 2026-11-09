@@ -2820,7 +2820,7 @@ export interface components {
             /** @description May the server write beside the media */
             isWritable: boolean;
             /** @enum {string} */
-            kind: "movie" | "series" | "other";
+            kind: "film" | "series" | "other";
             /** @enum {string} */
             metadataSource?: "nfo_then_tmdb" | "tmdb" | "nfo";
             name: string;
@@ -3335,7 +3335,7 @@ export interface components {
              * @description A title's kind; absent for a person or a genre
              * @enum {string}
              */
-            kind?: "movie" | "series" | "other";
+            kind?: "film" | "series" | "other";
             name: string;
             /** @description A person's picture as their source names it; not fetched by the server yet */
             pictureRef?: string;
@@ -3536,7 +3536,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            kind: "episode" | "extra" | "movie" | "other";
+            kind: "episode" | "extra" | "film" | "other";
             /** @description The libraries its person reaches that list it, by name: its page goes up to the one the person came through, else the first (D367) */
             libraries?: components["schemas"]["LibraryNameBody"][] | null;
             name: string;
@@ -3870,7 +3870,7 @@ export interface components {
             id: number;
             isWritable: boolean;
             /** @enum {string} */
-            kind: "movie" | "series" | "other";
+            kind: "film" | "series" | "other";
             /** @enum {string} */
             metadataSource: "nfo_then_tmdb" | "tmdb" | "nfo";
             name: string;
@@ -4308,7 +4308,7 @@ export interface components {
             /** Format: int64 */
             itemId: number;
             /** @enum {string} */
-            kind: "movie" | "episode" | "extra" | "other";
+            kind: "film" | "episode" | "extra" | "other";
             /**
              * Format: int64
              * @description A library its person reaches that covers its file's place, which a person goes back up to; absent for none
@@ -5508,7 +5508,7 @@ export interface components {
              * @description What it is: a film, an episode, an extra or an other video (D349, D416 §5) (enum property replaced by openapi-typescript)
              * @enum {string}
              */
-            kind: "episode" | "extra" | "movie" | "other";
+            kind: "episode" | "extra" | "film" | "other";
             /** @description An other video's 16:9 picture: GET /bytes/art/{sourceSha256}/landscape-s.webp */
             landscapeSha256?: string;
             name: string;
@@ -6782,8 +6782,8 @@ export interface operations {
             query: {
                 /** @description From the previous page's nextCursor; absent for the first page */
                 cursor?: string;
-                /** @description The kinds whose titles' genres it lists, each named, comma-separated: movie, series or other */
-                kind: ("movie" | "series" | "other")[] | null;
+                /** @description The kinds whose titles' genres it lists, each named, comma-separated: film, series or other */
+                kind: ("film" | "series" | "other")[] | null;
                 /** @description As GET /items takes it */
                 library?: number;
                 limit: number;
@@ -7103,8 +7103,8 @@ export interface operations {
                 home?: boolean;
                 /** @description Only the films, extras and series in this state of identification, as Needs a match lists them, by name, each with its identification; with no other filter than library */
                 identification?: "identified" | "ambiguous" | "unidentified" | "confirmed";
-                /** @description The kinds it lists, each named, comma-separated: movie, series or other. Absent: films, series and other videos together, every library's. A kind a later server adds is listed only where a client names it (D432 §1) */
-                kind?: ("movie" | "series" | "other")[] | null;
+                /** @description The kinds it lists, each named, comma-separated: film, series or other. Absent: films, series and other videos together, every library's. A kind a later server adds is listed only where a client names it (D432 §1) */
+                kind?: ("film" | "series" | "other")[] | null;
                 /** @description One library's alone; absent for every library the person reaches, less, for films and series, those they left out (leftOutLibraryIds) */
                 library?: number;
                 limit: number;
@@ -7766,7 +7766,7 @@ export interface operations {
                 /** @description Only the titles in this genre, by its id from GET /genres */
                 genre?: number;
                 /** @description As GET /items takes it: the kinds, each named, comma-separated */
-                kind: ("movie" | "series" | "other")[] | null;
+                kind: ("film" | "series" | "other")[] | null;
                 /** @description As GET /items takes it */
                 library?: number;
                 /** @description Only the titles crediting this person, by their id from a title's credits or a search */

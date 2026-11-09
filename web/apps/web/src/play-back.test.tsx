@@ -27,7 +27,7 @@ describe("a Play page the browser's Back returns to (D383 §1)", () => {
         directDecision({
           resumePositionMs: 0,
           titleName: "The Paper Lantern",
-          plays: { itemId: 10, kind: "movie", libraryId: 1, libraryName: "Films" },
+          plays: { itemId: 10, kind: "film", libraryId: 1, libraryName: "Films" },
         }),
       ],
       "GET /files/2/waits": [200, {}],

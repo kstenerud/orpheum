@@ -30,7 +30,7 @@ const credits: Credits = {
 
 const uncredited: TitleDetail = {
   id: 10,
-  kind: "movie",
+  kind: "film",
   name: "Metropolis",
   identificationState: "identified",
   art: {},
@@ -134,7 +134,7 @@ describe("a credited person's page", () => {
                 },
                 {
                   id: 10,
-                  kind: "movie",
+                  kind: "film",
                   name: "Metropolis",
                   year: 1995,
                   libraryId: 1,

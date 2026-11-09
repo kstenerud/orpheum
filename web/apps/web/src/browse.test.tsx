@@ -18,7 +18,7 @@ function renderBrowseView(loadedEntries: Resource<Page<Entry>>): string {
   return renderToStaticMarkup(
     withServices(
       <BrowseView
-        kind="movie"
+        kind="film"
         loadedEntries={loadedEntries}
         isLoadingMore={false}
         onLoadMore={ignore}
@@ -37,7 +37,7 @@ describe("browse", () => {
           {
             id: 10,
             name: "Metropolis",
-            kind: "movie",
+            kind: "film",
             year: 1995,
             identificationState: "identified",
             addedAt: 1,
@@ -46,7 +46,7 @@ describe("browse", () => {
           {
             id: 11,
             name: "Untitled",
-            kind: "movie",
+            kind: "film",
             identificationState: "unidentified",
             addedAt: 2,
           },
@@ -73,7 +73,7 @@ describe("browse", () => {
           {
             id: 12,
             name: "Home Reel",
-            kind: "movie",
+            kind: "film",
             identificationState: "unidentified",
             addedAt: 1,
             noPosterStillSha256: "5711",
@@ -96,7 +96,7 @@ describe("browse", () => {
           {
             id: 12,
             name: "Alcazar",
-            kind: "movie",
+            kind: "film",
             year: 1992,
             identificationState: "identified",
             isGuessed: true,
@@ -148,7 +148,7 @@ describe("a title that cannot be played now (D241 §3)", () => {
           {
             id: 10,
             name: "Metropolis",
-            kind: "movie",
+            kind: "film",
             identificationState: "identified",
             addedAt: 1,
             unavailable: { reason: "disk_missing", nodeName: "devnas", path: "/media/usb" },
@@ -167,7 +167,7 @@ describe("how far in a poster's film or series is watched (the owner, 2026-10-25
   const base: Entry = {
     id: 1,
     name: "A",
-    kind: "movie",
+    kind: "film",
     identificationState: "identified",
     addedAt: 1,
   };

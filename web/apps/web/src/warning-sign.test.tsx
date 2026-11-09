@@ -71,7 +71,7 @@ it("marks a title that cannot be played now with an icon over its poster, no con
     addedAt: 1,
     unavailable: { reason: "node_away", nodeName: "nas" },
   } as unknown as Entry;
-  mounted = await mountAs(true, <PosterGrid kind="movie" entries={[entry]} />);
+  mounted = await mountAs(true, <PosterGrid kind="film" entries={[entry]} />);
   // Over a poster the cue is an icon only: the title's page says what it means (the owner,
   // 2026-10-25: a control there was messy and took a controller's focus).
   const icon = mounted.container.querySelector(".poster-card__cues > .poster-cue");

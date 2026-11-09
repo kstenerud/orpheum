@@ -186,7 +186,7 @@ it("offers no removal on the admin's own page", async () => {
 it("tells someone given no library why their list is empty", async () => {
   const empty = { state: "loaded", value: { nextCursor: "", items: [] } } as const;
   const view = (
-    <BrowseView kind="movie" loadedEntries={empty} isLoadingMore={false} onLoadMore={ignore} />
+    <BrowseView kind="film" loadedEntries={empty} isLoadingMore={false} onLoadMore={ignore} />
   );
   mounted = await mount(withServices(view, servedBy({ "GET /me": me(5, true) })));
   expect(mounted.container.textContent).toContain("You have not been given any library yet");

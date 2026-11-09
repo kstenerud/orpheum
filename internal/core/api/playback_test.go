@@ -333,7 +333,7 @@ func TestPlayback_SaysWhatItPlaysAndWhereItLives(t *testing.T) {
 		return text
 	}
 	for fileID, want := range map[int64]string{
-		1: "movie 10 in library 1",
+		1: "film 10 in library 1",
 		4: `episode 23 in library 1, series 20 season 1 ""`,
 		6: "other 30 in library 1",
 		7: "nothing",

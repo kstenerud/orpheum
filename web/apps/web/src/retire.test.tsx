@@ -42,7 +42,7 @@ afterEach(() => {
 const films = {
   id: 3,
   name: "Films",
-  kind: "movie",
+  kind: "film",
   metadataSource: "nfo",
   changeDetection: "manual",
   isWritable: false,

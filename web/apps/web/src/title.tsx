@@ -203,7 +203,7 @@ function TitleMoreActions(props: {
   const { title, onMatchCorrected } = props;
   const actions: MoreAction[] = [];
   if (isAdmin && title.kind !== "extra") {
-    const isWork = title.kind === "movie" && onMatchCorrected !== undefined;
+    const isWork = title.kind === "film" && onMatchCorrected !== undefined;
     const onCorrected = onMatchCorrected ?? (() => undefined);
     actions.push(identifiedIncorrectlyAction(t, { itemId: title.id, isWork, onCorrected }));
     if (title.isGuessed === true) {
@@ -468,7 +468,7 @@ function Extras(props: {
  */
 export function titleUpward(title: TitleDetail | undefined, context: LibraryContext): Upward {
   if (title === undefined) {
-    return { crumbs: [libraryCrumb("movie", undefined, context)], here: "" };
+    return { crumbs: [libraryCrumb("film", undefined, context)], here: "" };
   }
   const libraries = title.libraries ?? undefined;
   const place = title.episode;
@@ -478,7 +478,7 @@ export function titleUpward(title: TitleDetail | undefined, context: LibraryCont
       here: episodeHere(context.t, place, title.name),
     };
   }
-  const library = libraryCrumb(title.kind === "other" ? "other" : "movie", libraries, context);
+  const library = libraryCrumb(title.kind === "other" ? "other" : "film", libraries, context);
   const film = title.filmOfExtra;
   return {
     crumbs: film === undefined ? [library] : [library, titleCrumb(film.id, film.name)],

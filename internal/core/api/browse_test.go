@@ -105,7 +105,7 @@ func TestBrowse_ListsDetailsSeriesAndSearch(t *testing.T) {
 	}
 	user := harness.signIn(t, "partner", "partner-password")
 
-	films := harness.do(t, http.MethodGet, "/items?kind=movie&sort=name&limit=10", user, nil)
+	films := harness.do(t, http.MethodGet, "/items?kind=film&sort=name&limit=10", user, nil)
 	if !strings.Contains(films.body, `"name":"Metropolis","year":1995`) || strings.Contains(films.body, "Breaking") {
 		t.Errorf("films = %d %s", films.status, films.body)
 	}
@@ -113,7 +113,7 @@ func TestBrowse_ListsDetailsSeriesAndSearch(t *testing.T) {
 	if !strings.Contains(shows.body, `"name":"Brass Arena"`) {
 		t.Errorf("series = %d %s", shows.status, shows.body)
 	}
-	wantError(t, harness.do(t, http.MethodGet, "/items?kind=movie&sort=name", user, nil),
+	wantError(t, harness.do(t, http.MethodGet, "/items?kind=film&sort=name", user, nil),
 		http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 
 	checkDetailsPaths(t, harness, user, admin)
@@ -163,17 +163,17 @@ func TestBrowse_AListByNameFromALetterStartsAtItsFirstTitle(t *testing.T) {
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
 	harness.shelve(t)
-	if fromH := harness.do(t, http.MethodGet, "/items?kind=movie&sort=name&from=H&limit=10", admin,
+	if fromH := harness.do(t, http.MethodGet, "/items?kind=film&sort=name&from=H&limit=10", admin,
 		nil); !strings.Contains(fromH.body, `"name":"Metropolis"`) {
 		t.Errorf("films from H = %d %s", fromH.status, fromH.body)
 	}
-	if fromI := harness.do(t, http.MethodGet, "/items?kind=movie&sort=name&from=I&limit=10", admin,
+	if fromI := harness.do(t, http.MethodGet, "/items?kind=film&sort=name&from=I&limit=10", admin,
 		nil); fromI.status != http.StatusOK || strings.Contains(fromI.body, "Metropolis") {
 		t.Errorf("films from I = %d %s; want none, Metropolis before it", fromI.status, fromI.body)
 	}
-	wantError(t, harness.do(t, http.MethodGet, "/items?kind=movie&sort=added&from=H&limit=10", admin, nil),
+	wantError(t, harness.do(t, http.MethodGet, "/items?kind=film&sort=added&from=H&limit=10", admin, nil),
 		http.StatusUnprocessableEntity, api.CodeInvalidRequest)
-	wantError(t, harness.do(t, http.MethodGet, "/items?kind=movie&sort=name&from=H&cursor=abc&limit=10", admin,
+	wantError(t, harness.do(t, http.MethodGet, "/items?kind=film&sort=name&from=H&cursor=abc&limit=10", admin,
 		nil), http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 }
 
@@ -186,7 +186,7 @@ func TestBrowse_EachItemShowsItsChosenOrNewestStoredImage(t *testing.T) {
 	for _, check := range []struct {
 		path, want string
 	}{
-		{"/items?kind=movie&sort=name&limit=10", `"posterSha256":"` + chosen + `"`},
+		{"/items?kind=film&sort=name&limit=10", `"posterSha256":"` + chosen + `"`},
 		{"/items?kind=series&sort=added&limit=10", `"posterSha256":"` + seriesPoster + `"`},
 		{"/items/10", `"art":{"posterSha256":"` + chosen + `"}`}, // and no refused backdrop
 		{"/items/20", `"stillSha256":"` + still + `"`},           // its season's, its first episode's
@@ -214,7 +214,7 @@ func TestBrowse_ATitleThatCannotBeReadNowIsListedAndMarkedUnavailable(t *testing
 		 VALUES (1, '/m', '/m', 4000, 'unread')`)
 	const missing = `"unavailable":{"reason":"root_missing","nodeName":"local","path":"/m","unavailableAt":4000}`
 	for _, path := range []string{
-		"/items?kind=movie&sort=name&limit=10", "/items?kind=series&sort=added&limit=10", "/items/10",
+		"/items?kind=film&sort=name&limit=10", "/items?kind=series&sort=added&limit=10", "/items/10",
 		"/items/21", "/items/20", "/items/20/groups/1?limit=10",
 	} {
 		if got := harness.do(t, http.MethodGet, path, user, nil); got.status != http.StatusOK ||
@@ -250,7 +250,7 @@ func TestBrowse_ATitleStillBeingReadIsListedAndMarkedSo(t *testing.T) {
 		"UPDATE place SET reported_path_raw = CAST(path AS BLOB)", "UPDATE file SET payload_hash = NULL")
 	const reading = `"unavailable":{"reason":"still_reading","nodeName":"local"}`
 	for _, path := range []string{
-		"/items?kind=movie&sort=name&limit=10", "/items/10", "/items/20", "/items/20/groups/1?limit=10",
+		"/items?kind=film&sort=name&limit=10", "/items/10", "/items/20", "/items/20/groups/1?limit=10",
 	} {
 		if got := harness.do(t, http.MethodGet, path, user, nil); got.status != http.StatusOK ||
 			!strings.Contains(got.body, reading) {
@@ -460,7 +460,7 @@ func TestBrowse_AGuessedMatchSaysSoWhereItsTitleIsShown(t *testing.T) {
 	admin := harness.createAdminAndSignIn(t)
 	harness.shelve(t)
 	storetest.ExecRaw(t, harness.databasePath, "INSERT INTO guessed_match (item_id, guessed_at) VALUES (20, 5)")
-	films := harness.do(t, http.MethodGet, "/items?kind=movie&sort=name&limit=10", admin, nil)
+	films := harness.do(t, http.MethodGet, "/items?kind=film&sort=name&limit=10", admin, nil)
 	if strings.Contains(films.body, "isGuessed") {
 		t.Errorf("films = %s; Metropolis's match is no guess", films.body)
 	}
@@ -478,7 +478,7 @@ func TestBrowse_AGuessedMatchSaysSoWhereItsTitleIsShown(t *testing.T) {
 	}
 	storetest.ExecRaw(t, harness.databasePath, "INSERT INTO guessed_match (item_id, guessed_at) VALUES (10, 6)")
 	for _, path := range []string{
-		"/items?kind=movie&sort=name&limit=10", "/items?kind=movie&sort=added&limit=10",
+		"/items?kind=film&sort=name&limit=10", "/items?kind=film&sort=added&limit=10",
 		"/items/10",
 	} {
 		if got := harness.do(t, http.MethodGet, path, admin, nil); !strings.Contains(got.body, `"isGuessed":true`) {
@@ -538,7 +538,7 @@ func TestBrowse_AListShowsHowFarThePersonIsThroughEach(t *testing.T) {
 	harness.setPositionReadAt(t, 3, 1000, 6)    // 22, aired S1E2 and in no DVD disc, finished
 	harness.setPositionReadAt(t, 4, 1000, 7)    // 23, finished
 	harness.setPositionReadAt(t, 5, 500, 8)     // 24, halfway
-	for _, path := range []string{"/items?kind=movie&sort=name&limit=10", "/items?kind=movie&sort=added&limit=10"} {
+	for _, path := range []string{"/items?kind=film&sort=name&limit=10", "/items?kind=film&sort=added&limit=10"} {
 		if got, want := harness.titlesProgress(t, path, user), "10:30:0/0"; got != want {
 			t.Errorf("%s: %s; want %s, Metropolis 30%% in", path, got, want)
 		}
@@ -554,7 +554,7 @@ func TestBrowse_AListShowsHowFarThePersonIsThroughEach(t *testing.T) {
 	if got, want := harness.titlesProgress(t, "/items?kind=series&sort=name&limit=10", user), "20:0:1/3"; got != want {
 		t.Errorf("series in the DVD order: %s; want %s, one of its three finished", got, want)
 	}
-	if got, want := harness.titlesProgress(t, "/items?kind=movie&sort=name&limit=10", user), "10:0:0/0"; got != want {
+	if got, want := harness.titlesProgress(t, "/items?kind=film&sort=name&limit=10", user), "10:0:0/0"; got != want {
 		t.Errorf("Metropolis hidden: %s; want %s, as Continue Watching leaves it out", got, want)
 	}
 }

@@ -34,7 +34,7 @@ const playsEpisode: PlaybackDecision["plays"] = {
 /** Metropolis, played: the film 10, in Films and Kids. */
 const playsFilm: PlaybackDecision["plays"] = {
   itemId: 10,
-  kind: "movie",
+  kind: "film",
   libraryId: 3,
   libraryName: "Films",
 };
@@ -242,7 +242,7 @@ describe("Up over the history (D367 §7; navigation-back-up-2026-10-27.md §3)",
   it("§3.18: a film two libraries list goes up to the one came through, else the first by name", () => {
     const heat: TitleDetail = {
       id: 10,
-      kind: "movie",
+      kind: "film",
       name: "Metropolis",
       identificationState: "identified",
       art: {},
@@ -272,7 +272,7 @@ describe("a library's Up says the list's one name (ui-audit-2026-11-04.md Q7)", 
       behind: [home, { screen: "browse", library: "all" }],
     });
     expect(all.label).toBe("Libraries");
-    const filmsPlace = libraryCrumb("movie", [films], {
+    const filmsPlace = libraryCrumb("film", [films], {
       t: i18n.t,
       behind: [home, { screen: "films" }],
     });

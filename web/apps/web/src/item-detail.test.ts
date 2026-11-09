@@ -7,7 +7,7 @@ import { seriesOrThrow, titleOrThrow, type ItemDetail } from "./item-detail.ts";
 
 const film: ItemDetail = {
   id: 10,
-  kind: "movie",
+  kind: "film",
   name: "Metropolis",
   identificationState: "matched",
   versions: [],

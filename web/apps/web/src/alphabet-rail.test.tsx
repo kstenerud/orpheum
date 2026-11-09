@@ -37,7 +37,7 @@ const neverAsks: Poller = { start: () => () => undefined };
 
 /** A film called name, by its id. */
 function film(id: number, name: string): Entry {
-  return { id, name, kind: "movie", identificationState: "identified", addedAt: id };
+  return { id, name, kind: "film", identificationState: "identified", addedAt: id };
 }
 
 /** A page of the films list, with the cursor of the next, absent on the last. */
@@ -57,7 +57,7 @@ async function mountFilms(answers: readonly Answer[], heard: Heard[]): Promise<M
   );
   return await mount(
     <BackgroundChangesContext value={neverAsks}>
-      {withServices(<RoutedBrowse kind="movie" />, services)}
+      {withServices(<RoutedBrowse kind="film" />, services)}
     </BackgroundChangesContext>,
   );
 }
@@ -189,7 +189,7 @@ describe("Films' and Series' rail shows only letters that lead somewhere (D349 ย
     );
     mounted = await mount(
       <BackgroundChangesContext value={neverAsks}>
-        {withServices(<RoutedBrowse kind="movie" />, services)}
+        {withServices(<RoutedBrowse kind="film" />, services)}
       </BackgroundChangesContext>,
     );
     await settleUntil(() => mounted?.container.querySelector(".alphabet-rail") !== null);
@@ -198,7 +198,7 @@ describe("Films' and Series' rail shows only letters that lead somewhere (D349 ย
     );
     expect(shown).toEqual(["#", "B", "M"]);
     const letters = heard.find((each) => each.methodAndPath === "GET /items/letters");
-    expect(new URLSearchParams(letters?.query).get("kind")).toBe("movie");
+    expect(new URLSearchParams(letters?.query).get("kind")).toBe("film");
     expect(new URLSearchParams(letters?.query).get("sort")).toBe("name");
   });
 
@@ -254,7 +254,7 @@ describe("Films' and Series' search (the owner, 2026-10-30)", () => {
     );
     mounted = await mount(
       <BackgroundChangesContext value={neverAsks}>
-        {withServices(<RoutedBrowse kind="movie" />, services)}
+        {withServices(<RoutedBrowse kind="film" />, services)}
       </BackgroundChangesContext>,
     );
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
@@ -263,7 +263,7 @@ describe("Films' and Series' search (the owner, 2026-10-30)", () => {
     await settleUntil(() => titlesHeard(heard).length >= 2);
     const searched = new URLSearchParams(titlesHeard(heard)[1]?.query);
     expect([searched.get("kind"), searched.get("query"), searched.get("sort")]).toEqual([
-      "movie",
+      "film",
       "heat",
       "name",
     ]);
@@ -293,7 +293,7 @@ describe("Films' search and sort, kept in the address for Back to return to", ()
     });
     mounted = await mount(
       <BackgroundChangesContext value={neverAsks}>
-        {withServices(<RoutedBrowse kind="movie" />, services)}
+        {withServices(<RoutedBrowse kind="film" />, services)}
       </BackgroundChangesContext>,
     );
     await settleUntil(() => mounted?.container.querySelector(".poster-grid") !== null);
@@ -321,7 +321,7 @@ describe("Films' search and sort, kept in the address for Back to return to", ()
     services.navigation.replace({ screen: "films", sort: "released", query: "heat" });
     mounted = await mount(
       <BackgroundChangesContext value={neverAsks}>
-        {withServices(<RoutedBrowse kind="movie" />, services)}
+        {withServices(<RoutedBrowse kind="film" />, services)}
       </BackgroundChangesContext>,
     );
     await settleUntil(() => titlesHeard(heard).length >= 1);
@@ -364,7 +364,7 @@ describe("the rail follows a name sort's direction (D366 ยง4)", () => {
     );
     mounted = await mount(
       <BackgroundChangesContext value={neverAsks}>
-        {withServices(<RoutedBrowse kind="movie" />, services)}
+        {withServices(<RoutedBrowse kind="film" />, services)}
       </BackgroundChangesContext>,
     );
     await settleUntil(() => mounted?.container.querySelector(".alphabet-rail") !== null);

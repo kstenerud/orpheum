@@ -156,7 +156,7 @@ function focusedSeason(): string {
 const pressUntil = pressesUntil((keys) => userEvent.keyboard(keys), 8);
 
 /** Home's row of the newest films. */
-const newestFilms = '[aria-labelledby="home-newest-movie"]';
+const newestFilms = '[aria-labelledby="home-newest-film"]';
 
 /** The newest films' card that has focus: its film's name; "" for none. */
 function focusedNewest(): string {

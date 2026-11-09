@@ -84,25 +84,25 @@ func TestBrowse_EverySortRunsEitherWayAndWhatHasNoDateIsLast(t *testing.T) {
 	harness.shelve(t)
 	harness.shelveDatedFilms(t)
 	for path, want := range map[string]string{
-		"/items?kind=movie&sort=released":                  "[Metropolis Greed Arkon The Freshman Faust]",
-		"/items?kind=movie&sort=released&order=descending": "[Metropolis Greed Arkon The Freshman Faust]",
-		"/items?kind=movie&sort=released&order=ascending":  "[Arkon Greed Metropolis The Freshman Faust]",
+		"/items?kind=film&sort=released":                   "[Metropolis Greed Arkon The Freshman Faust]",
+		"/items?kind=film&sort=released&order=descending":  "[Metropolis Greed Arkon The Freshman Faust]",
+		"/items?kind=film&sort=released&order=ascending":   "[Arkon Greed Metropolis The Freshman Faust]",
 		"/items?kind=series&sort=released":                 "[Brass Arena Tweedcoat]",
 		"/items?kind=series&sort=released&order=ascending": "[Brass Arena Tweedcoat]",
-		"/items?kind=movie&sort=name":                      "[Arkon Greed The Freshman Faust Metropolis]",
-		"/items?kind=movie&sort=name&order=descending":     "[Metropolis Faust The Freshman Greed Arkon]",
+		"/items?kind=film&sort=name":                       "[Arkon Greed The Freshman Faust Metropolis]",
+		"/items?kind=film&sort=name&order=descending":      "[Metropolis Faust The Freshman Greed Arkon]",
 		"/items?kind=series&sort=name&order=descending":    "[Tweedcoat Brass Arena]",
-		"/items?kind=movie&sort=added":                     "[Faust The Freshman Greed Arkon Metropolis]",
-		"/items?kind=movie&sort=added&order=ascending":     "[Metropolis Arkon Greed The Freshman Faust]",
+		"/items?kind=film&sort=added":                      "[Faust The Freshman Greed Arkon Metropolis]",
+		"/items?kind=film&sort=added&order=ascending":      "[Metropolis Arkon Greed The Freshman Faust]",
 		"/items?kind=series&sort=added&order=ascending":    "[Brass Arena Tweedcoat]",
-		"/items?kind=movie,series,other&sort=name&order=descending": "[Metropolis Faust Tweedcoat The Freshman Brass Arena " +
+		"/items?kind=film,series,other&sort=name&order=descending": "[Metropolis Faust Tweedcoat The Freshman Brass Arena " +
 			"Greed Arkon]",
 	} {
 		if names := harness.pagedNames(t, path, admin); fmt.Sprint(names) != want {
 			t.Errorf("%s in pages of two = %v; want %s", path, names, want)
 		}
 	}
-	for _, kind := range []string{"other", "movie,series,other", "movie,other"} {
+	for _, kind := range []string{"other", "film,series,other", "film,other"} {
 		path := "/items?sort=released&limit=5&kind=" + kind
 		wantInvalidAt(t, harness.do(t, http.MethodGet, path, admin, nil), http.StatusUnprocessableEntity, "query.sort")
 	}
@@ -174,7 +174,7 @@ func TestBrowse_ZToAFromANameStartsAtTheLastTitleBeforeIt(t *testing.T) {
 	harness.shelve(t)
 	harness.shelveDatedFilms(t)
 	for from, want := range map[string]string{"E": "[Faust The Freshman]", "D": "[The Freshman Greed]", "A": "[]"} {
-		path := "/items?kind=movie&sort=name&order=descending&limit=2&from=" + from
+		path := "/items?kind=film&sort=name&order=descending&limit=2&from=" + from
 		if names, _ := harness.titleNames(t, path, admin); fmt.Sprint(names) != want {
 			t.Errorf("Z to A from %s = %v; want %s", from, names, want)
 		}

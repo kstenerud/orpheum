@@ -894,7 +894,7 @@
           },
           "kind": {
             "enum": [
-              "movie",
+              "film",
               "series",
               "other"
             ],
@@ -2234,7 +2234,7 @@
                 "mapping": {
                   "episode": "#/components/schemas/TitleEntryBody",
                   "extra": "#/components/schemas/TitleEntryBody",
-                  "movie": "#/components/schemas/TitleEntryBody",
+                  "film": "#/components/schemas/TitleEntryBody",
                   "other": "#/components/schemas/TitleEntryBody",
                   "series": "#/components/schemas/SeriesEntryBody"
                 },
@@ -2352,13 +2352,13 @@
           "kind": {
             "description": "A title's kind; absent for a person or a genre",
             "enum": [
-              "movie",
+              "film",
               "series",
               "other"
             ],
             "type": "string",
             "x-extensible-enum": [
-              "movie",
+              "film",
               "series",
               "other"
             ]
@@ -2943,14 +2943,14 @@
           },
           "kind": {
             "enum": [
-              "movie",
+              "film",
               "episode",
               "extra",
               "other"
             ],
             "type": "string",
             "x-extensible-enum": [
-              "movie",
+              "film",
               "episode",
               "extra",
               "other"
@@ -3811,13 +3811,13 @@
           },
           "kind": {
             "enum": [
-              "movie",
+              "film",
               "series",
               "other"
             ],
             "type": "string",
             "x-extensible-enum": [
-              "movie",
+              "film",
               "series",
               "other"
             ]
@@ -3933,7 +3933,7 @@
                 "mapping": {
                   "episode": "#/components/schemas/TitleEntryBody",
                   "extra": "#/components/schemas/TitleEntryBody",
-                  "movie": "#/components/schemas/TitleEntryBody",
+                  "film": "#/components/schemas/TitleEntryBody",
                   "other": "#/components/schemas/TitleEntryBody",
                   "series": "#/components/schemas/SeriesEntryBody"
                 },
@@ -5085,14 +5085,14 @@
           },
           "kind": {
             "enum": [
-              "movie",
+              "film",
               "episode",
               "extra",
               "other"
             ],
             "type": "string",
             "x-extensible-enum": [
-              "movie",
+              "film",
               "episode",
               "extra",
               "other"
@@ -8672,14 +8672,14 @@
           "kind": {
             "description": "What it is: a film, an episode, an extra or an other video (D349, D416 §5)",
             "enum": [
-              "movie",
+              "film",
               "episode",
               "extra",
               "other"
             ],
             "type": "string",
             "x-extensible-enum": [
-              "movie",
+              "film",
               "episode",
               "extra",
               "other"
@@ -11270,16 +11270,16 @@
         "operationId": "listGenres",
         "parameters": [
           {
-            "description": "The kinds whose titles' genres it lists, each named, comma-separated: movie, series or other",
+            "description": "The kinds whose titles' genres it lists, each named, comma-separated: film, series or other",
             "explode": false,
             "in": "query",
             "name": "kind",
             "required": true,
             "schema": {
-              "description": "The kinds whose titles' genres it lists, each named, comma-separated: movie, series or other",
+              "description": "The kinds whose titles' genres it lists, each named, comma-separated: film, series or other",
               "items": {
                 "enum": [
-                  "movie",
+                  "film",
                   "series",
                   "other"
                 ],
@@ -11749,20 +11749,20 @@
         "operationId": "listItems",
         "parameters": [
           {
-            "description": "The kinds it lists, each named, comma-separated: movie, series or other. Absent: films, series and other videos together, every library's. A kind a later server adds is listed only where a client names it (D432 §1)",
+            "description": "The kinds it lists, each named, comma-separated: film, series or other. Absent: films, series and other videos together, every library's. A kind a later server adds is listed only where a client names it (D432 §1)",
             "explode": false,
             "in": "query",
             "name": "kind",
             "schema": {
               "default": [
-                "movie",
+                "film",
                 "series",
                 "other"
               ],
-              "description": "The kinds it lists, each named, comma-separated: movie, series or other. Absent: films, series and other videos together, every library's. A kind a later server adds is listed only where a client names it (D432 §1)",
+              "description": "The kinds it lists, each named, comma-separated: film, series or other. Absent: films, series and other videos together, every library's. A kind a later server adds is listed only where a client names it (D432 §1)",
               "items": {
                 "enum": [
-                  "movie",
+                  "film",
                   "series",
                   "other"
                 ],
@@ -11986,7 +11986,7 @@
               "description": "As GET /items takes it: the kinds, each named, comma-separated",
               "items": {
                 "enum": [
-                  "movie",
+                  "film",
                   "series",
                   "other"
                 ],
@@ -12144,7 +12144,7 @@
                     "mapping": {
                       "episode": "#/components/schemas/ItemBody",
                       "extra": "#/components/schemas/ItemBody",
-                      "movie": "#/components/schemas/ItemBody",
+                      "film": "#/components/schemas/ItemBody",
                       "other": "#/components/schemas/ItemBody",
                       "series": "#/components/schemas/SeriesBody"
                     },

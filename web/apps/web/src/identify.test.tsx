@@ -14,7 +14,7 @@ const ignore = (): void => undefined;
 /** A film waiting, no search having found it. */
 const waiting = {
   id: 7,
-  kind: "movie",
+  kind: "film",
   name: "Harbor Lights",
   identificationState: "unidentified",
   libraryId: 1,

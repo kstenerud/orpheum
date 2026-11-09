@@ -20,7 +20,7 @@ const ignore = (): void => undefined;
 
 /** A library the person reaches, as GET /libraries lists it. */
 function reached(id: number, name: string): Record<string, unknown> {
-  return { id, name, kind: "movie", metadataSource: "tmdb", isWritable: true, createdAt: 0 };
+  return { id, name, kind: "film", metadataSource: "tmdb", isWritable: true, createdAt: 0 };
 }
 
 /** A shell at the Libraries page for library, over a server that lists libraries. */

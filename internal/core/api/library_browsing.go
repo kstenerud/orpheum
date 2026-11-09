@@ -17,8 +17,8 @@ import (
 // LettersInput asks which letters of the alphabet rail a list by name or file name has titles under.
 type LettersInput struct {
 	AuthorizationHeader
-	Kinds   []string `doc:"As GET /items takes it: the kinds, each named, comma-separated" enum:"movie,series,other" minItems:"1" query:"kind" required:"true"` //nolint:lll // one struct tag
-	Sort    string   `doc:"The order the rail follows: by name, or an other video's by file name" enum:"name,file_name" query:"sort" required:"true"`           //nolint:lll // one struct tag
+	Kinds   []string `doc:"As GET /items takes it: the kinds, each named, comma-separated" enum:"film,series,other" minItems:"1" query:"kind" required:"true"` //nolint:lll // one struct tag
+	Sort    string   `doc:"The order the rail follows: by name, or an other video's by file name" enum:"name,file_name" query:"sort" required:"true"`          //nolint:lll // one struct tag
 	Library int64    `doc:"As GET /items takes it" minimum:"0" query:"library"`
 	Query   string   `doc:"As GET /items takes it: only the letters some title whose name matches it is under" maxLength:"200" query:"query"` //nolint:lll // one struct tag
 	ListFilters
@@ -146,6 +146,7 @@ func (server *Server) reachWithout(
 }
 
 func (server *Server) listItemLetters(ctx context.Context, input *LettersInput) (*LettersOutput, error) {
+	input.Kinds = keptKinds(input.Kinds)
 	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err

@@ -24,7 +24,7 @@ import { Title, TitleView, type TitleDetail } from "./title.tsx";
 
 const film: TitleDetail = {
   id: 10,
-  kind: "movie",
+  kind: "film",
   name: "Metropolis",
   identificationState: "identified",
   art: {},

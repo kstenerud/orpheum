@@ -38,7 +38,7 @@ const filmToPlay: WalkAnswers = {
   "GET /items/103": filmDetail(103, "Film 3"),
   "POST /playback": directDecision({
     titleName: "Film 3",
-    plays: { itemId: 103, kind: "movie", libraryId: 1 },
+    plays: { itemId: 103, kind: "film", libraryId: 1 },
     url: "/no-such-media",
   }),
 };

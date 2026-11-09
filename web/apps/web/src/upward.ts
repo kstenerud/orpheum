@@ -40,7 +40,7 @@ export function parentOf(upward: Upward): Crumb | undefined {
 }
 
 /** What a page's library holds it as: a film, a series, or an other library's video. */
-export type Listed = "movie" | "series" | "other";
+export type Listed = "film" | "series" | "other";
 
 /** What a page's crumbs are named and found by. */
 export interface LibraryContext {
@@ -57,7 +57,7 @@ export interface LibraryContext {
 function isListOf(listed: Listed, libraries: readonly LibraryName[] | undefined) {
   return (route: Route): boolean => {
     if (route.screen === "films") {
-      return listed === "movie";
+      return listed === "film";
     }
     if (route.screen === "series") {
       return listed === "series";
@@ -122,7 +122,7 @@ export function libraryCrumb(
 /** The list that gathers what listed says, from every library: Films, Series, or the Libraries page. */
 function topListOf(listed: Listed): Route {
   switch (listed) {
-    case "movie":
+    case "film":
       return { screen: "films" };
     case "series":
       return { screen: "series" };

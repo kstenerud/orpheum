@@ -81,8 +81,8 @@ func TestReach_ALibraryTakenBackIsGoneAtTheNextRequestEverywhere(t *testing.T) {
 	get := func(path string) func() response { return send(http.MethodGet, path, nil) }
 	offset := map[string]any{"subtitleOffsetMs": 100}
 	checks := []check{
-		{"the films list", get("/items?kind=movie&sort=name&limit=10"), contains(`"name":"Film"`)},
-		{"the newest films", get("/items?kind=movie&sort=added&limit=10"), contains(`"name":"Film"`)},
+		{"the films list", get("/items?kind=film&sort=name&limit=10"), contains(`"name":"Film"`)},
+		{"the newest films", get("/items?kind=film&sort=added&limit=10"), contains(`"name":"Film"`)},
 		{"the film's page", get("/items/30"), contains(`"name":"Film"`)},
 		{"search", get("/search?query=film&limit=10"), contains(`"name":"Film"`)},
 		{"Continue Watching", get("/home"), contains(`"name":"Film"`)},

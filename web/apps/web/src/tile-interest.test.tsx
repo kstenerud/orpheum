@@ -31,7 +31,7 @@ class HandObserver {
 /** Films 1 to 4, each a tile of the grid. */
 const films = [1, 2, 3, 4].map((id): Entry => ({
   id,
-  kind: "movie",
+  kind: "film",
   name: `Film ${String(id)}`,
   identificationState: "identified",
   addedAt: 1,
