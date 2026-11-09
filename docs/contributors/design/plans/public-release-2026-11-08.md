@@ -30,5 +30,6 @@ also wants installation as painless as possible, and Orpheum to install on OpenM
 4. **A multi-architecture image** (amd64 and arm64): a change to `.github/`, a gate, so it waits
    for the owner's `Gate-Changed:`.
    **Built 2026-11-08** on the owner's word ("do it now"): each architecture on its own native
-   runner, joined under the tag and `:latest`; first published with `v0.3.1` (VQ291).
+   runner, joined under the tag and `:latest`; first published with `v0.3.2`, 2026-11-09 (VQ291); `v0.3.1`'s build
+   failed on a 504 from GitHub's downloads and published nothing.
 5. **The filtered public clone,** scanned, handed to the owner to push.
