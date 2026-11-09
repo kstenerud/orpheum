@@ -2854,8 +2854,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   stands below the dialog's choices with a clear space above it, not crowded against them, and
   pressing it opens that library's settings; signed in as a member who is not an admin, the gear's
   dialog has no such entry. (`web/apps/web/src/library-configure.tsx`, `library-configure.css`)
-- [ ] **VQ291** — The release image is built for amd64 and arm64 under one tag (the owner,
-  2026-11-08, "do it now"). Push the next version tag and approve its run. Passes when both
+- [x] **VQ291** — The release image is built for amd64 and arm64 under one tag (the owner,
+  2026-11-08, "do it now") (passed 2026-11-09 at `v0.3.2`: both architectures listed under the tag
+  and `:latest`, amd64 run here, and the owner's Apple-silicon MacBook Air pulled the list by its
+  digest and ran it natively, printing `v0.3.2`). Push the next version tag and approve its run. Passes when both
   architectures' jobs and the joining job pass, `docker buildx imagetools inspect
   ghcr.io/kstenerud/orpheum:<tag>` and `:latest` each list linux/amd64 and linux/arm64, and
   `docker run --rm --platform linux/arm64 ghcr.io/kstenerud/orpheum:<tag> --version` (on an
