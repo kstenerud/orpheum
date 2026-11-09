@@ -11,11 +11,10 @@ import (
 
 // Networks are what the rule is made of, as the config names them.
 type Networks struct {
-	// Listed are the networks home outright (server.home_networks).
+	// Listed are networks counted home beside the private ranges (server.home_networks): a VPN's,
+	// say. The tunnel's networks and the core's foreign interface networks are excepted from them as
+	// from a private range (D452's amendment of 2026-11-09).
 	Listed []netip.Prefix
-	// PrivateIsHome counts the private ranges, the core's loopback and its own public IPv6 /64 as
-	// home (server.home_is_private, D452 §1, §2); false leaves the listed networks alone.
-	PrivateIsHome bool
 	// NotHome are the networks never home though private (server.not_home_networks): the tunnel's.
 	NotHome []netip.Prefix
 	// Interfaces are the networks of the core's own interfaces (InterfaceNetworks), excepted from the
@@ -29,6 +28,8 @@ type Rule struct {
 	networks      atomic.Pointer[Networks]
 	addressAtHome atomic.Pointer[netip.Addr]
 	ownIPv6       atomic.Pointer[func() []netip.Prefix]
+	// listedAlone makes the listed networks the whole of home (Listed).
+	listedAlone bool
 }
 
 // NewRule returns the rule networks make.
@@ -38,18 +39,20 @@ func NewRule(networks Networks) *Rule {
 	return rule
 }
 
-// Listed returns the rule whose home is networks alone.
+// Listed returns a rule whose home is networks alone, with no private range, loopback or own network
+// beside them: for a test whose client, on the loopback, must be away from home. No config makes it.
 func Listed(networks ...netip.Prefix) *Rule {
-	return NewRule(Networks{Listed: networks})
+	rule := &Rule{listedAlone: true}
+	rule.Set(Networks{Listed: networks})
+	return rule
 }
 
 // Set replaces the networks the rule is made of.
 func (rule *Rule) Set(networks Networks) {
 	held := Networks{
-		Listed:        slices.Clone(networks.Listed),
-		PrivateIsHome: networks.PrivateIsHome,
-		NotHome:       slices.Clone(networks.NotHome),
-		Interfaces:    slices.Clone(networks.Interfaces),
+		Listed:     slices.Clone(networks.Listed),
+		NotHome:    slices.Clone(networks.NotHome),
+		Interfaces: slices.Clone(networks.Interfaces),
 	}
 	rule.networks.Store(&held)
 }
@@ -59,6 +62,17 @@ func (rule *Rule) Set(networks Networks) {
 func (rule *Rule) SetAddressAtHome(address netip.Addr) {
 	address = address.Unmap().WithZone("")
 	rule.addressAtHome.Store(&address)
+}
+
+// AddressAtHome is the address SetAddressAtHome last named; invalid for none.
+func (rule *Rule) AddressAtHome() netip.Addr {
+	if rule == nil {
+		return netip.Addr{}
+	}
+	if held := rule.addressAtHome.Load(); held != nil {
+		return *held
+	}
+	return netip.Addr{}
 }
 
 // CountOwnIPv6Networks has the rule ask own for the core's own public IPv6 /64s, as its own STUN
@@ -78,17 +92,15 @@ func (rule *Rule) Contains(address netip.Addr) bool {
 		return false
 	}
 	switch {
-	case isInAny(address, networks.Listed):
-		return true
-	case !networks.PrivateIsHome:
-		return false
+	case rule.listedAlone:
+		return isInAny(address, networks.Listed)
 	case address.IsLoopback():
 		return true
 	case isInAny(address, networks.NotHome):
 		return false
 	case isInAny(address, rule.ownIPv6Networks()):
 		return true
-	case !address.IsPrivate():
+	case !address.IsPrivate() && !isInAny(address, networks.Listed):
 		return false
 	default:
 		return !rule.isInAForeignInterfaceNetwork(address, networks.Interfaces)

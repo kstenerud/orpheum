@@ -259,32 +259,6 @@ func (values Values) HTTPSListen() string {
 	return net.JoinHostPort(values.listenHost(), strconv.Itoa(values.LAN.HTTPSPort))
 }
 
-// homeNetworkBits are how much of the LAN address names the house's network: a home router's /24,
-// or an IPv6 /64.
-const (
-	homeNetworkBitsIPv4 = 24
-	homeNetworkBitsIPv6 = 64
-)
-
-// HomeNetworks are the networks the core's config lists as home outright (server.home_networks):
-// its own loopback, which only a command run in its container reaches, as the install script's, which
-// makes the admin and pairs the core (D334 §2, §3), and docker-proxy never connects to; and, with a LAN
-// address, its /24, which home_is_private counts anyway and listing keeps for a core whose interfaces
-// hold it. Since D452 §1 home no longer hangs on this list: every private network is home but the
-// tunnel's (NotHomeNetworks) and Docker's, so a new lease locks no admin out.
-func (values Values) HomeNetworks() []string {
-	loopback := []string{"127.0.0.0/8", "::1/128"}
-	address, err := netip.ParseAddr(values.LAN.Address)
-	if err != nil {
-		return loopback
-	}
-	bits := homeNetworkBitsIPv4
-	if address.Is6() {
-		bits = homeNetworkBitsIPv6
-	}
-	return append([]string{netip.PrefixFrom(address, bits).Masked().String()}, loopback...)
-}
-
 // NotHomeNetworks are the private networks never home (server.not_home_networks): with a tunnel, its
 // 10.77.0.0/24 and fd77::/64, through which the internet arrives (D452 §1); none without one.
 func (values Values) NotHomeNetworks() []string {

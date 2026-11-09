@@ -10,7 +10,6 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 
@@ -18,6 +17,7 @@ import (
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/internal/core/certificate"
+	"github.com/kstenerud/orpheum/internal/core/home"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 )
 
@@ -179,7 +179,6 @@ read_header_timeout_seconds = 10
 shutdown_grace_seconds = 10
 host_names = []
 home_networks = ["127.0.0.0/8", "::1/128"]
-home_is_private = false
 not_home_networks = []
 this_machine_listen = ""
 install_route = ""
@@ -425,20 +424,21 @@ func TestServerConfig_NotHomeNetworksAreNetworks(t *testing.T) {
 	}
 }
 
-// home_is_private counts a private network as home but those not_home_networks names; a config naming
-// neither key keeps its home_networks alone, as before D452 §1.
-func TestHomeRuleOf_CountsPrivateNetworksOnlyWhenTheConfigSays(t *testing.T) {
+// Every private network is home but those not_home_networks names, whatever home_networks lists, and a
+// listed network is home beside them under the same exceptions (D452 §1; the owner, 2026-11-09).
+func TestHomeRuleOf_HomeIsEveryPrivateNetworkButNotHomeNetworks(t *testing.T) {
 	t.Parallel()
 	var config Config
-	config.Server.HomeNetworks = []string{"192.168.1.0/24"}
-	isHome := func(address string) bool { return homeRuleOf(config).Contains(netip.MustParseAddr(address)) }
-	if !isHome("192.168.1.20") || isHome("192.168.7.20") || isHome("10.77.0.3") {
-		t.Error("with neither key, home is not home_networks alone")
-	}
-	config.Server.HomeIsPrivate = true
+	config.Server.HomeNetworks = []string{"100.64.5.0/24", "10.77.0.0/24"}
 	config.Server.NotHomeNetworks = []string{"10.77.0.0/24"}
-	if !isHome("192.168.1.20") || !isHome("192.168.7.20") || isHome("10.77.0.3") || isHome("203.0.113.9") {
-		t.Error("with home_is_private, home is not every private network but not_home_networks'")
+	isHome := func(address string) bool { return homeRuleOf(config).Contains(netip.MustParseAddr(address)) }
+	for address, want := range map[string]bool{
+		"192.168.1.20": true, "192.168.7.20": true, "100.64.5.7": true, "127.0.0.1": true,
+		"10.77.0.3": false, "100.64.6.7": false, "203.0.113.9": false,
+	} {
+		if got := isHome(address); got != want {
+			t.Errorf("%s is home: %t; want %t", address, got, want)
+		}
 	}
 }
 
@@ -483,9 +483,9 @@ func TestNewWebRTC_HoldsAsManyConnectionsAsTheConfigSays(t *testing.T) {
 	}
 }
 
-// A config that names no home networks starts on the house range alone: never loopback, Docker's
-// 172.16.0.0/12, 10.0.0.0/8 or a ULA, where a reverse proxy, docker-proxy or a tunnel would make the
-// internet look like home (the Plex-chain review's L1).
+// A config that names no networks starts on none listed, and home is then the private ranges but a
+// network of the core's own interfaces: never Docker's bridge, where docker-proxy would make the
+// internet look like home (the Plex-chain review's L1, D452 §1).
 func TestServerConfig_StartsOnNoHomeNetworkAProxyOrTunnelSpeaksFrom(t *testing.T) {
 	t.Parallel()
 	var starting string
@@ -500,18 +500,15 @@ func TestServerConfig_StartsOnNoHomeNetworkAProxyOrTunnelSpeaksFrom(t *testing.T
 	if _, err := toml.Decode("networks = "+starting, &parsed); err != nil {
 		t.Fatalf("home_networks' starting value %q: %v", starting, err)
 	}
-	server := ServerConfig{HomeNetworks: parsed.Networks}
-	for _, address := range []string{"127.0.0.1", "::1", "172.17.0.1", "10.0.0.5", "fd00::5"} {
-		if slices.ContainsFunc(server.homeNetworks(), func(network netip.Prefix) bool {
-			return network.Contains(netip.MustParseAddr(address))
-		}) {
-			t.Errorf("home_networks' starting value %s counts %s as home", starting, address)
-		}
+	if len(parsed.Networks) != 0 {
+		t.Errorf("home_networks' starting value is %s; want none listed", starting)
 	}
-	if !slices.ContainsFunc(server.homeNetworks(), func(network netip.Prefix) bool {
-		return network.Contains(netip.MustParseAddr("192.168.1.20"))
-	}) {
-		t.Errorf("home_networks' starting value %s leaves out a home router's 192.168.1.20", starting)
+	server := ServerConfig{HomeNetworks: parsed.Networks}
+	rule := home.NewRule(server.homeNetworksOf([]netip.Prefix{netip.MustParsePrefix("172.17.0.0/16")}))
+	for address, want := range map[string]bool{"172.17.0.1": false, "192.168.1.20": true, "203.0.113.9": false} {
+		if got := rule.Contains(netip.MustParseAddr(address)); got != want {
+			t.Errorf("with home_networks' starting value, %s is home: %t; want %t", address, got, want)
+		}
 	}
 }
 

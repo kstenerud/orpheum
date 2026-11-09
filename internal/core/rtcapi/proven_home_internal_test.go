@@ -51,7 +51,7 @@ func TestProvenAtHome_ADirectPairIsJudgedByTheSharedRule(t *testing.T) {
 	t.Parallel()
 	server := watchedServer(t, &testutil.Log{}, clocktest.NewFake(time.Unix(1_800_000_000, 0)))
 	server.SetHome(home.NewRule(home.Networks{
-		PrivateIsHome: true, Interfaces: []netip.Prefix{netip.MustParsePrefix("172.17.0.0/16")},
+		Interfaces: []netip.Prefix{netip.MustParsePrefix("172.17.0.0/16")},
 	}))
 	fromAnotherNetwork := told(server, pairOf(webrtc.ICECandidateTypeHost, "192.168.1.199:8443",
 		webrtc.ICECandidateTypePrflx, "10.20.0.30:5000"), nil)

@@ -100,8 +100,8 @@ type Server struct {
 	handler http.Handler
 	// api answers the core's own offer endpoint; relayedAPI, the offers a discovery passes on, whose
 	// connections check only remote addresses from outside the core's network.
-	api        *webrtc.API
-	relayedAPI *webrtc.API
+	api        atomic.Pointer[webrtc.API]
+	relayedAPI atomic.Pointer[webrtc.API]
 	logger     *slog.Logger
 	// clock times each connection from its offer to its connecting, for the log.
 	clock clock.Clock
@@ -136,9 +136,11 @@ type Server struct {
 	// from numbered.
 	held     map[*webrtc.PeerConnection]*heldConnection
 	numbered int64
-	// lanPort and lanIPs are where the core takes WebRTC at home (ListenLAN): 0 and none until then.
+	// lanPort, lanIPs and lanMux are where the core takes WebRTC at home (ListenLAN,
+	// SetLANAddresses): 0 and none until then.
 	lanPort int
 	lanIPs  []netip.Addr
+	lanMux  udpMux
 }
 
 // bounds are the bounds on each connection.
@@ -210,7 +212,7 @@ func New(ctx context.Context, handler http.Handler, logger *slog.Logger) *Server
 	go paced.run()
 	server := &Server{
 		ctx: ctx, handler: handler, logger: logger, clock: clock.System{}, pacer: paced,
-		api: newAPI(settings(paced)),
+
 		bounds: bounds{
 			connections:   DefaultMaxConnections,
 			connectWithin: connectWithin, perSource: perSourceLimit, channels: channelLimit,
@@ -220,7 +222,8 @@ func New(ctx context.Context, handler http.Handler, logger *slog.Logger) *Server
 		sources: map[*webrtc.PeerConnection]netip.Prefix{},
 		held:    map[*webrtc.PeerConnection]*heldConnection{},
 	}
-	server.relayedAPI = newAPI(server.relayedSettings())
+	server.api.Store(newAPI(settings(paced)))
+	server.relayedAPI.Store(newAPI(server.relayedSettings()))
 	return server
 }
 
@@ -230,19 +233,41 @@ func New(ctx context.Context, handler http.Handler, logger *slog.Logger) *Server
 // home reaches, is reached by a device in the house directly, not out through the VPS and back (D300
 // §1). Its host candidates on the port are one address of each family (onePerFamily), and the
 // house's in place of the container's IPv4 one, not beside it (D441). It is called once, before the
-// first offer.
+// first offer; SetLANAddresses replaces the addresses later, on the same socket. With no address yet
+// the port is still taken, and the core's own addresses offered on it.
 func (server *Server) ListenLAN(port int, lanIPs []netip.Addr) error {
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: port})
 	if err != nil {
 		return fmt.Errorf("listen for WebRTC on UDP port %d: %w", port, err)
 	}
 	mux := onePerFamily{webrtc.NewICEUDPMux(nil, pacedPacketConn{PacketConn: conn, pacer: server.pacer})}
+	server.mutex.Lock()
+	server.lanMux, server.lanPort = mux, port
+	server.mutex.Unlock()
+	if err = server.SetLANAddresses(lanIPs); err != nil {
+		return errors.Join(err, mux.Close())
+	}
+	return nil
+}
+
+// SetLANAddresses replaces the house's addresses ListenLAN offers as host candidates, as the address
+// at home is learned (D452 §3): an offer answered after it offers the new ones, on the same socket;
+// a connection already made keeps its own. Before ListenLAN it does nothing.
+func (server *Server) SetLANAddresses(lanIPs []netip.Addr) error {
+	server.mutex.Lock()
+	defer server.mutex.Unlock()
+	if server.lanMux == nil {
+		return nil
+	}
 	external := make([]string, 0, len(lanIPs))
 	for _, address := range lanIPs {
 		external = append(external, address.Unmap().String())
 	}
 	onLAN := func(engine webrtc.SettingEngine) (webrtc.SettingEngine, error) {
-		engine.SetICEUDPMux(mux)
+		engine.SetICEUDPMux(server.lanMux)
+		if len(external) == 0 {
+			return engine, nil
+		}
 		ruleErr := engine.SetICEAddressRewriteRules(webrtc.ICEAddressRewriteRule{
 			External: external, AsCandidateType: webrtc.ICECandidateTypeHost,
 			Mode: webrtc.ICEAddressRewriteReplace, Networks: []webrtc.NetworkType{webrtc.NetworkTypeUDP4},
@@ -251,17 +276,15 @@ func (server *Server) ListenLAN(port int, lanIPs []netip.Addr) error {
 	}
 	own, err := onLAN(settings(server.pacer))
 	if err != nil {
-		return errors.Join(fmt.Errorf("offer the house's addresses: %w", err), mux.Close())
+		return fmt.Errorf("offer the house's addresses: %w", err)
 	}
 	relayed, err := onLAN(server.relayedSettings())
 	if err != nil {
-		return errors.Join(fmt.Errorf("offer the house's addresses: %w", err), mux.Close())
+		return fmt.Errorf("offer the house's addresses: %w", err)
 	}
-	server.api = newAPI(own)
-	server.relayedAPI = newAPI(relayed)
-	server.mutex.Lock()
-	server.lanPort, server.lanIPs = port, slices.Clone(lanIPs)
-	server.mutex.Unlock()
+	server.api.Store(newAPI(own))
+	server.relayedAPI.Store(newAPI(relayed))
+	server.lanIPs = slices.Clone(lanIPs)
 	return nil
 }
 
@@ -378,7 +401,7 @@ func (server *Server) Answer(ctx context.Context, offer Description) (Descriptio
 	if offer.Type != webrtc.SDPTypeOffer.String() {
 		return Description{}, fmt.Errorf("want an offer, not %q", offer.Type)
 	}
-	return server.answerWith(ctx, server.api, offer.SDP, nil)
+	return server.answerWith(ctx, server.api.Load(), offer.SDP, nil)
 }
 
 // answerWith answers an offer's SDP with a connection api makes, telling onProvenAtHome, unless nil,

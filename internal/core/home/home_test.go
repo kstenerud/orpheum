@@ -16,9 +16,8 @@ var dockersBridge = netip.MustParsePrefix("172.17.0.0/16")
 // a container on Docker's bridge.
 func deployed() *home.Rule {
 	return home.NewRule(home.Networks{
-		Listed:        []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")},
-		PrivateIsHome: true,
-		NotHome:       []netip.Prefix{netip.MustParsePrefix("10.77.0.0/24"), netip.MustParsePrefix("fd77::/64")},
+		Listed:  []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")},
+		NotHome: []netip.Prefix{netip.MustParsePrefix("10.77.0.0/24"), netip.MustParsePrefix("fd77::/64")},
 		Interfaces: []netip.Prefix{
 			dockersBridge, netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128"),
 			netip.MustParsePrefix("10.77.0.0/24"),
@@ -87,8 +86,7 @@ func TestRule_TheCoresOwnIPv6NetworkIsHome(t *testing.T) {
 func TestRule_AnInterfaceNetworkHoldingTheAddressAtHomeStaysHome(t *testing.T) {
 	t.Parallel()
 	rule := home.NewRule(home.Networks{
-		PrivateIsHome: true,
-		Interfaces:    []netip.Prefix{netip.MustParsePrefix("192.168.1.0/24"), dockersBridge},
+		Interfaces: []netip.Prefix{netip.MustParsePrefix("192.168.1.0/24"), dockersBridge},
 	})
 	expectHome(t, rule, false, "192.168.1.20") // the address at home not yet known
 	rule.SetAddressAtHome(netip.MustParseAddr("192.168.1.250"))
@@ -102,24 +100,24 @@ func TestRule_LoopbackStaysHome(t *testing.T) {
 	t.Parallel()
 	expectHome(t, deployed(), true, "127.0.0.1", "::1")
 	unlisted := home.NewRule(home.Networks{
-		PrivateIsHome: true, Interfaces: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")},
+		Interfaces: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")},
 	})
 	expectHome(t, unlisted, true, "127.0.0.1", "::1")
 }
 
-// A config naming neither server.home_is_private nor server.not_home_networks keeps the rule it had:
-// its listed networks, and nothing else, not even a private address or the core's own /64.
-func TestRule_WithoutPrivateItIsTheListedNetworksAlone(t *testing.T) {
+// A listed network is home beside the private ranges, a VPN's say, but no longer wins outright: the
+// tunnel's networks and a foreign interface network stay away (the owner, 2026-11-09).
+func TestRule_AListedNetworkIsHomeButTheExceptionsStillApply(t *testing.T) {
 	t.Parallel()
 	rule := home.NewRule(home.Networks{
-		Listed:     []netip.Prefix{netip.MustParsePrefix("192.168.1.0/24"), netip.MustParsePrefix("127.0.0.0/8")},
-		Interfaces: []netip.Prefix{netip.MustParsePrefix("192.168.1.0/24")},
+		Listed: []netip.Prefix{
+			netip.MustParsePrefix("100.64.5.0/24"), netip.MustParsePrefix("10.77.0.0/24"), dockersBridge,
+		},
+		NotHome:    []netip.Prefix{netip.MustParsePrefix("10.77.0.0/24")},
+		Interfaces: []netip.Prefix{dockersBridge},
 	})
-	rule.CountOwnIPv6Networks(func() []netip.Prefix {
-		return []netip.Prefix{netip.MustParsePrefix("2a0f:5000:1:2::/64")}
-	})
-	expectHome(t, rule, true, "192.168.1.20", "127.0.0.1")
-	expectHome(t, rule, false, "192.168.2.20", "10.0.0.5", "::1", "2a0f:5000:1:2::30")
+	expectHome(t, rule, true, "100.64.5.7", "192.168.2.20")
+	expectHome(t, rule, false, "100.64.6.7", "10.77.0.3", "172.17.0.1")
 }
 
 // A nil rule, or one never set, has no home.

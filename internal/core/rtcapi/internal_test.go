@@ -45,11 +45,11 @@ func TestSetMaxConnections_RefusesAnOfferPastTheConfiguredLimit(t *testing.T) {
 		server.connections[&webrtc.PeerConnection{}] = true
 	}
 	server.mutex.Unlock()
-	if _, err := server.open(server.api, nil); !errors.Is(err, ErrTooManyConnections) {
+	if _, err := server.open(server.api.Load(), nil); !errors.Is(err, ErrTooManyConnections) {
 		t.Errorf("past a limit of 2, open = %v; want ErrTooManyConnections", err)
 	}
 	server.SetMaxConnections(3)
-	connection, err := server.open(server.api, nil)
+	connection, err := server.open(server.api.Load(), nil)
 	if err != nil {
 		t.Fatalf("under a limit of 3, open = %v; want a connection", err)
 	}

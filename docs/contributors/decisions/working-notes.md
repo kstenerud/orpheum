@@ -27184,14 +27184,16 @@ the core's own /64 is trusted).
 
 **Status:** decided (2026-11-09); its build is under way, §3–5 not built yet.
 §1 and §2 are (2026-11-09): `internal/core/home`, the one rule api and rtcapi judge home by, and
-`server.home_is_private` and `server.not_home_networks`, which a deployment writes.
+`server.not_home_networks`, which a deployment writes. Amended (2026-11-09), the owner: *"We don't need
+to preserve old configs. I'm the only user on prod."*: `server.home_is_private` is gone, private is always
+home, and `server.home_networks` only adds networks, under the same exceptions; loopback is built in.
 
 **Proven by:**
 - 1: `TestRule_APrivateSourceIsHome`, `TestRule_DockersBridgeNetworkIsNotHomeNorItsGateway`,
   `TestRule_TheTunnelsNetworksAreNotHome`, `TestRule_CarrierGradeNATIsNotHome`,
   `TestRule_APublicAddressIsNotHome`, `TestRule_AnInterfaceNetworkHoldingTheAddressAtHomeStaysHome`,
-  `TestRule_LoopbackStaysHome`, `TestRule_WithoutPrivateItIsTheListedNetworksAlone`,
-  `TestHomeRuleOf_CountsPrivateNetworksOnlyWhenTheConfigSays`,
+  `TestRule_LoopbackStaysHome`, `TestRule_AListedNetworkIsHomeButTheExceptionsStillApply`,
+  `TestHomeRuleOf_HomeIsEveryPrivateNetworkButNotHomeNetworks`,
   `TestServerConfig_NotHomeNetworksAreNetworks`,
   `TestWrite_TheCoreCountsEveryPrivateNetworkButTheTunnelsAsHome`,
   `TestProvenAtHome_ADirectPairIsJudgedByTheSharedRule`, `TestMarkingHome_ThisMachinesPortIsHome`
