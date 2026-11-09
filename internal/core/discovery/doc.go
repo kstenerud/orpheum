@@ -106,6 +106,8 @@
 //     enrolled, and a step that comes during a Leave does nothing, so leaving never leaves the core
 //     enrolled (the rehearsal of a household install, 2026-11-09).
 //     TestLeave_WhileAStepIsInFlightLeavesNoEnrolment, TestStep_DuringALeaveDoesNothing.
+//   - The signalling connection a Leave ends is logged at Info as closed for the Leave and is not
+//     dialled again, never warned of as one dropped. TestLeave_TheSignallingConnectionItEndsIsNoWarning.
 //   - A claimed core answers each offer the discovery passes on, under its id, and refuses one past
 //     rtcapi's limit saying why. TestSignal_AClaimedCoreAnswersTheOffersItsDiscoveryPassesOn.
 //   - Every signature to the discovery is bound to its identity and the core, and every answer is

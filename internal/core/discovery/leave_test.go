@@ -3,8 +3,10 @@
 package discovery
 
 import (
+	"context"
 	"errors"
 	"log/slog"
+	"strings"
 	"testing"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
@@ -80,6 +82,38 @@ func TestStep_DuringALeaveDoesNothing(t *testing.T) {
 	if built.fake.enrolCount != 1 {
 		t.Errorf("the core enrolled %d times; want once, steps during the Leave enrolling it no more",
 			built.fake.enrolCount)
+	}
+}
+
+// The signalling connection the discovery ends as a Leave lets the core go is said to be closed for
+// the Leave, not warned of as one ended and dialled again: no dial follows (a tester read the warning as a fault).
+func TestLeave_TheSignallingConnectionItEndsIsNoWarning(t *testing.T) {
+	t.Parallel()
+	built := newWorld(t)
+	logged := &testutil.Log{}
+	built.service.parts.Logger = slog.New(slog.NewTextHandler(logged, nil))
+	built.service.parts.Answerer = &answering{}
+	if _, err := built.service.Connect(t.Context(), built.issuer, built.fake.chain.ID()); err != nil {
+		t.Fatal(err)
+	}
+	built.fake.claim()
+	built.service.step(t.Context())
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		built.service.signal(ctx)
+	}()
+	logged.AwaitLine(t, "the signalling connection is open")
+	if err := built.service.Leave(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	logged.AwaitEvent(t, "signallingClosedForLeave")
+	cancel()
+	testutil.Receive(t, done, "the signalling loop to end")
+	if strings.Contains(logged.String(), "dialling again") {
+		t.Errorf("the Leave's own ending of the signalling connection was warned of as one dialled again:\n%s",
+			logged.String())
 	}
 }
 

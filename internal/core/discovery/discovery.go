@@ -179,6 +179,9 @@ type Service struct {
 	// enrolled again included, and a step that comes while a Leave is under way does nothing, so the
 	// admin's own Leave never enrols the core again (the owner, 2026-11-09).
 	stepping sync.Mutex
+	// leaving is set through a Leave: the discovery ends the signalling connection as it lets the
+	// core go, and the signalling loop, seeing it, says so and dials no more.
+	leaving atomic.Bool
 
 	mutex sync.Mutex
 	// Guarded by mutex:
@@ -447,6 +450,8 @@ func (service *Service) Leave(ctx context.Context) error {
 	if status.BaseURL == "" {
 		return nil
 	}
+	service.leaving.Store(true)
+	defer service.leaving.Store(false)
 	err := service.signedCall(ctx, callOf{
 		base: status.BaseURL, method: http.MethodDelete, path: discoveryproto.PathCore,
 	})
