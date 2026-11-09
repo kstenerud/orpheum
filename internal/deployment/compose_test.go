@@ -73,10 +73,11 @@ func (service *composeService) readUnder(key, trimmed string) {
 }
 
 // householdComposeFiles are the compose files a household runs, each by the path the test reads it
-// at: the one pasted into a NAS's panel, the catalogues' and the install script's with no tunnel.
+// at: the one pasted into a NAS's panel, the Synology's with its values in it, the catalogues' and
+// the install script's with no tunnel.
 var householdComposeFiles = []string{
-	"../../deploy/omv/compose.yaml", "../../deploy/catalogue/casaos/docker-compose.yml",
-	"templates/compose-direct.yaml",
+	"../../deploy/omv/compose.yaml", "../../deploy/synology/compose.yaml",
+	"../../deploy/catalogue/casaos/docker-compose.yml", "templates/compose-direct.yaml",
 }
 
 // householdCompose is a household's compose file by its path in householdComposeFiles.
