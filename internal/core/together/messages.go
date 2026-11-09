@@ -428,10 +428,10 @@ type Inbound struct {
 	// updates, and nothing said so (agent-failures A28).
 	Client string `json:"client,omitempty"`
 	// TMono is the sender's monotonic time in milliseconds: a ping's, and a state's.
-	TMono      int64 `json:"tMono,omitempty"`
-	PositionMs int64 `json:"positionMs,omitempty"`
-	Playing    bool  `json:"playing,omitempty"`
-	Buffering  bool  `json:"buffering,omitempty"`
+	TMono       int64 `json:"tMono,omitempty"`
+	PositionMs  int64 `json:"positionMs,omitempty"`
+	IsPlaying   bool  `json:"isPlaying,omitempty"`
+	IsBuffering bool  `json:"isBuffering,omitempty"`
 	// RTTMs, in a state, is the shortest round trip the device's pings have measured: the others
 	// see it in the roster, and only the device can measure it (D66).
 	RTTMs int64 `json:"rttMs,omitempty"`
@@ -448,9 +448,9 @@ type Inbound struct {
 	// Playback, in a state, is how the device's player plays the film (D371 §4); nil where it does
 	// not say.
 	Playback *Playback `json:"playback,omitempty"`
-	// PageHidden, in a state, is the device's page hidden by its browser, its film paused: a
+	// IsPageHidden, in a state, is the device's page hidden by its browser, its film paused: a
 	// handheld's, a locked phone's. Such a device cannot lead (D372 §5).
-	PageHidden bool `json:"pageHidden,omitempty"`
+	IsPageHidden bool `json:"isPageHidden,omitempty"`
 	// RemembersPlace, in a state, is the device's player saying it has played its film with its
 	// session on this page, as a follower in step or as its leader, before this connection or on it:
 	// its position is one of its own, which becomes the group's should it be chosen to lead a group no

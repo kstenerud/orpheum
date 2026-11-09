@@ -593,7 +593,7 @@ func (server *Server) holdWithinItsSourcesShare(connection *webrtc.PeerConnectio
 		})
 		return
 	}
-	verdict.decide(Verdict{Held: true})
+	verdict.decide(Verdict{IsHeld: true})
 	server.logger.Info("rtcapi: a connection is held",
 		slogx.EventKey, "connectionHeld",
 		"connection", name, "network", source.String(),

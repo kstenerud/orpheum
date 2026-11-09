@@ -463,7 +463,7 @@ describe("setting a cast up (D364 §1, §2; D337 §2)", () => {
         }),
       );
       await server.accept();
-      expect(server.heard[0]).toEqual({ ...liveHello, behind: true });
+      expect(server.heard[0]).toEqual({ ...liveHello, isBehind: true });
       visibility = "visible";
       document.dispatchEvent(new Event("visibilitychange"));
       expect(server.heard.at(-1)).toEqual({ type: "front" });

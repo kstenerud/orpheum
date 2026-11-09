@@ -234,12 +234,12 @@ describe("a page's live connection (D337 §2)", () => {
       type: "hello",
       channel: "live",
       sessionToken: "session",
-      behind: true,
+      isBehind: true,
     });
     isInFront = true;
     connection.showFront(true);
     connection.showFront(false);
-    expect(sockets.sent.slice(1)).toEqual([{ type: "front" }, { type: "front", behind: true }]);
+    expect(sockets.sent.slice(1)).toEqual([{ type: "front" }, { type: "front", isBehind: true }]);
     sockets.opened[0]!.onMessage(
       JSON.stringify({ type: "devices", deviceIds: [3, 4], inFrontDeviceIds: [4] }),
     );

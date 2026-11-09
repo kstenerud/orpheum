@@ -251,7 +251,7 @@ func TestAnswer_TellsAConnectionPastItsNetworksShareWhy(t *testing.T) {
 	t.Parallel()
 	server, _ := waitingServer(t, rtcapi.Bounds{PerSource: 1})
 	first := rtcapitest.Connect(t, server.Answer, rtcapitest.OnLoopback())
-	if verdict := first.Verdict(); verdict != (rtcapi.Verdict{Held: true}) {
+	if verdict := first.Verdict(); verdict != (rtcapi.Verdict{IsHeld: true}) {
 		t.Errorf("the first connection was told %+v; want it held", verdict)
 	}
 	awaitConnected(t, server, 1)
@@ -276,7 +276,7 @@ func TestServer_ANetworksShareIsAsItIsSet(t *testing.T) {
 	_ = rtcapitest.Connect(t, server.Answer, rtcapitest.OnLoopback())
 	awaitConnected(t, server, 1)
 	second := rtcapitest.Connect(t, server.Answer, rtcapitest.OnLoopback())
-	if verdict := second.Verdict(); verdict != (rtcapi.Verdict{Held: true}) {
+	if verdict := second.Verdict(); verdict != (rtcapi.Verdict{IsHeld: true}) {
 		t.Errorf("the second connection, within a share set to 2, was told %+v; want it held", verdict)
 	}
 }

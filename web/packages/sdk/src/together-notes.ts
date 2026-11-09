@@ -43,11 +43,11 @@ export interface PlayerState {
 
 /**
  * A state's flags as the server reads them, by their names on the wire, each sent only while it
- * holds: pageHidden, remembersPlace.
+ * holds: isPageHidden, remembersPlace.
  */
 export function stateFlagsOf(state: PlayerState): Readonly<Record<string, true>> {
   return {
-    ...(state.isPageHidden === true ? { pageHidden: true } : {}),
+    ...(state.isPageHidden === true ? { isPageHidden: true } : {}),
     ...(state.isPlaceRemembered === true ? { remembersPlace: true } : {}),
   };
 }

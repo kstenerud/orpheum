@@ -232,9 +232,9 @@ type device struct {
 func (each *device) takeState(message Inbound) {
 	switch message.Type {
 	case MessageState:
-		each.buffering = message.Buffering
+		each.buffering = message.IsBuffering
 		each.playerFileID = message.FileID
-		if !message.Buffering && message.FileID != 0 {
+		if !message.IsBuffering && message.FileID != 0 {
 			each.hasBeenReady = true
 		}
 		if message.RTTMs > 0 {
@@ -616,9 +616,9 @@ func (current *session) takeState(ctx context.Context, now time.Time, who *membe
 	if message.Type == MessageState {
 		from.place = devicePlace{
 			fileID: message.FileID, position: current.reportedPosition(from, message), at: now,
-			isMoving: message.Playing && !message.Buffering, isRemembered: message.RemembersPlace,
+			isMoving: message.IsPlaying && !message.IsBuffering, isRemembered: message.RemembersPlace,
 		}
-		current.takeVisibility(who, from, message.PageHidden)
+		current.takeVisibility(who, from, message.IsPageHidden)
 		current.takeRun(now, who, from, message)
 		current.takeStall(ctx, now, who, from, message)
 		current.takeContention(now, who, from, wasContender)

@@ -419,8 +419,8 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
         fileId: 7, // the film its player has, by which it contends for the lead (D374 §1)
         positionMs: 1235,
         tMono: 1000,
-        playing: true,
-        buffering: false,
+        isPlaying: true,
+        isBuffering: false,
         rttMs: 0,
       },
     ]);

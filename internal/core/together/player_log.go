@@ -56,11 +56,11 @@ func (current *session) deviceAttributes(who *member, from *device) []any {
 // whose film jumped every few seconds left no trace of what its player did (staging, 2026-10-06).
 func (current *session) logPlayer(ctx context.Context, now time.Time, who *member, from *device, message Inbound) {
 	if message.Type != MessageState ||
-		(!from.playerChangedAt.IsZero() && message.Playing == from.playing && message.Buffering == from.buffering) {
+		(!from.playerChangedAt.IsZero() && message.IsPlaying == from.playing && message.IsBuffering == from.buffering) {
 		return
 	}
 	attributes := append(current.deviceAttributes(who, from),
-		slogx.EventKey, eventPlayerChanged, "playing", message.Playing, "buffering", message.Buffering,
+		slogx.EventKey, eventPlayerChanged, "playing", message.IsPlaying, "buffering", message.IsBuffering,
 		positionMsAttribute, message.PositionMs,
 		"behindGroupMs", current.positionAt(now).Milliseconds()-message.PositionMs)
 	if !from.playerChangedAt.IsZero() {
@@ -70,7 +70,7 @@ func (current *session) logPlayer(ctx context.Context, now time.Time, who *membe
 		attributes = append(attributes, "readyOnMs", message.ReadyOnMs, "loadsFaster", message.LoadsFaster)
 	}
 	current.logger.DebugContext(ctx, "watch together: a device's player changed", attributes...)
-	from.playing, from.playerChangedAt = message.Playing, now
+	from.playing, from.playerChangedAt = message.IsPlaying, now
 }
 
 // logNote logs, at debug, one thing a device's player did, with only its kind's fields; a note

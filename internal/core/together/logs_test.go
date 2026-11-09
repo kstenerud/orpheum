@@ -17,11 +17,11 @@ func TestHub_LogsADevicesPlayerStartingAndStoppingPlayingOrBuffering(t *testing.
 	t.Parallel()
 	stage := newStage(t)
 	device, _ := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
-	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageState, Playing: true, PositionMs: 1000})
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageState, IsPlaying: true, PositionMs: 1000})
 	stage.clock.Advance(3 * time.Second)
-	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageState, Playing: true, PositionMs: 4000})
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageState, IsPlaying: true, PositionMs: 4000})
 	stage.clock.Advance(time.Second)
-	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageState, Buffering: true, PositionMs: 5000})
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageState, IsBuffering: true, PositionMs: 5000})
 	var changes []string
 	for line := range strings.Lines(stage.logs.String()) {
 		if strings.Contains(line, "logEvent=playerChanged") {
@@ -395,7 +395,7 @@ func TestHub_LogsAPlayersLoadingHeldAndTheRuleItWasReadyBy(t *testing.T) {
 	if box.last(MessageRejected).Code != codeInvalid {
 		t.Errorf("a loading note with an unknown word was not refused")
 	}
-	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageState, Buffering: true, PositionMs: 1000})
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageState, IsBuffering: true, PositionMs: 1000})
 	stage.hub.Handle(t.Context(), device, Inbound{
 		Type: MessageState, PositionMs: 1000, ReadyOnMs: 3000, LoadsFaster: 3.4,
 	})

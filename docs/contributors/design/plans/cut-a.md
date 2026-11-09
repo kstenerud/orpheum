@@ -341,7 +341,7 @@ the sender's monotonic time, and round trips are measured with `ping`.
 | --- | --- | --- |
 | client → | `hello` | `credential` (the membership's), `sessionToken` (a signed-in person's, optional: the membership becomes theirs; D267 §2), `role` (`video`, the video viewer; `panel`, the control panel with voice; `both`: D338 §4), `canSetRate` — within 10 s of opening |
 | client → | `ping` | `tMono` |
-| client → | `state` | `positionMs`, `tMono`, `playing`, `buffering`, `rttMs` (the shortest round trip its pings measured), `cannotKeepUp` (`linkKbps`, `lowestKbps`) while even its lowest quality is beyond its link (D247 §8) — sent on every change and every 60 s |
+| client → | `state` | `positionMs`, `tMono`, `isPlaying`, `isBuffering`, `rttMs` (the shortest round trip its pings measured), `cannotKeepUp` (`linkKbps`, `lowestKbps`) while even its lowest quality is beyond its link (D247 §8) — sent on every change and every 60 s |
 | client → | `command` | the host's alone: `command`: `play`, `pause`, `seek` (`positionMs`), `rate` (`rate`), `changeItem` (`fileId` and `positionMs`, to a film the host reaches), `stop` (nothing on, every screen black; D246 §5); with `basedOnSeq` |
 | client → | `suspend` / `resume` | `reason`: `stallRecovery`, `audioSessionInterrupted`, `userActionRequired`, `userPausedLocally`, `userIsChangingCurrentTime` |
 | client → | `rtc` | `toDeviceId`, `sdp` or `candidate` (voice signalling only; media goes browser to TURN) |

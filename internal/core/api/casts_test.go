@@ -682,7 +682,7 @@ func TestCast_AHostStartingWatchTogetherWhileCastingHasTheReceiverLeadIt(t *test
 		FileID: 1, PositionMs: 7_000,
 	})
 	castPlayer.send(together.Inbound{
-		V: together.ProtocolVersion, Type: together.MessageState, Playing: true, PositionMs: 42_000, FileID: 1,
+		V: together.ProtocolVersion, Type: together.MessageState, IsPlaying: true, PositionMs: 42_000, FileID: 1,
 	})
 	castPlayer.awaitGroup(together.GroupPlaying)
 	castPlayer.send(together.Inbound{
@@ -707,7 +707,7 @@ func TestCast_AHostStartingWatchTogetherWhileCastingHasTheReceiverLeadIt(t *test
 		FileID: 1, PositionMs: *part.PositionMs,
 	})
 	player.send(together.Inbound{
-		V: together.ProtocolVersion, Type: together.MessageState, Playing: true, PositionMs: *part.PositionMs,
+		V: together.ProtocolVersion, Type: together.MessageState, IsPlaying: true, PositionMs: *part.PositionMs,
 		FileID: 1,
 	})
 	player.awaitGroup(together.GroupPlaying)
