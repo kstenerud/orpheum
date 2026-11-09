@@ -155,7 +155,7 @@ func TestIngest_EveryEnumeratedPathGetsARowWithItsFilingAndReason(t *testing.T) 
 	if notes.Filing != FilingSkipped || *notes.FilingReason != "extension" || notes.PayloadHash != nil {
 		t.Errorf("the notes = %+v, want skipped, rule extension (D163)", notes)
 	}
-	if broken.Filing != FilingErrored || *broken.FilingReason != "permission_denied" ||
+	if broken.Filing != FilingErrored || *broken.FilingReason != "permissionDenied" ||
 		broken.ErrorDetailJSON == nil || !strings.Contains(*broken.ErrorDetailJSON, `"modeText":"-rw-------"`) {
 		t.Errorf("the broken file = %+v, want errored with the owner, group and mode (D163)", broken)
 	}

@@ -13,7 +13,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-// errProbe marks a failure to look inside a file that could be opened: probe_failed.
+// errProbe marks a failure to look inside a file that could be opened: probeFailed.
 var errProbe = errors.New("probe failed")
 
 // errTooManyErrors is returned once a root has produced its listing's error limit of errors.

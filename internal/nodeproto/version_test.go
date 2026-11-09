@@ -145,7 +145,9 @@ var wireShapeByVersion = map[int]string{
 	// it (D450 §1, amended): a node of 60 would read no leave and stop.
 	61: "8d4aa604c792c11d073f5234e99b37eb716ce36a6540e05eb552a61eb00d4583",
 	// 62 adds the hello's speed of the chosen encoder on the lowest quality (D457): a core of 61 would
-	// not know a node too slow to convert.
+	// not know a node too slow to convert. 62 also says every value in camelCase, as its keys are (the
+	// owner, 2026-11-09): the commands, records, skip rules, error codes, stall causes, a slot, a share's
+	// wait and a refused sound; a core of 61 would read none of them.
 	62: "691c0f5dc2df05870ba16badbd323dea0f96cb7cc855decf46920e827bba7d58",
 }
 

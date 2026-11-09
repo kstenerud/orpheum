@@ -128,7 +128,7 @@ func TestTakeListing_ReadsADiscsImageAndSkipsADiscsFolder(t *testing.T) {
 			skipped[strings.TrimPrefix(path, root+"/")] = *file.FilingReason
 		}
 	}
-	const rule = "disc_folder_not_supported_yet"
+	const rule = "discFolderNotSupportedYet"
 	want := map[string]string{"Arkon (1979)/VIDEO_TS": rule, "Nosferatu (1998)/BDMV": rule}
 	if !mapsEqual(skipped, want) {
 		t.Errorf("skipped %v, want %v", skipped, want)
@@ -262,7 +262,7 @@ func TestTakeListing_FilesEachEntryByTheLibrarysRules(t *testing.T) {
 	wantSkipped := map[string]string{
 		".trash": "trash", "Arkon (1979)/sample.mkv": "sample", "Metropolis (1995)/._Metropolis.mkv": "appledouble",
 		"Metropolis (1995)/Sample": "sample", "Metropolis (1995)/metropolis-SAMPLE.mp4": "sample", "Metropolis (1995)/notes.txt": "extension",
-		"pipe.mkv": "not_regular",
+		"pipe.mkv": "notRegular",
 	}
 	if !mapsEqual(skipped, wantSkipped) {
 		t.Errorf("skipped %v, want %v", skipped, wantSkipped)

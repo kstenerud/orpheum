@@ -29,7 +29,7 @@ func TestIngest_AFiledVideoThatCannotBeReadIsErroredAndNoLongerAKindsVideo(t *te
 	got := storetest.QueryRaw(t, world.database.Path(),
 		"SELECT place.filing, place.filing_reason, coalesce(file_filing.filing, '') FROM place "+
 			"LEFT JOIN file_filing ON file_filing.file_id = place.file_id WHERE place.id = "+itoa(fileID))
-	if want := []string{"errored|permission_denied|"}; !slices.Equal(got, want) {
+	if want := []string{"errored|permissionDenied|"}; !slices.Equal(got, want) {
 		t.Errorf("the unreadable file = %v; want %v: errored with its reason, filed by no kind", got, want)
 	}
 }

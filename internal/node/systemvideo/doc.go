@@ -32,5 +32,5 @@
 //   - systemvideo.go: recipes holds each video's FFmpeg arguments; a new video adds its purpose or
 //     codec to internal/nodeproto, and to the core's list (internal/core/library, systemvideos.go),
 //     which names its file. The agent (internal/node/agent) runs Make for
-//     the make_system_videos command.
+//     the makeSystemVideos command.
 package systemvideo

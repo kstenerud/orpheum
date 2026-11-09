@@ -2463,8 +2463,8 @@ The sketch used `EBADF`. Raw errnos are the wrong contract: they differ across p
 Windows has its own set, Go wrapping makes extraction unreliable, and several relevant failures
 have no errno at all — a parse failure, a timeout, a cancellation.
 
-So: a **stable, closed project vocabulary** — `permission_denied`, `not_found`, `io_error`,
-`timeout`, `unsupported`, `probe_failed`, `cancelled` — which the core keys its logic on, plus
+So: a **stable, closed project vocabulary** — `permissionDenied`, `notFound`, `ioError`,
+`timeout`, `unsupported`, `probeFailed`, `cancelled` — which the core keys its logic on, plus
 an **optional raw field** (`syscall`, `errno`, driver text) carrying the platform truth for a
 human diagnosing it. Same closed-enumeration discipline as
 [D21](#d21--a-fixed-named-output-menu-negotiated-by-a-prioritised-client-list) and the command
@@ -2513,7 +2513,7 @@ to close. Two fields are added on that decision's evidence, and both are one fie
 that already exists:
 
 - the **`error` record's optional raw field carries owner, group and mode** for a
-  `permission_denied`;
+  `permissionDenied`;
 - the **`header` record carries the node's effective uid and gid**.
 
 Together they turn *"permission denied"* — which is where every incumbent stops — into
@@ -12475,7 +12475,7 @@ is *rescan, restart, rescan*. Four consequences, each cheap:
   [D40](#d40--error-and-skip-records-and-why-the-error-record-carries-the-completeness-scope)'s
   trailer record already carries the counts; reporting a clean scan over a non-zero error count
   is the specific lie that produces the hair-pulling.
-- **The reason must name the fix, not the errno.** `permission_denied` is where the field stops
+- **The reason must name the fix, not the errno.** `permissionDenied` is where the field stops
   and it is not an answer. The answer is *"owned by `root:root`, mode `0600` — and this node
   runs as uid 998 (`mediasvc`)"*, which diagnoses itself. That needs **two additions**: D40's
   optional raw field carries **owner, group and mode**, and the report **header** carries the
@@ -16092,7 +16092,7 @@ puts that at the core's ingest boundary, and this entry follows D49.)
 ### 1. Symlinks inside a media root
 
 The scanner follows a symlink **only when its target resolves inside a configured media root**.
-Otherwise it reports a `skip` record with the rule `symlink_outside_roots`, naming the link. A
+Otherwise it reports a `skip` record with the rule `symlinkOutsideRoots`, naming the link. A
 followed directory is walked once, however many links reach it, so a loop ends.
 
 Why: ffprobe opens a file by its path, so a link to `/etc/shadow` in a media root would be read
@@ -22992,7 +22992,7 @@ the node lists the folders, the core opening none.
    starting with "."). The node reads outside every queue and through its disk gate, within the
    window a file's open has, asks of a folder while one listing of it runs sharing it, as probes do
    ([D327](#d327--whoever-needs-to-know-whether-a-root-can-be-read-asks-and-the-node-answers-at-once-outside-every-queue));
-   the core waits five seconds at most. A share gone away (`WhenGone: may_wait_forever`) answers
+   the core waits five seconds at most. A share gone away (`WhenGone: mayWaitForever`) answers
    "this folder is not responding", never hanging the page, the node's channel or its other work.
    Each listing is logged at debug with its node, path, folder count and time; a refused path at
    warn.
@@ -25143,7 +25143,7 @@ Decided in the build, for the owner's review:
   records, made before this deploy, is dropped whole at its first use. A full rescan's examining names
   each stored video it reads again (`ExamineFile.checksChunksOf`, node protocol 56), and its node checks
   every file of that file's stores the same way and says what it checked and dropped in a
-  `chunks_checked` record, which the scan counts in its totals (`chunksCheckedCount`,
+  `chunksChecked` record, which the scan counts in its totals (`chunksCheckedCount`,
   `chunksDroppedCount`) and logs at warn per file; an ordinary scan checks nothing. Code:
   `internal/node/prepared/records.go`, `internal/node/byteserver/byteserver.go`,
   `internal/node/agent/listing.go`, `internal/core/library/compare.go` and `derived.go`,

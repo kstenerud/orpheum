@@ -3,7 +3,7 @@
 -- the version below differs from the file's user_version, the file is deleted and built again
 -- from this schema. Raise it on any change. Nothing here is referenced by persistent.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
--- cache schema version 49
+-- cache schema version 50
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,

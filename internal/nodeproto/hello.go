@@ -249,10 +249,10 @@ type ShareWhenGone string
 const (
 	// ShareWaitsForever is a share mounted to wait for its server for good, as NFS is by default
 	// ("hard"): every read of it hangs in the kernel, unkillable, until the server is back.
-	ShareWaitsForever ShareWhenGone = "waits_forever"
+	ShareWaitsForever ShareWhenGone = "waitsForever"
 	// ShareMayWaitForever is a filesystem passed through from another machine or program (virtiofs,
 	// 9p, FUSE), whose own mounts the node cannot see: a hard share behind it hangs as one does.
-	ShareMayWaitForever ShareWhenGone = "may_wait_forever"
+	ShareMayWaitForever ShareWhenGone = "mayWaitForever"
 )
 
 // Devices are the devices a node's roots and prepared directory are on.

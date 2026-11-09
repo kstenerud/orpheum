@@ -346,7 +346,7 @@ component is ever in a position to mention the file again**, which is why the fi
   jump-the-queue path with a different trigger.
 - **Two new fields for the unreadable case** ([D163](../../decisions/working-notes.md) §8): the
   `error` record's `platform` field carries **owner, group and mode**, and the **header carries the
-  node's effective uid and gid**. That is the difference between `permission_denied` and
+  node's effective uid and gid**. That is the difference between `permissionDenied` and
   *"owned by `root:root`, mode `0600`, and this node runs as uid 998"* — the same fact with the
   answer in it, for the single most common way a copied-in file silently fails to appear.
 - **A library root is checked for readability when it is configured.** One `stat` and one

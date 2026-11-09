@@ -31,7 +31,7 @@ pointer reaches each.
 owner, 2026-10-25: for running device tests with beta participants). Then everyone signed in sees
 Device tests in the menu. While it is off, Device tests is not in the menu, every `/lab` page says
 *Device tests are turned off on this server*, and the core refuses a page's results as
-`not_found`; the test film at `/lab/extend/player` plays whatever the setting, since it asks the
+`notFound`; the test film at `/lab/extend/player` plays whatever the setting, since it asks the
 server nothing.
 
 | Page | Address | What it does |

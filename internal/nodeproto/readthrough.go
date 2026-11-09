@@ -6,7 +6,7 @@ package nodeproto
 // whole file tells: how loud its audio tracks are (cut-a §4, D226 §1), and its picture's timeline,
 // the keyframes it can be cut at and the bytes each second of it takes (D247 §10). One FFmpeg reads
 // the file once for all of it.
-const CommandReadThrough CommandType = "read_through"
+const CommandReadThrough CommandType = "readThrough"
 
 // ReadThrough is one video to read through, and what to learn from the read: the loudness of the
 // tracks it names, its picture's timeline, or both. A read asks for at least one.

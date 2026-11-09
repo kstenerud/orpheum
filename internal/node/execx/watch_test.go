@@ -74,7 +74,7 @@ func TestWatchdog_ARunThatNeverMovesOrOutrunsItsDeadlineHasStalled(t *testing.T)
 	if stalled == nil || stalled.Cause != StallPastDeadline || stalled.LastPosition != 60*time.Millisecond {
 		t.Errorf("an hour of crawling: %+v; want past its deadline at 60 ms", stalled)
 	}
-	if !strings.Contains(stalled.Error(), "past_deadline") {
+	if !strings.Contains(stalled.Error(), "pastDeadline") {
 		t.Errorf("the stall says %q, not why", stalled.Error())
 	}
 }

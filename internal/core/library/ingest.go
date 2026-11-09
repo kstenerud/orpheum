@@ -156,8 +156,8 @@ func NewIngester(
 	}
 }
 
-// IngestScan stores records of the scan of a node's root in one transaction: scan_begin starts it,
-// and scan_complete ends it, applying its removals (D39).
+// IngestScan stores records of the scan of a node's root in one transaction: scanBegin starts it,
+// and scanComplete ends it, applying its removals (D39).
 func (ingester *Ingester) IngestScan(
 	ctx context.Context, nodeID int64, root string, records []nodeproto.ScanRecord,
 ) error {
@@ -306,7 +306,7 @@ func (batch *ingestBatch) scanInProgress() *scanState {
 // are not stored: a place is stored for the libraries that cover it.
 func (batch *ingestBatch) beginScan(ctx context.Context, begin *nodeproto.ScanBegin) error {
 	if begin.RootPath != batch.key.root {
-		return fmt.Errorf("scan_begin names %s, but the scan is of %s", begin.RootPath, batch.key.root)
+		return fmt.Errorf("scanBegin names %s, but the scan is of %s", begin.RootPath, batch.key.root)
 	}
 	libraries, err := batch.queries.ListLibrariesAtOrUnderRoot(ctx, sqlcgen.ListLibrariesAtOrUnderRootParams{
 		NodeID: batch.nodeID, RootPath: begin.RootPath,

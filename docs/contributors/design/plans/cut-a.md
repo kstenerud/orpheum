@@ -259,7 +259,7 @@ token names this sending of the job, so a result is taken only for the attempt t
 §2, S83, S84); `isPlayDriven` work pauses the background work reading its device (D240 §6).
 
 - `list{rootPath, path, depth}`: a folder's entries, the first half of a scan (D241); the answer is
-  a `listing` of scan records (`scan_begin`, `listed`, `mount`, `skip`, `error`, `scan_complete`)
+  a `listing` of scan records (`scanBegin`, `listed`, `mount`, `skip`, `error`, `scanComplete`)
 - `examine{rootPath, files[{path, kind}]}`: probe, hash and read the sidecars of a batch; the
   answer is `examined` records (`observed`, `sidecar`, `skip`, `error`)
 - `prepare{video, profile, renditionDir, audio[]}`: a rendition (§6)
@@ -271,7 +271,7 @@ token names this sending of the job, so a result is taken only for the attempt t
   each audio track's integrated loudness, range and true peak, and its stereo mix's when it has more
   than two channels ([D226](../../decisions/working-notes.md) §1), and the picture's keyframes and
   bytes in each second (D247 §10), whichever the core asks for, in one read
-- `encode_artwork{images[]}`: images made into the sizes a person sees (D212)
+- `encodeArtwork{images[]}`: images made into the sizes a person sees (D212)
 - `cancel`: the envelope alone; stops the attempt it names
 - `reprioritize`: the envelope alone; the attempt's new priority, and whether it is still
   play-driven (D234 §3, D240 §6)
@@ -287,8 +287,8 @@ longer match ([D100](../../decisions/working-notes.md)). A path is bytes, base64
 
 **Liveness.** A node is heard by its status, its progress and its polls. The core marks it
 *silent* after `node_silent_after_seconds` with no word, and an attempt whose progress stops moving
-is stalled: the node says why, `never_moved`, `stood_still` or `past_deadline`, with its
-condition (`waiting_on_disk` and the file it waits on, `spinning`, `stuck`; D244 §6). Restarting a
+is stalled: the node says why, `neverMoved`, `stoodStill` or `pastDeadline`, with its
+condition (`waitingOnDisk` and the file it waits on, `spinning`, `stuck`; D244 §6). Restarting a
 node that hangs or exits is its service manager's, not the core's (D234 §4). A node that failed
 *says so*; silence is only ever read as silence ([D34](../../decisions/working-notes.md)).
 

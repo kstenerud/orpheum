@@ -33,7 +33,7 @@ func (batch *ingestBatch) completeScan(ctx context.Context, scan *scanState, com
 	delete(batch.ingester.scans, batch.key)
 	batch.ingester.logCorrectionTotals(ctx, batch.nodeID, scan)
 	if complete.RootPath != scan.root {
-		return fmt.Errorf("scan_complete names %s, but the scan in progress is of %s", complete.RootPath, scan.root)
+		return fmt.Errorf("scanComplete names %s, but the scan in progress is of %s", complete.RootPath, scan.root)
 	}
 	if err := batch.concludeMoves(ctx, scan); err != nil {
 		return err

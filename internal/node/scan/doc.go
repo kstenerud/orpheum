@@ -34,11 +34,11 @@
 //     TestList_CollapsesRepeatedErrorsAndSaysWhoCouldNotRead.
 //   - A root that keeps failing is abandoned with a root-scoped error (D40).
 //     TestList_StopsARootThatKeepsFailing.
-//   - A cancelled listing ends with a run-scoped error and never with scan_complete, so the core
+//   - A cancelled listing ends with a run-scoped error and never with scanComplete, so the core
 //     removes nothing for it (D39). TestList_ACancelledListingNeverSaysComplete.
 //   - A name that is not UTF-8 keeps its bytes, listed and examined (D49).
 //     TestListAndExamine_ANameThatIsNotUTF8KeepsItsBytes.
-//   - scan_begin carries the root's device and mount facts, and every directory on another device
+//   - scanBegin carries the root's device and mount facts, and every directory on another device
 //     than its parent is reported as a mount record (D42, D208). The facts:
 //     TestList_ListsEveryEntryWithItsStatAndReadsNoFile. A mount record needs a mount, which a test
 //     cannot make without privileges: the core's handling of both is tested with scripted records

@@ -28,7 +28,7 @@ type UnreadBody struct {
 	LibraryName string `json:"libraryName"`
 	NodeName    string `json:"nodeName"`
 	Path        string `json:"path"`
-	// Code is the scan's error code: permission_denied, say.
+	// Code is the scan's error code: permissionDenied, say.
 	Code        string          `json:"code"`
 	ErrorDetail ErrorDetailBody `json:"errorDetail"`
 	// FoundAt is when a scan first found it, in Unix milliseconds.

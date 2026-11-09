@@ -88,7 +88,7 @@ type UnreadPath struct {
 	LibraryName string
 	NodeName    string
 	Path        string
-	// Code is the scan's error code: permission_denied, say.
+	// Code is the scan's error code: permissionDenied, say.
 	Code   string
 	Detail ErrorDetail
 	// Since is when a scan first found it.

@@ -56,4 +56,4 @@ const RefusedGone RefusalCode = "gone"
 
 // RefusedNoRoom is a run refused because the prepared directory's disk is past its limit and
 // nothing can be evicted: the core waits for the node's status to show room (D231 §5).
-const RefusedNoRoom RefusalCode = "no_room"
+const RefusedNoRoom RefusalCode = "noRoom"

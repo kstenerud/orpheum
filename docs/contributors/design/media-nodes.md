@@ -263,8 +263,8 @@ The hard design work, and where the traps are. Format and completeness settled i
 - **The `error` record is how that scoping is expressed**, which makes it load-bearing rather
   than diagnostic. Each carries a **`scope`** — `entry` (one file; siblings unaffected),
   `subtree` (a directory could not be listed; nothing beneath it is known), `root` (share down),
-  or `run` — plus a structured `path`, a stable project `code` (`permission_denied`,
-  `not_found`, `io_error`, `timeout`, `unsupported`, `probe_failed`, `cancelled`) rather than a
+  or `run` — plus a structured `path`, a stable project `code` (`permissionDenied`,
+  `notFound`, `ioError`, `timeout`, `unsupported`, `probeFailed`, `cancelled`) rather than a
   platform errno, an optional raw platform detail for humans, and a human `reason`. Without
   `scope`, one unreadable file would invalidate its directory — or an unreadable directory would
   read as an empty one, which is the data-loss path.

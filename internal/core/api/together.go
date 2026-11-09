@@ -480,7 +480,7 @@ func (server *Server) joinTogether(ctx context.Context, input *JoinTogetherInput
 }
 
 // checkTogetherLink answers whether a link would admit its holder now, 204, or refuses it as the join
-// would, 404 not_found: a guest opening a link used already in another browser was shown the join's
+// would, 404 notFound: a guest opening a link used already in another browser was shown the join's
 // form, and told only once they had filled it in (the owner, 2026-10-30, VQ172(3)). It tells the
 // link's holder no more than the join's refusal does, and anyone without the link nothing.
 func (server *Server) checkTogetherLink(ctx context.Context, input *CheckTogetherLinkInput) (*struct{}, error) {

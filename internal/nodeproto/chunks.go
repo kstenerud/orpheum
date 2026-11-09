@@ -4,7 +4,7 @@ package nodeproto
 
 // CommandMakeChunks asks the node to make chunks of one stream of a film, on the film's grid
 // (D247 §10; plans/chunks.md §2).
-const CommandMakeChunks CommandType = "make_chunks"
+const CommandMakeChunks CommandType = "makeChunks"
 
 // PathBytesChunks is the byte socket's route for a store's files:
 // PathBytesChunks + "<file_id>/chunks-<stream>/<grid_id>/<name>", where name is init.mp4 or a

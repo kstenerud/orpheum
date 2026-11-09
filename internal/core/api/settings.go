@@ -65,7 +65,7 @@ func (server *Server) listSettings(
 
 // settingsError maps the settings package's refusals to API errors. Every handler that calls
 // settings answers through it, so a refusal always leaves with one code and one message: a
-// setting named in the path that is not there is not_found, and a value in the body that cannot
+// setting named in the path that is not there is notFound, and a value in the body that cannot
 // be set is invalid_request at body.valuesByKey.<key>, so the settings page shows it beside that
 // setting. A setting read as the wrong kind is the server's fault, not the request's.
 func (server *Server) settingsError(ctx context.Context, action string, err error) error {

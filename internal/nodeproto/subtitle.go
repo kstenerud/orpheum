@@ -5,7 +5,7 @@ package nodeproto
 // CommandExtractSubtitle asks the node to turn text subtitles into ASS and WebVTT (cut-a §4,
 // D217 §6): the text tracks of a video, every one asked for from one read of it (D340), or one
 // subtitle file or fetched text.
-const CommandExtractSubtitle CommandType = "extract_subtitle"
+const CommandExtractSubtitle CommandType = "extractSubtitle"
 
 // ExtractSubtitle is what to extract: text tracks inside a video, a file beside it, or a subtitle
 // fetched on request. Exactly one of Video, Sidecar and FetchedSubRip is set.

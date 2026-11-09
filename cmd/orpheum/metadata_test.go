@@ -74,7 +74,7 @@ func TestReportedProgressOf_IsWhereTheNodeHoldingAJobsWorkLastSaidItIs(t *testin
 	err := cache.Write(t.Context(), func(queries *cachegen.Queries) error {
 		return queries.InsertNodeAttempt(t.Context(), cachegen.InsertNodeAttemptParams{
 			AttemptToken: "attempt-7", JobID: 7, JobKind: string(jobs.KindReadThrough), NodeID: 1,
-			WorkJSON: `{"type":"read_through"}`, SentAt: 1,
+			WorkJSON: `{"type":"readThrough"}`, SentAt: 1,
 		})
 	})
 	if err != nil {
@@ -148,7 +148,7 @@ func TestDemoteUnwanted_APlaysJobNoOneWaitsForFallsAndItsNodeIsTold(t *testing.T
 	err = cache.Write(t.Context(), func(queries *cachegen.Queries) error {
 		return queries.InsertNodeAttempt(t.Context(), cachegen.InsertNodeAttemptParams{
 			AttemptToken: "attempt", JobID: job, JobKind: string(jobs.KindReadThrough), NodeID: 1,
-			WorkJSON: `{"type":"read_through"}`, SentAt: 1,
+			WorkJSON: `{"type":"readThrough"}`, SentAt: 1,
 		})
 	})
 	if err != nil {
