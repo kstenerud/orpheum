@@ -182,3 +182,33 @@ func isTmpThatRunsNothing(entry string) bool {
 	return target == "/tmp" && slices.Contains(given, "noexec") && slices.Contains(given, "nosuid") &&
 		slices.Contains(given, "nodev")
 }
+
+// A media folder typed wrongly would otherwise be made by Docker, empty and root's, and the server
+// would start with an empty library and no word why. The first media mount in the files a household
+// pastes refuses to make its folder, so the start stops naming the path. The others mount empty/
+// when not set, which orpheum-folders makes only after compose has made every container, so they
+// cannot refuse. The install script's override is
+// TestWrite_TheOverrideMountsEachRootReadOnlyAndTheGPUWhenThereIsOne's.
+func TestCompose_AMissingMediaFolderStopsTheStart(t *testing.T) {
+	t.Parallel()
+	shortMount := regexp.MustCompile(`^- \$\{ORPHEUM_MEDIA[:}][^ ]*:ro$`)
+	for _, name := range []string{"../../deploy/omv/compose.yaml", "../../deploy/catalogue/casaos/docker-compose.yml"} {
+		mounts, refusals := 0, 0
+		for line := range strings.SplitSeq(householdCompose(t, name), "\n") {
+			trimmed := strings.TrimSpace(line)
+			if shortMount.MatchString(trimmed) {
+				t.Errorf("%s mounts media in the short syntax, which makes a missing folder: %q", name, trimmed)
+			}
+			if strings.HasPrefix(trimmed, "source: ${ORPHEUM_MEDIA:") {
+				mounts++
+			}
+			if trimmed == "create_host_path: false" {
+				refusals++
+			}
+		}
+		if mounts != 1 || refusals != 1 {
+			t.Errorf("%s: %d mounts of ORPHEUM_MEDIA, %d refusing to make their folder; want 1 and 1", name, mounts,
+				refusals)
+		}
+	}
+}

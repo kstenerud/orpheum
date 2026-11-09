@@ -120,8 +120,15 @@ services:
       - ${PATH_TO_APPDATA:?}/orpheum/node:/var/lib/orpheum/node
       - ${PATH_TO_APPDATA:?}/orpheum/run:/run/orpheum
       # Each media folder at its own path, so the server shows the name this machine gives it. One not
-      # set mounts the empty folder where nothing looks; the core's command skips it (D449 §4).
-      - ${ORPHEUM_MEDIA:?set ORPHEUM_MEDIA to the folder that holds your films and series}:${ORPHEUM_MEDIA}:ro
+      # set mounts the empty folder where nothing looks; the core's command skips it (D449 §4). The
+      # first, if it does not exist, stops the start naming its path, rather than Docker making it
+      # empty. The others cannot: compose makes every container before orpheum-folders makes empty/.
+      - type: bind
+        source: ${ORPHEUM_MEDIA:?set ORPHEUM_MEDIA to the folder that holds your films and series}
+        target: ${ORPHEUM_MEDIA}
+        read_only: true
+        bind:
+          create_host_path: false
       - ${ORPHEUM_MEDIA_2:-${PATH_TO_APPDATA}/orpheum/empty}:${ORPHEUM_MEDIA_2:-/unset/2}:ro
       - ${ORPHEUM_MEDIA_3:-${PATH_TO_APPDATA}/orpheum/empty}:${ORPHEUM_MEDIA_3:-/unset/3}:ro
       - ${ORPHEUM_MEDIA_4:-${PATH_TO_APPDATA}/orpheum/empty}:${ORPHEUM_MEDIA_4:-/unset/4}:ro

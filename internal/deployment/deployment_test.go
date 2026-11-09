@@ -422,6 +422,8 @@ func TestWrite_ComposeReadsEveryVariableTheEnvironmentFileSets(t *testing.T) {
 	}
 }
 
+// Each root is mounted read-only at its own path, and one that does not exist stops the node's start
+// rather than Docker making it empty.
 func TestWrite_TheOverrideMountsEachRootReadOnlyAndTheGPUWhenThereIsOne(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
@@ -440,16 +442,23 @@ func TestWrite_TheOverrideMountsEachRootReadOnlyAndTheGPUWhenThereIsOne(t *testi
 			}
 			var override struct {
 				Services map[string]struct {
-					Volumes  []string `json:"volumes"`
-					Devices  []string `json:"devices"`
-					GroupAdd []string `json:"group_add"` //nolint:tagliatelle // compose's own key
+					Volumes  []mediaMount `json:"volumes"`
+					Devices  []string     `json:"devices"`
+					GroupAdd []string     `json:"group_add"` //nolint:tagliatelle // compose's own key
 				} `json:"services"`
 			}
 			if err = json.Unmarshal(text, &override); err != nil {
 				t.Fatal(err)
 			}
+			if !strings.Contains(string(text), `"create_host_path": false`) {
+				t.Errorf("the override names no create_host_path false:\n%s", text)
+			}
 			node := override.Services["orpheum-node"]
-			if !slices.Equal(node.Volumes, []string{"/mnt/a b:/mnt/a b:ro", "/srv/c:/srv/c:ro"}) {
+			want := []mediaMount{
+				{Type: "bind", Source: "/mnt/a b", Target: "/mnt/a b", ReadOnly: true},
+				{Type: "bind", Source: "/srv/c", Target: "/srv/c", ReadOnly: true},
+			}
+			if !slices.Equal(node.Volumes, want) {
 				t.Errorf("the node's volumes are %v; want each root read-only at its own path", node.Volumes)
 			}
 			hasGPU := slices.Equal(node.Devices, []string{"/dev/dri:/dev/dri"}) &&
