@@ -27383,6 +27383,9 @@ provider's text where it enters, a NUL included (`TestRequests_TextOpenSubtitles
 where rule 3 would refuse the whole answer; a TMDB answer is read strictly, so there a NUL now refuses
 the answer rather than being cleaned. Both are reported to the owner, not loosened.
 
+**Amended by D458** (2026-11-09): the decoder is public, in `pkg/strictjson`, with no twin, and these
+rules hold where Orpheum controls the sender; a document from another's is read by D458's rules.
+
 **Proven by:**
 - 1: `TestUnmarshal_RefusesWhatEachRuleRefuses`, `TestUnmarshal_AcceptsWhatTheRulesAllow`
 - 2: `TestUnmarshal_RefusesWhatEachRuleRefuses`
@@ -27394,8 +27397,8 @@ the answer rather than being cleaned. Both are reported to the owner, not loosen
 - 6: `TestUnmarshal_AnUnknownFieldIsAccepted`, `TestUnmarshal_DecodesADocumentAsEncodingJSONDoes`
 - 7: `TestRequestBody_AKeySaidTwiceIsRefused` (an API body), `TestStatus_AKeySaidTwiceIsRefused` (a
   node's message), `TestCall_AnAnswerWithAKeySaidTwiceIsRefused` (the discovery's answer),
-  `TestSearch_AReplyWithAKeySaidTwiceIsRefused` (TMDB),
-  `TestStrictjson_IsInternalPlatformStrictjsonByteForByte` (the discovery packages' twin)
+  `TestSearch_AReplyNestedPastTheLimitIsRefused` (TMDB, read by D458's rules since); the discovery
+  packages' twin was compared with its original until D458 made the decoder one public package
 - 8: `TestUnmarshal_RefusesAKeyNamingAFieldOnlyInAnotherCase`,
   `TestUnmarshal_AcceptsKeysInTheirFieldsCaseAndFreeFormKeysInAnyCase`,
   `TestUnmarshal_FollowsEncodingJSONsChoiceBetweenFieldsClaimingOneName`,
@@ -27452,3 +27455,54 @@ device check is VQ293.
   in the web client "a play on a server too slow to convert it (D457)" (`problem.test.ts`)
 - 4: `TestSystem_ShowsTheServersFactsEachNodesAndDoctorsFindings`, and in the web client "the System
   page warns when a machine is too slow to convert a film as it plays (D457)" (`system.test.tsx`)
+
+## D458 — JSON strictness follows who controls the sender
+
+**Decided** (2026-11-09), by the project owner, amending D456: *"The strictness of our decoder
+depends on who controls the sender. When we control both sender and receiver, we use maximal
+strictness. When another system controls the sender, we must make allowances for their quirks,
+trusting instead based on provenance (we trust TMDB's SSL certs, for example, and we trust the
+ffmpeg binary we've pinned - to a point). So, we build two sets of ingestion rules:
+strict-we-control-both-ends, and strict-we-control-only-the-receiver. When we control only the
+receiver: - The decoder allows anything JSON allows. We have secondary edge validation to handle the
+data and fix any known problems from that source so that their issues don't break us. - We follow the
+collision rule that the system operates under (first wins, last wins, or reject). If we don't know,
+we pick the most common behavior out there. - We always document our operating mode for each
+source."* Then, on the limits and invalid UTF-8 in that mode and on where the decoder lives: *"yes
+to both; use pkg/strictjson and move atomics too"*.
+
+1. **Where Orpheum writes both ends, D456 holds as built:** the API's request bodies, the node's
+   messages to the core, the discovery's answers, Orpheum's own stored files.
+2. **A document from a sender Orpheum does not control is read by `strictjson.Foreign`:** anything
+   JSON allows. An escaped NUL is taken; invalid UTF-8 and a lone surrogate are read as U+FFFD, as
+   encoding/json reads them; keys are compared as they are, without NFC. D456's limits (5) still
+   hold, nothing may follow the value (4), and a key still fills a field in its own case only (8).
+3. **A key said twice keeps the value the sender's own rule keeps:** `FirstWins` for ffprobe, whose
+   FFmpeg gives a name's first entry (`av_dict_get`) where its tag conversion makes two under one
+   name (ASF's `WM/EncodingSettings` and `WM/Tool` both become `encoder`, libavformat/asf.c);
+   `LastWins`, the common rule, for a sender whose own rule is not known: TMDB, OpenSubtitles,
+   Cloudflare, and the fake provider that stands in for them in tests. The members it does not keep
+   are cut from the document before encoding/json decodes it, so a repeated object is not merged
+   into the kept one.
+4. **The edge that reads a source cleans what that source gets wrong,** as D211 §2 cleans a
+   provider's text (a NUL among it) where it enters.
+5. **Each source's mode is written where it is read:** a named reader (`ffprobeOutput`,
+   `tmdbAnswers`, `cloudflareAnswers`, `openSubtitlesAnswers`, `fakeProviderBodies`) whose comment
+   says the sender, its trust and its rule, and its package's doc.
+6. **One public decoder:** `pkg/strictjson`, which the server and the public discovery packages
+   both import, with the whole-file writer in `pkg/atomics` beside it; `pkg/` imports nothing
+   internal. No file decodes JSON with encoding/json but the decoder's own.
+
+**Status:** decided (2026-11-09).
+
+**Proven by:**
+- 1: D456's tests
+- 2: `TestForeign_TakesWhatJSONAllowsAsEncodingJSONReadsIt`, `TestForeign_StillRefusesWhatNoSenderIsAllowed`,
+  `TestSearch_AReplyNestedPastTheLimitIsRefused` (TMDB)
+- 3: `TestForeign_ARepeatedKeyKeepsTheValueItsSenderKeeps`,
+  `TestForeign_FirstWinsReadsFfprobesRepeatedTagAsFfprobeShowsIt`,
+  `TestForeign_ARepeatsRuleItDoesNotKnowIsAnError`, `TestForeign_DecodeReadsAsUnmarshalDoes`,
+  `TestParse_ATagSaidTwiceKeepsItsFirstValueAsFfprobeShowsIt` (ffprobe),
+  `TestSearch_AReplyWithAKeySaidTwiceKeepsItsLastValue` (TMDB)
+- 4: `TestRequests_TextOpenSubtitlesSendsIsCleanedWhereItEnters`
+- 6: `TestArch_JSONIsDecodedStrictly`, `TestArch_PublicPackagesImportNothingInternal`

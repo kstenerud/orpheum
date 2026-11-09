@@ -8,6 +8,10 @@
 //
 // # Invariants
 //
+//   - TMDB's answers are another system's (D458): read by strictjson.Foreign, anything JSON allows
+//     within D456's limits, trusted for coming over TLS from TMDB, and a key said twice keeps its
+//     last value (tmdbAnswers). TestSearch_AReplyWithAKeySaidTwiceKeepsItsLastValue,
+//     TestSearch_AReplyNestedPastTheLimitIsRefused.
 //   - Imports nothing from internal/node, never os/exec, and no image or media parser. Enforced by
 //     the depguard rule core-boundary, and transitively by TestArch_CoreNeverImportsNode and
 //     TestArch_CoreNeverExecs.

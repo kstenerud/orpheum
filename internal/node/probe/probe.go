@@ -4,7 +4,6 @@ package probe
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -12,7 +11,13 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
+
+// ffprobeOutput reads ffprobe's JSON, which another program writes: anything JSON allows, and a key
+// said twice keeps its first value, as ffprobe itself shows it (FFmpeg's av_dict_get gives the first
+// of a name's entries; its ASF reader gives WM/EncodingSettings and WM/Tool both as encoder). D458.
+const ffprobeOutput = strictjson.FirstWins
 
 // maxOutputBytes bounds what ffprobe may write for one file. Real output is tens of kilobytes; a
 // file that makes ffprobe say more is hostile or broken, and is refused.
@@ -66,7 +71,7 @@ func (prober *Prober) Probe(ctx context.Context, film execx.Film) (nodeproto.Pro
 // Parse turns ffprobe's JSON into the bounded probe record.
 func Parse(output []byte) (nodeproto.Probe, error) {
 	var raw rawOutput
-	if err := json.Unmarshal(output, &raw); err != nil {
+	if err := ffprobeOutput.Unmarshal(output, &raw); err != nil {
 		return nodeproto.Probe{}, fmt.Errorf("ffprobe's output is not the JSON it promised: %w", err)
 	}
 	return raw.toProbe()

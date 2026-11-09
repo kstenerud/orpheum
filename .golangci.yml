@@ -581,8 +581,8 @@ linters:
           pkg: '^time$'
           msg: "[local-time] the server's times are UTC; for a wall clock take a localtime.Zone (internal/platform/localtime) and call its Of (D246 §7)"
 
-        # Every JSON document the Go code reads keeps D456's rules: no key said twice, valid UTF-8,
-        # no NUL, nothing after the value, the limits, a key in its field's own case.
+        # Every JSON document the Go code reads goes through pkg/strictjson: D456's rules for a sender
+        # Orpheum controls, strictjson.Foreign's for another's (D458).
         - pattern: '^json\.(Unmarshal|NewDecoder)$'
           pkg: '^encoding/json$'
           msg: "[strict-json] decode JSON through pkg/strictjson (D456)"
@@ -688,10 +688,6 @@ linters:
     rules:
       # ---- forbidigo: each tag's sanctioned home
       - path: (^pkg/strictjson/|_test\.go$)
-        linters: [forbidigo]
-        text: '\[strict-json\]'
-      # The files D456's Status names, until the owner decides them (TestArch_JSONIsDecodedStrictly).
-      - path: ^internal/(node/probe/(probe|disc)|node/artwork/derive|core/providers/opensubtitles/client|core/identify/identifytest/provider)\.go$
         linters: [forbidigo]
         text: '\[strict-json\]'
       - path: ^internal/platform/clock/

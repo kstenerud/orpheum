@@ -256,3 +256,18 @@ func TestProbe_AFailedProbeSaysWhy(t *testing.T) {
 		t.Errorf("error = %v, want ffprobe's status and its reason", err)
 	}
 }
+
+// ffprobe writes every entry FFmpeg's tag conversion makes under one name, and shows the first
+// (D458): a file whose two tags become one name is read, with the first.
+func TestParse_ATagSaidTwiceKeepsItsFirstValueAsFfprobeShowsIt(t *testing.T) {
+	t.Parallel()
+	output := `{"streams":[],"format":{"format_name":"asf","duration":"1.0",` +
+		`"tags":{"title":"First","encoder":"Lavf","title":"Second"}}}`
+	record, err := Parse([]byte(output))
+	if err != nil {
+		t.Fatalf("a tag said twice: %v; want it read", err)
+	}
+	if got := record.Format.ContainerTitle; got != "First" {
+		t.Errorf("the title is %q, want the first, First", got)
+	}
+}

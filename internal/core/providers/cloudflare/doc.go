@@ -7,6 +7,9 @@
 //
 // # Invariants
 //
+//   - Cloudflare's answers are another system's (D458): read by strictjson.Foreign, anything JSON
+//     allows within D456's limits, and a key said twice keeps its last value (cloudflareAnswers).
+//     TestArch_JSONIsDecodedStrictly.
 //   - It is the only package that reveals the DNS provider's token, and only into the request's
 //     Authorization header. Enforced by the forbidigo rule tagged [reveal], whose path allowlist
 //     holds internal/core/providers.

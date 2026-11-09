@@ -6,6 +6,10 @@
 //
 // # Invariants
 //
+//   - OpenSubtitles' answers are another system's (D458): read by strictjson.Foreign, anything
+//     JSON allows within D456's limits, and a key said twice keeps its last value
+//     (openSubtitlesAnswers); what its text gets wrong is cleaned where it enters (D211 §2).
+//     TestArch_JSONIsDecodedStrictly, TestRequests_TextOpenSubtitlesSendsIsCleanedWhereItEnters.
 //   - Imports nothing from internal/node, never os/exec. Enforced by the depguard rule
 //     core-boundary and TestArch_CoreNeverImportsNode.
 //   - Every request carries Orpheum's key, which ships with the program, and no user's (D224 §2,

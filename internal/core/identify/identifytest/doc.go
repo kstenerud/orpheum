@@ -6,6 +6,9 @@
 //
 // # Invariants
 //
+//   - The fake's stored bodies are read as the real providers' answers are (D458):
+//     strictjson.Foreign, a key said twice keeping its last value (fakeProviderBodies).
+//     TestArch_JSONIsDecodedStrictly.
 //   - What Fetch and FetchSeason return, Parse and ParseSeason read back unchanged: the stored
 //     body is the value as JSON, so a pass that re-derives a title from its stored response sees
 //     what was fetched. Review-only; every identify match test relies on it.

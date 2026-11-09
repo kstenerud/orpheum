@@ -24,7 +24,13 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
+
+// openSubtitlesAnswers reads OpenSubtitles' answers, which another system writes: anything JSON
+// allows, trusted for coming over TLS from OpenSubtitles, and a key said twice keeps its last value,
+// the common rule (D458). A NUL it sends is cleaned where the text enters (D211 §2).
+const openSubtitlesAnswers = strictjson.LastWins
 
 // BaseURL is OpenSubtitles' REST API. A login answers with the host its account's requests go to
 // next, whose scheme and path are this one's.
@@ -321,7 +327,7 @@ func (client *Client) exchange(ctx context.Context, method, address, token strin
 	if err := statusError(answer); err != nil {
 		return err
 	}
-	if err := json.Unmarshal(answer.Body, into); err != nil {
+	if err := openSubtitlesAnswers.Unmarshal(answer.Body, into); err != nil {
 		return fmt.Errorf("opensubtitles: read the answer: %w", err)
 	}
 	return nil
@@ -335,7 +341,8 @@ func statusError(answer outbound.Answer) error {
 		return errUnauthorized
 	case http.StatusNotAcceptable:
 		var spent downloadAnswer
-		_ = json.Unmarshal(answer.Body, &spent) //nolint:errcheck // a quota without a time is still spent
+		//nolint:errcheck // a quota without a time is still spent
+		_ = openSubtitlesAnswers.Unmarshal(answer.Body, &spent)
 		return &providers.QuotaSpentError{ResetAt: spent.resetAt()}
 	}
 	err := outbound.StatusError(providerName, answer)

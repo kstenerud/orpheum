@@ -18,6 +18,10 @@ import (
 	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
+// tmdbAnswers reads TMDB's answers, which another system writes: anything JSON allows, trusted for
+// coming over TLS from TMDB, and a key said twice keeps its last value, the common rule (D458).
+const tmdbAnswers = strictjson.LastWins
+
 // endpoint is where one kind of work lives at TMDB, and what its search is keyed on.
 type endpoint struct {
 	path           string // "movie" or "tv"
@@ -77,7 +81,7 @@ func (client *Client) Search(ctx context.Context, query identify.Query) ([]ident
 	var response struct {
 		Results []workSummary `json:"results"`
 	}
-	if err := strictjson.Unmarshal(body, &response); err != nil {
+	if err := tmdbAnswers.Unmarshal(body, &response); err != nil {
 		return nil, fmt.Errorf("tmdb: read the search response: %w", err)
 	}
 	candidates := make([]identify.Candidate, 0, len(response.Results))
@@ -102,7 +106,7 @@ func (client *Client) Find(ctx context.Context, kind, source, id string) (string
 		return "", err
 	}
 	var response map[string][]workSummary
-	if err := strictjson.Unmarshal(body, &response); err != nil {
+	if err := tmdbAnswers.Unmarshal(body, &response); err != nil {
 		return "", fmt.Errorf("tmdb: read the find response: %w", err)
 	}
 	if len(response[kindEndpoint.findResultsKey]) == 0 {
@@ -227,7 +231,7 @@ func (*Client) Parse(kind string, body []byte) (identify.Metadata, error) {
 		return identify.Metadata{}, err
 	}
 	var work workDetails
-	if err := strictjson.Unmarshal(body, &work); err != nil {
+	if err := tmdbAnswers.Unmarshal(body, &work); err != nil {
 		return identify.Metadata{}, fmt.Errorf("tmdb: read a stored response: %w", err)
 	}
 	if work.ID == 0 {
@@ -298,7 +302,7 @@ func (*Client) ParseSeason(body []byte) ([]identify.Episode, error) {
 			StillPath      string `json:"still_path"`
 		} `json:"episodes"`
 	}
-	if err := strictjson.Unmarshal(body, &listing); err != nil {
+	if err := tmdbAnswers.Unmarshal(body, &listing); err != nil {
 		return nil, fmt.Errorf("tmdb: read a stored season: %w", err)
 	}
 	episodes := make([]identify.Episode, 0, len(listing.Episodes))
@@ -334,7 +338,7 @@ func (*Client) EpisodeGroupsIn(seriesBody []byte) ([]byte, bool) {
 	var record struct {
 		EpisodeGroups json.RawMessage `json:"episode_groups"`
 	}
-	if err := strictjson.Unmarshal(seriesBody, &record); err != nil || len(record.EpisodeGroups) == 0 ||
+	if err := tmdbAnswers.Unmarshal(seriesBody, &record); err != nil || len(record.EpisodeGroups) == 0 ||
 		string(record.EpisodeGroups) == "null" {
 		return nil, false
 	}
@@ -361,7 +365,7 @@ func (*Client) ParseEpisodeGroups(body []byte) ([]identify.EpisodeGroup, error) 
 			EpisodeCount int    `json:"episode_count"`
 		} `json:"results"`
 	}
-	if err := strictjson.Unmarshal(body, &list); err != nil {
+	if err := tmdbAnswers.Unmarshal(body, &list); err != nil {
 		return nil, fmt.Errorf("tmdb: read a stored list of episode groups: %w", err)
 	}
 	groups := make([]identify.EpisodeGroup, 0, len(list.Results))
@@ -396,7 +400,7 @@ func (*Client) ParseEpisodeGroup(body []byte) ([]identify.EpisodeGroupPart, erro
 			} `json:"episodes"`
 		} `json:"groups"`
 	}
-	if err := strictjson.Unmarshal(body, &group); err != nil {
+	if err := tmdbAnswers.Unmarshal(body, &group); err != nil {
 		return nil, fmt.Errorf("tmdb: read a stored episode group: %w", err)
 	}
 	parts := make([]identify.EpisodeGroupPart, 0, len(group.Groups))
