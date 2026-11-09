@@ -2616,3 +2616,18 @@ you reported them from.
   with Landlock and seccomp in force, both libraries scanned, and `/system/update` answered
   `installRoute: "compose"`. The fix: the compose file hands the published port to `orpheum start`
   (an environment variable it already sees), and the file names that one. Found by the lead.
+
+## From the staging rehearsal of a household install (2026-11-09), next batch
+
+The OMV compose file on the host's network, enrolled with staging's discovery and claimed by a test
+account, signed in at orpheum.dev and played a film. Found by the lead:
+
+- **Leaving the discovery can enrol the core again at once.** `Leave` asks the discovery to delete
+  the core and then forgets it; a step of `Run` already in flight is refused with "enrol again" and
+  `enrolAgain` enrols a new pending core (seen on staging as a pending core seconds after the Leave).
+  The owner, 2026-11-09: enrolling again after the admin's own Leave is not wanted; enrolling again
+  when the discovery has dropped a core the admin still wants stays. The fix: Leave and a step take
+  turns, and a step begun before a Leave changes nothing; a test leaves while a step is in flight.
+- **The core published Docker's bridge gateways as home addresses.** Beside the address at home
+  (172.17.0.2 in the sandbox), its published names included 172.18.0.1, 172.19.0.1 and 172.20.0.1, so a
+  NAS running Docker would publish each of its bridges. Only the address at home should be published.
