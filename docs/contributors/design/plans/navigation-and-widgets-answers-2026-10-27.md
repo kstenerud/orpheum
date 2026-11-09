@@ -2643,7 +2643,7 @@ account, signed in at orpheum.dev and played a film. Found by the lead:
   address; it now sends the public ones and, of the private ones, the address at home alone. WebRTC's
   host candidate at home was already the address at home alone (rtcapi's address rewrite). Left for
   the owner: a house's private IPv6 (ULA) address is no longer sent either, D452 §3 naming only the
-  IPv4 address at home.
+  IPv4 address at home. The owner, 2026-11-09: "I'm fine with leaving ULA as it is."
 
 ## Wire names made consistent before v0.3.3 (the owner, 2026-11-09)
 
@@ -2693,3 +2693,23 @@ example, and we trust the ffmpeg binary we've pinned - to a point)." **Built** (
   whole-file writer (`atomics`) moves the same way, replacing both twins under `discovery/internal/`
   (the owner: "use pkg/strictjson and move atomics too"). `pkg/` joins the public tree that imports
   nothing internal, a gate change on the owner's word.
+
+## The 11-21 batch: the testers' first day (the owner, 2026-11-09: "OK sounds good")
+
+Overnight, nothing to production; staging only. Then a round from code-debt.md, one check-pr at the end.
+
+1. D460's Status to built, its clauses read back against the code.
+2. Leaving the discovery logs no "signalling connection ended; dialling again" when no dial follows.
+3. A Synology rehearsal: the arm64 v0.3.3 image under emulation, from `deploy/synology`'s compose
+   file, with no Landlock as on DSM 7's kernel 4.4: setup code, enrolment, claim, a library, sign-in
+   at orpheum.dev, a film plays. What emulation cannot show (the DS218's kernel, the community
+   Container Manager script) is left to the tester.
+4. install.md walked as a newcomer, OMV and Synology: invitation, account, server key, Discovery,
+   claim; whatever stops a newcomer is fixed.
+5. **Up next sits in the film's top-right corner** (the owner, 2026-11-09): "The up-next tile when a
+   show is nearing the end is right in the middle of the screen and covers where the action is (some
+   shows like Brindlewood have little skits at the end, and half of the middle of the screen is
+   covered). It should be in the top-right corner, where it's unlikely to cover anything important."
+   up-next.css and D407 §1 already place the offer at the end of the overlay's top row, so what the
+   owner sees is a fault to find, not a new place; a browser test checks the card's box sits in the
+   top-right corner and covers little of the middle.
