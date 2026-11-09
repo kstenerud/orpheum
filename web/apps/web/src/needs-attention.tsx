@@ -85,8 +85,8 @@ function ProblemTitles(props: { readonly value: AttentionCounts }): JSX.Element 
         </li>
       ) : null}
       {withoutSound.map((film) => (
-        <li key={`film-${String(film.titleId)}`}>
-          <WarningIcon /> <Link to={{ screen: "title", itemId: film.titleId }}>{film.name}</Link>
+        <li key={`film-${String(film.itemId)}`}>
+          <WarningIcon /> <Link to={{ screen: "title", itemId: film.itemId }}>{film.name}</Link>
           {t("needsAttention.filmWithoutSound")}
         </li>
       ))}

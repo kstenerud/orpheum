@@ -167,7 +167,7 @@ type OrderingBody struct {
 // NextUpBody is a person's Next Up in a collection's ordering (D160), for a series the one they watch
 // it in: the member its page offers to play, and where it is in the ordering.
 type NextUpBody struct {
-	TitleID       int64            `json:"titleId"`
+	ItemID        int64            `json:"itemId"`
 	Name          string           `json:"name,omitempty"`
 	GroupNumber   int64            `doc:"Its group in the ordering, a series' season; 0 for the specials and those with none" json:"groupNumber"` //nolint:lll // one struct tag
 	NumberInGroup int64            `doc:"Its number in its group, a series' episode number" json:"numberInGroup"`

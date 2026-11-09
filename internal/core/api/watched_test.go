@@ -160,7 +160,7 @@ func TestWatched_AMarkByHandIsAFreshStartAndUndoPutsItBack(t *testing.T) {
 	}
 
 	previous := harness.mark(t, http.MethodPut, "/items/11/watched", user)
-	if len(previous) != 1 || previous[0].TitleID != 11 || previous[0].WatchedAt != nil || previous[0].MarkedAt != nil {
+	if len(previous) != 1 || previous[0].ItemID != 11 || previous[0].WatchedAt != nil || previous[0].MarkedAt != nil {
 		t.Errorf("marked watched: previous %+v; want film 11 with no mark", previous)
 	}
 	harness.clock.Advance(time.Second)
@@ -194,7 +194,7 @@ func TestWatched_AnExtraIsNeverMarkedAndAnUndoCannotBeOfTheFuture(t *testing.T) 
 		api.CodeInvalidRequest)
 	future := harness.clock.Now().Add(time.Hour).UnixMilli()
 	wantError(t, harness.do(t, http.MethodPut, "/me/watched", user, map[string]any{
-		"states": []map[string]any{{"titleId": 10, "watchedAt": future}},
+		"states": []map[string]any{{"itemId": 10, "watchedAt": future}},
 	}), http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 }
 
@@ -209,7 +209,7 @@ func (harness testHarness) seriesWatched(t *testing.T, token string) string {
 			IsWatched    bool  `json:"isWatched"`
 		} `json:"seasons"`
 		NextUp *struct {
-			TitleID int64 `json:"titleId"`
+			TitleID int64 `json:"itemId"`
 		} `json:"nextUp"`
 	}
 	harness.readJSON(t, "/items/20", token, &series)

@@ -125,7 +125,7 @@ describe("a series' next episode (the owner, 2026-10-25)", () => {
     ],
   };
   const next = {
-    titleId: 33,
+    itemId: 33,
     name: "Low Water",
     groupNumber: 1,
     numberInGroup: 3,
@@ -150,7 +150,7 @@ describe("a series' next episode (the owner, 2026-10-25)", () => {
     const after = renderToStaticMarkup(
       withServices(
         <SeriesView
-          series={{ ...series, nextUp: { ...next, numberInGroup: 4, fileId: 8, titleId: 34 } }}
+          series={{ ...series, nextUp: { ...next, numberInGroup: 4, fileId: 8, itemId: 34 } }}
         />,
       ),
     );

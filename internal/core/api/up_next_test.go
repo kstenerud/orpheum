@@ -73,7 +73,7 @@ func (harness testHarness) upNextSeen(t *testing.T, token string, fileID int64) 
 	var answer struct {
 		UpNext *struct {
 			Episode struct {
-				TitleID       int64 `json:"titleId"`
+				TitleID       int64 `json:"itemId"`
 				GroupNumber   int64 `json:"groupNumber"`
 				NumberInGroup int64 `json:"numberInGroup"`
 				FileID        int64 `json:"fileId"`
@@ -181,7 +181,7 @@ func (harness testHarness) previousSeen(t *testing.T, token string, fileID int64
 	t.Helper()
 	var answer struct {
 		Previous *struct {
-			TitleID       int64 `json:"titleId"`
+			TitleID       int64 `json:"itemId"`
 			GroupNumber   int64 `json:"groupNumber"`
 			NumberInGroup int64 `json:"numberInGroup"`
 			FileID        int64 `json:"fileId"`

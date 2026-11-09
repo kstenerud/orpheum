@@ -48,7 +48,7 @@ const filmToPlay: WalkAnswers = {
   "GET /items/103": filmDetail(103, "Film 3"),
   "POST /playback": directDecision({
     titleName: "Film 3",
-    plays: { titleId: 103, kind: "movie", libraryId: 1 },
+    plays: { itemId: 103, kind: "movie", libraryId: 1 },
     url: "/no-such-media",
     subtitles: [
       {
@@ -682,7 +682,7 @@ describe("the media keys' next and previous on a Play page, in a computer's brow
         "GET /files/1030/up-next": {
           upNext: {
             episode: {
-              titleId: 104,
+              itemId: 104,
               fileId: 1040,
               name: "Bag",
               groupNumber: 1,

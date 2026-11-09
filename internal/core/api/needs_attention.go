@@ -62,8 +62,8 @@ type SeriesReadWronglyBody struct {
 
 // FilmWithoutSoundBody is a film whose video file has no sound track.
 type FilmWithoutSoundBody struct {
-	TitleID int64  `json:"titleId"`
-	Name    string `json:"name"`
+	ItemID int64  `json:"itemId"`
+	Name   string `json:"name"`
 }
 
 func (server *Server) registerNeedsAttention() {
@@ -131,7 +131,7 @@ func (server *Server) getNeedsAttention(
 	output.Body.FilmsWithoutSound = make([]FilmWithoutSoundBody, 0, len(silent))
 	for _, film := range silent {
 		output.Body.FilmsWithoutSound = append(output.Body.FilmsWithoutSound,
-			FilmWithoutSoundBody{TitleID: film.TitleID, Name: film.Name})
+			FilmWithoutSoundBody{ItemID: film.TitleID, Name: film.Name})
 	}
 	return output, nil
 }

@@ -317,7 +317,7 @@ func TestPlayback_SaysWhatItPlaysAndWhereItLives(t *testing.T) {
 		if plays == nil {
 			return "nothing"
 		}
-		text := fmt.Sprintf("%s %d in library %d", plays.Kind, plays.TitleID, plays.LibraryID)
+		text := fmt.Sprintf("%s %d in library %d", plays.Kind, plays.ItemID, plays.LibraryID)
 		if plays.LibraryID != 0 && plays.LibraryName == "" {
 			text += ", unnamed"
 		}

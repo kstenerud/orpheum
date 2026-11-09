@@ -66,7 +66,7 @@ func (server *Server) getUpNext(ctx context.Context, input *ItemInput) (*UpNextO
 // nextUpBody is a member as the API offers it to play.
 func (server *Server) nextUpBody(ctx context.Context, dependencies *Dependencies, next library.NextUp) NextUpBody {
 	return NextUpBody{
-		TitleID: next.TitleID, Name: next.Name, GroupNumber: next.Group, NumberInGroup: next.NumberInGroup,
+		ItemID: next.TitleID, Name: next.Name, GroupNumber: next.Group, NumberInGroup: next.NumberInGroup,
 		GroupName: next.GroupName,
 		FileID:    next.FileID, IsPartway: next.IsPartway, PositionMs: next.PartwayAtMs,
 		Unavailable: unavailableBody(next.Unreadable, server.nodeNamer(ctx, dependencies)),

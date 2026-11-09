@@ -211,7 +211,7 @@ describe("a page's arrival", () => {
             orderings: [{ name: "aired", kind: "aired", episodeCount: 2 }],
             seasons: [{ seasonNumber: 1, episodeCount: 2 }],
             nextUp: {
-              titleId: 302,
+              itemId: 302,
               name: "Low Water",
               groupNumber: 1,
               numberInGroup: 2,

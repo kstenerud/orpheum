@@ -673,7 +673,7 @@ describe("the title template (ui-audit-2026-11-04.md §3, R8)", () => {
         {
           upNext: {
             ordering: "aired",
-            episode: { fileId: 7, titleId: 41, groupNumber: 1, numberInGroup: 2, isPartway: false },
+            episode: { fileId: 7, itemId: 41, groupNumber: 1, numberInGroup: 2, isPartway: false },
           },
         },
       ],

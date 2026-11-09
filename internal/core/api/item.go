@@ -23,7 +23,7 @@ const itemKindSeries = "series"
 // document says it as a oneOf with a discriminator on kind, so a generated client narrows on kind
 // (D425 §7); exactly one of its fields is set.
 type ItemDetailBody struct {
-	Title  *TitleBody
+	Title  *ItemBody
 	Series *SeriesBody
 }
 
@@ -42,7 +42,7 @@ func (body ItemDetailBody) MarshalJSON() ([]byte, error) {
 
 // Schema is the union on kind, which huma cannot derive from a Go struct.
 func (ItemDetailBody) Schema(registry huma.Registry) *huma.Schema {
-	return unionOnKind(registry.Schema(reflect.TypeFor[TitleBody](), true, "TitleBody"),
+	return unionOnKind(registry.Schema(reflect.TypeFor[ItemBody](), true, "ItemBody"),
 		registry.Schema(reflect.TypeFor[SeriesBody](), true, "SeriesBody"))
 }
 
@@ -99,8 +99,8 @@ func (server *Server) getItem(ctx context.Context, input *ItemInput) (*ItemDetai
 	return output, nil
 }
 
-// TitleBody is a title's detail: a film's, an episode's, an extra's or an other video's (D416 §2).
-type TitleBody struct {
+// ItemBody is a title's detail: a film's, an episode's, an extra's or an other video's (D416 §2).
+type ItemBody struct {
 	ID                  int64             `json:"id"`
 	Kind                string            `enum:"movie,episode,extra,other" json:"kind"`
 	Name                string            `json:"name"`
@@ -154,12 +154,12 @@ type SeriesBody struct {
 // titleBody is a title's detail as principal sees it.
 func (server *Server) titleBody(
 	ctx context.Context, dependencies *Dependencies, principal auth.Principal, titleID int64,
-) (*TitleBody, error) {
+) (*ItemBody, error) {
 	detail, err := dependencies.Browser.Title(ctx, principal.Reach, principal.UserID, titleID)
 	if err != nil {
 		return nil, server.libraryError(ctx, "read a title", err)
 	}
-	body := &TitleBody{}
+	body := &ItemBody{}
 	body.ID, body.Kind, body.Name = detail.ID, detail.Kind, ptr.ValueOrZero(detail.Name)
 	body.Genres, body.Credits = peopleBodies(detail.People)
 	body.IdentificationState, body.IsGuessed = ptr.ValueOrZero(detail.IdentificationState), detail.IsGuessed

@@ -143,7 +143,7 @@ type StartPlaybackOutputBody struct {
 // episode's its series' at its place in the ordering its person watches in, an other video's its
 // library's list.
 type PlaysBody struct {
-	TitleID   int64             `json:"titleId"`
+	ItemID    int64             `json:"itemId"`
 	Kind      string            `enum:"movie,episode,extra,other" json:"kind"`
 	LibraryID int64             `doc:"A library its person reaches that covers its file's place, which a person goes back up to; absent for none" json:"libraryId,omitempty"` //nolint:lll // one struct tag
 	Episode   *EpisodePlaceBody `doc:"An episode's series and place; absent for any other" json:"episode,omitempty"`
@@ -308,7 +308,7 @@ func (server *Server) playsBody(
 		return nil, server.libraryError(ctx, "read where a playback's episode is", err)
 	}
 	plays := &PlaysBody{
-		TitleID: work.TitleID, Kind: work.TitleKind, LibraryID: work.LibraryID, LibraryName: work.LibraryName,
+		ItemID: work.TitleID, Kind: work.TitleKind, LibraryID: work.LibraryID, LibraryName: work.LibraryName,
 		Episode: episodePlaceBody(place),
 	}
 	if work.TitleKind == library.TitleKindExtra {

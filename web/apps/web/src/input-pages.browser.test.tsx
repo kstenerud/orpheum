@@ -66,7 +66,7 @@ const glassTide = {
     { seasonNumber: 1, episodeCount: 3 },
     { seasonNumber: 2, episodeCount: 1 },
   ],
-  nextUp: { titleId: 302, name: "Low Water", groupNumber: 1, numberInGroup: 2, fileId: 3020 },
+  nextUp: { itemId: 302, name: "Low Water", groupNumber: 1, numberInGroup: 2, fileId: 3020 },
 };
 
 /** A films library, as GET /libraries lists it. */

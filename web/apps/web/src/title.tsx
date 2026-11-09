@@ -58,7 +58,7 @@ import { MarkWatched } from "./watched-mark.tsx";
 export { firstPlayableFile, Loaded };
 
 /** A title's detail, as the server sends it. */
-export type TitleDetail = components["schemas"]["TitleBody"];
+export type TitleDetail = components["schemas"]["ItemBody"];
 type Stream = components["schemas"]["StreamBody"];
 type EpisodePlace = components["schemas"]["EpisodePlaceBody"];
 

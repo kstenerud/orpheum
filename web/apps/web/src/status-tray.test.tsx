@@ -507,7 +507,7 @@ it("tells an admin of a series whose episodes were likely read wrongly, leading 
 it("tells an admin of a film whose video has no sound, leading to it (the owner, 2026-11-02)", async () => {
   const silent = {
     ...nothingWrong,
-    filmsWithoutSound: [{ titleId: 880, name: "Mister 517" }],
+    filmsWithoutSound: [{ itemId: 880, name: "Mister 517" }],
     filmsWithoutSoundCount: 1,
   };
   mounted = await mount(
@@ -535,7 +535,7 @@ it("says how many more there are than Needs attention lists (D432 §4)", async (
     ...nothingWrong,
     seriesReadWrongly: [{ seriesId: 606, name: "Greywolf", unplacedCount: 24 }],
     seriesReadWronglyCount: 3,
-    filmsWithoutSound: [{ titleId: 880, name: "Mister 517" }],
+    filmsWithoutSound: [{ itemId: 880, name: "Mister 517" }],
     filmsWithoutSoundCount: 101,
   };
   mounted = await mount(

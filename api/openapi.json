@@ -2168,16 +2168,16 @@
       },
       "FilmWithoutSoundBody": {
         "properties": {
-          "name": {
-            "type": "string"
-          },
-          "titleId": {
+          "itemId": {
             "format": "int64",
             "type": "integer"
+          },
+          "name": {
+            "type": "string"
           }
         },
         "required": [
-          "titleId",
+          "itemId",
           "name"
         ],
         "type": "object"
@@ -2882,6 +2882,134 @@
         "required": [
           "secret",
           "expiresAt"
+        ],
+        "type": "object"
+      },
+      "ItemBody": {
+        "properties": {
+          "art": {
+            "$ref": "#/components/schemas/ArtBody"
+          },
+          "credits": {
+            "$ref": "#/components/schemas/CreditsBody",
+            "description": "Its cast, directors and writers in billing order; an episode's are its series'; absent when it credits no one"
+          },
+          "episode": {
+            "$ref": "#/components/schemas/EpisodePlaceBody"
+          },
+          "extras": {
+            "items": {
+              "$ref": "#/components/schemas/ExtraBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "fetchFailure": {
+            "$ref": "#/components/schemas/FetchFailureBody"
+          },
+          "filmOfExtra": {
+            "$ref": "#/components/schemas/FilmOfExtraBody",
+            "description": "The film an extra belongs to, which its page goes up to (D367); absent for anything else"
+          },
+          "followedSource": {
+            "type": "string"
+          },
+          "genres": {
+            "description": "Its genres in its source's order; an episode's are its series'; absent when it has none",
+            "items": {
+              "$ref": "#/components/schemas/GenreBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "identificationState": {
+            "type": "string"
+          },
+          "isGuessed": {
+            "description": "Whether its match is a guess no person confirmed (D301)",
+            "type": "boolean"
+          },
+          "isWatched": {
+            "description": "Whether the person watched it, by playing it to its finish or by hand (D370)",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "movie",
+              "episode",
+              "extra",
+              "other"
+            ],
+            "type": "string",
+            "x-extensible-enum": [
+              "movie",
+              "episode",
+              "extra",
+              "other"
+            ]
+          },
+          "libraries": {
+            "description": "The libraries its person reaches that list it, by name: its page goes up to the one the person came through, else the first (D367)",
+            "items": {
+              "$ref": "#/components/schemas/LibraryNameBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "overview": {
+            "type": "string"
+          },
+          "refreshRequestedAt": {
+            "description": "When a person asked for it to be refreshed, while no fetch has answered yet",
+            "format": "int64",
+            "type": "integer"
+          },
+          "runtimeMs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "tagline": {
+            "type": "string"
+          },
+          "unavailable": {
+            "$ref": "#/components/schemas/UnavailableBody",
+            "description": "Why none of its files can be read now; absent when one can"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/VersionBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "year": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "identificationState",
+          "versions",
+          "extras",
+          "art"
         ],
         "type": "object"
       },
@@ -4180,6 +4308,10 @@
             "description": "Whether the person is partway through it, which its Play resumes",
             "type": "boolean"
           },
+          "itemId": {
+            "format": "int64",
+            "type": "integer"
+          },
           "name": {
             "type": "string"
           },
@@ -4193,17 +4325,13 @@
             "format": "int64",
             "type": "integer"
           },
-          "titleId": {
-            "format": "int64",
-            "type": "integer"
-          },
           "unavailable": {
             "$ref": "#/components/schemas/UnavailableBody",
             "description": "Why none of its files can be read now, as its own page says; absent when one can"
           }
         },
         "required": [
-          "titleId",
+          "itemId",
           "groupNumber",
           "numberInGroup",
           "fileId",
@@ -4951,6 +5079,10 @@
           "filmOfExtra": {
             "$ref": "#/components/schemas/FilmOfExtraBody"
           },
+          "itemId": {
+            "format": "int64",
+            "type": "integer"
+          },
           "kind": {
             "enum": [
               "movie",
@@ -4973,14 +5105,10 @@
           },
           "libraryName": {
             "type": "string"
-          },
-          "titleId": {
-            "format": "int64",
-            "type": "integer"
           }
         },
         "required": [
-          "titleId",
+          "itemId",
           "kind"
         ],
         "type": "object"
@@ -8511,134 +8639,6 @@
         ],
         "type": "object"
       },
-      "TitleBody": {
-        "properties": {
-          "art": {
-            "$ref": "#/components/schemas/ArtBody"
-          },
-          "credits": {
-            "$ref": "#/components/schemas/CreditsBody",
-            "description": "Its cast, directors and writers in billing order; an episode's are its series'; absent when it credits no one"
-          },
-          "episode": {
-            "$ref": "#/components/schemas/EpisodePlaceBody"
-          },
-          "extras": {
-            "items": {
-              "$ref": "#/components/schemas/ExtraBody"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
-          "fetchFailure": {
-            "$ref": "#/components/schemas/FetchFailureBody"
-          },
-          "filmOfExtra": {
-            "$ref": "#/components/schemas/FilmOfExtraBody",
-            "description": "The film an extra belongs to, which its page goes up to (D367); absent for anything else"
-          },
-          "followedSource": {
-            "type": "string"
-          },
-          "genres": {
-            "description": "Its genres in its source's order; an episode's are its series'; absent when it has none",
-            "items": {
-              "$ref": "#/components/schemas/GenreBody"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
-          "id": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "identificationState": {
-            "type": "string"
-          },
-          "isGuessed": {
-            "description": "Whether its match is a guess no person confirmed (D301)",
-            "type": "boolean"
-          },
-          "isWatched": {
-            "description": "Whether the person watched it, by playing it to its finish or by hand (D370)",
-            "type": "boolean"
-          },
-          "kind": {
-            "enum": [
-              "movie",
-              "episode",
-              "extra",
-              "other"
-            ],
-            "type": "string",
-            "x-extensible-enum": [
-              "movie",
-              "episode",
-              "extra",
-              "other"
-            ]
-          },
-          "libraries": {
-            "description": "The libraries its person reaches that list it, by name: its page goes up to the one the person came through, else the first (D367)",
-            "items": {
-              "$ref": "#/components/schemas/LibraryNameBody"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
-          "name": {
-            "type": "string"
-          },
-          "overview": {
-            "type": "string"
-          },
-          "refreshRequestedAt": {
-            "description": "When a person asked for it to be refreshed, while no fetch has answered yet",
-            "format": "int64",
-            "type": "integer"
-          },
-          "runtimeMs": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "tagline": {
-            "type": "string"
-          },
-          "unavailable": {
-            "$ref": "#/components/schemas/UnavailableBody",
-            "description": "Why none of its files can be read now; absent when one can"
-          },
-          "versions": {
-            "items": {
-              "$ref": "#/components/schemas/VersionBody"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
-          "year": {
-            "format": "int64",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "id",
-          "kind",
-          "name",
-          "identificationState",
-          "versions",
-          "extras",
-          "art"
-        ],
-        "type": "object"
-      },
       "TitleEntryBody": {
         "properties": {
           "addedAt": {
@@ -9476,12 +9476,12 @@
       "WatchedStateBody": {
         "additionalProperties": false,
         "properties": {
-          "markedAt": {
-            "description": "When the person last marked it by hand, in Unix milliseconds; absent for never",
+          "itemId": {
             "format": "int64",
             "type": "integer"
           },
-          "titleId": {
+          "markedAt": {
+            "description": "When the person last marked it by hand, in Unix milliseconds; absent for never",
             "format": "int64",
             "type": "integer"
           },
@@ -9492,7 +9492,7 @@
           }
         },
         "required": [
-          "titleId"
+          "itemId"
         ],
         "type": "object"
       },
@@ -12142,17 +12142,17 @@
                 "schema": {
                   "discriminator": {
                     "mapping": {
-                      "episode": "#/components/schemas/TitleBody",
-                      "extra": "#/components/schemas/TitleBody",
-                      "movie": "#/components/schemas/TitleBody",
-                      "other": "#/components/schemas/TitleBody",
+                      "episode": "#/components/schemas/ItemBody",
+                      "extra": "#/components/schemas/ItemBody",
+                      "movie": "#/components/schemas/ItemBody",
+                      "other": "#/components/schemas/ItemBody",
                       "series": "#/components/schemas/SeriesBody"
                     },
                     "propertyName": "kind"
                   },
                   "oneOf": [
                     {
-                      "$ref": "#/components/schemas/TitleBody"
+                      "$ref": "#/components/schemas/ItemBody"
                     },
                     {
                       "$ref": "#/components/schemas/SeriesBody"

@@ -173,7 +173,7 @@ describe("the cast's remote choosing what the receiver shows, and its ⏮ (D440 
   it("plays the episode before on the receiver at ⏮", async () => {
     const heard: Heard[] = [];
     const pilot = {
-      titleId: 3,
+      itemId: 3,
       name: "Pilot",
       groupNumber: 1,
       numberInGroup: 1,

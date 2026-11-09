@@ -30,7 +30,7 @@ const dvd = {
 };
 
 const nextUp = {
-  titleId: 21,
+  itemId: 21,
   name: "Pilot",
   groupNumber: 1,
   numberInGroup: 2,

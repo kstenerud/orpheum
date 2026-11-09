@@ -125,7 +125,7 @@ func TestNeedsAttention_ListsTheFilmsWhoseFileHasNoSound(t *testing.T) {
 		`INSERT INTO item_text (item_id, language, is_original, name, overview, search_alternates)
 		 VALUES (11, 'und', 1, 'Mister 517', NULL, 'mister 517')`)
 	got := harness.do(t, http.MethodGet, "/needs-attention", admin, nil)
-	if !strings.Contains(got.body, `"filmsWithoutSound":[{"titleId":11,"name":"Mister 517"}]`) {
+	if !strings.Contains(got.body, `"filmsWithoutSound":[{"itemId":11,"name":"Mister 517"}]`) {
 		t.Errorf("GET /needs-attention = %d %s; want only Mister 517 listed as without sound", got.status, got.body)
 	}
 }

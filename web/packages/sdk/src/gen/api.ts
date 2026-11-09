@@ -3281,9 +3281,9 @@ export interface components {
             name: string;
         };
         FilmWithoutSoundBody: {
-            name: string;
             /** Format: int64 */
-            titleId: number;
+            itemId: number;
+            name: string;
         };
         FindingBody: {
             action?: string;
@@ -3512,6 +3512,48 @@ export interface components {
             /** @description The link to share, at the discovery that claimed the server; absent when none has, and the client makes it on its own origin */
             link?: string;
             secret: string;
+        };
+        ItemBody: {
+            art: components["schemas"]["ArtBody"];
+            /** @description Its cast, directors and writers in billing order; an episode's are its series'; absent when it credits no one */
+            credits?: components["schemas"]["CreditsBody"];
+            episode?: components["schemas"]["EpisodePlaceBody"];
+            extras: components["schemas"]["ExtraBody"][] | null;
+            fetchFailure?: components["schemas"]["FetchFailureBody"];
+            /** @description The film an extra belongs to, which its page goes up to (D367); absent for anything else */
+            filmOfExtra?: components["schemas"]["FilmOfExtraBody"];
+            followedSource?: string;
+            /** @description Its genres in its source's order; an episode's are its series'; absent when it has none */
+            genres?: components["schemas"]["GenreBody"][] | null;
+            /** Format: int64 */
+            id: number;
+            identificationState: string;
+            /** @description Whether its match is a guess no person confirmed (D301) */
+            isGuessed?: boolean;
+            /** @description Whether the person watched it, by playing it to its finish or by hand (D370) */
+            isWatched?: boolean;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "episode" | "extra" | "movie" | "other";
+            /** @description The libraries its person reaches that list it, by name: its page goes up to the one the person came through, else the first (D367) */
+            libraries?: components["schemas"]["LibraryNameBody"][] | null;
+            name: string;
+            overview?: string;
+            /**
+             * Format: int64
+             * @description When a person asked for it to be refreshed, while no fetch has answered yet
+             */
+            refreshRequestedAt?: number;
+            /** Format: int64 */
+            runtimeMs?: number;
+            tagline?: string;
+            /** @description Why none of its files can be read now; absent when one can */
+            unavailable?: components["schemas"]["UnavailableBody"];
+            versions: components["schemas"]["VersionBody"][] | null;
+            /** Format: int64 */
+            year?: number;
         };
         ItemCreditBody: {
             /** @description Their part, in the cast; absent for crew and where the source names none */
@@ -3981,6 +4023,8 @@ export interface components {
             groupNumber: number;
             /** @description Whether the person is partway through it, which its Play resumes */
             isPartway: boolean;
+            /** Format: int64 */
+            itemId: number;
             name?: string;
             /**
              * Format: int64
@@ -3992,8 +4036,6 @@ export interface components {
              * @description Where in the file the person is, when partway through it
              */
             positionMs?: number;
-            /** Format: int64 */
-            titleId: number;
             /** @description Why none of its files can be read now, as its own page says; absent when one can */
             unavailable?: components["schemas"]["UnavailableBody"];
         };
@@ -4263,6 +4305,8 @@ export interface components {
             /** @description An episode's series and place; absent for any other */
             episode?: components["schemas"]["EpisodePlaceBody"];
             filmOfExtra?: components["schemas"]["FilmOfExtraBody"];
+            /** Format: int64 */
+            itemId: number;
             /** @enum {string} */
             kind: "movie" | "episode" | "extra" | "other";
             /**
@@ -4271,8 +4315,6 @@ export interface components {
              */
             libraryId?: number;
             libraryName?: string;
-            /** Format: int64 */
-            titleId: number;
         };
         PortMappingBody: {
             /**
@@ -5443,48 +5485,6 @@ export interface components {
             /** @description The items whose tiles are in view */
             items: number[] | null;
         };
-        TitleBody: {
-            art: components["schemas"]["ArtBody"];
-            /** @description Its cast, directors and writers in billing order; an episode's are its series'; absent when it credits no one */
-            credits?: components["schemas"]["CreditsBody"];
-            episode?: components["schemas"]["EpisodePlaceBody"];
-            extras: components["schemas"]["ExtraBody"][] | null;
-            fetchFailure?: components["schemas"]["FetchFailureBody"];
-            /** @description The film an extra belongs to, which its page goes up to (D367); absent for anything else */
-            filmOfExtra?: components["schemas"]["FilmOfExtraBody"];
-            followedSource?: string;
-            /** @description Its genres in its source's order; an episode's are its series'; absent when it has none */
-            genres?: components["schemas"]["GenreBody"][] | null;
-            /** Format: int64 */
-            id: number;
-            identificationState: string;
-            /** @description Whether its match is a guess no person confirmed (D301) */
-            isGuessed?: boolean;
-            /** @description Whether the person watched it, by playing it to its finish or by hand (D370) */
-            isWatched?: boolean;
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            kind: "episode" | "extra" | "movie" | "other";
-            /** @description The libraries its person reaches that list it, by name: its page goes up to the one the person came through, else the first (D367) */
-            libraries?: components["schemas"]["LibraryNameBody"][] | null;
-            name: string;
-            overview?: string;
-            /**
-             * Format: int64
-             * @description When a person asked for it to be refreshed, while no fetch has answered yet
-             */
-            refreshRequestedAt?: number;
-            /** Format: int64 */
-            runtimeMs?: number;
-            tagline?: string;
-            /** @description Why none of its files can be read now; absent when one can */
-            unavailable?: components["schemas"]["UnavailableBody"];
-            versions: components["schemas"]["VersionBody"][] | null;
-            /** Format: int64 */
-            year?: number;
-        };
         TitleEntryBody: {
             /**
              * Format: int64
@@ -5772,13 +5772,13 @@ export interface components {
             previous: components["schemas"]["WatchedStateBody"][] | null;
         };
         WatchedStateBody: {
+            /** Format: int64 */
+            itemId: number;
             /**
              * Format: int64
              * @description When the person last marked it by hand, in Unix milliseconds; absent for never
              */
             markedAt?: number;
-            /** Format: int64 */
-            titleId: number;
             /**
              * Format: int64
              * @description When it became watched, in Unix milliseconds; absent while it was not
@@ -7162,7 +7162,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TitleBody"] | components["schemas"]["SeriesBody"];
+                    "application/json": components["schemas"]["ItemBody"] | components["schemas"]["SeriesBody"];
                 };
             };
             /** @description Error */
