@@ -606,7 +606,7 @@ func (server *Server) libraryError(ctx context.Context, action string, err error
 		return newError(http.StatusConflict, CodeConflict, err.Error())
 	case errors.Is(err, library.ErrNoFile):
 		return newError(http.StatusNotFound, CodeNotFound, "no such file")
-	case errors.Is(err, library.ErrNoSuchSort): // recorded and file_name are other videos' alone
+	case errors.Is(err, library.ErrNoSuchSort): // recorded and fileName are other videos' alone
 		return invalidRequestAt(http.StatusUnprocessableEntity, "query.sort", err.Error())
 	}
 	return server.logInternalError(ctx, action, err)

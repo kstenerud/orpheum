@@ -259,7 +259,7 @@ func TestIdentification_AProvidersRateLimitSaysWhichAndHowLongAsSubtitlesDo(t *t
 func TestIdentification_AMissingOrRefusedKeySaysWhyWithTheProviderAsTheFailingLeg(t *testing.T) {
 	t.Parallel()
 	for failure, reason := range map[error]string{
-		identify.ErrNoKey: "no_key", identify.ErrKeyRefused: "key_refused",
+		identify.ErrNoKey: "noKey", identify.ErrKeyRefused: "keyRefused",
 		fmt.Errorf("tmdb /movie/2: %w: status 502", outbound.ErrUnavailable): "unavailable",
 	} {
 		harness := newHarness(t)

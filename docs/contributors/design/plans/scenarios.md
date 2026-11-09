@@ -486,7 +486,7 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
     any other job (G3).
   - If a rolling refresh is already open for that item, `Enqueue` drops the request. The person
     is told "already waiting", and their `shouldRetryImages` and priority are lost (G11).
-  - The chooser's search runs synchronously. It answers `provider_error/unavailable` at once,
+  - The chooser's search runs synchronously. It answers `providerError/unavailable` at once,
     which is right.
 - **Design:** D231: the request triggers an immediate probe and merges with the job already
   open. The design does not say whether the chooser's synchronous search should honour the

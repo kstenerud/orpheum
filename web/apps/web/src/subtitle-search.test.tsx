@@ -179,7 +179,7 @@ it("tells a person when no OpenSubtitles account is set up", async () => {
         error: {
           code: "providerError",
           message: "x",
-          detail: { reason: "no_login" },
+          detail: { reason: "noLogin" },
           failedHop: "provider",
         },
       },

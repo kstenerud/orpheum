@@ -785,7 +785,7 @@ D231 §12; D233 §8; D241; F2.
   `POST /libraries/{id}/roots/repoint` moves a root and its files, with their history, to another
   of a connected node's roots, forgetting their modified times so the scan asked for reads and
   confirms each; the title page and the library screen offer them to an admin.
-- 6d: provider_error's unavailable detail carries since and nextCheckAt; a
+- 6d: providerError's unavailable detail carries since and nextCheckAt; a
   refresh's answer says what it waits for while TMDB is down; jobs that ended longer ago than
   `finished_jobs_kept_days` (30) are forgotten hourly; `useRequest` counts down a host's wait and asks
   again, says it is still waiting past two seconds, and calls the try after a host was not answering

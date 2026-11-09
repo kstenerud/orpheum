@@ -184,21 +184,21 @@ it("removes a stored secret only when asked again", async () => {
             200,
             {
               secrets: [
-                { name: "tmdb_api_key", description: "TMDB", isSet: true, needsReentry: false },
+                { name: "tmdbApiKey", description: "TMDB", isSet: true, needsReentry: false },
               ],
             },
           ],
           "GET /config": [200, { settings: [] }],
           "GET /system/update": [200, { version: "v0.3.1", checkedAt: 0 }],
-          "DELETE /secrets/tmdb_api_key": [204, null],
+          "DELETE /secrets/tmdbApiKey": [204, null],
         },
         heard,
       ),
     ),
   );
   // The bin asks first; only its question's red button removes the key.
-  await click(mounted.container.querySelector('button[aria-label="Remove tmdb_api_key"]'));
-  expect(heard.map((each) => each.methodAndPath)).not.toContain("DELETE /secrets/tmdb_api_key");
+  await click(mounted.container.querySelector('button[aria-label="Remove tmdbApiKey"]'));
+  expect(heard.map((each) => each.methodAndPath)).not.toContain("DELETE /secrets/tmdbApiKey");
   const confirm = buttonWithText(mounted.container, "Remove it");
   expect(confirm?.className).toBe("irreversible");
   // Keep it first and focused, the bin that asked disabled; Remove marked dangerous (D421).
@@ -210,7 +210,7 @@ it("removes a stored secret only when asked again", async () => {
   expect(document.activeElement?.textContent).toBe("Keep it");
   expect(confirm?.hasAttribute("data-dangerous-action")).toBe(true);
   await click(confirm);
-  expect(heard.map((each) => each.methodAndPath)).toContain("DELETE /secrets/tmdb_api_key");
+  expect(heard.map((each) => each.methodAndPath)).toContain("DELETE /secrets/tmdbApiKey");
 });
 
 it("ends a person's own link only when asked again, saying until when it led them back (D292 §4)", async () => {

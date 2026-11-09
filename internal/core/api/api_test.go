@@ -555,9 +555,9 @@ func TestSecrets_AreWriteOnly(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
-	set := harness.do(t, http.MethodPut, "/secrets/tmdb_api_key", admin, map[string]string{"value": canary})
+	set := harness.do(t, http.MethodPut, "/secrets/tmdbApiKey", admin, map[string]string{"value": canary})
 	if set.status != http.StatusNoContent {
-		t.Fatalf("PUT /secrets/tmdb_api_key = %d %s", set.status, set.body)
+		t.Fatalf("PUT /secrets/tmdbApiKey = %d %s", set.status, set.body)
 	}
 	listed := harness.do(t, http.MethodGet, "/secrets", admin, nil)
 	if listed.status != http.StatusOK || !strings.Contains(listed.body, `"isSet":true,"lastChars":"WXYZ"`) {
@@ -566,31 +566,31 @@ func TestSecrets_AreWriteOnly(t *testing.T) {
 	if !strings.Contains(listed.body, `"setByUserId":1`) {
 		t.Errorf("GET /secrets = %s, want it to name the admin who set it as setByUserId (D227)", listed.body)
 	}
-	login := harness.do(t, http.MethodPut, "/secrets/opensubtitles_password", admin,
+	login := harness.do(t, http.MethodPut, "/secrets/opensubtitlesPassword", admin,
 		map[string]string{"value": canary})
 	if login.status != http.StatusNoContent {
-		t.Errorf("PUT /secrets/opensubtitles_password = %d %s; the login is the server's (D224 §1)",
+		t.Errorf("PUT /secrets/opensubtitlesPassword = %d %s; the login is the server's (D224 §1)",
 			login.status, login.body)
 	}
 	wantError(t, harness.do(t, http.MethodPut, "/secrets/plex_token", admin, map[string]string{"value": canary}),
 		http.StatusNotFound, api.CodeNotFound)
-	malformed := harness.do(t, http.MethodPut, "/secrets/tmdb_api_key", admin,
+	malformed := harness.do(t, http.MethodPut, "/secrets/tmdbApiKey", admin,
 		map[string]any{"value": []string{canary}})
 	wantError(t, malformed, http.StatusUnprocessableEntity, api.CodeInvalidRequest)
 	if strings.Contains(malformed.body, "CANARY") || !strings.Contains(malformed.body, "body.value") {
 		t.Errorf("a malformed secret's error must name where, not echo the value: %s", malformed.body)
 	}
 	// The voice relay's secret is the server's own: not listed, and neither set nor removed by anyone.
-	if strings.Contains(listed.body, "turn_secret") {
+	if strings.Contains(listed.body, "turnSecret") {
 		t.Errorf("GET /secrets = %s; it lists the secret the server makes for itself", listed.body)
 	}
-	wantError(t, harness.do(t, http.MethodPut, "/secrets/turn_secret", admin, map[string]string{"value": canary}),
+	wantError(t, harness.do(t, http.MethodPut, "/secrets/turnSecret", admin, map[string]string{"value": canary}),
 		http.StatusNotFound, api.CodeNotFound)
-	wantError(t, harness.do(t, http.MethodDelete, "/secrets/turn_secret", admin, nil), http.StatusNotFound,
+	wantError(t, harness.do(t, http.MethodDelete, "/secrets/turnSecret", admin, nil), http.StatusNotFound,
 		api.CodeNotFound)
-	cleared := harness.do(t, http.MethodDelete, "/secrets/tmdb_api_key", admin, nil)
+	cleared := harness.do(t, http.MethodDelete, "/secrets/tmdbApiKey", admin, nil)
 	if cleared.status != http.StatusNoContent {
-		t.Errorf("DELETE /secrets/tmdb_api_key = %d %s", cleared.status, cleared.body)
+		t.Errorf("DELETE /secrets/tmdbApiKey = %d %s", cleared.status, cleared.body)
 	}
 	for _, path := range []string{"/secrets", "/config", "/me"} {
 		if got := harness.do(t, http.MethodGet, path, admin, nil); strings.Contains(got.body, "CANARY") {

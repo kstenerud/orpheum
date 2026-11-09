@@ -108,11 +108,11 @@ function fieldLabel(
 }
 
 /**
- * What to tell a person about an outside provider's refusal (provider_error), by the reason the
- * server gives ("no_key"), from the screen's own catalogue of them, which names its provider:
+ * What to tell a person about an outside provider's refusal (providerError), by the reason the
+ * server gives ("noKey"), from the screen's own catalogue of them, which names its provider:
  * `reasons` names it ("identify.providerReason"). A reason the screen has no words for gets the
  * general words for it (problem.providerReason), and one this client does not know the screen's
- * `unknown`. Any other failure, or a provider_error without a reason, is problemText's.
+ * `unknown`. Any other failure, or a providerError without a reason, is problemText's.
  */
 export function providerProblemText(t: TFunction, cause: unknown, reasons: string): string {
   if (cause instanceof ApiProblem) {

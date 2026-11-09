@@ -26,7 +26,7 @@ type QuotaExhaustedDetailBody struct {
 
 func (QuotaExhaustedDetailBody) problemCode() Code { return CodeQuotaExhausted }
 
-// ProviderRefusalDetailBody is provider_error's detail: why, in the provider's terms, one of
+// ProviderRefusalDetailBody is providerError's detail: why, in the provider's terms, one of
 // providerReasons, which the document enumerates so a client can have words for each.
 type ProviderRefusalDetailBody struct {
 	Reason ProviderReason `json:"reason"`
@@ -36,16 +36,16 @@ type ProviderRefusalDetailBody struct {
 	NextCheckAt    int64 `json:"nextCheckAt,omitempty"`
 }
 
-// ProviderReason is why an outside provider refused, as provider_error's detail says it.
+// ProviderReason is why an outside provider refused, as providerError's detail says it.
 type ProviderReason string
 
 // The reasons a provider refuses.
 const (
-	ReasonNoKey         ProviderReason = "no_key"
-	ReasonKeyRefused    ProviderReason = "key_refused"
-	ReasonNoLogin       ProviderReason = "no_login"
-	ReasonLoginRefused  ProviderReason = "login_refused"
-	ReasonNotConfigured ProviderReason = "not_configured"
+	ReasonNoKey         ProviderReason = "noKey"
+	ReasonKeyRefused    ProviderReason = "keyRefused"
+	ReasonNoLogin       ProviderReason = "noLogin"
+	ReasonLoginRefused  ProviderReason = "loginRefused"
+	ReasonNotConfigured ProviderReason = "notConfigured"
 	ReasonUnavailable   ProviderReason = "unavailable"
 	// ReasonUnreadable is what the provider sent, which could not be read: a fetched subtitle its
 	// node could not convert (D224 §5).
@@ -103,7 +103,7 @@ func (server *Server) providerNotAnswering(ctx context.Context, destination jobs
 	return failure
 }
 
-// providerRefusal is a provider's refusal as the API says it: provider_error, why in
+// providerRefusal is a provider's refusal as the API says it: providerError, why in
 // detail.reason in the provider's terms, and the provider as the failing leg (cut-a §5.2),
 // whichever provider.
 func providerRefusal(reason ProviderReason, message string) error {

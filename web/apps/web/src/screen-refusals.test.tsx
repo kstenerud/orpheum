@@ -52,7 +52,7 @@ const waitingItem: components["schemas"]["TitleEntryBody"] = {
 };
 
 const secret: components["schemas"]["SecretBody"] = {
-  name: "tmdb_api_key",
+  name: "tmdbApiKey",
   description: "TMDB",
   isSet: true,
   needsReentry: false,
@@ -153,11 +153,11 @@ describe("a screen the server refuses tells the viewer in their words (cut-a §5
       "GET /secrets": [200, { secrets: [secret] }],
       "GET /system/update": [200, { version: "v0.3.1", checkedAt: 0 }],
       "GET /config": [200, { settings: [setting] }],
-      "PUT /secrets/tmdb_api_key": refusal(409, "conflict"),
+      "PUT /secrets/tmdbApiKey": refusal(409, "conflict"),
       "POST /config/should_scan_on_node_hello/reset": refusal(404, "notFound"),
     });
     mounted = await mount(withServices(<Settings />, services));
-    const secretForm = 'form[aria-labelledby="secret-tmdb_api_key"]';
+    const secretForm = 'form[aria-labelledby="secret-tmdbApiKey"]';
     await enter(mounted.container.querySelector(`${secretForm} input`), "a new key");
     await submit(mounted.container.querySelector(secretForm));
     expectSays(conflict);
@@ -258,7 +258,7 @@ describe("a request that never reaches the server says so, rather than nothing",
 });
 
 describe("a match TMDB refuses says why and who can fix it", () => {
-  /** TMDB's refusal as the server gives it: provider_error, why in detail.reason. */
+  /** TMDB's refusal as the server gives it: providerError, why in detail.reason. */
   function providerRefusal(reason: string): Answer {
     return [
       503,
@@ -269,7 +269,7 @@ describe("a match TMDB refuses says why and who can fix it", () => {
   it("looking up the candidates with no key set", async () => {
     const services = servedBy({
       "GET /items": [200, { items: [waitingItem] }],
-      "GET /items/7/candidates": providerRefusal("no_key"),
+      "GET /items/7/candidates": providerRefusal("noKey"),
     });
     mounted = await mount(withServices(<Identify />, services));
     await click(buttonWithText(mounted.container, "Choose its match"));
@@ -283,7 +283,7 @@ describe("a match TMDB refuses says why and who can fix it", () => {
         200,
         { provider: "tmdb", candidates: [{ providerId: "101", name: "Théo" }] },
       ],
-      "POST /items/7/match": providerRefusal("key_refused"),
+      "POST /items/7/match": providerRefusal("keyRefused"),
       "POST /items/7/refresh": providerRefusal("unavailable"),
     });
     mounted = await mount(withServices(<Identify />, services));
