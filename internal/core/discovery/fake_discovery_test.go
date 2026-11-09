@@ -87,6 +87,9 @@ type fakeDiscovery struct {
 	// answering neither ping nor offer: a discovery restarted behind its tunnel, which left the core's
 	// link open (staging, 2026-10-29). Those after them are served as the fields above say.
 	silentDials int
+	// endSignalling ends the signalling connection open now, if one is: a Leave ends it, as the
+	// discovery forgets the core before it answers (connect's cores.leave).
+	endSignalling context.CancelFunc
 	// locateHashes and locators are each set of links and locators the core sent, in turn.
 	locateHashes []discoveryproto.LocateHashesRequest
 	locators     []discoveryproto.LocatorsRequest
@@ -389,6 +392,9 @@ func (fake *fakeDiscovery) serveSigned(writer http.ResponseWriter, request *http
 	case "DELETE /core":
 		// The discovery no longer holds the core: a session it asks for is refused as one to enrol again.
 		fake.isLeft = true
+		if fake.endSignalling != nil {
+			fake.endSignalling()
+		}
 		fake.refusal = &discoveryproto.Refusal{Code: discoveryproto.RefusalEnrolAgain, Message: "enrol again"}
 		fake.tokens = map[string]bool{}
 	case "PUT /locate-hashes":
@@ -531,7 +537,11 @@ func (fake *fakeDiscovery) serveSignal(writer http.ResponseWriter, request *http
 		return
 	}
 	defer func() { _ = connection.CloseNow() }() //nolint:errcheck // the test is over
-	ctx := request.Context()
+	ctx, end := context.WithCancel(request.Context())
+	defer end()
+	fake.mutex.Lock()
+	fake.endSignalling = end
+	fake.mutex.Unlock()
 	switch {
 	case mode.drops:
 		return

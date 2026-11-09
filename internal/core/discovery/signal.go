@@ -54,6 +54,7 @@ func (service *Service) signal(ctx context.Context) {
 	for ctx.Err() == nil {
 		wait, isClaimed := signalCheckEvery, false
 		if status := service.Status(); service.parts.Answerer != nil && status.StoodAsideAt.IsZero() &&
+			!service.leaving.Load() &&
 			(status.State == discoveryproto.StateClaimed || status.State == discoveryproto.StateGrace) {
 			wasOpen, err := service.holdSignalling(ctx, status.BaseURL, lost)
 			if ctx.Err() != nil {
@@ -63,15 +64,28 @@ func (service *Service) signal(ctx context.Context) {
 				failures = 0
 				lost.since, lost.dials = service.parts.Clock.Now(), 0
 			}
-			service.parts.Logger.WarnContext(ctx, "discovery: the signalling connection ended; dialling again",
-				"err", err)
-			wait, isClaimed = service.retryWait(ctx, failures), true
-			failures++
+			if service.hasLeft() {
+				// The Leave's own ending: no dial follows, so nothing is wrong.
+				service.parts.Logger.InfoContext(ctx, "discovery: the signalling connection closed for the Leave",
+					slogx.EventKey, "signallingClosedForLeave")
+				lost.since, lost.dials, failures = time.Time{}, 0, 0
+			} else {
+				service.parts.Logger.WarnContext(ctx, "discovery: the signalling connection ended; dialling again",
+					"err", err)
+				wait, isClaimed = service.retryWait(ctx, failures), true
+				failures++
+			}
 		}
 		if !service.waitToLookAgain(ctx, wait, isClaimed) {
 			return
 		}
 	}
+}
+
+// hasLeft reports whether the core is leaving its discovery, or has left it: a signalling
+// connection that ends then was ended by the Leave, and is not dialled again.
+func (service *Service) hasLeft() bool {
+	return service.leaving.Load() || service.Status().BaseURL == ""
 }
 
 // waitToLookAgain waits before the loop's next look, saying false when ctx ends. A claimed core's
