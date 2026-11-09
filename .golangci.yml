@@ -572,6 +572,12 @@ linters:
           pkg: '^time$'
           msg: "[local-time] the server's times are UTC; for a wall clock take a localtime.Zone (internal/platform/localtime) and call its Of (D246 §7)"
 
+        # Every JSON document the Go code reads keeps D456's rules: no key said twice, valid UTF-8,
+        # no NUL, nothing after the value, the limits, a key in its field's own case.
+        - pattern: '^json\.(Unmarshal|NewDecoder)$'
+          pkg: '^encoding/json$'
+          msg: "[strict-json] decode JSON through internal/platform/strictjson (D456)"
+
         # Ambient process state is read once, in cmd/orpheum, and passed down.
         - pattern: '^os\.(Getenv|LookupEnv|Environ|ExpandEnv|Setenv|Unsetenv|Clearenv|Args|Exit|Stdin|Stdout|Stderr|Getwd|Chdir|UserHomeDir|UserConfigDir|UserCacheDir|Hostname|TempDir)$'
           pkg: '^os$'
@@ -672,6 +678,13 @@ linters:
       - web
     rules:
       # ---- forbidigo: each tag's sanctioned home
+      - path: (^internal/platform/strictjson/|^discovery/internal/strictjson/|_test\.go$)
+        linters: [forbidigo]
+        text: '\[strict-json\]'
+      # The files D456's Status names, until the owner decides them (TestArch_JSONIsDecodedStrictly).
+      - path: ^internal/(node/probe/(probe|disc)|node/artwork/derive|core/providers/opensubtitles/client|core/identify/identifytest/provider)\.go$
+        linters: [forbidigo]
+        text: '\[strict-json\]'
       - path: ^internal/platform/clock/
         linters: [forbidigo]
         text: '\[clock\]'

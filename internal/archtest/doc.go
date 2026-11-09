@@ -65,7 +65,7 @@
 //   - graph_test.go: loading the package graph.
 //   - rules_test.go: the checkers and their TestArch_ tests.
 //   - environment_test.go: the release binary's environment rule.
-//   - json_test.go: the hand-built JSON rule.
+//   - json_test.go: the hand-built JSON rule; json_decoding_test.go: the strict decoding rule (D456).
 //   - handlers_test.go: the API's handler-name rule.
 //   - writers_test.go: the one-writer-per-table rule; writers_selftest_test.go: its parts against
 //     input that breaks them.

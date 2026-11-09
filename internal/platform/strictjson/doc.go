@@ -35,6 +35,8 @@
 //   - An unknown field is accepted (D456 §6), and a document that keeps every rule decodes exactly as
 //     encoding/json decodes it. TestUnmarshal_AnUnknownFieldIsAccepted,
 //     TestUnmarshal_DecodesADocumentAsEncodingJSONDoes, TestUnmarshal_NotJSONIsSaidInEncodingJSONsWords.
+//   - No compiled file outside this package and its twin decodes with encoding/json, but those
+//     D456's Status names. TestArch_JSONIsDecodedStrictly.
 //   - This package imports nothing from the module. Enforced by the depguard rule
 //     platform-is-a-leaf.
 //
