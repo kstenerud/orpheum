@@ -47,7 +47,7 @@ func TestItemEntries_AreAUnionOnKindInTheDocument(t *testing.T) {
 	if len(entry.OneOf) != 2 || entry.OneOf[0].Ref != title || entry.OneOf[1].Ref != series {
 		t.Errorf("listItems' entry is oneOf %+v; want the title's entry and the series'", entry.OneOf)
 	}
-	want := map[string]string{"movie": title, "episode": title, "extra": title, "other": title, "series": series}
+	want := map[string]string{"film": title, "episode": title, "extra": title, "other": title, "series": series}
 	if entry.Discriminator.PropertyName != "kind" || len(entry.Discriminator.Mapping) != len(want) {
 		t.Errorf("listItems' entry's discriminator: %+v; want kind, mapped %v", entry.Discriminator, want)
 	}

@@ -51,7 +51,7 @@ func (ItemDetailBody) Schema(registry huma.Registry) *huma.Schema {
 func unionOnKind(title, series *huma.Schema) *huma.Schema {
 	mapping := map[string]string{itemKindSeries: series.Ref}
 	for _, kind := range []string{
-		library.TitleKindMovie, library.TitleKindEpisode, library.TitleKindExtra, library.TitleKindOther,
+		kindFilm, library.TitleKindEpisode, library.TitleKindExtra, library.TitleKindOther,
 	} {
 		mapping[kind] = title.Ref
 	}
@@ -102,7 +102,7 @@ func (server *Server) getItem(ctx context.Context, input *ItemInput) (*ItemDetai
 // ItemBody is a title's detail: a film's, an episode's, an extra's or an other video's (D416 §2).
 type ItemBody struct {
 	ID                  int64             `json:"id"`
-	Kind                string            `enum:"movie,episode,extra,other" json:"kind"`
+	Kind                string            `enum:"film,episode,extra,other" json:"kind"`
 	Name                string            `json:"name"`
 	Overview            string            `json:"overview,omitempty"`
 	Tagline             string            `json:"tagline,omitempty"`
@@ -160,7 +160,7 @@ func (server *Server) titleBody(
 		return nil, server.libraryError(ctx, "read a title", err)
 	}
 	body := &ItemBody{}
-	body.ID, body.Kind, body.Name = detail.ID, detail.Kind, ptr.ValueOrZero(detail.Name)
+	body.ID, body.Kind, body.Name = detail.ID, saidKind(detail.Kind), ptr.ValueOrZero(detail.Name)
 	body.Genres, body.Credits = peopleBodies(detail.People)
 	body.IdentificationState, body.IsGuessed = ptr.ValueOrZero(detail.IdentificationState), detail.IsGuessed
 	body.Overview = ptr.ValueOrZero(detail.Overview)

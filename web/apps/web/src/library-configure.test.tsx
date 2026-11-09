@@ -94,7 +94,7 @@ function puts(heard: readonly Heard[]): unknown[] {
 describe("a library's Configure (the owner, 2026-10-27; D349 §8, D366 §5)", () => {
   it("offers a films library to Films, checked until left out, and leaves one out when unchecked", async () => {
     const heard: Heard[] = [];
-    const page = await configured(library(1, "Films", "movie"), heard);
+    const page = await configured(library(1, "Films", "film"), heard);
     expect(page.querySelector("dialog")?.getAttribute("aria-label")).toBe("Films");
     expect(choices(page)).toEqual(["Show in Films:true", "Show on Home:true"]);
     const [films] = page.querySelectorAll<HTMLInputElement>('dialog input[type="checkbox"]');
@@ -105,7 +105,7 @@ describe("a library's Configure (the owner, 2026-10-27; D349 §8, D366 §5)", ()
 
   it("shows a library left out of Films unchecked, and puts it back in when checked", async () => {
     const heard: Heard[] = [];
-    const page = await configured(library(2, "Kids' films", "movie"), heard);
+    const page = await configured(library(2, "Kids' films", "film"), heard);
     expect(choices(page)).toEqual(["Show in Films:false", "Show on Home:true"]);
     const [films] = page.querySelectorAll<HTMLInputElement>('dialog input[type="checkbox"]');
     await click(films);
@@ -131,7 +131,7 @@ describe("a library's Configure (the owner, 2026-10-27; D349 §8, D366 §5)", ()
 
   it("leaves a library out of Home when its Show on Home is unchecked", async () => {
     const heard: Heard[] = [];
-    const page = await configured(library(1, "Films", "movie"), heard);
+    const page = await configured(library(1, "Films", "film"), heard);
     expect(choices(page)).toContain("Show on Home:true");
     const boxes = page.querySelectorAll<HTMLInputElement>('dialog input[type="checkbox"]');
     await click(boxes[1]);
@@ -140,18 +140,18 @@ describe("a library's Configure (the owner, 2026-10-27; D349 §8, D366 §5)", ()
   });
 
   it("leads an admin to the library's own page, to manage it, and offers no one else the way (the owner, 2026-11-08)", async () => {
-    const admins = await configured(library(7, "Films", "movie"), [], true);
+    const admins = await configured(library(7, "Films", "film"), [], true);
     const manage = admins.querySelector<HTMLAnchorElement>("dialog a");
     expect(manage?.textContent).toBe("Manage this library");
     expect(manage?.getAttribute("href")).toBe("/libraries/7");
     mounted?.unmount();
-    const someones = await configured(library(7, "Films", "movie"));
+    const someones = await configured(library(7, "Films", "film"));
     expect(someones.querySelector("dialog a")).toBeNull();
     expect(someones.textContent).not.toContain("Manage this library");
   });
 
   it("closes on a remote's Back, and by its Close, the cross every dialog has", async () => {
-    const page = await configured(library(1, "Films", "movie"));
+    const page = await configured(library(1, "Films", "film"));
     const box = page.querySelector<HTMLInputElement>('dialog input[type="checkbox"]');
     box?.focus();
     const back = new KeyboardEvent("keydown", {

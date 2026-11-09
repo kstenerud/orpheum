@@ -67,7 +67,7 @@ type SeriesEntryFields struct {
 
 // TitleEntryBody is a film's, an episode's, an extra's or an other video's entry in a list.
 type TitleEntryBody struct {
-	Kind string `doc:"What it is: a film, an episode, an extra or an other video (D349, D416 §5)" enum:"movie,episode,extra,other" json:"kind"` //nolint:lll // one struct tag
+	Kind string `doc:"What it is: a film, an episode, an extra or an other video (D349, D416 §5)" enum:"film,episode,extra,other" json:"kind"` //nolint:lll // one struct tag
 	ItemEntryCommon
 	TitleEntryFields
 }
@@ -120,7 +120,7 @@ type ItemCreditBody struct {
 // itemEntryBody is a list's entry as the API says it.
 func itemEntryBody(entry library.Entry, nodeName func(nodeID int64) string) ItemEntryBody {
 	return ItemEntryBody{
-		Kind: entry.Kind,
+		Kind: saidKind(entry.Kind),
 		ItemEntryCommon: ItemEntryCommon{
 			ID: entry.ID, Name: entry.Name, Year: entry.Year,
 			IdentificationState: entry.IdentificationState, IsGuessed: entry.IsGuessed,
@@ -142,7 +142,7 @@ func itemEntryBody(entry library.Entry, nodeName func(nodeID int64) string) Item
 // every library the person reaches or of one (D349), or the items in one state of identification.
 type ListItemsInput struct {
 	AuthorizationHeader
-	Kinds          []string `default:"movie,series,other" doc:"The kinds it lists, each named, comma-separated: movie, series or other. Absent: films, series and other videos together, every library's. A kind a later server adds is listed only where a client names it (D432 §1)" enum:"movie,series,other" minItems:"1" query:"kind"`                                                                                                                                                                                                                            //nolint:lll // one struct tag
+	Kinds          []string `default:"film,series,other" doc:"The kinds it lists, each named, comma-separated: film, series or other. Absent: films, series and other videos together, every library's. A kind a later server adds is listed only where a client names it (D432 §1)" enum:"film,series,other" minItems:"1" query:"kind"`                                                                                                                                                                                                                               //nolint:lll // one struct tag
 	Sort           string   `default:"name" doc:"name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode. recorded: newest recorded first, and file_name: by the files' names, other videos only. released: newest first by a film's release date or a series' first air date, those with none last, films and series only" enum:"name,added,recorded,file_name,released" query:"sort"` //nolint:lll // one struct tag
 	Order          string   `doc:"The way the sort runs (D366): ascending, A to Z or oldest first; descending, Z to A or newest first; absent for the sort's own, A to Z by a name and newest first by a date. What has no date is last either way" enum:"ascending,descending" query:"order"`                                                                                                                                                                                                                                                                         //nolint:lll // one struct tag
 	Library        int64    `doc:"One library's alone; absent for every library the person reaches, less, for films and series, those they left out (leftOutLibraryIds)" minimum:"0" query:"library"`                                                                                                                                                                                                                                                                                                                                                                  //nolint:lll // one struct tag
@@ -179,6 +179,7 @@ func (server *Server) registerItemList() {
 }
 
 func (server *Server) listItems(ctx context.Context, input *ListItemsInput) (*ListItemsOutput, error) {
+	input.Kinds = keptKinds(input.Kinds)
 	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -294,7 +295,7 @@ func identificationEntry(item identify.ItemSummary) ItemEntryBody {
 		}
 	}
 	return ItemEntryBody{
-		Kind: item.Kind,
+		Kind: saidKind(item.Kind),
 		ItemEntryCommon: ItemEntryCommon{
 			ID: item.ID, Name: item.Name, Year: item.Year,
 			IdentificationState: item.IdentificationState, Identification: identification,

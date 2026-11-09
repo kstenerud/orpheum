@@ -48,7 +48,7 @@ export const viewer = {
 export function films(count: number): Record<string, unknown>[] {
   return Array.from({ length: count }, (_, index) => ({
     id: 101 + index,
-    kind: "movie",
+    kind: "film",
     name: `Film ${String(index + 1)}`,
     year: 2000 + index,
   }));
@@ -58,7 +58,7 @@ export function films(count: number): Record<string, unknown>[] {
 export function filmDetail(id: number, name: string): Record<string, unknown> {
   return {
     id,
-    kind: "movie",
+    kind: "film",
     name,
     year: 2001,
     identificationState: "identified",

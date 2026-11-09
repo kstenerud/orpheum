@@ -112,7 +112,7 @@ describe("playing a file", () => {
           fileId={2}
           decision={directDecision({
             titleName: "Metropolis",
-            plays: { itemId: 10, kind: "movie", libraryId: 1, libraryName: "Films" },
+            plays: { itemId: 10, kind: "film", libraryId: 1, libraryName: "Films" },
           })}
           onDecideAgain={() => undefined}
         />,
@@ -153,7 +153,7 @@ describe("playing a file", () => {
     expect(
       trailOf({ titleName: "Holiday 2019", plays: { itemId: 30, kind: "other", libraryId: 4 } }),
     ).toBe('<a href="/titles/30">Holiday 2019</a> › Playing');
-    expect(trailOf({ titleName: "Metropolis", plays: { itemId: 10, kind: "movie", libraryId: 1 } })).toBe(
+    expect(trailOf({ titleName: "Metropolis", plays: { itemId: 10, kind: "film", libraryId: 1 } })).toBe(
       '<a href="/titles/10">Metropolis</a> › Playing',
     );
   });
@@ -263,7 +263,7 @@ describe("where a player moving to a lower quality goes on from", () => {
 
 describe("the page above a Play page, where its Back goes with no page of this app behind it", () => {
   it("is what plays' own page, a film's, an extra's, an episode's or an other video's", () => {
-    expect(playUp({ itemId: 10, kind: "movie", libraryId: 1 })).toEqual({
+    expect(playUp({ itemId: 10, kind: "film", libraryId: 1 })).toEqual({
       screen: "title",
       itemId: 10,
     });

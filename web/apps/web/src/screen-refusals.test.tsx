@@ -27,7 +27,7 @@ import { withServices } from "./test-services.tsx";
 const library: components["schemas"]["LibraryBody"] = {
   id: 3,
   name: "Films",
-  kind: "movie",
+  kind: "film",
   metadataSource: "nfo_then_tmdb",
   changeDetection: "manual",
   isWritable: false,
@@ -46,7 +46,7 @@ const library: components["schemas"]["LibraryBody"] = {
 
 const waitingItem: components["schemas"]["TitleEntryBody"] = {
   id: 7,
-  kind: "movie",
+  kind: "film",
   name: "Théo",
   identificationState: "ambiguous",
 };

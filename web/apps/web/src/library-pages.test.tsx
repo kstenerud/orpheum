@@ -30,7 +30,7 @@ afterEach(() => {
 const films = {
   id: 3,
   name: "Films",
-  kind: "movie",
+  kind: "film",
   metadataSource: "tmdb",
   changeDetection: "interval",
   checkEveryHours: 6,

@@ -129,9 +129,9 @@ describe("needs a match", () => {
         waitingFilter="ambiguous"
         onChanged={ignore}
         items={[
-          { id: 1, kind: "movie", name: "It", identificationState: "ambiguous", year: 1990 },
+          { id: 1, kind: "film", name: "It", identificationState: "ambiguous", year: 1990 },
           { id: 2, kind: "series", name: longName, identificationState: "ambiguous", year: 2011 },
-          { id: 3, kind: "movie", name: "Metropolis Two", identificationState: "ambiguous", year: 1995 },
+          { id: 3, kind: "film", name: "Metropolis Two", identificationState: "ambiguous", year: 1995 },
         ]}
       />,
     );

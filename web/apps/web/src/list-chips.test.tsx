@@ -29,7 +29,7 @@ import {
 /** Films as app.tsx shows it: its sort, search and chips read from the address it replaces. */
 function RoutedFilms(): JSX.Element {
   const route = useRoute();
-  return <Browse kind="movie" state={route.screen === "films" ? route : {}} />;
+  return <Browse kind="film" state={route.screen === "films" ? route : {}} />;
 }
 
 /** A poller that never asks: the list is read only as the test's steps ask. */
@@ -38,7 +38,7 @@ const neverAsks: Poller = { start: () => () => undefined };
 const heat: Entry = {
   id: 4,
   name: "Metropolis",
-  kind: "movie",
+  kind: "film",
   identificationState: "identified",
   addedAt: 1,
 };
@@ -91,7 +91,7 @@ describe("Films' chips (search-by-more §4.3)", () => {
       new URLSearchParams(heard.find((each) => each.methodAndPath === "GET /genres")?.query).get(
         "kind",
       ),
-    ).toBe("movie");
+    ).toBe("film");
     // The choice closes the Genre's list alone, the Sort and filter left open for the next.
     expect(criteriaPopUp(mounted.container)?.querySelectorAll("dialog")).toHaveLength(0);
     expect(criteriaPopUp(mounted.container)).not.toBeNull();

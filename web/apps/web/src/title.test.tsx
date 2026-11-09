@@ -26,7 +26,7 @@ import { withServices } from "./test-services.tsx";
 
 const heat: TitleDetail = {
   id: 10,
-  kind: "movie",
+  kind: "film",
   name: "Metropolis",
   year: 1995,
   runtimeMs: 170 * 60_000,

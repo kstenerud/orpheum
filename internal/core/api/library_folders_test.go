@@ -102,7 +102,7 @@ func TestLibraries_AnAdminAddsAFolderInsideANodesRootToALibrary(t *testing.T) {
 			map[string]any{"nodeName": "local", "path": refused}), http.StatusUnprocessableEntity, "body.path")
 	}
 	overlapping := harness.do(t, http.MethodPost, "/libraries", admin, map[string]any{
-		"name": "Films", "kind": "movie", "metadataSource": "tmdb", "changeDetection": "manual",
+		"name": "Films", "kind": "film", "metadataSource": "tmdb", "changeDetection": "manual",
 		"isWritable": false, "nodeName": "local", "rootPaths": []string{"/media/video"},
 	})
 	if overlapping.status != http.StatusCreated {

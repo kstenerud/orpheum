@@ -50,15 +50,15 @@ func TestBrowse_GenresAndPeopleAreShownListedFilteredAndSearched(t *testing.T) {
 		{"/people/40", `{"id":40,"name":"Ansel Vardo","pictureRef":"/vardo.jpg"}`},
 		{"/items?limit=10&person=40", `"name":"Metropolis","year":1995,`},
 		{"/items?limit=10&person=40", `"credit":{"jobs":["cast"],"character":"Mira Holloway-Pent"}}]}`},
-		{"/items?kind=movie&limit=10&person=41", `"credit":{"jobs":["director"]}}]}`},
-		{"/genres?kind=movie,series,other&limit=500", `"genres":[{"id":1,"name":"Crime","titleCount":1},` +
+		{"/items?kind=film&limit=10&person=41", `"credit":{"jobs":["director"]}}]}`},
+		{"/genres?kind=film,series,other&limit=500", `"genres":[{"id":1,"name":"Crime","titleCount":1},` +
 			`{"id":2,"name":"Drama","titleCount":1}]`},
-		{"/genres?kind=movie&limit=500", `"genres":[{"id":1,"name":"Crime","titleCount":1}]`},
-		{"/items?kind=movie,series,other&sort=name&limit=10&genre=2", `"name":"Brass Arena"`},
-		{"/items?kind=movie&sort=name&limit=10&person=41&decade=1990", `"name":"Metropolis"`},
-		{"/items?kind=movie&sort=name&limit=10&person=42", `{"items":[]}`},
-		{"/items/letters?kind=movie&sort=name&genre=1", `"letters":["H"]`},
-		{"/items/letters?kind=movie&sort=name&genre=2", `"letters":[]`},
+		{"/genres?kind=film&limit=500", `"genres":[{"id":1,"name":"Crime","titleCount":1}]`},
+		{"/items?kind=film,series,other&sort=name&limit=10&genre=2", `"name":"Brass Arena"`},
+		{"/items?kind=film&sort=name&limit=10&person=41&decade=1990", `"name":"Metropolis"`},
+		{"/items?kind=film&sort=name&limit=10&person=42", `{"items":[]}`},
+		{"/items/letters?kind=film&sort=name&genre=1", `"letters":["H"]`},
+		{"/items/letters?kind=film&sort=name&genre=2", `"letters":[]`},
 		{"/search?query=r&limit=10", `"titles":{"hits":[`},
 		{"/search?query=cr&limit=10", `"genres":{"hits":[{"id":1,"name":"Crime","titleCount":1}]}`},
 		{"/search?query=a&limit=500", `"people":{"hits":[{"id":40,"name":"Ansel Vardo",`},
@@ -70,7 +70,7 @@ func TestBrowse_GenresAndPeopleAreShownListedFilteredAndSearched(t *testing.T) {
 		}
 	}
 	harness.wantSearchPagesPeopleByCursor(t, admin)
-	heat := harness.do(t, http.MethodGet, "/items?kind=movie,series,other&sort=name&limit=10&genre=1", admin, nil)
+	heat := harness.do(t, http.MethodGet, "/items?kind=film,series,other&sort=name&limit=10&genre=1", admin, nil)
 	if strings.Contains(heat.body, "Brass Arena") {
 		t.Errorf("the Crime titles = %s; want Metropolis alone", heat.body)
 	}

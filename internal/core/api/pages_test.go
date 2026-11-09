@@ -97,7 +97,7 @@ func TestPages_EachListThatCanGrowIsPagedByItsCursor(t *testing.T) {
 	}{
 		{"/users", "users", "name", [][]string{{"bob", "carol"}, {"owner"}}},
 		{"/invitations", "invitations", "id", [][]string{invited[:2], invited[2:]}},
-		{"/genres?kind=movie,series,other", "genres", "name", [][]string{{"Crime", "Drama"}, {}}},
+		{"/genres?kind=film,series,other", "genres", "name", [][]string{{"Crime", "Drama"}, {}}},
 		{"/filing-reports", "reports", "name", [][]string{reports[:2], reports[2:]}},
 	} {
 		if pages := harness.walkPages(t, admin, list.path, list.list, list.field, 2); !equalPages(pages, list.want) {
@@ -137,7 +137,7 @@ func TestPages_ACursorTheServerDidNotGiveIsRefused(t *testing.T) {
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
 	for _, path := range []string{
-		"/users?", "/invitations?", "/genres?kind=movie,series,other&", "/jobs?", "/filing-reports?",
+		"/users?", "/invitations?", "/genres?kind=film,series,other&", "/jobs?", "/filing-reports?",
 	} {
 		wantError(t, harness.do(t, http.MethodGet, path+"limit=2&cursor=%21%21", admin, nil),
 			http.StatusUnprocessableEntity, api.CodeInvalidRequest)

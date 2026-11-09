@@ -38,7 +38,7 @@ const neverAsks: Poller = { start: () => () => undefined };
 function library(
   id: number,
   name: string,
-  kind: "movie" | "series" | "other" = "movie",
+  kind: "film" | "series" | "other" = "film",
 ): Record<string, unknown> {
   return {
     id,
@@ -59,7 +59,7 @@ const titlesPage = (): Answer => [
       {
         id: 1,
         name: "A film",
-        kind: "movie",
+        kind: "film",
         identificationState: "identified",
         libraryId: 1,
         addedAt: 1,
@@ -232,7 +232,7 @@ describe("the Libraries page (D349)", () => {
     const film = (id: number) => ({
       id,
       name: `Film ${String(id)}`,
-      kind: "movie",
+      kind: "film",
       identificationState: "identified",
       libraryId: 1,
       addedAt: 1,
@@ -286,7 +286,7 @@ describe("the Libraries page (D349)", () => {
     mounted = await mountBrowse(
       { library: 1 },
       {
-        "GET /libraries": [200, { libraries: [library(1, "Films", "movie")] }],
+        "GET /libraries": [200, { libraries: [library(1, "Films", "film")] }],
         "GET /items": titlesPage(),
         "GET /items/letters": lettersPage(),
       },
@@ -296,7 +296,7 @@ describe("the Libraries page (D349)", () => {
     const filmsQuery = new URLSearchParams(
       filmsHeard.find((each) => each.methodAndPath === "GET /items")?.query,
     );
-    expect(filmsQuery.get("kind")).toBe("movie");
+    expect(filmsQuery.get("kind")).toBe("film");
     expect(filmsQuery.get("sort")).toBe("name");
   });
 
@@ -318,7 +318,7 @@ describe("the Libraries page (D349)", () => {
     const query = new URLSearchParams(
       heard.find((each) => each.methodAndPath === "GET /items")?.query,
     );
-    expect(query.get("kind")).toBe("movie,series,other");
+    expect(query.get("kind")).toBe("film,series,other");
     expect(query.has("library")).toBe(false);
   });
 

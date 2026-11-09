@@ -444,7 +444,7 @@ func TestIdentification_TheListByIdentificationPagesByCursor(t *testing.T) {
 		t.Fatalf("the first page = %+v; want Brass Arena with its identification, and a cursor", first)
 	}
 	harness.readJSON(t, "/items?identification=identified&limit=1&cursor="+*first.NextCursor, admin, &second)
-	if len(second.Items) != 1 || second.Items[0].Name != "Metropolis" || second.Items[0].Kind != "movie" ||
+	if len(second.Items) != 1 || second.Items[0].Name != "Metropolis" || second.Items[0].Kind != "film" ||
 		second.NextCursor != nil {
 		t.Errorf("the second page = %+v; want Metropolis, and no cursor on the last page", second)
 	}

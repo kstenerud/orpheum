@@ -247,12 +247,12 @@ describe("the shell, laid out by a real browser", () => {
       id: 1,
       identificationState: "matched",
       isGuessed: true,
-      kind: "movie",
+      kind: "film",
       name: "A Film",
       unavailable: { reason: "node_away", nodeName: "devnas" },
       year: 2020,
     };
-    await drawn(<PosterGrid kind="movie" entries={[entry]} />, ({ container }) => {
+    await drawn(<PosterGrid kind="film" entries={[entry]} />, ({ container }) => {
       const item = container.querySelector(".poster-grid > .poster-card");
       const poster = boxOf(item?.querySelector(".poster"));
       const signs = item?.querySelectorAll(".poster-card__cues > .poster-cue") ?? [];

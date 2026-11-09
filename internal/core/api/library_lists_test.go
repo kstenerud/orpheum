@@ -46,11 +46,11 @@ func TestBrowse_OneLibrarysListAndALibraryNotReached(t *testing.T) {
 	admin := harness.createAdminAndSignIn(t)
 	harness.shelve(t)
 	harness.shelveOtherVideos(t)
-	names, _ := harness.titleNames(t, "/items?kind=movie,series,other&sort=name&limit=10&library=2", admin)
+	names, _ := harness.titleNames(t, "/items?kind=film,series,other&sort=name&limit=10&library=2", admin)
 	if fmt.Sprint(names) != "[Beach day clip Wedding]" {
 		t.Errorf("library 2 = %v; want its three videos alone", names)
 	}
-	names, _ = harness.titleNames(t, "/items?kind=movie,series,other&sort=name&limit=10", admin)
+	names, _ = harness.titleNames(t, "/items?kind=film,series,other&sort=name&limit=10", admin)
 	if fmt.Sprint(names) != "[Beach day Brass Arena clip Metropolis Wedding]" {
 		t.Errorf("every library = %v; want films, series and other videos in one order by name", names)
 	}
@@ -71,7 +71,7 @@ func TestBrowse_OneLibrarysListAndALibraryNotReached(t *testing.T) {
 		http.StatusOK || strings.Contains(found.body, "Beach") {
 		t.Errorf("the partner's search = %d %s; want nothing from library 2", found.status, found.body)
 	}
-	if names, _ = harness.titleNames(t, "/items?kind=movie,series,other&sort=name&limit=10", user); fmt.Sprint(names) !=
+	if names, _ = harness.titleNames(t, "/items?kind=film,series,other&sort=name&limit=10", user); fmt.Sprint(names) !=
 		"[Brass Arena Metropolis]" {
 		t.Errorf("every library the partner reaches = %v; want library 1's alone", names)
 	}
@@ -87,11 +87,11 @@ func TestBrowse_AListNamesItsKinds(t *testing.T) {
 	harness.shelve(t)
 	harness.shelveOtherVideos(t)
 	for path, want := range map[string]string{
-		"/items?kind=movie,other&sort=name&limit=10":        "[Beach day clip Metropolis Wedding]",
-		"/items?kind=series,movie&sort=name&limit=10":       "[Brass Arena Metropolis]",
-		"/items?kind=movie,movie&sort=name&limit=10":        "[Metropolis]",
-		"/items?sort=name&limit=10":                         "[Beach day Brass Arena clip Metropolis Wedding]",
-		"/items?kind=movie,series,other&sort=name&limit=10": "[Beach day Brass Arena clip Metropolis Wedding]",
+		"/items?kind=film,other&sort=name&limit=10":        "[Beach day clip Metropolis Wedding]",
+		"/items?kind=series,film&sort=name&limit=10":       "[Brass Arena Metropolis]",
+		"/items?kind=film,film&sort=name&limit=10":         "[Metropolis]",
+		"/items?sort=name&limit=10":                        "[Beach day Brass Arena clip Metropolis Wedding]",
+		"/items?kind=film,series,other&sort=name&limit=10": "[Beach day Brass Arena clip Metropolis Wedding]",
 	} {
 		if names, _ := harness.titleNames(t, path, admin); fmt.Sprint(names) != want {
 			t.Errorf("%s = %v; want %s", path, names, want)
@@ -101,11 +101,11 @@ func TestBrowse_AListNamesItsKinds(t *testing.T) {
 		t.Errorf("the letters of series and other videos = %s; want [B C W]", got)
 	}
 	for path, location := range map[string]string{
-		"/items?kind=any&sort=name&limit=10":       "query.kind[0]",
-		"/items?kind=movie,any&sort=name&limit=10": "query.kind[1]",
-		"/items/letters?kind=any&sort=name":        "query.kind[0]",
-		"/genres?kind=any&limit=10":                "query.kind[0]",
-		"/items?kind=album&sort=name&limit=10":     "query.kind[0]",
+		"/items?kind=any&sort=name&limit=10":      "query.kind[0]",
+		"/items?kind=film,any&sort=name&limit=10": "query.kind[1]",
+		"/items/letters?kind=any&sort=name":       "query.kind[0]",
+		"/genres?kind=any&limit=10":               "query.kind[0]",
+		"/items?kind=album&sort=name&limit=10":    "query.kind[0]",
 	} {
 		wantInvalidAt(t, harness.do(t, http.MethodGet, path, admin, nil), http.StatusUnprocessableEntity, location)
 	}
@@ -138,7 +138,7 @@ func TestBrowse_OtherVideosInTheirFourOrders(t *testing.T) {
 		entry.Recorded.FileName != "clip.mp4" {
 		t.Errorf("the newest recorded = %+v; want the clip, an other video dated by its file", entry)
 	}
-	wantInvalidAt(t, harness.do(t, http.MethodGet, "/items?kind=movie&sort=recorded&limit=5", admin, nil),
+	wantInvalidAt(t, harness.do(t, http.MethodGet, "/items?kind=film&sort=recorded&limit=5", admin, nil),
 		http.StatusUnprocessableEntity, "query.sort")
 }
 
@@ -151,11 +151,11 @@ func TestBrowse_TheRailsLettersAreThoseTheListHasTitlesUnder(t *testing.T) {
 	harness.shelve(t)
 	harness.shelveOtherVideos(t)
 	for path, want := range map[string]string{
-		"/items/letters?kind=movie,series,other&sort=name": "[B C H W]",
-		"/items/letters?kind=movie&sort=name":              "[H]",
-		"/items/letters?kind=other&sort=file_name":         "[# C]",
-		"/items/letters?kind=series&sort=name&library=2":   "[]",
-		"/items/letters?kind=other&sort=name&library=2":    "[B C W]",
+		"/items/letters?kind=film,series,other&sort=name": "[B C H W]",
+		"/items/letters?kind=film&sort=name":              "[H]",
+		"/items/letters?kind=other&sort=file_name":        "[# C]",
+		"/items/letters?kind=series&sort=name&library=2":  "[]",
+		"/items/letters?kind=other&sort=name&library=2":   "[B C W]",
 	} {
 		if got := harness.railLetters(t, path, admin); got != want {
 			t.Errorf("%s = %s; want %s", path, got, want)
@@ -232,16 +232,16 @@ func TestBrowse_ALibraryLeftOutOfFilmsAndSeries(t *testing.T) {
 		t.Errorf("GET /me/preferences = %s; want library 1 left out", mine.body)
 	}
 	for path, want := range map[string]string{
-		"/items?kind=movie&sort=name&limit=5":              "[]",
-		"/items?kind=series&sort=added&limit=5":            "[]",
-		"/items?kind=movie&sort=name&limit=5&library=1":    "[Metropolis]",
-		"/items?kind=movie,series,other&sort=name&limit=2": "[Beach day Brass Arena]",
+		"/items?kind=film&sort=name&limit=5":              "[]",
+		"/items?kind=series&sort=added&limit=5":           "[]",
+		"/items?kind=film&sort=name&limit=5&library=1":    "[Metropolis]",
+		"/items?kind=film,series,other&sort=name&limit=2": "[Beach day Brass Arena]",
 	} {
 		if names, _ := harness.titleNames(t, path, admin); fmt.Sprint(names) != want {
 			t.Errorf("%s = %v; want %s", path, names, want)
 		}
 	}
-	if got := harness.railLetters(t, "/items/letters?kind=movie&sort=name", admin); got != "[]" {
+	if got := harness.railLetters(t, "/items/letters?kind=film&sort=name", admin); got != "[]" {
 		t.Errorf("the films' letters with their one library left out = %s; want none", got)
 	}
 }
@@ -256,25 +256,25 @@ func TestBrowse_AQueryIsACriterionOfTheList(t *testing.T) {
 	harness.shelve(t)
 	harness.shelveOtherVideos(t)
 	for path, want := range map[string]string{
-		"/items?kind=movie,series,other&sort=name&limit=10&query=beach":          "[Beach day]",
-		"/items?kind=movie,series,other&sort=name&limit=10&query=b":              "[Beach day Brass Arena]",
-		"/items?kind=movie&sort=name&limit=10&query=beach":                       "[]",
-		"/items?kind=other&sort=name&limit=10&query=beach&library=1":             "[]",
-		"/items?kind=other&sort=recorded&limit=10&query=beach":                   "[Beach day]",
-		"/items?kind=series&sort=added&limit=10&query=breaking":                  "[Brass Arena]",
-		"/items?kind=series&sort=name&limit=10&query=pilot":                      "[]", // its episode's name
-		"/items?kind=movie,series,other&sort=name&limit=10&query=%20":            "[]",
-		"/items?kind=movie,series,other&sort=name&limit=10&home=true&query=heat": "[Metropolis]",
+		"/items?kind=film,series,other&sort=name&limit=10&query=beach":          "[Beach day]",
+		"/items?kind=film,series,other&sort=name&limit=10&query=b":              "[Beach day Brass Arena]",
+		"/items?kind=film&sort=name&limit=10&query=beach":                       "[]",
+		"/items?kind=other&sort=name&limit=10&query=beach&library=1":            "[]",
+		"/items?kind=other&sort=recorded&limit=10&query=beach":                  "[Beach day]",
+		"/items?kind=series&sort=added&limit=10&query=breaking":                 "[Brass Arena]",
+		"/items?kind=series&sort=name&limit=10&query=pilot":                     "[]", // its episode's name
+		"/items?kind=film,series,other&sort=name&limit=10&query=%20":            "[]",
+		"/items?kind=film,series,other&sort=name&limit=10&home=true&query=heat": "[Metropolis]",
 	} {
 		if names, _ := harness.titleNames(t, path, admin); fmt.Sprint(names) != want {
 			t.Errorf("%s = %v; want %s", path, names, want)
 		}
 	}
 	for path, want := range map[string]string{
-		"/items/letters?kind=movie,series,other&sort=name&query=b":                 "[B]",
-		"/items/letters?kind=movie,series,other&sort=name&query=wedding":           "[W]",
-		"/items/letters?kind=other&sort=file_name&query=clip":                      "[C]",
-		"/items/letters?kind=movie,series,other&sort=name&query=wedding&library=1": "[]",
+		"/items/letters?kind=film,series,other&sort=name&query=b":                 "[B]",
+		"/items/letters?kind=film,series,other&sort=name&query=wedding":           "[W]",
+		"/items/letters?kind=other&sort=file_name&query=clip":                     "[C]",
+		"/items/letters?kind=film,series,other&sort=name&query=wedding&library=1": "[]",
 	} {
 		if got := harness.railLetters(t, path, admin); got != want {
 			t.Errorf("%s = %s; want %s", path, got, want)

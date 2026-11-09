@@ -286,7 +286,7 @@ function viewerScreen(route: Route): JSX.Element | undefined {
   }
   if (route.screen === "films" || route.screen === "series") {
     const { screen, ...state } = route;
-    return <Browse key={screen} kind={screen === "films" ? "movie" : "series"} state={state} />;
+    return <Browse key={screen} kind={screen === "films" ? "film" : "series"} state={state} />;
   }
   if (route.screen === "title") {
     return <Title key={route.itemId} id={route.itemId} />;

@@ -74,7 +74,7 @@ function filmsLibrary(id: number, name: string): Record<string, unknown> {
   return {
     id,
     name,
-    kind: "movie",
+    kind: "film",
     metadataSource: "nfo_then_tmdb",
     changeDetection: "watch",
     isWritable: true,
@@ -547,7 +547,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
             items: [
               {
                 id: 101,
-                kind: "movie",
+                kind: "film",
                 name: "Metropolis",
                 year: 1995,
                 identificationState: "identified",
@@ -555,7 +555,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
               },
               {
                 id: 102,
-                kind: "movie",
+                kind: "film",
                 name: "Metropolis Wave",
                 year: 2001,
                 identificationState: "identified",

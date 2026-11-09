@@ -67,7 +67,7 @@ export function playUpward(
       libraries === undefined ? homeCrumb(context) : libraryCrumb("other", libraries, context);
     return { crumbs: [list, page], here };
   }
-  const library = libraryCrumb("movie", libraries, context);
+  const library = libraryCrumb("film", libraries, context);
   const film = plays.filmOfExtra;
   if (film !== undefined) {
     return { crumbs: [library, titleCrumb(film.id, film.name), page], here };

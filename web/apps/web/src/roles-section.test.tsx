@@ -65,7 +65,7 @@ const libraries = {
     {
       id: 1,
       name: "Films",
-      kind: "movie",
+      kind: "film",
       metadataSource: "nfo",
       changeDetection: "manual",
       isWritable: false,
@@ -74,7 +74,7 @@ const libraries = {
     {
       id: 2,
       name: "Private",
-      kind: "movie",
+      kind: "film",
       metadataSource: "nfo",
       changeDetection: "manual",
       isWritable: false,

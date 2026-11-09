@@ -70,8 +70,8 @@ const entriesPerPage = 60;
 
 /** The kind of titles a library's own page lists (D349 §9.2); every kind before its library is read. */
 function titlesKindOf(kind: LibraryBody["kind"] | undefined): TitlesKind {
-  if (kind === "movie") {
-    return "movie";
+  if (kind === "film") {
+    return "film";
   }
   if (kind === "series") {
     return "series";
@@ -90,7 +90,7 @@ function sortOptionsFor(kind: TitlesKind): readonly [LibrarySort, ...LibrarySort
   switch (kind) {
     case "other":
       return ["recorded", "name", "file_name", "added"];
-    case "movie":
+    case "film":
     case "series":
       return ["name", "released", "added"];
     case "all":
@@ -144,7 +144,7 @@ function criteriaOverrides(criteria: ListCriteria, resolved: SortChoice): Partia
 
 /** The kind whose genres a library's chips offer: a films' or a series' library's alone. */
 function chipsKindOf(kind: TitlesKind): ChipsKind | undefined {
-  return kind === "movie" || kind === "series" ? kind : undefined;
+  return kind === "film" || kind === "series" ? kind : undefined;
 }
 
 /** What a library (or All libraries) chosen settles for the page: its kind, sort and view. */

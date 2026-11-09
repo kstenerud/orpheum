@@ -40,7 +40,7 @@ describe("home (the owner, 2026-10-25)", () => {
             nextCursor: "",
           },
         ],
-        "GET /libraries": [200, { libraries: [{ id: 1, name: "Films", kind: "movie" }] }],
+        "GET /libraries": [200, { libraries: [{ id: 1, name: "Films", kind: "film" }] }],
       },
       [],
       "token",
@@ -48,7 +48,7 @@ describe("home (the owner, 2026-10-25)", () => {
     mounted = await mount(withServices(<Home />, services));
     const headings = [...mounted.container.querySelectorAll("h2")].map((each) => each.textContent);
     expect(headings).toEqual(["Continue watching", "New films", "New series"]);
-    const newFilms = mounted.container.querySelector('[aria-labelledby="home-newest-movie"]');
+    const newFilms = mounted.container.querySelector('[aria-labelledby="home-newest-film"]');
     const cards = newFilms?.querySelectorAll(".poster-card") ?? [];
     expect(cards).toHaveLength(2);
     // A film partway shows how far in, in every list, as the server says it.
@@ -62,7 +62,7 @@ describe("home (the owner, 2026-10-25)", () => {
       {
         "GET /home": [200, { continueWatching: [] }],
         "GET /items": [200, { items: [entry(8, "Nosferatu")], nextCursor: "" }],
-        "GET /libraries": [200, { libraries: [{ id: 1, name: "Films", kind: "movie" }] }],
+        "GET /libraries": [200, { libraries: [{ id: 1, name: "Films", kind: "film" }] }],
       },
       heard,
       "token",
@@ -87,7 +87,7 @@ describe("home (the owner, 2026-10-25)", () => {
           },
         ],
         "GET /items": [200, { items: [entry(8, "Nosferatu")], nextCursor: "" }],
-        "GET /libraries": [200, { libraries: [{ id: 1, name: "Films", kind: "movie" }] }],
+        "GET /libraries": [200, { libraries: [{ id: 1, name: "Films", kind: "film" }] }],
       },
       [],
       "token",
@@ -104,7 +104,7 @@ describe("home (the owner, 2026-10-25)", () => {
     ]);
     // Each in its own row's heading, none in Continue Watching's.
     expect(seeAll.map((link) => link.closest("section")?.getAttribute("aria-labelledby"))).toEqual([
-      "home-newest-movie",
+      "home-newest-film",
       "home-newest-series",
     ]);
   });
@@ -114,7 +114,7 @@ describe("home (the owner, 2026-10-25)", () => {
       {
         "GET /home": [200, { continueWatching: [] }],
         "GET /items": [200, { items: [], nextCursor: "" }],
-        "GET /libraries": [200, { libraries: [{ id: 1, name: "Films", kind: "movie" }] }],
+        "GET /libraries": [200, { libraries: [{ id: 1, name: "Films", kind: "film" }] }],
       },
       [],
       "token",
@@ -164,7 +164,7 @@ describe("home (the owner, 2026-10-25)", () => {
       {
         "GET /home": [200, { continueWatching: [] }],
         "GET /items": [200, { items: [], nextCursor: "" }],
-        "GET /libraries": [200, { libraries: [{ id: 1, name: "Films", kind: "movie" }] }],
+        "GET /libraries": [200, { libraries: [{ id: 1, name: "Films", kind: "film" }] }],
       },
       [],
       "token",

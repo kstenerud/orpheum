@@ -15,7 +15,7 @@ import { moveToWebrtcWhenSignedIn, type WebrtcWays } from "./transport-choice.ts
 
 const film: TitleDetail = {
   id: 10,
-  kind: "movie",
+  kind: "film",
   name: "Metropolis",
   year: 1995,
   runtimeMs: 170 * 60_000,

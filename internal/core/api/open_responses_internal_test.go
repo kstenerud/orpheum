@@ -46,7 +46,7 @@ func TestDocument_ResponsesAreOpenAndRequestsClosed(t *testing.T) {
 	t.Parallel()
 	document := NewServer(slog.New(slog.DiscardHandler)).OpenAPI()
 	library := map[string]any{
-		"id": 1, "name": "Films", "kind": "movie", "metadataSource": "tmdb", "changeDetection": "watch",
+		"id": 1, "name": "Films", "kind": "film", "metadataSource": "tmdb", "changeDetection": "watch",
 		"isWritable": true, "createdAt": 1, "addedByALaterServer": "ignored",
 	}
 	if refused := validateAgainst(t, document, "LibraryBody", library); len(refused) != 0 {

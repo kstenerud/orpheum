@@ -24,7 +24,7 @@ export type Library = components["schemas"]["LibraryBody"];
 
 /** What a library holds, in a word or two, by its kind. */
 const kindKeys = {
-  movie: "libraries.summaryMovies",
+  film: "libraries.summaryMovies",
   series: "libraries.summaryShows",
   other: "libraries.summaryOther",
 } as const;
@@ -49,7 +49,7 @@ export function RescanProgress(props: {
 
 /** Whether a library is rescanned whole: one of films or of series, never other (D357 §1). */
 export function isRescannable(library: Pick<Library, "kind">): boolean {
-  return library.kind === "movie" || library.kind === "series";
+  return library.kind === "film" || library.kind === "series";
 }
 
 /** A library's files counted by filing, when the admin sees them. */

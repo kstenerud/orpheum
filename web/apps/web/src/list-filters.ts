@@ -60,7 +60,7 @@ export type ListedKind = NamedKind | "all";
  * is never shown by a page that does not know it (D432 §1).
  */
 export function kindsQuery(kind: ListedKind): NamedKind[] {
-  return kind === "all" ? ["movie", "series", "other"] : [kind];
+  return kind === "all" ? ["film", "series", "other"] : [kind];
 }
 
 /** The chips as one string, for a list's key: another chip chosen is another list. */

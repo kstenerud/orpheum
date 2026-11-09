@@ -92,7 +92,7 @@ type PersonOutput struct {
 // GenresInput asks for the genres of a kind of title.
 type GenresInput struct {
 	AuthorizationHeader
-	Kinds   []string `doc:"The kinds whose titles' genres it lists, each named, comma-separated: movie, series or other" enum:"movie,series,other" minItems:"1" query:"kind" required:"true"` //nolint:lll // one struct tag
+	Kinds   []string `doc:"The kinds whose titles' genres it lists, each named, comma-separated: film, series or other" enum:"film,series,other" minItems:"1" query:"kind" required:"true"` //nolint:lll // one struct tag
 	Library int64    `doc:"As GET /items takes it" minimum:"0" query:"library"`
 	PageInput
 }
@@ -117,7 +117,7 @@ type SearchInput struct {
 // GroupHitBody is a title, person or genre a grouped search found.
 type GroupHitBody struct {
 	ID         int64  `doc:"A title's: GET /items/{id}, of any kind; a person's: GET /people/{id}; a genre's: GET /items?genre=" json:"id"` //nolint:lll // one struct tag
-	Kind       string `doc:"A title's kind; absent for a person or a genre" enum:"movie,series,other" json:"kind,omitempty"`                //nolint:lll // one struct tag
+	Kind       string `doc:"A title's kind; absent for a person or a genre" enum:"film,series,other" json:"kind,omitempty"`                 //nolint:lll // one struct tag
 	Name       string `json:"name"`
 	Year       int64  `json:"year,omitempty"`
 	PictureRef string `doc:"A person's picture as their source names it; not fetched by the server yet" json:"pictureRef,omitempty"` //nolint:lll // one struct tag
@@ -175,6 +175,7 @@ func (server *Server) getPerson(ctx context.Context, input *ItemInput) (*PersonO
 }
 
 func (server *Server) listGenres(ctx context.Context, input *GenresInput) (*GenresOutput, error) {
+	input.Kinds = keptKinds(input.Kinds)
 	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -221,7 +222,8 @@ func (server *Server) search(ctx context.Context, input *SearchInput) (*SearchOu
 	body.Titles.Hits = make([]GroupHitBody, 0, len(hits.Titles))
 	for _, hit := range hits.Titles {
 		body.Titles.Hits = append(body.Titles.Hits, GroupHitBody{
-			ID: hit.ItemID, Kind: ptr.ValueOrZero(hit.TitleKind), Name: hit.Name, Year: ptr.ValueOrZero(hit.Year),
+			ID: hit.ItemID, Kind: saidKind(ptr.ValueOrZero(hit.TitleKind)), Name: hit.Name,
+			Year: ptr.ValueOrZero(hit.Year),
 		})
 		if hit.TitleKind == nil {
 			body.Titles.Hits[len(body.Titles.Hits)-1].Kind = library.ListSeries

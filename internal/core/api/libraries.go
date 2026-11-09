@@ -59,7 +59,7 @@ type RootScanBody struct {
 type LibraryBody struct {
 	ID                 int64            `json:"id"`
 	Name               string           `json:"name"`
-	Kind               string           `enum:"movie,series,other" json:"kind"`
+	Kind               string           `enum:"film,series,other" json:"kind"`
 	MetadataSource     string           `enum:"nfo_then_tmdb,tmdb,nfo" json:"metadataSource"`
 	ChangeDetection    string           `enum:"watch,interval,manual" json:"changeDetection"`
 	CheckEveryHours    *int64           `json:"checkEveryHours,omitempty"`
@@ -86,7 +86,7 @@ type CreateLibraryInput struct {
 		Name string `json:"name"            minLength:"1"`
 		// Kind: films, series, both, or other videos, neither films nor series, never identified
 		// online (D349).
-		Kind string `enum:"movie,series,other" json:"kind"`
+		Kind string `enum:"film,series,other" json:"kind"`
 		// MetadataSource: NFO files where present, TMDB for the rest; TMDB only; NFO files only. Asked
 		// of every kind but other, which takes NFO files only and is not asked (D184, D349).
 		MetadataSource  string   `enum:"nfo_then_tmdb,tmdb,nfo" json:"metadataSource,omitempty" required:"false"`
@@ -299,6 +299,7 @@ func (server *Server) createLibrary(ctx context.Context, input *CreateLibraryInp
 		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "body.checkEveryHours",
 			"checkEveryHours is given with changeDetection interval, and only then")
 	}
+	body.Kind = keptKind(body.Kind)
 	metadataSource, err := metadataSourceOf(body.Kind, body.MetadataSource)
 	if err != nil {
 		return nil, err
@@ -387,7 +388,7 @@ func (server *Server) listLibraries(ctx context.Context, input *AuthorizationHea
 	output.Body.Libraries = make([]LibraryBody, 0, len(summaries))
 	for _, summary := range summaries {
 		body := LibraryBody{
-			ID: summary.ID, Name: summary.Name, Kind: summary.Kind, MetadataSource: summary.MetadataSource,
+			ID: summary.ID, Name: summary.Name, Kind: saidKind(summary.Kind), MetadataSource: summary.MetadataSource,
 			ChangeDetection: summary.ChangeDetection, CheckEveryHours: summary.CheckEveryHours,
 			IsWritable: summary.IsWritable == 1,
 			CreatedAt:  summary.CreatedAt,

@@ -125,7 +125,7 @@ func TestWatched_APlayToItsFinishMarksItWatchedAndARestartKeepsIt(t *testing.T) 
 	var films struct {
 		Items []api.ItemEntryBody `json:"items"`
 	}
-	harness.readJSON(t, "/items?kind=movie&sort=name&limit=10", user, &films)
+	harness.readJSON(t, "/items?kind=film&sort=name&limit=10", user, &films)
 	for _, film := range films.Items {
 		if !film.IsWatched {
 			t.Errorf("the films list: %d not watched; want both watched", film.ID)

@@ -144,7 +144,7 @@ type StartPlaybackOutputBody struct {
 // library's list.
 type PlaysBody struct {
 	ItemID    int64             `json:"itemId"`
-	Kind      string            `enum:"movie,episode,extra,other" json:"kind"`
+	Kind      string            `enum:"film,episode,extra,other" json:"kind"`
 	LibraryID int64             `doc:"A library its person reaches that covers its file's place, which a person goes back up to; absent for none" json:"libraryId,omitempty"` //nolint:lll // one struct tag
 	Episode   *EpisodePlaceBody `doc:"An episode's series and place; absent for any other" json:"episode,omitempty"`
 	// LibraryName is LibraryID's name, which the Play page's trail shows (D367 §8).
@@ -308,7 +308,7 @@ func (server *Server) playsBody(
 		return nil, server.libraryError(ctx, "read where a playback's episode is", err)
 	}
 	plays := &PlaysBody{
-		ItemID: work.TitleID, Kind: work.TitleKind, LibraryID: work.LibraryID, LibraryName: work.LibraryName,
+		ItemID: work.TitleID, Kind: saidKind(work.TitleKind), LibraryID: work.LibraryID, LibraryName: work.LibraryName,
 		Episode: episodePlaceBody(place),
 	}
 	if work.TitleKind == library.TitleKindExtra {
