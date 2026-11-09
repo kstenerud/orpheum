@@ -23,7 +23,7 @@ type SettingBody struct {
 	Maximum       *int64          `json:"maximum,omitempty"`
 	Question      string          `json:"question,omitempty"`
 	Description   string          `json:"description"`
-	Section       string          `doc:"The part of the settings page it is listed in, in this order" enum:"general,accounts,libraries,metadata,playback,slow_links,upload,together,nodes,jobs,remote_access,backups,diagnostics" json:"section"` //nolint:lll // one struct tag
+	Section       string          `doc:"The part of the settings page it is listed in, in this order" enum:"general,accounts,libraries,metadata,playback,slowLinks,upload,together,nodes,jobs,remoteAccess,backups,diagnostics" json:"section"` //nolint:lll // one struct tag
 	IsImportant   bool            `doc:"In the settings page's normal view" json:"isImportant"`
 	SetByUserID   *int64          `json:"setByUserId,omitempty"`
 	SetAt         int64           `json:"setAt"`

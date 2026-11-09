@@ -489,8 +489,8 @@ func TestChunks_AnUnmadeChunkOfAFilmWhoseRootIsUnavailableIsUnreachable(t *testi
 		`INSERT INTO unavailable_place (node_id, path, root_path, since, cause)
 		 VALUES (1, '/media', '/media', 4000, 'unread')`)
 	unmade := harness.getBytePath(t, base+"q1200k480p/00000.m4s", user, true, "")
-	if unmade.status != http.StatusServiceUnavailable || !strings.Contains(unmade.body, `"code":"media_unreachable"`) ||
-		!strings.Contains(unmade.body, `"reason":"root_missing"`) {
+	if unmade.status != http.StatusServiceUnavailable || !strings.Contains(unmade.body, `"code":"mediaUnreachable"`) ||
+		!strings.Contains(unmade.body, `"reason":"rootMissing"`) {
 		t.Errorf("an unmade chunk under an unavailable root: %d %s; want media_unreachable, its root missing",
 			unmade.status, unmade.body)
 	}

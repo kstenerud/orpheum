@@ -448,7 +448,7 @@ function useClaim(reload: () => void): Claiming {
 /** Whether the server refused what was entered at location ("body.password"). */
 function isRefusedAt(cause: unknown, location: string): boolean {
   const problems =
-    cause instanceof ApiProblem ? (cause.withCode("invalid_request")?.detail?.problems ?? []) : [];
+    cause instanceof ApiProblem ? (cause.withCode("invalidRequest")?.detail?.problems ?? []) : [];
   return problems.some((problem) => problem.location === location);
 }
 

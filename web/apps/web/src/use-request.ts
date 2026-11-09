@@ -38,15 +38,14 @@ export interface RequestState {
 /** How long a refusal asks us to wait before asking again, or undefined when it names no time. */
 function retryAfterMsOf(cause: unknown): number | undefined {
   return cause instanceof ApiProblem
-    ? cause.withCode("rate_limited")?.detail?.retryAfterMs
+    ? cause.withCode("rateLimited")?.detail?.retryAfterMs
     : undefined;
 }
 
 /** Whether a refusal is an outside host not answering. */
 function isNotAnswering(cause: unknown): boolean {
   return (
-    cause instanceof ApiProblem &&
-    cause.withCode("provider_error")?.detail?.reason === "unavailable"
+    cause instanceof ApiProblem && cause.withCode("providerError")?.detail?.reason === "unavailable"
   );
 }
 

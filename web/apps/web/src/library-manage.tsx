@@ -41,8 +41,8 @@ const outcomeKeys = {
 
 /** Why a node does not watch a root, as its status said (D272 §9). */
 const watchCauseKeys = {
-  "network-filesystem": "libraries.watchCauseNetworkFilesystem",
-  "watch-limit": "libraries.watchCauseWatchLimit",
+  networkFilesystem: "libraries.watchCauseNetworkFilesystem",
+  watchLimit: "libraries.watchCauseWatchLimit",
   unavailable: "libraries.watchCauseUnavailable",
   unreadable: "libraries.watchCauseUnreadable",
 } as const;

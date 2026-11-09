@@ -81,10 +81,10 @@ func TestIdentification_AnOtherVideosDateIsOverriddenAndItIsNeverMatched(t *test
 	admin := harness.createAdminAndSignIn(t)
 	harness.otherVideoTitle(t)
 
-	set := harness.do(t, http.MethodPut, "/items/20/overrides/recorded_at", admin,
+	set := harness.do(t, http.MethodPut, "/items/20/overrides/recordedAt", admin,
 		map[string]string{"value": "1600000000000"})
 	if set.status != http.StatusNoContent {
-		t.Fatalf("PUT an other video's recorded_at override = %d %s", set.status, set.body)
+		t.Fatalf("PUT an other video's recordedAt override = %d %s", set.status, set.body)
 	}
 
 	matched := harness.do(t, http.MethodPost, "/items/20/match", admin,

@@ -23,7 +23,7 @@ export function blankLibrary(): NewLibrary {
   return {
     name: "",
     kind: "film",
-    metadataSource: "nfo_then_tmdb",
+    metadataSource: "nfoThenTmdb",
     changeDetection: "manual",
     isWritable: false,
     // No machine yet: onAConnectedNode puts the first connected one here once they are known.
@@ -322,12 +322,12 @@ function MetadataQuestion(props: {
     <Question
       legend={t("libraries.metadataSource")}
       name="source"
-      value={draft.metadataSource ?? "nfo_then_tmdb"}
+      value={draft.metadataSource ?? "nfoThenTmdb"}
       onChange={(value) => {
         setAnswer("metadataSource", value);
       }}
       choices={[
-        ["nfo_then_tmdb", t("libraries.sourceNfoThenTmdb")],
+        ["nfoThenTmdb", t("libraries.sourceNfoThenTmdb")],
         ["tmdb", t("libraries.sourceTmdb")],
         ["nfo", t("libraries.sourceNfo")],
       ]}

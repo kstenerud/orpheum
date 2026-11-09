@@ -148,7 +148,7 @@ describe("useResource", () => {
   });
 
   it("keeps the cause, and an error the server sent becomes an ApiProblem", async () => {
-    const services = servedBy({ "GET /me": refusal(404, "not_found") });
+    const services = servedBy({ "GET /me": refusal(404, "notFound") });
     const fromServer = await settledAfter(async () => dataOrThrow(await services.api.GET("/me")));
     expect(fromServer.state === "failed" && fromServer.cause instanceof ApiProblem).toBe(true);
     const network = new TypeError("Failed to fetch");
@@ -168,14 +168,14 @@ describe("useResource", () => {
 
   it("tells the person what went wrong in their words, with what to do", () => {
     const t = i18n.t.bind(i18n);
-    const notFound = new ApiProblem({ code: "not_found", message: "no such title or series" });
+    const notFound = new ApiProblem({ code: "notFound", message: "no such title or series" });
     expect(problemText(t, notFound)).toBe(
       "That is no longer here: it may have been removed. Go back and try again.",
     );
     const ended = new ApiProblem({
-      code: "auth_required",
+      code: "authRequired",
       message: "sign in first",
-      detail: { reason: "session_ended" },
+      detail: { reason: "sessionEnded" },
     });
     expect(problemText(t, ended)).toContain("This device was signed out");
     expect(problemText(t, ended, { authRequired: "a code that does not work" })).toBe(

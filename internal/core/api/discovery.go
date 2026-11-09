@@ -54,7 +54,7 @@ type DiscoveryStatusBody struct {
 	ClaimExpiresAt   int64    `doc:"Unix milliseconds; 0 when there is no code" json:"claimExpiresAt"`
 	Account          string   `doc:"The address of the account the server is enrolled with, at a discovery with accounts (D310 §5)" json:"account,omitempty"`                 //nolint:lll // one struct tag
 	RemovedAt        int64    `doc:"Unix milliseconds the server was removed from its account, another enrolled in its place (D312 §15); 0 when it was not" json:"removedAt"` //nolint:lll // one struct tag
-	ReachableFrom    string   `doc:"As the probe found; absent before it ran" enum:"public_ipv4,public_ipv4_other_port,ipv6,nowhere" json:"reachableFrom,omitempty"`          //nolint:lll // one struct tag
+	ReachableFrom    string   `doc:"As the probe found; absent before it ran" enum:"publicIpv4,publicIpv4OtherPort,ipv6,nowhere" json:"reachableFrom,omitempty"`              //nolint:lll // one struct tag
 	Published        []string `doc:"The addresses the discovery publishes" json:"published"`
 	DeadEndsLastWeek int      `doc:"How many times a client found no path to the server in the last week" json:"deadEndsLastWeek"` //nolint:lll // one struct tag
 	// DeadEndCauses are those dead ends by the cause each page reported, the commonest first; none
@@ -108,7 +108,7 @@ type PortMappingItemBody struct {
 
 // WebRTCPathBody is how many connections took one path.
 type WebRTCPathBody struct {
-	Path  string `enum:"direct_ipv6,direct_ipv4,punched_ipv6,punched_ipv4,hairpinned_ipv4,relayed,failed" json:"path"`
+	Path  string `enum:"directIpv6,directIpv4,punchedIpv6,punchedIpv4,hairpinnedIpv4,relayed,failed" json:"path"`
 	Count int    `json:"count"`
 }
 

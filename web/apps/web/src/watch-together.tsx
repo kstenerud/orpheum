@@ -131,7 +131,7 @@ function StartSession(props: {
 
 /** Whether a failure to read the session means it is over: ended, or no longer the host's. */
 function isSessionOver(cause: unknown): boolean {
-  return cause instanceof ApiProblem && (cause.code === "not_found" || cause.code === "forbidden");
+  return cause instanceof ApiProblem && (cause.code === "notFound" || cause.code === "forbidden");
 }
 
 /**
@@ -234,7 +234,7 @@ function EndSession(props: {
             } catch (cause) {
               // A session the server no longer has is ended, as when the answer to an end that
               // ended it was lost and this is its second try (principles §28): as Leave takes it.
-              if (!(cause instanceof ApiProblem && cause.code === "not_found")) {
+              if (!(cause instanceof ApiProblem && cause.code === "notFound")) {
                 noteEndingHere(id, false);
                 throw cause;
               }

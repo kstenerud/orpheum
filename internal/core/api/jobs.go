@@ -25,7 +25,7 @@ func (JobKind) Schema(huma.Registry) *huma.Schema {
 	kinds := jobs.Kinds()
 	names := make([]any, 0, len(kinds))
 	for _, kind := range kinds {
-		names = append(names, string(kind))
+		names = append(names, saidValue(string(kind)))
 	}
 	return &huma.Schema{Type: huma.TypeString, Enum: names}
 }
@@ -141,7 +141,7 @@ func (server *Server) listJobs(ctx context.Context, input *JobsInput) (*JobsOutp
 	nodeName := server.nodeNamer(ctx, dependencies)
 	for _, view := range views {
 		body := JobBody{
-			ID: view.ID, Kind: JobKind(view.Kind), ItemID: view.ItemID,
+			ID: view.ID, Kind: JobKind(saidValue(string(view.Kind))), ItemID: view.ItemID,
 			StreamID: view.StreamID, FetchedSubtitleID: view.FetchedSubtitleID, FileID: view.FileID,
 			ScanID: view.ScanID, ScanBatchID: view.ScanBatchID, ChunkStoreID: view.ChunkStoreID,
 			State: view.State, OnNode: view.OnNode, ProgressFraction: view.ProgressFraction,

@@ -212,7 +212,7 @@ func TestBrowse_ATitleThatCannotBeReadNowIsListedAndMarkedUnavailable(t *testing
 		 VALUES (1, '/m', 'unreadable', 5000)`,
 		`INSERT INTO unavailable_place (node_id, path, root_path, since, cause)
 		 VALUES (1, '/m', '/m', 4000, 'unread')`)
-	const missing = `"unavailable":{"reason":"root_missing","nodeName":"local","path":"/m","unavailableAt":4000}`
+	const missing = `"unavailable":{"reason":"rootMissing","nodeName":"local","path":"/m","unavailableAt":4000}`
 	for _, path := range []string{
 		"/items?kind=film&sort=name&limit=10", "/items?kind=series&sort=added&limit=10", "/items/10",
 		"/items/21", "/items/20", "/items/20/groups/1?limit=10",
@@ -230,7 +230,7 @@ func TestBrowse_ATitleThatCannotBeReadNowIsListedAndMarkedUnavailable(t *testing
 	storetest.ExecRaw(t, harness.databasePath, "DELETE FROM root_state", "DELETE FROM unavailable_place")
 	harness.nodes.isAway.Store(true)
 	away := harness.do(t, http.MethodGet, "/items/10", user, nil)
-	if !strings.Contains(away.body, `"unavailable":{"reason":"node_away","nodeName":"local"`) {
+	if !strings.Contains(away.body, `"unavailable":{"reason":"nodeAway","nodeName":"local"`) {
 		t.Errorf("a title whose node is away = %s; want it marked so", away.body)
 	}
 	harness.nodes.isAway.Store(false)
@@ -248,7 +248,7 @@ func TestBrowse_ATitleStillBeingReadIsListedAndMarkedSo(t *testing.T) {
 	harness.shelve(t)
 	storetest.ExecRaw(t, harness.databasePath,
 		"UPDATE place SET reported_path_raw = CAST(path AS BLOB)", "UPDATE file SET payload_hash = NULL")
-	const reading = `"unavailable":{"reason":"still_reading","nodeName":"local"}`
+	const reading = `"unavailable":{"reason":"stillReading","nodeName":"local"}`
 	for _, path := range []string{
 		"/items?kind=film&sort=name&limit=10", "/items/10", "/items/20", "/items/20/groups/1?limit=10",
 	} {

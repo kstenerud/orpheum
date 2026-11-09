@@ -65,7 +65,7 @@ const report: SystemReport = {
   nodes: [
     {
       name: "attic",
-      connection: "awaiting_hello",
+      connection: "awaitingHello",
       isConnected: false,
       isServersBuild: false,
       uid: 0,

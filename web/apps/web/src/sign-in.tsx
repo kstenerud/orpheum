@@ -84,7 +84,7 @@ async function needsSetUp(signingIn: Promise<void>): Promise<boolean> {
     await signingIn;
     return false;
   } catch (cause) {
-    if (cause instanceof ApiProblem && cause.code === "setup_required") {
+    if (cause instanceof ApiProblem && cause.code === "setupRequired") {
       return true;
     }
     throw cause;

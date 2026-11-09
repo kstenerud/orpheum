@@ -28,5 +28,5 @@ export function seriesOrThrow(item: ItemDetail): SeriesBody {
 }
 
 function noSuch(id: number, what: string): ApiProblem {
-  return new ApiProblem({ code: "not_found", message: `item ${String(id)} is ${what}` });
+  return new ApiProblem({ code: "notFound", message: `item ${String(id)} is ${what}` });
 }

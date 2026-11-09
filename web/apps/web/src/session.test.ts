@@ -55,9 +55,9 @@ describe("createSession", () => {
     const storage = memoryStorage();
     const session = createSession(storage);
     session.signIn("token", { deviceId: 42 });
-    session.signOutBecause("session_ended");
+    session.signOutBecause("sessionEnded");
     expect(session.token()).toBeUndefined();
-    expect(session.lastEndReason()).toBe("session_ended");
+    expect(session.lastEndReason()).toBe("sessionEnded");
     expect(createSession(storage).deviceId()).toBe(42);
     session.signIn("next");
     expect(session.lastEndReason()).toBeUndefined();

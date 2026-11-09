@@ -141,7 +141,7 @@ func TestDiscovery_AnAdminConnectsSeesTheClaimCodeAndLeaves(t *testing.T) {
 		t.Fatalf("POST /system/discovery = %d %s", connected.status, connected.body)
 	}
 	wantPendingWithItsCode(t, status, fake.URL)
-	if len(status.WebRTCPaths) != 7 || status.WebRTCPaths[0].Path != "direct_ipv6" || status.WebRTCPaths[0].Count != 0 {
+	if len(status.WebRTCPaths) != 7 || status.WebRTCPaths[0].Path != "directIpv6" || status.WebRTCPaths[0].Count != 0 {
 		t.Errorf("the WebRTC paths = %+v; want every path listed, none taken yet", status.WebRTCPaths)
 	}
 	if status.PortMapping.IsWanted || status.PortMapping.Mappings == nil {

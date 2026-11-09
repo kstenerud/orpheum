@@ -393,6 +393,24 @@ func newShows(root string) map[string]any {
 	}
 }
 
+// A library's metadata source is said in camelCase, as every value is, though the database keeps
+// it in snake case (the owner, 2026-11-09): the API takes nfoThenTmdb and says it back.
+func TestLibraries_AMetadataSourceIsSaidInCamelCase(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.connectNode(t, "/media/shows")
+	shows := newShows("/media/shows")
+	shows["metadataSource"] = "nfoThenTmdb"
+	if created := harness.do(t, http.MethodPost, "/libraries", admin, shows); created.status != http.StatusCreated {
+		t.Fatalf("POST /libraries with nfoThenTmdb = %d %s", created.status, created.body)
+	}
+	if listed := harness.do(t, http.MethodGet, "/libraries", admin, nil); !strings.Contains(listed.body,
+		`"metadataSource":"nfoThenTmdb"`) {
+		t.Errorf("GET /libraries = %s, want its metadataSource nfoThenTmdb", listed.body)
+	}
+}
+
 // An admin sees a root's scan in progress beside it: how far it is, and whether one more follows
 // (D236 §2, §3).
 func TestLibraries_AnAdminSeesARootsScanInProgress(t *testing.T) {
@@ -481,7 +499,7 @@ func TestLibraries_AnAdminCreatesOneOverTheNodesRoots(t *testing.T) {
 		http.StatusConflict, api.CodeConflict)
 	listed := harness.do(t, http.MethodGet, "/libraries", admin, nil)
 	if !strings.Contains(listed.body, `"roots":[{"nodeName":"local","rootPath":"/media/shows","lastScanOutcome":"",`+
-		`"missingMountPaths":[],"watch":{"isWatching":false,"cause":"watch-limit","reason":"too many folders"}}]`) {
+		`"missingMountPaths":[],"watch":{"isWatching":false,"cause":"watchLimit","reason":"too many folders"}}]`) {
 		t.Errorf("an admin's GET /libraries = %s", listed.body)
 	}
 	// From away, where the admin does not administer, no roots (the Plex-chain review's T2).

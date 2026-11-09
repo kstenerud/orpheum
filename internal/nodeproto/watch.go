@@ -23,10 +23,10 @@ type WatchCause string
 const (
 	// WatchCauseNetworkFilesystem is a root on NFS, SMB or 9P (a WSL drive), whose changes made elsewhere the kernel
 	// never hears of (D27).
-	WatchCauseNetworkFilesystem WatchCause = "network-filesystem"
+	WatchCauseNetworkFilesystem WatchCause = "networkFilesystem"
 	// WatchCauseWatchLimit is a root with more folders than the kernel lets a user watch
 	// (fs.inotify.max_user_watches).
-	WatchCauseWatchLimit WatchCause = "watch-limit"
+	WatchCauseWatchLimit WatchCause = "watchLimit"
 	// WatchCauseUnavailable is a node whose kernel would not give it a watcher at all, or a folder
 	// its watcher has not started watching yet.
 	WatchCauseUnavailable WatchCause = "unavailable"

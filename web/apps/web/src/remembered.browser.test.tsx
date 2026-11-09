@@ -53,7 +53,7 @@ function heldOnItem(id: number, path: string, heard: string[]): Services {
       `${request.method} ${url.pathname.slice(apiPrefix.length)}`
     ];
     return answer === undefined
-      ? Response.json({ error: { code: "not_found", message: "none" } }, { status: 404 })
+      ? Response.json({ error: { code: "notFound", message: "none" } }, { status: 404 })
       : Response.json(answer, { status: 200 });
   });
 }

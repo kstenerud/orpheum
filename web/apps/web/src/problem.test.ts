@@ -10,7 +10,7 @@ const t = i18n.t.bind(i18n);
 /** An invalid_request refusal with a problem at each location. */
 function refusedAt(...locations: string[]): ApiProblem {
   return new ApiProblem({
-    code: "invalid_request",
+    code: "invalidRequest",
     message: "validation failed",
     detail: {
       problems: locations.map((location) => ({ location, message: "expected array length >= 1" })),
@@ -65,14 +65,14 @@ describe("fieldProblemText", () => {
 describe("a play of a file that cannot be read now (D241 §4)", () => {
   it("says what is missing, on which machine, and since when", () => {
     const away = new ApiProblem({
-      code: "media_unreachable",
+      code: "mediaUnreachable",
       message: "a note for developers",
-      detail: { reason: "node_away", nodeName: "devnas", unavailableAt: 1_790_000_000_000 },
+      detail: { reason: "nodeAway", nodeName: "devnas", unavailableAt: 1_790_000_000_000 },
     });
     const folder = new ApiProblem({
-      code: "media_unreachable",
+      code: "mediaUnreachable",
       message: "a note for developers",
-      detail: { reason: "root_missing", nodeName: "devnas", path: "/media/films" },
+      detail: { reason: "rootMissing", nodeName: "devnas", path: "/media/films" },
     });
     expect(problemText(t, away)).toMatch(
       /^This cannot be played now: the server cannot reach devnas, the computer the film is on, since .+\. Check that it is on and connected\.$/u,
@@ -86,7 +86,7 @@ describe("a play of a file that cannot be read now (D241 §4)", () => {
 describe("a provider not answering (D231 §12)", () => {
   it("says since when, and when it will be checked again, when the server knows", () => {
     const knowing = new ApiProblem({
-      code: "provider_error",
+      code: "providerError",
       message: "a note for developers",
       detail: {
         reason: "unavailable",
@@ -95,7 +95,7 @@ describe("a provider not answering (D231 §12)", () => {
       },
     });
     const unknowing = new ApiProblem({
-      code: "provider_error",
+      code: "providerError",
       message: "a note for developers",
       detail: { reason: "unavailable" },
     });
@@ -110,7 +110,7 @@ describe("a provider not answering (D231 §12)", () => {
 
 describe("a playback the server no longer has", () => {
   it("says the server restarted and to press play, not that the film was removed", () => {
-    const gone = new ApiProblem({ code: "playback_gone", message: "no such playback" });
+    const gone = new ApiProblem({ code: "playbackGone", message: "no such playback" });
     const text = problemText(t, gone);
     expect(text).toContain("The server restarted");
     expect(text).toContain("Reload the page to carry on");
@@ -120,7 +120,7 @@ describe("a playback the server no longer has", () => {
 
 describe("a play of a file that cannot be converted (D344 §5)", () => {
   it("says the file cannot be converted for this device, never the server's message", () => {
-    const refusal = new ApiProblem({ code: "cannot_convert", message: "a note for developers" });
+    const refusal = new ApiProblem({ code: "cannotConvert", message: "a note for developers" });
     const text = problemText(t, refusal);
     expect(text).toContain("can't be converted for this device");
     expect(text).not.toContain("a note for developers");

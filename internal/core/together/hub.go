@@ -27,8 +27,8 @@ const secretBytes = 32
 const (
 	codeForbidden = "forbidden"
 	codeStale     = "stale"
-	codeInvalid   = "invalid_request"
-	codeNotFound  = "not_found"
+	codeInvalid   = "invalidRequest"
+	codeNotFound  = "notFound"
 )
 
 var (

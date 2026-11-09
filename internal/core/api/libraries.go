@@ -39,7 +39,7 @@ type RootBody struct {
 type RootWatchBody struct {
 	IsWatching bool `json:"isWatching"`
 	// Cause is why the root is not watched, empty while it is.
-	Cause  string `enum:"network-filesystem,watch-limit,unavailable,unreadable," json:"cause"`
+	Cause  string `enum:"networkFilesystem,watchLimit,unavailable,unreadable," json:"cause"`
 	Reason string `doc:"The cause in the node's own words" json:"reason,omitempty"`
 }
 
@@ -60,7 +60,7 @@ type LibraryBody struct {
 	ID                 int64            `json:"id"`
 	Name               string           `json:"name"`
 	Kind               string           `enum:"film,series,other" json:"kind"`
-	MetadataSource     string           `enum:"nfo_then_tmdb,tmdb,nfo" json:"metadataSource"`
+	MetadataSource     string           `enum:"nfoThenTmdb,tmdb,nfo" json:"metadataSource"`
 	ChangeDetection    string           `enum:"watch,interval,manual" json:"changeDetection"`
 	CheckEveryHours    *int64           `json:"checkEveryHours,omitempty"`
 	IsWritable         bool             `json:"isWritable"`
@@ -89,7 +89,7 @@ type CreateLibraryInput struct {
 		Kind string `enum:"film,series,other" json:"kind"`
 		// MetadataSource: NFO files where present, TMDB for the rest; TMDB only; NFO files only. Asked
 		// of every kind but other, which takes NFO files only and is not asked (D184, D349).
-		MetadataSource  string   `enum:"nfo_then_tmdb,tmdb,nfo" json:"metadataSource,omitempty" required:"false"`
+		MetadataSource  string   `enum:"nfoThenTmdb,tmdb,nfo" json:"metadataSource,omitempty" required:"false"`
 		ChangeDetection string   `enum:"watch,interval,manual" json:"changeDetection"`
 		CheckEveryHours *int64   `doc:"Hours between checks; interval only" json:"checkEveryHours,omitempty" minimum:"1"` //nolint:lll // one struct tag
 		IsWritable      bool     `doc:"May the server write beside the media" json:"isWritable"`
@@ -300,7 +300,7 @@ func (server *Server) createLibrary(ctx context.Context, input *CreateLibraryInp
 			"checkEveryHours is given with changeDetection interval, and only then")
 	}
 	body.Kind = keptKind(body.Kind)
-	metadataSource, err := metadataSourceOf(body.Kind, body.MetadataSource)
+	metadataSource, err := metadataSourceOf(body.Kind, keptValue(body.MetadataSource))
 	if err != nil {
 		return nil, err
 	}
@@ -388,7 +388,8 @@ func (server *Server) listLibraries(ctx context.Context, input *AuthorizationHea
 	output.Body.Libraries = make([]LibraryBody, 0, len(summaries))
 	for _, summary := range summaries {
 		body := LibraryBody{
-			ID: summary.ID, Name: summary.Name, Kind: saidKind(summary.Kind), MetadataSource: summary.MetadataSource,
+			ID: summary.ID, Name: summary.Name, Kind: saidKind(summary.Kind),
+			MetadataSource:  saidValue(summary.MetadataSource),
 			ChangeDetection: summary.ChangeDetection, CheckEveryHours: summary.CheckEveryHours,
 			IsWritable: summary.IsWritable == 1,
 			CreatedAt:  summary.CreatedAt,

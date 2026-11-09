@@ -15,7 +15,7 @@ import (
 // SystemVideoInput asks for one of the server's own videos by what it is (D435 §6).
 type SystemVideoInput struct {
 	AuthorizationHeader
-	Purpose string `doc:"What the video is for"             enum:"sound-timing" path:"purpose"`
+	Purpose string `doc:"What the video is for"             enum:"soundTiming" path:"purpose"`
 	Codec   string `doc:"The video and audio codecs it is in" enum:"h264-aac"   path:"codec"`
 }
 

@@ -385,9 +385,9 @@ func (server *Server) requireSignedIn(
 // The reasons a request is not signed in, in auth_required's detail, so a client can tell the
 // person why (cut-a §5.2): a session that was ended, one that lapsed, or none.
 const (
-	ReasonSessionEnded   = "session_ended"
-	ReasonSessionExpired = "session_expired"
-	ReasonNoSession      = "no_session"
+	ReasonSessionEnded   = "sessionEnded"
+	ReasonSessionExpired = "sessionExpired"
+	ReasonNoSession      = "noSession"
 )
 
 // notSignedInError is auth_required with why.

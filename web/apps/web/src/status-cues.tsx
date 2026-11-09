@@ -136,7 +136,7 @@ export const statusCues: readonly StatusCue[] = [
 
 /** Whether a subject's files are only waiting to be read, which is no warning (D304 §4). */
 function isStillReading(subject: CueSubject): boolean {
-  return subject.unavailable?.reason === "still_reading";
+  return subject.unavailable?.reason === "stillReading";
 }
 
 /** A poster's tray of status cues, in statusCues' order; nothing when it has none (D278, D301 §4). */

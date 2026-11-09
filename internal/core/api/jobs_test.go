@@ -39,7 +39,7 @@ func newestReadThrough(t *testing.T, listed []api.JobBody) api.JobBody {
 func newestOf(t *testing.T, listed []api.JobBody, kind jobs.Kind) api.JobBody {
 	t.Helper()
 	for _, job := range listed {
-		if string(job.Kind) == string(kind) {
+		if string(job.Kind) == api.SaidValue(string(kind)) {
 			return job
 		}
 	}
@@ -158,9 +158,14 @@ func TestJobs_TheDocumentNamesEveryKindOfJob(t *testing.T) {
 	}
 	documented := document.Components.Schemas["JobBody"].Properties["kind"].Enum
 	for _, kind := range jobs.Kinds() {
-		if !slices.Contains(documented, string(kind)) {
+		if !slices.Contains(documented, api.SaidValue(string(kind))) {
 			t.Errorf("the job view's kinds %v lack %q, which the queue has", documented, kind)
 		}
+	}
+	// The kinds are said in camelCase, though the queue keeps them in snake case (the owner,
+	// 2026-11-09).
+	if !slices.Contains(documented, "readThrough") || !slices.Contains(documented, "makeArtworkSizes") {
+		t.Errorf("the job view's kinds %v; want readThrough and makeArtworkSizes", documented)
 	}
 }
 

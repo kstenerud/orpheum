@@ -20,7 +20,7 @@ func (InAnotherSessionDetailBody) problemCode() Code { return CodeInAnotherSessi
 // MediaUnreachableDetailBody is media_unreachable's detail: why the file cannot be read now, on
 // which machine, the folder or disk missing, and since when (D241 §4).
 type MediaUnreachableDetailBody struct {
-	Reason   string `enum:"node_away,root_missing,disk_missing,still_reading" json:"reason"`
+	Reason   string `enum:"nodeAway,rootMissing,diskMissing,stillReading" json:"reason"`
 	NodeName string `doc:"The machine that holds the file" json:"nodeName"`
 	Path     string `doc:"The folder or disk missing on it; absent for a machine away" json:"path,omitempty"`
 	// UnavailableAt is when it became unavailable, in Unix milliseconds; absent when not known.
@@ -39,7 +39,7 @@ func mediaUnreachable(unreadable *library.UnreadableError, nodeName func(nodeID 
 // SignedOutDetailBody is auth_required's detail: why there is no session, so a client can tell
 // the person (cut-a §5.2).
 type SignedOutDetailBody struct {
-	Reason string `enum:"session_ended,session_expired,no_session" json:"reason"`
+	Reason string `enum:"sessionEnded,sessionExpired,noSession" json:"reason"`
 }
 
 func (SignedOutDetailBody) problemCode() Code { return CodeAuthRequired }

@@ -86,7 +86,7 @@ export async function moveHostingHere(
     noteHostedElsewhere(undefined);
     return true;
   } catch (cause) {
-    if (cause instanceof ApiProblem && (cause.code === "not_found" || cause.code === "forbidden")) {
+    if (cause instanceof ApiProblem && (cause.code === "notFound" || cause.code === "forbidden")) {
       noteHostedElsewhere(undefined);
       return false;
     }

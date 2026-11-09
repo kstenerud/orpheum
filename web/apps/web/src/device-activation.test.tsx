@@ -53,7 +53,7 @@ async function accountWithCodeEntered(answers: Answers, heard: Heard[]): Promise
         {
           "GET /me/devices": [200, { devices: [] }],
           "GET /me": [200, { ...owner, canManageAccount: true }],
-          "GET /me/own-link": refusal(404, "not_found"),
+          "GET /me/own-link": refusal(404, "notFound"),
           "GET /me/preferences": [
             200,
             { isDialogueBoostOn: false, isLevellingOn: true, isAutoplayOn: true },
@@ -150,10 +150,7 @@ describe("activating a device by the code it shows (D288)", () => {
   });
 
   it("says when no device shows the code entered", async () => {
-    mounted = await accountWithCodeEntered(
-      { "POST /pairings/code": refusal(404, "not_found") },
-      [],
-    );
+    mounted = await accountWithCodeEntered({ "POST /pairings/code": refusal(404, "notFound") }, []);
     expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
       "No device is showing that code.",
     );
@@ -214,7 +211,7 @@ describe("activating a device whose QR code was scanned (D321)", () => {
       {
         "GET /me/devices": [200, { devices: [] }],
         "GET /me": [200, { ...owner, canManageAccount: true }],
-        "GET /me/own-link": refusal(404, "not_found"),
+        "GET /me/own-link": refusal(404, "notFound"),
         "GET /me/preferences": [
           200,
           { isDialogueBoostOn: false, isLevellingOn: true, isAutoplayOn: true },

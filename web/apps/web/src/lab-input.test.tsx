@@ -198,7 +198,7 @@ describe("the button test", () => {
   it("says when sending fails, and tries again at the next press", async () => {
     const heard: Heard[] = [];
     const services = servedBy(
-      { "POST /lab/input-events": [refusal(404, "not_found"), [204, null]] },
+      { "POST /lab/input-events": [refusal(404, "notFound"), [204, null]] },
       heard,
       "token",
     );

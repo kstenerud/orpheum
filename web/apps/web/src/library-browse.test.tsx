@@ -76,7 +76,7 @@ async function mountBrowse(
     library: number | "all" | undefined;
     view: "folders" | undefined;
     folder: string | undefined;
-    sort: "name" | "added" | "recorded" | "file_name" | "released" | undefined;
+    sort: "name" | "added" | "recorded" | "fileName" | "released" | undefined;
     order: "ascending" | "descending" | undefined;
     query: string;
   }>,

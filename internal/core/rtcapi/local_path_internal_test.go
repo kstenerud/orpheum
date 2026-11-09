@@ -48,7 +48,7 @@ func TestRecordPath_NamesBothEndsOfThePairByTypeAndAddress(t *testing.T) {
 	server := watchedServer(t, log, clocktest.NewFake(time.Unix(1_800_000_000, 0)))
 	server.recordPath(PathPunchedIPv4, pairOf(webrtc.ICECandidateTypeSrflx, "203.0.113.9:40001",
 		webrtc.ICECandidateTypePrflx, "198.51.100.4:5000"), 600*time.Millisecond)
-	log.AwaitEvent(t, "clientConnected", "path=punched_ipv4", "remote=198.51.100.4:5000",
+	log.AwaitEvent(t, "clientConnected", "path=punchedIpv4", "remote=198.51.100.4:5000",
 		"remoteType=prflx", "local=203.0.113.9:40001", "localType=srflx", "connectMs=600")
 }
 
@@ -65,7 +65,7 @@ func TestHairpinWarning_StandsUntilADirectConnectionFromTheHouse(t *testing.T) {
 	hairpin := pairOf(webrtc.ICECandidateTypeSrflx, "11.22.33.144:40001",
 		webrtc.ICECandidateTypeSrflx, "11.22.33.144:51234")
 	server.recordPath(pathOf(hairpin.Local, hairpin.Remote), hairpin, time.Second)
-	line := log.AwaitLine(t, "path=hairpinned_ipv4", "localType=srflx", "local=11.22.33.144:40001")
+	line := log.AwaitLine(t, "path=hairpinnedIpv4", "localType=srflx", "local=11.22.33.144:40001")
 	if !strings.Contains(line, "level=WARN") {
 		t.Errorf("the hairpin's line is %q; want a warning", line)
 	}

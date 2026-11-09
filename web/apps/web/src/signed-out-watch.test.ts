@@ -68,20 +68,20 @@ describe("a session the server ended", () => {
     expect(
       await reasonSignedOutWith([
         401,
-        { error: { code: "auth_required", message: "x", detail: { reason: "session_ended" } } },
+        { error: { code: "authRequired", message: "x", detail: { reason: "sessionEnded" } } },
       ]),
-    ).toBe("session_ended");
+    ).toBe("sessionEnded");
     expect(
-      await reasonSignedOutWith([401, { error: { code: "auth_required", message: "x" } }]),
-    ).toBe("no_session");
-    expect(await reasonSignedOutWith([401, "not our error shape"])).toBe("no_session");
+      await reasonSignedOutWith([401, { error: { code: "authRequired", message: "x" } }]),
+    ).toBe("noSession");
+    expect(await reasonSignedOutWith([401, "not our error shape"])).toBe("noSession");
   });
 
   it("believes a reason only in the server's error shape, read as the SDK reads every refusal", async () => {
     // No code or message: not the server's refusal, whatever it carries.
     expect(
-      await reasonSignedOutWith([401, { error: { detail: { reason: "session_ended" } } }]),
-    ).toBe("no_session");
+      await reasonSignedOutWith([401, { error: { detail: { reason: "sessionEnded" } } }]),
+    ).toBe("noSession");
   });
 
   it("signs out with the reason and goes home, and the device stays remembered", async () => {
@@ -89,7 +89,7 @@ describe("a session the server ended", () => {
       {
         "GET /me": [
           401,
-          { error: { code: "auth_required", message: "x", detail: { reason: "session_ended" } } },
+          { error: { code: "authRequired", message: "x", detail: { reason: "sessionEnded" } } },
         ],
       },
       [],
@@ -100,7 +100,7 @@ describe("a session the server ended", () => {
     services.api.use(watchForSignOut(services.session, recordingNavigation(went)));
     await services.api.GET("/me");
     expect(services.session.token()).toBeUndefined();
-    expect(services.session.lastEndReason()).toBe("session_ended");
+    expect(services.session.lastEndReason()).toBe("sessionEnded");
     expect(went).toEqual([{ screen: "home" }]);
     expect(services.session.deviceId()).toBe(42);
     services.session.signIn("next");
@@ -162,11 +162,11 @@ describe("a sign-out with a question held over the page (the owner's Fire TV, 20
     const navigation = createNavigation(later.place, false);
     navigation.holdBack(() => undefined);
     const given = servedBy({}, [], "token").session;
-    signingOutWithNoneHeld(given, navigation).signOutBecause("session_ended");
+    signingOutWithNoneHeld(given, navigation).signOutBecause("sessionEnded");
     expect(given.token()).toBe("token");
     later.settle();
     expect(given.token()).toBeUndefined();
-    expect(given.lastEndReason()).toBe("session_ended");
+    expect(given.lastEndReason()).toBe("sessionEnded");
   });
 });
 

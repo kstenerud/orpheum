@@ -32,11 +32,11 @@ func TestBytesFileOf_NamesAFileUnderARootOfSlash(t *testing.T) {
 func TestUnreadableError_SaysSinceWhenOnlyWhenKnown(t *testing.T) {
 	t.Parallel()
 	away := library.UnreadableError{Unreadable: library.Unreadable{Reason: library.NodeAway, NodeID: 1}}
-	if got, want := away.Error(), "node 1's file cannot be read: node_away -"; got != want {
+	if got, want := away.Error(), "node 1's file cannot be read: nodeAway -"; got != want {
 		t.Errorf("a node away since nobody knows when: %q; want %q", got, want)
 	}
 	away.Since = time.Date(2026, 10, 18, 6, 17, 0, 0, time.UTC)
-	if got, want := away.Error(), "node 1's file cannot be read: node_away -, since 2026-10-18T06:17:00Z"; got != want {
+	if got, want := away.Error(), "node 1's file cannot be read: nodeAway -, since 2026-10-18T06:17:00Z"; got != want {
 		t.Errorf("a node away since a known time: %q; want %q", got, want)
 	}
 }

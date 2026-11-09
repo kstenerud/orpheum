@@ -30,8 +30,8 @@ describe("reportFailure", () => {
     const sent: string[] = [];
     sendFailuresTo((text) => sent.push(text));
     reportFailure(new TypeError("Failed to fetch"));
-    reportFailure(new ApiProblem({ code: "not_found", message: "no such film" }));
-    expect(sent).toEqual(["TypeError: Failed to fetch", "not_found: no such film"]);
+    reportFailure(new ApiProblem({ code: "notFound", message: "no such film" }));
+    expect(sent).toEqual(["TypeError: Failed to fetch", "notFound: no such film"]);
     for (let count = 0; count < failuresSentMost + 5; count += 1) {
       reportFailure(new Error("again"));
     }

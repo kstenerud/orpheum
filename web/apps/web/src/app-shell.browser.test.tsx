@@ -249,7 +249,7 @@ describe("the shell, laid out by a real browser", () => {
       isGuessed: true,
       kind: "film",
       name: "A Film",
-      unavailable: { reason: "node_away", nodeName: "devnas" },
+      unavailable: { reason: "nodeAway", nodeName: "devnas" },
       year: 2020,
     };
     await drawn(<PosterGrid kind="film" entries={[entry]} />, ({ container }) => {

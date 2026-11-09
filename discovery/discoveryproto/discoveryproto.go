@@ -275,10 +275,10 @@ const (
 // Where a core can be reached from, named by what the probe found to work (the protocol's §2.6; C10).
 const (
 	// ReachablePublicIPv4 is a public IPv4 address on 443: every network reaches it.
-	ReachablePublicIPv4 = "public_ipv4"
+	ReachablePublicIPv4 = "publicIpv4"
 	// ReachablePublicIPv4OtherPort is a public IPv4 address on another port, which networks that allow
 	// only 80 and 443 do not reach.
-	ReachablePublicIPv4OtherPort = "public_ipv4_other_port"
+	ReachablePublicIPv4OtherPort = "publicIpv4OtherPort"
 	// ReachableIPv6 is IPv6 alone: a client without it connects over WebRTC, or not at all.
 	ReachableIPv6 = "ipv6"
 	// ReachableNowhere is no direct path at all: WebRTC alone.

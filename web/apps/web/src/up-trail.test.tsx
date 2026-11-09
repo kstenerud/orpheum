@@ -156,7 +156,7 @@ describe("a title's trail (D367 §8)", () => {
     const services = {
       ...servedBy({
         ...pageAnswers(film),
-        "GET /items/10": [404, { error: { code: "not_found" } }],
+        "GET /items/10": [404, { error: { code: "notFound" } }],
       }),
       navigation: createNavigation(place),
     };

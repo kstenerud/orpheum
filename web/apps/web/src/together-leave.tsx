@@ -35,7 +35,7 @@ export function LeaveButton(props: {
               throwIfRefused(answer);
             } catch (cause: unknown) {
               // A session the server no longer has, as after its restart, is over, not a failure.
-              if (cause instanceof ApiProblem && cause.code === "not_found") {
+              if (cause instanceof ApiProblem && cause.code === "notFound") {
                 props.onLeft("gone");
                 return;
               }

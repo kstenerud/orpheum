@@ -438,7 +438,7 @@ describe("a receiver's Up next (plans/up-next.md; D337's §9 answers, Q4)", () =
   it("waits ready for the next video where it cannot move on, and goes home where the cast is gone (D364 §5, D384 §1)", async () => {
     for (const [played, isLeft] of [
       [[200, { castId: 9, fileId: 0 }], false],
-      [refusal(404, "not_found"), true],
+      [refusal(404, "notFound"), true],
     ] as const) {
       const heard: Heard[] = [];
       const services = servedBy(

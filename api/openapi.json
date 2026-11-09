@@ -812,11 +812,11 @@
         "properties": {
           "causeCode": {
             "enum": [
-              "disabled_at_boot",
-              "kernel_without",
-              "blocked_by_runtime",
-              "not_linux",
-              "architecture_unwritten",
+              "disabledAtBoot",
+              "kernelWithout",
+              "blockedByRuntime",
+              "notLinux",
+              "architectureUnwritten",
               "unexplained"
             ],
             "type": "string"
@@ -902,7 +902,7 @@
           },
           "metadataSource": {
             "enum": [
-              "nfo_then_tmdb",
+              "nfoThenTmdb",
               "tmdb",
               "nfo"
             ],
@@ -1431,8 +1431,8 @@
           "reachableFrom": {
             "description": "As the probe found; absent before it ran",
             "enum": [
-              "public_ipv4",
-              "public_ipv4_other_port",
+              "publicIpv4",
+              "publicIpv4OtherPort",
               "ipv6",
               "nowhere"
             ],
@@ -3081,33 +3081,33 @@
           },
           "kind": {
             "enum": [
-              "fetch_metadata",
-              "make_artwork_sizes",
-              "extract_subtitle",
-              "convert_fetched_subtitle",
-              "read_through",
-              "make_chunks",
+              "fetchMetadata",
+              "makeArtworkSizes",
+              "extractSubtitle",
+              "convertFetchedSubtitle",
+              "readThrough",
+              "makeChunks",
               "scan",
               "examine",
               "backup",
-              "renew_certificate",
-              "hash_whole_file",
-              "make_system_videos"
+              "renewCertificate",
+              "hashWholeFile",
+              "makeSystemVideos"
             ],
             "type": "string",
             "x-extensible-enum": [
-              "fetch_metadata",
-              "make_artwork_sizes",
-              "extract_subtitle",
-              "convert_fetched_subtitle",
-              "read_through",
-              "make_chunks",
+              "fetchMetadata",
+              "makeArtworkSizes",
+              "extractSubtitle",
+              "convertFetchedSubtitle",
+              "readThrough",
+              "makeChunks",
               "scan",
               "examine",
               "backup",
-              "renew_certificate",
-              "hash_whole_file",
-              "make_system_videos"
+              "renewCertificate",
+              "hashWholeFile",
+              "makeSystemVideos"
             ]
           },
           "lastFailure": {
@@ -3824,7 +3824,7 @@
           },
           "metadataSource": {
             "enum": [
-              "nfo_then_tmdb",
+              "nfoThenTmdb",
               "tmdb",
               "nfo"
             ],
@@ -4047,10 +4047,10 @@
           },
           "reason": {
             "enum": [
-              "node_away",
-              "root_missing",
-              "disk_missing",
-              "still_reading"
+              "nodeAway",
+              "rootMissing",
+              "diskMissing",
+              "stillReading"
             ],
             "type": "string"
           },
@@ -5217,11 +5217,11 @@
             "properties": {
               "code": {
                 "enum": [
-                  "auth_required"
+                  "authRequired"
                 ],
                 "type": "string",
                 "x-extensible-enum": [
-                  "auth_required"
+                  "authRequired"
                 ]
               },
               "detail": {
@@ -5250,11 +5250,11 @@
             "properties": {
               "code": {
                 "enum": [
-                  "invalid_request"
+                  "invalidRequest"
                 ],
                 "type": "string",
                 "x-extensible-enum": [
-                  "invalid_request"
+                  "invalidRequest"
                 ]
               },
               "detail": {
@@ -5283,11 +5283,11 @@
             "properties": {
               "code": {
                 "enum": [
-                  "rate_limited"
+                  "rateLimited"
                 ],
                 "type": "string",
                 "x-extensible-enum": [
-                  "rate_limited"
+                  "rateLimited"
                 ]
               },
               "detail": {
@@ -5316,11 +5316,11 @@
             "properties": {
               "code": {
                 "enum": [
-                  "quota_exhausted"
+                  "quotaExhausted"
                 ],
                 "type": "string",
                 "x-extensible-enum": [
-                  "quota_exhausted"
+                  "quotaExhausted"
                 ]
               },
               "detail": {
@@ -5349,11 +5349,11 @@
             "properties": {
               "code": {
                 "enum": [
-                  "provider_error"
+                  "providerError"
                 ],
                 "type": "string",
                 "x-extensible-enum": [
-                  "provider_error"
+                  "providerError"
                 ]
               },
               "detail": {
@@ -5382,11 +5382,11 @@
             "properties": {
               "code": {
                 "enum": [
-                  "media_unreachable"
+                  "mediaUnreachable"
                 ],
                 "type": "string",
                 "x-extensible-enum": [
-                  "media_unreachable"
+                  "mediaUnreachable"
                 ]
               },
               "detail": {
@@ -5415,11 +5415,11 @@
             "properties": {
               "code": {
                 "enum": [
-                  "in_another_session"
+                  "inAnotherSession"
                 ],
                 "type": "string",
                 "x-extensible-enum": [
-                  "in_another_session"
+                  "inAnotherSession"
                 ]
               },
               "detail": {
@@ -5448,40 +5448,40 @@
             "properties": {
               "code": {
                 "enum": [
-                  "setup_required",
+                  "setupRequired",
                   "forbidden",
-                  "not_found",
+                  "notFound",
                   "conflict",
                   "stale",
-                  "node_silent",
-                  "file_unavailable",
+                  "nodeSilent",
+                  "fileUnavailable",
                   "preparing",
-                  "prepare_failed",
-                  "cannot_convert",
-                  "no_room_to_make",
-                  "playback_gone",
+                  "prepareFailed",
+                  "cannotConvert",
+                  "noRoomToMake",
+                  "playbackGone",
                   "migrating",
-                  "receiving_a_cast",
-                  "casting_here",
+                  "receivingACast",
+                  "castingHere",
                   "internal"
                 ],
                 "type": "string",
                 "x-extensible-enum": [
-                  "setup_required",
+                  "setupRequired",
                   "forbidden",
-                  "not_found",
+                  "notFound",
                   "conflict",
                   "stale",
-                  "node_silent",
-                  "file_unavailable",
+                  "nodeSilent",
+                  "fileUnavailable",
                   "preparing",
-                  "prepare_failed",
-                  "cannot_convert",
-                  "no_room_to_make",
-                  "playback_gone",
+                  "prepareFailed",
+                  "cannotConvert",
+                  "noRoomToMake",
+                  "playbackGone",
                   "migrating",
-                  "receiving_a_cast",
-                  "casting_here",
+                  "receivingACast",
+                  "castingHere",
                   "internal"
                 ]
               },
@@ -5583,7 +5583,7 @@
         "additionalProperties": false,
         "properties": {
           "value": {
-            "description": "The value; year, runtime_ms and recorded_at (an other video's, Unix milliseconds) are whole numbers",
+            "description": "The value; year, runtimeMs and recordedAt (an other video's, Unix milliseconds) are whole numbers",
             "type": "string"
           }
         },
@@ -6743,8 +6743,8 @@
         "properties": {
           "cause": {
             "enum": [
-              "network-filesystem",
-              "watch-limit",
+              "networkFilesystem",
+              "watchLimit",
               "unavailable",
               "unreadable",
               ""
@@ -7417,12 +7417,12 @@
               "libraries",
               "metadata",
               "playback",
-              "slow_links",
+              "slowLinks",
               "upload",
               "together",
               "nodes",
               "jobs",
-              "remote_access",
+              "remoteAccess",
               "backups",
               "diagnostics"
             ],
@@ -7545,9 +7545,9 @@
         "properties": {
           "reason": {
             "enum": [
-              "session_ended",
-              "session_expired",
-              "no_session"
+              "sessionEnded",
+              "sessionExpired",
+              "noSession"
             ],
             "type": "string"
           }
@@ -7913,13 +7913,13 @@
             "items": {
               "enum": [
                 "container",
-                "video_codec",
-                "audio_codec",
+                "videoCodec",
+                "audioCodec",
                 "bandwidth",
-                "dialogue_boost",
-                "levelling_raise",
-                "audio_track",
-                "user_choice"
+                "dialogueBoost",
+                "levellingRaise",
+                "audioTrack",
+                "userChoice"
               ],
               "type": "string"
             },
@@ -8368,8 +8368,8 @@
             "enum": [
               "connected",
               "silent",
-              "awaiting_hello",
-              "needs_update",
+              "awaitingHello",
+              "needsUpdate",
               "locked"
             ],
             "type": "string"
@@ -8951,10 +8951,10 @@
           },
           "reason": {
             "enum": [
-              "node_away",
-              "root_missing",
-              "disk_missing",
-              "still_reading"
+              "nodeAway",
+              "rootMissing",
+              "diskMissing",
+              "stillReading"
             ],
             "type": "string"
           },
@@ -9504,11 +9504,11 @@
           },
           "path": {
             "enum": [
-              "direct_ipv6",
-              "direct_ipv4",
-              "punched_ipv6",
-              "punched_ipv4",
-              "hairpinned_ipv4",
+              "directIpv6",
+              "directIpv4",
+              "punchedIpv6",
+              "punchedIpv4",
+              "hairpinnedIpv4",
               "relayed",
               "failed"
             ],
@@ -11787,7 +11787,7 @@
                 "name",
                 "added",
                 "recorded",
-                "file_name",
+                "fileName",
                 "released"
               ],
               "type": "string"
@@ -12009,7 +12009,7 @@
               "description": "The order the rail follows: by name, or an other video's by file name",
               "enum": [
                 "name",
-                "file_name"
+                "fileName"
               ],
               "type": "string"
             }
@@ -12821,8 +12821,8 @@
                 "overview",
                 "tagline",
                 "year",
-                "runtime_ms",
-                "recorded_at"
+                "runtimeMs",
+                "recordedAt"
               ],
               "type": "string"
             }
@@ -12876,8 +12876,8 @@
                 "overview",
                 "tagline",
                 "year",
-                "runtime_ms",
-                "recorded_at"
+                "runtimeMs",
+                "recordedAt"
               ],
               "type": "string"
             }
@@ -13691,7 +13691,7 @@
               "enum": [
                 "recorded",
                 "name",
-                "file_name",
+                "fileName",
                 "added"
               ],
               "type": "string"
@@ -16807,7 +16807,7 @@
             "schema": {
               "description": "What the video is for",
               "enum": [
-                "sound-timing"
+                "soundTiming"
               ],
               "type": "string"
             }

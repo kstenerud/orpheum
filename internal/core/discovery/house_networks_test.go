@@ -83,7 +83,7 @@ func TestHouseNetworks_ADirectConnectionFromTheHouseTeachesItsOffersNetwork(t *t
 		t.Fatalf("the offer was answered %+v", reply)
 	}
 	log.AwaitEvent(t, "houseNetworkWitnessed", "network=2a0f:5000:1:2::/64",
-		"isNew=true", "device=192.168.1.30", "path=direct_ipv4", "offerAgrees=yes")
+		"isNew=true", "device=192.168.1.30", "path=directIpv4", "offerAgrees=yes")
 	networks := built.service.Status().HouseNetworks
 	if len(networks) != 1 || networks[0].Network.String() != "2a0f:5000:1:2::/64" ||
 		networks[0].Source != discoveryproto.HouseNetworkLearnt || networks[0].Device != aDeviceAtHome.Device ||

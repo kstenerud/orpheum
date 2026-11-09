@@ -88,7 +88,7 @@ describe("the core's verdict on a connection (rtcapi.Verdict)", () => {
     const told = new FakeChannel();
     const refused = verdictOf(told);
     told.open();
-    told.answer(JSON.stringify({ refused: "network-full" }));
+    told.answer(JSON.stringify({ refused: "networkFull" }));
     const problem: unknown = await refused.catch((caught: unknown) => caught);
     expect(problem).toBeInstanceOf(TurnedAway);
     expect(isTurnedAway(problem)).toBe(true);

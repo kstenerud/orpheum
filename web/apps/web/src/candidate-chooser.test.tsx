@@ -83,7 +83,7 @@ describe("the candidate chooser, when the work is not among the candidates", () 
                 422,
                 {
                   error: {
-                    code: "invalid_request",
+                    code: "invalidRequest",
                     message: "a note for developers",
                     detail: { problems: [{ location: "body.link", message: "no such work" }] },
                   },

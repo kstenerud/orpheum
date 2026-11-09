@@ -127,7 +127,7 @@ describe("a casting request still unanswered, Cast's dialog opened again", () =>
   });
 
   it("takes a casting request the server no longer has as cancelled", async () => {
-    await openedOverAnUnansweredCast([], refusal(404, "not_found"));
+    await openedOverAnUnansweredCast([], refusal(404, "notFound"));
     await click(buttonWithText(mounted!.container, "Cancel casting request"));
     expect(mounted?.container.textContent).toContain(
       "You cancelled the casting request to Fire TV.",

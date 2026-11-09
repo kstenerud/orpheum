@@ -52,10 +52,10 @@ const (
 	// node_silent_after_seconds ago.
 	Silent Connection = "silent"
 	// AwaitingHello is a node enrolled that has not said hello since the core started.
-	AwaitingHello Connection = "awaiting_hello"
+	AwaitingHello Connection = "awaitingHello"
 	// NeedsUpdate is a node whose last hello spoke another version of the node protocol than the
 	// core's, so it was refused (D233 §9).
-	NeedsUpdate Connection = "needs_update"
+	NeedsUpdate Connection = "needsUpdate"
 	// Locked is a node whose kernel lacks confinement its config requires, which reports and waits,
 	// running no FFmpeg, until an admin lets it run unconfined (D450 §1).
 	Locked Connection = "locked"

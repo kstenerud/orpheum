@@ -34,7 +34,7 @@ interface OtherSession {
 
 /** The other session a join was refused for, from its refusal; undefined for any other failure. */
 function otherSessionOf(cause: unknown): OtherSession | undefined {
-  return cause instanceof ApiProblem ? cause.withCode("in_another_session")?.detail : undefined;
+  return cause instanceof ApiProblem ? cause.withCode("inAnotherSession")?.detail : undefined;
 }
 
 /**

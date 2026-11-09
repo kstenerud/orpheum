@@ -135,22 +135,22 @@ describe("opening a lost playback again", () => {
   });
 
   it("knows a lost playback, and the failures that pass, by the server's code", () => {
-    expect(isPlaybackGone(refused("playback_gone"))).toBe(true);
-    expect(isPlaybackGone(refused("not_found"))).toBe(false);
+    expect(isPlaybackGone(refused("playbackGone"))).toBe(true);
+    expect(isPlaybackGone(refused("notFound"))).toBe(false);
     expect(mayPass(refused("migrating"))).toBe(true);
     const away = new ApiProblem({
-      code: "media_unreachable",
+      code: "mediaUnreachable",
       message: "a note for developers",
-      detail: { reason: "node_away", nodeName: "nas" },
+      detail: { reason: "nodeAway", nodeName: "nas" },
     });
     expect(mayPass(away)).toBe(true); // heard again within seconds of a restart
     const missing = new ApiProblem({
-      code: "media_unreachable",
+      code: "mediaUnreachable",
       message: "a note for developers",
-      detail: { reason: "root_missing", nodeName: "nas", path: "/films" },
+      detail: { reason: "rootMissing", nodeName: "nas", path: "/films" },
     });
     expect(mayPass(missing)).toBe(false);
-    expect(mayPass(refused("playback_gone"))).toBe(false);
+    expect(mayPass(refused("playbackGone"))).toBe(false);
     expect(mayPass(new Error("something else"))).toBe(false);
   });
 });

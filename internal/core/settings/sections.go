@@ -19,7 +19,7 @@ const (
 	// SectionPlayback is how a film plays: resuming, loudness, its chunks.
 	SectionPlayback Section = "playback"
 	// SectionSlowLinks is the lower qualities cut in chunks for a slow link.
-	SectionSlowLinks Section = "slow_links"
+	SectionSlowLinks Section = "slowLinks"
 	// SectionUpload is keeping the films within the house's upload.
 	SectionUpload Section = "upload"
 	// SectionTogether is Watch Together and its voice.
@@ -29,7 +29,7 @@ const (
 	// SectionJobs is background work.
 	SectionJobs Section = "jobs"
 	// SectionRemoteAccess is reaching the server from outside the home.
-	SectionRemoteAccess Section = "remote_access"
+	SectionRemoteAccess Section = "remoteAccess"
 	// SectionBackups is backups and the database upkeep.
 	SectionBackups Section = "backups"
 	// SectionDiagnostics is diagnosing and developing.

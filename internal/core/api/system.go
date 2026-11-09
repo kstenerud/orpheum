@@ -235,7 +235,7 @@ type SystemNodeBody struct {
 	// awaiting_hello (not heard since the server started), needs_update (it speaks another version
 	// of the node protocol than the server, so its work waits, D233 §9) or locked (its kernel lacks
 	// confinement its config requires, so it runs no FFmpeg until an admin lets it, D450 §1).
-	Connection  string `enum:"connected,silent,awaiting_hello,needs_update,locked" json:"connection"`
+	Connection  string `enum:"connected,silent,awaitingHello,needsUpdate,locked" json:"connection"`
 	IsConnected bool   `doc:"Whether its connection is connected" json:"isConnected"`
 	// LastHeardAt is when it last spoke since the server started, in Unix milliseconds.
 	LastHeardAt *int64 `json:"lastHeardAt,omitempty"`
@@ -297,7 +297,7 @@ type ConfinementBody struct {
 	Mechanism string `enum:"landlock,seccomp" json:"mechanism"`
 	IsInForce bool   `json:"isInForce"`
 	// CauseCode names why it is not in force, for a client to say in its viewer's words.
-	CauseCode string `enum:"disabled_at_boot,kernel_without,blocked_by_runtime,not_linux,architecture_unwritten,unexplained" json:"causeCode,omitempty"` //nolint:lll // one struct tag
+	CauseCode string `enum:"disabledAtBoot,kernelWithout,blockedByRuntime,notLinux,architectureUnwritten,unexplained" json:"causeCode,omitempty"` //nolint:lll // one struct tag
 	Reason    string `json:"reason,omitempty"`
 	Remedy    string `json:"remedy,omitempty"`
 }

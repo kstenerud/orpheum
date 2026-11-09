@@ -176,7 +176,7 @@ describe("previous and next in a sequence (D407 §2, §10)", () => {
   it("leaves the commands alone, and says there is none, where the sequence has no such episode", async () => {
     const services = testServices();
     const replace = vi.spyOn(services.navigation, "replace");
-    const away = { reason: "node_away", nodeName: "devnas" } as const;
+    const away = { reason: "nodeAway", nodeName: "devnas" } as const;
     const unreadable: UpNext = { ...bag, episode: { ...bag.episode, unavailable: away } };
     const said = await hearing({ upNext: unreadable, previous: undefined }, services);
     expect(JSON.parse(said())).toEqual({ hasPrevious: false, hasNext: false });

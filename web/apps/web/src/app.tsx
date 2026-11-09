@@ -435,7 +435,7 @@ function signOutHere(api: Api, session: Session): void {
         session.signOut();
       },
       (cause: unknown) => {
-        if (cause instanceof ApiProblem && cause.code === "auth_required") {
+        if (cause instanceof ApiProblem && cause.code === "authRequired") {
           session.signOut();
           return;
         }

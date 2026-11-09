@@ -30,12 +30,12 @@ it("shows how many of each kind of job wait, since when, and what failed in the 
       <QueueHealth
         queue={[
           {
-            kind: "read_through",
+            kind: "readThrough",
             queuedCount: 3,
             oldestQueuedAt: 1_790_000_000_000,
             failedLastDayCount: 0,
           },
-          { kind: "make_chunks", queuedCount: 0, failedLastDayCount: 2 },
+          { kind: "makeChunks", queuedCount: 0, failedLastDayCount: 2 },
         ]}
       />,
       servedBy({}),

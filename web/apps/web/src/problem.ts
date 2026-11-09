@@ -31,7 +31,7 @@ export function problemText(
     if (code === "authRequired") {
       return signedOutText(t, sessionEndReason(cause));
     }
-    const unreachable = cause.withCode("media_unreachable")?.detail;
+    const unreachable = cause.withCode("mediaUnreachable")?.detail;
     if (unreachable !== undefined) {
       return unavailableText(t, unreachable);
     }
@@ -86,7 +86,7 @@ export interface FormWords {
  */
 export function fieldProblemText(t: TFunction, cause: unknown, words: FormWords): string {
   if (cause instanceof ApiProblem) {
-    const problems = cause.withCode("invalid_request")?.detail?.problems ?? [];
+    const problems = cause.withCode("invalidRequest")?.detail?.problems ?? [];
     const labels = problems.map((problem) => fieldLabel(words.fields, problem.location));
     if (labels.length > 0 && labels.every((label): label is string => label !== undefined)) {
       return t("problem.invalidFields", { fields: [...new Set(labels)] });
@@ -116,7 +116,7 @@ function fieldLabel(
  */
 export function providerProblemText(t: TFunction, cause: unknown, reasons: string): string {
   if (cause instanceof ApiProblem) {
-    const detail = cause.withCode("provider_error")?.detail;
+    const detail = cause.withCode("providerError")?.detail;
     if (detail !== undefined) {
       // A host not answering says since when, and when it is next looked at (D231 §12).
       const when = {
@@ -143,15 +143,15 @@ export function providerProblemText(t: TFunction, cause: unknown, reasons: strin
 }
 
 /**
- * Why the server refused a session, by the reason its refusal gives ("session_ended"); a refusal
- * that gives none says only that there is no session ("no_session").
+ * Why the server refused a session, by the reason its refusal gives ("sessionEnded"); a refusal
+ * that gives none says only that there is no session ("noSession").
  */
 export function sessionEndReason(problem: ApiProblem): string {
-  return problem.withCode("auth_required")?.detail?.reason ?? "no_session";
+  return problem.withCode("authRequired")?.detail?.reason ?? "noSession";
 }
 
 /**
- * Why a session ended, in the person's words, by the reason the server gave ("session_ended");
+ * Why a session ended, in the person's words, by the reason the server gave ("sessionEnded");
  * a reason this client does not know says only that they are not signed in.
  */
 export function signedOutText(t: TFunction, reason: string): string {

@@ -40,11 +40,11 @@ async function problemShownFor(answer: Answers[string]): Promise<string | undefi
 
 describe("sign-in", () => {
   it("names each failure so a person knows what to do", async () => {
-    expect(await problemShownFor(refusal(401, "auth_required"))).toBe(
+    expect(await problemShownFor(refusal(401, "authRequired"))).toBe(
       "The name or password is wrong.",
     );
-    expect(await problemShownFor(refusal(429, "rate_limited"))).toContain("Too many failed");
-    expect(await problemShownFor(refusal(409, "setup_required"))).toContain("setup code");
+    expect(await problemShownFor(refusal(429, "rateLimited"))).toContain("Too many failed");
+    expect(await problemShownFor(refusal(409, "setupRequired"))).toContain("setup code");
     // Every other refusal is told by its code, as on every other screen.
     expect(await problemShownFor(refusal(503, "migrating"))).toBe(
       "The server is starting up, or updating. It will answer in a moment.",
@@ -124,7 +124,7 @@ describe("setting up a server no one can sign in to yet (A29, A31)", () => {
       {
         "GET /setup": setUpAlready,
         "POST /session": [
-          refusal(409, "setup_required"),
+          refusal(409, "setupRequired"),
           [
             201,
             {
@@ -199,7 +199,7 @@ describe("setting up a server no one can sign in to yet (A29, A31)", () => {
   it("says when the setup code is wrong, and goes back to sign-in", async () => {
     const services = servedBy({
       "GET /setup": setUpAlready,
-      "POST /session": refusal(409, "setup_required"),
+      "POST /session": refusal(409, "setupRequired"),
       "POST /setup": refusal(403, "forbidden"),
     });
     const mounted = await mount(withServices(<SignIn />, services));

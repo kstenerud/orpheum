@@ -63,22 +63,22 @@ const toneClass: Readonly<Record<(typeof tones)[number], string>> = {
 /** One way a title can be, by the cues it shows, each with its name's key. */
 const states: readonly { readonly key: string; readonly subject: CueSubject }[] = [
   { key: "gallery.plain", subject: {} },
-  { key: "gallery.cannotPlay", subject: { unavailable: { reason: "node_away", nodeName: "nas" } } },
+  { key: "gallery.cannotPlay", subject: { unavailable: { reason: "nodeAway", nodeName: "nas" } } },
   { key: "gallery.guessed", subject: { isGuessed: true } },
   {
     key: "gallery.stillReading",
-    subject: { unavailable: { reason: "still_reading", nodeName: "nas" } },
+    subject: { unavailable: { reason: "stillReading", nodeName: "nas" } },
   },
   {
     key: "gallery.cannotPlayAndGuessed",
     subject: {
-      unavailable: { reason: "root_missing", nodeName: "nas", path: "/media" },
+      unavailable: { reason: "rootMissing", nodeName: "nas", path: "/media" },
       isGuessed: true,
     },
   },
   {
     key: "gallery.stillReadingAndGuessed",
-    subject: { unavailable: { reason: "still_reading", nodeName: "nas" }, isGuessed: true },
+    subject: { unavailable: { reason: "stillReading", nodeName: "nas" }, isGuessed: true },
   },
   { key: "gallery.watched", subject: { isWatched: true } },
   { key: "gallery.guessedAndWatched", subject: { isGuessed: true, isWatched: true } },

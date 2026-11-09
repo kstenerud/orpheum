@@ -116,8 +116,8 @@ describe("the English catalogue", () => {
   it("has words for every error code and every reason the API document declares", () => {
     expect(apiDocuments).toHaveLength(1);
     const declared = problemCodesAndReasons(apiDocuments[0] ?? "");
-    expect(declared.map(({ code }) => code)).toContain("not_found");
-    expect(declared.find(({ code }) => code === "provider_error")?.reasons).toContain("no_key");
+    expect(declared.map(({ code }) => code)).toContain("notFound");
+    expect(declared.find(({ code }) => code === "providerError")?.reasons).toContain("no_key");
     const missing = declared.flatMap(({ code, reasons }) => [
       ...(hasText(en, codeKeys[camelKey(code)] ?? `problem.${camelKey(code)}`) ? [] : [code]),
       ...reasons

@@ -98,7 +98,7 @@ it("says the server cannot trust the suggested discovery when this build knows n
     422,
     {
       error: {
-        code: "invalid_request",
+        code: "invalidRequest",
         message: "a note for developers",
         detail: { problems: [{ location: "body.issuer", message: "no root keys" }] },
       },
@@ -189,9 +189,9 @@ it("says where a claimed server is reached from, and warns of the discovery's de
         clientOrigin: "https://k7xq2.client.example",
         fingerprint: "k7xq-2m4p-9tbd-hc3w-0vze-8gnr-5sya-j6kf-1qmw-p4dt-xb7c-re2h-9n0g",
         webrtcPaths: [
-          { path: "direct_ipv6", count: 0 },
-          { path: "punched_ipv4", count: 3 },
-          { path: "hairpinned_ipv4", count: 2 },
+          { path: "directIpv6", count: 0 },
+          { path: "punchedIpv4", count: 3 },
+          { path: "hairpinnedIpv4", count: 2 },
           { path: "failed", count: 1 },
         ],
         portMapping: {
@@ -395,7 +395,7 @@ it("claims a waiting server by the key its household's account made, and names t
 it("says a key the discovery refused was not accepted, and keeps the form", async () => {
   const services = servedBy({
     "GET /system/discovery": [200, pendingAtTheService],
-    "POST /system/discovery/claim": refusal(422, "invalid_request"),
+    "POST /system/discovery/claim": refusal(422, "invalidRequest"),
   });
   mounted = await mount(withServices(<SystemDiscovery />, services));
   const container = mounted.container;
@@ -415,7 +415,7 @@ it("says a password that isn't the admin's was refused, and that the key still w
       422,
       {
         error: {
-          code: "invalid_request",
+          code: "invalidRequest",
           message: "a note for developers",
           detail: {
             problems: [{ location: "body.password", message: "that is not your password" }],

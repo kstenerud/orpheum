@@ -69,7 +69,7 @@ it("marks a title that cannot be played now with an icon over its poster, no con
     identificationState: "identified",
     libraryId: 1,
     addedAt: 1,
-    unavailable: { reason: "node_away", nodeName: "nas" },
+    unavailable: { reason: "nodeAway", nodeName: "nas" },
   } as unknown as Entry;
   mounted = await mountAs(true, <PosterGrid kind="film" entries={[entry]} />);
   // Over a poster the cue is an icon only: the title's page says what it means (the owner,

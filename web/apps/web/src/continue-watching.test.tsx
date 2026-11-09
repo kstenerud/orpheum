@@ -36,7 +36,7 @@ describe("Continue Watching", () => {
     const markup = renderToStaticMarkup(
       withServices(
         <ContinueWatchingView
-          rows={[{ ...heat, unavailable: { reason: "node_away", nodeName: "devnas" } }]}
+          rows={[{ ...heat, unavailable: { reason: "nodeAway", nodeName: "devnas" } }]}
           hiddenName={undefined}
           onHide={nothing}
           onUndo={nothing}

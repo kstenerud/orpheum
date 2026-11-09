@@ -106,7 +106,7 @@ describe("having back the sessions a signed-in person is in (D267 §2)", () => {
   it("forgets a session hosted on another device that the server no longer has, as it is moved here, so a new one may start", async () => {
     noteHostedElsewhere({ sessionId: 3, deviceName: "the Mac" });
     const { api } = servedBy(
-      { "POST /together/3/host-here": refusal(404, "not_found") },
+      { "POST /together/3/host-here": refusal(404, "notFound") },
       [],
       "token",
     );

@@ -17,18 +17,18 @@ import { withServices } from "./test-services.tsx";
  * renamed one, fails to compile here until the screen can say it.
  */
 const everyKind = [
-  "fetch_metadata",
-  "make_artwork_sizes",
-  "extract_subtitle",
-  "convert_fetched_subtitle",
-  "read_through",
-  "make_chunks",
+  "fetchMetadata",
+  "makeArtworkSizes",
+  "extractSubtitle",
+  "convertFetchedSubtitle",
+  "readThrough",
+  "makeChunks",
   "scan",
   "examine",
   "backup",
-  "renew_certificate",
-  "hash_whole_file",
-  "make_system_videos",
+  "renewCertificate",
+  "hashWholeFile",
+  "makeSystemVideos",
 ] as const satisfies readonly Job["kind"][];
 
 /** True only when everyKind names every kind: a kind left out makes this fail to compile. */
@@ -37,7 +37,7 @@ const isEveryKind: Exclude<Job["kind"], (typeof everyKind)[number]> extends neve
 
 const making: Job = {
   id: 5,
-  kind: "make_chunks",
+  kind: "makeChunks",
   chunkStoreId: 3,
   state: "running",
   progressFraction: 0.4,
@@ -48,7 +48,7 @@ const making: Job = {
 
 const lookedUp: Job = {
   id: 4,
-  kind: "fetch_metadata",
+  kind: "fetchMetadata",
   itemId: 9,
   state: "failed",
   reason: "a new title",
@@ -105,7 +105,7 @@ describe("the job view", () => {
   it("says what a waiting job waits for, why, since when, and when it is looked at next (D231 §12)", async () => {
     const waitingOnTMDB: Job = {
       id: 6,
-      kind: "fetch_metadata",
+      kind: "fetchMetadata",
       itemId: 9,
       state: "queued",
       reason: "a new title",
@@ -150,7 +150,7 @@ describe("the job view", () => {
     const paused: Job = {
       ...making,
       id: 9,
-      kind: "read_through",
+      kind: "readThrough",
       fileId: 2,
       onNode: "paused",
     };
@@ -229,7 +229,7 @@ describe("each kind of job", () => {
     const started = { state: "running", reason: "a scan", attemptCount: 1, createdAt: 1 } as const;
     const scanning: Job = { ...started, id: 6, kind: "scan", scanId: 4 };
     const examining: Job = { ...started, id: 7, kind: "examine", scanBatchId: 9 };
-    const making: Job = { ...started, id: 8, kind: "make_chunks", chunkStoreId: 3 };
+    const making: Job = { ...started, id: 8, kind: "makeChunks", chunkStoreId: 3 };
     expect([targetId(scanning), targetId(examining), targetId(making)]).toEqual([4, 9, 3]);
   });
 

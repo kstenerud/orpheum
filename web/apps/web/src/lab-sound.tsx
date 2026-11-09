@@ -28,7 +28,7 @@ export function LabSound(): JSX.Element {
     async () =>
       dataOrThrow(
         await api.GET("/system-videos/{purpose}/{codec}", {
-          params: { path: { purpose: "sound-timing", codec: "h264-aac" } },
+          params: { path: { purpose: "soundTiming", codec: "h264-aac" } },
         }),
       ),
     useBackgroundChangesPoller(),
