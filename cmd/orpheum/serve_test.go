@@ -247,8 +247,8 @@ func serveOn(
 // serveAlongside is what a test's server runs beside: the node, if any, and the file a compose file's
 // start shows the setup code in (D449 §3), if any.
 type serveAlongside struct {
-	node          func(ctx context.Context) error
-	setupCodeFile string
+	node           func(ctx context.Context) error
+	setupCodeShown setupCodeShown
 }
 
 // serveWithOn is serveOn with alongside's node and setup code's file.
@@ -257,13 +257,13 @@ func serveWithOn(
 	alongside serveAlongside,
 ) runningServer {
 	t.Helper()
-	node, setupCodeFile := alongside.node, alongside.setupCodeFile
+	node, shown := alongside.node, alongside.setupCodeShown
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
 	go func() {
 		outside := wiring{
 			tmdbBaseURL: unreachableURL, tmdbImagesBaseURL: unreachableURL, openSubtitlesBaseURL: unreachableURL,
-			setupCodeFile: setupCodeFile,
+			setupCodeShown: shown,
 		}
 		done <- serve(ctx, config, ConfigReport{}, listener, outside, captured.logger)
 	}()
@@ -577,7 +577,13 @@ func TestServe_ShowsTheSetupCodeInTheDataFolderUntilTheFirstAdmin(t *testing.T) 
 		t.Fatal(err)
 	}
 	seedPersistentDatabase(t, config)
-	server := serveWithOn(t, listener, config, newCapturedLog("ready"), "ready", serveAlongside{setupCodeFile: shown})
+	// The compose file publishes another port than the default (ORPHEUM_HTTP_PORT), which start hands on.
+	alongside := serveAlongside{setupCodeShown: setupCodeShown{file: shown, httpPort: 28440}}
+	captured := newCapturedLog("ready")
+	server := serveWithOn(t, listener, config, captured, "ready", alongside)
+	if !strings.Contains(captured.String(), "http://<this machine's address>:28440") {
+		t.Errorf("the setup code's log line names no published port, 28440:\n%s", captured)
+	}
 	info, err := os.Stat(shown)
 	if err != nil {
 		t.Fatalf("a server with no admin shows no setup code in the data folder: %v", err)
@@ -592,6 +598,9 @@ func TestServe_ShowsTheSetupCodeInTheDataFolderUntilTheFirstAdmin(t *testing.T) 
 	code := strings.TrimSpace(runCommand(t, "setup-code", "--instance", path).stdout)
 	if code == "" || !strings.HasPrefix(string(text), code+"\n") || !strings.Contains(string(text), "browser at home") {
 		t.Errorf("the setup code's file says %q; want the code %q first, then where it is entered", text, code)
+	}
+	if !strings.Contains(string(text), ":28440,") {
+		t.Errorf("the setup code's file says %q; want it to name the published port, 28440", text)
 	}
 	setUpOwner(t, server, path, "owner")
 	if _, err = os.Stat(shown); !errors.Is(err, fs.ErrNotExist) {

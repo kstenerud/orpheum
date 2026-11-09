@@ -2616,6 +2616,10 @@ you reported them from.
   with Landlock and seccomp in force, both libraries scanned, and `/system/update` answered
   `installRoute: "compose"`. The fix: the compose file hands the published port to `orpheum start`
   (an environment variable it already sees), and the file names that one. Found by the lead.
+  **Done** in "fix(start): the setup code's file names the HTTP port the compose file publishes": the
+  core shares the machine's network (D454 §5), so `--http-port`, which the compose file already fills
+  from `ORPHEUM_HTTP_PORT`, is the published port; the file and the log line now name it, and no
+  compose file changes.
 
 ## From the staging rehearsal of a household install (2026-11-09), next batch
 
