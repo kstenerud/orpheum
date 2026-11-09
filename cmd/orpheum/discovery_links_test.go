@@ -170,7 +170,7 @@ func TestHeartbeatCandidates_InAContainerSendNoInterfaceAddresses(t *testing.T) 
 	}
 	config.Discovery.SendInterfaceAddresses = true
 	withInterfaces := heartbeatCandidates(config, none, noAddress)()
-	if len(withInterfaces) != len(interfaceCandidates(443))+1 {
+	if len(withInterfaces) != len(publicOrAtHome(interfaceCandidates(443), noAddress()))+1 {
 		t.Errorf("a core told to send them sends %+v; want its interfaces' beside the configured", withInterfaces)
 	}
 }

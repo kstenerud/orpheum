@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"log/slog"
 	"net"
+	"net/netip"
+	"slices"
 	"strings"
 	"testing"
 
@@ -43,6 +45,31 @@ func TestCandidatesOf_SendsPublicAddressesMarksPrivateOnesAsHomeAndNeverSendsThe
 		if got[index] != want[index] {
 			t.Errorf("candidate %d = %+v; want %+v", index, got[index], want[index])
 		}
+	}
+}
+
+// A core on its machine sends its public addresses and, of its private ones, the address at home
+// alone: never a container bridge's gateway, such as Docker's 172.18.0.1, nor any private address
+// before one is known at home (the rehearsal of a household install, 2026-11-09; D452 §3).
+func TestPublicOrAtHome_SendsNoPrivateAddressButTheAddressAtHome(t *testing.T) {
+	t.Parallel()
+	lan := func(address string) discoveryproto.Candidate {
+		return discoveryproto.Candidate{
+			Address: address, Port: 8444, Source: discoveryproto.SourceInterface, Scope: discoveryproto.ScopeLAN,
+		}
+	}
+	public := discoveryproto.Candidate{Address: "2a0f:5000::20", Port: 8444, Source: discoveryproto.SourceInterface}
+	interfaces := func() []discoveryproto.Candidate {
+		return []discoveryproto.Candidate{
+			lan("172.17.0.1"), lan("192.168.1.20"), lan("172.18.0.1"), public, lan("fd00::20"),
+		}
+	}
+	got := publicOrAtHome(interfaces(), netip.MustParseAddr("192.168.1.20"))
+	if want := []discoveryproto.Candidate{lan("192.168.1.20"), public}; !slices.Equal(got, want) {
+		t.Errorf("with the address at home 192.168.1.20 the core sends %+v; want %+v", got, want)
+	}
+	if got := publicOrAtHome(interfaces(), netip.Addr{}); !slices.Equal(got, []discoveryproto.Candidate{public}) {
+		t.Errorf("with no address at home the core sends %+v; want its public address alone", got)
 	}
 }
 

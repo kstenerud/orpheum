@@ -2638,6 +2638,12 @@ account, signed in at orpheum.dev and played a film. Found by the lead:
 - **The core published Docker's bridge gateways as home addresses.** Beside the address at home
   (172.17.0.2 in the sandbox), its published names included 172.18.0.1, 172.19.0.1 and 172.20.0.1, so a
   NAS running Docker would publish each of its bridges. Only the address at home should be published.
+  **Done** in "fix(discovery): a core on its machine publishes the address at home, not its bridges'":
+  the heartbeat of a core on the host's network (`send_interface_addresses`) sent every interface's
+  address; it now sends the public ones and, of the private ones, the address at home alone. WebRTC's
+  host candidate at home was already the address at home alone (rtcapi's address rewrite). Left for
+  the owner: a house's private IPv6 (ULA) address is no longer sent either, D452 §3 naming only the
+  IPv4 address at home.
 
 ## Wire names made consistent before v0.3.3 (the owner, 2026-11-09)
 

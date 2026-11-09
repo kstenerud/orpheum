@@ -95,16 +95,17 @@ func databaseHealth(database *store.Database) func(context.Context) error {
 }
 
 // heartbeatCandidates is what the core may be reached at, read afresh for each heartbeat: the machine's own
-// addresses, the router's mappings, and the addresses the config names (the protocol's §2.4); in a
-// container that sees none of the machine's addresses and is told none at home, the address at home
-// as it is now, learned or set, at the HTTPS port (D452 §3).
+// public addresses and, of its private ones, the address at home alone (publicOrAtHome), the router's
+// mappings, and the addresses the config names (the protocol's §2.4); in a container that sees none of
+// the machine's addresses and is told none at home, the address at home as it is now, learned or set,
+// at the HTTPS port (D452 §3).
 func heartbeatCandidates(
 	config Config, mapped func() []discoveryproto.Candidate, atHome func() netip.Addr,
 ) func() []discoveryproto.Candidate {
 	return func() []discoveryproto.Candidate {
 		var candidates []discoveryproto.Candidate
 		if config.Discovery.SendInterfaceAddresses {
-			candidates = interfaceCandidates(httpsPort(config))
+			candidates = publicOrAtHome(interfaceCandidates(httpsPort(config)), atHome())
 		} else if address := atHome(); len(config.Discovery.LANAddresses) == 0 && address.IsValid() &&
 			httpsPort(config) != 0 {
 			candidates = append(candidates, discoveryproto.Candidate{
@@ -330,6 +331,17 @@ func interfaceCandidates(port int) []discoveryproto.Candidate {
 		return nil
 	}
 	return candidatesOf(addresses, port)
+}
+
+// publicOrAtHome is candidates without the private ones but the address at home, atHome: the
+// machine's other private addresses are its containers' bridges (Docker's 172.18.0.1) and the like,
+// which no device in the house reaches, and D452 §3 names the address at home as the one the
+// discovery tells devices at home. With none known yet, no private address is sent.
+func publicOrAtHome(candidates []discoveryproto.Candidate, atHome netip.Addr) []discoveryproto.Candidate {
+	return slices.DeleteFunc(candidates, func(candidate discoveryproto.Candidate) bool {
+		return candidate.Scope == discoveryproto.ScopeLAN &&
+			(!atHome.IsValid() || candidate.Address != atHome.Unmap().String())
+	})
 }
 
 // candidatesOf is interfaceCandidates' choice among addresses.
