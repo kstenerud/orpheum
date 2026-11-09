@@ -109,6 +109,30 @@ newer version), then **Pull** and **Up**. To stop it, **Down**; its data stays i
 On DSM 7.2 or newer with Container Manager. The paths below are examples: a Synology names each
 folder after the volume it is on and the name you gave it, so read your own before you type them.
 
+**A DS218, DS218play, DS118, DS418 or RS819** (the models with a Realtek RTD1296 processor) can run
+it, but Synology does not offer Container Manager for them. A community script,
+[ContainerManager_for_all_armv8](https://github.com/007revad/ContainerManager_for_all_armv8),
+installs Synology's own Container Manager package on them. It is unofficial: neither Synology nor
+this project supports it, and this project has not tested it. It needs **DSM 7.2 or newer**: if
+**Control Panel → Info Center** shows an older DSM, update it first (**Control Panel → Update &
+Restore**). Follow the script's own page to run it, then open **Package Center**, where Container
+Manager is now installed, and carry on with step 1 below. The 32-bit models, such as the DS218j and
+DS216j, cannot run it at all.
+
+Know before you start that such a model is slow for video. Its processor can send a film as it is
+to a device that plays it as it is, at home, which is most films on most devices. What it cannot do
+is re-encode a film as it plays: a device that cannot play the film's own format, or a link too slow
+for the film's own size (often the case away from home), needs a lighter copy made on the fly, and
+this processor cannot make one as fast as the film plays. Such a playback stops to wait, again and
+again. Choosing a lower quality in the player does not help, since a lower quality is a re-encode
+too.
+
+Its system is older too (Linux 4.4), which Orpheum runs on with one protection fewer. The **System**
+page says so for the media machine: "FFmpeg runs without part of its sandbox, which this machine's
+kernel does not offer", and that Landlock, which limits the files FFmpeg may open, needs Linux 5.13
+or newer. DSM cannot give it that, so leave it: films play as they would with it, and the rest of
+the sandbox still holds.
+
 1. **Your media folder's path.** In **File Station**, right-click the shared folder that holds your
    films and series and choose **Properties**: **Location** is its path, such as `/volume1/video`
    or `/volume2/Media`. Write it down exactly, capitals included.
@@ -148,10 +172,8 @@ folder after the volume it is on and the name you gave it, so read your own befo
 
 6. Build and start it, then follow [the first admin](#the-first-admin).
 
-Synology's older kernels lack Landlock: the server runs, and the System page says which kernel
-brings it. The DS218 (not the DS218+) has no official Container Manager; a community script installs
-Docker on such models, which this project neither tests nor vouches for. An ARM board cannot
-re-encode video in real time: it plays what the device can play as it is.
+Other Synology models whose DSM runs an older Linux than 5.13 lack Landlock too, and the System page
+says so the same way.
 
 ### Hardware encoding
 

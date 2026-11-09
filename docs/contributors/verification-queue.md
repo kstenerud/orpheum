@@ -2862,3 +2862,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   ghcr.io/kstenerud/orpheum:<tag>` and `:latest` each list linux/amd64 and linux/arm64, and
   `docker run --rm --platform linux/arm64 ghcr.io/kstenerud/orpheum:<tag> --version` (on an
   arm64 machine, or a PC with QEMU) prints the tag. (`.github/workflows/release-image.yml`)
+- [ ] **VQ292** — The server runs on a Synology DS218's Linux 4.4 and cgroup v1 (the owner,
+  2026-11-09, the first Synology beta tester). On the DS218, DSM 7.2 or newer, with Container
+  Manager installed by 007revad's ContainerManager_for_all_armv8 script, follow install.md's
+  Synology section with v0.3.3. Passes when `uname -r` there says 4.4, all three containers come up
+  (`orpheum-folders` exited 0, the other two healthy), the first admin is made with the setup code,
+  a scan of a library of a few films finds them, a film the browser plays as it is plays from its
+  start and after a seek, the System page names Landlock as the kernel's missing part of the sandbox
+  (seccomp in force) and nothing else as failing, and the resource use the next hour shows the core
+  and the node holding some memory, not none. Note how long a sign-in takes (argon2 at 64 MiB,
+  three passes, on the A53s), and what a playback that needs an encode (a phone away from home, or
+  Quality lowered by hand) does: stalls, a lower quality, or stops with a reason. Simulated on amd64
+  under a seccomp filter answering ENOSYS to every call added after 4.4, where it all passed
+  (2026-11-09). (`internal/platform/selfuse`, `docs/users/install.md`)
