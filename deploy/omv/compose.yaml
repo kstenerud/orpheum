@@ -26,7 +26,7 @@
 #   ORPHEUM_THIS_MACHINE_PORT  the port a browser on this machine alone opens it on, as at home,
 #                         http://127.0.0.1:8441: the way in when admin is refused elsewhere (D334 §4)
 #   ORPHEUM_ROUTER        your router's address, 192.168.1.1, which the server asks to forward the HTTPS
-#                         port so devices away from home reach it; none maps nothing
+#                         port so devices away from home reach it; left empty, nothing is mapped
 #   ORPHEUM_NAME          the name the media node goes by in the server's pages
 #   RENDER_GID            the render group's number, with the GPU lines below uncommented
 #

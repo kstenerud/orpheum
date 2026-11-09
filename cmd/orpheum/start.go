@@ -45,7 +45,7 @@ flag in the compose file and start again. While no admin exists, the setup code 
   --lan-webrtc-port    the UDP port it takes WebRTC on there (8443 unless named)
   --this-machine-port  the port it takes on this machine's loopback alone, a browser on which is at home
                        (8441 unless named)
-  --router             the house's router, which port mapping asks to forward the HTTPS port; none maps nothing
+  --router             the house's router, which port mapping asks to forward the HTTPS port; empty maps nothing
 `
 
 // startOptions are what a start writes a deployment from: what values.toml's [media], [http] and
