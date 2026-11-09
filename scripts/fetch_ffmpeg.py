@@ -34,6 +34,8 @@ import shutil
 import sys
 import tarfile
 import tempfile
+import time
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -116,6 +118,34 @@ def tools_dir(root: Path) -> Path:
     return Path(override) if override else root / ".tools"
 
 
+# A download that fails on the server's side (a 5xx, a 429, a refused or dropped connection, a time
+# out) is tried again: GitHub's release downloads answer 504 now and then, and one such answer
+# failed a release build (2026-11-09). A 404 or a 403 is not tried again, and a wrong checksum is
+# never retried: verify() refuses it at once.
+DOWNLOAD_TRIES = 4
+DOWNLOAD_WAIT_SECONDS = 10.0
+sleep = time.sleep
+
+
+def download(url: str, dest: Path, timeout: float) -> None:
+    for attempt in range(1, DOWNLOAD_TRIES + 1):
+        try:
+            with urllib.request.urlopen(url, timeout=timeout) as response, dest.open("wb") as out:
+                shutil.copyfileobj(response, out)
+            return
+        except urllib.error.HTTPError as err:
+            if err.code < 500 and err.code != 429 or attempt == DOWNLOAD_TRIES:
+                raise
+            reason = f"HTTP {err.code}"
+        except OSError as err:  # URLError, a time out and a dropped connection are each an OSError
+            if attempt == DOWNLOAD_TRIES:
+                raise
+            reason = str(err)
+        wait = DOWNLOAD_WAIT_SECONDS * attempt
+        print(f"{url}: {reason}; trying again in {wait:.0f} s ({attempt} of {DOWNLOAD_TRIES})", file=sys.stderr)
+        sleep(wait)
+
+
 def sha256_of(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as f:
@@ -148,8 +178,7 @@ def install(target: str, root: Path) -> Path:
     with tempfile.TemporaryDirectory(prefix="ffmpeg-") as tmp:
         archive = Path(tmp) / pin.asset
         print(f"fetching {pin.url}", file=sys.stderr)
-        with urllib.request.urlopen(pin.url, timeout=120) as response, archive.open("wb") as out:
-            shutil.copyfileobj(response, out)
+        download(pin.url, archive, timeout=120)
         verify(archive, pin.sha256)
         with tarfile.open(archive) as tar:
             tar.extractall(Path(tmp) / "x", filter="data")

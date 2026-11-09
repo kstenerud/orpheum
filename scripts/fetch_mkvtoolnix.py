@@ -26,10 +26,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import urllib.request
 from pathlib import Path
 
-from fetch_ffmpeg import this_platform, tools_dir, verify
+from fetch_ffmpeg import download, this_platform, tools_dir, verify
 
 VERSION = "102.0"
 ASSET = f"MKVToolNix_GUI-{VERSION}-x86_64.AppImage"
@@ -51,8 +50,7 @@ def install(target: str, root: Path) -> Path | None:
     with tempfile.TemporaryDirectory(prefix="mkvtoolnix-") as tmp:
         appimage = Path(tmp) / ASSET
         print(f"fetching {URL}", file=sys.stderr)
-        with urllib.request.urlopen(URL, timeout=300) as response, appimage.open("wb") as out:
-            shutil.copyfileobj(response, out)
+        download(URL, appimage, timeout=300)
         verify(appimage, PINS[target])
         appimage.chmod(0o755)
         subprocess.run([str(appimage), "--appimage-extract"], cwd=tmp, check=True, stdout=subprocess.DEVNULL)

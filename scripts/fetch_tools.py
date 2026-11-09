@@ -27,11 +27,10 @@ import shutil
 import sys
 import tarfile
 import tempfile
-import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
-from fetch_ffmpeg import this_platform, tools_dir, verify
+from fetch_ffmpeg import download, this_platform, tools_dir, verify
 
 
 @dataclass(frozen=True)
@@ -97,8 +96,7 @@ def install(tool: Tool, target: str, root: Path) -> Path:
     with tempfile.TemporaryDirectory(prefix=f"{tool.name}-") as tmp:
         archive = Path(tmp) / asset
         print(f"fetching {url}", file=sys.stderr)
-        with urllib.request.urlopen(url, timeout=120) as response, archive.open("wb") as out:
-            shutil.copyfileobj(response, out)
+        download(url, archive, timeout=120)
         verify(archive, tool.sha256[target])
         with tarfile.open(archive) as tar:
             tar.extractall(Path(tmp) / "x", filter="data")
