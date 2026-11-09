@@ -27305,3 +27305,25 @@ test of the pasted compose file with no address typed and no kernel feature assu
 - 5: `TestCompose_AHouseholdsCoreSharesThisMachinesNetwork`,
   `TestWrite_ACoreWithNoTunnelTakesItsOwnPortsAndServesNoRelay`,
   `TestFirstStart_WritesTheDeploymentWithoutTheAddressAtHome`
+
+## D455 — The closed beta runs on official releases and orpheum.cc alone
+
+**Decided** (2026-11-09), by the project owner: *"I invite maybe 5 people to participate in the beta.
+They use orpheum.cc and official releases. No deploying to their systems from github or that sort of
+thing. All official pathways so that it gets well tested. We continue testing on staging (via
+orpheum.dev), and deploy to staging by whatever means is the most convenient at the time. When we
+reach a good point, we do a tagged release so that the beta testers can get the newer version via
+official channels."*
+
+- **About five invited households.** Each installs the published image by the install page
+  (docs/users/install.md) and reaches the server away from home through orpheum.cc, with an account
+  made from the operator's invitation. Nothing is deployed to a tester's machine any other way.
+- **Staging is where work is tried,** by whatever deploy is quickest; it never waits on a tag.
+- **A tester gets a new version only from a tagged release:** the release workflow's image under its
+  tag and `latest`, which Pull then Up takes.
+- **From the first tester's install, a release starts under the compose files testers already
+  pasted:** a pasted file is not refreshed by a pull, so a flag or variable a release removes or
+  makes needed stops their server. A change to the compose file's contract either keeps the old
+  one working or is said in the release's notes as a step to take. This ends "no compatibility for
+  old configs" (the owner, 2026-11-09), which held while production was the only install.
+
