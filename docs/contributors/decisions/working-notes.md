@@ -27130,9 +27130,59 @@ follow your advice"*), and the core learns its install route (*"3: yes"*).
 
 **Reserved** (2026-11-08) for D448 §9's branch; the branch replaces this entry with the decision.
 
-## D452 — Reserved: the address at home learned at setup
+## D452 — Home is any private network but the server's own; the address at home is learned, not typed
 
-**Reserved** (2026-11-08) for D448 §1's branch; the branch replaces this entry with the decision.
+**Decided** (2026-11-09), by the project owner, on the lead's proposal (the owner: *"Agreed on your
+proposal."*), after asking *"Aren't all internal networks in well-known ranges?"* and *"Even if a
+home with IPv6 uses public addresses, we should be able to figure out that they're the same network,
+shouldn't we?"*. Carries out D448 §1 (the audit's P1). **Amends** D297 §6 and D300 §3 (what counts as
+home: no longer the typed address's /24), D447 §1–2 and D449 (`ORPHEUM_LAN_ADDRESS` no longer
+needed), and `deployment.Values.HomeNetworks`'s rule. Keeps D356 §7: a house network the discovery is
+told still grants nothing.
+
+Today the typed address decides who is home (admin), what the discovery tells devices at home, and
+WebRTC's address and port at home. A router that hands the machine a new address silently locks
+admin out, which the audit ranked the worst latent failure.
+
+1. **Home is any private address, but the server's own networks.** A request is from home when its
+   source is in 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 or fc00::/7, or is the core's loopback
+   (D334 §2), or comes on the server's own machine's port (D334 §4), **except** a source in a network
+   of the core's own interfaces (Docker's bridge, whose gateway is where docker-proxy hands the core
+   the internet's requests: the Plex-chain review's L1, the reason home was narrowed to a /24), or
+   in the tunnel's networks (10.77.0.0/24, fd77::/64, through which the internet arrives). An
+   interface network holding the address at home (§3) is not excepted, so a core on the host's
+   network keeps the house's. Carrier-grade NAT's 100.64.0.0/10 is not private and is not home.
+   Guest and smart-home networks count as home where they can reach the server at all; an admin's
+   password is still needed.
+2. **The house's public IPv6 /64 is home too, as the core itself sees it**: the /64 of its own
+   public IPv6 address, which its own STUN servers find (rtcapi's own networks, which WebRTC already
+   counts, D300 §3), now counted for a direct request too. Never a single device address, which
+   changes daily; never a device's word alone, nor a network the discovery reports (D356 §7). A
+   provider's new prefix is the next connection's. A core with no IPv6 route out learns none, and
+   IPv6 devices administer over IPv4, as before.
+3. **The address at home is learned.** A direct request from home (§1) that names the server by a
+   private IPv4 address on its plain or HTTPS port teaches it; the setup request, which the setup
+   code guards, is the first. It is kept in the database, so a restart keeps it, and applied live:
+   the address the discovery names for devices at home (`lan_addresses`) and WebRTC's host candidate
+   at home (D300 §1, D441), whose UDP port is now always taken. A changed address is learned from
+   the next such request, logged, and the System page shows the address, from which device and when.
+   No code is asked: since §1 no longer depends on it, a wrong address costs speed at home, not
+   rights. The core's loopback, the machine's own port and the tunnel never teach.
+4. **A server named, not addressed.** Opened as `http://openmediavault.local:8440`, the request holds
+   no address: the core asks its resolver for the name and keeps a private IPv4 answer. Failing that,
+   the setup page asks for the address, with the core's best guess filled in, and the System page
+   lets an admin set it.
+5. **`ORPHEUM_LAN_ADDRESS` is optional.** Set, it wins and nothing is learned (§3); the install script
+   keeps setting it, since it finds the address itself. The compose file and the catalogue entries
+   stop requiring it, and install.md drops the address step and the router reservation.
+
+**Rejected:** the typed address's /24 widened by guesses (the owner's question made it moot); the
+whole private range with no exceptions (Docker's gateway made the internet home); a fresh setup code
+to confirm a changed address (needless once the address grants nothing); trusting a device's IPv6
+address because it was proven home over IPv4 (a VPN or mobile data would bring its network in; only
+the core's own /64 is trusted).
+
+**Status:** decided (2026-11-09); its build is under way.
 
 ## D453 — "Orpheum" is the name, no longer provisional
 
