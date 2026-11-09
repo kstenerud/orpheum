@@ -66,3 +66,23 @@ func TestDevDiscovery_ThePageNamesTheLoadersOriginsOnItsPort(t *testing.T) {
 		}
 	}
 }
+
+// The development discovery's claim reads its body strictly (D456): a code said twice is refused
+// as a bad request, not claimed as whichever came last.
+func TestDevDiscovery_TheClaimRefusesACodeSaidTwice(t *testing.T) {
+	t.Parallel()
+	files := fstest.MapFS{"index.html": {Data: []byte("<!doctype html><html><head></head><body></body></html>")}}
+	handler, err := devDiscoveryHandler(devDiscoverySite{
+		base: "http://127.0.0.1:1", recordPath: filepath.Join(t.TempDir(), "single.json"), clientFiles: files,
+		published: t.TempDir(),
+	}, slog.New(slog.DiscardHandler))
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, httptest.NewRequestWithContext(t.Context(), http.MethodPost, devClaim,
+		strings.NewReader(`{"code": "ABCD-EFGH", "code": "IJKL-MNOP"}`)))
+	if recorder.Code != http.StatusBadRequest {
+		t.Errorf("a claim saying its code twice is answered %d, want %d", recorder.Code, http.StatusBadRequest)
+	}
+}

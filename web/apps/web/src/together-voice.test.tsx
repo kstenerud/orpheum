@@ -13,7 +13,7 @@ import {
   type VoiceMicrophone,
 } from "@orpheum/sdk";
 import { act, useState, type JSX } from "react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { currentNotice, dismissNotice } from "./notice.ts";
 import { buttonWithText, click, enter, mount, servedBy, type Heard } from "./test-dom.tsx";
@@ -509,6 +509,20 @@ describe("the host's page as the session it hosts ends (D389 §1)", () => {
     expect(noticeShown()).toBe(
       "The Watch Together session was closed because nothing had happened in it for hours.",
     );
+  });
+
+  // On a page that is not Watch Together's, the host's voice is the tab's one connection to the
+  // session: the core refusing it for its protocol version reloads the page, once (cut-a §5.1).
+  it("reloads once as the core refuses its connection for the protocol's version", async () => {
+    const reload = vi.spyOn(window.location, "reload").mockImplementation(() => undefined);
+    try {
+      const { server } = await hostingOnAPlayPage();
+      await server.say({ type: "rejected", code: "versionMismatch" });
+      expect(reload).toHaveBeenCalledTimes(1);
+    } finally {
+      reload.mockRestore();
+      window.sessionStorage.removeItem("orpheum.together.reloadedForVersion");
+    }
   });
 });
 
