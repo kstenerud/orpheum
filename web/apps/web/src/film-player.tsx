@@ -46,7 +46,6 @@ import {
   ladderSoundLevelOf,
   ladderStartingAudio,
 } from "./ladder-sound.ts";
-import { camelKey } from "./catalogue-key.ts";
 import { ForTesters } from "./for-testers.tsx";
 import { startOn, type LadderOffer } from "./moving-down.ts";
 import { isThisHandheld } from "./handheld.ts";
@@ -796,5 +795,5 @@ function QualityLine(props: {
 
 /** Why a video could not play, in the viewer's words, by the player's code for it. */
 export function playbackFailureText(t: TFunction, failure: PlaybackFailure): string {
-  return t(`play.failure.${camelKey(failure)}`);
+  return t(`play.failure.${failure}`);
 }

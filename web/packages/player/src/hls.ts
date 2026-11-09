@@ -580,7 +580,7 @@ export function playHls(
     return playNative(video, url);
   }
   if (method === "none") {
-    onFailed("hls_unsupported");
+    onFailed("hlsUnsupported");
     return {
       setAudioRendition: () => undefined,
       canSwitchSoundInPlace: false,

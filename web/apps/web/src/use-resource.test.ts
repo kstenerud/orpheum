@@ -185,10 +185,10 @@ describe("useResource", () => {
     expect(unknown).toContain("Something went wrong");
     // A proxy's answer for a server that is down is expected, with words of its own; any other
     // answer not in the server's shape is not, and gets the words that ask for a fix.
-    expect(problemText(t, new ApiProblem({ code: "not_answering", message: "502" }))).toBe(
+    expect(problemText(t, new ApiProblem({ code: "notAnswering", message: "502" }))).toBe(
       "The server is not answering: it may be restarting, or the machine it runs on may be off.",
     );
-    expect(problemText(t, new ApiProblem({ code: "unreadable_answer", message: "418" }))).toBe(
+    expect(problemText(t, new ApiProblem({ code: "unreadableAnswer", message: "418" }))).toBe(
       unknown,
     );
     expect(unknown).not.toContain("odd");

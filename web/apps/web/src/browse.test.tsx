@@ -129,7 +129,7 @@ describe("browse", () => {
   it("says a server down behind its proxy is not answering, and that the list asks again by itself", () => {
     const shown = renderBrowseView({
       state: "failed",
-      cause: new ApiProblem({ code: "not_answering", message: "502" }),
+      cause: new ApiProblem({ code: "notAnswering", message: "502" }),
       willAskAgain: true,
     });
     expect(shown).toContain("The server is not answering: it may be restarting");

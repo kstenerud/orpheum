@@ -507,7 +507,7 @@ function playWithoutHlsJs(
     return { ...playNative(video, url), ...unknowing };
   }
   if (method === "none") {
-    onFailed("hls_unsupported");
+    onFailed("hlsUnsupported");
     return {
       setAudioRendition: () => undefined,
       canSwitchSoundInPlace: false,

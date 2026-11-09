@@ -21,7 +21,7 @@ export interface ReopenAt {
 const passingRefusalCodes: ReadonlySet<string> = new Set([
   "internal",
   "migrating",
-  "not_answering",
+  "notAnswering",
   "rateLimited",
 ]);
 

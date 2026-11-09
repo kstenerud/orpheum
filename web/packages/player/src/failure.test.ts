@@ -27,13 +27,13 @@ describe("a playback failure", () => {
         type: Hls.ErrorTypes.NETWORK_ERROR,
         response: { url: "1.m4s", code: 429 },
       }),
-    ).toBe("too_busy"); // the core has no room to make it (D250 §6)
+    ).toBe("tooBusy"); // the core has no room to make it (D250 §6)
     expect(
       hlsErrorFailure({
         type: Hls.ErrorTypes.NETWORK_ERROR,
         response: { url: "349.m4s", code: 422 },
       }),
-    ).toBe("cannot_make"); // FFmpeg failed on the film at this chunk each time (toolkit.md item 12)
+    ).toBe("cannotMake"); // FFmpeg failed on the film at this chunk each time (toolkit.md item 12)
     expect(hlsErrorFailure({ type: Hls.ErrorTypes.MEDIA_ERROR })).toBe("decode");
     expect(hlsErrorFailure({ type: Hls.ErrorTypes.OTHER_ERROR })).toBe("unknown");
     for (const failure of [
@@ -48,6 +48,6 @@ describe("a playback failure", () => {
     const failures: PlaybackFailure[] = [];
     const video = { canPlayType: () => "" } as unknown as HTMLVideoElement;
     playHls(video, "/master.m3u8", { onFailed: (failure) => failures.push(failure) });
-    expect(failures).toEqual(["hls_unsupported"]);
+    expect(failures).toEqual(["hlsUnsupported"]);
   });
 });

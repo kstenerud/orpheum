@@ -283,7 +283,7 @@ describe("a playback that cannot go on", () => {
       error: new Error("HTTP Error 422"),
     });
     expect(failures.map(([failure, whatFailed]) => [failure, whatFailed?.split(";")[1]])).toEqual([
-      ["cannot_make", " status 422"],
+      ["cannotMake", " status 422"],
     ]);
     waitMs(asksAgainAfterAtMostMs);
     expect(loadsOnFromS).toEqual([]);

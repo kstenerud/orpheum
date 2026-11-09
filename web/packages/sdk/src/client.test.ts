@@ -52,12 +52,12 @@ describe("the API client", () => {
     };
     // Vite's dev proxy, and a reverse proxy, with nothing behind them (2026-10-06).
     for (const status of [502, 503, 504]) {
-      expect(await answered(new Response("", { status }))).toBe("not_answering");
+      expect(await answered(new Response("", { status }))).toBe("notAnswering");
       expect(await answered(new Response("<html>Bad Gateway</html>", { status }))).toBe(
-        "not_answering",
+        "notAnswering",
       );
     }
-    expect(await answered(new Response("teapot", { status: 418 }))).toBe("unreadable_answer");
+    expect(await answered(new Response("teapot", { status: 418 }))).toBe("unreadableAnswer");
     const migrating = JSON.stringify({ error: { code: "migrating", message: "starting" } });
     expect(
       await answered(
