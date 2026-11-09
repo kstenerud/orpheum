@@ -85,7 +85,8 @@ type ServerConfig struct {
 	// route as the address at home until one is learned or set: without it the house's network, one of
 	// its own interfaces', is not home, and no browser at home could teach the address. In a container's
 	// own network the default route is Docker's bridge, and taking it would make the internet home
-	// (D452 §3).
+	// (D452 §3). It also has the core learn only an address one of its interfaces holds, since a
+	// request's Host is the device's to write.
 	AddressAtHomeFromDefaultRoute bool `toml:"address_at_home_from_default_route"`
 	// ThisMachineListen is plain HTTP for a browser on the server's own machine alone, which the
 	// deployment publishes on that machine's loopback: a request on it is from home, though Docker

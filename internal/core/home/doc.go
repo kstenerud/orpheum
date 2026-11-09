@@ -64,6 +64,9 @@
 //     bridge. TestHomeAddress_ACoreOnTheHostsNetworkGuessesTheDefaultRoutesAddressUntilOneIsLearned,
 //     TestHomeAddress_ACoreInAContainersNetworkGuessesNothing,
 //     TestDefaultRouteAddress_IsTheDefaultRoutesInterfacesPrivateIPv4AddressButNoContainers.
+//   - A core sharing the host's network learns only an address one of its interfaces holds, since a
+//     request's Host is the device's to write; an admin's set is not held to it.
+//     TestHomeAddress_ACoreOnTheHostsNetworkLearnsOnlyAnAddressItHolds.
 //
 // # Read before changing
 //

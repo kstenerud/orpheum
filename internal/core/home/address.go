@@ -83,6 +83,12 @@ type AddressParts struct {
 	// would make the internet home. Without it, a core sharing the host's network counts the house's
 	// network as one of its own interfaces' and so not home, and no request from home could teach it.
 	DefaultRoute func() netip.Addr
+	// LearnsOnlyHeld is set for a core sharing the host's network: it learns only an address one of
+	// Interfaces holds, as its own address in the house must be. The Host a request names is the
+	// device's to write, so without it any device at home could point the server's host candidates and
+	// heartbeat at another address. A core in a container's own network holds none of the house's
+	// addresses and cannot check this; there the address is configured.
+	LearnsOnlyHeld bool
 }
 
 // AddressAtHome is the server's address at home (D452 §3, §4): the configured one, else the one last
@@ -225,9 +231,29 @@ func (keeper *AddressAtHome) Learn(ctx context.Context, address netip.Addr, devi
 	if known.Origin == OriginConfigured || known.Address == address && known.Origin != OriginGuessed {
 		return
 	}
+	if keeper.parts.LearnsOnlyHeld && !keeper.holds(address) {
+		keeper.parts.Logger.InfoContext(ctx, "a request at home named an address this machine does not hold; "+
+			"it is not learned", "address", address, "device", truncated(device))
+		return
+	}
 	if err := keeper.write(ctx, address, truncated(device), nil); err != nil {
 		keeper.parts.Logger.ErrorContext(ctx, "the address at home was not learned", "address", address, "err", err)
 	}
+}
+
+// holds is whether one of the machine's interfaces holds address.
+func (keeper *AddressAtHome) holds(address netip.Addr) bool {
+	if keeper.parts.Interfaces == nil {
+		return false
+	}
+	for _, each := range keeper.parts.Interfaces() {
+		for _, held := range each.Addresses {
+			if held.Unmap() == address {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // IsLearning is whether a name may still teach the address at home: none is known but a guess.
