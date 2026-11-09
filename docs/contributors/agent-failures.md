@@ -49,6 +49,20 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A65 — Said production's machines were out of the sandbox's reach, when the machines notes give a key to each (2026-11-09)
+
+- **What happened:** planning production's migration to v0.3.3's schema, the lead told the owner
+  that no credential able to touch production was in the sandbox, so the steps on nas.lan and
+  ainas.lan were the owner's to run. The operations repository's machines notes list an `orpheum`
+  user on each with the sandbox's key (`~/.ssh/nas_lan`, `~/.ssh/ainas`), and production was
+  running on ainas at the time. The belief came from a standing constraint carried in the
+  session's summary, older than the failover to ainas, repeated without reading the notes that say
+  where production runs and how it is reached.
+- **Caught by:** the owner: *"On nas.lan and ainas.lan you have an orpheum user that has
+  allowed_keys for you."*
+- **Gate:** none can check a claim about access. Before saying a step is out of reach, read the
+  machines notes, or try a read-only command on the machine.
+
 ### A64 — Cited commit hashes as if they lasted, when every commit leaves the sandbox under a new one (2026-11-08)
 
 - **What happened:** handing over the filtered public repository, the lead warned that hashes
