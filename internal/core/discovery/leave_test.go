@@ -34,13 +34,13 @@ func TestLeave_WhileAStepIsInFlightLeavesNoEnrolment(t *testing.T) {
 		defer close(stepped)
 		built.service.step(ctx)
 	}()
-	<-enrolling.arrived
+	testutil.Receive(t, enrolling.arrived, "the step's enrolment")
 	left := make(chan error, 1)
 	go func() { left <- built.service.Leave(ctx) }()
 	logged.AwaitEvent(t, "leaveWaitsForStep")
 	enrolling.release()
-	<-stepped
-	if err := <-left; err != nil {
+	testutil.Receive(t, stepped, "the step's end")
+	if err := testutil.Receive(t, left, "the Leave's end"); err != nil {
 		t.Fatal(err)
 	}
 	assertLeft(t, built)
@@ -65,13 +65,13 @@ func TestStep_DuringALeaveDoesNothing(t *testing.T) {
 	deleting := built.fake.pause(t, "DELETE /core")
 	left := make(chan error, 1)
 	go func() { left <- built.service.Leave(ctx) }()
-	<-deleting.arrived
+	testutil.Receive(t, deleting.arrived, "the Leave's delete")
 	// The discovery has let the core go while the Leave waits for its answer.
 	built.fake.refuse(discoveryproto.RefusalEnrolAgain)
 	built.service.step(ctx)
 	built.service.step(ctx)
 	deleting.release()
-	if err := <-left; err != nil {
+	if err := testutil.Receive(t, left, "the Leave's end"); err != nil {
 		t.Fatal(err)
 	}
 	assertLeft(t, built)
