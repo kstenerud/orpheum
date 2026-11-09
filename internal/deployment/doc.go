@@ -6,9 +6,10 @@
 // the tunnel's config and the core's and the node's full configs. `orpheum write-deployment` runs
 // it inside the runtime image, so installing needs the image and Docker alone; staging and release
 // are written the same way, so the one path stays tested. A server installed from one compose file
-// (deploy/omv/compose.yaml, D447) has each start, `orpheum start`, write the values file and the
-// instances' configs alone from its command line (D449 §1), by WriteStartValues and WriteConfigs,
-// which Write writes them with too.
+// (deploy/omv/compose.yaml, D447, or a Synology's deploy/synology/compose.yaml, the same with its
+// values in the file) has each start, `orpheum start`, write the values file and the instances'
+// configs alone from its command line (D449 §1), by WriteStartValues and WriteConfigs, which Write
+// writes them with too.
 //
 // # Invariants
 //

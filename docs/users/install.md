@@ -166,8 +166,10 @@ the sandbox still holds.
 1. **Your media folder's path.** In **File Station**, right-click the shared folder that holds your
    films and series and choose **Properties**: **Location** is its path, such as `/volume1/video`
    or `/volume2/Media`. Write it down exactly, capitals included.
-2. **A folder for the server's data.** In **File Station**, make a shared folder for apps if you have
-   none (`docker` is usual), and read its **Location** the same way, such as `/volume1/docker`.
+2. **A folder for the server.** In **File Station**, make a shared folder for apps if you have none
+   (`docker` is usual), and in it a folder for Orpheum (**Create → Create folder**), `orpheum`.
+   Read its **Location** as in step 1, such as `/volume1/docker/orpheum`. The server keeps its data
+   in a folder of its own inside it, `data`, which it makes itself.
 3. **Your user's numbers.** The server runs as your own Synology user, so it needs that user's two
    numbers, its uid and its gid:
    1. Turn on SSH: **Control Panel → Terminal & SNMP**, tick **Enable SSH service**, **Apply**.
@@ -190,34 +192,40 @@ the sandbox still holds.
 
    This user must be able to read the media folder: **Control Panel → Shared Folder**, select it,
    **Edit → Permissions**, and *Read only* or *Read/Write* for that user.
-4. **Its settings.** In **File Station**, make a folder for the project inside the data folder
-   (**Create → Create folder**), `orpheum-project`, so `/volume1/docker/orpheum-project`. Put in it a
-   file named `.env` holding your own values from steps 1–3:
+4. **The project.** **Container Manager → Project → Create**: name it `orpheum`; for **Path**, choose
+   the `orpheum` folder from step 2; for **Source**, **Create docker-compose.yml**, and paste
+   [the Synology compose file](#the-synology-compose-file) into the box. Near its top, under
+   `# Yours`, are three lines to change to your own, in the box itself:
 
-   ```
-   PATH_TO_APPDATA=<the data folder from step 2>
-   ORPHEUM_MEDIA=<the media folder from step 1>
-   APPUSER_PUID=<the uid from step 3>
-   APPUSER_PGID=<the gid from step 3>
-   TIME_ZONE_VALUE=Europe/Berlin
+   ```yaml
+   media: &media /volume1/video
+   user: &user "1026:100"
+   time-zone: &timezone Europe/Berlin
    ```
 
-   such as `PATH_TO_APPDATA=/volume1/docker`, with your own time zone. Write it on your computer
-   in a plain text editor (Windows: **Notepad**; Mac: **TextEdit**, then **Format → Make Plain
-   Text**) and save it as `env.txt`. Upload it into `orpheum-project` (**Upload**), then
-   right-click it, **Rename**, and name it `.env`, with the dot and nothing after. It must be there
-   before step 5, which starts the server.
-5. **The project.** **Container Manager → Project → Create**: name it `orpheum`; for **Path**, choose
-   the `orpheum-project` folder; for **Source**, **Create docker-compose.yml**, and paste
-   [the compose file](#one-compose-file) into the box. **Next** past the web portal page, and on the
-   last page leave **Start the project once it is created** ticked, then **Done**. The first time it
-   pulls the image, so give it a few minutes. In **Container Manager → Container**, `orpheum-folders`
-   has stopped (that is right: it only prepares the data folder), and `orpheum-core` and
-   `orpheum-node` are running.
-6. Make the [first admin](#the-first-admin). The setup code is in the log: **Container Manager →
+   - after `&media `, the media folder from step 1;
+   - between the quotes after `&user `, the uid from step 3, a colon, then the gid: `"1026:100"`;
+   - after `&timezone `, your time zone, such as `Europe/London` or `America/New_York`.
+
+   Change only what follows the `&` word; the rest of each line stays as it is. **Next** past the web
+   portal page, and on the last page leave **Start the project once it is created** ticked, then
+   **Done**. The first time it pulls the image, so give it a few minutes. In **Container Manager →
+   Container**, `orpheum-folders` has stopped (that is right: it only prepares the data folder), and
+   `orpheum-core` and `orpheum-node` are running. To change a value later, **Project**, select
+   `orpheum`, **Action → Stop**, then **YAML Configurations**, change the line, **Save**, and
+   **Action → Start**.
+5. Make the [first admin](#the-first-admin). The setup code is in the log: **Container Manager →
    Container**, select `orpheum-core`, **Details**, then the **Log** tab. It is also in
-   `SETUP-CODE.txt` in the data folder's `orpheum` folder (`/volume1/docker/orpheum`), which File
-   Station can download for you to open.
+   `SETUP-CODE.txt` in the `data` folder (`/volume1/docker/orpheum/data`), which File Station can
+   download for you to open.
+
+#### The Synology compose file
+
+The file is [`deploy/synology/compose.yaml`](../../deploy/synology/compose.yaml): the
+[one compose file](#one-compose-file) with the three values a Synology needs written in it, so it
+needs no `.env` file, and its data in the project's own folder. Open it on GitHub and press **Copy
+raw file**, as for the other. Every other setting in the table above keeps its default; to change
+one, a `.env` file in the project's folder may still set it.
 
 If DSM's firewall is on (**Control Panel → Security → Firewall**), allow ports 8440 and 8444 (TCP,
 and 8444 UDP too), or the server's page does not open from your other devices.

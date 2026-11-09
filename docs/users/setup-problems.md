@@ -197,7 +197,8 @@ Raise the limit on the host (a container shares its host's): add
 
 ## Installed from the one compose file, or on OpenMediaVault
 
-These are for a server installed from [`deploy/omv/compose.yaml`](../../deploy/omv/compose.yaml)
+These are for a server installed from [`deploy/omv/compose.yaml`](../../deploy/omv/compose.yaml),
+or a Synology's [`deploy/synology/compose.yaml`](../../deploy/synology/compose.yaml)
 ([install.md](install.md)). Its containers are `orpheum-core`, `orpheum-node` and `orpheum-folders`;
 in OpenMediaVault their logs are under **Services > Compose > Containers**, elsewhere
 `docker logs <name>`.
@@ -214,8 +215,8 @@ elsewhere, in the `.env` file beside `compose.yaml`. (Before 2026-11-09 it neede
 That folder is `ORPHEUM_MEDIA`, and it is not there as you typed it: a letter wrong, a capital
 missed, or the wrong volume (`/volume1` for `/volume2`). Nothing was made. Read the folder's real
 path (OpenMediaVault: **Storage > Shared Folders**, the **Absolute Path** column; Synology: **File
-Station**, right-click the folder, **Properties**, **Location**), set `ORPHEUM_MEDIA` to it exactly,
-and start it again.
+Station**, right-click the folder, **Properties**, **Location**), set `ORPHEUM_MEDIA` to it exactly
+(on a Synology, the line after `&media ` under `# Yours`), and start it again.
 
 ### The core's log names `lan.address`
 
