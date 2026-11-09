@@ -17,6 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -181,7 +182,7 @@ func addFacts(facts map[string]string, prefix string, value any) error {
 		return fmt.Errorf("encode a probe's facts: %w", err)
 	}
 	var decoded any
-	if err := json.Unmarshal(encoded, &decoded); err != nil {
+	if err := strictjson.Unmarshal(encoded, &decoded); err != nil {
 		return fmt.Errorf("read a probe's facts: %w", err)
 	}
 	return flattenFacts(facts, prefix, decoded)

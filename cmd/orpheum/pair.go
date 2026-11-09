@@ -18,6 +18,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/discovery"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 )
 
 // pairTimeout bounds each of pair's requests: the claim waits on the discovery's answer.
@@ -176,7 +177,7 @@ func (core coreClient) ask(ctx context.Context, method, path string, body, answe
 				Message string `json:"message"`
 			} `json:"error"`
 		}
-		if json.Unmarshal(read, &problem) == nil && problem.Error.Message != "" {
+		if strictjson.Unmarshal(read, &problem) == nil && problem.Error.Message != "" {
 			return errors.New(problem.Error.Message)
 		}
 		return fmt.Errorf("the core answered %d", response.StatusCode)
@@ -184,7 +185,7 @@ func (core coreClient) ask(ctx context.Context, method, path string, body, answe
 	if answer == nil || len(bytes.TrimSpace(read)) == 0 {
 		return nil
 	}
-	if err = json.Unmarshal(read, answer); err != nil {
+	if err = strictjson.Unmarshal(read, answer); err != nil {
 		return fmt.Errorf("decode the core's answer: %w", err)
 	}
 	return nil

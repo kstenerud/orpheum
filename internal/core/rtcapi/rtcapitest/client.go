@@ -18,6 +18,7 @@ import (
 	"github.com/pion/webrtc/v4"
 
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 )
 
 // waitLimit bounds every wait on the connection: loopback answers in milliseconds, so one that does
@@ -171,7 +172,7 @@ func (client *Client) Verdict() rtcapi.Verdict {
 	var verdict rtcapi.Verdict
 	select {
 	case text := <-client.verdicts:
-		if err := json.Unmarshal([]byte(text), &verdict); err != nil {
+		if err := strictjson.Unmarshal([]byte(text), &verdict); err != nil {
 			client.tb.Fatalf("the core's verdict %q is not one: %v", text, err)
 		}
 	case <-ctx.Done():
@@ -367,7 +368,7 @@ func (client *Client) Do(head rtcapi.RequestHead, body []byte) Reply {
 	channel.OnMessage(func(message webrtc.DataChannelMessage) {
 		switch {
 		case message.IsString:
-			if err := json.Unmarshal(message.Data, &got.Head); err != nil {
+			if err := strictjson.Unmarshal(message.Data, &got.Head); err != nil {
 				client.tb.Error(err)
 			}
 		case len(message.Data) == 0:
@@ -442,7 +443,7 @@ func (client *Client) Upgrade(path string) (*Messages, rtcapi.ResponseHead) {
 		case message.IsString && !isHeadRead:
 			isHeadRead = true
 			var head rtcapi.ResponseHead
-			if err := json.Unmarshal(message.Data, &head); err != nil {
+			if err := strictjson.Unmarshal(message.Data, &head); err != nil {
 				client.tb.Error(err)
 			}
 			messages.head <- head
@@ -450,7 +451,7 @@ func (client *Client) Upgrade(path string) (*Messages, rtcapi.ResponseHead) {
 			messages.received <- string(message.Data)
 		default:
 			var closing rtcapi.CloseMessage
-			if err := json.Unmarshal(message.Data, &closing); err != nil {
+			if err := strictjson.Unmarshal(message.Data, &closing); err != nil {
 				client.tb.Error(err)
 			}
 			messages.closed <- closing

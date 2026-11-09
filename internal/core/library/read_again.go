@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 )
 
 // ReadAgain is what a scan reads again, changed on disk or not, so its probe is compared with the one
@@ -70,7 +72,7 @@ func decodeReadAgain(stored *string) (ReadAgain, error) {
 		return nil, nil
 	}
 	var paths ReadAgain
-	if err := json.Unmarshal([]byte(*stored), &paths); err != nil {
+	if err := strictjson.Unmarshal([]byte(*stored), &paths); err != nil {
 		return nil, fmt.Errorf("decode what a scan reads again: %w", err)
 	}
 	return paths.cleaned(), nil

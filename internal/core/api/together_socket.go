@@ -20,6 +20,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/core/together"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 )
 
 // socketPath is the socket's path, one per device, whose first message names its channel, live or
@@ -242,13 +243,13 @@ func readFirst(ctx context.Context, connection togetherSocket) (json.RawMessage,
 // togetherHelloOf is a device's first message as a session's hello, which must carry a credential.
 func togetherHelloOf(first json.RawMessage) (together.Inbound, error) {
 	var hello together.Inbound
-	if err := json.Unmarshal(first, &hello); err != nil {
+	if err := strictjson.Unmarshal(first, &hello); err != nil {
 		return hello, fmt.Errorf("the first message is not JSON: %w", err)
 	}
 	var channel struct {
 		Channel string `json:"channel"`
 	}
-	if err := json.Unmarshal(first, &channel); err != nil || channel.Channel != "" &&
+	if err := strictjson.Unmarshal(first, &channel); err != nil || channel.Channel != "" &&
 		channel.Channel != channelTogether {
 		return hello, errors.New("the first message names no channel the socket serves")
 	}
@@ -360,7 +361,7 @@ func (socket channelSocket) readJSON(ctx context.Context, into any) error {
 	if err != nil {
 		return err //nolint:wrapcheck // the channel's own words are the why
 	}
-	return json.Unmarshal(message, into) //nolint:wrapcheck // not JSON: the device's fault, said as it is
+	return strictjson.Unmarshal(message, into) //nolint:wrapcheck // not JSON: the device's fault, said as it is
 }
 
 func (socket channelSocket) writeJSON(ctx context.Context, value any) error {

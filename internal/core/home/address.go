@@ -16,6 +16,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 	"github.com/kstenerud/orpheum/internal/store"
 )
 
@@ -164,10 +165,10 @@ func (keeper *AddressAtHome) stored(ctx context.Context) (Known, error) {
 	var setAt int64
 	for _, entry := range entries {
 		if key := entry.Definition.Key; key == settings.AddressAtHome {
-			_ = json.Unmarshal(entry.Value, &address) //nolint:errcheck // the registry checked it is a string
+			_ = strictjson.Unmarshal(entry.Value, &address) //nolint:errcheck // the registry checked it is a string
 			setterID, setAt = entry.SetByUserID, entry.SetAt
 		} else if key == settings.AddressAtHomeLearnedFrom {
-			_ = json.Unmarshal(entry.Value, &device) //nolint:errcheck // the registry checked it is a string
+			_ = strictjson.Unmarshal(entry.Value, &device) //nolint:errcheck // the registry checked it is a string
 		}
 	}
 	parsed, err := netip.ParseAddr(address)

@@ -5,13 +5,13 @@ package preferences
 import (
 	"cmp"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -381,7 +381,7 @@ func UsedIn(prefs Preferences, tracks Tracks, mainAudio *TrackRef) (subtitle Use
 // decode reads a stored JSON value.
 func decode[T any](valueJSON string) (*T, error) {
 	var value T
-	if err := json.Unmarshal([]byte(valueJSON), &value); err != nil {
+	if err := strictjson.Unmarshal([]byte(valueJSON), &value); err != nil {
 		return nil, err
 	}
 	return &value, nil

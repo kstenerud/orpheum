@@ -17,6 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/bounded"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -93,7 +94,7 @@ func FetchArgsMerge() jobs.ArgsMerge {
 // decodeFetchArgs reads a fetch_metadata job's arguments.
 func decodeFetchArgs(argsJSON string) (refreshArgs, error) {
 	var args refreshArgs
-	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+	if err := strictjson.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return refreshArgs{}, fmt.Errorf("read fetch arguments %q: %w", argsJSON, err)
 	}
 	return args, nil

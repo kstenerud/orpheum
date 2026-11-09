@@ -22,6 +22,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -243,7 +244,7 @@ func decodeArgs(encoded string) (readThroughArgs, error) {
 	if encoded == "" {
 		return args, nil
 	}
-	if err := json.Unmarshal([]byte(encoded), &args); err != nil {
+	if err := strictjson.Unmarshal([]byte(encoded), &args); err != nil {
 		return readThroughArgs{}, fmt.Errorf("read a read-through's arguments: %w", err)
 	}
 	return args, nil

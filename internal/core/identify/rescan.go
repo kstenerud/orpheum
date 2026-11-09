@@ -16,6 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
@@ -408,7 +409,7 @@ func (matcher *Matcher) pendingRematch(ctx context.Context, itemID int64) (cache
 // its provider does not have is the item's own failure (RecordFailure), which ends its rematch too.
 func (matcher *Matcher) handleRematch(ctx context.Context, itemID int64, row cachegen.GetRematchRow) error {
 	said := filesQuery{name: row.Name, year: int(row.Year)}
-	if err := json.Unmarshal([]byte(row.IdsJSON), &said.ids); err != nil {
+	if err := strictjson.Unmarshal([]byte(row.IdsJSON), &said.ids); err != nil {
 		return fmt.Errorf("item %d's rematch: %w", itemID, jobs.MarkPermanent(err))
 	}
 	result, err := matcher.rematch(ctx, itemID, said)

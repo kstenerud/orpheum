@@ -5,11 +5,11 @@ package resourceuse
 import (
 	"cmp"
 	"context"
-	"encoding/json"
 	"fmt"
 	"slices"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
 
@@ -148,7 +148,7 @@ func (sum *hourSums) add(row cachegen.ResourceUse) {
 	}
 	hour.Plays = max(hour.Plays, row.Plays)
 	var running map[string]int
-	if json.Unmarshal([]byte(row.RunningJSON), &running) == nil {
+	if strictjson.Unmarshal([]byte(row.RunningJSON), &running) == nil {
 		for kind, count := range running {
 			hour.Running[kind] = max(hour.Running[kind], count)
 		}

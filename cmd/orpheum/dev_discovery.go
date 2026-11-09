@@ -31,6 +31,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/webclient"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 )
 
 // devDiscoveryPaths are where the development discovery serves its parts, on one origin: the core
@@ -190,7 +191,7 @@ func devDiscoveryHandler(site devDiscoverySite, logger *slog.Logger) (http.Handl
 		var asked struct {
 			Code string `json:"code"`
 		}
-		if json.NewDecoder(request.Body).Decode(&asked) != nil {
+		if strictjson.Decode(request.Body, &asked) != nil {
 			http.Error(writer, "send {\"code\": ...}", http.StatusBadRequest)
 			return
 		}

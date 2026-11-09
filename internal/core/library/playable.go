@@ -6,7 +6,6 @@ import (
 	"cmp"
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -15,6 +14,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -112,7 +112,7 @@ func placeToRead(
 	var reached []Located
 	for _, row := range rows {
 		var covering []int64
-		if err := json.Unmarshal([]byte(row.LibraryIdsJSON), &covering); err != nil {
+		if err := strictjson.Unmarshal([]byte(row.LibraryIdsJSON), &covering); err != nil {
 			return Located{}, fmt.Errorf("read the libraries covering place %d: %w", row.PlaceID, err)
 		}
 		reachedThere := slices.DeleteFunc(covering, func(libraryID int64) bool { return !reach.Reaches(&libraryID) })

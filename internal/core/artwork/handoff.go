@@ -5,7 +5,6 @@ package artwork
 import (
 	"cmp"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -17,6 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 )
 
 // Handle runs one make_artwork_sizes job as a scan is run (the owner, 2026-10-02): it fetches what
@@ -58,7 +58,7 @@ func (service *Service) Handle(ctx context.Context, job jobs.Job) error {
 // argsOf is a make_artwork_sizes job's arguments.
 func argsOf(job jobs.Job) (artworkJobArgs, error) {
 	var args artworkJobArgs
-	if err := json.Unmarshal([]byte(job.ArgsJSON), &args); err != nil {
+	if err := strictjson.Unmarshal([]byte(job.ArgsJSON), &args); err != nil {
 		return args, fmt.Errorf("make_artwork_sizes job %d: %w", job.ID, jobs.MarkPermanent(err))
 	}
 	return args, nil

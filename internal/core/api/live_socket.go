@@ -16,6 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/live"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 )
 
 // The presence socket (D337 §2; plans/cast-to-device.md §3) is a second connection to the session
@@ -39,7 +40,7 @@ func isLiveHello(first json.RawMessage) bool {
 		Type    live.MessageType `json:"type"`
 		Channel string           `json:"channel"`
 	}
-	if json.Unmarshal(first, &hello) != nil {
+	if strictjson.Unmarshal(first, &hello) != nil {
 		return false
 	}
 	return hello.Type == live.MessageHello && hello.Channel == live.ChannelLive || hello.Type == live.MessageOldHello
@@ -54,7 +55,7 @@ func (server *Server) serveLiveSocket(
 	request *http.Request,
 ) {
 	var hello live.Inbound
-	if err := json.Unmarshal(first, &hello); err != nil {
+	if err := strictjson.Unmarshal(first, &hello); err != nil {
 		_ = connection.closeWith(websocket.StatusPolicyViolation, "say hello first") //nolint:errcheck // closing
 		return
 	}

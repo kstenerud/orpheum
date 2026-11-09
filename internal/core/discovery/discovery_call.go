@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 )
 
 // signedCall makes a call with the session's token, renewing the session at once, and only once, when the
@@ -180,7 +181,7 @@ func (service *Service) call(ctx context.Context, call callOf) error {
 	case call.into == nil:
 		return nil
 	}
-	if err = json.Unmarshal(answer, call.into); err != nil {
+	if err = strictjson.Unmarshal(answer, call.into); err != nil {
 		return fmt.Errorf("the discovery's answer is not what it should be: %w", err)
 	}
 	return nil
@@ -193,7 +194,7 @@ func failure(response *http.Response, answer []byte) error {
 		return errUnauthorised
 	}
 	var named discoveryproto.Refusal
-	if json.Unmarshal(answer, &named) == nil && named.Code != "" {
+	if strictjson.Unmarshal(answer, &named) == nil && named.Code != "" {
 		return &refusal{
 			code: named.Code, message: named.Message, retryAfter: time.Duration(named.RetryAfterSeconds) * time.Second,
 		}

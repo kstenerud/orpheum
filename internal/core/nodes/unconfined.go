@@ -4,7 +4,6 @@ package nodes
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -38,8 +38,7 @@ type UnconfinedLeave struct {
 func (service *Service) takeLocked(writer http.ResponseWriter, request *http.Request) {
 	ctx := request.Context()
 	var report nodeproto.LockedReport
-	decoder := json.NewDecoder(http.MaxBytesReader(writer, request.Body, maxLockedReportBytes))
-	if err := decoder.Decode(&report); err != nil {
+	if err := strictjson.Decode(http.MaxBytesReader(writer, request.Body, maxLockedReportBytes), &report); err != nil {
 		http.Error(writer, "a locked report is JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}

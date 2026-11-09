@@ -6,7 +6,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -15,6 +14,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
 )
 
@@ -171,7 +171,7 @@ func askAnswer[Answer any](
 	if response.StatusCode != http.StatusOK {
 		return answer, fmt.Errorf("the node answered %s", response.Status)
 	}
-	if err := json.NewDecoder(io.LimitReader(response.Body, maxBytes)).Decode(&answer); err != nil {
+	if err := strictjson.Decode(io.LimitReader(response.Body, maxBytes), &answer); err != nil {
 		return answer, fmt.Errorf("read its answer: %w", err)
 	}
 	return answer, nil
@@ -189,7 +189,7 @@ func takeHeld(posted nodeproto.Result, encoded []byte) (nodeproto.Result, error)
 			posted.JobID, posted.Held.SizeBytes, ErrMalformedResult)
 	}
 	var result nodeproto.Result
-	if err := json.Unmarshal(encoded, &result); err != nil {
+	if err := strictjson.Unmarshal(encoded, &result); err != nil {
 		return nodeproto.Result{}, fmt.Errorf("job %d's held result is not JSON: %w: %w", posted.JobID, err,
 			ErrMalformedResult)
 	}

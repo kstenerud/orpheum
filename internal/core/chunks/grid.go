@@ -4,7 +4,6 @@ package chunks
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -14,6 +13,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -173,10 +173,10 @@ func (service *Service) cut(ctx context.Context, fileID int64, kind GridKind) (c
 		return film, false, fmt.Errorf("%w: FFmpeg could not read file %d through: %s", ErrCannotBeCut, fileID,
 			*timeline.Failure)
 	}
-	if err = json.Unmarshal([]byte(timeline.KeyframesMsJSON), &film.keyframesMs); err != nil {
+	if err = strictjson.Unmarshal([]byte(timeline.KeyframesMsJSON), &film.keyframesMs); err != nil {
 		return film, false, fmt.Errorf("the keyframes of file %d: %w", fileID, err)
 	}
-	if err = json.Unmarshal([]byte(timeline.BytesInEachSecondJSON), &film.bytesInEachSecond); err != nil {
+	if err = strictjson.Unmarshal([]byte(timeline.BytesInEachSecondJSON), &film.bytesInEachSecond); err != nil {
 		return film, false, fmt.Errorf("the bytes in each second of file %d: %w", fileID, err)
 	}
 	durationMs := probe.Format.DurationMs

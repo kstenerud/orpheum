@@ -40,6 +40,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/turn"
 	"github.com/kstenerud/orpheum/internal/core/waits"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 	"github.com/kstenerud/orpheum/internal/platform/waiting"
 )
 
@@ -192,7 +193,16 @@ func documentConfig() huma.Config {
 		"an object whose error holds a code, a message, a detail and, for a reachability error, the failedHop." +
 		openDescription
 	declareCallers(&config)
+	config.Formats = strictJSONFormats()
 	return config
+}
+
+// strictJSONFormats are the body formats the API reads and writes: JSON, read strictly (D456), so a
+// body with a key said twice or naming a field in another case is refused, never half-read. A new
+// map: huma's DefaultFormats is shared by every API in the process.
+func strictJSONFormats() map[string]huma.Format {
+	strict := huma.Format{Marshal: huma.DefaultJSONFormat.Marshal, Unmarshal: strictjson.Unmarshal}
+	return map[string]huma.Format{"application/json": strict, "json": strict}
 }
 
 // NewServer builds the API and registers every operation. UseErrorShape must have been called.
