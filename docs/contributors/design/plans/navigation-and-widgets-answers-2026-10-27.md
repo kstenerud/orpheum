@@ -2748,3 +2748,13 @@ access section, as the server heads it" (for the owner to apply and deploy to pr
 5. From item 1's read-back: with `LIVE` committed, `TestSteps_KeepTheMigrationWindow` accepts any set
    of steps; a fold or an edit of a committed step is now stopped by the checksum test and the
    pre-edit hook alone, as designed.
+
+**Item 5, done (2026-11-09):** "fix(player): Up next shown without the rest of the overlay sits in
+the film's top-right corner". Shown alone, or through a seek's scrub bar or the pause sign, the card
+sits `--space-5` from the stage's top and right, in full screen and on a cast receiver too; with the
+full overlay up it is back at row 0's end (D407 §1), where Up, Down and Right reach it as before. A
+browser test (`up-next-place.browser.test.tsx`, a Fire TV at 960×480) goes red when reverted (the
+card's top at 249 px against 72). For the owner: the card jumps to row 0 when Up or Down brings the
+whole overlay, and back on Back; should it stay in the corner then too? Also seen, older than this
+change: a card shown alone does not take focus (the overlay is hidden for one render when it tries);
+OK presses it anyway.
