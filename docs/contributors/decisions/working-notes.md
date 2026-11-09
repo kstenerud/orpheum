@@ -27327,3 +27327,35 @@ official channels."*
   one working or is said in the release's notes as a step to take. This ends "no compatibility for
   old configs" (the owner, 2026-11-09), which held while production was the only install.
 
+
+## D456 — Every JSON document the Go code reads is decoded strictly
+
+**Decided** (2026-11-09), by the project owner: *"I want the JSON stuff hardened. I'm fine with it
+being strict everywhere; it's not much more processing in the grand scheme of things."* and *"We
+should allow unknown fields so that we can run newer clients against older servers so long as the
+new one only extends things. The web client's threat model is nowhere near as serious as the
+server's, so I'm fine with weaker JSON constraints there. gate change is fine."*
+
+The rules are the security rules of the owner's BONJSON specification
+(https://github.com/kstenerud/bonjson/blob/main/bonjson.md#security-rules, its "Secure Compliance"
+and "Resource Limits" onward), applied to JSON text:
+
+1. **A duplicate object key is refused.** Keys are compared after NFC normalization and Unicode
+   case folding, because encoding/json matches a key to a field ignoring case: `{"name":1,"NAME":2}`
+   fills one field twice, the last winning.
+2. **Invalid UTF-8 is refused,** in the raw bytes and in what a `\u` escape produces (a lone
+   surrogate), where encoding/json silently puts U+FFFD in its place.
+3. **NUL (U+0000, `\u0000` too) is refused** in every string, key or value.
+4. **Data after the top-level value is refused.** A reader that genuinely carries a stream of values
+   keeps doing so, each value checked.
+5. **Limits with secure defaults,** BONJSON's recommended values: nesting depth 500, 1,000,000
+   elements in one container, 10,000,000 bytes in one string. A document's size is the caller's
+   bound (an `http.MaxBytesReader`, an `io.LimitReader`), with a package default no larger than
+   BONJSON's.
+6. **An unknown field stays allowed,** everywhere: a newer client that only extends a message works
+   against an older server.
+7. **Scope:** all the Go code that ships. The web client (TypeScript) is out of it, and test files
+   may keep encoding/json.
+
+A call site that cannot follow these, such as a provider that sends duplicates, is reported to the
+owner rather than loosened.
