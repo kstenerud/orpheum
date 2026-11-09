@@ -27510,3 +27510,38 @@ to both; use pkg/strictjson and move atomics too"*.
   `TestSearch_AReplyWithAKeySaidTwiceKeepsItsLastValue` (TMDB's), `TestArch_JSONIsDecodedStrictly`
   (every reader is one of the decoder's)
 - 6: `TestArch_JSONIsDecodedStrictly`, `TestArch_PublicPackagesImportNothingInternal`
+
+## D459 — Every name Orpheum puts in JSON is camelCase
+
+**Decided** (2026-11-09), by the project owner: *"For the remaining snake case things: for each
+category let me know whether in your opinion it makes sense to change or keep the same. We're
+already doing deep surgery, so now is the time to make any changes like this, and then set the
+policy forever. I don't care much one way or the other which style is chosen, so long as it's
+closely aligned with industry practices and is unlikely to astonish (principle of least
+astonishment)."* To the proposal that every name be camelCase, the owner: *"agreed"*.
+
+1. **Every name Orpheum itself puts in JSON is camelCase:** each key, and each value that names one
+   of a closed set (an error's code, a capability, a setting's key, a command, a state, a kind):
+   a lower-case letter, then letters and digits, an acronym spelled as a word (`certificateDnsWaitSeconds`).
+   This holds on every wire Orpheum writes both ends of: the API, the node protocol, the discovery
+   protocol, the watch-together protocol, and the web client's own codes. It is the convention of
+   JavaScript, of the web platform's own JSON APIs and of Google's JSON style guide, so a reader of
+   the API meets what they expect.
+2. **A name another format defines keeps that format's spelling,** in JSON too: FFmpeg's encoder
+   names (`h264_nvenc`), the codec ladder's names (`h264-sdr`, `aac-stereo`, which the owner kept as
+   other tools' identifiers, 2026-10-27), TMDB's and OpenSubtitles' keys, a file's name (`cache.db`), the file name in
+   an image's address (`portrait-s`, D212).
+3. **Each other format keeps its own convention:** environment variables UPPER_SNAKE, SQL
+   snake_case, CSS classes BEM, command-line flags and URL path segments kebab-case, TOML config
+   keys as the config file names them. A value stored in a column a CHECK constraint names may stay
+   snake_case in SQL and be translated where the API sends it.
+4. **A stored name renamed by this decision is renamed by a migration step** (0086), not read under
+   two spellings: capabilities within a role, a device secret's scope, setting keys, the node's
+   skip rules and error codes a file's filing reason holds.
+5. **A check enforces it:** tagliatelle checks Go struct tags' keys; `TestArch_JSONNamesAreCamelCase`
+   checks each property and enum value in the API's description and each value of a named string
+   type in the protocol packages, naming each exception (2) with its reason.
+
+**Proven by:**
+- 1, 2, 5: `TestArch_JSONNamesAreCamelCase`, `TestFindNonCamelNames_FindsEachSnakeKebabAndCapitalName`
+- 4: `TestMigrate_Step0086ReadsBackEveryKeptNameInCamelCase`
