@@ -102,7 +102,7 @@ func (discovery *Discovery) session(writer http.ResponseWriter, request *http.Re
 		coreID: held.ID, publicKey: string(held.PublicKey), instanceID: opening.InstanceID, expires: expires,
 	}
 	discovery.mutex.Unlock()
-	answer(writer, discoveryproto.SessionResponse{Token: token, ExpiresIn: int64(sessionLasts / time.Second)})
+	answer(writer, discoveryproto.SessionResponse{Token: token, ExpiresInSeconds: int64(sessionLasts / time.Second)})
 }
 
 // holderAway is how long an installation other than the one that last held the core's realm waits

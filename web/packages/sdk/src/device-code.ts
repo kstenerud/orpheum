@@ -139,11 +139,15 @@ export async function requestDeviceCode(
   });
   const code = field(answer, "code");
   const secret = field(answer, "secret");
-  const expiresIn = field(answer, "expiresIn");
-  if (typeof code !== "string" || typeof secret !== "string" || typeof expiresIn !== "number") {
+  const expiresInSeconds = field(answer, "expiresInSeconds");
+  if (
+    typeof code !== "string" ||
+    typeof secret !== "string" ||
+    typeof expiresInSeconds !== "number"
+  ) {
     throw new Error("the discovery's device code is not what it should be");
   }
-  return { code, secret, expiresInSeconds: expiresIn };
+  return { code, secret, expiresInSeconds };
 }
 
 /**

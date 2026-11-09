@@ -355,7 +355,7 @@ func (discovery *Discovery) keepLocateHashes(writer http.ResponseWriter, request
 	kept := make(map[string]locatable, len(sent.Hashes))
 	for _, hash := range sent.Hashes {
 		next := locatable{
-			expires:   now.Add(time.Duration(hash.ExpiresIn) * time.Second),
+			expires:   now.Add(time.Duration(hash.ExpiresInSeconds) * time.Second),
 			isLimited: hash.Uses > 0, usesLeft: hash.Uses,
 		}
 		// A link sent again keeps the uses spent since: the core counts them only as it registers.

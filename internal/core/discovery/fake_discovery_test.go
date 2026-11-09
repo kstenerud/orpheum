@@ -352,7 +352,7 @@ func (fake *fakeDiscovery) serveHTTP(writer http.ResponseWriter, request *http.R
 		fake.sessionCount++
 		token := rand.Text()
 		fake.tokens[token] = true
-		fake.answer(writer, discoveryproto.SessionResponse{Token: token, ExpiresIn: fake.sessionLasts})
+		fake.answer(writer, discoveryproto.SessionResponse{Token: token, ExpiresInSeconds: fake.sessionLasts})
 	default:
 		fake.serveSigned(writer, request, route)
 	}

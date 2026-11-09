@@ -74,14 +74,14 @@ Which phase each step belongs to is [The order of work](#the-order-of-work). Ste
 bound to the discovery and the core, `proof.Answer` and the answer's `signature`;
 `discovery/link`'s fragment and locate hash; `clientOrigin`; the identity key's fingerprint
 (`proof.Fingerprint`). **Then (Phase 2):** the version signal (`major.minor` in the header alone,
-`discoveryproto.Serves`; no body carries a version); `expiresIn`; `discoveryproto.IsPublic` and
+`discoveryproto.Serves`; no body carries a version); `expiresInSeconds`; `discoveryproto.IsPublic` and
 `AddressLabel` with their vectors; `DELETE /acme-challenge/{name}`; the probe's fields and
 `reachableFrom`'s values. The rest waits with what uses it: the signalling's several offers, proofs
 and heartbeat with K3; locators, locate hashes and the client API with K7 and W4b.4; the ACME
 account URI and CAA with K9.
 
 - **Changes.** `discovery/discoveryproto`: `SessionRequest` gains `instanceId`; `SessionResponse`
-  carries `expiresIn` (seconds) in place of `expiresAt`; the body's `protocol` is dropped from the
+  carries `expiresInSeconds` (seconds) in place of `expiresAt`; the body's `protocol` is dropped from the
   heartbeat and from enrolment (§2.2, §2.4; X11), and the header carries `major.minor` (§5);
   `ProbeResult` becomes fields (`address`, `port`, `kind`, `result`) and `reachableFrom` takes the
   values named by what was tested (§2.6); `SignalMessage` carries several offers, each with its
@@ -126,7 +126,7 @@ connection redialled after the first wait; `Connect` serialised; a copy's refusa
 on however it came. The instance's ping and the named refusals were built with A3.
 
 - **Changes.** `internal/core/discovery/discovery.go`: the session's expiry counted from
-  `expiresIn` on the monotonic clock (C11); one renewal at a time, shared by the step loop, the
+  `expiresInSeconds` on the monotonic clock (C11); one renewal at a time, shared by the step loop, the
   signalling loop and the certificate job (`SetTXT`), renewing five minutes before expiry and at
   once, once, on any 401, then backing off (C11); every retry backing off exponentially with
   jitter, in place of `retryAfter`'s flat 30 s, **the signalling connection's reopening starting
@@ -668,7 +668,7 @@ the configured VPS address, WebRTC).
 
 | Piece | Real in the thin path | Waits for Phase 3 |
 | --- | --- | --- |
-| Sessions (K2) | `expiresIn`, renewal on a 401, backoff starting near 1 s | the instance rule's ping (D293 §1) |
+| Sessions (K2) | `expiresInSeconds`, renewal on a 401, backoff starting near 1 s | the instance rule's ping (D293 §1) |
 | Signalling (K3) | K3a in full; K3b's ping, heartbeat, concurrency, idle close | ICE restart (a failed connection starts a new race) |
 | Links (K7) | locate hashes, device locators, the person's own link, fingerprints in links | the admin's sign-in link |
 | Addresses (K4) | stable IPv6, the non-public ranges, `configured` | netlink's change events: polling stays |

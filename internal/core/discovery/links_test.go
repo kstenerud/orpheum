@@ -57,7 +57,7 @@ func TestStep_AClaimedCoreTellsItsDiscoveryItsLinksWhenTheyChangeAndUnderEachNew
 	hashes, locators := sent()
 	if len(hashes) != 1 || len(locators) != 1 || !slices.Equal(locators[0].Hashes, []string{"hash-of-a-locator"}) ||
 		len(hashes[0].Hashes) != 1 || hashes[0].Hashes[0] != (discoveryproto.LocateHash{
-		Hash: "hash-of-a-link", ExpiresIn: int64((7 * 24 * time.Hour) / time.Second),
+		Hash: "hash-of-a-link", ExpiresInSeconds: int64((7 * 24 * time.Hour) / time.Second),
 	}) {
 		t.Fatalf("once claimed the core sent links %+v and locators %+v; want its one link, with its life in "+
 			"seconds, and its one locator, once", hashes, locators)

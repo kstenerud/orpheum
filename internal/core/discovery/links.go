@@ -47,7 +47,7 @@ func (service *Service) registerLinks(ctx context.Context, status Status) (time.
 	hashes := make([]discoveryproto.LocateHash, 0, len(links))
 	for _, live := range links {
 		hashes = append(hashes, discoveryproto.LocateHash{
-			Hash: live.LocateHash, ExpiresIn: int64(max(live.ExpiresAt.Sub(now), 0) / time.Second),
+			Hash: live.LocateHash, ExpiresInSeconds: int64(max(live.ExpiresAt.Sub(now), 0) / time.Second),
 		})
 	}
 	err = service.signedCall(ctx, callOf{

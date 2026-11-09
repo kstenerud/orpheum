@@ -99,12 +99,12 @@ type SessionRequest struct {
 	Signature      []byte `json:"signature"`
 }
 
-// SessionResponse is the bearer token the core's other calls carry, for ExpiresIn seconds: a
+// SessionResponse is the bearer token the core's other calls carry, for ExpiresInSeconds seconds: a
 // duration, which the core counts on its own clock from when it asked, so a core whose clock is wrong
 // neither renews on every step nor sends expired tokens (the protocol's §2.3; C11).
 type SessionResponse struct {
-	Token     string `json:"token"`
-	ExpiresIn int64  `json:"expiresIn"`
+	Token            string `json:"token"`
+	ExpiresInSeconds int64  `json:"expiresInSeconds"`
 }
 
 // Refusal is the body of a refusal the core acts on rather than retrying as it would any failure:
@@ -373,9 +373,9 @@ type ACMEChallengeRequest struct {
 // many seconds it lives from now, and how many times it may locate, none meaning as often as asked
 // until it ends (the protocol's §3.1; C3).
 type LocateHash struct {
-	Hash      string `json:"hash"`
-	ExpiresIn int64  `json:"expiresIn"`
-	Uses      int    `json:"uses,omitempty"`
+	Hash             string `json:"hash"`
+	ExpiresInSeconds int64  `json:"expiresInSeconds"`
+	Uses             int    `json:"uses,omitempty"`
 }
 
 // LocateHashesRequest is every link a discovery may find the core by; any it held and this does not

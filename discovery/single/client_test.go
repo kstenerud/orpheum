@@ -46,8 +46,8 @@ func newClientStageWithRealm(t *testing.T, realm string) clientStage {
 	token := built.session(t, signer, coreID)
 	if status := built.call(t, http.MethodPut, discoveryproto.PathLocateHashes, token,
 		discoveryproto.LocateHashesRequest{Hashes: []discoveryproto.LocateHash{
-			{Hash: link.LocateHash(everyUseSecret), ExpiresIn: 3600},
-			{Hash: link.LocateHash(oneUseSecret), ExpiresIn: 3600, Uses: 1},
+			{Hash: link.LocateHash(everyUseSecret), ExpiresInSeconds: 3600},
+			{Hash: link.LocateHash(oneUseSecret), ExpiresInSeconds: 3600, Uses: 1},
 		}}, nil); status != http.StatusNoContent {
 		t.Fatalf("registering the links answered %d", status)
 	}

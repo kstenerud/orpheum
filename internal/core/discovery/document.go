@@ -4,6 +4,7 @@ package discovery
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/kstenerud/orpheum/discovery/addressdoc"
 	"github.com/kstenerud/orpheum/discovery/trust"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 )
 
 // documentCheckEvery is how often the core looks at every place its discovery is served: its root
@@ -60,8 +62,37 @@ type Identified struct {
 
 // place is a place the discovery's signed files are served under, and when a document last named it.
 type place struct {
-	URL     string    `json:"url"`
-	NamedAt time.Time `json:"namedAt"`
+	URL string `json:"url"`
+	// NamedAtMs is when a document last named it, in Unix milliseconds, as every other time is.
+	NamedAtMs int64 `json:"namedAt"`
+}
+
+// UnmarshalJSON reads a place as it is written, or as a core before v0.3.3 wrote it, its namedAt an
+// RFC 3339 time (the owner, 2026-11-09): the next write keeps it in milliseconds.
+func (each *place) UnmarshalJSON(data []byte) error {
+	var read struct {
+		URL     string          `json:"url"`
+		NamedAt json.RawMessage `json:"namedAt"`
+	}
+	if err := strictjson.Unmarshal(data, &read); err != nil {
+		return fmt.Errorf("read a place: %w", err)
+	}
+	each.URL, each.NamedAtMs = read.URL, 0
+	var written string
+	switch {
+	case len(read.NamedAt) == 0:
+	case strictjson.Unmarshal(read.NamedAt, &written) == nil:
+		namedAt, err := time.Parse(time.RFC3339Nano, written)
+		if err != nil {
+			return fmt.Errorf("read a place's namedAt: %w", err)
+		}
+		each.NamedAtMs = namedAt.UnixMilli()
+	default:
+		if err := strictjson.Unmarshal(read.NamedAt, &each.NamedAtMs); err != nil {
+			return fmt.Errorf("read a place's namedAt: %w", err)
+		}
+	}
+	return nil
 }
 
 // floor is the (root version, sequence) a signed object must be above to be taken (the audit's F9).
@@ -90,7 +121,7 @@ type held struct {
 func (opened held) livePlaces(now time.Time) []string {
 	var live []string
 	for _, each := range opened.places {
-		if now.Sub(each.NamedAt) < placeKeptFor {
+		if now.Sub(time.UnixMilli(each.NamedAtMs)) < placeKeptFor {
 			live = append(live, each.URL)
 		}
 	}
@@ -103,10 +134,10 @@ func named(places []place, names []string, now time.Time) []place {
 	for _, name := range names {
 		index := slices.IndexFunc(kept, func(each place) bool { return each.URL == name })
 		if index < 0 {
-			kept = append(kept, place{URL: name, NamedAt: now})
+			kept = append(kept, place{URL: name, NamedAtMs: now.UnixMilli()})
 			continue
 		}
-		kept[index].NamedAt = now
+		kept[index].NamedAtMs = now.UnixMilli()
 	}
 	return kept
 }
