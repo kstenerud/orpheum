@@ -4,7 +4,6 @@ package nodes
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -17,6 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/pathtree"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -30,7 +30,7 @@ const maxHelloBytes = 8 << 20
 func (service *Service) hello(writer http.ResponseWriter, request *http.Request) {
 	ctx := request.Context()
 	var hello nodeproto.Hello
-	if err := json.NewDecoder(http.MaxBytesReader(writer, request.Body, maxHelloBytes)).Decode(&hello); err != nil {
+	if err := strictjson.Decode(http.MaxBytesReader(writer, request.Body, maxHelloBytes), &hello); err != nil {
 		http.Error(writer, "a hello is JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}

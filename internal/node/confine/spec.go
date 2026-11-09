@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 )
 
 // The mechanisms, as the node's report names them (cut-a §7).
@@ -98,7 +100,7 @@ var ErrNotConfined = errors.New("could not confine the run")
 // could not. The caller is orpheum's main, before anything else runs.
 func Shim(encoded string) error {
 	var spec Spec
-	if err := json.Unmarshal([]byte(encoded), &spec); err != nil {
+	if err := strictjson.Unmarshal([]byte(encoded), &spec); err != nil {
 		return fmt.Errorf("read a confined run: %w", err)
 	}
 	return confineAndExec(spec)

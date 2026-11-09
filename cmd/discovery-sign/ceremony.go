@@ -20,6 +20,7 @@ import (
 	"github.com/kstenerud/orpheum/discovery/addressdoc"
 	"github.com/kstenerud/orpheum/discovery/trust"
 	"github.com/kstenerud/orpheum/internal/core/discovery"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 )
 
 // guided is one run of a guided command: when it is, where the owner's answers come from and where its
@@ -158,7 +159,7 @@ func openFolder(path string) (*folder, error) {
 	case err != nil:
 		return nil, fmt.Errorf("read the ceremony's notes: %w", err)
 	}
-	if err = json.Unmarshal(contents, &place.state); err != nil {
+	if err = strictjson.Unmarshal(contents, &place.state); err != nil {
 		return nil, fmt.Errorf("read the ceremony's notes %s: %w", place.join(stateFile), err)
 	}
 	return place, nil

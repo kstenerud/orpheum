@@ -4,7 +4,6 @@ package chunks
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 )
 
 // Interest is what one player wants of a film's chunks: one stream, from a position, and, once it
@@ -98,7 +98,7 @@ func (service *Service) cancelRun(ctx context.Context, stopped stoppedRun) (int,
 	cancelled, err := service.queue.CancelMatching(context.WithoutCancel(ctx), jobs.KindMakeChunks,
 		jobs.Target{ChunkStoreID: stopped.storeID}, func(argsJSON string) bool {
 			var args runArgs
-			return json.Unmarshal([]byte(argsJSON), &args) == nil && args.FirstChunk == stopped.First
+			return strictjson.Unmarshal([]byte(argsJSON), &args) == nil && args.FirstChunk == stopped.First
 		})
 	if err != nil {
 		return 0, fmt.Errorf("cancel the run of %s from chunk %d: %w", stopped.dir, stopped.First, err)

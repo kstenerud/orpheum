@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
+	"github.com/kstenerud/orpheum/discovery/internal/strictjson"
 	"github.com/kstenerud/orpheum/discovery/proof"
 	"github.com/kstenerud/orpheum/discovery/safe32code"
 )
@@ -526,7 +527,7 @@ func (discovery *Discovery) fail(writer http.ResponseWriter, request *http.Reque
 
 // read reads request's JSON body into value, answering a body it cannot read as a bad request.
 func read(writer http.ResponseWriter, request *http.Request, value any) bool {
-	if err := json.NewDecoder(request.Body).Decode(value); err != nil {
+	if err := strictjson.Decode(request.Body, value); err != nil {
 		http.Error(writer, "the body is not the call's JSON: "+err.Error(), http.StatusBadRequest)
 		return false
 	}

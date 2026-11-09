@@ -15,6 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -367,7 +368,7 @@ type ErrorDetail struct {
 // DecodeProbe reads a file row's probe_json: the probe its node reported, as the ingest keeps it.
 func DecodeProbe(text string) (nodeproto.Probe, error) {
 	var probe nodeproto.Probe
-	if err := json.Unmarshal([]byte(text), &probe); err != nil {
+	if err := strictjson.Unmarshal([]byte(text), &probe); err != nil {
 		return nodeproto.Probe{}, fmt.Errorf("decode a file's probe: %w", err)
 	}
 	return probe, nil
@@ -376,7 +377,7 @@ func DecodeProbe(text string) (nodeproto.Probe, error) {
 // DecodeErrorDetail reads a file row's error_detail_json.
 func DecodeErrorDetail(text string) (ErrorDetail, error) {
 	var detail ErrorDetail
-	if err := json.Unmarshal([]byte(text), &detail); err != nil {
+	if err := strictjson.Unmarshal([]byte(text), &detail); err != nil {
 		return ErrorDetail{}, fmt.Errorf("decode a file's error detail: %w", err)
 	}
 	return detail, nil

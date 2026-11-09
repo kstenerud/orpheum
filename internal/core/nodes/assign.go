@@ -12,6 +12,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
 
@@ -282,7 +283,7 @@ func (all *Exchanges) Load(ctx context.Context) error {
 	defer all.mutex.Unlock()
 	for _, row := range rows {
 		var work nodeproto.Work
-		if err := json.Unmarshal([]byte(row.WorkJSON), &work); err != nil {
+		if err := strictjson.Unmarshal([]byte(row.WorkJSON), &work); err != nil {
 			return fmt.Errorf("read attempt %s's work: %w", row.AttemptToken, err)
 		}
 		all.attempts[row.AttemptToken] = &heldAttempt{

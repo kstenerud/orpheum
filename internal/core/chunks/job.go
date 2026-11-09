@@ -4,7 +4,6 @@ package chunks
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -16,6 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 	"github.com/kstenerud/orpheum/internal/store"
 )
 
@@ -40,7 +40,7 @@ func (run storedRun) dir() string { return StoreDir(run.fileID, run.stream, run.
 // name none.
 func (service *Service) runOf(ctx context.Context, job jobs.Job) (storedRun, error) {
 	var run storedRun
-	if err := json.Unmarshal([]byte(job.ArgsJSON), &run.runArgs); err != nil {
+	if err := strictjson.Unmarshal([]byte(job.ArgsJSON), &run.runArgs); err != nil {
 		return run, jobs.MarkPermanent(fmt.Errorf("job %d's arguments: %w", job.ID, err))
 	}
 	row, err := store.OrNotFound(service.cache.Read().GetChunkStore(ctx, job.ChunkStoreID))

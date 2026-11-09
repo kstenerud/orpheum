@@ -5,7 +5,6 @@ package rtcapi
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -17,6 +16,8 @@ import (
 	"time"
 
 	"github.com/pion/webrtc/v4"
+
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 )
 
 // MaxRequestBodyBytes bounds a request's body over a channel: the API's bodies are small JSON.
@@ -171,7 +172,7 @@ func (reader *requestReader) take(message webrtc.DataChannelMessage) {
 	}
 	if reader.isDone {
 		var granted Credit
-		if message.IsString && json.Unmarshal(message.Data, &granted) == nil && granted.Messages > 0 {
+		if message.IsString && strictjson.Unmarshal(message.Data, &granted) == nil && granted.Messages > 0 {
 			reader.credit.grant(granted.Messages)
 		}
 		return
@@ -179,7 +180,7 @@ func (reader *requestReader) take(message webrtc.DataChannelMessage) {
 	switch {
 	case reader.head == nil:
 		var head RequestHead
-		if err := json.Unmarshal(message.Data, &head); err != nil || !message.IsString {
+		if err := strictjson.Unmarshal(message.Data, &head); err != nil || !message.IsString {
 			reader.end(fmt.Errorf("the first message is not a request head: %w", errors.Join(err, errNotText(message))))
 			return
 		}

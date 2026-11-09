@@ -17,6 +17,7 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/secrets"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 )
 
 // Token is the token the fake accepts.
@@ -124,7 +125,7 @@ func (fake *Fake) serve(writer http.ResponseWriter, request *http.Request) {
 			Name    string `json:"name"`
 			Content string `json:"content"`
 		}
-		if json.NewDecoder(request.Body).Decode(&record) != nil || record.Type != "TXT" {
+		if strictjson.Decode(request.Body, &record) != nil || record.Type != "TXT" {
 			writer.WriteHeader(http.StatusBadRequest)
 			return
 		}

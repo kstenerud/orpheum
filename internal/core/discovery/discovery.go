@@ -28,6 +28,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/backoff"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 )
 
 // StateFileName is where the core keeps which discovery it is enrolled with, in the persistent
@@ -282,7 +283,7 @@ func New(parts Parts) (*Service, error) {
 		return nil, fmt.Errorf("read %s: %w", StateFileName, err)
 	}
 	var state kept
-	if err = json.Unmarshal(contents, &state); err != nil {
+	if err = strictjson.Unmarshal(contents, &state); err != nil {
 		return nil, fmt.Errorf("read %s: %w", StateFileName, err)
 	}
 	opened, problem, err := service.loadTrust()

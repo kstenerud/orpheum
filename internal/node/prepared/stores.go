@@ -13,6 +13,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/atomics"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 )
 
 // A store holds one stream of a film cut into chunks (D247 §10), at <file_id>/chunks-<stream>/<grid_id>
@@ -178,7 +179,7 @@ func (shelf *Shelf) readStoreManifest(storeDir string) (nodeproto.StoreManifest,
 	var manifest nodeproto.StoreManifest
 	path := filepath.Join(shelf.directory, filepath.FromSlash(storeDir), nodeproto.StoreManifestName)
 	encoded, err := os.ReadFile(path) //nolint:gosec // the node's own prepared directory
-	if err != nil || json.Unmarshal(encoded, &manifest) != nil {
+	if err != nil || strictjson.Unmarshal(encoded, &manifest) != nil {
 		return manifest, false
 	}
 	return manifest, manifest.StoreDir == storeDir

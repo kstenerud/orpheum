@@ -14,6 +14,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 )
 
 // postChanges posts what the watcher saw change while the session lasts, and those it held while
@@ -131,7 +132,7 @@ func (agent *Agent) exchange(ctx context.Context, method, path string, nodeID in
 		text, _ := io.ReadAll(io.LimitReader(response.Body, outbound.BodyExcerptBytes)) //nolint:errcheck // best effort
 		return fmt.Errorf("%s %s: %s: %s", method, path, response.Status, bytes.TrimSpace(text))
 	}
-	if err := json.NewDecoder(response.Body).Decode(into); err != nil {
+	if err := strictjson.Decode(response.Body, into); err != nil {
 		return fmt.Errorf("%s %s: the answer is not JSON: %w", method, path, err)
 	}
 	return nil

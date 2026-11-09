@@ -15,6 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/langtag"
 	"github.com/kstenerud/orpheum/internal/platform/localtime"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 )
 
 // Key names a setting. The set is closed: every key is declared in Registry.
@@ -745,7 +746,7 @@ func Lookup(key Key) (Definition, bool) {
 func StartingDuration(key Key) time.Duration {
 	definition, known := Lookup(key)
 	var count int64
-	if !known || json.Unmarshal(definition.StartJSON, &count) != nil {
+	if !known || strictjson.Unmarshal(definition.StartJSON, &count) != nil {
 		return 0
 	}
 	return definition.LengthOf(count)
@@ -756,7 +757,7 @@ func StartingDuration(key Key) time.Duration {
 func StartingInt(key Key) int64 {
 	definition, known := Lookup(key)
 	var count int64
-	if !known || json.Unmarshal(definition.StartJSON, &count) != nil {
+	if !known || strictjson.Unmarshal(definition.StartJSON, &count) != nil {
 		return 0
 	}
 	return count

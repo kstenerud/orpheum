@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 
+	"github.com/kstenerud/orpheum/discovery/internal/strictjson"
 	"github.com/kstenerud/orpheum/discovery/safe32code"
 )
 
@@ -190,7 +191,7 @@ func OpenDeviceOutcome(privateKey hpke.PrivateKey, sealed string) (DeviceOutcome
 		return DeviceOutcome{}, err
 	}
 	var outcome DeviceOutcome
-	if err := json.Unmarshal(plaintext, &outcome); err != nil {
+	if err := strictjson.Unmarshal(plaintext, &outcome); err != nil {
 		return DeviceOutcome{}, err
 	}
 	return outcome, nil

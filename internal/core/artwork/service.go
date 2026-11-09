@@ -21,6 +21,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 	"github.com/kstenerud/orpheum/internal/store"
 )
 
@@ -262,7 +263,7 @@ func (service *Service) recordRefusal(ctx context.Context, want wantedImage, why
 // records nothing: the next request asks again.
 func (service *Service) RecordFailure(ctx context.Context, job jobs.Job, failure string) error {
 	var args artworkJobArgs
-	if err := json.Unmarshal([]byte(job.ArgsJSON), &args); err != nil || len(args.SizeNames) > 0 {
+	if err := strictjson.Unmarshal([]byte(job.ArgsJSON), &args); err != nil || len(args.SizeNames) > 0 {
 		return nil //nolint:nilerr // arguments that cannot be read name no image to record
 	}
 	for _, ref := range args.Refs {

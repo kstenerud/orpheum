@@ -14,6 +14,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 )
 
 // BaseURL is Cloudflare's API, version 4.
@@ -150,8 +151,8 @@ func (client *Client) call(ctx context.Context, method, path string, body []byte
 		Success bool            `json:"success"`
 		Result  json.RawMessage `json:"result"`
 	}
-	if json.Unmarshal(answer.Body, &envelope) != nil || !envelope.Success ||
-		json.Unmarshal(envelope.Result, result) != nil {
+	if strictjson.Unmarshal(answer.Body, &envelope) != nil || !envelope.Success ||
+		strictjson.Unmarshal(envelope.Result, result) != nil {
 		return fmt.Errorf("cloudflare %s %s: %w", method, path, ErrMalformed)
 	}
 	return nil

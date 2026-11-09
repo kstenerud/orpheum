@@ -13,6 +13,7 @@ import (
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/discovery/internal/atomics"
+	"github.com/kstenerud/orpheum/discovery/internal/strictjson"
 )
 
 // Core is the one core a single-target discovery holds.
@@ -84,7 +85,7 @@ func (store FileStore) read() (Record, error) {
 	if err != nil {
 		return record, fmt.Errorf("read the discovery's record: %w", err)
 	}
-	if err = json.Unmarshal(contents, &record); err != nil {
+	if err = strictjson.Unmarshal(contents, &record); err != nil {
 		return record, fmt.Errorf("read the discovery's record %s: %w", store.Path, err)
 	}
 	return record, nil

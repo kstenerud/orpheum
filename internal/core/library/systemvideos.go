@@ -16,6 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -292,7 +293,7 @@ func (videos *SystemVideos) view(ctx context.Context, library systemLibrary) (Sy
 // (D435 §5).
 func (videos *SystemVideos) HandleMakeSystemVideos(ctx context.Context, job jobs.Job) error {
 	var args makeArgs
-	if err := json.Unmarshal([]byte(job.ArgsJSON), &args); err != nil {
+	if err := strictjson.Unmarshal([]byte(job.ArgsJSON), &args); err != nil {
 		return jobs.MarkPermanent(fmt.Errorf("a system video make's arguments %q: %w", job.ArgsJSON, err))
 	}
 	library, err := videos.ensure(ctx)

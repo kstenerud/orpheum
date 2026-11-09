@@ -4,7 +4,6 @@ package providerstest
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"testing"
@@ -13,6 +12,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue/jobqueuetest"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 )
 
 // Health is the job queue's parked destinations, over jobs held in memory: a provider service's
@@ -42,7 +42,7 @@ func (fixed Settings) Int(_ context.Context, key settings.Key) (int64, error) {
 		return 0, fmt.Errorf("%q: %w", key, settings.ErrUnknownSetting)
 	}
 	var start int64
-	if err := json.Unmarshal(definition.StartJSON, &start); err != nil {
+	if err := strictjson.Unmarshal(definition.StartJSON, &start); err != nil {
 		return 0, fmt.Errorf("%s's starting value: %w", key, err)
 	}
 	return start, nil

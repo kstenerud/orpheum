@@ -15,6 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/localtime"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -280,7 +281,7 @@ func (service *Service) read(ctx context.Context, key Key, kind Kind, target any
 	if valueJSON == "null" {
 		return fmt.Errorf("%s: %w", key, ErrUnanswered)
 	}
-	if err = json.Unmarshal([]byte(valueJSON), target); err != nil {
+	if err = strictjson.Unmarshal([]byte(valueJSON), target); err != nil {
 		return fmt.Errorf("read %s: %w", key, err)
 	}
 	return nil
@@ -384,7 +385,7 @@ func checkValue(key Key, value json.RawMessage, importantOnly bool) error {
 		return fmt.Errorf("%s: %w", key, ErrNotImportant)
 	}
 	var decoded any
-	if err := json.Unmarshal(value, &decoded); err != nil {
+	if err := strictjson.Unmarshal(value, &decoded); err != nil {
 		return fmt.Errorf("%s: %w: %w", key, ErrInvalidValue, err)
 	}
 	if !fits(decoded, definition) {

@@ -27356,6 +27356,8 @@ and "Resource Limits" onward), applied to JSON text:
    BONJSON's.
 6. **An unknown field stays allowed,** everywhere: a newer client that only extends a message works
    against an older server.
+7. **Scope:** all the Go code that ships. The web client (TypeScript) is out of it, and test files
+   may keep encoding/json.
 8. **A key matches a struct field in its own case only.** encoding/json fills a field from a key
    that names it in any case, so `{"name":1,"NAME":2}` would fill one field twice. A key that names
    a field of the type being decoded only when case is ignored is refused, naming the key and the
@@ -27364,8 +27366,29 @@ and "Resource Limits" onward), applied to JSON text:
    anything an interface, a `json.RawMessage` or a type that decodes itself takes. With matching
    exact, case folding has no part in the duplicate rule (1): in a map, `name` and `NAME` are two
    keys.
-7. **Scope:** all the Go code that ships. The web client (TypeScript) is out of it, and test files
-   may keep encoding/json.
 
 A call site that cannot follow these, such as a provider that sends duplicates, is reported to the
 owner rather than loosened.
+
+**Status:** built (2026-11-09) in `internal/platform/strictjson` (`Unmarshal`, `Decode`, `ErrRefused`),
+with a byte-for-byte twin in `discovery/internal/strictjson` for the public discovery packages, which
+cannot import `internal/`. The API's request bodies are read through it (huma's JSON format), and so is
+every JSON document the Go code reads, except ffprobe's output: FFmpeg sets a file's tags with
+`AV_DICT_MULTIKEY` when it converts a container's tag names (`ff_metadata_conv`), and ffprobe writes
+every entry, so a file whose two tags become one name (an ASF file's `WM/EncodingSettings` and
+`WM/Tool` are both `encoder`) gives a `tags` object with a key said twice. Those three readers
+(`internal/node/probe`'s `Parse` and `ParseDisc`, `internal/node/artwork`'s probe) keep
+encoding/json until the owner decides. OpenSubtitles' answers keep it too: D211 §2 cleans a
+provider's text where it enters, a NUL included (`TestRequests_TextOpenSubtitlesSendsIsCleanedWhereItEnters`),
+where rule 3 would refuse the whole answer; a TMDB answer is read strictly, so there a NUL now refuses
+the answer rather than being cleaned. Both are reported to the owner, not loosened.
+
+**Proven by:** `TestUnmarshal_RefusesWhatEachRuleRefuses`,
+`TestUnmarshal_RefusesAKeyNamingAFieldOnlyInAnotherCase`,
+`TestUnmarshal_AcceptsKeysInTheirFieldsCaseAndFreeFormKeysInAnyCase`,
+`TestUnmarshal_HoldsEachLimitAtItAndRefusesPastIt`, `TestUnmarshal_AnUnknownFieldIsAccepted`,
+`TestUnmarshal_DecodesADocumentAsEncodingJSONDoes`,
+`TestStrictjson_IsInternalPlatformStrictjsonByteForByte`; at the boundaries,
+`TestRequestBody_AKeySaidTwiceIsRefused`, `TestRequestBody_AKeyNamingAFieldInAnotherCaseIsRefused`,
+`TestStatus_AKeySaidTwiceIsRefused` (a node's message), `TestCall_AnAnswerWithAKeySaidTwiceIsRefused`
+(the discovery's answer), `TestSearch_AReplyWithAKeySaidTwiceIsRefused` (TMDB).

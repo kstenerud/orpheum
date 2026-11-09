@@ -22,6 +22,8 @@ import (
 	"time"
 
 	"golang.org/x/crypto/acme"
+
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 )
 
 // The states an order and its authorization pass through.
@@ -155,7 +157,7 @@ func (authority *CA) serve(writer http.ResponseWriter, request *http.Request) {
 	var signed signedRequest
 	if request.Method == http.MethodPost {
 		raw, err := io.ReadAll(request.Body)
-		if err != nil || json.Unmarshal(raw, &signed) != nil {
+		if err != nil || strictjson.Unmarshal(raw, &signed) != nil {
 			http.Error(writer, "not a JWS", http.StatusBadRequest)
 			return
 		}
@@ -205,7 +207,7 @@ func (authority *CA) startOrder(writer http.ResponseWriter, payload []byte) {
 	var order struct {
 		Identifiers []identifierBody `json:"identifiers"`
 	}
-	if json.Unmarshal(payload, &order) != nil || len(order.Identifiers) != 1 {
+	if strictjson.Unmarshal(payload, &order) != nil || len(order.Identifiers) != 1 {
 		http.Error(writer, "one name per order", http.StatusBadRequest)
 		return
 	}
@@ -267,7 +269,7 @@ func (authority *CA) issue(writer http.ResponseWriter, payload []byte) {
 	var finalize struct {
 		CSR string `json:"csr"`
 	}
-	der, err := []byte(nil), json.Unmarshal(payload, &finalize)
+	der, err := []byte(nil), strictjson.Unmarshal(payload, &finalize)
 	if err == nil {
 		der, err = base64.RawURLEncoding.DecodeString(finalize.CSR)
 	}
@@ -305,7 +307,7 @@ func thumbprintOf(protected string) string {
 			Y string `json:"y"`
 		} `json:"jwk"`
 	}
-	if err != nil || json.Unmarshal(header, &parsed) != nil {
+	if err != nil || strictjson.Unmarshal(header, &parsed) != nil {
 		return ""
 	}
 	x, xErr := base64.RawURLEncoding.DecodeString(parsed.JWK.X)

@@ -15,6 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 )
 
 // Queue is where backups are asked for: jobs.Queue.
@@ -60,10 +61,10 @@ func JobArgsMerge() jobs.ArgsMerge {
 
 // readArgsPair reads two backup jobs' arguments.
 func readArgsPair(first, second string) (firstArgs, secondArgs JobArgs, err error) {
-	if err = json.Unmarshal([]byte(first), &firstArgs); err != nil {
+	if err = strictjson.Unmarshal([]byte(first), &firstArgs); err != nil {
 		return firstArgs, secondArgs, fmt.Errorf("read a backup job's arguments: %w", err)
 	}
-	if err = json.Unmarshal([]byte(second), &secondArgs); err != nil {
+	if err = strictjson.Unmarshal([]byte(second), &secondArgs); err != nil {
 		return firstArgs, secondArgs, fmt.Errorf("read a backup request's arguments: %w", err)
 	}
 	return firstArgs, secondArgs, nil
@@ -125,7 +126,7 @@ func (service *Service) isUnchangedSinceLastBackup() bool {
 // HandleBackup makes the backup a job asked for, then thins the backups (prune).
 func (service *Service) HandleBackup(ctx context.Context, job jobs.Job) error {
 	var args JobArgs
-	if err := json.Unmarshal([]byte(job.ArgsJSON), &args); err != nil {
+	if err := strictjson.Unmarshal([]byte(job.ArgsJSON), &args); err != nil {
 		return jobs.MarkPermanent(fmt.Errorf("read backup job %d's arguments: %w", job.ID, err))
 	}
 	if _, err := service.Make(ctx, args.IncludesKey); err != nil {

@@ -20,6 +20,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
@@ -510,7 +511,7 @@ func (scans *Scans) openBatch(ctx context.Context, batchID int64) (openedBatch, 
 		return opened, false, fmt.Errorf("read scan batch %d: %w", batchID, err)
 	}
 	opened.batch = batch
-	if decodeErr := json.Unmarshal([]byte(batch.FilesJSON), &opened.files); decodeErr != nil {
+	if decodeErr := strictjson.Unmarshal([]byte(batch.FilesJSON), &opened.files); decodeErr != nil {
 		return opened, false, fmt.Errorf("read batch %d's files: %w", batch.ID, decodeErr)
 	}
 	opened.scan, err = store.OrNotFound(scans.cache.Read().GetScan(ctx, batch.ScanID))

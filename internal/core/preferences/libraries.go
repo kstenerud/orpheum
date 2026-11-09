@@ -4,10 +4,10 @@ package preferences
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"slices"
 
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -56,7 +56,7 @@ func (service *Service) leftOut(ctx context.Context, userID int64, axis string) 
 		if preference.Axis != axis {
 			continue
 		}
-		if err := json.Unmarshal([]byte(preference.ValueJSON), &leftOut); err != nil {
+		if err := strictjson.Unmarshal([]byte(preference.ValueJSON), &leftOut); err != nil {
 			return nil, fmt.Errorf("read user %d's %s: %w", userID, axis, err)
 		}
 	}

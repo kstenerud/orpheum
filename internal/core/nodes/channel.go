@@ -4,13 +4,13 @@ package nodes
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 )
 
 // serveCommands answers a long-poll: the commands numbered after the one the node names, as soon
@@ -97,7 +97,7 @@ func (service *Service) takeStatus(writer http.ResponseWriter, request *http.Req
 		return
 	}
 	var status nodeproto.Status
-	if err := json.NewDecoder(http.MaxBytesReader(writer, request.Body, maxStatusBytes)).Decode(&status); err != nil {
+	if err := strictjson.Decode(http.MaxBytesReader(writer, request.Body, maxStatusBytes), &status); err != nil {
 		http.Error(writer, "a status is JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -176,7 +176,7 @@ func (service *Service) takeChanged(writer http.ResponseWriter, request *http.Re
 	}
 	service.noteHeard(nodeID)
 	var changed nodeproto.Changed
-	if err := json.NewDecoder(http.MaxBytesReader(writer, request.Body, maxChangedBytes)).Decode(&changed); err != nil {
+	if err := strictjson.Decode(http.MaxBytesReader(writer, request.Body, maxChangedBytes), &changed); err != nil {
 		http.Error(writer, "a notice of a change is JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -206,7 +206,7 @@ func readPost[Body any](
 		http.Error(writer, "this core takes no results", http.StatusServiceUnavailable)
 		return 0, body, false
 	}
-	if err := json.NewDecoder(http.MaxBytesReader(writer, request.Body, maxBytes)).Decode(&body); err != nil {
+	if err := strictjson.Decode(http.MaxBytesReader(writer, request.Body, maxBytes), &body); err != nil {
 		http.Error(writer, "the body is not the JSON it should be: "+err.Error(), http.StatusBadRequest)
 		return 0, body, false
 	}
