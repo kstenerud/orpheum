@@ -302,7 +302,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D294](working-notes.md#d294--admin-from-anywhere-in-the-beta-and-an-operators-reset-of-who-administers-from-the-servers-machine) Admin from anywhere in the beta, and an operator's reset of who administers from the server's machine — *revisited by D297*
 - [D295](working-notes.md#d295--the-security-model-what-a-compromise-costs-decides-what-is-hardened-the-paid-service-most-of-all) The security model: what a compromise costs decides what is hardened, the paid service most of all
 - [D296](working-notes.md#d296--stagings-households-move-to-their-own-domain-orpheum-testcom-so-no-sandbox-token-reaches-productions-zone) Staging's households move to their own domain, orpheum-test.com, so no sandbox token reaches production's zone
-- [D297](working-notes.md#d297--a-household-is-found-by-its-realm-realm-name-and-password-together-proven-both-ways-by-a-key-the-password-makes-admin-only-from-the-cores-own-network) A household is found by its realm: realm, name and password together, proven both ways by a key the password makes; admin only from the core's own network — *revisited by D298, D300*
+- [D297](working-notes.md#d297--a-household-is-found-by-its-realm-realm-name-and-password-together-proven-both-ways-by-a-key-the-password-makes-admin-only-from-the-cores-own-network) A household is found by its realm: realm, name and password together, proven both ways by a key the password makes; admin only from the core's own network — *revisited by D298, D300, D452*
 - [D298](working-notes.md#d298--a-realm-is-the-hosts-accounts-a-master-realm-chosen-once-a-subrealm-per-further-core-none-when-self-hosting) A realm is the host's account's: a master realm chosen once, a subrealm per further core, none when self-hosting — *revisited by D299*
 - [D299](working-notes.md#d299--a-core-that-leaves-its-discovery-keeps-its-peoples-realm-keys) A core that leaves its discovery keeps its people's realm keys
 - [D300](working-notes.md#d300--a-webrtc-connection-made-inside-the-house-counts-as-home-the-core-offers-webrtc-on-its-lan-address) A WebRTC connection made inside the house counts as home; the core offers WebRTC on its LAN address — *revisited by D439, D441*
@@ -457,7 +457,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D449](working-notes.md#d449--the-compose-files-server-settings-at-every-start-its-machines-port-the-setup-codes-file-media-folders-and-catalogues) The compose file's server: settings at every start, its machine's port, the setup code's file, media folders and catalogues
 - [D450](working-notes.md#d450--an-unconfined-node-accepted-in-the-servers-pages-and-updates-announced) An unconfined node accepted in the server's pages, and updates announced
 - [D451](working-notes.md#d451--reserved-remote-access-approved-from-the-account) Reserved: remote access approved from the account
-- [D452](working-notes.md#d452--reserved-the-address-at-home-learned-at-setup) Reserved: the address at home learned at setup
+- [D452](working-notes.md#d452--home-is-any-private-network-but-the-servers-own-the-address-at-home-is-learned-not-typed) Home is any private network but the server's own; the address at home is learned, not typed
 - [D453](working-notes.md#d453--orpheum-is-the-name-no-longer-provisional) "Orpheum" is the name, no longer provisional
 
 ## Archived
