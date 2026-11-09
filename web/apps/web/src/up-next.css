@@ -2,7 +2,9 @@
 
 /* The Up next offer (up-next.tsx): a card in the film's top corner, inside its stage so it stays in
    full screen, small enough to leave the ending in view (D139). Clear of a television's overlay
-   along the bottom and of the browser's own controls. */
+   along the bottom and of the browser's own controls. Drawn in the overlay's convenience area, the
+   area holds that corner while the offer shows without the rest of the overlay (the owner,
+   2026-11-09; player-overlay.css), and row 0's end while all of it shows (D407 §1). */
 .up-next {
   position: absolute;
   inset-block-start: var(--space-5);
