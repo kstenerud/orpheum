@@ -77,7 +77,7 @@ protocol's §2.6 cites W4b.4).
 Changes in `discovery/single`, landing with [discovery-core.md](discovery-core.md) K1, since the
 core's tests run against it. **First, the takeover flaws** (D292 §4: closed before any signalling
 connection opens; A3, code K13–K15, T13). **Built 2026-10-13**, with the refusals the core acts on
-(`discoveryproto.Refusal`: `enrol_again`, `another_instance`, `not_claimed`), the ping rule and
+(`discoveryproto.Refusal`: `enrolAgain`, `anotherInstance`, `notClaimed`), the ping rule and
 leaving below; the instance is bound through the live instance a token was opened by:
 
 - **Tokens bound to the core**: each session token stored with `(coreId, public key, instanceId)`

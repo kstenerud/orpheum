@@ -465,7 +465,7 @@ export class NotFound extends Error {
   }
 }
 
-/** The discovery refusing a request as one too many, with the refusal's code: slow_down, too_many_codes. */
+/** The discovery refusing a request as one too many, with the refusal's code: slowDown, tooManyCodes. */
 export class TooMany extends Error {
   readonly code: string;
   constructor(code: string) {

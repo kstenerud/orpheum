@@ -97,7 +97,7 @@ func TestSession_TheLastHolderIsAdmittedAtOnceAndAnotherWaitsItsWindow(t *testin
 	// Another installation, while the holder answers, is refused, and the holder is told.
 	status, _, refusal := built.sessionFrom(t, signer, coreID, "b1", "installation-b")
 	if status != http.StatusConflict || refusal.Code != discoveryproto.RefusalAnotherInstance {
-		t.Fatalf("another installation while the holder answers got %d %+v; want another_instance", status, refusal)
+		t.Fatalf("another installation while the holder answers got %d %+v; want anotherInstance", status, refusal)
 	}
 	built.awaitCopyRefused(t, served)
 	// The holder goes away: another installation waits the window from then, the protocol's
@@ -107,7 +107,7 @@ func TestSession_TheLastHolderIsAdmittedAtOnceAndAnotherWaitsItsWindow(t *testin
 	for _, installation := range []string{"installation-b", ""} {
 		status, _, refusal = built.sessionFrom(t, signer, coreID, "b1", installation)
 		if !isHolderAway(status, refusal, 300) {
-			t.Errorf("installation %q while the holder is away got %d %+v; want holder_away, 300 s", installation,
+			t.Errorf("installation %q while the holder is away got %d %+v; want holderAway, 300 s", installation,
 				status, refusal)
 		}
 	}
@@ -123,11 +123,11 @@ func TestSession_TheLastHolderIsAdmittedAtOnceAndAnotherWaitsItsWindow(t *testin
 	// It now holds the realm: the one before, coming back, waits for it in turn.
 	status, _, refusal = built.sessionFrom(t, signer, coreID, "a3", "installation-a")
 	if !isHolderAway(status, refusal, 360) {
-		t.Errorf("the holder before, after another took over, got %d %+v; want holder_away, 360 s", status, refusal)
+		t.Errorf("the holder before, after another took over, got %d %+v; want holderAway, 360 s", status, refusal)
 	}
 }
 
-// isHolderAway is whether a session was refused as holder_away, saying to wait seconds.
+// isHolderAway is whether a session was refused as holderAway, saying to wait seconds.
 func isHolderAway(status int, refusal discoveryproto.Refusal, seconds int64) bool {
 	return status == http.StatusConflict && refusal.Code == discoveryproto.RefusalHolderAway &&
 		refusal.RetryAfterSeconds == seconds
@@ -141,7 +141,7 @@ func (built *stage) awaitCopyRefused(t *testing.T, served <-chan discoveryproto.
 	case told := <-served:
 		if told.Type != discoveryproto.SignalCopyRefused || told.Address != "127.0.0.1" ||
 			told.At != built.clock().UnixMilli() {
-			t.Errorf("the serving core was told %+v; want copy_refused from 127.0.0.1 now", told)
+			t.Errorf("the serving core was told %+v; want copyRefused from 127.0.0.1 now", told)
 		}
 	case <-t.Context().Done():
 		t.Fatal("the serving core was not told of the refused copy")
@@ -169,7 +169,7 @@ func TestSession_TheLastHolderOutlivesARestartAndItsWindowCountsFromIt(t *testin
 	built.advance(time.Minute)
 	status, _, refusal := built.sessionFrom(t, signer, coreID, "b1", "installation-b")
 	if !isHolderAway(status, refusal, 300) {
-		t.Fatalf("another installation a minute after the restart got %d %+v; want holder_away, 300 s", status, refusal)
+		t.Fatalf("another installation a minute after the restart got %d %+v; want holderAway, 300 s", status, refusal)
 	}
 	if status, _, _ = built.sessionFrom(t, signer, coreID, "a2", "installation-a"); status != http.StatusOK {
 		t.Fatalf("the last holder after the restart got %d; want it admitted at once", status)

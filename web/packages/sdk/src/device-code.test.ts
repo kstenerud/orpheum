@@ -120,14 +120,14 @@ describe("a device code's HPKE (D293 §2)", () => {
 
 describe("a device code at the service, asked too fast", () => {
   it("stands as it stood when the service says slow down, and fails on any other refusal", async () => {
-    const refusals = ["slow_down", "too_many_codes"];
+    const refusals = ["slowDown", "tooManyCodes"];
     const client = {
       clientApi: "https://api.example/client/v1",
       fetch: (): Promise<Response> =>
         Promise.resolve(Response.json({ code: refusals.shift(), message: "m" }, { status: 429 })),
     };
     expect(await deviceCodeState(client, "s")).toEqual({ state: "slowDown" });
-    await expect(deviceCodeState(client, "s")).rejects.toThrow("too_many_codes");
+    await expect(deviceCodeState(client, "s")).rejects.toThrow("tooManyCodes");
   });
 });
 

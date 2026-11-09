@@ -108,7 +108,7 @@ func TestRealmSignIn_AnyPartWrongIsTheSameNotFoundAfterTheSameWait(t *testing.T)
 	var answered discoveryproto.ClientRealmResponse
 	code, refusal := none.ask(t, discoveryproto.PathRealmSignIn, karlsSignIn(), &answered)
 	if code != http.StatusNotFound || refusal != discoveryproto.RefusalNotFound {
-		t.Errorf("a sign-in at a discovery with no realms answered %d %q; want not_found", code, refusal)
+		t.Errorf("a sign-in at a discovery with no realms answered %d %q; want notFound", code, refusal)
 	}
 	built := newClientStageWithRealm(t, "karlnas")
 	answerRealms(t, built)
@@ -122,7 +122,7 @@ func TestRealmSignIn_AnyPartWrongIsTheSameNotFoundAfterTheSameWait(t *testing.T)
 	} {
 		code, refusal = built.ask(t, discoveryproto.PathRealmSignIn, asked, &answered)
 		if code != http.StatusNotFound || refusal != discoveryproto.RefusalNotFound {
-			t.Errorf("%s answered %d %q; want not_found", name, code, refusal)
+			t.Errorf("%s answered %d %q; want notFound", name, code, refusal)
 		}
 	}
 	for _, stage := range []clientStage{none, built} {
@@ -152,7 +152,7 @@ func TestRealmSignIn_ACoreSlowToRefuseIsAnsweredWhenAnUnknownRealmIs(t *testing.
 	var answered discoveryproto.ClientRealmResponse
 	if code, refusal := built.ask(t, discoveryproto.PathRealmSignIn, slow, &answered); code != http.StatusNotFound ||
 		refusal != discoveryproto.RefusalNotFound {
-		t.Errorf("a slow core's refusal answered %d %q; want not_found", code, refusal)
+		t.Errorf("a slow core's refusal answered %d %q; want notFound", code, refusal)
 	}
 	built.mutex.Lock()
 	took := built.now.Sub(before)

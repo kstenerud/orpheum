@@ -186,7 +186,7 @@ password stays on the core, checked before the key is sent (a mistyped one spend
 claim has given the core its account's realm, the core makes the admin's realm key from it (D297
 §3), so the admin, who was made at setup before the core had a realm, signs in from away at once. In one write the service finds
 the live key, ends every key of the account (D318 §2), and claims the core for the account; a key
-is spent by its first attempt, right or wrong, and wrong keys are refused (`wrong_key`) and limited
+is spent by its first attempt, right or wrong, and wrong keys are refused (`wrongKey`) and limited
 per core and per site (built: 10 and 30 an hour). In the same write the account's core claimed
 before is removed: its records and sessions go, its names and signalling just after (D312 §15), and
 the new core takes its realm. Its identity key is remembered as removed, so when it enrols again
@@ -245,8 +245,8 @@ code audit's K13–K15, A3, closed before any signalling connection opens):
 Built in `single` (A3), but for the binding's `instanceId`, which a token is bound to through the
 live instance it was opened by (§2.3). The paid service does not copy `single`'s session handling
 (A3). A refusal the core acts on carries a `{code, message}` body of its own
-(`discoveryproto.Refusal`): `enrol_again`, on which the core re-enrols and shows the new code (C12),
-`another_instance` (§2.3) and `not_claimed`. Built, both sides.
+(`discoveryproto.Refusal`): `enrolAgain`, on which the core re-enrols and shows the new code (C12),
+`anotherInstance` (§2.3) and `notClaimed`. Built, both sides.
 
 Enrolment is rate-limited per source site (an IPv4 address or an IPv6 /48, as D288 §6 keys device
 codes; N2 [I]), and only a claimed core gets names and a certificate (S13).
@@ -275,11 +275,11 @@ no signature on every request.
   its admin says so on the System page, or when it restarts. The core holds its signalling
   connection, and so answers the ping, only while its own health check passes. The discovery tells
   the instance it kept of each copy it refused, on the signalling connection: `{"type":
-  "copy_refused", "offerId": "", "address": "<ip>", "at": <unix ms>}`, which needs no reply. The
+  "copyRefused", "offerId": "", "address": "<ip>", "at": <unix ms>}`, which needs no reply. The
   session request carries **`installationId`**, made once and kept across restarts, never in a
   backup; the discovery remembers the installation that last held the realm, admits it at once, and
   refuses any other while the last holder is away and its window of a few minutes lasts:
-  `409 {"code": "holder_away", "message": …, "retryAfterSeconds": n}`, after which the core asks
+  `409 {"code": "holderAway", "message": …, "retryAfterSeconds": n}`, after which the core asks
   again. The core asks at once when its network comes back, rather than at its next backed-off try.
   Built in the core (2026-11-06); the discovery's side is orpheum-connect's, and `single` admits by
   the ping alone.
@@ -1111,7 +1111,7 @@ discoveries upgrade on their own schedule):
   `Orpheum-Discovery-Protocol` header carries `major.minor`; no body carries one. A discovery
   accepts any minor of a major it serves and uses the minor only to know which optional features the
   core has; `/signal` checks the header too. Built (2026-10-13): `discoveryproto.ParseVersion`
-  and `Serves`; `single` refuses another major, or none, with `unsupported_version` naming what it
+  and `Serves`; `single` refuses another major, or none, with `unsupportedVersion` naming what it
   serves, on every call, `/signal` included.
 - **A break is a new major** (`/core/v2`).
 - **The window is promised from the public launch** (D292 §3), as D273 §7 states it: a major is

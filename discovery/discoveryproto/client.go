@@ -168,7 +168,7 @@ const MaxDeadEndTries = 8
 
 // RefusalNotFound is a link's hash, a locator or a bootstrap token the discovery finds no core by:
 // never registered, used up, expired or dropped. Which, it does not say.
-const RefusalNotFound = "not_found"
+const RefusalNotFound = "notFound"
 
 // MaxOffersAtOnce is how many offers one request may carry: a client races one connection, then opens
 // the rest of its four (the protocol's §2.5; C6).
