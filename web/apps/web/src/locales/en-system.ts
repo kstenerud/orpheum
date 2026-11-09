@@ -26,6 +26,24 @@ export const enSystem = {
     startedAt: "Started",
     multipathTcpOn:
       "This machine's kernel has MPTCP (Multipath TCP) on. Orpheum opens no MPTCP connection, so the server is not affected; other programs on this machine may be, by a flaw reached through it (CVE-2026-98432). To turn it off, as root: sysctl net.mptcp.enabled=0.",
+    addressAtHome: {
+      heading: "Address in your home",
+      none: "The server does not know its address in your home yet. Open it from a device at home by its address, or set it here.",
+      address: "Devices at home reach the server at {{address}}.",
+      configured:
+        "The server's configuration names it (ORPHEUM_LAN_ADDRESS), so it cannot be changed here.",
+      learned: "Learned from {{device}}, {{at}}.",
+      set: "Set by {{name}}, {{at}}.",
+      setByRemoved: "Set by an admin, {{at}}.",
+      guessed:
+        "Guessed from the machine's own network until a device at home opens the server by its address.",
+      field: "Address",
+      save: "Set address",
+      refusedConfigured:
+        "The server's configuration names its address (ORPHEUM_LAN_ADDRESS). Change it there, or remove it to set one here.",
+      refusedNotPrivate:
+        "That is not an address in a home network. Give the server's IPv4 address in your home, such as 192.168.1.20.",
+    },
     certificate: {
       heading: "The certificate for {{name}}",
       expires: "Expires {{at}}; it is renewed a month before.",
