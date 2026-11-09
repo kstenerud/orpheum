@@ -27580,7 +27580,7 @@ kept like it would be on a live system because we'll have outside users for the 
    `TestSchema_TheBuiltInRolesNameTheirCapabilitiesInCamelCase` (step 0086's, D459 §4). The
    reference scale fills at 0086's tables, its statistics unchanged but for the steps recorded.
 
-**Status:** decided (2026-11-09).
+**Status:** built (2026-11-09) in "feat(store)!: migrations are live from a baseline at 0086, production's schema (D460)", its clauses read back against the code: 1 holds, `0086_baseline.sql` the only step, its `orpheum:baseline folds` line the checksum step 0086 (`names_are_camel_case`) was committed with, and its golden `schema-v0086.sql` at compatible version 86; 2 holds, `CHECKPOINT` at 86 and `LIVE` committed, the baseline in `SHA256SUMS` and `scripts/filesize.allow` letting it, one step never split, past the line limit; 3 holds, steps 0049 to 0086 and their row tests gone, the two schema rules kept as tests on the baseline and the reference scale filling at it.
 
 **Proven by:**
 - 1: `TestMigrate_FreshSchemaEqualsTheGolden`, `TestMigrate_ADatabaseMigratedThroughTheFoldedStepsCarriesOn`,
