@@ -133,7 +133,7 @@ const (
 	SlotEncode      Slot = "encode"
 	SlotRemux       Slot = "remux"
 	SlotExtract     Slot = "extract"
-	SlotReadThrough Slot = "read_through"
+	SlotReadThrough Slot = "readThrough"
 	SlotArtwork     Slot = "artwork"
 )
 

@@ -130,7 +130,7 @@ func (agent *Agent) examineWork(
 
 // checkChunksOf checks the stores of chunks of each file examined that a full rescan asked it to
 // (nodeproto.ExamineFile.ChecksChunksOf) against their records, dropping what is missing, damaged or
-// unrecorded, and says what it found of each in a chunks_checked record (D392 §4). A node with no
+// unrecorded, and says what it found of each in a chunksChecked record (D392 §4). A node with no
 // prepared directory checks nothing.
 func (agent *Agent) checkChunksOf(ctx context.Context, files []nodeproto.ExamineFile) []nodeproto.ScanRecord {
 	if agent.workers.PreparedShelf == nil {

@@ -98,7 +98,7 @@ func (place location) absolute() string { return path.Join(place.mediaRoot.Path(
 
 // List lists what is under the command's path, relative to root, to its depth below it, 0 for the
 // whole tree, stopping at its error limit, and returns its records (nodeproto.Listing says which): it
-// reads no file (D240 §2). A cancelled listing ends with a run-scoped error and no scan_complete, so
+// reads no file (D240 §2). A cancelled listing ends with a run-scoped error and no scanComplete, so
 // the core removes nothing for it (D39).
 func (scanner *Scanner) List(ctx context.Context, root *confine.MediaRoot, command nodeproto.List) (
 	[]nodeproto.ScanRecord, error,
@@ -129,7 +129,7 @@ type walk struct {
 	depth int
 }
 
-// run walks start, under root, between scan_begin and scan_complete.
+// run walks start, under root, between scanBegin and scanComplete.
 func (walk *walk) run(root *confine.MediaRoot, start string) error {
 	ctx, emit, scanner := walk.ctx, walk.emit, walk.scanner
 	facts, factsErr := root.Facts()

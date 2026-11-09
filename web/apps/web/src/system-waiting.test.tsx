@@ -39,7 +39,7 @@ const report = {
       libraryName: "Series",
       nodeName: "sandbox",
       path: "/media/shows/Gus Doyle/S04",
-      code: "permission_denied",
+      code: "permissionDenied",
       foundAt: 1,
       errorDetail: {
         text: "open Gus Doyle/S04: permission denied",

@@ -182,7 +182,7 @@
 //     labResultBytesAtMost bytes, and logged at info as one line under the name it answers with, the
 //     result whole inside it, for the device tests to be read from the log (plans/tv-device-tests.md).
 //     Enforced by TestLab_AResultIsLoggedAsOneLineNamedByItsIDAndIsBounded. While the admin has the
-//     device tests off (should_offer_device_tests, its start), it is refused as not_found, and
+//     device tests off (should_offer_device_tests, its start), it is refused as notFound, and
 //     /client-settings says whether they are offered. Enforced by
 //     TestLab_ResultsAreRefusedAndTheTestsNotOfferedUntilTheAdminTurnsThemOn.
 //   - The throughput test's body (GET /lab/throughput) is the 1 to 256 MiB asked for, of bytes no

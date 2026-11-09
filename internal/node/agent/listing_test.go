@@ -59,7 +59,7 @@ func TestAgent_ListsARootAndExaminesTheFilesTheCoreAsksFor(t *testing.T) {
 }
 
 // A full rescan's examining checks the stores of chunks of each video it names to check against
-// their records after reading it, and says what it found in a chunks_checked record: the files checked
+// their records after reading it, and says what it found in a chunksChecked record: the files checked
 // and each dropped; a video not named to check has its stores left alone (D392 §4).
 func TestAgent_AnExaminingChecksTheChunksOfTheVideosAFullRescanNames(t *testing.T) {
 	t.Parallel()

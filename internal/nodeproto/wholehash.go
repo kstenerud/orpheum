@@ -5,7 +5,7 @@ package nodeproto
 // CommandHashWhole asks the node to read a video whole and say the SHA-256 of its every byte: D116's
 // whole-file pass, run for a file found at a second place whose payload a file found before it has,
 // to confirm it is that file's copy before the two are one file at two places (D363 §2).
-const CommandHashWhole CommandType = "hash_whole"
+const CommandHashWhole CommandType = "hashWhole"
 
 // HashWhole is one file to read whole.
 type HashWhole struct {

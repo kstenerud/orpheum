@@ -74,7 +74,7 @@ var credentialField = regexp.MustCompile(`(?i)token|secret|password|credential|c
 // no credential, by operation, each with what it holds.
 var notCredentials = map[string]map[string]string{
 	"getSystem": { //nolint:gosec // G101: fields' names, and no credential
-		"code":        "a scan's error code for what it could not read: permission_denied, say",
+		"code":        "a scan's error code for what it could not read: permissionDenied, say",
 		"causeCode":   "why a node's confinement is off: disabled_at_boot, say",
 		"credentials": "whether a provider's credentials are accepted: unknown, accepted, missing or refused",
 		"key":         "a setting's name",

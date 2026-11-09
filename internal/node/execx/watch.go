@@ -103,14 +103,14 @@ type StallCause string
 // The causes of a stall.
 const (
 	// StallNeverMoved is a run whose position did not move within its start grace.
-	StallNeverMoved StallCause = "never_moved"
+	StallNeverMoved StallCause = "neverMoved"
 	// StallStoodStill is a run whose position stood still for its stall window.
-	StallStoodStill StallCause = "stood_still"
+	StallStoodStill StallCause = "stoodStill"
 	// StallPastDeadline is a run that moved but did not end by its deadline.
-	StallPastDeadline StallCause = "past_deadline"
+	StallPastDeadline StallCause = "pastDeadline"
 	// StallDiskFailed is a run that ended because its disk failed a read as one that does not answer
 	// does, as its log said (diskFailures).
-	StallDiskFailed StallCause = "disk_failed"
+	StallDiskFailed StallCause = "diskFailed"
 )
 
 // StallCondition is what the tool was doing when the watchdog stopped it, as /proc said (D233 §5).
@@ -120,7 +120,7 @@ type StallCondition string
 const (
 	// ConditionWaitingOnDisk is a run with a process in uninterruptible sleep: waiting on a device,
 	// as a read from a dead disk or a hung network mount does.
-	ConditionWaitingOnDisk StallCondition = "waiting_on_disk"
+	ConditionWaitingOnDisk StallCondition = "waitingOnDisk"
 	// ConditionSpinning is a run that kept a processor busy without moving: a loop.
 	ConditionSpinning StallCondition = "spinning"
 	// ConditionStuck is a run that did nothing: deadlocked, or waiting on something that never came.

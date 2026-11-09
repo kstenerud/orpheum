@@ -79,7 +79,7 @@ func (name ArtSizeName) Size() (ArtSize, bool) {
 
 // CommandEncodeArtwork asks the node to re-encode the images of one artwork job (D212 §1), each in
 // turn, and answer once for all.
-const CommandEncodeArtwork CommandType = "encode_artwork"
+const CommandEncodeArtwork CommandType = "encodeArtwork"
 
 // ArtworkBatch is one artwork job's images, every one the job still wants, as a scan is one root's
 // files: the core has fetched what its providers hold, and the node re-encodes each.

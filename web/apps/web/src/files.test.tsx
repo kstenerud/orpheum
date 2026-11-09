@@ -28,13 +28,13 @@ const file = (
 describe("what the scanner saw", () => {
   it("groups files by filing and reason, the largest group first", () => {
     const groups = groupByReason([
-      file(1, "errored", { reason: "permission_denied" }),
+      file(1, "errored", { reason: "permissionDenied" }),
       file(2, "skipped", { reason: "extension" }),
-      file(3, "errored", { reason: "permission_denied" }),
+      file(3, "errored", { reason: "permissionDenied" }),
       file(4, "listed"),
     ]);
     expect(groups.map((group) => [group.filing, group.filingReason, group.files.length])).toEqual([
-      ["errored", "permission_denied", 2],
+      ["errored", "permissionDenied", 2],
       ["skipped", "extension", 1],
       ["listed", "", 1],
     ]);
@@ -46,7 +46,7 @@ describe("what the scanner saw", () => {
         <ReasonGroups
           files={[
             file(1, "errored", {
-              reason: "permission_denied",
+              reason: "permissionDenied",
               detail: {
                 text: "permission denied",
                 ownerUid: 1000,
@@ -59,7 +59,7 @@ describe("what the scanner saw", () => {
         />,
       ),
     );
-    expect(markup).toContain("<summary>Could not be read · permission_denied (1)</summary>");
+    expect(markup).toContain("<summary>Could not be read · permissionDenied (1)</summary>");
     expect(markup).toContain("<code>/media/1.mkv</code>");
     expect(markup).toContain("Details: permission denied (owner 1000, group 100, mode -rw-------)");
   });

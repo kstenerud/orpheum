@@ -42,10 +42,10 @@ type List struct {
 	ErrorLimit int `json:"errorLimit"`
 }
 
-// Listing is a listing's answer: scan_begin with the root's facts, then a record for every entry,
+// Listing is a listing's answer: scanBegin with the root's facts, then a record for every entry,
 // in byte order of name, a directory's entries after it — listed with its stat; mount for a
 // directory on another device than its parent; skip for a link out of the roots or what is neither
-// a file nor a directory; error for what could not be read — and scan_complete, unless it was
+// a file nor a directory; error for what could not be read — and scanComplete, unless it was
 // stopped. It reads no file: which files need reading is the core's to say (D240 §3).
 type Listing struct {
 	Records []ScanRecord `json:"records"`
@@ -95,7 +95,7 @@ type ExamineFile struct {
 	Kind ExamineKind `json:"kind"`
 	// ChecksChunksOf is, for a video a full rescan reads again, the core's id of its file: the node
 	// checks every file of its stores of chunks against its record after examining it, drops what is
-	// missing or damaged, and says so in a chunks_checked record (D392 §4). Zero checks nothing.
+	// missing or damaged, and says so in a chunksChecked record (D392 §4). Zero checks nothing.
 	ChecksChunksOf int64 `json:"checksChunksOf,omitempty"`
 }
 
@@ -119,7 +119,7 @@ type DroppedChunk struct {
 }
 
 // Examined is an examining's answer: for each file in turn, observed for a video, sidecar for an
-// NFO or subtitle, or error for one it could not read; then a chunks_checked record for each video
+// NFO or subtitle, or error for one it could not read; then a chunksChecked record for each video
 // whose stores it was asked to check (ExamineFile.ChecksChunksOf).
 type Examined struct {
 	Records []ScanRecord `json:"records"`

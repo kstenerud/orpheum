@@ -342,7 +342,7 @@ func TestScans_AStalledListingIsTriedAgainAndNeverTakenAsTheRootsContents(t *tes
 	}}}
 	err := bench.scans.ScanAssignee(nil).Answer(ctx, job, nodes.Attempt{NodeID: bench.nodeID}, stalled)
 	if err == nil || !strings.HasPrefix(err.Error(), "node ") || !strings.Contains(err.Error(), "stalled: ") ||
-		!strings.Contains(err.Error(), "waiting_on_disk") {
+		!strings.Contains(err.Error(), "waitingOnDisk") {
 		t.Errorf("a first stalled listing = %v; want it tried again as a stall, saying it waited on the disk", err)
 	}
 	if !bench.isScanning() {

@@ -664,7 +664,7 @@ func TestTogether_AWaitingLinkSaysWhenItExpiresAndThenAdmitsNoOne(t *testing.T) 
 
 // A link's holder learns whether it would admit them before its join's form: one waiting answers
 // 204, and once used, as in another browser, or for a secret no link has, it is refused as the join
-// would be, 404 not_found, with nothing of the session (the owner, 2026-10-30, VQ172(3)).
+// would be, 404 notFound, with nothing of the session (the owner, 2026-10-30, VQ172(3)).
 func TestTogether_ALinkSaysWhetherItAdmitsBeforeItsForm(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)

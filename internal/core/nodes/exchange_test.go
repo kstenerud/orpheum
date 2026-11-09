@@ -315,7 +315,7 @@ func TestExchange_ARefusalParksTheJobUntilTheNodeIsUpdatedAndStopsNothing(t *tes
 	resolved := make(answers, 1)
 	bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(resolved, nil))
 	sent := bench.assign(t)
-	refusal := `this node cannot read the command "make_chunks"`
+	refusal := `this node cannot read the command "makeChunks"`
 	deliver(t, bench.exchanges, 1, nodeproto.Result{JobID: 7, AttemptToken: sent.AttemptToken, Refusal: refusal})
 	err := testutil.Receive(t, resolved, "job 7's answer")
 	parking, isParked := jobqueue.ParkingOf(err)

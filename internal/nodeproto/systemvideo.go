@@ -5,7 +5,7 @@ package nodeproto
 // CommandMakeSystemVideos asks the node to make the server's own videos into its system folder
 // (Hello.SystemFolder), on their first use or for a rebuild (D435 §4, §7): each a short clip FFmpeg
 // draws from nothing, which the node then scans as any file.
-const CommandMakeSystemVideos CommandType = "make_system_videos"
+const CommandMakeSystemVideos CommandType = "makeSystemVideos"
 
 // SystemVideo is one of the server's own videos, named by what it is (D435 §6): what it is for, and
 // the codecs it is made in. The set is closed, the node knowing each one's recipe.

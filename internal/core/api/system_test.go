@@ -495,7 +495,7 @@ func TestSystem_SaysWhatAHeldBackScanWouldRemoveAndWhatCouldNotBeRead(t *testing
 	admin := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
 	librarytest.File(t, harness.database, librarytest.FileSpec{
-		ID: 4, LibraryID: 1, NodeID: 1, Path: "/media/Locked", Filing: "errored", FilingReason: "permission_denied",
+		ID: 4, LibraryID: 1, NodeID: 1, Path: "/media/Locked", Filing: "errored", FilingReason: "permissionDenied",
 		ErrorDetailJSON: `{"text":"permission denied","ownerUid":0,"groupGid":0,"modeText":"drwxr-x---",` +
 			`"occurrenceCount":1}`,
 		FirstSeenAt: 7000, LastSeenAt: 9000,

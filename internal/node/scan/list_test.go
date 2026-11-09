@@ -40,7 +40,7 @@ func TestList_ListsEveryEntryWithItsStatAndReadsNoFile(t *testing.T) {
 	// Every rule that is the library's is the core's now: trash, samples, AppleDouble and extensions
 	// are listed like anything else (D240 §3).
 	want := []string{
-		"scan_begin",
+		"scanBegin",
 		"listed .trash/",
 		"listed .trash/old.mkv",
 		"listed Movies/",
@@ -51,9 +51,9 @@ func TestList_ListsEveryEntryWithItsStatAndReadsNoFile(t *testing.T) {
 		"listed Movies/Metropolis (1995)/",
 		"listed Movies/Metropolis (1995)/Sample/",
 		"listed Movies/Metropolis (1995)/Sample/clip.mkv",
-		"skip Movies/pipe.mkv not_regular",
+		"skip Movies/pipe.mkv notRegular",
 		"listed notes.txt",
-		"scan_complete",
+		"scanComplete",
 	}
 	if got := summary(records); !slices.Equal(got, want) {
 		t.Errorf("listing:\n  %s\nwant:\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
@@ -75,10 +75,10 @@ func TestList_ListsEveryEntryWithItsStatAndReadsNoFile(t *testing.T) {
 		t.Errorf("listed inode %d, want %d", arkon.Inode, inode)
 	}
 	if complete := records[len(records)-1].ScanComplete; complete.ListedCount != 11 || complete.SkippedCount != 1 {
-		t.Errorf("scan_complete = %+v, want 11 listed and 1 skipped", complete)
+		t.Errorf("scanComplete = %+v, want 11 listed and 1 skipped", complete)
 	}
 	if begin := records[0].ScanBegin; begin.FilesystemDevice == 0 {
-		t.Errorf("scan_begin = %+v, want the root's device, as a scan's", begin)
+		t.Errorf("scanBegin = %+v, want the root's device, as a scan's", begin)
 	}
 }
 
@@ -96,13 +96,13 @@ func TestList_GoesOnlyAsDeepAsAskedFromWhereAsked(t *testing.T) {
 		depth int
 		want  []string
 	}{
-		{".", 1, []string{"scan_begin", "listed Movies/", "listed Shows/", "scan_complete"}},
+		{".", 1, []string{"scanBegin", "listed Movies/", "listed Shows/", "scanComplete"}},
 		{"Movies", 1, []string{
-			"scan_begin", "listed Movies/Arkon (1979)/", "listed Movies/loose.mkv", "scan_complete",
+			"scanBegin", "listed Movies/Arkon (1979)/", "listed Movies/loose.mkv", "scanComplete",
 		}},
 		{"Movies", 0, []string{
-			"scan_begin", "listed Movies/Arkon (1979)/", "listed Movies/Arkon (1979)/Arkon (1979).mkv",
-			"listed Movies/loose.mkv", "scan_complete",
+			"scanBegin", "listed Movies/Arkon (1979)/", "listed Movies/Arkon (1979)/Arkon (1979).mkv",
+			"listed Movies/loose.mkv", "scanComplete",
 		}},
 	} {
 		listing := everything
@@ -140,24 +140,24 @@ func TestList_ListsALinkOnlyIntoAMediaRoot(t *testing.T) {
 	scanner := NewScanner([]*confine.MediaRoot{filmsRoot, showsRoot}, &fakeProber{}, options)
 	// A directory reached again through a link is listed, and not walked twice (D206).
 	want := []string{
-		"scan_begin",
+		"scanBegin",
 		"listed Metropolis (1995)/",
 		"listed Metropolis (1995)/Metropolis.mkv",
 		"listed a whole directory/",
 		"listed a whole directory/Arkon.mkv",
-		"error dangling.mkv entry not_found",
-		"skip etc shadow.mkv symlink_outside_roots",
+		"error dangling.mkv entry notFound",
+		"skip etc shadow.mkv symlinkOutsideRoots",
 		"listed into another root.mkv",
 		"listed loop/",
-		"skip out of the roots.mkv symlink_outside_roots",
-		"scan_complete",
+		"skip out of the roots.mkv symlinkOutsideRoots",
+		"scanComplete",
 	}
 	if got := summary(listAll(t, scanner, filmsRoot)); !slices.Equal(got, want) {
 		t.Errorf("listing:\n  %s\nwant:\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
 	}
 	// What a link into another root names is read there; what leads out of the roots is not read.
 	examined := summary(examineAll(t, scanner, filmsRoot, video("into another root.mkv"), video("etc shadow.mkv")))
-	if want := []string{"observed into another root.mkv", "error etc shadow.mkv entry io_error"}; !slices.Equal(
+	if want := []string{"observed into another root.mkv", "error etc shadow.mkv entry ioError"}; !slices.Equal(
 		examined, want) {
 		t.Errorf("examined %v, want %v (D206)", examined, want)
 	}
@@ -192,9 +192,9 @@ func TestExamine_ReadsEachFileAsItsKindSaysOrSaysWhyNot(t *testing.T) {
 		"observed Arkon/Arkon.mkv",
 		"sidecar Arkon/Arkon.nfo nfo",
 		"sidecar Arkon/Arkon.en.srt subtitle",
-		"error Arkon/Broken.mkv entry probe_failed",
-		"error Arkon/Gone.mkv entry not_found",
-		"error Arkon entry io_error",
+		"error Arkon/Broken.mkv entry probeFailed",
+		"error Arkon/Gone.mkv entry notFound",
+		"error Arkon entry ioError",
 	}
 	if got := summary(records); !slices.Equal(got, want) {
 		t.Errorf("examined:\n  %s\nwant:\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))

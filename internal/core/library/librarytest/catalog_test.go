@@ -117,14 +117,14 @@ func TestFile_LetsTheDatabaseChooseOrTakesAChosenID(t *testing.T) {
 
 	chosen := librarytest.File(t, database, librarytest.FileSpec{
 		ID: 50, LibraryID: libraryID, NodeID: nodeID, Path: "/media/Locked", Filing: "errored",
-		FilingReason: "permission_denied", FirstSeenAt: 7000, LastSeenAt: 9000,
+		FilingReason: "permissionDenied", FirstSeenAt: 7000, LastSeenAt: 9000,
 	})
 	if chosen != 50 {
 		t.Fatalf("File with ID 50 returned %d", chosen)
 	}
 	got = storetest.QueryRaw(t, database.Path(),
 		"SELECT filing, filing_reason, first_seen_at, last_seen_at FROM place WHERE id = 50")
-	if want := []string{"errored|permission_denied|7000|9000"}; !slices.Equal(got, want) {
+	if want := []string{"errored|permissionDenied|7000|9000"}; !slices.Equal(got, want) {
 		t.Errorf("chosen file 50 = %v, want %v", got, want)
 	}
 

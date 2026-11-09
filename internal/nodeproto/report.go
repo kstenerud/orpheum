@@ -8,16 +8,16 @@ type RecordType string
 
 // The record types.
 const (
-	RecordScanBegin    RecordType = "scan_begin"
+	RecordScanBegin    RecordType = "scanBegin"
 	RecordObserved     RecordType = "observed"
 	RecordSkip         RecordType = "skip"
 	RecordError        RecordType = "error"
-	RecordScanComplete RecordType = "scan_complete"
+	RecordScanComplete RecordType = "scanComplete"
 	RecordMount        RecordType = "mount"
 	RecordSidecar      RecordType = "sidecar"
 	// RecordChunksChecked is what an examining found checking a file's stores of chunks against their
 	// records, for a full rescan (D392 §4).
-	RecordChunksChecked RecordType = "chunks_checked"
+	RecordChunksChecked RecordType = "chunksChecked"
 )
 
 // SidecarKind is what a sidecar file is for.
@@ -254,12 +254,12 @@ const (
 	SkipSystem SkipRule = "system"
 	// SkipDiscFolder is a disc's folder, VIDEO_TS or BDMV, which the beta does not read (D306 §5;
 	// a disc's image is read, D350): listed as skipped, so a film is not missing in silence.
-	SkipDiscFolder SkipRule = "disc_folder_not_supported_yet"
+	SkipDiscFolder SkipRule = "discFolderNotSupportedYet"
 	// SkipSymlinkOutsideRoots is a symlink whose target is outside every media root (D206).
-	SkipSymlinkOutsideRoots SkipRule = "symlink_outside_roots"
+	SkipSymlinkOutsideRoots SkipRule = "symlinkOutsideRoots"
 	// SkipNotRegular is something that is neither a file, a directory nor a symlink: a device,
 	// a socket, a FIFO.
-	SkipNotRegular SkipRule = "not_regular"
+	SkipNotRegular SkipRule = "notRegular"
 )
 
 // Skip is a path an ignore rule excluded. It is not a failure, and not in the inventory.
@@ -284,12 +284,12 @@ type ErrorCode string
 
 // The error codes.
 const (
-	CodePermissionDenied ErrorCode = "permission_denied"
-	CodeNotFound         ErrorCode = "not_found"
-	CodeIOError          ErrorCode = "io_error"
+	CodePermissionDenied ErrorCode = "permissionDenied"
+	CodeNotFound         ErrorCode = "notFound"
+	CodeIOError          ErrorCode = "ioError"
 	CodeTimeout          ErrorCode = "timeout"
 	CodeUnsupported      ErrorCode = "unsupported"
-	CodeProbeFailed      ErrorCode = "probe_failed"
+	CodeProbeFailed      ErrorCode = "probeFailed"
 	CodeCancelled        ErrorCode = "cancelled"
 )
 

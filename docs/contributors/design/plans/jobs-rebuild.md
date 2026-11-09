@@ -136,7 +136,7 @@ D231 §5, §6, §11 (the node table's truth), §12 (the job view's words); repla
   node_silent_after_seconds), silent, or awaiting its hello. Work is sent with `Send`, which parks the
   job on a node that is not connected; a wait for an answer that runs out parks it when the node
   went away (`Unanswered`). A hello unparks the node and `any-node`; a status with room unparks its
-  prepared directory, on which the node's new `no_room` refusal code parks prepares. A job reading a
+  prepared directory, on which the node's new `noRoom` refusal code parks prepares. A job reading a
   file under a root or disk the last scan found missing parks on it (`library.UnavailableUnder`), a
   complete scan that finds them unparks them (`Ingester.SetOnPathsFound`), and the loudness sweep
   passes such files over.
@@ -694,7 +694,7 @@ D233 §5, §6, §10; D241.
 **Built** (2026-10-03), as cut:
 
 - 5a: `execx` samples `/proc` for a watched run's process group at each check; a stall
-  carries its condition (`waiting_on_disk`, `spinning`, `stuck`); bytes read or written, or stdout
+  carries its condition (`waitingOnDisk`, `spinning`, `stuck`); bytes read or written, or stdout
   written, are movement; a run whose process outlives `SIGKILL` by `killGrace` is answered at once
   and listed by `Runner.Stuck` until it ends. Node protocol 17.
 - 5b: each held job counts its movement (`execx.WithMoved`, `execx.Moved`), paused time

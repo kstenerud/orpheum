@@ -571,7 +571,7 @@ func TestFiles_PagesWhatTheScannerSaw(t *testing.T) {
 		FirstSeenAt: 1, LastSeenAt: 2,
 	})
 	librarytest.File(t, harness.database, librarytest.FileSpec{
-		ID: 3, LibraryID: 1, NodeID: 1, Path: "/m/c.mkv", Filing: "errored", FilingReason: "permission_denied",
+		ID: 3, LibraryID: 1, NodeID: 1, Path: "/m/c.mkv", Filing: "errored", FilingReason: "permissionDenied",
 		FirstSeenAt: 1, LastSeenAt: 2,
 	})
 	otherID := librarytest.LibraryOn(t, harness.database, 1,

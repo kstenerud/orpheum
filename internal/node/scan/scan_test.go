@@ -70,7 +70,7 @@ func summary(records []nodeproto.ScanRecord) []string {
 	for _, record := range records {
 		switch record.Type {
 		case nodeproto.RecordScanBegin:
-			lines = append(lines, "scan_begin")
+			lines = append(lines, "scanBegin")
 		case nodeproto.RecordObserved:
 			lines = append(lines, "observed "+record.Observed.Path.Text)
 		case nodeproto.RecordSkip:
@@ -79,13 +79,13 @@ func summary(records []nodeproto.ScanRecord) []string {
 			failure := record.Error
 			lines = append(lines, "error "+failure.Path.Text+" "+string(failure.Scope)+" "+string(failure.Code))
 		case nodeproto.RecordScanComplete:
-			lines = append(lines, "scan_complete")
+			lines = append(lines, "scanComplete")
 		case nodeproto.RecordMount:
 			lines = append(lines, "mount "+record.Mount.Path.Text)
 		case nodeproto.RecordSidecar:
 			lines = append(lines, "sidecar "+record.Sidecar.Path.Text+" "+string(record.Sidecar.Kind))
 		case nodeproto.RecordChunksChecked:
-			lines = append(lines, "chunks_checked "+strconv.FormatInt(record.ChunksChecked.FileID, 10))
+			lines = append(lines, "chunksChecked "+strconv.FormatInt(record.ChunksChecked.FileID, 10))
 		case nodeproto.RecordListed:
 			line := "listed " + record.Listed.Path.Text
 			if record.Listed.IsDirectory {
@@ -164,7 +164,7 @@ func TestExamine_RefusesAnNFOPastTheBound(t *testing.T) {
 	media := nodetest.OpenMediaRoot(t, root)
 	records := examineAll(t, NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options), media,
 		nfo("Film/film.nfo"))
-	want := []string{"error Film/film.nfo entry io_error"}
+	want := []string{"error Film/film.nfo entry ioError"}
 	if got := summary(records); !slices.Equal(got, want) {
 		t.Errorf("examined %q, want %q", got, want)
 	}
@@ -202,14 +202,14 @@ func TestList_CollapsesRepeatedErrorsAndSaysWhoCouldNotRead(t *testing.T) {
 	records := listAll(t, NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options), media)
 
 	want := []string{
-		"scan_begin",
+		"scanBegin",
 		"listed Broken/",
-		"error Broken/a.mkv entry not_found",
+		"error Broken/a.mkv entry notFound",
 		"listed Closed/",
-		"error Closed subtree permission_denied",
+		"error Closed subtree permissionDenied",
 		"listed Open/",
 		"listed Open/d.mkv",
-		"scan_complete",
+		"scanComplete",
 	}
 	if got := summary(records); !slices.Equal(got, want) {
 		t.Errorf("listing:\n  %s\nwant:\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
@@ -222,7 +222,7 @@ func TestList_CollapsesRepeatedErrorsAndSaysWhoCouldNotRead(t *testing.T) {
 		t.Errorf("the collapsed error = %+v, want a count of 3 with the platform's words", broken)
 	}
 	if complete := records[len(records)-1].ScanComplete; complete.ErrorCount != 4 || complete.ListedCount != 4 {
-		t.Errorf("scan_complete = %+v, want 4 errors and 4 listed: a listing that could not read is not clean",
+		t.Errorf("scanComplete = %+v, want 4 errors and 4 listed: a listing that could not read is not clean",
 			complete)
 	}
 }
@@ -257,21 +257,21 @@ func TestList_StopsARootThatKeepsFailing(t *testing.T) {
 	}
 
 	want := []string{
-		"scan_begin",
+		"scanBegin",
 		"listed Dira/",
-		"error Dira subtree permission_denied",
+		"error Dira subtree permissionDenied",
 		"listed Dirb/",
-		"error Dirb subtree permission_denied",
+		"error Dirb subtree permissionDenied",
 		"listed Dirc/",
-		"error Dirc subtree permission_denied",
-		"error . root permission_denied",
-		"scan_complete",
+		"error Dirc subtree permissionDenied",
+		"error . root permissionDenied",
+		"scanComplete",
 	}
 	if got := summary(records); !slices.Equal(got, want) {
 		t.Errorf("listing:\n  %s\nwant:\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
 	}
 	if complete := records[len(records)-1].ScanComplete; !complete.IsStoppedByErrors || complete.ErrorCount != 3 {
-		t.Errorf("scan_complete = %+v, want stopped after 3 errors", complete)
+		t.Errorf("scanComplete = %+v, want stopped after 3 errors", complete)
 	}
 }
 
@@ -286,7 +286,7 @@ func TestList_ACancelledListingNeverSaysComplete(t *testing.T) {
 		t.Errorf("error = %v, want context.Canceled", err)
 	}
 	got := summary(records)
-	if slices.Contains(got, "scan_complete") {
+	if slices.Contains(got, "scanComplete") {
 		t.Errorf("a cancelled listing said complete: %q; the core would apply removals (D39)", got)
 	}
 	if last := got[len(got)-1]; last != "error . run cancelled" {

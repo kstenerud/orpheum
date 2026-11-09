@@ -298,7 +298,7 @@ the user does not know there is anything to look for** — the owner's *"copied 
 never showed up, turned out to be owned by root, no way to see that"*. So it is not only
 findable here: the scan summary says **"complete — 3 files could not be read"** rather than
 "complete", and the reason names the fix — *"owned by `root:root`, mode `0600`, and this node
-runs as uid 998"* — rather than `permission_denied`.
+runs as uid 998"* — rather than `permissionDenied`.
 
 ### Where a correction goes
 

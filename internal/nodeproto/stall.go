@@ -8,14 +8,14 @@ type StallCause string
 // The causes of a stall.
 const (
 	// StallNeverMoved is a run whose position did not move within its start grace.
-	StallNeverMoved StallCause = "never_moved"
+	StallNeverMoved StallCause = "neverMoved"
 	// StallStoodStill is a run whose position stood still for its stall window.
-	StallStoodStill StallCause = "stood_still"
+	StallStoodStill StallCause = "stoodStill"
 	// StallPastDeadline is a run that moved but did not end by its deadline.
-	StallPastDeadline StallCause = "past_deadline"
+	StallPastDeadline StallCause = "pastDeadline"
 	// StallDiskFailed is a read its disk failed as one that does not answer does: a network share
 	// mounted to give up returns an I/O error, a stale handle or a timeout (D233 §10).
-	StallDiskFailed StallCause = "disk_failed"
+	StallDiskFailed StallCause = "diskFailed"
 )
 
 // StallCondition is what a stalled run was doing, as the node read it from /proc (D233 §5).
@@ -25,7 +25,7 @@ type StallCondition string
 const (
 	// ConditionWaitingOnDisk is a run waiting on a device: a read from a dead disk or a hung network
 	// mount, which says the run's root is not answering (D233 §10).
-	ConditionWaitingOnDisk StallCondition = "waiting_on_disk"
+	ConditionWaitingOnDisk StallCondition = "waitingOnDisk"
 	// ConditionSpinning is a run that kept a processor busy without moving.
 	ConditionSpinning StallCondition = "spinning"
 	// ConditionStuck is a run that did nothing.
