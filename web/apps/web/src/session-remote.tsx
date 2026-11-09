@@ -78,7 +78,7 @@ export function useRemoteSource(remote: {
 /** Where the session's film is now, moved on each second while it plays; undefined while unknown. */
 export function usePositionNow(snapshot: TogetherSnapshot | undefined): number | undefined {
   const [nowMs, setNowMs] = useState(monotonicMs);
-  const isPlaying = snapshot?.group?.state === "Playing";
+  const isPlaying = snapshot?.group?.state === "playing";
   useEffect(() => {
     if (!isPlaying) {
       return undefined;
@@ -90,7 +90,7 @@ export function usePositionNow(snapshot: TogetherSnapshot | undefined): number |
       clearInterval(timer);
     };
   }, [isPlaying]);
-  if (snapshot?.group === undefined || snapshot.group.state === "Idle") {
+  if (snapshot?.group === undefined || snapshot.group.state === "idle") {
     return undefined;
   }
   return expectedGroupPositionMs(snapshot, Math.max(nowMs, snapshot.groupReceivedAtMs));
@@ -109,7 +109,7 @@ function remoteSource(remote: {
   readonly ahead: SeekAhead;
 }): PlayerSource {
   const { connection, positionMs, durationMs, ahead } = remote;
-  const isPlaying = remote.snapshot?.group?.state === "Playing";
+  const isPlaying = remote.snapshot?.group?.state === "playing";
   const send = (command: GroupCommand): void => {
     connection?.command(command);
   };
@@ -131,12 +131,12 @@ function remoteSource(remote: {
 /** Where the session's film stands, in the person's words. */
 function stateText(t: TFunction, state: GroupState | undefined): string {
   switch (state) {
-    case "Playing":
+    case "playing":
       return t("remote.playing");
-    case "Paused":
+    case "paused":
       return t("remote.paused");
-    case "Idle":
-    case "Waiting":
+    case "idle":
+    case "waiting":
     case undefined:
       return t("remote.waiting");
   }

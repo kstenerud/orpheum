@@ -23,7 +23,7 @@ export function expectedPositionMs(
   at: { readonly receivedAtMs: number; readonly nowMs: number; readonly transitMs?: number },
 ): number {
   const sentAtMs = at.receivedAtMs - (at.transitMs ?? 0);
-  return group.state === "Playing"
+  return group.state === "playing"
     ? group.positionMs + Math.max(0, at.nowMs - sentAtMs) * group.rate
     : group.positionMs;
 }

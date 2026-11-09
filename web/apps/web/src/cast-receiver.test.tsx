@@ -161,7 +161,7 @@ const welcome = {
   deviceId: 6,
   isHost: true,
   rights: { canPlayPause: true, canSeek: true },
-  group: { state: "Idle", positionMs: 0, rate: 1, fileId: 0 },
+  group: { state: "idle", positionMs: 0, rate: 1, fileId: 0 },
   roster: [],
 };
 
@@ -257,7 +257,7 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
       await server.say({
         type: "group",
         seq: 2,
-        group: { state: "Paused", positionMs: 70_000, rate: 1, fileId: 4, event: "paused" },
+        group: { state: "paused", positionMs: 70_000, rate: 1, fileId: 4, event: "paused" },
       });
       expect(isPaused()).toBe(true);
       expect(server.heard).toContainEqual(
@@ -286,7 +286,7 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
       await server.say({
         type: "group",
         seq,
-        group: { state: "Waiting", positionMs: 61_000, rate: 1, fileId: 4, event },
+        group: { state: "waiting", positionMs: 61_000, rate: 1, fileId: 4, event },
       });
       expect(isPaused(), event).toBe(false);
     }

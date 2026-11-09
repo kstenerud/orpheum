@@ -75,7 +75,7 @@ export class LeaderAwaited {
  */
 export function isAskedByItsGroup(snapshot: TogetherSnapshot): boolean {
   const state = snapshot.group?.state;
-  return isFollowerOf(snapshot) && (state === "Playing" || state === "Waiting");
+  return isFollowerOf(snapshot) && (state === "playing" || state === "waiting");
 }
 
 /**

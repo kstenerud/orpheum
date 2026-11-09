@@ -200,7 +200,7 @@ export class GroupFollower {
   ): { readonly isPlaceRemembered?: true } {
     const isPlaying = !this.#media.paused && !isBuffering;
     this.#hasPlayedAlong ||=
-      isPlaying && (isLeading || this.#connection.snapshot().group?.state === "Playing");
+      isPlaying && (isLeading || this.#connection.snapshot().group?.state === "playing");
     return this.#hasPlayedAlong ? { isPlaceRemembered: true } : {};
   }
 
@@ -257,7 +257,7 @@ export class GroupFollower {
       this.#jumps.tell(this.#media, where.group, true);
       return;
     }
-    if (where.group.state === "Playing") {
+    if (where.group.state === "playing") {
       this.#followPlaying(where);
     } else {
       this.#corrector.holdAt(where);
@@ -429,7 +429,7 @@ export class GroupFollower {
     const snapshot = this.#connection.snapshot();
     const isStalledLeader = this.#wasReportedBuffering === true && this.#isLeading();
     const isToTell = isHostAwaitingLead(snapshot) || isStalledLeader || this.#isCatchingUp();
-    if (snapshot.group?.state === "Waiting" || isToTell) {
+    if (snapshot.group?.state === "waiting" || isToTell) {
       this.#connection.reportState();
     }
   };

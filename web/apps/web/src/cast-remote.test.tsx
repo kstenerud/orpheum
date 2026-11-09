@@ -74,7 +74,7 @@ const welcome = {
   deviceId: 5,
   isHost: true,
   rights: { canPlayPause: true, canSeek: true },
-  group: { state: "Paused", positionMs: 61_000, rate: 1, fileId: 4 },
+  group: { state: "paused", positionMs: 61_000, rate: 1, fileId: 4 },
   roster: [],
 };
 
@@ -492,7 +492,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
     vi.useFakeTimers({ toFake: ["performance", "setInterval", "clearInterval"] });
     try {
       const { sockets, onPlayHere } = await casting({});
-      const playing = { state: "Playing", positionMs: 61_000, rate: 1, fileId: 4 };
+      const playing = { state: "playing", positionMs: 61_000, rate: 1, fileId: 4 };
       await sockets.session.say({ type: "group", seq: 4, group: { ...playing, event: "played" } });
       await sockets.session.say({ type: "roster", roster: receiverLeads });
       act(() => {
@@ -521,7 +521,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
 
   it("plays the film here on, where the receiver played it, as the cast is stopped from Cast's dialog (D446 §2)", async () => {
     const { sockets, onPlayHere } = await casting({});
-    const playing = { state: "Playing", positionMs: 61_000, rate: 1, fileId: 4 };
+    const playing = { state: "playing", positionMs: 61_000, rate: 1, fileId: 4 };
     await sockets.session.say({ type: "group", seq: 4, group: { ...playing, event: "played" } });
     await sockets.session.say({ type: "ended", reason: "stopped" });
     expect(onPlayHere).toHaveBeenCalledOnce();
@@ -612,7 +612,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
       heard,
     );
     expect(buttonWithText(mounted!.container, "Up next: S1E2 · Cat")).toBeUndefined(); // at 1:01
-    const atTheEnd = { state: "Paused", positionMs: 575_000, rate: 1, fileId: 4, event: "seeked" };
+    const atTheEnd = { state: "paused", positionMs: 575_000, rate: 1, fileId: 4, event: "seeked" };
     await sockets.session.say({ type: "group", seq: 4, group: atTheEnd });
     await click(buttonWithText(mounted!.container, "Up next: S1E2 · Cat"));
     expect(heard.some((each) => each.methodAndPath === "POST /me/casts/9/next")).toBe(true);

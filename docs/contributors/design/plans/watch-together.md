@@ -96,7 +96,7 @@ is a player's position, buffering, play, pause, seek and rate
 
 ## Sync
 
-**The group** has a state, `Idle`, `Waiting`, `Paused` or `Playing`, a position, a rate and what
+**The group** has a state, `idle`, `waiting`, `paused` or `playing`, a position, a rate and what
 plays. The server holds it, applies the host's commands in arrival order, and tells every device
 each change with a sequence number. A seek made against a group another seek has since changed is
 refused as stale. Everything rides the session WebSocket, one per device; never a WebRTC data
@@ -113,7 +113,7 @@ then plays from there at once (event `leaderPlays`). **No one's stall holds the 
 ([D373](../../decisions/working-notes.md#d373--no-ones-stall-holds-a-watch-together-group-a-leader-stalled-past-a-short-grace-passes-the-lead)):
 a playing group plays on through a follower's stall and its leader's alike, and a leader stalled
 past a grace of 3 s is gone for the lead, which passes as below (`goneBecause=stalled`); a cast's
-group, a session of one, still stands for its receiver's stall (`Waiting`, event `waitingFor`). Another device's play, pause or seek, a cast's remote's or
+group, a session of one, still stands for its receiver's stall (`waiting`, event `waitingFor`). Another device's play, pause or seek, a cast's remote's or
 a guest's, the leader carries out as its own press. **The lead passes down the line**
 ([D372](../../decisions/working-notes.md#d372--a-sessions-lead-passes-to-its-longest-present-player-while-the-hosts-screen-is-gone-and-a-person-is-in-one-session-at-most)
 §1–§7): while none of the host's devices can lead, the player present longest without a break
@@ -121,8 +121,8 @@ leads, a guest's as readily, by the moment the core saw it arrive (again as it c
 leader whose connection closes or goes silent, or whose page its browser hides, is gone, and the
 lead passes at once; the host's player coming back follows until it plays in step, then leads
 again; leading carries the clock, never a host's right. With no one left who can lead, the group
-is held where it stands (`Paused`, event `everyoneLeft`), keeping whether it was playing
-(`isHeldPlaying`); the first player back leads it on as it was, playing (`Waiting`, event
+is held where it stands (`paused`, event `everyoneLeft`), keeping whether it was playing
+(`isHeldPlaying`); the first player back leads it on as it was, playing (`waiting`, event
 `resumedOnReturn`, then `leaderPlays`) or paused (D375). A player is
 ready after a stall only with 10 s loaded ahead (`refillAheadMs`,
 [D247](../../decisions/working-notes.md#d247--a-slow-link-gets-a-lower-version-made-at-its-first-stall-and-played-from-its-second-and-a-group-waits-for-a-stalled-viewer-once-then-lets-them-catch-up-alone)

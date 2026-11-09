@@ -56,7 +56,7 @@ export function notePlayedWhileHeld(played: {
   if (
     event !== "play" ||
     where === undefined ||
-    where.group.state === "Playing" ||
+    where.group.state === "playing" ||
     played.isLeading === true
   ) {
     return;

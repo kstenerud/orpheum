@@ -119,7 +119,7 @@ export class GroupLeader {
    */
   #joinAt(where: GroupNow): void {
     const { state } = where.group;
-    const isUnderWay = state === "Playing" || state === "Paused";
+    const isUnderWay = state === "playing" || state === "paused";
     if (
       isUnderWay &&
       Math.abs(where.expectedMs - positionMsOf(this.#parts.media)) > where.tuning.seekDriftBeyondMs
@@ -157,14 +157,14 @@ export class GroupLeader {
     if (media.playbackRate !== group.rate) {
       media.playbackRate = group.rate;
     }
-    if (group.state === "Paused") {
+    if (group.state === "paused") {
       this.#parts.startGate.cancel(); // a start waiting to play stays paused
     }
-    if (group.state === "Paused" && !media.paused) {
+    if (group.state === "paused" && !media.paused) {
       ownMoves.mark("pause", monotonicMs());
       media.pause();
     } else if (
-      (group.state === "Playing" || group.state === "Waiting") &&
+      (group.state === "playing" || group.state === "waiting") &&
       media.paused &&
       !media.ended
     ) {
@@ -213,7 +213,7 @@ export class LeaderCatchUp {
     },
     isAwaitingGroup: boolean,
   ): void {
-    if (where.group?.state !== "Playing" || isAwaitingGroup) {
+    if (where.group?.state !== "playing" || isAwaitingGroup) {
       this.#stall = undefined;
       return;
     }

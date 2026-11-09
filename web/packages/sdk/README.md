@@ -61,7 +61,7 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   whose session another device leads follows the group as above. `src/together-leader.test.ts`,
   `src/together-connection-leader.test.ts`.
 - **A group held for want of a player is a paused group** (D375): everyone's screen gone, the server
-  holds it `Paused` where it stood, and `isHeldPlaying` says whether it was playing, to play on as a
+  holds it `paused` where it stood, and `isHeldPlaying` says whether it was playing, to play on as a
   screen comes back (event `resumedOnReturn`); a player follows it as any paused group, its clock
   still. `apps/web/src/together-events.test.ts`.
 - **A player that has played its film with its group has a position of its own** (D377 §3, §4), said

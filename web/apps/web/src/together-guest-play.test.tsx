@@ -27,7 +27,7 @@ function welcomePlaying(fileId: number): Readonly<Record<string, unknown>> {
     sessionId: 1,
     memberId: 2,
     deviceId: 8,
-    group: { state: fileId === 0 ? "Idle" : "Paused", positionMs: 0, rate: 1, fileId },
+    group: { state: fileId === 0 ? "idle" : "paused", positionMs: 0, rate: 1, fileId },
     roster: [
       { id: 1, name: "Karl", isHost: true, devices: [{ id: 3, role: "video" }] },
       { id: 2, name: "Gran", devices: [{ id: 8, role: "panel" }] },
@@ -157,7 +157,7 @@ describe("the group's film on a guest's Play page (D384 §2)", () => {
     await server.say({
       type: "group",
       seq: 2,
-      group: { state: "Idle", positionMs: 0, rate: 1, fileId: 6 },
+      group: { state: "idle", positionMs: 0, rate: 1, fileId: 6 },
     });
     expect(services.navigation.route()).toEqual({ screen: "play", fileId: 6 });
     mounted.unmount();

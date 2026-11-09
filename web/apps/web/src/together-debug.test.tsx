@@ -32,7 +32,7 @@ function sessionLedBy(leaderId: number, why: string): TogetherSnapshot {
     isHost: false,
     rights: everyRight,
     group: {
-      state: "Playing",
+      state: "playing",
       positionMs: 60_000,
       rate: 1,
       fileId: 7,
@@ -72,19 +72,19 @@ describe("Watch Together's leader debug view (the owner, 2026-10-29)", () => {
       "Karl: device 3 (video) · ▶ leading",
       "Kim: device 4 (video) · this device",
       "Kim: device 5 (video)",
-      "Playing · leader device 3 (Karl) · why putOn · this device 4",
+      "playing · leader device 3 (Karl) · why putOn · this device 4",
     ]);
     expect(linesOf(sessionLedBy(4, "leaderGone:hidden"), true)).toEqual([
       "Karl: device 3 (video)",
       "Kim: device 4 (video) · ▶ leading · this device",
       "Kim: device 5 (video)",
-      "Playing · leader device 4 (Kim) · why leaderGone:hidden · this device 4",
+      "playing · leader device 4 (Kim) · why leaderGone:hidden · this device 4",
     ]);
   });
 
   it("says when no device leads", () => {
     expect(linesOf(sessionLedBy(0, ""), true).at(-1)).toBe(
-      "Playing · leader none · why none · this device 4",
+      "playing · leader none · why none · this device 4",
     );
   });
 

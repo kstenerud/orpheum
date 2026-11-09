@@ -123,7 +123,7 @@ const welcome = {
   sessionId: 1,
   memberId: 2,
   deviceId: 8,
-  group: { state: "Idle", positionMs: 0, rate: 1, fileId: 0 },
+  group: { state: "idle", positionMs: 0, rate: 1, fileId: 0 },
   roster: [
     {
       id: 1,

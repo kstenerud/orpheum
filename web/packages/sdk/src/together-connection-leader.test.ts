@@ -60,7 +60,7 @@ function welcomed(roster: readonly unknown[]): {
       seq: 4,
       memberId: 7,
       deviceId: 9,
-      group: { state: "Playing", positionMs: 10_000, rate: 1, fileId: 3 },
+      group: { state: "playing", positionMs: 10_000, rate: 1, fileId: 3 },
       roster,
     }),
   );
@@ -141,7 +141,7 @@ describe("a session's leader, as its roster says (D371 §1)", () => {
         type: "group",
         seq: 5,
         group: {
-          state: "Playing",
+          state: "playing",
           positionMs: 600_000,
           rate: 1,
           fileId: 3,

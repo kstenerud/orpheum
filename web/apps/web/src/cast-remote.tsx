@@ -215,7 +215,7 @@ function useWhereItStood(snapshot: TogetherSnapshot | undefined): RefObject<Reop
   const stoodRef = useRef<ReopenAt | undefined>(undefined);
   const isLed =
     snapshot !== undefined && snapshot.status !== "ended" && leaderOf(snapshot) !== undefined;
-  const isPaused = snapshot?.group?.state === "Paused";
+  const isPaused = snapshot?.group?.state === "paused";
   useEffect(() => {
     if (isLed && positionMs !== undefined) {
       stoodRef.current = { positionMs, isPaused };
@@ -260,7 +260,7 @@ function useCastSession(castId: number): {
     over: endOf({
       endReason,
       isGone,
-      stood: { positionMs: positionMs ?? 0, isPaused: snapshot?.group?.state === "Paused" },
+      stood: { positionMs: positionMs ?? 0, isPaused: snapshot?.group?.state === "paused" },
     }),
   };
 }

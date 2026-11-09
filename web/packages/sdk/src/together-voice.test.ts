@@ -262,7 +262,7 @@ function welcome(deviceId: number, members: readonly unknown[] = roster): Record
     sessionId: 1,
     memberId: 7,
     deviceId,
-    group: { state: "Idle" },
+    group: { state: "idle" },
     roster: members,
   };
 }

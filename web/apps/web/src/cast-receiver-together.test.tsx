@@ -32,7 +32,7 @@ const welcome = {
   deviceId: 6,
   isHost: true,
   rights: { canPlayPause: true, canSeek: true },
-  group: { state: "Idle", positionMs: 0, rate: 1, fileId: 0 },
+  group: { state: "idle", positionMs: 0, rate: 1, fileId: 0 },
   roster: [],
 };
 
@@ -81,7 +81,7 @@ describe("a cast's receiver and its person's Watch Together session (D364 §11, 
     await castServer?.accept();
     await castServer?.say({
       ...welcome,
-      group: { state: "Paused", positionMs: 1_200_000, rate: 1, fileId: 4 },
+      group: { state: "paused", positionMs: 1_200_000, rate: 1, fileId: 4 },
     });
     await act(async () => {
       handAgain({ ...cast, positionMs: 1_199_000, togetherCredential: "hosted" });

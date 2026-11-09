@@ -38,8 +38,8 @@ export class GroupLoading {
 
   /** Follows the group's state, this player ready or not: held while it waits and this is ready. */
   readonly follow = (state: GroupState, isReady: boolean): void => {
-    this.#hold(state === "Waiting" && isReady);
-    this.#keepRunway(state === "Playing" && isAnotherLoading(this.#connection.snapshot()));
+    this.#hold(state === "waiting" && isReady);
+    this.#keepRunway(state === "playing" && isAnotherLoading(this.#connection.snapshot()));
   };
 
   /** Lets the player load as it would, as the follower stops. */

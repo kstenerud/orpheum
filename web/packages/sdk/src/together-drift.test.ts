@@ -13,7 +13,7 @@ import {
 
 describe("where the group is (D66: no clock sync)", () => {
   const playing: GroupView = {
-    state: "Playing",
+    state: "playing",
     positionMs: 10_000,
     rate: 1.5,
     fileId: 1,
@@ -29,11 +29,11 @@ describe("where the group is (D66: no clock sync)", () => {
 
   it("stays where it was told while it does not play", () => {
     expect(
-      expectedPositionMs({ ...playing, state: "Waiting" }, { receivedAtMs: 500, nowMs: 1500 }),
+      expectedPositionMs({ ...playing, state: "waiting" }, { receivedAtMs: 500, nowMs: 1500 }),
     ).toBe(10_000);
     expect(
       expectedPositionMs(
-        { ...playing, state: "Waiting" },
+        { ...playing, state: "waiting" },
         { receivedAtMs: 500, nowMs: 1500, transitMs: 150 },
       ),
     ).toBe(10_000);

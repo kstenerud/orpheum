@@ -67,7 +67,7 @@ describe("the lead passing down the line (D372)", () => {
     const media = new FakeMedia();
     media.currentTime = 60;
     const page = new FakePage();
-    const { connection, reports } = fakeConnection({ ...paused, state: "Playing" });
+    const { connection, reports } = fakeConnection({ ...paused, state: "playing" });
     const roster = { host: [], guest: [player(thisDevice, true)] };
     followGroup(media, withMembers(connection, roster, false), {
       fileId: 5,
@@ -83,7 +83,7 @@ describe("the lead passing down the line (D372)", () => {
 
   it("says nothing of a hidden page where hiding pauses nothing: a computer's plays on and may lead", () => {
     const media = new FakeMedia();
-    const { connection, reports } = fakeConnection({ ...paused, state: "Playing" });
+    const { connection, reports } = fakeConnection({ ...paused, state: "playing" });
     followGroup(media, connection, { fileId: 5, leads: everyRight, monotonicMs });
     connection.reportState();
     expect(reports.at(-1)?.isPageHidden).toBeUndefined();
@@ -108,7 +108,7 @@ describe("the lead passing down the line (D372)", () => {
     expect(isHostAwaitingLead(host.snapshot())).toBe(true);
     followGroup(media, host, { fileId: 5, leads: everyRight, monotonicMs });
     monotonicNowMs = 1000;
-    setGroup({ ...paused, state: "Playing", positionMs: 70_000 }, 1000);
+    setGroup({ ...paused, state: "playing", positionMs: 70_000 }, 1000);
     expect(media.paused).toBe(false); // it plays along, caught up to the guest's lead
     const before = reports.length;
     monotonicNowMs = 4000;
@@ -125,7 +125,7 @@ describe("the lead passing down the line (D372)", () => {
   it("puts back where the group is a guest's leading player its person paused without the right (§4)", () => {
     const media = new FakeMedia();
     media.currentTime = 60;
-    const { connection, commands, notes } = fakeConnection({ ...paused, state: "Playing" });
+    const { connection, commands, notes } = fakeConnection({ ...paused, state: "playing" });
     const roster = { host: [], guest: [player(thisDevice, true)] };
     followGroup(media, withMembers(connection, roster, false), {
       fileId: 5,

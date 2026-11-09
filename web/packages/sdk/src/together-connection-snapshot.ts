@@ -142,8 +142,8 @@ export function isSameTimeline(
   next: GroupView,
 ): current is GroupView {
   return (
-    current?.state === "Playing" &&
-    next.state === "Playing" &&
+    current?.state === "playing" &&
+    next.state === "playing" &&
     current.fileId === next.fileId &&
     current.rate === next.rate &&
     next.event !== "seeked" &&

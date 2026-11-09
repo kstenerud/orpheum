@@ -48,7 +48,7 @@ function fallenBehindOnAHalfSpeedLink(isLeading = false): {
   media.loaded = [[0, 105]];
   const { connection, setGroup, commands } = fakeConnection({
     ...paused,
-    state: "Playing",
+    state: "playing",
     positionMs: 100_000,
   });
   followGroup(media, connection, {
@@ -92,7 +92,7 @@ describe("a player following its group", () => {
     expect(media.paused).toBe(true);
     expect(media.currentTime).toBe(60);
     monotonicNowMs = 1000;
-    setGroup({ ...paused, state: "Playing" }, 1000);
+    setGroup({ ...paused, state: "playing" }, 1000);
     expect(media.paused).toBe(false);
     monotonicNowMs = 1000 + checkDriftEveryMs;
     // The element did not move on: a second behind, it is nudged faster.
@@ -110,7 +110,7 @@ describe("a player following its group", () => {
     });
     expect(notes).toEqual([{ kind: "sought", positionMs: 0, toMs: 60_000, why: "hold" }]);
     monotonicNowMs = 1000;
-    setGroup({ ...paused, state: "Playing" }, 1000);
+    setGroup({ ...paused, state: "playing" }, 1000);
     monotonicNowMs = 1000 + checkDriftEveryMs;
     vi.advanceTimersByTime(checkDriftEveryMs);
     expect(notes.at(-1)).toEqual({
@@ -200,7 +200,7 @@ describe("a player following its group", () => {
     followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs });
     media.fire("seeked");
     monotonicNowMs = 1000;
-    setGroup({ ...paused, state: "Playing" }, 1000);
+    setGroup({ ...paused, state: "playing" }, 1000);
     media.loaded = [[60, 60.5]]; // it stalls with half a second loaded
     media.fire("waiting");
     monotonicNowMs = 1000 + checkDriftEveryMs;
@@ -221,7 +221,7 @@ describe("a player following its group", () => {
     const settleMs = startingTuning.settleAfterChangeMs;
     const nudges = (): PlayerNote[] => notes.filter((note) => note.kind === "nudged");
     monotonicNowMs = 1000;
-    setGroup({ ...paused, state: "Playing" }, 1000);
+    setGroup({ ...paused, state: "playing" }, 1000);
     monotonicNowMs = 2000; // it starts playing a second late: its position has not moved yet
     media.fire("playing");
     monotonicNowMs = 2000 + settleMs - 1;
@@ -251,7 +251,7 @@ describe("a player following its group", () => {
     const { connection, setGroup, notes } = fakeConnection(paused);
     followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs });
     monotonicNowMs = 1000;
-    setGroup({ ...paused, state: "Playing" }, 1000);
+    setGroup({ ...paused, state: "playing" }, 1000);
     monotonicNowMs = 3000;
     media.fire("seeked"); // two seconds behind just as a seek lands
     expect(notes.filter((note) => note.kind === "nudged")).toEqual([]);
@@ -270,7 +270,7 @@ describe("a player following its group", () => {
       });
       followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs });
       monotonicNowMs = 1000;
-      setGroup({ ...paused, state: "Playing" }, 1000);
+      setGroup({ ...paused, state: "playing" }, 1000);
       monotonicNowMs = 2000;
       media.fire("canplay");
       expect(media.playbackRate).toBeCloseTo(1.1);
@@ -285,7 +285,7 @@ describe("a player following its group", () => {
     followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs });
     media.currentTime = 61; // where the group is, a second after it was sent
     monotonicNowMs = 1000;
-    setGroup({ ...paused, state: "Playing" }, 1000);
+    setGroup({ ...paused, state: "playing" }, 1000);
     expect(notes.filter((note) => note.kind === "nudged" || note.kind === "sought")).toEqual([
       { kind: "sought", positionMs: 0, toMs: 60_000, why: "hold" },
     ]);
@@ -299,7 +299,7 @@ describe("a player following its group", () => {
     followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs });
     media.currentTime = 61; // where the group is, a second after the pong said 60 s
     monotonicNowMs = 1000;
-    setGroup({ ...paused, state: "Playing" }, 1000, 2000);
+    setGroup({ ...paused, state: "playing" }, 1000, 2000);
     expect(notes.filter((note) => note.kind === "nudged" || note.kind === "sought")).toEqual([
       { kind: "sought", positionMs: 0, toMs: 60_000, why: "hold" },
     ]);
@@ -405,7 +405,7 @@ describe("a player following its group", () => {
 
   it("tells a waiting group its state each check, so the server can end the wait on time", () => {
     const media = new FakeMedia();
-    const { connection, reports, setGroup } = fakeConnection({ ...paused, state: "Waiting" });
+    const { connection, reports, setGroup } = fakeConnection({ ...paused, state: "waiting" });
     followGroup(media, connection, {
       fileId: 5,
       leads: noRight,
@@ -414,7 +414,7 @@ describe("a player following its group", () => {
     const reportsBefore = reports.length;
     vi.advanceTimersByTime(checkDriftEveryMs * 3);
     expect(reports.length - reportsBefore).toBe(3);
-    setGroup({ ...paused, state: "Paused" }, 0);
+    setGroup({ ...paused, state: "paused" }, 0);
     const reportsPaused = reports.length;
     vi.advanceTimersByTime(checkDriftEveryMs * 3);
     expect(reports).toHaveLength(reportsPaused);
@@ -423,7 +423,7 @@ describe("a player following its group", () => {
   it("corrects nothing while it is still loading, which a correction would only start again", () => {
     const media = new FakeMedia();
     media.readyState = 2;
-    const { connection } = fakeConnection({ ...paused, state: "Playing" });
+    const { connection } = fakeConnection({ ...paused, state: "playing" });
     followGroup(media, connection, {
       fileId: 5,
       leads: noRight,
@@ -438,7 +438,7 @@ describe("a player following its group", () => {
   it("waiting, seeks once to the group's position, not again as the browser moves it while it loads", () => {
     const media = new FakeMedia();
     media.readyState = 1;
-    const { connection } = fakeConnection({ ...paused, state: "Waiting" });
+    const { connection } = fakeConnection({ ...paused, state: "waiting" });
     followGroup(media, connection, {
       fileId: 5,
       leads: noRight,
@@ -456,7 +456,7 @@ describe("a player following its group", () => {
   it("says it fell behind as it seeks to catch up with the group, once it has been in step", () => {
     const media = new FakeMedia();
     media.readyState = 4;
-    const { connection, setGroup } = fakeConnection({ ...paused, state: "Playing" });
+    const { connection, setGroup } = fakeConnection({ ...paused, state: "playing" });
     followGroup(media, connection, {
       fileId: 5,
       leads: noRight,
@@ -467,7 +467,7 @@ describe("a player following its group", () => {
     media.fire("seeked");
     vi.advanceTimersByTime(checkDriftEveryMs);
     expect(media.dispatched).toEqual([catchUpSeekEvent]);
-    setGroup({ ...paused, state: "Playing", positionMs: 120_000 }, 0);
+    setGroup({ ...paused, state: "playing", positionMs: 120_000 }, 0);
     expect(media.dispatched).toEqual([catchUpSeekEvent, fellBehindEvent, catchUpSeekEvent]);
   });
 
@@ -476,7 +476,7 @@ describe("a player following its group", () => {
     media.currentTime = 60;
     media.loaded = [[60.4, 120]]; // a copied picture whose first loaded frame comes a moment late
     media.readyState = 1;
-    const { connection, reports } = fakeConnection({ ...paused, state: "Waiting" });
+    const { connection, reports } = fakeConnection({ ...paused, state: "waiting" });
     followGroup(media, connection, {
       fileId: 5,
       leads: noRight,
@@ -517,7 +517,7 @@ describe("a player following its group", () => {
     media.currentTime = 0;
     media.loaded = [[0.04, 60.03]]; // a prepared copy's first frame, 40 ms in (staging, 2026-10-06)
     media.readyState = 4;
-    const { connection, reports } = fakeConnection({ ...paused, state: "Waiting", positionMs: 0 });
+    const { connection, reports } = fakeConnection({ ...paused, state: "waiting", positionMs: 0 });
     followGroup(media, connection, {
       fileId: 5,
       leads: noRight,
@@ -566,7 +566,7 @@ describe("a player following its group", () => {
     const media = new FakeMedia();
     media.currentTime = 100;
     media.loaded = [[0, 105]];
-    const { connection } = fakeConnection({ ...paused, state: "Playing", positionMs: 100_000 });
+    const { connection } = fakeConnection({ ...paused, state: "playing", positionMs: 100_000 });
     followGroup(media, connection, {
       fileId: 5,
       leads: noRight,
@@ -589,7 +589,7 @@ describe("a player following its group", () => {
     media.loaded = [[0, 105]];
     const { connection, notes } = fakeConnection({
       ...paused,
-      state: "Playing",
+      state: "playing",
       positionMs: 100_000,
     });
     followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs });
@@ -651,14 +651,14 @@ describe("a player following its group", () => {
     expect(media.currentTime).toBe(110);
     media.fire("seeked");
     monotonicNowMs = 12_000;
-    setGroup({ ...paused, state: "Playing", positionMs: 110_000 }, 12_000);
+    setGroup({ ...paused, state: "playing", positionMs: 110_000 }, 12_000);
     expect(media.paused).toBe(false);
     expect(media.currentTime).toBe(110); // not back to where it had waited
   });
 
   it("aims a catch-up seek ahead by how long its last seek took to load, up to a limit", () => {
     const media = new FakeMedia();
-    const { connection } = fakeConnection({ ...paused, state: "Playing" });
+    const { connection } = fakeConnection({ ...paused, state: "playing" });
     followGroup(media, connection, {
       fileId: 5,
       leads: noRight,
@@ -684,7 +684,7 @@ describe("a player following its group", () => {
 
   it("aims a catch-up seek only a moment ahead where it holds the film there already", () => {
     const media = new FakeMedia();
-    const { connection } = fakeConnection({ ...paused, state: "Playing" });
+    const { connection } = fakeConnection({ ...paused, state: "playing" });
     followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs });
     media.readyState = 2;
     media.fire("seeking");

@@ -116,7 +116,7 @@ describe("a player that leads its session (D371 §1)", () => {
     // a follower's rule), 2026-10-29.
     const { media, setGroup } = leading(paused, { mediaAtS: 60, isPlaying: true });
     setGroup(
-      { ...paused, state: "Waiting", event: "seeked", seekedFromMs: 60_000, positionMs: 900_000 },
+      { ...paused, state: "waiting", event: "seeked", seekedFromMs: 60_000, positionMs: 900_000 },
       0,
     );
     vi.advanceTimersByTime(3000);
@@ -126,7 +126,7 @@ describe("a player that leads its session (D371 §1)", () => {
   it("is never nudged, skipped or sought to where the group reckons it should be: the group follows it", () => {
     const { media, setGroup, notes, commands } = leading(paused, { mediaAtS: 60, isPlaying: true });
     monotonicNowMs = 1000;
-    setGroup({ ...paused, state: "Playing" }, 1000);
+    setGroup({ ...paused, state: "playing" }, 1000);
     for (const behindS of [1, 2, 5, 30]) {
       monotonicNowMs += checkDriftEveryMs;
       vi.advanceTimersByTime(checkDriftEveryMs); // the element does not move on: it falls behind
@@ -140,14 +140,14 @@ describe("a player that leads its session (D371 §1)", () => {
 
   it("plays the film it put on as soon as the group stands for it, and is held by nothing after", () => {
     const { media, setGroup, notes } = leading(
-      { ...paused, state: "Idle", fileId: 0 },
+      { ...paused, state: "idle", fileId: 0 },
       { mediaAtS: 60, isPlaying: false },
     );
-    setGroup({ ...paused, state: "Waiting", event: "changedItem" }, 0);
+    setGroup({ ...paused, state: "waiting", event: "changedItem" }, 0);
     expect(media.paused).toBe(false);
     // The group stands for it as it stalls: nothing pauses it, or seeks it back.
     media.currentTime = 64;
-    setGroup({ ...paused, state: "Waiting", event: "waitingFor", positionMs: 63_000 }, 4000);
+    setGroup({ ...paused, state: "waiting", event: "waitingFor", positionMs: 63_000 }, 4000);
     monotonicNowMs = 5000;
     vi.advanceTimersByTime(checkDriftEveryMs);
     expect(media.paused).toBe(false);
@@ -157,18 +157,18 @@ describe("a player that leads its session (D371 §1)", () => {
 
   it("carries out another device's pause, play and seek once each, as its own press, sending no command", () => {
     const { media, setGroup, notes, commands } = leading(
-      { ...paused, state: "Playing" },
+      { ...paused, state: "playing" },
       { mediaAtS: 60, isPlaying: true },
     );
-    setGroup({ ...paused, state: "Paused", event: "paused", positionMs: 61_000 }, 1000);
+    setGroup({ ...paused, state: "paused", event: "paused", positionMs: 61_000 }, 1000);
     media.fire("pause");
     expect(media.paused).toBe(true);
     expect(media.currentTime).toBe(60); // paused where it is, not where the group reckoned
-    setGroup({ ...paused, state: "Waiting", event: "played" }, 2000);
+    setGroup({ ...paused, state: "waiting", event: "played" }, 2000);
     media.fire("play");
     expect(media.paused).toBe(false);
     setGroup(
-      { ...paused, state: "Waiting", event: "seeked", seekedFromMs: 60_000, positionMs: 600_000 },
+      { ...paused, state: "waiting", event: "seeked", seekedFromMs: 60_000, positionMs: 600_000 },
       3000,
     );
     media.fire("seeking");
@@ -187,7 +187,7 @@ describe("a player that leads its session (D371 §1)", () => {
     // A Fire TV leading a cast sought back about 200 ms after each of its own 10 s skips (staging,
     // 2026-10-28, 18:32:39 and 18:32:44).
     const { media, setGroup, notes, commands } = leading(
-      { ...paused, state: "Playing" },
+      { ...paused, state: "playing" },
       { mediaAtS: 60, isPlaying: true },
     );
     media.currentTime = 70;
@@ -197,7 +197,7 @@ describe("a player that leads its session (D371 §1)", () => {
     expect(commands).toEqual([{ command: "seek", positionMs: 70_000 }]);
     media.currentTime = 70.3; // it plays on as the group hears of its seek
     setGroup(
-      { ...paused, state: "Waiting", event: "seeked", seekedFromMs: 60_000, positionMs: 70_000 },
+      { ...paused, state: "waiting", event: "seeked", seekedFromMs: 60_000, positionMs: 70_000 },
       2000,
     );
     expect(media.currentTime).toBe(70.3);
@@ -205,7 +205,7 @@ describe("a player that leads its session (D371 §1)", () => {
     // Another device's seek to the same place later is carried out.
     media.currentTime = 90;
     setGroup(
-      { ...paused, state: "Waiting", event: "seeked", seekedFromMs: 90_000, positionMs: 70_000 },
+      { ...paused, state: "waiting", event: "seeked", seekedFromMs: 90_000, positionMs: 70_000 },
       3000,
     );
     expect(media.currentTime).toBe(70);
@@ -215,7 +215,7 @@ describe("a player that leads its session (D371 §1)", () => {
     // Two 10 s skips forward in a row, the second sent before the group's change for the first
     // came: the first's change was taken for another device's seek, and the player jumped back to it.
     const { media, setGroup, notes, commands } = leading(
-      { ...paused, state: "Playing" },
+      { ...paused, state: "playing" },
       { mediaAtS: 60, isPlaying: true },
     );
     media.currentTime = 70;
@@ -232,12 +232,12 @@ describe("a player that leads its session (D371 §1)", () => {
     ]);
     media.currentTime = 80.8; // it plays on from its second seek as the first's change comes
     setGroup(
-      { ...paused, state: "Waiting", event: "seeked", seekedFromMs: 60_000, positionMs: 70_000 },
+      { ...paused, state: "waiting", event: "seeked", seekedFromMs: 60_000, positionMs: 70_000 },
       2000,
     );
     expect(media.currentTime).toBe(80.8);
     setGroup(
-      { ...paused, state: "Waiting", event: "seeked", seekedFromMs: 70_000, positionMs: 80_500 },
+      { ...paused, state: "waiting", event: "seeked", seekedFromMs: 70_000, positionMs: 80_500 },
       2100,
     );
     expect(media.currentTime).toBe(80.8);
@@ -246,7 +246,7 @@ describe("a player that leads its session (D371 §1)", () => {
 
   it("sends its own person's pause as a command, the group following it", () => {
     const { media, commands } = leading(
-      { ...paused, state: "Playing" },
+      { ...paused, state: "playing" },
       { mediaAtS: 60, isPlaying: true },
     );
     media.paused = true;
@@ -257,7 +257,7 @@ describe("a player that leads its session (D371 §1)", () => {
 
   it("takes the place of a group under way far from it as it begins to lead, and not of one it put on", () => {
     const joined = leading(
-      { ...paused, state: "Playing", positionMs: 900_000 },
+      { ...paused, state: "playing", positionMs: 900_000 },
       { mediaAtS: 60, isPlaying: true },
     );
     expect(joined.media.currentTime).toBe(900);
@@ -265,7 +265,7 @@ describe("a player that leads its session (D371 §1)", () => {
       { kind: "sought", positionMs: 60_000, toMs: 900_000, why: "join" },
     ]);
     const putOn = leading(
-      { ...paused, state: "Waiting", event: "changedItem", positionMs: 900_000 },
+      { ...paused, state: "waiting", event: "changedItem", positionMs: 900_000 },
       { mediaAtS: 60, isPlaying: false },
     );
     expect(putOn.media.currentTime).toBe(60);
@@ -273,7 +273,7 @@ describe("a player that leads its session (D371 §1)", () => {
 
   it("says it buffers only while it cannot play on, never for want of being where the group is", () => {
     const { media, reports, connection } = leading(
-      { ...paused, state: "Playing", positionMs: 900_000 },
+      { ...paused, state: "playing", positionMs: 900_000 },
       { mediaAtS: 60, isPlaying: true },
     );
     media.currentTime = 30; // as if it never reached the group
@@ -286,7 +286,7 @@ describe("a player that leads its session (D371 §1)", () => {
 
   it("tells its state each second while it stalls and its group plays on, by which the server hands its lead on (D373 §2)", () => {
     const { media, reports, connection } = leading(
-      { ...paused, state: "Playing", positionMs: 60_000 },
+      { ...paused, state: "playing", positionMs: 60_000 },
       { mediaAtS: 60, isPlaying: true },
     );
     const playing = reports.length;
@@ -309,7 +309,7 @@ describe("a player that leads its session (D371 §1)", () => {
     const media = new FakeMedia();
     media.currentTime = 60;
     media.paused = false;
-    const fake = fakeConnection({ ...paused, state: "Playing", positionMs: 60_000 });
+    const fake = fakeConnection({ ...paused, state: "playing", positionMs: 60_000 });
     const withAFollower = [device(thisDevice, "video", true), device(9, "video")];
     followGroup(media, withRoster(fake.connection, withAFollower), {
       fileId: 5,
@@ -342,7 +342,7 @@ describe("a player that leads its session (D371 §1)", () => {
 
   it("tells its session how it plays the film: its delivery, the quality it began and the link it chose it on (D371 §4)", () => {
     const { media, reports } = leading(
-      { ...paused, state: "Playing" },
+      { ...paused, state: "playing" },
       { mediaAtS: 60, isPlaying: true, delivery: "converted" },
     );
     const switched: QualitySwitched = { qualityKbps: 4200, linkEstimateKbps: 18_000 };
@@ -368,7 +368,7 @@ describe("a following player whose session another device leads", () => {
     const { connection, setGroup, notes } = fakeConnection(paused);
     followGroup(media, withRoster(connection, devices), { fileId: 5, leads: noRight, monotonicMs });
     monotonicNowMs = 1000;
-    setGroup({ ...paused, state: "Playing" }, 1000);
+    setGroup({ ...paused, state: "playing" }, 1000);
     monotonicNowMs = 1000 + checkDriftEveryMs;
     vi.advanceTimersByTime(checkDriftEveryMs); // the element did not move on: a second behind
     return { media, notes };
@@ -391,12 +391,12 @@ describe("a following player whose session another device leads", () => {
   it("is held where the group stands for its leader, plays at once as the leader plays, and is nudged into step (D371 §2, §6)", () => {
     const { media, setGroup, commands } = following({
       ...paused,
-      state: "Waiting",
+      state: "waiting",
       event: "changedItem",
     });
     expect(media.paused).toBe(true);
     monotonicNowMs = 1000;
-    setGroup({ ...paused, state: "Playing", event: "leaderPlays" }, 1000);
+    setGroup({ ...paused, state: "playing", event: "leaderPlays" }, 1000);
     expect(media.paused).toBe(false); // at once: no moment named, no run-up
     expect(media.currentTime).toBe(60);
     monotonicNowMs = 2000;
@@ -406,9 +406,9 @@ describe("a following player whose session another device leads", () => {
   });
 
   it("after a seek, holds where the leader went until it plays, then plays from there", () => {
-    const { media, setGroup, notes } = following({ ...paused, state: "Playing" });
+    const { media, setGroup, notes } = following({ ...paused, state: "playing" });
     setGroup(
-      { ...paused, state: "Waiting", event: "seeked", seekedFromMs: 60_000, positionMs: 600_000 },
+      { ...paused, state: "waiting", event: "seeked", seekedFromMs: 60_000, positionMs: 600_000 },
       0,
     );
     expect(media.paused).toBe(true);
@@ -416,13 +416,13 @@ describe("a following player whose session another device leads", () => {
     expect(notes.filter((note) => note.kind === "sought")).toEqual([
       { kind: "sought", positionMs: 60_000, toMs: 600_000, why: "hold" },
     ]);
-    setGroup({ ...paused, state: "Playing", event: "leaderPlays", positionMs: 600_000 }, 0);
+    setGroup({ ...paused, state: "playing", event: "leaderPlays", positionMs: 600_000 }, 0);
     expect(media.paused).toBe(false);
   });
 
   it("after a stall, jumps ahead to catch up to the leader, the group playing on and told nothing", () => {
     const { media, setGroup, notes, commands } = following(paused);
-    setGroup({ ...paused, state: "Playing", event: "leaderPlays" }, 0);
+    setGroup({ ...paused, state: "playing", event: "leaderPlays" }, 0);
     media.readyState = 2; // it stalls at 60 s while the leader plays on
     media.fire("waiting");
     monotonicNowMs = 5000;

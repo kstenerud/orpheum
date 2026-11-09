@@ -41,7 +41,7 @@ const welcome = {
   sessionId: 1,
   memberId: 2,
   deviceId: 8,
-  group: { state: "Idle", positionMs: 0, rate: 1, fileId: 0 },
+  group: { state: "idle", positionMs: 0, rate: 1, fileId: 0 },
   roster: [
     { id: 1, name: "Karl", isHost: true, devices: [{ id: 3, role: "video" }] },
     { id: 2, name: "Gran", devices: [{ id: 8, role: "video" }] },
@@ -190,7 +190,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     await server.say({
       type: "group",
       seq: 2,
-      group: { state: "Paused", positionMs: 0, rate: 1, fileId: 5 },
+      group: { state: "paused", positionMs: 0, rate: 1, fileId: 5 },
     });
     expect(mounted.container.querySelector("video")).not.toBeNull();
     expect(mounted.container.textContent).toContain("Sound on this device: in step");
@@ -210,7 +210,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     await click(buttonWithText(mounted.container, "Tap to continue"));
     await server.accept();
     await server.say(welcome);
-    const playing = { state: "Playing", positionMs: 70_000, rate: 1, fileId: 5 };
+    const playing = { state: "playing", positionMs: 70_000, rate: 1, fileId: 5 };
     await server.say({ type: "group", seq: 2, group: playing });
     const video = mounted.container.querySelector("video");
     if (video === null) {
@@ -219,7 +219,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     const isPaused = playingVideo(video, 70);
     const show = hideTheDocument();
     try {
-      const pausedGroup = { ...playing, state: "Paused", event: "paused", byMemberId: 1 };
+      const pausedGroup = { ...playing, state: "paused", event: "paused", byMemberId: 1 };
       await server.say({ type: "group", seq: 3, group: pausedGroup });
       expect(isPaused()).toBe(true);
     } finally {
@@ -247,7 +247,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       type: "group",
       seq: 2,
       group: {
-        state: "Paused",
+        state: "paused",
         positionMs: 2_472_000,
         rate: 1,
         fileId: 5,
@@ -295,7 +295,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
         type: "group",
         seq: 2,
         group: {
-          state: "Paused",
+          state: "paused",
           positionMs: 0,
           rate: 1,
           fileId: 5,
@@ -346,7 +346,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     await server.say({
       type: "group",
       seq: 2,
-      group: { state: "Paused", positionMs: 0, rate: 1, fileId: 5, event: "paused", byMemberId: 1 },
+      group: { state: "paused", positionMs: 0, rate: 1, fileId: 5, event: "paused", byMemberId: 1 },
     });
     const video = mounted.container.querySelector("video");
     expect(buttonWithText(mounted.container, "Tap to turn the sound back on")).toBeUndefined();
@@ -377,7 +377,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     await server.say({
       type: "group",
       seq: 2,
-      group: { state: "Paused", positionMs: 0, rate: 1, fileId: 5, event: "paused", byMemberId: 1 },
+      group: { state: "paused", positionMs: 0, rate: 1, fileId: 5, event: "paused", byMemberId: 1 },
     });
     const video = mounted.container.querySelector("video");
     if (video !== null) {
@@ -449,7 +449,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     await server.say({
       type: "group",
       seq: 2,
-      group: { state: "Paused", positionMs: 0, rate: 1, fileId: 5, event: "paused", byMemberId: 1 },
+      group: { state: "paused", positionMs: 0, rate: 1, fileId: 5, event: "paused", byMemberId: 1 },
     });
     const video = mounted.container.querySelector("video");
     expect(video).not.toBeNull();
@@ -539,7 +539,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     await server.say({
       type: "group",
       seq: 2,
-      group: { state: "Playing", positionMs: 60_000, rate: 1, fileId: 5 },
+      group: { state: "playing", positionMs: 60_000, rate: 1, fileId: 5 },
     });
     const video = mounted.container.querySelector("video");
     if (video === null) {
@@ -583,7 +583,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     await server.say({
       type: "group",
       seq: 2,
-      group: { state: "Paused", positionMs: 0, rate: 1, fileId: 5 },
+      group: { state: "paused", positionMs: 0, rate: 1, fileId: 5 },
     });
     await fire(mounted.container.querySelector("video"), new Event("error"));
     // Nothing of the host's file.
