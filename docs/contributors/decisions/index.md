@@ -464,6 +464,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D456](working-notes.md#d456--every-json-document-the-go-code-reads-is-decoded-strictly) Every JSON document the Go code reads is decoded strictly — *revisited by D458*
 - [D457](working-notes.md#d457--a-machine-too-slow-to-convert-in-time-offers-only-what-plays-without-an-encode-and-says-so) A machine too slow to convert in time offers only what plays without an encode, and says so
 - [D458](working-notes.md#d458--json-strictness-follows-who-controls-the-sender) JSON strictness follows who controls the sender
+- [D459](working-notes.md#d459--every-name-orpheum-puts-in-json-is-camelcase) Every name Orpheum puts in JSON is camelCase
 
 ## Archived
 

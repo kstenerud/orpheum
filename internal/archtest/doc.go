@@ -30,6 +30,9 @@
 //   - TestArch_NoHandBuiltJSON: no code that ships spells out a JSON object's keys in a string; a
 //     document is encoded from a struct, so a renamed field is renamed everywhere it is written
 //     (agent failures A13).
+//   - TestArch_JSONNamesAreCamelCase: every property and enum value the API's description lists,
+//     and every value of a named string type in a protocol package, is camelCase, but the names
+//     another format defines, each listed with its reason (D459).
 //   - TestArch_IDsAreNeverGivenTwice: every table of persistent.db whose rowid is an id has it
 //     AUTOINCREMENT, or borrowed from the row it extends, so an id the API gave out never names
 //     another row (D243 §5).
