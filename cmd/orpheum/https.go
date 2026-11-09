@@ -92,7 +92,7 @@ func renewWhenTokenSet(secretStore *secrets.Store, certificates *certificate.Ser
 func listenForMedia(ctx context.Context, address string, logger *slog.Logger) (net.Listener, error) {
 	listener, err := pacing.ListenConfig(func(refused error) {
 		logger.WarnContext(ctx, "films are sent with the kernel's default congestion control, not BBR; "+
-			"load the tcp_bbr module on the host", "address", address, "err", refused)
+			"load the tcp_bbr module on the host, if its kernel has one", "address", address, "err", refused)
 	}).Listen(ctx, "tcp", address)
 	if err != nil {
 		return nil, fmt.Errorf("listen on %s: %w", address, err)

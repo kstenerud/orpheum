@@ -42,7 +42,7 @@
 //     from: no private range stands in for it (the Plex-chain review's L1).
 //     TestWrite_TheCoreAdministersOnlyFromTheHousesNetwork.
 //   - The machine's router at home, which the core's container cannot see, goes to the core for its
-//     port mapping to ask, and one that is not a router at home is a problem; none maps nothing
+//     port mapping to ask, and one that is not a router at home is a problem; left empty, nothing is mapped
 //     (item 15 of the owner's comments of 2026-11-02). TestWrite_TheCoreAsksTheRouterTheValuesName.
 //   - Each deployment's outside network has a private IPv6 /64 of its own, chosen by its directory,
 //     so two on one machine both start; one whose directory is not known keeps fd77:5e::/64.
