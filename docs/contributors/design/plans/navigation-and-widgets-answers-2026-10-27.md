@@ -2758,3 +2758,25 @@ card's top at 249 px against 72). For the owner: the card jumps to row 0 when Up
 whole overlay, and back on Back; should it stay in the corner then too? Also seen, older than this
 change: a card shown alone does not take focus (the overlay is hidden for one render when it tries);
 OK presses it anyway.
+
+**Item 6, the code-debt round:** "refactor(orpheum): capturedLog waits by a line's event, never its
+message" (its row leaves code-debt.md).
+
+**The batch's end (2026-11-09, ~21:10 UTC):** check-pr passed on the batch (one revert-red finding on
+the way, two files whose change was a comment alone, given `Refactor-Only:` trailers); on staging by
+`./staging quick`. Nothing went to production. For the owner to apply: Orpheum's batch, and
+orpheum-connect's "fix(panel): the account page names the server's Remote access section, as the
+server heads it", with production's discovery deployed after it.
+
+**Two gate faults seen tonight, the owner's to fix (gates):**
+1. An agent's worktree running `make go-test-lock` (through `make setup`) appends its own
+   `-exec=<worktree>/scripts/go_test_exec` to the user-wide `GOFLAGS` (`go env -w`). The last `-exec`
+   wins, so once the worktree is removed every `go test` typed anywhere fails with "fork/exec …: no
+   such file or directory". The lead set it back to the main tree's script. A fix: write the main
+   tree's path whatever tree runs it (`git rev-parse --git-common-dir`), or replace an older `-exec`
+   rather than append.
+2. A `make check` run while `./staging quick` builds sees the web client copied into
+   `internal/core/webclient/dist` (Makefile's build copies it there), so
+   `TestServe_AnswersTheClientsAddressesAtTheRoot` fails, finding a client where a test binary has
+   none. Passed alone afterwards. A fix: build the embed in its own tree, or have the build take the
+   test lock while the copy is in place.
