@@ -32,7 +32,7 @@ describe("looking a title up again while TMDB is not answering (D231 §12)", () 
         {
           isQueued: true,
           waitingFor: {
-            destination: "tmdb-api",
+            destination: "tmdbApi",
             name: "TMDB",
             reason: "unreachable",
             downAt: 1_790_000_000_000,

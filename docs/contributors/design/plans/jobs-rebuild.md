@@ -72,16 +72,16 @@ D231 §2, §8, §10; D233 §6 (panic recovery, claim-time attempt check).
 
 D231 §5, §6, §11 (the node table's truth), §12 (the job view's words); replaces D213 §5's breaker.
 
-- Destination state: `tmdb-api`, `tmdb-images`, `opensubtitles`, each node, each missing root or
+- Destination state: `tmdbApi`, `tmdbImages`, `opensubtitles`, each node, each missing root or
   mount, the core's own storage. What counts as down (connection, DNS, timeout, 502/503/504; a
   node not connected or silent; a missing root; a failing write), a missing or refused key parking
-  `tmdb-api` until the secret changes, a node's "no room" parking its prepares.
+  `tmdbApi` until the secret changes, a node's "no room" parking its prepares.
 - Parked work is not claimed and spends no attempt; one probe per outside host on a jittered back-off
   to an hour; a person's request probes at once; a synchronous call is the probe; a node's hello
   and a scan finding a root are theirs. Work resumes in priority order.
 - The node table says connected, last heard and gone truthfully; a command to a node that is not
   connected parks its job.
-- **Provider services** (the owner, 2026-09-30): each outside host (`tmdb-api`, `tmdb-images`,
+- **Provider services** (the owner, 2026-09-30): each outside host (`tmdbApi`, `tmdbImages`,
   `opensubtitles`) is one service owning its health (the destination state above), a request rate
   we keep ourselves to, its quota remaining and when it resets (OpenSubtitles, from its replies),
   and its credentials' state. A caller says how much its request matters (someone waiting, a
@@ -109,8 +109,8 @@ D231 §5, §6, §11 (the node table's truth), §12 (the job view's words); repla
   I/O error (`store.IsStorageFailure`) parks it, no runner claims until one claim finds room, and an
   outcome that could not be written is kept and written then. Parked state is in memory.
   `RetryAtError` and `Blocked`, the runner-level holds, are gone.
-- `internal/core/jobs` names the destinations (`tmdb-api`, `tmdb-images`, `opensubtitles`,
-  `node:<id>`, `root:<node>:<path>`, `prepared:<node>`, `any-node`, `core-storage`), describes them as
+- `internal/core/jobs` names the destinations (`tmdbApi`, `tmdbImages`, `opensubtitles`,
+  `node:<id>`, `root:<node>:<path>`, `prepared:<node>`, `anyNode`, `coreStorage`), describes them as
   a person reads them, and its view carries each job's destination and, while it waits, the
   destination's state. `outbound` reads only 502, 503 and 504 as a host down; a plain 500 is the
   item's (D231 §5).
@@ -135,7 +135,7 @@ D231 §5, §6, §11 (the node table's truth), §12 (the job view's words); repla
 - The node table (`internal/core/nodes`) says connected (a long-poll open, or heard within
   nodeSilentAfterSeconds), silent, or awaiting its hello. Work is sent with `Send`, which parks the
   job on a node that is not connected; a wait for an answer that runs out parks it when the node
-  went away (`Unanswered`). A hello unparks the node and `any-node`; a status with room unparks its
+  went away (`Unanswered`). A hello unparks the node and `anyNode`; a status with room unparks its
   prepared directory, on which the node's new `noRoom` refusal code parks prepares. A job reading a
   file under a root or disk the last scan found missing parks on it (`library.UnavailableUnder`), a
   complete scan that finds them unparks them (`Ingester.SetOnPathsFound`), and the loudness sweep

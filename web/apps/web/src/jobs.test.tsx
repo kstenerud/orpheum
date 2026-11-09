@@ -111,9 +111,9 @@ describe("the job view", () => {
       reason: "a new title",
       attemptCount: 0,
       createdAt: 1,
-      destination: "tmdb-api",
+      destination: "tmdbApi",
       waitingFor: {
-        destination: "tmdb-api",
+        destination: "tmdbApi",
         name: "TMDB",
         reason: "unreachable",
         downAt: 1_790_000_000_000,

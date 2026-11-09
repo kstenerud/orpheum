@@ -55,7 +55,7 @@ type JobBody struct {
 	AttemptCount     int64    `json:"attemptCount"`
 	CreatedAt        int64    `doc:"Unix milliseconds" json:"createdAt"`
 	FinishedAt       *int64   `doc:"Unix milliseconds" json:"finishedAt,omitempty"`
-	// Destination is what it needs that can be down, when known: "tmdb-api", "node:3" (D231 §5).
+	// Destination is what it needs that can be down, when known: "tmdbApi", "node:3" (D231 §5).
 	Destination string `json:"destination,omitempty"`
 	// WaitingFor is that destination while the job waits on it, down: the job view says "waiting
 	// for TMDB — unreachable since 14:02, next check 14:10" (D231 §12).

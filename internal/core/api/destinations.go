@@ -13,7 +13,7 @@ import (
 // DestinationBody is a destination that is down, and what waits on it says: "waiting for TMDB —
 // unreachable since 14:02, next check 14:10" (D231 §12).
 type DestinationBody struct {
-	// Destination is its name as the queue keeps it: "tmdb-api", "node:3", "root:3:/media".
+	// Destination is its name as the queue keeps it: "tmdbApi", "node:3", "root:3:/media".
 	Destination string `json:"destination"`
 	// Name is the destination as a person reads it: "TMDB", "node home", "/media on node home".
 	Name   string `json:"name"`

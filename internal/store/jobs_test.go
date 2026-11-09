@@ -194,7 +194,7 @@ func TestJobStorage_AClaimPassesOverAParkedDestinationAndAWaitKeepsWhereItWasPar
 			t.Fatal(err)
 		}
 	}
-	insert(1, 10, "tmdb-api")
+	insert(1, 10, "tmdbApi")
 	insert(2, 5, "")
 	insert(3, 1, "node:2")
 	claim := func(unclaimable ...jobqueue.Destination) (jobqueue.Row[JobTarget], bool) {
@@ -207,9 +207,9 @@ func TestJobStorage_AClaimPassesOverAParkedDestinationAndAWaitKeepsWhereItWasPar
 		}
 		return row, found
 	}
-	first, found := claim("tmdb-api", "node:9")
+	first, found := claim("tmdbApi", "node:9")
 	if !found || first.Target.ItemID != 2 {
-		t.Fatalf("with tmdb-api parked, the claim took %+v (found %v); want item 2's job, which names none",
+		t.Fatalf("with tmdbApi parked, the claim took %+v (found %v); want item 2's job, which names none",
 			first, found)
 	}
 	err := fixed.jobs.Record(ctx, jobqueue.Outcome{
@@ -218,15 +218,15 @@ func TestJobStorage_AClaimPassesOverAParkedDestinationAndAWaitKeepsWhereItWasPar
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, found := claim("tmdb-api", "node:9")
+	second, found := claim("tmdbApi", "node:9")
 	if !found || second.Target.ItemID != 3 || second.Destination != "node:2" {
 		t.Fatalf("the next claim took %+v (found %v); want item 3's, on node:2, since item 2's now waits on node:9",
 			second, found)
 	}
-	if _, found := claim("tmdb-api", "node:9"); found {
+	if _, found := claim("tmdbApi", "node:9"); found {
 		t.Error("a claim took a job whose destination is parked")
 	}
-	if third, found := claim(); !found || third.Target.ItemID != 1 || third.Destination != "tmdb-api" {
+	if third, found := claim(); !found || third.Target.ItemID != 1 || third.Destination != "tmdbApi" {
 		t.Errorf("with nothing parked, the claim took %+v (found %v); want item 1's, the highest", third, found)
 	}
 }

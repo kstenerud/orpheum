@@ -21,17 +21,17 @@ type Destination = jobqueue.Destination
 // come back when something says so.
 const (
 	// DestinationTMDBAPI is TMDB's API. A missing or refused key parks it until the key changes.
-	DestinationTMDBAPI Destination = "tmdb-api"
+	DestinationTMDBAPI Destination = "tmdbApi"
 	// DestinationTMDBImages is TMDB's image server, which needs no key.
-	DestinationTMDBImages Destination = "tmdb-images"
+	DestinationTMDBImages Destination = "tmdbImages"
 	// DestinationOpenSubtitles is OpenSubtitles.
 	DestinationOpenSubtitles Destination = "opensubtitles"
 	// DestinationCoreStorage is the core's own disk: cache.db and persistent.db, which fail for
 	// want of room or with an I/O error.
-	DestinationCoreStorage Destination = "core-storage"
+	DestinationCoreStorage Destination = "coreStorage"
 	// DestinationAnyNode is work any node can do, such as re-encoding a downloaded image, while no
 	// node is connected: any node's hello brings it back.
-	DestinationAnyNode Destination = "any-node"
+	DestinationAnyNode Destination = "anyNode"
 )
 
 // The prefixes of the destinations named by a node.
@@ -41,8 +41,8 @@ const (
 	preparedPrefix   = "prepared:"
 	slotPrefix       = "slot:"
 	readerPrefix     = "reader:"
-	quickPassPrefix  = "quickpass:"
-	lastReaderPrefix = "lastreader:"
+	quickPassPrefix  = "quickPass:"
+	lastReaderPrefix = "lastReader:"
 	playingPrefix    = "playing:"
 )
 
