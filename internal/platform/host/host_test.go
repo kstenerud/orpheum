@@ -3,6 +3,8 @@
 package host
 
 import (
+	"os"
+	"path/filepath"
 	"runtime"
 	"testing"
 )
@@ -30,5 +32,24 @@ func TestDescribe_SaysThisMachinesPlatformAndKernel(t *testing.T) {
 	got := Describe()
 	if got.Platform != runtime.GOOS+"/"+runtime.GOARCH || got.Kernel == "" {
 		t.Errorf("Describe = %+v; want this machine's platform and kernel", got)
+	}
+}
+
+// MPTCP is on where the kernel's switch says 1, and off where it says 0 or the kernel has none
+// (D454 §4).
+func TestIsMultipathTCPOn_IsTheKernelsSwitch(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	for setting, want := range map[string]bool{"1\n": true, "0\n": false} {
+		path := filepath.Join(dir, "enabled")
+		if err := os.WriteFile(path, []byte(setting), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if got := IsMultipathTCPOn(path); got != want {
+			t.Errorf("the switch saying %q: on %v; want %v", setting, got, want)
+		}
+	}
+	if IsMultipathTCPOn(filepath.Join(dir, "absent")) {
+		t.Error("a kernel with no MPTCP switch: on; want off")
 	}
 }

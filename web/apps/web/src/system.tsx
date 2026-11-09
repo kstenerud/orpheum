@@ -132,6 +132,7 @@ export function SystemView(props: {
           ))}
         </dl>
         <Disks disks={server.disks ?? []} />
+        {server.isMultipathTcpOn ? <p>{t("system.multipathTcpOn")}</p> : null}
       </section>
       <Findings findings={props.report.findings ?? []} />
       <QueueHealth queue={props.report.queue ?? []} />

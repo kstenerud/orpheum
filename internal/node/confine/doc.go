@@ -46,6 +46,10 @@
 //     TestEscape_AConfinedToolStartsWithAnEmptyEnvironmentWhateverItsShimOrSpecCarries.
 //   - A mechanism the machine offers but the shim could not put in force stops the run
 //     (ErrNotConfined), so no run has less than the node reported.
+//   - A mechanism's state tells a kernel that lacks it (too old, built without it, not switched on
+//     at boot) from one that has it but where it cannot be put in force (IsMissingFromKernel): the
+//     node runs without the first and is locked on the second (D454 §3).
+//     TestMechanismStates_AKernelWithoutAMechanismIsToldApartFromOneWhereItFails.
 //   - Only a run that uses the GPU is granted its devices, and it is granted every NVIDIA GPU that
 //     internal/node/hardware reports, from one list, NVIDIADevices.
 //     TestGrantsFor_OnlyARunThatUsesTheGPUIsGrantedItsDevices,
@@ -62,6 +66,7 @@
 //   - D112: the escape test asserts what is in force.
 //   - D190 §3: the escape test first sees the unconfined read succeed.
 //   - D193 §4: the confinement ranking.
+//   - D454 §3: a kernel without a mechanism runs without it; one where it fails is locked.
 //   - D331: what a GPU run may do, and why the node proves itself on both sockets.
 //   - principles §2: the user's files are not ours to touch.
 //   - docs/contributors/design/plans/cut-a.md §7.

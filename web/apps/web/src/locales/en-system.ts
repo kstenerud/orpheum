@@ -24,6 +24,8 @@ export const enSystem = {
     kernel: "Kernel",
     platform: "Platform",
     startedAt: "Started",
+    multipathTcpOn:
+      "This machine's kernel has MPTCP (Multipath TCP) on. Orpheum opens no MPTCP connection, so the server is not affected; other programs on this machine may be, by a flaw reached through it (CVE-2026-98432). To turn it off, as root: sysctl net.mptcp.enabled=0.",
     certificate: {
       heading: "The certificate for {{name}}",
       expires: "Expires {{at}}; it is renewed a month before.",
@@ -66,7 +68,7 @@ export const enSystem = {
       "If it stops each time it starts, its log says why. See Setting up a server: problems seen, and their fixes.",
     unconfined: {
       locked:
-        "This machine is locked: its kernel lacks part of the sandbox FFmpeg runs in, so it reads no films and runs no FFmpeg.",
+        "This machine is locked: part of the sandbox FFmpeg runs in could not be put in force, so it reads no films and runs no FFmpeg.",
       risk: "FFmpeg reads every film this machine serves. A film made to attack FFmpeg could, without the sandbox, read or change anything this machine's Orpheum user can. The safe fix is the kernel's: see Setting up a server: problems seen, and their fixes. If you cannot fix it and trust every file in your libraries, you can run it without the sandbox.",
       allow: "Run without confinement…",
       consequence:

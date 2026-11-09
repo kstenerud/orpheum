@@ -369,9 +369,10 @@ func nodeConfigKeys() []configKey {
 		{tableNode, "ffmpeg_dir", "", "where the pinned FFmpeg is on this machine"},
 		{
 			tableNode, "confinement_policy", `"report"`,
-			`"report" runs FFmpeg with what confinement the kernel offers and says what is missing; "require" ` +
-				`starts a node that lacks a mechanism locked, running no FFmpeg until an admin lets it run ` +
-				`unconfined on the System page (D273 §5, D450 §1)`,
+			`"report" runs FFmpeg with what confinement the kernel offers and says what is missing; "available" ` +
+				`does too where the kernel lacks a mechanism, but starts the node locked where one the kernel has ` +
+				`cannot be put in force; "require" starts a node that lacks any locked, running no FFmpeg until ` +
+				`an admin lets it run unconfined on the System page (D273 §5, D450 §1, D454 §3)`,
 		},
 		{tableNode, "probe_timeout_seconds", "60", "seconds ffprobe gets for one file before it is stopped"},
 		{
@@ -635,12 +636,26 @@ func (node NodeConfig) check() error {
 	if node.Name == "" {
 		problems = append(problems, errors.New("node.name is empty; the core knows a node by its name"))
 	}
-	if node.ConfinementPolicy != "require" && node.ConfinementPolicy != "report" {
-		problems = append(problems, fmt.Errorf("node.confinement_policy %q: want \"require\" or \"report\"",
-			node.ConfinementPolicy))
+	if !slices.Contains(confinementPolicies(), node.ConfinementPolicy) {
+		problems = append(problems, fmt.Errorf("node.confinement_policy %q: want \"require\", \"available\" or "+
+			"\"report\"", node.ConfinementPolicy))
 	}
 	return errors.Join(problems...)
 }
+
+// The node's confinement policies (D273 §5, D450 §1, D454 §3).
+const (
+	// Under "require" a node that lacks any mechanism is locked until an admin lets it run unconfined.
+	policyRequire = "require"
+	// Under "available" a node runs without a mechanism its kernel lacks, and is locked when its kernel
+	// has a mechanism that cannot be put in force.
+	policyAvailable = "available"
+	// Under "report" a node runs with whatever mechanisms are in force.
+	policyReport = "report"
+)
+
+// confinementPolicies are the values node.confinement_policy may take.
+func confinementPolicies() []string { return []string{policyRequire, policyAvailable, policyReport} }
 
 // check refuses a log level, format or destination the logger cannot use.
 func (log LogConfig) check() error {

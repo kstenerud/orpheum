@@ -36,6 +36,34 @@ func TestLandlockState_SaysWhyItIsMissingAndWhatWouldPutItThere(t *testing.T) {
 	}
 }
 
+// A kernel without a mechanism, too old, built without it or not switching it on at boot, is told
+// apart from one that has it but where it cannot be put in force: the node runs without the first,
+// unasked, and stays locked on the second (D454 §3).
+func TestMechanismStates_AKernelWithoutAMechanismIsToldApartFromOneWhereItFails(t *testing.T) {
+	t.Parallel()
+	for _, want := range []struct {
+		state     State
+		isMissing bool
+	}{
+		{landlockStateOf(unix.ENOSYS), true},
+		{landlockStateOf(unix.EOPNOTSUPP), true},
+		{landlockStateOf(unix.EPERM), false},
+		{landlockStateOf(unix.EIO), false},
+		{landlockStateOf(nil), false},
+		{seccompStateOf(true, unix.EINVAL), true},
+		{seccompStateOf(true, unix.EIO), false},
+		{seccompStateOf(false, nil), false},
+		{seccompStateOf(true, nil), false},
+	} {
+		if got := want.state.IsMissingFromKernel(); got != want.isMissing {
+			t.Errorf("%+v: missing from the kernel %v; want %v", want.state, got, want.isMissing)
+		}
+	}
+	if state := seccompStateOf(true, nil); !state.IsInForce {
+		t.Errorf("seccomp answering a mode: %+v, want in force", state)
+	}
+}
+
 // A hardware encode is granted every NVIDIA GPU that detection reports, not only the first two.
 func TestGPUDevices_AreGrantedEveryNVIDIAGPUDetectionFinds(t *testing.T) {
 	t.Parallel()

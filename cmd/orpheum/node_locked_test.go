@@ -129,3 +129,46 @@ func serveLockedCore(t *testing.T, socket string) *lockedCore {
 	})
 	return core
 }
+
+// A node that takes what confinement is available runs without a mechanism its kernel lacks, unasked,
+// and says which; one whose kernel has a mechanism that cannot be put in force starts locked, as does
+// any node whose config requires every mechanism (D454 §3).
+func TestCheckConfinement_AKernelWithoutAMechanismRunsWithoutItButOneWhereItFailsIsLocked(t *testing.T) {
+	t.Parallel()
+	inForce := confine.State{Mechanism: confine.MechanismSeccomp, IsInForce: true}
+	tooOld := confine.State{
+		Mechanism: confine.MechanismLandlock, CauseCode: confine.CauseKernelWithout, Remedy: "a kernel of 5.13",
+	}
+	notAtBoot := confine.State{Mechanism: confine.MechanismLandlock, CauseCode: confine.CauseDisabledAtBoot}
+	blocked := confine.State{Mechanism: confine.MechanismLandlock, CauseCode: confine.CauseBlockedByRuntime}
+	unexplained := confine.State{Mechanism: confine.MechanismSeccomp, CauseCode: confine.CauseUnexplained}
+	for _, want := range []struct {
+		policy   string
+		states   []confine.State
+		isLocked bool
+	}{
+		{policyAvailable, []confine.State{tooOld, inForce}, false},
+		{policyAvailable, []confine.State{notAtBoot, inForce}, false},
+		{policyAvailable, []confine.State{blocked, inForce}, true},
+		{policyAvailable, []confine.State{tooOld, unexplained}, true},
+		{policyRequire, []confine.State{tooOld, inForce}, true},
+		{policyReport, []confine.State{blocked, inForce}, false},
+	} {
+		config, _ := testConfig(t)
+		config.Node.ConfinementPolicy = want.policy
+		seams := nodeSeams{mechanismStates: func() []confine.State { return want.states }}
+		reported, isLocked := checkConfinement(t.Context(), config, newCapturedLog().logger, seams)
+		if isLocked != want.isLocked || len(reported) != len(want.states) {
+			t.Errorf("%q with %+v: locked %v, reporting %d states; want locked %v and every state",
+				want.policy, want.states, isLocked, len(reported), want.isLocked)
+		}
+	}
+	config, _ := testConfig(t)
+	config.Node.ConfinementPolicy = policyAvailable
+	captured := newCapturedLog()
+	checkConfinement(t.Context(), config, captured.logger,
+		nodeSeams{mechanismStates: func() []confine.State { return []confine.State{tooOld, inForce} }})
+	if logged := captured.String(); !strings.Contains(logged, "a kernel of 5.13") {
+		t.Errorf("the log = %s; want the missing mechanism and the kernel that brings it", logged)
+	}
+}

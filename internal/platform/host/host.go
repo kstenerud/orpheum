@@ -68,3 +68,15 @@ func ParseOSRelease(osRelease string) System {
 		Codename: values["VERSION_CODENAME"],
 	}
 }
+
+// MultipathTCPSetting is the kernel's MPTCP switch: 1 where MPTCP is on. A core on the host's network
+// reads the host's own (D454 §4, §5).
+const MultipathTCPSetting = "/proc/sys/net/mptcp/enabled"
+
+// IsMultipathTCPOn is whether the kernel switch at path says MPTCP is on; false where the kernel has
+// no MPTCP, or the file cannot be read. Our programs open no MPTCP socket, so it only says the host's
+// other programs may (D454 §4).
+func IsMultipathTCPOn(path string) bool {
+	setting, err := os.ReadFile(path) //nolint:gosec // G304: the kernel's switch, or a test's
+	return err == nil && strings.TrimSpace(string(setting)) == "1"
+}

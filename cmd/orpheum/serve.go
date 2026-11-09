@@ -29,6 +29,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/together"
 	"github.com/kstenerud/orpheum/internal/core/webclient"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/host"
 	"github.com/kstenerud/orpheum/internal/platform/localtime"
 	"github.com/kstenerud/orpheum/internal/platform/pacing"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
@@ -306,7 +307,7 @@ func wireCore(
 		PersistentDirectory: opened.directories.PersistentDirectory(),
 		CacheDirectory:      opened.directories.CacheDirectory(), PersistentDatabase: opened.database,
 		CacheDatabase: opened.cache, PublicName: config.HTTPS.Domain,
-		Certificate: certificateExpiry(opened.certificates),
+		Certificate: certificateExpiry(opened.certificates), MultipathTCPSetting: host.MultipathTCPSetting,
 	}
 	return opened, dependencies, nil
 }

@@ -29,9 +29,12 @@
 //     TestUseUTC_TimesAreUTCWhateverTZSays.
 //   - core starts no node, and node runs the node's loop on its own: a node's work is its own, which a
 //     core restart does not touch (D233 §2). While node.confinement_policy is "require" and a
-//     confinement mechanism is not in force, the node starts locked: it reports to the core and runs
-//     no FFmpeg and reads no media until an admin lets it run unconfined (D112, D450 §1).
-//     Enforced by TestRunNode_StartsLockedWithoutLandlockUntilAnAdminLetsItRunUnconfined.
+//     confinement mechanism is not in force, or it is "available" and a mechanism the kernel has
+//     cannot be put in force, the node starts locked: it reports to the core and runs no FFmpeg and
+//     reads no media until an admin lets it run unconfined (D112, D450 §1). Under "available" a
+//     mechanism the kernel lacks is old hardware: the node runs without it, unasked, and says so
+//     (D454 §3). Enforced by TestRunNode_StartsLockedWithoutLandlockUntilAnAdminLetsItRunUnconfined
+//     and TestCheckConfinement_AKernelWithoutAMechanismRunsWithoutItButOneWhereItFailsIsLocked.
 //   - The node role, node.go, imports nothing from internal/core or internal/store, as the node's
 //     own packages do not (D33); what both roles need is in internal/platform. Enforced by the
 //     depguard rule node-role-boundary.

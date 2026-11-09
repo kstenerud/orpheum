@@ -4963,6 +4963,7 @@ export interface components {
             disks: components["schemas"]["DiskBody"][] | null;
             goVersion: string;
             host: components["schemas"]["HostBody"];
+            isMultipathTcpOn: boolean;
             /**
              * Format: int64
              * @description Unix milliseconds

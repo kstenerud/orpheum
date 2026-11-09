@@ -7058,6 +7058,9 @@
           "host": {
             "$ref": "#/components/schemas/HostBody"
           },
+          "isMultipathTcpOn": {
+            "type": "boolean"
+          },
           "startedAt": {
             "description": "Unix milliseconds",
             "format": "int64",
@@ -7070,7 +7073,8 @@
           "goVersion",
           "startedAt",
           "disks",
-          "databases"
+          "databases",
+          "isMultipathTcpOn"
         ],
         "type": "object"
       },

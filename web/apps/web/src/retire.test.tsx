@@ -56,6 +56,7 @@ const report: SystemReport = {
     host: { platform: "linux/amd64" },
     goVersion: "go1.26.1",
     startedAt: 1_790_000_000_000,
+    isMultipathTcpOn: false,
     disks: [],
     databases: [],
   },
