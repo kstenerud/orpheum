@@ -85,6 +85,36 @@ func TestListenLAN_AnswersWithTheHousesAddressAtItsPort(t *testing.T) {
 	}
 }
 
+// A new address at home is offered from the next offer on, on the same port: the address is learned
+// while the core runs (D452 §3). With none yet the port is taken, and no house's address offered.
+func TestListenLAN_ANewAddressAtHomeIsOfferedFromTheNextOffer(t *testing.T) {
+	t.Parallel()
+	server := rtcapi.New(t.Context(), http.NotFoundHandler(), slog.New(slog.DiscardHandler))
+	t.Cleanup(func() { _ = server.Close() }) //nolint:errcheck // the test is over
+	port := freeUDPPort(t)
+	if err := server.ListenLAN(port, nil); err != nil {
+		t.Fatal(err)
+	}
+	answer, err := server.Answer(t.Context(), rtcapi.Description{Type: "offer", SDP: offerSDP(t)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ipv4, _ := hostCandidatesAt(answer.SDP, port); slices.Contains(ipv4, "192.0.2.77") {
+		t.Errorf("with no address at home, the answer offers %v", ipv4)
+	}
+	if err = server.SetLANAddresses([]netip.Addr{netip.MustParseAddr("192.0.2.77")}); err != nil {
+		t.Fatal(err)
+	}
+	answer, err = server.Answer(t.Context(), rtcapi.Description{Type: "offer", SDP: offerSDP(t)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ipv4, _ := hostCandidatesAt(answer.SDP, port); !slices.Equal(ipv4, []string{"192.0.2.77"}) {
+		t.Errorf("after the address at home changed, the answer's host candidates at port %d are %v; want "+
+			"192.0.2.77 alone:\n%s", port, ipv4, answer.SDP)
+	}
+}
+
 // hostCandidatesAt is the addresses of sdp's host candidates at port, IPv4 and IPv6, each once: pion
 // names each candidate for both components.
 func hostCandidatesAt(sdp string, port int) (ipv4, ipv6 []string) {

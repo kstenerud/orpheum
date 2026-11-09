@@ -141,7 +141,7 @@ func TestMarkingHome_ADirectRequestIsHomeByTheSharedRule(t *testing.T) {
 	t.Parallel()
 	server := NewServer(slog.New(slog.DiscardHandler))
 	rule := home.NewRule(home.Networks{
-		PrivateIsHome: true, Interfaces: []netip.Prefix{netip.MustParsePrefix("172.17.0.0/16")},
+		Interfaces: []netip.Prefix{netip.MustParsePrefix("172.17.0.0/16")},
 	})
 	rule.CountOwnIPv6Networks(func() []netip.Prefix {
 		return []netip.Prefix{netip.MustParsePrefix("2a0f:5000:1:2::/64")}

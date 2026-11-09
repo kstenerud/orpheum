@@ -8,9 +8,10 @@ import (
 	"testing"
 )
 
-// The deployed core lists the LAN address's /24 and its own loopback as home outright, which only a
-// command run in its container reaches (D334 §2, §3), never the tunnel's 10.77.0.0/24 (D297 §6). With
-// no LAN address it lists the loopback alone, and the values name the address as a problem.
+// The deployed core lists no network as home: every private one is home anyway, with its loopback,
+// which only a command run in its container reaches (D334 §2, §3), and listing the house's /24 kept the
+// typed address's network, which a new lease leaves (the owner, 2026-11-09). With no LAN address the
+// config is still written, as the address is learned (D452 §5).
 func TestWrite_TheCoreAdministersOnlyFromTheHousesNetwork(t *testing.T) {
 	t.Parallel()
 	dir := begun(t, Staging)
@@ -19,14 +20,14 @@ func TestWrite_TheCoreAdministersOnlyFromTheHousesNetwork(t *testing.T) {
 	if err := Write(dir, values, runtime); err != nil {
 		t.Fatal(err)
 	}
-	got := fmt.Sprint(decodeTOML(t, filepath.Join(dir, coreConfig))["server"]["home_networks"])
-	if got != "[192.168.1.0/24 127.0.0.0/8 ::1/128]" {
-		t.Errorf("the core's server.home_networks are %s; want the house's /24 and the loopback alone", got)
+	server := decodeTOML(t, filepath.Join(dir, coreConfig))["server"]
+	if got := fmt.Sprint(server["home_networks"]); got != "[]" {
+		t.Errorf("the core's server.home_networks are %s; want none listed", got)
+	}
+	if _, named := server["home_is_private"]; named {
+		t.Error("the core's config names server.home_is_private, which the core no longer reads")
 	}
 	values.LAN.Address = ""
-	if got := fmt.Sprint(values.HomeNetworks()); got != "[127.0.0.0/8 ::1/128]" {
-		t.Errorf("with no address at home the home networks are %v; want the loopback alone", got)
-	}
 	if err := Write(dir, values, runtime); err != nil {
 		t.Errorf("writing with no address at home = %v; want it written, as it is learned (D452 §5)", err)
 	}
@@ -43,9 +44,6 @@ func TestWrite_TheCoreCountsEveryPrivateNetworkButTheTunnelsAsHome(t *testing.T)
 		t.Fatal(err)
 	}
 	server := decodeTOML(t, filepath.Join(dir, coreConfig))["server"]
-	if isPrivate, isBool := server["home_is_private"].(bool); !isBool || !isPrivate {
-		t.Errorf("the core's server.home_is_private is %v; want true", server["home_is_private"])
-	}
 	if got := fmt.Sprint(server["not_home_networks"]); got != "[10.77.0.0/24 fd77::/64]" {
 		t.Errorf("the core's server.not_home_networks are %s; want the tunnel's", got)
 	}

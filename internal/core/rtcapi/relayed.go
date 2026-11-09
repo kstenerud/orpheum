@@ -43,7 +43,7 @@ func (server *Server) AnswerRelayed(
 	if err != nil {
 		return Description{}, fmt.Errorf("%w: %w", ErrOfferRefused, err)
 	}
-	return server.answerWith(ctx, server.relayedAPI, checked, onProvenAtHome)
+	return server.answerWith(ctx, server.relayedAPI.Load(), checked, onProvenAtHome)
 }
 
 // OfferedIPv6Addresses are the public IPv6 addresses an offer's SDP names among its candidates: a

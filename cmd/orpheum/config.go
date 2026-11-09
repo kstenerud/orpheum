@@ -69,18 +69,16 @@ type ServerConfig struct {
 	// addresses and the names public DNS never answers: a request naming any other host is refused,
 	// against DNS rebinding (the discovery protocol's §7 item 10; S15).
 	HostNames []string `toml:"host_names"`
-	// HomeNetworks are the networks a request must come from, directly or over a WebRTC connection
-	// with no relay between, for an admin's session to administer: the house's, not the tunnel's nor
-	// the internet's, until passkeys let an admin in from elsewhere (D297 §6, D300 §3).
+	// HomeNetworks are networks home besides the private ranges, a VPN's say, from which a request,
+	// directly or over a WebRTC connection with no relay between, lets an admin's session administer
+	// (D297 §6, D300 §3). Home is always every private address, 10.0.0.0/8, 172.16.0.0/12,
+	// 192.168.0.0/16 and fc00::/7, with the core's loopback and the /64 of its own public IPv6 address,
+	// but those in NotHomeNetworks or in a network of the core's own interfaces (Docker's bridge, unless
+	// it holds the address at home), so a new lease from the router locks no admin out (D452 §1, §2).
+	// A listed network is under the same exceptions (the owner, 2026-11-09).
 	HomeNetworks []string `toml:"home_networks"`
-	// HomeIsPrivate counts every private address as home too, 10.0.0.0/8, 172.16.0.0/12,
-	// 192.168.0.0/16 and fc00::/7, but those in NotHomeNetworks or in a network of the core's own
-	// interfaces (Docker's bridge, unless it holds the address at home), with the core's loopback and
-	// the /64 of its own public IPv6 address, so a new lease from the router locks no admin out
-	// (D452 §1, §2). False leaves HomeNetworks alone.
-	HomeIsPrivate bool `toml:"home_is_private"`
-	// NotHomeNetworks are private networks never home under HomeIsPrivate: the tunnel's, through which
-	// the internet arrives (D452 §1).
+	// NotHomeNetworks are private networks never home: the tunnel's, through which the internet
+	// arrives (D452 §1).
 	NotHomeNetworks []string `toml:"not_home_networks"`
 	// ThisMachineListen is plain HTTP for a browser on the server's own machine alone, which the
 	// deployment publishes on that machine's loopback: a request on it is from home, though Docker
@@ -298,23 +296,15 @@ func serverConfigKeys() []configKey {
 				"shows both (D450 §2)",
 		},
 		{
-			tableServer, "home_networks",
-			`["192.168.0.0/16"]`,
-			"the networks an admin administers from, reaching the server directly rather than over WebRTC; " +
-				"a deployment names its house's alone, so that its tunnel's never counts (D297). Loopback, " +
-				"Docker's 172.16.0.0/12, 10.0.0.0/8 and ULAs are left out: a reverse proxy, docker-proxy or a " +
-				"tunnel would make the internet look like home (the Plex-chain review's L1)",
-		},
-		{
-			tableServer, "home_is_private", "false",
-			"counts every private address as home too (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, fc00::/7), " +
-				"but not_home_networks' and the networks of this machine's own interfaces, with loopback and " +
-				"the /64 of the server's own public IPv6 address (D452); false leaves home_networks alone",
+			tableServer, "home_networks", "[]",
+			"networks home besides the private ranges, a VPN's say. Home is always every private address " +
+				"(10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, fc00::/7), loopback and the /64 of the server's " +
+				"own public IPv6 address, but not_home_networks' and the networks of this machine's own " +
+				"interfaces, which apply to a listed network too (D452)",
 		},
 		{
 			tableServer, "not_home_networks", "[]",
-			"private networks never home under home_is_private: a tunnel's, through which the internet " +
-				"arrives (D452)",
+			"private networks never home: a tunnel's, through which the internet arrives (D452)",
 		},
 	}
 }

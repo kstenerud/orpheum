@@ -89,6 +89,8 @@
 //     pion's mux gives every candidate of a family one socket (D441).
 //     TestListenLAN_AnswersWithTheHousesAddressAtItsPort,
 //     TestListenAddressPerFamily_IsOneOfEachFamilyNeitherLoopbackNorLinkLocal.
+//   - A new address at home is offered from the next offer on, on the same socket (D452 §3).
+//     TestListenLAN_ANewAddressAtHomeIsOfferedFromTheNextOffer.
 //   - Only an offer is answered, and none past the most connections the core holds at once:
 //     DefaultMaxConnections until SetMaxConnections names another (the config's
 //     webrtc.max_connections, D348). TestAnswer_RefusesWhatIsNotAnOfferAndPastTheLimit,

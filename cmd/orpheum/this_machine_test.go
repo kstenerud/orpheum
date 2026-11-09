@@ -23,7 +23,6 @@ import (
 func TestServe_ThisMachinesPortAdministersWhereTheHousesPortDoesNot(t *testing.T) {
 	t.Parallel()
 	config, path := testConfig(t)
-	config.Server.HomeNetworks = []string{"192.0.2.0/24"}
 	captured := newCapturedLog("ready")
 	// A free port is found by listening on it and closing it, and another run's test may take it before
 	// this one listens again: that is tried again on a new port, not failed.
@@ -49,12 +48,9 @@ func TestServe_ThisMachinesPortAdministersWhereTheHousesPortDoesNot(t *testing.T
 	server := startServingOn(t, listener, config, captured, "ready", nil)
 	setUpOwner(t, server, path, "owner")
 	token := signInAs(t, server.baseURL, "owner", ownerPassword)
-	_, port, _ := net.SplitHostPort(thisMachine) //nolint:errcheck // the listener's own address
-	if refused := requestAPI(t, http.MethodGet, server.baseURL+"/users?limit=500", token, nil); refused.status !=
-		http.StatusForbidden || !strings.Contains(refused.body, "http://localhost:"+port) {
-		t.Errorf("GET /users on the house's port = %d %s; want 403 naming http://localhost:%s",
-			refused.status, refused.body, port)
-	}
+	// The house's port refusing Docker's gateway and naming this one is internal/core/api's
+	// TestMarkingHome_ThisMachinesPortIsHome: the core's loopback, which a test
+	// here reaches from, is always home now (the owner, 2026-11-09).
 	allowed := requestAPI(t, http.MethodGet, "http://"+thisMachine+api.Prefix+"/users?limit=500", token, nil)
 	if allowed.status != http.StatusOK {
 		t.Errorf("GET /users on this machine's port = %d %s; want 200", allowed.status, allowed.body)

@@ -34,10 +34,9 @@ func parsedNetworks(named []string) []netip.Prefix {
 // of the core's own interfaces (D452 §1).
 func (server ServerConfig) homeNetworksOf(interfaces []netip.Prefix) home.Networks {
 	return home.Networks{
-		Listed:        server.homeNetworks(),
-		PrivateIsHome: server.HomeIsPrivate,
-		NotHome:       server.notHomeNetworks(),
-		Interfaces:    interfaces,
+		Listed:     server.homeNetworks(),
+		NotHome:    server.notHomeNetworks(),
+		Interfaces: interfaces,
 	}
 }
 

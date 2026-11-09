@@ -55,7 +55,7 @@ func AnswerOnLoopback(server *Server) {
 	engine := settings(server.pacer)
 	engine.SetIncludeLoopbackCandidate(true)
 	engine.SetIPFilter(func(ip net.IP) bool { return ip.IsLoopback() })
-	server.api = newAPI(engine)
+	server.api.Store(newAPI(engine))
 }
 
 // ConnectionCount is how many connections server holds.
