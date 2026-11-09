@@ -40,8 +40,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/turn"
 	"github.com/kstenerud/orpheum/internal/core/waits"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
-	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 	"github.com/kstenerud/orpheum/internal/platform/waiting"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
 // Prefix is where the API lives (cut-a §5).

@@ -9,8 +9,8 @@ import (
 	"slices"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
 // HoursShown is how far back the hours go: a day, so a day's evening plays sit beside its night's

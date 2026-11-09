@@ -73,6 +73,12 @@ def changed_paths(base: str) -> list[str]:
     return sorted(set(paths))
 
 
+def without_removed_packages(paths: list[str], is_dir=os.path.isdir) -> list[str]:
+    """`paths` but a Go file whose directory is gone: a package the change removed, which has nothing
+    left to test or lint (its importers changed too, and are in `paths` themselves)."""
+    return [path for path in paths if not path.endswith(".go") or is_dir(str(Path(path).parent))]
+
+
 def plan(paths: list[str], module: str, importers: dict[str, set[str]]) -> Plan:
     """What to run for `paths`: `module` is go.mod's module path, and `importers` maps each Go package
     to the packages that import it directly, their tests included."""
@@ -218,7 +224,7 @@ def main() -> int:
         print(f"spot: nothing changed since {args.base}; give --base to check commits (e.g. --base HEAD~1)")
         return 0
     module, importers = go_importers() if any(p.endswith(".go") for p in paths) else ("", {})
-    spot = plan(paths, module, importers)
+    spot = plan(without_removed_packages(paths), module, importers)
     planned = runs(spot, module)
     with ThreadPoolExecutor(max_workers=max(1, min(args.jobs, len(planned)))) as pool:
         results = list(pool.map(execute, planned))

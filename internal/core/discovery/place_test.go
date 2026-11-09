@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/platform/strictjson"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
 // A place's namedAt is written in Unix milliseconds, as every other time is, and a trust-discovery a

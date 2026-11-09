@@ -23,7 +23,6 @@ copy, and checked to work there. A test holds each pair together:
 
 | Twin | Copy | Held by |
 | --- | --- | --- |
-| `internal/platform/atomics/atomics.go` | `discovery/internal/atomics/atomics.go`, byte for byte | `TestAtomics_IsInternalPlatformAtomicsByteForByte` |
 | `internal/platform/clock/clock.go`, `clocktest/fake.go` and `fake_test.go` | `orpheum-connect`'s, same paths | `orpheum-connect`'s twins test, in its `internal/twins` |
 | `internal/core/secrets/value.go` | `orpheum-connect`'s, same path | `orpheum-connect`'s twins test, in its `internal/twins` |
 | `internal/store/open.go` (the opening; `ours.go` is each project's own), with `writer_gate.go` and `tally.go`, which it uses | `orpheum-connect`'s, same paths | the same |

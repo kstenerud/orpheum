@@ -16,8 +16,8 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
-	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 	"github.com/kstenerud/orpheum/internal/store"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
 // Origin is where the address at home came from.

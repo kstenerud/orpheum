@@ -18,9 +18,9 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
-	"github.com/kstenerud/orpheum/discovery/internal/strictjson"
 	"github.com/kstenerud/orpheum/discovery/proof"
 	"github.com/kstenerud/orpheum/discovery/safe32code"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
 // The lifetimes of what it issues: a nonce, a session's token, a claim code (the spec's §3.2, §3.3).

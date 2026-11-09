@@ -35,10 +35,10 @@
 //   - An unknown field is accepted (D456 §6), and a document that keeps every rule decodes exactly as
 //     encoding/json decodes it. TestUnmarshal_AnUnknownFieldIsAccepted,
 //     TestUnmarshal_DecodesADocumentAsEncodingJSONDoes, TestUnmarshal_NotJSONIsSaidInEncodingJSONsWords.
-//   - No compiled file outside this package and its twin decodes with encoding/json, but those
-//     D456's Status names. TestArch_JSONIsDecodedStrictly.
-//   - This package imports nothing from the module. Enforced by the depguard rule
-//     platform-is-a-leaf.
+//   - No compiled file outside this package decodes with encoding/json, but those D456's Status
+//     names. TestArch_JSONIsDecodedStrictly.
+//   - It is public, for the public discovery packages as for the module, and imports nothing of
+//     the module's. TestArch_PublicPackagesImportNothingInternal; the depguard rule pkg-is-a-leaf.
 //
 // # Read before changing
 //
@@ -47,7 +47,4 @@
 // # Where to change
 //
 //   - strictjson.go.
-//     It is a twin of discovery/internal/strictjson/strictjson.go, byte for byte, for the public
-//     discovery packages, which cannot import internal/: a change to it is copied there in the
-//     same change.
 package strictjson

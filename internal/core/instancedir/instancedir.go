@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/platform/atomics"
 	"github.com/kstenerud/orpheum/internal/platform/errs"
+	"github.com/kstenerud/orpheum/pkg/atomics"
 )
 
 // The names of the files this package owns in the instance's directories, and the modes it makes

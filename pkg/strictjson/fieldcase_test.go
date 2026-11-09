@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kstenerud/orpheum/internal/platform/strictjson"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
 type inner struct {

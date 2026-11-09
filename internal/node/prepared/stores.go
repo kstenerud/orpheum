@@ -12,8 +12,8 @@ import (
 	"strings"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
-	"github.com/kstenerud/orpheum/internal/platform/atomics"
-	"github.com/kstenerud/orpheum/internal/platform/strictjson"
+	"github.com/kstenerud/orpheum/pkg/atomics"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
 // A store holds one stream of a film cut into chunks (D247 §10), at <file_id>/chunks-<stream>/<grid_id>

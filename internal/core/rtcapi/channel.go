@@ -17,7 +17,7 @@ import (
 
 	"github.com/pion/webrtc/v4"
 
-	"github.com/kstenerud/orpheum/internal/platform/strictjson"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
 // MaxRequestBodyBytes bounds a request's body over a channel: the API's bodies are small JSON.

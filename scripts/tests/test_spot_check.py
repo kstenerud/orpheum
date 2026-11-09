@@ -30,6 +30,12 @@ class Planning(unittest.TestCase):
         self.assertEqual(spot.go_packages, [f"{MODULE}/cmd/c", f"{MODULE}/internal/b"])
         self.assertIn("what imports the importers", " ".join(spot.not_run))
 
+    def test_a_removed_packages_files_are_left_out_and_the_rest_kept(self):
+        present = {"internal/kept", "."}
+        paths = ["internal/gone/x.go", "internal/kept/y.go", "internal/gone/README.md", "main.go"]
+        self.assertEqual(spot_check.without_removed_packages(paths, is_dir=lambda d: d in present),
+                         ["internal/kept/y.go", "internal/gone/README.md", "main.go"])
+
     def test_web_sources_run_their_related_tests_and_a_stylesheet_is_named_not_run(self):
         spot = spot_check.plan(["web/apps/web/src/a.tsx", "web/apps/web/src/a.css"], MODULE, {})
         self.assertEqual(spot.web_files, ["web/apps/web/src/a.tsx"])

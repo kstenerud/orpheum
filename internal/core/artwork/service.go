@@ -21,8 +21,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
-	"github.com/kstenerud/orpheum/internal/platform/strictjson"
 	"github.com/kstenerud/orpheum/internal/store"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
 // webpSuffix ends the name of every WebP size the art directory holds: "portrait-m.webp".

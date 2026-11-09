@@ -10,8 +10,8 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/kstenerud/orpheum/discovery/internal/strictjson"
 	"github.com/kstenerud/orpheum/discovery/safe32code"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
 // A device code through the paid service (D293 §2): the device's P-256 key is the one thing the

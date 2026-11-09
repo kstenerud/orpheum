@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kstenerud/orpheum/internal/platform/strictjson"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
 // refused is a document each rule of D456 refuses, with what the error must name.

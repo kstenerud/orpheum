@@ -10,7 +10,7 @@ import (
 	"strconv"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
-	"github.com/kstenerud/orpheum/internal/platform/strictjson"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
 // serveCommands answers a long-poll: the commands numbered after the one the node names, as soon

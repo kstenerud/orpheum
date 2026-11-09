@@ -12,8 +12,8 @@ import (
 	"syscall"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
-	"github.com/kstenerud/orpheum/discovery/internal/atomics"
-	"github.com/kstenerud/orpheum/discovery/internal/strictjson"
+	"github.com/kstenerud/orpheum/pkg/atomics"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
 // Core is the one core a single-target discovery holds.
@@ -105,7 +105,7 @@ func (store FileStore) write(record Record) error {
 }
 
 // writeWhole writes contents to path whole and durably, mode 0600, through the module's atomics
-// (discovery/internal/atomics, a twin of internal/platform/atomics).
+// (pkg/atomics).
 func writeWhole(path string, contents []byte) (err error) {
 	root, err := os.OpenRoot(filepath.Dir(path))
 	if err != nil {

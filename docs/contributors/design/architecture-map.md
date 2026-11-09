@@ -127,7 +127,7 @@ is the evidence. The first column names each package by its path; the check read
 | `discovery/trust/trusttest` | — (tests only: hardware and plain keys, and a chain they sign) | — (public, so the closed service's tests use it too) |
 | `discovery/addressdoc` | R1 (a discovery's signed address document at its issuer's well-known path, and opening it for exactly that issuer, D391 §3) | — (public: the closed service serves the same document, D275 §1) |
 | `internal/platform/outbound`, `internal/platform/bounded` | R1 support | — |
-| `internal/platform/strictjson` | R1 support (every JSON document the Go code reads, decoded strictly, D456) | — (its twin, `discovery/internal/strictjson`, serves the public discovery packages) |
+| `pkg/strictjson` | R1 support (every JSON document the Go code reads, decoded strictly, D456) | — (public, so the discovery packages share it) |
 | `internal/platform/unixsocket` | R8 support | — (dialling and, since 2026-09-30, listening, for both roles) |
 | `internal/platform/jobqueue` | R8 support | — (the generic job queue of D231 §2, since the jobs rebuild's Phase 1; it knows no kind, target or destination, and its storage is `internal/store`'s `JobStorage` on cache.db, so either role could use it) |
 | `internal/platform/langtag` | R2 (normalise on entry) | — |
@@ -135,7 +135,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/platform/waiting` | R4 support (a person's writes before background work, D303 DL11) | — (the api marks each request; the store's writer gate reads the mark) |
 | `internal/platform/pacing` | R4 support (a film's download giving way to live voice, D262 §2) | — (the core's api paces media requests by the player's header; built 2026-10-07) |
 | `internal/platform/build`, `internal/platform/host`, `internal/platform/diskspace` | OPS | — |
-| `internal/platform/clock`, `internal/platform/localtime`, `internal/platform/slogx`, `internal/platform/errs`, `internal/platform/ptr`, `internal/platform/pathtree`, `internal/platform/randbytes`, `internal/platform/readonly`, `internal/platform/backoff`, `internal/platform/atomics`, `internal/platform/httpgzip` | PRIM | — |
+| `internal/platform/clock`, `internal/platform/localtime`, `internal/platform/slogx`, `internal/platform/errs`, `internal/platform/ptr`, `internal/platform/pathtree`, `internal/platform/randbytes`, `internal/platform/readonly`, `internal/platform/backoff`, `internal/platform/httpgzip`, `pkg/atomics` | PRIM | — |
 | `internal/platform/selfuse` | PRIM (what this process, or its cgroup, uses of its machine) | — |
 | `internal/store`, `internal/store/sqlcgen`, `internal/store/cachegen` | PERSIST | — (the `job` table's one writer since the jobs rebuild's Phase 1, as the queue's storage: D231 §2) |
 | `internal/archtest`, `internal/testutil`, `internal/store/storetest`, `internal/store/rowstest`, `internal/store/storesources`, `internal/core/auth/authtest`, `internal/core/identify/identifytest`, `internal/core/jobs/jobstest`, `internal/core/certificate/certificatetest`, `internal/core/providers/cloudflare/cloudflaretest`, `internal/core/nodes/nodestest`, `internal/core/library/librarytest`, `internal/core/settings/settingstest`, `internal/node/nodetest`, `internal/node/container/containertest`, `internal/node/disc/disctest`, `internal/node/fdproxy/fdproxytest`, `internal/platform/clock/clocktest`, `internal/platform/jobqueue/jobqueuetest`, `internal/core/providers/providerstest` | TEST | — |

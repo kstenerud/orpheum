@@ -124,6 +124,7 @@ done. *Standards: makefile.md §4.*
 | `internal/nodeproto/` | wire types between core and node |
 | `internal/store/` | the only package that touches SQLite |
 | `internal/platform/` | the sanctioned clock and logger |
+| `pkg/` | public packages the server and the public discovery packages share: the strict JSON decoder, the whole-file writer |
 | `internal/archtest/` | architecture tests (`TestArch_…`) |
 | `web/` | MPL-2.0: `packages/sdk`, `packages/player`, `apps/web`, `apps/cast-receiver` |
 | `scripts/` | the gates, in Python, with tests in `scripts/tests/` |

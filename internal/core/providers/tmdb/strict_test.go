@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/identify"
-	"github.com/kstenerud/orpheum/internal/platform/strictjson"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
 // A reply is read strictly (D456): one result's title said twice is refused, not read as the last.
