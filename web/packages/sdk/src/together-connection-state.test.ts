@@ -87,10 +87,10 @@ describe("what a device's state tells its session of its player (cut-a §5.1)", 
     sockets.opened[0]!.onMessage(JSON.stringify(welcome));
     const lastState = (): Record<string, unknown> | undefined =>
       sockets.sent.filter((each) => each["type"] === "state").at(-1);
-    expect(lastState()?.["pageHidden"]).toBe(true);
+    expect(lastState()?.["isPageHidden"]).toBe(true);
     isPageHidden = false;
     connection.reportState();
-    expect(lastState()).not.toHaveProperty("pageHidden");
+    expect(lastState()).not.toHaveProperty("isPageHidden");
   });
 
   it("tells the group, in its first state at its welcome, its player's position and that it is its own (D377 §3, §4)", () => {

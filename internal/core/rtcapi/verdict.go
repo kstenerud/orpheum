@@ -16,7 +16,7 @@ import (
 // closing the connection alone left the page to guess, and it said "can't be reached from this
 // network", which read as the device's network failing (the owner's Fire TV, 2026-10-25).
 type Verdict struct {
-	Held bool `json:"held,omitempty"`
+	IsHeld bool `json:"isHeld,omitempty"`
 	// Refused is why the connection is turned away: RefusedNetworkFull.
 	Refused string `json:"refused,omitempty"`
 }

@@ -441,7 +441,7 @@ func TestHub_TheRosterSaysHowEachPlayersFilmSounds(t *testing.T) {
 	}
 	stage.command(t, receiver, CommandChangeItem, 12)
 	stage.hub.Handle(t.Context(), receiver, Inbound{
-		Type: MessageState, Playing: true, FileID: 12,
+		Type: MessageState, IsPlaying: true, FileID: 12,
 		Playback: &Playback{Delivery: DeliveryConverted, Sound: &sound},
 	})
 	if got := soundInRoster(); got == nil || !reflect.DeepEqual(*got, sound) {
@@ -455,7 +455,7 @@ func TestHub_TheRosterSaysHowEachPlayersFilmSounds(t *testing.T) {
 	}
 	for name, each := range refused {
 		stage.hub.Handle(t.Context(), receiver, Inbound{
-			Type: MessageState, Playing: true, FileID: 12,
+			Type: MessageState, IsPlaying: true, FileID: 12,
 			Playback: &Playback{Delivery: DeliveryConverted, Sound: &each},
 		})
 		if got := soundInRoster(); got == nil || !reflect.DeepEqual(*got, sound) {

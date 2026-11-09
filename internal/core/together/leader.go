@@ -103,11 +103,11 @@ const runLayout = "2006-01-02T15:04:05.000000Z07:00"
 func (current *session) takeRun(now time.Time, who *member, from *device, message Inbound) {
 	hasFilm := current.group.fileID != 0 && message.FileID == current.group.fileID
 	switch {
-	case message.PageHidden:
+	case message.IsPageHidden:
 		current.endRun(who, from, string(goneHidden))
 	case !hasFilm:
 		current.endRun(who, from, string(goneLeftFilm))
-	case !message.Buffering && from.runSince.IsZero():
+	case !message.IsBuffering && from.runSince.IsZero():
 		from.runSince = now.Truncate(time.Microsecond)
 		current.logger.Info("watch together: a device's run began",
 			append(current.deviceAttributes(who, from), slogx.EventKey, eventRunStarted,
@@ -380,8 +380,8 @@ func (current *session) takeLeadInStep(now time.Time, who *member, from *device,
 // alone (together_drift_left_alone_ms, D250 §1), the follower's own threshold for needing no
 // correction.
 func (current *session) inStep(now time.Time, from *device, message Inbound) (int64, bool) {
-	if current.group.fileID == 0 || message.Buffering || !from.hasBeenReady ||
-		message.Playing != (current.group.state == GroupPlaying) {
+	if current.group.fileID == 0 || message.IsBuffering || !from.hasBeenReady ||
+		message.IsPlaying != (current.group.state == GroupPlaying) {
 		return 0, false
 	}
 	off := current.reportedPosition(from, message) - current.positionAt(now)

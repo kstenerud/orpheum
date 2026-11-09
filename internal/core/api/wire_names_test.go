@@ -8,6 +8,9 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
+	"github.com/kstenerud/orpheum/internal/core/live"
+	"github.com/kstenerud/orpheum/internal/core/rtcapi"
+	"github.com/kstenerud/orpheum/internal/core/together"
 )
 
 // TestWireNames_AreTheOwnersChoice pins the wire names the owner chose before v0.3.3 (the owner,
@@ -24,6 +27,11 @@ func TestWireNames_AreTheOwnersChoice(t *testing.T) {
 		{"plays names its item", api.PlaysBody{ItemID: 7}, `"itemId":7`},
 		{"a watched mark names its item", api.WatchedStateBody{ItemID: 7}, `"itemId":7`},
 		{"a film without sound names its item", api.FilmWithoutSoundBody{ItemID: 7}, `"itemId":7`},
+		{"a state says it is playing", together.Inbound{IsPlaying: true}, `"isPlaying":true`},
+		{"a state says it is buffering", together.Inbound{IsBuffering: true}, `"isBuffering":true`},
+		{"a state says its page is hidden", together.Inbound{IsPageHidden: true}, `"isPageHidden":true`},
+		{"a front message says the tab is behind", live.Inbound{IsBehind: true}, `"isBehind":true`},
+		{"a verdict says the connection is held", rtcapi.Verdict{IsHeld: true}, `"isHeld":true`},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()

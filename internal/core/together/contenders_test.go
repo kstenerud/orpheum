@@ -73,7 +73,7 @@ func TestHub_APlayerNotPlayingTheFilmIsPassedOverForTheLead(t *testing.T) {
 	playingGuest := stage.guests[0]
 	stage.clock.Advance(time.Second)
 	another, _ := stage.attach(t, stage.join(t).MembershipCredential, RoleVideo)
-	stage.hub.Handle(t.Context(), another, Inbound{Type: MessageState, Playing: true, FileID: 8})
+	stage.hub.Handle(t.Context(), another, Inbound{Type: MessageState, IsPlaying: true, FileID: 8})
 	notYet, _ := stage.attach(t, stage.join(t).MembershipCredential, RoleVideo)
 	hostsOther, _ := stage.attach(t, stage.opened.MembershipCredential, RoleVideo)
 	if leader := rosterLeader(watchBox); leader != stage.host.DeviceID {

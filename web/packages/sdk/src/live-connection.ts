@@ -319,7 +319,7 @@ class PageLiveConnection implements LiveConnection {
 
   readonly showFront = (isInFront: boolean): void => {
     if (this.#isGreeted) {
-      this.#send({ type: "front", ...(isInFront ? {} : { behind: true }) });
+      this.#send({ type: "front", ...(isInFront ? {} : { isBehind: true }) });
     } // else the hello says it
   };
 
@@ -530,7 +530,7 @@ class PageLiveConnection implements LiveConnection {
             channel: "live",
             sessionToken: this.#options.sessionToken,
             ...(this.#options.client === undefined ? {} : { client: this.#options.client }),
-            ...((this.#options.isInFront?.() ?? true) ? {} : { behind: true }),
+            ...((this.#options.isInFront?.() ?? true) ? {} : { isBehind: true }),
           });
           this.#isGreeted = true;
           this.#pinger = setInterval(this.#ping, pingEveryMs);

@@ -186,10 +186,10 @@ func (current *session) followLeader(ctx context.Context, now time.Time, who *me
 	if current.group.fileID == 0 || (state != GroupPlaying && state != GroupWaiting) {
 		return
 	}
-	isPlaying := message.Playing && !message.Buffering
+	isPlaying := message.IsPlaying && !message.IsBuffering
 	position := current.reportedPosition(from, message)
 	switch {
-	case state == GroupPlaying && !message.Buffering && !from.catchingUpSince.IsZero():
+	case state == GroupPlaying && !message.IsBuffering && !from.catchingUpSince.IsZero():
 		current.leaderCatchesUp(ctx, now, who, from, message)
 	case state == GroupPlaying && isPlaying:
 		stepped := position - current.positionAt(now)
@@ -240,9 +240,9 @@ func (current *session) leaderCatchesUp(
 // for (D373 §4).
 func (current *session) takeStall(ctx context.Context, now time.Time, who *member, from *device, message Inbound) {
 	switch {
-	case message.Buffering && current.group.state == GroupPlaying && from.stalledSince.IsZero():
+	case message.IsBuffering && current.group.state == GroupPlaying && from.stalledSince.IsZero():
 		from.stalledSince = now
-	case !message.Buffering && !from.stalledSince.IsZero():
+	case !message.IsBuffering && !from.stalledSince.IsZero():
 		isLeader := from.id == current.leaderID
 		attributes := append(current.deviceAttributes(who, from), slogx.EventKey, eventStallNotWaitedFor,
 			"isLeader", isLeader, "stalledMs", now.Sub(from.stalledSince).Milliseconds(),
@@ -262,7 +262,7 @@ func (current *session) takeStall(ctx context.Context, now time.Time, who *membe
 // playing one half its round trip on from where it said.
 func (current *session) reportedPosition(from *device, message Inbound) time.Duration {
 	position := time.Duration(message.PositionMs) * time.Millisecond
-	if message.Playing && !message.Buffering {
+	if message.IsPlaying && !message.IsBuffering {
 		rttMs := from.rttMs
 		if message.RTTMs > 0 {
 			rttMs = message.RTTMs

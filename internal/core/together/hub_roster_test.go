@@ -193,7 +193,7 @@ func TestHub_TheRosterTellsEveryoneADeviceCannotKeepUp(t *testing.T) {
 		return DeviceView{}
 	}
 	stage.hub.Handle(t.Context(), guestDevice, Inbound{
-		Type: MessageState, Buffering: true, CannotKeepUp: &CannotKeepUp{LinkKbps: 600, LowestKbps: 750},
+		Type: MessageState, IsBuffering: true, CannotKeepUp: &CannotKeepUp{LinkKbps: 600, LowestKbps: 750},
 	})
 	if got := guestInHostsRoster().CannotKeepUp; got == nil || *got != (CannotKeepUp{LinkKbps: 600, LowestKbps: 750}) {
 		t.Errorf("the guest's device in the host's roster cannot keep up = %+v; want 600 kb/s against 750", got)
@@ -348,18 +348,18 @@ func TestHub_TheRosterSaysHowEachPlayerPlaysTheFilm(t *testing.T) {
 	converted := Playback{Delivery: DeliveryConverted, QualityKbps: 4200, LinkKbps: 18_000}
 	stage.command(t, receiver, CommandChangeItem, 12)
 	stage.hub.Handle(t.Context(), receiver, Inbound{
-		Type: MessageState, Playing: true, Playback: &converted, FileID: 12,
+		Type: MessageState, IsPlaying: true, Playback: &converted, FileID: 12,
 	})
 	if got := receiverInRoster(); !got.IsLeader || got.Playback == nil || *got.Playback != converted {
 		t.Errorf("the receiver in the remote's roster = %+v (%+v); want the leader, converted at 4200 kb/s "+
 			"on 18000", got, got.Playback)
 	}
-	stage.hub.Handle(t.Context(), receiver, Inbound{Type: MessageState, Playing: true, FileID: 12})
+	stage.hub.Handle(t.Context(), receiver, Inbound{Type: MessageState, IsPlaying: true, FileID: 12})
 	if got := receiverInRoster().Playback; got == nil || *got != converted {
 		t.Errorf("after a state that says none, the receiver plays %+v; want the last said", got)
 	}
 	stage.hub.Handle(t.Context(), receiver, Inbound{
-		Type: MessageState, Playing: true, Playback: &Playback{Delivery: "teleported"}, FileID: 12,
+		Type: MessageState, IsPlaying: true, Playback: &Playback{Delivery: "teleported"}, FileID: 12,
 	})
 	if got := receiverInRoster().Playback; got == nil || *got != converted {
 		t.Errorf("after a delivery no player says, the receiver plays %+v; want the last known", got)

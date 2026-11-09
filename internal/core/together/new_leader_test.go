@@ -14,7 +14,7 @@ import (
 func (stage sessionStage) tellPlace(t *testing.T, attachment Attachment, positionMs int64, isPlaying, isOwn bool) {
 	t.Helper()
 	stage.hub.Handle(t.Context(), attachment, Inbound{
-		Type: MessageState, PositionMs: positionMs, Playing: isPlaying, RemembersPlace: isOwn,
+		Type: MessageState, PositionMs: positionMs, IsPlaying: isPlaying, RemembersPlace: isOwn,
 		FileID: stage.filmOn(attachment.SessionID),
 	})
 }

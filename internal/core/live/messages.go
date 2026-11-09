@@ -51,7 +51,7 @@ type Inbound struct {
 	TMono int64 `json:"tMono,omitempty"`
 	// IsBehind, in a hello or a front message, is whether the tab is behind another, hidden, rather
 	// than in front, where a cast to the device goes (D338 §2).
-	IsBehind bool `json:"behind,omitempty"`
+	IsBehind bool `json:"isBehind,omitempty"`
 }
 
 // Outbound is one message the server sends.

@@ -79,7 +79,7 @@ describe("a signed-in guest's Play page of the group's film while their device c
     expect(mounted.container.textContent).toContain("Playing on Fire TV");
     // Its session is told it plays no film, so it never leads in its receiver's place (D374 §1).
     const states = sockets.session.heard.filter((each) => each["type"] === "state");
-    expect(states.at(-1)).toMatchObject({ fileId: 0, playing: false });
+    expect(states.at(-1)).toMatchObject({ fileId: 0, isPlaying: false });
     expect(states.some((each) => each["fileId"] === 5)).toBe(true);
     mounted.unmount();
   });

@@ -16,7 +16,7 @@ import (
 func (stage sessionStage) report(t *testing.T, attachment Attachment, positionMs int64, isPlaying, isBuffering bool) {
 	t.Helper()
 	stage.hub.Handle(t.Context(), attachment, Inbound{
-		Type: MessageState, PositionMs: positionMs, Playing: isPlaying, Buffering: isBuffering, RTTMs: 40,
+		Type: MessageState, PositionMs: positionMs, IsPlaying: isPlaying, IsBuffering: isBuffering, RTTMs: 40,
 		FileID: stage.filmOn(attachment.SessionID),
 	})
 }
@@ -25,8 +25,8 @@ func (stage sessionStage) report(t *testing.T, attachment Attachment, positionMs
 func (stage sessionStage) hide(t *testing.T, attachment Attachment, isHidden bool) {
 	t.Helper()
 	stage.hub.Handle(t.Context(), attachment, Inbound{
-		Type: MessageState, PositionMs: stage.groupPositionMs(attachment.SessionID), Buffering: true,
-		PageHidden: isHidden, FileID: stage.filmOn(attachment.SessionID),
+		Type: MessageState, PositionMs: stage.groupPositionMs(attachment.SessionID), IsBuffering: true,
+		IsPageHidden: isHidden, FileID: stage.filmOn(attachment.SessionID),
 	})
 }
 

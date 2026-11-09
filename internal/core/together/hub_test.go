@@ -120,7 +120,7 @@ func (stage sessionStage) command(t *testing.T, attachment Attachment, command C
 func (stage sessionStage) ready(t *testing.T, attachment Attachment, isBuffering bool) {
 	t.Helper()
 	stage.hub.Handle(t.Context(), attachment, Inbound{
-		Type: MessageState, Playing: !isBuffering, Buffering: isBuffering,
+		Type: MessageState, IsPlaying: !isBuffering, IsBuffering: isBuffering,
 		PositionMs: stage.groupPositionMs(attachment.SessionID), FileID: stage.filmOn(attachment.SessionID),
 	})
 }

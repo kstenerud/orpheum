@@ -67,7 +67,7 @@ describe("the core's verdict on a connection (rtcapi.Verdict)", () => {
     const told = new FakeChannel();
     const held = verdictOf(told);
     told.open();
-    told.answer(JSON.stringify({ held: true }));
+    told.answer(JSON.stringify({ isHeld: true }));
     await expect(held).resolves.toBeUndefined();
 
     const silent = new FakeChannel();
