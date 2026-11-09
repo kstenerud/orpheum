@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/home"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi/rtcapitest"
 	"github.com/kstenerud/orpheum/internal/testutil"
@@ -129,7 +130,7 @@ func TestAnswerRelayed_TellsAConnectionProvenAtHome(t *testing.T) {
 	// The test's client is on this machine, whose addresses are the core's own networks: a development
 	// build's lifting of the address check lets it connect, and every IPv4 address is home here.
 	server.AcceptAnyRelayedAddress()
-	server.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("0.0.0.0/0")})
+	server.SetHome(home.Listed(netip.MustParsePrefix("0.0.0.0/0")))
 	proven := make(chan rtcapi.ProvenAtHome, 1)
 	rtcapitest.Connect(t, func(ctx context.Context, offer rtcapi.Description) (rtcapi.Description, error) {
 		return server.AnswerRelayed(ctx, offer, func(each rtcapi.ProvenAtHome) { proven <- each })

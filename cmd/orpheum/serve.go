@@ -18,6 +18,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/assembly"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/discovery"
+	"github.com/kstenerud/orpheum/internal/core/home"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/portmap"
@@ -56,13 +57,13 @@ func serve(
 	ctx context.Context, config Config, configReport ConfigReport, listener net.Listener, outside wiring,
 	logger *slog.Logger,
 ) (err error) {
-	server := newAPIServer(config, logger)
+	server, homeRule := newAPIServer(config, logger)
 	clientFiles, hasClient := webclient.Files()
 	if clientErr := serveClient(server, clientFiles, hasClient); clientErr != nil {
 		return clientErr
 	}
 	// Requests over WebRTC data channels reach the same handler as those over TCP (D273 §8).
-	rtc := webRTCOf(ctx, server, config, logger)
+	rtc := webRTCOf(ctx, server, config, homeRule, logger)
 	defer func() { err = errors.Join(err, rtc.Close()) }()
 	httpServer := &http.Server{
 		Handler:           server.LANHandler(lanHostNames(config)),
@@ -569,13 +570,25 @@ func mountDebug(
 	return nil
 }
 
-// newAPIServer is the API's server, an admin administering from the networks the config names
-// (D297 §6).
-func newAPIServer(config Config, logger *slog.Logger) *api.Server {
+// homeRuleOf is the rule of the house's addresses the config makes, with the networks of the core's
+// own interfaces as they are at start, and the first address the discovery names at home as the
+// address at home, which keeps its interface network home for a core on the host's network (D452 §1).
+func homeRuleOf(config Config) *home.Rule {
+	rule := home.NewRule(config.Server.homeNetworksOf(home.InterfaceNetworks()))
+	if atHome := config.Discovery.lanIPs(); len(atHome) > 0 {
+		rule.SetAddressAtHome(atHome[0])
+	}
+	return rule
+}
+
+// newAPIServer is the API's server, an admin administering from the addresses the config's home rule
+// holds (D297 §6, D452), and that rule, which WebRTC judges home by too.
+func newAPIServer(config Config, logger *slog.Logger) (*api.Server, *home.Rule) {
 	server := api.NewServer(logger)
-	server.SetHomeNetworks(config.Server.homeNetworks())
+	homeRule := homeRuleOf(config)
+	server.SetHome(homeRule)
 	server.SetThisMachinePort(config.Server.thisMachinePort())
-	return server
+	return server, homeRule
 }
 
 // serveClient serves the built web client, clientFiles, at "/", and has every API answer name its
@@ -595,10 +608,15 @@ func serveClient(server *api.Server, clientFiles fs.FS, hasClient bool) error {
 	return nil
 }
 
-// webRTCOf is the WebRTC server over server's handler, taking WebRTC at home as config says, which
-// server serves offers to.
-func webRTCOf(ctx context.Context, server *api.Server, config Config, logger *slog.Logger) *rtcapi.Server {
+// webRTCOf is the WebRTC server over server's handler, judging home by homeRule and taking WebRTC at
+// home as config says, which server serves offers to. The rule counts the core's own public IPv6
+// networks its connections last found as home for a direct request too (D452 §2).
+func webRTCOf(
+	ctx context.Context, server *api.Server, config Config, homeRule *home.Rule, logger *slog.Logger,
+) *rtcapi.Server {
 	rtc := newWebRTC(ctx, server.Handler(), config.WebRTC, logger)
+	homeRule.CountOwnIPv6Networks(rtc.OwnIPv6Networks)
+	rtc.SetHome(homeRule)
 	listenForWebRTCAtHome(ctx, rtc, config, logger)
 	server.SetRTC(rtc)
 	return rtc
@@ -627,11 +645,9 @@ func keepWebRTCShareCurrent(
 	settingsService.OnChange(settings.WebRTCConnectionsPerNetwork, apply)
 }
 
-// listenForWebRTCAtHome names the house's networks to the WebRTC server and, when the config names a
-// UDP port, has it take WebRTC there at the house's addresses (D300 §1); a port it cannot have is
-// logged, and WebRTC goes on without it.
+// listenForWebRTCAtHome has the WebRTC server, when the config names a UDP port, take WebRTC there at
+// the house's addresses (D300 §1); a port it cannot have is logged, and WebRTC goes on without it.
 func listenForWebRTCAtHome(ctx context.Context, rtc *rtcapi.Server, config Config, logger *slog.Logger) {
-	rtc.SetHomeNetworks(config.Server.homeNetworks())
 	if config.WebRTC.UDPPort == 0 {
 		return
 	}

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
-	"net/netip"
 	"os"
 	"path/filepath"
 	"slices"
@@ -74,6 +73,15 @@ type ServerConfig struct {
 	// with no relay between, for an admin's session to administer: the house's, not the tunnel's nor
 	// the internet's, until passkeys let an admin in from elsewhere (D297 §6, D300 §3).
 	HomeNetworks []string `toml:"home_networks"`
+	// HomeIsPrivate counts every private address as home too, 10.0.0.0/8, 172.16.0.0/12,
+	// 192.168.0.0/16 and fc00::/7, but those in NotHomeNetworks or in a network of the core's own
+	// interfaces (Docker's bridge, unless it holds the address at home), with the core's loopback and
+	// the /64 of its own public IPv6 address, so a new lease from the router locks no admin out
+	// (D452 §1, §2). False leaves HomeNetworks alone.
+	HomeIsPrivate bool `toml:"home_is_private"`
+	// NotHomeNetworks are private networks never home under HomeIsPrivate: the tunnel's, through which
+	// the internet arrives (D452 §1).
+	NotHomeNetworks []string `toml:"not_home_networks"`
 	// ThisMachineListen is plain HTTP for a browser on the server's own machine alone, which the
 	// deployment publishes on that machine's loopback: a request on it is from home, though Docker
 	// hands it the core from its gateway (D334 §4). Empty serves none.
@@ -95,17 +103,6 @@ func (server ServerConfig) thisMachinePort() int {
 		return 0
 	}
 	return number
-}
-
-// homeNetworks are HomeNetworks parsed; check refused any that is not one.
-func (server ServerConfig) homeNetworks() []netip.Prefix {
-	networks := make([]netip.Prefix, 0, len(server.HomeNetworks))
-	for _, named := range server.HomeNetworks {
-		if network, err := netip.ParsePrefix(named); err == nil {
-			networks = append(networks, network.Masked())
-		}
-	}
-	return networks
 }
 
 // lanHostNames are the names the plain-HTTP listener answers beside the ones it always does: the
@@ -307,6 +304,17 @@ func serverConfigKeys() []configKey {
 				"a deployment names its house's alone, so that its tunnel's never counts (D297). Loopback, " +
 				"Docker's 172.16.0.0/12, 10.0.0.0/8 and ULAs are left out: a reverse proxy, docker-proxy or a " +
 				"tunnel would make the internet look like home (the Plex-chain review's L1)",
+		},
+		{
+			tableServer, "home_is_private", "false",
+			"counts every private address as home too (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, fc00::/7), " +
+				"but not_home_networks' and the networks of this machine's own interfaces, with loopback and " +
+				"the /64 of the server's own public IPv6 address (D452); false leaves home_networks alone",
+		},
+		{
+			tableServer, "not_home_networks", "[]",
+			"private networks never home under home_is_private: a tunnel's, through which the internet " +
+				"arrives (D452)",
 		},
 	}
 }
@@ -577,12 +585,7 @@ func (server ServerConfig) check() error {
 		"server.read_header_timeout_seconds": server.ReadHeaderTimeoutSeconds,
 		"server.shutdown_grace_seconds":      server.ShutdownGraceSeconds,
 	}))
-	for _, named := range server.HomeNetworks {
-		if _, err := netip.ParsePrefix(named); err != nil {
-			problems = append(problems,
-				fmt.Errorf("server.home_networks %q: want a network, \"192.168.1.0/24\"", named))
-		}
-	}
+	problems = append(problems, server.checkHomeNetworks()...)
 	return errors.Join(problems...)
 }
 

@@ -19,6 +19,7 @@ import (
 
 	"github.com/pion/webrtc/v4"
 
+	"github.com/kstenerud/orpheum/internal/core/home"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
@@ -116,8 +117,11 @@ type Server struct {
 	// too: for a development build alone, whose browser tests put the browser, the discovery and the
 	// core on one machine (AcceptAnyRelayedAddress).
 	anyRelayedAddress atomic.Bool
-	// homeNetworks are the house's networks (SetHomeNetworks); none until named.
-	homeNetworks atomic.Pointer[[]netip.Prefix]
+	// homeRule is the rule of the house's addresses (SetHome); none until named.
+	homeRule atomic.Pointer[home.Rule]
+	// ownIPv6 are the core's own public IPv6 networks the last connection to connect found
+	// (OwnIPv6Networks); none until one has.
+	ownIPv6 atomic.Pointer[[]netip.Prefix]
 
 	mutex sync.Mutex
 	// Guarded by mutex: connections are the peer connections held now, and paths how many
@@ -169,26 +173,30 @@ func (server *Server) checksRelayed(ip net.IP) bool {
 // takesNamedRelayed is whether an address an offer a discovery passed on names is kept: one from
 // outside the core's networks, or any after AcceptAnyRelayedAddress (the security audit's A2).
 func (server *Server) takesNamedRelayed(ip net.IP) bool {
-	return server.anyRelayedAddress.Load() || isFromOutside(ip, interfacePrefixes)
+	return server.anyRelayedAddress.Load() || isFromOutside(ip, home.InterfaceNetworks)
 }
 
-// SetHomeNetworks names the house's networks (server.home_networks): a relayed connection answers a
-// check from one, and a request over a connection whose selected pair reaches one directly is from
-// home (D300 §2, §3).
-func (server *Server) SetHomeNetworks(networks []netip.Prefix) {
-	held := slices.Clone(networks)
-	server.homeNetworks.Store(&held)
+// SetHome names the rule of the house's addresses, the one api judges a direct request by (D452 §1):
+// a relayed connection answers a check from one, and a request over a connection whose selected pair
+// reaches one directly is from home (D300 §2, §3).
+func (server *Server) SetHome(rule *home.Rule) {
+	server.homeRule.Store(rule)
 }
 
-// isHomeIP is whether ip is in one of the home networks.
+// isHomeIP is whether ip is home by the rule SetHome named.
 func (server *Server) isHomeIP(ip net.IP) bool {
-	address, isAddress := netip.AddrFromSlice(ip)
-	networks := server.homeNetworks.Load()
-	if !isAddress || networks == nil {
-		return false
+	return server.homeRule.Load().ContainsIP(ip)
+}
+
+// OwnIPv6Networks are the /64s of the core's own public IPv6 addresses as the last connection to
+// connect found them through the core's own STUN servers (ownIPv6Networks): the house's IPv6 network,
+// which the home rule counts for a direct request too (D452 §2). None until a connection has
+// connected, or when the last found none.
+func (server *Server) OwnIPv6Networks() []netip.Prefix {
+	if own := server.ownIPv6.Load(); own != nil {
+		return slices.Clone(*own)
 	}
-	address = address.Unmap()
-	return slices.ContainsFunc(*networks, func(network netip.Prefix) bool { return network.Contains(address) })
+	return nil
 }
 
 // AcceptsAnyRelayedAddress is whether AcceptAnyRelayedAddress was called.
@@ -427,7 +435,7 @@ func (server *Server) open(api *webrtc.API, onProvenAtHome func(ProvenAtHome)) (
 	connection.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
 		if state == webrtc.PeerConnectionStateConnected && isConnected.CompareAndSwap(false, true) {
 			unconnected.Stop()
-			own.keep(connection.GetStats())
+			server.keepOwnIPv6Networks(own, connection.GetStats())
 			pair := selectedPair(connection)
 			server.noteConnected(connection, pair, held, server.clock.Now().Sub(openedAt))
 			server.tellIfProvenAtHome(pair, own.held(), onProvenAtHome)
@@ -468,6 +476,14 @@ func (server *Server) open(api *webrtc.API, onProvenAtHome func(ProvenAtHome)) (
 		})
 	})
 	return connection, nil
+}
+
+// keepOwnIPv6Networks keeps the core's own IPv6 networks a connection that just connected found, in
+// own for its requests, and as the last found (OwnIPv6Networks).
+func (server *Server) keepOwnIPv6Networks(own *heldNetworks, report webrtc.StatsReport) {
+	own.keep(report)
+	found := own.held()
+	server.ownIPv6.Store(&found)
 }
 
 // recordSelectedPath records, and returns, the path a connection that just connected took, by its

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"net/netip"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,6 +20,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/backup"
 	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/discovery"
+	"github.com/kstenerud/orpheum/internal/core/home"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/interest"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
@@ -165,8 +165,8 @@ type Server struct {
 	dependencies   atomic.Pointer[Dependencies]
 	// clientScript is the served web client's script, set before the server serves.
 	clientScript string
-	// homeNetworks are where an admin administers from (SetHomeNetworks; D297 §6).
-	homeNetworks atomic.Pointer[[]netip.Prefix]
+	// home is the rule of where an admin administers from (SetHome; D297 §6, D452); none until named.
+	homeRule atomic.Pointer[home.Rule]
 	// thisMachinePort is the port only the server's own machine reaches, 0 for none
 	// (SetThisMachinePort; D334 §4).
 	thisMachinePort atomic.Int32

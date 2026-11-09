@@ -16,15 +16,16 @@ import (
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/internal/core/discovery"
+	"github.com/kstenerud/orpheum/internal/core/home"
 )
 
 // The System page is told the server's home addresses and whether their certificate is held, as the
 // discovery status holds them (D292 §6, D297 §6).
 func TestDiscoveryStatusBody_CarriesTheHomeAddressesAndWhetherTheyAreReady(t *testing.T) {
 	t.Parallel()
-	home := "https://192-168-1-250.k7xq2.orpheum-core.com:8443"
-	body := discoveryStatusBody(discovery.Status{HomeAddresses: []string{home}, IsHomeAddressReady: true})
-	if len(body.HomeAddresses) != 1 || body.HomeAddresses[0] != home || !body.IsHomeAddressReady {
+	homeAddress := "https://192-168-1-250.k7xq2.orpheum-core.com:8443"
+	body := discoveryStatusBody(discovery.Status{HomeAddresses: []string{homeAddress}, IsHomeAddressReady: true})
+	if len(body.HomeAddresses) != 1 || body.HomeAddresses[0] != homeAddress || !body.IsHomeAddressReady {
 		t.Errorf("the body = %+v; want the home address, ready", body)
 	}
 	if none := discoveryStatusBody(discovery.Status{}); none.HomeAddresses == nil || len(none.HomeAddresses) != 0 {
@@ -77,7 +78,7 @@ func TestDiscoveryStatusBody_CarriesTheDeadEndsCausesCommonestFirst(t *testing.T
 func TestMarkingHome_AHouseNetworkGrantsNoAdmin(t *testing.T) {
 	t.Parallel()
 	server := NewServer(slog.New(slog.DiscardHandler))
-	server.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("192.168.1.0/24")})
+	server.SetHome(home.Listed(netip.MustParsePrefix("192.168.1.0/24")))
 	var marked bool
 	handler := server.markingHome(http.HandlerFunc(func(_ http.ResponseWriter, request *http.Request) {
 		marked = isFromHome(request.Context())
@@ -95,7 +96,7 @@ func TestMarkingHome_AHouseNetworkGrantsNoAdmin(t *testing.T) {
 func TestMarkingHome_ThisMachinesPortIsHome(t *testing.T) {
 	t.Parallel()
 	server := NewServer(slog.New(slog.DiscardHandler))
-	server.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("192.168.1.0/24")})
+	server.SetHome(home.Listed(netip.MustParsePrefix("192.168.1.0/24")))
 	isHome := func(remote, local string) bool {
 		var marked bool
 		handler := server.markingHome(http.HandlerFunc(func(_ http.ResponseWriter, request *http.Request) {
@@ -130,5 +131,37 @@ func TestMarkingHome_ThisMachinesPortIsHome(t *testing.T) {
 	}
 	if hint := server.thisMachineHint(); !strings.Contains(hint, "http://localhost:8441") {
 		t.Errorf("the refusal adds %q; want it to name http://localhost:8441", hint)
+	}
+}
+
+// A direct request is home by the one rule rtcapi judges WebRTC by (D452 §1, §2): any private
+// address but Docker's bridge, and the core's own public IPv6 /64 as its connections last found it,
+// never another /64.
+func TestMarkingHome_ADirectRequestIsHomeByTheSharedRule(t *testing.T) {
+	t.Parallel()
+	server := NewServer(slog.New(slog.DiscardHandler))
+	rule := home.NewRule(home.Networks{
+		PrivateIsHome: true, Interfaces: []netip.Prefix{netip.MustParsePrefix("172.17.0.0/16")},
+	})
+	rule.CountOwnIPv6Networks(func() []netip.Prefix {
+		return []netip.Prefix{netip.MustParsePrefix("2a0f:5000:1:2::/64")}
+	})
+	server.SetHome(rule)
+	handler := server.markingHome(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if isFromHome(request.Context()) {
+			writer.WriteHeader(http.StatusNoContent)
+		}
+	}))
+	for remote, want := range map[string]bool{
+		"192.168.7.20:40000": true, "[2a0f:5000:1:2::30]:40000": true,
+		"172.17.0.1:40000": false, "[2a0f:5000:1:3::30]:40000": false, "100.64.0.9:40000": false,
+	} {
+		request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody)
+		request.RemoteAddr = remote
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, request)
+		if got := recorder.Code == http.StatusNoContent; got != want {
+			t.Errorf("a direct request from %s is home: %v; want %v", remote, got, want)
+		}
 	}
 }

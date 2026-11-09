@@ -12,6 +12,7 @@ import (
 
 	"github.com/pion/webrtc/v4"
 
+	"github.com/kstenerud/orpheum/internal/core/home"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
@@ -33,7 +34,7 @@ func watchedServer(t *testing.T, log *testutil.Log, fake *clocktest.Fake) *Serve
 	t.Helper()
 	server := New(t.Context(), http.NotFoundHandler(), slog.New(slog.NewTextHandler(log, nil)))
 	server.clock = fake
-	server.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("192.168.1.0/24")})
+	server.SetHome(home.Listed(netip.MustParsePrefix("192.168.1.0/24")))
 	server.lanPort, server.lanIPs = 8443, []netip.Addr{netip.MustParseAddr("192.168.1.199")}
 	return server
 }

@@ -90,7 +90,10 @@
 //     TestAdmin_AdministersOnlyFromTheHousesNetworkDirectlyOrOverWebRTCFromIt. A punched, hairpinned
 //     or relayed pair is never from home (D439 §1, D354 §4). Nor is a house network the discovery is
 //     told, which only places the LAN name among its paths (D356 §7).
-//     TestMarkingHome_AHouseNetworkGrantsNoAdmin.
+//     TestMarkingHome_AHouseNetworkGrantsNoAdmin. The house is what internal/core/home's rule holds,
+//     the one rtcapi judges a pair by: any private address but the tunnel's and the core's own
+//     interfaces' (Docker's bridge), and the core's own public IPv6 /64, never a typed /24 alone, so a
+//     new lease locks no admin out (D452 §1, §2). TestMarkingHome_ADirectRequestIsHomeByTheSharedRule.
 //   - The System page is told the house's IPv6 networks, how each was had, and for a learnt one by
 //     which device and when (D356 §10). TestDiscoveryStatusBody_CarriesTheHouseNetworks.
 //   - Doctor warns while devices reach the server through the provider and back, naming the UDP port
