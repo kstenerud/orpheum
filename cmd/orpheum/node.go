@@ -101,8 +101,10 @@ type nodeSeams struct {
 }
 
 // checkConfinement is what the machine can confine FFmpeg with (D112): each mechanism missing is
-// logged with its remedy. It is locked when the config requires them all and one is missing: the
-// node then waits for an admin's leave before it reads media or runs FFmpeg (D450 §1).
+// logged with its remedy. It is locked, waiting for an admin's leave before it reads media or runs
+// FFmpeg (D450 §1), when the config requires every mechanism and one is missing, or when it takes
+// what is available and a mechanism the kernel has cannot be put in force: a kernel that lacks one is
+// old hardware, which runs without it (D454 §3).
 func checkConfinement(
 	ctx context.Context, config Config, logger *slog.Logger, seams nodeSeams,
 ) (confinement []confine.State, isLocked bool) {
@@ -114,23 +116,39 @@ func checkConfinement(
 	if confine.IsConfined(confinement) {
 		return confinement, false
 	}
+	isFailed := false
 	for _, state := range confinement {
-		if !state.IsInForce {
-			logger.WarnContext(ctx, "FFmpeg runs without a confinement mechanism", "mechanism", state.Mechanism,
-				"reason", state.Reason, "remedy", state.Remedy)
+		if state.IsInForce {
+			continue
 		}
+		if state.IsMissingFromKernel() {
+			logger.InfoContext(ctx, "FFmpeg runs without a confinement mechanism this machine's kernel lacks",
+				"mechanism", state.Mechanism, "reason", state.Reason, "remedy", state.Remedy)
+			continue
+		}
+		isFailed = true
+		logger.WarnContext(ctx, "FFmpeg runs without a confinement mechanism", "mechanism", state.Mechanism,
+			"reason", state.Reason, "remedy", state.Remedy)
 	}
-	return confinement, config.Node.ConfinementPolicy == "require"
+	switch config.Node.ConfinementPolicy {
+	case policyRequire:
+		return confinement, true
+	case policyAvailable:
+		return confinement, isFailed
+	default:
+		return confinement, false
+	}
 }
 
-// waitWhileLocked holds a node whose confinement is incomplete, under "require", reporting what it
+// waitWhileLocked holds a node whose confinement is incomplete as its policy forbids, reporting what it
 // lacks each tick until an admin lets it run unconfined; false when it is stopped first (D450 §1).
 func waitWhileLocked(
 	ctx context.Context, config Config, confinement []confine.State, tick <-chan time.Time, logger *slog.Logger,
 ) bool {
-	logger.ErrorContext(ctx, "node.confinement_policy is \"require\", and not every mechanism is in force: "+
-		"this node reads no media and runs no FFmpeg until an admin lets it run without them on the "+
-		"System page; fix what is missing to run confined (D112, D450 §1)", slogx.EventKey, "nodeLocked")
+	logger.ErrorContext(ctx, "node.confinement_policy forbids running without a mechanism that is not in "+
+		"force: this node reads no media and runs no FFmpeg until an admin lets it run without it on the "+
+		"System page; fix what is missing to run confined (D112, D450 §1, D454 §3)",
+		slogx.EventKey, "nodeLocked", "policy", config.Node.ConfinementPolicy)
 	report := nodeproto.LockedReport{
 		Name: config.Node.Name, Build: thisBuild(), Confinement: confinementReport(confinement),
 	}

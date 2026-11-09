@@ -81,6 +81,7 @@ function report(node: SystemNode): SystemReport {
       host: { platform: "linux/amd64", kernel: "6.12.107" },
       goVersion: "go1.26.1",
       startedAt: 1_790_000_000_000,
+      isMultipathTcpOn: false,
       disks: [
         { path: "/var/lib/orpheum", totalBytes: 500_000_000_000, availableBytes: 250_000_000_000 },
       ],
@@ -137,7 +138,7 @@ it("the System page says whether each machine runs FFmpeg in its sandbox (D112)"
   const text = await shown(connected);
   expect(text).toContain("local: FFmpeg runs without part of its sandbox");
   expect(text).toContain(
-    "seccomp (which system calls FFmpeg may make) is not in this machine's kernel",
+    "seccomp (which system calls FFmpeg may make) needs a kernel built with seccomp filtering",
   );
 });
 
@@ -186,7 +187,8 @@ it("the System page warns when a machine has a GPU but encodes on the processor"
   });
   expect(text).toContain("This machine has a GPU, but no hardware encoder works on it");
   expect(text).toContain("Orpheum on this machine may not open it: permission denied");
-  expect(mounted?.container.querySelectorAll('[role="alert"]').length).toBe(2);
+  // The GPU's, and none for the sandbox's part the kernel lacks, which is a note (D454 §1).
+  expect(mounted?.container.querySelectorAll('[role="alert"]').length).toBe(1);
 });
 
 it("the System page shows each machine's build and system, and warns when it is not the server's (D225)", async () => {
@@ -393,6 +395,34 @@ it("the System page says when the public name's certificate expires, or that the
   expect(obtained).toContain("it is renewed a month before.");
   mounted?.unmount();
   expect(await withCertificate()).toContain("Not obtained yet");
+});
+
+it("the System page notes a machine whose kernel has MPTCP on, and says nothing of it otherwise (D454 §4)", async () => {
+  const withMultipathTCP = async (isOn: boolean): Promise<string> => {
+    const shownReport = report(connected);
+    shownReport.server.isMultipathTcpOn = isOn;
+    mounted = await mount(
+      withServices(
+        <System />,
+        servedBy({
+          "GET /system": [200, shownReport],
+          "GET /backups": noBackups,
+          "GET /system/resource-use": noResourceUse,
+          "GET /config/unused": [200, { unusedSettings: [] }],
+          "GET /filing-reports": [200, { reports: [] }],
+          "GET /system/discovery": noDiscovery,
+          "GET /system/update": [200, { version: "dev", checkedAt: 0 }],
+          "GET /now-playing": [200, { playbacks: [] }],
+        }),
+      ),
+    );
+    return mounted.container.textContent;
+  };
+  expect(await withMultipathTCP(true)).toContain(
+    "This machine's kernel has MPTCP (Multipath TCP) on.",
+  );
+  mounted?.unmount();
+  expect(await withMultipathTCP(false)).not.toContain("MPTCP");
 });
 
 it("the System page opens with a contents row whose links focus their sections' headings (ui-audit-2026-11-04.md §3)", async () => {

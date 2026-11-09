@@ -57,6 +57,15 @@ const (
 	CauseUnexplained           = "unexplained"
 )
 
+// IsMissingFromKernel is whether the mechanism is not in force because the machine's kernel lacks
+// it: too old, built without it, or not switched on at boot (Landlock's LSM not listed). That is old
+// hardware, not a fault, and the node runs without it (D454 §3). A mechanism the kernel has that
+// cannot be put in force (a runtime blocking it, an answer the node cannot explain) is not missing
+// from the kernel, nor is one not written for the machine's architecture.
+func (state State) IsMissingFromKernel() bool {
+	return !state.IsInForce && (state.CauseCode == CauseKernelWithout || state.CauseCode == CauseDisabledAtBoot)
+}
+
 // IsConfined is whether every mechanism is in force.
 func IsConfined(states []State) bool {
 	for _, state := range states {

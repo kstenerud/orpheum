@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -434,6 +436,26 @@ func TestSystem_ShowsWhenThePublicNamesCertificateExpires(t *testing.T) {
 	system.PublicName, system.Certificate = "", nil
 	if facts, err = api.ServerFacts(t.Context(), system); err != nil || facts.Certificate != nil {
 		t.Errorf("no public name = %+v (%v); want no certificate shown", facts.Certificate, err)
+	}
+}
+
+// The System page notes a machine whose kernel has MPTCP on, read from the kernel's switch, and
+// nothing of it where the switch is off (D454 §4).
+func TestSystem_NotesAMachineWhoseKernelHasMPTCPOn(t *testing.T) {
+	t.Parallel()
+	setting := filepath.Join(t.TempDir(), "enabled")
+	system := api.System{
+		PersistentDirectory: t.TempDir(), CacheDirectory: t.TempDir(),
+		PersistentDatabase: sizedAt(1), CacheDatabase: sizedAt(1), MultipathTCPSetting: setting,
+	}
+	for contents, want := range map[string]bool{"1\n": true, "0\n": false} {
+		if err := os.WriteFile(setting, []byte(contents), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		facts, err := api.ServerFacts(t.Context(), system)
+		if err != nil || facts.IsMultipathTCPOn != want {
+			t.Errorf("the switch saying %q: MPTCP on %v (%v); want %v", contents, facts.IsMultipathTCPOn, err, want)
+		}
 	}
 }
 

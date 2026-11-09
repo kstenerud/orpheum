@@ -308,10 +308,10 @@ func TestWrite_TheConfigsServeTheNameRelayThroughTheVPSAndNameTheMedia(t *testin
 		t.Fatal(err)
 	}
 	if string(roots) != `["/mnt/tank/media/video/movies","/srv/a \"b\""]` || node["name"] != "nas" ||
-		node["confinement_policy"] != "require" || node["core_socket"] != "/run/orpheum/core/core.sock" {
-		// Confinement required: a node does not run FFmpeg unconfined (D273 §5 as revised by the
-		// owner, 2026-10-20, the Plex-chain review's N2).
-		t.Errorf("the node config is %v; want the media, the machine's name, confinement required and "+
+		node["confinement_policy"] != "available" || node["core_socket"] != "/run/orpheum/core/core.sock" {
+		// Confinement as available: a node runs FFmpeg without a mechanism only where its kernel lacks it
+		// (D273 §5, the Plex-chain review's N2, as D454 §3 amends them).
+		t.Errorf("the node config is %v; want the media, the machine's name, confinement as available and "+
 			"the core's socket", node)
 	}
 	tunnel := readFile(t, filepath.Join(dir, tunnelConfig))
@@ -361,11 +361,11 @@ func TestWrite_ReleaseRefusesAnUnmigratableDatabaseAndStagingStartsOver(t *testi
 		kind                Kind
 		wantWhen, wantLevel string
 		wantProject         string
-		// A release node requires confinement; staging, in a sandbox that may lack it, reports (D273
-		// §5 as revised by the owner, 2026-10-20, the Plex-chain review's N2).
+		// A release node confines with what its kernel has and is locked where that fails; staging, in
+		// a sandbox that may lack it, reports (D273 §5, the Plex-chain review's N2, D454 §3).
 		wantConfinement string
 	}{
-		{Release, "refuse", "info", "orpheum", "require"},
+		{Release, "refuse", "info", "orpheum", "available"},
 		{Staging, "start_over", "debug", "orpheum-staging", "report"},
 	} {
 		t.Run(string(tc.kind), func(t *testing.T) {

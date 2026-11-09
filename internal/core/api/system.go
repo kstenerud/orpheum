@@ -75,6 +75,9 @@ type System struct {
 	// nil for a server with none (D243 §6).
 	PublicName  string
 	Certificate CertificateExpiry
+	// MultipathTCPSetting is the kernel's MPTCP switch the page reads, host.MultipathTCPSetting on the
+	// host's network, where it is the host's own; "" reads none (D454 §4).
+	MultipathTCPSetting string
 }
 
 // CertificateExpiry says when the public name's certificate expires, and false while there is none.
@@ -164,6 +167,9 @@ type ServerBody struct {
 	Databases []DatabaseBody `json:"databases"`
 	// Certificate is the public name's HTTPS certificate; absent for a server with no public name.
 	Certificate *CertificateBody `json:"certificate,omitempty"`
+	// IsMultipathTCPOn says the machine's kernel has MPTCP on. Orpheum opens no MPTCP socket, so it is
+	// a note on what the machine's other programs may open, not a fault of the server's (D454 §4).
+	IsMultipathTCPOn bool `json:"isMultipathTcpOn"`
 }
 
 // BuildBody is what a binary was built from (D225).
@@ -511,6 +517,9 @@ func serverFacts(ctx context.Context, system System) (ServerBody, error) {
 		Build: buildBody(system.Build), Host: hostBody(host.Describe()), GoVersion: runtime.Version(),
 		StartedAt: system.StartedAt.UnixMilli(),
 		Disks:     []DiskBody{measureDisk(system.PersistentDirectory), measureDisk(system.CacheDirectory)},
+	}
+	if system.MultipathTCPSetting != "" {
+		facts.IsMultipathTCPOn = host.IsMultipathTCPOn(system.MultipathTCPSetting)
 	}
 	if system.PublicName != "" && system.Certificate != nil {
 		facts.Certificate = &CertificateBody{Name: system.PublicName}

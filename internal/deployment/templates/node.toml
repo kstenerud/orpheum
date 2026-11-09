@@ -8,9 +8,11 @@ name = {{toml .Values.Node.Name}}   # the values file's [node] name, or this mac
 core_socket = "/run/orpheum/core/core.sock"
 root_paths = {{toml .Values.Media.Roots}}
 ffmpeg_dir = "/opt/orpheum/ffmpeg"
-# A release node refuses to start where the kernel lacks Landlock or seccomp, so FFmpeg never runs
-# unconfined; staging, in a sandbox that may lack one, runs and warns (D273 §5, revised 2026-10-20).
-confinement_policy = {{if .IsStaging}}"report"{{else}}"require"{{end}}
+# A release node runs without Landlock or seccomp where its kernel lacks one, and the System page
+# says so; where the kernel has one that cannot be put in force, it starts locked until an admin
+# accepts the risk there. Staging, in a sandbox that may lack one, runs and warns (D273 §5, D450 §1,
+# D454 §3).
+confinement_policy = {{if .IsStaging}}"report"{{else}}"available"{{end}}
 probe_timeout_seconds = 60
 ended_work_kept_hours = 168
 read_header_timeout_seconds = 10

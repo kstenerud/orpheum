@@ -402,6 +402,13 @@ export const en = {
       "{{node}}: FFmpeg runs in its sandbox, so a hostile media file can reach only the file being read.",
     unconfined:
       "{{node}}: FFmpeg runs without part of its sandbox, so a hostile media file could reach more of this machine than it should.",
+    olderKernel:
+      "{{node}}: FFmpeg runs without part of its sandbox, which this machine's kernel does not offer. Films play as they would with it; a newer kernel adds it.",
+    needsKernel: {
+      landlock: "Landlock (which files FFmpeg may open) needs Linux 5.13 or newer.",
+      seccomp:
+        "seccomp (which system calls FFmpeg may make) needs a kernel built with seccomp filtering.",
+    },
     mechanism: {
       landlock: "Landlock (which files FFmpeg may open)",
       seccomp: "seccomp (which system calls FFmpeg may make)",
