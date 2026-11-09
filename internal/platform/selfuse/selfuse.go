@@ -122,10 +122,40 @@ func readProcess(root fs.FS) (Sample, error) {
 		return Sample{}, fmt.Errorf("read the process's memory: %w", err)
 	}
 	memory := statusKibibytes(status)
-	return Sample{
+	sample := Sample{
 		Scope: ScopeProcess, CPUMicros: ticks * (1_000_000 / userHz),
 		HeldBytes: memory["RssAnon"] * 1024, CacheBytes: memory["RssFile"] * 1024, PeakBytes: memory["VmHWM"] * 1024,
-	}, nil
+	}
+	if _, hasAnonymous := memory["RssAnon"]; !hasAnonymous {
+		// RssAnon and RssFile came with Linux 4.5; a Synology's 4.4 has neither, which read as nothing
+		// held. Its /proc/self/statm counts the same pages: resident, and of them the files' (shared).
+		if held, cached, err := residentPages(root); err == nil {
+			sample.HeldBytes, sample.CacheBytes = held, cached
+		}
+	}
+	return sample, nil
+}
+
+// residentPages is the process's anonymous and file memory, in bytes, from /proc/self/statm's
+// resident and shared pages, the second three of its seven: on a kernel before 4.5, shared is the
+// file pages alone, and resident is those and the anonymous ones (proc(5)).
+func residentPages(root fs.FS) (held, cached int64, err error) {
+	statm, err := fs.ReadFile(root, "proc/self/statm")
+	if err != nil {
+		return 0, 0, fmt.Errorf("read the process's pages: %w", err)
+	}
+	fields := strings.Fields(string(statm))
+	const residentField, sharedField = 1, 2
+	if len(fields) <= sharedField {
+		return 0, 0, fmt.Errorf("/proc/self/statm has %d fields", len(fields))
+	}
+	resident, residentErr := strconv.ParseInt(fields[residentField], 10, 64)
+	shared, sharedErr := strconv.ParseInt(fields[sharedField], 10, 64)
+	if err := errors.Join(residentErr, sharedErr); err != nil {
+		return 0, 0, fmt.Errorf("/proc/self/statm's pages: %w", err)
+	}
+	pageBytes := int64(os.Getpagesize())
+	return max(resident-shared, 0) * pageBytes, shared * pageBytes, nil
 }
 
 // cpuTicks is utime plus stime, /proc/self/stat's fields 14 and 15. The command's name, field 2, is

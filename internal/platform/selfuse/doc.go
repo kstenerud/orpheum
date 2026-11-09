@@ -12,6 +12,9 @@
 //     TestReadFrom_MeasuresTheProcesssCgroupWhenItHasOne.
 //   - A process in the machine's root group, which counts every process on it, or with no cgroup
 //     v2, is measured alone, from /proc/self. TestReadFrom_MeasuresTheProcessAloneInTheRootGroup.
+//     On a kernel before 4.5, whose status has no RssAnon or RssFile (a Synology's 4.4), its memory
+//     is read from /proc/self/statm instead, never as nothing held.
+//     TestReadFrom_MeasuresTheProcesssPagesOnAKernelBeforeRssAnon.
 //   - This package imports nothing from the module. Enforced by the depguard rule
 //     platform-is-a-leaf.
 //

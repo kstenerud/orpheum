@@ -3,6 +3,7 @@
 package selfuse_test
 
 import (
+	"os"
 	"testing"
 	"testing/fstest"
 
@@ -75,6 +76,28 @@ func TestReadFrom_AGroupWithoutAPeakSaysNone(t *testing.T) {
 	}
 	if sample.Scope != selfuse.ScopeGroup || sample.PeakBytes != 0 || sample.CPUMicros != 10 {
 		t.Fatalf("sample = %+v, want the group's, with no peak", sample)
+	}
+}
+
+func TestReadFrom_MeasuresTheProcesssPagesOnAKernelBeforeRssAnon(t *testing.T) {
+	files := processFiles()
+	// Linux 4.4's status, a Synology's: VmRSS and VmHWM, but no RssAnon or RssFile (they came with 4.5).
+	files["proc/self/status"] = &fstest.MapFile{Data: []byte("Name:\torpheum\nVmHWM:\t    4096 kB\n" +
+		"VmRSS:\t    2560 kB\nThreads:\t9\n")}
+	// size, resident, shared (the file pages), text, lib, data, dt.
+	files["proc/self/statm"] = &fstest.MapFile{Data: []byte("9000 640 128 300 0 2000 0\n")}
+
+	sample, err := selfuse.ReadFrom(files)
+	if err != nil {
+		t.Fatal(err)
+	}
+	page := int64(os.Getpagesize())
+	want := selfuse.Sample{
+		Scope: selfuse.ScopeProcess, CPUMicros: 2_500_000, HeldBytes: (640 - 128) * page, CacheBytes: 128 * page,
+		PeakBytes: 4096 * 1024,
+	}
+	if sample != want {
+		t.Fatalf("sample = %+v, want %+v", sample, want)
 	}
 }
 
