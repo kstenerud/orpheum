@@ -26,6 +26,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -46,10 +47,10 @@ func TestMain(m *testing.M) {
 	m.Run()
 }
 
-// signallingHandler writes JSON records to a buffer and closes a channel when a record with a
-// given message, or a record carrying logEvent with a given value, is logged, so a test waits for
-// "ready" instead of sleeping: a wait by logEvent survives a reword of the message it names (test
-// architecture review, 2026-10-26, finding 12).
+// signallingHandler writes JSON records to a buffer and closes a channel when a record carrying
+// slogx.EventKey with a given value is logged, so a test waits for eventReady instead of sleeping.
+// It waits by the event alone, as testutil.Log.AwaitEvent does, never by the message, so rewording a
+// message does not break a wait (test architecture review, 2026-10-26, finding 12).
 type signallingHandler struct {
 	slog.Handler
 	mutex   *sync.Mutex
@@ -60,26 +61,17 @@ type signallingHandler struct {
 func (handler signallingHandler) Handle(ctx context.Context, record slog.Record) error {
 	handler.mutex.Lock()
 	defer handler.mutex.Unlock()
-	for _, key := range awaitKeysOf(record) {
-		if signal, isAwaited := handler.signals[key]; isAwaited {
-			close(signal)
-			delete(handler.signals, key)
-		}
-	}
-	return handler.Handler.Handle(ctx, record)
-}
-
-// awaitKeysOf are the names a record can be awaited by: its message, and its logEvent attribute's
-// value if it carries one.
-func awaitKeysOf(record slog.Record) []string {
-	keys := []string{record.Message}
 	record.Attrs(func(attr slog.Attr) bool {
-		if attr.Key == logEvent {
-			keys = append(keys, attr.Value.String())
+		if attr.Key != slogx.EventKey {
+			return true
+		}
+		if signal, isAwaited := handler.signals[attr.Value.String()]; isAwaited {
+			close(signal)
+			delete(handler.signals, attr.Value.String())
 		}
 		return true
 	})
-	return keys
+	return handler.Handler.Handle(ctx, record)
 }
 
 func (handler signallingHandler) WithAttrs(attributes []slog.Attr) slog.Handler {
@@ -87,11 +79,12 @@ func (handler signallingHandler) WithAttrs(attributes []slog.Attr) slog.Handler 
 	return handler
 }
 
-// couldNotStart is logEvent's value for a server that could not start; a test waiting for anything
-// else fails at it rather than at its wait's limit.
+// couldNotStart is slogx.EventKey's value for a server that could not start; a test waiting for
+// anything else fails at it rather than at its wait's limit.
 const couldNotStart = eventCouldNotStart
 
-// capturedLog is a debug-level JSON log in memory that can be waited on.
+// capturedLog is a debug-level JSON log in memory that can be waited on: signals holds a channel for
+// each slogx.EventKey value newCapturedLog was given, closed when a line carrying it is logged.
 type capturedLog struct {
 	mutex   *sync.Mutex
 	buffer  *bytes.Buffer
@@ -99,10 +92,10 @@ type capturedLog struct {
 	logger  *slog.Logger
 }
 
-func newCapturedLog(awaited ...string) capturedLog {
+func newCapturedLog(events ...string) capturedLog {
 	captured := capturedLog{mutex: &sync.Mutex{}, buffer: &bytes.Buffer{}, signals: map[string]chan struct{}{}}
-	for _, message := range append(awaited, couldNotStart) {
-		captured.signals[message] = make(chan struct{})
+	for _, event := range append(events, couldNotStart) {
+		captured.signals[event] = make(chan struct{})
 	}
 	waiting := maps.Clone(captured.signals)
 	handler := signallingHandler{

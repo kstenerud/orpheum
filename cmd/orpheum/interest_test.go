@@ -16,7 +16,7 @@ import (
 // over the playback service that wires it.
 func TestPlayback_TheNodeKeepsTheChunkStoresByWhatThePlayersWant(t *testing.T) {
 	t.Parallel()
-	const nodeKept = "kept the chunk stores by the core's players"
+	const nodeKept = "chunkStoresKept"
 	captured := newCapturedLog("ready", filmIdentified, nodeKept)
 	film := cutFilmPlaying(t, func(t *testing.T, shelved filmFixture) (runningServer, string, int64) {
 		t.Helper()

@@ -11,6 +11,7 @@ import (
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/internal/core/turn"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // startRelay serves the voice relay on turn.listen, making its shared secret first when there is
@@ -33,7 +34,7 @@ func startRelay(ctx context.Context, config Config, opened openedServices, logge
 	if err != nil {
 		return nil, err
 	}
-	logger.InfoContext(ctx, "relaying voice", "address", relay.Address().String())
+	logger.InfoContext(ctx, "relaying voice", slogx.EventKey, "voiceRelayStarted", "address", relay.Address().String())
 	return relay.Close, nil
 }
 

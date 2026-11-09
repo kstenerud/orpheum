@@ -18,6 +18,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store"
 )
 
@@ -172,7 +173,7 @@ func queueOwedFetches(ctx context.Context, queue *jobs.Queue, report identify.Re
 		}
 	}
 	if queued > 0 {
-		logger.InfoContext(ctx, "queued fetches", "queuedCount", queued)
+		logger.InfoContext(ctx, "queued fetches", slogx.EventKey, "fetchesQueued", "queuedCount", queued)
 	}
 }
 

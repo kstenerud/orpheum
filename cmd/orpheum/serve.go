@@ -37,12 +37,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/store"
 )
 
-// logEvent is the attribute key a few of serve's log lines carry alongside their message: a stable
-// name a test waits on, so rewording the message does not break the wait (test architecture review,
-// 2026-10-26, finding 12). Only the lines a test waits on by name carry it; most lines need none.
-const logEvent = "logEvent"
-
-// eventReady and eventCouldNotStart are logEvent's values for serve's two lines a test most
+// eventReady and eventCouldNotStart are slogx.EventKey's values for serve's two lines a test most
 // commonly waits for: that it finished starting, and that it could not.
 const (
 	eventReady         = "ready"
@@ -120,7 +115,7 @@ func serve(
 		return degraded("the node channel could not start", err)
 	}
 	defer func() { err = errors.Join(err, stopNodes()) }()
-	logger.InfoContext(ctx, "ready", logEvent, eventReady)
+	logger.InfoContext(ctx, "ready", slogx.EventKey, eventReady)
 	<-ctx.Done()
 	logger.InfoContext(ctx, "stopping")
 	return stopFrontDoors()
@@ -143,7 +138,7 @@ func onlyOnce(stop func() error) func() error {
 func stayDegraded(ctx context.Context, server *api.Server, what string, err error, logger *slog.Logger) error {
 	server.SetStatus(api.StatusDegraded, what, err.Error())
 	logger.ErrorContext(ctx, "the server could not start; it stays up to report why at /api/v1/health",
-		logEvent, eventCouldNotStart, "what", what, "err", err)
+		slogx.EventKey, eventCouldNotStart, "what", what, "err", err)
 	<-ctx.Done()
 	return err
 }
@@ -680,7 +675,8 @@ func listenForWebRTCAtHome(ctx context.Context, rtc *rtcapi.Server, config Confi
 		logger.ErrorContext(ctx, "WebRTC is not taken at home", "err", err)
 		return
 	}
-	logger.InfoContext(ctx, "taking WebRTC at home", "udpPort", config.WebRTC.UDPPort, "addresses", lanIPs)
+	logger.InfoContext(ctx, "taking WebRTC at home", slogx.EventKey, "webRTCAtHomeTaken",
+		"udpPort", config.WebRTC.UDPPort, "addresses", lanIPs)
 }
 
 // newWebRTC is the WebRTC server over the API's handler, as this build serves it, holding as many

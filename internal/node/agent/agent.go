@@ -362,7 +362,8 @@ func (agent *Agent) evictUnfinished(ctx context.Context) {
 		agent.logger.WarnContext(ctx, "could not evict the makings that never finished", "err", err)
 	}
 	if len(evicted) > 0 {
-		agent.logger.InfoContext(ctx, "evicted the makings that never finished", "runDirs", evicted)
+		agent.logger.InfoContext(ctx, "evicted the makings that never finished",
+			slogx.EventKey, "unfinishedMakingsEvicted", "runDirs", evicted)
 	}
 }
 
