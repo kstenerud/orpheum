@@ -153,7 +153,7 @@ type SeasonBody struct {
 // OrderingBody is one of a series' orderings, as its page offers it (episode-orderings.md §4).
 type OrderingBody struct {
 	Name string `doc:"Its key, which a choice of it names: aired, or a provider's (tmdb:<group id>)" json:"name"`
-	Kind string `doc:"What order it is: aired, or a TMDB group's type (dvd, absolute, digital, story_arc, production, tv, aired_alternate)" json:"kind,omitempty"` //nolint:lll // one struct tag
+	Kind string `doc:"What order it is: aired, or a TMDB group's type (dvd, absolute, digital, storyArc, production, tv, airedAlternate)" json:"kind,omitempty"` //nolint:lll // one struct tag
 	// Label is its provider's name for it ("DVD Order"); absent for aired.
 	Label string `json:"label,omitempty"`
 	// ListedCount is how many episodes its provider lists in it; absent when it did not say.

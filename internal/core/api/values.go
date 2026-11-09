@@ -8,10 +8,10 @@ import (
 )
 
 // saidValue is kept, a value the database keeps in snake case (a job's kind, an extra's type, a
-// secret's name, a library's metadata source, an override's field), as the API says it: camelCase,
-// as every key and value it sends is (the owner, 2026-11-09). The stored values, and the migrations
-// that name them, stay as they are, so the API turns one into the other where such a value crosses
-// it. A secret's name stays because its sealed value is bound to it.
+// secret's name, a library's metadata source, an override's field, an ordering's kind), as the API
+// says it: camelCase, as every key and value it sends is (the owner, 2026-11-09). The stored values,
+// and the migrations that name them, stay as they are, so the API turns one into the other where such
+// a value crosses it. A secret's name stays because its sealed value is bound to it.
 func saidValue(kept string) string {
 	var said strings.Builder
 	upper := false
