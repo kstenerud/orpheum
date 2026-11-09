@@ -305,14 +305,32 @@ func environment(values Values, runtime Runtime) string {
 	return strings.Join(lines, "\n") + "\n"
 }
 
+// mediaMount is a media folder in compose's long volume syntax, the one that can refuse a missing
+// folder.
+type mediaMount struct {
+	Type     string    `json:"type"`
+	Source   string    `json:"source"`
+	Target   string    `json:"target"`
+	ReadOnly bool      `json:"read_only"` //nolint:tagliatelle // compose's own key
+	Bind     mediaBind `json:"bind"`
+}
+
+// mediaBind is a media mount's bind options: never make the folder on the host.
+type mediaBind struct {
+	CreateHostPath bool `json:"create_host_path"` //nolint:tagliatelle // compose's own key
+}
+
 // mediaOverride is the compose override that gives the node the media, read-only at their own
 // paths, the GPU when the machine has one (renderGID >= 0), and its NVIDIA GPUs as Docker hands them
 // over (D333): what differs from machine to machine. Compose reads compose.override.yaml beside
-// compose.yaml by itself.
+// compose.yaml by itself. A media folder that does not exist stops the node's start with its path,
+// rather than Docker making it, empty and root's.
 func mediaOverride(roots []string, renderGID int, nvidia NVIDIAAccess) ([]byte, error) {
-	volumes := make([]string, 0, len(roots))
+	volumes := make([]mediaMount, 0, len(roots))
 	for _, root := range roots {
-		volumes = append(volumes, root+":"+root+":ro")
+		volumes = append(volumes, mediaMount{
+			Type: "bind", Source: root, Target: root, ReadOnly: true, Bind: mediaBind{CreateHostPath: false},
+		})
 	}
 	node := map[string]any{"volumes": volumes}
 	var devices []string

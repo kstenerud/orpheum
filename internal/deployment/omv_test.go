@@ -57,8 +57,8 @@ func TestOMVCompose_KeepsTheDeploymentsGuardsAndStartsFromItsCommandLine(t *test
 		"      - --lan-address\n      - ${ORPHEUM_LAN_ADDRESS:-}\n",
 		"      - --http-port\n      - ${ORPHEUM_HTTP_PORT:-8440}\n",
 		`command: ["node", "--instance", "/var/lib/orpheum/node"]`,
-		"      - ${ORPHEUM_MEDIA:?set ORPHEUM_MEDIA to the folder that holds your films and series}:" +
-			"${ORPHEUM_MEDIA}:ro\n",
+		"        source: ${ORPHEUM_MEDIA:?set ORPHEUM_MEDIA to the folder that holds your films and series}\n" +
+			"        target: ${ORPHEUM_MEDIA}\n        read_only: true\n",
 		"condition: service_healthy",
 	} {
 		if !strings.Contains(text, want) {

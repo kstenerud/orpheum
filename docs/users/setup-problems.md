@@ -209,6 +209,14 @@ file's **Environment** (`ORPHEUM_MEDIA`) or check the global environment file (`
 elsewhere, in the `.env` file beside `compose.yaml`. (Before 2026-11-09 it needed
 `ORPHEUM_LAN_ADDRESS` too; the server now learns the address, D452 §5.)
 
+### Up says "bind source path does not exist" and names a folder
+
+That folder is `ORPHEUM_MEDIA`, and it is not there as you typed it: a letter wrong, a capital
+missed, or the wrong volume (`/volume1` for `/volume2`). Nothing was made. Read the folder's real
+path (OpenMediaVault: **Storage > Shared Folders**, the **Absolute Path** column; Synology: **File
+Station**, right-click the folder, **Properties**, **Location**), set `ORPHEUM_MEDIA` to it exactly,
+and start it again.
+
 ### The core's log names `lan.address`
 
 `ORPHEUM_LAN_ADDRESS` is set, but not to an address on the home network: give the machine's
@@ -256,21 +264,6 @@ Inside the containers each media folder keeps the machine's own name: a library 
 repoint such a library to the machine's name. If the path is right, the app user cannot read it: in
 OpenMediaVault, **Storage > Shared Folders**, the media folder, **Permissions**: give the user
 `APPUSER_PUID` names read access (the folder's ACL too, if it has one).
-
-### Up fails with "sysctl net.mptcp.enabled is not allowed", or "open /proc/sys/net/mptcp/enabled: no such file"
-
-The machine's kernel has no MPTCP, as some single-board computers' kernels have not. Each service
-of the file turns MPTCP off in its own network (CVE-2026-98432), which a kernel without it refuses.
-Delete each `net.mptcp.enabled: "0"` line, and any `sysctls:` left with nothing under it; such a
-kernel has nothing for the flaw to reach.
-
-### Up fails creating the network, with an IPv6 error
-
-The file gives the server's network a private IPv6 range, so it reaches the internet over IPv6 as
-over IPv4. An old Docker Engine (before 27) makes IPv6 networks only with IPv6 on in its own
-settings: update Docker (OpenMediaVault's **Services > Compose > Settings** reinstalls it). If the
-error says the range overlaps another network, set `ORPHEUM_IPV6_SUBNET` to another `/64` in
-`fd00::/8`, `fd77:5e:0:fffe::/64`.
 
 ### The GPU is not used: films are encoded in software
 

@@ -27,7 +27,7 @@ the first three are needed, and compose refuses to start without them.
 | Variable | What it is | Unless set |
 | --- | --- | --- |
 | `PATH_TO_APPDATA` | the folder that holds each app's data; Orpheum keeps its own in `orpheum/` there | needed |
-| `ORPHEUM_MEDIA` | the folder that holds your films and series, as the machine names it | needed |
+| `ORPHEUM_MEDIA` | the folder that holds your films and series, as the machine names it: one that does not exist stops the start, naming it | needed |
 | `ORPHEUM_LAN_ADDRESS` | the machine's address on your home network, `192.168.1.20`: not needed, as the server learns it from the first browser at home, and the setup page asks if it cannot tell; keep it fixed with a reservation in your router | optional |
 | `ORPHEUM_MEDIA_2`, `ORPHEUM_MEDIA_3`, `ORPHEUM_MEDIA_4` | more folders of films and series, as the machine names them | none |
 | `ORPHEUM_TAG` | the version to run | the file's |
@@ -38,7 +38,6 @@ the first three are needed, and compose refuses to start without them.
 | `ORPHEUM_THIS_MACHINE_PORT` | the port a browser on the machine itself opens it on, `http://127.0.0.1:8441`, as from home ([admin refused](#the-first-admin)) | 8441 |
 | `ORPHEUM_ROUTER` | your router's address, `192.168.1.1`, which the server asks to forward the HTTPS port so devices away from home reach it | none |
 | `ORPHEUM_NAME` | the name the media node goes by in the server's pages | orpheum |
-| `ORPHEUM_IPV6_SUBNET` | the private IPv6 /64 of the server's network, if another network on the machine has its default | `fd77:5e:0:ffff::/64` |
 | `RENDER_GID` | the render group's number, for a GPU ([hardware encoding](#hardware-encoding)) | — |
 
 Each media folder keeps the machine's own name inside the containers: with
