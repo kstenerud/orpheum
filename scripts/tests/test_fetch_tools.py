@@ -8,6 +8,7 @@ import sys
 import tarfile
 import tempfile
 import unittest
+import urllib.error
 from dataclasses import replace
 from pathlib import Path
 from unittest import mock
@@ -31,6 +32,51 @@ def archive_holding(name: str, content: bytes) -> bytes:
 def serving(data: bytes):
     """urlopen, answering every request with data."""
     return mock.patch("urllib.request.urlopen", side_effect=lambda *a, **k: io.BytesIO(data))
+
+
+def answering(*answers):
+    """urlopen, giving each answer in turn: an exception is raised, bytes are served."""
+    queue = list(answers)
+
+    def urlopen(url, *a, **k):
+        answer = queue.pop(0)
+        if isinstance(answer, BaseException):
+            raise answer
+        return io.BytesIO(answer)
+    return mock.patch("urllib.request.urlopen", side_effect=urlopen)
+
+
+def http_error(code: int) -> urllib.error.HTTPError:
+    return urllib.error.HTTPError("https://example.invalid/a", code, "an answer", None, None)  # type: ignore[arg-type]
+
+
+class Download(unittest.TestCase):
+    """A server-side failure is tried again; a missing file is not (fetch_ffmpeg.download)."""
+
+    def setUp(self):
+        self.waits: list[float] = []
+        for patch in (mock.patch.object(fetch_ffmpeg, "sleep", self.waits.append),
+                      mock.patch("sys.stderr", io.StringIO())):
+            patch.start()
+            self.addCleanup(patch.stop)
+        self.dest = Path(tempfile.mkdtemp()) / "archive"
+
+    def test_a_gateway_time_out_then_the_file_is_downloaded(self):
+        with answering(http_error(504), TimeoutError("timed out"), b"archive"):
+            fetch_ffmpeg.download("https://example.invalid/a", self.dest, timeout=1)
+        self.assertEqual(self.dest.read_bytes(), b"archive")
+        self.assertEqual(len(self.waits), 2)
+
+    def test_a_missing_file_is_not_tried_again(self):
+        with answering(http_error(404), b"archive"), self.assertRaises(urllib.error.HTTPError):
+            fetch_ffmpeg.download("https://example.invalid/a", self.dest, timeout=1)
+        self.assertEqual(self.waits, [])
+
+    def test_a_server_failing_every_try_fails_the_download(self):
+        answers = [http_error(503)] * fetch_ffmpeg.DOWNLOAD_TRIES
+        with answering(*answers), self.assertRaises(urllib.error.HTTPError):
+            fetch_ffmpeg.download("https://example.invalid/a", self.dest, timeout=1)
+        self.assertEqual(len(self.waits), fetch_ffmpeg.DOWNLOAD_TRIES - 1)
 
 
 class Pins(unittest.TestCase):

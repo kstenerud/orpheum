@@ -36,6 +36,9 @@ jobs:
   # either machine resolves to its own (D205, keep arm64 open).
   image:
     strategy:
+      # One architecture's failure does not cancel the other's build; the joining job still publishes
+      # nothing unless both pass, and a re-run then builds only the one that failed.
+      fail-fast: false
       matrix:
         include:
           - arch: amd64
