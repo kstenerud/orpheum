@@ -6,7 +6,7 @@ and its compose plugin, run as root as Docker's own packages install it (rootful
 and series on folders that machine can read.
 
 The image runs on a 64-bit PC (amd64) and on a 64-bit ARM board such as a Raspberry Pi 4 or 5
-(arm64) from `v0.3.1`; `v0.3.0` is amd64 only. Hardware encoding through Intel Quick Sync and AMD's
+(arm64) from `v0.3.2`; `v0.3.0` is amd64 only. Hardware encoding through Intel Quick Sync and AMD's
 VAAPI is amd64 only; an ARM board encodes in software.
 
 There are two ways to install it:
