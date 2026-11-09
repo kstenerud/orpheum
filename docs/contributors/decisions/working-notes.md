@@ -27182,10 +27182,12 @@ to confirm a changed address (needless once the address grants nothing); trustin
 address because it was proven home over IPv4 (a VPN or mobile data would bring its network in; only
 the core's own /64 is trusted).
 
-**Status:** decided (2026-11-09); its build is under way, §5 not built yet.
+**Status:** decided and built (2026-11-09). §5 was built with D454 §5, in "feat(deployment): the
+household's core runs on the host's network and asks no address or kernel feature".
 §3 and §4 are (2026-11-09): `home.AddressAtHome`, kept as the settings `address_at_home` and
-`address_at_home_learned_from` (no table of its own), learned in api's `markingHome`, shown on the
-System page's body and set by `PUT /system/address-at-home` or at setup, and handed live to the rule,
+`address_at_home_learned_from` (no table of its own), learned in api's `markingHome`, shown in the
+System page's server section, where an admin sets it (`PUT /system/address-at-home`; the form is not
+offered while the config names the address), or at setup, and handed live to the rule,
 WebRTC's host candidate and the discovery's heartbeat. A core sharing the host's network (no tunnel,
 D454 §5; `server.address_at_home_from_default_route`) takes the default route's interface's address
 until one is learned or set, else the house's network, one of its own interfaces', is not home and no
@@ -27217,7 +27219,11 @@ home, and `server.home_networks` only adds networks, under the same exceptions; 
   `TestListenLAN_ANewAddressAtHomeIsOfferedFromTheNextOffer`
 - 4: `TestHomeAddress_ANameIsLookedUpForItsPrivateIPv4Answer`, `TestHomeAddress_AnAdminsSetIsKeptWithTheirName`,
   `TestHomeAddress_TheGuessIsAPrivateIPv4AddressOfNoContainerInterface`,
-  `TestHomeAddress_TheSystemPageShowsItAndAnAdminSetsIt`, `TestHomeAddress_TheSetupPageIsOfferedTheGuessFromHome`
+  `TestHomeAddress_TheSystemPageShowsItAndAnAdminSetsIt`, `TestHomeAddress_TheSetupPageIsOfferedTheGuessFromHome`;
+  the System page's section, `web/apps/web/src/system-address-at-home.test.tsx` ("shows the address at
+  home and how the server knew it", "sets the address an admin types, and says in plain words why the
+  server refused one")
+- 5: `TestWrite_TheCoreAdministersOnlyFromTheHousesNetwork` (a deployment with no LAN address is written)
 
 ## D453 — "Orpheum" is the name, no longer provisional
 
