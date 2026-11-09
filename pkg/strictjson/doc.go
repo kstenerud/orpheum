@@ -6,7 +6,9 @@
 // where the text was invalid, and read past nothing a Decoder left behind. It is BONJSON's secure
 // compliance, applied to JSON text: keys are NFC-normalised for the duplicate check.
 //
-// Unmarshal decodes bytes; Decode decodes a reader holding one document. Each refusal wraps
+// Unmarshal decodes bytes; Decode decodes a reader holding one document. Those are for a sender
+// Orpheum controls. A Foreign's Unmarshal and Decode are for another's (D458): anything JSON allows,
+// within the same limits, a repeated key keeping the value its Repeats says. Each refusal wraps
 // ErrRefused and names the rule, the path ($."key"[index]) and the byte offset. A document that is
 // not JSON at all is refused with encoding/json's own *json.SyntaxError, and one that is JSON but
 // does not fit the target, with encoding/json's own errors, as callers knew them.
@@ -35,16 +37,25 @@
 //   - An unknown field is accepted (D456 §6), and a document that keeps every rule decodes exactly as
 //     encoding/json decodes it. TestUnmarshal_AnUnknownFieldIsAccepted,
 //     TestUnmarshal_DecodesADocumentAsEncodingJSONDoes, TestUnmarshal_NotJSONIsSaidInEncodingJSONsWords.
-//   - No compiled file outside this package decodes with encoding/json, but those D456's Status
-//     names. TestArch_JSONIsDecodedStrictly.
+//   - A Foreign takes an escaped NUL, and reads invalid UTF-8 and a lone surrogate as encoding/json
+//     does, as U+FFFD; keys compare without NFC; the limits, the data after the value and a key in
+//     another case are refused as above. TestForeign_TakesWhatJSONAllowsAsEncodingJSONReadsIt,
+//     TestForeign_StillRefusesWhatNoSenderIsAllowed.
+//   - A Foreign keeps a repeated key's first or last value, and the members it does not keep are
+//     cut from the document before it is decoded, so nothing of theirs is merged in.
+//     TestForeign_ARepeatedKeyKeepsTheValueItsSenderKeeps,
+//     TestForeign_FirstWinsReadsFfprobesRepeatedTagAsFfprobeShowsIt.
+//   - No compiled file outside this package decodes with encoding/json.
+//     TestArch_JSONIsDecodedStrictly.
 //   - It is public, for the public discovery packages as for the module, and imports nothing of
 //     the module's. TestArch_PublicPackagesImportNothingInternal; the depguard rule pkg-is-a-leaf.
 //
 // # Read before changing
 //
 //   - D456: the rules, and BONJSON's security rules they come from.
+//   - D458: which senders get which rules.
 //
 // # Where to change
 //
-//   - strictjson.go.
+//   - strictjson.go; foreign.go for a foreign sender's rules.
 package strictjson

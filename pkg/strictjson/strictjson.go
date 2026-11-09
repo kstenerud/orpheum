@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf16"
@@ -38,24 +39,34 @@ const (
 // for the type it decodes into; otherwise it decodes nothing and says which rule data broke,
 // wrapping ErrRefused.
 func Unmarshal(data []byte, into any) error {
-	target := freeForm()
-	if pointer := reflect.TypeOf(into); pointer != nil && pointer.Kind() == reflect.Pointer {
-		target = pointer.Elem()
-	}
-	if err := check(data, defaultLimits(), target); err != nil {
+	if err := check(data, defaultLimits(), targetOf(into)); err != nil {
 		return err
 	}
+	return decode(data, into)
+}
+
+// decode is encoding/json's decoding of a document a check has passed.
+func decode(data []byte, into any) error {
 	return json.Unmarshal(data, into)
 }
 
 // Decode reads reader to its end, at most MaxDocumentBytes, and decodes what it read as Unmarshal
 // does: a reader holds one document, and anything after its value is refused.
 func Decode(reader io.Reader, into any) error {
-	data, err := io.ReadAll(io.LimitReader(reader, MaxDocumentBytes+1))
+	data, err := readDocument(reader)
 	if err != nil {
-		return fmt.Errorf("read the JSON document: %w", err)
+		return err
 	}
 	return Unmarshal(data, into)
+}
+
+// readDocument reads reader to its end, or one byte past MaxDocumentBytes, which the check refuses.
+func readDocument(reader io.Reader) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(reader, MaxDocumentBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("read the JSON document: %w", err)
+	}
+	return data, nil
 }
 
 // limits are the bounds a check holds a document to; tests lower them.
@@ -73,11 +84,18 @@ var errNotJSON = errors.New("not JSON")
 // check is nil when data is one JSON value that keeps every rule of D456 within bounds, its keys
 // naming target's fields in their own case.
 func check(data []byte, bounds limits, target reflect.Type) error {
+	_, err := checkBy(data, bounds, target, rules{})
+	return err
+}
+
+// checkBy is check by a sender's rules, giving back the document to decode: data itself, or for a
+// foreign sender data without the members its repeated keys do not keep.
+func checkBy(data []byte, bounds limits, target reflect.Type, by rules) ([]byte, error) {
 	if len(data) > bounds.documentBytes {
-		return fmt.Errorf("%w: the document is %d bytes, past the limit of %d", ErrRefused, len(data),
+		return nil, fmt.Errorf("%w: the document is %d bytes, past the limit of %d", ErrRefused, len(data),
 			bounds.documentBytes)
 	}
-	scan := scanner{data: data, bounds: bounds}
+	scan := scanner{data: data, bounds: bounds, rules: by}
 	scan.skipSpace()
 	err := scan.value(target)
 	if err == nil {
@@ -91,10 +109,13 @@ func check(data []byte, bounds limits, target reflect.Type) error {
 		// text before it decodes anything, so the raw message it would fill stays empty.
 		var unused json.RawMessage
 		if decodeErr := json.Unmarshal(data, &unused); decodeErr != nil {
-			return decodeErr
+			return nil, decodeErr
 		}
 	}
-	return err
+	if err != nil {
+		return nil, err
+	}
+	return withoutDrops(data, scan.drops), nil
 }
 
 // frame is one container the scan is inside: its kind, how many elements it has, where its last
@@ -105,9 +126,10 @@ type frame struct {
 	elements                 int
 	keyStart, keyEnd         int
 	keysFrom, normalisedFrom int
-	seen                     map[string]struct{}
-	fields                   *structFields
-	elementType              reflect.Type
+	// seen indexes the object's keys by their compared form, once it has many: the latest kept.
+	seen        map[string]int
+	fields      *structFields
+	elementType reflect.Type
 }
 
 // scanner walks a document once, checking it against D456's rules.
@@ -124,6 +146,11 @@ type scanner struct {
 	escaped [utf8.UTFMax]byte
 	// fieldsByType are the fields of each struct type met so far.
 	fieldsByType map[reflect.Type]*structFields
+	rules        rules
+	// members are, for a foreign sender, the members of the open objects, one for each of keys; drops
+	// are the spans of the document their repeated keys leave out.
+	members []member
+	drops   []span
 }
 
 type span struct{ start, end int }
@@ -310,7 +337,7 @@ func (scan *scanner) element(isObject bool) error {
 	}
 	open = &scan.frames[len(scan.frames)-1]
 	open.keyStart, open.keyEnd = keyStart, scan.offset-1
-	if addErr := scan.addKey(key); addErr != nil {
+	if addErr := scan.addKey(key, keyStart-1); addErr != nil {
 		return addErr
 	}
 	target, err := scan.fieldOrElement(key)
@@ -322,7 +349,13 @@ func (scan *scanner) element(isObject bool) error {
 		return scan.malformed("expected a colon after an object's key")
 	}
 	scan.skipSpace()
-	return scan.value(target)
+	if err := scan.value(target); err != nil {
+		return err
+	}
+	if scan.rules.foreign {
+		scan.members[len(scan.members)-1].end = scan.offset
+	}
+	return nil
 }
 
 // fieldOrElement is what the innermost object's key decodes into: a struct's field named key in
@@ -349,50 +382,77 @@ func (scan *scanner) fieldOrElement(key []byte) (reflect.Type, error) {
 
 func (scan *scanner) closeFrame() {
 	open := scan.frames[len(scan.frames)-1]
+	if scan.rules.foreign && open.isObject {
+		scan.dropMembers(open.keysFrom)
+		scan.members = scan.members[:open.keysFrom]
+	}
 	scan.keys = scan.keys[:open.keysFrom]
 	scan.normalised = scan.normalised[:open.normalisedFrom]
 	scan.frames = scan.frames[:len(scan.frames)-1]
 }
 
-// addKey refuses a key the innermost object already holds, compared after NFC normalisation: two
-// keys that are one text in two forms are one key said twice.
-func (scan *scanner) addKey(key []byte) error {
-	start := len(scan.normalised)
-	if isASCII(key) || norm.NFC.IsNormal(key) {
+// addKey adds the key whose member starts at start to the innermost object. D456 refuses a key the
+// object already holds, compared after NFC normalisation: two keys that are one text in two forms
+// are one key said twice. A foreign sender's keys are compared as encoding/json compares them, as
+// they are, and a repeat leaves out the member its Repeats does not keep.
+func (scan *scanner) addKey(key []byte, start int) error {
+	from := len(scan.normalised)
+	if scan.rules.foreign || isASCII(key) || norm.NFC.IsNormal(key) {
 		scan.normalised = append(scan.normalised, key...)
 	} else {
 		scan.normalised = norm.NFC.Append(scan.normalised, key...)
 	}
-	added := span{start, len(scan.normalised)}
-	if scan.holdsKey(scan.normalised[added.start:added.end]) {
-		return scan.refuse("a duplicate key " + strconv.QuoteToASCII(string(key)))
+	added := span{from, len(scan.normalised)}
+	open := &scan.frames[len(scan.frames)-1]
+	held, holds := scan.heldKey(scan.normalised[added.start:added.end])
+	dropsAdded := false
+	if holds {
+		switch {
+		case !scan.rules.foreign:
+			return scan.refuse("a duplicate key " + strconv.QuoteToASCII(string(key)))
+		case scan.rules.repeats == FirstWins:
+			dropsAdded = true
+		default:
+			scan.members[open.keysFrom+held].dropped = true
+		}
 	}
 	scan.keys = append(scan.keys, added)
-	open := &scan.frames[len(scan.frames)-1]
+	if scan.rules.foreign {
+		scan.members = append(scan.members, member{start: start, dropped: dropsAdded})
+	}
+	index := len(scan.keys) - 1 - open.keysFrom
 	if open.seen == nil && len(scan.keys)-open.keysFrom > maxKeysScanned {
-		open.seen = make(map[string]struct{}, 2*maxKeysScanned)
-		for _, held := range scan.keys[open.keysFrom:] {
-			open.seen[string(scan.normalised[held.start:held.end])] = struct{}{}
+		open.seen = make(map[string]int, 2*maxKeysScanned)
+		for position, kept := range scan.keys[open.keysFrom:] {
+			if !scan.dropped(open.keysFrom + position) {
+				open.seen[string(scan.normalised[kept.start:kept.end])] = position
+			}
 		}
-	} else if open.seen != nil {
-		open.seen[string(scan.normalised[added.start:added.end])] = struct{}{}
+	} else if open.seen != nil && !dropsAdded {
+		open.seen[string(scan.normalised[added.start:added.end])] = index
 	}
 	return nil
 }
 
-// holdsKey says whether the innermost object already holds the key whose NFC form is normalised.
-func (scan *scanner) holdsKey(normalised []byte) bool {
+// heldKey is the index, from the innermost object's first key, of the kept key whose compared
+// form is normalised, if the object holds one.
+func (scan *scanner) heldKey(normalised []byte) (int, bool) {
 	open := &scan.frames[len(scan.frames)-1]
 	if open.seen != nil {
-		_, held := open.seen[string(normalised)]
-		return held
+		index, held := open.seen[string(normalised)]
+		return index, held
 	}
-	for _, held := range scan.keys[open.keysFrom:] {
-		if bytes.Equal(scan.normalised[held.start:held.end], normalised) {
-			return true
+	for index, held := range slices.Backward(scan.keys[open.keysFrom:]) {
+		if !scan.dropped(open.keysFrom+index) && bytes.Equal(scan.normalised[held.start:held.end], normalised) {
+			return index, true
 		}
 	}
-	return false
+	return 0, false
+}
+
+// dropped says whether the member of the key at index in scan.keys is left out.
+func (scan *scanner) dropped(index int) bool {
+	return scan.rules.foreign && scan.members[index].dropped
 }
 
 func isASCII(text []byte) bool {
@@ -435,7 +495,7 @@ func (scan *scanner) character() ([]byte, error) {
 		return nil, scan.malformed("the document ends inside a string")
 	}
 	switch char := scan.data[scan.offset]; {
-	case char == 0:
+	case char == 0 && !scan.rules.foreign:
 		return nil, scan.refuse("a NUL in a string")
 	case char < ' ':
 		return nil, scan.malformed("a control character in a string")
@@ -449,7 +509,13 @@ func (scan *scanner) character() ([]byte, error) {
 	}
 	decoded, size := utf8.DecodeRune(scan.data[scan.offset:])
 	if decoded == utf8.RuneError && size == 1 {
-		return nil, scan.refuse("invalid UTF-8")
+		if !scan.rules.foreign {
+			return nil, scan.refuse("invalid UTF-8")
+		}
+		// encoding/json reads the byte as U+FFFD.
+		scan.offset++
+		size = utf8.EncodeRune(scan.escaped[:], utf8.RuneError)
+		return scan.escaped[:size], nil
 	}
 	raw := scan.data[scan.offset : scan.offset+size]
 	scan.offset += size
@@ -471,24 +537,35 @@ func (scan *scanner) escape() (rune, error) {
 		return 0, err
 	}
 	switch {
-	case first == 0:
+	case first == 0 && !scan.rules.foreign:
 		return 0, scan.refuse("a NUL in a string")
 	case 0xDC00 <= first && first <= 0xDFFF:
-		return 0, scan.refuse("a lone low surrogate")
+		return scan.loneSurrogate("a lone low surrogate")
 	case first < 0xD800 || first > 0xDBFF:
 		return first, nil
 	}
 	if !bytes.HasPrefix(scan.data[scan.offset:], []byte{'\\', 'u'}) {
-		return 0, scan.refuse("a lone high surrogate")
+		return scan.loneSurrogate("a lone high surrogate")
 	}
 	second, err := scan.hexEscape()
 	if err != nil {
 		return 0, err
 	}
 	if second < 0xDC00 || second > 0xDFFF {
-		return 0, scan.refuse("a high surrogate not followed by a low one")
+		// encoding/json reads the high surrogate as U+FFFD and the escape after it on its own.
+		scan.offset -= len(`\uXXXX`)
+		return scan.loneSurrogate("a high surrogate not followed by a low one")
 	}
 	return utf16.DecodeRune(first, second), nil
+}
+
+// loneSurrogate is what a surrogate without its pair stands for: refused by D456, and U+FFFD from a
+// foreign sender, as encoding/json reads it.
+func (scan *scanner) loneSurrogate(rule string) (rune, error) {
+	if scan.rules.foreign {
+		return utf8.RuneError, nil
+	}
+	return 0, scan.refuse(rule)
 }
 
 // hexEscape reads a backslash, a u and four hex digits at the scan's offset.

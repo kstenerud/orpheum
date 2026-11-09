@@ -15,17 +15,6 @@ import (
 // it.
 const strictJSONPackage = sharedPath + "/strictjson"
 
-// laxJSONFiles are the files D456's Status names as still decoding with encoding/json, each with
-// why, until the owner decides them.
-var laxJSONFiles = map[string]string{
-	modulePath + "/internal/node/probe/probe.go":    "ffprobe gives a real file's tags one key twice",
-	modulePath + "/internal/node/probe/disc.go":     "ffprobe gives a real file's tags one key twice",
-	modulePath + "/internal/node/artwork/derive.go": "ffprobe gives a real file's tags one key twice",
-	modulePath + "/internal/core/providers/opensubtitles/client.go": "a provider's NUL is cleaned " +
-		"where it enters (D211 §2)",
-	modulePath + "/internal/core/identify/identifytest/provider.go": "the fake provider, as the real ones",
-}
-
 // laxDecoders are encoding/json's functions that decode a document without D456's rules.
 var laxDecoders = map[string]bool{"Unmarshal": true, "NewDecoder": true}
 
@@ -81,8 +70,9 @@ func findLaxJSONDecoding(files []goFile) []violation {
 }
 
 // TestArch_JSONIsDecodedStrictly checks the files the module compiles, tests aside: none decodes
-// JSON with encoding/json but the strict decoder's own and the files D456 names, so every document
-// the Go code reads keeps D456's rules. Tests may: a test builds what it checks.
+// JSON with encoding/json but the strict decoder's own, so every document the Go code reads keeps
+// D456's rules or, from a sender Orpheum does not control, strictjson.Foreign's (D458). Tests may: a
+// test builds what it checks.
 func TestArch_JSONIsDecodedStrictly(t *testing.T) {
 	t.Parallel()
 	var files []goFile
@@ -92,9 +82,7 @@ func TestArch_JSONIsDecodedStrictly(t *testing.T) {
 		}
 		for _, source := range readSourceFiles(t, []listedPackage{{Dir: listed.Dir, GoFiles: listed.GoFiles}}) {
 			name := listed.ImportPath + "/" + path.Base(source.path)
-			if _, isLax := laxJSONFiles[name]; !isLax {
-				files = append(files, goFile{name: name, contents: source.contents})
-			}
+			files = append(files, goFile{name: name, contents: source.contents})
 		}
 	}
 	if len(files) == 0 {

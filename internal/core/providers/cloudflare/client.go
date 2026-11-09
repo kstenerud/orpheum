@@ -17,6 +17,11 @@ import (
 	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
 
+// cloudflareAnswers reads Cloudflare's answers, which another system writes: anything JSON allows,
+// trusted for coming over TLS from Cloudflare, and a key said twice keeps its last value, the common
+// rule (D458).
+const cloudflareAnswers = strictjson.LastWins
+
 // BaseURL is Cloudflare's API, version 4.
 const BaseURL = "https://api.cloudflare.com/client/v4"
 
@@ -151,8 +156,8 @@ func (client *Client) call(ctx context.Context, method, path string, body []byte
 		Success bool            `json:"success"`
 		Result  json.RawMessage `json:"result"`
 	}
-	if strictjson.Unmarshal(answer.Body, &envelope) != nil || !envelope.Success ||
-		strictjson.Unmarshal(envelope.Result, result) != nil {
+	if cloudflareAnswers.Unmarshal(answer.Body, &envelope) != nil || !envelope.Success ||
+		cloudflareAnswers.Unmarshal(envelope.Result, result) != nil {
 		return fmt.Errorf("cloudflare %s %s: %w", method, path, ErrMalformed)
 	}
 	return nil

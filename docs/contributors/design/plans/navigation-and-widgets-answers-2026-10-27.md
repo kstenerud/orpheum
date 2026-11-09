@@ -2677,8 +2677,7 @@ types change with them.
 The owner: "The strictness of our decoder depends on who controls the sender. When we control both
 sender and receiver, we use maximal strictness. When another system controls the sender, we must make
 allowances for their quirks, trusting instead based on provenance (we trust TMDB's SSL certs, for
-example, and we trust the ffmpeg binary we've pinned - to a point)." To be recorded as a decision
-amending D456 when built, after the wire renames land.
+example, and we trust the ffmpeg binary we've pinned - to a point)." **Decided** (2026-11-09) as D458.
 
 - **Both ends ours** (API bodies, node and core, core and discovery, our own stored files): D456 as
   built.

@@ -4,7 +4,6 @@ package artwork
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -14,7 +13,13 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
+
+// ffprobeOutput reads ffprobe's JSON, which another program writes: anything JSON allows, and a key
+// said twice keeps its first value, as ffprobe itself shows it (FFmpeg's av_dict_get gives the first
+// of a name's entries; its ASF reader gives WM/EncodingSettings and WM/Tool both as encoder). D458.
+const ffprobeOutput = strictjson.FirstWins
 
 // logErrorsOnly is FFmpeg's log level for every run here: its errors alone, which a failed run
 // returns.
@@ -82,7 +87,7 @@ func (deriver *Deriver) dimensions(ctx context.Context, source []byte) (width, h
 			Height int `json:"height"`
 		} `json:"streams"`
 	}
-	if decodeErr := json.Unmarshal(output, &probed); decodeErr != nil {
+	if decodeErr := ffprobeOutput.Unmarshal(output, &probed); decodeErr != nil {
 		return 0, 0, fmt.Errorf("read the probe: %w", decodeErr)
 	}
 	if len(probed.Streams) == 0 || probed.Streams[0].Width <= 0 || probed.Streams[0].Height <= 0 {

@@ -10,7 +10,11 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/providers"
+	"github.com/kstenerud/orpheum/pkg/strictjson"
 )
+
+// fakeProviderBodies reads the fake's stored bodies as the real providers' answers are read (D458).
+const fakeProviderBodies = strictjson.LastWins
 
 // Provider is TMDB behind identify.Provider (standards/testing.md, Network). A test fills its
 // maps before the code under test calls it, and reads Calls once no call is in flight; a test
@@ -141,7 +145,7 @@ func (*Provider) EpisodeGroupsIn(seriesBody []byte) ([]byte, bool) {
 	var record struct {
 		EpisodeGroups json.RawMessage `json:"episodeGroups"`
 	}
-	if err := json.Unmarshal(seriesBody, &record); err != nil || len(record.EpisodeGroups) == 0 {
+	if err := fakeProviderBodies.Unmarshal(seriesBody, &record); err != nil || len(record.EpisodeGroups) == 0 {
 		return nil, false
 	}
 	return record.EpisodeGroups, true
@@ -165,8 +169,8 @@ func (fake *Provider) FetchEpisodeGroups(ctx context.Context, seriesID string) (
 // ParseEpisodeGroups reads back what FetchEpisodeGroups returned.
 func (*Provider) ParseEpisodeGroups(body []byte) ([]identify.EpisodeGroup, error) {
 	var groups []identify.EpisodeGroup
-	err := json.Unmarshal(body, &groups) //nolint:musttag // as the fake stored it
-	return groups, err                   //nolint:wrapcheck // a test fake
+	err := fakeProviderBodies.Unmarshal(body, &groups)
+	return groups, err //nolint:wrapcheck // a test fake
 }
 
 // FetchEpisodeGroup returns a group's parts from EpisodeGroups as JSON.
@@ -187,15 +191,15 @@ func (fake *Provider) FetchEpisodeGroup(ctx context.Context, groupID string) ([]
 // ParseEpisodeGroup reads back what FetchEpisodeGroup returned.
 func (*Provider) ParseEpisodeGroup(body []byte) ([]identify.EpisodeGroupPart, error) {
 	var parts []identify.EpisodeGroupPart
-	err := json.Unmarshal(body, &parts) //nolint:musttag // as the fake stored it
-	return parts, err                   //nolint:wrapcheck // a test fake
+	err := fakeProviderBodies.Unmarshal(body, &parts)
+	return parts, err //nolint:wrapcheck // a test fake
 }
 
 // Parse reads back what Fetch returned.
 func (*Provider) Parse(_ string, body []byte) (identify.Metadata, error) {
 	var film identify.Metadata
-	err := json.Unmarshal(body, &film) //nolint:musttag // as the fake stored it
-	return film, err                   //nolint:wrapcheck // a test fake
+	err := fakeProviderBodies.Unmarshal(body, &film)
+	return film, err //nolint:wrapcheck // a test fake
 }
 
 // FetchSeason returns the season's listing from Seasons as JSON.
@@ -217,6 +221,6 @@ func (fake *Provider) FetchSeason(ctx context.Context, seriesID string, season i
 // ParseSeason reads back what FetchSeason returned.
 func (*Provider) ParseSeason(body []byte) ([]identify.Episode, error) {
 	var episodes []identify.Episode
-	err := json.Unmarshal(body, &episodes) //nolint:musttag // as the fake stored it
-	return episodes, err                   //nolint:wrapcheck // a test fake
+	err := fakeProviderBodies.Unmarshal(body, &episodes)
+	return episodes, err //nolint:wrapcheck // a test fake
 }

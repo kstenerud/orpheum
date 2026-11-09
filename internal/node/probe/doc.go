@@ -6,6 +6,9 @@
 //
 // # Invariants
 //
+//   - ffprobe's JSON is another program's (D458): read by strictjson.Foreign, anything JSON allows
+//     within D456's limits, and a tag said twice keeps its first value, as ffprobe shows it
+//     (ffprobeOutput). TestParse_ATagSaidTwiceKeepsItsFirstValueAsFfprobeShowsIt.
 //   - Imports nothing from internal/core and never touches the database. Enforced by the depguard
 //     rule node-boundary and, transitively, TestArch_NodeNeverImportsCore.
 //   - Starts no process except through internal/node/execx. Enforced by the depguard rule exec-

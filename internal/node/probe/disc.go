@@ -3,7 +3,6 @@
 package probe
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -18,7 +17,7 @@ import (
 // gives it, where the stream carries none.
 func ParseDisc(output []byte, title disc.Title) (nodeproto.Probe, error) {
 	var raw rawOutput
-	if err := json.Unmarshal(output, &raw); err != nil {
+	if err := ffprobeOutput.Unmarshal(output, &raw); err != nil {
 		return nodeproto.Probe{}, fmt.Errorf("ffprobe's output is not the JSON it promised: %w", err)
 	}
 	record, err := raw.toProbe()
