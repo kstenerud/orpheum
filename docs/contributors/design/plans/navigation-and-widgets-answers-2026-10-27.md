@@ -2671,3 +2671,26 @@ older peer quietly ignores (the strict decoding allows unknown fields), so each 
 
 The web client's HTTP types are generated and follow; the together and live messages' hand-written
 types change with them.
+
+## JSON strictness follows who controls the sender (the owner, 2026-11-09), amending D456
+
+The owner: "The strictness of our decoder depends on who controls the sender. When we control both
+sender and receiver, we use maximal strictness. When another system controls the sender, we must make
+allowances for their quirks, trusting instead based on provenance (we trust TMDB's SSL certs, for
+example, and we trust the ffmpeg binary we've pinned - to a point)." To be recorded as a decision
+amending D456 when built, after the wire renames land.
+
+- **Both ends ours** (API bodies, node and core, core and discovery, our own stored files): D456 as
+  built.
+- **Only the receiver ours** (TMDB, OpenSubtitles, Cloudflare, the certificate authority, ffprobe):
+  anything JSON allows, then an edge check per source that fixes that source's known quirks (D211's
+  NUL cleaning among them). A key said twice follows the source's own rule: ffprobe's first wins, as
+  FFmpeg's `av_dict_get` returns the first of the `AV_DICT_MULTIKEY` entries its tag conversion makes
+  (ASF's `WM/EncodingSettings` and `WM/Tool` both become `encoder`, libavformat/asf.c); a source whose
+  rule is unknown takes last wins, the common behaviour. Each source's mode is written in its package's
+  doc. The owner said yes to keeping the size limits in this mode, to invalid UTF-8 becoming U+FFFD
+  rather than refusing the reply, and keys still match in their own case.
+- **One public decoder, no twin:** the strict decoder moves to a public `pkg/strictjson`, and the
+  whole-file writer (`atomics`) moves the same way, replacing both twins under `discovery/internal/`
+  (the owner: "use pkg/strictjson and move atomics too"). `pkg/` joins the public tree that imports
+  nothing internal, a gate change on the owner's word.
