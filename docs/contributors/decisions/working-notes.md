@@ -27542,6 +27542,15 @@ astonishment)."* To the proposal that every name be camelCase, the owner: *"agre
    checks each property and enum value in the API's description and each value of a named string
    type in the protocol packages, naming each exception (2) with its reason.
 
+**Status:** built (2026-11-09), its clauses read back against the code: 1 holds on the API, the node, discovery and watch-together protocols and the web client's own codes; 2's exceptions are the ones `TestArch_JSONNamesAreCamelCase` lists, each with its reason; 3's stored snake values are translated where the API sends them (a job's kind, an extra's type, an ordering's kind, a secret's name); 4 is step 0086; 5 is the check and tagliatelle.
+
 **Proven by:**
-- 1, 2, 5: `TestArch_JSONNamesAreCamelCase`, `TestFindNonCamelNames_FindsEachSnakeKebabAndCapitalName`
+- 1: `TestArch_JSONNamesAreCamelCase`, `TestNames_TheValuesTheProtocolSaysAreCamelCase`,
+  `TestNames_TheValuesTheWireSaysAreCamelCase`, `TestNames_TheGroupStatesTheProtocolSaysAreCamelCase`,
+  `TestNames_TheDestinationsTheAPISaysAreCamelCase`
+- 2: `TestArch_JSONNamesAreCamelCase` (its listed exceptions),
+  `TestFindNonCamelNames_FindsEachSnakeKebabAndCapitalName`
+- 3: `TestItem_SaysAnExtrasTypeInCamelCase`, `TestDevSeed_CreatesTheSeedsUsersSettingsAndSecretsAndCanRunAgain`
+  (a secret's stored name, sent in camelCase)
 - 4: `TestMigrate_Step0086ReadsBackEveryKeptNameInCamelCase`
+- 5: `TestArch_JSONNamesAreCamelCase`, `TestFindNonCamelNames_FindsEachSnakeKebabAndCapitalName`
