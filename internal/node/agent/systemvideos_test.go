@@ -30,7 +30,7 @@ func makeSystemVideos(job int64) nodeproto.Command {
 			Videos: []nodeproto.SystemVideo{
 				{
 					Purpose: nodeproto.SystemVideoSoundTiming, Codec: nodeproto.SystemVideoH264AAC,
-					FileName: "sound-timing.h264-aac.mp4",
+					FileName: "soundTiming.h264-aac.mp4",
 				},
 			},
 		},
@@ -54,7 +54,7 @@ func TestAgent_MakesTheSystemVideosAndPostsWhatItMade(t *testing.T) {
 	result := testutil.Receive(t, core.systemVideos, "the system videos' answer")
 	made := result.SystemVideos
 	if result.JobID != 14 || made.Failure != "" || made.Folder != "/node/system-videos" ||
-		len(made.FileNames) != 1 || made.FileNames[0] != "sound-timing.h264-aac.mp4" {
+		len(made.FileNames) != 1 || made.FileNames[0] != "soundTiming.h264-aac.mp4" {
 		t.Errorf("the core heard %+v, %+v; want the clip made", result, made)
 	}
 }

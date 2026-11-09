@@ -91,7 +91,7 @@ export function subtitleProblemText(
   viewerLanguage: string,
 ): string {
   if (cause instanceof ApiProblem) {
-    const quotaExhausted = cause.withCode("quota_exhausted");
+    const quotaExhausted = cause.withCode("quotaExhausted");
     if (quotaExhausted !== undefined) {
       const downloadsResetAt = quotaExhausted.detail?.downloadsResetAt;
       const resetTime =

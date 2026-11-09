@@ -118,7 +118,7 @@ describe("play state", () => {
   });
 
   it("gives up on a playback the server refuses for good, and not on a passing failure", async () => {
-    const gone = await sendingFailsWith(refusal(404, "not_found"));
+    const gone = await sendingFailsWith(refusal(404, "notFound"));
     expect(gone instanceof ReportRefused && gone.cause instanceof ApiProblem).toBe(true);
     const busy = await sendingFailsWith(refusal(503, "migrating"));
     expect(busy instanceof ApiProblem && !(busy instanceof ReportRefused)).toBe(true);
@@ -140,7 +140,7 @@ describe("play state", () => {
         playView,
         servedBy(
           {
-            "POST /playback/gone/report": refusal(404, "not_found"),
+            "POST /playback/gone/report": refusal(404, "notFound"),
             "GET /files/2/waits": [200, {}],
             "GET /files/2/up-next": [200, {}],
             "PUT /playback/gone/wants": [204, null],
@@ -180,8 +180,8 @@ describe("play state", () => {
               [200, directDecision({ mediaToken: "lost", resumePositionMs: 0 })],
               [200, directDecision({ mediaToken: "again", resumePositionMs: 0 })],
             ],
-            "POST /playback/lost/report": refusal(404, "playback_gone"),
-            "POST /playback/again/report": refusal(404, "playback_gone"),
+            "POST /playback/lost/report": refusal(404, "playbackGone"),
+            "POST /playback/again/report": refusal(404, "playbackGone"),
             "GET /files/2/waits": [200, {}],
             "GET /files/2/up-next": [200, {}],
             "PUT /playback/lost/wants": [204, null],
@@ -239,7 +239,7 @@ describe("play state", () => {
               refusal(502, "not_answering"), // the server still starting
               [200, directDecision({ mediaToken: "again" })],
             ],
-            "POST /playback/lost/report": refusal(404, "playback_gone"),
+            "POST /playback/lost/report": refusal(404, "playbackGone"),
             "GET /files/2/waits": [200, {}],
             "GET /files/2/up-next": [200, {}],
             "PUT /playback/lost/wants": [204, null],

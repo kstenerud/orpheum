@@ -19,11 +19,11 @@ func TestUnconfined_AnAdminLetsALockedNodeRun(t *testing.T) {
 	admin := harness.createAdminAndSignIn(t)
 	harness.connectNode(t, "/media/films")
 	harness.nodes.lockedConfinement = []nodeproto.Confinement{
-		{Mechanism: "landlock", CauseCode: "disabled_at_boot", Remedy: "add lsm=landlock"},
+		{Mechanism: "landlock", CauseCode: "disabledAtBoot", Remedy: "add lsm=landlock"},
 	}
 	got := harness.do(t, http.MethodGet, "/system", admin, nil)
 	if !strings.Contains(got.body, `"connection":"locked"`) ||
-		!strings.Contains(got.body, `"mechanism":"landlock","isInForce":false,"causeCode":"disabled_at_boot"`) ||
+		!strings.Contains(got.body, `"mechanism":"landlock","isInForce":false,"causeCode":"disabledAtBoot"`) ||
 		strings.Contains(got.body, `"unconfinedLeave"`) {
 		t.Errorf("GET /system = %d %s; want local locked, lacking Landlock, with no leave", got.status, got.body)
 	}

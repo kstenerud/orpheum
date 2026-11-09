@@ -305,7 +305,7 @@ describe("the host's Watch Together dialog (D246 §3, §5; D384 §2)", () => {
   it("forgets a session the server says is over, asking for it no more, and offers a new one", async () => {
     hostSession();
     const heard: Heard[] = [];
-    const services = servedBy({ "GET /together/3": refusal(404, "not_found") }, heard, "token");
+    const services = servedBy({ "GET /together/3": refusal(404, "notFound") }, heard, "token");
     const mounted = await mount(withServices(<WatchTogether />, services));
     expect(mounted.container.querySelector("output")?.textContent).toBe("That session is over.");
     expect(buttonWithText(mounted.container, "Start a session")).toBeDefined();

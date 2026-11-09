@@ -89,16 +89,16 @@ type MatchByLinkInput struct {
 type OverrideInput struct {
 	AuthorizationHeader
 	ID    int64  `path:"id"`
-	Field string `enum:"name,overview,tagline,year,runtime_ms,recorded_at" path:"field"`
+	Field string `enum:"name,overview,tagline,year,runtimeMs,recordedAt" path:"field"`
 }
 
 // PutOverrideInput sets a field to a person's value.
 type PutOverrideInput struct {
 	AuthorizationHeader
 	ID    int64  `path:"id"`
-	Field string `enum:"name,overview,tagline,year,runtime_ms,recorded_at" path:"field"`
+	Field string `enum:"name,overview,tagline,year,runtimeMs,recordedAt" path:"field"`
 	Body  struct {
-		Value string `doc:"The value; year, runtime_ms and recorded_at (an other video's, Unix milliseconds) are whole numbers" json:"value"` //nolint:lll // one struct tag
+		Value string `doc:"The value; year, runtimeMs and recordedAt (an other video's, Unix milliseconds) are whole numbers" json:"value"` //nolint:lll // one struct tag
 	}
 }
 
@@ -244,7 +244,7 @@ func (server *Server) setOverride(ctx context.Context, input *PutOverrideInput) 
 	if err != nil {
 		return nil, err
 	}
-	err = dependencies.Chooser.SetOverride(ctx, input.ID, input.Field, input.Body.Value, principal.UserID)
+	err = dependencies.Chooser.SetOverride(ctx, input.ID, keptValue(input.Field), input.Body.Value, principal.UserID)
 	return &struct{}{}, server.identifyError(ctx, "set an override", err)
 }
 
@@ -253,7 +253,7 @@ func (server *Server) clearOverride(ctx context.Context, input *OverrideInput) (
 	if err != nil {
 		return nil, err
 	}
-	err = dependencies.Chooser.ClearOverride(ctx, input.ID, input.Field)
+	err = dependencies.Chooser.ClearOverride(ctx, input.ID, keptValue(input.Field))
 	return &struct{}{}, server.identifyError(ctx, "remove an override", err)
 }
 

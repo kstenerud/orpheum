@@ -18,7 +18,7 @@ import (
 type LettersInput struct {
 	AuthorizationHeader
 	Kinds   []string `doc:"As GET /items takes it: the kinds, each named, comma-separated" enum:"film,series,other" minItems:"1" query:"kind" required:"true"` //nolint:lll // one struct tag
-	Sort    string   `doc:"The order the rail follows: by name, or an other video's by file name" enum:"name,file_name" query:"sort" required:"true"`          //nolint:lll // one struct tag
+	Sort    string   `doc:"The order the rail follows: by name, or an other video's by file name" enum:"name,fileName" query:"sort" required:"true"`           //nolint:lll // one struct tag
 	Library int64    `doc:"As GET /items takes it" minimum:"0" query:"library"`
 	Query   string   `doc:"As GET /items takes it: only the letters some title whose name matches it is under" maxLength:"200" query:"query"` //nolint:lll // one struct tag
 	ListFilters
@@ -36,7 +36,7 @@ type FolderInput struct {
 	AuthorizationHeader
 	ID     int64  `path:"id"`
 	Folder string `doc:"Its path below the library's folders, as a listed folder's path says it; absent for their top" maxLength:"4096" query:"folder"` //nolint:lll // one struct tag
-	Sort   string `doc:"The order its videos come in" enum:"recorded,name,file_name,added" query:"sort" required:"true"`
+	Sort   string `doc:"The order its videos come in" enum:"recorded,name,fileName,added" query:"sort" required:"true"`
 	// A page holds the folder's folders first, then its videos: limit of them in all (D432 §3).
 	PageInput
 	Order string `doc:"The way the sort runs, as GET /titles takes it" enum:"ascending,descending" query:"order"`

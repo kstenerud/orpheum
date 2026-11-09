@@ -104,7 +104,7 @@ func TestPlayback_AFilmsSubtitleIsExtractedOnItsNodeAndServedByTheCore(t *testin
 	}
 	// The job view reads the queue the runners run (cut-a §5.3).
 	listed := requestAPI(t, http.MethodGet, server.baseURL+"/jobs?limit=500", token, nil)
-	if listed.status != http.StatusOK || !strings.Contains(listed.body, `"kind":"extract_subtitle"`) {
+	if listed.status != http.StatusOK || !strings.Contains(listed.body, `"kind":"extractSubtitle"`) {
 		t.Errorf("GET /jobs = %d %s, want the extraction listed", listed.status, listed.body)
 	}
 	// Doctor reads what the node's hello said about its confinement (D112).

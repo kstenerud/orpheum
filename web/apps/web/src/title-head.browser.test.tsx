@@ -160,7 +160,7 @@ describe("a title's actions row, by a remote", () => {
   // changes anything, rather than on Mark as watched, then the row's first.
   it("arrives on the … of a film that cannot be played now, not on Mark as watched", async () => {
     await page.viewport(1280, 800);
-    const away = { ...film, id: 104, unavailable: { reason: "node_away", nodeName: "devnas" } };
+    const away = { ...film, id: 104, unavailable: { reason: "nodeAway", nodeName: "devnas" } };
     walking = await mountApp(
       walkServices(
         {
@@ -179,7 +179,7 @@ describe("a title's actions row, by a remote", () => {
 
   it("arrives on the words saying why a person's film cannot play, where it has no …, and OK there changes nothing (D420)", async () => {
     await page.viewport(1280, 800);
-    const away = { ...film, id: 105, unavailable: { reason: "node_away", nodeName: "devnas" } };
+    const away = { ...film, id: 105, unavailable: { reason: "nodeAway", nodeName: "devnas" } };
     const heard: string[] = [];
     walking = await mountApp(
       walkServices({ ...signedIn, "GET /items/105": away }, "/titles/105", heard),

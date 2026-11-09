@@ -12,7 +12,7 @@ export interface SortChoice {
 
 /** Whether a sort is by a name, a title's or its file's: the alphabet rail's (D349 §9). */
 export function isByName(sort: LibrarySort): boolean {
-  return sort === "name" || sort === "file_name";
+  return sort === "name" || sort === "fileName";
 }
 
 /** The way a sort runs unless the person turns it: A to Z by a name, newest first by a date. */
@@ -61,7 +61,7 @@ function ascendingLabel(t: TFunction, sort: LibrarySort): string {
   switch (sort) {
     case "name":
       return t("browse.byNameAToZ");
-    case "file_name":
+    case "fileName":
       return t("browse.byFileNameAToZ");
     case "added":
       return t("browse.byAddedOldest");
@@ -77,7 +77,7 @@ function descendingLabel(t: TFunction, sort: LibrarySort): string {
   switch (sort) {
     case "name":
       return t("browse.byNameZToA");
-    case "file_name":
+    case "fileName":
       return t("browse.byFileNameZToA");
     case "added":
       return t("browse.byAddedNewest");
@@ -93,7 +93,7 @@ export function sortFieldLabel(t: TFunction, sort: LibrarySort): string {
   switch (sort) {
     case "name":
       return t("browse.fieldName");
-    case "file_name":
+    case "fileName":
       return t("browse.fieldFileName");
     case "added":
       return t("browse.fieldAdded");

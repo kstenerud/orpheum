@@ -84,7 +84,7 @@ export function fromForLetter(letter: string, isZToA: boolean): { readonly from?
 export function useAlphabetRailLetters(list: {
   readonly kind: ListedKind;
   readonly library: number | undefined;
-  readonly sort: "name" | "file_name";
+  readonly sort: "name" | "fileName";
   /** The list's search, "" for none: only letters some matching title begins with. */
   readonly search: string;
   /** The list's chips (Films and Series): only letters some title they keep begins with. */
@@ -228,7 +228,7 @@ function useJumpedToShown<T>(
  */
 export function useLetterJump<T extends { readonly id: number }>(props: {
   readonly kind: ListedKind;
-  readonly sort: "name" | "file_name";
+  readonly sort: "name" | "fileName";
   readonly isZToA?: boolean | undefined;
   readonly library: number | undefined;
   /** The list's search, "" for none: a jump finds its letter among what the search lists. */

@@ -150,7 +150,7 @@ export async function endCastRetrying(
 
 /** Takes a refusal that the cast is gone as its end, answering undefined; rethrows any other. */
 function undefinedIfGone(cause: unknown): undefined {
-  if (cause instanceof ApiProblem && cause.code === "not_found") {
+  if (cause instanceof ApiProblem && cause.code === "notFound") {
     return undefined;
   }
   throw cause;

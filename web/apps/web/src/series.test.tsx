@@ -187,7 +187,7 @@ describe("a series' next episode (the owner, 2026-10-25)", () => {
         <SeriesView
           series={{
             ...series,
-            nextUp: { ...next, unavailable: { reason: "still_reading", nodeName: "devnas" } },
+            nextUp: { ...next, unavailable: { reason: "stillReading", nodeName: "devnas" } },
           }}
         />,
       ),
@@ -272,7 +272,7 @@ describe("an episode that cannot be played now (D241 §3)", () => {
       items: [
         {
           ...episode(31, { seasonNumber: 1, episodeNumber: 1 }),
-          unavailable: { reason: "node_away" as const, nodeName: "devnas" },
+          unavailable: { reason: "nodeAway" as const, nodeName: "devnas" },
         },
       ],
       nextCursor: "",

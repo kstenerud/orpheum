@@ -39,7 +39,7 @@ describe("waiting for a prepared rendition", () => {
     const failed = fakeResponse(
       502,
       {},
-      JSON.stringify({ error: { code: "prepare_failed", message: "could not be prepared" } }),
+      JSON.stringify({ error: { code: "prepareFailed", message: "could not be prepared" } }),
     );
     await expect(
       whenReady("/x", { fetch: () => Promise.resolve(failed), sleep: () => Promise.resolve() }),
@@ -50,14 +50,14 @@ describe("waiting for a prepared rendition", () => {
     const failed = fakeResponse(
       502,
       {},
-      JSON.stringify({ error: { code: "prepare_failed", message: "could not be prepared" } }),
+      JSON.stringify({ error: { code: "prepareFailed", message: "could not be prepared" } }),
     );
     const refusal: unknown = await whenReady("/x", {
       fetch: () => Promise.resolve(failed),
       sleep: () => Promise.resolve(),
     }).catch((cause: unknown) => cause);
     expect(refusal).toBeInstanceOf(ApiProblem);
-    expect(refusal instanceof ApiProblem ? refusal.code : "").toBe("prepare_failed");
+    expect(refusal instanceof ApiProblem ? refusal.code : "").toBe("prepareFailed");
     const shapeless: unknown = await whenReady("/x", {
       fetch: () => Promise.resolve(fakeResponse(500, {}, "not json")),
       sleep: () => Promise.resolve(),

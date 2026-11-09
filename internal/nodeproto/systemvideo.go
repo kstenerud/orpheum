@@ -23,7 +23,7 @@ type SystemVideo struct {
 const (
 	// SystemVideoSoundTiming is the device lab's sound timing clip (lab-sound-clip.ts): four seconds,
 	// a rising beep at the start of each, the picture flashing the second's number as it starts.
-	SystemVideoSoundTiming = "sound-timing"
+	SystemVideoSoundTiming = "soundTiming"
 	// SystemVideoH264AAC is H.264 video and stereo AAC audio in MP4, which every client plays.
 	SystemVideoH264AAC = "h264-aac"
 )

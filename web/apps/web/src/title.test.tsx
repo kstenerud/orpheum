@@ -188,7 +188,7 @@ describe("TitleView", () => {
         <TitleView
           title={{
             ...heat,
-            unavailable: { reason: "root_missing", nodeName: "devnas", path: "/media/films" },
+            unavailable: { reason: "rootMissing", nodeName: "devnas", path: "/media/films" },
           }}
         />,
       ),
@@ -202,7 +202,7 @@ describe("TitleView", () => {
   });
 
   it("offers an admin to retire a file that cannot be read now, and no one else (D241 §5)", () => {
-    const missing = { ...heat, unavailable: { reason: "node_away" as const, nodeName: "devnas" } };
+    const missing = { ...heat, unavailable: { reason: "nodeAway" as const, nodeName: "devnas" } };
     const retire = (): void => undefined;
     const forAdmin = renderToStaticMarkup(
       withServices(<TitleView title={missing} onRetireFile={retire} />),
@@ -253,7 +253,7 @@ describe("TitleView", () => {
           <Loaded
             resource={{
               state: "failed",
-              cause: new ApiProblem({ code: "not_found", message: "no such title" }),
+              cause: new ApiProblem({ code: "notFound", message: "no such title" }),
             }}
             render={render}
           />,
@@ -271,7 +271,7 @@ describe("Title", () => {
         "GET /items/10": [200, heat],
         "GET /items/11": [
           200,
-          { ...heat, id: 11, unavailable: { reason: "node_away" as const, nodeName: "devnas" } },
+          { ...heat, id: 11, unavailable: { reason: "nodeAway" as const, nodeName: "devnas" } },
         ],
         "POST /playback": [
           200,
@@ -357,7 +357,7 @@ describe("Title", () => {
               {
                 ...heat,
                 id: 11,
-                unavailable: { reason: "node_away" as const, nodeName: "devnas" },
+                unavailable: { reason: "nodeAway" as const, nodeName: "devnas" },
               },
             ],
             "PUT /interest/page": [204, null],
@@ -388,8 +388,8 @@ describe("Title", () => {
     // on the background poller (D237) and offers Play once the server says the file plays.
     const soon = backingOffPoller({ firstMs: 50, longestMs: 50, failedMs: 50 });
     const cases = [
-      { id: 13, reason: "still_reading" as const },
-      { id: 14, reason: "node_away" as const },
+      { id: 13, reason: "stillReading" as const },
+      { id: 14, reason: "nodeAway" as const },
     ];
     for (const { id, reason } of cases) {
       const title = { ...heat, id };
@@ -435,10 +435,7 @@ describe("Title", () => {
     const services = servedBy(
       {
         "GET /items/15": [
-          [
-            200,
-            { ...title, unavailable: { reason: "still_reading" as const, nodeName: "devnas" } },
-          ],
+          [200, { ...title, unavailable: { reason: "stillReading" as const, nodeName: "devnas" } }],
           unanswered,
           [200, title],
         ],

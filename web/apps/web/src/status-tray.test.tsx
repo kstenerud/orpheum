@@ -301,7 +301,7 @@ it("takes a session the server no longer has as ended, as its end is tried again
   );
   const heard: Heard[] = [];
   const services = servedBy(
-    { "GET /together/7": [200, hostedSession], "DELETE /together/7": refusal(404, "not_found") },
+    { "GET /together/7": [200, hostedSession], "DELETE /together/7": refusal(404, "notFound") },
     heard,
     "token",
   );

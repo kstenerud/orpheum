@@ -125,7 +125,7 @@ describe("a cast asked about once, before it plays (D364 §2, D358)", () => {
       get: () => (fullScreen.asked() > left ? document.documentElement : null),
     });
     try {
-      const { answers } = await asked([], refusal(404, "not_found"));
+      const { answers } = await asked([], refusal(404, "notFound"));
       await click(buttonWithText(document.body, "Use"));
       await vi.waitFor(() => {
         expect(left).toBe(1);

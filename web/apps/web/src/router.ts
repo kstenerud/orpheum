@@ -21,12 +21,12 @@ export const labPages = [
 export type LabPage = (typeof labPages)[number];
 
 /**
- * The order a library's list comes in (D349 §9.1): recorded and file_name, an other library's;
+ * The order a library's list comes in (D349 §9.1): recorded and fileName, an other library's;
  * released, a film's release date or a series' first air date, films' and series' (D366 §1).
  */
-export type LibrarySort = "name" | "added" | "recorded" | "file_name" | "released";
+export type LibrarySort = "name" | "added" | "recorded" | "fileName" | "released";
 
-const librarySorts: readonly LibrarySort[] = ["name", "added", "recorded", "file_name", "released"];
+const librarySorts: readonly LibrarySort[] = ["name", "added", "recorded", "fileName", "released"];
 
 /**
  * The way a sort runs (D366 §2): ascending, A to Z or oldest first; descending, Z to A or newest

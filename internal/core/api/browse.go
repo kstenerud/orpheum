@@ -33,7 +33,7 @@ func recordedBody(facts *library.OtherFacts) *RecordedBody {
 // UnavailableBody is why what is listed cannot be played now: its machine away, or its folder or
 // disk missing, and since when (D241 §3).
 type UnavailableBody struct {
-	Reason   string `enum:"node_away,root_missing,disk_missing,still_reading" json:"reason"`
+	Reason   string `enum:"nodeAway,rootMissing,diskMissing,stillReading" json:"reason"`
 	NodeName string `doc:"The machine that holds it" json:"nodeName"`
 	Path     string `doc:"The folder or disk missing on it; absent for a machine away" json:"path,omitempty"`
 	// UnavailableAt is when it became unavailable, in Unix milliseconds; absent when not known.

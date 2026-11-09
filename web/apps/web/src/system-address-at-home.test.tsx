@@ -73,7 +73,7 @@ it("sets the address an admin types, and says in plain words why the server refu
     {
       "PUT /system/address-at-home": [
         refusal(409, "conflict"),
-        refusal(400, "invalid_request"),
+        refusal(400, "invalidRequest"),
         [204, undefined],
       ],
     },

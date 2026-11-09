@@ -151,7 +151,7 @@ func TestContinueWatching_AWorkThatCannotBeReadNowSaysWhy(t *testing.T) {
 	}
 	harness.nodes.isAway.Store(true)
 	rows := harness.continueWatching(t, user)
-	if len(rows) != 1 || rows[0].Unavailable == nil || rows[0].Unavailable.Reason != "node_away" ||
+	if len(rows) != 1 || rows[0].Unavailable == nil || rows[0].Unavailable.Reason != "nodeAway" ||
 		rows[0].Unavailable.NodeName != "local" {
 		t.Errorf("Continue Watching while its node is away = %+v; want the pilot marked, its node away", rows)
 	}

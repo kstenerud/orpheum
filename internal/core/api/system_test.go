@@ -61,7 +61,7 @@ func TestSystem_ShowsTheServersFactsEachNodesAndDoctorsFindings(t *testing.T) {
 	}
 	checkServerFacts(t, system.Server)
 	if len(system.Nodes) != 2 || system.Nodes[0].Name != "attic" || system.Nodes[0].IsConnected ||
-		system.Nodes[0].Connection != "awaiting_hello" || system.Nodes[0].LastHeardAt != nil {
+		system.Nodes[0].Connection != "awaitingHello" || system.Nodes[0].LastHeardAt != nil {
 		t.Fatalf("the nodes are %+v; want attic, awaiting its hello, then local", system.Nodes)
 	}
 	checkLocalFacts(t, system.Nodes[1])

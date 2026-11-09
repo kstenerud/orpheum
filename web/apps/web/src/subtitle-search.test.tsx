@@ -154,7 +154,7 @@ it("says when today's downloads are spent, and when they come back", async () =>
       429,
       {
         error: {
-          code: "quota_exhausted",
+          code: "quotaExhausted",
           message: "a note for developers",
           detail: { downloadsResetAt: 1790661600000 },
         },
@@ -177,7 +177,7 @@ it("tells a person when no OpenSubtitles account is set up", async () => {
       503,
       {
         error: {
-          code: "provider_error",
+          code: "providerError",
           message: "x",
           detail: { reason: "no_login" },
           failedHop: "provider",
@@ -199,7 +199,7 @@ it("tells a person when OpenSubtitles is not answering", async () => {
       503,
       {
         error: {
-          code: "provider_error",
+          code: "providerError",
           message: "x",
           detail: { reason: "unavailable" },
           failedHop: "provider",

@@ -384,8 +384,8 @@ func TestPlayback_TheAcceptanceFileIsConvertedForItsContainerAndItsAudio(t *test
 	harness.shelveFilms(t)
 	decided := harness.play(t, user, chrome(2))
 	if decided.Delivery != "hls" || decided.Profile != "remux" ||
-		strings.Join(decided.NotDirectReasons, ",") != "container,audio_codec" {
-		t.Errorf("the decision = %+v, want hls, remux, for container and audio_codec", decided)
+		strings.Join(decided.NotDirectReasons, ",") != "container,audioCodec" {
+		t.Errorf("the decision = %+v, want hls, remux, for container and audioCodec", decided)
 	}
 }
 
@@ -402,7 +402,7 @@ func TestPlayback_LogsEachStartAndRefusalButNeverTheToken(t *testing.T) {
 	asked["cause"], asked["pageStarts"], asked["startsAtMs"] = "subtitleFetched", 3, 166502
 	decided := harness.play(t, user, asked)
 	harness.logs.AwaitEvent(t, "playbackStarted", `"fileId":2`, `"delivery":"ladder"`,
-		`"decidedDelivery":"hls"`, `"profile":"remux"`, `"notDirectReasons":["container","audio_codec"]`,
+		`"decidedDelivery":"hls"`, `"profile":"remux"`, `"notDirectReasons":["container","audioCodec"]`,
 		// what made the page ask, how many it asked for, and where it goes on from, not the resume
 		// position (staging, 2026-10-26)
 		`"cause":"subtitleFetched"`, `"pageStarts":3`, `"pageStartsAtMs":166502`,
@@ -470,14 +470,14 @@ func TestPlayback_SaysWhichLegFailed(t *testing.T) {
 	harness.nodeBytes.mutex.Unlock()
 	silent := harness.getBytePath(t, decided.URL, user, false, "")
 	if silent.status != http.StatusServiceUnavailable ||
-		!strings.Contains(silent.body, `"code":"node_silent"`) || !strings.Contains(silent.body, `"failedHop":"node"`) {
+		!strings.Contains(silent.body, `"code":"nodeSilent"`) || !strings.Contains(silent.body, `"failedHop":"node"`) {
 		t.Errorf("a silent node: %d %s, want 503 node_silent at hop node", silent.status, silent.body)
 	}
 	harness.nodeBytes.mutex.Lock()
 	harness.nodeBytes.isSilent, harness.nodeBytes.status = false, http.StatusConflict
 	harness.nodeBytes.mutex.Unlock()
 	changed := harness.getBytePath(t, decided.URL, user, false, "")
-	if changed.status != http.StatusNotFound || !strings.Contains(changed.body, `"code":"file_unavailable"`) {
+	if changed.status != http.StatusNotFound || !strings.Contains(changed.body, `"code":"fileUnavailable"`) {
 		t.Errorf("a file the node no longer has as it was: %d %s, want file_unavailable", changed.status, changed.body)
 	}
 	harness.nodeBytes.mutex.Lock()
@@ -485,8 +485,8 @@ func TestPlayback_SaysWhichLegFailed(t *testing.T) {
 	harness.nodeBytes.mutex.Unlock()
 	stalled := harness.getBytePath(t, decided.URL, user, false, "")
 	if stalled.status != http.StatusServiceUnavailable ||
-		!strings.Contains(stalled.body, `"code":"media_unreachable"`) ||
-		!strings.Contains(stalled.body, `"reason":"root_missing"`) || !strings.Contains(stalled.body, `"/media"`) {
+		!strings.Contains(stalled.body, `"code":"mediaUnreachable"`) ||
+		!strings.Contains(stalled.body, `"reason":"rootMissing"`) || !strings.Contains(stalled.body, `"/media"`) {
 		t.Errorf("a file on a root whose disk does not answer: %d %s, want media_unreachable, /media missing",
 			stalled.status, stalled.body)
 	}

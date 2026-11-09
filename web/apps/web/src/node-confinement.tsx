@@ -17,7 +17,7 @@ type Mechanism = NonNullable<NodeConfinement["confinement"]>[number];
  * at boot. The machine runs without the mechanism, unasked, and the page notes it calmly (D454 §1, §3),
  * as the node's confine.State.IsMissingFromKernel decides.
  */
-const missingFromKernel: ReadonlySet<string> = new Set(["kernel_without", "disabled_at_boot"]);
+const missingFromKernel: ReadonlySet<string> = new Set(["kernelWithout", "disabledAtBoot"]);
 
 function isMissingFromKernel(mechanism: Mechanism): boolean {
   return !mechanism.isInForce && missingFromKernel.has(mechanism.causeCode ?? "");
@@ -38,7 +38,7 @@ export function NodeConfinementView(props: { readonly node: NodeConfinement }): 
   }
   const causes = missing.map((mechanism) => (
     <p key={mechanism.mechanism}>
-      {mechanism.causeCode === "kernel_without"
+      {mechanism.causeCode === "kernelWithout"
         ? t(`nodes.needsKernel.${mechanism.mechanism}`)
         : t(`nodes.cause.${camelKey(mechanism.causeCode ?? "unexplained")}`, {
             mechanism: t(`nodes.mechanism.${mechanism.mechanism}`),

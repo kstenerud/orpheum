@@ -65,7 +65,7 @@ describe("a person's request held back says why and until when (D231 §12)", () 
       if (asked === 1) {
         return Promise.reject(
           new ApiProblem({
-            code: "rate_limited",
+            code: "rateLimited",
             message: "TMDB asks us to wait",
             detail: { retryAfterMs: 3000 },
           }),
@@ -111,7 +111,7 @@ describe("a person's request held back says why and until when (D231 §12)", () 
       asked++;
       if (asked === 1) {
         throw new ApiProblem({
-          code: "provider_error",
+          code: "providerError",
           message: "not answering",
           detail: { reason: "unavailable" },
         });
@@ -139,7 +139,7 @@ describe("a person's request held back says why and until when (D231 §12)", () 
       if (keys.length === 1) {
         return Promise.reject(
           new ApiProblem({
-            code: "rate_limited",
+            code: "rateLimited",
             message: "TMDB asks us to wait",
             detail: { retryAfterMs: 1000 },
           }),

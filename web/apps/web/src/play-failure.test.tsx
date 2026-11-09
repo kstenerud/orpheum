@@ -41,7 +41,7 @@ describe("a playback that fails (D241 §7)", () => {
       "GET /files/2/up-next": [200, {}],
       "GET /files/2/availability": [
         200,
-        { unavailable: { reason: "root_missing", nodeName: "devnas", path: "/media/films" } },
+        { unavailable: { reason: "rootMissing", nodeName: "devnas", path: "/media/films" } },
       ],
       "POST /playback/t/report": [200, {}],
       "DELETE /playback/t": [204, null],
@@ -164,7 +164,7 @@ describe("a playback its film's being unreachable stopped (the owner, 2026-10-21
     try {
       const unavailable = {
         unavailable: {
-          reason: "root_missing",
+          reason: "rootMissing",
           nodeName: "orpheum",
           path: "/tank/media/video/movies",
         },
@@ -227,7 +227,7 @@ describe("a playback its film's being unreachable stopped (the owner, 2026-10-21
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
     try {
       const unavailable = {
-        unavailable: { reason: "root_missing", nodeName: "orpheum", path: "/tank/media/video" },
+        unavailable: { reason: "rootMissing", nodeName: "orpheum", path: "/tank/media/video" },
       };
       const heard: Heard[] = [];
       const services = servedBy(

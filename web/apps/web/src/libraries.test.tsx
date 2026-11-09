@@ -38,7 +38,7 @@ describe("libraries", () => {
             id: 3,
             name: "Films",
             kind: "film",
-            metadataSource: "nfo_then_tmdb",
+            metadataSource: "nfoThenTmdb",
             changeDetection: "manual",
             isWritable: false,
             createdAt: 1,
@@ -97,7 +97,7 @@ describe("libraries", () => {
                 rootPath: "/mnt/share",
                 lastScanOutcome: "complete",
                 missingMountPaths: [],
-                watch: { isWatching: false, cause: "network-filesystem", reason: "nfs4" },
+                watch: { isWatching: false, cause: "networkFilesystem", reason: "nfs4" },
               },
             ],
           }}
@@ -127,7 +127,7 @@ describe("libraries", () => {
               id: 3,
               name: "Films",
               kind: "film",
-              metadataSource: "nfo_then_tmdb",
+              metadataSource: "nfoThenTmdb",
               changeDetection: "manual",
               isWritable: false,
               createdAt: 1,
@@ -446,6 +446,6 @@ describe("libraries", () => {
     expect(markup).not.toContain("<legend>Where information comes from</legend>");
     expect(markup).toContain("Other videos are never looked up online");
     expect(libraryToCreate(other)).not.toHaveProperty("metadataSource");
-    expect(libraryToCreate(blankLibrary()).metadataSource).toBe("nfo_then_tmdb");
+    expect(libraryToCreate(blankLibrary()).metadataSource).toBe("nfoThenTmdb");
   });
 });

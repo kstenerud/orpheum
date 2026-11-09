@@ -33,7 +33,7 @@ func TestServe_APlayOfAFilmStillBeingReadHasItReadAndThenPlays(t *testing.T) {
 	storetest.ExecRaw(t, database.Path(),
 		"UPDATE file SET payload_hash = NULL WHERE id IN (SELECT file_id FROM place WHERE path LIKE '%.mkv')")
 	refused := requestAPI(t, http.MethodPost, server.baseURL+"/playback", token, chromeMKV(filmFileID))
-	if refused.status != http.StatusServiceUnavailable || !strings.Contains(refused.body, "still_reading") {
+	if refused.status != http.StatusServiceUnavailable || !strings.Contains(refused.body, "stillReading") {
 		t.Fatalf("a play of a film still being read = %d %s; want refused, still reading", refused.status, refused.body)
 	}
 	pollUntil(t, "the film read and playable", func() bool {
@@ -103,7 +103,7 @@ func TestServe_OpeningTheFilmStillBeingReadsPageHasItRead(t *testing.T) {
 		t.Fatalf("the film's title: %v", titles)
 	}
 	page := requestAPI(t, http.MethodGet, server.baseURL+"/items/"+titles[0], token, nil)
-	if page.status != http.StatusOK || !strings.Contains(page.body, "still_reading") {
+	if page.status != http.StatusOK || !strings.Contains(page.body, "stillReading") {
 		t.Fatalf("the film's page = %d %s; want it, still reading", page.status, page.body)
 	}
 	pollUntil(t, "the film read, its page only opened", func() bool {

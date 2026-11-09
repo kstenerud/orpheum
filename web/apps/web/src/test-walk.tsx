@@ -85,7 +85,7 @@ export function walkServices(
     heard.push(methodAndPath);
     if (!(methodAndPath in answers)) {
       return Response.json(
-        { error: { code: "not_found", message: "the walk serves no such thing" } },
+        { error: { code: "notFound", message: "the walk serves no such thing" } },
         { status: 404 },
       );
     }

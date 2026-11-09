@@ -151,7 +151,7 @@ describe("the dialogue boost over the original (D336 §3)", () => {
     const boosted = directDecision({
       delivery: "hls",
       url: "/api/v1/bytes/media/chunks/u/master.m3u8",
-      notDirectReasons: ["dialogue_boost"],
+      notDirectReasons: ["dialogueBoost"],
       mediaToken: "u",
       preferences: {
         subtitleOffsetMs: 0,

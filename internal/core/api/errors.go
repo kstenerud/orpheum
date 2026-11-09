@@ -14,43 +14,43 @@ type Code string
 
 // Every code an error may carry.
 const (
-	CodeSetupRequired   Code = "setup_required"
-	CodeAuthRequired    Code = "auth_required"
+	CodeSetupRequired   Code = "setupRequired"
+	CodeAuthRequired    Code = "authRequired"
 	CodeForbidden       Code = "forbidden"
-	CodeNotFound        Code = "not_found"
-	CodeInvalidRequest  Code = "invalid_request"
+	CodeNotFound        Code = "notFound"
+	CodeInvalidRequest  Code = "invalidRequest"
 	CodeConflict        Code = "conflict"
 	CodeStale           Code = "stale"
-	CodeRateLimited     Code = "rate_limited"
-	CodeQuotaExhausted  Code = "quota_exhausted"
-	CodeProviderError   Code = "provider_error"
-	CodeNodeSilent      Code = "node_silent"
-	CodeFileUnavailable Code = "file_unavailable"
+	CodeRateLimited     Code = "rateLimited"
+	CodeQuotaExhausted  Code = "quotaExhausted"
+	CodeProviderError   Code = "providerError"
+	CodeNodeSilent      Code = "nodeSilent"
+	CodeFileUnavailable Code = "fileUnavailable"
 	// CodeMediaUnreachable is a play of a file that cannot be read now: its machine away, or its
 	// folder or disk missing, which its detail says, since when (D241 §4).
-	CodeMediaUnreachable Code = "media_unreachable"
+	CodeMediaUnreachable Code = "mediaUnreachable"
 	CodePreparing        Code = "preparing"
-	CodePrepareFailed    Code = "prepare_failed"
+	CodePrepareFailed    Code = "prepareFailed"
 	// CodeCannotConvert is a play of a file its device cannot play as it is that cannot be cut into
 	// chunks either: it has no picture, or neither a known length nor keyframes (D344 §5); or a chunk
 	// whose runs FFmpeg failed on the same way each time (chunks.ErrCannotBeMade).
-	CodeCannotConvert Code = "cannot_convert"
+	CodeCannotConvert Code = "cannotConvert"
 	// CodeNoRoomToMake is a chunk of a quality whose run was evicted to keep its machine's other runs
 	// faster than playback (D250 §6): the player's playback stops, and says why.
-	CodeNoRoomToMake Code = "no_room_to_make"
+	CodeNoRoomToMake Code = "noRoomToMake"
 	// CodePlaybackGone is a playback the server no longer has: it restarted since the playback began,
 	// which ends every playback, or the playback ended. The player starts it again from where it is.
-	CodePlaybackGone Code = "playback_gone"
+	CodePlaybackGone Code = "playbackGone"
 	CodeMigrating    Code = "migrating"
 	// CodeInAnotherSession is a join to a Watch Together session refused because its person is in
 	// another, which they have not said to leave; its detail says whose (D372 §8).
-	CodeInAnotherSession Code = "in_another_session"
+	CodeInAnotherSession Code = "inAnotherSession"
 	// CodeReceivingACast is a cast to a device that receives another cast now, which no device may
 	// take over until that cast ends (D386 §1).
-	CodeReceivingACast Code = "receiving_a_cast"
+	CodeReceivingACast Code = "receivingACast"
 	// CodeCastingHere is a cast to a device that casts to the asking one, directly or through the
 	// devices it casts to: the cast back would close a loop (live.ErrCastingHere).
-	CodeCastingHere Code = "casting_here"
+	CodeCastingHere Code = "castingHere"
 	CodeInternal    Code = "internal"
 )
 

@@ -75,7 +75,7 @@ function filmsLibrary(id: number, name: string): Record<string, unknown> {
     id,
     name,
     kind: "film",
-    metadataSource: "nfo_then_tmdb",
+    metadataSource: "nfoThenTmdb",
     changeDetection: "watch",
     isWritable: true,
     createdAt: 0,

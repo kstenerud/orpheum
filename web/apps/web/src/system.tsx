@@ -190,7 +190,7 @@ function nodeHeadingId(nodeName: string): string {
 
 /** Why a node that is not connected is not, in the viewer's words. */
 function notConnectedText(t: TFunction, node: SystemNode, language: string): string {
-  if (node.connection === "needs_update") {
+  if (node.connection === "needsUpdate") {
     return t("system.needsUpdate");
   }
   if (node.connection === "silent" && node.lastHeardAt !== undefined) {

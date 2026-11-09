@@ -91,8 +91,8 @@ func TestPlayback_ASurroundSoundPlaysAsItIsUntilThePersonTurnsTheBoostOn(t *test
 	for _, sound := range got.Tracks.Sounds {
 		isBoosted = isBoosted || sound.IsBoosted
 	}
-	if got.Delivery != "hls" || !slices.Equal(got.NotDirectReasons, []string{"dialogue_boost"}) || !isBoosted {
-		t.Errorf("5.1 with the boost on: %s %v, a boosted mix %v; want converted for dialogue_boost, with it",
+	if got.Delivery != "hls" || !slices.Equal(got.NotDirectReasons, []string{"dialogueBoost"}) || !isBoosted {
+		t.Errorf("5.1 with the boost on: %s %v, a boosted mix %v; want converted for dialogueBoost, with it",
 			got.Delivery, got.NotDirectReasons, isBoosted)
 	}
 	if stereo := harness.playFor(t, user, chrome(1)); stereo.Delivery != "direct" {

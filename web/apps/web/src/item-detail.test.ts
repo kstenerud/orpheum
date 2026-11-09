@@ -35,7 +35,7 @@ describe("one item's detail, narrowed on its kind (D416 §2)", () => {
       try {
         refused();
       } catch (error) {
-        expect((error as ApiProblem).code).toBe("not_found");
+        expect((error as ApiProblem).code).toBe("notFound");
       }
     }
   });

@@ -17,7 +17,7 @@ import (
 func TestWaitForLeave_ReportsEachTickUntilTheCoreLetsItRunUnconfined(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
-	lacking := []nodeproto.Confinement{{Mechanism: "landlock", CauseCode: "disabled_at_boot"}}
+	lacking := []nodeproto.Confinement{{Mechanism: "landlock", CauseCode: "disabledAtBoot"}}
 	tick := make(chan time.Time)
 	allowed := make(chan bool, 1)
 	go func() {

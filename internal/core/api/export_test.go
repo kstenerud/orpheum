@@ -13,6 +13,9 @@ import (
 // they may build the server's dependencies by internal/core/assembly, which imports this package
 // (D351 §4).
 
+// SaidValue is saidValue: a stored value as the API says it.
+var SaidValue = saidValue
+
 // The package's own names, under exported aliases.
 const (
 	CacheForADay             = cacheForADay

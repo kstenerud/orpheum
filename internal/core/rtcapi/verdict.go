@@ -23,7 +23,7 @@ type Verdict struct {
 
 // RefusedNetworkFull is a connection turned away because its client's network holds its share of
 // the core's connections already (perSourceLimit).
-const RefusedNetworkFull = "network-full"
+const RefusedNetworkFull = "networkFull"
 
 // turnedAwayClosesWithin is how long a connection turned away is kept for its verdict to arrive
 // before the core closes it, when its client has not closed it first, as a client that read the

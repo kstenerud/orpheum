@@ -22,9 +22,9 @@ afterEach(() => {
 /** The clip as the server answers it: being made, or made as file 77. */
 function clip(isReady: boolean): object {
   return {
-    purpose: "sound-timing",
+    purpose: "soundTiming",
     codec: "h264-aac",
-    fileName: "sound-timing.h264-aac.mp4",
+    fileName: "soundTiming.h264-aac.mp4",
     isReady,
     fileId: isReady ? 77 : 0,
     sizeBytes: isReady ? 4096 : 0,
@@ -36,7 +36,7 @@ describe("the sound timing test (D435 §6)", () => {
     const heard: Heard[] = [];
     const services = servedBy(
       {
-        "GET /system-videos/sound-timing/h264-aac": [
+        "GET /system-videos/soundTiming/h264-aac": [
           [200, clip(false)],
           [200, clip(true)],
         ],
@@ -73,8 +73,8 @@ describe("the sound timing test (D435 §6)", () => {
       routeHref({ screen: "play", fileId: 77 }),
     );
     expect(heard.map((each) => each.methodAndPath)).toEqual([
-      "GET /system-videos/sound-timing/h264-aac",
-      "GET /system-videos/sound-timing/h264-aac",
+      "GET /system-videos/soundTiming/h264-aac",
+      "GET /system-videos/soundTiming/h264-aac",
     ]);
   });
 });

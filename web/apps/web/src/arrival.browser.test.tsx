@@ -48,7 +48,7 @@ const anAdmin: WalkAnswers = {
         id: 1,
         name: "Films",
         kind: "film",
-        metadataSource: "nfo_then_tmdb",
+        metadataSource: "nfoThenTmdb",
         changeDetection: "watch",
         isWritable: true,
         createdAt: 0,

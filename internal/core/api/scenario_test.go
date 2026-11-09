@@ -43,7 +43,7 @@ func TestScenario_S29_APlayWhoseNodeIsAwayIsRefusedAtOnceAndQueuesNothing(t *tes
 		t.Fatal(err)
 	}
 	want := api.MediaUnreachableDetailBody{
-		Reason: "node_away", NodeName: "local", UnavailableAt: fakeNodeLastHeard.UnixMilli(),
+		Reason: "nodeAway", NodeName: "local", UnavailableAt: fakeNodeLastHeard.UnixMilli(),
 	}
 	if refused.status != http.StatusServiceUnavailable || problem.Error.Code != api.CodeMediaUnreachable ||
 		problem.Error.Detail != want {
@@ -78,7 +78,7 @@ func TestStartPlayback_AFilmStillBeingReadIsRefusedAsSoAndAskedToBeReadFirst(t *
 	if err := json.Unmarshal([]byte(refused.body), &problem); err != nil {
 		t.Fatal(err)
 	}
-	if problem.Error.Code != api.CodeMediaUnreachable || problem.Error.Detail.Reason != "still_reading" {
+	if problem.Error.Code != api.CodeMediaUnreachable || problem.Error.Detail.Reason != "stillReading" {
 		t.Errorf("a play of a film still being read: %d %s; want media_unreachable, still reading", refused.status,
 			refused.body)
 	}
@@ -104,7 +104,7 @@ func TestReadThrough_APlayDrivenReadWhoseRootGoesMissingEndsRatherThanParks(t *t
 	}
 	read := newestReadThrough(t, harness.listedJobs(t, user))
 	if read.State != "failed" || read.WaitingFor != nil ||
-		!strings.Contains(read.LastFailure, "root_missing") || len(harness.nodes.commanded) != 0 {
+		!strings.Contains(read.LastFailure, "rootMissing") || len(harness.nodes.commanded) != 0 {
 		t.Errorf("a play-driven read-through under a missing root: %+v; want it ended, saying the root is "+
 			"missing, nothing sent", read)
 	}
@@ -123,7 +123,7 @@ func TestPlayback_APlayerAsksWhetherItsFileCanBeReadNow(t *testing.T) {
 	}
 	harness.missingMedia(t)
 	missing := harness.do(t, http.MethodGet, "/files/2/availability", user, nil)
-	const want = `{"unavailable":{"reason":"root_missing","nodeName":"local","path":"/media","unavailableAt":5000}}`
+	const want = `{"unavailable":{"reason":"rootMissing","nodeName":"local","path":"/media","unavailableAt":5000}}`
 	if missing.status != http.StatusOK || !strings.Contains(missing.body, want) {
 		t.Errorf("a file under a missing root = %d %s; want %s", missing.status, missing.body, want)
 	}
@@ -140,7 +140,7 @@ func TestPlayback_APlayOfAFileUnderAMissingRootIsRefusedAtOnceAndQueuesNothing(t
 	harness.shelveFilms(t)
 	harness.missingMedia(t)
 	refused := harness.do(t, http.MethodPost, "/playback", partner, chrome(2))
-	const want = `"detail":{"reason":"root_missing","nodeName":"local","path":"/media","unavailableAt":5000}`
+	const want = `"detail":{"reason":"rootMissing","nodeName":"local","path":"/media","unavailableAt":5000}`
 	if refused.status != http.StatusServiceUnavailable || !strings.Contains(refused.body, want) {
 		t.Errorf("a play under a missing root: %d %s; want media_unreachable naming /media on local, since 5000",
 			refused.status, refused.body)

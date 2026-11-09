@@ -140,7 +140,7 @@ describe("a Watch Together guest's page as their session ends", () => {
       ...servedBy(
         {
           "GET /me/together": [200, { sessions: [] }],
-          "POST /together/leave": refusal(404, "not_found"),
+          "POST /together/leave": refusal(404, "notFound"),
         },
         [],
         "signed-in-token",

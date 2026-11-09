@@ -117,10 +117,10 @@ func TestBrowse_OtherVideosRunEitherWay(t *testing.T) {
 	harness.shelve(t)
 	harness.shelveOtherVideos(t)
 	for path, want := range map[string]string{
-		"/items?kind=other&sort=recorded&order=ascending":   "[Wedding Beach day clip]",
-		"/items?kind=other&sort=name&order=descending":      "[Wedding clip Beach day]",
-		"/items?kind=other&sort=file_name&order=descending": "[clip Wedding Beach day]",
-		"/items?kind=other&sort=added&order=ascending":      "[Beach day Wedding clip]",
+		"/items?kind=other&sort=recorded&order=ascending":  "[Wedding Beach day clip]",
+		"/items?kind=other&sort=name&order=descending":     "[Wedding clip Beach day]",
+		"/items?kind=other&sort=fileName&order=descending": "[clip Wedding Beach day]",
+		"/items?kind=other&sort=added&order=ascending":     "[Beach day Wedding clip]",
 	} {
 		if names := harness.pagedNames(t, path, admin); fmt.Sprint(names) != want {
 			t.Errorf("%s in pages of two = %v; want %s", path, names, want)

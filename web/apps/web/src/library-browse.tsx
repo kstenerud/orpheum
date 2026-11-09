@@ -89,7 +89,7 @@ function titlesKindOf(kind: LibraryBody["kind"] | undefined): TitlesKind {
 function sortOptionsFor(kind: TitlesKind): readonly [LibrarySort, ...LibrarySort[]] {
   switch (kind) {
     case "other":
-      return ["recorded", "name", "file_name", "added"];
+      return ["recorded", "name", "fileName", "added"];
     case "film":
     case "series":
       return ["name", "released", "added"];
@@ -334,7 +334,7 @@ function LibraryBrowseLayout(props: {
           search={state.query}
           filters={criteria.listed.filters}
           library={listedResolved.libraryId}
-          sort={listedResolved.sort === "file_name" ? "file_name" : "name"}
+          sort={listedResolved.sort === "fileName" ? "fileName" : "name"}
           isZToA={listedResolved.order === "descending"}
           onLetter={onLetter}
         />
@@ -446,7 +446,7 @@ function LibraryLetters(props: {
   readonly search: string;
   readonly filters: ListFilters;
   readonly library: number | undefined;
-  readonly sort: "name" | "file_name";
+  readonly sort: "name" | "fileName";
   readonly isZToA: boolean;
   readonly onLetter: (letter: string) => void;
 }): JSX.Element {
@@ -551,7 +551,7 @@ function LibraryGrid(props: {
   useListLoadsToFocusNoted(pages, entryHref);
   useLetterJump({
     kind,
-    sort: sort === "file_name" ? "file_name" : "name",
+    sort: sort === "fileName" ? "fileName" : "name",
     isZToA: order === "descending",
     library,
     search,

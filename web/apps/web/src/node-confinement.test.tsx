@@ -27,7 +27,7 @@ describe("each machine's sandbox, said out loud (D112)", () => {
         {
           mechanism: "landlock",
           isInForce: false,
-          causeCode: "disabled_at_boot",
+          causeCode: "disabledAtBoot",
           reason: "a note for developers",
         },
         { mechanism: "seccomp", isInForce: true },
@@ -42,7 +42,7 @@ describe("each machine's sandbox, said out loud (D112)", () => {
     const blocked = markupOf({
       name: "boxed",
       confinement: [
-        { mechanism: "landlock", isInForce: false, causeCode: "blocked_by_runtime" },
+        { mechanism: "landlock", isInForce: false, causeCode: "blockedByRuntime" },
         { mechanism: "seccomp", isInForce: true },
       ],
     });
@@ -55,7 +55,7 @@ describe("each machine's sandbox, said out loud (D112)", () => {
     const old = markupOf({
       name: "ds218",
       confinement: [
-        { mechanism: "landlock", isInForce: false, causeCode: "kernel_without" },
+        { mechanism: "landlock", isInForce: false, causeCode: "kernelWithout" },
         { mechanism: "seccomp", isInForce: true },
       ],
     });
@@ -67,7 +67,7 @@ describe("each machine's sandbox, said out loud (D112)", () => {
     const failing = markupOf({
       name: "ds218",
       confinement: [
-        { mechanism: "landlock", isInForce: false, causeCode: "kernel_without" },
+        { mechanism: "landlock", isInForce: false, causeCode: "kernelWithout" },
         { mechanism: "seccomp", isInForce: false, causeCode: "unexplained" },
       ],
     });

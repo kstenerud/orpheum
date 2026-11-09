@@ -197,7 +197,7 @@ function pagedSeriesServices(count: number): Services {
     const key = `${request.method} ${path}`;
     return key in answers
       ? Response.json(answers[key])
-      : Response.json({ error: { code: "not_found", message: "no such thing" } }, { status: 404 });
+      : Response.json({ error: { code: "notFound", message: "no such thing" } }, { status: 404 });
   });
 }
 

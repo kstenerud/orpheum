@@ -29,7 +29,7 @@ afterEach(() => {
 /** The account page for a session that may, or may not, change the account's security. */
 async function accountOf(
   canManageAccount: boolean,
-  ownLink: Answer = refusal(404, "not_found"),
+  ownLink: Answer = refusal(404, "notFound"),
 ): Promise<HTMLElement> {
   mounted = await mount(
     withServices(
@@ -181,8 +181,8 @@ describe("your account", () => {
               homeAddresses: [home],
             },
           ],
-          "GET /me/own-link": refusal(404, "not_found"),
-          "GET /me/preferences": refusal(404, "not_found"),
+          "GET /me/own-link": refusal(404, "notFound"),
+          "GET /me/preferences": refusal(404, "notFound"),
           "GET /libraries": [200, { libraries: [] }],
         }),
       ),
@@ -233,8 +233,8 @@ describe("an admin's administering from away (D302)", () => {
                 },
               ],
             ],
-            "GET /me/own-link": refusal(404, "not_found"),
-            "GET /me/preferences": refusal(404, "not_found"),
+            "GET /me/own-link": refusal(404, "notFound"),
+            "GET /me/preferences": refusal(404, "notFound"),
             "GET /libraries": [200, { libraries: [] }],
             "PUT /me/admin-away": [204, {}],
           },

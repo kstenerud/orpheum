@@ -44,7 +44,7 @@ func TestLocked_ANodeIsHeldUntilAnAdminLetsItRunUnconfined(t *testing.T) {
 	harness := newFixture(t, time.Hour)
 	settingstest.Set(t, harness.settings, settings.ShouldScanOnNodeHello, "false")
 	adminID := storetest.InsertUser(t, harness.database, "karl", "admin")
-	lacking := []nodeproto.Confinement{{Mechanism: "landlock", CauseCode: "disabled_at_boot"}}
+	lacking := []nodeproto.Confinement{{Mechanism: "landlock", CauseCode: "disabledAtBoot"}}
 	reply, status := harness.postLocked(t, nodeproto.LockedReport{Name: "nas", Confinement: lacking})
 	if status != http.StatusOK || reply.MayRunUnconfined {
 		t.Fatalf("the first report answered %d %+v; want 200 and no leave", status, reply)
@@ -107,7 +107,7 @@ func TestLocked_AReportInAnotherProtocolIsRefused(t *testing.T) {
 func TestLocked_ARetiredNodeIsNoLongerLocked(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Hour)
-	lacking := []nodeproto.Confinement{{Mechanism: "landlock", CauseCode: "disabled_at_boot"}}
+	lacking := []nodeproto.Confinement{{Mechanism: "landlock", CauseCode: "disabledAtBoot"}}
 	if _, status := harness.postLocked(t, nodeproto.LockedReport{Name: "nas", Confinement: lacking}); status !=
 		http.StatusOK {
 		t.Fatalf("the report answered %d; want 200", status)

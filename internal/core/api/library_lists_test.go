@@ -122,7 +122,7 @@ func TestBrowse_OtherVideosInTheirFourOrders(t *testing.T) {
 	harness.shelveOtherVideos(t)
 	for sort, want := range map[string]string{
 		"recorded": "[clip Beach day Wedding]", "name": "[Beach day clip Wedding]",
-		"file_name": "[Beach day Wedding clip]", "added": "[clip Wedding Beach day]",
+		"fileName": "[Beach day Wedding clip]", "added": "[clip Wedding Beach day]",
 	} {
 		first, cursor := harness.titleNames(t, "/items?kind=other&limit=2&sort="+sort, admin)
 		rest, last := harness.titleNames(t, "/items?kind=other&limit=2&sort="+sort+"&cursor="+cursor, admin)
@@ -153,7 +153,7 @@ func TestBrowse_TheRailsLettersAreThoseTheListHasTitlesUnder(t *testing.T) {
 	for path, want := range map[string]string{
 		"/items/letters?kind=film,series,other&sort=name": "[B C H W]",
 		"/items/letters?kind=film&sort=name":              "[H]",
-		"/items/letters?kind=other&sort=file_name":        "[# C]",
+		"/items/letters?kind=other&sort=fileName":         "[# C]",
 		"/items/letters?kind=series&sort=name&library=2":  "[]",
 		"/items/letters?kind=other&sort=name&library=2":   "[B C W]",
 	} {
@@ -273,7 +273,7 @@ func TestBrowse_AQueryIsACriterionOfTheList(t *testing.T) {
 	for path, want := range map[string]string{
 		"/items/letters?kind=film,series,other&sort=name&query=b":                 "[B]",
 		"/items/letters?kind=film,series,other&sort=name&query=wedding":           "[W]",
-		"/items/letters?kind=other&sort=file_name&query=clip":                     "[C]",
+		"/items/letters?kind=other&sort=fileName&query=clip":                      "[C]",
 		"/items/letters?kind=film,series,other&sort=name&query=wedding&library=1": "[]",
 	} {
 		if got := harness.railLetters(t, path, admin); got != want {

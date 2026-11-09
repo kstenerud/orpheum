@@ -22,7 +22,7 @@ func TestSystemVideos_AnyoneAsksForOneAndTheAdminSeesAndRebuildsThem(t *testing.
 		t.Fatal(err)
 	}
 	partner := harness.signIn(t, "partner", "partner-password")
-	const clip = "/system-videos/sound-timing/h264-aac"
+	const clip = "/system-videos/soundTiming/h264-aac"
 	if got := harness.do(t, http.MethodGet, clip, partner, nil); got.status != http.StatusServiceUnavailable {
 		t.Errorf("GET %s with no node = %d %s; want 503", clip, got.status, got.body)
 	}
@@ -35,10 +35,10 @@ func TestSystemVideos_AnyoneAsksForOneAndTheAdminSeesAndRebuildsThem(t *testing.
 		IsReady  bool   `json:"isReady"`
 	}
 	if err := json.Unmarshal([]byte(asked.body), &video); err != nil || asked.status != http.StatusOK ||
-		video.FileName != "sound-timing.h264-aac.mp4" || video.IsReady {
+		video.FileName != "soundTiming.h264-aac.mp4" || video.IsReady {
 		t.Errorf("GET %s = %d %s; want the clip, being made", clip, asked.status, asked.body)
 	}
-	if got := harness.do(t, http.MethodGet, "/system-videos/sound-timing/vp9-opus", partner, nil); got.status/100 != 4 {
+	if got := harness.do(t, http.MethodGet, "/system-videos/soundTiming/vp9-opus", partner, nil); got.status/100 != 4 {
 		t.Errorf("a codec no recipe makes = %d; want refused", got.status)
 	}
 	if got := harness.do(t, http.MethodGet, "/system/videos", partner, nil); got.status != http.StatusForbidden {
@@ -53,7 +53,7 @@ func TestSystemVideos_AnyoneAsksForOneAndTheAdminSeesAndRebuildsThem(t *testing.
 		} `json:"videos"`
 	}
 	if err := json.Unmarshal([]byte(listed.body), &view); err != nil || listed.status != http.StatusOK ||
-		len(view.Videos) != 1 || view.Videos[0].Purpose != "sound-timing" {
+		len(view.Videos) != 1 || view.Videos[0].Purpose != "soundTiming" {
 		t.Errorf("GET /system/videos = %d %s; want the clip", listed.status, listed.body)
 	}
 	rebuilt := harness.do(t, http.MethodPost, "/system/videos/rebuild", admin, nil)

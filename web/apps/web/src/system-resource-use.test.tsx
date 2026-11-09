@@ -64,7 +64,7 @@ it("shows what the server and each node used, and each hour beside what it was d
             peakBytes: 1_200_000_000,
             plays: 0,
             // The wire names a kind as the server does, in snake case.
-            running: Object.fromEntries([["make_chunks", 2]]),
+            running: Object.fromEntries([["makeChunks", 2]]),
           },
         ],
       },

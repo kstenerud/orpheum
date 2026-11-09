@@ -252,7 +252,7 @@ func TestSubtitles_AFailedExtractionSaysSoAndIsTriedAgainWhenNextPlayed(t *testi
 		t.Errorf("the job ended %v, want FFmpeg's failure", err)
 	}
 	failed := harness.getBytePath(t, decided.Subtitles[0].ASSURL, user, true, "")
-	if failed.status != http.StatusBadGateway || !strings.Contains(failed.body, `"code":"prepare_failed"`) ||
+	if failed.status != http.StatusBadGateway || !strings.Contains(failed.body, `"code":"prepareFailed"`) ||
 		!strings.Contains(failed.body, "ffmpeg: bad") {
 		t.Errorf("a failed track: %d %s, want prepare_failed with why", failed.status, failed.body)
 	}

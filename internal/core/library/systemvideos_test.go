@@ -87,7 +87,7 @@ func (world *systemVideosWorld) makeVideos(nodeID int64, folder string) {
 		world.t.Fatal(err)
 	}
 	made := nodeproto.Result{SystemVideos: &nodeproto.SystemVideosMade{
-		Folder: folder, FileNames: []string{"sound-timing.h264-aac.mp4"},
+		Folder: folder, FileNames: []string{"soundTiming.h264-aac.mp4"},
 	}}
 	err := world.videos.Assignee(nil).Answer(world.t.Context(), job, corenodes.Attempt{NodeID: nodeID}, made)
 	if err != nil {
@@ -99,7 +99,7 @@ func (world *systemVideosWorld) makeVideos(nodeID int64, folder string) {
 func (world *systemVideosWorld) scanSystemFolder(nodeID int64) {
 	world.t.Helper()
 	facts := nodeproto.ScanBegin{RootPath: systemFolder, FilesystemDevice: 8}
-	clip := observedRecord("sound-timing.h264-aac.mp4", "clip")
+	clip := observedRecord("soundTiming.h264-aac.mp4", "clip")
 	records := librarytest.Scan(facts, []nodeproto.ScanRecord{clip}, true)
 	if err := world.ingester.IngestScan(world.t.Context(), nodeID, systemFolder, records); err != nil {
 		world.t.Fatal(err)
@@ -146,7 +146,7 @@ func TestSystemVideos_TheFirstUseMakesTheLibraryAndTheNodeMakesTheVideos(t *test
 	world.requireMadeOnLocal()
 	world.scanSystemFolder(world.nodeID)
 	state, err = world.videos.Find(ctx, nodeproto.SystemVideoSoundTiming, nodeproto.SystemVideoH264AAC)
-	if err != nil || state.FileID == 0 || state.Video.FileName != "sound-timing.h264-aac.mp4" {
+	if err != nil || state.FileID == 0 || state.Video.FileName != "soundTiming.h264-aac.mp4" {
 		t.Errorf("the use after the scan = %+v, %v; want the clip's file", state, err)
 	}
 	if len(world.queue.queued) != 1 {
@@ -170,7 +170,7 @@ func TestSystemVideos_NoNodeToHoldThemIsUnavailable(t *testing.T) {
 	if got := storetest.QueryRaw(t, world.database.Path(), "SELECT count(*) FROM system_library"); got[0] != "0" {
 		t.Errorf("system libraries = %v; want none made", got)
 	}
-	if _, err = world.videos.Find(t.Context(), "sound-timing", "vp9-opus"); !errors.Is(err, ErrNoSuchSystemVideo) {
+	if _, err = world.videos.Find(t.Context(), "soundTiming", "vp9-opus"); !errors.Is(err, ErrNoSuchSystemVideo) {
 		t.Errorf("a video no recipe makes = %v; want no such video", err)
 	}
 }
@@ -217,7 +217,7 @@ func TestReachFile_ASystemVideoIsReachedByAnyoneAndNothingElseIs(t *testing.T) {
 	world.makeVideos(world.nodeID, systemFolder)
 	world.scanSystemFolder(world.nodeID)
 	world.scan([]nodeproto.ScanRecord{observedRecord("Arkon (1979)/Arkon.mkv", "arkon")}, true)
-	clip := world.liveFilesByPath()[systemFolder+"/sound-timing.h264-aac.mp4"]
+	clip := world.liveFilesByPath()[systemFolder+"/soundTiming.h264-aac.mp4"]
 	film := world.liveFilesByPath()[root+"/Arkon (1979)/Arkon.mkv"]
 	if clip.ID == 0 || film.ID == 0 {
 		t.Fatalf("files %+v; want the clip and the film scanned", world.liveFilesByPath())
@@ -243,7 +243,7 @@ func TestWorkOfFile_ASystemVideoNamesNoLibrary(t *testing.T) {
 	}
 	world.makeVideos(world.nodeID, systemFolder)
 	world.scanSystemFolder(world.nodeID)
-	clip := world.liveFilesByPath()[systemFolder+"/sound-timing.h264-aac.mp4"]
+	clip := world.liveFilesByPath()[systemFolder+"/soundTiming.h264-aac.mp4"]
 	if clip.ID == 0 {
 		t.Fatalf("files %+v; want the clip scanned", world.liveFilesByPath())
 	}

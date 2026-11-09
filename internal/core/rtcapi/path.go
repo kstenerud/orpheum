@@ -23,17 +23,17 @@ type Path string
 const (
 	// PathDirectIPv6 and PathDirectIPv4 reach an address the core has: on the LAN, or a public one
 	// the core's router lets through.
-	PathDirectIPv6 Path = "direct_ipv6"
-	PathDirectIPv4 Path = "direct_ipv4"
+	PathDirectIPv6 Path = "directIpv6"
+	PathDirectIPv4 Path = "directIpv4"
 	// PathPunchedIPv6 and PathPunchedIPv4 reach a port the core's NAT or firewall opened to the
 	// client's packets, as STUN found it: punched through.
-	PathPunchedIPv6 Path = "punched_ipv6"
-	PathPunchedIPv4 Path = "punched_ipv4"
+	PathPunchedIPv6 Path = "punchedIpv6"
+	PathPunchedIPv4 Path = "punchedIpv4"
 	// PathHairpinnedIPv4 is a punched IPv4 pair whose two ends are one public address: the core's
 	// server-reflexive address is the client's, so the pair goes out to the NAT both sit behind, a
 	// router's or a carrier's, and back. A device in the house whose direct pair to the core's LAN
 	// port failed takes it, and so does any other household behind the same carrier address (D354).
-	PathHairpinnedIPv4 Path = "hairpinned_ipv4"
+	PathHairpinnedIPv4 Path = "hairpinnedIpv4"
 	// PathRelayed goes through a TURN relay, either side's.
 	PathRelayed Path = "relayed"
 	// PathFailed is a connection that failed before it took a path.

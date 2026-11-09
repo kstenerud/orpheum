@@ -22,7 +22,7 @@ const passingRefusalCodes: ReadonlySet<string> = new Set([
   "internal",
   "migrating",
   "not_answering",
-  "rate_limited",
+  "rateLimited",
 ]);
 
 /**
@@ -33,7 +33,7 @@ const passingRefusalCodes: ReadonlySet<string> = new Set([
  */
 export function mayPass(cause: unknown): boolean {
   if (cause instanceof ApiProblem) {
-    const isNodeAway = cause.withCode("media_unreachable")?.detail?.reason === "node_away";
+    const isNodeAway = cause.withCode("mediaUnreachable")?.detail?.reason === "nodeAway";
     return isNodeAway || passingRefusalCodes.has(cause.code);
   }
   return cause instanceof TypeError; // fetch's own failure: no answer at all
@@ -61,7 +61,7 @@ export function isUnanswered(cause: unknown): boolean {
 
 /** Whether the server refused because it no longer has the playback: it restarted, or ended it. */
 export function isPlaybackGone(cause: unknown): boolean {
-  return cause instanceof ApiProblem && cause.code === "playback_gone";
+  return cause instanceof ApiProblem && cause.code === "playbackGone";
 }
 
 /**

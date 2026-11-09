@@ -65,7 +65,7 @@ func wantTheRaiseTheServersOnALateDevice(t *testing.T, harness testHarness, user
 	late := chrome(1)
 	late["isWebAudioLate"] = true
 	raised := harness.play(t, user, late)
-	if raised.Delivery != "hls" || !slices.Equal(raised.NotDirectReasons, []string{"levelling_raise"}) {
+	if raised.Delivery != "hls" || !slices.Equal(raised.NotDirectReasons, []string{"levellingRaise"}) {
 		t.Errorf("played on a late device: %s, %v; want its ladder, for the raise (D436)",
 			raised.Delivery, raised.NotDirectReasons)
 	}

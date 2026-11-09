@@ -350,7 +350,7 @@ the sender's monotonic time, and round trips are measured with `ping`.
 | → client | `pong` | the echoed `tMono`, and `seq` and `group` as the server has them as it answers, by which a follower places the group (D264) |
 | → client | `group` | `seq`, `group`: `state` (`Idle`, `Waiting`, `Paused`, `Playing`), `positionMs`, `rate`, `fileId`, and the `event` with the `byMemberId` whose command caused it (named events, D188): a code a client words, `played`, `paused`, `seeked` (with `seekedFromMs`), `changedRate`, `changedItem`, `stopped`, `everyoneReady` or `continuedWithout` (a member's player catching up alone while the group plays on: it never stops for one member, D250 §2); and, for a group that starts `Playing` at a sync point's end, `startsInMs`: how long after the message was sent it starts moving from `positionMs`, what is left of `together_start_lead_ms` (D268 §3) |
 | → client | `roster` | `roster`: members (`id`, `name` each chose, `isHost`) and their devices (`id`, `role`, `isBuffering`, `suspended`, `rttMs`, `cannotKeepUp`); never the host's notes |
-| → client | `rejected` | `basedOnSeq`, `code` (§5.2: `forbidden`, `stale`, `invalid_request`, `not_found`) |
+| → client | `rejected` | `basedOnSeq`, `code` (§5.2: `forbidden`, `stale`, `invalidRequest`, `notFound`) |
 | → client | `rtc` | `fromDeviceId`, and the relayed signalling |
 | → client | `ended` | `reason` (`hostEnded`, `ejected`, `left`); the socket closes after it |
 
@@ -374,21 +374,21 @@ One shape everywhere, one enumeration shared by the Go server and the SDK:
 ```
 
 `code` is one of:
-- `setup_required`, `auth_required`, `forbidden`
-- `not_found`, `invalid_request`, `conflict`, `stale`
-- `rate_limited`, `quota_exhausted` (OpenSubtitles), `provider_error`
-- `node_silent`, `file_unavailable` (the node cannot see it; never "deleted")
+- `setupRequired`, `authRequired`, `forbidden`
+- `notFound`, `invalidRequest`, `conflict`, `stale`
+- `rateLimited`, `quotaExhausted` (OpenSubtitles), `providerError`
+- `nodeSilent`, `fileUnavailable` (the node cannot see it; never "deleted")
 - `preparing` (with `425`: a rendition's file does not exist yet; ask again after `Retry-After`),
-  `prepare_failed`, `migrating`, `internal`
+  `prepareFailed`, `migrating`, `internal`
 
 `failedHop`, where present, names the failing leg for reachability errors: `client`, `core`, `node`,
 `provider` or `tunnel` ([remote-access.md](remote-access.md)).
 
 `detail` is typed by the code, and the API document gives each code its form (`ProblemBody`), so a
-number is a number: `auth_required` carries `reason`; `invalid_request` carries `problems`, each a
+number is a number: `authRequired` carries `reason`; `invalidRequest` carries `problems`, each a
 `location` (a field such as `body.name`, or `body` for the body as a whole; always present) and a
-`message`; `rate_limited` carries `retryAfterMs`; `quota_exhausted` carries
-`downloadsResetAt`, in Unix milliseconds; `provider_error` carries `reason`, in the provider's
+`message`; `rateLimited` carries `retryAfterMs`; `quotaExhausted` carries
+`downloadsResetAt`, in Unix milliseconds; `providerError` carries `reason`, in the provider's
 terms. The other codes carry none (M3's closing audit, under D227).
 
 **The transcode reason** travels in the playback decision, not as an error. It is one of:

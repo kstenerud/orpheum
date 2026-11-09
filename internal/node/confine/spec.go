@@ -50,12 +50,12 @@ type State struct {
 
 // The causes a mechanism is not in force (D112).
 const (
-	CauseDisabledAtBoot   = "disabled_at_boot"
-	CauseKernelWithout    = "kernel_without"
-	CauseBlockedByRuntime = "blocked_by_runtime"
-	CauseNotLinux         = "not_linux"
+	CauseDisabledAtBoot   = "disabledAtBoot"
+	CauseKernelWithout    = "kernelWithout"
+	CauseBlockedByRuntime = "blockedByRuntime"
+	CauseNotLinux         = "notLinux"
 	// CauseArchitectureUnwritten is a mechanism not yet written for the machine's architecture.
-	CauseArchitectureUnwritten = "architecture_unwritten"
+	CauseArchitectureUnwritten = "architectureUnwritten"
 	CauseUnexplained           = "unexplained"
 )
 

@@ -37,7 +37,7 @@ export function identifyProblemText(t: TFunction, cause: unknown): string {
  */
 export function chooserProblemText(t: TFunction, cause: unknown): string {
   const problems =
-    cause instanceof ApiProblem ? (cause.withCode("invalid_request")?.detail?.problems ?? []) : [];
+    cause instanceof ApiProblem ? (cause.withCode("invalidRequest")?.detail?.problems ?? []) : [];
   return problems.some((problem) => problem.location === "body.link")
     ? t("identify.linkRefused")
     : identifyProblemText(t, cause);

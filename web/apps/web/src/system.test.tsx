@@ -55,7 +55,7 @@ const connected: SystemNode = {
   uid: 1000,
   gid: 1000,
   lastHeardAt: 1_790_000_000_000,
-  confinement: [{ mechanism: "seccomp", isInForce: false, causeCode: "kernel_without" }],
+  confinement: [{ mechanism: "seccomp", isInForce: false, causeCode: "kernelWithout" }],
   hardware: {
     gpus: [{ devicePath: "/dev/dri/renderD128", driver: "i915" }],
     trials: [
@@ -238,7 +238,7 @@ it("the System page says a machine that stopped answering is silent, and when it
   mounted?.unmount();
   const awaiting = await shown({
     name: "attic",
-    connection: "awaiting_hello",
+    connection: "awaitingHello",
     isConnected: false,
     isServersBuild: false,
     uid: 0,
@@ -259,7 +259,7 @@ it("the System page shows a locked machine's leave to run unconfined, not that i
     isServersBuild: false,
     uid: 0,
     gid: 0,
-    confinement: [{ mechanism: "landlock", isInForce: false, causeCode: "disabled_at_boot" }],
+    confinement: [{ mechanism: "landlock", isInForce: false, causeCode: "disabledAtBoot" }],
     disks: [],
     devices: [],
     stuck: [],
@@ -291,7 +291,7 @@ it("the System page says a newer release is available and how to take it (D450 ย
 it("the System page says a machine on another version of Orpheum needs updating (D233 ยง9)", async () => {
   const older = await shown({
     name: "attic",
-    connection: "needs_update",
+    connection: "needsUpdate",
     isConnected: false,
     isServersBuild: false,
     uid: 0,

@@ -39,7 +39,7 @@ const (
 	// SortRecorded is newest recorded first, and SortFileName by the files' names: other videos'
 	// alone (D349 §4).
 	SortRecorded = "recorded"
-	SortFileName = "file_name"
+	SortFileName = "fileName"
 	// SortReleased is newest released first: a film's release date, a series' first air date, those
 	// with none last; films' and series' alone (D366 §1).
 	SortReleased = "released"

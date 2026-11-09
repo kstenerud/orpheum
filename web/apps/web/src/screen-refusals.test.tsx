@@ -28,7 +28,7 @@ const library: components["schemas"]["LibraryBody"] = {
   id: 3,
   name: "Films",
   kind: "film",
-  metadataSource: "nfo_then_tmdb",
+  metadataSource: "nfoThenTmdb",
   changeDetection: "manual",
   isWritable: false,
   createdAt: 1,
@@ -120,7 +120,7 @@ describe("a screen the server refuses tells the viewer in their words (cut-a §5
       "GET /libraries": [200, { libraries: [library] }],
       "GET /nodes": [200, { nodes: [] }],
       "GET /config": [200, { settings: [libraryCheck] }],
-      "POST /libraries/3/scan": refusal(404, "not_found"),
+      "POST /libraries/3/scan": refusal(404, "notFound"),
       "POST /libraries/3/roots/removals": refusal(409, "conflict"),
     });
     mounted = await mount(withServices(<LibraryPage libraryId={3} />, services));
@@ -133,7 +133,7 @@ describe("a screen the server refuses tells the viewer in their words (cut-a §5
   it("looking a title up again, and choosing its match", async () => {
     const services = servedBy({
       "GET /items": [200, { items: [waitingItem] }],
-      "POST /items/7/refresh": refusal(404, "not_found"),
+      "POST /items/7/refresh": refusal(404, "notFound"),
       "GET /items/7/candidates": [
         200,
         { provider: "tmdb", candidates: [{ providerId: "101", name: "Théo" }] },
@@ -154,7 +154,7 @@ describe("a screen the server refuses tells the viewer in their words (cut-a §5
       "GET /system/update": [200, { version: "v0.3.1", checkedAt: 0 }],
       "GET /config": [200, { settings: [setting] }],
       "PUT /secrets/tmdb_api_key": refusal(409, "conflict"),
-      "POST /config/should_scan_on_node_hello/reset": refusal(404, "not_found"),
+      "POST /config/should_scan_on_node_hello/reset": refusal(404, "notFound"),
     });
     mounted = await mount(withServices(<Settings />, services));
     const secretForm = 'form[aria-labelledby="secret-tmdb_api_key"]';
@@ -178,7 +178,7 @@ describe("a refused setting is named beside it, in the form's words", () => {
         422,
         {
           error: {
-            code: "invalid_request",
+            code: "invalidRequest",
             message: "a note for developers",
             detail: {
               problems: [
@@ -262,7 +262,7 @@ describe("a match TMDB refuses says why and who can fix it", () => {
   function providerRefusal(reason: string): Answer {
     return [
       503,
-      { error: { code: "provider_error", message: "a note for developers", detail: { reason } } },
+      { error: { code: "providerError", message: "a note for developers", detail: { reason } } },
     ];
   }
 

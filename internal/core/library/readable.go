@@ -20,14 +20,14 @@ type UnreadableReason string
 // The reasons a file cannot be read.
 const (
 	// NodeAway is a file whose node is not connected.
-	NodeAway UnreadableReason = "node_away"
+	NodeAway UnreadableReason = "nodeAway"
 	// RootMissing is a file under a root its node cannot read, or no longer names (D241 §2).
-	RootMissing UnreadableReason = "root_missing"
+	RootMissing UnreadableReason = "rootMissing"
 	// DiskMissing is a file on a disk missing from a mount point inside its root (D208).
-	DiskMissing UnreadableReason = "disk_missing"
+	DiskMissing UnreadableReason = "diskMissing"
 	// StillReading is a video its listing stored and its node has not yet read: shown from its path,
 	// it plays once read, which a play asks for at once (D304 §4).
-	StillReading UnreadableReason = "still_reading"
+	StillReading UnreadableReason = "stillReading"
 )
 
 // UnreadableReasons are every reason a file cannot be read now, which the API's schema lists.

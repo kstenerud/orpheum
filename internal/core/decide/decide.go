@@ -42,20 +42,20 @@ const (
 	ReasonContainer Reason = "container"
 	// ReasonAudioCodec is a sound the device cannot play as it is: its codec, or, for AAC, its
 	// channels, since the menu names aac-stereo and aac-multi apart (D21, D336 §2).
-	ReasonAudioCodec Reason = "audio_codec"
-	ReasonVideoCodec Reason = "video_codec"
+	ReasonAudioCodec Reason = "audioCodec"
+	ReasonVideoCodec Reason = "videoCodec"
 	ReasonBandwidth  Reason = "bandwidth"
 	// ReasonDialogueBoost is the person's dialogue boost, on, over a sound of more than two channels:
 	// the server makes the mix that raises its centre (D222, D336 §2).
-	ReasonDialogueBoost Reason = "dialogue_boost"
+	ReasonDialogueBoost Reason = "dialogueBoost"
 	// ReasonAudioTrack is an audio track a person chose that is not the one the original starts with:
 	// a browser plays the original's first, and a film converted carries every track (D217 §3, D230).
-	ReasonAudioTrack Reason = "audio_track"
+	ReasonAudioTrack Reason = "audioTrack"
 	// ReasonLevellingRaise is a sound levelling raises, on a device whose player cannot raise it
 	// itself: its sound through Web Audio, the one way it raises, plays later than D436's bound, so
 	// the server's mix carries the raise (D436, D336 §3).
-	ReasonLevellingRaise Reason = "levelling_raise"
-	ReasonUserChoice     Reason = "user_choice"
+	ReasonLevellingRaise Reason = "levellingRaise"
+	ReasonUserChoice     Reason = "userChoice"
 )
 
 // Input is everything the decision reads. It holds declared capabilities and the file's own

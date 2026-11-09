@@ -25,7 +25,7 @@ const locked: components["schemas"]["SystemNodeBody"] = {
   uid: 0,
   gid: 0,
   confinement: [
-    { mechanism: "landlock", isInForce: false, causeCode: "disabled_at_boot" },
+    { mechanism: "landlock", isInForce: false, causeCode: "disabledAtBoot" },
     { mechanism: "seccomp", isInForce: true },
   ],
   disks: [],

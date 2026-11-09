@@ -68,7 +68,7 @@ export function slowConnection(timings: ConnectTimings): string | undefined {
 export const verdictWaitMs = 1_000;
 
 /**
- * A connection the core turned away, saying why (rtcapi.Verdict): `network-full` when the client's
+ * A connection the core turned away, saying why (rtcapi.Verdict): `networkFull` when the client's
  * network holds its share of the core's connections already (rtcapi's perSourceLimit), which a page
  * says as too many Orpheum pages open on the network, not as a network that cannot reach the server
  * (the owner's Fire TV, 2026-10-25).
@@ -81,7 +81,7 @@ export class TurnedAway extends Error {
 }
 
 /** The core's reason for turning a connection away for its network's share: rtcapi.RefusedNetworkFull. */
-export const networkFull = "network-full";
+export const networkFull = "networkFull";
 
 /** Whether problem, or any cause behind it, is the core turning a connection away for reason. */
 export function isTurnedAway(problem: unknown, reason: string = networkFull): boolean {

@@ -2790,7 +2790,7 @@ export interface components {
         };
         ConfinementBody: {
             /** @enum {string} */
-            causeCode?: "disabled_at_boot" | "kernel_without" | "blocked_by_runtime" | "not_linux" | "architecture_unwritten" | "unexplained";
+            causeCode?: "disabledAtBoot" | "kernelWithout" | "blockedByRuntime" | "notLinux" | "architectureUnwritten" | "unexplained";
             isInForce: boolean;
             /** @enum {string} */
             mechanism: "landlock" | "seccomp";
@@ -2822,7 +2822,7 @@ export interface components {
             /** @enum {string} */
             kind: "film" | "series" | "other";
             /** @enum {string} */
-            metadataSource?: "nfo_then_tmdb" | "tmdb" | "nfo";
+            metadataSource?: "nfoThenTmdb" | "tmdb" | "nfo";
             name: string;
             /** @description The node's configured name */
             nodeName: string;
@@ -3012,7 +3012,7 @@ export interface components {
              * @description As the probe found; absent before it ran
              * @enum {string}
              */
-            reachableFrom?: "public_ipv4" | "public_ipv4_other_port" | "ipv6" | "nowhere";
+            reachableFrom?: "publicIpv4" | "publicIpv4OtherPort" | "ipv6" | "nowhere";
             /** @description What a person signs in to the server by at the discovery's page, beside their name and password: the realm the host's account there gave it; empty at a discovery with none (D297) */
             realm?: string;
             /**
@@ -3586,7 +3586,7 @@ export interface components {
             /** Format: int64 */
             itemId?: number;
             /** @enum {string} */
-            kind: "fetch_metadata" | "make_artwork_sizes" | "extract_subtitle" | "convert_fetched_subtitle" | "read_through" | "make_chunks" | "scan" | "examine" | "backup" | "renew_certificate" | "hash_whole_file" | "make_system_videos";
+            kind: "fetchMetadata" | "makeArtworkSizes" | "extractSubtitle" | "convertFetchedSubtitle" | "readThrough" | "makeChunks" | "scan" | "examine" | "backup" | "renewCertificate" | "hashWholeFile" | "makeSystemVideos";
             lastFailure?: string;
             /** @enum {string} */
             onNode?: "waiting" | "running" | "paused";
@@ -3872,7 +3872,7 @@ export interface components {
             /** @enum {string} */
             kind: "film" | "series" | "other";
             /** @enum {string} */
-            metadataSource: "nfo_then_tmdb" | "tmdb" | "nfo";
+            metadataSource: "nfoThenTmdb" | "tmdb" | "nfo";
             name: string;
             rescan?: components["schemas"]["LibraryRescanBody"];
             roots?: components["schemas"]["RootBody"][] | null;
@@ -3937,7 +3937,7 @@ export interface components {
             /** @description The folder or disk missing on it; absent for a machine away */
             path?: string;
             /** @enum {string} */
-            reason: "node_away" | "root_missing" | "disk_missing" | "still_reading";
+            reason: "nodeAway" | "rootMissing" | "diskMissing" | "stillReading";
             /** Format: int64 */
             unavailableAt?: number;
         };
@@ -4353,7 +4353,7 @@ export interface components {
         /** @description An error: a person is shown words chosen by its code, never its message (cut-a §5.2) */
         ProblemBody: {
             /** @enum {string} */
-            code: "auth_required";
+            code: "authRequired";
             detail?: components["schemas"]["SignedOutDetailBody"];
             /**
              * @description The leg of the request that failed, for reachability errors
@@ -4364,7 +4364,7 @@ export interface components {
             message: string;
         } | {
             /** @enum {string} */
-            code: "invalid_request";
+            code: "invalidRequest";
             detail?: components["schemas"]["InvalidRequestDetailBody"];
             /**
              * @description The leg of the request that failed, for reachability errors
@@ -4375,7 +4375,7 @@ export interface components {
             message: string;
         } | {
             /** @enum {string} */
-            code: "rate_limited";
+            code: "rateLimited";
             detail?: components["schemas"]["RateLimitedDetailBody"];
             /**
              * @description The leg of the request that failed, for reachability errors
@@ -4386,7 +4386,7 @@ export interface components {
             message: string;
         } | {
             /** @enum {string} */
-            code: "quota_exhausted";
+            code: "quotaExhausted";
             detail?: components["schemas"]["QuotaExhaustedDetailBody"];
             /**
              * @description The leg of the request that failed, for reachability errors
@@ -4397,7 +4397,7 @@ export interface components {
             message: string;
         } | {
             /** @enum {string} */
-            code: "provider_error";
+            code: "providerError";
             detail?: components["schemas"]["ProviderRefusalDetailBody"];
             /**
              * @description The leg of the request that failed, for reachability errors
@@ -4408,7 +4408,7 @@ export interface components {
             message: string;
         } | {
             /** @enum {string} */
-            code: "media_unreachable";
+            code: "mediaUnreachable";
             detail?: components["schemas"]["MediaUnreachableDetailBody"];
             /**
              * @description The leg of the request that failed, for reachability errors
@@ -4419,7 +4419,7 @@ export interface components {
             message: string;
         } | {
             /** @enum {string} */
-            code: "in_another_session";
+            code: "inAnotherSession";
             detail?: components["schemas"]["InAnotherSessionDetailBody"];
             /**
              * @description The leg of the request that failed, for reachability errors
@@ -4430,7 +4430,7 @@ export interface components {
             message: string;
         } | {
             /** @enum {string} */
-            code: "setup_required" | "forbidden" | "not_found" | "conflict" | "stale" | "node_silent" | "file_unavailable" | "preparing" | "prepare_failed" | "cannot_convert" | "no_room_to_make" | "playback_gone" | "migrating" | "receiving_a_cast" | "casting_here" | "internal";
+            code: "setupRequired" | "forbidden" | "notFound" | "conflict" | "stale" | "nodeSilent" | "fileUnavailable" | "preparing" | "prepareFailed" | "cannotConvert" | "noRoomToMake" | "playbackGone" | "migrating" | "receivingACast" | "castingHere" | "internal";
             /**
              * @description The leg of the request that failed, for reachability errors
              * @enum {string}
@@ -4462,7 +4462,7 @@ export interface components {
             reason: "no_key" | "key_refused" | "no_login" | "login_refused" | "not_configured" | "unavailable" | "unreadable";
         };
         PutOverrideInputBody: {
-            /** @description The value; year, runtime_ms and recorded_at (an other video's, Unix milliseconds) are whole numbers */
+            /** @description The value; year, runtimeMs and recordedAt (an other video's, Unix milliseconds) are whole numbers */
             value: string;
         };
         PutSecretInputBody: {
@@ -4853,7 +4853,7 @@ export interface components {
         };
         RootWatchBody: {
             /** @enum {string} */
-            cause: "network-filesystem" | "watch-limit" | "unavailable" | "unreadable" | "";
+            cause: "networkFilesystem" | "watchLimit" | "unavailable" | "unreadable" | "";
             isWatching: boolean;
             /** @description The cause in the node's own words */
             reason?: string;
@@ -5090,7 +5090,7 @@ export interface components {
              * @description The part of the settings page it is listed in, in this order
              * @enum {string}
              */
-            section: "general" | "accounts" | "libraries" | "metadata" | "playback" | "slow_links" | "upload" | "together" | "nodes" | "jobs" | "remote_access" | "backups" | "diagnostics";
+            section: "general" | "accounts" | "libraries" | "metadata" | "playback" | "slowLinks" | "upload" | "together" | "nodes" | "jobs" | "remoteAccess" | "backups" | "diagnostics";
             /** Format: int64 */
             setAt: number;
             /** Format: int64 */
@@ -5118,7 +5118,7 @@ export interface components {
         };
         SignedOutDetailBody: {
             /** @enum {string} */
-            reason: "session_ended" | "session_expired" | "no_session";
+            reason: "sessionEnded" | "sessionExpired" | "noSession";
         };
         SignInInputBody: {
             device: components["schemas"]["NewDeviceBody"];
@@ -5259,7 +5259,7 @@ export interface components {
             fileBitRateKbps: number;
             levelling: components["schemas"]["LevellingBody"];
             mediaToken: string;
-            notDirectReasons: ("container" | "video_codec" | "audio_codec" | "bandwidth" | "dialogue_boost" | "levelling_raise" | "audio_track" | "user_choice")[] | null;
+            notDirectReasons: ("container" | "videoCodec" | "audioCodec" | "bandwidth" | "dialogueBoost" | "levellingRaise" | "audioTrack" | "userChoice")[] | null;
             onLadder?: components["schemas"]["LadderBody"];
             plays?: components["schemas"]["PlaysBody"];
             preferences: components["schemas"]["PlaybackPreferencesBody"];
@@ -5417,7 +5417,7 @@ export interface components {
             build?: components["schemas"]["BuildBody"];
             confinement: components["schemas"]["ConfinementBody"][] | null;
             /** @enum {string} */
-            connection: "connected" | "silent" | "awaiting_hello" | "needs_update" | "locked";
+            connection: "connected" | "silent" | "awaitingHello" | "needsUpdate" | "locked";
             devices: components["schemas"]["NodeDeviceBody"][] | null;
             disks: components["schemas"]["DiskBody"][] | null;
             ffmpegSha256?: string;
@@ -5606,7 +5606,7 @@ export interface components {
             /** @description The folder or disk missing on it; absent for a machine away */
             path?: string;
             /** @enum {string} */
-            reason: "node_away" | "root_missing" | "disk_missing" | "still_reading";
+            reason: "nodeAway" | "rootMissing" | "diskMissing" | "stillReading";
             /** Format: int64 */
             unavailableAt?: number;
         };
@@ -5800,7 +5800,7 @@ export interface components {
             /** Format: int64 */
             count: number;
             /** @enum {string} */
-            path: "direct_ipv6" | "direct_ipv4" | "punched_ipv6" | "punched_ipv4" | "hairpinned_ipv4" | "relayed" | "failed";
+            path: "directIpv6" | "directIpv4" | "punchedIpv6" | "punchedIpv4" | "hairpinnedIpv4" | "relayed" | "failed";
         };
     };
     responses: never;
@@ -7115,7 +7115,7 @@ export interface operations {
                 /** @description Only the items whose name matches it, in any script (D48): a film, other video or series by its own name, never by an episode's or an extra's; every other criterion applies as without it. A query that matches nothing, or with nothing an index can match (only spaces, or only punctuation in a longer query), lists nothing. The items come from the first 10000 names it matches, the best first */
                 query?: string;
                 /** @description name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode. recorded: newest recorded first, and file_name: by the files' names, other videos only. released: newest first by a film's release date or a series' first air date, those with none last, films and series only */
-                sort?: "name" | "added" | "recorded" | "file_name" | "released";
+                sort?: "name" | "added" | "recorded" | "fileName" | "released";
                 /** @description Only the titles the person has not watched: a series while one of its episodes with a file is not */
                 unwatched?: boolean;
             };
@@ -7539,7 +7539,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                field: "name" | "overview" | "tagline" | "year" | "runtime_ms" | "recorded_at";
+                field: "name" | "overview" | "tagline" | "year" | "runtimeMs" | "recordedAt";
                 id: number;
             };
             cookie?: never;
@@ -7573,7 +7573,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                field: "name" | "overview" | "tagline" | "year" | "runtime_ms" | "recorded_at";
+                field: "name" | "overview" | "tagline" | "year" | "runtimeMs" | "recordedAt";
                 id: number;
             };
             cookie?: never;
@@ -7774,7 +7774,7 @@ export interface operations {
                 /** @description As GET /items takes it: only the letters some title whose name matches it is under */
                 query?: string;
                 /** @description The order the rail follows: by name, or an other video's by file name */
-                sort: "name" | "file_name";
+                sort: "name" | "fileName";
                 /** @description Only the titles the person has not watched: a series while one of its episodes with a file is not */
                 unwatched?: boolean;
             };
@@ -8101,7 +8101,7 @@ export interface operations {
                 /** @description The way the sort runs, as GET /titles takes it */
                 order?: "ascending" | "descending";
                 /** @description The order its videos come in */
-                sort: "recorded" | "name" | "file_name" | "added";
+                sort: "recorded" | "name" | "fileName" | "added";
             };
             header?: never;
             path: {
@@ -10242,7 +10242,7 @@ export interface operations {
                 /** @description The video and audio codecs it is in */
                 codec: "h264-aac";
                 /** @description What the video is for */
-                purpose: "sound-timing";
+                purpose: "soundTiming";
             };
             cookie?: never;
         };

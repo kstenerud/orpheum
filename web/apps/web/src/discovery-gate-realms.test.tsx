@@ -131,7 +131,7 @@ describe("a page at a discovery with realms leaves nothing kept in the way (the 
       ...partsOf(fetched),
       hasRealms: true,
       onConnected: () =>
-        Promise.reject(new Error("the hand-off failed", { cause: new TurnedAway("network-full") })),
+        Promise.reject(new Error("the hand-off failed", { cause: new TurnedAway("networkFull") })),
     };
     mounted = await mount(<DiscoveryGate start={{ kind: "none" }} parts={parts} />);
     const page = mounted.container;
@@ -174,7 +174,7 @@ describe("a page at a discovery with realms leaves nothing kept in the way (the 
       },
       onConnected: () => {
         tries += 1;
-        return tries === 1 ? Promise.reject(new TurnedAway("network-full")) : Promise.resolve();
+        return tries === 1 ? Promise.reject(new TurnedAway("networkFull")) : Promise.resolve();
       },
     };
     mounted = await mount(<DiscoveryGate start={{ kind: "remembered", core }} parts={parts} />);

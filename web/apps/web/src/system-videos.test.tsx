@@ -31,9 +31,9 @@ const made = {
   folder: "/var/orpheum/system-videos",
   videos: [
     {
-      purpose: "sound-timing",
+      purpose: "soundTiming",
       codec: "h264-aac",
-      fileName: "sound-timing.h264-aac.mp4",
+      fileName: "soundTiming.h264-aac.mp4",
       isReady: true,
       fileId: 77,
       sizeBytes: 2048,
@@ -54,9 +54,9 @@ describe("the server's own videos on the System page (D435 §7)", () => {
       ),
     );
     const page = mounted;
-    await settleUntil(() => page.container.textContent.includes("sound-timing.h264-aac.mp4"));
+    await settleUntil(() => page.container.textContent.includes("soundTiming.h264-aac.mp4"));
     expect(page.container.textContent).toContain("Kept on nas in /var/orpheum/system-videos.");
-    expect(page.container.textContent).toContain("sound-timing.h264-aac.mp4: made");
+    expect(page.container.textContent).toContain("soundTiming.h264-aac.mp4: made");
     await click(buttonWithText(page.container, "Make them again"));
     await settleUntil(() =>
       heard.some((request) => request.methodAndPath === "POST /system/videos/rebuild"),

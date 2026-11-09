@@ -97,7 +97,7 @@ type StartPlaybackOutputBody struct {
 	// player cannot decode it (h264); absent for one played as it is.
 	Profile string `enum:"remux,h264" json:"profile,omitempty"`
 	// NotDirectReasons say why it is not played directly, to show on screen (D188).
-	NotDirectReasons []string `enum:"container,video_codec,audio_codec,bandwidth,dialogue_boost,levelling_raise,audio_track,user_choice" json:"notDirectReasons"` //nolint:lll // one struct tag
+	NotDirectReasons []string `enum:"container,videoCodec,audioCodec,bandwidth,dialogueBoost,levellingRaise,audioTrack,userChoice" json:"notDirectReasons"` //nolint:lll // one struct tag
 	// Subtitles are the file's text subtitle tracks, each extracted or on its way; a track's
 	// URLs answer 425 until it is (D217 §6).
 	Subtitles []SubtitleTrackBody `json:"subtitles"`

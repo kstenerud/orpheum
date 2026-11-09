@@ -118,7 +118,7 @@ func TestProblemBody_TheDocumentNamesEveryCodeOnceAndTypesItsDetail(t *testing.T
 		reasons = append(reasons, api.ProviderReason(reason))
 	}
 	if !slices.Equal(reasons, api.ProviderReasons()) {
-		t.Errorf("provider_error's reasons are documented as %v, want every ProviderReason, %v, so a "+
+		t.Errorf("providerError's reasons are documented as %v, want every ProviderReason, %v, so a "+
 			"client can have words for each", reasons, api.ProviderReasons())
 	}
 	if len(detailByCode) != len(api.ProblemDetails()) {

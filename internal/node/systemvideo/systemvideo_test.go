@@ -16,7 +16,7 @@ import (
 
 var soundTiming = nodeproto.SystemVideo{
 	Purpose: nodeproto.SystemVideoSoundTiming, Codec: nodeproto.SystemVideoH264AAC,
-	FileName: "sound-timing.h264-aac.mp4",
+	FileName: "soundTiming.h264-aac.mp4",
 }
 
 // newMaker is a maker over the fake FFmpeg, which writes "clip" to the file it is asked to make.
@@ -35,11 +35,11 @@ func TestMake_FFmpegDrawsTheClipIntoTheSystemFolderAlone(t *testing.T) {
 	maker, fake := newMaker(t)
 	made := maker.Make(t.Context(), nodeproto.MakeSystemVideos{Videos: []nodeproto.SystemVideo{soundTiming}})
 	if made.Failure != "" || made.Folder != maker.Folder() ||
-		!slices.Equal(made.FileNames, []string{"sound-timing.h264-aac.mp4"}) {
+		!slices.Equal(made.FileNames, []string{"soundTiming.h264-aac.mp4"}) {
 		t.Fatalf("made %+v; want the sound timing clip in the folder", made)
 	}
 	arguments := fake.OnlyCall(t).Arguments
-	want := "file:" + filepath.Join(maker.Folder(), "sound-timing.h264-aac.mp4")
+	want := "file:" + filepath.Join(maker.Folder(), "soundTiming.h264-aac.mp4")
 	if arguments[len(arguments)-1] != want {
 		t.Errorf("FFmpeg wrote %q; want %q", arguments[len(arguments)-1], want)
 	}
@@ -49,7 +49,7 @@ func TestMake_FFmpegDrawsTheClipIntoTheSystemFolderAlone(t *testing.T) {
 			t.Errorf("the clip's sound has no %s Hz beep: %q", beep, arguments)
 		}
 	}
-	contents, err := os.ReadFile(filepath.Join(maker.Folder(), "sound-timing.h264-aac.mp4"))
+	contents, err := os.ReadFile(filepath.Join(maker.Folder(), "soundTiming.h264-aac.mp4"))
 	if err != nil || string(contents) != "clip" {
 		t.Errorf("the folder's clip = %q, %v; want what FFmpeg wrote", contents, err)
 	}
@@ -77,7 +77,7 @@ func TestMake_AVideoNotKnownIsRefusedWithoutARun(t *testing.T) {
 	t.Parallel()
 	maker, fake := newMaker(t)
 	made := maker.Make(t.Context(), nodeproto.MakeSystemVideos{Videos: []nodeproto.SystemVideo{
-		{Purpose: nodeproto.SystemVideoSoundTiming, Codec: "vp9-opus", FileName: "sound-timing.vp9-opus.mp4"},
+		{Purpose: nodeproto.SystemVideoSoundTiming, Codec: "vp9-opus", FileName: "soundTiming.vp9-opus.mp4"},
 	}})
 	if !strings.Contains(made.Failure, "no recipe") || len(made.FileNames) != 0 {
 		t.Errorf("made %+v; want an unknown video refused", made)

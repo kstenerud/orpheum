@@ -25,7 +25,7 @@ func TestAudioChoice_TheLastLanguageChosenFollowsTheSeriesUnwatchedEpisodes(t *t
 	user := harness.createAdminAndSignIn(t)
 	harness.shelve(t)
 	harness.shelveEpisodes(t)
-	if got := harness.startIn(t, user, 5); got.audio != 82 || slices.Contains(got.reasons, "audio_track") {
+	if got := harness.startIn(t, user, 5); got.audio != 82 || slices.Contains(got.reasons, "audioTrack") {
 		t.Errorf("before any choice, episode 2 starts with audio %d (%v), want its default English, 82", got.audio,
 			got.reasons)
 	}
@@ -34,7 +34,7 @@ func TestAudioChoice_TheLastLanguageChosenFollowsTheSeriesUnwatchedEpisodes(t *t
 		t.Fatalf("choosing French sound in the pilot: %d %s", answer.status, answer.body)
 	}
 	unwatched := harness.startIn(t, user, 5)
-	if unwatched.audio != 83 || !slices.Contains(unwatched.reasons, "audio_track") {
+	if unwatched.audio != 83 || !slices.Contains(unwatched.reasons, "audioTrack") {
 		t.Errorf("after French in the pilot, episode 2 starts with audio %d (%v), want French, 83, converted "+
 			"because it is not the track the original starts with", unwatched.audio, unwatched.reasons)
 	}

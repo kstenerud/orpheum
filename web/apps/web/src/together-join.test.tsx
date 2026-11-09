@@ -24,7 +24,7 @@ describe("joining by a link", () => {
     const services = servedBy(
       {
         "POST /together/join/check": [204, undefined],
-        "POST /together/join": refusal(404, "not_found"),
+        "POST /together/join": refusal(404, "notFound"),
       },
       [],
     );
@@ -50,7 +50,7 @@ describe("a link refused before its form (VQ172(3))", () => {
   // them right off the bat rather than letting them try to fill out the form uselessly first."
   it("says a link the server would refuse in the form's place, asking only whether it admits", async () => {
     const heard: Heard[] = [];
-    const services = servedBy({ "POST /together/join/check": refusal(404, "not_found") }, heard);
+    const services = servedBy({ "POST /together/join/check": refusal(404, "notFound") }, heard);
     const mounted = await mount(
       withServices(
         <JoinForm secret="used-secret" onSubmitted={() => undefined} onJoined={() => undefined} />,
@@ -94,7 +94,7 @@ describe("joining by a link while in another session (D372 §8)", () => {
             409,
             {
               error: {
-                code: "in_another_session",
+                code: "inAnotherSession",
                 message: "a note for developers",
                 detail: { hostName: "Karl", isHost: false },
               },
@@ -147,7 +147,7 @@ describe("joining by a link while in another session (D372 §8)", () => {
           409,
           {
             error: {
-              code: "in_another_session",
+              code: "inAnotherSession",
               message: "a note for developers",
               detail: { hostName: "Gran", isHost: true },
             },

@@ -22,7 +22,7 @@ describe("the status cues", () => {
 
   it("show in the list's order over a poster and on a page, and nothing for a subject with none", () => {
     const both = {
-      unavailable: { reason: "node_away" as const, nodeName: "devnas" },
+      unavailable: { reason: "nodeAway" as const, nodeName: "devnas" },
       isGuessed: true,
     };
     for (const markup of [
@@ -53,7 +53,7 @@ describe("the status cues", () => {
 
   it("mark a title still being read with its own cue, not the cannot-play warning (D304 §4)", () => {
     // The reason as the API's schema types it, so a schema without it does not type-check.
-    const stillReading: components["schemas"]["UnavailableBody"]["reason"] = "still_reading";
+    const stillReading: components["schemas"]["UnavailableBody"]["reason"] = "stillReading";
     const reading = { unavailable: { reason: stillReading, nodeName: "devnas" } };
     for (const markup of [
       renderToStaticMarkup(withServices(<StatusTray subject={reading} />)),
