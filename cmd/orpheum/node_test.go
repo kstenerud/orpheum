@@ -39,7 +39,7 @@ import (
 
 func TestRunNode_TheNodeScansItsRootAndTheCoreHearsEveryRecord(t *testing.T) {
 	t.Parallel()
-	scanned := scanOnce(t, "nfo", "a node finished a scan")
+	scanned := scanOnce(t, "nfo", "nodeScanFinished")
 	config, captured, nodeID, media := scanned.config, scanned.log, scanned.nodeID, scanned.media
 	log := captured.String()
 	for _, want := range []string{
@@ -80,7 +80,7 @@ type scanResult struct {
 }
 
 // scanOnce serves a library over a media root holding one film and a text file, runs the node
-// in-process until the log says awaited, and stops.
+// in-process until the log carries the event awaited, and stops.
 func scanOnce(t *testing.T, metadataSource, awaited string) scanResult {
 	t.Helper()
 	shelved := filmOnNode(t, metadataSource)
@@ -100,7 +100,7 @@ func TestRunNode_AFilmInATMDBLibraryIsQueuedForItsMatch(t *testing.T) {
 	config := shelved.config
 	// The film's match is queued by the identification a new file asks for, while the scan goes on,
 	// or by the one at its end, whichever comes first (D236 §1).
-	const identified, queued = "identified a library", "queued fetches"
+	const identified, queued = "libraryIdentified", "fetchesQueued"
 	captured := newCapturedLog("ready", identified, queued)
 	server := serveWithNode(t, config, captured, identified)
 	testutil.Receive(t, captured.signals[queued], "the film's match queued")
@@ -323,7 +323,7 @@ func TestRunNode_ServesItsRootsOnTheByteSocketToTheHolderOfItsKeyOnly(t *testing
 	}
 	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Stdout: "ffprobe version test"})
 	config.Node.RootPaths, config.Node.FFmpegDir = []string{media}, fake.Directory
-	const listening = "serving the byte socket"
+	const listening = "byteSocketServing"
 	captured := newCapturedLog(listening)
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
@@ -387,7 +387,7 @@ func TestRunNode_StillServesFilesWhenItCannotMakeChunks(t *testing.T) {
 	config.Instance.CacheDir = blocker // its prepared directory cannot be made under a file
 	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Stdout: "ffprobe version test"})
 	config.Node.FFmpegDir = fake.Directory
-	const listening, cannot = "serving the byte socket", "this node cannot make chunks; it serves files as they are"
+	const listening, cannot = "byteSocketServing", "chunkMakingUnavailable"
 	captured := newCapturedLog(listening, cannot)
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
@@ -498,7 +498,7 @@ func TestRunNode_AListingStalledOnItsDiskMakesItsRootUnavailable(t *testing.T) {
 	t.Parallel()
 	shelved := filmOnNode(t, "nfo")
 	config := shelved.config
-	const stalled = "work stalled on a disk; it is unavailable until it answers or a scan reads it"
+	const stalled = "diskStalled"
 	captured := newCapturedLog("ready", stalled)
 	seams := fakeFFmpegSeams
 	seams.readStallWindow = 100 * time.Millisecond

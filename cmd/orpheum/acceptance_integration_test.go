@@ -107,7 +107,7 @@ func acceptanceRun(
 	t.Helper()
 	nodeID := enrolNodeWithLibrary(t, config, root,
 		libraryShape{name: "Everything", kind: "movie", metadataSource: "nfo"})
-	const identified = "identified a library"
+	const identified = "libraryIdentified"
 	captured := newCapturedLog(identified)
 	server := startServing(t, config, captured, identified, start(captured))
 	if stopped := server.stop(); stopped != nil {

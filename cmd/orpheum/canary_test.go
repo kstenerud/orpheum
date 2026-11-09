@@ -35,7 +35,7 @@ type channel struct {
 func TestCanary_ASecretAppearsNowhereButAsCiphertext(t *testing.T) {
 	t.Parallel()
 	config, configPath := testConfig(t)
-	captured := newCapturedLog("ready", "stopping")
+	captured := newCapturedLog("ready")
 	server := startServing(t, config, captured, "ready", nil)
 	const adminName = "CONTROL-admin-name"
 	setupCode := setUpOwner(t, server, configPath, adminName)

@@ -9,6 +9,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -107,7 +108,7 @@ func (scans *Scans) MarkStalled(ctx context.Context, nodeID int64, rootPath, wai
 		return "", time.Time{}, err
 	}
 	scans.logger.WarnContext(ctx, "work stalled on a disk; it is unavailable until it answers or a scan reads it",
-		"nodeId", nodeID, "rootPath", rootPath, "place", place, "since", since)
+		slogx.EventKey, "diskStalled", "nodeId", nodeID, "rootPath", rootPath, "place", place, "since", since)
 	return place, since, scans.Request(ctx, nodeID, rootPath, jobs.PriorityPersonsRequest)
 }
 

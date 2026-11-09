@@ -51,7 +51,7 @@ func playableFilm(t *testing.T, shelved filmFixture) (server runningServer, toke
 
 // filmIdentified is what the core logs once a shelved film's library is identified, which
 // playableFilmLogged waits for.
-const filmIdentified = "identified a library"
+const filmIdentified = "libraryIdentified"
 
 // playableFilmLogged is playableFilm, logging to captured, which awaits filmIdentified.
 func playableFilmLogged(
@@ -213,7 +213,7 @@ func TestPlayback_WhatAWholeFilmPrepareLeftOnTheNodesDiskIsEvictedAtItsHello(t *
 		writeFile(t, filepath.Join(config.Instance.preparedDir(), dir, "master.m3u8"), "#EXTM3U")
 	}
 	writeFile(t, filepath.Join(config.Instance.preparedDir(), made, "manifest.json"), `{"madeAtMs":1000}`)
-	const evicted = "evicted the makings that never finished"
+	const evicted = "unfinishedMakingsEvicted"
 	again := serveWithNode(t, config, newCapturedLog("ready", evicted), evicted)
 	if err := again.stop(); err != nil {
 		t.Fatal(err)

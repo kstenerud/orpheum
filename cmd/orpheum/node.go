@@ -193,7 +193,8 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 	// says why it makes no chunks, and each run it is asked for is refused with that reason.
 	directory, err := openPreparedDirectory(config, runner, detected.encoderChoice.Chosen, logger)
 	if err != nil {
-		logger.ErrorContext(ctx, "this node cannot make chunks; it serves files as they are", "err", err)
+		logger.ErrorContext(ctx, "this node cannot make chunks; it serves files as they are",
+			slogx.EventKey, "chunkMakingUnavailable", "err", err)
 	} else {
 		defer readonly.Close(directory.root)
 		if _, evictErr := directory.shelf.Evict(ctx); evictErr != nil {
@@ -423,7 +424,8 @@ func serveBytes(
 	httpServer := &http.Server{
 		Handler: handler, ReadHeaderTimeout: time.Duration(config.Node.ReadHeaderTimeoutSeconds) * time.Second,
 	}
-	logger.InfoContext(ctx, "serving the byte socket", "socket", listener.Addr().String())
+	logger.InfoContext(ctx, "serving the byte socket", slogx.EventKey, "byteSocketServing",
+		"socket", listener.Addr().String())
 	var serving sync.WaitGroup
 	serving.Go(func() {
 		if serveErr := httpServer.Serve(listener); !errors.Is(serveErr, http.ErrServerClosed) {

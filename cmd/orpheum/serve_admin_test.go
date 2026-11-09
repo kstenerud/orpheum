@@ -259,8 +259,8 @@ func TestServe_TakesWebRTCAtHomeOnTheConfiguredPort(t *testing.T) {
 	}
 	config.WebRTC.UDPPort = address.Port
 	config.Discovery.LANAddresses = []string{"192.168.1.20:8443"}
-	captured := newCapturedLog("taking WebRTC at home")
-	startServing(t, config, captured, "taking WebRTC at home", nil)
+	captured := newCapturedLog("webRTCAtHomeTaken")
+	startServing(t, config, captured, "webRTCAtHomeTaken", nil)
 	if want := fmt.Sprintf(`"udpPort":%d`, address.Port); !strings.Contains(captured.String(), want) ||
 		!strings.Contains(captured.String(), "192.168.1.20") {
 		t.Errorf("the log does not say WebRTC is taken on %s at 192.168.1.20:\n%s", want, captured)
