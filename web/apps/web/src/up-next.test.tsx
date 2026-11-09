@@ -29,7 +29,7 @@ import {
 /** S1E3, "Bag", which plays file 4. */
 const bag: UpNext = {
   episode: {
-    titleId: 23,
+    itemId: 23,
     name: "Bag",
     groupNumber: 1,
     numberInGroup: 3,
@@ -132,7 +132,7 @@ describe("what the Play page asks for what plays next", () => {
 
 /** S1E1, "Pilot", which plays file 2: the episode before the one playing. */
 const pilot: Previous = {
-  titleId: 21,
+  itemId: 21,
   name: "Pilot",
   groupNumber: 1,
   numberInGroup: 1,

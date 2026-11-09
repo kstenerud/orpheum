@@ -102,7 +102,7 @@ const withNextUp: WalkAnswers = {
   "GET /items/20": {
     ...(aSeason["GET /items/20"] as Record<string, unknown>),
     orderings: [{ name: "aired", kind: "aired", episodeCount: 5 }],
-    nextUp: { titleId: 302, name: "Episode 2", groupNumber: 1, numberInGroup: 2, fileId: 3020 },
+    nextUp: { itemId: 302, name: "Episode 2", groupNumber: 1, numberInGroup: 2, fileId: 3020 },
   },
 };
 

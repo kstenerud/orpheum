@@ -73,7 +73,7 @@ const anAdmin: WalkAnswers = {
       { seasonNumber: 1, episodeCount: 2 },
       { seasonNumber: 2, episodeCount: 1 },
     ],
-    nextUp: { titleId: 302, name: "Episode 2", groupNumber: 1, numberInGroup: 2, fileId: 3020 },
+    nextUp: { itemId: 302, name: "Episode 2", groupNumber: 1, numberInGroup: 2, fileId: 3020 },
   },
   "GET /items/20/groups/1": {
     episodes: [1, 2].map((number) => ({

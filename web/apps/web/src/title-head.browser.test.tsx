@@ -80,7 +80,7 @@ const series = {
     { seasonNumber: 2, episodeCount: 2 },
   ],
   nextUp: {
-    titleId: 302,
+    itemId: 302,
     name: "Low Water",
     groupNumber: 1,
     numberInGroup: 2,
@@ -252,7 +252,7 @@ describe("a title's actions row, by a remote", () => {
               ordering: "aired",
               episode: {
                 fileId: 2310,
-                titleId: 231,
+                itemId: 231,
                 groupNumber: 2,
                 numberInGroup: 4,
                 isPartway: false,

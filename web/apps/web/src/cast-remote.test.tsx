@@ -595,7 +595,7 @@ describe("a Play page's video area as the cast's remote (D364 §8; D384 §2)", (
           {
             upNext: {
               episode: {
-                titleId: 3,
+                itemId: 3,
                 name: "Cat",
                 groupNumber: 1,
                 numberInGroup: 2,

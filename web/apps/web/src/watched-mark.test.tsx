@@ -129,7 +129,7 @@ describe("marking by hand (D370 §4)", () => {
 
   it("marks a film watched at once, says so, and its Undo puts the marks back as they were", async () => {
     const heard: Heard[] = [];
-    const previous = [{ titleId: 10, markedAt: 500 }];
+    const previous = [{ itemId: 10, markedAt: 500 }];
     const answers: Answers = {
       "GET /items/10": [
         [200, film],
@@ -178,7 +178,7 @@ describe("marking by hand (D370 §4)", () => {
     const answers: Answers = {
       "GET /items/5": [200, { ...series, isWatched: true }],
       "GET /items/5/groups/1": [200, { episodes: [] }],
-      "DELETE /items/5/watched": [200, { previous: [{ titleId: 21, watchedAt: 3 }] }],
+      "DELETE /items/5/watched": [200, { previous: [{ itemId: 21, watchedAt: 3 }] }],
       "PUT /interest/page": [204, null],
       "DELETE /interest/page": [204, null],
     };

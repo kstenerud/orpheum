@@ -75,7 +75,7 @@ type seriesSeen struct {
 		Name         string `json:"name"`
 	} `json:"seasons"`
 	NextUp *struct {
-		TitleID       int64 `json:"titleId"`
+		TitleID       int64 `json:"itemId"`
 		GroupNumber   int64 `json:"groupNumber"`
 		NumberInGroup int64 `json:"numberInGroup"`
 	} `json:"nextUp"`

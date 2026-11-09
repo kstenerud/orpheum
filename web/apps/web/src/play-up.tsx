@@ -58,10 +58,10 @@ export function playUpward(
       : [{ id: plays.libraryId, name: plays.libraryName ?? context.t("browse.library") }];
   const here = context.t("trail.playing");
   if (plays.episode !== undefined) {
-    const episode = titleCrumb(plays.titleId, episodeHere(context.t, plays.episode, name));
+    const episode = titleCrumb(plays.itemId, episodeHere(context.t, plays.episode, name));
     return { crumbs: [...episodeCrumbs(plays.episode, libraries, context), episode], here };
   }
-  const page = titleCrumb(plays.titleId, name);
+  const page = titleCrumb(plays.itemId, name);
   if (plays.kind === "other") {
     const list =
       libraries === undefined ? homeCrumb(context) : libraryCrumb("other", libraries, context);
@@ -130,7 +130,7 @@ export function PlayTop(props: {
 }): JSX.Element {
   const { plays, titleName, isOwn } = props;
   const upward = usePlayUpward(plays, titleName);
-  useTitleNotedInPlace(plays?.titleId);
+  useTitleNotedInPlace(plays?.itemId);
   return (
     <>
       {isOwn ? <PlayTrail upward={upward} plays={plays} /> : null}
@@ -158,7 +158,7 @@ function useTitleNotedInPlace(titleId: number | undefined): void {
 /** Notes the episode a playback plays as reached, for its series' page (D367 §9). */
 function useEpisodePlayed(plays: Plays): void {
   const place = plays?.episode;
-  const episodeId = plays?.titleId;
+  const episodeId = plays?.itemId;
   const seriesId = place?.seriesId;
   const season = place === undefined ? undefined : seasonOfEpisode(place);
   useEffect(() => {

@@ -139,7 +139,7 @@ describe("a series' page, one page with a season picker (D367 §9)", () => {
         <PlayTrail
           upward={{ crumbs: [], here: "Episode 42" }}
           plays={{
-            titleId: 42,
+            itemId: 42,
             kind: "episode",
             episode: { seriesId: 7, seriesName: "Other Run", seasonNumber: 3, episodeNumber: 2 },
           }}

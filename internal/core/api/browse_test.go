@@ -402,7 +402,7 @@ func TestBrowse_ASeriesSaysItsPersonsNextEpisode(t *testing.T) {
 		storetest.Positions(
 			"(1, 22, 1, 2, 10002), (1, 23, 1, 3, 10003)"))
 	type nextUp struct {
-		TitleID       int64  `json:"titleId"`
+		TitleID       int64  `json:"itemId"`
 		Name          string `json:"name"`
 		GroupNumber   int64  `json:"groupNumber"`
 		NumberInGroup int64  `json:"numberInGroup"`

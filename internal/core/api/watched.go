@@ -17,7 +17,7 @@ import (
 // WatchedStateBody is a title's watched mark as it stood for the person before a mark by hand, which
 // PUT /me/watched puts back (D370 §4): Undo, not a question.
 type WatchedStateBody struct {
-	TitleID   int64  `json:"titleId"`
+	ItemID    int64  `json:"itemId"`
 	WatchedAt *int64 `doc:"When it became watched, in Unix milliseconds; absent while it was not" json:"watchedAt,omitempty"`         //nolint:lll // one struct tag
 	MarkedAt  *int64 `doc:"When the person last marked it by hand, in Unix milliseconds; absent for never" json:"markedAt,omitempty"` //nolint:lll // one struct tag
 }
@@ -154,7 +154,7 @@ func (server *Server) mark(
 	output.Body.Previous = make([]WatchedStateBody, 0, len(before))
 	for _, state := range before {
 		output.Body.Previous = append(output.Body.Previous, WatchedStateBody{
-			TitleID: state.TitleID, WatchedAt: state.WatchedAt, MarkedAt: state.MarkedAt,
+			ItemID: state.TitleID, WatchedAt: state.WatchedAt, MarkedAt: state.MarkedAt,
 		})
 	}
 	return output, nil
@@ -168,7 +168,7 @@ func (server *Server) restoreWatched(ctx context.Context, input *RestoreWatchedI
 	states := make([]playback.WatchedState, 0, len(input.Body.States))
 	for _, state := range input.Body.States {
 		states = append(states, playback.WatchedState{
-			TitleID: state.TitleID, WatchedAt: state.WatchedAt, MarkedAt: state.MarkedAt,
+			TitleID: state.ItemID, WatchedAt: state.WatchedAt, MarkedAt: state.MarkedAt,
 		})
 	}
 	err = dependencies.Playback.RestoreWatched(ctx, principal.UserID, states)

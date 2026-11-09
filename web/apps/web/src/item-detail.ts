@@ -2,7 +2,7 @@
 
 import { ApiProblem, type components } from "@orpheum/sdk";
 
-type TitleBody = components["schemas"]["TitleBody"];
+type TitleBody = components["schemas"]["ItemBody"];
 type SeriesBody = components["schemas"]["SeriesBody"];
 
 /** One item's detail as GET /items/{id} answers it: a union on kind (D416 §2, D425 §7). */

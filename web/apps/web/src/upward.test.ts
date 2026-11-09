@@ -24,7 +24,7 @@ const kids: LibraryName = { id: 4, name: "Kids" };
 
 /** Gus Doyle's S2E3, played: its series is 5, its libraries Shows. */
 const playsEpisode: PlaybackDecision["plays"] = {
-  titleId: 23,
+  itemId: 23,
   kind: "episode",
   libraryId: 7,
   libraryName: "Shows",
@@ -33,7 +33,7 @@ const playsEpisode: PlaybackDecision["plays"] = {
 
 /** Metropolis, played: the film 10, in Films and Kids. */
 const playsFilm: PlaybackDecision["plays"] = {
-  titleId: 10,
+  itemId: 10,
   kind: "movie",
   libraryId: 3,
   libraryName: "Films",
@@ -187,7 +187,7 @@ describe("Up over the history (D367 §7; navigation-back-up-2026-10-27.md §3)",
     });
     const { place, navigation } = walked(folders(), folders("A"), folders("A/B"), playing);
     const playsOther: PlaybackDecision["plays"] = {
-      titleId: 31,
+      itemId: 31,
       kind: "other",
       libraryId: 7,
       libraryName: "Shows",
@@ -215,7 +215,7 @@ describe("Up over the history (D367 §7; navigation-back-up-2026-10-27.md §3)",
   it("§3.17: an extra played goes up to its own page, then its film's, each behind; Back then Home", () => {
     const { place, navigation } = walked(filmPage, { screen: "title", itemId: 14 }, playing);
     const playsExtra: PlaybackDecision["plays"] = {
-      titleId: 14,
+      itemId: 14,
       kind: "extra",
       libraryId: 3,
       filmOfExtra: { id: 10, name: "Metropolis" },

@@ -54,7 +54,7 @@ const episodeToPlay: WalkAnswers = {
   "POST /playback": directDecision({
     titleName: "Low Water",
     plays: {
-      titleId: 23,
+      itemId: 23,
       kind: "episode",
       libraryId: 1,
       libraryName: "Shows",
