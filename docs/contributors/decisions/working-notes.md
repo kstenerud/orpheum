@@ -27493,10 +27493,11 @@ to both; use pkg/strictjson and move atomics too"*.
    both import, with the whole-file writer in `pkg/atomics` beside it; `pkg/` imports nothing
    internal. No file decodes JSON with encoding/json but the decoder's own.
 
-**Status:** decided (2026-11-09).
+**Status:** built (2026-11-09), its clauses read back against the code: 1 to 6 hold as written, each source's named reader in the file that reads it (`internal/node/probe`, `internal/node/artwork`, the TMDB, Cloudflare and OpenSubtitles clients, `identifytest`), and no compiled file but the decoder's own decodes with encoding/json.
 
 **Proven by:**
-- 1: D456's tests
+- 1: `TestRequestBody_AKeySaidTwiceIsRefused` (an API body), `TestStatus_AKeySaidTwiceIsRefused` (a
+  node's message), `TestCall_AnAnswerWithAKeySaidTwiceIsRefused` (the discovery's answer)
 - 2: `TestForeign_TakesWhatJSONAllowsAsEncodingJSONReadsIt`, `TestForeign_StillRefusesWhatNoSenderIsAllowed`,
   `TestSearch_AReplyNestedPastTheLimitIsRefused` (TMDB)
 - 3: `TestForeign_ARepeatedKeyKeepsTheValueItsSenderKeeps`,
@@ -27505,4 +27506,7 @@ to both; use pkg/strictjson and move atomics too"*.
   `TestParse_ATagSaidTwiceKeepsItsFirstValueAsFfprobeShowsIt` (ffprobe),
   `TestSearch_AReplyWithAKeySaidTwiceKeepsItsLastValue` (TMDB)
 - 4: `TestRequests_TextOpenSubtitlesSendsIsCleanedWhereItEnters`
+- 5: `TestParse_ATagSaidTwiceKeepsItsFirstValueAsFfprobeShowsIt` (ffprobe's reader),
+  `TestSearch_AReplyWithAKeySaidTwiceKeepsItsLastValue` (TMDB's), `TestArch_JSONIsDecodedStrictly`
+  (every reader is one of the decoder's)
 - 6: `TestArch_JSONIsDecodedStrictly`, `TestArch_PublicPackagesImportNothingInternal`
