@@ -115,7 +115,6 @@ export function PlayerOverlay(
         className="player-overlay"
         data-shown={shownWith(state.shown, hasOffer)}
         data-offer={hasOffer ? "" : undefined}
-        data-offer-alone={hasOffer && state.shown !== "full" ? "" : undefined}
         data-focus-container=""
         data-player-controls=""
       >

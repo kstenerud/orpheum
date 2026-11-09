@@ -22,8 +22,8 @@ export type OfferPiece = ComponentType<FilmParts & OfferPlace>;
 /**
  * The overlay's convenience area, at the end of its top row (D407 §1, §3;
  * plans/player-overlay.md §2.1): the offer while one is on, which shows alone while the rest of the
- * overlay is hidden, then in the film's top-right corner (the owner, 2026-11-09;
- * player-overlay.css); with nothing on offer and all of the overlay shown, when the film ends ("Ends
+ * overlay is hidden, drawn in the film's top-right corner whether the rest shows or not (the owner,
+ * 2026-11-09; player-overlay.css); with nothing on offer and all of the overlay shown, when the film ends ("Ends
  * at 9:41"), leftMs from its end.
  */
 export function ConvenienceArea(props: {

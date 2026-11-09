@@ -62,39 +62,39 @@
   visibility: visible;
 }
 
-/* The offer without the rest of the overlay (data-offer-alone: alone, or through a seek's scrub
-   bar and the pause sign) sits in the film's top-right corner, where it is unlikely to cover the
-   action: in row 0 it stood a third of the way up the film, over a show's closing skit (the owner,
-   2026-11-09). The overlay then spans the stage, its rows still along the bottom, so the area's
-   corner is the stage's, in full screen too; the overlay lets presses through to the film but on
-   its rows, and its scrim, when it has one, lies behind its rows alone, as it did. With all of the
-   overlay shown the offer is back at row 0's end (D407 §1), where Up and Down reach it (D422,
-   D423). */
-.player-overlay[data-offer-alone] {
+/* While an offer shows (data-offer), it sits in the film's top-right corner, where it is unlikely to
+   cover the action: in row 0 it stood a third of the way up the film, over a show's closing skit
+   (the owner, 2026-11-09). It stays there with all of the overlay shown too, in place of D407 §1's
+   row 0's end (the owner, 2026-11-09: "yes"), and Up and Down still reach it, as the overlay's parts
+   are walked in their order, not by where they are drawn (D422, D423). The overlay then spans the
+   stage, its rows still along the bottom, so the area's corner is the stage's, in full screen too;
+   the overlay lets presses through to the film but on its rows, and its scrim, when it has one, lies
+   behind its rows alone, as it did. */
+.player-overlay[data-offer] {
   inset-block-start: 0;
   align-content: end;
   background: none;
   pointer-events: none;
 }
 
-.player-overlay[data-offer-alone] > .player-overlay__row {
+.player-overlay[data-offer] > .player-overlay__row {
   grid-column: 1;
   pointer-events: auto;
 }
 
-.player-overlay[data-offer-alone] > .player-overlay__top {
+.player-overlay[data-offer] > .player-overlay__top {
   grid-row: 1;
 }
 
-.player-overlay[data-offer-alone] > .player-overlay__scrub {
+.player-overlay[data-offer] > .player-overlay__scrub {
   grid-row: 2;
 }
 
-.player-overlay[data-offer-alone] > .player-overlay__buttons {
+.player-overlay[data-offer] > .player-overlay__buttons {
   grid-row: 3;
 }
 
-.player-overlay[data-offer-alone]:not([data-shown="convenience"])::before {
+.player-overlay[data-offer]:not([data-shown="convenience"])::before {
   grid-row: 1 / 4;
   grid-column: 1;
   margin: calc(-1 * var(--space-7)) calc(-1 * var(--space-6)) calc(-1 * var(--space-5));
@@ -102,7 +102,7 @@
   content: "";
 }
 
-.player-overlay[data-offer-alone] .convenience-area {
+.player-overlay[data-offer] .convenience-area {
   position: absolute;
   inset-block-start: var(--space-5);
   inset-inline-end: var(--space-5);
@@ -112,7 +112,7 @@
 
 /* The area holds the card's room from the stage's edges, as the card's own rule would (up-next.css):
    the card's, against the area it sizes, took that room a second time, off its end. */
-.player-overlay[data-offer-alone] .convenience-area .up-next {
+.player-overlay[data-offer] .convenience-area .up-next {
   max-width: none;
 }
 

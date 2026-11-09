@@ -2,8 +2,8 @@
 
 /**
  * Where the Up next card sits over a television's film, as a real browser lays it out: shown
- * without the rest of the overlay, in the film's top-right corner, clear of the action; at row 0's
- * end while all of the overlay shows (D407 §1; the owner, 2026-11-09).
+ * in the film's top-right corner, clear of the action, with or without the rest of the overlay (the
+ * owner, 2026-11-09).
  */
 
 // Every page's ground, as the client's entry lays it (client-main.tsx): its tokens and base rules.
@@ -86,7 +86,7 @@ async function theVideoAt(atS: number): Promise<HTMLVideoElement> {
   return video;
 }
 
-describe("Up next over a television's film, shown without the rest of the overlay", () => {
+describe("Up next over a television's film", () => {
   let walking: Walking | undefined;
   afterEach(() => {
     walking?.unmount();
@@ -118,7 +118,7 @@ describe("Up next over a television's film, shown without the rest of the overla
 
   // In row 0, its place in the full overlay, the card stood a third of the way up the film, over
   // the action, as Brindlewood's closing skits are (the owner, 2026-11-09).
-  it("sits in the film's top-right corner, there through a seek's scrub bar, and OK still plays it", async () => {
+  it("sits in the film's top-right corner, there through a seek's scrub bar and the whole overlay, and OK still plays it", async () => {
     vi.spyOn(Navigator.prototype, "userAgent", "get").mockReturnValue(fireTvSilk);
     vi.spyOn(Element.prototype, "requestFullscreen").mockRejectedValue(new Error("refused"));
     await page.viewport(960, 480);
@@ -147,10 +147,13 @@ describe("Up next over a television's film, shown without the rest of the overla
     const { stage } = boxes();
     const scrub = document.querySelector(".player-overlay .timeline__range");
     expect(scrub?.getBoundingClientRect().top).toBeGreaterThan(stage.top + stage.height / 2);
-    // All of the overlay shown, the card is at row 0's end again (D407 §1), where Up and Down walk.
+    // All of the overlay shown, the card stays in its corner (the owner, 2026-11-09), and the rows
+    // are along the film's bottom, clear of it.
     await press("{ArrowUp}");
     await expect.poll(shown).toBe("full");
-    expect(boxes().card.top).toBeGreaterThan(stage.top + stage.height / 2);
+    expectsTheTopRightCorner();
+    const buttons = document.querySelector(".player-overlay__buttons");
+    expect(buttons?.getBoundingClientRect().top).toBeGreaterThan(stage.top + stage.height / 2);
     // Back hides the overlay and leaves the offer in its corner, where a remote's OK presses it.
     await press("{Escape}");
     await expect.poll(shown).toBe("convenience");
